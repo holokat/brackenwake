@@ -2844,7 +2844,12 @@ function sakuraTerraces(ctx, rng) {
   // How far the green plateau reaches past the farm fence before it breaks off.
   // The base is high enough that the narrowest bearing still leaves a walkable
   // green shoulder — a cliff right against the fence reads as a pillar.
-  const edgeD = (a) => 28 + 7 * Math.sin(a * 2 + p1) + 4 * Math.cos(a * 3 + p2);
+  // The raw curve dips to ~17 on one bearing, which left the farm's front-left
+  // corner sitting right on the drop. A SMOOTH floor lifts just that arc to a
+  // usable shoulder and leaves the rest of the rim — and the layout arranged
+  // against it — where it was.
+  const softFloor = (v, m, k = 4) => m + 0.5 * ((v - m) + Math.sqrt((v - m) * (v - m) + k));
+  const edgeD = (a) => softFloor(28 + 7 * Math.sin(a * 2 + p1) + 4 * Math.cos(a * 3 + p2), 26);
   // the gorge is deepest on the left, where the giant waterfall lands
   const depthAt = (a) => SAK_DEPTH * (0.75 + 0.35 * Math.max(0, Math.cos(a - Math.PI)));
   // the far side of the gorge: mostly a low bench, but on the LEFT it rears up
@@ -2937,32 +2942,64 @@ function sakuraCliffWall(ctx, land, distFn, topFn, botFn, colors, facing = 1) {
   return at;
 }
 
-// Sakura Valley ships with an authored layout (sakura_layout.js). It is
-// registered as the baseline the scenery store reads, so every player gets the
-// hand-placed zone while the in-game editor can still layer edits on top.
-{
-  const landmarks = {};
-  for (const [k, v] of Object.entries(SAKURA_LANDMARKS)) {
-    landmarks[k] = v === 0 ? { deleted: true } : { x: v[0], y: v[1], z: v[2], rotY: v[3], scale: v[4] };
-  }
-  registerBaseline('sakura', {
-    landmarks,
-    extras: SAKURA_EXTRAS.map(([id, x, y, z, rotY, scale]) => ({ key: `baked:${id}:${x}:${z}`, id, x, y, z, rotY, scale })),
-    trees: { sakura: SAKURA_TREES.map(([x, z, gy, s2, ry, alt]) => ({ x, z, gy, s: s2, ry, alt: !!alt, oa: (x * 0.7 + z * 0.3) % (Math.PI * 2) })) },
-  });
+// The valley's terrain is shaped by distance from the FARM's rectangle, and
+// that rectangle grows with each tier (TIER_LAYOUT: 90 -> 109.5 -> 131 wide).
+// So an upgrade moves the plateau rim, gorge, river and mountains — which used
+// to strand the authored layout at its old coordinates.
+//
+// The layout was authored against the tier-1 footprint. Rather than freeze the
+// terrain (which leaves a big farm hanging off a small plateau) the baked
+// placements are REMAPPED onto whatever footprint is in play: a point keeps its
+// offset outside the farm rectangle, so its distance to that rectangle — and
+// therefore the terrain around it — is unchanged. At tier 1 this is the
+// identity, so the authored zone is reproduced exactly.
+const SAK_AUTHORED = { hw: 45, hd: 41.25, zc: -1 };
+
+function sakRemapAxis(v, cA, hA, cB, hB) {
+  const d = v - cA;
+  if (Math.abs(d) <= hA) return cB + d * (hB / hA);      // inside: scale with it
+  return cB + Math.sign(d) * (hB + (Math.abs(d) - hA));  // outside: keep the gap
 }
 
-// Sakura Valley is a FIXED place. Its terrain is shaped from the farm's
-// footprint, but that footprint GROWS with each tier (TIER_LAYOUT in farm.js:
-// 90 -> 109.5 -> 131 wide), so upgrading the farm used to reshape the entire
-// valley out from under the authored layout — cliffs, river and all. The zone
-// is now built from the largest footprint at every tier: the plateau always
-// contains the farm, and the baked placements never drift.
-const SAK_REF = { islandW: 131, islandD: 125.5, zCenter: -2, clearRadius: 44 };
+// baked local coords (z relative to the zone centre) -> this build's footprint
+function sakRemap(x, zLocal, B) {
+  const A = SAK_AUTHORED;
+  const zWorld = zLocal + A.zc;
+  return [
+    sakRemapAxis(x, 0, A.hw, 0, B.hw),
+    sakRemapAxis(zWorld, A.zc, A.hd, B.zc, B.hd) - B.zc,
+  ];
+}
 
-function sakuraOuter(ctxIn) {
-  if (!ctxIn || !ctxIn.scene || typeof ctxIn.scene.add !== 'function') return;
-  const ctx = { ...ctxIn, ...SAK_REF };
+function sakuraOuter(ctx) {
+  if (!ctx || !ctx.scene || typeof ctx.scene.add !== 'function') return;
+  // carry the authored layout onto this tier's footprint before anything reads it
+  {
+    const B = {
+      hw: (ctx.islandW || 90) / 2,
+      hd: (ctx.islandD || 82.5) / 2,
+      zc: ctx.zCenter || 0,
+    };
+    const landmarks = {};
+    for (const [k, v] of Object.entries(SAKURA_LANDMARKS)) {
+      if (v === 0) { landmarks[k] = { deleted: true }; continue; }
+      const [x, z] = sakRemap(v[0], v[2], B);
+      landmarks[k] = { x, y: v[1], z, rotY: v[3], scale: v[4] };
+    }
+    registerBaseline('sakura', {
+      landmarks,
+      extras: SAKURA_EXTRAS.map(([id, x, y, z, rotY, scale]) => {
+        const [rx, rz] = sakRemap(x, z, B);
+        return { key: `baked:${id}:${x}:${z}`, id, x: rx, y, z: rz, rotY, scale };
+      }),
+      trees: {
+        sakura: SAKURA_TREES.map(([x, z, gy, s2, ry, alt]) => {
+          const [rx, rz] = sakRemap(x, z, B);
+          return { x: rx, z: rz, gy, s: s2, ry, alt: !!alt, oa: (x * 0.7 + z * 0.3) % (Math.PI * 2) };
+        }),
+      },
+    });
+  }
   const rng = outerRng(ctx);
   const zC = ctx.zCenter || 0;
   const clear = ctx.clearRadius || 10;
