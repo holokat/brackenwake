@@ -36,23 +36,32 @@ Paste the block below into whatever is generating the models.
 >    over introducing a new one — but do not sacrifice the look to save a material.
 > 4. **No textures, no UV maps, no image maps of any kind.** Flat colour materials only.
 >    No Draco, Meshopt or KTX compression — the loader has no decoder.
-> 5. **Flat / faceted shading.** Hard edges, no smoothing groups, no bevels. Chunky
->    low-poly silhouettes, readable from a distance at a 45° camera.
-> 6. **Polygons are NOT a constraint — spend them freely.** Do not decimate, do not
->    simplify a silhouette to save triangles, do not skip detail for performance. The
->    game runs 500,000+ triangles without breaking a sweat; the only budget that matters
->    is the material count in rule 3. Rough guide, and treat these as generous ceilings
->    rather than targets to hit: up to ~3,000 triangles for a small prop, ~15,000 for a
->    building, ~50,000 for a hero landmark. If more geometry makes it look better,
->    use more geometry. Add the bevelled plank, the roof overhang, the chimney pot, the
->    door hinge — as long as it reuses a material already in the model, it is free.
+> 5. **Stylised low-poly, not crude low-poly.** Bevel your edges — a small chamfer on
+>    planks, posts and roof edges is what stops a model reading as flat cardboard, and
+>    it costs only triangles, which are free. Use flat/faceted shading where the form
+>    should look chunky (rock, earth, thatch) and smoothed normals with bevelled edges
+>    where it should look crafted (timber, metal, tiles). Mix them per part.
+> 6. **Polygons are NOT a constraint — spend them freely, and lean detailed.** Do not
+>    decimate, do not simplify a silhouette to save triangles, do not skip detail for
+>    performance. The game pushes 500,000+ triangles without noticing; the only budget
+>    that matters is the material count in rule 3. Aim for the *upper* end: 2,000–5,000
+>    triangles for a small prop, 8,000–25,000 for a building, up to 60,000 for a hero
+>    landmark. If more geometry makes it look better, use more geometry.
 > 7. **Transform:** Y-up. Origin at the base centre, model sitting on y = 0 (nothing
 >    below the origin). Front of the model faces **+Z**. Real-world scale in metres — a
 >    barn about 6 m tall.
 > 8. **No animation, no skeletons, no cameras, no lights** in the file. Static geometry
 >    only.
-> 9. Do not build interiors, backfaces or anything the player cannot see from an
->    outside 45° view.
+> 9. **Where to spend the detail.** The camera sits at roughly 45° and can orbit, so
+>    put the work into things that read from there and break the silhouette: roof
+>    overhangs and ridge caps, chimneys and vents, ladders, brackets, hinges, pulleys,
+>    stone footings under timber, stacked goods and small attached props (sawhorses,
+>    crates, bundles). Chamfer every hard edge. Vary plank widths and let boards sit
+>    slightly proud of each other rather than forming one flat face.
+>
+> 10. **Where not to.** Skip interiors, backfaces, undersides and anything below the
+>    base — none of it is ever seen, and it is the one kind of geometry that buys
+>    nothing.
 >
 > **The shared material list — use these names and colours verbatim**
 >
@@ -82,9 +91,9 @@ Paste the block below into whatever is generating the models.
 > | `farm-cloth` | `#E8D3A4` | canvas, awnings, sacks |
 > | `farm-thatch` | `#C9A05A` | thatch, straw, hay |
 >
-> 10. Detail that reuses an existing material costs **nothing**. Detail that introduces
->    a new material costs an entire draw call. When choosing between "simpler shape"
->    and "one more colour", always take the simpler shape.
+> 11. Detail that reuses an existing material costs **nothing**. Detail that introduces
+>    a new material costs an entire draw call. When choosing between "more shape" and
+>    "one more colour", always take more shape.
 >
 > **Deliver, per model:** the .glb, plus a line stating its triangle count, its mesh
 > count, and the list of materials it uses.
