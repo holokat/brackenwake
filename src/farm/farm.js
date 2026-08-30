@@ -10,6 +10,13 @@ import {
 } from './assets.js';
 import { getTheme, tickWater } from './themes.js';
 import { clearLandmarks } from './landmarks.js';
+
+// how colour is mapped to the screen; see the note where the renderer is built
+const TONE_MAPPING = {
+  neutral: THREE.NeutralToneMapping,
+  aces: THREE.ACESFilmicToneMapping,
+  none: THREE.NoToneMapping,
+};
 import { clearTreeFields } from './tree_edit.js';
 import { setSceneryTheme } from './scenery_store.js';
 import { seasonTint, baseTempFor } from './seasons.js';
@@ -120,6 +127,9 @@ function buildingGroupFor(type, opts) {
 }
 
 export class Homestead {
+  // 'aces' is the shipped look; 'neutral' keeps authored colour more faithfully
+  static toneMapping = 'aces';
+
   constructor(container, { cols, rows, tier = 1, themeId = 'meadow', signText, hideSign = false, farmhouseLevel = 1, onPlotHover, onPlotClick, onObjectClick, onObjectHover, onSignClick, onAnimalSound, onMarketClick, onDockClick, onFishResult, onProductReady, onConstructionKnock, onHouseClick, houseRot, houseOffset, onWindmillClick, windmillRot, onGateToggle, onDeerResult, onBowState, fenceHP, onFenceClick, onFenceState, onAnimalLost, getSeason, houseStyle } = {}) {
     this.container = container;
     this.cols = cols;
@@ -241,8 +251,13 @@ export class Homestead {
     this.renderer.setSize(w, h);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.12;
+    // Tone mapping decides how saturated the whole game reads. ACES Filmic is a
+    // film-emulation curve: it desaturates and compresses, which is why authored
+    // models came out looking washed next to the renders they were made from.
+    // Neutral keeps the colours as authored and only rolls off extreme highlights.
+    // Flip live with __nostrux.toneMapping('aces' | 'neutral' | 'none').
+    this.renderer.toneMapping = TONE_MAPPING[Homestead.toneMapping] ?? THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = Homestead.toneMapping === 'aces' ? 1.12 : 1.0;
     this.container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();

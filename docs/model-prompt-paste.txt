@@ -14,6 +14,20 @@ Produce low-poly game props as **.glb** files for a Three.js farm game. Optimise
    over introducing a new one — but do not sacrifice the look to save a material.
 4. **No textures, no UV maps, no image maps of any kind.** Flat colour materials only.
    No Draco, Meshopt or KTX compression — the loader has no decoder.
+4b. **Colour must come out exactly as specified. This is where output usually goes
+   wrong, so check each one:**
+   - The hex values below are **sRGB**. glTF `baseColorFactor` is **linear** — convert,
+     do not paste the sRGB value into a linear field, and do not double-convert.
+   - **`metallic` = 0.0 for everything**, including `farm-metal`. Any metalness above 0
+     on a non-metal turns the colour grey and flat. This is the single most common
+     cause of washed-out results.
+   - **`roughness` 0.55–0.8.** Not 1.0 (dead and chalky), not below 0.4 (shiny).
+   - **No emissive, no ambient occlusion, no baked lighting or shadow tinting**, and no
+     vertex colours. Lighting is the game's job; bake none of it in.
+   - Do **not** desaturate, lighten, mute, harmonise, or "tastefully adjust" the
+     palette. Do not blend colours toward each other for cohesion. Use the exact
+     values. They are deliberately saturated and are meant to look punchy.
+   - Alpha is 1.0 everywhere. Nothing transparent.
 5. **Stylised low-poly, not crude low-poly.** Bevel your edges — a small chamfer on
    planks, posts and roof edges is what stops a model reading as flat cardboard, and
    it costs only triangles, which are free. Use flat/faceted shading where the form
@@ -48,29 +62,30 @@ Produce low-poly game props as **.glb** files for a Three.js farm game. Optimise
 
 | name | hex | use |
 | --- | --- | --- |
-| `farm-wood` | `#9A7048` | planks, posts, beams |
-| `farm-wood-dark` | `#74522F` | frames, sills, shadowed timber |
-| `farm-wood-light` | `#B08757` | highlight planks, trim boards |
-| `farm-stone` | `#9A938A` | dressed stone, foundations |
-| `farm-rock` | `#76655A` | rough rock, rubble |
-| `farm-stone-dark` | `#5F5A54` | stone in shadow, base courses |
-| `farm-plaster` | `#F1E6CF` | plaster and painted walls |
-| `farm-trim` | `#F7EFDD` | window frames, edging, light trim |
-| `farm-roof-red` | `#B03A30` | barn-red roofs and doors |
-| `farm-roof-cap` | `#A8503A` | ridge caps, darker red accents |
-| `farm-roof-slate` | `#37474A` | slate / tile roofs |
-| `farm-metal` | `#8A8F96` | hinges, pipes, machinery |
-| `farm-window` | `#2E3A42` | glass and dark openings |
-| `farm-gold` | `#D9A93B` | brass, finials, small accents |
-| `farm-soil` | `#654428` | tilled earth |
-| `farm-dirt` | `#8A5A33` | paths, bare ground |
-| `farm-grass` | `#74BF58` | grass, turf |
-| `farm-leaf` | `#4F9636` | foliage |
-| `farm-leaf-dark` | `#3C7A2A` | foliage in shadow |
+| `farm-wood` | `#B5783A` | planks, posts, beams — warm amber, not brown |
+| `farm-wood-dark` | `#6E4A28` | frames, sills, shadowed timber |
+| `farm-wood-light` | `#D9A45E` | highlight planks, door boards, ladders |
+| `farm-stone` | `#A9A69F` | dressed stone, footings |
+| `farm-rock` | `#7C766C` | rough rock, rubble |
+| `farm-stone-dark` | `#5E5A54` | base courses, stone in shadow |
+| `farm-plaster` | `#EFE7D5` | plaster and painted walls |
+| `farm-trim` | `#F7F1E2` | window frames, edging, light trim |
+| `farm-roof-red` | `#A8382B` | barn-red walls and doors — deep and saturated |
+| `farm-roof-cap` | `#8E2F24` | ridge caps, darker red accents |
+| `farm-roof-slate` | `#2E3439` | slate roofs — near-black charcoal |
+| `farm-metal` | `#8D9299` | hinges, straps, pipes, machinery |
+| `farm-window` | `#1E2529` | glass and dark openings |
+| `farm-gold` | `#E0B23F` | brass, straw bales, finials |
+| `farm-soil` | `#6B4A2A` | tilled earth |
+| `farm-dirt` | `#97653A` | paths, bare ground |
+| `farm-grass` | `#8FBB43` | grass and turf — yellow-green, vivid |
+| `farm-leaf` | `#4E9B32` | foliage |
+| `farm-leaf-dark` | `#37702A` | foliage in shadow |
 | `farm-water` | `#4FB2D9` | water surfaces |
-| `farm-water-deep` | `#3A89AD` | deep water |
+| `farm-water-deep` | `#2F7E9E` | deep water |
 | `farm-cloth` | `#E8D3A4` | canvas, awnings, sacks |
 | `farm-thatch` | `#C9A05A` | thatch, straw, hay |
+| `farm-accent-blue` | `#8FC4DA` | ice, cold-store panels, painted accents |
 
 
 **Deliver, per model:** the .glb, plus a line stating its triangle count, its mesh

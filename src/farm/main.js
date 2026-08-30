@@ -1224,6 +1224,14 @@ function buildFarmScene() {
       dump: () => { const d = dumpTrees(); console.log(JSON.stringify(d)); return d; },
       probe: (x, y) => debugPick(farm, x, y),
     },
+    // flip the colour curve live to compare: 'neutral' | 'aces' | 'none'
+    toneMapping: (mode) => {
+      Homestead.toneMapping = mode;
+      farm.renderer.toneMapping = { neutral: 6, aces: 4, none: 0 }[mode] ?? 6;
+      farm.renderer.toneMappingExposure = mode === 'aces' ? 1.12 : 1.0;
+      farm.scene.traverse((o) => { if (o.isMesh && o.material) o.material.needsUpdate = true; });
+      return `tone mapping: ${mode}`;
+    },
     // hand placements persist per theme; reset falls back to the coded layout
     scenery: {
       info: () => storeSummary(),
