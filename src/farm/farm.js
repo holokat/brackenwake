@@ -9,6 +9,8 @@ import {
   buildCrop, buildTree, buildObject, OBJECT_RADIUS, hash32, mulberry32,
 } from './assets.js';
 import { getTheme, tickWater } from './themes.js';
+import { clearLandmarks } from './landmarks.js';
+import { clearTreeFields } from './tree_edit.js';
 import { seasonTint, baseTempFor } from './seasons.js';
 import { WeatherMachine } from './weather.js';
 import { ANIMAL_TYPES, ANIMAL_RADIUS, buildAnimal, updateAnimal, soundIntervalMs } from './animals.js';
@@ -2128,6 +2130,10 @@ export class Homestead {
 
   _buildOuterZone() {
     if (!this.theme.buildOuterZone) return;
+    // rebuilding the farm throws the old scene away wholesale, so drop the
+    // landmark registry with it — otherwise every rebuild stacks another copy
+    clearLandmarks();
+    clearTreeFields();
     const rng = mulberry32(4242);
     try {
       // continuous ground: the surrounding land meets the farm at grade —

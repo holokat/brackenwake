@@ -12,6 +12,8 @@ import { FARMHOUSE_THRESHOLDS, FARMHOUSE_NAMES, FARMHOUSE_PRICES, HOUSE_ROOF_OPT
 import { FISH_TABLES } from './fishing.js';
 import { getThumb } from './thumbs.js';
 import { preloadModels, glbReady } from './glb_models.js';
+import { preloadLandmarks, landmarkEditor, dumpLandmarks } from './landmarks.js';
+import { treeEditor, dumpTrees, debugPick } from './tree_edit.js';
 import { preloadAnimalModels, animalModelReady } from './animal_models.js';
 import { SEASON_ICON, SEASON_LABEL } from './seasons.js';
 import { WEATHER_ICON, WEATHER_LABEL } from './weather.js';
@@ -1070,7 +1072,18 @@ function buildFarmScene() {
   }
   refreshEffects();
   builtWithGLBDeer = glbReady('deer'); // did this build get the authored deer?
-  window.__nostrux = { farm, game, pool, loadFarm, audio, get effects() { return effects; }, get myPk() { return myPk; } };
+  window.__nostrux = { farm, game, pool, loadFarm, audio, get effects() { return effects; }, get myPk() { return myPk; },
+    // temporary authoring aid for positioning the imported landmark models
+    landmarks: {
+      edit: (on = true) => landmarkEditor(farm, on),
+      dump: () => { const d = dumpLandmarks(); console.log(JSON.stringify(d, null, 1)); return d; },
+    },
+    // test-mode forest authoring: move / add / delete scenery trees
+    trees: {
+      edit: (on = true) => (testMode ? treeEditor(farm, on) : 'tree editing is test-mode only'),
+      dump: () => { const d = dumpTrees(); console.log(JSON.stringify(d)); return d; },
+      probe: (x, y) => debugPick(farm, x, y),
+    } };
 }
 let builtWithGLBDeer = false;
 
@@ -3971,6 +3984,7 @@ if (myPk) loadFriends(myPk);
 loadFarm(startKey);
 // authored GLB models (deer, boat) stream in the background — once ready, rebuild
 // the scene a single time so they swap in over the procedural first paint
+preloadLandmarks();
 preloadModels().then(() => {
   if (farm && !builtWithGLBDeer && glbReady('deer')) buildFarmScene();
 });

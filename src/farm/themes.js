@@ -3,6 +3,8 @@
 
 import * as THREE from 'three';
 import { mat, mesh, box, cyl, cone, ball, leafMesh, tube, glowTexture, P, tagFoliage } from './assets.js';
+import { placeLandmark } from './landmarks.js';
+import { createTreeField } from './tree_edit.js';
 
 const MUSIC = '/audio/farm-theme.mp3';
 
@@ -2984,7 +2986,9 @@ function sakuraOuter(ctx) {
   const rockPl = [[], [], []];
   const snowGeo = meadowPeakGeo(rng, 8);
   const snowPl = [];
+  const peaks = [];
   const addPeak = (x, z, baseR, H, snowy) => {
+    peaks.push({ x, z, baseR });
     const gy = heightAt(x, z) - 6, HH = H + 6;
     rockPl[Math.floor(rng() * 3)].push({ x, y: gy, z: z - zC, s: baseR, sy: HH / baseR, ry: rng() * Math.PI * 2 });
     if (snowy) { const cR = baseR * 0.5, cH = HH * 0.44; snowPl.push({ x, y: gy + HH * 0.56, z: z - zC, s: cR, sy: cH / cR, ry: rng() * Math.PI * 2 }); }
@@ -3007,21 +3011,13 @@ function sakuraOuter(ctx) {
   for (let i = 0; i < 3; i++) { const m = outerInstanced(g, rockGeos[i], mat(rockCols[i]), rockPl[i]); if (m) m.castShadow = false; }
   const snowM = outerInstanced(g, snowGeo, mat(0xf4f8fb), snowPl); if (snowM) snowM.castShadow = false;
 
-  // ---- Mt. Fuji, the landmark at the back of the valley ----
+  // ---- Mt. Fuji: the authored landmark, towering over the back horizon ----
   {
-    const fa = -Math.PI / 2 - 0.08, fr = R * 0.95;
+    const fa = -Math.PI / 2 - 0.08, fr = R * 1.02;
     const fx = Math.cos(fa) * fr, fz = zC + Math.sin(fa) * fr;
-    const FH = 155, fbase = 100, gy = heightAt(fx, fz) - 10;
-    const fuji = new THREE.Mesh(new THREE.ConeGeometry(fbase, FH, 16), mat(0x8b8aa4, { flatShading: true }));
-    fuji.position.set(fx, gy + FH / 2, fz - zC); fuji.castShadow = false; g.add(fuji);
-    const capH = FH * 0.4, capR = fbase * 0.44;
-    const cap = new THREE.Mesh(new THREE.ConeGeometry(capR, capH, 16), mat(0xf6fafd, { flatShading: true }));
-    cap.position.set(fx, gy + FH - capH / 2, fz - zC); cap.castShadow = false; g.add(cap);
-    for (const off of [-0.5, 0.35, 0.9]) {
-      const fng = new THREE.Mesh(new THREE.ConeGeometry(capR * 0.18, capH * 0.7, 5), mat(0xf6fafd));
-      fng.position.set(fx + Math.sin(off) * capR * 0.8, gy + FH - capH * 0.85, fz - zC + Math.cos(off) * capR * 0.5);
-      fng.castShadow = false; g.add(fng);
-    }
+    placeLandmark(g, 'fuji', fx, heightAt(fx, fz) - 4, fz - zC, {
+      height: 165, rotY: rng() * Math.PI * 2, castShadow: false,
+    });
   }
 
   // ---- the river: one wide loop winding around the plateau, down in the
@@ -3069,11 +3065,10 @@ function sakuraOuter(ctx) {
     const inner = at(ba, riverD(ba) - 11);
     const outer = at(ba, riverD(ba) + 11);
     const mx = (inner[0] + outer[0]) / 2, mz = (inner[1] + outer[1]) / 2;
-    const br = buildArchBridge(rng, 26, 0xb8543a);
-    br.position.set(mx, land.heightAt(mx, mz + zC) + 0.4, mz);
-    br.rotation.y = Math.atan2(outer[1] - inner[1], outer[0] - inner[0]) + Math.PI / 2;
-    br.scale.set(1, 1.2, 1.5);
-    g.add(br);
+    placeLandmark(g, 'bridge', mx, land.heightAt(mx, mz + zC) + 0.2, mz, {
+      span: 30, // reaches bank to bank across the 22-wide river
+      rotY: Math.atan2(outer[1] - inner[1], outer[0] - inner[0]),
+    });
   }
 
   // ---- the fishing dock sits on the river bank down in the gorge ----
@@ -3091,7 +3086,24 @@ function sakuraOuter(ctx) {
   outerInstanced(g, new THREE.CircleGeometry(1.4, 8), mat(0xf7d6e2, { side: THREE.DoubleSide }), petals);
 
   // ---- cherry-blossom forest blanketing every terrace ----
-  const trunkPl = [], canA = [], canB = [], side = [];
+  // held as an editable field (see tree_edit.js) so trees can be moved, added
+  // and deleted in test mode and the arrangement baked back into the theme
+  const canGeo = new THREE.SphereGeometry(1.75, 8, 7);
+  const blossoms = createTreeField({
+    name: 'sakura',
+    parent: g,
+    make: (x, z, gy) => ({ x, z, gy, s: 1.0 + Math.random() * 0.95, ry: Math.random() * Math.PI, alt: Math.random() < 0.5, oa: Math.random() * Math.PI * 2 }),
+    layers: [
+      { geo: new THREE.CylinderGeometry(0.22, 0.36, 2.8, 6), mat: mat(0x5a4032),
+        of: (t) => ({ x: t.x, y: t.gy + 1.4 * t.s, z: t.z, s: t.s, ry: t.ry }) },
+      { geo: canGeo, mat: mat(0xf2aac8),
+        of: (t) => (t.alt ? null : { x: t.x, y: t.gy + 3.4 * t.s, z: t.z, s: t.s, sy: 0.82, ry: t.ry }) },
+      { geo: canGeo, mat: mat(0xf6b8d2),
+        of: (t) => (t.alt ? { x: t.x, y: t.gy + 3.4 * t.s, z: t.z, s: t.s, sy: 0.82, ry: t.ry } : null) },
+      { geo: new THREE.SphereGeometry(1.15, 7, 6), mat: mat(0xf7c2d8),
+        of: (t) => ({ x: t.x + Math.cos(t.oa) * 1.2 * t.s, y: t.gy + 3.0 * t.s, z: t.z + Math.sin(t.oa) * 1.2 * t.s, s: t.s * 0.72, ry: t.ry }) },
+    ],
+  });
   const addBlossom = (x, z) => {
     const d = distToIsland(ctx, x, z);
     if (d < 6) return;
@@ -3101,11 +3113,11 @@ function sakuraOuter(ctx) {
     if (Math.abs(d - rd) < 11) return;
     if (Math.abs(d - terr.edgeD(a)) < 5 || Math.abs(d - terr.outerD(a)) < 5) return;
     if (Math.hypot(x, z - zC) > R * 0.92) return;
-    const s = 1.0 + rng() * 0.95, h = heightAt(x, z), lz = z - zC, ry = rng() * Math.PI;
-    trunkPl.push({ x, y: h + 1.4 * s, z: lz, s, ry });
-    (rng() < 0.5 ? canA : canB).push({ x, y: h + 3.4 * s, z: lz, s, sy: 0.82, ry });
-    const oa = rng() * Math.PI * 2;
-    side.push({ x: x + Math.cos(oa) * 1.2 * s, y: h + 3.0 * s, z: lz + Math.sin(oa) * 1.2 * s, s: s * 0.72, ry });
+    blossoms.add({
+      x, z: z - zC, gy: heightAt(x, z), // records are local to the land group
+      s: 1.0 + rng() * 0.95, ry: rng() * Math.PI,
+      alt: rng() < 0.5, oa: rng() * Math.PI * 2,
+    });
   };
   for (const [x, z] of outerPoints(ctx, rng, R * 0.9, 8, 300)) addBlossom(x, z);
   for (let c = 0; c < 9; c++) {
@@ -3114,10 +3126,7 @@ function sakuraOuter(ctx) {
     const cz = cz0 + zC, spread = 9 + rng() * 13;
     for (let i = 0; i < 22; i++) addBlossom(cx + (rng() - 0.5) * 2 * spread, cz + (rng() - 0.5) * 2 * spread);
   }
-  outerInstanced(g, new THREE.CylinderGeometry(0.22, 0.36, 2.8, 6), mat(0x5a4032), trunkPl);
-  outerInstanced(g, new THREE.SphereGeometry(1.75, 8, 7), mat(0xf2aac8), canA);
-  outerInstanced(g, new THREE.SphereGeometry(1.75, 8, 7), mat(0xf6b8d2), canB);
-  outerInstanced(g, new THREE.SphereGeometry(1.15, 7, 6), mat(0xf7c2d8), side);
+  blossoms.rebuild();
 
   // ---- dark conifers mixed through, as in the reference ----
   const cfTrunk = [], cfCan = [];
@@ -3139,35 +3148,58 @@ function sakuraOuter(ctx) {
     }
     return true;
   };
-  // a spot on a terrace top, set back from a lip, facing the farm
-  const spotAt = (a, dd) => {
-    for (let i = 0; i < 8; i++) {
-      const aa = a + (i ? (rng() - 0.5) * 0.45 : 0);
-      const [x, z0] = at(aa, dd + (i ? (rng() - 0.5) * 10 : 0));
-      const z = z0 + zC;
-      if (levelHere(x, z)) return [x, z, aa];
+  // the mountains are instanced cones the height field knows nothing about, so
+  // a "level" spot can still be buried inside one — check them explicitly
+  const clearOfPeaks = (x, z, pad = 0) =>
+    peaks.every((pk) => Math.hypot(x - pk.x, z - pk.z) > pk.baseR * 0.9 + pad);
+  // a spot on a terrace top, set back from a lip, facing the farm. Scans a fan
+  // of bearings and distances rather than trusting random retries, so a big
+  // structure reliably finds open ground instead of silently going unplaced.
+  const spotAt = (a, dd, pad = 4, spread = 0.5, range = 30) => {
+    let fallback = null;
+    for (let ring = 0; ring < 6; ring++) {
+      const d = Math.max(12, dd + (ring - 2) * (range / 2));
+      for (let i = 0; i < 13; i++) {
+        const aa = a + ((i % 2 ? 1 : -1) * Math.ceil(i / 2) / 6) * spread;
+        const [x, z0] = at(aa, d);
+        const z = z0 + zC;
+        if (!levelHere(x, z)) continue;
+        if (clearOfPeaks(x, z, pad)) return [x, z, aa];
+        if (!fallback && clearOfPeaks(x, z, 0)) fallback = [x, z, aa];
+      }
     }
-    return null;
+    return fallback; // level ground just outside a peak beats not placing at all
   };
   const place = (obj, spot, faceFarm = true) => {
     obj.position.set(spot[0], heightAt(spot[0], spot[1]), spot[1] - zC);
     obj.rotation.y = faceFarm ? Math.atan2(-(spot[1] - zC), -spot[0]) : rng() * Math.PI * 2;
     g.add(obj);
   };
+  // drops an authored landmark on a level spot, facing the farm by default
+  const placeModel = (id, spot, opts = {}, faceFarm = true) => {
+    if (!spot) return;
+    const rotY = faceFarm ? Math.atan2(-(spot[1] - zC), -spot[0]) : rng() * Math.PI * 2;
+    placeLandmark(g, id, spot[0], heightAt(spot[0], spot[1]), spot[1] - zC, { rotY, ...opts });
+  };
+  // the castle: a big silhouette out on the far ridge behind the farm
+  {
+    const ca = -Math.PI / 2 + 0.7;
+    placeModel('castle', spotAt(ca, terr.outerD(ca) + 58, 30, 1.3, 46), { height: 46, castShadow: false });
+  }
   // the pagoda crowning the great waterfall's headland (left, as in the image)
   {
-    const s = spotAt(Math.PI + 0.5, terr.outerD(Math.PI + 0.5) + 14);
-    if (s) { const p = buildJPagoda(rng, 4, 4.0, 0x3a4a55); p.scale.setScalar(1.2); place(p, s); }
+    const pa = Math.PI + 0.5;
+    placeModel('pagoda', spotAt(pa, terr.outerD(pa) + 16), { height: 19 });
   }
-  // the castle keep on the far ridge behind the farm
-  {
-    const s = spotAt(-Math.PI / 2 + 0.75, terr.outerD(-Math.PI / 2 + 0.75) + 40);
-    if (s) { const c = buildJPagoda(rng, 5, 5.4, 0x2f4a55); c.scale.setScalar(1.55); place(c, s); }
+  // a few more pagodas further out across the valley
+  for (let i = 0; i < 3; i++) {
+    const a = rng() * Math.PI * 2;
+    placeModel('pagoda', spotAt(a, terr.outerD(0) + 30 + rng() * 90), { height: 13 + rng() * 4 });
   }
-  // houses out on the far bench
-  for (let i = 0; i < 6; i++) {
-    const s = spotAt(rng() * Math.PI * 2, terr.outerD(0) + 15 + rng() * 70);
-    if (s) place(buildJHouse(rng), s, false);
+  // japanese houses dotted here and there over the far bench
+  for (let i = 0; i < 9; i++) {
+    const a = rng() * Math.PI * 2;
+    placeModel('house', spotAt(a, terr.outerD(0) + 12 + rng() * 105), { height: 6 + rng() * 2 }, false);
   }
   // torii gates + stone lanterns lining the plateau rim
   for (let i = 0; i < 3; i++) {
