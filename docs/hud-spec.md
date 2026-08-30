@@ -1,3 +1,8 @@
+> **SUPERSEDED by `docs/hud-rework-v2.md`.**
+> This document describes the 6-tab + sub-tab-strip HUD that v2 replaces.
+> Kept for the art-kit guidance (generate a kit of 9-slice pieces, never baked
+> screens), which still applies.
+
 # Integrated HUD Spec — art-generation checklist
 
 The goal: kill the sidebar, move everything into game-styled HUD surfaces, and generate
