@@ -2757,8 +2757,10 @@ const bearing = (ctx, x, z) => Math.atan2(z - (ctx.zCenter || 0), x);
 
 function sakuraTerraces(ctx, rng) {
   const p1 = rng() * 10, p2 = rng() * 10, p3 = rng() * 10;
-  // how far the green plateau reaches past the farm fence before it breaks off
-  const edgeD = (a) => 20 + 7 * Math.sin(a * 2 + p1) + 4 * Math.cos(a * 3 + p2);
+  // How far the green plateau reaches past the farm fence before it breaks off.
+  // The base is high enough that the narrowest bearing still leaves a walkable
+  // green shoulder — a cliff right against the fence reads as a pillar.
+  const edgeD = (a) => 28 + 7 * Math.sin(a * 2 + p1) + 4 * Math.cos(a * 3 + p2);
   // the gorge is deepest on the left, where the giant waterfall lands
   const depthAt = (a) => SAK_DEPTH * (0.75 + 0.35 * Math.max(0, Math.cos(a - Math.PI)));
   // the far side of the gorge: mostly a low bench, but on the LEFT it rears up
