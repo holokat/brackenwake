@@ -2952,8 +2952,17 @@ function sakuraCliffWall(ctx, land, distFn, topFn, botFn, colors, facing = 1) {
   });
 }
 
-function sakuraOuter(ctx) {
-  if (!ctx || !ctx.scene || typeof ctx.scene.add !== 'function') return;
+// Sakura Valley is a FIXED place. Its terrain is shaped from the farm's
+// footprint, but that footprint GROWS with each tier (TIER_LAYOUT in farm.js:
+// 90 -> 109.5 -> 131 wide), so upgrading the farm used to reshape the entire
+// valley out from under the authored layout — cliffs, river and all. The zone
+// is now built from the largest footprint at every tier: the plateau always
+// contains the farm, and the baked placements never drift.
+const SAK_REF = { islandW: 131, islandD: 125.5, zCenter: -2, clearRadius: 44 };
+
+function sakuraOuter(ctxIn) {
+  if (!ctxIn || !ctxIn.scene || typeof ctxIn.scene.add !== 'function') return;
+  const ctx = { ...ctxIn, ...SAK_REF };
   const rng = outerRng(ctx);
   const zC = ctx.zCenter || 0;
   const clear = ctx.clearRadius || 10;
