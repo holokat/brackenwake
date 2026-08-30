@@ -82,9 +82,9 @@ Paste the block below into whatever is generating the models.
 > | `farm-cloth` | `#E8D3A4` | canvas, awnings, sacks |
 > | `farm-thatch` | `#C9A05A` | thatch, straw, hay |
 >
- 10. Detail that reuses an existing material costs **nothing**. Detail that introduces a
->    new material costs an entire draw call. When choosing between "simpler shape" and
->    "one more colour", always take the simpler shape.
+> 10. Detail that reuses an existing material costs **nothing**. Detail that introduces
+>    a new material costs an entire draw call. When choosing between "simpler shape"
+>    and "one more colour", always take the simpler shape.
 >
 > **Deliver, per model:** the .glb, plus a line stating its triangle count, its mesh
 > count, and the list of materials it uses.
@@ -106,6 +106,10 @@ console.log({ meshes, materials: [...mats] });
 - `meshes` must equal `mats.size` — if meshes is higher, geometry wasn't merged
 - every name in `mats` must be from the list above
 - `meshes` ≤ 6 for props and buildings, ≤ 8 for a hero landmark
+- **the same colour must carry the same NAME in every file of the pack.** This is the
+  one that actually decides whether the runtime can share materials: if one model says
+  `farm-wood` and another says `wood-1`, they are two materials forever. Check across
+  files, not just within one.
 
 ## On our side
 
