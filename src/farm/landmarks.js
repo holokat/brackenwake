@@ -23,6 +23,11 @@ const cache = {};   // id -> { scene, size, center }
 const waiting = {}; // id -> [fn]
 const placed = [];  // every landmark in the scene, for the placement editor
 const seq = {};     // per-id counter, so each placement gets a stable key
+const spawners = {}; // id -> () => group, for props the editor can add copies of
+
+// tell the editor how to build a brand-new prop of this kind
+export function registerSpawner(id, make) { spawners[id] = make; }
+export function canSpawn(id) { return !!spawners[id] || !!SOURCES[id]; }
 
 function measure(scene) {
   const box = new THREE.Box3().setFromObject(scene);
@@ -154,10 +159,64 @@ export function deleteLandmark(entry) {
   const i = placed.indexOf(entry);
   if (i >= 0) placed.splice(i, 1);
   patchStore((store) => {
+    if (entry.extra) { // an added one just goes away entirely
+      store.extras = (store.extras || []).filter((e) => e.key !== entry.key);
+      return;
+    }
     store.landmarks = store.landmarks || {};
     store.landmarks[entry.key] = { deleted: true };
   });
 }
+
+// Re-create everything the user ADDED by hand. Coded placements come from the
+// theme; these are replayed from the store on top of them.
+export function spawnSavedExtras(parent) {
+  const extras = loadStore().extras || [];
+  for (const ex of extras) {
+    const holder = buildExtra(parent, ex);
+    if (holder) placed.push({ id: ex.id, key: ex.key, holder, extra: true });
+  }
+}
+
+function buildExtra(parent, ex) {
+  const holder = new THREE.Group();
+  holder.userData.key = ex.key;
+  holder.position.set(ex.x, ex.y, ex.z);
+  holder.rotation.y = ex.rotY || 0;
+  parent.add(holder);
+  if (spawners[ex.id]) {
+    const group = spawners[ex.id]();
+    if (!group) { parent.remove(holder); return null; }
+    group.scale.setScalar(ex.scale ?? 1);
+    holder.add(group);
+  } else if (SOURCES[ex.id]) {
+    if (cache[ex.id]) fill(holder, ex.id, { scale: ex.scale ?? 1 });
+    else {
+      (waiting[ex.id] = waiting[ex.id] || []).push(() => fill(holder, ex.id, { scale: ex.scale ?? 1 }));
+      preloadLandmarks();
+    }
+  } else {
+    parent.remove(holder);
+    return null;
+  }
+  return holder;
+}
+
+// add a copy of `id` at a point, remembered across reloads
+export function addLandmark(parent, id, x, y, z, opts = {}) {
+  const key = `extra:${id}:${extraSeq++}:${Math.floor(Math.random() * 1e6)}`;
+  const ex = { key, id, x, y, z, rotY: opts.rotY || 0, scale: opts.scale ?? 1 };
+  const holder = buildExtra(parent, ex);
+  if (!holder) return null;
+  patchStore((store) => {
+    store.extras = store.extras || [];
+    store.extras.push(ex);
+  });
+  const entry = { id, key, holder, extra: true };
+  placed.push(entry);
+  return entry;
+}
+let extraSeq = 0;
 
 export function clearLandmarks() {
   placed.length = 0;
@@ -167,12 +226,19 @@ export function clearLandmarks() {
 // remember one landmark's transform so it survives reloads and code edits
 export function saveLandmark(entry) {
   const h = entry.holder;
+  const t = {
+    x: +h.position.x.toFixed(2), y: +h.position.y.toFixed(2), z: +h.position.z.toFixed(2),
+    rotY: +h.rotation.y.toFixed(4), scale: +(h.children[0]?.scale.x ?? 1).toFixed(4),
+  };
   patchStore((store) => {
+    if (entry.extra) {
+      store.extras = store.extras || [];
+      const rec = store.extras.find((e) => e.key === entry.key);
+      if (rec) Object.assign(rec, t);
+      return;
+    }
     store.landmarks = store.landmarks || {};
-    store.landmarks[entry.key] = {
-      x: +h.position.x.toFixed(2), y: +h.position.y.toFixed(2), z: +h.position.z.toFixed(2),
-      rotY: +h.rotation.y.toFixed(4), scale: +(h.children[0]?.scale.x ?? 1).toFixed(4),
-    };
+    store.landmarks[entry.key] = t;
   });
 }
 
@@ -235,7 +301,7 @@ export function landmarkEditor(farm, on = true) {
       'click a model to select · drag to move\n' +
       'SCALE:  -  /  +   (or [ ])\n' +
       'ROTATE: Q / E     RAISE/LOWER: \u2191 / \u2193\n' +
-      'G = drop flat onto the ground · Del/X = delete\n' +
+      'G = drop flat · A = add another · Del/X = delete\n' +
       'Tab = next model · hold Shift = fine · Esc = deselect\n' +
       '__nostrux.landmarks.dump() prints placements\n\n' + msg;
   };
@@ -318,6 +384,9 @@ export function landmarkEditor(farm, on = true) {
     say(describe());
   };
 
+  let lastPointer = null;
+  const trackPointer = (e) => { lastPointer = e; };
+
   const onUp = () => {
     if (dragging && sel) saveLandmark(sel); // keep what you just arranged
     dragging = false;
@@ -325,6 +394,24 @@ export function landmarkEditor(farm, on = true) {
   };
 
   const onKey = (e) => {
+    // add another of whatever is selected, at the cursor
+    if ((e.key === 'a' || e.key === 'A') && sel && lastPointer) {
+      const r = dom.getBoundingClientRect();
+      ndc.x = ((lastPointer.clientX - r.left) / r.width) * 2 - 1;
+      ndc.y = -((lastPointer.clientY - r.top) / r.height) * 2 + 1;
+      ray.setFromCamera(ndc, farm.camera);
+      const gh = ray.intersectObjects(groundMeshes(), false);
+      if (!gh.length) return;
+      const p = gh[0].point.clone();
+      sel.holder.parent.worldToLocal(p);
+      const made = addLandmark(sel.holder.parent, sel.id, p.x, p.y, p.z, {
+        rotY: sel.holder.rotation.y, scale: sel.holder.children[0]?.scale.x ?? 1,
+      });
+      if (made) { sel = made; highlight(); }
+      e.preventDefault(); e.stopImmediatePropagation();
+      say(describe());
+      return;
+    }
     if (e.key === 'Tab') {
       const live = livePlaced();
       if (!live.length) return;
@@ -369,6 +456,7 @@ export function landmarkEditor(farm, on = true) {
 
   dom.addEventListener('pointerdown', onDown, true);
   window.addEventListener('pointermove', onMove, true);
+  window.addEventListener('pointermove', trackPointer, false);
   window.addEventListener('pointerup', onUp, true);
   window.addEventListener('keydown', onKey, true);
   say('nothing selected');
@@ -377,6 +465,7 @@ export function landmarkEditor(farm, on = true) {
     dispose() {
       dom.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('pointermove', onMove, true);
+      window.removeEventListener('pointermove', trackPointer, false);
       window.removeEventListener('pointerup', onUp, true);
       window.removeEventListener('keydown', onKey, true);
       hud.remove();

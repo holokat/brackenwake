@@ -1084,6 +1084,7 @@ export class Homestead {
           else if (mn === db) gp.z = fzB; else gp.z = fzF;
         }
       }
+      gp.y = this.terrainY(gp.x, gp.z); // stay on the ground, not above the gorge
       p.rotation.y = Math.atan2(-Math.sin(h.heading), Math.cos(h.heading));
       const gait = h.state === 'prowl' ? 150 : 80;
       const swing = Math.sin(now / gait + h.ph) * (h.state === 'prowl' ? 0.4 : 0.75);
@@ -2129,6 +2130,21 @@ export class Homestead {
     if (rec.readyGlow) { this.scene.remove(rec.readyGlow); rec.readyGlow = null; }
   }
 
+  // World-space ground height under a point. The farm's own pad is flat at 0;
+  // past its edge the theme's terrain takes over, blended over a short margin
+  // so nothing pops as it steps off the plateau.
+  terrainY(x, z) {
+    if (!this.groundHeightAt) return 0;
+    const hw = this.W / 2, hd = (this.zFront - this.zBack) / 2, zc = (this.zFront + this.zBack) / 2;
+    const ox = Math.max(Math.abs(x) - hw, 0), oz = Math.max(Math.abs(z - zc) - hd, 0);
+    const d = Math.hypot(ox, oz);
+    if (d <= 0) return 0;
+    let y = 0;
+    try { y = this.groundHeightAt(x, z) || 0; } catch { return 0; }
+    const t = Math.min(1, d / 5); // short blend off the pad's edge
+    return y * t;
+  }
+
   _buildOuterZone() {
     if (!this.theme.buildOuterZone) return;
     // rebuilding the farm throws the old scene away wholesale, so drop the
@@ -2152,6 +2168,9 @@ export class Homestead {
         clearRadius: 14 + this.tier * 10,
         addAnimated: (fn) => this.animatedFns.push(fn),
         setDockSpot: (x, z, facing, waterY, groundY) => this._placeDock(x, z, facing, waterY, groundY),
+        // themes with sculpted terrain report their ground height so roaming
+        // animals walk ON it instead of across a flat plane in mid-air
+        setGroundHeight: (fn) => { this.groundHeightAt = fn; },
         rng,
       });
     } catch (err) {
@@ -3326,7 +3345,7 @@ export class Homestead {
           for (const leg of rm.legs) if (leg) leg.rotation.x *= 0.85;
           if (rm.t0 > 2000) {
             const sink = Math.min(1, (rm.t0 - 2000) / 700);
-            d.position.y = -sink * 2.2;
+            d.position.y = this.terrainY(d.position.x, d.position.z) - sink * 2.2;
             d.scale.setScalar(1 - sink * 0.6);
             if (sink >= 1) { d.visible = false; rm.state = 'respawning'; rm.respawnAt = now + 120000; }
           }
@@ -3402,6 +3421,7 @@ export class Homestead {
               rm.heading = Math.atan2(gp.z - rm.cz, gp.x); // steer back out of the farm
             }
           }
+          gp.y = this.terrainY(gp.x, gp.z); // walk the terrain, not a flat plane
           d.rotation.y = Math.atan2(-Math.sin(rm.heading), Math.cos(rm.heading));
           const gait = (fleeing || raging) ? 70 : 150;
           const swing = Math.sin(now / gait + rm.ph) * ((fleeing || raging) ? 0.8 : 0.5);

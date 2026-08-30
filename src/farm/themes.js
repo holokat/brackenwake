@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { mat, mesh, box, cyl, cone, ball, leafMesh, tube, glowTexture, P, tagFoliage } from './assets.js';
-import { placeLandmark, placeProp } from './landmarks.js';
+import { placeLandmark, placeProp, registerSpawner, spawnSavedExtras } from './landmarks.js';
 import { createTreeField } from './tree_edit.js';
 
 const MUSIC = '/audio/farm-theme.mp3';
@@ -2703,7 +2703,7 @@ function buildArchBridge(rng, span, color) {
 
 // a broad rock cliff with a wide sheet of falling water and a churning foam
 // pool; the group's local +z face points at faceTo. returns foam records.
-function sakuraFalls(land, rng, x, z, fh, faceTo, baseY, widthScale = 1) {
+function sakuraFalls(rng, fh, widthScale = 1) {
   const w = new THREE.Group();
   // Width is CAPPED, not proportional: a tall drop scaled by height alone
   // becomes a giant paper rectangle. Real falls stay narrow and get taller.
@@ -2823,10 +2823,7 @@ function sakuraFalls(land, rng, x, z, fh, faceTo, baseY, widthScale = 1) {
     foams.push({ f, ph: rng() * 6 });
   }
 
-  w.position.set(x, baseY != null ? baseY : land.heightAt(x, z), z - land.zC);
-  w.rotation.y = Math.atan2(faceTo.x - x, faceTo.z - z);
-  land.group.add(w);
-  return foams;
+  return { group: w, foams };
 }
 
 // ---- terraced valley ----------------------------------------------------
@@ -3041,7 +3038,9 @@ function sakuraOuter(ctx) {
     const top = terr.benchH(a), bot = -terr.depthAt(a);
     // sit right against the gorge's outer rock face
     const [fx, fz] = atW(a, outWallD(a) - 1.4);
-    foams.push(...sakuraFalls(land, rng, fx, fz, top - bot, { x: 0, z: zC }, bot, 1.6));
+    const wf = sakuraFalls(rng, top - bot, 1.6);
+    foams.push(...wf.foams);
+    placeProp(g, 'waterfall', wf.group, fx, bot, fz - zC, { rotY: Math.atan2(0 - fx, zC - fz) });
     // a stream carrying the plunge pool across the gorge floor into the river
     const [rx, rz] = atW(a, riverD(a));
     const pts = [];
@@ -3057,7 +3056,9 @@ function sakuraOuter(ctx) {
     const bot = -terr.depthAt(a);
     const [fx, fz] = atW(a, rimWallD(a) + 1.4); // just outside the rim rock face
     const outward = atW(a, rimWallD(a) + 40);
-    foams.push(...sakuraFalls(land, rng, fx, fz, -bot + 1.2, { x: outward[0], z: outward[1] }, bot));
+    const wf2 = sakuraFalls(rng, -bot + 1.2);
+    foams.push(...wf2.foams);
+    placeProp(g, 'waterfall', wf2.group, fx, bot, fz - zC, { rotY: Math.atan2(outward[0] - fx, outward[1] - fz) });
   }
 
   // ---- arched bridges spanning the gorge river, all around the farm ----
@@ -3210,6 +3211,18 @@ function sakuraOuter(ctx) {
   for (let i = 0; i < 12; i++) {
     placeBuilt('lantern', buildStoneLantern(), spotAt(rng() * Math.PI * 2, 7 + rng() * 9), false);
   }
+
+  // let roaming animals walk this terrain instead of a flat plane
+  ctx.setGroundHeight?.((x, z) => land.topY + heightAt(x, z));
+
+  // the editor can add more waterfalls; their foam joins the same pulse loop
+  registerSpawner('waterfall', () => {
+    const made = sakuraFalls(rng, 18);
+    foams.push(...made.foams);
+    return made.group;
+  });
+  // replay everything added by hand on top of the coded layout
+  spawnSavedExtras(g);
 
   // ---- drifting petals + cranes over the valley ----
   outerFalling(ctx, land, '255,180,205', 40, { size: 0.34, height: 16, speed: 0.8, sway: 1.3, opacity: 0.85 });
