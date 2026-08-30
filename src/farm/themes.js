@@ -2705,70 +2705,122 @@ function sakuraFalls(land, rng, x, z, fh, faceTo, baseY, widthScale = 1) {
   const w = new THREE.Group();
   // Width is CAPPED, not proportional: a tall drop scaled by height alone
   // becomes a giant paper rectangle. Real falls stay narrow and get taller.
-  const ww = Math.max(3, Math.min(fh * 0.30 * widthScale, 11));
-  // tall drops break into stacked tiers with a foam ledge between them, which
-  // reads as a cascade instead of one flat sheet
+  const ww = Math.max(3.5, Math.min(fh * 0.30 * widthScale, 11));
   const tiers = fh > 26 ? 3 : (fh > 13 ? 2 : 1);
-  const foams = [];
-  const water = (wd, ht) => new THREE.Mesh(new THREE.PlaneGeometry(wd, ht), new THREE.MeshBasicMaterial({
-    // UNLIT: a vertical plane under an overhead sun shades to near-black
-    color: 0xdcf0fb, transparent: true, opacity: 0.95, side: THREE.DoubleSide,
-  }));
   const tierH = fh / tiers;
+  const STEP = 2.1;            // how far each tier steps out from the cliff
+  const foams = [];
+
+  // The falling water is the SAME flowing texture as the river, with its UVs
+  // swapped so the streaks run down the plane — so it reads as blue moving
+  // water rather than a white slab, and it animates with the global scroll.
+  const sheet = (wd, ht, y, zo) => {
+    const geo = new THREE.PlaneGeometry(wd, ht, 1, 3);
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) {
+      const u = uv.getX(i), v = uv.getY(i);
+      uv.setXY(i, v * (ht / 9), u * (wd / 9)); // swap + tile at the river's scale
+    }
+    uv.needsUpdate = true;
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      map: waterTexture(), transparent: true, opacity: 0.96, side: THREE.DoubleSide,
+    }));
+    m.position.set(0, y, zo);
+    w.add(m);
+    return m;
+  };
+  // a rock shelf the water spills over, with a pool of real depth sitting on it
+  const shelf = (y, zo, wd) => {
+    const slab = box(wd * 1.18, 2.6, STEP + 2.0, 0x8a7c68);
+    slab.position.set(0, y - 1.3, zo + STEP * 0.45);
+    w.add(slab);
+    // chunky boulders along the lip, so the water breaks over rock
+    for (let i = 0; i < 5; i++) {
+      const r = ball(0.6 + rng() * 0.5, i % 2 ? 0x8a7c68 : 0x6d6153, 0.8, 6);
+      r.position.set(((i / 4) - 0.5) * wd * 1.05, y - 0.15, zo + STEP * 0.95);
+      w.add(r);
+    }
+    // the pool is a SLAB with thickness tucked between the rocks — a flat disc
+    // floating in mid-air was what made this read as a random horizontal plane
+    const pool = box(wd * 1.02, 0.5, STEP * 0.9, 0x3f9ac9);
+    pool.position.set(0, y - 0.12, zo + STEP * 0.42);
+    w.add(pool);
+    for (let i = 0; i < 3; i++) {
+      const f = ball(0.42 + rng() * 0.28, 0xeaf7fd, 0.55, 6);
+      f.position.set((rng() - 0.5) * wd * 0.9, y + 0.25, zo + 0.3 + rng() * STEP * 0.6);
+      w.add(f);
+      foams.push({ f, ph: rng() * 6 });
+    }
+  };
+
   for (let t = 0; t < tiers; t++) {
-    const y0 = t * tierH;
-    // each lower tier steps slightly forward, like water working outward
-    const zo = 0.35 + (tiers - 1 - t) * 0.85;
-    const tw = ww * (1 - t * 0.10); // slightly wider at the bottom
-    const sheet = water(tw, tierH * 0.94);
-    sheet.position.set(0, y0 + tierH * 0.47, zo);
-    w.add(sheet);
-    // a couple of faint streaks give the sheet internal motion
-    for (const ox of [-0.24, 0.22]) {
-      const st = new THREE.Mesh(new THREE.PlaneGeometry(tw * 0.13, tierH * 0.9), new THREE.MeshBasicMaterial({
-        color: 0xffffff, transparent: true, opacity: 0.4, side: THREE.DoubleSide,
-      }));
-      st.position.set(ox * tw, y0 + tierH * 0.47, zo + 0.12);
-      w.add(st);
-    }
-    // bright crest where this tier pours over
-    const crest = new THREE.Mesh(new THREE.BoxGeometry(tw * 1.06, 0.5, 1.0), new THREE.MeshBasicMaterial({ color: 0xf4fbff }));
-    crest.position.set(0, y0 + tierH * 0.95, zo - 0.1);
+    const yTop = fh - t * tierH, yBot = fh - (t + 1) * tierH;
+    const zo = 0.3 + t * STEP;
+    const wd = ww * (1 + t * 0.07); // spreads a little as it descends
+    sheet(wd, tierH * 0.99, (yTop + yBot) / 2, zo);
+    // white foam where the water breaks over the lip above
+    const crest = new THREE.Mesh(new THREE.BoxGeometry(wd * 1.06, 0.45, 0.9),
+      new THREE.MeshBasicMaterial({ color: 0xf2fafd }));
+    crest.position.set(0, yTop - 0.2, zo + 0.1);
     w.add(crest);
-    // catch-basin + churn at the foot of every tier but the last (that one
-    // gets the main plunge pool below)
-    if (t > 0) {
-      const ledge = flatDisc(tw * 0.75, 0x8fc9e4, 0.12, 12);
-      ledge.position.set(0, y0 + 0.06, zo + 1.0);
-      w.add(ledge);
-      for (let i = 0; i < 3; i++) {
-        const f = ball(0.45 + rng() * 0.3, 0xf2fafd, 0.6, 6);
-        f.position.set((rng() - 0.5) * tw * 0.9, y0 + 0.3, zo + 0.6 + rng() * 1.1);
-        w.add(f);
-        foams.push({ f, ph: rng() * 6 });
-      }
+    // spray clinging to the sheet as it falls
+    for (let i = 0; i < 2; i++) {
+      const f = ball(0.3 + rng() * 0.25, 0xeaf7fd, 0.6, 6);
+      f.position.set((rng() - 0.5) * wd * 0.8, yBot + tierH * (0.25 + rng() * 0.5), zo + 0.35);
+      w.add(f);
+      foams.push({ f, ph: rng() * 6 });
     }
+    // a couple of rocks jutting THROUGH the sheet, so the water visibly breaks
+    // and overflows around them instead of falling as a clean pane
+    for (let i = 0; i < 2; i++) {
+      const r = ww * (0.09 + rng() * 0.07);
+      const rk = ball(r, rng() < 0.5 ? 0x8a7c68 : 0x736658, 0.8, 6);
+      const rx = (rng() - 0.5) * wd * 0.7;
+      const ry = yBot + tierH * (0.2 + rng() * 0.55);
+      rk.position.set(rx, ry, zo + 0.15);
+      rk.scale.x *= 1.3;
+      w.add(rk);
+      // white water piling up on the rock's upstream side and spilling past it
+      const f = ball(r * 0.85, 0xf2fafd, 0.5, 6);
+      f.position.set(rx, ry + r * 0.75, zo + 0.3);
+      w.add(f);
+      foams.push({ f, ph: rng() * 6 });
+    }
+    if (t < tiers - 1) shelf(yBot, zo, wd);
   }
-  // rock shoulders framing the sheet on both sides, so it sits INTO the cliff
-  // rather than floating in front of it
-  for (let i = 0; i < 8; i++) {
-    const side = i % 2 ? 1 : -1;
-    const r = ww * (0.22 + rng() * 0.16);
-    const rock = ball(r, i % 3 ? 0xa79881 : 0x8d7f6d, 0.9, 6);
-    rock.position.set(side * (ww * 0.55 + r * 0.5), fh * (0.06 + (i / 8) * 0.9), -0.3 + rng() * 1.2);
-    rock.scale.x *= 1.25;
+
+  // Rock walls hugging both sides so the water runs down a channel in the cliff.
+  // These sit BEHIND the sheet, half-buried in the rock face — out in front they
+  // read as boulders hanging in mid-air next to the water.
+  for (let i = 0; i < 9; i++) {
+    const side = rng() < 0.5 ? 1 : -1;
+    const r = ww * (0.13 + rng() * 0.11);
+    const rock = ball(r, i % 3 ? 0x9c8d76 : 0x7f7263, 0.9, 6);
+    const t = (i + rng() * 0.7) / 9;
+    rock.position.set(side * (ww * 0.46 + r * 0.45), fh * (0.04 + t * 0.94),
+      -1.3 + t * (tiers - 1) * STEP + rng() * 0.4);
+    rock.scale.x *= 1.2;
     w.add(rock);
   }
-  // plunge pool + mist at the base
-  const pool = flatDisc(ww * 1.15, 0x6fb6de, 0.14, 14);
-  pool.position.set(0, 0.05, 2.4);
-  w.add(pool);
+
+  // the plunge pool: sunk into a ring of wet boulders, with real depth
+  const pz = 0.3 + (tiers - 1) * STEP + STEP * 0.9;
+  const basin = box(ww * 2.1, 0.55, 4.2, 0x3f9ac9);
+  basin.position.set(0, 0.02, pz);
+  w.add(basin);
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2;
+    const r = ball(0.7 + rng() * 0.6, i % 2 ? 0x8a7c68 : 0x6d6153, 0.75, 6);
+    r.position.set(Math.cos(a) * ww * 1.05, 0.1, pz + Math.sin(a) * 2.3);
+    w.add(r);
+  }
   for (let i = 0; i < 7; i++) {
-    const f = ball(0.55 + rng() * 0.5, 0xf2fafd, 0.6, 6);
-    f.position.set((rng() - 0.5) * ww * 1.1, 0.35 + rng() * 0.9, 1.2 + rng() * 2.0);
+    const f = ball(0.55 + rng() * 0.45, 0xf2fafd, 0.6, 6);
+    f.position.set((rng() - 0.5) * ww * 1.3, 0.4 + rng() * 0.8, pz - 1.6 + rng() * 2.6);
     w.add(f);
     foams.push({ f, ph: rng() * 6 });
   }
+
   w.position.set(x, baseY != null ? baseY : land.heightAt(x, z), z - land.zC);
   w.rotation.y = Math.atan2(faceTo.x - x, faceTo.z - z);
   land.group.add(w);
