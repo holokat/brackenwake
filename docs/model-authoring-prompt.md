@@ -31,9 +31,9 @@ Paste the block below into whatever is generating the models.
 >    the exact names and exact hex values.
 > 2. **Merge geometry by material.** All faces using the same material must end up in a
 >    single mesh. One model = at most one mesh per material used.
-> 3. **Budget: at most 6 materials per model** (so at most 6 draw calls). Small props
->    should use 2–3. Only a hero landmark may reach 8. If a design needs a 7th colour,
->    pick the nearest existing material instead of adding one.
+> 3. **Budget: at most 12 materials per model** (so at most 12 draw calls). Small props
+>    should sit around 4–6, buildings 8–12. Prefer reusing a colour already in the model
+>    over introducing a new one — but do not sacrifice the look to save a material.
 > 4. **No textures, no UV maps, no image maps of any kind.** Flat colour materials only.
 >    No Draco, Meshopt or KTX compression — the loader has no decoder.
 > 5. **Flat / faceted shading.** Hard edges, no smoothing groups, no bevels. Chunky
@@ -105,22 +105,40 @@ console.log({ meshes, materials: [...mats] });
 
 - `meshes` must equal `mats.size` — if meshes is higher, geometry wasn't merged
 - every name in `mats` must be from the list above
-- `meshes` ≤ 6 for props and buildings, ≤ 8 for a hero landmark
+- `meshes` ≤ 12 for a building, ≤ 6 for a small prop
 - **the same colour must carry the same NAME in every file of the pack.** This is the
   one that actually decides whether the runtime can share materials: if one model says
   `farm-wood` and another says `wood-1`, they are two materials forever. Check across
   files, not just within one.
 
-## On our side
+## On our side — and a correction
 
-The saving only lands if the runtime also shares materials. Two follow-ups once models
-start arriving:
+**Sharing materials does not, by itself, reduce draw calls.** In three.js a draw call is
+issued per *mesh rendered*, so ten meshes are ten calls whether they share materials or
+not. Material sharing saves memory and shader compilation — worth doing, but it is not
+the lever. Earlier guidance in this file implied otherwise; this is the corrected version.
 
-1. **Deduplicate materials on load** — key a cache by material name so every model
-   instance reuses one `MeshStandardMaterial` per palette entry, rather than one per
-   loaded file.
-2. **`InstancedMesh` for repeaters** — fences, windbreaks and posts repeat dozens of
-   times and should draw as one call each, the way the scenery trees already do.
+The lever is **instancing**:
 
-Without step 1, twenty barns still cost twenty sets of materials even if each .glb is
-perfectly merged.
+1. **`InstancedMesh` per (model, material)** — group every placement of the same
+   structure type and draw them together. Fifty storage sheds then cost the shed's ~11
+   calls **in total**, not 550. The scenery trees already work this way; placed objects
+   do not, and that is the single biggest win available.
+2. **Deduplicate materials by name on load** — one `MeshStandardMaterial` per palette
+   entry across the whole pack, instead of one per loaded file. Needed anyway for
+   instancing to group cleanly, and it cuts memory.
+
+### What the budget actually buys
+
+Measured ceiling for smooth play is roughly **3,000–4,000 draw calls** for placed
+objects (60 FPS held at 3,251; 43 FPS at 6,481).
+
+| | calls per object | objects at 60 FPS |
+| --- | ---: | ---: |
+| old procedural props | ~33 | ~98 |
+| these authored models | ~10 | ~325 |
+| authored + instanced by type | ~10 **per type** | effectively unlimited |
+
+So the authored models are already **3× cheaper than what they replace**, while looking
+far better. Once placements are instanced, per-model call count stops mattering almost
+entirely — which is why the ceiling above is 12 and not 6.
