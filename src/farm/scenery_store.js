@@ -8,22 +8,41 @@
 
 const KEY = (theme) => `nostrux-scenery-${theme}`;
 
+// A theme's shipped layout. localStorage (a test-mode hand edit) layers on top,
+// so players get the authored zone while it stays tweakable in the editor.
+const baselines = {};
+export function registerBaseline(theme, data) { baselines[theme] = data; }
+
 let themeId = 'default';
 export function setSceneryTheme(id) { themeId = id || 'default'; }
 export function sceneryTheme() { return themeId; }
 
-export function loadStore() {
+// the raw per-browser edits only — what patchStore writes back
+function loadSaved() {
   try { return JSON.parse(localStorage.getItem(KEY(themeId)) || '{}'); } catch { return {}; }
+}
+
+// the shipped layout with any hand edits layered over it
+export function loadStore() {
+  const base = baselines[themeId] || {};
+  const saved = loadSaved();
+  return {
+    landmarks: { ...(base.landmarks || {}), ...(saved.landmarks || {}) },
+    extras: saved.extras || base.extras || [],
+    trees: { ...(base.trees || {}), ...(saved.trees || {}) },
+  };
 }
 
 export function saveStore(store) {
   try { localStorage.setItem(KEY(themeId), JSON.stringify(store)); } catch {}
 }
 
+// edits are written to the browser's own layer, never merged back into the
+// shipped baseline
 export function patchStore(fn) {
-  const store = loadStore();
-  fn(store);
-  saveStore(store);
+  const saved = loadSaved();
+  fn(saved);
+  saveStore(saved);
 }
 
 // Forget every hand placement for this theme and fall back to what the theme
@@ -34,8 +53,11 @@ export function clearStore() {
 
 export function storeSummary() {
   const s = loadStore();
+  const own = loadSaved();
   return {
     theme: themeId,
+    handEdits: Object.keys(own.landmarks || {}).length + (own.extras || []).length
+      + ((own.trees || {})[Object.keys(own.trees || {})[0]] ? 1 : 0),
     landmarks: Object.keys(s.landmarks || {}).length,
     treeFields: Object.keys(s.trees || {}).length,
     trees: Object.values(s.trees || {}).reduce((n, list) => n + (list?.length || 0), 0),

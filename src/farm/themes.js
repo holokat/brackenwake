@@ -4,6 +4,8 @@
 import * as THREE from 'three';
 import { mat, mesh, box, cyl, cone, ball, leafMesh, tube, glowTexture, P, tagFoliage } from './assets.js';
 import { placeLandmark, placeProp, registerSpawner, spawnSavedExtras } from './landmarks.js';
+import { registerBaseline } from './scenery_store.js';
+import { SAKURA_LANDMARKS, SAKURA_EXTRAS, SAKURA_TREES } from './sakura_layout.js';
 import { createTreeField } from './tree_edit.js';
 
 const MUSIC = '/audio/farm-theme.mp3';
@@ -2933,6 +2935,21 @@ function sakuraCliffWall(ctx, land, distFn, topFn, botFn, colors, facing = 1) {
     land.group.add(bm);
   }
   return at;
+}
+
+// Sakura Valley ships with an authored layout (sakura_layout.js). It is
+// registered as the baseline the scenery store reads, so every player gets the
+// hand-placed zone while the in-game editor can still layer edits on top.
+{
+  const landmarks = {};
+  for (const [k, v] of Object.entries(SAKURA_LANDMARKS)) {
+    landmarks[k] = v === 0 ? { deleted: true } : { x: v[0], y: v[1], z: v[2], rotY: v[3], scale: v[4] };
+  }
+  registerBaseline('sakura', {
+    landmarks,
+    extras: SAKURA_EXTRAS.map(([id, x, y, z, rotY, scale]) => ({ key: `baked:${id}:${x}:${z}`, id, x, y, z, rotY, scale })),
+    trees: { sakura: SAKURA_TREES.map(([x, z, gy, s2, ry, alt]) => ({ x, z, gy, s: s2, ry, alt: !!alt, oa: (x * 0.7 + z * 0.3) % (Math.PI * 2) })) },
+  });
 }
 
 function sakuraOuter(ctx) {
