@@ -2593,7 +2593,401 @@ function desertOuter(ctx) {
 
 // ---------- sakura outer ----------
 
+// ---- reusable Japanese set pieces ----
+
+// multi-tier pagoda / castle keep — plaster walls with dark under-eaves and
+// upturned 4-sided hip roofs, a gold finial on top
+function buildJPagoda(rng, tiers, baseW, roofC) {
+  const grp = new THREE.Group();
+  let py = 0;
+  for (let t = 0; t < tiers; t++) {
+    const w = baseW - t * (baseW * 0.16);
+    const wall = box(w, 1.4, w, t === 0 ? P.plaster : 0xe9dcc2);
+    wall.position.y = py + 0.7;
+    grp.add(wall);
+    const eave = box(w + 1.5, 0.18, w + 1.5, 0x33241c); // dark eave shadow line
+    eave.position.y = py + 1.42;
+    grp.add(eave);
+    const roof = cone((w * 0.5 + 0.9) * 1.42, 1.0, roofC, 4); // upturned hip roof
+    roof.rotation.y = Math.PI / 4;
+    roof.position.y = py + 2.0;
+    grp.add(roof);
+    py += 1.82;
+  }
+  const finial = cyl(0.06, 0.1, 0.9, P.gold, 6);
+  finial.position.y = py + 0.2;
+  grp.add(finial);
+  return grp;
+}
+
+// vermilion torii gate — two pillars, curved lintel with a black cap
+function buildTorii(rng) {
+  const grp = new THREE.Group();
+  const red = 0xc8402f;
+  for (const side of [-1.6, 1.6]) {
+    const p = cyl(0.18, 0.24, 3.2, red, 8);
+    p.position.set(side, 1.6, 0);
+    grp.add(p);
+  }
+  const tie = box(3.4, 0.2, 0.24, red); tie.position.y = 2.35; grp.add(tie);
+  const lintel = box(3.9, 0.26, 0.32, red); lintel.position.y = 3.02; grp.add(lintel);
+  const cap = box(4.9, 0.32, 0.44, 0x2e2a28); cap.position.y = 3.4; grp.add(cap);
+  for (const end of [-2.35, 2.35]) { // little upswept ends
+    const up = box(0.5, 0.34, 0.46, 0x2e2a28); up.position.set(end, 3.5, 0); up.rotation.z = -Math.sign(end) * 0.22; grp.add(up);
+  }
+  return grp;
+}
+
+// traditional farmhouse — plaster body on a dark timber sill under a broad
+// dark hip roof
+function buildJHouse(rng) {
+  const grp = new THREE.Group();
+  const w = 3.6 + rng() * 1.8, d = 3.0 + rng() * 1.3, wh = 2.0;
+  const sill = box(w + 0.1, 0.5, d + 0.1, P.woodDark); sill.position.y = 0.25; grp.add(sill);
+  const body = box(w, wh, d, rng() < 0.5 ? 0xece2d0 : P.plaster);
+  body.position.y = 0.5 + wh / 2; grp.add(body);
+  const roofC = [0x37474a, 0x2f4a40, 0x463f38][Math.floor(rng() * 3)];
+  const roof = cone((Math.max(w, d) * 0.5 + 1.05) * 1.42, 1.7, roofC, 4);
+  roof.rotation.y = Math.PI / 4;
+  roof.position.y = 0.5 + wh + 0.55;
+  grp.add(roof);
+  return grp;
+}
+
+// carved stone lantern with a warm glowing chamber
+function buildStoneLantern() {
+  const l = new THREE.Group();
+  const base = cyl(0.42, 0.5, 0.28, 0x8f8a88, 8); base.position.y = 0.14; l.add(base);
+  const pillar = cyl(0.14, 0.18, 0.8, 0x9a9694, 7); pillar.position.y = 0.66; l.add(pillar);
+  const plat = box(0.6, 0.12, 0.6, 0x8f8a88); plat.position.y = 1.1; l.add(plat);
+  const cham = box(0.44, 0.36, 0.44, 0xa5a19e); cham.position.y = 1.36; l.add(cham);
+  const light = box(0.24, 0.2, 0.46, 0xffd98c, { emissive: 0xffb84a, emissiveIntensity: 0.9 }); light.position.y = 1.36; l.add(light);
+  const roof = cone(0.5, 0.36, 0x827e7c, 6); roof.position.y = 1.72; l.add(roof);
+  return l;
+}
+
+// humped wooden foot-bridge (local x spans the gap, arch peaks at center)
+function buildArchBridge(rng, span, color) {
+  const bridge = new THREE.Group();
+  const archH = span * 0.28;
+  const deckY = (t) => 0.2 + archH * (1 - 4 * t * t);
+  for (let i = 0; i < 9; i++) {
+    const t = i / 8 - 0.5;
+    const slat = box(span / 8 + 0.12, 0.1, 1.7, color);
+    slat.position.set(t * span, deckY(t), 0);
+    slat.rotation.z = 8 * archH * t / span; // follow the arch slope
+    bridge.add(slat);
+  }
+  for (const side of [-0.8, 0.8]) {
+    const pts = [];
+    for (let i = 0; i <= 8; i++) { const t = i / 8 - 0.5; pts.push(new THREE.Vector3(t * span, deckY(t) + 0.6, side)); }
+    bridge.add(tube(pts, 0.06, color));
+    for (let i = 0; i <= 8; i += 2) {
+      const t = i / 8 - 0.5;
+      const post = cyl(0.05, 0.06, 0.62, color, 5);
+      post.position.set(t * span, deckY(t) + 0.3, side);
+      bridge.add(post);
+    }
+  }
+  return bridge;
+}
+
+// a broad rock cliff with a wide sheet of falling water and a churning foam
+// pool; the group's local +z face points at faceTo. returns foam records.
+function sakuraFalls(land, rng, x, z, fh, faceTo) {
+  const w = new THREE.Group();
+  const cw = fh * 0.55; // cliff width scales with height
+  // solid rock face: a few stacked, slightly jittered slabs behind the water
+  for (let i = 0; i < 3; i++) {
+    const t = i / 2;
+    const slab = box(cw * (1 - t * 0.22), fh * 0.46, cw * 0.55, i % 2 ? 0x8a8078 : 0x74675b);
+    slab.position.set((rng() - 0.5) * 1.0, fh * (0.23 + t * 0.3), -1.1 - t * 0.35);
+    slab.rotation.y = (rng() - 0.5) * 0.3;
+    w.add(slab);
+  }
+  // rounded boulders framing both sides of the falls
+  for (let i = 0; i < 4; i++) {
+    const rock = ball(1.5 + rng() * 1.1, i % 2 ? 0x82766a : 0x776a5e, 0.9, 6);
+    rock.position.set((i < 2 ? -1 : 1) * (cw * 0.46 + rng() * 0.8), fh * (0.12 + (i % 2) * 0.36), -0.2 + (rng() - 0.5));
+    rock.scale.x *= 1.3;
+    w.add(rock);
+  }
+  // the falling water — overlapping vertical panels for a wide sheet
+  for (const [ox, ow] of [[-1.15, 2.1], [0, 2.3], [1.15, 2.1]]) {
+    const fall = new THREE.Mesh(new THREE.PlaneGeometry(ow, fh * 0.95), new THREE.MeshStandardMaterial({
+      color: 0xdff0fa, roughness: 0.22, flatShading: true, transparent: true, opacity: 0.9, side: THREE.DoubleSide,
+    }));
+    fall.position.set(ox, fh * 0.48, 0.5);
+    w.add(fall);
+  }
+  // bright lip where the water pours over the top
+  const lip = box(cw * 0.85, 0.5, 1.1, 0xeef7fc); lip.position.set(0, fh * 0.93, 0.25); w.add(lip);
+  const pool = flatDisc(cw * 0.75, 0x5aa4d6, 0.14, 14); pool.position.set(0, 0, 1.9); w.add(pool);
+  const foams = [];
+  for (let i = 0; i < 6; i++) {
+    const f = ball(0.5 + rng() * 0.35, 0xf2fafd, 0.6, 6);
+    f.position.set((rng() - 0.5) * cw * 0.7, 0.3 + rng() * 0.5, 1.0 + rng() * 1.7);
+    w.add(f);
+    foams.push({ f, ph: rng() * 6 });
+  }
+  w.position.set(x, land.heightAt(x, z), z - land.zC);
+  w.rotation.y = Math.atan2(faceTo.x - x, faceTo.z - z);
+  land.group.add(w);
+  return foams;
+}
+
+// small grassy islet drifting in the sky, rock spike beneath, a blossom on top
+function buildSkyIsland(rng, r) {
+  const grp = new THREE.Group();
+  const top = new THREE.Mesh(new THREE.CircleGeometry(r, 12), mat(0x8cc06d, { side: THREE.DoubleSide }));
+  top.rotation.x = -Math.PI / 2; grp.add(top);
+  const rim = new THREE.Mesh(new THREE.CircleGeometry(r * 1.06, 12), mat(0x74a95a, { side: THREE.DoubleSide }));
+  rim.rotation.x = -Math.PI / 2; rim.position.y = -0.08; grp.add(rim);
+  const spike = cone(r * 0.9, r * 1.9, 0x7a6a5c, 7); spike.rotation.x = Math.PI; spike.position.y = -r * 0.95; grp.add(spike);
+  // a lone blossom
+  const trunk = cyl(0.16, 0.24, 1.4, 0x5a4032, 6); trunk.position.y = 0.7; grp.add(trunk);
+  for (const [bx, by, bz, br] of [[0, 1.9, 0, 1.1], [0.7, 1.7, 0.2, 0.7], [-0.6, 1.7, -0.2, 0.65]]) {
+    const b = ball(br, rng() < 0.5 ? 0xf2aac8 : 0xf7c2d8, 0.9, 7); b.position.set(bx, by, bz); grp.add(b);
+  }
+  return grp;
+}
+
 function sakuraOuter(ctx) {
+  if (!ctx || !ctx.scene || typeof ctx.scene.add !== 'function') return;
+  const rng = outerRng(ctx);
+  const zC = ctx.zCenter || 0;
+  const clear = ctx.clearRadius || 10;
+  const flatR = clear + 30;
+  const iHalf = Math.max(ctx.islandW || 30, ctx.islandD || 30) / 2;
+  const R = outerSize(ctx, 3.1);
+
+  // the big organic lake sits behind-left of the farm; rivers drain into it
+  const lakeA = Math.PI + (rng() - 0.5) * 0.5;
+  const lake = { x: Math.cos(lakeA) * R * 0.44, z: zC + Math.sin(lakeA) * R * 0.44, r: R * 0.16 };
+
+  const heightAt = meadowHeightField(ctx, rng, R, lake);
+  const land = meadowValleyFloor(ctx, rng, R, heightAt, { top: 0x8cc06d, skirt: 0x6a5744 });
+  if (!land) return;
+  const g = land.group;
+
+  // ---- mountain ring: cool blue-grey Japanese ranges, snow on the tallest ----
+  const rockGeos = [meadowPeakGeo(rng, 8), meadowPeakGeo(rng, 7), meadowPeakGeo(rng, 9)];
+  const rockCols = [0x8a869a, 0x7d798e, 0x6f6b80];
+  const rockPl = [[], [], []];
+  const snowGeo = meadowPeakGeo(rng, 8);
+  const snowPl = [];
+  const peaks = [];
+  const addPeak = (x, z, baseR, H, snowy, gi) => {
+    const gy = heightAt(x, z) - 6, HH = H + 6;
+    rockPl[gi ?? Math.floor(rng() * 3)].push({ x, y: gy, z: z - zC, s: baseR, sy: HH / baseR, ry: rng() * Math.PI * 2 });
+    if (snowy) { const capR = baseR * 0.5, capH = HH * 0.44; snowPl.push({ x, y: gy + HH * 0.56, z: z - zC, s: capR, sy: capH / capR, ry: rng() * Math.PI * 2 }); }
+    peaks.push({ x, z, baseR, H });
+  };
+  const nMtn = 13;
+  for (let i = 0; i < nMtn; i++) {
+    const a = (i / nMtn) * Math.PI * 2 + (rng() - 0.5) * 0.25;
+    const rr = R * (0.88 + rng() * 0.11);
+    const x = Math.cos(a) * rr, z = zC + Math.sin(a) * rr;
+    const H = 34 + rng() * 30, baseR = Math.min(H * (0.8 + rng() * 0.3), 60);
+    addPeak(x, z, baseR, H, H > 46);
+    if (rng() < 0.6) {
+      const side = rng() < 0.5 ? 1 : -1, off = baseR * (0.85 + rng() * 0.3), sh = H * (0.55 + rng() * 0.3);
+      addPeak(x - Math.sin(a) * off * side, z + Math.cos(a) * off * side, Math.min(sh * (0.9 + rng() * 0.3), 52), sh, sh > 46);
+    }
+  }
+  for (let i = 0; i < 3; i++) { const m = outerInstanced(g, rockGeos[i], mat(rockCols[i]), rockPl[i]); if (m) m.castShadow = false; }
+  const snowM = outerInstanced(g, snowGeo, mat(0xf4f8fb), snowPl); if (snowM) snowM.castShadow = false;
+
+  // ---- hero Mt. Fuji: a broad, near-symmetric snow-capped cone at the back,
+  // towering over the ring so it reads as the valley's landmark ----
+  {
+    const fa = -Math.PI / 2 - 0.08, fr = R * 0.92;
+    const fx = Math.cos(fa) * fr, fz = zC + Math.sin(fa) * fr;
+    const FH = 150, fbase = 96, gy = heightAt(fx, fz) - 10;
+    const fuji = new THREE.Mesh(new THREE.ConeGeometry(fbase, FH, 16), mat(0x8b8aa4, { flatShading: true }));
+    fuji.position.set(fx, gy + FH / 2, fz - zC); fuji.castShadow = false; g.add(fuji);
+    // a hazier blue lower band would over-complicate; the snow cap sells it
+    const capH = FH * 0.4, capR = fbase * 0.44;
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(capR, capH, 16), mat(0xf6fafd, { flatShading: true }));
+    cap.position.set(fx, gy + FH - capH / 2, fz - zC); cap.castShadow = false; g.add(cap);
+    // a couple of snowy fingers streaking down the flanks
+    for (const off of [-0.5, 0.35, 0.9]) {
+      const fng = new THREE.Mesh(new THREE.ConeGeometry(capR * 0.18, capH * 0.7, 5), mat(0xf6fafd));
+      fng.position.set(fx + Math.sin(off) * capR * 0.8, gy + FH - capH * 0.85, fz - zC + Math.cos(off) * capR * 0.5);
+      fng.castShadow = false; g.add(fng);
+    }
+  }
+
+  // ---- the lake (freezes over in winter via the water tag) ----
+  if (typeof ctx.setDockSpot === 'function') {
+    const dl = Math.hypot(lake.x, lake.z - zC) || 1;
+    const tx = lake.x / dl, tz = (lake.z - zC) / dl;
+    ctx.setDockSpot(lake.x - tx * lake.r * 1.02, lake.z - tz * lake.r * 1.02, Math.atan2(-tz, tx), 0.42);
+  }
+  const lakeRim = meadowBlobDisc(rng, lake.r * 1.08, 0x9ec7e0);
+  lakeRim.position.set(lake.x, 0.16, lake.z - zC); lakeRim.userData.water = 0x9ec7e0; g.add(lakeRim);
+  const lakeWater = meadowBlobDisc(rng, lake.r, 0xffffff, { map: waterTexture(), roughness: 0.18 });
+  lakeWater.position.set(lake.x, 0.3, lake.z - zC); lakeWater.userData.water = 0xffffff; g.add(lakeWater);
+
+  // ---- two cliff waterfalls + a long meandering river, spanned by red bridges ----
+  const foams = [];
+  const rivers = [];
+  const drainRiver = (sx, sz, width, wob) => {
+    const dx = lake.x - sx, dz = lake.z - sz, dl = Math.hypot(dx, dz) || 1;
+    const x0 = sx + (dx / dl) * 3.6, z0 = sz + (dz / dl) * 3.6;
+    const ex = lake.x - (dx / dl) * lake.r * 0.5, ez = lake.z - (dz / dl) * lake.r * 0.5;
+    const pts = [];
+    for (let i = 0; i <= 5; i++) {
+      const t = i / 5, k = Math.sin(t * Math.PI) * Math.sin(t * 6 + sx * 0.3) * R * wob;
+      pts.push([x0 + (ex - x0) * t + (-dz / dl) * k, z0 + (ez - z0) * t + (dx / dl) * k]);
+    }
+    waterRibbon(land, pts, width, 0.32);
+    rivers.push(pts);
+  };
+  // hero waterfall: a tall cliff spilling straight into the far shore of the lake
+  const outDir = Math.atan2(lake.z - zC, lake.x) || Math.PI;
+  const hfx = lake.x + Math.cos(outDir) * (lake.r + 11);
+  const hfz = lake.z + Math.sin(outDir) * (lake.r + 11);
+  foams.push(...sakuraFalls(land, rng, hfx, hfz, 21, { x: lake.x, z: lake.z }));
+  // an iconic vermilion torii standing out in the water
+  {
+    const lt = buildTorii(rng); lt.scale.setScalar(1.7);
+    lt.position.set(lake.x - Math.cos(outDir) * lake.r * 0.35, 0.2, lake.z - zC - Math.sin(outDir) * lake.r * 0.35);
+    lt.rotation.y = outDir + Math.PI / 2;
+    g.add(lt);
+  }
+  // a second cliff fall across the valley, feeding a river down to the lake
+  const wf2 = { a: lakeA - 1.15, r: R * 0.74 };
+  const w2x = Math.cos(wf2.a) * wf2.r, w2z = zC + Math.sin(wf2.a) * wf2.r;
+  foams.push(...sakuraFalls(land, rng, w2x, w2z, 15, lake));
+  drainRiver(w2x, w2z, 2.4, 0.05);
+  // a long river arcing across the front-right of the valley (reference's far river)
+  {
+    const pts = [], baseA = lakeA + Math.PI;
+    for (let i = 0; i <= 6; i++) { const t = i / 6, a = baseA - 0.85 + t * 1.7, r = R * (0.5 + 0.34 * Math.sin(t * 3.1)); pts.push([Math.cos(a) * r, zC + Math.sin(a) * r]); }
+    waterRibbon(land, pts, 2.5, 0.3);
+    rivers.push(pts);
+  }
+  // arched foot-bridges across each river
+  for (const pts of rivers) {
+    const mi = Math.floor(pts.length / 2);
+    const ax = pts[mi - 1][0], az = pts[mi - 1][1], bx = pts[mi][0], bz = pts[mi][1];
+    const mx = (ax + bx) / 2, mz = (az + bz) / 2;
+    if (distToIsland(ctx, mx, mz) < clear + 4) continue;
+    const br = buildArchBridge(rng, 7.5, 0xc8402f);
+    br.position.set(mx, land.heightAt(mx, mz) + 0.15, mz - zC);
+    br.rotation.y = Math.atan2(bz - az, bx - ax) + Math.PI / 2;
+    g.add(br);
+  }
+
+  // ---- fallen-petal ground patches ----
+  const petals = outerPoints(ctx, rng, R * 0.92, clear + 2, 14).map(([x, z]) => ({
+    x, y: heightAt(x, z) + 0.08, z: z - zC, rx: -Math.PI / 2, s: 0.7 + rng() * 1.0, ry: rng() * Math.PI,
+  }));
+  outerInstanced(g, new THREE.CircleGeometry(1.4, 8), mat(0xf7d6e2, { side: THREE.DoubleSide }), petals);
+
+  // ---- dense cherry-blossom forest beyond the clearing (the hero greenery) ----
+  const trunkPl = [], canA = [], canB = [], side = [];
+  const pinkA = 0xf2aac8, pinkB = 0xf6b8d2;
+  const addBlossom = (x, z) => {
+    if (distToIsland(ctx, x, z) < clear + 3) return;
+    if (Math.hypot(x - lake.x, z - lake.z) < lake.r + 3) return;
+    if (Math.hypot(x, z - zC) > R * 0.98) return;
+    const s = 1.0 + rng() * 0.95, h = heightAt(x, z), lz = z - zC, ry = rng() * Math.PI;
+    trunkPl.push({ x, y: h + 1.4 * s, z: lz, s, ry });
+    (rng() < 0.5 ? canA : canB).push({ x, y: h + 3.4 * s, z: lz, s, sy: 0.82, ry });
+    const oa = rng() * Math.PI * 2;
+    side.push({ x: x + Math.cos(oa) * 1.2 * s, y: h + 3.0 * s, z: lz + Math.sin(oa) * 1.2 * s, s: s * 0.72, ry });
+  };
+  // an even carpet across the whole valley...
+  for (const [x, z] of outerPoints(ctx, rng, R * 0.97, clear + 4, 240)) addBlossom(x, z);
+  // ...thickened into groves that hug the property and blanket the near hills
+  for (let c = 0; c < 7; c++) {
+    const a = rng() * Math.PI * 2, cr = (flatR + iHalf + 6) + rng() * R * 0.4;
+    const cx = Math.cos(a) * cr, cz = zC + Math.sin(a) * cr, spread = 9 + rng() * 12;
+    for (let i = 0; i < 22; i++) addBlossom(cx + (rng() - 0.5) * 2 * spread, cz + (rng() - 0.5) * 2 * spread);
+  }
+  outerInstanced(g, new THREE.CylinderGeometry(0.22, 0.36, 2.8, 6), mat(0x5a4032), trunkPl);
+  outerInstanced(g, new THREE.SphereGeometry(1.75, 8, 7), mat(pinkA), canA);
+  outerInstanced(g, new THREE.SphereGeometry(1.75, 8, 7), mat(pinkB), canB);
+  outerInstanced(g, new THREE.SphereGeometry(1.15, 7, 6), mat(0xf7c2d8), side);
+
+  // ---- a scatter of deep-green conifers among the blossoms ----
+  const cfTrunk = [], cfCan = [];
+  for (const [x, z] of outerPoints(ctx, rng, R * 0.95, clear + 6, 46)) {
+    const s = 1.4 + rng() * 1.0, h = heightAt(x, z), lz = z - zC, ry = rng() * Math.PI;
+    cfTrunk.push({ x, y: h + 0.6 * s, z: lz, s, ry });
+    cfCan.push({ x, y: h + 2.0 * s, z: lz, s, ry });
+  }
+  outerInstanced(g, new THREE.CylinderGeometry(0.14, 0.24, 1.2, 6), mat(P.woodDark), cfTrunk);
+  { const im = outerInstanced(g, new THREE.ConeGeometry(1.1, 3.0, 7), mat(0x2f6b46), cfCan); if (im) tagFoliage(im, { autumn: false }); }
+
+  // ---- Japanese structures scattered through the valley ----
+  // hero castle keep on a rise near the back-right rim
+  {
+    const ca = -Math.PI / 2 + 1.05, cr = R * 0.64;
+    const cx = Math.cos(ca) * cr, cz = zC + Math.sin(ca) * cr;
+    const castle = buildJPagoda(rng, 5, 5.4, 0x2f4a55);
+    castle.scale.setScalar(1.5);
+    castle.position.set(cx, heightAt(cx, cz), cz - zC);
+    castle.rotation.y = rng() * Math.PI;
+    g.add(castle);
+  }
+  for (let i = 0; i < 2; i++) {
+    const p = outerPoint(ctx, rng, R * 0.8, clear + 8); if (!p) continue;
+    const pg = buildJPagoda(rng, 3, 3.4, rng() < 0.5 ? 0xc8402f : 0x3a4a55);
+    pg.position.set(p[0], heightAt(p[0], p[1]), p[1] - zC); pg.rotation.y = rng() * Math.PI; g.add(pg);
+  }
+  for (let i = 0; i < 4; i++) {
+    const p = outerPoint(ctx, rng, R * 0.85, clear + 6); if (!p) continue;
+    const h = buildJHouse(rng);
+    h.position.set(p[0], heightAt(p[0], p[1]), p[1] - zC); h.rotation.y = rng() * Math.PI * 2; g.add(h);
+  }
+  for (let i = 0; i < 3; i++) {
+    const p = outerPoint(ctx, rng, R * 0.82, clear + 5); if (!p) continue;
+    const t = buildTorii(rng);
+    t.position.set(p[0], heightAt(p[0], p[1]), p[1] - zC); t.rotation.y = rng() * Math.PI; g.add(t);
+  }
+  for (const [x, z] of outerPoints(ctx, rng, R * 0.9, clear + 4, 9)) {
+    const l = buildStoneLantern();
+    l.position.set(x, heightAt(x, z), z - zC); l.rotation.y = rng() * Math.PI; g.add(l);
+  }
+
+  // ---- floating sky islets drifting above the valley ----
+  const skyIsles = [];
+  for (let i = 0; i < 3; i++) {
+    const a = rng() * Math.PI * 2, r = R * (0.62 + rng() * 0.28);
+    const isl = buildSkyIsland(rng, 3.5 + rng() * 2.2);
+    isl.position.set(Math.cos(a) * r, 32 + rng() * 22, zC + Math.sin(a) * r);
+    g.add(isl);
+    skyIsles.push({ isl, baseY: isl.position.y, ph: rng() * 6 });
+  }
+
+  // ---- stone paths + open-ground rocks/bushes near the clearing ----
+  windingStrip(land, rng, { color: 0x9a9694, width: 1.0, startR: outerSize(ctx, 0.55), angle: rng() * Math.PI * 2 });
+  windingStrip(land, rng, { color: 0x9a9694, width: 0.9, startR: outerSize(ctx, 0.5), angle: rng() * Math.PI * 2 });
+  const rocks = outerPoints(ctx, rng, R * 0.96, clear + 2, 70).map(([x, z]) => ({
+    x, y: heightAt(x, z) + 0.3, z: z - zC, s: 0.5 + rng() * 1.1, sy: 0.8, ry: rng() * Math.PI * 2,
+  }));
+  outerInstanced(g, new THREE.DodecahedronGeometry(0.75, 0), mat(0x8f8a88), rocks);
+  const bushes = outerPoints(ctx, rng, R * 0.96, clear + 2, 36).map(([x, z]) => ({
+    x, y: heightAt(x, z) + 0.35, z: z - zC, s: 0.6 + rng() * 0.8, sy: 0.7, ry: rng() * Math.PI * 2,
+  }));
+  outerInstanced(g, new THREE.SphereGeometry(0.8, 7, 6), mat(0x4f9a44), bushes);
+
+  // ---- drifting petals + a couple of cranes gliding over the valley ----
+  outerFalling(ctx, land, '255,180,205', 40, { size: 0.34, height: 16, speed: 0.8, sway: 1.3, opacity: 0.85 });
+  circlingBirds(ctx, land, { count: 3, color: 0xf4f4ee, cx: 0, cz: R * 0.2, radius: 14, height: 20, speed: 0.32, size: 0.7 });
+
+  // ---- animate waterfall foam + gently bob the sky islands ----
+  outerAnimate(ctx)((now) => {
+    const t = now * 0.001;
+    for (const fm of foams) { const k = 1 + Math.sin(t * 3.1 + fm.ph) * 0.16; fm.f.scale.set(k, 0.62 * k, k); }
+    for (const si of skyIsles) { si.isl.position.y = si.baseY + Math.sin(t * 0.5 + si.ph) * 1.1; si.isl.rotation.y = t * 0.05 + si.ph; }
+  });
+}
+
+function sakuraOuter_legacy(ctx) {
   const rng = outerRng(ctx);
   const land = outerLandmass(ctx, { color: 0x8cc06d, under: 0x6b5a4c, amp: 2.0 });
   if (!land) return;
