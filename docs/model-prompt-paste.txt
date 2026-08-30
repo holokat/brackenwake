@@ -60,34 +60,37 @@ Produce low-poly game props as **.glb** files for a Three.js farm game. Optimise
     a new material costs an entire draw call. When choosing between "more shape" and
     "one more colour", always take more shape.
 
-**The shared material list — use these names and colours verbatim**
+**The shared material list — use these names and colours verbatim.** This palette is
+deliberately muted and earthy. Nothing in it is bright or vivid; if a colour looks too
+subdued in isolation, that is correct — do not lift it.
 
 | name | hex | use |
 | --- | --- | --- |
-| `farm-wood` | `#A8783F` | planks, posts, beams |
-| `farm-wood-dark` | `#6E4A28` | frames, sills, shadowed timber |
-| `farm-wood-light` | `#D9A45E` | highlight planks, door boards, ladders |
-| `farm-stone` | `#A9A69F` | dressed stone, footings |
-| `farm-rock` | `#7C766C` | rough rock, rubble |
-| `farm-stone-dark` | `#5E5A54` | base courses, stone in shadow |
-| `farm-plaster` | `#EFE7D5` | plaster and painted walls |
-| `farm-trim` | `#F7F1E2` | window frames, edging, light trim |
-| `farm-roof-red` | `#A8382B` | barn-red walls and doors — deep and saturated |
-| `farm-roof-cap` | `#8E2F24` | ridge caps, darker red accents |
-| `farm-roof-slate` | `#2E3439` | slate roofs — near-black charcoal |
-| `farm-metal` | `#8D9299` | hinges, straps, pipes, machinery |
-| `farm-window` | `#1E2529` | glass and dark openings |
-| `farm-gold` | `#E0B23F` | brass, straw bales, finials |
-| `farm-soil` | `#6B4A2A` | tilled earth |
-| `farm-dirt` | `#97653A` | paths, bare ground |
-| `farm-grass` | `#7C9440` | grass and turf — mid olive-green, NOT lime |
-| `farm-leaf` | `#4E8A32` | foliage |
-| `farm-leaf-dark` | `#33632A` | foliage in shadow, mossy earth banks |
-| `farm-water` | `#4FB2D9` | water surfaces |
-| `farm-water-deep` | `#2F7E9E` | deep water |
-| `farm-cloth` | `#E8D3A4` | canvas, awnings, sacks |
-| `farm-thatch` | `#C9A05A` | thatch, straw, hay |
-| `farm-accent-blue` | `#8FC4DA` | ice, cold-store panels, painted accents |
+| `farm-wood-light` | `#AE7745` | boards, planks, doors, ladders |
+| `farm-wood` | `#9D6C3C` | general timber |
+| `farm-wood-dark` | `#8D6333` | barn framing, pillars, outlines, corner posts |
+| `farm-wood-shadow` | `#6B4A28` | deep shadow timber, sills |
+| `farm-stone` | `#7F7463` | dressed stone, footings, foundations |
+| `farm-rock` | `#6B6154` | rough rock, rubble, boulders |
+| `farm-stone-dark` | `#565043` | base courses, stone in shadow |
+| `farm-plaster` | `#A89C8D` | white/pale buildings — a warm grey, NOT white |
+| `farm-trim` | `#C4BAA9` | window frames, edging, light trim |
+| `farm-barn-red` | `#863928` | barn walls and doors — dark brick red-brown |
+| `farm-barn-red-dark` | `#6E2E20` | ridge caps, shadowed red, darker accents |
+| `farm-roof-slate` | `#373737` | slate roofs — neutral dark grey |
+| `farm-metal` | `#717173` | hinges, straps, pipes, machinery, chimneys |
+| `farm-window` | `#2A2A2A` | glass and dark openings |
+| `farm-gold` | `#C29A3E` | brass, straw bales, finials |
+| `farm-grass` | `#66672D` | grass, turf, earth mounds — DARK olive, never lime |
+| `farm-leaf` | `#4F6B2A` | foliage |
+| `farm-leaf-dark` | `#3B5222` | foliage in shadow, moss |
+| `farm-soil` | `#5C4326` | tilled earth |
+| `farm-dirt` | `#8A6E44` | paths, bare ground |
+| `farm-water` | `#4E9DBF` | water surfaces |
+| `farm-water-deep` | `#35708C` | deep water |
+| `farm-cloth` | `#C4B190` | canvas, awnings, sacks |
+| `farm-thatch` | `#B08F4E` | thatch, straw, hay |
+| `farm-accent-blue` | `#7FA8B8` | ice, cold-store panels, painted accents |
 
 
 **Deliver, per model:** the .glb, plus a line stating its triangle count, its mesh
