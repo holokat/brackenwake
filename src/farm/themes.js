@@ -2973,6 +2973,7 @@ function sakRemap(x, zLocal, B) {
 
 function sakuraOuter(ctx) {
   if (!ctx || !ctx.scene || typeof ctx.scene.add !== 'function') return;
+  let bakedBridge = null; // the bridge the fishing rod stands on
   // carry the authored layout onto this tier's footprint before anything reads it
   {
     const B = {
@@ -2985,6 +2986,7 @@ function sakuraOuter(ctx) {
       if (v === 0) { landmarks[k] = { deleted: true }; continue; }
       const [x, z] = sakRemap(v[0], v[2], B);
       landmarks[k] = { x, y: v[1], z, rotY: v[3], scale: v[4] };
+      if (k === 'bridge:0') bakedBridge = [x, v[1], z, v[3], v[4]];
     }
     registerBaseline('sakura', {
       landmarks,
@@ -3135,12 +3137,23 @@ function sakuraOuter(ctx) {
     });
   }
 
-  // ---- the fishing dock sits on the river bank down in the gorge ----
-  if (typeof ctx.setDockSpot === 'function') {
-    const da = -1.75;
-    const bank = at(da, riverD(da) - 9);
-    const wy = land.topY - terr.depthAt(da);
-    ctx.setDockSpot(bank[0], bank[1] + zC, Math.atan2(-(bank[1]), -(bank[0])), wy + 0.55, wy + 0.2);
+  // ---- you fish from a bridge, standing over the gorge river ----
+  // The bank down in the gorge left the rod in the water once the terrain moved,
+  // and a pier makes no sense mid-canyon: the ROD ALONE stands on a bridge deck
+  // and the line drops straight into the river underneath.
+  if (typeof ctx.setDockSpot === 'function' && bakedBridge) {
+    const [bx, by, bz, brot, bscale] = bakedBridge;
+    // the deck timbers sit 1.29 units above the model's base per unit of scale
+    const deckY = land.topY + by + 1.29 * bscale;
+    // stand back along the span so the rod itself lands on the crown of the arch
+    const fwd = { x: Math.cos(brot), z: -Math.sin(brot) }; // rotation.y maps +x to (cos, -sin)
+    const ROD_OFFSET = 9.15; // where the rod sits in the dock group's own space
+    const wy = land.topY - terr.depthAt(Math.atan2(bz, bx));
+    ctx.setDockSpot(
+      bx - fwd.x * ROD_OFFSET, bz + zC - fwd.z * ROD_OFFSET, brot,
+      wy + 0.35, deckY,
+      { rodOnly: true, zoneAtCast: true, zoneR: 9 }, // the river is ~13 wide here
+    );
   }
 
   // ---- fallen-petal patches ----

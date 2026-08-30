@@ -226,6 +226,7 @@ export function buildDock() {
     rod.rotation.z = -0.62;
     rodG.add(rod);
     rodG.position.set(9.15, DECK_Y, 0.3);
+    rodG.name = 'dockRod'; // themes can show the rod alone (e.g. stood on a bridge)
     g.add(rodG);
     // no bobber or line until the player actually casts
     g.userData.idleTackle = [];

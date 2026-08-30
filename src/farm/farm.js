@@ -1601,8 +1601,12 @@ export class Homestead {
     this._placeDock(-this.W / 2 + 1.5, -this.gridHalfZ * 0.4, Math.PI, -1.8);
   }
 
-  _placeDock(x, z, facing, waterY, groundY = 0) {
+  // opts.rodOnly  — hide the pier and stand the rod alone (on a bridge, say)
+  // opts.zoneAtCast — the fishable water is right under the cast, not 15 out
+  // opts.zoneR    — radius of that water
+  _placeDock(x, z, facing, waterY, groundY = 0, opts = {}) {
     const g = this.dockGroup;
+    for (const child of g.children) child.visible = !opts.rodOnly || child.name === 'dockRod';
     this.dockPos = new THREE.Vector3(x, groundY, z);
     g.position.copy(this.dockPos);
     g.rotation.y = facing;
@@ -1616,7 +1620,7 @@ export class Homestead {
     this.dockWaterY = waterY;
     const mid = (g.userData.castPoint || new THREE.Vector3(10.5, 0, 0)).clone().multiplyScalar(0.5);
     mid.applyAxisAngle(new THREE.Vector3(0, 1, 0), facing).add(g.position);
-    this.dockHit.position.set(mid.x, 2, mid.z);
+    this.dockHit.position.set(mid.x, groundY + 2, mid.z); // sit on the deck, not at world y=2
 
     // fish shadows — skinny, forward-swimming, spread across the whole lake
     if (this.fishShadows) for (const fs of this.fishShadows) this.scene.remove(fs.group);
@@ -1625,8 +1629,9 @@ export class Homestead {
     let wdx = cast.x - x, wdz = cast.z - z;
     const wdl = Math.hypot(wdx, wdz) || 1;
     wdx /= wdl; wdz /= wdl;
-    const wcx = cast.x + wdx * 15, wcz = cast.z + wdz * 15;
-    const zoneR = 22;
+    const wcx = opts.zoneAtCast ? cast.x : cast.x + wdx * 15;
+    const wcz = opts.zoneAtCast ? cast.z : cast.z + wdz * 15;
+    const zoneR = opts.zoneR ?? 22;
     // the open water: `r` is the disc deer steer clear of; `waterR` is the actual
     // fishable water radius (where a fish trap may be dropped)
     this.deerWaterZone = { x: wcx, z: wcz, r: zoneR + 6, waterR: zoneR };
@@ -2167,7 +2172,7 @@ export class Homestead {
         topY: this.theme.outerTopY ?? -1.6,
         clearRadius: 14 + this.tier * 10,
         addAnimated: (fn) => this.animatedFns.push(fn),
-        setDockSpot: (x, z, facing, waterY, groundY) => this._placeDock(x, z, facing, waterY, groundY),
+        setDockSpot: (x, z, facing, waterY, groundY, opts) => this._placeDock(x, z, facing, waterY, groundY, opts),
         // themes with sculpted terrain report their ground height so roaming
         // animals walk ON it instead of across a flat plane in mid-air
         setGroundHeight: (fn) => { this.groundHeightAt = fn; },
