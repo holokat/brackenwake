@@ -1,0 +1,118 @@
+STORAGE
+Storage Shed
+Lumber Yard
+Stone Yard
+Granary
+Ice House
+Warehouse
+Refrigerated Warehouse
+
+LIVESTOCK
+Feeding Trough
+Hay Rack
+Sheepfold
+Cow Barn
+Breeding Barn
+
+FIELDS
+Raised Bed
+Field
+Terrace
+Vertical Farm
+
+SOIL
+Compost Pile
+Compost Shed
+Soil Laboratory
+Research Station
+
+WATER
+Sprinkler
+Irrigation Canal
+Water Tower
+
+WORKSHOPS
+Tool Shed
+Millstone
+Bakery Workshop
+Creamery Workshop
+Pottery Workshop
+Fermentation House
+Textile Workshop
+Tannery
+Carpenter Workshop
+Forge
+
+COMMERCE
+Roadside Stand
+Trading Post
+Farmers Market
+General Store
+Shipping Office
+Restaurant
+Export Warehouse
+
+MACHINES
+Harvester
+Combine
+Agricultural Drones
+
+ENERGY
+Campfire
+Generator
+Solar Panels
+Wind Turbine
+Automated Power Station
+
+LANDMARKS
+Clock Tower
+Botanical Garden
+Restored Lighthouse
+Observatory
+
+DECOR
+Birdhouse
+Bench
+Flower Bed
+Wind Chimes
+Bee Hotel
+Bat House
+Barrel
+Hay Bale
+Lantern
+Scarecrow
+Camp Chair
+Picnic Table
+Garden Bench
+Pergola
+Picnic Area
+Campfire Area
+Frog Pond
+Goldfish Pond
+Koi Pond
+Footbridge
+Wooden Bridge
+Stone Bridge
+Hedge
+Stone Wall
+Farm Gate
+Tree Nursery
+Charcoal Kiln
+Outhouse
+Washhouse
+Worker Cabin
+Bunkhouse
+Cottage
+Wildflower Meadow
+Butterfly Garden
+Pollinator Garden
+Wetland
+Rewilded Field
+Forest Reserve
+Wildlife Corridor
+Observation Deck
+Bell Tower
+Sculpture
+Fire Lookout
+Decorative Windmill
+Seasonal Decorations
