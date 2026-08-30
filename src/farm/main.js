@@ -2,8 +2,8 @@ import { Pool, npubToHex } from './pool.js';
 import { Homestead } from './farm.js';
 import { Game, WATER_COOLDOWN_MS } from './game.js';
 import {
-  CROPS, TREES, OBJECTS, ANIMALS, BUILDINGS, RESOURCES, GOODS,
-  reqProgress, reqLabel, findItem, placementZone, PLACE_TIPS, goodCategory,
+  CROPS, TREES, OBJECTS, ANIMALS, BUILDINGS, GOODS,
+  findItem, placementZone, PLACE_TIPS, goodCategory,
 } from './catalog.js';
 import { seasonalDemand } from './seasons.js';
 import { THEMES, getTheme } from './themes.js';
@@ -141,8 +141,6 @@ function infraBlocker(item) {
 }
 
 // engagement mints coins — the social layer feeds the economy
-const COIN_MINT = { 7: 2, 1: 5, 6: 8, 9735: 25 };
-
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
@@ -281,9 +279,7 @@ let farmerPk = null;
 let farmSerial = 0;
 let game = null;
 let farm = null;
-let noteIds = new Set();
-let seenEngage = new Set();
-let backfilled = false;
+let backfilled = false; // farm finished loading — gates first-paint toasts
 let mode = null;              // null | {kind:'plant', type, item}
 let activeTool = 'select';    // select | water | fish
 let activeTab = 'crop';
@@ -298,11 +294,11 @@ try { testMode = localStorage.getItem('nostrux-test') === '1'; } catch {}
 
 const isOwner = () => testMode || (!!myPk && myPk === farmerPk);
 const unlocked = (item) => testMode || game.isUnlocked(item);
-// tiers unlock via engagement OR coins — expansion is never gated on being popular
+// tiers are bought with coins — expansion is pure progression, never social
 const canUpgradeNow = () => {
   const next = game.nextTierDef;
   if (!next) return false;
-  return testMode || game.canUpgrade() || (next.price != null && game.coins >= next.price);
+  return testMode || game.canUpgrade();
 };
 
 function renderTestBtn() {
@@ -589,12 +585,12 @@ function homesteadBookHtml() {
     const reached = lvl >= i + 1;
     const current = lvl === i + 1;
     const isNext = lvl === i;
-    const pct = need > 0 ? Math.round(Math.min(1, game.score / need) * 100) : 100;
+    const pct = need > 0 ? Math.round(Math.min(1, (game.harvested || 0) / need) * 100) : 100;
     const thumb = getThumb('farmhouse' + (i + 1));
     const face = thumb ? `<img src="${thumb}" alt="${esc(name)}"/>` : `<span class="hp-emoji">${['🛖', '🪵', '🏡', '🏠', '🏰'][i]}</span>`;
     const reqText = need === 0 ? 'starter home'
       : current ? 'your home now'
-      : `${need} likes or ${COIN}${price}`;
+      : `${need} harvests or ${COIN}${price}`;
     const canBuy = isNext && isOwner() && game.coins >= price;
     return `<div class="hp-item ${reached ? 'reached' : 'locked'} ${current ? 'current' : ''}">
       <div class="hp-thumb">${face}${reached ? '<span class="hp-badge ok">✓</span>' : current ? '' : '<span class="hp-badge">🔒</span>'}</div>
@@ -615,7 +611,7 @@ function renderMissionBook() {
   const nextThr = FARMHOUSE_THRESHOLDS[lvl] ?? null;
   const prevThr = lvl > 1 ? FARMHOUSE_THRESHOLDS[lvl - 1] : 0;
   const housePct = nextThr != null
-    ? Math.min(100, Math.round(((game.score - prevThr) / (nextThr - prevThr)) * 100))
+    ? Math.min(100, Math.round((((game.harvested || 0) - prevThr) / (nextThr - prevThr)) * 100))
     : 100;
   const bar = (pct) => `<div class="mb-bigbar"><span style="width:${pct}%"></span></div>`;
   // the homestead progression (your-farm info) leads the left page
@@ -977,19 +973,19 @@ function wireFriendClicks() {
 
 // ================= farm scene =================
 
-function farmhouseLevelFor(score) {
+function farmhouseLevelFor(harvested) {
   let level = 1;
   for (let i = 0; i < FARMHOUSE_THRESHOLDS.length; i++) {
-    if (score >= FARMHOUSE_THRESHOLDS[i]) level = i + 1;
+    if (harvested >= FARMHOUSE_THRESHOLDS[i]) level = i + 1;
   }
   return level;
 }
 
-// the home you actually live in: whichever is higher — earned by engagement
-// or bought with coins
+// the home you actually live in: whichever is higher — earned by working the
+// land (lifetime harvest) or bought outright with coins
 function houseLevel(g = game) {
   if (!g) return 1;
-  return Math.max(farmhouseLevelFor(g.score), g.housePurchased || 0);
+  return Math.max(farmhouseLevelFor(g.harvested || 0), g.housePurchased || 0);
 }
 
 function buyHouseUpgrade() {
@@ -1103,20 +1099,12 @@ function syncAllPlots() {
 function loadFarm(pubkey) {
   const serial = ++farmSerial;
   farmerPk = pubkey;
-  noteIds = new Set();
-  seenEngage = new Set();
   backfilled = false;
   setMode(null);
   setTool('select');
   hideActionPop();
   closeMarket();
   game = new Game(pubkey, { readOnly: !isOwner() });
-  if (!game.readOnly && !game.claimedAt) {
-    // the farm's birthday — only engagement from here on counts as resources
-    game.claimedAt = Math.floor(Date.now() / 1000);
-    game.save();
-  }
-  game.setResources(game.effectiveResources({ notes: 0, reactions: 0, replies: 0, reposts: 0, zaps: 0 }));
 
   // TEST MODE: unlimited gold so you can buy/place anything to try mechanics
   if (testMode && !game.readOnly) game.coins = 999_999_999;
@@ -1146,27 +1134,11 @@ function loadFarm(pubkey) {
   showWelcome(welcome);
   pool.wantProfile(pubkey);
   try { localStorage.setItem('nostrux-farmer', pubkey); } catch {}
-  pool.close('notes');
-  pool.close('engage');
   pool.close('farmstate');
-  pool.close('farmzaps');
   pool.close('gifts');
   game.onSaved = () => { schedulePublish(); renderCoins(); };
   renderGiftBtn();
   if (!game.readOnly && game.biome && (game.stats.watered || 0) < 1) setTimeout(startTutorial, 2500);
-
-  // ⚡ zaps on the farm event itself pay coins
-  pool.req('farmzaps', [{ kinds: [9735], '#a': [`30078:${pubkey}:nostrux-farm`] }], (ev) => {
-    if (serial !== farmSerial || game.readOnly) return;
-    if (ev.created_at <= game.zapCursor) return;
-    game.zapCursor = ev.created_at;
-    game.addCoins(50);
-    farm.burstAtPosition(farm.farmhousePos, true);
-    audio.playSfx('handle_coins', 0.6);
-    floatAtCoins(`+50${COIN}`);
-    bigMoment(`⚡ someone zapped your farm! <b>+50${COIN}</b>`);
-    renderCoins();
-  });
 
   // 💝 helping hands from other farmers (kind 21617 gift events)
   pool.req('gifts', [{ kinds: [21617], '#p': [pubkey] }], (ev) => {
@@ -1209,40 +1181,16 @@ function loadFarm(pubkey) {
     }
   });
 
-  const raw = { notes: 0, reactions: 0, replies: 0, reposts: 0, zaps: 0 };
-
-  pool.req('notes', [{ kinds: [1], authors: [pubkey], limit: 60 }], (ev) => {
-    if (serial !== farmSerial) return;
-    if (noteIds.has(ev.id)) return;
-    noteIds.add(ev.id);
-    raw.notes++;
-    onRawResources(raw);
-    if (backfilled) {
-      if (isOwner()) {
-        game.addCoins(3); // posting itself mints coins (DESIGN promise, now real)
-        renderCoins();
-        toast(`🌱 you posted — the farm felt it · +3${COIN}`);
-      }
-      startEngagement(serial, raw);
-    }
-  });
-
-  setTimeout(() => {
-    if (serial !== farmSerial) return;
-    startEngagement(serial, raw);
-  }, 3500);
-
+  // the farm is self-contained: nothing on the network feeds progression, so
+  // once the scene is up we just prime the unlock snapshot
   setTimeout(() => {
     if (serial !== farmSerial) return;
     backfilled = true;
-    if (game.maybeSetBaseline(raw)) {
-      toast('🏡 farm claimed! new engagement + your own work grow everything');
-    }
-    onRawResources(raw);
     game.primeUnlockSnapshot();
+    refreshProgress();
     renderBook();
     renderHud();
-  }, 9000);
+  }, 1200);
 }
 
 let publishTimer = null;
@@ -1269,31 +1217,9 @@ async function publishFarmState() {
   }
 }
 
-function startEngagement(serial, raw) {
-  const ids = [...noteIds];
-  if (!ids.length) return;
-  pool.close('engage');
-  const filter = { kinds: [1, 6, 7, 9735], '#e': ids.slice(0, 200) };
-  if (game.claimedAt) filter.since = game.claimedAt;
-  pool.req('engage', [filter], (ev) => {
-    if (serial !== farmSerial) return;
-    if (seenEngage.has(ev.id)) return;
-    seenEngage.add(ev.id);
-    if (ev.pubkey === farmerPk) return;
-    // hard timestamp gate — pre-claim history never waters the farm
-    if (game.claimedAt && ev.created_at < game.claimedAt) return;
-    if (!ev.tags.some((t) => t[0] === 'e' && noteIds.has(t[1]))) return;
-    if (ev.kind === 7) raw.reactions++;
-    else if (ev.kind === 1) raw.replies++;
-    else if (ev.kind === 6) raw.reposts++;
-    else if (ev.kind === 9735) raw.zaps++;
-    onRawResources(raw);
-    if (backfilled) liveEffect(ev);
-  });
-}
-
-function onRawResources(raw) {
-  game.setResources(game.effectiveResources(raw));
+// call after anything that can raise the farmhouse or unlock an item
+function refreshProgress() {
+  if (!game) return;
   renderResChips();
   uiDirty = true;
   const lvl = houseLevel();
@@ -1319,42 +1245,6 @@ function plantedIndices() {
 }
 
 let lastRainToast = 0;
-function liveEffect(ev) {
-  const kind = ev.kind;
-  const idxs = plantedIndices();
-  const idx = idxs.length ? idxs[Math.floor(Math.random() * idxs.length)] : Math.floor(Math.random() * game.plots.length);
-  if (kind === 7) { farm.waterDropAt(idx); audio.playSfx('water', 0.3); }
-  else if (kind === 1) { farm.butterflyAt(idx); audio.playSfx('flutter', 0.3); }
-  else if (kind === 6) { farm.popAt(idx); audio.playSfx('flip', 0.3); }
-  else if (kind === 9735) { farm.goldBurstAt(idx); audio.playSfx('handle_coins', 0.45); }
-  // name the rain — the social weather should feel like PEOPLE, not physics
-  pool.wantProfile(ev.pubkey);
-  const who = esc(nameOf(ev.pubkey));
-  const cropName = game.plots[idx] ? findItem('crop', game.plots[idx].type)?.name : null;
-  if (kind === 1) {
-    // replies are precious — show the actual words
-    const words = (ev.content || '').replace(/\s+/g, ' ').trim().slice(0, 90);
-    if (words) toast(`💬 <b>${who}</b>: “${esc(words)}”`, true);
-  } else if (kind === 9735) {
-    toast(`⚡ <b>${who}</b> zapped your farm!`, true);
-  } else if (Date.now() - lastRainToast > 8000) {
-    lastRainToast = Date.now();
-    if (kind === 7) toast(`💧 <b>${who}</b>'s like watered ${cropName ? `your ${esc(cropName)}` : 'the farm'}`);
-    else toast(`🔁 <b>${who}</b>'s repost rippled across the farm`);
-  }
-  if (!game.readOnly) {
-    // engagement rains growth on the crops…
-    if (idxs.length) {
-      const lucky = [idxs[Math.floor(Math.random() * idxs.length)]];
-      const changed = applyGrowth(lucky, 2);
-      for (const i of changed.length ? changed : lucky) syncPlot(i);
-    }
-    // …and mints coins
-    const mint = COIN_MINT[kind] || 0;
-    if (mint) { game.addCoins(mint); renderCoins(); floatAtCoins(`+${mint}${COIN}`); }
-  }
-}
-
 // ================= HUD =================
 
 // ---- HUD structure: 5 groups, each with sub-categories (chips row shown only when >1) ----
@@ -1662,11 +1552,6 @@ function renderPowerChip() {
 }
 
 function renderResChips() {
-  const r = game.resources;
-  for (const res of RESOURCES) {
-    const el = $(`#rh-${res.key}`);
-    if (el) el.textContent = r[res.key] || 0;
-  }
   $('#harvest-count').textContent = `🧺 ${game.harvested} harvested · 📦 ${game.inventoryTotal()} stored`;
   renderCoins();
 }
@@ -1880,29 +1765,17 @@ makeOverlayDraggable(document.querySelector('#mission-book .cb-cover'), 'nostrux
   });
   renderLock();
 
-  // hover explainers over each resource plate — what the meter means & does
-  const RES_TIPS = [
-    { l: 4.0, w: 15, t: '<b>🌱 Notes</b><br>The news you publish to nostr. Every note is a seed — the reactions it earns are the weather that grows your whole farm. Share from the ✎ button.' },
-    { l: 20.0, w: 15, t: '<b>💧 Likes</b><br>Each like on your notes falls as rain — it <b>waters a crop</b> (nudging it toward harvest) and mints <b>+2 coins</b>.' },
-    { l: 35.5, w: 15, t: '<b>🦋 Replies</b><br>Conversations flutter in as butterflies — each one <b>grows a crop</b> and mints <b>+5 coins</b>.' },
-    { l: 51.0, w: 14, t: '<b>🔁 Reposts</b><br>A repost ripples across your fields — it <b>grows a crop</b> and mints <b>+8 coins</b>.' },
-    { l: 65.5, w: 14, t: '<b>⚡ Zaps</b><br>A zap strikes like lightning — it <b>grows a crop</b> and mints <b>+25 coins</b>. The most valuable engagement there is.' },
-    { l: 81.0, w: 15, t: '<b>🪙 Coins</b><br>Your farm\'s currency. Earned from engagement and selling goods at the market; spent on seeds, animals, buildings, decor and paths.' },
-  ];
+  // one explainer on the coin purse
   const tip = $('#tooltip');
-  for (const z of RES_TIPS) {
-    const zone = document.createElement('div');
-    zone.style.cssText = `position:absolute;top:0;height:100%;left:${z.l}%;width:${z.w}%;z-index:2;`;
-    zone.addEventListener('mouseenter', () => {
-      tip.innerHTML = z.t;
-      tip.classList.add('show');
-      const r = zone.getBoundingClientRect();
-      tip.style.left = Math.min(r.left, window.innerWidth - tip.offsetWidth - 10) + 'px';
-      tip.style.top = (r.bottom + 8) + 'px';
-    });
-    zone.addEventListener('mouseleave', () => tip.classList.remove('show'));
-    bar.appendChild(zone);
-  }
+  bar.addEventListener('mouseenter', () => {
+    tip.innerHTML = "<b>\ud83e\ude99 Coins</b><br>Your farm's currency. Earned by harvesting, selling at the market, filling orders and completing missions; spent on seeds, animals, buildings, decor, paths and land expansions.";
+    tip.classList.add('show');
+    const r = bar.getBoundingClientRect();
+    tip.style.left = Math.min(r.left, window.innerWidth - tip.offsetWidth - 10) + 'px';
+    tip.style.top = (r.bottom + 8) + 'px';
+  });
+  bar.addEventListener('mouseleave', () => tip.classList.remove('show'));
+
   const applyPos = (p) => {
     bar.style.left = p.x + 'px';
     bar.style.top = p.y + 'px';
@@ -1951,7 +1824,7 @@ function cellForItem(item, kind) {
   // recurring items always show their per-placement price; others show a price
   // or requirement badge only until unlocked
   const showBadge = blocked || (recurring ? price != null : !isUn);
-  const badge = blocked ? '⛔' : (price != null ? `${COIN}${price}` : reqLabel(item.req));
+  const badge = blocked ? '⛔' : (price != null ? `${COIN}${price}` : 'free');
   // can you actually get one right now? drives the affordability dimming
   let canGet;
   if (blocked) canGet = false;
@@ -2208,7 +2081,7 @@ function onSlotClick(kind, id, e) {
       movingEntry = null;
       beginPlacement(kind, id, {});
     } else {
-      toast(`🔒 <b>${esc(item.name)}</b> costs ${item.price}${COIN} each — you have ${game.coins}${item.req ? ` (or earn ${reqLabel(item.req)})` : ''}`, false);
+      toast(`🔒 <b>${esc(item.name)}</b> costs ${item.price}${COIN} each — you have ${game.coins}`, false);
       audio.playSfx('denied', 0.25);
     }
     return;
@@ -2233,13 +2106,11 @@ function onSlotClick(kind, id, e) {
           { label: 'not now', fn: () => {} },
         ]);
       } else {
-        toast(item.req
-          ? `🔒 <b>${item.name}</b> — unlocks free once your notes earn ${reqLabel(item.req)}, or buy it for ${item.price}${COIN} (you have ${game.coins})`
-          : `🔒 <b>${item.name}</b> costs ${item.price}${COIN} — you have ${game.coins}. Earn more by harvesting and selling.`, false);
+        toast(`🔒 <b>${item.name}</b> costs ${item.price}${COIN} — you have ${game.coins}. Earn more by harvesting and selling.`, false);
         audio.playSfx('denied', 0.25);
       }
     } else {
-      toast(`🔒 <b>${item.name}</b> unlocks once your news earns ${reqLabel(item.req)}`, false);
+      toast(`🔒 <b>${item.name}</b> isn't for sale yet`, false);
       audio.playSfx('denied', 0.25);
     }
     return;
@@ -2335,11 +2206,11 @@ function renderBook() {
     '</div>';
 
   if (next) {
-    const p = reqProgress(next.req, game.resources);
+    const p = next.price != null ? Math.min(1, game.coins / next.price) : 1;
     farmHtml += `
       <div class="sb-tier-next" style="margin-top:8px">
         <div class="sb-tier-title">next: <b>${next.name}</b> · ${next.plots} plots</div>
-        <div class="sb-req">earn ${reqLabel(next.req)}${next.price != null ? ` — or buy for ${COIN}${next.price}` : ''}</div>
+        <div class="sb-req">${COIN}${next.price} — ${game.coins >= next.price ? 'ready to build' : `${next.price - game.coins} to go`}</div>
         <span class="sb-bar big"><span style="width:${Math.round(p * 100)}%"></span></span>
         ${canUpgradeNow() && isOwner() ? '<button id="upgrade-btn" class="upgrade">⬆ upgrade the farm!</button>' : ''}
       </div>`;
@@ -3273,14 +3144,12 @@ function doUpgrade() {
   const before = game.tierDef.name;
   const next = game.nextTierDef;
   if (!game.upgrade()) {
-    // engagement gate not met — pay with coins (or test mode)
-    const paid = !testMode && next?.price != null && game.coins >= next.price;
-    if (!paid && !testMode) return;
-    if (paid) game.coins -= next.price;
-    game.tier += 1;
+    if (!testMode) return;
+    game.tier += 1; // test mode expands for free
     game._initPlots();
     game.save();
-    if (paid) toast(`${COIN} paid ${next.price} for the land expansion`);
+  } else {
+    toast(`${COIN} paid ${next.price} for the land expansion`);
   }
   audio.playSfx('pickup', 0.5);
   audio.celebrate();
@@ -3406,6 +3275,7 @@ function harvestOne(index, quiet) {
       ? `🧺 +${total} ${result.item.icon} <b>${esc(result.item.name)}</b> · ⚠️ storage full — ${lost} lost! build a Shed or Barn`
       : `🧺 +${total} ${result.item.icon} <b>${esc(result.item.name)}</b>${bonus ? ` (+${bonus} bonus)` : ''}`, !lost);
   }
+  refreshProgress(); // the farmhouse grows with the lifetime harvest
   return { total, lost, item: result.item, mult };
 }
 
@@ -3810,11 +3680,10 @@ function hudTipHtml(cell) {
     }
     const zoneTip = PLACE_TIPS[placementZone(item.id)];
     if (zoneTip) rows.push(`📍 ${esc(zoneTip)}`);
-    const hasReq = item.req && Object.keys(item.req).length > 0;
     const status = isUn
       ? ''
       : blocked ? `⛔ ${esc(blocked)}`
-      : `🔒 ${hasReq ? `unlock: ${esc(reqLabel(item.req))}` : ''}${item.price != null ? `${hasReq ? ' — or ' : ''}buy for ${COIN}${item.price}` : ''}`;
+      : `🔒 ${item.price != null ? `buy for ${COIN}${item.price}` : 'not for sale'}`;
     return `<span class="tip-name">${item.icon} ${esc(item.name)}</span>${sub ? `<span class="tip-time">${sub}</span>` : ''}` +
       rows.map((r) => `<div class="tip-body">${r}</div>`).join('') +
       (status ? `<div class="tip-body">${status}</div>` : '');

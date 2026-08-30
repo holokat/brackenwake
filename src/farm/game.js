@@ -1,7 +1,8 @@
-// Game state: resources from real nostr engagement, plus the standalone economy —
-// coins, inventory, purchases, and growth points that don't depend on engagement alone.
+// Game state: a self-contained economy — coins, inventory, purchases, and crops
+// that grow with time and care. Nostr supplies identity and the broadcast of
+// this state so other players can visit; it never feeds progression.
 
-import { TIERS, reqMet, findItem, ALL_UNLOCKABLES, GOODS, STARTER_COINS } from './catalog.js';
+import { TIERS, findItem, ALL_UNLOCKABLES, GOODS, STARTER_COINS } from './catalog.js';
 import { seasonAt, temperatureAt, seasonGrowthFactor, SEASONS, SEASON_MS } from './seasons.js';
 
 const SAVE_VERSION = 3;
@@ -14,9 +15,6 @@ export class Game {
   constructor(pubkey, { readOnly = false } = {}) {
     this.pubkey = pubkey;
     this.readOnly = readOnly;
-    this.baseline = null;
-    this.resources = { notes: 0, reactions: 0, replies: 0, reposts: 0, zaps: 0 };
-    this.score = 0;
     this.tier = 1;
     this.plots = [];      // per plot: null | { type, growth, lastWater }
     this.placed = [];     // { uid, kind, type, x, z, rot, opts }
@@ -34,7 +32,6 @@ export class Game {
     this.inventory = {};  // goodId -> count
     this.owned = [];      // item ids bought with coins
     this.jobs = {};       // placedUid -> { recipeId, startedAt, timeMs }
-    this.zapCursor = 0;   // newest farm-zap receipt already credited (unix seconds)
     this.giftCursor = 0;  // newest gift event already applied (unix seconds)
     this.orders = [];     // the order board: { id, customer:{name,pk?}, items:{goodId:n}, reward }
     this.nextOrderAt = 0; // when the next empty order slot refills
@@ -44,7 +41,6 @@ export class Game {
     this.collectionBonuses = []; // collection rows already paid out
     this.housePurchased = 0; // highest farmhouse level bought with coins
     this.house = {}; // cosmetic house customization { roof, wall, ... }
-    this.claimedAt = 0;   // unix seconds; only engagement AFTER this counts
     this.seasonEpoch = 0; // ms anchor for the real-time season clock (0 = unset)
     this.stats = {};      // lifetime action counters (missions)
     this.missionsClaimed = []; // mission ids already rewarded
@@ -54,7 +50,7 @@ export class Game {
     this.load();
     // anchor the season clock once, the first time this farm is ever loaded
     if (!this.seasonEpoch) {
-      this.seasonEpoch = this.savedAt || (this.claimedAt ? this.claimedAt * 1000 : Date.now());
+      this.seasonEpoch = this.savedAt || Date.now();
     }
   }
 
@@ -113,7 +109,6 @@ export class Game {
     this.inventory = data.inventory || {};
     this.owned = data.owned || [];
     this.jobs = data.jobs || {};
-    this.zapCursor = data.zapCursor || 0;
     this.giftCursor = data.giftCursor || 0;
     this.orders = data.orders || [];
     this.nextOrderAt = data.nextOrderAt || 0;
@@ -123,11 +118,9 @@ export class Game {
     this.collectionBonuses = data.collectionBonuses || [];
     this.housePurchased = data.housePurchased || 0;
     this.house = (data.house && typeof data.house === 'object') ? data.house : {};
-    this.claimedAt = data.claimedAt || 0;
     this.seasonEpoch = data.seasonEpoch || 0;
     this.stats = data.stats || {};
     this.missionsClaimed = data.missionsClaimed || [];
-    this.baseline = data.baseline || null;
     this.savedAt = data.savedAt || 0;
   }
 
@@ -142,14 +135,14 @@ export class Game {
       v: SAVE_VERSION, tier: this.tier, plots: this.plots, placed: this.placed,
       harvested: this.harvested, signText: this.signText, signHidden: this.signHidden, houseRot: this.houseRot, houseOffset: this.houseOffset, windmillRot: this.windmillRot, paths: this.paths, fenceHP: this.fenceHP,
       theme: this.theme, biome: this.biome, coins: this.coins, inventory: this.inventory,
-      owned: this.owned, jobs: this.jobs, zapCursor: this.zapCursor, giftCursor: this.giftCursor,
+      owned: this.owned, jobs: this.jobs, giftCursor: this.giftCursor,
       orders: this.orders, nextOrderAt: this.nextOrderAt,
       lastLoginDay: this.lastLoginDay, streak: this.streak,
       discovered: this.discovered, collectionBonuses: this.collectionBonuses,
       housePurchased: this.housePurchased, house: this.house,
-      claimedAt: this.claimedAt, seasonEpoch: this.seasonEpoch,
+      seasonEpoch: this.seasonEpoch,
       stats: this.stats, missionsClaimed: this.missionsClaimed,
-      baseline: this.baseline, savedAt: this.savedAt,
+      savedAt: this.savedAt,
     };
   }
 
@@ -171,41 +164,11 @@ export class Game {
     return true;
   }
 
-  // ---- engagement ----
-
-  static scoreOf(r) {
-    return r.reactions + r.replies * 3 + r.reposts * 4 + r.zaps * 5;
-  }
-
-  setResources(resources) {
-    this.resources = { ...resources };
-    this.score = Game.scoreOf(resources);
-  }
-
-  maybeSetBaseline(rawTotals) {
-    if (this.readOnly || this.baseline) return false;
-    this.baseline = { ...rawTotals };
-    this.save();
-    return true;
-  }
-
-  effectiveResources(raw) {
-    if (this.baseline) {
-      const out = {};
-      for (const k of Object.keys(raw)) out[k] = Math.max(0, (raw[k] || 0) - (this.baseline[k] || 0));
-      return out;
-    }
-    if (this.readOnly) return { ...raw };
-    return { notes: 0, reactions: 0, replies: 0, reposts: 0, zaps: 0 };
-  }
-
   // ---- unlocks & purchases ----
 
   isUnlocked(item) {
     if (this.owned.includes(item.id)) return true;
-    if (item.price === 0) return true;  // starter items are always available
-    if (!item.req) return false;        // merchant exclusives: coins only
-    return reqMet(item.req, this.resources);
+    return item.price === 0; // starter items are free; everything else is bought
   }
 
   canBuy(item) {
@@ -239,11 +202,12 @@ export class Game {
 
   canUpgrade() {
     const next = this.nextTierDef;
-    return next ? reqMet(next.req, this.resources) : false;
+    return !!next && next.price != null && this.coins >= next.price;
   }
 
   upgrade() {
     if (!this.canUpgrade()) return false;
+    this.coins -= this.nextTierDef.price;
     this.tier += 1;
     this._initPlots();
     this.save();

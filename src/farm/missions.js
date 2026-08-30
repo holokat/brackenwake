@@ -6,8 +6,6 @@
 
 import { FARMHOUSE_THRESHOLDS } from './buildings.js';
 
-const res = (key) => (g) => g.resources?.[key] || 0;
-
 // Each chapter is authored as its own array so the phase boundaries stay
 // correct no matter how many missions we add — MISSION_PHASES is derived
 // from the block sizes below, never hand-numbered.
@@ -41,14 +39,14 @@ const CH1 = [
 
 const CH2 = [
   // ---- Chapter 2 · A Working Homestead: rhythm + social loop ----
-  { id: 'likes10', icon: '❤️', title: 'Earn 10 likes on your news', desc: 'Reactions rain growth onto your plots.', statFn: res('reactions'), target: 10, reward: 40 },
+  { id: 'water40', icon: '💧', title: 'Water crops 40 times', desc: 'Steady care is what makes a field thrive.', stat: 'watered', target: 40, reward: 40 },
   { id: 'plant20', icon: '🌱', title: 'Plant 20 crops', stat: 'planted', target: 20, reward: 35 },
   { id: 'water25', icon: '💧', title: 'Water 25 times', stat: 'watered', target: 25, reward: 35 },
   { id: 'harvest25', icon: '🧺', title: 'Harvest 25 crops', statFn: (g) => g.harvested, target: 25, reward: 50 },
-  { id: 'replies5', icon: '🦋', title: 'Earn 5 replies to your news', desc: 'Conversations land as butterflies.', statFn: res('replies'), target: 5, reward: 40 },
+  { id: 'plant30', icon: '🌱', title: 'Plant 30 crops', desc: 'Keep every plot working.', stat: 'planted', target: 30, reward: 40 },
   { id: 'animals3', icon: '🐄', title: 'Keep 3 animals', desc: 'A pen with a closed gate keeps them together.', stat: 'animals', target: 3, reward: 40 },
   { id: 'gate1', icon: '🚪', title: 'Close a pen gate', desc: 'Click a pen and shut the gate on its residents.', stat: 'gates', target: 1, reward: 25 },
-  { id: 'reposts5', icon: '🔁', title: 'Earn 5 reposts', desc: 'Reposts ripple across the fields.', statFn: res('reposts'), target: 5, reward: 45 },
+  { id: 'coins250', icon: '💰', title: 'Hold 250 coins at once', desc: 'Savings buy a bigger plot.', statFn: (g) => g.coins, target: 250, reward: 45 },
   { id: 'built5', icon: '🏗️', title: 'Construct 5 buildings', stat: 'built', target: 5, reward: 50 },
   { id: 'sold10', icon: '🪙', title: 'Sell at the market 10 times', stat: 'sold', target: 10, reward: 45 },
   { id: 'orders5', icon: '📋', title: 'Deliver 5 orders', stat: 'orders', target: 5, reward: 60 },
@@ -56,7 +54,7 @@ const CH2 = [
   { id: 'merchant1', icon: '✨', title: 'Buy a merchant exclusive', desc: 'The market sells coin-only rarities.', stat: 'merchant', target: 1, reward: 40 },
   { id: 'fish10', icon: '🎣', title: 'Catch 10 fish', stat: 'fish', target: 10, reward: 60 },
   { id: 'posts3', icon: '📝', title: 'Share news 3 times', stat: 'posts', target: 3, reward: 45 },
-  { id: 'likes25', icon: '❤️', title: 'Earn 25 likes on your news', statFn: res('reactions'), target: 25, reward: 55 },
+  { id: 'water60', icon: '💧', title: 'Water crops 60 times', stat: 'watered', target: 60, reward: 55 },
   { id: 'streak3', icon: '🔥', title: 'Reach a 3-day streak', desc: 'The daily chest grows with every day you return.', statFn: (g) => g.streak, target: 3, reward: 50 },
   { id: 'placed10', icon: '🗺️', title: 'Have 10 things placed at once', statFn: (g) => g.placed.length, target: 10, reward: 45 },
   { id: 'animals5', icon: '🐄', title: 'Keep 5 animals', stat: 'animals', target: 5, reward: 55 },
@@ -72,14 +70,14 @@ const CH2 = [
   { id: 'hunt1', icon: '🏹', title: 'Hunt your first deer', desc: 'Buy a bow, then aim at a deer — get closer for a surer shot.', stat: 'hunted', target: 1, reward: 55 },
   { id: 'sold15', icon: '🪙', title: 'Sell at the market 15 times', stat: 'sold', target: 15, reward: 55 },
   { id: 'built8', icon: '🏗️', title: 'Construct 8 buildings', stat: 'built', target: 8, reward: 65 },
-  { id: 'house2', icon: '🪵', title: 'Grow your home into a Log Cabin', desc: 'Engagement score levels the farmhouse.', statFn: (g) => g.score || 0, target: FARMHOUSE_THRESHOLDS[1], reward: 60 },
+  { id: 'house2', icon: '🪵', title: 'Grow your home into a Log Cabin', desc: 'A steady harvest grows the farmhouse.', statFn: (g) => g.harvested || 0, target: FARMHOUSE_THRESHOLDS[1], reward: 60 },
   { id: 'coins500', icon: '💰', title: 'Hold 500 coins at once', statFn: (g) => g.coins, target: 500, reward: 75 },
 ];
 
 const CH3 = [
   // ---- Chapter 3 · A Thriving Enterprise: depth + mastery ----
-  { id: 'replies10', icon: '🦋', title: 'Earn 10 replies to your news', desc: 'Conversations land as butterflies.', statFn: res('replies'), target: 10, reward: 60 },
-  { id: 'likes50', icon: '❤️', title: 'Earn 50 likes on your news', statFn: res('reactions'), target: 50, reward: 70 },
+  { id: 'plant60', icon: '🌱', title: 'Plant 60 crops', desc: 'A working farm never leaves soil bare.', stat: 'planted', target: 60, reward: 60 },
+  { id: 'water100', icon: '💧', title: 'Water crops 100 times', stat: 'watered', target: 100, reward: 70 },
   { id: 'tier2', icon: '🏡', title: 'Expand to a Medium Plot', desc: 'Farm Book → Your Farm → upgrade.', statFn: (g) => g.tier, target: 2, reward: 100 },
   { id: 'craft10', icon: '🔨', title: 'Craft 10 goods', stat: 'crafted', target: 10, reward: 75 },
   { id: 'upgraded1', icon: '⬆️', title: 'Upgrade an infrastructure piece', desc: 'Many buildings upgrade in place — click one.', stat: 'upgraded', target: 1, reward: 60 },
@@ -88,7 +86,7 @@ const CH3 = [
   { id: 'sold25', icon: '🪙', title: 'Sell at the market 25 times', stat: 'sold', target: 25, reward: 80 },
   { id: 'harvest100', icon: '🧺', title: 'Harvest 100 crops', statFn: (g) => g.harvested, target: 100, reward: 120 },
   { id: 'golden1', icon: '✨', title: 'Reap a GOLDEN harvest', desc: 'One in a hundred harvests comes up ×5.', stat: 'golden', target: 1, reward: 100 },
-  { id: 'reposts15', icon: '🔁', title: 'Earn 15 reposts', statFn: res('reposts'), target: 15, reward: 90 },
+  { id: 'petted10', icon: '🤲', title: 'Pet your animals 10 times', desc: 'A tended animal is a happy one.', stat: 'petted', target: 10, reward: 90 },
   { id: 'rare1', icon: '🐠', title: 'Catch a rare fish', desc: 'Patience at the dock pays off.', stat: 'rareFish', target: 1, reward: 80 },
   { id: 'fish25', icon: '🎣', title: 'Catch 25 fish', stat: 'fish', target: 25, reward: 90 },
   { id: 'fish35', icon: '🎣', title: 'Catch 35 fish', stat: 'fish', target: 35, reward: 100 },
@@ -100,16 +98,16 @@ const CH3 = [
   { id: 'hunt10', icon: '🦌', title: 'Hunt 10 deer', desc: 'Venison keeps the smokehouse and kitchen busy.', stat: 'hunted', target: 10, reward: 120 },
   { id: 'orders15', icon: '📋', title: 'Deliver 15 orders', stat: 'orders', target: 15, reward: 100 },
   { id: 'posts5', icon: '📝', title: 'Share news 5 times', stat: 'posts', target: 5, reward: 80 },
-  { id: 'zap1', icon: '⚡', title: 'Receive a zap', desc: 'Zaps mint serious coin for the farm.', statFn: res('zaps'), target: 1, reward: 80 },
+  { id: 'chop5', icon: '🪓', title: 'Chop 5 timber pines', desc: 'Wood builds the finer furniture.', stat: 'chopped', target: 5, reward: 80 },
   { id: 'merchant3', icon: '✨', title: 'Buy 3 merchant exclusives', stat: 'merchant', target: 3, reward: 90 },
   { id: 'built12', icon: '🏗️', title: 'Construct 12 buildings', stat: 'built', target: 12, reward: 90 },
   { id: 'streak7', icon: '🔥', title: 'Reach a 7-day streak', statFn: (g) => g.streak, target: 7, reward: 100 },
-  { id: 'likes100', icon: '❤️', title: 'Earn 100 likes on your news', statFn: res('reactions'), target: 100, reward: 110 },
+  { id: 'water175', icon: '💧', title: 'Water crops 175 times', stat: 'watered', target: 175, reward: 110 },
   { id: 'discover25', icon: '📔', title: 'Discover 25 collectibles', statFn: (g) => g.discovered.length, target: 25, reward: 90 },
-  { id: 'replies15', icon: '🦋', title: 'Earn 15 replies to your news', statFn: res('replies'), target: 15, reward: 95 },
+  { id: 'plant100', icon: '🌱', title: 'Plant 100 crops', stat: 'planted', target: 100, reward: 95 },
   { id: 'crafted15', icon: '🔨', title: 'Craft 15 goods', stat: 'crafted', target: 15, reward: 95 },
   { id: 'discover40', icon: '📔', title: 'Discover 40 collectibles', statFn: (g) => g.discovered.length, target: 40, reward: 120 },
-  { id: 'house3', icon: '🏡', title: 'Grow your home into a Cottage', statFn: (g) => g.score || 0, target: FARMHOUSE_THRESHOLDS[2], reward: 100 },
+  { id: 'house3', icon: '🏡', title: 'Grow your home into a Cottage', statFn: (g) => g.harvested || 0, target: FARMHOUSE_THRESHOLDS[2], reward: 100 },
   { id: 'coins2000', icon: '💰', title: 'Hold 2,000 coins at once', statFn: (g) => g.coins, target: 2000, reward: 150 },
 ];
 
@@ -129,11 +127,11 @@ const CH4 = [
   { id: 'collection1', icon: '🏅', title: 'Complete a full collection', desc: 'Any page of the Collection Book, corner to corner.', statFn: (g) => g.collectionBonuses.length, target: 1, reward: 150 },
   { id: 'golden3', icon: '✨', title: 'Reap 3 GOLDEN harvests', stat: 'golden', target: 3, reward: 180 },
   { id: 'posts10', icon: '📝', title: 'Share news 10 times', stat: 'posts', target: 10, reward: 120 },
-  { id: 'likes150', icon: '❤️', title: 'Earn 150 likes on your news', statFn: res('reactions'), target: 150, reward: 160 },
-  { id: 'zaps5', icon: '⚡', title: 'Receive 5 zaps', statFn: res('zaps'), target: 5, reward: 150 },
+  { id: 'water300', icon: '💧', title: 'Water crops 300 times', stat: 'watered', target: 300, reward: 160 },
+  { id: 'chop15', icon: '🪓', title: 'Chop 15 timber pines', stat: 'chopped', target: 15, reward: 150 },
   { id: 'orders25', icon: '📋', title: 'Deliver 25 orders', stat: 'orders', target: 25, reward: 160 },
   { id: 'harvest250', icon: '🧺', title: 'Harvest 250 crops', statFn: (g) => g.harvested, target: 250, reward: 200 },
-  { id: 'zaps10', icon: '⚡', title: 'Receive 10 zaps', statFn: res('zaps'), target: 10, reward: 200 },
+  { id: 'petted30', icon: '🤲', title: 'Pet your animals 30 times', stat: 'petted', target: 30, reward: 200 },
   { id: 'orders30', icon: '📋', title: 'Deliver 30 orders', stat: 'orders', target: 30, reward: 180 },
   { id: 'streak21', icon: '🔥', title: 'Reach a 21-day streak', statFn: (g) => g.streak, target: 21, reward: 250 },
   { id: 'crafted100', icon: '🔨', title: 'Craft 100 goods', stat: 'crafted', target: 100, reward: 250 },
@@ -141,11 +139,11 @@ const CH4 = [
   { id: 'orders40', icon: '📋', title: 'Deliver 40 orders', stat: 'orders', target: 40, reward: 200 },
   { id: 'placed40', icon: '🗺️', title: 'Have 40 things placed at once', statFn: (g) => g.placed.length, target: 40, reward: 150 },
   { id: 'collection3', icon: '🏅', title: 'Complete 3 full collections', statFn: (g) => g.collectionBonuses.length, target: 3, reward: 220 },
-  { id: 'house4', icon: '🏠', title: 'Grow your home into a Farmhouse', statFn: (g) => g.score || 0, target: FARMHOUSE_THRESHOLDS[3], reward: 150 },
+  { id: 'house4', icon: '🏠', title: 'Grow your home into a Farmhouse', statFn: (g) => g.harvested || 0, target: FARMHOUSE_THRESHOLDS[3], reward: 150 },
   { id: 'streak14', icon: '🔥', title: 'Reach a 14-day streak', statFn: (g) => g.streak, target: 14, reward: 200 },
   { id: 'harvest500', icon: '🧺', title: 'Harvest 500 crops', statFn: (g) => g.harvested, target: 500, reward: 250 },
   { id: 'discover70', icon: '📔', title: 'Discover 70 collectibles', statFn: (g) => g.discovered.length, target: 70, reward: 200 },
-  { id: 'zaps15', icon: '⚡', title: 'Receive 15 zaps', statFn: res('zaps'), target: 15, reward: 250 },
+  { id: 'chop30', icon: '🪓', title: 'Chop 30 timber pines', stat: 'chopped', target: 30, reward: 250 },
   { id: 'coins5000', icon: '💰', title: 'Hold 5,000 coins at once', statFn: (g) => g.coins, target: 5000, reward: 250 },
   { id: 'streak30', icon: '🔥', title: 'Reach a 30-day streak', statFn: (g) => g.streak, target: 30, reward: 300 },
   // ---- Master Angler: a long fishing ladder for the dock-dwellers ----
@@ -162,7 +160,7 @@ const CH4 = [
   { id: 'fish300', icon: '🎣', title: 'Catch 300 fish', stat: 'fish', target: 300, reward: 320 },
   { id: 'fish500', icon: '🎣', title: 'Catch 500 fish', stat: 'fish', target: 500, reward: 400 },
   { id: 'anglerlegend', icon: '🎏', title: 'Catch 1,000 fish — Legend of the Lake', desc: 'You have fished for hours, and the water knows your name.', stat: 'fish', target: 1000, reward: 750 },
-  { id: 'house5', icon: '🏰', title: 'Grow your home into the Grand Homestead', statFn: (g) => g.score || 0, target: FARMHOUSE_THRESHOLDS[4], reward: 300 },
+  { id: 'house5', icon: '🏰', title: 'Grow your home into the Grand Homestead', statFn: (g) => g.harvested || 0, target: FARMHOUSE_THRESHOLDS[4], reward: 300 },
 ];
 
 export const MISSIONS = [...CH1, ...CH2, ...CH3, ...CH4];

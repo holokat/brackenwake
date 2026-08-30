@@ -78,40 +78,34 @@ body {
   overflow: hidden; white-space: nowrap; pointer-events: none;
 }
 
-/* the framed resource strip (art: /ui/res-hud.png, 2136x285) — six wooden
-   plates: notes, likes, replies, reposts, zaps, coins. Icons are painted in
-   the art; we only overlay the live numbers in each plate's cream window. */
+/* the coin purse — the farm's only top-bar meter now that progression runs on
+   coins and work rather than nostr engagement */
 #res-hud {
   position: fixed; top: 12px; right: 12px; z-index: 11;
-  width: min(560px, 46vw);
-  aspect-ratio: 2136 / 285;
-  background: url('/ui/res-hud.png') no-repeat center / 100% 100%;
-  filter: drop-shadow(0 3px 8px rgba(40, 25, 8, 0.25));
-  cursor: grab;
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px 5px 8px; border-radius: 999px;
+  background: linear-gradient(#f6e7c4, #e8d3a4);
+  border: 2px solid #8a5f30;
+  box-shadow: 0 3px 8px rgba(40, 25, 8, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  cursor: grab; user-select: none;
+}
+#res-hud::before {
+  content: ''; width: 18px; height: 18px; flex: none;
+  background: url('/ui/coin.png') no-repeat center / contain;
 }
 #res-hud.locked { cursor: default; }
 #res-hud:active:not(.locked) { cursor: grabbing; }
 #res-lock {
-  position: absolute; top: 12%; left: 0.5%;
-  width: 15px; height: 15px; border-radius: 50%;
+  width: 15px; height: 15px; border-radius: 50%; flex: none;
   border: 1px solid rgba(90, 58, 28, 0.6); background: rgba(245, 233, 200, 0.95);
   font-size: 8px; line-height: 1; cursor: pointer; padding: 0;
-  opacity: 0.7; box-shadow: 0 1px 4px rgba(40, 25, 8, 0.35);
+  opacity: 0.55; box-shadow: 0 1px 4px rgba(40, 25, 8, 0.35);
 }
 #res-lock:hover { opacity: 1; border-color: var(--accent); }
 #res-hud .rh {
-  /* cream windows scanned from the art: y 47.4%-80.7%, centered per plate */
-  position: absolute; top: 48.5%; height: 31%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: clamp(8px, 0.85vw, 12px); font-weight: 800;
-  color: #6b4a26; letter-spacing: 0.01em;
+  font-size: clamp(12px, 1.1vw, 15px); font-weight: 800;
+  color: #6b4a26; letter-spacing: 0.01em; min-width: 18px; text-align: center;
 }
-#rh-notes { left: 10.8%; width: 7.2%; }
-#rh-reactions { left: 26.6%; width: 8.0%; }
-#rh-replies { left: 42.7%; width: 7.1%; }
-#rh-reposts { left: 57.9%; width: 6.9%; }
-#rh-zaps { left: 72.2%; width: 7.2%; }
-#coins-val { left: 87.7%; width: 7.0%; }
 
 /* ================= bottom HUD ================= */
 

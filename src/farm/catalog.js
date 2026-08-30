@@ -2,19 +2,11 @@
 // Requirements are cumulative thresholds on real nostr engagement:
 //   notes (🌱 posted), reactions (💧 likes), replies (🦋), reposts (🔁), zaps (⚡).
 
-export const RESOURCES = [
-  { key: 'notes', icon: '🌱', label: 'notes' },
-  { key: 'reactions', icon: '💧', label: 'likes' },
-  { key: 'replies', icon: '🦋', label: 'replies' },
-  { key: 'reposts', icon: '🔁', label: 'reposts' },
-  { key: 'zaps', icon: '⚡', label: 'zaps' },
-];
-
 // growth thresholds: engagement score gained since planting → stage 1..4
 export const GROW_STANDARD = [1, 3, 6, 10];
 export const GROW_PREMIUM = [2, 5, 10, 16];
 
-// price: buy outright with coins (alternative to the engagement req). price 0 = free/starter.
+// price: what the item costs in coins. price 0 = free/starter.
 // yield/sell: harvest units and per-unit sale price. produces: passive good id.
 export const CROPS = [
   // Crops unlock with COINS only — engagement (notes/likes/replies/zaps) never
@@ -33,10 +25,10 @@ export const CROPS = [
 ];
 
 export const TREES = [
-  { id: 'apple', name: 'Apple Tree', icon: '🍎', req: { reactions: 8 }, price: 45, produces: 'apple_fruit' },
-  { id: 'peach', name: 'Peach Tree', icon: '🍑', req: { replies: 5 }, price: 55, produces: 'peach_fruit' },
-  { id: 'avocado', name: 'Avocado Tree', icon: '🥑', req: { reposts: 3 }, price: 65, produces: 'avocado_fruit' },
-  { id: 'cherry', name: 'Cherry Blossom', icon: '🌸', req: { reactions: 25 }, price: 120 },
+  { id: 'apple', name: 'Apple Tree', icon: '🍎', price: 45, produces: 'apple_fruit' },
+  { id: 'peach', name: 'Peach Tree', icon: '🍑', price: 55, produces: 'peach_fruit' },
+  { id: 'avocado', name: 'Avocado Tree', icon: '🥑', price: 65, produces: 'avocado_fruit' },
+  { id: 'cherry', name: 'Cherry Blossom', icon: '🌸', price: 120 },
 ];
 
 export const OBJECTS = [
@@ -45,45 +37,45 @@ export const OBJECTS = [
   // craftable wood furniture — placed for wood, not coins (see cost)
   { id: 'garden_bench', name: 'Garden Bench', icon: '🪑', cost: { wood: 5 } },
   { id: 'picnic_table', name: 'Picnic Table', icon: '🪵', cost: { wood: 8 } },
-  { id: 'barrel', name: 'Barrel', icon: '🛢️', req: { notes: 2 }, price: 10 },
-  { id: 'hay', name: 'Hay Bale', icon: '🌾', req: { reactions: 3 }, price: 15 },
-  { id: 'lantern', name: 'Lantern', icon: '🏮', req: { replies: 2 }, price: 20 },
-  { id: 'scarecrow', name: 'Scarecrow', icon: '🎩', req: { reactions: 5 }, price: 30 },
-  { id: 'beehive', name: 'Beehive', icon: '🐝', req: { reactions: 8 }, price: 45, produces: 'honey' },
-  { id: 'sign', name: 'Custom Sign', icon: '🪧', req: { replies: 4 }, price: 40 },
-  { id: 'goldpond', name: 'Goldfish Pond', icon: '🐟', req: { reactions: 14 }, price: 60 },
-  { id: 'tractor', name: 'Tractor', icon: '🚜', req: { reactions: 15 }, price: 150 },
-  { id: 'koipond', name: 'Koi Pond', icon: '🎏', req: { reactions: 20 }, price: 90 },
+  { id: 'barrel', name: 'Barrel', icon: '🛢️', price: 10 },
+  { id: 'hay', name: 'Hay Bale', icon: '🌾', price: 15 },
+  { id: 'lantern', name: 'Lantern', icon: '🏮', price: 20 },
+  { id: 'scarecrow', name: 'Scarecrow', icon: '🎩', price: 30 },
+  { id: 'beehive', name: 'Beehive', icon: '🐝', price: 45, produces: 'honey' },
+  { id: 'sign', name: 'Custom Sign', icon: '🪧', price: 40 },
+  { id: 'goldpond', name: 'Goldfish Pond', icon: '🐟', price: 60 },
+  { id: 'tractor', name: 'Tractor', icon: '🚜', price: 150 },
+  { id: 'koipond', name: 'Koi Pond', icon: '🎏', price: 90 },
   // fish trap — placed IN water (a lake or stream), passively catches fish
-  { id: 'fish_trap', name: 'Fish Trap', icon: '🪤', req: { reactions: 6 }, price: 55, produces: 'trapped_fish', water: true },
+  { id: 'fish_trap', name: 'Fish Trap', icon: '🪤', price: 55, produces: 'trapped_fish', water: true },
   // campsite decor — the campfire & lantern glow and cast light (day/night later)
-  { id: 'campfire', name: 'Campfire', icon: '🔥', req: { replies: 3 }, price: 40 },
-  { id: 'tent', name: 'Tent', icon: '⛺', req: { reactions: 6 }, price: 60 },
-  { id: 'camp_chair', name: 'Camp Chair', icon: '🪑', req: { notes: 3 }, price: 25 },
-  { id: 'camp_lantern', name: 'Camp Lantern', icon: '🪔', req: { replies: 2 }, price: 30 },
+  { id: 'campfire', name: 'Campfire', icon: '🔥', price: 40 },
+  { id: 'tent', name: 'Tent', icon: '⛺', price: 60 },
+  { id: 'camp_chair', name: 'Camp Chair', icon: '🪑', price: 25 },
+  { id: 'camp_lantern', name: 'Camp Lantern', icon: '🪔', price: 30 },
 ];
 
 export const ANIMALS = [
-  { id: 'bunny', name: 'Bunny', icon: '🐇', req: { reactions: 3 }, price: 20 },
-  { id: 'chicken', name: 'Chicken', icon: '🐔', req: { reactions: 4 }, price: 25, produces: 'egg' },
-  { id: 'duck', name: 'Duck', icon: '🦆', req: { reactions: 5 }, price: 30, produces: 'duck_egg' },
-  { id: 'cat', name: 'Cat', icon: '🐈', req: { replies: 2 }, price: 40 },
-  { id: 'rooster', name: 'Rooster', icon: '🐓', req: { reactions: 6 }, price: 35 },
-  { id: 'dog', name: 'Dog', icon: '🐕', req: { replies: 4 }, price: 50 },
-  { id: 'sheep', name: 'Sheep', icon: '🐑', req: { reactions: 8 }, price: 60, produces: 'wool' },
-  { id: 'goat', name: 'Goat', icon: '🐐', req: { reactions: 10 }, price: 70, produces: 'goat_milk' },
-  { id: 'pig', name: 'Pig', icon: '🐖', req: { reactions: 12 }, price: 80, produces: 'truffle' },
-  { id: 'cow', name: 'Cow', icon: '🐄', req: { reactions: 15 }, price: 100, produces: 'milk' },
-  { id: 'horse', name: 'Horse', icon: '🐴', req: { reactions: 25, zaps: 1 }, price: 200 },
+  { id: 'bunny', name: 'Bunny', icon: '🐇', price: 20 },
+  { id: 'chicken', name: 'Chicken', icon: '🐔', price: 25, produces: 'egg' },
+  { id: 'duck', name: 'Duck', icon: '🦆', price: 30, produces: 'duck_egg' },
+  { id: 'cat', name: 'Cat', icon: '🐈', price: 40 },
+  { id: 'rooster', name: 'Rooster', icon: '🐓', price: 35 },
+  { id: 'dog', name: 'Dog', icon: '🐕', price: 50 },
+  { id: 'sheep', name: 'Sheep', icon: '🐑', price: 60, produces: 'wool' },
+  { id: 'goat', name: 'Goat', icon: '🐐', price: 70, produces: 'goat_milk' },
+  { id: 'pig', name: 'Pig', icon: '🐖', price: 80, produces: 'truffle' },
+  { id: 'cow', name: 'Cow', icon: '🐄', price: 100, produces: 'milk' },
+  { id: 'horse', name: 'Horse', icon: '🐴', price: 200 },
 ];
 
 export const BUILDINGS = [
-  { id: 'enclosure_small', name: 'Small Pen', icon: '🚧', req: { reactions: 4 }, price: 30 },
-  { id: 'silo', name: 'Corn Silo', icon: '🌽', req: { reactions: 8 }, price: 60, effect: { type: 'storage', cap: 60 } },
-  { id: 'barn1', name: 'Small Barn', icon: '🏚️', req: { reactions: 10 }, price: 80, effect: { type: 'storage', cap: 40 } },
-  { id: 'enclosure_large', name: 'Large Pen', icon: '🚜', req: { reactions: 12 }, price: 60 },
-  { id: 'barn2', name: 'Big Barn', icon: '🏠', req: { reactions: 30, replies: 5 }, price: 200, effect: { type: 'storage', cap: 110 } },
-  { id: 'barn3', name: 'Grand Barn', icon: '🏰', req: { reactions: 80, replies: 15, zaps: 2 }, price: 500, effect: { type: 'storage', cap: 220 } },
+  { id: 'enclosure_small', name: 'Small Pen', icon: '🚧', price: 30 },
+  { id: 'silo', name: 'Corn Silo', icon: '🌽', price: 60, effect: { type: 'storage', cap: 60 } },
+  { id: 'barn1', name: 'Small Barn', icon: '🏚️', price: 80, effect: { type: 'storage', cap: 40 } },
+  { id: 'enclosure_large', name: 'Large Pen', icon: '🚜', price: 60 },
+  { id: 'barn2', name: 'Big Barn', icon: '🏠', price: 200, effect: { type: 'storage', cap: 110 } },
+  { id: 'barn3', name: 'Grand Barn', icon: '🏰', price: 500, effect: { type: 'storage', cap: 220 } },
 ];
 
 // sellable goods: crop produce (id = crop id), passive animal/tree goods, fish (from fishing.js)
@@ -159,14 +151,13 @@ export const PLACE_TIPS = {
 // plus a pen, say) so a brand-new player has agency before the first harvest
 export const STARTER_COINS = 120;
 
-// Tier math (from the loop audit's measured rates): an active early player earns
-// ~25-40🪙/min (fishing + first crops + starter animals). Medium at 600🪙 lands as a
-// strong session-one/two goal (~20 min of focused play, or free via engagement).
-// Large at 2500🪙 arrives mid-game once processors multiply value (~80-150🪙/min).
+// Tier math: an active early player earns ~25-40 coins/min (fishing + first
+// crops + starter animals). Coins are now the ONLY path to a bigger plot, so
+// these sit a little under the old prices, which had a free engagement route.
 export const TIERS = [
-  { id: 1, name: 'Small Plot', plots: 12, cols: 4, rows: 3, req: {} },
-  { id: 2, name: 'Medium Plot', plots: 20, cols: 5, rows: 4, req: { reactions: 50, replies: 10 }, price: 600 },
-  { id: 3, name: 'Large Plot', plots: 30, cols: 6, rows: 5, req: { reactions: 200, replies: 50, zaps: 5 }, price: 2500 },
+  { id: 1, name: 'Small Plot', plots: 12, cols: 4, rows: 3 },
+  { id: 2, name: 'Medium Plot', plots: 20, cols: 5, rows: 4, price: 450 },
+  { id: 3, name: 'Large Plot', plots: 30, cols: 6, rows: 5, price: 1800 },
 ];
 
 export function findItem(kind, id) {
@@ -180,18 +171,3 @@ export function findItem(kind, id) {
 
 export const ALL_UNLOCKABLES = () => [...CROPS, ...TREES, ...ANIMALS, ...BUILDINGS, ...OBJECTS];
 
-export function reqMet(req, resources) {
-  return Object.entries(req).every(([k, v]) => (resources[k] || 0) >= v);
-}
-
-export function reqProgress(req, resources) {
-  const parts = Object.entries(req);
-  if (!parts.length) return 1;
-  return Math.min(1, parts.reduce((acc, [k, v]) => Math.min(acc, (resources[k] || 0) / v), Infinity));
-}
-
-export function reqLabel(req) {
-  // spell the resource out — a bare 💧 reads as "water", not "likes"
-  const meta = Object.fromEntries(RESOURCES.map((r) => [r.key, r]));
-  return Object.entries(req).map(([k, v]) => `${v} ${meta[k].icon} ${meta[k].label}`).join(' + ') || 'free';
-}
