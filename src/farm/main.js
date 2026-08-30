@@ -14,6 +14,7 @@ import { getThumb } from './thumbs.js';
 import { preloadModels, glbReady } from './glb_models.js';
 import { preloadLandmarks, landmarkEditor, dumpLandmarks } from './landmarks.js';
 import { treeEditor, dumpTrees, debugPick } from './tree_edit.js';
+import { clearStore, storeSummary } from './scenery_store.js';
 import { preloadAnimalModels, animalModelReady } from './animal_models.js';
 import { SEASON_ICON, SEASON_LABEL } from './seasons.js';
 import { WEATHER_ICON, WEATHER_LABEL } from './weather.js';
@@ -340,8 +341,14 @@ function setSceneEdit(on) {
     : '🛠️ scenery edit off');
 }
 
-document.getElementById('scene-edit-btn')?.addEventListener('click', () => {
+document.getElementById('scene-edit-btn')?.addEventListener('click', (e) => {
   if (!testMode) { toast('scenery editing is test-mode only', false); return; }
+  if (e.shiftKey) { // shift-click discards hand placements for this theme
+    clearStore();
+    buildFarmScene();
+    toast('🛠️ scenery reset to the coded layout');
+    return;
+  }
   setSceneEdit(!sceneEditOn);
 });
 // TEST-ONLY: wipe this farm back to the very start — nothing planted, no
@@ -1120,6 +1127,11 @@ function buildFarmScene() {
       edit: (on = true) => (testMode ? treeEditor(farm, on) : 'tree editing is test-mode only'),
       dump: () => { const d = dumpTrees(); console.log(JSON.stringify(d)); return d; },
       probe: (x, y) => debugPick(farm, x, y),
+    },
+    // hand placements persist per theme; reset falls back to the coded layout
+    scenery: {
+      info: () => storeSummary(),
+      reset: () => { clearStore(); buildFarmScene(); return 'scenery reset to the coded layout'; },
     } };
   applySceneEdit(); // editors bind to the current canvas — rebuild them with it
 }

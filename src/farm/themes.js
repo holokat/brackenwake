@@ -3119,12 +3119,12 @@ function sakuraOuter(ctx) {
       alt: rng() < 0.5, oa: rng() * Math.PI * 2,
     });
   };
-  for (const [x, z] of outerPoints(ctx, rng, R * 0.9, 8, 300)) addBlossom(x, z);
+  for (const [x, z] of outerPoints(ctx, rng, R * 0.9, 8, 150)) addBlossom(x, z);
   for (let c = 0; c < 9; c++) {
     const a = rng() * Math.PI * 2, cd = 8 + rng() * 120;
     const [cx, cz0] = at(a, cd);
     const cz = cz0 + zC, spread = 9 + rng() * 13;
-    for (let i = 0; i < 22; i++) addBlossom(cx + (rng() - 0.5) * 2 * spread, cz + (rng() - 0.5) * 2 * spread);
+    for (let i = 0; i < 11; i++) addBlossom(cx + (rng() - 0.5) * 2 * spread, cz + (rng() - 0.5) * 2 * spread);
   }
   blossoms.rebuild();
 

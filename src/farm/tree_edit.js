@@ -9,6 +9,7 @@
 // list, and bake it into the theme.
 
 import * as THREE from 'three';
+import { loadStore, patchStore } from './scenery_store.js';
 
 const fields = [];
 
@@ -21,9 +22,25 @@ export function createTreeField(spec) {
     ...spec,
     trees: [],
     meshes: [],
-    rebuild() { rebuild(field); },
+    hydrated: false,
+    rebuild() {
+      // the first build swaps in a hand-arranged forest if one was saved, so a
+      // reload (or a code edit) doesn't wipe out what you placed
+      if (!field.hydrated) {
+        field.hydrated = true;
+        const saved = (loadStore().trees || {})[field.name];
+        if (Array.isArray(saved) && saved.length) field.trees = saved.map((t) => ({ ...t }));
+      }
+      rebuild(field);
+    },
     add(t) { field.trees.push(t); },
     removeAt(i) { field.trees.splice(i, 1); },
+    save() {
+      patchStore((store) => {
+        store.trees = store.trees || {};
+        store.trees[field.name] = field.trees;
+      });
+    },
   };
   fields.push(field);
   return field;
@@ -194,7 +211,7 @@ export function treeEditor(farm, on = true) {
   const onDown = (e) => {
     const hit = pick(e);
     if (!hit) return;
-    e.stopPropagation(); e.preventDefault();
+    e.stopImmediatePropagation(); e.preventDefault();
     sel = hit;
     dragging = true;
     farm.controls.enabled = false;
@@ -204,7 +221,7 @@ export function treeEditor(farm, on = true) {
 
   const onMove = (e) => {
     if (!dragging || !sel) return;
-    e.stopPropagation();
+    e.stopImmediatePropagation();
     const g = groundAt(e, sel.field);
     if (!g) return;
     const t = sel.field.trees[sel.index];
@@ -214,7 +231,11 @@ export function treeEditor(farm, on = true) {
     say(describe());
   };
 
-  const onUp = () => { dragging = false; farm.controls.enabled = true; };
+  const onUp = () => {
+    if (dragging && sel) sel.field.save(); // keep what you just arranged
+    dragging = false;
+    farm.controls.enabled = true;
+  };
 
   let lastPointer = null;
   const trackPointer = (e) => { lastPointer = e; };
@@ -229,9 +250,10 @@ export function treeEditor(farm, on = true) {
       if (!g) return;
       field.add(field.make ? field.make(g.x, g.z, g.y) : { x: g.x, z: g.z, gy: g.y, s: 1.2, ry: Math.random() * Math.PI, alt: Math.random() < 0.5 });
       field.rebuild();
+      field.save();
       sel = { field, index: field.trees.length - 1 };
       showMarker();
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopImmediatePropagation();
       say(describe());
       return;
     }
@@ -242,9 +264,10 @@ export function treeEditor(farm, on = true) {
     if (e.key === 'Delete' || e.key === 'Backspace' || e.key === 'x' || e.key === 'X') {
       sel.field.removeAt(sel.index);
       sel.field.rebuild();
+      sel.field.save();
       sel = null;
       showMarker();
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopImmediatePropagation();
       say('deleted · nothing selected');
       return;
     }
@@ -255,8 +278,9 @@ export function treeEditor(farm, on = true) {
     else if (e.key === 'Escape') { sel = null; showMarker(); say('nothing selected'); return; }
     else used = false;
     if (used) {
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopImmediatePropagation();
       sel.field.rebuild();
+      sel.field.save();
       showMarker();
       say(describe());
     }

@@ -11,6 +11,7 @@ import {
 import { getTheme, tickWater } from './themes.js';
 import { clearLandmarks } from './landmarks.js';
 import { clearTreeFields } from './tree_edit.js';
+import { setSceneryTheme } from './scenery_store.js';
 import { seasonTint, baseTempFor } from './seasons.js';
 import { WeatherMachine } from './weather.js';
 import { ANIMAL_TYPES, ANIMAL_RADIUS, buildAnimal, updateAnimal, soundIntervalMs } from './animals.js';
@@ -2132,6 +2133,8 @@ export class Homestead {
     if (!this.theme.buildOuterZone) return;
     // rebuilding the farm throws the old scene away wholesale, so drop the
     // landmark registry with it — otherwise every rebuild stacks another copy
+    // hand-placed scenery is stored per theme
+    setSceneryTheme(this.theme.id);
     clearLandmarks();
     clearTreeFields();
     const rng = mulberry32(4242);

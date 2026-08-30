@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { loadStore, patchStore } from './scenery_store.js';
 
 const SOURCES = {
   castle: '/models/japanese-castle.glb',
@@ -21,6 +22,7 @@ const loader = new GLTFLoader();
 const cache = {};   // id -> { scene, size, center }
 const waiting = {}; // id -> [fn]
 const placed = [];  // every landmark in the scene, for the placement editor
+const seq = {};     // per-id counter, so each placement gets a stable key
 
 function measure(scene) {
   const box = new THREE.Box3().setFromObject(scene);
@@ -84,16 +86,28 @@ function fill(holder, id, opts) {
 // group right away; the model appears inside it once loaded.
 //   opts: { height | width | span | scale, rotY, castShadow }
 export function placeLandmark(parent, id, x, y, z, opts = {}) {
+  // a stable identity for this placement: the Nth landmark of this kind. The
+  // theme places them in a deterministic order, so the key survives rebuilds.
+  const n = seq[id] = (seq[id] || 0) + 1;
+  const key = `${id}:${n - 1}`;
+  const saved = (loadStore().landmarks || {})[key];
   const holder = new THREE.Group();
-  holder.position.set(x, y, z);
-  holder.rotation.y = opts.rotY || 0;
+  holder.userData.key = key;
+  if (saved) {
+    holder.position.set(saved.x, saved.y, saved.z);
+    holder.rotation.y = saved.rotY || 0;
+    opts = { ...opts, scale: saved.scale, height: undefined, width: undefined, span: undefined };
+  } else {
+    holder.position.set(x, y, z);
+    holder.rotation.y = opts.rotY || 0;
+  }
   parent.add(holder);
   if (cache[id]) fill(holder, id, opts);
   else {
     (waiting[id] = waiting[id] || []).push(() => fill(holder, id, opts));
     preloadLandmarks();
   }
-  placed.push({ id, holder, opts });
+  placed.push({ id, key, holder, opts });
   return holder;
 }
 
@@ -109,7 +123,22 @@ function livePlaced() {
   return placed.filter((p) => isLive(p.holder));
 }
 
-export function clearLandmarks() { placed.length = 0; }
+export function clearLandmarks() {
+  placed.length = 0;
+  for (const k of Object.keys(seq)) delete seq[k];
+}
+
+// remember one landmark's transform so it survives reloads and code edits
+export function saveLandmark(entry) {
+  const h = entry.holder;
+  patchStore((store) => {
+    store.landmarks = store.landmarks || {};
+    store.landmarks[entry.key] = {
+      x: +h.position.x.toFixed(2), y: +h.position.y.toFixed(2), z: +h.position.z.toFixed(2),
+      rotY: +h.rotation.y.toFixed(4), scale: +(h.children[0]?.scale.x ?? 1).toFixed(4),
+    };
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Placement editor — a temporary authoring aid. Turn it on, drag the landmarks
@@ -145,6 +174,10 @@ export function landmarkEditor(farm, on = true) {
   const hitPt = new THREE.Vector3();
   const grabOff = new THREE.Vector3();
   let sel = null, dragging = false;
+  // how far the selected model is lifted off the terrain; dragging keeps this
+  // offset while the ground height under it changes, so a landmark follows the
+  // elevation instead of sliding into a hillside or floating off a terrace
+  let yOff = 0;
   let outline = null;
   const highlight = () => {
     if (outline) { outline.parent?.remove(outline); outline.geometry?.dispose(); outline = null; }
@@ -165,7 +198,8 @@ export function landmarkEditor(farm, on = true) {
     hud.textContent = 'LANDMARK EDITOR\n' +
       'click a model to select · drag to move\n' +
       'SCALE:  -  /  +   (or [ ])\n' +
-      'ROTATE: Q / E     HEIGHT: \u2191 / \u2193\n' +
+      'ROTATE: Q / E     RAISE/LOWER: \u2191 / \u2193\n' +
+      'G = drop flat onto the ground\n' +
       'Tab = next model · hold Shift = fine · Esc = deselect\n' +
       '__nostrux.landmarks.dump() prints placements\n\n' + msg;
   };
@@ -175,6 +209,26 @@ export function landmarkEditor(farm, on = true) {
     const h = sel.holder;
     return `${sel.id}\n  x ${h.position.x.toFixed(1)}  y ${h.position.y.toFixed(1)}  z ${h.position.z.toFixed(1)}` +
       `\n  rotY ${(h.rotation.y * 180 / Math.PI).toFixed(0)}°  scale ${(h.children[0]?.scale.x ?? 1).toFixed(2)}`;
+  };
+
+  // every mesh the terrain is drawn with, so a landmark can sit on it
+  const groundMeshes = () => {
+    const out = [];
+    farm.scene.traverse((o) => { if (o.isMesh && o.userData.ground != null) out.push(o); });
+    return out;
+  };
+
+  // terrain height directly under a point, in the holder's parent space
+  const groundYAt = (holder, lx, lz) => {
+    const from = new THREE.Vector3(lx, 0, lz);
+    holder.parent.localToWorld(from);
+    from.y = 4000;
+    const down = new THREE.Raycaster(from, new THREE.Vector3(0, -1, 0));
+    const hits = down.intersectObjects(groundMeshes(), false);
+    if (!hits.length) return null;
+    const p = hits[0].point.clone();
+    holder.parent.worldToLocal(p);
+    return p.y;
   };
 
   const pick = (e) => {
@@ -193,7 +247,7 @@ export function landmarkEditor(farm, on = true) {
   const onDown = (e) => {
     const hit = pick(e);
     if (!hit) return;
-    e.stopPropagation();
+    e.stopImmediatePropagation(); // don't let the tree editor grab it too
     e.preventDefault();
     sel = hit;
     dragging = true;
@@ -203,12 +257,15 @@ export function landmarkEditor(farm, on = true) {
     sel.holder.getWorldPosition(wp);
     plane.set(new THREE.Vector3(0, 1, 0), -wp.y);
     if (ray.ray.intersectPlane(plane, hitPt)) grabOff.copy(wp).sub(hitPt);
+    // remember how high it currently sits above the ground beneath it
+    const gy = groundYAt(sel.holder, sel.holder.position.x, sel.holder.position.z);
+    yOff = gy == null ? 0 : sel.holder.position.y - gy;
     say(describe());
   };
 
   const onMove = (e) => {
     if (!dragging || !sel) return;
-    e.stopPropagation();
+    e.stopImmediatePropagation();
     const r = dom.getBoundingClientRect();
     ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
     ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
@@ -218,11 +275,18 @@ export function landmarkEditor(farm, on = true) {
     sel.holder.parent.worldToLocal(hitPt);
     sel.holder.position.x = hitPt.x;
     sel.holder.position.z = hitPt.z;
+    // ride the terrain, keeping whatever lift the model already had
+    const gy = groundYAt(sel.holder, hitPt.x, hitPt.z);
+    if (gy != null) sel.holder.position.y = gy + yOff;
     outline?.update();
     say(describe());
   };
 
-  const onUp = () => { dragging = false; farm.controls.enabled = true; };
+  const onUp = () => {
+    if (dragging && sel) saveLandmark(sel); // keep what you just arranged
+    dragging = false;
+    farm.controls.enabled = true;
+  };
 
   const onKey = (e) => {
     if (e.key === 'Tab') {
@@ -235,7 +299,7 @@ export function landmarkEditor(farm, on = true) {
       farm.controls.target.copy(w);
       farm.controls.update();
       highlight();
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopImmediatePropagation();
       say(describe());
       return;
     }
@@ -248,11 +312,15 @@ export function landmarkEditor(farm, on = true) {
     else if ((e.key === '[' || e.key === '-' || e.key === '_') && model) model.scale.multiplyScalar(fine ? 0.99 : 0.93);
     else if ((e.key === ']' || e.key === '+' || e.key === '=') && model) model.scale.multiplyScalar(fine ? 1.01 : 1.075);
 
-    else if (e.key === 'ArrowUp') h.position.y += fine ? 0.2 : 1;
-    else if (e.key === 'ArrowDown') h.position.y -= fine ? 0.2 : 1;
+    else if (e.key === 'ArrowUp') { h.position.y += fine ? 0.2 : 1; yOff += fine ? 0.2 : 1; }
+    else if (e.key === 'ArrowDown') { h.position.y -= fine ? 0.2 : 1; yOff -= fine ? 0.2 : 1; }
+    else if (e.key === 'g' || e.key === 'G') { // snap flat onto the terrain
+      const gy = groundYAt(h, h.position.x, h.position.z);
+      if (gy != null) { h.position.y = gy; yOff = 0; }
+    }
     else if (e.key === 'Escape') { sel = null; highlight(); }
     else used = false;
-    if (used) { e.preventDefault(); e.stopPropagation(); outline?.update(); say(describe()); }
+    if (used) { e.preventDefault(); e.stopImmediatePropagation(); outline?.update(); if (sel) saveLandmark(sel); say(describe()); }
   };
 
   dom.addEventListener('pointerdown', onDown, true);
