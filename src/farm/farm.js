@@ -628,10 +628,27 @@ export class Homestead {
     const c2 = this._folC2 || (this._folC2 = new THREE.Color());
     const snow = this._folSnow || (this._folSnow = new THREE.Color(0xe8eef4));
     const gold = this._folGold || (this._folGold = new THREE.Color(0xb39a4a)); // autumn grass
+    const ice = this._folIce || (this._folIce = new THREE.Color(0xd6e8f0)); // frozen water
     const gc = this._folGC || (this._folGC = new THREE.Color());
     this.scene.traverse((o) => {
       if (o.userData.fallOnly) { o.visible = fall; return; } // seasonal decor (leaf piles, pumpkins)
       if (!o.isMesh || !o.material || !o.material.color) return;
+      // open water freezes over in winter — the whole lake, not just the fishing hole.
+      // the ripple texture would keep it reading as liquid, so drop the map and paint
+      // it a solid pale ice; restore the map (and blue) once winter passes.
+      if (o.userData.water != null) {
+        if (winter) {
+          if (o.userData._wmap === undefined) o.userData._wmap = o.material.map || null;
+          if (o.material.map) { o.material.map = null; o.material.needsUpdate = true; }
+          gc.setHex(o.userData.water).lerp(ice, Math.min(1, 0.6 + sf * 0.6));
+          o.material.color.copy(gc);
+        } else {
+          if (o.userData._wmap) { o.material.map = o.userData._wmap; o.material.needsUpdate = true; }
+          o.userData._wmap = undefined;
+          o.material.color.setHex(o.userData.water);
+        }
+        return;
+      }
       // ground: grass goes golden in fall, whitens across the whole zone in winter
       if (o.userData.ground != null) {
         gc.setHex(o.userData.ground);
@@ -1039,6 +1056,20 @@ export class Homestead {
       const spd = (h.state === 'stalk' || h.state === 'flee') ? h.speed : h.speed * 0.45;
       gp.x += Math.cos(h.heading) * spd * dt;
       gp.z += Math.sin(h.heading) * spd * dt;
+      // predators can't walk on water — if a step lands in the pond, shove it back
+      // to the shore and steer it along the bank instead of straight across
+      const wz = this.deerWaterZone;
+      if (wz) {
+        const wdx = gp.x - wz.x, wdz = gp.z - wz.z;
+        const wd = Math.hypot(wdx, wdz), shore = (wz.waterR || 20) + 2;
+        if (wd < shore) {
+          let nx = wdx / (wd || 1), nz = wdz / (wd || 1);
+          if (wd < 0.001) { nx = 1; nz = 0; } // dead-center: eject along any outward ray
+          gp.x = wz.x + nx * shore;
+          gp.z = wz.z + nz * shore;
+          h.heading = Math.atan2(nz, nx) + (h._bankSide || (h._bankSide = Math.random() < 0.5 ? 1 : -1)) * (Math.PI / 2);
+        }
+      }
       // wolves can't cross an INTACT fence — they prowl the perimeter until it
       // breaks. (Foxes are sneaky and slip through regardless.)
       if (h.type === 'wolf' && this.fence && !this.fenceBroken) {
@@ -1548,9 +1579,10 @@ export class Homestead {
     // a golden coin hovering above the stand, bobbing + slowly spinning
     const coinTex = new THREE.TextureLoader().load('/ui/coin.png');
     coinTex.colorSpace = THREE.SRGBColorSpace;
-    const coin = new THREE.Sprite(new THREE.SpriteMaterial({ map: coinTex, transparent: true, depthWrite: false }));
+    const coin = new THREE.Sprite(new THREE.SpriteMaterial({ map: coinTex, transparent: true, depthWrite: false, depthTest: false }));
     coin.scale.setScalar(2.2);
     coin.position.set(this.marketPos.x, 5.6, this.marketPos.z);
+    coin.renderOrder = 20; // draw last so winter ice/snow overlays never bleed over it
     this.scene.add(coin);
     this.marketCoin = { sprite: coin, baseY: 5.6 };
   }

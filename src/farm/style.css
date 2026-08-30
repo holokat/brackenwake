@@ -294,8 +294,9 @@ body {
 .pager:hover { border-color: var(--accent); }
 
 #hud-subtabs {
-  /* sits just above the tab row of the frame (draggable — grab and move it) */
-  position: absolute; bottom: 82%; left: 50%; transform: translateX(-50%);
+  /* sits just above the tab row of the frame (draggable — grab and move it).
+     z-index keeps it ABOVE the frame, which overlaps it, so its buttons click */
+  position: absolute; z-index: 5; bottom: 82%; left: 50%; transform: translateX(-50%);
   display: flex; gap: 4px; max-width: 88vw; overflow-x: auto;
   background: var(--panel); border: 1px solid var(--line);
   border-radius: 999px; padding: 3px 6px;

@@ -1240,7 +1240,7 @@ function meadowOuter(ctx) {
     if (m) m.castShadow = false;
   }
   const hillsM = outerInstanced(g, rockGeos[1], mat(0x63ab4e), hillPl);
-  if (hillsM) hillsM.castShadow = false;
+  if (hillsM) { hillsM.castShadow = false; hillsM.userData.ground = 0x63ab4e; } // foothills tint golden in fall, snowy in winter
   const snowM = outerInstanced(g, snowGeo, mat(0xf4f8fb), snowPl);
   if (snowM) snowM.castShadow = false;
 
@@ -1256,9 +1256,11 @@ function meadowOuter(ctx) {
 
   const lakeRim = meadowBlobDisc(rng, lake.r * 1.08, 0x9ec7e0);
   lakeRim.position.set(lake.x, 0.16, lake.z - zC);
+  lakeRim.userData.water = 0x9ec7e0;
   g.add(lakeRim);
   const lakeWater = meadowBlobDisc(rng, lake.r, 0xffffff, { map: waterTexture(), roughness: 0.18 });
   lakeWater.position.set(lake.x, 0.3, lake.z - zC);
+  lakeWater.userData.water = 0xffffff; // whole lake freezes over in winter
   g.add(lakeWater);
 
   // ---- two rivers winding from the ring to the lake, waterfall sources ----
