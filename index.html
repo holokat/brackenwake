@@ -44,10 +44,14 @@
   <!-- draggable wooden nameplate (art: /ui/nameplate.png) -->
   <div id="nameplate" title="your homestead"><span id="farm-chip">loading…</span></div>
   <div id="res-hud">
-    <b class="rh" id="coins-val">0</b>
-    <span class="rh-store" id="store-chip" title="stores">
-      <span class="rh-store-txt" id="store-val">0/0</span>
-      <span class="rh-store-bar"><i id="store-fill"></i></span>
+    <span class="rh-seg" id="coin-seg"><i class="rh-ic rh-coin"></i><b class="rh" id="coins-val">0</b></span>
+    <span class="rh-sep"></span>
+    <span class="rh-seg rh-store" id="store-chip">
+      <i class="rh-ic rh-box">📦</i>
+      <span class="rh-store-col">
+        <b class="rh-store-txt" id="store-val">0/0</b>
+        <span class="rh-store-bar"><i id="store-fill"></i></span>
+      </span>
     </span>
     <button id="res-lock" title="unlock to drag the resource bar">🔒</button>
   </div>

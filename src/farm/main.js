@@ -1764,6 +1764,26 @@ function tickUpkeep() {
   } else if (!fading) pathWarned = false;
 }
 
+// Where the storage cap comes from. Summarised in the tooltip; the Stores panel
+// will carry the full per-building list (a tooltip listing every shed would run
+// off the screen once a farm is built out).
+function storageBreakdown() {
+  const base = 50;
+  const house = Math.max(0, houseLevel() - 1) * 30;
+  const byItem = new Map();
+  for (const e of game.placed) {
+    const item = findAnyItem(e.kind, e.type);
+    const cap = item?.effect?.type === 'storage' ? item.effect.cap : 0;
+    if (!cap) continue;
+    const row = byItem.get(e.type) || { name: item.name, cap, count: 0 };
+    row.count += 1;
+    byItem.set(e.type, row);
+  }
+  const rows = [...byItem.values()].sort((a, b) => b.cap * b.count - a.cap * a.count);
+  const fromBuildings = rows.reduce((n, r) => n + r.cap * r.count, 0);
+  return { base, house, rows, fromBuildings, buildings: rows.reduce((n, r) => n + r.count, 0) };
+}
+
 // The stores meter. Storage is the one economy the player could never see —
 // goods were silently dropped on overflow and only announced after the loss.
 let storeWarned = 0;
@@ -1775,9 +1795,7 @@ function renderStoreChip() {
   $('#store-fill').style.width = `${Math.round(frac * 100)}%`;
   el.classList.toggle('warn', frac >= 0.8 && frac < 1);
   el.classList.toggle('full', frac >= 1);
-  el.title = frac >= 1
-    ? 'stores are FULL — anything you harvest now is lost. Sell at the market or build more storage.'
-    : `stores ${Math.round(frac * 100)}% full · room for ${game.storageRoom()} more`;
+  el.removeAttribute('title'); // the rich tooltip below replaces the native one
   // warn once per threshold crossing, not every tick
   const step = frac >= 1 ? 2 : frac >= 0.8 ? 1 : 0;
   if (step > storeWarned) {
@@ -1996,15 +2014,35 @@ makeOverlayDraggable(document.querySelector('#mission-book .cb-cover'), 'nostrux
   });
   renderLock();
 
-  // one explainer on the coin purse
+  // per-segment explainers: coins and stores answer different questions
   const tip = $('#tooltip');
-  bar.addEventListener('mouseenter', () => {
-    tip.innerHTML = "<b>\ud83e\ude99 Coins</b><br>Your farm's currency. Earned by harvesting, selling at the market, filling orders and completing missions; spent on seeds, animals, buildings, decor, paths and land expansions.";
+  const showTip = (html, anchor) => {
+    tip.innerHTML = html;
     tip.classList.add('show');
-    const r = bar.getBoundingClientRect();
+    const r = anchor.getBoundingClientRect();
     tip.style.left = Math.min(r.left, window.innerWidth - tip.offsetWidth - 10) + 'px';
     tip.style.top = (r.bottom + 8) + 'px';
-  });
+  };
+  const coinTip = "<b>Coins</b><br>Earned by harvesting, selling at the market, filling orders "
+    + "and completing missions. Spent on seeds, animals, buildings, tools and land.";
+  const storeTip = () => {
+    const b = storageBreakdown();
+    const used = game.inventoryTotal(), cap = game.storageCap, frac = game.storageFrac();
+    const state = frac >= 1
+      ? '<b style="color:#ff8f7a">FULL — anything you harvest now is lost.</b>'
+      : frac >= 0.8
+        ? `<b style="color:#ffc46b">${Math.round(frac * 100)}% full</b> — room for ${game.storageRoom()} more`
+        : `${Math.round(frac * 100)}% full — room for ${game.storageRoom()} more`;
+    // a summary, not a list: one line per source, buildings collapsed to a count
+    const parts = [`${b.base} base`];
+    if (b.house) parts.push(`${b.house} farmhouse`);
+    if (b.fromBuildings) parts.push(`${b.fromBuildings} from ${b.buildings} building${b.buildings > 1 ? 's' : ''}`);
+    return `<b>Stores</b><br>${used} of ${cap} stored across every good.<br>${state}`
+      + `<br><span style="opacity:.75">Capacity: ${parts.join(' + ')}</span>`;
+  };
+  const coinSeg = $('#coin-seg'), storeSeg = $('#store-chip');
+  coinSeg?.addEventListener('mouseenter', () => showTip(coinTip, coinSeg));
+  storeSeg?.addEventListener('mouseenter', () => showTip(storeTip(), storeSeg));
   bar.addEventListener('mouseleave', () => tip.classList.remove('show'));
 
   const applyPos = (p) => {
