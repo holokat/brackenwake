@@ -3058,34 +3058,69 @@ function sakuraOuter(ctx) {
   { const im = outerInstanced(g, new THREE.ConeGeometry(1.1, 3.0, 7), mat(0x2f6b46), cfCan); if (im) tagFoliage(im, { autumn: false }); }
 
   // ---- Japanese structures scattered through the valley ----
-  // hero castle keep on a rise near the back-right rim
+  // buildings must stand on level ground — a cliff face or terrace step would
+  // leave them tilted into the rock or hanging in the air
+  const levelHere = (x, z, tol = 1.1) => {
+    const h0 = heightAt(x, z);
+    for (const [dx, dz] of [[4, 0], [-4, 0], [0, 4], [0, -4]]) {
+      if (Math.abs(heightAt(x + dx, z + dz) - h0) > tol) return false;
+    }
+    return true;
+  };
+  const levelPoint = (maxR, minD, tries = 30) => {
+    for (let i = 0; i < tries; i++) {
+      const p = outerPoint(ctx, rng, maxR, minD);
+      if (p && levelHere(p[0], p[1])) return p;
+    }
+    return null;
+  };
+  // a spot on the plateau just back from the cliff lip, overlooking the gorge
+  const rimOverlook = (a, back = 14) => {
+    for (let i = 0; i < 8; i++) {
+      const aa = a + (i ? (rng() - 0.5) * 0.5 : 0);
+      const r = terr.rimR(aa) - back;
+      const x = Math.cos(aa) * r, z = zC + Math.sin(aa) * r;
+      if (distToIsland(ctx, x, z) > clear + 6 && levelHere(x, z)) return [x, z, aa];
+    }
+    return null;
+  };
+  // hero castle keep perched on a promontory above the cliff
   {
-    const ca = -Math.PI / 2 + 1.05, cr = R * 0.64;
-    const cx = Math.cos(ca) * cr, cz = zC + Math.sin(ca) * cr;
-    const castle = buildJPagoda(rng, 5, 5.4, 0x2f4a55);
-    castle.scale.setScalar(1.5);
-    castle.position.set(cx, heightAt(cx, cz), cz - zC);
-    castle.rotation.y = rng() * Math.PI;
-    g.add(castle);
+    const spot = rimOverlook(-Math.PI / 2 + 1.0, 18) || levelPoint(R * 0.6, clear + 10);
+    if (spot) {
+      const castle = buildJPagoda(rng, 5, 5.4, 0x2f4a55);
+      castle.scale.setScalar(1.5);
+      castle.position.set(spot[0], heightAt(spot[0], spot[1]), spot[1] - zC);
+      castle.rotation.y = Math.atan2(-spot[1] + zC, -spot[0]); // face the valley
+      g.add(castle);
+    }
   }
-  for (let i = 0; i < 2; i++) {
-    const p = outerPoint(ctx, rng, R * 0.8, clear + 8); if (!p) continue;
+  // two pagodas on the cliff edge, on opposite sides of the farm
+  for (const pa of [spillA + 2.1, spillA - 2.2]) {
+    const spot = rimOverlook(pa, 13);
+    if (!spot) continue;
     const pg = buildJPagoda(rng, 3, 3.4, rng() < 0.5 ? 0xc8402f : 0x3a4a55);
-    pg.position.set(p[0], heightAt(p[0], p[1]), p[1] - zC); pg.rotation.y = rng() * Math.PI; g.add(pg);
+    pg.position.set(spot[0], heightAt(spot[0], spot[1]), spot[1] - zC);
+    pg.rotation.y = Math.atan2(-spot[1] + zC, -spot[0]);
+    g.add(pg);
   }
-  for (let i = 0; i < 4; i++) {
-    const p = outerPoint(ctx, rng, R * 0.85, clear + 6); if (!p) continue;
+  for (let i = 0; i < 5; i++) {
+    const p = levelPoint(R * 0.85, clear + 6); if (!p) continue;
     const h = buildJHouse(rng);
     h.position.set(p[0], heightAt(p[0], p[1]), p[1] - zC); h.rotation.y = rng() * Math.PI * 2; g.add(h);
   }
   for (let i = 0; i < 3; i++) {
-    const p = outerPoint(ctx, rng, R * 0.82, clear + 5); if (!p) continue;
+    const p = levelPoint(R * 0.82, clear + 5); if (!p) continue;
     const t = buildTorii(rng);
     t.position.set(p[0], heightAt(p[0], p[1]), p[1] - zC); t.rotation.y = rng() * Math.PI; g.add(t);
   }
-  for (const [x, z] of outerPoints(ctx, rng, R * 0.9, clear + 4, 9)) {
+  // stone lanterns dotted along the cliff lip, like a path guard rail
+  for (let i = 0; i < 10; i++) {
+    const spot = rimOverlook(rng() * Math.PI * 2, 6 + rng() * 5);
+    if (!spot) continue;
     const l = buildStoneLantern();
-    l.position.set(x, heightAt(x, z), z - zC); l.rotation.y = rng() * Math.PI; g.add(l);
+    l.position.set(spot[0], heightAt(spot[0], spot[1]), spot[1] - zC);
+    l.rotation.y = rng() * Math.PI; g.add(l);
   }
 
   // ---- floating sky islets drifting above the valley ----
