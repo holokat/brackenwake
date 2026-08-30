@@ -2770,18 +2770,21 @@ function sakuraTerraces(ctx, rng, R) {
   // clearing: keep the narrowest point clear of the island + its flat apron
   const flatR = (ctx.clearRadius || 10) + 30;
   const minRim = (ctx.islandW || 30) / 2 + flatR + 10;
-  const rimBase = Math.max(R * 0.46, minRim / 0.90);
-  const rimR = (a) => rimBase * (1 + 0.06 * Math.sin(a * 3 + p1) + 0.04 * Math.cos(a * 5 + p2));
-  const benchR = (a) => Math.max(R * 0.74, rimBase + 60) * (1 + 0.06 * Math.sin(a * 2 + p3) + 0.04 * Math.cos(a * 4 + p1));
-  // a narrow transition band makes the ground drop almost vertically, so the
-  // rock wall reads as a crisp ledge instead of a long muddy ramp
-  return { rimR, benchR, band: 2.5 };
+  const rimBase = Math.max(R * 0.40, minRim);
+  // jitter is biased strictly OUTWARD from the safe minimum, so the rim can
+  // wander a long way without ever cutting into the farm's flat apron
+  const lobe = (a) => 0.5 + 0.28 * Math.sin(a * 2 + p1) + 0.17 * Math.cos(a * 3 + p2) + 0.09 * Math.sin(a * 5 + p3);
+  const rimR = (a) => rimBase * (1 + 0.46 * lobe(a));
+  const benchR = (a) => Math.max(rimR(a) + 55, R * 0.72) * (1 + 0.05 * Math.sin(a * 2 + p3));
+  // the gorge is deep on some sides and only a shallow ledge on others
+  const depthAt = (a) => SAK_CANYON * (0.42 + 0.58 * (0.5 + 0.5 * Math.sin(a * 2 + p2 * 1.7)));
+  return { rimR, benchR, depthAt, band: 2.5 };
 }
 
 function sakuraHeightField(ctx, rng, R, lake, terr) {
   const zC = ctx.zCenter || 0;
   const flatR = (ctx.clearRadius || 10) + 30;
-  const { rimR, benchR, band } = terr;
+  const { rimR, benchR, depthAt, band } = terr;
   const n0 = rng() * 10, n1 = rng() * 10;
   return (x, z) => {
     const d = distToIsland(ctx, x, z);
@@ -2793,7 +2796,8 @@ function sakuraHeightField(ctx, rng, R, lake, terr) {
     const lakeMask = smoothstep(lake.r + 3, lake.r + 13, Math.hypot(x - lake.x, z - lake.z));
     const drop = smoothstep(cr - band, cr + band, rr) * lakeMask;
     const rise = smoothstep(br - band, br + band, rr);
-    let h = -SAK_CANYON * drop + (SAK_CANYON - SAK_BENCH) * rise;
+    const D = depthAt(a);
+    let h = -D * drop + (D - SAK_BENCH) * rise;
     // gentle rolling noise, faded out on the flat plateau and at the transitions
     const rough = Math.min(drop, 1 - drop) * 2 * (1 - rise) + rise * 0.6;
     const n = 0.6 * Math.sin(x * 0.04 + n0) * Math.cos(z * 0.035 + n1) + 0.4 * Math.sin(x * 0.022 + z * 0.027 + n0);
@@ -2804,7 +2808,9 @@ function sakuraHeightField(ctx, rng, R, lake, terr) {
 
 // a jagged rock escarpment following one of the terrace radii; `facing` = 1 for
 // a wall seen from inside (plateau rim), -1 for one seen from the canyon
-function sakuraCliffWall(land, rng, radiusFn, topY, botY, colors, zC) {
+// topFn/botFn take the angle so the wall can follow a gorge whose depth
+// varies around the ring
+function sakuraCliffWall(land, rng, radiusFn, topFn, botFn, colors, zC) {
   const segs = 160;
   const pos = [], idx = [];
   for (let i = 0; i <= segs; i++) {
@@ -2814,7 +2820,7 @@ function sakuraCliffWall(land, rng, radiusFn, topY, botY, colors, zC) {
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     // ragged top lip so the rock never reads as a machined cylinder
     const jit = 0.9 * Math.sin(a * 11 + 1.3) + 0.6 * Math.cos(a * 19 + 0.7);
-    pos.push(x, topY + jit, z, x, botY - 1.5 - Math.abs(jit), z);
+    pos.push(x, topFn(a) + jit, z, x, botFn(a) - 1.5 - Math.abs(jit), z);
   }
   for (let i = 0; i < segs; i++) {
     const t = i * 2;
@@ -2825,18 +2831,18 @@ function sakuraCliffWall(land, rng, radiusFn, topY, botY, colors, zC) {
   geo.setIndex(idx);
   geo.computeVertexNormals();
   const wall = new THREE.Mesh(geo, mat(colors[0], { side: THREE.DoubleSide, flatShading: true }));
-  wall.position.z = -zC + zC; // geometry is already local to the land group
   wall.castShadow = false;
   land.group.add(wall);
-  // strata: a couple of thinner bands in lighter rock stacked down the face
-  const H = topY - botY;
+  // strata: a couple of thinner bands in lighter rock stacked down the face,
+  // each following the wall's own (angle-varying) top and bottom
   for (let b = 0; b < 2; b++) {
-    const bt = topY - H * (0.34 + b * 0.33), bb = bt - H * 0.14;
     const bpos = [], bidx = [];
     for (let i = 0; i <= segs; i++) {
       const a = (i / segs) * Math.PI * 2;
-      const r = radiusFn(a) * 1.006;
+      const r = radiusFn(a) * 1.018;
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      const H = topFn(a) - botFn(a);
+      const bt = topFn(a) - H * (0.34 + b * 0.33), bb = bt - H * 0.14;
       bpos.push(x, bt, z, x, bb, z);
     }
     for (let i = 0; i < segs; i++) { const t = i * 2; bidx.push(t, t + 1, t + 2, t + 1, t + 3, t + 2); }
@@ -2877,8 +2883,8 @@ function sakuraOuter(ctx) {
 
   // ---- the rock escarpments: plateau rim dropping into the canyon, and the
   // canyon's outer wall rising to the bench that carries the mountains ----
-  sakuraCliffWall(land, rng, terr.rimR, 1.2, -SAK_CANYON - 1, [0xb5a68e, 0xc9bba1, 0xa2937c], zC);
-  sakuraCliffWall(land, rng, terr.benchR, -SAK_BENCH + 1.0, -SAK_CANYON - 1, [0xaf9f88, 0xc3b49a, 0x9c8d76], zC);
+  sakuraCliffWall(land, rng, terr.rimR, () => 1.2, (a) => -terr.depthAt(a) - 1, [0xb5a68e, 0xc9bba1, 0xa2937c], zC);
+  sakuraCliffWall(land, rng, terr.benchR, () => -SAK_BENCH + 1.0, (a) => -terr.depthAt(a) - 1, [0xaf9f88, 0xc3b49a, 0x9c8d76], zC);
   // chunky boulders along both lips so the cliff edge has a blocky silhouette
   {
     const rimRocks = [], benchRocks = [];
@@ -2978,15 +2984,15 @@ function sakuraOuter(ctx) {
     }
     waterRibbon(land, pts, 2.4, 0.32);
   }
-  // the hero fall: built up from the canyon floor so its lip meets the plateau
-  foams.push(...sakuraFalls(land, rng, Math.cos(spillA) * (spillR + 5), zC + Math.sin(spillA) * (spillR + 5),
-    SAK_CANYON + 1.5, { x: Math.cos(spillA) * (spillR + 40), z: zC + Math.sin(spillA) * (spillR + 40) }, -SAK_CANYON));
-  // a second fall pouring over the rim on the far side of the valley
-  {
-    const a2 = spillA + Math.PI * (0.75 + rng() * 0.4), r2 = rimAt(a2);
-    foams.push(...sakuraFalls(land, rng, Math.cos(a2) * (r2 + 5), zC + Math.sin(a2) * (r2 + 5),
-      SAK_CANYON + 1.5, { x: Math.cos(a2) * (r2 + 40), z: zC + Math.sin(a2) * (r2 + 40) }, -SAK_CANYON));
-  }
+  // falls are built up from the canyon floor so the lip meets the plateau —
+  // height follows the gorge's local depth at that angle
+  const addRimFall = (a) => {
+    const r = rimAt(a), D = terr.depthAt(a);
+    foams.push(...sakuraFalls(land, rng, Math.cos(a) * (r + 5), zC + Math.sin(a) * (r + 5),
+      D + 1.5, { x: Math.cos(a) * (r + 40), z: zC + Math.sin(a) * (r + 40) }, -D));
+  };
+  addRimFall(spillA);
+  addRimFall(spillA + Math.PI * (0.75 + rng() * 0.4));
   // the canyon river: a long arc winding down the middle of the gorge
   const canyonPts = [];
   {
