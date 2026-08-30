@@ -306,7 +306,44 @@ const canUpgradeNow = () => {
 function renderTestBtn() {
   $('#test-btn').classList.toggle('on', testMode);
   $('#reset-btn').classList.toggle('hidden', !testMode);
+  const se = $('#scene-edit-btn');
+  if (se) {
+    se.classList.toggle('hidden', !testMode);
+    se.classList.toggle('on', sceneEditOn && testMode);
+  }
 }
+
+// ---- TEST-ONLY scenery authoring ----------------------------------------
+// The editors hook the CURRENT farm's canvas, so they have to be rebuilt every
+// time the scene is (theme change, tier upgrade, hot reload). The toggle state
+// is persisted so a reload doesn't silently drop you out of edit mode.
+let sceneEditOn = false;
+try { sceneEditOn = localStorage.getItem('nostrux-scene-edit') === '1'; } catch {}
+
+function applySceneEdit() {
+  if (!farm) return;
+  try { landmarkEditor(farm, false); } catch {}
+  try { treeEditor(farm, false); } catch {}
+  if (sceneEditOn && testMode) {
+    try { landmarkEditor(farm, true); } catch (err) { console.warn('landmark editor', err); }
+    try { treeEditor(farm, true); } catch (err) { console.warn('tree editor', err); }
+  }
+  renderTestBtn();
+}
+
+function setSceneEdit(on) {
+  sceneEditOn = !!on;
+  try { localStorage.setItem('nostrux-scene-edit', sceneEditOn ? '1' : '0'); } catch {}
+  applySceneEdit();
+  toast(sceneEditOn
+    ? '🛠️ scenery edit ON — click a model or tree, drag to move'
+    : '🛠️ scenery edit off');
+}
+
+document.getElementById('scene-edit-btn')?.addEventListener('click', () => {
+  if (!testMode) { toast('scenery editing is test-mode only', false); return; }
+  setSceneEdit(!sceneEditOn);
+});
 // TEST-ONLY: wipe this farm back to the very start — nothing planted, no
 // resources, smallest plot — by clearing its save and reloading fresh
 $('#reset-btn').addEventListener('click', () => {
@@ -1084,6 +1121,7 @@ function buildFarmScene() {
       dump: () => { const d = dumpTrees(); console.log(JSON.stringify(d)); return d; },
       probe: (x, y) => debugPick(farm, x, y),
     } };
+  applySceneEdit(); // editors bind to the current canvas — rebuild them with it
 }
 let builtWithGLBDeer = false;
 

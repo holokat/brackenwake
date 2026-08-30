@@ -126,7 +126,7 @@ export function treeEditor(farm, on = true) {
   };
 
   const hud = document.createElement('div');
-  hud.style.cssText = 'position:fixed;left:12px;bottom:120px;z-index:9999;background:rgba(12,26,14,.88);' +
+  hud.style.cssText = 'position:fixed;left:12px;bottom:300px;z-index:9999;background:rgba(12,26,14,.88);' +
     'color:#dff5d8;font:12px/1.5 ui-monospace,monospace;padding:10px 12px;border-radius:8px;' +
     'border:1px solid #4f9636;max-width:330px;pointer-events:none;white-space:pre-wrap';
   document.body.appendChild(hud);
