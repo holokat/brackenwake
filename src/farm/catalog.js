@@ -121,16 +121,17 @@ export function goodCategory(id) {
 
 // ---- placement zones ------------------------------------------------------
 // Where a thing may be dropped. Default is 'farm' (inside the fenced homestead).
-//   water — must sit in open water (lake): traps, nets, crab pots, piers
-//   tree  — must be next to a tree: sap/resin collectors that tap the trunks
+//   water — must sit in open water (lake): fish traps and the decorative ponds
 //   open  — anywhere in the valley, inside the farm OR out in the wild: the big
-//           landscape power pieces (turbines, solar arrays, power lines)
-const PLACE_WATER = new Set([
-  'fish_trap', 'aqua_fish_trap', 'aqua_net_station', 'aqua_crab_pots',
-  'aqua_oyster_beds', 'aqua_seaweed_farm', 'aqua_fishing_pier',
+//           landscape pieces (turbines, solar arrays, the lighthouse)
+// The 'tree' zone is retired with the sap/resin collectors it existed for.
+const PLACE_WATER = new Set(['fish_trap']);
+const PLACE_TREE = new Set();
+const PLACE_OPEN = new Set([
+  'enr_windturbine', 'enr_solar', 'enr_autopower',
+  'cap_restored_lighthouse', 'cap_observatory', 'eco_forest_reserve',
+  'eco_wetland', 'eco_rewilded_field', 'eco_wildlife_corridor',
 ]);
-const PLACE_TREE = new Set(['for_sap_collector', 'for_resin_collector']);
-const PLACE_OPEN = new Set(['enr_windturbine', 'enr_solar', 'enr_powerlines']);
 
 export function placementZone(id) {
   if (PLACE_WATER.has(id)) return 'water';

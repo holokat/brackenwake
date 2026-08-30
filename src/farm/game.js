@@ -4,12 +4,18 @@
 
 import { TIERS, findItem, ALL_UNLOCKABLES, GOODS, STARTER_COINS } from './catalog.js';
 import { seasonAt, temperatureAt, seasonGrowthFactor, SEASONS, SEASON_MS } from './seasons.js';
+// retired.js is a leaf module (no imports) so this stays cycle-free
+import { liveId } from './retired.js';
 
 const SAVE_VERSION = 3;
 export const WATER_COOLDOWN_MS = 90000;
 // each hand-watering pushes a crop 2 growth points — watering is the core
 // interactive verb, so it should visibly move the plant forward
 export const WATER_GROWTH = 2;
+
+// Building materials keep their own storage pools, separate from produce.
+export const MATERIALS = new Set(['wood', 'stone']);
+export const MATERIAL_BASE_CAP = 150;
 
 export class Game {
   constructor(pubkey, { readOnly = false } = {}) {
@@ -94,7 +100,7 @@ export class Game {
   _absorb(data) {
     this.tier = data.tier || 1;
     this.plots = data.plots || [];
-    this.placed = data.placed || [];
+    this.placed = this._migratePlaced(data.placed || []);
     this.harvested = data.harvested || 0;
     this.signText = data.signText || null;
     this.signHidden = !!data.signHidden;
@@ -107,7 +113,7 @@ export class Game {
     this.biome = data.biome || null;
     this.coins = data.coins ?? STARTER_COINS;
     this.inventory = data.inventory || {};
-    this.owned = data.owned || [];
+    this.owned = [...new Set((data.owned || []).map(liveId))];
     this.jobs = data.jobs || {};
     this.giftCursor = data.giftCursor || 0;
     this.orders = data.orders || [];
@@ -122,6 +128,23 @@ export class Game {
     this.stats = data.stats || {};
     this.missionsClaimed = data.missionsClaimed || [];
     this.savedAt = data.savedAt || 0;
+  }
+
+  // The catalog was cut from 290 infrastructure items to 52 (see
+  // docs/asset-cut-list.txt). Nothing a player built is deleted — every retired
+  // id resolves to the survivor that does the same job, or to the decor piece
+  // with the same silhouette. Runs on every load, so an old save opened months
+  // from now still comes back whole.
+  _migratePlaced(placed) {
+    let changed = 0;
+    const out = placed.map((e) => {
+      const live = liveId(e.type);
+      if (live === e.type) return e;
+      changed++;
+      return { ...e, type: live };
+    });
+    if (changed) this._migrated = changed;
+    return out;
   }
 
   _initPlots() {
@@ -284,8 +307,15 @@ export class Game {
   }
 
   // ---- inventory & market ----
-  // storageCap is per-good and raised by storage infrastructure (main recomputes it)
+  // storageCap covers PRODUCE and goods; raised by storage infrastructure
+  // (main recomputes it). Building materials are deliberately separate — see
+  // MATERIALS below.
   storageCap = 50;
+  // wood and stone are not food. Keeping them in the same pool meant an
+  // afternoon of chopping could push a harvest out of the barn, which reads as
+  // a bug however you explain it. They get their own caps, raised by the
+  // Lumber Yard and Stone Yard.
+  materialCap = { wood: MATERIAL_BASE_CAP, stone: MATERIAL_BASE_CAP };
 
   hasGoods(cost) { return Object.entries(cost || {}).every(([id, n]) => (this.inventory[id] || 0) >= n); }
   spendGoods(cost) {
@@ -299,7 +329,7 @@ export class Game {
   // silo felt pointless.
   addGood(id, n = 1) {
     const have = this.inventory[id] || 0;
-    const add = Math.max(0, Math.min(n, this.storageCap - this.inventoryTotal()));
+    const add = Math.max(0, Math.min(n, this.roomFor(id)));
     if (add > 0) {
       this.inventory[id] = have + add;
       if (!this.discovered.includes(id)) this.discovered.push(id); // collection book
@@ -387,8 +417,27 @@ export class Game {
     return earned;
   }
 
+  // the goods pool — materials are counted separately, so they never eat into it
   inventoryTotal() {
-    return Object.values(this.inventory).reduce((a, b) => a + b, 0);
+    return Object.entries(this.inventory)
+      .reduce((a, [id, n]) => a + (MATERIALS.has(id) ? 0 : n), 0);
+  }
+
+  isMaterial(id) { return MATERIALS.has(id); }
+
+  capFor(id) {
+    return MATERIALS.has(id) ? (this.materialCap[id] || MATERIAL_BASE_CAP) : this.storageCap;
+  }
+
+  roomFor(id) {
+    const used = MATERIALS.has(id) ? (this.inventory[id] || 0) : this.inventoryTotal();
+    return Math.max(0, this.capFor(id) - used);
+  }
+
+  // 0..1 for one material's own pool
+  materialFrac(id) {
+    const cap = this.capFor(id);
+    return cap ? Math.min(1, (this.inventory[id] || 0) / cap) : 0;
   }
 
   // 0..1 — how full the stores are. Drives the HUD meter and the warnings.

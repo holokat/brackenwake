@@ -17,18 +17,24 @@ generator handle the detail.
 
 ================================================================
 STORAGE — 7  (was 14)
-Raises how much you can hold. Two are material-specific now that wood and
-stone are real resources.
+Raises how much you can hold. Wood and stone are NOT in the produce pool at
+all — they have their own caps, so an afternoon of chopping can never push a
+harvest out of the barn. The Lumber Yard and Stone Yard are the only things
+that raise those two.
+
+The cost per stored unit RISES as the rungs climb (1.0 -> 1.8 coins). That is
+deliberate: ground space is the real constraint, so you pay a premium for
+density rather than covering the farm in sheds.
 ================================================================
 
 Storage Shed            60 capacity
     Small timber shed, double braced doors, stone footing, shingle roof.
 
-Lumber Yard             +200 WOOD only
+Lumber Yard             +250 WOOD only
     Open roofed rack, three shelf levels of stacked boards and logs,
     sawhorses, loading deck.
 
-Stone Yard              +200 STONE only
+Stone Yard              +250 STONE only
     Open timber shelter over stacked cut blocks and rubble, wheelbarrow,
     low retaining wall.
 
@@ -36,7 +42,7 @@ Granary                 150 capacity
     Tall narrow grain store raised on staddle stones, ladder up one side,
     small hatch door.
 
-Ice House               130 capacity — perishables keep longer
+Ice House               300 capacity
     Half-buried stone vault set into an earth mound, heavy insulated door,
     roof vent.
 
@@ -125,41 +131,48 @@ Water Tower             waters 12 plots, whole farm
 
 ================================================================
 WORKSHOPS — 10  (was ~37 craft-speed items across six categories)
-Each workshop speeds up ONE FAMILY of recipes, not all crafting. That is
-what makes ten of them worth having: with 104 recipes in the game, a player
-who mostly makes cheese wants a different workshop than one who mostly
-brews. Previously all thirty-seven did the same thing with a bigger number,
-which is why they blurred together.
+Kept at ten, but no longer ten copies of the same number.
+
+The five FOOD workshops each speed ONE RECIPE FAMILY, and between them they
+cover all eight processors. That is what makes owning several a real
+decision: a player who mostly makes cheese wants a different workshop than
+one who mostly brews. Previously all thirty-seven did the same thing with a
+bigger number, which is why they blurred together.
+
+The other four are not food buildings, and doing food-crafting maths in them
+never made sense. They own the MATERIALS side instead — which was the actual
+hole in the economy once wood and stone became real resources. Nothing else
+in the game improved gathering, and nothing specialised an animal.
 ================================================================
 
-Tool Shed               small speed-up to ALL crafting — the starter
+Tool Shed               x1.15 to ALL crafting — the starter
     Lean-to shelter with tools hung on the back wall, a workbench.
 
-Millstone               grain and flour recipes
+Millstone               x1.5 — Grain Mill recipes
     Round millstone in a timber frame, sacks of grain, dusting of flour.
 
-Bakery Workshop         bread, pies and baked goods
+Bakery Workshop         x1.5 — Bakery recipes
     Brick oven with a chimney, peel and loaves on a cooling rack.
 
-Creamery Workshop       milk, butter and cheese
+Creamery Workshop       x1.5 — Creamery + Cheese House
     Cool stone-floored room, churns and stacked cheese wheels.
 
-Pottery Workshop        jars, crocks and preserving vessels
+Pottery Workshop        x1.5 — Preserve Kitchen + Juice Press
     Wheel under an awning, drying racks of pots, small kiln.
 
-Fermentation House      brewing, pickling and curing
+Fermentation House      x1.5 — Smokehouse + Farm Kitchen
     Timber building with barrels stacked on racks, vents in the gable.
 
-Textile Workshop        wool, cloth and dyed goods
+Textile Workshop        x2.6 production from sheep & goats
     Loom under a window, hanging dyed skeins, bales of fleece.
 
-Tannery                 hides and leather goods
+Tannery                 x2.6 production from cows & pigs
     Open-sided shed, stretched hides on frames, soaking vats.
 
-Carpenter Workshop      timber goods and furniture
+Carpenter Workshop      +1 wood from every tree you fell
     Timber-framed shop, saw bench under an awning, stacked planks.
 
-Forge                   tools, metal fittings and machinery parts
+Forge                   +1 stone from every boulder you break
     Stone forge with a tall chimney, anvil, quench barrel, glowing coals.
 
 

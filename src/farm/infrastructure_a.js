@@ -1,918 +1,464 @@
-// Farm infrastructure — categories: water (wat), crop infra (fld), storage (sto),
-// livestock (liv), machinery (mac), transport/logistics (log), energy (enr).
+// infrastructure_a.js — the FUNCTIONAL catalog. 52 items, one per rung.
 // Pure data module — no imports, no logic.
+//
+// Curated down from 290 (see docs/asset-cut-list.txt). The rule that shapes this
+// file: ONE effect lives in ONE category, as a clean ladder with no duplicate and
+// no dominated rungs. Anything that used to duplicate an effect is now decor
+// (infrastructure_b.js) or retired (RETIRED in infrastructure.js).
+//
+// Schema: { id, name, icon, cat, tier, price, cost, needs, upgradesTo, effect, size, biome, desc }
+//   price — coins.  cost — { wood, stone } materials, spent on every placement.
+//
+// Effect ownership:
+//   sto   storage / material_storage
+//   liv   production_mult (all species)
+//   fld   yield_bonus
+//   soil  growth_mult
+//   wat   auto_water
+//   wrk   craft_speed (per recipe family), harvest_bonus, production_mult (one species group)
+//   com   sell_bonus + auto_sell
+//   mac   auto_collect
+//   enr   craft_speed (farm-wide) + power supply
+//   cap   prestige
 
 export const INFRA_A = [
 
   // ============================================================
-  // 1. WATER & IRRIGATION (wat_)
+  // STORAGE (sto_) — 7. How much you can hold.
+  // A deliberate premium per unit as the rungs climb: a Warehouse costs more
+  // per stored good than a shed, and is worth it because ground space is the
+  // real constraint, not coins.
+  // Wood and stone do NOT share the produce pool — they have their own caps,
+  // so a morning of chopping can never crowd out the harvest.
   // ============================================================
   {
-    id: 'wat_handpump', name: 'Hand Pump', icon: '🚰', cat: 'wat', tier: 1, price: 30,
-    needs: [], upgradesTo: 'wat_well',
-    effect: { type: 'water_aura', radius: 10 },
-    size: 'xs', biome: null,
-    desc: 'Ends watering cooldowns on plots close by.',
-  },
-  {
-    id: 'wat_well', name: 'Well', icon: '🕳️', cat: 'wat', tier: 2, price: 120,
-    needs: ['wat_handpump'], upgradesTo: 'wat_deepwell',
-    effect: { type: 'water_aura', radius: 16 },
-    size: 's', biome: null,
-    desc: 'A steady water source — no watering cooldowns nearby.',
-  },
-  {
-    id: 'wat_deepwell', name: 'Deep Well', icon: '⛏️', cat: 'wat', tier: 3, price: 300,
-    needs: ['wat_well'], upgradesTo: 'wat_pumpstation',
-    effect: { type: 'water_aura', radius: 24 },
-    size: 's', biome: null,
-    desc: 'Taps the aquifer to end watering cooldowns over a wide area.',
-  },
-  {
-    id: 'wat_pumpstation', name: 'Pump Station', icon: '🏭', cat: 'wat', tier: 4, price: 800,
-    needs: ['wat_deepwell'], upgradesTo: null,
-    effect: { type: 'water_aura', radius: 36 },
-    size: 'm', biome: null,
-    desc: 'Pressurized mains remove watering cooldowns across the farm.',
-  },
-  {
-    id: 'wat_windpump', name: 'Wind Pump', icon: '🌬️', cat: 'wat', tier: 3, price: 260,
-    needs: ['wat_well'], upgradesTo: null,
-    effect: { type: 'water_aura', radius: 20 },
-    size: 'm', biome: null,
-    desc: 'Wind-driven pumping keeps nearby plots free of watering cooldowns.',
-  },
-  {
-    id: 'wat_barrel', name: 'Water Barrel', icon: '🛢️', cat: 'wat', tier: 1, price: 25,
-    needs: [], upgradesTo: 'wat_tank',
-    effect: { type: 'water_aura', radius: 10 },
-    size: 'xs', biome: null,
-    desc: 'Stored water lets you rewater adjacent plots instantly.',
-  },
-  {
-    id: 'wat_tank', name: 'Water Tank', icon: '🫙', cat: 'wat', tier: 2, price: 140,
-    needs: ['wat_barrel'], upgradesTo: null,
-    effect: { type: 'water_aura', radius: 14 },
-    size: 's', biome: null,
-    desc: 'A bigger reserve — no watering cooldowns around the tank.',
-  },
-  {
-    id: 'wat_rainbarrel', name: 'Rain Barrel', icon: '🌧️', cat: 'wat', tier: 1, price: 40,
-    needs: [], upgradesTo: 'wat_cistern',
-    effect: { type: 'growth_mult', mult: 1.1 },
-    size: 'xs', biome: null,
-    desc: 'Collected rainwater gives all crops a small growth trickle.',
-  },
-  {
-    id: 'wat_cistern', name: 'Cistern', icon: '⚱️', cat: 'wat', tier: 3, price: 240,
-    needs: ['wat_rainbarrel'], upgradesTo: 'wat_reservoir',
-    effect: { type: 'growth_mult', mult: 1.2 },
-    size: 'm', biome: null,
-    desc: 'Underground storage keeps crops everywhere growing faster.',
-  },
-  {
-    id: 'wat_reservoir', name: 'Reservoir', icon: '🏞️', cat: 'wat', tier: 4, price: 900,
-    needs: ['wat_cistern'], upgradesTo: 'wat_aqueduct',
-    effect: { type: 'growth_mult', mult: 1.35 },
-    size: 'l', biome: null,
-    desc: 'A farm-scale water body that boosts growth speed everywhere.',
-  },
-  {
-    id: 'wat_aqueduct', name: 'Aqueduct', icon: '🏛️', cat: 'wat', tier: 5, price: 2200,
-    needs: ['wat_reservoir'], upgradesTo: null,
-    effect: { type: 'growth_mult', mult: 1.6 },
-    size: 'xl', biome: null,
-    desc: 'Monumental waterworks — the whole farm grows dramatically faster.',
-  },
-  {
-    id: 'wat_ditch', name: 'Irrigation Ditch', icon: '〰️', cat: 'wat', tier: 1, price: 35,
-    needs: [], upgradesTo: 'wat_canal',
-    effect: { type: 'water_aura', radius: 12 },
-    size: 's', biome: null,
-    desc: 'A dug channel that ends watering cooldowns along its path.',
-  },
-  {
-    id: 'wat_canal', name: 'Irrigation Canal', icon: '🌊', cat: 'wat', tier: 3, price: 280,
-    needs: ['wat_ditch'], upgradesTo: null,
-    effect: { type: 'auto_water', plots: 4, radius: 20, everyMs: 60000 },
-    size: 'l', biome: null,
-    desc: 'Flowing water automatically grows plots along the canal.',
-  },
-  {
-    id: 'wat_sprinkler', name: 'Sprinkler', icon: '💦', cat: 'wat', tier: 2, price: 110,
-    needs: [], upgradesTo: 'wat_rotarysprinkler',
-    effect: { type: 'auto_water', plots: 2, radius: 8, everyMs: 90000 },
-    size: 'xs', biome: null,
-    desc: 'Periodically waters nearby plots for you.',
-  },
-  {
-    id: 'wat_rotarysprinkler', name: 'Rotary Sprinkler', icon: '🌀', cat: 'wat', tier: 3, price: 320,
-    needs: ['wat_sprinkler'], upgradesTo: 'wat_drip',
-    effect: { type: 'auto_water', plots: 4, radius: 14, everyMs: 60000 },
-    size: 's', biome: null,
-    desc: 'Sweeps a wider circle, auto-watering more plots more often.',
-  },
-  {
-    id: 'wat_drip', name: 'Drip Irrigation', icon: '💧', cat: 'wat', tier: 4, price: 700,
-    needs: ['wat_rotarysprinkler'], upgradesTo: 'wat_watertower',
-    effect: { type: 'auto_water', plots: 7, radius: 18, everyMs: 40000 },
-    size: 'm', biome: null,
-    desc: 'Precise lines feed each plot in range on a fast cycle.',
-  },
-  {
-    id: 'wat_watertower', name: 'Water Tower', icon: '🗼', cat: 'wat', tier: 5, price: 2600,
-    needs: ['wat_drip'], upgradesTo: null,
-    effect: { type: 'auto_water', plots: 12, radius: 99, everyMs: 30000 },
-    size: 'l', biome: null,
-    desc: 'Gravity-fed pressure auto-waters every plot on the farm.',
-  },
-  {
-    id: 'wat_oasispump', name: 'Oasis Pump', icon: '🏜️', cat: 'wat', tier: 3, price: 350,
-    needs: ['wat_well'], upgradesTo: null,
-    effect: { type: 'water_aura', radius: 26 },
-    size: 's', biome: 'desert',
-    desc: 'Desert only — draws oasis water to end nearby watering cooldowns.',
-  },
-  {
-    id: 'wat_meltwater', name: 'Meltwater Collector', icon: '🧊', cat: 'wat', tier: 2, price: 150,
-    needs: [], upgradesTo: null,
-    effect: { type: 'auto_water', plots: 2, radius: 12, everyMs: 75000 },
-    size: 's', biome: 'boreal',
-    desc: 'Boreal only — snowmelt slowly auto-waters surrounding plots.',
-  },
-  {
-    id: 'wat_desalplant', name: 'Desalination Plant', icon: '🏝️', cat: 'wat', tier: 5, price: 3000,
-    needs: ['wat_pumpstation'], upgradesTo: null,
-    effect: { type: 'auto_water', plots: 12, radius: 30, everyMs: 30000 },
-    size: 'l', biome: 'oceanside',
-    desc: 'Oceanside only — turns seawater into rapid automatic irrigation.',
-  },
-
-  // ============================================================
-  // 2. CROP INFRASTRUCTURE (fld_)
-  // ============================================================
-  {
-    id: 'fld_raisedbed', name: 'Raised Bed', icon: '🪴', cat: 'fld', tier: 1, price: 30,
-    needs: [], upgradesTo: 'fld_field',
-    effect: { type: 'yield_bonus', radius: 8, bonus: 1 },
-    size: 'xs', biome: null,
-    desc: 'Rich soil — harvests next to it yield a little extra.',
-  },
-  {
-    id: 'fld_field', name: 'Field', icon: '🌾', cat: 'fld', tier: 2, price: 130,
-    needs: ['fld_raisedbed'], upgradesTo: 'fld_terrace',
-    effect: { type: 'yield_bonus', radius: 14, bonus: 1 },
-    size: 'l', biome: null,
-    desc: 'Open cropland that boosts harvest yields around it.',
-  },
-  {
-    id: 'fld_terrace', name: 'Terrace', icon: '⛰️', cat: 'fld', tier: 3, price: 300,
-    needs: ['fld_field'], upgradesTo: null,
-    effect: { type: 'yield_bonus', radius: 16, bonus: 2 },
-    size: 'l', biome: null,
-    desc: 'Stepped slopes squeeze bigger harvests from nearby plots.',
-  },
-  {
-    id: 'fld_orchard', name: 'Orchard', icon: '🍎', cat: 'fld', tier: 3, price: 350,
-    needs: ['fld_field'], upgradesTo: 'fld_vineyard',
-    effect: { type: 'yield_bonus', radius: 18, bonus: 2 },
-    size: 'xl', biome: null,
-    desc: 'Tree rows shelter surrounding crops into richer harvests.',
-  },
-  {
-    id: 'fld_vineyard', name: 'Vineyard', icon: '🍇', cat: 'fld', tier: 4, price: 750,
-    needs: ['fld_orchard'], upgradesTo: null,
-    effect: { type: 'yield_bonus', radius: 20, bonus: 2 },
-    size: 'l', biome: null,
-    desc: 'Trellised vines lift harvest yields across a wide zone.',
-  },
-  {
-    id: 'fld_greenhouse', name: 'Greenhouse', icon: '🏡', cat: 'fld', tier: 3, price: 400,
-    needs: ['fld_field'], upgradesTo: 'fld_glasshouse',
-    effect: { type: 'growth_mult', mult: 1.25 },
-    size: 'm', biome: null,
-    desc: 'A warm shelter that speeds crop growth farm-wide.',
-  },
-  {
-    id: 'fld_glasshouse', name: 'Glasshouse', icon: '🪟', cat: 'fld', tier: 4, price: 950,
-    needs: ['fld_greenhouse'], upgradesTo: 'fld_hydroponic',
-    effect: { type: 'growth_mult', mult: 1.4 },
-    size: 'l', biome: null,
-    desc: 'Climate-controlled glass pushes growth speed even higher.',
-  },
-  {
-    id: 'fld_hydroponic', name: 'Hydroponic House', icon: '🧪', cat: 'fld', tier: 5, price: 2000,
-    needs: ['fld_glasshouse'], upgradesTo: 'fld_vertical',
-    effect: { type: 'growth_mult', mult: 1.5 },
-    size: 'l', biome: null,
-    desc: 'Soil-free nutrient lines make everything grow much faster.',
-  },
-  {
-    id: 'fld_vertical', name: 'Vertical Farm', icon: '🏢', cat: 'fld', tier: 5, price: 3500,
-    needs: ['fld_hydroponic'], upgradesTo: null,
-    effect: { type: 'yield_bonus', radius: 22, bonus: 3 },
-    size: 'l', biome: null,
-    desc: 'Stacked grow floors add big yields to harvests around it.',
-  },
-  {
-    id: 'fld_nursery', name: 'Nursery', icon: '🌱', cat: 'fld', tier: 2, price: 150,
-    needs: ['fld_raisedbed'], upgradesTo: 'fld_seedhouse',
-    effect: { type: 'growth_mult', mult: 1.15 },
-    size: 's', biome: null,
-    desc: 'Healthy seedlings give all crops a head start.',
-  },
-  {
-    id: 'fld_seedhouse', name: 'Seed House', icon: '🌰', cat: 'fld', tier: 3, price: 280,
-    needs: ['fld_nursery'], upgradesTo: null,
-    effect: { type: 'storage', cap: 150 },
-    size: 's', biome: null,
-    desc: 'Dry, sorted seed racks add inventory space per good.',
-  },
-  {
-    id: 'fld_shadehouse', name: 'Shade House', icon: '⛱️', cat: 'fld', tier: 2, price: 160,
-    needs: [], upgradesTo: null,
-    effect: { type: 'growth_mult', mult: 1.15 },
-    size: 'm', biome: null,
-    desc: 'Filtered light keeps crops comfortable and growing quicker.',
-  },
-  {
-    id: 'fld_mushroomhouse', name: 'Mushroom House', icon: '🍄', cat: 'fld', tier: 3, price: 260,
-    needs: ['fld_nursery'], upgradesTo: null,
-    effect: { type: 'growth_mult', mult: 1.2 },
-    size: 'm', biome: null,
-    desc: 'Damp growing rooms add a steady boost to growth speed.',
-  },
-  {
-    id: 'fld_herbgarden', name: 'Herb Garden', icon: '🌿', cat: 'fld', tier: 1, price: 45,
-    needs: [], upgradesTo: null,
-    effect: { type: 'yield_bonus', radius: 8, bonus: 1 },
-    size: 's', biome: null,
-    desc: 'Companion herbs enrich harvests on neighboring plots.',
-  },
-  {
-    id: 'fld_apiary', name: 'Apiary Field', icon: '🐝', cat: 'fld', tier: 2, price: 170,
-    needs: ['fld_herbgarden'], upgradesTo: null,
-    effect: { type: 'yield_bonus', radius: 24, bonus: 1 },
-    size: 'm', biome: null,
-    desc: 'Pollinating bees raise yields across a wide radius.',
-  },
-  {
-    id: 'fld_netting', name: 'Crop Netting', icon: '🕸️', cat: 'fld', tier: 1, price: 40,
-    needs: [], upgradesTo: null,
-    effect: { type: 'yield_bonus', radius: 10, bonus: 1 },
-    size: 's', biome: null,
-    desc: 'Keeps birds off — protected plots yield a little more.',
-  },
-  {
-    id: 'fld_windbreak', name: 'Windbreak', icon: '🌲', cat: 'fld', tier: 2, price: 100,
-    needs: [], upgradesTo: null,
-    effect: { type: 'growth_mult', mult: 1.1 },
-    size: 'l', biome: null,
-    desc: 'A tree line that shelters crops into slightly faster growth.',
-  },
-
-  // ============================================================
-  // 3. STORAGE (sto_)
-  // ============================================================
-  {
-    id: 'sto_shed', name: 'Storage Shed', icon: '🛖', cat: 'sto', tier: 1, price: 40,
-    needs: [], upgradesTo: 'sto_granary',
-    effect: { type: 'storage', cap: 50 },
-    size: 's', biome: null,
-    desc: 'A simple shed that adds inventory space per good.',
-  },
-  {
-    id: 'sto_granary', name: 'Granary', icon: '🏚️', cat: 'sto', tier: 2, price: 150,
-    needs: ['sto_shed'], upgradesTo: 'sto_storehouse',
-    effect: { type: 'storage', cap: 120 },
-    size: 'm', biome: null,
-    desc: 'Grain-safe storage adds solid capacity to every good.',
-  },
-  {
-    id: 'sto_hayloft', name: 'Hayloft', icon: '🌾', cat: 'sto', tier: 2, price: 120,
-    needs: ['sto_shed'], upgradesTo: null,
-    effect: { type: 'storage', cap: 100 },
-    size: 'm', biome: null,
-    desc: 'An upper loft that adds extra room for your goods.',
-  },
-  {
-    id: 'sto_rootcellar', name: 'Root Cellar', icon: '🥔', cat: 'sto', tier: 1, price: 55,
-    needs: [], upgradesTo: 'sto_icehouse',
+    id: 'sto_shed', name: 'Storage Shed', icon: '🛖', cat: 'sto', tier: 1, price: 60,
+    cost: { wood: 12, stone: 2 }, needs: [], upgradesTo: 'sto_granary',
     effect: { type: 'storage', cap: 60 },
     size: 's', biome: null,
-    desc: 'Cool underground storage adds capacity per good.',
+    desc: 'A braced timber shed — the first real room for a harvest.',
   },
   {
-    id: 'sto_icehouse', name: 'Ice House', icon: '❄️', cat: 'sto', tier: 2, price: 160,
-    needs: ['sto_rootcellar'], upgradesTo: 'sto_coldstorage',
-    effect: { type: 'storage', cap: 130 },
+    id: 'sto_lumberyard', name: 'Lumber Yard', icon: '🪵', cat: 'sto', tier: 2, price: 160,
+    cost: { wood: 25, stone: 8 }, needs: [], upgradesTo: null,
+    effect: { type: 'material_storage', good: 'wood', cap: 250 },
     size: 'm', biome: null,
-    desc: 'Packed ice keeps more of everything in stock.',
+    desc: 'Racked boards and logs. Holds timber only, and holds a lot of it.',
   },
   {
-    id: 'sto_coldstorage', name: 'Cold Storage', icon: '🧊', cat: 'sto', tier: 3, price: 400,
-    needs: ['sto_icehouse'], upgradesTo: 'sto_refwarehouse',
+    id: 'sto_stoneyard', name: 'Stone Yard', icon: '🪨', cat: 'sto', tier: 2, price: 160,
+    cost: { wood: 14, stone: 25 }, needs: [], upgradesTo: null,
+    effect: { type: 'material_storage', good: 'stone', cap: 250 },
+    size: 'm', biome: null,
+    desc: 'Cut blocks stacked under a shelter. Holds stone only.',
+  },
+  {
+    id: 'sto_granary', name: 'Granary', icon: '🏚️', cat: 'sto', tier: 2, price: 220,
+    cost: { wood: 30, stone: 10 }, needs: ['sto_shed'], upgradesTo: 'sto_icehouse',
+    effect: { type: 'storage', cap: 150 },
+    size: 'm', biome: null,
+    desc: 'Raised on staddle stones so nothing gets in but the grain.',
+  },
+  {
+    id: 'sto_icehouse', name: 'Ice House', icon: '❄️', cat: 'sto', tier: 3, price: 520,
+    cost: { wood: 30, stone: 55 }, needs: ['sto_granary'], upgradesTo: 'sto_warehouse',
     effect: { type: 'storage', cap: 300 },
     size: 'm', biome: null,
-    desc: 'Refrigerated rooms add serious capacity for every good.',
+    desc: 'A stone vault dug into the earth — cool, dark and deep.',
   },
   {
-    id: 'sto_storehouse', name: 'Produce Storehouse', icon: '🏬', cat: 'sto', tier: 3, price: 320,
-    needs: ['sto_granary'], upgradesTo: 'sto_warehouse',
-    effect: { type: 'storage', cap: 350 },
-    size: 'l', biome: null,
-    desc: 'Shelved storage that greatly expands per-good capacity.',
-  },
-  {
-    id: 'sto_warehouse', name: 'Warehouse', icon: '🏗️', cat: 'sto', tier: 4, price: 1000,
-    needs: ['sto_storehouse'], upgradesTo: null,
+    id: 'sto_warehouse', name: 'Warehouse', icon: '🏗️', cat: 'sto', tier: 4, price: 1400,
+    cost: { wood: 90, stone: 40 }, needs: ['sto_icehouse'], upgradesTo: 'sto_refwarehouse',
     effect: { type: 'storage', cap: 800 },
-    size: 'xl', biome: null,
-    desc: 'Industrial floor space adds huge capacity to every good.',
+    size: 'l', biome: null,
+    desc: 'Sliding doors, a loading dock, and room for a season at a time.',
   },
   {
-    id: 'sto_refwarehouse', name: 'Refrigerated Warehouse', icon: '🥶', cat: 'sto', tier: 5, price: 2400,
-    needs: ['sto_coldstorage'], upgradesTo: null,
+    id: 'sto_refwarehouse', name: 'Refrigerated Warehouse', icon: '🥶', cat: 'sto', tier: 5, price: 3600,
+    cost: { wood: 130, stone: 110 }, needs: ['sto_warehouse'], upgradesTo: null,
     effect: { type: 'storage', cap: 2000 },
     size: 'xl', biome: null,
-    desc: 'The ultimate cold chain — massive capacity for all goods.',
-  },
-  {
-    id: 'sto_feedbin', name: 'Feed Bin', icon: '🪣', cat: 'sto', tier: 1, price: 35,
-    needs: [], upgradesTo: null,
-    effect: { type: 'storage', cap: 60 },
-    size: 'xs', biome: null,
-    desc: 'A sealed bin that adds a little space to every good.',
-  },
-  {
-    id: 'sto_seedvault', name: 'Seed Vault', icon: '🔐', cat: 'sto', tier: 3, price: 250,
-    needs: ['sto_shed'], upgradesTo: null,
-    effect: { type: 'storage', cap: 200 },
-    size: 's', biome: null,
-    desc: 'A secure vault that adds dependable extra capacity.',
-  },
-  {
-    id: 'sto_fueltank', name: 'Fuel Tank', icon: '⛽', cat: 'sto', tier: 2, price: 140,
-    needs: [], upgradesTo: null,
-    effect: { type: 'storage', cap: 100 },
-    size: 's', biome: null,
-    desc: 'Onsite fuel reserves add storage room across your goods.',
-  },
-  {
-    id: 'sto_lumberyard', name: 'Lumber Yard', icon: '🪵', cat: 'sto', tier: 2, price: 130,
-    needs: [], upgradesTo: null,
-    effect: { type: 'storage', cap: 120 },
-    size: 'l', biome: null,
-    desc: 'Stacked timber bays add extra capacity per good.',
-  },
-  {
-    id: 'sto_stoneyard', name: 'Stone Yard', icon: '🪨', cat: 'sto', tier: 2, price: 135,
-    needs: [], upgradesTo: null,
-    effect: { type: 'storage', cap: 120 },
-    size: 'l', biome: null,
-    desc: 'Open stone bays add extra capacity per good.',
+    desc: 'Cooling units on the roof. Nothing you grow will ever want for space again.',
   },
 
   // ============================================================
-  // 4. LIVESTOCK INFRASTRUCTURE (liv_)
+  // LIVESTOCK (liv_) — 5. Animals nearby produce faster.
+  // production_mult takes the BEST, never the sum — so this is a ladder you
+  // climb, not a stack you pile up. Each rung upgrades into the next.
   // ============================================================
   {
-    id: 'liv_coop', name: 'Chicken Coop', icon: '🐔', cat: 'liv', tier: 1, price: 50,
-    needs: [], upgradesTo: 'liv_hatchery',
-    effect: { type: 'production_mult', species: ['chicken', 'rooster'], mult: 1.5 },
-    size: 's', biome: null,
-    desc: 'Chickens and roosters produce their goods faster.',
-  },
-  {
-    id: 'liv_duckhouse', name: 'Duck House', icon: '🦆', cat: 'liv', tier: 2, price: 100,
-    needs: ['liv_coop'], upgradesTo: 'liv_goosepen',
-    effect: { type: 'production_mult', species: ['duck'], mult: 1.6 },
-    size: 's', biome: null,
-    desc: 'Ducks lay noticeably faster with a house of their own.',
-  },
-  {
-    id: 'liv_goosepen', name: 'Goose Pen', icon: '🪿', cat: 'liv', tier: 2, price: 130,
-    needs: ['liv_duckhouse'], upgradesTo: null,
-    effect: { type: 'production_mult', species: ['duck'], mult: 1.8 },
-    size: 'm', biome: null,
-    desc: 'A roomy waterfowl pen — duck goods come even faster.',
-  },
-  {
-    id: 'liv_hutch', name: 'Rabbit Hutch', icon: '🐰', cat: 'liv', tier: 1, price: 40,
-    needs: [], upgradesTo: null,
-    effect: { type: 'production_mult', species: ['bunny'], mult: 1.5 },
-    size: 'xs', biome: null,
-    desc: 'Bunnies produce their goods faster in a cozy hutch.',
-  },
-  {
-    id: 'liv_pigsty', name: 'Pigsty', icon: '🐷', cat: 'liv', tier: 2, price: 140,
-    needs: [], upgradesTo: null,
-    effect: { type: 'production_mult', species: ['pig'], mult: 1.7 },
-    size: 'm', biome: null,
-    desc: 'Happy pigs turn out their goods much faster.',
-  },
-  {
-    id: 'liv_sheepfold', name: 'Sheepfold', icon: '🐑', cat: 'liv', tier: 2, price: 130,
-    needs: [], upgradesTo: 'liv_shearshed',
-    effect: { type: 'production_mult', species: ['sheep'], mult: 1.7 },
-    size: 'm', biome: null,
-    desc: 'Sheltered sheep grow wool much faster.',
-  },
-  {
-    id: 'liv_goatshed', name: 'Goat Shed', icon: '🐐', cat: 'liv', tier: 2, price: 125,
-    needs: [], upgradesTo: null,
-    effect: { type: 'production_mult', species: ['goat'], mult: 1.7 },
-    size: 's', biome: null,
-    desc: 'Goats produce their goods much faster with shelter.',
-  },
-  {
-    id: 'liv_cowbarn', name: 'Cow Barn', icon: '🐮', cat: 'liv', tier: 3, price: 350,
-    needs: [], upgradesTo: 'liv_milkshed',
-    effect: { type: 'production_mult', species: ['cow'], mult: 1.8 },
-    size: 'l', biome: null,
-    desc: 'Comfortable cows give milk noticeably faster.',
-  },
-  {
-    id: 'liv_stable', name: 'Stable', icon: '🐴', cat: 'liv', tier: 3, price: 400,
-    needs: [], upgradesTo: 'liv_paddock',
-    effect: { type: 'production_mult', species: ['horse'], mult: 1.8 },
-    size: 'l', biome: null,
-    desc: 'Stabled horses produce their goods much faster.',
-  },
-  {
-    id: 'liv_paddock', name: 'Horse Paddock', icon: '🏇', cat: 'liv', tier: 4, price: 700,
-    needs: ['liv_stable'], upgradesTo: null,
-    effect: { type: 'production_mult', species: ['horse'], mult: 2.2 },
-    size: 'xl', biome: null,
-    desc: 'Room to run — horse goods arrive far faster.',
-  },
-  {
-    id: 'liv_pasture', name: 'Animal Pasture', icon: '🌳', cat: 'liv', tier: 3, price: 300,
-    needs: [], upgradesTo: 'liv_grazing',
+    id: 'liv_feedtrough', name: 'Feeding Trough', icon: '🍽️', cat: 'liv', tier: 1, price: 45,
+    cost: { wood: 8 }, needs: [], upgradesTo: 'liv_hayrack',
     effect: { type: 'production_mult', species: 'all', mult: 1.5 },
-    size: 'xl', biome: null,
-    desc: 'Fresh grass speeds up production for every animal.',
+    size: 'xs', biome: null,
+    desc: 'A fed animal is a productive animal. Every species works harder.',
   },
   {
-    id: 'liv_grazing', name: 'Grazing Field', icon: '🍀', cat: 'liv', tier: 4, price: 650,
-    needs: ['liv_pasture'], upgradesTo: null,
+    id: 'liv_hayrack', name: 'Hay Rack', icon: '🎋', cat: 'liv', tier: 1, price: 90,
+    cost: { wood: 14 }, needs: ['liv_feedtrough'], upgradesTo: 'liv_sheepfold',
+    effect: { type: 'production_mult', species: 'all', mult: 1.6 },
+    size: 'xs', biome: null,
+    desc: 'Hay off the ground stays clean, and clean feed goes further.',
+  },
+  {
+    id: 'liv_sheepfold', name: 'Sheepfold', icon: '🐑', cat: 'liv', tier: 2, price: 240,
+    cost: { wood: 28, stone: 12 }, needs: ['liv_hayrack'], upgradesTo: 'liv_cowbarn',
     effect: { type: 'production_mult', species: 'all', mult: 1.7 },
-    size: 'xl', biome: null,
-    desc: 'Rotated grazing pushes every animal to produce faster.',
-  },
-  {
-    id: 'liv_feedtrough', name: 'Feeding Trough', icon: '🍽️', cat: 'liv', tier: 1, price: 30,
-    needs: [], upgradesTo: 'liv_hayrack',
-    effect: { type: 'production_mult', species: 'all', mult: 1.5 },
-    size: 'xs', biome: null,
-    desc: 'Well-fed animals produce their goods a bit faster.',
-  },
-  {
-    id: 'liv_watertrough', name: 'Water Trough', icon: '🚿', cat: 'liv', tier: 1, price: 35,
-    needs: [], upgradesTo: null,
-    effect: { type: 'production_mult', species: 'all', mult: 1.5 },
-    size: 'xs', biome: null,
-    desc: 'Fresh water keeps all animals producing a bit faster.',
-  },
-  {
-    id: 'liv_hayrack', name: 'Hay Rack', icon: '🎋', cat: 'liv', tier: 2, price: 90,
-    needs: ['liv_feedtrough'], upgradesTo: null,
-    effect: { type: 'production_mult', species: 'all', mult: 1.6 },
     size: 's', biome: null,
-    desc: 'Steady hay access speeds up every animal a little more.',
+    desc: 'Dry-stone walls and a gate. Sheltered stock produces steadily.',
   },
   {
-    id: 'liv_milkshed', name: 'Milking Shed', icon: '🥛', cat: 'liv', tier: 3, price: 380,
-    needs: ['liv_cowbarn'], upgradesTo: 'liv_autoparlor',
-    effect: { type: 'production_mult', species: ['cow', 'goat'], mult: 2 },
+    id: 'liv_cowbarn', name: 'Cow Barn', icon: '🐮', cat: 'liv', tier: 3, price: 620,
+    cost: { wood: 55, stone: 20 }, needs: ['liv_sheepfold'], upgradesTo: 'liv_breedingbarn',
+    effect: { type: 'production_mult', species: 'all', mult: 1.9 },
     size: 'm', biome: null,
-    desc: 'Cows and goats give milk twice as fast.',
+    desc: 'Proper stalls and a hay loft — the real working heart of a herd.',
   },
   {
-    id: 'liv_autoparlor', name: 'Automated Milking Parlor', icon: '🤖', cat: 'liv', tier: 5, price: 2200,
-    needs: ['liv_milkshed'], upgradesTo: null,
-    effect: { type: 'auto_collect', radius: 20, everyMs: 45000 },
+    id: 'liv_breedingbarn', name: 'Breeding Barn', icon: '💞', cat: 'liv', tier: 4, price: 1500,
+    cost: { wood: 100, stone: 45 }, needs: ['liv_cowbarn'], upgradesTo: null,
+    effect: { type: 'production_mult', species: 'all', mult: 2.2 },
     size: 'l', biome: null,
-    desc: 'Automatically collects ready animal products nearby.',
-  },
-  {
-    id: 'liv_shearshed', name: 'Shearing Shed', icon: '✂️', cat: 'liv', tier: 3, price: 320,
-    needs: ['liv_sheepfold'], upgradesTo: null,
-    effect: { type: 'production_mult', species: ['sheep'], mult: 2.2 },
-    size: 'm', biome: null,
-    desc: 'Proper shearing gear makes wool come in far faster.',
-  },
-  {
-    id: 'liv_hatchery', name: 'Hatchery', icon: '🥚', cat: 'liv', tier: 2, price: 160,
-    needs: ['liv_coop'], upgradesTo: 'liv_incubator',
-    effect: { type: 'production_mult', species: ['chicken', 'duck', 'rooster'], mult: 1.6 },
-    size: 's', biome: null,
-    desc: 'All poultry produce their goods faster.',
-  },
-  {
-    id: 'liv_incubator', name: 'Incubator House', icon: '🐣', cat: 'liv', tier: 4, price: 600,
-    needs: ['liv_hatchery'], upgradesTo: null,
-    effect: { type: 'production_mult', species: ['chicken', 'duck', 'rooster'], mult: 2.2 },
-    size: 'm', biome: null,
-    desc: 'Warm incubation drives poultry output way up.',
-  },
-  {
-    id: 'liv_breedingbarn', name: 'Breeding Barn', icon: '💞', cat: 'liv', tier: 4, price: 900,
-    needs: ['liv_cowbarn'], upgradesTo: null,
-    effect: { type: 'production_mult', species: 'all', mult: 2 },
-    size: 'l', biome: null,
-    desc: 'Selective breeding doubles production speed for all animals.',
-  },
-  {
-    id: 'liv_vetshed', name: 'Veterinary Shed', icon: '🩺', cat: 'liv', tier: 2, price: 170,
-    needs: [], upgradesTo: 'liv_quarantine',
-    effect: { type: 'production_mult', species: 'all', mult: 1.5 },
-    size: 's', biome: null,
-    desc: 'Healthy animals produce their goods faster.',
-  },
-  {
-    id: 'liv_quarantine', name: 'Quarantine Pen', icon: '🚧', cat: 'liv', tier: 3, price: 260,
-    needs: ['liv_vetshed'], upgradesTo: null,
-    effect: { type: 'production_mult', species: 'all', mult: 1.6 },
-    size: 'm', biome: null,
-    desc: 'Isolating sickness keeps the whole herd producing faster.',
-  },
-  {
-    id: 'liv_shelter', name: 'Livestock Shelter', icon: '⛺', cat: 'liv', tier: 1, price: 45,
-    needs: [], upgradesTo: null,
-    effect: { type: 'production_mult', species: 'all', mult: 1.5 },
-    size: 'm', biome: null,
-    desc: 'Basic cover from weather speeds up every animal slightly.',
-  },
-  {
-    id: 'liv_manurepit', name: 'Manure Pit', icon: '💩', cat: 'liv', tier: 2, price: 100,
-    needs: [], upgradesTo: null,
-    effect: { type: 'yield_bonus', radius: 12, bonus: 1 },
-    size: 's', biome: null,
-    desc: 'Free fertilizer — nearby harvests yield extra.',
-  },
-  {
-    id: 'liv_washstation', name: 'Animal Wash Station', icon: '🧼', cat: 'liv', tier: 2, price: 120,
-    needs: [], upgradesTo: null,
-    effect: { type: 'production_mult', species: 'all', mult: 1.5 },
-    size: 's', biome: null,
-    desc: 'Clean animals stay healthy and produce a bit faster.',
+    desc: 'Bloodlines, paddocks and record-keeping. The best output on the farm.',
   },
 
   // ============================================================
-  // 6. MACHINERY (mac_)
+  // FIELDS (fld_) — 4. Extra harvest units from crops in range.
+  // Yield zones DO stack, so overlapping them is a real strategy — and the
+  // radii are kept tight so blanket coverage costs real money.
   // ============================================================
   {
-    id: 'mac_toolrack', name: 'Tool Rack', icon: '🧰', cat: 'mac', tier: 1, price: 25,
-    needs: [], upgradesTo: null,
+    id: 'fld_raisedbed', name: 'Raised Bed', icon: '🪴', cat: 'fld', tier: 1, price: 40,
+    cost: { wood: 8 }, needs: [], upgradesTo: 'fld_field',
     effect: { type: 'yield_bonus', radius: 8, bonus: 1 },
     size: 'xs', biome: null,
-    desc: 'Sharp, organized tools mean slightly richer harvests nearby.',
+    desc: 'Deep, warm soil in a timber frame. Plots beside it give one more.',
   },
   {
-    id: 'mac_wheelbarrow', name: 'Wheelbarrow', icon: '🛞', cat: 'mac', tier: 1, price: 35,
-    needs: ['mac_toolrack'], upgradesTo: 'mac_handcart',
-    effect: { type: 'sell_bonus', pct: 3 },
-    size: 'xs', biome: null,
-    desc: 'Fresher goods to market — sale prices tick up.',
-  },
-  {
-    id: 'mac_handcart', name: 'Hand Cart', icon: '🛒', cat: 'mac', tier: 1, price: 50,
-    needs: ['mac_wheelbarrow'], upgradesTo: 'mac_wagon',
-    effect: { type: 'sell_bonus', pct: 4 },
-    size: 'xs', biome: null,
-    desc: 'Bigger loads to market raise sale prices a little more.',
-  },
-  {
-    id: 'mac_plow', name: 'Plow', icon: '🔱', cat: 'mac', tier: 2, price: 90,
-    needs: ['mac_toolrack'], upgradesTo: 'mac_cultivator',
-    effect: { type: 'yield_bonus', radius: 12, bonus: 1 },
-    size: 's', biome: null,
-    desc: 'Turned soil boosts harvest yields around the farmyard.',
-  },
-  {
-    id: 'mac_wagon', name: 'Wagon', icon: '🛺', cat: 'mac', tier: 2, price: 130,
-    needs: ['mac_handcart'], upgradesTo: 'mac_farmtruck',
-    effect: { type: 'sell_bonus', pct: 6 },
+    id: 'fld_field', name: 'Field', icon: '🌾', cat: 'fld', tier: 2, price: 180,
+    cost: { wood: 20, stone: 6 }, needs: ['fld_raisedbed'], upgradesTo: 'fld_terrace',
+    effect: { type: 'yield_bonus', radius: 14, bonus: 1 },
     size: 'm', biome: null,
-    desc: 'Hauls real volume to market — better prices on everything.',
+    desc: 'Fenced, furrowed and worked properly — the same bonus, far wider.',
   },
   {
-    id: 'mac_seeddrill', name: 'Seed Drill', icon: '📏', cat: 'mac', tier: 2, price: 150,
-    needs: ['mac_plow'], upgradesTo: null,
-    effect: { type: 'growth_mult', mult: 1.15 },
-    size: 's', biome: null,
-    desc: 'Perfectly spaced planting speeds up crop growth.',
-  },
-  {
-    id: 'mac_cultivator', name: 'Cultivator', icon: '⚙️', cat: 'mac', tier: 3, price: 280,
-    needs: ['mac_plow'], upgradesTo: null,
-    effect: { type: 'yield_bonus', radius: 14, bonus: 2 },
-    size: 's', biome: null,
-    desc: 'Fine tilling drives up yields across nearby plots.',
-  },
-  {
-    id: 'mac_tractorshed', name: 'Tractor Shed', icon: '🚜', cat: 'mac', tier: 3, price: 400,
-    needs: ['mac_plow'], upgradesTo: 'mac_autotractor',
-    effect: { type: 'growth_mult', mult: 1.25 },
-    size: 'm', biome: null,
-    desc: 'Your first tractor — all fieldwork moves faster.',
-  },
-  {
-    id: 'mac_harvester', name: 'Harvester', icon: '🌽', cat: 'mac', tier: 3, price: 420,
-    needs: ['mac_tractorshed'], upgradesTo: 'mac_combine',
-    effect: { type: 'auto_collect', radius: 16, everyMs: 60000 },
-    size: 'm', biome: null,
-    desc: 'Sweeps up ready harvests near it automatically.',
-  },
-  {
-    id: 'mac_combine', name: 'Combine', icon: '🏎️', cat: 'mac', tier: 4, price: 1000,
-    needs: ['mac_harvester'], upgradesTo: 'mac_roboharvester',
-    effect: { type: 'auto_collect', radius: 24, everyMs: 45000 },
-    size: 'l', biome: null,
-    desc: 'Auto-collects ready produce over a much larger area.',
-  },
-  {
-    id: 'mac_baler', name: 'Baler', icon: '📦', cat: 'mac', tier: 3, price: 300,
-    needs: ['mac_tractorshed'], upgradesTo: null,
-    effect: { type: 'sell_bonus', pct: 6 },
-    size: 'm', biome: null,
-    desc: 'Neat bales fetch better prices at market.',
-  },
-  {
-    id: 'mac_forklift', name: 'Forklift', icon: '🏗️', cat: 'mac', tier: 3, price: 350,
-    needs: ['mac_wagon'], upgradesTo: null,
-    effect: { type: 'sell_bonus', pct: 5 },
-    size: 's', biome: null,
-    desc: 'Faster loading means fresher goods and better prices.',
-  },
-  {
-    id: 'mac_farmtruck', name: 'Farm Truck', icon: '🛻', cat: 'mac', tier: 4, price: 800,
-    needs: ['mac_wagon'], upgradesTo: null,
-    effect: { type: 'sell_bonus', pct: 10 },
-    size: 'm', biome: null,
-    desc: 'Direct market runs raise all sale prices significantly.',
-  },
-  {
-    id: 'mac_trailer', name: 'Trailer', icon: '🚛', cat: 'mac', tier: 3, price: 260,
-    needs: ['mac_wagon'], upgradesTo: null,
-    effect: { type: 'sell_bonus', pct: 7 },
-    size: 'm', biome: null,
-    desc: 'Extra hauling capacity nudges market prices upward.',
-  },
-  {
-    id: 'mac_orchardpicker', name: 'Orchard Picker', icon: '🍏', cat: 'mac', tier: 4, price: 650,
-    needs: ['mac_harvester'], upgradesTo: null,
-    effect: { type: 'auto_collect', radius: 14, everyMs: 50000 },
-    size: 'm', biome: null,
-    desc: 'Automatically gathers ready produce around the trees.',
-  },
-  {
-    id: 'mac_potatoharvester', name: 'Potato Harvester', icon: '🥔', cat: 'mac', tier: 4, price: 700,
-    needs: ['mac_harvester'], upgradesTo: null,
+    id: 'fld_terrace', name: 'Terrace', icon: '⛰️', cat: 'fld', tier: 3, price: 500,
+    cost: { wood: 30, stone: 40 }, needs: ['fld_field'], upgradesTo: 'fld_vertical',
     effect: { type: 'yield_bonus', radius: 16, bonus: 2 },
     size: 'm', biome: null,
-    desc: 'Digs cleaner rows — nearby harvests yield extra.',
+    desc: 'Stone-walled steps that hold soil and water on a slope.',
   },
   {
-    id: 'mac_autotractor', name: 'Autonomous Tractor', icon: '🛰️', cat: 'mac', tier: 5, price: 2500,
-    needs: ['mac_tractorshed'], upgradesTo: null,
+    id: 'fld_vertical', name: 'Vertical Farm', icon: '🏢', cat: 'fld', tier: 5, price: 2000,
+    cost: { wood: 90, stone: 70 }, needs: ['fld_terrace'], upgradesTo: null,
+    effect: { type: 'yield_bonus', radius: 22, bonus: 3 },
+    size: 'l', biome: null,
+    desc: 'Stacked growing trays behind glass. Three extra units, farm-wide.',
+  },
+
+  // ============================================================
+  // SOIL (soil_) — 4. Crops grow faster everywhere.
+  // growth_mult MULTIPLIES (capped ×3 overall), so the rungs compound if you
+  // keep the lower ones — but each upgrades into the next, and upgrading is
+  // cheaper than owning both.
+  // ============================================================
+  {
+    id: 'soil_compost_pile', name: 'Compost Pile', icon: '🍂', cat: 'soil', tier: 1, price: 30,
+    cost: { wood: 5 }, needs: [], upgradesTo: 'soil_compost_shed',
+    effect: { type: 'growth_mult', mult: 1.1 },
+    size: 'xs', biome: null,
+    desc: 'A steaming heap of scraps. Everything on the farm grows a little sooner.',
+  },
+  {
+    id: 'soil_compost_shed', name: 'Compost Shed', icon: '🛖', cat: 'soil', tier: 2, price: 160,
+    cost: { wood: 22, stone: 4 }, needs: ['soil_compost_pile'], upgradesTo: 'soil_laboratory',
+    effect: { type: 'growth_mult', mult: 1.2 },
+    size: 'm', biome: null,
+    desc: 'Slatted bays turned in rotation — compost at a scale you can feel.',
+  },
+  {
+    id: 'soil_laboratory', name: 'Soil Laboratory', icon: '🔬', cat: 'soil', tier: 3, price: 600,
+    cost: { wood: 30, stone: 35 }, needs: ['soil_compost_shed'], upgradesTo: 'soil_agri_research_station',
+    effect: { type: 'growth_mult', mult: 1.35 },
+    size: 'm', biome: null,
+    desc: 'Sample racks and a bench. You stop guessing what the ground needs.',
+  },
+  {
+    id: 'soil_agri_research_station', name: 'Research Station', icon: '🏛️', cat: 'soil', tier: 5, price: 2200,
+    cost: { wood: 80, stone: 90 }, needs: ['soil_laboratory'], upgradesTo: null,
     effect: { type: 'growth_mult', mult: 1.5 },
-    size: 'm', biome: null,
-    desc: 'Self-driving fieldwork keeps every crop growing much faster.',
-  },
-  {
-    id: 'mac_roboharvester', name: 'Robotic Harvester', icon: '🦾', cat: 'mac', tier: 5, price: 3000,
-    needs: ['mac_combine'], upgradesTo: 'mac_drones',
-    effect: { type: 'auto_collect', radius: 40, everyMs: 35000 },
     size: 'l', biome: null,
-    desc: 'Tireless robots auto-collect harvests across a huge zone.',
-  },
-  {
-    id: 'mac_drones', name: 'Agricultural Drones', icon: '🛸', cat: 'mac', tier: 5, price: 3600,
-    needs: ['mac_roboharvester'], upgradesTo: null,
-    effect: { type: 'auto_collect', radius: 99, everyMs: 40000 },
-    size: 's', biome: null,
-    desc: 'A drone swarm collects ready products anywhere on the farm.',
+    desc: 'Glass frontage and instrument masts. Growth pushed to its practical limit.',
   },
 
   // ============================================================
-  // 7. TRANSPORT & LOGISTICS (log_)
+  // WATER (wat_) — 3. Waters plots for you, on a timer.
+  // The old "free watering" buildings are gone entirely: once something waters
+  // for you, removing the cooldown is worth nothing. Nine buildings existed to
+  // deliver a benefit another building made irrelevant.
   // ============================================================
-  // (the old log_dirtpath / log_gravelroad / log_farmroad chain was removed —
-  //  paved paths are now laid with the drag-to-pave Paths tool instead)
   {
-    id: 'log_woodbridge', name: 'Wooden Bridge', icon: '🪵', cat: 'log', tier: 2, price: 120,
-    needs: [], upgradesTo: 'log_stonebridge',
-    effect: { type: 'prestige', amount: 2 },
+    id: 'wat_sprinkler', name: 'Sprinkler', icon: '💦', cat: 'wat', tier: 1, price: 70,
+    cost: { wood: 6, stone: 4 }, needs: [], upgradesTo: 'wat_canal',
+    effect: { type: 'auto_water', radius: 10, plots: 2, everyMs: 20000 },
+    size: 'xs', biome: null,
+    desc: 'Waters the two nearest growing plots every 20 seconds.',
+  },
+  {
+    id: 'wat_canal', name: 'Irrigation Canal', icon: '🌊', cat: 'wat', tier: 3, price: 420,
+    cost: { wood: 25, stone: 45 }, needs: ['wat_sprinkler'], upgradesTo: 'wat_watertower',
+    effect: { type: 'auto_water', radius: 18, plots: 4, everyMs: 18000 },
     size: 'm', biome: null,
-    desc: 'A charming crossing that adds farm prestige.',
+    desc: 'A stone-lined channel with a sluice gate. Four plots, wider reach.',
   },
   {
-    id: 'log_stonebridge', name: 'Stone Bridge', icon: '🌉', cat: 'log', tier: 3, price: 300,
-    needs: ['log_woodbridge'], upgradesTo: null,
-    effect: { type: 'prestige', amount: 5 },
-    size: 'm', biome: null,
-    desc: 'A handsome stone span that adds serious prestige.',
-  },
-  {
-    id: 'log_cartstation', name: 'Cart Station', icon: '🛖', cat: 'log', tier: 2, price: 140,
-    needs: [], upgradesTo: 'log_wagondepot',
-    effect: { type: 'auto_sell', everyMs: 120000 },
-    size: 's', biome: null,
-    desc: 'Carts periodically sell one of your most plentiful good.',
-  },
-  {
-    id: 'log_wagondepot', name: 'Wagon Depot', icon: '🏤', cat: 'log', tier: 3, price: 340,
-    needs: ['log_cartstation'], upgradesTo: 'log_truckdepot',
-    effect: { type: 'auto_sell', everyMs: 90000 },
-    size: 'm', biome: null,
-    desc: 'Regular wagon runs auto-sell your surplus more often.',
-  },
-  {
-    id: 'log_truckdepot', name: 'Truck Depot', icon: '🚚', cat: 'log', tier: 4, price: 900,
-    needs: ['log_wagondepot'], upgradesTo: null,
-    effect: { type: 'auto_sell', everyMs: 60000 },
+    id: 'wat_watertower', name: 'Water Tower', icon: '🗼', cat: 'wat', tier: 4, price: 1200,
+    cost: { wood: 45, stone: 60 }, needs: ['wat_canal'], upgradesTo: null,
+    effect: { type: 'auto_water', radius: 60, plots: 12, everyMs: 15000 },
     size: 'l', biome: null,
-    desc: 'Trucks auto-sell your most plentiful good every minute.',
-  },
-  {
-    id: 'log_loadingdock', name: 'Loading Dock', icon: '🏗️', cat: 'log', tier: 3, price: 320,
-    needs: ['log_cartstation'], upgradesTo: 'log_distwarehouse',
-    effect: { type: 'sell_bonus', pct: 6 },
-    size: 'm', biome: null,
-    desc: 'Efficient loading lifts market prices on everything.',
-  },
-  {
-    id: 'log_collectionpoint', name: 'Produce Collection Point', icon: '🧺', cat: 'log', tier: 2, price: 130,
-    needs: [], upgradesTo: null,
-    effect: { type: 'auto_collect', radius: 16, everyMs: 60000 },
-    size: 's', biome: null,
-    desc: 'Gathers ready product bubbles from around the point.',
-  },
-  {
-    id: 'log_distwarehouse', name: 'Distribution Warehouse', icon: '🏭', cat: 'log', tier: 4, price: 1100,
-    needs: ['log_loadingdock'], upgradesTo: null,
-    effect: { type: 'sell_bonus', pct: 10 },
-    size: 'l', biome: null,
-    desc: 'Bulk distribution deals push all sale prices up.',
-  },
-  {
-    id: 'log_railsiding', name: 'Railway Siding', icon: '🛤️', cat: 'log', tier: 4, price: 1000,
-    needs: [], upgradesTo: 'log_cargostation',
-    effect: { type: 'sell_bonus', pct: 8 },
-    size: 'xl', biome: null,
-    desc: 'Rail access opens bigger markets and better prices.',
-  },
-  {
-    id: 'log_cargostation', name: 'Cargo Station', icon: '🚂', cat: 'log', tier: 5, price: 2000,
-    needs: ['log_railsiding'], upgradesTo: null,
-    effect: { type: 'auto_sell', everyMs: 45000 },
-    size: 'xl', biome: null,
-    desc: 'Freight trains auto-sell your surplus at a rapid clip.',
-  },
-  {
-    id: 'log_riverdock', name: 'River Dock', icon: '🛶', cat: 'log', tier: 3, price: 280,
-    needs: [], upgradesTo: 'log_ferrylanding',
-    effect: { type: 'sell_bonus', pct: 5 },
-    size: 'm', biome: null,
-    desc: 'River trade lifts market prices on your goods.',
-  },
-  {
-    id: 'log_coastalpier', name: 'Coastal Pier', icon: '⚓', cat: 'log', tier: 3, price: 350,
-    needs: [], upgradesTo: null,
-    effect: { type: 'sell_bonus', pct: 7 },
-    size: 'l', biome: 'oceanside',
-    desc: 'Oceanside only — sea trade raises all sale prices.',
-  },
-  {
-    id: 'log_ferrylanding', name: 'Ferry Landing', icon: '⛴️', cat: 'log', tier: 4, price: 700,
-    needs: ['log_riverdock'], upgradesTo: null,
-    effect: { type: 'auto_sell', everyMs: 90000 },
-    size: 'l', biome: null,
-    desc: 'Scheduled ferries auto-sell your most plentiful good.',
-  },
-  {
-    id: 'log_cablelift', name: 'Cable Lift', icon: '🚡', cat: 'log', tier: 4, price: 750,
-    needs: [], upgradesTo: null,
-    effect: { type: 'sell_bonus', pct: 8 },
-    size: 'm', biome: null,
-    desc: 'Goods glide over any terrain, fetching better prices.',
-  },
-  {
-    id: 'log_dronepad', name: 'Drone Delivery Pad', icon: '🛬', cat: 'log', tier: 5, price: 2800,
-    needs: ['log_truckdepot'], upgradesTo: null,
-    effect: { type: 'auto_sell', everyMs: 45000 },
-    size: 's', biome: null,
-    desc: 'Delivery drones auto-sell your surplus around the clock.',
+    desc: 'Pressurised mains. Twelve plots anywhere on the farm, every 15 seconds.',
   },
 
   // ============================================================
-  // 8. ENERGY (enr_)
+  // WORKSHOPS (wrk_ / prc_) — 10.
+  //
+  // These are NOT ten copies of "craft faster". Five speed ONE RECIPE FAMILY
+  // each (a `family` list of processor ids), which is what makes owning several
+  // a real decision — a cheesemaker wants a different workshop than a brewer.
+  // Between them the five cover all eight processors.
+  //
+  // The other four are not food buildings at all, and doing food-crafting maths
+  // in them never made sense. They own the materials side instead:
+  // the Carpenter and Forge improve what you get from chopping and mining, and
+  // the Textile Workshop and Tannery specialise animal output ABOVE the
+  // farm-wide Livestock ladder — fibre animals and meat/hide animals.
   // ============================================================
   {
-    id: 'enr_campfire', name: 'Campfire', icon: '🔥', cat: 'enr', tier: 1, price: 20,
-    needs: [], upgradesTo: 'enr_furnace',
+    id: 'wrk_tool_shed', name: 'Tool Shed', icon: '🧰', cat: 'wrk', tier: 1, price: 80,
+    cost: { wood: 14, stone: 2 }, needs: [], upgradesTo: null,
     effect: { type: 'craft_speed', mult: 1.15 },
     size: 'xs', biome: null,
-    desc: 'A little heat makes processor jobs run slightly faster.',
+    desc: 'Sharp tools, hung where you can find them. Every recipe, a little sooner.',
   },
   {
-    id: 'enr_furnace', name: 'Wood Furnace', icon: '🪔', cat: 'enr', tier: 2, price: 110,
-    needs: ['enr_campfire'], upgradesTo: 'enr_generator',
+    id: 'prc_millstone', name: 'Millstone', icon: '🪨', cat: 'wrk', tier: 2, price: 260,
+    cost: { wood: 16, stone: 30 }, needs: [], upgradesTo: null,
+    effect: { type: 'craft_speed', mult: 1.5, family: ['mill'] },
+    size: 's', biome: null,
+    desc: 'A heavy turning stone. Grain Mill recipes finish half again as fast.',
+  },
+  {
+    id: 'wrk_bakery_workshop', name: 'Bakery Workshop', icon: '🥖', cat: 'wrk', tier: 2, price: 300,
+    cost: { wood: 22, stone: 26 }, needs: [], upgradesTo: null,
+    effect: { type: 'craft_speed', mult: 1.5, family: ['bakery'] },
+    size: 'm', biome: null,
+    desc: 'A brick oven that never goes cold. Speeds every Bakery recipe.',
+  },
+  {
+    id: 'wrk_creamery_workshop', name: 'Creamery Workshop', icon: '🧈', cat: 'wrk', tier: 3, price: 380,
+    cost: { wood: 26, stone: 20 }, needs: [], upgradesTo: null,
+    effect: { type: 'craft_speed', mult: 1.5, family: ['creamery', 'cheese_house'] },
+    size: 'm', biome: null,
+    desc: 'Churns and a cool stone floor. Speeds Creamery and Cheese House work.',
+  },
+  {
+    id: 'wrk_pottery_workshop', name: 'Pottery Workshop', icon: '🏺', cat: 'wrk', tier: 2, price: 280,
+    cost: { wood: 18, stone: 24 }, needs: [], upgradesTo: null,
+    effect: { type: 'craft_speed', mult: 1.5, family: ['preserve_kitchen', 'juicery'] },
+    size: 's', biome: null,
+    desc: 'Jars, crocks and bottles to hand. Speeds preserving and pressing.',
+  },
+  {
+    id: 'prc_fermentation_house', name: 'Fermentation House', icon: '🫙', cat: 'wrk', tier: 3, price: 420,
+    cost: { wood: 34, stone: 14 }, needs: [], upgradesTo: null,
+    effect: { type: 'craft_speed', mult: 1.5, family: ['smokehouse', 'farm_kitchen'] },
+    size: 'm', biome: null,
+    desc: 'Barrels on racks, vents in the gable. Speeds curing and slow cooking.',
+  },
+  {
+    id: 'wrk_textile_workshop', name: 'Textile Workshop', icon: '🧵', cat: 'wrk', tier: 3, price: 460,
+    cost: { wood: 30, stone: 12 }, needs: [], upgradesTo: null,
+    effect: { type: 'production_mult', species: ['sheep', 'goat'], mult: 2.6 },
+    size: 'm', biome: null,
+    desc: 'A loom, dye pots and fleece. Sheep and goats out-produce the rest of the farm.',
+  },
+  {
+    id: 'prc_tannery', name: 'Tannery', icon: '🟤', cat: 'wrk', tier: 3, price: 460,
+    cost: { wood: 26, stone: 18 }, needs: [], upgradesTo: null,
+    effect: { type: 'production_mult', species: ['cow', 'pig'], mult: 2.6 },
+    size: 'm', biome: null,
+    desc: 'Hides on frames and soaking vats. Cattle and pigs give more than anywhere else.',
+  },
+  {
+    id: 'wrk_carpenter_workshop', name: 'Carpenter Workshop', icon: '🪑', cat: 'wrk', tier: 2, price: 340,
+    cost: { wood: 30, stone: 10 }, needs: [], upgradesTo: null,
+    effect: { type: 'harvest_bonus', good: 'wood', amount: 1 },
+    size: 'm', biome: null,
+    desc: 'A saw bench and a stack of planks. Every tree you fell yields +1 wood.',
+  },
+  {
+    id: 'wrk_forge', name: 'Forge', icon: '🔨', cat: 'wrk', tier: 3, price: 520,
+    cost: { wood: 24, stone: 44 }, needs: [], upgradesTo: null,
+    effect: { type: 'harvest_bonus', good: 'stone', amount: 1 },
+    size: 'm', biome: null,
+    desc: 'Anvil, quench barrel, better picks. Every boulder you break yields +1 stone.',
+  },
+
+  // ============================================================
+  // COMMERCE (com_) — 7. Better prices, and selling without you.
+  // sell_bonus adds up (capped at +50%); auto-sellers run on their own timers,
+  // so the fastest one you own is the one that matters.
+  // ============================================================
+  {
+    id: 'com_roadside_stand', name: 'Roadside Stand', icon: '🧃', cat: 'com', tier: 1, price: 90,
+    cost: { wood: 10 }, needs: [], upgradesTo: 'com_general_store',
+    effect: { type: 'auto_sell', everyMs: 120000 },
+    size: 'xs', biome: null,
+    desc: 'An awning and an honesty box. Sells a little of your stock every 2 minutes.',
+  },
+  {
+    id: 'com_trading_post', name: 'Trading Post', icon: '🤝', cat: 'com', tier: 2, price: 260,
+    cost: { wood: 20, stone: 8 }, needs: [], upgradesTo: 'com_farmers_market',
+    effect: { type: 'sell_bonus', pct: 3 },
+    size: 's', biome: null,
+    desc: 'Traders stop here to haggle, and everything you sell fetches a bit more.',
+  },
+  {
+    id: 'com_farmers_market', name: 'Farmers Market', icon: '⛺', cat: 'com', tier: 3, price: 700,
+    cost: { wood: 40, stone: 15 }, needs: ['com_trading_post'], upgradesTo: 'com_restaurant',
+    effect: { type: 'sell_bonus', pct: 6 },
+    size: 'm', biome: null,
+    desc: 'Striped stalls and a market crowd bidding your prices up.',
+  },
+  {
+    id: 'com_general_store', name: 'General Store', icon: '🏬', cat: 'com', tier: 3, price: 850,
+    cost: { wood: 45, stone: 25 }, needs: ['com_roadside_stand'], upgradesTo: 'com_shipping_office',
+    effect: { type: 'auto_sell', everyMs: 60000 },
+    size: 'm', biome: null,
+    desc: 'A proper shopfront that turns stock over every minute.',
+  },
+  {
+    id: 'com_shipping_office', name: 'Shipping Office', icon: '📮', cat: 'com', tier: 4, price: 1400,
+    cost: { wood: 50, stone: 40 }, needs: ['com_general_store'], upgradesTo: null,
+    effect: { type: 'auto_sell', everyMs: 45000 },
+    size: 'm', biome: null,
+    desc: 'Scheduled freight pickups. Your stock leaves like clockwork.',
+  },
+  {
+    id: 'com_restaurant', name: 'Restaurant', icon: '🍷', cat: 'com', tier: 4, price: 1800,
+    cost: { wood: 60, stone: 50 }, needs: ['com_farmers_market'], upgradesTo: 'com_export_warehouse',
+    effect: { type: 'sell_bonus', pct: 10 },
+    size: 'm', biome: null,
+    desc: 'Terrace seating and a kitchen. Plated food is worth far more than the crop.',
+  },
+  {
+    id: 'com_export_warehouse', name: 'Export Warehouse', icon: '🚢', cat: 'com', tier: 5, price: 4000,
+    cost: { wood: 120, stone: 90 }, needs: ['com_restaurant'], upgradesTo: null,
+    effect: { type: 'sell_bonus', pct: 15 },
+    size: 'xl', biome: null,
+    desc: 'Loading bays and containers. Overseas buyers pay the best rates there are.',
+  },
+
+  // ============================================================
+  // MACHINES (mac_) — 3. Harvests ripe crops for you.
+  // ============================================================
+  {
+    id: 'mac_harvester', name: 'Harvester', icon: '🌽', cat: 'mac', tier: 3, price: 700,
+    cost: { wood: 30, stone: 25 }, needs: [], upgradesTo: 'mac_combine',
+    effect: { type: 'auto_collect', radius: 16, everyMs: 25000 },
+    size: 'm', biome: null,
+    desc: 'A cutting reel and a small bin. Collects ripe plots close by.',
+  },
+  {
+    id: 'mac_combine', name: 'Combine', icon: '🏎️', cat: 'mac', tier: 4, price: 1800,
+    cost: { wood: 60, stone: 50 }, needs: ['mac_harvester'], upgradesTo: 'mac_drones',
+    effect: { type: 'auto_collect', radius: 30, everyMs: 20000 },
+    size: 'l', biome: null,
+    desc: 'A wide header and an unloading auger. Half the farm, faster.',
+  },
+  {
+    id: 'mac_drones', name: 'Agricultural Drones', icon: '🛸', cat: 'mac', tier: 5, price: 4000,
+    cost: { wood: 70, stone: 90 }, needs: ['mac_combine'], upgradesTo: null,
+    effect: { type: 'auto_collect', radius: 90, everyMs: 15000 },
+    size: 'm', biome: null,
+    desc: 'A landing pad and a flight of quadcopters. Nothing ripe goes uncollected.',
+  },
+
+  // ============================================================
+  // ENERGY (enr_) — 5. Powers the farm AND speeds all crafting.
+  //
+  // Power is a real constraint: a shortfall STALLS every running machine
+  // (see tickUpkeep). Kept at five for DIFFERENT BEHAVIOUR, not bigger numbers —
+  // a turbine's output rises and falls with the wind, solar with the daylight,
+  // the rest are steady. That is a placement decision, not just a purchase.
+  // ============================================================
+  {
+    id: 'enr_campfire', name: 'Campfire', icon: '🔥', cat: 'enr', tier: 1, price: 35,
+    cost: { wood: 6, stone: 2 }, needs: [], upgradesTo: null,
+    effect: { type: 'craft_speed', mult: 1.1 },
+    size: 'xs', biome: null,
+    desc: 'A ring of stones and a steady flame. A little heat, a little power.',
+  },
+  {
+    id: 'enr_generator', name: 'Generator', icon: '🔌', cat: 'enr', tier: 2, price: 240,
+    cost: { wood: 12, stone: 10 }, needs: [], upgradesTo: 'enr_autopower',
     effect: { type: 'craft_speed', mult: 1.25 },
     size: 's', biome: null,
-    desc: 'Steady heat speeds up all processing jobs.',
+    desc: 'Fuel in, steady power out — rain or shine, day or night.',
   },
   {
-    id: 'enr_waterwheel', name: 'Water Wheel', icon: '🎡', cat: 'enr', tier: 2, price: 140,
-    needs: [], upgradesTo: 'enr_hydroturbine',
-    effect: { type: 'craft_speed', mult: 1.2 },
-    size: 'm', biome: null,
-    desc: 'Flowing water powers processors a bit faster.',
-  },
-  {
-    id: 'enr_generator', name: 'Generator', icon: '🔌', cat: 'enr', tier: 3, price: 320,
-    needs: ['enr_furnace'], upgradesTo: 'enr_elecshed',
+    id: 'enr_solar', name: 'Solar Panels', icon: '☀️', cat: 'enr', tier: 3, price: 620,
+    cost: { wood: 14, stone: 20 }, needs: [], upgradesTo: null,
     effect: { type: 'craft_speed', mult: 1.35 },
-    size: 's', biome: null,
-    desc: 'Reliable power makes processor jobs noticeably faster.',
+    size: 'm', biome: null,
+    desc: 'Free power all day and none at all after dark. Pair it with something steady.',
   },
   {
-    id: 'enr_fuelstorage', name: 'Fuel Storage', icon: '🛢️', cat: 'enr', tier: 2, price: 120,
-    needs: [], upgradesTo: null,
-    effect: { type: 'storage', cap: 120 },
-    size: 's', biome: null,
-    desc: 'Bunkered fuel reserves add inventory space per good.',
-  },
-  {
-    id: 'enr_elecshed', name: 'Electrical Shed', icon: '⚡', cat: 'enr', tier: 3, price: 280,
-    needs: ['enr_generator'], upgradesTo: 'enr_powerlines',
+    id: 'enr_windturbine', name: 'Wind Turbine', icon: '🌪️', cat: 'enr', tier: 3, price: 700,
+    cost: { wood: 20, stone: 30 }, needs: [], upgradesTo: null,
     effect: { type: 'craft_speed', mult: 1.4 },
-    size: 's', biome: null,
-    desc: 'A proper electrical hub speeds up all processing.',
-  },
-  {
-    id: 'enr_powerlines', name: 'Power Lines', icon: '🗼', cat: 'enr', tier: 3, price: 300,
-    needs: ['enr_elecshed'], upgradesTo: 'enr_microgrid',
-    effect: { type: 'prestige', amount: 5 },
     size: 'l', biome: null,
-    desc: 'A wired farm is a modern farm — adds prestige.',
+    desc: 'Output rises and falls with the wind — site it somewhere exposed.',
   },
   {
-    id: 'enr_solar', name: 'Solar Panels', icon: '☀️', cat: 'enr', tier: 4, price: 800,
-    needs: ['enr_elecshed'], upgradesTo: null,
-    effect: { type: 'craft_speed', mult: 1.5 },
-    size: 'm', biome: null,
-    desc: 'Free daytime power keeps processors running fast.',
+    id: 'enr_autopower', name: 'Automated Power Station', icon: '🏭', cat: 'enr', tier: 5, price: 3000,
+    cost: { wood: 70, stone: 120 }, needs: ['enr_generator'], upgradesTo: null,
+    effect: { type: 'craft_speed', mult: 1.7 },
+    size: 'xl', biome: null,
+    desc: 'Transformers and switchgear. Enough power that you stop thinking about it.',
   },
+
+  // ============================================================
+  // LANDMARKS (cap_ / eco_) — 4. Prestige only.
+  // Endgame pieces bought to be looked at. Prestige lifts every sale price by
+  // 0.1% each, capped at +20%, so these pay back slowly and forever.
+  // ============================================================
   {
-    id: 'enr_windturbine', name: 'Wind Turbine', icon: '🌪️', cat: 'enr', tier: 4, price: 900,
-    needs: ['enr_elecshed'], upgradesTo: null,
-    effect: { type: 'craft_speed', mult: 1.55 },
+    id: 'eco_clock_tower', name: 'Clock Tower', icon: '🕰️', cat: 'cap', tier: 4, price: 2500,
+    cost: { wood: 60, stone: 120 }, needs: [], upgradesTo: null,
+    effect: { type: 'prestige', amount: 30 },
     size: 'l', biome: null,
-    desc: 'Tall blades drive processors even faster.',
+    desc: 'The valley sets its watches by your farm now.',
   },
   {
-    id: 'enr_hydroturbine', name: 'Hydro Turbine', icon: '💠', cat: 'enr', tier: 4, price: 1000,
-    needs: ['enr_waterwheel'], upgradesTo: null,
-    effect: { type: 'craft_speed', mult: 1.6 },
-    size: 'l', biome: null,
-    desc: 'Serious hydropower makes processing jobs much faster.',
+    id: 'cap_botanical_garden', name: 'Botanical Garden', icon: '🌺', cat: 'cap', tier: 5, price: 6000,
+    cost: { wood: 120, stone: 140 }, needs: [], upgradesTo: null,
+    effect: { type: 'prestige', amount: 50 },
+    size: 'xl', biome: null,
+    desc: 'A domed glasshouse that makes the farm a destination in itself.',
   },
   {
-    id: 'enr_biomass', name: 'Biomass Generator', icon: '♻️', cat: 'enr', tier: 4, price: 750,
-    needs: ['enr_generator'], upgradesTo: null,
-    effect: { type: 'craft_speed', mult: 1.5 },
-    size: 'm', biome: null,
-    desc: 'Farm waste becomes power — processors speed up.',
+    id: 'cap_restored_lighthouse', name: 'Restored Lighthouse', icon: '🗼', cat: 'cap', tier: 5, price: 8000,
+    cost: { wood: 90, stone: 220 }, needs: [], upgradesTo: null,
+    effect: { type: 'prestige', amount: 60 },
+    size: 'xl', biome: 'oceanside',
+    desc: 'Its beam sweeps the coast again — the crown jewel of the shoreline.',
   },
   {
-    id: 'enr_geothermal', name: 'Geothermal Plant', icon: '🌋', cat: 'enr', tier: 5, price: 2600,
-    needs: ['enr_powerlines'], upgradesTo: null,
-    effect: { type: 'craft_speed', mult: 1.8 },
-    size: 'l', biome: null,
-    desc: 'Deep-earth heat drives processors far faster.',
-  },
-  {
-    id: 'enr_battery', name: 'Battery Bank', icon: '🔋', cat: 'enr', tier: 4, price: 700,
-    needs: ['enr_solar'], upgradesTo: null,
-    effect: { type: 'craft_speed', mult: 1.5 },
-    size: 'm', biome: null,
-    desc: 'Stored power keeps processors fast around the clock.',
-  },
-  {
-    id: 'enr_microgrid', name: 'Microgrid', icon: '🕸️', cat: 'enr', tier: 5, price: 2200,
-    needs: ['enr_powerlines'], upgradesTo: 'enr_autopower',
-    effect: { type: 'craft_speed', mult: 1.85 },
-    size: 'm', biome: null,
-    desc: 'A smart grid pushes processing speed near its limit.',
-  },
-  {
-    id: 'enr_autopower', name: 'Automated Power Station', icon: '🏭', cat: 'enr', tier: 5, price: 3800,
-    needs: ['enr_microgrid'], upgradesTo: null,
-    effect: { type: 'craft_speed', mult: 2 },
-    size: 'l', biome: null,
-    desc: 'Fully automated power doubles all processing speed.',
+    id: 'cap_observatory', name: 'Observatory', icon: '🔭', cat: 'cap', tier: 5, price: 12000,
+    cost: { wood: 140, stone: 260 }, needs: [], upgradesTo: null,
+    effect: { type: 'prestige', amount: 80 },
+    size: 'xl', biome: null,
+    desc: 'A slotted dome on the hill. People come for the stars and leave inspired.',
   },
 ];

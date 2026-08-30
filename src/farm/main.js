@@ -1,6 +1,6 @@
 import { Pool, npubToHex } from './pool.js';
 import { Homestead } from './farm.js';
-import { Game, WATER_COOLDOWN_MS } from './game.js';
+import { Game, WATER_COOLDOWN_MS, MATERIALS, MATERIAL_BASE_CAP } from './game.js';
 import {
   CROPS, TREES, OBJECTS, ANIMALS, BUILDINGS, GOODS,
   findItem, placementZone, PLACE_TIPS, goodCategory,
@@ -22,8 +22,8 @@ import { MISSIONS, MISSION_PHASES, missionProgress } from './missions.js';
 import { generatePrivateKey, getPublicKey, finishEvent, bech32Encode } from './nostr-keys.js';
 import { PROCESSORS, RECIPES, PRODUCTS, MERCHANT_ITEMS, recipesFor } from './recipes.js';
 import {
-  INFRA, INFRA_BY_ID, isInfra,
-  computeEffects, inZone, zoneBonus, effectLabel,
+  INFRA, INFRA_BY_ID, INFRA_DECOR, isInfra,
+  computeEffects, inZone, zoneBonus, effectLabel, craftSpeedFor,
 } from './infrastructure.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -63,7 +63,15 @@ function refreshEffects() {
   effects = computeEffects(active);
   // a bigger home means more room to store goods — each farmhouse level beyond
   // the starter Shack adds storage (so the house is a real upgrade, not decor)
-  if (game) game.storageCap = effects.storageCap + Math.max(0, houseLevel() - 1) * 30;
+  if (game) {
+    game.storageCap = effects.storageCap + Math.max(0, houseLevel() - 1) * 30;
+    // wood and stone have their own pools — the Lumber Yard and Stone Yard are
+    // the only things that raise them
+    game.materialCap = {
+      wood: MATERIAL_BASE_CAP + (effects.materialCap.wood || 0),
+      stone: MATERIAL_BASE_CAP + (effects.materialCap.stone || 0),
+    };
+  }
   if (farm) {
     farm.productionMultFor = (type) =>
       Math.max(effects.productionMult[type] || 1, effects.productionMultAll);
@@ -118,6 +126,20 @@ function priceLabel(item) {
   if (item.cost) bits.push(materialsLabel(item.cost));
   return bits.join(' + ') || 'free';
 }
+// The two endgame landmarks cost more stone than the base material pool can
+// hold, so they genuinely require a Stone Yard first. That is a fine gate — but
+// only if the game says so instead of letting you grind toward a number you
+// cannot reach.
+function capBlocker(item) {
+  if (!game || !item?.cost) return '';
+  const over = Object.entries(item.cost)
+    .filter(([gd, n]) => game.isMaterial(gd) && n > game.capFor(gd))
+    .map(([gd, n]) => `${goodInfo(gd).icon} ${n} (your ${gd} store holds ${game.capFor(gd)})`);
+  if (!over.length) return '';
+  const yard = over[0].includes('🪵') ? 'Lumber Yard' : 'Stone Yard';
+  return `<br>⚠ needs more ${over.join(' and ')} — build a <b>${yard}</b> to raise the limit`;
+}
+
 function canAfford(item) {
   if (testMode) return true;
   if (item.price != null && game.coins < item.price) return false;
@@ -310,7 +332,8 @@ function chopSceneryTree(e) {
     return;
   }
   const goodId = mining ? 'stone' : 'wood';
-  const amount = mining ? res.stone : res.wood;
+  // a Carpenter Workshop / Forge adds to every yield — that is their whole job
+  const amount = (mining ? res.stone : res.wood) + (effects.harvestBonus[goodId] || 0);
   const got = amount - game.addGood(goodId, amount);
   game.bumpStat(mining ? 'mined' : 'chopped');
   game.save();
@@ -1422,6 +1445,10 @@ const infraCats = (cats) =>
 const decorItems = () =>
   [...OBJECTS, ...MERCHANT_ITEMS.filter((m) => game.owned.includes(m.id) || testMode)];
 
+// the no-effect shelf: 36 buildings kept purely for how they look. Cheapest
+// first, because decor is browsed by budget, not by tier.
+const infraDecor = () => [...INFRA_DECOR].sort((a, b) => a.price - b.price);
+
 // paved paths — laid with a pen-tool drag, priced per tile (stone costs more)
 const PATHS = [
   { id: 'dirt_path', name: 'Dirt Path', icon: '🟫', price: 3, isPath: true, pathType: 'dirt', desc: 'drag on the ground to pave · 3🪙 per tile' },
@@ -1445,19 +1472,19 @@ const GROUPS = [
     id: 'build', label: '🏗️ Build',
     subs: [
       { id: 'building', label: '🏚️ Structures', items: () => BUILDINGS },
-      { id: 'wat', label: '💧 Water', items: () => infraCats(['wat']) },
-      { id: 'fld', label: '🌾 Fields', items: () => infraCats(['fld', 'soil']) },
       { id: 'sto', label: '📦 Storage', items: () => infraCats(['sto']) },
-      { id: 'mac', label: '🚜 Machines', items: () => infraCats(['mac', 'log', 'enr']) },
-      { id: 'com', label: '🏪 Commerce', items: () => infraCats(['com', 'wrk', 'wkr', 'prc']) },
-      { id: 'wild', label: '🎣 Wild', items: () => infraCats(['aqua', 'for', 'prot', 'sci']) },
+      { id: 'fld', label: '🌾 Fields', items: () => infraCats(['fld', 'soil']) },
+      { id: 'wat', label: '💧 Water', items: () => infraCats(['wat']) },
+      { id: 'wrk', label: '⚒️ Workshops', items: () => infraCats(['wrk']) },
+      { id: 'com', label: '🏪 Commerce', items: () => infraCats(['com']) },
+      { id: 'mac', label: '🚜 Machines', items: () => infraCats(['mac', 'enr']) },
       { id: 'paths', label: '🛤️ Paths', items: () => PATHS },
     ],
   },
   {
     id: 'craft', label: '⚙️ Craft',
     subs: [
-      { id: 'processor', label: 'Workshops', items: () => PROCESSORS },
+      { id: 'processor', label: 'Processors', items: () => PROCESSORS },
       { id: 'bow', label: '🏹 Bows', items: () => BOWS },
       { id: 'tool', label: '🪓 Tools', items: () => AXES },
     ],
@@ -1467,7 +1494,7 @@ const GROUPS = [
     subs: [
       { id: 'tree', label: '🌳 Trees', items: () => TREES },
       { id: 'object', label: '🎪 Decor', items: () => decorItems() },
-      { id: 'eco', label: '🌸 Eco', items: () => infraCats(['eco']) },
+      { id: 'eco', label: '🌸 Grounds', items: () => infraDecor() },
       { id: 'cap', label: '🏛️ Landmarks', items: () => infraCats(['cap']) },
     ],
   },
@@ -1665,20 +1692,25 @@ function renderPantry(el) {
 $('#pantry-btn')?.addEventListener('click', openPantry);
 
 // ---- power economy: generators supply, lights/machines/winter-heat demand ----
+// The five surviving generators, and the reason there are five: each behaves
+// DIFFERENTLY rather than just being a bigger number. Wind output tracks the
+// wind where you sited it, solar tracks daylight, the rest are steady — so
+// "what do I build" is a placement question, not a price comparison.
 const POWER_SUPPLY = {
-  enr_windturbine: { kind: 'wind', base: 14 }, cap_giant_windmill: { kind: 'wind', base: 36 },
+  enr_campfire: { kind: 'flat', base: 3 },
+  enr_generator: { kind: 'flat', base: 8 },
   enr_solar: { kind: 'solar', base: 11 },
-  enr_hydroturbine: { kind: 'flat', base: 12 }, enr_waterwheel: { kind: 'flat', base: 6 },
-  enr_generator: { kind: 'flat', base: 8 }, enr_biomass: { kind: 'flat', base: 12 },
-  enr_geothermal: { kind: 'flat', base: 30 }, enr_autopower: { kind: 'flat', base: 40 },
-  enr_microgrid: { kind: 'flat', base: 20 }, cap_hydroelectric_dam: { kind: 'flat', base: 60 },
+  enr_windturbine: { kind: 'wind', base: 14 },
+  enr_autopower: { kind: 'flat', base: 40 },
 };
 const LIGHT_RE = /lantern|lamp|campfire|torch|light|streetlight/i;
 let powerWarned = false;
 function tickPower() {
   if (!game || !farm) return;
   // windbreaks calm the wind on their lee side — feed the shelter zones to the farm
-  const shelters = game.placed.filter((e) => e.type === 'fld_windbreak')
+  // hedges break the wind on their lee side — the one mechanical thing a piece
+  // of decor still does, and the reason a hedgerow is worth planting
+  const shelters = game.placed.filter((e) => e.type === 'prot_hedge')
     .map((e) => ({ x: e.x, z: e.z, r: 13, reduction: 0.4 }));
   farm.setShelters(shelters);
 
@@ -2045,8 +2077,17 @@ makeOverlayDraggable(document.querySelector('#mission-book .cb-cover'), 'nostrux
     const parts = [`${b.base} base`];
     if (b.house) parts.push(`${b.house} farmhouse`);
     if (b.fromBuildings) parts.push(`${b.fromBuildings} from ${b.buildings} building${b.buildings > 1 ? 's' : ''}`);
+    // wood and stone are NOT in this number — they have their own pools, so the
+    // tooltip has to say so or the arithmetic looks broken
+    const mats = ['wood', 'stone'].map((m) => {
+      const have = game.inventory[m] || 0, mcap = game.capFor(m);
+      const warn = have / mcap >= 0.9 ? ' style="color:#ffc46b"' : '';
+      return `<span${warn}>${m === 'wood' ? '🪵' : '🪨'} ${have}/${mcap}</span>`;
+    }).join(' &nbsp; ');
     return `<b>Stores</b><br>${used} of ${cap} stored across every good.<br>${state}`
-      + `<br><span style="opacity:.75">Capacity: ${parts.join(' + ')}</span>`;
+      + `<br><span style="opacity:.75">Capacity: ${parts.join(' + ')}</span>`
+      + `<br><br><b>Materials</b> <span style="opacity:.75">(separate pools)</span><br>${mats}`
+      + `<br><span style="opacity:.75">Raised by the Lumber Yard and Stone Yard.</span>`;
   };
   const coinSeg = $('#coin-seg'), storeSeg = $('#store-chip');
   coinSeg?.addEventListener('mouseenter', () => showTip(coinTip, coinSeg));
@@ -2340,7 +2381,7 @@ function onSlotClick(kind, id, e) {
   if (item && item.cost && item.price == null) {
     if (!requireOwner()) return;
     if (!canAfford(item)) {
-      toast(`🪵 <b>${esc(item.name)}</b> needs ${materialsLabel(item.cost)} — gather some first`, false);
+      toast(`🪵 <b>${esc(item.name)}</b> needs ${materialsStatus(item.cost)} — gather some first${capBlocker(item)}`, false);
       audio.playSfx('denied', 0.25); return;
     }
     if (!testMode) { game.spendGoods(item.cost); renderResChips(); }
@@ -2366,7 +2407,7 @@ function onSlotClick(kind, id, e) {
       movingEntry = null;
       beginPlacement(kind, id, {});
     } else {
-      toast(`🔒 <b>${esc(item.name)}</b> costs ${priceLabel(item)} each — you have ${game.coins}${COIN}${item.cost ? ` · ${materialsLabel(item.cost).replace(/\d+ /g, (m) => `${game.inventory[Object.keys(item.cost)[0]] || 0} `)}` : ''}`, false);
+      toast(`🔒 <b>${esc(item.name)}</b> costs ${priceLabel(item)} each — you have ${game.coins}${COIN}${item.cost ? ` · ${materialsStatus(item.cost)}` : ''}${capBlocker(item)}`, false);
       audio.playSfx('denied', 0.25);
     }
     return;
@@ -2935,7 +2976,7 @@ function chopTimber(farmId, entry, item) {
   const rec = farm.placed.get(farmId);
   if (rec) farm.burstAtPosition(rec.group.position, false);
   if (entry.opts.chopHp <= 0) {
-    const w = item.wood || 3;
+    const w = (item.wood || 3) + (effects.harvestBonus.wood || 0);
     const got = w - game.addGood('wood', w);
     entry.opts.stump = true; entry.opts.stumpUntil = Date.now() + (item.regrowMs || 180000); entry.opts.chopHp = null;
     farm.removeObject(farmId); placedRuntime.delete(farmId);
@@ -3492,7 +3533,7 @@ function openCraftMenu(farmId, uid, entry) {
     return {
       label: `${affordable ? '' : '🔒 '}${r.icon} ${r.name} · ${ingChips(r.inputs)} → ${r.output.count}×${out.icon} (${Math.round(r.timeMs / 1000)}s)`,
       fn: () => {
-        const sped = { ...r, timeMs: Math.max(15000, Math.round(r.timeMs / effects.craftSpeedMult)) };
+        const sped = { ...r, timeMs: Math.max(15000, Math.round(r.timeMs / craftSpeedFor(effects, r.processor))) };
         if (!game.startJob(uid, sped, resolveAnyFish)) {
           toast(`missing ingredients: ${describeInputs(r.inputs)}`, false);
           audio.playSfx('denied', 0.25);
