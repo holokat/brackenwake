@@ -102,6 +102,25 @@ body {
   opacity: 0.55; box-shadow: 0 1px 4px rgba(40, 25, 8, 0.35);
 }
 #res-lock:hover { opacity: 1; border-color: var(--accent); }
+/* stores meter: a live fill bar so "nearly full" is visible before goods are lost */
+.rh-store { display: flex; flex-direction: column; gap: 2px; align-items: stretch; min-width: 62px; }
+.rh-store::before {
+  content: '\1F4E6'; position: absolute; margin-left: -16px; font-size: 12px; line-height: 1.2;
+}
+.rh-store-txt {
+  font-size: clamp(10px, .9vw, 12px); font-weight: 800; color: #6b4a26;
+  letter-spacing: .01em; text-align: center; font-variant-numeric: tabular-nums;
+}
+.rh-store-bar {
+  height: 5px; border-radius: 999px; background: rgba(90, 58, 28, .22);
+  overflow: hidden; box-shadow: inset 0 1px 2px rgba(60, 40, 15, .25);
+}
+.rh-store-bar i { display: block; height: 100%; width: 0%; border-radius: 999px;
+  background: #5aa84a; transition: width .25s ease, background .25s ease; }
+.rh-store.warn .rh-store-bar i { background: #e0a02c; }
+.rh-store.full .rh-store-bar i { background: #c0492f; }
+.rh-store.full .rh-store-txt { color: #a83a26; }
+
 #res-hud .rh {
   font-size: clamp(12px, 1.1vw, 15px); font-weight: 800;
   color: #6b4a26; letter-spacing: 0.01em; min-width: 18px; text-align: center;
@@ -1379,3 +1398,10 @@ body.book-open #sidebar { transform: translateX(0); }
 /* material tallies in HUD tooltips: have/need, coloured by whether you have it */
 .tip-body .mat-ok { color: #7fd07f; }
 .tip-body .mat-low { color: #ff8f7a; }
+
+/* pantry fullness bar — storage is a total across every good */
+.pn-bar { height: 6px; border-radius: 999px; background: rgba(90,58,28,.18); margin: 0 14px 10px; overflow: hidden; }
+.pn-bar i { display: block; height: 100%; background: #5aa84a; border-radius: 999px; }
+.pn-cap.warn { color: #b8791c; }
+.pn-cap.full { color: #a83a26; font-weight: 800; }
+.pn-cap.warn ~ .pn-bar i, .pn-cap.full ~ .pn-bar i { background: #e0a02c; }

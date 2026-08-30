@@ -152,7 +152,10 @@ Recommendation: **A**, chip in the top-right cluster.
 
 ## Systems the HUD doesn't surface
 
-Audited while speccing this. Each of these is built and running; none of it reaches the
+> **STATUS: fixed** — see the "storage & upkeep feedback" commit. Kept here as the
+> record of what was wrong and why the fixes look the way they do.
+
+Audited while speccing this. Each of these was built and running; none of it reached the
 player except by accident.
 
 ### 1. Storage — and a live bug

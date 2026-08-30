@@ -709,7 +709,7 @@ function homesteadBookHtml() {
   const cur = game.tierDef;
   const presPct = Math.round(prestigeBonusPct());
   let h = `<div class="hp-cur">🏡 <b>${esc(cur.name)}</b> · ${cur.plots} plots · tier ${cur.id}/3
-    <span class="hp-cur-sub">⭐ ${effects.prestige} prestige${presPct ? ` (+${presPct}% prices)` : ''} · 📦 ${game.storageCap}/good storage</span></div>`;
+    <span class="hp-cur-sub">⭐ ${effects.prestige} prestige${presPct ? ` (+${presPct}% prices)` : ''} · 📦 ${game.storageCap} storage</span></div>`;
   h += '<div class="hp-title">🏠 Homestead progression</div><div class="hp-grid">';
   h += FARMHOUSE_NAMES.map((name, i) => {
     const need = FARMHOUSE_THRESHOLDS[i];
@@ -812,6 +812,8 @@ setInterval(() => {
   ensureOrders();
   updateSeasonHud();
   tickPower();
+  renderStoreChip(); // stores can change from many places — keep the meter honest
+  tickUpkeep();     // wear + power warnings the player can actually act on
   // paths slowly wash away unless re-paved (rain speeds it)
   if (game.paths && game.paths.length) {
     const wr = 0.0009 * (farm.decayRate?.weather || 1);
@@ -1205,7 +1207,12 @@ function buildFarmScene() {
   }
   refreshEffects();
   builtWithGLBDeer = glbReady('deer'); // did this build get the authored deer?
-  window.__nostrux = { farm, game, pool, loadFarm, audio, get effects() { return effects; }, get myPk() { return myPk; },
+  // farm and game are REASSIGNED on every scene/farm rebuild, so expose them as
+  // getters — captured values go stale the moment the farm reloads, and anything
+  // reading them (or a console session) ends up poking a detached object.
+  window.__nostrux = { pool, loadFarm, audio,
+    get farm() { return farm; }, get game() { return game; },
+    get effects() { return effects; }, get myPk() { return myPk; },
     // temporary authoring aid for positioning the imported landmark models
     landmarks: {
       edit: (on = true) => landmarkEditor(farm, on),
@@ -1638,7 +1645,8 @@ function renderPantry(el) {
     ? '❄️ Winter — preserved &amp; hearty foods sell high; fresh produce is scarce and cheap.'
     : sid === 'fall' ? '🍂 Autumn — lay in preserves before winter arrives.' : '';
   el.innerHTML = `<div class="pn-card">
-    <div class="pn-head">🥫 Pantry <span class="pn-cap">📦 ${totalCount}/${game.storageCap || '∞'}</span><button class="pn-x" id="pn-close">×</button></div>
+    <div class="pn-head">🥫 Pantry <span class="pn-cap ${game.storageFrac() >= 1 ? 'full' : game.storageFrac() >= 0.8 ? 'warn' : ''}">📦 ${totalCount}/${game.storageCap || '∞'}</span><button class="pn-x" id="pn-close">×</button></div>
+    <div class="pn-bar"><i style="width:${Math.round(game.storageFrac() * 100)}%"></i></div>
     ${note ? `<div class="pn-note">${note}</div>` : ''}
     ${entries.length
       ? section('preserved') + section('hearty') + section('fresh') + `<div class="pn-total">Stockpile value: <b>${totalVal}${COIN}</b></div>`
@@ -1707,7 +1715,76 @@ function renderPowerChip() {
 
 function renderResChips() {
   $('#harvest-count').textContent = `🧺 ${game.harvested} harvested · 📦 ${game.inventoryTotal()} stored`;
+  renderStoreChip();
   renderCoins();
+}
+
+// ---- upkeep feedback -----------------------------------------------------
+// Wear and power all ran silently: buildings weathered with no notice, paved
+// paths were DELETED at full wear without warning, and a power shortfall only
+// dimmed the lamps. Each now surfaces once, when it still matters.
+let upkeepLast = 0;
+const warnedWear = new Set();
+let pathWarned = false;
+let powerStallWarned = false;
+
+function tickUpkeep() {
+  const now = Date.now();
+  const dt = upkeepLast ? Math.min(6000, now - upkeepLast) : 0;
+  upkeepLast = now;
+
+  // a power shortfall STALLS every running machine. Jobs are wall-clock, so
+  // hold them still by pushing their start along with the clock.
+  const jobs = game.jobs ? Object.values(game.jobs) : [];
+  if (farm.powerDeficit && jobs.length) {
+    for (const j of jobs) j.startedAt += dt;
+    if (!powerStallWarned) {
+      powerStallWarned = true;
+      toast('🔌 no power — your machines have stalled. Add a turbine, solar or generator.', false);
+    }
+  } else if (!farm.powerDeficit) {
+    powerStallWarned = false;
+  }
+
+  // buildings weather; tell you once, while a repair is still cheap
+  for (const [farmId, uid] of placedRuntime.entries()) {
+    if (farm.buildingWear(farmId) < 0.6 || warnedWear.has(uid)) continue;
+    const entry = game.placed.find((e) => e.uid === uid);
+    const item = entry && findAnyItem(entry.kind, entry.type);
+    if (!item) continue;
+    warnedWear.add(uid);
+    toast(`🔨 your <b>${esc(item.name)}</b> is weathering — click it to repair`, false);
+  }
+
+  // paths wash away entirely at full wear — say so before they vanish
+  const fading = (game.paths || []).filter((p) => (p.wear || 0) >= 0.72).length;
+  if (fading && !pathWarned) {
+    pathWarned = true;
+    toast(`🛤️ ${fading} path tile${fading > 1 ? 's are' : ' is'} washing away — re-pave before they go`, false);
+  } else if (!fading) pathWarned = false;
+}
+
+// The stores meter. Storage is the one economy the player could never see —
+// goods were silently dropped on overflow and only announced after the loss.
+let storeWarned = 0;
+function renderStoreChip() {
+  const el = $('#store-chip'); if (!el || !game) return;
+  const used = game.inventoryTotal(), cap = game.storageCap || 0;
+  const frac = game.storageFrac();
+  $('#store-val').textContent = `${used}/${cap}`;
+  $('#store-fill').style.width = `${Math.round(frac * 100)}%`;
+  el.classList.toggle('warn', frac >= 0.8 && frac < 1);
+  el.classList.toggle('full', frac >= 1);
+  el.title = frac >= 1
+    ? 'stores are FULL — anything you harvest now is lost. Sell at the market or build more storage.'
+    : `stores ${Math.round(frac * 100)}% full · room for ${game.storageRoom()} more`;
+  // warn once per threshold crossing, not every tick
+  const step = frac >= 1 ? 2 : frac >= 0.8 ? 1 : 0;
+  if (step > storeWarned) {
+    if (step === 2) toast('📦 stores are FULL — harvests will be lost. Sell at the market or build storage.', false);
+    else toast('📦 stores are getting full — sell some goods or add a shed.', false);
+  }
+  storeWarned = step;
 }
 
 // the autumn frame art has 12 slot boxes; every other frame has 13
@@ -2351,7 +2428,7 @@ function renderBook() {
   const next = game.nextTierDef;
   const cur = game.tierDef;
   const presPct = Math.round(prestigeBonusPct());
-  let farmHtml = `<div class="sb-tier-cur">🏡 <b>${cur.name}</b><span>${cur.plots} plots · tier ${cur.id}/3 · ⭐ ${effects.prestige} prestige${presPct ? ` (+${presPct}% prices)` : ''} · 📦 ${game.storageCap}/good storage</span></div>`;
+  let farmHtml = `<div class="sb-tier-cur">🏡 <b>${cur.name}</b><span>${cur.plots} plots · tier ${cur.id}/3 · ⭐ ${effects.prestige} prestige${presPct ? ` (+${presPct}% prices)` : ''} · 📦 ${game.storageCap} storage</span></div>`;
 
   // homestead progression now lives on the Mission Book's left page (with big
   // unlock thumbnails) — the sidebar just links across to it

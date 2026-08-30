@@ -293,9 +293,13 @@ export class Game {
     this.save();
   }
 
+  // Storage is a TOTAL across every good, not a per-good allowance. Per-good
+  // caps were effectively unlimited (25 goods x 50 = 1250 before you noticed)
+  // and could never be shown as one honest number, which is why every barn and
+  // silo felt pointless.
   addGood(id, n = 1) {
     const have = this.inventory[id] || 0;
-    const add = Math.max(0, Math.min(n, this.storageCap - have));
+    const add = Math.max(0, Math.min(n, this.storageCap - this.inventoryTotal()));
     if (add > 0) {
       this.inventory[id] = have + add;
       if (!this.discovered.includes(id)) this.discovered.push(id); // collection book
@@ -387,6 +391,14 @@ export class Game {
     return Object.values(this.inventory).reduce((a, b) => a + b, 0);
   }
 
+  // 0..1 — how full the stores are. Drives the HUD meter and the warnings.
+  storageFrac() {
+    if (!this.storageCap) return 0;
+    return Math.min(1, this.inventoryTotal() / this.storageCap);
+  }
+
+  storageRoom() { return Math.max(0, this.storageCap - this.inventoryTotal()); }
+
   addCoins(n) {
     this.coins += n;
     this.save();
@@ -426,7 +438,9 @@ export class Game {
   jobProgress(uid) {
     const j = this.jobs[uid];
     if (!j) return null;
-    return Math.min(1, (Date.now() - j.startedAt) / j.timeMs);
+    // clamped low too: a power stall pushes startedAt forward, which can
+    // briefly put it ahead of now
+    return Math.max(0, Math.min(1, (Date.now() - j.startedAt) / j.timeMs));
   }
 
   finishJob(uid) {

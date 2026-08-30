@@ -161,7 +161,7 @@ export class Homestead {
     this.wind = { dir: 0, strength: 0.3, gust: 0 };
     this._shelters = []; // windbreak lee zones {x,z,r,reduction} that calm the wind
     this.powerDeficit = false; // set by the power economy — dims night lights
-    this.decayRate = { growth: 1, weather: 1 }; // env multipliers (rain speeds wear)
+    this.decayRate = { weather: 1 }; // rain speeds wear on paths and buildings
     this.predators = []; // foxes (day) & wolves (night) that hunt un-penned animals
     // hunting: bow tool aims at deer; hit odds fall off with camera distance
     this.huntMode = false;
@@ -688,7 +688,6 @@ export class Homestead {
     this._applyFoliageSeason(now);
     // rain accelerates structural weathering; winter slows plant growth/encroach
     this.decayRate.weather = 1 + (this.weather.precip === 'rain' ? this.weather.intensity : 0) * 1.6;
-    this.decayRate.growth = this.temperature <= 0 ? 0.15 : this.temperature < 8 ? 0.7 : 1.2;
   }
 
   // ---- buildings slowly weather (like the fence): they dull and grime over
