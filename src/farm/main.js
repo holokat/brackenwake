@@ -3790,7 +3790,7 @@ function showPlotTooltip(index, at) {
     const info = game.growthInfo(state);
     const pct = info.next != null ? Math.min(100, Math.round((info.gained / info.next) * 100)) : 100;
     tip.innerHTML =
-      `<span class="tip-name">${info.item.icon} ${info.item.name}</span>` +
+      `<span class="tip-name">${info.item.name}</span>` +
       `<span class="tip-time">${STAGE_NAMES[info.stage]}</span>` +
       `<div class="tip-grow"><span style="width:${pct}%"></span></div>` +
       `<div class="tip-body">${info.stage >= 4 ? (isOwner() ? 'click to harvest 🧺 · ⇧click harvests ALL ready plots' : 'in full blossom') : `💧 water or engagement · ${Math.floor(info.gained)}/${info.next ?? '—'} growth`}</div>`;
@@ -3803,16 +3803,16 @@ function showPlotTooltip(index, at) {
 // rich hover popovers for HUD cells (replaces slow native title tooltips)
 function hudTipHtml(cell) {
   if (cell.id === 'hud-book') {
-    return `<span class="tip-name">📔 Collection Book</span><div class="tip-body">every crop, good, dish &amp; fish you've discovered — complete a set for +75${COIN}</div>`;
+    return `<span class="tip-name">Collection Book</span><div class="tip-body">every crop, good, dish &amp; fish you've discovered — complete a set for +75${COIN}</div>`;
   }
   if (cell.dataset.tool) {
     const t = TOOLS.find((x) => x.id === cell.dataset.tool);
-    return t ? `<span class="tip-name">${t.icon} ${esc(t.title)}</span>` : null;
+    return t ? `<span class="tip-name">${esc(t.title)}</span>` : null;
   }
   if (cell.dataset.good) {
     const g = goodInfo(cell.dataset.good);
     const n = game?.inventory[cell.dataset.good] || 0;
-    return `<span class="tip-name">${g.icon} ${esc(g.name)}</span><span class="tip-time">× ${n}</span>` +
+    return `<span class="tip-name">${esc(g.name)}</span><span class="tip-time">× ${n}</span>` +
       `<div class="tip-body">sells for ${sellPrice(g)}${COIN} each at the market stand</div>`;
   }
   if (cell.dataset.id) {
@@ -3854,7 +3854,7 @@ function hudTipHtml(cell) {
       status = `🔒 ${[coins, item.cost ? materialsStatus(item.cost) : ''].filter(Boolean).join('  ') || 'not for sale'}`;
     }
     else if (item.cost) status = materialsStatus(item.cost);
-    return `<span class="tip-name">${item.icon} ${esc(item.name)}</span>${sub ? `<span class="tip-time">${sub}</span>` : ''}` +
+    return `<span class="tip-name">${esc(item.name)}</span>${sub ? `<span class="tip-time">${sub}</span>` : ''}` +
       rows.map((r) => `<div class="tip-body">${r}</div>`).join('') +
       (status ? `<div class="tip-body">${status}</div>` : '');
   }
@@ -3918,7 +3918,7 @@ function showObjectTooltip(farmId, at) {
   rows.push(...purposeRows(item, isInfra(entry.type)));
   if (PROCESSORS.some((x) => x.id === entry.type)) rows.push('🔨 click to craft');
   if (item.desc) rows.push(esc(item.desc));
-  tip.innerHTML = `<span class="tip-name">${item.icon} ${esc(item.name)}</span>` +
+  tip.innerHTML = `<span class="tip-name">${esc(item.name)}</span>` +
     rows.map((r) => `<div class="tip-body">${r}</div>`).join('');
   tip.style.left = Math.min(at.x + 16, window.innerWidth - 280) + 'px';
   tip.style.top = Math.min(at.y + 16, window.innerHeight - 130) + 'px';
