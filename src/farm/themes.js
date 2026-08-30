@@ -2703,38 +2703,69 @@ function buildArchBridge(rng, span, color) {
 // pool; the group's local +z face points at faceTo. returns foam records.
 function sakuraFalls(land, rng, x, z, fh, faceTo, baseY, widthScale = 1) {
   const w = new THREE.Group();
-  const cw = fh * 0.42 * widthScale;  // overall falls width
-  const ww = cw * 0.82;      // the water sheet itself — the hero of the piece
-  // boulders framing the sides and piled at the plunge base (the terrain cliff
-  // supplies the rock face itself, so no slab is needed behind the water)
-  for (let i = 0; i < 5; i++) {
-    const rock = ball(1.3 + rng() * 1.0, i % 2 ? 0xa79881 : 0x8d7f6d, 0.9, 6);
-    rock.position.set((i < 2 ? -1 : 1) * (ww * 0.62 + rng() * 0.9), fh * (0.1 + (i % 3) * 0.34), (rng() - 0.5) * 0.8);
-    rock.scale.x *= 1.3;
-    w.add(rock);
-  }
-  // The falling water is UNLIT: a vertical plane under an overhead sun shades
-  // to near-black, so basic materials keep the sheet reading bright and cel-like.
-  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(ww, fh * 0.98), new THREE.MeshBasicMaterial({
+  // Width is CAPPED, not proportional: a tall drop scaled by height alone
+  // becomes a giant paper rectangle. Real falls stay narrow and get taller.
+  const ww = Math.max(3, Math.min(fh * 0.30 * widthScale, 11));
+  // tall drops break into stacked tiers with a foam ledge between them, which
+  // reads as a cascade instead of one flat sheet
+  const tiers = fh > 26 ? 3 : (fh > 13 ? 2 : 1);
+  const foams = [];
+  const water = (wd, ht) => new THREE.Mesh(new THREE.PlaneGeometry(wd, ht), new THREE.MeshBasicMaterial({
+    // UNLIT: a vertical plane under an overhead sun shades to near-black
     color: 0xdcf0fb, transparent: true, opacity: 0.95, side: THREE.DoubleSide,
   }));
-  sheet.position.set(0, fh * 0.49, 0.45);
-  w.add(sheet);
-  for (const ox of [-0.28, 0.06, 0.32]) {
-    const streak = new THREE.Mesh(new THREE.PlaneGeometry(ww * 0.2, fh * 0.94), new THREE.MeshBasicMaterial({
-      color: 0xffffff, transparent: true, opacity: 0.6, side: THREE.DoubleSide,
-    }));
-    streak.position.set(ox * ww, fh * 0.48, 0.62);
-    w.add(streak);
+  const tierH = fh / tiers;
+  for (let t = 0; t < tiers; t++) {
+    const y0 = t * tierH;
+    // each lower tier steps slightly forward, like water working outward
+    const zo = 0.35 + (tiers - 1 - t) * 0.85;
+    const tw = ww * (1 - t * 0.10); // slightly wider at the bottom
+    const sheet = water(tw, tierH * 0.94);
+    sheet.position.set(0, y0 + tierH * 0.47, zo);
+    w.add(sheet);
+    // a couple of faint streaks give the sheet internal motion
+    for (const ox of [-0.24, 0.22]) {
+      const st = new THREE.Mesh(new THREE.PlaneGeometry(tw * 0.13, tierH * 0.9), new THREE.MeshBasicMaterial({
+        color: 0xffffff, transparent: true, opacity: 0.4, side: THREE.DoubleSide,
+      }));
+      st.position.set(ox * tw, y0 + tierH * 0.47, zo + 0.12);
+      w.add(st);
+    }
+    // bright crest where this tier pours over
+    const crest = new THREE.Mesh(new THREE.BoxGeometry(tw * 1.06, 0.5, 1.0), new THREE.MeshBasicMaterial({ color: 0xf4fbff }));
+    crest.position.set(0, y0 + tierH * 0.95, zo - 0.1);
+    w.add(crest);
+    // catch-basin + churn at the foot of every tier but the last (that one
+    // gets the main plunge pool below)
+    if (t > 0) {
+      const ledge = flatDisc(tw * 0.75, 0x8fc9e4, 0.12, 12);
+      ledge.position.set(0, y0 + 0.06, zo + 1.0);
+      w.add(ledge);
+      for (let i = 0; i < 3; i++) {
+        const f = ball(0.45 + rng() * 0.3, 0xf2fafd, 0.6, 6);
+        f.position.set((rng() - 0.5) * tw * 0.9, y0 + 0.3, zo + 0.6 + rng() * 1.1);
+        w.add(f);
+        foams.push({ f, ph: rng() * 6 });
+      }
+    }
   }
-  // bright lip where the water pours over the top
-  const lip = new THREE.Mesh(new THREE.BoxGeometry(ww * 1.04, 0.6, 1.3), new THREE.MeshBasicMaterial({ color: 0xf4fbff }));
-  lip.position.set(0, fh * 0.97, 0.2); w.add(lip);
-  const pool = flatDisc(cw * 0.9, 0x6fb6de, 0.14, 14); pool.position.set(0, 0.05, 2.2); w.add(pool);
-  const foams = [];
+  // rock shoulders framing the sheet on both sides, so it sits INTO the cliff
+  // rather than floating in front of it
+  for (let i = 0; i < 8; i++) {
+    const side = i % 2 ? 1 : -1;
+    const r = ww * (0.22 + rng() * 0.16);
+    const rock = ball(r, i % 3 ? 0xa79881 : 0x8d7f6d, 0.9, 6);
+    rock.position.set(side * (ww * 0.55 + r * 0.5), fh * (0.06 + (i / 8) * 0.9), -0.3 + rng() * 1.2);
+    rock.scale.x *= 1.25;
+    w.add(rock);
+  }
+  // plunge pool + mist at the base
+  const pool = flatDisc(ww * 1.15, 0x6fb6de, 0.14, 14);
+  pool.position.set(0, 0.05, 2.4);
+  w.add(pool);
   for (let i = 0; i < 7; i++) {
-    const f = ball(0.6 + rng() * 0.45, 0xf2fafd, 0.6, 6);
-    f.position.set((rng() - 0.5) * ww, 0.35 + rng() * 0.7, 1.1 + rng() * 1.9);
+    const f = ball(0.55 + rng() * 0.5, 0xf2fafd, 0.6, 6);
+    f.position.set((rng() - 0.5) * ww * 1.1, 0.35 + rng() * 0.9, 1.2 + rng() * 2.0);
     w.add(f);
     foams.push({ f, ph: rng() * 6 });
   }
@@ -2794,7 +2825,12 @@ function sakuraHeightField(ctx, rng, terr) {
 // A rock escarpment that follows a terrace line. `distFn(a)` gives the line's
 // distance from the farm and top/bot give its height, so the wall bends around
 // the farm's rectangle exactly like the ground step it hides.
-function sakuraCliffWall(ctx, land, distFn, topFn, botFn, colors) {
+// `facing` is +1 when the rock is seen from further out (the plateau rim, viewed
+// from the gorge) and -1 when seen from further in (the gorge's outer wall).
+// The wall has to stand at the VISIBLE edge of the ground's transition ramp,
+// otherwise that grassy ramp shows in front of the rock and the cliff reads as
+// a green slope with a stripe of stone on it.
+function sakuraCliffWall(ctx, land, distFn, topFn, botFn, colors, facing = 1) {
   const zC = ctx.zCenter || 0;
   const hw = (ctx.islandW || 30) / 2, hd = (ctx.islandD || 30) / 2;
   // a point at distance `dd` from the farm's rectangle along bearing `a`
@@ -2814,7 +2850,7 @@ function sakuraCliffWall(ctx, land, distFn, topFn, botFn, colors) {
   const pos = [], idx = [];
   for (let i = 0; i <= segs; i++) {
     const a = (i / segs) * Math.PI * 2;
-    const [x, z] = at(a, distFn(a) * 1.01);
+    const [x, z] = at(a, distFn(a));
     const jit = 0.8 * Math.sin(a * 11 + 1.3) + 0.5 * Math.cos(a * 19 + 0.7);
     pos.push(x, topFn(a) + jit, z, x, botFn(a) - 1.5 - Math.abs(jit), z);
   }
@@ -2831,7 +2867,7 @@ function sakuraCliffWall(ctx, land, distFn, topFn, botFn, colors) {
     const bpos = [], bidx = [];
     for (let i = 0; i <= segs; i++) {
       const a = (i / segs) * Math.PI * 2;
-      const [x, z] = at(a, distFn(a) * 1.01 - 0.5);
+      const [x, z] = at(a, distFn(a) + facing * 0.5); // a hair toward the viewer
       const H = topFn(a) - botFn(a);
       const bt = topFn(a) - H * (0.32 + b * 0.32), bb = bt - H * 0.13;
       bpos.push(x, bt, z, x, bb, z);
@@ -2866,10 +2902,14 @@ function sakuraOuter(ctx) {
 
   // ---- the escarpments: the plateau's rim, and the gorge's far wall (which
   // rears up on the left into the headland the great waterfall pours off) ----
-  const at = sakuraCliffWall(ctx, land, terr.edgeD, () => 1.0, (a) => -terr.depthAt(a) - 1,
-    [0xb5a68e, 0xc9bba1, 0xa2937c]);
-  sakuraCliffWall(ctx, land, terr.outerD, (a) => terr.benchH(a) + 1.0, (a) => -terr.depthAt(a) - 1,
-    [0xaf9f88, 0xc3b49a, 0x9c8d76]);
+  // each wall stands at the far side of its own ground ramp, so the ramp is
+  // hidden behind the rock rather than showing through as a grass slope
+  const rimWallD = (a) => terr.edgeD(a) + terr.band + 0.8;
+  const outWallD = (a) => terr.outerD(a) - terr.band - 0.8;
+  const at = sakuraCliffWall(ctx, land, rimWallD, () => 1.0, (a) => -terr.depthAt(a) - 1,
+    [0xb5a68e, 0xc9bba1, 0xa2937c], 1);
+  sakuraCliffWall(ctx, land, outWallD, (a) => terr.benchH(a) + 1.0, (a) => -terr.depthAt(a) - 1,
+    [0xaf9f88, 0xc3b49a, 0x9c8d76], -1);
 
   // boulders along both lips for a chunky silhouette
   {
@@ -2951,7 +2991,8 @@ function sakuraOuter(ctx) {
   {
     const a = Math.PI;
     const top = terr.benchH(a), bot = -terr.depthAt(a);
-    const [fx, fz] = atW(a, terr.outerD(a) - 2);
+    // sit right against the gorge's outer rock face
+    const [fx, fz] = atW(a, outWallD(a) - 1.4);
     foams.push(...sakuraFalls(land, rng, fx, fz, top - bot, { x: 0, z: zC }, bot, 1.6));
     // a stream carrying the plunge pool across the gorge floor into the river
     const [rx, rz] = atW(a, riverD(a));
@@ -2966,8 +3007,8 @@ function sakuraOuter(ctx) {
   {
     const a = 0.35;
     const bot = -terr.depthAt(a);
-    const [fx, fz] = atW(a, terr.edgeD(a) + 3);
-    const outward = atW(a, terr.edgeD(a) + 40);
+    const [fx, fz] = atW(a, rimWallD(a) + 1.4); // just outside the rim rock face
+    const outward = atW(a, rimWallD(a) + 40);
     foams.push(...sakuraFalls(land, rng, fx, fz, -bot + 1.2, { x: outward[0], z: outward[1] }, bot));
   }
 
