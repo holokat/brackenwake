@@ -60,8 +60,11 @@ Paste the block below into whatever is generating the models.
 >    slightly proud of each other rather than forming one flat face.
 >
 > 10. **Where not to.** Skip interiors, backfaces, undersides and anything below the
->    base — none of it is ever seen, and it is the one kind of geometry that buys
->    nothing.
+>     base — none of it is ever seen, and it is the one kind of geometry that buys
+>     nothing.
+> 11. Detail that reuses an existing material costs **nothing**. Detail that introduces
+>     a new material costs an entire draw call. When choosing between "more shape" and
+>     "one more colour", always take more shape.
 >
 > **The shared material list — use these names and colours verbatim**
 >
@@ -91,9 +94,6 @@ Paste the block below into whatever is generating the models.
 > | `farm-cloth` | `#E8D3A4` | canvas, awnings, sacks |
 > | `farm-thatch` | `#C9A05A` | thatch, straw, hay |
 >
-> 11. Detail that reuses an existing material costs **nothing**. Detail that introduces
->    a new material costs an entire draw call. When choosing between "more shape" and
->    "one more colour", always take more shape.
 >
 > **Deliver, per model:** the .glb, plus a line stating its triangle count, its mesh
 > count, and the list of materials it uses.
