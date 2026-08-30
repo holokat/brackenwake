@@ -82,6 +82,7 @@ function rebuild(field) {
     im.castShadow = true;
     im.userData.treeField = field;
     im.userData.treeMap = map;
+    im.userData.layer = layer; // so a single instance can be re-composed later
     if (layer.tag) layer.tag(im);
     field.parent.add(im);
     field.meshes.push(im);
@@ -119,11 +120,48 @@ function treeCopy(field, tree) {
 
 // Chop the tree at `index`. Returns { hit } while it still stands, or
 // { felled: true, wood } on the swing that brings it down.
+// One axe blow: the tree rocks and settles. Instanced, so the single instance's
+// matrix is re-composed each frame — pivoting about the trunk base, not the
+// part's own centre, or the crown would swing loose from the trunk.
+function shudder(field, index, strength = 1) {
+  const t = field.trees[index];
+  const targets = [];
+  for (const im of field.meshes) {
+    const i = im.userData.treeMap.indexOf(index);
+    if (i >= 0) targets.push({ im, i, layer: im.userData.layer });
+  }
+  if (!targets.length) return;
+  const t0 = performance.now(), DUR = 460;
+  const step = () => {
+    const k = Math.min(1, (performance.now() - t0) / DUR);
+    const lean = Math.sin(k * Math.PI * 7) * (1 - k) * 0.11 * strength; // decaying
+    const cos = Math.cos(lean), sin = Math.sin(lean);
+    for (const { im, i, layer } of targets) {
+      const part = layer.of(t);
+      if (!part) continue;
+      const ox = part.x - t.x, oy = part.y - t.gy, oz = part.z - t.z;
+      _p.set(t.x + ox * cos - oy * sin, t.gy + ox * sin + oy * cos, t.z + oz);
+      _e.set(part.rx || 0, part.ry || 0, (part.rz || 0) + lean);
+      _q.setFromEuler(_e);
+      const sc = part.s == null ? 1 : part.s;
+      _s.set(sc, (part.sy == null ? 1 : part.sy) * sc, sc);
+      _m4.compose(_p, _q, _s);
+      im.setMatrixAt(i, _m4);
+      im.instanceMatrix.needsUpdate = true;
+    }
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 export function chopTree(field, index) {
   const t = field.trees[index];
   if (!t || t.felledUntil) return null;
   t.hp = (t.hp ?? (field.hits ?? FELL_HITS)) - 1;
-  if (t.hp > 0) return { hit: true, remaining: t.hp };
+  if (t.hp > 0) {
+    shudder(field, index, field.kind === 'rock' ? 0.45 : 1); // rock barely budges
+    return { hit: true, remaining: t.hp };
+  }
   if (field.kind === 'rock') return breakRock(field, t);
 
   // topple a standalone copy, then let the instance go

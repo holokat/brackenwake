@@ -1375,3 +1375,7 @@ body.book-open #sidebar { transform: translateX(0); }
 .pn-empty { color: #9a7c4e; font-size: 13px; text-align: center; padding: 20px 10px; line-height: 1.5; }
 #fence-hud .fh-cta { opacity: 0.82; font-weight: 600; font-size: 11px; margin-left: 4px; }
 @keyframes fh-pulse { 0%,100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } }
+
+/* material tallies in HUD tooltips: have/need, coloured by whether you have it */
+.tip-body .mat-ok { color: #7fd07f; }
+.tip-body .mat-low { color: #ff8f7a; }

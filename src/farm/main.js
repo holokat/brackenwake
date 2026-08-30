@@ -97,6 +97,21 @@ function applyGrowth(idxs, base) {
 function materialsLabel(cost) {
   return Object.entries(cost || {}).map(([g, n]) => `${n} ${goodInfo(g).icon}`).join(' + ');
 }
+// The cell badge is ~50px wide, so it carries the coin price plus a hint of
+// which materials are involved; the tooltip spells the amounts out.
+function badgeLabel(item) {
+  const coins = item.price != null && item.price > 0 ? `${item.price}` : '';
+  const mats = item.cost ? Object.keys(item.cost).map((gd) => goodInfo(gd).icon).join('') : '';
+  return [coins, mats].filter(Boolean).join(' ') || 'free';
+}
+// "🪵 4/20  🪨 30/10" — what you have over what it needs, the have-figure
+// coloured so a shortfall reads at a glance
+function materialsStatus(cost) {
+  return Object.entries(cost || {}).map(([gd, n]) => {
+    const have = game?.inventory[gd] || 0;
+    return `${goodInfo(gd).icon} <b class="${have >= n ? 'mat-ok' : 'mat-low'}">${have}</b>/${n}`;
+  }).join('  ');
+}
 function priceLabel(item) {
   const bits = [];
   if (item.price != null && item.price > 0) bits.push(`${item.price}${COIN}`);
@@ -1962,15 +1977,15 @@ function cellForItem(item, kind) {
   const price = item.price;
   // recurring items always show their per-placement price; others show a price
   // or requirement badge only until unlocked
-  const showBadge = blocked || (recurring ? price != null : !isUn);
-  const badge = blocked ? '⛔' : (price != null ? `${COIN}${price}` : 'free');
+  const showBadge = blocked || (recurring ? price != null : !isUn) || !!item.cost;
+  const badge = blocked ? '⛔' : badgeLabel(item);
   // can you actually get one right now? drives the affordability dimming
   let canGet;
   if (blocked) canGet = false;
-  else if (recurring) canGet = price == null || game.coins >= price || testMode;
-  else if (isUn) canGet = true;                         // unlocked & free to place
-  else if (price != null) canGet = game.coins >= price || testMode; // buy to unlock
-  else canGet = false;                                  // engagement-gated, no coin path
+  else if (recurring) canGet = canAfford(item);
+  else if (isUn) canGet = !item.cost || canAfford(item); // unlocked, but materials still apply
+  else if (price != null || item.cost) canGet = canAfford(item);
+  else canGet = false;
   // bows use their painted artwork; everything else renders a model thumbnail
   const isBow = kind === 'bow';
   const thumb = isBow ? null : getThumb(item.id);
@@ -3831,10 +3846,14 @@ function hudTipHtml(cell) {
     }
     const zoneTip = PLACE_TIPS[placementZone(item.id)];
     if (zoneTip) rows.push(`📍 ${esc(zoneTip)}`);
-    const status = isUn
-      ? ''
-      : blocked ? `⛔ ${esc(blocked)}`
-      : `🔒 ${item.price != null ? `buy for ${COIN}${item.price}` : 'not for sale'}`;
+    // materials are charged on every placement, so show them even once unlocked
+    let status = '';
+    if (blocked) status = `⛔ ${esc(blocked)}`;
+    else if (!isUn) {
+      const coins = item.price != null && item.price > 0 ? `${COIN}${item.price}` : '';
+      status = `🔒 ${[coins, item.cost ? materialsStatus(item.cost) : ''].filter(Boolean).join('  ') || 'not for sale'}`;
+    }
+    else if (item.cost) status = materialsStatus(item.cost);
     return `<span class="tip-name">${item.icon} ${esc(item.name)}</span>${sub ? `<span class="tip-time">${sub}</span>` : ''}` +
       rows.map((r) => `<div class="tip-body">${r}</div>`).join('') +
       (status ? `<div class="tip-body">${status}</div>` : '');
