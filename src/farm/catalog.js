@@ -68,12 +68,12 @@ export const ANIMALS = [
 ];
 
 export const BUILDINGS = [
-  { id: 'enclosure_small', name: 'Small Pen', icon: '🚧', price: 30 },
-  { id: 'silo', name: 'Corn Silo', icon: '🌽', price: 60, effect: { type: 'storage', cap: 60 } },
-  { id: 'barn1', name: 'Small Barn', icon: '🏚️', price: 80, effect: { type: 'storage', cap: 40 } },
-  { id: 'enclosure_large', name: 'Large Pen', icon: '🚜', price: 60 },
-  { id: 'barn2', name: 'Big Barn', icon: '🏠', price: 200, effect: { type: 'storage', cap: 110 } },
-  { id: 'barn3', name: 'Grand Barn', icon: '🏰', price: 500, effect: { type: 'storage', cap: 220 } },
+  { id: 'enclosure_small', name: 'Small Pen', icon: '🚧', price: 30, cost: { wood: 4 } },
+  { id: 'silo', name: 'Corn Silo', icon: '🌽', price: 60, effect: { type: 'storage', cap: 60 }, cost: { wood: 8, stone: 4 } },
+  { id: 'barn1', name: 'Small Barn', icon: '🏚️', price: 80, effect: { type: 'storage', cap: 40 }, cost: { wood: 12, stone: 4 } },
+  { id: 'enclosure_large', name: 'Large Pen', icon: '🚜', price: 60, cost: { wood: 6 } },
+  { id: 'barn2', name: 'Big Barn', icon: '🏠', price: 200, effect: { type: 'storage', cap: 110 }, cost: { wood: 24, stone: 10 } },
+  { id: 'barn3', name: 'Grand Barn', icon: '🏰', price: 500, effect: { type: 'storage', cap: 220 }, cost: { wood: 45, stone: 22 } },
 ];
 
 // sellable goods: crop produce (id = crop id), passive animal/tree goods, fish (from fishing.js)
@@ -105,7 +105,8 @@ export const GOODS = {
   game_meat: { name: 'Wild Game', icon: '🍗', sell: 4 },
   bear_meat: { name: 'Bear Meat', icon: '🐻', sell: 12 },
   trapped_fish: { name: 'Trapped Fish', icon: '🐟', sell: 7 }, // passive catch from a fish trap
-  wood: { name: 'Wood', icon: '🪵', sell: 3 }, // chopped from timber pines with an axe
+  wood: { name: 'Wood', icon: '🪵', sell: 3 },   // chopped from any tree with an axe
+  stone: { name: 'Stone', icon: '🪨', sell: 4 }, // mined from boulders with a pickaxe
 };
 
 // good "kind" for seasonal market demand: winter pays a premium for food that

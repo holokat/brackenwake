@@ -13,7 +13,7 @@ import { FISH_TABLES } from './fishing.js';
 import { getThumb } from './thumbs.js';
 import { preloadModels, glbReady } from './glb_models.js';
 import { preloadLandmarks, landmarkEditor, dumpLandmarks } from './landmarks.js';
-import { treeEditor, dumpTrees, debugPick } from './tree_edit.js';
+import { treeEditor, dumpTrees, debugPick, pickTree, chopTree, regrowTrees } from './tree_edit.js';
 import { clearStore, storeSummary } from './scenery_store.js';
 import { preloadAnimalModels, animalModelReady } from './animal_models.js';
 import { SEASON_ICON, SEASON_LABEL } from './seasons.js';
@@ -89,6 +89,31 @@ function sellPrice(g) {
 // stage reads `growth >= threshold`, so the multiplier just shortens the wait.
 function applyGrowth(idxs, base) {
   return game.addGrowth(idxs, base * (effects.growthMult || 1));
+}
+
+// ---- paying for a structure: coins AND materials ------------------------
+// Structures cost coins plus timber/stone. `price` is the coin part, `cost` the
+// material part; either may be absent.
+function materialsLabel(cost) {
+  return Object.entries(cost || {}).map(([g, n]) => `${n} ${goodInfo(g).icon}`).join(' + ');
+}
+function priceLabel(item) {
+  const bits = [];
+  if (item.price != null && item.price > 0) bits.push(`${item.price}${COIN}`);
+  if (item.cost) bits.push(materialsLabel(item.cost));
+  return bits.join(' + ') || 'free';
+}
+function canAfford(item) {
+  if (testMode) return true;
+  if (item.price != null && game.coins < item.price) return false;
+  return game.hasGoods(item.cost);
+}
+function payFor(item) {
+  if (testMode) return;
+  if (item.price) { game.addCoins(-item.price); floatAtCoins(`-${item.price}${COIN}`); }
+  if (item.cost) game.spendGoods(item.cost);
+  renderCoins();
+  renderResChips();
 }
 
 // items whose benefit STACKS with each copy — animals produce goods, sprinklers
@@ -240,6 +265,52 @@ function floatAtCoins(text) {
   const r = $('#coins-val').getBoundingClientRect();
   floatText(text, r.left + r.width / 2, r.bottom + 6, 'coin');
 }
+
+// ---- the axe on scenery trees -------------------------------------------
+// Placed timber goes through handleObjectClick; the outer-zone forests are
+// instanced, so they need their own pick. Capture the click before the scene's
+// own picker sees it, and only when the axe is actually in hand.
+function chopSceneryTree(e) {
+  if (!farm || !game) return;
+  const mining = activeTool === 'mine';
+  if (activeTool !== 'chop' && !mining) return;
+  const tool = mining ? 'pickaxe' : 'axe';
+  if (!game.owned.includes(tool) && !testMode) return;
+  const hit = pickTree(farm, e.clientX, e.clientY);
+  if (!hit) return;
+  // the axe works trees, the pickaxe works rock — not each other's job
+  const isRock = hit.field.kind === 'rock';
+  if (isRock !== mining) {
+    e.stopImmediatePropagation();
+    toast(isRock ? '⛏️ that is stone — switch to the pickaxe' : '🪓 that is a tree — switch to the axe');
+    return;
+  }
+  e.stopImmediatePropagation();
+  e.preventDefault();
+  const res = chopTree(hit.field, hit.index);
+  if (!res) { toast('🌱 a sapling is coming back here — give it time'); return; }
+  audio.playSfx('construction', 0.4);
+  if (res.hit) {
+    toast(`${mining ? '⛏️ breaking' : '🪓 chopping'}… ${res.remaining} more hit${res.remaining > 1 ? 's' : ''}`);
+    return;
+  }
+  const goodId = mining ? 'stone' : 'wood';
+  const amount = mining ? res.stone : res.wood;
+  const got = amount - game.addGood(goodId, amount);
+  game.bumpStat(mining ? 'mined' : 'chopped');
+  game.save();
+  renderResChips();
+  floatAtWorld(hit.point, `+${got} ${mining ? '🪨' : '🪵'}`);
+  toast(mining
+    ? `⛏️ quarried! +${got} 🪨 stone — the ground will yield more in time`
+    : `🪓 timber! +${got} 🪵 wood — it will grow back in a few minutes`);
+}
+
+// bound once — buildFarmScene runs several times per load, and attaching per
+// build would stack duplicate listeners (each one landing another axe swing)
+document.addEventListener('pointerdown', (e) => {
+  if (farm && e.target === farm.renderer.domElement) chopSceneryTree(e);
+}, true);
 
 // ================= audio =================
 
@@ -830,6 +901,9 @@ setInterval(() => {
   }
 }, 2000);
 
+// felled scenery trees grow back on their own timers
+setInterval(() => { if (farm) regrowTrees(); }, 15000);
+
 // passive growth trickle: every planted plot creeps forward while you play
 setInterval(() => {
   if (!game || game.readOnly || document.visibilityState !== 'visible') return;
@@ -1375,7 +1449,8 @@ const TOOLS = [
   { id: 'select', icon: '🖐', img: '/ui/tool-hand.png', title: 'select / harvest / move' },
   { id: 'water', icon: '💧', img: '/ui/tool-water.png', title: 'watering can — click crops to grow them' },
   { id: 'fish', icon: '🎣', img: '/ui/tool-fish.png', title: 'go fishing at the dock' },
-  { id: 'chop', icon: '🪓', title: 'axe — click a Timber Pine to chop it for wood', needsAxe: true },
+  { id: 'chop', icon: '🪓', title: 'axe — click any tree to chop it for wood', needsAxe: true },
+  { id: 'mine', icon: '⛏️', title: 'pickaxe — click a boulder to mine it for stone', needsPick: true },
 ];
 
 // Bows: bought in the Craft tab, then equipped from the Inventory tab to hunt.
@@ -1391,7 +1466,8 @@ let equippedBow = null; // id of the bow currently in hand, or null
 // axes: a craftable tool bought in the Craft tab, owned like a bow, that arms
 // the "chop" tool for felling timber pines into wood.
 const AXES = [
-  { id: 'axe', name: 'Felling Axe', icon: '🪓', price: 90, tier: 1, desc: 'Chop timber pines into usable wood.' },
+  { id: 'axe', name: 'Felling Axe', icon: '🪓', price: 90, tier: 1, desc: 'Chop any tree into usable wood.' },
+  { id: 'pickaxe', name: 'Pickaxe', icon: '⛏️', price: 120, tier: 1, desc: 'Break boulders into building stone.' },
 ];
 function buyAxe(axe) {
   if (!requireOwner()) return false;
@@ -1937,7 +2013,11 @@ function renderHud() {
   }
 
   // tools (the chop tool only appears once you've crafted an axe)
-  $('#hud-tools').innerHTML = TOOLS.filter((t) => !t.needsAxe || game.owned.includes('axe') || testMode).map((t) =>
+  $('#hud-tools').innerHTML = TOOLS.filter((t) => {
+    if (t.needsAxe) return testMode || game.owned.includes('axe');
+    if (t.needsPick) return testMode || game.owned.includes('pickaxe');
+    return true;
+  }).map((t) =>
     `<button class="cell tool ${activeTool === t.id ? 'active' : ''}" data-tool="${t.id}" title="${t.title}">${t.img ? `<img class="tool-img" src="${t.img}" alt="${t.id}">` : t.icon}</button>`
   ).join('');
   for (const btn of document.querySelectorAll('#hud-tools .cell')) {
@@ -2104,21 +2184,25 @@ function onSlotClick(kind, id, e) {
     if (buyBow(bow)) { activeGroup = 'inv'; renderHud(); }
     return;
   }
-  // axes: craft, then use the 🪓 chop tool on timber pines
+  // hand tools: buy once, then use the matching tool on the world
   if (kind === 'tool') {
     const axe = AXES.find((a) => a.id === id);
     if (!axe) return;
-    if (game.owned.includes(axe.id) || testMode) { toast('🪓 you have an axe — pick the 🪓 chop tool and click a Timber Pine'); return; }
+    if (game.owned.includes(axe.id) || testMode) {
+      toast(axe.id === 'pickaxe'
+        ? '⛏️ you have a pickaxe — pick the ⛏️ tool and click a boulder'
+        : '🪓 you have an axe — pick the 🪓 tool and click any tree');
+      return;
+    }
     if (buyAxe(axe)) renderHud();
     return;
   }
   const item = findAnyItem(kind, id);
   // wood furniture: paid in goods (wood), placed like decor
-  if (item && item.cost) {
+  if (item && item.cost && item.price == null) {
     if (!requireOwner()) return;
-    if (!game.hasGoods(item.cost) && !testMode) {
-      const need = Object.entries(item.cost).map(([g, n]) => `${n} ${goodInfo(g).icon}`).join(' + ');
-      toast(`🪵 <b>${esc(item.name)}</b> needs ${need} — chop some timber first`, false);
+    if (!canAfford(item)) {
+      toast(`🪵 <b>${esc(item.name)}</b> needs ${materialsLabel(item.cost)} — gather some first`, false);
       audio.playSfx('denied', 0.25); return;
     }
     if (!testMode) { game.spendGoods(item.cost); renderResChips(); }
@@ -2137,14 +2221,14 @@ function onSlotClick(kind, id, e) {
   // recurring items are pay-per-placement: if you can afford one, go straight
   // to placing it (the coins come off when you drop it) — no one-time unlock
   if (isRecurring(item) && item.price != null && isOwner()) {
-    if (game.coins >= item.price || testMode) {
+    if (canAfford(item)) {
       audio.playSfx('click', 0.3);
       setTool('select');
       setMode(null);
       movingEntry = null;
       beginPlacement(kind, id, {});
     } else {
-      toast(`🔒 <b>${esc(item.name)}</b> costs ${item.price}${COIN} each — you have ${game.coins}`, false);
+      toast(`🔒 <b>${esc(item.name)}</b> costs ${priceLabel(item)} each — you have ${game.coins}${COIN}${item.cost ? ` · ${materialsLabel(item.cost).replace(/\d+ /g, (m) => `${game.inventory[Object.keys(item.cost)[0]] || 0} `)}` : ''}`, false);
       audio.playSfx('denied', 0.25);
     }
     return;
@@ -3148,8 +3232,8 @@ function beginPlacement(kind, type, opts, existingUid = null) {
     // price on EVERY new placement — moving an already-placed one is free
     if (!existingUid && isRecurring(item)) {
       const price = item.price || 0;
-      if (!testMode && game.coins < price) {
-        toast(`not enough coins — ${item.icon} <b>${esc(item.name)}</b> costs ${price}${COIN} (you have ${game.coins})`, false);
+      if (!canAfford(item)) {
+        toast(`can't afford it — ${item.icon} <b>${esc(item.name)}</b> costs ${priceLabel(item)}`, false);
         audio.playSfx('denied', 0.25);
         movingEntry = null;
         renderHud();
@@ -3160,6 +3244,10 @@ function beginPlacement(kind, type, opts, existingUid = null) {
       if (price) {
         if (!testMode) game.addCoins(-price);
         renderCoins(); floatAtCoins(`-${price}${COIN}`); audio.playSfx('loot_coin', 0.45);
+      }
+      if (item.cost) { // timber and stone come out of the stores too
+        if (!testMode) { game.spendGoods(item.cost); renderResChips(); }
+        floatAtWorld(pos, `-${materialsLabel(item.cost)}`);
       }
     }
     const entry = { uid: existingUid || `p${Date.now()}${Math.floor(Math.random() * 999)}`, kind, type, x: pos.x, z: pos.z, rot: pos.rot, opts };

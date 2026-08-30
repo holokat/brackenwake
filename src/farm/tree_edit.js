@@ -60,6 +60,7 @@ function rebuild(field) {
     const map = [];
     const parts = [];
     for (let i = 0; i < field.trees.length; i++) {
+      if (field.trees[i].felledUntil) continue; // chopped down, regrowing
       const part = layer.of(field.trees[i]);
       if (!part) continue;
       parts.push(part);
@@ -87,6 +88,132 @@ function rebuild(field) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Felling — the axe works on scenery trees, not just planted timber. A chopped
+// tree topples, is gone for a while, then grows back.
+// ---------------------------------------------------------------------------
+
+const FELL_HITS = 3;                       // axe swings to bring one down
+const REGROW_MIN = 240_000;                // 4 minutes...
+const REGROW_SPAN = 300_000;               // ...to 9, randomised per tree
+
+export function treeFieldsFor() { return fields; }
+
+// Build a one-off, non-instanced copy of a tree so it can be animated falling.
+function treeCopy(field, tree) {
+  const g = new THREE.Group();
+  for (const layer of field.layers) {
+    const part = layer.of(tree);
+    if (!part) continue;
+    const m = new THREE.Mesh(layer.geo, layer.mat);
+    // position relative to the trunk's base, so the group can pivot there
+    m.position.set(part.x - tree.x, part.y - tree.gy, part.z - tree.z);
+    const sc = part.s == null ? 1 : part.s;
+    m.scale.set(sc, (part.sy == null ? 1 : part.sy) * sc, sc);
+    m.rotation.set(part.rx || 0, part.ry || 0, part.rz || 0);
+    g.add(m);
+  }
+  g.position.set(tree.x, tree.gy, tree.z);
+  return g;
+}
+
+// Chop the tree at `index`. Returns { hit } while it still stands, or
+// { felled: true, wood } on the swing that brings it down.
+export function chopTree(field, index) {
+  const t = field.trees[index];
+  if (!t || t.felledUntil) return null;
+  t.hp = (t.hp ?? (field.hits ?? FELL_HITS)) - 1;
+  if (t.hp > 0) return { hit: true, remaining: t.hp };
+  if (field.kind === 'rock') return breakRock(field, t);
+
+  // topple a standalone copy, then let the instance go
+  const faller = treeCopy(field, t);
+  field.parent.add(faller);
+  const dir = Math.random() * Math.PI * 2;
+  const axis = new THREE.Vector3(Math.cos(dir), 0, Math.sin(dir));
+  const t0 = performance.now();
+  const DUR = 1500;
+  const step = () => {
+    const k = Math.min(1, (performance.now() - t0) / DUR);
+    // ease in — slow creak, then it goes over
+    const e = k * k * (3 - 2 * k) * (0.35 + 0.65 * k);
+    faller.setRotationFromAxisAngle(axis, e * Math.PI * 0.5);
+    if (k >= 1) {
+      // rest on the ground a moment, then sink away
+      setTimeout(() => {
+        const s0 = performance.now();
+        const sink = () => {
+          const j = Math.min(1, (performance.now() - s0) / 900);
+          faller.position.y = t.gy - j * 2.5;
+          faller.scale.setScalar(1 - j * 0.4);
+          if (j < 1) requestAnimationFrame(sink);
+          else faller.parent?.remove(faller);
+        };
+        requestAnimationFrame(sink);
+      }, 1200);
+      return;
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+
+  t.hp = null;
+  t.felledUntil = Date.now() + REGROW_MIN + Math.random() * REGROW_SPAN;
+  field.rebuild();
+  return { felled: true, wood: 2 + Math.floor(Math.random() * 3) };
+}
+
+// A boulder doesn't topple — it shudders, drops apart and is quarried away.
+function breakRock(field, t) {
+  const shards = treeCopy(field, t);
+  field.parent.add(shards);
+  const t0 = performance.now(), DUR = 900;
+  const step = () => {
+    const k = Math.min(1, (performance.now() - t0) / DUR);
+    shards.position.y = t.gy - k * 1.6;
+    shards.scale.setScalar(Math.max(0.01, 1 - k));
+    shards.rotation.y = k * 1.2;
+    if (k < 1) requestAnimationFrame(step);
+    else shards.parent?.remove(shards);
+  };
+  requestAnimationFrame(step);
+  t.hp = null;
+  t.felledUntil = Date.now() + REGROW_MIN * 1.5 + Math.random() * REGROW_SPAN;
+  field.rebuild();
+  return { felled: true, stone: 2 + Math.floor(Math.random() * 3) };
+}
+
+// Bring back anything whose regrow timer has run out. Cheap to call often.
+export function regrowTrees() {
+  const now = Date.now();
+  let any = false;
+  for (const f of fields) {
+    let changed = false;
+    for (const t of f.trees) {
+      if (t.felledUntil && now >= t.felledUntil) { t.felledUntil = null; changed = true; }
+    }
+    if (changed) { f.rebuild(); any = true; }
+  }
+  return any;
+}
+
+// Raycast the scenery trees at a screen point -> { field, index, point } | null
+export function pickTree(farm, clientX, clientY) {
+  const dom = farm.renderer.domElement;
+  const r = dom.getBoundingClientRect();
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, farm.camera);
+  const meshes = fields.flatMap((f) => f.meshes);
+  const hits = ray.intersectObjects(meshes, false);
+  for (const h of hits) {
+    const f = h.object.userData.treeField;
+    const map = h.object.userData.treeMap;
+    if (f && map && h.instanceId != null) return { field: f, index: map[h.instanceId], point: h.point };
+  }
+  return null;
+}
+
 export function dumpTrees() {
   return fields.map((f) => ({
     name: f.name || 'trees',
@@ -94,6 +221,7 @@ export function dumpTrees() {
     trees: f.trees.map((t) => ({
       x: +t.x.toFixed(1), z: +t.z.toFixed(1), gy: +t.gy.toFixed(2),
       s: +t.s.toFixed(2), ry: +t.ry.toFixed(2), alt: t.alt ? 1 : 0,
+      ...(t.hp != null ? { hp: t.hp } : {}), ...(t.felledUntil ? { felled: 1 } : {}),
     })),
   }));
 }

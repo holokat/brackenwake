@@ -3289,6 +3289,32 @@ function sakuraOuter(ctx) {
   // let roaming animals walk this terrain instead of a flat plane
   ctx.setGroundHeight?.((x, z) => land.topY + heightAt(x, z));
 
+  // ---- mineable boulders scattered over the open ground ----
+  // A harvest field like the blossoms: a pickaxe breaks one for stone and it
+  // is quarried away until it weathers back out of the ground.
+  {
+    const boulders = createTreeField({
+      name: 'sakura-rocks',
+      kind: 'rock',
+      hits: 4, // stone takes more work than timber
+      parent: g,
+      make: (x, z, gy) => ({ x, z, gy, s: 1.1 + Math.random() * 1.1, ry: Math.random() * Math.PI, alt: false, oa: 0 }),
+      layers: [
+        { geo: new THREE.DodecahedronGeometry(1, 0), mat: mat(0x8f8a88),
+          of: (t) => ({ x: t.x, y: t.gy + 0.45 * t.s, z: t.z, s: t.s, sy: 0.85, ry: t.ry }) },
+        { geo: new THREE.DodecahedronGeometry(0.55, 0), mat: mat(0x9c9793),
+          of: (t) => ({ x: t.x + 0.9 * t.s, y: t.gy + 0.25 * t.s, z: t.z + 0.5 * t.s, s: t.s * 0.7, sy: 0.8, ry: -t.ry }) },
+      ],
+    });
+    for (const [x, z] of outerPoints(ctx, rng, R * 0.9, 10, 90)) {
+      const d = distToIsland(ctx, x, z), a = bearing(ctx, x, z);
+      if (Math.abs(d - riverD(a)) < 11) continue;                       // not in the river
+      if (Math.abs(d - terr.edgeD(a)) < 5 || Math.abs(d - terr.outerD(a)) < 5) continue; // not on a lip
+      boulders.add({ x, z: z - zC, gy: heightAt(x, z), s: 1.1 + rng() * 1.1, ry: rng() * Math.PI, alt: false, oa: 0 });
+    }
+    boulders.rebuild();
+  }
+
   // the editor can add more waterfalls; their foam joins the same pulse loop
   registerSpawner('waterfall', () => {
     const made = sakuraFalls(rng, 18);
