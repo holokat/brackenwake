@@ -22,18 +22,17 @@
 // ============================================================================
 
 // --------------------------------------------------------------------------
-// Processor buildings. `req` is the engagement gate to unlock the shop entry;
-// `price` is paid in coins once unlocked.
+// Processor buildings, bought with coins.
 // --------------------------------------------------------------------------
 export const PROCESSORS = [
-  { id: 'mill',             name: 'Grain Mill',       icon: '🌬️', desc: 'Grinds grains and seeds into flours and oil.',            price: 120, req: { reactions: 20 } },
-  { id: 'bakery',           name: 'Bakery',           icon: '🥖', desc: 'Turns flour into warm breads, pies and cakes.',           price: 250, req: { reactions: 40, replies: 8 } },
-  { id: 'creamery',         name: 'Creamery',         icon: '🧈', desc: 'Churns fresh milk into butter and cream.',                price: 220, req: { reactions: 35 } },
-  { id: 'cheese_house',     name: 'Cheese House',     icon: '🧀', desc: 'Ages milk into fine wheels of cheese.',                   price: 350, req: { reactions: 60, replies: 10 } },
-  { id: 'preserve_kitchen', name: 'Preserve Kitchen', icon: '🫙', desc: 'Simmers fruit and veg into jams, jellies and sauces.',    price: 200, req: { replies: 12 } },
-  { id: 'smokehouse',       name: 'Smokehouse',       icon: '🏭', desc: 'Smokes and cures goods for a rich, lasting flavor.',      price: 280, req: { reactions: 45 } },
-  { id: 'juicery',          name: 'Juice Press',      icon: '🧃', desc: 'Presses fruit and veg into refreshing bottled juice.',    price: 180, req: { reactions: 30 } },
-  { id: 'farm_kitchen',     name: 'Farm Kitchen',     icon: '🍲', desc: 'Cooks grand multi-ingredient meals worth bragging about.', price: 400, req: { reactions: 80, replies: 15 } },
+  { id: 'mill',             name: 'Grain Mill',       icon: '🌬️', desc: 'Grinds grains and seeds into flours and oil.',            price: 120 },
+  { id: 'bakery',           name: 'Bakery',           icon: '🥖', desc: 'Turns flour into warm breads, pies and cakes.',           price: 250 },
+  { id: 'creamery',         name: 'Creamery',         icon: '🧈', desc: 'Churns fresh milk into butter and cream.',                price: 220 },
+  { id: 'cheese_house',     name: 'Cheese House',     icon: '🧀', desc: 'Ages milk into fine wheels of cheese.',                   price: 350 },
+  { id: 'preserve_kitchen', name: 'Preserve Kitchen', icon: '🫙', desc: 'Simmers fruit and veg into jams, jellies and sauces.',    price: 200 },
+  { id: 'smokehouse',       name: 'Smokehouse',       icon: '🏭', desc: 'Smokes and cures goods for a rich, lasting flavor.',      price: 280 },
+  { id: 'juicery',          name: 'Juice Press',      icon: '🧃', desc: 'Presses fruit and veg into refreshing bottled juice.',    price: 180 },
+  { id: 'farm_kitchen',     name: 'Farm Kitchen',     icon: '🍲', desc: 'Cooks grand multi-ingredient meals worth bragging about.', price: 400 },
 ];
 
 // --------------------------------------------------------------------------

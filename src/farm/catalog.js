@@ -1,16 +1,14 @@
 // The unlock catalog — single source of truth for the sidebar and game logic.
-// Requirements are cumulative thresholds on real nostr engagement:
-//   notes (🌱 posted), reactions (💧 likes), replies (🦋), reposts (🔁), zaps (⚡).
+// Everything is bought with coins; nothing is gated on anything else.
 
-// growth thresholds: engagement score gained since planting → stage 1..4
+// growth thresholds: accumulated growth since planting → stage 1..4. Growth
+// comes from watering, sprinklers and the passive time trickle.
 export const GROW_STANDARD = [1, 3, 6, 10];
 export const GROW_PREMIUM = [2, 5, 10, 16];
 
 // price: what the item costs in coins. price 0 = free/starter.
 // yield/sell: harvest units and per-unit sale price. produces: passive good id.
 export const CROPS = [
-  // Crops unlock with COINS only — engagement (notes/likes/replies/zaps) never
-  // gates a purchase, it only feeds a planted crop's GROWTH (see grow thresholds).
   // Prices climb into a real save-up curve so reaching the top crop takes work.
   { id: 'carrot', name: 'Carrots', icon: '🥕', price: 0, yield: 3, sell: 3, grow: GROW_STANDARD },
   { id: 'wheat', name: 'Wheat', icon: '🌾', price: 0, yield: 4, sell: 2, grow: GROW_STANDARD },
