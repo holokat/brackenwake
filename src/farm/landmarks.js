@@ -91,6 +91,7 @@ export function placeLandmark(parent, id, x, y, z, opts = {}) {
   const n = seq[id] = (seq[id] || 0) + 1;
   const key = `${id}:${n - 1}`;
   const saved = (loadStore().landmarks || {})[key];
+  if (saved?.deleted) return null; // removed by hand in the editor
   const holder = new THREE.Group();
   holder.userData.key = key;
   if (saved) {
@@ -121,6 +122,41 @@ function isLive(o) {
 }
 function livePlaced() {
   return placed.filter((p) => isLive(p.holder));
+}
+
+// register a procedurally built group (torii gates, stone lanterns…) so the
+// placement editor treats it like an imported landmark
+export function placeProp(parent, id, group, x, y, z, opts = {}) {
+  const n = seq[id] = (seq[id] || 0) + 1;
+  const key = `${id}:${n - 1}`;
+  const saved = (loadStore().landmarks || {})[key];
+  if (saved?.deleted) return null;
+  const holder = new THREE.Group();
+  holder.userData.key = key;
+  if (saved) {
+    holder.position.set(saved.x, saved.y, saved.z);
+    holder.rotation.y = saved.rotY || 0;
+    group.scale.setScalar(saved.scale ?? 1);
+  } else {
+    holder.position.set(x, y, z);
+    holder.rotation.y = opts.rotY || 0;
+    if (opts.scale) group.scale.setScalar(opts.scale);
+  }
+  holder.add(group);
+  parent.add(holder);
+  placed.push({ id, key, holder, opts });
+  return holder;
+}
+
+// forget a landmark entirely — it stays gone across reloads until reset
+export function deleteLandmark(entry) {
+  entry.holder.parent?.remove(entry.holder);
+  const i = placed.indexOf(entry);
+  if (i >= 0) placed.splice(i, 1);
+  patchStore((store) => {
+    store.landmarks = store.landmarks || {};
+    store.landmarks[entry.key] = { deleted: true };
+  });
 }
 
 export function clearLandmarks() {
@@ -199,7 +235,7 @@ export function landmarkEditor(farm, on = true) {
       'click a model to select · drag to move\n' +
       'SCALE:  -  /  +   (or [ ])\n' +
       'ROTATE: Q / E     RAISE/LOWER: \u2191 / \u2193\n' +
-      'G = drop flat onto the ground\n' +
+      'G = drop flat onto the ground · Del/X = delete\n' +
       'Tab = next model · hold Shift = fine · Esc = deselect\n' +
       '__nostrux.landmarks.dump() prints placements\n\n' + msg;
   };
@@ -304,6 +340,14 @@ export function landmarkEditor(farm, on = true) {
       return;
     }
     if (!sel) return;
+    if (e.key === 'Delete' || e.key === 'Backspace' || e.key === 'x' || e.key === 'X') {
+      deleteLandmark(sel);
+      sel = null;
+      highlight();
+      e.preventDefault(); e.stopImmediatePropagation();
+      say('deleted · nothing selected');
+      return;
+    }
     const h = sel.holder, fine = e.shiftKey;
     const model = h.children[0];
     let used = true;

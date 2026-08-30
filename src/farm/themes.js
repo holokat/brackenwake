@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { mat, mesh, box, cyl, cone, ball, leafMesh, tube, glowTexture, P, tagFoliage } from './assets.js';
-import { placeLandmark } from './landmarks.js';
+import { placeLandmark, placeProp } from './landmarks.js';
 import { createTreeField } from './tree_edit.js';
 
 const MUSIC = '/audio/farm-theme.mp3';
@@ -3170,11 +3170,6 @@ function sakuraOuter(ctx) {
     }
     return fallback; // level ground just outside a peak beats not placing at all
   };
-  const place = (obj, spot, faceFarm = true) => {
-    obj.position.set(spot[0], heightAt(spot[0], spot[1]), spot[1] - zC);
-    obj.rotation.y = faceFarm ? Math.atan2(-(spot[1] - zC), -spot[0]) : rng() * Math.PI * 2;
-    g.add(obj);
-  };
   // drops an authored landmark on a level spot, facing the farm by default
   const placeModel = (id, spot, opts = {}, faceFarm = true) => {
     if (!spot) return;
@@ -3201,14 +3196,19 @@ function sakuraOuter(ctx) {
     const a = rng() * Math.PI * 2;
     placeModel('house', spotAt(a, terr.outerD(0) + 12 + rng() * 105), { height: 6 + rng() * 2 }, false);
   }
-  // torii gates + stone lanterns lining the plateau rim
+  // torii gates + stone lanterns lining the plateau rim. These are procedural
+  // rather than imported, but they register as props so the placement editor
+  // can move, scale and delete them like the models.
+  const placeBuilt = (id, obj, spot, faceFarm = true) => {
+    if (!spot) return;
+    const rotY = faceFarm ? Math.atan2(-(spot[1] - zC), -spot[0]) : rng() * Math.PI * 2;
+    placeProp(g, id, obj, spot[0], heightAt(spot[0], spot[1]), spot[1] - zC, { rotY });
+  };
   for (let i = 0; i < 3; i++) {
-    const s = spotAt(rng() * Math.PI * 2, 9 + rng() * 8);
-    if (s) place(buildTorii(rng), s);
+    placeBuilt('torii', buildTorii(rng), spotAt(rng() * Math.PI * 2, 9 + rng() * 8));
   }
   for (let i = 0; i < 12; i++) {
-    const s = spotAt(rng() * Math.PI * 2, 7 + rng() * 9);
-    if (s) place(buildStoneLantern(), s, false);
+    placeBuilt('lantern', buildStoneLantern(), spotAt(rng() * Math.PI * 2, 7 + rng() * 9), false);
   }
 
   // ---- drifting petals + cranes over the valley ----
