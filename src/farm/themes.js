@@ -8,8 +8,6 @@ import { registerBaseline } from './scenery_store.js';
 import { SAKURA_LANDMARKS, SAKURA_EXTRAS, SAKURA_TREES } from './sakura_layout.js';
 import { createTreeField } from './tree_edit.js';
 
-const MUSIC = '/audio/farm-theme.mp3';
-
 // ---------- shared helpers ----------
 
 // Try to place `count` scenery pieces via ctx.scatterPoint (which already
@@ -3501,7 +3499,6 @@ export const THEMES = [
     id: 'meadow',
     name: 'Meadow Homestead',
     icon: '🌼',
-    music: '/audio/farm-theme.mp3',
     outerTopY: -0.3,
     skyDay: ['#2b7fd4', '#5aa8e6', '#a9d6f2', '#dceffa'],
     skyNight: ['#0b1026', '#16204a', '#27355e', '#3a4a6b'],
@@ -3519,7 +3516,6 @@ export const THEMES = [
     id: 'oceanside',
     name: 'Oceanside Farm',
     icon: '🏝️',
-    music: '/audio/beach-theme.mp3',
     skyDay: ['#3d9bdc', '#6fc4ec', '#b8e6f5', '#ffe8c4'],
     skyNight: ['#081428', '#0f2547', '#1d3a63', '#2e5378'],
     colors: {
@@ -3553,7 +3549,6 @@ export const THEMES = [
     id: 'desert',
     name: 'Desert Oasis',
     icon: '🌵',
-    music: '/audio/desert-theme.mp3',
     skyDay: ['#4da2d8', '#8cc8e8', '#f2d9a8', '#f8c988'],
     skyNight: ['#0d0a20', '#231440', '#3c2258', '#552f60'],
     colors: {
@@ -3570,7 +3565,6 @@ export const THEMES = [
     id: 'sakura',
     name: 'Sakura Valley',
     icon: '🌸',
-    music: '/audio/farm-theme.mp3',
     skyDay: ['#7fb8e6', '#aed4ef', '#f2d8e4', '#fbe9e2'],
     skyNight: ['#10122c', '#241a44', '#3a2650', '#4c3358'],
     colors: {

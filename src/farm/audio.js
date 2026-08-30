@@ -23,9 +23,18 @@ const PLAYLISTS = {
   oceanside: musicKit('/audio/music/oceanside'),
   desert: musicKit('/audio/music/desert'),
   boreal: { ...musicKit('/audio/music/boreal'), lively: null }, // no lively track yet
+  // Sakura Valley has its own theme song. A second track is coming; until then
+  // calm/lively stay null, which _resolveKind falls back from, so the theme
+  // simply loops rather than borrowing another biome's music. The ambience bed
+  // is the meadow's — it is just quiet outdoor atmosphere under the music.
+  sakura: {
+    theme: '/audio/music/sakura/theme.mp3',
+    calm: null,
+    lively: null,
+    ambience: '/audio/music/meadow/ambience.mp3',
+  },
 };
 // biomes without their own kit borrow the meadow's
-PLAYLISTS.sakura = PLAYLISTS.meadow;
 PLAYLISTS.autumn = PLAYLISTS.meadow;
 
 export class FarmAudio {
