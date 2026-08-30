@@ -1,0 +1,291 @@
+NOSTRUX HOMESTEAD — ASSET LIST (the ones that make the cut)
+==========================================================
+
+FROM 290 INFRASTRUCTURE ITEMS DOWN TO 52 FUNCTIONAL + DECOR.
+
+Why so deep a cut: 290 items shared only ~11 distinct effects. "craft speed"
+appeared on ~37 different buildings, "sell bonus" on ~40. And 62 items were
+strictly dominated — a cheaper building did the same job better, so buying them
+was simply a mistake the game never flagged.
+
+Rule from here: ONE effect lives in ONE category, with a clean ladder and no
+duplicate rungs. Everything cut is a decor candidate — see the end.
+
+Descriptions are loose on purpose. Silhouette and materials only; let the image
+generator handle the detail.
+
+
+================================================================
+STORAGE — 7  (was 14)
+Raises how much you can hold. Two are material-specific now that wood and
+stone are real resources.
+================================================================
+
+Storage Shed            60 capacity
+    Small timber shed, double braced doors, stone footing, shingle roof.
+
+Lumber Yard             +200 WOOD only
+    Open roofed rack, three shelf levels of stacked boards and logs,
+    sawhorses, loading deck.
+
+Stone Yard              +200 STONE only
+    Open timber shelter over stacked cut blocks and rubble, wheelbarrow,
+    low retaining wall.
+
+Granary                 150 capacity
+    Tall narrow grain store raised on staddle stones, ladder up one side,
+    small hatch door.
+
+Ice House               130 capacity — perishables keep longer
+    Half-buried stone vault set into an earth mound, heavy insulated door,
+    roof vent.
+
+Warehouse               800 capacity
+    Long barn with big sliding doors and a raised loading dock, stacked
+    crates outside.
+
+Refrigerated Warehouse  2000 capacity
+    Industrial insulated building, pale panelled walls, roof cooling units,
+    steel door.
+
+
+================================================================
+LIVESTOCK — 5  (was 26)
+Animals produce faster nearby. Twenty-six buildings all did this.
+================================================================
+
+Feeding Trough          x1.5 production
+    Long low wooden trough on legs, spilled hay around the base.
+
+Hay Rack                x1.6 production
+    A-frame timber rack stuffed with hay, loose straw underneath.
+
+Sheepfold               x1.7 production
+    Low dry-stone walled pen with a timber gate and a small shelter.
+
+Cow Barn                x1.8 production
+    Barn-red barn with stall doors along one side and a hay loft hatch.
+
+Breeding Barn           x2.2 production
+    Large twin-gabled barn, paddock fencing, water trough, wide doors.
+
+
+================================================================
+FIELDS — 4  (was 17)
+Extra yield from crops in range.
+================================================================
+
+Raised Bed              +1 yield, small radius
+    Timber-framed soil bed with young plants, a couple of stakes.
+
+Field                   +1 yield, medium radius
+    Fenced tilled plot with visible furrows and a gate.
+
+Terrace                 +2 yield, medium radius
+    Stepped planting beds held by stone retaining walls, steps between levels.
+
+Vertical Farm           +3 yield, large radius
+    Tall tower of stacked growing trays behind glass, external walkway.
+
+
+================================================================
+SOIL — 4  (was 14)
+Crops grow faster nearby.
+================================================================
+
+Compost Pile            x1.1 growth
+    Heap of straw, earth and vegetable waste, pitchfork stuck in the side.
+
+Compost Shed            x1.2 growth
+    Open timber bays with slatted fronts, each at a different fill level.
+
+Soil Laboratory         x1.35 growth
+    Small pale building with sample racks, a bench and a stovepipe.
+
+Research Station        x1.5 growth
+    Modern low block, glass frontage, instrument masts on the roof.
+
+
+================================================================
+WATER — 3  (was 20)
+Waters plots for you. The old "free watering" buildings are gone: once
+something waters for you, free watering is worth nothing — nine buildings
+existed to deliver a benefit another building made irrelevant.
+================================================================
+
+Sprinkler               waters 2 plots
+    Simple pipe head on a short post, small spray ring at the base.
+
+Irrigation Canal        waters 4 plots, wide radius
+    Stone-lined channel with a timber sluice gate and a plank crossing.
+
+Water Tower             waters 12 plots, whole farm
+    Tall steel tank on lattice legs, access ladder, pipe running down.
+
+
+================================================================
+WORKSHOPS — 10  (was ~37 craft-speed items across six categories)
+Each workshop speeds up ONE FAMILY of recipes, not all crafting. That is
+what makes ten of them worth having: with 104 recipes in the game, a player
+who mostly makes cheese wants a different workshop than one who mostly
+brews. Previously all thirty-seven did the same thing with a bigger number,
+which is why they blurred together.
+================================================================
+
+Tool Shed               small speed-up to ALL crafting — the starter
+    Lean-to shelter with tools hung on the back wall, a workbench.
+
+Millstone               grain and flour recipes
+    Round millstone in a timber frame, sacks of grain, dusting of flour.
+
+Bakery Workshop         bread, pies and baked goods
+    Brick oven with a chimney, peel and loaves on a cooling rack.
+
+Creamery Workshop       milk, butter and cheese
+    Cool stone-floored room, churns and stacked cheese wheels.
+
+Pottery Workshop        jars, crocks and preserving vessels
+    Wheel under an awning, drying racks of pots, small kiln.
+
+Fermentation House      brewing, pickling and curing
+    Timber building with barrels stacked on racks, vents in the gable.
+
+Textile Workshop        wool, cloth and dyed goods
+    Loom under a window, hanging dyed skeins, bales of fleece.
+
+Tannery                 hides and leather goods
+    Open-sided shed, stretched hides on frames, soaking vats.
+
+Carpenter Workshop      timber goods and furniture
+    Timber-framed shop, saw bench under an awning, stacked planks.
+
+Forge                   tools, metal fittings and machinery parts
+    Stone forge with a tall chimney, anvil, quench barrel, glowing coals.
+
+
+================================================================
+COMMERCE — 7  (was ~40 sell-bonus items across seven categories)
+Better prices, and selling without you.
+================================================================
+
+Roadside Stand          auto-sells every 2 min
+    Tiny timber stall with an awning and an honesty box.
+
+Trading Post            +3% sell price
+    Small shopfront with a counter hatch and a hanging sign.
+
+Farmers Market          +6% sell price
+    Cluster of striped canvas stalls with produce crates.
+
+General Store           auto-sells every 60s
+    Shopfront with a deep awning, barrels and crates outside.
+
+Shipping Office         auto-sells every 45s
+    Small office building with a parked delivery truck and pallets.
+
+Restaurant              +10% sell price
+    Two-storey building with terrace seating and a chimney.
+
+Export Warehouse        +15% sell price
+    Large depot with multiple loading bays and stacked shipping crates.
+
+
+================================================================
+MACHINES — 3  (was 19)
+Harvests for you.
+================================================================
+
+Harvester               auto-collects, small radius
+    Compact harvester with a cutting reel and a small grain bin.
+
+Combine                 auto-collects, medium radius
+    Full combine harvester, wide header, unloading auger.
+
+Agricultural Drones     auto-collects, whole farm
+    Landing pad with several quadcopters and a control cabinet.
+
+
+================================================================
+ENERGY — 5  (was 15)
+Powers the farm and speeds crafting. Kept for DIFFERENT BEHAVIOUR, not
+bigger numbers: wind output follows the wind, solar follows daylight, the
+rest are steady.
+================================================================
+
+Campfire                x1.15 craft speed
+    Ring of stones, stacked logs, a small tripod over the fire.
+
+Generator               x1.35 craft speed — steady power
+    Small fuel generator on a skid, exhaust stack, control panel.
+
+Solar Panels            x1.5 craft speed — output follows daylight
+    Row of tilted dark panels on a low frame.
+
+Wind Turbine            x1.55 craft speed — output follows the wind
+    Three-bladed turbine on a slim tower, small base hut.
+
+Automated Power Station x2.0 craft speed
+    Substation with transformers, insulators and fenced switchgear.
+
+
+================================================================
+LANDMARKS — 4  (was 11)
+Endgame prestige pieces. Big, expensive, no stat — bought to be looked at.
+================================================================
+
+Clock Tower
+    Tall stone tower with a clock face and a small spire.
+
+Botanical Garden
+    Domed glasshouse with iron ribs and planting beds around it.
+
+Restored Lighthouse
+    Tapered white-and-red tower on a rock base, lamp room, keeper's hut.
+
+Observatory
+    Round building with a slotted dome and an external stair.
+
+
+================================================================
+DECOR — no stat, place freely
+The game currently has ZERO no-effect items, which is why it feels
+functional-but-samey. Everything cut above is a decor candidate; these are
+the ones worth keeping models for.
+================================================================
+
+Small:      Birdhouse · Bench · Flower Bed · Wind Chimes · Bee Hotel ·
+            Bat House · Barrel · Hay Bale · Lantern · Scarecrow ·
+            Camp Chair · Picnic Table · Garden Bench
+
+Medium:     Pergola · Picnic Area · Campfire Area · Frog Pond · Goldfish Pond ·
+            Koi Pond · Footbridge · Wooden Bridge · Stone Bridge ·
+            Hedge · Stone Wall · Farm Gate · Tree Nursery · Charcoal Kiln ·
+            Outhouse · Washhouse · Worker Cabin · Bunkhouse · Cottage
+
+Large:      Wildflower Meadow · Butterfly Garden · Pollinator Garden ·
+            Wetland · Rewilded Field · Forest Reserve · Wildlife Corridor ·
+            Observation Deck · Bell Tower · Sculpture · Fire Lookout ·
+            Windmill (decorative) · Seasonal Decorations
+
+
+================================================================
+NOTES
+================================================================
+
+Dropped whole as functional categories, because every item duplicated an
+effect that now lives elsewhere:
+
+  Protection (15)  fences, walls, storm shelters — all prestige or tiny
+                   yield. Better as decor.
+  Workers (12)     cabins and halls that auto-watered or auto-collected —
+                   duplicates of Water and Machines. Better as decor.
+  Science (13)     growth and yield bonuses already covered by Soil and
+                   Fields. Best one kept as Agricultural Research Station.
+  Aquaculture (12) all small sell bonuses; Commerce covers that.
+  Forestry (12)    storage and craft speed; Lumber Yard and Workshops cover it.
+  Processing (22)  the craft-speed half is folded into Workshops (each now tied
+                   to a recipe family); the sell-bonus half into Commerce.
+
+Repriced to remove dominated rungs — e.g. Milking Shed used to cost 380 for
+x2.0 while Shearing Shed gave x2.2 for 320, so nobody should ever have bought
+the Milking Shed.
