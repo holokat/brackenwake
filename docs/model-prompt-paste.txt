@@ -24,9 +24,11 @@ Produce low-poly game props as **.glb** files for a Three.js farm game. Optimise
    - **`roughness` 0.55–0.8.** Not 1.0 (dead and chalky), not below 0.4 (shiny).
    - **No emissive, no ambient occlusion, no baked lighting or shadow tinting**, and no
      vertex colours. Lighting is the game's job; bake none of it in.
-   - Do **not** desaturate, lighten, mute, harmonise, or "tastefully adjust" the
-     palette. Do not blend colours toward each other for cohesion. Use the exact
-     values. They are deliberately saturated and are meant to look punchy.
+   - **Use the exact values, unchanged in either direction.** Do not desaturate, mute
+     or harmonise them; equally, do not brighten, saturate or "make them pop". Do not
+     blend colours toward each other for cohesion, and do not reinterpret a colour
+     from its description — the hex is the specification, the wording is only a hint
+     about where it gets used.
    - Alpha is 1.0 everywhere. Nothing transparent.
 5. **Stylised low-poly, not crude low-poly.** Bevel your edges — a small chamfer on
    planks, posts and roof edges is what stops a model reading as flat cardboard, and
@@ -62,7 +64,7 @@ Produce low-poly game props as **.glb** files for a Three.js farm game. Optimise
 
 | name | hex | use |
 | --- | --- | --- |
-| `farm-wood` | `#B5783A` | planks, posts, beams — warm amber, not brown |
+| `farm-wood` | `#A8783F` | planks, posts, beams |
 | `farm-wood-dark` | `#6E4A28` | frames, sills, shadowed timber |
 | `farm-wood-light` | `#D9A45E` | highlight planks, door boards, ladders |
 | `farm-stone` | `#A9A69F` | dressed stone, footings |
@@ -78,9 +80,9 @@ Produce low-poly game props as **.glb** files for a Three.js farm game. Optimise
 | `farm-gold` | `#E0B23F` | brass, straw bales, finials |
 | `farm-soil` | `#6B4A2A` | tilled earth |
 | `farm-dirt` | `#97653A` | paths, bare ground |
-| `farm-grass` | `#8FBB43` | grass and turf — yellow-green, vivid |
-| `farm-leaf` | `#4E9B32` | foliage |
-| `farm-leaf-dark` | `#37702A` | foliage in shadow |
+| `farm-grass` | `#7C9440` | grass and turf — mid olive-green, NOT lime |
+| `farm-leaf` | `#4E8A32` | foliage |
+| `farm-leaf-dark` | `#33632A` | foliage in shadow, mossy earth banks |
 | `farm-water` | `#4FB2D9` | water surfaces |
 | `farm-water-deep` | `#2F7E9E` | deep water |
 | `farm-cloth` | `#E8D3A4` | canvas, awnings, sacks |
