@@ -32,7 +32,10 @@ Three zones instead:
 Everything with a *count* lives in Stores, not up here.
 
 ### Top-right — world state
-`temperature · season · clock`
+`temperature · season · clock · ⚡ power`
+
+Power joins this cluster (user's call) rather than the purse: it is a *rate* describing
+the farm's condition right now, like weather — not a stock you spend.
 
 ### Bottom-left — action slots
 | slot | key | behaviour |
@@ -72,7 +75,7 @@ for names and full costs.
 | --- | --- |
 | **Build** | structures, water, fields, storage, machines, commerce, wild, paths, **workshops** |
 | **Animals** | animals + husbandry (kept separate because "Build a cow" reads wrong) |
-| **Stores** | every good with a count — merged Inventory + Pantry |
+| **Stores** | every good with a count — merged Inventory + Pantry, **with per-good fullness** |
 | **Missions** | mission book; badge = claimable count |
 
 ### Far bottom-right — note / publish
@@ -144,6 +147,50 @@ cluster** (temperature · season · clock) — it describes the state of the far
 like weather — not in the purse.
 
 Recommendation: **A**, chip in the top-right cluster.
+
+---
+
+## Systems the HUD doesn't surface
+
+Audited while speccing this. Each of these is built and running; none of it reaches the
+player except by accident.
+
+### 1. Storage — and a live bug
+
+`storageCap` is **per good**, not a total: `addGood` clamps with
+`Math.min(n, storageCap - have)` where `have` is that one good's count. So a cap of 50
+means 50 carrots *and* 50 wheat *and* 50 wood, independently.
+
+But the Pantry header renders `📦 {totalCount}/{storageCap}` where `totalCount` is the
+**sum of every good** (main.js ~1618-1641). Ten goods at 30 each displays `300/50` —
+looking catastrophically over capacity when nothing is wrong. **This is the only place
+storage is shown, and it is arithmetically wrong.**
+
+Everything else about storage is after-the-fact: overflow is silently dropped and only
+announced once it has already been lost ("⚠️ storage full — 3 lost!"). There is no
+proactive "this good is nearly full" signal anywhere, which is why all the storage
+infrastructure (sheds, silos, barns, granaries, +30/farmhouse level) feels pointless.
+
+Needs, in order: fix the tally, then decide whether the cap should stay per-good or
+become a total — per-good is unusual and harder to reason about — then surface fullness
+in Stores per row.
+
+### 2. Energy
+See the section above. Detailed simulation, only consequence is dimmed lamps.
+
+### 3. Building wear
+Buildings weather over ~10 minutes of rain-accelerated wear (`farm.js:701`) and can be
+repaired for 12 coins — but the repair option only appears in a building's click menu
+once wear passes 0.35. Nothing tells you a building needs attention; you have to happen
+to click it.
+
+### 4. Path wear
+Paths wash away and are **deleted** at wear >= 1.0 (main.js ~815-822). No warning, no
+indicator — paved paths just vanish.
+
+### 5. `decayRate.growth` is dead
+`farm.js:691` computes a temperature-based growth multiplier that nothing ever reads.
+Either wire it into crop growth or delete it.
 
 ---
 
