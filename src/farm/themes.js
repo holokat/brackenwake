@@ -914,7 +914,8 @@ function meadowValleyFloor(ctx, rng, R, heightAt, opts = {}) {
   const zC = ctx.zCenter || 0;
   const g = new THREE.Group();
 
-  const segs = 64, rings = 10;
+  // terraced themes pass a finer grid so cliff steps read crisp, not smeared
+  const segs = opts.segs || 64, rings = opts.rings || 10;
   // edge always OUTSIDE the skirt's maximum radius (1.03R) — overlap between the
   // two jittered silhouettes was the source of the brown "glitch collar"
   const edgeJit = [];
@@ -968,7 +969,9 @@ function meadowValleyFloor(ctx, rng, R, heightAt, opts = {}) {
   }
   skirtGeo.computeVertexNormals();
   const skirt = new THREE.Mesh(skirtGeo, mat(opts.skirt ?? 0x6a5744));
-  skirt.position.y = -5.9; // top sits below even the floor's edge dip
+  // top sits below even the floor's edge dip; terraced themes push it further
+  // down so it can't poke up through a carved canyon floor
+  skirt.position.y = opts.skirtY ?? -5.9;
   g.add(skirt);
 
   g.position.set(0, topY, zC);
@@ -2694,43 +2697,44 @@ function buildArchBridge(rng, span, color) {
 
 // a broad rock cliff with a wide sheet of falling water and a churning foam
 // pool; the group's local +z face points at faceTo. returns foam records.
-function sakuraFalls(land, rng, x, z, fh, faceTo) {
+function sakuraFalls(land, rng, x, z, fh, faceTo, baseY) {
   const w = new THREE.Group();
-  const cw = fh * 0.55; // cliff width scales with height
-  // solid rock face: a few stacked, slightly jittered slabs behind the water
-  for (let i = 0; i < 3; i++) {
-    const t = i / 2;
-    const slab = box(cw * (1 - t * 0.22), fh * 0.46, cw * 0.55, i % 2 ? 0x8a8078 : 0x74675b);
-    slab.position.set((rng() - 0.5) * 1.0, fh * (0.23 + t * 0.3), -1.1 - t * 0.35);
-    slab.rotation.y = (rng() - 0.5) * 0.3;
-    w.add(slab);
-  }
-  // rounded boulders framing both sides of the falls
-  for (let i = 0; i < 4; i++) {
-    const rock = ball(1.5 + rng() * 1.1, i % 2 ? 0x82766a : 0x776a5e, 0.9, 6);
-    rock.position.set((i < 2 ? -1 : 1) * (cw * 0.46 + rng() * 0.8), fh * (0.12 + (i % 2) * 0.36), -0.2 + (rng() - 0.5));
+  const cw = fh * 0.42;      // overall falls width
+  const ww = cw * 0.82;      // the water sheet itself — the hero of the piece
+  // boulders framing the sides and piled at the plunge base (the terrain cliff
+  // supplies the rock face itself, so no slab is needed behind the water)
+  for (let i = 0; i < 5; i++) {
+    const rock = ball(1.3 + rng() * 1.0, i % 2 ? 0xa79881 : 0x8d7f6d, 0.9, 6);
+    rock.position.set((i < 2 ? -1 : 1) * (ww * 0.62 + rng() * 0.9), fh * (0.1 + (i % 3) * 0.34), (rng() - 0.5) * 0.8);
     rock.scale.x *= 1.3;
     w.add(rock);
   }
-  // the falling water — overlapping vertical panels for a wide sheet
-  for (const [ox, ow] of [[-1.15, 2.1], [0, 2.3], [1.15, 2.1]]) {
-    const fall = new THREE.Mesh(new THREE.PlaneGeometry(ow, fh * 0.95), new THREE.MeshStandardMaterial({
-      color: 0xdff0fa, roughness: 0.22, flatShading: true, transparent: true, opacity: 0.9, side: THREE.DoubleSide,
+  // The falling water is UNLIT: a vertical plane under an overhead sun shades
+  // to near-black, so basic materials keep the sheet reading bright and cel-like.
+  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(ww, fh * 0.98), new THREE.MeshBasicMaterial({
+    color: 0xdcf0fb, transparent: true, opacity: 0.95, side: THREE.DoubleSide,
+  }));
+  sheet.position.set(0, fh * 0.49, 0.45);
+  w.add(sheet);
+  for (const ox of [-0.28, 0.06, 0.32]) {
+    const streak = new THREE.Mesh(new THREE.PlaneGeometry(ww * 0.2, fh * 0.94), new THREE.MeshBasicMaterial({
+      color: 0xffffff, transparent: true, opacity: 0.6, side: THREE.DoubleSide,
     }));
-    fall.position.set(ox, fh * 0.48, 0.5);
-    w.add(fall);
+    streak.position.set(ox * ww, fh * 0.48, 0.62);
+    w.add(streak);
   }
   // bright lip where the water pours over the top
-  const lip = box(cw * 0.85, 0.5, 1.1, 0xeef7fc); lip.position.set(0, fh * 0.93, 0.25); w.add(lip);
-  const pool = flatDisc(cw * 0.75, 0x5aa4d6, 0.14, 14); pool.position.set(0, 0, 1.9); w.add(pool);
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(ww * 1.04, 0.6, 1.3), new THREE.MeshBasicMaterial({ color: 0xf4fbff }));
+  lip.position.set(0, fh * 0.97, 0.2); w.add(lip);
+  const pool = flatDisc(cw * 0.9, 0x6fb6de, 0.14, 14); pool.position.set(0, 0.05, 2.2); w.add(pool);
   const foams = [];
-  for (let i = 0; i < 6; i++) {
-    const f = ball(0.5 + rng() * 0.35, 0xf2fafd, 0.6, 6);
-    f.position.set((rng() - 0.5) * cw * 0.7, 0.3 + rng() * 0.5, 1.0 + rng() * 1.7);
+  for (let i = 0; i < 7; i++) {
+    const f = ball(0.6 + rng() * 0.45, 0xf2fafd, 0.6, 6);
+    f.position.set((rng() - 0.5) * ww, 0.35 + rng() * 0.7, 1.1 + rng() * 1.9);
     w.add(f);
     foams.push({ f, ph: rng() * 6 });
   }
-  w.position.set(x, land.heightAt(x, z), z - land.zC);
+  w.position.set(x, baseY != null ? baseY : land.heightAt(x, z), z - land.zC);
   w.rotation.y = Math.atan2(faceTo.x - x, faceTo.z - z);
   land.group.add(w);
   return foams;
@@ -2752,6 +2756,101 @@ function buildSkyIsland(rng, r) {
   return grp;
 }
 
+// ---- terraced valley: a flat farm plateau, a rock-cliff drop into a lower
+// canyon that carries the river, then a bench rising back to the mountains ----
+const SAK_CANYON = 17; // plateau -> canyon floor drop
+const SAK_BENCH = 5;   // canyon floor -> outer bench rise
+const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+// the canyon rim + outer bench edge as organic (angle-varying) radii, shared
+// by the height field and the cliff walls so rock and ground always line up
+function sakuraTerraces(ctx, rng, R) {
+  const p1 = rng() * 10, p2 = rng() * 10, p3 = rng() * 10;
+  // the cliff hugs the farm as in the reference, but never bites into the flat
+  // clearing: keep the narrowest point clear of the island + its flat apron
+  const flatR = (ctx.clearRadius || 10) + 30;
+  const minRim = (ctx.islandW || 30) / 2 + flatR + 10;
+  const rimBase = Math.max(R * 0.46, minRim / 0.90);
+  const rimR = (a) => rimBase * (1 + 0.06 * Math.sin(a * 3 + p1) + 0.04 * Math.cos(a * 5 + p2));
+  const benchR = (a) => Math.max(R * 0.74, rimBase + 60) * (1 + 0.06 * Math.sin(a * 2 + p3) + 0.04 * Math.cos(a * 4 + p1));
+  // a narrow transition band makes the ground drop almost vertically, so the
+  // rock wall reads as a crisp ledge instead of a long muddy ramp
+  return { rimR, benchR, band: 2.5 };
+}
+
+function sakuraHeightField(ctx, rng, R, lake, terr) {
+  const zC = ctx.zCenter || 0;
+  const flatR = (ctx.clearRadius || 10) + 30;
+  const { rimR, benchR, band } = terr;
+  const n0 = rng() * 10, n1 = rng() * 10;
+  return (x, z) => {
+    const d = distToIsland(ctx, x, z);
+    if (d <= flatR) return 0; // the farm clearing stays perfectly level
+    const rr = Math.hypot(x, z - zC);
+    const a = Math.atan2(z - zC, x);
+    const cr = rimR(a), br = benchR(a);
+    // keep the plateau intact around the lake so the water never hangs off a cliff
+    const lakeMask = smoothstep(lake.r + 3, lake.r + 13, Math.hypot(x - lake.x, z - lake.z));
+    const drop = smoothstep(cr - band, cr + band, rr) * lakeMask;
+    const rise = smoothstep(br - band, br + band, rr);
+    let h = -SAK_CANYON * drop + (SAK_CANYON - SAK_BENCH) * rise;
+    // gentle rolling noise, faded out on the flat plateau and at the transitions
+    const rough = Math.min(drop, 1 - drop) * 2 * (1 - rise) + rise * 0.6;
+    const n = 0.6 * Math.sin(x * 0.04 + n0) * Math.cos(z * 0.035 + n1) + 0.4 * Math.sin(x * 0.022 + z * 0.027 + n0);
+    h += n * 1.8 * (1 - rough) * smoothstep(flatR, flatR + 40, d);
+    return h;
+  };
+}
+
+// a jagged rock escarpment following one of the terrace radii; `facing` = 1 for
+// a wall seen from inside (plateau rim), -1 for one seen from the canyon
+function sakuraCliffWall(land, rng, radiusFn, topY, botY, colors, zC) {
+  const segs = 160;
+  const pos = [], idx = [];
+  for (let i = 0; i <= segs; i++) {
+    const a = (i / segs) * Math.PI * 2;
+    // stand the face a touch proud of the terrain step so it always reads
+    const r = radiusFn(a) * 1.012;
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    // ragged top lip so the rock never reads as a machined cylinder
+    const jit = 0.9 * Math.sin(a * 11 + 1.3) + 0.6 * Math.cos(a * 19 + 0.7);
+    pos.push(x, topY + jit, z, x, botY - 1.5 - Math.abs(jit), z);
+  }
+  for (let i = 0; i < segs; i++) {
+    const t = i * 2;
+    idx.push(t, t + 1, t + 2, t + 1, t + 3, t + 2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const wall = new THREE.Mesh(geo, mat(colors[0], { side: THREE.DoubleSide, flatShading: true }));
+  wall.position.z = -zC + zC; // geometry is already local to the land group
+  wall.castShadow = false;
+  land.group.add(wall);
+  // strata: a couple of thinner bands in lighter rock stacked down the face
+  const H = topY - botY;
+  for (let b = 0; b < 2; b++) {
+    const bt = topY - H * (0.34 + b * 0.33), bb = bt - H * 0.14;
+    const bpos = [], bidx = [];
+    for (let i = 0; i <= segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      const r = radiusFn(a) * 1.006;
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      bpos.push(x, bt, z, x, bb, z);
+    }
+    for (let i = 0; i < segs; i++) { const t = i * 2; bidx.push(t, t + 1, t + 2, t + 1, t + 3, t + 2); }
+    const bg = new THREE.BufferGeometry();
+    bg.setAttribute('position', new THREE.Float32BufferAttribute(bpos, 3));
+    bg.setIndex(bidx);
+    bg.computeVertexNormals();
+    const bm = new THREE.Mesh(bg, mat(colors[1 + b], { side: THREE.DoubleSide, flatShading: true }));
+    bm.castShadow = false;
+    land.group.add(bm);
+  }
+  return wall;
+}
+
 function sakuraOuter(ctx) {
   if (!ctx || !ctx.scene || typeof ctx.scene.add !== 'function') return;
   const rng = outerRng(ctx);
@@ -2761,14 +2860,39 @@ function sakuraOuter(ctx) {
   const iHalf = Math.max(ctx.islandW || 30, ctx.islandD || 30) / 2;
   const R = outerSize(ctx, 3.1);
 
-  // the big organic lake sits behind-left of the farm; rivers drain into it
+  // the lake sits on the raised farm plateau, inside the canyon rim, so its
+  // water never hangs over a cliff edge — it spills over the rim as the falls
   const lakeA = Math.PI + (rng() - 0.5) * 0.5;
-  const lake = { x: Math.cos(lakeA) * R * 0.44, z: zC + Math.sin(lakeA) * R * 0.44, r: R * 0.16 };
+  const lake = { x: Math.cos(lakeA) * R * 0.24, z: zC + Math.sin(lakeA) * R * 0.24, r: R * 0.11 };
 
-  const heightAt = meadowHeightField(ctx, rng, R, lake);
-  const land = meadowValleyFloor(ctx, rng, R, heightAt, { top: 0x8cc06d, skirt: 0x6a5744 });
+  const terr = sakuraTerraces(ctx, rng, R);
+  const heightAt = sakuraHeightField(ctx, rng, R, lake, terr);
+  // a finer floor grid so the terrace steps read as crisp ledges, not smears
+  const land = meadowValleyFloor(ctx, rng, R, heightAt, {
+    top: 0x8cc06d, skirt: 0x6a5744, segs: 128, rings: 34,
+    skirtY: -5.9 - SAK_CANYON, // clear of the carved canyon floor
+  });
   if (!land) return;
   const g = land.group;
+
+  // ---- the rock escarpments: plateau rim dropping into the canyon, and the
+  // canyon's outer wall rising to the bench that carries the mountains ----
+  sakuraCliffWall(land, rng, terr.rimR, 1.2, -SAK_CANYON - 1, [0xb5a68e, 0xc9bba1, 0xa2937c], zC);
+  sakuraCliffWall(land, rng, terr.benchR, -SAK_BENCH + 1.0, -SAK_CANYON - 1, [0xaf9f88, 0xc3b49a, 0x9c8d76], zC);
+  // chunky boulders along both lips so the cliff edge has a blocky silhouette
+  {
+    const rimRocks = [], benchRocks = [];
+    for (let i = 0; i < 130; i++) {
+      const a = (i / 130) * Math.PI * 2 + rng() * 0.05;
+      const rr = terr.rimR(a) * (0.985 + rng() * 0.03);
+      rimRocks.push({ x: Math.cos(a) * rr, y: -0.4 - rng() * 1.2, z: Math.sin(a) * rr, s: 1.4 + rng() * 2.6, sy: 0.8 + rng() * 0.7, ry: rng() * Math.PI });
+      const br = terr.benchR(a) * (0.985 + rng() * 0.03);
+      benchRocks.push({ x: Math.cos(a) * br, y: -SAK_BENCH - 0.5 - rng(), z: Math.sin(a) * br, s: 1.2 + rng() * 2.2, sy: 0.8 + rng() * 0.6, ry: rng() * Math.PI });
+    }
+    const rockGeo = new THREE.DodecahedronGeometry(1, 0);
+    const a1 = outerInstanced(g, rockGeo, mat(0xb5a68e), rimRocks); if (a1) a1.castShadow = false;
+    const a2 = outerInstanced(g, rockGeo, mat(0xaf9f88), benchRocks); if (a2) a2.castShadow = false;
+  }
 
   // ---- mountain ring: cool blue-grey Japanese ranges, snow on the tallest ----
   const rockGeos = [meadowPeakGeo(rng, 8), meadowPeakGeo(rng, 7), meadowPeakGeo(rng, 9)];
@@ -2829,54 +2953,59 @@ function sakuraOuter(ctx) {
   const lakeWater = meadowBlobDisc(rng, lake.r, 0xffffff, { map: waterTexture(), roughness: 0.18 });
   lakeWater.position.set(lake.x, 0.3, lake.z - zC); lakeWater.userData.water = 0xffffff; g.add(lakeWater);
 
-  // ---- two cliff waterfalls + a long meandering river, spanned by red bridges ----
+  // ---- water: the lake spills over the plateau rim as a tall waterfall into
+  // the canyon, whose river winds along the gorge floor under arched bridges ----
   const foams = [];
-  const rivers = [];
-  const drainRiver = (sx, sz, width, wob) => {
-    const dx = lake.x - sx, dz = lake.z - sz, dl = Math.hypot(dx, dz) || 1;
-    const x0 = sx + (dx / dl) * 3.6, z0 = sz + (dz / dl) * 3.6;
-    const ex = lake.x - (dx / dl) * lake.r * 0.5, ez = lake.z - (dz / dl) * lake.r * 0.5;
-    const pts = [];
-    for (let i = 0; i <= 5; i++) {
-      const t = i / 5, k = Math.sin(t * Math.PI) * Math.sin(t * 6 + sx * 0.3) * R * wob;
-      pts.push([x0 + (ex - x0) * t + (-dz / dl) * k, z0 + (ez - z0) * t + (dx / dl) * k]);
-    }
-    waterRibbon(land, pts, width, 0.32);
-    rivers.push(pts);
-  };
-  // hero waterfall: a tall cliff spilling straight into the far shore of the lake
+  // an iconic vermilion torii standing out in the lake
   const outDir = Math.atan2(lake.z - zC, lake.x) || Math.PI;
-  const hfx = lake.x + Math.cos(outDir) * (lake.r + 11);
-  const hfz = lake.z + Math.sin(outDir) * (lake.r + 11);
-  foams.push(...sakuraFalls(land, rng, hfx, hfz, 21, { x: lake.x, z: lake.z }));
-  // an iconic vermilion torii standing out in the water
   {
     const lt = buildTorii(rng); lt.scale.setScalar(1.7);
     lt.position.set(lake.x - Math.cos(outDir) * lake.r * 0.35, 0.2, lake.z - zC - Math.sin(outDir) * lake.r * 0.35);
     lt.rotation.y = outDir + Math.PI / 2;
     g.add(lt);
   }
-  // a second cliff fall across the valley, feeding a river down to the lake
-  const wf2 = { a: lakeA - 1.15, r: R * 0.74 };
-  const w2x = Math.cos(wf2.a) * wf2.r, w2z = zC + Math.sin(wf2.a) * wf2.r;
-  foams.push(...sakuraFalls(land, rng, w2x, w2z, 15, lake));
-  drainRiver(w2x, w2z, 2.4, 0.05);
-  // a long river arcing across the front-right of the valley (reference's far river)
+  // a short stream running from the lake out to the lip of the cliff
+  const rimAt = (a) => terr.rimR(a);
+  const spillA = outDir;
+  const spillR = rimAt(spillA);
   {
-    const pts = [], baseA = lakeA + Math.PI;
-    for (let i = 0; i <= 6; i++) { const t = i / 6, a = baseA - 0.85 + t * 1.7, r = R * (0.5 + 0.34 * Math.sin(t * 3.1)); pts.push([Math.cos(a) * r, zC + Math.sin(a) * r]); }
-    waterRibbon(land, pts, 2.5, 0.3);
-    rivers.push(pts);
+    const sx0 = lake.x + Math.cos(spillA) * lake.r * 0.9, sz0 = lake.z + Math.sin(spillA) * lake.r * 0.9;
+    const sx1 = Math.cos(spillA) * (spillR - 3), sz1 = zC + Math.sin(spillA) * (spillR - 3);
+    const pts = [];
+    for (let i = 0; i <= 4; i++) {
+      const t = i / 4, k = Math.sin(t * Math.PI) * 5;
+      pts.push([sx0 + (sx1 - sx0) * t - Math.sin(spillA) * k, sz0 + (sz1 - sz0) * t + Math.cos(spillA) * k]);
+    }
+    waterRibbon(land, pts, 2.4, 0.32);
   }
-  // arched foot-bridges across each river
-  for (const pts of rivers) {
-    const mi = Math.floor(pts.length / 2);
-    const ax = pts[mi - 1][0], az = pts[mi - 1][1], bx = pts[mi][0], bz = pts[mi][1];
-    const mx = (ax + bx) / 2, mz = (az + bz) / 2;
-    if (distToIsland(ctx, mx, mz) < clear + 4) continue;
-    const br = buildArchBridge(rng, 7.5, 0xc8402f);
-    br.position.set(mx, land.heightAt(mx, mz) + 0.15, mz - zC);
-    br.rotation.y = Math.atan2(bz - az, bx - ax) + Math.PI / 2;
+  // the hero fall: built up from the canyon floor so its lip meets the plateau
+  foams.push(...sakuraFalls(land, rng, Math.cos(spillA) * (spillR + 5), zC + Math.sin(spillA) * (spillR + 5),
+    SAK_CANYON + 1.5, { x: Math.cos(spillA) * (spillR + 40), z: zC + Math.sin(spillA) * (spillR + 40) }, -SAK_CANYON));
+  // a second fall pouring over the rim on the far side of the valley
+  {
+    const a2 = spillA + Math.PI * (0.75 + rng() * 0.4), r2 = rimAt(a2);
+    foams.push(...sakuraFalls(land, rng, Math.cos(a2) * (r2 + 5), zC + Math.sin(a2) * (r2 + 5),
+      SAK_CANYON + 1.5, { x: Math.cos(a2) * (r2 + 40), z: zC + Math.sin(a2) * (r2 + 40) }, -SAK_CANYON));
+  }
+  // the canyon river: a long arc winding down the middle of the gorge
+  const canyonPts = [];
+  {
+    const a0 = spillA - 0.15;
+    for (let i = 0; i <= 9; i++) {
+      const t = i / 9, a = a0 + t * 2.5;
+      const mid = (rimAt(a) + terr.benchR(a)) / 2;
+      const r = mid + Math.sin(t * 5.5 + a0) * 9;
+      canyonPts.push([Math.cos(a) * r, zC + Math.sin(a) * r]);
+    }
+    waterRibbon(land, canyonPts, 4.2, 0.3);
+  }
+  // arched foot-bridges spanning the gorge river
+  for (const fi of [2, 5, 8]) {
+    const a = canyonPts[fi - 1], b = canyonPts[fi];
+    const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
+    const br = buildArchBridge(rng, 12, 0xc8402f);
+    br.position.set(mx, land.heightAt(mx, mz) + 0.2, mz - zC);
+    br.rotation.y = Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2;
     g.add(br);
   }
 
