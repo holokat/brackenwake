@@ -3,7 +3,7 @@ import { Homestead } from './farm.js';
 import { Game, WATER_COOLDOWN_MS, MATERIALS, MATERIAL_BASE_CAP } from './game.js';
 import { SFX_FAMILIES } from './audio.js';
 import {
-  STORIES, STORY_BY_ID, CHARACTERS, blankStory, normalizeStory,
+  STORIES, STORY_BY_ID, CHARACTERS, blankStory, normalizeStory, buildState,
   pickCard, applyChoice, dismissCard, canPick, modifier as storyModifier,
 } from './story_engine.js';
 import {
@@ -4572,6 +4572,7 @@ function storyExtras() {
     treesStandingFrac: trees,
     lakeFrozen: !!farm?.iceState?.().frozen,
     deerNear: (farm?.quarry || []).some((q) => q?.userData?.roam?.type === 'deer'),
+    deerCount: (farm?.quarry || []).filter((q) => q?.userData?.roam?.type === 'deer' && q.visible).length,
     loosePenAnimals: [...(farm?.animalRecs?.values?.() || [])].filter((a) => !a.bounds).length,
   };
 }
@@ -4582,8 +4583,15 @@ function renderStoryCard(card, devIndex = null) {
   if (!el || !card) return;
   currentCard = card;
   const who = CHARACTERS[card.who] || {};
-  const body = (Array.isArray(card.body) ? card.body : [card.body])
-    .map((line) => `<p>${line.replace(/\*([^*]+)\*/g, '<em>$1</em>')}</p>`).join('');
+  // A body may be a function of live state, so a card never claims a number
+  // that is not true — "six of them" when there are two reads as a lie.
+  let lines = card.body;
+  if (typeof lines === 'function') {
+    try { lines = lines(buildState(game, farm, story, storyExtras())); }
+    catch { lines = ['…']; }
+  }
+  const body = (Array.isArray(lines) ? lines : [lines])
+    .map((line) => `<p>${String(line).replace(/\*([^*]+)\*/g, '<em>$1</em>')}</p>`).join('');
   const art = card.art
     ? `<img class="sc-art" src="${card.art}" alt="" onerror="this.outerHTML='<div class=\\'sc-art-miss\\'>art wanted<br>${esc(card.art)}</div>'">`
     : '';

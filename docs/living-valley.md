@@ -21,6 +21,25 @@ that winter is close and your generator is a campfire, that the woods you have
 been felling are thinning, that somebody a valley over is having a worse year
 than you.
 
+## Writing rule — name the subject in the first line
+
+Learned the hard way. The wolf card opened *"Heard them on the ridge last
+night"* — atmospheric to write, meaningless to read. The player has no idea
+what "them" is, and no way to find out.
+
+Voice comes from **how** a character says a thing, never from withholding
+**what** the thing is. Bram is still Bram in "Heard the wolves up there again
+last night" — he has just stopped being cryptic at the player's expense.
+
+Two supporting rules:
+
+- **Never claim a number you have not counted.** A body may be a
+  `function(state)` returning its lines, so "six of them" is only ever written
+  when there are six. Where the count is unavailable, say "several".
+- **A card is read cold.** Assume the player has never seen this character,
+  place or object before. The Ridge Farm needs one line saying a farm is up
+  there before its chimney can mean anything.
+
 ## Shape
 
 A card is a portrait or scene, three or four lines, and **two to three answers

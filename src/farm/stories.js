@@ -10,7 +10,15 @@
 //   who       portrait/voice: mira | bram | sedge | ridge | land | valley
 //   art       /ui/story/<id>.png — one image per card, 4:3, see the art notes
 //   title     short. shown above the body.
-//   body      3-4 lines. array = separate paragraphs.
+//   body      3-4 lines. array = separate paragraphs, OR a function(state) that
+//             returns one — use the function form whenever the copy would
+//             otherwise claim a NUMBER, so the card never says "six of them"
+//             when there are two.
+//
+// WRITING RULE, learned the hard way: name the subject in the first line.
+// "Heard them on the ridge last night" reads as atmosphere to the author and
+// as nonsense to the player, who has no idea what "them" is. Voice comes from
+// how a character says a thing, never from withholding what the thing is.
 //   when(s)   trigger predicate over a snapshot (see story_engine.js buildState)
 //   once      true = fires at most once ever (default true; false = repeatable)
 //   cooldown  ms before it may fire again when once:false
@@ -67,8 +75,11 @@ export const STORIES = [
 
   S({
     id: 'storm_ridge', who: 'land', art: '/ui/story/storm-ridge.png',
-    title: 'Storm on the ridge',
-    body: ["Wind's turning. The lamps are already guttering."],
+    title: 'Storm coming in',
+    body: [
+      "The wind is turning and the lamps are already guttering.",
+      'Your machines are mid-job, and weather like this chews through a building.',
+    ],
     when: (s) => s.weather === 'storm' && s.runningJobs > 0,
     once: false, cooldown: 1000 * 60 * 60 * 6,
     choices: [
@@ -98,10 +109,14 @@ export const STORIES = [
 
   S({
     id: 'hungry_winter', who: 'bram', art: '/ui/story/hungry-winter.png',
-    title: 'Hungrier than usual',
-    body: [
-      'Heard them on the ridge last night. Thin this year, and thin makes them brave.',
-      'Yours are out in the open.',
+    title: 'Wolves on the ridge',
+    body: (s) => [
+      'Heard the wolves up there again last night. Thin this year, and thin makes them brave.',
+      // the trigger guarantees at least one, but the card browser renders it
+      // out of context — so the zero case still has to read like a sentence
+      s.loosePenAnimals > 1
+        ? `You have ${s.loosePenAnimals} animals out in the open, none of them behind a closed gate.`
+        : 'Your animals are out in the open, and not one of them is behind a closed gate.',
     ],
     when: (s) => s.season === 'winter' && s.night && s.loosePenAnimals > 0,
     once: false, cooldown: 1000 * 60 * 60 * 24,
@@ -137,7 +152,7 @@ export const STORIES = [
     id: 'mira_strawberries', who: 'mira', art: '/ui/story/mira-strawberries.png',
     title: 'A bad year for strawberries',
     body: [
-      "Mine came up small and sour, the whole row. Ren won't eat toast without jam and I'd rather not tell her why she has to.",
+      "My strawberries came up small and sour, the whole row. My daughter Ren won't eat toast without jam, and I'd rather not tell her why she has to.",
       "Could you spare a few, when you have them? I'll pay over the odds. Gladly.",
     ],
     when: (s) => s.has('strawberry') || s.stat('planted') > 12,
@@ -187,7 +202,7 @@ export const STORIES = [
     id: 'mira_recipe', moment: true, who: 'mira', art: '/ui/story/mira-recipe.png',
     title: 'The recipe',
     body: [
-      "This was my mother's.",
+      "My mother's preserve recipe. Nobody outside this house has ever had it written down.",
       "Don't give it to Sedge. He'd sell it back to me.",
     ],
     when: (s) => s.rep('mira') >= 6,
@@ -220,10 +235,10 @@ export const STORIES = [
 
   S({
     id: 'bram_axe', who: 'bram', art: '/ui/story/bram-axe.png',
-    title: "The tool he won't explain",
+    title: "The axe he won't explain",
     body: [
-      "Take this. Don't ask.",
-      "It's not sharper. It just doesn't argue with the wood.",
+      "Take this axe. Don't ask where it came from.",
+      "It's not sharper than yours. It just doesn't argue with the wood.",
     ],
     when: (s) => s.owns('axe'),
     choices: [
@@ -253,9 +268,9 @@ export const STORIES = [
 
   S({
     id: 'bram_last', moment: true, who: 'bram', art: '/ui/story/bram-last.png',
-    title: 'The run of it',
+    title: 'Bram is getting old',
     body: [
-      "I'm not going anywhere. I'm just saying you've got the run of it now.",
+      "I'm not going anywhere yet. I'm just saying this valley is yours to run now, not mine.",
       "Don't let the far field go to thistle.",
     ],
     when: (s) => s.prestige >= 60 && s.rep('bram') >= 3,
@@ -303,10 +318,11 @@ export const STORIES = [
 
   S({
     id: 'sedge_your_goods', who: 'sedge', art: '/ui/story/sedge-your-goods.png',
-    title: 'Fine quality, these',
+    title: 'He is selling your own goods',
     body: [
-      'Where do I get them? Trade secret.',
-      '...why are you looking at me like that.',
+      "Sedge has a cart full of produce with your farm's crates under it.",
+      '"Fine quality, these. Where do I get them? Trade secret."',
+      '"...why are you looking at me like that."',
     ],
     when: (s) => s.stat('sold') >= 50,
     choices: [
@@ -325,8 +341,8 @@ export const STORIES = [
     id: 'ridge_smoke', moment: true, who: 'ridge', art: '/ui/story/ridge-smoke.png',
     title: 'No smoke from the ridge',
     body: [
-      "There's been no smoke from the ridge for two days.",
-      "Their lamps aren't lit either.",
+      'There is a farm up the valley on the ridge. You have never met them; you just see their chimney most mornings.',
+      'There has been no smoke from it for two days, and their lamps are not lit either.',
     ],
     when: (s) => s.season === 'winter' && s.storageFrac > 0.4,
     choices: [
@@ -390,7 +406,7 @@ export const STORIES = [
     id: 'the_stray', who: 'land', art: '/ui/story/the-stray.png',
     title: 'Something under the porch',
     body: [
-      "It's been there since the rain started.",
+      'An animal has been under there since the rain started. Too big for a cat.',
       'It is not going to come out while you are watching.',
     ],
     when: (s) => s.weather === 'storm' && s.night && !s.ownsAnimal('dog'),
@@ -436,7 +452,10 @@ export const STORIES = [
   S({
     id: 'deer_in_wheat', who: 'land', art: '/ui/story/deer-in-wheat.png',
     title: 'Deer in the wheat',
-    body: ['Six of them, and no hurry about it.'],
+    body: (s) => [
+      `Deer are in the crops — ${s.deerCount || 'several'} of them, and no hurry about it.`,
+      'They will strip a row a night if nothing stops them.',
+    ],
     when: (s) => s.plantedPlots >= 6 && s.deerNear,
     once: false, cooldown: 1000 * 60 * 60 * 36,
     choices: [
@@ -609,10 +628,10 @@ export const STORIES = [
 
   S({
     id: 'letter_answered', who: 'bram', art: '/ui/story/letter-answered.png',
-    title: 'That letter',
+    title: 'About that old letter',
     body: [
-      'Ah. Her.',
-      'She had this place four owners back. Good with pears. Terrible with money.',
+      'You show Bram the letter you found. He barely glances at it.',
+      '"Ah. Her. She had this place four owners back. Good with pears. Terrible with money."',
     ],
     when: (s) => s.flag('letter_kept') && s.days >= 12,
     choices: [
@@ -623,7 +642,10 @@ export const STORIES = [
   S({
     id: 'one_that_got_away', who: 'land', art: '/ui/story/got-away.png',
     title: 'That was a big one',
-    body: ['You know it was.'],
+    body: [
+      'Third bite you have missed. Whatever is down there is not in a hurry.',
+      'You could keep casting, or pack the rod away.',
+    ],
     when: (s) => s.missedBites >= 3,
     once: false, cooldown: 1000 * 60 * 60 * 8,
     choices: [
@@ -697,8 +719,8 @@ export const STORIES = [
     id: 'counterfeit', who: 'sedge', art: '/ui/story/counterfeit.png',
     title: 'Check your coin',
     body: [
-      "There's light stuff going round. Rings wrong.",
-      "I'd not take a big payment off a stranger this week."
+      'There are underweight coins going round the valley — forgeries, and good ones. They ring wrong if you listen.',
+      "I'd not take a big payment off a stranger this week.",
     ],
     when: (s) => s.coins >= 2000,
     once: false, cooldown: 1000 * 60 * 60 * 24 * 21,

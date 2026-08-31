@@ -69,6 +69,7 @@ export function buildState(game, farm, story, extra = {}) {
     treesStandingFrac: extra.treesStandingFrac ?? 1,
     lakeFrozen: !!extra.lakeFrozen,
     deerNear: !!extra.deerNear,
+    deerCount: extra.deerCount || 0,
     loosePenAnimals: extra.loosePenAnimals || 0,
     foxRaids: extra.foxRaids || 0,
     missedBites: extra.missedBites || 0,
