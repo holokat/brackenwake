@@ -1581,3 +1581,13 @@ body.book-open #sidebar { transform: translateX(0); }
 .mb-mini-note { font-size: 10px; opacity: .62; font-weight: 400; }
 /* character portraits on the Valley page's People rows */
 .mb-face { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block; }
+
+/* The cheat button, one level deeper. Sid Meier's note on finding CHEAT on the
+   main menu of Civilization 2: "can't we just bury it one or two levels deeper,
+   because I want the players to play the real game first." It is still here and
+   still one click, it just no longer sits in the player's eyeline all game. */
+#test-btn.buried { opacity: 0; pointer-events: none; transition: opacity 140ms; }
+#corner:hover #test-btn.buried,
+#test-btn.buried:focus-visible,
+#test-btn.buried.revealed { opacity: 1; pointer-events: auto; }
+#test-btn.on.buried { opacity: 1; pointer-events: auto; }

@@ -96,6 +96,19 @@ const TIER_LAYOUT = {
 const DAY_CYCLE_MS = 480000; // 8 minute day
 // birds that squawk when the flock loses one of its own
 const POULTRY = new Set(['chicken', 'rooster', 'duck']);
+// How long the player gets between a predator locking on and the strike. Long
+// enough to notice a marker and click, short enough to be frightening.
+const STALK_WARNING_MS = 4500;
+
+const LEAVINGS = {
+  chicken: [0xf3ece0, 0xd9cdb8, 'feather'], rooster: [0xc4463a, 0xe8dccb, 'feather'],
+  duck:    [0xf1efe6, 0xb9c6cf, 'feather'], sheep:   [0xf2efe6, 0xd8d2c4, 'tuft'],
+  goat:    [0xd9c9ac, 0xb39b78, 'tuft'],    cow:     [0xf0ece4, 0x6b5540, 'tuft'],
+  pig:     [0xe8c2bd, 0xd0a29c, 'tuft'],    bunny:   [0xe8e2d6, 0xc9bfae, 'tuft'],
+  deer:    [0xb08355, 0x8a6440, 'tuft'],    wolf:    [0x8e9297, 0x6b6f74, 'tuft'],
+  fox:     [0xc4703a, 0xa2542a, 'tuft'],    bear:    [0x6b4a30, 0x4e3522, 'tuft'],
+};
+
 // after a shot lands, the bow is busy: lower the bow, nock the next arrow.
 // Combined with the 500ms draw this puts a shot at roughly 1.4s.
 const BOW_RECOVER_MS = 900;
@@ -135,7 +148,7 @@ export class Homestead {
   // 'aces' is the shipped look; 'neutral' keeps authored colour more faithfully
   static toneMapping = 'aces';
 
-  constructor(container, { cols, rows, tier = 1, themeId = 'meadow', signText, hideSign = false, farmhouseLevel = 1, onPlotHover, onPlotClick, onObjectClick, onObjectHover, onSignClick, onAnimalSound, onAmbientSound, onFishState, onMarketClick, onDockClick, onFishResult, onProductReady, onConstructionKnock, onHouseClick, houseRot, houseOffset, onWindmillClick, windmillRot, onGateToggle, onDeerResult, onBowState, fenceHP, onFenceClick, onFenceState, onAnimalLost, getSeason, houseStyle } = {}) {
+  constructor(container, { cols, rows, tier = 1, themeId = 'meadow', signText, hideSign = false, farmhouseLevel = 1, onPlotHover, onPlotClick, onObjectClick, onObjectHover, onSignClick, onAnimalSound, onAmbientSound, onPredatorStalk, onFishState, onMarketClick, onDockClick, onFishResult, onProductReady, onConstructionKnock, onHouseClick, houseRot, houseOffset, onWindmillClick, windmillRot, onGateToggle, onDeerResult, onBowState, fenceHP, onFenceClick, onFenceState, onAnimalLost, getSeason, houseStyle } = {}) {
     this.container = container;
     this.cols = cols;
     this.rows = rows;
@@ -153,6 +166,7 @@ export class Homestead {
     // world sounds (howls, alarm calls) — kept apart from onAnimalSound because
     // these are sampled files, not the synthesized animal voices
     this.onAmbientSound = onAmbientSound || (() => {});
+    this.onPredatorStalk = onPredatorStalk || (() => {});
     this.onMarketClick = onMarketClick || (() => {});
     this.onDockClick = onDockClick || (() => {});
     this.onFishResult = onFishResult || (() => {});
@@ -1046,11 +1060,50 @@ export class Homestead {
     return best;
   }
 
+  // A ring under the animal being hunted, plus a bobbing alert above it. The
+  // player has STALK_WARNING_MS to click the animal and send it running.
+  _markStalked(id, ar) {
+    if (!ar || ar.stalkMark) return;
+    const g = new THREE.Group();
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.9, 20),
+      new THREE.MeshBasicMaterial({ color: 0xff6a4a, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; ring.renderOrder = 997;
+    const alert = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: emojiTexture('❗'), transparent: true, depthWrite: false, depthTest: false,
+    }));
+    alert.scale.setScalar(2.0); alert.position.y = 4.2; alert.renderOrder = 999;
+    g.add(ring); g.add(alert);
+    ar.group.add(g);
+    ar.stalkMark = { group: g, ring, alert, at: this._lastNow || performance.now() };
+  }
+
+  _clearStalked(id) {
+    const ar = this.animalRecs.get(id);
+    if (!ar?.stalkMark) return;
+    ar.group.remove(ar.stalkMark.group);
+    ar.stalkMark = null;
+  }
+
+  // the player clicked a stalked animal: it bolts, and whatever was hunting it
+  // gives up on it
+  spookAnimal(id) {
+    const ar = this.animalRecs.get(id);
+    if (!ar?.stalkMark) return false;
+    ar.state = ar.state || {};
+    ar.state.spooked = (this._lastNow || performance.now()) + 12000;
+    this._clearStalked(id);
+    return true;
+  }
+
+  isStalked(id) { return !!this.animalRecs.get(id)?.stalkMark; }
+
   _killPrey(pred, id, ar) {
+    this._recentLosses = (this._recentLosses || 0) + 1;
+    this._lastLossAt = this._lastNow || performance.now();
     const rec = this.placed.get(id);
     if (rec) { this.scene.remove(rec.group); if (rec.hit) this.scene.remove(rec.hit); this.placed.delete(id); }
     this.animalRecs.delete(id);
-    this._spawnBlood(ar.group.position.x, ar.group.position.z, 0.5);
+    this._spawnLeavings(ar.group.position.x, ar.group.position.z, 0.6, ar.type);
     // birds go up in a panic when one of them is taken — the whole coop hears it,
     // so this fires for any fowl and for either predator, not just the fox
     if (POULTRY.has(ar.type)) {
@@ -1090,16 +1143,39 @@ export class Homestead {
         const odds = this.storyMods?.predatorOdds ?? 1;
         if (odds <= 0) { h.nextHunt = now + 20000; continue; }
         if (odds < 1 && Math.random() > odds) { h.nextHunt = now + 8000 + Math.random() * 8000; continue; }
+        // MERCY. Two animals taken in quick succession reads as the game having
+        // it in for you, however honest the rolls were, so the third attempt in
+        // a short window simply fails. Losing your LAST animal is the same
+        // problem at its worst, so that never happens either.
+        if (this._recentLosses >= 2 && now - (this._lastLossAt || 0) < 180000) {
+          h.nextHunt = now + 40000; continue;
+        }
         const prey = this._nearestPrey(gp.x, gp.z);
-        if (prey) { h.state = 'stalk'; h.targetId = prey.id; } else h.nextHunt = now + 5000 + Math.random() * 8000;
+        if (prey && this.animalRecs.size <= 1) { h.nextHunt = now + 30000; continue; }
+        if (prey) {
+          h.state = 'stalk'; h.targetId = prey.id;
+          // Telegraph it. A loss the player could not see coming reads as theft;
+          // a loss they were warned about and missed reads as their own mistake,
+          // and players forgive their own mistakes instantly.
+          h.stalkFrom = now;
+          this._markStalked(prey.id, prey.ar);
+          try { this.onPredatorStalk && this.onPredatorStalk(prey.id, prey.ar.type, h.type); } catch {}
+        } else h.nextHunt = now + 5000 + Math.random() * 8000;
       }
       if (h.state === 'stalk') {
         const ar = this.animalRecs.get(h.targetId);
-        if (!ar || ar.bounds) { h.state = 'flee'; h.fleeUntil = now + 3500; }
-        else {
+        // the animal got behind a closed gate, or the player spooked it: called off
+        if (!ar || ar.bounds || ar.state?.spooked > now) {
+          this._clearStalked(h.targetId);
+          h.state = 'flee'; h.fleeUntil = now + 3500;
+          h.nextHunt = now + 20000 + Math.random() * 20000;
+        } else {
           const tx = ar.group.position.x, tz = ar.group.position.z;
           h.heading = Math.atan2(tz - gp.z, tx - gp.x);
-          if (Math.hypot(tx - gp.x, tz - gp.z) < h.killDist) {
+          // it closes the distance but will not strike inside the warning window
+          const warned = now - (h.stalkFrom || now) >= STALK_WARNING_MS;
+          if (warned && Math.hypot(tx - gp.x, tz - gp.z) < h.killDist) {
+            this._clearStalked(h.targetId);
             this._killPrey(p, h.targetId, ar);
             h.state = 'flee'; h.fleeUntil = now + 3200;
             h.nextHunt = now + (h.type === 'wolf' ? 12000 + Math.random() * 12000 : 60000 + Math.random() * 60000);
@@ -1905,7 +1981,7 @@ export class Homestead {
       let killed = false;
       if (hit) {
         h.hp = (h.hp || 1) - 1;
-        if (h.hp <= 0) { killed = true; this._spawnBlood(pred.position.x, pred.position.z, 0.5); this._removePredator(pred); }
+        if (h.hp <= 0) { killed = true; this._spawnLeavings(pred.position.x, pred.position.z, 0.6, h.type); this._removePredator(pred); }
         else { h.state = 'flee'; h.fleeUntil = (this._lastNow || performance.now()) + 3000; }
       } else {
         h.state = 'flee'; h.fleeUntil = (this._lastNow || performance.now()) + 3000;
@@ -1963,7 +2039,7 @@ export class Homestead {
   _woundDeer(deer) {
     const rm = deer.userData.roam;
     const q = QUARRY[rm.quarry] || QUARRY.deer;
-    this._spawnBlood(deer.position.x, deer.position.z, q.dangerous ? 0.7 : 0.45);
+    this._spawnLeavings(deer.position.x, deer.position.z, q.dangerous ? 0.8 : 0.55, q.type || 'deer');
     if (q.dangerous) this._enrageBear(deer); else this._spookDeer(deer);
   }
 
@@ -2048,26 +2124,44 @@ export class Homestead {
     rm.speed = QUARRY.bear.base * 3.6;
   }
 
-  _spawnBlood(x, z, scl = 1) {
+  // What is left behind when something is taken or shot.
+  //
+  // This used to be a pool of blood. In a game with wind chimes, a child's
+  // crayon drawing on the wall and a cosy low-poly valley, a red stain is the
+  // "cartoony graphics and then heads explode" problem: it breaks the register
+  // the rest of the game has spent hours establishing, and the player notices
+  // the break rather than the event.
+  //
+  // The event still happens and still costs you. What you see is feathers, or
+  // wool, or a scatter of fur: the thing was here and now it is not.
+  _spawnLeavings(x, z, scl = 1, type = null) {
     try {
+      const [c1, c2, kind] = LEAVINGS[type] || [0xe6ded0, 0xc9bfae, 'tuft'];
       const g = new THREE.Group();
-      const mkDisc = (r, col, op) => {
-        const m = new THREE.Mesh(new THREE.CircleGeometry(r, 16),
-          new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false }));
-        m.rotation.x = -Math.PI / 2; return m;
-      };
-      g.add(mkDisc(1.5, 0x7a1512, 0.92));
-      for (let k = 0; k < 5; k++) {
-        const a = (k / 5) * Math.PI * 2 + 0.4;
-        const drop = mkDisc(0.26 + (k % 2) * 0.14, 0x8f1a15, 0.85);
-        drop.position.set(Math.cos(a) * 1.45, 0.001, Math.sin(a) * 1.45);
-        g.add(drop);
+      const n = kind === 'feather' ? 9 : 7;
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2 + Math.random() * 0.7;
+        const d = 0.5 + Math.random() * 1.2;
+        const piece = kind === 'feather'
+          // a feather reads as a long thin blade lying flat
+          ? new THREE.Mesh(new THREE.PlaneGeometry(0.7 + Math.random() * 0.3, 0.16),
+              new THREE.MeshBasicMaterial({ color: k % 2 ? c1 : c2, transparent: true, opacity: 0.95,
+                depthWrite: false, side: THREE.DoubleSide }))
+          // a tuft of wool or fur reads as a small soft blob
+          : new THREE.Mesh(new THREE.CircleGeometry(0.16 + Math.random() * 0.14, 7),
+              new THREE.MeshBasicMaterial({ color: k % 2 ? c1 : c2, transparent: true, opacity: 0.95,
+                depthWrite: false }));
+        piece.rotation.x = -Math.PI / 2;
+        piece.rotation.z = Math.random() * Math.PI;
+        piece.position.set(Math.cos(a) * d, 0.001 + k * 0.002, Math.sin(a) * d);
+        g.add(piece);
       }
       g.position.set(x, 0.04, z);
       g.scale.setScalar(0.1);
       g.traverse((o) => { if (o.material) o.material._op0 = o.material.opacity; });
       this.scene.add(g);
-      this.bloodFx.push({ group: g, start: this._lastNow || performance.now(), grow: 500, hold: 1700, fade: 1300, max: scl });
+      // they linger a little then drift away rather than staining the ground
+      this.bloodFx.push({ group: g, start: this._lastNow || performance.now(), grow: 380, hold: 2200, fade: 2400, max: scl });
     } catch {}
   }
 

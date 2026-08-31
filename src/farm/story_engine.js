@@ -30,8 +30,18 @@ export function durationMs(m = {}) {
   if (m.mins) return m.mins * 60000;
   return (m.days || 1) * CYCLE_MS;      // bare `days` means in-game days
 }
-const MIN_GAP_MS = 1000 * 60 * 8;   // never two cards inside eight minutes
-const SNUB_GAP_MS = 1000 * 60 * 25; // longer quiet period after one is waved away
+// Pacing. The original eight minutes was set to stop cards feeling like spam,
+// which was the wrong worry: a card is the only moment in this game where the
+// player DECIDES something rather than watching a timer. Sid's real-time
+// Civilization failed because the player became an observer, and our timers put
+// us in exactly that position. Cards are the cure, so they should be common.
+//
+// BUSY is the gap when the player is actively doing things; IDLE is the gap
+// when they are waiting on a timer with nothing to do, which is precisely when
+// a decision is worth the most.
+const MIN_GAP_BUSY_MS = 1000 * 60 * 4;
+const MIN_GAP_IDLE_MS = 1000 * 90;
+const SNUB_GAP_MS = 1000 * 60 * 12; // quiet period after one is waved away
 
 // ---------------------------------------------------------------------------
 // persistent story state — lives in the save under `story`
@@ -149,7 +159,10 @@ export function pickCard(game, farm, story, extra = {}) {
   if (!game) return null;
   const s = buildState(game, farm, story, extra);
   if (s.now < (story.nextEligibleAt || 0)) return null;
-  if (s.now - (story.lastCardAt || 0) < MIN_GAP_MS) return null;
+  // waiting on a timer with nothing ripe and nothing to click is dead time, and
+  // dead time is where a decision belongs
+  const idle = s.ripePlots === 0 && (extra.idleNow ?? false);
+  if (s.now - (story.lastCardAt || 0) < (idle ? MIN_GAP_IDLE_MS : MIN_GAP_BUSY_MS)) return null;
 
   const pool = STORIES.filter((c) => eligible(c, s, story));
   if (!pool.length) return null;

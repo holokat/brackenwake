@@ -1346,6 +1346,7 @@ function buildFarmScene() {
     onFenceClick: repairFenceUI,
     onFenceState: handleFenceState,
     onAnimalLost: handleAnimalLost,
+    onPredatorStalk: handlePredatorStalk,
     getSeason: () => game.seasonInfo(),
     houseStyle: game.house,
     onProductReady: handleProductReady,
@@ -3361,12 +3362,28 @@ function handleFenceState(hp, state) {
 }
 // a predator killed one of your animals — drop it from the save
 const ANIMAL_ICON = { chicken: '🐔', duck: '🦆', sheep: '🐑', goat: '🐐', pig: '🐖', cow: '🐄', horse: '🐴', rabbit: '🐇', cat: '🐈', dog: '🐕', rooster: '🐓', bunny: '🐇' };
+// A predator has locked on. The player has a few seconds to click the animal.
+// This is the whole difference between "the game took my cow" and "I missed it".
+function handlePredatorStalk(id, type, predator) {
+  const icon = predator === 'wolf' ? '🐺' : '🦊';
+  toast(`${icon} a ${predator} is stalking your ${ANIMAL_ICON[type] || '🐾'} ${esc(type)}. Click it to scare it off.`, false);
+  audio.playSfx('denied', 0.3);
+  playAmbient(predator === 'wolf' ? 'wolf-howl' : 'chicken-distress');
+}
+
 function handleAnimalLost(id, type, predator) {
   const uid = placedRuntime.get(id);
   if (uid) { game.placed = game.placed.filter((e) => e.uid !== uid); placedRuntime.delete(id); }
   game.save();
   const pIcon = predator === 'wolf' ? '🐺' : '🦊';
-  bigMoment(`${pIcon} a ${predator} took your ${ANIMAL_ICON[type] || '🐾'} ${esc(type)}! Keep animals in a closed pen to protect them.`);
+  // Say what would have worked. A setback the player cannot learn from reads as
+  // the game cheating; one that ends in "next time, do X" is the seed of
+  // playing again.
+  const penned = game.placed.some((e) => /enclosure/.test(e.type));
+  const advice = penned
+    ? 'A closed gate would have stopped it. Click a pen gate to shut it.'
+    : 'A pen with a closed gate stops this. Build one from Structures.';
+  bigMoment(`${pIcon} a ${predator} took your ${ANIMAL_ICON[type] || '🐾'} ${esc(type)}.<br><span style="font-size:13px;opacity:.85">${advice}</span>`);
   audio.playSfx('denied', 0.4);
 }
 
@@ -3866,6 +3883,16 @@ function collectAllReady() {
 
 function handleObjectClick(farmId) {
   if (!isOwner()) return;
+  // Saving a stalked animal beats everything else you might have wanted to do
+  // with that click. This is the counterplay the loss used to lack.
+  if (farm.isStalked(farmId) && farm.spookAnimal(farmId)) {
+    const rec = farm.placed.get(farmId);
+    if (rec) floatAtWorld(rec.group.position, 'safe!');
+    audio.playSfx('flip', 0.4);
+    toast('🐾 you scared it off. Get that animal behind a closed gate.');
+    game.bumpStat('saved');
+    return;
+  }
   // ⇧-click harvests every ready producer/processor at once (like crops)
   if (shiftDown) { collectAllReady(); return; }
   // collect a ready product / finished craft first
@@ -4614,6 +4641,9 @@ function storyExtras() {
     visitedFarms: storyWatch.visitedFarms,
     openedBook: storyWatch.openedBook,
     hiveAgeDays: storyWatch.hiveAgeDays,
+    // is the player currently just waiting? jobs running, nothing ripe, no
+    // recent click. That is the moment a card is worth the most.
+    idleNow: Date.now() - (audio._lastActivity || 0) > 45000,
     loosePenAnimals: [...(farm?.animalRecs?.values?.() || [])].filter((a) => !a.bounds).length,
   };
 }
@@ -5045,7 +5075,7 @@ const storyHost = {
 // ---- when cards get a chance to fire ----
 function tickStory() {
   if (!game || !farm || !isOwner() || currentCard) return;
-  if (Date.now() - storyTick < 20000) return;   // evaluate at most every 20s
+  if (Date.now() - storyTick < 8000) return;    // evaluate every 8s
   storyTick = Date.now();
   // roll the ambient counters over once per in-game day
   const day = Math.floor((game.stats?.days || 0));
