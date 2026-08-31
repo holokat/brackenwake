@@ -20,7 +20,7 @@ const ACTIVITY_WINDOW_MS = 50_000; // sfx within this window = "the player is bu
 // changing a number, not adding a row.
 export const SFX_FAMILIES = {
   'wolf-howl': 4, 'chicken-distress': 2,
-  'axe-chop': 3, 'pickaxe': 4, 'boulder-break': 4,
+  'axe-chop': 1, 'pickaxe': 4, 'boulder-break': 4,
   'fishing-cast': 4, 'fish-bite': 2, 'reeling': 2,
   'bow-draw': 2, 'bow-shot': 3, 'arrow-hit': 2, 'arrow-miss': 3,
   'thunder': 5,
@@ -142,10 +142,20 @@ export class FarmAudio {
   // `ambient` marks a sound the WORLD made, not the player — a wolf howling at
   // the moon must not count as activity, or the music rotation reads an empty
   // farm as a busy one and swings to the lively track.
-  playSfx(name, volume = 0.4, ambient = false) {
+  playSfx(name, volume = 0.4, ambient = false, solo = false) {
     if (!ambient) this._lastActivity = Date.now(); // sfx double as the "player is busy" signal
     if (this._sfxMuted || !this._unlocked) return;
     try {
+      // `solo` samples never stack on themselves. The chop recording is a full
+      // four-second sequence of strikes and a tree takes three swings, so
+      // retriggering it per click would layer three copies of the same take.
+      // With solo, the first swing starts the sequence and the rest land inside
+      // it; it only restarts once it has finished.
+      if (solo) {
+        this._solo = this._solo || new Map();
+        const live = this._solo.get(name);
+        if (live && !live.ended && !live.paused && live.currentTime > 0) return;
+      }
       const SFX_EXT = SFX_EXT_MAP;
       this._sfxCache = this._sfxCache || new Map();
       let base = this._sfxCache.get(name);
@@ -157,6 +167,7 @@ export class FarmAudio {
       const a = base.cloneNode();
       a.volume = volume;
       a.play().catch(() => {});
+      if (solo) this._solo.set(name, a);
     } catch (e) { /* sfx are garnish */ }
   }
 
@@ -165,8 +176,8 @@ export class FarmAudio {
   // itself often enough to sound like a bug, and a fixed order sounds like a
   // loop. Reshuffling each pass, never starting on the previous take, gives
   // variety without either tell.
-  playSfxVariant(base, count, volume = 0.4, ambient = false) {
-    if (count <= 1) return this.playSfx(`${base}-1`, volume, ambient);
+  playSfxVariant(base, count, volume = 0.4, ambient = false, solo = false) {
+    if (count <= 1) return this.playSfx(`${base}-1`, volume, ambient, solo);
     this._variantQueue = this._variantQueue || {};
     let q = this._variantQueue[base];
     if (!q || !q.length) {
@@ -182,7 +193,7 @@ export class FarmAudio {
     const n = q.shift();
     this._lastVariant = this._lastVariant || {};
     this._lastVariant[base] = n;
-    this.playSfx(`${base}-${n}`, volume, ambient);
+    this.playSfx(`${base}-${n}`, volume, ambient, solo);
   }
 
   // ---------- adaptive biome playlists ----------

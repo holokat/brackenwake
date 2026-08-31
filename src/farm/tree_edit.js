@@ -100,6 +100,25 @@ const REGROW_SPAN = 300_000;               // ...to 9, randomised per tree
 
 export function treeFieldsFor() { return fields; }
 
+// Every theme owes the player BOTH tools working: something to chop and
+// something to mine. A biome whose flora is plain instanced decor hands you an
+// axe that does nothing when you click a tree, which is exactly the bug this
+// guards against. Runs after each outer zone builds; warns rather than throws,
+// because a missing field must never take the scene down with it.
+export function auditHarvestFields(themeId) {
+  const kinds = new Set(fields.map((f) => f.kind || 'tree'));
+  const counts = { tree: 0, rock: 0 };
+  for (const f of fields) counts[f.kind || 'tree'] += f.trees.length;
+  const missing = ['tree', 'rock'].filter((k) => !kinds.has(k) || !counts[k]);
+  if (missing.length) {
+    console.warn(`[scenery] theme "${themeId}" has no harvestable ${missing.join(' and ')} — `
+      + `the ${missing.includes('tree') ? 'axe' : ''}${missing.length > 1 ? '/' : ''}`
+      + `${missing.includes('rock') ? 'pickaxe' : ''} will do nothing here. `
+      + 'Add a createTreeField (see addBoulderField in themes.js).');
+  }
+  return { themeId, counts, ok: !missing.length };
+}
+
 // Build a one-off, non-instanced copy of a tree so it can be animated falling.
 function treeCopy(field, tree) {
   const g = new THREE.Group();

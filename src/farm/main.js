@@ -63,7 +63,7 @@ const SAMPLES = {
   'wolf-howl':        { vol: 0.32, ambient: true },
   'chicken-distress': { vol: 0.50, ambient: true },
   'thunder':          { vol: 0.40, ambient: true },
-  'axe-chop':         { vol: 0.50 },
+  'axe-chop':         { vol: 0.62, solo: true },  // a 4s sequence — must not stack
   'pickaxe':          { vol: 0.50 },
   'boulder-break':    { vol: 0.55 },
   'fishing-cast':     { vol: 0.45 },
@@ -79,13 +79,7 @@ const SAMPLES = {
 function playSample(name, volScale = 1, takes = 0) {
   const cfg = SAMPLES[name], n = takes || SFX_FAMILIES[name];
   if (!cfg || !n) return;
-  audio.playSfxVariant(name, n, cfg.vol * volScale, !!cfg.ambient);
-}
-// the single heaviest take of a family, for the blow that finishes the job
-function playFinisher(name, volScale = 1.15) {
-  const cfg = SAMPLES[name], n = SFX_FAMILIES[name];
-  if (!cfg || !n) return;
-  audio.playSfx(`${name}-${n}`, cfg.vol * volScale, !!cfg.ambient);
+  audio.playSfxVariant(name, n, cfg.vol * volScale, !!cfg.ambient, !!cfg.solo);
 }
 // the world-sound channel farm.js calls (howls, panicking hens, thunder)
 const playAmbient = playSample;
@@ -376,16 +370,16 @@ function chopSceneryTree(e) {
   const res = chopTree(hit.field, hit.index);
   if (!res) { toast('🌱 a sapling is coming back here — give it time'); return; }
   if (res.hit) {
-    // still standing: rotate the two lighter takes. The third axe take is the
-    // heavy one and is held back for the swing that fells it.
-    if (mining) playSample('pickaxe');
-    else playSample('axe-chop', 1, 2);
+    // the pickaxe has four takes to rotate; the axe is a single sound
+    playSample(mining ? 'pickaxe' : 'axe-chop');
     toast(`${mining ? '⛏️ breaking' : '🪓 chopping'}… ${res.remaining} more hit${res.remaining > 1 ? 's' : ''}`);
     return;
   }
   // the swing that brings it down
+  // the boulder gets its own break sound; a felled tree still uses the chop
+  // until a proper tree-fall sample lands (#2 on docs/sfx-wishlist.txt)
   if (mining) playSample('boulder-break');
-  else playFinisher('axe-chop');
+  else playSample('axe-chop', 1.15);
   const goodId = mining ? 'stone' : 'wood';
   // a Carpenter Workshop / Forge adds to every yield — that is their whole job
   const amount = (mining ? res.stone : res.wood) + (effects.harvestBonus[goodId] || 0);
@@ -413,6 +407,10 @@ const audio = new FarmAudio();
 let _doneIdx = 0;
 function playDone(vol = 0.55) { audio.playSfx(_doneIdx++ % 2 ? 'Done2' : 'Done1', vol); }
 document.addEventListener('pointerdown', () => audio.unlock(), { once: true });
+// clicking away closes the tool list — it must never sit open over the scene
+document.addEventListener('pointerdown', (e) => {
+  if (pickerOpen && !e.target.closest('#hud-tools')) closePicker();
+}, true);
 function renderAudioBtn() {
   const btn = $('#audio-btn');
   btn.classList.toggle('muted', audio.muted);
@@ -601,8 +599,8 @@ const TUT_STEPS = [
     done: () => (game.stats.planted || 0) >= 1,
   },
   {
-    text: '💧 Grab the <b>watering can</b> from the toolbar.',
-    glow: ['#hud-tools .cell[data-tool="water"]'],
+    text: '💧 Open the <b>tool slot</b> and take the watering can.',
+    glow: ['#hud-tools .toolslot'],
     done: () => activeTool === 'water',
   },
   {
@@ -1560,13 +1558,26 @@ const GROUPS = [
 
 let activeGroup = 'farm';
 
-const TOOLS = [
-  { id: 'select', icon: '🖐', img: '/ui/tool-hand.png', title: 'select / harvest / move' },
-  { id: 'water', icon: '💧', img: '/ui/tool-water.png', title: 'watering can — click crops to grow them' },
-  { id: 'fish', icon: '🎣', img: '/ui/tool-fish.png', title: 'go fishing at the dock' },
-  { id: 'chop', icon: '🪓', title: 'axe — click any tree to chop it for wood', needsAxe: true },
-  { id: 'mine', icon: '⛏️', title: 'pickaxe — click a boulder to mine it for stone', needsPick: true },
+// The HAND is its own permanent slot and does one job: pick things up, move
+// them, harvest, repair. Nothing else ever lives here.
+const HAND = { id: 'select', icon: '🖐', img: '/ui/tool-hand.png', title: 'hand — harvest, move and repair' };
+
+// Everything else shares ONE slot with a picker. The frame art has three tool
+// cells and there were five tools, so the axe and pickaxe were rendering on top
+// of the hand with no position of their own — the last one in the DOM ate every
+// click, which is why switching tools was impossible.
+const TOOLKIT = [
+  { id: 'water', name: 'Watering Can', icon: '💧', img: '/ui/tool-water.png', title: 'click planted crops to grow them' },
+  { id: 'fish',  name: 'Fishing Rod',  icon: '🎣', img: '/ui/tool-fish.png',  title: 'click the dock or open water to cast' },
+  { id: 'chop',  name: 'Felling Axe',  icon: '🪓', owns: 'axe',     title: 'click any tree to chop it for wood' },
+  { id: 'mine',  name: 'Pickaxe',      icon: '⛏️', owns: 'pickaxe', title: 'click a boulder to break it for stone' },
 ];
+const toolInfo = (id) => TOOLKIT.find((t) => t.id === id) || null;
+const toolOwned = (t) => !t.owns || testMode || game.owned.includes(t.owns);
+// which tool the slot is holding — the rod by default, and it remembers your
+// last pick so the hand/tool swap stays a single click
+let loadedTool = 'fish';
+let pickerOpen = false;
 
 // Bows: bought in the Craft tab, then equipped from the Inventory tab to hunt.
 // `tier` gates quarry — a bear needs a tier-2 (composite) bow or it just enrages.
@@ -2249,20 +2260,7 @@ function renderHud() {
     }
   }
 
-  // tools (the chop tool only appears once you've crafted an axe)
-  $('#hud-tools').innerHTML = TOOLS.filter((t) => {
-    if (t.needsAxe) return testMode || game.owned.includes('axe');
-    if (t.needsPick) return testMode || game.owned.includes('pickaxe');
-    return true;
-  }).map((t) =>
-    `<button class="cell tool ${activeTool === t.id ? 'active' : ''}" data-tool="${t.id}" title="${t.title}">${t.img ? `<img class="tool-img" src="${t.img}" alt="${t.id}">` : t.icon}</button>`
-  ).join('');
-  for (const btn of document.querySelectorAll('#hud-tools .cell')) {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.tool === 'fish') { tryFish(); return; }
-      setTool(btn.dataset.tool);
-    });
-  }
+  renderTools();
 
   // slots: inventory or the active category, paged to the frame's 13 cells
   let cellsHtml = '';
@@ -2315,11 +2313,80 @@ function renderHud() {
   }
 }
 
+const toolFace = (t, cls = 'tool-img') =>
+  t.img ? `<img class="${cls}" src="${t.img}" alt="${t.id}">` : t.icon;
+
+function renderTools() {
+  const el = $('#hud-tools');
+  if (!el) return;
+  const held = toolInfo(loadedTool) || TOOLKIT[1];
+  const heldActive = activeTool === held.id;
+  el.innerHTML = `
+    <button class="cell tool ${activeTool === 'select' ? 'active' : ''}" data-tool="select" title="${HAND.title}">${toolFace(HAND)}</button>
+    <button class="cell tool toolslot ${heldActive ? 'active' : ''}" data-tool="${held.id}" data-slot="1"
+            title="${esc(held.name)} — ${held.title} · click again for other tools">
+      ${toolFace(held)}<i class="tool-caret" data-caret="1"></i>
+    </button>
+    ${pickerOpen ? toolPickerHtml() : ''}`;
+
+  el.querySelector('[data-tool="select"]').addEventListener('click', () => { closePicker(); setTool('select'); });
+  const slot = el.querySelector('.toolslot');
+  slot.addEventListener('click', (e) => {
+    // the caret always opens the list; so does clicking the slot when its tool
+    // is already in hand, since re-picking the active tool does nothing
+    if (e.target.dataset.caret || pickerOpen || heldActive) { togglePicker(); return; }
+    useTool(held.id);
+  });
+  slot.addEventListener('contextmenu', (e) => { e.preventDefault(); togglePicker(); });
+  for (const b of el.querySelectorAll('.tp-row')) {
+    b.addEventListener('click', () => {
+      const t = toolInfo(b.dataset.tool);
+      if (!toolOwned(t)) { buyTool(t); return; }
+      loadedTool = t.id; closePicker(); useTool(t.id);
+    });
+  }
+}
+
+// Opens ABOVE the slot — the HUD sits on the bottom edge, so a menu that
+// dropped downward would fall off the screen.
+function toolPickerHtml() {
+  const rows = TOOLKIT.map((t) => {
+    const owned = toolOwned(t);
+    const axe = AXES.find((a) => a.id === t.owns);
+    const price = !owned && axe ? `<span class="tp-price">${axe.price}${COIN}</span>` : '';
+    return `<button class="tp-row ${owned ? '' : 'locked'} ${loadedTool === t.id ? 'on' : ''}" data-tool="${t.id}"
+              title="${esc(t.title)}"><span class="tp-ic">${toolFace(t, 'tp-img')}</span><span class="tp-nm">${esc(t.name)}</span>${price}</button>`;
+  }).join('');
+  return `<div class="tool-picker" id="tool-picker">${rows}</div>`;
+}
+
+function togglePicker() { pickerOpen = !pickerOpen; renderTools(); }
+function closePicker() { if (pickerOpen) { pickerOpen = false; renderTools(); } }
+
+// Picking a tool only ever PICKS it. The rod used to cast the moment you
+// selected it, which meant you could not put the rod in hand without starting
+// a session — and could not select it at all while one was running.
+// Casting is a separate act: click the dock or the water with the rod in hand.
+function useTool(id) {
+  setTool(id);
+}
+
+function buyTool(t) {
+  const axe = AXES.find((a) => a.id === t.owns);
+  if (!axe) return;
+  if (!buyAxe(axe)) return;
+  loadedTool = t.id;
+  closePicker();
+  useTool(t.id);
+}
+
 function setTool(id) {
   if (equippedBow) unequipBow(); // picking a toolbar tool puts the bow away
   activeTool = id;
+  if (id !== 'select' && toolInfo(id)) loadedTool = id; // the slot remembers
   if (id !== 'select') setMode(null);
-  if (id === 'water') setModeBanner('💧 watering can — click planted crops · Esc to stop');
+  const t = toolInfo(id);
+  if (t && !(id === 'fish' && farm?.fishing)) setModeBanner(`${t.icon} ${t.name} — ${t.title} · Esc to put it away`);
   else if (mode?.kind !== 'plant') setModeBanner(null);
   renderHud();
 }
@@ -3030,8 +3097,7 @@ function chopTimber(farmId, entry, item) {
   entry.opts = entry.opts || {};
   if (entry.opts.stump) { toast('🌱 just a stump — it will regrow soon'); return; }
   entry.opts.chopHp = (entry.opts.chopHp ?? item.chopHp ?? 3) - 1;
-  if (entry.opts.chopHp > 0) playSample('axe-chop', 1, 2);
-  else playFinisher('axe-chop');
+  playSample('axe-chop', entry.opts.chopHp > 0 ? 1 : 1.15);
   const rec = farm.placed.get(farmId);
   if (rec) farm.burstAtPosition(rec.group.position, false);
   if (entry.opts.chopHp <= 0) {
@@ -3088,11 +3154,14 @@ function toggleHerd(farmId, entry) {
   toast(entry.opts.herding ? '🐕 on the job — herding loose animals to their pens!' : '💤 the dog stands down.');
 }
 
+// Casting. Reached by clicking the DOCK — never by picking the rod up, and
+// never from dry land: the dock's hit volume is the "close enough to water"
+// test. The rod stays in hand afterwards so the next cast is one click.
 function tryFish() {
   if (!requireOwner()) return;
   if (farm.fishing) { toast('🎣 already fishing — watch the bobber!'); return; }
   setMode(null);
-  setTool('select');
+  if (activeTool !== 'fish') setTool('select');
   // in deep winter the water freezes over — chop a hole before you can fish
   const ice = farm.iceState();
   if (ice.frozen && !ice.hole) {
@@ -3962,6 +4031,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Shift') shiftDown = true;
   if (e.key === 'Escape') {
     hideActionPop();
+    closePicker();
     closeMarket();
     if (farm?.paving) { farm.cancelPaving(); hidePathCost(); setModeBanner(null); }
     if (farm?.houseMoveArmed) { farm.cancelHouseMove(); setModeBanner(null); toast('house move cancelled'); }
@@ -4029,8 +4099,10 @@ function hudTipHtml(cell) {
     return `<span class="tip-name">Collection Book</span><div class="tip-body">every crop, good, dish &amp; fish you've discovered — complete a set for +75${COIN}</div>`;
   }
   if (cell.dataset.tool) {
-    const t = TOOLS.find((x) => x.id === cell.dataset.tool);
-    return t ? `<span class="tip-name">${esc(t.title)}</span>` : null;
+    if (cell.dataset.tool === 'select') return `<span class="tip-name">${esc(HAND.title)}</span>`;
+    const t = toolInfo(cell.dataset.tool);
+    if (!t) return null;
+    return `<span class="tip-name">${esc(t.name)}</span><div class="tip-body">${esc(t.title)}<br>click again to pick a different tool</div>`;
   }
   if (cell.dataset.good) {
     const g = goodInfo(cell.dataset.good);

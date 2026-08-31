@@ -22,13 +22,16 @@ TIER 1 — WRONG SOUND PLAYING RIGHT NOW
 Fix these first. Each one is a real event using a borrowed sample.
 ================================================================
 
-1. AXE CHOP   [DONE]  (per swing, 3 per tree)
+1. AXE CHOP   [DONE - uses the supplied file whole]  (per swing, 3 per tree)
    Currently: 'construction' — a generic building sound, also used for mining.
    PROMPT: "Single axe strike into a solid tree trunk, close-miked. A sharp
    woody crack on impact with a short splintering tail, no echo, no music, no
    reverb. Dry outdoor recording. Deep and satisfying, not thin."
    0.4-0.7s. Generate 3 takes — this fires three times per tree, and one sample
    repeated three times in two seconds reads as a stuck loop.
+   SHIPPED: chopping-tree.mp3 as supplied — a 4s recording holding three
+   strikes. Played whole, guarded so it cannot retrigger into itself: the first
+   swing starts the sequence and the rest land inside it.
 
 2. TREE FALLING  (the swing that fells it — currently silent)
    Currently: nothing. The tree visibly topples in silence.

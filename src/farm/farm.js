@@ -17,7 +17,7 @@ const TONE_MAPPING = {
   aces: THREE.ACESFilmicToneMapping,
   none: THREE.NoToneMapping,
 };
-import { clearTreeFields } from './tree_edit.js';
+import { clearTreeFields, auditHarvestFields } from './tree_edit.js';
 import { setSceneryTheme } from './scenery_store.js';
 import { seasonTint, baseTempFor } from './seasons.js';
 import { WeatherMachine } from './weather.js';
@@ -2259,6 +2259,8 @@ export class Homestead {
     } catch (err) {
       console.warn('theme scenery failed', err);
     }
+    // both tools must have something to work on in every biome
+    auditHarvestFields(this.theme.id);
   }
 
   _scatterPoint(rand = Math.random, outerBand = false) {

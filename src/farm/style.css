@@ -236,10 +236,54 @@ body {
   /* 3 tool cells on the new frame: x 6.6%→24.4%, y 48.5%→66.4% */
   position: absolute; left: 6.6%; width: 17.8%; top: 48.5%; height: 17.9%;
 }
+/* Two cells now: the hand, and one slot holding whichever tool is loaded.
+   The frame art has three wells; the third is left empty on purpose rather
+   than stacking unpositioned buttons on top of the first, which is what the
+   axe and pickaxe used to do. */
 #hud-tools .cell { position: absolute; width: 27%; top: 0; }
-#hud-tools .cell:nth-child(1) { left: 0; }
-#hud-tools .cell:nth-child(2) { left: 37.1%; }
-#hud-tools .cell:nth-child(3) { left: 73.6%; }
+#hud-tools .cell[data-tool="select"] { left: 0; }
+#hud-tools .toolslot { left: 37.1%; }
+
+/* the caret marks the slot as openable — small, but the whole slot opens the
+   list too once its tool is already in hand */
+.tool-caret {
+  position: absolute; right: 4%; bottom: 6%;
+  width: 0; height: 0; pointer-events: none;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-bottom: 5px solid rgba(255, 244, 214, 0.92);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.55));
+}
+.toolslot:hover .tool-caret { border-bottom-color: #fff; }
+
+/* Opens UPWARD: the HUD sits on the bottom edge of the screen. Lifted clear of
+   the tab strip so the list never sits on top of the tab labels. */
+.tool-picker {
+  position: absolute; left: 0; bottom: 178%; z-index: 40;
+  min-width: 176px; padding: 5px;
+  display: flex; flex-direction: column; gap: 2px;
+  background: linear-gradient(#4a3720, #3a2a17);
+  border: 2px solid #6b512c;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+/* a small tail pointing back down at the slot it belongs to */
+.tool-picker::after {
+  content: ''; position: absolute; left: 16px; top: 100%;
+  border: 7px solid transparent; border-top-color: #3a2a17;
+}
+.tp-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 9px; border: 0; border-radius: 5px;
+  background: transparent; color: #f2e7cf; cursor: pointer;
+  font: inherit; font-size: 13px; text-align: left; white-space: nowrap;
+}
+.tp-row:hover { background: rgba(255, 236, 190, 0.16); }
+.tp-row.on { background: rgba(255, 214, 120, 0.24); color: #fff6dc; }
+.tp-row.locked { opacity: 0.62; }
+.tp-ic { width: 22px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.tp-img { width: 22px; height: 22px; object-fit: contain; }
+.tp-nm { flex: 1; }
+.tp-price { color: #ffd76a; font-size: 11px; }
 
 #hud-slots {
   /* 11 item cells: x 27.8%→94.8%, y 48.5%→66.4% */

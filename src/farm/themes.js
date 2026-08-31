@@ -665,6 +665,46 @@ function outerPoints(ctx, rng, R, minDist, count) {
   return pts;
 }
 
+// ---------------------------------------------------------------------------
+// HARVESTABLE SCENERY — every theme must have both.
+//
+// The axe and the pickaxe only work on `createTreeField` records, so a theme
+// whose trees and rocks are plain instanced decor gives the player tools that
+// do nothing. That is exactly what happened: the meadow had 80 rocks and 100
+// trees on the ground and not one of them could be struck. These two helpers
+// exist so a new theme gets it right by calling one function, and so the fix
+// is applied in one place instead of five.
+//
+// Contract for every biome: ONE boulder field and ONE tree field, whatever the
+// local flora looks like. See themeHarvestAudit() below.
+// ---------------------------------------------------------------------------
+
+// A field of mineable boulders. `rockCol` lets each biome keep its own stone.
+function addBoulderField(ctx, g, rng, R, heightAt, opts = {}) {
+  const {
+    name, zC = ctx.zCenter || 0, minDist = 12, tries = 95,
+    rockCol = 0x8b8478, chipCol = 0x9a9287, accept = null,
+  } = opts;
+  const boulders = createTreeField({
+    name, kind: 'rock',
+    hits: 4, // stone takes more work than timber
+    parent: g,
+    make: (x, z, gy) => ({ x, z, gy, s: 1.1 + Math.random() * 1.1, ry: Math.random() * Math.PI, alt: false, oa: 0 }),
+    layers: [
+      { geo: new THREE.DodecahedronGeometry(1, 0), mat: mat(rockCol),
+        of: (t) => ({ x: t.x, y: t.gy + 0.45 * t.s, z: t.z, s: t.s, sy: 0.85, ry: t.ry }) },
+      { geo: new THREE.DodecahedronGeometry(0.55, 0), mat: mat(chipCol),
+        of: (t) => ({ x: t.x + 0.9 * t.s, y: t.gy + 0.25 * t.s, z: t.z + 0.5 * t.s, s: t.s * 0.7, sy: 0.8, ry: -t.ry }) },
+    ],
+  });
+  for (const [x, z] of outerPoints(ctx, rng, R, minDist, tries)) {
+    if (accept && !accept(x, z)) continue;
+    boulders.add({ x, z: z - zC, gy: heightAt(x, z), s: 1.1 + rng() * 1.1, ry: rng() * Math.PI, alt: false, oa: 0 });
+  }
+  boulders.rebuild();
+  return boulders;
+}
+
 // smooth pseudo-noise height field, flattened near the island
 // so the mesa base reads clean where it meets the land
 function outerHeightField(ctx, rng, amp) {
@@ -1376,24 +1416,39 @@ function meadowOuter(ctx) {
   { const a = outerInstanced(g, new THREE.ConeGeometry(1.35, 2.4, 7), mat(0x2c6a40), sT1); if (a) tagFoliage(a, { autumn: false }); }
   { const b = outerInstanced(g, new THREE.ConeGeometry(0.9, 2.0, 7), mat(0x33774a), sT2); if (b) tagFoliage(b, { autumn: false }); }
 
-  // scattered round-canopy deciduous trees in mixed greens
-  const dTrunk = [];
-  const dCan = [[], [], []];
+  // ---- scattered round-canopy deciduous trees in mixed greens ----
+  // A CHOPPABLE field, like Sakura's blossoms. These were plain instanced decor,
+  // so the axe had nothing to bite on in the starting biome — you could select
+  // it, click a tree, and nothing happened at all. The dense spruce backdrop
+  // above stays decorative; these are the ones that read as fellable.
   const dShades = [0x4e9a3f, 0x60ae4b, 0x71bd57];
-  for (let i = 0; i < 260 && dTrunk.length < 100; i++) {
+  const dTrunkGeo = new THREE.CylinderGeometry(0.2, 0.32, 2.4, 6);
+  const dCanGeo = new THREE.SphereGeometry(1.5, 8, 7);
+  const woods = createTreeField({
+    name: 'meadow-trees',
+    parent: g,
+    make: (x, z, gy) => ({ x, z, gy, s: 1.7 + Math.random() * 1.2, ry: Math.random() * Math.PI, alt: Math.floor(Math.random() * 3), oa: 0 }),
+    layers: [
+      { geo: dTrunkGeo, mat: mat(P.wood),
+        of: (t) => ({ x: t.x, y: t.gy + 1.2 * t.s, z: t.z, s: t.s, ry: t.ry }) },
+      // one canopy layer per shade — a tree only draws in its own, keeping the
+      // mixed-green look now that the field owns the instancing
+      ...dShades.map((col, i) => ({
+        geo: dCanGeo, mat: mat(col), tag: (im) => tagFoliage(im),
+        of: (t) => ((t.alt | 0) % 3 === i
+          ? { x: t.x, y: t.gy + 3.0 * t.s, z: t.z, s: t.s, sy: 0.85, ry: t.ry } : null),
+      })),
+    ],
+  });
+  for (let i = 0; i < 260 && woods.trees.length < 100; i++) {
     const a = rng() * Math.PI * 2;
     const r = R * (0.25 + Math.sqrt(rng()) * 0.6);
     const x = Math.cos(a) * r, z = zC + Math.sin(a) * r;
     if (distToIsland(ctx, x, z) < treeMin) continue;
     if (Math.hypot(x - lake.x, z - lake.z) < lake.r + 3) continue;
-    const s = 1.7 + rng() * 1.2;
-    const h = heightAt(x, z);
-    dTrunk.push({ x, y: h + 1.2 * s, z: z - zC, s, ry: rng() * Math.PI });
-    dCan[Math.floor(rng() * 3)].push({ x, y: h + 3.0 * s, z: z - zC, s, sy: 0.85, ry: rng() * Math.PI });
+    woods.add({ x, z: z - zC, gy: heightAt(x, z), s: 1.7 + rng() * 1.2, ry: rng() * Math.PI, alt: Math.floor(rng() * 3), oa: 0 });
   }
-  outerInstanced(g, new THREE.CylinderGeometry(0.2, 0.32, 2.4, 6), mat(P.wood), dTrunk);
-  const canGeo = new THREE.SphereGeometry(1.5, 8, 7);
-  for (let i = 0; i < 3; i++) { const im = outerInstanced(g, canGeo, mat(dShades[i]), dCan[i]); if (im) tagFoliage(im); }
+  woods.rebuild();
 
   // ---- fall-only ground dressing (carried from the retired Autumn Hollow):
   // leaf piles and pumpkins that appear out in the meadow when autumn arrives ----
@@ -1417,10 +1472,18 @@ function meadowOuter(ctx) {
   g.add(fallDecor);
 
   // ---- open-ground details: rocks, bushes, grass near the clearing ----
-  const rocks = outerPoints(ctx, rng, R * 0.97, clear + 2, 80).map(([x, z]) => ({
-    x, y: heightAt(x, z) + 0.3, z: z - zC, s: 0.5 + rng() * 1.1, sy: 0.8, ry: rng() * Math.PI * 2,
+  // small scatter rocks stay pure decoration — ground texture, nothing to swing at
+  const rocks = outerPoints(ctx, rng, R * 0.97, clear + 2, 45).map(([x, z]) => ({
+    x, y: heightAt(x, z) + 0.3, z: z - zC, s: 0.5 + rng() * 0.7, sy: 0.8, ry: rng() * Math.PI * 2,
   }));
   outerInstanced(g, new THREE.DodecahedronGeometry(0.75, 0), mat(0x8b8478), rocks);
+
+  // ---- mineable boulders ----
+  addBoulderField(ctx, g, rng, R * 0.92, heightAt, {
+    name: 'meadow-rocks', zC, minDist: clear + 4,
+    accept: (x, z) => distToIsland(ctx, x, z) >= flatR - 6
+      && !(lake && Math.hypot(x - lake.x, z - lake.z) < lake.r + 4),
+  })
   const bushes = outerPoints(ctx, rng, R * 0.97, clear + 2, 40).map(([x, z]) => ({
     x, y: heightAt(x, z) + 0.35, z: z - zC, s: 0.6 + rng() * 0.8, sy: 0.7, ry: rng() * Math.PI * 2,
   }));
@@ -1509,8 +1572,10 @@ function oceansideOuter(ctx) {
     boats.push({ b, phase: rng() * 6 });
   }
 
-  // LOTS of big, lush palm clusters all over the sand — the hero greenery
-  for (const [x, z] of outerPoints(ctx, rng, land.R, clear + 3, 26)) {
+  // LOTS of big, lush palm clusters all over the sand — the hero greenery.
+  // These stay as detailed one-off models; the CHOPPABLE stand is the simpler
+  // instanced field below, so the axe works here like it does everywhere else.
+  for (const [x, z] of outerPoints(ctx, rng, land.R, clear + 3, 20)) {
     const n = 1 + Math.floor(rng() * 3);
     for (let k = 0; k < n; k++) {
       const p = buildPalm(rng, null);
@@ -1521,6 +1586,34 @@ function oceansideOuter(ctx) {
       g.add(p);
     }
   }
+
+  // ---- choppable palms ----
+  {
+    const trunkGeo = new THREE.CylinderGeometry(0.22, 0.34, 5.2, 6);
+    const frondGeo = new THREE.ConeGeometry(2.2, 1.1, 6);
+    const palms = createTreeField({
+      name: 'oceanside-trees', parent: g,
+      make: (x, z, gy) => ({ x, z, gy, s: 1, ry: Math.random() * Math.PI, alt: false, oa: 0 }),
+      layers: [
+        { geo: trunkGeo, mat: mat(0x9a7247),
+          of: (t) => ({ x: t.x, y: t.gy + 2.6 * t.s, z: t.z, s: t.s, ry: t.ry }) },
+        { geo: frondGeo, mat: mat(0x3f8f52), tag: (im) => tagFoliage(im, { autumn: false }),
+          of: (t) => ({ x: t.x, y: t.gy + 5.3 * t.s, z: t.z, s: t.s, sy: 0.9, ry: t.ry }) },
+        { geo: frondGeo, mat: mat(0x4fa25f), tag: (im) => tagFoliage(im, { autumn: false }),
+          of: (t) => ({ x: t.x, y: t.gy + 5.0 * t.s, z: t.z, s: t.s * 0.78, sy: 0.8, ry: t.ry + 0.8 }) },
+      ],
+    });
+    for (const [x, z] of outerPoints(ctx, rng, land.R * 0.95, clear + 5, 60)) {
+      palms.add({ x, z: z - land.zC, gy: land.heightAt(x, z), s: 0.9 + rng() * 0.6, ry: rng() * Math.PI, alt: false, oa: 0 });
+    }
+    palms.rebuild();
+  }
+
+  // ---- mineable boulders along the shore ----
+  addBoulderField(ctx, g, rng, land.R * 0.93, (x, z) => land.heightAt(x, z), {
+    name: 'oceanside-rocks', zC: land.zC, minDist: clear + 5,
+    rockCol: 0x8a8078, chipCol: 0x99908a,
+  });
 
   // ---- a striped lighthouse standing on a rocky headland ----
   {
@@ -2108,18 +2201,40 @@ function borealOuter(ctx) {
       addSpruce(x, z, heightAt(x, z));
     }
   }
+  // the spruce stand is a CHOPPABLE field — the axe has to have something to
+  // work on in every biome, not just the two that happened to get one
   const spruceDark = mat(0x2c5e3e), spruceLight = mat(0x35704a);
-  outerInstanced(g, new THREE.CylinderGeometry(0.16, 0.28, 1.4, 6), mat(P.woodDark), sTrunk);
-  outerInstanced(g, new THREE.ConeGeometry(1.35, 2.4, 7), spruceDark, sT1);
-  outerInstanced(g, new THREE.ConeGeometry(1.0, 2.1, 7), spruceLight, sT2);
-  outerInstanced(g, new THREE.ConeGeometry(0.62, 1.7, 7), spruceDark, sT3);
-  outerInstanced(g, new THREE.ConeGeometry(0.34, 0.7, 6), mat(0xf2f6f8), sCap);
+  const spTrunkGeo = new THREE.CylinderGeometry(0.16, 0.28, 1.4, 6);
+  const spTiers = [
+    [new THREE.ConeGeometry(1.35, 2.4, 7), spruceDark, 1.9],
+    [new THREE.ConeGeometry(1.0, 2.1, 7), spruceLight, 3.1],
+    [new THREE.ConeGeometry(0.62, 1.7, 7), spruceDark, 4.1],
+    [new THREE.ConeGeometry(0.34, 0.7, 6), mat(0xf2f6f8), 5.0],
+  ];
+  const spruces = createTreeField({
+    name: 'boreal-trees', parent: g,
+    make: (x, z, gy) => ({ x, z, gy, s: 1, ry: Math.random() * Math.PI, alt: false, oa: 0 }),
+    layers: [
+      { geo: spTrunkGeo, mat: mat(P.woodDark),
+        of: (t) => ({ x: t.x, y: t.gy + 0.7 * t.s, z: t.z, s: t.s, ry: t.ry }) },
+      ...spTiers.map(([geo, m, dy]) => ({ geo, mat: m,
+        of: (t) => ({ x: t.x, y: t.gy + dy * t.s, z: t.z, s: t.s, ry: t.ry }) })),
+    ],
+  });
+  for (const t of sTrunk) spruces.add({ x: t.x, z: t.z, gy: t.y - 0.7 * (t.s || 1), s: t.s || 1, ry: t.ry || 0, alt: false, oa: 0 });
+  spruces.rebuild();
 
   // ---- ground story: boulders, stumps, bushes, saplings, snow patches ----
-  const boulders = outerPoints(ctx, rng, R * 0.95, clear + 2, 70).map(([x, z]) => ({
-    x, y: heightAt(x, z) + 0.3, z: z - zC, s: 0.5 + rng() * 1.3, sy: 0.8, ry: rng() * Math.PI * 2,
+  // small scatter stays decor; the mineable field is separate and chunkier
+  const boulders = outerPoints(ctx, rng, R * 0.95, clear + 2, 40).map(([x, z]) => ({
+    x, y: heightAt(x, z) + 0.3, z: z - zC, s: 0.5 + rng() * 0.8, sy: 0.8, ry: rng() * Math.PI * 2,
   }));
   outerInstanced(g, new THREE.DodecahedronGeometry(0.75, 0), mat(0x7d7a76), boulders);
+  addBoulderField(ctx, g, rng, R * 0.92, heightAt, {
+    name: 'boreal-rocks', zC, minDist: clear + 4,
+    rockCol: 0x7d7a76, chipCol: 0x8d8a86,
+    accept: (x, z) => !nearRiver(x, z) && !(lake && Math.hypot(x - lake.x, z - lake.z) < lake.r + 4),
+  });
   const stumps = outerPoints(ctx, rng, R * 0.8, clear + 4, 9).map(([x, z]) => ({
     x, y: heightAt(x, z) + 0.3, z: z - zC, s: 0.8 + rng() * 0.5, sy: 0.7, ry: rng() * Math.PI,
   }));
@@ -2511,9 +2626,32 @@ function desertOuter(ctx) {
     sagTrunk.push({ x, y: h + 1.7 * s, z: lz, s, ry: rng() * Math.PI });
     sagCap.push({ x, y: h + 3.4 * s, z: lz, s });
   }
-  const cactusMat = mat(0x3e7d46);
-  outerInstanced(g, new THREE.CylinderGeometry(0.3, 0.38, 3.4, 8), cactusMat, sagTrunk);
-  outerInstanced(g, new THREE.SphereGeometry(0.3, 7, 6), cactusMat, sagCap);
+  // saguaros are the desert's timber — the only woody thing out here, and the
+  // axe needs a target in this biome too
+  {
+    const cactusMat = mat(0x3e7d46);
+    const sagTrunkGeo = new THREE.CylinderGeometry(0.3, 0.38, 3.4, 8);
+    const sagCapGeo = new THREE.SphereGeometry(0.3, 7, 6);
+    const cacti = createTreeField({
+      name: 'desert-trees', parent: g,
+      make: (x, z, gy) => ({ x, z, gy, s: 1, ry: Math.random() * Math.PI, alt: false, oa: 0 }),
+      layers: [
+        { geo: sagTrunkGeo, mat: cactusMat,
+          of: (t) => ({ x: t.x, y: t.gy + 1.7 * t.s, z: t.z, s: t.s, ry: t.ry }) },
+        { geo: sagCapGeo, mat: cactusMat,
+          of: (t) => ({ x: t.x, y: t.gy + 3.4 * t.s, z: t.z, s: t.s }) },
+      ],
+    });
+    for (const t of sagTrunk) cacti.add({ x: t.x, z: t.z, gy: t.y - 1.7 * (t.s || 1), s: t.s || 1, ry: t.ry || 0, alt: false, oa: 0 });
+    cacti.rebuild();
+  }
+
+  // ---- mineable boulders out on the flats ----
+  addBoulderField(ctx, g, rng, land.R * 0.93, (x, z) => land.heightAt(x, z), {
+    name: 'desert-rocks', zC: land.zC, minDist: clear + 5,
+    rockCol: 0xb08a5e, chipCol: 0xbd9a70,
+    accept: (x, z) => !inLake(x, z),
+  });
 
   // a few hero saguaros with arms
   for (let i = 0; i < 3; i++) {
