@@ -1,0 +1,293 @@
+NOSTRUX HOMESTEAD — SOUND EFFECTS TO GENERATE
+=============================================
+
+Every entry below is an event the game ALREADY FIRES. Nothing here needs new
+gameplay — the hook exists, it is either silent or borrowing the wrong sound.
+
+Format for a generator: the PROMPT line is what to paste. Length and notes
+follow. All mono, 44.1kHz. Aim for a dry recording with almost no reverb tail —
+the game has no reverb bus, and a wet sample sticks out the moment two overlap.
+
+Style target across the whole set: warm, close-miked, slightly chunky. Real
+materials, not synth. Nothing cartoon, nothing cinematic, no musical stings, no
+riser/whoosh design. The visual language is flat-shaded low-poly, so the audio
+should be plain and physical rather than glossy.
+
+
+================================================================
+TIER 1 — WRONG SOUND PLAYING RIGHT NOW
+Fix these first. Each one is a real event using a borrowed sample.
+================================================================
+
+1. AXE CHOP  (per swing, 3 per tree)
+   Currently: 'construction' — a generic building sound, also used for mining.
+   PROMPT: "Single axe strike into a solid tree trunk, close-miked. A sharp
+   woody crack on impact with a short splintering tail, no echo, no music, no
+   reverb. Dry outdoor recording. Deep and satisfying, not thin."
+   0.4-0.7s. Generate 3 takes — this fires three times per tree, and one sample
+   repeated three times in two seconds reads as a stuck loop.
+
+2. TREE FALLING  (the swing that fells it — currently silent)
+   Currently: nothing. The tree visibly topples in silence.
+   PROMPT: "A tree falling and hitting forest ground. Fibres tearing as the
+   trunk goes over, a rush of branches through leaves, then a heavy dull thud
+   into soil. Single continuous take, dry, no reverb, no music."
+   2-3s. 2 takes. This is the payoff for three swings — it should feel weighty.
+
+3. PICKAXE ON STONE  (per swing, 4 per boulder)
+   Currently: 'construction', identical to the axe. Metal on rock and steel on
+   wood sound nothing alike, and the game plays the same file for both.
+   PROMPT: "Steel pickaxe striking granite, close-miked. A hard bright ring on
+   impact with grit and small fragments scattering after. Dry, no reverb, no
+   echo. Percussive and metallic, not a dull thud."
+   0.4-0.6s. 3 takes.
+
+4. BOULDER BREAKING APART  (the swing that breaks it — currently silent)
+   PROMPT: "A large rock splitting and collapsing into rubble. A deep cracking
+   report, then broken stone tumbling and settling on gravel. Dry, close, no
+   reverb, no music."
+   1.5-2.5s. 2 takes.
+
+
+================================================================
+TIER 2 — FISHING
+The fishing session already emits 'cast', 'waiting' and 'bite' states
+(fishing.js `_emitState`). All three are currently thrown away — farm.js
+wires `onState: () => {}`. This is the biggest silent system in the game.
+================================================================
+
+5. ROD CAST
+   PROMPT: "Fishing rod cast. A quick whip of the rod through air, then line
+   whirring off a spinning reel, ending as it runs out. Close-miked, dry,
+   outdoors, no music, no reverb."
+   1-1.5s. 2 takes.
+
+6. LURE HITTING WATER
+   PROMPT: "A small lure plopping into calm water from a distance. One clean
+   compact plop with a brief ripple after. Close, dry, no reverb, no music."
+   0.5-0.8s. 2 takes. Plays at the end of the cast arc, not with the cast.
+
+7. BITE / STRIKE  (the alert — the player has a short window to react)
+   PROMPT: "A fish striking a lure underwater. A sudden sharp tug and swirl of
+   water, urgent and close. Short and attention-grabbing but natural, not a
+   game chime. Dry, no music."
+   0.5-0.8s. 2 takes. Must cut through the music bed — this one carries a
+   timing window, so it is the single most important sample in this section.
+
+8. REELING IN
+   PROMPT: "Fishing reel cranking under load. A steady mechanical ratcheting
+   clicking, close-miked, slightly strained. Loopable, even tempo, dry, no
+   reverb, no music."
+   2s, SEAMLESS LOOP. Plays while the catch is being played out.
+
+9. FISH LANDED
+   PROMPT: "A fish breaking the surface and being lifted clear of the water. A
+   splash, water streaming off, then a wet flapping. Dry, close, no music."
+   1-1.5s. 2 takes.
+
+10. LINE SNAPS / FISH ESCAPES  (missed bites — the session allows 3)
+    PROMPT: "A fishing line going slack after a fish escapes. A soft watery
+    swirl moving away, then quiet. Deflating, understated, not a comedy sound.
+    Dry, no music."
+    1s.
+
+
+================================================================
+TIER 3 — HUNTING
+farm.js emits `onBowState('draw')` and `onBowState('release')`. Neither is
+wired to anything in main.js. The bow is completely silent today.
+================================================================
+
+11. BOW DRAW
+    PROMPT: "A wooden bow being drawn. Bowstring and limbs creaking under
+    increasing tension, close-miked. Ends held, not released. Dry, no music."
+    0.8-1.2s.
+
+12. ARROW RELEASE
+    PROMPT: "An arrow loosed from a bow. A sharp string snap and the fletching
+    hissing away at speed. Close, dry, no reverb, no music."
+    0.6-0.9s. 2 takes.
+
+13. ARROW HITS FLESH
+    PROMPT: "An arrow striking an animal. A dull heavy impact with a wet
+    undertone, brief and final. Restrained, not gory or splattery. Dry, no
+    music."
+    0.4-0.6s. 2 takes.
+
+14. ARROW MISSES / HITS GROUND
+    PROMPT: "An arrow missing and burying itself in soil. A short thud with a
+    shaft wobble ringing off after it. Dry, close, no music."
+    0.5-0.8s.
+
+
+================================================================
+TIER 4 — WORLD & ATMOSPHERE
+The weather machine already runs clear / cloudy / rain / snow / fog / storm and
+nothing about it is audible. `dayFactor` already drives the wolf howls, so the
+night hooks exist.
+================================================================
+
+15. RAIN BED
+    PROMPT: "Steady moderate rainfall on grass and leaves, no thunder, no wind
+    gusts, no music. Even and consistent throughout. Seamless loop, outdoors,
+    natural."
+    60-90s, SEAMLESS LOOP. Layers under the music like the ambience bed does.
+
+16. STORM BED
+    PROMPT: "Heavy rain with wind, recorded outdoors. Dense and driving, no
+    thunder cracks in the loop itself, no music. Seamless loop."
+    60-90s, SEAMLESS LOOP.
+
+17. THUNDER
+    PROMPT: "A distant rolling thunderclap. Low, wide and far away rather than
+    a sharp overhead crack. Natural, no music, no processing."
+    3-5s. 3 takes. Fires occasionally during storms, on a timer, exactly like
+    the wolf howls.
+
+18. WIND GUST
+    PROMPT: "A gust of wind rising and falling through open grassland and
+    trees. Natural, no whistling tone, no music."
+    4-6s. 3 takes. The farm already tracks wind strength and direction — this
+    can be triggered when the value spikes.
+
+19. DAWN BIRDSONG
+    PROMPT: "A short burst of morning birdsong, several small birds, outdoors
+    at a distance. Natural, sparse, unhurried, no music."
+    4-6s. 3 takes. Fires as `dayFactor` crosses into daylight.
+
+20. OWL AT NIGHT
+    PROMPT: "A single distant owl call at night, two or three hoots, outdoors,
+    far away. Natural, no music, no reverb processing."
+    3-4s. 2 takes. Same timer treatment as the wolf howls, alternating with
+    them so the night has more than one voice.
+
+21. CROW / RAVEN
+    PROMPT: "Two or three crow caws at a distance in open countryside. Harsh
+    and natural, no music."
+    2-3s. 2 takes. Good over fall and winter specifically.
+
+
+================================================================
+TIER 5 — FARM LIFE
+================================================================
+
+22. WATERING CAN
+    Currently: 'water' — a generic short splash.
+    PROMPT: "Water pouring from a watering can onto soil and leaves. A steady
+    sprinkling that starts, holds and tapers off. Close, dry, no music."
+    1.5-2s. 2 takes.
+
+23. CROP HARVEST PULL
+    Currently: 'harvest' — a generic pickup.
+    PROMPT: "A vegetable being pulled from soil. Roots tearing free of earth
+    with a light rustle of leaves after. Close-miked, dry, no music."
+    0.6-1s. 3 takes.
+
+24. SEED SOWING
+    PROMPT: "A handful of small dry seeds scattered onto loose soil. Very
+    close, quiet, granular. Dry, no music."
+    0.5-0.8s. 2 takes.
+
+25. GATE OPEN / GATE CLOSE  (two files — `onGateToggle` already fires)
+    PROMPT (open): "A wooden farm gate swinging open. Hinges creaking under
+    weight, ending as the gate comes to rest. Dry, outdoors, no music."
+    PROMPT (close): "A wooden farm gate swinging shut and latching. A creak
+    into a solid wooden clunk and a metal latch drop. Dry, outdoors, no music."
+    1-1.5s each.
+
+26. FENCE BREAKING  (`onFenceState` fires when it fails)
+    PROMPT: "Wooden fence rails splintering and giving way. A sharp crack, then
+    timber clattering to the ground. Dry, outdoors, no music."
+    1.5-2s.
+
+27. FENCE REPAIR / HAMMERING
+    Currently: 'construction-hammer-under-way' does all building work.
+    PROMPT: "Three or four hammer blows driving a nail into a fence post.
+    Close-miked, dry, outdoors, unhurried, no music."
+    2-2.5s. 2 takes.
+
+
+================================================================
+TIER 6 — PREDATORS
+The fox and wolves already prowl, stalk, kill and flee, and the only sound in
+the whole system is the new howl and the synthesized dog bark.
+================================================================
+
+28. WOLF SNARL  (stalk begins)
+    PROMPT: "A wolf snarling and growling low, close and threatening. Short,
+    natural, no music, no reverb."
+    1.5-2s. 2 takes.
+
+29. FOX SCREAM
+    PROMPT: "A red fox's night scream, sharp and eerie, at a distance
+    outdoors. Natural recording, no music."
+    1.5-2.5s. 2 takes.
+
+30. PREDATOR FLEEING
+    PROMPT: "An animal bolting away through undergrowth. Fast paws on soil and
+    branches whipping past, receding. Dry, no music."
+    1-1.5s.
+
+
+================================================================
+TIER 7 — UI & ECONOMY
+Lowest priority: these have working sounds, they are just thin or overloaded.
+'denied' is currently used at 12 separate call sites.
+================================================================
+
+31. BUILDING COMPLETE
+    PROMPT: "The final touches on a finished wooden structure. Two settling
+    hammer taps and a solid wooden creak, satisfied and conclusive. Dry, no
+    music, no fanfare."
+    1.5-2s. Replaces the generic 'construction' at the build-finished moment.
+
+32. STRUCTURE PLACED
+    PROMPT: "A heavy wooden object set down onto soil. A solid low thump with a
+    faint creak of settling weight. Close, dry, no music."
+    0.6-1s.
+
+33. MARKET SALE
+    PROMPT: "Coins counted out onto a wooden counter. Several coins in
+    succession, close-miked, warm, no music, no cash register bell."
+    1-1.5s. Distinct from the existing coin pickup — this is a transaction.
+
+34. ORDER FULFILLED
+    PROMPT: "A wooden crate lid closing and being latched. Solid and final,
+    close-miked, dry, no music."
+    1-1.5s.
+
+35. MISSION CLAIMED
+    Currently: 'unlock' — shared with every other unlock in the game.
+    PROMPT: "A small brass bell struck once, warm and short, with the ring
+    allowed to decay naturally. Dry, no music, no reverb added."
+    1.5-2s.
+
+
+================================================================
+NOTES
+================================================================
+
+MULTIPLE TAKES: anything that fires more than once in quick succession needs
+3 takes minimum (axe, pickaxe, harvest). The rotation code already exists —
+`audio.playSfxVariant(base, count, vol, ambient)` in audio.js walks a reshuffled
+cycle and never repeats back to back. Name files `<base>-1.mp3`, `<base>-2.mp3`
+and it works with no further wiring.
+
+AMBIENT FLAG: any world sound (weather, birds, owls, wind) must be played with
+`ambient = true`. Sound effects double as the "player is busy" signal that
+steers the music rotation, so a bird call over an empty farm would otherwise
+swing the soundtrack to the lively track.
+
+LOOPS: rain, storm and reeling must loop seamlessly — no fade at either end,
+and the last frame has to meet the first. Everything else is one-shot.
+
+FORMAT: mono mp3, 96kbps, 44.1kHz for one-shots. Stereo for the weather beds
+only. Drop them in public/audio/sfx/ and register the extension in the SFX_EXT
+map in audio.js.
+
+LEVELS: record hot and let the game attenuate. Every call passes an explicit
+volume, and the world sounds sit at 0.15-0.35 against music at 0.35.
+
+WHAT NOT TO MAKE: footsteps (there is no player avatar), UI hover sounds (the
+build menu would chatter), voice or vocalisations of any kind, musical stings
+on success, and anything with a designed riser or whoosh.
