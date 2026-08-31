@@ -40,6 +40,28 @@ Two supporting rules:
   place or object before. The Ridge Farm needs one line saying a farm is up
   there before its chimney can mean anything.
 
+## Every answer says what it did
+
+A harness clicks all 130 choices in turn, each on a fresh save, and records
+whether anything observable changed and whether the game said so. The first run
+found 50 choices that changed real state and told the player nothing: a
+reputation shift, a permanent modifier, a promise made, an offer that would
+come round again. "Take this axe" moved a permanent chop-speed bonus and
+produced complete silence, which is indistinguishable from a broken button.
+
+Confirmations now cover every kind of change: goods in and out, coins, who
+thinks what of you, any modifier in the same plain words the Valley page uses
+and for how long, promises made, offers that will return, and the shelf a
+navigation choice opened. The three choices that deliberately change nothing
+carry a written acknowledgement instead.
+
+**Goods that did not fit are called out separately.** A full barn silently
+eating a neighbour's gift is the worst version of this bug, and it is what
+prompted the audit: nine jars of jam arrived at a farm with no room and
+vanished without a word.
+
+Current state: 130 of 130 confirm. Re-run the harness after adding cards.
+
 ## Every answer has to close its own loop
 
 A choice that says *"I'll grow you extra"* and then vanishes is worse than no

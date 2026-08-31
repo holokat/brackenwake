@@ -34,6 +34,8 @@
 //             says "I'll do X" rather than doing X on the spot : otherwise the
 //             card vanishes and the player has nowhere to go and say they did.
 //               { id, text, need: {good:n}, reward: {coins,goods,rep}, days }
+//   say       a plain acknowledgement line, for the handful of choices that
+//             deliberately change nothing. Silence reads as a broken button.
 //   revisit   days after which a DECLINE may be offered again. A neighbour you
 //             turned down in a tight year should be able to ask once more.
 //
@@ -366,7 +368,8 @@ export const STORIES = [
       { label: 'Send firewood', hint: '25 wood. No coin comes back.',
         needs: { wood: 25 }, goods: { wood: -25 }, flag: 'ridge_helped', rep: { ridge: 3 } },
       { label: "It isn't your business", hint: 'nothing happens. Nothing at all.',
-        flag: 'ridge_ignored' },
+        flag: 'ridge_ignored',
+        say: 'You close the door. The ridge stays dark. Nothing else happens tonight.' },
     ],
     teaches: 'that a choice can have no reward and still be the one you remember',
   }),
@@ -429,7 +432,8 @@ export const STORIES = [
       { label: 'Leave food out', hint: 'give it three days', act: { strayDog: 'slow' } },
       { label: 'Leave the door open', hint: 'tonight, then. It will be skittish a while.',
         act: { strayDog: 'now' } },
-      { label: 'Chase it off', hint: 'you see it once more, later', flag: 'stray_chased' },
+      { label: 'Chase it off', hint: 'you see it once more, later', flag: 'stray_chased',
+        say: 'It goes out into the rain without a sound. You will see it once more.' },
     ],
   }),
 
@@ -591,7 +595,8 @@ export const STORIES = [
     choices: [
       { label: 'Light the farm', hint: 'it costs the night’s power',
         act: { lightFarm: true }, modifier: { key: 'prestige', value: 10, permanent: true } },
-      { label: 'Sit it out', hint: 'the valley lights up anyway' },
+      { label: 'Sit it out', hint: 'the valley lights up anyway',
+        say: 'You watch the lights come up along the valley from your own dark yard.' },
     ],
   }),
 
@@ -627,7 +632,8 @@ export const STORIES = [
     when: (s) => s.season === 'spring' && s.seasonPhase < 0.08,
     once: false, cooldown: 1000 * 60 * 60 * 24 * 30,
     choices: [
-      { label: 'Stand there a minute', hint: '' },
+      { label: 'Stand there a minute', hint: '',
+        say: 'You stand there a minute. Nothing happens, which is the whole of it.' },
     ],
   }),
 
@@ -715,7 +721,7 @@ export const STORIES = [
     ],
     when: (s) => s.placedCount >= 60,
     choices: [
-      { label: 'It is a working farm', hint: 'he shrugs', rep: { bram: 0 } },
+      { label: 'It is a working farm', hint: 'he shrugs, and means it kindly', rep: { bram: 1 } },
       { label: 'Open a view back up', hint: 'sell three structures back at half', act: { openPanel: 'sto' } },
     ],
   }),
@@ -744,7 +750,8 @@ export const STORIES = [
     when: (s) => s.coins >= 2000,
     once: false, cooldown: 1000 * 60 * 60 * 24 * 21,
     choices: [
-      { label: 'Weigh every coin', hint: 'slow going. You lose a little and catch the rest.', coins: -100 },
+      { label: 'Weigh every coin', hint: 'slow going. You lose a little and catch the rest.', coins: -100,
+        say: 'Two hours at the table. Four bad coins found, and the rest ring true.' },
       { label: 'Risk it', hint: 'most of it will be fine', act: { counterfeit: true } },
     ],
   }),
@@ -990,7 +997,8 @@ export const STORIES = [
     once: false, cooldown: 1000 * 60 * 60 * 24 * 60,
     choices: [
       { label: 'Show me what keeps', hint: 'opens your stores', act: { openPantry: true } },
-      { label: 'I will risk the tomatoes', hint: '', },
+      { label: 'I will risk the tomatoes', hint: '',
+        say: 'You will risk the tomatoes. Mira has heard this before.' },
     ],
     teaches: 'seasonal demand, which silently moves every price in the game',
   }),

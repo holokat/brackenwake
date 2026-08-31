@@ -4692,12 +4692,47 @@ function renderStoryCard(card, devIndex = null) {
   }
 }
 
-// The complaint that started this: choices moved coins and goods in total
-// silence, so a real effect was indistinguishable from a fake one. Every
-// change now announces itself with the same sound and float the rest of the
-// game uses.
+// Every choice says what it did. An audit of all 130 found 50 that changed
+// something real and told the player nothing: a reputation shift, a modifier, a
+// promise made, a card that would come round again. "Take this axe" moved a
+// permanent chop-speed bonus and produced complete silence, which is
+// indistinguishable from a broken button.
+//
+// The rule now: if a choice changed ANY state, it says so in words. Goods that
+// did not fit are called out too, because a full barn silently eating a gift is
+// the worst version of this.
+// What each action says it did. Navigation choices open a shelf, which is real
+// feedback, but a click that produces no words still reads as a dead button.
+const ACT_LINE = {
+  openPanel: (v) => `opened ${({ wat: 'Water', sto: 'Storage', fld: 'Fields', mac: 'Machines',
+    com: 'Commerce', wrk: 'Workshops', paths: 'Paths', building: 'Structures', style: 'Style' })[v] || 'the shelf'}`,
+  openCraft: (v) => `opened ${v === 'bow' ? 'the bow rack' : 'the tool bench'}`,
+  openTool: () => 'opened your tools',
+  openTrees: () => 'opened the trees',
+  openMarket: () => 'opened the market stand',
+  openBook: () => 'opened your collection book',
+  openBookMissions: () => 'opened your Mission Book',
+  openFriends: () => 'opened your neighbours',
+  openPantry: () => 'opened your stores',
+  removeFox: () => '🦊 the trap is set. That is the end of it.',
+  sendCrate: () => null,   // says its own piece
+  strayDog: () => null,
+  teachHunting: () => '🏹 you will shoot straighter for having gone',
+};
+
+function repLine(who, delta) {
+  const name = CHARACTERS[who]?.name || who;
+  if (delta > 1) return `${name} will not forget this`;
+  if (delta > 0) return `${name} thinks better of you`;
+  if (delta < -1) return `${name} is not impressed`;
+  return `${name} noted that`;
+}
+
 function reportChoice(before, choice) {
   const dCoins = game.coins - before.coins;
+  const lines = [];
+
+  // goods, including what did not fit
   const gained = [], spent = [];
   const ids = new Set([...Object.keys(before.inv), ...Object.keys(game.inventory)]);
   for (const id of ids) {
@@ -4705,14 +4740,43 @@ function reportChoice(before, choice) {
     if (d > 0) gained.push(`+${d} ${goodInfo(id).icon}`);
     else if (d < 0) spent.push(`${d} ${goodInfo(id).icon}`);
   }
+  if (gained.length || spent.length) lines.push([...gained, ...spent].join('  '));
+  // a gift the barn ate
+  const wanted = Object.entries(choice.goods || {}).filter(([, n]) => n > 0);
+  const lost = wanted.reduce((a, [id, n]) => a + Math.max(0, n - ((game.inventory[id] || 0) - (before.inv[id] || 0))), 0);
+  if (lost > 0) lines.push(`⚠️ your stores are full: ${lost} of it would not fit`);
+
+  // reputation
+  for (const [who, n] of Object.entries(choice.rep || {})) if (n) lines.push(repLine(who, n));
+
+  // a live modifier, in the same words the Valley page uses
+  if (choice.modifier) {
+    const m = story.modifiers.find((x) => x.key === choice.modifier.key);
+    if (m) {
+      const forever = m.until - Date.now() > 1e12;
+      lines.push(`✨ ${modLabel(m)}${forever ? ', for good' : `, ${timeLeft(m.until)}`}`);
+    }
+  }
+
+  // a promise made
+  if (choice.pledge) lines.push(`🤝 you gave your word: ${esc(choice.pledge.text)}. It is in your Mission Book.`);
+
+  // an offer that will come round again
+  if (choice.revisit) lines.push('they will bring it up again');
+  for (const [name, v] of Object.entries(choice.act || {})) {
+    const line = ACT_LINE[name]?.(v);
+    if (line) lines.push(line);
+  }
+  // a choice that deliberately changes nothing still owes an answer
+  if (choice.say) lines.push(esc(choice.say));
+
   if (dCoins) {
     floatAtCoins(`${dCoins > 0 ? '+' : ''}${dCoins}${COIN}`);
     audio.playSfx(dCoins > 0 ? 'loot_coin' : 'handle_coins', 0.5);
   } else {
     audio.playSfx('flip', 0.3);
   }
-  const bits = [...gained, ...spent];
-  if (bits.length) toast(bits.join('  '));
+  if (lines.length) toast(lines.join('<br>'), lost > 0 ? false : true);
   renderCoins(); renderResChips(); renderStoreChip();
 }
 
