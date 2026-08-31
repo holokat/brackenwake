@@ -94,6 +94,8 @@ const TIER_LAYOUT = {
 };
 
 const DAY_CYCLE_MS = 480000; // 8 minute day
+// birds that squawk when the flock loses one of its own
+const POULTRY = new Set(['chicken', 'rooster', 'duck']);
 
 function skyGradientTexture(stops, withStars = false) {
   const canvas = document.createElement('canvas');
@@ -130,7 +132,7 @@ export class Homestead {
   // 'aces' is the shipped look; 'neutral' keeps authored colour more faithfully
   static toneMapping = 'aces';
 
-  constructor(container, { cols, rows, tier = 1, themeId = 'meadow', signText, hideSign = false, farmhouseLevel = 1, onPlotHover, onPlotClick, onObjectClick, onObjectHover, onSignClick, onAnimalSound, onMarketClick, onDockClick, onFishResult, onProductReady, onConstructionKnock, onHouseClick, houseRot, houseOffset, onWindmillClick, windmillRot, onGateToggle, onDeerResult, onBowState, fenceHP, onFenceClick, onFenceState, onAnimalLost, getSeason, houseStyle } = {}) {
+  constructor(container, { cols, rows, tier = 1, themeId = 'meadow', signText, hideSign = false, farmhouseLevel = 1, onPlotHover, onPlotClick, onObjectClick, onObjectHover, onSignClick, onAnimalSound, onAmbientSound, onMarketClick, onDockClick, onFishResult, onProductReady, onConstructionKnock, onHouseClick, houseRot, houseOffset, onWindmillClick, windmillRot, onGateToggle, onDeerResult, onBowState, fenceHP, onFenceClick, onFenceState, onAnimalLost, getSeason, houseStyle } = {}) {
     this.container = container;
     this.cols = cols;
     this.rows = rows;
@@ -145,6 +147,9 @@ export class Homestead {
     this.onObjectHover = onObjectHover || (() => {});
     this.onSignClick = onSignClick || (() => {});
     this.onAnimalSound = onAnimalSound || (() => {});
+    // world sounds (howls, alarm calls) — kept apart from onAnimalSound because
+    // these are sampled files, not the synthesized animal voices
+    this.onAmbientSound = onAmbientSound || (() => {});
     this.onMarketClick = onMarketClick || (() => {});
     this.onDockClick = onDockClick || (() => {});
     this.onFishResult = onFishResult || (() => {});
@@ -987,6 +992,23 @@ export class Homestead {
     return model;
   }
 
+  // A wolf howl carries a long way, so this is deliberately NOT tied to whether
+  // a wolf is on screen — it is the sound of the valley at night. Night runs
+  // roughly two minutes of the six-minute cycle, and the gap is 45-95s, so a
+  // typical night carries one or two howls: enough to set a mood, few enough
+  // that it never turns into a soundboard.
+  _updateHowls(now, night) {
+    if (!night) { this._nextHowl = 0; return; }
+    if (!this._nextHowl) {
+      // never howl the instant dusk lands — let the light change land first
+      this._nextHowl = now + 12000 + Math.random() * 25000;
+      return;
+    }
+    if (now < this._nextHowl) return;
+    this._nextHowl = now + 45000 + Math.random() * 50000;
+    try { this.onAmbientSound && this.onAmbientSound('wolf-howl'); } catch {}
+  }
+
   _removePredator(p) {
     this.scene.remove(p);
     const i = this.predators.indexOf(p);
@@ -1009,11 +1031,17 @@ export class Homestead {
     if (rec) { this.scene.remove(rec.group); if (rec.hit) this.scene.remove(rec.hit); this.placed.delete(id); }
     this.animalRecs.delete(id);
     this._spawnBlood(ar.group.position.x, ar.group.position.z, 0.5);
+    // birds go up in a panic when one of them is taken — the whole coop hears it,
+    // so this fires for any fowl and for either predator, not just the fox
+    if (POULTRY.has(ar.type)) {
+      try { this.onAmbientSound && this.onAmbientSound('chicken-distress'); } catch {}
+    }
     try { this.onAnimalLost(id, ar.type, pred.userData.hunt.type); } catch {}
   }
 
   _updatePredators(now) {
     const night = this.dayFactor < 0.4;
+    this._updateHowls(now, night);
     // a small pack of wolves prowls every night (whether or not there are animals
     // to hunt), then melts back into the trees at dawn
     if (night) {

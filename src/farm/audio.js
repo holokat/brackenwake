@@ -10,6 +10,9 @@ const FADE_MS = 1000;
 const XFADE_MS = 2600;
 // rotation slot lengths — short tracks loop until their slot ends
 const SLOT_MS = { theme: 160_000, calm: 175_000, lively: 175_000 };
+// a track longer than its slot is allowed to finish rather than being cut
+// mid-phrase — capped so one long piece can't hold the slot forever
+const MAX_SLOT_MS = 300_000;
 const ACTIVITY_WINDOW_MS = 50_000; // sfx within this window = "the player is busy"
 
 const musicKit = (dir) => ({
@@ -23,12 +26,12 @@ const PLAYLISTS = {
   oceanside: musicKit('/audio/music/oceanside'),
   desert: musicKit('/audio/music/desert'),
   boreal: { ...musicKit('/audio/music/boreal'), lively: null }, // no lively track yet
-  // Sakura Valley has its own theme song. A second track is coming; until then
-  // calm/lively stay null, which _resolveKind falls back from, so the theme
-  // simply loops rather than borrowing another biome's music. The ambience bed
-  // is the meadow's — it is just quiet outdoor atmosphere under the music.
+  // Sakura Valley has TWO theme songs and no calm/lively tracks. A slot may hold
+  // an array; the rotation then walks it instead of replaying one file, so the
+  // valley alternates between its two themes rather than looping one forever.
+  // The ambience bed is the meadow's — just quiet outdoor atmosphere underneath.
   sakura: {
-    theme: '/audio/music/sakura/theme.mp3',
+    theme: ['/audio/music/sakura/theme.mp3', '/audio/music/sakura/theme2.mp3'],
     calm: null,
     lively: null,
     ambience: '/audio/music/meadow/ambience.mp3',
@@ -115,8 +118,11 @@ export class FarmAudio {
   }
 
   // one-shot sound effects from /audio/sfx/<name> (Kenney CC0 via soundcn)
-  playSfx(name, volume = 0.4) {
-    this._lastActivity = Date.now(); // sfx double as the "player is busy" signal
+  // `ambient` marks a sound the WORLD made, not the player — a wolf howling at
+  // the moon must not count as activity, or the music rotation reads an empty
+  // farm as a busy one and swings to the lively track.
+  playSfx(name, volume = 0.4, ambient = false) {
+    if (!ambient) this._lastActivity = Date.now(); // sfx double as the "player is busy" signal
     if (this._sfxMuted || !this._unlocked) return;
     try {
       const SFX_EXT = {
@@ -125,6 +131,8 @@ export class FarmAudio {
         'place-object': 'opus', 'build-complete': 'opus',
         'construction': 'opus', 'construction-hammer-under-way': 'opus',
         'Done1': 'opus', 'Done2': 'opus',
+        'wolf-howl-1': 'mp3', 'wolf-howl-2': 'mp3', 'wolf-howl-3': 'mp3', 'wolf-howl-4': 'mp3',
+        'chicken-distress-1': 'mp3', 'chicken-distress-2': 'mp3',
       };
       this._sfxCache = this._sfxCache || new Map();
       let base = this._sfxCache.get(name);
@@ -139,6 +147,31 @@ export class FarmAudio {
     } catch (e) { /* sfx are garnish */ }
   }
 
+  // Some one-shots ship as several takes (four wolf howls, two chicken panics).
+  // Walk them in a shuffled cycle rather than picking at random: random repeats
+  // itself often enough to sound like a bug, and a fixed order sounds like a
+  // loop. Reshuffling each pass, never starting on the previous take, gives
+  // variety without either tell.
+  playSfxVariant(base, count, volume = 0.4, ambient = false) {
+    if (count <= 1) return this.playSfx(`${base}-1`, volume, ambient);
+    this._variantQueue = this._variantQueue || {};
+    let q = this._variantQueue[base];
+    if (!q || !q.length) {
+      q = Array.from({ length: count }, (_, i) => i + 1);
+      for (let i = q.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [q[i], q[j]] = [q[j], q[i]];
+      }
+      // never repeat across the shuffle boundary
+      if (q[0] === this._lastVariant?.[base] && q.length > 1) [q[0], q[1]] = [q[1], q[0]];
+      this._variantQueue[base] = q;
+    }
+    const n = q.shift();
+    this._lastVariant = this._lastVariant || {};
+    this._lastVariant[base] = n;
+    this.playSfx(`${base}-${n}`, volume, ambient);
+  }
+
   // ---------- adaptive biome playlists ----------
   // Each biome kit: theme song + calm + lively music, and an ambience bed that
   // loops quietly underneath. The theme song opens; slots then rotate calm or
@@ -149,6 +182,7 @@ export class FarmAudio {
     if (pl === this._playlist) return;
     this._playlist = pl;
     this._sinceTheme = 0;
+    this._slotCursor = {};
     if (this._unlocked) {
       this._playTrack('theme');
       this._startAmbience();
@@ -168,9 +202,23 @@ export class FarmAudio {
     return this._playlist?.calm ? 'calm' : 'theme';
   }
 
+  // A slot holds either one url or a list of them. With a list we advance a
+  // per-slot cursor so repeat visits play the NEXT track, which is what makes
+  // two themes feel like a rotation instead of a coin flip that can repeat.
+  _urlFor(kind) {
+    const slot = this._playlist?.[kind];
+    if (!Array.isArray(slot)) return slot || null;
+    const live = slot.filter(Boolean);
+    if (!live.length) return null;
+    this._slotCursor = this._slotCursor || {};
+    const i = this._slotCursor[kind] || 0;
+    this._slotCursor[kind] = (i + 1) % live.length;
+    return live[i];
+  }
+
   _playTrack(kind) {
     kind = this._resolveKind(kind);
-    const url = this._playlist?.[kind];
+    const url = this._urlFor(kind);
     this._slotEnd = Date.now() + (SLOT_MS[kind] || 170_000);
     if (!url) return;
     // only skip the swap when the SAME track is already playing — comparing the
@@ -180,6 +228,13 @@ export class FarmAudio {
         && this._music.dataset && this._music.dataset.src === url) return;
     this._trackKind = kind;
     this._music = this._swapLoop(this._music, url, MUSIC_VOL);
+    // once we know how long it is, let it play out if it runs past the slot
+    const a = this._music, started = Date.now();
+    if (a) a.addEventListener('loadedmetadata', () => {
+      if (this._music !== a || !Number.isFinite(a.duration)) return;
+      const natural = started + Math.min(a.duration * 1000, MAX_SLOT_MS);
+      if (natural > this._slotEnd) this._slotEnd = natural;
+    }, { once: true });
   }
 
   _startAmbience() {

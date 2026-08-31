@@ -54,6 +54,19 @@ function findAnyItem(kind, id) {
     || findItem(kind, id);
 }
 
+// World sounds: several recorded takes each, walked in a shuffled rotation.
+// Marked `ambient` so they never register as player activity — otherwise a wolf
+// howling over an empty farm would swing the music to the lively track.
+const AMBIENT_SFX = {
+  'wolf-howl': { takes: 4, vol: 0.32 },
+  'chicken-distress': { takes: 2, vol: 0.5 },
+};
+function playAmbient(name) {
+  const a = AMBIENT_SFX[name];
+  if (!a) return;
+  audio.playSfxVariant(name, a.takes, a.vol, true);
+}
+
 // ---- infrastructure effects engine ----
 let effects = computeEffects([]);
 
@@ -1186,6 +1199,7 @@ function buildFarmScene() {
     onObjectHover: showObjectTooltip,
     onSignClick: handleSignClick,
     onAnimalSound: (type) => audio.playAnimal(type),
+    onAmbientSound: playAmbient,
     onMarketClick: openMarket,
     onDockClick: tryFish,
     onFishResult: handleFishResult,
