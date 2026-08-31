@@ -1,6 +1,7 @@
 import { Pool, npubToHex } from './pool.js';
 import { Homestead } from './farm.js';
 import { Game, WATER_COOLDOWN_MS, MATERIALS, MATERIAL_BASE_CAP } from './game.js';
+import { SFX_FAMILIES } from './audio.js';
 import {
   CROPS, TREES, OBJECTS, ANIMALS, BUILDINGS, GOODS,
   findItem, placementZone, PLACE_TIPS, goodCategory,
@@ -54,17 +55,52 @@ function findAnyItem(kind, id) {
     || findItem(kind, id);
 }
 
-// World sounds: several recorded takes each, walked in a shuffled rotation.
-// Marked `ambient` so they never register as player activity — otherwise a wolf
-// howling over an empty farm would swing the music to the lively track.
-const AMBIENT_SFX = {
-  'wolf-howl': { takes: 4, vol: 0.32 },
-  'chicken-distress': { takes: 2, vol: 0.5 },
+// Recorded sample families: several takes each, walked in a shuffled rotation
+// so a repeat never lands back to back. `ambient: true` marks the ones the
+// WORLD makes — those must not register as player activity, or a wolf howling
+// over an empty farm swings the music to the lively track.
+const SAMPLES = {
+  'wolf-howl':        { vol: 0.32, ambient: true },
+  'chicken-distress': { vol: 0.50, ambient: true },
+  'thunder':          { vol: 0.40, ambient: true },
+  'axe-chop':         { vol: 0.50 },
+  'pickaxe':          { vol: 0.50 },
+  'boulder-break':    { vol: 0.55 },
+  'fishing-cast':     { vol: 0.45 },
+  'fish-bite':        { vol: 0.60 },  // carries a reaction window — loudest of the set
+  'reeling':          { vol: 0.45 },
+  'bow-draw':         { vol: 0.40 },
+  'bow-shot':         { vol: 0.50 },
+  'arrow-hit':        { vol: 0.50 },
+  'arrow-miss':       { vol: 0.40 },
 };
-function playAmbient(name) {
-  const a = AMBIENT_SFX[name];
-  if (!a) return;
-  audio.playSfxVariant(name, a.takes, a.vol, true);
+// `takes` narrows the rotation to the first N of a family — used by the axe,
+// whose third take is the heavy one and is held back for the felling blow.
+function playSample(name, volScale = 1, takes = 0) {
+  const cfg = SAMPLES[name], n = takes || SFX_FAMILIES[name];
+  if (!cfg || !n) return;
+  audio.playSfxVariant(name, n, cfg.vol * volScale, !!cfg.ambient);
+}
+// the single heaviest take of a family, for the blow that finishes the job
+function playFinisher(name, volScale = 1.15) {
+  const cfg = SAMPLES[name], n = SFX_FAMILIES[name];
+  if (!cfg || !n) return;
+  audio.playSfx(`${name}-${n}`, cfg.vol * volScale, !!cfg.ambient);
+}
+// the world-sound channel farm.js calls (howls, panicking hens, thunder)
+const playAmbient = playSample;
+
+// ---- fishing: the session emits cast / waiting / bite / catch ----
+function handleFishState(state) {
+  if (state === 'cast') playSample('fishing-cast');
+  else if (state === 'bite') playSample('fish-bite');
+  else if (state === 'catch') playSample('reeling');
+}
+
+// ---- hunting: farm.js emits draw on nock and release on loose ----
+function handleBowState(state) {
+  if (state === 'draw') playSample('bow-draw');
+  else if (state === 'release') playSample('bow-shot');
 }
 
 // ---- infrastructure effects engine ----
@@ -339,11 +375,17 @@ function chopSceneryTree(e) {
   e.preventDefault();
   const res = chopTree(hit.field, hit.index);
   if (!res) { toast('🌱 a sapling is coming back here — give it time'); return; }
-  audio.playSfx('construction', 0.4);
   if (res.hit) {
+    // still standing: rotate the two lighter takes. The third axe take is the
+    // heavy one and is held back for the swing that fells it.
+    if (mining) playSample('pickaxe');
+    else playSample('axe-chop', 1, 2);
     toast(`${mining ? '⛏️ breaking' : '🪓 chopping'}… ${res.remaining} more hit${res.remaining > 1 ? 's' : ''}`);
     return;
   }
+  // the swing that brings it down
+  if (mining) playSample('boulder-break');
+  else playFinisher('axe-chop');
   const goodId = mining ? 'stone' : 'wood';
   // a Carpenter Workshop / Forge adds to every yield — that is their whole job
   const amount = (mining ? res.stone : res.wood) + (effects.harvestBonus[goodId] || 0);
@@ -1200,6 +1242,8 @@ function buildFarmScene() {
     onSignClick: handleSignClick,
     onAnimalSound: (type) => audio.playAnimal(type),
     onAmbientSound: playAmbient,
+    onFishState: handleFishState,
+    onBowState: handleBowState,
     onMarketClick: openMarket,
     onDockClick: tryFish,
     onFishResult: handleFishResult,
@@ -2986,7 +3030,8 @@ function chopTimber(farmId, entry, item) {
   entry.opts = entry.opts || {};
   if (entry.opts.stump) { toast('🌱 just a stump — it will regrow soon'); return; }
   entry.opts.chopHp = (entry.opts.chopHp ?? item.chopHp ?? 3) - 1;
-  audio.playSfx('construction', 0.4);
+  if (entry.opts.chopHp > 0) playSample('axe-chop', 1, 2);
+  else playFinisher('axe-chop');
   const rec = farm.placed.get(farmId);
   if (rec) farm.burstAtPosition(rec.group.position, false);
   if (entry.opts.chopHp <= 0) {
@@ -3182,12 +3227,12 @@ function handleHuntResult(res) {
       const bounty = res.predator === 'wolf' ? 40 : 20;
       game.bumpStat('predatorsDriven');
       if (!testMode) game.addCoins(bounty);
-      renderCoins(); floatAtCoins(`+${bounty}${COIN}`); audio.playSfx('harvest', 0.5);
+      renderCoins(); floatAtCoins(`+${bounty}${COIN}`); playSample('arrow-hit');
       const pIcon = res.predator === 'wolf' ? '🐺' : '🦊';
       bigMoment(`🏹 you drove off the ${pIcon} ${res.predator}! +${bounty}${COIN} bounty`);
       return;
     }
-    audio.playSfx('flip', 0.3);
+    playSample(res.hit ? 'arrow-hit' : 'arrow-miss');
     if (res.hit) toast(`🏹 hit the ${res.predator} — it's wounded and fleeing!`, false);
     else if (res.tooFar) toast('🏹 too far — get closer for the shot', false);
     else toast(`🏹 missed! the ${res.predator} bolted`, false);
@@ -3199,7 +3244,7 @@ function handleHuntResult(res) {
   if (res.killed) {
     game.addGood(res.meatGood || 'venison', res.meat);
     game.bumpStat('hunted');
-    audio.playSfx('harvest', 0.5);
+    playSample('arrow-hit');
     const g = goodInfo(res.meatGood || 'venison');
     bigMoment(`🏹 clean shot! downed a ${label} · +${res.meat} ${g.icon} ${esc(g.name)}`);
     renderResChips();
@@ -3207,7 +3252,7 @@ function handleHuntResult(res) {
   }
   if (res.wounded) {
     // a hit that didn't drop it — deer take 2–3 arrows
-    audio.playSfx('flip', 0.35);
+    playSample('arrow-hit');
     if (res.quarry === 'bear') toast(`🏹🐻 you hit the bear — it's charging! (${res.remaining} more)`, false);
     else toast(`🏹 hit! the ${label} is wounded and bolting — chase it down (${res.remaining} more)`, false);
     return;
@@ -3218,7 +3263,7 @@ function handleHuntResult(res) {
     bigMoment(`🐻 your bow's too light — the bear is ENRAGED and charging the farm! You need a Composite Bow.`);
     return;
   }
-  audio.playSfx('flip', 0.3);
+  playSample('arrow-miss');
   if (res.tooFar) toast('🏹 too far — the arrow fell short. Move in closer!', false);
   else toast(`🏹 missed! the ${label} bolted — get closer and try again`, false);
 }

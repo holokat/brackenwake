@@ -1,6 +1,9 @@
 NOSTRUX HOMESTEAD — SOUND EFFECTS TO GENERATE
 =============================================
 
+STATUS: batch 1 delivered and wired (2026-08-31). DONE below marks what
+landed. 12 of 35 are in the game; the rest are still open.
+
 Every entry below is an event the game ALREADY FIRES. Nothing here needs new
 gameplay — the hook exists, it is either silent or borrowing the wrong sound.
 
@@ -19,7 +22,7 @@ TIER 1 — WRONG SOUND PLAYING RIGHT NOW
 Fix these first. Each one is a real event using a borrowed sample.
 ================================================================
 
-1. AXE CHOP  (per swing, 3 per tree)
+1. AXE CHOP   [DONE]  (per swing, 3 per tree)
    Currently: 'construction' — a generic building sound, also used for mining.
    PROMPT: "Single axe strike into a solid tree trunk, close-miked. A sharp
    woody crack on impact with a short splintering tail, no echo, no music, no
@@ -34,7 +37,7 @@ Fix these first. Each one is a real event using a borrowed sample.
    into soil. Single continuous take, dry, no reverb, no music."
    2-3s. 2 takes. This is the payoff for three swings — it should feel weighty.
 
-3. PICKAXE ON STONE  (per swing, 4 per boulder)
+3. PICKAXE ON STONE   [DONE]  (per swing, 4 per boulder)
    Currently: 'construction', identical to the axe. Metal on rock and steel on
    wood sound nothing alike, and the game plays the same file for both.
    PROMPT: "Steel pickaxe striking granite, close-miked. A hard bright ring on
@@ -42,7 +45,7 @@ Fix these first. Each one is a real event using a borrowed sample.
    echo. Percussive and metallic, not a dull thud."
    0.4-0.6s. 3 takes.
 
-4. BOULDER BREAKING APART  (the swing that breaks it — currently silent)
+4. BOULDER BREAKING APART   [DONE]  (the swing that breaks it — currently silent)
    PROMPT: "A large rock splitting and collapsing into rubble. A deep cracking
    report, then broken stone tumbling and settling on gravel. Dry, close, no
    reverb, no music."
@@ -56,7 +59,7 @@ The fishing session already emits 'cast', 'waiting' and 'bite' states
 wires `onState: () => {}`. This is the biggest silent system in the game.
 ================================================================
 
-5. ROD CAST
+5. ROD CAST   [DONE]
    PROMPT: "Fishing rod cast. A quick whip of the rod through air, then line
    whirring off a spinning reel, ending as it runs out. Close-miked, dry,
    outdoors, no music, no reverb."
@@ -67,14 +70,14 @@ wires `onState: () => {}`. This is the biggest silent system in the game.
    compact plop with a brief ripple after. Close, dry, no reverb, no music."
    0.5-0.8s. 2 takes. Plays at the end of the cast arc, not with the cast.
 
-7. BITE / STRIKE  (the alert — the player has a short window to react)
+7. BITE / STRIKE   [DONE]  (the alert — the player has a short window to react)
    PROMPT: "A fish striking a lure underwater. A sudden sharp tug and swirl of
    water, urgent and close. Short and attention-grabbing but natural, not a
    game chime. Dry, no music."
    0.5-0.8s. 2 takes. Must cut through the music bed — this one carries a
    timing window, so it is the single most important sample in this section.
 
-8. REELING IN
+8. REELING IN   [DONE]
    PROMPT: "Fishing reel cranking under load. A steady mechanical ratcheting
    clicking, close-miked, slightly strained. Loopable, even tempo, dry, no
    reverb, no music."
@@ -98,23 +101,23 @@ farm.js emits `onBowState('draw')` and `onBowState('release')`. Neither is
 wired to anything in main.js. The bow is completely silent today.
 ================================================================
 
-11. BOW DRAW
+11. BOW DRAW   [DONE]
     PROMPT: "A wooden bow being drawn. Bowstring and limbs creaking under
     increasing tension, close-miked. Ends held, not released. Dry, no music."
     0.8-1.2s.
 
-12. ARROW RELEASE
+12. ARROW RELEASE   [DONE]
     PROMPT: "An arrow loosed from a bow. A sharp string snap and the fletching
     hissing away at speed. Close, dry, no reverb, no music."
     0.6-0.9s. 2 takes.
 
-13. ARROW HITS FLESH
+13. ARROW HITS FLESH   [DONE]
     PROMPT: "An arrow striking an animal. A dull heavy impact with a wet
     undertone, brief and final. Restrained, not gory or splattery. Dry, no
     music."
     0.4-0.6s. 2 takes.
 
-14. ARROW MISSES / HITS GROUND
+14. ARROW MISSES / HITS GROUND   [DONE]
     PROMPT: "An arrow missing and burying itself in soil. A short thud with a
     shaft wobble ringing off after it. Dry, close, no music."
     0.5-0.8s.
@@ -138,7 +141,7 @@ night hooks exist.
     thunder cracks in the loop itself, no music. Seamless loop."
     60-90s, SEAMLESS LOOP.
 
-17. THUNDER
+17. THUNDER   [DONE]
     PROMPT: "A distant rolling thunderclap. Low, wide and far away rather than
     a sharp overhead crack. Natural, no music, no processing."
     3-5s. 3 takes. Fires occasionally during storms, on a timer, exactly like

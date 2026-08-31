@@ -15,6 +15,27 @@ const SLOT_MS = { theme: 160_000, calm: 175_000, lively: 175_000 };
 const MAX_SLOT_MS = 300_000;
 const ACTIVITY_WINDOW_MS = 50_000; // sfx within this window = "the player is busy"
 
+// Recorded sample families, all mp3 and all numbered <base>-<n>.mp3. Declaring
+// the family once beats listing every take: adding a fifth thunder take means
+// changing a number, not adding a row.
+export const SFX_FAMILIES = {
+  'wolf-howl': 4, 'chicken-distress': 2,
+  'axe-chop': 3, 'pickaxe': 4, 'boulder-break': 4,
+  'fishing-cast': 4, 'fish-bite': 2, 'reeling': 2,
+  'bow-draw': 2, 'bow-shot': 3, 'arrow-hit': 2, 'arrow-miss': 3,
+  'thunder': 5,
+};
+const SFX_EXT_MAP = {
+  handle_coins: 'mp3', loot_coin: 'mp3',
+  'plant-seeds': 'opus', 'water-plants': 'opus', 'harvest-crops': 'opus',
+  'place-object': 'opus', 'build-complete': 'opus',
+  'construction': 'opus', 'construction-hammer-under-way': 'opus',
+  'Done1': 'opus', 'Done2': 'opus',
+};
+for (const [base, n] of Object.entries(SFX_FAMILIES)) {
+  for (let i = 1; i <= n; i++) SFX_EXT_MAP[`${base}-${i}`] = 'mp3';
+}
+
 const musicKit = (dir) => ({
   theme: `${dir}/theme.mp3`,
   calm: `${dir}/calm.mp3`,
@@ -125,15 +146,7 @@ export class FarmAudio {
     if (!ambient) this._lastActivity = Date.now(); // sfx double as the "player is busy" signal
     if (this._sfxMuted || !this._unlocked) return;
     try {
-      const SFX_EXT = {
-        handle_coins: 'mp3', loot_coin: 'mp3',
-        'plant-seeds': 'opus', 'water-plants': 'opus', 'harvest-crops': 'opus',
-        'place-object': 'opus', 'build-complete': 'opus',
-        'construction': 'opus', 'construction-hammer-under-way': 'opus',
-        'Done1': 'opus', 'Done2': 'opus',
-        'wolf-howl-1': 'mp3', 'wolf-howl-2': 'mp3', 'wolf-howl-3': 'mp3', 'wolf-howl-4': 'mp3',
-        'chicken-distress-1': 'mp3', 'chicken-distress-2': 'mp3',
-      };
+      const SFX_EXT = SFX_EXT_MAP;
       this._sfxCache = this._sfxCache || new Map();
       let base = this._sfxCache.get(name);
       if (!base) {

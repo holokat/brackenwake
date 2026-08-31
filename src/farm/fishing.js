@@ -561,6 +561,7 @@ export class FishingSession {
         this.catchSprite.position.copy(this.landPoint);
         this.group.add(this.catchSprite);
         this._setState('catch', this.now || (this.stateStart ?? 0));
+        this._emitState('catch');
         this.stateStart = null; // re-anchor on next update for smooth timing
       } else if (this.state === 'waiting') {
         // reeled in before the bite — you spook the fish and lose the cast entirely.

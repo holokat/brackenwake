@@ -132,7 +132,7 @@ export class Homestead {
   // 'aces' is the shipped look; 'neutral' keeps authored colour more faithfully
   static toneMapping = 'aces';
 
-  constructor(container, { cols, rows, tier = 1, themeId = 'meadow', signText, hideSign = false, farmhouseLevel = 1, onPlotHover, onPlotClick, onObjectClick, onObjectHover, onSignClick, onAnimalSound, onAmbientSound, onMarketClick, onDockClick, onFishResult, onProductReady, onConstructionKnock, onHouseClick, houseRot, houseOffset, onWindmillClick, windmillRot, onGateToggle, onDeerResult, onBowState, fenceHP, onFenceClick, onFenceState, onAnimalLost, getSeason, houseStyle } = {}) {
+  constructor(container, { cols, rows, tier = 1, themeId = 'meadow', signText, hideSign = false, farmhouseLevel = 1, onPlotHover, onPlotClick, onObjectClick, onObjectHover, onSignClick, onAnimalSound, onAmbientSound, onFishState, onMarketClick, onDockClick, onFishResult, onProductReady, onConstructionKnock, onHouseClick, houseRot, houseOffset, onWindmillClick, windmillRot, onGateToggle, onDeerResult, onBowState, fenceHP, onFenceClick, onFenceState, onAnimalLost, getSeason, houseStyle } = {}) {
     this.container = container;
     this.cols = cols;
     this.rows = rows;
@@ -161,6 +161,7 @@ export class Homestead {
     this.onGateToggle = onGateToggle || (() => {});
     this.onDeerResult = onDeerResult || (() => {});
     this.onBowState = onBowState || (() => {});
+    this.onFishState = onFishState || (() => {});
     this.onFenceClick = onFenceClick || (() => {});
     this.onFenceState = onFenceState || (() => {});
     this.fenceHP = typeof fenceHP === 'number' ? fenceHP : 100; // 0..100 perimeter health
@@ -702,12 +703,27 @@ export class Homestead {
       this.sunLight.intensity *= (1 - 0.5 * wi);
       this.hemi.intensity *= (1 - 0.22 * wi);
     }
+    this._updateThunder(now);
     this._updatePrecip(now, wi);
     this._updateSnow(now);
     this._updateIce(now);
     this._applyFoliageSeason(now);
     // rain accelerates structural weathering; winter slows plant growth/encroach
     this.decayRate.weather = 1 + (this.weather.precip === 'rain' ? this.weather.intensity : 0) * 1.6;
+  }
+
+  // Thunder during a storm, on the same shape as the night howls: a timer, not
+  // a per-frame roll. Scales with intensity — a storm at full strength cracks
+  // every ~14s, a weak one every ~40s — so the weather is audibly worse or
+  // better rather than just wetter. Silence resets the moment the storm passes,
+  // so the first clap of the NEXT storm lands soon after it arrives.
+  _updateThunder(now) {
+    if (this.weather.state !== 'storm') { this._nextThunder = 0; return; }
+    const i = Math.max(0.2, this.weather.intensity || 0.2);
+    if (!this._nextThunder) { this._nextThunder = now + 3000 + Math.random() * 6000; return; }
+    if (now < this._nextThunder) return;
+    this._nextThunder = now + (10000 + Math.random() * 14000) / i;
+    try { this.onAmbientSound && this.onAmbientSound('thunder'); } catch {}
   }
 
   // ---- buildings slowly weather (like the fence): they dull and grime over
@@ -1741,7 +1757,8 @@ export class Homestead {
         waterY: this.dockWaterY,
         themeId: this.theme.id,
         rng: Math.random,
-        onState: () => {},
+        // cast / waiting / bite / catch — the host turns these into sound
+        onState: (st) => { try { this.onFishState(st); } catch {} },
         onResult: (fish) => {
           this.fishing = null;
           this._setIdleTackle(true);
