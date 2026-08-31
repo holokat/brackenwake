@@ -94,7 +94,7 @@ function handleFishState(state) {
 // ---- hunting: farm.js emits draw on nock and release on loose ----
 function handleBowState(state) {
   if (state === 'draw') playSample('bow-draw');
-  else if (state === 'release') playSample('bow-shot');
+  else if (state === 'release') { playSample('bow-shot'); startSwingCooldown('shoot'); }
 }
 
 // ---- infrastructure effects engine ----
@@ -346,6 +346,42 @@ function floatAtCoins(text) {
   floatText(text, r.left + r.width / 2, r.bottom + 6, 'coin');
 }
 
+// ---- swing timing -------------------------------------------------------
+// Harvesting was as fast as you could click, which made a mouse macro strictly
+// better than playing and turned every wood/stone cost into a formality. Each
+// tool now has a recovery: the swing lands, then the tool is busy for a beat.
+//
+// Deliberately silent when blocked — a "too fast!" toast on every extra click
+// would punish enthusiasm and spam the log. The tool slot shows a sweep
+// instead, so the wait is visible rather than mysterious.
+const SWING_MS = {
+  chop: 750,   // an axe swing, wind-up and all
+  mine: 900,   // heavier tool, heavier stroke
+  shoot: 1400, // 500ms draw + recovery: nocking an arrow is not instant
+};
+const swingReadyAt = {};
+
+function swingReady(kind) {
+  return Date.now() >= (swingReadyAt[kind] || 0);
+}
+// call AFTER a swing actually lands
+function startSwingCooldown(kind) {
+  const ms = SWING_MS[kind] || 0;
+  if (!ms) return;
+  swingReadyAt[kind] = Date.now() + ms;
+  showSwingSweep(ms);
+}
+// a wipe across the loaded tool's slot for exactly the recovery time
+function showSwingSweep(ms) {
+  const slot = document.querySelector('#hud-tools .toolslot');
+  if (!slot) return;
+  let sw = slot.querySelector('.tool-cool');
+  if (!sw) { sw = document.createElement('i'); sw.className = 'tool-cool'; slot.appendChild(sw); }
+  sw.style.animation = 'none';
+  void sw.offsetWidth;                       // restart the animation on a fast re-swing
+  sw.style.animation = `toolCool ${ms}ms linear`;
+}
+
 // ---- the axe on scenery trees -------------------------------------------
 // Placed timber goes through handleObjectClick; the outer-zone forests are
 // instanced, so they need their own pick. Capture the click before the scene's
@@ -358,6 +394,9 @@ function chopSceneryTree(e) {
   if (!game.owned.includes(tool) && !testMode) return;
   const hit = pickTree(farm, e.clientX, e.clientY);
   if (!hit) return;
+  // still recovering from the last swing — swallow the click entirely so a
+  // rapid-fire mouse buys nothing
+  if (!swingReady(mining ? 'mine' : 'chop')) { e.stopImmediatePropagation(); e.preventDefault(); return; }
   // the axe works trees, the pickaxe works rock — not each other's job
   const isRock = hit.field.kind === 'rock';
   if (isRock !== mining) {
@@ -369,6 +408,7 @@ function chopSceneryTree(e) {
   e.preventDefault();
   const res = chopTree(hit.field, hit.index);
   if (!res) { toast('🌱 a sapling is coming back here — give it time'); return; }
+  startSwingCooldown(mining ? 'mine' : 'chop');
   if (res.hit) {
     // the pickaxe has four takes to rotate; the axe is a single sound
     playSample(mining ? 'pickaxe' : 'axe-chop');
@@ -3096,6 +3136,8 @@ function chopTimber(farmId, entry, item) {
   if (!game.owned.includes('axe') && !testMode) { toast('🪓 craft an axe first — Craft tab → 🪓 Tools'); return; }
   entry.opts = entry.opts || {};
   if (entry.opts.stump) { toast('🌱 just a stump — it will regrow soon'); return; }
+  if (!swingReady('chop')) return;
+  startSwingCooldown('chop');
   entry.opts.chopHp = (entry.opts.chopHp ?? item.chopHp ?? 3) - 1;
   playSample('axe-chop', entry.opts.chopHp > 0 ? 1 : 1.15);
   const rec = farm.placed.get(farmId);

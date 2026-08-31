@@ -96,6 +96,9 @@ const TIER_LAYOUT = {
 const DAY_CYCLE_MS = 480000; // 8 minute day
 // birds that squawk when the flock loses one of its own
 const POULTRY = new Set(['chicken', 'rooster', 'duck']);
+// after a shot lands, the bow is busy: lower the bow, nock the next arrow.
+// Combined with the 500ms draw this puts a shot at roughly 1.4s.
+const BOW_RECOVER_MS = 900;
 
 function skyGradientTexture(stops, withStars = false) {
   const canvas = document.createElement('canvas');
@@ -1836,6 +1839,10 @@ export class Homestead {
   // the shot isn't instant; _updateDraw() fires the actual shot when it completes.
   _tryShoot() {
     if (this.drawing) return; // already at full draw / mid-shot
+    // recovery between shots — nocking the next arrow is not instant, and
+    // without this a fast mouse empties a whole herd in a second
+    const now = this._lastNow || performance.now();
+    if (now < (this._nextShotAt || 0)) return;
     const pred = this.hoveredPredator; // predators take priority — they're the threat
     if (pred) {
       this.drawing = { target: pred, at: this._lastNow || performance.now(), dur: 500, isPredator: true };
@@ -1857,6 +1864,7 @@ export class Homestead {
       const isPred = this.drawing.isPredator;
       this.drawing = null;
       this._bowFired = now; // the 3D viewmodel arrow flies off briefly
+      this._nextShotAt = now + BOW_RECOVER_MS;
       try { this.onBowState && this.onBowState('release'); } catch {}
       if (isPred) {
         if (target && target.userData.hunt && this.predators.includes(target)) this._resolvePredatorShot(target);

@@ -255,6 +255,17 @@ body {
 }
 .toolslot:hover .tool-caret { border-bottom-color: #fff; }
 
+/* swing recovery: a wipe across the slot for exactly as long as the tool is
+   busy. Blocked clicks are silent, so this is the only thing telling the
+   player why the third rapid click did nothing. */
+.tool-cool {
+  position: absolute; inset: 0; pointer-events: none;
+  border-radius: 4px; transform-origin: left center;
+  background: rgba(20, 14, 6, 0.5);
+}
+@keyframes toolCool { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .tool-cool { display: none; } }
+
 /* Opens UPWARD: the HUD sits on the bottom edge of the screen. Lifted clear of
    the tab strip so the list never sits on top of the tab labels. */
 .tool-picker {
