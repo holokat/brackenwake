@@ -17,7 +17,7 @@ ones.
 > that the player really became an observer, was watching what's going on...
 > and we found that when we made it a turn-based game, all of a sudden the
 > player was no longer an observer, they were the star of the game."
-> — [26:15]
+> [26:15]
 
 This is the most serious thing in this document.
 
@@ -50,7 +50,7 @@ and it is behind a dock most players never visit.
 > something horribly wrong, the game is cheating. It's really important that the
 > player understand why those things happened and especially how to prevent that
 > from happening the next time."
-> — [06:50]
+> [06:50]
 
 A wolf takes a cow you paid 100 coins for. The game offers:
 
@@ -84,7 +84,7 @@ value on a timer with no decision attached to it.
 > make their life more difficult, or they were just about to win... random
 > events have to be treated very very carefully because if they're significant,
 > the player will find the worst and most paranoid explanation."
-> — [29:45]
+> [29:45]
 
 Our fox and wolf raids are random, unannounced, and cost real money. Our weather
 is random and silently multiplies growth. Our crop harvest has a hidden 10% "×2
@@ -98,7 +98,7 @@ people forget:
 
 > "We actually take into account the results of previous battles now when we do
 > our combat calculations."
-> — [24:32]
+> [24:32]
 
 He tracks your recent losses and quietly tilts the next roll. If two animals are
 taken in quick succession, our game should make the third raid fail. Not because
@@ -114,7 +114,7 @@ it is honest, but because two in a row reads as the game having it in for you.
 > sudden people's heads start exploding, then you haven't lived up to the
 > alliance... that's when the player loses their suspension of disbelief and
 > turns off your game."
-> — [18:01]
+> [18:01]
 
 We are a warm, cosy, low-poly farm with wind chimes and a child's crayon
 drawing on the wall.
@@ -132,7 +132,7 @@ The event stays. The blood does not belong in this game.
 > pop out of the building at the end, and I was like, what was I doing, why did
 > I go into that building... the centre of gravity of your game has to be in one
 > place. Everything else supports that."
-> — [73:00]
+> [73:00]
 
 Count what we are asking a player to hold at once: crops, animals, fishing,
 hunting, crafting across eight processors and 46 recipes, construction across 52
@@ -153,7 +153,7 @@ crafting chain rather than sit beside it as parallel income.
 > "The first 15 minutes have to be really compelling, really fun, kind of almost
 > a foreshadowing of all the cool stuff that's going to happen later... you can
 > almost not reward the player enough in the very early stages."
-> — [07:48]
+> [07:48]
 
 Ours, measured:
 
@@ -181,7 +181,7 @@ early is nearly impossible.
 
 > "There on the main menu was cheat... Brian, can't we just bury it one or two
 > levels deeper, because I want the players to play the real game first."
-> — [45:29]
+> [45:29]
 
 `index.html` line 17: a test mode button, in the top toolbar, permanently
 visible, that unlocks everything and grants unlimited gold.
@@ -201,7 +201,7 @@ matters enormously:
 > validating for the player... the more that the other leaders reflected on what
 > you were doing and reacted, the more the player felt that somebody understood
 > them, they weren't just playing in a vacuum."
-> — [41:25]
+> [41:25]
 
 Bram counting the nine trips you made to the water butt is exactly this. The
 story system is the strongest thing in the game by his measure, which is an
@@ -222,7 +222,7 @@ defines the coolest decisions as:
 
 > "The ones where the player chooses path A but they're saying, well next time,
 > that path B looks kind of interesting too."
-> — [52:12]
+> [52:12]
 
 We have no path B. Nothing is exclusive. Given enough time you buy everything,
 so no choice forecloses another. I checked all ten infrastructure categories:
