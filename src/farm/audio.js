@@ -227,13 +227,22 @@ export class FarmAudio {
     if (this._trackKind === kind && this._music && !this._music.paused
         && this._music.dataset && this._music.dataset.src === url) return;
     this._trackKind = kind;
+    const rotating = Array.isArray(this._playlist?.[kind]);
     this._music = this._swapLoop(this._music, url, MUSIC_VOL);
-    // once we know how long it is, let it play out if it runs past the slot
+    // Once the duration is known, end the slot when the TRACK ends rather than
+    // at the nominal slot length. For a rotating slot that is the whole point:
+    // Sakura's two themes are four minutes each and must hand over at the four
+    // minute mark, not get cut at 160s or loop and get cut five seconds in.
+    // The lead-in starts the crossfade just before the end so the incoming
+    // track is already up as the outgoing one finishes.
     const a = this._music, started = Date.now();
     if (a) a.addEventListener('loadedmetadata', () => {
-      if (this._music !== a || !Number.isFinite(a.duration)) return;
-      const natural = started + Math.min(a.duration * 1000, MAX_SLOT_MS);
-      if (natural > this._slotEnd) this._slotEnd = natural;
+      if (this._music !== a || !Number.isFinite(a.duration) || a.duration <= 0) return;
+      const full = Math.min(a.duration * 1000, MAX_SLOT_MS);
+      const end = started + full - (rotating ? XFADE_MS / 2 : 0);
+      // a rotating slot always uses the track's own length; a single-track slot
+      // only ever gets EXTENDED, so short loops still fill their slot
+      if (rotating || end > this._slotEnd) this._slotEnd = end;
     }, { once: true });
   }
 
@@ -268,12 +277,14 @@ export class FarmAudio {
     if (this._rotTimer) return;
     this._rotTimer = setInterval(() => {
       try { this._rotate(); } catch (e) {}
-    }, 9000);
+    }, 1000);
   }
 
   _rotate() {
     if (!this._playlist || !this._unlocked || this._musicMuted) return;
     if (Date.now() < this._slotEnd) return;
+    // a theme-only playlist (Sakura) has nowhere else to go — walk its themes
+    if (!this._playlist.calm && !this._playlist.lively) { this._playTrack('theme'); return; }
     const busy = Date.now() - this._lastActivity < ACTIVITY_WINDOW_MS;
     let next;
     if (this._trackKind === 'theme') {
