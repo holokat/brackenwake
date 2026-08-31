@@ -22,7 +22,7 @@ import { preloadLandmarks, landmarkEditor, dumpLandmarks } from './landmarks.js'
 import { treeEditor, dumpTrees, debugPick, pickTree, chopTree, regrowTrees, setRegrowMult, treeFieldsFor } from './tree_edit.js';
 import { clearStore, storeSummary } from './scenery_store.js';
 import { preloadAnimalModels, animalModelReady } from './animal_models.js';
-import { SEASON_ICON, SEASON_LABEL } from './seasons.js';
+import { SEASON_ICON, SEASON_LABEL, SEASON_MS } from './seasons.js';
 import { WEATHER_ICON, WEATHER_LABEL } from './weather.js';
 import { MISSIONS, MISSION_PHASES, missionProgress } from './missions.js';
 import { generatePrivateKey, getPublicKey, finishEvent, bech32Encode } from './nostr-keys.js';
@@ -1048,7 +1048,7 @@ setInterval(() => {
       if (Math.hypot(rec.x - ac.x, rec.z - ac.z) > ac.r) continue;
       const got = farm.collectProduct(farmId);
       if (got) {
-        game.addGood(got.goodId, got.count);
+        creditGood(got.goodId, got.count);
         dirty = true;
       }
     }
@@ -1082,7 +1082,7 @@ setInterval(() => {
     if (farmId) {
       farm.setJobReady(farmId, recipe.output.id, recipe.output.count, out.icon);
     } else {
-      game.addGood(recipe.output.id, recipe.output.count); // processor gone — deliver anyway
+      creditGood(recipe.output.id, recipe.output.count, recipe.name); // processor gone, deliver anyway
     }
     playDone(0.6);
     // prestige dishes deserve prestige fanfare
@@ -1792,7 +1792,6 @@ function updateSeasonHud() {
     // the full look (deep autumn colour / heavy snow) shows right away
     el.addEventListener('click', () => {
       if (!testMode) return;
-      const SEASON_MS = 3 * 24 * 60 * 60 * 1000;
       const target = (game.season.index + 1) % 4;
       game.seasonEpoch = Date.now() - (target + 0.65) * SEASON_MS; // land ~2/3 into that season
       game.save();
@@ -3307,17 +3306,17 @@ function handleFishResult(fish) {
     return;
   }
   const newSpecies = !game.discovered.includes(fish.id); // first time this species is landed
-  game.addGood(fish.id, 1);
+  creditGood(fish.id, 1, fish.name);
   game.bumpStat('fish');
   if (newSpecies) game.bumpStat('fishSpecies');
   if ((fish.weight || 99) <= 6 || (fish.sell || 0) >= 40) game.bumpStat('rareFish'); // low spawn weight = rare
   if (fish.sell >= 100) {
     game.bumpStat('bigFish');
     farm.burstAtPosition(farm.castFrom, true);
-    bigMoment(`🎣✨ LEGENDARY! ${fish.icon} <b>${esc(fish.name)}</b> — worth ${fish.sell}${COIN}!`);
+    bigMoment(`🎣✨ LEGENDARY! ${fish.icon} <b>${esc(fish.name)}</b>, worth ${fish.sell}${COIN}`);
   } else {
     audio.playSfx('harvest', 0.45);
-    toast(`🎣 caught ${fish.icon} <b>${esc(fish.name)}</b> · ${fish.sell}${COIN} at the market`);
+    toast(`🎣 caught ${fish.icon} <b>${esc(fish.name)}</b>${fish.sell ? ` · ${fish.sell}${COIN} at the market` : ''}`);
   }
   renderResChips();
 }
@@ -3415,11 +3414,15 @@ function handleHuntResult(res) {
     ? (res.variant === 'fawn' ? 'fawn' : res.variant === 'doe' ? 'doe' : 'buck')
     : (QUARRY_LABEL[res.quarry] || 'critter');
   if (res.killed) {
-    game.addGood(res.meatGood || 'venison', res.meat);
+    const kept = creditGood(res.meatGood || 'venison', res.meat, 'kill');
     game.bumpStat('hunted');
     playSample('arrow-hit');
     const g = goodInfo(res.meatGood || 'venison');
-    bigMoment(`🏹 clean shot! downed a ${label} · +${res.meat} ${g.icon} ${esc(g.name)}`);
+    // report what was actually credited, not what the kill was worth: a full
+    // barn used to produce "+3 venison" alongside "it had nowhere to go"
+    bigMoment(kept > 0
+      ? `🏹 clean shot! downed a ${label} · +${kept} ${g.icon} ${esc(g.name)}`
+      : `🏹 clean shot! downed a ${label} · but there was nowhere to put it`);
     renderResChips();
     return;
   }
@@ -4728,6 +4731,22 @@ function repLine(who, delta) {
   return `${name} noted that`;
 }
 
+// A full barn silently eating something the player earned is the same bug six
+// times over: fishing, hunting, auto-collect, a finished recipe, a dig, a story
+// gift. addGood returns the overflow and most callers threw it away. Every
+// place a player EARNS something now goes through here.
+function creditGood(id, n, what = null) {
+  const lost = game.addGood(id, n);
+  if (lost > 0) {
+    const g = goodInfo(id);
+    toast(lost >= n
+      ? `⚠️ stores full: your ${esc(what || g.name)} had nowhere to go`
+      : `⚠️ stores full: ${lost} ${g.icon} ${esc(g.name)} lost`, false);
+    renderStoreChip();
+  }
+  return n - lost;
+}
+
 function reportChoice(before, choice) {
   const dCoins = game.coins - before.coins;
   const lines = [];
@@ -4949,7 +4968,7 @@ const storyHost = {
         if (Math.random() < 0.55) { game.addCoins(-25); storyHost.act('mysterySeed'); }
         else toast('🤝 he pockets it. "Another time."', false);
         break;
-      case 'digSite': game.addGood('stone', 30); game.addCoins(Math.round(160 * value)); toast('⛏️ the X was not nothing'); break;
+      case 'digSite': creditGood('stone', 30); game.addCoins(Math.round(160 * value)); toast('⛏️ the X was not nothing'); break;
       case 'sendCrate': {
         let n = 0;
         for (const [id, have] of Object.entries(game.inventory)) {
@@ -4960,7 +4979,7 @@ const storyHost = {
         break;
       }
       case 'strayDog': if (!game.owned.includes('dog')) game.owned.push('dog'); toast('🐕 you have a dog now'); break;
-      case 'huntDeer': game.addGood('venison', 3); toast('🏹 meat for the winter'); break;
+      case 'huntDeer': creditGood('venison', 3, 'venison'); toast('🏹 meat for the winter'); break;
       case 'deerStrip': {
         // you actually give up a plot — the cost is real
         const idx = (game.plots || []).findIndex((p) => p);
