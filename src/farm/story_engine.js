@@ -85,6 +85,12 @@ export function buildState(game, farm, story, extra = {}) {
     idleJobDays: extra.idleJobDays || 0,
     powerDeficitNights: extra.powerDeficitNights || 0,
     storageFullEvents: extra.storageFullEvents || 0,
+    worstWear: extra.worstWear || 0,       // is anything ACTUALLY weathering
+    pathCount: extra.pathCount || 0,       // have they ever paved
+    houseLevel: extra.houseLevel || 1,
+    visitedFarms: extra.visitedFarms || 0,
+    openedBook: !!extra.openedBook,
+    hiveAgeDays: extra.hiveAgeDays || 0,
 
     has: (id, n = 1) => (inv[id] || 0) >= n,
     stat: (k) => stats[k] || 0,

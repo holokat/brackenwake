@@ -1509,6 +1509,24 @@ body.book-open #sidebar { transform: translateX(0); }
 @media (prefers-reduced-motion: reduce) { #story-card { animation: none; } }
 
 .sc-art { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #d9cba8; }
+
+/* FULL-PANEL art: the whole card is one themed 2:3 painting, and the text is
+   drawn over the quiet lower band of it. Applied automatically once a card's
+   image is a 2:3 panel rather than a 4:3 inset. */
+#story-card.panel { background: none; border: 0; box-shadow: none; }
+#story-card.panel .sc-art {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  aspect-ratio: auto; object-fit: fill; z-index: 0;
+  border-radius: 10px;
+}
+#story-card.panel { aspect-ratio: 2 / 3; filter: drop-shadow(0 10px 26px rgba(0,0,0,.45)); }
+#story-card.panel .sc-head,
+#story-card.panel .sc-title,
+#story-card.panel .sc-body,
+#story-card.panel .sc-choices { position: relative; z-index: 1; }
+/* text starts at the top of the quiet band (620/1200 of the panel) */
+#story-card.panel .sc-head { margin-top: 52%; }
+#story-card.panel .sc-choice { background: rgba(253, 248, 236, .88); backdrop-filter: blur(2px); }
 /* until the art exists, a labelled placeholder beats a broken image icon */
 .sc-art-miss {
   display: flex; align-items: center; justify-content: center; text-align: center;

@@ -1,4 +1,4 @@
-// stories.js — The Living Valley. 36 cards of ambient narrative.
+// stories.js : The Living Valley. 36 cards of ambient narrative.
 // Pure data: no imports, no logic. See docs/living-valley.md for the design.
 //
 // THE RULE: every card is triggered by state the game already tracks, and every
@@ -6,12 +6,12 @@
 // order board's job; these are for what a numbers system cannot say.
 //
 // Card shape
-//   id        stable key — used for save flags, never rename one that shipped
+//   id        stable key : used for save flags, never rename one that shipped
 //   who       portrait/voice: mira | bram | sedge | ridge | land | valley
-//   art       /ui/story/<id>.png — one image per card, 4:3, see the art notes
+//   art       /ui/story/<id>.png : one image per card, 4:3, see the art notes
 //   title     short. shown above the body.
 //   body      3-4 lines. array = separate paragraphs, OR a function(state) that
-//             returns one — use the function form whenever the copy would
+//             returns one : use the function form whenever the copy would
 //             otherwise claim a NUMBER, so the card never says "six of them"
 //             when there are two.
 //
@@ -31,20 +31,20 @@
 //
 //   pledge    a promise you have to COME BACK to, listed in the Mission Book
 //             with progress until you deliver it. Use this whenever a choice
-//             says "I'll do X" rather than doing X on the spot — otherwise the
+//             says "I'll do X" rather than doing X on the spot : otherwise the
 //             card vanishes and the player has nowhere to go and say they did.
 //               { id, text, need: {good:n}, reward: {coins,goods,rep}, days }
 //   revisit   days after which a DECLINE may be offered again. A neighbour you
 //             turned down in a tight year should be able to ask once more.
 //
-// Effects vocabulary — every key maps to something real (story_engine.apply):
+// Effects vocabulary : every key maps to something real (story_engine.apply):
 //   coins            +/- coins
-//   goods            { id: n } — positive gives, negative takes
-//   needs            { id: n } — required to pick the choice at all
-//   rep              { who: n } — reputation with a character
+//   goods            { id: n } : positive gives, negative takes
+//   needs            { id: n } : required to pick the choice at all
+//   rep              { who: n } : reputation with a character
 //   flag             sets a save flag other cards can read
 //   unlock           an item id added to owned
-//   modifier         { key, value, days } — a timed world modifier
+//   modifier         { key, value, days } : a timed world modifier
 //   act              a named engine action (harvestAll, waterAll, openPanel, ...)
 
 export const CHARACTERS = {
@@ -52,6 +52,7 @@ export const CHARACTERS = {
   bram:   { name: 'Bram',           sub: 'been here longest',   art: '/ui/story/who-bram.png' },
   sedge:  { name: 'Sedge',          sub: 'trader, in season',   art: '/ui/story/who-sedge.png' },
   ridge:  { name: 'The Ridge Farm', sub: 'up the valley',       art: '/ui/story/who-ridge.png' },
+  ren:    { name: 'Ren',            sub: "Mira's daughter",     art: '/ui/story/who-ren.png' },
   land:   { name: '',               sub: '',                    art: null },
   valley: { name: 'The Valley',     sub: '',                    art: '/ui/story/who-valley.png' },
 };
@@ -61,7 +62,7 @@ const S = (o) => o; // identity, purely so each card reads as a block below
 export const STORIES = [
 
   // ===========================================================
-  // I. WEATHER AND SEASON — the useful ones
+  // I. WEATHER AND SEASON : the useful ones
   // ===========================================================
   S({
     id: 'first_frost', who: 'bram', art: '/ui/story/first-frost.png',
@@ -91,7 +92,7 @@ export const STORIES = [
     when: (s) => s.weather === 'storm' && s.runningJobs > 0,
     once: false, cooldown: 1000 * 60 * 60 * 6,
     choices: [
-      { label: 'Shut the machines down', hint: 'jobs pause — but nothing weathers tonight',
+      { label: 'Shut the machines down', hint: 'jobs pause, and nothing weathers tonight',
         act: { pauseJobs: true }, modifier: { key: 'wearMult', value: 0, days: 1 } },
       { label: 'Run through it', hint: 'keep working, and pay for it in wear',
         modifier: { key: 'wearMult', value: 2.2, days: 1 } },
@@ -106,7 +107,7 @@ export const STORIES = [
     when: (s) => s.dryDays >= 3 && s.autoWaterCount === 0 && s.plantedPlots > 0,
     once: false, cooldown: 1000 * 60 * 60 * 24,
     choices: [
-      { label: 'Haul water by hand', hint: 'every plot watered once — it will cost you the day',
+      { label: 'Haul water by hand', hint: 'every plot watered once, and it will cost you the day',
         act: { waterAll: true }, coins: -25 },
       { label: 'Let them thirst', hint: 'growth stalls until the rain comes',
         modifier: { key: 'growthMult', value: 0.6, days: 2 } },
@@ -121,7 +122,7 @@ export const STORIES = [
     body: (s) => [
       'Heard the wolves up there again last night. Thin this year, and thin makes them brave.',
       // the trigger guarantees at least one, but the card browser renders it
-      // out of context — so the zero case still has to read like a sentence
+      // out of context : so the zero case still has to read like a sentence
       s.loosePenAnimals > 1
         ? `You have ${s.loosePenAnimals} animals out in the open, none of them behind a closed gate.`
         : 'Your animals are out in the open, and not one of them is behind a closed gate.',
@@ -131,7 +132,7 @@ export const STORIES = [
     choices: [
       { label: 'Bring them in', hint: 'they stop producing overnight, and nothing takes them',
         act: { penAnimals: true } },
-      { label: 'Post a watch', hint: 'costs coin, costs you nothing else', coins: -60,
+      { label: 'Post a watch', hint: 'costs coin, and nothing else', coins: -60,
         modifier: { key: 'predatorOdds', value: 0, days: 1 } },
       { label: "They'll be fine", hint: 'the odds are worse than usual tonight',
         modifier: { key: 'predatorOdds', value: 1.8, days: 1 } },
@@ -147,14 +148,14 @@ export const STORIES = [
     once: false, cooldown: 1000 * 60 * 60 * 48,
     choices: [
       { label: 'Cut a hole', hint: 'ice fishing, for as long as it holds', act: { cutIce: true } },
-      { label: 'Let it rest', hint: 'the fish come back stronger — bites come quicker for a month',
+      { label: 'Let it rest', hint: 'the fish come back stronger, and bites come quicker for a month',
         modifier: { key: 'fishLuck', value: 1.4, days: 30 } },
     ],
     teaches: 'ice fishing exists',
   }),
 
   // ===========================================================
-  // II. MIRA — the neighbour who becomes a friend
+  // II. MIRA : the neighbour who becomes a friend
   // ===========================================================
   S({
     id: 'mira_strawberries', who: 'mira', art: '/ui/story/mira-strawberries.png',
@@ -165,13 +166,13 @@ export const STORIES = [
     ],
     when: (s) => s.has('strawberry') || s.stat('planted') > 12,
     choices: [
-      { label: "I'll grow you extra", hint: 'a standing order for 12 — and a better price meanwhile',
+      { label: "I'll grow you extra", hint: 'a standing order for 12, and a better price meanwhile',
         rep: { mira: 1 }, modifier: { key: 'sellBonus:strawberry', value: 1.4, days: 12 }, flag: 'mira_deal',
         pledge: { id: 'mira_strawberries', text: 'Grow 12 strawberries for Mira', days: 12,
           need: { strawberry: 12 }, reward: { coins: 320, rep: { mira: 3 }, flag: 'mira_kept_word' } } },
-      { label: 'Take some of mine now', hint: 'give 5 strawberries — she will not forget it',
+      { label: 'Take some of mine now', hint: 'give 5 strawberries. She will not forget it.',
         needs: { strawberry: 5 }, goods: { strawberry: -5 }, rep: { mira: 3 }, flag: 'mira_gift' },
-      { label: 'Sorry — tight year', hint: 'she understands. She may ask again.',
+      { label: 'Sorry, it is a tight year', hint: 'she understands. She may ask again.',
         flag: 'mira_declined', revisit: 6 },
     ],
     teaches: 'that a neighbour is a price channel, not a quest giver',
@@ -202,7 +203,7 @@ export const STORIES = [
     choices: [
       { label: 'Take it', hint: 'a generous parcel',
         goods: { strawberry_jam: 4, bread: 3, cheese: 2 }, rep: { mira: 1 } },
-      { label: 'She needs it more', hint: 'decline — and she remembers that too',
+      { label: 'She needs it more', hint: 'decline, and she remembers that too',
         rep: { mira: 3 }, flag: 'mira_refused_help' },
     ],
     teaches: 'that reputation is a real number with real returns',
@@ -223,7 +224,7 @@ export const STORIES = [
   }),
 
   // ===========================================================
-  // III. BRAM — the old man who was here first
+  // III. BRAM : the old man who was here first
   // ===========================================================
   S({
     id: 'bram_foundation', who: 'bram', art: '/ui/story/bram-foundation.png',
@@ -236,7 +237,7 @@ export const STORIES = [
     choices: [
       { label: 'Dig it out', hint: 'a day of hauling, and good cut stone',
         goods: { stone: 40 }, coins: -40, rep: { bram: 1 } },
-      { label: 'Build over it', hint: 'good ground — a permanent yield bonus there',
+      { label: 'Build over it', hint: 'good ground, and a permanent yield bonus there',
         modifier: { key: 'yieldBonus', value: 1, days: 9999 } },
       { label: 'Leave it alone', hint: 'Bram approves. Something grows there later.',
         rep: { bram: 3 }, flag: 'foundation_left' },
@@ -267,7 +268,7 @@ export const STORIES = [
     ],
     when: (s) => s.stat('chopped') >= 60 && s.treesStandingFrac < 0.4,
     choices: [
-      { label: 'Plant for the ones after', hint: 'spend timber — the woods come back faster, for good',
+      { label: 'Plant for the ones after', hint: 'spend timber, and the woods come back faster for good',
         needs: { wood: 30 }, goods: { wood: -30 }, rep: { bram: 2 },
         modifier: { key: 'regrowMult', value: 0.6, days: 9999 } },
       { label: 'I needed the timber', hint: 'no argument. The regrowth slows.',
@@ -285,7 +286,7 @@ export const STORIES = [
     ],
     when: (s) => s.prestige >= 60 && s.rep('bram') >= 3,
     choices: [
-      { label: 'Ask him to stay on', hint: 'Bram works the farm with you — everything produces more',
+      { label: 'Ask him to stay on', hint: 'Bram works the farm with you, and everything produces more',
         rep: { bram: 1 }, modifier: { key: 'productionMult', value: 1.15, days: 9999 } },
       { label: 'Thank him', hint: 'he leaves you his field', act: { grantLand: true }, rep: { bram: 2 } },
     ],
@@ -293,7 +294,7 @@ export const STORIES = [
   }),
 
   // ===========================================================
-  // IV. SEDGE — the trader you cannot quite trust
+  // IV. SEDGE : the trader you cannot quite trust
   // ===========================================================
   S({
     id: 'sedge_seed', who: 'sedge', art: '/ui/story/sedge-seed.png',
@@ -320,11 +321,11 @@ export const STORIES = [
     ],
     when: (s) => s.seen('sedge_seed') && s.coins >= 300,
     choices: [
-      { label: 'Buy the map', hint: '120 coins — then take a pick to the marked spot',
-        coins: -120, pledge: { id: 'dig_site', text: 'Dig the marked site — 30 stone to clear it', days: 20,
+      { label: 'Buy the map', hint: '120 coins, then take a pick to the marked spot',
+        coins: -120, pledge: { id: 'dig_site', text: 'Dig the marked site: 30 stone to clear it', days: 20,
           need: { stone: 30 }, reward: { coins: 520, goods: { stone: 60 } } } },
       { label: 'Dig it together', hint: 'cheaper, and he takes half of whatever is down there',
-        coins: -50, pledge: { id: 'dig_site', text: 'Dig the marked site with Sedge — 30 stone', days: 20,
+        coins: -50, pledge: { id: 'dig_site', text: 'Dig the marked site with Sedge: 30 stone', days: 20,
           need: { stone: 30 }, reward: { coins: 260, goods: { stone: 30 } } } },
       { label: 'Not today', hint: 'he passes through again', revisit: 5 },
     ],
@@ -349,7 +350,7 @@ export const STORIES = [
   }),
 
   // ===========================================================
-  // V. THE RIDGE FARM — the one you never meet
+  // V. THE RIDGE FARM : the one you never meet
   // ===========================================================
   S({
     id: 'ridge_smoke', moment: true, who: 'ridge', art: '/ui/story/ridge-smoke.png',
@@ -408,7 +409,7 @@ export const STORIES = [
     when: (s) => s.foxRaids >= 2,
     choices: [
       { label: 'Set a trap', hint: 'no more raids. No more fox.', act: { removeFox: true } },
-      { label: 'Mend the gap', hint: '15 wood — it gives up for a season',
+      { label: 'Mend the gap', hint: '15 wood, and it gives up for a season',
         needs: { wood: 15 }, goods: { wood: -15 }, modifier: { key: 'predatorOdds', value: 0.4, days: 12 } },
       { label: 'Leave the scraps out', hint: 'it stops hunting your birds. It starts driving off others.',
         act: { tameFox: true }, flag: 'fox_fed' },
@@ -439,9 +440,9 @@ export const STORIES = [
       'It was here before the fence.',
       "There's a nest in it, and something old under the roots.",
     ],
-    when: (s) => s.stat('chopped') >= 15,
+    when: (s) => s.stat('chopped') >= 15 && s.treesStandingFrac > 0.2,
     choices: [
-      { label: 'Fell it', hint: 'triple timber — and the birds leave this zone',
+      { label: 'Fell it', hint: 'triple timber, and the birds leave this zone',
         goods: { wood: 45 }, flag: 'old_tree_felled' },
       { label: 'Leave it standing', hint: 'it becomes a landmark',
         unlock: 'story_old_tree', modifier: { key: 'prestige', value: 15, days: 9999 } },
@@ -453,7 +454,7 @@ export const STORIES = [
     id: 'bees_gone', who: 'land', art: '/ui/story/bees-gone.png',
     title: 'The hive is quiet',
     body: ['Not dead. Just empty.'],
-    when: (s) => s.ownsAnimal('beehive') && s.goodStalled('honey'),
+    when: (s) => s.hiveAgeDays >= 3 && s.goodStalled('honey'),  // a hive that has had time to fail
     choices: [
       { label: 'Plant for them', hint: 'they come back, and so does the yield',
         coins: -90, unlock: 'eco_pollinator_garden', modifier: { key: 'yieldBonus', value: 1, days: 9999 } },
@@ -467,18 +468,18 @@ export const STORIES = [
     id: 'deer_in_wheat', who: 'land', art: '/ui/story/deer-in-wheat.png',
     title: 'Deer in the wheat',
     body: (s) => [
-      `Deer are in the crops — ${s.deerCount || 'several'} of them, and no hurry about it.`,
+      `Deer are in the crops. ${s.deerCount || 'several'} of them, and no hurry about it.`,
       'They will strip a row a night if nothing stops them.',
     ],
     when: (s) => s.plantedPlots >= 6 && s.deerNear,
     once: false, cooldown: 1000 * 60 * 60 * 36,
     choices: [
-      { label: 'Hunt', hint: 'meat now — and they avoid your land for a while',
+      { label: 'Hunt', hint: 'meat now, and they keep off your land for a while',
         act: { huntDeer: true }, modifier: { key: 'predatorOdds', value: 0.6, days: 12 } },
-      { label: 'Fence the field', hint: '20 wood — nothing gets at the crops again',
+      { label: 'Fence the field', hint: '20 wood, and nothing gets at the crops again',
         needs: { wood: 20 }, goods: { wood: -20 }, flag: 'deer_fenced',
         modifier: { key: 'predatorOdds', value: 0.25, days: 9999 } },
-      { label: 'Plant them a strip', hint: 'give up a plot — they stay, and they leave the rest alone',
+      { label: 'Plant them a strip', hint: 'give up a plot. They stay, and they leave the rest alone.',
         act: { deerStrip: true }, flag: 'deer_strip',
         modifier: { key: 'predatorOdds', value: 0.5, days: 9999 } },
     ],
@@ -506,7 +507,7 @@ export const STORIES = [
     when: (s) => s.storageFullEvents >= 3,
     choices: [
       { label: 'Sell the surplus', hint: 'everything above 80% goes to market now', act: { sellSurplus: true } },
-      { label: 'Tell me about the co-op', hint: 'shared granary — more room, a small cut of sales',
+      { label: 'Tell me about the co-op', hint: 'a shared granary: more room, and a small cut of your sales',
         unlock: 'story_coop', modifier: { key: 'storageBonus', value: 250, days: 9999 } },
       { label: 'Show me the storage shelf', hint: '', act: { openPanel: 'sto' } },
     ],
@@ -520,7 +521,7 @@ export const STORIES = [
     when: (s) => s.season === 'fall' && s.storageFrac > 0.5 && s.coveredStorage === 0,
     choices: [
       { label: 'Build now', hint: 'open Storage', act: { openPanel: 'sto' } },
-      { label: 'Risk it', hint: 'a little spoils on every wet day — until you build',
+      { label: 'Risk it', hint: 'a little spoils on every wet day, until you build',
         modifier: { key: 'spoilRate', value: 1, days: 20 }, revisit: 4 },
     ],
     teaches: 'why the storage tiers differ',
@@ -570,7 +571,7 @@ export const STORIES = [
       { label: 'Enter your best crop', hint: 'bring 5 of your finest to the judging',
         pledge: { id: 'festival_crop', text: 'Take 5 watermelons to the judging', days: 4,
           need: { watermelon: 5 }, reward: { coins: 400, rep: { bram: 1, mira: 1, sedge: 1 } } } },
-      { label: 'Enter a dish', hint: 'a cooked entry scores higher — if you can make one',
+      { label: 'Enter a dish', hint: 'a cooked entry scores higher, if you can make one',
         pledge: { id: 'festival_dish', text: 'Take 3 cakes to the judging', days: 4,
           need: { cake: 3 }, reward: { coins: 750, rep: { bram: 2, mira: 2, sedge: 1 } } } },
       { label: 'Just go and eat', hint: 'no risk, and everyone is pleased to see you',
@@ -604,9 +605,9 @@ export const STORIES = [
     when: (s) => s.has('wheat', 10),
     once: false, cooldown: 1000 * 60 * 60 * 24 * 14,
     choices: [
-      { label: 'Sell anyway', hint: 'wheat at 40% — take what you can get',
+      { label: 'Sell anyway', hint: 'wheat at 40%. Take what you can get.',
         act: { sellGood: 'wheat' }, modifier: { key: 'sellBonus:wheat', value: 0.4, days: 10 } },
-      { label: 'Hold it', hint: 'prices recover — if you have the room',
+      { label: 'Hold it', hint: 'prices recover, if you have the room',
         modifier: { key: 'sellBonus:wheat', value: 0.4, days: 10 } },
       { label: 'Mill it', hint: 'flour is untouched by this', act: { queueRecipe: 'flour' } },
     ],
@@ -689,7 +690,7 @@ export const STORIES = [
   }),
 
   // ===========================================================
-  // X. LATE ADDITIONS — the valley reacting to how you play
+  // X. LATE ADDITIONS : the valley reacting to how you play
   // ===========================================================
   S({
     id: 'the_kettle_matters', who: 'sedge', art: '/ui/story/kettle-matters.png',
@@ -737,13 +738,13 @@ export const STORIES = [
     id: 'counterfeit', who: 'sedge', art: '/ui/story/counterfeit.png',
     title: 'Check your coin',
     body: [
-      'There are underweight coins going round the valley — forgeries, and good ones. They ring wrong if you listen.',
+      'There are underweight coins going round the valley. Forgeries, and good ones. They ring wrong if you listen.',
       "I'd not take a big payment off a stranger this week.",
     ],
     when: (s) => s.coins >= 2000,
     once: false, cooldown: 1000 * 60 * 60 * 24 * 21,
     choices: [
-      { label: 'Weigh every coin', hint: 'slow going — you lose a little, and catch the rest', coins: -100 },
+      { label: 'Weigh every coin', hint: 'slow going. You lose a little and catch the rest.', coins: -100 },
       { label: 'Risk it', hint: 'most of it will be fine', act: { counterfeit: true } },
     ],
   }),
@@ -757,14 +758,324 @@ export const STORIES = [
     ],
     when: (s) => s.stat('sold') >= 200,
     choices: [
-      { label: 'Sign', hint: 'every sale at +25% for a month — and no order board',
+      { label: 'Sign', hint: 'every sale at +25% for a month, and no order board',
         modifier: { key: 'sellBonusAll', value: 1.25, days: 30 }, flag: 'contract_signed',
-        pledge: { id: 'contract', text: 'Supply the town buyer — 40 goods over the month', days: 30,
+        pledge: { id: 'contract', text: 'Supply the town buyer: 40 goods over the month', days: 30,
           need: { wheat: 40 }, reward: { coins: 900 } } },
       { label: 'Stay independent', hint: 'the board stays open, and Mira is relieved',
         rep: { mira: 1 } },
     ],
     teaches: 'that the order board is worth something',
+  }),
+
+  // ===========================================================
+  // XI. THE VALLEY SHOWS YOU THINGS
+  //
+  // Discovery cards. The game has tools, systems and whole tabs a player can
+  // finish a season without noticing, and a tooltip has never once made anyone
+  // curious. A neighbour complaining about foxes teaches the bow better than a
+  // label reading "bow" ever will.
+  //
+  // House rule for this section: NONE of these may require anything. They put
+  // a thing in front of you and let you walk away. The pushiest they get is
+  // opening the right shelf when you say yes.
+  // ===========================================================
+
+  S({
+    id: 'nudge_sprinkler', who: 'bram', art: '/ui/story/nudge-sprinkler.png',
+    title: 'The long way to the water butt',
+    body: [
+      "You have carried that can out to the same corner nine times this week. I counted, which tells you how my week went.",
+      'There is a thing that does the same job standing still.',
+    ],
+    when: (s) => s.stat('watered') >= 25 && s.autoWaterCount === 0,
+    choices: [
+      { label: 'Show me the thing', hint: 'the water shelf', act: { openPanel: 'wat' } },
+      { label: 'I like the walk', hint: 'he will bring it up again', revisit: 4 },
+    ],
+    teaches: 'sprinklers exist, at the point the walking has become a habit',
+  }),
+
+  S({
+    id: 'nudge_bow', who: 'mira', art: '/ui/story/nudge-bow.png',
+    title: 'Something has been at the lettuces',
+    body: [
+      'I sat out on the step half of last night waiting for it. When it finally came it looked straight at me and carried on eating.',
+      'A bow would have settled the argument. I keep saying I will get one and I keep not getting one.',
+    ],
+    when: (s) => s.days >= 6 && s.stat('hunted') === 0,
+    choices: [
+      { label: 'A bow, you say', hint: 'have a look at what is on the rack', act: { openCraft: 'bow' } },
+      { label: 'Where would a person even get one?', hint: 'she points you at Sedge, who is delighted',
+        flag: 'asked_about_bow', rep: { mira: 1 } },
+      { label: 'Let it have the lettuces', hint: '', revisit: 6 },
+    ],
+    teaches: 'bows exist and hunting is a thing you can do',
+  }),
+
+  S({
+    id: 'sedge_has_a_bow', who: 'sedge', art: '/ui/story/sedge-bow.png',
+    title: 'You were asking about a bow',
+    body: [
+      'I have a bow. It is a good bow, seasoned yew, and I will not insult you by pretending I have a second one in the cart.',
+      'So neither of us is in a strong position here. Mine is slightly better.',
+    ],
+    when: (s) => s.flag('asked_about_bow'),
+    choices: [
+      { label: 'Name your price', hint: 'a quarter off, while the cart is here',
+        modifier: { key: 'priceMult', value: 0.75, days: 3 }, act: { openCraft: 'bow' }, rep: { sedge: 1 } },
+      { label: 'I will find my own', hint: 'he is unbothered', rep: { sedge: -1 }, act: { openCraft: 'bow' } },
+    ],
+  }),
+
+  S({
+    id: 'nudge_pickaxe', who: 'bram', art: '/ui/story/nudge-pickaxe.png',
+    title: 'You have been buying stone',
+    body: [
+      'Half this valley is stone. It is lying about in the open with nothing better to do.',
+      'A pick costs less than one season of paying somebody else to swing one.',
+    ],
+    when: (s) => s.days >= 4 && !s.owns('pickaxe') && s.stat('built') >= 2,
+    choices: [
+      { label: 'Where do I get a pick', hint: 'the tool rack', act: { openTool: 'picker' } },
+      { label: 'My back is fine as it is', hint: '', revisit: 5 },
+    ],
+    teaches: 'the pickaxe, and that boulders are a resource',
+  }),
+
+  S({
+    id: 'nudge_axe', who: 'sedge', art: '/ui/story/nudge-axe.png',
+    title: 'Timber, is it',
+    body: [
+      'I can sell you timber. I would like to sell you timber. It is most of what I do.',
+      'Or you buy one axe, once, and never buy a plank off me again. I am telling you this against my own interests and I would like that noted.',
+    ],
+    when: (s) => s.days >= 3 && !s.owns('axe') && s.stat('built') >= 1,
+    choices: [
+      { label: 'Show me the axes', hint: 'the tool rack', act: { openTool: 'picker' }, rep: { sedge: 1 } },
+      { label: 'Sell me the timber then', hint: 'he brightens considerably',
+        needs: {}, coins: -60, goods: { wood: 20 }, rep: { sedge: 1 } },
+    ],
+    teaches: 'the axe, framed as the cheaper of two real options',
+  }),
+
+  S({
+    id: 'nudge_pen', who: 'bram', art: '/ui/story/nudge-pen.png',
+    title: 'Loose stock',
+    body: [
+      'Anything wandering loose out there is not livestock. It is a shopping list, and somebody reads it every night.',
+      'Gate shut, they stay yours. Gate open, they are on offer.',
+    ],
+    when: (s) => s.loosePenAnimals >= 3,
+    choices: [
+      { label: 'Show me the pens', hint: 'the structures shelf', act: { openPanel: 'building' } },
+      { label: 'They know their way home', hint: '', revisit: 5 },
+    ],
+    teaches: 'pens and closed gates, before something is taken rather than after',
+  }),
+
+  S({
+    id: 'nudge_timber', who: 'bram', art: '/ui/story/nudge-timber.png',
+    title: 'You keep walking to the treeline',
+    body: [
+      'Every time you want a plank you go out to the woods and take one off the valley.',
+      'Trees grow where you put them. That has been true the whole time.',
+    ],
+    when: (s) => s.stat('chopped') >= 20 && !s.owns('pine_timber'),
+    choices: [
+      { label: 'Plant my own', hint: 'timber pines, in the style shelf', act: { openTrees: true } },
+      { label: 'The woods can spare it', hint: '', revisit: 8 },
+    ],
+    teaches: 'plantable timber, so wood stops meaning a walk',
+  }),
+
+  S({
+    id: 'nudge_paths', who: 'mira', art: '/ui/story/nudge-paths.png',
+    title: 'You have worn a line',
+    body: [
+      'Gate to the water butt, water butt to the beds. Same line every day until the grass gave up arguing.',
+      'You may as well admit it is a path and put something down before it turns to soup.',
+    ],
+    when: (s) => s.placedCount >= 12 && s.pathCount === 0,
+    choices: [
+      { label: 'Lay something down', hint: 'the paving tool', act: { openPanel: 'paths' } },
+      { label: 'I like the mud', hint: '', revisit: 10 },
+    ],
+    teaches: 'paving, which is otherwise buried behind a sub-tab',
+  }),
+
+  S({
+    id: 'nudge_orders', who: 'sedge', art: '/ui/story/nudge-orders.png',
+    title: 'The board at your own stand',
+    body: [
+      'There is a board nailed to your market stand with people\'s names on it. Have you read it.',
+      'They want particular things on particular days and they pay over the odds for the trouble of asking. It is free money and it is bolted to your own fence.',
+    ],
+    when: (s) => s.days >= 4 && s.stat('orders') === 0,
+    choices: [
+      { label: 'Go and read it', hint: 'opens the market', act: { openMarket: true } },
+      { label: 'I will get to it', hint: '', revisit: 4 },
+    ],
+    teaches: 'the order board, which sits in plain sight and is missed constantly',
+  }),
+
+  S({
+    id: 'nudge_collection', who: 'ren', art: '/ui/story/nudge-collection.png',
+    title: 'Do you write them down',
+    body: [
+      'Mum says you have grown things she has never heard of. She says one of them was purple.',
+      'You should write them down. If you do not write them down then when you are old you will not know what you did.',
+    ],
+    when: (s) => s.stat('planted') >= 20 && !s.openedBook,
+    choices: [
+      { label: 'Show her the book', hint: 'opens your collection', act: { openBook: true }, rep: { mira: 1 } },
+      { label: 'I remember them all', hint: 'she is openly sceptical', rep: { mira: 1 } },
+    ],
+    teaches: 'the collection book',
+  }),
+
+  S({
+    id: 'nudge_visiting', who: 'sedge', art: '/ui/story/nudge-visiting.png',
+    title: 'You do know there are others',
+    body: [
+      'Farms, I mean. Real ones, worked by real people, further down the valley than my cart goes.',
+      'You can walk over and look at what they have done. Nobody has ever once stopped me.',
+    ],
+    when: (s) => s.days >= 7 && s.visitedFarms === 0,
+    choices: [
+      { label: 'Take me to a gate', hint: 'opens your neighbours', act: { openFriends: true } },
+      { label: 'I have enough to look at here', hint: '', revisit: 12 },
+    ],
+    teaches: 'that other players exist and can be visited',
+  }),
+
+  S({
+    id: 'nudge_biome', who: 'bram', art: '/ui/story/nudge-biome.png',
+    title: 'Land is not a sentence',
+    body: [
+      'People get the idea that where they started is where they have to finish. It is not written down anywhere.',
+      'Sand, snow, blossom. I have seen all three worked well. Nobody is holding you to this valley.',
+    ],
+    when: (s) => s.days >= 10,
+    choices: [
+      { label: 'Show me what is out there', hint: 'the style shelf', act: { openPanel: 'style' } },
+      { label: 'I am staying put', hint: 'he approves, mildly', rep: { bram: 1 } },
+    ],
+    teaches: 'biome switching, which almost nobody finds on their own',
+  }),
+
+  S({
+    id: 'nudge_farmhouse', who: 'mira', art: '/ui/story/nudge-farmhouse.png',
+    title: 'The barn is nicer than the house',
+    body: [
+      'I walked past yesterday and had to look twice. That barn is a fine building.',
+      'You sleep in the other one. I am not saying anything. I am just saying I noticed.',
+    ],
+    when: (s) => s.placedCount >= 15 && s.houseLevel <= 2,
+    choices: [
+      { label: 'Perhaps it is time', hint: 'opens the homestead pages', act: { openBookMissions: true } },
+      { label: 'The barn earns its keep', hint: '', revisit: 8 },
+    ],
+    teaches: 'farmhouse upgrades and where to find them',
+  }),
+
+  S({
+    id: 'nudge_seasonal', who: 'mira', art: '/ui/story/nudge-seasonal.png',
+    title: 'Plan backwards from January',
+    body: [
+      'Fresh things fetch nothing once it turns cold. Nobody wants a soft tomato in a frost.',
+      'Anything in a jar fetches double. Work back from the worst month and you will eat well through it.',
+    ],
+    when: (s) => s.season === 'fall',
+    once: false, cooldown: 1000 * 60 * 60 * 24 * 60,
+    choices: [
+      { label: 'Show me what keeps', hint: 'opens your stores', act: { openPantry: true } },
+      { label: 'I will risk the tomatoes', hint: '', },
+    ],
+    teaches: 'seasonal demand, which silently moves every price in the game',
+  }),
+
+  // ---- little adventures: the same nudges, but somebody actually does it with you
+  S({
+    id: 'bram_takes_you_out', who: 'bram', art: '/ui/story/bram-hunt.png',
+    title: 'Bring nothing',
+    body: [
+      'I have two of everything and one spare temper. Wind is off the river, which means we go the long way and we go quietly.',
+      'You will not hit anything today. That is not what today is for.',
+    ],
+    when: (s) => s.owns('hunting_bow') && s.stat('hunted') === 0,
+    choices: [
+      { label: 'Go with him', hint: 'he brings back more than you would have',
+        goods: { venison: 4 }, rep: { bram: 2 }, act: { teachHunting: true } },
+      { label: 'Another day', hint: '', revisit: 5 },
+    ],
+  }),
+
+  S({
+    id: 'mira_shows_preserving', who: 'mira', art: '/ui/story/mira-preserving.png',
+    title: 'Bring me whatever is about to turn',
+    body: [
+      'Not the good stuff. The bruised things, the ones you were going to feel guilty about.',
+      'I will run one batch through with you watching. After that you are on your own, and I will want the jars back.',
+    ],
+    when: (s) => s.processorCount >= 1 && s.stat('crafted') === 0,
+    choices: [
+      { label: 'Watch her do it', hint: 'she starts a batch on your own bench',
+        act: { queueBestRecipe: true }, rep: { mira: 2 } },
+      { label: 'I will work it out', hint: '', revisit: 5 },
+    ],
+    teaches: 'crafting, by starting an actual job rather than pointing at a tab',
+  }),
+
+  S({
+    id: 'the_wager', who: 'bram', art: '/ui/story/the-wager.png',
+    title: 'A small bet',
+    body: [
+      'Bet you cannot fill that barn before the frost. No money in it.',
+      'I would just like us both to know where we stand by December.',
+    ],
+    when: (s) => s.season === 'fall' && s.storageFrac < 0.4,
+    choices: [
+      { label: 'Take the bet', hint: 'fill your stores past three quarters before winter',
+        pledge: { id: 'wager', text: 'Win Bram\'s bet: 60 goods in the barn', days: 10,
+          need: { wheat: 30, carrot: 30 }, reward: { coins: 500, rep: { bram: 4 } } } },
+      { label: 'I do not bet', hint: 'he nods, unsurprised', rep: { bram: 1 } },
+    ],
+  }),
+
+  S({
+    id: 'the_apprentice', who: 'ren', art: '/ui/story/the-apprentice.png',
+    title: 'There is a boy at your gate',
+    body: [
+      'He says he will work for nothing if somebody teaches him something. He has been stood there an hour.',
+      'Mum says do not encourage him. Mum also made him a sandwich, so.',
+    ],
+    when: (s) => s.days >= 12 && s.placedCount >= 10,
+    choices: [
+      { label: 'Teach him the beds', hint: 'crops grow a little faster, for good',
+        modifier: { key: 'growthMult', value: 1.12, days: 9999 }, rep: { mira: 1 } },
+      { label: 'Teach him the animals', hint: 'stock produces a little more, for good',
+        modifier: { key: 'productionMult', value: 1.12, days: 9999 }, rep: { mira: 1 } },
+      { label: 'Send him home', hint: 'he goes. Ren does not speak to you for a week.',
+        rep: { mira: -1 } },
+    ],
+  }),
+
+  S({
+    id: 'nudge_repair', who: 'bram', art: '/ui/story/nudge-repair.png',
+    title: 'Rain is getting in',
+    body: [
+      'Somewhere on that roof there is a nail doing nothing and a gap doing a great deal.',
+      'It does not improve on its own. It only ever gets dearer.',
+    ],
+    when: (s) => s.worstWear >= 0.45,   // only when something is genuinely weathering
+    once: false, cooldown: 1000 * 60 * 60 * 24 * 12,
+    choices: [
+      { label: 'Which building', hint: 'he points it out; the repair is on him this once',
+        act: { repairWorst: true }, rep: { bram: 1 } },
+      { label: 'It has held this long', hint: '', revisit: 6 },
+    ],
+    teaches: 'building wear and the repair click, which is easy to never find',
   }),
 ];
 

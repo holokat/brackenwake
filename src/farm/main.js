@@ -195,14 +195,21 @@ function capBlocker(item) {
   return `<br>⚠ needs more ${over.join(' and ')} — build a <b>${yard}</b> to raise the limit`;
 }
 
+// Sedge's cart deal, and anything else that moves a shelf price. Applied at
+// the two places money actually changes hands, so the number you are quoted is
+// the number you pay.
+function priceOf(item) {
+  if (item?.price == null) return item?.price;
+  return Math.max(0, Math.round(item.price * mod('priceMult')));
+}
 function canAfford(item) {
   if (testMode) return true;
-  if (item.price != null && game.coins < item.price) return false;
+  if (item.price != null && game.coins < priceOf(item)) return false;
   return game.hasGoods(item.cost);
 }
 function payFor(item) {
   if (testMode) return;
-  if (item.price) { game.addCoins(-item.price); floatAtCoins(`-${item.price}${COIN}`); }
+  if (item.price) { const p = priceOf(item); game.addCoins(-p); floatAtCoins(`-${p}${COIN}`); }
   if (item.cost) game.spendGoods(item.cost);
   renderCoins();
   renderResChips();
@@ -514,11 +521,16 @@ let story = blankStory();
 let currentCard = null;
 let devCardIndex = 0;
 let devPlacement = 'auto';   // auto | corner | moment — test-mode preview only
-let devApply = false;        // test-mode: run a previewed choice for real
+// Test mode runs choices FOR REAL by default. Preview was the wrong default:
+// you open the browser to find out what a card does, and "preview only, nothing
+// happened" answers a question nobody asked. Toggle it off when you want to
+// flip through art without your farm changing under you.
+let devApply = true;
 let storyTick = 0;
 // ambient counters the triggers read that nothing else tracks
 const storyWatch = { dryDays: 0, foxRaids: 0, missedBites: 0, junkRun: 0,
-  idleJobDays: 0, powerDeficitNights: 0, storageFullEvents: 0, lastDay: 0 };
+  idleJobDays: 0, powerDeficitNights: 0, storageFullEvents: 0, lastDay: 0,
+  visitedFarms: 0, openedBook: false, hiveAgeDays: 0 };
 
 let testMode = false;
 try { testMode = localStorage.getItem('nostrux-test') === '1'; } catch {}
@@ -950,6 +962,7 @@ function renderMissionBook() {
     }
   }
 }
+$('#hud-book')?.addEventListener('click', () => { storyWatch.openedBook = true; });
 $('#collection-book').addEventListener('click', (e) => {
   if (e.target === $('#collection-book')) $('#collection-book').classList.add('hidden');
 });
@@ -1426,6 +1439,7 @@ function syncAllPlots() {
 // ================= nostr data =================
 
 function loadFarm(pubkey) {
+  if (myPk && pubkey !== myPk) storyWatch.visitedFarms++; // you went and looked
   const serial = ++farmSerial;
   farmerPk = pubkey;
   backfilled = false;
@@ -1684,8 +1698,8 @@ const AXES = [
 function buyAxe(axe) {
   if (!requireOwner()) return false;
   if (game.owned.includes(axe.id)) return true;
-  if (game.coins < axe.price && !testMode) {
-    toast(`🪓 a ${esc(axe.name)} costs ${axe.price}${COIN} — earn a little more first`, false);
+  if (game.coins < priceOf(axe) && !testMode) {
+    toast(`🪓 a ${esc(axe.name)} costs ${priceOf(axe)}${COIN}. Earn a little more first.`, false);
     audio.playSfx('denied', 0.25); return false;
   }
   if (testMode) { if (!game.owned.includes(axe.id)) game.owned.push(axe.id); game.save(); }
@@ -1699,16 +1713,18 @@ function buyAxe(axe) {
 function buyBow(bow) {
   if (!requireOwner()) return false;
   if (game.owned.includes(bow.id)) return true;
-  if (game.coins < bow.price) {
-    toast(`🏹 a ${esc(bow.name)} costs ${bow.price}${COIN} — earn a little more first`, false);
+  const cost = priceOf(bow);
+  if (game.coins < cost) {
+    toast(`🏹 a ${esc(bow.name)} costs ${cost}${COIN}. Earn a little more first.`, false);
     audio.playSfx('denied', 0.25);
     return false;
   }
-  if (!window.confirm(`Buy a ${bow.name} for ${bow.price} coins?\n\nIt goes in your Inventory — select it there to hunt deer for venison.`)) return false;
-  game.buy(bow);
+  if (!window.confirm(`Buy a ${bow.name} for ${cost} coins?\n\nIt goes in your Inventory. Select it there to hunt deer for venison.`)) return false;
+  // honour the deal price rather than the shelf price
+  game.coins -= cost; if (!game.owned.includes(bow.id)) game.owned.push(bow.id); game.save();
   renderCoins();
   audio.playSfx('loot_coin', 0.55);
-  toast(`🏹 ${esc(bow.name)} added to your Inventory — tap it to equip, then aim at a deer.`);
+  toast(`🏹 ${esc(bow.name)} is in your Inventory. Tap it to equip, then aim at a deer.`);
   return true;
 }
 
@@ -4587,6 +4603,14 @@ function storyExtras() {
     lakeFrozen: !!farm?.iceState?.().frozen,
     deerNear: (farm?.quarry || []).some((q) => q?.userData?.roam?.type === 'deer'),
     deerCount: (farm?.quarry || []).filter((q) => q?.userData?.roam?.type === 'deer' && q.visible).length,
+    // the state that keeps a card honest: a card about rain getting in must not
+    // fire on a farm where nothing is actually weathering
+    worstWear: [...placedRuntime.keys()].reduce((w, id) => Math.max(w, farm?.buildingWear?.(id) || 0), 0),
+    pathCount: (game.paths || []).length,
+    houseLevel: houseLevel(),
+    visitedFarms: storyWatch.visitedFarms,
+    openedBook: storyWatch.openedBook,
+    hiveAgeDays: storyWatch.hiveAgeDays,
     loosePenAnimals: [...(farm?.animalRecs?.values?.() || [])].filter((a) => !a.bounds).length,
   };
 }
@@ -4622,9 +4646,25 @@ function renderStoryCard(card, devIndex = null) {
     <div class="sc-choices">${choices}</div>`;
   // a handful of cards earn the centre of the screen; the rest knock quietly
   const moment = devPlacement === 'moment' || (devPlacement === 'corner' ? false : !!card.moment);
+  el.classList.remove('panel');   // re-decided by the image's own proportions
   el.classList.toggle('moment', moment);
   $('#story-scrim')?.classList.toggle('hidden', !moment);
   el.classList.remove('hidden');
+
+  // A 2:3 image is a full themed PANEL that the text sits on; a 4:3 one is an
+  // inset picture above the text. Decided from the file itself so art can be
+  // swapped between the two without a code change. Checked both immediately
+  // (a cached image is already complete and will never fire onload) and on
+  // load, which covers the first time each file is fetched.
+  const img = el.querySelector('.sc-art');
+  if (img) {
+    const decide = () => {
+      if (!img.naturalWidth) return;
+      el.classList.toggle('panel', img.naturalHeight > img.naturalWidth * 1.3);
+    };
+    decide();
+    img.addEventListener('load', decide, { once: true });
+  }
 
   el.querySelector('.sc-x').onclick = () => {
     if (devIndex == null) dismissCard(card, story, game);
@@ -4634,7 +4674,7 @@ function renderStoryCard(card, devIndex = null) {
     b.onclick = () => {
       const c = card.choices[+b.dataset.i];
       if (devIndex != null && !devApply) {
-        toast(`🎭 preview only — "${esc(c.label)}" was not applied. Use the APPLY toggle to run it for real.`);
+        toast(`🎭 look-only mode: "${esc(c.label)}" did not run. Hit the toggle to arm it.`);
         closeStoryCard(); return;
       }
       const before = { coins: game.coins, inv: { ...game.inventory } };
@@ -4715,6 +4755,39 @@ const storyHost = {
           if (have > keep) { n += have - keep; game.inventory[id] = keep; }
         }
         game.addCoins(n * 4); toast(`🪙 sold ${n} goods off the top`);
+        break;
+      }
+      // ---- the discovery cards: every one of these opens the real thing ----
+      case 'openCraft':
+        activeGroup = 'craft'; activeTab = value === 'bow' ? 'bow' : 'tool'; slotPage = 0; renderHud();
+        break;
+      case 'openTrees':
+        activeGroup = 'style'; activeTab = 'tree'; slotPage = 0; renderHud();
+        break;
+      case 'openMarket': openMarket(); break;
+      case 'openBook': $('#hud-book')?.click(); break;
+      case 'openBookMissions': renderMissionBook(); $('#mission-book').classList.remove('hidden'); break;
+      case 'openFriends': $('#friends-btn')?.click(); break;
+      case 'openPantry': openPantry(); break;
+      case 'teachHunting':
+        // he does not hand you a stat, he hands you a shot you would not have had
+        game.bumpStat('hunted');
+        story.modifiers = story.modifiers.filter((m) => m.key !== 'huntAim');
+        story.modifiers.push({ key: 'huntAim', value: 1.25, until: Date.now() + 1000 * 60 * 60 * 24 * 365 });
+        break;
+      case 'repairWorst': {
+        // he points at the worst one and mends it on his way past
+        let worst = null, worstWear = 0.2;
+        for (const [farmId, uid] of placedRuntime.entries()) {
+          const w = farm.buildingWear(farmId);
+          if (w > worstWear) { worstWear = w; worst = { farmId, uid }; }
+        }
+        if (worst) {
+          farm.repairBuilding?.(worst.farmId);
+          const e = game.placed.find((x) => x.uid === worst.uid);
+          const item = e && findAnyItem(e.kind, e.type);
+          toast(`🔨 he patched your <b>${esc(item?.name || 'building')}</b> on the way past`);
+        } else toast('🔨 he walks the whole place and finds nothing worth mending. He seems disappointed.');
         break;
       }
       case 'grantBeehive': {
@@ -4880,6 +4953,7 @@ function tickStory() {
     storyWatch.lastDay = day;
     if ((farm.weather?.precip) !== 'rain') storyWatch.dryDays++; else storyWatch.dryDays = 0;
     if (!Object.keys(game.jobs || {}).length) storyWatch.idleJobDays++; else storyWatch.idleJobDays = 0;
+    if (game.placed.some((e) => e.type === 'beehive')) storyWatch.hiveAgeDays++; else storyWatch.hiveAgeDays = 0;
   }
   if (farm.powerDeficit && (farm.dayFactor ?? 1) < 0.42) storyWatch.powerDeficitNights++;
   if (game.storageFrac() >= 1) storyWatch.storageFullEvents++;
@@ -5041,12 +5115,12 @@ function renderStoryDevbar() {
     <button data-sd="copy" title="copy the art path">art path</button>
     <button data-sd="place" title="preview this card in either position">${devPlacement}${card.moment ? ' ·moment' : ''}</button>
     <button data-sd="apply" title="run the chosen answer for real instead of previewing it"
-      style="${devApply ? 'background:#6b3f1c;color:#ffe6b8' : ''}">${devApply ? 'APPLY ON' : 'preview'}</button>`;
+      style="${devApply ? 'background:#6b3f1c;color:#ffe6b8' : ''}">${devApply ? 'LIVE' : 'look only'}</button>`;
   el.querySelector('[data-sd="prev"]').onclick = () => showDevCard(devCardIndex - 1);
   el.querySelector('[data-sd="next"]').onclick = () => showDevCard(devCardIndex + 1);
   el.querySelector('[data-sd="apply"]').onclick = () => {
     devApply = !devApply; showDevCard(devCardIndex);
-    toast(devApply ? '⚙️ choices will now RUN for real' : '🎭 back to preview — choices do nothing');
+    toast(devApply ? '⚙️ live: choices run for real' : '🎭 look only: choices do nothing');
   };
   el.querySelector('[data-sd="place"]').onclick = () => {
     devPlacement = devPlacement === 'auto' ? 'corner' : devPlacement === 'corner' ? 'moment' : 'auto';
