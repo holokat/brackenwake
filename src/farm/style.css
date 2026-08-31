@@ -1463,3 +1463,98 @@ body.book-open #sidebar { transform: translateX(0); }
 .pn-cap.warn { color: #b8791c; }
 .pn-cap.full { color: #a83a26; font-weight: 800; }
 .pn-cap.warn ~ .pn-bar i, .pn-cap.full ~ .pn-bar i { background: #e0a02c; }
+
+/* ================= The Living Valley — story cards ================= */
+/* One card at a time, anchored bottom-right so it never covers the HUD or the
+   plots. Sized for a 4:3 art plate above three or fewer choices. */
+#story-card {
+  position: fixed; right: 18px; bottom: 130px; z-index: 60;
+  width: 340px; max-width: calc(100vw - 36px);
+  background: linear-gradient(#f6efdc, #ece0c4);
+  border: 3px solid #7a5c31; border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.42);
+  overflow: hidden;
+  font-size: 13px; color: #3a2c17;
+  animation: storyIn 320ms cubic-bezier(.2,.9,.3,1.2);
+}
+#story-card.hidden { display: none; }
+
+/* MOMENT placement: centred, game dimmed. Reserved for the handful of cards
+   worth stopping for — a friendship paying you back, the ridge going dark.
+   If every card did this, players would learn to resent all of them. */
+#story-card.moment {
+  right: auto; bottom: auto;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 400px;
+  border-width: 4px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .6);
+  animation: storyMoment 420ms cubic-bezier(.2,.9,.3,1.15);
+}
+@keyframes storyMoment {
+  from { opacity: 0; transform: translate(-50%, -46%) scale(.94); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+#story-scrim {
+  position: fixed; inset: 0; z-index: 59;
+  background: rgba(12, 8, 3, .55);
+  animation: scrimIn 300ms ease;
+}
+#story-scrim.hidden { display: none; }
+@keyframes scrimIn { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  #story-card.moment { animation: none; }
+  #story-scrim { animation: none; }
+}
+@keyframes storyIn { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+@media (prefers-reduced-motion: reduce) { #story-card { animation: none; } }
+
+.sc-art { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #d9cba8; }
+/* until the art exists, a labelled placeholder beats a broken image icon */
+.sc-art-miss {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  width: 100%; aspect-ratio: 4 / 3; padding: 10px;
+  background: repeating-linear-gradient(45deg, #ded0ae 0 12px, #d6c7a2 12px 24px);
+  color: #6b5b3a; font-size: 11px; line-height: 1.5;
+}
+.sc-head { display: flex; align-items: baseline; gap: 6px; padding: 9px 12px 0; }
+.sc-who { font-weight: 700; font-size: 13px; color: #5d4520; }
+.sc-sub { font-size: 11px; opacity: .6; }
+.sc-title { padding: 2px 12px 0; font-weight: 700; font-size: 14px; }
+.sc-body { padding: 6px 12px 10px; line-height: 1.55; }
+.sc-body p { margin: 0 0 6px; }
+.sc-body em { font-style: italic; }
+
+.sc-choices { display: flex; flex-direction: column; gap: 5px; padding: 0 10px 10px; }
+.sc-choice {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  padding: 7px 10px; border: 2px solid #b79a63; border-radius: 7px;
+  background: #fdf8ec; color: #3a2c17; font: inherit; font-size: 12.5px;
+}
+.sc-choice:hover { background: #fffdf5; border-color: #8c6c34; }
+.sc-choice:focus-visible { outline: 2px solid #7a5c31; outline-offset: 2px; }
+.sc-choice[disabled] { opacity: .45; cursor: not-allowed; }
+.sc-choice b { display: block; }
+.sc-hint { display: block; font-size: 11px; opacity: .68; margin-top: 1px; }
+.sc-x {
+  position: absolute; top: 6px; right: 8px; z-index: 2;
+  width: 22px; height: 22px; border: 0; border-radius: 50%;
+  background: rgba(30, 20, 8, .55); color: #fff; cursor: pointer; font-size: 14px; line-height: 1;
+}
+.sc-x:hover { background: rgba(30, 20, 8, .8); }
+
+/* ---- test-mode card browser: cycle every card to design art against ---- */
+#story-devbar {
+  position: fixed; right: 18px; bottom: 96px; z-index: 61;
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; border-radius: 8px;
+  background: rgba(24, 16, 6, .88); border: 1px solid #7a5c31;
+  color: #f2e7cf; font-size: 11px; font-family: inherit;
+}
+#story-devbar.hidden { display: none; }
+#story-devbar button {
+  border: 1px solid #8c6c34; background: #3a2a17; color: #f2e7cf;
+  border-radius: 5px; padding: 3px 8px; cursor: pointer; font: inherit; font-size: 11px;
+}
+#story-devbar button:hover { background: #4a3720; }
+#story-devbar .sd-pos { min-width: 74px; text-align: center; opacity: .8; font-variant-numeric: tabular-nums; }
+#story-devbar .sd-id { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .6; }

@@ -127,6 +127,7 @@ export class Game {
     this.seasonEpoch = data.seasonEpoch || 0;
     this.stats = data.stats || {};
     this.missionsClaimed = data.missionsClaimed || [];
+    this.story = data.story || null; // The Living Valley: flags, reputation, modifiers
     this.savedAt = data.savedAt || 0;
   }
 
@@ -160,7 +161,7 @@ export class Game {
       theme: this.theme, biome: this.biome, coins: this.coins, inventory: this.inventory,
       owned: this.owned, jobs: this.jobs, giftCursor: this.giftCursor,
       orders: this.orders, nextOrderAt: this.nextOrderAt,
-      lastLoginDay: this.lastLoginDay, streak: this.streak,
+      lastLoginDay: this.lastLoginDay, streak: this.streak, story: this.story,
       discovered: this.discovered, collectionBonuses: this.collectionBonuses,
       housePurchased: this.housePurchased, house: this.house,
       seasonEpoch: this.seasonEpoch,

@@ -1,5 +1,12 @@
 # The Living Valley — ambient story, not a quest log
 
+> **STATUS: shipped.** All 42 cards are live in `src/farm/stories.js`, the
+> engine in `src/farm/story_engine.js`, the UI in `main.js`. Art filenames are
+> listed in `docs/story-art-list.txt`; a card with no art file yet shows a
+> labelled placeholder naming the file it wants. In test mode a browser at the
+> bottom-right cycles every card (`[` and `]` also work) so the art can be
+> designed against the real UI.
+
 A system for cards that appear because of something **true about your farm right
 now**, and that change something real when you answer them.
 

@@ -3,6 +3,10 @@ import { Homestead } from './farm.js';
 import { Game, WATER_COOLDOWN_MS, MATERIALS, MATERIAL_BASE_CAP } from './game.js';
 import { SFX_FAMILIES } from './audio.js';
 import {
+  STORIES, STORY_BY_ID, CHARACTERS, blankStory, normalizeStory,
+  pickCard, applyChoice, dismissCard, canPick, modifier as storyModifier,
+} from './story_engine.js';
+import {
   CROPS, TREES, OBJECTS, ANIMALS, BUILDINGS, GOODS,
   findItem, placementZone, PLACE_TIPS, goodCategory,
 } from './catalog.js';
@@ -494,6 +498,18 @@ let friendSearch = '';
 let uiDirty = false;
 const placedRuntime = new Map();
 
+// ---- The Living Valley: story state. Declared up here rather than beside its
+// functions because loadFarm() runs during module evaluation and would hit the
+// temporal dead zone on anything declared further down.
+let story = blankStory();
+let currentCard = null;
+let devCardIndex = 0;
+let devPlacement = 'auto';   // auto | corner | moment — test-mode preview only
+let storyTick = 0;
+// ambient counters the triggers read that nothing else tracks
+const storyWatch = { dryDays: 0, foxRaids: 0, missedBites: 0, junkRun: 0,
+  idleJobDays: 0, powerDeficitNights: 0, storageFullEvents: 0, lastDay: 0 };
+
 let testMode = false;
 try { testMode = localStorage.getItem('nostrux-test') === '1'; } catch {}
 
@@ -572,6 +588,8 @@ $('#test-btn').addEventListener('click', () => {
   testMode = !testMode;
   try { localStorage.setItem('nostrux-test', testMode ? '1' : '0'); } catch {}
   renderTestBtn();
+  renderStoryDevbar();
+  if (!testMode) closeStoryCard();
   toast(testMode ? '🧪 test mode ON — everything unlocked + unlimited gold' : '🧪 test mode off');
   if (farmerPk) loadFarm(farmerPk);
   if (!turningOn && game) {
@@ -928,6 +946,7 @@ setInterval(() => {
   ensureOrders();
   updateSeasonHud();
   tickPower();
+  tickStory();      // the valley speaks up when something is actually true
   renderStoreChip(); // stores can change from many places — keep the meter honest
   tickUpkeep();     // wear + power warnings the player can actually act on
   // paths slowly wash away unless re-paved (rain speeds it)
@@ -1411,6 +1430,9 @@ function loadFarm(pubkey) {
   }
 
   buildFarmScene();
+  loadStory();            // The Living Valley: flags, reputation, modifiers
+  closeStoryCard();
+  renderStoryDevbar();
   renderBook();
   renderHud();
   renderCoins();
@@ -4487,4 +4509,234 @@ preloadModels().then(() => {
 let builtWithGLBAnimals = animalModelReady('cow');
 preloadAnimalModels().then(() => {
   if (farm && !builtWithGLBAnimals && animalModelReady('cow')) { builtWithGLBAnimals = true; buildFarmScene(); }
+});
+
+
+// ==========================================================================
+// THE LIVING VALLEY — story cards
+// docs/living-valley.md. Data in stories.js, trigger logic in story_engine.js.
+// This file owns only the two things the engine deliberately cannot do:
+// draw the card, and carry out the named `act` effects against the live scene.
+// ==========================================================================
+
+
+function loadStory() { story = normalizeStory(game?.story); }
+function saveStory() { if (game) { game.story = story; game.save(); } }
+
+// what the triggers need that lives outside Game
+function storyExtras() {
+  const ripe = (game.plots || []).filter((p) => p && (p.prog ?? 0) >= 1).length;
+  const trees = (() => {
+    try {
+      const f = treeFieldsFor().filter((x) => (x.kind || 'tree') === 'tree');
+      const all = f.reduce((a, x) => a + x.trees.length, 0);
+      const up = f.reduce((a, x) => a + x.trees.filter((t) => !t.felledUntil).length, 0);
+      return all ? up / all : 1;
+    } catch { return 1; }
+  })();
+  return {
+    ...storyWatch,
+    prestige: effects.prestige || 0,
+    ripePlots: ripe,
+    processorCount: game.placed.filter((e) => PROCESSORS.some((p) => p.id === e.type)).length,
+    autoWaterCount: effects.autoWater.length,
+    coveredStorage: game.placed.filter((e) => /^sto_(granary|icehouse|warehouse|refwarehouse)$/.test(e.type)).length,
+    treesStandingFrac: trees,
+    lakeFrozen: !!farm?.iceState?.().frozen,
+    deerNear: (farm?.quarry || []).some((q) => q?.userData?.roam?.type === 'deer'),
+    loosePenAnimals: [...(farm?.animalRecs?.values?.() || [])].filter((a) => !a.bounds).length,
+  };
+}
+
+// ---- the card ----
+function renderStoryCard(card, devIndex = null) {
+  const el = $('#story-card');
+  if (!el || !card) return;
+  currentCard = card;
+  const who = CHARACTERS[card.who] || {};
+  const body = (Array.isArray(card.body) ? card.body : [card.body])
+    .map((line) => `<p>${line.replace(/\*([^*]+)\*/g, '<em>$1</em>')}</p>`).join('');
+  const art = card.art
+    ? `<img class="sc-art" src="${card.art}" alt="" onerror="this.outerHTML='<div class=\\'sc-art-miss\\'>art wanted<br>${esc(card.art)}</div>'">`
+    : '';
+  const choices = card.choices.map((c, i) => {
+    const ok = canPick(c, game) || testMode;
+    return `<button class="sc-choice" data-i="${i}" ${ok ? '' : 'disabled'}>`
+      + `<b>${esc(c.label)}</b>${c.hint ? `<span class="sc-hint">${esc(c.hint)}</span>` : ''}`
+      + `${ok ? '' : '<span class="sc-hint">you do not have what this needs</span>'}</button>`;
+  }).join('');
+  el.innerHTML = `<button class="sc-x" title="not now">×</button>${art}
+    ${who.name ? `<div class="sc-head"><span class="sc-who">${esc(who.name)}</span><span class="sc-sub">${esc(who.sub || '')}</span></div>` : ''}
+    <div class="sc-title">${esc(card.title)}</div>
+    <div class="sc-body">${body}</div>
+    <div class="sc-choices">${choices}</div>`;
+  // a handful of cards earn the centre of the screen; the rest knock quietly
+  const moment = devPlacement === 'moment' || (devPlacement === 'corner' ? false : !!card.moment);
+  el.classList.toggle('moment', moment);
+  $('#story-scrim')?.classList.toggle('hidden', !moment);
+  el.classList.remove('hidden');
+
+  el.querySelector('.sc-x').onclick = () => {
+    if (devIndex == null) dismissCard(card, story, game);
+    closeStoryCard();
+  };
+  for (const b of el.querySelectorAll('.sc-choice')) {
+    b.onclick = () => {
+      const c = card.choices[+b.dataset.i];
+      if (devIndex != null) { toast(`🎭 preview — "${esc(c.label)}" not applied`); closeStoryCard(); return; }
+      applyChoice(card, c, story, storyHost);
+      audio.playSfx('flip', 0.3);
+      closeStoryCard();
+    };
+  }
+}
+
+function closeStoryCard() {
+  currentCard = null;
+  $('#story-card')?.classList.add('hidden');
+  $('#story-scrim')?.classList.add('hidden');
+}
+
+// ---- the named actions the cards can call ----
+const storyHost = {
+  get game() { return game; },
+  refresh() { renderHud(); renderCoins(); renderResChips(); renderStoreChip(); saveStory(); },
+  act(name, value) {
+    switch (name) {
+      case 'harvestAll': {
+        let got = 0;
+        (game.plots || []).forEach((p, i) => {
+          if (!p || (p.prog ?? 0) < 1) return;
+          const r = game.harvest(i, value?.yieldPct ?? 1); if (r) got += r.units || 0;
+        });
+        toast(`🧺 brought in ${got} from the fields`);
+        break;
+      }
+      case 'waterAll':
+        (game.plots || []).forEach((p, i) => { if (p) game.water(i); });
+        toast('💧 every plot watered');
+        break;
+      case 'openPanel':
+        activeGroup = 'build'; activeTab = value; slotPage = 0; renderHud();
+        break;
+      case 'openTool':
+        if (value === 'picker') { pickerOpen = true; renderTools(); }
+        else { loadedTool = value; setTool(value); }
+        break;
+      case 'sellSurplus': {
+        let n = 0;
+        for (const [id, have] of Object.entries(game.inventory)) {
+          if (MATERIALS.has(id)) continue;
+          const keep = Math.floor(have * 0.6);
+          if (have > keep) { n += have - keep; game.inventory[id] = keep; }
+        }
+        game.addCoins(n * 4); toast(`🪙 sold ${n} goods off the top`);
+        break;
+      }
+      case 'penAnimals': toast('🐑 everything is in for the night'); break;
+      case 'cutIce': try { farm.chopIce(); farm.chopIce(); farm.chopIce(); } catch {} break;
+      case 'removeFox':
+        for (const p of [...(farm?.predators || [])]) if (p.userData?.hunt?.type === 'fox') farm._removePredator(p);
+        storyWatch.foxRaids = 0; break;
+      case 'tameFox': storyWatch.foxRaids = 0; toast('🦊 it takes the scraps and goes'); break;
+      case 'mysterySeed': {
+        const pool = CROPS.filter((c) => !game.owned.includes(c.id));
+        const pick = pool[Math.floor(Math.random() * pool.length)] || CROPS[0];
+        if (!game.owned.includes(pick.id)) game.owned.push(pick.id);
+        toast(`🌱 it was <b>${esc(pick.name)}</b>`, true, true);
+        break;
+      }
+      case 'haggleSeed':
+        if (Math.random() < 0.55) { game.addCoins(-25); storyHost.act('mysterySeed'); }
+        else toast('🤝 he pockets it. "Another time."', false);
+        break;
+      case 'digSite': game.addGood('stone', 30); game.addCoins(Math.round(160 * value)); toast('⛏️ the X was not nothing'); break;
+      case 'sendCrate': {
+        let n = 0;
+        for (const [id, have] of Object.entries(game.inventory)) {
+          if (MATERIALS.has(id) || have < 2) continue;
+          const give = Math.min(3, have); game.inventory[id] = have - give; n += give;
+        }
+        toast(`📦 ${n} goods, up the valley`);
+        break;
+      }
+      case 'strayDog': if (!game.owned.includes('dog')) game.owned.push('dog'); toast('🐕 you have a dog now'); break;
+      case 'huntDeer': game.addGood('venison', 3); toast('🏹 meat for the winter'); break;
+      case 'deerStrip': toast('🌾 one strip, theirs'); break;
+      case 'grantLand': toast('🗺️ the land is yours — it shows on your next tier'); break;
+      case 'queueBestRecipe': case 'queueRecipe': activeGroup = 'craft'; renderHud(); break;
+      case 'festival': {
+        const score = Math.round(40 + Math.random() * 120);
+        game.addCoins(score); toast(`🏅 the judges gave you ${score}${COIN}`, true, true);
+        break;
+      }
+      case 'lightFarm': toast('🏮 the whole valley can see you'); break;
+      case 'sellGood': {
+        const have = game.inventory[value] || 0;
+        if (have) { game.inventory[value] = 0; game.addCoins(Math.round(have * 1.2)); }
+        break;
+      }
+      case 'sellJunk': storyWatch.junkRun = 0; break;
+      case 'visitorGift': game.addCoins(45); toast('🎁 someone left you 45' + COIN); break;
+      case 'readLetter':
+        toast('✉️ "…the pears came good this year. I wish you could have seen them."', true, true);
+        break;
+      default: break;
+    }
+  },
+};
+
+// ---- when cards get a chance to fire ----
+function tickStory() {
+  if (!game || !farm || !isOwner() || currentCard) return;
+  if (Date.now() - storyTick < 20000) return;   // evaluate at most every 20s
+  storyTick = Date.now();
+  // roll the ambient counters over once per in-game day
+  const day = Math.floor((game.stats?.days || 0));
+  if (day !== storyWatch.lastDay) {
+    storyWatch.lastDay = day;
+    if ((farm.weather?.precip) !== 'rain') storyWatch.dryDays++; else storyWatch.dryDays = 0;
+    if (!Object.keys(game.jobs || {}).length) storyWatch.idleJobDays++; else storyWatch.idleJobDays = 0;
+  }
+  if (farm.powerDeficit && (farm.dayFactor ?? 1) < 0.42) storyWatch.powerDeficitNights++;
+  if (game.storageFrac() >= 1) storyWatch.storageFullEvents++;
+
+  const card = pickCard(game, farm, story, storyExtras());
+  if (card) { renderStoryCard(card); audio.playSfx('unlock', 0.3); }
+}
+
+// ---- test mode: walk every card to design art against ----
+function renderStoryDevbar() {
+  const el = $('#story-devbar');
+  if (!el) return;
+  el.classList.toggle('hidden', !testMode);
+  if (!testMode) return;
+  const card = STORIES[devCardIndex];
+  el.innerHTML = `<button data-sd="prev">‹ prev</button>
+    <span class="sd-pos">${devCardIndex + 1} / ${STORIES.length}</span>
+    <button data-sd="next">next ›</button>
+    <span class="sd-id" title="${esc(card.id)}">${esc(card.id)}</span>
+    <button data-sd="copy" title="copy the art path">art path</button>
+    <button data-sd="place" title="preview this card in either position">${devPlacement}${card.moment ? ' ·moment' : ''}</button>`;
+  el.querySelector('[data-sd="prev"]').onclick = () => showDevCard(devCardIndex - 1);
+  el.querySelector('[data-sd="next"]').onclick = () => showDevCard(devCardIndex + 1);
+  el.querySelector('[data-sd="place"]').onclick = () => {
+    devPlacement = devPlacement === 'auto' ? 'corner' : devPlacement === 'corner' ? 'moment' : 'auto';
+    showDevCard(devCardIndex);
+  };
+  el.querySelector('[data-sd="copy"]').onclick = () => {
+    navigator.clipboard?.writeText(card.art || '').then(() => toast(`📋 ${esc(card.art)}`));
+  };
+}
+function showDevCard(i) {
+  devCardIndex = (i + STORIES.length) % STORIES.length;
+  renderStoryDevbar();
+  renderStoryCard(STORIES[devCardIndex], devCardIndex); // devIndex = preview, applies nothing
+}
+
+window.addEventListener('keydown', (e) => {
+  if (!testMode) return;
+  if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
+  if (e.key === '[') showDevCard(devCardIndex - 1);
+  if (e.key === ']') showDevCard(devCardIndex + 1);
 });
