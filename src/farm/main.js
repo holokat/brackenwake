@@ -5193,7 +5193,12 @@ function valleyBookHtml() {
     h += '<div class="mb-note" style="margin-top:8px"><b>People</b></div>';
     for (const [who, n] of people.sort((a, b) => b[1] - a[1])) {
       const c = CHARACTERS[who] || { name: who };
-      h += `<div class="mb-row"><span>${n < 0 ? '😐' : '🙂'}</span>
+      // the portraits were declared in stories.js and rendered nowhere. This is
+      // their job: a face beside the name you have a history with.
+      const face = c.art
+        ? `<img class="mb-face" src="${c.art}" alt="" onerror="this.replaceWith(document.createTextNode('${n < 0 ? '😐' : '🙂'}'))">`
+        : (n < 0 ? '😐' : '🙂');
+      h += `<div class="mb-row"><span>${face}</span>
         <span class="mb-name">${esc(c.name || who)}<br><span class="mb-mini-note">${REP_WORD(n)}</span></span>
         <span class="mb-fill"><span class="mb-n">${n > 0 ? '+' : ''}${n}</span></span></div>`;
     }

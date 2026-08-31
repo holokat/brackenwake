@@ -1579,3 +1579,5 @@ body.book-open #sidebar { transform: translateX(0); }
 
 /* the Valley section inside the Mission Book */
 .mb-mini-note { font-size: 10px; opacity: .62; font-weight: 400; }
+/* character portraits on the Valley page's People rows */
+.mb-face { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block; }

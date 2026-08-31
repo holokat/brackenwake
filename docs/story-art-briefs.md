@@ -873,3 +873,44 @@ text, no UI, no logos.
 
 *Answers on this card: Which building / It has held this long*
 
+---
+
+# The six portraits
+
+Separate from the card panels. These appear as small round faces beside a name
+on the Valley page of the Mission Book, next to how that person feels about
+you, so they are read at about 22px. Anything subtle is wasted.
+
+**Format:** 512 x 512, square, head and shoulders, plain flat background in a
+muted tone that is not skin. No frame, no border, no text. The game crops them
+to a circle, so keep the head centred and leave room at the edges.
+
+They also set the canonical face for each character. Whoever appears in a card
+panel has to be recognisably this person.
+
+### `who-bram.png`
+Weathered farmer, seventies. Flat cap, grey stubble, deep lines, a canvas coat
+worn through at the collar. Looking slightly off camera, mouth closed, not
+unfriendly and not smiling. Cold overcast light.
+
+### `who-mira.png`
+Woman in her thirties. Hair tied back badly with strands loose, sleeves rolled,
+an apron strap visible at the shoulder. Mid-expression, as though she was
+talking a second ago. Warm indoor light.
+
+### `who-sedge.png`
+Travelling trader, fifties. Too many layers, a scarf, a hat that has been
+rained on many times. Openly pleased with himself. Bright flat daylight.
+
+### `who-ren.png`
+Girl of about eight, Mira's daughter. Dark hair, a smudge of dirt on one cheek,
+entirely certain of herself. Looking straight ahead. Warm light.
+
+### `who-ridge.png`
+No person. A distant farmhouse on a ridge at dusk, small in frame, one chimney,
+seen across a valley. This is a place, not a face, and should read as such even
+at 22px: a dark silhouette against a pale cold sky.
+
+### `who-valley.png`
+No person. The valley itself from above at golden hour, fields and hedgerows,
+no buildings picked out. A landscape reduced to a few flat shapes.
