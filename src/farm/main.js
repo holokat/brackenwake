@@ -5,6 +5,7 @@ import { SFX_FAMILIES } from './audio.js';
 import {
   STORIES, STORY_BY_ID, CHARACTERS, blankStory, normalizeStory, buildState,
   pickCard, applyChoice, dismissCard, canPick, modifier as storyModifier,
+  pledgeProgress, deliverPledge, expirePledges,
 } from './story_engine.js';
 import {
   CROPS, TREES, OBJECTS, ANIMALS, BUILDINGS, GOODS,
@@ -904,7 +905,7 @@ function renderMissionBook() {
   const mbBuy = $('#mb-buyhouse');
   if (mbBuy) mbBuy.addEventListener('click', () => { buyHouseUpgrade(); renderMissionBook(); });
 
-  let ch = '';
+  let ch = valleyBookHtml();
   // within each chapter: ready-to-claim on top, then in-progress, and
   // accomplished (claimed) missions sink to the bottom — so the next
   // actionable goal is always the first thing you see.
@@ -933,7 +934,20 @@ function renderMissionBook() {
   }
   $('#mb-chapters').innerHTML = ch;
   for (const b of $('#mb-chapters').querySelectorAll('.mb-claim')) {
-    b.addEventListener('click', () => claimMission(b.dataset.mission));
+    if (b.dataset.pledge) {
+      // keeping a promise: hand the goods over and take the payment
+      b.addEventListener('click', () => {
+        const before = { coins: game.coins, inv: { ...game.inventory } };
+        const kept = deliverPledge(b.dataset.pledge, story, storyHost);
+        if (!kept) return;
+        reportChoice(before, {});
+        audio.playSfx('unlock', 0.45);
+        toast(`🤝 kept your word — <b>${esc(kept.text)}</b>`, true, true);
+        renderMissionBook();
+      });
+    } else {
+      b.addEventListener('click', () => claimMission(b.dataset.mission));
+    }
   }
 }
 $('#collection-book').addEventListener('click', (e) => {
@@ -4870,6 +4884,11 @@ function tickStory() {
   if (farm.powerDeficit && (farm.dayFactor ?? 1) < 0.42) storyWatch.powerDeficitNights++;
   if (game.storageFrac() >= 1) storyWatch.storageFullEvents++;
 
+  for (const dead of expirePledges(story)) {
+    toast(`🤝 you did not get round to it — <b>${esc(dead.text)}</b> has lapsed`, false);
+    if (dead.who) story.rep[dead.who] = (story.rep[dead.who] || 0) - 1;
+    saveStory();
+  }
   const card = pickCard(game, farm, story, storyExtras());
   if (card) { renderStoryCard(card); audio.playSfx('unlock', 0.3); }
 }
@@ -4916,6 +4935,96 @@ function tickSpoilage() {
   game.inventory[id] = Math.max(0, have - lost);
   game.save(); renderStoreChip();
   toast(`🌧️ ${lost} ${goodInfo(id).name} spoiled in the open shed`, false);
+}
+
+// ==========================================================================
+// The Valley page — where a promise goes so you can come back to it.
+// "I'll grow you extra" used to set a modifier and vanish, leaving nowhere to
+// return and say you had done it. Everything the story is holding on your
+// behalf is now listed here: promises with progress and a Deliver button,
+// what is currently in effect and for how long, and who remembers you.
+// ==========================================================================
+
+const MOD_LABEL = {
+  sellBonusAll: (v) => `every sale ${v >= 1 ? '+' : ''}${Math.round((v - 1) * 100)}%`,
+  growthMult: (v) => `crops grow ${v > 1 ? 'faster' : 'slower'} (×${v})`,
+  yieldBonus: (v) => `${v > 0 ? '+' : ''}${v} yield per harvest`,
+  predatorOdds: (v) => (v === 0 ? 'predators kept off entirely' : `predators ${v < 1 ? 'less' : 'more'} likely (×${v})`),
+  wearMult: (v) => (v === 0 ? 'buildings not weathering' : `buildings weather ×${v}`),
+  chopSpeed: (v) => `axe swings ${Math.round((1 - v) * 100)}% quicker`,
+  regrowMult: (v) => `woodland regrows ${v < 1 ? 'faster' : 'slower'} (×${v})`,
+  productionMult: (v) => `animals produce ×${v}`,
+  fishLuck: (v) => `bites come ×${v} quicker`,
+  spoilRate: () => 'produce spoiling on wet days',
+  storageBonus: (v) => `+${v} storage`,
+  prestige: (v) => `+${v} prestige`,
+};
+function modLabel(m) {
+  if (m.key.startsWith('sellBonus:')) {
+    const g = goodInfo(m.key.slice(10));
+    return `${g.icon} ${g.name} sell ${m.value >= 1 ? '+' : ''}${Math.round((m.value - 1) * 100)}%`;
+  }
+  return MOD_LABEL[m.key] ? MOD_LABEL[m.key](m.value) : `${m.key} ×${m.value}`;
+}
+const REP_WORD = (n) => (n >= 6 ? 'would do anything for you' : n >= 3 ? 'counts you a friend'
+  : n >= 1 ? 'thinks well of you' : n <= -2 ? 'is wary of you' : 'knows who you are');
+
+function timeLeft(until) {
+  const ms = until - Date.now();
+  if (ms <= 0) return 'expired';
+  const h = ms / 3600000;
+  return h >= 24 ? `${Math.round(h / 24)}d left` : h >= 1 ? `${Math.round(h)}h left` : `${Math.round(ms / 60000)}m left`;
+}
+
+function valleyBookHtml() {
+  if (!story) return '';
+  const live = story.modifiers.filter((m) => m.until > Date.now());
+  const people = Object.entries(story.rep).filter(([, n]) => n);
+  if (!story.pledges.length && !live.length && !people.length) return '';
+
+  let h = `<div class="mb-ch"><div class="mb-ch-title">🌾 The Valley</div>
+    <div class="mb-ch-desc">What you have promised, what is in effect, and who remembers.</div>`;
+
+  if (story.pledges.length) {
+    h += '<div class="mb-note" style="margin-top:6px"><b>Promises</b></div>';
+    for (const p of story.pledges) {
+      const { rows, ready } = pledgeProgress(p, game);
+      const who = CHARACTERS[p.who] || {};
+      const bits = rows.map((r) => {
+        const g = goodInfo(r.id);
+        return `<span class="${r.short ? 'ing-miss' : 'ing-ok'}">${g.icon} ${game.inventory[r.id] || 0}/${r.need}</span>`;
+      }).join(' ');
+      const pct = Math.round(100 * rows.reduce((a, r) => a + r.have / r.need, 0) / rows.length);
+      h += `<div class="mb-row">
+        <span>${ready ? '🎁' : '🤝'}</span>
+        <span class="mb-name">${esc(p.text)}<br>
+          <span class="mb-mini-note">${esc(who.name || '')} · ${timeLeft(p.until)}${p.reward?.coins ? ` · +${p.reward.coins}${COIN}` : ''}</span>
+        </span>
+        <span class="mb-fill">${ready
+          ? `<button class="mb-claim" data-pledge="${esc(p.id)}">deliver ✓</button>`
+          : `<span class="mb-mini"><span style="width:${pct}%"></span></span><span class="mb-n">${bits}</span>`}
+        </span></div>`;
+    }
+  }
+
+  if (live.length) {
+    h += '<div class="mb-note" style="margin-top:8px"><b>In effect</b></div>';
+    for (const m of live) {
+      h += `<div class="mb-row"><span>✨</span><span class="mb-name">${esc(modLabel(m))}</span>
+        <span class="mb-fill"><span class="mb-n">${timeLeft(m.until)}</span></span></div>`;
+    }
+  }
+
+  if (people.length) {
+    h += '<div class="mb-note" style="margin-top:8px"><b>People</b></div>';
+    for (const [who, n] of people.sort((a, b) => b[1] - a[1])) {
+      const c = CHARACTERS[who] || { name: who };
+      h += `<div class="mb-row"><span>${n < 0 ? '😐' : '🙂'}</span>
+        <span class="mb-name">${esc(c.name || who)}<br><span class="mb-mini-note">${REP_WORD(n)}</span></span>
+        <span class="mb-fill"><span class="mb-n">${n > 0 ? '+' : ''}${n}</span></span></div>`;
+    }
+  }
+  return h + '</div>';
 }
 
 // ---- test mode: walk every card to design art against ----

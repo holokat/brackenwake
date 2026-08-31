@@ -29,6 +29,14 @@
 //             is the bottom-right knock-at-the-door, which does not interrupt.
 //   choices   [{ label, hint, effects, rep, flag, sets }]
 //
+//   pledge    a promise you have to COME BACK to, listed in the Mission Book
+//             with progress until you deliver it. Use this whenever a choice
+//             says "I'll do X" rather than doing X on the spot — otherwise the
+//             card vanishes and the player has nowhere to go and say they did.
+//               { id, text, need: {good:n}, reward: {coins,goods,rep}, days }
+//   revisit   days after which a DECLINE may be offered again. A neighbour you
+//             turned down in a tight year should be able to ask once more.
+//
 // Effects vocabulary — every key maps to something real (story_engine.apply):
 //   coins            +/- coins
 //   goods            { id: n } — positive gives, negative takes
@@ -157,12 +165,14 @@ export const STORIES = [
     ],
     when: (s) => s.has('strawberry') || s.stat('planted') > 12,
     choices: [
-      { label: "I'll grow you extra", hint: 'strawberries sell to Mira at +40% this season',
-        rep: { mira: 2 }, modifier: { key: 'sellBonus:strawberry', value: 1.4, days: 12 }, flag: 'mira_deal' },
+      { label: "I'll grow you extra", hint: 'a standing order for 12 — and a better price meanwhile',
+        rep: { mira: 1 }, modifier: { key: 'sellBonus:strawberry', value: 1.4, days: 12 }, flag: 'mira_deal',
+        pledge: { id: 'mira_strawberries', text: 'Grow 12 strawberries for Mira', days: 12,
+          need: { strawberry: 12 }, reward: { coins: 320, rep: { mira: 3 }, flag: 'mira_kept_word' } } },
       { label: 'Take some of mine now', hint: 'give 5 strawberries — she will not forget it',
         needs: { strawberry: 5 }, goods: { strawberry: -5 }, rep: { mira: 3 }, flag: 'mira_gift' },
-      { label: 'Sorry — tight year', hint: 'she understands. She does not ask twice.',
-        rep: { mira: 0 }, flag: 'mira_declined' },
+      { label: 'Sorry — tight year', hint: 'she understands. She may ask again.',
+        flag: 'mira_declined', revisit: 6 },
     ],
     teaches: 'that a neighbour is a price channel, not a quest giver',
   }),
@@ -297,7 +307,7 @@ export const STORIES = [
     choices: [
       { label: 'Buy it', hint: '40 coins, and no promises', coins: -40, act: { mysterySeed: true } },
       { label: 'Haggle', hint: 'he might come down. He might walk.', act: { haggleSeed: true } },
-      { label: 'Pass', hint: 'he offers it up the valley instead', flag: 'seed_passed' },
+      { label: 'Pass', hint: 'he offers it up the valley instead', flag: 'seed_passed', revisit: 4 },
     ],
   }),
 
@@ -310,9 +320,13 @@ export const STORIES = [
     ],
     when: (s) => s.seen('sedge_seed') && s.coins >= 300,
     choices: [
-      { label: 'Buy the map', hint: '120 coins — the site is yours', coins: -120, act: { digSite: 1 } },
-      { label: 'Dig it together', hint: 'cheaper, and he takes half', coins: -50, act: { digSite: 0.5 } },
-      { label: 'Not today', hint: '' },
+      { label: 'Buy the map', hint: '120 coins — then take a pick to the marked spot',
+        coins: -120, pledge: { id: 'dig_site', text: 'Dig the marked site — 30 stone to clear it', days: 20,
+          need: { stone: 30 }, reward: { coins: 520, goods: { stone: 60 } } } },
+      { label: 'Dig it together', hint: 'cheaper, and he takes half of whatever is down there',
+        coins: -50, pledge: { id: 'dig_site', text: 'Dig the marked site with Sedge — 30 stone', days: 20,
+          need: { stone: 30 }, reward: { coins: 260, goods: { stone: 30 } } } },
+      { label: 'Not today', hint: 'he passes through again', revisit: 5 },
     ],
   }),
 
@@ -444,7 +458,7 @@ export const STORIES = [
       { label: 'Plant for them', hint: 'they come back, and so does the yield',
         coins: -90, unlock: 'eco_pollinator_garden', modifier: { key: 'yieldBonus', value: 1, days: 9999 } },
       { label: 'Buy a new colony', hint: 'a fresh hive, delivered. It will happen again.',
-        coins: -120, act: { grantBeehive: true }, flag: 'bees_rebought' },
+        coins: -120, act: { grantBeehive: true }, flag: 'bees_rebought', revisit: 14 },
     ],
     teaches: 'some problems have a cause',
   }),
@@ -506,8 +520,8 @@ export const STORIES = [
     when: (s) => s.season === 'fall' && s.storageFrac > 0.5 && s.coveredStorage === 0,
     choices: [
       { label: 'Build now', hint: 'open Storage', act: { openPanel: 'sto' } },
-      { label: 'Risk it', hint: 'a little spoils on every wet day',
-        modifier: { key: 'spoilRate', value: 1, days: 20 } },
+      { label: 'Risk it', hint: 'a little spoils on every wet day — until you build',
+        modifier: { key: 'spoilRate', value: 1, days: 20 }, revisit: 4 },
     ],
     teaches: 'why the storage tiers differ',
   }),
@@ -522,7 +536,7 @@ export const STORIES = [
     when: (s) => s.processorCount >= 3 && s.idleJobDays >= 2,
     choices: [
       { label: 'Show me', hint: 'queue the best recipe you can make right now', act: { queueBestRecipe: true } },
-      { label: 'I know what I am doing', hint: '' },
+      { label: 'I know what I am doing', hint: 'she will mention it again', revisit: 4 },
     ],
     teaches: 'the entire crafting economy, which is easy to never notice',
   }),
@@ -553,8 +567,12 @@ export const STORIES = [
     when: (s) => s.season === 'fall' && s.seasonPhase > 0.75,
     once: false, cooldown: 1000 * 60 * 60 * 24 * 10,
     choices: [
-      { label: 'Enter your best crop', hint: 'judged against your own best ever', act: { festival: 'crop' } },
-      { label: 'Enter a dish', hint: 'scored higher — needs the crafting chain', act: { festival: 'dish' } },
+      { label: 'Enter your best crop', hint: 'bring 5 of your finest to the judging',
+        pledge: { id: 'festival_crop', text: 'Take 5 watermelons to the judging', days: 4,
+          need: { watermelon: 5 }, reward: { coins: 400, rep: { bram: 1, mira: 1, sedge: 1 } } } },
+      { label: 'Enter a dish', hint: 'a cooked entry scores higher — if you can make one',
+        pledge: { id: 'festival_dish', text: 'Take 3 cakes to the judging', days: 4,
+          need: { cake: 3 }, reward: { coins: 750, rep: { bram: 2, mira: 2, sedge: 1 } } } },
       { label: 'Just go and eat', hint: 'no risk, and everyone is pleased to see you',
         rep: { mira: 1, bram: 1, sedge: 1 } },
     ],
@@ -622,7 +640,7 @@ export const STORIES = [
     when: (s) => s.days >= 3,
     choices: [
       { label: 'Open it', hint: '', act: { readLetter: true }, flag: 'letter_read' },
-      { label: 'Leave it in the drawer', hint: 'it turns up again', flag: 'letter_kept' },
+      { label: 'Leave it in the drawer', hint: 'it turns up again', flag: 'letter_kept', revisit: 8 },
     ],
   }),
 
@@ -739,8 +757,10 @@ export const STORIES = [
     ],
     when: (s) => s.stat('sold') >= 200,
     choices: [
-      { label: 'Sign', hint: 'guaranteed +25% — but the market board closes to you',
-        modifier: { key: 'sellBonusAll', value: 1.25, days: 30 }, flag: 'contract_signed' },
+      { label: 'Sign', hint: 'every sale at +25% for a month — and no order board',
+        modifier: { key: 'sellBonusAll', value: 1.25, days: 30 }, flag: 'contract_signed',
+        pledge: { id: 'contract', text: 'Supply the town buyer — 40 goods over the month', days: 30,
+          need: { wheat: 40 }, reward: { coins: 900 } } },
       { label: 'Stay independent', hint: 'the board stays open, and Mira is relieved',
         rep: { mira: 1 } },
     ],

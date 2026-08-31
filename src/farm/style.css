@@ -1558,3 +1558,6 @@ body.book-open #sidebar { transform: translateX(0); }
 #story-devbar button:hover { background: #4a3720; }
 #story-devbar .sd-pos { min-width: 74px; text-align: center; opacity: .8; font-variant-numeric: tabular-nums; }
 #story-devbar .sd-id { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .6; }
+
+/* the Valley section inside the Mission Book */
+.mb-mini-note { font-size: 10px; opacity: .62; font-weight: 400; }

@@ -40,6 +40,29 @@ Two supporting rules:
   place or object before. The Ridge Farm needs one line saying a farm is up
   there before its chimney can mean anything.
 
+## Every answer has to close its own loop
+
+A choice that says *"I'll grow you extra"* and then vanishes is worse than no
+card at all — the player has agreed to something with nowhere to go and no way
+to say they did it. Two mechanisms cover this:
+
+**Promises (`pledge`).** Any choice phrased as *I will* creates a tracked
+commitment: what is owed, progress against your stores, who it is for, how long
+you have, and what it pays. It lives on **The Valley page of the Mission Book**
+— which is where a player actually looks for "what did I agree to". A
+Deliver button appears the moment you have the goods. Let one lapse and you are
+told, and it costs you reputation with that person.
+
+**Second chances (`revisit`).** Turning a neighbour down in a tight year should
+not lock the offer away forever. A decline can set a number of days after which
+the card may be offered again. Applied to every decline that is a *not now*
+rather than a *no*: Mira's strawberries, Sedge's map and seed, the co-op, the
+granary, the hive, the letter in the drawer.
+
+The Valley page also lists **what is currently in effect** in plain language
+("Strawberries sell +40%, 12d left") and **who remembers you**, because a
+modifier the player cannot see is indistinguishable from one that does nothing.
+
 ## Shape
 
 A card is a portrait or scene, three or four lines, and **two to three answers

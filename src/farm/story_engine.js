@@ -26,6 +26,11 @@ export function blankStory() {
     flags: {},       // flag -> timestamp set
     rep: {},         // character -> number
     modifiers: [],   // { key, value, until }
+    // A promise you made that you have to come BACK to. Without this a card
+    // like "I'll grow you extra" vanished the moment you answered it and there
+    // was nowhere to go and say you had done it.
+    pledges: [],     // { id, cardId, who, text, need, reward, at, until }
+    revisit: {},     // cardId -> timestamp it may be offered again
     lastCardAt: 0,
     nextEligibleAt: 0,
   };
@@ -35,6 +40,8 @@ export function normalizeStory(raw) {
   const s = { ...blankStory(), ...(raw && typeof raw === 'object' ? raw : {}) };
   s.seen = s.seen || {}; s.flags = s.flags || {}; s.rep = s.rep || {};
   s.modifiers = Array.isArray(s.modifiers) ? s.modifiers : [];
+  s.pledges = Array.isArray(s.pledges) ? s.pledges : [];
+  s.revisit = s.revisit || {};
   return s;
 }
 
@@ -99,8 +106,16 @@ export function buildState(game, farm, story, extra = {}) {
 // ---------------------------------------------------------------------------
 function eligible(card, s, story) {
   const rec = story.seen[card.id];
-  if (rec && card.once !== false) return false;                       // one-shot, already fired
-  if (rec && card.cooldown && s.now - rec.at < card.cooldown) return false;
+  // A decline that can come round again. Saying "not this year" to a neighbour
+  // should not lock the offer away forever — the card sets `revisit` and this
+  // is what lets it back in.
+  const again = story.revisit[card.id];
+  if (again && s.now >= again) {
+    // fall through to the trigger as if it had never fired
+  } else {
+    if (rec && card.once !== false) return false;                     // one-shot, already fired
+    if (rec && card.cooldown && s.now - rec.at < card.cooldown) return false;
+  }
   try {
     return !!card.when(s);
   } catch {
@@ -155,6 +170,17 @@ export function applyChoice(card, choice, story, host) {
     }
   }
   if (choice.flag) story.flags[choice.flag] = now;
+  // a promise to come back to, listed in the Mission Book until it is kept
+  if (choice.pledge) {
+    story.pledges = story.pledges.filter((p) => p.id !== choice.pledge.id);
+    story.pledges.push({
+      ...choice.pledge, cardId: card.id, who: card.who, at: now,
+      until: now + (choice.pledge.days || 14) * DAY_MS,
+    });
+  }
+  // a decline that is allowed to come round again later
+  if (choice.revisit) story.revisit[card.id] = now + choice.revisit * DAY_MS;
+  else delete story.revisit[card.id];
   if (choice.unlock && !game.owned.includes(choice.unlock)) game.owned.push(choice.unlock);
   if (choice.modifier) {
     const m = choice.modifier;
@@ -182,6 +208,47 @@ export function dismissCard(card, story, game) {
   story.lastCardAt = now;
   story.nextEligibleAt = now + SNUB_GAP_MS;
   game?.save();
+}
+
+// ---------------------------------------------------------------------------
+// pledges
+// ---------------------------------------------------------------------------
+export function pledgeProgress(pledge, game) {
+  const need = pledge.need || {};
+  const rows = Object.entries(need).map(([id, n]) => ({
+    id, need: n, have: Math.min(game.inventory[id] || 0, n), short: Math.max(0, n - (game.inventory[id] || 0)),
+  }));
+  return { rows, ready: rows.every((r) => r.short === 0) };
+}
+
+export function deliverPledge(pledgeId, story, host) {
+  const { game } = host;
+  const i = story.pledges.findIndex((p) => p.id === pledgeId);
+  if (i < 0) return null;
+  const p = story.pledges[i];
+  const { ready } = pledgeProgress(p, game);
+  if (!ready) return null;
+  for (const [id, n] of Object.entries(p.need || {})) {
+    game.inventory[id] = Math.max(0, (game.inventory[id] || 0) - n);
+    if (!game.inventory[id]) delete game.inventory[id];
+  }
+  const r = p.reward || {};
+  if (r.coins) game.coins += r.coins;
+  if (r.goods) for (const [id, n] of Object.entries(r.goods)) game.addGood(id, n);
+  if (r.rep) for (const [who, n] of Object.entries(r.rep)) story.rep[who] = (story.rep[who] || 0) + n;
+  if (r.flag) story.flags[r.flag] = Date.now();
+  story.pledges.splice(i, 1);
+  game.save();
+  host.refresh?.();
+  return p;
+}
+
+// drop anything whose time ran out; returns what lapsed so the host can say so
+export function expirePledges(story) {
+  const now = Date.now();
+  const dead = story.pledges.filter((p) => p.until && p.until < now);
+  if (dead.length) story.pledges = story.pledges.filter((p) => !p.until || p.until >= now);
+  return dead;
 }
 
 export function modifier(story, key, fallback = 1) {
