@@ -10,10 +10,26 @@
 //    the host wires up — the engine never reaches into the scene itself.
 
 import { STORIES, STORY_BY_ID, CHARACTERS } from './stories.js';
+import { SEASON_MS } from './seasons.js';
 
 export { STORIES, STORY_BY_ID, CHARACTERS };
 
-const DAY_MS = 1000 * 60 * 60 * 24;
+// Durations are in GAME time, not wall-clock. This was wrong for every single
+// modifier at first: `days: 1` meant a real 24 hours, which against a six
+// minute day/night cycle made "tonight" last 240 nights, and "for the season"
+// last four seasons. The copy and the clock have to agree, so a card now says
+// what it means in the unit it means it.
+const DAY_MS = 1000 * 60 * 60 * 24;     // wall-clock, for pledge deadlines only
+const CYCLE_MS = 6 * 60 * 1000;         // one in-game day and night
+const FOREVER = 1e13;
+
+export function durationMs(m = {}) {
+  if (m.permanent) return FOREVER;
+  if (m.seasons) return m.seasons * SEASON_MS;
+  if (m.nights) return m.nights * CYCLE_MS;
+  if (m.mins) return m.mins * 60000;
+  return (m.days || 1) * CYCLE_MS;      // bare `days` means in-game days
+}
 const MIN_GAP_MS = 1000 * 60 * 8;   // never two cards inside eight minutes
 const SNUB_GAP_MS = 1000 * 60 * 25; // longer quiet period after one is waved away
 
@@ -181,7 +197,8 @@ export function applyChoice(card, choice, story, host) {
     story.pledges = story.pledges.filter((p) => p.id !== choice.pledge.id);
     story.pledges.push({
       ...choice.pledge, cardId: card.id, who: card.who, at: now,
-      until: now + (choice.pledge.days || 14) * DAY_MS,
+      // a promise measured in seasons, because "before the frost" is a season
+      until: now + durationMs(choice.pledge.seasons ? choice.pledge : { seasons: 1 }),
     });
   }
   // a decline that is allowed to come round again later
@@ -191,7 +208,7 @@ export function applyChoice(card, choice, story, host) {
   if (choice.modifier) {
     const m = choice.modifier;
     story.modifiers = story.modifiers.filter((x) => x.key !== m.key);
-    story.modifiers.push({ key: m.key, value: m.value, until: now + (m.days || 1) * DAY_MS });
+    story.modifiers.push({ key: m.key, value: m.value, until: now + durationMs(m) });
   }
   if (choice.act && host.act) {
     for (const [name, value] of Object.entries(choice.act)) {

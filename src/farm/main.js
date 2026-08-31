@@ -4680,6 +4680,13 @@ function renderStoryCard(card, devIndex = null) {
       const before = { coins: game.coins, inv: { ...game.inventory } };
       applyChoice(card, c, story, storyHost);
       reportChoice(before, c);
+      // an unlocked keepsake is an object you now have to go and place, so say
+      // where it is rather than leaving the player to find it
+      const got = c.unlock && INFRA_BY_ID[c.unlock];
+      if (got) {
+        toast(`${got.icon} <b>${esc(got.name)}</b> is yours. Place it from Style, under Grounds.`, true, true);
+        activeGroup = 'style'; activeTab = 'eco'; slotPage = 0; renderHud();
+      }
       closeStoryCard();
     };
   }
@@ -4844,7 +4851,17 @@ const storyHost = {
         toast('🐑 everything is in for the night — nothing is getting at them');
         break;
       }
-      case 'cutIce': try { farm.chopIce(); farm.chopIce(); farm.chopIce(); } catch {} break;
+      case 'cutIce': {
+        // chopIce needs four strikes, not three, and reports when it is through.
+        // Calling it a fixed number of times left the hole uncut.
+        let r = null;
+        for (let i = 0; i < 8; i++) { r = farm.chopIce(); if (r?.done) break; }
+        const st = farm.iceState();
+        toast(st.hole
+          ? '🧊 through the ice. Take the rod to it while it holds.'
+          : '🧊 the ice is not thick enough to be worth cutting yet.');
+        break;
+      }
       case 'removeFox':
         for (const p of [...(farm?.predators || [])]) if (p.userData?.hunt?.type === 'fox') farm._removePredator(p);
         storyWatch.foxRaids = 0; break;
