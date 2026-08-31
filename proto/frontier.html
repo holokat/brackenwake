@@ -1,0 +1,188 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>The Frontier: decision layer prototype</title>
+<style>
+  :root{--ink:#2b2318;--dim:#6b5c46;--line:#c9b998;--bg:#f4ecdc;--card:#fffaf0;--good:#3f7a44;--bad:#a33d2c}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 ui-monospace,Menlo,Consolas,monospace;padding:22px}
+  .wrap{max-width:940px;margin:0 auto}
+  h1{font-size:17px;margin:0 0 2px;letter-spacing:.02em}
+  .sub{color:var(--dim);font-size:12px;margin-bottom:16px}
+  .bar{display:flex;gap:18px;flex-wrap:wrap;padding:9px 12px;background:var(--card);border:1px solid var(--line);border-radius:6px;margin-bottom:14px}
+  .bar b{font-weight:700}
+  .cols{display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start}
+  @media(max-width:800px){.cols{grid-template-columns:1fr}}
+  .map{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+  .p{padding:9px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);cursor:pointer;text-align:left;font:inherit;color:inherit;min-height:74px}
+  .p:hover:not(:disabled){border-color:var(--ink);background:#fff}
+  .p:disabled{cursor:default;opacity:.62}
+  .p .t{font-weight:700;font-size:12px}
+  .p .y{font-size:11px;color:var(--dim);white-space:pre-line}
+  .p.mine{background:#e6f0e2;border-color:var(--good);opacity:1}
+  .p.taken{background:#efe6e2;border-color:#c9a99c}
+  .who{font-size:10px;color:var(--dim);margin-top:3px}
+  .side{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px}
+  .side h2{font-size:12px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+  .log{max-height:330px;overflow:auto;font-size:12px}
+  .log div{padding:4px 0;border-bottom:1px dotted var(--line)}
+  .log .w{color:var(--bad)}
+  .log .g{color:var(--good)}
+  button.go{margin-top:12px;width:100%;padding:10px;border:1px solid var(--ink);border-radius:6px;background:var(--ink);color:var(--bg);font:inherit;font-weight:700;cursor:pointer}
+  button.go:disabled{opacity:.35;cursor:default}
+  .end{padding:14px;background:var(--card);border:2px solid var(--ink);border-radius:6px;margin-top:14px;white-space:pre-line}
+  .hint{color:var(--dim);font-size:12px;margin:10px 0 0}
+</style>
+<div class="wrap">
+  <h1>THE FRONTIER</h1>
+  <div class="sub">Decision layer only. No art, no 3D, no polish. The question is whether you want to press the button.</div>
+  <div class="bar" id="bar"></div>
+  <div class="cols">
+    <div>
+      <div class="map" id="map"></div>
+      <div class="hint" id="hint"></div>
+      <div id="end"></div>
+    </div>
+    <div class="side">
+      <h2>The year so far</h2>
+      <div class="log" id="log"></div>
+      <button class="go" id="go">claim nothing, end the season</button>
+    </div>
+  </div>
+</div>
+<script>
+// ---------------------------------------------------------------------------
+// THE ONE RULE: the land is finite, three other settlers want it, and the
+// frontier closes. Everything interesting here comes from that and nothing
+// else. There is no XP, no shop, and no tech tree on purpose.
+// ---------------------------------------------------------------------------
+const TERRAIN = {
+  river:  {n:'River bend',  food:3, wood:0, stone:0, note:'fish, and water for everything'},
+  forest: {n:'Old timber',  food:1, wood:3, stone:0, note:'wood, and shelter from the wind'},
+  quarry: {n:'Stone shelf', food:0, wood:0, stone:3, note:'stone, and nothing else at all'},
+  meadow: {n:'Good meadow', food:2, wood:1, stone:0, note:'grazing, and room to build'},
+  hill:   {n:'Bare hill',   food:1, wood:0, stone:2, note:'poor ground, honest stone'},
+};
+const RIVALS = ['the Hallorans','Bram Colley','the Vesey brothers'];
+const SEASONS = ['spring','summer','autumn','WINTER'];
+const YEARS = 3;
+
+let land=[], mine=[], turn=0, mouths=3, stores={food:5,wood:7,stone:0}, log=[], over=false;
+
+function build(){
+  const mix=['river','forest','quarry','meadow','hill','meadow','forest','hill','river','quarry',
+             'meadow','forest','hill','quarry','meadow','river','forest','hill','meadow','quarry',
+             'river','forest','quarry','meadow'];
+  land=mix.map((t,i)=>({i,t,owner:null}));
+  for(let k=land.length-1;k>0;k--){const j=(Math.random()*(k+1))|0;[land[k].t,land[j].t]=[land[j].t,land[k].t];}
+}
+function season(){return SEASONS[turn%4];}
+function year(){return ((turn/4)|0)+1;}
+function yieldOf(key){return mine.reduce((a,p)=>a+TERRAIN[p.t][key],0);}
+function say(s,c=''){log.unshift(`<div class="${c}">${s}</div>`);}
+
+function render(){
+  document.getElementById('bar').innerHTML =
+    `<span>Year <b>${year()}</b> of ${YEARS}</span>`+
+    `<span>${season()}</span>`+
+    `<span>mouths <b>${mouths}</b></span>`+
+    `<span>food <b>${stores.food}</b></span>`+
+    `<span>wood <b>${stores.wood}</b></span>`+
+    `<span>stone <b>${stores.stone}</b></span>`+
+    `<span>parcels <b>${mine.length}</b> of ${land.length}</span>`+
+    `<span style="color:var(--dim)">per season: ${yieldOf('food')}f ${yieldOf('wood')}w ${yieldOf('stone')}s</span>`+
+    `<span>next claim costs <b>${claimCost()}</b> wood</span>`;
+
+  document.getElementById('map').innerHTML = land.map(p=>{
+    const T=TERRAIN[p.t];
+    const cls = p.owner==='you' ? 'mine' : p.owner ? 'taken' : '';
+    // a parcel you cannot fence is shown as unreachable rather than clickable,
+    // so the constraint is visible instead of discovered by being refused
+    const broke = !p.owner && stores.wood < claimCost();
+    return `<button class="p ${cls}" data-i="${p.i}" ${p.owner||over||broke?'disabled':''}>
+      <div class="t">${T.n}</div>
+      <div class="y">${T.food?T.food+' food ':''}${T.wood?T.wood+' wood ':''}${T.stone?T.stone+' stone':''}</div>
+      <div class="who">${p.owner==='you'?'YOURS':p.owner?p.owner:broke?`needs ${claimCost()} wood`:T.note}</div>
+    </button>`;
+  }).join('');
+
+  document.getElementById('log').innerHTML = log.slice(0,40).join('');
+  document.getElementById('hint').textContent = over ? ''
+    : season()==='WINTER'
+      ? `Winter. Your ${mouths} people will eat ${mouths*3} food. You have ${stores.food}.`
+      : `Claim a parcel for ${claimCost()} wood, or hold your timber and let it go. What you leave is gone.`;
+  document.getElementById('go').disabled = over;
+  for(const b of document.querySelectorAll('.p')) b.onclick=()=>claim(+b.dataset.i);
+}
+
+function claimCost(){ return 2 + mine.length; }   // 2, 3, 4, 5... spreading out gets dear
+
+function claim(i){
+  const p=land[i]; if(p.owner||over) return;
+  const cost=claimCost();
+  if(stores.wood<cost){
+    say(`You cannot fence the ${TERRAIN[p.t].n.toLowerCase()}. It needs ${cost} wood and you have ${stores.wood}.`,'w');
+    render(); return;
+  }
+  stores.wood-=cost;
+  p.owner='you'; mine.push(p);
+  say(`You claimed the ${TERRAIN[p.t].n.toLowerCase()}. ${cost} wood into the fence.`,'g');
+  advance();
+}
+
+function advance(){
+  // the rivals take what they want, and they want what you want
+  // ONE rival moves per season, so the map runs out exactly as the last winter
+  // lands. They are not random: they take the best thing left, which is what
+  // makes hesitating expensive.
+  const free=land.filter(p=>!p.owner);
+  if(free.length){
+    free.sort((a,b)=>(TERRAIN[b.t].food*2+TERRAIN[b.t].wood+TERRAIN[b.t].stone)-(TERRAIN[a.t].food*2+TERRAIN[a.t].wood+TERRAIN[a.t].stone));
+    const p=free.shift(); p.owner=RIVALS[turn%RIVALS.length];
+    say(`${p.owner} took the ${TERRAIN[p.t].n.toLowerCase()}.`);
+  }
+  // the season's produce
+  stores.food+=yieldOf('food'); stores.wood+=yieldOf('wood'); stores.stone+=yieldOf('stone');
+
+  if(season()==='WINTER'){
+    const need=mouths*3;
+    if(stores.food>=need){
+      stores.food-=need;
+      say(`Winter passed. ${need} food eaten, ${stores.food} left over. A family heard and came.`,'g');
+      mouths++;
+    } else {
+      const short=need-stores.food; stores.food=0;
+      const lost=Math.min(mouths-1,Math.ceil(short/3));
+      mouths-=lost;
+      say(`Hard winter. ${short} food short. ${lost} ${lost===1?'person':'people'} left for good.`,'w');
+    }
+  }
+  turn++;
+  if(turn>=YEARS*4 || land.every(p=>p.owner)) finish();
+  render();
+}
+
+function finish(){
+  over=true;
+  const f=yieldOf('food'),w=yieldOf('wood'),s=yieldOf('stone');
+  const self = f>=mouths*1.5 && w>0 && s>0;
+  const verdict =
+      f < mouths*3 ? `More mouths than ground. ${mouths} people on ${f} food a season is a hard winter, every winter.`
+    : !w ? 'No timber of your own. You will be paying the Veseys for planks for the rest of your life.'
+    : !s ? 'You never took a stone shelf. Everything you build from here, you buy.'
+    : self ? 'You can feed yourselves, cut your own timber and quarry your own stone.\nYou need nobody. That is the whole of it.'
+    : 'A narrow place, but it holds. You will be trading with the Hallorans for a long time.';
+  document.getElementById('end').className='end';
+  document.getElementById('end').textContent =
+`THE FRONTIER IS CLOSED.
+
+${mouths} people. ${mine.length} parcels.
+Each season you make ${f} food, ${w} wood, ${s} stone.
+
+${verdict}
+
+What you did not take, somebody else has, forever.`;
+}
+
+document.getElementById('go').onclick=()=>{ if(!over){ say('You claimed nothing.'); advance(); } };
+build(); say('You arrive. Three other families arrive the same week.'); render();
+</script>
