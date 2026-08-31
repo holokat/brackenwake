@@ -2163,9 +2163,12 @@ export class Homestead {
 
   _showStatusBar(rec, frac) {
     if (!rec.statusBar) {
-      const w = 3.4, h = 0.52;
+      // a slim line reads as progress without sitting on the building like a
+      // label; the width carries the information, the height only has to be
+      // visible
+      const w = 3.4, h = 0.26;
       const g = new THREE.Group();
-      const bg = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.28, h + 0.28),
+      const bg = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.16, h + 0.16),
         new THREE.MeshBasicMaterial({ color: 0x2a1e11, transparent: true, opacity: 0.72, depthTest: false }));
       bg.renderOrder = 998;
       const fillGeo = new THREE.PlaneGeometry(w, h);
@@ -2644,11 +2647,11 @@ export class Homestead {
     const want = state && (state.stage ?? 0) < 4 && state.prog != null;
     if (want && !plot.meter) {
       const gm = new THREE.Group();
-      const back = box(2.0, 0.08, 0.22, 0x2f2416, { transparent: true, opacity: 0.4 });
+      const back = box(2.0, 0.05, 0.13, 0x2f2416, { transparent: true, opacity: 0.4 });
       back.castShadow = false;
       back.position.set(0, 1.58, PLOT_SIZE / 2 - 0.12);
       gm.add(back);
-      const fill = box(1, 0.1, 0.15, 0x8fd457);
+      const fill = box(1, 0.06, 0.09, 0x8fd457);
       fill.castShadow = false;
       fill.geometry.translate(0.5, 0, 0); // grows from the left
       fill.position.set(-0.97, 1.59, PLOT_SIZE / 2 - 0.12);

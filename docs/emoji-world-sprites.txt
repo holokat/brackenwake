@@ -1,0 +1,130 @@
+NOSTRUX HOMESTEAD: EMOJI THAT APPEAR IN THE 3D WORLD
+====================================================
+
+Only the ones that float above an object in the scene. HUD cell icons and
+inline text emoji are deliberately left out.
+
+How they are drawn today: the emoji is painted to a 64px canvas and used as
+the texture on a billboard sprite, so it always faces the camera. Replacing
+one means dropping a png in and pointing the texture at it.
+
+FORMAT: 256x256 png, transparent. Drawn flat on, no perspective, since it
+turns to face the camera from every angle. It renders at roughly 40 to 60
+pixels on screen, so it has to read at thumbnail size. Bold silhouette,
+few colours, no thin lines, no text.
+
+The coin is already art rather than an emoji (/ui/coin.png). Same idea.
+
+======================================================================
+1. READY TO COLLECT
+Floats over an animal, tree or hive the moment its good is ready. These are
+the biggest and most looked at sprites in the game: a player reads this from
+across the farm and decides whether to walk over.
+======================================================================
+
+  EMOJI  GOOD ID              FLOATS OVER              SUGGESTED FILE
+  🥚    egg                  🐔 Chicken               ready/egg.png
+  🪺    duck_egg             🦆 Duck                  ready/duck_egg.png
+  🧶    wool                 🐑 Sheep                 ready/wool.png
+  🍶    goat_milk            🐐 Goat                  ready/goat_milk.png
+  🍄‍🟫 truffle              🐖 Pig                   ready/truffle.png
+  🥛    milk                 🐄 Cow                   ready/milk.png
+  🍎    apple_fruit          🍎 Apple Tree            ready/apple_fruit.png
+  🍑    peach_fruit          🍑 Peach Tree            ready/peach_fruit.png
+  🥑    avocado_fruit        🥑 Avocado Tree          ready/avocado_fruit.png
+  🍯    honey                🐝 Beehive               ready/honey.png
+  🐟    trapped_fish         🪤 Fish Trap             ready/trapped_fish.png
+
+  Fallbacks, shown when something has no icon of its own:
+  📦     (recipe done)         a processor with an unknown output   ready/_generic-craft.png
+  🎁     (good ready)          a producer with an unknown good      ready/_generic-good.png
+
+======================================================================
+2. STATE AND ALERT
+Not tied to a good. These say something needs you.
+======================================================================
+
+  EMOJI  MEANING                     WHERE                     SUGGESTED FILE
+  💧     this plot is dry            over a planted plot       state/needs-water.png
+  ❗     a fish is biting            over the bobber           state/bite.png
+  🚧     still being built           over a construction site  state/building.png
+  ❔     no icon set                 over an unfinished item   state/unknown.png
+
+  The bite marker is the most time critical thing in the game. It appears for
+  a short window and the player has to notice it and click. Make it loud.
+
+======================================================================
+3. THE CATCH
+Shown for about a second above the water when something is landed, before it
+goes to the barn. A fish also has a full 3D model that leaps; this sprite is
+the fallback and is what junk and treasure always use.
+======================================================================
+
+  -- meadow --
+  🐟    carp                 Carp                     catch/carp.png
+  🐟    perch                Perch                    catch/perch.png
+  🐠    bluegill             Bluegill                 catch/bluegill.png
+  🐟    minnow               Minnow                   catch/minnow.png
+  🐡    catfish              Catfish                  catch/catfish.png
+  🎏    golden_koi           Golden Koi               catch/golden_koi.png
+  -- oceanside --
+  🐟    sardine              Sardine                  catch/sardine.png
+  🐟    mackerel             Mackerel                 catch/mackerel.png
+  🐠    sea_bass             Sea Bass                 catch/sea_bass.png
+  🐠    snapper              Snapper                  catch/snapper.png
+  🐟    tuna                 Tuna                     catch/tuna.png
+  🗡️   marlin               Marlin                   catch/marlin.png
+  -- boreal --
+  🐟    trout                Trout                    catch/trout.png
+  🐊    pike                 Pike                     catch/pike.png
+  🐟    grayling             Grayling                 catch/grayling.png
+  🐠    arctic_char          Arctic Char              catch/arctic_char.png
+  🐟    whitefish            Whitefish                catch/whitefish.png
+  👑    king_salmon          King Salmon              catch/king_salmon.png
+  -- desert --
+  🐸    mudskipper           Mudskipper               catch/mudskipper.png
+  🐡    desert_catfish       Desert Catfish           catch/desert_catfish.png
+  🐟    tilapia              Tilapia                  catch/tilapia.png
+  🐠    oasis_perch          Oasis Perch              catch/oasis_perch.png
+  🦎    lungfish             Lungfish                 catch/lungfish.png
+  ✨     mirage_bass          Mirage Bass              catch/mirage_bass.png
+  -- sakura --
+  🐠    koi                  Koi                      catch/koi.png
+  🐟    sweetfish            Sweetfish                catch/sweetfish.png
+  🐍    loach                Loach                    catch/loach.png
+  🪱    rice_eel             Rice Eel                 catch/rice_eel.png
+  🐟    crucian_carp         Crucian Carp             catch/crucian_carp.png
+  🐉    dragon_carp          Dragon Carp              catch/dragon_carp.png
+  -- autumn --
+  🐟    brown_trout          Brown Trout              catch/brown_trout.png
+  🪱    eel                  Eel                      catch/eel.png
+  🐡    bullhead             Bullhead                 catch/bullhead.png
+  🍂    fallfish             Fallfish                 catch/fallfish.png
+  🐠    walleye              Walleye                  catch/walleye.png
+  👻    ghost_pike           Ghost Pike               catch/ghost_pike.png
+
+  -- junk --
+  🗑️   trash                Soggy Trash              catch/trash.png
+  🥫    tin_can              Rusty Can                catch/tin_can.png
+  🥾    old_boot             Old Boot                 catch/old_boot.png
+  🌿    seaweed              Tangled Seaweed          catch/seaweed.png
+  🪵    driftwood            Driftwood                catch/driftwood.png
+
+  -- treasure --
+  🧰    chest_small          Small Chest              catch/chest_small.png
+  🗃️   chest_iron           Iron Chest               catch/chest_iron.png
+  🎁    chest_gold           Golden Chest             catch/chest_gold.png
+
+======================================================================
+WHERE TO START
+======================================================================
+
+Section 1 first. Eleven images, they are the largest sprites on screen, and
+they are what the farm looks like at a glance when everything is producing.
+
+Then the four in section 2, especially the bite marker.
+
+Section 3 is the long tail. Junk and treasure matter more than the fish,
+because fish already leap as real 3D models and the sprite rarely shows.
+
+TOTAL: 13 ready markers, 4 state markers, 44 catch markers.
