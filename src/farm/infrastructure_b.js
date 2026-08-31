@@ -94,4 +94,21 @@ export const INFRA_B = [
     'Rung at noon, and whenever there is news.'),
   D('eco_forest_reserve', 'Forest Reserve', '🌲', 'eco', 900, { wood: 20 }, 'xl',
     'Old growth, protected. The one part of the farm you never touch.'),
+
+  // ---- keepsakes ----
+  // Earned from story cards, never for sale. These were "ghost" unlocks — ids
+  // pushed into `owned` that no catalog knew, so the item never appeared and
+  // the choice quietly did nothing. They are real placeable decor now.
+  ...[
+    ['story_drawing', "Ren's Drawing", '🖼️', 'A child\'s drawing of your farm. The purple thing is the windmill.'],
+    ['story_crate', 'Sedge\'s Crate', '📦', 'Your own goods, bought back at a markup. You both know it.'],
+    ['story_lamp', 'The Lamp on the Fence', '🏮', 'Left lit for whoever cleared the ditch.'],
+    ['story_kettle', 'The Kettle', '🫖', 'Dredged out of the lake. Someone, somewhere, collects these.'],
+    ['story_old_tree', 'The Old Tree', '🌳', 'It was here before the fence. You left it standing.'],
+    ['story_coop', 'Granary Co-op Board', '📋', 'Your share of the valley store. Room for a great deal more.'],
+  ].map(([id, name, icon, desc]) => ({
+    id, name, icon, cat: 'eco', tier: 1, price: 0, cost: null,
+    needs: [], upgradesTo: null, effect: null, decor: true, keepsake: true,
+    size: 'xs', biome: null, desc,
+  })),
 ];

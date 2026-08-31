@@ -712,7 +712,8 @@ export class Homestead {
     this._updateIce(now);
     this._applyFoliageSeason(now);
     // rain accelerates structural weathering; winter slows plant growth/encroach
-    this.decayRate.weather = 1 + (this.weather.precip === 'rain' ? this.weather.intensity : 0) * 1.6;
+    this.decayRate.weather = (1 + (this.weather.precip === 'rain' ? this.weather.intensity : 0) * 1.6)
+      * (this.storyMods?.wearMult ?? 1); // "run through it" during a storm costs you here
   }
 
   // Thunder during a storm, on the same shape as the night howls: a timer, not
@@ -1085,6 +1086,10 @@ export class Homestead {
         if (!h._barkedAt || now - h._barkedAt > 4000) { h._barkedAt = now; try { this.onAnimalSound && this.onAnimalSound('dog'); } catch {} }
       }
       if (h.state === 'prowl' && now >= h.nextHunt) {
+        // a posted watch, a mended fence or a fed fox all land here
+        const odds = this.storyMods?.predatorOdds ?? 1;
+        if (odds <= 0) { h.nextHunt = now + 20000; continue; }
+        if (odds < 1 && Math.random() > odds) { h.nextHunt = now + 8000 + Math.random() * 8000; continue; }
         const prey = this._nearestPrey(gp.x, gp.z);
         if (prey) { h.state = 'stalk'; h.targetId = prey.id; } else h.nextHunt = now + 5000 + Math.random() * 8000;
       }
@@ -1760,6 +1765,7 @@ export class Homestead {
         waterY: this.dockWaterY,
         themeId: this.theme.id,
         rng: Math.random,
+        luck: this.storyMods?.fishLuck ?? 1,
         // cast / waiting / bite / catch — the host turns these into sound
         onState: (st) => { try { this.onFishState(st); } catch {} },
         onResult: (fish) => {

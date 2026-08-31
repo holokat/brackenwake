@@ -97,6 +97,10 @@ function rebuild(field) {
 const FELL_HITS = 3;                       // axe swings to bring one down
 const REGROW_MIN = 240_000;                // 4 minutes...
 const REGROW_SPAN = 300_000;               // ...to 9, randomised per tree
+// Story modifier hook: planting saplings for the ones after you shortens this
+// for good; clearing the ridge and shrugging lengthens it. Set by main.js.
+export let regrowMult = 1;
+export function setRegrowMult(v) { regrowMult = Number.isFinite(v) && v > 0 ? v : 1; }
 
 export function treeFieldsFor() { return fields; }
 
@@ -215,7 +219,7 @@ export function chopTree(field, index) {
   requestAnimationFrame(step);
 
   t.hp = null;
-  t.felledUntil = Date.now() + REGROW_MIN + Math.random() * REGROW_SPAN;
+  t.felledUntil = Date.now() + (REGROW_MIN + Math.random() * REGROW_SPAN) * regrowMult;
   field.rebuild();
   return { felled: true, wood: 2 + Math.floor(Math.random() * 3) };
 }
@@ -235,7 +239,7 @@ function breakRock(field, t) {
   };
   requestAnimationFrame(step);
   t.hp = null;
-  t.felledUntil = Date.now() + REGROW_MIN * 1.5 + Math.random() * REGROW_SPAN;
+  t.felledUntil = Date.now() + (REGROW_MIN * 1.5 + Math.random() * REGROW_SPAN) * regrowMult;
   field.rebuild();
   return { felled: true, stone: 2 + Math.floor(Math.random() * 3) };
 }

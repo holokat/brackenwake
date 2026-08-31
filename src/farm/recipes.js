@@ -67,6 +67,9 @@ export const RECIPES = [
 
   // ---- PRESERVE KITCHEN: jams, jellies, sauces ---------------------------
   { id: 'strawberry_jam',  name: 'Strawberry Jam',   icon: '🍓', processor: 'preserve_kitchen', inputs: { strawberry: 2 },            output: { id: 'strawberry_jam', count: 1 },  timeMs: 60000 },  // 12 => 22 (1.83x)
+  // Mira's mother's recipe — only ever obtained from her story card, never
+  // buyable. `needsOwned` gates it on the unlock the card grants.
+  { id: 'mira_preserve',   name: "Mira's Preserve",  icon: '🫙', processor: 'preserve_kitchen', inputs: { strawberry: 2, honey: 1 },  output: { id: 'mira_preserve', count: 1 },   timeMs: 90000, needsOwned: 'recipe_mira_preserve' },
   { id: 'grape_jelly',     name: 'Grape Jelly',      icon: '🍇', processor: 'preserve_kitchen', inputs: { grapes: 2 },                output: { id: 'grape_jelly', count: 1 },     timeMs: 65000 },  // 16 => 30 (1.88x)
   { id: 'peach_preserves', name: 'Peach Preserves',  icon: '🍑', processor: 'preserve_kitchen', inputs: { peach_fruit: 2 },           output: { id: 'peach_preserves', count: 1 }, timeMs: 65000 },  // 12 => 23 (1.92x)
   { id: 'tomato_sauce',    name: 'Tomato Sauce',     icon: '🍅', processor: 'preserve_kitchen', inputs: { tomato: 3 },                output: { id: 'tomato_sauce', count: 1 },    timeMs: 60000 },  // 12 => 22 (1.83x)
@@ -132,6 +135,7 @@ export const PRODUCTS = {
   truffle_cheese:    { name: 'Truffle Cheese',    icon: '🍄', sell: 88 },  // prestige
   // preserve kitchen
   strawberry_jam:    { name: 'Strawberry Jam',    icon: '🍓', sell: 22 },
+  mira_preserve:     { name: "Mira's Preserve",   icon: '🫙', sell: 58 },
   grape_jelly:       { name: 'Grape Jelly',       icon: '🍇', sell: 30 },
   peach_preserves:   { name: 'Peach Preserves',   icon: '🍑', sell: 23 },
   tomato_sauce:      { name: 'Tomato Sauce',      icon: '🍅', sell: 22 },
@@ -180,8 +184,10 @@ export const MERCHANT_ITEMS = [
 // --------------------------------------------------------------------------
 
 /** All recipes a given processor building can run. */
-export function recipesFor(processorId) {
-  return RECIPES.filter((r) => r.processor === processorId);
+export function recipesFor(processorId, owned = null) {
+  return RECIPES.filter((r) => r.processor === processorId
+    // a recipe with needsOwned only appears once the story card has granted it
+    && (!r.needsOwned || !owned || owned.includes(r.needsOwned)));
 }
 
 /** Product definition for a processed-good id, or null for unknown ids. */

@@ -291,7 +291,8 @@ const MAX_FALSE_CLICKS = 2; // spooked after this many early clicks
 const MAX_MISSED_BITES = 3; // gone after this many expired bites
 
 export class FishingSession {
-  constructor({ scene, castFrom, rodTip, waterY, themeId, rng, onState, onResult } = {}) {
+  constructor({ scene, castFrom, rodTip, waterY, themeId, rng, luck, onState, onResult } = {}) {
+    this.luck = luck || 1;
     this.scene = scene || null;
     this.castFrom = castFrom ? castFrom.clone() : new THREE.Vector3();
     // the line hangs from the rod tip; fall back to castFrom if not provided
@@ -380,7 +381,9 @@ export class FishingSession {
     // real suspense: 3-17s, weighted toward the middle so most casts make you
     // wait a good while, with the odd quick nibble or long patient stretch
     const a = this.rng(), b = this.rng();
-    return 3000 + ((a + b) / 2) * 14000; // ~3s to 17s, bell-ish around 10s
+    // "try again" after the one that got away shortens the wait for a spell
+    const luck = this.luck || 1;
+    return (3000 + ((a + b) / 2) * 14000) / luck;
   }
 
   _spawnRipple(x, z, maxScale = 2.2, dur = 650) {

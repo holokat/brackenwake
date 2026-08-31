@@ -18,7 +18,7 @@ import { FISH_TABLES } from './fishing.js';
 import { getThumb } from './thumbs.js';
 import { preloadModels, glbReady } from './glb_models.js';
 import { preloadLandmarks, landmarkEditor, dumpLandmarks } from './landmarks.js';
-import { treeEditor, dumpTrees, debugPick, pickTree, chopTree, regrowTrees } from './tree_edit.js';
+import { treeEditor, dumpTrees, debugPick, pickTree, chopTree, regrowTrees, setRegrowMult, treeFieldsFor } from './tree_edit.js';
 import { clearStore, storeSummary } from './scenery_store.js';
 import { preloadAnimalModels, animalModelReady } from './animal_models.js';
 import { SEASON_ICON, SEASON_LABEL } from './seasons.js';
@@ -111,7 +111,7 @@ function refreshEffects() {
   // a bigger home means more room to store goods — each farmhouse level beyond
   // the starter Shack adds storage (so the house is a real upgrade, not decor)
   if (game) {
-    game.storageCap = effects.storageCap + Math.max(0, houseLevel() - 1) * 30;
+    game.storageCap = effects.storageCap + Math.max(0, houseLevel() - 1) * 30 + mod('storageBonus', 0);
     // wood and stone have their own pools — the Lumber Yard and Stone Yard are
     // the only things that raise them
     game.materialCap = {
@@ -121,19 +121,25 @@ function refreshEffects() {
   }
   if (farm) {
     farm.productionMultFor = (type) =>
-      Math.max(effects.productionMult[type] || 1, effects.productionMultAll);
+      Math.max(effects.productionMult[type] || 1, effects.productionMultAll) * mod('productionMult');
+    farm.storyMods = storyModifiers();
+    setRegrowMult(mod('regrowMult'));
   }
 }
 
 // prestige is your homestead's renown — it lifts every sale price a little
 // (capped), so trophy/landmark builds pay off instead of being pure vanity
 function prestigeBonusPct() {
-  return Math.min(20, (effects.prestige || 0) * 0.1);
+  return Math.min(20, ((effects.prestige || 0) + mod('prestige', 0)) * 0.1);
 }
 
 function sellPrice(g) {
   const pct = effects.sellBonusPct + prestigeBonusPct();
   let price = g.sell * (1 + pct / 100);
+  // story modifiers: a standing deal with Mira, a wheat glut, an exclusive
+  // contract. Farm-wide first, then anything specific to this good.
+  price *= mod('sellBonusAll');
+  if (g._id) price *= mod(`sellBonus:${g._id}`);
   // seasonal demand — winter rewards food that stores, discounts fresh perishables
   if (game) price *= seasonalDemand(goodCategory(g._id), game.season.id);
   return Math.max(1, Math.round(price));
@@ -143,6 +149,7 @@ function sellPrice(g) {
 // multiplies every ambient growth tick; crops hold fractional growth and a
 // stage reads `growth >= threshold`, so the multiplier just shortens the wait.
 function applyGrowth(idxs, base) {
+  base *= mod('growthMult');
   return game.addGrowth(idxs, base * (effects.growthMult || 1));
 }
 
@@ -370,7 +377,8 @@ function swingReady(kind) {
 }
 // call AFTER a swing actually lands
 function startSwingCooldown(kind) {
-  const ms = SWING_MS[kind] || 0;
+  let ms = SWING_MS[kind] || 0;
+  if (kind === 'chop') ms = Math.round(ms * mod('chopSpeed'));
   if (!ms) return;
   swingReadyAt[kind] = Date.now() + ms;
   showSwingSweep(ms);
@@ -505,6 +513,7 @@ let story = blankStory();
 let currentCard = null;
 let devCardIndex = 0;
 let devPlacement = 'auto';   // auto | corner | moment — test-mode preview only
+let devApply = false;        // test-mode: run a previewed choice for real
 let storyTick = 0;
 // ambient counters the triggers read that nothing else tracks
 const storyWatch = { dryDays: 0, foxRaids: 0, missedBites: 0, junkRun: 0,
@@ -947,6 +956,7 @@ setInterval(() => {
   updateSeasonHud();
   tickPower();
   tickStory();      // the valley speaks up when something is actually true
+  tickSpoilage();   // "risk it" in a wet autumn has to actually cost something
   renderStoreChip(); // stores can change from many places — keep the meter honest
   tickUpkeep();     // wear + power warnings the player can actually act on
   // paths slowly wash away unless re-paved (rain speeds it)
@@ -3704,7 +3714,7 @@ function describeInputs(inputs) {
 
 function openCraftMenu(farmId, uid, entry) {
   const proc = PROCESSORS.find((p) => p.id === entry.type);
-  const recipes = recipesFor(entry.type);
+  const recipes = recipesFor(entry.type, game.owned);
   // each ingredient shows have/need, green when covered, red when short
   const ingChips = (inputs) => Object.entries(inputs).map(([id, n]) => {
     let have;
@@ -3774,7 +3784,8 @@ function harvestOne(index, quiet) {
   const state = game.plots[index];
   if (!state || game.stageOf(state) < 4) return null;
   const pos = farm.plotPosition(index);
-  const bonus = zoneBonus(effects.yieldZones, pos.x, pos.z);
+  // "good ground" from Bram's foundation, or thistle creeping in from the ridge
+  const bonus = zoneBonus(effects.yieldZones, pos.x, pos.z) + mod('yieldBonus', 0);
   const result = game.harvest(index);
   let lost = result.lost || 0;
   if (bonus > 0) lost += game.addGood(result.item.id, bonus);
@@ -4521,6 +4532,23 @@ preloadAnimalModels().then(() => {
 
 
 function loadStory() { story = normalizeStory(game?.story); }
+
+// The bridge that was missing. Modifiers were being written to the save and
+// read by nothing at all, which made ~24 choices inert no matter what their
+// hint text promised. Every key below is now consulted by the system it names;
+// keys that could not be honoured were deleted from the cards instead of left
+// as decoration.
+function mod(key, fallback = 1) { return storyModifier(story, key, fallback); }
+// expose for the systems that live outside this module
+function storyModifiers() {
+  return {
+    predatorOdds: mod('predatorOdds'),
+    wearMult: mod('wearMult'),
+    regrowMult: mod('regrowMult'),
+    productionMult: mod('productionMult'),
+    fishLuck: mod('fishLuck'),
+  };
+}
 function saveStory() { if (game) { game.story = story; game.save(); } }
 
 // what the triggers need that lives outside Game
@@ -4583,12 +4611,40 @@ function renderStoryCard(card, devIndex = null) {
   for (const b of el.querySelectorAll('.sc-choice')) {
     b.onclick = () => {
       const c = card.choices[+b.dataset.i];
-      if (devIndex != null) { toast(`🎭 preview — "${esc(c.label)}" not applied`); closeStoryCard(); return; }
+      if (devIndex != null && !devApply) {
+        toast(`🎭 preview only — "${esc(c.label)}" was not applied. Use the APPLY toggle to run it for real.`);
+        closeStoryCard(); return;
+      }
+      const before = { coins: game.coins, inv: { ...game.inventory } };
       applyChoice(card, c, story, storyHost);
-      audio.playSfx('flip', 0.3);
+      reportChoice(before, c);
       closeStoryCard();
     };
   }
+}
+
+// The complaint that started this: choices moved coins and goods in total
+// silence, so a real effect was indistinguishable from a fake one. Every
+// change now announces itself with the same sound and float the rest of the
+// game uses.
+function reportChoice(before, choice) {
+  const dCoins = game.coins - before.coins;
+  const gained = [], spent = [];
+  const ids = new Set([...Object.keys(before.inv), ...Object.keys(game.inventory)]);
+  for (const id of ids) {
+    const d = (game.inventory[id] || 0) - (before.inv[id] || 0);
+    if (d > 0) gained.push(`+${d} ${goodInfo(id).icon}`);
+    else if (d < 0) spent.push(`${d} ${goodInfo(id).icon}`);
+  }
+  if (dCoins) {
+    floatAtCoins(`${dCoins > 0 ? '+' : ''}${dCoins}${COIN}`);
+    audio.playSfx(dCoins > 0 ? 'loot_coin' : 'handle_coins', 0.5);
+  } else {
+    audio.playSfx('flip', 0.3);
+  }
+  const bits = [...gained, ...spent];
+  if (bits.length) toast(bits.join('  '));
+  renderCoins(); renderResChips(); renderStoreChip();
 }
 
 function closeStoryCard() {
@@ -4600,7 +4656,13 @@ function closeStoryCard() {
 // ---- the named actions the cards can call ----
 const storyHost = {
   get game() { return game; },
-  refresh() { renderHud(); renderCoins(); renderResChips(); renderStoreChip(); saveStory(); },
+  refresh() {
+    // refreshEffects FIRST: it is what folds the story modifiers into
+    // storageCap, production and the regrow rate. Without it a choice could set
+    // a modifier that nothing picked up until the next unrelated re-render.
+    refreshEffects();
+    renderHud(); renderCoins(); renderResChips(); renderStoreChip(); saveStory();
+  },
   act(name, value) {
     switch (name) {
       case 'harvestAll': {
@@ -4633,12 +4695,73 @@ const storyHost = {
         game.addCoins(n * 4); toast(`🪙 sold ${n} goods off the top`);
         break;
       }
-      case 'penAnimals': toast('🐑 everything is in for the night'); break;
+      case 'grantBeehive': {
+        // an actual hive on the ground, not a flag
+        if (!game.owned.includes('beehive')) game.owned.push('beehive');
+        const spot = farm._scatterPoint?.(Math.random, false);
+        if (spot) {
+          const entry = { uid: `bee${Date.now().toString(36)}`, kind: 'object', type: 'beehive', x: spot[0], z: spot[1], rot: 0 };
+          game.placed.push(entry);
+          placedRuntime.set(farm.placeObject(entry), entry.uid);
+          refreshEffects();
+        }
+        toast('🐝 a new colony, installed and humming');
+        break;
+      }
+      case 'frostGamble': {
+        // a real coin-flip, resolved now — not a promise about tomorrow
+        if (Math.random() < 0.5) {
+          let got = 0;
+          (game.plots || []).forEach((p, i) => { if (p && (p.prog ?? 0) >= 1) { const r = game.harvest(i); if (r) got += r.units || 0; } });
+          toast(`🌤️ the frost missed you — ${got} in, at full weight`, true, true);
+        } else {
+          let lost = 0;
+          (game.plots || []).forEach((p, i) => { if (p && (p.prog ?? 0) >= 1) { game.plots[i] = null; farm.clearPlot?.(i); lost++; } });
+          toast(`❄️ it came through hard — ${lost} plot${lost === 1 ? '' : 's'} lost`, false, true);
+        }
+        break;
+      }
+      case 'counterfeit': {
+        if (Math.random() < 0.5) {
+          const bad = Math.round(game.coins * 0.06);
+          game.coins = Math.max(0, game.coins - bad);
+          toast(`🪙 ${bad}${COIN} of it was light. Gone.`, false, true);
+        } else toast('🪙 you got lucky — every coin rang true', true, true);
+        break;
+      }
+      case 'placeGenerator': {
+        if (!game.owned.includes('enr_generator')) game.owned.push('enr_generator');
+        activeGroup = 'build'; activeTab = 'mac'; slotPage = 0; renderHud();
+        toast('🔌 the generator is yours — drop it where you want it');
+        break;
+      }
+      case 'pauseJobs': {
+        // hold every running job still, the way a power stall does
+        for (const j of Object.values(game.jobs || {})) j.startedAt += 1000 * 60 * 5;
+        toast('🔌 machines idle until the weather passes');
+        break;
+      }
+      case 'penAnimals': {
+        // real protection: predators skip a hunt entirely while this holds
+        story.modifiers = story.modifiers.filter((m) => m.key !== 'predatorOdds');
+        story.modifiers.push({ key: 'predatorOdds', value: 0, until: Date.now() + 1000 * 60 * 60 * 10 });
+        farm.storyMods = storyModifiers();
+        toast('🐑 everything is in for the night — nothing is getting at them');
+        break;
+      }
       case 'cutIce': try { farm.chopIce(); farm.chopIce(); farm.chopIce(); } catch {} break;
       case 'removeFox':
         for (const p of [...(farm?.predators || [])]) if (p.userData?.hunt?.type === 'fox') farm._removePredator(p);
         storyWatch.foxRaids = 0; break;
-      case 'tameFox': storyWatch.foxRaids = 0; toast('🦊 it takes the scraps and goes'); break;
+      case 'tameFox': {
+        storyWatch.foxRaids = 0;
+        // it stops hunting your birds AND keeps others off — a real, lasting drop
+        story.modifiers = story.modifiers.filter((m) => m.key !== 'predatorOdds');
+        story.modifiers.push({ key: 'predatorOdds', value: 0.35, until: Date.now() + 1000 * 60 * 60 * 24 * 30 });
+        farm.storyMods = storyModifiers();
+        toast('🦊 it takes the scraps and goes. It is around here somewhere.');
+        break;
+      }
       case 'mysterySeed': {
         const pool = CROPS.filter((c) => !game.owned.includes(c.id));
         const pick = pool[Math.floor(Math.random() * pool.length)] || CROPS[0];
@@ -4662,21 +4785,59 @@ const storyHost = {
       }
       case 'strayDog': if (!game.owned.includes('dog')) game.owned.push('dog'); toast('🐕 you have a dog now'); break;
       case 'huntDeer': game.addGood('venison', 3); toast('🏹 meat for the winter'); break;
-      case 'deerStrip': toast('🌾 one strip, theirs'); break;
-      case 'grantLand': toast('🗺️ the land is yours — it shows on your next tier'); break;
-      case 'queueBestRecipe': case 'queueRecipe': activeGroup = 'craft'; renderHud(); break;
+      case 'deerStrip': {
+        // you actually give up a plot — the cost is real
+        const idx = (game.plots || []).findIndex((p) => p);
+        if (idx >= 0) { game.plots[idx] = null; farm.clearPlot?.(idx); }
+        toast('🌾 one strip is theirs now — they will not touch the rest');
+        break;
+      }
+      case 'grantLand': {
+        // a genuine expansion: the next farm tier, free
+        const next = game.nextTierDef;
+        if (next) {
+          game.tier = next.id; game._initPlots(); game.save();
+          buildFarmScene(); renderHud();
+          toast(`🗺️ the land is yours — <b>${esc(next.name)}</b>`, true, true);
+        } else {
+          game.addCoins(1500);
+          toast('🗺️ nothing left to expand into — they leave you 1500' + COIN, true, true);
+        }
+        break;
+      }
+      case 'queueBestRecipe': case 'queueRecipe': {
+        // actually START a job on a placed processor, rather than just opening a tab
+        const started = startBestJob(name === 'queueRecipe' ? value : null);
+        if (!started) { activeGroup = 'craft'; renderHud(); toast('⚙️ build a processor first — Craft tab'); }
+        break;
+      }
       case 'festival': {
         const score = Math.round(40 + Math.random() * 120);
         game.addCoins(score); toast(`🏅 the judges gave you ${score}${COIN}`, true, true);
         break;
       }
-      case 'lightFarm': toast('🏮 the whole valley can see you'); break;
+      case 'lightFarm': {
+        // it genuinely costs the night's power, and genuinely buys renown
+        story.modifiers = story.modifiers.filter((m) => m.key !== 'prestige');
+        story.modifiers.push({ key: 'prestige', value: 10, until: Date.now() + 1000 * 60 * 60 * 24 * 365 });
+        for (const j of Object.values(game.jobs || {})) j.startedAt += 1000 * 60 * 3; // the machines go dark
+        toast('🏮 every lamp you own, lit. The whole valley can see you.', true, true);
+        break;
+      }
       case 'sellGood': {
         const have = game.inventory[value] || 0;
         if (have) { game.inventory[value] = 0; game.addCoins(Math.round(have * 1.2)); }
         break;
       }
-      case 'sellJunk': storyWatch.junkRun = 0; break;
+      case 'sellJunk': {
+        let n = 0;
+        for (const [id, have] of Object.entries(game.inventory)) {
+          if (/boot|kettle|can|tyre|junk|rag|bottle/i.test(id) && have > 0) { n += have; game.inventory[id] = 0; }
+        }
+        storyWatch.junkRun = 0;
+        if (n) toast(`🪙 ${n} pieces of junk, gone`);
+        break;
+      }
       case 'visitorGift': game.addCoins(45); toast('🎁 someone left you 45' + COIN); break;
       case 'readLetter':
         toast('✉️ "…the pears came good this year. I wish you could have seen them."', true, true);
@@ -4705,6 +4866,50 @@ function tickStory() {
   if (card) { renderStoryCard(card); audio.playSfx('unlock', 0.3); }
 }
 
+// Start a real job on a real placed processor. "Show me" used to open a tab and
+// call it done; now it puts something in the machine or honestly reports that
+// it cannot.
+function startBestJob(recipeId = null) {
+  if (!game || !farm) return false;
+  for (const [farmId, uid] of placedRuntime.entries()) {
+    const entry = game.placed.find((e) => e.uid === uid);
+    const proc = entry && PROCESSORS.find((p) => p.id === entry.type);
+    if (!proc || game.jobs?.[uid]) continue;
+    const pool = recipesFor(proc.id, game.owned)
+      .filter((r) => (!recipeId || r.id === recipeId) && game.canAfford(r.inputs, resolveAnyFish))
+      .sort((a, b) => (goodInfo(b.output.id).sell || 0) - (goodInfo(a.output.id).sell || 0));
+    const r = pool[0];
+    if (!r) continue;
+    const sped = { ...r, timeMs: Math.max(15000, Math.round(r.timeMs / craftSpeedFor(effects, r.processor))) };
+    if (!game.startJob(uid, sped, resolveAnyFish)) continue;
+    farm.setWorking(farmId, true, game.jobs[uid].startedAt, game.jobs[uid].timeMs);
+    audio.playSfx('place-object', 0.45);
+    toast(`🔨 ${proc.icon} ${proc.name} is making ${r.icon} <b>${esc(r.name)}</b>…`);
+    renderResChips();
+    return true;
+  }
+  return false;
+}
+
+// Grain in an open shed. Only runs while a story modifier says it should, and
+// only on wet days — so it is the consequence of a choice, never ambient noise.
+let lastSpoil = 0;
+function tickSpoilage() {
+  if (!game || !isOwner()) return;
+  if (mod('spoilRate', 0) <= 0) return;
+  if (farm?.weather?.precip !== 'rain') return;
+  if (Date.now() - lastSpoil < 45000) return;
+  lastSpoil = Date.now();
+  const perishable = Object.entries(game.inventory)
+    .filter(([id, n]) => n > 0 && !MATERIALS.has(id) && goodCategory(id) === 'fresh');
+  if (!perishable.length) return;
+  const [id, have] = perishable[Math.floor(Math.random() * perishable.length)];
+  const lost = Math.max(1, Math.round(have * 0.06));
+  game.inventory[id] = Math.max(0, have - lost);
+  game.save(); renderStoreChip();
+  toast(`🌧️ ${lost} ${goodInfo(id).name} spoiled in the open shed`, false);
+}
+
 // ---- test mode: walk every card to design art against ----
 function renderStoryDevbar() {
   const el = $('#story-devbar');
@@ -4717,9 +4922,15 @@ function renderStoryDevbar() {
     <button data-sd="next">next ›</button>
     <span class="sd-id" title="${esc(card.id)}">${esc(card.id)}</span>
     <button data-sd="copy" title="copy the art path">art path</button>
-    <button data-sd="place" title="preview this card in either position">${devPlacement}${card.moment ? ' ·moment' : ''}</button>`;
+    <button data-sd="place" title="preview this card in either position">${devPlacement}${card.moment ? ' ·moment' : ''}</button>
+    <button data-sd="apply" title="run the chosen answer for real instead of previewing it"
+      style="${devApply ? 'background:#6b3f1c;color:#ffe6b8' : ''}">${devApply ? 'APPLY ON' : 'preview'}</button>`;
   el.querySelector('[data-sd="prev"]').onclick = () => showDevCard(devCardIndex - 1);
   el.querySelector('[data-sd="next"]').onclick = () => showDevCard(devCardIndex + 1);
+  el.querySelector('[data-sd="apply"]').onclick = () => {
+    devApply = !devApply; showDevCard(devCardIndex);
+    toast(devApply ? '⚙️ choices will now RUN for real' : '🎭 back to preview — choices do nothing');
+  };
   el.querySelector('[data-sd="place"]').onclick = () => {
     devPlacement = devPlacement === 'auto' ? 'corner' : devPlacement === 'corner' ? 'moment' : 'auto';
     showDevCard(devCardIndex);
