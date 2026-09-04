@@ -10,7 +10,7 @@ import {
   createFollowCamera, orbitPosition, clampAboveGround,
   DRAG_RAD, PITCH_MIN, PITCH_MAX, DIST_MIN, DIST_MAX, FLY_MIN_SPEED, FLY_MAX_SPEED, SMOOTH_TAU, EYE_HEIGHT, MIN_ABOVE,
 } from './camera.js';
-import { stepPlayer, WALK_SPEED } from './player.js';
+import { stepPlayer, WALK_SPEED, RUN_SPEED } from './player.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -122,7 +122,24 @@ console.log('camera: following');
   for (let i = 0; i < 120; i++) { walk.x += WALK_SPEED * DT; c.update(DT, walk, null); }
   const t2 = new THREE.Vector3(walk.x, walk.y + EYE_HEIGHT, walk.z);
   const lag = cam.position.distanceTo(new THREE.Vector3(...Object.values(orbitPosition({ x: walk.x, y: walk.y + EYE_HEIGHT, z: walk.z }, c.yaw, c.pitch, c.distance))));
-  check('it trails a walking player by less than half a metre', lag < 0.5, `${lag.toFixed(4)} m behind the orbit point at ${WALK_SPEED} m/s`);
+  // The chase lag of an exponential lerp is linear in speed. That is the rule
+  // worth pinning; the constant in front of it moved when the speeds did, and a
+  // hardcoded half metre only ever described one walking pace.
+  check('it trails a walking player by about half a metre', lag > 0.3 && lag < 0.7, `${lag.toFixed(4)} m at ${WALK_SPEED} m/s`);
+  {
+    // double the speed, double the lag: the property, measured
+    const chase = (v) => {
+      const cam2 = newCam(); const c2 = createFollowCamera(cam2, fakeInput());
+      const w = { x: 0, y: 1, z: -6 };
+      c2.update(DT, w, null);
+      for (let i = 0; i < 400; i++) { w.x += v * DT; c2.update(DT, w, null); }
+      const o = orbitPosition({ x: w.x, y: w.y + EYE_HEIGHT, z: w.z }, c2.yaw, c2.pitch, c2.distance);
+      return cam2.position.distanceTo(new THREE.Vector3(o.x, o.y, o.z));
+    };
+    const l1 = chase(WALK_SPEED), l2 = chase(WALK_SPEED * 2), lr = chase(RUN_SPEED);
+    check('twice the speed is twice the lag', Math.abs(l2 - 2 * l1) < 0.01, `${l1.toFixed(4)} m and ${l2.toFixed(4)} m`);
+    check('and at a full run he stays within 1.5 m of centre', lr < 1.5, `${lr.toFixed(4)} m at ${RUN_SPEED} m/s`);
+  }
   const dir2 = new THREE.Vector3(); cam.getWorldDirection(dir2);
   check('and is still looking at him', dir2.dot(t2.clone().sub(cam.position).normalize()) > 0.9999);
 }

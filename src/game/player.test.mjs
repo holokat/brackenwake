@@ -41,7 +41,10 @@ console.log('player: acceleration and braking');
   const t1 = WALK_SPEED / ACCEL;
   const want = 0.5 * ACCEL * t1 * t1 + WALK_SPEED * (1 - t1);
   check('one second of forward reaches WALK_SPEED', near(s.speed, WALK_SPEED, 1e-9), `${s.speed.toFixed(6)} m/s`);
-  check('and covers the analytic distance', near(dist, want, 0.001), `${dist.toFixed(6)} m vs ${want.toFixed(6)} m`);
+  // the ramp ends partway through a frame, so the discrete sum sits within one
+  // frame's worth of the ramp behind the continuous form. Tie the bound to the
+  // constants rather than to a number that only held while they did.
+  check('and covers the analytic distance', near(dist, want, ACCEL * DT * DT), `${dist.toFixed(6)} m vs ${want.toFixed(6)} m`);
   check('facing is straight down +z', near(s.yaw, 0, 1e-9), `${s.yaw.toFixed(6)} rad`);
 
   // the other direction: let go and he stops, and not instantly
@@ -86,7 +89,7 @@ console.log('player: slopes');
   // one step of exactly 0.075 m against a cliff, driven both sides of 1.2
   // driven FORWARD, so these test slope refusal and not the strafe convention
   const cliff = (rise) => (x, z) => (z <= 0 ? 0 : rise);
-  const step = 0.5 * 30 * 0.05 * 0.05;   // first frame at dt = 0.05: v ends at 1.5, ground covered 0.0375
+  const step = 0.5 * ACCEL * 0.05 * 0.05;   // the ground the first frame at dt = 0.05 covers
   const over = fresh(), under = fresh();
   stepPlayer(over, 0.05, { x: 0, z: 1 }, cliff(step * 1.3));
   stepPlayer(under, 0.05, { x: 0, z: 1 }, cliff(step * 1.1));

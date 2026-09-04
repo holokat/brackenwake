@@ -83,13 +83,15 @@ function boot() {
     state, hud,
     nearestSettlement: () => nearestSettlement(),
   });
-  const dev = createDev({ sc, camera, player, hud, runtime });
+  const dev = createDev({ sc, camera, player, hud, runtime, state });
 
   // ------------------------------------------------------------- the HUD --
   const drawHud = () => {
     hud.setCoins(state.coins);
     hud.setMaterials(state.materials, state.caps);
-    hud.setTool(state.tool, state.tools);
+    // in dev mode every slot is live, so the bar shows what the game will let
+    // you hold rather than what is in the purse
+    hud.setTool(state.tool, state.dev ? new Set(['axe', 'pickaxe', 'bow']) : state.tools);
   };
   state.onChange(drawHud);
   drawHud();

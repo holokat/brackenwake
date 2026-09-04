@@ -26,14 +26,16 @@
 
 import * as THREE from 'three';
 
-export const WALK_SPEED = 5.5;
-export const RUN_SPEED = 9.5;
-export const ACCEL = 30;         // m/s^2 toward the wanted velocity
+// The world puts 500 m and more between places, so a stroll across it is a
+// chore. Walk is a walk; the run is deliberately quick.
+export const WALK_SPEED = 7;
+export const RUN_SPEED = 18;
+export const ACCEL = 40;         // m/s^2 toward the wanted velocity
 export const DECEL = 40;         // m/s^2 back to a stop
 export const TURN_RATE = 12;     // rad/s, the cap on how fast he faces a new heading
 export const MAX_SLOPE = 1.2;    // metres of rise per metre of ground, above which the step is refused
 export const STRIDE_WALK = 1.4;  // metres of ground per full gait cycle
-export const STRIDE_RUN = 2.0;
+export const STRIDE_RUN = 3.2;  // longer, or the legs blur at 18 m/s
 
 const TAU = Math.PI * 2;
 const DEG = Math.PI / 180;

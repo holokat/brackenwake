@@ -129,9 +129,9 @@ export function createShop({ state, hud, nearestSettlement, root } = {}) {
       row.appendChild(name);
       row.appendChild(h('span', 'bw-have', `${t.price}`));
       const owned = state.tools.has(t.id);
-      const short = t.price - state.coins;
+      const short = state.dev ? 0 : t.price - state.coins;
       // the reason lives in the button, so a dead button is never a mystery
-      const b = h('button', null, owned ? 'you have one' : short > 0 ? `${short} coins short` : `buy for ${t.price}`);
+      const b = h('button', null, owned ? 'you have one' : short > 0 ? `${short} coins short` : state.dev ? 'take it (dev)' : `buy for ${t.price}`);
       b.disabled = owned || short > 0;
       b.addEventListener('click', () => buy(t.id));
       row.appendChild(b);
@@ -161,11 +161,12 @@ export function createShop({ state, hud, nearestSettlement, root } = {}) {
     const t = FOR_SALE.find((x) => x.id === id);
     if (!t) return false;
     if (state.tools.has(id)) { say(`you already carry ${t.name === 'Axe' ? 'an axe' : 'a ' + t.name.toLowerCase()}`); return false; }
-    if (state.coins < t.price) { say(`the ${t.name.toLowerCase()} is ${t.price} coins and you have ${state.coins}`); return false; }
-    state.spend(t.price);
+    if (!state.dev && state.coins < t.price) { say(`the ${t.name.toLowerCase()} is ${t.price} coins and you have ${state.coins}`); return false; }
+    if (!state.dev) state.spend(t.price);
     const first = state.tool === 'hand';
     state.giveTool(id);
-    say(`you buy the ${t.name.toLowerCase()} for ${t.price} coins${first ? ', and it goes straight into your hand' : ''}`);
+    say(state.dev ? `the ${t.name.toLowerCase()} is yours, free, because dev mode is on`
+      : `you buy the ${t.name.toLowerCase()} for ${t.price} coins${first ? ', and it goes straight into your hand' : ''}`);
     state.save();
     render();
     return true;
@@ -195,6 +196,15 @@ export function createShop({ state, hud, nearestSettlement, root } = {}) {
    */
   function open(nearSite) {
     const candidate = nearSite === undefined ? findNearest() : nearSite;
+    // dev mode carries the market in its pocket
+    if (state.dev) {
+      here = isSettlement(candidate) ? candidate : { name: 'the dev market' };
+      open_ = true; mount();
+      if (el) { el.hidden = false; render(); }
+      say(`${here.name}, open anywhere and charging nothing while dev mode is on`);
+      if (typeof window !== 'undefined') window.addEventListener('keydown', onKey);
+      return true;
+    }
     if (isSettlement(candidate) && distTo(candidate) <= MARKET_RANGE) {
       here = candidate;
       open_ = true;

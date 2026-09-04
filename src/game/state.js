@@ -49,6 +49,10 @@ export function createState(opts = {}) {
   const materials = { wood: 0, stone: 0, ore: 0 };
   const caps = { wood: CAP, stone: CAP, ore: CAP };
   const tools = new Set();
+  // Dev mode is a lens, not a gift: it reports everything as owned and lets the
+  // market charge nothing, and turning it off hands back exactly what was
+  // bought. Nothing it does is written to the save.
+  let dev = false;
   const pos = { x: 0, z: 0 };
 
   const notify = (what) => { for (const fn of listeners) { try { fn(state, what); } catch (e) { console.error('[state] listener threw', e); } } };
@@ -59,9 +63,11 @@ export function createState(opts = {}) {
     // coins and tool are accessors so a direct assignment still redraws the HUD
     get coins() { return coins; },
     set coins(v) { const n = Math.max(0, Math.round(isNum(v) ? v : 0)); if (n === coins) return; coins = n; notify('coins'); },
+    get dev() { return dev; },
+    set dev(v) { const n = !!v; if (n === dev) return; dev = n; notify('dev'); },
     get tool() { return tool; },
     set tool(v) {
-      const t = v === 'hand' || (TOOLS.includes(v) && tools.has(v)) ? v : 'hand';
+      const t = v === 'hand' || (TOOLS.includes(v) && (dev || tools.has(v))) ? v : 'hand';
       if (t === tool) return;
       tool = t; notify('tool');
     },
@@ -111,7 +117,9 @@ export function createState(opts = {}) {
       if (tool === 'hand') { tool = id; notify('tool'); }  // first tool goes straight into the hand
       return true;
     },
-    hasTool(id) { return tools.has(id); },
+    hasTool(id) { return dev ? TOOLS.includes(id) : tools.has(id); },
+    /** What is really owned, ignoring dev mode. The save and the shop use this. */
+    boughtTool(id) { return tools.has(id); },
 
     /**
      * Where the player is standing. Deliberately quiet: this moves every frame

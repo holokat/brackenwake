@@ -1,4 +1,9 @@
-// Fly mode. F1 or backquote.
+// Dev mode. F1 or backquote.
+//
+// Two things at once: the camera flies, and the game stops asking whether you
+// can afford anything. Every tool reports as owned, the market opens anywhere
+// and charges nothing. None of that is written to the save, so turning it off
+// leaves you with exactly what you bought.
 //
 // On: the camera leaves the player where it is and flies free, the player is
 // hidden and stops being simulated, the badge lights, and the world streams
@@ -11,7 +16,7 @@
 // Every switch says which way it went. A debug mode that changes what the
 // world streams around and says nothing is a bug generator.
 
-export function createDev({ sc, camera, player, hud, runtime }) {
+export function createDev({ sc, camera, player, hud, runtime, state }) {
   let on = false;
 
   function setOn(next) {
@@ -21,7 +26,8 @@ export function createDev({ sc, camera, player, hud, runtime }) {
       camera.setMode('fly');
       player?.setVisible(false);
       hud?.setDev(true);
-      hud?.toast('fly mode on. WASD flies, Q down, E up, shift for speed, wheel sets it. The world streams around the camera.');
+      if (state) state.dev = true;
+      hud?.toast('dev mode on. WASD flies, Q down, E up, shift for speed. Every tool is in hand and the market is free and opens anywhere.');
     } else {
       const p = sc.camera.position;
       const [cx, cz] = runtime ? runtime.clampWalkable(p.x, p.z) : [p.x, p.z];
@@ -29,7 +35,9 @@ export function createDev({ sc, camera, player, hud, runtime }) {
       camera.setMode('follow');
       player?.setVisible(true);
       hud?.setDev(false);
-      hud?.toast(`fly mode off. You are on the ground at ${Math.round(cx)}, ${Math.round(cz)}.`);
+      // the lens comes off: what was bought is what is carried
+      if (state) { state.dev = false; if (!state.boughtTool?.(state.tool)) state.tool = 'hand'; }
+      hud?.toast(`dev mode off. You are on the ground at ${Math.round(cx)}, ${Math.round(cz)}, carrying what you actually own.`);
     }
     return on;
   }
