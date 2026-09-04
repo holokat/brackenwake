@@ -1,0 +1,13 @@
+{
+  // Nostrux Homestead as a static Worker: the whole game runs in the browser
+  // and talks to Nostr relays directly, so there is no server code here, only
+  // the built assets. Deploy with `npm run deploy`.
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "nostrux-homestead",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": { "enabled": true }
+}

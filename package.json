@@ -7,9 +7,17 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "vite build && wrangler deploy"
   },
-  "keywords": ["nostr", "game", "farming", "threejs", "three", "webgl"],
+  "keywords": [
+    "nostr",
+    "game",
+    "farming",
+    "threejs",
+    "three",
+    "webgl"
+  ],
   "author": "karnagebitcoin",
   "license": "MIT",
   "type": "module",

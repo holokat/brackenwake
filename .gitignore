@@ -9,3 +9,7 @@ dist/
 # Biome music tracks held out of the open-source repo pending a redistribution
 # license check — drop your own/royalty-free tracks here to restore audio.
 public/audio/music/
+
+# local save backups, never commit somebody's farm
+.saves/
+.wrangler/
