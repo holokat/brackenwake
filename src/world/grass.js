@@ -31,7 +31,9 @@ import { windUniforms, encodeSRGB } from './tree_gen.js';
 export const TILE = 8;                 // metres per grass tile
 export const RADIUS = 56;              // grass this far from the player
 export const BLADES_PER_TILE = 150;    // at density 1
-export const COVER_PER_TILE = 10;      // ferns and low shrubs, the sparse layer
+export const COVER_PER_TILE = 4;       // ferns and low shrubs, the sparse layer. Seen in
+                                       // the browser at 10 and 1.2 to 2.3 m wide, the cover
+                                       // read as green sheets over the whole meadow.
 export const TILE_BUDGET = 4;          // never more than this many tiles a frame
 export const TILE_MS = 0.8;            // and never more than this long, whichever comes first
 const SINK = 0.05;                     // blades start this far under the surface
@@ -104,7 +106,7 @@ export function disposeGrassTextures() {
 }
 export function grassTextures() {
   if (!bladeTex) bladeTex = bladeSprite({ blades: 9, curve: 0.16, width: 0.020, taper: 1.3, seed: 3101, ragged: false });
-  if (!coverTex) coverTex = bladeSprite({ blades: 22, curve: 0.30, width: 0.035, taper: 0.9, seed: 3102, ragged: true });
+  if (!coverTex) coverTex = bladeSprite({ blades: 14, curve: 0.30, width: 0.018, taper: 1.1, seed: 3102, ragged: true });
   return { bladeTex, coverTex };
 }
 
@@ -197,7 +199,7 @@ export function createGrass(parent, field, opts = {}) {
     { name: 'blades', per: BLADES_PER_TILE, geo: clumpGeometry(2), mat: grassMaterial(bladeTex),
       size: [0.55, 1.15], height: [0.45, 0.95], key: 'd', salt: 0 },
     { name: 'cover', per: COVER_PER_TILE, geo: clumpGeometry(3), mat: grassMaterial(coverTex, { alphaTest: 0.30 }),
-      size: [1.2, 2.3], height: [0.8, 1.6], key: 'cover', salt: 91 },
+      size: [0.6, 1.0], height: [0.45, 0.75], key: 'cover', salt: 91 },
   ];
   // the richest turf any biome has for this layer: a roll above it can be
   // thrown away before the field is asked anything

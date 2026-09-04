@@ -303,10 +303,12 @@ export function createScene(container) {
     day = d;
     applyLighting({ renderer, sun, hemi, ambient, fill }, d);
     if (!fogPinned) {
+      // the fog meets the dome; the hemisphere keeps applyLighting's calibrated
+      // colours (tinting it by the zenith on top of that darkened every
+      // shadowed face to near black in the browser)
       if (analytic) {
         const p = skyColours(d);
         scene.fog.color.setRGB(p.fog.r, p.fog.g, p.fog.b, THREE.SRGBColorSpace);
-        hemi.color.setRGB(p.zenith.r, p.zenith.g, p.zenith.b, THREE.SRGBColorSpace);
       } else scene.fog.color.lerpColors(fogNight, fogDay, d);
     }
     skyDayMat.opacity = d;
