@@ -42,8 +42,17 @@ import {
   MONSTERS, HABITAT, spawnRollFor, resolvePlace, respawnDelay,
   NO_RESPAWN_RADIUS, SPAWN_SPACING_M,
 } from '../mmo/monsters.js';
-import { aggroCheck, leashCheck, fleeCheck, UNARMED } from '../mmo/combat_rules.js';
+import { aggroCheck, leashCheck, fleeCheck, swingSeconds, UNARMED } from '../mmo/combat_rules.js';
 import { buildMonsterModel, DIE_SECONDS } from './monster_models.js';
+import { SWING_LAND_S } from './combat.js';
+import {
+  attackModeOf, isFlyer, isBoss, rangedWeaponFor, spellFor, coneTargets,
+  castBroken, hoverHeight, approachHeight, bossPlanFor, phaseIndexFor, plateText,
+  weaknessMultiplier, dungeonSpawns, normalizeDungeonLayout, dungeonHabitat,
+  RANGED_FAR, RANGED_BACKOFF, CORNER_MOVE_FRACTION, CORNER_SECONDS, UNCORNER_M,
+  SWOOP_SECONDS, ENRAGE_SWING, SUMMON_COUNT, SUMMON_RING_M,
+  SLAM_WARN_S, SLAM_RADIUS, RETREAT_HEAL_PS, RETREAT_SECONDS,
+} from './monster_ai.js';
 
 // --------------------------------------------------------------- constants
 
@@ -64,6 +73,25 @@ export const FLEE_SPEED = 1.1;       // a bolting thing is quicker than a chargi
 export const SLOW_DEFAULT = 0.3;     // fraction of speed a `slow` with no factor takes off
 export const CORPSE_LINGER_S = DIE_SECONDS + 0.4;   // the topple, and a moment after it
 const PLACE_TRIES = 10;
+
+// -- underground ------------------------------------------------------------
+/** Bodies a level may hold at once. A ring of chunks has no meaning down there:
+ *  a level is at most 96 m across, so it is held whole and ranked by distance. */
+export const DUNGEON_CAP = 24;
+
+// -- what a thing that shoots throws ----------------------------------------
+/** Seconds a thrown or shot thing is in the air. The blow lands with it. */
+export const PROJECTILE_S = SWING_LAND_S;
+/** Metres a miss carries on past the head it was aimed at. */
+export const PROJECTILE_OVERSHOOT_M = 4;
+/** Radius of the little mesh. Small: it is a knife, not a boulder. */
+export const PROJECTILE_R = 0.14;
+
+// -- bosses -----------------------------------------------------------------
+/** Seconds between one ground slam and the next, once a boss has unlocked it. */
+export const SLAM_EVERY_S = 9;
+/** Metres over the head the name plate floats. */
+export const PLATE_LIFT = 1.1;
 
 /**
  * The chance a chunk holds a group at all.
@@ -223,24 +251,33 @@ export function speedOf(m, now = 0) {
  *
  * @returns { x, y, z, moved, dist, arrived }
  */
-export function stepToward(pos, to, speed, dt, heightAt) {
+export function stepToward(pos, to, speed, dt, heightAt, clampXZ) {
   const dx = num(to.x) - num(pos.x), dz = num(to.z) - num(pos.z);
   const d = Math.hypot(dx, dz);
   const step = Math.max(0, num(speed)) * clamp(num(dt), 0, 0.1);
-  if (d < 1e-6 || step <= 0) return { x: num(pos.x), y: num(pos.y), z: num(pos.z), moved: 0, dist: d, arrived: d < 1e-6 };
+  if (d < 1e-6 || step <= 0) return { x: num(pos.x), y: num(pos.y), z: num(pos.z), moved: 0, dist: d, arrived: d < 1e-6, want: 0 };
   const take = Math.min(step, d);
-  const x = num(pos.x) + (dx / d) * take;
-  const z = num(pos.z) + (dz / d) * take;
+  let x = num(pos.x) + (dx / d) * take;
+  let z = num(pos.z) + (dz / d) * take;
+  // Underground this is `runtime.clampWalkable`, and it is asked on EVERY step
+  // and not only at placement, because a corridor turns and a monster walking
+  // straight at you would otherwise walk through the rock between you.
+  if (typeof clampXZ === 'function') {
+    const c = clampXZ(x, z);
+    if (Array.isArray(c)) { x = num(c[0]); z = num(c[1]); }
+    else if (c && typeof c === 'object') { x = num(c.x); z = num(c.z); }
+  }
+  const moved = Math.hypot(x - num(pos.x), z - num(pos.z));
   const y = typeof heightAt === 'function' ? num(heightAt(x, z)) : num(pos.y);
-  return { x, y, z, moved: take, dist: d - take, arrived: take >= d - 1e-9 };
+  return { x, y, z, moved, dist: Math.hypot(num(to.x) - x, num(to.z) - z), arrived: take >= d - 1e-9, want: take };
 }
 
-/** Away from a point instead of toward it. Fleeing, and only fleeing. */
-export function stepAway(pos, from, speed, dt, heightAt) {
+/** Away from a point instead of toward it. Fleeing, backing off, and nothing else. */
+export function stepAway(pos, from, speed, dt, heightAt, clampXZ) {
   const dx = num(pos.x) - num(from.x), dz = num(pos.z) - num(from.z);
   const d = Math.hypot(dx, dz) || 1;
   const to = { x: num(pos.x) + (dx / d) * 100, z: num(pos.z) + (dz / d) * 100 };
-  return stepToward(pos, to, speed, dt, heightAt);
+  return stepToward(pos, to, speed, dt, heightAt, clampXZ);
 }
 
 /**
@@ -252,15 +289,24 @@ export function stepAway(pos, from, speed, dt, heightAt) {
  * seconds past two and a half times its aggro radius; `fleeCheck` breaks it at
  * a quarter health unless it is undead or a construct.
  *
- * @param ctx { player, now, reach, heightAt }
- * @returns { state, moved, wantSwing, dist } and never throws on a missing
- *   player, because between a death and a respawn there genuinely is not one.
+ * A row that shoots, throws, casts or breathes does not walk into reach at all.
+ * It keeps the standoff band, backs away when you close on it, and only puts
+ * its hands up when it has backed into a wall and cannot go further, which is
+ * `cornered`. `ctx.mode` decides which of the two it is, and a melee row with
+ * no mode behaves exactly as it did before this was written.
+ *
+ * @param ctx { player, now, reach, heightAt, clampXZ, rng, mode, flying }
+ * @returns { state, moved, wantSwing, wantCast, cornered, altitude, dist } and
+ *   never throws on a missing player, because between a death and a respawn
+ *   there genuinely is not one.
  */
 export function stepMonster(m, dt, ctx = {}) {
   const now = num(ctx.now);
   const d = clamp(num(dt), 0, 0.1);
   const ai = m.ai || (m.ai = { home: { x: num(m.pos.x), z: num(m.pos.z) }, state: 'idle' });
-  const out = { state: ai.state, moved: 0, wantSwing: false, dist: Infinity };
+  const mode = ctx.mode || 'melee';
+  const ranged = mode !== 'melee';
+  const out = { state: ai.state, moved: 0, wantSwing: false, wantCast: false, cornered: !!ai.cornered, dist: Infinity, altitude: 0 };
 
   if (num(m.health) <= 0) { ai.state = out.state = 'dead'; return out; }
   const player = ctx.player && num(ctx.player.health) > 0 ? ctx.player : null;
@@ -292,7 +338,7 @@ export function stepMonster(m, dt, ctx = {}) {
   }
 
   const move = (to, sp) => {
-    const s = stepToward(m.pos, to, sp, d, ctx.heightAt);
+    const s = stepToward(m.pos, to, sp, d, ctx.heightAt, ctx.clampXZ);
     if (s.moved > 0) {
       m.yaw = Math.atan2(s.x - num(m.pos.x), s.z - num(m.pos.z));
       m.pos.x = s.x; m.pos.z = s.z; m.pos.y = s.y;
@@ -300,6 +346,16 @@ export function stepMonster(m, dt, ctx = {}) {
     out.moved = s.moved;
     return s;
   };
+  const back = (from, sp) => {
+    const s = stepAway(m.pos, from, sp, d, ctx.heightAt, ctx.clampXZ);
+    if (s.moved > 0) { m.pos.x = s.x; m.pos.z = s.z; m.pos.y = s.y; }
+    out.moved = s.moved;
+    return s;
+  };
+  /** It wanted to go somewhere and the world would not let it. */
+  const stuck = (s) => s.want > 0 && s.moved < s.want * CORNER_MOVE_FRACTION;
+  const faceThe = (p) => { m.yaw = Math.atan2(num(p.x) - num(m.pos.x), num(p.z) - num(m.pos.z)); };
+  const canAct = () => { const st = m.status || {}; return !(st.stun && num(st.stun.until) > now); };
 
   switch (ai.state === 'dead' ? 'dead' : (ai.target ? 'chase' : ai.state)) {
     case 'chase': {
@@ -307,18 +363,45 @@ export function stepMonster(m, dt, ctx = {}) {
       const gap = dist2D(m.pos, target.pos);
       out.dist = gap;
       const reach = num(ctx.reach) || (num(UNARMED.reach) + 0.9);
+
+      if (ranged && !ai.cornered) {
+        // The standoff. Too far and it comes; too close and it walks backwards
+        // still facing you; in the band it stands and throws. It never turns its
+        // back, which is why this is stepAway and not a walk to a point behind.
+        faceThe(target.pos);
+        if (gap > RANGED_FAR) { move(target.pos, speed); ai.state = 'chase'; faceThe(target.pos); break; }
+        if (gap < RANGED_BACKOFF) {
+          const s = back(target.pos, speed);
+          faceThe(target.pos);
+          // against a wall for CORNER_SECONDS and it gives up backing away
+          if (stuck(s)) {
+            ai.cornerFor = num(ai.cornerFor) + d;
+            if (ai.cornerFor >= CORNER_SECONDS) { ai.cornered = true; ai.cornerFor = 0; }
+          } else ai.cornerFor = 0;
+          ai.state = 'chase';
+          out.cornered = !!ai.cornered;
+          break;
+        }
+        ai.cornerFor = 0;
+        ai.state = 'attack';
+        if (canAct()) { if (mode === 'cast' || mode === 'breath') out.wantCast = true; else out.wantSwing = true; }
+        break;
+      }
+
+      // cornered, or a melee row: the old behaviour, unchanged
+      if (ranged && ai.cornered && gap > UNCORNER_M) { ai.cornered = false; ai.cornerFor = 0; }
       if (gap <= reach) {
         // stand and swing, facing what it is hitting. A stunned thing may not:
         // combat.queueSwing would refuse it anyway, and asking every frame for
         // something that is always refused is how a log fills up with nothing.
-        m.yaw = Math.atan2(num(target.pos.x) - num(m.pos.x), num(target.pos.z) - num(m.pos.z));
-        const st = m.status || {};
-        out.wantSwing = !(st.stun && num(st.stun.until) > now);
+        faceThe(target.pos);
+        out.wantSwing = canAct();
         ai.state = 'attack';
       } else {
         move(target.pos, speed);
         ai.state = 'chase';
       }
+      out.cornered = !!ai.cornered;
       break;
     }
     case 'flee': {
@@ -328,7 +411,7 @@ export function stepMonster(m, dt, ctx = {}) {
       out.dist = gap;
       if (gap >= FLEE_BREAK_M) { ai.state = 'return'; ai.fleeFrom = null; }
       else {
-        const s = stepAway(m.pos, from.pos, speed * FLEE_SPEED, d, ctx.heightAt);
+        const s = stepAway(m.pos, from.pos, speed * FLEE_SPEED, d, ctx.heightAt, ctx.clampXZ);
         if (s.moved > 0) {
           m.yaw = Math.atan2(s.x - num(m.pos.x), s.z - num(m.pos.z));
           m.pos.x = s.x; m.pos.z = s.z; m.pos.y = s.y;
@@ -360,6 +443,28 @@ export function stepMonster(m, dt, ctx = {}) {
       ai.state = 'idle';
       break;
     }
+  }
+
+  // -- the ones that do not touch the ground --------------------------------
+  // Every branch above wrote `m.pos.y` from `heightAt`, which is the floor. A
+  // flyer's height is put back on top of that here, in one place, so no branch
+  // can forget it. It comes down to swoop and holds low for SWOOP_SECONDS,
+  // which is the window a swordsman has to hit it back: combat.actorDistance is
+  // three dimensional, so a harpy three metres up is genuinely unreachable and
+  // the swoop is the whole of the answer to that.
+  if (ctx.flying) {
+    const ground = typeof ctx.heightAt === 'function' ? num(ctx.heightAt(m.pos.x, m.pos.z)) : 0;
+    // The height is kept on `ai`, not read back off `m.pos.y`: every movement
+    // branch above writes pos.y from `heightAt`, so a height derived from it
+    // would be knocked back to the floor on every frame the thing moved and the
+    // bat would spend its life climbing the same six centimetres.
+    if (ai.alt == null) ai.alt = hoverHeight(0, false);
+    ai.hoverT = num(ai.hoverT) + d;
+    if (ai.state === 'attack') ai.swoopUntil = now + SWOOP_SECONDS * 1000;
+    const swooping = num(ai.swoopUntil) > now;
+    ai.alt = approachHeight(ai.alt, hoverHeight(ai.hoverT, swooping), d);
+    m.pos.y = ground + ai.alt;
+    out.altitude = ai.alt;
   }
 
   out.state = ai.state;
@@ -477,9 +582,18 @@ export function createMonsters(sc, runtime, opts = {}) {
   const chunks = new Map();     // "cx,cz" -> { cx, cz, recs, night }
   const live = new Map();       // key -> monster record
   const corpses = [];           // toppling bodies, waiting to be taken away
+  const shots = [];             // knives, spikes and boulders in the air
+  const slams = [];             // a ring on the ground, and what happens under it
   let lastScan = -1e9, lastChunk = null, lastNight = null;
   let lastNow = 0;
-  const stats = { alive: 0, spawned: 0, despawned: 0, killed: 0, capped: 0, chunks: 0 };
+  // null above ground, "siteId:level" below it. A change is a whole new layer.
+  let layerKey = null;
+  let levelRecs = [];
+  let levelL = null;            // the normalised layout of the level standing
+  const stats = {
+    alive: 0, spawned: 0, despawned: 0, killed: 0, capped: 0, chunks: 0,
+    shots: 0, casts: 0, interrupted: 0, slams: 0, summoned: 0, phases: 0,
+  };
 
   // -- the dead list --------------------------------------------------------
   const deadEntry = (key) => deadUntil.find((e) => e && e.key === key) || null;
@@ -530,11 +644,24 @@ export function createMonsters(sc, runtime, opts = {}) {
     model.group.position.set(rec.x, y, rec.z);
     group.add(model.group);
 
+    const mode = attackModeOf(row);
+    // A thing that throws needs a weapon whose REACH is its range, or
+    // `combat.landSwing` bins the blow three hundred milliseconds later for
+    // being out of a reach nobody meant it to have. See rangedWeaponFor.
+    if ((mode === 'thrown' || mode === 'shot') && actor.weapon) {
+      actor.weapon = rangedWeaponFor(actor, row);
+    }
+
     const mon = {
       key: rec.key, rec, row, actor, model, id: rec.id, name: row.name,
       poison: poisonLevelOf(row), shares: sharesAggro(row),
       groupKey: rec.groupKey, lastSpeed: 0,
+      mode, flyer: isFlyer(row), boss: isBoss(row), spell: spellFor(row),
+      cast: null, lastHealth: num(actor.health),
+      phase: 0, plan: isBoss(row) ? bossPlanFor(row) : [], plate: null,
+      slamAt: 0, retreatUntil: 0, ephemeral: !!rec.ephemeral,
     };
+    if (mon.boss) mon.plate = makePlate(mon);
     model.group.userData.monster = mon;
     model.parts.hit.userData.monster = mon;
     live.set(rec.key, mon);
@@ -550,6 +677,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     // a swing already in the air belongs to a body that is about to stop
     // existing, and it must not land out of nowhere a third of a second later
     combat?.forget?.(mon.actor);
+    dropPlate(mon);
     mon.model.dispose();
   }
 
@@ -563,8 +691,13 @@ export function createMonsters(sc, runtime, opts = {}) {
     live.delete(mon.key);
     stats.alive--; stats.killed++;
     mon.model.setAnim('die');
+    mon.cast = null;
+    dropPlate(mon);
     corpses.push({ mon, t: 0 });
-    deadUntil.push({ key: mon.key, id: mon.id, until: wallClock() + respawnDelay(rng) * 1000 });
+    // A summoned minion is not a slot in the world and must not be written into
+    // the character's dead list: it was never in the level's own roll, so an
+    // entry for it would sit in the save for ever matching nothing.
+    if (!mon.ephemeral) deadUntil.push({ key: mon.key, id: mon.id, until: wallClock() + respawnDelay(rng) * 1000 });
 
     const drop = loot?.rollFor ? loot.rollFor(mon.row, { luck: num(killer?.bonuses?.luck), seed: hashKey(mon.key) }) : null;
     const bag = drop && loot?.drop ? loot.drop(mon.actor.pos, drop) : null;
@@ -580,6 +713,181 @@ export function createMonsters(sc, runtime, opts = {}) {
     for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
     return h >>> 0;
   };
+
+  // -- the boss's name plate ------------------------------------------------
+  //
+  // A canvas sprite over the head, which is the only label in the game and is
+  // deliberately not the HUD's: a boss can be one of several things on screen
+  // and the words belong over the right one. Node has no `document`, so a
+  // headless run gets no plate and everything else still works; `plateText` is
+  // pure and is what the tests measure.
+
+  function drawPlate(mon) {
+    const cv = mon.plate?.canvas;
+    if (!cv) return null;
+    const t = plateText(mon.row, mon.actor.health, mon.actor.maxHealth);
+    const g = cv.getContext('2d');
+    g.clearRect(0, 0, cv.width, cv.height);
+    g.textAlign = 'center';
+    g.fillStyle = 'rgba(0,0,0,0.55)';
+    g.fillRect(0, 0, cv.width, cv.height);
+    g.fillStyle = '#ffd23a';
+    g.font = 'bold 44px serif';
+    g.fillText(t.name, cv.width / 2, 52);
+    g.fillStyle = '#e8e2d6';
+    g.font = '30px serif';
+    g.fillText(t.phase, cv.width / 2, 92);
+    if (mon.plate.texture) mon.plate.texture.needsUpdate = true;
+    mon.plate.text = t;
+    return t;
+  }
+
+  function makePlate(mon) {
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = 112;
+    const texture = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+    sprite.scale.set(3.2, 0.7, 1);
+    sprite.position.y = (mon.model?.height || 2) + PLATE_LIFT;
+    sprite.renderOrder = 10;
+    mon.model.group.add(sprite);
+    mon.plate = { canvas, texture, sprite, text: null };
+    drawPlate(mon);
+    return mon.plate;
+  }
+
+  function dropPlate(mon) {
+    const p = mon.plate;
+    if (!p || !p.sprite) return;
+    p.sprite.parent?.remove(p.sprite);
+    p.sprite.material?.map?.dispose?.();
+    p.sprite.material?.dispose?.();
+    mon.plate = null;
+  }
+
+  // -- what leaves the hand -------------------------------------------------
+
+  const SHOT_GEO = new THREE.SphereGeometry(PROJECTILE_R, 6, 5);
+  const SHOT_MAT = new THREE.MeshBasicMaterial({ color: 0xd8cfae });
+
+  /**
+   * A knife, a spike or a boulder, in the air.
+   *
+   * It reaches the target at exactly PROJECTILE_S, which is combat.js's own
+   * SWING_LAND_S, so the number over the head and the thing that caused it
+   * arrive together. Whether it HIT is not known when it is thrown: the roll
+   * happens in `combat.update`, one call after this one. So the shot notes the
+   * defender's health as it leaves, and on the frame after it lands it asks
+   * whether that number moved. It did not, so it was a miss, and the knife
+   * carries on past the ear instead of stopping in the chest.
+   */
+  function throwShot(mon, target) {
+    const from = mon.actor.pos, to = target.pos;
+    const mesh = new THREE.Mesh(SHOT_GEO, SHOT_MAT);
+    const y0 = num(from.y) + (mon.model.height || 1) * 0.65;
+    const y1 = num(to.y) + 1.0;
+    mesh.position.set(num(from.x), y0, num(from.z));
+    group.add(mesh);
+    const s = {
+      mesh, target, life: PROJECTILE_S, t: 0, arrived: false, past: 0, born: lastNow,
+      from: { x: num(from.x), y: y0, z: num(from.z) },
+      to: { x: num(to.x), y: y1, z: num(to.z) },
+      health: num(target.health),
+    };
+    shots.push(s);
+    stats.shots++;
+    return s;
+  }
+
+  function stepShots(d) {
+    for (let i = shots.length - 1; i >= 0; i--) {
+      const s = shots[i];
+      // not on the frame it left the hand: it is thrown inside the monster loop
+      // and this runs at the end of the same update, so stepping it here would
+      // make its flight one frame shorter than the blow it travels with.
+      if (s.born === lastNow) continue;
+      if (!s.arrived) {
+        s.t += d;
+        const u = clamp(s.t / s.life, 0, 1);
+        s.mesh.position.set(
+          s.from.x + (s.to.x - s.from.x) * u,
+          s.from.y + (s.to.y - s.from.y) * u,
+          s.from.z + (s.to.z - s.from.z) * u,
+        );
+        if (s.t >= s.life) s.arrived = true;
+        continue;
+      }
+      // one frame after arrival the resolver has spoken
+      if (s.past === 0 && num(s.target.health) < s.health) { drop(i); continue; }
+      s.past += d;
+      const dx = s.to.x - s.from.x, dz = s.to.z - s.from.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const carry = (s.past / s.life) * PROJECTILE_OVERSHOOT_M;
+      s.mesh.position.set(s.to.x + (dx / len) * carry, s.to.y, s.to.z + (dz / len) * carry);
+      if (carry >= PROJECTILE_OVERSHOOT_M) drop(i);
+    }
+    function drop(i) {
+      const s = shots[i];
+      s.mesh.parent?.remove(s.mesh);
+      shots.splice(i, 1);
+    }
+  }
+
+  // -- the ground slam ------------------------------------------------------
+
+  const RING_GEO = new THREE.RingGeometry(SLAM_RADIUS * 0.9, SLAM_RADIUS, 40);
+  const RING_MAT = new THREE.MeshBasicMaterial({ color: 0xff6a3a, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false });
+
+  /**
+   * A ring on the floor for SLAM_WARN_S, then everything still standing in it.
+   *
+   * It goes out through `combat.queueSpell` and not `queueSwing`, and the
+   * reason is worth writing down: `combat.landSwing` throws away any blow whose
+   * distance has grown past `reachBetween * REACH_SLACK`, which for a boss is
+   * under five metres, so a six metre slam queued as a swing would be silently
+   * binned for every target but the one under its feet. queueSpell has no reach
+   * gate and takes an exact `travel`. The cost is that `resolveSpell` has no
+   * armour term, so a slam is not reduced by AR: the ground going out from
+   * under you is not a thing a breastplate stops, and it is said here rather
+   * than discovered later.
+   */
+  function startSlam(mon, at) {
+    const s = { mon, x: num(at.x), z: num(at.z), y: num(at.y), t: 0, mesh: null };
+    const mesh = new THREE.Mesh(RING_GEO, RING_MAT.clone());
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(s.x, s.y + 0.06, s.z);
+    group.add(mesh);
+    s.mesh = mesh;
+    slams.push(s);
+    stats.slams++;
+    say(`${mon.name} brings it down where you are standing. Move.`);
+    return s;
+  }
+
+  function stepSlams(d, playerActor) {
+    for (let i = slams.length - 1; i >= 0; i--) {
+      const s = slams[i];
+      s.t += d;
+      const u = clamp(s.t / SLAM_WARN_S, 0, 1);
+      s.mesh.material.opacity = 0.25 + 0.45 * u;
+      if (s.t < SLAM_WARN_S) continue;
+      s.mesh.parent?.remove(s.mesh);
+      s.mesh.material.dispose();
+      slams.splice(i, 1);
+      const row = s.mon.row;
+      const spell = { base: [row.damage[0], row.damage[1]], damageType: 'physical', id: 'slam', name: 'the slam' };
+      const caught = [];
+      for (const who of [playerActor, ...[...live.values()].map((m) => m.actor)]) {
+        if (!who || who === s.mon.actor || num(who.health) <= 0) continue;
+        if (who.kind !== 'player') continue;                 // the boss's own do not take it
+        if (Math.hypot(num(who.pos.x) - s.x, num(who.pos.z) - s.z) > SLAM_RADIUS) continue;
+        caught.push(who);
+        combat?.queueSpell?.(s.mon.actor, spell, who, { now: lastNow, travel: 0 });
+      }
+      say(caught.length ? 'The floor comes up and catches you.' : 'The floor comes up where you were.');
+    }
+  }
 
   // -- the sweep ------------------------------------------------------------
   function chunkFor(cx, cz, night) {
@@ -623,6 +931,80 @@ export function createMonsters(sc, runtime, opts = {}) {
     for (const w of keep) if (!live.has(w.rec.key)) spawn(w.rec);
   }
 
+  // -- underground ----------------------------------------------------------
+  //
+  // A level is not streamed. It is small enough to hold whole, so the roll
+  // happens once when you arrive and again only when the level changes. The
+  // keys carry the site and the depth and the room, which is what makes a room
+  // you cleared before you took the stair down still clear when you climb back
+  // up: `deadUntil` matched it, and `deadUntil` is the character's own list.
+
+  /** null above ground, "siteId:level" below it. Two reads, no allocation. */
+  function layerKeyNow() {
+    if (!runtime?.inDungeon) return null;
+    return `${runtime.dungeonSite?.id ?? '?'}:${runtime.dungeonLevel ?? 0}`;
+  }
+
+  /** `{ rooms, level, bottom, ... }` for the level you are standing in, or null. */
+  function levelLayout() {
+    if (!runtime?.inDungeon) { levelL = null; return null; }
+    const raw = typeof runtime.dungeonLayout === 'function' ? runtime.dungeonLayout() : null;
+    levelL = raw ? normalizeDungeonLayout(raw, {
+      siteId: runtime.dungeonSite?.id,
+      level: runtime.dungeonLevel,
+    }) : null;
+    if (!levelL && raw) warnOnce('monsters: runtime.dungeonLayout() has no room grid, so no dungeon layer (see docs/mmo/wiring/G3.md)');
+    else if (!raw) warnOnce('monsters: runtime.dungeonLayout() is missing, so no dungeon layer (see docs/mmo/wiring/G3.md)');
+    return levelL;
+  }
+
+  let warned = false;
+  function warnOnce(text) {
+    if (warned) return;
+    warned = true;
+    console.warn(text);
+  }
+
+  /** Identity above ground, the nearest floor cell below it. Every step asks. */
+  const clampXZ = (x, z) => (typeof runtime?.clampWalkable === 'function' ? runtime.clampWalkable(x, z) : [x, z]);
+
+  function buildLevel(L) {
+    levelRecs = L ? dungeonSpawns(L, { seed: num(field?.seed) }) : [];
+    return levelRecs;
+  }
+
+  function dungeonRescan(px, pz) {
+    const wanted = [];
+    for (const rec of levelRecs) {
+      if (stillDead(rec, { x: px, z: pz })) continue;
+      wanted.push({ rec, d2: (rec.x - px) ** 2 + (rec.z - pz) ** 2 });
+    }
+    wanted.sort((a, b) => a.d2 - b.d2 || (a.rec.key < b.rec.key ? -1 : 1));
+    const room = opts.dungeonCap ?? DUNGEON_CAP;
+    const keep = wanted.slice(0, room);
+    stats.capped = wanted.length - keep.length;
+    const keepKeys = new Set(keep.map((w) => w.rec.key));
+    for (const [key, mon] of [...live]) {
+      if (keepKeys.has(key) || mon.ephemeral) continue;
+      if (mon.actor.ai?.target) continue;
+      despawn(key);
+    }
+    for (const w of keep) if (!live.has(w.rec.key)) spawn(w.rec);
+  }
+
+  /** Everything goes: a level left, a level entered, or the surface come back. */
+  function clearLayer() {
+    for (const key of [...live.keys()]) despawn(key);
+    for (let i = shots.length - 1; i >= 0; i--) { shots[i].mesh.parent?.remove(shots[i].mesh); }
+    shots.length = 0;
+    for (const s of slams) { s.mesh.parent?.remove(s.mesh); s.mesh.material.dispose(); }
+    slams.length = 0;
+    chunks.clear();
+    levelRecs = [];
+    levelL = null;
+    lastChunk = null; lastNight = null; lastScan = -1e9;
+  }
+
   // -- the frame ------------------------------------------------------------
 
   /**
@@ -635,19 +1017,31 @@ export function createMonsters(sc, runtime, opts = {}) {
     lastNow = Number.isFinite(now) ? now : lastNow;
     const d = clamp(num(dt), 0, 0.1);
 
-    // Underground the overworld is switched off. Its monsters are standing in
-    // memory at coordinates directly over your head, and stepping them would
-    // walk a wolf through the roof of the dungeon at you.
-    if (runtime?.inDungeon) {
-      if (live.size) { for (const key of [...live.keys()]) despawn(key); chunks.clear(); }
-      group.visible = false;
-      stepCorpses(d);
-      return;
+    // Which layer is this? Above ground it is the streamed ring; below it is
+    // one level, held whole. A change of either direction empties the other,
+    // because the overworld's monsters are standing at coordinates directly
+    // over your head and stepping them would walk a wolf through the roof.
+    // The key is two cheap reads and is asked every frame; the layout itself is
+    // read, normalised and rolled only when the key moves.
+    const wantKey = layerKeyNow();
+    if (wantKey !== layerKey) {
+      clearLayer();
+      layerKey = wantKey;
+      if (wantKey != null) buildLevel(levelLayout());
     }
     group.visible = true;
 
     const px = num(playerActor?.pos?.x), pz = num(playerActor?.pos?.z);
-    if (playerActor && field) {
+    const under = runtime?.inDungeon;
+
+    if (under) {
+      // A level with no layout to read is not guessed at: the layer stays empty
+      // and G3.md names the one export world_runtime.js has to add.
+      if (levelRecs.length && playerActor && (lastNow - lastScan >= SCAN_MS || lastScan < 0)) {
+        lastScan = lastNow;
+        dungeonRescan(px, pz);
+      }
+    } else if (playerActor && field) {
       const [pcx, pcz] = field.chunkOf(px, pz);
       const moved = !lastChunk || lastChunk[0] !== pcx || lastChunk[1] !== pcz;
       if (moved || night !== lastNight || lastNow - lastScan >= SCAN_MS) {
@@ -660,11 +1054,21 @@ export function createMonsters(sc, runtime, opts = {}) {
       const a = mon.actor;
       if (num(a.health) <= 0) continue;                  // combat's onDeath will take it
       const before = a.ai?.target || null;
+
+      // What came off it since the last frame, which is what breaks a cast.
+      const took = Math.max(0, num(mon.lastHealth) - num(a.health));
+      mon.lastHealth = num(a.health);
+      if (mon.boss) stepBoss(mon, d, playerActor);
+
       const res = stepMonster(a, d, {
         player: playerActor, now: lastNow, heightAt,
+        clampXZ: under ? clampXZ : undefined,
         reach: combat ? combat.reachBetween(a, playerActor || a) : undefined,
+        mode: mon.mode,
+        flying: mon.flyer,
         rng,
       });
+      mon.cornered = !!res.cornered;
       if (!before && a.ai.target) alertGroup(mon, a.ai.target);
 
       mon.model.group.position.set(a.pos.x, a.pos.y, a.pos.z);
@@ -672,19 +1076,146 @@ export function createMonsters(sc, runtime, opts = {}) {
       const speed = d > 0 ? res.moved / d : 0;
       mon.lastSpeed = speed;
 
-      if (res.wantSwing && combat && playerActor && a.ai.target === playerActor) {
+      const onPlayer = combat && playerActor && a.ai.target === playerActor;
+      stepCast(mon, took, res, playerActor, onPlayer);
+
+      if (res.wantSwing && onPlayer) {
+        const ranged = mon.mode === 'thrown' || mon.mode === 'shot';
         const swing = combat.queueSwing(a, playerActor, { now: lastNow, poison: mon.poison || undefined });
-        if (swing.queued) mon.model.setAnim('swing');
+        if (swing.queued) {
+          mon.model.setAnim('swing');
+          if (ranged) throwShot(mon, playerActor);
+        }
       }
       // the animation follows the actor, which combat.js writes on a hit
       if (a.anim === 'hurt' && mon.model.anim !== 'hurt') { mon.model.setAnim('hurt'); a.anim = res.state === 'idle' ? 'idle' : 'walk'; }
+      else if (mon.cast) mon.model.setAnim('cast');
       else if (mon.model.anim !== 'swing' && mon.model.anim !== 'hurt') {
         mon.model.setAnim(speed > 0.15 ? (speed > num(a.run) * 0.75 ? 'run' : 'walk') : 'idle');
       }
       mon.model.update(d, speed);
+      if (mon.plate) mon.plate.sprite.position.y = (mon.model.height || 2) + PLATE_LIFT;
     }
 
+    stepShots(d);
+    stepSlams(d, playerActor);
     stepCorpses(d);
+  }
+
+  /**
+   * One frame of a cast. A cast is started when the AI asks for one and the
+   * row's own swing rhythm allows it, held for the spell's seconds with the
+   * model in its cast pose, and broken by a single blow worth more than a tenth
+   * of the caster's health, which is 04-CLASSES-ABILITIES' rule for the player
+   * and is not given a second, softer version here.
+   */
+  function stepCast(mon, took, res, playerActor, onPlayer) {
+    if (!combat) return;
+    if (mon.cast) {
+      if (num(mon.actor.health) <= 0 || !onPlayer) { mon.cast = null; return; }
+      if (castBroken(took, mon.actor.maxHealth)) {
+        stats.interrupted++;
+        say(`${mon.name} loses the words.`);
+        mon.cast = null;
+        mon.model.setAnim('hurt');
+        return;
+      }
+      if (lastNow < mon.cast.until) return;
+      const spell = mon.cast.spell;
+      const target = mon.cast.target;
+      mon.cast = null;
+      if (!target || num(target.health) <= 0) return;
+      if (spell.cone) {
+        // "hitting everything in a 6 m cone": the cone is aimed where the thing
+        // is facing, and it is measured, not assumed.
+        const caught = coneTargets(mon.actor.pos, mon.actor.yaw, spell.cone.range, spell.cone.halfAngle, [target]);
+        for (const who of caught) combat.queueSpell(mon.actor, spell, who, { now: lastNow, travel: 0, poison: mon.poison || undefined });
+        say(caught.length ? `${mon.name} breathes, and it catches you.` : `${mon.name} breathes, and you are out of it.`);
+      } else {
+        combat.queueSpell(mon.actor, spell, target, { now: lastNow, travel: spell.travel, poison: mon.poison || undefined });
+      }
+      return;
+    }
+    if (!res.wantCast || !onPlayer || !mon.spell) return;
+    // the row's tabled speed is its casting rhythm too, so no second number
+    const wait = num(mon.actor.lastSwingAt) + swingSeconds(mon.actor) * 1000 - lastNow;
+    if (Number.isFinite(mon.actor.lastSwingAt) && wait > 0) return;
+    mon.actor.lastSwingAt = lastNow;
+    mon.cast = { until: lastNow + mon.spell.seconds * 1000, spell: mon.spell, target: playerActor };
+    mon.actor.anim = 'cast';
+    mon.model.setAnim('cast');
+    stats.casts++;
+    say(`${mon.name} begins ${mon.spell.name}.`);
+  }
+
+  /**
+   * A boss crossing a threshold. `BOSS_PHASES` gives 66% and 33%; the behaviour
+   * at each and the line it says are `monster_ai.BOSS_PLANS`. A phase fires
+   * once and only once, and it says so out loud, because a boss that quietly
+   * doubled its swing speed would read as the game misbehaving.
+   */
+  function stepBoss(mon, d, playerActor) {
+    const a = mon.actor;
+    const want = phaseIndexFor(mon.row, a.health, a.maxHealth);
+    while (mon.phase < want) {
+      const step = mon.plan[mon.phase];
+      mon.phase++;
+      if (!step) break;
+      stats.phases++;
+      say(step.line, 'bad');
+      if (mon.plate) drawPlate(mon);
+      if (step.kind === 'enrage') {
+        a.bonuses = a.bonuses || {};
+        a.bonuses.swingSpeed = num(a.bonuses.swingSpeed) + ENRAGE_SWING;
+      } else if (step.kind === 'summon') {
+        summonFor(mon);
+      } else if (step.kind === 'slam') {
+        mon.slamAt = lastNow;                    // the first one goes now
+      } else if (step.kind === 'retreat') {
+        mon.retreatUntil = lastNow + RETREAT_SECONDS * 1000;
+        a.ai.state = 'flee';
+        a.ai.fleeFrom = a.ai.target || playerActor;
+        a.ai.target = null;
+      }
+    }
+    if (mon.retreatUntil > lastNow && combat?.heal) combat.heal(a, RETREAT_HEAL_PS * d, { quiet: true });
+    if (mon.retreatUntil && lastNow >= mon.retreatUntil) {
+      mon.retreatUntil = 0;
+      if (a.ai.state === 'flee') { a.ai.state = 'return'; a.ai.fleeFrom = null; }
+    }
+    if (mon.slamAt && lastNow >= mon.slamAt && playerActor && num(playerActor.health) > 0
+        && dist2D(a.pos, playerActor.pos) <= SLAM_RADIUS * 2.5) {
+      mon.slamAt = lastNow + SLAM_EVERY_S * 1000;
+      startSlam(mon, playerActor.pos);
+    }
+  }
+
+  /**
+   * "a summon of its habitat's minions". They are the level's own roster, put
+   * down in a ring around the boss, and they are `ephemeral`: they never go
+   * into the character's dead list, because they were never a slot in the
+   * world's roll and an entry for them would sit in the save matching nothing.
+   */
+  function summonFor(mon) {
+    const habitat = levelL ? dungeonHabitat(levelL.kind, levelL.level) : 'dungeon3';
+    const list = (HABITAT[habitat]?.night || []).filter((id) => MONSTERS[id] && !MONSTERS[id].boss);
+    if (!list.length) return 0;
+    let made = 0;
+    for (let i = 0; i < SUMMON_COUNT; i++) {
+      const id = list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
+      const ang = (i / SUMMON_COUNT) * Math.PI * 2 + rng();
+      let x = num(mon.actor.pos.x) + Math.cos(ang) * SUMMON_RING_M;
+      let z = num(mon.actor.pos.z) + Math.sin(ang) * SUMMON_RING_M;
+      if (runtime?.inDungeon) { const c = clampXZ(x, z); x = num(c[0]); z = num(c[1]); }
+      const rec = {
+        id, key: `${mon.key}:summon:${stats.summoned + i}`, groupKey: `${mon.key}:summon`,
+        x, z, y: heightAt(x, z), cx: 0, cz: 0, i, night: false, ephemeral: true, underground: !!runtime?.inDungeon,
+      };
+      if (spawn(rec)) made++;
+    }
+    stats.summoned += made;
+    say(made ? `${made} of them come out of the dark.` : 'Nothing answers.');
+    return made;
   }
 
   function stepCorpses(d) {
@@ -769,14 +1300,73 @@ export function createMonsters(sc, runtime, opts = {}) {
     /** The dead list this runtime is writing into: the character's own array. */
     deadUntil,
     /** Force a sweep now, rather than waiting out SCAN_MS. A teleport wants this. */
-    rescan(px, pz, night) { if (field) rescan(px, pz, !!night); },
+    rescan(px, pz, night) {
+      if (runtime?.inDungeon) {
+        const key = layerKeyNow();
+        if (key !== layerKey) { clearLayer(); layerKey = key; buildLevel(levelLayout()); }
+        dungeonRescan(px, pz);
+        return;
+      }
+      if (layerKey != null) { clearLayer(); layerKey = null; }
+      if (field) rescan(px, pz, !!night);
+    },
+
+    /**
+     * A swing at a monster, with the monster's weaknesses on it.
+     *
+     * THE ONE CALL main.js AND abilities_runtime.js HAVE TO SWAP IN. Everything
+     * a swing already carried is passed straight through; the only thing added
+     * is `multiplier`, which `combat.landSwing` puts back through
+     * `combat_rules.damage` with the same roll and the same crit. There is no
+     * second damage formula here and there is no arithmetic: the multiplier is
+     * read off `defender.vulnerability`, which `actor.js` built and which
+     * nothing else in the tree was reading.
+     */
+    swingAt(attacker, defender, o = {}) {
+      if (!combat) return { queued: false, reason: 'no_combat' };
+      const w = weaknessMultiplier(attacker, defender, o);
+      const mult = num(o.multiplier) || 1;
+      return combat.queueSwing(attacker, defender, w === 1 ? o : { ...o, multiplier: mult * w });
+    },
+    /** The same number on its own, for a caller that queues its own swing. */
+    weaknessMultiplier,
+
+    /** What is in the air right now: the shots, for the tests and the overlay. */
+    projectiles: () => shots.map((s) => ({
+      t: s.t, life: s.life, arrived: s.arrived, past: s.past,
+      pos: { x: s.mesh.position.x, y: s.mesh.position.y, z: s.mesh.position.z },
+      to: { ...s.to },
+    })),
+    /** The warning rings on the floor, and how long each has left. */
+    warnings: () => slams.map((s) => ({ x: s.x, z: s.z, radius: SLAM_RADIUS, left: Math.max(0, SLAM_WARN_S - s.t) })),
+    /** The level's roll as records, before the cap. Empty above ground. */
+    levelSpawns: () => levelRecs.slice(),
+    /** Which layer is standing: null above ground, "siteId:level" below it. */
+    get layer() { return layerKey; },
+
     dispose() {
       offDeath?.();
       for (const key of [...live.keys()]) despawn(key);
       for (const c of corpses) c.mon.model.dispose();
       corpses.length = 0;
+      for (const s of shots) s.mesh.parent?.remove(s.mesh);
+      shots.length = 0;
+      for (const s of slams) { s.mesh.parent?.remove(s.mesh); s.mesh.material.dispose(); }
+      slams.length = 0;
       chunks.clear();
+      levelRecs = [];
       scene?.remove?.(group);
     },
   };
 }
+
+// What `monsters.test.mjs` and the debug overlay reach for without having to
+// know that the AI moved into its own file. One import, one surface.
+export {
+  attackModeOf, isRanged, isFlyer, isBoss, spellFor, coneTargets, castBroken,
+  hoverHeight, approachHeight, bossPlanFor, phaseIndexFor, plateText,
+  weaknessMultiplier, dungeonSpawns, normalizeDungeonLayout, dungeonHabitat,
+  rangedWeaponFor, groupsForRoom, bossRowsFor, auditRangedRows,
+  RANGED_NEAR, RANGED_FAR, RANGED_BACKOFF, SWOOP_SECONDS,
+  ENRAGE_SWING, SLAM_WARN_S, SLAM_RADIUS, SUMMON_COUNT,
+} from './monster_ai.js';

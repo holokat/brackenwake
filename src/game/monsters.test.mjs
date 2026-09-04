@@ -17,16 +17,26 @@
 
 import * as THREE from 'three';
 import { CHUNK } from '../world/field.js';
-import { MONSTERS } from '../mmo/monsters.js';
+import { MONSTERS, HABITAT } from '../mmo/monsters.js';
 import { aggroRadius, LEASH_MS, attackSkill, defenceSkill, swingSeconds, parryChance } from '../mmo/combat_rules.js';
-import { createCombat } from './combat.js';
+import { createCombat, SWING_LAND_S } from './combat.js';
 import { createLootDrops } from './loot_drops.js';
 import { buildMonsterModel, auditMonsterShapes, DIE_SECONDS } from './monster_models.js';
+import { spawnMonster, WEAKNESS } from './actor.js';
+import { generateDungeon, clampToWalkable, walkable, gridOf } from '../world/dungeon_gen.js';
 import {
   createMonsters, makeMonsterActor, stepMonster, stepToward, stepAway, speedOf,
   spawnsForChunk, placeFor, blockedAt, poisonLevelOf, sharesAggro, naturalWeapon,
   ALIVE_CAP, SPAWN_KEEP, GROUP_AGGRO_M, GROUP_CHANCE, NEAR_RING, WANDER_R, FLEE_BREAK_M,
+  PROJECTILE_S, DUNGEON_CAP,
 } from './monsters.js';
+import {
+  attackModeOf, isFlyer, isBoss, spellFor, coneTargets, castBroken, hoverHeight,
+  bossPlanFor, phaseIndexFor, plateText, weaknessMultiplier, rangedWeaponFor,
+  dungeonSpawns, normalizeDungeonLayout, dungeonHabitat, groupsForRoom, bossRowsFor,
+  auditRangedRows, RANGED_NEAR, RANGED_FAR, RANGED_BACKOFF, HOVER_MIN, HOVER_MAX,
+  ENRAGE_SWING, SLAM_WARN_S, SLAM_RADIUS, BREATH_RANGE, BREATH_HALF_ANGLE, SUMMON_COUNT,
+} from './monster_ai.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -613,6 +623,805 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   const vk = makeMonsterActor('vampireKnight', { pos: { x: 0, y: 0, z: 0 } });
   check('a vampire knight really carries its 30% leech', vk.bonuses.lifeLeech === 30);
   check('and a bone knight carries none', makeMonsterActor('boneKnight', { pos: { x: 0, y: 0, z: 0 } }).bonuses.lifeLeech === 0);
+}
+
+// ###########################################################################
+// G3: underground, ranged and casting, bosses, flying, weaknesses.
+//
+// Same seam as above. The placement maths, the standoff, the cone, the phase
+// thresholds and the weakness multiplier are driven as pure functions; the
+// layer, the projectiles, the casts and the phase announcements are driven
+// through the real `update()` with a real `createCombat` under it.
+// ###########################################################################
+
+// ---------------------------------------------------------------- stubs ---
+
+/** A level in the shape world_runtime.js has to hand over. Three rooms. */
+const threeRooms = (o = {}) => ({
+  kind: 'dungeon', level: o.level ?? 1, top: 3, bottom: !!o.bottom,
+  cellSize: 2, w: 24, h: 24, id: o.id || 'shaft',
+  rooms: [{ x: 2, z: 2, w: 4, h: 4 }, { x: 10, z: 2, w: 4, h: 4 }, { x: 2, z: 12, w: 4, h: 4 }],
+});
+
+/** Six rooms, for the tests that need a particular monster to be down there. */
+const sixRooms = (o = {}) => ({
+  kind: 'dungeon', level: o.level ?? 1, top: 3, bottom: !!o.bottom,
+  cellSize: 2, w: 40, h: 40, id: o.id || 'deep',
+  rooms: [
+    { x: 2, z: 2, w: 5, h: 5 }, { x: 12, z: 2, w: 5, h: 5 }, { x: 24, z: 2, w: 5, h: 5 },
+    { x: 2, z: 14, w: 5, h: 5 }, { x: 14, z: 16, w: 5, h: 5 }, { x: 28, z: 24, w: 5, h: 5 },
+  ],
+});
+
+/** A runtime standing in a level. `inside` and `layout` are both mutable. */
+function dungeonRuntime(field, layout, o = {}) {
+  const st = {
+    field, inside: true, layout,
+    heightAt: () => 0,
+    sitesNear: () => [],
+    get inDungeon() { return st.inside; },
+    get dungeonLevel() { return st.layout.level; },
+    get dungeonSite() { return { id: st.layout.id, kind: st.layout.kind }; },
+    dungeonLayout: () => st.layout,
+    clampWalkable: o.clampWalkable || ((x, z) => [x, z]),
+  };
+  return st;
+}
+
+/** The world seed that puts `id` in this level at all. Deterministic, and it says so. */
+function seedWith(layout, id, max = 3000) {
+  const L = normalizeDungeonLayout(layout);
+  for (let s = 1; s <= max; s++) {
+    const recs = dungeonSpawns(L, { seed: s });
+    const rec = recs.find((r) => r.id === id);
+    if (rec) return { seed: s, rec, recs };
+  }
+  return null;
+}
+
+// ================================================== the roster reads as ranged
+{
+  check('the ranged table covers every note tag in the roster', auditRangedRows() === true);
+  check('a goblin scout throws', attackModeOf(MONSTERS.goblinScout) === 'thrown', attackModeOf(MONSTERS.goblinScout));
+  check('a manticore throws its spikes', attackModeOf(MONSTERS.manticore) === 'thrown');
+  check('a cyclops throws a boulder', attackModeOf(MONSTERS.cyclops) === 'thrown');
+  check('a cultist casts', attackModeOf(MONSTERS.cultist) === 'cast');
+  check('a lich casts', attackModeOf(MONSTERS.lich) === 'cast');
+  check('a wyvern breathes, and breath beats the poison it carries', attackModeOf(MONSTERS.wyvern) === 'breath');
+  check('a bone dragon breathes', attackModeOf(MONSTERS.boneDragon) === 'breath');
+  // and the other direction, which is the half that is usually skipped
+  check('a wolf does not', attackModeOf(MONSTERS.wolf) === 'melee');
+  check('nor does an ogre, whose slam is not a thing it throws', attackModeOf(MONSTERS.ogre) === 'melee');
+  check('nor a frost giant, whose nova is around itself', attackModeOf(MONSTERS.frostGiant) === 'melee');
+
+  const ranged = Object.values(MONSTERS).filter((m) => attackModeOf(m) !== 'melee').map((m) => m.id);
+  check('eight rows in the whole roster attack at range', ranged.length === 8, ranged.join(', '));
+
+  const cultist = spellFor(MONSTERS.cultist);
+  check('a cultist throws a fireball for its own 8 to 14',
+    cultist.damageType === 'fire' && cultist.base[0] === 8 && cultist.base[1] === 14, JSON.stringify(cultist.base));
+  const lich = spellFor(MONSTERS.lich);
+  check('a lich throws a bolt of energy for its own 30 to 50',
+    lich.damageType === 'energy' && lich.base[0] === 30 && lich.base[1] === 50, lich.damageType);
+  const wyvern = spellFor(MONSTERS.wyvern);
+  check('a wyvern breathes poison in a 6 m cone',
+    wyvern.damageType === 'poison' && wyvern.cone.range === 6, `${wyvern.damageType} ${wyvern.cone?.range} m`);
+  check('and a wolf has no spell at all', spellFor(MONSTERS.wolf) === null);
+
+  // the reach trap: a knife thrown 12 m with a reach of 1.5 is queued and then
+  // binned by landSwing's REACH_SLACK gate 300 ms later, silently
+  const w = rangedWeaponFor({ weapon: naturalWeapon(MONSTERS.goblinScout) }, MONSTERS.goblinScout);
+  check('a thrown weapon carries its range as its reach, or the blow is binned in the air',
+    w.ranged === true && w.reach === RANGED_FAR, `reach ${w.reach}`);
+  check('and keeps the row\'s own skill, damage and speed',
+    w.skill === 'wrestling' && w.minDamage === 3 && w.maxDamage === 7 && w.speed === 2.4);
+}
+
+// ================================================================ the cone
+{
+  const at = { x: 0, y: 0, z: 0 };
+  const infront = { pos: { x: 0, y: 0, z: 5 }, health: 10 };
+  const behind = { pos: { x: 0, y: 0, z: -5 }, health: 10 };
+  const far = { pos: { x: 0, y: 0, z: 9 }, health: 10 };
+  const wide = { pos: { x: 5, y: 0, z: 1 }, health: 10 };
+  const dead = { pos: { x: 0, y: 0, z: 2 }, health: 0 };
+  const got = coneTargets(at, 0, BREATH_RANGE, BREATH_HALF_ANGLE, [infront, behind, far, wide, dead]);
+  check('a breath catches what is in front of it', got.includes(infront));
+  check('and not what is behind it', !got.includes(behind));
+  check('and not what is past its 6 m', !got.includes(far), `${BREATH_RANGE} m`);
+  check('and not what is out to the side of a 60 degree cone', !got.includes(wide));
+  check('and never a corpse', !got.includes(dead));
+  check('so one of five is caught', got.length === 1, `${got.length}`);
+}
+
+// ======================================================== the standoff, measured
+{
+  // A goblin scout: aggro 12 m, throws. Put the player at 11 m, which is inside
+  // its aggro and inside the band, and hold him still for five seconds.
+  const goblin = makeMonsterActor('goblinScout', { pos: { x: 0, y: 0, z: 0 } });
+  goblin.weapon = rangedWeaponFor(goblin, MONSTERS.goblinScout);
+  const player = fakePlayer(11, 0);
+  let lo = Infinity, hi = 0, throws = 0;
+  const rngA = seeded(51);
+  for (let f = 0; f < 300; f++) {
+    const r = stepMonster(goblin, 1 / 60, {
+      player, now: f * (1000 / 60), heightAt: () => 0, mode: 'thrown', rng: rngA,
+    });
+    if (r.wantSwing) throws++;
+    const g = gap(goblin, player);
+    lo = Math.min(lo, g); hi = Math.max(hi, g);
+  }
+  check(`it holds the ${RANGED_NEAR} to ${RANGED_FAR} m band for 300 frames`,
+    lo >= RANGED_NEAR - 1e-9 && hi <= RANGED_FAR + 1e-9, `${lo.toFixed(2)} m to ${hi.toFixed(2)} m`);
+  check('and it never walked into melee reach', lo > 3, `closest ${lo.toFixed(2)} m`);
+  check('and it wanted to throw the whole time', throws > 290, `${throws} of 300 frames`);
+
+  // now walk him in to 3 m and let go
+  player.pos.x = 3;
+  const started = gap(goblin, player);
+  let backing = 0;
+  for (let f = 0; f < 300; f++) {
+    const r = stepMonster(goblin, 1 / 60, {
+      player, now: 6000 + f * (1000 / 60), heightAt: () => 0, mode: 'thrown', rng: rngA,
+    });
+    if (r.moved > 0) backing++;
+  }
+  const ended = gap(goblin, player);
+  check('closed to 3 m it walks backwards', ended > started, `${started.toFixed(2)} m to ${ended.toFixed(2)} m`);
+  check('and gets back into its band', ended >= RANGED_NEAR - 1e-9, `${ended.toFixed(2)} m`);
+  check('and it did the backing away itself, frame by frame', backing > 30, `${backing} moving frames`);
+  check('and it is still facing him, not running with its back turned',
+    Math.abs(Math.atan2(player.pos.x - goblin.pos.x, player.pos.z - goblin.pos.z) - goblin.yaw) < 1e-6);
+
+  // a melee row is untouched by any of it
+  const wolf = makeMonsterActor('wolf', { pos: { x: 0, y: 0, z: 0 } });
+  const p2 = fakePlayer(12, 0);
+  for (let f = 0; f < 300; f++) stepMonster(wolf, 1 / 60, { player: p2, now: f * 16.7, heightAt: () => 0, rng: seeded(52) });
+  check('a wolf still walks all the way in', gap(wolf, p2) < 3, `${gap(wolf, p2).toFixed(2)} m`);
+}
+
+// ============================================================== cornered
+{
+  // A wall at x = 9: nothing may stand past it. The goblin starts at 8 with the
+  // player at 5, so backing away is exactly what it cannot do.
+  const wall = (x, z) => [Math.min(9, x), z];
+  const goblin = makeMonsterActor('goblinScout', { pos: { x: 8, y: 0, z: 0 } });
+  goblin.weapon = rangedWeaponFor(goblin, MONSTERS.goblinScout);
+  const player = fakePlayer(5, 0);
+  let cornered = false, atFrame = -1;
+  for (let f = 0; f < 120; f++) {
+    const r = stepMonster(goblin, 1 / 60, {
+      player, now: f * (1000 / 60), heightAt: () => 0, clampXZ: wall, mode: 'thrown', rng: seeded(53),
+    });
+    if (r.cornered && !cornered) { cornered = true; atFrame = f; }
+  }
+  check('backed into a wall it gives up backing away', cornered, `at frame ${atFrame}`);
+  check('and it took about CORNER_SECONDS to decide, not one frame', atFrame >= 30 && atFrame <= 90, `frame ${atFrame}`);
+  check('and it never got past the wall', goblin.pos.x <= 9 + 1e-9, `x ${goblin.pos.x.toFixed(2)}`);
+  // and it comes back to its senses when the room opens up again
+  player.pos.x = 8 - 12;
+  for (let f = 0; f < 240; f++) {
+    stepMonster(goblin, 1 / 60, { player, now: 3000 + f * 16.7, heightAt: () => 0, clampXZ: wall, mode: 'thrown', rng: seeded(54) });
+  }
+  check('and once there is room again it stands off once more', goblin.ai.cornered === false);
+}
+
+// ================================================================== flying
+{
+  const bat = makeMonsterActor('caveBat', { pos: { x: 0, y: 0, z: 0 } });
+  check('a cave bat is a flyer, and a wolf is not', isFlyer(MONSTERS.caveBat) && !isFlyer(MONSTERS.wolf));
+  const flyers = Object.values(MONSTERS).filter(isFlyer).map((m) => m.id);
+  check('four rows fly', flyers.length === 4, flyers.join(', '));
+
+  const ground = 3;
+  let lo = Infinity, hi = -Infinity, moved = 0;
+  const rngF = seeded(61);
+  for (let f = 0; f < 200; f++) {
+    const r = stepMonster(bat, 1 / 60, {
+      player: null, now: f * (1000 / 60), heightAt: () => ground, flying: true, rng: rngF,
+    });
+    lo = Math.min(lo, r.altitude); hi = Math.max(hi, r.altitude);
+    moved += r.moved;
+  }
+  check(`a hovering bat holds ${HOVER_MIN} to ${HOVER_MAX} m over the ground for 200 frames`,
+    lo >= HOVER_MIN - 1e-9 && hi <= HOVER_MAX + 1e-9, `${lo.toFixed(3)} m to ${hi.toFixed(3)} m`);
+  check('and it really bobbed rather than sitting at one height', hi - lo > 0.2, `${(hi - lo).toFixed(3)} m of bob`);
+  check('and its y is the ground plus that, not the ground', bat.pos.y > ground + HOVER_MIN - 1e-9, `y ${bat.pos.y.toFixed(2)}`);
+  check('and it drifted about like everything else does', moved > 0.5, `${moved.toFixed(2)} m`);
+
+  // the swoop: it comes down to be hit, and goes back up
+  const p = fakePlayer(1, 0);
+  let low = Infinity;
+  for (let f = 0; f < 60; f++) {
+    const r = stepMonster(bat, 1 / 60, { player: p, now: 5000 + f * 16.7, heightAt: () => ground, flying: true, reach: 2.4, rng: rngF });
+    low = Math.min(low, r.altitude);
+  }
+  check('attacking, it swoops to the floor where a sword can reach it', low < 0.4, `${low.toFixed(3)} m`);
+  bat.ai.target = null; bat.ai.state = 'idle';        // as a leash break would leave it
+  let back = 0, lowest = Infinity;
+  for (let f = 0; f < 300; f++) {
+    const r = stepMonster(bat, 1 / 60, { player: null, now: 12000 + f * 16.7, heightAt: () => ground, flying: true, rng: rngF });
+    back = r.altitude;
+    if (f > 120) lowest = Math.min(lowest, r.altitude);
+  }
+  check('and once it is done it goes back up', back >= HOVER_MIN - 1e-9, `${back.toFixed(3)} m`);
+  check('and stays up', lowest >= HOVER_MIN - 1e-9, `lowest ${lowest.toFixed(3)} m`);
+}
+
+// =================================================== weaknesses, measured twice
+{
+  const golem = spawnMonster('ironGolem', { x: 0, y: 0, z: 0 });
+  check('an iron golem is weak to energy and carries the vulnerability',
+    golem.weakTo.includes('energy') && golem.vulnerability.energy === WEAKNESS, JSON.stringify(golem.vulnerability));
+  const energy = { weapon: { damageType: 'energy', minDamage: 40, maxDamage: 40, speed: 2, skill: 'wrestling' } };
+  const steel = { weapon: { damageType: 'physical', minDamage: 40, maxDamage: 40, speed: 2, skill: 'wrestling' } };
+  check('an energy blow on it multiplies by 1.25', weaknessMultiplier(energy, golem) === 1.25, `${weaknessMultiplier(energy, golem)}`);
+  check('and a steel one by 1.0, which is the other half of the test', weaknessMultiplier(steel, golem) === 1, `${weaknessMultiplier(steel, golem)}`);
+  const wolf = spawnMonster('wolf', { x: 0, y: 0, z: 0 });
+  check('and nothing at all applies to a wolf', weaknessMultiplier(energy, wolf) === 1);
+  const skel = spawnMonster('skeleton', { x: 0, y: 0, z: 0 });
+  check('a skeleton is weak to holy', weaknessMultiplier({ weapon: { damageType: 'holy' } }, skel) === 1.25);
+  const wolfman = spawnMonster('werewolf', { x: 0, y: 0, z: 0 });
+  check('a werewolf is weak to silver, which is a MATERIAL and not a damage type',
+    weaknessMultiplier({ weapon: { damageType: 'physical', material: 'silver' } }, wolfman) === 1.25);
+  check('and a plain iron sword does nothing extra to it',
+    weaknessMultiplier({ weapon: { damageType: 'physical', material: 'iron' } }, wolfman) === 1);
+
+  // and now through the real resolver, twice, with the same rolls
+  const bigHitter = () => ({
+    id: 'p', kind: 'player', name: 'you', pos: { x: 0, y: 0, z: 0 }, yaw: 0,
+    stats: { str: 0, dex: 0, int: 0, con: 0, wis: 0 },
+    skills: { wrestling: 100, tactics: 0, anatomy: 0, parrying: 0 }, bonuses: {},
+    ar: 0, resists: {}, shield: null,
+    weapon: { skill: 'wrestling', minDamage: 200, maxDamage: 200, speed: 2, weight: 0, damageType: 'energy', ranged: false, reach: 3 },
+    health: 100, maxHealth: 100, mana: 0, maxMana: 0, stamina: 100, maxStamina: 100,
+    buffs: [], status: {}, lastSwingAt: -Infinity, faction: 'player', ai: null, anim: 'idle',
+  });
+  const run = (useWeakness) => {
+    const scene = new THREE.Group();
+    const combat = createCombat({ rng: seeded(71) });
+    const field = stubField();
+    const monsters = createMonsters(scene, stubRuntime(field), { combat, groupChance: 0, rng: seeded(72), spawnPoint: { x: 1e6, z: 1e6 } });
+    const target = spawnMonster('ironGolem', { x: 1, y: 0, z: 0 });
+    const me = bigHitter();
+    const before = target.health;
+    if (useWeakness) monsters.swingAt(me, target, { now: 0 });
+    else combat.queueSwing(me, target, { now: 0 });
+    combat.update(0, 400);
+    monsters.dispose();
+    return before - target.health;
+  };
+  const plain = run(false), weak = run(true);
+  check('the same swing on an energy-weak golem does more through swingAt', weak > plain, `${plain} then ${weak}`);
+  check('and it does exactly a quarter more, not some other number',
+    Math.abs(weak / plain - 1.25) < 0.01, `${(weak / plain).toFixed(4)}x`);
+}
+
+// ====================================================== the level, room by room
+{
+  const L = normalizeDungeonLayout(threeRooms());
+  check('a three room level normalises', !!L && L.rooms.length === 3);
+  check('and room zero is the one you walk in through', L.entry === 0, `entry ${L.entry}`);
+  check('and the deepest room is the far one, not the near one', L.deepest === 2, `deepest ${L.deepest}`);
+
+  const recs = dungeonSpawns(L, { seed: 4242 });
+  const rooms = new Set(recs.map((r) => r.room));
+  check('nothing at all stands in the entry room', !rooms.has(0), [...rooms].join(', '));
+  check('and rooms one and two both hold a group', rooms.has(1) && rooms.has(2), [...rooms].join(', '));
+  check('so two of the three rooms are occupied', rooms.size === 2, `${recs.length} monsters in ${rooms.size} rooms`);
+  check('every one of them is a real monster', recs.every((r) => !!MONSTERS[r.id]));
+  check('and every one of them is a dungeon1 monster',
+    recs.every((r) => HABITAT.dungeon1.day.includes(r.id)), [...new Set(recs.map((r) => r.id))].join(', '));
+
+  // it is a function of the site and the depth and nothing else
+  const again = dungeonSpawns(normalizeDungeonLayout(threeRooms()), { seed: 4242 });
+  check('the same level rolls the same monsters every time', JSON.stringify(recs) === JSON.stringify(again));
+  const deeper = dungeonSpawns(normalizeDungeonLayout(threeRooms({ level: 2 })), { seed: 4242 });
+  check('and level two of the same shaft is not level one of it',
+    JSON.stringify(recs) !== JSON.stringify(deeper), `${recs.length} then ${deeper.length}`);
+  const other = dungeonSpawns(normalizeDungeonLayout(threeRooms({ id: 'other' })), { seed: 4242 });
+  check('and another shaft is another level again', JSON.stringify(recs) !== JSON.stringify(other));
+
+  // metres, not cells. Room one spans grid x 10..13 on a 24 wide grid at 2 m.
+  const inRoom1 = recs.filter((r) => r.room === 1);
+  const x0 = (10 - 11.5) * 2, x1 = (13 - 11.5) * 2;
+  check('a monster in room one is standing inside room one, in metres',
+    inRoom1.every((r) => r.x >= x0 - 1e-9 && r.x <= x1 + 1e-9), inRoom1.map((r) => r.x.toFixed(1)).join(', '));
+
+  // room size decides how many groups
+  check('a 64 square metre room earns one group', groupsForRoom({ area: 64 }) === 1);
+  check('and a 200 square metre room earns two', groupsForRoom({ area: 200 }) === 2);
+  check('and nothing earns more than three', groupsForRoom({ area: 100000 }) === 3);
+
+  // a level with no grid width cannot be turned into metres, and says so
+  check('a layout with no grid is refused rather than misplaced',
+    normalizeDungeonLayout({ rooms: [{ x: 1, z: 1, w: 3, h: 3 }], level: 1, kind: 'dungeon' }) === null);
+  check('and so is one with no rooms', normalizeDungeonLayout({ w: 20, h: 20, rooms: [], level: 1 }) === null);
+}
+
+// ================================================================ the boss room
+{
+  check('dungeon3 is the habitat with the bosses in it', bossRowsFor('dungeon3').length === 4, `${bossRowsFor('dungeon3').length}`);
+  check('and dungeon1 has none', bossRowsFor('dungeon1').length === 0);
+  check('dungeon level 2 reads the dungeon2 roster', dungeonHabitat('dungeon', 2) === 'dungeon2');
+  check('and a cave reads the cave roster whatever its depth', dungeonHabitat('cave', 1) === 'cave');
+
+  const bottom = dungeonSpawns(normalizeDungeonLayout(threeRooms({ level: 3, bottom: true })), { seed: 4242 });
+  const bosses = bottom.filter((r) => r.boss);
+  check('at the bottom of a shaft there is exactly one boss', bosses.length === 1, `${bosses.length}`);
+  check('and it is standing in the deepest room', bosses[0].room === 2, `room ${bosses[0].room}`);
+  check('and it is a boss row', isBoss(MONSTERS[bosses[0].id]), bosses[0].id);
+  check('and the boss room holds nothing but the boss',
+    bottom.filter((r) => r.room === 2).length === 1);
+  check('and the other room still holds its group', bottom.some((r) => r.room === 1 && !r.boss));
+
+  const notBottom = dungeonSpawns(normalizeDungeonLayout(threeRooms({ level: 3, bottom: false })), { seed: 4242 });
+  check('one floor short of the bottom there is no boss at all',
+    notBottom.every((r) => !r.boss), notBottom.filter((r) => r.boss).map((r) => r.id).join(', '));
+  check('and the deepest room holds an ordinary group instead', notBottom.some((r) => r.room === 2));
+  check('and no ordinary room anywhere ever rolls a boss',
+    bottom.every((r) => r.room === 2 || !isBoss(MONSTERS[r.id])));
+}
+
+// ============================================ the layer: on, off, and back again
+{
+  const field = stubField();
+  const scene = new THREE.Group();
+  const combat = createCombat({ rng: seeded(81) });
+  const layout = sixRooms();
+  const rt = dungeonRuntime(field, layout);
+  const deadUntil = [];
+  let clock = 2_000_000;
+  const monsters = createMonsters(scene, rt, {
+    actorFactory: (id, o) => spawnMonster(id, o.pos),
+    combat, deadUntil, rng: seeded(82), clock: () => clock, groupChance: 0,
+  });
+  const player = fakePlayer(0, 0);
+
+  monsters.update(1 / 60, 1000, player, false);
+  const recs = monsters.levelSpawns();
+  check('a level underground rolls a roster', recs.length > 0, `${recs.length} in six rooms`);
+  check('and bodies are standing in it', monsters.count > 0, `${monsters.count} of ${recs.length}`);
+  check('and the layer says which level it is', monsters.layer === 'deep:1', String(monsters.layer));
+  check('none of them is in the entry room', recs.every((r) => r.room !== 0));
+  check('every body is on the dungeon floor, not on a hillside', monsters.all().every((m) => m.actor.pos.y === 0 || m.flyer));
+
+  // climb out: the level empties
+  rt.inside = false;
+  monsters.update(1 / 60, 2000, player, false);
+  check('climbing out takes every one of them away', monsters.count === 0, `${monsters.count}`);
+  check('and the layer is the surface again', monsters.layer === null);
+
+  // go back down: the same roll comes back
+  rt.inside = true;
+  monsters.update(1 / 60, 3000, player, false);
+  check('going back down rolls exactly the same roster',
+    JSON.stringify(monsters.levelSpawns()) === JSON.stringify(recs), `${monsters.levelSpawns().length}`);
+
+  // a room cleared before you left is still clear when you come back
+  const victim = monsters.all().find((m) => !m.boss);
+  const key = victim.key;
+  combat.kill(victim.actor, player);
+  check('killing one writes its key, which carries the site, the level and the room',
+    deadUntil.some((e) => e.key === key) && key.startsWith('deep:1:r'), key);
+  rt.inside = false; monsters.update(1 / 60, 4000, player, false);
+  rt.inside = true; monsters.update(1 / 60, 5000, player, false);
+  check('and it is not standing there when you come back down',
+    !monsters.all().some((m) => m.key === key), key);
+  check('while the rest of its room is', monsters.all().some((m) => m.rec.room === victim.rec.room));
+
+  // a deeper level is a different roster and a different set of keys
+  rt.layout = sixRooms({ level: 2 });
+  monsters.update(1 / 60, 6000, player, false);
+  check('the stair down builds a new layer', monsters.layer === 'deep:2', String(monsters.layer));
+  check('and its monsters are the dungeon2 roster, not the dungeon1 one',
+    monsters.levelSpawns().every((r) => HABITAT.dungeon2.day.includes(r.id)),
+    [...new Set(monsters.levelSpawns().map((r) => r.id))].join(', '));
+  monsters.dispose();
+}
+
+// ================================================ nothing walks through the rock
+{
+  // The REAL generator and the REAL clamp, not a stand-in for either.
+  const site = { id: 'realshaft', name: 'Real Shaft', cx: 3, cz: 5, kind: 'dungeon' };
+  const real = generateDungeon(4242, site, 1);
+  const asLayout = {
+    kind: real.kind, level: real.level, top: real.top, cellSize: real.cellSize,
+    w: real.w, h: real.h, id: site.id, entrance: real.entrance,
+    rooms: real.rooms.map((r) => ({ x: r.x, z: r.z, w: r.w, h: r.h, cx: r.cx, cz: r.cz })),
+    bottom: false,
+  };
+  const field = stubField();
+  const scene = new THREE.Group();
+  const combat = createCombat({ rng: seeded(91) });
+  const rt = dungeonRuntime(field, asLayout, {
+    clampWalkable: (x, z) => { const c = clampToWalkable(real, x, z); return [c.x, c.z]; },
+  });
+  const monsters = createMonsters(scene, rt, {
+    actorFactory: (id, o) => spawnMonster(id, o.pos), combat, rng: seeded(92), groupChance: 0,
+  });
+  const ent = { gx: real.entrance.gx, gz: real.entrance.gz };
+  const px = (ent.gx - (real.w - 1) / 2) * real.cellSize;
+  const pz = (ent.gz - (real.h - 1) / 2) * real.cellSize;
+  const player = fakePlayer(px, pz);
+
+  monsters.update(1 / 60, 1000, player, false);
+  check('a real generated level holds a real roster', monsters.count > 0, `${monsters.count} bodies`);
+  const startedOnFloor = monsters.all().every((m) => {
+    const g = gridOf(real, m.actor.pos.x, m.actor.pos.z);
+    return walkable(real, g.gx, g.gz);
+  });
+  check('every one of them is placed on a floor cell', startedOnFloor);
+
+  // walk the player round the level and let them chase him for ten seconds
+  let offFloor = 0, steps = 0;
+  for (let f = 0; f < 600; f++) {
+    const t = f / 60;
+    player.pos.x = px + Math.sin(t) * 14;
+    player.pos.z = pz + Math.cos(t * 0.7) * 14;
+    const c = clampToWalkable(real, player.pos.x, player.pos.z);
+    player.pos.x = c.x; player.pos.z = c.z;
+    monsters.update(1 / 60, 1000 + f * 16.7, player, false);
+    combat.update(1 / 60, 1000 + f * 16.7);
+    for (const m of monsters.all()) {
+      steps++;
+      const g = gridOf(real, m.actor.pos.x, m.actor.pos.z);
+      if (!walkable(real, g.gx, g.gz)) offFloor++;
+    }
+  }
+  check('and ten seconds of chasing never puts one inside the rock',
+    offFloor === 0, `${offFloor} of ${steps} monster frames off the floor`);
+  check('and they really did move rather than standing still', steps > 1000, `${steps} monster frames`);
+  monsters.dispose();
+}
+
+// ==================================================== a knife, and when it lands
+{
+  const layout = sixRooms();
+  const found = seedWith(layout, 'goblinScout');
+  check('a level that holds a goblin scout can be found', !!found, found ? `seed ${found.seed}` : 'none in 3000 seeds');
+  const field = stubField({ seed: found.seed });
+  const scene = new THREE.Group();
+  const combat = createCombat({ rng: () => 0.01 });          // every throw connects
+  const rt = dungeonRuntime(field, layout);
+  const monsters = createMonsters(scene, rt, {
+    actorFactory: (id, o) => spawnMonster(id, o.pos), combat, rng: seeded(101), groupChance: 0,
+  });
+  // stand ten metres from the goblin, which is inside its band and its aggro
+  const player = noDodge(fakePlayer(found.rec.x + 10, found.rec.z));
+  monsters.update(1 / 60, 0, player, false);
+  const goblin = monsters.all().find((m) => m.id === 'goblinScout');
+  check('the goblin scout is standing in the level', !!goblin);
+  // clear the room, so every number below is the goblin's and nobody else's
+  for (const m of monsters.all()) if (m !== goblin) combat.kill(m.actor, player);
+  check('and it is the only thing left alive down there', monsters.count === 1, `${monsters.count}`);
+  check('and its weapon reaches as far as it throws', goblin.actor.weapon.reach === RANGED_FAR, `${goblin.actor.weapon.reach} m`);
+
+  // A goblin scout swings every 2.4 s, and combat.queueSwing holds it to that,
+  // so the first knife cannot leave the hand before frame 144 at 60 Hz.
+  let launched = -1;
+  for (let f = 0; f < 400 && launched < 0; f++) {
+    monsters.update(1 / 60, f * (1000 / 60), player, false);
+    combat.update(1 / 60, f * (1000 / 60));
+    if (monsters.projectiles().length) launched = f;
+  }
+  check('it throws rather than walking up to you', launched >= 0, `first knife on frame ${launched}`);
+  check('and it stayed in its band the whole while', gap(goblin.actor, player) >= RANGED_NEAR - 1e-9,
+    `${gap(goblin.actor, player).toFixed(1)} m`);
+  const start = { ...monsters.projectiles()[0].pos };
+
+  // it must not be there before its time, and must be there at its time
+  let early = 0, arrivedAt = -1;
+  for (let f = 1; f <= 30; f++) {
+    monsters.update(1 / 60, (launched + f) * (1000 / 60), player, false);
+    combat.update(1 / 60, (launched + f) * (1000 / 60));
+    const p = monsters.projectiles()[0];
+    if (!p) { if (arrivedAt < 0) arrivedAt = -2; break; }
+    if (p.arrived && arrivedAt < 0) arrivedAt = f;
+    if (!p.arrived) {
+      const gone = Math.hypot(p.pos.x - start.x, p.pos.z - start.z);
+      const whole = Math.hypot(p.to.x - start.x, p.to.z - start.z);
+      if (gone > whole * 0.999) early++;
+    }
+  }
+  const wantFrames = Math.round(PROJECTILE_S * 60);
+  check('the knife is never at the target before its flight time is up', early === 0, `${early} early frames`);
+  check(`and it arrives on frame ${wantFrames}, which is ${PROJECTILE_S} s at 60 Hz`,
+    arrivedAt === wantFrames, `frame ${arrivedAt}`);
+  check('and the player is down real health from a knife thrown ten metres',
+    player.health < player.maxHealth, `${player.maxHealth - player.health} off`);
+  check('and the throw went through combat, once, at the row\'s own speed',
+    monsters.stats.shots >= 1, `${monsters.stats.shots} thrown`);
+  monsters.dispose();
+}
+
+// ============================================================= a cast, and a blow
+{
+  const layout = sixRooms({ level: 2 });
+  const found = seedWith(layout, 'cultist');
+  check('a level that holds a cultist can be found', !!found, found ? `seed ${found.seed}` : 'none');
+  const lines = [];
+  const hud = { log: (t) => lines.push(t) };
+
+  /** The cultist alone in the level, and the frame its cast starts on. */
+  const build = () => {
+    const field = stubField({ seed: found.seed });
+    const scene = new THREE.Group();
+    const combat = createCombat({ rng: () => 0.01 });
+    const rt = dungeonRuntime(field, layout);
+    const monsters = createMonsters(scene, rt, {
+      actorFactory: (id, o) => spawnMonster(id, o.pos), combat, hud, rng: seeded(111), groupChance: 0,
+    });
+    const player = noDodge(fakePlayer(found.rec.x + 10, found.rec.z));
+    player.maxHealth = 100000; player.health = 100000;
+    monsters.update(1 / 60, 0, player, false);
+    const cultist = monsters.all().find((m) => m.id === 'cultist');
+    for (const m of monsters.all()) if (m !== cultist) combat.kill(m.actor, player);
+    // stand ten metres off THAT cultist, which is inside its band and its aggro
+    if (cultist) { player.pos.x = cultist.actor.pos.x + 10; player.pos.z = cultist.actor.pos.z; }
+    let started = -1;
+    for (let f = 1; f < 600 && started < 0; f++) {
+      monsters.update(1 / 60, f * (1000 / 60), player, false);
+      combat.update(1 / 60, f * (1000 / 60));
+      if (cultist.cast) started = f;
+    }
+    return { combat, monsters, player, cultist, started };
+  };
+
+  // 1. left alone, the cast goes off and the player takes a fireball
+  {
+    const { combat, monsters, player, cultist, started } = build();
+    check('the cultist is standing in the level, alone', !!cultist && monsters.count === 1, `${monsters.count} alive`);
+    check('and it does not close to melee', gap(cultist.actor, player) >= RANGED_NEAR - 1e-9, `${gap(cultist.actor, player).toFixed(1)} m`);
+    check('and it begins a cast rather than swinging', started > 0, `frame ${started}`);
+    check('and it said what it was doing', lines.some((l) => l.includes('begins a fireball')));
+    const before = player.health;
+    // run on until the SECOND cast starts: the gap between them is the row's own
+    // tabled 2.6 s and not a second number invented for casting
+    let again = -1;
+    for (let f = started + 1; f < started + 400 && again < 0; f++) {
+      monsters.update(1 / 60, f * (1000 / 60), player, false);
+      combat.update(1 / 60, f * (1000 / 60));
+      if (monsters.stats.casts >= 2 && cultist.cast) again = f;
+    }
+    const seconds = (again - started) / 60;
+    check('and the next cast comes at the row\'s own 2.6 s speed, not on some other clock',
+      Math.abs(seconds - swingSeconds(cultist.actor)) < 0.05, `${seconds.toFixed(2)} s against ${swingSeconds(cultist.actor).toFixed(2)} s`);
+    check('and the fireball lands, from the only thing alive down there',
+      player.health < before, `${before - player.health} off`);
+    check('and nothing was interrupted', monsters.stats.interrupted === 0);
+    monsters.dispose();
+  }
+
+  // 2. hit hard while casting and it loses the words
+  {
+    const { combat, monsters, player, cultist, started } = build();
+    check('the cast is running', !!cultist.cast, `started frame ${started}`);
+    // a tenth of 80 is 8, so nine breaks it and seven does not
+    const t7 = (started + 1) * (1000 / 60);
+    combat.hurt(cultist.actor, 7, { now: t7 });
+    monsters.update(1 / 60, t7, player, false);
+    check('a blow of 7 on a cultist of 80 does not break the cast',
+      !!cultist.cast && monsters.stats.interrupted === 0, `${monsters.stats.interrupted}`);
+    check('and 7 really is under a tenth of its health', castBroken(7, cultist.actor.maxHealth) === false);
+    const t9 = (started + 2) * (1000 / 60);
+    combat.hurt(cultist.actor, 9, { now: t9 });
+    monsters.update(1 / 60, t9, player, false);
+    check('and a blow of 9 does break it', monsters.stats.interrupted === 1 && !cultist.cast, `${monsters.stats.interrupted}`);
+    check('and 9 really is over a tenth of it', castBroken(9, cultist.actor.maxHealth) === true);
+    check('and it said so', lines.some((l) => l.includes('loses the words')));
+    monsters.dispose();
+  }
+}
+
+// ================================================================== the boss
+{
+  check('every boss has two phases with a line each',
+    Object.values(MONSTERS).filter(isBoss).every((m) => bossPlanFor(m).length === 2 && bossPlanFor(m).every((p) => p.line)));
+  const kinds = new Set(Object.values(MONSTERS).filter(isBoss).flatMap((m) => bossPlanFor(m).map((p) => p.kind)));
+  check('and all four behaviours are reachable in play', kinds.size === 4, [...kinds].sort().join(', '));
+
+  const king = MONSTERS.ashenKing;
+  check('a boss at full health is in phase 0', phaseIndexFor(king, 3200, 3200) === 0);
+  check('at exactly 66% it is still phase 0, the same reading fleeCheck gives',
+    phaseIndexFor(king, 3200 * 0.66, 3200) === 0, `${phaseIndexFor(king, 3200 * 0.66, 3200)}`);
+  check('a hair under 66% it is phase 1', phaseIndexFor(king, 3200 * 0.6599, 3200) === 1);
+  check('at 50% it is phase 1', phaseIndexFor(king, 1600, 3200) === 1, `${phaseIndexFor(king, 1600, 3200)}`);
+  check('and under 33% it is phase 2', phaseIndexFor(king, 3200 * 0.32, 3200) === 2);
+  check('the plate says the name and what it is doing',
+    plateText(king, 1600, 3200).name === 'the Ashen King' && plateText(king, 1600, 3200).phase === 'calling for help',
+    JSON.stringify(plateText(king, 1600, 3200)));
+
+  // and now through the real runtime
+  const layout = sixRooms({ level: 3, bottom: true });
+  const field = stubField();
+  const scene = new THREE.Group();
+  const combat = createCombat({ rng: seeded(121) });
+  const lines = [];
+  const rt = dungeonRuntime(field, layout);
+  const monsters = createMonsters(scene, rt, {
+    actorFactory: (id, o) => spawnMonster(id, o.pos), combat,
+    hud: { log: (t) => lines.push(t) }, rng: seeded(122), groupChance: 0,
+  });
+  const bossRec = dungeonSpawns(normalizeDungeonLayout(layout), { seed: field.seed }).find((r) => r.boss);
+  check('the bottom of the shaft has a boss in it', !!bossRec, bossRec?.id);
+  const player = noDodge(fakePlayer(bossRec.x + 6, bossRec.z));
+  monsters.update(1 / 60, 0, player, false);
+  const boss = monsters.all().find((m) => m.boss);
+  check('and it is standing there', !!boss, boss?.name);
+  check('and it starts in phase 0 and says nothing', boss.phase === 0 && monsters.stats.phases === 0);
+
+  boss.actor.health = boss.actor.maxHealth * 0.5;
+  monsters.update(1 / 60, 100, player, false);
+  check('at 50% health it announces its first phase', monsters.stats.phases === 1, `${monsters.stats.phases}`);
+  const said = lines.filter((l) => l === boss.plan[0].line).length;
+  check('and it says the line once', said === 1, `${said} times`);
+  const before = monsters.count;
+  for (let f = 0; f < 120; f++) monsters.update(1 / 60, 200 + f * 16.7, player, false);
+  check('and it does not announce it again over the next two seconds', monsters.stats.phases === 1, `${monsters.stats.phases}`);
+  check('and it says the line exactly once, still', lines.filter((l) => l === boss.plan[0].line).length === 1);
+
+  // whatever the first phase was, it really happened
+  const kind1 = boss.plan[0].kind;
+  if (kind1 === 'summon') {
+    check(`${boss.name} summoned ${SUMMON_COUNT} of its own`, monsters.stats.summoned === SUMMON_COUNT, `${monsters.stats.summoned}`);
+    check('and they are standing there', monsters.count > before, `${before} then ${monsters.count}`);
+    check('and none of them is written into the character\'s dead list on death',
+      monsters.all().filter((m) => m.ephemeral).length === SUMMON_COUNT);
+  } else if (kind1 === 'slam') {
+    check(`${boss.name} put a warning ring on the floor`, monsters.stats.slams >= 1, `${monsters.stats.slams}`);
+  }
+
+  // the second phase, and it is a different one
+  boss.actor.health = boss.actor.maxHealth * 0.2;
+  const swingBefore = swingSeconds(boss.actor);
+  monsters.update(1 / 60, 3000, player, false);
+  check('under a third it announces its second phase', monsters.stats.phases === 2, `${monsters.stats.phases}`);
+  const kind2 = boss.plan[1].kind;
+  if (kind2 === 'enrage') {
+    check('and an enrage really speeds its swing up',
+      swingSeconds(boss.actor) < swingBefore, `${swingBefore.toFixed(2)} s to ${swingSeconds(boss.actor).toFixed(2)} s`);
+    check(`and by exactly ${ENRAGE_SWING * 100}%`,
+      Math.abs(swingSeconds(boss.actor) - swingBefore * (1 - ENRAGE_SWING)) < 1e-9);
+  } else if (kind2 === 'retreat') {
+    const hp = boss.actor.health;
+    for (let f = 0; f < 60; f++) monsters.update(1 / 60, 3100 + f * 16.7, player, false);
+    check('and a retreating boss heals as it goes', boss.actor.health > hp, `${hp} to ${boss.actor.health}`);
+  }
+  monsters.dispose();
+}
+
+// ==================================================== the slam, and stepping out
+{
+  // The Warden of the Cut slams at 66%. Two runs of the same fight: in the
+  // first the player stands in the ring, in the second he walks out of it.
+  const layout = sixRooms({ level: 3, bottom: true });
+  const run = (stepOut) => {
+    let field = stubField();
+    // find a seed whose boss is the one that slams
+    for (let s = 1; s <= 3000; s++) {
+      const L = normalizeDungeonLayout({ ...layout });
+      const b = dungeonSpawns(L, { seed: s }).find((r) => r.boss && bossPlanFor(MONSTERS[r.id])[0].kind === 'slam');
+      if (b) { field = stubField({ seed: s }); break; }
+    }
+    const scene = new THREE.Group();
+    const combat = createCombat({ rng: () => 0.5 });
+    const rt = dungeonRuntime(field, layout);
+    const monsters = createMonsters(scene, rt, {
+      actorFactory: (id, o) => spawnMonster(id, o.pos), combat, rng: seeded(131), groupChance: 0,
+    });
+    const rec = dungeonSpawns(normalizeDungeonLayout(layout), { seed: field.seed }).find((r) => r.boss);
+    const player = noDodge(fakePlayer(rec.x + 4, rec.z));
+    player.maxHealth = 100000; player.health = 100000;   // so the slam is the only thing measured
+    monsters.update(1 / 60, 0, player, false);
+    const boss = monsters.all().find((m) => m.boss);
+    if (!boss || bossPlanFor(boss.row)[0].kind !== 'slam') return null;
+    boss.actor.health = boss.actor.maxHealth * 0.5;
+    monsters.update(1 / 60, 100, player, false);
+    const rings = monsters.warnings().length;
+    if (stepOut) { player.pos.x = rec.x + SLAM_RADIUS + 12; }
+    const before = player.health;
+    for (let f = 0; f < 180; f++) {
+      monsters.update(1 / 60, 200 + f * 16.7, player, false);
+      combat.update(1 / 60, 200 + f * 16.7);
+    }
+    const took = before - player.health;
+    monsters.dispose();
+    return { rings, took, name: boss.name };
+  };
+  const stood = run(false), walked = run(true);
+  check('a slamming boss puts a ring on the floor first', stood && stood.rings === 1, `${stood?.rings} rings`);
+  check(`and the warning is ${SLAM_WARN_S} s long, which is time to move`, SLAM_WARN_S >= 1);
+  check('standing in the ring costs you', stood && stood.took > 0, `${stood?.took} off`);
+  check('and stepping out of it costs you nothing', walked && walked.took === 0, `${walked?.took} off`);
+}
+
+// ==================================================== the summon, and its minions
+{
+  const layout = sixRooms({ level: 3, bottom: true });
+  let seed = 0;
+  for (let sd = 1; sd <= 3000 && !seed; sd++) {
+    const b = dungeonSpawns(normalizeDungeonLayout(layout), { seed: sd })
+      .find((r) => r.boss && bossPlanFor(MONSTERS[r.id])[0].kind === 'summon');
+    if (b) seed = sd;
+  }
+  check('a shaft whose boss summons can be found', seed > 0, `seed ${seed}`);
+  const field = stubField({ seed });
+  const scene = new THREE.Group();
+  const combat = createCombat({ rng: seeded(141) });
+  const deadUntil = [];
+  const rt = dungeonRuntime(field, layout);
+  const monsters = createMonsters(scene, rt, {
+    actorFactory: (id, o) => spawnMonster(id, o.pos), combat, deadUntil, rng: seeded(142), groupChance: 0,
+  });
+  const rec = dungeonSpawns(normalizeDungeonLayout(layout), { seed }).find((r) => r.boss);
+  const player = noDodge(fakePlayer(rec.x + 6, rec.z));
+  player.maxHealth = 100000; player.health = 100000;
+  monsters.update(1 / 60, 0, player, false);
+  const boss = monsters.all().find((m) => m.boss);
+  check('and it is standing at the bottom of it', !!boss && bossPlanFor(boss.row)[0].kind === 'summon', boss?.name);
+  const before = monsters.count;
+  boss.actor.health = boss.actor.maxHealth * 0.5;
+  monsters.update(1 / 60, 100, player, false);
+  check(`it calls ${SUMMON_COUNT} of its habitat's own out of the dark`,
+    monsters.stats.summoned === SUMMON_COUNT, `${monsters.stats.summoned}`);
+  check('and they are standing there', monsters.count === before + SUMMON_COUNT, `${before} then ${monsters.count}`);
+  const minions = monsters.all().filter((m) => m.ephemeral);
+  check('and every one of them is a dungeon3 monster and not another boss',
+    minions.every((m) => HABITAT.dungeon3.night.includes(m.id) && !m.boss),
+    minions.map((m) => m.id).join(', '));
+  check('and they came down within a few metres of the boss',
+    minions.every((m) => Math.hypot(m.actor.pos.x - boss.actor.pos.x, m.actor.pos.z - boss.actor.pos.z) < 8));
+  const wasDead = deadUntil.length;
+  combat.kill(minions[0].actor, player);
+  check('and killing a summoned one writes nothing into the character\'s save',
+    deadUntil.length === wasDead, `${deadUntil.length - wasDead} entries`);
+  const bossKey = boss.key;
+  combat.kill(boss.actor, player);
+  check('while killing the boss itself does', deadUntil.some((e) => e.key === bossKey));
+  monsters.dispose();
+}
+
+// ====================================================================== a cave
+{
+  const cave = {
+    kind: 'cave', level: 1, top: 1, bottom: true, cellSize: 2, w: 26, h: 26, id: 'hole',
+    rooms: [{ x: 2, z: 2, w: 4, h: 4 }, { x: 10, z: 4, w: 5, h: 5 }, { x: 4, z: 14, w: 4, h: 4 }],
+  };
+  const L = normalizeDungeonLayout(cave);
+  check('a cave normalises as a cave', L.kind === 'cave' && L.bottom === true);
+  const recs = dungeonSpawns(L, { seed: 4242 });
+  check('and it fills from the cave roster, not a dungeon one',
+    recs.length > 0 && recs.every((r) => HABITAT.cave.day.includes(r.id)),
+    [...new Set(recs.map((r) => r.id))].join(', '));
+  check('and a cave has no boss even at its bottom, because none lives there',
+    recs.every((r) => !r.boss), `${bossRowsFor('cave').length} cave bosses exist`);
+  check('and still nothing in the room you climb down into', recs.every((r) => r.room !== 0));
+}
+
+// ====================================== a runtime that cannot say what a level is
+{
+  const field = stubField();
+  const scene = new THREE.Group();
+  const warn = console.warn;
+  const warnings = [];
+  console.warn = (t) => warnings.push(t);
+  const rt = {
+    field, heightAt: () => 0, sitesNear: () => [],
+    get inDungeon() { return true; },
+    dungeonLevel: 1, dungeonSite: { id: 'blind' },
+    clampWalkable: (x, z) => [x, z],
+    // no dungeonLayout at all: this is world_runtime.js as it stands today
+  };
+  const monsters = createMonsters(scene, rt, { groupChance: 1, rng: seeded(151), spawnPoint: { x: 1e6, z: 1e6 } });
+  const player = fakePlayer(0, 0);
+  for (let f = 0; f < 10; f++) monsters.update(1 / 60, f * 16.7, player, false);
+  console.warn = warn;
+  check('with no layout to read, no dungeon layer is guessed at', monsters.count === 0, `${monsters.count}`);
+  check('and no overworld monster leaks in through the roof', monsters.levelSpawns().length === 0);
+  check('and it says so once, naming the wiring doc',
+    warnings.length === 1 && warnings[0].includes('G3.md'), `${warnings.length} warnings`);
+  monsters.dispose();
 }
 
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
