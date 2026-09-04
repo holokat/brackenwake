@@ -3,217 +3,47 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nostrux Homestead — farm through conversation</title>
-  <link rel="stylesheet" href="/src/farm/style.css" />
+  <title>Brackenwake</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0f1216; overflow: hidden; }
+    #game { position: fixed; inset: 0; }
+    #game canvas { display: block; }
+    #boot-error {
+      position: fixed; inset: 0; z-index: 999; display: none; padding: 32px;
+      background: #12151a; color: #f2c9c0; overflow: auto;
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap;
+    }
+  </style>
 </head>
 <body>
-  <div id="scene"></div>
+  <div id="game"></div>
+  <div id="hud"></div>
+  <div id="boot-error"></div>
 
-  <!-- corner controls -->
-  <div id="corner">
-    <button id="book-btn" title="farm book"></button>
-    <button id="audio-btn" title="music & sounds"></button>
-    <button id="pantry-btn" title="pantry — your food stockpile">🥫</button>
-    <button id="test-btn" class="buried" title="test mode: unlock everything">🧪</button>
-    <button id="reset-btn" class="hidden" title="test: reset farm to the very start">♻️</button>
-    <button id="scene-edit-btn" class="hidden" title="test: move / rotate / scale scenery">🛠️</button>
-  </div>
+  <!--
+    Boot watchdog. main.js sets window.__bw as the last thing it does, so if six
+    seconds go by without it, the game did not start. A blank black page tells
+    you nothing; the first error the page threw tells you everything.
+  -->
+  <script>
+    (function () {
+      var first = null;
+      window.addEventListener('error', function (e) {
+        if (!first) first = (e.error && (e.error.stack || e.error.message)) || e.message || String(e);
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        if (!first) first = 'unhandled rejection: ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason);
+      });
+      setTimeout(function () {
+        if (window.__bw) return;
+        var el = document.getElementById('boot-error');
+        el.style.display = 'block';
+        el.textContent = 'Brackenwake did not boot within 6 s.\n\n'
+          + (first || 'No uncaught error was reported. Check the console and the network tab: a module that never finished loading throws nothing.');
+      }, 6000);
+    }());
+  </script>
 
-  <!-- missions panel -->
-  <div id="missions-panel" class="hidden">
-    <div class="mp-title">📜 Missions</div>
-    <div id="missions-list"></div>
-    <button id="mp-all">📖 all missions &amp; achievements</button>
-  </div>
-
-  <!-- mission book -->
-  <div id="mission-book" class="hidden">
-    <div class="cb-cover">
-      <button id="mb-close" class="cb-x">×</button>
-      <div class="cb-spread">
-        <div class="cb-page cb-left">
-          <div class="cb-title">📜 Mission Book</div>
-          <div id="mb-overview"></div>
-        </div>
-        <div class="cb-spine"></div>
-        <div class="cb-page cb-right"><div id="mb-chapters"></div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- draggable wooden nameplate (art: /ui/nameplate.png) -->
-  <div id="nameplate" title="your homestead"><span id="farm-chip">loading…</span></div>
-  <div id="res-hud">
-    <span class="rh-seg" id="coin-seg"><i class="rh-ic rh-coin"></i><b class="rh" id="coins-val">0</b></span>
-    <span class="rh-sep"></span>
-    <span class="rh-seg rh-store" id="store-chip">
-      <i class="rh-ic rh-box">📦</i>
-      <span class="rh-store-col">
-        <b class="rh-store-txt" id="store-val">0/0</b>
-        <span class="rh-store-bar"><i id="store-fill"></i></span>
-      </span>
-    </span>
-    <span class="rh-sep"></span>
-    <!-- building materials: wood, stone, ore. Each has its own pool. -->
-    <span class="rh-seg rh-mats" id="mat-seg"></span>
-    <button id="res-lock" title="unlock to drag the resource bar">🔒</button>
-  </div>
-
-  <!-- reusable text-input modal (replaces window.prompt, blocked in webviews) -->
-  <div id="input-modal" class="hidden">
-    <div class="modal-card">
-      <div class="modal-title" id="im-title"></div>
-      <div id="im-fields"></div>
-      <div class="modal-row" style="justify-content:flex-end;gap:8px">
-        <button id="im-cancel">cancel</button>
-        <button id="im-ok" class="primary">save</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- bottom game HUD -->
-  <div id="hud">
-    <div id="hud-subtabs" class="hidden"></div>
-    <div id="hud-frame">
-      <div class="tab-hit" data-group="farm" data-key="1" style="left:16.3%;width:11.2%">Crops</div>
-      <div class="tab-hit" data-group="animals" data-key="2" style="left:28.9%;width:11.1%">Animals</div>
-      <div class="tab-hit" data-group="build" data-key="3" style="left:41.3%;width:11.1%">Build</div>
-      <div class="tab-hit" data-group="craft" data-key="4" style="left:53.7%;width:10.9%">Craft</div>
-      <div class="tab-hit" data-group="style" data-key="5" style="left:66.0%;width:10.0%">Style</div>
-      <div class="tab-hit tab-inv" data-group="inv" data-key="6" style="left:80.1%;width:8.5%">Inventory</div>
-      <div id="hud-tools"></div>
-      <button id="pg-prev" class="pager hidden">‹</button>
-      <div id="hud-slots"></div>
-      <button id="pg-next" class="pager hidden">›</button>
-      <button id="hud-lock" title="unlock to drag the HUD">🔒</button>
-      <button id="hud-book" title="collection book"></button>
-      <button id="hud-quest" title="missions">📜<span id="hud-quest-badge" class="hidden">0</span></button>
-    </div>
-  </div>
-
-  <div id="mode-banner" class="hidden"></div>
-
-  <!-- guided do-it tutorial -->
-  <div id="tutorial-bar" class="hidden">
-    <span id="tutorial-text"></span>
-    <button id="tutorial-skip">skip</button>
-  </div>
-  <div id="action-pop" class="hidden"></div>
-  <div id="tooltip"></div>
-
-  <!-- farm book (meta panel) -->
-  <aside id="sidebar">
-    <div class="sb-head">
-      <div class="brand">
-        <span class="brand-mark">⌂</span>
-        <span class="brand-name">HOMESTEAD</span>
-        <button id="login-btn">sign in</button>
-        <button id="sb-collapse" title="close">×</button>
-      </div>
-      <div id="farmer-name">loading…</div>
-      <div id="tier-name"></div>
-    </div>
-    <div class="sb-scroll">
-      <div class="sb-section"><h3>🏡 Your Farm</h3><div id="sb-farm"></div></div>
-      <div id="harvest-count" class="sb-foot"></div>
-    </div>
-  </aside>
-
-  <!-- market -->
-  <aside id="market-panel" class="hidden">
-    <div id="market-drag"></div>
-    <button id="market-close">×</button>
-    <div class="market-title">🪙 Market Stand</div>
-    <div id="market-body"></div>
-  </aside>
-
-  <!-- first-run map picker -->
-  <div id="map-picker" class="hidden">
-    <div class="picker-card">
-      <div class="picker-title">A homestead of your own</div>
-      <div class="picker-sub">Plant and water crops, raise animals, fell timber and quarry stone,
-        then build the workshops that turn a harvest into something worth far more. Everything
-        you own is earned with coins, work and time.<br><br>
-        <b>Where will you settle?</b> The biome shapes the land beyond your fence — you can restyle later from the Farm Book.</div>
-      <div id="picker-grid"></div>
-    </div>
-  </div>
-
-  <!-- The Living Valley: one story card at a time, bottom-right of the scene -->
-  <div id="story-scrim" class="hidden"></div>
-  <div id="story-card" class="hidden" role="dialog" aria-live="polite"></div>
-  <div id="story-devbar" class="hidden"></div>
-
-  <button id="friends-btn" title="friends — visit their farms" aria-label="friends"></button>
-  <button id="compose-btn" title="share news from your homestead" aria-label="share news"></button>
-
-  <!-- friends HUD (migrated out of the sidebar) -->
-  <div id="friends-hud" class="hidden">
-    <div class="fh-panel">
-      <button class="fh-x" id="friends-close" aria-label="close"></button>
-      <button class="fh-tab" id="fh-tab-friends" data-tab="friends" aria-label="Friends"></button>
-      <button class="fh-tab" id="fh-tab-add" data-tab="add" aria-label="Add Friend"></button>
-      <div id="friends-hud-list" class="fh-content"></div>
-      <div id="fh-add-panel" class="fh-content hidden">
-        <p class="fh-add-hint">Visit any farmer's homestead — paste their npub or hex pubkey.</p>
-        <input id="npub-input" type="text" placeholder="npub1… or hex pubkey" autocomplete="off" spellcheck="false" />
-        <button id="load-farm">visit farm</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="compose-modal" class="hidden">
-    <div class="modal-card">
-      <div class="modal-title">share news from the homestead</div>
-      <div id="compose-tmpls">
-        <button class="tmpl" data-t="harvest">🧺 harvest brag</button>
-        <button class="tmpl" data-t="status">🏡 farm status</button>
-        <button id="compose-snap">📸 attach farm snapshot</button>
-      </div>
-      <textarea id="compose-text" rows="5" placeholder="tell the neighbors what's growing…"></textarea>
-      <img id="compose-thumb" class="hidden" alt="farm snapshot" />
-      <div id="compose-snap-status" class="hidden"></div>
-      <div class="modal-row">
-        <span id="compose-hint"></span>
-        <div>
-          <button id="compose-cancel">cancel</button>
-          <button id="compose-send" class="primary">sign &amp; publish</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="toast-stack"></div>
-  <div id="toast" class="hidden"></div>
-
-  <div id="welcome-modal" class="hidden">
-    <div class="picker-card" style="width:420px">
-      <div class="picker-title">🌅 While you were away…</div>
-      <div id="welcome-body" class="picker-sub" style="font-size:13px"></div>
-      <button id="welcome-close" class="upgrade" style="animation:none">back to the farm</button>
-    </div>
-  </div>
-
-  <!-- collection book -->
-  <div id="collection-book" class="hidden">
-    <div class="cb-cover">
-      <button id="cb-close">×</button>
-      <div class="cb-spread">
-        <div class="cb-page cb-left">
-          <div class="cb-title">📔 Collection Book</div>
-          <div id="cb-progress"></div>
-          <div id="cb-pageL"></div>
-        </div>
-        <div class="cb-spine"></div>
-        <div class="cb-page cb-right">
-          <div id="cb-pageR"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="float-layer"></div>
-
-  <script type="module" src="/src/farm/main.js"></script>
+  <script type="module" src="/src/game/main.js"></script>
 </body>
 </html>
