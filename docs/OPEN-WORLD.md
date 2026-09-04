@@ -27,9 +27,7 @@ and they are small.
 | `dungeon_gen.js` | what is under a dungeon or cave mouth: rooms and corridors on a 2 m grid, the entrance, the stair down, ore and chest cells, and the clamp that keeps a walker off the rock | yes |
 | `dungeon.js` | the level as geometry: merged floor and walls, torch props, the two exits, a cave's ore field. No ceiling, eight point lights | THREE, farm TreeField |
 
-`src/farm/farm.js` wires them in `_buildWorld()` and drives them from
-`_updateWorld()` every frame. `src/farm/main.js` owns what a place says when
-clicked and what discovery announces.
+`src/game/world_runtime.js` wires them and drives them every frame; `src/game/main.js` owns what a place says when clicked and what discovery announces. The farm game that this grew out of lives in `legacy/` and is not imported. See `docs/GAME-CONTRACT.md` for the entry's module surfaces.
 
 ## Numbers that matter
 
@@ -86,3 +84,14 @@ the camera, target, fog object and visibility exactly).
 
 Loot in the chests, anything alive underground, roads between sites,
 rivers that flow downhill, per-chunk persistence of felled trees, other players.
+
+## Playing it
+
+Third person. WASD moves relative to the camera, shift runs, drag the mouse to
+look, wheel to zoom 3 to 32 m. 1 to 4 pick hand, axe, pickaxe, bow (bought at a
+market). Click a tree or rock within 6 m to work it. Click a dungeon or cave
+mouth within 14 m to go under; click the pale steps to come out, the black
+stair to go deeper. B opens the market within 40 m of a settlement. F1 flies
+(dev mode): WASD, Q down, E up, shift x4, wheel for speed; F1 again drops you
+on the ground under the camera. A first boot spawns a short walk from the
+nearest settlement.

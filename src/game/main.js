@@ -52,6 +52,20 @@ function boot() {
   const hud = createHud(hudRoot);
 
   const player = createPlayer(sc.scene);
+  // First boot: no site stands within the streamed ring of the origin, so a new
+  // player would face empty meadow with nowhere to walk to. Spawn instead a
+  // short walk outside the nearest settlement, on the side facing the origin.
+  if (!state.pos.x && !state.pos.z) {
+    const towns = runtime.sitesNear(0, 0, 4000).filter((s) => s.kind === 'town' || s.kind === 'hamlet')
+      .sort((p, q) => Math.hypot(p.x, p.z) - Math.hypot(q.x, q.z));
+    if (towns.length) {
+      const t = towns[0];
+      const d = Math.hypot(t.x, t.z) || 1;
+      const off = t.flatR + 22;
+      state.setPos(t.x - (t.x / d) * off, t.z - (t.z / d) * off);
+      hud.toast(`you wake a short walk from <b>${t.name}</b>, ${t.article}`);
+    }
+  }
   player.teleport(state.pos.x || 0, state.pos.z || 0, (x, z) => runtime.heightAt(x, z));
 
   // input comes before the camera: createFollowCamera takes it, so the boot
