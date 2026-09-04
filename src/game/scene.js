@@ -44,6 +44,111 @@ export function dayFactorAt(nowMs, cycleMs = DAY_CYCLE_MS) {
   return clamp01(raw * 1.4 - 0.2);
 }
 
+/**
+ * The whole of the lighting, as a function of the day.
+ *
+ * Pure, no THREE, colours as linear-ish 0..1 triples, so the curve can be
+ * checked in node and so anything else that wants to know what time it looks
+ * like can ask without a renderer.
+ *
+ * Three stops, and everything is a straight lerp between the two that bracket
+ * `d`. The middle stop is the whole reason this is not a single lerp: a sun
+ * that goes from moonlight to noon in one interpolation is never orange, and a
+ * day without an orange hour is a day nobody believes.
+ *
+ *   d = 0     night. A cold, low moon; a cold, low ambient; exposure pulled
+ *             down so night reads as night through the ACES curve instead of
+ *             as a grey day.
+ *   d = DAWN  the low sun. Warm to the point of orange, half the noon
+ *             intensity, exposure lifted so the warmth carries.
+ *   d = 1     noon. Barely warm, full intensity, exposure at 1.
+ *
+ * Intensities are physical: three has had no legacy light mode since r165, so
+ * these are irradiance multipliers and a directional light of 3.2 is a bright
+ * clear noon against a hemisphere of 0.85.
+ */
+export const DAWN = 0.34;
+
+const STOPS = [
+  { d: 0, exposure: 0.74,
+    sun: { c: [0.14, 0.20, 0.38], i: 0.10 },
+    hemi: { sky: [0.07, 0.10, 0.20], ground: [0.05, 0.06, 0.08], i: 0.16 },
+    ambient: { c: [0.20, 0.27, 0.44], i: 0.055 },
+    fill: { c: [0.24, 0.34, 0.58], i: 0.09 } },
+  { d: DAWN, exposure: 1.14,
+    sun: { c: [1.00, 0.52, 0.24], i: 1.45 },
+    hemi: { sky: [0.55, 0.45, 0.52], ground: [0.34, 0.24, 0.18], i: 0.48 },
+    ambient: { c: [0.72, 0.52, 0.42], i: 0.10 },
+    fill: { c: [0.42, 0.46, 0.70], i: 0.20 } },
+  { d: 1, exposure: 1.0,
+    sun: { c: [1.00, 0.95, 0.86], i: 3.2 },
+    hemi: { sky: [0.55, 0.74, 1.00], ground: [0.42, 0.35, 0.26], i: 0.85 },
+    ambient: { c: [1.00, 0.93, 0.84], i: 0.16 },
+    fill: { c: [0.56, 0.68, 1.00], i: 0.34 } },
+];
+
+const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+export function lightingAt(dayFactor) {
+  const d = clamp01(dayFactor);
+  const lo = d <= DAWN ? STOPS[0] : STOPS[1];
+  const hi = d <= DAWN ? STOPS[1] : STOPS[2];
+  const t = (d - lo.d) / (hi.d - lo.d);
+  return {
+    day: d,
+    exposure: lo.exposure + (hi.exposure - lo.exposure) * t,
+    sun: { color: mix3(lo.sun.c, hi.sun.c, t), intensity: lo.sun.i + (hi.sun.i - lo.sun.i) * t },
+    hemi: {
+      sky: mix3(lo.hemi.sky, hi.hemi.sky, t),
+      ground: mix3(lo.hemi.ground, hi.hemi.ground, t),
+      intensity: lo.hemi.i + (hi.hemi.i - lo.hemi.i) * t,
+    },
+    ambient: { color: mix3(lo.ambient.c, hi.ambient.c, t), intensity: lo.ambient.i + (hi.ambient.i - lo.ambient.i) * t },
+    fill: { color: mix3(lo.fill.c, hi.fill.c, t), intensity: lo.fill.i + (hi.fill.i - lo.fill.i) * t },
+  };
+}
+
+/** How much light the ground actually receives, for comparing two times. */
+export function litness(dayFactor) {
+  const L = lightingAt(dayFactor);
+  return (L.sun.intensity * 0.72 + L.hemi.intensity + L.ambient.intensity + L.fill.intensity * 0.4) * L.exposure;
+}
+
+/** Warmth of the sun at a time of day: red over blue, 1 is neutral. */
+export function sunWarmth(dayFactor) {
+  const c = lightingAt(dayFactor).sun.color;
+  return c[0] / Math.max(c[2], 1e-4);
+}
+
+/**
+ * Put the curve on the lights. This is the whole of what setDay does to the
+ * lighting, lifted out so a node test can drive it with real THREE lights and
+ * a stand-in renderer and see the numbers that actually land, rather than a
+ * copy of the arithmetic.
+ *
+ * @param {{renderer?:object, sun:object, hemi:object, ambient:object, fill:object}} rig
+ * @param {number} dayFactor
+ * @returns {object} the lighting it applied
+ */
+export function applyLighting(rig, dayFactor) {
+  const L = lightingAt(dayFactor);
+  if (rig.renderer) rig.renderer.toneMappingExposure = L.exposure;
+  rig.sun.intensity = L.sun.intensity;
+  rig.sun.color.setRGB(L.sun.color[0], L.sun.color[1], L.sun.color[2]);
+  rig.hemi.intensity = L.hemi.intensity;
+  rig.hemi.color.setRGB(L.hemi.sky[0], L.hemi.sky[1], L.hemi.sky[2]);
+  rig.hemi.groundColor.setRGB(L.hemi.ground[0], L.hemi.ground[1], L.hemi.ground[2]);
+  rig.ambient.intensity = L.ambient.intensity;
+  rig.ambient.color.setRGB(L.ambient.color[0], L.ambient.color[1], L.ambient.color[2]);
+  rig.fill.intensity = L.fill.intensity;
+  rig.fill.color.setRGB(L.fill.color[0], L.fill.color[1], L.fill.color[2]);
+  return L;
+}
+
+/** How far the shadow box reaches around the player, each way, in metres. */
+export const SHADOW_BOX = 55;
+export const SHADOW_MAP = 2048;
+
 /** A vertical gradient painted to a canvas, optionally salted with stars. */
 export function skyGradientTexture(stops, withStars = false) {
   const canvas = document.createElement('canvas');
@@ -75,9 +180,18 @@ export function createScene(container) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(w, h);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // PCF, not PCFSoft: three r185 deprecated PCFSoftShadowMap and silently
+  // rewrites it to this on the first shadow pass, warning once as it goes.
+  // Asking for the deprecated one gets the same 3x3 kernel plus a warning,
+  // so ask for what you get. One shadow texel is 0.054 m at SHADOW_BOX and
+  // SHADOW_MAP, which puts the penumbra at about 0.16 m.
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  // Filmic, and sRGB on the way out. Everything the ground material generates
+  // is authored in sRGB and decoded by the sampler, so the whole chain from
+  // texture byte to pixel is linear in the middle and sRGB at both ends.
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMappingExposure = lightingAt(1).exposure;
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -131,19 +245,25 @@ export function createScene(container) {
   ambient.name = 'ambient-light';
   scene.add(ambient);
 
-  const sunDayCol = new THREE.Color(TC.sunDay);
-  const sunNightCol = new THREE.Color(TC.sunNight);
   const sun = new THREE.DirectionalLight(TC.sunDay, 2.4);
   sun.name = 'sun-light';
   sun.position.set(90, 120, 50);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(SHADOW_MAP, SHADOW_MAP);
   // The farm sized this box to its island. A third person camera never sees
   // more than the near ring of chunks, so 55 m each way around the player is
-  // the whole of what can cast a shadow you would notice.
-  const SB = 55;
-  Object.assign(sun.shadow.camera, { left: -SB, right: SB, top: SB, bottom: -SB, near: 20, far: 400 });
-  sun.shadow.bias = -0.0004;
+  // the whole of what can cast a shadow you would notice. The light sits
+  // 158 m from the target, so near and far bracket that instead of running
+  // 20 to 400 and spending the depth buffer on empty space.
+  const SB = SHADOW_BOX;
+  Object.assign(sun.shadow.camera, { left: -SB, right: SB, top: SB, bottom: -SB, near: 40, far: 300 });
+  // One shadow texel is 2 * 55 / 2048 = 0.054 m. normalBias pushes the lookup
+  // along the surface normal by half of that, which is what stops a curved
+  // caster shadowing itself in stripes; the constant bias then only has to
+  // cover the flat case, so it can be small enough not to detach a shadow
+  // from the foot that casts it.
+  sun.shadow.bias = -0.00015;
+  sun.shadow.normalBias = 0.03;
   sun.target.name = 'sun-target';
   scene.add(sun);
   scene.add(sun.target);
@@ -171,10 +291,7 @@ export function createScene(container) {
   function setDay(dayFactor) {
     const d = clamp01(dayFactor);
     day = d;
-    sun.intensity = 0.14 + 2.3 * d;
-    sun.color.lerpColors(sunNightCol, sunDayCol, d);
-    hemi.intensity = 0.2 + 0.7 * d;
-    ambient.intensity = 0.1 + 0.13 * d;
+    applyLighting({ renderer, sun, hemi, ambient, fill }, d);
     if (!fogPinned) scene.fog.color.lerpColors(fogNight, fogDay, d);
     skyDayMat.opacity = d;
     sunBall.material.opacity = d;
@@ -210,6 +327,8 @@ export function createScene(container) {
     setDay, setFog, follow, resize,
     render() { renderer.render(scene, camera); },
     dayFactor(nowMs) { return dayFactorAt(nowMs); },
+    /** The curve setDay just applied, for anything that wants to match it. */
+    lightingAt, applyLighting,
     get day() { return day; },
     get fogPinned() { return fogPinned; },
     dispose() {

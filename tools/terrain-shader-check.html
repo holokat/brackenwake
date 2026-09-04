@@ -1,0 +1,178 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Terrain shader check</title>
+<!--
+  The one thing about terrain_material.js that node cannot answer: does the
+  shader compile, and does it draw ground.
+
+  Run it:
+    cd /path/to/brackenwake && python3 -m http.server 5251
+    open http://localhost:5251/tools/terrain-shader-check.html
+
+  It imports the real terrain_material.js and the real chunks.js, builds a
+  real WebGL2 context, compiles the material at all three qualities, renders,
+  reads the framebuffer back and reports how much of it was shaded and how far
+  apart the three qualities are. Two canvases: five by five chunks of the flat
+  home meadow with an LOD change in it, which is where the chunk grid used to
+  show, and a road through a meadow, which is where the hard band used to be.
+
+  It caught two real bugs the node suite could not:
+    - vColor is a vec4 in three r185, not a vec3, so the fragment shader did
+      not compile at all and the ground drew black.
+    - the second tiling scale was masked by an sRGB texture read whose values
+      never crossed the threshold, so it contributed nothing.
+-->
+<style>body{font:13px ui-monospace,monospace;white-space:pre-wrap;padding:12px}</style>
+<div id="out">running...</div>
+<script type="importmap">
+{"imports":{"three":"/node_modules/three/build/three.module.js"}}
+</script>
+<script type="module">
+const out = document.getElementById('out');
+const lines = [];
+const say = (s) => { lines.push(s); out.textContent = lines.join('\n'); };
+const errors = [];
+const realErr = console.error, realWarn = console.warn;
+console.error = (...a) => { errors.push(a.map(String).join(' ')); realErr(...a); };
+console.warn = (...a) => { errors.push('WARN ' + a.map(String).join(' ')); realWarn(...a); };
+window.onerror = (m) => { errors.push('ONERROR ' + m); };
+
+try {
+  const THREE = await import('three');
+  const { createTerrainMaterial } = await import('/src/world/terrain_material.js');
+  const { createWorldField } = await import('/src/world/field.js');
+  const { buildChunkGeometry, buildPalette } = await import('/src/world/chunks.js');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 900; canvas.height = 520;
+  document.body.insertBefore(canvas, out);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const gl = renderer.getContext();
+  say('webgl2: ' + (typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext));
+  say('max fragment texture units: ' + gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS));
+  say('max array texture layers: ' + gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS));
+
+  const field = createWorldField(20260904, { homeY: -0.3 });
+  const theme = [{ id: 'meadow', colors: { grass: 0x6cb552, grassEdge: 0x4e8c3e, dirtTop: 0x9a8055, dirtDeep: 0x6d5a3c, water: 0x3f7fa6 } }];
+  const palette = buildPalette(theme);
+
+  const t0 = performance.now();
+  const ground = createTerrainMaterial({ size: 512, quality: 'high' });
+  say('visibility ' + document.visibilityState + ', texture set generated in ' + Math.round(performance.now() - t0) + ' ms at 512 px');
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0xcfe8f4, 90, 536);
+  const sun = new THREE.DirectionalLight(0xffffff, 3);
+  sun.position.set(90, 120, 50);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 40, far: 300 });
+  sun.shadow.bias = -0.00015; sun.shadow.normalBias = 0.03;
+  scene.add(sun, sun.target);
+  scene.add(new THREE.HemisphereLight(0xbfe0ff, 0xa98a63, 0.85));
+  scene.add(new THREE.AmbientLight(0xffe8d0, 0.16));
+  const fill = new THREE.DirectionalLight(0x9fc0ff, 0.34);
+  fill.position.set(-70, 40, -80);
+  scene.add(fill);
+
+  // a patch of chunks around the origin plus the road chunk and a coarse tier,
+  // so a chunk border, an LOD border and a road are all in shot
+  const tiles = [];
+  for (let cz = -2; cz <= 2; cz++) for (let cx = -2; cx <= 2; cx++) tiles.push([cx, cz, Math.abs(cx) > 1 || Math.abs(cz) > 1 ? 17 : 33]);
+  for (const [cx, cz, v] of tiles) {
+    const { geo } = buildChunkGeometry(field, cx, cz, v, palette);
+    const m = new THREE.Mesh(geo, ground.material);
+    m.receiveShadow = true;
+    scene.add(m);
+  }
+  // something that casts a shadow onto it
+  const box = new THREE.Mesh(new THREE.BoxGeometry(4, 8, 4), new THREE.MeshStandardMaterial({ color: 0x8a6a4a }));
+  box.position.set(6, 4, 6); box.castShadow = true; scene.add(box);
+
+  const camera = new THREE.PerspectiveCamera(55, 900 / 520, 0.1, 1800);
+  camera.position.set(0, 3.2, 70);
+  camera.lookAt(0, 1.6, -120);
+
+  for (const q of ['high', 'medium', 'low']) {
+    ground.setQuality(q);
+    const before = errors.length;
+    renderer.compile(scene, camera);
+    renderer.render(scene, camera);
+    gl.finish();
+    const glErr = gl.getError();
+    say(`quality ${q}: ${errors.length - before} console errors, gl.getError ${glErr}, programs ${renderer.info.programs.length}`);
+  }
+
+  // read the whole frame back so we know the ground was actually shaded, not
+  // just that the program linked
+  const W = 900, H = 520;
+  const buf = new Uint8Array(W * H * 4);
+  const frames = {};
+  for (const q of ['high', 'medium', 'low']) {
+    ground.setQuality(q);
+    renderer.render(scene, camera);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+    let lit = 0, r = 0, g = 0, b = 0, distinct = new Set();
+    for (let i = 0; i < W * H; i++) {
+      const R = buf[i * 4], G = buf[i * 4 + 1], B = buf[i * 4 + 2];
+      if (R + G + B > 12) { lit++; r += R; g += G; b += B; distinct.add((R >> 3) * 1024 + (G >> 3) * 32 + (B >> 3)); }
+    }
+    frames[q] = buf.slice();
+    say(`${q}: ${lit} of ${W * H} pixels lit (${(100 * lit / (W * H)).toFixed(0)}%), mean rgb ${lit ? [r / lit, g / lit, b / lit].map((v) => v.toFixed(0)).join(',') : '-'}, ${distinct.size} distinct tones`);
+  }
+  const diff = (a, b) => {
+    let n = 0, sum = 0;
+    for (let i = 0; i < W * H; i++) {
+      const d = Math.abs(frames[a][i * 4] - frames[b][i * 4]) + Math.abs(frames[a][i * 4 + 1] - frames[b][i * 4 + 1]) + Math.abs(frames[a][i * 4 + 2] - frames[b][i * 4 + 2]);
+      if (d > 3) n++;
+      sum += d;
+    }
+    return `${a} vs ${b}: ${n} pixels differ, mean abs delta ${(sum / (W * H) / 3).toFixed(2)} per channel`;
+  };
+  say(diff('high', 'medium'));
+  say(diff('medium', 'low'));
+  say(diff('high', 'low'));
+  ground.setQuality('high');
+  renderer.render(scene, camera);
+  // a second canvas looking down a road, which is the other half of the bug
+  const c2 = document.createElement('canvas');
+  c2.width = 900; c2.height = 400;
+  document.body.insertBefore(c2, out);
+  const r2 = new THREE.WebGLRenderer({ canvas: c2, antialias: true });
+  r2.shadowMap.enabled = true; r2.shadowMap.type = THREE.PCFShadowMap;
+  r2.toneMapping = THREE.ACESFilmicToneMapping; r2.outputColorSpace = THREE.SRGBColorSpace;
+  const s2 = new THREE.Scene();
+  s2.fog = new THREE.Fog(0xcfe8f4, 90, 536);
+  const sun2 = new THREE.DirectionalLight(0xffffff, 3);
+  sun2.position.set(1680 + 90, 120, -720 + 50);
+  sun2.target.position.set(1680, 0, -720); sun2.castShadow = true;
+  sun2.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun2.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 40, far: 300 });
+  sun2.shadow.bias = -0.00015; sun2.shadow.normalBias = 0.03;
+  s2.add(sun2, sun2.target);
+  s2.add(new THREE.HemisphereLight(0xbfe0ff, 0xa98a63, 0.85));
+  s2.add(new THREE.AmbientLight(0xffe8d0, 0.16));
+  for (let cz = -13; cz <= -10; cz++) for (let cx = 25; cx <= 28; cx++) {
+    const { geo } = buildChunkGeometry(field, cx, cz, 33, palette);
+    const m = new THREE.Mesh(geo, ground.material); m.receiveShadow = true; s2.add(m);
+  }
+  const cam2 = new THREE.PerspectiveCamera(55, 900 / 400, 0.1, 1800);
+  cam2.position.set(1680, 6, -700);
+  cam2.lookAt(1680, 2, -790);
+  r2.render(s2, cam2);
+  say('road view rendered at ' + cam2.position.toArray().map((v) => v.toFixed(0)).join(', '));
+
+  // dump the first program's diagnostics if three kept any
+  for (const p of renderer.info.programs) {
+    if (p.diagnostics) say('DIAGNOSTICS ' + JSON.stringify(p.diagnostics).slice(0, 4000));
+  }
+
+  say(errors.length ? 'ERRORS:\n' + errors.join('\n---\n').slice(0, 8000) : 'RESULT: NO ERRORS');
+} catch (e) {
+  say('THREW: ' + (e && e.stack || e));
+}
+</script>
