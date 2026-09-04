@@ -233,6 +233,55 @@ function limb(rings, mat, opts = {}) {
   return put(loft(profile, list), mat);
 }
 
+/**
+ * The forehead. Nothing worn or grown may close over the face below this line
+ * at the front: the eyes sit at y = 0.166 in the head's frame, the mouth at
+ * 0.098, and a closed loft around the skull swallows both. The hair cap was
+ * exactly that shape and covered the face of every character in the game.
+ */
+export const HAIRLINE = 0.198;
+
+/**
+ * A hair shell that is closed above the hairline and open at the front below
+ * it, so hair falls at the temples and behind the ears and never across the
+ * eyes. `rings` are the same [y, halfWidth, depthRatio, dz] rows the styles
+ * are written in, lowest first; the pair that straddles HAIRLINE is split by
+ * interpolation so the two halves meet exactly.
+ */
+function hairShell(rings, mat, opts = {}) {
+  const out = [];
+  const above = rings.filter((r) => r[0] >= HAIRLINE);
+  const below = rings.filter((r) => r[0] < HAIRLINE);
+  if (below.length && above.length) {
+    const lo = below[below.length - 1], hi = above[0];
+    const t = (HAIRLINE - lo[0]) / (hi[0] - lo[0]);
+    const mix = (i, d = 0) => (lo[i] == null ? d : lo[i]) + ((hi[i] == null ? d : hi[i]) - (lo[i] == null ? d : lo[i])) * t;
+    const edge = [HAIRLINE, mix(1), mix(2, 1), mix(3, 0)];
+    below.push(edge);
+    above.unshift(edge);
+  }
+  if (above.length > 1) out.push(limb(above, mat, opts));
+  if (below.length > 1) {
+    // the fall: a wall round the back and the sides, open across the face
+    const arc = Math.PI * 1.12, seg = 16, thick = 0.16;
+    const profile = [];
+    for (let i = 0; i <= seg; i++) {
+      const a = -arc / 2 + (i / seg) * arc;
+      profile.push([Math.sin(a), -Math.cos(a)]);
+    }
+    for (let i = seg; i >= 0; i--) {
+      const a = -arc / 2 + (i / seg) * arc;
+      profile.push([Math.sin(a) * (1 - thick), -Math.cos(a) * (1 - thick)]);
+    }
+    const deep = opts.deep == null ? 1 : opts.deep;
+    const list = below.map(([y, sx, dr, dz], i) => ({
+      y, sx, sz: sx * (dr == null ? 1 : dr) * deep, dz: dz || 0, v: i / (below.length - 1) * (opts.vScale || 1),
+    }));
+    out.push(put(loft(profile, list, { capTop: false, capBottom: false }), mat));
+  }
+  return out;
+}
+
 /** A spun shape, for a shoulder cap, a knee or a hair bun. */
 function blob(r, mat, sy = 1, sz = 1) {
   const g = new THREE.SphereGeometry(r, 14, 10);
@@ -341,13 +390,18 @@ export function buildCharacter(appearance) {
       [-0.030, 0.066, 0.95], [-0.120, 0.060, 0.95], [-0.220, 0.054, 0.95], [-0.300, 0.049, 0.95],
     ], M.tunic, { deep: 0.95, vScale: 1.5 });
     g.add(sleeve); girth.push(sleeve);
+    // The forearm used to stop at -0.545 and the palm to start at -0.552,
+    // leaving a 7 mm hole at the wrist that the old long glove happened to
+    // cover. Now that the glove is short enough to show skin there, the two
+    // have to actually meet: gear_visuals.test.mjs fires three rays across
+    // the bare stretch and every one of them has to land on the body.
     const forearm = limb([
-      [-0.290, 0.048, 0.92], [-0.380, 0.045, 0.92], [-0.470, 0.038, 0.92], [-0.545, 0.033, 0.92],
+      [-0.290, 0.048, 0.92], [-0.380, 0.045, 0.92], [-0.470, 0.038, 0.92], [-0.558, 0.034, 0.88],
     ], M.skin, { deep: 0.92, vScale: 1.5 });
     g.add(forearm); girth.push(forearm);
     // the hand: a palm, a thumb, and four fingers as one block
     const palm = limb([
-      [-0.552, 0.034, 0.66], [-0.585, 0.040, 0.60], [-0.640, 0.038, 0.58], [-0.668, 0.028, 0.58],
+      [-0.546, 0.035, 0.66], [-0.585, 0.040, 0.60], [-0.640, 0.038, 0.58], [-0.668, 0.028, 0.58],
     ], M.skin, { deep: 0.60 });
     g.add(palm);
     // built at its own origin, then hung off the palm: a thumb rotated about
@@ -438,7 +492,7 @@ export function buildCharacter(appearance) {
       long: [[-0.010, 0.114, 1.02], [0.140, 0.113, 1.02], [0.235, 0.103, 1.00], [top, 0.036, 0.94]],
       wild: [[0.040, 0.120, 1.06], [0.170, 0.122, 1.06], [0.245, 0.100, 1.00], [top, 0.046, 0.96]],
     }[style] || [[0.085, 0.107, 1.02], [0.200, 0.104, 1.00], [0.252, 0.087, 0.96], [top, 0.034, 0.92]];
-    hairGroup.add(limb(capRings, mat, { deep: 0.98, vScale: 1.5 }));
+    for (const m of hairShell(capRings, mat, { deep: 0.98, vScale: 1.5 })) hairGroup.add(m);
     hairGroup.traverse((o) => { if (o.isMesh) o.userData.role = 'hair'; });
 
     const tail = (x, y0, y1, r, z) => {
@@ -446,14 +500,19 @@ export function buildCharacter(appearance) {
       t.position.set(x, 0, z);
       hairGroup.add(t);
     };
+    // The falls hang BEHIND the ears. They used to be closed lofts centred
+    // near z = 0, which put a wall of hair across the mouth on every long,
+    // wild and bob head in the game.
     if (style === 'long' || style === 'wild') {
       const fall = limb([[0.230, 0.112, 0.70], [0.100, 0.116, 0.62], [-0.060, 0.110, 0.58], [-0.190, 0.092, 0.55]], mat, { deep: 0.68 });
-      fall.position.z = -0.030;
+      fall.position.z = -0.062;
+      fall.scale.z = 0.72;
       hairGroup.add(fall);
     }
     if (style === 'bob') {
       const fall = limb([[0.200, 0.114, 0.78], [0.100, 0.116, 0.72], [0.020, 0.110, 0.70]], mat, { deep: 0.76 });
-      fall.position.z = -0.014;
+      fall.position.z = -0.052;
+      fall.scale.z = 0.70;
       hairGroup.add(fall);
     }
     if (style === 'braid') tail(0, 0.190, -0.150, 0.030, -0.100);
@@ -584,12 +643,19 @@ export function auditAppearance(APPEARANCE) {
  * toward these by `s.gripMix`, so a rig with no grip poses exactly as it did
  * before any of this existed.
  */
+// The shield arm used to be [-0.62, -0.34, 0.34], which threw the whole
+// forearm forward and up: a kite shield strapped to it ended up 0.77 m in
+// front of the chest, edge on to the camera and behind the character's own
+// body from a follow camera. A shield is carried on a hanging arm with the
+// elbow a little out; the shield hangs on the arm rather than being presented
+// by it. gear_visuals.test.mjs fires rays from the left and the front to
+// prove it is where a shield goes.
 export const GRIP_POSES = {
   one: { armR: [-0.34, -0.10, -0.26], armL: [0, 0, 0.07] },
-  oneShield: { armR: [-0.34, -0.10, -0.26], armL: [-0.62, -0.34, 0.34] },
+  oneShield: { armR: [-0.34, -0.10, -0.26], armL: [-0.05, -0.08, 0.26] },
   two: { armR: [-0.66, -0.22, -0.30], armL: [-0.98, 0.40, 0.44] },
   bow: { armR: [-1.10, -0.42, -0.50], armL: [-1.42, 0.26, 0.24] },
-  shield: { armR: [0, 0, -0.07], armL: [-0.62, -0.34, 0.34] },
+  shield: { armR: [0, 0, -0.07], armL: [-0.05, -0.08, 0.26] },
 };
 
 // Pose the rig from the gait state. Pure geometry, no time of its own beyond

@@ -11,6 +11,7 @@ import {
   buildWeaponModel, auditWeaponModels, hasWeaponModel, modelledBases, countTriangles,
   LENGTHS, METAL_COLOURS, WOOD_COLOURS, LEATHER_COLOURS, colourOfMaterial, isMetal,
   textureSet, FAMILIES, MODELLED_KINDS, disposeModel, loft, lathe, circle, roundRect,
+  metalMat, plateMat, METAL_METALNESS, METAL_BASE_ROUGH, METAL_EMISSIVE,
 } from './weapon_models.js';
 import { BASES, RARITY_ORDER, makeItem } from '../mmo/items.js';
 import { ORES, ALLOYS, WOODS, LEATHERS } from '../mmo/ores.js';
@@ -308,6 +309,111 @@ console.log('weapon_models: building is cheap enough to do on an equip');
   const ms = Date.now() - t0;
   for (const g of built) disposeModel(g);
   check('30 longswords build in under 250 ms', ms < 250, `${ms} ms, ${(ms / 30).toFixed(1)} ms each`);
+}
+
+
+// ---------------------------------------------------------------------------
+// Steel has to look like steel with nothing to reflect. There is no
+// environment map in the scene, so a MeshPhysicalMaterial at metalness 1 has
+// no diffuse term and renders very nearly black: that is what shipped, and a
+// longsword read as thin dark wood next to a brown leather glove in daylight.
+// The band below is the readable one until an environment exists.
+console.log('weapon_models: metal reads as metal with no environment map');
+{
+  const METALS = Object.keys(METAL_COLOURS);
+  let worstM = null, worstR = null;
+  for (const id of METALS) {
+    const m = metalMat(id), p = plateMat(id);
+    for (const [what, mat] of [['metal', m], ['plate', p]]) {
+      if (!worstM || Math.abs(mat.metalness - 0.675) > Math.abs(worstM.v - 0.675)) worstM = { id: `${id}/${what}`, v: mat.metalness };
+      if (!worstR || Math.abs(mat.roughness - 0.375) > Math.abs(worstR.v - 0.375)) worstR = { id: `${id}/${what}`, v: mat.roughness };
+    }
+  }
+  check(`every metal sits in the 0.60 to 0.75 metalness band`,
+    METALS.every((id) => metalMat(id).metalness >= 0.6 && metalMat(id).metalness <= 0.75
+      && plateMat(id).metalness >= 0.6 && plateMat(id).metalness <= 0.75),
+    `furthest ${worstM.id} at ${worstM.v.toFixed(3)}, the constant is ${METAL_METALNESS}`);
+  check('and in the 0.30 to 0.45 roughness band',
+    METALS.every((id) => metalMat(id).roughness >= 0.30 && metalMat(id).roughness <= 0.45
+      && plateMat(id).roughness >= 0.30 && plateMat(id).roughness <= 0.45),
+    `furthest ${worstR.id} at ${worstR.v.toFixed(3)}, the base is ${METAL_BASE_ROUGH}`);
+  check('every metal carries the faint emissive that keeps it off black in shade',
+    METALS.every((id) => metalMat(id).emissive.getHex() === METAL_EMISSIVE),
+    `#${METAL_EMISSIVE.toString(16).padStart(6, '0')}`);
+  check('and the emissive is faint enough that it is not a rarity glow',
+    METALS.every((id) => metalMat(id).emissiveIntensity <= 1),
+    `intensity ${metalMat('iron').emissiveIntensity}`);
+
+  // the maps MULTIPLY the scalars, so they have to be modulations near 1 or
+  // the material's numbers mean nothing. Measured off the real texture.
+  const lum = (fn, ch) => {
+    let lo = 1, hi = 0;
+    for (let i = 0; i < 64; i++) {
+      for (let j = 0; j < 64; j++) {
+        const v = Math.max(0, Math.min(1, fn(i / 64, j / 64)[ch]));
+        lo = Math.min(lo, v); hi = Math.max(hi, v);
+      }
+    }
+    return { lo, hi };
+  };
+  for (const fam of ['metal', 'plate']) {
+    const r = lum(FAMILIES[fam], 'r'), m = lum(FAMILIES[fam], 'm');
+    check(`the ${fam} family's roughness channel modulates rather than replaces`, r.lo > 0.6,
+      `${r.lo.toFixed(2)} to ${r.hi.toFixed(2)}, so final roughness ${(METAL_BASE_ROUGH * r.lo).toFixed(2)} to ${(METAL_BASE_ROUGH * r.hi).toFixed(2)}`);
+    check(`and so does its metalness channel`, m.lo > 0.4,
+      `${m.lo.toFixed(2)} to ${m.hi.toFixed(2)}, so final metalness ${(METAL_METALNESS * m.lo).toFixed(2)} to ${(METAL_METALNESS * m.hi).toFixed(2)}`);
+  }
+
+  // the base tint is multiplied by an albedo whose mean is about 0.74, so a
+  // steel that is meant to read as grey has to start lighter than grey
+  // sRGB luma off the raw bytes: THREE.Color decodes a hex to linear, and
+  // "does this look light" is a question about the sRGB value, not the linear one
+  const bright = (hex) => (((hex >> 16) & 255) * 0.30 + ((hex >> 8) & 255) * 0.59 + (hex & 255) * 0.11) / 255;
+  const STEELS = ['iron', 'silver', 'starfall', 'rimesteel', 'tin'];
+  check('the steels are light enough to survive the albedo multiply',
+    STEELS.every((id) => bright(METAL_COLOURS[id]) * 0.74 > 0.38),
+    STEELS.map((id) => `${id} ${(bright(METAL_COLOURS[id]) * 0.74).toFixed(2)}`).join(', '));
+  check('and iron is lighter than the 0x6e7378 that rendered as charcoal',
+    bright(METAL_COLOURS.iron) > bright(0x6e7378),
+    `#${METAL_COLOURS.iron.toString(16)} vs #6e7378`);
+  check('while voidrock is still the darkest thing in the table',
+    METAL_COLOURS.voidrock === Math.min(...Object.values(METAL_COLOURS).map((h) => h)) || bright(METAL_COLOURS.voidrock) < bright(METAL_COLOURS.coldiron),
+    `voidrock ${bright(METAL_COLOURS.voidrock).toFixed(3)} vs coldiron ${bright(METAL_COLOURS.coldiron).toFixed(3)}`);
+}
+
+// ---------------------------------------------------------------------------
+// A blade that is as thick as it is narrow is a stick. These are the real
+// proportions of the things: a longsword blade is 40 to 50 mm across the flat
+// and about 3 mm at the spine, and at the shipped 12.4 mm of spine no amount
+// of material work would have made it read as a sword.
+console.log('weapon_models: blades have blade proportions');
+{
+  const bladeOf = (id) => {
+    const g = buildWeaponModel(id, { light: false });
+    g.updateMatrixWorld(true);
+    // the blade is the mesh with the greatest y extent that is not the haft
+    let best = null;
+    g.traverse((o) => {
+      if (!o.isMesh) return;
+      const b = new THREE.Box3().setFromObject(o);
+      const h = b.max.y - b.min.y;
+      if (!best || h > best.h) best = { h, w: b.max.x - b.min.x, t: b.max.z - b.min.z, b };
+    });
+    disposeModel(g);
+    return best;
+  };
+  const rows = [
+    ['dagger', 0.030, 0.042], ['shortsword', 0.036, 0.048],
+    ['longsword', 0.040, 0.050], ['greatsword', 0.045, 0.060],
+  ];
+  for (const [id, lo, hi] of rows) {
+    const s = bladeOf(id);
+    check(`the ${id} blade is ${(lo * 1000) | 0} to ${(hi * 1000) | 0} mm across the flat`,
+      s.w >= lo && s.w <= hi, `${(s.w * 1000).toFixed(1)} mm`);
+    check(`and no more than 5 mm at the spine`, s.t <= 0.005, `${(s.t * 1000).toFixed(1)} mm`);
+    check(`so the flat is at least eight times the spine`, s.w / s.t >= 8,
+      `${(s.w / s.t).toFixed(1)} to 1`);
+  }
 }
 
 console.log(`\nweapon_models: ${pass} passed, ${fail} failed`);

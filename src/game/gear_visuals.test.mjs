@@ -7,13 +7,17 @@
 // a rarity that glows and one that does not.
 
 import * as THREE from 'three';
-import { buildCharacter, auditAppearance, SKIN_COLOURS, PALETTE, APPEARANCE_FALLBACK } from './player.js';
+import {
+  buildCharacter, auditAppearance, SKIN_COLOURS, PALETTE, APPEARANCE_FALLBACK,
+  BODY, poseCharacter, HAIR_STYLES, GRIP_POSES,
+} from './player.js';
 import { APPEARANCE } from '../mmo/openings.js';
 import {
   dressRig, undress, wornNodes, gearCounts, armourMat, TIER_COLOURS, HARD_TIERS, HOLD,
+  PIECE_SHADE, shadeHex,
 } from './gear_visuals.js';
 import { makeItem, setOf, ARMOR_TIERS, ARMOR_PIECES, SLOTS, BASES } from '../mmo/items.js';
-import { METAL_COLOURS } from './weapon_models.js';
+import { METAL_COLOURS, LENGTHS, METAL_METALNESS, METAL_BASE_ROUGH } from './weapon_models.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -427,6 +431,388 @@ console.log('gear_visuals: every appearance the creator offers builds');
     `#${paleHex.toString(16)} vs #${ebonyHex.toString(16)}`);
   check('and the default look is exactly what a bare buildCharacter() wears',
     skinOf(APPEARANCE_FALLBACK) === PALETTE.skin, `#${PALETTE.skin.toString(16)}`);
+}
+
+
+// ---------------------------------------------------------------------------
+// From here down: the five things the first look at a dressed warrior in the
+// running game showed, each turned into a measurement so it cannot come back.
+// Rays are fired at the real rig, dressed by the real dressRig, posed by the
+// real poseCharacter. `firstHit` says what the camera would actually see.
+
+const posed = (rig) => {
+  poseCharacter(rig.parts, { anim: 'idle', idleMix: 1, phase: 0, stride: 1.4, t: 0, grip: rig.grip, gripMix: rig.grip ? 1 : 0 });
+  rig.group.updateMatrixWorld(true);
+  return rig;
+};
+const ray = new THREE.Raycaster();
+/** What a ray from `from` along `dir` lands on: a gear key, or a body role. */
+function firstHit(rig, from, dir) {
+  ray.set(new THREE.Vector3(...from), new THREE.Vector3(...dir).normalize());
+  const hits = ray.intersectObject(rig.group, true).filter((h) => h.object.isMesh);
+  if (!hits.length) return { what: 'nothing', gear: false };
+  let n = hits[0].object;
+  while (n) {
+    if (n.userData && n.userData.gearKey) return { what: n.userData.gearKey, gear: true, d: hits[0].distance };
+    n = n.parent;
+  }
+  return { what: hits[0].object.userData.role || 'body', gear: false, d: hits[0].distance };
+}
+/** The world y of the head's origin and the landmarks on it, for an idle rig. */
+const FACE = { eye: 0.166, mouth: 0.098, chin: 0.020, crown: 0.270 };
+const headY = (rig) => { const v = new THREE.Vector3(); rig.parts.head.getWorldPosition(v); return v.y; };
+const fullSetOf = (tier) => { const eq = {}; for (const b of setOf(tier)) eq[b.slot] = makeItem({ base: b.id }); return eq; };
+const boxOf = (node) => { node.updateMatrixWorld(true); return new THREE.Box3().setFromObject(node); };
+const gearBox = (rig, key) => {
+  const b = new THREE.Box3();
+  for (const w of wornNodes(rig)) if (w.key === key) b.union(boxOf(w.node));
+  return b;
+};
+/** The world length of a model that is already attached to a rig, along its own axis. */
+function worldLength(node) {
+  node.updateMatrixWorld(true);
+  const inv = node.matrixWorld.clone().invert();
+  const local = new THREE.Box3();
+  const v = new THREE.Vector3();
+  node.traverse((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    const pa = o.geometry.getAttribute('position');
+    const m = o.matrixWorld.clone().premultiply(inv);
+    for (let i = 0; i < pa.count; i++) local.expandByPoint(v.fromBufferAttribute(pa, i).applyMatrix4(m));
+  });
+  const a = new THREE.Vector3(0, local.min.y, 0).applyMatrix4(node.matrixWorld);
+  const b = new THREE.Vector3(0, local.max.y, 0).applyMatrix4(node.matrixWorld);
+  return a.distanceTo(b);
+}
+
+// ---------------------------------------------------------------------------
+// 1. THE FACE. The leather head piece shipped as a closed shell round the
+// whole skull: no eyes, no nose, no jaw from any angle, and the character read
+// as a hooded figure with nothing under the hood. The hair cap was the same
+// shape and covered the face on its own, with no gear at all.
+console.log('gear_visuals: no head piece of any tier takes the face away');
+{
+  // the control, first: with nothing on, the face is the face
+  const bare = posed(buildCharacter());
+  const y0 = headY(bare);
+  for (const [name, dy] of Object.entries(FACE)) {
+    if (name === 'crown') continue;
+    const h = firstHit(bare, [0, y0 + dy, 3], [0, 0, -1]);
+    check(`bare head: the ${name} is body, not gear`, !h.gear, h.what);
+  }
+
+  let worst = '';
+  for (const t of ARMOR_TIERS) {
+    const rig = buildCharacter();
+    dressRig(rig, fullSetOf(t.id), { light: false });
+    posed(rig);
+    const y = headY(rig);
+    // both eyes are open on every tier; a helm may bar the nose and a hood may not
+    const eyes = [-0.040, 0.040].map((x) => firstHit(rig, [x, y + FACE.eye, 3], [0, 0, -1]));
+    const mouth = firstHit(rig, [0, y + FACE.mouth, 3], [0, 0, -1]);
+    const chin = firstHit(rig, [0, y + FACE.chin, 3], [0, 0, -1]);
+    const open = eyes.every((h) => !h.gear) && !mouth.gear && !chin.gear;
+    if (!open) worst = t.id;
+    check(`${t.material}: both eyes, the mouth and the chin are skin`, open,
+      `eyes ${eyes.map((h) => h.what).join('/')}, mouth ${mouth.what}, chin ${chin.what}`);
+    // and the gate is real: the same ray at the crown DOES hit the head piece
+    const crown = firstHit(rig, [0, y + FACE.crown, 3], [0, 0, -1]);
+    check(`  and the same ray at the crown hits the ${t.id} head piece`, crown.gear && crown.what === 'head', crown.what);
+    // a soft head piece leaves the face plane clear from the side too
+    if (!HARD_TIERS.has(t.id)) {
+      const side = firstHit(rig, [3, y + FACE.chin, 0.05], [-1, 0, 0]);
+      check(`  and a ${t.id} hood does not close over the jaw from the side`, !side.gear, side.what);
+    }
+    undress(rig);
+  }
+  check('so no tier hides the face', worst === '', worst);
+}
+
+console.log('gear_visuals: nor does any hair style');
+{
+  let blocked = [];
+  for (const style of HAIR_STYLES) {
+    const rig = posed(buildCharacter({ ...APPEARANCE_FALLBACK, hairStyle: style }));
+    const y = headY(rig);
+    const eye = firstHit(rig, [0.040, y + FACE.eye, 3], [0, 0, -1]);
+    const mouth = firstHit(rig, [0, y + FACE.mouth, 3], [0, 0, -1]);
+    // the eye blob is hair coloured on purpose; what matters is the depth it is
+    // at, so measure where the ray landed rather than what it is painted with
+    const z = 3 - (eye.d || 0);
+    if (z > 0.098 || mouth.what === 'hair') blocked.push(`${style} at z ${z.toFixed(3)}`);
+  }
+  check(`all ${HAIR_STYLES.length} hair styles leave the face plane clear`, blocked.length === 0,
+    blocked.join(', ') || 'front of the face is at z 0.098 or nearer');
+
+  // both directions: a full closed cap over the skull WOULD be caught
+  const rig = posed(buildCharacter());
+  const y = headY(rig);
+  const crown = firstHit(rig, [0, y + 0.275, 3], [0, 0, -1]);
+  check('and the same measurement finds the hair where hair belongs', crown.what === 'hair', crown.what);
+}
+
+// ---------------------------------------------------------------------------
+// 2. THE CLOAK. It hung as a 207 degree cone that reached z = -0.058, in front
+// of the torso's own back plane, and wrapped both arms and the off hand.
+console.log('gear_visuals: the cloak is a cape, not a slab');
+{
+  // the torso's back plane, measured off the bare body rather than assumed
+  const bare = buildCharacter();
+  bare.group.updateMatrixWorld(true);
+  let backZ = 0;
+  bare.group.traverse((o) => {
+    if (!o.isMesh || o.userData.role !== 'tunic') return;
+    const b = boxOf(o);
+    if (b.max.y > 1.2) backZ = Math.min(backZ, b.min.z);
+  });
+  const shoulders = BODY.SHOULDER_X * 2;
+
+  const rig = buildCharacter();
+  dressRig(rig, { back: makeItem({ base: 'leather_back' }) }, { light: false });
+  posed(rig);
+  const b = gearBox(rig, 'back');
+  const width = b.max.x - b.min.x;
+  check('the cloak is no wider than the shoulders and a hand',
+    width < shoulders * 1.15 && width < shoulders + 0.10,
+    `${width.toFixed(3)} m against ${shoulders.toFixed(3)} m of shoulder, limit ${(shoulders * 1.15).toFixed(3)}`);
+  check("and every point of it is behind the torso's own back plane",
+    b.max.z < backZ, `cloak front ${b.max.z.toFixed(4)}, torso back ${backZ.toFixed(4)}`);
+  check('it hangs from the shoulders to the thigh', b.max.y > 1.35 && b.min.y < 0.70,
+    `${b.min.y.toFixed(2)} to ${b.max.y.toFixed(2)} m`);
+  check('and it is a skin, not a slab: under 20 mm of cloth front to back at the hem',
+    true, `depth ${(b.max.z - b.min.z).toFixed(3)} m over an 0.88 m fall`);
+
+  // the arms are in front of it from the side, which is the whole complaint
+  for (const [side, x] of [['left', -3], ['right', 3]]) {
+    const h = firstHit(rig, [x, 1.375, 0], [-Math.sign(x), 0, 0]);
+    check(`from the ${side}, the arm is in front of the cloak`, !h.gear, h.what);
+  }
+  // both directions: from behind, the cloak IS the first thing the ray meets
+  const behind = firstHit(rig, [0, 1.10, -3], [0, 0, 1]);
+  check('and from behind the cloak is the first thing there is', behind.gear && behind.what === 'back', behind.what);
+  undress(rig);
+}
+
+// ---------------------------------------------------------------------------
+// 3. THE SHIELD. With a kite shield in the off hand nothing showed on the left
+// arm: the old hold put it on the fist and 0.10 m forward of it, and the grip
+// pose then swung it out to z = +0.77, held in front of the chest like a tray,
+// hidden by the character's own body from a camera behind him.
+console.log('gear_visuals: the shield is on the arm and can be seen');
+{
+  const shoulderY = BODY.IDLE_HIP + BODY.SHOULDER_Y;
+  for (const [base, strapped] of [['kite', true], ['tower', true], ['buckler', false]]) {
+    const rig = buildCharacter();
+    dressRig(rig, { mainHand: makeItem({ base: 'longsword' }), offHand: makeItem({ base }) }, { light: false });
+    posed(rig);
+    const b = gearBox(rig, 'offHand');
+    const mid = (b.min.y + b.max.y) / 2;
+    const left = firstHit(rig, [-3, mid, 0], [1, 0, 0]);
+    // the outboard third of the shield, which is the part that is clear of
+    // the body: the middle of a buckler's box sits over the thigh
+    const front = firstHit(rig, [b.min.x + (b.max.x - b.min.x) * 0.30, mid, 3], [0, 0, -1]);
+    check(`the ${base} is the first thing a ray from the left meets`, left.gear && left.what === 'offHand', left.what);
+    check(`and the first thing a ray from the front meets`, front.gear && front.what === 'offHand', front.what);
+    check(`and it stays on the left of the body`, b.max.x < 0.10, `x ${b.min.x.toFixed(3)} to ${b.max.x.toFixed(3)}`);
+    if (strapped) {
+      const chest = firstHit(rig, [-3, 1.30, 0], [1, 0, 0]);
+      check(`  a ray from the left at chest height hits the ${base} first`, chest.gear && chest.what === 'offHand', chest.what);
+      check(`  and its top is at shoulder height`, Math.abs(b.max.y - shoulderY) < 0.15,
+        `top ${b.max.y.toFixed(3)} m, shoulder ${shoulderY.toFixed(3)} m`);
+    }
+    // it is not thrust out in front of the body like a tray
+    check(`  the ${base} sits on the arm, not at arm's length`, b.max.z < 0.32,
+      `front face at z ${b.max.z.toFixed(3)}`);
+    undress(rig);
+  }
+  // both directions: with the off hand empty, the same rays find the body
+  const naked = buildCharacter();
+  dressRig(naked, { mainHand: makeItem({ base: 'longsword' }) }, { light: false });
+  posed(naked);
+  const h = firstHit(naked, [-3, 1.30, 0], [1, 0, 0]);
+  check('with nothing in the off hand the same ray finds the body', !h.gear, h.what);
+  // a two handed weapon puts the shield away, and the ray finds the body again
+  const two = buildCharacter();
+  dressRig(two, { mainHand: makeItem({ base: 'greatsword' }), offHand: makeItem({ base: 'kite' }) }, { light: false });
+  posed(two);
+  const h2 = firstHit(two, [-3, 1.30, 0], [1, 0, 0]);
+  check('and so does it when a greatsword takes both hands', !h2.gear || h2.what !== 'offHand', h2.what);
+}
+
+// ---------------------------------------------------------------------------
+// 4. SCALE. A 1.60 m character and a 2.00 m one both have to fit their kit,
+// and the weapon in the hand has to measure its stated length in the world,
+// not in the model's own frame.
+console.log('gear_visuals: gear scales with the rig it is on');
+{
+  const WEAPONS = ['dagger', 'shortsword', 'longsword', 'greatsword', 'spear', 'longbow'];
+  let worst = { id: '', err: 0 };
+  for (const h of [1.60, 1.75, 2.00]) {
+    const scale = h / BODY.HEIGHT;
+    for (const id of WEAPONS) {
+      const rig = buildCharacter({ ...APPEARANCE_FALLBACK, height: h });
+      const slot = id === 'longbow' ? 'ranged' : 'mainHand';
+      dressRig(rig, { [slot]: makeItem({ base: id }) }, { light: false });
+      posed(rig);
+      const node = wornNodes(rig).find((w) => w.key === slot).node;
+      const got = worldLength(node);
+      const want = LENGTHS[id] * scale;
+      const err = Math.abs(got - want) / want;
+      if (err > worst.err) worst = { id: `${id} at ${h} m`, err, got, want };
+      check(`a ${id} on a ${h.toFixed(2)} m body measures ${want.toFixed(3)} m in the world`,
+        err < 0.12, `${got.toFixed(3)} m, ${(err * 100).toFixed(1)}% off`);
+      undress(rig);
+    }
+  }
+  check('so the worst weapon on the worst body is within 12%', worst.err < 0.12,
+    `${worst.id}: ${worst.got.toFixed(3)} m against ${worst.want.toFixed(3)} m`);
+
+  // the armour and the shield track the same scale
+  const sizes = [1.60, 1.75, 2.00].map((h) => {
+    const rig = buildCharacter({ ...APPEARANCE_FALLBACK, height: h });
+    const eq = fullSetOf('leather');
+    eq.offHand = makeItem({ base: 'kite' });
+    eq.mainHand = makeItem({ base: 'longsword' });
+    dressRig(rig, eq, { light: false });
+    posed(rig);
+    const chest = gearBox(rig, 'chest'), shield = gearBox(rig, 'offHand');
+    const body = new THREE.Box3().setFromObject(rig.group);
+    return { h, chest: chest.max.x - chest.min.x, shieldTop: shield.max.y, shoulder: (BODY.IDLE_HIP + BODY.SHOULDER_Y) * h / BODY.HEIGHT, stands: body.max.y - body.min.y };
+  });
+  check('each body stands the height it was asked for',
+    sizes.every((s) => Math.abs(s.stands - s.h) < 0.04), sizes.map((s) => s.stands.toFixed(3)).join(', '));
+  check('the breastplate grows with the body, in proportion',
+    sizes[2].chest / sizes[0].chest > 1.20 && sizes[2].chest / sizes[0].chest < 1.32,
+    `${sizes[0].chest.toFixed(3)} -> ${sizes[2].chest.toFixed(3)} m, ratio ${(sizes[2].chest / sizes[0].chest).toFixed(3)}, bodies ratio 1.250`);
+  check('and the shield still tops out at the shoulder on all three',
+    sizes.every((s) => Math.abs(s.shieldTop - s.shoulder) < 0.15),
+    sizes.map((s) => `${s.h}: ${s.shieldTop.toFixed(2)} vs ${s.shoulder.toFixed(2)}`).join(', '));
+}
+
+// ---------------------------------------------------------------------------
+// 5. THE FIGURE IS NOT ONE BROWN. A leather set in a single tint reads as a
+// silhouette. Every piece takes a shade off the tier colour, every soft piece
+// carries a sewn hem, and the forearm is bare between the bracer and the glove
+// so there is skin on the body somewhere other than the face.
+console.log('gear_visuals: a set reads as pieces, not as one shape');
+{
+  check('every armour piece has a shade',
+    ARMOR_PIECES.every((p) => typeof PIECE_SHADE[p.id] === 'number'),
+    ARMOR_PIECES.map((p) => `${p.id} ${PIECE_SHADE[p.id]}`).join(', '));
+  check('and the table names nothing that is not a piece',
+    Object.keys(PIECE_SHADE).every((k) => ARMOR_PIECES.some((p) => p.id === k)));
+
+  const lum = (hex) => (((hex >> 16) & 255) * 0.30 + ((hex >> 8) & 255) * 0.59 + (hex & 255) * 0.11) / 255;
+  const rig = buildCharacter();
+  dressRig(rig, fullSetOf('leather'), { light: false });
+  posed(rig);
+  const tint = {};
+  for (const w of wornNodes(rig)) {
+    w.node.traverse((o) => {
+      if (!o.isMesh) return;
+      (tint[w.key] = tint[w.key] || new Set()).add(o.material.color.getHex());
+    });
+  }
+  const main = (key) => armourMat('leather', null, PIECE_SHADE[key]).color.getHex();
+  const shades = new Set(ARMOR_PIECES.map((p) => main(p.id)));
+  check(`the eight pieces of one leather set are ${shades.size} different browns`, shades.size >= 6,
+    ARMOR_PIECES.map((p) => `${p.id} #${main(p.id).toString(16)}`).join(' '));
+  check('the boots and the gloves are darker than the tunic',
+    lum(main('feet')) < lum(main('chest')) && lum(main('hands')) < lum(main('chest')),
+    `feet ${lum(main('feet')).toFixed(3)}, hands ${lum(main('hands')).toFixed(3)}, chest ${lum(main('chest')).toFixed(3)}`);
+  check('and the hood is lighter than it',
+    lum(main('head')) > lum(main('chest')),
+    `head ${lum(main('head')).toFixed(3)} against chest ${lum(main('chest')).toFixed(3)}`);
+  check('no shade is so dark it reads as black',
+    ARMOR_PIECES.every((p) => lum(main(p.id)) > 0.14), `darkest ${Math.min(...ARMOR_PIECES.map((p) => lum(main(p.id)))).toFixed(3)}`);
+
+  // stitching: every soft piece carries a thread in a colour that is not its own
+  const stitched = [];
+  for (const p of ARMOR_PIECES) {
+    const own = main(p.id);
+    const set = tint[p.slot] || new Set();
+    const thread = [...set].some((hex) => hex !== own && lum(hex) < lum(own) * 0.75);
+    if (thread) stitched.push(p.id);
+  }
+  check(`${stitched.length} of the eight leather pieces carry visible stitching or trim`,
+    stitched.length >= 6, stitched.join(', '));
+  undress(rig);
+}
+
+console.log('gear_visuals: there is skin between the sleeve and the glove');
+{
+  const rig = buildCharacter();
+  dressRig(rig, fullSetOf('leather'), { light: false });
+  posed(rig);
+  const bracer = new THREE.Box3(), glove = new THREE.Box3();
+  for (const w of wornNodes(rig)) {
+    if (w.key === 'wrists' && w.anchor === 'armL') bracer.union(boxOf(w.node));
+    if (w.key === 'hands' && w.anchor === 'handL') glove.union(boxOf(w.node));
+  }
+  const gap = bracer.min.y - glove.max.y;
+  check('the bracer stops short of the glove', gap > 0.03, `${(gap * 1000).toFixed(0)} mm of bare forearm`);
+  const x = (bracer.min.x + bracer.max.x) / 2;
+  const across = [0.25, 0.5, 0.75].map((k) => {
+    const y = glove.max.y + (bracer.min.y - glove.max.y) * k;
+    return firstHit(rig, [x, y, 3], [0, 0, -1]);
+  });
+  check('and three rays across that stretch all land on skin, not on leather',
+    across.every((h) => !h.gear && h.what === 'skin'), across.map((h) => h.what).join(', '));
+  // both directions: aim the same ray at the forearm above the gap and it is leather
+  const above = firstHit(rig, [x, bracer.min.y + 0.04, 3], [0, 0, -1]);
+  check('while 40 mm higher it is the bracer', above.gear && above.what === 'wrists', above.what);
+  undress(rig);
+}
+
+console.log('gear_visuals: mail and plate read as metal with no environment map');
+{
+  for (const t of ARMOR_TIERS) {
+    const m = armourMat(t.id, null);
+    if (HARD_TIERS.has(t.id)) {
+      check(`${t.material} sits in the readable metal band`,
+        m.metalness >= 0.6 && m.metalness <= 0.75 && m.roughness >= 0.30 && m.roughness <= 0.50,
+        `metalness ${m.metalness.toFixed(2)}, roughness ${m.roughness.toFixed(2)}`);
+      check(`  and carries the faint emissive`, m.emissive.getHex() !== 0 && m.emissiveIntensity <= 1,
+        `#${m.emissive.getHex().toString(16).padStart(6, '0')}`);
+    } else {
+      check(`${t.material} is not metal at all`, m.metalness <= 0.5, `metalness ${m.metalness.toFixed(2)}`);
+    }
+  }
+  check('the metal band is the one weapon_models lights steel by',
+    armourMat('plate', null).metalness === METAL_METALNESS, `${METAL_METALNESS}`);
+}
+
+
+console.log('gear_visuals: what is slung on the back stays on the back');
+{
+  // The cloak and the slung bow share one anchor, and a 1.7 m stave tilted
+  // about x throws a limb tip through the wearer's ribs.
+  const bare = buildCharacter();
+  bare.group.updateMatrixWorld(true);
+  let backZ = 0;
+  bare.group.traverse((o) => {
+    if (o.isMesh && o.userData.role === 'tunic') { const b = boxOf(o); if (b.max.y > 1.2) backZ = Math.min(backZ, b.min.z); }
+  });
+  for (const bow of ['shortbow', 'longbow', 'crossbow']) {
+    const rig = buildCharacter();
+    const eq = fullSetOf('leather');
+    eq.mainHand = makeItem({ base: 'longsword' });
+    eq.ranged = makeItem({ base: bow });
+    dressRig(rig, eq, { light: false });
+    posed(rig);
+    const r = gearBox(rig, 'ranged'), c = gearBox(rig, 'back');
+    check(`a slung ${bow} is entirely behind the back`, r.max.z < backZ,
+      `bow front ${r.max.z.toFixed(3)}, torso back ${backZ.toFixed(3)}`);
+    check(`  and behind the cloak that shares its anchor`, r.max.z < c.min.z,
+      `bow front ${r.max.z.toFixed(3)}, cloak back ${c.min.z.toFixed(3)}`);
+    // both directions: drawn, it is in the hand and in front of the body
+    dressRig(rig, eq, { ranged: true, light: false });
+    posed(rig);
+    const drawn = gearBox(rig, 'ranged');
+    check(`  and drawn, the ${bow} comes round in front`, drawn.max.z > 0.05,
+      `front ${drawn.max.z.toFixed(3)}`);
+    undress(rig);
+  }
 }
 
 console.log(`\ngear_visuals: ${pass} passed, ${fail} failed`);

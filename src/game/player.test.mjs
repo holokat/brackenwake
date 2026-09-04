@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import {
   createPlayer, buildCharacter, poseCharacter, stepPlayer, legIK,
   WALK_SPEED, RUN_SPEED, ACCEL, DECEL, TURN_RATE, MAX_SLOPE, STRIDE_WALK, STRIDE_RUN, PALETTE, JUMP_HEIGHT, JUMP_AIR_S,
+  HAIR_STYLES, HAIRLINE, GRIP_POSES, BODY, APPEARANCE_FALLBACK,
 } from './player.js';
 
 let pass = 0, fail = 0;
@@ -320,6 +321,94 @@ console.log('player: the createPlayer surface');
   for (let i = 0; i < 60; i++) q.update(DT, { x: 0, z: 1 }, flat);
   q.teleport(50, 50, flat);
   check('teleport, by contrast, stops him dead', q.speed === 0 && q.state.vz === 0);
+}
+
+
+// ---------------------------------------------------------------------------
+// The face. The hair cap was a closed loft round the whole skull that reached
+// down to y = 0.085 in the head's frame, which is below the eyes and below the
+// mouth: every character in the game had a wall of hair across the face, and
+// with a hood on top of it there was nothing of a person to see at all.
+console.log('player: hair does not grow over the face');
+{
+  const ray = new THREE.Raycaster();
+  const POINTS = [['eye', 0.166, 0.040], ['nose', 0.150, 0], ['mouth', 0.098, 0], ['chin', 0.020, 0]];
+  const faceZ = (rig, dy, x) => {
+    rig.group.updateMatrixWorld(true);
+    const v = new THREE.Vector3();
+    rig.parts.head.getWorldPosition(v);
+    ray.set(new THREE.Vector3(x, v.y + dy, 3), new THREE.Vector3(0, 0, -1));
+    const hit = ray.intersectObject(rig.group, true).filter((h) => h.object.isMesh)[0];
+    return hit ? 3 - hit.distance : null;
+  };
+  // the reference is the shaved head: that is the face itself, with nothing in
+  // front of it. Any style that stands more than 6 mm proud of it at the eye,
+  // the nose, the mouth or the chin is hair across the face.
+  const bald = buildCharacter({ ...APPEARANCE_FALLBACK, hairStyle: 'shaved' });
+  const want = POINTS.map(([, dy, x]) => faceZ(bald, dy, x));
+  console.log(`       the bare face: ${POINTS.map(([n], i) => `${n} z ${want[i].toFixed(3)}`).join(', ')}`);
+  const blocked = [];
+  for (const style of HAIR_STYLES) {
+    const rig = buildCharacter({ ...APPEARANCE_FALLBACK, hairStyle: style });
+    POINTS.forEach(([name, dy, x], i) => {
+      const z = faceZ(rig, dy, x);
+      if (z == null || z > want[i] + 0.006) blocked.push(`${style} ${name} at ${z == null ? 'miss' : z.toFixed(3)} against ${want[i].toFixed(3)}`);
+    });
+  }
+  check(`all ${HAIR_STYLES.length} hair styles leave the eye, nose, mouth and chin exactly where a bare head has them`,
+    blocked.length === 0, blocked.slice(0, 4).join('; ') || `${HAIR_STYLES.length * POINTS.length} rays, none blocked`);
+  check('and the hairline the rule is written against is above the brow', HAIRLINE > 0.186 && HAIRLINE < 0.24,
+    `${HAIRLINE}`);
+  // both directions: above the hairline there IS hair, on every style but shaved
+  const covered = HAIR_STYLES.filter((style) => {
+    const rig = buildCharacter({ ...APPEARANCE_FALLBACK, hairStyle: style });
+    rig.group.updateMatrixWorld(true);
+    const v = new THREE.Vector3();
+    rig.parts.head.getWorldPosition(v);
+    ray.set(new THREE.Vector3(0, v.y + 0.270, 3), new THREE.Vector3(0, 0, -1));
+    const hit = ray.intersectObject(rig.group, true).filter((h) => h.object.isMesh)[0];
+    return hit && hit.object.userData.role === 'hair';
+  });
+  check(`and ${covered.length} of the ${HAIR_STYLES.length} styles do cover the crown`,
+    covered.length === HAIR_STYLES.length - 1 && !covered.includes('shaved'),
+    `bare: ${HAIR_STYLES.filter((h) => !covered.includes(h)).join(', ')}`);
+}
+
+console.log('player: the arm is continuous from elbow to fingers');
+{
+  // A short glove shows the wrist, which is only worth doing if there is an
+  // arm under it: the forearm stopped 7 mm above the palm and the hole was
+  // hidden by the old long glove rather than fixed.
+  const rig = buildCharacter();
+  rig.group.updateMatrixWorld(true);
+  const ray = new THREE.Raycaster();
+  const arm = rig.parts.armL;
+  let gaps = [];
+  for (let t = 0; t <= 1.0001; t += 0.05) {
+    const y = -0.32 - t * 0.34;                 // below the sleeve, to the end of the palm, in the arm's frame
+    const p = new THREE.Vector3(0, y, 0).applyMatrix4(arm.matrixWorld);
+    ray.set(new THREE.Vector3(p.x, p.y, 3), new THREE.Vector3(0, 0, -1));
+    const hit = ray.intersectObject(rig.group, true).filter((h) => h.object.isMesh)[0];
+    if (!hit || hit.object.userData.role !== 'skin') gaps.push(y.toFixed(3));
+  }
+  check('21 rays down the bare forearm and the palm all land on skin', gaps.length === 0,
+    gaps.length ? `holes at arm y ${gaps.join(', ')}` : 'no hole between the forearm and the hand');
+}
+
+console.log('player: the shield arm hangs, it does not present');
+{
+  // The shield grip used to throw the forearm up and forward, which put a kite
+  // shield 0.77 m in front of the chest. Both shield grips share one arm pose.
+  for (const name of ['oneShield', 'shield']) {
+    const [rx, , rz] = GRIP_POSES[name].armL;
+    check(`${name}: the left arm stays near vertical`, Math.abs(rx) < 0.25, `${rx.toFixed(2)} rad forward`);
+    check(`  with the elbow a little out`, rz > 0.15 && rz < 0.45, `${rz.toFixed(2)} rad out`);
+  }
+  check('and both shield grips use the same arm',
+    GRIP_POSES.oneShield.armL.join(',') === GRIP_POSES.shield.armL.join(','),
+    GRIP_POSES.shield.armL.join(', '));
+  check('while a two hander still pulls the left arm right up onto the haft',
+    GRIP_POSES.two.armL[0] < -0.8, `${GRIP_POSES.two.armL[0]} rad`);
 }
 
 console.log(`\nplayer: ${pass} passed, ${fail} failed`);

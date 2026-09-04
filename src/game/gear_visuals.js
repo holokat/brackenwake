@@ -34,12 +34,29 @@
 // Rarity shows as an emissive inlay on epic and above, and legendary carries a
 // soft light. Below epic, nothing glows, because a common leather belt that
 // glows is a lie about what it is.
+//
+// THREE RULES THAT ARE NOT NEGOTIABLE, EACH BECAUSE IT WAS BROKEN ONCE
+//
+//   1. Gear never closes over the face. A head piece is a hood or a cap over
+//      the crown and a cowl behind, or a helm with a nasal and cheeks. Below
+//      the brow, at the front, is a person. `arcShell` is how a piece covers
+//      the back and the sides without covering the face.
+//   2. A cloak hangs BEHIND. Every point of it sits behind the torso's own
+//      back plane and it is no wider than the shoulders and a hand, so the
+//      arms, the off hand and whatever is in it are all still visible.
+//   3. What is worn has to be visible from where the camera is. A follow
+//      camera sits behind the player, so anything held in front of the chest
+//      is hidden by the player. The shield rides the outside of the left
+//      forearm, face out, its top at the shoulder.
+//
+// gear_visuals.test.mjs fires rays at a dressed, posed rig for all three.
 
 import * as THREE from 'three';
 import { baseFor, ARMOR_TIERS, ARMOR_PIECES, SLOTS, RARITY, RARITY_ORDER, twoHanded } from '../mmo/items.js';
 import {
   buildWeaponModel, hasWeaponModel, disposeModel, countTriangles,
   pbr, loft, roundRect, colourOfMaterial,
+  METAL_METALNESS, METAL_BASE_ROUGH, METAL_EMISSIVE,
 } from './weapon_models.js';
 import { BODY } from './player.js';
 
@@ -59,25 +76,54 @@ const TIER_FAMILY = {
   cloth: 'cloth', leather: 'leather', studded: 'studded',
   ring: 'ring', chain: 'chain', plate: 'plate',
 };
+// The r and m channels of the generated maps MULTIPLY these, so the mail and
+// plate rows are the same numbers weapon_models lights steel by. Metalness 1
+// with no environment map in the scene renders black; see METAL_METALNESS.
 const TIER_PBR = {
   cloth: { rough: 1, metal: 0, sheen: 0.45, repeat: 4 },
   leather: { rough: 1, metal: 0, repeat: 3 },
-  studded: { rough: 1, metal: 0.5, repeat: 3 },
-  ring: { rough: 1, metal: 1, repeat: 4 },
-  chain: { rough: 1, metal: 1, repeat: 5 },
-  plate: { rough: 1, metal: 1, repeat: 2 },
+  studded: { rough: 0.95, metal: 0.45, repeat: 3 },
+  ring: { rough: METAL_BASE_ROUGH + 0.08, metal: METAL_METALNESS, repeat: 4, emissive: METAL_EMISSIVE },
+  chain: { rough: METAL_BASE_ROUGH + 0.08, metal: METAL_METALNESS, repeat: 5, emissive: METAL_EMISSIVE },
+  plate: { rough: METAL_BASE_ROUGH + 0.04, metal: METAL_METALNESS, repeat: 2, emissive: METAL_EMISSIVE },
 };
+
+// A set in one colour is a silhouette, not a kit. Boots and gloves are the
+// oldest and darkest leather on a person, the hood the newest and lightest,
+// and the shade lands on the tier colour so the pieces read as separate
+// pieces from two and a half metres. One number per piece, and every piece
+// has one: ARMOR_PIECES is checked against this table by the test.
+export const PIECE_SHADE = {
+  head: 1.26, chest: 1.00, back: 1.12, hands: 0.74,
+  wrists: 0.86, waist: 0.80, legs: 0.92, feet: 0.66,
+};
+
+/** Multiply a hex's channels and clamp, so a shade never wraps to black. */
+export function shadeHex(hex, k) {
+  const c = new THREE.Color(hex);
+  c.setRGB(Math.min(1, c.r * k), Math.min(1, c.g * k), Math.min(1, c.b * k));
+  return c.getHex();
+}
 /** Ring mail upward is rigid: it holds a shell shape instead of draping. */
 export const HARD_TIERS = new Set(['ring', 'chain', 'plate']);
 
-/** The material for one armour piece, cached through weapon_models' pbr cache. */
-export function armourMat(tierId, item) {
+/**
+ * The material for one armour piece, cached through weapon_models' pbr cache.
+ * `shade` is PIECE_SHADE's multiplier; the default of 1 is the tier's own
+ * colour, so `armourMat('plate')` still answers exactly what it always did.
+ */
+export function armourMat(tierId, item, shade = 1) {
   const tier = TIER_FAMILY[tierId] ? tierId : 'leather';
-  const colour = colourOfMaterial(item?.material) ?? TIER_COLOURS[tier];
+  const base = colourOfMaterial(item?.material) ?? TIER_COLOURS[tier];
+  const colour = shade === 1 ? base : shadeHex(base, shade);
   return pbr(TIER_FAMILY[tier], colour, TIER_PBR[tier]);
 }
 const strapMat = () => pbr('wrap', 0x4a3524, { rough: 1, metal: 0, repeat: 3 });
-const trimMat = (tierId) => pbr('metal', tierId === 'cloth' ? 0xc0a24a : 0x8f9298, { rough: 0.6, metal: 1, repeat: 2 });
+const trimMat = (tierId) => pbr('metal', tierId === 'cloth' ? 0xc0a24a : 0x8f9298, {
+  rough: METAL_BASE_ROUGH + 0.06, metal: METAL_METALNESS, repeat: 2, emissive: METAL_EMISSIVE,
+});
+/** The thread a hem is sewn with: two shades off the piece, never the piece's own colour. */
+const stitchMat = (colour) => pbr('cord', shadeHex(colour, 0.52), { rough: 1, metal: 0, repeat: 8 });
 function glowMat(colour) {
   return pbr('metal', colour, { rough: 0.5, metal: 0, emissive: colour, emissiveIntensity: 2.4, repeat: 1 });
 }
@@ -114,29 +160,97 @@ function blob(r, mat, sy = 1, sz = 1) {
   return put(g, mat);
 }
 
+/**
+ * A shell that does NOT close: a wall swept round part of a circle, with a
+ * thickness, so it has an inside and an outside and an opening you can see
+ * through. This is what a hood, a helm's neck guard and a cloak are, and the
+ * lack of it is why the leather head piece shipped as a sack: a full `shell`
+ * around the skull covers the face, and a face is not something a game may
+ * take away from a character by accident.
+ *
+ * `arc` is how much of the circle the wall covers, in radians. It is centred
+ * on -z (the back of the head) unless `front` is set. `thick` is the wall as a
+ * fraction of the radius. Rings are [y, halfWidth, depthRatio, dz], the same
+ * shape `shell` takes, so the two can be read side by side.
+ */
+function arcShell(rings, mat, opts = {}) {
+  const arc = opts.arc == null ? Math.PI : opts.arc;
+  const thick = opts.thick == null ? 0.12 : opts.thick;
+  const seg = opts.seg || 18;
+  const dir = opts.front ? 1 : -1;
+  const profile = [];
+  for (let i = 0; i <= seg; i++) {
+    const a = -arc / 2 + (i / seg) * arc;
+    const fold = 1 + (opts.folds ? Math.sin(i * opts.folds) * 0.045 : 0);
+    profile.push([Math.sin(a) * fold, dir * Math.cos(a) * fold]);
+  }
+  for (let i = seg; i >= 0; i--) {
+    const a = -arc / 2 + (i / seg) * arc;
+    const fold = (1 + (opts.folds ? Math.sin(i * opts.folds) * 0.045 : 0)) * (1 - thick);
+    profile.push([Math.sin(a) * fold, dir * Math.cos(a) * fold]);
+  }
+  const list = rings.map(([y, sx, dr, dz], i) => ({
+    y, sx, sz: sx * (dr == null ? 1 : dr), dz: dz || 0,
+    v: (i / Math.max(1, rings.length - 1)) * (opts.vScale || 1),
+  }));
+  return put(loft(profile, list, { capTop: false, capBottom: false }), mat);
+}
+
+/**
+ * A sewn hem: a thread run round a piece, so two pieces meeting read as two
+ * pieces rather than as one brown shape. A partial arc is centred on -z, the
+ * back, which is where every partial piece in this file is centred.
+ */
+function seam(y, radius, mat, deep = 1, tube = 0.0035, arc = Math.PI * 2) {
+  const g = new THREE.TorusGeometry(radius, tube, 5, 24, arc);
+  if (arc < Math.PI * 2 - 1e-6) g.rotateZ(-Math.PI / 2 - arc / 2);
+  g.rotateX(Math.PI / 2);
+  g.scale(1, 1, deep);
+  g.translate(0, y, 0);
+  const o = put(g, mat);
+  o.castShadow = false;
+  return o;
+}
+
 // ---------------------------------------------------------------------------
 // The eight armour pieces. Each returns a list of { anchor, node }, so a piece
 // that lives on two limbs is one entry in the wardrobe and two meshes on the
 // rig. `c` carries the material, the tier, the body plan and the glow helper.
 
 const PIECES = {
+  // A head piece leaves the face. The old one was a closed shell around the
+  // whole skull, which covered the eyes, the nose and the jaw: the character
+  // read as a hooded figure with no face from every angle. A hood is a cap
+  // over the crown and a cowl behind; a helm is a bowl to the brow with a
+  // nasal, cheeks and a neck guard. Both stop at BROW at the front, and
+  // gear_visuals.test.mjs fires a ray at each eye through every tier to prove
+  // it lands on skin.
   head(c) {
     const B = c.body;
+    const R = B.SKULL_R;
+    const BROW = 0.186;              // the browline; below it, at the front, is face
     const out = [];
     const g = new THREE.Group();
     if (c.hard) {
-      // a skull cap with a brow band, a nasal bar and cheek plates
+      // the bowl, sitting on the brow
       g.add(shell([
-        [0.055, B.SKULL_R * 1.02, 1.02], [0.135, B.SKULL_R * 1.10, 1.03],
-        [0.200, B.SKULL_R * 1.08, 1.01], [0.256, B.SKULL_R * 0.88, 0.98],
-        [B.HAIR_TOP + 0.012, B.SKULL_R * 0.34, 0.94],
-      ], c.mat, { deep: 0.99, vScale: 1.4 }));
-      g.add(band(0.176, B.SKULL_R * 1.13, 0.034, 1.02, c.trim));
-      const nasal = shell([[0.196, 0.014, 3.0, 0.088], [0.140, 0.015, 3.2, 0.098], [0.100, 0.013, 2.8, 0.096]], c.mat, { deep: 1 });
+        [BROW - 0.002, R * 1.12, 1.02], [0.226, R * 1.14, 1.03],
+        [0.262, R * 1.00, 1.00], [B.HAIR_TOP + 0.014, R * 0.38, 0.94],
+      ], c.mat, { deep: 1.0, vScale: 1.2, capBottom: false }));
+      g.add(band(BROW + 0.006, R * 1.17, 0.030, 1.03, c.trim));
+      // the neck guard: the back and the sides only, so the face stays open
+      g.add(arcShell([
+        [BROW + 0.006, R * 1.14, 1.04], [0.090, R * 1.20, 1.08],
+        [-0.030, R * 1.24, 1.10], [-0.092, R * 1.20, 1.08],
+      ], c.mat, { arc: Math.PI * 1.18, thick: 0.10, vScale: 1.4 }));
+      // the nasal bar, down the middle, and the two cheek plates
+      const nasal = shell([
+        [BROW + 0.002, 0.013, 3.4, 0.092], [0.140, 0.014, 3.4, 0.100], [0.104, 0.012, 3.0, 0.096],
+      ], c.mat, { deep: 1 });
       g.add(nasal);
       for (const s of [-1, 1]) {
-        const cheek = shell([[0.166, 0.020, 1.0], [0.120, 0.026, 1.1], [0.070, 0.022, 1.0]], c.mat, { deep: 1 });
-        cheek.position.set(s * 0.086, 0, 0.028);
+        const cheek = shell([[0.150, 0.020, 1.0], [0.106, 0.026, 1.1], [0.052, 0.022, 1.0]], c.mat, { deep: 1 });
+        cheek.position.set(s * 0.086, 0, 0.030);
         cheek.rotation.z = -s * 0.10;
         g.add(cheek);
       }
@@ -146,18 +260,23 @@ const PIECES = {
         g.add(put(crest, c.trim));
       }
     } else {
-      // a hood: the cap, and a cowl that falls to the shoulders behind
+      // the cap, over the crown, its lower edge on the brow
       g.add(shell([
-        [0.030, B.SKULL_R * 1.06, 1.04], [0.140, B.SKULL_R * 1.14, 1.05],
-        [0.230, B.SKULL_R * 1.06, 1.02], [B.HAIR_TOP + 0.016, B.SKULL_R * 0.42, 0.96],
-      ], c.mat, { deep: 1.0, vScale: 1.4 }));
-      const cowl = shell([
-        [0.060, B.SKULL_R * 1.14, 1.06, -0.010], [-0.030, B.SKULL_R * 1.24, 1.10, -0.030],
-        [-0.120, B.SKULL_R * 1.30, 1.14, -0.048],
-      ], c.mat, { deep: 1.0, capBottom: false, capTop: false });
-      g.add(cowl);
+        [BROW + 0.002, R * 1.16, 1.04], [0.236, R * 1.10, 1.02],
+        [0.268, R * 0.90, 1.00], [B.HAIR_TOP + 0.020, R * 0.40, 0.94],
+      ], c.mat, { deep: 1.02, vScale: 1.3, capBottom: false }));
+      // the peak, a lip of cloth over the brow and nowhere else
+      g.add(arcShell([[BROW - 0.002, R * 1.18, 1.06], [0.206, R * 1.22, 1.10]],
+        c.mat, { arc: Math.PI * 0.86, thick: 0.16, front: true }));
+      // the cowl, falling to the collarbones behind and at the sides
+      g.add(arcShell([
+        [0.196, R * 1.16, 1.06], [0.100, R * 1.24, 1.10],
+        [-0.010, R * 1.30, 1.14], [-0.104, R * 1.34, 1.16],
+      ], c.mat, { arc: Math.PI * 1.06, thick: 0.09, vScale: 1.5, folds: 1.9 }));
+      g.add(seam(-0.098, R * 1.30, c.stitch, 1.14, 0.0032, Math.PI * 1.06));
     }
-    c.glow(g, 0.176, B.SKULL_R * 1.16, 1.02);
+    g.add(seam(BROW + 0.020, R * 1.15, c.stitch, 1.02, 0.0030));
+    c.glow(g, BROW + 0.030, R * 1.18, 1.02);
     out.push({ anchor: 'head', node: g });
     return out;
   },
@@ -182,10 +301,16 @@ const PIECES = {
         [0.545, w * 0.68, 0.76], [0.470, w * 1.02, 0.70], [0.340, w * 0.98, 0.74],
         [0.200, w * 0.82, 0.80], [0.090, w * 0.86, 0.82], [-0.120, w * 1.06, 0.86],
       ], c.mat, { deep: 0.78, vScale: 1.8, capTop: false, capBottom: false }));
-      // the front seam
-      const seam = new THREE.BoxGeometry(0.022, 0.520, 0.014);
-      seam.translate(0, 0.290, w * 0.60);
-      g.add(put(seam, c.trim));
+      // the front seam, and the two welts that say where the jerkin ends
+      const front = new THREE.BoxGeometry(0.022, 0.520, 0.014);
+      front.translate(0, 0.290, w * 0.60);
+      g.add(put(front, c.trim));
+      const hem = band(-0.112, w * 1.08, 0.016, 0.82, c.stitch);
+      hem.castShadow = false;
+      g.add(hem);
+      const neck = band(0.536, w * 0.70, 0.014, 0.80, c.stitch);
+      neck.castShadow = false;
+      g.add(neck);
     }
     c.glow(g, 0.470, w * 1.06, 0.72);
     out.push({ anchor: 'torso', node: g });
@@ -214,13 +339,19 @@ const PIECES = {
     for (const anchor of ['handL', 'handR']) {
       const side = anchor === 'handL' ? -1 : 1;
       const g = new THREE.Group();
-      // the hand anchor sits at the wrist, so the glove is built around zero
+      // The hand anchor sits at the wrist, so the glove is built around zero.
+      // It stops at 0.038 rather than 0.062 and the bracer stops short of the
+      // heel of the hand, so there is 60 mm of bare forearm between them: a
+      // figure with skin nowhere reads as a suit of clothes with nobody in it.
       g.add(shell([
-        [0.062, 0.040, 0.80], [0.020, 0.044, 0.68], [-0.024, 0.046, 0.62], [-0.052, 0.034, 0.62],
+        [0.038, 0.041, 0.76], [0.010, 0.044, 0.68], [-0.024, 0.046, 0.62], [-0.052, 0.034, 0.62],
       ], c.mat, { deep: 0.66, vScale: 1.2 }));
+      const cuff = band(0.034, 0.044, 0.012, 0.78, c.stitch);
+      cuff.castShadow = false;
+      g.add(cuff);
       if (c.hard) {
         // gauntlet cuff and knuckle plates
-        g.add(band(0.076, 0.050, 0.030, 0.86, c.trim));
+        g.add(band(0.052, 0.050, 0.026, 0.86, c.trim));
         for (let i = 0; i < 3; i++) {
           const k = new THREE.BoxGeometry(0.030, 0.010, 0.016);
           k.translate(0, -0.006 - i * 0.016, 0.030);
@@ -231,7 +362,7 @@ const PIECES = {
       thumb.position.set(side * 0.032, 0, 0.014);
       thumb.rotation.z = side * 0.55;
       g.add(thumb);
-      c.glow(g, 0.070, 0.052, 0.84);
+      c.glow(g, 0.046, 0.052, 0.84);
       out.push({ anchor, node: g });
     }
     return out;
@@ -243,15 +374,15 @@ const PIECES = {
     for (const anchor of ['armL', 'armR']) {
       const g = new THREE.Group();
       g.add(shell([
-        [-0.400, B.FOREARM_R * 1.16, 0.94], [-0.470, B.FOREARM_R * 1.10, 0.94], [-0.540, B.FOREARM_R * 1.02, 0.94],
+        [-0.372, B.FOREARM_R * 1.18, 0.94], [-0.440, B.FOREARM_R * 1.12, 0.94], [-0.512, B.FOREARM_R * 1.04, 0.94],
       ], c.mat, { deep: 0.94, vScale: 1.2, capTop: false, capBottom: false }));
-      for (const y of [-0.415, -0.525]) {
-        const lace = new THREE.TorusGeometry(B.FOREARM_R * 1.16, 0.004, 5, 12);
+      for (const y of [-0.386, -0.500]) {
+        const lace = new THREE.TorusGeometry(B.FOREARM_R * 1.18, 0.004, 5, 12);
         lace.rotateX(Math.PI / 2);
         lace.translate(0, y, 0);
-        g.add(put(lace, c.strap));
+        g.add(put(lace, y === -0.500 ? c.stitch : c.strap));
       }
-      c.glow(g, -0.470, B.FOREARM_R * 1.20, 0.94);
+      c.glow(g, -0.442, B.FOREARM_R * 1.22, 0.94);
       out.push({ anchor, node: g });
     }
     return out;
@@ -279,6 +410,11 @@ const PIECES = {
       const tail = shell([[0.060, 0.026, 1.4], [-0.060, 0.030, 1.6], [-0.180, 0.022, 1.5]], c.mat, { deep: 1 });
       tail.position.set(-w * 0.72, 0, 0.030);
       g.add(tail);
+      for (const y of [0.036, 0.106]) {
+        const st = band(y, w * 0.83, 0.010, 0.86, c.stitch);
+        st.castShadow = false;
+        g.add(st);
+      }
     }
     c.glow(g, 0.070, w * 0.90, 0.84);
     return [{ anchor: 'torso', node: g }];
@@ -311,6 +447,9 @@ const PIECES = {
         g.add(shell([
           [0.010, B.SHIN_R * 1.08, 0.96], [-0.120, B.SHIN_R * 1.02, 0.96], [-B.SHIN + 0.020, B.SHIN_R * 0.84, 0.98],
         ], c.mat, { deep: 0.96, vScale: 1.4, capTop: false, capBottom: false }));
+        const welt = band(-B.SHIN + 0.030, B.SHIN_R * 0.88, 0.012, 0.98, c.stitch);
+        welt.castShadow = false;
+        g.add(welt);
       }
       c.glow(g, -0.060, B.SHIN_R * 1.14, 0.96);
       out.push({ anchor, node: g });
@@ -338,41 +477,49 @@ const PIECES = {
         cuff.translate(0, 0.036, 0.004);
         g.add(put(cuff, c.strap));
       }
+      // the welt: the seam that joins an upper to a sole, on every boot
+      const welt = shell([
+        [-B.ANKLE_Y + 0.014, 0.080, 1.84, 0.044], [-B.ANKLE_Y + 0.004, 0.082, 1.86, 0.044],
+      ], c.stitch, { deep: 1.2, capTop: false, capBottom: false });
+      welt.castShadow = false;
+      g.add(welt);
       c.glow(g, 0.030, 0.074, 1.0);
       out.push({ anchor, node: g });
     }
     return out;
   },
 
+  // A cloak is a cape. The old one was a cone of 207 degrees that reached
+  // z = -0.06 at the front, which is in front of the torso's own back plane:
+  // it wrapped the ribs, swallowed both arms and hid whatever was in the off
+  // hand from every angle but dead ahead. This one hangs behind the arms, is
+  // no wider than the shoulders and a hand, and every point of it sits behind
+  // the back. gear_visuals.test.mjs measures both of those.
   back(c) {
     const g = new THREE.Group();
-    // a cloak: the back three quarters of a cone, with folds, hung from the
-    // shoulder blades. Only the back half, so it never covers the chest.
-    const seg = 16, arc = Math.PI * 1.15;
-    const profile = [];
-    for (let i = 0; i <= seg; i++) {
-      const a = -arc / 2 + (i / seg) * arc;
-      const fold = 1 + Math.sin(i * 2.1) * 0.045;
-      profile.push([Math.sin(a) * fold, -Math.cos(a) * fold]);
+    const arc = Math.PI * 0.94;      // under a half turn, so no point reaches z = 0
+    g.add(arcShell([
+      [0.086, 0.105, 0.52], [0.020, 0.190, 0.40],
+      [-0.330, 0.235, 0.38], [-0.760, 0.275, 0.38],
+    ], c.mat, { arc, thick: 0.055, seg: 20, vScale: 2.2, folds: 2.1 }));
+    // the collar: a short standing band at the shoulders, and the clasp across
+    // the collarbones that holds the whole thing on
+    g.add(arcShell([[0.070, 0.112, 0.56], [0.118, 0.128, 0.58]], c.mat, { arc: Math.PI * 0.96, thick: 0.20, seg: 12 }));
+    g.add(seam(-0.752, 0.276, c.stitch, 0.38, 0.0035, arc));
+    g.add(seam(0.062, 0.116, c.stitch, 0.54, 0.0030, Math.PI * 0.96));
+    // the clasp: two tabs over the tops of the shoulders, which is what holds
+    // a cape on. A single bar across the throat is the fastening a cloak that
+    // wraps the chest needs, and this one does not wrap the chest.
+    for (const side of [-1, 1]) {
+      const tab = new THREE.BoxGeometry(0.056, 0.024, 0.052);
+      tab.translate(side * 0.096, 0.104, -0.034);
+      g.add(put(tab, c.trim));
     }
-    for (let i = seg; i >= 0; i--) {
-      const a = -arc / 2 + (i / seg) * arc;
-      const fold = (1 + Math.sin(i * 2.1) * 0.045) * 0.94;
-      profile.push([Math.sin(a) * fold, -Math.cos(a) * fold]);
+    if (c.rarity >= EPIC) {
+      const b = arcShell([[-0.742, 0.278, 0.38], [-0.726, 0.278, 0.38]], glowMat(c.colour), { arc, thick: 0.10, seg: 20 });
+      b.castShadow = false;
+      g.add(b);
     }
-    const rings = [
-      { y: 0.055, sx: 0.150, sz: 0.115 },
-      { y: -0.060, sx: 0.205, sz: 0.150 },
-      { y: -0.300, sx: 0.255, sz: 0.180 },
-      { y: -0.560, sx: 0.290, sz: 0.200 },
-      { y: -0.800, sx: 0.310, sz: 0.215 },
-    ].map((r, i) => ({ ...r, v: i * 0.5 }));
-    g.add(put(loft(profile, rings, { capTop: false, capBottom: false }), c.mat));
-    // the clasp across the collarbones
-    const clasp = new THREE.BoxGeometry(0.190, 0.030, 0.024);
-    clasp.translate(0, 0.070, 0.020);
-    g.add(put(clasp, c.trim));
-    c.glow(g, -0.760, 0.316, 0.70);
     return [{ anchor: 'back', node: g }];
   },
 };
@@ -413,10 +560,25 @@ export const HOLD = {
   weapon: { pos: [0, -0.02, 0.03], rot: [-0.25, 0, 0] },
   twoHander: { pos: [0, -0.02, 0.05], rot: [-0.35, 0, 0] },
   bowDrawn: { pos: [0, 0, 0.04], rot: [0, 0, Math.PI / 2] },
-  shield: { pos: [0, -0.06, 0.10], rot: [0.15, 0, 0] },
+  /**
+   * A strapped shield (kite, tower) rides the OUTSIDE of the left forearm, its
+   * long axis up the arm, its face turned out and forward, its top level with
+   * the shoulder. The old row put it on the fist and 0.10 m in front of it,
+   * which with the grip pose swung it out to z = +0.77: a shield held out at
+   * arm's length like a tray, hidden behind the character's own body from a
+   * follow camera and edge on from everywhere else.
+   */
+  shield: { pos: [-0.20, 0.185, -0.02], rot: [0, -0.30, 0] },
+  /** A buckler is punched, not strapped: it stays on the fist. */
+  buckler: { pos: [-0.085, 0.060, -0.010], rot: [0, -0.30, 0] },
   offhand: { pos: [0, -0.02, 0.04], rot: [-0.20, 0, 0] },
-  /** the bow slung across the shoulder blades */
-  slung: { pos: [0, -0.06, -0.06], rot: [0.25, 0, 0.62] },
+  /**
+   * The bow slung across the shoulder blades, belly to the back, string out,
+   * and far enough out to clear a cloak. The old row tilted it about x, which
+   * on a 1.7 m stave threw one limb tip to z = +0.03, through the small of the
+   * back; and it sat inside the cloak, which shares this anchor.
+   */
+  slung: { pos: [0.02, -0.06, -0.235], rot: [0, Math.PI, 0.62] },
   /** a melee weapon sheathed at the left hip while the bow is up */
   sheathed: { pos: [-0.17, 0.06, -0.03], rot: [0.10, 0, 0.95] },
 };
@@ -470,15 +632,18 @@ export function gearCounts(rig) {
 const PIECE_SLOT = Object.fromEntries(ARMOR_PIECES.map((p) => [p.slot, p.id]));
 const TIER_IDS = new Set(ARMOR_TIERS.map((t) => t.id));
 
-function contextFor(item, base, body) {
+function contextFor(item, base, body, piece) {
   const tier = TIER_IDS.has(base?.material) ? base.material : 'leather';
   const rarity = tierOf(item?.rarity);
   const colour = new THREE.Color(RARITY[item?.rarity]?.colour || '#ffffff').getHex();
-  const mat = armourMat(tier, item);
+  const shade = PIECE_SHADE[piece] ?? 1;
+  const mat = armourMat(tier, item, shade);
+  const own = colourOfMaterial(item?.material) ?? TIER_COLOURS[TIER_FAMILY[tier] ? tier : 'leather'];
   return {
-    body, tier, hard: HARD_TIERS.has(tier), mat,
+    body, tier, piece: piece || null, shade, hard: HARD_TIERS.has(tier), mat,
     trim: trimMat(tier),
     strap: strapMat(),
+    stitch: stitchMat(shadeHex(own, shade)),
     glowStone: rarity >= EPIC ? glowMat(colour) : null,
     rarity, colour,
     glow(group, y, halfWidth, deep) {
@@ -567,7 +732,7 @@ export function dressRig(rig, equipment, opts = {}) {
     const node = heldFor(offItem, opts);
     if (!node) return [];
     const b = baseFor(offItem);
-    applyHold(node, b?.kind === 'shield' ? HOLD.shield : HOLD.offhand);
+    applyHold(node, b?.kind !== 'shield' ? HOLD.offhand : (b.id === 'buckler' ? HOLD.buckler : HOLD.shield));
     return [{ anchor: offAnchor, node }];
   });
 
@@ -585,7 +750,7 @@ export function dressRig(rig, equipment, opts = {}) {
     const item = eq[slot] || null;
     const base = baseFor(item);
     const sig = base && base.kind === 'armour' ? signature(slot, item, piece) : null;
-    fit(slot, sig, () => PIECES[piece](contextFor(item, base, body)));
+    fit(slot, sig, () => PIECES[piece](contextFor(item, base, body, piece)));
   }
 
   fit('neck', signature('neck', eq.neck, 'torso'), () => amuletNode(contextFor(eq.neck, baseFor(eq.neck), body)));

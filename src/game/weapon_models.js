@@ -171,19 +171,26 @@ export function textureSet(name, repeat = 1) {
 /** The texture families. Every material in this file and in gear_visuals.js draws from one of these. */
 export const FAMILIES = {
   // Brushed metal: long streaks along v, fine speckle across, a few pits.
+  //
+  // The r and m channels MULTIPLY the material's scalars, so they are written
+  // as modulations near 1 rather than as absolute values. Writing them as
+  // absolutes (roughness 0.2, metalness 1) is what made every blade in the
+  // game render nearly black: there is no environment map in the scene, and a
+  // fully metallic surface with nothing to reflect has no diffuse term left.
+  // The steel now reads as steel off the sun alone; see METAL_METALNESS.
   metal(u, v) {
     const streak = fbm(u * 220, v * 5, 11, 220, 3, 0.55);
     const grain = fbm(u * 64, v * 64, 23, 64, 4);
     const pit = Math.max(0, fbm(u * 26, v * 26, 41, 26, 2) - 0.72) * 3;
     const l = 0.74 + streak * 0.16 + grain * 0.06 - pit * 0.25;
-    return { l, r: 0.20 + streak * 0.20 + pit * 0.45, m: 1 - pit * 0.35, h: streak * 0.7 + grain * 0.3 - pit * 1.4 };
+    return { l, r: 0.80 + streak * 0.18 + pit * 0.20, m: 0.90 + streak * 0.10 - pit * 0.40, h: streak * 0.7 + grain * 0.3 - pit * 1.4 };
   },
   // Plate: the same steel, hammered, so the streaks are broader and dented.
   plate(u, v) {
     const streak = fbm(u * 90, v * 8, 7, 90, 3, 0.55);
     const dent = fbm(u * 12, v * 12, 19, 12, 3);
     const l = 0.76 + streak * 0.10 + (dent - 0.5) * 0.10;
-    return { l, r: 0.22 + streak * 0.14 + dent * 0.10, m: 1, h: dent * 1.6 + streak * 0.4 };
+    return { l, r: 0.82 + streak * 0.12 + dent * 0.08, m: 0.92 + streak * 0.08, h: dent * 1.6 + streak * 0.4 };
   },
   // Wood: rings across u, fibre along v.
   wood(u, v) {
@@ -225,7 +232,7 @@ export const FAMILIES = {
     const ringed = Math.max(0, 1 - Math.abs(d - 0.34) * 9);
     const backing = fbm(u * 60, v * 60, 71, 60, 3);
     const l = 0.34 + ringed * 0.44 + backing * 0.12;
-    return { l, r: 0.36 + (1 - ringed) * 0.36, m: 0.35 + ringed * 0.6, h: ringed * 2.0 + backing * 0.3 };
+    return { l, r: 0.74 + (1 - ringed) * 0.26, m: 0.52 + ringed * 0.48, h: ringed * 2.0 + backing * 0.3 };
   },
   // Chain: interlocked links, denser, and every row lies the other way.
   chain(u, v) {
@@ -236,7 +243,7 @@ export const FAMILIES = {
     const d = Math.hypot((fx - 0.5) * sq, (fy - 0.5) / sq);
     const linked = Math.max(0, 1 - Math.abs(d - 0.3) * 11);
     const l = 0.28 + linked * 0.5;
-    return { l, r: 0.30 + (1 - linked) * 0.42, m: 0.4 + linked * 0.55, h: linked * 2.2 };
+    return { l, r: 0.72 + (1 - linked) * 0.28, m: 0.56 + linked * 0.44, h: linked * 2.2 };
   },
   // Studded leather: the leather family with rivets punched through it.
   studded(u, v) {
@@ -308,17 +315,23 @@ FAMILIES.hair.strength = 2.4;
 // Colours. ores.js gives every metal a colour in words; these are those words
 // in hex, and nothing else in the game is allowed to invent a metal colour.
 
+// These are BASE TINTS, multiplied by an albedo map whose mean luminance is
+// about 0.74, so what a player sees is roughly three quarters of the hex here.
+// Iron at the old 0x6e7378 therefore rendered at about 0x515559, which is not
+// "dark grey", it is charcoal, and next to a brown leather glove in daylight
+// it read as dark wood. Every hex below is chosen so that the RENDERED colour
+// is the ores.js colour word, not so that the hex itself is.
 export const METAL_COLOURS = {
   copper: 0xb87333,      // "warm brown"
   tin: 0xcfd3d6,         // "grey white"
   bronze: 0xc08a3e,      // the alloy of the two
-  iron: 0x6e7378,        // "dark grey"
+  iron: 0x9aa0a8,        // "dark grey": renders about 0x727780
   silver: 0xe6e8ee,      // "bright"
-  coldiron: 0x2c3440,    // "blue black"
+  coldiron: 0x3d4757,    // "blue black": renders about 0x2d3440
   emberite: 0x8f3a2a,    // "red veined"
   rimesteel: 0xa9c8dc,   // "pale blue"
   verdite: 0x8ea14a,     // "green gold"
-  voidrock: 0x1b1b1e,    // "matte black, no shine"
+  voidrock: 0x28282c,    // "matte black, no shine": renders about 0x1d1d20
   starfall: 0xb9bcc4,    // "grey with a white flash"
 };
 
@@ -327,8 +340,20 @@ export const LEATHER_COLOURS = { hide: 0x8a5a34, thickHide: 0x6b4426, scaledHide
 export const CLOTH_COLOUR = 0x8d7f6a;
 export const BONE_COLOUR = 0xd8d0bd;
 
-/** Voidrock does not shine and starfall does. Per metal roughness, added to the map. */
-const METAL_ROUGH = { voidrock: 0.62, silver: -0.06, starfall: -0.04, copper: 0.04, bronze: 0.06 };
+// How metal is lit here. There is no environment map in the scene: the sun,
+// the hemisphere fill and nothing else. A MeshPhysicalMaterial at metalness 1
+// has no diffuse response at all, so with nothing to reflect it renders black,
+// which is exactly what shipped. Holding metalness below one leaves a diffuse
+// share of the base colour that the sun can light, and a roughness in the
+// third to the half gives the blade a specular streak instead of a mirror
+// nobody can see. When an environment map exists these can go back up.
+export const METAL_METALNESS = 0.70;      // 0.6 to 0.75 is the readable band
+export const METAL_BASE_ROUGH = 0.38;     // times the map's 0.80..1.00 modulation
+/** So a blade in shade is dark steel rather than a silhouette. */
+export const METAL_EMISSIVE = 0x0a0a0c;
+
+/** Voidrock does not shine and starfall does. Per metal roughness, added to the base. */
+const METAL_ROUGH = { voidrock: 0.04, coldiron: 0.03, silver: -0.06, starfall: -0.05, rimesteel: -0.02, copper: 0.03, bronze: 0.04 };
 
 /** The hex a material id reads as, whichever table it lives in. Null when unknown. */
 export function colourOfMaterial(id) {
@@ -379,11 +404,13 @@ export function pbr(family, colour, o = {}) {
 }
 
 export const metalMat = (id = 'iron') => pbr('metal', METAL_COLOURS[id] ?? METAL_COLOURS.iron, {
-  rough: 1 + (METAL_ROUGH[id] || 0), metal: 1, repeat: 3,
+  rough: METAL_BASE_ROUGH + (METAL_ROUGH[id] || 0), metal: METAL_METALNESS, repeat: 3,
+  emissive: METAL_EMISSIVE,
   clearcoat: id === 'silver' || id === 'starfall' ? 0.4 : 0,
 });
 export const plateMat = (id = 'iron') => pbr('plate', METAL_COLOURS[id] ?? METAL_COLOURS.iron, {
-  rough: 1 + (METAL_ROUGH[id] || 0), metal: 1, repeat: 2,
+  rough: METAL_BASE_ROUGH + 0.02 + (METAL_ROUGH[id] || 0), metal: METAL_METALNESS, repeat: 2,
+  emissive: METAL_EMISSIVE,
 });
 export const woodMat = (id = 'oak') => pbr('wood', WOOD_COLOURS[id] ?? WOOD_COLOURS.oak, { rough: 1, metal: 0, repeat: 2 });
 export const leatherMat = (id = 'hide') => pbr('leather', LEATHER_COLOURS[id] ?? LEATHER_COLOURS.hide, { rough: 1, metal: 0, repeat: 3 });
@@ -637,6 +664,12 @@ function crossguard(y, halfSpan, thick, deep, mat) {
 /**
  * A blade from y0 to y1. `w` is the half width at the base, `t` the half
  * thickness; it tapers to a point.
+ *
+ * Real proportions, because a blade that is as thick as it is narrow reads as
+ * a stick: a longsword blade is 40 to 50 mm across and about 3 mm at the
+ * spine, so w is near 0.023 and t near 0.0016. The section already carries a
+ * flat, a fuller and two edges; at those numbers they are visible from two and
+ * a half metres, and at the old t = 0.0062 (12 mm of spine) they were not.
  */
 function blade(y0, y1, w, t, mat, opts = {}) {
   const len = y1 - y0;
@@ -805,8 +838,8 @@ const RECIPES = {
     g.add(pommel(-0.055, 0.017, c.metal));
     g.add(grip(-0.045, 0.02, 0.0125, c.wrap));
     g.add(crossguard(0.026, 0.042, 0.008, 0.010, c.metal));
-    g.add(blade(0.032, 0.295, 0.020, 0.0045, c.metal, { taper: 0.35, tipFrom: 0.62 }));
-    c.rune(g, 0.06, 0.24, 0.020, 0.0045);
+    g.add(blade(0.032, 0.295, 0.0175, 0.0016, c.metal, { taper: 0.35, tipFrom: 0.62 }));
+    c.rune(g, 0.06, 0.24, 0.0175, 0.0016);
     return g;
   },
 
@@ -819,8 +852,8 @@ const RECIPES = {
     bowl.translate(0, 0.036, 0);
     g.add(mesh(bowl, c.metal));
     g.add(crossguard(0.038, 0.055, 0.0055, 0.0055, c.metal));
-    g.add(blade(0.052, 0.955, 0.0095, 0.0060, c.metal, { taper: 0.55, tipFrom: 0.55, fuller: 0.55, sections: 10 }));
-    c.rune(g, 0.10, 0.85, 0.0095, 0.0060);
+    g.add(blade(0.052, 0.955, 0.0080, 0.0026, c.metal, { taper: 0.55, tipFrom: 0.55, fuller: 0.55, sections: 10 }));
+    c.rune(g, 0.10, 0.85, 0.0080, 0.0026);
     return g;
   },
 
@@ -829,8 +862,8 @@ const RECIPES = {
     g.add(pommel(-0.095, 0.021, c.metal));
     g.add(grip(-0.082, 0.02, 0.0145, c.wrap));
     g.add(crossguard(0.028, 0.070, 0.0085, 0.012, c.metal));
-    g.add(blade(0.036, 0.645, 0.026, 0.0055, c.metal, { taper: 0.30, tipFrom: 0.72 }));
-    c.rune(g, 0.07, 0.55, 0.026, 0.0055);
+    g.add(blade(0.036, 0.645, 0.0205, 0.0018, c.metal, { taper: 0.30, tipFrom: 0.72 }));
+    c.rune(g, 0.07, 0.55, 0.0205, 0.0018);
     return g;
   },
 
@@ -839,8 +872,8 @@ const RECIPES = {
     g.add(pommel(-0.115, 0.024, c.metal));
     g.add(grip(-0.100, 0.024, 0.0155, c.wrap));
     g.add(crossguard(0.032, 0.098, 0.0095, 0.014, c.metal));
-    g.add(blade(0.042, 0.875, 0.030, 0.0062, c.metal, { taper: 0.32, tipFrom: 0.74, sections: 10 }));
-    c.rune(g, 0.09, 0.76, 0.030, 0.0062);
+    g.add(blade(0.042, 0.875, 0.0230, 0.0016, c.metal, { taper: 0.32, tipFrom: 0.74, sections: 10 }));
+    c.rune(g, 0.09, 0.76, 0.0230, 0.0016);
     return g;
   },
 
@@ -851,8 +884,8 @@ const RECIPES = {
     g.add(crossguard(0.070, 0.150, 0.0130, 0.018, c.metal));
     // a ricasso, the blunt stretch above the guard a longsword hand grips
     g.add(haft(0.080, 0.155, 0.016, 0.017, c.metal, 2));
-    g.add(blade(0.150, 1.268, 0.042, 0.0080, c.metal, { taper: 0.30, tipFrom: 0.76, sections: 12 }));
-    c.rune(g, 0.22, 1.10, 0.042, 0.0080);
+    g.add(blade(0.150, 1.268, 0.0260, 0.0022, c.metal, { taper: 0.30, tipFrom: 0.76, sections: 12 }));
+    c.rune(g, 0.22, 1.10, 0.0260, 0.0022);
     return g;
   },
 
@@ -972,7 +1005,7 @@ const RECIPES = {
     g.add(haft(-0.800, 1.020, 0.0150, 0.0135, c.wood, 8));
     g.add(grip(-0.120, 0.160, 0.0165, c.wrap));
     g.add(haft(1.000, 1.070, 0.0180, 0.0150, c.metal, 2));
-    g.add(leafHead(1.060, 0.240, 0.028, 0.006, c.metal));
+    g.add(leafHead(1.060, 0.240, 0.028, 0.0026, c.metal));
     const butt = lathe([[0.015, 0], [0.014, -0.03], [0.002, -0.055]], 10);
     butt.translate(0, -0.800, 0);
     g.add(mesh(butt, c.metal));
@@ -993,7 +1026,7 @@ const RECIPES = {
     beak.position.set(-0.014, 0.970, 0);
     beak.rotation.z = 0.5;
     g.add(beak);
-    g.add(leafHead(1.070, 0.210, 0.022, 0.006, c.metal));
+    g.add(leafHead(1.070, 0.210, 0.022, 0.0024, c.metal));
     const butt = lathe([[0.018, 0], [0.016, -0.03], [0.002, -0.060]], 10);
     butt.translate(0, -0.860, 0);
     g.add(mesh(butt, c.metal));
@@ -1073,7 +1106,7 @@ const RECIPES = {
     for (let i = 0; i < 3; i++) {
       const k = new THREE.Group();
       k.add(grip(-0.060, -0.012, 0.0085, c.wrap));
-      k.add(blade(-0.008, 0.218, 0.0130, 0.0028, c.metal, { taper: 0.45, tipFrom: 0.5, sections: 6 }));
+      k.add(blade(-0.008, 0.218, 0.0125, 0.0013, c.metal, { taper: 0.45, tipFrom: 0.5, sections: 6 }));
       k.rotation.z = (i - 1) * 0.16;
       k.position.x = (i - 1) * 0.012;
       g.add(k);
