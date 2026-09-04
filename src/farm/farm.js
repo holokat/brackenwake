@@ -14,9 +14,14 @@ import { createWorldStream, buildPalette } from '../world/chunks.js';
 import { createDiscovery } from '../world/sites.js';
 import { createSiteMarkers } from '../world/site_models.js';
 import { createFlora } from '../world/flora.js';
+import { generateDungeon, clampToWalkable, maxLevel } from '../world/dungeon_gen.js';
+import { createDungeonScene } from '../world/dungeon.js';
 
 // The endless world. One seed for everyone until farms get their own offsets.
 export const WORLD_SEED = 20260904;
+// how high the orbit target rides underground: the floor is y = 0 and the
+// ceiling would be at 3.2, so one metre is standing height in a corridor
+export const DUNGEON_EYE = 1;
 import { clearLandmarks } from './landmarks.js';
 
 // how colour is mapped to the screen; see the note where the renderer is built
@@ -265,6 +270,7 @@ export class Homestead {
   }
 
   dispose() {
+    if (this.dungeon) { try { this.dungeon.scene.dispose(); } catch {} this.dungeon = null; }
     this.world?.dispose(); this.siteMarkers?.dispose(); this.flora?.dispose();
     this.dead = true;
     this.renderer.dispose();
@@ -328,7 +334,7 @@ export class Homestead {
     this.controls.addEventListener('start', () => {
       this.controls.autoRotate = false;
       clearTimeout(this._idleTimer);
-      this._idleTimer = setTimeout(() => { if (!this.placement) this.controls.autoRotate = true; }, 30000);
+      this._idleTimer = setTimeout(() => { if (!this.placement && !this.dungeon) this.controls.autoRotate = true; }, 30000);
     });
 
     this.hemi = new THREE.HemisphereLight(0xbfe0ff, 0xa98a63, 0.9);
@@ -3224,6 +3230,9 @@ export class Homestead {
       if (this.fishing) { try { this.fishing.clickNow(); } catch {} return; }
       if (this.huntMode) { try { this._tryShoot(); } catch {} return; }
       if (this.placement) { this._confirmPlacement(); return; }
+      // underground, the only things that answer a click are the two exits;
+      // the pickaxe on an ore pocket comes in on pointerdown before this
+      if (this.dungeon) { if (this.hoveredExit) this.dungeonGo(this.hoveredExit); return; }
       if (this.hovered != null) { this.onPlotClick(this.hovered.index); return; }
       if (this.hoveredObject) { this.onObjectClick(this.hoveredObject); return; }
       if (this.hoveredSign) { this.onSignClick(); return; }
@@ -3264,6 +3273,169 @@ export class Homestead {
     if (found) this.onDiscover?.(found);
   }
 
+  // ================= the way down =================
+  //
+  // Entering does not throw the overworld away, it hides it. Every top level
+  // child of the scene that was visible is remembered and switched off, the
+  // camera, the fog, the background and the orbit limits go in a box, and the
+  // level is built at the origin. Leaving puts all of it back exactly as it
+  // was, so the streamed world carries on from the chunk you left it in.
+  //
+  // Nothing about a level is saved. generateDungeon is a pure function of the
+  // world seed, the site cell and the depth, so the level you climb back down
+  // to is the level you climbed out of, ore pockets and all.
+
+  enterDungeon(site, level = 1) {
+    if (!site || (site.kind !== 'dungeon' && site.kind !== 'cave')) return null;
+    if (this.dungeon) {
+      if (this.dungeon.site.id === site.id) return this.dungeon;
+      this.leaveDungeon();
+    }
+    const hidden = [];
+    for (const o of this.scene.children) {
+      // the camera is a scene child when it carries a viewmodel; hiding it
+      // would hide nothing that renders and would take the bow with it
+      if (o === this.camera) continue;
+      if (o.visible) { o.visible = false; hidden.push(o); }
+    }
+    this._surface = {
+      hidden,
+      camPos: this.camera.position.clone(),
+      target: this.controls.target.clone(),
+      fog: this.scene.fog,
+      background: this.scene.background,
+      minDistance: this.controls.minDistance,
+      maxDistance: this.controls.maxDistance,
+      maxPolarAngle: this.controls.maxPolarAngle,
+      autoRotate: this.controls.autoRotate,
+    };
+    this.controls.autoRotate = false;
+    // a tooltip from the surface must not follow you underground
+    if (this.hovered) { this.hovered = null; this.onPlotHover(null); }
+    if (this._lastObjHover) { this._lastObjHover = null; this.onObjectHover(null); }
+    this.hoveredSite = null;
+    this.dungeon = { site, level: 0, scene: null, layout: null };
+    this._openLevel(site, level, 'entrance');
+    return this.dungeon;
+  }
+
+  /** Build one level and stand the player on it. `arriveAt` is where you land. */
+  _openLevel(site, level, arriveAt = 'entrance') {
+    this.dungeon.scene?.dispose();
+    const layout = generateDungeon(WORLD_SEED, site, level);
+    const built = createDungeonScene(THREE, layout, {});
+    this.scene.add(built.group);
+    const P = built.palette;
+    this.scene.background = new THREE.Color(P.bg);
+    this.scene.fog = new THREE.Fog(P.fog, P.fogNear, P.fogFar);
+    // a 2 m corridor needs the camera much closer than a valley does
+    this.controls.minDistance = 6;
+    this.controls.maxDistance = 46;
+    // A wall is 3.2 m and the view has to clear it. At 0.9 rad off vertical the
+    // camera rides about 0.8 m up for every metre back, so a wall hides only
+    // the two cells behind it instead of the room you are standing in.
+    this.controls.maxPolarAngle = 0.9;
+    // coming up from below you arrive at the stair you just climbed, not at
+    // the entrance on the far side of the level
+    const at = (arriveAt === 'stair' && built.stairPos) ? built.stairPos : built.entrancePos;
+    this.controls.target.set(at.x, DUNGEON_EYE, at.z);
+    this.camera.position.set(at.x + 9, DUNGEON_EYE + 13, at.z + 9);
+    this.camera.lookAt(this.controls.target);
+    this.dungeon.level = level;
+    this.dungeon.layout = layout;
+    this.dungeon.scene = built;
+    built.update(this.controls.target);
+    this.onDungeonState?.({
+      site, level, inside: true, kind: layout.kind,
+      bottom: level >= maxLevel(layout.kind),
+      arrivedAt: arriveAt, ore: layout.ore.length, chests: layout.chests.length,
+      rooms: layout.rooms.length, torches: built.torches.length,
+    });
+  }
+
+  /** Take an exit. 'up' from level 1 leaves; 'down' goes deeper. */
+  dungeonGo(dir) {
+    if (!this.dungeon) return null;
+    const { site, level } = this.dungeon;
+    if (dir === 'up') {
+      if (level <= 1) { this.leaveDungeon(); return { inside: false, level: 0 }; }
+      this._openLevel(site, level - 1, 'stair');
+      return { inside: true, level: level - 1 };
+    }
+    if (level >= maxLevel(this.dungeon.layout.kind)) return null;   // nothing built a stair here
+    this._openLevel(site, level + 1, 'entrance');
+    return { inside: true, level: level + 1 };
+  }
+
+  leaveDungeon() {
+    if (!this.dungeon) return false;
+    const { site, level } = this.dungeon;
+    this.dungeon.scene?.dispose();
+    const s = this._surface;
+    this.dungeon = null; this._surface = null; this.hoveredExit = null;
+    if (s) {
+      for (const o of s.hidden) o.visible = true;
+      this.scene.fog = s.fog;
+      this.scene.background = s.background;
+      this.camera.position.copy(s.camPos);
+      this.controls.target.copy(s.target);
+      this.controls.minDistance = s.minDistance;
+      this.controls.maxDistance = s.maxDistance;
+      if (s.maxPolarAngle != null) this.controls.maxPolarAngle = s.maxPolarAngle;
+      this.controls.autoRotate = s.autoRotate;
+    }
+    this.controls.update();
+    this.onDungeonState?.({ site, level, inside: false });
+    return true;
+  }
+
+  // Per frame while you are under the ground. The overworld is not streamed,
+  // the sky is not moved and discovery does not run: none of it is on screen.
+  _updateDungeon(now, dt) {
+    const t = this.controls.target;
+    const c = clampToWalkable(this.dungeon.layout, t.x, t.z);
+    if (c.moved) {
+      // the camera moves with the target, so walking into a wall stops the
+      // view dead instead of sliding it off the player
+      this.camera.position.x += c.x - t.x;
+      this.camera.position.z += c.z - t.z;
+      t.x = c.x; t.z = c.z;
+    }
+    t.y = DUNGEON_EYE;
+    const floor = DUNGEON_EYE + 0.6;
+    if (this.camera.position.y < floor) this.camera.position.y = floor;
+    this.dungeon.scene.update(t);
+    // The rest of the game keeps running while you are down here, and some of
+    // it adds to the scene lazily: the first rain of a shower builds its
+    // particles the frame it starts. Hiding once on the way in would miss all
+    // of that and leave weather falling through a cave roof. So the sweep runs
+    // again now and then, and everything it switches off is remembered, so
+    // leaving still puts back exactly what was on.
+    if (now - (this._dungeonSweep || 0) > 400) {
+      this._dungeonSweep = now;
+      const g = this.dungeon.scene.group;
+      for (const o of this.scene.children) {
+        if (o === g || o === this.camera || !o.visible) continue;
+        o.visible = false; this._surface.hidden.push(o);
+      }
+    }
+  }
+
+  // Underground the farm's own hit meshes are hidden but still raycastable
+  // (three does not skip invisible objects), so the level takes the pick
+  // outright instead of sharing it with a farm nobody can see.
+  _pickDungeon() {
+    if (this.hovered) { this.hovered = null; this.onPlotHover(null, this.pointerClient); }
+    if (this._lastObjHover) { this._lastObjHover = null; this.onObjectHover(null, this.pointerClient); }
+    this.hoveredObject = null; this.hoveredSign = false; this.hoveredMarket = false;
+    this.hoveredDock = false; this.hoveredHouse = false; this.hoveredGate = false;
+    this.hoveredWindmill = false; this.hoveredFence = false; this.hoveredSite = null;
+    this.hoveredDeer = null; this.hoveredPredator = null;
+    const hits = this.raycaster.intersectObjects(this.dungeon.scene.exits, false);
+    this.hoveredExit = hits.length ? (hits[0].object.userData.exit || null) : null;
+    this.renderer.domElement.style.cursor = this.hoveredExit ? 'pointer' : 'grab';
+  }
+
   // ================= loop =================
 
   _animate(now) {
@@ -3285,13 +3457,16 @@ export class Homestead {
       if (this.keys.has('d')) move.add(right);
       if (this.keys.has('a')) move.sub(right);
       if (move.lengthSq() > 0) {
-        move.normalize().multiplyScalar(95 * dt);
+        // 95 m/s crosses a valley in a minute; underground a 2 m corridor is
+        // three frames wide at that speed, so the same keys walk instead of fly
+        move.normalize().multiplyScalar((this.dungeon ? 14 : 95) * dt);
         this.camera.position.add(move);
         this.controls.target.add(move);
         this.controls.autoRotate = false;
       }
     }
-    if (this.world) this._updateWorld(now, dt);
+    if (this.dungeon) this._updateDungeon(now, dt);
+    else if (this.world) this._updateWorld(now, dt);
 
     // ---- day / night cycle ----
     const cycleMs = this.dayLengthMs || 360000; // one full day→night→day loop
@@ -3305,14 +3480,16 @@ export class Homestead {
     this.sunLight.color.lerpColors(this.sunNightCol, this.sunDayCol, d);
     this.hemi.intensity = 0.2 + 0.7 * d;
     this.ambient.intensity = 0.1 + 0.13 * d;
-    this.scene.fog.color.lerpColors(this.fogNight, this.fogDay, d);
+    // underground there is no sky to tint and no dawn to wait for: the level
+    // owns the fog and the background until you climb out
+    if (!this.dungeon) this.scene.fog.color.lerpColors(this.fogNight, this.fogDay, d);
     // ---- seasonal modulation layered on top of the day/night + biome ----
     this._updateSeason();
     const tint = seasonTint(this.season);
     if (tint.sunMix > 0) {
       const tc = this._tintC || (this._tintC = new THREE.Color());
       this.sunLight.color.lerp(tc.setHex(tint.sun), tint.sunMix * d); // tint only the daytime sun
-      this.scene.fog.color.lerp(tc.setHex(tint.fog), tint.fogMix);
+      if (!this.dungeon) this.scene.fog.color.lerp(tc.setHex(tint.fog), tint.fogMix);
     }
     this.hemi.intensity *= tint.hemi;
     this.ambient.intensity *= tint.ambient;
@@ -3334,8 +3511,7 @@ export class Homestead {
       else fogFar -= Math.sin(ft * Math.PI) * fogFar * 0.8; // dip toward a fifth mid-roll
     }
     if (this.weather && this.weather.intensity > 0.02) fogFar *= (1 - 0.55 * this.weather.intensity); // rain/snow closes in
-    this.scene.fog.far = fogFar;
-    this.scene.fog.near = Math.min(90, fogFar * 0.28);
+    if (!this.dungeon) { this.scene.fog.far = fogFar; this.scene.fog.near = Math.min(90, fogFar * 0.28); }
     // fireflies at night — but only when the farm has no lanterns/fires of its own
     if (now - (this._lightsCheck || 0) > 1500) {
       this._lightsCheck = now; this._hasLights = false;
@@ -3998,6 +4174,10 @@ export class Homestead {
     if (this.placement) {
       this._updatePlacement();
       this.renderer.domElement.style.cursor = this.placement?.valid ? 'copy' : 'not-allowed';
+    } else if (this.dungeon && this.pointerClient && now - (this._lastPick || 0) > 70) {
+      this._lastPick = now;
+      this.raycaster.setFromCamera(this.pointer, this.camera);
+      this._pickDungeon();
     } else if (this.pointerClient && now - (this._lastPick || 0) > 70) {
       this._lastPick = now;
       this.raycaster.setFromCamera(this.pointer, this.camera);

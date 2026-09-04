@@ -15,6 +15,18 @@ const fields = [];
 
 export function clearTreeFields() { fields.length = 0; }
 
+// A dungeon level builds its own ore field and throws it away when you climb
+// out. Without this the field would stay in the registry: pickTree would keep
+// raycasting meshes that no longer belong to a scene, and regrowTrees would
+// rebuild them into a group nobody is drawing.
+export function removeTreeField(field) {
+  const i = fields.indexOf(field);
+  if (i >= 0) fields.splice(i, 1);
+  for (const m of field.meshes) { m.parent?.remove(m); m.dispose?.(); }
+  field.meshes = [];
+  return i >= 0;
+}
+
 // spec: { parent, layers: [{ geo, mat, of(tree) -> {x,y,z,s,sy,ry} | null }] }
 // Each layer draws one instanced part of the tree (trunk, canopy, side puff).
 export function createTreeField(spec) {
@@ -266,6 +278,11 @@ export function regrowTrees() {
   return any;
 }
 
+function worldVisible(o) {
+  for (let n = o; n; n = n.parent) if (!n.visible) return false;
+  return true;
+}
+
 // Raycast the scenery trees at a screen point -> { field, index, point } | null
 export function pickTree(farm, clientX, clientY) {
   const dom = farm.renderer.domElement;
@@ -273,7 +290,11 @@ export function pickTree(farm, clientX, clientY) {
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, farm.camera);
-  const meshes = fields.flatMap((f) => f.meshes);
+  // three's raycaster does not skip invisible objects, so a field whose group
+  // has been hidden (the whole overworld, while you are underground) would
+  // still take axe swings from under the floor. Ask for world visibility, not
+  // the mesh's own flag.
+  const meshes = fields.flatMap((f) => f.meshes).filter(worldVisible);
   const hits = ray.intersectObjects(meshes, false);
   for (const h of hits) {
     const f = h.object.userData.treeField;
