@@ -78,7 +78,7 @@ export function buildChunkGeometry(field, cx, cz, verts, palette) {
       col[k * 3] = tmp.r; col[k * 3 + 1] = tmp.g; col[k * 3 + 2] = tmp.b;
     }
   }
-  // skirt verts copy their rim vertex, dropped by SKIRT, in a darker colour
+  // skirt verts copy their rim vertex, dropped by SKIRT
   const rim = [];
   for (let i = 0; i < n; i++) rim.push(i);                       // top row j=0
   for (let i = 0; i < n; i++) rim.push((n - 1) * n + i);         // bottom row
@@ -87,7 +87,9 @@ export function buildChunkGeometry(field, cx, cz, verts, palette) {
   for (let r = 0; r < skirtCount; r++) {
     const src = rim[r], dst = gridCount + r;
     pos[dst * 3] = pos[src * 3]; pos[dst * 3 + 1] = pos[src * 3 + 1] - SKIRT; pos[dst * 3 + 2] = pos[src * 3 + 2];
-    col[dst * 3] = col[src * 3] * 0.55; col[dst * 3 + 1] = col[src * 3 + 1] * 0.55; col[dst * 3 + 2] = col[src * 3 + 2] * 0.55;
+    // same colour as the rim: a darker skirt drew a grid of dark lines wherever a
+    // fine chunk met a coarser neighbour whose surface sat a little lower
+    col[dst * 3] = col[src * 3]; col[dst * 3 + 1] = col[src * 3 + 1]; col[dst * 3 + 2] = col[src * 3 + 2];
   }
 
   const idx = [];
@@ -174,7 +176,12 @@ export function createWorldStream(scene, field, opts = {}) {
     const mesh = new THREE.Mesh(geo, landMat);
     mesh.receiveShadow = true;
     mesh.userData.chunk = [cx, cz];
-    mesh.userData.ground = true;
+    // farm.js's seasonal pass reads userData.ground and userData.water as HEX
+    // base colours and copies them into the material every season change. A
+    // boolean here became setHex(1): black land, black water. White keeps the
+    // vertex colours as painted and lets the whole world gild in autumn and
+    // whiten in winter for free.
+    mesh.userData.ground = 0xffffff;
     group.add(mesh);
     let water = null;
     if (hasWater) {
@@ -182,7 +189,7 @@ export function createWorldStream(scene, field, opts = {}) {
       wg.rotateX(-Math.PI / 2);
       water = new THREE.Mesh(wg, waterMat);
       water.position.set(cx * CHUNK + CHUNK / 2, WATER_Y, cz * CHUNK + CHUNK / 2);
-      water.userData.water = true;
+      water.userData.water = palette.water.getHex();
       group.add(water);
     }
     if (old) { dispose(k, old); stats.rebuilt++; }
