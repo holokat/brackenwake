@@ -477,15 +477,16 @@ function boot() {
 
     /** What a sack hands over: everything the pack takes, and all the gold. */
     function takeLoot(items, gold) {
+      // the sack does the talking: loot_drops floats the gold and each item by
+      // rarity and says the whole take in one line, so the pack adds quietly
       const accepted = [];
       for (const it of items) {
-        const r = inventory.add(it);
+        const r = inventory.add(it, { quiet: true });
         if (r && r.added) accepted.push(it);
       }
       if (gold > 0) {
         character.gold = (character.gold || 0) + gold;
         state.touch('gold');
-        floaters.spawn(player.pos, `+${gold} gold`, 'gold');
       }
       return { items: accepted, gold };
     }
