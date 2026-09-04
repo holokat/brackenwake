@@ -123,7 +123,21 @@ export function createWorldField(seed = 1, opts = {}) {
     if (site) {
       const r = raw(site.x, site.z);
       if (!siteAllowed(site, r, homeFactor(site.x, site.z))) site = null;
-      else { site.y = site.kind === 'cave' ? r.h + CAVE_MOUND : r.h; site.biome = null; }
+      else {
+        site.y = site.kind === 'cave' ? r.h + CAVE_MOUND : r.h;
+        site.biome = null;
+        // a cave opens downhill, out of the slope, never into the mountain: the
+        // mouth faces whichever of eight directions has the lowest ground 15 m out
+        if (site.kind === 'cave') {
+          let best = -Infinity, bestA = site.facing;
+          for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * Math.PI * 2;
+            const drop = r.h - raw(site.x + Math.sin(a) * 15, site.z + Math.cos(a) * 15).h;
+            if (drop > best) { best = drop; bestA = a; }
+          }
+          site.facing = bestA;
+        }
+      }
     }
     siteCache.set(key, site);
     return site;

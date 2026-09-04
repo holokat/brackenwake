@@ -145,16 +145,28 @@ export function buildSiteMarker(site, heightAt) {
     }
     g.add(arch, mouth, stair);
   } else if (site.kind === 'cave') {
-    // the mound is terrain (field.js); the mouth is a dark opening under a rock lintel
+    // the mound is terrain (field.js): 6 m high at the centre, falling to the
+    // hillside at flatR. The mouth sits on the flank, half sunk in the ground,
+    // facing site.facing; the rock lintel frames it.
+    const D = 7.5;
+    const fx = Math.sin(site.facing), fz = Math.cos(site.facing);
+    const mx = site.x + fx * D, mz = site.z + fz * D;
+    const my = heightAt(mx, mz);
     const mouth = new THREE.Mesh(new THREE.CircleGeometry(2.4, 12), M.dark);
-    mouth.position.set(site.x + Math.sin(site.facing) * 2.2, y0 - 1.2, site.z + Math.cos(site.facing) * 2.2);
+    mouth.position.set(mx, my + 1.3, mz);
     mouth.rotation.y = site.facing;
-    mouth.scale.y = 0.75;
+    mouth.scale.y = 0.8;
     g.add(mouth);
+    // a short dark throat so the mouth has depth from an angle
+    const throat = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 3, 10, 1, true), M.dark);
+    throat.position.set(mx - fx * 1.5, my + 1.3, mz - fz * 1.5);
+    throat.rotation.set(Math.PI / 2, 0, -site.facing);
+    throat.scale.y = 1; g.add(throat);
     for (let i = 0; i < 5; i++) {
-      const r = new THREE.Mesh(new THREE.DodecahedronGeometry(1.1 + rng() * 0.9, 0), rng() < 0.5 ? M.rock : M.rockDark);
-      const a = site.facing + (i - 2) * 0.55, d = 2.6 + rng() * 0.8;
-      r.position.set(site.x + Math.sin(a) * d, y0 - 1.6 + 0.9 * Math.abs(i - 2) * 0.5 + 0.9, site.z + Math.cos(a) * d);
+      const r = new THREE.Mesh(new THREE.DodecahedronGeometry(1.0 + rng() * 0.8, 0), rng() < 0.5 ? M.rock : M.rockDark);
+      const a = site.facing + (i - 2) * 0.5, d = D + 0.6 + rng() * 0.6;
+      const rx = site.x + Math.sin(a) * d, rz = site.z + Math.cos(a) * d;
+      r.position.set(rx, heightAt(rx, rz) + 0.6 + (i === 2 ? 2.6 : 0), rz);   // the middle one is the lintel
       r.rotation.set(rng() * 3, rng() * 3, rng() * 3); r.castShadow = true;
       g.add(r);
     }

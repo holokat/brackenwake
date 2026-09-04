@@ -33,4 +33,12 @@ const town = (() => { for (let cz = -30; cz < 30; cz++) for (let cx = -30; cx < 
   check('ground past the rim is the raw terrain', touched === 0, String(touched)); }
 const cave = (() => { for (let cz = -30; cz < 30; cz++) for (let cx = -30; cx < 30; cx++) { const s = f.siteInCell(cx, cz); if (s && s.kind === 'cave') return s; } })();
 check('a cave mouth stands above the hillside around it (a mound)', f.heightAt(cave.x, cave.z) > f.raw(cave.x, cave.z).h + 4, `mouth ${f.heightAt(cave.x, cave.z).toFixed(1)} raw ${f.raw(cave.x, cave.z).h.toFixed(1)}`);
+{ let facesLowest = 0, cavesSeen = 0;
+  for (let cz = -30; cz < 30; cz++) for (let cx = -30; cx < 30; cx++) { const s = f.siteInCell(cx, cz); if (!s || s.kind !== 'cave') continue; cavesSeen++;
+    const at = (a) => f.raw(s.x + Math.sin(a) * 15, s.z + Math.cos(a) * 15).h;
+    const front = at(s.facing); let lowest = Infinity; for (let i = 0; i < 8; i++) lowest = Math.min(lowest, at((i / 8) * Math.PI * 2));
+    if (front <= lowest + 1e-9) facesLowest++; }
+  check('every cave mouth faces its lowest side (downhill)', cavesSeen > 0 && facesLowest === cavesSeen, `${facesLowest}/${cavesSeen}`);
+  const uphill = (() => { const s = cave; return f.raw(s.x + Math.sin(s.facing + Math.PI) * 15, s.z + Math.cos(s.facing + Math.PI) * 15).h; })();
+  check('and the ground behind a cave is higher than in front of it', uphill > f.raw(cave.x + Math.sin(cave.facing) * 15, cave.z + Math.cos(cave.facing) * 15).h, `behind ${uphill.toFixed(1)} vs front ${f.raw(cave.x + Math.sin(cave.facing) * 15, cave.z + Math.cos(cave.facing) * 15).h.toFixed(1)}`); }
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
