@@ -144,7 +144,7 @@ export function decide(pick, tool, playerPos, now, lastSwingAt) {
   return { action: 'none', reason: 'nothing' };
 }
 
-export function createInteract({ sc, runtime, player, state, hud, input, audio }) {
+export function createInteract({ sc, runtime, player, state, hud, input, audio, progression }) {
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const aimPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -308,6 +308,13 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio }
         if (!res) { say('a sapling is coming back here'); audio?.play?.('denied'); return d; }
         // the tool lands on every swing, including the last one
         audio?.play?.(d.action === 'mine' ? 'mine' : 'chop', { at });
+        // every swing that lands is a lesson: Lumberjacking for wood, Mining for
+        // stone and ore. A tree is difficulty 10, rock 10, an ore seam 25, the
+        // bottom of the ore ladder in 05-WORLD-CONTENT until seams carry tiers.
+        if (progression?.lesson) {
+          const isOre = d.action === 'mine' && (rec?.ore != null || res.ore != null);
+          progression.lesson(d.action === 'mine' ? 'mining' : 'lumberjacking', isOre ? 25 : 10, true);
+        }
         if (res.felled) {
           if (d.action === 'mine') audio?.play?.(res.ore != null ? 'oreBreak' : 'rockBreak', { at });
           // the tree takes 1500 ms to go over (DUR in farm/tree_edit.js), so

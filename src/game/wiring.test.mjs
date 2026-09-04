@@ -497,10 +497,14 @@ function rig() {
   has(/audio\.play\('discover'\)/, 'plays a cue on a discovery');
   has(/audio\.play\('enterCave'\)/, 'plays a cue on going under');
   has(/audio\.setListener\(centre\.x, centre\.z\)/, 'moves the ear every frame');
-  has(/input\.pressed\('m'\)[^\n]*toggleMusic\(\)/, 'M mutes the music');
-  has(/input\.pressed\('n'\)[^\n]*toggleSfx\(\)/, 'N mutes the sound');
+  // M and N used to be mute keys. M is the Map and Escape is Settings now, so the
+  // mutes live in the settings window and main.js applies them from the document.
+  has(/audio\.musicOn !== s\.musicOn\) audio\.toggleMusic\(\)/, 'the saved musicOn setting drives the music');
+  has(/audio\.sfxOn !== s\.sfxOn\) audio\.toggleSfx\(\)/, 'the saved sfxOn setting drives the sound');
+  has(/settingsPanel\]\) windows\.register\(p\)/, 'the settings window is registered');
+  has(/applySettings\(character\.settings\)/, 'and the saved settings are applied at boot');
   has(/window\.__bw = \{[^}]*\baudio\b/, 'exposes the audio for the console');
-  has(/M and N mute/, 'the opening line tells you the mute keys exist');
+  has(/Escape settings/, 'the opening line tells you where the sound settings are');
 
   const ear = m.indexOf('audio.setListener(');
   const update = m.indexOf('runtime.update(dt, now');

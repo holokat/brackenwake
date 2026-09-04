@@ -200,7 +200,8 @@ export function createAbilities(deps = {}) {
 
   /** Everything alive the world will let an ability touch. */
   const allTargets = () => {
-    const list = typeof monsters?.targets === 'function' ? monsters.targets() : [];
+    const list = typeof monsters?.actors === 'function' ? monsters.actors()
+      : typeof monsters?.targets === 'function' ? monsters.targets() : [];
     return Array.isArray(list) ? list : [];
   };
   const allies = () => {
@@ -277,7 +278,8 @@ export function createAbilities(deps = {}) {
       cursorHit: targeting?.hover || null,
       candidates: allTargets(),
       pos: pos(), yaw: yaw(), range, halfAngle: half, self: actor,
-      nearestHostile: typeof monsters?.nearestHostile === 'function' ? monsters.nearestHostile : null,
+      nearestHostile: typeof monsters?.nearestHostile === 'function'
+        ? (p, y, r, h) => { const f = monsters.nearestHostile(p, y, r, h); return f ? (f.actor || f) : null; } : null,
     });
   }
 
@@ -912,7 +914,8 @@ export function createAbilities(deps = {}) {
     let skill = l.skill;
     if (ability.skillAny) skill = actor.weapon?.skill || character.equipment?.mainHand?.skill || l.skill;
     if (!skill) return;
-    try { progression.lesson(character, skill, l.difficulty, true, rng); } catch (err) { /* a lesson is never worth a crash */ }
+    // W1's progression teaches the character it was built with: (skillId, difficulty, success, rng)
+    try { progression.lesson(skill, l.difficulty, true, rng); } catch (err) { /* a lesson is never worth a crash */ }
   }
 
   // ------------------------------------------------------------------ use --

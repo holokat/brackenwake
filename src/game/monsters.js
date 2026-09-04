@@ -759,6 +759,8 @@ export function createMonsters(sc, runtime, opts = {}) {
 
   return {
     group, stats, update, targets, pick, nearestHostile,
+    /** Every live actor, for area effects and the cone. targets() is the meshes for picking. */
+    actors: () => [...live.values()].filter((m) => num(m.actor.health) > 0).map((m) => m.actor),
     /** Every live monster record. Debug, the HUD and the tests. */
     all: () => [...live.values()],
     get count() { return live.size; },

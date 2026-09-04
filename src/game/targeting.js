@@ -242,7 +242,9 @@ export function createTargeting(sc, input, monsters, opts = {}) {
     if (!monsters?.pick || !sc?.camera) return null;
     ndc.set(input?.pointer?.x ?? 0, input?.pointer?.y ?? 0);
     raycaster.setFromCamera(ndc, sc.camera);
-    return monsters.pick(raycaster) || null;
+    // W2's pick returns the monster record; the frame and the resolver want its actor
+    const hit = monsters.pick(raycaster);
+    return hit ? (hit.actor || hit) : null;
   }
 
   /** Where the cursor meets the ground the player stands on. Null off the world. */
@@ -258,7 +260,8 @@ export function createTargeting(sc, input, monsters, opts = {}) {
   }
 
   function list() {
-    const all = typeof monsters?.targets === 'function' ? monsters.targets() : [];
+    const all = typeof monsters?.actors === 'function' ? monsters.actors()
+      : typeof monsters?.targets === 'function' ? monsters.targets() : [];
     return (all || []).filter((a) => isTargetable(a, self));
   }
 
@@ -274,7 +277,8 @@ export function createTargeting(sc, input, monsters, opts = {}) {
     }
     return pickTarget({
       cursorHit: hover, candidates: list(), pos: at, yaw: face, range, halfAngle, self,
-      nearestHostile: typeof monsters?.nearestHostile === 'function' ? monsters.nearestHostile : null,
+      nearestHostile: typeof monsters?.nearestHostile === 'function'
+        ? (p, y, r, h) => { const f = monsters.nearestHostile(p, y, r, h); return f ? (f.actor || f) : null; } : null,
     });
   }
 
