@@ -376,7 +376,7 @@ console.log('win_dev: god mode is probed, not promised');
   ctx.actor.health = ctx.actor.maxHealth;
   const on = bench.toggleGod();
   check('the flag goes on', on.on === true && ctx.actor.godMode === true);
-  check('combat.js does not read it yet, and the bench says so rather than promising', on.honoured === false && /does not read actor.godMode/.test(on.text), on.text);
+  check('combat.js honours it: the probe blow takes nothing off', on.honoured === true && /took nothing off you/.test(on.text), on.text);
   check('the test blow was healed back', ctx.actor.health === ctx.actor.maxHealth, `${ctx.actor.health} of ${ctx.actor.maxHealth}`);
   const off = bench.toggleGod();
   check('and it goes off again', off.on === false && ctx.actor.godMode === false, off.text);
