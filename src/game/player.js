@@ -34,6 +34,15 @@ export const ACCEL = 40;         // m/s^2 toward the wanted velocity
 export const DECEL = 40;         // m/s^2 back to a stop
 export const TURN_RATE = 12;     // rad/s, the cap on how fast he faces a new heading
 export const MAX_SLOPE = 1.2;    // metres of rise per metre of ground, above which the step is refused
+// Jumping and falling. A standing jump rises JUMP_HEIGHT and lasts JUMP_AIR_S,
+// which fixes gravity and the launch speed: g = 8h/T^2, v0 = gT/2. Walking
+// off ground that drops more than EDGE_DROP in one frame is a fall; falls
+// report how far they fell so combat can charge for it.
+export const JUMP_HEIGHT = 1.2, JUMP_AIR_S = 0.7;
+export const GRAVITY = 8 * JUMP_HEIGHT / (JUMP_AIR_S * JUMP_AIR_S);   // 19.59 m/s^2
+export const JUMP_V0 = GRAVITY * JUMP_AIR_S / 2;                       // 6.86 m/s
+export const EDGE_DROP = 0.5;    // a step down this big is a fall, not a step
+export const WALL_STEP = 0.3;    // in the air, ground higher than this above the feet is a wall
 export const STRIDE_WALK = 1.4;  // metres of ground per full gait cycle
 export const STRIDE_RUN = 3.2;  // longer, or the legs blur at 18 m/s
 
@@ -204,11 +213,15 @@ export function poseCharacter(parts, s) {
 }
 
 // The controller, with no THREE in it. Mutates and returns the state object:
-//   { x, y, z, vx, vz, speed, yaw, phase, stride, t, anim, idleMix, blocked }
+//   { x, y, z, vx, vz, vy, speed, yaw, phase, stride, t, anim, idleMix, blocked, airborne, peakY, landed }
+//   move may carry jump: true for one frame to leave the ground.
+//   After a step, s.landed is null or { fallMetres } for the frame he touched down.
 export function stepPlayer(s, dt, move, heightAt) {
   dt = clamp(Number.isFinite(dt) ? dt : 0, 0, 0.1);
   const h = typeof heightAt === 'function' ? heightAt : () => 0;
   const m = move || {};
+  s.landed = null;
+  if (m.jump && !s.airborne) { s.airborne = true; s.vy = JUMP_V0; s.peakY = s.y; }
 
   // stick -> world axes
   let mx = clamp(m.x || 0, -1, 1), mz = clamp(m.z || 0, -1, 1);
@@ -243,8 +256,11 @@ export function stepPlayer(s, dt, move, heightAt) {
   const ok = (nx, nz) => {
     const d = Math.hypot(nx - s.x, nz - s.z);
     if (d < 1e-9) return true;
-    const rise = h(nx, nz) - y0;
-    return Number.isFinite(rise) ? rise / d <= MAX_SLOPE : false;
+    const ground = h(nx, nz);
+    if (!Number.isFinite(ground)) return false;
+    // in the air the only thing that stops you is a wall above your feet
+    if (s.airborne) return ground <= s.y + WALL_STEP;
+    return (ground - y0) / d <= MAX_SLOPE;
   };
   // trapezoid, not Euler: over a frame of changing speed the average velocity
   // is the honest one, and a second of walking then covers the distance the
@@ -259,12 +275,27 @@ export function stepPlayer(s, dt, move, heightAt) {
   else { vx = 0; vz = 0; s.blocked = true; }
 
   s.vx = vx; s.vz = vz;
-  s.y = h(s.x, s.z);
+  const ground = h(s.x, s.z);
+  if (s.airborne) {
+    s.vy -= GRAVITY * dt;
+    s.y += s.vy * dt;
+    if (s.y > s.peakY) s.peakY = s.y;
+    if (s.y <= ground) {
+      s.y = ground; s.airborne = false; s.vy = 0;
+      s.landed = { fallMetres: Math.max(0, s.peakY - ground) };
+    }
+  } else if (ground < s.y - EDGE_DROP) {
+    // the ground went away under him: he falls from where he was
+    s.airborne = true; s.vy = 0; s.peakY = s.y;
+  } else {
+    s.y = ground;
+  }
   s.speed = Math.hypot(vx, vz);
 
   // gait, with a little hysteresis so a sprint tapping in and out does not flicker
   const wasRun = s.anim === 'run';
-  if (s.speed < 0.2) s.anim = 'idle';
+  if (s.airborne) s.anim = 'air';
+  else if (s.speed < 0.2) s.anim = 'idle';
   else if (s.speed > WALK_SPEED + (wasRun ? 0.2 : 0.5)) s.anim = 'run';
   else s.anim = 'walk';
 
@@ -298,7 +329,7 @@ export function createPlayer(scene) {
   const { group, parts } = buildCharacter();
   if (scene && scene.add) scene.add(group);
 
-  const s = { x: 0, y: 0, z: 0, vx: 0, vz: 0, speed: 0, yaw: 0, phase: 0, stride: STRIDE_WALK, t: 0, anim: 'idle', idleMix: 1, blocked: false };
+  const s = { x: 0, y: 0, z: 0, vx: 0, vz: 0, vy: 0, speed: 0, yaw: 0, phase: 0, stride: STRIDE_WALK, t: 0, anim: 'idle', idleMix: 1, blocked: false, airborne: false, peakY: 0, landed: null };
   const pos = group.position;
 
   const api = {
@@ -306,6 +337,9 @@ export function createPlayer(scene) {
     get yaw() { return s.yaw; },
     get speed() { return s.speed; },
     get anim() { return s.anim; },
+    get airborne() { return s.airborne; },
+    /** { fallMetres } on the frame he touched down, else null. Read it after update(). */
+    get landed() { return s.landed; },
     update(dt, move, heightAt) {
       // Someone else may have pushed him about between frames. main.js does
       // it every frame underground, shoving him back onto the nearest floor
@@ -330,8 +364,9 @@ export function createPlayer(scene) {
     },
     setVisible(v) { group.visible = !!v; },
     teleport(x, z, heightAt) {
-      s.x = x; s.z = z; s.vx = 0; s.vz = 0; s.speed = 0;
+      s.x = x; s.z = z; s.vx = 0; s.vz = 0; s.vy = 0; s.speed = 0; s.airborne = false; s.landed = null;
       s.y = typeof heightAt === 'function' ? heightAt(x, z) : 0;
+      s.peakY = s.y;
       pos.set(s.x, s.y, s.z);
     },
     dispose() { if (group.parent) group.parent.remove(group); },

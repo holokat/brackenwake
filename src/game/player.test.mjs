@@ -7,14 +7,14 @@
 import * as THREE from 'three';
 import {
   createPlayer, buildCharacter, poseCharacter, stepPlayer, legIK,
-  WALK_SPEED, RUN_SPEED, ACCEL, DECEL, TURN_RATE, MAX_SLOPE, STRIDE_WALK, STRIDE_RUN, PALETTE,
+  WALK_SPEED, RUN_SPEED, ACCEL, DECEL, TURN_RATE, MAX_SLOPE, STRIDE_WALK, STRIDE_RUN, PALETTE, JUMP_HEIGHT, JUMP_AIR_S,
 } from './player.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 const near = (a, b, e) => Math.abs(a - b) <= e;
 const flat = () => 0;
-const fresh = () => ({ x: 0, y: 0, z: 0, vx: 0, vz: 0, speed: 0, yaw: 0, phase: 0, stride: STRIDE_WALK, t: 0, anim: 'idle', idleMix: 1 });
+const fresh = () => ({ x: 0, y: 0, z: 0, vx: 0, vz: 0, vy: 0, speed: 0, yaw: 0, phase: 0, stride: STRIDE_WALK, t: 0, anim: 'idle', idleMix: 1, airborne: false, peakY: 0, landed: null });
 const DT = 1 / 60;
 
 console.log('player: the body');
@@ -82,6 +82,46 @@ console.log('player: the phase follows distance, not time');
   check('two speeds, same distance, same phase', near(pa, pb, 1e-9), `${pa.toFixed(9)} vs ${pb.toFixed(9)} rad/m`);
   check('and the two took different amounts of time', slow.frames > fast.frames * 1.5, `${fast.frames} frames vs ${slow.frames}`);
   check('the run stride is longer than the walk stride', STRIDE_RUN > STRIDE_WALK, `${STRIDE_WALK} m vs ${STRIDE_RUN} m`);
+}
+
+console.log('player: jumping and falling');
+{
+  const flatG = () => 0;
+  // a standing jump: up JUMP_HEIGHT, down in JUMP_AIR_S, and a landing that says so
+  const s = fresh(); s.landed = null;
+  stepPlayer(s, DT, { x: 0, z: 0, jump: true }, flatG);
+  check('the jump leaves the ground on the frame it is asked for', s.airborne === true && s.vy > 0);
+  let peak = 0, air = DT, landed = null;
+  for (let i = 0; i < 200 && s.airborne; i++) { stepPlayer(s, DT, { x: 0, z: 0, jump: true }, flatG); peak = Math.max(peak, s.y); air += DT; if (s.landed) landed = s.landed; }
+  check('it peaks at JUMP_HEIGHT', near(peak, JUMP_HEIGHT, 0.06), `${peak.toFixed(3)} m`);
+  check('and lands after JUMP_AIR_S', near(air, JUMP_AIR_S, 0.05), `${air.toFixed(3)} s`);
+  check('the landing reports the drop from the peak', landed && near(landed.fallMetres, JUMP_HEIGHT, 0.06), `${landed && landed.fallMetres.toFixed(3)} m`);
+  check('holding jump in the air does not jump again', s.airborne === false && s.y === 0);
+  check('and he is standing afterwards', s.anim === 'idle');
+
+  // momentum is kept: a running jump covers ground while airborne
+  const r = fresh(); for (let i = 0; i < 60; i++) stepPlayer(r, DT, { x: 0, z: 1 }, flatG);
+  const z0 = r.z; stepPlayer(r, DT, { x: 0, z: 1, jump: true }, flatG); let frames = 1;
+  while (r.airborne && frames < 200) { stepPlayer(r, DT, { x: 0, z: 1 }, flatG); frames++; }
+  check('a running jump carries the run through the air', near(r.z - z0, WALK_SPEED * frames * DT, 0.05), `${(r.z - z0).toFixed(3)} m in ${frames} frames`);
+  check('and the gait in the air is air', (() => { const q = fresh(); stepPlayer(q, DT, { jump: true }, flatG); return q.anim === 'air'; })());
+
+  // walking off a cliff is a fall, and a small step down is not
+  const cliff = (x, z) => (z > 5 ? -10 : 0);
+  const c = fresh(); let fell = null;
+  for (let i = 0; i < 400 && !fell; i++) { stepPlayer(c, DT, { x: 0, z: 1 }, cliff); if (c.landed) fell = c.landed; }
+  check('walking off a 10 m cliff is a fall that lands', fell !== null, fell ? `fell ${fell.fallMetres.toFixed(2)} m` : 'never landed');
+  check('and it reports the ten metres', fell && near(fell.fallMetres, 10, 0.3), fell ? `${fell.fallMetres.toFixed(2)} m` : '');
+  const step = (x, z) => (z > 5 ? -0.4 : 0);
+  const d = fresh(); let wentAirborne = false;
+  for (let i = 0; i < 200; i++) { stepPlayer(d, DT, { x: 0, z: 1 }, step); if (d.airborne) wentAirborne = true; }
+  check('a 0.4 m step down is a step, not a fall', wentAirborne === false && d.y === -0.4, `y ${d.y}`);
+
+  // in the air a wall is still a wall
+  const wall = (x, z) => (z > 2 ? 2 : 0);
+  const w = fresh(); stepPlayer(w, DT, { x: 0, z: 1, jump: true }, wall);
+  for (let i = 0; i < 60; i++) stepPlayer(w, DT, { x: 0, z: 1 }, wall);
+  check('a 2 m wall stops him in the air', w.z < 2.05, `z ${w.z.toFixed(3)}`);
 }
 
 console.log('player: slopes');
