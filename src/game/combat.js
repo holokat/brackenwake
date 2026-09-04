@@ -450,6 +450,8 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
   function hurt(actor, amount, opts = {}) {
     const n = Math.max(0, Math.round(num(amount)));
     if (!alive(actor) || n <= 0) return 0;
+    // the dev bench's god mode: poison, bleed and falls all come through here
+    if (actor.godMode) return 0;
     const before = num(actor.health);
     actor.health = Math.max(0, before - n);
     const took = before - actor.health;
@@ -649,6 +651,7 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
       return null;
     }
     const res = resolveMelee({ attacker: swinger(attacker, opts), defender, now, rng, jumpAttack: !!opts.jumpAttack });
+    if (defender.godMode) { res.damage = 0; res.killed = false; res.numbers = (res.numbers || []).filter((n) => n.kind !== 'damage'); }
 
     // An ability multiplier: Power Strike's 1.6, Whirlwind's 0.8. resolveMelee
     // takes no multiplier of its own, only `jumpAttack`, so the same roll and
@@ -697,6 +700,7 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
     const { attacker, defender, spell, opts } = job;
     if (!alive(attacker) || !alive(defender)) return null;
     const res = resolveSpell({ caster: attacker, target: defender, spell, rng, now });
+    if (defender.godMode) { res.damage = 0; res.killed = false; res.numbers = (res.numbers || []).filter((n) => n.kind !== 'damage'); }
     if (res.damage > 0) {
       defender.health = Math.max(0, num(defender.health) - res.damage);
       defender.anim = defender.health > 0 ? 'hurt' : 'die';
