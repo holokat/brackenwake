@@ -4,8 +4,8 @@
 // through the surfaces in docs/GAME-CONTRACT.md, so the order below is the
 // whole of the wiring:
 //
-//   scene -> state.load -> runtime -> player -> camera -> input -> interact
-//   -> shop -> hud -> dev
+//   scene -> state.load -> runtime -> hud -> audio -> player -> camera
+//   -> input -> interact -> shop -> dev
 //
 // and the frame is
 //
@@ -27,6 +27,7 @@ import { createFollowCamera } from './camera.js';
 import { createInput } from './input.js';
 import { createInteract } from './interact.js';
 import { createShop } from './shop.js';
+import { createAudio } from './audio.js';
 
 const SAVE_EVERY_MS = 5000;
 /** How close a place has to be before the HUD calls this spot by its name. */
@@ -51,6 +52,10 @@ function boot() {
   const runtime = createWorldRuntime(sc, { homeBiome: 'meadow' });
   const hud = createHud(hudRoot);
 
+  // Sound. Browsers refuse audio until the player clicks or presses a key;
+  // createAudio listens for that itself, so there is nothing to unlock here.
+  const audio = createAudio();
+
   const player = createPlayer(sc.scene);
   // First boot: no site stands within the streamed ring of the origin, so a new
   // player would face empty meadow with nowhere to walk to. Spawn instead a
@@ -70,6 +75,10 @@ function boot() {
   }
   player.teleport(state.pos.x || 0, state.pos.z || 0, (x, z) => runtime.heightAt(x, z));
 
+  // the kit is chosen from where you actually woke up, not from the origin
+  audio.music.setBiome(runtime.field.sampleAt(player.pos.x, player.pos.z).biome);
+  audio.music.start();
+
   // input comes before the camera: createFollowCamera takes it, so the boot
   // order in the contract is read as "the camera rig, and the input it needs"
   const input = createInput(sc.renderer.domElement);
@@ -78,9 +87,9 @@ function boot() {
   if (faceTo) camera.yaw = Math.atan2(faceTo.x - player.pos.x, faceTo.z - player.pos.z);
   camera.snap?.(player.pos);            // start on the orbit, not flying in to it
 
-  const interact = createInteract({ sc, runtime, player, state, hud, input });
+  const interact = createInteract({ sc, runtime, player, state, hud, input, audio });
   const shop = createShop({
-    state, hud,
+    state, hud, audio,
     nearestSettlement: () => nearestSettlement(),
   });
   const dev = createDev({ sc, camera, player, hud, runtime, state });
@@ -111,6 +120,9 @@ function boot() {
   // ---------------------------------------------------------- the world ----
   runtime.onDiscover((s) => {
     hud.toast(`you found <b>${s.name}</b>, ${s.article}`, 'good');
+    // not positioned: a site is found from up to 70 m off, and the discovery
+    // belongs to you rather than to the place
+    audio.play('discover');
   });
 
   // The underground reports where you are and what is there. Nothing here is a
@@ -126,6 +138,10 @@ function boot() {
       camera.snap?.(player.pos);
       state.setPos(player.pos.x, player.pos.z);
     }
+    // going under, and going deeper, are both going under. Climbing out has no
+    // cue: nothing in the folder is a way opening onto daylight, and the toast
+    // below already says where you came up.
+    if (st.inside) audio.play('enterCave');
     if (!st.inside) {
       hud.toast(`back above ground at <b>${st.site.name}</b>`, 'good');
       return;
@@ -170,11 +186,13 @@ function boot() {
         const d = Math.hypot(s.x - p.x, s.z - p.z);
         if (d < bestD) { bestD = d; best = s; }
       }
+      // the music follows the ground even when a place name is what is shown.
+      // setBiome does nothing when the new biome shares a kit with the old one,
+      // so a border does not restart the track.
+      const sample = runtime.field.sampleAt(p.x, p.z);
+      audio.music.setBiome(sample.biome);
       if (best) text = best.name;
-      else {
-        const sample = runtime.field.sampleAt(p.x, p.z);
-        text = BIOME_NAMES[sample.biome] || sample.biome;
-      }
+      else text = BIOME_NAMES[sample.biome] || sample.biome;
     }
     if (text !== placeText) { placeText = text; hud.setPlace(text); }
   }
@@ -191,6 +209,9 @@ function boot() {
       if (input.pressed(TOOLS[i].key)) pickTool(TOOLS[i].id);
     }
     if (input.pressed('b')) toggleShop();
+    // a mute with no confirmation is indistinguishable from a broken key
+    if (input.pressed('m')) hud.toast(audio.toggleMusic() ? 'music on' : 'music off');
+    if (input.pressed('n')) hud.toast(audio.toggleSfx() ? 'sound on' : 'sound off');
     if (input.pressed('e') && !shop.isOpen) doInteract();
   }
 
@@ -273,6 +294,8 @@ function boot() {
     // in fly mode the world streams around the camera, because that is what is
     // on screen; on the ground it streams around the player
     const centre = dev.on ? sc.camera.position : player.pos;
+    // the ear goes where the eye is, before anything this frame can fire a cue
+    audio.setListener(centre.x, centre.z);
     const day = sc.dayFactor(now);
     runtime.update(dt, now, centre.x, centre.z, day);
     interact.update(dt, now);
@@ -290,8 +313,8 @@ function boot() {
   window.addEventListener('beforeunload', () => { state.save(); });
   window.addEventListener('pagehide', () => { state.save(); });
 
-  window.__bw = { sc, runtime, player, camera, state, hud, dev, input, interact, shop, THREE };
-  hud.toast('WASD walks, drag to look, 1 to 4 pick a tool, E goes in, B is the market.');
+  window.__bw = { sc, runtime, player, camera, state, hud, dev, input, interact, shop, audio, THREE };
+  hud.toast('WASD walks, drag to look, 1 to 4 pick a tool, E goes in, B is the market, M and N mute the music and the sound.');
   return window.__bw;
 }
 

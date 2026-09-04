@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { createWorldField, BIOMES, CHUNK } from './field.js';
 import {
   createFauna, spawnsFor, countsFor, blockedAt, isForestEdge, neighbourHas, auditSpawnTable,
-  SPAWN, KINDS, EDGES, ALIVE_CAP, HOME_KEEP, NEAR_RING, siteClear,
+  auditCombatTable, hpFor, SPAWN, KINDS, EDGES, ALIVE_CAP, HOME_KEEP, NEAR_RING, siteClear, HIT_FLEE_MS,
 } from './fauna.js';
 
 let pass = 0, fail = 0;
@@ -405,6 +405,120 @@ const CENTRE = 20 * CHUNK + 32;   // middle of chunk (20, 20)
     `y ${gull.position.y.toFixed(1)}`);
   sky.dispose();
   fauna.dispose();
+}
+
+// ------------------------------------------------------------- taking a hit
+// The combat surface: hp per species, hitTest, animalAt and damage. What a
+// weapon does with these lives in src/game/combat.js and is tested there; this
+// is the world's half of the contract.
+{
+  check('every species has hp', auditCombatTable() === true);
+  check('the hp table is the one the weapons were built against',
+    hpFor('rabbit') === 1 && hpFor('squirrel') === 1 && hpFor('gull') === 1
+    && hpFor('fox') === 2 && hpFor('deer') === 3 && hpFor('wolf') === 4,
+    Object.keys(KINDS).map((k) => `${k} ${hpFor(k)}`).join(', '));
+  let threw = 0;
+  try { hpFor('griffin'); } catch { threw++; }
+  const kept = KINDS.fox.hp; KINDS.fox.hp = undefined;
+  try { auditCombatTable(); } catch { threw++; }
+  KINDS.fox.hp = kept;
+  check('an unknown species and a species with no hp both throw', threw === 2, `${threw} of 2`);
+  check('the hp table is whole again', auditCombatTable() === true);
+
+  const plain = stubField({ biome: () => 'meadow' });
+  const scene = new THREE.Group();
+  const fauna = createFauna(scene, plain, {});
+  ring(fauna);
+  fauna.update(0.016, 1000, CENTRE, CENTRE, false);
+
+  // hitTest: a radius that holds it, and the same radius one step short
+  const victim = fauna.targets()[0];
+  const AWAY = { x: CENTRE + 70, z: CENTRE + 70 };   // clear of the player, so nothing bolts
+  for (const m of fauna.all()) m.position.set(CENTRE + 900, 3, CENTRE + 900);
+  victim.position.set(AWAY.x + 2, 3, AWAY.z);
+  victim.userData.wild.home = { x: AWAY.x + 2, z: AWAY.z };
+  check('hitTest finds an animal inside the radius', fauna.hitTest(AWAY.x, AWAY.z, 3).includes(victim));
+  check('and does not find the same animal just outside it', !fauna.hitTest(AWAY.x, AWAY.z, 1.9).includes(victim),
+    `${fauna.hitTest(AWAY.x, AWAY.z, 1.9).length} inside 1.9 m`);
+  check('a radius of zero or nonsense finds nothing',
+    fauna.hitTest(AWAY.x, AWAY.z, 0).length === 0 && fauna.hitTest(AWAY.x, AWAY.z, NaN).length === 0);
+  // nearest first, with a second animal further out
+  const second = fauna.targets().find((m) => m !== victim);
+  second.position.set(AWAY.x + 5, 3, AWAY.z);
+  second.userData.wild.home = { x: AWAY.x + 5, z: AWAY.z };
+  const near = fauna.hitTest(AWAY.x, AWAY.z, 8);
+  check('hitTest hands them back nearest first', near[0] === victim && near[1] === second, `${near.length} in reach`);
+
+  // animalAt: the farm's hit column, a mesh inside the model, the model itself,
+  // and something that is not an animal at all
+  check('animalAt maps the hit column back to the animal', fauna.animalAt(victim.userData.hit) === victim);
+  check('animalAt maps a mesh inside the model back to the animal',
+    fauna.animalAt(victim.children.find((c) => c !== victim.userData.hit) || victim) === victim);
+  check('animalAt takes the animal itself', fauna.animalAt(victim) === victim);
+  check('animalAt refuses a mesh that is not an animal',
+    fauna.animalAt(new THREE.Mesh()) === null && fauna.animalAt(null) === null);
+
+  // damage: it comes off the hp, and the animal runs from the blow
+  victim.userData.roam.hp = 5; victim.userData.roam.hpMax = 5;
+  const res = fauna.damage(victim, 2, AWAY.x, AWAY.z, 50000);
+  check('damage takes what it says off the hp', res && res.damage === 2 && victim.userData.roam.hp === 3,
+    `5 -> ${victim.userData.roam.hp}`);
+  check('a wounded animal is fleeing, on the clock', victim.userData.roam.state === 'flee'
+    && victim.userData.roam.fleeUntil === 50000 + HIT_FLEE_MS, `${victim.userData.roam.state}`);
+  const dot = Math.cos(victim.userData.roam.heading) * (victim.position.x - AWAY.x)
+    + Math.sin(victim.userData.roam.heading) * (victim.position.z - AWAY.z);
+  check('and it is pointed away from the blow, not toward it', dot > 0, `dot ${dot.toFixed(2)}`);
+  check('a wounded animal is still a target', fauna.targets().includes(victim) && fauna.hitTest(AWAY.x, AWAY.z, 3).includes(victim));
+
+  // a blow landed on its own square leaves the heading alone rather than
+  // snapping every such animal due east
+  victim.userData.roam.heading = 1.234;
+  fauna.damage(victim, 1, victim.position.x, victim.position.z, 51000);
+  check('a blow with no direction in it does not spin the animal', victim.userData.roam.heading === 1.234,
+    `${victim.userData.roam.heading}`);
+
+  // the kill, and what it costs the world
+  const rec = victim.userData.wild.rec;
+  const goneBefore = fauna.stats.despawned;
+  const kill = fauna.damage(victim, 99, AWAY.x, AWAY.z, 52000);
+  check('enough damage kills', kill && kill.killed && kill.hp === 0, JSON.stringify(kill));
+  check('hp never goes below zero', victim.userData.roam.hp === 0);
+  check('a dead animal is out of hitTest and out of targets at once',
+    !fauna.hitTest(AWAY.x, AWAY.z, 6).includes(victim) && !fauna.targets().includes(victim));
+  check('a second blow on a corpse does nothing', fauna.damage(victim, 1, AWAY.x, AWAY.z, 52100) === null);
+  check('but the body is still there to fall over', fauna.all().includes(victim));
+  for (let i = 0; i < 200; i++) fauna.update(0.033, 52000 + i * 33, CENTRE, CENTRE, false);
+  check('and then it is gone', fauna.stats.despawned > goneBefore, `${goneBefore} -> ${fauna.stats.despawned}`);
+  check('and does not stand up again while you are here', !fauna.all().some((m) => m.userData.wild.rec === rec));
+  check('nothing left on the field is dead or dying',
+    fauna.all().every((m) => (!m.userData.roam || m.userData.roam.state !== 'dead') && (!m.userData.fly || !m.userData.fly.dying)));
+  fauna.dispose();
+}
+
+// a gull carries hp too, and a shot one falls out of the sky instead of circling
+{
+  const sky = createFauna(new THREE.Group(), stubField({ biome: () => 'beach' }), {});
+  ring(sky);
+  sky.update(0.016, 1000, CENTRE, CENTRE, false);
+  const gull = sky.all()[0];
+  check('a gull has hp on its fly record', gull.userData.fly.hp === hpFor('gull'), `${gull.userData.fly.hp}`);
+  check('a live gull answers hitTest', sky.hitTest(gull.position.x, gull.position.z, 3).includes(gull));
+  const y0 = gull.position.y;
+  const rec = gull.userData.wild.rec;
+  const goneBefore = sky.stats.despawned;
+  const res = sky.damage(gull, 1, gull.position.x + 4, gull.position.z, 60000);
+  check('a gull dies to one hit', res && res.killed && res.kind === 'gull');
+  check('a shot gull is out of hitTest at once', !sky.hitTest(gull.position.x, gull.position.z, 3).includes(gull));
+  for (let i = 0; i < 20; i++) sky.update(0.033, 60000 + i * 33, CENTRE, CENTRE, false);
+  check('it falls rather than circling', gull.position.y < y0 - 1, `${y0.toFixed(1)} -> ${gull.position.y.toFixed(1)}`);
+  for (let i = 0; i < 200; i++) sky.update(0.033, 62000 + i * 33, CENTRE, CENTRE, false);
+  check('then the body goes and does not come back', sky.stats.despawned > goneBefore
+    && !sky.all().some((m) => m.userData.wild.rec === rec), `${goneBefore} -> ${sky.stats.despawned}`);
+  // and the other way: an untouched gull is still circling at height
+  const other = sky.all().find((m) => m.userData.fly && !m.userData.fly.dying);
+  check('the gulls that were not hit are still up there', !!other && other.position.y > 10,
+    other ? `y ${other.position.y.toFixed(1)}` : 'none');
+  sky.dispose();
 }
 
 // ------------------------------------------------------------------- cost

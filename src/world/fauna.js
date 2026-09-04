@@ -42,17 +42,42 @@ export const SCAN_MS = 300;        // between spawn/despawn sweeps
 export const HERD_SPREAD = 14;     // herd members scatter this far from the leader
 const PLACE_TRIES = 8;             // candidate points per animal before giving up
 const DEAD_SINK_MS = 2700;         // tip over, sink, gone
+export const HIT_FLEE_MS = 4200;   // how long a wounded animal runs from the blow
+export const FALL_MS = 1600;       // a shot bird from the top of its arc to the ground
 
-// One entry per species. `quarry` and `hp` are read by the farm's hunt code;
-// `speed` is metres per second and `flee` multiplies it while bolting.
+// One entry per species. `quarry` and `hp` are read by the farm's hunt code and
+// by `src/game/combat.js`; `speed` is metres per second and `flee` multiplies it
+// while bolting.
+//
+// `hp` is a flat number per species, not a range, because a weapon table is only
+// legible if the answer to "how many swings is a wolf" is the same wolf to wolf.
+// Read it with `hpFor(kind)`; the roam record then carries its own copy so a
+// wounded animal remembers what it has left.
 export const KINDS = {
-  deer:     { model: 'deer',     quarry: 'deer',     hp: [2, 3], hitR: 0.95, speed: 1.6, flee: 6.0, spook: 20, scale: 1,    biomes: ['meadow', 'sakura', 'boreal'] },
-  rabbit:   { model: 'bunny',    quarry: 'bunny',    hp: [1, 1], hitR: 0.55, speed: 4.2, flee: 1.8, spook: 12, scale: 1.5,  biomes: ['meadow', 'sakura'], restless: true },
-  squirrel: { model: 'squirrel', quarry: 'squirrel', hp: [1, 1], hitR: 0.5,  speed: 4.6, flee: 1.7, spook: 12, scale: 1.5,  biomes: ['meadow', 'sakura', 'boreal'], restless: true },
-  fox:      { model: 'fox',      quarry: 'fox',      hp: [1, 1], hitR: 0.7,  speed: 4.4, flee: 1.9, spook: 12, scale: 1.15, biomes: ['boreal'], predator: true },
-  wolf:     { model: 'wolf',     quarry: 'wolf',     hp: [2, 2], hitR: 0.9,  speed: 6.0, flee: 1.6, spook: 12, scale: 1.0,  biomes: ['boreal'], predator: true },
-  gull:     { model: 'seagull',  flying: true,                   scale: 1.5,  biomes: ['beach', 'ocean'] },
+  deer:     { model: 'deer',     quarry: 'deer',     hp: 3, hitR: 0.95, speed: 1.6, flee: 6.0, spook: 20, scale: 1,    biomes: ['meadow', 'sakura', 'boreal'] },
+  rabbit:   { model: 'bunny',    quarry: 'bunny',    hp: 1, hitR: 0.55, speed: 4.2, flee: 1.8, spook: 12, scale: 1.5,  biomes: ['meadow', 'sakura'], restless: true },
+  squirrel: { model: 'squirrel', quarry: 'squirrel', hp: 1, hitR: 0.5,  speed: 4.6, flee: 1.7, spook: 12, scale: 1.5,  biomes: ['meadow', 'sakura', 'boreal'], restless: true },
+  fox:      { model: 'fox',      quarry: 'fox',      hp: 2, hitR: 0.7,  speed: 4.4, flee: 1.9, spook: 12, scale: 1.15, biomes: ['boreal'], predator: true },
+  wolf:     { model: 'wolf',     quarry: 'wolf',     hp: 4, hitR: 0.9,  speed: 6.0, flee: 1.6, spook: 12, scale: 1.0,  biomes: ['boreal'], predator: true },
+  gull:     { model: 'seagull',  quarry: 'gull',     hp: 1, flying: true, scale: 1.5, biomes: ['beach', 'ocean'] },
 };
+
+/**
+ * How much a species can take. Throws on a species with no answer, so a sixth
+ * animal added to KINDS without an hp cannot ship as an invulnerable one.
+ */
+export function hpFor(kind) {
+  const spec = KINDS[kind];
+  if (!spec) throw new Error(`fauna: no species "${kind}"`);
+  if (!Number.isFinite(spec.hp) || spec.hp < 1) throw new Error(`fauna: species "${kind}" has no hp`);
+  return spec.hp;
+}
+
+/** Every species has hp. Called at module load, like auditSpawnTable. */
+export function auditCombatTable() {
+  for (const kind of Object.keys(KINDS)) hpFor(kind);
+  return true;
+}
 
 // Which chunks hold what. `p` is the chance this chunk rolls the group at all,
 // `n` the size of it. `night` groups exist only while the night flag is set;
@@ -110,6 +135,7 @@ export function auditSpawnTable() {
   return true;
 }
 auditSpawnTable();
+auditCombatTable();
 
 export const siteClear = (st) => (st.flatR != null ? st.flatR : 20) + SITE_PAD;
 
@@ -236,7 +262,7 @@ export function createFauna(scene, field, opts = {}) {
     alive: 0, chunks: 0, spawned: 0, despawned: 0, capped: 0, blockedSteps: 0,
     night: false, byKind: {},
   };
-  let lastScan = -1e9, lastChunk = null, lastNight = false;
+  let lastScan = -1e9, lastChunk = null, lastNight = false, lastNow = 0;
 
   // ---- models: built once, pooled, never rebuilt for the same species ------
   const poolKey = (kind, variant) => kind + ':' + (variant || '');
@@ -298,9 +324,12 @@ export function createFauna(scene, field, opts = {}) {
         ph: rec.r0 * 10,
         bank: 0,
         flapSpeed: 150,
+        // a gull is hittable too, though nothing in a swing's reach can touch
+        // one 16 m up. It is here so an arrow has something to subtract from.
+        hp: hpFor(rec.kind), hpMax: hpFor(rec.kind), dying: null,
       };
     } else {
-      const hp = spec.hp[0] + Math.floor(rec.r2 * (spec.hp[1] - spec.hp[0] + 1));
+      const hp = hpFor(rec.kind);
       const speed = spec.speed * (0.85 + rec.r1 * 0.3);
       // Shaped exactly like farm.js addQuarry's record, so the farm's hunt code
       // can spook, wound and kill one of these without knowing it is wild.
@@ -523,6 +552,18 @@ export function createFauna(scene, field, opts = {}) {
 
   function stepFlying(model, dt, now) {
     const f = model.userData.fly;
+    // shot out of the sky: it drops, it does not circle. The same ending as a
+    // deer, and the same promise: it does not come back while you stand there.
+    if (f.dying) {
+      f.dying.t0 += dt * 1000;
+      const p = model.position;
+      const gy = field.heightAt(p.x, p.z);
+      const t = Math.min(1, f.dying.t0 / FALL_MS);
+      p.y = Math.max(gy, f.dying.y0 - (f.dying.y0 - gy) * t * t);
+      model.rotation.z = Math.min(Math.PI / 2, f.dying.t0 / 400);
+      if (f.dying.t0 > FALL_MS + 700) despawn(model, true);
+      return;
+    }
     f.ang += f.w * dt;
     const x = f.cx + Math.cos(f.ang) * f.r;
     const z = f.cz + Math.sin(f.ang) * f.r;
@@ -538,8 +579,118 @@ export function createFauna(scene, field, opts = {}) {
     if (f.wings.right) f.wings.right.rotation.z = -flap * 0.85;
   }
 
+
+  // ---- taking a hit -------------------------------------------------------
+  //
+  // One rule holds this together: this module stays the only owner of movement.
+  // `damage` never moves an animal and never sets a position. It writes the
+  // same three fields the farm's `_spookDeer` writes (state, heading, speed)
+  // and lets `stepGround` do the running, so a wounded animal obeys the leash,
+  // the water, the site clearings and the cap exactly as a calm one does.
+
+  /** The record a hit subtracts from: roam for anything on legs, fly for a bird. */
+  const combatRec = (model) => (model && model.userData ? (model.userData.roam || model.userData.fly || null) : null);
+
+  /** Is this animal on the field and still on its feet (or on the wing)? */
+  function isLive(model) {
+    if (!model || !model.userData || !model.userData.wild) return false;
+    if (animals.indexOf(model) < 0) return false;
+    const rm = model.userData.roam;
+    if (rm) return rm.state !== 'dead' && rm.state !== 'respawning';
+    const f = model.userData.fly;
+    return !!f && !f.dying;
+  }
+
+  /**
+   * A picked mesh back to the animal it belongs to. Takes the farm's hit column
+   * (whose `userData.deer` points at the model), any mesh inside the model, or
+   * the model itself. Returns null for a mesh that is not an animal at all, and
+   * for one whose animal has already left the field.
+   */
+  function animalAt(mesh) {
+    let o = mesh;
+    for (let guard = 0; o && guard < 24; guard++, o = o.parent) {
+      const target = o.userData && o.userData.deer ? o.userData.deer : o;
+      if (target && target.userData && target.userData.wild && animals.indexOf(target) >= 0) return target;
+    }
+    return null;
+  }
+
+  /**
+   * Every live animal within `radius` of (x, z), nearest first. Horizontal
+   * distance only, so a gull circling 16 m up counts as being under the cursor
+   * when you are stood beneath it: the caller decides whether its weapon can
+   * reach that high (`src/game/combat.js` refuses it for a swing).
+   */
+  function hitTest(x, z, radius) {
+    const r = Number.isFinite(radius) ? radius : 0;
+    if (!(r > 0) || !Number.isFinite(x) || !Number.isFinite(z)) return [];
+    const out = [];
+    for (const m of animals) {
+      if (!isLive(m)) continue;
+      const d = Math.hypot(m.position.x - x, m.position.z - z);
+      if (d <= r) out.push({ m, d });
+    }
+    out.sort((a, b) => a.d - b.d);
+    return out.map((e) => e.m);
+  }
+
+  /**
+   * Hurt one animal. `n` comes off its hp, it bolts away from (fromX, fromZ),
+   * and at zero it dies: the ground animals tip over and sink through the
+   * existing 'dead' state, a bird falls. Either way the body despawns
+   * permanently, so the animal you killed is not standing there again a second
+   * later while you watch.
+   *
+   * @returns null when there was nothing there to hit, otherwise
+   *   { kind, quarry, damage, hp, hpMax, killed, heading }
+   */
+  function damage(animal, n = 1, fromX, fromZ, now) {
+    const model = animalAt(animal);
+    if (!model || !isLive(model)) return null;
+    const rec = combatRec(model);
+    if (!rec) return null;
+    const amount = Math.max(1, Math.round(Number.isFinite(n) ? n : 1));
+    const t = Number.isFinite(now) ? now : lastNow;
+    const w = model.userData.wild;
+    const spec = w.spec;
+    const p = model.position;
+
+    rec.hp = Math.max(0, (Number.isFinite(rec.hp) ? rec.hp : hpFor(w.kind)) - amount);
+    const killed = rec.hp <= 0;
+
+    // away from the blow, not away from the world origin. A blow landed on the
+    // animal's own square (dx and dz both zero) leaves the heading alone rather
+    // than snapping every such animal to due east.
+    const rm = model.userData.roam;
+    let heading = rm ? rm.heading : (model.userData.fly ? model.userData.fly.ang : 0);
+    const dx = p.x - fromX, dz = p.z - fromZ;
+    if (Number.isFinite(dx) && Number.isFinite(dz) && Math.hypot(dx, dz) > 1e-3) heading = Math.atan2(dz, dx);
+
+    if (rm) {
+      if (killed) {
+        rm.state = 'dead'; rm.t0 = 0; rm.speed = 0;
+      } else {
+        rm.state = 'flee';
+        rm.fleeUntil = t + HIT_FLEE_MS;
+        rm.speed = spec.speed * (spec.flee || 1);
+        rm.heading = heading;
+        rm.t0 = 0;
+      }
+    } else {
+      const f = model.userData.fly;
+      if (killed) f.dying = { t0: 0, y0: p.y };
+      else { f.w *= 1.5; f.h += 6; }        // a missed bird climbs and turns harder
+    }
+    return { kind: w.kind, quarry: spec.quarry || w.kind, damage: amount, hp: rec.hp, hpMax: rec.hpMax, killed, heading };
+  }
+
   return {
     group, stats, live, animals,
+
+    hitTest, animalAt, damage, isLive,
+    /** What this species can take, without reaching into KINDS. */
+    hpFor,
 
     /** chunks.js: a chunk was meshed (or re-meshed at another resolution). */
     onChunk(cx, cz) { built.add(cx + ',' + cz); },
@@ -556,6 +707,7 @@ export function createFauna(scene, field, opts = {}) {
      * (centerX, centerZ), `night` true while the predators are out.
      */
     update(dt, nowMs, centerX, centerZ, night = false) {
+      if (Number.isFinite(nowMs)) lastNow = nowMs;
       if (centerX === undefined || centerZ === undefined) return;
       const [pcx, pcz] = field.chunkOf(centerX, centerZ);
       const moved = !lastChunk || lastChunk[0] !== pcx || lastChunk[1] !== pcz;

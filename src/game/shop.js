@@ -1,4 +1,5 @@
-// The market. Three tools to buy, once each, and three materials to sell.
+// The market. Three tools to buy, once each, three materials to sell, and
+// whatever a hunt left in the bag.
 //
 // It only opens where a market exists, which means standing in a town or a
 // hamlet. Refusing to open is itself a state the player has to be told about,
@@ -10,6 +11,7 @@
 // code that runs headless, and the DOM is built only if there is one.
 
 import { GOODS } from '../farm/catalog.js';
+import { CARRIED } from './state.js';
 
 export const MARKET_RANGE = 40;      // metres from the centre of a town or hamlet
 export const SELL_LOTS = [10, 'all'];
@@ -22,6 +24,12 @@ export const FOR_SALE = [
 ];
 
 export const SELLABLE = ['wood', 'stone', 'ore'];
+/**
+ * What a hunt leaves, sold the same way and at the same catalog price. This is
+ * `CARRIED` from state.js rather than a second list: a good the pack cannot
+ * hold has no business having a row here.
+ */
+export const SELLABLE_GOODS = CARRIED;
 
 /** The catalog's price, not a second copy of it. */
 export const sellPrice = (m) => (GOODS[m]?.sell ?? 0);
@@ -57,12 +65,12 @@ const CSS = `
 `;
 
 /**
- * @param {{ state, hud, nearestSettlement?: () => object|null, root?: HTMLElement }} deps
+ * @param {{ state, hud, audio?, nearestSettlement?: () => object|null, root?: HTMLElement }} deps
  *   `nearestSettlement` is asked only when the shop will not open, so it can
  *   say which market it means. Without it, a refusal says so plainly instead of
  *   naming a town it has not been told about.
  */
-export function createShop({ state, hud, nearestSettlement, root } = {}) {
+export function createShop({ state, hud, audio, nearestSettlement, root } = {}) {
   const say = (t, kind) => hud?.toast?.(t, kind);
   const findNearest = () => { try { return nearestSettlement?.() || null; } catch { return null; } };
   const distTo = (s) => Math.hypot(s.x - state.pos.x, s.z - state.pos.z);
@@ -139,34 +147,40 @@ export function createShop({ state, hud, nearestSettlement, root } = {}) {
     }
 
     sellEl.textContent = '';
-    for (const m of SELLABLE) {
-      const have = state.materials[m];
+    // one row builder for both halves of the bag, so a haunch of venison is
+    // sold by exactly the rules a log is
+    const sellRow = (id, have, onSell) => {
       const row = h('div', 'bw-row');
-      const name = h('span', 'bw-name', GOODS[m]?.name || m);
-      name.appendChild(h('small', null, `${sellPrice(m)} coins each`));
+      const name = h('span', 'bw-name', GOODS[id]?.name || id);
+      name.appendChild(h('small', null, `${sellPrice(id)} coins each`));
       row.appendChild(name);
       row.appendChild(h('span', 'bw-have', `${have}`));
       for (const lot of SELL_LOTS) {
         const n = lot === 'all' ? have : Math.min(lot, have);
-        const b = h('button', null, lot === 'all' ? `sell all${have ? ` (${have * sellPrice(m)})` : ''}` : `sell ${lot}`);
+        const b = h('button', null, lot === 'all' ? `sell all${have ? ` (${have * sellPrice(id)})` : ''}` : `sell ${lot}`);
         b.disabled = n <= 0;
-        b.addEventListener('click', () => sell(m, lot));
+        b.addEventListener('click', () => onSell(lot));
         row.appendChild(b);
       }
       sellEl.appendChild(row);
-    }
+    };
+    for (const m of SELLABLE) sellRow(m, state.materials[m], (lot) => sell(m, lot));
+    for (const g of SELLABLE_GOODS) sellRow(g, state.goods?.[g] ?? 0, (lot) => sellGood(g, lot));
   }
 
   function buy(id) {
     const t = FOR_SALE.find((x) => x.id === id);
     if (!t) return false;
-    if (state.tools.has(id)) { say(`you already carry ${t.name === 'Axe' ? 'an axe' : 'a ' + t.name.toLowerCase()}`); return false; }
-    if (!state.dev && state.coins < t.price) { say(`the ${t.name.toLowerCase()} is ${t.price} coins and you have ${state.coins}`); return false; }
+    if (state.tools.has(id)) { say(`you already carry ${t.name === 'Axe' ? 'an axe' : 'a ' + t.name.toLowerCase()}`); audio?.play?.('denied'); return false; }
+    if (!state.dev && state.coins < t.price) { say(`the ${t.name.toLowerCase()} is ${t.price} coins and you have ${state.coins}`); audio?.play?.('denied'); return false; }
     if (!state.dev) state.spend(t.price);
     const first = state.tool === 'hand';
     state.giveTool(id);
     say(state.dev ? `the ${t.name.toLowerCase()} is yours, free, because dev mode is on`
       : `you buy the ${t.name.toLowerCase()} for ${t.price} coins${first ? ', and it goes straight into your hand' : ''}`);
+    // paying and being paid are deliberately different sounds: a market where
+    // they are the same tells the player nothing
+    audio?.play?.('buy');
     state.save();
     render();
     return true;
@@ -178,10 +192,33 @@ export function createShop({ state, hud, nearestSettlement, root } = {}) {
     const want = lot === 'all' ? have : Math.max(0, Math.floor(lot));
     const n = Math.min(want, have);
     const noun = (GOODS[material]?.name || material).toLowerCase();
-    if (n <= 0) { say(`you have no ${noun} to sell`); return false; }
+    if (n <= 0) { say(`you have no ${noun} to sell`); audio?.play?.('denied'); return false; }
     const { taken } = state.take(material, n);
     const paid = state.earn(taken * sellPrice(material));
     say(`you sell ${taken} ${noun} for ${paid} coins${taken < want ? ', which was all you had' : ''}`);
+    audio?.play?.('sell');
+    state.save();
+    render();
+    return true;
+  }
+
+  /**
+   * The hunting bag, sold the same way. Kept as its own function rather than
+   * folded into `sell` because the two read different pockets: `sell` refuses
+   * anything that is not one of the three materials, and that refusal is worth
+   * keeping exactly as strict as it is.
+   */
+  function sellGood(id, lot = 'all') {
+    if (!SELLABLE_GOODS.includes(id)) return false;
+    const have = state.goods?.[id] ?? 0;
+    const want = lot === 'all' ? have : Math.max(0, Math.floor(lot));
+    const n = Math.min(want, have);
+    const noun = (GOODS[id]?.name || id).toLowerCase();
+    if (n <= 0) { say(`you have no ${noun} to sell`); audio?.play?.('denied'); return false; }
+    const { taken } = state.takeGood(id, n);
+    const paid = state.earn(taken * sellPrice(id));
+    say(`you sell ${taken} ${noun} for ${paid} coins${taken < want ? ', which was all you had' : ''}`);
+    audio?.play?.('sell');
     state.save();
     render();
     return true;
@@ -240,7 +277,7 @@ export function createShop({ state, hud, nearestSettlement, root } = {}) {
   state?.onChange?.(() => render());
 
   return {
-    open, close, toggle, buy, sell, render,
+    open, close, toggle, buy, sell, sellGood, render,
     get isOpen() { return open_; },
     get where() { return here; },
     get el() { return el; },

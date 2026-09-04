@@ -6,9 +6,36 @@
 // decision itself is pulled out into `decide`, which is pure and tested both
 // ways for every branch: it is easier to prove that a bow does not fell an oak
 // than to prove that the code which felled it was reachable.
+//
+// A click asks two questions in one order. `combat.js` is asked first, because
+// the animal in front of a tree is what you were aiming at; the tree wins back
+// the moment it is the nearer of the two to the cursor. Both sides share one
+// `lastSwingAt`, because it is one arm.
+//
+// Sound is optional here on purpose. Every cue is `audio?.play?.(...)`, so the
+// module runs headless in its test with no audio passed at all.
 
 import * as THREE from 'three';
 import { chopTree } from '../farm/tree_edit.js';
+import { pickTarget, resolveSwing, swingText, nameFor, LOOT } from './combat.js';
+import { CARRIED } from './state.js';
+
+/**
+ * Every species combat.js can drop loot for names a good the pack can really
+ * hold. Run at module load, the same way combat.js audits its loot against the
+ * catalog: a seventh animal dropping a good `state.addGood` refuses would
+ * otherwise put "2 pelts in the pack" on screen over a pack that gained
+ * nothing, which is the silent-effect bug this file exists to prevent.
+ */
+export function auditLootCarry() {
+  const bad = [];
+  for (const [kind, row] of Object.entries(LOOT)) {
+    if (!CARRIED.includes(row.good)) bad.push(`${kind} drops "${row.good}", which the pack cannot hold`);
+  }
+  if (bad.length) throw new Error(`interact: loot the pack cannot take (${bad.join('; ')})`);
+  return true;
+}
+auditLootCarry();
 
 export const REACH = 6;        // metres, horizontal, player to the point you hit
 export const SITE_REACH = 14;  // you have to stand at a mouth to go down it
@@ -45,6 +72,17 @@ function hitPoint(t) {
   if (t.point && typeof t.point.x === 'number') return t.point;
   const rec = t.field?.trees?.[t.index];
   return rec ? { x: rec.x, z: rec.z } : null;
+}
+
+/**
+ * How far the thing under the cursor stands FROM the cursor. Infinity for a
+ * pick that is not a tree or a rock, which is what lets an animal win by
+ * default when there is nothing else there.
+ */
+export function aimDistTo(pick, aim) {
+  if (!aim || !pick || pick.kind !== 'tree') return Infinity;
+  const p = hitPoint(pick.tree);
+  return p ? Math.hypot(p.x - aim.x, p.z - aim.z) : Infinity;
 }
 
 const exitDir = (e) => (typeof e === 'string' ? e : (e?.dir || e?.exit || null));
@@ -106,9 +144,11 @@ export function decide(pick, tool, playerPos, now, lastSwingAt) {
   return { action: 'none', reason: 'nothing' };
 }
 
-export function createInteract({ sc, runtime, player, state, hud, input }) {
+export function createInteract({ sc, runtime, player, state, hud, input, audio }) {
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
+  const aimPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const aimHit = new THREE.Vector3();
   let lastSwingAt = -Infinity;
   let lastHint = null;
 
@@ -122,6 +162,37 @@ export function createInteract({ sc, runtime, player, state, hud, input }) {
     raycaster.setFromCamera(ndc, sc.camera);
     return runtime.pick(raycaster) || null;
   }
+
+  /**
+   * Where the cursor meets the ground the player is standing on. Only valid
+   * straight after `pickNow()`, which is what aims the raycaster. Null when the
+   * cursor is on the sky, which is a real answer: you cannot swing at the sky.
+   */
+  function aimNow() {
+    aimPlane.constant = -(player?.pos?.y ?? 0);
+    const p = raycaster.ray.intersectPlane(aimPlane, aimHit);
+    return p ? { x: p.x, z: p.z } : null;
+  }
+
+  /**
+   * The animal the cursor means, or null. `pickTarget` only looks: it takes no
+   * hp and starts no flee, so asking is free and both the hover line and the
+   * click can ask the same question and get the same answer.
+   *
+   * `runtime.inDungeon` hands combat.js no fauna at all: the animals are still
+   * standing in memory with the overworld switched off, and their coordinates
+   * are the ones directly over your head, so without this you would club an
+   * invisible deer through the roof of the dungeon.
+   */
+  function beastNow(aim) {
+    return pickTarget({
+      fauna: runtime?.inDungeon ? null : runtime?.fauna,
+      tool: state.tool, playerPos: player?.pos, aimPos: aim,
+    });
+  }
+
+  /** Whichever of the two is nearer the cursor. A tie goes to the animal. */
+  const beastWins = (beast, pick, aim) => !!beast.animal && beast.aimDist <= aimDistTo(pick, aim);
 
   function hoverText(pick) {
     if (!pick) return '';
@@ -155,7 +226,16 @@ export function createInteract({ sc, runtime, player, state, hud, input }) {
   }
 
   function update() {
-    hint(hoverText(pickNow()));
+    const pick = pickNow();
+    const aim = aimNow();
+    // the same precedence as the click, computed the same way, so the hint can
+    // never name one thing while the click hits another
+    const beast = beastNow(aim);
+    if (beastWins(beast, pick, aim)) {
+      hint(`${nameFor(beast.animal.userData?.wild?.kind)}, click to swing`);
+      return;
+    }
+    hint(hoverText(pick));
   }
 
   function creditYield(res, noun) {
@@ -166,6 +246,52 @@ export function createInteract({ sc, runtime, player, state, hud, input }) {
     if (added && dropped) say(`${added} ${good} from the ${noun}, and ${dropped} left behind, your pack is full`);
     else if (added) say(`${added} ${good} from the ${noun}`);
     else say(`your pack is full, the ${n} ${good} stays on the ground`);
+    // a full pack is a refusal, and it should not sound like a reward
+    audio?.play?.(added ? 'pickup' : 'denied', { gain: added ? 0.6 : 1 });
+  }
+
+  /**
+   * What a kill leaves, and where it went. The line and the state change say the
+   * same thing on purpose: `swingText` never promises loot, and this is the only
+   * place that speaks about it, after the pack has really taken it.
+   */
+  function creditLoot(loot, animalName, at) {
+    if (!loot) return `${animalName} leaves nothing worth carrying`;
+    const { added, dropped } = state.addGood?.(loot.good, loot.n) ?? { added: 0, dropped: loot.n };
+    const meat = (k) => `${k} ${loot.name.toLowerCase()}`;
+    audio?.play?.(added ? 'pickup' : 'denied', { at, gain: added ? 0.6 : 1 });
+    if (added && dropped) return `${meat(added)} in the pack, and ${meat(dropped)} left on the ground, your pack is full`;
+    if (added) return `${meat(added)} in the pack`;
+    return `your pack is full, ${meat(loot.n)} stays on the ground`;
+  }
+
+  /**
+   * Swing what is in hand at what is in front of you. One arm: `lastSwingAt` is
+   * shared with chopping, so a swing at a deer and a swing at an oak cannot be
+   * alternated for double the rate. Each side applies its own gate to it.
+   */
+  function swing(aim, now) {
+    const res = resolveSwing({
+      fauna: runtime?.inDungeon ? null : runtime?.fauna,
+      tool: state.tool,
+      playerPos: player?.pos,
+      aimPos: aim,
+      now,
+      lastSwingAt,
+    });
+    if (res.hit) lastSwingAt = now;
+    const line = swingText(res);
+    if (res.hit) {
+      const p = res.animal?.position;
+      const at = p ? { x: p.x, z: p.z } : undefined;
+      // the closest thing in the folder to a blow landing on something alive
+      audio?.play?.('beastHit', { at });
+      if (res.killed) say(`${line}, ${creditLoot(res.loot, `the ${nameFor(res.kind)}`, at)}`);
+      else say(line);
+    } else if (line) say(line);
+    // 'cooldown' says nothing, for the same reason a chop on cooldown says
+    // nothing: the swing 400 ms ago already spoke.
+    return { action: res.hit ? (res.killed ? 'kill' : 'hit') : 'blocked', reason: res.reason, swing: res };
   }
 
   function act(d) {
@@ -174,11 +300,21 @@ export function createInteract({ sc, runtime, player, state, hud, input }) {
       case 'mine': {
         lastSwingAt = (typeof performance !== 'undefined' ? performance.now() : Date.now());
         const noun = nounFor(d.field);
+        // read the record before the swing: where the sound comes from
+        const rec = d.field.trees?.[d.index];
+        const at = rec ? { x: rec.x, z: rec.z } : undefined;
         const res = chopTree(d.field, d.index);
         // chopTree refuses a record that is gone or already down
-        if (!res) { say('a sapling is coming back here'); return d; }
-        if (res.felled) creditYield(res, noun);
-        else say(d.action === 'mine'
+        if (!res) { say('a sapling is coming back here'); audio?.play?.('denied'); return d; }
+        // the tool lands on every swing, including the last one
+        audio?.play?.(d.action === 'mine' ? 'mine' : 'chop', { at });
+        if (res.felled) {
+          if (d.action === 'mine') audio?.play?.(res.ore != null ? 'oreBreak' : 'rockBreak', { at });
+          // the tree takes 1500 ms to go over (DUR in farm/tree_edit.js), so
+          // the thud waits for the ground instead of landing with the swing
+          else audio?.play?.('chopDown', { at, delay: 1300 });
+          creditYield(res, noun);
+        } else say(d.action === 'mine'
           ? `the ${noun} cracks, ${res.remaining} more`
           : `the ${noun} takes the blow, ${res.remaining} more`);
         return d;
@@ -201,12 +337,16 @@ export function createInteract({ sc, runtime, player, state, hud, input }) {
         return d;
       }
       case 'blocked': {
-        if (d.reason === 'no_tool') say(`you need ${d.need === 'axe' ? 'an axe' : 'a pickaxe'}, the market in town sells one`);
-        else if (d.reason === 'wrong_tool') say(`${anA(state.tool)} is no use on ${anA(nounFor(d.field))}, you want the ${d.need}`);
+        if (d.reason === 'no_tool') { say(`you need ${d.need === 'axe' ? 'an axe' : 'a pickaxe'}, the market in town sells one`); audio?.play?.('denied'); }
+        else if (d.reason === 'wrong_tool') { say(`${anA(state.tool)} is no use on ${anA(nounFor(d.field))}, you want the ${d.need}`); audio?.play?.('denied'); }
         else if (d.reason === 'too_far') say(d.site ? `${d.site.name} is ${Math.round(d.dist)} m off, walk to the mouth` : 'too far, get closer');
         else if (d.reason === 'regrowing') say('a sapling is coming back here');
         // 'cooldown' says nothing on purpose: the swing 450 ms ago already
-        // spoke, and a toast per click would bury it.
+        // spoke, and a toast per click would bury it. It gets no cue either:
+        // it is the branch a held mouse button hits at frame rate, which is
+        // roughly fourteen refusals per swing. 'too_far' and 'regrowing' are
+        // silent for the same reason, since pointing at a distant tree and
+        // clicking is something a player does over and over.
         return d;
       }
       default:
@@ -220,7 +360,15 @@ export function createInteract({ sc, runtime, player, state, hud, input }) {
     /** @returns the decision that was taken, so main.js and the tests can see it */
     click() {
       const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-      return act(decide(pickNow(), state.tool, player?.pos, now, lastSwingAt));
+      const pick = pickNow();
+      const aim = aimNow();
+      // Which did you mean? Whichever is nearer the cursor. A deer standing in
+      // front of an oak is what you were aiming at, and an oak nearer the cursor
+      // than a rabbit at your feet is still the oak, which is what keeps
+      // chopping usable in a meadow full of them.
+      const beast = beastNow(aim);
+      if (beastWins(beast, pick, aim)) return swing(aim, now);
+      return act(decide(pick, state.tool, player?.pos, now, lastSwingAt));
     },
     /** E, or the HUD. Same rules as clicking a mouth. */
     enter() {

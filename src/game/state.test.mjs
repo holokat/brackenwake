@@ -3,7 +3,7 @@
 // The cap is the point of this file. A pack that quietly eats what will not fit
 // is the bug this game has shipped before, so every add is checked for BOTH
 // halves of its answer: what went in and what did not.
-import { createState, CAP, SAVE_KEY, SAVE_VERSION, START_COINS } from './state.js';
+import { createState, CAP, SAVE_KEY, SAVE_VERSION, START_COINS, CARRIED, GOOD_CAP } from './state.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -99,22 +99,58 @@ function memStore() {
   s.earn(1); check('unsubscribing works', n === before);
 }
 
+// ---- the hunting bag, from both sides -------------------------------------
+{
+  const s = createState({ storage: null });
+  check('the bag starts empty', CARRIED.every((g) => s.goods[g] === 0), JSON.stringify(s.goods));
+  check(`the bag caps at ${GOOD_CAP} of each`, CARRIED.every((g) => s.goodCaps[g] === GOOD_CAP));
+  const a = s.addGood('venison', 2);
+  check('2 venison go in whole', a.added === 2 && a.dropped === 0, JSON.stringify(a));
+  check('and the bag holds them', s.goods.venison === 2);
+  const b = s.addGood('venison', GOOD_CAP);
+  check(`a bag with 2 in it takes ${GOOD_CAP - 2} more`, b.added === GOOD_CAP - 2, JSON.stringify(b));
+  check('and reports the rest as dropped', b.dropped === 2, JSON.stringify(b));
+  check('a full bag takes nothing and drops all 3', JSON.stringify(s.addGood('venison', 3)) === '{"added":0,"dropped":3}');
+  const c = s.addGood('pelt', 4);
+  check('a good this game does not carry adds nothing', c.added === 0 && c.dropped === 4, JSON.stringify(c));
+  check('and does not invent a pocket for it', !('pelt' in s.goods));
+  check('taking 5 venison takes 5', s.takeGood('venison', 5).taken === 5 && s.goods.venison === GOOD_CAP - 5);
+  check('taking more than you have takes what is there', s.takeGood('venison', 999).taken === GOOD_CAP - 5 && s.goods.venison === 0);
+  check('taking from an empty bag takes nothing', s.takeGood('venison', 1).taken === 0);
+  check('taking a good this game does not carry takes nothing', s.takeGood('pelt', 1).taken === 0);
+}
+{
+  let n = 0;
+  const s = createState({ storage: null });
+  s.onChange(() => n++);
+  s.addGood('game_meat', 1);
+  check('putting meat in the bag redraws the HUD', n === 1, String(n));
+  s.addGood('game_meat', 0);
+  check('adding nothing redraws nothing', n === 1, String(n));
+  s.takeGood('game_meat', 1);
+  check('taking it out redraws again', n === 2, String(n));
+  s.takeGood('game_meat', 1);
+  check('taking from empty redraws nothing', n === 2, String(n));
+}
+
 // ---- save and load --------------------------------------------------------
 {
   const store = memStore();
   const a = createState({ storage: store });
   a.add('wood', 40); a.add('stone', 7); a.add('ore', 2);
+  a.addGood('venison', 3); a.addGood('game_meat', 1);
   a.spend(60); a.giveTool('axe'); a.giveTool('pickaxe'); a.tool = 'pickaxe';
   a.setPos(123.5, -88.25);
   check('save writes', a.save() === true && store.m.has(SAVE_KEY));
   const raw = JSON.parse(store.m.get(SAVE_KEY));
   check('the save is versioned', raw.v === SAVE_VERSION, JSON.stringify(raw.v));
-  check('the save shape is the contract shape', JSON.stringify(Object.keys(raw).sort()) === '["coins","materials","pos","tool","tools","v"]', Object.keys(raw).join(','));
+  check('the save shape is the contract shape', JSON.stringify(Object.keys(raw).sort()) === '["coins","goods","materials","pos","tool","tools","v"]', Object.keys(raw).join(','));
 
   const b = createState({ storage: store });
   check('load finds it', b.load() === true);
   check('coins come back', b.coins === 60, String(b.coins));
   check('materials come back', b.materials.wood === 40 && b.materials.stone === 7 && b.materials.ore === 2);
+  check('the hunting bag comes back', b.goods.venison === 3 && b.goods.game_meat === 1, JSON.stringify(b.goods));
   check('tools come back', b.tools.has('axe') && b.tools.has('pickaxe') && b.tools.size === 2);
   check('the held tool comes back', b.tool === 'pickaxe');
   check('the place you stood comes back', b.pos.x === 123.5 && b.pos.z === -88.25);
@@ -143,6 +179,7 @@ function memStore() {
   check('its tool map is read', s.tools.has('axe') && !s.tools.has('bow') && s.tools.size === 1);
   check('its held tool is kept', s.tool === 'axe');
   check('its position is read from the old top-level keys', s.pos.x === 5 && s.pos.z === 6);
+  check('a save from before the hunting bag leaves it empty', CARRIED.every((g) => s.goods[g] === 0), JSON.stringify(s.goods));
 }
 {
   // a save from a later version: keys we do not know are ignored, not fatal
@@ -157,12 +194,15 @@ function memStore() {
 }
 {
   const store = memStore();
-  store.setItem(SAVE_KEY, JSON.stringify({ v: 1, coins: -5, materials: { wood: 900, stone: -3, ore: 'lots' }, tools: ['axe'], tool: 'pickaxe', pos: { x: 'here', z: 2 } }));
+  store.setItem(SAVE_KEY, JSON.stringify({ v: 1, coins: -5, materials: { wood: 900, stone: -3, ore: 'lots' }, goods: { venison: 900, game_meat: -2, pelt: 5 }, tools: ['axe'], tool: 'pickaxe', pos: { x: 'here', z: 2 } }));
   const s = createState({ storage: store });
   s.load();
   check('a save over the cap is clamped to the cap', s.materials.wood === CAP, String(s.materials.wood));
   check('a negative material is clamped to zero', s.materials.stone === 0);
   check('a material that is not a number is left alone', s.materials.ore === 0);
+  check('a good over its cap is clamped to the cap', s.goods.venison === GOOD_CAP, String(s.goods.venison));
+  check('a negative good is clamped to zero', s.goods.game_meat === 0);
+  check('a good this version does not carry is ignored', !('pelt' in s.goods));
   check('negative coins are clamped to zero', s.coins === 0);
   check('holding a tool you do not own falls back to the hand', s.tool === 'hand');
   check('half a position is no position', s.pos.x === 0 && s.pos.z === 0);
