@@ -112,7 +112,7 @@ export const FOREST_TYPES = {
   boreal: { mix: [['spruce', 0.6], ['pine', 0.25], ['birch', 0.15]], ground: ['#3a3524', '#4d4a30', '#31401f'], grass: ['#556f2e', '#8aa34a'], relief: 5.0, fog: 0.012, sky: ['#9fb6c9', '#e3e9ee'], under: 0.6, density: 'Dense', alias: 'Boreal conifer' },
   // a birch grove with cherry through it: the grove's floor and air, a crown
   // that reads pink from a distance
-  sakura: { mix: [['sakura', 0.5], ['birch', 0.4], ['oak', 0.1]], ground: ['#4a5a2a', '#6b6a3c', '#3d5f2a'], grass: ['#4f8a2c', '#a4cf55'], relief: 2.0, fog: 0.007, sky: ['#9cc3e6', '#e6eef3'], under: 1.2, density: 'Natural' },
+  sakura: { mix: [['sakura', 0.5], ['birch', 0.4], ['oak', 0.1]], wetMix: [['willow', 0.5], ['sakura', 0.3], ['birch', 0.2]], ground: ['#4a5a2a', '#6b6a3c', '#3d5f2a'], grass: ['#4f8a2c', '#a4cf55'], relief: 2.0, fog: 0.007, sky: ['#9cc3e6', '#e6eef3'], under: 1.2, density: 'Natural' },
   // sparse: snags on the sand, palms only where there is water to find
   desert: { mix: [['dead', 0.75], ['palm', 0.25]], wetMix: [['palm', 0.85], ['dead', 0.15]], ground: ['#8a7a52', '#a89468', '#6f6142'], grass: ['#8a8046', '#c4b071'], relief: 3.0, fog: 0.003, sky: ['#87b4e2', '#f0e2c4'], under: 0.15, density: 'Open' },
   // Mediterranean pine, thinning out as the rock takes over. field.js puts the
@@ -331,7 +331,10 @@ function branchOff(axis, angle, az) {
 }
 
 function newCtx(rng, opt) {
-  return { P: [], Nr: [], U: [], I: [], vbase: 0, LP: [], LN: [], LU: [], LC: [], I2: [], axisCount: 0, rng, opt };
+  // `Ord` carries the branch order of every bark TRIANGLE (one entry per three
+  // entries of `I`). Nothing in the growth pipeline reads it; it exists so
+  // barkLod() can drop the twigs at distance without regrowing the tree.
+  return { P: [], Nr: [], U: [], I: [], Ord: [], vbase: 0, LP: [], LN: [], LU: [], LC: [], I2: [], axisCount: 0, rng, opt };
 }
 
 function emitRing(c, center, frameU, frameV, r, vseg, vc) {
@@ -346,8 +349,11 @@ function emitRing(c, center, frameU, frameV, r, vseg, vc) {
   }
   return start;
 }
-function connect(c, a, b, vseg) {
-  for (let i = 0; i < vseg; i++) c.I.push(a + i, b + i, a + i + 1, a + i + 1, b + i, b + i + 1);
+function connect(c, a, b, vseg, order = 0) {
+  for (let i = 0; i < vseg; i++) {
+    c.I.push(a + i, b + i, a + i + 1, a + i + 1, b + i, b + i + 1);
+    c.Ord.push(order, order);
+  }
 }
 function pushLeaf(c, p, q, sz, w, col) {
   const base = c.LP.length / 3;
@@ -427,7 +433,7 @@ function growAxis(c, sp, pos, dir, len, rad, order, scale, gnarl, leafA, leafB) 
     const fv = new V().crossVectors(fu, dd).normalize();
     rs.push(emitRing(c, nodes[s], fu, fv, radii[s], vseg, nodes[s].y * 0.6));
   }
-  for (let s = 0; s < segs; s++) connect(c, rs[s], rs[s + 1], vseg);
+  for (let s = 0; s < segs; s++) connect(c, rs[s], rs[s + 1], vseg, order);
   if (last || rad < 0.02) { leafSpray(c, sp, nodes, dirs, scale, leafA, leafB); return; }
   if (order >= maxO - 1) {
     const cut = Math.floor(segs * 0.5);
@@ -550,6 +556,7 @@ export function buildPrototype(speciesId, seed, opts = {}) {
 
   return {
     bark: bg, leaf: lg, barkMat, leafMat, depthMat,
+    barkOrder: Uint8Array.from(c.Ord),      // branch order per bark triangle
     height: top, grownHeight: h, radius: rad, detail: opt.detail,
     crownRadius: Math.max(xzRadius(c.P), xzRadius(c.LP)),
     hasLeaves: c.LP.length > 0,
@@ -557,6 +564,119 @@ export function buildPrototype(speciesId, seed, opts = {}) {
     triangles: c.I.length / 3 + c.I2.length / 3,
     axes: c.axisCount,
   };
+}
+
+// ------------------------------------------------------------------- LOD ----
+//
+// docs/reference/arbor-forest-optimized.html builds its canopy twice:
+// `leafGeo(1, 1)` for the ring the camera is standing in, and `leafGeo(3, 1.8)`
+// for everything past it, which is one leaf quad in three at 1.8 times the
+// size. The reference had the leaf list to hand and rebuilt from it; a
+// prototype only has the finished geometry, so these two derive the same thing
+// from the vertices instead.
+//
+// Both are cheap and neither regrows the tree.
+
+/**
+ * The three bands flora.js draws a tree in, at its own 55 m and 140 m borders.
+ *
+ * `mid` is the reference's own leaf LOD, unchanged: one quad in three at 1.8
+ * times the size. `far` is a fixed budget instead of a fraction, because a
+ * fraction of a spruce and a fraction of a birch are very different numbers and
+ * the far band is where the tree COUNT lives: 24 quads at 4x is 48 triangles
+ * per tree whatever grew there. `barkDepth` drops branch orders past it, which
+ * is what takes a 4,580 triangle spruce trunk to 692 and then to 60.
+ */
+export const LOD_BANDS = [
+  { name: 'near', leafStride: 1, leafSize: 1.0, barkDepth: 99, shadow: true },
+  { name: 'mid', leafStride: 3, leafSize: 1.8, barkDepth: 1, shadow: false },
+  { name: 'far', leafQuads: 24, leafSize: 4.0, barkDepth: 0, shadow: false },
+];
+
+/** leafLod for one band of LOD_BANDS. Returns null when there is nothing to draw. */
+export function leafForBand(geo, band) {
+  const pos = geo?.attributes?.position;
+  if (!pos || pos.count < 4) return null;
+  if (band.leafQuads) {
+    const quads = Math.floor(pos.count / 4);
+    return leafLod(geo, Math.max(1, Math.floor(quads / band.leafQuads)), band.leafSize, band.leafQuads);
+  }
+  return leafLod(geo, band.leafStride, band.leafSize);
+}
+
+/**
+ * The reference's leaf LOD, read back off a built leaf geometry.
+ *
+ * A leaf is four consecutive vertices; `pushLeaf` writes its corners as
+ * [-hw, 0, 0], [hw, 0, 0], [hw, sz, 0], [-hw, sz, 0] rotated and translated, so
+ * the midpoint of the first two IS the point the leaf was hung on. Scaling the
+ * quad about that midpoint therefore grows the leaf without moving it off its
+ * twig, which is what makes a third of the quads at 1.8x still read as a
+ * canopy rather than as a canopy with holes in it.
+ *
+ * Returns null when the source geometry is empty (a `dead` tree, or foliage 0).
+ */
+export function leafLod(geo, stride = 3, mul = 1.8, cap = 0) {
+  const pos = geo.attributes.position;
+  if (!pos || pos.count < 4) return null;
+  if (stride <= 1 && mul === 1 && !cap) return geo;
+  const nrm = geo.attributes.normal, uv = geo.attributes.uv, col = geo.attributes.color;
+  const quads = Math.floor(pos.count / 4);
+  const P = [], N = [], U = [], C = [], I = [];
+  let base = 0;
+  let taken = 0;
+  for (let q = 0; q < quads; q += stride) {
+    if (cap && taken >= cap) break;
+    taken++;
+    const v0 = q * 4;
+    const ax = (pos.getX(v0) + pos.getX(v0 + 1)) * 0.5;
+    const ay = (pos.getY(v0) + pos.getY(v0 + 1)) * 0.5;
+    const az = (pos.getZ(v0) + pos.getZ(v0 + 1)) * 0.5;
+    for (let k = 0; k < 4; k++) {
+      const i = v0 + k;
+      P.push(ax + (pos.getX(i) - ax) * mul, ay + (pos.getY(i) - ay) * mul, az + (pos.getZ(i) - az) * mul);
+      if (nrm) N.push(nrm.getX(i), nrm.getY(i), nrm.getZ(i));
+      if (uv) U.push(uv.getX(i), uv.getY(i));
+      if (col) C.push(col.getX(i), col.getY(i), col.getZ(i));
+    }
+    I.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    base += 4;
+  }
+  if (!I.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  if (nrm) g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+  if (uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+  if (col) g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  g.setIndex(I);
+  g.computeBoundingSphere();
+  return g;
+}
+
+/**
+ * The bark with everything past branch order `maxOrder` dropped. This is an
+ * INDEX ONLY geometry: it shares the prototype's position, normal and uv
+ * attributes, so the twigs cost nothing extra in vertex memory and nothing
+ * extra to upload. That also means it must never be disposed on its own; the
+ * prototype owns the buffers.
+ */
+export function barkLod(proto, maxOrder) {
+  const src = proto.bark;
+  const ord = proto.barkOrder;
+  if (!ord || maxOrder >= 99) return src;
+  const si = src.index.array;
+  const I = [];
+  for (let t = 0; t < ord.length; t++) {
+    if (ord[t] > maxOrder) continue;
+    I.push(si[t * 3], si[t * 3 + 1], si[t * 3 + 2]);
+  }
+  if (!I.length) return src;
+  const g = new THREE.BufferGeometry();
+  for (const [k, a] of Object.entries(src.attributes)) g.setAttribute(k, a);
+  g.setIndex(I);
+  g.boundingSphere = src.boundingSphere;      // the same vertices, a subset drawn
+  g.userData.sharesAttributesWith = src;
+  return g;
 }
 
 // ------------------------------------------------------------ prototypes ----
@@ -687,7 +807,10 @@ export function placeTrees(typeId, cx, cz, size, seed, opts = {}) {
         if (thinRoll > 1 - t * t * (3 - 2 * t)) continue;     // smoothstep, keep-probability
       }
       if (keep && !keep(px, pz)) continue;
-      out.push({ x: px, z: pz, scale: sc, yScale: sy, yaw: rot, protoIndex: Math.floor(pick * protoCount) });
+      // `pick` is the raw roll, kept because a caller that keeps one field per
+      // SPECIES (flora.js does, so the axe and interact.js's nouns still work)
+      // has to draw the species from it, not just a prototype slot.
+      out.push({ x: px, z: pz, scale: sc, yScale: sy, yaw: rot, pick, protoIndex: Math.floor(pick * protoCount) });
     }
   }
   return out;

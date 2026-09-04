@@ -24,6 +24,35 @@
 // Origin and orientation: the base of the trunk sits at (0, 0, 0) and the tree
 // grows up +y, so an instance matrix only has to place the ground point. That
 // is the contract flora.js relies on.
+//
+// WHAT IS STILL LIVE (V7, the Arbor merge)
+//
+// The world's forest is now grown by arbor.js. What flora.js still calls into
+// this module for, every frame or every field:
+//
+//   growBoulder, rockTextures, rockMaterial, icosphere   every boulder and ore
+//                                                        seam in the world
+//   stumpGeometry, stumpMaterial                         every cut stump
+//   windUniforms, tickWind, setWindStrength              the grass clock, which
+//                                                        grass.js reads
+//   LODS, LOD_RANGE, LOD_SHARE, lodForDistance,          flora's 55 m and 140 m
+//     geometryVariant                                    bands, shared by both
+//                                                        generators
+//   growTreeVariant, buildTreeVariants, growTree,        CACTUS ONLY. Arbor has
+//     growTreeLods, materialsFor, barkTextures,          no cactus recipe, so
+//     leafTexture, SPECIES                               the desert keeps this
+//                                                        one growing here.
+//
+// DORMANT, not deleted: the recipes for oak, birch, pine, fir, willow, palm,
+// sakura and dead in SPECIES, and everything they alone pull in (their bark and
+// leaf palettes, their apex and spread ranges). Arbor grows all eight now.
+// They are kept rather than cut for three reasons: tree_gen.test.mjs measures
+// every one of them and is the regression baseline for the growth model itself;
+// the farm's own themes may still want a hand placed tree that is not a forest
+// tree; and nothing builds them unless something asks for them by name, so a
+// dormant species costs one table entry and no memory, no geometry and no
+// texture. If they are ever cut, cut their rows out of tree_gen.test.mjs in the
+// same commit.
 
 import * as THREE from 'three';
 import { mulberry32, rand2, clamp01, lerp, smoothstep } from './noise.js';
@@ -983,6 +1012,20 @@ export function growTreeLods(species, seed, opts = {}) {
 const variantCache = new Map();
 
 /**
+ * ONE baked variant of a species, the i-th of a stand grown from `seed`.
+ * Pulled out of buildTreeVariants so flora.js can grow a stand one tree at a
+ * time, off the streaming path, rather than paying for five on one frame.
+ * The seed and the two option draws are exactly what buildTreeVariants used,
+ * so the i-th tree is the same tree either way.
+ */
+export function growTreeVariant(species, seed, i) {
+  return growTreeLods(species, (seed * 2654435761 + i * 40503) >>> 0, {
+    scale: 0.86 + rand2(i, seed, 5501) * 0.30,
+    autumn: rand2(i, seed, 5502),
+  });
+}
+
+/**
  * Bake `count` grown trees of one species. The result is the thing flora.js
  * instances: one geometry pair per variant, kept for the life of the process.
  */
@@ -990,13 +1033,7 @@ export function buildTreeVariants(species, seed, count = 6) {
   const key = `${species}:${seed}:${count}`;
   if (variantCache.has(key)) return variantCache.get(key);
   const out = [];
-  for (let i = 0; i < count; i++) {
-    const s = (seed * 2654435761 + i * 40503) >>> 0;
-    out.push(growTreeLods(species, s, {
-      scale: 0.86 + rand2(i, seed, 5501) * 0.30,
-      autumn: rand2(i, seed, 5502),
-    }));
-  }
+  for (let i = 0; i < count; i++) out.push(growTreeVariant(species, seed, i));
   variantCache.set(key, out);
   return out;
 }

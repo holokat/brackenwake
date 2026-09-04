@@ -509,5 +509,107 @@ console.log('\narbor: what a chunk of forest costs');
   check('a Natural chunk at detail 0.5 stays under 250,000 triangles', natTris < 250000, `${Math.round(natTris).toLocaleString()}`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\narbor: the LOD bands flora.js draws');
+{
+  check('three bands, near mid far', A.LOD_BANDS.length === 3 && A.LOD_BANDS[0].name === 'near');
+  check('only the near band casts a shadow',
+    A.LOD_BANDS[0].shadow === true && A.LOD_BANDS.slice(1).every((b) => !b.shadow));
+  check('the mid band is the optimised reference\'s own numbers: stride 3 at 1.8x',
+    A.LOD_BANDS[1].leafStride === 3 && A.LOD_BANDS[1].leafSize === 1.8);
+
+  const rows = [];
+  for (const id of ['oak', 'spruce', 'birch', 'palm', 'willow', 'dead']) {
+    const p = A.buildPrototype(id, 4242, { detail: 0.6 });
+    const per = A.LOD_BANDS.map((B) => {
+      const bark = A.barkLod(p, B.barkDepth);
+      const leaf = p.hasLeaves ? A.leafForBand(p.leaf, B) : null;
+      return { bark: bark.index.count / 3, leaf: leaf ? leaf.index.count / 3 : 0, geoBark: bark, geoLeaf: leaf };
+    });
+    rows.push({ id, p, per });
+    console.log(`       ${id.padEnd(7)} ${per.map((b) => `${num(b.bark, 6)}+${num(b.leaf, 5)}`).join('   ')}`);
+  }
+  check('every band is strictly cheaper than the one inside it, for every species',
+    rows.every((r) => r.per[0].bark + r.per[0].leaf > r.per[1].bark + r.per[1].leaf
+      && r.per[1].bark + r.per[1].leaf > r.per[2].bark + r.per[2].leaf),
+    rows.map((r) => `${r.id} ${r.per.map((b) => b.bark + b.leaf).join('/')}`).join('  '));
+  check('a bare tree stays bare at every band', rows.find((r) => r.id === 'dead').per.every((b) => b.leaf === 0));
+  check('and dead has no leaf geometry to build one from',
+    A.leafForBand(A.buildPrototype('dead', 1).leaf, A.LOD_BANDS[1]) === null);
+
+  // leafLod: the count, the size and the anchor, all measured off the vertices
+  const oak = rows.find((r) => r.id === 'oak').p;
+  const quads = (g) => (g ? g.attributes.position.count / 4 : 0);
+  const full = oak.leaf, mid = A.leafLod(full, 3, 1.8);
+  check('one leaf quad in three survives the mid band',
+    quads(mid) === Math.ceil(quads(full) / 3), `${quads(mid)} of ${quads(full)}`);
+  const edge = (g, q) => {
+    const p = g.attributes.position, i = q * 4;
+    return Math.hypot(p.getX(i + 2) - p.getX(i), p.getY(i + 2) - p.getY(i), p.getZ(i + 2) - p.getZ(i));
+  };
+  check('and it is 1.8 times the size, to the fourth decimal',
+    Math.abs(edge(mid, 0) / edge(full, 0) - 1.8) < 1e-4, `${(edge(mid, 0) / edge(full, 0)).toFixed(5)}x`);
+  const anchor = (g, q) => {
+    const p = g.attributes.position, i = q * 4;
+    return [(p.getX(i) + p.getX(i + 1)) / 2, (p.getY(i) + p.getY(i + 1)) / 2, (p.getZ(i) + p.getZ(i + 1)) / 2];
+  };
+  let worstMove = 0;
+  for (let q = 0; q < quads(mid); q++) {
+    const a = anchor(full, q * 3), b = anchor(mid, q);
+    worstMove = Math.max(worstMove, Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]));
+  }
+  check('every enlarged leaf is still hung on the twig it grew on', worstMove < 1e-4,
+    `worst ${worstMove.toExponential(1)} m over ${quads(mid)} leaves`);
+  check('a capped band takes exactly that many quads, whatever the species',
+    ['oak', 'spruce', 'birch', 'willow'].every((id) => {
+      const pr = A.buildPrototype(id, 7, { detail: 0.6 });
+      return quads(A.leafForBand(pr.leaf, A.LOD_BANDS[2])) === A.LOD_BANDS[2].leafQuads;
+    }), `${A.LOD_BANDS[2].leafQuads} quads at ${A.LOD_BANDS[2].leafSize}x`);
+  check('no NaN anywhere in a band geometry',
+    rows.every((r) => r.per.every((b) => !anyNaN(b.geoBark) && (!b.geoLeaf || !anyNaN(b.geoLeaf)))));
+
+  // barkLod: an index only view, so the twigs cost nothing in vertex memory
+  const b99 = A.barkLod(oak, 99), b1 = A.barkLod(oak, 1), b0 = A.barkLod(oak, 0);
+  check('barkLod 99 is the prototype geometry itself, untouched', b99 === oak.bark);
+  check('the bole survives at every depth', b0.index.count >= 60, `${b0.index.count / 3} triangles`);
+  check('a shallower bark is a strict subset of the deeper one',
+    b0.index.count < b1.index.count && b1.index.count < b99.index.count,
+    `${b0.index.count / 3} / ${b1.index.count / 3} / ${b99.index.count / 3} triangles`);
+  check('and shares its vertices, so it costs one index buffer and no upload',
+    b0.attributes.position === oak.bark.attributes.position
+    && b1.attributes.normal === oak.bark.attributes.normal);
+  // the order tag has to be real: order 0 is one axis, so its rings must all
+  // be near the trunk in xz, and the full bark must reach the crown
+  const xz = (g) => {
+    const idx = g.index.array, p = g.attributes.position;
+    let m = 0;
+    for (let i = 0; i < idx.length; i++) m = Math.max(m, Math.hypot(p.getX(idx[i]), p.getZ(idx[i])));
+    return m;
+  };
+  check('the far bark is the bole and the full bark is the whole crown',
+    xz(b0) < xz(b99) * 0.35, `${xz(b0).toFixed(2)} m against ${xz(b99).toFixed(2)} m of reach`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\narbor: placeTrees hands back the roll it drew');
+{
+  const spots = A.placeTrees('meadow', 3, 5, 64, 42017);
+  check('every spot carries the raw pick as well as the prototype slot',
+    spots.length > 0 && spots.every((s) => s.pick >= 0 && s.pick < 1
+      && s.protoIndex === Math.floor(s.pick * 8)), `${spots.length} spots`);
+  // that roll is what flora.js draws the SPECIES from, so it has to spread
+  const buckets = [0, 0, 0, 0];
+  for (let cz = 0; cz < 10; cz++) for (let cx = 0; cx < 10; cx++) {
+    for (const s of A.placeTrees('boreal', cx, cz, 64, 42017)) buckets[Math.floor(s.pick * 4)]++;
+  }
+  const lo = Math.min(...buckets), hi = Math.max(...buckets);
+  check('and it is flat enough to draw a mix from', lo > 0 && hi / lo < 1.15,
+    buckets.join('/'));
+  check('sakura has a wet mix, so a bank in a cherry wood grows willow',
+    A.FOREST_TYPES.sakura.wetMix.some((m) => m[0] === 'willow'));
+  check('and every wet mix names species that exist',
+    A.FOREST_TYPE_IDS.every((id) => (A.FOREST_TYPES[id].wetMix || []).every((m) => A.SPECIES[m[0]])));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

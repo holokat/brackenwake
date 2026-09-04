@@ -28,14 +28,47 @@ export function setCanvasFactory(fn) {
   clearTextureCache();
 }
 
+// Every 2D context method this module calls. A headless harness that shims
+// `document` with a partial canvas (world_runtime.test.mjs does) used to get
+// through canvasOf and then die inside normalFromHeight on a missing
+// createImageData, which reads as "the forest is broken" rather than as "this
+// host cannot draw". So the host canvas is PROBED once against the real list
+// and, if it comes up short, the stub takes over for the whole process.
+const CTX_NEEDS = [
+  'fillRect', 'clearRect', 'beginPath', 'moveTo', 'lineTo', 'bezierCurveTo',
+  'quadraticCurveTo', 'fill', 'stroke', 'getImageData', 'createImageData',
+  'putImageData', 'createLinearGradient',
+];
+
+let hostCanvasOk = null;      // null until probed, then true or false
+
+/** Does this host's 2D canvas do everything the textures need? Probed once. */
+export function probeHostCanvas() {
+  if (hostCanvasOk !== null) return hostCanvasOk;
+  hostCanvasOk = false;
+  try {
+    if (typeof document !== 'undefined' && document.createElement) {
+      const c = document.createElement('canvas');
+      c.width = 2; c.height = 2;
+      const x = c.getContext && c.getContext('2d');
+      if (x) hostCanvasOk = CTX_NEEDS.every((k) => typeof x[k] === 'function');
+    }
+  } catch { hostCanvasOk = false; }
+  if (!hostCanvasOk && typeof console !== 'undefined') {
+    console.warn('[arbor] no usable 2D canvas here; bark and leaf sheets will be blank. '
+      + 'Geometry, materials and placement are unaffected.');
+  }
+  return hostCanvasOk;
+}
+
 function canvasOf(w, h) {
   if (canvasFactory) return canvasFactory(w, h);
-  if (typeof document !== 'undefined' && document.createElement) {
+  if (probeHostCanvas()) {
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     return c;
   }
-  throw new Error('arbor_textures: no canvas available. Call setCanvasFactory() first.');
+  return stubCanvasFactory(w, h);
 }
 
 /**

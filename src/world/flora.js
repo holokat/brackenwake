@@ -1,46 +1,58 @@
 // What grows on the ground: trees, boulders, turf and ground cover.
 //
-// The farm's TreeField (src/farm/tree_edit.js) is still the mechanism: plain
-// records in, one InstancedMesh per layer out, a raycast back-index so the axe
-// and the pickaxe work on it, chop, mine and regrow already written. What
-// changed is what a layer draws. A layer used to be a cone or a sphere; now it
-// is one baked variant of a grown tree from tree_gen.js, so a species field
-// holds `variants * 2` layers (bark, leaves) and every record picks the variant
-// it was always going to pick from a hash of where it stands.
+// The forest is now Arbor's (src/world/arbor.js, the Arbor Forest Studio
+// generator). The infrastructure is still flora's and V2's: the farm's
+// TreeField (src/farm/tree_edit.js) keeps the authoritative list of trees as
+// plain records and rebuilds one InstancedMesh per layer from it, with a
+// raycast back-index so the axe and the pickaxe work, chop, mine, stumps and
+// regrowth already written. What changed is what a layer draws and where the
+// trees stand:
+//
+//   * a layer draws one Arbor PROTOTYPE at one detail band. Five prototypes are
+//     grown per species from seeds derived from the world seed, one per settled
+//     frame so no chunk load ever pays for a tree that has to be grown.
+//   * the mix comes from arbor.FOREST_TYPES: the biome names a forest type, the
+//     forest type names the species and their weights, and its default density
+//     (Open / Natural / Dense) sets the spacing.
+//   * the positions come from arbor.placeTrees: its jittered grid, its four
+//     rolls per cell, its fbm thinning. flora's own exclusions (water, rivers,
+//     roads, site clearings, the home clearing, the per species tree line) go
+//     on top through placeTrees' `keep` hook, which is drawn from no rng, so a
+//     rejected tree never shifts the ones around it.
 //
 // The record contract is unchanged. `of(t)` still reads x, z, gy, s, ry and
-// still returns { x, y, z, s, ry }, so chopTree's topple, shudder's pivot,
-// treeCopy, the raycast back-index, stumps and regrowth all work untouched. The
-// one addition is `t.vi`, the variant index, which `of` fills in from the
-// record's own position if it is missing. A record dumped by the tree editor
-// and reloaded therefore comes back as the same tree.
-//
-// What grows where is decided per 8 m cell from the world field (biome, height,
-// slope, water, rivers, roads) and a hash of the cell, so every player sees the
-// same forest and a chunk that unloads comes back identical. Sites keep a
-// clearing. Willows and palms want water and will not grow away from it.
+// returns { x, y, z, s, sy, ry }, so chopTree's topple, shudder's pivot,
+// treeCopy, the raycast back-index, stumps and regrowth all work untouched.
+// `t.vi`, the variant index, is still filled in from the record's own position
+// when it is missing, so a record dumped by the tree editor and reloaded comes
+// back as the same tree. `variants[i].baseR` still means the trunk radius at
+// the base, which is what the stumps and `treesFor` read.
 //
 //   const flora = createFlora(scene, field, { sitesNear, homeClear });
 //   chunks.js calls flora.onChunk(cx, cz, verts) and flora.offChunk(cx, cz)
 //   main.js calls flora.update(nowMs, x, z) each frame: it ticks the wind
-//   clock, feeds the grass tiler and rebuilds any dirty species field.
+//   clock, feeds the grass tiler, grows one prototype when the world is quiet
+//   and rebuilds any dirty species field.
+//   foraging calls flora.treesFor(cx, cz) for the trunks in one chunk.
 
 import * as THREE from 'three';
 import { createTreeField } from '../farm/tree_edit.js';
 import { CHUNK, BIOMES } from './field.js';
 import { hash2, rand2 } from './noise.js';
 import {
-  SPECIES, buildTreeVariants, materialsFor, growBoulder, rockMaterial, tickWind,
-  stumpGeometry, stumpMaterial, LODS, lodForDistance, geometryVariant,
+  SPECIES as GEN_SPECIES, growTreeVariant, materialsFor, growBoulder, rockMaterial,
+  tickWind, setWindStrength, stumpGeometry, stumpMaterial, LODS, LOD_RANGE,
+  lodForDistance, geometryVariant,
 } from './tree_gen.js';
+import * as arbor from './arbor.js';
 import { createGrass } from './grass.js';
 
-export const CELL = 8;                       // one candidate per 8 m cell
+export const CELL = 8;                       // one boulder candidate per 8 m cell
 export const TREE_TIER = 17;                 // chunks at this many verts or more get trees
 export const REBUILD_MS = 200;               // at most one field rebuild per kind per this
-export const VARIANTS = 6;                   // grown trees baked per species
+export const VARIANTS = 5;                   // Arbor prototypes grown per species
 export const ROCK_VARIANTS = 5;
-export const REBAND_M = 24;                  // the player moves this far and the tiers are re-read
+export const REBAND_M = 24;                  // the player moves this far and the bands are re-read
 const HOME_CLEAR = 125;                      // the farm keeps its own surroundings
 const SITE_CLEAR = 34;                       // clearing when a site has no flatR of its own
 const clearingOf = (st) => (st.flatR != null ? st.flatR + 6 : SITE_CLEAR);
@@ -48,29 +60,108 @@ export const ORE_RING = [9, 22];             // ore rocks stand this far from a 
 export const ORE_COUNT = 8;
 export const STUMP_CAP = 512;                // felled trees on screen at once
 export const STUMP_MS = 400;                 // how often the felled list is re-read
+export const BIOME_PROBE = 9;                // samples a side when asking which biomes a chunk holds
+
+// ---------------------------------------------------------------------------
+// Species: which Arbor recipe each kind of tree in this world is grown from.
+//
+// The KIND is the game's name for the tree and is what everything downstream
+// keys on: the TreeField is `world:<kind>`, and interact.js's NOUNS reads the
+// last segment of that name to decide what to call the thing under the cursor.
+// So every kind that existed before still exists, and `spruce`, which NOUNS
+// knew about and nothing produced, is now a real tree again.
+//
+//   kind      Arbor species        was
+//   oak       oak                  oak
+//   beech     beech                new: the third of Arbor's temperate mix
+//   birch     birch                birch
+//   pine      pine                 pine
+//   fir       spruce               fir      (the conifers share the one recipe)
+//   spruce    spruce               a dead entry in interact.js NOUNS
+//   willow    willow               willow
+//   palm      palm                 palm
+//   sakura    sakura               sakura
+//   dead      dead                 dead
+//   cactus    (tree_gen's)         cactus   Arbor has no cactus; tree_gen keeps it
+// ---------------------------------------------------------------------------
+
+export const ARBOR_SPECIES = {
+  oak: 'oak', beech: 'beech', birch: 'birch', pine: 'pine',
+  spruce: 'spruce', fir: 'spruce',
+  willow: 'willow', palm: 'palm', sakura: 'sakura', dead: 'dead',
+};
+
+/** Kinds still grown by tree_gen.js rather than by Arbor. */
+export const GEN_KINDS = ['cactus'];
 
 /**
- * Growing six variants of a species and rasterising its bark and leaf maps
- * costs 100 to 185 ms, measured in node. Paid on the frame a player first walks
- * into a boreal forest, that is a visible stall. So once the world around the
- * player has settled (nothing dirty, no grass tiles waiting) update() builds
- * one species that is not built yet, in this order, until they all are. The
- * work is identical either way; only when it lands changes.
+ * A mix entry naming an Arbor species becomes one or more kinds. Only `spruce`
+ * splits: the game has always called its conifer a fir, and NOUNS knows both
+ * words, so the one recipe is grown twice under two names at different seeds.
+ * A boreal forest then has two conifer silhouettes in it instead of one.
  */
-export const WARM_ORDER = ['oak', 'rock', 'birch', 'fir', 'pine', 'sakura', 'willow', 'palm', 'dead', 'cactus', 'ore'];
+export const SPLIT = { spruce: [['fir', 0.5], ['spruce', 0.5]] };
 
-// Chance per candidate cell that a kind grows there, by biome. 64 cells per
-// chunk, so 0.15 is about ten of a kind per chunk. One roll picks at most one
-// kind, so the entries in a row are drawn from in order and must sum under 1.
-export const DENSITY = {
-  meadow:   { oak: 0.13, birch: 0.06, rock: 0.03 },
-  boreal:   { pine: 0.26, fir: 0.28, rock: 0.06 },
-  desert:   { palm: 0.05, cactus: 0.09, dead: 0.05, rock: 0.09 },
-  beach:    { palm: 0.12, rock: 0.03 },
-  sakura:   { sakura: 0.24, willow: 0.09, oak: 0.04, rock: 0.05 },
-  mountain: { fir: 0.07, dead: 0.03, rock: 0.24 },
-  snow:     { fir: 0.09, rock: 0.08 },
-  ocean:    {},
+/**
+ * Kinds spliced into a biome's mix that Arbor does not grow. The weight is
+ * taken off the top and the Arbor weights are scaled down to make room, so the
+ * mix still sums to 1.
+ */
+export const EXTRA = { desert: [['cactus', 0.34]] };
+
+/**
+ * `detail` per kind, the one lever arbor.js adds over the reference: it scales
+ * the ring segment count and the leaves per node, and 1.0 IS the reference.
+ * These are not taste, they are the budget: the near band of a chunk has to
+ * stay under 250,000 triangles at Natural and under 500,000 at Dense, and
+ * flora.test.mjs measures it per biome and fails if it drifts. birch is 0.5
+ * rather than 0.7 because it is in both the meadow mix and the boreal one and
+ * takes the lower of the two. Oak is the most expensive tree Arbor grows
+ * (22,620 triangles at detail 1, against beech's 8,432) and it is 45% of the
+ * meadow, so it is the one that sets the meadow's number: 0.7 puts a meadow
+ * chunk at 264,000 and 0.6 puts it at 211,000.
+ */
+export const DETAIL = {
+  oak: 0.6, beech: 0.7, birch: 0.5, pine: 0.5, spruce: 0.5, fir: 0.5,
+  willow: 0.4, sakura: 0.5, palm: 1.0, dead: 0.7,
+};
+
+/**
+ * The tree line and the slope limit, per kind, in metres and metres per 2 m.
+ * The rule is per species and not one global TREE_LINE: an oak stops at 66 m, a
+ * fir climbs to 95, dead wood stands to 110. The numbers for the kinds that
+ * existed before are tree_gen's own, unchanged.
+ */
+export const LIMITS = {
+  oak: { maxH: 66, maxSlope: 0.9 }, beech: { maxH: 66, maxSlope: 0.9 },
+  birch: { maxH: 66, maxSlope: 0.9 }, pine: { maxH: 95, maxSlope: 1.35 },
+  fir: { maxH: 95, maxSlope: 1.35 }, spruce: { maxH: 95, maxSlope: 1.35 },
+  willow: { maxH: 40, maxSlope: 0.8 }, palm: { maxH: 24, maxSlope: 0.7 },
+  sakura: { maxH: 50, maxSlope: 0.9 }, dead: { maxH: 110, maxSlope: 1.6 },
+  cactus: { maxH: 40, maxSlope: 0.9 },
+};
+
+/**
+ * Growing one prototype costs 2 to 9 ms, and rasterising a species' bark and
+ * leaf sheets costs more again the first time. Paid on the frame a player first
+ * walks into a boreal forest, five of those in a row is a visible stall. So a
+ * field is created with ONE prototype and update() grows one more whenever the
+ * world around the player has settled, in this order, until every kind has all
+ * five.
+ */
+export const WARM_ORDER = [
+  'oak', 'rock', 'birch', 'beech', 'fir', 'spruce', 'pine',
+  'sakura', 'willow', 'palm', 'dead', 'cactus', 'ore',
+];
+
+/**
+ * Chance per 8 m cell that a boulder stands there, by biome. Arbor grows no
+ * rocks, so boulders keep flora's own per cell roll and their old numbers: a
+ * biome with nothing to mine hands the player a pickaxe that does nothing.
+ */
+export const ROCK_DENSITY = {
+  meadow: 0.03, boreal: 0.06, desert: 0.09, beach: 0.03,
+  sakura: 0.05, mountain: 0.24, snow: 0.08, ocean: 0,
 };
 
 /** Species that will only grow with their feet near water. */
@@ -79,37 +170,92 @@ const WET_H = 3.2;                   // this close to sea level counts as wet gr
 const WET_RIVER = 0.05;
 const MAX_SLOPE_ROCK = 2.0;          // boulders sit on slopes; that is where they came from
 
-/** How big a record of this kind is, before the tree's own baked variation. */
-const SIZE = {
-  rock:   [1.00, 1.10], ore: [1.00, 0.70],
-  oak:    [0.86, 0.30], birch: [0.86, 0.30], pine: [0.88, 0.26], fir: [0.88, 0.26],
-  willow: [0.86, 0.30], palm:  [0.86, 0.34], sakura: [0.86, 0.32],
-  dead:   [0.80, 0.40], cactus: [0.90, 0.50],
-};
+/** How big a boulder of this kind is. Trees take their scale from placeTrees. */
+const SIZE = { rock: [1.00, 1.10], ore: [1.00, 0.70] };
+
+// ---------------------------------------------------------------------------
+// The mix
+// ---------------------------------------------------------------------------
+
+const mixCache = new Map();
+
+/**
+ * The kinds a biome grows and their weights, summing to 1. Derived from
+ * arbor.FOREST_TYPES: the biome id IS a forest type id, its `mix` is the dry
+ * mix and its `wetMix`, where it has one, is what grows with water near.
+ * Willows are in the sakura type's wetMix and palms in the desert's, so a
+ * riverbank grows something different from the ground fifty metres away.
+ */
+export function mixFor(biome, wet = false) {
+  const key = biome + (wet ? ':wet' : '');
+  const hit = mixCache.get(key);
+  if (hit) return hit;
+  const type = arbor.FOREST_TYPES[biome];
+  const base = (wet && type?.wetMix) ? type.wetMix : (type?.mix || []);
+  const extra = base.length ? (EXTRA[biome] || []) : [];
+  const eSum = extra.reduce((a, e) => a + e[1], 0);
+  const acc = new Map();
+  const add = (k, w) => acc.set(k, (acc.get(k) || 0) + w);
+  for (const [sp, w] of base) {
+    for (const [k, f] of (SPLIT[sp] || [[sp, 1]])) add(k, w * f * (1 - eSum));
+  }
+  for (const [k, w] of extra) add(k, w);
+  const out = [...acc.entries()];
+  mixCache.set(key, out);
+  return out;
+}
+
+/** Draw a kind out of a weighted mix with one roll in [0, 1). */
+export function pickFrom(mix, u) {
+  let t = u;
+  for (const [k, w] of mix) { t -= w; if (t <= 0) return k; }
+  return mix.length ? mix[mix.length - 1][0] : null;
+}
+
+/** Every kind any biome can produce, plus boulders and the cave-mouth ore. */
+export const ALL_KINDS = (() => {
+  const s = new Set(['rock', 'ore']);
+  for (const b of BIOMES) for (const wet of [false, true]) for (const [k] of mixFor(b, wet)) s.add(k);
+  return [...s];
+})();
+
+/** Is this kind grown by Arbor, or by tree_gen? */
+export const isArborKind = (k) => !!ARBOR_SPECIES[k];
+export const isGenKind = (k) => GEN_KINDS.includes(k);
 
 /**
  * Every biome a player can stand in owes them both tools working. A biome with
  * nothing to chop hands you an axe that does nothing; a biome with nothing to
  * break hands you a pickaxe that does nothing. This is the guard that catches
- * it: sakura shipped with three species of tree and no boulders at all.
+ * it, and it also catches this merge's own failure modes: a mix naming a kind
+ * no generator can grow, a kind with no tree line, a kind with no detail
+ * setting, and a kind the warm order would never get round to building.
  */
 export function auditBiomeHarvest() {
   const bad = [];
   for (const b of BIOMES) {
+    if (!arbor.FOREST_TYPES[b]) { bad.push(`${b} has no forest type in arbor.js`); continue; }
     if (b === 'ocean') continue;
-    const row = DENSITY[b];
-    if (!row) { bad.push(`${b} has no density row at all`); continue; }
-    const trees = Object.keys(row).filter((k) => k !== 'rock' && k !== 'ore');
-    const rocks = Object.keys(row).filter((k) => k === 'rock' || k === 'ore');
-    if (!trees.length) bad.push(`${b} has nothing to chop`);
-    if (!rocks.length) bad.push(`${b} has nothing to mine`);
-    for (const k of trees) {
-      if (!SPECIES[k]) bad.push(`${b} grows "${k}", which tree_gen has no recipe for`);
+    if (!(ROCK_DENSITY[b] > 0)) bad.push(`${b} has nothing to mine`);
+    for (const wet of [false, true]) {
+      const mix = mixFor(b, wet);
+      if (!mix.length) { bad.push(`${b} has nothing to chop${wet ? ' on wet ground' : ''}`); continue; }
+      const sum = mix.reduce((a, m) => a + m[1], 0);
+      if (Math.abs(sum - 1) > 1e-6) bad.push(`${b}${wet ? ' wet' : ''} mix sums to ${sum.toFixed(3)}, not 1`);
+      for (const [k] of mix) {
+        if (!isArborKind(k) && !isGenKind(k)) bad.push(`${b} grows "${k}", which no generator has a recipe for`);
+        if (isGenKind(k) && !GEN_SPECIES[k]) bad.push(`${b} grows "${k}", which tree_gen has no recipe for`);
+      }
     }
-    const total = Object.values(row).reduce((a, p) => a + p, 0);
-    if (total > 1) bad.push(`${b} density sums to ${total.toFixed(2)}, so the last kinds can never roll`);
   }
-  if (bad.length) throw new Error(`flora: biomes without harvestables (${bad.join('; ')})`);
+  for (const k of ALL_KINDS) {
+    if (k === 'rock' || k === 'ore') continue;
+    if (!LIMITS[k]) bad.push(`"${k}" has no tree line`);
+    if (isArborKind(k) && DETAIL[k] == null) bad.push(`"${k}" has no detail setting`);
+    if (!WARM_ORDER.includes(k)) bad.push(`"${k}" is never warmed`);
+  }
+  for (const k of WARM_ORDER) if (!ALL_KINDS.includes(k)) bad.push(`the warm order builds "${k}", which nothing grows`);
+  if (bad.length) throw new Error(`flora: broken forest (${bad.join('; ')})`);
   return BIOMES.length;
 }
 auditBiomeHarvest();
@@ -119,10 +265,15 @@ auditBiomeHarvest();
 // ---------------------------------------------------------------------------
 
 /**
- * Which baked variant a record wears. Derived from where it stands, so it
+ * Which grown prototype a record wears. Derived from where it stands, so it
  * survives a dump and reload of the tree editor's store, which only writes
  * x, z, gy, s, ry and alt. Memoised onto the record so dragging one in the
  * editor does not turn it into a different tree halfway across the field.
+ *
+ * Always ask for VARIANTS, never for however many prototypes have been grown so
+ * far: a record repaired against a half built stand would keep the wrong index
+ * for good. The layers take `vi % grown` instead, so a tree drawn before its own
+ * prototype exists borrows one and changes to its own once, in the first second.
  */
 export function variantOf(t, n) {
   if (t.vi == null || t.vi >= n || t.vi < 0) {
@@ -131,105 +282,239 @@ export function variantOf(t, n) {
   return t.vi;
 }
 
-/** A hex for the seasonal pass to read; the real colour lives in vertex data. */
-const FOLIAGE_HEX = {
-  oak: 0x6fb85a, birch: 0x7ec269, pine: 0x3d7a4c, fir: 0x35704a,
-  willow: 0x6cb06a, palm: 0x4fa25f, sakura: 0xf2aac8, cactus: 0x4f9a4a,
-};
+const hexNum = (s) => parseInt(String(s).replace('#', ''), 16);
 
 /**
- * Leaves need a depth material of their own or an alpha-cut canopy casts the
- * shadow of a solid box, which is exactly what a naive alphaTest canopy looks
- * like on the ground at noon.
- */
-/**
- * The axe reaches six metres. Anything past the near tier can therefore never
+ * The axe reaches six metres. Anything past the near band can therefore never
  * be chopped, so it has no business in a raycast: leaving it there made every
- * click test five thousand far instances, and a click on the sky through a
+ * click test thousands of far instances, and a click on the sky through a
  * distant canopy came back "too far to chop" instead of passing through.
  * `pickTree` walks `field.meshes` and calls `raycast` on each, so a no-op
  * raycast takes a mesh out of the pick without taking it out of the scene.
+ *
+ * Shadows go the same way: only the near band casts, or the shadow pass costs
+ * as much again as the colour pass for a shadow that is a pixel wide.
  */
-const tagTier = (im, lod) => {
+const tagBand = (im, band, shadow) => {
   im.receiveShadow = true;
-  // only the near tier casts: a shadow pass over every tree in the ring costs
-  // as much again as the colour pass, and a shadow from 300 m away is a pixel
-  im.castShadow = LODS[lod].shadow;
-  im.userData.lod = lod;
-  im.userData.pickable = lod === 0;
-  if (lod !== 0) im.raycast = () => {};
+  im.castShadow = shadow;
+  im.userData.lod = band;
+  im.userData.pickable = band === 0;
+  if (band !== 0) im.raycast = () => {};
 };
-const tagLeaves = (species, lod = 0) => (im) => {
-  const M = materialsFor(species);
-  if (M.leafDepth) im.customDepthMaterial = M.leafDepth;
-  tagTier(im, lod);
-  im.userData.foliage = FOLIAGE_HEX[species] || 0x6fb85a;
-  im.userData.snowAmt = species === 'fir' || species === 'pine' ? 0.7 : 0.45;
-};
-const tagBark = (lod = 0) => (im) => { tagTier(im, lod); };
+
+// ---------------------------------------------------------------------------
+// An Arbor species field
+// ---------------------------------------------------------------------------
 
 /**
- * One species: every variant, at every detail level, as TreeField layers.
+ * One kind of tree: up to VARIANTS Arbor prototypes, each at three bands, as
+ * TreeField layers.
  *
- * A layer draws one (variant, tier) pair, and `of(t)` hands a record to exactly
- * one of them: the variant it was born with, at the tier its distance from
- * `centre` asks for. Empty layers cost nothing, because tree_edit's rebuild
- * skips a layer no record chose.
+ * A layer draws one (prototype, band) pair and `of(t)` hands a record to
+ * exactly one of them: the prototype its `vi` was born with, at the band its
+ * distance from `centre` asks for. Empty layers cost nothing, because
+ * tree_edit's rebuild skips a layer no record chose.
  *
  * `centre` is the live object flora.update writes the player position into, so
- * a rebuild re-reads the tiers without anything having to be passed down.
+ * a rebuild re-reads the bands without anything having to be passed down.
+ * `grow()` adds one prototype and relays the layers; it is the whole of the
+ * lazy build, and it is what keeps growing a tree off the streaming path.
  */
-function speciesField(parent, species, seed, variants, centre) {
-  const vs = buildTreeVariants(species, seed, variants);
-  const M = materialsFor(species);
-  const n = vs.length;
-  const layers = [];
-  for (let lod = 0; lod < LODS.length; lod++) {
-    // at distance several variants share one shape, so the layer count falls
-    // from six a tier to three and then two
-    const seen = new Set();
-    for (let i = 0; i < n; i++) {
-      const gv = geometryVariant(i, lod);
-      if (seen.has(gv)) continue;
-      seen.add(gv);
-      const pick = (t) => (geometryVariant(variantOf(t, n), lod) === gv
-        && lodForDistance(Math.hypot(t.x - centre.x, t.z - centre.z)) === lod
-        ? { x: t.x, y: t.gy, z: t.z, s: t.s, ry: t.ry }
-        : null);
-      const g = vs[gv].lods[lod];
-      layers.push({ geo: g.trunk, mat: M.bark, variant: gv, lod, tag: tagBark(lod), of: pick });
-      if (g.leaves) {
-        layers.push({ geo: g.leaves, mat: M.leaf, variant: gv, lod, tag: tagLeaves(species, lod), of: pick });
+function arborField(parent, kind, seed, centre) {
+  const species = ARBOR_SPECIES[kind];
+  const f = createTreeField({ name: 'world:' + kind, kind: 'tree', parent, layers: [] });
+  f.species = species;
+  f.kindId = kind;
+  f.variants = [];
+  f.barkColor = hexNum(arbor.SPECIES[species].bark);
+  f.generator = 'arbor';
+  // ONE bark material, one leaf material and one depth material for the whole
+  // kind, taken from its first prototype. buildPrototype makes a set per tree,
+  // and five identical MeshStandardMaterials over the same cached bark sheet
+  // are five sets of uniforms and five chances for three to break a batch, for
+  // no difference on screen: the sheet, the alphaTest and the wind hook are the
+  // same for every prototype of a species.
+  let mats = null;
+
+  function relayer() {
+    const n = f.variants.length;
+    const layers = [];
+    for (let band = 0; band < arbor.LOD_BANDS.length; band++) {
+      const B = arbor.LOD_BANDS[band];
+      // at distance several prototypes share one shape, so the layer count
+      // falls from five a band to three and then two
+      const seen = new Set();
+      for (let slot = 0; slot < n; slot++) {
+        const gv = geometryVariant(slot, band);
+        if (seen.has(gv)) continue;
+        seen.add(gv);
+        const v = f.variants[gv];
+        const of = (t) => {
+          const m = f.variants.length;
+          if (!m) return null;
+          const s = variantOf(t, VARIANTS) % m;
+          if (geometryVariant(s, band) !== gv) return null;
+          if (lodForDistance(Math.hypot(t.x - centre.x, t.z - centre.z)) !== band) return null;
+          return { x: t.x, y: t.gy, z: t.z, s: t.s, sy: t.sy, ry: t.ry };
+        };
+        layers.push({
+          geo: v.bands[band].bark, mat: mats.bark, variant: gv, lod: band, part: 'bark',
+          tag: (im) => tagBand(im, band, B.shadow), of,
+        });
+        if (v.bands[band].leaf) {
+          layers.push({
+            geo: v.bands[band].leaf, mat: mats.leaf, variant: gv, lod: band, part: 'leaf',
+            tag: (im) => {
+              // an alpha cut canopy with no depth material of its own casts the
+              // shadow of a solid box, which is exactly what a naive alphaTest
+              // tree looks like on the ground at noon
+              if (B.shadow) im.customDepthMaterial = mats.depth;
+              tagBand(im, band, B.shadow);
+              // Arbor leaves carry their colour per vertex, not in
+              // material.color, so a seasonal pass that tints the material
+              // would do nothing to them. Leave `foliage` unset rather than tag
+              // it and assume it worked; autumn belongs in buildPrototype.
+              im.userData.foliage = null;
+              im.userData.snowAmt = species === 'spruce' || species === 'pine' ? 0.7 : 0.45;
+            },
+            of,
+          });
+        }
       }
     }
+    f.layers = layers;
   }
-  const f = createTreeField({ name: 'world:' + species, kind: 'tree', parent, layers });
-  f.species = species;
-  f.variants = vs;
+
+  /** Grow one more prototype. Returns false when the stand is already full. */
+  f.grow = () => {
+    const i = f.variants.length;
+    if (i >= VARIANTS) return false;
+    // arbor.forestPrototypes draws each tree's maturity at random over eight
+    // draws, which over five comes out narrow often enough to be a stand of one
+    // age. So the same 0.55 to 1.25 range is STRATIFIED across the five and
+    // jittered inside its own stratum: a stand always has a sapling and an old
+    // tree in it, and no two stands are the same stand.
+    const s = hash2(i, kind.length * 37 + i, seed + 700);
+    const t = (i + rand2(i, kind.length, seed + 701)) / VARIANTS;
+    const maturity = Math.min(1, arbor.PROTO_DEFAULTS.maturity * (0.55 + t * 0.7));
+    const proto = arbor.prototypeFor(species, s, { detail: DETAIL[kind], maturity });
+    mats ||= { bark: proto.barkMat, leaf: proto.leafMat, depth: proto.depthMat };
+    const bands = arbor.LOD_BANDS.map((B) => ({
+      bark: arbor.barkLod(proto, B.barkDepth),
+      leaf: proto.hasLeaves ? arbor.leafForBand(proto.leaf, B) : null,
+    }));
+    f.variants.push({
+      proto, bands,
+      baseR: proto.radius, height: proto.height, crownRadius: proto.crownRadius,
+      // triangles this prototype draws at each band. Every field's variants
+      // carry this under the same name whichever generator grew them, so a
+      // budget measurement never has to ask which one it is looking at.
+      bandTris: bands.map((b) => (b.bark.index.count / 3) + (b.leaf ? b.leaf.index.count / 3 : 0)),
+    });
+    relayer();
+    return true;
+  };
+  f.grow();
+  return f;
+}
+
+/**
+ * A kind Arbor has no recipe for. cactus is the only one, and it is grown by
+ * tree_gen exactly as it was: the same three tiers, the same materials, the
+ * same sharing with distance. Nothing about the cactus changed in this merge.
+ */
+function genField(parent, kind, seed, centre) {
+  const M = materialsFor(kind);
+  const f = createTreeField({ name: 'world:' + kind, kind: 'tree', parent, layers: [] });
+  f.species = kind;
+  f.kindId = kind;
+  f.variants = [];
+  f.barkColor = GEN_SPECIES[kind]?.bark.base ?? 0x8a7358;
+  f.generator = 'tree_gen';
+
+  function relayer() {
+    const n = f.variants.length;
+    const layers = [];
+    for (let lod = 0; lod < LODS.length; lod++) {
+      const seen = new Set();
+      for (let slot = 0; slot < n; slot++) {
+        const gv = geometryVariant(slot, lod);
+        if (seen.has(gv)) continue;
+        seen.add(gv);
+        const of = (t) => {
+          const m = f.variants.length;
+          if (!m) return null;
+          if (geometryVariant(variantOf(t, VARIANTS) % m, lod) !== gv) return null;
+          if (lodForDistance(Math.hypot(t.x - centre.x, t.z - centre.z)) !== lod) return null;
+          return { x: t.x, y: t.gy, z: t.z, s: t.s, sy: t.sy, ry: t.ry };
+        };
+        const g = f.variants[gv].lods[lod];
+        layers.push({
+          geo: g.trunk, mat: M.bark, variant: gv, lod, part: 'bark',
+          tag: (im) => tagBand(im, lod, LODS[lod].shadow), of,
+        });
+        if (g.leaves) {
+          layers.push({
+            geo: g.leaves, mat: M.leaf, variant: gv, lod, part: 'leaf',
+            tag: (im) => {
+              if (LODS[lod].shadow && M.leafDepth) im.customDepthMaterial = M.leafDepth;
+              tagBand(im, lod, LODS[lod].shadow);
+              im.userData.foliage = 0x4f9a4a;
+              im.userData.snowAmt = 0.45;
+            },
+            of,
+          });
+        }
+      }
+    }
+    f.layers = layers;
+  }
+
+  f.grow = () => {
+    const i = f.variants.length;
+    if (i >= VARIANTS) return false;
+    const v = growTreeVariant(kind, seed, i);
+    v.bandTris = v.lods.map((l) => l.tris.bark + l.tris.leaf);
+    f.variants.push(v);
+    relayer();
+    return true;
+  };
+  f.grow();
   return f;
 }
 
 function boulderField(parent, name, opts) {
   const mat = rockMaterial(opts.ore ? 'ore' : 'stone');
-  const vs = [];
-  for (let i = 0; i < ROCK_VARIANTS; i++) {
-    vs.push(growBoulder((opts.seed + i * 7717) >>> 0, {
+  const f = createTreeField({
+    name, kind: 'rock', hits: opts.hits, yield: opts.yield, parent, layers: [],
+  });
+  f.variants = [];
+  f.generator = 'tree_gen';
+  f.barkColor = null;
+
+  f.grow = () => {
+    const i = f.variants.length;
+    if (i >= ROCK_VARIANTS) return false;
+    const v = growBoulder((opts.seed + i * 7717) >>> 0, {
       detail: 2,
       squash: 0.58 + rand2(i, opts.seed, 71) * 0.30,
       lump: (opts.ore ? 0.24 : 0.19) + rand2(i, opts.seed, 72) * 0.14,
+    });
+    v.bandTris = [v.geo.index.count / 3, v.geo.index.count / 3, v.geo.index.count / 3];
+    f.variants.push(v);
+    f.layers = f.variants.map((vv, k) => ({
+      geo: vv.geo, mat, variant: k, lod: 0, part: 'rock', tag: (im) => tagBand(im, 0, true),
+      of: (t) => {
+        const m = f.variants.length;
+        return (variantOf(t, ROCK_VARIANTS) % m === k
+          ? { x: t.x, y: t.gy, z: t.z, s: t.s, ry: t.ry }
+          : null);
+      },
     }));
-  }
-  const n = vs.length;
-  const layers = vs.map((v, i) => ({
-    geo: v.geo, mat, variant: i, lod: 0, tag: tagBark(0),
-    of: (t) => (variantOf(t, n) === i
-      ? { x: t.x, y: t.gy, z: t.z, s: t.s, ry: t.ry }
-      : null),
-  }));
-  const f = createTreeField({
-    name, kind: 'rock', hits: opts.hits, yield: opts.yield, parent, layers,
-  });
-  f.variants = vs;
+    return true;
+  };
+  f.grow();
   return f;
 }
 
@@ -240,7 +525,45 @@ function boulderField(parent, name, opts) {
 /** Wet ground: a riverbank, or low enough that the water table is near. */
 export const isWet = (s) => s.river > WET_RIVER || s.h < WET_H;
 
-/** Pure: the records a chunk contributes, by kind. Exported for the node test. */
+/**
+ * recordsFor pairs each spot placeTrees returned with the ground sample its
+ * `keep` predicate took for it, BY POSITION IN THE LIST. That is only sound
+ * because placeTrees calls `keep` exactly once per spot it goes on to return.
+ * If that ever stopped being true, every tree in the chunk would be sampled at
+ * the wrong place and nothing would look broken, so it throws rather than
+ * drifting. Exported so the throw can be driven from a test without a seam in
+ * the real path.
+ */
+export function pairCheck(spots, kept, biome = '?') {
+  if (kept.length !== spots.length) {
+    throw new Error(`flora: placeTrees over ${biome} kept ${kept.length} ground samples `
+      + `for ${spots.length} spots; the pairing is by position and would be wrong`);
+  }
+  return spots.length;
+}
+
+/** Which biomes a chunk actually holds. A sliver at a border still grows its own. */
+export function biomesIn(field, cx, cz, n = BIOME_PROBE) {
+  const out = new Set();
+  const x0 = cx * CHUNK, z0 = cz * CHUNK, step = CHUNK / (n - 1);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    out.add(field.biomeAt(x0 + i * step, z0 + j * step));
+  }
+  return [...out];
+}
+
+/**
+ * Pure: the records a chunk contributes, by kind. Exported for the node test
+ * and for roads.test.mjs.
+ *
+ * Trees come from arbor.placeTrees, once per biome the chunk holds so that each
+ * biome's own spacing and thinning apply on its own ground. Every rejection
+ * goes through `keep`, which placeTrees calls only after it has drawn all four
+ * rolls for that cell, so a road or a lake is a hole in the forest rather than
+ * a different forest.
+ *
+ * Boulders and the ore rings around cave mouths keep flora's own per cell roll.
+ */
 export function recordsFor(field, cx, cz, opts = {}) {
   const sitesNear = opts.sitesNear || (() => []);
   const seed = field.seed;
@@ -248,6 +571,8 @@ export function recordsFor(field, cx, cz, opts = {}) {
   const x0 = cx * CHUNK, z0 = cz * CHUNK, n = CHUNK / CELL;
   const chunkKey = cx + ',' + cz;
   const sites = sitesNear(x0 + CHUNK / 2, z0 + CHUNK / 2, CHUNK + 60);
+  const homeClear = opts.homeClear ?? HOME_CLEAR;
+
   // ore rings around cave mouths, placed by the cave's own hash so the ring is
   // whole across chunk borders and each chunk only keeps the rocks inside it
   for (const st of sites) {
@@ -267,36 +592,67 @@ export function recordsFor(field, cx, cz, opts = {}) {
       });
     }
   }
+
+  const slopeAt = (x, z) => Math.max(
+    Math.abs(field.heightAt(x + 1, z) - field.heightAt(x - 1, z)),
+    Math.abs(field.heightAt(x, z + 1) - field.heightAt(x, z - 1)));
+
+  // shared by trees and boulders: everything that is true of the ground itself
+  const groundOk = (x, z, s, slope) => {
+    if (Math.hypot(x, z) < homeClear) return false;
+    if (s.water || s.river > 0.15 || s.road > 0.15) return false;   // the verge keeps its trees, the road does not
+    if (slope > MAX_SLOPE_ROCK) return false;
+    for (const st of sites) if (Math.hypot(st.x - x, st.z - z) < clearingOf(st)) return false;
+    return true;
+  };
+
+  // --- trees, one placeTrees pass per biome in the chunk ---------------------
+  for (const biome of biomesIn(field, cx, cz)) {
+    if (!mixFor(biome, false).length) continue;                     // ocean
+    // `keep` is called once per surviving spot, in the order placeTrees returns
+    // them, so the samples it takes line up one for one with the spots and the
+    // field is never asked about the same square metre twice
+    const kept = [];
+    const spots = arbor.placeTrees(biome, cx, cz, CHUNK, seed, {
+      heightAt: field.heightAt,
+      keep: (x, z) => {
+        if (field.biomeAt(x, z) !== biome) return false;            // this biome's ground only
+        const s = field.sampleAt(x, z);
+        const slope = slopeAt(x, z);
+        if (!groundOk(x, z, s, slope)) return false;
+        kept.push({ s, slope });
+        return true;
+      },
+    });
+    pairCheck(spots, kept, biome);
+    for (let i = 0; i < spots.length; i++) {
+      const spot = spots[i], { s, slope } = kept[i];
+      const kind = pickFrom(mixFor(biome, isWet(s)), spot.pick);
+      if (!kind) continue;
+      const L = LIMITS[kind];
+      if (!L || s.h > L.maxH || slope > L.maxSlope) continue;       // the tree line is per species
+      if (WATER_SPECIES.has(kind) && !isWet(s)) continue;           // a willow away from water is not a willow
+      (out[kind] ||= []).push({
+        x: spot.x, z: spot.z, gy: s.h - 0.15,
+        s: spot.scale, sy: spot.yScale, ry: spot.yaw,
+        alt: hash2(Math.round(spot.x), Math.round(spot.z), seed + 26) % 3,
+        oa: rand2(Math.round(spot.x), Math.round(spot.z), seed + 27) * Math.PI * 2,
+        chunk: chunkKey,
+      });
+    }
+  }
+
+  // --- boulders, on flora's own 8 m grid ------------------------------------
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const gx = cx * n + i, gz = cz * n + j;
     const x = x0 + (i + 0.15 + 0.7 * rand2(gx, gz, seed + 21)) * CELL;
     const z = z0 + (j + 0.15 + 0.7 * rand2(gx, gz, seed + 22)) * CELL;
-    if (Math.hypot(x, z) < (opts.homeClear ?? HOME_CLEAR)) continue;
+    if (rand2(gx, gz, seed + 23) >= (ROCK_DENSITY[field.biomeAt(x, z)] || 0)) continue;
     const s = field.sampleAt(x, z);
-    if (s.water || s.river > 0.15 || s.road > 0.15) continue;   // the verge keeps its trees, the road does not
-    const table = DENSITY[s.biome];
-    if (!table) continue;
-    const slope = Math.max(
-      Math.abs(field.heightAt(x + 1, z) - field.heightAt(x - 1, z)),
-      Math.abs(field.heightAt(x, z + 1) - field.heightAt(x, z - 1)));
-    if (slope > MAX_SLOPE_ROCK) continue;
-    let near = false;
-    for (const st of sites) if (Math.hypot(st.x - x, st.z - z) < clearingOf(st)) { near = true; break; }
-    if (near) continue;
-    // one roll picks at most one kind per cell
-    let roll = rand2(gx, gz, seed + 23), kind = null;
-    for (const [k, p] of Object.entries(table)) { if (roll < p) { kind = k; break; } roll -= p; }
-    if (!kind) continue;
-    if (kind !== 'rock') {
-      const P = SPECIES[kind];
-      if (!P) continue;                                     // audited at load; belt and braces
-      if (s.h > P.maxH || slope > P.maxSlope) continue;     // the tree line is per species
-      if (WATER_SPECIES.has(kind) && !isWet(s)) continue;   // a willow away from water is not a willow
-    }
-    const size = SIZE[kind] || SIZE.oak;
-    (out[kind] ||= []).push({
+    if (!groundOk(x, z, s, slopeAt(x, z))) continue;
+    (out.rock ||= []).push({
       x, z, gy: s.h - 0.15,
-      s: size[0] + rand2(gx, gz, seed + 24) * size[1],
+      s: SIZE.rock[0] + rand2(gx, gz, seed + 24) * SIZE.rock[1],
       ry: rand2(gx, gz, seed + 25) * Math.PI,
       alt: hash2(gx, gz, seed + 26) % 3, oa: rand2(gx, gz, seed + 27) * Math.PI * 2,
       chunk: chunkKey,
@@ -304,9 +660,6 @@ export function recordsFor(field, cx, cz, opts = {}) {
   }
   return out;
 }
-
-/** Every kind any biome can produce, plus the cave-mouth ore. */
-export const ALL_KINDS = [...new Set([...Object.values(DENSITY).flatMap(Object.keys), 'ore'])];
 
 // ---------------------------------------------------------------------------
 // Stumps
@@ -316,8 +669,8 @@ export const ALL_KINDS = [...new Set([...Object.values(DENSITY).flatMap(Object.k
 // where it stood is bare until it regrows minutes later. That reads as a bug.
 // This is the cut stump, drawn outside the TreeField so it is not itself
 // choppable and does not take part in the raycast back-index: one instanced
-// mesh, one draw call, every species, tinted per instance from the species'
-// own bark colour.
+// mesh, one draw call, every kind, tinted per instance from the species' own
+// bark colour and sized from the prototype's own trunk radius.
 // ---------------------------------------------------------------------------
 
 function createStumps(parent) {
@@ -337,11 +690,11 @@ function createStumps(parent) {
   function refresh(kinds) {
     let n = 0;
     for (const f of Object.values(kinds)) {
-      if ((f.kind || 'tree') !== 'tree' || !f.variants) continue;
-      const bark = SPECIES[f.species]?.bark.base ?? 0x8a7358;
+      if ((f.kind || 'tree') !== 'tree' || !f.variants?.length) continue;
+      const bark = f.barkColor ?? 0x8a7358;
       for (const t of f.trees) {
         if (!t.felledUntil || n >= STUMP_CAP) continue;
-        const v = f.variants[variantOf(t, f.variants.length)];
+        const v = f.variants[variantOf(t, VARIANTS) % f.variants.length];
         const r = (v?.baseR ?? 0.35) * t.s * 1.10;
         const h = 0.40 * t.s * (0.75 + 0.5 * rand2(Math.round(t.x), Math.round(t.z), 5150));
         e.set(0, t.ry, 0); q.setFromEuler(e);
@@ -376,20 +729,24 @@ export function createFlora(scene, field, opts = {}) {
   const have = new Map();          // chunk key -> true when its records are in
   const stats = {
     chunks: 0, records: 0, rebuilds: 0, species: 0, drawCalls: 0, stumps: 0,
-    lastRebuildMs: 0, lastRebuild: null, tris: 0,
+    lastRebuildMs: 0, lastRebuild: null, tris: 0, prototypes: 0,
     buildMs: {}, grass: null,
   };
   const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
-  // where the tiers are measured from; `of` reads it during a rebuild
+  // where the bands are measured from; `of` reads it during a rebuild
   const centre = { x: 0, z: 0 };
   let bandedAt = null;
+  let nowS = 0;
+
+  function countPrototypes() {
+    let n = 0;
+    for (const f of Object.values(kinds)) n += f.variants.length;
+    stats.prototypes = n;
+  }
 
   /**
-   * Species fields are built the first time a record of that species appears.
-   * Growing six variants and rasterising three 512 px bark maps is not free, so
-   * building all eleven kinds at boot would stall the first frame; building the
-   * four or five a region actually uses spreads that over the walk out of the
-   * valley, one species at a time.
+   * A kind's field is built the first time a record of it appears, with ONE
+   * prototype in it. The other four arrive one per settled frame.
    */
   function fieldFor(kind) {
     if (kinds[kind]) return kinds[kind];
@@ -398,12 +755,33 @@ export function createFlora(scene, field, opts = {}) {
       kinds.rock = boulderField(group, 'world:rock', { seed: seed + 601, hits: 4 });
     } else if (kind === 'ore') {
       kinds.ore = boulderField(group, 'world:ore', { seed: seed + 602, hits: 5, yield: 'ore', ore: true });
+    } else if (isArborKind(kind)) {
+      kinds[kind] = arborField(group, kind, seed, centre);
     } else {
-      kinds[kind] = speciesField(group, kind, seed + 700, VARIANTS, centre);
+      kinds[kind] = genField(group, kind, seed + 700, centre);
     }
     stats.buildMs[kind] = +(now() - t0).toFixed(1);
     stats.species = Object.keys(kinds).length;
+    countPrototypes();
     return kinds[kind];
+  }
+
+  /** One more prototype for the least finished stand, in WARM_ORDER. */
+  function growOne() {
+    for (const k of WARM_ORDER) {
+      const f = kinds[k];
+      if (!f) continue;
+      if (f.variants.length >= ((f.kind || 'tree') === 'rock' ? ROCK_VARIANTS : VARIANTS)) continue;
+      const t0 = now();
+      if (!f.grow()) continue;
+      stats.buildMs[k] = +((stats.buildMs[k] || 0) + (now() - t0)).toFixed(1);
+      dirty.add(k);
+      countPrototypes();
+      return k;
+    }
+    const next = WARM_ORDER.find((k) => !kinds[k]);
+    if (next) { fieldFor(next); return next; }
+    return null;
   }
 
   function addChunk(cx, cz) {
@@ -456,14 +834,17 @@ export function createFlora(scene, field, opts = {}) {
 
     /**
      * Every frame. Advances the one wind clock every leaf, needle and blade
-     * reads, refills a few grass tiles, and rebuilds dirty species fields at
-     * most one pass per REBUILD_MS each.
+     * reads, refills a few grass tiles, rebuilds dirty species fields at most
+     * one pass per REBUILD_MS each, and grows one more tree when nothing else
+     * wants the frame.
      */
     update(nowMs, centerX, centerZ) {
-      tickWind(nowMs / 1000);
+      nowS = nowMs / 1000;
+      tickWind(nowS);          // tree_gen's clock: the grass and the cactus
+      arbor.tick(nowS);        // arbor's clock: every leaf on every tree
       if (centerX !== undefined) {
         centre.x = centerX; centre.z = centerZ;
-        // the detail tiers are measured from the player, so they go stale as
+        // the detail bands are measured from the player, so they go stale as
         // the player walks. Re-read them every REBAND_M, not every frame: a
         // rebuild is the expensive part and 24 m of drift at a 55 m boundary
         // is not something anyone can see.
@@ -483,23 +864,65 @@ export function createFlora(scene, field, opts = {}) {
         break;
       }
       if (centerX !== undefined) grass.update(nowMs, centerX, centerZ);
-      // the world is quiet: get one more species out of the way before the
-      // player walks into the biome that needs it
-      if (!dirty.size && !grass.queued) {
-        const next = WARM_ORDER.find((k) => !kinds[k]);
-        if (next) fieldFor(next);
-      }
+      // the world is quiet: grow one more tree before the player walks into the
+      // biome that needs it
+      if (!dirty.size && !grass.queued) growOne();
       // a felled tree owes the player a stump; chopTree rebuilds the field on
       // its own clock, so the felled list is re-read on ours
       if (nowMs - lastStumps >= STUMP_MS) { lastStumps = nowMs; stats.stumps = stumps.refresh(kinds); }
       stats.drawCalls = countDrawCalls();
     },
 
+    /**
+     * The trunks standing in one chunk, for the forage layer: mushrooms by the
+     * trunks, honey on the bark. `radius` is the trunk radius at the base in
+     * metres, which is the prototype's own measured radius times the record's
+     * scale. A felled tree is not in the list; a regrown one is again.
+     */
+    treesFor(cx, cz) {
+      const key = cx + ',' + cz;
+      const out = [];
+      for (const f of Object.values(kinds)) {
+        if ((f.kind || 'tree') !== 'tree' || !f.variants.length) continue;
+        const n = f.variants.length;
+        for (const t of f.trees) {
+          if (t.chunk !== key || t.felledUntil) continue;
+          const v = f.variants[variantOf(t, VARIANTS) % n];
+          out.push({ x: t.x, z: t.z, radius: (v?.baseR ?? 0.35) * (t.s ?? 1) });
+        }
+      }
+      return out;
+    },
+
     /** The settings window's Grass density, 0 to 1. */
     setGrass(v) { grass.setDensity(v); },
     get grassDensity() { return grass.density; },
 
+    /**
+     * The settings window's Wind, and anything a storm ever wants to pull. 0 is
+     * dead calm, 0.5 the studio's default, 1.5 a gale. Both generators are set,
+     * so the grass and the cactus lean with the forest.
+     */
+    setWind(v) { arbor.setWind(v); setWindStrength(v); },
+    get wind() { return arbor.getWind(); },
+    /** Turn the world-space gust off and fall back to one flat wind everywhere. */
+    setWindVariation(on) { arbor.setWindVariation(on); },
+
+    /**
+     * The wind at a place and a time, for gameplay: a falling leaf, wind audio,
+     * a sail. The same expression the vertex shader evaluates, so a leaf and the
+     * tree it fell off agree about which way the air is going.
+     * `t` defaults to the clock update() last ticked.
+     */
+    windAt(x, z, t) { return arbor.windField(x, z, t ?? nowS); },
+
     get pending() { return dirty.size; },
+    /** True once every kind has its field and every stand is full. */
+    get warm() {
+      return WARM_ORDER.every((k) => kinds[k])
+        && Object.values(kinds).every((f) => f.variants.length
+          >= ((f.kind || 'tree') === 'rock' ? ROCK_VARIANTS : VARIANTS));
+    },
     dispose() {
       for (const f of Object.values(kinds)) for (const m of f.meshes) { group.remove(m); m.dispose?.(); }
       grass.dispose();
@@ -508,3 +931,5 @@ export function createFlora(scene, field, opts = {}) {
     },
   };
 }
+
+export { LOD_RANGE };

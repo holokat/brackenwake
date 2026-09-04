@@ -280,6 +280,10 @@ export function createWorldRuntime(sc, opts = {}) {
     pick,
     enterDungeon, dungeonGo, leaveDungeon,
     get inDungeon() { return !!dungeon; },
+    /** The settings window's grass density and wind strength, handed to flora. */
+    setGrass(v) { flora?.setGrass?.(v); },
+    setWind(v) { flora?.setWind?.(v); },
+    setGround(q) { world?.setQuality?.(q); },
     /** The level's room grid for the monster layer (docs/mmo/wiring/G3.md). Null above ground. */
     dungeonLayout() {
       if (!dungeon || !dungeon.layout) return null;
