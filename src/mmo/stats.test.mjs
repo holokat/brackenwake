@@ -79,12 +79,12 @@ console.log('\n--- 3. the two characters the document names --------------------
   const warrior = derived({ str: 60, con: 55 });
   console.log(`  warrior STR 60 CON 55: health ${warrior.maxHealth}, stamina ${warrior.maxStamina}, carry ${warrior.carry} stones, health regen ${warrior.healthRegen}/s`);
   check('the warrior\'s health is the formula: 30 + 55*2.0 + 60*0.5', warrior.maxHealth === 170, `${warrior.maxHealth}`);
-  // DIVERGENCE. The document's prose says 140, which is 30 + CON*2.0 with the
-  // STR term dropped. The formula is the game; the sentence is wrong. Pinned
-  // here so nobody "fixes" the formula to chase the sentence by accident.
+  // The prose once said 140, which was the formula with the STR term dropped.
+  // The formula is the game and the sentence was corrected to it; this check
+  // keeps the two from drifting apart again in either direction.
   const docHealth = Number(/A fresh warrior \(STR 60, CON 55\) has (\d+) health/.exec(DOC)[1]);
-  check('the document\'s prose still says 140, and the formula still says 170', docHealth === 140 && warrior.maxHealth === 170,
-    `prose ${docHealth}, formula ${warrior.maxHealth}, difference ${warrior.maxHealth - docHealth} = STR 60 * 0.5 = ${60 * 0.5}`);
+  check('the document\'s warrior health is the formula\'s: 30 + 55*2.0 + 60*0.5', docHealth === warrior.maxHealth && warrior.maxHealth === 170,
+    `prose ${docHealth}, formula ${warrior.maxHealth}`);
 
   const mage = derived({ int: 65, wis: 60 });
   console.log(`  mage WIS 60 INT 65: mana ${mage.maxMana}, mana regen ${mage.manaRegen}/s`);
@@ -127,9 +127,13 @@ console.log('\n--- 5. the stat gain chance -------------------------------------
   // formula produces those three: they are 4.36%, 1.09% and 0.55%. The formula
   // is the game. Both halves are pinned so the pair cannot drift further apart
   // unnoticed, and the report says which line the designer has to settle.
-  check('the document\'s prose still says 3.6%, 0.6% and 0.33%', DOC.includes('At 30 STR that is 3.6% a swing; at 90 it is 0.6%; at 100 it is 0.33%'));
-  check('and the formula disagrees with all three, by these amounts', !near(at(30), 0.036, 1e-6) && !near(at(90), 0.006, 1e-6) && !near(at(100), 0.0033, 1e-6),
-    `30: +${(at(30) - 0.036).toFixed(6)}, 90: +${(at(90) - 0.006).toFixed(6)}, 100: +${(at(100) - 0.0033).toFixed(6)}`);
+  // The prose once claimed 3.6%, 0.6% and 0.33%, which no reading of the
+  // formula produces. It was corrected to the formula's own numbers, read here
+  // off the page and compared to one decimal of a percent.
+  const prose = /At 30 STR that is ([\d.]+)% a swing; at 90 it is ([\d.]+)%; at 100 it is ([\d.]+)%/.exec(DOC);
+  check('the document quotes the formula at 30, 90 and 100 STR', !!prose
+    && near(Number(prose[1]) / 100, at(30), 0.0005) && near(Number(prose[2]) / 100, at(90), 0.0005) && near(Number(prose[3]) / 100, at(100), 0.0005),
+    prose ? `prose ${prose[1]}/${prose[2]}/${prose[3]}, formula ${(at(30) * 100).toFixed(2)}/${(at(90) * 100).toFixed(2)}/${(at(100) * 100).toFixed(2)}` : 'sentence not found');
   check('chance falls as the stat grows, every step of the way',
     (() => { for (let v = 0; v < 106; v += 0.5) if (statGainChance(v + 0.5) > statGainChance(v)) return false; return true; })());
   check('the 0.002 floor does not engage at 106', at(106) > 0.002, `${at(106).toFixed(6)}`);

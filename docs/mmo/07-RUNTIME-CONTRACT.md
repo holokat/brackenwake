@@ -15,7 +15,7 @@ actor = {
   name, tier,                           // tier 0..5 for monsters, undefined for players
   pos: THREE.Vector3, yaw,              // feet on the ground
   stats: { str, dex, int, con, wis },
-  skills: { [skillId]: value },         // players: all 44; monsters: the few they use
+  skills: { [skillId]: value },         // players: all 52; monsters: the few they use
   bonuses: { ... },                     // summed from equipment and buffs, see items.js
   ar, resists,
   weapon, shield,                       // item records or the monster's natural weapon

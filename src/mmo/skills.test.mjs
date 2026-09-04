@@ -50,10 +50,11 @@ console.log('\n--- 1. the table is the document\'s table -----------------------
     if (a.name !== b.name || a.group !== b.group || a.description !== b.description) { mismatch = `row ${i + 1}: doc "${a.name}/${a.group}/${a.description}" against code "${b.name}/${b.group}/${b.description}"`; break; }
   }
   check('every name, group and description matches, in order', mismatch === null, mismatch || `${SKILLS.length} rows compared`);
-  // DIVERGENCE. The document's sentence over the table says 44. The table has
-  // 52. Counted here so the sentence cannot quietly stay wrong.
+  // The sentence over the table once said 44 while the table had 52. The table
+  // is the game; the sentence was corrected and is counted here so it cannot
+  // quietly go wrong again.
   const claimed = Number(/Nine groups, (\d+) skills/.exec(DOC)[1]);
-  check('the document\'s prose still says 44 while its table lists 52', claimed === 44 && rows.length === 52,
+  check('the document\'s prose counts the same skills as its table', claimed === rows.length && rows.length === 52,
     `prose ${claimed}, table ${rows.length}, code ${SKILLS.length}`);
   check('SKILL_COUNT is the counted table, not the sentence', SKILL_COUNT === 52 && SKILLS.length === SKILL_COUNT);
 }
@@ -137,12 +138,12 @@ console.log('\n--- 4. the lesson chance ----------------------------------------
   check('gainChance matches the printed formula at 10201 pairs', worst === 0, `worst difference ${worst}`);
   check('skill equal to difficulty is 0.55', near(gainChance(0, 0), 0.55) && near(gainChance(50, 50), 0.55) && near(gainChance(100, 100), 0.55));
   console.log(`  90 against a rat (5): ${gainChance(90, 5).toFixed(3)}; 90 against a wraith (70): ${gainChance(90, 70).toFixed(3)}; 10 against a starfall vein (92): ${gainChance(10, 92).toFixed(3)}`);
-  // DIVERGENCE. The document says "grinding rats at 90 swordsmanship gives a
-  // 0.02 chance of a 0.03 gain". The formula gives 0.04: a rat is difficulty 5,
-  // and 0.55 - 85 * 0.006 = 0.04, with the floor still 8.33 points away. The
-  // lesson the sentence teaches is right, the number in it is not.
-  check('the document still says a rat at 90 is a 0.02 chance', DOC.includes('gives a 0.02\nchance of a 0.03 gain'));
-  check('and the formula gives 0.04 there, twice the sentence', near(gainChance(90, 5), 0.04),
+  // The sentence once said 0.02, which is the floor and needs 88.33 points of
+  // overmatch; a rat is difficulty 5 and 0.55 - 85 * 0.006 = 0.04. The
+  // sentence was corrected to the formula and is read back here.
+  const rat = /gives a ([\d.]+)\nchance of a 0.03 gain/.exec(DOC);
+  check('the document quotes the formula for a rat at 90 swordsmanship', !!rat && near(Number(rat[1]), gainChance(90, 5)), rat ? `prose ${rat[1]}, formula ${gainChance(90, 5)}` : 'sentence not found');
+  check('and that is 0.04, not the 0.02 floor', near(gainChance(90, 5), 0.04),
     `0.55 - (90 - 5) * 0.006 = ${gainChance(90, 5)}; the 0.02 floor needs ${((0.55 - 0.02) / 0.006).toFixed(2)} points of overmatch`);
   check('the gain it would win is the 0.03 the sentence claims', gainStep(90) === 0.03);
   check('the floor engages only past 88.33 points of overmatch', near(gainChance(88, 0), 0.022) && gainChance(89, 0) === 0.02);

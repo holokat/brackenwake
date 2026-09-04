@@ -25,7 +25,7 @@ meditating or healing raises WIS. Chance falls as the stat grows.
 statGainChance(stat) = clamp(0.06 * (1 - stat / 110), 0.002, 0.06)
 ```
 
-At 30 STR that is 3.6% a swing; at 90 it is 0.6%; at 100 it is 0.33%. A gain is
+At 30 STR that is 4.4% a swing; at 90 it is 1.1%; at 100 it is 0.55%. A gain is
 always exactly +1 and is always announced.
 
 ### The formulas everything else uses
@@ -40,7 +40,7 @@ manaRegen    = 0.3 + WIS * 0.025 + Meditation * 0.010
 staminaRegen = 1.0 + DEX * 0.030
 ```
 
-A fresh warrior (STR 60, CON 55) has 140 health. A fresh mage (WIS 60, INT 65)
+A fresh warrior (STR 60, CON 55) has 170 health. A fresh mage (WIS 60, INT 65)
 has 162 mana. Both feel like the character they chose from the first minute.
 
 ## Skills
@@ -69,7 +69,7 @@ gainChance(skill, difficulty) = clamp(0.55 - (skill - difficulty) * 0.006, 0.02,
 ```
 
 Difficulty is the task's own number: a copper vein is 10, a starfall vein is 92,
-a rat is 5, a wraith is 70. Grinding rats at 90 swordsmanship gives a 0.02
+a rat is 5, a wraith is 70. Grinding rats at 90 swordsmanship gives a 0.04
 chance of a 0.03 gain, which is the UO lesson: work at the edge of what you can
 do. **A failed attempt still teaches**, at half the chance, which is why the
 requirement says "per hit or miss".
@@ -81,7 +81,7 @@ is the shape UO had.
 
 ### Every skill
 
-Nine groups, 44 skills. Every one is learnable by anyone.
+Nine groups, 52 skills. Every one is learnable by anyone.
 
 **Combat, melee**
 | skill | what it does |

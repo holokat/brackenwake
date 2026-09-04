@@ -85,7 +85,7 @@ the fonts and colours already in `hud.js`.
 - **Bag (B):** grid of slots, stacks with counts, unidentified items shown as
   a coloured question mark; click to identify with a short roll animation;
   drag to equip, right click for use, sell, drop.
-- **Skills (K):** all 44, grouped, each with its bar, number, lock arrow, and
+- **Skills (K):** all 52, grouped, each with its bar, number, lock arrow, and
   the abilities it has unlocked and will unlock next.
 - **Abilities (A):** everything learned, dragged onto the bar.
 - **Crafting (V):** at a station: recipes you can make, greyed ones you cannot
