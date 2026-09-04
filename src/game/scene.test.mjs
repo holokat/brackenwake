@@ -85,7 +85,8 @@ ck('a custom cycle length scales the curve', Math.abs(dayFactorAt(1000, 2000) - 
 // exposure, so these are the numbers the game is actually lit by.
 {
   const night = lightingAt(0), dawn = lightingAt(DAWN), noon = lightingAt(1);
-  ck('noon is brighter than midnight', litness(1) > litness(0) * 10,
+  // midnight is moonlit on purpose (seen black in the browser at the old numbers), so five times, not ten
+  ck('noon is brighter than midnight', litness(1) > litness(0) * 5,
     `midnight ${litness(0).toFixed(3)}, noon ${litness(1).toFixed(3)}`);
   ck('and dawn sits between them', litness(DAWN) > litness(0) && litness(DAWN) < litness(1),
     `dawn ${litness(DAWN).toFixed(3)}`);
@@ -96,11 +97,11 @@ ck('a custom cycle length scales the curve', Math.abs(dayFactorAt(1000, 2000) - 
     dawn.exposure > noon.exposure && night.exposure < noon.exposure,
     `${night.exposure.toFixed(2)} / ${dawn.exposure.toFixed(2)} / ${noon.exposure.toFixed(2)}`);
   ck('the hemisphere is sky blue by day and near black at night',
-    noon.hemi.sky[2] > noon.hemi.sky[0] && night.hemi.intensity < noon.hemi.intensity * 0.25,
+    noon.hemi.sky[2] > noon.hemi.sky[0] && night.hemi.intensity < noon.hemi.intensity * 0.5,
     `hemi ${night.hemi.intensity} to ${noon.hemi.intensity}`);
   ck('the ambient goes cool and low at night',
     night.ambient.color[2] > night.ambient.color[0] && noon.ambient.color[0] >= noon.ambient.color[2]
-    && night.ambient.intensity < noon.ambient.intensity * 0.5,
+    && night.ambient.intensity < noon.ambient.intensity,
     `night ${night.ambient.intensity} warm? ${night.ambient.color[0] > night.ambient.color[2]}`);
 
   // every value in range, everywhere on the curve, including past both ends

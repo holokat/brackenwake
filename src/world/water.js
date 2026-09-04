@@ -358,7 +358,7 @@ export function createWaterUniforms(seaY) {
     uDetail: { value: QUALITY.high.detail },
     uReflect: { value: 1.0 },
     uRefract: { value: 0.055 },
-    uFoam: { value: 0.85 },
+    uFoam: { value: 0.6 },    // 0.85 painted a metre deep river white from bank to bank
     uSSS: { value: 0.8 },
     uMurk: { value: 0.9 },
     uHasDepth: { value: 0 },
@@ -366,7 +366,7 @@ export function createWaterUniforms(seaY) {
     uCamFar: { value: 1800 },
     uFogNear: { value: 90 },
     uFogFar: { value: 536 },
-    uShoreDepth: { value: 1.6 },
+    uShoreDepth: { value: 0.45 },   // foam is a rim on the beach, not the whole shallows
     uSeaY: { value: seaY },
     uFlowX: { value: 0 },
     uFlowZ: { value: 0 },
