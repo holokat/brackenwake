@@ -450,8 +450,14 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   check('the body is still there while it falls over', victim.model.group.parent === monsters.group);
   check('and it is lying down', victim.model.anim === 'die');
   for (let f = 0; f < 120; f++) monsters.update(1 / 60, 1000 + f * 16.7, player, true);
-  check('the body is taken away once it has fallen over',
-    victim.model.group.parent === null && victim.model.dieDone === true);
+  // the topple is done in two seconds, but the body lies there as long as its
+  // sack does (CORPSE_KEEP_S), so a knife has something to skin
+  check('the body lies still once it has fallen over, and is still there for the knife',
+    victim.model.group.parent === monsters.group && victim.model.dieDone === true
+    && monsters.corpsesNear(victim.actor.pos, 1).length === 1 && monsters.corpsesNear(victim.actor.pos, 1)[0].skinned === false);
+  for (let f = 0; f < 90 * 60; f++) monsters.update(1 / 60, 3000 + f * 16.7, player, true);
+  check('and it is taken away after ninety seconds',
+    victim.model.group.parent === null && monsters.corpsesNear(victim.actor.pos, 1).length === 0);
 
   // it does not come back while you are standing on it
   clock += 1000 * 1000;                                 // long past its return

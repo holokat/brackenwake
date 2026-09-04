@@ -280,6 +280,12 @@ export function createWorldRuntime(sc, opts = {}) {
     pick,
     enterDungeon, dungeonGo, leaveDungeon,
     get inDungeon() { return !!dungeon; },
+    /** The level's room grid for the monster layer (docs/mmo/wiring/G3.md). Null above ground. */
+    dungeonLayout() {
+      if (!dungeon || !dungeon.layout) return null;
+      const L = dungeon.layout;
+      return { ...L, level: dungeon.level, bottom: dungeon.level >= maxLevel(L.kind), id: L.id ?? dungeon.site?.id ?? null };
+    },
     get dungeonLevel() { return dungeon ? dungeon.level : 0; },
     get dungeonSite() { return dungeon ? dungeon.site : null; },
     get dungeonScene() { return dungeon ? dungeon.scene : null; },

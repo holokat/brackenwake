@@ -72,6 +72,9 @@ export const IDLE_SPEED = 0.35;      // fraction of run speed while wandering
 export const FLEE_SPEED = 1.1;       // a bolting thing is quicker than a charging one
 export const SLOW_DEFAULT = 0.3;     // fraction of speed a `slow` with no factor takes off
 export const CORPSE_LINGER_S = DIE_SECONDS + 0.4;   // the topple, and a moment after it
+// A body stays as long as its sack does, so a knife has something to skin.
+// skinning.js reads corpsesNear and pickCorpse and writes `skinned` on the record.
+export const CORPSE_KEEP_S = 90;
 const PLACE_TRIES = 10;
 
 // -- underground ------------------------------------------------------------
@@ -582,6 +585,7 @@ export function createMonsters(sc, runtime, opts = {}) {
   const chunks = new Map();     // "cx,cz" -> { cx, cz, recs, night }
   const live = new Map();       // key -> monster record
   const corpses = [];           // toppling bodies, waiting to be taken away
+  let devSpawnN = 0;            // keys for the dev bench's spawns
   const shots = [];             // knives, spikes and boulders in the air
   const slams = [];             // a ring on the ground, and what happens under it
   let lastScan = -1e9, lastChunk = null, lastNight = null;
@@ -693,7 +697,11 @@ export function createMonsters(sc, runtime, opts = {}) {
     mon.model.setAnim('die');
     mon.cast = null;
     dropPlate(mon);
-    corpses.push({ mon, t: 0 });
+    corpses.push({
+      mon, t: 0, key: mon.key, id: mon.id, actor: mon.actor, row: mon.row, name: mon.name,
+      get pos() { return mon.actor.pos; },
+      skinned: false,
+    });
     // A summoned minion is not a slot in the world and must not be written into
     // the character's dead list: it was never in the level's own roll, so an
     // entry for it would sit in the save for ever matching nothing.
@@ -1222,8 +1230,8 @@ export function createMonsters(sc, runtime, opts = {}) {
     for (let i = corpses.length - 1; i >= 0; i--) {
       const c = corpses[i];
       c.t += d;
-      c.mon.model.update(d, 0);
-      if (c.t >= CORPSE_LINGER_S) { c.mon.model.dispose(); corpses.splice(i, 1); }
+      if (c.t < CORPSE_LINGER_S) c.mon.model.update(d, 0);   // the topple; then it lies still
+      if (c.t >= CORPSE_KEEP_S) { c.mon.model.dispose(); corpses.splice(i, 1); }
     }
   }
 
@@ -1290,6 +1298,36 @@ export function createMonsters(sc, runtime, opts = {}) {
 
   return {
     group, stats, update, targets, pick, nearestHostile,
+    /** Dead bodies within r of pos, nearest first: { key, id, actor, row, pos, skinned }. */
+    corpsesNear(pos, r = 3) {
+      const out = [];
+      for (const c of corpses) {
+        const d = Math.hypot(c.pos.x - pos.x, c.pos.z - pos.z);
+        if (d <= r) out.push({ c, d });
+      }
+      return out.sort((a, b) => a.d - b.d).map((e) => e.c);
+    },
+    /** The corpse under the ray, or null. */
+    pickCorpse(raycaster) {
+      if (!raycaster || !corpses.length) return null;
+      const hits = raycaster.intersectObjects(corpses.map((c) => c.mon.model.group), true);
+      for (const h of hits) {
+        let o = h.object;
+        while (o && !o.userData.monster) o = o.parent;
+        const mon = o && o.userData.monster;
+        const c = mon && corpses.find((x) => x.mon === mon);
+        if (c) return c;
+      }
+      return null;
+    },
+    corpses: () => corpses.slice(),
+    /** The dev bench: one monster of this id at x, z, outside the world's own roll. */
+    spawnAt(id, x, z) {
+      if (!MONSTERS[id]) return null;
+      devSpawnN++;
+      const key = `dev:${id}:${devSpawnN}`;
+      return spawn({ id, x, z, key, groupKey: key, ephemeral: true });
+    },
     /** Every live actor, for area effects and the cone. targets() is the meshes for picking. */
     actors: () => [...live.values()].filter((m) => num(m.actor.health) > 0).map((m) => m.actor),
     /** Every live monster record. Debug, the HUD and the tests. */
