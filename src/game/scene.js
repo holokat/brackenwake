@@ -16,6 +16,7 @@
 // Renaming any of those breaks the descent. There is a test for it.
 
 import * as THREE from 'three';
+import { skyColours } from './sky.js';
 import { THEMES } from '../farm/themes.js';
 import { mulberry32, glowTexture } from '../farm/assets.js';
 
@@ -288,11 +289,26 @@ export function createScene(container) {
     else fogPinned = false;
   }
 
+  // The analytic sky (sky.js) paints the dome and the fog colour now; the
+  // painted domes, sun disc and moon below stay built for the tests and for a
+  // build without sky.js, and `useAnalyticSky(true)` hides them.
+  let analytic = false;
+  function useAnalyticSky(on) {
+    analytic = !!on;
+    for (const o of [...skyDomes, sunBall, sunGlow, moon]) o.visible = !analytic;
+  }
+
   function setDay(dayFactor) {
     const d = clamp01(dayFactor);
     day = d;
     applyLighting({ renderer, sun, hemi, ambient, fill }, d);
-    if (!fogPinned) scene.fog.color.lerpColors(fogNight, fogDay, d);
+    if (!fogPinned) {
+      if (analytic) {
+        const p = skyColours(d);
+        scene.fog.color.setRGB(p.fog.r, p.fog.g, p.fog.b, THREE.SRGBColorSpace);
+        hemi.color.setRGB(p.zenith.r, p.zenith.g, p.zenith.b, THREE.SRGBColorSpace);
+      } else scene.fog.color.lerpColors(fogNight, fogDay, d);
+    }
     skyDayMat.opacity = d;
     sunBall.material.opacity = d;
     const t = (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -301,10 +317,14 @@ export function createScene(container) {
   }
 
   // The sky is painted at a fixed offset from whatever it is told to follow,
-  // so it never gets closer and the shadow box stays under the player.
+  // so it never gets closer and the shadow box stays under the player. The sun
+  // light sits along `sunDir` (sky.shadowDir when the analytic sky runs, the
+  // old fixed offset otherwise) so shadows swing with the day.
+  const sunDir = new THREE.Vector3(90, 120, 50).normalize();
+  function setSunDir(dir) { if (dir) sunDir.set(dir.x, dir.y, dir.z).normalize(); }
   function follow(pos) {
     sky.position.set(pos.x, pos.y, pos.z);
-    sun.position.set(pos.x + 90, pos.y + 120, pos.z + 50);
+    sun.position.set(pos.x, pos.y, pos.z).addScaledVector(sunDir, 160);
     sun.target.position.set(pos.x, pos.y, pos.z);
     sun.target.updateMatrixWorld();
   }
@@ -324,7 +344,8 @@ export function createScene(container) {
     renderer, scene, camera,
     lights: { sun, hemi, ambient, fill },
     sky, skyDomes,
-    setDay, setFog, follow, resize,
+    setDay, setFog, follow, resize, useAnalyticSky, setSunDir,
+    get analyticSky() { return analytic; },
     render() { renderer.render(scene, camera); },
     dayFactor(nowMs) { return dayFactorAt(nowMs); },
     /** The curve setDay just applied, for anything that wants to match it. */

@@ -48,6 +48,9 @@ import { unlockedFor } from '../mmo/abilities.js';
 import { createEffects } from './effects.js';
 import { createTargeting } from './targeting.js';
 import { createAbilities } from './abilities_runtime.js';
+import { dressRig } from './gear_visuals.js';
+import { createSky } from './sky.js';
+import { createWater } from '../world/water.js';
 import { createNpcs } from './npcs_runtime.js';
 import { createStations, STATION_REACH } from './stations.js';
 import { panel as talkPanel } from './win_talk.js';
@@ -86,6 +89,12 @@ function boot() {
   state.load();
 
   const runtime = createWorldRuntime(sc, { homeBiome: 'meadow' });
+  // the analytic sky and the ocean sheet share one shader block; the water
+  // reads the sky's sun and palette, and scene.js takes its fog colour from it
+  const sky = createSky(sc);
+  const water = createWater(sc, runtime.field, { sky });
+  sc.useAnalyticSky(true);
+  let wasUnder = false;
   const hud = createHud(hudRoot);
 
   // Sound. Browsers refuse audio until the player clicks or presses a key;
@@ -122,7 +131,8 @@ function boot() {
     // an old save's settings are filled in and clamped before anything reads them
     character.settings = normaliseSettings(character.settings);
 
-    const player = createPlayer(sc.scene);
+    // the body is built from the chosen appearance; an old save without one gets the house default
+    const player = createPlayer(sc.scene, character.appearance);
     // First boot: no site stands within the streamed ring of the origin, so a new
     // player would face empty meadow with nowhere to walk to. Spawn instead a
     // short walk outside the nearest settlement, on the side facing the origin.
@@ -174,14 +184,20 @@ function boot() {
 
     // abilities is built after inventory; the passives call binds late
     let abilities = null;
+    // what is worn is on the body: the weapon in the right hand, the shield on
+    // the left, every armour piece on its slot. The bow is drawn when the main
+    // hand is empty and a bow is in the ranged slot, which is the same rule the
+    // ranged abilities use.
+    const dress = () => dressRig(player, character.equipment, { ranged: !character.equipment.mainHand && !!character.equipment.ranged });
     const inventory = createInventory({
       character, actor, recompute,
-      onChange: (c, what) => { state.touch(what); if (what === 'equipment') abilities?.applyPassives?.(); },
+      onChange: (c, what) => { state.touch(what); if (what === 'equipment') { dress(); abilities?.applyPassives?.(); } },
       hud, audio, floaters,
       onSell: () => ({ ok: false, reason: 'nobody out here is buying; find a vendor in town' }),
       onDrop: (item) => loot.drop(player.pos, { items: [item], gold: 0 }),
     });
 
+    dress();
     const effects = createEffects(sc, { audio });
     const targeting = createTargeting(sc, input, monsters, {
       self: actor, hud,
@@ -626,6 +642,15 @@ function boot() {
 
       floaters.update(dt);
       effects.update(dt);               // after player.update: the clips add to the gait
+      // sky first, then the water that reflects it; both centre on the eye
+      sky.update(day, sc.camera.position, dt, now);
+      sc.setSunDir(sky.shadowDir);
+      water.update(dt, sc.camera.position, sky.sunDir, sky.colours, nowS);
+      if (!runtime.inDungeon && water.underwater !== wasUnder) {
+        wasUnder = water.underwater;
+        if (wasUnder) sc.setFog(0.5, 45, 0x0b3550);
+        else sc.setFog(90, 536);
+      }
       hud.update(dt, {
         actor,
         target: targeting.frame(character),
@@ -635,6 +660,7 @@ function boot() {
       windows.update(dt);
       sc.follow(centre);
       sc.setDay(day);
+      water.beforeRender(sc.renderer, sc.scene, sc.camera);   // the refraction pass, right before the frame
       sc.render();
       input.endFrame();
 
@@ -649,11 +675,11 @@ function boot() {
     window.__bw = {
       step: (ms = 16.7) => frame(last + ms, true),
       get now() { return last; },
-      sc, runtime, player, camera, state, hud, dev, input, interact, shop, audio, floaters, THREE,
+      sc, runtime, player, camera, state, hud, dev, input, interact, shop, audio, floaters, THREE, sky, water,
       actor, get playerActor() { return actor; }, get character() { return state.character; },
       progression, combat, loot, monsters, inventory, windows, effects, targeting, abilities, npcs, stations,
       panels: { talk: talkPanel, trade: tradePanel, crafting: craftingPanel, map: mapPanel, settings: settingsPanel },
-      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, devPanel, get devBench() { return devBenchOf(); },
+      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, devPanel, get devBench() { return devBenchOf(); },
       wake, get dying() { return dying; },
     };
     hud.toast('WASD walks, Space jumps, drag to look. Click a monster to fight it, 1 to = use the bar. C character, B bag, K skills, A abilities, V crafting, M map, Escape settings, E goes in.');

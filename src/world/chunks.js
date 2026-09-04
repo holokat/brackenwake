@@ -319,17 +319,13 @@ export function createWorldStream(scene, field, opts = {}) {
     // whiten in winter for free.
     mesh.userData.ground = 0xffffff;
     group.add(mesh);
-    let water = null;
-    if (hasWater) {
-      const wg = new THREE.PlaneGeometry(CHUNK, CHUNK, 1, 1);
-      wg.rotateX(-Math.PI / 2);
-      water = new THREE.Mesh(wg, waterMat);
-      water.position.set(cx * CHUNK + CHUNK / 2, WATER_Y, cz * CHUNK + CHUNK / 2);
-      water.userData.water = palette.water.getHex();
-      group.add(water);
-    }
+    // No per-chunk water quad: src/world/water.js draws one ocean sheet at sea
+    // level that floods the sea, the lakes and every river bed (all carved
+    // below SEA_LEVEL), and a flat quad here would z-fight it. `hasWater` is
+    // still reported on the record for anything that asks.
+    const water = null;
     if (old) { dispose(k, old); stats.rebuilt++; }
-    chunks.set(k, { cx, cz, verts, mesh, water });
+    chunks.set(k, { cx, cz, verts, mesh, water, hasWater });
     stats.loaded++; stats.built++;
     opts.onBuilt?.(cx, cz, verts);
   }

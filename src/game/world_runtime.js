@@ -38,7 +38,7 @@ export const DUNGEON_FLOOR_Y = 0;
 export const FOG_MARGIN = 40;
 
 /** Scene children scene.js owns that have no business being lit underground. */
-const SKY_AND_LIGHTS = new Set(['sky', 'sun-light', 'hemi-light', 'ambient-light', 'fill-light']);
+const SKY_AND_LIGHTS = new Set(['sky', 'water', 'sun-light', 'hemi-light', 'ambient-light', 'fill-light']);
 
 /** three does not skip invisible objects, so ask the whole chain. */
 function worldVisible(o) {
