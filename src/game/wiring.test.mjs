@@ -501,7 +501,7 @@ function rig() {
   // mutes live in the settings window and main.js applies them from the document.
   has(/audio\.musicOn !== s\.musicOn\) audio\.toggleMusic\(\)/, 'the saved musicOn setting drives the music');
   has(/audio\.sfxOn !== s\.sfxOn\) audio\.toggleSfx\(\)/, 'the saved sfxOn setting drives the sound');
-  has(/settingsPanel\]\) windows\.register\(p\)/, 'the settings window is registered');
+  has(/settingsPanel, devPanel\]\) windows\.register\(p\)/, 'the settings window is registered');
   has(/applySettings\(character\.settings\)/, 'and the saved settings are applied at boot');
   has(/window\.__bw = \{[^}]*\baudio\b/, 'exposes the audio for the console');
   has(/Escape settings/, 'the opening line tells you where the sound settings are');

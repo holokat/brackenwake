@@ -55,6 +55,9 @@ import { panel as tradePanel } from './win_trade.js';
 import { panel as craftingPanel } from './win_crafting.js';
 import { panel as mapPanel } from './win_map.js';
 import { panel as settingsPanel, normalise as normaliseSettings } from './win_settings.js';
+import { panel as devPanel } from './win_dev.js';
+import { createSkinning } from './skinning.js';
+import { createTradeNet } from './trade_net.js';
 
 const SAVE_EVERY_MS = 5000;
 /** How close a place has to be before the HUD calls this spot by its name. */
@@ -169,15 +172,17 @@ function boot() {
       spawnPoint,
     });
 
+    // abilities is built after inventory; the passives call binds late
+    let abilities = null;
     const inventory = createInventory({
       character, actor, recompute,
-      onChange: (c, what) => { state.touch(what); },
+      onChange: (c, what) => { state.touch(what); if (what === 'equipment') abilities?.applyPassives?.(); },
       hud, audio, floaters,
       onSell: () => ({ ok: false, reason: 'nobody out here is buying; find a vendor in town' }),
       onDrop: (item) => loot.drop(player.pos, { items: [item], gold: 0 }),
     });
 
-    const effects = createEffects(sc);
+    const effects = createEffects(sc, { audio });
     const targeting = createTargeting(sc, input, monsters, {
       self: actor, hud,
       pos: () => player.pos,
@@ -188,6 +193,7 @@ function boot() {
     // the window layer is built before the ability bar so `enabled` can ask it
     const ctx = {
       character, actor, inventory, state, hud, audio, floaters, runtime, player,
+      sc, camera, combat, monsters, loot,
       windows: null,
       recompute: (who) => recompute(who || actor),
       onBarChange: () => { /* hud.update reads character.bar through barView every frame */ },
@@ -200,7 +206,7 @@ function boot() {
     };
     const windows = createWindows(hudRoot, input, ctx);
     ctx.windows = windows;
-    for (const p of [characterPanel, bagPanel, skillsPanel, abilitiesPanel, talkPanel, tradePanel, craftingPanel, mapPanel, settingsPanel]) windows.register(p);
+    for (const p of [characterPanel, bagPanel, skillsPanel, abilitiesPanel, talkPanel, tradePanel, craftingPanel, mapPanel, settingsPanel, devPanel]) windows.register(p);
     // A fresh character's bar is not left empty: what the opening already
     // unlocked goes on it in order, so the first fight has something on key 1.
     if (barOf(character).every((x) => !x)) {
@@ -215,7 +221,7 @@ function boot() {
     const npcs = createNpcs(sc, runtime, { buildCharacter, root: hudRoot, at: state.pos, ctx });
     const stations = createStations(sc, runtime, { hud });
 
-    const abilities = createAbilities({
+    abilities = createAbilities({
       character, actor, input, combat, monsters, targeting, effects, floaters, hud, audio,
       player, camera, progression,
       heightAt: (x, z) => runtime.heightAt(x, z),
@@ -231,6 +237,18 @@ function boot() {
     });
     const dev = createDev({ sc, camera, player, hud, runtime, state });
     applySettings(character.settings);
+    // the dev bench reaches everything through ctx; nothing here is a second path
+    ctx.targeting = targeting; ctx.abilities = abilities; ctx.effects = effects;
+    ctx.dev = dev; ctx.debug = dev.debug;
+
+    // a knife on a body, and the trade channel between tabs
+    const skinning = createSkinning({ monsters, inventory, progression, character, hud, audio, floaters, at: () => player.pos, rng: Math.random });
+    const tradeNet = createTradeNet({ character, name: character.name, at: () => player.pos, now: () => performance.now(), hud });
+    ctx.tradeNet = tradeNet;
+    tradeNet.onInvite((partner, peer) => {
+      hud.log(`${peer?.name || 'somebody'} wants to trade.`);
+      windows.open('trade', { partner });
+    });
 
     // one raycaster for the things interact.js does not know about: monsters and sacks
     const raycaster = new THREE.Raycaster();
@@ -514,10 +532,14 @@ function boot() {
       if (mon) {
         targeting.set?.(mon.actor, 'click');
         const extra = abilities.takeNextSwing(nowS) || {};
-        const r = combat.queueSwing(actor, mon.actor, { now, jumpAttack: player.airborne, ...extra });
+        // swingAt is queueSwing with the monster's weaknesses folded in
+        const r = monsters.swingAt(actor, mon.actor, { now, jumpAttack: player.airborne, ...extra });
         if (r && !r.queued && r.reason === 'out_of_reach') hud.log(`${mon.name} is ${Math.round(r.dist)} m off`);
         return r;
       }
+      // a body under the cursor, with a knife in hand and something to skin
+      const corpse = skinning.pick(ray) || skinning.nearest(player.pos);
+      if (corpse && skinning.canSkin(corpse)) return skinning.skin(corpse, now);
       return interact.click();
     }
 
@@ -599,6 +621,7 @@ function boot() {
       }
 
       interact.update(dt, now);
+      tradeNet.update(now);
       updatePlace(now);
 
       floaters.update(dt);
@@ -630,7 +653,7 @@ function boot() {
       actor, get playerActor() { return actor; }, get character() { return state.character; },
       progression, combat, loot, monsters, inventory, windows, effects, targeting, abilities, npcs, stations,
       panels: { talk: talkPanel, trade: tradePanel, crafting: craftingPanel, map: mapPanel, settings: settingsPanel },
-      spawnMonster, recompute, tickPools, syncToCharacter,
+      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, devPanel,
       wake, get dying() { return dying; },
     };
     hud.toast('WASD walks, Space jumps, drag to look. Click a monster to fight it, 1 to = use the bar. C character, B bag, K skills, A abilities, V crafting, M map, Escape settings, E goes in.');
