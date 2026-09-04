@@ -20,8 +20,11 @@ and they are small.
 | `field.js` | `sampleAt(x, z)`: height, biome, water, river, land, climate, and the site that shapes this point. Sea level, home disc, tree line, snow line | yes |
 | `chunks.js` | streams 64 m terrain meshes in a 19 x 19 ring at three resolutions with skirts, water planes, palette, lifecycle hooks | THREE |
 | `flora.js` | one TreeField per kind for the whole world; records per 8 m cell from biome tables; ore rings around caves; grass in the near ring | THREE, farm TreeField |
+| `fauna.js` | wild animals: which chunk holds a herd, a fox, a squirrel pair or gulls, spawned only in the near ring, capped at 24 alive, huntable through the farm's own roam contract | THREE, farm animal models |
 | `sites.js` | which sites exist (asks the field), discovery memory | yes |
 | `site_models.js` | what a site looks like: kit buildings around a well, camp kit, primitive ruins, shrines, dungeon and cave mouths; merged by material | THREE, farm kits |
+| `dungeon_gen.js` | what is under a dungeon or cave mouth: rooms and corridors on a 2 m grid, the entrance, the stair down, ore and chest cells, and the clamp that keeps a walker off the rock | yes |
+| `dungeon.js` | the level as geometry: merged floor and walls, torch props, the two exits, a cave's ore field. No ceiling, eight point lights | THREE, farm TreeField |
 
 `src/farm/farm.js` wires them in `_buildWorld()` and drives them from
 `_updateWorld()` every frame. `src/farm/main.js` owns what a place says when
@@ -54,13 +57,30 @@ clicked and what discovery announces.
   measured there are noise. Measure JS with `renderer.render` stubbed.
 - Kit buildings are dozens of meshes each; anything static goes through
   `mergeByMaterial`.
+- three's raycaster does NOT skip invisible objects. Hiding the overworld to
+  go underground leaves every farm hit mesh and every scenery tree still
+  answering a pick, so `pickTree` filters on world visibility and the hover
+  pass branches on `farm.dungeon` instead of sharing the ray. The same fact
+  is used on purpose: the exits' hit boxes are invisible and free.
+- Underground the day/night pass must not touch `scene.fog`, and WASD at
+  95 m/s crosses a 2 m corridor in one frame. Both are guarded on
+  `this.dungeon`.
 
 ## Checks
 
 `npm test` runs `field.test.mjs` (27), `flora.test.mjs` (16),
-`sitegrid.test.mjs` (18). Every rule above that can be tested in node is.
+`sitegrid.test.mjs` (18) and `fauna.test.mjs` (86). Every rule above that
+can be tested in node is.
+
+The underground adds three suites: `dungeon_gen.test.mjs` (26: determinism,
+flood fill from the entrance, the stair, the size cap, the clamp checked
+against a full scan of the grid), `dungeon.test.mjs` (29: the light budget,
+the torch pool, the exits, the ore field, dispose, and `pickTree` proved to
+hit a visible ore rock and miss a hidden one) and `dungeon_farm.test.mjs`
+(60, which drives farm.js itself: entering hides everything, leaving restores
+the camera, target, fog object and visibility exactly).
 
 ## Not yet
 
-Interiors for dungeons and caves, roads between sites, animals in the wild,
+Loot in the chests, anything alive underground, roads between sites,
 rivers that flow downhill, per-chunk persistence of felled trees, other players.
