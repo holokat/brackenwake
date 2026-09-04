@@ -10,7 +10,11 @@ import {
   createAbilities, auditEffectHandlers, EFFECT_HANDLERS, BAR_KEYS, BAR_SLOTS,
   slotForKey, leapArc, MOVING_SPEED, saySeconds,
 } from './abilities_runtime.js';
-import { ABILITIES, ABILITIES_BY_ID, EFFECT_KINDS, canUse } from '../mmo/abilities.js';
+import {
+  ABILITIES, ABILITIES_BY_ID, EFFECT_KINDS, canUse, unlockedFor, weaponNeeds, weaponCheck,
+} from '../mmo/abilities.js';
+import { OPENINGS } from '../mmo/openings.js';
+import { planCharacter } from './creation.js';
 import { resolveMelee, JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
 import { GRAVITY, JUMP_V0 } from './player.js';
 
@@ -671,6 +675,162 @@ ck('seconds are said the way a person says them',
   h.abilities.update(0.1, 11);
   ck('an armed swing nobody used lapses, out loud',
     h.abilities.armed === null && /went unused/.test(said(h)), said(h).split('|').pop().trim());
+}
+
+// --- no weapon, no ability ---------------------------------------------------------
+console.log('abilities_runtime: what has to be in your hands');
+const gear = (o = {}) => ({ mainHand: null, offHand: null, ranged: null, ...o });
+const item = (base, count) => (count == null ? { base } : { base, count });
+
+{
+  const h = harness({ bar: ['rend'], monsters: [mob('Skeleton', 0, 1.5)] });
+  h.character.equipment = gear({ mainHand: item('mace') });
+  const before = h.actor.stamina;
+  const r = h.abilities.use(0, 0);
+  ck('Rend with a mace in hand is refused, and the reason names the ability and the weapon',
+    r.ok === false && /Rend wants a sword or an axe in your hand/.test(r.reason), r.reason);
+  ck('the refusal paid no stamina', h.actor.stamina === before, `${h.actor.stamina} of ${before}`);
+  ck('and no swing was queued and no cooldown started',
+    h.combat.swings.length === 0 && h.abilities.cooldownLeft('rend', 0) === 0,
+    `${h.combat.swings.length} swings`);
+  ck('and the player was told, on the log, with the denied cue',
+    /Rend wants a sword or an axe/.test(said(h)) && h.audio.played.includes('denied'),
+    h.audio.played.join(','));
+
+  h.character.equipment = gear({ mainHand: item('longsword') });
+  const ok = h.abilities.use(0, 0);
+  ck('the same press with a longsword goes through and costs its 20 stamina',
+    ok.ok === true && h.actor.stamina === before - 20, `${h.actor.stamina} of ${before}`);
+}
+{
+  const h = harness({ bar: ['doubleShot'], monsters: [mob('Skeleton', 0, 20)] });
+  h.character.equipment = gear({ ranged: item('shortbow') });
+  h.character.pack = { slots: 20, items: [] };
+  const before = h.actor.stamina;
+  const dry = h.abilities.use(0, 0);
+  ck('Double Shot with a bow and no arrows is refused',
+    dry.ok === false && /wants a bow drawn and arrows in the pack/.test(dry.reason), dry.reason);
+  ck('and it cost nothing', h.actor.stamina === before && h.combat.swings.length === 0);
+  h.character.pack.items.push(item('arrow', 20));
+  const wet = h.abilities.use(0, 0);
+  ck('twenty arrows in the pack let it fly, twice',
+    wet.ok === true && h.combat.swings.length === 2, `${h.combat.swings.length} shots`);
+}
+{
+  const h = harness({ bar: ['rend', 'fireball', 'doubleShot'] });
+  h.character.equipment = gear({ mainHand: item('mace') });
+  const v = h.abilities.barView(0);
+  ck('barView marks the slot the player cannot use, with the reason on it',
+    v[0].unusable === true && /sword or an axe/.test(v[0].unusableReason), v[0].unusableReason);
+  ck('and leaves the spell alone, which needs nothing in hand',
+    v[1].unusable === false && v[1].unusableReason === '' && v[1].needs === 'none');
+  ck('and marks the shot, which has no bow behind it',
+    v[2].unusable === true && /bow drawn/.test(v[2].unusableReason), v[2].unusableReason);
+  h.character.equipment = gear({ mainHand: item('longsword') });
+  const after = h.abilities.barView(0);
+  ck('swapping to a longsword clears the mark on the same frame',
+    after[0].unusable === false && after[0].needs === 'melee');
+  ck('an empty slot is never marked unusable', h.abilities.barView(0)[5].unusable === false);
+}
+{
+  const h = harness({ bar: ['rend'] });
+  const v = h.abilities.barView(0);
+  ck('a character with no equipment field at all is never marked',
+    v[0].unusable === false, 'the old fixtures see no change');
+}
+
+// --- an armed swing belongs to the weapon it was armed with ------------------------
+{
+  const h = harness({ bar: ['powerStrike'], monsters: [] });
+  h.actor.weapon = { id: 'longsword', skill: 'swordsmanship' };
+  h.abilities.use(0, 0);
+  ck('Power Strike with nothing in reach arms on the weapon in hand',
+    h.abilities.armed?.weaponId === 'longsword', String(h.abilities.armed?.weaponId));
+  ck('and the same weapon takes it off the peg', h.abilities.takeNextSwing(1)?.multiplier === 1.6);
+
+  h.abilities.use(0, 6);
+  h.actor.weapon = { id: 'mace', skill: 'macefighting' };
+  ck('but a weapon swap drops it rather than spending it on the wrong swing',
+    h.abilities.takeNextSwing(7) === null && /set up for another weapon/.test(said(h)),
+    said(h).split('|').pop().trim());
+  ck('and the peg is empty afterwards', h.abilities.armed === null);
+}
+{
+  const h = harness({ bar: ['powerStrike'], monsters: [] });
+  h.actor.weapon = { id: 'longsword', skill: 'swordsmanship' };
+  h.abilities.use(0, 0);
+  h.actor.weapon = { id: 'battleaxe', skill: 'swordsmanship' };
+  h.abilities.update(0.1, 1);
+  ck('the update tick lapses it too, so the player hears it at once and not at the swing',
+    h.abilities.armed === null && /set up for another weapon/.test(said(h)),
+    said(h).split('|').pop().trim());
+}
+{
+  const h = harness({ bar: ['powerStrike'], monsters: [] });
+  h.actor.weapon = { id: 'longsword', skill: 'swordsmanship' };
+  h.abilities.use(0, 0);
+  h.abilities.update(0.1, 1);
+  ck('and it does NOT lapse while the weapon stays put',
+    h.abilities.armed !== null && h.abilities.takeNextSwing(1)?.multiplier === 1.6);
+}
+
+// --- a passive that needs a shield ------------------------------------------------
+{
+  const h = harness({ bar: [] });
+  h.character.equipment = gear({ mainHand: item('longsword'), offHand: item('kite') });
+  const withShield = h.abilities.applyPassives();
+  ck('Riposte is on while the shield is on the arm', !!withShield.riposte, Object.keys(withShield).join(', '));
+  h.character.equipment = gear({ mainHand: item('longsword') });
+  const without = h.abilities.applyPassives();
+  ck('and off the moment there is no shield to parry with', !without.riposte, Object.keys(without).join(', '));
+}
+
+// --- every opening, against the kit it is handed ----------------------------------
+{
+  const weaponKinds = ['melee', 'anyMelee', 'unarmed', 'ranged', 'shield', 'instrument'];
+  const rows = [];
+  for (const op of OPENINGS) {
+    const plan = planCharacter({ opening: op.id, name: 'Testing', seed: 3 });
+    if (!plan.ok) { rows.push({ id: op.id, error: plan.reason }); continue; }
+    const c = plan.character;
+    const wanted = unlockedFor(c.skills, c.stats)
+      .filter((x) => !x.passive && weaponKinds.includes(weaponNeeds(x).kind));
+    const refused = wanted.filter((x) => !weaponCheck(x, c.equipment, c.pack).ok);
+    rows.push({ id: op.id, wanted: wanted.length, refused: refused.map((x) => x.id) });
+  }
+  for (const r of rows) {
+    console.log(`  ${r.id.padEnd(12)} ${String(r.wanted).padStart(2)} weapon abilities unlocked, refused: ${r.refused.join(', ') || 'none'}`);
+  }
+  const offenders = rows.filter((r) => r.refused.length);
+  // The ranger is handed a dagger AND a shortbow, and creation.js equips the
+  // dagger in the main hand, which leaves the bow on the back: actor.js picks
+  // `mainHand || ranged`. Every archery ability is refused for that reason
+  // alone. It is the only opening that starts unable to use what it unlocked,
+  // and G2.md asks for the main hand to be left empty. When that is fixed this
+  // check fails, and the exception below should be deleted.
+  ck('only the ranger starts unable to use an ability its own kit unlocked',
+    offenders.length === 1 && offenders[0].id === 'ranger',
+    offenders.map((r) => `${r.id}: ${r.refused.join(', ')}`).join(' | ') || 'none');
+  ck('and the ranger is refused for the dagger in the main hand, not for want of arrows',
+    (() => {
+      const c = planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character;
+      const r = weaponCheck(ABILITIES_BY_ID.aimedShot, c.equipment, c.pack);
+      return !r.ok && /is in your hand instead/.test(r.reason);
+    })(),
+    weaponCheck(ABILITIES_BY_ID.aimedShot,
+      planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character.equipment,
+      planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character.pack).reason);
+  ck('and with the dagger off, the shortbow and its sixty arrows answer',
+    (() => {
+      const c = planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character;
+      c.equipment.mainHand = null;
+      return weaponCheck(ABILITIES_BY_ID.aimedShot, c.equipment, c.pack).ok === true;
+    })(), '60 arrows in the pack');
+  ck('the bard plays on the lute the kit equips',
+    (() => {
+      const c = planCharacter({ opening: 'bard', name: 'Testing', seed: 3 }).character;
+      return weaponCheck(ABILITIES_BY_ID.provoke, c.equipment, c.pack).ok === true;
+    })(), 'rapier in hand, lute in the off hand');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

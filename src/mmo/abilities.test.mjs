@@ -15,7 +15,10 @@ import {
   unlockedFor, meetsRequirements, canUse, startCast, interruptRule,
   interruptChance, lessonFor, spellDamage, manaCostFor, costKind,
   auditAbilities,
+  WEAPON_BASES, SHIELD_BASES, INSTRUMENT_BASES, AMMO_BASES, WEAPON_WORDS,
+  NEEDS_KINDS, weaponNeeds, weaponCheck, countInPack,
 } from './abilities.js';
+import { BASES as ITEM_BASES } from './items.js';
 import { SKILL_NAMES as OPENING_SKILL_NAMES, OPENINGS_BY_ID } from './openings.js';
 
 let pass = 0, fail = 0;
@@ -500,6 +503,257 @@ console.log('\nLessons and spell damage');
     `Meteor ${spellDamage(ABILITIES_BY_ID.meteor, {}).min} to ${spellDamage(ABILITIES_BY_ID.meteor, {}).max}`);
   check('and is null for an ability that deals none',
     spellDamage(ABILITIES_BY_ID.blink, {}) === null && spellDamage(ABILITIES_BY_ID.bless, {}) === null);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nWhat has to be in your hands');
+// ---------------------------------------------------------------------------
+
+// The mirror against the real item tables, both directions. abilities.js may
+// not import items.js (it is the pure, importless layer), so this is the guard
+// that stops the two drifting.
+{
+  const realWeapons = Object.values(ITEM_BASES).filter((b) => b.kind === 'weapon');
+  const missingHere = realWeapons.filter((b) => !WEAPON_BASES[b.id]).map((b) => b.id);
+  check('every weapon base in items.js is in the mirror', missingHere.length === 0,
+    missingHere.join(', ') || `${realWeapons.length} weapons`);
+  const notThere = Object.keys(WEAPON_BASES).filter((id) => !ITEM_BASES[id]).map((id) => id);
+  check('and every id in the mirror is a real base', notThere.length === 0,
+    notThere.join(', ') || `${Object.keys(WEAPON_BASES).length} ids`);
+  const wrong = realWeapons.filter((b) => {
+    const m = WEAPON_BASES[b.id];
+    return !m || m.skill !== b.skill || m.hands !== b.hands || m.ranged !== (b.range != null) || m.name !== b.name;
+  }).map((b) => b.id);
+  check('and every row agrees on name, skill, hands and whether it shoots',
+    wrong.length === 0, wrong.join(', ') || `${realWeapons.length} rows compared`);
+
+  const realShields = Object.values(ITEM_BASES).filter((b) => b.kind === 'shield').map((b) => b.id);
+  check('the three shields match items.js',
+    realShields.length === SHIELD_BASES.length && realShields.every((id) => SHIELD_BASES.includes(id)),
+    SHIELD_BASES.join(', '));
+  const realInstruments = Object.values(ITEM_BASES).filter((b) => b.kinds.includes('instrument')).map((b) => b.id);
+  check('and the instruments do too',
+    realInstruments.length === INSTRUMENT_BASES.length && realInstruments.every((id) => INSTRUMENT_BASES.includes(id)),
+    INSTRUMENT_BASES.join(', '));
+  check('and both ammunition bases are real stacking items',
+    AMMO_BASES.every((id) => ITEM_BASES[id] && ITEM_BASES[id].stack), AMMO_BASES.join(', '));
+
+  // A refusal must name the thing it wants. Every weapon is named by its own
+  // skill's phrase, so adding a weapon nobody mentions fails here.
+  const unnamed = Object.entries(WEAPON_BASES).filter(([, w]) => {
+    const words = WEAPON_WORDS[w.skill] || '';
+    return !w.name.toLowerCase().split(' ').some((part) => words.includes(part.replace(/^(short|long|great|battle|war|quarter|bone)/, '')));
+  }).map(([id]) => id);
+  check('every weapon is named by the words its skill refuses in', unnamed.length === 0,
+    unnamed.join(', ') || Object.values(WEAPON_WORDS).join(' / '));
+}
+
+// The table of kinds, counted.
+{
+  const by = {};
+  for (const ability of ABILITIES) {
+    const kind = weaponNeeds(ability).kind;
+    (by[kind] = by[kind] || []).push(ability.id);
+  }
+  let total = 0;
+  console.log('  kind        n  abilities');
+  for (const kind of NEEDS_KINDS) {
+    const list = by[kind] || [];
+    total += list.length;
+    const shown = list.length > 8 ? `${list.slice(0, 8).join(' ')} and ${list.length - 8} more` : list.join(' ');
+    console.log(`  ${kind.padEnd(11)}${String(list.length).padStart(2)}  ${shown}`);
+  }
+  check(`the seven kinds account for all ${ABILITY_COUNT} abilities`, total === ABILITY_COUNT, `${total} counted`);
+  check('and every kind is used by at least one of them',
+    NEEDS_KINDS.every((k) => (by[k] || []).length > 0),
+    NEEDS_KINDS.map((k) => `${k} ${(by[k] || []).length}`).join(', '));
+  check('a passive that needs a shield says so', weaponNeeds(ABILITIES_BY_ID.riposte).kind === 'shield');
+  check('and Disengage, which fires nothing, needs nothing',
+    weaponNeeds(ABILITIES_BY_ID.disengage).kind === 'none', 'it is a leap and a run, not a shot');
+}
+
+// countInPack takes all three shapes it is handed.
+{
+  check('a pack of item records counts a stack',
+    countInPack({ slots: 20, items: [null, { base: 'arrow', count: 60 }] }, 'arrow') === 60);
+  check('a bare array counts too, and an unstacked item counts one',
+    countInPack([{ base: 'arrow', count: 12 }, { base: 'arrow' }], 'arrow') === 13);
+  check('and a plain count map counts', countInPack({ arrow: 5 }, 'arrow') === 5);
+  check('and nothing at all is none',
+    countInPack(null, 'arrow') === 0 && countInPack({ slots: 20, items: [] }, 'arrow') === 0);
+}
+
+// Every kind, driven both ways, through weaponCheck itself.
+const doll = (o = {}) => ({ mainHand: null, offHand: null, ranged: null, ...o });
+const it = (base, count) => (count == null ? { base } : { base, count });
+const arrows = { slots: 20, items: [it('arrow', 60)] };
+const bolts = { slots: 20, items: [it('bolt', 40)] };
+const emptyPack = { slots: 20, items: [] };
+
+{
+  const ps = ABILITIES_BY_ID.powerStrike;   // anyMelee: the row unlocks on any weapon skill
+  const sword = weaponCheck(ps, doll({ mainHand: it('longsword') }), emptyPack);
+  const mace = weaponCheck(ps, doll({ mainHand: it('mace') }), emptyPack);
+  const bare = weaponCheck(ps, doll(), emptyPack);
+  const bow = weaponCheck(ps, doll({ ranged: it('shortbow') }), arrows);
+  check('a longsword in hand allows Power Strike', sword.ok === true, sword.reason || 'allowed');
+  check('and so does a mace, because the row unlocks on any weapon skill 30',
+    mace.ok === true, 'anyMelee, not swordsmanship: see G2.md');
+  check('empty hands refuse it, in words', bare.ok === false && /wants a weapon in your hand/.test(bare.reason), bare.reason);
+  check('and a bow on your back is not a weapon in your hand',
+    bow.ok === false && /hands are empty/.test(bow.reason), bow.reason);
+}
+{
+  const rend = ABILITIES_BY_ID.rend;        // melee, Swordsmanship only
+  const sword = weaponCheck(rend, doll({ mainHand: it('longsword') }));
+  const axe = weaponCheck(rend, doll({ mainHand: it('battleaxe') }));
+  const mace = weaponCheck(rend, doll({ mainHand: it('mace') }));
+  const fists = weaponCheck(rend, doll({ mainHand: it('fists') }));
+  check('a longsword allows Rend, and so does a battleaxe, which trains the same skill',
+    sword.ok && axe.ok, 'swordsmanship');
+  check('a mace refuses it with the sword reason',
+    mace.ok === false && /Rend wants a sword or an axe in your hand/.test(mace.reason), mace.reason);
+  check('and fists refuse it, since fists are empty hands',
+    fists.ok === false && /hands are empty/.test(fists.reason), fists.reason);
+  const lunge = weaponCheck(ABILITIES_BY_ID.lunge, doll({ mainHand: it('longsword') }));
+  check('and Lunge, which is Fencing, refuses the longsword the other way round',
+    lunge.ok === false && /a dagger, a rapier or a spear/.test(lunge.reason), lunge.reason);
+}
+{
+  const disarm = ABILITIES_BY_ID.disarm;    // unarmed
+  const bare = weaponCheck(disarm, doll());
+  const fists = weaponCheck(disarm, doll({ mainHand: it('fists') }));
+  const armed = weaponCheck(disarm, doll({ mainHand: it('longsword') }));
+  const shielded = weaponCheck(disarm, doll({ offHand: it('kite') }));
+  check('Wrestling wants empty hands, and empty hands allow Disarm', bare.ok === true, bare.reason || 'allowed');
+  check('and so do fists, which are what empty hands swing with', fists.ok === true, fists.reason || 'allowed');
+  check('a longsword refuses it', armed.ok === false && /wants empty hands/.test(armed.reason), armed.reason);
+  check('and a shield is not a weapon, so it does not stop a wrestler', shielded.ok === true, shielded.reason || 'allowed');
+}
+{
+  const ds = ABILITIES_BY_ID.doubleShot;    // ranged, archery, arrows
+  const good = weaponCheck(ds, doll({ ranged: it('shortbow') }), arrows);
+  const noAmmo = weaponCheck(ds, doll({ ranged: it('longbow') }), emptyPack);
+  const noBow = weaponCheck(ds, doll(), arrows);
+  const wrongBow = weaponCheck(ds, doll({ ranged: it('crossbow') }), arrows);
+  const blocked = weaponCheck(ds, doll({ mainHand: it('longsword'), ranged: it('shortbow') }), arrows);
+  check('a bow allows Double Shot only with arrows', good.ok === true, good.reason || 'allowed');
+  check('the same bow with an empty pack refuses it',
+    noAmmo.ok === false && /wants a bow drawn and arrows in the pack/.test(noAmmo.reason), noAmmo.reason);
+  check('arrows with no bow refuse it too',
+    noBow.ok === false && /ranged slot is empty/.test(noBow.reason), noBow.reason);
+  check('and a crossbow is the wrong thing to draw for an archery ability',
+    wrongBow.ok === false && /wrong thing to shoot with/.test(wrongBow.reason), wrongBow.reason);
+  check('a sword in the main hand keeps the bow on your back, so the shot is refused',
+    blocked.ok === false && /is in your hand instead/.test(blocked.reason), blocked.reason);
+}
+{
+  const cs = ABILITIES_BY_ID.cripplingShot; // ranged, marksmanship, bolts
+  const good = weaponCheck(cs, doll({ ranged: it('crossbow') }), bolts);
+  const noBolts = weaponCheck(cs, doll({ ranged: it('crossbow') }), arrows);
+  const knives = weaponCheck(cs, doll({ ranged: it('throwing_knives') }), emptyPack);
+  check('a crossbow with bolts allows Crippling Shot', good.ok === true, good.reason || 'allowed');
+  check('and a quiver of arrows is no use to it',
+    noBolts.ok === false && /bolts in the pack/.test(noBolts.reason), noBolts.reason);
+  check('throwing knives are their own ammunition and need no pack at all',
+    knives.ok === true, knives.reason || 'allowed');
+}
+{
+  const sb = ABILITIES_BY_ID.shieldBash;    // shield
+  const buckler = weaponCheck(sb, doll({ mainHand: it('longsword'), offHand: it('buckler') }));
+  const none = weaponCheck(sb, doll({ mainHand: it('longsword') }));
+  const torch = weaponCheck(sb, doll({ offHand: it('torch') }));
+  check('the buckler allows Shield Bash', buckler.ok === true, buckler.reason || 'allowed');
+  check('and its absence refuses it',
+    none.ok === false && /wants a shield on your arm/.test(none.reason), none.reason);
+  check('a torch in that hand is not a shield', torch.ok === false, torch.reason);
+  check('every shield in the tables answers for it',
+    SHIELD_BASES.every((id) => weaponCheck(sb, doll({ offHand: it(id) })).ok), SHIELD_BASES.join(', '));
+}
+{
+  const provoke = ABILITIES_BY_ID.provoke;  // instrument
+  const lute = weaponCheck(provoke, doll({ mainHand: it('rapier'), offHand: it('lute') }));
+  const none = weaponCheck(provoke, doll({ mainHand: it('rapier'), offHand: it('buckler') }));
+  check('the bard\'s lute allows Provoke, rapier and all', lute.ok === true, lute.reason || 'allowed');
+  check('and a shield where the lute was refuses it',
+    none.ok === false && /wants a lute in your hands/.test(none.reason), none.reason);
+  check('all six bard abilities want the same lute',
+    ABILITIES.filter((x) => x.group === 'bard').every((x) => weaponNeeds(x).kind === 'instrument'),
+    `${ABILITIES.filter((x) => x.group === 'bard').length} of them`);
+}
+{
+  const fb = ABILITIES_BY_ID.fireball;      // none
+  const bare = weaponCheck(fb, doll(), emptyPack);
+  const plated = weaponCheck(fb, doll({ mainHand: it('longsword'), offHand: it('tower') }), emptyPack);
+  check('Fireball casts bare handed', bare.ok === true, bare.reason || 'allowed');
+  check('and in plate with a sword and a tower shield', plated.ok === true, plated.reason || 'allowed');
+  const spells = ABILITIES.filter((x) => ['mage', 'sorcerer', 'necromancer', 'healer'].includes(x.group));
+  const held = spells.filter((x) => weaponNeeds(x).kind !== 'none').map((x) => x.id);
+  check('every spell but the one that enchants a weapon needs nothing in hand',
+    held.length === 1 && held[0] === 'consecrateWeapon',
+    `${spells.length} spells, ${held.join(', ') || 'none'} excepted`);
+  const cw = weaponCheck(ABILITIES_BY_ID.consecrateWeapon, doll(), emptyPack);
+  check('and Consecrate Weapon, which puts holy on your hits, refuses empty hands',
+    cw.ok === false && /wants a weapon in your hand/.test(cw.reason), cw.reason);
+}
+
+// Through canUse, which is what the runtime calls.
+{
+  const full = () => ({
+    skills: { swordsmanship: 60, macefighting: 60, fencing: 60, polearms: 60, wrestling: 60, tactics: 50, parrying: 40, archery: 60, marksmanship: 60, magery: 70, focus: 0 },
+    stats: { str: 60, dex: 60, int: 50, con: 60, wis: 50 },
+    stamina: 100, mana: 100, health: 100, maxHealth: 200,
+    items: { bandage: 3 }, cooldowns: {}, moving: false, hasShield: true,
+  });
+  const noField = full();
+  check('a character with no equipment field is not weapon checked at all, and the old fixtures still pass',
+    canUse(ABILITIES_BY_ID.powerStrike, noField, 0).ok === true
+    && canUse(ABILITIES_BY_ID.rend, noField, 0).ok === true
+    && canUse(ABILITIES_BY_ID.doubleShot, noField, 0).ok === true,
+    'equipment === undefined skips the check');
+
+  const empty = { ...full(), equipment: doll(), pack: emptyPack };
+  const armed = { ...full(), equipment: doll({ mainHand: it('longsword') }), pack: emptyPack };
+  const bare = canUse(ABILITIES_BY_ID.rend, empty, 0);
+  check('but a character who has one is refused Rend with empty hands',
+    bare.ok === false && /wants a sword or an axe/.test(bare.reason), bare.reason);
+  check('and allowed it with a longsword', canUse(ABILITIES_BY_ID.rend, armed, 0).ok === true);
+  check('the hands are checked before the cooldown, so the sharper reason wins',
+    (() => { const c = { ...empty, cooldowns: { rend: 99 } }; return /sword/.test(canUse(ABILITIES_BY_ID.rend, c, 0).reason); })(),
+    canUse(ABILITIES_BY_ID.rend, { ...empty, cooldowns: { rend: 99 } }, 0).reason);
+  check('and startCast refuses through the same reason, so nothing is ever paid for',
+    startCast(ABILITIES_BY_ID.rend, empty, 0).error === bare.reason, startCast(ABILITIES_BY_ID.rend, empty, 0).error);
+  const archer = { ...full(), equipment: doll({ ranged: it('shortbow') }), pack: { slots: 20, items: [it('arrow', 1)] } };
+  const spent = { ...full(), equipment: doll({ ranged: it('shortbow') }), pack: { slots: 20, items: [it('arrow', 0)] } };
+  check('one arrow is enough for Double Shot and none is not',
+    canUse(ABILITIES_BY_ID.doubleShot, archer, 0).ok === true
+    && canUse(ABILITIES_BY_ID.doubleShot, spent, 0).ok === false,
+    canUse(ABILITIES_BY_ID.doubleShot, spent, 0).reason);
+  check('a pack given as a count map works the same way',
+    canUse(ABILITIES_BY_ID.doubleShot, { ...archer, pack: { arrow: 3 } }, 0).ok === true);
+}
+
+// The audit, both ways.
+{
+  check('auditAbilities passes the real table with its needs', auditAbilities() === true);
+  const planted = copy();
+  planted[0] = { ...planted[0], needs: { kind: 'trebuchet' } };
+  let threw = '';
+  try { auditAbilities(planted); } catch (e) { threw = e.message; }
+  check('and fails on a needs kind that is not one of the seven',
+    threw.includes('trebuchet'), threw);
+
+  const noAmmo = copy();
+  noAmmo[12] = { ...noAmmo[12], needs: { kind: 'ranged', skills: ['archery'] } };
+  threw = '';
+  try { auditAbilities(noAmmo); } catch (e) { threw = e.message; }
+  check('and on a shot with no ammunition named', threw.includes('no ammunition'), threw);
+
+  const noSkill = copy();
+  noSkill[4] = { ...noSkill[4], needs: { kind: 'melee', skills: ['cooking'] } };
+  threw = '';
+  try { auditAbilities(noSkill); } catch (e) { threw = e.message; }
+  check('and on a melee ability whose skill no weapon trains', threw.includes('cooking'), threw);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

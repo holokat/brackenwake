@@ -24,7 +24,7 @@
 
 import {
   ABILITIES_BY_ID, EFFECT_KINDS, canUse, startCast, interruptRule, lessonFor,
-  manaCostFor, costKind, MELEE_RANGE,
+  manaCostFor, costKind, MELEE_RANGE, weaponCheck, weaponNeeds,
 } from '../mmo/abilities.js';
 import { JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
 import { GRAVITY, JUMP_V0 } from './player.js';
@@ -185,6 +185,25 @@ export function createAbilities(deps = {}) {
   const cue = (name) => { try { audio?.play?.(name); } catch (err) { /* sound is never load bearing */ } };
   const float = (pos, text, kind) => { try { floaters?.spawn?.(pos, text, kind); } catch (err) { /* the number is decoration */ } };
 
+  /**
+   * What is in the player's hands, through the same weaponCheck canUse uses,
+   * so the bar's grey cell and the refusal you hear are one rule and not two.
+   * A character with no `equipment` field is not checked: see canUse.
+   */
+  function handsCheck(ability) {
+    if (!ability) return { ok: true };
+    if (character.equipment === undefined) return { ok: true };
+    return weaponCheck(ability, character.equipment, character.pack ?? character.items ?? null);
+  }
+
+  /**
+   * The weapon an armed next swing was set up for. `actor.weapon` is written
+   * by actor.js's recompute on every equip, so this changes the moment the
+   * player swaps hands. Undefined for a fixture with no weapon record, which
+   * compares equal to itself and lapses nothing.
+   */
+  const weaponIdNow = () => actor.weapon?.id ?? character.equipment?.mainHand?.base ?? null;
+
   const moving = () => num(player?.speed) > MOVING_SPEED;
   const airborne = () => !!player?.airborne;
   const pos = () => player?.pos || actor.pos || { x: 0, y: 0, z: 0 };
@@ -221,6 +240,11 @@ export function createAbilities(deps = {}) {
       health: num(actor.health),
       maxHealth: num(actor.maxHealth),
       items: character.items || {},
+      // The paper doll and the pack, so canUse can refuse an ability you have
+      // no weapon for. Left undefined when the character has neither, which is
+      // how a fixture that predates the rule keeps measuring what it measured.
+      equipment: character.equipment,
+      pack: character.pack ?? null,
       cooldowns,
       moving: moving(),
       hasShield: !!(actor.shield || character.equipment?.offHand?.shield),
@@ -417,7 +441,10 @@ export function createAbilities(deps = {}) {
       };
       if (!c.target) {
         if (e.nextSwing) {
-          nextSwing = { ...opts, until: c.now + NEXT_SWING_WINDOW };
+          // The weapon is part of the arming. Power Strike set up for a
+          // longsword is not a Power Strike with a bow, and takeNextSwing
+          // drops it rather than multiplying a swing it was never for.
+          nextSwing = { ...opts, until: c.now + NEXT_SWING_WINDOW, weaponId: weaponIdNow() };
           return `Nothing in reach, so it waits on your next swing for ${saySeconds(NEXT_SWING_WINDOW)}.`;
         }
         return 'Nothing in reach.';
@@ -1103,11 +1130,13 @@ export function createAbilities(deps = {}) {
       }
     }
 
-    // 6. an armed melee ability that nobody swung
+    // 6. an armed melee ability that nobody swung, or that is waiting on a
+    // weapon the player has since put down
     if (nextSwing && t >= nextSwing.until) {
       say(`${nextSwing.name} went unused.`, 'bad');
       nextSwing = null;
     }
+    lapseOnWeaponChange();
 
     // 7. the enchantment and the leech, both of which are timed data on the actor
     if (actor.enchant && t >= actor.enchant.until) { say(`${ABILITIES_BY_ID[actor.enchant.abilityId]?.name || 'The enchantment'} wears off.`, 'ability'); actor.enchant = null; }
@@ -1157,6 +1186,22 @@ export function createAbilities(deps = {}) {
     return ctx;
   }
 
+  /**
+   * An armed swing belongs to the weapon it was armed with. Swapping weapons
+   * drops it, out loud, because a Power Strike silently spent on the next
+   * dagger poke is the ability looking broken while every line of it ran.
+   * Called on the update tick AND on takeNextSwing, so nothing can consume it
+   * between frames.
+   */
+  function lapseOnWeaponChange() {
+    if (!nextSwing) return false;
+    if (nextSwing.weaponId === undefined) return false;
+    if (nextSwing.weaponId === weaponIdNow()) return false;
+    say(`${nextSwing.name} was set up for another weapon, and it lapses.`, 'bad');
+    nextSwing = null;
+    return true;
+  }
+
   // ------------------------------------------------------------- the views --
 
   const cooldownLeft = (id, now) => Math.max(0, num(cooldowns[id]) - num(now));
@@ -1180,12 +1225,17 @@ export function createAbilities(deps = {}) {
     const out = [];
     for (let i = 0; i < BAR_SLOTS; i++) {
       const ability = ABILITIES_BY_ID[bar[i]] || null;
+      const hands = handsCheck(ability);
       out.push({
         key: BAR_KEYS[i],
         ability,
         cooldownLeft: ability ? cooldownLeft(ability.id, t) : 0,
         affordable: ability ? affordable(ability) : true,
         casting: !!(cast && ability && cast.abilityId === ability.id),
+        // hud.js greys the cell on `unusable`; the reason is the tooltip.
+        unusable: ability ? !hands.ok : false,
+        unusableReason: hands.ok ? '' : hands.reason,
+        needs: ability ? weaponNeeds(ability).kind : 'none',
       });
     }
     return out;
@@ -1210,6 +1260,11 @@ export function createAbilities(deps = {}) {
         ? ability.skillAny.reduce((b, id) => Math.max(b, num(skills[id])), 0)
         : num(skills[ability.skill]);
       if (have < ability.minSkill) { if (actor.passives) delete actor.passives[ability.id]; continue; }
+      // Riposte is a parry that counters, and there is no parry without a
+      // shield. main.js should call applyPassives() again on every equip
+      // change (see docs/mmo/wiring/G2.md), or this is only as fresh as the
+      // last skill gain.
+      if (!handsCheck(ability).ok) { if (actor.passives) delete actor.passives[ability.id]; continue; }
       api.doPassiveMod(ability.effect, { ability, now: 0, api, hit: [] });
     }
     return actor.passives || {};
@@ -1223,6 +1278,7 @@ export function createAbilities(deps = {}) {
     /** W2's combat consumes this on a plain player swing, or it lapses. */
     takeNextSwing(now) {
       if (!nextSwing) return null;
+      if (lapseOnWeaponChange()) return null;
       if (num(now) >= nextSwing.until) { nextSwing = null; return null; }
       const it = nextSwing;
       nextSwing = null;

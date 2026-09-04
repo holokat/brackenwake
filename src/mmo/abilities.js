@@ -186,6 +186,270 @@ export const DOC_GAPS = {
 };
 
 // ---------------------------------------------------------------------------
+// What has to be in your hands
+// ---------------------------------------------------------------------------
+//
+// 08-POLISH-CONTRACT.md: "A melee ability needs a weapon of its skill in the
+// main hand; a Wrestling ability needs empty hands; a ranged ability needs a
+// bow or crossbow in the ranged slot and ammunition in the pack; Parrying
+// abilities need a shield; a spell needs nothing in hand but a rooted cast."
+//
+// THE WEAPON TABLE IS MIRRORED, NOT IMPORTED, for the same reason the skill
+// ids are: this module stays pure and importless, and abilities.test.mjs walks
+// every weapon, shield, instrument and ammunition base in src/mmo/items.js and
+// fails if the mirror below has drifted in either direction. Adding a weapon
+// there without adding it here breaks the test, not a play session.
+//
+// `fists` is in the mirror so its skill can be named, but it is never held:
+// items.js gives it no slot, and heldWeapon() below reads hands 0 as empty
+// hands, which is what makes Wrestling's rule mean anything.
+
+/** id -> { name, skill, hands, ranged }. Mirrors items.js WEAPONS and the kit
+ * weapons built from them (bone_staff is a quarterstaff wearing a new name). */
+export const WEAPON_BASES = {
+  dagger: { name: 'Dagger', skill: 'fencing', hands: 1, ranged: false },
+  rapier: { name: 'Rapier', skill: 'fencing', hands: 1, ranged: false },
+  spear: { name: 'Spear', skill: 'fencing', hands: 2, ranged: false },
+  shortsword: { name: 'Shortsword', skill: 'swordsmanship', hands: 1, ranged: false },
+  longsword: { name: 'Longsword', skill: 'swordsmanship', hands: 1, ranged: false },
+  greatsword: { name: 'Greatsword', skill: 'swordsmanship', hands: 2, ranged: false },
+  axe: { name: 'Axe', skill: 'swordsmanship', hands: 1, ranged: false },
+  battleaxe: { name: 'Battleaxe', skill: 'swordsmanship', hands: 2, ranged: false },
+  mace: { name: 'Mace', skill: 'macefighting', hands: 1, ranged: false },
+  warhammer: { name: 'Warhammer', skill: 'macefighting', hands: 2, ranged: false },
+  maul: { name: 'Maul', skill: 'macefighting', hands: 2, ranged: false },
+  quarterstaff: { name: 'Quarterstaff', skill: 'macefighting', hands: 2, ranged: false },
+  bone_staff: { name: 'Bone Staff', skill: 'macefighting', hands: 2, ranged: false },
+  halberd: { name: 'Halberd', skill: 'polearms', hands: 2, ranged: false },
+  glaive: { name: 'Glaive', skill: 'polearms', hands: 2, ranged: false },
+  shortbow: { name: 'Shortbow', skill: 'archery', hands: 2, ranged: true },
+  longbow: { name: 'Longbow', skill: 'archery', hands: 2, ranged: true },
+  crossbow: { name: 'Crossbow', skill: 'marksmanship', hands: 2, ranged: true },
+  throwing_knives: { name: 'Throwing Knives', skill: 'marksmanship', hands: 1, ranged: true },
+  fists: { name: 'Fists', skill: 'wrestling', hands: 0, ranged: false },
+};
+
+/** The three shields of 03-ITEMS-LOOT.md, by base id. */
+export const SHIELD_BASES = ['buckler', 'kite', 'tower'];
+/** What a bard plays. The lute is the only instrument the item tables have. */
+export const INSTRUMENT_BASES = ['lute'];
+/** The stacking ammunition bases. Thrown knives are their own ammunition. */
+export const AMMO_BASES = ['arrow', 'bolt'];
+
+/** The bard's four skills. Every one of them is played on an instrument. */
+export const BARD_SKILLS = ['musicianship', 'provocation', 'peacemaking', 'discordance'];
+
+/** The seven answers weaponNeeds can give. */
+export const NEEDS_KINDS = ['melee', 'anyMelee', 'unarmed', 'ranged', 'shield', 'instrument', 'none'];
+
+/**
+ * How a refusal names what it wants. One phrase per weapon skill, and
+ * abilities.test.mjs checks that every weapon in the mirror is named by its
+ * own skill's phrase, so a new weapon cannot hide behind an old sentence.
+ */
+export const WEAPON_WORDS = {
+  swordsmanship: 'a sword or an axe',
+  macefighting: 'a mace, a hammer, a maul or a staff',
+  fencing: 'a dagger, a rapier or a spear',
+  polearms: 'a halberd or a glaive',
+  archery: 'a bow',
+  marksmanship: 'a crossbow or throwing knives',
+  wrestling: 'your fists',
+};
+
+/** Ammunition, said the way a person says it. */
+const AMMO_WORDS = { arrow: 'arrows', bolt: 'bolts' };
+
+/** The base id of an item record, a base record, or a plain base id. */
+export function baseIdOf(item) {
+  if (!item) return null;
+  if (typeof item === 'string') return item;
+  if (typeof item !== 'object') return null;
+  return item.base || item.id || null;
+}
+
+/**
+ * The mirror row for whatever is in a slot, or null. Fists are not held: an
+ * item with no hands is the same as an empty hand, which is the whole of the
+ * Wrestling rule.
+ */
+export function heldWeapon(item) {
+  const row = WEAPON_BASES[baseIdOf(item)];
+  if (!row || row.hands === 0) return null;
+  return { id: baseIdOf(item), ...row };
+}
+
+const isShieldItem = (item) => SHIELD_BASES.includes(baseIdOf(item));
+const isInstrumentItem = (item) => INSTRUMENT_BASES.includes(baseIdOf(item));
+
+/** "a Longsword", "an Axe", "Throwing Knives". */
+function aName(row) {
+  const name = row?.name || 'something';
+  if (/[^s]s$/.test(name)) return name;                 // Fists, Throwing Knives
+  return `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
+}
+
+const wordsFor = (skills = []) => skills.map((s) => WEAPON_WORDS[s] || 'a weapon').join(' or ');
+const ammoWordsFor = (ammo = []) => ammo.map((id) => AMMO_WORDS[id] || id).join(' or ');
+
+/**
+ * How many of a base are in the pack. Takes the character document's
+ * `{ slots, items: [...] }`, a bare array of item records, or a plain count
+ * map like `{ arrow: 60 }`, because canUse is handed all three by different
+ * callers and a pack it cannot read must not silently read as empty.
+ */
+export function countInPack(pack, baseId) {
+  if (!pack || !baseId) return 0;
+  if (Array.isArray(pack)) {
+    let n = 0;
+    for (const it of pack) {
+      if (!it) continue;
+      if (baseIdOf(it) === baseId) n += typeof it.count === 'number' ? it.count : 1;
+    }
+    return n;
+  }
+  if (Array.isArray(pack.items)) return countInPack(pack.items, baseId);
+  const v = pack[baseId];
+  return typeof v === 'number' ? v : 0;
+}
+
+/**
+ * Does this effect swing, shoot or enchant the thing in your hand? A damage
+ * multiplier is a swing by definition, an aoe with a damageMult is a swing in
+ * a circle, and a weapon enchantment with no weapon is a lie. Everything else
+ * (a spell roll, a buff, a summon, a trap, a shout) happens with what you are
+ * holding, not through it.
+ */
+export function effectUsesWeapon(effect) {
+  let found = false;
+  walkEffect(effect, (e) => {
+    if (e.kind === 'damageMult') found = true;
+    if (e.kind === 'weaponEnchant') found = true;
+    if (e.kind === 'aoe' && e.damageMult != null) found = true;
+  });
+  return found;
+}
+
+function normalizeNeeds(needs) {
+  const out = { kind: needs.kind };
+  if (needs.skills) out.skills = [...needs.skills];
+  if (needs.ammo) out.ammo = [...needs.ammo];
+  if (needs.selfAmmo) out.selfAmmo = [...needs.selfAmmo];
+  if (needs.bases) out.bases = [...needs.bases];
+  return out;
+}
+
+/**
+ * The rule, in order. A row may carry its own `needs` and skip all of it.
+ *
+ * Nothing here reads the ability's group: a Rogue's Backstab is Fencing 40 and
+ * wants a fencing weapon by the same line that gives Lunge one.
+ */
+function deriveNeeds(row) {
+  if (row.needs) return normalizeNeeds(row.needs);
+  const skill = row.skill ?? null;
+  if (row.requiresShield || skill === 'parrying') return { kind: 'shield' };
+  if (skill === 'wrestling') return { kind: 'unarmed' };
+  if (BARD_SKILLS.includes(skill)) return { kind: 'instrument', bases: [...INSTRUMENT_BASES] };
+  if (!effectUsesWeapon(row.effect)) return { kind: 'none' };
+  if (row.skillAny) return { kind: 'anyMelee', skills: [...row.skillAny] };
+  if (skill === 'archery') return { kind: 'ranged', skills: ['archery'], ammo: ['arrow'] };
+  if (skill === 'marksmanship') {
+    return { kind: 'ranged', skills: ['marksmanship'], ammo: ['bolt'], selfAmmo: ['throwing_knives'] };
+  }
+  if (WEAPON_SKILLS.includes(skill)) return { kind: 'melee', skills: [skill] };
+  // Consecrate Weapon is Chivalry and Poison Blade is Poisoning, and both of
+  // them put something on the weapon you are holding.
+  return { kind: 'anyMelee', skills: [...WEAPON_SKILLS] };
+}
+
+/**
+ * `{ kind, skills?, ammo?, selfAmmo?, bases? }`. Every row in ABILITIES has
+ * this computed once at load; a hand made row is derived on the spot.
+ */
+export function weaponNeeds(ability) {
+  if (!ability) return { kind: 'none' };
+  return ability.needs ? normalizeNeeds(ability.needs) : deriveNeeds(ability);
+}
+
+/**
+ * `{ ok }` or `{ ok: false, reason }` for what is in your hands alone.
+ *
+ * `equipment` is the character document's paper doll, `{ mainHand, offHand,
+ * ranged }` of item records. `pack` is the document's pack, an array of item
+ * records, or a count map. NO EQUIPMENT MEANS EMPTY HANDS here, which refuses;
+ * canUse skips the check entirely for a character that carries no `equipment`
+ * field at all, so the older fixtures still measure what they were written to
+ * measure.
+ *
+ * A ranged ability wants the bow to be the weapon that will actually fire.
+ * actor.js picks `mainHand || ranged`, so a dagger in the main hand leaves the
+ * bow on your back, and a shot fired with it would be a dagger swing thrown at
+ * twenty five metres: queued, out of reach, and silent. Better to say so.
+ */
+export function weaponCheck(ability, equipment = null, pack = null) {
+  if (!ability) return { ok: false, reason: 'no such ability' };
+  const needs = weaponNeeds(ability);
+  const eq = equipment || {};
+  const name = ability.name;
+  const main = heldWeapon(eq.mainHand);
+  const off = heldWeapon(eq.offHand);
+  const shot = heldWeapon(eq.ranged);
+
+  if (needs.kind === 'none') return { ok: true };
+
+  if (needs.kind === 'unarmed') {
+    const held = main || off;
+    if (!held) return { ok: true };
+    return { ok: false, reason: `${name} wants empty hands, and you are holding ${aName(held)}.` };
+  }
+
+  if (needs.kind === 'anyMelee') {
+    if (main && !main.ranged) return { ok: true };
+    return {
+      ok: false,
+      reason: `${name} wants a weapon in your hand, and ${main ? `${aName(main)} is not one you swing` : 'your hands are empty'}.`,
+    };
+  }
+
+  if (needs.kind === 'melee') {
+    const skills = needs.skills || [];
+    if (main && !main.ranged && skills.includes(main.skill)) return { ok: true };
+    const held = main ? `you are holding ${aName(main)}` : 'your hands are empty';
+    return { ok: false, reason: `${name} wants ${wordsFor(skills)} in your hand, and ${held}.` };
+  }
+
+  if (needs.kind === 'ranged') {
+    const skills = needs.skills || [];
+    const head = `${name} wants ${wordsFor(skills)} drawn and ${ammoWordsFor(needs.ammo)} in the pack`;
+    if (!shot || !shot.ranged || !skills.includes(shot.skill)) {
+      return { ok: false, reason: `${head}, and ${shot ? `${aName(shot)} is the wrong thing to shoot with` : 'your ranged slot is empty'}.` };
+    }
+    if (main) {
+      return { ok: false, reason: `${head}, and ${aName(main)} is in your hand instead. Put it away to free your hands.` };
+    }
+    if ((needs.selfAmmo || []).includes(shot.id)) return { ok: true };
+    let have = 0;
+    for (const id of needs.ammo || []) have += countInPack(pack, id);
+    if (have <= 0) return { ok: false, reason: `${head}, and you have none.` };
+    return { ok: true };
+  }
+
+  if (needs.kind === 'shield') {
+    if (isShieldItem(eq.offHand)) return { ok: true };
+    const held = off ? `you are holding ${aName(off)} in it` : eq.offHand ? 'that hand is holding something else' : 'your off hand is empty';
+    return { ok: false, reason: `${name} wants a shield on your arm, and ${held}.` };
+  }
+
+  if (needs.kind === 'instrument') {
+    if (isInstrumentItem(eq.offHand) || isInstrumentItem(eq.mainHand)) return { ok: true };
+    return { ok: false, reason: `${name} wants a lute in your hands, and there is none.` };
+  }
+
+  return { ok: false, reason: `${name} wants something this build does not know about (${needs.kind}).` };
+}
+
+// ---------------------------------------------------------------------------
 // The table
 // ---------------------------------------------------------------------------
 
@@ -212,6 +476,9 @@ function a(row) {
     effect: row.effect,
     passive: row.passive ?? false,
     requiresShield: row.requiresShield ?? false,
+    /** What has to be in your hands. Derived by rule; a row may override it
+     * with its own `needs`. See weaponNeeds and weaponCheck above. */
+    needs: deriveNeeds(row),
     description: row.description,
   };
 }
@@ -1188,6 +1455,14 @@ export function canUse(ability, character = {}, now = 0) {
     return { ok: false, reason: `${ability.name} is always on and is not used` };
   }
 
+  // What is in your hands, before what is in your pools. A character with no
+  // `equipment` field at all is a fixture that predates the rule, and the
+  // check is skipped for it rather than refusing every ability in the table.
+  if (character.equipment !== undefined) {
+    const hands = weaponCheck(ability, character.equipment, character.pack ?? character.items ?? null);
+    if (!hands.ok) return { ok: false, reason: hands.reason };
+  }
+
   const readyAt = character.cooldowns?.[ability.id];
   if (typeof readyAt === 'number' && now < readyAt) {
     const left = readyAt - now;
@@ -1404,6 +1679,7 @@ export function auditAbilities(list = ABILITIES) {
   }
 
   const usedKinds = new Set();
+  const usedNeeds = new Set();
   for (const ability of list) {
     const where = ability.id;
 
@@ -1481,12 +1757,55 @@ export function auditAbilities(list = ABILITIES) {
     });
 
     if (!ability.description) throw new Error(`auditAbilities: ${where} has no description`);
+
+    // What has to be in your hands. Every row answers, passive or not: a
+    // passive that needs a shield is a passive that does nothing without one.
+    const needs = weaponNeeds(ability);
+    if (!needs || !NEEDS_KINDS.includes(needs.kind)) {
+      throw new Error(`auditAbilities: ${where} needs ${needs && needs.kind}, which is not one of ${NEEDS_KINDS.join(', ')}`);
+    }
+    usedNeeds.add(needs.kind);
+    if (needs.kind === 'melee' || needs.kind === 'anyMelee' || needs.kind === 'ranged') {
+      if (!Array.isArray(needs.skills) || !needs.skills.length) {
+        throw new Error(`auditAbilities: ${where} needs a ${needs.kind} weapon and names no skill`);
+      }
+      for (const id of needs.skills) {
+        if (!(id in KNOWN_SKILLS)) throw new Error(`auditAbilities: ${where} needs unknown skill ${id}`);
+        if (!Object.values(WEAPON_BASES).some((w) => w.skill === id && w.hands > 0)) {
+          throw new Error(`auditAbilities: ${where} needs ${id}, and no weapon in the table trains it`);
+        }
+        if (!WEAPON_WORDS[id]) throw new Error(`auditAbilities: ${where} needs ${id}, which has no words to refuse in`);
+      }
+    }
+    if (needs.kind === 'ranged') {
+      if (!Array.isArray(needs.ammo) || !needs.ammo.length) {
+        throw new Error(`auditAbilities: ${where} is a shot with no ammunition named`);
+      }
+      for (const id of needs.ammo) {
+        if (!AMMO_BASES.includes(id)) throw new Error(`auditAbilities: ${where} wants ${id}, which is not ammunition`);
+      }
+      for (const id of needs.selfAmmo || []) {
+        if (!WEAPON_BASES[id]) throw new Error(`auditAbilities: ${where} says ${id} is its own ammunition, and it is not a weapon`);
+      }
+    }
+    if (needs.kind === 'instrument') {
+      for (const id of needs.bases || []) {
+        if (!INSTRUMENT_BASES.includes(id)) throw new Error(`auditAbilities: ${where} wants ${id}, which is not an instrument`);
+      }
+    }
   }
 
   // Both directions: no declared kind goes unused.
   for (const kind of EFFECT_KINDS) {
     if (!usedKinds.has(kind)) {
       throw new Error(`auditAbilities: effect kind ${kind} is declared and never used`);
+    }
+  }
+
+  // Both directions again: a kind nothing needs is a kind nobody maintains.
+  for (const kind of NEEDS_KINDS) {
+    if (!usedNeeds.has(kind)) {
+      throw new Error(`auditAbilities: no ability needs ${kind}, and the kind is declared`);
     }
   }
 
