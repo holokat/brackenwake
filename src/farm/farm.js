@@ -14,6 +14,7 @@ import { createWorldStream, buildPalette } from '../world/chunks.js';
 import { createDiscovery } from '../world/sites.js';
 import { createSiteMarkers } from '../world/site_models.js';
 import { createFlora } from '../world/flora.js';
+import { createFauna } from '../world/fauna.js';
 import { generateDungeon, clampToWalkable, maxLevel } from '../world/dungeon_gen.js';
 import { createDungeonScene } from '../world/dungeon.js';
 
@@ -64,6 +65,9 @@ const QUARRY = {
   bunny:    { meat: 'game_meat', yield: 1, minTier: 1, hitR: 0.55, base: 4.2, flee: 7.5, hp: [1, 1], restless: true },
   squirrel: { meat: 'game_meat', yield: 1, minTier: 1, hitR: 0.5,  base: 4.6, flee: 7.8, hp: [1, 1], restless: true },
   bear:     { meat: 'bear_meat', yield: 4, minTier: 2, hitR: 1.3,  base: 1.3, flee: 4.0, hp: [3, 4], dangerous: true },
+  // the wild world's predators; without a row a shot wolf paid venison
+  fox:      { meat: 'game_meat', yield: 1, minTier: 1, hitR: 0.7,  base: 4.4, flee: 2.4, hp: [1, 1] },
+  wolf:     { meat: 'game_meat', yield: 2, minTier: 1, hitR: 0.9,  base: 6.0, flee: 2.0, hp: [2, 2] },
 };
 import { buildTurtle, buildDolphin, buildSeagull } from './beach_life.js';
 import { buildProcessor, buildMerchantItem, PROCESSOR_RADIUS } from './processors.js';
@@ -271,7 +275,7 @@ export class Homestead {
 
   dispose() {
     if (this.dungeon) { try { this.dungeon.scene.dispose(); } catch {} this.dungeon = null; }
-    this.world?.dispose(); this.siteMarkers?.dispose(); this.flora?.dispose();
+    this.world?.dispose(); this.siteMarkers?.dispose(); this.flora?.dispose(); this.fauna?.dispose();
     this.dead = true;
     this.renderer.dispose();
     this.renderer.domElement.remove();
@@ -2100,7 +2104,9 @@ export class Homestead {
     const q = QUARRY[rm.quarry] || QUARRY.deer;
     const big = rm.quarry === 'deer' || rm.quarry === 'bear';
     rm.state = 'dead'; rm.t0 = 0;
-    this._spawnBlood(deer.position.x, deer.position.z, rm.quarry === 'bear' ? 1.5 : big ? 1 : 0.55);
+    // was _spawnBlood, which no longer exists: the throw was swallowed upstream and
+    // no kill in the game credited meat, printed a line or bumped a stat
+    this._spawnLeavings(deer.position.x, deer.position.z, rm.quarry === 'bear' ? 1.5 : big ? 1 : 0.55, q.type || rm.quarry);
     try {
       const meat = buildMeat(big ? 'venison' : 'meat_cut');
       meat.scale.setScalar(rm.quarry === 'bear' ? 2.1 : rm.quarry === 'deer' ? 1.6 : 1.0);
@@ -2172,7 +2178,7 @@ export class Homestead {
         piece.position.set(Math.cos(a) * d, 0.001 + k * 0.002, Math.sin(a) * d);
         g.add(piece);
       }
-      g.position.set(x, 0.04, z);
+      g.position.set(x, this.terrainY(x, z) + 0.04, z);   // on the ground under the animal, not at sea level
       g.scale.setScalar(0.1);
       g.traverse((o) => { if (o.material) o.material._op0 = o.material.opacity; });
       this.scene.add(g);
@@ -2382,10 +2388,12 @@ export class Homestead {
     this.discovery = createDiscovery(field);
     // trees, boulders and grass follow the chunks in and out
     this.flora = createFlora(this.scene, field, { sitesNear: this.discovery.sitesNear });
+    // wild animals follow the near ring in and out, and keep off the farm
+    this.fauna = createFauna(this.scene, field, { sitesNear: this.discovery.sitesNear });
     this.world = createWorldStream(this.scene, field, {
       palette: buildPalette(THEMES), waterMap: waterTexture(),
-      onBuilt: (cx, cz, verts) => this.flora.onChunk(cx, cz, verts),
-      onDisposed: (cx, cz) => this.flora.offChunk(cx, cz),
+      onBuilt: (cx, cz, verts) => { this.flora.onChunk(cx, cz, verts); this.fauna.onChunk(cx, cz, verts); },
+      onDisposed: (cx, cz) => { this.flora.offChunk(cx, cz); this.fauna.offChunk(cx, cz); },
     });
     this.siteMarkers = createSiteMarkers(this.scene, this.discovery, this.groundHeightAt);
     // fog closes just inside the streamed ring so chunks never pop in view
@@ -3260,6 +3268,7 @@ export class Homestead {
     if (this.camera.position.y < camFloor) { const lift = camFloor - this.camera.position.y; this.camera.position.y += lift; t.y += lift * 0.5; }
     this.world.update(t);
     this.flora.update(now, t.x, t.z);
+    this.fauna.update(dt, now, t.x, t.z, this.dayFactor < 0.4);
     this.siteMarkers.update(t.x, t.z, this.world.viewRadius);
     // sky, sun disc and moon are painted at a fixed distance from the camera
     for (const d of this.skyDomes) d.position.copy(this.camera.position);
@@ -4234,12 +4243,17 @@ export class Homestead {
         if (sHits.length) this.hoveredSite = sHits[0].object.userData.site || null;
       }
       // hunting: pick the live deer under the cursor (generous target columns)
+      // The farm's own herd and the wild animals of the world are one list here;
+      // fauna.targets() already filters out the dead and the dying.
       this.hoveredDeer = null;
-      if (this.huntMode && this.deer && this.deer.length) {
-        const targets = this.deer.filter((d) => d.userData.hit && d.visible && d.userData.roam
-          && d.userData.roam.state !== 'dead' && d.userData.roam.state !== 'respawning');
-        const dHits = this.raycaster.intersectObjects(targets.map((d) => d.userData.hit), false);
-        if (dHits.length) this.hoveredDeer = dHits[0].object.userData.deer;
+      if (this.huntMode) {
+        const targets = (this.deer || []).filter((d) => d.userData.hit && d.visible && d.userData.roam
+          && d.userData.roam.state !== 'dead' && d.userData.roam.state !== 'respawning')
+          .concat(this.fauna ? this.fauna.targets() : []);
+        if (targets.length) {
+          const dHits = this.raycaster.intersectObjects(targets.map((d) => d.userData.hit), false);
+          if (dHits.length) this.hoveredDeer = dHits[0].object.userData.deer;
+        }
       }
       // predators are shootable too — defend the farm
       this.hoveredPredator = null;

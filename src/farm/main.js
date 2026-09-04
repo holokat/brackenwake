@@ -1400,8 +1400,29 @@ function buildFarmScene() {
       cave: `<b>${s.name}</b>. Ore in the rock. Swing the pickaxe at the dark stones around the mouth.`,
       camp: 'A cold fire and a bedroll. Whoever it was left in a hurry.',
     };
+    // dungeon and cave mouths are doors: go through them when the way down exists
+    if ((s.kind === 'dungeon' || s.kind === 'cave') && typeof farm.enterDungeon === 'function') {
+      toast(`📍 <b>${s.name}</b>. ${s.kind === 'cave' ? 'You duck under the lintel.' : 'You take the steps down.'}`, true, true);
+      farm.enterDungeon(s);
+      return;
+    }
     toast(`📍 ${say[s.kind] || s.name}`, true, true);
   };
+  // the underground reports where you are, so leaving and going deeper are never silent
+  // the underground reports where you are and what is there, so nothing is a
+  // promise: a cave has no stair, and the copy must not say it does
+  farm.onDungeonState = (st) => {
+    if (!st.inside) { toast(`🌤️ back above ground at <b>${st.site.name}</b>`, true, true); return; }
+    const where = st.level > 1 ? `<b>${st.site.name}</b>, level ${st.level}` : `<b>${st.site.name}</b>`;
+    const ways = st.bottom
+      ? 'Nothing goes deeper than this. The pale steps climb out.'
+      : 'The black stair goes deeper, the pale steps climb out.';
+    const spoil = st.kind === 'cave'
+      ? (st.ore ? ` ${st.ore} seams in the rock: swing the pickaxe.` : '')
+      : (st.chests ? ` ${st.chests} chests down here, and no way into them yet.` : '');
+    toast(`🕯️ ${where}. ${ways}${spoil}`, true, true);
+  };
+
   audio.setMusicTheme(game.theme);
   // biome-matched HUD art (meadow art is the base frame; sakura/autumn reuse it for now)
   // all themes share the base HUD frame for now (per-theme art comes later)
@@ -3466,7 +3487,7 @@ function repairFenceUI() {
 // a bow shot resolved: a clean kill drops meat; a miss bolts the quarry; a bear
 // hit with too light a bow just enrages it
 const QUARRY_LABEL = {
-  deer: 'deer', bunny: 'rabbit', squirrel: 'squirrel', bear: 'bear',
+  deer: 'deer', bunny: 'rabbit', squirrel: 'squirrel', bear: 'bear', fox: 'fox', wolf: 'wolf',
 };
 function handleHuntResult(res) {
   if (!res) return;
