@@ -742,6 +742,11 @@ function css() {
   document.head.appendChild(s);
 }
 
+// The bench the open window built, for the console and the harness. windows.js
+// may register a copy of the panel object, so `panel._bench` is not reliable.
+let builtBench = null;
+export const benchOf = () => builtBench;
+
 export const panel = {
   id: 'dev',
   title: 'Dev bench',
@@ -754,6 +759,7 @@ export const panel = {
     root.textContent = '';
     const bench = createBench(ctx);
     this._bench = bench;
+    builtBench = bench;
     this._ctx = ctx;
 
     const row = (label, hint) => {

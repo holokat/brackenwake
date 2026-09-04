@@ -55,7 +55,7 @@ import { panel as tradePanel } from './win_trade.js';
 import { panel as craftingPanel } from './win_crafting.js';
 import { panel as mapPanel } from './win_map.js';
 import { panel as settingsPanel, normalise as normaliseSettings } from './win_settings.js';
-import { panel as devPanel } from './win_dev.js';
+import { panel as devPanel, benchOf as devBenchOf } from './win_dev.js';
 import { createSkinning } from './skinning.js';
 import { createTradeNet } from './trade_net.js';
 
@@ -653,7 +653,7 @@ function boot() {
       actor, get playerActor() { return actor; }, get character() { return state.character; },
       progression, combat, loot, monsters, inventory, windows, effects, targeting, abilities, npcs, stations,
       panels: { talk: talkPanel, trade: tradePanel, crafting: craftingPanel, map: mapPanel, settings: settingsPanel },
-      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, devPanel,
+      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, devPanel, get devBench() { return devBenchOf(); },
       wake, get dying() { return dying; },
     };
     hud.toast('WASD walks, Space jumps, drag to look. Click a monster to fight it, 1 to = use the bar. C character, B bag, K skills, A abilities, V crafting, M map, Escape settings, E goes in.');
