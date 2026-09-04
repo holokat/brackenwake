@@ -39,10 +39,13 @@ target, effect }`. Every ability unlocks from a skill, not an opening: at
 Swordsmanship 30 anyone gets Power Strike. The bar shows twelve slots; drag any
 learned ability onto it.
 
-**Casting rules.** `castTime 0` fires instantly and may be used while moving.
-`castTime > 0` roots you for that long and is interrupted by moving or by
-taking damage over 10% of your health (Focus reduces the interrupt chance).
-Powerful spells are the rooted ones. Melee abilities replace the next swing.
+**Casting rules.** `castTime 0` fires instantly. The `moving` column
+decides the rest: a short cast marked `yes` (none is longer than 0.8 s) may be
+cast on the run and is interrupted only by taking damage over 10% of your
+health (Focus reduces that chance). A cast marked `no` roots you for that
+long and moving ends it outright. Every cast over one second is rooted.
+Powerful spells are the rooted ones; the small ones travel. Melee abilities
+replace the next swing.
 
 **Costs.** Melee abilities cost stamina; spells cost mana. Mana cost is
 `base * (1 - lowerManaCost)`. Casting anything in armour that blocks
