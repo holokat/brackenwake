@@ -302,9 +302,6 @@ check('every single choice validates against the default',
 }
 check('an empty appearance is refused', validateAppearance(null).ok === false);
 
-console.log(`\n${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
-
 // ---- kit ids resolve to items.js bases --------------------------------------
 {
   const { BASES } = await import('./items.js');
@@ -320,3 +317,6 @@ process.exit(fail ? 1 : 0);
     warrior.length === 11 && warrior[0].base === 'longsword' && warrior[1].base === 'kite' && warrior.filter((e) => e.base.startsWith('leather_')).length === 8 && warrior.at(-1).count === 6,
     warrior.map((e) => e.base).join(', '));
 }
+
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);
