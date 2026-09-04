@@ -339,8 +339,10 @@ export function main(argv = []) {
     console.log(`FAIL missing files: ${expected.join(', ')}`);
   }
   if (unknown.length) console.log(`note: no spec for ${unknown.join(', ')}, not checked`);
+  // No timestamp. validation.json is committed, and a date in it would make
+  // the file dirty on every run; without one, a dirty validation.json means
+  // the models themselves changed, which is worth noticing.
   const out = {
-    generated: new Date().toISOString(),
     tolerances: { duration: DURATION_TOLERANCE, size: SIZE_TOLERANCE, groundMetres: GROUND_TOLERANCE },
     models: results,
     missing: expected,
