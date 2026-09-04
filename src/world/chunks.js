@@ -164,6 +164,7 @@ export function createWorldStream(scene, field, opts = {}) {
   }
 
   function dispose(k, c) {
+    opts.onDisposed?.(c.cx, c.cz);
     group.remove(c.mesh); c.mesh.geometry.dispose();
     if (c.water) { group.remove(c.water); c.water.geometry.dispose(); }
     chunks.delete(k); stats.loaded--; stats.disposed++;
@@ -195,6 +196,7 @@ export function createWorldStream(scene, field, opts = {}) {
     if (old) { dispose(k, old); stats.rebuilt++; }
     chunks.set(k, { cx, cz, verts, mesh, water });
     stats.loaded++; stats.built++;
+    opts.onBuilt?.(cx, cz, verts);
   }
 
   function update(center) {

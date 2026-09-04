@@ -13,6 +13,7 @@ import { createWorldField } from '../world/field.js';
 import { createWorldStream, buildPalette } from '../world/chunks.js';
 import { createDiscovery } from '../world/sites.js';
 import { createSiteMarkers } from '../world/site_models.js';
+import { createFlora } from '../world/flora.js';
 
 // The endless world. One seed for everyone until farms get their own offsets.
 export const WORLD_SEED = 20260904;
@@ -264,7 +265,7 @@ export class Homestead {
   }
 
   dispose() {
-    this.world?.dispose(); this.siteMarkers?.dispose();
+    this.world?.dispose(); this.siteMarkers?.dispose(); this.flora?.dispose();
     this.dead = true;
     this.renderer.dispose();
     this.renderer.domElement.remove();
@@ -2371,9 +2372,15 @@ export class Homestead {
     clearLandmarks();
     clearTreeFields();
     const field = createWorldField(WORLD_SEED, { homeBiome: this.theme.id, homeY: -0.3 });
-    this.world = createWorldStream(this.scene, field, { palette: buildPalette(THEMES), waterMap: waterTexture() });
     this.groundHeightAt = (x, z) => field.heightAt(x, z);
     this.discovery = createDiscovery(field);
+    // trees, boulders and grass follow the chunks in and out
+    this.flora = createFlora(this.scene, field, { sitesNear: this.discovery.sitesNear });
+    this.world = createWorldStream(this.scene, field, {
+      palette: buildPalette(THEMES), waterMap: waterTexture(),
+      onBuilt: (cx, cz, verts) => this.flora.onChunk(cx, cz, verts),
+      onDisposed: (cx, cz) => this.flora.offChunk(cx, cz),
+    });
     this.siteMarkers = createSiteMarkers(this.scene, this.discovery, this.groundHeightAt);
     // fog closes just inside the streamed ring so chunks never pop in view
     this.viewFar = this.world.viewRadius - 40;
@@ -3242,6 +3249,7 @@ export class Homestead {
     const camFloor = this.terrainY(this.camera.position.x, this.camera.position.z) + 2.5;
     if (this.camera.position.y < camFloor) { const lift = camFloor - this.camera.position.y; this.camera.position.y += lift; t.y += lift * 0.5; }
     this.world.update(t);
+    this.flora.update(now, t.x, t.z);
     this.siteMarkers.update(t.x, t.z, this.world.viewRadius);
     // sky, sun disc and moon are painted at a fixed distance from the camera
     for (const d of this.skyDomes) d.position.copy(this.camera.position);
