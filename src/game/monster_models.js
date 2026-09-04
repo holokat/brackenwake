@@ -72,6 +72,8 @@ export const TIER_COLOUR = {
 
 /** Shoulder height in metres by tier, before a shape stretches or squashes it. */
 export const TIER_HEIGHT = { 0: 0.5, 1: 1.1, 2: 1.5, 3: 1.9, 4: 2.4, 5: 3.2, 6: 4.0 };
+/** Body types with a real height in metres, tier or no tier. */
+export const FAMILY_HEIGHT = { skeleton: 1.8, zombie: 1.8, goblin: 1.35, biped: 1.85, rat: 0.5, spider: 0.8 };
 
 /** Seconds each one-shot animation runs for. `die` is what monsters.js waits on. */
 export const SWING_SECONDS = 0.45;
@@ -393,11 +395,15 @@ export function buildBoxMonster(id) {
   const colour = TIER_COLOUR[m.tier] ?? TIER_COLOUR[1];
   // size rides the tier, nudged by how much health the thing has inside its own
   // tier, so an ogre of 320 is visibly bigger than a wraith of 180
-  const base = TIER_HEIGHT[m.tier] ?? 1.5;
+  // A humanoid is human sized whatever its tier: a tier 1 skeleton at 1.0 m
+  // read as a toy in the browser. FAMILY_HEIGHT pins the body types that have a
+  // real size; everything else rides the tier as before.
+  const pinned = FAMILY_HEIGHT[shape] ?? FAMILY_HEIGHT[m.kind];
+  const base = pinned ?? TIER_HEIGHT[m.tier] ?? 1.5;
   const peers = MONSTER_LIST.filter((x) => x.tier === m.tier);
   const hi = Math.max(...peers.map((x) => x.hp)), lo = Math.min(...peers.map((x) => x.hp));
   const k = hi > lo ? (m.hp - lo) / (hi - lo) : 0.5;
-  const s = base * (0.85 + 0.3 * k);
+  const s = pinned ? base * (0.95 + 0.1 * k) : base * (0.85 + 0.3 * k);
 
   const built = BUILDERS[shape](colour, s);
   const { group, parts } = built;

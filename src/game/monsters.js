@@ -934,6 +934,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     for (const [key, mon] of [...live]) {
       if (keepKeys.has(key)) continue;
       if (mon.actor.ai?.target) continue;      // never vanish mid fight
+      if (mon.ephemeral) continue;             // a summon or a bench spawn is not in the roll and is not the sweep's to take
       despawn(key);
     }
     for (const w of keep) if (!live.has(w.rec.key)) spawn(w.rec);
