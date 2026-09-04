@@ -1,147 +1,244 @@
-// What grows on the ground: trees, boulders and grass for the endless world.
+// What grows on the ground: trees, boulders, turf and ground cover.
 //
-// The farm's TreeField (src/farm/tree_edit.js) is the mechanism: plain records
-// in, one InstancedMesh per part out, a raycast back-index so the axe and the
-// pickaxe work on it, chop, mine and regrow already written. Here there is one
-// field per KIND for the whole world (oak, spruce, palm, cactus, sakura, rock),
-// and chunks add and remove their records as they stream in and out. Draw calls
-// stay at one per part per kind no matter how many chunks are loaded.
+// The farm's TreeField (src/farm/tree_edit.js) is still the mechanism: plain
+// records in, one InstancedMesh per layer out, a raycast back-index so the axe
+// and the pickaxe work on it, chop, mine and regrow already written. What
+// changed is what a layer draws. A layer used to be a cone or a sphere; now it
+// is one baked variant of a grown tree from tree_gen.js, so a species field
+// holds `variants * 2` layers (bark, leaves) and every record picks the variant
+// it was always going to pick from a hash of where it stands.
+//
+// The record contract is unchanged. `of(t)` still reads x, z, gy, s, ry and
+// still returns { x, y, z, s, ry }, so chopTree's topple, shudder's pivot,
+// treeCopy, the raycast back-index, stumps and regrowth all work untouched. The
+// one addition is `t.vi`, the variant index, which `of` fills in from the
+// record's own position if it is missing. A record dumped by the tree editor
+// and reloaded therefore comes back as the same tree.
 //
 // What grows where is decided per 8 m cell from the world field (biome, height,
-// slope, water, rivers, roads) and a hash of the cell, so every player sees the same
-// forest and a chunk that unloads comes back identical. Sites keep a clearing.
+// slope, water, rivers, roads) and a hash of the cell, so every player sees the
+// same forest and a chunk that unloads comes back identical. Sites keep a
+// clearing. Willows and palms want water and will not grow away from it.
 //
 //   const flora = createFlora(scene, field, { sitesNear, homeClear });
 //   chunks.js calls flora.onChunk(cx, cz, verts) and flora.offChunk(cx, cz)
-//   farm.js calls flora.update(nowMs) each frame (throttled rebuilds)
+//   main.js calls flora.update(nowMs, x, z) each frame: it ticks the wind
+//   clock, feeds the grass tiler and rebuilds any dirty species field.
 
 import * as THREE from 'three';
 import { createTreeField } from '../farm/tree_edit.js';
-import { mat, P } from '../farm/assets.js';
-import { CHUNK } from './field.js';
+import { CHUNK, BIOMES } from './field.js';
 import { hash2, rand2 } from './noise.js';
+import {
+  SPECIES, buildTreeVariants, materialsFor, growBoulder, rockMaterial, tickWind,
+  stumpGeometry, stumpMaterial, LODS, lodForDistance, geometryVariant,
+} from './tree_gen.js';
+import { createGrass } from './grass.js';
 
 export const CELL = 8;                       // one candidate per 8 m cell
 export const TREE_TIER = 17;                 // chunks at this many verts or more get trees
-export const GRASS_RING = 2;                 // grass only within this many chunks
 export const REBUILD_MS = 200;               // at most one field rebuild per kind per this
+export const VARIANTS = 6;                   // grown trees baked per species
+export const ROCK_VARIANTS = 5;
+export const REBAND_M = 24;                  // the player moves this far and the tiers are re-read
 const HOME_CLEAR = 125;                      // the farm keeps its own surroundings
 const SITE_CLEAR = 34;                       // clearing when a site has no flatR of its own
 const clearingOf = (st) => (st.flatR != null ? st.flatR + 6 : SITE_CLEAR);
-export const ORE_RING = [9, 22];               // ore rocks stand this far from a cave mouth
+export const ORE_RING = [9, 22];             // ore rocks stand this far from a cave mouth
 export const ORE_COUNT = 8;
+export const STUMP_CAP = 512;                // felled trees on screen at once
+export const STUMP_MS = 400;                 // how often the felled list is re-read
+
+/**
+ * Growing six variants of a species and rasterising its bark and leaf maps
+ * costs 100 to 185 ms, measured in node. Paid on the frame a player first walks
+ * into a boreal forest, that is a visible stall. So once the world around the
+ * player has settled (nothing dirty, no grass tiles waiting) update() builds
+ * one species that is not built yet, in this order, until they all are. The
+ * work is identical either way; only when it lands changes.
+ */
+export const WARM_ORDER = ['oak', 'rock', 'birch', 'fir', 'pine', 'sakura', 'willow', 'palm', 'dead', 'cactus', 'ore'];
 
 // Chance per candidate cell that a kind grows there, by biome. 64 cells per
-// chunk, so 0.15 is about ten of a kind per chunk.
+// chunk, so 0.15 is about ten of a kind per chunk. One roll picks at most one
+// kind, so the entries in a row are drawn from in order and must sum under 1.
 export const DENSITY = {
-  meadow:   { oak: 0.16, rock: 0.03 },
-  boreal:   { spruce: 0.55, rock: 0.06 },
-  desert:   { cactus: 0.14, rock: 0.09 },
+  meadow:   { oak: 0.13, birch: 0.06, rock: 0.03 },
+  boreal:   { pine: 0.26, fir: 0.28, rock: 0.06 },
+  desert:   { palm: 0.05, cactus: 0.09, dead: 0.05, rock: 0.09 },
   beach:    { palm: 0.12, rock: 0.03 },
-  sakura:   { sakura: 0.30, oak: 0.05 },
-  mountain: { spruce: 0.08, rock: 0.24 },
-  snow:     { rock: 0.08 },
+  sakura:   { sakura: 0.24, willow: 0.09, oak: 0.04, rock: 0.05 },
+  mountain: { fir: 0.07, dead: 0.03, rock: 0.24 },
+  snow:     { fir: 0.09, rock: 0.08 },
   ocean:    {},
 };
-const TREE_LINE = 66;      // no trees above this height
-const MAX_SLOPE = 0.9;     // metres of rise over 2 m; steeper is bare rock for trees
-const MAX_SLOPE_ROCK = 2.0; // boulders sit on slopes; that is where they came from
 
-// The seasonal pass in farm.js recolours anything tagged foliage.
-const tagFoliage = (col, autumnCol, snowAmt = 0.5) => (im) => {
-  im.userData.foliage = col;
-  if (autumnCol != null) im.userData.autumnCol = autumnCol;
-  im.userData.snowAmt = snowAmt;
+/** Species that will only grow with their feet near water. */
+export const WATER_SPECIES = new Set(['willow', 'palm']);
+const WET_H = 3.2;                   // this close to sea level counts as wet ground
+const WET_RIVER = 0.05;
+const MAX_SLOPE_ROCK = 2.0;          // boulders sit on slopes; that is where they came from
+
+/** How big a record of this kind is, before the tree's own baked variation. */
+const SIZE = {
+  rock:   [1.00, 1.10], ore: [1.00, 0.70],
+  oak:    [0.86, 0.30], birch: [0.86, 0.30], pine: [0.88, 0.26], fir: [0.88, 0.26],
+  willow: [0.86, 0.30], palm:  [0.86, 0.34], sakura: [0.86, 0.32],
+  dead:   [0.80, 0.40], cactus: [0.90, 0.50],
 };
 
-// Kind specs: the same part layouts the themes use for their own forests, so a
-// world oak is the meadow's oak. `of(t)` maps a record to one instance.
-function buildKinds(parent) {
-  const kinds = {};
-  const canGeo = new THREE.SphereGeometry(1.5, 8, 7);
-  const oakShades = [0x6fb85a, 0x5ea64c, 0x7cc268];
-  kinds.oak = createTreeField({
-    name: 'world:oak', kind: 'tree', parent,
-    layers: [
-      { geo: new THREE.CylinderGeometry(0.28, 0.42, 2.4, 6), mat: mat(P.wood),
-        of: (t) => ({ x: t.x, y: t.gy + 1.2 * t.s, z: t.z, s: t.s, ry: t.ry }) },
-      ...oakShades.map((col, i) => ({
-        geo: canGeo, mat: mat(col), tag: tagFoliage(col, 0xc9863a),
-        of: (t) => ((t.alt | 0) % 3 === i ? { x: t.x, y: t.gy + 3.0 * t.s, z: t.z, s: t.s, sy: 0.85, ry: t.ry } : null),
-      })),
-    ],
-  });
-  const tier = (r, h) => new THREE.ConeGeometry(r, h, 7);
-  kinds.spruce = createTreeField({
-    name: 'world:spruce', kind: 'tree', parent,
-    layers: [
-      { geo: new THREE.CylinderGeometry(0.18, 0.3, 1.6, 6), mat: mat(P.woodDark),
-        of: (t) => ({ x: t.x, y: t.gy + 0.7 * t.s, z: t.z, s: t.s, ry: t.ry }) },
-      { geo: tier(1.9, 2.6), mat: mat(0x2f6b3f), tag: tagFoliage(0x2f6b3f, null, 0.7),
-        of: (t) => ({ x: t.x, y: t.gy + 2.4 * t.s, z: t.z, s: t.s, ry: t.ry }) },
-      { geo: tier(1.4, 2.2), mat: mat(0x35784a), tag: tagFoliage(0x35784a, null, 0.7),
-        of: (t) => ({ x: t.x, y: t.gy + 3.9 * t.s, z: t.z, s: t.s, ry: t.ry }) },
-      { geo: tier(0.8, 1.8), mat: mat(0x3d8553), tag: tagFoliage(0x3d8553, null, 0.7),
-        of: (t) => ({ x: t.x, y: t.gy + 5.2 * t.s, z: t.z, s: t.s, ry: t.ry }) },
-    ],
-  });
-  const frondGeo = new THREE.ConeGeometry(2.2, 1.1, 6);
-  kinds.palm = createTreeField({
-    name: 'world:palm', kind: 'tree', parent,
-    layers: [
-      { geo: new THREE.CylinderGeometry(0.2, 0.32, 5.2, 6), mat: mat(0x9a7247),
-        of: (t) => ({ x: t.x, y: t.gy + 2.6 * t.s, z: t.z, s: t.s, ry: t.ry, rz: 0.08 }) },
-      { geo: frondGeo, mat: mat(0x3f8f52), tag: tagFoliage(0x3f8f52, null, 0.2),
-        of: (t) => ({ x: t.x, y: t.gy + 5.3 * t.s, z: t.z, s: t.s, sy: 0.9, ry: t.ry }) },
-      { geo: frondGeo, mat: mat(0x4fa25f), tag: tagFoliage(0x4fa25f, null, 0.2),
-        of: (t) => ({ x: t.x, y: t.gy + 5.0 * t.s, z: t.z, s: t.s * 0.78, sy: 0.8, ry: t.ry + 0.8 }) },
-    ],
-  });
-  const cactusMat = mat(0x4f9a4a);
-  kinds.cactus = createTreeField({
-    name: 'world:cactus', kind: 'tree', parent,
-    layers: [
-      { geo: new THREE.CylinderGeometry(0.42, 0.5, 3.4, 8), mat: cactusMat,
-        of: (t) => ({ x: t.x, y: t.gy + 1.7 * t.s, z: t.z, s: t.s, ry: t.ry }) },
-      { geo: new THREE.SphereGeometry(0.42, 7, 6), mat: cactusMat,
-        of: (t) => ({ x: t.x, y: t.gy + 3.4 * t.s, z: t.z, s: t.s }) },
-      { geo: new THREE.CylinderGeometry(0.22, 0.26, 1.4, 7), mat: cactusMat,
-        of: (t) => (t.alt ? { x: t.x + 0.7 * t.s, y: t.gy + 2.4 * t.s, z: t.z, s: t.s, ry: t.ry } : null) },
-    ],
-  });
-  const blossomGeo = new THREE.SphereGeometry(1.75, 8, 7);
-  kinds.sakura = createTreeField({
-    name: 'world:sakura', kind: 'tree', parent,
-    layers: [
-      { geo: new THREE.CylinderGeometry(0.22, 0.36, 2.8, 6), mat: mat(0x5a4032),
-        of: (t) => ({ x: t.x, y: t.gy + 1.4 * t.s, z: t.z, s: t.s, ry: t.ry }) },
-      { geo: blossomGeo, mat: mat(0xf2aac8), tag: tagFoliage(0xf2aac8, 0xd98a7a, 0.6),
-        of: (t) => ({ x: t.x, y: t.gy + 3.4 * t.s, z: t.z, s: t.s, sy: 0.82, ry: t.ry }) },
-      { geo: new THREE.SphereGeometry(1.15, 7, 6), mat: mat(0xf7c2d8), tag: tagFoliage(0xf7c2d8, 0xe0a08a, 0.6),
-        of: (t) => ({ x: t.x + Math.cos(t.oa) * 1.2 * t.s, y: t.gy + 3.0 * t.s, z: t.z + Math.sin(t.oa) * 1.2 * t.s, s: t.s * 0.72, ry: t.ry }) },
-    ],
-  });
-  // ore: darker stone with a copper seam, around cave mouths, harder to break
-  kinds.ore = createTreeField({
-    name: 'world:ore', kind: 'rock', hits: 5, yield: 'ore', parent,
-    layers: [
-      { geo: new THREE.DodecahedronGeometry(1, 0), mat: mat(0x4e5a63),
-        of: (t) => ({ x: t.x, y: t.gy + 0.5 * t.s, z: t.z, s: t.s, sy: 0.9, ry: t.ry }) },
-      { geo: new THREE.DodecahedronGeometry(0.4, 0), mat: mat(0xc47a3a, { metalness: 0.35, roughness: 0.5 }),
-        of: (t) => ({ x: t.x + 0.5 * t.s, y: t.gy + 0.9 * t.s, z: t.z + 0.3 * t.s, s: t.s * 0.6, ry: -t.ry }) },
-    ],
-  });
-  kinds.rock = createTreeField({
-    name: 'world:rock', kind: 'rock', hits: 4, parent,
-    layers: [
-      { geo: new THREE.DodecahedronGeometry(1, 0), mat: mat(0x8b8478),
-        of: (t) => ({ x: t.x, y: t.gy + 0.45 * t.s, z: t.z, s: t.s, sy: 0.85, ry: t.ry }) },
-      { geo: new THREE.DodecahedronGeometry(0.55, 0), mat: mat(0x9a9287),
-        of: (t) => ({ x: t.x + 0.9 * t.s, y: t.gy + 0.25 * t.s, z: t.z + 0.5 * t.s, s: t.s * 0.7, sy: 0.8, ry: -t.ry }) },
-    ],
-  });
-  return kinds;
+/**
+ * Every biome a player can stand in owes them both tools working. A biome with
+ * nothing to chop hands you an axe that does nothing; a biome with nothing to
+ * break hands you a pickaxe that does nothing. This is the guard that catches
+ * it: sakura shipped with three species of tree and no boulders at all.
+ */
+export function auditBiomeHarvest() {
+  const bad = [];
+  for (const b of BIOMES) {
+    if (b === 'ocean') continue;
+    const row = DENSITY[b];
+    if (!row) { bad.push(`${b} has no density row at all`); continue; }
+    const trees = Object.keys(row).filter((k) => k !== 'rock' && k !== 'ore');
+    const rocks = Object.keys(row).filter((k) => k === 'rock' || k === 'ore');
+    if (!trees.length) bad.push(`${b} has nothing to chop`);
+    if (!rocks.length) bad.push(`${b} has nothing to mine`);
+    for (const k of trees) {
+      if (!SPECIES[k]) bad.push(`${b} grows "${k}", which tree_gen has no recipe for`);
+    }
+    const total = Object.values(row).reduce((a, p) => a + p, 0);
+    if (total > 1) bad.push(`${b} density sums to ${total.toFixed(2)}, so the last kinds can never roll`);
+  }
+  if (bad.length) throw new Error(`flora: biomes without harvestables (${bad.join('; ')})`);
+  return BIOMES.length;
 }
+auditBiomeHarvest();
+
+// ---------------------------------------------------------------------------
+// Fields
+// ---------------------------------------------------------------------------
+
+/**
+ * Which baked variant a record wears. Derived from where it stands, so it
+ * survives a dump and reload of the tree editor's store, which only writes
+ * x, z, gy, s, ry and alt. Memoised onto the record so dragging one in the
+ * editor does not turn it into a different tree halfway across the field.
+ */
+export function variantOf(t, n) {
+  if (t.vi == null || t.vi >= n || t.vi < 0) {
+    t.vi = hash2(Math.round(t.x * 8), Math.round(t.z * 8), 9901) % n;
+  }
+  return t.vi;
+}
+
+/** A hex for the seasonal pass to read; the real colour lives in vertex data. */
+const FOLIAGE_HEX = {
+  oak: 0x6fb85a, birch: 0x7ec269, pine: 0x3d7a4c, fir: 0x35704a,
+  willow: 0x6cb06a, palm: 0x4fa25f, sakura: 0xf2aac8, cactus: 0x4f9a4a,
+};
+
+/**
+ * Leaves need a depth material of their own or an alpha-cut canopy casts the
+ * shadow of a solid box, which is exactly what a naive alphaTest canopy looks
+ * like on the ground at noon.
+ */
+/**
+ * The axe reaches six metres. Anything past the near tier can therefore never
+ * be chopped, so it has no business in a raycast: leaving it there made every
+ * click test five thousand far instances, and a click on the sky through a
+ * distant canopy came back "too far to chop" instead of passing through.
+ * `pickTree` walks `field.meshes` and calls `raycast` on each, so a no-op
+ * raycast takes a mesh out of the pick without taking it out of the scene.
+ */
+const tagTier = (im, lod) => {
+  im.receiveShadow = true;
+  // only the near tier casts: a shadow pass over every tree in the ring costs
+  // as much again as the colour pass, and a shadow from 300 m away is a pixel
+  im.castShadow = LODS[lod].shadow;
+  im.userData.lod = lod;
+  im.userData.pickable = lod === 0;
+  if (lod !== 0) im.raycast = () => {};
+};
+const tagLeaves = (species, lod = 0) => (im) => {
+  const M = materialsFor(species);
+  if (M.leafDepth) im.customDepthMaterial = M.leafDepth;
+  tagTier(im, lod);
+  im.userData.foliage = FOLIAGE_HEX[species] || 0x6fb85a;
+  im.userData.snowAmt = species === 'fir' || species === 'pine' ? 0.7 : 0.45;
+};
+const tagBark = (lod = 0) => (im) => { tagTier(im, lod); };
+
+/**
+ * One species: every variant, at every detail level, as TreeField layers.
+ *
+ * A layer draws one (variant, tier) pair, and `of(t)` hands a record to exactly
+ * one of them: the variant it was born with, at the tier its distance from
+ * `centre` asks for. Empty layers cost nothing, because tree_edit's rebuild
+ * skips a layer no record chose.
+ *
+ * `centre` is the live object flora.update writes the player position into, so
+ * a rebuild re-reads the tiers without anything having to be passed down.
+ */
+function speciesField(parent, species, seed, variants, centre) {
+  const vs = buildTreeVariants(species, seed, variants);
+  const M = materialsFor(species);
+  const n = vs.length;
+  const layers = [];
+  for (let lod = 0; lod < LODS.length; lod++) {
+    // at distance several variants share one shape, so the layer count falls
+    // from six a tier to three and then two
+    const seen = new Set();
+    for (let i = 0; i < n; i++) {
+      const gv = geometryVariant(i, lod);
+      if (seen.has(gv)) continue;
+      seen.add(gv);
+      const pick = (t) => (geometryVariant(variantOf(t, n), lod) === gv
+        && lodForDistance(Math.hypot(t.x - centre.x, t.z - centre.z)) === lod
+        ? { x: t.x, y: t.gy, z: t.z, s: t.s, ry: t.ry }
+        : null);
+      const g = vs[gv].lods[lod];
+      layers.push({ geo: g.trunk, mat: M.bark, variant: gv, lod, tag: tagBark(lod), of: pick });
+      if (g.leaves) {
+        layers.push({ geo: g.leaves, mat: M.leaf, variant: gv, lod, tag: tagLeaves(species, lod), of: pick });
+      }
+    }
+  }
+  const f = createTreeField({ name: 'world:' + species, kind: 'tree', parent, layers });
+  f.species = species;
+  f.variants = vs;
+  return f;
+}
+
+function boulderField(parent, name, opts) {
+  const mat = rockMaterial(opts.ore ? 'ore' : 'stone');
+  const vs = [];
+  for (let i = 0; i < ROCK_VARIANTS; i++) {
+    vs.push(growBoulder((opts.seed + i * 7717) >>> 0, {
+      detail: 2,
+      squash: 0.58 + rand2(i, opts.seed, 71) * 0.30,
+      lump: (opts.ore ? 0.24 : 0.19) + rand2(i, opts.seed, 72) * 0.14,
+    }));
+  }
+  const n = vs.length;
+  const layers = vs.map((v, i) => ({
+    geo: v.geo, mat, variant: i, lod: 0, tag: tagBark(0),
+    of: (t) => (variantOf(t, n) === i
+      ? { x: t.x, y: t.gy, z: t.z, s: t.s, ry: t.ry }
+      : null),
+  }));
+  const f = createTreeField({
+    name, kind: 'rock', hits: opts.hits, yield: opts.yield, parent, layers,
+  });
+  f.variants = vs;
+  return f;
+}
+
+// ---------------------------------------------------------------------------
+// Placement. Pure, no THREE, so the node test drives it directly.
+// ---------------------------------------------------------------------------
+
+/** Wet ground: a riverbank, or low enough that the water table is near. */
+export const isWet = (s) => s.river > WET_RIVER || s.h < WET_H;
 
 /** Pure: the records a chunk contributes, by kind. Exported for the node test. */
 export function recordsFor(field, cx, cz, opts = {}) {
@@ -162,7 +259,12 @@ export function recordsFor(field, cx, cz, opts = {}) {
       if (x < x0 || x >= x0 + CHUNK || z < z0 || z >= z0 + CHUNK) continue;
       const s = field.sampleAt(x, z);
       if (s.water) continue;
-      (out.ore ||= []).push({ x, z, gy: s.h - 0.2, s: 1.0 + rand2(i, st.cx + st.cz, seed + 43) * 0.7, ry: rand2(i, st.cx - st.cz, seed + 44) * Math.PI, alt: 0, oa: 0, chunk: chunkKey, ore: true });
+      (out.ore ||= []).push({
+        x, z, gy: s.h - 0.2,
+        s: SIZE.ore[0] + rand2(i, st.cx + st.cz, seed + 43) * SIZE.ore[1],
+        ry: rand2(i, st.cx - st.cz, seed + 44) * Math.PI,
+        alt: 0, oa: 0, chunk: chunkKey, ore: true,
+      });
     }
   }
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
@@ -174,7 +276,9 @@ export function recordsFor(field, cx, cz, opts = {}) {
     if (s.water || s.river > 0.15 || s.road > 0.15) continue;   // the verge keeps its trees, the road does not
     const table = DENSITY[s.biome];
     if (!table) continue;
-    const slope = Math.max(Math.abs(field.heightAt(x + 1, z) - field.heightAt(x - 1, z)), Math.abs(field.heightAt(x, z + 1) - field.heightAt(x, z - 1)));
+    const slope = Math.max(
+      Math.abs(field.heightAt(x + 1, z) - field.heightAt(x - 1, z)),
+      Math.abs(field.heightAt(x, z + 1) - field.heightAt(x, z - 1)));
     if (slope > MAX_SLOPE_ROCK) continue;
     let near = false;
     for (const st of sites) if (Math.hypot(st.x - x, st.z - z) < clearingOf(st)) { near = true; break; }
@@ -183,12 +287,17 @@ export function recordsFor(field, cx, cz, opts = {}) {
     let roll = rand2(gx, gz, seed + 23), kind = null;
     for (const [k, p] of Object.entries(table)) { if (roll < p) { kind = k; break; } roll -= p; }
     if (!kind) continue;
-    if (kind !== 'rock' && (s.h > TREE_LINE || slope > MAX_SLOPE)) continue;
-    const size = kind === 'rock' ? 1.1 + rand2(gx, gz, seed + 24) * 1.1
-      : kind === 'oak' ? 1.5 + rand2(gx, gz, seed + 24) * 1.2
-      : 0.85 + rand2(gx, gz, seed + 24) * 0.6;
+    if (kind !== 'rock') {
+      const P = SPECIES[kind];
+      if (!P) continue;                                     // audited at load; belt and braces
+      if (s.h > P.maxH || slope > P.maxSlope) continue;     // the tree line is per species
+      if (WATER_SPECIES.has(kind) && !isWet(s)) continue;   // a willow away from water is not a willow
+    }
+    const size = SIZE[kind] || SIZE.oak;
     (out[kind] ||= []).push({
-      x, z, gy: s.h - 0.15, s: size, ry: rand2(gx, gz, seed + 25) * Math.PI,
+      x, z, gy: s.h - 0.15,
+      s: size[0] + rand2(gx, gz, seed + 24) * size[1],
+      ry: rand2(gx, gz, seed + 25) * Math.PI,
       alt: hash2(gx, gz, seed + 26) % 3, oa: rand2(gx, gz, seed + 27) * Math.PI * 2,
       chunk: chunkKey,
     });
@@ -196,23 +305,116 @@ export function recordsFor(field, cx, cz, opts = {}) {
   return out;
 }
 
+/** Every kind any biome can produce, plus the cave-mouth ore. */
+export const ALL_KINDS = [...new Set([...Object.values(DENSITY).flatMap(Object.keys), 'ore'])];
+
+// ---------------------------------------------------------------------------
+// Stumps
+//
+// tree_edit.js skips a felled record entirely when it rebuilds, so a chopped
+// tree leaves nothing behind: the axe lands, the tree topples, and the ground
+// where it stood is bare until it regrows minutes later. That reads as a bug.
+// This is the cut stump, drawn outside the TreeField so it is not itself
+// choppable and does not take part in the raycast back-index: one instanced
+// mesh, one draw call, every species, tinted per instance from the species'
+// own bark colour.
+// ---------------------------------------------------------------------------
+
+function createStumps(parent) {
+  const mesh = new THREE.InstancedMesh(stumpGeometry(), stumpMaterial(), STUMP_CAP);
+  mesh.name = 'flora:stumps';
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.frustumCulled = false;
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.setColorAt(0, new THREE.Color(0xffffff));
+  mesh.count = 0;
+  parent.add(mesh);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  const p3 = new THREE.Vector3(), s3 = new THREE.Vector3(), col = new THREE.Color();
+
+  /** Re-read every field's felled records. Cheap: a filter over plain objects. */
+  function refresh(kinds) {
+    let n = 0;
+    for (const f of Object.values(kinds)) {
+      if ((f.kind || 'tree') !== 'tree' || !f.variants) continue;
+      const bark = SPECIES[f.species]?.bark.base ?? 0x8a7358;
+      for (const t of f.trees) {
+        if (!t.felledUntil || n >= STUMP_CAP) continue;
+        const v = f.variants[variantOf(t, f.variants.length)];
+        const r = (v?.baseR ?? 0.35) * t.s * 1.10;
+        const h = 0.40 * t.s * (0.75 + 0.5 * rand2(Math.round(t.x), Math.round(t.z), 5150));
+        e.set(0, t.ry, 0); q.setFromEuler(e);
+        p3.set(t.x, t.gy, t.z);
+        s3.set(r, h, r);
+        m4.compose(p3, q, s3);
+        mesh.setMatrixAt(n, m4);
+        mesh.setColorAt(n, col.setHex(bark));
+        n++;
+      }
+    }
+    mesh.count = n;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    return n;
+  }
+  return {
+    mesh, refresh,
+    get count() { return mesh.count; },
+    dispose() { parent.remove(mesh); mesh.dispose(); mesh.material.dispose(); },
+  };
+}
+
 export function createFlora(scene, field, opts = {}) {
   const group = new THREE.Group();
   group.name = 'world-flora';
   scene.add(group);
-  const kinds = buildKinds(group);
+  const seed = field.seed;
+  const kinds = {};
   const dirty = new Set();
   const lastBuilt = {};
   const have = new Map();          // chunk key -> true when its records are in
-  const stats = { chunks: 0, records: 0, rebuilds: 0, grassChunks: 0 };
+  const stats = {
+    chunks: 0, records: 0, rebuilds: 0, species: 0, drawCalls: 0, stumps: 0,
+    lastRebuildMs: 0, lastRebuild: null, tris: 0,
+    buildMs: {}, grass: null,
+  };
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  // where the tiers are measured from; `of` reads it during a rebuild
+  const centre = { x: 0, z: 0 };
+  let bandedAt = null;
+
+  /**
+   * Species fields are built the first time a record of that species appears.
+   * Growing six variants and rasterising three 512 px bark maps is not free, so
+   * building all eleven kinds at boot would stall the first frame; building the
+   * four or five a region actually uses spreads that over the walk out of the
+   * valley, one species at a time.
+   */
+  function fieldFor(kind) {
+    if (kinds[kind]) return kinds[kind];
+    const t0 = now();
+    if (kind === 'rock') {
+      kinds.rock = boulderField(group, 'world:rock', { seed: seed + 601, hits: 4 });
+    } else if (kind === 'ore') {
+      kinds.ore = boulderField(group, 'world:ore', { seed: seed + 602, hits: 5, yield: 'ore', ore: true });
+    } else {
+      kinds[kind] = speciesField(group, kind, seed + 700, VARIANTS, centre);
+    }
+    stats.buildMs[kind] = +(now() - t0).toFixed(1);
+    stats.species = Object.keys(kinds).length;
+    return kinds[kind];
+  }
 
   function addChunk(cx, cz) {
     const key = cx + ',' + cz;
     if (have.has(key)) return;
     const recs = recordsFor(field, cx, cz, opts);
     for (const [k, list] of Object.entries(recs)) {
-      for (const r of list) kinds[k].trees.push(r);
-      if (list.length) dirty.add(k);
+      if (!list.length) continue;
+      const f = fieldFor(k);
+      for (const r of list) f.trees.push(r);
+      dirty.add(k);
       stats.records += list.length;
     }
     have.set(key, true); stats.chunks++;
@@ -228,66 +430,80 @@ export function createFlora(scene, field, opts = {}) {
     have.delete(key); stats.chunks--;
   }
 
-  // ---- grass: near ring only, one instanced mesh, not clickable ----------
-  const tuftGeo = new THREE.ConeGeometry(0.22, 0.9, 4);
-  tuftGeo.translate(0, 0.45, 0);
-  const tuftMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: false, roughness: 1, flatShading: true });
-  let grass = null;
-  let grassCenter = null;
-  const GRASS_BIOMES = { meadow: 0x6cb552, sakura: 0x78bf60, boreal: 0x5c9a68 };
-  function rebuildGrass(ccx, ccz) {
-    const places = [];
-    const seed = field.seed;
-    for (let dz = -GRASS_RING; dz <= GRASS_RING; dz++) for (let dx = -GRASS_RING; dx <= GRASS_RING; dx++) {
-      const cx = ccx + dx, cz = ccz + dz;
-      for (let i = 0; i < 90; i++) {
-        const x = (cx + rand2(cx * 97 + i, cz, seed + 31)) * CHUNK;
-        const z = (cz + rand2(cx, cz * 89 + i, seed + 32)) * CHUNK;
-        if (Math.hypot(x, z) < HOME_CLEAR) continue;
-        const s = field.sampleAt(x, z);
-        const col = GRASS_BIOMES[s.biome];
-        if (!col || s.water || s.river > 0.2 || s.road > 0.15) continue;   // no tufts down the middle of a road
-        places.push({ x, y: s.h - 0.05, z, s: 0.7 + rand2(i, cx + cz, seed + 33) * 0.8, ry: rand2(i, cx - cz, seed + 34) * Math.PI, col });
-      }
+  const grass = createGrass(group, field, { homeClear: 0 });
+  stats.grass = grass.stats;
+  const stumps = createStumps(group);
+  let lastStumps = 0;
+
+  function countDrawCalls() {
+    let n = 0, tris = 0;
+    for (const f of Object.values(kinds)) {
+      n += f.meshes.length;
+      for (const m of f.meshes) tris += (m.geometry.index.count / 3) * m.count;
     }
-    if (grass) { group.remove(grass); grass.dispose(); grass = null; }
-    if (!places.length) { stats.grassChunks = 0; return; }
-    const im = new THREE.InstancedMesh(tuftGeo, tuftMat, places.length);
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sc = new THREE.Vector3(), c = new THREE.Color();
-    for (let i = 0; i < places.length; i++) {
-      const t = places[i];
-      e.set(0, t.ry, 0); q.setFromEuler(e); p.set(t.x, t.y, t.z); sc.set(t.s, t.s * (0.8 + 0.4 * ((i * 7) % 5) / 5), t.s);
-      m4.compose(p, q, sc); im.setMatrixAt(i, m4);
-      im.setColorAt(i, c.setHex(t.col).offsetHSL(0, 0, ((i * 13) % 7) / 7 * 0.08 - 0.04));
-    }
-    im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true;
-    im.receiveShadow = true;
-    group.add(im); grass = im;
-    stats.grassChunks = (GRASS_RING * 2 + 1) ** 2;
+    stats.tris = tris;
+    return n + grass.meshes.length + (stumps.count ? 1 : 0);
   }
 
   return {
-    kinds, group, stats,
+    kinds, group, stats, grass, stumps,
+
     /** chunks.js: a chunk was built (or rebuilt at a new tier). */
     onChunk(cx, cz, verts) {
       if (verts >= TREE_TIER) addChunk(cx, cz); else removeChunk(cx, cz);
     },
     offChunk(cx, cz) { removeChunk(cx, cz); },
-    /** Every frame. Rebuilds dirty kinds, at most one pass per REBUILD_MS each. */
+
+    /**
+     * Every frame. Advances the one wind clock every leaf, needle and blade
+     * reads, refills a few grass tiles, and rebuilds dirty species fields at
+     * most one pass per REBUILD_MS each.
+     */
     update(nowMs, centerX, centerZ) {
-      for (const k of [...dirty]) {
-        if (nowMs - (lastBuilt[k] || 0) < REBUILD_MS) continue;
-        kinds[k].rebuild(); lastBuilt[k] = nowMs; dirty.delete(k); stats.rebuilds++;
-      }
+      tickWind(nowMs / 1000);
       if (centerX !== undefined) {
-        const [cx, cz] = field.chunkOf(centerX, centerZ);
-        if (!grassCenter || grassCenter[0] !== cx || grassCenter[1] !== cz) { grassCenter = [cx, cz]; rebuildGrass(cx, cz); }
+        centre.x = centerX; centre.z = centerZ;
+        // the detail tiers are measured from the player, so they go stale as
+        // the player walks. Re-read them every REBAND_M, not every frame: a
+        // rebuild is the expensive part and 24 m of drift at a 55 m boundary
+        // is not something anyone can see.
+        if (!bandedAt || Math.hypot(centerX - bandedAt[0], centerZ - bandedAt[1]) > REBAND_M) {
+          bandedAt = [centerX, centerZ];
+          for (const k of Object.keys(kinds)) if ((kinds[k].kind || 'tree') === 'tree') dirty.add(k);
+        }
       }
+      // one field a frame at most, so a rebanding wave never lands as one hitch
+      for (const k of dirty) {
+        if (nowMs - (lastBuilt[k] || 0) < REBUILD_MS) continue;
+        const t0 = now();
+        kinds[k].rebuild();
+        lastBuilt[k] = nowMs; dirty.delete(k); stats.rebuilds++;
+        stats.lastRebuildMs = +(now() - t0).toFixed(2);
+        stats.lastRebuild = k;
+        break;
+      }
+      if (centerX !== undefined) grass.update(nowMs, centerX, centerZ);
+      // the world is quiet: get one more species out of the way before the
+      // player walks into the biome that needs it
+      if (!dirty.size && !grass.queued) {
+        const next = WARM_ORDER.find((k) => !kinds[k]);
+        if (next) fieldFor(next);
+      }
+      // a felled tree owes the player a stump; chopTree rebuilds the field on
+      // its own clock, so the felled list is re-read on ours
+      if (nowMs - lastStumps >= STUMP_MS) { lastStumps = nowMs; stats.stumps = stumps.refresh(kinds); }
+      stats.drawCalls = countDrawCalls();
     },
+
+    /** The settings window's Grass density, 0 to 1. */
+    setGrass(v) { grass.setDensity(v); },
+    get grassDensity() { return grass.density; },
+
     get pending() { return dirty.size; },
     dispose() {
       for (const f of Object.values(kinds)) for (const m of f.meshes) { group.remove(m); m.dispose?.(); }
-      if (grass) { group.remove(grass); grass.dispose(); }
+      grass.dispose();
+      stumps.dispose();
       scene.remove(group);
     },
   };
