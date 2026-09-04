@@ -10,6 +10,48 @@ import { mulberry32, hash2 } from './noise.js';
 import { buildFarmhouse, buildBarn, buildSilo, HOUSE_ROOF_OPTIONS } from '../farm/buildings.js';
 import { buildProcessor } from '../farm/processors.js';
 import { buildCamp } from '../farm/camp_models.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+// A kit house is dozens of small meshes, each its own draw call. A town of
+// twelve was 377 meshes. Static markers never move, so every mesh with the same
+// colour is baked into one geometry: a town becomes a dozen draw calls, and the
+// raycast has a dozen objects to test instead of hundreds.
+export function mergeByMaterial(group) {
+  group.updateWorldMatrix(true, true);
+  const buckets = new Map();   // colour hex + flags -> { mat, geos }
+  const doomed = [];
+  group.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.material || Array.isArray(o.material)) return;
+    if (o.isInstancedMesh) return;
+    const m = o.material;
+    const key = (m.color ? m.color.getHex() : 0) + ':' + (m.transparent ? 't' : 'o') + ':' + (m.type);
+    let b = buckets.get(key);
+    if (!b) { b = { mat: m, geos: [] }; buckets.set(key, b); }
+    const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    // only position and normal survive; uv sets differ between kit pieces and
+    // mergeGeometries refuses mismatched attribute sets
+    for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
+    if (!g.attributes.normal) g.computeVertexNormals();
+    g.applyMatrix4(o.matrixWorld);
+    b.geos.push(g);
+    doomed.push(o);
+  });
+  for (const o of doomed) o.parent?.remove(o);
+  const merged = new THREE.Group();
+  merged.name = group.name;
+  for (const { mat, geos } of buckets.values()) {
+    const geo = mergeGeometries(geos, false);
+    for (const g of geos) g.dispose();
+    if (!geo) continue;
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    merged.add(mesh);
+  }
+  // anything that was not a plain mesh (lights, sprites) rides along untouched
+  for (const child of [...group.children]) merged.add(child);
+  merged.userData = group.userData;
+  return merged;
+}
 
 const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.9, flatShading: true, ...extra });
 const M = {
@@ -122,8 +164,9 @@ export function buildSiteMarker(site, heightAt) {
     const chair = buildCamp('camp_chair'); chair.position.set(site.x - 2.4, ground(-2.4, 1.6), site.z + 1.6); chair.rotation.y = 0.9; g.add(chair);
   }
   g.userData.site = site;
-  g.traverse((o) => { if (o.isMesh) o.userData.site = site; });
-  return g;
+  const merged = mergeByMaterial(g);
+  merged.traverse((o) => { if (o.isMesh) o.userData.site = site; });
+  return merged;
 }
 
 /** Keeps markers alive for every site within `radius` of (x, z). */
@@ -131,20 +174,26 @@ export function createSiteMarkers(scene, discovery, heightAt) {
   const live = new Map();
   let lastX = Infinity, lastZ = Infinity;
   let meshCache = null;
+  const pending = [];
   return {
     update(x, z, radius) {
+      // one build per frame: a town is the most expensive thing the world makes
+      if (pending.length) {
+        const s = pending.shift();
+        if (!live.has(s.id)) { const g = buildSiteMarker(s, heightAt); scene.add(g); live.set(s.id, g); meshCache = null; }
+      }
       if (Math.hypot(x - lastX, z - lastZ) < 48) return;
       lastX = x; lastZ = z;
       const near = discovery.sitesNear(x, z, radius);
       const keep = new Set();
-      let changed = false;
       for (const s of near) {
         keep.add(s.id);
-        if (!live.has(s.id)) { const g = buildSiteMarker(s, heightAt); scene.add(g); live.set(s.id, g); changed = true; }
+        if (!live.has(s.id) && !pending.some((p) => p.id === s.id)) pending.push(s);
       }
-      for (const [id, g] of live) if (!keep.has(id)) { scene.remove(g); live.delete(id); changed = true; }
-      if (changed) meshCache = null;
+      for (const [id, g] of live) if (!keep.has(id)) { scene.remove(g); live.delete(id); meshCache = null; }
+      for (let i = pending.length - 1; i >= 0; i--) if (!keep.has(pending[i].id)) pending.splice(i, 1);
     },
+    get pending() { return pending.length; },
     /** Every mesh of every live marker, for raycasting. */
     meshes() {
       if (!meshCache) { meshCache = []; for (const g of live.values()) g.traverse((o) => { if (o.isMesh) meshCache.push(o); }); }
