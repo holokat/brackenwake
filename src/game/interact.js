@@ -49,6 +49,8 @@ export const TOOL_FOR = { tree: 'axe', rock: 'pickaxe' };
 // `world:ore`, `dungeon:12,3:2:ore`.
 const NOUNS = {
   oak: 'oak', spruce: 'spruce', palm: 'palm', cactus: 'cactus', sakura: 'cherry tree',
+  birch: 'birch', pine: 'pine', fir: 'fir', willow: 'willow', dead: 'dead tree', beech: 'beech',
+  kapok: 'kapok', fig: 'fig tree',
   ore: 'ore seam', rock: 'boulder', boulders: 'boulder', trees: 'tree', woods: 'tree',
 };
 

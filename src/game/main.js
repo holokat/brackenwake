@@ -51,6 +51,9 @@ import { createAbilities } from './abilities_runtime.js';
 import { dressRig } from './gear_visuals.js';
 import { createSky } from './sky.js';
 import { createWater } from '../world/water.js';
+import { createForageField, seasonAt } from '../world/forage.js';
+import { createForaging } from './foraging.js';
+import { variantOf } from '../world/flora.js';
 import { createNpcs } from './npcs_runtime.js';
 import { createStations, STATION_REACH } from './stations.js';
 import { panel as talkPanel } from './win_talk.js';
@@ -95,6 +98,31 @@ function boot() {
   const water = createWater(sc, runtime.field, { sky });
   sc.useAnalyticSky(true);
   let wasUnder = false;
+  // Metals and water need something to reflect. The sky dome is rendered into
+  // a prefiltered environment every ENV_EVERY_MS, so a blade at dusk reflects
+  // a dusk sky and not a studio. The dome is borrowed for the render and put
+  // straight back.
+  const ENV_EVERY_MS = 15000;
+  const pmrem = new THREE.PMREMGenerator(sc.renderer);
+  const envScene = new THREE.Scene();
+  let envAt = -1e9, envRT = null;
+  function refreshEnvironment(now, force = false) {
+    if (!force && now - envAt < ENV_EVERY_MS) return false;
+    envAt = now;
+    const dome = sky.group || sc.scene.children.find((o) => o.name === 'sky' && o !== sc.sky);
+    if (!dome) return false;
+    const parent = dome.parent, pos = dome.position.clone();
+    dome.position.set(0, 0, 0);
+    envScene.add(dome);
+    const rt = pmrem.fromScene(envScene, 0, 0.1, 50);
+    parent.add(dome);
+    dome.position.copy(pos);
+    if (envRT) envRT.dispose();
+    envRT = rt;
+    sc.scene.environment = rt.texture;
+    if ('environmentIntensity' in sc.scene) sc.scene.environmentIntensity = 0.55;
+    return true;
+  }
   const hud = createHud(hudRoot);
 
   // Sound. Browsers refuse audio until the player clicks or presses a key;
@@ -261,6 +289,27 @@ function boot() {
     const skinning = createSkinning({ monsters, inventory, progression, character, hud, audio, floaters, at: () => player.pos, rng: Math.random });
     const tradeNet = createTradeNet({ character, name: character.name, at: () => player.pos, now: () => performance.now(), hud });
     ctx.tradeNet = tradeNet;
+
+    // what grows under the trees: mushrooms by the trunks, berries in the
+    // clearings, honey on the bark. The trees are handed over as plain records.
+    const treesFor = (cx, cz) => {
+      const flora = runtime.flora;
+      if (typeof flora?.treesFor === 'function') return flora.treesFor(cx, cz);
+      const key = `${cx},${cz}`, out = [];
+      for (const f of Object.values(flora?.kinds || {})) {
+        if ((f.kind || 'tree') !== 'tree' || !f.variants?.length) continue;
+        for (const t of f.trees || []) {
+          if (t.chunk !== key || t.felledUntil) continue;
+          const v = f.variants[variantOf(t, f.variants.length)];
+          out.push({ x: t.x, z: t.z, radius: (v?.baseR ?? 0.35) * (t.s ?? 1) });
+        }
+      }
+      return out;
+    };
+    const forage = createForageField(sc, { field: runtime.field, treesFor, season: seasonAt(Date.now()) });
+    const foraging = createForaging({ field: forage, inventory, progression, hud, audio, floaters, character, actor, combat });
+    ctx.foraging = foraging;
+    ctx.useItem = (item, where) => foraging.useItem(item, where);
     tradeNet.onInvite((partner, peer) => {
       hud.log(`${peer?.name || 'somebody'} wants to trade.`);
       windows.open('trade', { partner });
@@ -544,6 +593,12 @@ function boot() {
         windows.open('crafting', { station: st.id });
         return st;
       }
+      // a mushroom at your feet beats the oak behind it; out of reach, the click falls through
+      const pickF = forage.pick(ray);
+      if (pickF) {
+        const r = foraging.harvest(pickF.rec, now);
+        if (r.ok || r.reason !== 'too_far') return r;
+      }
       const mon = monsters.pick(ray);
       if (mon) {
         targeting.set?.(mon.actor, 'click');
@@ -615,6 +670,7 @@ function boot() {
       runtime.update(dt, now, centre.x, centre.z, day);
       npcs.update(dt, player.pos, day);
       stations.update(player.pos.x, player.pos.z, now);
+      forage.update(player.pos.x, player.pos.z, seasonAt(Date.now()));
 
       // the fight: monsters queue, combat resolves, the bar reacts
       monsters.update(dt, now, actor, night);
@@ -645,6 +701,7 @@ function boot() {
       // sky first, then the water that reflects it; both centre on the eye
       sky.update(day, sc.camera.position, dt, now);
       sc.setSunDir(sky.shadowDir);
+      refreshEnvironment(now);
       water.update(dt, sc.camera.position, sky.sunDir, sky.colours, nowS);
       if (!runtime.inDungeon && water.underwater !== wasUnder) {
         wasUnder = water.underwater;
@@ -679,7 +736,7 @@ function boot() {
       actor, get playerActor() { return actor; }, get character() { return state.character; },
       progression, combat, loot, monsters, inventory, windows, effects, targeting, abilities, npcs, stations,
       panels: { talk: talkPanel, trade: tradePanel, crafting: craftingPanel, map: mapPanel, settings: settingsPanel },
-      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, devPanel, get devBench() { return devBenchOf(); },
+      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, forage, foraging, refreshEnvironment, devPanel, get devBench() { return devBenchOf(); },
       wake, get dying() { return dying; },
     };
     hud.toast('WASD walks, Space jumps, drag to look. Click a monster to fight it, 1 to = use the bar. C character, B bag, K skills, A abilities, V crafting, M map, Escape settings, E goes in.');
