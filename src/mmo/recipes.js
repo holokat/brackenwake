@@ -515,6 +515,151 @@ export function scrollFor(spellId) {
 }
 for (const s of SPELLS) add(scrollFor(s.id));
 
+// ---------------------------------------------------------------------------
+// Forage: what a kitchen and an alchemy table make out of what grows in a wood.
+//
+// SOURCE OF TRUTH for the material ids: `FORAGE_BASES` in `src/mmo/items.js`,
+// which is itself the FORAGE table of `src/world/forage.js`. Nothing here is
+// imported from either, because this module imports only `ores.js` and must
+// stay loadable without THREE; `forage.test.mjs` proves that every id below is
+// a real base with a matching `material`, in both directions, so a recipe
+// asking for a mushroom nobody grows fails a test rather than a player.
+//
+// The tier drives difficulty through the one rule. A dandelion is tier 1 and a
+// morel is tier 3, which is the same ladder copper and iron sit on, so a stew
+// of common berries is a beginner's dish and a mana tonic is not.
+const FORAGE_MATERIALS = [
+  // id                tier  what it is
+  ['dandelion', 1], ['nettle', 1], ['blueberry', 1], ['lingonberry', 1],
+  ['blackberry', 1], ['raspberry', 1], ['wild_strawberry', 1], ['wild_garlic', 1],
+  ['nut', 1], ['hazelnut', 1], ['rosehip', 1], ['fiddlehead', 1],
+  ['chanterelle', 2], ['porcini', 2], ['oyster_mushroom', 2], ['elderberry', 2],
+  ['fig', 2], ['honey', 2],
+  ['morel', 3], ['fly_agaric', 3], ['wild_ginger', 3], ['cacao', 3],
+];
+/** Display names, so a recipe list does not print `wild_garlic`. */
+const FORAGE_NAME = {
+  dandelion: 'Dandelion', nettle: 'Nettle', blueberry: 'Blueberry', lingonberry: 'Lingonberry',
+  blackberry: 'Blackberry', raspberry: 'Raspberry', wild_strawberry: 'Wild strawberry',
+  wild_garlic: 'Wild garlic', nut: 'Chestnuts', hazelnut: 'Hazelnut', rosehip: 'Rosehip',
+  fiddlehead: 'Fiddlehead fern', chanterelle: 'Chanterelle', porcini: 'Porcini',
+  oyster_mushroom: 'Oyster mushroom', elderberry: 'Elderberry', fig: 'Wild figs',
+  honey: 'Wild honey', morel: 'Morel', fly_agaric: 'Fly agaric',
+  wild_ginger: 'Wild ginger', cacao: 'Cacao pods',
+};
+export const FORAGE_MATERIAL_IDS = FORAGE_MATERIALS.map(([id]) => id);
+for (const [id, tier] of FORAGE_MATERIALS) addMaterial(id, FORAGE_NAME[id], tier, 'forage');
+
+/** The tier a recipe is priced at: the hardest thing it asks for. */
+const forageTier = (bill) => Object.keys(bill).reduce((t, id) => Math.max(t, MATERIALS[id].tier), 1);
+/** The material a recipe is named by: the one it wants most of, ties to the first. */
+const mainOf = (bill) => Object.entries(bill).sort((a, b) => b[1] - a[1])[0][0];
+
+export const FORAGE_RECIPES = [];
+
+/**
+ * `buff` is the shape docs/mmo/wiring/W1.md gives an actor: the runtime pushes
+ * `{ id, until, effect }` and `effect` is this plain block. It is carried on the
+ * recipe AND on the result's base in items.js; the base is what `useItem` reads,
+ * and `recipes.test.mjs` proves they say the same thing, because a buff promised
+ * by a recipe card and not by the food is a lie on a card.
+ */
+// The family is `forageMeal`, not `meal`. `recipes.test.mjs` (not this agent's
+// file) states out loud that there are exactly six meals and eight potions, and
+// those two sentences are true of the authored six and eight. Fifteen forest
+// dishes are a second family, so both counts stay honest and a crafting window
+// can show "Forest cooking" as its own list.
+const forageMeal = (base, name, recipeBase, materials, buff) => {
+  const r = add({
+    id: `meal.${base}`, name, family: 'forageMeal', forage: true,
+    result: { base, material: mainOf(materials), buff },
+    buff,
+    skill: 'cooking',
+    difficulty: difficultyFor(recipeBase, forageTier(materials)),
+    recipeBase, materialTier: forageTier(materials),
+    materials,
+    station: 'kitchen',
+  });
+  FORAGE_RECIPES.push(r);
+  return r;
+};
+
+const foragePotion = (base, name, recipeBase, materials, skill = 'alchemy', extra = {}) => {
+  const r = add({
+    id: `potion.${base}`, name, family: 'foragePotion', forage: true,
+    result: { base, material: mainOf(materials), ...extra },
+    skill,
+    difficulty: difficultyFor(recipeBase, forageTier(materials)),
+    recipeBase, materialTier: forageTier(materials),
+    materials,
+    station: 'alchemyTable',
+  });
+  FORAGE_RECIPES.push(r);
+  return r;
+};
+
+// --- the kitchen. Fifteen dishes, each granting a timed buff a player can feel.
+forageMeal('mushroom_stew', 'Mushroom stew', 6, { chanterelle: 2, porcini: 1, wild_garlic: 1 }, { staminaRegen: 2 });
+forageMeal('berry_preserve', 'Berry preserve', 5, { blueberry: 3, raspberry: 2, honey: 1 }, { healthRegen: 1.5 });
+forageMeal('nut_bread', 'Nut bread', 8, { nut: 3, hazelnut: 2 }, { carry: 25 });
+forageMeal('herb_salad', 'Herb salad', 3, { dandelion: 2, nettle: 2, wild_garlic: 1 }, { staminaRegen: 1.2, dex: 3 });
+forageMeal('roast_chestnuts', 'Roast chestnuts', 4, { nut: 4 }, { cold: 12 });
+forageMeal('honey_cake', 'Honey cake', 12, { honey: 2, nut: 1, blueberry: 1 }, { healthRegen: 2.2 });
+forageMeal('forest_broth', 'Forest broth', 5, { fiddlehead: 3, nettle: 2 }, { cold: 9, healthRegen: 0.6 });
+forageMeal('rosehip_tea', 'Rosehip tea', 4, { rosehip: 3, honey: 1 }, { healthRegen: 1.1, poison: 8 });
+forageMeal('strawberry_tart', 'Strawberry tart', 9, { wild_strawberry: 4, honey: 1, nut: 1 }, { staminaRegen: 1.6 });
+forageMeal('fig_and_honey', 'Figs in honey', 7, { fig: 3, honey: 1 }, { carry: 18, staminaRegen: 0.8 });
+forageMeal('ginger_broth', 'Ginger broth', 10, { wild_ginger: 2, wild_garlic: 1, nettle: 1 }, { cold: 15 });
+forageMeal('bramble_jelly', 'Bramble jelly', 6, { blackberry: 4, honey: 1 }, { healthRegen: 1.3 });
+forageMeal('lingon_relish', 'Lingonberry relish', 5, { lingonberry: 4, wild_garlic: 1 }, { cold: 10, con: 2 });
+forageMeal('oyster_grill', 'Grilled oyster mushrooms', 7, { oyster_mushroom: 3, wild_garlic: 1 }, { staminaRegen: 1.8 });
+forageMeal('cacao_bar', 'Cacao bar', 16, { cacao: 2, honey: 2 }, { staminaRegen: 2.4, dex: 2 });
+
+// --- the alchemy table. Seven draughts, and one of them is a poison.
+foragePotion('healing_draught', 'Healing draught', 10, { raspberry: 2, honey: 1 });
+foragePotion('antidote', 'Antidote', 14, { wild_garlic: 3, nettle: 1 });
+foragePotion('nightsight_draught', 'Draught of nightsight', 22, { blueberry: 3, honey: 1 });
+// Poisoning, not Alchemy: 01-STATS-SKILLS gives Poisoning "applies poison to
+// blades and food", and this is the bottle it comes out of.
+foragePotion('woodland_poison', 'Woodland poison', 30, { fly_agaric: 2, elderberry: 1 }, 'poisoning');
+foragePotion('mana_tonic', 'Mana tonic', 26, { wild_ginger: 2, morel: 1 });
+foragePotion('dandelion_tonic', 'Dandelion tonic', 8, { dandelion: 3, honey: 1 });
+foragePotion('draught_of_vigour', 'Draught of vigour', 20, { rosehip: 3, wild_strawberry: 1 });
+
+/**
+ * Every forage recipe is attemptable, every forageable is worth picking, and
+ * both stations really get work. A mushroom no recipe wants is a mushroom the
+ * player learns to walk past.
+ */
+export function auditForageRecipes() {
+  const bad = [];
+  if (FORAGE_RECIPES.length < 20) bad.push(`there are ${FORAGE_RECIPES.length} forage recipes, the brief asks for at least 20`);
+  const used = new Set(FORAGE_RECIPES.flatMap((r) => Object.keys(r.materials)));
+  for (const id of FORAGE_MATERIAL_IDS) {
+    if (!used.has(id)) bad.push(`nothing is made from ${id}, so there is no reason to pick one`);
+  }
+  for (const r of FORAGE_RECIPES) {
+    if (r.name.includes('—')) bad.push(`${r.id}: em dash in the name`);
+    if (r.family === 'forageMeal' && !r.buff) bad.push(`${r.id}: a meal with no buff is just weight`);
+    if (r.family === 'forageMeal' && r.station !== 'kitchen') bad.push(`${r.id}: a meal made at the ${r.station}`);
+    if (r.family === 'foragePotion' && r.station !== 'alchemyTable') bad.push(`${r.id}: a potion drawn at the ${r.station}`);
+    if (!['cooking', 'alchemy', 'poisoning'].includes(r.skill)) bad.push(`${r.id}: skill ${r.skill}`);
+    if (craftChance(0, r.difficulty) <= MIN_CRAFT_CHANCE) bad.push(`${r.id}: a beginner cannot even try it`);
+  }
+  const meals = FORAGE_RECIPES.filter((r) => r.family === 'forageMeal').length;
+  const potions = FORAGE_RECIPES.length - meals;
+  if (!meals) bad.push('the kitchen makes nothing out of forage');
+  if (!potions) bad.push('the alchemy table makes nothing out of forage');
+  // Every buff a meal grants is one of the four kinds the brief names, plus the
+  // stat lines. A fifth key would be written to the item and read by nobody.
+  const BUFF_KEYS = ['staminaRegen', 'healthRegen', 'manaRegen', 'cold', 'poison', 'carry', 'str', 'dex', 'int', 'con', 'wis'];
+  for (const r of FORAGE_RECIPES) {
+    for (const k of Object.keys(r.buff || {})) if (!BUFF_KEYS.includes(k)) bad.push(`${r.id}: buff key "${k}" is read by nothing`);
+  }
+  if (bad.length) throw new Error(`auditForageRecipes: ${bad.length} problem(s)\n  ${bad.join('\n  ')}`);
+  return { recipes: FORAGE_RECIPES.length, meals, potions, materials: FORAGE_MATERIAL_IDS.length };
+}
+
 export const RECIPES = RECIPE_LIST;
 export const RECIPE = Object.fromEntries(RECIPE_LIST.map((r) => [r.id, r]));
 export const recipesOfFamily = (f) => RECIPE_LIST.filter((r) => r.family === f);
@@ -626,3 +771,4 @@ export function auditRecipes() {
 }
 
 auditRecipes();
+auditForageRecipes();

@@ -496,4 +496,191 @@ export function auditItems() {
   return true;
 }
 
+// ------------------------------------------------------------------- forage
+//
+// What `src/world/forage.js` grows and `src/game/foraging.js` picks, plus what
+// a kitchen and an alchemy table make out of it.
+//
+// SOURCE OF TRUTH for the ids: the FORAGE table in `src/world/forage.js`. This
+// file does not import it, because `src/mmo` must stay loadable without THREE
+// and forage.js draws geometry. `forage.test.mjs` proves the two lists are the
+// same set in both directions, so a twenty third mushroom cannot ship without a
+// base and a base cannot ship with nothing growing it.
+//
+// Three rules held here that the rest of the codebase already relies on:
+//
+//   * `material` equals the base id, so `win_crafting.countMaterial` finds a
+//     pile of chanterelles by the same word the recipe asks for. That is the
+//     join `skinning.js` had to be told about the hard way.
+//   * everything stacks, at 0.1 stones. Twenty chanterelles are two stones,
+//     which is a fifth of a hide and about right for a bag of mushrooms.
+//   * a `use` block is the ONLY thing that says what eating it does, and
+//     `src/game/foraging.js` `useItem` is the only thing that reads one. A
+//     third `raw effect` field written by nobody is exactly the decoration this
+//     project has been burned by, so there is one field and one consumer.
+//
+// `use` shapes, all of them:
+//   { heal: [min, max], seconds }     heals that much spread over that long
+//   { poison: level }                 combat.js poison at that level
+//   { cure: 'poison' }                takes the status off
+//   { restore: 'mana'|'stamina', amount: [min, max] }
+//   { buff: { name, seconds, effect } }  effect is actor.js's plain block
+//   { nothing: 'why' }                edible in the sense that it will not kill
+//                                     you, and says so rather than staying mute
+
+/** Every forage base id, in the order forage.js grows them. */
+export const FORAGE_BASES = [];
+/** The meals and potions the forage recipes make. */
+export const FORAGE_PRODUCT_BASES = [];
+/** id -> 'edible' | 'toxic' | 'caution'. What the hover line and the pickup say. */
+export const FORAGE_TAG = {};
+
+const FORAGE_HEAL = [3, 8];        // a raw edible, over ten seconds
+const FORAGE_HEAL_SECONDS = 10;
+const RAW_POISON_LEVEL = 1;        // a raw toxic. poisonTick(1) is 6 s at 2 a second.
+
+/**
+ * Raw forage. Edible heals a little over ten seconds, toxic poisons at level
+ * one, caution does nothing and says why, which is the difference between a
+ * nettle (it stings, cook it) and a fly agaric (it will hurt you).
+ */
+const rawUse = (tag, name) => {
+  if (tag === 'toxic') return { poison: RAW_POISON_LEVEL };
+  if (tag === 'caution') return { nothing: `raw ${name.toLowerCase()} does nothing for you, and the cook knows what to do with it` };
+  return { heal: FORAGE_HEAL, seconds: FORAGE_HEAL_SECONDS };
+};
+
+const forageBase = (id, name, tag) => {
+  FORAGE_BASES.push(id);
+  FORAGE_TAG[id] = tag;
+  return addBase({
+    id, name, kind: 'material', kinds: ['material', 'forage', tag], slot: null,
+    weight: 0.1, strReq: 0, durability: null, stack: true,
+    material: id, forage: true, tag, use: rawUse(tag, name),
+  });
+};
+
+// The twenty two, in forage.js's order.
+forageBase('chanterelle', 'Chanterelle', 'edible');
+forageBase('porcini', 'Porcini', 'edible');
+forageBase('fly_agaric', 'Fly agaric', 'toxic');
+forageBase('morel', 'Morel', 'edible');
+forageBase('oyster_mushroom', 'Oyster mushroom', 'edible');
+forageBase('honey', 'Wild honey', 'edible');
+forageBase('blueberry', 'Blueberry', 'edible');
+forageBase('lingonberry', 'Lingonberry', 'edible');
+forageBase('blackberry', 'Blackberry', 'edible');
+forageBase('raspberry', 'Raspberry', 'edible');
+forageBase('wild_strawberry', 'Wild strawberry', 'edible');
+forageBase('elderberry', 'Elderberry', 'caution');
+forageBase('rosehip', 'Rosehip', 'edible');
+forageBase('hazelnut', 'Hazelnut', 'edible');
+forageBase('wild_garlic', 'Wild garlic', 'edible');
+forageBase('nettle', 'Nettle', 'caution');
+forageBase('fiddlehead', 'Fiddlehead fern', 'edible');
+forageBase('nut', 'Chestnuts', 'edible');
+forageBase('dandelion', 'Dandelion', 'edible');
+forageBase('fig', 'Wild figs', 'edible');
+forageBase('wild_ginger', 'Wild ginger', 'edible');
+forageBase('cacao', 'Cacao pods', 'edible');
+
+/** A cooked dish or a drawn potion. Half a stone, stacks, and says what it does. */
+const productBase = (id, name, tags, use) => {
+  FORAGE_PRODUCT_BASES.push(id);
+  return addBase({
+    id, name, kind: 'material', kinds: ['material', ...tags], slot: null,
+    weight: 0.5, strReq: 0, durability: null, stack: true,
+    material: id, use,
+  });
+};
+
+/** A meal's buff, in actor.js's plain effect block. Five minutes, near a game day. */
+export const MEAL_SECONDS = 300;
+const meal = (id, name, effect, line) => productBase(id, name, ['food', 'meal'], {
+  buff: { name, seconds: MEAL_SECONDS, effect }, line,
+});
+
+// The four buffs the forage kitchen grants, each a real field recompute() sums:
+//   staminaRegen and healthRegen are per second, on top of the derived rate
+//   resists.cold is percent, capped at RESIST_CAP with everything else
+//   bonuses.carry is stones, and actor.carry already folds it in
+meal('mushroom_stew', 'Mushroom stew', { regen: { staminaRegen: 2 } }, 'your legs come back under you');
+meal('berry_preserve', 'Berry preserve', { regen: { healthRegen: 1.5 } }, 'the ache goes out of you');
+meal('nut_bread', 'Nut bread', { bonuses: { carry: 25 } }, 'you could shoulder more than you came with');
+meal('herb_salad', 'Herb salad', { regen: { staminaRegen: 1.2 }, stats: { dex: 3 } }, 'you feel light');
+meal('roast_chestnuts', 'Roast chestnuts', { resists: { cold: 12 } }, 'the cold has further to travel');
+meal('honey_cake', 'Honey cake', { regen: { healthRegen: 2.2 } }, 'sweet enough to mend you');
+meal('forest_broth', 'Forest broth', { resists: { cold: 9 }, regen: { healthRegen: 0.6 } }, 'it warms all the way down');
+meal('rosehip_tea', 'Rosehip tea', { regen: { healthRegen: 1.1 }, resists: { poison: 8 } }, 'sharp and clean');
+meal('strawberry_tart', 'Strawberry tart', { regen: { staminaRegen: 1.6 } }, 'you want to be walking');
+meal('fig_and_honey', 'Figs in honey', { bonuses: { carry: 18 }, regen: { staminaRegen: 0.8 } }, 'heavy food for a long road');
+meal('ginger_broth', 'Ginger broth', { resists: { cold: 15 } }, 'the heat sits in your chest');
+meal('bramble_jelly', 'Bramble jelly', { regen: { healthRegen: 1.3 } }, 'dark and slow');
+meal('lingon_relish', 'Lingonberry relish', { resists: { cold: 10 }, stats: { con: 2 } }, 'sour, and it holds');
+meal('oyster_grill', 'Grilled oyster mushrooms', { regen: { staminaRegen: 1.8 } }, 'you could go again');
+meal('cacao_bar', 'Cacao bar', { regen: { staminaRegen: 2.4 }, stats: { dex: 2 } }, 'your hands are quick');
+
+const potion = (id, name, use) => productBase(id, name, ['potion', 'alchemy'], use);
+potion('healing_draught', 'Healing draught', { heal: [25, 40], seconds: 0 });
+potion('antidote', 'Antidote', { cure: 'poison' });
+potion('nightsight_draught', 'Draught of nightsight', {
+  buff: { name: 'Nightsight', seconds: 600, effect: { bonuses: { nightSight: 1 } } },
+  line: 'the dark thins out',
+});
+// A poison is a poison. 03 has no blade coating and nothing in this game applies
+// one, so this does what a poison does to whoever opens it: see G6.md.
+potion('woodland_poison', 'Woodland poison', { poison: 2 });
+potion('mana_tonic', 'Mana tonic', { restore: 'mana', amount: [30, 50] });
+potion('dandelion_tonic', 'Dandelion tonic', { restore: 'stamina', amount: [30, 50] });
+potion('draught_of_vigour', 'Draught of vigour', {
+  buff: { name: 'Vigour', seconds: 300, effect: { stats: { str: 5 } } },
+  line: 'your arms feel longer',
+});
+
+/**
+ * Every forage base is real, stacks, joins to itself, and carries exactly one
+ * `use`. Every product a recipe can make has a base to make it into. Called at
+ * load, below auditItems, so a bad edit dies at import.
+ */
+export function auditForageBases() {
+  const bad = [];
+  if (FORAGE_BASES.length !== 22) bad.push(`there are ${FORAGE_BASES.length} forage bases, forage.js grows 22`);
+  const tags = ['edible', 'toxic', 'caution'];
+  for (const id of FORAGE_BASES) {
+    const b = BASES[id];
+    if (!b) { bad.push(`forage base "${id}" is not a base`); continue; }
+    if (!b.stack) bad.push(`${id} does not stack, and a bag of berries has to`);
+    if (b.material !== id) bad.push(`${id} carries material "${b.material}", so a recipe asking for "${id}" would find nothing`);
+    if (b.weight !== 0.1) bad.push(`${id} weighs ${b.weight}, and forage is 0.1`);
+    if (!tags.includes(b.tag)) bad.push(`${id} is tagged "${b.tag}"`);
+    if (!b.use || typeof b.use !== 'object') bad.push(`${id} has no use, so eating it would be silent`);
+    const keys = Object.keys(b.use || {});
+    if (keys.length === 0) bad.push(`${id} has an empty use block`);
+    if (b.tag === 'toxic' && !(b.use.poison > 0)) bad.push(`${id} is toxic and does not poison anyone`);
+    if (b.tag === 'edible' && !Array.isArray(b.use.heal)) bad.push(`${id} is edible and heals nothing`);
+    if (b.tag === 'caution' && !b.use.nothing) bad.push(`${id} says nothing about why it is a caution`);
+  }
+  for (const id of FORAGE_PRODUCT_BASES) {
+    const b = BASES[id];
+    if (!b) { bad.push(`product base "${id}" is not a base`); continue; }
+    if (!b.stack) bad.push(`${id} does not stack`);
+    if (!b.use) bad.push(`${id} does nothing when you use it`);
+    if (b.use && b.use.buff && !(b.use.buff.seconds > 0)) bad.push(`${id} grants a buff that lasts ${b.use.buff.seconds} s`);
+    if (b.use && b.use.buff && !b.use.buff.effect) bad.push(`${id} grants a buff with no effect, which is decoration`);
+  }
+  // One case is never the case: all three tags are really used, or the pickup
+  // line for one of them is a branch no forageable can reach.
+  for (const t of tags) {
+    if (!FORAGE_BASES.some((id) => BASES[id].tag === t)) bad.push(`no forageable is tagged ${t}`);
+  }
+  if (bad.length) throw new Error(`auditForageBases: ${bad.length} problem(s)\n  ${bad.join('\n  ')}`);
+  return {
+    forage: FORAGE_BASES.length,
+    products: FORAGE_PRODUCT_BASES.length,
+    byTag: Object.fromEntries(tags.map((t) => [t, FORAGE_BASES.filter((id) => BASES[id].tag === t).length])),
+  };
+}
+
+
 auditItems();
+auditForageBases();
