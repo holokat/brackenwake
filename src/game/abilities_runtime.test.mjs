@@ -802,24 +802,21 @@ const item = (base, count) => (count == null ? { base } : { base, count });
     console.log(`  ${r.id.padEnd(12)} ${String(r.wanted).padStart(2)} weapon abilities unlocked, refused: ${r.refused.join(', ') || 'none'}`);
   }
   const offenders = rows.filter((r) => r.refused.length);
-  // The ranger is handed a dagger AND a shortbow, and creation.js equips the
-  // dagger in the main hand, which leaves the bow on the back: actor.js picks
-  // `mainHand || ranged`. Every archery ability is refused for that reason
-  // alone. It is the only opening that starts unable to use what it unlocked,
-  // and G2.md asks for the main hand to be left empty. When that is fixed this
-  // check fails, and the exception below should be deleted.
-  ck('only the ranger starts unable to use an ability its own kit unlocked',
-    offenders.length === 1 && offenders[0].id === 'ranger',
+  // The ranger once started with a dagger in the main hand and the bow on the
+  // back, so every archery ability was refused. creation.js now leaves the
+  // melee weapon in the pack when the kit draws a bow, and no opening starts
+  // unable to use what it unlocked.
+  ck('no opening starts unable to use an ability its own kit unlocked',
+    offenders.length === 0,
     offenders.map((r) => `${r.id}: ${r.refused.join(', ')}`).join(' | ') || 'none');
-  ck('and the ranger is refused for the dagger in the main hand, not for want of arrows',
+  ck('the ranger draws the bow and keeps the dagger in the pack',
     (() => {
       const c = planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character;
       const r = weaponCheck(ABILITIES_BY_ID.aimedShot, c.equipment, c.pack);
-      return !r.ok && /is in your hand instead/.test(r.reason);
+      const daggerPacked = c.pack.items.some((it) => it && it.base === 'dagger');
+      return r.ok && !c.equipment.mainHand && !!c.equipment.ranged && daggerPacked;
     })(),
-    weaponCheck(ABILITIES_BY_ID.aimedShot,
-      planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character.equipment,
-      planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character.pack).reason);
+    'aimed shot allowed with an empty main hand, the bow drawn and the dagger packed');
   ck('and with the dagger off, the shortbow and its sixty arrows answer',
     (() => {
       const c = planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character;

@@ -324,7 +324,9 @@ export function actorDistance(a, b) {
 /** The weapon's reach plus both bodies. What "within reach" means everywhere. */
 export function reachBetween(attacker, defender) {
   const w = weaponOf(attacker);
-  const reach = Number.isFinite(w.reach) ? w.reach : UNARMED.reach;
+  // a bow's reach is its range: 30 m for a crossbow, 12 for thrown knives.
+  // Without this a shot was refused as out_of_reach at 2.4 m and never flew.
+  const reach = Number.isFinite(w.range) ? w.range : Number.isFinite(w.reach) ? w.reach : UNARMED.reach;
   const ra = Number.isFinite(attacker && attacker.radius) ? attacker.radius : BODY_RADIUS;
   const rb = Number.isFinite(defender && defender.radius) ? defender.radius : BODY_RADIUS;
   return reach + ra + rb;

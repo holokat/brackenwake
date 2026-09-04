@@ -303,12 +303,17 @@ export function planCharacter(choice = {}) {
     .filter((it) => it && baseFor(it).slot)
     .sort((a, b) => order(a) - order(b));
   const notWorn = [];
+  // A kit with a bow draws the bow: a ranged ability needs the main hand empty
+  // (abilities.weaponCheck), so the ranger's dagger rides in the pack and is
+  // named among what stayed behind rather than blocking every shot.
+  const drawsBow = wearable.some((it) => baseFor(it).slot === 'ranged');
   for (const it of wearable) {
     const i = character.pack.items.indexOf(it);
     if (i < 0) continue;
     const slot = inv.chooseSlot(it, null);
     const twoHandBusy = slot === 'mainHand' && character.equipment.offHand && baseFor(it).hands === 2;
-    if (!slot || character.equipment[slot] || twoHandBusy) { notWorn.push(it); continue; }
+    const handBusyForBow = drawsBow && slot === 'mainHand';
+    if (!slot || character.equipment[slot] || twoHandBusy || handBusyForBow) { notWorn.push(it); continue; }
     const r = inv.equip(i, slot);
     if (!r.ok) notWorn.push(it);
   }
