@@ -86,8 +86,8 @@ function memStore() {
 
   check('the cues asked for with no file are recorded, not forgotten',
     !!NO_FILE_FOR.hurt && !!NO_FILE_FOR.step && !('hurt' in CUES) && !('step' in CUES));
-  check('the two stand-ins say what they are standing in for',
-    Object.keys(STAND_INS).join(',') === 'chopDown,enterCave', Object.keys(STAND_INS).join(','));
+  check('the three stand-ins say what they are standing in for',
+    Object.keys(STAND_INS).join(',') === 'chopDown,land,enterCave', Object.keys(STAND_INS).join(','));
 }
 
 // ---- take rotation --------------------------------------------------------

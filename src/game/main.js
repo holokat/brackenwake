@@ -28,6 +28,7 @@ import { createInput } from './input.js';
 import { createInteract } from './interact.js';
 import { createShop } from './shop.js';
 import { createAudio } from './audio.js';
+import { createFloaters } from './floaters.js';
 
 const SAVE_EVERY_MS = 5000;
 /** How close a place has to be before the HUD calls this spot by its name. */
@@ -55,6 +56,8 @@ function boot() {
   // Sound. Browsers refuse audio until the player clicks or presses a key;
   // createAudio listens for that itself, so there is nothing to unlock here.
   const audio = createAudio();
+  // numbers that fly off things; gains, damage and falls all go through here
+  const floaters = createFloaters(sc, hudRoot);
 
   const player = createPlayer(sc.scene);
   // First boot: no site stands within the streamed ring of the origin, so a new
@@ -259,9 +262,12 @@ function boot() {
   let lastSave = last;
   let dead = false;
 
-  function frame(now) {
+  // `manual` is the harness: __bw.step(ms) runs this same function with a
+  // synthetic clock and no rAF, so a hidden tab can still be driven a frame at
+  // a time. There is no second code path; the test path is the frame.
+  function frame(now, manual = false) {
     if (dead) return;
-    requestAnimationFrame(frame);
+    if (!manual) requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
 
@@ -281,6 +287,14 @@ function boot() {
         yaw: camera.forwardYaw,
       };
       player.update(dt, move, (x, z) => runtime.heightAt(x, z));
+      // a landing from height is announced in orange; when health exists the
+      // combat runtime charges for it (docs/mmo/02-COMBAT.md: (m - 4) * 6)
+      if (player.landed && player.landed.fallMetres > 4) {
+        const m = player.landed.fallMetres;
+        floaters.spawn(player.pos, `${m.toFixed(0)} m fall`, 'fall');
+        hud.toast(m > 12 ? `a hard landing, ${m.toFixed(0)} m` : `you drop ${m.toFixed(0)} m and land on your feet`, m > 12 ? 'bad' : undefined);
+        audio.play('land', { at: { x: player.pos.x, z: player.pos.z } });
+      }
       // underground the walls are the edge of the world
       const [cx, cz] = runtime.clampWalkable(player.pos.x, player.pos.z);
       if (cx !== player.pos.x || cz !== player.pos.z) {
@@ -301,6 +315,7 @@ function boot() {
     interact.update(dt, now);
     updatePlace(now);
 
+    floaters.update(dt);
     sc.follow(centre);
     sc.setDay(day);
     sc.render();
@@ -313,7 +328,7 @@ function boot() {
   window.addEventListener('beforeunload', () => { state.save(); });
   window.addEventListener('pagehide', () => { state.save(); });
 
-  window.__bw = { sc, runtime, player, camera, state, hud, dev, input, interact, shop, audio, THREE };
+  window.__bw = { step: (ms = 16.7) => frame(last + ms, true), floaters, sc, runtime, player, camera, state, hud, dev, input, interact, shop, audio, THREE };
   hud.toast('WASD walks, drag to look, 1 to 4 pick a tool, E goes in, B is the market, M and N mute the music and the sound.');
   return window.__bw;
 }

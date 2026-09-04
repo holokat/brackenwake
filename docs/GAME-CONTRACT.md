@@ -177,7 +177,7 @@ Boots in this order: scene, state.load, runtime, hud, audio, player at state.pos
 0,0), camera follow, input, interact, shop, dev. Frame: input -> dev or
 player -> camera -> audio.setListener -> runtime.update around the player (or
 camera in fly) -> interact.update -> sc.follow -> sc.setDay -> render ->
-input.endFrame. Saves state every 5 s and on unload. Exposes `window.__bw = {
+input.endFrame. Saves state every 5 s and on unload. Exposes `window.__bw = { step(ms), floaters,
 sc, runtime, player, camera, state, hud, dev, input, interact, shop, audio }`.
 
 ## Rules

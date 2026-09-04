@@ -126,6 +126,13 @@ export const CUES = {
     file: 'place-object.opus', rate: 0.7, gain: 1,
     stand: 'no tree-fall recording exists; this is a wooden thump pitched down',
   },
+  // STAND-IN. A body landing from a height. Same dropped wooden object as
+  // chopDown, less pitched, quieter: a thud with no crack in it. Only plays for
+  // falls over 4 m, so it is rare enough that reusing the file does not show.
+  land: {
+    file: 'place-object.opus', rate: 0.85, gain: 0.8,
+    stand: 'no landing recording exists; the wooden thump, pitched down a little',
+  },
   mine: { family: 'pickaxe', takes: 4, ext: 'mp3', gain: 0.85 },
   rockBreak: { family: 'boulder-break', takes: 4, ext: 'mp3', gain: 1 },
   // Ore is the same rock breaking, smaller and brighter. Same four takes, run
