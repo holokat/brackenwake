@@ -16,6 +16,11 @@
 //   home         within HOME_RADIUS of the origin the ground is flattened to 0
 //                and rivers are suppressed, so the farm pad sits on solid
 //                ground and the first steps off it are gentle
+//   roads        dirt roads between neighbouring settlements (roads.js) grade
+//                the ground toward a smoothed profile, by at most ROAD_CUT
+//                down or ROAD_FILL up, so a road climbs a hill rather than
+//                tunnelling it. A site's pad wins over a road and a river wins
+//                over both, so a road crosses a river as a ford
 //
 // Biomes are decided from height, temperature and moisture, in that order of
 // authority. Ids match the theme palettes the game already has (meadow, boreal,
@@ -25,6 +30,7 @@
 
 import { createNoise, clamp01, lerp, smoothstep } from './noise.js';
 import { cellRoll, siteAllowed, cellOf } from './sitegrid.js';
+import { roadDistanceAt, roadHeightAt, roadStrength, roadSurface, fordFade, ROAD_HALF_WIDTH } from './roads.js';
 
 // The farm pad top is y 0 and the ground under it is homeY (-0.3). The sea has
 // to sit below both or the home disc counts as flooded and gets a water sheet.
@@ -52,10 +58,15 @@ const CAVE_MOUND = 6;             // how far a cave's mound rises above the hill
 const ROCK_LINE = 46;
 
 export function createWorldField(seed = 1, opts = {}) {
+  // The field is built onto one object so sampleAt can hand it to roads.js,
+  // which needs raw, homeFactor and siteInCell back. One object also means one
+  // road cache per field, which is what keeps two seeds apart.
+  const self = {};
   const homeRadius = opts.homeRadius ?? HOME_RADIUS;
   const homeBlend = opts.homeBlend ?? HOME_BLEND;
   const homeBiome = opts.homeBiome ?? 'meadow';
   const homeY = opts.homeY ?? 0;          // ground level under the farm pad
+  const roadsOn = opts.roads !== false;   // off only so a test can weigh the difference
   const N = createNoise(seed);
 
   // Raw terrain before the home flattening, so the flattening can be tested
@@ -153,6 +164,7 @@ export function createWorldField(seed = 1, opts = {}) {
     let h = lerp(homeY, r.h, k);
     let river = k <= 0 ? 0 : r.river * k;
     const site = siteAt(x, z);
+    let pad = 0;
     if (site) {
       const d = Math.hypot(x - site.x, z - site.z);
       if (d < site.flatR + 4) {
@@ -163,6 +175,22 @@ export function createWorldField(seed = 1, opts = {}) {
           : site.y;
         h = lerp(h, target, w);
         river *= 1 - w;
+        pad = w;
+      }
+    }
+    // roads: a dirt strip graded toward the road's own smoothed profile. The
+    // farm disc, a site's pad and a river each hold it off, in that order, so
+    // the home ground stays clean, a town square stays level, and a road meets
+    // a river as a ford instead of damming it.
+    let road = 0;
+    if (roadsOn && k > 0) {
+      const rd = roadDistanceAt(self, x, z);
+      if (rd) {
+        road = roadStrength(rd.d) * k;
+        if (road > 0) {
+          const w = road * (1 - pad) * fordFade(river);
+          if (w > 0) h = roadSurface(h, roadHeightAt(rd.road, rd.t), w);
+        }
       }
     }
     const land = lerp(1, r.land, k);
@@ -177,7 +205,7 @@ export function createWorldField(seed = 1, opts = {}) {
     else if (r.temp > 0.58 && r.moist < 0.47) biome = 'desert';
     else if (r.moist > 0.62 && r.temp > 0.42 && r.temp < 0.66 && N.fbm(x / W_SAKURA + 5000, z / W_SAKURA - 5000, 2) > 0.38) biome = 'sakura';
     else biome = 'meadow';
-    return { h, biome, water, river, land, temp: r.temp, moist: r.moist, site };
+    return { h, biome, water, river, land, temp: r.temp, moist: r.moist, site, road };
   }
 
   const heightAt = (x, z) => sampleAt(x, z).h;
@@ -186,8 +214,9 @@ export function createWorldField(seed = 1, opts = {}) {
   /** Chunk coordinates of a world point. */
   const chunkOf = (x, z) => [Math.floor(x / CHUNK), Math.floor(z / CHUNK)];
 
-  return {
+  return Object.assign(self, {
     seed, heightAt, biomeAt, sampleAt, raw, homeFactor, chunkOf, siteInCell, siteAt,
     seaLevel: SEA_LEVEL, chunk: CHUNK, homeRadius, homeY, biomes: BIOMES,
-  };
+    roadHalfWidth: ROAD_HALF_WIDTH,
+  });
 }

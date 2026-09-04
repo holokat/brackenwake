@@ -5,9 +5,10 @@
 //   world.heightAt(x, z)             // the same field the meshes were built from
 //
 // One mesh per chunk (64 x 64 world units), vertex coloured from the biome at
-// each vertex, with a skirt hanging down its rim so neighbouring chunks at
-// different resolutions never show a crack of sky. Resolution falls with
-// distance: 33 verts a side near the player, 17 in the middle ring, 9 far out.
+// each vertex and from the road strength the field reports there, with a skirt
+// hanging down its rim so neighbouring chunks at different resolutions never
+// show a crack of sky. Resolution falls with distance: 33 verts a side near the
+// player, 17 in the middle ring, 9 far out.
 // A chunk that has any ground near or below sea level also gets a water plane.
 //
 // Budgeted: at most BUILD_PER_FRAME chunks are meshed per frame, nearest first,
@@ -43,6 +44,7 @@ export function buildPalette(themes) {
     snow:     { top: new THREE.Color(0xeef2f5), deep: new THREE.Color(0xc9d3dc) },
     rock:     new THREE.Color(0x77706a),
     riverbed: new THREE.Color(0x6f6a56),
+    road:     new THREE.Color(0x8a7355),
     water:    new THREE.Color(meadow.water),
   };
 }
@@ -125,6 +127,9 @@ function colourAt(out, s, x, z, palette) {
   out.copy(p.deep).lerp(p.top, 0.35 + 0.65 * t);
   if (s.river > 0.55 && s.h < SEA_LEVEL + 0.5) out.lerp(palette.riverbed, 0.7);
   if (s.h > 20 && s.biome !== 'snow' && s.biome !== 'mountain') out.lerp(palette.rock, Math.min(0.5, (s.h - 20) / 50));
+  // the road last, over whatever the biome and the height had made of this
+  // vertex, so a road reads as a road in a meadow and on a mountain shoulder
+  if (s.road > 0) out.lerp(palette.road, s.road * 0.85);
   // per-vertex jitter so flat facets differ, deterministic from position
   const j = (hash2(Math.round(x * 2), Math.round(z * 2), 9) & 255) / 255 - 0.5;
   out.offsetHSL(0, 0, j * 0.05);

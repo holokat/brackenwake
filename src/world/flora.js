@@ -8,7 +8,7 @@
 // stay at one per part per kind no matter how many chunks are loaded.
 //
 // What grows where is decided per 8 m cell from the world field (biome, height,
-// slope, water, rivers) and a hash of the cell, so every player sees the same
+// slope, water, rivers, roads) and a hash of the cell, so every player sees the same
 // forest and a chunk that unloads comes back identical. Sites keep a clearing.
 //
 //   const flora = createFlora(scene, field, { sitesNear, homeClear });
@@ -123,7 +123,7 @@ function buildKinds(parent) {
   });
   // ore: darker stone with a copper seam, around cave mouths, harder to break
   kinds.ore = createTreeField({
-    name: 'world:ore', kind: 'rock', hits: 5, parent,
+    name: 'world:ore', kind: 'rock', hits: 5, yield: 'ore', parent,
     layers: [
       { geo: new THREE.DodecahedronGeometry(1, 0), mat: mat(0x4e5a63),
         of: (t) => ({ x: t.x, y: t.gy + 0.5 * t.s, z: t.z, s: t.s, sy: 0.9, ry: t.ry }) },
@@ -171,7 +171,7 @@ export function recordsFor(field, cx, cz, opts = {}) {
     const z = z0 + (j + 0.15 + 0.7 * rand2(gx, gz, seed + 22)) * CELL;
     if (Math.hypot(x, z) < (opts.homeClear ?? HOME_CLEAR)) continue;
     const s = field.sampleAt(x, z);
-    if (s.water || s.river > 0.15) continue;
+    if (s.water || s.river > 0.15 || s.road > 0.15) continue;   // the verge keeps its trees, the road does not
     const table = DENSITY[s.biome];
     if (!table) continue;
     const slope = Math.max(Math.abs(field.heightAt(x + 1, z) - field.heightAt(x - 1, z)), Math.abs(field.heightAt(x, z + 1) - field.heightAt(x, z - 1)));
@@ -246,7 +246,7 @@ export function createFlora(scene, field, opts = {}) {
         if (Math.hypot(x, z) < HOME_CLEAR) continue;
         const s = field.sampleAt(x, z);
         const col = GRASS_BIOMES[s.biome];
-        if (!col || s.water || s.river > 0.2) continue;
+        if (!col || s.water || s.river > 0.2 || s.road > 0.15) continue;   // no tufts down the middle of a road
         places.push({ x, y: s.h - 0.05, z, s: 0.7 + rand2(i, cx + cz, seed + 33) * 0.8, ry: rand2(i, cx - cz, seed + 34) * Math.PI, col });
       }
     }

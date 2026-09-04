@@ -17,7 +17,8 @@ and they are small.
 | --- | --- | --- |
 | `noise.js` | seeded simplex, fbm, ridged, warp, cell hashes | yes |
 | `sitegrid.js` | the roll for where a site is (480 m cells), kinds, names, flat radius | yes |
-| `field.js` | `sampleAt(x, z)`: height, biome, water, river, land, climate, and the site that shapes this point. Sea level, home disc, tree line, snow line | yes |
+| `roads.js` | which settlements are joined, the polyline between them and its smoothed height profile, `roadDistanceAt(x, z)` | yes |
+| `field.js` | `sampleAt(x, z)`: height, biome, water, river, land, climate, the site that shapes this point and how much road is under it. Sea level, home disc, tree line, snow line | yes |
 | `chunks.js` | streams 64 m terrain meshes in a 19 x 19 ring at three resolutions with skirts, water planes, palette, lifecycle hooks | THREE |
 | `flora.js` | one TreeField per kind for the whole world; records per 8 m cell from biome tables; ore rings around caves; grass in the near ring | THREE, farm TreeField |
 | `fauna.js` | wild animals: which chunk holds a herd, a fox, a squirrel pair or gulls, spawned only in the near ring, capped at 24 alive, huntable through the farm's own roam contract | THREE, farm animal models |
@@ -43,6 +44,7 @@ clicked and what discovery announces.
 | tree line, rock line, snow line | 66, 46, 78 m | `flora.js`, `field.js` |
 | site cells | 480 m, 62% hold a site; flat radius by kind (town 46, hamlet 26, ruin 14, cave 12 mound, dungeon 10, camp 7, shrine 6) | `sitegrid.js` |
 | discovery | within 70 m, once, remembered in `brackenwake-discovered` | `sites.js` |
+| roads | 3 m half width, graded at most 1.5 m up or down, never steeper than 0.5, 1 or 2 bends up to 45 m aside, at most 2 neighbours a settlement | `roads.js` |
 
 ## Things that bit us, so they do not bite again
 

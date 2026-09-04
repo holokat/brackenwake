@@ -29,8 +29,11 @@ check('no site on the farm disc', onFarm === 0);
 const town = (() => { for (let cz = -30; cz < 30; cz++) for (let cx = -30; cx < 30; cx++) { const s = f.siteInCell(cx, cz); if (s && s.kind === 'town') return s; } })();
 { let dev = 0; for (let a = 0; a < 6.28; a += 0.4) for (let d = 0; d <= town.flatR * 0.55; d += 5) dev = Math.max(dev, Math.abs(f.heightAt(town.x + Math.cos(a) * d, town.z + Math.sin(a) * d) - town.y));
   check('ground under a town is level within 0.05 m out to 55% of flatR', dev < 0.05, `max dev ${dev.toFixed(3)} at ${town.name}`);
-  const far = town.flatR + 5; let touched = 0; for (let a = 0; a < 6.28; a += 0.4) { const x = town.x + Math.cos(a) * far, z = town.z + Math.sin(a) * far; if (Math.abs(f.heightAt(x, z) - f.raw(x, z).h) > 1e-6) touched++; }
-  check('ground past the rim is the raw terrain', touched === 0, String(touched)); }
+  const far = town.flatR + 5; let touched = 0, roaded = 0; for (let a = 0; a < 6.28; a += 0.4) { const x = town.x + Math.cos(a) * far, z = town.z + Math.sin(a) * far;
+    // a road out of the town also grades the ground out here, and says so
+    if (f.sampleAt(x, z).road > 0) { roaded++; continue; }
+    if (Math.abs(f.heightAt(x, z) - f.raw(x, z).h) > 1e-6) touched++; }
+  check('ground past the rim is the raw terrain, except under a road', touched === 0, `${touched} touched, ${roaded} on a road`); }
 const cave = (() => { for (let cz = -30; cz < 30; cz++) for (let cx = -30; cx < 30; cx++) { const s = f.siteInCell(cx, cz); if (s && s.kind === 'cave') return s; } })();
 check('a cave mouth stands above the hillside around it (a mound)', f.heightAt(cave.x, cave.z) > f.raw(cave.x, cave.z).h + 4, `mouth ${f.heightAt(cave.x, cave.z).toFixed(1)} raw ${f.raw(cave.x, cave.z).h.toFixed(1)}`);
 { let facesLowest = 0, cavesSeen = 0;
