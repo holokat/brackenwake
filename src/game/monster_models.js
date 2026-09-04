@@ -1,12 +1,31 @@
-// Placeholder bodies for everything that wants to kill you.
+// The bodies of everything that wants to kill you.
+//
+// Six families now wear a real Blender skeleton out of `rig_glb.js`; the rest
+// still wear the box rig below, which is also what every family falls back to
+// while its glb is still on the wire. `GLB_FAMILY` and `glbModelFor(id)` are
+// the whole policy and `monsterModelPlan()` prints it, so which monster is
+// which is a thing you can read rather than a thing you have to guess.
+//
+// WHICH FAMILIES FALL BACK TO BOXES, AND WHY
+//
+//   wolf, grub          no Blender model exists for either. Wolves, boars,
+//                       bears, dire wolves, manticores and the hydra; grubs
+//                       and crabs.
+//   biped, tier 5 and 6 `biped` has no model of its own and borrows
+//                       human-heavy. A bandit or an orc reads as a big man and
+//                       that is fine. A cyclops, a frost giant, an elder
+//                       treant or the Warden of the Cut does not: a 4 m human
+//                       is a lie about what you are fighting, so above tier 4
+//                       a biped keeps the box silhouette until it has a model.
+//
+// THE BOX RIG
 //
 // These are boxes. They are not meant to be good, they are meant to be HONEST:
 // a thing on the ground at the right height, facing the right way, with legs
 // that move at the speed it is actually travelling, an arm that comes round
-// when it swings, a flinch when it is hit and a topple when it dies. When W6's
-// Blender models land they replace the insides of `buildMonsterModel` and
-// nothing else in the game changes, because everything else only ever talks to
-// the four things this file returns.
+// when it swings, a flinch when it is hit and a topple when it dies. Everything
+// else in the game only ever talks to the contract, so a family moving from
+// boxes to a glb changes nothing outside this file and rig_glb.js.
 //
 //   const model = buildMonsterModel('giantRat');
 //   scene.add(model.group);
@@ -35,6 +54,8 @@
 
 import * as THREE from 'three';
 import { MONSTERS, MONSTER_LIST } from '../mmo/monsters.js';
+import { buildGlbRig } from './rig_glb.js';
+import { isLoaded, MODEL_IDS } from './models.js';
 
 // ---------------------------------------------------------------- the paint
 
@@ -365,7 +386,7 @@ const STRIDE = { rat: 0.9, grub: 0.8, spider: 1.1, wolf: 2.0, goblin: 1.0, zombi
  *   null rather than a default box: an animal with no monster behind it is a
  *   bug in the caller, and a silent grey cube would hide it.
  */
-export function buildMonsterModel(id) {
+export function buildBoxMonster(id) {
   const m = MONSTERS[id];
   const shape = shapeFor(id);
   if (!m || !shape) return null;
@@ -381,17 +402,6 @@ export function buildMonsterModel(id) {
   const built = BUILDERS[shape](colour, s);
   const { group, parts } = built;
   group.name = `monster:${id}`;
-
-  // A box rig is a poor thing to click on. This invisible column is what the
-  // raycaster actually hits, exactly as fauna.js does for its animals, so a rat
-  // is as easy to select as an ogre.
-  const hit = new THREE.Mesh(
-    new THREE.CylinderGeometry(built.radius * 1.15, built.radius * 1.15, built.height * 1.1, 6),
-    new THREE.MeshBasicMaterial({ visible: false }),
-  );
-  hit.position.y = built.height * 0.55;
-  group.add(hit);
-  parts.hit = hit;
 
   const stride = STRIDE[shape] || 1.4;
   const state = { t: 0, phase: 0, anim: 'idle', locomotion: 'idle', oneShot: null, oneShotT: 0, dieT: 0, speed: 0 };
@@ -482,6 +492,8 @@ export function buildMonsterModel(id) {
     parts,
     radius: built.radius,
     height: built.height,
+    /** Sole to crown of the box silhouette, measured. The glb is scaled to it. */
+    silhouette: silhouetteHeight(group),
     shape,
     setAnim,
     get anim() { return state.anim; },
@@ -511,6 +523,140 @@ export function buildMonsterModel(id) {
       if (group.parent) group.parent.remove(group);
     },
   };
+}
+
+
+// ------------------------------------------------- which family gets a model
+
+/** Sole to crown of a built body, measured rather than guessed. */
+function silhouetteHeight(group) {
+  const box = new THREE.Box3().setFromObject(group);
+  const h = box.max.y - box.min.y;
+  return Number.isFinite(h) ? h : 0;
+}
+
+/**
+ * The Blender model each shape family wears. `biped` has none of its own and
+ * borrows the heavy human, which is why `glbModelFor` refuses it above tier 4.
+ * `wolf` and `grub` are absent because nothing has been built for them.
+ */
+export const GLB_FAMILY = {
+  skeleton: 'monster-skeleton',
+  goblin: 'monster-goblin',
+  rat: 'monster-rat',
+  zombie: 'monster-zombie',
+  spider: 'monster-spider',
+  flyer: 'monster-bat',
+  biped: 'human-heavy',
+};
+
+/** Families with no glb of any kind. They keep the box rig until one is built. */
+export const BOX_ONLY_FAMILIES = ['wolf', 'grub'];
+
+/** A family wearing a model that is not its own. Held to tiers 1 to 4. */
+export const STANDIN_FAMILIES = ['biped'];
+
+/** Above this tier a stand-in body is worse than no body. */
+export const STANDIN_MAX_TIER = 4;
+
+/**
+ * The Blender model a monster wears, or null when it keeps the box rig.
+ * Everything about the policy is here; nothing else in the file decides it.
+ */
+export function glbModelFor(id) {
+  const m = MONSTERS[id];
+  const shape = shapeFor(id);
+  if (!m || !shape) return null;
+  const model = GLB_FAMILY[shape];
+  if (!model) return null;
+  if (STANDIN_FAMILIES.includes(shape) && m.tier > STANDIN_MAX_TIER) return null;
+  return model;
+}
+
+/**
+ * Every monster, the shape it wears, the model behind it and why. Printed by
+ * the test, so "which of these is still a box" is measured and not claimed.
+ */
+export function monsterModelPlan() {
+  const out = [];
+  for (const m of MONSTER_LIST) {
+    if (m.tier === 0) continue;
+    const shape = shapeFor(m.id);
+    const model = glbModelFor(m.id);
+    let why = 'glb';
+    if (!model) {
+      why = BOX_ONLY_FAMILIES.includes(shape) ? 'no model for this family'
+        : STANDIN_FAMILIES.includes(shape) ? `stand-in refused above tier ${STANDIN_MAX_TIER}`
+          : 'no model';
+    } else if (STANDIN_FAMILIES.includes(shape)) why = 'stand-in';
+    out.push({ id: m.id, tier: m.tier, shape, model, why });
+  }
+  return out;
+}
+
+/** The glb ids monsters will ask for. Hand these to preloadRigs at boot. */
+export function monsterModelIds() {
+  const ids = new Set();
+  for (const row of monsterModelPlan()) if (row.model) ids.add(row.model);
+  return [...ids].filter((id) => MODEL_IDS.includes(id));
+}
+
+// -------------------------------------------------------------- the monster
+
+/**
+ * One monster's body: a Blender rig where its family has one, the box rig
+ * where it does not, and the same contract either way.
+ *
+ * The box rig is built first in both cases. It is the stand-in while the file
+ * is on the wire, it is where `radius` and `height` come from so nothing
+ * downstream (the name plate lift, the click column, the bolt height in
+ * monsters.js) moves when a family gains a model, and its measured silhouette
+ * is what the glb is scaled to. src/mmo/monsters.js carries no size of its
+ * own: the size is TIER_HEIGHT nudged by hit points within the tier, exactly
+ * as it was.
+ */
+export function buildMonsterModel(id) {
+  const m = MONSTERS[id];
+  const box = buildBoxMonster(id);
+  if (!box) return null;
+
+  const glbId = glbModelFor(id);
+  let model = box;
+  if (glbId) {
+    const colour = TIER_COLOUR[m.tier] ?? TIER_COLOUR[1];
+    const ready = isLoaded(glbId);
+    if (ready) box.dispose();          // it was only ever the measuring stick
+    const rig = buildGlbRig(glbId, {
+      height: box.silhouette,
+      // multiply, not replace: the tier still paints the danger, and the
+      // model keeps the shading Blender baked into its vertex colours instead
+      // of going flat the way the box rig has to.
+      tint: colour,
+      tintMode: 'multiply',
+      dieSeconds: DIE_SECONDS,
+      fallback: ready ? null : () => box,
+    });
+    rig.group.name = `monster:${id}`;
+    rig.radius = box.radius;
+    rig.height = box.height;
+    rig.shape = box.shape;
+    rig.monster = id;
+    rig.silhouette = box.silhouette;
+    model = rig;
+  }
+
+  // A body is a poor thing to click on when it is a stick figure at fifty
+  // metres. This invisible column is what the raycaster actually hits, exactly
+  // as fauna.js does for its animals, so a rat is as easy to select as an ogre.
+  // It hangs off the OUTER group, which survives the glb swapping in.
+  const hit = new THREE.Mesh(
+    new THREE.CylinderGeometry(box.radius * 1.15, box.radius * 1.15, box.height * 1.1, 6),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  hit.position.y = box.height * 0.55;
+  model.group.add(hit);
+  model.parts.hit = hit;
+  return model;
 }
 
 auditMonsterShapes();

@@ -197,6 +197,66 @@ export function preloadModels(ids = MODEL_IDS) {
   return Promise.all(ids.map((id) => loadModel(id).catch(() => null)));
 }
 
+// --- what the file says before anything animates it ------------------------
+//
+// rig_glb.js hangs its anchors off bones, and to do that it needs each bone's
+// BIND transform in the model's own space: where the wrist is before a single
+// clip has touched it. Reading that off a live instance would be a race with
+// the mixer, so it is read off `entry.scene`, the untouched original that
+// `skeletonClone` copies from and that nothing ever animates.
+
+const RESTS = new Map();   // id -> Map<boneName, { pos, quat, parent }>
+
+/**
+ * Every bone's rest position and rotation in the model root's frame, by name.
+ * Cached; the returned map is shared, so treat the vectors as read only.
+ */
+export function restFrames(id) {
+  if (RESTS.has(id)) return RESTS.get(id);
+  const entry = cache.get(id);
+  if (!entry) return null;
+  const out = new Map();
+  entry.scene.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(entry.scene.matrixWorld).invert();
+  entry.scene.traverse((o) => {
+    if (!o.isBone) return;
+    const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+    const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
+    m.decompose(pos, quat, scl);
+    out.set(o.name, { pos, quat, parent: o.parent && o.parent.isBone ? o.parent.name : null });
+  });
+  RESTS.set(id, out);
+  return out;
+}
+
+/** How long a clip runs in this model, in seconds. 0 when the model has no such clip. */
+export function clipDuration(id, name) {
+  const entry = cache.get(id);
+  const c = entry && entry.clips.get(name);
+  return c ? c.duration : 0;
+}
+
+/** The bind-pose bounding box of a loaded model, in its own metres. */
+export function modelBounds(id) {
+  const entry = cache.get(id);
+  if (!entry) return null;
+  entry.scene.updateMatrixWorld(true);
+  return new THREE.Box3().setFromObject(entry.scene);
+}
+
+/** Triangles in one loaded model, counted off the index or position buffers. */
+export function modelTriangles(id) {
+  const entry = cache.get(id);
+  if (!entry) return 0;
+  let n = 0;
+  entry.scene.traverse((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    const g = o.geometry;
+    n += g.index ? g.index.count / 3 : (g.attributes.position ? g.attributes.position.count / 3 : 0);
+  });
+  return Math.round(n);
+}
+
 // --- instancing -----------------------------------------------------------
 
 // instantiate returns SYNCHRONOUSLY, the way landmarks.js places a landmark:
@@ -226,15 +286,27 @@ export function instantiate(id) {
     _speed: 0,
   };
 
-  inst.ready = loadModel(id).then((entry) => {
-    if (inst.disposed) return inst;
-    build(inst, entry);
-    for (const [slot, hex, opts] of queued.tints) inst.setTint(slot, hex, opts);
-    inst.setSpeed(queued.speed);
-    if (queued.clip) inst.play(queued.clip.name, queued.clip.opts);
-    else startLocomotion(inst);
-    return inst;
-  }).catch(() => inst);
+  // A model already in the cache is built RIGHT NOW rather than on a
+  // microtask. rig_glb.js leans on that: with preloadRigs awaited at boot, a
+  // rig is a glb from the first frame and no player ever sees the fallback
+  // body blink past. Nothing else changes; an uncached id still arrives late
+  // and everything asked of it in the meantime is still queued.
+  const cached = cache.get(id);
+  if (cached) {
+    build(inst, cached);
+    startLocomotion(inst);
+    inst.ready = Promise.resolve(inst);
+  } else {
+    inst.ready = loadModel(id).then((entry) => {
+      if (inst.disposed) return inst;
+      build(inst, entry);
+      for (const [slot, hex, opts] of queued.tints) inst.setTint(slot, hex, opts);
+      inst.setSpeed(queued.speed);
+      if (queued.clip) inst.play(queued.clip.name, queued.clip.opts);
+      else startLocomotion(inst);
+      return inst;
+    }).catch(() => inst);
+  }
 
   inst.play = (name, opts = {}) => {
     if (!inst.loaded) {
@@ -291,6 +363,9 @@ export function instantiate(id) {
   };
 
   inst.bone = (name) => (inst.bones ? inst.bones.get(name) || null : null);
+
+  /** How long one clip runs, in seconds, or 0 if this model has no such clip. */
+  inst.clipDuration = (name) => clipDuration(id, name);
 
   inst.update = (dt) => {
     if (!inst.loaded || inst.disposed) return inst;
