@@ -166,8 +166,10 @@ things they offer. No quests, only trade and teaching.
 what you have, in one sitting. Beyond 40 nobody can teach you; you practise.
 
 **Vendor stock** is finite and restocks every 30 minutes; prices are the
-catalog price times a town multiplier (0.9 to 1.2 by hash) and rise 10% for
-each of the same thing you sold there this hour, so a vendor cannot be milked.
+catalog price times a town multiplier (0.9 to 1.2 by hash). What a vendor
+pays drops 10% for each of the same thing you sold there this hour, floor 5%,
+and what it charges rises 5% per unit bought, so a vendor cannot be milked
+(`06-ECONOMY-UI.md` has the rule; this is the same rule).
 
 **Healers** resurrect at the shrine or in their house for 50 gold below skill
 30, free after.

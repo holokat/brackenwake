@@ -14,7 +14,10 @@ import { SKILL_DOC as RECIPE_SKILL_DOC } from './recipes.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
-const lcg = (seed) => { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; };
+// Seeds are scrambled on the way in: consecutive seeds through a bare LCG
+// differ by only 0.0004 in their first draw, which would quietly hide most of
+// the range a settlement can roll.
+const lcg = (seed) => { let s = ((seed >>> 0) * 2654435761) >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; };
 const throws = (fn) => { try { fn(); return false; } catch { return true; } };
 
 console.log('npcs.js');

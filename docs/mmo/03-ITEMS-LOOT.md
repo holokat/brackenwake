@@ -201,9 +201,10 @@ A recipe: `{ result, skill, difficulty, materials: {...}, station }`.
 **Success:** `chance = clamp(0.5 + (skill - difficulty) * 0.01, 0.05, 0.98)`.
 Failure eats half the materials and still teaches.
 
-**Quality** on success: `quality = clamp(0.6 + (skill - difficulty) * 0.005 + random(-0.1, 0.1), 0.5, 1.3)`, multiplies the item's damage or AR. An
+**Quality** on success: `quality = clamp(0.9 + (skill - difficulty) * 0.005 + random(-0.2, 0.2), 0.5, 1.3)`, multiplies the item's damage or AR. An
 exceptional roll (quality above 1.15, needs skill 20 over difficulty) marks the
-item "exceptional" and lets the maker sign it.
+item "exceptional" and lets the maker sign it. At exactly 20 over that is one
+roll in eight; at 40 over, three in eight; at 70 over, three in four.
 
 **Rarity from crafting:** every success rolls the "crafted chance" column above
 scaled by `skill / 100`, and an exceptional roll adds one tier. A grandmaster

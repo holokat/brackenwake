@@ -5,7 +5,7 @@
 //
 // Imports only `./ores.js`, which is the material ladder.
 
-import { METALS, METAL, WOODS, WOOD, LEATHERS, ORE, ALLOYS } from './ores.js';
+import { METALS, METAL, WOODS, LEATHERS, ORE, ALLOYS } from './ores.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const round = Math.round;
@@ -85,12 +85,16 @@ export const MIN_QUALITY = 0.5;
 export const MAX_QUALITY = 1.3;
 
 /**
- * "quality = clamp(0.6 + (skill - difficulty) * 0.005 + random(-0.1, 0.1), 0.5, 1.3)",
- * which multiplies the item's damage or AR.
+ * "quality = clamp(0.9 + (skill - difficulty) * 0.005 + random(-0.2, 0.2), 0.5, 1.3)",
+ * which multiplies the item's damage or AR. Level pegging averages 0.9, a
+ * little under a found item; 40 over averages 1.1.
  */
+export const QUALITY_BASE = 0.9;
+export const QUALITY_PER_POINT = 0.005;
+export const QUALITY_JITTER = 0.2;
 export function craftQuality(skill, difficulty, rng = Math.random) {
-  const jitter = (rng() * 0.2) - 0.1;
-  return clamp(0.6 + (skill - difficulty) * 0.005 + jitter, MIN_QUALITY, MAX_QUALITY);
+  const jitter = (rng() * 2 - 1) * QUALITY_JITTER;
+  return clamp(QUALITY_BASE + (skill - difficulty) * QUALITY_PER_POINT + jitter, MIN_QUALITY, MAX_QUALITY);
 }
 
 export const EXCEPTIONAL_QUALITY = 1.15;
@@ -98,18 +102,13 @@ export const EXCEPTIONAL_MARGIN = 20;
 
 /**
  * "An exceptional roll (quality above 1.15, needs skill 20 over difficulty)
- * marks the item exceptional and lets the maker sign it."
+ * marks the item exceptional and lets the maker sign it. At exactly 20 over
+ * that is one roll in eight; at 40 over, three in eight; at 70 over, three in
+ * four."
  *
- * READ THIS BEFORE TUNING DIFFICULTIES. The two halves of that sentence do not
- * agree with the quality formula above. Quality tops out at
- * 0.6 + (skill - difficulty) * 0.005 + 0.1, so quality above 1.15 needs
- * skill - difficulty above 90, not 20. Both conditions are enforced here
- * exactly as written, and `recipes.test.mjs` measures the real threshold rather
- * than asserting the document's 20. The consequence is real and it is the
- * document's, not this module's: at Grandmaster 100 only a recipe of difficulty
- * under 10 can ever roll exceptional, so "a grandmaster smith making a starfall
- * greatsword" cannot sign it. Changing that means changing the quality formula
- * in 03-ITEMS-LOOT.md, which is not this module's to change.
+ * The formula once started at 0.6 with a 0.1 jitter, which put 1.15 ninety
+ * points out of reach and made the sentence false; it was retuned so the gate
+ * and the curve meet at 20 over. The test measures the three fractions.
  */
 export function exceptional(quality, skill, difficulty) {
   return quality > EXCEPTIONAL_QUALITY && (skill - difficulty) >= EXCEPTIONAL_MARGIN;

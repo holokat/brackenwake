@@ -163,3 +163,48 @@ result carries `landed: { fallMetres }` for `combat.applyFall`.
 
 Every agent reads this file, its `src/mmo/` module, and the design document
 behind it. Nobody edits another's files; wiring notes go to Fable.
+
+## Windows: the manager and its panels
+
+`windows.js` (W3) is the manager; panels are separate files so two agents can
+write panels without touching each other. The manager owns the shell, the
+hotkeys, the one-open rule (Bag and Character may share the screen), Escape,
+and plain CSS. A panel is:
+
+```js
+panel = {
+  id: 'character',                 // also the CSS hook, bw-win-character
+  title: 'Character',
+  key: 'c',                        // lowercase e.key; null for panels opened by code
+  build(el, ctx),                  // once, fills el; ctx = { character, actor, inventory, state, hud, audio, floaters, runtime, player }
+  open(ctx)?, close()?,            // each time it shows or hides
+  tick(dt, ctx)?,                  // every frame while open, for live numbers
+}
+createWindows(root, input, ctx) -> {
+  register(panel), open(id, extra?), close(id), toggle(id), isOpen(id),
+  get anyOpen, update(dt),         // reads input.pressed(key) for every registered key
+  el,
+}
+```
+
+Panel files and owners: `win_character.js`, `win_bag.js`, `win_skills.js`,
+`win_abilities.js`, `creation.js` (W3); `win_talk.js`, `win_trade.js`,
+`win_crafting.js`, `win_map.js`, `win_settings.js` (W5). Each exports
+`panel`. `main.js` registers them all. While any window is open, clicks and
+WASD stay with the world but ability keys 1 to 0 are swallowed by the window
+layer only if the window itself uses them.
+
+## HUD growth (W4)
+
+`hud.js` grows the always-on pieces from `06-ECONOMY-UI.md`: pools top left
+with numbers, buff icons with timers, the target frame under the place name,
+the twelve-slot bar with cooldown sweeps and red unaffordable costs, and a
+bottom-left log (`hud.log(text, kind)`), keeping every existing export.
+`hud.update(dt, view)` where `view` is built by main.js each frame from the
+actor, the target and the bar.
+
+## Wiring notes
+
+Each agent writes `docs/mmo/wiring/W<n>.md`: the exact create call, where in
+the frame its update goes, every event it needs main.js to route, and what
+`window.__bw` should expose. Fable wires main.js from these.

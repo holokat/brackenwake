@@ -155,7 +155,7 @@ check('the bottom clamp bites at exactly 45 points under', craftChance(0, 45) ==
     return { lo, hi, exc, n };
   };
   const even = sample(50, 50);
-  check('quality at level pegging sits around 0.6', Math.abs(even.lo - 0.5) < 0.01 && Math.abs(even.hi - 0.7) < 0.01,
+  check('quality at level pegging runs 0.7 to 1.1, averaging 0.9', Math.abs(even.lo - 0.7) < 0.01 && Math.abs(even.hi - 1.1) < 0.01,
     `50,000 rolls at skill 50 vs difficulty 50: ${even.lo.toFixed(3)} to ${even.hi.toFixed(3)}`);
   check('quality never leaves 0.5 to 1.3', (() => {
     const wild = sample(100, 0, 20000);
@@ -163,24 +163,23 @@ check('the bottom clamp bites at exactly 45 points under', craftChance(0, 45) ==
     return wild.hi <= MAX_QUALITY && awful.lo >= MIN_QUALITY;
   })(), `clamps ${MIN_QUALITY} to ${MAX_QUALITY}`);
 
-  // The document's own claim, measured rather than repeated.
+  // The document's three fractions, measured rather than repeated: one in
+  // eight at 20 over, three in eight at 40 over, three in four at 70 over.
+  const at20 = sample(70, 50), at40 = sample(90, 50), at70 = sample(100, 30);
+  const within = (got, want) => Math.abs(got / 50000 - want) < 0.01;
+  check('exceptional at 20 over is one roll in eight', within(at20.exc, 0.125),
+    `${at20.exc} of 50,000 = ${pct(at20.exc, 50000)}`);
+  check('at 40 over, three in eight', within(at40.exc, 0.375), `${at40.exc} of 50,000 = ${pct(at40.exc, 50000)}`);
+  check('at 70 over, three in four', within(at70.exc, 0.75), `${at70.exc} of 50,000 = ${pct(at70.exc, 50000)}`);
+  // And under the margin the curve alone would allow it, so the gate is doing work.
+  const at19 = sample(69, 50);
+  check('at 19 over nothing is exceptional, though the curve can pass 1.15', at19.exc === 0 && at19.hi > EXCEPTIONAL_QUALITY,
+    `19 over: top quality ${at19.hi.toFixed(3)}, ${at19.exc} exceptional`);
+  // A grandmaster and the hardest recipe in the book.
   const starfallGreatsword = RECIPE['weapon.greatsword.starfall'];
   const top = sample(100, starfallGreatsword.difficulty, 20000);
-  check('the document claim "skill 20 over difficulty" is not what the quality formula gives',
-    top.exc === 0 && top.hi < EXCEPTIONAL_QUALITY,
-    `starfall greatsword difficulty ${starfallGreatsword.difficulty}, 20,000 rolls at skill 100 top out at ${top.hi.toFixed(3)}, wanted over ${EXCEPTIONAL_QUALITY}: 0 exceptional`);
-  // Where it can happen, it does.
-  const easy = sample(100, 5, 50000);
-  check('exceptional does happen where the margin is wide enough', easy.exc > 0,
-    `skill 100 vs difficulty 5: ${easy.exc} of ${easy.n} = ${pct(easy.exc, easy.n)}, top quality ${easy.hi.toFixed(3)}`);
-  // And the measured threshold, so nobody has to guess again.
-  let firstDiff = null;
-  for (let d = 100; d >= 0; d--) {
-    const s = sample(100, d, 4000);
-    if (s.exc > 0) { firstDiff = d; break; }
-  }
-  check('the real exceptional ceiling is a difficulty in the single digits at skill 100', firstDiff !== null && firstDiff < 10,
-    `highest difficulty that ever rolled exceptional at skill 100 in 4,000 rolls: ${firstDiff}`);
+  check('a grandmaster cannot sign a starfall greatsword: the margin is under 20', top.exc === 0 && 100 - starfallGreatsword.difficulty < EXCEPTIONAL_MARGIN,
+    `difficulty ${starfallGreatsword.difficulty}, margin ${100 - starfallGreatsword.difficulty}, top quality ${top.hi.toFixed(3)}`);
   check('the margin gate also blocks, on its own',
     exceptional(1.29, 50, 45) === false && exceptional(1.29, 50, 30) === true,
     `margin is ${EXCEPTIONAL_MARGIN}: 5 over blocked, 20 over allowed`);
