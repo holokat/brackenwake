@@ -3232,6 +3232,7 @@ export class Homestead {
       if (this.hoveredHouse) { this.onHouseClick(); return; }
       if (this.hoveredWindmill) { this.onWindmillClick(); return; }
       if (this.hoveredGate) { this.toggleGate(); return; }
+      if (this.hoveredSite) { this.onSiteClick?.(this.hoveredSite); return; }
       if (this.hoveredFence) { this.onFenceClick(); }
     });
   }
@@ -4046,6 +4047,12 @@ export class Homestead {
       // the perimeter fence is hoverable (to repair it) only once it's damaged
       this.hoveredFence = !plot && !objId && !this.hoveredSign && !this.hoveredMarket && !this.hoveredDock && !this.hoveredHouse && !this.hoveredGate && !this.hoveredWindmill
         && this.fenceHP < 100 && !!this.fenceHits && this.raycaster.intersectObjects(this.fenceHits, false).length > 0;
+      // places in the endless world: a town, a dungeon mouth, a cave
+      this.hoveredSite = null;
+      if (!plot && !objId && !this.hoveredSign && !this.hoveredMarket && !this.hoveredDock && !this.hoveredHouse && this.siteMarkers) {
+        const sHits = this.raycaster.intersectObjects(this.siteMarkers.meshes(), false);
+        if (sHits.length) this.hoveredSite = sHits[0].object.userData.site || null;
+      }
       // hunting: pick the live deer under the cursor (generous target columns)
       this.hoveredDeer = null;
       if (this.huntMode && this.deer && this.deer.length) {
@@ -4072,7 +4079,7 @@ export class Homestead {
         this.onObjectHover(objId, this.pointerClient);
       }
       this.renderer.domElement.style.cursor = this.huntMode ? 'crosshair'
-        : plot || objId || this.hoveredSign || this.hoveredMarket || this.hoveredDock || this.hoveredHouse || this.hoveredGate || this.hoveredWindmill || this.hoveredFence ? 'pointer' : 'grab';
+        : plot || objId || this.hoveredSign || this.hoveredMarket || this.hoveredDock || this.hoveredHouse || this.hoveredGate || this.hoveredWindmill || this.hoveredFence || this.hoveredSite ? 'pointer' : 'grab';
     }
 
     this.controls.update();

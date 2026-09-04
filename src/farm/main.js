@@ -1362,6 +1362,20 @@ function buildFarmScene() {
     },
   });
   farm.onDiscover = (s) => toast(`🧭 you found <b>${s.name}</b>, ${s.article}`, true, true);
+  // Places answer when clicked. Where the inside is not built yet, they say so;
+  // a door that pretends is worse than a door that is honest.
+  farm.onSiteClick = (s) => {
+    const say = {
+      town: `<b>${s.name}</b>. Shutters closed, chimneys cold. Trade and talk come in a later build.`,
+      hamlet: `<b>${s.name}</b>. A few roofs around a well. Nobody home yet.`,
+      ruin: `<b>${s.name}</b>. Whatever stood here came down a long time ago.`,
+      shrine: `<b>${s.name}</b>. Someone left a coin on it once. It is still there.`,
+      dungeon: `<b>${s.name}</b>. Steps go down into the dark. The way down opens in a later build.`,
+      cave: `<b>${s.name}</b>. Ore in the rock. Swing the pickaxe at the dark stones around the mouth.`,
+      camp: 'A cold fire and a bedroll. Whoever it was left in a hurry.',
+    };
+    toast(`📍 ${say[s.kind] || s.name}`, true, true);
+  };
   audio.setMusicTheme(game.theme);
   // biome-matched HUD art (meadow art is the base frame; sakura/autumn reuse it for now)
   // all themes share the base HUD frame for now (per-theme art comes later)

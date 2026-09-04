@@ -24,6 +24,7 @@
 // Units are the game's world units, which the farm treats as roughly metres.
 
 import { createNoise, clamp01, lerp, smoothstep } from './noise.js';
+import { cellRoll, siteAllowed, cellOf } from './sitegrid.js';
 
 // The farm pad top is y 0 and the ground under it is homeY (-0.3). The sea has
 // to sit below both or the home disc counts as flooded and gets a water sheet.
@@ -47,6 +48,7 @@ const W_SAKURA = 700;
 
 const RIVER_HALF_WIDTH = 0.045;   // in noise units; wider rivers, raise it
 const SNOW_LINE = 78;
+const CAVE_MOUND = 6;             // how far a cave's mound rises above the hillside
 const ROCK_LINE = 46;
 
 export function createWorldField(seed = 1, opts = {}) {
@@ -110,11 +112,45 @@ export function createWorldField(seed = 1, opts = {}) {
     return k < 1e-9 ? 0 : k;                                      // 0 at home .. 1 world
   }
 
+  // Sites shape the ground: a town stands on a levelled pad, a cave sits in a
+  // mound. The roll is sitegrid's; the terrain check uses the RAW sample at
+  // the site's centre, so flattening can never talk itself into existence.
+  const siteCache = new Map();
+  function siteInCell(cx, cz) {
+    const key = cx + ',' + cz;
+    if (siteCache.has(key)) return siteCache.get(key);
+    let site = cellRoll(seed, cx, cz);
+    if (site) {
+      const r = raw(site.x, site.z);
+      if (!siteAllowed(site, r, homeFactor(site.x, site.z))) site = null;
+      else { site.y = site.kind === 'cave' ? r.h + CAVE_MOUND : r.h; site.biome = null; }
+    }
+    siteCache.set(key, site);
+    return site;
+  }
+  function siteAt(x, z) {
+    const [cx, cz] = cellOf(x, z);
+    return siteInCell(cx, cz);
+  }
+
   function sampleAt(x, z) {
     const r = raw(x, z);
     const k = homeFactor(x, z);
-    const h = lerp(homeY, r.h, k);
-    const river = k <= 0 ? 0 : r.river * k;
+    let h = lerp(homeY, r.h, k);
+    let river = k <= 0 ? 0 : r.river * k;
+    const site = siteAt(x, z);
+    if (site) {
+      const d = Math.hypot(x - site.x, z - site.z);
+      if (d < site.flatR + 4) {
+        // 1 at the centre, 0 at the rim, soft shoulder
+        const w = 1 - smoothstep(site.flatR * 0.55, site.flatR + 4, d);
+        const target = site.kind === 'cave'
+          ? site.y - CAVE_MOUND * smoothstep(3, site.flatR, d)   // a mound that peaks at the mouth
+          : site.y;
+        h = lerp(h, target, w);
+        river *= 1 - w;
+      }
+    }
     const land = lerp(1, r.land, k);
     const water = h < SEA_LEVEL - 0.05;
     let biome;
@@ -127,7 +163,7 @@ export function createWorldField(seed = 1, opts = {}) {
     else if (r.temp > 0.58 && r.moist < 0.47) biome = 'desert';
     else if (r.moist > 0.62 && r.temp > 0.42 && r.temp < 0.66 && N.fbm(x / W_SAKURA + 5000, z / W_SAKURA - 5000, 2) > 0.38) biome = 'sakura';
     else biome = 'meadow';
-    return { h, biome, water, river, land, temp: r.temp, moist: r.moist };
+    return { h, biome, water, river, land, temp: r.temp, moist: r.moist, site };
   }
 
   const heightAt = (x, z) => sampleAt(x, z).h;
@@ -137,7 +173,7 @@ export function createWorldField(seed = 1, opts = {}) {
   const chunkOf = (x, z) => [Math.floor(x / CHUNK), Math.floor(z / CHUNK)];
 
   return {
-    seed, heightAt, biomeAt, sampleAt, raw, homeFactor, chunkOf,
+    seed, heightAt, biomeAt, sampleAt, raw, homeFactor, chunkOf, siteInCell, siteAt,
     seaLevel: SEA_LEVEL, chunk: CHUNK, homeRadius, homeY, biomes: BIOMES,
   };
 }

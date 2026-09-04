@@ -26,7 +26,10 @@ export const TREE_TIER = 17;                 // chunks at this many verts or mor
 export const GRASS_RING = 2;                 // grass only within this many chunks
 export const REBUILD_MS = 200;               // at most one field rebuild per kind per this
 const HOME_CLEAR = 125;                      // the farm keeps its own surroundings
-const SITE_CLEAR = 34;                       // towns and ruins keep a clearing
+const SITE_CLEAR = 34;                       // clearing when a site has no flatR of its own
+const clearingOf = (st) => (st.flatR != null ? st.flatR + 6 : SITE_CLEAR);
+export const ORE_RING = [9, 22];               // ore rocks stand this far from a cave mouth
+export const ORE_COUNT = 8;
 
 // Chance per candidate cell that a kind grows there, by biome. 64 cells per
 // chunk, so 0.15 is about ten of a kind per chunk.
@@ -118,6 +121,16 @@ function buildKinds(parent) {
         of: (t) => ({ x: t.x + Math.cos(t.oa) * 1.2 * t.s, y: t.gy + 3.0 * t.s, z: t.z + Math.sin(t.oa) * 1.2 * t.s, s: t.s * 0.72, ry: t.ry }) },
     ],
   });
+  // ore: darker stone with a copper seam, around cave mouths, harder to break
+  kinds.ore = createTreeField({
+    name: 'world:ore', kind: 'rock', hits: 5, parent,
+    layers: [
+      { geo: new THREE.DodecahedronGeometry(1, 0), mat: mat(0x4e5a63),
+        of: (t) => ({ x: t.x, y: t.gy + 0.5 * t.s, z: t.z, s: t.s, sy: 0.9, ry: t.ry }) },
+      { geo: new THREE.DodecahedronGeometry(0.4, 0), mat: mat(0xc47a3a, { metalness: 0.35, roughness: 0.5 }),
+        of: (t) => ({ x: t.x + 0.5 * t.s, y: t.gy + 0.9 * t.s, z: t.z + 0.3 * t.s, s: t.s * 0.6, ry: -t.ry }) },
+    ],
+  });
   kinds.rock = createTreeField({
     name: 'world:rock', kind: 'rock', hits: 4, parent,
     layers: [
@@ -137,7 +150,21 @@ export function recordsFor(field, cx, cz, opts = {}) {
   const out = {};
   const x0 = cx * CHUNK, z0 = cz * CHUNK, n = CHUNK / CELL;
   const chunkKey = cx + ',' + cz;
-  const sites = sitesNear(x0 + CHUNK / 2, z0 + CHUNK / 2, CHUNK + SITE_CLEAR);
+  const sites = sitesNear(x0 + CHUNK / 2, z0 + CHUNK / 2, CHUNK + 60);
+  // ore rings around cave mouths, placed by the cave's own hash so the ring is
+  // whole across chunk borders and each chunk only keeps the rocks inside it
+  for (const st of sites) {
+    if (st.kind !== 'cave') continue;
+    for (let i = 0; i < ORE_COUNT; i++) {
+      const a = rand2(st.cx * 31 + i, st.cz, seed + 41) * Math.PI * 2;
+      const d = ORE_RING[0] + rand2(st.cx, st.cz * 31 + i, seed + 42) * (ORE_RING[1] - ORE_RING[0]);
+      const x = st.x + Math.cos(a) * d, z = st.z + Math.sin(a) * d;
+      if (x < x0 || x >= x0 + CHUNK || z < z0 || z >= z0 + CHUNK) continue;
+      const s = field.sampleAt(x, z);
+      if (s.water) continue;
+      (out.ore ||= []).push({ x, z, gy: s.h - 0.2, s: 1.0 + rand2(i, st.cx + st.cz, seed + 43) * 0.7, ry: rand2(i, st.cx - st.cz, seed + 44) * Math.PI, alt: 0, oa: 0, chunk: chunkKey, ore: true });
+    }
+  }
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const gx = cx * n + i, gz = cz * n + j;
     const x = x0 + (i + 0.15 + 0.7 * rand2(gx, gz, seed + 21)) * CELL;
@@ -150,7 +177,7 @@ export function recordsFor(field, cx, cz, opts = {}) {
     const slope = Math.max(Math.abs(field.heightAt(x + 1, z) - field.heightAt(x - 1, z)), Math.abs(field.heightAt(x, z + 1) - field.heightAt(x, z - 1)));
     if (slope > MAX_SLOPE_ROCK) continue;
     let near = false;
-    for (const st of sites) if (Math.hypot(st.x - x, st.z - z) < SITE_CLEAR) { near = true; break; }
+    for (const st of sites) if (Math.hypot(st.x - x, st.z - z) < clearingOf(st)) { near = true; break; }
     if (near) continue;
     // one roll picks at most one kind per cell
     let roll = rand2(gx, gz, seed + 23), kind = null;

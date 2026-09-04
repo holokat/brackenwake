@@ -46,7 +46,7 @@ for (const [b, [cx, cz]] of Object.entries(byBiome)) {
 // nothing stands in water, in a river, on a cliff, or inside a site clearing
 {
   let wet = 0, steep = 0, total = 0, inSite = 0;
-  const fakeSite = { x: 4000, z: 4000 };
+  const fakeSite = { x: 4000, z: 4000, flatR: 28, kind: 'hamlet' };
   for (let cz = 0; cz < 40; cz++) for (let cx = 0; cx < 40; cx++) {
     const r = recordsFor(f, cx + 50, cz + 50, { sitesNear: () => [fakeSite] });
     for (const list of Object.values(r)) for (const t of list) {
