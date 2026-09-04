@@ -84,24 +84,25 @@ console.log('player: the phase follows distance, not time');
 console.log('player: slopes');
 {
   // one step of exactly 0.075 m against a cliff, driven both sides of 1.2
-  const cliff = (rise) => (x) => (x <= 0 ? 0 : rise);
+  // driven FORWARD, so these test slope refusal and not the strafe convention
+  const cliff = (rise) => (x, z) => (z <= 0 ? 0 : rise);
   const step = 0.5 * 30 * 0.05 * 0.05;   // first frame at dt = 0.05: v ends at 1.5, ground covered 0.0375
   const over = fresh(), under = fresh();
-  stepPlayer(over, 0.05, { x: 1, z: 0 }, cliff(step * 1.3));
-  stepPlayer(under, 0.05, { x: 1, z: 0 }, cliff(step * 1.1));
-  check(`a rise of 1.3 per metre is refused (limit ${MAX_SLOPE})`, over.x === 0, `x = ${over.x}`);
-  check('a rise of 1.1 per metre is taken', near(under.x, step, 1e-9), `x = ${under.x.toFixed(6)} m`);
+  stepPlayer(over, 0.05, { x: 0, z: 1 }, cliff(step * 1.3));
+  stepPlayer(under, 0.05, { x: 0, z: 1 }, cliff(step * 1.1));
+  check(`a rise of 1.3 per metre is refused (limit ${MAX_SLOPE})`, over.z === 0, `z = ${over.z}`);
+  check('a rise of 1.1 per metre is taken', near(under.z, step, 1e-9), `z = ${under.z.toFixed(6)} m`);
   check('the refused step reports blocked', over.blocked === true && under.blocked === false);
 
   // and over a whole mountain wall he stops at the foot of it
-  const wall = (x) => (x > 5 ? (x - 5) * 3 : 0);
+  const wall = (x, z) => (z > 5 ? (z - 5) * 3 : 0);
   const s = fresh();
-  for (let i = 0; i < 300; i++) stepPlayer(s, DT, { x: 1, z: 0 }, wall);
-  check('a 3 in 1 mountain stops him at its foot', s.x > 4.9 && s.x < 5.1, `x = ${s.x.toFixed(4)} m after 5 s`);
-  const ramp = (x) => (x > 5 ? (x - 5) * 1.0 : 0);
+  for (let i = 0; i < 300; i++) stepPlayer(s, DT, { x: 0, z: 1 }, wall);
+  check('a 3 in 1 mountain stops him at its foot', s.z > 4.9 && s.z < 5.1, `z = ${s.z.toFixed(4)} m after 5 s`);
+  const ramp = (x, z) => (z > 5 ? (z - 5) * 1.0 : 0);
   const r = fresh();
-  for (let i = 0; i < 300; i++) stepPlayer(r, DT, { x: 1, z: 0 }, ramp);
-  check('a 1 in 1 ramp he walks straight up', r.x > 20, `x = ${r.x.toFixed(2)} m, y = ${r.y.toFixed(2)} m`);
+  for (let i = 0; i < 300; i++) stepPlayer(r, DT, { x: 0, z: 1 }, ramp);
+  check('a 1 in 1 ramp he walks straight up', r.z > 20, `z = ${r.z.toFixed(2)} m, y = ${r.y.toFixed(2)} m`);
 }
 
 console.log('player: the feet are on the ground, every frame');
@@ -130,7 +131,22 @@ console.log('player: the stick is camera relative');
   check('forward follows the camera yaw at all four quarters', bad === 0, told || 'all four');
   const s = fresh();
   for (let i = 0; i < 30; i++) stepPlayer(s, DT, { x: 1, z: 0, yaw: 0 }, flat);
-  check('strafe right at yaw 0 goes +x', s.x > 0 && near(s.z, 0, 1e-9), `(${s.x.toFixed(3)}, ${s.z.toFixed(3)})`);
+  check('strafe right at yaw 0 goes -x, which is screen right', s.x < 0 && near(s.z, 0, 1e-9), `(${s.x.toFixed(3)}, ${s.z.toFixed(3)})`);
+  {
+    // the rule: the strafe direction is exactly forward x up, at eight yaws.
+    // Forward is (sin yaw, cos yaw), so right is (-cos yaw, sin yaw). Shipping
+    // the negative of this walked the player screen left on every D press.
+    let bad = 0, told = '';
+    for (let i = 0; i < 8; i++) {
+      const yaw = (i * Math.PI) / 4;
+      const q = fresh();
+      for (let k = 0; k < 30; k++) stepPlayer(q, DT, { x: 1, z: 0, yaw }, flat);
+      const L = Math.hypot(q.x, q.z) || 1;
+      const ex = -Math.cos(yaw), ez = Math.sin(yaw);
+      if (!near(q.x / L, ex, 1e-9) || !near(q.z / L, ez, 1e-9)) { bad++; told += `yaw ${yaw.toFixed(2)} went (${(q.x / L).toFixed(3)}, ${(q.z / L).toFixed(3)}) want (${ex.toFixed(3)}, ${ez.toFixed(3)}) `; }
+    }
+    check('strafe is exactly forward x up at eight yaws', bad === 0, told || 'all eight');
+  }
   const noYaw = fresh(), zeroYaw = fresh();
   for (let i = 0; i < 30; i++) { stepPlayer(noYaw, DT, { x: 0.3, z: 1 }, flat); stepPlayer(zeroYaw, DT, { x: 0.3, z: 1, yaw: 0 }, flat); }
   check('a caller that omits yaw gets the identity rotation', near(noYaw.x, zeroYaw.x, 1e-12) && near(noYaw.z, zeroYaw.z, 1e-12));

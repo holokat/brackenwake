@@ -6,7 +6,7 @@
 //   stick is rotated by it. pitch is the camera's elevation above the target,
 //   0.15 rad just off the horizon, 1.35 rad nearly overhead.
 //
-// Drag: yaw += dx * 0.005 and pitch += dy * 0.005, any button, exactly as the
+// Drag: yaw -= dx * 0.005 and pitch += dy * 0.005, any button, exactly as the
 // input module hands it over. Wheel: distance *= 1.1 ^ (wheel / 100) in
 // follow, fly speed by the same law in fly.
 
@@ -61,7 +61,9 @@ export function createFollowCamera(camera, input) {
     applyLook() {
       const d = (input && input.drag) || null;
       if (d && (d.dx || d.dy)) {
-        api.yaw += d.dx * DRAG_RAD;
+        // dragging right turns the view right. Increasing yaw swings forward
+        // toward +x, which is screen LEFT here, so the drag subtracts.
+        api.yaw -= d.dx * DRAG_RAD;
         api.pitch = clamp(api.pitch + d.dy * DRAG_RAD, PITCH_MIN, PITCH_MAX);
         api.yaw = Math.atan2(Math.sin(api.yaw), Math.cos(api.yaw));
       }
@@ -99,7 +101,7 @@ export function createFollowCamera(camera, input) {
 
       const cp = Math.cos(api.pitch), sp = Math.sin(api.pitch);
       const fx = Math.sin(api.yaw) * cp, fy = -sp, fz = Math.cos(api.yaw) * cp;
-      const rx = Math.cos(api.yaw), rz = -Math.sin(api.yaw);
+      const rx = -Math.cos(api.yaw), rz = Math.sin(api.yaw);   // forward x up
       const down = (k) => !!(input && input.down && input.down(k));
       const f = (down('w') ? 1 : 0) - (down('s') ? 1 : 0);
       const r = (down('d') ? 1 : 0) - (down('a') ? 1 : 0);

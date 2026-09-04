@@ -72,7 +72,8 @@ console.log('camera: drag and wheel');
   const y0 = c.yaw, p0 = c.pitch;
   input.drag.dx = 37; input.drag.dy = 11;
   c.update(DT, { x: 0, y: 0, z: 0 }, null);
-  check('drag rotates yaw by exactly dx * 0.005', near(c.yaw - y0, 37 * DRAG_RAD, 1e-12), `${(c.yaw - y0).toFixed(6)} rad`);
+  // dragging right turns the view right, and turning right DECREASES yaw here
+  check('dragging right turns the view right: yaw -= dx * 0.005', near(c.yaw - y0, -37 * DRAG_RAD, 1e-12), `${(c.yaw - y0).toFixed(6)} rad`);
   check('and pitch by exactly dy * 0.005', near(c.pitch - p0, 11 * DRAG_RAD, 1e-12), `${(c.pitch - p0).toFixed(6)} rad`);
   input.drag.dx = 0; input.drag.dy = 100000;
   c.update(DT, { x: 0, y: 0, z: 0 }, null);
@@ -190,7 +191,21 @@ console.log('camera: fly mode');
   input.keys.clear(); input.keys.add('d');
   const x0 = cam.position.x;
   c.flyUpdate(0.1, null);
-  check('d strafes right of the look direction', near(cam.position.x - x0, 10, 1e-9), `${(cam.position.x - x0).toFixed(3)} m`);
+  // at yaw 0 the look is +z and screen right is -x (forward x up)
+  check('d strafes right of the look direction', near(cam.position.x - x0, -10, 1e-9), `${(cam.position.x - x0).toFixed(3)} m`);
+  {
+    let bad = 0;
+    for (let i = 0; i < 8; i++) {
+      const yaw = (i * Math.PI) / 4;
+      cam.position.set(0, 100, 0); c.yaw = yaw; c.pitch = 0; c.flySpeed = 100;
+      input.keys.clear(); input.keys.add('d');
+      c.flyUpdate(0.1, null);
+      const ex = -Math.cos(yaw) * 10, ez = Math.sin(yaw) * 10;
+      if (!near(cam.position.x, ex, 1e-9) || !near(cam.position.z, ez, 1e-9)) bad++;
+    }
+    check('fly strafe is exactly forward x up at eight yaws', bad === 0);
+    cam.position.set(0, 100, 0); c.yaw = 0; c.pitch = 0;
+  }
   input.keys.clear();
   const still = cam.position.clone();
   c.flyUpdate(0.1, null);

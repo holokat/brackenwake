@@ -214,8 +214,12 @@ export function stepPlayer(s, dt, move, heightAt) {
   if (mag > 1) { mx /= mag; mz /= mag; }
   const yaw = Number.isFinite(m.yaw) ? m.yaw : 0;
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const wx = cy * mx + sy * mz;
-  const wz = -sy * mx + cy * mz;
+  // Screen right is forward x up. With forward = (sin yaw, 0, cos yaw) that is
+  // (-cos yaw, 0, sin yaw), NOT (cos yaw, 0, -sin yaw): a camera looking down +z
+  // has its right hand at -x. Using the latter walked the player screen left on
+  // every D press, which is the bug this comment exists to stop coming back.
+  const wx = sy * mz - cy * mx;
+  const wz = cy * mz + sy * mx;
   const want = Math.min(Math.hypot(wx, wz), 1);
 
   let vx = s.vx || 0, vz = s.vz || 0;
