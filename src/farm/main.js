@@ -1361,6 +1361,7 @@ function buildFarmScene() {
       toast(open ? '🚪 gate open — welcome in!' : '🚪 gate closed');
     },
   });
+  farm.onDiscover = (s) => toast(`🧭 you found <b>${s.name}</b>, ${s.article}`, true, true);
   audio.setMusicTheme(game.theme);
   // biome-matched HUD art (meadow art is the base frame; sakura/autumn reuse it for now)
   // all themes share the base HUD frame for now (per-theme art comes later)

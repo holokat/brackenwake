@@ -8,7 +8,14 @@ import {
   glowTexture, sunflowerFaceTexture, signTexture,
   buildCrop, buildTree, buildObject, OBJECT_RADIUS, hash32, mulberry32,
 } from './assets.js';
-import { getTheme, tickWater } from './themes.js';
+import { getTheme, tickWater, THEMES, waterTexture } from './themes.js';
+import { createWorldField } from '../world/field.js';
+import { createWorldStream, buildPalette } from '../world/chunks.js';
+import { createDiscovery } from '../world/sites.js';
+import { createSiteMarkers } from '../world/site_models.js';
+
+// The endless world. One seed for everyone until farms get their own offsets.
+export const WORLD_SEED = 20260904;
 import { clearLandmarks } from './landmarks.js';
 
 // how colour is mapped to the screen; see the note where the renderer is built
@@ -257,6 +264,7 @@ export class Homestead {
   }
 
   dispose() {
+    this.world?.dispose(); this.siteMarkers?.dispose();
     this.dead = true;
     this.renderer.dispose();
     this.renderer.domElement.remove();
@@ -298,8 +306,8 @@ export class Homestead {
     this.skyNightMat = new THREE.MeshBasicMaterial({
       map: skyGradientTexture(this.theme.skyNight, true), side: THREE.BackSide, fog: false, transparent: true, depthWrite: false, opacity: 0,
     });
-    this.scene.add(new THREE.Mesh(new THREE.SphereGeometry(1500, 24, 16), this.skyNightMat));
-    this.scene.add(new THREE.Mesh(new THREE.SphereGeometry(1495, 24, 16), this.skyDayMat));
+    this.skyDomes = [new THREE.Mesh(new THREE.SphereGeometry(1500, 24, 16), this.skyNightMat), new THREE.Mesh(new THREE.SphereGeometry(1495, 24, 16), this.skyDayMat)];
+    this.scene.add(...this.skyDomes);
 
     this.camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 1800);
     const s = this.W;
@@ -336,6 +344,7 @@ export class Homestead {
     Object.assign(sun.shadow.camera, { left: -sb, right: sb, top: sb, bottom: -sb, near: 20, far: 400 });
     sun.shadow.bias = -0.0004;
     this.scene.add(sun);
+    this.scene.add(sun.target);
     this.sunLight = sun;
     const fill = new THREE.DirectionalLight(0x9fc0ff, 0.4);
     fill.position.set(-70, 40, -80);
@@ -2321,6 +2330,7 @@ export class Homestead {
   }
 
   _buildOuterZone() {
+    if (Homestead.openWorld !== false) return this._buildWorld();
     if (!this.theme.buildOuterZone) return;
     // rebuilding the farm throws the old scene away wholesale, so drop the
     // landmark registry with it — otherwise every rebuild stacks another copy
@@ -2351,6 +2361,29 @@ export class Homestead {
     } catch (err) {
       console.warn('outer zone failed', err);
     }
+  }
+
+  // The endless world around the farm: streamed ground, water, and places to
+  // find. Replaces the theme's bounded outer disc. The farm pad stays where it
+  // is; the world flattens itself to meet it (field.js HOME_RADIUS).
+  _buildWorld() {
+    setSceneryTheme(this.theme.id);
+    clearLandmarks();
+    clearTreeFields();
+    const field = createWorldField(WORLD_SEED, { homeBiome: this.theme.id, homeY: -0.3 });
+    this.world = createWorldStream(this.scene, field, { palette: buildPalette(THEMES), waterMap: waterTexture() });
+    this.groundHeightAt = (x, z) => field.heightAt(x, z);
+    this.discovery = createDiscovery(field);
+    this.siteMarkers = createSiteMarkers(this.scene, this.discovery, this.groundHeightAt);
+    // fog closes just inside the streamed ring so chunks never pop in view
+    this.viewFar = this.world.viewRadius - 40;
+    this.controls.maxDistance = Math.max(this.controls.maxDistance, 260);
+    // the valley leash: the orbit target was clamped to the old outer disc, so
+    // walking stopped dead at its rim. An endless world has no rim.
+    this.controls.maxTargetRadius = Infinity;
+    this.controls.minTargetRadius = 0;
+    this.world.update(this.controls.target);
+    this.siteMarkers.update(this.controls.target.x, this.controls.target.z, this.world.viewRadius);
   }
 
   _buildThemeScenery() {
@@ -3196,6 +3229,32 @@ export class Homestead {
     });
   }
 
+  // ================= the endless world, per frame =================
+  _updateWorld(now, dt) {
+    const t = this.controls.target;
+    // the ground carries the view: the orbit target rides 2 m above the terrain
+    // and the camera comes with it, so hills lift you and valleys drop you
+    const wantY = this.terrainY(t.x, t.z) + 2;
+    const dy = (wantY - t.y) * Math.min(1, dt * 10);
+    if (Math.abs(dy) > 1e-4) { t.y += dy; this.camera.position.y += dy; }
+    // hard floor: at 95 u/s a steep hill outruns the follow, and a camera under
+    // the ground sees the underside of the world, which is fog and nothing else
+    const camFloor = this.terrainY(this.camera.position.x, this.camera.position.z) + 2.5;
+    if (this.camera.position.y < camFloor) { const lift = camFloor - this.camera.position.y; this.camera.position.y += lift; t.y += lift * 0.5; }
+    this.world.update(t);
+    this.siteMarkers.update(t.x, t.z, this.world.viewRadius);
+    // sky, sun disc and moon are painted at a fixed distance from the camera
+    for (const d of this.skyDomes) d.position.copy(this.camera.position);
+    this.sunBall.position.set(this.camera.position.x + 240, this.camera.position.y + 200, this.camera.position.z - 190);
+    this.sunGlow.position.copy(this.sunBall.position);
+    this.moon.position.set(this.camera.position.x - 240, this.camera.position.y + 190, this.camera.position.z + 170);
+    // the shadow frustum was sized to the farm; keep it centred on the player
+    this.sunLight.position.set(t.x + 90, t.y + 120, t.z + 50);
+    this.sunLight.target.position.copy(t);
+    const found = this.discovery.check(t.x, t.z, now);
+    if (found) this.onDiscover?.(found);
+  }
+
   // ================= loop =================
 
   _animate(now) {
@@ -3223,6 +3282,7 @@ export class Homestead {
         this.controls.autoRotate = false;
       }
     }
+    if (this.world) this._updateWorld(now, dt);
 
     // ---- day / night cycle ----
     const cycleMs = this.dayLengthMs || 360000; // one full day→night→day loop
@@ -3258,11 +3318,11 @@ export class Homestead {
       this._fogEvent = { start: now, dur: 26000 + Math.random() * 34000 };
       this._fogNext = now + 150000 + Math.random() * 210000;
     }
-    let fogFar = 700;
+    let fogFar = this.viewFar || 700;
     if (this._fogEvent) {
       const ft = (now - this._fogEvent.start) / this._fogEvent.dur;
       if (ft >= 1) this._fogEvent = null;
-      else fogFar = 700 - Math.sin(ft * Math.PI) * 560; // dip toward ~140 mid-roll
+      else fogFar -= Math.sin(ft * Math.PI) * fogFar * 0.8; // dip toward a fifth mid-roll
     }
     if (this.weather && this.weather.intensity > 0.02) fogFar *= (1 - 0.55 * this.weather.intensity); // rain/snow closes in
     this.scene.fog.far = fogFar;
@@ -4008,8 +4068,10 @@ export class Homestead {
     }
 
     this.controls.update();
-    // world boundary: the mountain ring is the edge of the map (WASD, pan, everything)
-    {
+    // world boundary: the mountain ring is the edge of the map (WASD, pan, everything).
+    // Not in the endless world: there is no ring, the ground carries the target
+    // (_updateWorld) and hills run far past 18 m.
+    if (!this.world) {
       const zc = (this.zFront + this.zBack) / 2;
       const dx = this.controls.target.x, dz = this.controls.target.z - zc;
       const dist = Math.hypot(dx, dz);
@@ -4028,7 +4090,8 @@ export class Homestead {
       else if (this.controls.target.y > 18) this.controls.target.y = 18;
     }
     // hard floor for the camera — the underside of the world stays private
-    if (this.camera.position.y < 3.5) this.camera.position.y = 3.5;
+    // (the endless world floors the camera against its own terrain instead)
+    if (!this.world && this.camera.position.y < 3.5) this.camera.position.y = 3.5;
     this.renderer.render(this.scene, this.camera);
   }
 }

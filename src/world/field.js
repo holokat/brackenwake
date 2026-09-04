@@ -25,7 +25,9 @@
 
 import { createNoise, clamp01, lerp, smoothstep } from './noise.js';
 
-export const SEA_LEVEL = 0;
+// The farm pad top is y 0 and the ground under it is homeY (-0.3). The sea has
+// to sit below both or the home disc counts as flooded and gets a water sheet.
+export const SEA_LEVEL = -0.8;
 export const HOME_RADIUS = 110;      // flat ground around the farm pad
 export const HOME_BLEND = 90;        // metres over which the world takes over
 export const CHUNK = 64;             // world units per chunk edge
@@ -51,6 +53,7 @@ export function createWorldField(seed = 1, opts = {}) {
   const homeRadius = opts.homeRadius ?? HOME_RADIUS;
   const homeBlend = opts.homeBlend ?? HOME_BLEND;
   const homeBiome = opts.homeBiome ?? 'meadow';
+  const homeY = opts.homeY ?? 0;          // ground level under the farm pad
   const N = createNoise(seed);
 
   // Raw terrain before the home flattening, so the flattening can be tested
@@ -110,7 +113,7 @@ export function createWorldField(seed = 1, opts = {}) {
   function sampleAt(x, z) {
     const r = raw(x, z);
     const k = homeFactor(x, z);
-    const h = lerp(0, r.h, k);
+    const h = lerp(homeY, r.h, k);
     const river = k <= 0 ? 0 : r.river * k;
     const land = lerp(1, r.land, k);
     const water = h < SEA_LEVEL - 0.05;
@@ -135,6 +138,6 @@ export function createWorldField(seed = 1, opts = {}) {
 
   return {
     seed, heightAt, biomeAt, sampleAt, raw, homeFactor, chunkOf,
-    seaLevel: SEA_LEVEL, chunk: CHUNK, homeRadius, biomes: BIOMES,
+    seaLevel: SEA_LEVEL, chunk: CHUNK, homeRadius, homeY, biomes: BIOMES,
   };
 }

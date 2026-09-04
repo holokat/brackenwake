@@ -24,7 +24,8 @@ for (let a = 0; a < 64; a++) for (let r = 0; r <= HOME_RADIUS; r += 10) {
   const s = f.sampleAt(Math.cos(a / 64 * 6.283) * r, Math.sin(a / 64 * 6.283) * r);
   homeMax = Math.max(homeMax, Math.abs(s.h)); homeRiver = Math.max(homeRiver, s.river);
 }
-check('ground within HOME_RADIUS is flat at 0', homeMax < 1e-9, `max |h| ${homeMax.toExponential(1)}`);
+check('ground within HOME_RADIUS is flat at homeY', homeMax < 1e-9, `max |h| ${homeMax.toExponential(1)}`);
+{ const g2 = createWorldField(20260904, { homeY: -0.3 }); check('homeY lowers the whole home disc', Math.abs(g2.heightAt(40, 40) + 0.3) < 1e-9 && Math.abs(g2.heightAt(0, -90) + 0.3) < 1e-9); }
 check('no river runs through the farm', homeRiver === 0, `max river ${homeRiver}`);
 check('home biome is the farm theme', f.biomeAt(30, 30) === 'meadow');
 
@@ -42,6 +43,7 @@ check('ocean exists (15% to 55%)', ocean / n > 0.15 && ocean / n < 0.55, `${(100
 check('land is the majority', land / n > 0.45, `${(100 * land / n).toFixed(0)}% land`);
 check('mountains exist (some ground above 60)', hMax > 60, `max h ${hMax.toFixed(1)}`);
 check('sea floor is below sea level', hMin < -5, `min h ${hMin.toFixed(1)}`);
+{ const g3 = createWorldField(20260904, { homeY: -0.3 }); const s3 = g3.sampleAt(60, 60); check('the home disc is dry land, not sea', !s3.water && s3.h > SEA_LEVEL + 0.2, `home h ${s3.h} sea ${SEA_LEVEL}`); }
 check('rivers exist', riverCells > 50, `${riverCells} river cells`);
 check('rivers are on land, not in the sea', riverOnLand / Math.max(1, riverCells) > 0.85, `${riverOnLand}/${riverCells}`);
 for (const b of BIOMES) check(`biome "${b}" occurs`, counts[b] > 0, `${(100 * counts[b] / n).toFixed(1)}%`);
