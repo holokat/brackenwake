@@ -74,7 +74,7 @@ Falling is the one damage nothing resists.
 ```
 fallDamage = max(0, (fallMetres - 4) * 6)
 ```
-A 4 m drop is free; 10 m costs 36; 32 m kills a fresh warrior of 170 health outright. A
+A 4 m drop is free; 10 m costs 36; 33 m kills a fresh warrior of 170 health outright. A
 jump from standing rises 1.2 m and lands without damage. Landing shows the
 number in orange.
 

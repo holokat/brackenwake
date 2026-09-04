@@ -250,3 +250,527 @@ export function swingText(res) {
       return '';
   }
 }
+
+// ===========================================================================
+// The MMO resolver's runtime half.
+//
+// Everything above this line is the hunting knife against a deer, and it stays
+// exactly as it was: `interact.js` calls `pickTarget`, `resolveSwing` and
+// `swingText` and gets the same answers it has always got. Everything below is
+// the other combat, the one where the thing you swing at swings back.
+//
+// The arithmetic is not here. It is in `src/mmo/combat_rules.js`, which is pure
+// and finished, and this file never re-derives a number that module already
+// knows: it queues a swing, waits for the blow to land, hands the result to the
+// actors, the floaters and the progression, and says so.
+//
+// The five things it owns, and nothing else owns:
+//
+//   1. TIME. `queueSwing` starts the cooldown; the blow lands SWING_LAND_S
+//      later so the number arrives with the animation and not before it.
+//   2. THE WRITE. `resolveMelee` mutates nothing; this is the only place that
+//      takes health off a defender, stamina off an attacker, and puts leeched
+//      health and mana back.
+//   3. STATUS. Poison and bleed tick here, once a second, through
+//      `poisonTick`, and expire here.
+//   4. WORDS. Every `numbers` entry the rules emit becomes a floater over the
+//      right head, and `damage` becomes `taken` when the head is the player's.
+//   5. DEATH. One place decides a thing is dead, sets 'die', and tells whoever
+//      is listening.
+//
+// Monsters do not learn. `lessons` are routed to `progression` only for an
+// actor whose `kind` is 'player', because a skeleton has no character document
+// to write a gain into and `rollGain` would happily invent one.
+
+import {
+  resolveMelee, resolveSpell, applyLeech, poisonTick, swingSeconds,
+  fallDamage, weaponOf, UNARMED, damage as damageOf, JUMP_ATTACK_MULT,
+} from '../mmo/combat_rules.js';
+
+/** Seconds between a swing starting and the blow landing. The animation's fault. */
+export const SWING_LAND_S = 0.3;
+/** A spell arrives almost at once; the cast time in front of it is W4's. */
+export const SPELL_LAND_S = 0.1;
+/** How long after a blow an actor still counts as fighting. */
+export const IN_COMBAT_MS = 6000;
+/** Poison and bleed both tick on this beat. */
+export const TICK_MS = 1000;
+/**
+ * Health a second per level of bleed. NOTHING IN THE DOCUMENTS GIVES THIS
+ * NUMBER: 04-CLASSES-ABILITIES writes Rend as "bleed 3 a second for 8 s", an
+ * absolute rate with no level in it. So a bleed applied with an explicit
+ * `perSecond` uses that figure, and only a bleed given as a bare level falls
+ * back to this constant. Poison has a real rule and goes through `poisonTick`.
+ */
+export const BLEED_PER_LEVEL = 2;
+/** Half a body, each side, added to the weapon's reach. */
+export const BODY_RADIUS = 0.45;
+/** How much further than its reach a swing already in the air may still land. */
+export const REACH_SLACK = 1.5;
+
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+const alive = (a) => !!a && num(a.health) > 0;
+const posOf = (a) => (a && a.pos ? a.pos : null);
+const isPlayer = (a) => !!a && a.kind === 'player';
+
+/** Centre to centre metres, in three dimensions. Infinity when either has no place. */
+export function actorDistance(a, b) {
+  const p = posOf(a), q = posOf(b);
+  if (!p || !q) return Infinity;
+  const dx = num(p.x) - num(q.x), dy = num(p.y) - num(q.y), dz = num(p.z) - num(q.z);
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+/** The weapon's reach plus both bodies. What "within reach" means everywhere. */
+export function reachBetween(attacker, defender) {
+  const w = weaponOf(attacker);
+  const reach = Number.isFinite(w.reach) ? w.reach : UNARMED.reach;
+  const ra = Number.isFinite(attacker && attacker.radius) ? attacker.radius : BODY_RADIUS;
+  const rb = Number.isFinite(defender && defender.radius) ? defender.radius : BODY_RADIUS;
+  return reach + ra + rb;
+}
+
+/** True while a stun is running. Read by queueSwing and by the monster AI. */
+export const stunned = (actor, now) => !!(actor && actor.status && actor.status.stun
+  && num(actor.status.stun.until) > num(now));
+
+/**
+ * A spell in the shape `resolveSpell` wants: `{ base: [lo, hi], damageType }`.
+ * Accepts one already in that shape, or an `abilities.js` record, whose damage
+ * hides inside `effect` and may be one part of a combo. Returns null for an
+ * ability that does no damage at all, which is a real answer: Bless is not a
+ * thing you resolve through the damage pipeline.
+ */
+export function spellShape(spell) {
+  if (!spell) return null;
+  if (Array.isArray(spell.base)) return spell;
+  const found = findSpellDamage(spell.effect);
+  if (!found) return null;
+  return { ...spell, base: [found.min, found.max], damageType: found.type || 'energy' };
+}
+
+function findSpellDamage(effect) {
+  if (!effect) return null;
+  if (effect.kind === 'spellDamage') return effect;
+  if (effect.kind === 'aoe' && effect.spellDamage) return effect.spellDamage;
+  if (effect.kind === 'combo' && Array.isArray(effect.parts)) {
+    for (const part of effect.parts) {
+      const found = findSpellDamage(part);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/**
+ * The runtime.
+ *
+ *   const combat = createCombat({ floaters, hud, audio, progression, rng });
+ *   combat.queueSwing(playerActor, monsterActor, { now, jumpAttack });
+ *   combat.update(dt, now);          // in the frame, after monsters.update
+ *   combat.onDeath((actor, killer) => ...);
+ *
+ * Every argument is optional. With none of them it still resolves fights
+ * correctly and silently, which is what the node tests run.
+ */
+export function createCombat({ floaters, hud, audio, progression, rng = Math.random } = {}) {
+  const pending = [];              // swings and casts in the air
+  const tracked = new Set();       // actors carrying status, or lately hit
+  const deathFns = [];
+  const lastActionAt = new WeakMap();
+  let lastNow = 0;
+
+  const say = (text, kind) => {
+    if (!text) return;
+    // hud.log is W4's growth and may not be there yet; toast is the one that
+    // has always existed. One of them, never both.
+    if (typeof hud?.log === 'function') hud.log(text, kind);
+    else hud?.toast?.(text, kind);
+  };
+  const cue = (name, at) => audio?.play?.(name, at ? { at: { x: at.x, z: at.z } } : undefined);
+
+  function float(actor, text, kind, extra) {
+    const p = posOf(actor);
+    if (!p || !floaters?.spawn) return;
+    // 'damage' is what the rules emit for a blow that landed. The table in
+    // 02-COMBAT.md splits it in two by whose head it is over: white when you
+    // deal it, red when you take it. The resolver cannot know which; here we do.
+    const k = kind === 'damage' && isPlayer(actor) ? 'taken' : kind;
+    floaters.spawn(p, text, k, extra);
+  }
+
+  const touch = (actor, now) => { if (actor) { lastActionAt.set(actor, num(now)); tracked.add(actor); } };
+
+  /** Whether this actor has swung or been struck inside the last six seconds. */
+  function inCombat(actor, now = lastNow) {
+    const t = lastActionAt.get(actor);
+    return t != null && num(now) - t < IN_COMBAT_MS;
+  }
+
+  function onDeath(fn) { if (typeof fn === 'function') deathFns.push(fn); return () => {
+    const i = deathFns.indexOf(fn); if (i >= 0) deathFns.splice(i, 1);
+  }; }
+
+  /**
+   * The one place a thing dies. Sets the animation the model reads, empties the
+   * status so a corpse does not go on bleeding, and tells the listeners.
+   */
+  function kill(actor, killer) {
+    if (!actor || actor.dead) return;
+    actor.health = 0;
+    actor.dead = true;
+    actor.anim = 'die';
+    actor.status = {};
+    if (actor.ai) actor.ai.state = 'dead';
+    tracked.delete(actor);
+    for (let i = pending.length - 1; i >= 0; i--) {
+      if (pending[i].attacker === actor || pending[i].defender === actor) pending.splice(i, 1);
+    }
+    for (const fn of deathFns) fn(actor, killer || null);
+  }
+
+  /** Health onto an actor, never past its maximum, with the green number to prove it. */
+  function heal(actor, amount, opts = {}) {
+    const n = Math.max(0, Math.round(num(amount)));
+    if (!actor || n <= 0) return 0;
+    const max = num(actor.maxHealth) || Infinity;
+    const before = num(actor.health);
+    actor.health = Math.min(max, before + n);
+    const got = actor.health - before;
+    if (got > 0 && opts.quiet !== true) float(actor, String(got), 'heal');
+    return got;
+  }
+
+  /**
+   * Health off an actor, from any source that is not a resolved swing: a poison
+   * tick, a fall, an ability's flat damage. Returns what actually came off.
+   */
+  function hurt(actor, amount, opts = {}) {
+    const n = Math.max(0, Math.round(num(amount)));
+    if (!alive(actor) || n <= 0) return 0;
+    const before = num(actor.health);
+    actor.health = Math.max(0, before - n);
+    const took = before - actor.health;
+    touch(actor, opts.now ?? lastNow);
+    if (opts.quiet !== true) float(actor, String(took), opts.kind || 'damage');
+    if (actor.health <= 0) kill(actor, opts.killer || null);
+    return took;
+  }
+
+  // -- status ---------------------------------------------------------------
+
+  /**
+   * Poison or bleed onto an actor. Poison's duration and rate come from
+   * `poisonTick`, which is the document's own rule; a bleed carries its rate
+   * with it, because no rule exists for one.
+   *
+   * A stronger level replaces a weaker one and refreshes the clock; a weaker
+   * one only extends the clock. Either way it says so, because a status nobody
+   * was told about is a health bar draining for no reason.
+   */
+  function applyStatus(actor, id, spec = {}, now = lastNow) {
+    if (!alive(actor)) return null;
+    const t = num(now);
+    actor.status = actor.status || {};
+    const level = Math.max(0, num(spec.level) || 0);
+    let until, perSecond = null;
+    if (id === 'poison') {
+      if (level <= 0) return null;
+      const tick = poisonTick(level);
+      until = t + tick.seconds * 1000;
+      perSecond = tick.perSecond;
+    } else if (id === 'bleed') {
+      perSecond = num(spec.perSecond) || level * BLEED_PER_LEVEL;
+      if (perSecond <= 0) return null;
+      until = t + Math.max(0, num(spec.seconds) || 0) * 1000;
+      if (until <= t) return null;
+    } else {
+      until = t + Math.max(0, num(spec.seconds) || 0) * 1000;
+      if (until <= t) return null;
+    }
+    const had = actor.status[id];
+    const stronger = !had || level > num(had.level);
+    const entry = {
+      level: stronger ? level : num(had.level),
+      perSecond: stronger || perSecond > num(had.perSecond) ? perSecond : had.perSecond,
+      until: Math.max(until, had ? num(had.until) : 0),
+      nextTick: had && !stronger ? num(had.nextTick) : t + TICK_MS,
+    };
+    actor.status[id] = entry;
+    tracked.add(actor);
+    if (id === 'poison' || id === 'bleed') float(actor, id === 'poison' ? 'poisoned' : 'bleeding', 'miss');
+    else float(actor, id, 'miss');
+    return entry;
+  }
+
+  /** Take a status off, and say so. Cure potions and Cleanse come through here. */
+  function clearStatus(actor, id) {
+    if (!actor || !actor.status || !actor.status[id]) return false;
+    delete actor.status[id];
+    float(actor, `${id} gone`, 'heal');
+    return true;
+  }
+
+  /**
+   * The ticks come FIRST and the expiry second, which is the difference between
+   * poison 2 taking 48 and taking 44. Its last tick falls exactly on the
+   * millisecond it runs out (level * 6 seconds, level * 2 a second, twelve
+   * ticks of four), and an expiry checked first would eat that tick and quietly
+   * make every poison in the game one second short.
+   */
+  function tickStatus(actor, now) {
+    const st = actor.status;
+    if (!st) return;
+    for (const id of Object.keys(st)) {
+      const e = st[id];
+      if (!e) { delete st[id]; continue; }
+      if (id === 'poison' || id === 'bleed') {
+        while (num(e.nextTick) <= now && num(e.nextTick) <= num(e.until) && alive(actor)) {
+          e.nextTick = num(e.nextTick) + TICK_MS;
+          hurt(actor, e.perSecond, { now, kind: 'damage' });
+        }
+      }
+      if (num(e.until) <= now) {
+        delete st[id];
+        if (id === 'poison' || id === 'bleed') float(actor, `${id} runs out`, 'heal');
+      }
+    }
+  }
+
+  // -- lessons --------------------------------------------------------------
+
+  /**
+   * A `lessons` list from the rules, handed to progression. Only the player
+   * learns. `who` is 'attacker' or 'defender' and is resolved against the pair
+   * that produced it, so a monster's swing teaches the player's Parrying and
+   * raises the player's CON without either side needing to know which is which.
+   */
+  function teach(lessons, attacker, defender) {
+    if (!progression || !Array.isArray(lessons)) return 0;
+    let taught = 0;
+    for (const l of lessons) {
+      const who = l.who === 'defender' ? defender : attacker;
+      if (!isPlayer(who)) continue;
+      if (l.kind === 'stat' && l.stat) { progression.statLesson?.(who, l.stat, l.difficulty, l.success); taught++; }
+      else if (l.skill) { progression.lesson?.(who, l.skill, l.difficulty, l.success); taught++; }
+    }
+    return taught;
+  }
+
+  /** Every `numbers` entry over the head it belongs to. */
+  function show(numbers, attacker, defender) {
+    if (!Array.isArray(numbers)) return;
+    for (const n of numbers) float(n.over === 'attacker' ? attacker : defender, n.text, n.kind, n.extra);
+  }
+
+  // -- swings ---------------------------------------------------------------
+
+  /**
+   * Start a swing. The cooldown starts NOW; the blow lands SWING_LAND_S later.
+   *
+   * @returns { queued: true, at } or { queued: false, reason, wait? } with
+   *   reasons 'no_actor', 'dead', 'stunned', 'cooldown', 'out_of_reach'.
+   *   A refusal changes nothing at all, which is what lets the monster AI ask
+   *   every frame and only pay when the answer is yes.
+   */
+  function queueSwing(attacker, defender, opts = {}) {
+    const now = num(opts.now ?? lastNow);
+    if (!attacker || !defender) return { queued: false, reason: 'no_actor' };
+    if (!alive(attacker) || !alive(defender)) return { queued: false, reason: 'dead' };
+    if (stunned(attacker, now)) return { queued: false, reason: 'stunned' };
+    // An ability's swing is not the weapon's own rhythm. `immediate` (which is
+    // what abilities_runtime.js sends, once per `shots`) skips the cooldown
+    // gate AND leaves lastSwingAt alone, so a three shot ability fires three
+    // times and does not also cost you your next ordinary swing.
+    const free = !!(opts.immediate || opts.ignoreCooldown);
+    const wait = num(attacker.lastSwingAt) + swingSeconds(attacker) * 1000 - now;
+    if (!free && Number.isFinite(attacker.lastSwingAt) && wait > 0) return { queued: false, reason: 'cooldown', wait };
+    const reach = reachBetween(attacker, defender) + Math.max(0, num(opts.reachBonus));
+    const d = actorDistance(attacker, defender);
+    if (d > reach) return { queued: false, reason: 'out_of_reach', dist: d, reach };
+
+    if (!free) attacker.lastSwingAt = now;
+    attacker.anim = 'swing';
+    if (attacker.ai) attacker.ai.swingUntil = now + SWING_LAND_S * 2000;
+    touch(attacker, now);
+    const at = now + SWING_LAND_S * 1000;
+    pending.push({ kind: 'swing', attacker, defender, at, opts });
+    return { queued: true, at, reach, dist: d };
+  }
+
+  /**
+   * Start a spell. `spell` is either `{ base: [lo, hi], damageType }` or an
+   * ability record with damage somewhere in its effect. The cast timer in front
+   * of it belongs to `abilities_runtime.js`; by the time it reaches here the
+   * spell is going off.
+   */
+  function queueSpell(caster, spell, target, opts = {}) {
+    const now = num(opts.now ?? lastNow);
+    const shaped = spellShape(spell);
+    if (!caster || !target) return { queued: false, reason: 'no_actor' };
+    if (!shaped) return { queued: false, reason: 'no_damage' };
+    if (!alive(caster) || !alive(target)) return { queued: false, reason: 'dead' };
+    caster.anim = 'cast';
+    touch(caster, now);
+    const at = now + (opts.travel != null ? num(opts.travel) : SPELL_LAND_S) * 1000;
+    pending.push({ kind: 'spell', attacker: caster, defender: target, spell: shaped, at, opts });
+    return { queued: true, at };
+  }
+
+  /**
+   * An attacker wearing this swing's ability bonuses, or the attacker itself.
+   *
+   * `abilities_runtime.js` sends `hitBonus` (skill points onto the attack roll)
+   * and `ignoreARFraction` (a fraction of the target's armour ignored), and
+   * `combat_rules.js` already reads both of those, by the names `bonuses.hit`
+   * and `bonuses.armourPiercing`. So the ability's numbers are folded into a
+   * SHALLOW COPY of the attacker rather than into a second formula here. The
+   * copy matters: resolveMelee mutates nothing, so a copy resolves identically,
+   * and the real actor never carries a bonus that belonged to one swing.
+   */
+  function swinger(attacker, opts) {
+    const hit = num(opts.hitBonus);
+    const pierce = num(opts.ignoreARFraction) * 100;
+    if (!hit && !pierce) return attacker;
+    const b = attacker.bonuses || {};
+    return { ...attacker, bonuses: { ...b, hit: num(b.hit) + hit, armourPiercing: num(b.armourPiercing) + pierce } };
+  }
+
+  /** The blow lands. This is the only writer of health from a resolved swing. */
+  function landSwing(job, now) {
+    const { attacker, defender, opts } = job;
+    if (!alive(attacker) || !alive(defender)) return null;
+    // it may have walked out of the way while the arm was coming round
+    if (actorDistance(attacker, defender) > reachBetween(attacker, defender) * REACH_SLACK) {
+      float(defender, 'out of reach', 'miss');
+      cue('beastMiss', posOf(defender));
+      return null;
+    }
+    const res = resolveMelee({ attacker: swinger(attacker, opts), defender, now, rng, jumpAttack: !!opts.jumpAttack });
+
+    // An ability multiplier: Power Strike's 1.6, Whirlwind's 0.8. resolveMelee
+    // takes no multiplier of its own, only `jumpAttack`, so the same roll and
+    // the same crit are put back through `combat_rules.damage` with both
+    // multipliers on it. The arithmetic is still entirely the pure layer's; the
+    // only thing that happens here is that the two multipliers are multiplied.
+    const mult = opts.multiplier != null ? num(opts.multiplier) : 1;
+    if (res.damage > 0 && mult !== 1) {
+      const again = damageOf(swinger(attacker, opts), defender, res.detail.roll, {
+        crit: res.crit, damageType: res.damageType,
+        multiplier: (opts.jumpAttack ? JUMP_ATTACK_MULT : 1) * mult,
+      });
+      const was = res.damage;
+      res.damage = again.final;
+      res.detail = again;
+      res.killed = num(defender.health) - again.final <= 0;
+      // the number on screen has to be the number that came off
+      for (const n of res.numbers) if (n.text === String(was)) n.text = String(again.final);
+    }
+
+    attacker.stamina = Math.max(0, num(attacker.stamina) - num(res.staminaCost));
+    if (res.damage > 0) {
+      defender.health = Math.max(0, num(defender.health) - res.damage);
+      defender.anim = defender.health > 0 ? 'hurt' : 'die';
+      touch(defender, now);
+      // whoever hit it last is who it turns on: 02-COMBAT's own targeting rule
+      if (defender.ai) { defender.ai.target = attacker; defender.ai.hurtAt = now; }
+    }
+    show(res.numbers, attacker, defender);
+    teach(res.lessons, attacker, defender);
+    cue(res.damage > 0 ? 'beastHit' : 'beastMiss', posOf(defender));
+
+    const leech = applyLeech(res, attacker);
+    if (leech.healed > 0) { attacker.health = Math.min(num(attacker.maxHealth) || Infinity, num(attacker.health) + leech.healed); }
+    if (leech.mana > 0) { attacker.mana = Math.min(num(attacker.maxMana) || Infinity, num(attacker.mana) + leech.mana); }
+    show(leech.numbers, attacker, defender);
+
+    if (res.damage > 0 && opts.poison > 0) applyStatus(defender, 'poison', { level: opts.poison }, now);
+    if (res.damage > 0 && opts.bleed) applyStatus(defender, 'bleed', opts.bleed, now);
+
+    if (defender.health <= 0) kill(defender, attacker);
+    return res;
+  }
+
+  function landSpell(job, now) {
+    const { attacker, defender, spell, opts } = job;
+    if (!alive(attacker) || !alive(defender)) return null;
+    const res = resolveSpell({ caster: attacker, target: defender, spell, rng, now });
+    if (res.damage > 0) {
+      defender.health = Math.max(0, num(defender.health) - res.damage);
+      defender.anim = defender.health > 0 ? 'hurt' : 'die';
+      touch(defender, now);
+      if (defender.ai) { defender.ai.target = attacker; defender.ai.hurtAt = now; }
+    }
+    show(res.numbers, attacker, defender);
+    teach(res.lessons, attacker, defender);
+    cue(res.damage > 0 ? 'beastHit' : 'beastMiss', posOf(defender));
+    const leech = applyLeech(res, attacker);
+    if (leech.healed > 0) attacker.health = Math.min(num(attacker.maxHealth) || Infinity, num(attacker.health) + leech.healed);
+    if (leech.mana > 0) attacker.mana = Math.min(num(attacker.maxMana) || Infinity, num(attacker.mana) + leech.mana);
+    show(leech.numbers, attacker, defender);
+    if (res.damage > 0 && opts.poison > 0) applyStatus(defender, 'poison', { level: opts.poison }, now);
+    if (defender.health <= 0) kill(defender, attacker);
+    return res;
+  }
+
+  /**
+   * The ground arrives. `(metres - 4) * 6`, and nothing resists it. A drop of
+   * four metres or less is free and says nothing, because nothing happened.
+   *
+   * @returns the damage taken, 0 for a landing that cost nothing.
+   */
+  function applyFall(actor, metres, now = lastNow) {
+    const n = fallDamage(metres);
+    if (!alive(actor) || n <= 0) return 0;
+    const took = hurt(actor, n, { now, kind: 'fall' });
+    cue('land', posOf(actor));
+    if (isPlayer(actor)) {
+      say(took >= num(actor.maxHealth) * 0.5
+        ? `you hit the ground hard, ${took} off`
+        : `you land badly, ${took} off`);
+    }
+    return took;
+  }
+
+  /** Every frame, after the monsters have moved and before the floaters update. */
+  function update(dt, now) {
+    lastNow = Number.isFinite(now) ? now : lastNow + Math.max(0, num(dt)) * 1000;
+    const t = lastNow;
+    for (let i = pending.length - 1; i >= 0; i--) {
+      const job = pending[i];
+      if (job.at > t) continue;
+      pending.splice(i, 1);
+      if (job.kind === 'swing') landSwing(job, t); else landSpell(job, t);
+    }
+    for (const actor of [...tracked]) {
+      if (!alive(actor)) { tracked.delete(actor); continue; }
+      if (actor.status && Object.keys(actor.status).length) tickStatus(actor, t);
+      else if (!inCombat(actor, t)) tracked.delete(actor);
+    }
+  }
+
+  return {
+    queueSwing, queueSpell, applyFall, update, onDeath, inCombat,
+    // the pieces the other runtimes need to reach without re-deriving them
+    applyStatus, clearStatus, hurt, heal, kill,
+    reachBetween, distance: actorDistance, stunned: (a, n = lastNow) => stunned(a, n),
+    /**
+     * Drop everything in the air that involves this actor, and stop tracking
+     * it. A monster despawned by the streaming cap while its arm was coming
+     * round would otherwise land a blow from a body that is no longer there.
+     */
+    forget(actor) {
+      let n = 0;
+      for (let i = pending.length - 1; i >= 0; i--) {
+        if (pending[i].attacker === actor || pending[i].defender === actor) { pending.splice(i, 1); n++; }
+      }
+      tracked.delete(actor);
+      return n;
+    },
+    /** What is still in the air. Tests and the debug overlay. */
+    get pendingCount() { return pending.length; },
+    get now() { return lastNow; },
+    /** Forget everything: a death screen, a teleport, a dungeon change. */
+    clear() { pending.length = 0; tracked.clear(); },
+  };
+}
