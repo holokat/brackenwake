@@ -3,7 +3,7 @@
   // and talks to Nostr relays directly, so there is no server code here, only
   // the built assets. Deploy with `npm run deploy`.
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "nostrux-homestead",
+  "name": "brackenwake",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./dist",

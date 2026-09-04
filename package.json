@@ -1,7 +1,7 @@
 {
-  "name": "nostrux-homestead",
+  "name": "brackenwake",
   "version": "1.0.0",
-  "description": "A nostr-connected 3D low-poly farming game where your social engagement grows the farm.",
+  "description": "Brackenwake: an open, procedural, endless world, forked from Nostrux Homestead",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
