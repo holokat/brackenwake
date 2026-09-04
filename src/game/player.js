@@ -121,7 +121,7 @@ export const BODY = {
 // poly era and the polish contract overturns the look, not this flag; the
 // geometry below is dense enough that faceting reads as shape rather than as
 // a budget. Flip this to false the day that assertion changes.
-export const FLAT_SHADING = true;
+export const FLAT_SHADING = false;   // the polish contract: smooth, physically based, no facets
 
 // --- appearance tables ---------------------------------------------------
 // The words come from openings.js APPEARANCE. Nothing is invented here: every

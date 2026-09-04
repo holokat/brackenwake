@@ -28,8 +28,9 @@ console.log('player: the body');
   const have = ['head', 'torso', 'armL', 'armR', 'legL', 'legR'].every((k) => parts[k]);
   check('the contract parts are all present', have, Object.keys(parts).join(', '));
   let flatShaded = 0, meshes = 0;
-  group.traverse((o) => { if (o.isMesh) { meshes++; if (o.material.flatShading && o.material.isMeshStandardMaterial) flatShaded++; } });
-  check('every mesh is a flat shaded standard material', meshes > 0 && flatShaded === meshes, `${flatShaded}/${meshes}`);
+  // the polish contract retired the facets: every body mesh is a smooth standard material
+  group.traverse((o) => { if (o.isMesh) { meshes++; if (!o.material.flatShading && o.material.isMeshStandardMaterial) flatShaded++; } });
+  check('every mesh is a smooth shaded standard material', meshes > 0 && flatShaded === meshes, `${flatShaded}/${meshes} smooth`);
 }
 
 console.log('player: acceleration and braking');
