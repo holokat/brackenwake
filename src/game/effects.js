@@ -21,6 +21,18 @@
 //
 // Nothing here changes player.js. The clips read `parts` and add to what the
 // gait already put there, which is why a swing while running still runs.
+//
+// SOUND. Every visual moment in here is also an audible one, so `createEffects`
+// takes the audio: `createEffects(sc, { audio })`. Nothing else changes. The
+// rule the hooks follow is that a sound belongs where the thing happened, so
+// every one of them is played positioned: a swing at the swinger, a bolt at the
+// hand it left, a burst at the target it reached. With no audio handed in,
+// every hook is a no-op and the effects are exactly what they were.
+//
+// Which sound is never guessed at the call site. A spell's cue comes from its
+// colour, which is already a function of its damage type; a hit's cue comes
+// from what was hit. Both are pure functions below and both are tested from
+// both directions.
 
 import * as THREE from 'three';
 import { ABILITIES_BY_ID } from '../mmo/abilities.js';
@@ -79,6 +91,144 @@ export function colourFor(abilityId) {
   const type = firstDamageType(ability.effect);
   if (type && TYPE_COLOURS[type] != null) return TYPE_COLOURS[type];
   return GROUP_COLOURS[ability.group] ?? TYPE_COLOURS.physical;
+}
+
+// --- which sound ---------------------------------------------------------------
+
+/** The cue for each damage type. audio.js has one file per row. */
+export const SPELL_CUES = {
+  physical: 'spell_physical',
+  fire: 'spell_fire',
+  cold: 'spell_cold',
+  poison: 'spell_poison',
+  energy: 'spell_energy',
+  holy: 'spell_holy',
+};
+
+/**
+ * The cue for a spell that deals no damage at all, by the group that casts it.
+ *
+ * `colourFor` already falls back from the damage type to the group colour, and
+ * the sound follows it, for the same reason: a Curse of Weakness is not
+ * physical, it is necromancy, and the drone is what necromancy sounds like.
+ * Without this row spell_dark would be a file that nothing in the game ever
+ * plays, which is the same bug as a modifier nothing reads.
+ */
+export const GROUP_CUES = {
+  necromancer: 'spell_dark',
+  healer: 'spell_holy',
+  mage: 'spell_cold',
+  sorcerer: 'spell_energy',
+  bard: 'buff',
+  rogue: 'spell_physical',
+  ranger: 'spell_physical',
+  warrior: 'spell_physical',
+  everyone: 'spell_physical',
+};
+
+/** The cue for each thing a blow can land on. */
+export const IMPACT_CUES = { flesh: 'impact_flesh', bone: 'impact_bone', metal: 'impact_metal' };
+
+/** Colour back to damage type, so a caller that only has the colour still gets the right sound. */
+export const TYPE_BY_COLOUR = Object.fromEntries(
+  Object.entries(TYPE_COLOURS).map(([type, colour]) => [colour, type]),
+);
+
+/**
+ * Colour straight to cue: every damage type first, then every group colour that
+ * is not already one of them. The warrior and `everyone` share the physical
+ * colour exactly, so they are claimed by `physical` and never reach the group
+ * pass, which is right rather than a collision to fix.
+ */
+export const CUE_BY_COLOUR = (() => {
+  const m = {};
+  for (const [type, colour] of Object.entries(TYPE_COLOURS)) m[colour] = SPELL_CUES[type];
+  for (const [group, colour] of Object.entries(GROUP_COLOURS)) if (!m[colour]) m[colour] = GROUP_CUES[group];
+  return m;
+})();
+
+/**
+ * The sound a spell makes.
+ *
+ * `type` wins when it is given. Otherwise the colour is read back through
+ * CUE_BY_COLOUR, which works because `colourFor` puts the damage type's colour
+ * on anything that deals damage and the group's colour on anything that does
+ * not. A colour from neither table, which a caller could pass by hand, is
+ * physical rather than nothing.
+ */
+export function spellCueFor(colour, type = null) {
+  if (type && SPELL_CUES[type]) return SPELL_CUES[type];
+  return CUE_BY_COLOUR[colour] || SPELL_CUES.physical;
+}
+
+/** Armour materials from items.js that ring rather than thud. */
+export const METAL_ARMOUR = new Set(['ring', 'chain', 'plate', 'metal']);
+/** Monsters from mmo/monsters.js that are held together by bone and nothing else. */
+export const BONE_ACTORS = new Set(['skeleton', 'skeletonWarrior', 'boneKnight', 'lich', 'boneDragon']);
+
+function materialToken(word) {
+  const w = String(word || '');
+  if (w === 'flesh' || w === 'bone' || w === 'metal') return w;
+  if (METAL_ARMOUR.has(w)) return 'metal';
+  if (BONE_ACTORS.has(w) || /skelet|bone|lich/i.test(w)) return 'bone';
+  return null;
+}
+
+/**
+ * What a blow landed on: `flesh`, `bone` or `metal`.
+ *
+ * Takes a word, a monster row, a runtime actor, or an armour piece, and looks
+ * in that order:
+ *   1. an explicit `impactMaterial` or `material` on the thing or its row
+ *   2. an armour material: ringmail, chainmail and plate ring, cloth does not
+ *   3. the monster: `kind: 'construct'` is metal, a skeleton or a lich is bone
+ *   4. flesh, which is what most things in the world are made of
+ */
+export function materialOf(source) {
+  if (!source) return 'flesh';
+  if (typeof source === 'string') return materialToken(source) || 'flesh';
+  const rows = [source, source.row, source.monster, source.def, source.actor].filter(Boolean);
+  for (const o of rows) {
+    const m = materialToken(o.impactMaterial) || materialToken(o.material);
+    if (m) return m;
+  }
+  for (const o of rows) {
+    const armour = o.armourMaterial || o.armour || o.armor;
+    if (typeof armour === 'string' && METAL_ARMOUR.has(armour)) return 'metal';
+    if (armour && typeof armour === 'object' && METAL_ARMOUR.has(armour.material)) return 'metal';
+  }
+  for (const o of rows) {
+    if (o.kind === 'construct') return 'metal';
+    const m = materialToken(o.id) || materialToken(o.monsterId) || materialToken(o.name);
+    if (m) return m;
+  }
+  return 'flesh';
+}
+
+/** The cue for a blow landing on `source`. */
+export function impactCueFor(source) { return IMPACT_CUES[materialOf(source)]; }
+
+/**
+ * Light or heavy, from how many hands are on the weapon. `{ hands: 2 }`,
+ * `{ twoHanded: true }` or `{ weapon }` where the weapon is an items.js base or
+ * an item made from one, all say the same thing. Bare hands are light.
+ */
+export function swingCueFor(opts = {}) {
+  const hands = opts.hands
+    ?? (opts.twoHanded ? 2 : null)
+    ?? opts.weapon?.hands ?? opts.weapon?.base?.hands
+    ?? (opts.weapon?.twoHanded ? 2 : null);
+  return Number(hands) >= 2 ? 'swing_heavy' : 'swing_light';
+}
+
+/** Where a thing is, in the two coordinates audio.play cares about. */
+export function posOf(o) {
+  if (!o) return null;
+  if (o.pos && Number.isFinite(o.pos.x) && Number.isFinite(o.pos.z)) return { x: o.pos.x, z: o.pos.z };
+  if (Number.isFinite(o.x) && Number.isFinite(o.z)) return { x: o.x, z: o.z };
+  const g = o.group?.position;
+  if (g && Number.isFinite(g.x) && Number.isFinite(g.z)) return { x: g.x, z: g.z };
+  return null;
 }
 
 // --- the poses ---------------------------------------------------------------
@@ -225,11 +375,31 @@ const tmpS = new THREE.Vector3(1, 1, 1);
 const tmpC = new THREE.Color();
 
 /**
- * `createEffects(sc)` where `sc` is the object from `createScene`. Everything
- * it makes lives under one group, so `dispose()` is one removal.
+ * `createEffects(sc, { audio })` where `sc` is the object from `createScene` and
+ * `audio` is the object from `createAudio`. Everything it makes lives under one
+ * group, so `dispose()` is one removal.
+ *
+ * `audio` is optional and every sound hook is wrapped, so a missing audio, a
+ * cue that is not in the table, a locked browser or a thrown exception all end
+ * as no sound and no error. Sound is a garnish; the effect is the thing.
  */
 export function createEffects(sc, opts = {}) {
   const scene = sc?.scene || sc;
+  const audio = opts.audio || null;
+
+  /**
+   * Fire a cue where a thing is. `where` is a rig, an actor, a THREE-ish object
+   * or a plain `{ x, z }`; anything `posOf` cannot place is played unpositioned
+   * rather than dropped, because a sound in the wrong place is still better
+   * than a swing that makes no noise.
+   */
+  function cue(name, where, extra = null) {
+    if (!audio?.play || !name) return null;
+    try {
+      const at = posOf(where);
+      return audio.play(name, at ? { ...extra, at } : { ...extra });
+    } catch { return null; }
+  }
   const root = new THREE.Group();
   root.name = 'bw-effects';
   root.frustumCulled = false;
@@ -294,6 +464,7 @@ export function createEffects(sc, opts = {}) {
 
   /** A ring flat on the ground. `persistent` rings live until moved or hidden. */
   function ring(pos, radius, colour, life = 0.9, opacity = 0.55) {
+    cue('aoe_ring', pos);
     const s = shape(RING, colour, opacity);
     s.mesh.rotation.x = -Math.PI / 2;
     s.mesh.position.set(pos.x, (pos.y ?? 0) + 0.06, pos.z);
@@ -304,6 +475,7 @@ export function createEffects(sc, opts = {}) {
 
   /** Meteor. A column of light standing where it will land. */
   function column(pos, radius, colour, life = 1.5, height = 14, opacity = 0.4) {
+    cue('aoe_column', pos);
     const s = shape(COLUMN, colour, opacity);
     s.mesh.rotation.set(0, 0, 0);
     s.mesh.position.set(pos.x, (pos.y ?? 0) + height / 2, pos.z);
@@ -335,11 +507,23 @@ export function createEffects(sc, opts = {}) {
 
   // --- bolts: a spark that travels and bursts where it lands
   const bolts = [];
-  function burst(pos, colour, strength = 1) {
+  /**
+   * A spell landing. The sound is the spell's own, at the place it landed, and
+   * `strength` is already how big the visual is, so it is what the extra gain
+   * is taken from: a 0.7 strength blink pop is quieter than a 1.6 corpse burst.
+   * `opts2.type` names the damage type outright when a caller knows it; every
+   * caller today passes only a colour and that is enough.
+   */
+  function burst(pos, colour, strength = 1, opts2 = {}) {
+    cue(spellCueFor(colour, opts2.type), pos, { gain: Math.min(1, 0.55 + 0.3 * strength) });
     emit(pos.x, pos.y ?? 1.2, pos.z, colour, Math.round(24 * strength), 0.25, 5 * strength, 0.5, 1, 1, 2.4);
     return true;
   }
   function bolt(from, to, colour, opts2 = {}) {
+    // The launch, heard at the hand it left. The arrival is `burst`, which the
+    // update loop calls when the bolt gets there, so a fireball is two sounds
+    // in two places and not one sound twice.
+    cue(spellCueFor(colour, opts2.type), from, { gain: 0.8 });
     const speed = opts2.speed || 34;
     const d = Math.hypot(to.x - from.x, to.z - from.z, (to.y ?? 0) - (from.y ?? 0));
     const b = {
@@ -369,18 +553,57 @@ export function createEffects(sc, opts = {}) {
     clips.push(c);
     return c;
   }
-  const swing = (rig, opts2 = {}) => play(rig, 'swing', opts2.seconds || SWING_S, opts2);
-  const flinch = (rig) => play(rig, 'flinch', FLINCH_S);
+  /**
+   * A swing, and the air it moves. `opts2` says how many hands are on the
+   * weapon (`hands`, `twoHanded`, or the `weapon` itself) and a greatsword gets
+   * the heavy whoosh; nothing said is a one-handed swing, which is also what a
+   * pair of fists is.
+   */
+  function swing(rig, opts2 = {}) {
+    cue(swingCueFor(opts2), rig);
+    return play(rig, 'swing', opts2.seconds || SWING_S, opts2);
+  }
+  /**
+   * Being hit. The sound is a fact about what was hit, not about what hit it:
+   * `source` is the struck actor, its monster row, an armour piece, or just the
+   * word. See `materialOf`. Nothing passed means flesh, which is what the
+   * player is.
+   */
+  function flinch(rig, source = null) {
+    cue(impactCueFor(source), rig);
+    return play(rig, 'flinch', FLINCH_S);
+  }
+  // Dying deliberately makes no new sound. The blow that did it already played
+  // its impact through `flinch`, and a death chime on top of it would be the
+  // game congratulating itself.
   const die = (rig) => play(rig, 'death', DEATH_S, { hold: true });
+  /**
+   * A cast. `cast_start` is the hand going up, once; `cast_loop` is a one
+   * second bed set to loop and held until `stopCast` or until the clip runs
+   * out, whichever comes first. Both end in `endClip`, so a cast broken by
+   * movement stops the hum on the same frame the light goes out.
+   */
   function cast(rig, seconds, colour) {
     const c = play(rig, 'cast', Math.max(CAST_MIN_S, seconds || CAST_MIN_S), { colour });
-    if (c) c.light = handLight(colour);
+    if (c) {
+      c.light = handLight(colour);
+      cue('cast_start', rig);
+      const el = cue('cast_loop', rig);
+      if (el) { try { el.loop = true; } catch { /* garnish */ } }
+      c.loopEl = el;
+    }
     return c;
   }
   function stopCast(rig) {
     for (let i = clips.length - 1; i >= 0; i--) {
       if (clips[i].rig === rig && clips[i].name === 'cast') { endClip(clips[i]); clips.splice(i, 1); }
     }
+  }
+  /** Stop a held loop, whatever ended it. Never throws. */
+  function stopLoop(c) {
+    if (!c?.loopEl) return;
+    try { c.loopEl.loop = false; c.loopEl.pause?.(); } catch { /* garnish */ }
+    c.loopEl = null;
   }
 
   // the glow in the caster's hand, one light reused
@@ -397,7 +620,10 @@ export function createEffects(sc, opts = {}) {
 
   const endedThisFrame = new Set();
   function endClip(c) {
-    if (c.name === 'cast' && light) { light.intensity = 0; light.visible = false; }
+    if (c.name === 'cast') {
+      if (light) { light.intensity = 0; light.visible = false; }
+      stopLoop(c);
+    }
     if (c.rig?.parts) endedThisFrame.add(c.rig);
   }
 
@@ -552,7 +778,7 @@ export function createEffects(sc, opts = {}) {
     get clipCount() { return clips.length; },
     get boltCount() { return bolts.length; },
     clear() {
-      for (const c of clips) if (c.rig?.parts) resetOwned(c.rig.parts);
+      for (const c of clips) { if (c.rig?.parts) resetOwned(c.rig.parts); stopLoop(c); }
       pool.length = 0; bolts.length = 0; clips.length = 0; endedThisFrame.clear();
       for (const s of shapes) { s.live = false; s.mesh.visible = false; }
       hideGroundRing();

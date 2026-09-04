@@ -21,9 +21,12 @@
 //    locked or down does not rise, and says which. Unlike skills there is
 //    nothing to take the point from, so nothing falls to pay for it.
 //
-// 2. MILESTONE_CUE. audio.js CUES has no sound for getting better at something.
-//    The nearest that exists is `discover` (upgrade.ogg), the chime for finding
-//    a site, and that is what plays. docs/mmo/wiring/W1.md asks for a real one.
+// 2. The milestone cues. audio.js used to have no sound for getting better at
+//    something and this file borrowed `discover`, the chime for finding a site.
+//    It has three of its own now, made by tools/synth-sfx.mjs: a two note rise
+//    for a skill's round ten, a three note rise for a stat's, and a fanfare for
+//    a 100. W1.md asked for a real one; there are three, because a skill point
+//    and a grandmastery are not the same news.
 //
 // 3. The refusal rule. "Every state change owes the player words" cuts both
 //    ways: a lesson refused at the 700 cap is not a state change but it is the
@@ -32,12 +35,16 @@
 //    read the same line sixty times a minute.
 
 import { rollGain, SKILL_BY_ID, lockOf, TOTAL_CAP, total as skillTotal } from '../mmo/skills.js';
-import { rollStatGain, STATS, STAT_GAIN, statTotal } from '../mmo/stats.js';
+import { rollStatGain, STATS, STAT_GAIN, STAT_CAP, statTotal } from '../mmo/stats.js';
 import { STAT_LABELS, STAT_NAMES } from '../mmo/openings.js';
 import { recompute } from './actor.js';
 
-/** See note 2. There is no gain cue in audio.js; this is the nearest one. */
-export const MILESTONE_CUE = 'discover';
+/** A skill crossing a round ten: two notes going up. */
+export const MILESTONE_CUE = 'skill_up';
+/** A stat crossing a round ten: three notes going up, the same voice. */
+export const STAT_MILESTONE_CUE = 'stat_up';
+/** 100, in either. Most characters hear this a handful of times ever. */
+export const GRANDMASTER_CUE = 'grandmaster';
 
 /** A stat milestone is every round ten, the same shape skills.js uses. */
 export const STAT_MILESTONE_STEP = 10;
@@ -121,7 +128,9 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
     }
     if (res.milestone) {
       said.push(say(res.milestone.text, 'good'));
-      audio?.play?.(MILESTONE_CUE);
+      // skills.js sets `grandmaster` when the milestone is the cap, and its own
+      // text changes to "Grandmaster Mining" there, so the sound changes with it.
+      audio?.play?.(res.milestone.grandmaster ? GRANDMASTER_CUE : MILESTONE_CUE);
     }
     state?.touch?.('skills');
     return { ...res, said, floated };
@@ -161,7 +170,9 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
     const floated = float(statText(stat, STAT_GAIN), 'stat');
     if (res.value % STAT_MILESTONE_STEP === 0) {
       said.push(say(`${STAT_NAMES[stat] || label} ${res.value}`, 'good'));
-      audio?.play?.(MILESTONE_CUE);
+      // A stat at 100 is the same news as a skill at 100, so it gets the same
+      // fanfare. One case is never the case.
+      audio?.play?.(res.value >= STAT_CAP ? GRANDMASTER_CUE : STAT_MILESTONE_CUE);
     }
     state?.touch?.('stats');
     return { ...res, said, floated };

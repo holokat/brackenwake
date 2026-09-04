@@ -3,7 +3,10 @@
 // Every dependency is a fake that records what it was asked to do, so this file
 // proves the words as well as the numbers. The curve is measured, not asserted:
 // the counts below are printed and any change to skills.js moves them.
-import { createProgression, gainText, statText, MILESTONE_CUE } from './progression.js';
+import {
+  createProgression, gainText, statText,
+  MILESTONE_CUE, STAT_MILESTONE_CUE, GRANDMASTER_CUE,
+} from './progression.js';
 import { blankCharacter } from './state.js';
 import { playerActor } from './actor.js';
 import { CUES } from './audio.js';
@@ -48,10 +51,18 @@ const never = () => 1;       // no roll ever succeeds
 
 // ---- the cue really exists -------------------------------------------------
 {
-  check(`the milestone cue "${MILESTONE_CUE}" is a real row in audio.js CUES`, !!CUES[MILESTONE_CUE], Object.keys(CUES).join(', '));
-  check('and there is no cue named gain, level, skill or milestone to use instead',
-    !CUES.gain && !CUES.level && !CUES.skill && !CUES.milestone,
-    'W1.md asks for one');
+  for (const cue of [MILESTONE_CUE, STAT_MILESTONE_CUE, GRANDMASTER_CUE]) {
+    check(`the cue "${cue}" is a real row in audio.js CUES`, !!CUES[cue], Object.keys(CUES).join(', '));
+  }
+  // This used to assert that no better-named row existed, because none did and
+  // `discover` was standing in for all three. They exist now.
+  check('the three are the real ones, not the discovery chime standing in',
+    MILESTONE_CUE === 'skill_up' && STAT_MILESTONE_CUE === 'stat_up' && GRANDMASTER_CUE === 'grandmaster'
+    && MILESTONE_CUE !== 'discover',
+    `${MILESTONE_CUE}, ${STAT_MILESTONE_CUE}, ${GRANDMASTER_CUE}`);
+  check('and a skill point, a stat point and a grandmastery are three different sounds',
+    new Set([CUES[MILESTONE_CUE].file, CUES[STAT_MILESTONE_CUE].file, CUES[GRANDMASTER_CUE].file]).size === 3,
+    [CUES[MILESTONE_CUE].file, CUES[STAT_MILESTONE_CUE].file, CUES[GRANDMASTER_CUE].file].join(' '));
 }
 
 // ---- one lesson, from both sides of the roll -------------------------------
@@ -129,7 +140,7 @@ const never = () => 1;       // no roll ever succeeds
   const res = r.prog.lesson('mining', 100, true, always);
   check('crossing a round ten is a milestone', !!res.milestone && res.milestone.at === 10, JSON.stringify(res.milestone));
   check('and it toasts "Mining 10"', r.lastToast().text === 'Mining 10' && r.lastToast().kind === 'good', JSON.stringify(r.lastToast()));
-  check('and plays the cue', r.cues[r.cues.length - 1] === MILESTONE_CUE);
+  check('and plays the skill cue', r.cues[r.cues.length - 1] === MILESTONE_CUE, r.cues.join(','));
 
   const before = r.toasts.length;
   r.character.skills.mining = 10.5;
@@ -140,6 +151,22 @@ const never = () => 1;       // no roll ever succeeds
   r.character.skills.mining = 99.99;
   const gm = r.prog.lesson('mining', 100, true, always);
   check('reaching 100.0 says Grandmaster Mining', gm.milestone.text === 'Grandmaster Mining', JSON.stringify(gm.milestone));
+  check('and the fanfare plays, not the two note rise',
+    r.cues[r.cues.length - 1] === GRANDMASTER_CUE, r.cues.slice(-3).join(','));
+}
+{
+  // the other side of the same gate: a stat at 100 is a grandmastery too, one
+  // short of it is not
+  const r = rig();
+  r.character.stats.str = 89;
+  r.prog.statLesson('str', always);
+  check('a stat reaching 90 is the ordinary stat cue',
+    r.cues[r.cues.length - 1] === STAT_MILESTONE_CUE, r.cues.join(','));
+  r.character.stats.str = 99;
+  r.prog.statLesson('str', always);
+  check('and a stat reaching 100 is the fanfare',
+    r.character.stats.str === 100 && r.cues[r.cues.length - 1] === GRANDMASTER_CUE,
+    `${r.character.stats.str}, ${r.cues.join(',')}`);
 }
 
 // ---- locks, driven all three ways ------------------------------------------
@@ -205,7 +232,8 @@ const never = () => 1;       // no roll ever succeeds
   r.character.stats.str = 59;
   r.prog.statLesson('str', always);
   check('a stat crossing a round ten toasts', r.lastToast().text === 'Strength 60', JSON.stringify(r.lastToast().text));
-  check('and plays the cue', r.cues[r.cues.length - 1] === MILESTONE_CUE);
+  check('and plays the stat cue, which is not the skill one',
+    r.cues[r.cues.length - 1] === STAT_MILESTONE_CUE && STAT_MILESTONE_CUE !== MILESTONE_CUE, r.cues.join(','));
   const n = r.toasts.length;
   r.prog.statLesson('str', always);
   check('and 61 does not', r.toasts.length === n && r.character.stats.str === 61, String(r.character.stats.str));

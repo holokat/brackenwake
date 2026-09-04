@@ -14,7 +14,10 @@ import {
   swingPose, castPose, flinchPose, deathPose,
   stepParticle, particleFade, boltAt, createEffects,
   SWING_S, FLINCH_S, DEATH_S, PARTICLE_GRAVITY,
+  spellCueFor, impactCueFor, materialOf, swingCueFor, posOf,
+  SPELL_CUES, IMPACT_CUES,
 } from './effects.js';
+import { CUES } from './audio.js';
 import { buildCharacter, poseCharacter, STRIDE_WALK } from './player.js';
 import { ABILITIES, ABILITIES_BY_ID } from '../mmo/abilities.js';
 
@@ -220,6 +223,235 @@ ck('and they clean themselves up when their time is done',
 fx.dispose();
 ck('dispose takes the whole group out of the scene',
   !scene.children.some((c) => c.name === 'bw-effects'));
+
+// --- which sound, before anything plays one -----------------------------------
+//
+// The three lookups are pure, so they are driven from both sides: every case
+// they are meant to catch, and the cases they are meant NOT to catch.
+console.log('effects: which sound');
+{
+  for (const [type, cue] of Object.entries(SPELL_CUES)) {
+    ck(`a ${type} spell is ${cue}`, spellCueFor(TYPE_COLOURS[type]) === cue, spellCueFor(TYPE_COLOURS[type]));
+  }
+  ck('a named type beats the colour it was painted with',
+    spellCueFor(TYPE_COLOURS.fire, 'cold') === 'spell_cold');
+  ck('a type nobody has heard of falls back to the colour',
+    spellCueFor(TYPE_COLOURS.fire, 'custard') === 'spell_fire');
+  ck('a colour from neither table is the plain one, never undefined',
+    spellCueFor(0x123456) === 'spell_physical', spellCueFor(0x123456));
+  ck('a necromancer spell that deals no damage is the drone, not the plain one',
+    spellCueFor(colourFor('curseOfWeakness')) === 'spell_dark', spellCueFor(colourFor('curseOfWeakness')));
+  ck('and a healer blessing is the warm chord',
+    spellCueFor(colourFor('bless')) === 'spell_holy', spellCueFor(colourFor('bless')));
+  ck('Fireball, Ice Shard and Lightning each get their own',
+    spellCueFor(colourFor('fireball')) === 'spell_fire'
+    && spellCueFor(colourFor('iceShard')) === 'spell_cold'
+    && spellCueFor(colourFor('lightning')) === 'spell_energy');
+  {
+    const used = new Set(ABILITIES.map((a) => spellCueFor(colourFor(a.id))));
+    const unreachable = Object.values(SPELL_CUES).filter((c) => !used.has(c));
+    ck(`all ${Object.keys(SPELL_CUES).length} spell sounds are reachable from a real ability`,
+      unreachable.length === 0, unreachable.join(',') || `${used.size} cues over ${ABILITIES.length} abilities`);
+  }
+  {
+    const missing = [...new Set([...Object.values(SPELL_CUES), ...Object.values(IMPACT_CUES),
+      'swing_light', 'swing_heavy', 'cast_start', 'cast_loop', 'aoe_ring', 'aoe_column'])]
+      .filter((c) => !CUES[c]);
+    ck('and every cue effects.js can name is a real row in audio.js', missing.length === 0, missing.join(','));
+  }
+}
+{
+  ck('nothing said is flesh, which is what a person is', materialOf(null) === 'flesh' && materialOf({}) === 'flesh');
+  ck('a skeleton is bone', materialOf('skeleton') === 'bone' && materialOf({ id: 'skeletonWarrior' }) === 'bone');
+  ck('so are the bone knight, the lich and the bone dragon',
+    materialOf({ id: 'boneKnight' }) === 'bone' && materialOf({ id: 'lich' }) === 'bone'
+    && materialOf({ id: 'boneDragon' }) === 'bone');
+  ck('but a zombie is not, undead or otherwise',
+    materialOf({ id: 'zombie', kind: 'undead' }) === 'flesh', materialOf({ id: 'zombie', kind: 'undead' }));
+  ck('a construct is metal', materialOf({ id: 'ironGolem', kind: 'construct' }) === 'metal');
+  ck('and so is anything in ringmail, chain or plate',
+    materialOf({ armour: 'plate' }) === 'metal' && materialOf({ armour: 'chain' }) === 'metal'
+    && materialOf({ armour: 'ring' }) === 'metal');
+  ck('cloth, leather and studded are not', materialOf({ armour: 'cloth' }) === 'flesh'
+    && materialOf({ armour: 'leather' }) === 'flesh' && materialOf({ armour: 'studded' }) === 'flesh');
+  ck('an armour piece straight out of items.js works as the source',
+    materialOf({ material: 'plate', slot: 'chest' }) === 'metal');
+  ck('an explicit word wins over everything else',
+    materialOf({ impactMaterial: 'flesh', id: 'skeleton', kind: 'construct' }) === 'flesh');
+  ck('a monster row nested under the actor is found',
+    materialOf({ name: 'it', row: { id: 'skeleton' } }) === 'bone');
+  ck('and each material has a cue', impactCueFor('skeleton') === 'impact_bone'
+    && impactCueFor({ kind: 'construct' }) === 'impact_metal' && impactCueFor(null) === 'impact_flesh');
+}
+{
+  ck('an empty swing is the light one', swingCueFor() === 'swing_light' && swingCueFor({}) === 'swing_light');
+  ck('one hand is light, two is heavy',
+    swingCueFor({ hands: 1 }) === 'swing_light' && swingCueFor({ hands: 2 }) === 'swing_heavy');
+  ck('twoHanded says the same thing', swingCueFor({ twoHanded: true }) === 'swing_heavy');
+  ck('and the weapon itself says it too',
+    swingCueFor({ weapon: { id: 'greatsword', hands: 2 } }) === 'swing_heavy'
+    && swingCueFor({ weapon: { id: 'dagger', hands: 1 } }) === 'swing_light');
+}
+{
+  ck('posOf reads a pos, an x/z, or a group position',
+    JSON.stringify(posOf({ pos: { x: 1, y: 9, z: 2 } })) === '{"x":1,"z":2}'
+    && JSON.stringify(posOf({ x: 3, z: 4 })) === '{"x":3,"z":4}'
+    && JSON.stringify(posOf({ group: { position: { x: 5, z: 6 } } })) === '{"x":5,"z":6}');
+  ck('and gives back null rather than a wrong place', posOf(null) === null && posOf({ name: 'nowhere' }) === null);
+}
+
+// --- and then it plays them ----------------------------------------------------
+//
+// The audio here is a fake that records the cue name, where it was played and
+// what gain it was given. Every claim below is a count: exactly one call, with
+// exactly that name, at exactly that place. A hook that fired twice or fired
+// nothing fails, and both have happened while this was being written.
+console.log('effects: every visual makes its sound');
+function fakeAudio() {
+  const calls = [];
+  return {
+    calls,
+    play(cueName, o = {}) {
+      const el = { cue: cueName, loop: false, paused: false, pauses: 0, pause() { this.paused = true; this.pauses++; } };
+      calls.push({ cue: cueName, at: o.at || null, gain: o.gain, el });
+      return el;
+    },
+    reset() { calls.length = 0; },
+    names() { return calls.map((c) => c.cue).join(','); },
+    only(name, place) {
+      if (calls.length !== 1) return `${calls.length} calls: ${this.names()}`;
+      const c = calls[0];
+      if (c.cue !== name) return `played ${c.cue}, wanted ${name}`;
+      if (place) {
+        if (!c.at) return `${name} was played with no position`;
+        const dx = Math.abs(c.at.x - place.x), dz = Math.abs(c.at.z - place.z);
+        if (dx > 1e-6 || dz > 1e-6) return `${name} at ${c.at.x},${c.at.z} not ${place.x},${place.z}`;
+      }
+      return null;
+    },
+  };
+}
+{
+  const sc2 = new THREE.Scene();
+  const heard = fakeAudio();
+  const fx2 = createEffects({ scene: sc2 }, { audio: heard });
+  const body = buildCharacter();
+  sc2.add(body.group);
+  body.group.position.set(12, 0, -7);
+  const HERE = { x: 12, z: -7 };
+  const tick = (dt) => { poseCharacter(body.parts, { phase: 0, stride: STRIDE_WALK, t: 0, anim: 'idle', idleMix: 1 }); fx2.update(dt); };
+
+  heard.reset();
+  fx2.swing(body);
+  ck('a swing is one swing_light, at the swinger', heard.only('swing_light', HERE) === null, heard.only('swing_light', HERE) || heard.names());
+  fx2.clear();
+  heard.reset();
+  fx2.swing(body, { weapon: { id: 'greatsword', hands: 2 } });
+  ck('a two-handed swing is one swing_heavy, at the same place',
+    heard.only('swing_heavy', HERE) === null, heard.only('swing_heavy', HERE) || heard.names());
+  fx2.clear();
+
+  heard.reset();
+  fx2.flinch(body);
+  ck('a flinch with nothing said is one impact_flesh', heard.only('impact_flesh', HERE) === null, heard.names());
+  fx2.clear(); heard.reset();
+  fx2.flinch(body, { id: 'skeleton', kind: 'undead' });
+  ck('a skeleton flinching is impact_bone', heard.only('impact_bone', HERE) === null, heard.names());
+  fx2.clear(); heard.reset();
+  fx2.flinch(body, { id: 'ironGolem', kind: 'construct' });
+  ck('an iron golem flinching is impact_metal', heard.only('impact_metal', HERE) === null, heard.names());
+  fx2.clear(); heard.reset();
+
+  fx2.die(body);
+  ck('dying adds no sound of its own, because the blow already made one',
+    heard.calls.length === 0, heard.names());
+  fx2.clear(); heard.reset();
+
+  // the cast: two sounds, one of them held
+  fx2.cast(body, 1.2, colourFor('fireball'));
+  ck('a cast is exactly two sounds', heard.calls.length === 2, heard.names());
+  ck('and they are cast_start then cast_loop, both at the caster',
+    heard.names() === 'cast_start,cast_loop'
+    && heard.calls.every((c) => c.at && Math.abs(c.at.x - 12) < 1e-6 && Math.abs(c.at.z + 7) < 1e-6),
+    heard.calls.map((c) => `${c.cue}@${c.at ? `${c.at.x},${c.at.z}` : 'nowhere'}`).join(' '));
+  const loopEl = heard.calls[1].el;
+  ck('the hum is set to loop, because a cast is longer than one second', loopEl.loop === true);
+  ck('and it is still running while the bar fills', loopEl.paused === false);
+  fx2.stopCast(body);
+  ck('breaking the cast stops the hum, exactly once',
+    loopEl.paused === true && loopEl.pauses === 1 && loopEl.loop === false, `${loopEl.pauses} pauses`);
+  ck('and no third sound was played for stopping', heard.calls.length === 2, heard.names());
+
+  // a cast that runs out on its own has to stop the hum too, which is the bug
+  // this pair of checks exists to catch
+  heard.reset();
+  fx2.cast(body, 0.4, colourFor('fireball'));
+  const loop2 = heard.calls[1].el;
+  for (let i = 0; i < 40; i++) tick(1 / 60);
+  ck('a cast that finishes by itself also stops the hum',
+    loop2.paused === true && fx2.clipCount === 0, `${loop2.pauses} pauses, ${fx2.clipCount} clips`);
+  fx2.clear(); heard.reset();
+
+  // the bolt and the burst it turns into
+  const FROM = { x: 0, y: 1, z: 0 }, TO = { x: 6, y: 1, z: 0 };
+  fx2.bolt(FROM, TO, TYPE_COLOURS.cold);
+  ck('a bolt leaves with one sound, at the hand it left',
+    heard.only('spell_cold', { x: 0, z: 0 }) === null, heard.only('spell_cold', { x: 0, z: 0 }) || heard.names());
+  for (let i = 0; i < 3; i++) tick(0.1);
+  ck('and it lands with a second one, at the target and nowhere else',
+    heard.calls.length === 2 && heard.calls[1].cue === 'spell_cold'
+    && heard.calls[1].at.x === 6 && heard.calls[1].at.z === 0,
+    heard.calls.map((c) => `${c.cue}@${c.at.x},${c.at.z}`).join(' '));
+  for (let i = 0; i < 10; i++) tick(0.1);
+  ck('and never a third, however long the frame loop runs', heard.calls.length === 2, heard.names());
+  fx2.clear(); heard.reset();
+
+  fx2.burst({ x: 4, y: 1, z: 9 }, TYPE_COLOURS.fire, 1.6);
+  ck('a burst on its own is one spell_fire at the burst',
+    heard.only('spell_fire', { x: 4, z: 9 }) === null, heard.names());
+  ck('and a bigger burst is a louder one', heard.calls[0].gain > 0.9, String(heard.calls[0].gain));
+  heard.reset();
+  fx2.burst({ x: 0, y: 1, z: 0 }, TYPE_COLOURS.fire, 0.7);
+  ck('a small one is quieter', heard.calls[0].gain < 0.8, String(heard.calls[0].gain));
+  fx2.clear(); heard.reset();
+
+  fx2.ring({ x: -3, y: 0, z: 8 }, 3, TYPE_COLOURS.cold, 0.5);
+  ck('a ring is one aoe_ring where the ring is', heard.only('aoe_ring', { x: -3, z: 8 }) === null, heard.names());
+  heard.reset();
+  fx2.column({ x: 20, y: 0, z: 20 }, 6, TYPE_COLOURS.fire, 1.5);
+  ck('a column is one aoe_column where the column is', heard.only('aoe_column', { x: 20, z: 20 }) === null, heard.names());
+  heard.reset();
+  fx2.showGroundRing({ x: 2, y: 0, z: 2 }, 2.5, TYPE_COLOURS.physical);
+  ck('but the cursor ring under your feet makes no sound at all, since it moves every frame',
+    heard.calls.length === 0, heard.names());
+  fx2.dispose();
+}
+{
+  // and none of it may be load-bearing
+  const sc3 = new THREE.Scene();
+  const silent = createEffects({ scene: sc3 });
+  const body = buildCharacter();
+  sc3.add(body.group);
+  let threw = null;
+  try {
+    silent.swing(body); silent.flinch(body, 'skeleton'); silent.cast(body, 1, 0xffffff);
+    silent.stopCast(body); silent.bolt({ x: 0, y: 1, z: 0 }, { x: 1, y: 1, z: 0 }, 0xffffff);
+    silent.burst({ x: 0, y: 1, z: 0 }, 0xffffff); silent.ring({ x: 0, z: 0 }, 1, 0xffffff);
+    silent.column({ x: 0, z: 0 }, 1, 0xffffff); silent.update(0.1); silent.clear();
+  } catch (e) { threw = e.message; }
+  ck('with no audio handed in, every hook is a quiet no-op', threw === null, threw || '');
+  silent.dispose();
+
+  const sc4 = new THREE.Scene();
+  const angry = createEffects({ scene: sc4 }, { audio: { play() { throw new Error('the speaker fell over'); } } });
+  const body2 = buildCharacter();
+  sc4.add(body2.group);
+  let threw2 = null;
+  try { angry.swing(body2); angry.cast(body2, 1, 0xffffff); angry.burst({ x: 0, z: 0 }, 0xffffff); }
+  catch (e) { threw2 = e.message; }
+  ck('and an audio layer that throws does not take the swing down with it', threw2 === null, threw2 || '');
+  angry.dispose();
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

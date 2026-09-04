@@ -26,6 +26,8 @@
 
 export const SFX_DIR = '/audio/sfx/';
 export const MUSIC_DIR = '/audio/music/';
+/** The synthesised half of the folder. `tools/synth-sfx.mjs` writes it. */
+export const SYNTH_SUBDIR = 'synth/';
 
 /** localStorage blob: `{ music, sfx, musicVol, sfxVol }`. */
 export const STORE_KEY = 'brackenwake-audio';
@@ -84,6 +86,33 @@ export const SFX_FILES = [
 ];
 
 /**
+ * `ls public/audio/sfx/synth`, all 25 of them, written by
+ * `node tools/synth-sfx.mjs`. These are not recordings: they are made from
+ * oscillators, noise and filters by a script that is deterministic from a seed,
+ * because the folder had no spell, no cast, no hit-by-material, no level-up and
+ * no boss horn, and the rule here is that a cue never borrows a wrong sound.
+ *
+ * Every one is 44.1 kHz, 16 bit, mono, under 2 s, peak normalised to -3 dBFS.
+ * The recipe for each is written out in the tool beside the code that makes it.
+ * `audio.test.mjs` reads the tool's own FILENAMES and fails if this list drifts
+ * from what the script writes, so regenerating cannot quietly break a cue.
+ */
+export const SYNTH_FILES = [
+  'synth/aoe_column.wav', 'synth/aoe_ring.wav', 'synth/buff.wav',
+  'synth/cast_loop.wav', 'synth/cast_start.wav', 'synth/crit.wav',
+  'synth/debuff.wav', 'synth/grandmaster.wav', 'synth/heal.wav',
+  'synth/impact_bone.wav', 'synth/impact_flesh.wav', 'synth/impact_metal.wav',
+  'synth/leap_land.wav', 'synth/level_boss_phase.wav', 'synth/skill_up.wav',
+  'synth/spell_cold.wav', 'synth/spell_dark.wav', 'synth/spell_energy.wav',
+  'synth/spell_fire.wav', 'synth/spell_holy.wav', 'synth/spell_physical.wav',
+  'synth/spell_poison.wav', 'synth/stat_up.wav', 'synth/swing_heavy.wav',
+  'synth/swing_light.wav',
+];
+
+/** Everything a cue may name: the recordings and the synthesised set together. */
+export const ALL_SFX_FILES = [...SFX_FILES, ...SYNTH_FILES];
+
+/**
  * Files that exist and are worthless, with the measurement that says so. A cue
  * pointing at one of these fails the audit: "the file is there" is not the same
  * claim as "the player hears something".
@@ -126,13 +155,11 @@ export const CUES = {
     file: 'place-object.opus', rate: 0.7, gain: 1,
     stand: 'no tree-fall recording exists; this is a wooden thump pitched down',
   },
-  // STAND-IN. A body landing from a height. Same dropped wooden object as
-  // chopDown, less pitched, quieter: a thud with no crack in it. Only plays for
-  // falls over 4 m, so it is rare enough that reusing the file does not show.
-  land: {
-    file: 'place-object.opus', rate: 0.85, gain: 0.8,
-    stand: 'no landing recording exists; the wooden thump, pitched down a little',
-  },
+  // Was a stand-in (a dropped wooden object, pitched down) until synth/leap_land
+  // was made for it. A sine falling 90 to 45 Hz for the weight, fourteen grains
+  // of lowpassed noise for the grit, one bandpass rattle for the gear. main.js
+  // fires it on a fall over 4 m and abilities_runtime on a dash or a leap.
+  land: { file: 'synth/leap_land.wav', gain: 0.9 },
   mine: { family: 'pickaxe', takes: 4, ext: 'mp3', gain: 0.85 },
   rockBreak: { family: 'boulder-break', takes: 4, ext: 'mp3', gain: 1 },
   // Ore is the same rock breaking, smaller and brighter. Same four takes, run
@@ -162,6 +189,71 @@ export const CUES = {
   bowShot: { family: 'bow-shot', takes: 3, ext: 'mp3', gain: 0.9 },
   // fauna.js already puts wolves in the world at night.
   wolfHowl: { family: 'wolf-howl', takes: 4, ext: 'mp3', gain: 0.7 },
+
+  // ------------------------------------------------------------ the synth set
+  //
+  // Everything below is a file `tools/synth-sfx.mjs` made, and every one of
+  // these cues is named for the file behind it, so `CUES.spell_fire` is
+  // `synth/spell_fire.wav` and there is nothing to look up. The recordings
+  // above keep their camelCase names; nothing renames, because a cue name is a
+  // string in eight other files.
+  //
+  // The gains are not decoration. Each of these peaks at exactly -3 dBFS, so
+  // loudness between them is loudness over the whole file, and a whoosh that
+  // fires every 450 ms has to sit well under a boss horn that fires twice a
+  // fight. Measured RMS is in the comment where it explains a gain.
+
+  // The cast. `cast_start` is the hand going up, `cast_loop` holds under the
+  // bar until the spell lands or the cast breaks; effects.js sets loop = true
+  // on it and pauses it in stopCast.
+  cast_start: { file: 'synth/cast_start.wav', gain: 0.7 },
+  cast_loop: { file: 'synth/cast_loop.wav', gain: 0.4 },
+
+  // One per damage type in 02-COMBAT.md, plus holy, which abilities.js records
+  // as a damage type. effects.js picks between them from the spell's colour.
+  spell_fire: { file: 'synth/spell_fire.wav', gain: 0.9 },
+  spell_cold: { file: 'synth/spell_cold.wav', gain: 0.85 },
+  // rms 0.053, the quietest of the set, because a crack of static is four
+  // milliseconds of peak and half a second of nothing much. Hence gain 1.
+  spell_energy: { file: 'synth/spell_energy.wav', gain: 1 },
+  spell_poison: { file: 'synth/spell_poison.wav', gain: 0.85 },
+  spell_holy: { file: 'synth/spell_holy.wav', gain: 0.85 },
+  spell_dark: { file: 'synth/spell_dark.wav', gain: 0.85 },
+  spell_physical: { file: 'synth/spell_physical.wav', gain: 0.9 },
+
+  // The three ground shapes. A ring goes outward, a column stands and waits.
+  aoe_ring: { file: 'synth/aoe_ring.wav', gain: 0.8 },
+  aoe_column: { file: 'synth/aoe_column.wav', gain: 0.75 },
+
+  // What a spell does to somebody who is not being damaged.
+  heal: { file: 'synth/heal.wav', gain: 0.8 },
+  buff: { file: 'synth/buff.wav', gain: 0.7 },
+  debuff: { file: 'synth/debuff.wav', gain: 0.7 },
+
+  // A hit, by what it hit. effects.flinch picks from the struck actor: bone for
+  // skeletons and their relatives, metal for constructs and anyone in mail or
+  // plate, flesh for everything else.
+  impact_flesh: { file: 'synth/impact_flesh.wav', gain: 0.9 },
+  impact_metal: { file: 'synth/impact_metal.wav', gain: 0.85 },
+  // rms 0.068: a crack is peaky by nature. Louder gain, same loudness.
+  impact_bone: { file: 'synth/impact_bone.wav', gain: 1 },
+
+  // A weapon through air, by how many hands are on it. These fire on every
+  // swing of every fight, so they are the quietest rows in the table.
+  swing_light: { file: 'synth/swing_light.wav', gain: 0.5 },
+  swing_heavy: { file: 'synth/swing_heavy.wav', gain: 0.55 },
+  crit: { file: 'synth/crit.wav', gain: 0.95 },
+
+  // Getting better. progression.js fires the first two on a round ten and the
+  // third at 100, which most characters will hear a handful of times ever.
+  skill_up: { file: 'synth/skill_up.wav', gain: 0.7 },
+  stat_up: { file: 'synth/stat_up.wav', gain: 0.75 },
+  grandmaster: { file: 'synth/grandmaster.wav', gain: 0.9 },
+
+  // A boss changing phase. Nothing fires this yet: G3 owns bosses and the hook
+  // is theirs to call. The row is here so that the day it is wanted it is a
+  // one-line change and not a week of waiting for a sound.
+  level_boss_phase: { file: 'synth/level_boss_phase.wav', gain: 1 },
 };
 
 /**
@@ -170,9 +262,10 @@ export const CUES = {
  * it is not.
  */
 export const NO_FILE_FOR = {
-  hurt: 'nothing in the folder is a person taking damage. arrow-hit is an '
-      + 'arrow going into an animal and chicken-distress is a chicken. Both '
-      + 'would be a lie about who got hit.',
+  hurt: 'answered, and left out on purpose. There is no one `hurt` sound '
+      + 'because what a blow sounds like is a fact about what was hit: '
+      + 'effects.flinch picks impact_flesh, impact_bone or impact_metal from '
+      + 'the struck actor, so a single row here would be the lie it used to be.',
   step: 'there are no footsteps at all. docs/sfx-wishlist.txt rules them out '
       + 'on purpose under WHAT NOT TO MAKE.',
 };
@@ -214,7 +307,7 @@ export function urlFor(cue, i = 0) {
  * @returns {true} on success
  * @throws {Error} listing every offending cue, not just the first
  */
-export function auditAudio(cues = CUES, files = SFX_FILES) {
+export function auditAudio(cues = CUES, files = ALL_SFX_FILES) {
   const have = new Set(files);
   const bad = [];
   for (const [name, cue] of Object.entries(cues || {})) {
