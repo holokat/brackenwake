@@ -102,6 +102,12 @@ function handleBowState(state) {
   else if (state === 'release') { playSample('bow-shot'); startSwingCooldown('shoot'); }
 }
 
+// The three building materials, in the order every readout lists them. Wood and
+// stone are chopped and quarried; ore comes from the seamed rock at cave mouths.
+// Each has its own pool (see MATERIALS in game.js), so none of them can push a
+// harvest out of the barn.
+const MATERIAL_ORDER = ['wood', 'stone', 'ore'];
+
 // ---- infrastructure effects engine ----
 let effects = computeEffects([]);
 
@@ -118,6 +124,10 @@ function refreshEffects() {
     game.materialCap = {
       wood: MATERIAL_BASE_CAP + (effects.materialCap.wood || 0),
       stone: MATERIAL_BASE_CAP + (effects.materialCap.stone || 0),
+      // ore has no yard of its own yet, so it sits at the base cap. It is
+      // listed anyway: leaving it out would quietly drop any future
+      // material_storage effect that names it.
+      ore: MATERIAL_BASE_CAP + (effects.materialCap.ore || 0),
     };
   }
   if (farm) {
@@ -421,7 +431,9 @@ function chopSceneryTree(e) {
   const isRock = hit.field.kind === 'rock';
   if (isRock !== mining) {
     e.stopImmediatePropagation();
-    toast(isRock ? '⛏️ that is stone — switch to the pickaxe' : '🪓 that is a tree — switch to the axe');
+    toast(isRock
+      ? `⛏️ that is ${hit.field.yield === 'ore' ? 'ore-bearing rock' : 'stone'}, switch to the pickaxe`
+      : '🪓 that is a tree, switch to the axe');
     return;
   }
   e.stopImmediatePropagation();
@@ -440,17 +452,31 @@ function chopSceneryTree(e) {
   // until a proper tree-fall sample lands (#2 on docs/sfx-wishlist.txt)
   if (mining) playSample('boulder-break');
   else playSample('axe-chop', 1.15);
-  const goodId = mining ? 'stone' : 'wood';
+  // What comes out is named by the FIELD, not by the tool: the seamed rock
+  // around the cave mouths gives ore, every other boulder gives stone. Read the
+  // key breakRock actually returned rather than assuming stone.
+  const goodId = mining ? (hit.field.yield || 'stone') : 'wood';
+  const info = goodInfo(goodId);
+  const noun = info.name.toLowerCase();
   // a Carpenter Workshop / Forge adds to every yield — that is their whole job
-  const amount = (mining ? res.stone : res.wood) + (effects.harvestBonus[goodId] || 0);
-  const got = amount - game.addGood(goodId, amount);
+  const amount = (res[goodId] || 0) + (effects.harvestBonus[goodId] || 0);
+  const lost = game.addGood(goodId, amount);   // pools are capped; overflow is dropped
+  const got = amount - lost;
   game.bumpStat(mining ? 'mined' : 'chopped');
   game.save();
   renderResChips();
-  floatAtWorld(hit.point, `+${got} ${mining ? '🪨' : '🪵'}`);
-  toast(mining
-    ? `⛏️ quarried! +${got} 🪨 stone — the ground will yield more in time`
-    : `🪓 timber! +${got} 🪵 wood — it will grow back in a few minutes`);
+  floatAtWorld(hit.point, got > 0 ? `+${got} ${info.icon}` : `${info.icon} full`);
+  const head = mining ? (goodId === 'ore' ? '⛏️ the seam breaks open' : '⛏️ quarried') : '🪓 timber';
+  const back = mining ? 'the ground will yield more in time' : 'it will grow back in a few minutes';
+  // a full pool has to say so. A swing that lands and hands over nothing is
+  // indistinguishable from a broken swing.
+  if (got > 0) {
+    toast(`${head}! +${got} ${info.icon} ${noun}, ${back}`
+      + (lost > 0 ? `. ${lost} would not fit: your ${noun} store holds ${game.capFor(goodId)}` : ''));
+  } else {
+    toast(`${head}, but your ${noun} store is full at ${game.capFor(goodId)}. `
+      + `All ${amount} of it was left on the ground.`, false);
+  }
 }
 
 // bound once — buildFarmScene runs several times per load, and attaching per
@@ -1686,7 +1712,7 @@ const TOOLKIT = [
   { id: 'water', name: 'Watering Can', icon: '💧', img: '/ui/tool-water.png', title: 'click planted crops to grow them' },
   { id: 'fish',  name: 'Fishing Rod',  icon: '🎣', img: '/ui/tool-fish.png',  title: 'click the dock or open water to cast' },
   { id: 'chop',  name: 'Felling Axe',  icon: '🪓', owns: 'axe',     title: 'click any tree to chop it for wood' },
-  { id: 'mine',  name: 'Pickaxe',      icon: '⛏️', owns: 'pickaxe', title: 'click a boulder to break it for stone' },
+  { id: 'mine',  name: 'Pickaxe',      icon: '⛏️', owns: 'pickaxe', title: 'click a boulder for stone, or the seamed rock at a cave mouth for ore' },
 ];
 const toolInfo = (id) => TOOLKIT.find((t) => t.id === id) || null;
 const toolOwned = (t) => !t.owns || testMode || game.owned.includes(t.owns);
@@ -1709,7 +1735,7 @@ let equippedBow = null; // id of the bow currently in hand, or null
 // the "chop" tool for felling timber pines into wood.
 const AXES = [
   { id: 'axe', name: 'Felling Axe', icon: '🪓', price: 90, tier: 1, desc: 'Chop any tree into usable wood.' },
-  { id: 'pickaxe', name: 'Pickaxe', icon: '⛏️', price: 120, tier: 1, desc: 'Break boulders into building stone.' },
+  { id: 'pickaxe', name: 'Pickaxe', icon: '⛏️', price: 120, tier: 1, desc: 'Break boulders into building stone, and the seamed rock at cave mouths into ore.' },
 ];
 function buyAxe(axe) {
   if (!requireOwner()) return false;
@@ -1942,7 +1968,24 @@ function renderPowerChip() {
 function renderResChips() {
   $('#harvest-count').textContent = `🧺 ${game.harvested} harvested · 📦 ${game.inventoryTotal()} stored`;
   renderStoreChip();
+  renderMatChips();
   renderCoins();
+}
+
+// Materials next to the purse: one icon and count each, always all three, so a
+// player who has never seen ore still learns it is a thing the world holds. The
+// count turns amber near the cap and red at it, because a full pool silently
+// eats whatever you mine next.
+function renderMatChips() {
+  const el = $('#mat-seg'); if (!el || !game) return;
+  el.innerHTML = MATERIAL_ORDER.map((m) => {
+    const info = goodInfo(m);
+    const have = game.inventory[m] || 0, cap = game.capFor(m);
+    const frac = cap ? have / cap : 0;
+    const cls = frac >= 1 ? ' full' : frac >= 0.9 ? ' warn' : '';
+    return `<span class="rh-mat${cls}" title="${esc(info.name)}: ${have} of ${cap}">`
+      + `<i>${info.icon}</i>${have}</span>`;
+  }).join('');
 }
 
 // ---- upkeep feedback -----------------------------------------------------
@@ -2265,15 +2308,16 @@ makeOverlayDraggable(document.querySelector('#mission-book .cb-cover'), 'nostrux
     if (b.fromBuildings) parts.push(`${b.fromBuildings} from ${b.buildings} building${b.buildings > 1 ? 's' : ''}`);
     // wood and stone are NOT in this number — they have their own pools, so the
     // tooltip has to say so or the arithmetic looks broken
-    const mats = ['wood', 'stone'].map((m) => {
+    const mats = MATERIAL_ORDER.map((m) => {
       const have = game.inventory[m] || 0, mcap = game.capFor(m);
       const warn = have / mcap >= 0.9 ? ' style="color:#ffc46b"' : '';
-      return `<span${warn}>${m === 'wood' ? '🪵' : '🪨'} ${have}/${mcap}</span>`;
+      return `<span${warn}>${goodInfo(m).icon} ${have}/${mcap}</span>`;
     }).join(' &nbsp; ');
     return `<b>Stores</b><br>${used} of ${cap} stored across every good.<br>${state}`
       + `<br><span style="opacity:.75">Capacity: ${parts.join(' + ')}</span>`
       + `<br><br><b>Materials</b> <span style="opacity:.75">(separate pools)</span><br>${mats}`
-      + `<br><span style="opacity:.75">Raised by the Lumber Yard and Stone Yard.</span>`;
+      + `<br><span style="opacity:.75">Wood and stone are raised by the Lumber Yard and Stone Yard. `
+      + `Ore comes from the seamed rock at cave mouths and has no yard yet.</span>`;
   };
   const coinSeg = $('#coin-seg'), storeSeg = $('#store-chip');
   coinSeg?.addEventListener('mouseenter', () => showTip(coinTip, coinSeg));
@@ -3221,13 +3265,15 @@ function chopTimber(farmId, entry, item) {
   if (rec) farm.burstAtPosition(rec.group.position, false);
   if (entry.opts.chopHp <= 0) {
     const w = (item.wood || 3) + (effects.harvestBonus.wood || 0);
-    const got = w - game.addGood('wood', w);
+    const woodLost = game.addGood('wood', w);
+    const got = w - woodLost;
     entry.opts.stump = true; entry.opts.stumpUntil = Date.now() + (item.regrowMs || 180000); entry.opts.chopHp = null;
     farm.removeObject(farmId); placedRuntime.delete(farmId);
     placedRuntime.set(farm.placeObject(entry), entry.uid);
     game.save(); renderResChips();
     if (rec) floatAtWorld(rec.group.position, `+${got} 🪵`);
-    toast(`🪓 timber! +${got} 🪵 wood — a stump remains and will regrow`);
+    toast(`🪓 timber! +${got} 🪵 wood, a stump remains and will regrow`
+      + (woodLost > 0 ? `. ${woodLost} would not fit: your wood store holds ${game.capFor('wood')}` : ''));
     game.bumpStat('chopped');
   } else {
     game.save();

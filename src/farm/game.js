@@ -14,7 +14,9 @@ export const WATER_COOLDOWN_MS = 90000;
 export const WATER_GROWTH = 2;
 
 // Building materials keep their own storage pools, separate from produce.
-export const MATERIALS = new Set(['wood', 'stone']);
+// Ore joins them rather than the goods pool: it is mined, not grown, and a
+// morning at the cave mouths must never push a harvest out of the barn.
+export const MATERIALS = new Set(['wood', 'stone', 'ore']);
 export const MATERIAL_BASE_CAP = 150;
 
 export class Game {
@@ -112,6 +114,11 @@ export class Game {
     this.theme = data.theme === 'autumn' ? 'meadow' : (data.theme || 'meadow'); // Autumn Hollow retired → meadow
     this.biome = data.biome || null;
     this.coins = data.coins ?? STARTER_COINS;
+    // Materials ride in `inventory` alongside goods, so adding ore is a purely
+    // additive save change: SAVE_VERSION stays 3 and a save written before ore
+    // existed simply has no `ore` key, which every reader treats as 0. Do NOT
+    // seed `ore: 0` here: a zero entry would show up in listings that walk the
+    // inventory map.
     this.inventory = data.inventory || {};
     this.owned = [...new Set((data.owned || []).map(liveId))];
     this.jobs = data.jobs || {};
@@ -316,7 +323,9 @@ export class Game {
   // afternoon of chopping could push a harvest out of the barn, which reads as
   // a bug however you explain it. They get their own caps, raised by the
   // Lumber Yard and Stone Yard.
-  materialCap = { wood: MATERIAL_BASE_CAP, stone: MATERIAL_BASE_CAP };
+  // ore starts at the same base cap as the other two; nothing raises it yet, so
+  // capFor's MATERIAL_BASE_CAP fallback and this map agree.
+  materialCap = { wood: MATERIAL_BASE_CAP, stone: MATERIAL_BASE_CAP, ore: MATERIAL_BASE_CAP };
 
   hasGoods(cost) { return Object.entries(cost || {}).every(([id, n]) => (this.inventory[id] || 0) >= n); }
   spendGoods(cost) {

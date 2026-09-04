@@ -107,6 +107,7 @@ export const GOODS = {
   trapped_fish: { name: 'Trapped Fish', icon: '🐟', sell: 7 }, // passive catch from a fish trap
   wood: { name: 'Wood', icon: '🪵', sell: 3 },   // chopped from any tree with an axe
   stone: { name: 'Stone', icon: '🪨', sell: 4 }, // mined from boulders with a pickaxe
+  ore: { name: 'Ore', icon: '🔶', sell: 9 },     // mined from the seamed rock at cave mouths
 };
 
 // good "kind" for seasonal market demand: winter pays a premium for food that

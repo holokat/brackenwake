@@ -124,6 +124,18 @@ body {
 .rh-store.full .rh-store-bar i { background: #c0492f; }
 .rh-store.full .rh-store-txt { color: #a83a26; }
 
+/* materials: one small count per pool, always all three, so ore is visible
+   before the player has ever mined any */
+.rh-mats { gap: 8px; }
+.rh-mat {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: clamp(10px, .9vw, 12px); font-weight: 800; color: #6b4a26;
+  font-variant-numeric: tabular-nums;
+}
+.rh-mat i { font-style: normal; font-size: 12px; line-height: 1; }
+.rh-mat.warn { color: #a5701c; }
+.rh-mat.full { color: #a83a26; }
+
 #res-hud .rh {
   font-size: clamp(12px, 1.1vw, 15px); font-weight: 800;
   color: #6b4a26; letter-spacing: 0.01em; min-width: 18px; text-align: center;

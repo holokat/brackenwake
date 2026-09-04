@@ -224,7 +224,13 @@ export function chopTree(field, index) {
   return { felled: true, wood: 2 + Math.floor(Math.random() * 3) };
 }
 
-// A boulder doesn't topple — it shudders, drops apart and is quarried away.
+// A boulder doesn't topple: it shudders, drops apart and is quarried away.
+// A rock field may name what it gives up with `yield` ('stone' by default,
+// 'ore' for the seamed rock at the cave mouths). Ore is rarer than stone, so it
+// comes 1 to 2 at a time against stone's 2 to 4. The caller reads the material
+// by name, so a field that declares a yield nobody spends is a dead field:
+// whatever goes in here must exist in MATERIALS and in GOODS.
+export const ROCK_YIELDS = { stone: [2, 3], ore: [1, 2] }; // [min, span]
 function breakRock(field, t) {
   const shards = treeCopy(field, t);
   field.parent.add(shards);
@@ -241,7 +247,9 @@ function breakRock(field, t) {
   t.hp = null;
   t.felledUntil = Date.now() + (REGROW_MIN * 1.5 + Math.random() * REGROW_SPAN) * regrowMult;
   field.rebuild();
-  return { felled: true, stone: 2 + Math.floor(Math.random() * 3) };
+  const good = field.yield || 'stone';
+  const [min, span] = ROCK_YIELDS[good] || ROCK_YIELDS.stone;
+  return { felled: true, [good]: min + Math.floor(Math.random() * span) };
 }
 
 // Bring back anything whose regrow timer has run out. Cheap to call often.
