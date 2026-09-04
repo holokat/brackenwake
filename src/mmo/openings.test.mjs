@@ -13,7 +13,7 @@ import {
   STARTING_STAT_TOTAL, STARTING_SKILL_TOTAL, MAX_STAT_AT_START, MIN_STAT,
   BLANK_MAX_SKILL, BLANK_STAT_POINTS, CUSTOM_STAT_POINTS, CUSTOM_SKILL_POINTS,
   applyCustomisation, APPEARANCE, APPEARANCE_DEFAULT, validateAppearance,
-  auditOpenings, ITEM_BASES, INVENTED_ITEM_BASES, STARTING_COINS, BLANK_COINS,
+  auditOpenings, ITEM_BASES, itemBaseFor, kitItems, auditKitBases, INVENTED_ITEM_BASES, STARTING_COINS, BLANK_COINS,
 } from './openings.js';
 
 let pass = 0, fail = 0;
@@ -304,3 +304,19 @@ check('an empty appearance is refused', validateAppearance(null).ok === false);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
+
+// ---- kit ids resolve to items.js bases --------------------------------------
+{
+  const { BASES } = await import('./items.js');
+  const all = OPENINGS.flatMap((o) => kitItems(o));
+  const unresolved = all.filter((e) => !BASES[e.base]).map((e) => e.kitId);
+  check('every kit entry of every opening resolves to a real items.js base', unresolved.length === 0 && auditKitBases() === true,
+    unresolved.length ? unresolved.join(', ') : `${all.length} entries across ${OPENINGS.length} openings`);
+  check('armour pieces map material_piece and the robe is the cloth chest',
+    itemBaseFor('leatherHead') === 'leather_head' && itemBaseFor('ringmailChest') === 'ring_chest' && itemBaseFor('clothRobe') === 'cloth_chest' && itemBaseFor('kiteShield') === 'kite');
+  check('ids items.js already knows pass through unchanged', itemBaseFor('longsword') === 'longsword' && itemBaseFor('bandage') === 'bandage');
+  const warrior = kitItems(OPENINGS_BY_ID.warrior);
+  check('the warrior kit is a longsword, a kite shield, eight leather pieces and six bandages',
+    warrior.length === 11 && warrior[0].base === 'longsword' && warrior[1].base === 'kite' && warrior.filter((e) => e.base.startsWith('leather_')).length === 8 && warrior.at(-1).count === 6,
+    warrior.map((e) => e.base).join(', '));
+}

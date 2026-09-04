@@ -1,3 +1,4 @@
+import { BASES as ITEM_BASES_JS } from './items.js';
 // Brackenwake: the eleven openings, customisation, and appearance.
 //
 // Pure data and rules. No THREE, no DOM, no imports. Node-testable.
@@ -222,6 +223,41 @@ base('leatherApron', null, 'armour');
 base('darkRobe', null, 'armour');
 
 export { ITEM_BASES };
+
+// ---------------------------------------------------------------------------
+// Kit ids to items.js base ids. The kits were written in camelCase from the
+// document's words before items.js existed; items.js keys armour as
+// material_piece and the oddments in snake case. This is the one map between
+// them, and auditKitBases() throws at load if a kit names a base items.js does
+// not have, so a new kit entry cannot silently spawn nothing.
+// ---------------------------------------------------------------------------
+const KIT_MATERIAL = { cloth: 'cloth', leather: 'leather', studdedLeather: 'studded', ringmail: 'ring', chainmail: 'chain', plate: 'plate' };
+const KIT_SPECIAL = {
+  clothRobe: 'cloth_chest', kiteShield: 'kite', towerShield: 'tower', ironIngot: 'ingot', potionMana: 'potion',
+  holyBook: 'holy_book', boneStaff: 'bone_staff', darkRobe: 'dark_robe', leatherApron: 'leather_apron',
+  smithHammer: 'smith_hammer', reagentPouch: 'reagent_pouch',
+};
+/** The items.js base id a kit entry's base becomes. */
+export function itemBaseFor(kitId) {
+  if (KIT_SPECIAL[kitId]) return KIT_SPECIAL[kitId];
+  for (const [mat, matId] of Object.entries(KIT_MATERIAL)) {
+    for (const piece of ARMOUR_PIECES) if (kitId === pieceId(mat, piece)) return `${matId}_${piece}`;
+  }
+  return kitId;
+}
+/** An opening's kit as items.js sees it: [{ base, count, kitId }]. */
+export function kitItems(opening) {
+  return opening.kit.map((e) => ({ base: itemBaseFor(e.base), count: e.count, kitId: e.base }));
+}
+export function auditKitBases() {
+  for (const op of OPENINGS) {
+    for (const e of op.kit) {
+      if (!ITEM_BASES_JS[itemBaseFor(e.base)]) throw new Error(`auditKitBases: ${op.id} kit names ${e.base}, and items.js has no ${itemBaseFor(e.base)} base`);
+    }
+  }
+  return true;
+}
+
 
 /** Base ids the item document does not define. Kept honest and countable. */
 export const INVENTED_ITEM_BASES = Object.values(ITEM_BASES)
@@ -693,3 +729,5 @@ export function auditOpenings(list = OPENINGS) {
 }
 
 auditOpenings();
+
+auditKitBases();

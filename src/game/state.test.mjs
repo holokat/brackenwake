@@ -40,8 +40,9 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
 {
   const r = auditState();
   check('every material, good and tool maps to a base something knows', !!r, `${r.locals} bases written locally, ${r.skills} skills`);
-  check('the local bases are the four items.js has no row for', Object.keys(LOCAL_BASES).sort().join(',') === 'game_meat,pickaxe,stone,venison', Object.keys(LOCAL_BASES).join(','));
-  check('wood is a log, ore is ore, stone is local', MATERIAL_BASE.wood === 'log' && MATERIAL_BASE.ore === 'ore' && baseOf('stone').localBase === true);
+  check('no base is local any more: items.js carries stone, pickaxe, venison and game_meat', Object.keys(LOCAL_BASES).length === 0
+    && ['stone', 'pickaxe', 'venison', 'game_meat'].every((id) => baseOf(id) && !baseOf(id).localBase), Object.keys(LOCAL_BASES).join(',') || 'none local');
+  check('wood is a log, ore is ore, stone is stone', MATERIAL_BASE.wood === 'log' && MATERIAL_BASE.ore === 'ore' && baseOf('stone').stack === true && baseOf('pickaxe').kind === 'tool');
   check('and the skill list is the whole of skills.js', SKILL_IDS.length === SKILLS.length, `${SKILL_IDS.length}`);
 }
 

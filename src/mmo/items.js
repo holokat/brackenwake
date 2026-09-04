@@ -210,6 +210,32 @@ addBase({ id: 'torch', name: 'Torch', kind: 'offhand', kinds: ['equipment', 'tor
 for (const s of STACKS) {
   addBase({ ...s, kind: 'material', kinds: ['material'], slot: null, strReq: 0, durability: null, stack: true });
 }
+// The kit oddments 04-CLASSES-ABILITIES names and 03 never tabled, plus the
+// hunting bag's goods and stone, which the old game carried and Masonry needs.
+// Each is a real base so a kit, a migration and a vendor all go through
+// makeItem; nothing is invented at the call site. KIT_BASES lists them.
+export const KIT_BASES = [];
+const kitBase = (b) => { KIT_BASES.push(b.id); return addBase(b); };
+const tool = (id, name, weight, stack = false) => kitBase({
+  id, name, kind: 'tool', kinds: ['tool'], slot: null, weight, strReq: 0,
+  durability: stack ? null : GEAR_DURABILITY, stack,
+});
+tool('pickaxe', 'Pickaxe', 5);
+tool('tongs', 'Tongs', 2);
+tool('smith_hammer', 'Smith\'s Hammer', 3);
+tool('lockpick', 'Lockpick', 0.1, true);
+kitBase({ id: 'holy_book', name: 'Holy Book', kind: 'offhand', kinds: ['equipment', 'tome', 'holy'], slot: 'offHand', weight: 2, strReq: 0, durability: GEAR_DURABILITY, stack: false });
+kitBase({ id: 'skull', name: 'Skull', kind: 'offhand', kinds: ['equipment', 'skull'], slot: 'offHand', weight: 1, strReq: 0, durability: null, stack: false });
+kitBase({ id: 'lute', name: 'Lute', kind: 'instrument', kinds: ['equipment', 'instrument'], slot: 'offHand', weight: 2, strReq: 0, durability: GEAR_DURABILITY, stack: false });
+// A bone staff is a quarterstaff in every number; a dark robe is a cloth robe;
+// a leather apron is a leather tunic. Same rows, their own names and tags.
+kitBase({ ...BASES.quarterstaff, id: 'bone_staff', name: 'Bone Staff', kinds: [...BASES.quarterstaff.kinds, 'bone'] });
+kitBase({ ...BASES.cloth_chest, id: 'dark_robe', name: 'Dark Robe', kinds: [...BASES.cloth_chest.kinds, 'dark'] });
+kitBase({ ...BASES.leather_chest, id: 'leather_apron', name: 'Leather Apron', kinds: [...BASES.leather_chest.kinds, 'apron'] });
+for (const [id, name, weight] of [['reagent_pouch', 'Reagent Pouch', 0.5], ['stone', 'Stone', 1], ['venison', 'Venison', 0.5], ['game_meat', 'Game Meat', 0.5]]) {
+  kitBase({ id, name, weight, kind: 'material', kinds: ['material'], slot: null, strReq: 0, durability: null, stack: true });
+}
+
 
 // --------------------------------------------------------------- accessors
 
@@ -391,7 +417,7 @@ export function auditItems() {
     if (b.slot !== null && !SLOTS.includes(b.slot)) bad(`base ${b.id} wants slot ${b.slot}, which is not a slot`);
     if (typeof b.weight !== 'number') bad(`base ${b.id} has no weight`);
     if (!Array.isArray(b.kinds) || !b.kinds.length) bad(`base ${b.id} carries no kind tags`);
-    if (b.kind !== 'material' && !b.kinds.includes('equipment')) bad(`base ${b.id} is wearable but is not tagged equipment`);
+    if (b.kind !== 'material' && b.kind !== 'tool' && !b.kinds.includes('equipment')) bad(`base ${b.id} is wearable but is not tagged equipment`);
   }
 
   // The two totals the document states out loud, counted from the tier table

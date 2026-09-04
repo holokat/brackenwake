@@ -26,19 +26,9 @@
 // ---------------------------------------------------------------------------
 // WHAT THIS FILE INVENTS, because src/mmo does not have it
 // ---------------------------------------------------------------------------
-// src/mmo/items.js is finished and is never edited to suit the runtime, so the
-// rules it does not carry are written here instead, in LOCAL_BASES, and are
-// listed in docs/mmo/wiring/W1.md so they can be moved into items.js later:
-//
-//   stone       03-ITEMS-LOOT's stack list is "ingots, ore, wood, arrows,
-//               potions, food". Stone is not in it, and Masonry needs it.
-//   pickaxe     07 says a migrating player's pickaxe goes in the pack. No
-//               pickaxe base exists; nor do tongs, hammers or lockpicks, which
-//               openings.js also names.
-//   venison,
-//   game_meat   the hunting bag's two goods. items.js has a generic 'food'
-//               stack, but two different foods sharing one stack would merge
-//               the venison into the rabbit.
+// A base items.js does not carry can be written here, in LOCAL_BASES, until it
+// is moved over; auditState throws the day items.js gains the same id. Stone,
+// pickaxe, venison and game_meat lived here first and are now items.KIT_BASES.
 //
 // A LOCAL_BASES record has the same shape items.js gives a base, so weightOf,
 // stackable and the pack code cannot tell the difference.
@@ -98,15 +88,9 @@ const local = (id, name, weight) => ({
   strReq: 0, durability: null, stack: true, localBase: true,
 });
 export const LOCAL_BASES = {
-  stone: local('stone', 'Stone', 1),
-  venison: local('venison', 'Venison', 0.5),
-  game_meat: local('game_meat', 'Game Meat', 0.5),
-  // A tool, not a material: it does not stack and it has no equipment slot in
-  // items.js SLOTS, so it rides in the pack exactly as 07 says it should.
-  pickaxe: {
-    id: 'pickaxe', name: 'Pickaxe', kind: 'tool', kinds: ['tool'], slot: null,
-    weight: 5, strReq: 0, durability: 100, stack: false, localBase: true,
-  },
+  // Empty since items.js took stone, venison, game_meat and pickaxe as real
+  // bases (KIT_BASES). The table and auditState stay so the next gap has a
+  // home and a guard.
 };
 
 /** items.js first, then the local table. Null when nothing knows the id. */
