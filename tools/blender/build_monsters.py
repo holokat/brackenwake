@@ -22,6 +22,7 @@ import math
 import os
 import sys
 
+sys.dont_write_bytecode = True      # no __pycache__ in the repo
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import rigkit as rk                           # noqa: E402
 
