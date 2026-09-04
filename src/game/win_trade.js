@@ -114,8 +114,16 @@ export function createTrade(opts = {}) {
     };
   }
 
-  /** Any change to either pile unticks both, every time. That is the rule. */
-  function changed(why) {
+  /** Tell a remote partner what THIS side just did. A stub has no `sync`. */
+  function sync(kind) {
+    try { partner.sync?.(kind, state()); } catch (e) { /* the channel is not the trade */ }
+  }
+
+  /**
+   * Any change to either pile unticks both, every time. That is the rule.
+   * `w` is the side that made the change, so only our own goes on the wire.
+   */
+  function changed(why, w = 'me') {
     lastChange++;
     const wasMe = accepted.me, wasThem = accepted.them;
     accepted.me = false;
@@ -123,6 +131,7 @@ export function createTrade(opts = {}) {
     if (wasMe || wasThem) say(`${why} The ticks come off, and both of you have to accept again.`);
     else say(why);
     opts.onChange?.(state());
+    if (w === 'me') sync('offer');
     // the other end gets to look again, which is where a server would answer
     if (partner.consider && partner.consider(state())) accepted.them = true;
     return state();
@@ -134,7 +143,7 @@ export function createTrade(opts = {}) {
     if (!s.items().includes(item)) return { ok: false, text: say('That is not in the pack.') };
     if (offer[w].items.includes(item)) return { ok: false, text: say('It is already on the table.') };
     offer[w].items.push(item);
-    changed(`${s.name} put ${nameOf(item)} on the table.`);
+    changed(`${s.name} put ${nameOf(item)} on the table.`, w);
     return { ok: true, state: state() };
   }
 
@@ -143,7 +152,7 @@ export function createTrade(opts = {}) {
     const i = offer[w].items.indexOf(item);
     if (i < 0) return { ok: false, text: say('That was never on the table.') };
     offer[w].items.splice(i, 1);
-    changed(`${sideFor(w).name} took ${nameOf(item)} back.`);
+    changed(`${sideFor(w).name} took ${nameOf(item)} back.`, w);
     return { ok: true, state: state() };
   }
 
@@ -156,7 +165,7 @@ export function createTrade(opts = {}) {
     }
     if (want === offer[w].gold) return { ok: true, state: state() };
     offer[w].gold = want;
-    changed(`${s.name} offers ${want} gold.`);
+    changed(`${s.name} offers ${want} gold.`, w);
     return { ok: true, state: state() };
   }
 
@@ -187,6 +196,7 @@ export function createTrade(opts = {}) {
     accepted[w] = !!on;
     say(on ? `${sideFor(w).name} accepts.` : `${sideFor(w).name} takes the tick off.`);
     opts.onChange?.(state());
+    if (w === 'me') sync(on ? 'accept' : 'unaccept');
     if (accepted.me && accepted.them) return commit();
     return { ok: true, state: state() };
   }
@@ -214,6 +224,7 @@ export function createTrade(opts = {}) {
       + `${g > 0 ? `You are ${g} gold down.` : g < 0 ? `You are ${-g} gold up.` : 'The gold came out even.'}`,
     );
     opts.onChange?.(state());
+    sync('complete');
     return { ok: true, committed: true, state: state(), text };
   }
 
@@ -222,10 +233,15 @@ export function createTrade(opts = {}) {
     done = true;
     const text = say(`The trade is off. ${sideFor(who).name} walked away, and nothing moved.`);
     opts.onChange?.(state());
+    if (who === 'me') sync('cancel');
     return { ok: true, cancelled: true, text };
   }
 
-  return { me, them, partner, put, pull, setGold, setAccept, commit, cancel, state, blocker, offer, accepted };
+  const api = { me, them, partner, put, pull, setGold, setAccept, commit, cancel, state, blocker, offer, accepted };
+  // The remote end gets the handle last, so it can apply what arrives through
+  // the same calls the buttons use. A stub has no `attach` and nothing happens.
+  try { partner.attach?.(api); } catch (e) { /* the channel is not the trade */ }
+  return api;
 }
 
 const nameOf = (it) => it?.label || it?.name || it?.base || 'something';
@@ -249,6 +265,10 @@ const CSS = `
 .bw-win-trade .bw-gold input{width:82px;font:inherit;padding:2px 6px;border-radius:5px;
   border:1px solid #4f6349;background:#1a211a;color:#e8f0e2}
 .bw-win-trade .bw-log{margin-top:10px;color:#95a08f;font-size:12.5px;min-height:2.6em}
+.bw-win-trade .bw-near{margin-bottom:10px}
+.bw-win-trade .bw-near .row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.bw-win-trade .bw-near .row .n{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.bw-win-trade .bw-near .d{color:#95a08f;font-variant-numeric:tabular-nums}
 `;
 
 const el = (tag, cls, text) => {
@@ -275,14 +295,37 @@ export const panel = {
     root.textContent = '';
     this._root = root;
     this._ctx = ctx;
+    this._near = el('div', 'bw-near');
     this._two = el('div', 'bw-two');
     this._log = el('div', 'bw-log');
-    root.append(this._two, this._log);
+    root.append(this._near, this._two, this._log);
   },
 
+  /** `ctx.tradeNet` is `trade_net.js`, if main.js made one. */
+  net() { return this._ctx?.tradeNet || null; },
+
+  /**
+   * Opens against whoever is handed over. With nobody handed over and somebody
+   * on the channel within 4 m, it opens as a LIST rather than a trade with a
+   * ghost: 06 gives the window to two players, and a stub that never accepts is
+   * only honest while there is nobody there at all.
+   */
   open(ctx, extra) {
     this._ctx = ctx || this._ctx;
+    this._trade = null;
+    const net = this.net();
+    if (!extra?.partner && net && net.nearby().length) {
+      const n = net.nearby().length;
+      this._say(`${n === 1 ? 'One person is' : `${n} people are`} close enough to trade with.`);
+      this.render();
+      return;
+    }
     const them = extra?.partner || createStubPartner({ name: extra?.name || 'a stranger' });
+    this.start(them);
+  },
+
+  /** Open the two sided window against a partner, stub or remote. */
+  start(them) {
     this._trade = createTrade({
       me: this._ctx?.character,
       them,
@@ -291,6 +334,16 @@ export const panel = {
     });
     this._say(`A trade with ${them.side?.name || 'a stranger'}. Nothing moves until you both accept.`);
     this.render();
+    return this._trade;
+  },
+
+  /** The nearby list moves as people walk; redraw it about once a second. */
+  tick(dt) {
+    if (!this.net() || typeof document === 'undefined') return;
+    this._since = (this._since || 0) + (Number.isFinite(dt) ? dt : 0);
+    if (this._since < 1) return;
+    this._since = 0;
+    this.renderNear();
   },
 
   close() { this._trade?.cancel('me'); this._trade = null; },
@@ -300,9 +353,43 @@ export const panel = {
     if (this._log) this._log.textContent = text;
   },
 
+  /** Who is on the channel, and how far off. Empty when there is no net. */
+  renderNear() {
+    if (!this._near || typeof document === 'undefined') return;
+    const net = this.net();
+    this._near.textContent = '';
+    if (!net) return;
+    const all = net.peers();
+    const head = el('h4', null, 'trade with');
+    head.style.margin = '0 0 4px';
+    head.style.font = 'inherit';
+    head.style.fontSize = '12px';
+    head.style.letterSpacing = '.08em';
+    head.style.textTransform = 'uppercase';
+    head.style.color = '#8fa387';
+    this._near.appendChild(head);
+    if (!all.length) {
+      this._near.appendChild(el('div', 'bw-dim', 'Nobody else is here.'));
+      return;
+    }
+    for (const p of all) {
+      const row = el('div', 'row');
+      row.appendChild(el('span', 'n', p.name));
+      row.appendChild(el('span', 'd', `${p.dist.toFixed(1)} m`));
+      const b = el('button', null, p.trading ? 'trading' : 'trade');
+      b.disabled = !p.nearby || !!this._trade || !!p.trading;
+      if (!p.nearby) b.title = `${TRADE_RANGE} m or nearer to trade`;
+      b.addEventListener('click', () => { this.start(net.partnerFor(p.id, p.name)); });
+      row.appendChild(b);
+      this._near.appendChild(row);
+    }
+  },
+
   render() {
+    this.renderNear();
     const t = this._trade;
-    if (!this._root || !t || typeof document === 'undefined') return;
+    if (!this._root || typeof document === 'undefined') return;
+    if (!t) { this._two.textContent = ''; return; }
     const s = t.state();
     this._two.textContent = '';
 

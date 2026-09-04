@@ -236,6 +236,58 @@ for (const [id, name, weight] of [['reagent_pouch', 'Reagent Pouch', 0.5], ['sto
   kitBase({ id, name, weight, kind: 'material', kinds: ['material'], slot: null, strReq: 0, durability: null, stack: true });
 }
 
+// ------------------------------------------------------------ hides
+// Skinning's materials, and the knife it wants.
+//
+// 03-ITEMS-LOOT.md: "Leather: hide (any beast), thick hide (bear, dire wolf),
+// scaled hide (wyvern, drake), by Skinning skill." Three hides, and they are
+// the same three things `ores.js` LEATHERS names and `recipes.js` asks for by
+// id, so there is no fourth "tanned leather" between them: a tanning rack turns
+// hide into a leather tunic, not into an intermediate this game never tabled.
+//
+// The ores.js ids are camel (`thickHide`); an items.js base id is snake
+// (`thick_hide`), which is how every other multi word base here is written.
+// `LEATHER_BASE` is the join, and each base carries the ores.js id in
+// `material` so `win_crafting.js`'s `countMaterial` can find a stack. That
+// function reads `item.material`, not the base's, so whoever MAKES the stack
+// has to stamp it: `makeHide` in `src/game/skinning.js` is the one place that
+// does, and its test proves the forge can then see the pile.
+export const HIDE_BASES = [];
+/** ores.js LEATHERS id -> items.js base id. */
+export const LEATHER_BASE = { hide: 'hide', thickHide: 'thick_hide', scaledHide: 'scaled_hide' };
+/** items.js base id -> ores.js LEATHERS id. The other direction, for the bag. */
+export const LEATHER_MATERIAL = { hide: 'hide', thick_hide: 'thickHide', scaled_hide: 'scaledHide' };
+
+const hideBase = (id, name, weight, material) => {
+  HIDE_BASES.push(id);
+  return addBase({
+    id, name, kind: 'material', kinds: ['material', 'leather'], slot: null,
+    weight, strReq: 0, durability: null, stack: true, material,
+  });
+};
+// Weights: a hide is two stones, and the two heavier ones three. A log is two
+// and a bear's hide is not lighter than a log.
+hideBase('hide', 'Hide', 2, 'hide');
+hideBase('thick_hide', 'Thick Hide', 3, 'thickHide');
+hideBase('scaled_hide', 'Scaled Hide', 3, 'scaledHide');
+// A dagger skins as well as this does; this is the tool that does nothing else.
+tool('skinning_knife', 'Skinning Knife', 1);
+
+/** Every hide base is real, joined both ways, and stacks. Called by auditItems. */
+export function auditHides() {
+  const bad = (m) => { throw new Error(`auditHides: ${m}`); };
+  if (HIDE_BASES.length !== 3) bad(`there are ${HIDE_BASES.length} hides, 03-ITEMS-LOOT names three`);
+  for (const [oresId, baseId] of Object.entries(LEATHER_BASE)) {
+    const b = BASES[baseId];
+    if (!b) bad(`the leather ${oresId} joins to "${baseId}", which is not a base`);
+    if (!b.stack) bad(`${baseId} does not stack, and a pile of hides has to`);
+    if (b.material !== oresId) bad(`${baseId} carries material "${b.material}", not "${oresId}"`);
+    if (LEATHER_MATERIAL[baseId] !== oresId) bad(`the join back from ${baseId} says "${LEATHER_MATERIAL[baseId]}"`);
+  }
+  if (!BASES.skinning_knife) bad('there is no skinning knife');
+  return true;
+}
+
 
 // --------------------------------------------------------------- accessors
 
@@ -434,6 +486,8 @@ export function auditItems() {
   const plateWt = total('plate', 'weight');
   if (plateAr !== 108) bad(`full plate is AR ${plateAr}, the document says 108`);
   if (plateWt !== 72) bad(`full plate is ${plateWt} stones, the document says 72`);
+  auditHides();
+
   const clothAr = total('cloth', 'ar');
   const clothWt = total('cloth', 'weight');
   if (clothAr !== 9) bad(`full cloth is AR ${clothAr}, the document says 9`);

@@ -12,7 +12,7 @@ import { MONSTERS } from '../mmo/monsters.js';
 import { weightsFor, rollKill } from '../mmo/loot.js';
 import { RARITY, RARITY_ORDER, BASES, makeItem } from '../mmo/items.js';
 import {
-  createLootDrops, auditLootTables, tableFor, itemBaseFor, rollFor,
+  createLootDrops, auditLootTables, auditLootWords, tableFor, itemBaseFor, rollFor,
   bagColour, describeItem, listText, BAG_SECONDS, ARMOUR_MATERIAL,
 } from './loot_drops.js';
 
@@ -29,7 +29,11 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
   check('a helm on a tier 1 is cloth, on a tier 4 is ringmail, on a boss is plate',
     itemBaseFor('helm', 1) === 'cloth_head' && itemBaseFor('helm', 4) === 'ring_head' && itemBaseFor('helm', 6) === 'plate_head');
   check('a robe is cloth whoever wears it', itemBaseFor('robe', 5) === 'cloth_chest');
-  check('a hide has no base yet and says so rather than inventing one', itemBaseFor('hide', 2) === null);
+  check('a hide joins to the hide base, so a knife can hand one over', itemBaseFor('hide', 2) === 'hide');
+  check('and thickHide and scaledHide join to theirs',
+    itemBaseFor('thickHide', 3) === 'thick_hide' && itemBaseFor('scaledHide', 4) === 'scaled_hide');
+  check('a hide is still never in a sack, because it is Skinning\'s',
+    !tableFor('wolf').includes('hide') && !tableFor('direWolf').includes('thick_hide'));
   check('and neither does a scroll', itemBaseFor('scroll', 5) === null);
   check('every material in the map is a real armour tier',
     Object.values(ARMOUR_MATERIAL).every((m) => !!BASES[`${m}_head`]), Object.values(ARMOUR_MATERIAL).join(', '));
@@ -40,6 +44,7 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
   check('and a wolf drops what a beast drops', tableFor('wolf').join(',') === 'food', tableFor('wolf').join(', '));
   check('a table with nothing translatable comes back empty rather than throwing',
     tableFor({ id: 'x', tier: 2, lootTable: ['hide', 'scroll'] }).length === 0);
+  check('and every word in every table joins, but for the scroll', !!auditLootWords());
 }
 
 // ========================================================= two hundred kills

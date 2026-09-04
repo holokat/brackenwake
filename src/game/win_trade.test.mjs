@@ -1,5 +1,5 @@
 // The trade window: the accept rules. Run: node src/game/win_trade.test.mjs
-import { createTrade, createStubPartner, sideOf, TRADE_RANGE } from './win_trade.js';
+import { createTrade, createStubPartner, sideOf, TRADE_RANGE, panel } from './win_trade.js';
 import { makeItem } from '../mmo/items.js';
 
 let pass = 0, fail = 0;
@@ -174,6 +174,103 @@ console.log('win_trade: the shape of a side');
   s.give(i);
   check('giving empties it again', s.room() === 3);
   check('four metres is the range 06 gives', TRADE_RANGE === 4);
+}
+
+// ================================================ the hooks a remote partner uses
+//
+// `trade_net.js` is a partner with two optional methods the stub does not have.
+// The stub must be untouched by them, and this side's OWN changes must be the
+// only ones that go out, or two tabs would echo each other for ever.
+console.log('win_trade: attach and sync fire for our side and not for theirs');
+{
+  const heard = [];
+  const who = { name: 'Wren', gold: 500, pack: { slots: 20, items: [item('shortbow', 'Shortbow'), null, null] } };
+  let attached = null;
+  const partner = {
+    who, side: sideOf(who, 'Wren'),
+    consider: () => false,
+    attach(api) { attached = api; },
+    sync(kind, state) { heard.push({ kind, changes: state.changes }); },
+  };
+  const mine = [item('longsword', 'Longsword'), item('dagger', 'Dagger')];
+  const me = { name: 'You', gold: 200, pack: { slots: 20, items: [...mine, ...new Array(18).fill(null)] } };
+  const t = createTrade({ me, them: partner, say: (x) => x });
+
+  check('attach was called with the trade itself', attached === t);
+  check('and nothing was synced by construction', heard.length === 0);
+
+  t.put('me', mine[0]);
+  check('our own offer goes out', heard.map((h) => h.kind).join(',') === 'offer', heard.map((h) => h.kind).join(','));
+
+  t.put('them', who.pack.items[0]);
+  check('their offer does NOT go back out', heard.length === 1, heard.map((h) => h.kind).join(','));
+
+  t.setGold('me', 20);
+  check('our gold does', heard.length === 2 && heard[1].kind === 'offer');
+
+  t.setAccept('me', true);
+  check('our tick does', heard[heard.length - 1].kind === 'accept');
+  t.setAccept('me', false);
+  check('and taking it off does', heard[heard.length - 1].kind === 'unaccept');
+
+  t.setAccept('me', true);
+  t.setAccept('them', true);
+  check('their tick does not go out, but the commit does',
+    heard[heard.length - 1].kind === 'complete', heard.map((h) => h.kind).join(','));
+  check('and the trade really committed', t.state().done === true);
+
+  const c = createTrade({ me: { name: 'You', gold: 1, pack: { slots: 2, items: [null, null] } }, them: partner, say: (x) => x });
+  const n = heard.length;
+  c.cancel('them');
+  check('a cancel from their side does not go out', heard.length === n);
+  const d = createTrade({ me: { name: 'You', gold: 1, pack: { slots: 2, items: [null, null] } }, them: partner, say: (x) => x });
+  d.cancel('me');
+  check('a cancel from ours does', heard[heard.length - 1].kind === 'cancel');
+}
+
+console.log('win_trade: a stub has neither method and does not care');
+{
+  const stub = createStubPartner({ name: 'Wren', gold: 10 });
+  check('no attach', typeof stub.attach === 'undefined');
+  check('no sync', typeof stub.sync === 'undefined');
+  const me = { name: 'You', gold: 5, pack: { slots: 2, items: [item('dagger', 'Dagger'), null] } };
+  const t = createTrade({ me, them: stub, say: (x) => x });
+  check('and a trade against it still works', t.put('me', me.pack.items[0]).ok === true);
+}
+
+// ============================================================ the panel list
+//
+// Headless: `build` needs a document and returns without one, and every draw
+// call is guarded, so `open` can still be driven for the decision it makes.
+console.log('win_trade: the panel opens as a list when somebody is nearby');
+{
+  const character = { name: 'You', gold: 10, pack: { slots: 4, items: [null, null, null, null] } };
+  const fakeNet = (peers) => ({
+    peers: () => peers,
+    nearby: () => peers.filter((p) => p.nearby),
+    partnerFor: (id, name) => createStubPartner({ name: name || id }),
+  });
+
+  const ctx = { character, tradeNet: fakeNet([{ id: 'B', name: 'Bryn', dist: 1.2, nearby: true }]) };
+  panel.open(ctx, {});
+  check('with somebody within reach it opens no trade yet', panel._trade === null);
+
+  const far = { character, tradeNet: fakeNet([{ id: 'B', name: 'Bryn', dist: 9, nearby: false }]) };
+  panel.open(far, {});
+  check('with nobody within reach it falls back to the honest stub', !!panel._trade);
+  check('and the stub never accepts', panel._trade.partner.consider({}) === false);
+  panel.close();
+
+  panel.open(ctx, {});
+  const t = panel.start(ctx.tradeNet.partnerFor('B', 'Bryn'));
+  check('picking a name off the list opens the two sided window', panel._trade === t);
+  check('against that person by name', t.them.name === 'Bryn');
+  panel.close();
+  check('closing cancels it', t.state().done === true);
+
+  panel.open({ character }, {});
+  check('with no net at all it is the stub, as before', !!panel._trade && panel._trade.partner.isStub === true);
+  panel.close();
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

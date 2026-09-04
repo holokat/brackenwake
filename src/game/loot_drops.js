@@ -31,18 +31,24 @@
 // So the join lives here, in the runtime, where joins belong: `itemBaseFor`
 // turns a monster's word into an items.js base, choosing the armour material
 // from the monster's tier so a goblin scout drops cloth and a bone knight drops
-// ringmail. Four words have no honest base yet, `hide`, `thickHide`,
-// `scaledHide` and `scroll`: the first three are Skinning's materials and
-// Skinning is nobody's job yet, and the fourth is a scribe's stock. Rather than
-// invent an item that would be a lie in the pack, those are dropped from the
-// table before the roll. `auditLootTables()` runs at load and throws if that
-// ever leaves a monster with an empty table, so no monster can quietly stop
-// dropping anything.
+// ringmail.
+//
+// THE THREE HIDES RESOLVE AND STILL DO NOT DROP IN A SACK.
+// `hide`, `thickHide` and `scaledHide` now have real bases in items.js, so
+// `itemBaseFor` answers for them; a hide is nonetheless never in a monster's
+// bag, because 03-ITEMS-LOOT gives hides to Skinning ("hide (any beast) ... by
+// Skinning skill") and a wolf that dropped its hide in a sack would make the
+// skill pointless. `SKINNING_WORDS` is that list and `tableFor` takes them out
+// before the roll; `src/game/skinning.js` is the only way a hide reaches a
+// pack. One word is still unjoined: `scroll`, a scribe's stock with no base.
+// `auditLootTables()` runs at load and throws if that ever leaves a monster
+// with an empty table, and `auditLootWords()` throws if a word other than the
+// declared `UNJOINED` ones stops resolving.
 
 import * as THREE from 'three';
 import { MONSTERS } from '../mmo/monsters.js';
 import { rollKill } from '../mmo/loot.js';
-import { RARITY, RARITY_ORDER, RARITY_WORD, baseFor, BASES } from '../mmo/items.js';
+import { RARITY, RARITY_ORDER, RARITY_WORD, baseFor, BASES, LEATHER_BASE } from '../mmo/items.js';
 import { nameFor as affixNameFor } from '../mmo/affixes.js';
 
 /** Seconds a bag lies there. "Every drop is a bag on the ground for 90 s." */
@@ -76,10 +82,32 @@ export function itemBaseFor(word, tier = 1) {
     // a robe is cloth by definition; items.js tags cloth_chest as the robe
     case 'robe': return 'cloth_chest';
     case 'throwingKnives': return 'throwing_knives';
-    // no base yet: Skinning's hides and the scribe's stock
-    case 'hide': case 'thickHide': case 'scaledHide': case 'scroll': return null;
+    // Skinning's three, which resolve so the knife can hand one over, and are
+    // filtered out of the sack by `tableFor`.
+    case 'hide': case 'thickHide': case 'scaledHide': return LEATHER_BASE[word];
+    // no base yet: the scribe's stock
+    case 'scroll': return null;
     default: return baseFor(word) ? word : null;
   }
+}
+
+/** The words a knife takes off a body. Never in a sack; see the header. */
+export const SKINNING_WORDS = ['hide', 'thickHide', 'scaledHide'];
+/** Best first, so a bone dragon gives scales rather than plain hide. */
+export const SKINNING_ORDER = ['scaledHide', 'thickHide', 'hide'];
+/** Words the join still cannot answer for. Kept as a list so it can shrink. */
+export const UNJOINED = ['scroll'];
+
+/**
+ * The hide word on a monster's own row, or null. The row is the source: a
+ * bone dragon is undead and carries `scaledHide`, and its own table wins over
+ * any rule about families.
+ */
+export function skinWordFor(monster) {
+  const m = typeof monster === 'string' ? MONSTERS[monster] : monster;
+  const table = m && Array.isArray(m.lootTable) ? m.lootTable : [];
+  for (const w of SKINNING_ORDER) if (table.includes(w)) return w;
+  return null;
 }
 
 /** A monster's loot table as items.js bases, with the untranslatable left out. */
@@ -88,6 +116,7 @@ export function tableFor(monster) {
   if (!m || !Array.isArray(m.lootTable)) return [];
   const out = [];
   for (const word of m.lootTable) {
+    if (SKINNING_WORDS.includes(word)) continue;      // a knife's, not a sack's
     const base = itemBaseFor(word, m.tier);
     if (base && BASES[base] && !out.includes(base)) out.push(base);
   }
@@ -113,6 +142,29 @@ export function auditLootTables() {
   return true;
 }
 auditLootTables();
+
+/**
+ * Every word in every monster table joins to a real base, or is one of the
+ * `UNJOINED` few that are named out loud. The other audit only proves a
+ * monster is not left empty handed; this one proves no single word has gone
+ * quiet, which is how `hide` sat unjoined for a wave without anybody noticing.
+ */
+export function auditLootWords() {
+  const bad = [];
+  const words = new Set();
+  for (const m of Object.values(MONSTERS)) for (const w of (m.lootTable || [])) words.add(w);
+  for (const w of words) {
+    if (UNJOINED.includes(w)) continue;
+    // tier 6 is the widest material the join can pick; tier 1 the narrowest
+    for (const tier of [1, 6]) {
+      const base = itemBaseFor(w, tier);
+      if (!base || !BASES[base]) bad.push(`"${w}" at tier ${tier} joins to ${base === null ? 'nothing' : `"${base}"`}`);
+    }
+  }
+  if (bad.length) throw new Error(`loot_drops: ${bad.join('; ')}`);
+  return { words: words.size, unjoined: UNJOINED.length };
+}
+auditLootWords();
 
 /**
  * What one kill leaves: gold in the tier's range, and an item or nothing.
