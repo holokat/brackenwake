@@ -55,6 +55,7 @@ function boot() {
   // First boot: no site stands within the streamed ring of the origin, so a new
   // player would face empty meadow with nowhere to walk to. Spawn instead a
   // short walk outside the nearest settlement, on the side facing the origin.
+  let faceTo = null;
   if (!state.pos.x && !state.pos.z) {
     const towns = runtime.sitesNear(0, 0, 4000).filter((s) => s.kind === 'town' || s.kind === 'hamlet')
       .sort((p, q) => Math.hypot(p.x, p.z) - Math.hypot(q.x, q.z));
@@ -63,6 +64,7 @@ function boot() {
       const d = Math.hypot(t.x, t.z) || 1;
       const off = t.flatR + 22;
       state.setPos(t.x - (t.x / d) * off, t.z - (t.z / d) * off);
+      faceTo = t;
       hud.toast(`you wake a short walk from <b>${t.name}</b>, ${t.article}`);
     }
   }
@@ -72,6 +74,8 @@ function boot() {
   // order in the contract is read as "the camera rig, and the input it needs"
   const input = createInput(sc.renderer.domElement);
   const camera = createFollowCamera(sc.camera, input);
+  // the first thing a new player sees is the settlement, not its back
+  if (faceTo) camera.yaw = Math.atan2(faceTo.x - player.pos.x, faceTo.z - player.pos.z);
   camera.snap?.(player.pos);            // start on the orbit, not flying in to it
 
   const interact = createInteract({ sc, runtime, player, state, hud, input });
