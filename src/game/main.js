@@ -53,6 +53,8 @@ import { createSky } from './sky.js';
 import { createWater } from '../world/water.js';
 import { createForageField, seasonAt } from '../world/forage.js';
 import { createForaging } from './foraging.js';
+import { preloadRigs } from './rig_glb.js';
+import { monsterModelIds } from './monster_models.js';
 import { variantOf } from '../world/flora.js';
 import { createNpcs } from './npcs_runtime.js';
 import { createStations, STATION_REACH } from './stations.js';
@@ -156,6 +158,9 @@ function boot() {
 
   function startGame() {
     const character = state.character;
+    // the Blender monster rigs load in the background; a monster spawned before
+    // its file lands wears its box and swaps in place when it does (V5.md)
+    preloadRigs(monsterModelIds()).catch(() => {});
     // an old save's settings are filled in and clamped before anything reads them
     character.settings = normaliseSettings(character.settings);
 
