@@ -220,6 +220,8 @@ td.num{text-align:right;white-space:nowrap}
   <div class="search"><input id="q" type="search" placeholder="Search everything" aria-label="Search"></div>
   <div class="secs" id="secs" role="tablist"></div>
   <a class="xlink" href="books.html">The books<small>the world, the story, the cast</small></a>
+  <a class="xlink" href="bestiary.html">Greenwold bestiary<small>every body the first zone needs</small></a>
+  <a class="xlink" href="craftables.html">Craftables<small>every item the recipes make</small></a>
 </nav>
 <main id="main"></main>
 </div>
