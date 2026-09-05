@@ -1,5 +1,7 @@
 // The world field, driven both ways. Run: node src/world/field.test.mjs
+import { createHash } from 'node:crypto';
 import { createWorldField, SEA_LEVEL, HOME_RADIUS, BIOMES } from './field.js';
+import { WORLD_HALF, OCEAN_FLOOR, COAST_MIN } from './zones.js';
 
 let pass = 0, fail = 0;
 const check = (name, ok, detail = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? '   ' + detail : ''}`); };
@@ -66,7 +68,60 @@ for (let i = 0; i < 4000; i++) {
 }
 check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows this as a cliff, which mountains are allowed to be)', worst < 8, `worst ${worst.toFixed(2)}`);
 
-// 6. cost: a 33x33 chunk must sample in a few milliseconds
+// 6. THE HEART DOES NOT MOVE.
+//
+// Saves already exist and a character is standing in one of the towns near the
+// origin. When the world was bounded and the zones were laid over it, the one
+// thing that could not change was the ground a save is on. So: a 2 km square
+// about the origin, 101 x 101 samples at 20 m, every field of every sample
+// digested. The constant below was taken from the commit BEFORE zones.js
+// existed, by running the same loop against that checkout. If a later change
+// moves so much as one metre of the heart, this line goes red and names the
+// change that did it.
+{
+  // the field the GAME builds, not this file's default one: world_runtime.js
+  // passes homeY -0.3, and it is that ground a save is standing on
+  const g = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
+  const h = createHash('sha256');
+  let n = 0;
+  for (let z = -1000; z <= 1000; z += 20) for (let x = -1000; x <= 1000; x += 20) {
+    const s = g.sampleAt(x, z); n++;
+    h.update(`${s.h}|${s.biome}|${s.water}|${s.river}|${s.land}|${s.temp}|${s.moist}|${s.road}|${s.site ? s.site.id + ':' + s.site.kind : '-'}\n`);
+  }
+  const HEART = '6408cb4e64daf869910a654e0737f570d78de706987ee244f8e55f76c265a521';
+  const got = h.digest('hex');
+  check('the 2 km square around the origin is bit for bit what it was before zones existed', got === HEART, `${n} samples, ${got.slice(0, 16)}...`);
+}
+
+// 7. the world ends, and it ends in water
+{
+  let wet = 0, deep = 0;
+  const say = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const s = f.sampleAt(Math.cos(a) * 8200, Math.sin(a) * 8200);
+    if (s.water) wet++;
+    if (s.h <= OCEAN_FLOOR + 1e-9) deep++;
+    say.push(`${i * 45}deg ${s.h.toFixed(1)}m ${s.biome}`);
+  }
+  check('at 8.2 km, in all eight directions, the world is deep water', wet === 8 && deep === 8, say.join(', '));
+  // and the falloff has not reached inland: the world inside COAST_MIN is the
+  // world the seed made, which is what the digest above already proved at 1 km
+  let touched = 0;
+  for (let i = 0; i < 200; i++) {
+    const a = (i / 200) * Math.PI * 2, r = 500 + (i % 12) * 500;   // 500 to 6000 m
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (Math.hypot(x, z) < COAST_MIN && f.raw(x, z).h <= OCEAN_FLOOR + 1e-9) touched++;
+  }
+  check('and nothing inside COAST_MIN has been dropped to the ocean floor', touched === 0, `${COAST_MIN} m, 200 probes`);
+  check('every sample carries a zone field and a danger band', (() => {
+    const a = f.sampleAt(0, 0), b = f.sampleAt(-4400, 0);
+    return a.zone === 'vale' && Array.isArray(a.danger) && b.zone === 'ironshoulder' && b.danger.length === 2;
+  })(), `home is ${f.sampleAt(0, 0).zone} at tier ${f.sampleAt(0, 0).danger.join(' to ')}`);
+  check('WORLD_HALF is the 16 km the map draws', WORLD_HALF === 8000);
+}
+
+// 8. cost: a 33x33 chunk must sample in a few milliseconds
 const t0 = performance.now();
 for (let i = 0; i < 1089 * 10; i++) f.sampleAt(i % 33 * 2, ((i / 33) | 0) % 33 * 2);
 const perSample = (performance.now() - t0) / (1089 * 10) * 1000;

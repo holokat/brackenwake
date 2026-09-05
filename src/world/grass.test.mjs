@@ -395,10 +395,15 @@ function coverage(x, z, r) {
 // filled it over about a second; this fills the inner disc before the frame is
 // drawn, and says how long it took.
 {
+  // A long way from home, but still ON the continent: the world is bounded now
+  // (src/world/zones.js) and chunk 200 is 12.8 km out, which is open ocean and
+  // has no meadow in it at all. 60 to 118 is 3.8 to 7.6 km, the outer half of
+  // the land.
   let far = null;
-  for (let cz = 200; cz <= 320 && !far; cz++) for (let cx = 200; cx <= 320; cx++) {
+  for (let cz = 60; cz <= 118 && !far; cz++) for (let cx = 60; cx <= 118; cx++) {
     if (f.biomeAt((cx + 0.5) * 64, (cz + 0.5) * 64) === 'meadow') { far = [(cx + 0.5) * 64, (cz + 0.5) * 64]; break; }
   }
+  if (!far) throw new Error('grass.test: no meadow chunk found on the far half of the continent');
   const before = g.stats.prefills;
   g.update(60000, far[0], far[1]);
   const c = coverage(far[0], far[1], PREFILL_R);

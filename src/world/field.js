@@ -16,6 +16,17 @@
 //   home         within HOME_RADIUS of the origin the ground is flattened to 0
 //                and rivers are suppressed, so the farm pad sits on solid
 //                ground and the first steps off it are gentle
+//   world edge   past the coast radius in zones.js the ground slides down to
+//                OCEAN_FLOOR and the land mask and the rivers fade out with it,
+//                so the continent ends in a beach and then in deep water. The
+//                falloff is exactly 0 inside COAST_MIN and the code that
+//                applies it does not run there at all, so nothing inland is
+//                touched by so much as a rounding step
+//   zones        zones.js may nudge the climate of a region or override its
+//                biome outright, which is what makes the rim frost and the far
+//                east a volcanic coast. No zone that carries a bias comes
+//                within HEART_SAFE of the origin, so the ground a save already
+//                stands on is bit for bit what it was
 //   roads        dirt roads between neighbouring settlements (roads.js) grade
 //                the ground toward a smoothed profile, by at most ROAD_CUT
 //                down or ROAD_FILL up, so a road climbs a hill rather than
@@ -29,7 +40,8 @@
 // Units are the game's world units, which the farm treats as roughly metres.
 
 import { createNoise, clamp01, lerp, smoothstep } from './noise.js';
-import { cellRoll, siteAllowed, cellOf } from './sitegrid.js';
+import { cellRoll, siteAllowed, cellOf, mineParts, MINE_MOUTH_CELL } from './sitegrid.js';
+import { zoneBias, oceanBeyond, OCEAN_FLOOR, WORLD_HALF } from './zones.js';
 import { roadDistanceAt, roadHeightAt, roadStrength, roadSurface, fordFade, ROAD_HALF_WIDTH } from './roads.js';
 
 // The farm pad top is y 0 and the ground under it is homeY (-0.3). The sea has
@@ -81,7 +93,7 @@ export function createWorldField(seed = 1, opts = {}) {
     // islands where the continent function says ocean
     const isle = N.fbm(x / W_ISLE + 900, z / W_ISLE - 300, 3);
     const isleMask = smoothstep(0.52, 0.70, isle) * (1 - landMask);
-    const land = Math.max(landMask, isleMask);
+    let land = Math.max(landMask, isleMask);
 
     // ocean floor to lowland plateau, then hills
     let h = lerp(-14, 5, land);
@@ -112,6 +124,16 @@ export function createWorldField(seed = 1, opts = {}) {
     const temp = clamp01(0.5 + 0.5 * N.fbm(x / W_TEMP - 1000, z / W_TEMP + 1000, 3) - Math.max(0, h) * 0.0045);
     const moist = clamp01(0.5 + 0.5 * N.fbm(x / W_MOIST + 2000, z / W_MOIST + 2000, 3) + (1 - land) * 0.25 + river * 0.2);
 
+    // The world's edge. Inside COAST_MIN `oceanBeyond` returns 0 without any
+    // arithmetic and this block does not run, so every point inland is the
+    // number it was before this file knew the world had a rim.
+    const sea = oceanBeyond(x, z);
+    if (sea > 0) {
+      h = lerp(h, OCEAN_FLOOR, sea);
+      land *= 1 - sea;      // so the last dry ground reads as beach, not meadow
+      river *= 1 - sea;     // a river does not run out into the ring ocean
+    }
+
     return { h, land, river, temp, moist, cont };
   }
 
@@ -137,9 +159,10 @@ export function createWorldField(seed = 1, opts = {}) {
       else {
         site.y = site.kind === 'cave' ? r.h + CAVE_MOUND : r.h;
         site.biome = null;
-        // a cave opens downhill, out of the slope, never into the mountain: the
-        // mouth faces whichever of eight directions has the lowest ground 15 m out
-        if (site.kind === 'cave') {
+        // a cave and a mine both open downhill, out of the slope, never into
+        // the mountain: the mouth faces whichever of eight directions has the
+        // lowest ground 15 m out
+        if (site.kind === 'cave' || site.kind === 'mine') {
           let best = -Infinity, bestA = site.facing;
           for (let i = 0; i < 8; i++) {
             const a = (i / 8) * Math.PI * 2;
@@ -148,11 +171,62 @@ export function createWorldField(seed = 1, opts = {}) {
           }
           site.facing = bestA;
         }
+        // What a vein or a seam here can be. An authored site brought its own
+        // band; anything else takes the band of the zone it stands in, which
+        // outside a mine zone is the three low ores and nothing else. This is
+        // the value `dungeon_gen.js` reads as `site.oreBand`.
+        if (site.kind === 'cave' || site.kind === 'mine') {
+          if (!site.oreBand) site.oreBand = zoneBias(site.x, site.z).ore;
+        }
+        // A mine is a yard with several cuts on the hill above it, and the
+        // seams that made anyone dig here still showing between them. sitegrid
+        // gives the angles; only this file knows where the ground is.
+        if (site.kind === 'mine') buildMine(site);
       }
     }
     siteCache.set(key, site);
     return site;
   }
+  /**
+   * Resolve a mine's mouths and seams onto the real hillside.
+   *
+   *   site.mouths  every cut, each one a complete cave shaped site the runtime
+   *                can hand straight to enterDungeon: its own id, its own
+   *                generator cell so two cuts are not one level twice, its own
+   *                name, and the mine's ore band
+   *   site.seams   surface ore on the yard, each with a tier from that band
+   *
+   * The mouths stand up the hill (site.facing is downhill) and each one opens
+   * back down toward the yard, which is where the barrows went.
+   */
+  function buildMine(site) {
+    const parts = mineParts(site, seed);
+    // the same shoulder sampleAt grades a pad with, so a reported y is the
+    // ground a player will actually stand on and not the hillside under it
+    const padded = (x, z, d) => {
+      const w = 1 - smoothstep(site.flatR * 0.55, site.flatR + 4, d);
+      return lerp(raw(x, z).h, site.y, w);
+    };
+    site.mouths = parts.mouths.map((m) => {
+      const x = site.x + Math.sin(m.a) * m.d;
+      const z = site.z + Math.cos(m.a) * m.d;
+      return {
+        id: `${site.id}#m${m.i}`, mine: site.id, zone: site.zone || null,
+        kind: 'cave', authored: true,
+        cx: site.cx + MINE_MOUTH_CELL * (m.i + 1), cz: site.cz,
+        x, z, y: padded(x, z, m.d), flatR: 6,
+        facing: m.a + Math.PI,
+        name: m.name, article: 'a mine mouth',
+        oreBand: site.oreBand,
+      };
+    });
+    site.seams = parts.seams.map((s) => {
+      const x = site.x + Math.sin(s.a) * s.d;
+      const z = site.z + Math.cos(s.a) * s.d;
+      return { i: s.i, x, z, y: padded(x, z, s.d), ore: s.ore, mine: site.id };
+    });
+  }
+
   function siteAt(x, z) {
     const [cx, cz] = cellOf(x, z);
     return siteInCell(cx, cz);
@@ -195,18 +269,40 @@ export function createWorldField(seed = 1, opts = {}) {
     }
     const land = lerp(1, r.land, k);
     const water = h < SEA_LEVEL - 0.05;
+
+    // The zone this point belongs to, filled into one scratch object so a
+    // terrain vertex costs no allocation. `zb.climate` nudges the climate the
+    // biome is decided from; `zb.biome`, when a zone has one, replaces the
+    // answer outright.
+    const zb = zoneBias(x, z, ZB);
+    let temp = r.temp, moist = r.moist;
+    if (zb.climate && zb.weight > 0) {
+      if (zb.climate.temp) temp = clamp01(temp + zb.climate.temp * zb.weight);
+      if (zb.climate.moist) moist = clamp01(moist + zb.climate.moist * zb.weight);
+    }
+
+    // A zone's override is allowed to say what kind of country this is. It is
+    // NOT allowed to say the sea is a mountain, to pave over a river, or to
+    // flatten real relief: open water, a river, the snow line and the rock line
+    // all answer first, and the override takes what is left, which is every
+    // ordinary hillside and shore in the zone.
     let biome;
     if (k < 0.5) biome = homeBiome;
     else if (water && river < 0.4) biome = 'ocean';
     else if (h >= SNOW_LINE) biome = 'snow';
     else if (h >= ROCK_LINE) biome = 'mountain';
+    else if (zb.biome && river < 0.3) biome = zb.biome;
     else if (h < 2.2 && r.land < 0.97 && river < 0.3) biome = 'beach';
-    else if (r.temp < 0.30) biome = 'boreal';
-    else if (r.temp > 0.58 && r.moist < 0.47) biome = 'desert';
-    else if (r.moist > 0.62 && r.temp > 0.42 && r.temp < 0.66 && N.fbm(x / W_SAKURA + 5000, z / W_SAKURA - 5000, 2) > 0.38) biome = 'sakura';
+    else if (temp < 0.30) biome = 'boreal';
+    else if (temp > 0.58 && moist < 0.47) biome = 'desert';
+    else if (moist > 0.62 && temp > 0.42 && temp < 0.66 && N.fbm(x / W_SAKURA + 5000, z / W_SAKURA - 5000, 2) > 0.38) biome = 'sakura';
     else biome = 'meadow';
-    return { h, biome, water, river, land, temp: r.temp, moist: r.moist, site, road };
+    // `zone` is the id or null, `danger` the monster tier band [lo, hi]: the
+    // one number monsters.js should roll a spawn against (docs/mmo/wiring/Z1.md).
+    return { h, biome, water, river, land, temp, moist, site, road, zone: zb.id, danger: zb.danger };
   }
+  // one scratch per field, never handed out, only ever read inside sampleAt
+  const ZB = {};
 
   const heightAt = (x, z) => sampleAt(x, z).h;
   const biomeAt = (x, z) => sampleAt(x, z).biome;
@@ -218,5 +314,8 @@ export function createWorldField(seed = 1, opts = {}) {
     seed, heightAt, biomeAt, sampleAt, raw, homeFactor, chunkOf, siteInCell, siteAt,
     seaLevel: SEA_LEVEL, chunk: CHUNK, homeRadius, homeY, biomes: BIOMES,
     roadHalfWidth: ROAD_HALF_WIDTH,
+    // the world's own half width, so a caller with a field does not need to
+    // reach into zones.js to know where the map and the ocean end
+    worldHalf: WORLD_HALF, oceanFloor: OCEAN_FLOOR,
   });
 }

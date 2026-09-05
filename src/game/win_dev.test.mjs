@@ -764,7 +764,11 @@ console.log('win_dev: the zone hunt finds every biome the field has');
     r.zones.map((z) => `${z.biome} ${Math.round(z.d)}m`).join(', '));
   check('and they come nearest first', r.zones.every((z, i) => i === 0 || r.zones[i - 1].d <= z.d));
   // Not one lucky spot: four places a long way apart, none of them the origin.
-  const far = [[5000, -9000], [-30000, 12000], [100000, 100000], [-999, 88888]];
+  // All four stand INSIDE the world, which is bounded now (src/world/zones.js):
+  // the old four sat at 10, 32, 141 and 89 km, which is open ocean, and a hunt
+  // for eight biomes started in the middle of the sea finds nothing but water
+  // until it has walked back to the coast.
+  const far = [[3000, -3000], [-4400, 0], [1600, 2700], [5100, -4200]];
   const runs = far.map(([x, z]) => zoneSearch(field, { x, z }));
   check('and from four places thousands of metres apart, all eight every time',
     runs.every((q) => q.missing.length === 0),

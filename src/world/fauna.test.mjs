@@ -67,8 +67,12 @@ console.log('  chunks found per biome:', Object.keys(byBiome).join(', '));
   // enough, because an empty chunk is empty under every seed
   const other = createWorldField(20260905, { homeY: -0.3 });
   let same = 0, looked = 0;
+  // a 20 x 20 block of chunks round the meadow one, not 400 chunks in a line
+  // east: the world is bounded now (src/world/zones.js) and a 25 km line runs
+  // off the coast into the ring ocean, where nothing lives under any seed
   for (let i = 0; i < 400; i++) {
-    const A = spawnsFor(f, cx + i, cz), B = spawnsFor(other, cx + i, cz);
+    const dx = (i % 20) - 10, dz = ((i / 20) | 0) - 10;
+    const A = spawnsFor(f, cx + dx, cz + dz), B = spawnsFor(other, cx + dx, cz + dz);
     if (!A.length && !B.length) continue;          // empty ground agrees under any seed
     looked++;
     if (JSON.stringify(A) === JSON.stringify(B)) same++;
