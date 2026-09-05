@@ -349,8 +349,9 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
     for (const r of spawnsForChunk(field, cx, cz, { night: false, spawnPoint, chance: 1 })) dayIds.add(r.id);
     for (const r of spawnsForChunk(field, cx, cz, { night: true, spawnPoint, chance: 1 })) nightIds.add(r.id);
   }
-  check('the meadow by day is rats, boars, bandits and goblin scouts',
-    [...dayIds].sort().join(',') === 'bandit,boar,giantRat,goblinScout', [...dayIds].join(', '));
+  // M2 put the Legion on the Kingsroad, so the meadow holds more than these four by day; the four must still be there
+  check('the meadow by day still holds rats, boars, bandits and goblin scouts',
+    ['bandit', 'boar', 'giantRat', 'goblinScout'].every((id) => dayIds.has(id)), [...dayIds].join(', '));
   check('and by night it is wolves, skeletons and zombies',
     nightIds.has('wolf') && nightIds.has('skeleton') && nightIds.has('zombie') && !nightIds.has('boar'), [...nightIds].join(', '));
 
@@ -542,18 +543,33 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
 // =============================================================== the models
 {
   check('every monster above tier 0 has a silhouette', auditMonsterShapes() === true);
-  let built = 0, tallest = null;
+  let built = 0, critters = 0, tallest = null;
+  const missing = [];
   for (const m of Object.values(MONSTERS)) {
     const model = buildMonsterModel(m.id);
-    if (m.tier === 0) { if (model !== null) fail++; continue; }
-    if (!model) { check(`${m.id} builds a body`, false); continue; }
+    // F1: tier 0 used to be counted as a failure HERE, with a bare `fail++` and
+    // no line printed, so eleven animals gaining bodies read as eleven silent
+    // failures with nothing to say what they were. Now they are counted.
+    if (!model) { missing.push(m.id); continue; }
+    if (m.tier === 0) { critters++; model.dispose(); continue; }
     built++;
     if (!tallest || model.height > tallest.h) tallest = { id: m.id, h: model.height };
     if (model.radius <= 0 || model.height <= 0) check(`${m.id} has a real size`, false);
   }
-  check('every monster in the roster builds a body', built === Object.values(MONSTERS).filter((m) => m.tier > 0).length, `${built} bodies`);
+  check('every monster in the roster builds a body', missing.length === 0 && built === Object.values(MONSTERS).filter((m) => m.tier > 0).length,
+    missing.length ? `no body for ${missing.join(', ')}` : `${built} bodies`);
+  check('and every tier 0 animal builds one too, which is what makes it a thing you can click',
+    critters === Object.values(MONSTERS).filter((m) => m.tier === 0).length, `${critters} animals`);
   check('and the biggest of them is a boss', MONSTERS[tallest.id].tier >= 5, `${tallest.id} at ${tallest.h.toFixed(1)} m`);
-  check('a critter builds nothing here, because fauna.js already has one', buildMonsterModel('rabbit') === null);
+  // F1: a critter used to build NOTHING here, and that was the user's bug. A
+  // null body made `monsters.spawn` refuse to stand a rabbit up, so no animal
+  // in the world was ever an actor and none of them could be clicked. Every
+  // tier 0 row has a procedural body now, and the bodies are measured in
+  // src/game/monster_models.test.mjs.
+  const bunny = buildMonsterModel('rabbit');
+  check('a critter builds a body too, which is what makes it targetable',
+    !!bunny && !!bunny.parts.hit, bunny ? `${bunny.height.toFixed(2)} m tall` : 'null');
+  bunny?.dispose();
   check('an unknown id builds nothing rather than a grey cube', buildMonsterModel('grue') === null);
 
   const rat = buildMonsterModel('giantRat');
@@ -719,7 +735,8 @@ function seedWith(layout, id, max = 3000) {
   check('nor a frost giant, whose nova is around itself', attackModeOf(MONSTERS.frostGiant) === 'melee');
 
   const ranged = Object.values(MONSTERS).filter((m) => attackModeOf(m) !== 'melee').map((m) => m.id);
-  check('eight rows in the whole roster attack at range', ranged.length === 8, ranged.join(', '));
+  // M2's Legion archers and casters took this from eight to twenty five; the rule, not the count, is the promise
+  check('every row that attacks at range does it through a mode the table knows', ranged.length >= 8 && ranged.every((id) => ['thrown', 'shot', 'cast', 'breath'].includes(attackModeOf(MONSTERS[id]))), `${ranged.length} rows: ${ranged.join(', ')}`);
 
   const cultist = spellFor(MONSTERS.cultist);
   check('a cultist throws a fireball for its own 8 to 14',
@@ -835,7 +852,8 @@ function seedWith(layout, id, max = 3000) {
   const bat = makeMonsterActor('caveBat', { pos: { x: 0, y: 0, z: 0 } });
   check('a cave bat is a flyer, and a wolf is not', isFlyer(MONSTERS.caveBat) && !isFlyer(MONSTERS.wolf));
   const flyers = Object.values(MONSTERS).filter(isFlyer).map((m) => m.id);
-  check('four rows fly', flyers.length === 4, flyers.join(', '));
+  // eleven since M2 (hawks, gulls, storm wyverns); each says so in its row
+  check('every flyer carries the flying tag or the flying kind', flyers.length >= 4 && flyers.every((id) => (MONSTERS[id].notes || []).includes('flying') || MONSTERS[id].kind === 'flying'), `${flyers.length} rows: ${flyers.join(', ')}`);
 
   const ground = 3;
   let lo = Infinity, hi = -Infinity, moved = 0;

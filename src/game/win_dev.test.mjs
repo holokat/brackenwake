@@ -872,7 +872,7 @@ console.log('win_dev: the loot lab rolls the real join');
   // hands the rarity back on a base that cannot take one, and half a tier 5
   // table is materials. Both halves are checked.
   const bench = createBench(realCtx());
-  const r = bench.rollLoot({ tier: 5, count: 2000, seed: 99 });
+  const r = bench.rollLoot({ tier: 5, count: 8000, seed: 99 });
   const gear = r.table.gearRows;
   const common = gear.find((x) => x.rarity === 'common').count;
   const uncommon = gear.find((x) => x.rarity === 'uncommon').count;
