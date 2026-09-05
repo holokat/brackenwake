@@ -35,7 +35,7 @@ export const GOLD_COLOUR = 0xffcb4d;
 export const MAX_TRIS = 2000;
 
 /** A coin, in metres. Big enough to read from a running camera, small enough to be a coin. */
-export const COIN_R = 0.045;
+export const COIN_R = 0.06;
 export const COIN_H = 0.012;
 
 /**
@@ -45,9 +45,9 @@ export const COIN_H = 0.012;
  * count.
  */
 export const GOLD_TIERS = [
-  { id: 'small', min: 1, max: 30, seg: 12, coinsLow: 6, coins: 12, r: 0.13, h: 0.0, spill: 0 },
-  { id: 'medium', min: 31, max: 150, seg: 10, coinsLow: 40, coins: 40, r: 0.15, h: 0.055, spill: 0 },
-  { id: 'large', min: 151, max: Infinity, seg: 8, coinsLow: 58, coins: 58, r: 0.19, h: 0.135, spill: 6 },
+  { id: 'small', min: 1, max: 30, seg: 12, coinsLow: 6, coins: 12, r: 0.2, h: 0.0, spill: 0 },
+  { id: 'medium', min: 31, max: 150, seg: 10, coinsLow: 40, coins: 40, r: 0.24, h: 0.08, spill: 0 },
+  { id: 'large', min: 151, max: Infinity, seg: 8, coinsLow: 58, coins: 58, r: 0.3, h: 0.19, spill: 6 },
 ];
 export const TIER = Object.fromEntries(GOLD_TIERS.map((t) => [t.id, t]));
 

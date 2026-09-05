@@ -84,11 +84,15 @@ const STOPS = [
     hemi: { sky: [0.55, 0.45, 0.52], ground: [0.34, 0.24, 0.18], i: 0.48 },
     ambient: { c: [0.72, 0.52, 0.42], i: 0.10 },
     fill: { c: [0.42, 0.46, 0.70], i: 0.20 } },
+  // The shade at noon is a stop and a half under the sun, not three: seen from
+  // the north with the sun in the south the whole character went to black
+  // against grass that is lit from above everywhere. A dark leather cloak has
+  // to read as brown from its shaded side.
   { d: 1, exposure: 1.0,
-    sun: { c: [1.00, 0.95, 0.86], i: 3.2 },
-    hemi: { sky: [0.55, 0.74, 1.00], ground: [0.42, 0.35, 0.26], i: 0.85 },
-    ambient: { c: [1.00, 0.93, 0.84], i: 0.16 },
-    fill: { c: [0.56, 0.68, 1.00], i: 0.34 } },
+    sun: { c: [1.00, 0.95, 0.86], i: 3.0 },
+    hemi: { sky: [0.60, 0.76, 1.00], ground: [0.46, 0.39, 0.30], i: 1.35 },
+    ambient: { c: [1.00, 0.93, 0.84], i: 0.30 },
+    fill: { c: [0.62, 0.72, 1.00], i: 0.50 } },
 ];
 
 const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];

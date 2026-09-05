@@ -473,6 +473,9 @@ export function lookOf(items = [], gold = 0) {
 let currentDropsInstance = null;
 export const currentDrops = () => currentDropsInstance;
 
+/** How tall the shaft of light over a drop is, in metres. Above the grass, below the eye. */
+export const BEAM_HEIGHT = 1.6;
+
 export function createLootDrops(sc, { floaters, hud, audio } = {}) {
   const scene = sc && sc.scene ? sc.scene : sc;
   const group = new THREE.Group();
@@ -491,6 +494,22 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
   const sackGeo = new THREE.BoxGeometry(0.32, 0.28, 0.32);
   const tieGeo = new THREE.BoxGeometry(0.14, 0.12, 0.14);
   const ringGeo = new THREE.TorusGeometry(0.3, 0.02, 4, 12);
+  // The beacon: a shaft of light over every drop, so gold in knee-high grass
+  // and a sack behind a boulder are still findable from ten metres. Additive,
+  // fading to nothing at the top, coloured like the best thing in the bag.
+  const beamGeo = new THREE.CylinderGeometry(0.05, 0.16, BEAM_HEIGHT, 10, 1, true);
+  beamGeo.translate(0, BEAM_HEIGHT / 2, 0);
+  function beamMaterial(hex) {
+    return new THREE.ShaderMaterial({
+      uniforms: { uColour: { value: hex.clone() }, uFade: { value: 1 } },
+      vertexShader: 'varying float vT; void main(){ vT = uv.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 uColour; uniform float uFade; varying float vT;\n'
+        + 'void main(){ float a = (1.0 - vT) * (1.0 - vT) * 0.7 * uFade; gl_FragColor = vec4(uColour * 1.25, a); }',
+      // normal blending, not additive: an additive gold over green grass came
+      // out lemon. Over the grass this reads as the colour it was given.
+      transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+    });
+  }
 
   /**
    * The body of a bag. `shape` decides whether that is a sack, a sack with a
@@ -504,6 +523,10 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
     const shape = shapeOf(items, gold);
     const mats = [];
     let ring = null, sack = null, pile = null;
+    const beam = new THREE.Mesh(beamGeo, beamMaterial(hex));
+    beam.name = 'loot-beam';
+    beam.renderOrder = 5;
+    g.add(beam);
 
     if (shape.startsWith('pile:')) {
       pile = buildGoldPile(gold, { seed });
@@ -545,7 +568,7 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
     );
     hit.position.y = sack ? 0.45 : 0.3;
     g.add(hit);
-    return { g, ring, sack, pile, hit, mats, shape, look: lookOf(items, gold) };
+    return { g, ring, sack, pile, hit, beam, mats, shape, look: lookOf(items, gold) };
   }
 
   /**
@@ -566,7 +589,7 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
     group.add(built.g);
     const bag = {
       id: nextId++, items: list, gold: coin, seed,
-      pos: built.g.position, age: 0, node: built.g, ring: built.ring, mats: built.mats,
+      pos: built.g.position, age: 0, node: built.g, ring: built.ring, beam: built.beam, mats: built.mats,
       shape: built.shape, look: built.look, spin: Math.random() * Math.PI * 2,
     };
     built.g.userData.bag = bag;
@@ -576,7 +599,10 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
   }
 
   function tearDown(node, mats) {
-    node.traverse((o) => { if (o.geometry && o.geometry !== sackGeo && o.geometry !== tieGeo && o.geometry !== ringGeo) o.geometry.dispose(); });
+    node.traverse((o) => {
+      if (o.geometry && o.geometry !== sackGeo && o.geometry !== tieGeo && o.geometry !== ringGeo && o.geometry !== beamGeo) o.geometry.dispose();
+      if (o.name === 'loot-beam') o.material.dispose();
+    });
     for (const m of mats) m.dispose();
   }
 
@@ -603,7 +629,7 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
     group.add(built.g);
     group.remove(old.node);
     tearDown(old.node, old.mats);
-    bag.node = built.g; bag.ring = built.ring; bag.mats = built.mats;
+    bag.node = built.g; bag.ring = built.ring; bag.beam = built.beam; bag.mats = built.mats;
     bag.shape = built.shape; bag.look = built.look;
     bag.pos = built.g.position;
     built.g.userData.bag = bag;
@@ -681,6 +707,7 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
       // sack is still standing there.
       reshape(bag);
       const colour = new THREE.Color(bagColour(left, bag.gold));
+      if (bag.beam) bag.beam.material.uniforms.uColour.value.copy(colour);
       if (bag.ring) {
         for (const m of bag.mats) {
           if (m.isMeshStandardMaterial && m.emissive && !m.vertexColors) m.emissive.copy(colour);
@@ -715,6 +742,12 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
       }
       // the last ten seconds it fades, so a bag about to go says so
       const fade = b.age > BAG_SECONDS - 10 ? 1 - (b.age - (BAG_SECONDS - 10)) / 10 : 1;
+      if (b.beam) {
+        // it breathes, and for the first half second it grows out of the ground
+        const grow = Math.min(1, b.age * 2);
+        b.beam.scale.set(1, grow, 1);
+        b.beam.material.uniforms.uFade.value = fade * (0.8 + 0.2 * Math.sin(b.age * 2.2));
+      }
       for (const m of b.mats) {
         if (m.vertexColors) m.opacity = fade;          // the gold, which is opaque until it goes
         else if (m.transparent) m.opacity = 0.75 * fade;
