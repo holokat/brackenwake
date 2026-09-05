@@ -169,18 +169,46 @@ check('the world has roads to test', roads.length >= 10, `${roads.length} roads 
   check('points to the side that are on another road were counted apart', shared > 0, `${shared} of ${n * 2}, where two roads meet at a town`);
   check('road is exactly the falloff of the distance to the nearest road', invariant === invariantN, `${invariant}/${invariantN} points`);
   // Road falls off smoothly rather than in a step. Measured on EVERY road, not
-  // on roads[0]: three of the twelve pass within a verge's width of another
-  // road, and a hair of that road's strength at 3 m used to fail this outright
+  // on roads[0]: several of them pass within a verge's width of another road,
+  // and a hair of that road's strength at 3 m used to fail this outright
   // depending on which road the survey happened to put first.
-  let ramps = 0, bad = [];
+  //
+  // `road` is the strength of the NEAREST road, so a ramp is only a reading of
+  // this road where this road is the nearest one at every step of it. The
+  // ramp is taken at the first place along the road, on either side, where
+  // that is true and where the sideways step is not swallowed by a bend; a
+  // road with no such place anywhere is counted apart rather than failed,
+  // because there is nothing there to measure.
+  const STEPS = [0, 1, 2, 2.5, 3];
+  let ramps = 0, alongside = 0, bad = [];
   for (const r of roads) {
-    const p = alongRoad(r, 0.5);
-    const ramp = [0, 1, 2, 2.5, 3].map((d) => f.sampleAt(p.x + p.nx * d, p.z + p.nz * d).road);
+    let ramp = null;
+    for (const t of [0.5, 0.35, 0.65, 0.2, 0.8, 0.45, 0.55, 0.28, 0.72, 0.4, 0.6]) {
+      for (const side of [1, -1]) {
+        const p = alongRoad(r, t);
+        const at = (d) => [p.x + p.nx * d * side, p.z + p.nz * d * side];
+        // this road has to be the nearest one at every step, AND the step has
+        // to be the distance it says it is: stepping sideways off one segment
+        // lands inside the bend to the next, where the road is nearer than the
+        // step was long and the strength at 3 m is a reading of 2.85 m
+        if (!STEPS.every((d) => {
+          const q = roadDistanceAt(f, ...at(d));
+          return q && q.road === r && Math.abs(q.d - d) < 0.03;
+        })) continue;
+        if (f.homeFactor(...at(0)) < 1) continue;                 // the farm disc fades it out
+        ramp = STEPS.map((d) => f.sampleAt(...at(d)).road);
+        break;
+      }
+      if (ramp) break;
+    }
+    if (!ramp) { alongside++; continue; }
     let falls = ramp[0] === 1 && ramp[4] < 0.01;
     for (let i = 1; i < ramp.length; i++) if (ramp[i] > ramp[i - 1]) falls = false;
     if (falls) ramps++; else bad.push(`${r.id} ${ramp.map((v) => v.toFixed(3)).join(' ')}`);
   }
-  check('road falls off from centreline to verge, on every road', ramps === roads.length, bad.join(' | ') || `${ramps}/${roads.length}`);
+  check('road falls off from centreline to verge, on every road that has a verge of its own',
+    bad.length === 0 && ramps > roads.length * 0.7,
+    bad.join(' | ') || `${ramps}/${roads.length} measured, ${alongside} run within a verge's width of another road everywhere they were tried`);
 }
 
 // ---- 5. the nine cells a point looks at are enough ------------------------

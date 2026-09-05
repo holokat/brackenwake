@@ -299,6 +299,79 @@ export function roadsForCell(field, cx, cz) {
 }
 
 /**
+ * The roads that meet at a settlement, in id order.
+ *
+ * A road is owned by the cell of its smaller end, and both its ends stand in
+ * touching cells, so every road that touches this site is owned by this site's
+ * own cell or by one of the eight around it. That is the whole search.
+ *
+ * `wayside.js` asks this to know a junction from a road's end: a settlement
+ * with two roads is a fork and gets the sign with two fingers on it, and the
+ * settlement that owns a piece of furniture is the one whose smallest road id
+ * claims it, so a fork's signpost is built once and not once per road.
+ */
+export function roadsAtSite(field, site) {
+  if (!isSettlement(site)) return [];
+  const out = [];
+  for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+    for (const r of roadsForCell(field, site.cx + dx, site.cz + dz)) {
+      if (r.a.id === site.id || r.b.id === site.id) out.push(r);
+    }
+  }
+  out.sort((m, o) => (m.id < o.id ? -1 : m.id > o.id ? 1 : 0));
+  return out;
+}
+
+/**
+ * Every road whose reach overlaps the rectangle (x0, z0) to (x1, z1), in id
+ * order, each one once.
+ *
+ * `roadsNearCell` answers the same question for a whole site cell and is what
+ * `roadDistanceAt` uses; a chunk is 64 m and may straddle a cell border, so a
+ * caller streaming chunks needs the rectangle and not the cell. The scan is the
+ * cells the rectangle touches and the ring around them, which is exact because
+ * a road never bends outside its owner cell and the eight around it
+ * (`roads.test.mjs` measures that).
+ */
+export function roadsOverlapping(field, x0, z0, x1, z1) {
+  const c0 = Math.floor(x0 / SITE_CELL) - 1, c1 = Math.floor(x1 / SITE_CELL) + 1;
+  const d0 = Math.floor(z0 / SITE_CELL) - 1, d1 = Math.floor(z1 / SITE_CELL) + 1;
+  const seen = new Set(), out = [];
+  for (let cz = d0; cz <= d1; cz++) for (let cx = c0; cx <= c1; cx++) {
+    for (const r of roadsForCell(field, cx, cz)) {
+      if (r.maxX < x0 || r.minX > x1 || r.maxZ < z0 || r.minZ > z1) continue;
+      if (seen.has(r.id)) continue;
+      seen.add(r.id); out.push(r);
+    }
+  }
+  out.sort((m, o) => (m.id < o.id ? -1 : m.id > o.id ? 1 : 0));
+  return out;
+}
+
+/**
+ * The world point and the unit normal at arc-length fraction t along a road.
+ *
+ * Everything that stands beside a road is placed from this: a lamp post is the
+ * point plus the normal times the verge, and the two verges are the two signs
+ * of that one number. It is here rather than in wayside.js because the segment
+ * list is this file's own shape and nothing outside it should have to walk one.
+ */
+export function roadPointAt(road, t) {
+  const want = (t < 0 ? 0 : t > 1 ? 1 : t) * road.total;
+  const segs = road.segs;
+  let s = segs[segs.length - 1], u = 1;
+  for (let i = 0; i < segs.length; i++) {
+    const q = segs[i];
+    if (want <= q.cum + q.len || i === segs.length - 1) {
+      s = q; u = want <= q.cum ? 0 : Math.min(1, (want - q.cum) / q.len);
+      break;
+    }
+  }
+  const dx = s.dx / s.len, dz = s.dz / s.len;
+  return { x: s.x0 + s.dx * u, z: s.z0 + s.dz * u, dx, dz, nx: -dz, nz: dx };
+}
+
+/**
  * Every road that reaches into cell (cx, cz). A road runs between settlements
  * in touching cells and never swings more than BEND_MAX aside, so it can only
  * be owned by this cell or one of the eight around it.

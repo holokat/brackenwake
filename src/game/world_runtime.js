@@ -27,6 +27,8 @@ import { createDiscovery } from '../world/sites.js';
 import { createSiteMarkers } from '../world/site_models.js';
 import { createFlora } from '../world/flora.js';
 import { createDressing } from '../world/dressing_models.js';
+import { createWayside } from '../world/wayside_models.js';
+import { deckAt } from '../world/wayside.js';
 import { createFauna } from '../world/fauna.js';
 import { generateDungeon, clampToWalkable, maxLevel, floorAt, gridOf, walkable, roomAt } from '../world/dungeon_gen.js';
 import { createDungeonScene } from '../world/dungeon.js';
@@ -75,14 +77,17 @@ export function createWorldRuntime(sc, opts = {}) {
   // The realm's own things on the ground (Z3): rib cages, pillars, hedgerows,
   // wrecks. Streams with the chunks exactly as flora does.
   const dressing = createDressing(scene, field, { sitesNear: discovery.sitesNear });
+  // The roads' own furniture (A2): lamps lit at dusk, signs at the forks,
+  // bridges over the rivers, gates at the realm lines.
+  const wayside = createWayside(scene, field);
   // fauna draws nothing any more. It says where the world's animals belong and
   // the monster layer stands them up, which is what makes a squirrel a thing
   // you can click. See src/world/fauna.js and docs/mmo/wiring/F1.md.
   const fauna = createFauna(field, { sitesNear: discovery.sitesNear });
   const world = createWorldStream(scene, field, {
     palette: buildPalette(THEMES), waterMap: waterTexture(),
-    onBuilt: (cx, cz, verts) => { flora.onChunk(cx, cz, verts); dressing.onChunk(cx, cz, verts); },
-    onDisposed: (cx, cz) => { flora.offChunk(cx, cz); dressing.offChunk(cx, cz); },
+    onBuilt: (cx, cz, verts) => { flora.onChunk(cx, cz, verts); dressing.onChunk(cx, cz, verts); wayside.onChunk(cx, cz, verts); },
+    onDisposed: (cx, cz) => { flora.offChunk(cx, cz); dressing.offChunk(cx, cz); wayside.offChunk(cx, cz); },
   });
   // `effects` is the shared particle pool (a burning wreck puffs smoke into it,
   // A3) and `field` lets a town face its gates at the roads (T1); both optional.
@@ -111,6 +116,7 @@ export function createWorldRuntime(sc, opts = {}) {
     if (world.group) out.add(world.group);
     if (flora.group) out.add(flora.group);
     if (dressing.group) out.add(dressing.group);   // without it a rib cage stays lit underground
+    if (wayside.group) out.add(wayside.group);     // or the lamps burn underground
     return [...out];
   }
 
@@ -121,6 +127,7 @@ export function createWorldRuntime(sc, opts = {}) {
     dressing.update(nowMs);
     // the mines' headframe wheel turns and their lanterns light at dusk (M1)
     siteMarkers.update(x, z, world.viewRadius, dt, 1 - dayFactor);
+    wayside.update(dt, 1 - dayFactor);
     const found = discovery.check(x, z, nowMs);
     if (found && discoverFn) { try { discoverFn(found); } catch (err) { console.warn('onDiscover threw', err); } }
     // a named region, entered for the first time: once per zone, ever
@@ -380,9 +387,15 @@ export function createWorldRuntime(sc, opts = {}) {
   // ------------------------------------------------------------- surfaces --
 
   return {
-    field, world, flora, dressing, fauna, discovery, siteMarkers,
+    field, world, flora, dressing, wayside, fauna, discovery, siteMarkers,
 
-    heightAt(x, z) { return dungeon ? dungeonFloor(x, z) : terrainY(x, z); },
+    heightAt(x, z) {
+      if (dungeon) return dungeonFloor(x, z);
+      // a bridge deck is the ground where there is one (A2), or the player
+      // swims under his own bridge
+      const deck = deckAt(field, x, z);
+      return deck === null ? terrainY(x, z) : deck;
+    },
 
     update(dt, nowMs, x, z, dayFactor = 1) {
       if (dungeon) updateDungeon(dt, nowMs, x, z);
@@ -456,7 +469,7 @@ export function createWorldRuntime(sc, opts = {}) {
 
     dispose() {
       if (dungeon) { try { dungeon.scene?.dispose(); } catch { /* already gone */ } dungeon = null; surface = null; }
-      siteMarkers.dispose(); flora.dispose(); dressing.dispose(); fauna.dispose(); world.dispose();
+      siteMarkers.dispose(); flora.dispose(); dressing.dispose(); wayside.dispose(); fauna.dispose(); world.dispose();
       clearTreeFields();
     },
   };
