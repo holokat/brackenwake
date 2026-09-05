@@ -21,26 +21,72 @@ concept image instead of scattering a kit.
 5. The user sculpts the zone's terrain and models the assets from the
    images and the lists.
 
-## STYLE, put in front of every prompt
+## How to run a prompt so the images agree with each other
+
+The first run taught this: a place prompt that carries the whole realm's
+description and a "whole location in frame" camera comes back as the whole
+realm every time, with the place in a corner, and every image places the mill
+and the chapel somewhere new. So:
+
+1. **Positions come from the game, never from a painting.** The painted map
+   in `docs/maps/greenwold.svg` (drawn from the same data the game walks on)
+   is where every place stands. A concept image says what a place looks like
+   and how it is laid out inside itself; it does not say where it is in the
+   realm. Do not try to make the paintings agree on positions; they cannot.
+2. **One wide shot per realm, made once, kept as the master.** Run the WIDE
+   prefix with the realm prefix and the realm's wide shot text. Pick the one
+   you like and keep it; every later image of that realm is made with it
+   attached as the reference image (image to image, style reference,
+   whatever your tool calls it) so light, palette and materials match.
+3. **A place is a close view of that place alone.** Run the PLACE prefix, then
+   ONE short realm tag (not the realm paragraph), then the place text. The
+   place fills the frame. Nothing else from the realm is named, so nothing
+   else is painted.
+4. **File** the wide shot as `docs/concepts/<realm>/_realm.png` and each place
+   as `docs/concepts/<realm>/<place-id>.png`. Fable reads each place image and
+   writes the model list and the authored plan (`src/mmo/plans/<place-id>.json`),
+   placed at the map's position, laid out inside as the image shows.
+
+### WIDE prefix (the realm's wide shot only)
 
 > Concept art for a stylised fantasy MMO in the manner of classic World of
 > Warcraft zones: hand-painted textures, exaggerated silhouettes, saturated
-> but earthy palette, painterly light, no photorealism. High three-quarter
-> view from about 40 metres up, looking down at 35 degrees, so the layout
-> of the location can be read; the whole location in frame; a ring of
-> mountains or hills or sea closing the horizon; the realm's own sky and
-> weather. No text, no user interface, no people larger than a tenth of the
-> frame. 16:9.
+> but earthy palette, painterly light, no photorealism. A very high view
+> from a kilometre up, the whole zone in frame as a bowl of land ringed by
+> hills or mountains or sea, its places visible as small clusters, its roads
+> as threads. No text, no user interface. 16:9.
 
-For the wide shots, replace the camera sentence with: "Very high view from
-a kilometre up, the whole zone in frame as a bowl of land ringed by
-mountains, its places visible as clusters, its roads as threads."
+### PLACE prefix (every place)
+
+> Concept art for a stylised fantasy MMO in the manner of classic World of
+> Warcraft zones: hand-painted textures, exaggerated silhouettes, saturated
+> but earthy palette, painterly light, no photorealism. A close three-quarter
+> view of ONE location from about 60 metres away and 25 degrees above, the
+> location filling the frame edge to edge, its own layout readable: buildings,
+> paths, walls, water. The surrounding country appears only as a strip at the
+> top edge. Nothing beyond this location is shown. No text, no user interface.
+> 16:9.
+
+### Realm tags for place prompts (one line, in place of the realm paragraph)
+
+- Greenwold: "In the Greenwold, summer farmland of wheat, hedgerows, thatch and flint, warm light."
+- Verdant Deep: "In Verdant Deep, a jungle of flowering giants, sakura canopy, wet dark stone, green-gold light."
+- Saltmarch: "In the Saltmarch, grey-green fen and sedge, damp pale light." Or for the isles: "In the Thousand Isles, white sand, palms, coral, turquoise sea, hard bright light."
+- Ember Wastes: "In the Ember Wastes, red rock and white sand under a huge sun, heat haze, brass and black for the Legion."
+- Stormpeaks: "In the Stormpeaks, heather moor and granite under a bruised storm sky, stone and turf, thin blue air."
+- Boneyard: "In the Boneyard, a grey ash plain under a dust sky, bone white and ash grey, lantern light the only warmth."
+- Frostreach: "In Frostreach, deep snow, black pine and blue glacier ice, aurora at night."
+- Sunken Kingdom: "In the Sunken Kingdom, a drowned marble city under clear warm water lit green-gold from the sea floor."
+- Ashen Throne: "On the Ashen Throne, black volcanic glass, red lava, sulphur light, black stone and brass for the Legion."
+
+The realm paragraphs below stay for the WIDE shot. The place texts below are
+unchanged; run each as PLACE prefix + realm tag + place text.
 
 ---
 
 ## 1. The Greenwold (danger 1). Home.
 
-**REALM prefix**
+**REALM paragraph (wide shot only)**
 
 > The Greenwold: gentle farmland at the heart of the world, on the western
 > shore of an inland sea. Wheat fields edged with hedgerows and dry stone
@@ -136,7 +182,7 @@ mountains, its places visible as clusters, its roads as threads."
 
 ## 2. Verdant Deep (danger 1 to 2). Blossom over a swallowed river.
 
-**REALM prefix**
+**REALM paragraph (wide shot only)**
 
 > Verdant Deep: a jungle of flowering giants on the southern shore. Sakura
 > canopy in pink and white over old-forest trunks a hundred feet high, a
@@ -220,7 +266,7 @@ mountains, its places visible as clusters, its roads as threads."
 
 ## 3. The Saltmarch and the Thousand Isles (danger 2). Reeds, then a thousand islands.
 
-**REALM prefix**
+**REALM paragraph (wide shot only)**
 
 > The Saltmarch: two lands in one. Inland, a fen of knee-deep water and
 > sedge to the shoulder, eel weirs, stilt houses, will-o'-wisps at dusk,
@@ -306,7 +352,7 @@ mountains, its places visible as clusters, its roads as threads."
 
 ## 4. Ember Wastes (danger 3). Red rock, white sand, a road of glass.
 
-**REALM prefix**
+**REALM paragraph (wide shot only)**
 
 > The Ember Wastes: desert on the north eastern shore. Red rock mesas with
 > cliff sides, white dunes, blinding salt pans, a sun too big in a pale
@@ -395,7 +441,7 @@ mountains, its places visible as clusters, its roads as threads."
 
 ## 5. The Stormpeaks (danger 3 to 4). Moor into storm-struck mountains.
 
-**REALM prefix**
+**REALM paragraph (wide shot only)**
 
 > The Stormpeaks: highlands on the north shore. Heather moor in purple and
 > brown climbing into granite peaks, black lochs, scree, cairns, weather
@@ -477,7 +523,7 @@ mountains, its places visible as clusters, its roads as threads."
 
 ## 6. The Boneyard (danger 3 to 4). Where nine dragons fell.
 
-**REALM prefix**
+**REALM paragraph (wide shot only)**
 
 > The Boneyard: an ash plain on the western shore where nothing grows.
 > Grey dust to the horizon, wind lifting ash into storms, and out of it the
@@ -551,7 +597,7 @@ mountains, its places visible as clusters, its roads as threads."
 
 ## 7. Frostreach (danger 4). Snow to the waterline.
 
-**REALM prefix**
+**REALM paragraph (wide shot only)**
 
 > Frostreach: the north western rim. Glaciers running to a frozen sea,
 > black pine under white, frozen fjords, ice cliffs lit blue from within,
@@ -632,7 +678,7 @@ mountains, its places visible as clusters, its roads as threads."
 
 ## 8. The Sunken Kingdom (danger 4 to 5). A city under clear water.
 
-**REALM prefix**
+**REALM paragraph (wide shot only)**
 
 > The Sunken Kingdom: the inland sea itself, flat, clear and warm, and
 > under it a drowned city of white marble, towers, avenues, a coliseum, a
@@ -707,7 +753,7 @@ mountains, its places visible as clusters, its roads as threads."
 
 ## 9. The Ashen Throne (danger 5). The volcano and the fortress.
 
-**REALM prefix**
+**REALM paragraph (wide shot only)**
 
 > The Ashen Throne: the eastern rim is one volcano. Black glass slopes,
 > rivers of red lava, cinder fields, sulphur light, steam where lava meets
