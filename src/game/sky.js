@@ -27,7 +27,7 @@
 
 import * as THREE from 'three';
 import { DAY_CYCLE_MS, phaseAt } from './dayclock.js';
-import { REALM_ZONES, weightOf } from '../world/zones.js';
+import { REALM_ZONES, weightOf, realmAt } from '../world/zones.js';
 
 /**
  * One full day. This has to equal scene.js's DAY_CYCLE_MS or the sun will
@@ -302,18 +302,46 @@ const DEFAULT_MIX = [[DEFAULT_REALM, 1]];
  *
  * `out` is an optional array to fill, so the frame loop allocates nothing.
  */
+/** Metres either side of a realm line over which the two skies blend. */
+export const REALM_BLEND_M = 240;
+
+/**
+ * Which realms colour the sky here, and how much each. The realm discs overlap
+ * on purpose (a subzone can sit in two), so the raw weights of every realm a
+ * point is inside gave a 50/50 sky in the middle of the Greenwold. The sky
+ * follows the ground: the realm `zones.realmAt` gives the point owns the sky,
+ * and the only blend is within REALM_BLEND_M of the line where realmAt changes
+ * its answer, found by probing toward the nearest other realm and bisecting.
+ * Six zoneAt calls a frame at most. Fable, 2026-09-06, after Hearthhome's sky
+ * read as half Verdant Deep.
+ */
 export function realmMixAt(x, z, out = []) {
   out.length = 0;
-  let sum = 0;
-  for (let i = 0; i < REALM_ZONES.length; i++) {
-    const zn = REALM_ZONES[i];
-    const w = weightOf(zn, x, z);
-    if (w > 0) { out.push([zn.id, w]); sum += w; }
+  const win = realmAt(x, z);
+  if (!win) { out.push([DEFAULT_REALM, 1]); return out; }
+  // the neighbour to probe toward: the other realm this point is nearest to, by its reach
+  let other = null, best = Infinity;
+  for (const zn of REALM_ZONES) {
+    if (zn.id === win.id) continue;
+    const u = Math.hypot(x - zn.x, z - zn.z) / (zn.r + (zn.edge || 0));
+    if (u < best) { best = u; other = zn; }
   }
-  const rest = 1 - sum;
-  if (rest > 0) { out.push([DEFAULT_REALM, rest]); sum = 1; }
-  if (sum !== 1) for (let i = 0; i < out.length; i++) out[i][1] /= sum;
-  if (!out.length) out.push([DEFAULT_REALM, 1]);
+  if (!other) { out.push([win.id, 1]); return out; }
+  const len = Math.hypot(other.x - x, other.z - z) || 1;
+  const dx = (other.x - x) / len, dz = (other.z - z) / len;
+  const far = realmAt(x + dx * REALM_BLEND_M, z + dz * REALM_BLEND_M);
+  if (!far || far.id === win.id) { out.push([win.id, 1]); return out; }
+  // the line is inside the blend reach: find how far off it is
+  let lo = 0, hi = REALM_BLEND_M;
+  for (let i = 0; i < 5; i++) {
+    const m = (lo + hi) / 2;
+    const r = realmAt(x + dx * m, z + dz * m);
+    if (r && r.id === win.id) lo = m; else hi = m;
+  }
+  const dist = (lo + hi) / 2;                         // metres to the line
+  const t = 0.5 * (1 - dist / REALM_BLEND_M);         // half at the line, nothing at the reach
+  out.push([win.id, 1 - t]);
+  out.push([far.id, t]);
   return out;
 }
 

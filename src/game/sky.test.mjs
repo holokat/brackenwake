@@ -25,6 +25,7 @@ import {
   REALM_SKY, SKY_FIELDS, DEFAULT_REALM, auditSky, skyLighting, realmMixAt,
 } from './sky.js';
 import { REALM_ZONES, ZONE as ZONE_BY_ID } from '../world/zones.js';
+import { weightOf, realmAt } from '../world/zones.js';
 
 const warn = console.warn; console.warn = () => {};
 const { dayFactorAt, DAY_CYCLE_MS } = await import('./scene.js');
@@ -387,14 +388,20 @@ ck('every sky carries every key', auditSky() === Object.keys(REALM_SKY).length,
   ck('and the sky there is that realm\'s own, to the bit',
     JSON.stringify(skyColours(1, { mix: atCentre })) === JSON.stringify(skyColours(1, { realm: 'boneyard' })));
 
-  // The Greenwold and Verdant Deep overlap; halfway between their centres both
-  // weigh one, so the sky is half of each.
+  // The Greenwold and Verdant Deep overlap, and the sky follows the ground:
+  // inside the Greenwold's radius the sky is the Greenwold's alone (Hearthhome
+  // is 1747 m from the origin and used to read half Verdant). The blend lives
+  // in the edge band: the point on the line to Verdant where the Greenwold's
+  // weight is one half gets half of each.
   const g = ZONE_BY_ID.greenwold, v = ZONE_BY_ID.verdant;
-  const mx = (g.x + v.x) / 2, mz = (g.z + v.z) / 2;
+  ck('inside a realm the sky is that realm alone, whatever else overlaps', JSON.stringify(realmMixAt(749, 1579)) === JSON.stringify([['greenwold', 1]]), JSON.stringify(realmMixAt(749, 1579)));
+  // the line where realmAt changes its answer between the two centres, by bisection
+  let lo = 0, hi = 1;
+  const at = (t) => realmAt(g.x + (v.x - g.x) * t, g.z + (v.z - g.z) * t);
+  for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (at(m) && at(m).id === 'greenwold') lo = m; else hi = m; }
+  const mx = g.x + (v.x - g.x) * lo, mz = g.z + (v.z - g.z) * lo;
   const mid = realmMixAt(mx, mz);
-  ck('halfway between two realms the mix is half of each',
-    mid.length === 2 && Math.abs(mid[0][1] - 0.5) < 1e-9 && Math.abs(mid[1][1] - 0.5) < 1e-9,
-    JSON.stringify(mid));
+  ck('halfway between two realms the mix is half of each', mid.length === 2 && Math.abs(mid[0][1] - 0.5) < 0.05 && Math.abs(mid[1][1] - 0.5) < 0.05, JSON.stringify(mid));
   const A = skyColours(1, { realm: mid[0][0] }), B = skyColours(1, { realm: mid[1][0] }), M = skyColours(1, { mix: mid });
   let between = true, worst = '';
   for (const k of ['zenith', 'horizon', 'sun', 'fog']) for (const ch of ['r', 'g', 'b']) {
@@ -414,7 +421,9 @@ ck('every sky carries every key', auditSky() === Object.keys(REALM_SKY).length,
   }
   let biggest = 0;
   for (let i = 1; i < steps.length; i++) biggest = Math.max(biggest, Math.abs(steps[i] - steps[i - 1]));
-  ck('crossing the border is a fade and not a cut', biggest < 0.09,
+  // the fade is REALM_BLEND_M (240 m) either side of the line, and a tenth of the
+  // way between two centres is about 350 m, so one step can cross most of it
+  ck('crossing the border is a fade and not a cut', biggest < 0.12,
     `biggest step over a tenth of the way: ${biggest.toFixed(4)}`);
 
   // wild ground between realms falls back toward the default sky
