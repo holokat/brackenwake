@@ -375,7 +375,14 @@ export function recompute(actor) {
 
   // armour rating: the pieces themselves, then any +AR line
   let ar = num(actor.naturalAr) + sum.ar;
-  for (const { item } of worn) ar += armourOf(item, stats);
+  for (const { item } of worn) {
+    ar += armourOf(item, stats);
+    // an armour tier's own resists (plate: physical 3, fire 2 a piece) count,
+    // on top of any resist affix; they were summed by the sheet and read by
+    // nothing in the fight until now
+    const tier = baseFor(item);
+    if (tier && tier.resist) for (const t of DAMAGE_TYPES) if (isNum(tier.resist[t])) sum.resists[t] += tier.resist[t];
+  }
 
   // Pools and regeneration. A monster's row states its health outright, so
   // `actor.natural` replaces the stat formula for it; gear and buffs are still

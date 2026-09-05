@@ -15,19 +15,19 @@ globalThis.navigator ||= { userAgent: 'node' };
 
 const THREE = await import('three');
 const warn = console.warn; console.warn = () => {};
-const { dayFactorAt, DAY_CYCLE_MS, PALETTE, WORLD_FOG, lightingAt, litness, sunWarmth, DAWN, SHADOW_BOX, SHADOW_MAP, applyLighting } = await import('./scene.js');
+const { dayFactorAt, DAY_CYCLE_MS, NIGHT_FRACTION, PALETTE, WORLD_FOG, lightingAt, litness, sunWarmth, DAWN, SHADOW_BOX, SHADOW_MAP, applyLighting } = await import('./scene.js');
 console.warn = warn;
 
 let bad = 0, pass = 0;
 const ck = (n, ok, d = '') => { (ok ? pass++ : bad++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 
 // ---- the cycle is what the docs say it is ----
-ck('one day is 6 minutes', DAY_CYCLE_MS === 360000, `${DAY_CYCLE_MS} ms`);
+ck('one day is 25 minutes, 20 of them light', DAY_CYCLE_MS === 1500000 && NIGHT_FRACTION === 0.2, `${DAY_CYCLE_MS} ms, night ${NIGHT_FRACTION}`);
 ck('the sky is the meadow row of THEMES', PALETTE && PALETTE.id === 'meadow');
 ck('fog in the open closes at 536 m, inside the 576 m ring', WORLD_FOG.near === 90 && WORLD_FOG.far === 536);
 
 // ---- sample one whole cycle at one second steps ----
-const N = 360;
+const N = DAY_CYCLE_MS / 1000;   // one whole cycle at one second steps
 const xs = [];
 for (let i = 0; i < N; i++) xs.push(dayFactorAt(i * 1000));
 
@@ -43,11 +43,18 @@ const dusk = xs.filter((v) => v > 0 && v < 1).length;
 // each end. d hits 1 once raw >= 6/7, which is |theta| <= acos(5/7) = 0.7752
 // rad, so each plateau is 2 * 0.7752 / 2pi = 24.68% of the cycle: 88.9 of the
 // 360 one-second samples.
-const WANT = Math.round(2 * Math.acos(5 / 7) / (2 * Math.PI) * N);
-ck(`day plateau is ${dayPlateau} of ${N} seconds`, Math.abs(dayPlateau - WANT) <= 1, `want ${WANT}, ${(dayPlateau / N * 100).toFixed(1)}%`);
-ck(`night plateau is ${nightPlateau} of ${N} seconds`, Math.abs(nightPlateau - WANT) <= 1, `want ${WANT}, ${(nightPlateau / N * 100).toFixed(1)}%`);
+// The sun's angle is warped so 80% of the cycle is above the horizon
+// (dayclock.js): the day plateau covers acos(5/7)/2pi of the first quarter turn
+// stretched over (1 - NIGHT_FRACTION)/2 of the cycle each side, and the night
+// plateau the matching slice of the second quarter squeezed into NIGHT_FRACTION/2.
+const A = Math.acos(5 / 7) / (2 * Math.PI);
+const WANT_DAY = Math.round(2 * (A / 0.25) * ((1 - NIGHT_FRACTION) / 2) * N);
+const WANT_NIGHT = Math.round(2 * ((0.5 - A - 0.25) / 0.25) * (NIGHT_FRACTION / 2) * N);
+ck(`day plateau is ${dayPlateau} of ${N} seconds`, Math.abs(dayPlateau - WANT_DAY) <= 2, `want ${WANT_DAY}, ${(dayPlateau / N * 100).toFixed(1)}%`);
+ck(`night plateau is ${nightPlateau} of ${N} seconds`, Math.abs(nightPlateau - WANT_NIGHT) <= 4, `want ${WANT_NIGHT}, ${(nightPlateau / N * 100).toFixed(1)}%`);
+ck('the light lasts four times as long as the dark', dayPlateau > nightPlateau * 3.5, `${dayPlateau} light, ${nightPlateau} dark`);
 ck(`dawn and dusk together are ${dusk} of ${N} seconds`, dusk === N - dayPlateau - nightPlateau);
-ck('the plateaus are within one sample of each other', Math.abs(dayPlateau - nightPlateau) <= 1);
+ck('the plateaus are not equal any more: the day is the long one', dayPlateau > nightPlateau);
 ck('the changing half is about half the day', dusk / N > 0.5 && dusk / N < 0.56, `${(dusk / N * 100).toFixed(1)}%`);
 
 // ---- it is a loop ----
@@ -72,7 +79,7 @@ ck('and above it', xs.some((v) => v >= 0.4));
 
 // ---- the phase offset means t = 0 is not midnight ----
 ck('t = 0 is broad daylight, not midnight', dayFactorAt(0) === 1, `${dayFactorAt(0)}`);
-ck('half a cycle later it is night', dayFactorAt(DAY_CYCLE_MS / 2) === 0);
+ck('at midnight, 0.38 of a cycle in, it is night', dayFactorAt(0.38 * DAY_CYCLE_MS) === 0, `${dayFactorAt(0.38 * DAY_CYCLE_MS)}`);
 
 // ---- out of range inputs do not produce out of range skies ----
 ck('a negative clock still lands in 0..1', [-1, -99999, -DAY_CYCLE_MS * 3.7].every((t) => {

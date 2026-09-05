@@ -16,12 +16,14 @@
 // Renaming any of those breaks the descent. There is a test for it.
 
 import * as THREE from 'three';
+import { dayFactorAt as dayClockFactor, DAY_CYCLE_MS } from './dayclock.js';
 import { skyColours } from './sky.js';
 import { THEMES } from '../farm/themes.js';
 import { mulberry32, glowTexture } from '../farm/assets.js';
 
 /** One full day to night to day again. Six minutes, per docs/OPEN-WORLD.md. */
-export const DAY_CYCLE_MS = 360000;
+// The length of a day and its curve live in dayclock.js, shared with the sky.
+export { DAY_CYCLE_MS, NIGHT_FRACTION } from './dayclock.js';
 
 /** The one sky. THEMES is a data table; this is the row we live in. */
 export const PALETTE = THEMES.find((t) => t.id === 'meadow');
@@ -39,11 +41,7 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
  * day with a short dawn and dusk between them. The 0.12 phase offset means
  * t = 0 is not midnight.
  */
-export function dayFactorAt(nowMs, cycleMs = DAY_CYCLE_MS) {
-  const tphase = ((nowMs / cycleMs) + 0.12) % 1;
-  const raw = 0.5 + 0.5 * Math.cos(tphase * Math.PI * 2);
-  return clamp01(raw * 1.4 - 0.2);
-}
+export const dayFactorAt = dayClockFactor;
 
 /**
  * The whole of the lighting, as a function of the day.

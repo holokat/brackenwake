@@ -26,12 +26,13 @@
 // the terrain's MeshStandardMaterial. Do not add a second tone curve in here.
 
 import * as THREE from 'three';
+import { DAY_CYCLE_MS, phaseAt } from './dayclock.js';
 
 /**
  * One full day. This has to equal scene.js's DAY_CYCLE_MS or the sun will
  * drift out of step with the light. sky.test.mjs imports both and compares.
  */
-export const DAY_CYCLE_S = 360;
+export const DAY_CYCLE_S = DAY_CYCLE_MS / 1000;   // 1500: twenty minutes of day and five of night
 
 /** How high the sun climbs at noon, and how far below it sinks at midnight. */
 export const MAX_ELEVATION = 1.05;      // radians, 60 degrees
@@ -138,8 +139,7 @@ function smooth(e0, e1, x) {
  * scene.js's dayFactorAt by construction because it inverts the same offset.
  */
 export function phaseFromClock(nowMs, cycleS = DAY_CYCLE_S) {
-  const tphase = (((nowMs / 1000 / cycleS) + 0.12) % 1 + 1) % 1;   // 0 is noon
-  return (tphase + 0.5) % 1;
+  return phaseAt(nowMs, cycleS * 1000);   // the shared warp: 80% of the cycle above the horizon
 }
 
 /**

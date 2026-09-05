@@ -51,7 +51,7 @@ globalThis.navigator ||= { userAgent: 'node' };
 const warn = console.warn; console.warn = () => {};
 const THREE = await import('three');
 const { createWorldRuntime, WORLD_SEED, DUNGEON_FLOOR_Y } = await import('./world_runtime.js');
-const { PALETTE, WORLD_FOG, dayFactorAt } = await import('./scene.js');
+const { PALETTE, WORLD_FOG, dayFactorAt , DAY_CYCLE_MS } = await import('./scene.js');
 const { maxLevel, walkable, gridOf } = await import('../world/dungeon_gen.js');
 const { createWorldField } = await import('../world/field.js');
 const { treeFieldsFor } = await import('../farm/tree_edit.js');
@@ -155,7 +155,7 @@ const NEAR_SITE = rt.sitesNear(0, 0, 1200).sort(
 {
   rt.update(0.016, 5000, 0, 0, dayFactorAt(0));           // day
   const byDay = rt.fauna.stats.night;
-  rt.update(0.016, 6000, 0, 0, dayFactorAt(180000));      // night
+  rt.update(0.016, 6000, 0, 0, dayFactorAt(0.38 * DAY_CYCLE_MS));      // midnight (dayclock: noon is 0.12 before zero)
   const byNight = rt.fauna.stats.night;
   ck('the fauna is told it is day at full daylight', byDay === false);
   ck('and told it is night at full dark', byNight === true);
