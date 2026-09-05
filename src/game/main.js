@@ -327,7 +327,7 @@ function boot() {
       rng: Math.random,
     });
 
-    const interact = createInteract({ sc, runtime, player, state, hud, input, audio, progression });
+    const interact = createInteract({ sc, runtime, player, state, hud, input, audio, progression, loot });
     const shop = createShop({
       state, hud, audio,
       nearestSettlement: () => nearestSettlement(),
