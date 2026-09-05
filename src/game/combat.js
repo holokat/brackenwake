@@ -366,11 +366,22 @@ const posOf = (a) => (a && a.pos ? a.pos : null);
 const isPlayer = (a) => !!a && a.kind === 'player';
 
 /** Centre to centre metres, in three dimensions. Infinity when either has no place. */
+/**
+ * How much higher or lower a target may stand before the rise counts against
+ * reach. A slope is not a wall: the monster AI walks to `reach` measured flat,
+ * and measured through the air the same two metres on a mountainside came to
+ * three. Both sides then stood there for ever, each told the other was out of
+ * reach. A step up to the shoulder is within a sword; more than that is over
+ * your head and counts.
+ */
+export const REACH_RISE = 1.2;
+
 export function actorDistance(a, b) {
   const p = posOf(a), q = posOf(b);
   if (!p || !q) return Infinity;
   const dx = num(p.x) - num(q.x), dy = num(p.y) - num(q.y), dz = num(p.z) - num(q.z);
-  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+  const rise = Math.max(0, Math.abs(dy) - REACH_RISE);
+  return Math.sqrt(dx * dx + rise * rise + dz * dz);
 }
 
 /** The weapon's reach plus both bodies. What "within reach" means everywhere. */

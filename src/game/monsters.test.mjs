@@ -19,7 +19,7 @@ import * as THREE from 'three';
 import { CHUNK } from '../world/field.js';
 import { MONSTERS, HABITAT } from '../mmo/monsters.js';
 import { aggroRadius, LEASH_MS, attackSkill, defenceSkill, swingSeconds, parryChance } from '../mmo/combat_rules.js';
-import { createCombat, SWING_LAND_S } from './combat.js';
+import { createCombat, SWING_LAND_S, actorDistance } from './combat.js';
 import { createLootDrops } from './loot_drops.js';
 import { buildMonsterModel, auditMonsterShapes, DIE_SECONDS } from './monster_models.js';
 import { spawnMonster, WEAKNESS } from './actor.js';
@@ -150,11 +150,29 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   const rng3 = seeded(3);
   let swings = 0;
   for (let f = 0; f < 600; f++) {
-    const r = stepMonster(close, 1 / 60, { player: p2, now: f * (1000 / 60), heightAt: () => 3, reach: 2.4, rng: rng3 });
+    // the same ground as the fake player, who stands at y 0: three metres of
+    // rise would rightly count against reach now and it would close further
+    const r = stepMonster(close, 1 / 60, { player: p2, now: f * (1000 / 60), heightAt: () => 0, reach: 2.4, rng: rng3 });
     if (r.wantSwing) swings++;
   }
   const stood = gap(close, p2);
   check('it closes to its reach and stops there', stood <= 2.4 + 1e-6 && stood > 2.0, `${stood.toFixed(3)} m`);
+
+  // on a mountainside it closes until the swing can land: the player stands
+  // 2.5 m above the ground the monster walks on, and combat measures the rise
+  // past a shoulder, so stopping at 2.4 m flat left both sides hitting nothing
+  const slope = makeMonsterActor('giantRat', { pos: { x: 0, y: 0, z: 0 } });
+  const up = fakePlayer(6, 0); up.pos.y = 2.5;
+  const rng4 = seeded(4);
+  let slopeSwings = 0;
+  for (let f = 0; f < 600; f++) {
+    const r = stepMonster(slope, 1 / 60, { player: up, now: f * (1000 / 60), heightAt: () => 0, reach: 2.4, rng: rng4 });
+    if (r.wantSwing) slopeSwings++;
+  }
+  const flat = gap(slope, up);
+  const air = actorDistance(slope, up);
+  check('on a slope it closes until combat would let the swing land', air <= 2.4 + 1e-6 && slopeSwings > 0,
+    `${flat.toFixed(2)} m flat, ${air.toFixed(2)} m as combat measures it, ${slopeSwings} swings wanted`);
   check('and once there it wants to swing every frame', swings > 500, `${swings} of 600 frames`);
 
   // Pure movement, measured on its own. dt is clamped at 0.1 s, which is what

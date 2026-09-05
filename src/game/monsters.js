@@ -44,7 +44,7 @@ import {
 } from '../mmo/monsters.js';
 import { aggroCheck, leashCheck, fleeCheck, swingSeconds, UNARMED } from '../mmo/combat_rules.js';
 import { buildMonsterModel, DIE_SECONDS } from './monster_models.js';
-import { SWING_LAND_S } from './combat.js';
+import { SWING_LAND_S, actorDistance } from './combat.js';
 import {
   attackModeOf, isFlyer, isBoss, rangedWeaponFor, spellFor, coneTargets,
   castBroken, hoverHeight, approachHeight, bossPlanFor, phaseIndexFor, plateText,
@@ -372,7 +372,13 @@ export function stepMonster(m, dt, ctx = {}) {
   switch (ai.state === 'dead' ? 'dead' : (ai.target ? 'chase' : ai.state)) {
     case 'chase': {
       const target = ai.target;
-      const gap = dist2D(m.pos, target.pos);
+      // The same measure combat.queueSwing will use on the swing, flat with the
+      // rise past a shoulder counted. Measured flat here and through the air
+      // there, a wolf on a mountainside stopped two metres from a player two
+      // and a half metres above it and both stood swinging at nothing.
+      // A flyer measures flat: its height is its own to give up, and it
+      // swoops to the floor when it decides to strike.
+      const gap = ctx.flying ? dist2D(m.pos, target.pos) : actorDistance(m, target);
       out.dist = gap;
       const reach = num(ctx.reach) || (num(UNARMED.reach) + 0.9);
 

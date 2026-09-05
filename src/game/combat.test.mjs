@@ -424,7 +424,7 @@ const hpOf = (m) => (m.userData.roam ? m.userData.roam.hp : m.userData.fly.hp);
 // printed here is one this code actually produced and not one it was told to.
 
 import {
-  createCombat, SWING_LAND_S, IN_COMBAT_MS, BODY_RADIUS, reachBetween, actorDistance, spellShape,
+  createCombat, SWING_LAND_S, IN_COMBAT_MS, BODY_RADIUS, reachBetween, actorDistance, REACH_RISE, spellShape,
 } from './combat.js';
 import { swingSeconds, poisonTick, fallDamage, hitChance, JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
 
@@ -563,7 +563,16 @@ const progressionSpy = () => {
   check('a hair past reach is refused', no.queued === false && no.reason === 'out_of_reach', `${no.dist.toFixed(2)} m vs ${no.reach.toFixed(2)}`);
   b.pos.x = r - 0.01;
   check('a hair inside it is taken', c.queueSwing(a, b, { now: 0 }).queued === true);
-  check('distance is measured in three dimensions', Math.abs(actorDistance({ pos: { x: 0, y: 3, z: 4 } }, { pos: { x: 0, y: 0, z: 0 } }) - 5) < 1e-9);
+  // flat first, and height only past REACH_RISE: on a mountainside the AI (which
+  // walks to reach measured flat) and this (measured through the air) disagreed
+  // by a metre and a wolf and a player stood two metres apart hitting nothing
+  check('distance is flat distance until the rise passes a shoulder',
+    Math.abs(actorDistance({ pos: { x: 0, y: 1.0, z: 4 } }, { pos: { x: 0, y: 0, z: 0 } }) - 4) < 1e-9);
+  check('and a target well above your head counts the rise beyond it',
+    Math.abs(actorDistance({ pos: { x: 0, y: 3 + REACH_RISE, z: 4 } }, { pos: { x: 0, y: 0, z: 0 } }) - 5) < 1e-9);
+  check('a wolf a metre downslope at two metres flat is within a sword and a body',
+    actorDistance({ pos: { x: 2, y: -1, z: 0 } }, { pos: { x: 0, y: 0, z: 0 } }) <= reachBetween({ equipment: {} }, {}) + 1e-9,
+    `${actorDistance({ pos: { x: 2, y: -1, z: 0 } }, { pos: { x: 0, y: 0, z: 0 } }).toFixed(2)} vs reach ${reachBetween({ equipment: {} }, {}).toFixed(2)}`);
 }
 
 // ------------------------------------------------------------------- leech
