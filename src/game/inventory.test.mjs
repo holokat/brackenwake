@@ -118,6 +118,45 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
   check('and says the two numbers', /wants 65 STR and you have 20/.test(r.reason), r.reason);
 }
 
+// ---- and a shield unseats the two hander ----------------------------------
+// The rule both ways: the user asked that a one hander may carry a shield and a
+// two hander may not, so raising a shield with a greatsword in hand sends the
+// greatsword to the pack, says so, and still works with exactly one free home.
+{
+  const { inv, character, said } = rig({ str: 80, dex: 50, int: 50, con: 50, wis: 50 });
+  inv.add(item('greatsword'));
+  inv.equip(character.pack.items.findIndex((x) => x && x.base === 'greatsword'));
+  check('a greatsword is in both hands', character.equipment.mainHand?.base === 'greatsword' && !character.equipment.offHand);
+  inv.add(item('kite'));
+  const r = inv.equip(character.pack.items.findIndex((x) => x && x.base === 'kite'));
+  check('raising a shield over it is allowed', r.ok === true, r.reason || '');
+  check('the shield is on the off hand', character.equipment.offHand?.base === 'kite');
+  check('and the greatsword went to the pack, the main hand is empty',
+    character.equipment.mainHand === null && character.pack.items.some((x) => x && x.base === 'greatsword'));
+  check('and it was said out loud', /greatsword needs both hands, so it goes in the pack/.test(said.join(' | ')), said.slice(-2).join(' | '));
+}
+{
+  const { inv, character } = rig({ str: 80, dex: 50, int: 50, con: 50, wis: 50 });
+  inv.add(item('greatsword'));
+  inv.equip(character.pack.items.findIndex((x) => x && x.base === 'greatsword'));
+  const shield = item('kite');
+  inv.add(shield);
+  const shieldAt = character.pack.items.indexOf(shield);
+  for (let i = 0; i < PACK_SLOTS; i++) if (!character.pack.items[i]) character.pack.items[i] = item('iron_ingot', { count: 1, seed: i });
+  const r = inv.equip(shieldAt);
+  check('with a full pack the shield still goes up, since its own slot frees as it leaves', r.ok === true, r.reason || '');
+  check('and the greatsword took exactly that slot', character.pack.items[shieldAt]?.base === 'greatsword');
+}
+{
+  const { inv, character } = rig({ str: 80, dex: 50, int: 50, con: 50, wis: 50 });
+  inv.add(item('longsword'));
+  inv.equip(character.pack.items.findIndex((x) => x && x.base === 'longsword'));
+  inv.add(item('kite'));
+  inv.equip(character.pack.items.findIndex((x) => x && x.base === 'kite'));
+  check('a longsword and a shield are held together, one hand each',
+    character.equipment.mainHand?.base === 'longsword' && character.equipment.offHand?.base === 'kite');
+}
+
 // ---- two hands unseat the shield ------------------------------------------
 {
   const { inv, character, said } = rig({ str: 80, dex: 50, int: 50, con: 50, wis: 50 });

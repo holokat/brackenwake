@@ -543,7 +543,13 @@ export function createInventory(o = {}) {
 
     const two = twoHanded(it);
     const displaced = character.equipment[slot] || null;
-    const offHand = two && slot === 'mainHand' ? (character.equipment.offHand || null) : null;
+    // The rule cuts both ways. A two hander drawn over a shield sends the
+    // shield to the pack; a shield, tome, torch or lute raised while both hands
+    // are on a greatsword sends the greatsword to the pack. Either way one
+    // thing leaves and it is said. `offHand` below is whatever has to move.
+    const mainTwo = slot === 'offHand' && character.equipment.mainHand && twoHanded(character.equipment.mainHand)
+      ? character.equipment.mainHand : null;
+    const offHand = two && slot === 'mainHand' ? (character.equipment.offHand || null) : mainTwo;
 
     // Count the homes before moving anything: the source slot frees up, and
     // everything displaced has to land somewhere.
@@ -555,9 +561,11 @@ export function createInventory(o = {}) {
     const needed = (displaced ? 1 : 0) + (offHand ? 1 : 0);
     if (needed > free) {
       const text = say(
-        offHand
-          ? `${b.name} needs both hands and your pack is full, so your ${baseFor(offHand).name.toLowerCase()} has nowhere to go`
-          : `your pack is full, so your ${baseFor(displaced).name.toLowerCase()} has nowhere to go`,
+        mainTwo
+          ? `your ${baseFor(mainTwo).name.toLowerCase()} needs both hands and your pack is full, so it has nowhere to go`
+          : offHand
+            ? `${b.name} needs both hands and your pack is full, so your ${baseFor(offHand).name.toLowerCase()} has nowhere to go`
+            : `your pack is full, so your ${baseFor(displaced).name.toLowerCase()} has nowhere to go`,
         'bad',
       );
       sound('denied');
@@ -566,7 +574,8 @@ export function createInventory(o = {}) {
 
     if (w) put(w, null);
     character.equipment[slot] = it;
-    if (offHand) character.equipment.offHand = null;
+    if (mainTwo) character.equipment.mainHand = null;
+    else if (offHand) character.equipment.offHand = null;
     const parked = [];
     for (const spare of [displaced, offHand]) {
       if (!spare) continue;
@@ -577,7 +586,8 @@ export function createInventory(o = {}) {
     changed('equipment');
 
     const words = [`you put on ${labelOf(it).toLowerCase()}`];
-    if (offHand) words.push(`both hands are on it, so your ${baseFor(offHand).name.toLowerCase()} goes in the pack`);
+    if (mainTwo) words.push(`your ${baseFor(mainTwo).name.toLowerCase()} needs both hands, so it goes in the pack`);
+    else if (offHand) words.push(`both hands are on it, so your ${baseFor(offHand).name.toLowerCase()} goes in the pack`);
     else if (displaced) words.push(`your ${baseFor(displaced).name.toLowerCase()} goes back in the pack`);
     const text = say(words.join(', '));
     if (verdict.reason) say(verdict.reason, 'bad');
