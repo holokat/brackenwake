@@ -317,26 +317,24 @@ export const panel = {
       }
     }
 
-    this._body.appendChild(el('h3', null, 'Start again'));
+    // Nothing here wipes anybody any more. The roster holds every character
+    // this browser has, and deleting one happens there, where the player can
+    // read the name, the skills and the purse of the one they are deleting.
+    // This button only saves and goes to that screen, so it needs no second
+    // press and says nothing about losing anything.
+    this._body.appendChild(el('h3', null, 'Characters'));
     const row = el('div', 'bw-s');
-    const n = el('span', 'n', 'New character');
-    n.appendChild(el('small', null, 'this one is gone, with everything they carried'));
+    const n = el('span', 'n', 'Another character');
+    n.appendChild(el('small', null, 'this one is saved first, and the roster is where you make a new one or take up an old one'));
     row.appendChild(n);
     row.appendChild(el('span', 'v', ''));
-    const b = el('button', 'danger', this._armed ? 'yes, wipe them' : 'new character');
+    const b = el('button', null, 'Save and go to the character roster');
     b.addEventListener('click', () => {
-      if (!this._armed) {
-        this._armed = true;
-        say(ctx, 'Press it again to make a new character. This one and everything they carry goes.', 'bad');
-        this.render();
-        return;
-      }
-      this._armed = false;
       if (typeof ctx?.newCharacter === 'function') {
-        say(ctx, 'Starting again.');
+        say(ctx, 'Saved. Off to the roster.');
         ctx.newCharacter();
       } else {
-        say(ctx, 'Nothing is wired to start a new character yet, so nothing was wiped.', 'bad');
+        say(ctx, 'Nothing is wired to the roster yet, so nothing was saved and nothing moved.', 'bad');
       }
       this.render();
     });

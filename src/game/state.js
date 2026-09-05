@@ -61,11 +61,37 @@ import {
 import { STATS } from '../mmo/stats.js';
 import { SKILLS, DEFAULT_LOCK, LOCKS } from '../mmo/skills.js';
 import { OPENINGS_BY_ID, APPEARANCE_DEFAULT } from '../mmo/openings.js';
+import { zoneAt } from '../world/zones.js';
 
 export const SAVE_KEY_V1 = 'brackenwake-save-v1';
 export const SAVE_KEY = 'brackenwake-save-v2';
 export const SAVE_VERSION = 2;
 export const SAVE_VERSION_V1 = 1;
+
+// ---------------------------------------------------------------- the slots
+//
+// One save became many. `brackenwake-save-v2` is no longer a document; it is
+// the PREFIX of one document per character, `brackenwake-save-v2:<id>`, and
+// the list of who exists lives on its own at `brackenwake-roster`:
+//
+//   { v, slots: [{ id, name, opening, createdAt, playedAt, needsCreation,
+//                  summary }], lastPlayed }
+//
+// The summary is what the roster screen draws a card from, so that screen
+// never has to open a document to show one. A copy can go stale, so it is
+// rewritten from the document on every save of that document, and nothing a
+// player plays with is ever read back out of it.
+//
+// The one save a player already has is moved into slot "1" the first time this
+// code runs against their storage, and the old key is removed only after the
+// new one has been written AND read back character for character. A v1 save
+// takes the same road, through `migrateV1`.
+export const ROSTER_KEY = 'brackenwake-roster';
+export const ROSTER_VERSION = 1;
+/** The sessionStorage flag the settings window raises to ask for the roster. */
+export const ROSTER_FLAG = 'brackenwake-show-roster';
+/** Where one character's document lives. */
+export const slotKeyFor = (id, key = SAVE_KEY) => `${key}:${id}`;
 
 export const MATERIALS = ['wood', 'stone', 'ore'];
 export const CAP = 150;
@@ -228,6 +254,7 @@ export function blankCharacter() {
     deadUntil: [],
     zones: [],            // zone ids entered, once each (Z1)
     waypoint: null,       // { x, z, name } from the map, read by the compass
+    dragon: null,         // the companion's record, written by dragon.js (D1)
     settings: { ...DEFAULT_SETTINGS },
   };
 }
@@ -246,16 +273,220 @@ function read(storage, k) {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
+const put = (storage, k, v) => { try { storage.setItem(k, v); return true; } catch { return false; } };
+const drop = (storage, k) => { try { storage.removeItem(k); return true; } catch { return false; } };
+
+// ------------------------------------------------------------- the roster --
+
+const SKILL_NAME = Object.fromEntries(SKILLS.map((s) => [s.id, s.name]));
+
 /**
- * @param {{ storage?: Storage|null, key?: string, keyV1?: string }} [opts]
- *   `storage` lets a test hand in a Map-backed stub; `null` means do not
- *   persist at all, which is also what a private window gets.
+ * Everything the roster screen shows about one character, worked out from the
+ * document and nothing else. Written on every save.
+ *
+ * The place is `zoneAt` over the saved position, which is the same function
+ * the world itself names ground with, so a card cannot claim a zone the player
+ * is not standing in. Open ground has no zone and the place is null, which the
+ * card says in words rather than inventing a name.
  */
-export function createState(opts = {}) {
+export function summarise(doc, extra = {}) {
+  const d = doc && typeof doc === 'object' ? doc : {};
+  const skills = Object.entries(d.skills && typeof d.skills === 'object' ? d.skills : {})
+    .filter(([id, v]) => isNum(v) && v > 0 && SKILL_NAME[id])
+    .map(([id, v]) => ({ id, name: SKILL_NAME[id], value: Math.round(v * 100) / 100 }))
+    .sort((a, b) => b.value - a.value || a.id.localeCompare(b.id))
+    .slice(0, 3);
+  const x = isNum(d.pos?.x) ? d.pos.x : 0;
+  const z = isNum(d.pos?.z) ? d.pos.z : 0;
+  const hit = zoneAt(x, z);
+  return {
+    name: typeof d.name === 'string' ? d.name : '',
+    opening: typeof d.opening === 'string' ? d.opening : 'blank',
+    openingName: OPENINGS_BY_ID[d.opening]?.name || '',
+    skills,
+    gold: isNum(d.gold) ? Math.max(0, Math.round(d.gold)) : 0,
+    place: hit ? hit.zone.name : null,
+    pos: { x: Math.round(x), z: Math.round(z) },
+    needsCreation: !!d.needsCreation,
+    playedAt: isNum(extra.playedAt) ? extra.playedAt : Date.now(),
+  };
+}
+
+/** One roster row, forced into shape. Anything unreadable is left out. */
+function hydrateRow(s) {
+  if (!s || typeof s !== 'object' || typeof s.id !== 'string' || !s.id) return null;
+  return {
+    id: s.id,
+    name: typeof s.name === 'string' ? s.name : '',
+    opening: typeof s.opening === 'string' ? s.opening : 'blank',
+    createdAt: isNum(s.createdAt) ? s.createdAt : 0,
+    playedAt: isNum(s.playedAt) ? s.playedAt : 0,
+    needsCreation: !!s.needsCreation,
+    summary: s.summary && typeof s.summary === 'object' ? s.summary : null,
+  };
+}
+
+/** The roster as it is on disk, tolerant of every shape but its own. */
+export function readRoster(storage, rosterKey = ROSTER_KEY) {
+  const out = { v: ROSTER_VERSION, slots: [], lastPlayed: null };
+  if (!storage) return out;
+  const raw = read(storage, rosterKey);
+  if (!raw || typeof raw !== 'object') return out;
+  if (Array.isArray(raw.slots)) {
+    for (const s of raw.slots) {
+      const row = hydrateRow(s);
+      if (row && !out.slots.some((r) => r.id === row.id)) out.slots.push(row);
+    }
+  }
+  if (typeof raw.lastPlayed === 'string' && out.slots.some((s) => s.id === raw.lastPlayed)) {
+    out.lastPlayed = raw.lastPlayed;
+  }
+  return out;
+}
+
+function writeRoster(storage, rosterKey, roster) {
+  if (!storage) return false;
+  roster.v = ROSTER_VERSION;
+  return put(storage, rosterKey, JSON.stringify(roster));
+}
+
+/** The lowest number nobody is using, so a deleted slot's name comes back. */
+function nextSlotId(roster) {
+  const taken = new Set(roster.slots.map((s) => s.id));
+  for (let i = 1; i < 1000; i++) if (!taken.has(String(i))) return String(i);
+  return String(Date.now());
+}
+
+function rowFor(doc, id, now, createdAt) {
+  const summary = summarise(doc, { playedAt: now });
+  return {
+    id,
+    name: summary.name,
+    opening: summary.opening,
+    createdAt: isNum(createdAt) ? createdAt : now,
+    playedAt: now,
+    needsCreation: !!doc.needsCreation,
+    summary,
+  };
+}
+
+/**
+ * The one save a player already has becomes slot "1", once, and nothing is
+ * thrown away on the way.
+ *
+ * The order matters and is the whole point: write the new document, read it
+ * back and compare it to what was written, write the roster, and only then
+ * remove the old key. Any step that fails leaves the old save exactly where it
+ * was, so the worst case is that this runs again next boot.
+ *
+ * A v2 save is moved VERBATIM, as the string it was stored as, so the document
+ * in the slot is character for character the document that was there.
+ */
+export function migrateLegacy(storage, opts = {}) {
   const key = opts.key || SAVE_KEY;
   const keyV1 = opts.keyV1 || SAVE_KEY_V1;
+  const rosterKey = opts.rosterKey || ROSTER_KEY;
+  const roster = readRoster(storage, rosterKey);
+  if (!storage || roster.slots.length) return roster;
+
+  let text = null, parsed = null, from = null;
+  let raw = null;
+  try { raw = storage.getItem(key); } catch { raw = null; }
+  if (raw) {
+    try { parsed = JSON.parse(raw); } catch { parsed = null; }
+    if (parsed && typeof parsed === 'object') { text = raw; from = key; }
+  }
+  if (!text) {
+    const v1 = read(storage, keyV1);
+    if (v1 && typeof v1 === 'object') {
+      parsed = migrateV1(v1);
+      text = JSON.stringify(parsed);
+      from = keyV1;
+    }
+  }
+  if (!text) return roster;
+
+  const id = '1';
+  const sk = slotKeyFor(id, key);
+  if (!put(storage, sk, text)) return roster;
+  let back = null;
+  try { back = storage.getItem(sk); } catch { back = null; }
+  if (back !== text) { drop(storage, sk); return roster; }
+
+  const now = Date.now();
+  const doc = hydrate(parsed);
+  roster.slots.push(rowFor(doc, id, now, now));
+  roster.lastPlayed = id;
+  if (!writeRoster(storage, rosterKey, roster)) {
+    // Nothing lists the document, so nothing would ever open it. Take it back
+    // out and leave the old key alone; next boot tries again.
+    drop(storage, sk);
+    return { v: ROSTER_VERSION, slots: [], lastPlayed: null };
+  }
+  drop(storage, from);
+  drop(storage, keyV1);          // a v1 save beside a v2 one is a stale copy
+  return roster;
+}
+
+// ------------------------------------------------- asking for the roster --
+//
+// The settings window cannot show the roster itself: the roster is a boot
+// screen and the game is running. So it saves, leaves a note, and reloads.
+
+function defaultSession() {
+  try {
+    if (typeof sessionStorage !== 'undefined' && sessionStorage) return sessionStorage;
+  } catch { /* a private window can throw on the mere mention of it */ }
+  return null;
+}
+
+/** Leave the note. */
+export function askForRoster(session = defaultSession()) {
+  return session ? put(session, ROSTER_FLAG, '1') : false;
+}
+/** Is there a note? Read without clearing, because main.js decides twice. */
+export function rosterAsked(session = defaultSession()) {
+  if (!session) return false;
+  try { return session.getItem(ROSTER_FLAG) === '1'; } catch { return false; }
+}
+/** Take the note down. The roster does this the moment it is on screen. */
+export function clearRosterAsk(session = defaultSession()) {
+  return session ? drop(session, ROSTER_FLAG) : false;
+}
+
+/**
+ * Save this character and go to the roster. The settings window's one button,
+ * and the only thing that reloads the page on purpose.
+ *
+ * `reload` and `session` are seams for a test; the browser gets its own.
+ */
+export function toRoster(state, opts = {}) {
+  let saved = false;
+  try { saved = state?.save?.() === true; } catch (e) { console.warn('[state] the save before the roster failed', e); }
+  askForRoster(opts.session);
+  const reload = typeof opts.reload === 'function'
+    ? opts.reload
+    : () => { if (typeof location !== 'undefined') location.reload(); };
+  reload();
+  return saved;
+}
+
+/**
+ * @param {string|{ storage?: Storage|null, slot?: string, key?: string,
+ *                  keyV1?: string, rosterKey?: string }} [opts]
+ *   A slot id on its own, or the options. `storage` lets a test hand in a
+ *   Map-backed stub; `null` means do not persist at all, which is also what a
+ *   private window gets.
+ */
+export function createState(opts = {}) {
+  if (typeof opts === 'string') opts = { slot: opts };
+  const key = opts.key || SAVE_KEY;
+  const keyV1 = opts.keyV1 || SAVE_KEY_V1;
+  const rosterKey = opts.rosterKey || ROSTER_KEY;
   const storage = opts.storage === undefined ? defaultStorage() : opts.storage;
   const listeners = new Set();
+  /** Which character is open. Null until one is, and again after a delete. */
+  let slot = typeof opts.slot === 'string' && opts.slot ? opts.slot : null;
 
   let doc = fillPools(blankCharacter());
   // Dev mode is a lens, not a gift: it reports everything as owned and lets the
@@ -358,6 +589,8 @@ export function createState(opts = {}) {
 
     /** The whole v2 document. inventory.js, windows.js and actor.js read this. */
     get character() { return doc; },
+    /** Which slot is open, or null when nothing has been opened yet. */
+    get slot() { return slot; },
     get pack() { return doc.pack; },
     get equipment() { return doc.equipment; },
     /** True until creation.js has placed the stats and skills. */
@@ -537,42 +770,130 @@ export function createState(opts = {}) {
       return true;
     },
 
-    save() {
-      if (!storage) return false;
-      doc.v = SAVE_VERSION;
-      try { storage.setItem(key, JSON.stringify(doc)); } catch { return false; }
-      // The v1 save is left where it is until a v2 save has landed once. From
-      // here on it is a stale copy of a document that has moved on, so it goes.
-      try { storage.removeItem(keyV1); } catch { /* nothing to do */ }
+    // --------------------------------------------------------- the roster --
+
+    /**
+     * Everyone this storage holds, newest play first, each with the summary
+     * its own last save wrote. `open` says which one is in memory right now.
+     */
+    roster() {
+      if (!storage) return [];
+      return readRoster(storage, rosterKey).slots
+        .map((s) => ({ ...s, summary: s.summary ? { ...s.summary } : null, open: s.id === slot }))
+        // Newest play first. Two saves in the same millisecond fall to the
+        // newer row, so a roster built in one breath still reads newest first.
+        .sort((a, b) => b.playedAt - a.playedAt || b.createdAt - a.createdAt || b.id.localeCompare(a.id));
+    },
+
+    /**
+     * Put one character in memory and make them the one a save writes to.
+     * A row whose document has gone leaves a blank that asks to be made,
+     * rather than an empty screen.
+     */
+    openSlot(id) {
+      if (!storage || typeof id !== 'string' || !id) return false;
+      const r = readRoster(storage, rosterKey);
+      if (!r.slots.some((s) => s.id === id)) return false;
+      doc = hydrate(read(storage, slotKeyFor(id, key)));
+      slot = id;
+      r.lastPlayed = id;
+      writeRoster(storage, rosterKey, r);
+      notify('load');
       return true;
     },
 
     /**
-     * Read the save back. v2 first, then a v1 save, which is migrated. Tolerant
-     * on purpose: no save, corrupt JSON, a missing key or a shape from before
-     * `v` existed all leave the game playable.
+     * A slot with nobody in it yet: a blank document, `needsCreation`, and a
+     * row so the roster can show it if the boot is interrupted. Returns the
+     * new id, or null when there is no storage to hold one.
+     */
+    newSlot() {
+      doc = fillPools(blankCharacter());
+      if (!storage) { slot = null; notify('character'); return null; }
+      const r = readRoster(storage, rosterKey);
+      const id = nextSlotId(r);
+      const now = Date.now();
+      r.slots.push(rowFor(doc, id, now, now));
+      r.lastPlayed = id;
+      if (!writeRoster(storage, rosterKey, r)) { slot = null; notify('character'); return null; }
+      put(storage, slotKeyFor(id, key), JSON.stringify(doc));
+      slot = id;
+      notify('character');
+      return id;
+    },
+
+    /**
+     * Remove a character, document and row together. The slot that is open is
+     * refused unless the caller says it knows: the roster screen does, because
+     * no game is running behind it, and a running game never should.
+     */
+    deleteSlot(id, o = {}) {
+      if (!storage) return false;
+      const r = readRoster(storage, rosterKey);
+      const i = r.slots.findIndex((s) => s.id === id);
+      if (i < 0) return false;
+      if (id === slot && !o.evenIfOpen) return false;
+      r.slots.splice(i, 1);
+      if (r.lastPlayed === id) r.lastPlayed = r.slots.length ? r.slots[r.slots.length - 1].id : null;
+      if (!writeRoster(storage, rosterKey, r)) return false;
+      drop(storage, slotKeyFor(id, key));
+      if (id === slot) slot = null;
+      notify('roster');
+      return true;
+    },
+
+    /**
+     * Write the open character, and their summary with them, so the roster
+     * screen is never a boot behind what the player did.
+     *
+     * ONE key is written: this character's. A state that was built without a
+     * slot takes the first free number rather than dropping the save on the
+     * floor, which is what a shop or a test that never opened one gets.
+     */
+    save() {
+      if (!storage) return false;
+      doc.v = SAVE_VERSION;
+      const now = Date.now();
+      const r = readRoster(storage, rosterKey);
+      if (!slot) slot = nextSlotId(r);
+      const i = r.slots.findIndex((s) => s.id === slot);
+      const row = rowFor(doc, slot, now, i < 0 ? now : r.slots[i].createdAt);
+      if (i < 0) r.slots.push(row); else r.slots[i] = row;
+      r.lastPlayed = slot;
+      if (!put(storage, slotKeyFor(slot, key), JSON.stringify(doc))) return false;
+      writeRoster(storage, rosterKey, r);
+      // A v1 save left beside a v2 one is a stale copy of a document that has
+      // moved on, and the migration has already taken what it wanted.
+      drop(storage, keyV1);
+      return true;
+    },
+
+    /**
+     * Read a save back. The legacy key is moved into a slot first, once, then
+     * the slot this state was asked for, then the one played last, then the
+     * first there is. Tolerant on purpose: no save, corrupt JSON, a missing
+     * key or a shape from before `v` existed all leave the game playable.
      * @returns {boolean} true if a save was found and something was taken from it
      */
     load() {
       if (!storage) return false;
-      const v2 = read(storage, key);
-      if (v2 && typeof v2 === 'object') {
-        doc = hydrate(v2);
-        notify('load');
-        return true;
-      }
-      const v1 = read(storage, keyV1);
-      if (v1 && typeof v1 === 'object') {
-        doc = migrateV1(v1);
-        notify('load');
-        return true;
-      }
-      return false;
+      const r = migrateLegacy(storage, { key, keyV1, rosterKey });
+      const has = (id) => !!id && r.slots.some((s) => s.id === id);
+      const want = has(slot) ? slot : has(r.lastPlayed) ? r.lastPlayed : (r.slots[0]?.id || null);
+      if (!want) return false;
+      return state.openSlot(want);
     },
 
+    /**
+     * Take this character off the shelf: the document, the row, and the two
+     * legacy keys. What is in memory is left alone, because the caller is
+     * usually about to replace it.
+     */
     clearSave() {
-      try { storage?.removeItem(key); } catch { /* nothing to do */ }
-      try { storage?.removeItem(keyV1); } catch { /* nothing to do */ }
+      if (!storage) return;
+      if (slot) state.deleteSlot(slot, { evenIfOpen: true });
+      drop(storage, key);
+      drop(storage, keyV1);
     },
 
     onChange(fn) { if (typeof fn === 'function') listeners.add(fn); return () => listeners.delete(fn); },
@@ -684,6 +1005,9 @@ export function hydrate(raw) {
   if (Array.isArray(raw.discovered)) doc.discovered = raw.discovered.filter((d) => typeof d === 'string');
   if (Array.isArray(raw.zones)) doc.zones = raw.zones.filter((d) => typeof d === 'string');
   if (raw.waypoint && Number.isFinite(raw.waypoint.x) && Number.isFinite(raw.waypoint.z)) doc.waypoint = { x: raw.waypoint.x, z: raw.waypoint.z, name: String(raw.waypoint.name || '') };
+  // the dragon companion's record (D1, 14-KALDERA.md section 2): kept whole,
+  // since dragon.js owns its shape and reads it defensively
+  if (raw.dragon && typeof raw.dragon === 'object' && !Array.isArray(raw.dragon)) doc.dragon = { ...raw.dragon };
   if (Array.isArray(raw.deadUntil)) doc.deadUntil = raw.deadUntil.filter((d) => d && typeof d === 'object');
   if (raw.settings && typeof raw.settings === 'object') {
     doc.settings = { ...DEFAULT_SETTINGS, ...raw.settings };

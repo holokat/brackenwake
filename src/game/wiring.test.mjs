@@ -611,8 +611,8 @@ const spy = (name, deps = [], hooks = {}) => ({
   const names = SYSTEMS.map((s) => s.name);
   check('the systems list is the frame order, in order',
     names.join(',') === FRAME_ORDER.join(','), names.join(','));
-  check('and the frame order is the nine 07-RUNTIME-CONTRACT.md documents',
-    FRAME_ORDER.join(',') === 'world,player,combat,abilities,inventory,world_life,ui,dev,input', FRAME_ORDER.join(','));
+  check('and the frame order is the nine 07-RUNTIME-CONTRACT.md documents, with the dragon after the world and before the HUD',
+    FRAME_ORDER.join(',') === 'world,player,combat,abilities,inventory,world_life,dragon,ui,dev,input', FRAME_ORDER.join(','));
   check('each one has a file of its own', SYSTEMS.every((s) => src(`app/systems/${s.name}.js`).includes(`name: '${s.name}'`)));
 
   // every dep resolves, and the whole list really does sort
@@ -626,7 +626,7 @@ const spy = (name, deps = [], hooks = {}) => ({
   const late = SYSTEMS.flatMap((s) => (s.deps || []).filter((d) => at(d) > at(s.name)).map((d) => `${s.name} before ${d}`));
   check('and every system is built after everything it needs', late.length === 0, late.join(','));
   check('the build order is the one R1.md documents',
-    sys.built.join(',') === 'world,player,combat,inventory,abilities,ui,world_life,dev,input', sys.built.join(','));
+    sys.built.join(',') === 'world,player,combat,inventory,abilities,ui,world_life,dragon,dev,input', sys.built.join(','));
 
   // A system may reach any other system from inside a function that runs after
   // the boot, because everything exists by then. What it may NOT do is reach
@@ -729,6 +729,107 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
     at('lastSave = now') > at('input.endFrame()'), `${at('lastSave = now')} vs ${at('input.endFrame()')}`);
   check('source: the harness step is the same frame function, not a second path',
     /step: \(ms = 16\.7\) => frame\(last \+ ms, true\)/.test(m));
+}
+
+// ===========================================================================
+// Which screen the boot puts up. DRIVEN, not read: bootStage is pure and
+// exported, and the three states below are three real storages.
+// ===========================================================================
+{
+  const { bootStage } = await import('./main.js');
+  const slots = (n) => {
+    const store = memStore();
+    const st = createState({ storage: store });
+    for (let i = 0; i < n; i++) {
+      st.newSlot();
+      st.character.name = `Somebody ${i + 1}`;
+      st.character.needsCreation = false;
+      st.save();
+    }
+    return { st, store };
+  };
+
+  {
+    const store = memStore();
+    const st = createState({ storage: store });
+    st.load();
+    check('a brand new install goes straight to the making of somebody',
+      bootStage(st) === 'creation', bootStage(st));
+    check('and the note cannot send it to a roster of nobody',
+      bootStage(st, { roster: true }) === 'creation', bootStage(st, { roster: true }));
+  }
+  {
+    const { st } = slots(1);
+    check('one character made is a roster', bootStage(st) === 'roster', bootStage(st));
+    const two = slots(3);
+    check('three of them likewise', bootStage(two.st) === 'roster', bootStage(two.st));
+  }
+  {
+    // A slot begun and abandoned: nothing to play, so the road goes on to the
+    // making of them. The note from the settings window overrules that, because
+    // the player pressed a button that says roster.
+    const store = memStore();
+    const st = createState({ storage: store });
+    st.newSlot();
+    check('a slot begun and never finished asks to be finished',
+      bootStage(st) === 'creation', bootStage(st));
+    check('and the note sends it to the roster instead',
+      bootStage(st, { roster: true }) === 'roster', bootStage(st, { roster: true }));
+  }
+  {
+    // The last case, and it is somebody real: a private window where nothing
+    // can be written. There is a whole character in memory and no roster to
+    // list them, so the game is what they get.
+    const st = createState({ storage: null });
+    const made = st.character;
+    made.needsCreation = false;
+    st.setCharacter(made);
+    check('a character nothing can list still gets a game',
+      st.roster().length === 0 && st.needsCreation === false && bootStage(st) === 'game', bootStage(st));
+  }
+  check('a state that is not one at all does not throw', bootStage(null) === 'game' && bootStage({}) === 'game');
+
+  // The world is raised before anybody has been chosen, and the document in
+  // hand is REPLACED afterwards: by openSlot when the roster hands a slot
+  // over, and again by setCharacter when the creation screen finishes. A
+  // reference taken during world's create would point at a document nobody is
+  // playing. So world's create may not take one, and this is that rule.
+  {
+    const w = src('app/systems/world.js');
+    const from = w.indexOf('create(ctx) {');
+    const body = w.slice(from, w.indexOf('\n  },', from));
+    const held = [];
+    for (const line of body.split('\n')) {
+      if (!/^ {4}\S/.test(line) || /^\s*\/\//.test(line)) continue;
+      if (/ctx\.character/.test(line)) held.push(line.trim());
+      if (/^\s*const \{[^}]*\bcharacter\b[^}]*\} = ctx/.test(line)) held.push(line.trim());
+    }
+    check('source: nothing in the world\'s create holds the character document, because it is replaced after',
+      held.length === 0, held.join(' | '));
+  }
+
+  const m = src('main.js');
+  check('source: the roster goes up before the creation gate',
+    m.indexOf("if (stage === 'roster') return showRoster();") > 0
+    && m.indexOf("if (stage === 'roster')") < m.indexOf("if (stage === 'creation')"),
+    `${m.indexOf("if (stage === 'roster')")} then ${m.indexOf("if (stage === 'creation')")}`);
+  check('source: and the note the settings window leaves is what main.js reads',
+    /bootStage\(state, \{ roster: rosterAsked\(\) \}\)/.test(m));
+  check('source: the roster hands a slot back and main.js opens it',
+    /onPlay: \(id\) => \{[\s\S]{0,120}?state\.openSlot\(id\);/.test(m));
+  check('source: a slot that was never finished goes back to the making of them',
+    /if \(state\.needsCreation\) showCreation\(\); else startGame\(\);/.test(m));
+  check('source: New makes a slot and then makes the character in it',
+    /onNew: \(\) => \{ state\.newSlot\(\); showCreation\(\); \}/.test(m));
+  const roster__bw = m.slice(m.indexOf('function showRoster'), m.indexOf('function showCreation'));
+  check('source: the console gets the scene, the state and a word for where it is',
+    /window\.__bw = \{[^}]*\bsc\b[^}]*\bstate\b[^}]*roster: true/.test(roster__bw));
+  check('source: and the creation gate still says creating',
+    /window\.__bw = \{[^}]*creating: true/.test(m.slice(m.indexOf('function showCreation'), m.indexOf('function startGame'))));
+  check('source: the boot only runs itself where there is a document to run in',
+    /if \(typeof document !== 'undefined' && typeof document\.getElementById === 'function'\) boot\(\);/.test(m));
+  check('and this file proves that by importing main.js with no document at all',
+    typeof globalThis.document === 'undefined');
 }
 
 // ---- everything the console had, it still has -----------------------------

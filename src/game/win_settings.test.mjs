@@ -1,4 +1,5 @@
 // Settings. Run: node src/game/win_settings.test.mjs
+import { readFileSync } from 'node:fs';
 import {
   SETTINGS, SETTING, BAR_KEYS, defaultSettings, coerce, normalise, rebind, set, auditSettings,
 } from './win_settings.js';
@@ -109,18 +110,23 @@ console.log('win_settings: rebinding the bar');
   check('the bar is still twelve long', s.bar.length === 12);
 }
 
-console.log('win_settings: new character');
+console.log('win_settings: another character');
 {
   const ctx = mkCtx();
-  let wiped = 0;
-  ctx.newCharacter = () => { wiped++; };
-  // this file never wipes anything itself: the panel arms on the first press,
-  // wipes on the second, and the wiping is main.js's hook
-  check('a hook is what does the wiping, not this file', typeof ctx.newCharacter === 'function');
+  let went = 0;
+  ctx.newCharacter = () => { went++; };
+  // This file wipes nothing, and now nothing else does either: the button
+  // saves and goes to the roster, where a character can be read before being
+  // deleted. The going is the hook's, and ui.js fills it in with toRoster.
+  check('a hook is what does the going, not this file', typeof ctx.newCharacter === 'function');
   ctx.newCharacter();
-  check('and calling it does', wiped === 1);
+  check('and calling it does', went === 1);
   const none = mkCtx();
   check('without the hook nothing is wired', none.newCharacter === undefined);
+  const src = readFileSync(new URL('./win_settings.js', import.meta.url), 'utf8');
+  check('the button says where it goes rather than what it destroys',
+    src.includes('Save and go to the character roster') && !/yes, wipe/i.test(src));
+  check('and it needs no second press to get there', !src.includes('_armed'));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

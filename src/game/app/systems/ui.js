@@ -6,6 +6,7 @@ import { createWindows } from '../../windows.js';
 import { createPaperdoll } from '../../paperdoll.js';
 import { createCompass } from '../../compass.js';
 import { recompute, syncToCharacter } from '../../actor.js';
+import { toRoster } from '../../state.js';
 import { panel as characterPanel } from '../../win_character.js';
 import { panel as bagPanel } from '../../win_bag.js';
 import { panel as skillsPanel } from '../../win_skills.js';
@@ -54,7 +55,13 @@ export const ui = {
       onBarChange: () => { /* hud.update reads character.bar through barView every frame */ },
       onSkillLock: () => state.touch('skills'),
       applySettings: (s) => applySettings(s),
-      newCharacter: () => { syncToCharacter(actor); state.clearSave?.(); location.reload(); },
+      // Save this character and go to the roster. This used to clear the save
+      // and reload, and the pagehide handler wrote the same document straight
+      // back on the way out, so the button destroyed nothing and did nothing.
+      // toRoster saves the open slot, leaves the note the roster screen reads
+      // and takes down, and reloads. Deleting happens on the roster, where the
+      // player can see the name, the skills and the purse of who is going.
+      newCharacter: () => { syncToCharacter(actor); toRoster(state); },
       now: () => ctx.frame.now,
       station: null,
       // win_crafting teaches by document: (character, skillId, difficulty, success, rng)
