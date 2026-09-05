@@ -8,6 +8,7 @@
 import {
   createInventory, normalise, parseWhere, weightOfCharacter, carryOfCharacter,
   armourOfCharacter, resistsOfCharacter, itemTipLines, PACK_SLOTS,
+  sortOrder, sortRank, sortName,
 } from './inventory.js';
 import { makeItem, baseFor, SLOTS, canEquip } from '../mmo/items.js';
 import { rollAffixes, identify } from '../mmo/affixes.js';
@@ -364,6 +365,127 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
   check('and no hole reads as undefined', c.pack.items.every((x) => x === null));
   check('and every one of the fourteen slots exists', SLOTS.every((s) => s in c.equipment));
   check('and gold is a number', c.gold === 0);
+}
+
+// ---- the quick sort (U4) -----------------------------------------------------
+// The whole point of the button is that nothing goes missing while it tidies,
+// so every block below counts the pack in and counts it out.
+
+const tally = (list) => {
+  const out = {};
+  for (const it of list) if (it) out[`${it.base}|${it.material || ''}`] = (out[`${it.base}|${it.material || ''}`] || 0) + (it.count || 1);
+  return out;
+};
+const same = (a, b) => {
+  const ka = Object.keys(a).sort(), kb = Object.keys(b).sort();
+  return ka.join(',') === kb.join(',') && ka.every((k) => a[k] === b[k]);
+};
+const stamp = (list) => list.filter(Boolean).map((it) => `${it.base}${it.material ? ':' + it.material : ''}x${it.count || 1}`).join(' ');
+const lump = (base, count, material, label) => {
+  const it = makeItem({ base, count, seed: base.length * 7 + count });
+  if (material) { it.material = material; it.label = label; }
+  return it;
+};
+
+console.log('inventory: the quick sort');
+{
+  // the scattered pack the brief describes, byte for byte
+  const c = blank();
+  const p = c.pack.items;
+  p[0] = lump('ingot', 3, 'iron', 'Iron ingot');
+  p[2] = lump('longsword', 1);
+  p[5] = lump('ingot', 2, 'iron', 'Iron ingot');
+  p[7] = lump('potion', 4);
+  p[9] = lump('cloth_head', 1);
+  p[11] = lump('pickaxe', 1);
+  p[13] = lump('apple', 2);
+  p[17] = lump('buckler', 1);
+  const before = tally(p);
+  const inv = createInventory({ character: c });
+  const r = inv.sort();
+
+  check('the sort reports itself', r.ok === true, JSON.stringify({ merged: r.merged, moved: r.moved, free: r.free }));
+  check('the two iron ingot stacks become one', r.merged === 1 && p.filter((x) => x && x.base === 'ingot').length === 1,
+    `${r.merged} merged, ${p.filter((x) => x && x.base === 'ingot').length} ingot stack(s)`);
+  check('and the one stack holds all five', p.find((x) => x && x.base === 'ingot').count === 5,
+    String(p.find((x) => x && x.base === 'ingot').count));
+  check('the order comes out byte for byte',
+    stamp(p) === 'longswordx1 bucklerx1 cloth_headx1 potionx4 applex2 ingot:ironx5 pickaxex1', stamp(p));
+  check('nothing is lost: the same bases and the same counts', same(before, tally(p)), `${JSON.stringify(before)} -> ${JSON.stringify(tally(p))}`);
+  check('everything is compacted to the front, holes all at the back',
+    p.slice(0, 7).every(Boolean) && p.slice(7).every((x) => !x), stamp(p));
+  check('and the line says the numbers rather than the verb',
+    /1 stack folds into another/.test(r.text) && /slots are open at the back/.test(r.text), r.text);
+
+  const again = inv.sort();
+  check('sorting a sorted pack moves nothing and says so',
+    again.merged === 0 && again.moved === 0 && /already in order/.test(again.text), again.text);
+}
+{
+  // the guard the sentence has to earn: two DIFFERENT materials must not merge
+  const c = blank();
+  const p = c.pack.items;
+  p[0] = lump('ingot', 3, 'iron', 'Iron ingot');
+  p[1] = lump('ingot', 2, 'copper', 'Copper ingot');
+  const before = tally(p);
+  const r = createInventory({ character: c }).sort();
+  check('an iron stack and a copper stack stay two stacks',
+    r.merged === 0 && p.filter((x) => x && x.base === 'ingot').length === 2, stamp(p));
+  check('and neither one changed material', same(before, tally(p)), stamp(p));
+  check('copper comes before iron, by the name a player reads', p[0].material === 'copper', stamp(p));
+}
+{
+  // a magic dagger is not a stack, whatever items.js says about daggers
+  const c = blank();
+  const p = c.pack.items;
+  p[0] = makeItem({ base: 'potion', count: 2 });
+  p[1] = makeItem({ base: 'potion', count: 3 });
+  p[2] = makeItem({ base: 'dagger', rarity: 'rare', seed: 4 });
+  p[3] = makeItem({ base: 'dagger', rarity: 'rare', seed: 9 });
+  const r = createInventory({ character: c }).sort();
+  check('two plain potions merge', r.merged === 1 && p.find((x) => x.base === 'potion').count === 5, stamp(p));
+  check('two rare daggers do not', p.filter((x) => x && x.base === 'dagger').length === 2, stamp(p));
+}
+{
+  // the pure half, on its own, and it must not touch what it is handed
+  const a = makeItem({ base: 'arrow', count: 20 });
+  const b = makeItem({ base: 'arrow', count: 40 });
+  const list = [null, a, null, b];
+  const res = sortOrder(list);
+  check('sortOrder is pure: the array it was handed is unchanged',
+    list[1] === a && a.count === 20 && list[3] === b && b.count === 40, `${a.count} and ${b.count}`);
+  check('and the merged stack is a new record with the sum',
+    res.items.length === 1 && res.items[0].count === 60 && res.items[0] !== a, JSON.stringify(res.items[0].count));
+  check('it counts the merge and the move', res.merged === 1 && res.moved === 1, `${res.merged} merged, ${res.moved} moved`);
+  check('an empty pack sorts to nothing and says nothing moved',
+    sortOrder([]).items.length === 0 && sortOrder([null, null]).merged === 0);
+}
+{
+  // the shelf order itself, named rather than inferred from one example
+  const rank = (id) => sortRank({ base: id });
+  check('weapons first, then shields, then armour',
+    rank('longsword') < rank('buckler') && rank('buckler') < rank('cloth_head'), `${rank('longsword')} ${rank('buckler')} ${rank('cloth_head')}`);
+  check('armour runs down the body in the paper doll s own slot order',
+    rank('cloth_head') < rank('cloth_chest') && rank('cloth_chest') < rank('cloth_feet'),
+    `${rank('cloth_head')} ${rank('cloth_chest')} ${rank('cloth_feet')}`);
+  check('then jewellery, then what you drink, what you eat, what you build with, and tools last',
+    rank('ring') < rank('potion') && rank('potion') < rank('apple') && rank('apple') < rank('ingot') && rank('ingot') < rank('pickaxe'),
+    [rank('ring'), rank('potion'), rank('apple'), rank('ingot'), rank('pickaxe')].join(' '));
+  check('a base this build has never heard of still gets a shelf and is carried through',
+    sortRank({ base: 'moon_cheese' }) === 99 && sortOrder([{ base: 'moon_cheese' }]).items.length === 1);
+  check('the sort name prefers the crafted label over the base word',
+    sortName({ base: 'ingot', label: 'Iron ingot' }) === 'Iron ingot' && sortName({ base: 'ingot' }) === 'Ingot');
+}
+{
+  // a full pack, because a sort that needed one spare slot would be a trap
+  const c = normalise({ stats: { str: 60 }, skills: {}, pack: { slots: 6, items: [] }, equipment: {} });
+  const p = c.pack.items;
+  for (let i = 0; i < 6; i++) p[i] = makeItem({ base: 'ingot', count: 1, seed: i });
+  const before = tally(p);
+  const r = createInventory({ character: c }).sort();
+  check('six single ingots in six slots become one stack of six',
+    r.merged === 5 && p[0].count === 6 && p.slice(1).every((x) => !x), stamp(p));
+  check('and not one ingot went missing', same(before, tally(p)), `${JSON.stringify(before)} -> ${JSON.stringify(tally(p))}`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

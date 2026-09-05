@@ -94,6 +94,108 @@ export function parseWhere(where) {
   return null;
 }
 
+// --------------------------------------------------------------------- sort
+// One button, and the rules behind it, kept pure so they can be measured.
+//
+// Three things happen, in this order, and nothing else:
+//   1. stacks of the same base AND the same material are folded into one,
+//   2. what is left is ordered by kind, then by name, then by the bigger pile,
+//   3. it is compacted to the front, so the empty slots are all at the back.
+//
+// NOTHING IS EVER LOST. `sortOrder` is pure, does not mutate a single record it
+// is handed, and inventory.test.mjs counts every base in and every base out.
+// An item whose base this build has never heard of is carried through rather
+// than dropped, because a save from a newer build must not be eaten by a sort.
+
+/**
+ * The two stacking oddments that have no `use` on their base. `win_bag.js`
+ * names the same two and its `auditUsable()` fails if items.js ever renames
+ * them; this list is only about where they sit on the shelf.
+ */
+const SORT_USE_IDS = ['potion', 'bandage'];
+
+/**
+ * Pure. Which shelf a thing sits on. Weapons, shields, armour down the body in
+ * the paper doll's own slot order, jewellery, the off hand oddments, then what
+ * you drink, what you eat, what you build with, and the tools last.
+ */
+export function sortRank(item) {
+  const b = baseFor(item);
+  if (!b) return 99;
+  if (b.kind === 'weapon') return 10;
+  if (b.kind === 'shield') return 20;
+  if (b.kind === 'armour') {
+    const i = SLOTS.indexOf(b.slot);
+    return 30 + (i < 0 ? SLOTS.length : i);
+  }
+  if (b.kind === 'jewellery') return 50;
+  if (b.kind === 'offhand') return 55;
+  if (b.kind === 'instrument') return 58;
+  if (b.use || SORT_USE_IDS.includes(b.id)) {
+    if (b.kind === 'food') return 65;
+    if (b.kind === 'meal') return 68;
+    return 60;
+  }
+  if (b.kind === 'food') return 65;
+  if (b.kind === 'meal') return 68;
+  if (b.kind === 'material') return 70;
+  if (b.kind === 'tool') return 80;
+  return 90;
+}
+
+/** Pure. The word this record sorts under: its own label, else its base's name. */
+export function sortName(item) {
+  const b = baseFor(item);
+  return String((item && item.label) || (b && b.name) || (item && item.base) || '');
+}
+
+/**
+ * Pure. The merged, ordered, compacted pack.
+ *
+ * Returns `{ items, merged, moved }`: a dense array with no holes, how many
+ * stacks were folded into another, and how many things ended up somewhere
+ * other than where they started.
+ *
+ * A merged stack comes back as a NEW record with the summed count, so the
+ * array handed in is untouched and a caller that wants to keep the old one can.
+ */
+export function sortOrder(items = []) {
+  const rows = [];
+  const stacks = new Map();
+  let merged = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (!it) continue;
+    const b = baseFor(it);
+    // stackable() already refuses anything uncommon or affixed, so two magic
+    // daggers never become one dagger with a count of two.
+    if (b && stackable(it)) {
+      const key = `${b.id}|${it.material == null ? '' : it.material}`;
+      const seen = stacks.get(key);
+      if (seen) { seen.count += countOf(it); merged++; continue; }
+      const row = { item: it, orig: i, count: countOf(it), key };
+      stacks.set(key, row);
+      rows.push(row);
+      continue;
+    }
+    rows.push({ item: it, orig: i, count: countOf(it) });
+  }
+
+  for (const row of rows) {
+    if (row.key && row.count !== countOf(row.item)) row.item = { ...row.item, count: row.count };
+  }
+
+  rows.sort((a, z) => (sortRank(a.item) - sortRank(z.item))
+    || sortName(a.item).localeCompare(sortName(z.item))
+    || (countOf(z.item) - countOf(a.item))
+    || (a.orig - z.orig));
+
+  let moved = 0;
+  for (let i = 0; i < rows.length; i++) if (rows[i].orig !== i) moved++;
+  return { items: rows.map((r) => r.item), merged, moved };
+}
+
 /**
  * Fill in anything the document is missing, in place. A save written before a
  * slot existed, or a pack whose array is shorter than its slot count, would
@@ -529,6 +631,45 @@ export function createInventory(o = {}) {
     return { ok: true, item: next, lines: describe(next), vague, text };
   }
 
+  // ------------------------------------------------------------------ sort
+
+  /**
+   * The quick sort button. Folds the stacks together, puts what is left in
+   * order, and pushes it all to the front.
+   *
+   * It says what it did in one line, and the line carries the numbers rather
+   * than a verb, because "sorted" is indistinguishable from a button that did
+   * nothing to a pack that was already tidy.
+   *
+   * The Sort button itself lives in the inventory grid, which win_bag.js owns.
+   * See docs/mmo/wiring/U4.md for the one line that wires it.
+   */
+  function sort() {
+    const items = pack();
+    const slots = character.pack.slots;
+    const res = sortOrder(items.slice(0, slots));
+    if (res.items.length > slots) {
+      // Merging can only ever shrink the count, so this cannot happen. It is
+      // checked anyway: the day it does, an item goes on the floor in silence.
+      const text = say(`your pack will not hold ${res.items.length} stacks in ${slots} slots, so nothing is moved`, 'bad');
+      return { ok: false, reason: text, merged: 0, moved: 0 };
+    }
+    for (let i = 0; i < slots; i++) items[i] = res.items[i] || null;
+    changed('pack');
+
+    const free = slots - res.items.length;
+    if (!res.merged && !res.moved) {
+      const text = say('your pack is already in order');
+      return { ok: true, merged: 0, moved: 0, stacks: res.items.length, free, text };
+    }
+    const words = [];
+    if (res.merged) words.push(`${res.merged} ${res.merged === 1 ? 'stack folds' : 'stacks fold'} into another`);
+    if (res.moved) words.push(`${res.moved} ${res.moved === 1 ? 'thing finds' : 'things find'} a new place`);
+    words.push(`${free} ${free === 1 ? 'slot is' : 'slots are'} open at the back`);
+    const text = say(`your pack falls in: ${words.join(', ')}`);
+    return { ok: true, merged: res.merged, moved: res.moved, stacks: res.items.length, free, text };
+  }
+
   // -------------------------------------------------------------- sell/drop
 
   /**
@@ -577,7 +718,7 @@ export function createInventory(o = {}) {
     get pack() { return character.pack; },
     get equipment() { return character.equipment; },
     slots: SLOTS,
-    add, remove, move, equip, unequip, identify, sell, drop,
+    add, remove, move, equip, unequip, identify, sell, drop, sort,
     at, emptySlot, chooseSlot,
     weight, carry, overweight,
     tooltip, labelOf, amountOf, colourOf,

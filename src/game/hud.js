@@ -16,6 +16,11 @@
 //   buff and debuff icons with timers under them
 //   the target frame under the place name, tier coloured
 //   the twelve slot bar with cooldown sweeps, red unaffordable costs, keys
+//   the eight slot item bar beside it, keys F5 to F12, with stack counts, a
+//     ghost of a stack that has run out, and a gold ring on what you are
+//     wearing (item_bar.js owns the rules; this file only draws them)
+//   hud.gain(text, kind), the gains ticker bottom right, so a skill going up
+//     never sits on top of the label of what you just picked up
 //   hud.log(text, kind), bottom left on a faint parchment
 //   hud.zone(name, sub), the place name across the upper third when you arrive
 //   hud.setDev(on, stats), the dev badge with fps, frame time, draws, triangles
@@ -32,7 +37,10 @@
 // so hud.test.mjs can run the real createHud against a small fake document.
 // A HUD that could only be checked by eye is a HUD nobody checks.
 
-import { injectTheme, theme, icon } from './ui_theme.js';
+import { injectTheme, theme, icon, itemGlyph } from './ui_theme.js';
+import { dropTarget } from './windows.js';
+import { ITEM_SLOTS, ITEM_KEYS, keyCap as itemKeyCap } from './item_bar.js';
+import { baseFor } from '../mmo/items.js';
 
 export const TOOLS = [
   { id: 'hand',    label: 'hand',    key: '1', free: true },
@@ -73,6 +81,38 @@ export const LOG_KINDS = {
  */
 export const BANNER = { fadeIn: 0.4, hold: 2.0, fadeOut: 0.6 };
 export const BANNER_TOTAL = BANNER.fadeIn + BANNER.hold + BANNER.fadeOut;
+
+/**
+ * The gains ticker, bottom right, in seconds. A line slides in from the right
+ * over `fadeIn`, sits still for `hold`, and fades over `fadeOut`. The three add
+ * up to GAIN_TOTAL, which is the three seconds the brief asks for, and they are
+ * numbers here rather than a CSS animation so the timing can be measured in
+ * node instead of watched.
+ */
+export const GAIN = { fadeIn: 0.25, hold: 2.15, fadeOut: 0.6, slidePx: 22 };
+export const GAIN_TOTAL = GAIN.fadeIn + GAIN.hold + GAIN.fadeOut;
+/** More than this on screen at once and the newest are pushed off the bottom. */
+export const GAIN_LINES = 6;
+
+/**
+ * Pure. Where a gain line is at `t` seconds after it was raised:
+ * `{ phase: 'in' | 'held' | 'out' | 'done', opacity, x }`. `x` is how many
+ * pixels to the right of home it still sits, so the line arrives rather than
+ * appearing.
+ */
+export function gainAt(t, shape = GAIN) {
+  const s = num(t);
+  if (s < 0) return { phase: 'in', opacity: 0, x: shape.slidePx };
+  if (s < shape.fadeIn) {
+    const k = s / shape.fadeIn;
+    return { phase: 'in', opacity: k, x: shape.slidePx * (1 - k) };
+  }
+  const heldUntil = shape.fadeIn + shape.hold;
+  if (s < heldUntil) return { phase: 'held', opacity: 1, x: 0 };
+  const out = heldUntil + shape.fadeOut;
+  if (s < out) return { phase: 'out', opacity: 1 - (s - heldUntil) / shape.fadeOut, x: 0 };
+  return { phase: 'done', opacity: 0, x: 0 };
+}
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -295,8 +335,16 @@ const CSS = `
 #bw-tools .slot.locked { opacity: .34; cursor: default; }
 #bw-tools .slot.active { border-color: ${theme.gold}; box-shadow: 0 0 0 1px ${theme.gold} inset, 0 0 14px rgba(201,164,74,.35); }
 
-#bw-bar {
+/* the two bars sit side by side on one centred rail: the twelve you know on
+   the left, the eight you carry on the right, with a gold rule between them */
+#bw-bars {
   position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  display: flex; align-items: flex-end; gap: 12px; pointer-events: none;
+}
+#bw-bars .rail { width: 1px; align-self: stretch; margin-bottom: 2px;
+  background: linear-gradient(180deg, transparent, ${theme.gold}, transparent); }
+#bw-bars .rail.off { display: none; }
+#bw-bar {
   display: flex; gap: 5px; pointer-events: auto;
 }
 #bw-bar .cell {
@@ -307,6 +355,9 @@ const CSS = `
 }
 #bw-bar .cell.empty { opacity: .4; cursor: default; }
 #bw-bar .cell.casting { border-color: #cbb6ff; box-shadow: 0 0 0 1px #cbb6ff inset, 0 0 16px rgba(203,182,255,.5); }
+/* G2: the weapon rule. A cell you cannot fire because of what is in your hands
+   is greyed rather than left looking ready. The reason is in the title. */
+#bw-bar .cell.unusable { opacity: .5; filter: grayscale(1); }
 #bw-bar .cell .k { position: absolute; top: 1px; left: 3px; font-family: ${theme.fonts.display}; font-size: 9px; color: ${theme.gold}; }
 #bw-bar .cell .n {
   position: absolute; left: 3px; right: 3px; top: 14px; font-size: 10px; line-height: 1.08;
@@ -323,6 +374,50 @@ const CSS = `
   font-family: ${theme.fonts.display}; font-size: 16px; font-weight: 700;
   font-variant-numeric: tabular-nums; color: #fff; }
 #bw-bar .cell .cd.on { display: flex; }
+
+#bw-items { display: flex; gap: 5px; pointer-events: auto; }
+#bw-items .icell {
+  position: relative; width: 44px; height: 44px; overflow: hidden; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, rgba(34,29,21,.9), rgba(9,8,6,.92));
+  border: 1px solid ${theme.goldDim}aa;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 14px rgba(0,0,0,.5);
+}
+#bw-items .icell.empty { opacity: .34; cursor: default; }
+#bw-items .icell.ghost { opacity: .42; }
+#bw-items .icell.ghost .g { filter: grayscale(1); }
+#bw-items .icell.worn { border-color: ${theme.gold}; box-shadow: 0 0 0 1px ${theme.gold} inset, 0 0 12px rgba(201,164,74,.4); }
+#bw-items .icell.bw-drop-hot { border-color: ${theme.goldBright}; box-shadow: 0 0 0 1px ${theme.goldBright} inset; }
+#bw-items .icell .k {
+  position: absolute; top: 1px; left: 3px; font-family: ${theme.fonts.display};
+  font-size: 8px; letter-spacing: .06em; color: ${theme.gold};
+}
+#bw-items .icell .g { display: flex; align-items: center; justify-content: center; margin-top: 4px; }
+#bw-items .icell .n {
+  position: absolute; right: 2px; bottom: 0; font-family: ${theme.fonts.display};
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: ${theme.parchment}; text-shadow: 0 1px 3px #000;
+}
+#bw-items .icell .w {
+  position: absolute; left: 0; right: 0; bottom: 0; text-align: center;
+  font-family: ${theme.fonts.display}; font-size: 7.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: ${theme.goldBright}; background: rgba(0,0,0,.6);
+}
+
+/* the gains ticker: skills and stats going up, bottom RIGHT, because the world
+   writes what you just picked up bottom left and the two used to overlap */
+#bw-gains {
+  position: absolute; right: 14px; bottom: 96px;
+  display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 3px;
+  pointer-events: none; text-align: right;
+}
+#bw-gains .gl {
+  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
+  letter-spacing: .04em; color: ${LOG_KINDS.gain};
+  text-shadow: 0 1px 4px rgba(0,0,0,.95), 0 0 12px rgba(93,255,106,.35);
+  white-space: nowrap;
+}
+#bw-gains .gl.stat { color: #ffd76a; text-shadow: 0 1px 4px rgba(0,0,0,.95), 0 0 12px rgba(255,215,106,.35); }
 
 #bw-bl { position: absolute; left: 14px; bottom: 16px; width: min(400px, 42vw);
   display: flex; flex-direction: column; gap: 7px; }
@@ -392,7 +487,13 @@ export function createHud(root) {
   devBadge.textContent = 'fly mode';
   const hint = add(el, mk('div', 'bw-hint'));
   const toolRow = add(el, mk('div', 'bw-tools'));
-  const barRow = add(el, mk('div', 'bw-bar'));
+  // one rail, two bars: what you know, then what you carry
+  const barRail = add(el, mk('div', 'bw-bars'));
+  const barRow = add(barRail, mk('div', 'bw-bar'));
+  const railMark = add(barRail, mk('div', null, 'rail off'));
+  const itemRow = add(barRail, mk('div', 'bw-items'));
+
+  const gainBox = add(el, mk('div', 'bw-gains'));
 
   const bottomLeft = add(el, mk('div', 'bw-bl'));
   const toasts = add(bottomLeft, mk('div', 'bw-toasts'));
@@ -438,6 +539,30 @@ export function createHud(root) {
     });
     barRow.appendChild(c);
     return { el: c, name: n, cost, sweep: sw, cd, key, last: null };
+  });
+
+  // one cell per item slot, built once from item_bar.js's own list, so the two
+  // files can never disagree about how many there are.
+  let onItemPick = null;
+  let onItemDropped = null;
+  const itemCells = ITEM_KEYS.map((key, i) => {
+    const c = mk('div', null, 'icell empty');
+    c.dataset.slot = String(i);
+    const k = add(c, mk('span', null, 'k')); k.textContent = itemKeyCap(key);
+    const g = add(c, mk('div', null, 'g'));
+    const n = add(c, mk('span', null, 'n'));
+    const w = add(c, mk('span', null, 'w'));
+    w.style.display = 'none';
+    c.addEventListener('click', () => { if (onItemPick) onItemPick(i, 'use'); });
+    c.addEventListener('contextmenu', (e) => {
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      if (onItemPick) onItemPick(i, 'clear');
+    });
+    // the pack grid and the paper doll both hand over `{ pack: i }` or
+    // `{ slot: 'mainHand' }` under the same mime; item_bar.assign reads both
+    dropTarget(c, (payload) => { if (onItemDropped) onItemDropped(i, payload); });
+    itemRow.appendChild(c);
+    return { el: c, glyph: g, count: n, worn: w, key, last: '' };
   });
 
   let coins = 0;
@@ -538,9 +663,14 @@ export function createHud(root) {
       if (c.last !== ability.id) {
         c.name.textContent = ability.name;
         c.cost.textContent = costLabel(ability);
-        c.el.title = `${ability.name}. ${ability.description || ''}`;
         c.last = ability.id;
+        c.tip = null;
       }
+      // G2: what is in your hands can refuse an ability, and the reason is the
+      // sentence to show. It changes as you draw and sheathe, so the title is
+      // rebuilt when it changes rather than once when the slot was filled.
+      const tip = `${ability.name}. ${ability.description || ''}${e.unusableReason ? `\n${e.unusableReason}` : ''}`;
+      if (c.tip !== tip) { c.el.title = tip; c.tip = tip; }
       const left = num(e.cooldownLeft);
       const frac = sweep(left, ability.cooldown);
       c.sweep.style.height = `${(frac * 100).toFixed(0)}%`;
@@ -548,7 +678,61 @@ export function createHud(root) {
       if (c.cd.textContent !== label) c.cd.textContent = label;
       c.cd.className = 'cd' + (left > 0 ? ' on' : '');
       c.cost.className = 'c' + (e.affordable === false ? ' poor' : '');
-      c.el.className = 'cell' + (e.casting ? ' casting' : '');
+      c.el.className = 'cell' + (e.casting ? ' casting' : '') + (e.unusable ? ' unusable' : '');
+    }
+  }
+
+  // --- the item bar ----------------------------------------------------------
+  // `view.items` is item_bar.js's `view()`: eight entries, always, each one
+  // already asked the pack and the paper doll what it holds. Nothing here
+  // reaches into the character document; this file only draws.
+  function drawItems(list) {
+    const want = Array.isArray(list) ? list : [];
+    railMark.className = 'rail' + (want.some((e) => e && !e.empty) ? '' : ' off');
+    for (let i = 0; i < itemCells.length; i++) {
+      const c = itemCells[i];
+      const e = want[i] || null;
+      const cap = e && e.cap ? e.cap : itemKeyCap(ITEM_KEYS[i]);
+      if (c.key !== cap) { c.el.children[0].textContent = cap; c.key = cap; }
+      if (!e || e.empty) {
+        if (c.last !== '') {
+          c.el.className = 'icell empty';
+          c.glyph.innerHTML = ''; c.count.textContent = '';
+          c.worn.style.display = 'none'; c.el.title = '';
+          c.last = '';
+        }
+        continue;
+      }
+      const stamp = `${e.base}|${e.count}|${e.worn ? 1 : 0}|${e.ghost ? 1 : 0}`;
+      if (c.last === stamp) continue;
+      c.last = stamp;
+      c.el.className = 'icell' + (e.worn ? ' worn' : '') + (e.ghost ? ' ghost' : '');
+      c.glyph.innerHTML = itemGlyph(baseFor(e.base), 26);
+      c.count.textContent = e.count > 1 ? String(e.count) : '';
+      c.worn.textContent = e.worn ? `on ${e.wornAt}` : '';
+      c.worn.style.display = e.worn ? '' : 'none';
+      c.el.title = e.ghost
+        ? `${e.name}. You have none left.`
+        : e.worn ? `${e.name}, worn on your ${e.wornAt}` : `${e.name}${e.count > 1 ? `, ${e.count} of them` : ''}`;
+    }
+  }
+
+  // --- the gains ticker --------------------------------------------------------
+  // Raised by hud.gain and run down by hud.update, the same way the zone banner
+  // is, so the three seconds are seconds of game time and can be measured.
+  const gains = [];
+
+  function drawGains() {
+    while (gainBox.children.length > gains.length) gainBox.lastChild.remove();
+    for (let i = 0; i < gains.length; i++) {
+      const g = gains[i];
+      let row = gainBox.children[i];
+      if (!row) { row = mk('div', null, 'gl'); gainBox.appendChild(row); }
+      if (row.textContent !== g.text) row.textContent = g.text;
+      row.className = 'gl' + (g.kind === 'stat' ? ' stat' : '');
+      const at = gainAt(g.t);
+      row.style.opacity = at.opacity.toFixed(3);
+      row.style.transform = at.x ? `translateX(${at.x.toFixed(1)}px)` : 'none';
     }
   }
 
@@ -630,6 +814,44 @@ export function createHud(root) {
     /** A click on a bar cell, for the mouse. The keys go through input.js. */
     onBar(fn) { onBarPick = fn; },
 
+    /**
+     * A click on an item slot. `fn(slot, 'use')` for a left click and
+     * `fn(slot, 'clear')` for a right one, which is exactly what
+     * `item_bar.use` and `item_bar.clear` take.
+     */
+    onItem(fn) { onItemPick = fn; },
+
+    /**
+     * Something dragged out of the pack or off the paper doll and dropped on an
+     * item slot. `fn(slot, payload)`, where payload is windows.js's own
+     * `{ pack: i }` or `{ slot: 'mainHand' }`, which `item_bar.assign` reads.
+     */
+    onItemDrop(fn) { onItemDropped = fn; },
+
+    /**
+     * A skill or a stat went up. Bottom RIGHT, stacked, three seconds each.
+     *
+     * This exists because the gain floaters were spawned in the world at the
+     * player's own feet, which is exactly where the label of the thing you
+     * just picked up is drawn, so every lesson learned while looting sat on
+     * top of the loot. main.js already routes 'gain' and 'stat' here.
+     *
+     * Returns the line it raised, which is what a caller can log.
+     */
+    gain(text, kind) {
+      const t = String(text ?? '').trim();
+      if (!t) return null;
+      const line = { text: t, kind: kind === 'stat' ? 'stat' : 'gain', t: 0 };
+      gains.push(line);
+      while (gains.length > GAIN_LINES) gains.shift();
+      drawGains();
+      return line;
+    },
+
+    /** What the ticker is showing right now, newest last. For tests. */
+    get gains() { return gains.map((g) => ({ text: g.text, kind: g.kind, t: g.t })); },
+    clearGains() { gains.length = 0; drawGains(); },
+
     setPlace(text) { place.textContent = text || ''; place.style.display = text ? '' : 'none'; },
 
     /**
@@ -683,18 +905,27 @@ export function createHud(root) {
 
     /**
      * The per frame draw. `view` is built by main.js:
-     *   { actor, target, bar: [{ ability, cooldownLeft, affordable, casting }],
-     *     buffs: [{ name, kind, remaining }] }
+     *   { actor, target, bar: [{ ability, cooldownLeft, affordable, casting,
+     *       unusable, unusableReason }],
+     *     items: item_bar.view(), buffs: [{ name, kind, remaining }] }
      * Every part is optional, and a missing part hides its widget rather than
      * drawing an empty one.
      */
     update(dt, view) {
       const v = view || {};
+      const step = num(dt);
       drawPools(v.actor || null);
       drawAuras(v.buffs);
       drawTarget(v.target || null);
       drawBar(v.bar);
-      if (banner) { banner.t += num(dt); drawBanner(); }
+      drawItems(v.items);
+      if (banner) { banner.t += step; drawBanner(); }
+      if (gains.length) {
+        for (const g of gains) g.t += step;
+        // Oldest first in the array, so the done ones are always at the front.
+        while (gains.length && gainAt(gains[0].t).phase === 'done') gains.shift();
+        drawGains();
+      }
     },
 
     dispose() { el.remove(); },

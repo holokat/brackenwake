@@ -72,7 +72,9 @@ const {
   TOOLS, MATERIALS, BAR_KEYS, BAR_SLOTS, POOLS, LOG_LINES, KEY_LABELS,
   poolView, sweep, costLabel, timerLabel, logTrim, createHud,
   bannerAt, devLine, BANNER, BANNER_TOTAL,
+  gainAt, GAIN, GAIN_TOTAL, GAIN_LINES,
 } = hudMod;
+const itemBarMod = await import('./item_bar.js');
 // state.js runs its own audit at import and another agent is mid-flight on the
 // items table it audits against. That is state.js's failure, reported by
 // state.js's own suite, and it must not turn this one red. The two cross
@@ -350,6 +352,167 @@ ck('an unmeasured number is left out rather than printed as a zero',
   ck('handing it nothing changes nothing', hud.setPortrait(null) === false && plate.children.length === 1);
 }
 
+
+// --- the item bar (U4) --------------------------------------------------------
+// Same rule as the tool row and the ability bar: the container is built from
+// one list and can never hold a cell that list does not name.
+console.log('hud: the item bar');
+{
+  const itemRow = find(root, (n) => n.id === 'bw-items');
+  ck('the item bar has exactly eight cells, one per item_bar.js slot',
+    itemRow.children.length === itemBarMod.ITEM_SLOTS && itemRow.children.length === 8,
+    String(itemRow.children.length));
+  ck('and it sits on the same rail as the ability bar, to its right',
+    itemRow.parent.id === 'bw-bars' && barRow.parent.id === 'bw-bars'
+    && itemRow.parent.children.indexOf(itemRow) > itemRow.parent.children.indexOf(barRow),
+    itemRow.parent.children.map((c) => c.id || c.className).join(' | '));
+  ck('every cell wears its own key cap, F5 to F12',
+    itemRow.children.map((c) => c.children[0].textContent).join(',') === 'F5,F6,F7,F8,F9,F10,F11,F12',
+    itemRow.children.map((c) => c.children[0].textContent).join(','));
+  ck('every cell starts empty', itemRow.children.every((c) => c.classList.contains('empty')));
+
+  // the real view shape out of the real item bar, so what is drawn is what a
+  // player would get rather than a hand written imitation of it
+  const { createItemBar } = itemBarMod;
+  const invMod = await import('./inventory.js');
+  const items = await import('../mmo/items.js');
+  const character = invMod.normalise({ stats: { str: 70 }, skills: {}, pack: { slots: 40, items: [] }, equipment: {} });
+  const inventory = invMod.createInventory({ character });
+  inventory.add(items.makeItem({ base: 'potion', count: 4 }));
+  inventory.add(items.makeItem({ base: 'longsword' }));
+  const itemBar = createItemBar({ character, inventory, guardKeys: false });
+  itemBar.assign(0, { pack: 0 });
+  itemBar.assign(1, { pack: 1 });
+
+  hud.update(0.016, { items: itemBar.view() });
+  ck('a stack draws its art and its count',
+    /<svg/.test(itemRow.children[0].children[1].innerHTML) && itemRow.children[0].children[2].textContent === '4',
+    itemRow.children[0].children[2].textContent);
+  ck('and stops being empty', !itemRow.children[0].classList.contains('empty'));
+  ck('a single thing shows no count at all', itemRow.children[1].children[2].textContent === '',
+    `"${itemRow.children[1].children[2].textContent}"`);
+  ck('the rail between the two bars appears once there is something on the right',
+    !find(root, (n) => n.className === 'rail off'), find(root, (n) => n.className.indexOf('rail') === 0)?.className);
+
+  inventory.equip(1);
+  hud.update(0.016, { items: itemBar.view() });
+  ck('an equipped thing lights the cell and says where it went',
+    itemRow.children[1].classList.contains('worn') && /on mainHand/.test(itemRow.children[1].children[3].textContent),
+    itemRow.children[1].children[3].textContent);
+
+  inventory.remove({ pack: 0 }, 4);
+  hud.update(0.016, { items: itemBar.view() });
+  ck('a stack that runs out leaves a dimmed ghost, not an empty square',
+    itemRow.children[0].classList.contains('ghost') && !itemRow.children[0].classList.contains('empty')
+    && /<svg/.test(itemRow.children[0].children[1].innerHTML),
+    itemRow.children[0].className);
+  ck('and the ghost says so on hover', /You have none left/.test(itemRow.children[0].el === undefined ? itemRow.children[0].title : ''),
+    itemRow.children[0].title);
+
+  let clicked = null;
+  hud.onItem((slot, how) => { clicked = { slot, how }; });
+  itemRow.children[3].fire('click');
+  ck('a left click asks for a use', clicked && clicked.slot === 3 && clicked.how === 'use', JSON.stringify(clicked));
+  itemRow.children[3].fire('contextmenu', { preventDefault() {} });
+  ck('and a right click asks for a clear', clicked.how === 'clear', JSON.stringify(clicked));
+  let dropped = null;
+  hud.onItemDrop((slot, payload) => { dropped = { slot, payload }; });
+  itemRow.children[5].fire('drop', {
+    preventDefault() {},
+    dataTransfer: { getData: () => JSON.stringify({ pack: 7 }) },
+  });
+  ck('a pack drag dropped on a cell arrives with the address windows.js sent',
+    dropped && dropped.slot === 5 && dropped.payload.pack === 7, JSON.stringify(dropped));
+
+  hud.update(0.016, { items: null });
+  ck('and no item bar in the view empties the row rather than freezing it',
+    itemRow.children.every((c) => c.classList.contains('empty')));
+}
+
+// --- the gains ticker (U4) ----------------------------------------------------
+// The gain floaters used to spawn in the world at the player's own feet, which
+// is exactly where the label of the thing you just picked up is drawn.
+console.log('hud: the gains ticker');
+ck('a gain line lives three seconds', GAIN_TOTAL === 3,
+  `${GAIN.fadeIn} in + ${GAIN.hold} held + ${GAIN.fadeOut} out = ${GAIN_TOTAL}`);
+ck('at 0 it is off to the right and invisible',
+  gainAt(0).opacity === 0 && gainAt(0).x === GAIN.slidePx, JSON.stringify(gainAt(0)));
+ck('at 0.125 s it is halfway in, and halfway home',
+  gainAt(0.125).phase === 'in' && Math.abs(gainAt(0.125).opacity - 0.5) < 1e-9
+  && Math.abs(gainAt(0.125).x - GAIN.slidePx / 2) < 1e-9, JSON.stringify(gainAt(0.125)));
+ck('at 1 s it is held, full, and still', gainAt(1).phase === 'held' && gainAt(1).opacity === 1 && gainAt(1).x === 0);
+ck('at 2.4 s it is still held and at 2.5 s it is going',
+  gainAt(2.39).phase === 'held' && gainAt(2.41).phase === 'out',
+  `${gainAt(2.39).phase} then ${gainAt(2.41).phase}`);
+ck('at 2.7 s it is half faded',
+  gainAt(2.7).phase === 'out' && Math.abs(gainAt(2.7).opacity - 0.5) < 1e-6, gainAt(2.7).opacity.toFixed(4));
+ck('at 3 s it is done, and stays done', gainAt(3).phase === 'done' && gainAt(90).phase === 'done');
+{
+  const gainEl = find(root, (n) => n.id === 'bw-gains');
+  ck('the ticker is its own box, bottom right, not in the bottom left column',
+    !!gainEl && gainEl.parent === root && find(root, (n) => n.id === 'bw-bl').children.every((c) => c !== gainEl));
+  hud.clearGains();
+  const line = hud.gain('Swordsmanship 33.4', 'gain');
+  ck('a gain raises one line', !!line && gainEl.children.length === 1 && gainEl.children[0].textContent === 'Swordsmanship 33.4',
+    gainEl.children[0].textContent);
+  ck('and it starts off to the right, invisible',
+    gainEl.children[0].style.opacity === '0.000' && gainEl.children[0].style.transform === `translateX(${GAIN.slidePx.toFixed(1)}px)`,
+    `${gainEl.children[0].style.opacity} at ${gainEl.children[0].style.transform}`);
+  hud.gain('STR 66', 'stat');
+  ck('a stat gain is a second line in its own colour',
+    gainEl.children.length === 2 && gainEl.children[1].classList.contains('stat'), gainEl.children[1].className);
+  hud.update(0.125, {});
+  ck('at 0.125 s the first line is half in and has slid halfway home',
+    gainEl.children[0].style.opacity === '0.500'
+    && gainEl.children[0].style.transform === `translateX(${(GAIN.slidePx / 2).toFixed(1)}px)`,
+    `${gainEl.children[0].style.opacity} at ${gainEl.children[0].style.transform}`);
+  hud.update(0.875, {});
+  ck('at 1 s it is full and home',
+    gainEl.children[0].style.opacity === '1.000' && gainEl.children[0].style.transform === 'none',
+    gainEl.children[0].style.transform);
+  hud.update(1.7, {});
+  ck('at 2.7 s it is half faded', gainEl.children[0].style.opacity === '0.500', gainEl.children[0].style.opacity);
+  hud.update(0.35, {});
+  ck('at 3.05 s both lines are gone, because both were raised on the same frame',
+    gainEl.children.length === 0 && hud.gains.length === 0,
+    `${gainEl.children.length} left`);
+  // and now the same thing with a gap between them, which is the real case
+  hud.gain('Tactics 41');
+  hud.update(1.5, {});
+  hud.gain('Anatomy 12');
+  hud.update(1.6, {});
+  ck('a line raised 1.5 s later outlives the first',
+    hud.gains.length === 1 && hud.gains[0].text === 'Anatomy 12',
+    hud.gains.map((g) => `${g.text} at ${g.t.toFixed(2)}`).join(', '));
+  hud.update(1.5, {});
+  ck('and then it goes too', hud.gains.length === 0 && gainEl.children.length === 0);
+  ck('an empty gain is refused rather than drawn blank',
+    hud.gain('') === null && hud.gain('   ') === null && gainEl.children.length === 0);
+  for (let i = 0; i < GAIN_LINES + 4; i++) hud.gain(`gain ${i}`);
+  ck('the ticker holds six at once and drops the oldest',
+    hud.gains.length === GAIN_LINES && hud.gains[0].text === `gain 4`,
+    `${hud.gains.length} lines, first "${hud.gains[0].text}"`);
+  hud.clearGains();
+  ck('and it can be emptied', hud.gains.length === 0 && gainEl.children.length === 0);
+  ck('a frame with no gains at all does not touch the box', hud.update(1, {}) === undefined && gainEl.children.length === 0);
+}
+
+// --- G2: an ability you cannot fire because of what is in your hands ------------
+{
+  const greyBar = BAR_KEYS.map(() => ({ ability: null, cooldownLeft: 0, affordable: true }));
+  greyBar[0] = {
+    ability: ABILITIES_BY_ID.powerStrike, cooldownLeft: 0, affordable: true, casting: false,
+    unusable: true, unusableReason: 'Power Strike wants a weapon in your hand, and your hands are empty.',
+  };
+  hud.update(0.016, { bar: greyBar });
+  ck('the cell greys out', barRow.children[0].classList.contains('unusable'), barRow.children[0].className);
+  ck('and the reason is on it to read', /hands are empty/.test(barRow.children[0].title), barRow.children[0].title);
+  greyBar[0] = { ability: ABILITIES_BY_ID.powerStrike, cooldownLeft: 0, affordable: true, casting: false };
+  hud.update(0.016, { bar: greyBar });
+  ck('drawing the sword takes the grey off again, and the reason with it',
+    !barRow.children[0].classList.contains('unusable') && !/hands are empty/.test(barRow.children[0].title),
+    barRow.children[0].title);
+}
 
 console.log(`\n${pass} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
