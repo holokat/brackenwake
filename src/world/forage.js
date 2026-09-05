@@ -269,7 +269,12 @@ export function gbAdd(gb, geo, m, col) {
 export function gbGeo(gb) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(gb.p, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(gb.n, 3));
+  // Lit like the ground it grows on. The assembled normals pointed every way,
+  // and with DoubleSide a leaf whose winding disagreed with its normal was lit
+  // from below and drew black; the grass takes the same straight-up normal.
+  const up = new Float32Array(gb.n.length);
+  for (let i = 0; i < up.length; i += 3) { up[i] = 0; up[i + 1] = 1; up[i + 2] = 0; }
+  g.setAttribute('normal', new THREE.BufferAttribute(up, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(gb.c, 3));
   g.computeBoundingSphere();
   return g;
