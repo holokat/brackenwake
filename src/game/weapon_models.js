@@ -159,8 +159,12 @@ export function textureSet(name, repeat = 1) {
       nrm[i + 3] = 255;
     }
   }
+  // The albedo is a luminance MULTIPLIER on material.color, so it is stored
+  // linear. Flagged sRGB it was decoded on the way in: a 0.72 grey became 0.48,
+  // and every cloth and leather on the body lost half a stop it never had in
+  // its palette. Half a stop on top of a dark palette is a black character.
   const set = {
-    map: dataTexture(n, alb, true),
+    map: dataTexture(n, alb, false),
     ormMap: dataTexture(n, orm, false),
     normalMap: dataTexture(n, nrm, false),
   };
