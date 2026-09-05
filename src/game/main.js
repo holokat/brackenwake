@@ -51,6 +51,7 @@ import { createAbilities } from './abilities_runtime.js';
 import { dressRig } from './gear_visuals.js';
 import { createSky } from './sky.js';
 import { createTargetRing } from './target_ring.js';
+import { createPaperdoll } from './paperdoll.js';
 import { createWater } from '../world/water.js';
 import { createForageField, seasonAt } from '../world/forage.js';
 import { createForaging } from './foraging.js';
@@ -321,6 +322,11 @@ function boot() {
     const foraging = createForaging({ field: forage, inventory, progression, hud, audio, floaters, character, actor, combat });
     ctx.foraging = foraging;
     ctx.forage = forage;
+    // one likeness shared by the character sheet and the HUD portrait plate
+    try {
+      ctx.paperdoll = createPaperdoll(sc, () => player, { width: 244, height: 400 });
+      hud.setPortrait?.(ctx.paperdoll.canvas);
+    } catch (err) { console.warn('paperdoll not available', err); }
     ctx.useItem = (item, where) => foraging.useItem(item, where);
     tradeNet.onInvite((partner, peer) => {
       hud.log(`${peer?.name || 'somebody'} wants to trade.`);
@@ -784,6 +790,7 @@ function boot() {
         buffs: abilities.buffsView(nowS),
       });
       windows.update(dt);
+      ctx.paperdoll?.update?.(dt);
       sc.follow(centre);
       sc.setDay(day);
       water.beforeRender(sc.renderer, sc.scene, sc.camera);   // the refraction pass, right before the frame
@@ -805,7 +812,7 @@ function boot() {
       actor, get playerActor() { return actor; }, get character() { return state.character; },
       progression, combat, loot, monsters, inventory, windows, effects, targeting, abilities, npcs, stations,
       panels: { talk: talkPanel, trade: tradePanel, crafting: craftingPanel, map: mapPanel, settings: settingsPanel },
-      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, forage, foraging, refreshEnvironment, targetRing, get attacking() { return attacking; }, stopAttack, get fps() { return fps; }, devPanel, get devBench() { return devBenchOf(); },
+      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, forage, foraging, refreshEnvironment, targetRing, get attacking() { return attacking; }, stopAttack, get fps() { return fps; }, get codexTab() { return windows.tab; }, devPanel, get devBench() { return devBenchOf(); },
       wake, get dying() { return dying; },
     };
     hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the bar. C character, B bag, K skills, P abilities, V crafting, M map, Escape settings, F2 dev bench, E goes in.');
