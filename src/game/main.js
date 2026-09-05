@@ -108,6 +108,9 @@ function boot() {
   // reads the sky's sun and palette, and scene.js takes its fog colour from it
   const sky = createSky(sc);
   const water = createWater(sc, runtime.field, { sky });
+  // a coast, not the open ocean: at 0.30 a crest stood 0.7 m over sea level and
+  // broke through any meadow that sits half a metre above the water line
+  if (water.uniforms?.uWaveH) water.uniforms.uWaveH.value = 0.14;
   sc.useAnalyticSky(true);
   let wasUnder = false;
   // Metals and water need something to reflect. The sky dome is rendered into
