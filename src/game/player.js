@@ -659,9 +659,291 @@ export const GRIP_POSES = {
   shield: { armR: [0, 0, -0.07], armL: [-0.05, -0.08, 0.26] },
 };
 
+// --------------------------------------------------------------- the emotes
+// Eight things a person does on purpose, written in exactly the language the
+// gait is written in: absolute rotations on the rig's own parts, and no time of
+// their own beyond `s.emoteT`, which is how many seconds this emote has been
+// running. emotes.js owns which one is running and for how long; this file owns
+// only what the body looks like while it is.
+//
+// THE CHANNELS, and why clearEmotePose exists.
+// poseCharacter writes hips.position.y, the six leg joints, both arms' x and z,
+// the torso and head pitch and the breath scale ABSOLUTELY every frame, so
+// anything an emote writes THERE is gone the moment the emote is. These poses
+// have to reach further: a cross legged sit turns the knees out and lying on
+// your back tips the whole pelvis over. Nothing else in the game ever zeroes
+// hips.rotation, torso.rotation.y or the legs' y and z, so a body that sat down
+// once would stay sitting for good. `clearEmotePose` zeroes them, once, on the
+// frame the emote ends. It is the discipline effects.js's `resetOwned` keeps,
+// and it is here for the same measured reason.
+
+/** Where the hips ride, in metres above the soles' ground, for the two poses that leave your feet. */
+export const SIT_HIP = 0.36;
+export const LIE_HIP = 0.155;
+
+const mix = (a, b, k) => a + (b - a) * k;
+/** Ease in over `edge` of the clip and out again: 0 at both ends, 1 through the middle. */
+const envelope = (t, dur, edge = 0.25) => clamp(Math.min(t / (dur * edge), (dur - t) / (dur * edge)), 0, 1);
+/** A held emote only eases in. It ends when you do. */
+const holdIn = (t, s = 0.4) => clamp(t / s, 0, 1);
+
+const legChains = (parts) => [
+  [parts.legL, parts.shinL, parts.bootL, -1],
+  [parts.legR, parts.shinR, parts.bootR, 1],
+];
+
+/**
+ * Both feet on the ground under hips riding at `hipY`, solved by the same
+ * legIK the walk uses, so a pose that drops the hips bends the knees rather
+ * than pushing the boots through the field. Hips ABOVE standing height
+ * straighten the legs and the feet leave the ground, which is what a hop is.
+ */
+function plantLegs(parts, hipY, fz = 0) {
+  const a = legIK(fz, ANKLE_Y - hipY);
+  for (const [thighG, shinG, bootG] of legChains(parts)) {
+    thighG.rotation.x = -a.thigh;
+    shinG.rotation.x = a.thigh - a.shin;
+    bootG.rotation.x = a.shin;
+  }
+}
+
+/** Every channel the emotes reach past poseCharacter, back to nothing. */
+export function clearEmotePose(parts) {
+  if (!parts) return parts;
+  parts.hips.position.z = 0;
+  parts.hips.rotation.set(0, 0, 0);
+  parts.torso.rotation.y = 0; parts.torso.rotation.z = 0;
+  parts.head.rotation.y = 0; parts.head.rotation.z = 0;
+  parts.armL.rotation.y = 0; parts.armR.rotation.y = 0;
+  parts.legL.rotation.y = 0; parts.legL.rotation.z = 0;
+  parts.legR.rotation.y = 0; parts.legR.rotation.z = 0;
+  parts.shinL.rotation.y = 0; parts.shinL.rotation.z = 0;
+  parts.shinR.rotation.y = 0; parts.shinR.rotation.z = 0;
+  parts.bootL.rotation.y = 0; parts.bootL.rotation.z = 0;
+  parts.bootR.rotation.y = 0; parts.bootR.rotation.z = 0;
+  return parts;
+}
+
+/** The stance every emote starts from: the idle, with nothing left over on it. */
+function emoteBase(parts, s) {
+  clearEmotePose(parts);
+  parts.hips.position.y = IDLE_HIP;
+  plantLegs(parts, IDLE_HIP);
+  parts.armL.rotation.x = 0; parts.armR.rotation.x = 0;
+  parts.armL.rotation.z = 0.07; parts.armR.rotation.z = -0.07;
+  parts.torso.rotation.x = 0; parts.head.rotation.x = 0;
+  const breath = 0.015 * Math.sin((s && s.t ? s.t : 0) * TAU * 0.5);
+  parts.torso.scale.y = 1 + breath;
+  parts.head.scale.y = 1 / (1 + breath);
+}
+
+// armR sits at +x and armL at -x, so a POSITIVE z rotation swings armR out and
+// up and a negative one does the same for armL. A negative x rotation swings
+// either arm forward. Both are the conventions the gait above already uses.
+
+/** Wave: the right arm up and out, and side to side about nine times a second. */
+function poseWave(parts, t) {
+  const k = clamp(Math.min(t / 0.25, (2 - t) / 0.3), 0, 1);
+  const swing = Math.sin(t * 9) * 0.34;
+  parts.armR.rotation.z = mix(-0.07, 2.32 + swing, k);
+  parts.armR.rotation.x = mix(0, -0.18, k);
+  parts.torso.rotation.y = 0.10 * k;
+  parts.head.rotation.y = 0.10 * k;
+  parts.head.rotation.z = 0.06 * k;
+}
+
+/**
+ * Sit: down on the ground, legs crossed, hands on the knees. Held.
+ *
+ * The four leg angles are not eyeballed. The thigh is solved so the knee lands
+ * out and forward at (0.30, 0.24, 0.33) in the body's own frame, and the shin
+ * so the ankle lands back across the midline at (-0.06, 0.10, 0.30), which is
+ * what crossed legs are. The measurements are in player.test.mjs.
+ */
+function poseSit(parts, t) {
+  const k = holdIn(t, 0.5);
+  const hipY = mix(IDLE_HIP, SIT_HIP, k) + 0.006 * Math.sin(t * 1.5) * k;
+  parts.hips.position.y = hipY;
+  plantLegs(parts, hipY);
+  for (const [thighG, shinG, bootG, side] of legChains(parts)) {
+    thighG.rotation.z = side * 0.478 * k;
+    thighG.rotation.x = mix(thighG.rotation.x, -1.226, k);
+    shinG.rotation.x = mix(shinG.rotation.x, 2.386, k);
+    shinG.rotation.z = -side * 1.004 * k;
+    bootG.rotation.x = mix(bootG.rotation.x, -1.20, k);
+  }
+  parts.torso.rotation.x = 0.11 * k;
+  parts.head.rotation.x = -0.05 * k;
+  parts.armL.rotation.x = mix(0, -0.50, k);
+  parts.armR.rotation.x = mix(0, -0.50, k);
+  parts.armL.rotation.z = mix(0.07, -0.06, k);
+  parts.armR.rotation.z = mix(-0.07, 0.06, k);
+}
+
+/** Bow: head and torso forward, over a second and a half. */
+function poseBow(parts, t) {
+  const k = envelope(t, 1.5, 0.28);
+  const hipY = IDLE_HIP - 0.055 * k;
+  parts.hips.position.y = hipY;
+  plantLegs(parts, hipY, -0.05 * k);
+  parts.torso.rotation.x = 1.00 * k;
+  parts.head.rotation.x = 0.32 * k;
+  // the arms hang where they were, which means unwinding the torso's pitch
+  parts.armL.rotation.x = 0.78 * k;
+  parts.armR.rotation.x = 0.78 * k;
+  parts.armL.rotation.z = mix(0.07, 0.16, k);
+  parts.armR.rotation.z = mix(-0.07, -0.16, k);
+}
+
+/** Cheer: both arms up, and a hop under them. */
+function poseCheer(parts, t) {
+  const k = envelope(t, 1.5, 0.22);
+  const hop = 0.13 * Math.max(0, Math.sin(t * 7.5)) * k;
+  const hipY = IDLE_HIP + hop;
+  parts.hips.position.y = hipY;
+  plantLegs(parts, hipY);
+  const tuck = 1.15 * (hop / 0.13);
+  for (const [, shinG, bootG] of legChains(parts)) {
+    shinG.rotation.x += tuck;
+    bootG.rotation.x -= tuck * 0.5;
+  }
+  parts.armR.rotation.z = mix(-0.07, 2.78, k);
+  parts.armL.rotation.z = mix(0.07, -2.78, k);
+  parts.armR.rotation.x = -0.16 * k;
+  parts.armL.rotation.x = -0.16 * k;
+  parts.torso.rotation.x = -0.12 * k;
+  parts.head.rotation.x = -0.24 * k;
+}
+
+/** Point: the right arm out straight ahead, held for two seconds. */
+function posePoint(parts, t) {
+  const k = envelope(t, 2, 0.16);
+  const settle = Math.sin(t * 13) * 0.035 * Math.max(0, 1 - t * 2);
+  parts.armR.rotation.x = mix(0, -1.52 + settle, k);
+  parts.armR.rotation.z = mix(-0.07, 0.16, k);
+  parts.torso.rotation.y = 0.10 * k;
+  parts.head.rotation.y = 0.07 * k;
+}
+
+/** Dance: a two step, weight side to side, arms swinging with it. Held. */
+function poseDance(parts, t) {
+  const k = holdIn(t, 0.4);
+  const p = t * TAU * 1.05;
+  const s1 = Math.sin(p);
+  const hipY = IDLE_HIP - 0.030 * k + 0.018 * Math.cos(2 * p) * k;
+  parts.hips.position.y = hipY;
+  plantLegs(parts, hipY);
+  for (const [thighG, shinG, bootG, side] of legChains(parts)) {
+    const step = -0.22 * s1 * side * k;
+    const lift = 0.50 * Math.max(0, s1 * side) * k;
+    thighG.rotation.x += step;
+    shinG.rotation.x += lift;
+    // The three x rotations down a leg sum to zero when the sole is flat, which
+    // is the rule the gait's own legIK keeps. A dug in toe costs centimetres.
+    bootG.rotation.x -= step + lift;
+    thighG.rotation.z = side * 0.12 * k;
+  }
+  parts.hips.rotation.z = 0.07 * s1 * k;
+  parts.hips.rotation.y = 0.18 * s1 * k;
+  parts.torso.rotation.y = -0.30 * s1 * k;
+  parts.torso.rotation.x = 0.06 * k;
+  parts.armR.rotation.x = (-0.55 + 0.75 * s1) * k;
+  parts.armL.rotation.x = (-0.55 - 0.75 * s1) * k;
+  parts.armR.rotation.z = mix(-0.07, 0.55 + 0.22 * s1, k);
+  parts.armL.rotation.z = mix(0.07, -0.55 + 0.22 * s1, k);
+  parts.head.rotation.y = 0.22 * s1 * k;
+  parts.head.rotation.z = -0.10 * s1 * k;
+}
+
+/** Laugh: head back, hands to the belly, and the shoulders shaking with it. */
+function poseLaugh(parts, t) {
+  const k = envelope(t, 1.5, 0.2);
+  const sh = Math.sin(t * 24);
+  const hipY = IDLE_HIP - 0.03 * k + 0.012 * sh * k;
+  parts.hips.position.y = hipY;
+  plantLegs(parts, hipY);
+  parts.torso.rotation.x = (-0.16 + 0.07 * sh) * k;
+  parts.torso.rotation.z = 0.03 * sh * k;
+  parts.head.rotation.x = (-0.42 + 0.07 * sh) * k;
+  parts.armR.rotation.x = (-0.62 + 0.05 * sh) * k;
+  parts.armL.rotation.x = (-0.62 - 0.05 * sh) * k;
+  parts.armR.rotation.z = mix(-0.07, 0.40, k);
+  parts.armL.rotation.z = mix(0.07, -0.40, k);
+}
+
+/** Lie: flat on your back, head resting, feet ahead of you. Held. */
+function poseLie(parts, t) {
+  const k = holdIn(t, 0.6);
+  // -pi/2 about x lays the body down with the chest to the sky and the head
+  // behind the hips; +pi/2 would put the face in the dirt.
+  parts.hips.rotation.x = mix(0, -Math.PI / 2, k);
+  const hipY = mix(IDLE_HIP, LIE_HIP, k) + 0.005 * Math.sin(t * 1.3) * k;
+  parts.hips.position.y = hipY;
+  plantLegs(parts, IDLE_HIP);
+  // Half way down the body is at forty five degrees with the hips still high,
+  // and straight legs put both boots a foot underground. The knees come up
+  // through the middle of the fall and go back down at the end of it.
+  const tuck = Math.sin(Math.PI * k);
+  for (const [thighG, shinG, bootG, side] of legChains(parts)) {
+    thighG.rotation.x = mix(thighG.rotation.x, 0.06, k) - 1.35 * tuck;
+    thighG.rotation.z = side * 0.11 * k;
+    shinG.rotation.x = mix(shinG.rotation.x, 0.10, k) + 1.45 * tuck;
+    bootG.rotation.x = mix(bootG.rotation.x, -0.90, k);
+  }
+  parts.armR.rotation.z = mix(-0.07, 0.44, k);
+  parts.armL.rotation.z = mix(0.07, -0.44, k);
+  parts.armR.rotation.x = 0.06 * k;
+  parts.armL.rotation.x = 0.06 * k;
+  parts.torso.rotation.x = -0.06 * k;
+  parts.head.rotation.x = 0.24 * k;
+}
+
+/**
+ * The table `setAnim` and poseCharacter answer to. A name in here is a pose;
+ * every other name falls through to the gait, exactly as it did before any of
+ * this existed. Null prototype so a state carrying anim: 'constructor' is a
+ * walk and not a crash.
+ */
+export const EMOTE_POSES = Object.freeze(Object.assign(Object.create(null), {
+  wave: poseWave,
+  sit: poseSit,
+  bow: poseBow,
+  cheer: poseCheer,
+  point: posePoint,
+  dance: poseDance,
+  laugh: poseLaugh,
+  lie: poseLie,
+}));
+
+/** The eight names, in the order the wheel draws them. */
+export const EMOTE_ANIMS = Object.keys(EMOTE_POSES);
+
+/** True when this anim name is an emote and not a gait. */
+export const isEmoteAnim = (name) => typeof EMOTE_POSES[String(name)] === 'function';
+
+/**
+ * Fails loudly when emotes.js grows a ninth emote and this file has no body for
+ * it, or when a pose here answers to no emote. Called by player.test.mjs and by
+ * emotes.test.mjs, so neither table can drift from the other in silence.
+ */
+export function auditEmotePoses(ids) {
+  const bad = (m) => { throw new Error(`auditEmotePoses: ${m}`); };
+  const list = Array.isArray(ids) ? ids.map(String) : [];
+  for (const id of list) if (typeof EMOTE_POSES[id] !== 'function') bad(`emote "${id}" has no pose`);
+  for (const name of EMOTE_ANIMS) if (!list.includes(name)) bad(`pose "${name}" answers to no emote`);
+  if (EMOTE_ANIMS.length !== list.length) bad(`${EMOTE_ANIMS.length} poses for ${list.length} emotes`);
+  return true;
+}
+
 // Pose the rig from the gait state. Pure geometry, no time of its own beyond
 // s.t, which only the idle breath reads.
 export function poseCharacter(parts, s) {
+  // An emote is a pose of its own and owes the gait nothing. The emotes system
+  // is what puts one in `s.anim`, and it only does so while the player is
+  // standing still: a walk always wins, because a walking player never gets
+  // here with an emote's name on.
+  const emote = EMOTE_POSES[s.anim];
+  if (emote) { emoteBase(parts, s); emote(parts, Math.max(0, s.emoteT || 0), s); return; }
   const stride = s.stride || STRIDE_WALK;
   const A = stride / 4;                    // half the foot excursion in body space
   const idle = clamp(s.idleMix == null ? (s.anim === 'idle' ? 1 : 0) : s.idleMix, 0, 1);

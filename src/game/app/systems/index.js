@@ -7,6 +7,7 @@
 
 import { world } from './world.js';
 import { player } from './player.js';
+import { emotes } from './emotes.js';
 import { combat } from './combat.js';
 import { abilities } from './abilities.js';
 import { inventory } from './inventory.js';
@@ -17,8 +18,8 @@ import { dev } from './dev.js';
 import { input } from './input.js';
 
 /** The frame order of docs/mmo/07-RUNTIME-CONTRACT.md, by name. */
-export const FRAME_ORDER = ['world', 'player', 'combat', 'abilities', 'inventory', 'world_life', 'dragon', 'ui', 'dev', 'input'];
+export const FRAME_ORDER = ['world', 'player', 'emotes', 'combat', 'abilities', 'inventory', 'world_life', 'dragon', 'ui', 'dev', 'input'];
 
-export const SYSTEMS = [world, player, combat, abilities, inventory, world_life, dragon, ui, dev, input];
+export const SYSTEMS = [world, player, emotes, combat, abilities, inventory, world_life, dragon, ui, dev, input];
 
-export { world, player, combat, abilities, inventory, world_life, dragon, ui, dev, input };
+export { world, player, emotes, combat, abilities, inventory, world_life, dragon, ui, dev, input };

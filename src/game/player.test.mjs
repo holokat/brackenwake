@@ -9,6 +9,7 @@ import {
   createPlayer, buildCharacter, poseCharacter, stepPlayer, legIK,
   WALK_SPEED, RUN_SPEED, ACCEL, DECEL, TURN_RATE, MAX_SLOPE, STRIDE_WALK, STRIDE_RUN, PALETTE, JUMP_HEIGHT, JUMP_AIR_S,
   HAIR_STYLES, HAIRLINE, GRIP_POSES, BODY, APPEARANCE_FALLBACK,
+  EMOTE_ANIMS, EMOTE_POSES, auditEmotePoses, isEmoteAnim, clearEmotePose, SIT_HIP, LIE_HIP,
 } from './player.js';
 
 let pass = 0, fail = 0;
@@ -412,6 +413,115 @@ console.log('player: the shield arm hangs, it does not present');
     GRIP_POSES.shield.armL.join(', '));
   check('while a two hander still pulls the left arm right up onto the haft',
     GRIP_POSES.two.armL[0] < -0.8, `${GRIP_POSES.two.armL[0]} rad`);
+}
+
+// ---------------------------------------------------------------------------
+// The emote poses. Eight bodies a player wears on purpose, measured on a real
+// rig: where the hips ride, where the head ends up, and whether any of it goes
+// through the ground. See src/game/emotes.js for which one runs when.
+console.log('player: the emote poses');
+{
+  check('there are eight of them', EMOTE_ANIMS.length === 8, EMOTE_ANIMS.join(','));
+  check('and the audit passes on its own list', auditEmotePoses(EMOTE_ANIMS) === true);
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  check('a name with no pose is refused', /has no pose/.test(threw(() => auditEmotePoses([...EMOTE_ANIMS, 'shrug'])) || ''));
+  check('and a pose with no name is refused', /answers to no emote/.test(threw(() => auditEmotePoses(EMOTE_ANIMS.slice(1))) || ''));
+  check('isEmoteAnim knows an emote from a gait',
+    isEmoteAnim('sit') && isEmoteAnim('lie') && !isEmoteAnim('walk') && !isEmoteAnim('idle') && !isEmoteAnim('constructor'));
+}
+{
+  const { group, parts } = buildCharacter();
+  const box = new THREE.Box3();
+  const worst = [];
+  for (const id of EMOTE_ANIMS) {
+    let lo = 9, hi = -9, at = 0;
+    for (let i = 0; i <= 60; i++) {
+      const t = i * 0.05;                    // three seconds of it, at 20 Hz
+      poseCharacter(parts, { anim: id, emoteT: t, t, phase: 0, stride: STRIDE_WALK, idleMix: 1 });
+      group.updateMatrixWorld(true);
+      box.setFromObject(group);
+      if (box.min.y < lo) { lo = box.min.y; at = t; }
+      hi = Math.max(hi, box.max.y);
+    }
+    worst.push({ id, lo, hi, at });
+    check(`${id}: nothing sinks into the field over three seconds`, lo > -0.05,
+      `lowest ${(lo * 1000).toFixed(0)} mm at t = ${at.toFixed(2)} s, tallest ${hi.toFixed(3)} m`);
+  }
+  check('and none of the eight leaves the body an impossible height',
+    worst.every((w) => w.hi > 0.2 && w.hi < 2.3), worst.map((w) => `${w.id} ${w.hi.toFixed(2)}`).join(' '));
+}
+{
+  // the sit: the numbers the pose was solved for, read back off the rig
+  const { group, parts } = buildCharacter();
+  poseCharacter(parts, { anim: 'sit', emoteT: 2, t: 2, phase: 0, stride: STRIDE_WALK, idleMix: 1 });
+  group.updateMatrixWorld(true);
+  const at = (p) => { const v = new THREE.Vector3(); p.getWorldPosition(v); return v; };
+  const hip = at(parts.hips), kneeR = at(parts.shinR), ankleR = at(parts.bootR), head = at(parts.head);
+  check('the hips are on the ground at SIT_HIP', near(hip.y, SIT_HIP, 0.01), `${hip.y.toFixed(3)} m against ${SIT_HIP}`);
+  check('the knees are out wider than the hips are', Math.abs(kneeR.x) > 0.28 && kneeR.x > 0,
+    `knee x ${kneeR.x.toFixed(3)} against hip half width ${BODY.HIP_HALF}`);
+  check('and forward of them', kneeR.z > 0.25, `knee z ${kneeR.z.toFixed(3)}`);
+  check('the shins fold back ACROSS the middle, which is what crossed legs are',
+    ankleR.x < 0, `right ankle x ${ankleR.x.toFixed(3)}, right knee x ${kneeR.x.toFixed(3)}`);
+  check('the ankles are near the ground', ankleR.y > 0.02 && ankleR.y < 0.18, `${ankleR.y.toFixed(3)} m`);
+  check('and the head is half a metre lower than it stands', head.y > 0.85 && head.y < 1.05, `${head.y.toFixed(3)} m`);
+}
+{
+  // the lie: flat on the back, head down, feet forward
+  const { group, parts } = buildCharacter();
+  poseCharacter(parts, { anim: 'lie', emoteT: 2, t: 2, phase: 0, stride: STRIDE_WALK, idleMix: 1 });
+  group.updateMatrixWorld(true);
+  const at = (p) => { const v = new THREE.Vector3(); p.getWorldPosition(v); return v; };
+  const hip = at(parts.hips), head = at(parts.head), foot = at(parts.bootR);
+  check('the pelvis is tipped a right angle', near(parts.hips.rotation.x, -Math.PI / 2, 1e-6), `${parts.hips.rotation.x.toFixed(5)} rad`);
+  check('the hips rest at LIE_HIP', near(hip.y, LIE_HIP, 0.01), `${hip.y.toFixed(3)} m against ${LIE_HIP}`);
+  check('the head is on the floor', head.y < 0.3, `${head.y.toFixed(3)} m`);
+  check('behind the hips, so he is on his back and not face down', head.z < -0.45, `head z ${head.z.toFixed(3)}`);
+  check('with the feet out the other way', foot.z > 0.5, `foot z ${foot.z.toFixed(3)}`);
+  const box = new THREE.Box3().setFromObject(group);
+  check('and the body laid out is about as long as it is tall standing',
+    near(box.max.z - box.min.z, 1.8, 0.25), `${(box.max.z - box.min.z).toFixed(3)} m end to end`);
+}
+{
+  // The discipline, proved in both directions: the emotes write channels
+  // poseCharacter does not, so a body that sat down has to be cleared or it
+  // never stands up again.
+  const { parts } = buildCharacter();
+  poseCharacter(parts, { anim: 'lie', emoteT: 2, t: 2, phase: 0, stride: STRIDE_WALK, idleMix: 1 });
+  poseCharacter(parts, { anim: 'walk', phase: 1, stride: STRIDE_WALK, idleMix: 0, t: 0 });
+  check('the gait alone does NOT undo the pelvis an emote tipped over',
+    Math.abs(parts.hips.rotation.x) > 1, `${parts.hips.rotation.x.toFixed(4)} rad still on the hips`);
+  clearEmotePose(parts);
+  const dirty = ['hips.rotation.x', 'hips.rotation.y', 'hips.rotation.z', 'hips.position.z',
+    'torso.rotation.y', 'torso.rotation.z', 'head.rotation.y', 'head.rotation.z',
+    'armL.rotation.y', 'armR.rotation.y', 'legL.rotation.y', 'legL.rotation.z',
+    'legR.rotation.y', 'legR.rotation.z', 'shinL.rotation.z', 'shinR.rotation.z',
+    'bootL.rotation.z', 'bootR.rotation.z']
+    .filter((path) => {
+      const [part, kind, axis] = path.split('.');
+      return parts[part][kind][axis] !== 0;
+    });
+  check('and clearEmotePose puts every one of the eighteen channels back to zero',
+    dirty.length === 0, dirty.join(', '));
+  check('clearEmotePose on nothing at all does not throw', clearEmotePose(null) === null);
+}
+{
+  // The gait is untouched: an anim name that is not an emote goes through the
+  // same code it always did, and comes out the same numbers.
+  const a = buildCharacter().parts, b = buildCharacter().parts;
+  const st = () => ({ phase: 0.9, stride: STRIDE_RUN, anim: 'run', idleMix: 0, t: 0.4 });
+  poseCharacter(a, st());
+  poseCharacter(b, { anim: 'dance', emoteT: 1, t: 0.4, phase: 0.9, stride: STRIDE_RUN, idleMix: 0 });
+  clearEmotePose(b);
+  poseCharacter(b, st());
+  const same = ['hips.position.y', 'torso.rotation.x', 'head.rotation.x', 'armL.rotation.x',
+    'armR.rotation.x', 'legL.rotation.x', 'legR.rotation.x', 'shinL.rotation.x', 'bootR.rotation.x']
+    .every((path) => {
+      const [part, kind, axis] = path.split('.');
+      return Math.abs(a[part][kind][axis] - b[part][kind][axis]) < 1e-12;
+    });
+  check('a run after an emote is exactly the run it would have been', same,
+    `hips ${a.hips.position.y.toFixed(6)} vs ${b.hips.position.y.toFixed(6)}`);
 }
 
 console.log(`\nplayer: ${pass} passed, ${fail} failed`);

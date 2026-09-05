@@ -611,8 +611,8 @@ const spy = (name, deps = [], hooks = {}) => ({
   const names = SYSTEMS.map((s) => s.name);
   check('the systems list is the frame order, in order',
     names.join(',') === FRAME_ORDER.join(','), names.join(','));
-  check('and the frame order is the nine 07-RUNTIME-CONTRACT.md documents, with the dragon after the world and before the HUD',
-    FRAME_ORDER.join(',') === 'world,player,combat,abilities,inventory,world_life,dragon,ui,dev,input', FRAME_ORDER.join(','));
+  check('and the frame order is the nine 07-RUNTIME-CONTRACT.md documents, with the dragon after the world and before the HUD, and the emotes straight after the body they pose',
+    FRAME_ORDER.join(',') === 'world,player,emotes,combat,abilities,inventory,world_life,dragon,ui,dev,input', FRAME_ORDER.join(','));
   check('each one has a file of its own', SYSTEMS.every((s) => src(`app/systems/${s.name}.js`).includes(`name: '${s.name}'`)));
 
   // every dep resolves, and the whole list really does sort
@@ -626,7 +626,7 @@ const spy = (name, deps = [], hooks = {}) => ({
   const late = SYSTEMS.flatMap((s) => (s.deps || []).filter((d) => at(d) > at(s.name)).map((d) => `${s.name} before ${d}`));
   check('and every system is built after everything it needs', late.length === 0, late.join(','));
   check('the build order is the one R1.md documents',
-    sys.built.join(',') === 'world,player,combat,inventory,abilities,ui,world_life,dragon,dev,input', sys.built.join(','));
+    sys.built.join(',') === 'world,player,combat,inventory,abilities,ui,emotes,world_life,dragon,dev,input', sys.built.join(','));
 
   // A system may reach any other system from inside a function that runs after
   // the boot, because everything exists by then. What it may NOT do is reach

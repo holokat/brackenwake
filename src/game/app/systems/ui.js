@@ -262,7 +262,7 @@ export const ui = {
   },
 
   ready(ctx) {
-    ctx.hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the bar. C character, B bag, K skills, P abilities, V crafting, M map, Escape settings, F2 dev bench, E goes in.');
+    ctx.hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the bar. C character, B bag, K skills, P abilities, V crafting, M map, X emotes, Escape settings, F2 dev bench, E goes in.');
   },
 
   late(ctx, frame) { ctx.get('ui').draw(frame); },
