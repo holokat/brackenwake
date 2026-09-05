@@ -22,12 +22,50 @@
 // Depth: a dungeon has three levels, a cave has one. The deepest level has no
 // stair down and says so by carrying `stair: null`. A staircase that leads
 // nowhere is the same lie as a door that does not open.
+//
+// ---- how big, and why ----------------------------------------------------
+// The first cut of this file drew rooms 3 to 8 cells a side on a 26 to 48 cell
+// grid. Six by six metres is a cupboard: a player and two skeletons filled it,
+// and the follow camera at nine metres saw the whole level at once. Rooms are
+// now 6 to 14 cells a side (12 to 28 m) for a dungeon and 8 to 18 for a cave,
+// corridors are two cells wide so two bodies pass, and the grid grew to match:
+// see GRID_BASE. The far room of every level is a hall, and on the bottom level
+// that hall is grown into the great hall the boss stands in, labelled
+// `kind: 'boss'` so monster_ai.js finds it by name instead of by guessing which
+// room is furthest from the door.
+//
+// Room `kind` is part of the contract with monster_ai.js normalizeDungeonLayout:
+// 'entry' is the room you arrive in and holds nothing, 'boss' is the deep room.
+// The values it does not know ('hall', 'room') fall through harmlessly. The
+// labelled room is the SAME room that file would have chosen by distance, so
+// the label changes no placement; it only stops the label and the geometry
+// disagreeing about which room is deep.
 
 import { hash2, mulberry32 } from './noise.js';
 
 export const CELL = 2;        // metres across one grid cell
-export const MAX_GRID = 48;   // no level is ever wider or deeper than this
+export const MAX_GRID = 96;   // no level is ever wider or deeper than this
 export const ROCK = 0, FLOOR = 1;
+
+/** Corridors are this many cells across, so two bodies pass in one. */
+export const CORRIDOR_W = 2;
+
+/** Room side length in cells, [min, max]. A cell is 2 m. */
+export const ROOM_SIDE = { dungeon: [6, 14], cave: [8, 18] };
+/** Grid side in cells: base + up to spread, plus PER_LEVEL for every level down. */
+export const GRID_BASE = { dungeon: 64, cave: 62 };
+export const GRID_SPREAD = { dungeon: 14, cave: 12 };
+export const GRID_PER_LEVEL = 6;
+/** How many cells of rock must stand between two rooms. */
+export const ROOM_GAP = { dungeon: 2, cave: 5 };   // a cave's caverns bulge outward
+/** How far a cave cavern may bulge past its recorded rectangle. */
+export const CAVE_BULGE = 2;
+/** The far room grows by up to this many cells a side on the bottom level. */
+export const HALL_GROW = 3;
+/** A room this wide and this deep reads as a hall even if it is not the far one. */
+export const HALL_SIDE = 11;
+
+const ADJ = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 /** How deep this kind of place goes. */
 export const maxLevel = (kind) => (kind === 'cave' ? 1 : 3);
@@ -49,12 +87,12 @@ export function generateDungeon(seed, site, depthLevel = 1) {
   const rng = mulberry32((hash2(site.cx, site.cz, seed) ^ Math.imul(level, 0x9e3779b1)) >>> 0);
 
   // deeper is bigger, and nothing is ever bigger than MAX_GRID
-  const grow = (level - 1) * 3;
-  const w = Math.min(MAX_GRID, (kind === 'cave' ? 26 : 30) + ri(rng, kind === 'cave' ? 8 : 12) + grow);
-  const h = Math.min(MAX_GRID, (kind === 'cave' ? 26 : 30) + ri(rng, kind === 'cave' ? 8 : 12) + grow);
+  const grow = (level - 1) * GRID_PER_LEVEL;
+  const w = Math.min(MAX_GRID, GRID_BASE[kind] + ri(rng, GRID_SPREAD[kind]) + grow);
+  const h = Math.min(MAX_GRID, GRID_BASE[kind] + ri(rng, GRID_SPREAD[kind]) + grow);
 
   const layout = {
-    kind, level, top, w, h, cellSize: CELL,
+    kind, level, top, w, h, cellSize: CELL, corridorW: CORRIDOR_W,
     id: site.id, name: site.name, cx: site.cx, cz: site.cz, seed,
     cells: new Array(w * h).fill(ROCK),
     rooms: [], entrance: null, stair: null, tags: {}, ore: [], chests: [],
@@ -64,33 +102,107 @@ export function generateDungeon(seed, site, depthLevel = 1) {
     if (gx < 1 || gz < 1 || gx > w - 2 || gz > h - 2) return;
     layout.cells[gz * w + gx] = FLOOR;
   };
+  const isFloor = (gx, gz) => inside(layout, gx, gz) && layout.cells[gz * w + gx] === FLOOR;
 
   // ---- rooms -------------------------------------------------------------
-  const minR = 3, maxR = kind === 'cave' ? 6 : 8;
-  const want = (kind === 'cave' ? 5 : 6) + ri(rng, 4) + (level - 1);
-  const fits = (r) => !layout.rooms.some((o) =>
-    r.x - 1 <= o.x + o.w && o.x - 1 <= r.x + r.w && r.z - 1 <= o.z + o.h && o.z - 1 <= r.z + r.h);
-  for (let t = 0; t < 90 && layout.rooms.length < want; t++) {
+  const [minR, maxR] = ROOM_SIDE[kind];
+  const gap = ROOM_GAP[kind];
+  const inset = 1 + (kind === 'cave' ? CAVE_BULGE : 0);
+  const want = (kind === 'cave' ? 5 : 7) + ri(rng, 3) + (level - 1);
+  const clear = (r, skip) => !layout.rooms.some((o) => o !== skip
+    && r.x - gap <= o.x + o.w && o.x - gap <= r.x + r.w
+    && r.z - gap <= o.z + o.h && o.z - gap <= r.z + r.h);
+  for (let t = 0; t < 400 && layout.rooms.length < want; t++) {
     const rw = minR + ri(rng, maxR - minR + 1), rh = minR + ri(rng, maxR - minR + 1);
-    const r = { x: 1 + ri(rng, w - rw - 2), z: 1 + ri(rng, h - rh - 2), w: rw, h: rh };
+    if (w - rw - inset * 2 <= 0 || h - rh - inset * 2 <= 0) continue;
+    const r = { x: inset + ri(rng, w - rw - inset * 2), z: inset + ri(rng, h - rh - inset * 2), w: rw, h: rh, kind: 'room' };
     r.cx = r.x + (r.w >> 1); r.cz = r.z + (r.h >> 1);
-    if (!fits(r)) continue;
+    if (!clear(r)) continue;
     layout.rooms.push(r);
   }
-  // A level with one room has no stair that is not the entrance. Ninety tries
-  // on a 26 m grid have never produced fewer than four, but a level that came
-  // out unusable must say so rather than ship a staircase under the player.
+  // A level with one room has no stair that is not the entrance. Four hundred
+  // tries on a 62 cell grid have never produced fewer than four, but a level
+  // that came out unusable must say so rather than ship a staircase under the
+  // player.
   if (layout.rooms.length < 2) throw new Error(`dungeon ${site.id} level ${level}: only ${layout.rooms.length} room(s) placed`);
-  for (const r of layout.rooms) for (let z = r.z; z < r.z + r.h; z++) for (let x = r.x; x < r.x + r.w; x++) set(x, z);
+
+  // ---- the hall, and the great hall at the bottom ------------------------
+  const ent0 = layout.rooms[0];
+  ent0.kind = 'entry';
+  let hall = null, hallD = -1;
+  for (let i = 1; i < layout.rooms.length; i++) {
+    const r = layout.rooms[i];
+    const d = Math.hypot(r.cx - ent0.cx, r.cz - ent0.cz);
+    if (d > hallD) { hallD = d; hall = r; }
+  }
+  const bottom = level >= top;
+  if (bottom) {
+    // grow it a side at a time, stopping at the grid edge or at another room
+    for (const [dx, dz, dw, dh] of [[-1, 0, 1, 0], [0, 0, 1, 0], [0, -1, 0, 1], [0, 0, 0, 1]]) {
+      for (let k = 0; k < HALL_GROW; k++) {
+        const t = { x: hall.x + dx, z: hall.z + dz, w: hall.w + dw, h: hall.h + dh };
+        if (t.x < inset || t.z < inset || t.x + t.w > w - inset || t.z + t.h > h - inset) break;
+        if (!clear(t, hall)) break;
+        hall.x = t.x; hall.z = t.z; hall.w = t.w; hall.h = t.h;
+      }
+    }
+    hall.cx = hall.x + (hall.w >> 1); hall.cz = hall.z + (hall.h >> 1);
+  }
+  hall.kind = bottom ? 'boss' : 'hall';
+  for (const r of layout.rooms) {
+    if (r.kind === 'room' && Math.min(r.w, r.h) >= HALL_SIDE) r.kind = 'hall';
+  }
+
+  // ---- carve the rooms ---------------------------------------------------
+  for (const r of layout.rooms) {
+    for (let z = r.z; z < r.z + r.h; z++) for (let x = r.x; x < r.x + r.w; x++) set(x, z);
+    if (kind !== 'cave') continue;
+    // A cavern is not a box. Two rings of growth outward from what is already
+    // carved, weighted by a lobed function of the angle from the room centre,
+    // so the wall comes and goes. Growth only ever takes a cell that already
+    // has a carved neighbour, so a bulge can never be a sealed pocket, and it
+    // stays inside CAVE_BULGE, which ROOM_GAP and `inset` already reserved.
+    // The recorded rectangle is carved WHOLE and never eroded, because
+    // monster_ai.js picks spawn cells inside it and a hole there would put a
+    // body in the rock for the clamp to drag out.
+    const phase = rng() * 6.283;
+    for (let ring = 1; ring <= CAVE_BULGE; ring++) {
+      const add = [];
+      for (let z = r.z - ring; z < r.z + r.h + ring; z++) {
+        for (let x = r.x - ring; x < r.x + r.w + ring; x++) {
+          if (!inside(layout, x, z) || isFloor(x, z)) continue;
+          if (!ADJ.some(([dx, dz]) => isFloor(x + dx, z + dz))) continue;
+          const a = Math.atan2(z - r.cz, x - r.cx);
+          const lobe = 0.5 + 0.5 * Math.sin(a * 3 + phase) * Math.cos(a * 2 - phase);
+          if (rng() < 0.18 + lobe * 0.5) add.push([x, z]);
+        }
+      }
+      for (const [x, z] of add) set(x, z);
+    }
+  }
 
   // ---- corridors ---------------------------------------------------------
-  // room i to room i-1, so the chain is connected by construction. A cave's
-  // corridors wander a cell wide and swell now and then; a dungeon's are square.
-  const carveH = (x0, x1, z) => { for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) { set(x, z); if (kind === 'cave' && rng() < 0.35) set(x, z + (rng() < 0.5 ? 1 : -1)); } };
-  const carveV = (z0, z1, x) => { for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) { set(x, z); if (kind === 'cave' && rng() < 0.35) set(x + (rng() < 0.5 ? 1 : -1), z); } };
+  // room i to room i-1, so the chain is connected by construction. Two cells
+  // wide: a horizontal run carves the band { z, z+1 }, a vertical run the band
+  // { x, x+1 }, and the corner between them is filled as a 2 x 2 block so the
+  // elbow is not a one cell pinch. A cave's passages swell now and then.
+  const swell = (x, z) => { if (kind === 'cave' && rng() < 0.3) set(x, z); };
+  const carveH = (x0, x1, z) => {
+    for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+      set(x, z); set(x, z + 1);
+      swell(x, z - 1); swell(x, z + 2);
+    }
+  };
+  const carveV = (z0, z1, x) => {
+    for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+      set(x, z); set(x + 1, z);
+      swell(x - 1, z); swell(x + 2, z);
+    }
+  };
+  const block2 = (x, z) => { set(x, z); set(x + 1, z); set(x, z + 1); set(x + 1, z + 1); };
   const join = (a, b) => {
-    if (rng() < 0.5) { carveH(a.cx, b.cx, a.cz); carveV(a.cz, b.cz, b.cx); }
-    else { carveV(a.cz, b.cz, a.cx); carveH(a.cx, b.cx, b.cz); }
+    if (rng() < 0.5) { carveH(a.cx, b.cx, a.cz); block2(b.cx, a.cz); carveV(a.cz, b.cz, b.cx); }
+    else { carveV(a.cz, b.cz, a.cx); block2(a.cx, b.cz); carveH(a.cx, b.cx, b.cz); }
   };
   for (let i = 1; i < layout.rooms.length; i++) join(layout.rooms[i - 1], layout.rooms[i]);
   // a loop or two so a dungeon is not a corridor you walk back down
@@ -102,16 +214,8 @@ export function generateDungeon(seed, site, depthLevel = 1) {
   // ---- the way in and the way on ----------------------------------------
   const ent = layout.rooms[0];
   layout.entrance = { gx: ent.cx, gz: ent.cz };
-  if (level < top) {
-    // the far room, so the stair is a walk and never the cell you arrived on
-    let best = null, bestD = -1;
-    for (let i = 1; i < layout.rooms.length; i++) {
-      const r = layout.rooms[i];
-      const d = Math.hypot(r.cx - ent.cx, r.cz - ent.cz);
-      if (d > bestD) { bestD = d; best = r; }
-    }
-    layout.stair = { gx: best.cx, gz: best.cz };
-  }
+  // the far room, so the stair is a walk and never the cell you arrived on
+  if (level < top) layout.stair = { gx: hall.cx, gz: hall.cz };
 
   // ---- what is in the rock ----------------------------------------------
   const taken = (gx, gz) => (layout.entrance.gx === gx && layout.entrance.gz === gz)
@@ -128,21 +232,26 @@ export function generateDungeon(seed, site, depthLevel = 1) {
   if (kind === 'cave') {
     for (const r of layout.rooms) {
       const edge = [];
-      for (let z = r.z; z < r.z + r.h; z++) for (let x = r.x; x < r.x + r.w; x++) {
-        if (!walkable(layout, x - 1, z) || !walkable(layout, x + 1, z) || !walkable(layout, x, z - 1) || !walkable(layout, x, z + 1)) edge.push([x, z]);
+      for (let z = r.z - CAVE_BULGE; z < r.z + r.h + CAVE_BULGE; z++) {
+        for (let x = r.x - CAVE_BULGE; x < r.x + r.w + CAVE_BULGE; x++) {
+          if (!walkable(layout, x, z)) continue;
+          if (ADJ.some(([dx, dz]) => !walkable(layout, x + dx, z + dz))) edge.push([x, z]);
+        }
       }
       const pool = edge.length ? edge : [[r.cx, r.cz]];
-      const n = 2 + ri(rng, 3);
+      const n = 3 + ri(rng, 4);
       for (let i = 0; i < n; i++) { const p = pool[ri(rng, pool.length)]; tag(p[0], p[1], 'ore'); }
     }
     // a cave with nothing in it is a cave with no reason to be entered
-    for (let guard = 0; layout.ore.length < 6 && guard < 200; guard++) {
+    for (let guard = 0; layout.ore.length < 8 && guard < 400; guard++) {
       const r = layout.rooms[ri(rng, layout.rooms.length)];
       tag(r.x + ri(rng, r.w), r.z + ri(rng, r.h), 'ore');
     }
   } else {
-    const n = 2 + ri(rng, 2);
-    for (let guard = 0; layout.chests.length < n && guard < 200; guard++) {
+    // the great hall is worth the walk, so the deep room is always paid for
+    tag(hall.cx + 1, hall.cz + 1, 'chest');
+    const n = 3 + ri(rng, 3);
+    for (let guard = 0; layout.chests.length < n && guard < 400; guard++) {
       const r = layout.rooms[ri(rng, layout.rooms.length)];
       tag(r.x + ri(rng, r.w), r.z + ri(rng, r.h), 'chest');
     }
@@ -164,6 +273,18 @@ export function cellAt(layout, gx, gz) {
 /** Can the player stand here? Everything but rock, and never off the grid. */
 export function walkable(layout, gx, gz) {
   return inside(layout, gx, gz) && layout.cells[idx(layout, gx, gz)] === FLOOR;
+}
+
+/**
+ * The room a cell belongs to, or null for a corridor. A cave bulge outside the
+ * recorded rectangle reads as null too, which is what the ceiling wants: the
+ * dome sits over the rectangle and the bulge is its low, ragged rim.
+ */
+export function roomAt(layout, gx, gz) {
+  for (const r of layout.rooms) {
+    if (gx >= r.x && gx < r.x + r.w && gz >= r.z && gz < r.z + r.h) return r;
+  }
+  return null;
 }
 
 /** Grid cell -> the metres of its centre. The grid is centred on the origin. */
@@ -215,7 +336,7 @@ export function floodFrom(layout, gx, gz) {
   seen.add(idx(layout, gx, gz));
   while (stack.length) {
     const [x, z] = stack.pop();
-    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    for (const [dx, dz] of ADJ) {
       const nx = x + dx, nz = z + dz;
       if (!walkable(layout, nx, nz)) continue;
       const i = idx(layout, nx, nz);

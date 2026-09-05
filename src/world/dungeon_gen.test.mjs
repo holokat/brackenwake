@@ -1,5 +1,8 @@
 // Levels under the ground. Run: node src/world/dungeon_gen.test.mjs
-import { generateDungeon, cellAt, walkable, clampToWalkable, floodFrom, worldOf, gridOf, maxLevel, MAX_GRID, CELL } from './dungeon_gen.js';
+import {
+  generateDungeon, cellAt, walkable, clampToWalkable, floodFrom, worldOf, gridOf, roomAt,
+  maxLevel, MAX_GRID, CELL, CORRIDOR_W, ROOM_SIDE, HALL_GROW,
+} from './dungeon_gen.js';
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 const seed = 20260904;
@@ -8,8 +11,142 @@ const seed = 20260904;
 const sites = [];
 for (let i = 0; i < 40; i++) sites.push({ id: `${i},${-i}`, cx: i * 3 - 40, cz: 17 - i * 2, kind: i % 2 ? 'dungeon' : 'cave', name: `site ${i}` });
 const levels = [];
+const t0 = performance.now();
 for (const s of sites) for (let l = 1; l <= maxLevel(s.kind); l++) levels.push({ site: s, l, L: generateDungeon(seed, s, l) });
+const genMs = performance.now() - t0;
 check('generated a level for every site and depth', levels.length === 40 / 2 * 1 + 40 / 2 * 3, `${levels.length} levels`);
+check('and generating one takes under 5 ms', genMs / levels.length < 5,
+  `${(genMs / levels.length).toFixed(2)} ms a level, ${genMs.toFixed(0)} ms for all ${levels.length}`);
+
+// ---- how big a level is, measured ----------------------------------------
+{
+  console.log('  --- the size of a level, measured ---');
+  const rows = {};
+  for (const { L } of levels) (rows[`${L.kind} L${L.level}`] ||= []).push(L);
+  const mm = (a) => `${Math.min(...a)}..${Math.max(...a)}`;
+  const avg = (a) => (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1);
+  for (const [k, list] of Object.entries(rows)) {
+    const sides = list.flatMap((L) => L.rooms.flatMap((r) => [r.w, r.h]));
+    const grid = list.flatMap((L) => [L.w, L.h]);
+    const floor = list.map((L) => L.cells.reduce((n, c) => n + c, 0));
+    console.log(`      ${k.padEnd(11)} grid ${mm(grid)} cells (${Math.min(...grid) * CELL}..${Math.max(...grid) * CELL} m)`
+      + `  rooms ${mm(list.map((L) => L.rooms.length))}`
+      + `  room side ${mm(sides)} cells (${Math.min(...sides) * CELL}..${Math.max(...sides) * CELL} m, mean ${avg(sides)})`
+      + `  floor ${mm(floor)} cells`);
+  }
+  // The old generator drew rooms 3 to 8 cells a side, which is 6 by 6 metres at
+  // the small end, on a 26 to 48 cell grid. These are the numbers that replaced
+  // those, and they are checked rather than described.
+  const ordinary = (kind) => levels.filter(({ L }) => L.kind === kind)
+    .flatMap(({ L }) => L.rooms.filter((r) => r.kind !== 'boss').flatMap((r) => [r.w, r.h]));
+  const d = ordinary('dungeon'), c = ordinary('cave');
+  check('an ordinary dungeon room is 6 to 14 cells a side',
+    Math.min(...d) === ROOM_SIDE.dungeon[0] && Math.max(...d) === ROOM_SIDE.dungeon[1],
+    `${Math.min(...d)}..${Math.max(...d)} cells, ${Math.min(...d) * CELL}..${Math.max(...d) * CELL} m`);
+  check('and an ordinary cavern 8 to 18',
+    Math.min(...c) === ROOM_SIDE.cave[0] && Math.max(...c) === ROOM_SIDE.cave[1],
+    `${Math.min(...c)}..${Math.max(...c)} cells, ${Math.min(...c) * CELL}..${Math.max(...c) * CELL} m`);
+  const smallest = Math.min(...levels.map(({ L }) => Math.min(L.w, L.h)));
+  check('and no level is smaller than 60 cells a side', smallest >= 60, `smallest side ${smallest} cells, ${smallest * CELL} m`);
+}
+
+// ---- the entry room, the hall and the great hall -------------------------
+// Room `kind` is read by monster_ai.js normalizeDungeonLayout: 'entry' is the
+// room that holds nothing and 'boss' is the room the boss stands in. A label
+// nobody sets is decoration, and a label on the wrong room puts the boss in the
+// wrong room, so both are checked against where the doors actually are.
+{
+  let entry = 0, oneBoss = 0, bossAtBottom = 0, bossAbove = 0, grown = 0, bottoms = 0;
+  for (const { L } of levels) {
+    const bosses = L.rooms.filter((r) => r.kind === 'boss');
+    if (L.rooms[0].kind === 'entry' && L.rooms.filter((r) => r.kind === 'entry').length === 1) entry++;
+    if (bosses.length <= 1) oneBoss++;
+    if (L.level >= L.top) {
+      bottoms++;
+      if (bosses.length === 1) bossAtBottom++;
+      if (bosses[0] && Math.max(bosses[0].w, bosses[0].h) > ROOM_SIDE[L.kind][0]) grown++;
+    } else if (bosses.length) bossAbove++;
+  }
+  check('room zero is the entry room and nothing else is', entry === levels.length, `${entry}/${levels.length}`);
+  check('exactly one room is labelled boss, and only on the bottom level',
+    oneBoss === levels.length && bossAtBottom === bottoms && bossAbove === 0,
+    `${bossAtBottom}/${bottoms} bottom levels, ${bossAbove} above the bottom`);
+  const area = levels.flatMap(({ L }) => L.rooms.filter((r) => r.kind === 'boss')).map((r) => r.w * r.h * CELL * CELL);
+  check('and the great hall is a hall', grown === bottoms && Math.min(...area) > 200,
+    `${Math.min(...area)}..${Math.max(...area)} square metres of floor, grown by up to ${HALL_GROW} cells a side`);
+  // On the levels above the bottom the hall is where the stair down is, so the
+  // long walk and the big room are the same walk.
+  let inHall = 0, withStair = 0;
+  for (const { L } of levels) {
+    if (!L.stair) continue;
+    withStair++;
+    const r = roomAt(L, L.stair.gx, L.stair.gz);
+    if (r && r.kind === 'hall') inHall++;
+  }
+  check('the stair down always stands in the hall', withStair > 0 && inHall === withStair, `${inHall}/${withStair}`);
+}
+
+// ---- corridors two cells wide --------------------------------------------
+{
+  // Measured, not asserted: at every floor cell outside a room, how wide the
+  // walkable run is across the passage. A single cell anywhere is a pinch two
+  // bodies cannot pass in, which is what every corridor used to be.
+  const hist = {}; const by = { dungeon: { pinch: 0, cells: 0 }, cave: { pinch: 0, cells: 0 } };
+  let cells = 0;
+  for (const { L } of levels) {
+    for (let gz = 1; gz < L.h - 1; gz++) for (let gx = 1; gx < L.w - 1; gx++) {
+      if (!walkable(L, gx, gz) || roomAt(L, gx, gz)) continue;
+      let nz = 1; for (let dd = 1; walkable(L, gx, gz + dd); dd++) nz++;
+      for (let dd = 1; walkable(L, gx, gz - dd); dd++) nz++;
+      let nx = 1; for (let dd = 1; walkable(L, gx + dd, gz); dd++) nx++;
+      for (let dd = 1; walkable(L, gx - dd, gz); dd++) nx++;
+      const wide = Math.min(nx, nz);
+      cells++;
+      by[L.kind].cells++;
+      hist[wide] = (hist[wide] || 0) + 1;
+      if (wide < CORRIDOR_W) by[L.kind].pinch++;
+    }
+  }
+  const near = Object.entries(hist).filter(([k]) => +k <= 5);
+  console.log(`  --- corridor cross sections --- ${cells} corridor cells: `
+    + `${near.map(([k, v]) => `${k} cells x${v}`).join(', ')}, `
+    + `wider than 5: ${cells - near.reduce((n, [, v]) => n + v, 0)}`);
+  check(`a dungeon corridor is never narrower than ${CORRIDOR_W} cells anywhere`,
+    by.dungeon.cells > 0 && by.dungeon.pinch === 0,
+    `${by.dungeon.pinch} pinches in ${by.dungeon.cells} cells, ${hist[2] || 0} of them exactly ${CORRIDOR_W} across`);
+  check(`and ${CORRIDOR_W} cells is ${CORRIDOR_W * CELL} metres, so two bodies pass`, CORRIDOR_W * CELL === 4);
+  // A cave's passages are deliberately ragged, so the cross section metric
+  // finds single cell nooks off a wide passage. A nook is not a pinch: you walk
+  // past it. What matters is whether a body two cells wide can get everywhere,
+  // so ask THAT, of both kinds, rather than excusing the cave and moving on.
+  let reachable = 0, poor = '';
+  for (const { L } of levels) {
+    const wide = new Uint8Array(L.w * L.h);
+    for (let gz = 0; gz < L.h - 1; gz++) for (let gx = 0; gx < L.w - 1; gx++) {
+      if (!(walkable(L, gx, gz) && walkable(L, gx + 1, gz) && walkable(L, gx, gz + 1) && walkable(L, gx + 1, gz + 1))) continue;
+      wide[gz * L.w + gx] = 1; wide[gz * L.w + gx + 1] = 1;
+      wide[(gz + 1) * L.w + gx] = 1; wide[(gz + 1) * L.w + gx + 1] = 1;
+    }
+    const seen = new Set(); const stack = [[L.entrance.gx, L.entrance.gz]];
+    if (!wide[L.entrance.gz * L.w + L.entrance.gx]) { poor = `${L.id} L${L.level} entrance`; continue; }
+    seen.add(L.entrance.gz * L.w + L.entrance.gx);
+    while (stack.length) {
+      const [x, z] = stack.pop();
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, nz = z + dz;
+        if (nx < 0 || nz < 0 || nx >= L.w || nz >= L.h) continue;
+        const i = nz * L.w + nx;
+        if (!wide[i] || seen.has(i)) continue;
+        seen.add(i); stack.push([nx, nz]);
+      }
+    }
+    const allRooms = L.rooms.every((r) => seen.has(r.cz * L.w + r.cx));
+    const stairOk = !L.stair || seen.has(L.stair.gz * L.w + L.stair.gx);
+    if (allRooms && stairOk) reachable++; else poor = `${L.id} L${L.level}`;
+  }
+  check('a body two cells wide can reach every room and the stair, on every level',
+    reachable === levels.length, `${reachable}/${levels.length}${poor ? ', worst ' + poor : ''}`);
+}
 
 // ---- deterministic -------------------------------------------------------
 {
