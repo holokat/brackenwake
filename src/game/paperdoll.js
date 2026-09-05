@@ -107,10 +107,24 @@ export function createPaperdoll(sc, rigGetter, opts = {}) {
 
   const hasDom = typeof document !== 'undefined' && document && typeof document.createElement === 'function';
   const canvas = hasDom ? document.createElement('canvas') : null;
+  // The HUD's portrait plate wants the same likeness, and a DOM node can only
+  // be in one place: appended into the character sheet's arch it left the
+  // plate empty. The portrait is a second canvas, copied from the doll every
+  // time the doll is redrawn, with no pointer handling of its own.
+  const portrait = hasDom ? document.createElement('canvas') : null;
+  let portrait2d = null;
+  if (portrait) {
+    portrait.className = 'bw-doll-portrait';
+    portrait.style.width = '100%';
+    portrait.style.height = '100%';
+    portrait.style.display = 'block';
+    try { portrait2d = portrait.getContext('2d'); } catch { portrait2d = null; }
+  }
   let ctx2d = null;
   if (canvas) {
     canvas.width = width;
     canvas.height = height;
+    if (portrait) { portrait.width = width; portrait.height = height; }
     canvas.className = 'bw-doll-canvas';
     canvas.style.width = '100%';
     canvas.style.height = '100%';
@@ -240,6 +254,10 @@ export function createPaperdoll(sc, rigGetter, opts = {}) {
     }
     ctx2d.clearRect(0, 0, width, height);
     ctx2d.putImageData(flipped, 0, 0);
+    if (portrait2d) {
+      portrait2d.clearRect(0, 0, width, height);
+      portrait2d.drawImage(canvas, 0, 0);
+    }
     drawn++;
     return true;
   }
@@ -247,6 +265,8 @@ export function createPaperdoll(sc, rigGetter, opts = {}) {
   return {
     canvas,
     el: canvas,
+    /** A copy of the doll for the HUD plate, redrawn with it. Never the same node as `canvas`. */
+    portrait,
     /** The camera maths this doll was built with, for anything that wants it. */
     framing: shape,
     get yaw() { return yaw; },

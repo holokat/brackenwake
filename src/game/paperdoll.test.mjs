@@ -100,6 +100,9 @@ console.log('paperdoll: with nothing to draw into');
   let doll = null;
   try { doll = createPaperdoll(null, () => null, { width: 244, height: 400 }); } catch (e) { threw = e; }
   check('it builds with no renderer and no document', threw === null, threw ? threw.message : '');
+  check('the portrait is a second node, never the doll canvas itself (a node can only hang in one place)',
+    doll && 'portrait' in doll && (doll.canvas === null ? doll.portrait === null : doll.portrait !== doll.canvas),
+    doll ? `canvas ${doll.canvas}, portrait ${doll.portrait}` : 'no doll');
   check('and there is no canvas to show', doll.canvas === null);
   check('the framing is still worked out', doll.framing.distance > 0, doll.framing.distance.toFixed(3));
   check('the pixel size is not mistaken for the body height',
