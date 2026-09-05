@@ -202,6 +202,19 @@ export function buildBag(el, ctx, opts = {}) {
   const foot = h('div', 'bw-bag-foot');
   root.appendChild(foot);
 
+  // Sort: stacks merged, gear then consumables then materials, compacted to the
+  // front. inventory.sort says what it did; the grid redraws off onChange.
+  const sortBtn = h('button', 'bw-btn bw-bag-sort');
+  sortBtn.textContent = 'Sort';
+  sortBtn.title = 'Merge stacks and put like with like';
+  sortBtn.addEventListener('click', () => {
+    const inv = ctx?.inventory;
+    if (!inv || typeof inv.sort !== 'function') { ctx?.hud?.log?.('Nothing here knows how to sort the pack yet.'); return; }
+    inv.sort();
+    ctx?.windows?.refresh?.('character');
+  });
+  filters.appendChild(sortBtn);
+
   const buttons = new Map();
   for (const c of CATEGORIES) {
     const b = h('button', 'bw-btn' + (c.id === 'all' ? ' on' : ''));

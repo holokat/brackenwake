@@ -37,6 +37,8 @@ export const SETTINGS = [
     apply: 'renderer.setPixelRatio(v === "device" ? devicePixelRatio : 1)' },
   { key: 'grass', label: 'Grass density', kind: 'range', min: 0, max: 1, step: 0.1, def: 1,
     apply: 'flora density multiplier; 0 means no grass at all' },
+  { key: 'hudScale', label: 'Bars size', kind: 'choice', options: ['small', 'medium', 'large'], def: 'medium',
+    apply: 'hud.setScale(v): the ability and item bars and the gains ticker grow; small is the size they shipped at' },
   { key: 'textScale', label: 'Floating text size', kind: 'range', min: 0.6, max: 2, step: 0.1, def: 1,
     apply: 'floaters textScale(): the multiplier on every number that flies off a thing' },
   { key: 'invertDrag', label: 'Invert drag', kind: 'toggle', def: false,

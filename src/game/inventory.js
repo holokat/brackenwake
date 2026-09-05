@@ -30,7 +30,7 @@ import { derived } from '../mmo/stats.js';
  * 40, not the 20 03-ITEMS-LOOT prints: the user asked for a bigger pack, and
  * `state.js` carries the same number and grows an older save to it on hydrate.
  */
-export const PACK_SLOTS = 40;
+export const PACK_SLOTS = 80;
 
 /** The two ring slots, in the order an empty one is looked for. */
 export const RING_SLOTS = ['ring1', 'ring2'];
@@ -363,7 +363,9 @@ export function createInventory(o = {}) {
     for (let i = 0; i < character.pack.slots; i++) {
       const other = items[i];
       if (!other || !stackable(other)) continue;
-      if (baseFor(other)?.id === b.id) return i;
+      // the same base AND the same material: three iron ingots and two copper
+      // ingots are two stacks, or the forge is told there are five iron
+      if (baseFor(other)?.id === b.id && (other.material ?? null) === (item.material ?? null)) return i;
     }
     return -1;
   }

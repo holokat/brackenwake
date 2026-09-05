@@ -412,7 +412,7 @@ const CSS = `
   pointer-events: none; text-align: right;
 }
 #bw-gains .gl {
-  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
+  font-family: ${theme.fonts.display}; font-size: calc(22px * var(--gs, 1)); font-weight: 700;
   letter-spacing: .04em; color: ${LOG_KINDS.gain};
   text-shadow: 0 1px 4px rgba(0,0,0,.95), 0 0 12px rgba(93,255,106,.35);
   white-space: nowrap;
@@ -896,6 +896,19 @@ export function createHud(root) {
      * Take the paper doll's canvas, or any node, into the portrait plate. With
      * nothing handed over the plate keeps the drawn helm.
      */
+    /**
+     * The bars' size. 'small' is the size they shipped at; 'medium' 1.25x;
+     * 'large' 1.5x. The gains ticker scales with them. The user called the
+     * shipped size small, so medium is the default in win_settings.
+     */
+    setScale(size) {
+      const k = size === 'large' ? 1.5 : size === 'small' ? 1 : 1.25;
+      barRail.style.transform = `translateX(-50%) scale(${k})`;
+      barRail.style.transformOrigin = 'bottom center';
+      const g = el.querySelector('#bw-gains');
+      if (g) { g.style.setProperty('--gs', String(k)); g.style.bottom = `${Math.round(96 * k)}px`; }
+      return k;
+    },
     setPortrait(node) {
       if (!node) return false;
       portrait.textContent = '';

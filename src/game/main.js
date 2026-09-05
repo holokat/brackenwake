@@ -53,6 +53,7 @@ import { dressRig } from './gear_visuals.js';
 import { createSky } from './sky.js';
 import { createTargetRing } from './target_ring.js';
 import { createPaperdoll } from './paperdoll.js';
+import { createItemBar } from './item_bar.js';
 import { cameraClamp } from '../world/dungeon.js';
 import { createWater } from '../world/water.js';
 import { createForageField, seasonAt } from '../world/forage.js';
@@ -362,6 +363,16 @@ function boot() {
       hud.setPortrait?.(ctx.paperdoll.canvas);
     } catch (err) { console.warn('paperdoll not available', err); }
     ctx.useItem = (item, where) => foraging.useItem(item, where);
+    // the item bar: eight slots on F5 to F12 for potions, food, weapons and tools,
+    // kept apart from the ability bar so a sword and a spell never share a key
+    const itemBar = createItemBar({
+      character, inventory, input, hud,
+      useItem: (item, where) => ctx.useItem(item, where),
+      setTool: (id) => pickTool(id),
+      enabled: () => !windows.anyOpen && !dying,
+    });
+    hud.onItem?.((slot, how) => (how === 'clear' ? itemBar.clear(slot) : itemBar.use(slot)));
+    hud.onItemDrop?.((slot, payload) => itemBar.assign(slot, payload));
     tradeNet.onInvite((partner, peer) => {
       hud.log(`${peer?.name || 'somebody'} wants to trade.`);
       windows.open('trade', { partner });
@@ -396,6 +407,7 @@ function boot() {
       if (Number.isFinite(s.ring) && typeof runtime.setRing === 'function') runtime.setRing(s.ring);
       if (Number.isFinite(s.grass) && typeof runtime.setGrass === 'function') runtime.setGrass(s.grass);
       if (typeof s.dev === 'boolean' && dev.on !== s.dev) dev.toggle();
+      if (typeof s.hudScale === 'string') hud.setScale?.(s.hudScale);
     }
     function shapeDrag() {
       const st = character.settings || {};
@@ -833,6 +845,7 @@ function boot() {
       const hadPending = !!abilities.pending;
       abilities.update(dt, nowS);
       if (hadPending && !abilities.pending && input.pressed('escape')) input.swallow('escape');
+      itemBar.update(dt);
       tickPools(actor, dt, combat.inCombat(actor, now));
       loot.update(dt);
 
@@ -867,6 +880,7 @@ function boot() {
         actor,
         target: targeting.frame(character),
         bar: abilities.barView(nowS),
+        items: itemBar.view(),
         buffs: abilities.buffsView(nowS),
       });
       windows.update(dt);
@@ -898,7 +912,7 @@ function boot() {
       actor, get playerActor() { return actor; }, get character() { return state.character; },
       progression, combat, loot, monsters, inventory, windows, effects, targeting, abilities, npcs, stations,
       panels: { talk: talkPanel, trade: tradePanel, crafting: craftingPanel, map: mapPanel, settings: settingsPanel },
-      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, forage, foraging, refreshEnvironment, targetRing, get attacking() { return attacking; }, stopAttack, get fps() { return fps; }, get codexTab() { return windows.tab; }, devPanel, get devBench() { return devBenchOf(); },
+      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, forage, foraging, itemBar, refreshEnvironment, targetRing, get attacking() { return attacking; }, stopAttack, get fps() { return fps; }, get codexTab() { return windows.tab; }, devPanel, get devBench() { return devBenchOf(); },
       wake, get dying() { return dying; },
     };
     hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the bar. C character, B bag, K skills, P abilities, V crafting, M map, Escape settings, F2 dev bench, E goes in.');

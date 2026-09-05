@@ -95,7 +95,7 @@ export const START_COINS = 120;   // the first axe is 60, so you can buy one and
  * document that reaches it with fewer, so a character that never went through
  * hydrate is not left on 20.
  */
-export const PACK_SLOTS = 40;
+export const PACK_SLOTS = 80;
 export const BAR_SLOTS = 12;      // 07: bar[12]
 
 // --------------------------------------------------------------- local bases

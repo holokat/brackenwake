@@ -614,13 +614,13 @@ const gearSubjectOfTier = (t) => subjectOfTier(t).filter((m) => tableFor(m).some
 
 console.log('win_dev: the pack is bigger, and both files agree');
 {
-  check('state.js says 40 slots', STATE_PACK_SLOTS === 40, String(STATE_PACK_SLOTS));
+  check('state.js says 80 slots', STATE_PACK_SLOTS === 80, String(STATE_PACK_SLOTS));
   check('and inventory.js says the same', INV_PACK_SLOTS === STATE_PACK_SLOTS, `${INV_PACK_SLOTS} and ${STATE_PACK_SLOTS}`);
   const blank = createState({ storage: null }).character;
-  check('a fresh document has forty empty slots', blank.pack.slots === 40 && blank.pack.items.length === 40 && blank.pack.items.every((x) => x === null));
+  check('a fresh document has eighty empty slots', blank.pack.slots === 80 && blank.pack.items.length === 80 && blank.pack.items.every((x) => x === null));
 }
 
-console.log('win_dev: a twenty slot save grows to forty and keeps every item where it was');
+console.log('win_dev: a twenty slot save grows to eighty and keeps every item where it was');
 {
   // A save written when the pack was twenty: twenty slots, five things in it,
   // one of them at the last index so a resize that truncates would be caught.
@@ -632,7 +632,7 @@ console.log('win_dev: a twenty slot save grows to forty and keeps every item whe
   const bases = ['longsword', 'plate_chest', 'ingot', 'ore', 'kite'];
   bases.forEach((b, i) => { old.pack.items[i * 4] = makeItem({ base: b, seed: i + 1 }); });
   const doc = hydrate(JSON.parse(JSON.stringify(old)));
-  check('the pack now has forty slots', doc.pack.slots === 40 && doc.pack.items.length === 40, `${doc.pack.slots} slots, ${doc.pack.items.length} entries`);
+  check('the pack now has eighty slots', doc.pack.slots === 80 && doc.pack.items.length === 80, `${doc.pack.slots} slots, ${doc.pack.items.length} entries`);
   check('every item is at the index it was at', bases.every((b, i) => doc.pack.items[i * 4] && doc.pack.items[i * 4].base === b),
     doc.pack.items.map((it, i) => (it ? `${i}:${it.base}` : null)).filter(Boolean).join(' '));
   check('nothing was lost', doc.pack.items.filter(Boolean).length === bases.length);
@@ -641,14 +641,14 @@ console.log('win_dev: a twenty slot save grows to forty and keeps every item whe
 {
   // The other direction: a save that already carries MORE than forty keeps
   // them, because a bag was bought and a migration must not take it away.
-  const big = { v: 2, pack: { slots: 64, items: new Array(64).fill(null) } };
-  big.pack.items[63] = makeItem({ base: 'longsword', seed: 9 });
+  const big = { v: 2, pack: { slots: 120, items: new Array(120).fill(null) } };
+  big.pack.items[119] = makeItem({ base: 'longsword', seed: 9 });
   const doc = hydrate(big);
-  check('a sixty four slot pack stays sixty four', doc.pack.slots === 64 && doc.pack.items.length === 64, String(doc.pack.slots));
-  check('and the item in the last slot is still there', !!doc.pack.items[63] && doc.pack.items[63].base === 'longsword');
+  check('a hundred and twenty slot pack stays a hundred and twenty', doc.pack.slots === 120 && doc.pack.items.length === 120, String(doc.pack.slots));
+  check('and the item in the last slot is still there', !!doc.pack.items[119] && doc.pack.items[119].base === 'longsword');
   const daft = hydrate({ v: 2, pack: { slots: 4, items: [makeItem({ base: 'ingot', seed: 1 })] } });
-  check('a save claiming four slots is raised to forty, not honoured', daft.pack.slots === 40 && daft.pack.items[0].base === 'ingot');
-  check('and a save with no slot count at all is forty', hydrate({ v: 2, pack: { items: [] } }).pack.slots === 40);
+  check('a save claiming four slots is raised to eighty, not honoured', daft.pack.slots === 80 && daft.pack.items[0].base === 'ingot');
+  check('and a save with no slot count at all is eighty', hydrate({ v: 2, pack: { items: [] } }).pack.slots === 80);
 }
 {
   // And the pack the bench fills is the bigger one: the weapon rack used to be
