@@ -57,16 +57,24 @@
 // the minimum separation rather than trusting this paragraph.
 
 import { createTreeField, removeTreeField } from '../farm/tree_edit.js';
-import { cellAt, walkable, worldOf, gridOf, roomAt, CELL } from './dungeon_gen.js';
+import { cellAt, walkable, worldOf, gridOf, roomAt, floorAt, CELL } from './dungeon_gen.js';
 import { mulberry32, hash2 } from './noise.js';
 
 /** The lowest ceiling there is: a corridor. Kept under the old name. */
 export const WALL_H = 4.0;
 
-/** Ceiling height in metres by cell, per kind of place. */
+/**
+ * Ceiling height in metres ABOVE THE FLOOR OF THE CELL, per kind of place.
+ *
+ * `cavern` is the third table and it is taller than the other two, because a
+ * cavern's chambers are open halls with ledges in them rather than rooms cut to
+ * a height. A cavern layout says `gen: 'cavern'` and keeps `kind` as dungeon or
+ * cave, so the table is chosen by `gen` first and by `kind` after it.
+ */
 export const CEIL = {
   dungeon: { corridor: 4.0, room: 6.0, hall: 7.0, boss: 8.0 },
   cave: { corridor: 4.0, room: 6.0, hall: 7.5, boss: 8.5 },
+  cavern: { corridor: 4.5, room: 7.0, hall: 8.5, boss: 10.0 },
 };
 
 export const TORCH_POOL = 6;          // roaming lights
@@ -355,7 +363,7 @@ export function stoneSheets(THREE, family) {
 
 const CEIL_CACHE = new WeakMap();
 
-/** The ceiling height over one cell in metres, or 0 where there is no floor. */
+/** The ceiling height over one cell in metres ABOVE ITS FLOOR, or 0 for rock. */
 export function ceilingAt(layout, gx, gz) {
   if (gx < 0 || gz < 0 || gx >= layout.w || gz >= layout.h) return 0;
   return ceilingGrid(layout)[gz * layout.w + gx];
@@ -365,7 +373,8 @@ export function ceilingAt(layout, gx, gz) {
 export function ceilingGrid(layout) {
   const hit = CEIL_CACHE.get(layout);
   if (hit) return hit;
-  const C = CEIL[layout.kind] || CEIL.dungeon;
+  const C = CEIL[layout.gen === 'cavern' ? 'cavern' : layout.kind] || CEIL.dungeon;
+  const domed = layout.kind === 'cave' || layout.gen === 'cavern';
   const g = new Float32Array(layout.w * layout.h);
   for (let gz = 0; gz < layout.h; gz++) for (let gx = 0; gx < layout.w; gx++) {
     if (!walkable(layout, gx, gz)) continue;
@@ -374,7 +383,7 @@ export function ceilingGrid(layout) {
     if (!r) y = C.corridor;
     else {
       const peak = r.kind === 'boss' ? C.boss : r.kind === 'hall' ? C.hall : C.room;
-      if (layout.kind !== 'cave') y = peak;
+      if (!domed) y = peak;
       else {
         // a dome over the cavern's rectangle: the peak in the middle, passage
         // height at the rim, with a hand of roughness so it is not a lens
@@ -716,25 +725,47 @@ export function createDungeonScene(THREE, layout, opts = {}) {
   }
 
   // ---- chests ------------------------------------------------------------
-  // A proper chest: an oak carcass, a barrel lid built as a fan of staves, two
-  // iron bands over the whole of it and a lock plate on the front.
+  // A proper chest: an oak carcass, a barrel lid built as a fan of staves on a
+  // hinge at the back, two iron bands over the whole of it and a lock plate on
+  // the front. A cache is the same thing smaller, with no plate.
+  //
+  // Each box is its own group rather than one merged mesh with the rest,
+  // because a box is CLICKED and its lid turns when it opens. `userData.chest`
+  // is what `world_runtime.pick` reads and `src/game/chests.js` acts on, and
+  // the invisible cube is the generous target: three raycasts an invisible mesh,
+  // which is the whole point of it.
+  const chestMeshes = [];
   for (const c of layout.chests) {
     const p = worldOf(layout, c.gx, c.gz);
-    const ry = rng() * Math.PI * 2;
-    const bodyB = bucket(), bandB = bucket();
-    box(bodyB, 0, 0.26, 0, 1.02, 0.52, 0.66, 0);
+    const g = new THREE.Group();
+    g.name = `chest:${c.key || `${layout.id}:${layout.level}:${c.i ?? 0}`}`;
+    g.position.set(p.x, 0, p.z);
+    g.rotation.y = rng() * Math.PI * 2;
+    const cache = c.kind === 'cache';
+    const wid = cache ? 0.74 : 1.02, dep = cache ? 0.54 : 0.66, hgt = cache ? 0.40 : 0.52;
+    const bodyB = bucket(), bandB = bucket(), lidB = bucket();
+    box(bodyB, 0, hgt / 2, 0, wid, hgt, dep, 0);
+    for (const dx of [-wid * 0.31, wid * 0.31]) box(bandB, dx, hgt * 0.58, 0, 0.10, hgt * 1.2, dep * 1.06, 0);
+    if (!cache) box(bandB, 0, hgt * 0.58, dep / 2 + 0.02, 0.22, 0.20, 0.06, 0);     // the lock plate
     for (let i = 0; i < 7; i++) {           // the lid, as staves round a half circle
       const a = Math.PI * (i / 7) + Math.PI / 14;
-      box(bodyB, 0, 0.52 + Math.sin(a) * 0.26, Math.cos(a) * 0.31, 1.02, 0.09, 0.16, 0);
+      box(lidB, 0, Math.sin(a) * (dep * 0.4), dep / 2 + Math.cos(a) * (dep * 0.47), wid, 0.09, 0.16, 0);
     }
-    for (const dx of [-0.32, 0.32]) box(bandB, dx, 0.30, 0, 0.10, 0.62, 0.70, 0);
-    box(bandB, 0, 0.30, 0.35, 0.22, 0.20, 0.06, 0);            // the lock plate
-    for (const [b, m] of [[bodyB, mats.wood], [bandB, mats.iron]]) {
-      const mesh = meshOf(THREE, b, m);
-      if (!mesh) continue;
-      mesh.position.set(p.x, 0, p.z); mesh.rotation.y = ry;
-      group.add(mesh); owned.push(mesh);
-    }
+    const body = meshOf(THREE, bodyB, mats.wood);
+    const bands = meshOf(THREE, bandB, mats.iron);
+    const lid = new THREE.Group();
+    lid.position.set(0, hgt, -dep / 2);
+    const lidMesh = meshOf(THREE, lidB, mats.wood);
+    if (lidMesh) lid.add(lidMesh);
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), mats.dark);
+    hit.position.set(0, 0.7, 0);
+    hit.visible = false;
+    for (const o of [body, bands, hit]) if (o) g.add(o);
+    g.add(lid);
+    for (const o of [g, body, bands, lidMesh, hit]) if (o) o.userData.chest = c;
+    g.userData.lid = lid;
+    group.add(g); owned.push(g);
+    chestMeshes.push(g);
   }
 
   // ---- ore (cave): the same field the surface uses, so the pickaxe that
@@ -824,7 +855,7 @@ export function createDungeonScene(THREE, layout, opts = {}) {
 
   const built = {
     group, entrancePos, stairPos, torches, exits, oreField, pools, parts,
-    layout, palette: P,
+    chestMeshes, layout, palette: P,
     /** what the level actually cost, so a report never has to guess */
     stats: {
       floorCells, wallFaces, pillars, props, pools: pools.length,
@@ -837,6 +868,14 @@ export function createDungeonScene(THREE, layout, opts = {}) {
     },
     /** number of PointLights this level owns, ever. */
     get lightCount() { return pool.length + 1 + (stairPos ? 1 : 0); },
+    /** Swing a box's lid open, and leave it open. The same call cavern_scene has. */
+    openChest(rec) {
+      const g = chestMeshes.find((m) => m.userData.chest === rec || m.userData.chest?.key === rec?.key);
+      if (!g || !g.userData.lid) return false;
+      g.userData.lid.rotation.x = -1.9;
+      g.userData.opened = true;
+      return true;
+    },
     /**
      * Hand the six roaming lights to the six nearest stands, and flicker them.
      *
@@ -966,9 +1005,14 @@ export function cameraClamp(layout, camPos, playerPos) {
       break;
     }
   }
+  // The roof and the floor are both read at the cell the camera ended up over,
+  // and in a cavern that floor is not zero: a camera behind a player standing
+  // on a ledge six metres up has to be six metres up as well, or it is inside
+  // the rock under his feet looking at the underside of the ledge.
   const g = gridOf(layout, out.x, out.z);
-  const top = (ceilingAt(layout, g.gx, g.gz) || WALL_H) - CAM_CEIL_GAP;
+  const floor = floorAt(layout, g.gx, g.gz);
+  const top = floor + (ceilingAt(layout, g.gx, g.gz) || WALL_H) - CAM_CEIL_GAP;
   if (out.y > top) { out.y = top; out.moved = true; }
-  if (out.y < CAM_MIN_Y) { out.y = CAM_MIN_Y; out.moved = true; }
+  if (out.y < floor + CAM_MIN_Y) { out.y = floor + CAM_MIN_Y; out.moved = true; }
   return out;
 }

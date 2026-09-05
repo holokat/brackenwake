@@ -26,14 +26,26 @@ import { createWorldStream, buildPalette } from '../world/chunks.js';
 import { createDiscovery } from '../world/sites.js';
 import { createSiteMarkers } from '../world/site_models.js';
 import { createFlora } from '../world/flora.js';
+import { createDressing } from '../world/dressing_models.js';
 import { createFauna } from '../world/fauna.js';
-import { generateDungeon, clampToWalkable, maxLevel } from '../world/dungeon_gen.js';
+import { generateDungeon, clampToWalkable, maxLevel, floorAt, gridOf, walkable, roomAt } from '../world/dungeon_gen.js';
 import { createDungeonScene } from '../world/dungeon.js';
+import { generateCavern } from '../world/cavern_gen.js';
+import { createCavernScene } from '../world/cavern_scene.js';
+import { specFor, levelsFor, CAVERN } from '../mmo/dungeons.js';
 import { THEMES, waterTexture } from '../farm/themes.js';
 import { clearTreeFields, treeFieldsFor } from '../farm/tree_edit.js';
 
 export const WORLD_SEED = 20260904;
-/** The floor of a level is a quad at y = 0. Feet go there, not an inch above. */
+/**
+ * The floor of a room and corridor level is a quad at y = 0. Feet go there, not
+ * an inch above.
+ *
+ * A CAVERN's floor is not one plane: every cell carries its own height and the
+ * player stands on the one under his feet, so `heightAt` underground reads
+ * `floorAt` and this constant is what that comes to on a level with no heights
+ * on it, which is every level the old generator builds. See D3.md.
+ */
 export const DUNGEON_FLOOR_Y = 0;
 /** Fog in the open closes just inside the streamed ring, so chunks never pop. */
 export const FOG_MARGIN = 40;
@@ -60,14 +72,17 @@ export function createWorldRuntime(sc, opts = {}) {
   const terrainY = (x, z) => field.heightAt(x, z);
   const discovery = createDiscovery(field);
   const flora = createFlora(scene, field, { sitesNear: discovery.sitesNear });
+  // The realm's own things on the ground (Z3): rib cages, pillars, hedgerows,
+  // wrecks. Streams with the chunks exactly as flora does.
+  const dressing = createDressing(scene, field, { sitesNear: discovery.sitesNear });
   // fauna draws nothing any more. It says where the world's animals belong and
   // the monster layer stands them up, which is what makes a squirrel a thing
   // you can click. See src/world/fauna.js and docs/mmo/wiring/F1.md.
   const fauna = createFauna(field, { sitesNear: discovery.sitesNear });
   const world = createWorldStream(scene, field, {
     palette: buildPalette(THEMES), waterMap: waterTexture(),
-    onBuilt: (cx, cz, verts) => { flora.onChunk(cx, cz, verts); },
-    onDisposed: (cx, cz) => { flora.offChunk(cx, cz); },
+    onBuilt: (cx, cz, verts) => { flora.onChunk(cx, cz, verts); dressing.onChunk(cx, cz, verts); },
+    onDisposed: (cx, cz) => { flora.offChunk(cx, cz); dressing.offChunk(cx, cz); },
   });
   const siteMarkers = createSiteMarkers(scene, discovery, terrainY);
 
@@ -75,7 +90,7 @@ export function createWorldRuntime(sc, opts = {}) {
   sc.setFog(Math.min(90, viewFar * 0.28), viewFar);
 
   const center = new THREE.Vector3();
-  let dungeon = null;      // { site, level, layout, scene }
+  let dungeon = null;      // { site, level, layout, scene, spec, top, said }
   let surface = null;      // what was switched off on the way in
   let discoverFn = null, stateFn = null, zoneFn = null;
   let lastSweep = 0;
@@ -93,6 +108,7 @@ export function createWorldRuntime(sc, opts = {}) {
     }
     if (world.group) out.add(world.group);
     if (flora.group) out.add(flora.group);
+    if (dressing.group) out.add(dressing.group);   // without it a rib cage stays lit underground
     return [...out];
   }
 
@@ -100,6 +116,7 @@ export function createWorldRuntime(sc, opts = {}) {
     center.set(x, terrainY(x, z), z);
     world.update(center);
     flora.update(nowMs, x, z);
+    dressing.update(nowMs);
     // the mines' headframe wheel turns and their lanterns light at dusk (M1)
     siteMarkers.update(x, z, world.viewRadius, dt, 1 - dayFactor);
     const found = discovery.check(x, z, nowMs);
@@ -116,11 +133,29 @@ export function createWorldRuntime(sc, opts = {}) {
     try { stateFn(st); } catch (err) { console.warn('onDungeonState threw', err); }
   }
 
+  /**
+   * How deep this place goes.
+   *
+   * The sheet says it: `src/mmo/dungeons.js` reads `levels` off realms.js for
+   * every authored dungeon and cave, so the Old Cellars are one level and the
+   * Throne of Ash is three. A rolled cave in the hills is in nobody's table and
+   * keeps the old rule, which is what `maxLevel` has always said.
+   */
+  function topOf(site) {
+    return levelsFor(site, maxLevel(site?.kind === 'cave' ? 'cave' : 'dungeon'));
+  }
+
   /** Build one level and say where you landed. `arriveAt` is which door. */
   function openLevel(site, level, arriveAt = 'entrance') {
     dungeon.scene?.dispose();
-    const layout = generateDungeon(seed, site, level);
-    const built = createDungeonScene(THREE, layout, {});
+    const spec = dungeon.spec;
+    const cavern = spec?.kind === CAVERN;
+    const layout = cavern
+      ? generateCavern(seed, site, level, spec)
+      : generateDungeon(seed, site, level, spec);
+    const built = cavern
+      ? createCavernScene(THREE, layout, {})
+      : createDungeonScene(THREE, layout, {});
     scene.add(built.group);
     // three raycasts against matrixWorld, and only the renderer refreshes it.
     // Without this the first pick after arriving tests every exit hit box at
@@ -135,10 +170,12 @@ export function createWorldRuntime(sc, opts = {}) {
     dungeon.level = level;
     dungeon.layout = layout;
     dungeon.scene = built;
+    dungeon.said = false;                      // the arena has not spoken on this level
     built.update({ x: at.x, z: at.z });
     fire({
       site, level, inside: true, kind: layout.kind,
-      bottom: level >= maxLevel(layout.kind),
+      gen: cavern ? CAVERN : 'rooms',
+      bottom: level >= dungeon.top,
       arrivedAt: arriveAt, at: { x: at.x, z: at.z },
       ore: layout.ore.length, chests: layout.chests.length,
       rooms: layout.rooms.length, torches: built.torches.length,
@@ -168,7 +205,7 @@ export function createWorldRuntime(sc, opts = {}) {
       background: scene.background,
       fog: { near: scene.fog.near, far: scene.fog.far, color: scene.fog.color.getHex(), pinned: sc.fogPinned },
     };
-    dungeon = { site, level: 0, scene: null, layout: null };
+    dungeon = { site, level: 0, scene: null, layout: null, spec: specFor(site), top: topOf(site), said: false };
     openLevel(site, level, 'entrance');
     return dungeon;
   }
@@ -182,7 +219,7 @@ export function createWorldRuntime(sc, opts = {}) {
       openLevel(site, level - 1, 'stair');
       return { inside: true, level: level - 1 };
     }
-    if (level >= maxLevel(dungeon.layout.kind)) return null;  // nothing built a stair here
+    if (level >= dungeon.top) return null;                     // nothing built a stair here
     openLevel(site, level + 1, 'entrance');
     return { inside: true, level: level + 1 };
   }
@@ -207,10 +244,70 @@ export function createWorldRuntime(sc, opts = {}) {
     return true;
   }
 
+  /**
+   * The floor under a point, underground, in metres.
+   *
+   * On a room and corridor level that is DUNGEON_FLOOR_Y and nothing else. In a
+   * cavern it is the height of the cell the point stands in, which is what puts
+   * the player on the ledge he walked up and the monsters on it with him: every
+   * body in `monsters.js` takes its y from `runtime.heightAt`, so this one
+   * function is the whole of the path.
+   *
+   * A point in the rock has no floor of its own, so it takes the floor of the
+   * nearest cell that has one. Without that a body the clamp has not caught yet
+   * would drop to zero for a frame and then jump back.
+   */
+  function dungeonFloor(x, z) {
+    const L = dungeon.layout;
+    if (!L || !L.heights) return DUNGEON_FLOOR_Y;
+    const g = gridOf(L, x, z);
+    if (walkable(L, g.gx, g.gz)) return floorAt(L, g.gx, g.gz);
+    const c = clampToWalkable(L, x, z);
+    const n = gridOf(L, c.x, c.z);
+    return floorAt(L, n.gx, n.gz);
+  }
+
+  /**
+   * The boss's hall, said once, the first time you set foot in it.
+   *
+   * It goes out through `onZone`, which is the words path that reaches the
+   * BANNER: `app/systems/world.js` answers it with `hud.zone(name, sub)` and a
+   * toast of the line. `onDungeonState` only toasts, and a boss deserves the
+   * plate. `zoneSub` reads `danger[1]`, so the subtitle is the realm's own
+   * danger word.
+   */
+  function checkArena(x, z) {
+    if (!dungeon || dungeon.said) return;
+    const L = dungeon.layout;
+    if (!L || L.arena == null) return;
+    const g = gridOf(L, x, z);
+    const r = roomAt(L, g.gx, g.gz);
+    if (!r || r.i !== L.arena) return;
+    dungeon.said = true;
+    if (!zoneFn) return;
+    const spec = dungeon.spec;
+    const t = spec?.tier || 3;
+    const zone = spec?.bossName
+      ? {
+        id: `lair:${spec.id}:${spec.boss}`,
+        name: spec.bossName,
+        danger: [t, t],
+        line: `${spec.bossName} is standing in the middle of this hall, and the door you came in by is behind you.`,
+      }
+      : {
+        id: `lair:${L.siteId || L.id}:${L.level}`,
+        name: `${dungeon.site.name}, the deep hall`,
+        danger: [t, t],
+        line: 'The hall at the bottom of it, and whatever was left here to hold it.',
+      };
+    try { zoneFn(zone); } catch (err) { console.warn('onZone threw', err); }
+  }
+
   // Per frame underground. The overworld is not streamed, the sky is not
   // moved, discovery does not run: none of it is on screen.
   function updateDungeon(dt, nowMs, x, z) {
     dungeon.scene.update({ x, z });
+    checkArena(x, z);
     // Anything that adds itself to the scene lazily while you are down here
     // would hang in the dark. Sweep now and then for scene children that are
     // neither the level nor anything the player owns, and remember what was
@@ -252,13 +349,22 @@ export function createWorldRuntime(sc, opts = {}) {
       if (hits.length && hits[0].object.userData.exit) {
         cands.push({ d: hits[0].distance, out: { kind: 'exit', exit: hits[0].object.userData.exit } });
       }
+      // a box in a cavern, and the same invisible generous target as an exit
+      const boxes = dungeon.scene.chestMeshes;
+      if (boxes && boxes.length) {
+        const bh = raycaster.intersectObjects(boxes, true);
+        for (const h of bh) {
+          const chest = h.object.userData.chest;
+          if (chest) { cands.push({ d: h.distance, out: { kind: 'chest', chest, site: dungeon.site } }); break; }
+        }
+      }
     } else {
       const meshes = siteMarkers.meshes().filter(worldVisible);
       if (meshes.length) {
         const hits = raycaster.intersectObjects(meshes, false);
         for (const h of hits) {
           const site = h.object.userData.site;
-          if (site) { cands.push({ d: h.distance, out: { kind: 'site', site } }); break; }
+          if (site) { cands.push({ d: h.distance, out: { kind: 'site', site, waystone: !!h.object.userData.waystone } }); break; }
         }
       }
     }
@@ -272,9 +378,9 @@ export function createWorldRuntime(sc, opts = {}) {
   // ------------------------------------------------------------- surfaces --
 
   return {
-    field, world, flora, fauna, discovery, siteMarkers,
+    field, world, flora, dressing, fauna, discovery, siteMarkers,
 
-    heightAt(x, z) { return dungeon ? DUNGEON_FLOOR_Y : terrainY(x, z); },
+    heightAt(x, z) { return dungeon ? dungeonFloor(x, z) : terrainY(x, z); },
 
     update(dt, nowMs, x, z, dayFactor = 1) {
       if (dungeon) updateDungeon(dt, nowMs, x, z);
@@ -313,9 +419,24 @@ export function createWorldRuntime(sc, opts = {}) {
     dungeonLayout() {
       if (!dungeon || !dungeon.layout) return null;
       const L = dungeon.layout;
-      return { ...L, level: dungeon.level, bottom: dungeon.level >= maxLevel(L.kind), id: L.id ?? dungeon.site?.id ?? null };
+      return {
+        ...L,
+        level: dungeon.level,
+        bottom: dungeon.level >= dungeon.top,
+        id: L.id ?? dungeon.site?.id ?? null,
+        // which room the boss stands in, and which place in the sheet this is,
+        // so monster_ai.js stands the boss that lairs here and not a rolled one
+        arena: L.arena ?? null,
+        bossLair: dungeon.spec ? dungeon.spec.id : null,
+      };
     },
     get dungeonLevel() { return dungeon ? dungeon.level : 0; },
+    /** How deep this place goes: the sheet's own answer. Zero above ground. */
+    get dungeonTop() { return dungeon ? dungeon.top : 0; },
+    /** The row out of src/mmo/dungeons.js for the place you are in, or null. */
+    get dungeonSpec() { return dungeon ? dungeon.spec : null; },
+    /** Every box on the level you are standing in. Empty above ground. */
+    dungeonChests() { return dungeon && dungeon.layout ? dungeon.layout.chests.slice() : []; },
     get dungeonSite() { return dungeon ? dungeon.site : null; },
     get dungeonScene() { return dungeon ? dungeon.scene : null; },
 
@@ -333,7 +454,7 @@ export function createWorldRuntime(sc, opts = {}) {
 
     dispose() {
       if (dungeon) { try { dungeon.scene?.dispose(); } catch { /* already gone */ } dungeon = null; surface = null; }
-      siteMarkers.dispose(); flora.dispose(); fauna.dispose(); world.dispose();
+      siteMarkers.dispose(); flora.dispose(); dressing.dispose(); fauna.dispose(); world.dispose();
       clearTreeFields();
     },
   };

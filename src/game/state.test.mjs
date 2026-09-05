@@ -317,7 +317,7 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('the bare v2 key is not a document any more', !store.m.has(SAVE_KEY));
   const raw = JSON.parse(store.m.get(slotKeyFor('1')));
   check('the save is version 2', raw.v === SAVE_VERSION, JSON.stringify(raw.v));
-  check('the save shape is the 07 document', JSON.stringify(Object.keys(raw).sort()) === '["appearance","bar","bosses","deadUntil","discovered","dragon","equipment","gold","health","heldTool","mana","name","needsCreation","opening","pack","pos","settings","skillLocks","skills","stamina","statLocks","stats","uniques","v","waypoint","zones"]', Object.keys(raw).join(','));
+  check('the save shape is the 07 document', JSON.stringify(Object.keys(raw).sort()) === '["appearance","bar","bosses","deadUntil","discovered","dragon","equipment","gold","health","heldTool","mana","name","needsCreation","opened","opening","pack","pos","settings","skillLocks","skills","stamina","statLocks","stats","uniques","v","waypoint","zones"]', Object.keys(raw).join(','));
 
   const b = createState({ storage: store });
   check('load finds it', b.load() === true);

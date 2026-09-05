@@ -6,6 +6,7 @@ import { buildCharacter } from '../../player.js';
 import { createNpcs } from '../../npcs_runtime.js';
 import { createStations } from '../../stations.js';
 import { createInteract } from '../../interact.js';
+import { createChests } from '../../chests.js';
 import { createShop } from '../../shop.js';
 import { createForaging } from '../../foraging.js';
 import { createForageField, seasonAt } from '../../../world/forage.js';
@@ -28,7 +29,13 @@ export const world_life = {
     const npcs = createNpcs(sc, runtime, { buildCharacter, root: hudRoot, at: state.pos, ctx: panelCtx });
     const stations = createStations(sc, runtime, { hud });
 
-    const interact = createInteract({ sc, runtime, player: rig, state, hud, input, audio, progression, loot: fight.loot });
+    // The boxes underground (D3): built here because every dependency is in
+    // this hand already, and handed to the interactor so E and a click open them.
+    const chests = createChests({
+      character, inventory: pack, progression, combat: fight.combat, actor,
+      hud, audio, floaters, runtime, loot: fight.loot, state,
+    });
+    const interact = createInteract({ sc, runtime, player: rig, state, hud, input, audio, progression, loot: fight.loot, chests });
     const shop = createShop({
       state, hud, audio,
       nearestSettlement: () => world.nearestSettlement(),

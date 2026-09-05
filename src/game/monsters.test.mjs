@@ -1628,7 +1628,7 @@ const GROUND = 3;
     RANGED_TAGS.bow === 'shot' && RANGED_TAGS.powderCharge === 'thrown' && RANGED_TAGS.stormCall === 'cast');
   // The honest half: what is still carried and read by nothing.
   const unwired = Object.entries(TAG_RULES).filter(([, r]) => r[0] === 'unwired').map(([t]) => t);
-  check(`${unwired.length} tags are still carried by rows and read by nothing`, unwired.length === 25,
+  check(`${unwired.length} tags are still carried by rows and read by nothing`, unwired.length === 23,
     unwired.join(', '));
 }
 

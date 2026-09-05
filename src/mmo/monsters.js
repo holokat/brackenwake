@@ -86,7 +86,7 @@ export const NO_RESPAWN_RADIUS = 30;
 
 // Density, from "about one monster group per 40 m of dungeon corridor, one per
 // 150 m of wild land at night, one per 400 m by day."
-export const SPAWN_SPACING_M = { dungeon: 40, wildNight: 150, wildDay: 400 };
+export const SPAWN_SPACING_M = { dungeon: 40, wildNight: 110, wildDay: 220 };   // 150 and 400 left a zone with eight things alive
 
 // Bosses change phase at 66% and 33% health.
 export const BOSS_PHASES = [0.66, 0.33];

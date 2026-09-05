@@ -15,7 +15,9 @@ globalThis.navigator ||= { userAgent: 'node' };
 
 const THREE = await import('three');
 const warn = console.warn; console.warn = () => {};
-const { dayFactorAt, DAY_CYCLE_MS, NIGHT_FRACTION, PALETTE, WORLD_FOG, lightingAt, litness, sunWarmth, DAWN, SHADOW_BOX, SHADOW_MAP, applyLighting } = await import('./scene.js');
+const { dayFactorAt, DAY_CYCLE_MS, NIGHT_FRACTION, PALETTE, WORLD_FOG, lightingAt, litness, sunWarmth, DAWN, SHADOW_BOX, SHADOW_MAP, applyLighting, createScene } = await import('./scene.js');
+const { REALM_SKY, skyLighting, realmMixAt, DEFAULT_REALM } = await import('./sky.js');
+const { REALM_ZONES, ZONE: ZONE_BY_ID } = await import('../world/zones.js');
 console.warn = warn;
 
 let bad = 0, pass = 0;
@@ -177,6 +179,106 @@ ck('a custom cycle length scales the curve', Math.abs(dayFactorAt(1000, 2000) - 
   let threw = false;
   try { applyLighting(noRenderer, 0.5); } catch { threw = true; }
   ck('it works without a renderer, for anything that only wants the lights', !threw);
+}
+
+// ---- the realms tint the day, and the Greenwold's tint is nothing (Z3) ----
+
+console.log('\n  -- the realms on the lights --');
+{
+  const green = skyLighting(1, { realm: DEFAULT_REALM });
+  ck('the Greenwold\'s tint leaves the curve exactly where it was',
+    JSON.stringify(lightingAt(1)) === JSON.stringify(lightingAt(1, green))
+    && JSON.stringify(lightingAt(0)) === JSON.stringify(lightingAt(0, skyLighting(0, { realm: DEFAULT_REALM })))
+    && JSON.stringify(lightingAt(DAWN)) === JSON.stringify(lightingAt(DAWN, skyLighting(DAWN, { realm: DEFAULT_REALM }))));
+  ck('and so does no tint at all', JSON.stringify(lightingAt(0.63)) === JSON.stringify(lightingAt(0.63, null)));
+
+  // the terrain, the water and the grass all take their light from these four
+  // lamps, so what matters is that no realm turns the world off or blows it out
+  const base = litness(1), baseN = litness(0);
+  const rows = [];
+  let worstDay = 0, worstNight = 0;
+  for (const zn of REALM_ZONES) {
+    const d = litness(1, skyLighting(1, { realm: zn.id })) / base;
+    const n = litness(0, skyLighting(0, { realm: zn.id })) / baseN;
+    rows.push(`${zn.short || zn.id} ${d.toFixed(2)}/${n.toFixed(2)}`);
+    worstDay = Math.max(worstDay, Math.abs(Math.log(d)));
+    worstNight = Math.max(worstNight, Math.abs(Math.log(n)));
+  }
+  ck('no realm is more than a quarter brighter or darker than the meadow by day',
+    worstDay < Math.log(1.25), rows.join(', '));
+  ck('and none of them by night either', worstNight < Math.log(1.25),
+    `worst ${Math.exp(worstNight).toFixed(3)}x`);
+
+  // and the tint is doing something, or the table is decoration
+  const bone = lightingAt(1, skyLighting(1, { realm: 'boneyard' }));
+  const ash = lightingAt(1, skyLighting(1, { realm: 'ashenthrone' }));
+  const meadow = lightingAt(1);
+  ck('the Ashen Throne\'s sun is redder than the meadow\'s',
+    ash.sun.color[0] / ash.sun.color[2] > meadow.sun.color[0] / meadow.sun.color[2] * 1.2,
+    `${(ash.sun.color[0] / ash.sun.color[2]).toFixed(2)} against ${(meadow.sun.color[0] / meadow.sun.color[2]).toFixed(2)}`);
+  ck('and the Boneyard\'s ground is greyer than the meadow\'s',
+    Math.abs(bone.hemi.ground[0] - bone.hemi.ground[2]) < Math.abs(meadow.hemi.ground[0] - meadow.hemi.ground[2]),
+    `bone ${bone.hemi.ground.map((v) => v.toFixed(2)).join(',')} against meadow ${meadow.hemi.ground.map((v) => v.toFixed(2)).join(',')}`);
+  ck('every realm keeps its sun above half the meadow\'s strength',
+    REALM_ZONES.every((z) => lightingAt(1, skyLighting(1, { realm: z.id })).sun.intensity > meadow.sun.intensity * 0.5));
+
+  // the tint lands on real THREE lights through the real applyLighting
+  const rig = {
+    renderer: { toneMappingExposure: 1 },
+    sun: new THREE.DirectionalLight(), hemi: new THREE.HemisphereLight(),
+    ambient: new THREE.AmbientLight(), fill: new THREE.DirectionalLight(),
+  };
+  applyLighting(rig, 1, skyLighting(1, { realm: 'ashenthrone' }));
+  const red = rig.sun.color.clone();
+  applyLighting(rig, 1, skyLighting(1, { realm: DEFAULT_REALM }));
+  ck('applyLighting puts the realm on the real lamp, and takes it off again',
+    red.getHexString() !== rig.sun.color.getHexString(),
+    `#${red.getHexString()} in the fortress, #${rig.sun.color.getHexString()} at home`);
+}
+
+// The numbers setDay will put on the fog, computed the way setDay computes
+// them, so the arithmetic is proved even where node has no GL context to run
+// createScene in.
+{
+  const G = REALM_SKY[DEFAULT_REALM];
+  for (const [id, wantFar] of [['greenwold', 536], ['boneyard', 400], ['sunkenkingdom', 250], ['emberwastes', 536]]) {
+    const p = { fogNear: REALM_SKY[id].fogNear, fogFar: REALM_SKY[id].fogFar };
+    const far = WORLD_FOG.far * (p.fogFar / G.fogFar);
+    const near = Math.min(WORLD_FOG.near * (p.fogNear / G.fogNear), far * 0.92);
+    ck(`the fog in ${REALM_SKY[id].name} runs ${near.toFixed(0)} to ${far.toFixed(0)} m`,
+      Math.abs(far - wantFar) < 0.5 && near > 0 && near < far && far <= WORLD_FOG.far,
+      id === 'greenwold' ? 'the heart is exactly what it was' : '');
+  }
+}
+
+// ---- the scene follows the player into a realm ----
+{
+  const container = { clientWidth: 800, clientHeight: 600, appendChild() {} };
+  let sc = null;
+  try { sc = createScene(container); } catch { /* no WebGL in node */ }
+  if (!sc) {
+    console.log('  ..  createScene needs a GL context; the blend is checked through its parts instead');
+    const bone = ZONE_BY_ID.boneyard;
+    ck('realmMixAt says the Boneyard at the Boneyard', realmMixAt(bone.x, bone.z)[0][0] === 'boneyard');
+    ck('and the Greenwold at the origin', realmMixAt(0, 0)[0][0] === 'greenwold');
+  } else {
+    sc.setRealmAt(0, 0);
+    ck('the scene stands in the Greenwold at the origin', sc.realmMix[0][0] === 'greenwold');
+    const before = sc.scene.fog.far;
+    const bone = ZONE_BY_ID.boneyard;
+    sc.useAnalyticSky(true);
+    sc.follow({ x: bone.x, y: 0, z: bone.z });
+    ck('and following the player into the Boneyard takes it there',
+      sc.realmMix[0][0] === 'boneyard', JSON.stringify(sc.realmMix));
+    sc.setDay(1);
+    ck('the fog closes in with the realm',
+      sc.scene.fog.far < before, `${sc.scene.fog.far.toFixed(0)} m against ${before.toFixed(0)} m`);
+    sc.follow({ x: 0, y: 0, z: 0 });
+    sc.setDay(1);
+    ck('and opens again at home', Math.abs(sc.scene.fog.far - WORLD_FOG.far) < 1e-6,
+      `${sc.scene.fog.far.toFixed(1)} m`);
+    sc.dispose();
+  }
 }
 
 console.log(`\n${pass} passed, ${bad} failed`);

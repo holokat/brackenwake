@@ -21,6 +21,7 @@ import { pickTarget, resolveSwing, swingText, nameFor, LOOT } from './combat.js'
 import { CARRIED, materialFamilyOf } from './state.js';
 import { makeItem, LOG_OF, ORE_OF, BASES } from '../mmo/items.js';
 import { describeItem, currentDrops } from './loot_drops.js';
+import { CHEST_REACH } from './chests.js';   // the reach only; the runtime is built in world_life.js
 
 /**
  * Every species combat.js can drop loot for names a good the pack can really
@@ -214,6 +215,14 @@ export function decide(pick, tool, playerPos, now, lastSwingAt) {
     return { action: 'name', reason: 'site', site };
   }
 
+  if (pick.kind === 'chest') {
+    const c = pick.chest;
+    if (!c) return { action: 'none', reason: 'nothing' };
+    const d = horiz(playerPos, c);
+    if (d > CHEST_REACH) return { action: 'blocked', reason: 'too_far', chest: c, dist: d };
+    return { action: 'open', reason: c.kind, chest: c };
+  }
+
   if (pick.kind === 'tree') {
     const t = pick.tree;
     const field = t?.field;
@@ -235,7 +244,7 @@ export function decide(pick, tool, playerPos, now, lastSwingAt) {
   return { action: 'none', reason: 'nothing' };
 }
 
-export function createInteract({ sc, runtime, player, state, hud, input, audio, progression, loot }) {
+export function createInteract({ sc, runtime, player, state, hud, input, audio, progression, loot, chests }) {
   // Where a felled tree leaves its wood. `main.js` builds `loot` (createLootDrops)
   // before it builds this, so passing it is one word at the call site; until it
   // does, `runtime.loot` is tried and then the pack, so nothing is ever lost.
@@ -296,6 +305,13 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
       if (dir === 'down') return 'a stair down, click it';
       if (dir === 'up') return 'the way up, click it';
       return '';
+    }
+    if (pick.kind === 'chest') {
+      const c = pick.chest;
+      if (!c) return '';
+      const noun = c.kind === 'cache' ? 'a cache' : c.locked ? 'a locked chest' : 'a chest';
+      const d = horiz(player?.pos, c);
+      return d > CHEST_REACH ? `${noun}, too far` : `${noun}, E to open`;
     }
     if (pick.kind === 'site') {
       const s = pick.site;
@@ -471,6 +487,10 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
           : `the ${noun} takes the blow, ${res.remaining} more`);
         return d;
       }
+      case 'open': {
+        chests?.open?.(d.chest, { at: player?.pos });
+        return d;
+      }
       case 'enter': {
         const r = runtime.enterDungeon?.(d.site);
         say(r ? `you go in under ${d.site.name}` : `${d.site.name} will not open`);
@@ -526,7 +546,8 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
     enter() {
       const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
       const d = decide(pickNow(), state.tool, player?.pos, now, lastSwingAt);
-      if (d.action === 'enter' || d.action === 'exit' || (d.action === 'blocked' && d.site)) return act(d);
+      if (d.action === 'enter' || d.action === 'exit' || d.action === 'open'
+        || (d.action === 'blocked' && (d.site || d.chest))) return act(d);
       // E never moves you on its own. Underground a stray press would otherwise
       // climb a level, which is a real change nobody asked for.
       say(runtime.inDungeon ? 'point at a stair to take it' : 'there is nothing to go into here');

@@ -5,6 +5,13 @@
 // picked. Brackenwake has one sky, so the palette is pinned to the meadow
 // entry in THEMES and nothing here asks a theme a question again.
 //
+// One thing DID change here, and it is the whole of Z3's half of this file: the
+// palette is no longer pinned to the meadow. `follow(pos)` now also asks
+// sky.js which realms the player is standing between, and `setDay` tints the
+// four lights and the fog by that blend. The meadow row is still the base, and
+// the Greenwold's tint is 1 in every channel, so the heart is exactly the day
+// it always was and every other realm is its own.
+//
 // Nothing in this file knows about the player, the camera rig, or the world.
 // It owns the scene graph nodes it makes, and the names it gives them are the
 // handle world_runtime.js uses to switch the overworld off when you go under
@@ -17,7 +24,7 @@
 
 import * as THREE from 'three';
 import { dayFactorAt as dayClockFactor, DAY_CYCLE_MS } from './dayclock.js';
-import { skyColours } from './sky.js';
+import { skyColours, skyLighting, realmMixAt, REALM_SKY, DEFAULT_REALM } from './sky.js';
 import { THEMES } from '../farm/themes.js';
 import { mulberry32, glowTexture } from '../farm/assets.js';
 
@@ -97,28 +104,38 @@ const STOPS = [
 
 const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
-export function lightingAt(dayFactor) {
+const tint3 = (c, t) => (t ? [c[0] * t[0], c[1] * t[1], c[2] * t[2]] : c);
+
+/**
+ * `tint` is sky.js's `skyLighting`: what the realms under the player do to the
+ * curve, as multipliers. Left out, or handed the Greenwold's, this returns
+ * exactly what it returned before the realms had skies, which is what
+ * scene.test.mjs pins.
+ */
+export function lightingAt(dayFactor, tint = null) {
   const d = clamp01(dayFactor);
   const lo = d <= DAWN ? STOPS[0] : STOPS[1];
   const hi = d <= DAWN ? STOPS[1] : STOPS[2];
   const t = (d - lo.d) / (hi.d - lo.d);
+  const sunI = lo.sun.i + (hi.sun.i - lo.sun.i) * t;
+  const hemiI = lo.hemi.i + (hi.hemi.i - lo.hemi.i) * t;
   return {
     day: d,
     exposure: lo.exposure + (hi.exposure - lo.exposure) * t,
-    sun: { color: mix3(lo.sun.c, hi.sun.c, t), intensity: lo.sun.i + (hi.sun.i - lo.sun.i) * t },
+    sun: { color: tint3(mix3(lo.sun.c, hi.sun.c, t), tint?.sun), intensity: sunI * (tint ? tint.sunI : 1) },
     hemi: {
-      sky: mix3(lo.hemi.sky, hi.hemi.sky, t),
-      ground: mix3(lo.hemi.ground, hi.hemi.ground, t),
-      intensity: lo.hemi.i + (hi.hemi.i - lo.hemi.i) * t,
+      sky: tint3(mix3(lo.hemi.sky, hi.hemi.sky, t), tint?.hemi),
+      ground: tint3(mix3(lo.hemi.ground, hi.hemi.ground, t), tint?.ground),
+      intensity: hemiI * (tint ? tint.hemiI : 1),
     },
-    ambient: { color: mix3(lo.ambient.c, hi.ambient.c, t), intensity: lo.ambient.i + (hi.ambient.i - lo.ambient.i) * t },
+    ambient: { color: tint3(mix3(lo.ambient.c, hi.ambient.c, t), tint?.ambient), intensity: lo.ambient.i + (hi.ambient.i - lo.ambient.i) * t },
     fill: { color: mix3(lo.fill.c, hi.fill.c, t), intensity: lo.fill.i + (hi.fill.i - lo.fill.i) * t },
   };
 }
 
-/** How much light the ground actually receives, for comparing two times. */
-export function litness(dayFactor) {
-  const L = lightingAt(dayFactor);
+/** How much light the ground actually receives, for comparing two times or two realms. */
+export function litness(dayFactor, tint = null) {
+  const L = lightingAt(dayFactor, tint);
   return (L.sun.intensity * 0.72 + L.hemi.intensity + L.ambient.intensity + L.fill.intensity * 0.4) * L.exposure;
 }
 
@@ -136,10 +153,11 @@ export function sunWarmth(dayFactor) {
  *
  * @param {{renderer?:object, sun:object, hemi:object, ambient:object, fill:object}} rig
  * @param {number} dayFactor
+ * @param {object|null} tint sky.js's skyLighting for the realms under the player
  * @returns {object} the lighting it applied
  */
-export function applyLighting(rig, dayFactor) {
-  const L = lightingAt(dayFactor);
+export function applyLighting(rig, dayFactor, tint = null) {
+  const L = lightingAt(dayFactor, tint);
   if (rig.renderer) rig.renderer.toneMappingExposure = L.exposure;
   rig.sun.intensity = L.sun.intensity;
   rig.sun.color.setRGB(L.sun.color[0], L.sun.color[1], L.sun.color[2]);
@@ -288,12 +306,31 @@ export function createScene(container) {
   // alone. setFog with a colour pins; setFog without one hands it back.
   let fogPinned = false;
   let day = 1;
+  // What the caller last asked the fog to be. The realms scale THESE rather
+  // than replacing them, so the character screen's close fog and the world's
+  // open fog both keep their own shape and only their reach moves.
+  const fogBase = { near: WORLD_FOG.near, far: WORLD_FOG.far };
 
   function setFog(near, far, colorHex) {
     scene.fog.near = near;
     scene.fog.far = far;
+    fogBase.near = near; fogBase.far = far;
     if (colorHex != null) { scene.fog.color.setHex(colorHex); fogPinned = true; }
     else fogPinned = false;
+  }
+
+  // ---- which realms the player stands between ----
+  //
+  // One sampleAt-free lookup a frame: nine squared distances against the realm
+  // discs in zones.js. `follow` does it, because following the player is
+  // exactly when the answer can have changed.
+  let realmMix = realmMixAt(0, 0);
+  let realmTint = skyLighting(1, { mix: realmMix });
+  const GREEN = REALM_SKY[DEFAULT_REALM];
+  function setRealmAt(x, z) {
+    realmMix = realmMixAt(x, z, realmMix);
+    realmTint = skyLighting(day, { mix: realmMix });
+    return realmMix;
   }
 
   // The analytic sky (sky.js) paints the dome and the fog colour now; the
@@ -306,18 +343,25 @@ export function createScene(container) {
   }
 
   let clockOffset = 0;   // ms added to the frame clock, for the dev bench's time of day
+  let dayScale = 1;      // what an event does to the daylight: the Bone Wind darkens, the Long Night holds the dark (E2)
 
   function setDay(dayFactor) {
     const d = clamp01(dayFactor);
     day = d;
-    applyLighting({ renderer, sun, hemi, ambient, fill }, d);
+    realmTint = skyLighting(d, { mix: realmMix });
+    applyLighting({ renderer, sun, hemi, ambient, fill }, d, realmTint);
     if (!fogPinned) {
       // the fog meets the dome; the hemisphere keeps applyLighting's calibrated
-      // colours (tinting it by the zenith on top of that darkened every
-      // shadowed face to near black in the browser)
+      // colours tinted by the realm (tinting it by the zenith on top of that
+      // darkened every shadowed face to near black in the browser)
       if (analytic) {
-        const p = skyColours(d);
+        const p = skyColours(d, { mix: realmMix });
         scene.fog.color.setRGB(p.fog.r, p.fog.g, p.fog.b, THREE.SRGBColorSpace);
+        // The realm's own reach, as a share of the Greenwold's, applied to
+        // whatever the caller asked for. The Greenwold's share is 1, so the
+        // heart's fog and every pinned close fog are untouched.
+        scene.fog.far = fogBase.far * (p.fogFar / GREEN.fogFar);
+        scene.fog.near = Math.min(fogBase.near * (p.fogNear / GREEN.fogNear), scene.fog.far * 0.92);
       } else scene.fog.color.lerpColors(fogNight, fogDay, d);
     }
     skyDayMat.opacity = d;
@@ -334,6 +378,9 @@ export function createScene(container) {
   const sunDir = new THREE.Vector3(90, 120, 50).normalize();
   function setSunDir(dir) { if (dir) sunDir.set(dir.x, dir.y, dir.z).normalize(); }
   function follow(pos) {
+    // the stage follows the player, and the sky over the stage is the sky of
+    // whatever realm the player has walked into
+    setRealmAt(pos.x, pos.z);
     sky.position.set(pos.x, pos.y, pos.z);
     sun.position.set(pos.x, pos.y, pos.z).addScaledVector(sunDir, 160);
     sun.target.position.set(pos.x, pos.y, pos.z);
@@ -356,6 +403,14 @@ export function createScene(container) {
     lights: { sun, hemi, ambient, fill },
     sky, skyDomes,
     setDay, setFog, follow, resize, useAnalyticSky, setSunDir,
+    /**
+     * Which realms' skies are over (x, z), as [[realm, weight], ...] summing to
+     * one. `follow` calls this every frame; sky.js reads `realmMix` off this
+     * object, so the dome, the fog and the four lights all read one blend.
+     */
+    setRealmAt,
+    get realmMix() { return realmMix; },
+    get realmTint() { return realmTint; },
     get analyticSky() { return analytic; },
     render() { renderer.render(scene, camera); },
     /**
@@ -364,7 +419,14 @@ export function createScene(container) {
      * the same offset to the frame clock it is handed, so the sun in the dome
      * and the light on the ground never disagree.
      */
-    dayFactor(nowMs) { return dayFactorAt(nowMs + clockOffset); },
+    dayFactor(nowMs) { return dayFactorAt(nowMs + clockOffset) * dayScale; },
+    /**
+     * An event's hold on the daylight. 1 is the ordinary sky; 0 is night at
+     * noon. src/game/events_runtime.js is the only caller: the Bone Wind's
+     * dust and the Long Night's dark.
+     */
+    setDayScale(v) { dayScale = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1; },
+    get dayScale() { return dayScale; },
     get clockOffset() { return clockOffset; },
     setClockOffset(ms) { clockOffset = Number.isFinite(ms) ? ms : 0; },
     /** The curve setDay just applied, for anything that wants to match it. */

@@ -30,7 +30,7 @@
 // (a cast, a warning ring) are SECONDS, because that is how the documents write
 // them. Where the two meet the field name says which.
 
-import { MONSTERS, HABITAT, BOSS_PHASES, spawnRollFor } from '../mmo/monsters.js';
+import { MONSTERS, HABITAT, BOSS_PHASES, BOSS_BY_LAIR, spawnRollFor } from '../mmo/monsters.js';
 import { mulberry32 } from '../world/noise.js';
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -573,7 +573,17 @@ export function normalizeDungeonLayout(raw, extra = {}) {
   }
   if (deepest < 0) deepest = entry;
 
-  return { siteId, kind, level, top, bottom, cellSize, gridW, gridH, rooms, entry, deepest };
+  // The two things a cavern knows and a room and corridor level does not: which
+  // room is the boss's hall, and which place in the sheet this is, so the boss
+  // that lairs here is the boss that stands in it. Both are optional and both
+  // are null on a level built by the old generator, which is what keeps that
+  // generator's behaviour exactly what it was. See docs/mmo/wiring/D3.md.
+  const arenaRaw = raw.arena != null ? Math.round(num(raw.arena)) : null;
+  const arena = arenaRaw != null && rooms[arenaRaw] ? arenaRaw : null;
+  const bossLair = typeof raw.bossLair === 'string' ? raw.bossLair
+    : (typeof extra.bossLair === 'string' ? extra.bossLair : null);
+
+  return { siteId, kind, level, top, bottom, cellSize, gridW, gridH, rooms, entry, deepest, arena, bossLair };
 }
 
 /** Grid cell to the metres of its centre, exactly as dungeon_gen.worldOf. */
@@ -589,8 +599,17 @@ export function groupsForRoom(room) {
   return clamp(1 + Math.floor(num(room.area) / ROOM_AREA_PER_EXTRA_GROUP), 1, ROOM_GROUPS_MAX);
 }
 
-/** The boss rows a habitat can produce, in the order the habitat lists them. */
-export function bossRowsFor(habitat) {
+/**
+ * The boss rows a habitat can produce, in the order the habitat lists them.
+ *
+ * `lair` is the place id out of realms.js. A place the roster lairs a boss at
+ * produces THAT boss and no other, which is what puts Warden Hask in the
+ * Eyrie's Roost rather than whichever of the four the dice liked. Without a
+ * lair, or with one nothing lairs at, the habitat decides as it always did.
+ */
+export function bossRowsFor(habitat, lair = null) {
+  const named = lair ? BOSS_BY_LAIR[lair] : null;
+  if (named && named.boss) return [named];
   const h = HABITAT[habitat];
   if (!h) return [];
   const ids = [...new Set([...(h.day || []), ...(h.night || [])])];
@@ -633,9 +652,11 @@ export function dungeonSpawns(layout, opts = {}) {
     const roomKey = `${site}:${L.level}:r${room.i}`;
     const rng = mulberry32((hashId(roomKey) ^ Math.imul(worldSeed | 0, 0x9e3779b1)) >>> 0);
 
-    // the deepest room of the deepest level is the boss's, and holds nothing else
-    if (L.bottom && room.i === L.deepest) {
-      const bosses = bossRowsFor(habitat);
+    // The boss's room on the deepest level holds the boss and nothing else. It
+    // is the arena when the level named one and the deepest room when it did
+    // not, which is every level the old generator builds.
+    if (L.bottom && room.i === (L.arena != null ? L.arena : L.deepest)) {
+      const bosses = bossRowsFor(habitat, L.bossLair);
       if (bosses.length) {
         const boss = bosses[Math.min(bosses.length - 1, Math.floor(rng() * bosses.length))];
         const p = cellToWorld(L, room.cx, room.cz);

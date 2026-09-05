@@ -333,6 +333,148 @@ for (const kind of ['dungeon', 'cave']) {
 }
 
 // ---------------------------------------------------------------------------
+// 5b. a cavern: the other generator, the sheet's depth, the ledges, the boss
+// ---------------------------------------------------------------------------
+//
+// Everything here is driven through the same surface the game drives: nothing
+// reaches into the runtime's own variables. The claims are that the sheet
+// decides which generator builds a place and how deep it goes, that the floor
+// underground is the cell you are standing on rather than a plane at zero, that
+// the camera stays above that floor, that the boss's hall says the boss's name
+// through the banner path, and that a box is something a ray can pick.
+{
+  const { DUNGEONS } = await import('../mmo/dungeons.js');
+  const { worldOf } = await import('../world/dungeon_gen.js');
+  const { cameraClamp, CAM_MIN_Y } = await import('../world/dungeon.js');
+  const spec = DUNGEONS.icevault_deep;                    // a cavern, three levels
+  const site = {
+    id: `z:${spec.id}`, sub: spec.id, kind: 'dungeon', name: spec.name,
+    cx: 41, cz: -13, x: -1900, z: -4900, article: 'a', facing: 1, oreBand: ['coldiron'],
+  };
+  const zones = [];
+  rt.onZone((z) => zones.push(z));
+  const states = [];
+  rt.onDungeonState((st) => states.push(st));
+
+  rt.enterDungeon(site);
+  const L1 = rt.dungeonLayout();
+  ck('a cavern in the sheet is built by the cavern generator', L1.gen === 'cavern', String(L1.gen));
+  ck('and it carries heights, bridges, water and boxes',
+    !!L1.heights && Array.isArray(L1.bridges) && Array.isArray(L1.water) && L1.chests.length > 0,
+    `${L1.bridges.length} spans, ${L1.water.length} water cells, ${L1.chests.length} boxes`);
+  ck('the sheet says how deep it goes, not the old default',
+    rt.dungeonTop === spec.levels && states.at(-1).bottom === false, `${rt.dungeonTop} levels`);
+  ck('and the spec came from the table', rt.dungeonSpec?.id === spec.id && rt.dungeonSpec.boss === 'legateOssory');
+
+  // the floor is the cell, not a plane
+  {
+    const hs = [];
+    for (const r of L1.rooms) { const p = worldOf(L1, r.cx, r.cz); hs.push(rt.heightAt(p.x, p.z)); }
+    const spread = Math.max(...hs) - Math.min(...hs);
+    ck('heightAt underground reads the cell the player stands on', spread > 2,
+      `chambers at ${hs.map((h) => h.toFixed(0)).join(', ')} m`);
+    ck('and it is the layout\'s own number, to the bit', hs.every((h, i) => {
+      const r = L1.rooms[i];
+      return h === L1.heights[r.cz * L1.w + r.cx];
+    }));
+    // The camera, on the LOWEST ledge there is, which is where the old clamp
+    // would have been wrong: it held the camera at CAM_MIN_Y above a floor it
+    // believed was at zero, so on a chamber twelve metres down it sat eleven
+    // metres over the player's head, out through the roof.
+    const low = L1.rooms[hs.indexOf(Math.min(...hs))];
+    const p = worldOf(L1, low.cx, low.cz);
+    const feet = { x: p.x, y: rt.heightAt(p.x, p.z), z: p.z };
+    ck('there is a chamber well below the mouth to test the camera on', feet.y <= -4,
+      `${feet.y.toFixed(1)} m down`);
+    const cam = cameraClamp(L1, { x: feet.x, y: feet.y + 4, z: feet.z + 4 }, feet);
+    ck('a camera over a deep chamber is left where it is, under that chamber\'s roof',
+      cam.y >= feet.y && cam.y <= feet.y + 4 + 1e-9,
+      `camera ${cam.y.toFixed(1)} m, floor ${feet.y.toFixed(1)} m`);
+    const sunk = cameraClamp(L1, { x: feet.x, y: feet.y - 5, z: feet.z }, feet);
+    ck('and a camera pushed into the floor is pulled up to THAT floor, not to zero',
+      Math.abs(sunk.y - (feet.y + CAM_MIN_Y)) < 1e-6 && sunk.moved === true,
+      `${sunk.y.toFixed(2)} m, wanted ${(feet.y + CAM_MIN_Y).toFixed(2)}`);
+  }
+
+  // a box, picked by a ray, exactly as the cursor would
+  {
+    rt.dungeonScene.group.updateMatrixWorld(true);
+    const c = rt.dungeonChests()[0];
+    const ray = new THREE.Raycaster();
+    ray.set(new THREE.Vector3(c.x, c.y + 20, c.z), new THREE.Vector3(0, -1, 0));
+    const hit = rt.pick(ray);
+    ck('a ray onto a box picks the box', hit && hit.kind === 'chest' && hit.chest.key === c.key,
+      hit ? `${hit.kind} ${hit.chest?.key || ''}` : 'nothing');
+    ck('and the box knows which level it is on and what it is worth',
+      c.key === `${spec.id}:1:${c.i}` && c.tier === spec.tier, `${c.key} tier ${c.tier}`);
+    ck('and the scene can swing its lid open', rt.dungeonScene.openChest(c) === true);
+  }
+
+  // down to the bottom, and into the hall
+  rt.dungeonGo('down'); rt.dungeonGo('down');
+  const L3 = rt.dungeonLayout();
+  ck('three levels down is the bottom, and the sheet said so',
+    rt.dungeonLevel === 3 && states.at(-1).bottom === true && rt.dungeonGo('down') === null);
+  ck('the arena is on this level and was on neither of the two above',
+    L3.arena != null && L1.arena === null, `arena room ${L3.arena}`);
+  {
+    const before = zones.length;
+    const at = states.at(-1).at;
+    rt.update(0.016, clock += 100, at.x, at.z);
+    ck('standing at the mouth says nothing about a boss', zones.length === before);
+    const r = L3.rooms[L3.arena];
+    const p = worldOf(L3, r.cx, r.cz);
+    rt.update(0.016, clock += 100, p.x, p.z);
+    const z = zones.at(-1);
+    ck('walking into the arena names the boss in the banner',
+      zones.length === before + 1 && z && z.name === 'Legate Ossory', z ? z.name : 'nothing said');
+    ck('and the banner has a subtitle to read', Array.isArray(z.danger) && z.danger[1] === spec.tier);
+    ck('and words to go with it', typeof z.line === 'string' && z.line.includes('Legate Ossory')
+      && !z.line.includes('\u2014'), z.line);
+    rt.update(0.016, clock += 100, p.x, p.z);
+    ck('and it says it once, not every frame you stand there', zones.length === before + 1);
+  }
+  rt.leaveDungeon();
+  ck('and the world came back after a cavern too',
+    rt.inDungeon === false && sc.scene.children.find((o) => o.name === 'sky').visible === true);
+
+  // the other generator is untouched for the places that keep it
+  {
+    const rooms = DUNGEONS.throneofash;
+    const built = rt.enterDungeon({
+      id: `z:${rooms.id}`, sub: rooms.id, kind: 'dungeon', name: rooms.name,
+      cx: 7, cz: 9, x: 6700, z: -160, article: 'a', facing: 1,
+    });
+    const L = rt.dungeonLayout();
+    ck('a place the table marks "rooms" is built by the old generator',
+      !!built && L.gen !== 'cavern' && !L.heights, `gen ${L.gen || 'rooms'}`);
+    ck('and its floor is the flat one it always was',
+      rt.heightAt(0, 0) === DUNGEON_FLOOR_Y && rt.heightAt(30, -30) === DUNGEON_FLOOR_Y);
+    ck('and it still carries the boss lair, so Malachar stands in its deep room',
+      L.bossLair === 'throneofash');
+    // and its boxes are the same boxes, so one file opens a box wherever it stands
+    const boxes = rt.dungeonChests();
+    ck('a rooms level carries the same box records a cavern does',
+      boxes.length > 0 && boxes.every((c) => typeof c.key === 'string' && c.tier === rooms.tier
+        && Number.isFinite(c.x) && Number.isFinite(c.z) && (c.kind === 'chest' || c.kind === 'cache')),
+      `${boxes.length} boxes, ${boxes.filter((c) => c.kind === 'chest').length} of them locked`);
+    ck('and it holds both kinds, not one kind twice',
+      boxes.some((c) => c.kind === 'chest') && boxes.some((c) => c.kind === 'cache'));
+    rt.dungeonScene.group.updateMatrixWorld(true);
+    const b0 = boxes[0];
+    const rray = new THREE.Raycaster();
+    rray.set(new THREE.Vector3(b0.x, 20, b0.z), new THREE.Vector3(0, -1, 0));
+    const rhit = rt.pick(rray);
+    ck('and a ray onto one picks it, exactly as in a cavern',
+      rhit && rhit.kind === 'chest' && rhit.chest.key === b0.key, rhit ? rhit.kind : 'nothing');
+    ck('and the old generator can open a lid too', rt.dungeonScene.openChest(b0) === true);
+    rt.leaveDungeon();
+  }
+  rt.onZone(null);
+  rt.onDungeonState(null);
+}
+
+// ---------------------------------------------------------------------------
 // 6. picking above ground
 // ---------------------------------------------------------------------------
 {

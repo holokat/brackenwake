@@ -78,9 +78,9 @@ const inside = (layout, gx, gz) => gx >= 0 && gz >= 0 && gx < layout.w && gz < l
  * A level. `seed` is the world seed, `site` needs cx, cz and kind, `depthLevel`
  * counts from 1 at the mouth.
  */
-export function generateDungeon(seed, site, depthLevel = 1) {
+export function generateDungeon(seed, site, depthLevel = 1, spec = null) {
   const kind = site.kind === 'cave' ? 'cave' : 'dungeon';
-  const top = maxLevel(kind);
+  const top = spec && spec.levels ? Math.max(1, Math.round(spec.levels)) : maxLevel(kind);
   const level = Math.max(1, Math.min(top, depthLevel | 0));
   // one rng for the whole level, seeded by the site cell and the depth, so
   // level 2 of a shaft is not level 1 of it shifted
@@ -254,13 +254,74 @@ export function generateDungeon(seed, site, depthLevel = 1) {
   } else {
     // the great hall is worth the walk, so the deep room is always paid for
     tag(hall.cx + 1, hall.cz + 1, 'chest');
-    const n = 3 + ri(rng, 3);
+    // A place with a row in src/mmo/dungeons.js is paid for by that row; a
+    // rolled shaft in the hills keeps the count it always had.
+    const n = spec ? boxCount(spec, rng) : 3 + ri(rng, 3);
     for (let guard = 0; layout.chests.length < n && guard < 400; guard++) {
       const r = layout.rooms[ri(rng, layout.rooms.length)];
       tag(r.x + ri(rng, r.w), r.z + ri(rng, r.h), 'chest');
     }
+    dressChests(layout, rng, spec, site);
   }
   return layout;
+}
+
+/** How many boxes a spec's level holds: its chests and its caches together. */
+function boxCount(spec, rng) {
+  const span = (pair, dflt) => {
+    const [lo, hi] = Array.isArray(pair) ? pair : dflt;
+    return lo + ri(rng, Math.max(1, hi - lo + 1));
+  };
+  return span(spec.chests, [2, 4]) + span(spec.caches, [2, 4]);
+}
+
+/**
+ * Turn the tagged cells into the boxes `src/game/chests.js` opens.
+ *
+ * A room and corridor level used to carry `{ gx, gz }` and nothing else, and
+ * dungeon.js drew a chest at each that could not be clicked, which is why
+ * `world.js` said "no way into them yet" every time you went down. The record
+ * is now the same one `cavern_gen.js` writes, so one file opens a box and it
+ * does not matter which generator built the level it stands in.
+ *
+ * The first box is the one in the great hall and it is always a locked chest:
+ * the deep room is paid for. The rest alternate so a level holds both kinds.
+ */
+function dressChests(layout, rng, spec, site) {
+  const tier = Math.max(1, Math.min(6, Math.round(spec?.tier || 1)));
+  const siteId = (site && (site.sub || site.id)) || layout.id || 'site';
+  const wantChests = spec && Array.isArray(spec.chests)
+    ? spec.chests[0] + ri(rng, Math.max(1, spec.chests[1] - spec.chests[0] + 1))
+    : layout.chests.length;
+  layout.siteId = siteId;
+  layout.tier = tier;
+  layout.chests = layout.chests.map((c, i) => {
+    const p = worldOf(layout, c.gx, c.gz);
+    const chest = i < wantChests;
+    return {
+      i, gx: c.gx, gz: c.gz, x: p.x, z: p.z, y: 0,
+      kind: chest ? 'chest' : 'cache',
+      locked: chest,
+      trapped: chest && rng() < 0.55,
+      tier,
+      key: `${siteId}:${layout.level}:${i}`,
+    };
+  });
+}
+
+/**
+ * The floor height under a cell, in metres.
+ *
+ * A room and corridor level has one floor at zero and carries no `heights`, so
+ * this answers 0 for every cell of one. A cavern carries a height per cell and
+ * this is where it is read from, so `dungeon.js`, `world_runtime.js` and the
+ * monster layer all ask one question and neither of them has to know which
+ * generator built the thing the player is standing in.
+ */
+export function floorAt(layout, gx, gz) {
+  if (!layout || !layout.heights) return 0;
+  if (!inside(layout, gx, gz)) return 0;
+  return layout.heights[gz * layout.w + gx];
 }
 
 /** What stands at a grid cell. Off the grid is rock: a level is sealed. */

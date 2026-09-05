@@ -159,7 +159,7 @@ export const world = {
           : 'The black stair goes deeper, the pale steps climb out.';
         const spoil = st.kind === 'cave'
           ? (st.ore ? ` ${st.ore} seams in the rock: swing the pickaxe.` : '')
-          : (st.chests ? ` ${st.chests} chests down here, and no way into them yet.` : '');
+          : (st.chests ? ` ${st.chests} boxes down here, and a pick opens the locked ones.` : '');
         hud.toast(`${where}. ${ways}${spoil}`);
       });
     }

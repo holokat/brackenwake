@@ -257,6 +257,7 @@ export function blankCharacter() {
     dragon: null,         // the companion's record, written by dragon.js (D1)
     uniques: [],          // signature uniques found, once each (L1)
     bosses: [],           // wandering bosses met, so the map keeps them (E2)
+    opened: [],           // chest keys already emptied, once each (D3)
     settings: { ...DEFAULT_SETTINGS },
   };
 }
@@ -1013,6 +1014,9 @@ export function hydrate(raw) {
   // the signature uniques already found (L1): once per character, so the list must survive a reload
   if (Array.isArray(raw.uniques)) doc.uniques = raw.uniques.filter((u) => typeof u === 'string');
   if (Array.isArray(raw.bosses)) doc.bosses = raw.bosses.filter((u) => typeof u === 'string');
+  // the boxes this character has already emptied (D3): a chest pays once ever,
+  // so the list has to survive a reload or every level is a fresh payday
+  if (Array.isArray(raw.opened)) doc.opened = raw.opened.filter((k) => typeof k === 'string');
   if (Array.isArray(raw.deadUntil)) doc.deadUntil = raw.deadUntil.filter((d) => d && typeof d === 'object');
   if (raw.settings && typeof raw.settings === 'object') {
     doc.settings = { ...DEFAULT_SETTINGS, ...raw.settings };

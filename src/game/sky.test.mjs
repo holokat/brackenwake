@@ -22,7 +22,9 @@ import {
   skyColours, luminance, warmth, elevationForDay,
   phaseFromClock, phaseFromDay, hourAngle, sunDirectionAt,
   SKY_GLSL, SKY_VERT, SKY_FRAG, createSkyUniforms, createSky,
+  REALM_SKY, SKY_FIELDS, DEFAULT_REALM, auditSky, skyLighting, realmMixAt,
 } from './sky.js';
+import { REALM_ZONES, ZONE as ZONE_BY_ID } from '../world/zones.js';
 
 const warn = console.warn; console.warn = () => {};
 const { dayFactorAt, DAY_CYCLE_MS } = await import('./scene.js');
@@ -285,6 +287,174 @@ ck('the shared sky function is called skyCol, which water.js relies on',
 
   sky.dispose();
   ck('dispose takes the group back out of the scene', !scene.children.includes(sky.group));
+}
+
+// ------------------------------------------------------------- the realms --
+//
+// Nine realms, nine skies (Z3). Three claims:
+//
+//   1. the Greenwold has not moved. Its noon and its midnight are pinned here
+//      to the numbers read out of the module BEFORE the realm table existed.
+//      Every component, to the last bit.
+//   2. every realm has a whole palette, and the audit says so both ways.
+//   3. a border is a fade. At the centre of a realm the sky is that realm's; on
+//      the line between two it is between the two, component by component.
+
+console.log('\n  -- the realms --');
+
+// The Greenwold's noon and midnight, read out of skyColours before REALM_SKY
+// was written. If a stop of SKY_KEYS moves, this fails, which is the point.
+const PINNED = {
+  noon: {
+    zenith: { r: 0.1843137254901961, g: 0.4745098039215686, b: 0.8392156862745098 },
+    horizon: { r: 0.8745098039215686, g: 0.9372549019607843, b: 1 },
+    sun: { r: 1, g: 0.9529411764705882, b: 0.8392156862745098 },
+    fog: { r: 0.8117647058823529, g: 0.8784313725490196, b: 0.9333333333333333 },
+    glare: 0.8, cloud: 0.45, star: 0, moon: 0, sunUp: 1,
+  },
+  midnight: {
+    zenith: { r: 0.0196078431372549, g: 0.027450980392156862, b: 0.054901960784313725 },
+    horizon: { r: 0.050980392156862744, g: 0.0784313725490196, b: 0.1411764705882353 },
+    sun: { r: 0.6823529411764706, g: 0.7333333333333333, b: 0.8666666666666667 },
+    fog: { r: 0.0392156862745098, g: 0.058823529411764705, b: 0.10980392156862745 },
+    glare: 0.45, cloud: 0.45, star: 1, moon: 1, sunUp: 0,
+  },
+};
+
+for (const [when, d] of [['noon', 1], ['midnight', 0]]) {
+  const got = skyColours(d);
+  const want = PINNED[when];
+  let same = true, where = '';
+  for (const k of ['zenith', 'horizon', 'sun', 'fog']) {
+    for (const ch of ['r', 'g', 'b']) if (got[k][ch] !== want[k][ch]) { same = false; where = `${k}.${ch} ${got[k][ch]} not ${want[k][ch]}`; }
+  }
+  for (const k of ['glare', 'cloud', 'star', 'moon', 'sunUp']) if (got[k] !== want[k]) { same = false; where = `${k} ${got[k]} not ${want[k]}`; }
+  ck(`the Greenwold's ${when} is exactly the sky the game had before the realms`, same, where || 'every component to the bit');
+}
+ck('and naming the Greenwold gives the same thing as naming nothing',
+  JSON.stringify(skyColours(0.63, { realm: 'greenwold' })) === JSON.stringify(skyColours(0.63)));
+ck('and its lighting tint is one in every channel',
+  skyLighting(1).sun.every((v) => v === 1) && skyLighting(1).sunI === 1
+  && skyLighting(0).ground.every((v) => v === 1) && skyLighting(0.4).hemiI === 1);
+
+ck('every realm in zones.js has a sky', REALM_ZONES.every((z) => REALM_SKY[z.id]),
+  REALM_ZONES.filter((z) => !REALM_SKY[z.id]).map((z) => z.id).join(', ') || `${REALM_ZONES.length} realms`);
+ck('every sky carries every key', auditSky() === Object.keys(REALM_SKY).length,
+  SKY_FIELDS.join(', '));
+{
+  const cases = [
+    ['a realm with no sky', () => { const t = { ...REALM_SKY }; delete t.boneyard; return t; }, 'no sky'],
+    ['a sky with no fog', () => ({ ...REALM_SKY, boneyard: { ...REALM_SKY.boneyard, fogFar: undefined } }), 'no fogFar'],
+    ['a sky with three stops', () => ({ ...REALM_SKY, boneyard: { ...REALM_SKY.boneyard, keys: REALM_SKY.boneyard.keys.slice(0, 3) } }), 'stops, wanted'],
+    ['a fog that outreaches the streamed ring', () => ({ ...REALM_SKY, boneyard: { ...REALM_SKY.boneyard, fogFar: 900 } }), 'past the streamed ring'],
+    ['a sun turned up to three', () => ({ ...REALM_SKY, boneyard: { ...REALM_SKY.boneyard, sunStrength: 3 } }), 'out of hand'],
+  ];
+  for (const [what, make, want] of cases) {
+    let threw = '';
+    try { auditSky(make()); } catch (e) { threw = e.message; }
+    ck(`and auditSky throws on ${what}`, threw.includes(want), threw.split('\n')[1]?.trim() || 'it did not throw');
+  }
+}
+
+// every realm is actually a different sky, or the table is decoration
+{
+  const noons = Object.keys(REALM_SKY).map((id) => [id, skyColours(1, { realm: id })]);
+  let clashes = 0;
+  for (let i = 0; i < noons.length; i++) for (let j = i + 1; j < noons.length; j++) {
+    const a = noons[i][1].zenith, b = noons[j][1].zenith;
+    if (Math.abs(a.r - b.r) + Math.abs(a.g - b.g) + Math.abs(a.b - b.b) < 0.04) clashes++;
+  }
+  ck('no two realms share a noon sky', clashes === 0, `${noons.length} skies, ${clashes} clashes`);
+  const bone = skyColours(1, { realm: 'boneyard' });
+  const green = skyColours(1);
+  ck('the Boneyard at noon is grey where the Greenwold is blue',
+    warmth(bone.zenith) > warmth(green.zenith) && Math.abs(bone.zenith.b - bone.zenith.r) < 0.1,
+    `bone zenith #${[bone.zenith.r, bone.zenith.g, bone.zenith.b].map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('')}`);
+  ck('the Ashen Throne burns at the horizon and the Stormpeaks do not',
+    warmth(skyColours(1, { realm: 'ashenthrone' }).horizon) > warmth(skyColours(1, { realm: 'stormpeaks' }).horizon) + 0.3);
+  ck('Ember Wastes see further than the Sunken Kingdom',
+    REALM_SKY.emberwastes.fogFar > REALM_SKY.sunkenkingdom.fogFar * 2,
+    `${REALM_SKY.emberwastes.fogFar} m against ${REALM_SKY.sunkenkingdom.fogFar} m`);
+}
+
+// the blend: at a centre, and on a line between two
+{
+  const bone = ZONE_BY_ID.boneyard;
+  const atCentre = realmMixAt(bone.x, bone.z);
+  ck('at the centre of a realm the mix is that realm alone',
+    atCentre.length === 1 && atCentre[0][0] === 'boneyard' && atCentre[0][1] === 1,
+    JSON.stringify(atCentre));
+  ck('and the sky there is that realm\'s own, to the bit',
+    JSON.stringify(skyColours(1, { mix: atCentre })) === JSON.stringify(skyColours(1, { realm: 'boneyard' })));
+
+  // The Greenwold and Verdant Deep overlap; halfway between their centres both
+  // weigh one, so the sky is half of each.
+  const g = ZONE_BY_ID.greenwold, v = ZONE_BY_ID.verdant;
+  const mx = (g.x + v.x) / 2, mz = (g.z + v.z) / 2;
+  const mid = realmMixAt(mx, mz);
+  ck('halfway between two realms the mix is half of each',
+    mid.length === 2 && Math.abs(mid[0][1] - 0.5) < 1e-9 && Math.abs(mid[1][1] - 0.5) < 1e-9,
+    JSON.stringify(mid));
+  const A = skyColours(1, { realm: mid[0][0] }), B = skyColours(1, { realm: mid[1][0] }), M = skyColours(1, { mix: mid });
+  let between = true, worst = '';
+  for (const k of ['zenith', 'horizon', 'sun', 'fog']) for (const ch of ['r', 'g', 'b']) {
+    const lo = Math.min(A[k][ch], B[k][ch]), hi = Math.max(A[k][ch], B[k][ch]);
+    if (M[k][ch] < lo - 1e-9 || M[k][ch] > hi + 1e-9) { between = false; worst = `${k}.${ch}`; }
+    if (Math.abs(hi - lo) > 0.02 && (M[k][ch] === A[k][ch] || M[k][ch] === B[k][ch])) { between = false; worst = `${k}.${ch} did not move`; }
+  }
+  ck('and every component of the sky there lies between the two', between, worst || '12 components checked');
+  ck('and so does the fog reach', M.fogFar > Math.min(A.fogFar, B.fogFar) && M.fogFar < Math.max(A.fogFar, B.fogFar),
+    `${M.fogFar.toFixed(0)} m between ${A.fogFar} and ${B.fogFar}`);
+
+  // and it is a fade, not a step: walk the border and watch it move
+  const steps = [];
+  for (let t = 0; t <= 1.0001; t += 0.1) {
+    const x = g.x + (v.x - g.x) * t, z = g.z + (v.z - g.z) * t;
+    steps.push(skyColours(1, { mix: realmMixAt(x, z) }).zenith.g);
+  }
+  let biggest = 0;
+  for (let i = 1; i < steps.length; i++) biggest = Math.max(biggest, Math.abs(steps[i] - steps[i - 1]));
+  ck('crossing the border is a fade and not a cut', biggest < 0.09,
+    `biggest step over a tenth of the way: ${biggest.toFixed(4)}`);
+
+  // wild ground between realms falls back toward the default sky
+  const wild = realmMixAt(-9000, 9000);
+  ck('ground claimed by no realm gets the default sky',
+    wild.length === 1 && wild[0][0] === DEFAULT_REALM && wild[0][1] === 1, JSON.stringify(wild));
+  let sums = true;
+  for (const [x, z] of [[0, 0], [-4250, 1202], [2000, 2000], [6000, -200], [-3000, -3000], [-9000, 9000]]) {
+    const m = realmMixAt(x, z);
+    if (Math.abs(m.reduce((a, e) => a + e[1], 0) - 1) > 1e-9) sums = false;
+  }
+  ck('a mix always sums to one, wherever you stand', sums);
+}
+
+// the haze is a real thing and not a field nobody reads
+{
+  const hazy = skyColours(1, { realm: 'boneyard' }), clear = skyColours(1, { realm: 'stormpeaks' });
+  ck('a hazy realm washes its zenith toward its horizon and thickens its cloud',
+    hazy.cloud > clear.cloud && hazy.haze > clear.haze,
+    `Boneyard cloud ${hazy.cloud.toFixed(2)} haze ${hazy.haze}, Stormpeaks cloud ${clear.cloud.toFixed(2)} haze ${clear.haze}`);
+  ck('and the Greenwold, with no haze, keeps the cloud it was given',
+    skyColours(1, { cloud: 0.2 }).cloud === 0.2);
+}
+
+// the dome reads the blend off the scene, which is what keeps them together
+{
+  const scene3 = new THREE.Scene();
+  const fakeSc = { scene: scene3, realmMix: [['boneyard', 1]] };
+  const sky3 = createSky(fakeSc);
+  sky3.update(1, null, 0, null);
+  const bone = skyColours(1, { realm: 'boneyard' });
+  const c = new THREE.Color().setRGB(bone.zenith.r, bone.zenith.g, bone.zenith.b, THREE.SRGBColorSpace);
+  ck('the dome paints the realm the scene says the player is in',
+    sky3.uniforms.uZenith.value.getHexString() === c.getHexString(),
+    `#${sky3.uniforms.uZenith.value.getHexString()}`);
+  fakeSc.realmMix = [['greenwold', 1]];
+  sky3.update(1, null, 0, null);
+  const green = new THREE.Color().setRGB(...[skyColours(1).zenith.r, skyColours(1).zenith.g, skyColours(1).zenith.b], THREE.SRGBColorSpace);
+  ck('and follows when the player walks out of it', sky3.uniforms.uZenith.value.getHexString() === green.getHexString());
+  sky3.dispose();
 }
 
 // -------------------------------------------------------------- the prose --

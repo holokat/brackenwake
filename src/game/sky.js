@@ -27,6 +27,7 @@
 
 import * as THREE from 'three';
 import { DAY_CYCLE_MS, phaseAt } from './dayclock.js';
+import { REALM_ZONES, weightOf } from '../world/zones.js';
 
 /**
  * One full day. This has to equal scene.js's DAY_CYCLE_MS or the sun will
@@ -77,6 +78,272 @@ export const SKY_KEYS = [
 
 const mixc = (a, b, t) => ({ r: a.r + (b.r - a.r) * t, g: a.g + (b.g - a.g) * t, b: a.b + (b.b - a.b) * t });
 
+// ------------------------------------------------------------ the realms --
+//
+// Nine realms, nine skies. The Boneyard under the Greenwold's blue was the
+// bug: a grey ash plain where nine dragons fell, lit like a meadow at noon.
+//
+// A row is the same five stops SKY_KEYS is, in the same order and at the same
+// day factors, so the whole of the day is authored per realm and not guessed
+// from two colours. Beside them:
+//
+//   ground     the colour under everything, by day and by night. scene.js
+//              turns the pair into a RATIO against the Greenwold's, which is
+//              what lets the calibrated hemisphere light stand and still read
+//              as red rock in the Wastes and as bone in the Boneyard
+//   fogNear    where the fog starts and ends, in metres. scene.js scales the
+//   fogFar     caller's own fog by these over the Greenwold's, so the numbers
+//              here are absolute and the Greenwold is exactly a no-op
+//   sun        a multiplier on the sun's colour, and on its strength
+//   hemi       the same for the sky half of the hemisphere light
+//   ambient    the same for the ambient
+//   haze       0 clear, 1 thick. Washes the zenith toward the horizon and puts
+//              a floor under the cloud cover, which is what an ash storm and a
+//              desert noon have in common
+//
+// THE GREENWOLD IS UNCHANGED. Its keys ARE SKY_KEYS, every multiplier is 1 and
+// its haze is 0, so `skyColours(d)` returns exactly what it returned before
+// this table existed. sky.test.mjs pins its noon and midnight to the numbers
+// the game shipped with and fails if a single component moves.
+
+const keys = (rows) => rows.map(([d, z, h, s, f]) => ({ d, zenith: hx(z), horizon: hx(h), sun: hx(s), fog: hx(f) }));
+const one = [1, 1, 1];
+
+export const REALM_SKY = {
+  greenwold: {
+    name: 'The Greenwold',
+    keys: SKY_KEYS,
+    ground: { day: 0x756349, night: 0x11141c },
+    fogNear: 90, fogFar: 536,
+    sun: one, sunStrength: 1, hemi: one, hemiStrength: 1, ambient: one,
+    haze: 0,
+  },
+  verdant: {
+    name: 'Verdant Deep',
+    keys: keys([
+      [0.00, 0x06100c, 0x102019, 0xa8c4b0, 0x0c1712],
+      [0.35, 0x18301f, 0x46503a, 0xffb070, 0x243026],
+      [0.50, 0x3a5a44, 0xffc06a, 0xffa050, 0x7d7a52],
+      [0.65, 0x4a8a5e, 0xffe0a8, 0xffd08a, 0xa8b184],
+      [1.00, 0x4a94c0, 0xe8f0c0, 0xfff0c0, 0xbfd3a4],
+    ]),
+    ground: { day: 0x3a4a28, night: 0x0e1410 },
+    fogNear: 40, fogFar: 320,
+    sun: [0.98, 1.00, 0.86], sunStrength: 0.90,
+    hemi: [0.90, 1.05, 0.85], hemiStrength: 1.00,
+    ambient: [0.95, 1.00, 0.85],
+    haze: 0.25,
+  },
+  saltmarch: {
+    name: 'The Saltmarch',
+    keys: keys([
+      [0.00, 0x080b12, 0x131a24, 0xb2bcd0, 0x0e131b],
+      [0.35, 0x1a2436, 0x4e4a52, 0xf0a072, 0x252a34],
+      [0.50, 0x415068, 0xf5c090, 0xf0a26a, 0x8a8a86],
+      [0.65, 0x5a86b0, 0xf0dcc4, 0xf5d4b0, 0xb4b8b2],
+      [1.00, 0x5a8ec0, 0xdfe8ea, 0xf6f2e6, 0xcdd6d4],
+    ]),
+    ground: { day: 0x6a6c58, night: 0x11151a },
+    fogNear: 55, fogFar: 420,
+    sun: [0.98, 0.99, 1.00], sunStrength: 0.92,
+    hemi: [0.98, 1.00, 1.02], hemiStrength: 1.05,
+    ambient: [0.98, 1.00, 1.02],
+    haze: 0.40,
+  },
+  emberwastes: {
+    name: 'Ember Wastes',
+    keys: keys([
+      [0.00, 0x0a0910, 0x171522, 0xc0b8d0, 0x120f18],
+      [0.35, 0x261a2c, 0x6a4038, 0xffa050, 0x35262a],
+      [0.50, 0x574054, 0xffab4e, 0xff7a28, 0xa07a58],
+      [0.65, 0x6a7ea8, 0xffd08a, 0xffc070, 0xc9a583],
+      [1.00, 0x7a9ac0, 0xf2dcae, 0xfff0c8, 0xd8c49a],
+    ]),
+    ground: { day: 0x8a6a42, night: 0x1a1512 },
+    fogNear: 200, fogFar: 536,
+    sun: [1.00, 0.96, 0.86], sunStrength: 1.14,
+    hemi: [1.02, 0.98, 0.90], hemiStrength: 1.05,
+    ambient: [1.00, 0.95, 0.85],
+    haze: 0.55,
+  },
+  stormpeaks: {
+    name: 'The Stormpeaks',
+    keys: keys([
+      [0.00, 0x03050c, 0x0a1020, 0xb4c0e0, 0x070c18],
+      [0.35, 0x101a34, 0x3a3450, 0xf09a68, 0x1c2034],
+      [0.50, 0x2c3a6a, 0xf0a878, 0xf08a4a, 0x6a6a80],
+      [0.65, 0x2f6ec0, 0xd8dcf0, 0xf0c8a0, 0x9aabc4],
+      [1.00, 0x1c62d8, 0xcfe4ff, 0xfff6e6, 0xbcd4ee],
+    ]),
+    ground: { day: 0x5e6458, night: 0x0d1118 },
+    fogNear: 140, fogFar: 536,
+    sun: [0.99, 0.99, 1.00], sunStrength: 1.06,
+    hemi: [0.96, 0.99, 1.06], hemiStrength: 1.05,
+    ambient: [0.97, 0.99, 1.05],
+    haze: 0.05,
+  },
+  boneyard: {
+    name: 'The Boneyard',
+    keys: keys([
+      [0.00, 0x0a0a09, 0x1a1815, 0xc4bfae, 0x141210],
+      [0.35, 0x241f19, 0x4a3f31, 0xd8a878, 0x2e2820],
+      [0.50, 0x4a443a, 0x9a7448, 0xd8a060, 0x6e5c44],
+      [0.65, 0x76776c, 0xbfa47c, 0xe0c49a, 0x968874],
+      [1.00, 0x8a908c, 0xd8cdb4, 0xf0ecdc, 0xb0a898],
+    ]),
+    ground: { day: 0x6b6357, night: 0x14120f },
+    fogNear: 60, fogFar: 400,
+    sun: [0.97, 0.96, 0.94], sunStrength: 0.88,
+    hemi: [0.98, 0.97, 0.94], hemiStrength: 0.95,
+    ambient: [0.98, 0.97, 0.94],
+    haze: 0.60,
+  },
+  frostreach: {
+    name: 'Frostreach',
+    keys: keys([
+      [0.00, 0x040a18, 0x0c1a30, 0xc8d8f0, 0x0a1424],
+      [0.35, 0x123054, 0x2e4a70, 0xd8b0a0, 0x1e3450],
+      [0.50, 0x36568c, 0xd0c8d8, 0xe8b898, 0x7a8aa0],
+      [0.65, 0x4a86c8, 0xeaf2fa, 0xf0dcd0, 0xb4c8dc],
+      [1.00, 0x4a90d8, 0xf2f8ff, 0xfffaf0, 0xdce8f2],
+    ]),
+    ground: { day: 0x9aa8b0, night: 0x152030 },
+    fogNear: 70, fogFar: 430,
+    sun: [0.98, 0.99, 1.00], sunStrength: 1.05,
+    hemi: [0.98, 1.00, 1.05], hemiStrength: 1.10,
+    ambient: [0.98, 1.00, 1.04],
+    haze: 0.35,
+  },
+  sunkenkingdom: {
+    name: 'The Sunken Kingdom',
+    keys: keys([
+      [0.00, 0x04100e, 0x0a1c1c, 0xa8ccc8, 0x081614],
+      [0.35, 0x123028, 0x2e4a44, 0xd8a878, 0x1e332e],
+      [0.50, 0x2e5a52, 0xd8c084, 0xe8a060, 0x6a8074],
+      [0.65, 0x3a8a90, 0xd8ecd8, 0xf0d0a8, 0x9ac0b4],
+      [1.00, 0x2f8ab4, 0xd4f0e4, 0xf4fae8, 0xa8d4c4],
+    ]),
+    ground: { day: 0x4a7a68, night: 0x0d1a18 },
+    fogNear: 30, fogFar: 250,
+    sun: [0.94, 1.00, 0.96], sunStrength: 0.94,
+    hemi: [0.90, 1.02, 0.98], hemiStrength: 1.00,
+    ambient: [0.92, 1.00, 0.96],
+    haze: 0.30,
+  },
+  ashenthrone: {
+    name: 'The Ashen Throne',
+    keys: keys([
+      [0.00, 0x0a0406, 0x2a0a06, 0xd88a5a, 0x140806],
+      [0.35, 0x1c0a0a, 0x5a1408, 0xff6a20, 0x2a0e08],
+      [0.50, 0x361418, 0x9a2c0a, 0xff5a1a, 0x4e1c10],
+      [0.65, 0x4a2a30, 0xc4562a, 0xff8a40, 0x6e3220],
+      [1.00, 0x5a3a48, 0xd8724a, 0xffb070, 0x8a4a30],
+    ]),
+    ground: { day: 0x3a2420, night: 0x140a08 },
+    fogNear: 45, fogFar: 330,
+    sun: [1.00, 0.82, 0.66], sunStrength: 0.95,
+    hemi: [1.02, 0.90, 0.82], hemiStrength: 0.95,
+    ambient: [1.00, 0.86, 0.74],
+    haze: 0.50,
+  },
+};
+
+/** The sky the world falls back to: the heart's own, and the one it always had. */
+export const DEFAULT_REALM = 'greenwold';
+
+/** Every key a realm row has to carry. `auditSky` and the test both read it. */
+export const SKY_FIELDS = ['name', 'keys', 'ground', 'fogNear', 'fogFar', 'sun', 'sunStrength', 'hemi', 'hemiStrength', 'ambient', 'haze'];
+
+/**
+ * The nine rows, checked. Thrown at import, so a tenth realm with no sky, or a
+ * row missing its fog, cannot ship quietly behind a blue one.
+ */
+export function auditSky(table = REALM_SKY, realms = REALM_ZONES) {
+  const bad = [];
+  for (const zn of realms) if (!table[zn.id]) bad.push(`${zn.id}: no sky`);
+  for (const [id, row] of Object.entries(table)) {
+    for (const f of SKY_FIELDS) if (row[f] === undefined) bad.push(`${id}: no ${f}`);
+    if (!Array.isArray(row.keys) || row.keys.length !== SKY_KEYS.length) {
+      bad.push(`${id}: ${row.keys?.length} stops, wanted ${SKY_KEYS.length}`);
+    } else {
+      for (let i = 0; i < row.keys.length; i++) {
+        const k = row.keys[i];
+        if (k.d !== SKY_KEYS[i].d) bad.push(`${id}: stop ${i} sits at ${k.d}, not ${SKY_KEYS[i].d}`);
+        for (const c of ['zenith', 'horizon', 'sun', 'fog']) if (!k[c]) bad.push(`${id}: stop ${i} has no ${c}`);
+      }
+    }
+    if (!(row.fogNear > 0) || !(row.fogFar > row.fogNear)) bad.push(`${id}: fog ${row.fogNear} to ${row.fogFar}`);
+    if (row.fogFar > REALM_SKY.greenwold.fogFar) bad.push(`${id}: fog reaches ${row.fogFar} m, past the streamed ring`);
+    if (row.haze < 0 || row.haze > 1) bad.push(`${id}: haze ${row.haze}`);
+    for (const f of ['sun', 'hemi', 'ambient']) {
+      if (!Array.isArray(row[f]) || row[f].length !== 3) { bad.push(`${id}: ${f} is not three numbers`); continue; }
+      for (const v of row[f]) if (!(v >= 0.5 && v <= 1.6)) bad.push(`${id}: ${f} multiplier ${v} is out of hand`);
+    }
+    for (const f of ['sunStrength', 'hemiStrength']) if (!(row[f] >= 0.7 && row[f] <= 1.4)) bad.push(`${id}: ${f} ${row[f]} is out of hand`);
+  }
+  const g = table[DEFAULT_REALM];
+  if (g && g.keys !== SKY_KEYS) bad.push('the Greenwold no longer uses SKY_KEYS, so the heart\'s sky has moved');
+  if (bad.length) throw new Error(`sky: ${bad.length} problem(s)\n  ${bad.join('\n  ')}`);
+  return Object.keys(table).length;
+}
+
+// ------------------------------------------------------------ the blend --
+
+const DEFAULT_MIX = [[DEFAULT_REALM, 1]];
+
+/**
+ * How much of each realm's sky is over this point.
+ *
+ * The realms' discs overlap, so on the border between two of them both weigh
+ * 1 and the answer is half of each: crossing is a fade over the edge band and
+ * not a cut. Ground claimed by nobody takes the default sky by the share it
+ * has left over, so walking out of the Boneyard thins the ash out of the air
+ * rather than switching it off.
+ *
+ * `out` is an optional array to fill, so the frame loop allocates nothing.
+ */
+export function realmMixAt(x, z, out = []) {
+  out.length = 0;
+  let sum = 0;
+  for (let i = 0; i < REALM_ZONES.length; i++) {
+    const zn = REALM_ZONES[i];
+    const w = weightOf(zn, x, z);
+    if (w > 0) { out.push([zn.id, w]); sum += w; }
+  }
+  const rest = 1 - sum;
+  if (rest > 0) { out.push([DEFAULT_REALM, rest]); sum = 1; }
+  if (sum !== 1) for (let i = 0; i < out.length; i++) out[i][1] /= sum;
+  if (!out.length) out.push([DEFAULT_REALM, 1]);
+  return out;
+}
+
+/** The mix a caller asked for: an explicit one, a single realm, or the default. */
+function mixOf(opts) {
+  if (opts.mix && opts.mix.length) return opts.mix;
+  if (opts.realm) return REALM_SKY[opts.realm] ? [[opts.realm, 1]] : DEFAULT_MIX;
+  return DEFAULT_MIX;
+}
+
+const rowOf = (id) => REALM_SKY[id] || REALM_SKY[DEFAULT_REALM];
+
+/** The four colours of one realm's sky at a moment of its day. */
+function stopsAt(rows, d) {
+  let i = 0;
+  while (i < rows.length - 2 && d > rows[i + 1].d) i++;
+  const a = rows[i], b = rows[i + 1];
+  const t = b.d === a.d ? 0 : clamp01((d - a.d) / (b.d - a.d));
+  return {
+    zenith: mixc(a.zenith, b.zenith, t),
+    horizon: mixc(a.horizon, b.horizon, t),
+    sun: mixc(a.sun, b.sun, t),
+    fog: mixc(a.fog, b.fog, t),
+  };
+}
+
+const ZERO3 = () => ({ r: 0, g: 0, b: 0 });
+const acc = (o, c, w) => { o.r += c.r * w; o.g += c.g * w; o.b += c.b * w; };
+
+
 /** Rec. 709 luminance of an { r, g, b }. Used by the tests and by nothing else. */
 export const luminance = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 
@@ -94,32 +361,95 @@ export function elevationForDay(dayFactor) {
 }
 
 /**
- * The palette at a moment of the day. Pure: numbers in, plain colours out, no
- * THREE, no renderer, no DOM. Components are sRGB in 0..1.
+ * The palette at a moment of the day, over whichever realms the player is
+ * standing between. Pure: numbers in, plain colours out, no THREE, no
+ * renderer, no DOM. Components are sRGB in 0..1.
+ *
+ *   skyColours(d)                                  the Greenwold, exactly as before
+ *   skyColours(d, { realm: 'boneyard' })           one realm's own
+ *   skyColours(d, { mix: realmMixAt(x, z) })       the blend at a place
+ *
+ * With no realm and no mix this is the Greenwold's row, whose keys ARE
+ * SKY_KEYS, so every number this returned before the realms existed it still
+ * returns. sky.test.mjs pins that.
  */
 export function skyColours(dayFactor, opts = {}) {
   const d = clamp01(dayFactor);
-  let i = 0;
-  while (i < SKY_KEYS.length - 2 && d > SKY_KEYS[i + 1].d) i++;
-  const a = SKY_KEYS[i], b = SKY_KEYS[i + 1];
-  const t = b.d === a.d ? 0 : clamp01((d - a.d) / (b.d - a.d));
-  const zenith = mixc(a.zenith, b.zenith, t);
-  const horizon = mixc(a.horizon, b.horizon, t);
-  const sun = mixc(a.sun, b.sun, t);
-  const fog = mixc(a.fog, b.fog, t);
+  const mix = mixOf(opts);
+  const zenith = ZERO3(), horizon = ZERO3(), sun = ZERO3(), fog = ZERO3();
+  let haze = 0, fogNear = 0, fogFar = 0;
+  for (let i = 0; i < mix.length; i++) {
+    const row = rowOf(mix[i][0]), w = mix[i][1];
+    const st = stopsAt(row.keys, d);
+    acc(zenith, st.zenith, w); acc(horizon, st.horizon, w);
+    acc(sun, st.sun, w); acc(fog, st.fog, w);
+    haze += row.haze * w; fogNear += row.fogNear * w; fogFar += row.fogFar * w;
+  }
+  // Haze washes the top of the sky down toward the horizon and puts a floor
+  // under the cloud, which is what an ash storm and a desert noon share. At
+  // haze 0 both lines are exactly the identity, so the Greenwold does not move.
+  if (haze > 0) {
+    const k = haze * 0.32;
+    zenith.r += (horizon.r - zenith.r) * k;
+    zenith.g += (horizon.g - zenith.g) * k;
+    zenith.b += (horizon.b - zenith.b) * k;
+  }
   // Glare peaks where the sun sits on the horizon and the air is long.
   const gold = 1 - Math.min(1, Math.abs(d - 0.5) / 0.28);
+  const cloud = opts.cloud ?? 0.45;
   return {
     zenith, horizon, sun, fog,
     glare: 0.45 + 0.35 * d + 0.5 * gold * gold,
-    cloud: opts.cloud ?? 0.45,
+    cloud: haze > 0 ? Math.max(cloud, 0.35 + haze * 0.45) : cloud,
     // stars are gone by the time the sun is a quarter of the way up
     star: 1 - smooth(0.02, 0.45, d),
     moon: 1 - smooth(0.12, 0.62, d),
     sunUp: smooth(0.42, 0.56, d),
     elevation: elevationForDay(d),
     day: d,
+    haze, fogNear, fogFar,
   };
+}
+
+/**
+ * What the realms under the player do to the four lights, as MULTIPLIERS on
+ * scene.js's own calibrated day curve.
+ *
+ * Multipliers and not colours on purpose. The curve in scene.js was measured in
+ * the browser against a dark cloak in shade and a meadow at noon, and replacing
+ * it per realm would throw that away. A realm tints it instead, and the
+ * Greenwold's tint is 1 in every channel, so the heart is bit for bit the day
+ * it always was.
+ *
+ * `ground` is the one that comes from colours rather than from a number: each
+ * realm names the ground it stands on by day and by night, and the multiplier
+ * is that colour over the Greenwold's at the same hour. The Greenwold over
+ * itself is 1.
+ */
+export function skyLighting(dayFactor, opts = {}) {
+  const d = clamp01(dayFactor);
+  const mix = mixOf(opts);
+  const sun = [0, 0, 0], hemi = [0, 0, 0], ambient = [0, 0, 0];
+  const ground = ZERO3();
+  let sunI = 0, hemiI = 0;
+  for (let i = 0; i < mix.length; i++) {
+    const row = rowOf(mix[i][0]), w = mix[i][1];
+    for (let k = 0; k < 3; k++) { sun[k] += row.sun[k] * w; hemi[k] += row.hemi[k] * w; ambient[k] += row.ambient[k] * w; }
+    sunI += row.sunStrength * w; hemiI += row.hemiStrength * w;
+    acc(ground, groundAt(row, d), w);
+  }
+  const base = groundAt(REALM_SKY[DEFAULT_REALM], d);
+  const gr = [
+    clamp(ground.r / Math.max(base.r, 1e-4), 0.35, 2.4),
+    clamp(ground.g / Math.max(base.g, 1e-4), 0.35, 2.4),
+    clamp(ground.b / Math.max(base.b, 1e-4), 0.35, 2.4),
+  ];
+  return { sun, sunI, hemi, hemiI, ambient, ground: gr, day: d };
+}
+
+/** A realm's ground colour at an hour: its night, its day, and the day between. */
+function groundAt(row, d) {
+  return mixc(hx(row.ground.night), hx(row.ground.day), d);
 }
 
 function smooth(e0, e1, x) {
@@ -395,7 +725,10 @@ export function createSky(sc, opts = {}) {
       shadowDir.set(shadowDir.x * want, SHADOW_MIN_Y, shadowDir.z * want);
     }
 
-    palette = skyColours(d, { cloud: cloudCover });
+    // The realms under the player. scene.js keeps this up to date as it
+    // follows, so the dome and the fog and the lights all read one blend and
+    // never disagree by a frame's worth of walking.
+    palette = skyColours(d, { cloud: cloudCover, mix: opts.mix || sc?.realmMix });
     setSRGB(colours.zenith, palette.zenith);
     setSRGB(colours.horizon, palette.horizon);
     setSRGB(colours.sun, palette.sun);
@@ -430,6 +763,8 @@ export function createSky(sc, opts = {}) {
     update,
     /** The palette as plain numbers, for the settings window and for tests. */
     get palette() { return palette; },
+    /** Which realms' skies are being blended right now, for the dev bench. */
+    get mix() { return opts.mix || sc?.realmMix || null; },
     get phase() { return phase; },
     get time() { return time; },
     setPhase,
@@ -450,3 +785,5 @@ export function createSky(sc, opts = {}) {
   update(1, null, 0, null);
   return api;
 }
+
+auditSky();

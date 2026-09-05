@@ -58,7 +58,7 @@ import {
 // --------------------------------------------------------------- constants
 
 export const NEAR_RING = 3;          // chunks each way that may hold monsters, as fauna
-export const ALIVE_CAP = 40;         // never more than this many bodies at once
+export const ALIVE_CAP = 80;         // never more than this many bodies at once; 40 read as an empty world
 export const SPAWN_KEEP = 60;        // metres of quiet around where the player starts
 export const SETTLEMENT_PAD = 12;    // added to a town's flat radius; nothing spawns inside
 export const GROUP_SPREAD = 8;       // metres a group scatters from its anchor
@@ -2289,6 +2289,8 @@ export function createMonsters(sc, runtime, opts = {}) {
     },
     corpses: () => corpses.slice(),
     /** The dev bench's Clear spawned: every dev: keyed body goes, no corpse, no sack, no dead list entry. */
+    /** Take one spawned body away by its key: an event's escort when the event ends (E2). */
+    despawn(key) { return despawn(key); },
     despawnDev() {
       let n = 0;
       for (const key of [...live.keys()]) if (key.startsWith('dev:')) { despawn(key); n++; }
@@ -2440,8 +2442,8 @@ export const TAG_RULES = {
   snowOnly: ['roster', 'the habitat audit keeps it out of every list that is not snow'],
   fenOnly: ['roster', 'the same, for the fen'],
   coastOnly: ['roster', 'the same, for the coast'],
-  noonOnly: ['unwired', 'the hour of the day is the events layer E2, which does not exist'],
-  wanders: ['unwired', 'a route of places is E2 as well; Noon and Rimemouth stand in their lair'],
+  noonOnly: ['events.js', 'wanderPointAt returns nothing outside NOON_FROM_H to NOON_TO_H, so the row is nowhere at any other hour'],
+  wanders: ['events.js', 'the row route is walked one place an in-game hour; events_runtime spawns it within 600 m and moves ai.home along it'],
   huge: ['roster', 'auditMonsters exempts it from the tier 0 health band'],
   // --- how it moves and swings
   slow: ['unwired', 'the row already carries its own run speed; nothing reads the word'],
@@ -2537,7 +2539,7 @@ export function tagRuleCounts() {
  */
 export function auditTagRules() {
   const bad = [];
-  const wheres = new Set(['monsters.js', 'monster_ai.js', 'actor.js', 'roster', 'descriptive', 'unwired']);
+  const wheres = new Set(['monsters.js', 'monster_ai.js', 'actor.js', 'events.js', 'roster', 'descriptive', 'unwired']);
   for (const tag of NOTE_TAGS) {
     const rule = TAG_RULES[tag];
     if (!rule) { bad.push(`note tag "${tag}" has no row in TAG_RULES: say where it is acted on, or say 'unwired'`); continue; }
