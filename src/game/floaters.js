@@ -34,6 +34,40 @@ export const KINDS = {
 };
 export const BASE_PX = 22;
 
+// --- the colour of a number you take -----------------------------------------
+//
+// C2 (docs/mmo/wiring/C2.md). A blow from something that outclasses you should
+// not look like a blow from a rat. `taken` is the red over YOUR head, and when
+// the thing you are fighting reads red or purple on the con ladder it deepens
+// to ANGRY_TAKEN: the same hue, darker and more saturated, so it reads as
+// worse without becoming a new colour the player has to learn.
+//
+// The level is pushed in by targeting.js every frame from the current target
+// (`setAnger`), because combat.js hands the floater the DEFENDER and never the
+// attacker, so this file cannot ask who swung. That is written down rather
+// than implied: a third party hitting you while you look at something harmless
+// paints the ordinary red. Your target is the honest guess and the only one
+// available without reaching into a file this agent does not own.
+export const ANGRY_TAKEN = '#ff2a17';
+export const ANGRY_LEVELS = new Set(['deadly', 'boss']);
+
+let anger = null;
+
+/** The con level of what the player is looking at, or null. Returns what it set. */
+export function setAnger(level) {
+  anger = typeof level === 'string' && level ? level : null;
+  return anger;
+}
+/** What `setAnger` last took. */
+export function angerLevel() { return anger; }
+
+/** Pure: the colour a kind paints in, given a con level. Exported for the test. */
+export function colourFor(kind, level = anger) {
+  const k = KINDS[kind] || KINDS.damage;
+  if (kind === 'taken' && ANGRY_LEVELS.has(level)) return ANGRY_TAKEN;
+  return k.color;
+}
+
 const CSS = `
 .bw-float{position:absolute;left:0;top:0;pointer-events:none;white-space:nowrap;
   font:700 22px/1 "Cinzel","Trajan Pro",Georgia,serif;letter-spacing:.02em;
@@ -88,7 +122,7 @@ export function createFloaters(sc, root, opts = {}) {
     const el = doc.createElement('div');
     el.className = 'bw-float' + (k.glow ? ' glow' : '') + (k.shake ? ' shake' : '') + (k.pop ? ' pop' : '');
     const inner = doc.createElement('span'); inner.className = 'in'; inner.textContent = text; el.appendChild(inner);
-    el.style.color = extra.color || k.color;
+    el.style.color = extra.color || colourFor(kind, extra.con ?? anger);
     el.style.fontSize = `${Math.round(BASE_PX * k.size * scale())}px`;
     layer.appendChild(el);
     const f = {

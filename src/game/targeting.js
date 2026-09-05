@@ -19,79 +19,20 @@
 // `stepPlayer` writes and what `group.rotation.y` reads.
 
 import * as THREE from 'three';
-import { TIERS } from '../mmo/monsters.js';
-import { WEAPON_SKILLS } from '../mmo/abilities.js';
+import { conOf, conLabel, playerTier, tierForSkill, CON_SKILLS, MAX_PLAYER_TIER } from './con.js';
+import { setAnger } from './floaters.js';
+import { setCon as setRingCon } from './target_ring.js';
 
 /** 120 degrees of cone, the widest arc any ability in the tables uses (Sweep). */
 export const DEFAULT_HALF_ANGLE = Math.PI / 3;
 
-/** The lowest skill each monster tier is written against, from mmo/monsters TIERS. */
-export const TIER_BANDS = Object.keys(TIERS)
-  .map(Number).sort((a, b) => a - b).map((t) => TIERS[t].band[0]);
-
-/**
- * The skills a monster measures you by. A grandmaster tailor is a beginner to
- * a wolf, so crafting is not in this list: only the things that swing, shoot
- * or cast.
- */
-export const COMBAT_SKILLS = [
-  ...WEAPON_SKILLS, 'wrestling', 'archery', 'marksmanship',
-  'magery', 'mysticism', 'necromancy', 'chivalry',
-];
-
-/**
- * INVENTED, and said so here rather than left implicit. 06-ECONOMY-UI.md asks
- * for "level tier as a colour: grey, green, yellow, orange, red for far below
- * you to far above" and names no offsets, because a player has no tier: only
- * monsters carry one (0 to 5, plus 6 for bosses). Five words over a signed
- * difference gives exactly one reading, and this is it:
- *
- *   two tiers or more below you   grey
- *   one tier below                green
- *   your own tier                 yellow
- *   one tier above                orange
- *   two tiers or more above       red
- *
- * The colours are floaters.js's palette, so a grey "dodge" and a grey target
- * frame are the same grey.
- */
-export const TIER_STEPS = [
-  { offset: -2, key: 'trivial', colour: '#9aa0a6', word: 'far below you' },
-  { offset: -1, key: 'easy', colour: '#7ee07a', word: 'below you' },
-  { offset: 0, key: 'even', colour: '#ffd23f', word: 'your match' },
-  { offset: 1, key: 'hard', colour: '#ff9a3c', word: 'above you' },
-  { offset: 2, key: 'deadly', colour: '#ff5a4d', word: 'far above you' },
-];
+// The con rule itself lives in con.js and is not copied here. These four are
+// re-exported so a caller that already has targeting.js does not need a second
+// import to ask how dangerous the thing in front of it is.
+export { conOf, conLabel, playerTier, tierForSkill, CON_SKILLS, MAX_PLAYER_TIER };
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
-
-/** The tier a skill value sits in, by the bands mmo/monsters.js publishes. */
-export function tierForSkill(value) {
-  const v = num(value);
-  let t = 0;
-  for (let i = 0; i < TIER_BANDS.length; i++) if (v >= TIER_BANDS[i]) t = i;
-  return t;
-}
-
-/**
- * The player's tier: the best of the skills that fight, capped at 5. Tier 6 is
- * the boss band and shares its numbers with tier 5, so a grandmaster who was
- * allowed to land there would read every champion as his own colour.
- */
-export const MAX_PLAYER_TIER = 5;
-export function playerTier(character = {}) {
-  const skills = character.skills || {};
-  let best = 0;
-  for (const id of COMBAT_SKILLS) best = Math.max(best, num(skills[id]));
-  return Math.min(MAX_PLAYER_TIER, tierForSkill(best));
-}
-
-/** The step, colour and words for a monster of `tier` seen by a player of `mine`. */
-export function tierColour(tier, mine = 0) {
-  const d = clamp(Math.round(num(tier) - num(mine)), -2, 2);
-  return TIER_STEPS[d + 2];
-}
 
 // --- the cone ----------------------------------------------------------------
 
@@ -181,22 +122,79 @@ export function pickTarget({
 /**
  * What the HUD's target frame draws. Pure, so the frame can be checked in node.
  * Returns null for no target, which is how the HUD knows to hide it.
+ *
+ * The colour, the word and the skull are con.js's, so the frame, the world
+ * nameplate, the hover line and the ring cannot disagree about one monster.
  */
 export function targetFrame(target, character = {}) {
   if (!target) return null;
   const max = Math.max(1, num(target.maxHealth) || num(target.health) || 1);
   const health = clamp(num(target.health), 0, max);
-  const tier = num(target.tier);
-  const step = tierColour(tier, playerTier(character));
+  const c = conOf(target, character);
   return {
     name: target.name || 'something',
     health, maxHealth: max,
     fraction: health / max,
-    tier,
-    colour: step.colour,
-    step: step.key,
-    word: step.word,
+    tier: c.tier,
+    colour: c.colour,
+    level: c.level,
+    word: c.word,
+    skull: c.skull,
     dead: health <= 0,
+  };
+}
+
+// --- the nameplate over the target -------------------------------------------
+//
+// How high over the target's feet the plate hangs. A boss already wears
+// monsters.js's own canvas sprite at `model.height + PLATE_LIFT` (1.1 m) with
+// a sprite 0.7 m tall, so the top of that sprite is model.height + 1.45; the
+// boss lift here is 1.9 so the two labels do not sit on each other. Everything
+// else has nothing over its head and takes the smaller lift.
+export const PLATE_LIFT = 0.55;
+export const BOSS_PLATE_LIFT = 1.9;
+/** Used when the monster runtime cannot say how tall the body is. */
+export const DEFAULT_BODY_HEIGHT = 2;
+
+const projected = new THREE.Vector3();
+
+/**
+ * Where a world point lands on a `width` by `height` screen, in pixels from
+ * the top left. `visible` is false behind the camera, which is the case a
+ * plate that only checked x and y would draw upside down behind the player.
+ * Exported so the nameplate's path can be walked in node with a real camera.
+ */
+export function screenOf(camera, point, width, height) {
+  if (!camera || !point || !(width > 0) || !(height > 0)) return { x: 0, y: 0, visible: false };
+  projected.set(num(point.x), num(point.y), num(point.z)).project(camera);
+  return {
+    x: (projected.x + 1) / 2 * width,
+    y: (1 - projected.y) / 2 * height,
+    visible: projected.z <= 1 && Number.isFinite(projected.x) && Number.isFinite(projected.y),
+  };
+}
+
+/**
+ * Everything the HUD needs to draw the plate over one target: the name, the
+ * con colour, the word, whether a skull goes before the name, and where on
+ * the screen it sits. Null when there is nothing to draw, which is how the
+ * HUD knows to hide it.
+ *
+ * `bodyHeight` is the model's own height when the monster runtime knows it.
+ */
+export function nameplateOf(target, character, camera, width, height, bodyHeight) {
+  if (!target) return null;
+  if (num(target.health) <= 0 || target.dead === true) return null;
+  const c = conOf(target, character);
+  const p = target.pos || target;
+  const top = num(bodyHeight) > 0 ? num(bodyHeight) : DEFAULT_BODY_HEIGHT;
+  const lift = c.level === 'boss' ? BOSS_PLATE_LIFT : PLATE_LIFT;
+  const at = screenOf(camera, { x: num(p.x), y: num(p.y) + top + lift, z: num(p.z) }, width, height);
+  if (!at.visible) return null;
+  return {
+    name: target.name || 'something',
+    colour: c.colour, word: c.word, level: c.level, skull: c.skull,
+    x: at.x, y: at.y,
   };
 }
 
@@ -227,7 +225,26 @@ export function createTargeting(sc, input, monsters, opts = {}) {
   let hover = null;
   let cycle = 0;
   let lastGround = { x: 0, y: 0, z: 0 };
+  let plate = null;
   const listeners = [];
+
+  /**
+   * The size of the canvas the world is drawn on, in CSS pixels, because that
+   * is the box the HUD's own layer covers. `opts.viewport` overrides it, which
+   * is how the node test drives the plate with no renderer.
+   */
+  function viewport() {
+    if (typeof opts.viewport === 'function') return opts.viewport() || { width: 0, height: 0 };
+    const cv = sc?.renderer?.domElement;
+    if (!cv) return { width: 0, height: 0 };
+    return { width: cv.clientWidth || cv.width || 0, height: cv.clientHeight || cv.height || 0 };
+  }
+
+  /** How tall the target's body is, from W2's model, when W2 is there to ask. */
+  function bodyHeight(actor) {
+    const mon = typeof monsters?.forActor === 'function' ? monsters.forActor(actor) : null;
+    return num(mon?.model?.height) || DEFAULT_BODY_HEIGHT;
+  }
 
   const say = (text, kind) => { hud?.log ? hud.log(text, kind) : hud?.toast?.(text, kind); };
 
@@ -316,14 +333,40 @@ export function createTargeting(sc, input, monsters, opts = {}) {
     }
   }
 
+  /**
+   * The frame the HUD draws, and the two surfaces that hang off it. Called
+   * once a frame by app/systems/ui.js, which is why the plate and the anger
+   * are updated here rather than in `update`: the character is only known at
+   * draw time, and the con rule is a question about the character.
+   *
+   *   the world nameplate  hud.setNameplate, projected through the camera
+   *   the floaters' anger  a red or purple target deepens the numbers you take
+   *   the ring's tint      gold for a fair fight, pulled toward the con colour
+   *                        either side of it
+   *
+   * All three are cleared when there is no target, so none can be left over.
+   */
+  function frame(character) {
+    const f = targetFrame(current, character);
+    const { width, height } = viewport();
+    plate = current ? nameplateOf(current, character, sc?.camera, width, height, bodyHeight(current)) : null;
+    hud?.setNameplate?.(plate);
+    setAnger(f ? f.level : null);
+    setRingCon(f ? f.level : null);
+    return f;
+  }
+
   return {
-    update, set, acquire, groundPoint, castCursor,
+    update, set, acquire, groundPoint, castCursor, frame,
     clear: () => set(null, 'clear'),
     onChange(fn) { listeners.push(fn); },
-    frame: (character) => targetFrame(current, character),
     get current() { return current; },
     get hover() { return hover; },
+    get nameplate() { return plate; },
     get lastGround() { return lastGround; },
-    dispose() { listeners.length = 0; current = null; hover = null; },
+    dispose() {
+      listeners.length = 0; current = null; hover = null; plate = null;
+      hud?.setNameplate?.(null); setAnger(null); setRingCon(null);
+    },
   };
 }

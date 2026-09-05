@@ -1,5 +1,9 @@
 // Floating numbers: the pure parts. Run: node src/game/floaters.test.mjs
-import { lifeState, pickEviction, KINDS, LIFE, RISE, MAX_PER_ANCHOR } from './floaters.js';
+import {
+  lifeState, pickEviction, KINDS, LIFE, RISE, MAX_PER_ANCHOR,
+  colourFor, setAnger, angerLevel, ANGRY_TAKEN, ANGRY_LEVELS,
+} from './floaters.js';
+import { CON_LEVELS } from './con.js';
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 const near = (a, b, e) => Math.abs(a - b) <= e;
@@ -22,5 +26,44 @@ check('gains are the largest text after stats', KINDS.stat.size > KINDS.gain.siz
 check('gains and stats glow', KINDS.gain.glow === true && KINDS.stat.glow === true);
 check('crits shake', KINDS.crit.shake === true);
 check('every kind has a colour and a size', Object.values(KINDS).every((k) => /^#[0-9a-f]{6}$/i.test(k.color) && k.size > 0));
+
+
+// --- the angrier red ----------------------------------------------------------
+//
+// C2: a blow from something that reads red or purple on the con ladder should
+// not look like a blow from a rat. Only `taken`, the number over YOUR head,
+// changes; everything else keeps the colour the table gives it.
+console.log('floaters: the number you take from something that outclasses you');
+check('nothing is angry to begin with', angerLevel() === null && colourFor('taken') === KINDS.taken.color, colourFor('taken'));
+for (const c of CON_LEVELS) {
+  const angry = ANGRY_LEVELS.has(c.level);
+  check(`a ${c.level} target paints a taken number ${angry ? 'angry' : 'the ordinary red'}`,
+    colourFor('taken', c.level) === (angry ? ANGRY_TAKEN : KINDS.taken.color),
+    colourFor('taken', c.level));
+}
+check('the angry red is a real hex and not the ordinary one',
+  /^#[0-9a-f]{6}$/i.test(ANGRY_TAKEN) && ANGRY_TAKEN !== KINDS.taken.color);
+{
+  const num = (h) => parseInt(h.slice(1), 16);
+  const ch = (n, i) => (n >> (8 * i)) & 0xff;
+  const a = num(ANGRY_TAKEN), b = num(KINDS.taken.color);
+  check('and it is the same red gone deeper: less green, less blue, no less red',
+    ch(a, 1) < ch(b, 1) && ch(a, 0) < ch(b, 0) && ch(a, 2) >= ch(b, 2),
+    `${ANGRY_TAKEN} against ${KINDS.taken.color}`);
+}
+check('the level a target is not enough to change what you DEAL',
+  colourFor('damage', 'boss') === KINDS.damage.color && colourFor('crit', 'deadly') === KINDS.crit.color);
+check('nor a gain, a heal, a miss or a coin',
+  ['gain', 'heal', 'miss', 'gold'].every((k) => colourFor(k, 'boss') === KINDS[k].color));
+setAnger('deadly');
+check('setAnger takes the level and colourFor reads it with no argument',
+  angerLevel() === 'deadly' && colourFor('taken') === ANGRY_TAKEN);
+check('an argument still overrides it', colourFor('taken', 'even') === KINDS.taken.color);
+setAnger(null);
+check('and clearing it puts the ordinary red back',
+  angerLevel() === null && colourFor('taken') === KINDS.taken.color);
+check('a level nothing knows about is not angry', setAnger('nonsense') === 'nonsense' && colourFor('taken') === KINDS.taken.color);
+setAnger(null);
+check('an unknown kind still gets a colour rather than undefined', /^#[0-9a-f]{6}$/i.test(colourFor('no such kind')));
 
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

@@ -467,6 +467,30 @@ const CSS = `
   color: ${theme.parchment};
 }
 #bw-hint.on { opacity: 1; }
+
+/* The nameplate over the thing you are looking at. One div, moved by
+   transform every frame from the projection targeting.js does, so nothing
+   here reflows. The colour is the con colour and comes in from the outside;
+   the skull is drawn in this file and hidden unless the name is red or
+   purple. Pointer events off: the plate must never eat a click meant for the
+   body under it, which is the bug the farm's tool row shipped. */
+#bw-plate {
+  position: absolute; left: 0; top: 0; display: none; align-items: center; gap: 5px;
+  pointer-events: none; z-index: 29; white-space: nowrap;
+  transform: translate(-50%, -100%);
+}
+#bw-plate.on { display: flex; }
+#bw-plate .sk { display: none; line-height: 0; }
+#bw-plate.skull .sk { display: block; }
+#bw-plate .nm {
+  font-family: ${theme.fonts.display}; font-size: 13px; font-weight: 600; letter-spacing: .04em;
+  text-shadow: 0 2px 0 #000, 0 0 4px #000, 0 0 10px #0009;
+}
+#bw-plate .wd {
+  font-family: ${theme.fonts.display}; font-size: 8.5px; letter-spacing: .16em;
+  text-transform: uppercase; opacity: .85;
+  text-shadow: 0 1px 0 #000, 0 0 4px #000;
+}
 #bw-tools {
   position: absolute; left: 50%; bottom: 88px; transform: translateX(-50%);
   display: flex; gap: 8px; pointer-events: auto;
@@ -627,6 +651,19 @@ const CSS = `
 const TOAST_MS = 4200;
 const TOAST_MAX = 5;
 
+/**
+ * The skull that goes before a red or a purple name. Drawn here rather than
+ * taken from ui_theme's ICONS, which has no skull: a cranium, two sockets, a
+ * nose and a jaw with three teeth, at 24 units so it sits in the same box as
+ * every other mark in the interface.
+ */
+export const SKULL_MARK = `<svg class="bw-skull" viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+  <path d="M12 2 C6.9 2 3.4 5.4 3.4 10.1 c0 2.7 1.2 4.6 2.6 5.8 .6 .5 .9 1 .9 1.8 V19 c0 .7 .5 1.2 1.2 1.2 h1.3 V17.9 h1.4 v2.3 h2.4 v-2.3 h1.4 v2.3 h1.3 c.7 0 1.2 -.5 1.2 -1.2 v-1.3 c0 -.8 .3 -1.3 .9 -1.8 1.4 -1.2 2.6 -3.1 2.6 -5.8 C20.6 5.4 17.1 2 12 2 Z
+    M8.4 8.6 a2.1 2.1 0 1 1 0 4.2 a2.1 2.1 0 0 1 0 -4.2 Z
+    M15.6 8.6 a2.1 2.1 0 1 1 0 4.2 a2.1 2.1 0 0 1 0 -4.2 Z
+    M12 12.6 l1.1 2.1 h-2.2 z" fill-rule="evenodd"/>
+</svg>`;
+
 export function createHud(root) {
   injectTheme(document);
   if (!document.getElementById('bw-hud-css')) {
@@ -677,6 +714,12 @@ export function createHud(root) {
   const devBadge = add(el, mk('div', 'bw-dev', 'panel'));
   devBadge.textContent = 'fly mode';
   const hint = add(el, mk('div', 'bw-hint'));
+  // the nameplate over the current target, moved by targeting.js's projection
+  const plate = add(el, mk('div', 'bw-plate'));
+  const plateSkull = add(plate, mk('div', null, 'sk'));
+  plateSkull.innerHTML = SKULL_MARK;
+  const plateName = add(plate, mk('div', null, 'nm'));
+  const plateWord = add(plate, mk('div', null, 'wd'));
   const toolRow = add(el, mk('div', 'bw-tools'));
   // one rail, two bars: what you know, then what you carry
   const barRail = add(el, mk('div', 'bw-bars'));
@@ -972,6 +1015,41 @@ export function createHud(root) {
     tTier.style.color = t.colour || theme.parchment;
     tFill.style.width = `${(clamp(num(t.fraction), 0, 1) * 100).toFixed(1)}%`;
     tNum.textContent = `${Math.round(num(t.health))} / ${Math.round(num(t.maxHealth))}`;
+  }
+
+  // --- the nameplate over the target -----------------------------------------
+  //
+  // targeting.js does the projecting, because the camera is its own and the
+  // maths is measured in its suite; this file only paints what it is handed.
+  // `p` is { name, colour, word, skull, x, y } in pixels from the top left of
+  // the HUD, or null for "there is nothing to name".
+  //
+  // The text is re-strung only when the words change, so a plate that is only
+  // moving costs one transform a frame and no DOM writes.
+  let plateState = null;
+  let plateStamp = '';
+
+  function drawNameplate(p) {
+    if (!p || !p.name) {
+      plate.classList.remove('on');
+      plateState = null; plateStamp = '';
+      return null;
+    }
+    const colour = p.colour || theme.parchment;
+    const stamp = `${p.name}|${colour}|${p.word || ''}|${p.skull ? 1 : 0}`;
+    if (stamp !== plateStamp) {
+      plateStamp = stamp;
+      plateName.textContent = p.name;
+      plateName.style.color = colour;
+      plateWord.textContent = p.word || '';
+      plateWord.style.color = colour;
+      plateSkull.style.color = colour;
+      plate.classList.toggle('skull', !!p.skull);
+    }
+    plate.style.transform = `translate(${Math.round(num(p.x))}px,${Math.round(num(p.y))}px) translate(-50%,-100%)`;
+    plate.classList.add('on');
+    plateState = { ...p, colour };
+    return plateState;
   }
 
   // --- the Bond, and the thirteenth cell -------------------------------------
@@ -1319,7 +1397,28 @@ export function createHud(root) {
       return !!on;
     },
 
-    setHint(text) { hint.textContent = text || ''; hint.classList.toggle('on', !!text); },
+    /**
+     * The line under the crosshair. `colour` is the con colour when the cursor
+     * is on a monster ("Wolf, a fair fight" in yellow) and is left off by
+     * everything else, which goes back to parchment.
+     */
+    setHint(text, colour) {
+      hint.textContent = text || '';
+      hint.style.color = colour || theme.parchment;
+      hint.classList.toggle('on', !!text);
+      return { text: text || '', colour: hint.style.color };
+    },
+
+    /**
+     * The plate over the thing you are looking at. Handed a
+     * { name, colour, word, skull, x, y } by targeting.js every frame, or null
+     * to take it down. Returns what it drew, which is what the test reads.
+     */
+    setNameplate(p) { return drawNameplate(p); },
+    /** What the plate is showing, or null. */
+    get nameplate() { return plateState; },
+    /** The words the hint is showing and the colour they are in. */
+    get hint() { return { text: hint.textContent || '', colour: hint.style.color || '' }; },
 
     /**
      * The place you have just walked into, across the upper third: the name

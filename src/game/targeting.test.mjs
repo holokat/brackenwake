@@ -7,9 +7,14 @@
 
 import {
   pickTarget, inCone, angleTo, flatDistance, isTargetable, targetFrame,
-  tierColour, tierForSkill, playerTier, TIER_STEPS, TIER_BANDS,
-  DEFAULT_HALF_ANGLE, COMBAT_SKILLS, MAX_PLAYER_TIER, createTargeting,
+  conOf, tierForSkill, playerTier, screenOf, nameplateOf,
+  DEFAULT_HALF_ANGLE, CON_SKILLS, MAX_PLAYER_TIER, createTargeting,
+  PLATE_LIFT, BOSS_PLATE_LIFT, DEFAULT_BODY_HEIGHT,
 } from './targeting.js';
+import { CON_LEVELS } from './con.js';
+import { colourFor, angerLevel, ANGRY_TAKEN, KINDS } from './floaters.js';
+import { ringState, tintFor, conLevel, TARGET_COLOUR } from './target_ring.js';
+import * as THREE from 'three';
 
 let pass = 0, fail = 0;
 const ck = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -160,33 +165,22 @@ console.log('targeting: acquire tells "too far" apart from "nobody there"');
 }
 
 // --- tiers and colours ---------------------------------------------------------
-console.log('targeting: the tier colour');
-ck('the bands come from mmo/monsters TIERS, seven of them, bosses sharing tier 5 numbers',
-  TIER_BANDS.join(',') === '0,10,30,50,70,90,90', TIER_BANDS.join(','));
-ck('skill 0 is tier 0, 10 is tier 1, 45 is tier 2, 65 is tier 3, 85 is tier 4, 95 is tier 5 or above',
-  [0, 10, 45, 65, 85, 95].map(tierForSkill).join(',') === '0,1,2,3,4,6',
+//
+// The rule itself is con.js's and is measured cell by cell in con.test.mjs.
+// What is checked here is that targeting.js reads THAT rule and not a second
+// copy of it, which is the bug this file used to be.
+console.log('targeting: the con rule comes from con.js');
+ck('skill 0 is tier 0, 10 is tier 1, 45 is tier 2, 65 is tier 3, 85 is tier 4, 95 is tier 5',
+  [0, 10, 45, 65, 85, 95].map(tierForSkill).join(',') === '0,1,2,3,4,5',
   [0, 10, 45, 65, 85, 95].map(tierForSkill).join(','));
 ck('a player never reads as a boss tier', playerTier({ skills: { swordsmanship: 100 } }) === MAX_PLAYER_TIER,
   String(playerTier({ skills: { swordsmanship: 100 } })));
 ck('the player is measured by the best skill that fights, not by tailoring',
   playerTier({ skills: { tailoring: 100, swordsmanship: 32 } }) === 2,
   `tailoring 100 and swordsmanship 32 reads tier ${playerTier({ skills: { tailoring: 100, swordsmanship: 32 } })}`);
-ck('every combat skill in the list is one abilities.js knows',
-  COMBAT_SKILLS.length === new Set(COMBAT_SKILLS).size, COMBAT_SKILLS.join(' '));
-
-console.log('targeting: the five steps, at the documented offsets');
-const steps = [-3, -2, -1, 0, 1, 2, 3].map((d) => tierColour(3 + d, 3));
-ck('three or more below you is still grey', steps[0].key === 'trivial' && steps[0].colour === '#9aa0a6');
-ck('two below is grey', steps[1].key === 'trivial' && steps[1].colour === '#9aa0a6');
-ck('one below is green', steps[2].key === 'easy' && steps[2].colour === '#7ee07a');
-ck('your own tier is yellow', steps[3].key === 'even' && steps[3].colour === '#ffd23f');
-ck('one above is orange', steps[4].key === 'hard' && steps[4].colour === '#ff9a3c');
-ck('two above is red', steps[5].key === 'deadly' && steps[5].colour === '#ff5a4d');
-ck('and three above is still red, not something new', steps[6].key === 'deadly' && steps[6].colour === '#ff5a4d');
-ck('the five steps are the five colours 06-ECONOMY-UI names, in that order',
-  TIER_STEPS.map((s) => s.colour).join(',') === '#9aa0a6,#7ee07a,#ffd23f,#ff9a3c,#ff5a4d',
-  TIER_STEPS.map((s) => s.colour).join(','));
-ck('every step has words a player can read', TIER_STEPS.every((s) => typeof s.word === 'string' && s.word.length));
+ck('the skill list has no duplicates', CON_SKILLS.length === new Set(CON_SKILLS).size, CON_SKILLS.join(' '));
+ck('conOf is the same function con.js publishes, six levels deep',
+  CON_LEVELS.length === 6 && conOf({ tier: 2 }, { skills: { swordsmanship: 30 } }).level === 'even');
 
 // --- the target frame ----------------------------------------------------------
 console.log('targeting: the frame data');
@@ -196,12 +190,16 @@ ck('no target, no frame', targetFrame(null) === null);
     { skills: { swordsmanship: 55 } });
   ck('it names the thing', f.name === 'Skeleton Warrior');
   ck('a quarter of its health is a quarter of the bar', f.fraction === 0.25, String(f.fraction));
-  ck('a tier 2 seen by a tier 3 player is green', f.colour === '#7ee07a' && f.step === 'easy', `${f.step} ${f.colour}`);
+  ck('a tier 2 seen by a tier 3 player is green and says "easy"',
+    f.colour === '#7ee07a' && f.level === 'easy' && f.word === 'easy', `${f.level} ${f.colour} "${f.word}"`);
+  ck('and it carries no skull', f.skull === false);
 }
 {
   const f = targetFrame(mob('Cyclops', 0, 4, { health: 700, maxHealth: 700, tier: 5 }),
     { skills: { swordsmanship: 20 } });
-  ck('a tier 5 seen by a tier 1 player is red', f.colour === '#ff5a4d' && f.step === 'deadly', `${f.step} ${f.colour}`);
+  ck('a tier 5 seen by a tier 1 player is red, says it will kill you, and wears a skull',
+    f.colour === '#ff5a4d' && f.level === 'deadly' && f.word === 'it will kill you' && f.skull === true,
+    `${f.level} ${f.colour} "${f.word}" skull=${f.skull}`);
 }
 {
   const f = targetFrame({ name: 'odd one', health: 12 });
@@ -214,5 +212,146 @@ ck('no target, no frame', targetFrame(null) === null);
     f.fraction === 0 && f.dead === true, `${f.health}/${f.maxHealth} dead=${f.dead}`);
 }
 
+
+// --- the nameplate over the target ---------------------------------------------
+//
+// A real THREE.PerspectiveCamera stands in for the game's, so what is measured
+// is the projection the player would get and not a description of it.
+console.log('targeting: the nameplate, projected');
+const W = 1280, H = 720;
+function stubCamera() {
+  const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 1000);
+  cam.position.set(0, 6, 14);
+  cam.lookAt(0, 1, 0);
+  cam.updateMatrixWorld(true);
+  return cam;
+}
+{
+  const cam = stubCamera();
+  const middle = screenOf(cam, { x: 0, y: 1, z: 0 }, W, H);
+  ck('a point the camera is aimed at lands in the middle of the screen',
+    middle.visible && Math.abs(middle.x - W / 2) < 1 && Math.abs(middle.y - H / 2) < 1,
+    `${middle.x.toFixed(1)}, ${middle.y.toFixed(1)}`);
+  const behind = screenOf(cam, { x: 0, y: 1, z: 40 }, W, H);
+  ck('a point behind the camera is not visible', behind.visible === false);
+  ck('no camera, no projection', screenOf(null, { x: 0, y: 0, z: 0 }, W, H).visible === false);
+  ck('and a zero sized viewport is refused rather than dividing by nothing',
+    screenOf(cam, { x: 0, y: 1, z: 0 }, 0, 0).visible === false);
+}
+{
+  // 60 frames of a wolf walking from left to right in front of the camera
+  const cam = stubCamera();
+  const wolf = mob('Wolf', -6, 0, { tier: 2 });
+  const me9 = { skills: { swordsmanship: 30 } };
+  const xs = [], ys = [];
+  for (let i = 0; i < 60; i++) {
+    wolf.pos.x = -6 + 12 * (i / 59);
+    const plate = nameplateOf(wolf, me9, cam, W, H, 1.4);
+    if (!plate) { xs.length = 0; break; }
+    xs.push(plate.x); ys.push(plate.y);
+  }
+  ck('the plate is drawn on all 60 frames', xs.length === 60, `${xs.length} frames`);
+  let climbs = true;
+  for (let i = 1; i < xs.length; i++) if (!(xs[i] > xs[i - 1])) climbs = false;
+  ck('and it follows the wolf across the screen, never jumping back',
+    climbs, `x ran ${xs[0].toFixed(0)} px to ${xs[xs.length - 1].toFixed(0)} px`);
+  ck('it stays inside the viewport the whole way',
+    xs.every((x) => x >= 0 && x <= W) && ys.every((y) => y >= 0 && y <= H),
+    `y between ${Math.min(...ys).toFixed(0)} and ${Math.max(...ys).toFixed(0)} px`);
+  ck('and it hangs over the body, not under it',
+    ys.every((y, i) => y < screenOf(cam, { x: -6 + 12 * (i / 59), y: 0, z: 0 }, W, H).y),
+    'every plate is higher on screen than the feet it belongs to');
+}
+{
+  const cam = stubCamera();
+  const me9 = { skills: { swordsmanship: 30 } };
+  const wolf = mob('Wolf', 0, 0, { tier: 2 });
+  const plate = nameplateOf(wolf, me9, cam, W, H, 1.4);
+  ck('the plate carries the con colour and the word', plate.colour === '#ffd23f' && plate.word === 'a fair fight',
+    `${plate.colour} "${plate.word}"`);
+  ck('and no skull for a fair fight', plate.skull === false);
+  const ogre = mob('Ogre', 0, 0, { tier: 4 });
+  ck('a red name carries a skull', nameplateOf(ogre, me9, cam, W, H, 1.4).skull === true);
+  const king = mob('the Ashen King', 0, 0, { tier: 6, boss: true });
+  const kingPlate = nameplateOf(king, me9, cam, W, H, 1.4);
+  ck('a boss is purple and carries a skull too', kingPlate.colour === '#c07bf0' && kingPlate.skull === true,
+    `${kingPlate.colour} "${kingPlate.word}"`);
+  ck('and hangs higher than an ordinary plate, so it clears the boss sprite',
+    kingPlate.y < plate.y && BOSS_PLATE_LIFT > PLATE_LIFT,
+    `boss at ${kingPlate.y.toFixed(0)} px, ordinary at ${plate.y.toFixed(0)} px, lifts ${BOSS_PLATE_LIFT} m and ${PLATE_LIFT} m`);
+  const tall = nameplateOf(mob('Wyvern', 0, 0, { tier: 4 }), me9, cam, W, H, 4);
+  ck('a taller body wears its plate higher', tall.y < plate.y, `${tall.y.toFixed(0)} px against ${plate.y.toFixed(0)} px`);
+  ck('with no body height given it falls back to DEFAULT_BODY_HEIGHT and draws there',
+    nameplateOf(wolf, me9, cam, W, H).y === nameplateOf(wolf, me9, cam, W, H, DEFAULT_BODY_HEIGHT).y && DEFAULT_BODY_HEIGHT === 2,
+    `${nameplateOf(wolf, me9, cam, W, H).y.toFixed(1)} px, the same as a ${DEFAULT_BODY_HEIGHT} m body`);
+  ck('a corpse gets no plate', nameplateOf(mob('Wolf', 0, 0, { health: 0 }), me9, cam, W, H, 1.4) === null);
+  ck('and nothing at all gets no plate', nameplateOf(null, me9, cam, W, H, 1.4) === null);
+  ck('a target behind the camera gets no plate',
+    nameplateOf(mob('Wolf', 0, 40, { tier: 2 }), me9, cam, W, H, 1.4) === null);
+}
+
+// --- the wire: what createTargeting hands the HUD and the floaters --------------
+console.log('targeting: the plate and the floaters follow the target');
+{
+  const cam = stubCamera();
+  const plates = [];
+  const hud = { setNameplate: (p) => plates.push(p), log: () => {} };
+  const wolf = mob('Wolf', 0, 4, { tier: 2 });
+  const t = createTargeting({ camera: cam }, null, { targets: () => [wolf], forActor: () => ({ model: { height: 1.4 } }) }, {
+    hud, pos: () => ({ x: 0, y: 0, z: 0 }), yaw: () => 0,
+    viewport: () => ({ width: W, height: H }),
+  });
+
+  const fresh = { skills: {} };
+  const gm = { skills: { swordsmanship: 100 } };
+
+  ck('with nothing targeted the HUD is told to hide the plate', t.frame(fresh) === null && plates[plates.length - 1] === null);
+  ck('and the floaters are not angry', angerLevel() === null);
+
+  t.set(wolf);
+  const f1 = t.frame(fresh);
+  ck('a fresh character sees a red wolf in the frame', f1.level === 'deadly' && f1.colour === '#ff5a4d', `${f1.level} ${f1.colour}`);
+  ck('the plate the HUD was handed is the same red, with a skull',
+    plates[plates.length - 1].colour === '#ff5a4d' && plates[plates.length - 1].skull === true);
+  ck('and the numbers you take from it go angry',
+    angerLevel() === 'deadly' && colourFor('taken') === ANGRY_TAKEN, colourFor('taken'));
+  ck('and the ring under it is pulled off gold toward the red',
+    conLevel() === 'deadly' && ringState(wolf, false, 0).colour === tintFor('deadly')
+    && ringState(wolf, false, 0).colour !== TARGET_COLOUR,
+    '#' + ringState(wolf, false, 0).colour.toString(16));
+
+  const f2 = t.frame(gm);
+  ck('the SAME wolf reads grey to a grandmaster', f2.level === 'trivial' && f2.colour === '#9aa0a6', `${f2.level} ${f2.colour}`);
+  ck('the plate turns grey with it', plates[plates.length - 1].colour === '#9aa0a6');
+  ck('and the numbers you take go back to the ordinary red',
+    angerLevel() === 'trivial' && colourFor('taken') === KINDS.taken.color, colourFor('taken'));
+  ck('and the ring goes grey with the name',
+    conLevel() === 'trivial' && ringState(wolf, false, 0).colour === tintFor('trivial'),
+    '#' + ringState(wolf, false, 0).colour.toString(16));
+
+  t.clear();
+  t.frame(gm);
+  ck('clearing the target takes the plate down', plates[plates.length - 1] === null);
+  ck('and puts the floaters back', angerLevel() === null);
+  ck('and the ring back to gold', conLevel() === null && ringState(wolf, false, 0).colour === TARGET_COLOUR);
+
+  t.set(wolf);
+  t.frame(fresh);
+  t.dispose();
+  ck('disposing takes the plate down and clears the anger and the ring too',
+    plates[plates.length - 1] === null && angerLevel() === null && conLevel() === null);
+}
+{
+  // no renderer, no camera, no hud: the frame still answers and nothing throws
+  const t = createTargeting(null, null, { targets: () => [] }, { pos: () => ({ x: 0, z: 0 }), yaw: () => 0 });
+  const wolf = mob('Wolf', 0, 1, { tier: 2 });
+  t.set(wolf);
+  const f = t.frame({ skills: { swordsmanship: 30 } });
+  ck('with no camera the frame is still drawn and the plate is simply absent',
+    f.level === 'even' && t.nameplate === null, `${f.level}, plate ${t.nameplate}`);
+  t.dispose();
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
+

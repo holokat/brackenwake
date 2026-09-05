@@ -72,8 +72,10 @@ const {
   TOOLS, MATERIALS, BAR_KEYS, BAR_SLOTS, POOLS, LOG_LINES, KEY_LABELS,
   poolView, sweep, costLabel, timerLabel, logTrim, createHud,
   bannerAt, devLine, BANNER, BANNER_TOTAL,
-  gainAt, GAIN, GAIN_TOTAL, GAIN_LINES, BURDEN_MARK,
+  gainAt, GAIN, GAIN_TOTAL, GAIN_LINES, BURDEN_MARK, SKULL_MARK,
 } = hudMod;
+const { targetFrame } = await import('./targeting.js');
+const { theme } = await import('./ui_theme.js');
 const itemBarMod = await import('./item_bar.js');
 // state.js runs its own audit at import and another agent is mid-flight on the
 // items table it audits against. That is state.js's failure, reported by
@@ -224,7 +226,7 @@ bar[0] = { ability: ABILITIES_BY_ID.powerStrike, cooldownLeft: 3, affordable: tr
 bar[11] = { ability: ABILITIES_BY_ID.fireball, cooldownLeft: 0, affordable: false, casting: false };
 hud.update(0.016, {
   actor: { health: 30, maxHealth: 120, mana: 20, maxMana: 40, stamina: 50, maxStamina: 50 },
-  target: { name: 'Skeleton', health: 15, maxHealth: 30, fraction: 0.5, colour: '#ffd23f', word: 'your match' },
+  target: { name: 'Skeleton', health: 15, maxHealth: 30, fraction: 0.5, colour: '#ffd23f', word: 'a fair fight', level: 'even', skull: false },
   bar,
   buffs: [{ name: 'Battle Cry', kind: 'buff', remaining: 11.4 }, { name: 'Hex', kind: 'debuff', remaining: 2 }],
 });
@@ -236,8 +238,12 @@ ck('the target frame turns on', targetEl.classList.contains('on'));
 ck('it names the target and its health',
   find(targetEl, (n) => n.className === 'nm').textContent === 'Skeleton'
   && find(targetEl, (n) => n.className === 'n').textContent === '15 / 30');
-ck('the frame takes the tier colour it was handed',
+ck('the frame takes the con colour it was handed',
   find(targetEl, (n) => n.className === 'nm').style.color === '#ffd23f');
+ck('and prints the con word beside the health, in the same colour',
+  find(targetEl, (n) => n.className === 'tr').textContent === 'a fair fight'
+  && find(targetEl, (n) => n.className === 'tr').style.color === '#ffd23f',
+  `"${find(targetEl, (n) => n.className === 'tr').textContent}" in ${find(targetEl, (n) => n.className === 'tr').style.color}`);
 ck('slot 1 shows Power Strike, half swept',
   barRow.children[0].children[1].textContent === 'Power Strike'
   && barRow.children[0].children[3].style.height === '50%',
@@ -259,6 +265,66 @@ ck('two aura icons, one buff one debuff, with timers',
 hud.update(0.016, { actor: null, target: null, bar: null, buffs: [] });
 ck('no target hides the frame again', !targetEl.classList.contains('on'));
 ck('no actor hides the pools again', !poolsEl.classList.contains('on'));
+
+// --- the con: the frame, the plate over the target, and the hint -------------
+//
+// The rule is con.js's and is counted there. What is counted HERE is what a
+// player would see: three real monsters put through targetFrame with a real
+// character, and the pixels the HUD writes for each.
+console.log('hud: the con colour on every surface that names a monster');
+{
+  const plateEl = find(root, (n) => n.id === 'bw-plate');
+  const hintEl = find(root, (n) => n.id === 'bw-hint');
+  const nm = find(targetEl, (n) => n.className === 'nm');
+  const tr = find(targetEl, (n) => n.className === 'tr');
+  const wolf = { name: 'Wolf', tier: 2, health: 40, maxHealth: 40 };
+  const three = [
+    ['a fresh character', { skills: {} }, '#ff5a4d', 'it will kill you', true],
+    ['a middling one', { skills: { swordsmanship: 30 } }, '#ffd23f', 'a fair fight', false],
+    ['a grandmaster', { skills: { swordsmanship: 100 } }, '#9aa0a6', 'no threat', false],
+  ];
+  for (const [who, character, colour, word, skull] of three) {
+    const f = targetFrame(wolf, character);
+    hud.update(0.016, { actor: null, target: f, bar: null, buffs: [] });
+    ck(`the frame draws the wolf for ${who}: ${colour} and "${word}"`,
+      nm.textContent === 'Wolf' && nm.style.color === colour && tr.textContent === word && tr.style.color === colour,
+      `${nm.textContent} ${nm.style.color} "${tr.textContent}"`);
+    const p = hud.setNameplate({ name: f.name, colour: f.colour, word: f.word, skull: f.skull, x: 640, y: 300 });
+    ck(`the plate over its head matches, skull ${skull ? 'on' : 'off'}`,
+      plateEl.classList.contains('on') && p.colour === colour
+      && find(plateEl, (n) => n.className === 'nm').style.color === colour
+      && plateEl.classList.contains('skull') === skull,
+      `${p.colour} skull=${plateEl.classList.contains('skull')}`);
+    const h = hud.setHint(`${f.name}, ${f.word}`, f.colour);
+    ck(`and the hover hint reads "${wolf.name}, ${word}" in the same colour`,
+      hintEl.textContent === `Wolf, ${word}` && hintEl.style.color === colour && hintEl.classList.contains('on'),
+      `"${h.text}" in ${h.colour}`);
+  }
+  // the boss, which is purple whoever is looking
+  const king = { name: 'the Ashen King', tier: 6, boss: true, health: 3200, maxHealth: 3200 };
+  const kf = targetFrame(king, { skills: { swordsmanship: 100 } });
+  hud.update(0.016, { actor: null, target: kf, bar: null, buffs: [] });
+  hud.setNameplate({ name: kf.name, colour: kf.colour, word: kf.word, skull: kf.skull, x: 100, y: 100 });
+  ck('a boss is purple in the frame and on the plate, with a skull, even to a grandmaster',
+    nm.style.color === '#c07bf0' && tr.textContent === 'a boss'
+    && plateEl.classList.contains('skull') && hud.nameplate.colour === '#c07bf0',
+    `${nm.style.color} "${tr.textContent}"`);
+
+  // the plate moves, and goes away
+  hud.setNameplate({ name: 'Wolf', colour: '#ffd23f', word: 'a fair fight', skull: false, x: 12, y: 34 });
+  ck('the plate is placed by transform, in whole pixels',
+    plateEl.style.transform === 'translate(12px,34px) translate(-50%,-100%)', plateEl.style.transform);
+  hud.setNameplate({ name: 'Wolf', colour: '#ffd23f', word: 'a fair fight', skull: false, x: 900.6, y: 12.2 });
+  ck('and it follows without re-writing the words',
+    plateEl.style.transform === 'translate(901px,12px) translate(-50%,-100%)', plateEl.style.transform);
+  ck('null takes it down', hud.setNameplate(null) === null && !plateEl.classList.contains('on') && hud.nameplate === null);
+  ck('a plate with no name is refused rather than drawn blank', hud.setNameplate({ colour: '#fff' }) === null);
+  ck('the skull is drawn art, not a letter', plateEl.children[0].innerHTML === SKULL_MARK && SKULL_MARK.includes('<svg'));
+  hud.setHint('press E');
+  ck('a hint with no colour goes back to parchment', hintEl.style.color === theme.parchment, hintEl.style.color);
+  hud.setHint('');
+  ck('and an empty hint turns it off', !hintEl.classList.contains('on'));
+}
 
 // --- the zone banner, in seconds -------------------------------------------
 console.log('hud: the zone banner');
@@ -388,8 +454,8 @@ console.log('hud: the item bar');
 
   hud.update(0.016, { items: itemBar.view() });
   ck('a stack draws its art and its count',
-    /<svg/.test(itemRow.children[0].children[1].innerHTML) && itemRow.children[0].children[2].textContent === '4',
-    itemRow.children[0].children[2].textContent);
+    /<svg|<img/.test(itemRow.children[0].children[1].innerHTML) && itemRow.children[0].children[2].textContent === '4',
+    `${itemRow.children[0].children[1].innerHTML.slice(0, 40)} x${itemRow.children[0].children[2].textContent}`);
   ck('and stops being empty', !itemRow.children[0].classList.contains('empty'));
   ck('a single thing shows no count at all', itemRow.children[1].children[2].textContent === '',
     `"${itemRow.children[1].children[2].textContent}"`);
@@ -406,8 +472,8 @@ console.log('hud: the item bar');
   hud.update(0.016, { items: itemBar.view() });
   ck('a stack that runs out leaves a dimmed ghost, not an empty square',
     itemRow.children[0].classList.contains('ghost') && !itemRow.children[0].classList.contains('empty')
-    && /<svg/.test(itemRow.children[0].children[1].innerHTML),
-    itemRow.children[0].className);
+    && /<svg|<img/.test(itemRow.children[0].children[1].innerHTML),
+    `${itemRow.children[0].className}, art ${itemRow.children[0].children[1].innerHTML.slice(0, 30)}`);
   ck('and the ghost says so on hover', /You have none left/.test(hud.itemTipFor(0)), hud.itemTipFor(0));
 
   let clicked = null;

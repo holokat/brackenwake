@@ -19,6 +19,7 @@ import { panel as settingsPanel } from '../../win_settings.js';
 import { panel as devPanel } from '../../win_dev.js';
 import { unlockedFor } from '../../../mmo/abilities.js';
 import { labelFor as lootLabel } from '../../loot_drops.js';
+import { conOf, conLabel } from '../../con.js';
 
 /** How close a place has to be before the HUD calls this spot by its name. */
 const PLACE_RADIUS = 90;
@@ -200,7 +201,7 @@ export const ui = {
 
     // The cursor says what a click would do: a grab over a sack, a body to
     // skin or a thing to pick, a pointer over a person or a station.
-    let cursorAt = -1e9, cursorNow = '', hoverNow = '';
+    let cursorAt = -1e9, cursorNow = '', hoverNow = '', hoverColourNow = '';
     function updateCursor(now) {
       if (now - cursorAt < 100 || ctx.get('dev').on || windows.anyOpen) return;
       cursorAt = now;
@@ -209,7 +210,7 @@ export const ui = {
       const ray = ctx.aim();
       // the cursor says what a click would do, and the hint line names it:
       // "a patch of dandelions, seven of them", "a pile of 46 gold", "wolf, not yet skinned"
-      let want = bars.abilities.cursor || '', hover = '';
+      let want = bars.abilities.cursor || '', hover = '', hoverColour = '';
       const sack = fight.loot.pick(ray);
       const patch = sack ? null : life.forage.pick(ray);
       const who = sack || patch ? null : life.npcs.pick?.(ray);
@@ -220,12 +221,23 @@ export const ui = {
       else if (patch) { want = want || 'grab'; hover = life.foraging.hoverText(patch.rec); }
       else if (who) { want = want || 'pointer'; hover = who.name ? `${who.name}, click to talk` : ''; }
       else if (st) { want = want || 'pointer'; hover = `the ${st.name}, click to craft`; }
-      else if (mon) { want = want || 'crosshair'; }
+      // a monster says what it is and how dangerous it is, in the con colour:
+      // "Wolf, a fair fight" in yellow, "the Ashen King, a boss" in purple.
+      // The rule is con.js's and moves as the character trains (C2.md).
+      else if (mon) {
+        want = want || 'crosshair';
+        const who = mon.actor || mon;
+        hover = conLabel(who, character);
+        hoverColour = conOf(who, character).colour;
+      }
       else if (corpse && skinning.canSkin(corpse)) { want = want || 'grab'; hover = skinning.labelFor(corpse); }
       if (want !== cursorNow) { cursorNow = want; sc.renderer.domElement.style.cursor = want; }
-      if (hover !== hoverNow) {
-        hoverNow = hover;
-        if (hover) hud.setHint?.(hover);
+      // the colour is part of what changed: the same wolf can go from yellow to
+      // grey without a letter of the line moving, the first time a character
+      // crosses a band mid fight
+      if (hover !== hoverNow || hoverColour !== hoverColourNow) {
+        hoverNow = hover; hoverColourNow = hoverColour;
+        if (hover) hud.setHint?.(hover, hoverColour || undefined);
         else if (!fight.attacking) hud.setHint?.('');
       }
     }
