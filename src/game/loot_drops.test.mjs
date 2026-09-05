@@ -17,6 +17,9 @@ import {
   meatFor, MEAT_OF, MEAT_BY_KIND,
   loneMaterial, currentDrops, countWord,
 } from './loot_drops.js';
+import { classProfile, signatureFor, CLASS_BIAS } from '../mmo/loot.js';
+import { identify } from '../mmo/affixes.js';
+import { OPENINGS_BY_ID } from '../mmo/openings.js';
 import { tierFor, MAX_TRIS } from './gold_piles.js';
 import { MAX_TRIS as LOG_MAX_TRIS, LOG_SEG } from './log_piles.js';
 
@@ -596,6 +599,126 @@ function spread(id, n, seedBase) {
 
   check('the spoken numbers stop at twelve', countWord(12) === 'twelve' && countWord(13) === '13');
   check('and a log is 4 x LOG_SEG triangles wherever it is counted', LOG_SEG > 0);
+}
+
+// =========================================== L1: the class bias through rollFor
+//
+// `rollFor` is the join a kill actually calls, so the bias is measured HERE as
+// well as in loot.js: the same claim, driven through the real translation from
+// a monster's words to items.js bases rather than through a hand written table.
+{
+  console.log('\n  L1: the class bias, driven through the join a kill calls');
+  const warrior = { stats: { ...OPENINGS_BY_ID.warrior.stats }, skills: { ...OPENINGS_BY_ID.warrior.skills } };
+  const mage = { stats: { ...OPENINGS_BY_ID.mage.stats }, skills: { ...OPENINGS_BY_ID.mage.skills } };
+  const N = 10000;
+
+  const sweep = (monsterId, character) => {
+    const m = MONSTERS[monsterId];
+    const profile = character ? classProfile(character) : null;
+    const bases = {};
+    let gear = 0, plain = 0, inProfile = 0, biased = 0, fellBack = 0;
+    for (let s = 0; s < N; s++) {
+      const r = rollFor(m, { seed: s * 2654435761 + 7, character });
+      for (const it of r.items) {
+        bases[it.base] = (bases[it.base] || 0) + 1;
+        if (takesRarity(it)) {
+          gear++;
+          if (profile && profile.has(it.base)) inProfile++;
+        } else plain++;
+      }
+      if (r.bias && r.bias.gear) { if (r.bias.biased) biased++; if (r.bias.fellBack) fellBack++; }
+    }
+    return { bases, gear, plain, inProfile, biased, fellBack };
+  };
+
+  const w = sweep('bandit', warrior);
+  const none = sweep('bandit', null);
+  const table = tableFor(MONSTERS.bandit);
+  const favoured = table.filter((b) => takesRarity(b) && classProfile(warrior).has(b));
+  console.log(`     ${N} bandit kills. table: ${table.join(', ')}. the warrior uses: ${favoured.join(', ')}`);
+  console.log(`     with a character ${JSON.stringify(w.bases)}`);
+  console.log(`     without one      ${JSON.stringify(none.bases)}`);
+  check('a character handed to rollFor biases the gear six times in ten',
+    Math.abs(w.biased / w.gear - CLASS_BIAS) < 0.02, `${(w.biased / w.gear * 100).toFixed(2)}% of ${w.gear} gear rolls`);
+  check('and the warrior walks off with far more rings than he did without one',
+    w.bases.ring > none.bases.ring * 2, `${w.bases.ring} against ${none.bases.ring}`);
+  check('no character, and rollFor is the roll it always was',
+    JSON.stringify(none.bases) === JSON.stringify(sweep('bandit', null).bases));
+
+  // MATERIALS. A skeleton warrior carries a reagent as well as three pieces of
+  // gear, and the reagent count has to be identical with and without a profile.
+  const sk = sweep('skeletonWarrior', warrior);
+  const skNone = sweep('skeletonWarrior', null);
+  console.log(`     ${N} skeleton warrior kills: ${sk.bases.reagent} reagents with a profile, ${skNone.bases.reagent} without`);
+  check('the bias moves no reagent, no ingot and no haunch of meat',
+    sk.bases.reagent === skNone.bases.reagent && sk.plain === skNone.plain,
+    `${sk.plain} materials either way`);
+  check('while the gear underneath it did move', sk.bases.longsword > skNone.bases.longsword,
+    `${sk.bases.longsword} longswords against ${skNone.bases.longsword}`);
+
+  // The mage, on the same monster, gets the other half of the table.
+  const m = sweep('skeletonWarrior', mage);
+  console.log(`     the same monster, a mage: ${JSON.stringify(m.bases)}`);
+  check('a mage on the same monster is pushed toward the leather helm and away from the longsword',
+    m.bases.leather_head > sk.bases.leather_head && m.bases.longsword < sk.bases.longsword,
+    `helms ${m.bases.leather_head} against ${sk.bases.leather_head}, swords ${m.bases.longsword} against ${sk.bases.longsword}`);
+  check('and never toward the kite shield, which no mage of any strength would raise',
+    !classProfile(mage).has('kite'));
+
+  // The empty intersection, through the join.
+  const ogre = sweep('ogre', warrior);
+  check('an ogre carries two mauls and nothing a swordsman wants, so every biased roll falls back',
+    ogre.fellBack > 0 && Math.abs(ogre.fellBack / ogre.gear - CLASS_BIAS) < 0.03,
+    `${ogre.fellBack} of ${ogre.gear} gear rolls fell back`);
+  check('and falls back to exactly the spread it had without a profile',
+    JSON.stringify(ogre.bases) === JSON.stringify(sweep('ogre', null).bases), JSON.stringify(ogre.bases));
+}
+
+// ============================================ L1: the signature unique in a sack
+{
+  console.log('\n  L1: a boss signature, from the roll to the words on the sack');
+  // The realm boss is found by asking the roster which row carries the
+  // signature, not by naming an id here: M2 owns those ids and this test has
+  // no business pinning one.
+  const boss = Object.values(MONSTERS).find((m) => signatureFor(m)?.id === 'caradocs_ring');
+  const sig = boss && signatureFor(boss);
+  check('a boss in the roster carries the Sunken Kingdom signature',
+    !!sig && sig.id === 'caradocs_ring', boss && `${boss.name} leaves ${sig.name}`);
+
+  const character = { stats: { str: 60 }, skills: { swordsmanship: 50 }, uniques: [] };
+  let found = null, seedFound = 0;
+  for (let s = 0; s < 200 && !found; s++) {
+    const r = rollFor(boss, { seed: s * 7919 + 3, character });
+    if (r.unique) { found = r; seedFound = s; }
+  }
+  check('a boss kill leaves it, and it is the first thing in the sack',
+    !!found && found.items[0] === found.unique && found.unique.unique === 'caradocs_ring',
+    `after ${seedFound + 1} kills`);
+  check('and the character remembers it', character.uniques.join(',') === 'caradocs_ring');
+  check('a second kill never leaves a second', (() => {
+    for (let s = 0; s < 500; s++) if (rollFor(boss, { seed: s * 104729 + 11, character }).unique) return false;
+    return true;
+  })());
+
+  const it = found.unique;
+  check('the sack is lit orange, because a legendary is in it', bagColour(found.items, found.gold) === RARITY.legendary.colour);
+  check('and it is called by its name, not "a ring"', describeItem(it) === "Caradoc's Drowned Ring", describeItem(it));
+  check('which survives being identified, because identify writes `name` and never `uniqueName`',
+    describeItem(identify(it, 100)) === "Caradoc's Drowned Ring");
+  const label = labelFor({ items: found.items, gold: 12 });
+  check('the cursor names it first and the gold last', /^a sack: Caradoc's Drowned Ring/.test(label) && /12 gold$/.test(label), label);
+  check('and it carries a line of flavour for whatever wants to print one',
+    typeof it.flavour === 'string' && it.flavour.length > 40 && !/[—–]/.test(it.flavour), it.flavour);
+  check('an ordinary drop is still described the way it always was',
+    describeItem(makeItem({ base: 'longsword', seed: 1 })) === 'a longsword');
+
+  // NEVER ELSEWHERE, through the join: every non boss row, ten thousand kills.
+  const clean = { stats: { str: 60 }, skills: { swordsmanship: 50 }, uniques: [] };
+  const rows = Object.values(MONSTERS).filter((r) => !r.boss && r.tier);
+  let leaked = 0;
+  for (const r of rows) for (let s = 0; s < 250; s++) if (rollFor(r, { seed: s * 65537 + 5, character: clean }).unique) leaked++;
+  check(`${rows.length * 250} kills spread over the ${rows.length} monsters that are not bosses leave no unique`,
+    leaked === 0 && clean.uniques.length === 0, `${leaked} leaked`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

@@ -97,6 +97,88 @@ Monster tier shifts the weights up one row per two tiers. Luck (an affix and a
 stat of some rings) adds `luck * 0.5%` to every roll above common. Bosses roll
 twice and keep the better.
 
+## Loot and the class
+
+A drop that no one in the party can use is a drop that did not happen. Sixty
+rolls in a hundred are steered toward the character who made the kill; the
+other forty are the open table, so the world still hands you things you did not
+ask for.
+
+**A class is a skill sheet.** Nothing here reads the opening chosen at
+creation. A warrior who casts for a year is a mage, and the loot follows what
+they have actually trained. `loot.classProfile(character)` is the one function
+that answers, and it answers with a set of base ids:
+
+| what | when |
+| --- | --- |
+| weapons of a skill | that skill is in the top three, and STR meets the weapon |
+| an armour tier | it is one of the heaviest three the character's STR allows |
+| cloth and leather instead | the top skill is a Magic skill other than Chivalry |
+| a wand, a staff | any Magic skill is in the top three |
+| shields | Parrying is in the top three, and STR meets the shield |
+| an instrument | Musicianship is in the top three |
+| a ring, an amulet | always |
+
+The top three are ranked over the two Combat groups, the Magic group and
+Musicianship; ties break on the skill table's own order, so a warrior's
+Swordsmanship 50 always outranks their Tactics 50. A character who has trained
+nothing has no weapon in their profile, which is correct: they get armour,
+jewellery, and the open forty, and their first swings fix it.
+
+The STR gates are not cosmetic. `canEquip` REFUSES a weapon or a shield above
+your strength, so a greatsword steered at a 40 STR rogue would be the exact
+useless drop this rule exists to stop. Armour is different: it may be worn over
+your strength at half AR, so armour is steered by band rather than refused.
+
+**The 60/40.** `rollDrop` rolls the rarity and draws a base from the monster's
+table exactly as it always did. Only if that base is gear is the class coin
+thrown. Six times in ten it redraws from the intersection of the monster's
+table and the profile; four times in ten it keeps what the table gave. So:
+
+* Gold, meat, ore, wood, ingots, reagents and gems are untouched, at exactly
+  the rate they always dropped. `takesRarity` is the gate.
+* A base the monster does not carry is never invented. The bias is an
+  intersection and nothing else.
+* When the intersection is empty, a cyclops with one maul against a swordsman,
+  the roll falls back to the whole table and says so in the record it fills in,
+  rather than failing silently.
+* Given no character, the roll is the roll it was before any of this existed,
+  bit for bit.
+
+The share of gear that ends up in the profile is therefore `0.6 + 0.4 * p`,
+where `p` is the profile's share of that monster's gear, and not a flat 0.6:
+the open forty draws from the whole table, including the part the class wants.
+
+**A boss steers harder.** `bossRoll` uses 80/20, floors its keep at rare, and a
+real boss still floors at epic on top of that.
+
+## Signature uniques
+
+Nine named items, one for each realm boss in `src/mmo/realms.js`. Each is a
+fixed base at fixed legendary rarity carrying a fixed named power out of the
+ten in the Affixes section; its five ordinary affix lines still roll off the
+item seed, so no two copies are the same item. It drops at **25%** from that
+boss and from nothing else in the world, **once per character for ever**,
+recorded on `character.uniques`.
+
+| realm | boss | the item | base | power |
+| --- | --- | --- | --- | --- |
+| The Greenwold | Sergeant Oram Blackhand | Blackhand's Answer | Longsword | Sunder |
+| Verdant Deep | The Keeper of Faces | The Hood of a Hundred Faces | Cloth Hood | Archmage |
+| The Saltmarch | Thalassa the Sea-Wyrm | Thalassa's Tooth | Spear | Everfrost |
+| Ember Wastes | The Brass Heart | Heartplate of the Brass City | Platemail Breastplate | Phoenix |
+| The Stormpeaks | Warden Hask | Hask's Long Reckoning | Longbow | Stormcaller |
+| The Boneyard | Huntmaster Gallow | Gallow's Whistle | Amulet | Shepherd |
+| Frostreach | Legate Ossory | The Legate's Cold Crown | Platemail Helm | Kingsguard |
+| The Sunken Kingdom | King Caradoc the Drowned | Caradoc's Drowned Ring | Ring | Undying |
+| The Ashen Throne | Malachar, the Wyrmking | The Wyrmking's Due | Greatsword | Vampiric |
+
+A signature is matched to a monster by an explicit id in the table or by the
+boss's name, and only ever on a row flagged `boss: true`. Four of the nine are
+joined to a monster that exists today; the other five wait on the M2 roster and
+start dropping the moment a boss row is written with the name realms.js gives
+it, with no edit to `loot.js`. `auditSignatures()` counts which is which.
+
 ## Identify
 
 A dropped item above common arrives **unidentified**: you see its colour and its

@@ -313,16 +313,38 @@ auditLootWords();
  * What one kill leaves: gold in the tier's range, and an item or nothing.
  * Tier 5 champions "always roll loot twice"; a boss rolls twice with a purple
  * floor. Both of those are `loot.js`'s own rules, asked for by name here.
+ *
+ * THE CHARACTER, and why it is an option rather than an argument.
+ *
+ * `opts.character` is the whole player document. Handed one, `loot.rollKill`
+ * works the class profile out of its skills and its STR and biases the gear
+ * rolls 60/40 towards it, 80/20 off a boss; and a realm boss can leave its
+ * signature unique, once per character for ever, recorded on
+ * `character.uniques`. Handed nothing, this is the roll it always was, bit for
+ * bit, which loot.test.mjs proves against the pre-change module over 40,000
+ * seeded comparisons.
+ *
+ * It is optional because one of the three callers legitimately has no
+ * character: an audit rolls tables, not players. The two that DO have one are
+ * named in docs/mmo/wiring/L1.md with the exact line to add, because neither
+ * of their files belongs to this agent.
+ *
+ * The unique comes FIRST in `items`, so `bagColour` lights the sack off the
+ * thing that deserves it and `labelFor` names it first.
  */
-export function rollFor(monster, { luck = 0, seed = 0 } = {}) {
+export function rollFor(monster, { luck = 0, seed = 0, character = null, profile = undefined } = {}) {
   const m = typeof monster === 'string' ? MONSTERS[monster] : monster;
   if (!m) return { gold: 0, items: [] };
   const table = tableFor(m);
-  const { gold, item } = rollKill({
+  const { gold, item, unique, bias } = rollKill({
     table, tier: m.tier, luck, seed,
     boss: !!m.boss, twice: m.tier === 5,
+    character, monster: m, profile,
   });
-  return { gold, items: item ? [item] : [] };
+  const items = [];
+  if (unique) items.push(unique);
+  if (item) items.push(item);
+  return { gold, items, unique: unique || null, bias };
 }
 
 /** The rarity colour of the best thing in a list, or gold for a purse. */
@@ -344,9 +366,17 @@ export function bagColour(items = [], gold = 0) {
  * What to call an item out loud. An unidentified thing is named by its colour,
  * which is exactly how `items.js` writes it: "a green longsword". A common one
  * is just what it is.
+ *
+ * A SIGNATURE UNIQUE IS CALLED BY ITS NAME. Blackhand's Answer is a longsword
+ * and nobody who found it would say "a longsword". `loot.makeUnique` writes
+ * `uniqueName` onto the record and it is the one label that outranks both the
+ * base and the rolled affix name; `affixes.identify` rewrites `name` and never
+ * touches `uniqueName`, so it survives being read. There is no article: it is
+ * a proper noun.
  */
 export function describeItem(item) {
   if (!item) return 'nothing';
+  if (item.uniqueName) return String(item.uniqueName);
   const b = baseFor(item);
   const name = (b ? b.name : item.base || 'thing').toLowerCase();
   const label = item.identified
