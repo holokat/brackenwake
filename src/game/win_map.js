@@ -98,6 +98,16 @@ export const SITE_COLOUR = {
 export const DANGER_TINT = {
   1: [126, 176, 96], 2: [196, 192, 96], 3: [222, 170, 84], 4: [224, 122, 70], 5: [212, 72, 68],
 };
+/**
+ * What is happening right now, and who is walking about.
+ *
+ * An event is a ring the size of the thing itself with a diamond at its middle;
+ * a wandering boss is a triangle where it is standing this hour. Both move
+ * between one redraw and the next, which is the point of them: E2 owns the
+ * schedule (`src/mmo/events.js`) and this draws where it says they are.
+ */
+export const EVENT_COLOUR = '#ff9d4d';
+export const BOSS_COLOUR = '#ff6b8a';
 export const EDGE_COLOUR = '#7fa8c8';
 export const WAYPOINT_COLOUR = '#8fe0ff';
 /** The arrow that is you. The draw and the key take the same value. */
@@ -146,6 +156,8 @@ export const LEGEND = [
   { id: 'snow', label: 'snow', swatch: 'biome' },
   { id: 'road', label: 'road', swatch: 'line', colour: ROAD_COLOUR },
   { id: 'unwalked', label: 'unwalked', swatch: 'hatch', colour: HATCH_INK },
+  { id: 'event', label: 'happening now', swatch: 'ring', colour: EVENT_COLOUR },
+  { id: 'wanderer', label: 'a boss on its round', swatch: 'arrow', colour: BOSS_COLOUR },
   { id: 'waypoint', label: 'your mark', swatch: 'ring', colour: WAYPOINT_COLOUR },
   { id: 'you', label: 'you', swatch: 'arrow', colour: PLAYER_COLOUR },
 ];
@@ -325,6 +337,33 @@ export function foundPlaces(opts) {
   return out;
 }
 
+/**
+ * The marks the events layer wants drawn, cleaned up so the draw never has to
+ * check anything twice.
+ *
+ * `src/game/events_runtime.js` `marks()` is the source: every live event, and
+ * every wandering boss the character has been within 200 m of. Anything without
+ * a place on the map is dropped here rather than drawn at the origin, which is
+ * where a missing number ends up.
+ */
+export function eventMarks(list) {
+  const out = [];
+  for (const m of Array.isArray(list) ? list : []) {
+    if (!m || !Number.isFinite(m.x) || !Number.isFinite(m.z)) continue;
+    out.push({
+      kind: m.kind === 'boss' ? 'boss' : 'event',
+      id: m.id || null, name: m.name || '', x: m.x, z: m.z,
+      r: Number.isFinite(m.r) ? m.r : 0,
+    });
+  }
+  return out;
+}
+
+/** What a panel context hands the map: the live marks, or nothing at all. */
+export function marksOf(ctx) {
+  try { return eventMarks(ctx?.events?.marks?.()); } catch { return []; }
+}
+
 /** A row of any list: what it is, where it is, and how a player says so. */
 function wayRow(x, z, cx, cz) {
   const dx = x - cx, dz = z - cz;
@@ -402,6 +441,19 @@ export function sideModel(opts = {}) {
     };
   }).sort(byDist);
 
+  // what is happening right now, nearest first, in the same words every other
+  // list on this page uses. A boss says where it is standing; an event says
+  // whether you are inside it, because that is the only fact about it that
+  // changes what you should do next.
+  const events = eventMarks(opts.events)
+    .map((m) => {
+      const row = { ...m, ...wayRow(m.x, m.z, cx, cz) };
+      row.inside = m.kind === 'event' && m.r > 0 && row.dist <= m.r;
+      row.sub = m.kind === 'boss' ? 'on its round' : row.inside ? 'you are in it' : 'happening now';
+      return row;
+    })
+    .sort(byDist);
+
   const wp = opts.waypoint;
   const waypoint = wp && Number.isFinite(wp.x) && Number.isFinite(wp.z)
     ? { name: wp.name || 'your mark', ...wayRow(wp.x, wp.z, cx, cz) }
@@ -414,6 +466,7 @@ export function sideModel(opts = {}) {
     regions,
     walked: regions.filter((r) => r.known).length,
     places,
+    events,
     key: LEGEND.map((r) => ({ ...r, colour: legendColour(r) })),
   };
 }
@@ -567,6 +620,51 @@ export function drawMap(g2d, opts) {
     g2d.fillText(s.name, px, py - r - 3);
   }
 
+  // 5b. what is happening right now, and who is walking about.
+  //
+  // These are drawn OVER the places and UNDER the waypoint, because an event is
+  // news and a mark is yours. An event's ring is its own radius, so the Bone
+  // Wind is a small circle crossing the Boneyard and the Blossom Fall is the
+  // whole of the Verdant Deep, which is what each of them actually is.
+  const marks = eventMarks(opts.events);
+  for (const m of marks) {
+    const [px, py] = toPixel(m.x, m.z, cx, cz, size, span);
+    const colour = m.kind === 'boss' ? BOSS_COLOUR : EVENT_COLOUR;
+    if (m.kind === 'event' && m.r > 0) {
+      const rr = Math.max(3, (m.r / span) * size);
+      g2d.strokeStyle = colour;
+      g2d.lineWidth = 1.2;
+      g2d.beginPath();
+      g2d.arc(px, py, rr, 0, Math.PI * 2);
+      g2d.stroke();
+    }
+    g2d.fillStyle = colour;
+    g2d.beginPath();
+    if (m.kind === 'boss') {
+      g2d.moveTo(px, py - 5);
+      g2d.lineTo(px + 4.5, py + 4);
+      g2d.lineTo(px - 4.5, py + 4);
+    } else {
+      g2d.moveTo(px, py - 5);
+      g2d.lineTo(px + 5, py);
+      g2d.lineTo(px, py + 5);
+      g2d.lineTo(px - 5, py);
+    }
+    g2d.closePath();
+    g2d.fill();
+    g2d.strokeStyle = 'rgba(0,0,0,.7)';
+    g2d.lineWidth = 1;
+    g2d.stroke();
+    if (m.name) {
+      g2d.font = '600 11px ui-sans-serif, system-ui, sans-serif';
+      g2d.textAlign = 'center';
+      g2d.fillStyle = 'rgba(0,0,0,.75)';
+      g2d.fillText(m.name, px + 1, py + 17);
+      g2d.fillStyle = colour;
+      g2d.fillText(m.name, px, py + 16);
+    }
+  }
+
   // 6. the waypoint
   const wp = opts.waypoint;
   if (wp && Number.isFinite(wp.x) && Number.isFinite(wp.z)) {
@@ -612,7 +710,7 @@ export function drawMap(g2d, opts) {
   g2d.restore();
 
   const ms = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
-  return { ms, samples: n * n, sites: sites.length, roads, zones: zonesDrawn, named, stride };
+  return { ms, samples: n * n, sites: sites.length, roads, zones: zonesDrawn, named, stride, marks: marks.length };
 }
 
 /** Where the arrow tip lands for a heading, which is what the rotation means. */
@@ -877,6 +975,7 @@ export const panel = {
       discovered: discoveredOf(ctx),
       zonesFound: zonesFoundOf(ctx),
       waypoint: ctx?.character?.waypoint || null,
+      events: marksOf(ctx),
     });
     this._last = res;
     if (this._foot) {
@@ -906,6 +1005,7 @@ export const panel = {
       discovered: discoveredOf(ctx),
       zonesFound: zonesFoundOf(ctx),
       waypoint: ctx?.character?.waypoint || null,
+      events: marksOf(ctx),
     });
     this._model = m;
     const side = this._side;
@@ -968,6 +1068,21 @@ export const panel = {
       row.dataset.site = s.id;
       row.addEventListener('click', () => this.setWaypoint({ x: s.x, z: s.z, name: s.name }));
       side.appendChild(row);
+    }
+
+    // ---- what is happening ----------------------------------------------
+    if (m.events.length) {
+      side.appendChild(el('div', 'bw-hdr', `Happening now, ${m.events.length}`));
+      for (const e of m.events) {
+        const row = el('div', 'bw-map-row bw-map-event pick');
+        row.appendChild(el('span', 'nm', e.name));
+        row.appendChild(el('span', 'ds', distanceText(e.dist)));
+        row.appendChild(el('span', 'sub', e.sub));
+        row.appendChild(el('span', 'wy', e.bearing));
+        if (e.id) row.dataset.event = e.id;
+        row.addEventListener('click', () => this.setWaypoint({ x: e.x, z: e.z, name: e.name }));
+        side.appendChild(row);
+      }
     }
 
     // ---- the key --------------------------------------------------------

@@ -60,6 +60,7 @@ globalThis.document = makeDom();
 const {
   drawMap, shadeFor, toPixel, toWorld, cellsIn, pickAt, asHas, arrowTip,
   foundPlaces, sideModel, bearingWord, wayText, dangerWords, legendColour, auditMapWords,
+  eventMarks, marksOf, EVENT_COLOUR, BOSS_COLOUR,
   BIOME_COLOUR, SITE_COLOUR, DANGER_TINT, GROUND_WORD, KIND_WORD, POINT_WORD, LEGEND,
   ROAD_COLOUR, WAYPOINT_COLOUR, PLAYER_COLOUR, HATCH_INK, HATCH_WASH,
   MAP_SPAN, MAP_SAMPLES, MAP_STRIDE, MAP_BUDGET_MS, REDRAW_S, PICK_PX, panel,
@@ -604,6 +605,59 @@ console.log('win_map: foundPlaces is the one list');
   const per = (performance.now() - t0) / 50;
   check('and the whole column costs a fraction of the picture beside it', per < 5,
     `${per.toFixed(3)} ms a call against the ${MAP_BUDGET_MS} ms the draw is allowed`);
+}
+
+
+console.log('win_map: what is happening now, and who is walking about');
+{
+  // the marks come out of the events layer (`src/game/events_runtime.js`
+  // `marks()`), which is a live schedule, so this hands the map exactly the
+  // shape that call returns and nothing invented for the test
+  const live = [
+    { kind: 'event', id: 'bonewind', name: 'The Bone Wind', x: -4400, z: 900, r: 100 },
+    { kind: 'event', id: 'blossomfall', name: 'The Blossom Fall', x: 1144, z: 3283, r: 2000 },
+    { kind: 'boss', id: 'rimemouth', name: 'Rimemouth', x: -2186, z: -5171, r: 0 },
+  ];
+  const clean = eventMarks(live);
+  check('every mark with a place on the map is kept', clean.length === 3, `${clean.length} of ${live.length}`);
+  check('and one without a place is dropped rather than drawn at the origin',
+    eventMarks([{ kind: 'event', name: 'nowhere' }, { kind: 'boss', name: 'nor there', x: 4, z: null }]).length === 0);
+  check('nothing at all is an empty list, not a throw', eventMarks(null).length === 0 && eventMarks(undefined).length === 0);
+  check('a panel context with no events layer says nothing is happening',
+    marksOf({}).length === 0 && marksOf(null).length === 0);
+  check('and one with a layer reads it',
+    marksOf({ events: { marks: () => live } }).length === 3);
+  check('a layer that throws does not take the map down with it',
+    marksOf({ events: { marks() { throw new Error('no'); } } }).length === 0);
+
+  const g = recorder();
+  const res = drawMap(g, { field, cx: -4400, cz: 900, size: 640, events: live });
+  check('the draw counts the marks it drew', res.marks === 3, `${res.marks} marks`);
+  check('an event is drawn in the colour the key shows for it', g.colours.has(EVENT_COLOUR), EVENT_COLOUR);
+  check('and a wandering boss in its own', g.colours.has(BOSS_COLOUR), BOSS_COLOUR);
+  check('every one of them is named on the map',
+    live.every((m) => g.texts.includes(m.name)), live.map((m) => m.name).join(', '));
+
+  const bare = drawMap(recorder(), { field, cx: 0, cz: 0, size: 640 });
+  check('a map with nothing happening draws no marks and still draws', bare.marks === 0 && bare.samples > 0);
+
+  // the column beside the map lists them, nearest first, in the page's own words
+  const m = sideModel({ field, cx: -4400, cz: 900, discovered: [], zonesFound: [], events: live });
+  check('the column lists what is happening, nearest first', m.events.length === 3
+    && m.events[0].name === 'The Bone Wind', m.events.map((e) => e.name).join(' | '));
+  check('and says you are in the one you are standing in', m.events[0].inside === true && m.events[0].sub === 'you are in it', m.events[0].sub);
+  check('while one you are only near says it is happening and not that you are in it',
+    m.events[1].inside === false || m.events[1].sub !== 'you are in it', `${m.events[1].name}: ${m.events[1].sub}`);
+  check('a boss says it is on its round', m.events.find((e) => e.kind === 'boss').sub === 'on its round');
+  check('every row has a bearing and a distance in the page\'s own words',
+    m.events.every((e) => e.way && (/,/.test(e.way) || e.way === 'right here')), m.events[0].way);
+  check('nothing happening is an empty list and no header', sideModel({ field, cx: 0, cz: 0 }).events.length === 0);
+
+  // and the cost, because this list is rebuilt with the picture
+  const t0 = performance.now();
+  for (let i = 0; i < 200; i++) sideModel({ field, cx: -4400 + i, cz: 900, events: live });
+  const per = (performance.now() - t0) / 200;
+  check('and it costs almost nothing to work out', per < 5, `${per.toFixed(3)} ms a call`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
