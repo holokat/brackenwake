@@ -266,6 +266,8 @@ export function gbAdd(gb, geo, m, col) {
 }
 
 /** Close the buffer into one BufferGeometry. */
+/** Vertex colour lift for every forage prototype; measured against the grass in the browser. */
+export const COLOUR_LIFT = 1.9;
 export function gbGeo(gb) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(gb.p, 3));
@@ -275,7 +277,12 @@ export function gbGeo(gb) {
   const up = new Float32Array(gb.n.length);
   for (let i = 0; i < up.length; i += 3) { up[i] = 0; up[i + 1] = 1; up[i + 2] = 0; }
   g.setAttribute('normal', new THREE.BufferAttribute(up, 3));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(gb.c, 3));
+  // The reference's leaf greens were authored under a plain lit scene; under
+  // this game's ACES curve and hemisphere they read as near black in the
+  // browser. Lifted the way the grass was (V8): brighter, and never over one.
+  const lifted = new Float32Array(gb.c.length);
+  for (let i = 0; i < lifted.length; i++) lifted[i] = Math.min(1, gb.c[i] * COLOUR_LIFT);
+  g.setAttribute('color', new THREE.BufferAttribute(lifted, 3));
   g.computeBoundingSphere();
   return g;
 }
@@ -665,7 +672,19 @@ export function clearForageCache() {
 
 /** One material for the whole layer: vertex colours, two sided for the quads. */
 export function forageMaterial() {
-  return new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, side: THREE.DoubleSide });
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, side: THREE.DoubleSide });
+  // Every plant normal points up (gbGeo), but three flips a normal on a back
+  // facing triangle, so a leaf seen from behind was lit from below and drew
+  // black; seen in the browser as black nettles beside bright ones. The grass
+  // takes the same cure: the un-flip lands after three's flip.
+  m.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <normal_fragment_begin>',
+      '#include <normal_fragment_begin>\n  normal = normalize( vNormal );\n  nonPerturbedNormal = normal;\n',
+    );
+  };
+  m.customProgramCacheKey = () => 'forage:upright';
+  return m;
 }
 
 // ---------------------------------------------------------------------------
