@@ -351,7 +351,7 @@ export function describeItem(item) {
   const name = (b ? b.name : item.base || 'thing').toLowerCase();
   const label = item.identified
     ? (affixNameFor(item).toLowerCase() || name)
-    : (item.rarity && item.rarity !== 'common' ? `${RARITY_WORD[item.rarity]} ${name}` : name);
+    : name;   // unidentified: the base alone; the colour is seen, not said
   const mass = isMassStack(b, label);
   if (item.count > 1) {
     // "four oak logs", not "4 oak log". Logs, ore and ingots are the stacks a

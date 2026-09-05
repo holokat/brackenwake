@@ -42,9 +42,10 @@ const countOf = (item) => (item && isNum(item.count) ? item.count : 1);
 export function labelOf(item) {
   const b = baseFor(item);
   if (!b) return 'nothing';
-  if (item && item.rarity && item.rarity !== 'common' && !item.identified) {
-    return `${RARITY_WORD[item.rarity]} ${b.name.toLowerCase()}`;
-  }
+  // an unidentified thing is called by its base and nothing else: "boots",
+  // never "blue boots". The colour is on the cell and the beam, and saying
+  // it as well reads like a second, different item
+  if (item && item.rarity && item.rarity !== 'common' && !item.identified) return b.name.toLowerCase();
   const n = nameFor(item);
   return n || b.name;
 }

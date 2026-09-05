@@ -310,8 +310,27 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
 {
   const un = item('longsword', 'rare', 77);
   const lines = describe(un);
-  check('an unidentified item gives up its colour and its base and nothing else',
-    lines.length === 2 && /blue longsword/.test(lines[0]) && /Unidentified/.test(lines[1]), lines.join(' | '));
+  check('an unidentified item gives up its base and its rarity label, and no colour word',
+    lines.length === 2 && lines[0] === 'Longsword' && /^Unidentified rare weapon/.test(lines[1]) && !/blue/.test(lines.join(' ')), lines.join(' | '));
+
+  // rarity never hops: what dropped blue is blue when identified, with the
+  // number of lines blue promises, and the colour every cell draws from is the
+  // same before and after. Measured across every rarity and a hundred seeds.
+  {
+    let hopped = 0, wrongCount = 0, n = 0;
+    for (const r of ['uncommon', 'rare', 'epic', 'mythic', 'legendary']) {
+      for (let seed = 1; seed <= 100; seed++) {
+        const before = item('longsword', r, seed);
+        const after = identify(before, 100);
+        n++;
+        if (after.rarity !== before.rarity) hopped++;
+        const want = RARITY[r].affixes + (RARITY[r].namedPower ? 1 : 0);
+        if ((after.affixes || []).length !== want) wrongCount++;
+      }
+    }
+    check('identify never changes the rarity it was handed', hopped === 0, `${hopped} of ${n} hopped`);
+    check('and rolls exactly the lines that rarity promises, never fewer to look like the tier below', wrongCount === 0, `${wrongCount} of ${n} off`);
+  }
 
   const id = identify(un, 90);
   const idLines = describe(id);

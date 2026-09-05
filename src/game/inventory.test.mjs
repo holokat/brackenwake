@@ -355,7 +355,8 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
   const affixLines = lines.filter((l) => l.colour === '#a335ee').length - 1;
   check('and every affix is coloured too', affixLines === it.affixes.length, `${affixLines} of ${it.affixes.length}`);
   const un = itemTipLines(makeItem({ base: 'longsword', rarity: 'mythic', seed: 3 }));
-  check('an unidentified item gives up its colour and nothing else', un.length === 2 && /gold longsword/.test(un[0].text), un.map((l) => l.text).join(' | '));
+  check('an unidentified item gives up its base and its rarity, and no colour word', un.length === 2 && un[0].text === 'Longsword' && /Unidentified mythic/.test(un[1].text) && !/gold longsword/.test(un[0].text), un.map((l) => l.text).join(' | '));
+  check('and the name line still carries the colour, so the colour is seen and not said', un[0].colour === '#ffd100', String(un[0].colour));
 }
 
 // ---- the document is repaired, not trusted -----------------------------------

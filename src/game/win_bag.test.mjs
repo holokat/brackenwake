@@ -104,7 +104,7 @@ console.log('bag: the cell');
   const item = makeItem({ base: 'longsword', rarity: 'epic', seed: 9 });
   const before = cellOf(item);
   check('an unidentified epic is a mystery', before.mystery === true);
-  check('and reads as its colour and its base', before.text === 'purple longsword', before.text);
+  check('and reads as its base alone, the colour is on the cell and not in the words', before.text === 'Longsword', before.text);
   check('in purple', before.colour === '#a335ee');
   const after = cellOf(identify(item, 95));
   check('once identified it takes its rolled name', after.mystery === false && after.text === 'Longsword', after.text);

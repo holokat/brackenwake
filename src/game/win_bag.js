@@ -152,7 +152,7 @@ export function cellOf(item) {
   const mystery = !item.identified && item.rarity !== 'common';
   return {
     empty: false,
-    text: mystery ? `${RARITY_WORD[item.rarity]} ${b.name.toLowerCase()}` : (b?.name || labelOf(item)),
+    text: b?.name || labelOf(item),    // a mystery is still "Boots", never "blue boots"; the cell's colour says the rest
     count: b && b.stack ? (item.count || 1) : 0,
     colour: colourOf(item),
     rarity: item.rarity || 'common',

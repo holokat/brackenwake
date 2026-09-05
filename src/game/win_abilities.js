@@ -430,6 +430,8 @@ const CSS = `
   font-family: ${theme.fonts.body}; font-size: 12px; line-height: 1.12; text-align: center;
   color: ${theme.parchment}; overflow: hidden;
 }
+.bw-bar-strip .bw-slot .bw-slot-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.bw-bar-strip .bw-slot .bw-k { z-index: 1; }
 .bw-bar-strip .bw-slot .bw-k {
   position: absolute; left: 0; right: 0; bottom: 0;
   font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .1em;
@@ -672,7 +674,13 @@ export const panel = {
         const id = bar[i];
         const a = id ? ABILITIES_BY_ID[id] : null;
         slots[i].textContent = '';
-        slots[i].appendChild(h('span', null, a ? a.name : ''));
+        // the painting when there is one, the name when there is not; the
+        // tooltip on the slot carries the name and the rest either way
+        const src = a ? abilityIcon(a.id) : null;
+        if (src) {
+          const img = h('img', 'bw-slot-art'); img.src = src; img.alt = ''; img.draggable = false;
+          slots[i].appendChild(img);
+        } else slots[i].appendChild(h('span', null, a ? a.name : ''));
         slots[i].appendChild(h('span', 'bw-k', keyFor(c, i)));
         slots[i].style.borderColor = a ? (GROUP_COLOUR[a.group] || '#7fb069') : 'rgba(255,255,255,.16)';
       }

@@ -320,7 +320,7 @@ function spread(id, n, seedBase) {
   const common = makeItem({ base: 'longsword', rarity: 'common', seed: 1 });
   check('a plain sword is called a longsword', describeItem(common) === 'a longsword', describeItem(common));
   const rare = makeItem({ base: 'longsword', rarity: 'rare', seed: 1 });
-  check('an unidentified one is called by its colour', describeItem(rare) === 'a blue longsword', describeItem(rare));
+  check('an unidentified one is still called a longsword, never a blue one', describeItem(rare) === 'a longsword', describeItem(rare));
   const many = makeItem({ base: 'arrow', rarity: 'common', seed: 1, count: 7 });
   check('a stack is counted', describeItem(many) === '7 arrow', describeItem(many));
   // G9: logs, ore and ingots are the stacks a player is told about by the
@@ -358,7 +358,7 @@ function spread(id, n, seedBase) {
     listText([makeItem({ base: 'wolf_meat', seed: 1 })], 18));
   check('one thing has no comma', listText([common], 0) === 'a longsword');
   check('two things and a purse read as a sentence',
-    listText([common, rare], 12) === '12 gold, a longsword and a blue longsword', listText([common, rare], 12));
+    listText([common, rare], 12) === '12 gold, a longsword and a longsword', listText([common, rare], 12));
   check('an empty hand says nothing', listText([], 0) === 'nothing');
 }
 
@@ -414,12 +414,12 @@ function spread(id, n, seedBase) {
   // notices is wrong.
   check('the cursor calls a purse a pile of gold', labelFor(purse) === 'a pile of 46 gold', labelFor(purse));
   check('and a sack a sack, with what is in it and the money last',
-    labelFor(both) === 'a sack: a purple longsword and 12 gold', labelFor(both));
+    labelFor(both) === 'a sack: a longsword and 12 gold', labelFor(both));
   check('a sack of gear alone names no money',
-    labelFor(gear) === 'a sack: a purple longsword', labelFor(gear));
+    labelFor(gear) === 'a sack: a longsword', labelFor(gear));
   check('two things in a sack read as a sentence',
     labelFor({ items: [sword, makeItem({ base: 'kite', rarity: 'common', seed: 2 })], gold: 5 })
-      === 'a sack: a purple longsword, a kite shield and 5 gold',
+      === 'a sack: a longsword, a kite shield and 5 gold',
     labelFor({ items: [sword, makeItem({ base: 'kite', rarity: 'common', seed: 2 })], gold: 5 }));
   check('and nothing at all is nothing', labelFor(null) === 'nothing'
     && labelFor({ items: [], gold: 0 }) === 'an empty sack');

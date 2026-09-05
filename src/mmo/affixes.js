@@ -414,9 +414,10 @@ export function describe(item) {
   const lines = [];
 
   if (!item.identified && item.rarity !== 'common') {
-    const word = RARITY_WORD[item.rarity];
-    lines.push(`${/^[aeiou]/.test(word) ? 'an' : 'a'} ${word} ${b.name.toLowerCase()}`);
-    lines.push('Unidentified. Click it in your pack to look closer.');
+    // the base and the rarity's label, no colour word: the name line is drawn
+    // in the colour already, and "a blue longsword" read as a different sword
+    lines.push(b.name);
+    lines.push(`Unidentified ${r.label.toLowerCase()} ${b.kind === 'armour' ? 'armour' : b.kind}. Click it in your pack to look closer.`);
     return lines;
   }
 
