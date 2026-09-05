@@ -8,17 +8,18 @@
 import {
   planCharacter, kitFor, movesFrom, validateName, auditKits, shortfallLine,
   KIT_BASES, MISSING_BASES, STAND_INS, PREFERRED, FALLBACK, DEFAULT_SETTINGS, NAME_MAX,
-  OPENING_GROUP, EMBLEMS, emblemSvg, openingColour, auditEmblems, leadSkillLine,
+  OPENING_GROUP, EMBLEMS, emblemSvg, openingColour, auditEmblems,
   statPct, STAT_FLOOR, STAT_CEIL, KIT_ICONS_SHOWN,
+  GAME_TITLE, QUOTES, CLASS_NOTE, statWords, artId, artUrl, auditClassText, YAW_STEP,
 } from './creation.js';
 import { GROUP_COLOUR } from './win_abilities.js';
-import { STAT_IDS as STAT_ORDER, STAT_LABELS, SKILL_NAMES } from '../mmo/openings.js';
+import { STAT_IDS as STAT_ORDER, STAT_LABELS, STAT_NAMES, SKILL_NAMES } from '../mmo/openings.js';
 import {
   OPENINGS, OPENINGS_BY_ID, STAT_IDS, SKILL_IDS, ITEM_BASES,
   CUSTOM_STAT_POINTS, CUSTOM_SKILL_POINTS, BLANK_STAT_POINTS, APPEARANCE,
 } from '../mmo/openings.js';
 import { statTotal, derived, STAT_START_TOTAL } from '../mmo/stats.js';
-import { total as skillTotal, SKILLS } from '../mmo/skills.js';
+import { total as skillTotal, SKILLS, SKILL_GROUPS } from '../mmo/skills.js';
 import { BASES, SLOTS, baseFor } from '../mmo/items.js';
 import { BAR_SLOTS } from './win_abilities.js';
 // The pack grew from 20 to 40 (see src/game/state.js and docs/mmo/wiring/U2.md),
@@ -369,16 +370,67 @@ check('every emblem is one svg on the 24 by 24 field, in the class colour',
   OPENINGS.filter((o) => !emblemSvg(o.id, 26).includes(openingColour(o.id))).map((o) => o.id).join(','));
 check('an opening nobody offers draws nothing rather than a broken tag', emblemSvg('druid') === '');
 
-check('the line under a name is the opening s strongest starting skill',
-  leadSkillLine(OPENINGS_BY_ID.warrior) === 'Swordsmanship 50'
-  && leadSkillLine(OPENINGS_BY_ID.artisan) === 'Mining 45',
-  `${leadSkillLine(OPENINGS_BY_ID.warrior)} / ${leadSkillLine(OPENINGS_BY_ID.artisan)}`);
-check('and Blank, whose skills are all zero, is told by its pool instead',
-  leadSkillLine(OPENINGS_BY_ID.blank) === `${OPENINGS_BY_ID.blank.freeSkillPoints} skill points to place`,
-  leadSkillLine(OPENINGS_BY_ID.blank));
-check('no card repeats its own name on the line under it',
-  OPENINGS.every((o) => leadSkillLine(o).toLowerCase() !== o.name.toLowerCase()),
-  OPENINGS.filter((o) => leadSkillLine(o).toLowerCase() === o.name.toLowerCase()).map((o) => o.id).join(','));
+// REWRITTEN, and the reason is the layout. The cards are small now (an emblem,
+// a name, one line of blurb clipped to two) and the line that used to sit under
+// a card's name is gone, so `leadSkillLine` went with it rather than staying on
+// as a writer nothing reads. What a class is best at is said for the chosen
+// class only, in the right hand panel, by the three stat words below. The three
+// checks that measured the old line are replaced by the fourteen below, which
+// measure the words that took its place.
+console.log('creation: what a class says of itself');
+check('every opening is written as well as drawn', auditClassText() === OPENINGS.length, `${OPENINGS.length} openings`);
+check('all eleven carry a quote', OPENINGS.every((o) => typeof QUOTES[o.id] === 'string' && QUOTES[o.id].length > 12),
+  OPENINGS.filter((o) => !(QUOTES[o.id] || '').length).map((o) => o.id).join(','));
+check('and no two of them are the same line',
+  new Set(OPENINGS.map((o) => QUOTES[o.id])).size === OPENINGS.length,
+  String(new Set(OPENINGS.map((o) => QUOTES[o.id])).size));
+check('and every one is short enough for the line it sits on',
+  OPENINGS.every((o) => QUOTES[o.id].length <= 72),
+  OPENINGS.map((o) => `${o.id}:${QUOTES[o.id].length}`).join(' '));
+check('and none of the eleven is written with a dash the house style forbids',
+  OPENINGS.every((o) => !/[\u2014\u2013]/.test(QUOTES[o.id] + CLASS_NOTE[o.id])),
+  OPENINGS.filter((o) => /[\u2014\u2013]/.test(QUOTES[o.id] + CLASS_NOTE[o.id])).map((o) => o.id).join(','));
+check('nothing is quoted that is not an opening',
+  Object.keys(QUOTES).every((id) => !!OPENINGS_BY_ID[id]),
+  Object.keys(QUOTES).filter((id) => !OPENINGS_BY_ID[id]).join(','));
+check('all eleven carry the sentence that says what the class is for',
+  OPENINGS.every((o) => typeof CLASS_NOTE[o.id] === 'string' && CLASS_NOTE[o.id].length > 20),
+  OPENINGS.filter((o) => !(CLASS_NOTE[o.id] || '').length).map((o) => o.id).join(','));
+check('and that sentence is not the blurb said twice',
+  OPENINGS.every((o) => CLASS_NOTE[o.id] !== o.blurb));
+{
+  // The three words are worked out here from openings.js rather than read back
+  // off the function that wrote them, so a spread that changed and words that
+  // did not would fail rather than agree with itself.
+  const bad = [];
+  for (const op of OPENINGS) {
+    const want = Object.entries(op.stats)
+      .sort((a, b) => (b[1] - a[1]) || (STAT_ORDER.indexOf(a[0]) - STAT_ORDER.indexOf(b[0])))
+      .slice(0, 3)
+      .map(([id]) => STAT_NAMES[id].toUpperCase());
+    const got = statWords(op);
+    if (got.join('|') !== want.join('|')) bad.push(`${op.id}: ${got.join(' ')} and not ${want.join(' ')}`);
+  }
+  check('the three words under a class name are its three highest stats, in order', bad.length === 0, bad.join(' | '));
+}
+check('they are the full words and not the table s three letters',
+  statWords('warrior')[0] === 'STRENGTH', statWords('warrior').join(' '));
+check('a warrior leads on strength and a mage on intellect',
+  statWords('warrior')[0] === 'STRENGTH' && statWords('mage')[0] === 'INTELLECT',
+  `${statWords('warrior')[0]} / ${statWords('mage')[0]}`);
+check('and a class whose five stats are all fifty still names three of them',
+  statWords('blank').length === 3, statWords('blank').join(' '));
+check('an opening nobody offers has no words at all', statWords('druid').length === 0);
+check('the title on the plaque comes from one constant', GAME_TITLE === 'Kaldera', GAME_TITLE);
+check('the art slot wears an id of its own per class, and the eleven are distinct',
+  new Set(OPENINGS.map((o) => artId(o.id))).size === OPENINGS.length
+  && artId('warrior') === 'bw-cr-art-warrior',
+  artId('warrior'));
+check('and every placeholder is a data uri drawn in that class s colour',
+  OPENINGS.every((o) => /^url\("data:image\/svg\+xml,/.test(artUrl(o.id))
+    && artUrl(o.id).includes(encodeURIComponent(openingColour(o.id)))),
+  OPENINGS.filter((o) => !artUrl(o.id).includes(encodeURIComponent(openingColour(o.id)))).map((o) => o.id).join(','));
+check('an arrow turns a hero thirty degrees', YAW_STEP === 30, String(YAW_STEP));
 
 console.log('creation: the stat bars');
 check(`the floor of ${STAT_FLOOR} is an empty bar`, statPct(STAT_FLOOR) === 0, String(statPct(STAT_FLOOR)));
@@ -398,7 +450,7 @@ function makeDom() {
       tagName: String(tag).toUpperCase(),
       id: '', style: {}, dataset: {}, children: [], parent: null,
       innerHTML: '', title: '', hidden: false, type: '', value: '', placeholder: '',
-      disabled: false, scrollTop: 0,
+      disabled: false, scrollTop: 0, focused: null,
       get textContent() { return node.children.length ? node.children.map((c) => c.textContent).join('') : text; },
       set textContent(v) { for (const c of node.children) c.parent = null; node.children.length = 0; text = v == null ? '' : String(v); },
       listeners: {},
@@ -416,6 +468,15 @@ function makeDom() {
       addEventListener(n2, fn) { (node.listeners[n2] ||= []).push(fn); },
       removeEventListener() {},
       fire(n2, ev) { for (const fn of node.listeners[n2] || []) fn(ev || { preventDefault() {}, stopPropagation() {} }); },
+      // A browser scrolls an ancestor to bring a focused field into view unless
+      // it is told not to, which is exactly the bug CR1 found. The fake does
+      // the same, so the check below is a check and not a formality.
+      focus(opts) {
+        node.focused = { preventScroll: !!(opts && opts.preventScroll) };
+        if (!node.focused.preventScroll) {
+          for (let p = node.parent; p; p = p.parent) p.scrollTop = 9999;
+        }
+      },
     };
     return node;
   };
@@ -442,6 +503,9 @@ function walk(n, out = []) {
 }
 const withClass = (n, cls) => walk(n).filter((x) => x.classList.contains(cls));
 const kids = (n, cls) => n.children.filter((x) => x.classList.contains(cls));
+const one = (n, cls) => withClass(n, cls)[0];
+const ranges = (n) => walk(n).filter((x) => x.tagName === 'INPUT' && x.type === 'range');
+const textInput = (n) => walk(n).find((x) => x.tagName === 'INPUT' && x.type === 'text');
 
 function screen() {
   const root = document.createElement('div');
@@ -454,7 +518,43 @@ const s1 = screen();
 check('the screen is built', !!s1.cr.el && s1.cr.el.id === 'bw-creation', String(s1.cr.el && s1.cr.el.id));
 check('and it wears the shared look, so the fonts and the tokens reach it',
   s1.cr.el.classList.contains('bw-ui'), s1.cr.el.className);
-check('the sheet is one panel beside the rig', withClass(s1.cr.el, 'bw-cr-panel').length === 1);
+
+// --- REWRITTEN. The sheet used to be one column beside the rig. It is the
+// whole window now, in three columns with the rig standing in the middle of
+// them, so what "one panel" means had to be measured again.
+{
+  const panel = one(s1.cr.el, 'bw-cr-panel');
+  check('the panel is the whole window and there is one of it', withClass(s1.cr.el, 'bw-cr-panel').length === 1);
+  const want = ['bw-cr-plaque', 'bw-cr-left', 'bw-cr-stage', 'bw-cr-right', 'bw-cr-foot'];
+  const got = panel.children.map((c) => want.find((w) => c.classList.contains(w)) || c.className);
+  check('and it holds the plaque, the three columns and the footer, in that order',
+    got.join(',') === want.join(','), got.join(','));
+  check('the plaque carries the title and the question under it',
+    walk(one(s1.cr.el, 'bw-cr-plaque')).some((n) => n.tagName === 'H1' && n.textContent === GAME_TITLE)
+    && /Who walks out of the trees/.test(one(s1.cr.el, 'bw-cr-ask').textContent),
+    one(s1.cr.el, 'bw-cr-plaque').textContent);
+  check('the eleven cards are in the left column and nowhere else',
+    withClass(one(s1.cr.el, 'bw-cr-left'), 'bw-cr-card').length === OPENINGS.length
+    && withClass(one(s1.cr.el, 'bw-cr-right'), 'bw-cr-card').length === 0,
+    String(withClass(one(s1.cr.el, 'bw-cr-left'), 'bw-cr-card').length));
+  check('the class name, the art, the quote, the bars, the gear, the name and the button are in the right column',
+    ['bw-cr-cname', 'bw-cr-art', 'bw-cr-quote', 'bw-cr-about', 'bw-cr-bars', 'bw-cr-kitrow', 'bw-cr-derived', 'bw-cr-go']
+      .every((c) => withClass(one(s1.cr.el, 'bw-cr-right'), c).length === 1)
+    && !!textInput(one(s1.cr.el, 'bw-cr-right')),
+    ['bw-cr-cname', 'bw-cr-art', 'bw-cr-quote', 'bw-cr-about', 'bw-cr-bars', 'bw-cr-kitrow', 'bw-cr-derived', 'bw-cr-go']
+      .filter((c) => withClass(one(s1.cr.el, 'bw-cr-right'), c).length !== 1).join(','));
+  const stage = one(s1.cr.el, 'bw-cr-stage');
+  check('the middle column paints nothing over the rig but the arrows and the six pills',
+    stage.children.length === 3
+    && stage.children[0].classList.contains('bw-cr-void')
+    && stage.children[1].classList.contains('bw-cr-turn')
+    && stage.children[2].classList.contains('bw-cr-look'),
+    stage.children.map((c) => c.className).join(' | '));
+  check('and the footer says a line at each end',
+    one(s1.cr.el, 'bw-cr-foot').children.length === 2
+    && one(s1.cr.el, 'bw-cr-foot').children.every((c) => c.textContent.length > 10),
+    one(s1.cr.el, 'bw-cr-foot').children.map((c) => c.textContent).join(' / '));
+}
 
 // --- the css, once
 check('the sheet of css is in the head', !!document.getElementById('bw-creation-css'));
@@ -469,12 +569,34 @@ check('and the shared theme went in with it',
   const themes = document.headAppends.filter((n) => n.id === 'bw-theme-css').length;
   check('as with the theme', themes === 1, String(themes));
 }
-
-// --- the headers, in the order the eye reads them
 {
-  const want = ['choose your opening', 'the kit', 'stats', 'what that comes to', 'skills', 'appearance', 'name'];
+  // The layout is CSS, and node cannot lay anything out, so what CAN be
+  // measured here is that the rules the layout depends on are in the sheet
+  // that goes to the browser. The three columns at their three widths, the
+  // stacking under 1100, and the one line that fixed CR1's squeezed list.
+  const css = document.getElementById('bw-creation-css').textContent;
+  check('the sheet declares three columns at 300 and 400',
+    /grid-template-columns:\s*300px minmax\(0, 1fr\) 400px/.test(css));
+  check('and narrows them to 260 and 360 rather than dropping one, which is what makes 1280 fit',
+    /max-width:\s*1400px/.test(css) && /grid-template-columns:\s*260px minmax\(0, 1fr\) 360px/.test(css));
+  check('and stacks them under 1100 with the preview on the top row',
+    /max-width:\s*1099px/.test(css) && /\.bw-cr-stage \{ grid-column: 1; grid-row: 2;/.test(css));
+  check('the middle column is left transparent, so the scene shows through it',
+    /#bw-creation \.bw-cr-stage \{[^}]*pointer-events: none/.test(css) && !/\.bw-cr-stage \{[^}]*background:/.test(css));
+  check('and the columns still refuse to squeeze a child with a max-height, which is the CR1 bug',
+    /#bw-creation \.bw-cr-left > \*, #bw-creation \.bw-cr-scroll > \* \{ flex: 0 0 auto; \}/.test(css));
+  check('while the reading half of the right column is the one that scrolls, so the button never leaves the glass',
+    /\.bw-cr-scroll \{\s*flex: 1 1 auto; min-height: 0; overflow-y: auto/.test(css)
+    && /\.bw-cr-act \{\s*flex: 0 0 auto;/.test(css));
+}
+
+// --- REWRITTEN. Seven headers became five: THE KIT is now the icon row under
+// STARTING GEAR, and APPEARANCE is the six pills under the preview, which are
+// labelled one by one and want no header over them.
+{
+  const want = ['choose your opening', 'base stats', 'what that comes to', 'starting gear', 'name'];
   const got = withClass(s1.cr.el, 'bw-hdr').map((n) => n.textContent.toLowerCase());
-  check('the seven section headers are the codex s, in order', got.join('|') === want.join('|'), got.join(' | '));
+  check('the five section headers are the codex s, in order', got.join('|') === want.join('|'), got.join(' | '));
 }
 
 // --- the cards
@@ -483,46 +605,46 @@ check('there is a card for every opening, in the openings order',
   && s1.cards.map((c) => c.dataset.opening).join(',') === OPENINGS.map((o) => o.id).join(','),
   s1.cards.map((c) => c.dataset.opening).join(','));
 {
+  // REWRITTEN: a card carried an emblem, a name, a band, a blurb, a lead skill
+  // line, five stat bars and eight kit icons. It carries the first four now,
+  // and the rest moved to the right hand panel where they are about the one
+  // class you have chosen. Those four are still measured exactly as before.
   const bad = [];
   for (const card of s1.cards) {
     const op = OPENINGS_BY_ID[card.dataset.opening];
     const colour = openingColour(op.id);
 
-    // the emblem
     const em = withClass(card, 'bw-cr-emblem');
     if (em.length !== 1) bad.push(`${op.id}: ${em.length} emblems`);
     else if (!/<svg /.test(em[0].innerHTML)) bad.push(`${op.id}: the emblem is not a drawing`);
     else if (!em[0].innerHTML.includes(colour)) bad.push(`${op.id}: the emblem is not in the class colour`);
     else if (em[0].dataset.emblem !== op.id) bad.push(`${op.id}: the emblem is not marked with its opening`);
 
-    // the name, in its own element, and the colour band
     const nm = withClass(card, 'bw-cr-name');
     if (nm.length !== 1 || nm[0].textContent !== op.name) bad.push(`${op.id}: the name reads "${nm[0] && nm[0].textContent}"`);
     const band = withClass(card, 'bw-cr-band');
     if (band.length !== 1 || band[0].style.background !== colour) bad.push(`${op.id}: the band is "${band[0] && band[0].style.background}" and not ${colour}`);
 
-    // the blurb
     const bl = withClass(card, 'bw-cr-blurb');
     if (bl.length !== 1 || bl[0].textContent !== op.blurb) bad.push(`${op.id}: the blurb is not the opening s`);
-
-    // the line under the name: the opening's own best skill, worked out here
-    // from openings.js rather than read back off the function that wrote it
-    const sub = withClass(card, 'bw-cr-group');
-    const best = Object.entries(op.skills || {}).reduce((a, b) => (b[1] > a[1] ? b : a), [null, 0]);
-    const want = best[1] > 0 ? `${SKILL_NAMES[best[0]]} ${best[1]}` : `${op.freeSkillPoints} skill points to place`;
-    if (sub.length !== 1 || sub[0].textContent !== want) bad.push(`${op.id}: the second line reads "${sub[0] && sub[0].textContent}" and not "${want}"`);
-    if (sub.length === 1 && sub[0].style.color !== colour) bad.push(`${op.id}: the second line is not in the class colour`);
   }
-  check('every card carries an emblem in its class colour, the name, the band, the blurb and its best skill', bad.length === 0, bad.join(' | '));
+  check('every card carries an emblem in its class colour, the name, the band and the blurb', bad.length === 0, bad.join(' | '));
+  check('and nothing else, so eleven of them fit a 300 pixel column',
+    s1.cards.every((c) => c.children.length === 4),
+    s1.cards.map((c) => c.children.length).join(','));
 }
+
+// --- REWRITTEN. The stat bars were five on every card, drawn from the
+// opening's own numbers and never touched again. They are five in the right
+// hand panel now, they belong to the chosen class, and each one is also the
+// slider that moves it. The arithmetic is measured the same way: recomputed
+// here from openings.js rather than read back off the code that drew it.
 {
-  // The bars are measured against openings.js, and the percentage is worked
-  // out here from the stat rather than read back off the function that drew
-  // it, so a bar that stops filling would fail rather than agree with itself.
   const bad = [];
-  for (const card of s1.cards) {
-    const op = OPENINGS_BY_ID[card.dataset.opening];
-    const bars = withClass(card, 'bw-cr-bar');
+  const s = screen();
+  for (const op of OPENINGS) {
+    s.cr.pick(op.id);
+    const bars = withClass(s.cr.el, 'bw-cr-bar');
     if (bars.length !== 5) { bad.push(`${op.id}: ${bars.length} bars`); continue; }
     if (bars.map((b) => b.dataset.stat).join(',') !== STAT_ORDER.join(',')) {
       bad.push(`${op.id}: the bars run ${bars.map((b) => b.dataset.stat).join(',')}`);
@@ -539,48 +661,84 @@ check('there is a card for every opening, in the openings order',
       if (!key || key.textContent !== STAT_LABELS[bar.dataset.stat]) bad.push(`${op.id}/${bar.dataset.stat}: the label reads "${key && key.textContent}"`);
       const num = withClass(bar, 'bw-cr-bv')[0];
       if (!num || num.textContent !== String(v)) bad.push(`${op.id}/${bar.dataset.stat}: the number reads "${num && num.textContent}"`);
+      const slider = walk(bar).find((n) => n.tagName === 'INPUT' && n.type === 'range');
+      if (!slider) bad.push(`${op.id}/${bar.dataset.stat}: the bar is not also a slider`);
+      else if (Number(slider.value) !== v) bad.push(`${op.id}/${bar.dataset.stat}: the slider sits at ${slider.value} and the bar at ${v}`);
     }
   }
-  check('every card shows five stat bars whose widths are the opening s own numbers', bad.length === 0, bad.join(' | '));
-  // And the other direction: two openings with different stats do not draw the
-  // same bar. A width that never moved would pass the check above only if the
-  // arithmetic above were also wrong, and this catches that.
+  check('the five bars are the chosen opening s own numbers, and each is its own slider', bad.length === 0, bad.join(' | '));
   const w = (id, stat) => {
-    const card = s1.cards.find((c) => c.dataset.opening === id);
-    return withClass(card, 'bw-cr-bar').find((b) => b.dataset.stat === stat).children[1].children[0].style.width;
+    s.cr.pick(id);
+    return withClass(s.cr.el, 'bw-cr-bar').find((b) => b.dataset.stat === stat).children[1].children[0].style.width;
   };
   check('a warrior s STR bar is longer than a mage s', parseInt(w('warrior', 'str'), 10) > parseInt(w('mage', 'str'), 10),
     `${w('warrior', 'str')} vs ${w('mage', 'str')}`);
   check('and a mage s INT bar is longer than a warrior s', parseInt(w('mage', 'int'), 10) > parseInt(w('warrior', 'int'), 10),
     `${w('mage', 'int')} vs ${w('warrior', 'int')}`);
+  s.cr.destroy();
 }
+
+// --- REWRITTEN. The kit's icons were a row on every one of the eleven cards.
+// They are one row, STARTING GEAR, in the right hand panel, for the class in
+// hand. The cap and the tail are counted exactly as they were.
 {
-  // The icon row is counted against what kitFor actually makes, capped, with
-  // the remainder said out loud rather than dropped: the jam-and-bread rule.
   const bad = [];
   const rows = [];
-  for (const card of s1.cards) {
-    const op = OPENINGS_BY_ID[card.dataset.opening];
+  const s = screen();
+  for (const op of OPENINGS) {
+    s.cr.pick(op.id);
     const made = kitFor(op, 1).items.length;
-    const row = withClass(card, 'bw-cr-kitrow')[0];
-    if (!row) { bad.push(`${op.id}: no kit row`); continue; }
+    const row = one(s.cr.el, 'bw-cr-kitrow');
+    if (!row) { bad.push(`${op.id}: no gear row`); continue; }
     const icons = kids(row, 'bw-cr-kit-i');
     const want = Math.min(KIT_ICONS_SHOWN, made);
     if (icons.length !== want) bad.push(`${op.id}: ${icons.length} icons for a kit of ${made}, wanted ${want}`);
     if (Number(row.dataset.kit) !== made) bad.push(`${op.id}: the row claims ${row.dataset.kit} of a kit of ${made}`);
     if (icons.some((i) => !/<svg |<img /.test(i.innerHTML))) bad.push(`${op.id}: an icon draws nothing`);
+    if (icons.some((i) => !i.title)) bad.push(`${op.id}: an icon says nothing when you hover it`);
     const more = kids(row, 'bw-cr-kit-more');
     if (made > KIT_ICONS_SHOWN) {
       if (more.length !== 1 || more[0].textContent !== `+${made - KIT_ICONS_SHOWN} more`) {
         bad.push(`${op.id}: ${made} items and the tail reads "${more[0] && more[0].textContent}"`);
       }
     } else if (more.length) bad.push(`${op.id}: ${made} items and it still counts a remainder`);
+    // and the greyed cell for anything the tables cannot make, which is the
+    // jam and bread rule: nothing may simply not arrive
+    const gone = kids(row, 'bw-cr-kit-gone');
+    if (gone.length !== kitFor(op, 1).missing.length) bad.push(`${op.id}: ${gone.length} greyed for ${kitFor(op, 1).missing.length} unmade`);
     rows.push(`${op.id}:${icons.length}/${made}`);
   }
-  check('every card shows its kit, capped at eight, and counts the rest', bad.length === 0, bad.join(' | '));
+  check('the gear row shows the chosen kit, capped at eight, and counts the rest', bad.length === 0, bad.join(' | '));
   console.log(`       (${rows.join(' ')})`);
   const over = OPENINGS.filter((o) => kitFor(o, 1).items.length > KIT_ICONS_SHOWN).length;
   check('and the cap is doing work rather than never being reached', over > 0, `${over} of ${OPENINGS.length} openings overflow eight`);
+  const unmade = OPENINGS.filter((o) => kitFor(o, 1).missing.length).length;
+  check('nothing is greyed today, because every kit base the eleven name now resolves', unmade === 0, `${unmade} openings come up short`);
+  s.cr.destroy();
+}
+
+// --- the right hand panel follows the class in hand
+{
+  const bad = [];
+  const s = screen();
+  for (const op of OPENINGS) {
+    s.cr.pick(op.id);
+    const nm = one(s.cr.el, 'bw-cr-cname');
+    if (nm.textContent !== op.name) bad.push(`${op.id}: the panel is headed "${nm.textContent}"`);
+    const wd = one(s.cr.el, 'bw-cr-words');
+    if (wd.textContent !== statWords(op).join(' · ')) bad.push(`${op.id}: the words read "${wd.textContent}"`);
+    const art = one(s.cr.el, 'bw-cr-art');
+    if (art.id !== artId(op.id)) bad.push(`${op.id}: the art slot is "${art.id}"`);
+    if (art.dataset.art !== op.id) bad.push(`${op.id}: the art slot is not marked with its class`);
+    if (art.style.backgroundImage !== artUrl(op.id)) bad.push(`${op.id}: the art slot holds no placeholder`);
+    const q = one(s.cr.el, 'bw-cr-quote');
+    if (q.textContent !== QUOTES[op.id]) bad.push(`${op.id}: the quote reads "${q.textContent}"`);
+    const ab = one(s.cr.el, 'bw-cr-about');
+    if (ab.textContent !== `${op.blurb} ${CLASS_NOTE[op.id]}`) bad.push(`${op.id}: the blurb is missing its sentence`);
+  }
+  check('the panel says the class name, the three words, the art, the quote and the blurb of whichever card is lit',
+    bad.length === 0, bad.join(' | '));
+  s.cr.destroy();
 }
 
 // --- one card is lit, and only one
@@ -593,29 +751,13 @@ check('there is a card for every opening, in the openings order',
   card.fire('click');
   check('a click on a card picks it', s1.cr.state.opening === 'bard' && lit().join(',') === 'bard', `${s1.cr.state.opening} / ${lit().join(',')}`);
   check('and the stats came with it', JSON.stringify(s1.cr.state.stats) === JSON.stringify(OPENINGS_BY_ID.bard.stats), JSON.stringify(s1.cr.state.stats));
+  check('and so did the right hand panel', one(s1.cr.el, 'bw-cr-cname').textContent === 'Bard', one(s1.cr.el, 'bw-cr-cname').textContent);
   s1.cr.pick('warrior');
-}
-
-// --- the kit spelled out under the cards
-{
-  const list = withClass(s1.cr.el, 'bw-cr-kit')[0];
-  const lines = kids(list, 'bw-cr-kitline');
-  const made = kitFor(OPENINGS_BY_ID.warrior, 1);
-  check('the kit section has a row for every item the kit makes',
-    lines.length === made.items.length + made.missing.length,
-    `${lines.length} rows for ${made.items.length} items and ${made.missing.length} missing`);
-  check('and every row carries an icon and a name',
-    lines.every((l) => l.children.length === 2 && /<svg |<img /.test(l.children[0].innerHTML) && l.children[1].textContent.length > 1),
-    lines.map((l) => l.children[1] && l.children[1].textContent).join(' | '));
-  check('nothing is greyed today, because nothing in the warrior s kit is unmade',
-    lines.filter((l) => l.classList.contains('gone')).length === made.missing.length,
-    `${lines.filter((l) => l.classList.contains('gone')).length} greyed`);
-  console.log(`       (${lines.map((l) => l.children[1].textContent).join(', ')})`);
 }
 
 // --- what that comes to
 {
-  const table = withClass(s1.cr.el, 'bw-cr-derived')[0];
+  const table = one(s1.cr.el, 'bw-cr-derived');
   const rows = kids(table, 'bw-cr-drow');
   check('the derived numbers are six rows of label and value', rows.length === 6, String(rows.length));
   check('each with a gold label and a number after it',
@@ -631,23 +773,183 @@ check('there is a card for every opening, in the openings order',
     `${rows[0].children[2].textContent} vs ${Math.floor(d.maxHealth)}`);
 }
 
-// --- Begin, and the red line under it
+// --- the two arrows, and the yaw they turn
 {
-  const go = withClass(s1.cr.el, 'bw-cr-go')[0];
-  const errLine = withClass(s1.cr.el, 'bw-cr-err')[0];
-  check('the Begin button is there and says so', !!go && go.textContent === 'Begin');
+  const s = screen();
+  const arrows = withClass(s.cr.el, 'bw-cr-arrow');
+  check('there are two arrows under the preview, one each way',
+    arrows.length === 2 && arrows.map((a) => a.dataset.turn).join(',') === '-1,1',
+    arrows.map((a) => a.dataset.turn).join(','));
+  check('and each is a drawing rather than a character somebody typed',
+    arrows.every((a) => /<svg /.test(a.innerHTML) && /<path /.test(a.innerHTML)));
+  check('the rig starts facing the camera', s.cr.yaw === 0, String(s.cr.yaw));
+  arrows[0].fire('click');
+  check(`one click of the left arrow turns it ${YAW_STEP} degrees`, s.cr.yaw === -YAW_STEP, String(s.cr.yaw));
+  arrows[0].fire('click');
+  check('and a second click is sixty and not three hundred', s.cr.yaw === -2 * YAW_STEP, String(s.cr.yaw));
+  arrows[1].fire('click');
+  arrows[1].fire('click');
+  check('and the other arrow brings it back the same way', s.cr.yaw === 0, String(s.cr.yaw));
+  // The other direction: nothing else moves the rig, so a player who has aimed
+  // it keeps their aim through a choice and through the points.
+  arrows[1].fire('click');
+  s.cr.pick('mage');
+  const slider = ranges(s.cr.el)[0];
+  slider.value = '40';
+  slider.fire('input');
+  check('and nothing but an arrow turns it', s.cr.yaw === YAW_STEP, String(s.cr.yaw));
+  s.cr.destroy();
+}
+
+// --- the six pills under the preview
+{
+  const s = screen();
+  const named = textInput(s.cr.el);
+  named.value = 'Ashe';
+  named.fire('input');
+  const pills = withClass(s.cr.el, 'bw-cr-pill');
+  const selects = walk(s.cr.el).filter((n) => n.tagName === 'SELECT');
+  // REWRITTEN: the face was five selects and a height slider in a column of
+  // rows. It is six pills under the preview now, height among them, because
+  // the height of a person is a choice about their appearance like the rest.
+  check('the face is six pills under the preview, height among them',
+    pills.length === 6 && selects.length === 6
+    && selects.map((x) => x.dataset.look).join(',') === 'build,skin,hairStyle,hairColour,mark,height',
+    selects.map((x) => x.dataset.look).join(','));
+  check('and every pill is a label over the choice', pills.every((p) => p.children.length === 2 && p.children[0].textContent.length > 2));
+  const heightSel = selects[5];
+  check('the height pill offers every rung openings.js allows, from 1.60 to 2.00',
+    heightSel.children.length === 41
+    && heightSel.children[0].textContent === '1.60 m'
+    && heightSel.children[40].textContent === '2.00 m',
+    `${heightSel.children.length} rungs, ${heightSel.children[0].textContent} to ${heightSel.children[heightSel.children.length - 1].textContent}`);
+  heightSel.value = '1.94';
+  heightSel.fire('change');
+  check('and choosing one is kept in the character that is planned',
+    s.cr.state.appearance.height === 1.94 && s.cr.plan().character.appearance.height === 1.94,
+    String(s.cr.state.appearance.height));
+  const build = selects[0];
+  build.value = 'heavy';
+  build.fire('change');
+  check('as is a build', s.cr.state.appearance.build === 'heavy', s.cr.state.appearance.build);
+  s.cr.destroy();
+}
+
+// --- the stat sliders, and the budget they answer to
+{
+  const s = screen();
+  const nameIn = textInput(s.cr.el);
+  nameIn.value = 'Ashe';
+  nameIn.fire('input');
+  const go = one(s.cr.el, 'bw-cr-go');
+  const errLine = one(s.cr.el, 'bw-cr-err');
+  const slider = (stat) => walk(withClass(s.cr.el, 'bw-cr-bar').find((b) => b.dataset.stat === stat))
+    .find((n) => n.tagName === 'INPUT' && n.type === 'range');
+  const drag = (stat, to) => { const r = slider(stat); r.value = String(to); r.fire('input'); };
+
+  check('five stat sliders and no more, the bar being the slider', ranges(s.cr.el).length === 5, String(ranges(s.cr.el).length));
+  check('every one runs the floor to the cap',
+    ranges(s.cr.el).every((r) => r.min === String(STAT_FLOOR) && r.max === String(STAT_CEIL)),
+    ranges(s.cr.el).map((r) => `${r.min}-${r.max}`).join(' '));
+
+  // A stat dragged down with the points put nowhere. planCharacter answers ok
+  // and quietly hands back the ORIGINAL number, which is what this screen used
+  // to do while showing the new one. Measured on the shipped code before it
+  // was fixed; the fix is in the screen, and the rules were not touched.
+  drag('str', 55);
+  check('a stat dragged down alone moves the bar', s.cr.state.stats.str === 55, String(s.cr.state.stats.str));
+  check('and the ten points that came off are named as lying loose',
+    /10 stat points you took off are lying loose/.test(errLine.textContent), errLine.textContent);
+  check('and you cannot leave with them, because the character would not have them',
+    go.disabled === true && planCharacter(s.cr.state).character.stats.str === 65,
+    `${go.disabled} / ${planCharacter(s.cr.state).character.stats.str}`);
+  drag('dex', 60);
+  check('putting them on another stat spends them', s.cr.state.stats.dex === 60 && errLine.textContent === '', errLine.textContent);
+  check('and the character that is planned now has the numbers on the screen',
+    planCharacter(s.cr.state).character.stats.str === 55 && planCharacter(s.cr.state).character.stats.dex === 60,
+    JSON.stringify(planCharacter(s.cr.state).character.stats));
+  check('and the button is live', go.disabled === false);
+  check('the budget line counts what is left', /20 of 30 stat points left to move/.test(one(s.cr.el, 'bw-cr-budget').textContent),
+    one(s.cr.el, 'bw-cr-budget').textContent);
+
+  // exactly thirty, then one more
+  drag('str', 35);
+  drag('dex', 80);
+  check('thirty points moved is allowed', go.disabled === false && one(s.cr.el, 'bw-cr-budget').textContent.startsWith('0 of 30'),
+    one(s.cr.el, 'bw-cr-budget').textContent);
+  drag('str', 34);
+  drag('dex', 81);
+  check('and the thirty first is refused, counted, and the button goes dead',
+    go.disabled === true && /31 of 30/.test(errLine.textContent), errLine.textContent);
+  drag('str', 35);
+  drag('dex', 80);
+  check('and stepping back inside the budget makes it live again', go.disabled === false, errLine.textContent);
+  s.cr.destroy();
+}
+
+// --- the skills, behind their disclosure
+{
+  const s = screen();
+  const disc = one(s.cr.el, 'bw-cr-disc');
+  const wrap = one(s.cr.el, 'bw-cr-skillwrap');
+  check('the skills sit behind a disclosure that says what it opens', disc.textContent === 'Adjust skills', disc.textContent);
+  check('and it is shut when the screen opens, so the panel is not a wall of fifty two rows',
+    wrap.hidden === true && s.cr.skillsOpen === false);
+  check('the fifty two rows are built all the same, so opening it is not a wait',
+    withClass(s.cr.el, 'bw-row').length === SKILLS.length, String(withClass(s.cr.el, 'bw-row').length));
+  disc.fire('click');
+  check('a click opens it', wrap.hidden === false && s.cr.skillsOpen === true);
+  check('and all fifty two are inside it, in their nine groups, each with its four steppers',
+    withClass(wrap, 'bw-row').length === SKILLS.length
+    && withClass(wrap, 'bw-cr-grp').length === SKILL_GROUPS.length
+    && withClass(wrap, 'bw-step').every((x) => x.children.length === 4),
+    `${withClass(wrap, 'bw-row').length} rows in ${withClass(wrap, 'bw-cr-grp').length} groups`);
+  check('and the budget line for them is inside it too, where the points are moved',
+    withClass(wrap, 'bw-cr-budget').length === 1 && /skill points left to move/.test(withClass(wrap, 'bw-cr-budget')[0].textContent),
+    withClass(wrap, 'bw-cr-budget')[0].textContent);
+  check('the rows are a name, the steppers and a value',
+    withClass(wrap, 'bw-row').every((r) => r.children.length === 3));
+  disc.fire('click');
+  check('and a second click shuts it again', wrap.hidden === true && s.cr.skillsOpen === false);
+  // and the choice survives a change of class, because the list is refilled
+  // rather than rebuilt
+  disc.fire('click');
+  s.cr.pick('mage');
+  check('a class chosen while it is open leaves it open, with the new class s numbers',
+    s.cr.skillsOpen === true && withClass(wrap, 'bw-row').length === SKILLS.length,
+    String(withClass(wrap, 'bw-row').length));
+  s.cr.destroy();
+}
+
+// --- Create character, and the red line under it
+{
+  const go = one(s1.cr.el, 'bw-cr-go');
+  const errLine = one(s1.cr.el, 'bw-cr-err');
+  // REWRITTEN: the button read Begin and stood at the foot of one long sheet.
+  // It reads CREATE CHARACTER now (the sheet sets it in small caps) and stands
+  // at the foot of the right hand column, with the same red line under it.
+  check('the button is there and says what it does', !!go && go.textContent === 'Create character', go.textContent);
   check('with nothing typed it is disabled', go.disabled === true);
   check('and the refusal is written out', /at least 2 letters/.test(errLine.textContent), errLine.textContent);
-  const panel = withClass(s1.cr.el, 'bw-cr-panel')[0];
+  // REWRITTEN only in where it looks: the name, the button and the red line
+  // are pinned in their own block at the foot of the right column now, so the
+  // order is measured inside that block rather than in the column.
+  const act = one(s1.cr.el, 'bw-cr-act');
   check('the error line sits under the button, not over it',
-    panel.children.indexOf(errLine) === panel.children.indexOf(go) + 1,
-    `button at ${panel.children.indexOf(go)}, error at ${panel.children.indexOf(errLine)}`);
+    act.children.indexOf(errLine) === act.children.indexOf(go) + 1,
+    `button at ${act.children.indexOf(go)}, error at ${act.children.indexOf(errLine)}`);
+  check('and the name field sits over the button, with its header over that',
+    act.children.map((c) => c.className || c.tagName).join(',') === 'bw-hdr,INPUT,bw-cr-go,bw-cr-err,bw-cr-short',
+    act.children.map((c) => c.className || c.tagName).join(','));
 
-  const input = walk(s1.cr.el).find((n) => n.tagName === 'INPUT' && n.type === 'text');
+  const input = textInput(s1.cr.el);
   input.value = 'Ashe';
   input.fire('input');
   check('a name typed in enables it', go.disabled === false && s1.cr.state.name === 'Ashe', `${go.disabled} / ${s1.cr.state.name}`);
   check('and the red line goes quiet', errLine.textContent === '', errLine.textContent);
+  check('and the shortfall line says what a warrior s kit could not do',
+    one(s1.cr.el, 'bw-cr-short').textContent === shortfallLine(planCharacter(s1.cr.state)),
+    one(s1.cr.el, 'bw-cr-short').textContent || '(nothing, which is right today)');
   input.value = 'Ashe9';
   input.fire('input');
   check('and a name with a digit turns it off again and says why',
@@ -658,39 +960,58 @@ check('there is a card for every opening, in the openings order',
   let handed = null;
   const root2 = document.createElement('div');
   const cr2 = createCreation(root2, { onDone: (c) => { handed = c; } });
-  const in2 = walk(cr2.el).find((n) => n.tagName === 'INPUT' && n.type === 'text');
+  const in2 = textInput(cr2.el);
   in2.value = 'Rowan';
   in2.fire('input');
   cr2.pick('ranger');
-  withClass(cr2.el, 'bw-cr-go')[0].fire('click');
-  check('Begin hands over a character built by the same planCharacter the tests above use',
+  one(cr2.el, 'bw-cr-go').fire('click');
+  check('Create character hands over a character built by the same planCharacter the tests above use',
     !!handed && handed.name === 'Rowan' && handed.opening === 'ranger'
     && handed.pack.items.filter(Boolean).length + Object.values(handed.equipment).filter(Boolean).length > 0,
     handed ? `${handed.name} the ${handed.opening}` : 'nothing');
   check('and the screen takes itself off the page', root2.children.length === 0, String(root2.children.length));
 }
 
-// --- the sliders and the steppers are still the rules ------------------------
+// --- the shared camera is handed back
 {
-  const rows = withClass(s1.cr.el, 'bw-row');
-  const ranges = walk(s1.cr.el).filter((n) => n.tagName === 'INPUT' && n.type === 'range');
-  check('there are five stat sliders and one for height', ranges.length === 6, String(ranges.length));
-  check('every stat slider runs the floor to the cap',
-    ranges.slice(0, 5).every((r) => r.min === '10' && r.max === '100'), ranges.slice(0, 5).map((r) => `${r.min}-${r.max}`).join(' '));
-  const steps = withClass(s1.cr.el, 'bw-step');
-  check('and every one of the fifty two skills has its four steppers',
-    steps.length === SKILLS.length && steps.every((s) => s.children.length === 4),
-    `${steps.length} rows of steppers`);
-  const selects = walk(s1.cr.el).filter((n) => n.tagName === 'SELECT');
-  check('the face is five selects', selects.length === 5, String(selects.length));
-  check('the rows still hold a name and a value', rows.length > 5 && rows.every((r) => r.children.length === 3));
+  // The screen frames the rig by offsetting the lens rather than by moving the
+  // camera, and the camera belongs to the game. A view offset left behind would
+  // frame the whole world off centre for the rest of the session, so the screen
+  // is driven with a camera that records what was done to it.
+  const done = [];
+  const cam = {
+    fov: 55, aspect: 1.7, position: { set() {} }, lookAt() {},
+    updateProjectionMatrix() { done.push('project'); },
+    setViewOffset() { done.push('offset'); },
+    clearViewOffset() { done.push('clear'); },
+  };
+  const sc = { camera: cam, scene: { add() {}, remove() {} }, render() {}, resize() { done.push('resize'); } };
+  const cr = createCreation(document.createElement('div'), { sc });
+  cr.destroy();
+  check('the lens is put back the way it was found when the screen goes',
+    done.includes('clear') && done.indexOf('resize') === done.indexOf('clear') + 1,
+    done.join(','));
 }
+
+// --- the caret, and the scroll that used to jump with it
+{
+  const s = screen();
+  const input = textInput(s.cr.el);
+  check('the name field takes the caret without dragging the column down to it',
+    input.focused && input.focused.preventScroll === true, JSON.stringify(input.focused));
+  check('and both columns are at the top when the screen opens',
+    one(s.cr.el, 'bw-cr-left').scrollTop === 0 && one(s.cr.el, 'bw-cr-right').scrollTop === 0,
+    `${one(s.cr.el, 'bw-cr-left').scrollTop} / ${one(s.cr.el, 'bw-cr-right').scrollTop}`);
+  s.cr.destroy();
+}
+
+// --- the steppers are still the rules ------------------------------------------
 {
   // The stepper still refuses what the rules refuse, and says so in the red
   // line. Both directions, on the real buttons.
   const cr = createCreation(document.createElement('div'), {});
   const step = withClass(cr.el, 'bw-step')[0];
-  const errLine = withClass(cr.el, 'bw-cr-err')[0];
+  const errLine = one(cr.el, 'bw-cr-err');
   const before = { ...cr.state.skills };
   step.children[3].fire('click');   // +5 with nothing lowered
   check('a warrior cannot step a skill up out of nothing',
@@ -699,9 +1020,12 @@ check('there is a card for every opening, in the openings order',
   step.children[0].fire('click');   // -5, which is allowed
   const moved = Object.keys(cr.state.skills).filter((k) => (cr.state.skills[k] || 0) !== (before[k] || 0));
   check('and stepping one down is allowed', moved.length === 1, moved.join(','));
+  check('though the five points it freed are named as lying loose until they are placed',
+    /5 skill points you took off are lying loose/.test(errLine.textContent), errLine.textContent);
   step.children[3].fire('click');   // +5 back, now that a donor exists
   check('after which the same step up is taken',
     JSON.stringify(cr.state.skills) === JSON.stringify(before), JSON.stringify(moved));
+  check('and the loose line goes quiet with them', !/lying loose/.test(errLine.textContent), errLine.textContent);
   cr.destroy();
 }
 

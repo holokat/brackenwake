@@ -19,6 +19,11 @@
 //    the Blender rigs land. The card says so rather than implying a model that
 //    changes.
 
+// The dais the character stands on is a real mesh in the real scene, so this
+// file needs the library that makes one. main.js hands over the scene and the
+// rig builder and no THREE, and a dynamic import inside the render loop would
+// be a second module instance, which is the trap CLAUDE.md names.
+import * as THREE from 'three';
 import {
   OPENINGS, OPENINGS_BY_ID, STAT_IDS, STAT_LABELS, STAT_NAMES, SKILL_NAMES, SKILL_IDS,
   APPEARANCE, APPEARANCE_DEFAULT, validateAppearance, applyCustomisation,
@@ -521,219 +526,417 @@ export function auditEmblems() {
 
 auditEmblems();
 
-// ------------------------------------------------------------------- the DOM
+// ------------------------------------------------- what a class says of itself
+
+/**
+ * The land is Kaldera now (docs/mmo/10-STORY.md and the map), and this is the
+ * ONE place the creation screen says the name out loud. The plaque reads it
+ * off this constant; nothing else in this file types a title.
+ */
+export const GAME_TITLE = 'Kaldera';
+
+/** How far one arrow under the preview turns the rig, in degrees. */
+export const YAW_STEP = 30;
+
+/**
+ * One line each, in the voice of somebody who took that opening. Short, so it
+ * sits on a single line under the art at 360 px, and no two alike.
+ */
+export const QUOTES = {
+  warrior: 'Stand where it is worst. The rest is arithmetic.',
+  paladin: 'I do not have to be certain. I have to be there.',
+  ranger: 'The wood told me an hour ago. You were not listening.',
+  rogue: 'You will remember the door being locked.',
+  mage: 'Every fire was a word first.',
+  sorcerer: 'I did not learn it. It was in the blood before I asked.',
+  necromancer: 'The dead keep better accounts than the living.',
+  healer: 'Bleed if you must. I will be under you when you drop.',
+  bard: 'Give me two enemies and one evening.',
+  artisan: 'Somebody made the sword you are so proud of.',
+  blank: 'Ask me again at the end of the road.',
+};
+
+/**
+ * The sentence after the blurb: not what the class is, which the blurb says,
+ * but what it is FOR, which is the thing a player choosing between eleven of
+ * them actually wants.
+ */
+export const CLASS_NOTE = {
+  warrior: 'The straightest road into the game, and the one that forgives most.',
+  paladin: 'For holding a line and mending it after, at the price of speed.',
+  ranger: 'For fighting at the range where nothing has reached you yet.',
+  rogue: 'For the way in, the way out, and the purse on the way past.',
+  mage: 'The most damage in the game, and the least skin to lose it with.',
+  sorcerer: 'For wards, curses and the weather, which is to say the odd answers.',
+  necromancer: 'For making the dead pay off the trouble they caused.',
+  healer: 'For keeping a party on its feet long past where it should have ended.',
+  bard: "For turning a fight into somebody else's fight.",
+  artisan: 'For arming everyone, yourself last, and owning the forge that did it.',
+  blank: 'For a player who already knows the character they mean to play.',
+};
+
+/**
+ * The three words under the class name: its three highest stats, in full, as
+ * the reference sets them. Read off openings.js, so an opening whose spread is
+ * edited says something different here without an edit. Ties fall to STAT_IDS
+ * order, which is the order the tables are written in.
+ */
+export function statWords(opening) {
+  const op = typeof opening === 'string' ? OPENINGS_BY_ID[opening] : opening;
+  if (!op) return [];
+  return STAT_IDS
+    .map((id, i) => ({ id, v: op.stats[id], i }))
+    .sort((a, b) => (b.v - a.v) || (a.i - b.i))
+    .slice(0, 3)
+    .map((r) => STAT_NAMES[r.id].toUpperCase());
+}
+
+/**
+ * The id the art slot wears for a given opening. Stable, one per class, and
+ * exported so a painting can be dropped straight in later:
+ *
+ *   document.getElementById(artId('warrior')).style.backgroundImage = 'url(...)'
+ *
+ * Until then the frame holds the drawing `artUrl` makes below.
+ */
+export function artId(id) { return `bw-cr-art-${id}`; }
 
 const enc = (s) => `url("data:image/svg+xml,${encodeURIComponent(s.replace(/\s+/g, ' ').trim())}")`;
+
+/**
+ * The placeholder inside the portrait frame, drawn in code rather than fetched:
+ * a lit ground in the class colour, two ridges of dark country, and the class
+ * emblem large and faint over them. It is a placeholder and looks like one; the
+ * point is that the frame is never an empty rectangle while the art is painted.
+ */
+export function artUrl(id) {
+  const c = openingColour(id);
+  const body = EMBLEMS[id] || '';
+  return enc(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" width="300" height="260">
+    <defs>
+      <linearGradient id="a" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2a2318"/><stop offset="0.55" stop-color="#15110c"/>
+        <stop offset="1" stop-color="#080706"/>
+      </linearGradient>
+      <radialGradient id="b" cx="0.5" cy="0.34" r="0.62">
+        <stop offset="0" stop-color="${c}" stop-opacity="0.34"/>
+        <stop offset="1" stop-color="${c}" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="300" height="260" fill="url(#a)"/>
+    <rect width="300" height="260" fill="url(#b)"/>
+    <g transform="translate(150 116) scale(4.4) translate(-12 -12)" fill="${c}" opacity="0.24">${body}</g>
+    <path d="M0 206 L58 170 L104 200 L156 160 L206 194 L262 166 L300 188 L300 260 L0 260 Z" fill="#0b0907" opacity="0.9"/>
+    <path d="M0 232 L70 206 L128 230 L188 204 L250 228 L300 210 L300 260 L0 260 Z" fill="#050403"/>
+  </svg>`);
+}
+
+/**
+ * Every opening is written as well as drawn. Runs at import, so a twelfth
+ * opening arriving with no quote and no note fails here rather than showing a
+ * blank right hand panel on the first screen a player sees. This is the same
+ * guard `auditEmblems` is, for the words instead of the lines.
+ */
+export function auditClassText() {
+  const bad = [];
+  for (const op of OPENINGS) {
+    if (!QUOTES[op.id]) bad.push(`${op.id} has no quote`);
+    if (!CLASS_NOTE[op.id]) bad.push(`${op.id} has no note`);
+    if (/[\u2014\u2013]/.test(`${QUOTES[op.id] || ''}${CLASS_NOTE[op.id] || ''}`)) bad.push(`${op.id} is written with a dash the house style forbids`);
+    if (!statWords(op).length) bad.push(`${op.id} has no stat words`);
+  }
+  for (const id of Object.keys(QUOTES)) {
+    if (!OPENINGS_BY_ID[id]) bad.push(`"${id}" has a quote and is not an opening`);
+  }
+  if (new Set(Object.values(QUOTES)).size !== Object.keys(QUOTES).length) bad.push('two openings share a quote');
+  if (bad.length) throw new Error(`creation: ${bad.length} openings are not written. ${bad[0]}`);
+  return OPENINGS.length;
+}
+
+auditClassText();
+
+// ------------------------------------------------------------------- the DOM
 
 const CARET = enc(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" width="12" height="8">
   <path d="M1.4 1.8 L6 6.2 L10.6 1.8" fill="none" stroke="${theme.gold}" stroke-width="1.6"
     stroke-linecap="round" stroke-linejoin="round"/></svg>`);
 
+/** The chevron on a turn arrow. `d` is 1 for the right hand one. */
+const chevron = (dir) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+  stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="${dir > 0 ? 'M9 4 L17 12 L9 20' : 'M15 4 L7 12 L15 20'}"/></svg>`;
+
 const CSS = `
 #bw-creation, #bw-creation * { box-sizing: border-box; }
+/* The whole viewport, and TRANSPARENT down the middle: the rig is a real
+   thing standing in the real scene behind this, not a picture in a box. Only
+   the two side panels and a vignette at the edges are painted. */
 #bw-creation {
-  position: fixed; inset: 0; z-index: 90; display: flex; align-items: stretch;
-  background: linear-gradient(90deg, rgba(6,5,4,.97) 0%, rgba(6,5,4,.93) 50%, rgba(6,5,4,.55) 66%, rgba(6,5,4,0) 78%);
+  position: fixed; inset: 0; z-index: 90;
   font-family: ${theme.fonts.body}; font-size: 15px; line-height: 1.4;
   color: ${theme.parchment};
+  background:
+    radial-gradient(62% 66% at 50% 46%, rgba(6,5,4,0) 0%, rgba(6,5,4,.28) 58%, rgba(6,5,4,.72) 100%);
 }
 #bw-creation[hidden] { display: none; }
 
-/* the sheet: dark parchment, a gold rule down its open edge, corner marks */
 #bw-creation .bw-cr-panel {
-  position: relative;
-  width: min(880px, 52vw); min-width: 520px; max-width: 100vw;
-  padding: 24px 30px 34px; overflow-y: auto; overflow-x: hidden;
+  position: absolute; inset: 0;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 400px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+/* --- the two side panels ------------------------------------------------- */
+#bw-creation .bw-cr-left, #bw-creation .bw-cr-right {
+  grid-row: 1 / 3; min-height: 0;
   display: flex; flex-direction: column;
-  /* The sheet is taller than the window and scrolls. Without this every
-     section is a flex item the browser is free to squeeze, and the skills box
-     with its own max-height was the one that squeezed to nothing at all. */
+  overflow-y: auto; overflow-x: hidden;
   background-image:
     ${cornerUrl(theme.gold)}, ${cornerUrl(theme.gold)},
     ${parchmentUrl()},
-    linear-gradient(100deg, rgba(0,0,0,.55), rgba(0,0,0,.15));
+    linear-gradient(180deg, rgba(6,5,4,.93), rgba(6,5,4,.97));
   background-repeat: no-repeat, no-repeat, repeat, no-repeat;
   background-position: left 8px top 8px, right 8px top 8px, 0 0, 0 0;
   background-size: 18px 18px, 18px 18px, 140px 90px, auto;
+}
+/* The CR1 bug, kept fixed: a column flex box is free to squeeze a child that
+   has its own max-height, and the skills list was the one it squeezed to
+   nothing at all while every count still passed. */
+#bw-creation .bw-cr-left > *, #bw-creation .bw-cr-scroll > * { flex: 0 0 auto; }
+#bw-creation .bw-cr-left {
+  grid-column: 1; padding: 14px 15px 18px;
   border-right: 1px solid ${theme.goldDim}88;
-  box-shadow: 14px 0 44px rgba(0,0,0,.6);
+  box-shadow: 10px 0 34px rgba(0,0,0,.55);
 }
-#bw-creation .bw-cr-panel > * { flex: 0 0 auto; }
-@media (min-width: 1700px) { #bw-creation .bw-cr-panel { width: min(940px, 50vw); } }
+#bw-creation .bw-cr-right {
+  grid-column: 3; padding: 0; overflow: hidden;
+  border-left: 1px solid ${theme.goldDim}88;
+  box-shadow: -10px 0 34px rgba(0,0,0,.55);
+}
+#bw-creation .bw-cr-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column; padding: 14px 17px 12px;
+}
+/* the name and the button, always on the glass whatever the column holds */
+#bw-creation .bw-cr-act {
+  flex: 0 0 auto; padding: 8px 17px 14px;
+  border-top: 1px solid ${theme.goldDim}66;
+  background: linear-gradient(180deg, rgba(6,5,4,.55), rgba(6,5,4,.92));
+}
 
-#bw-creation .bw-cr-top { margin-bottom: 4px; }
-#bw-creation h1 {
-  margin: 0; font-family: ${theme.fonts.display}; font-size: 27px; font-weight: 700;
-  letter-spacing: .05em; color: ${theme.parchment}; text-shadow: 0 2px 12px rgba(0,0,0,.85);
+/* --- the plaque ---------------------------------------------------------- */
+#bw-creation .bw-cr-plaque {
+  grid-column: 2; grid-row: 1; justify-self: center; align-self: start;
+  margin-top: 16px; padding: 11px 44px 13px; text-align: center;
+  background-image:
+    ${cornerUrl(theme.gold)}, ${cornerUrl(theme.gold)},
+    linear-gradient(180deg, #241d15, #100c09 60%, #060504);
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position: left 4px top 4px, right 4px top 4px, 0 0;
+  background-size: 14px 14px, 14px 14px, auto;
+  border: 1px solid ${theme.goldDim};
+  box-shadow: 0 6px 26px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.07);
 }
-#bw-creation .bw-cr-lede {
-  margin: 6px 0 2px; font-style: italic; font-size: 16px; line-height: 1.45;
-  color: ${theme.parchmentDim}; border-left: 2px solid ${theme.goldDim}88; padding-left: 11px;
+#bw-creation h1 {
+  margin: 0; font-family: ${theme.fonts.display}; font-size: 33px; font-weight: 700;
+  letter-spacing: .2em; color: #dcc68d;
+  text-shadow: 0 1px 0 rgba(0,0,0,.95), 0 -1px 0 rgba(255,255,255,.10), 0 4px 18px rgba(0,0,0,.8);
+}
+#bw-creation .bw-cr-ask {
+  margin-top: 5px; font-style: italic; font-size: 15px; color: ${theme.parchmentDim};
 }
 
 /* headers: the codex's small caps in Cinzel over its thin gold rule */
 #bw-creation .bw-hdr {
-  font-family: ${theme.fonts.display}; font-size: 11.5px; font-weight: 600;
+  font-family: ${theme.fonts.display}; font-size: 11px; font-weight: 600;
   letter-spacing: .22em; text-transform: uppercase; color: ${theme.gold};
-  margin: 20px 0 9px; padding-bottom: 9px;
+  margin: 12px 0 7px; padding-bottom: 9px;
   background: ${ruleUrl()} bottom center / 100% 9px no-repeat;
 }
+#bw-creation .bw-hdr:first-child { margin-top: 2px; }
 
-/* --- the hero cards ------------------------------------------------------ */
-#bw-creation .bw-cr-cards {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 9px;
-}
+/* --- the class cards: small, two to a row -------------------------------- */
+/* minmax(0, 1fr) and not 1fr: a plain 1fr track will not go below the widest
+   unbreakable word in it, and NECROMANCER pushed the right hand column of
+   cards clean off a 260 pixel panel at 1280. */
+#bw-creation .bw-cr-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 #bw-creation .bw-cr-card {
-  position: relative; padding: 10px 11px 11px 15px; cursor: pointer;
-  background: linear-gradient(150deg, rgba(30,25,18,.88), rgba(10,9,7,.92));
+  position: relative; min-height: 124px; padding: 9px 9px 10px 13px; cursor: pointer;
+  overflow: hidden;
+  display: flex; flex-direction: column; gap: 4px;
+  background: linear-gradient(150deg, rgba(30,25,18,.9), rgba(10,9,7,.94));
   border: 1px solid ${theme.goldDim}55;
   transition: border-color .12s ease;
 }
-#bw-creation .bw-cr-card .bw-cr-band {
-  position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-}
+#bw-creation .bw-cr-card .bw-cr-band { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
 #bw-creation .bw-cr-card:hover { border-color: ${theme.gold}; }
-#bw-creation .bw-cr-card.on { border-color: ${theme.gold}; box-shadow: inset 3px 0 0 ${theme.gold}; }
+#bw-creation .bw-cr-card.on {
+  border-color: ${theme.gold}; box-shadow: inset 3px 0 0 ${theme.gold}, 0 0 18px rgba(201,164,74,.18);
+  background: linear-gradient(150deg, rgba(48,38,22,.94), rgba(14,11,8,.96));
+}
 #bw-creation .bw-cr-card.on .bw-cr-band { width: 0; }
-
-#bw-creation .bw-cr-head { display: grid; grid-template-columns: 34px 1fr; gap: 9px; align-items: center; }
 #bw-creation .bw-cr-emblem {
-  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
   background: radial-gradient(circle at 50% 38%, rgba(255,255,255,.09), rgba(0,0,0,.5));
   border: 1px solid ${theme.goldDim}77;
 }
+/* 14px and not 15: NECROMANCER is the longest of the eleven and at 15 it ran
+   off the end of a 300 pixel column's card. Measured on the rendered page. */
 #bw-creation .bw-cr-name {
-  font-family: ${theme.fonts.display}; font-size: 17px; font-weight: 600;
-  letter-spacing: .03em; color: ${theme.parchment}; line-height: 1.1;
+  font-family: ${theme.fonts.display}; font-size: 14px; font-weight: 600;
+  letter-spacing: .02em; color: ${theme.parchment}; line-height: 1.1;
 }
 #bw-creation .bw-cr-card.on .bw-cr-name, #bw-creation .bw-cr-card:hover .bw-cr-name { color: ${theme.goldBright}; }
-#bw-creation .bw-cr-group {
-  font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .18em;
-  text-transform: uppercase; margin-top: 2px;
-}
+/* one line of blurb, and never a third: eleven cards of a ragged height read
+   as a list of paragraphs rather than a rack of heroes */
 #bw-creation .bw-cr-blurb {
-  margin: 7px 0 8px; font-size: 14px; line-height: 1.32; color: ${theme.parchmentDim};
+  font-size: 12.5px; line-height: 1.26; color: ${theme.parchmentDim};
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-#bw-creation .bw-cr-bars { display: grid; gap: 2px; margin-bottom: 8px; }
-#bw-creation .bw-cr-bar { display: grid; grid-template-columns: 26px 1fr 22px; gap: 6px; align-items: center; }
-#bw-creation .bw-cr-bk {
-  font-family: ${theme.fonts.display}; font-size: 8.5px; letter-spacing: .1em;
-  color: ${theme.parchmentFaint};
+/* --- the stage: nothing painted, the scene shows through ----------------- */
+#bw-creation .bw-cr-stage {
+  grid-column: 2; grid-row: 2; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  padding: 0 18px 16px; pointer-events: none;
 }
-#bw-creation .bw-cr-bt {
-  display: block; height: 4px; background: rgba(0,0,0,.55);
-  border: 1px solid ${theme.goldDim}44; overflow: hidden;
+#bw-creation .bw-cr-stage > * { pointer-events: auto; }
+/* The open air the rig is framed into. The render loop measures THIS box. */
+#bw-creation .bw-cr-void { flex: 1 1 auto; width: 100%; min-height: 0; pointer-events: none; }
+
+#bw-creation .bw-cr-turn { display: flex; gap: 190px; margin-bottom: 12px; }
+#bw-creation .bw-cr-arrow {
+  width: 40px; height: 32px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: ${theme.parchmentDim};
+  border: 1px solid ${theme.goldDim}88;
+  background: linear-gradient(180deg, rgba(20,16,11,.85), rgba(6,5,4,.9));
 }
-#bw-creation .bw-cr-bf { display: block; height: 100%; }
-#bw-creation .bw-cr-bv {
-  font-family: ${theme.fonts.display}; font-size: 10px; font-variant-numeric: tabular-nums;
-  text-align: right; color: ${theme.parchmentDim};
+#bw-creation .bw-cr-arrow:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
+
+#bw-creation .bw-cr-look {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;
+  width: 100%; max-width: 540px;
+}
+#bw-creation .bw-cr-pill {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 5px 8px 6px;
+  border: 1px solid ${theme.goldDim}66;
+  background: linear-gradient(180deg, rgba(20,16,11,.86), rgba(6,5,4,.92));
+}
+#bw-creation .bw-cr-pk {
+  font-family: ${theme.fonts.display}; font-size: 8.5px; letter-spacing: .18em;
+  text-transform: uppercase; color: ${theme.gold};
 }
 
-#bw-creation .bw-cr-kitrow {
-  display: flex; flex-wrap: wrap; gap: 3px; align-items: center;
-  padding-top: 7px; border-top: 1px solid ${theme.goldDim}33;
+/* --- the right hand panel ------------------------------------------------ */
+#bw-creation .bw-cr-cname {
+  font-family: ${theme.fonts.display}; font-size: 29px; font-weight: 700;
+  letter-spacing: .05em; line-height: 1.05; color: ${theme.parchment};
+  text-shadow: 0 2px 12px rgba(0,0,0,.8);
 }
-#bw-creation .bw-cr-kit-i {
-  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(0,0,0,.42));
-  border: 1px solid ${theme.goldDim}55;
+#bw-creation .bw-cr-words {
+  margin-top: 4px; font-family: ${theme.fonts.display}; font-size: 10px;
+  letter-spacing: .2em; text-transform: uppercase; color: ${theme.gold};
 }
-#bw-creation .bw-cr-kit-i img { display: block; }
-#bw-creation .bw-cr-kit-more {
-  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .1em;
-  text-transform: uppercase; color: ${theme.parchmentFaint}; padding-left: 3px;
+/* the frame the class art goes in. Empty of a painting today; never empty of
+   a drawing, because a blank rectangle on the first screen says "broken". */
+#bw-creation .bw-cr-art {
+  position: relative; width: 100%; height: min(196px, 21vh); margin-top: 9px;
+  background-position: center; background-size: cover; background-repeat: no-repeat;
+  border: 1px solid ${theme.goldDim};
+  box-shadow: inset 0 0 0 3px rgba(0,0,0,.6), inset 0 0 34px rgba(0,0,0,.6), 0 3px 16px rgba(0,0,0,.55);
 }
-
-/* --- the kit, spelled out ------------------------------------------------ */
-#bw-creation .bw-cr-kit { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2px 18px; }
-#bw-creation .bw-cr-kitline {
-  display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: center;
-  padding: 3px 0; border-bottom: 1px solid rgba(201,164,74,.13); font-size: 14.5px;
+#bw-creation .bw-cr-art::after {
+  content: ''; position: absolute; inset: 5px; pointer-events: none;
+  border: 1px solid ${theme.goldDim}66;
 }
-#bw-creation .bw-cr-kitline .bw-cr-kg { display: flex; align-items: center; justify-content: center; }
-#bw-creation .bw-cr-kitline .bw-cr-kn { color: ${theme.parchment}; }
-#bw-creation .bw-cr-kitline .bw-cr-kwhy { color: ${theme.parchmentFaint}; font-style: italic; font-size: 13px; }
-#bw-creation .bw-cr-kitline.gone { opacity: .55; }
-#bw-creation .bw-cr-kitline.gone .bw-cr-kn { color: ${theme.parchmentFaint}; text-decoration: line-through; }
-
-/* --- rows, sliders, steppers, selects ------------------------------------ */
-#bw-creation .bw-cr-two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
-/* The control is capped rather than left on 1fr: at 1920 a 1fr slider for a
-   number that runs 10 to 100 was eight hundred pixels long. */
-#bw-creation .bw-row {
-  display: grid; grid-template-columns: 108px minmax(130px, 330px) 76px; gap: 11px;
-  align-items: center; justify-content: start;
-  padding: 3px 0; border-bottom: 1px solid rgba(201,164,74,.13); font-size: 14.5px;
+#bw-creation .bw-cr-quote {
+  margin: 8px 0 0; font-style: italic; font-size: 14.5px; line-height: 1.35;
+  color: ${theme.parchmentDim};
+  border-left: 2px solid ${theme.goldDim}88; padding-left: 10px;
 }
-#bw-creation .bw-row .bw-k { color: ${theme.parchmentDim}; }
-#bw-creation .bw-row .bw-v {
-  text-align: right; font-family: ${theme.fonts.display}; font-size: 13px; font-weight: 600;
-  font-variant-numeric: tabular-nums; color: ${theme.parchment};
-}
-
-#bw-creation input[type=range] {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 16px;
-  background: transparent; cursor: pointer; margin: 0;
-}
-#bw-creation input[type=range]::-webkit-slider-runnable-track {
-  height: 3px; border: 0;
-  background: linear-gradient(90deg, ${theme.goldDim}, ${theme.gold});
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.65);
-}
-#bw-creation input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none; width: 13px; height: 13px; margin-top: -5px;
-  border-radius: 50%; border: 1px solid ${theme.goldDim};
-  background: radial-gradient(circle at 38% 32%, #fff8e6, ${theme.parchment} 58%, ${theme.parchmentDim});
-  box-shadow: 0 1px 3px rgba(0,0,0,.85);
-}
-#bw-creation input[type=range]::-moz-range-track {
-  height: 3px; border: 0;
-  background: linear-gradient(90deg, ${theme.goldDim}, ${theme.gold});
-}
-#bw-creation input[type=range]::-moz-range-thumb {
-  width: 12px; height: 12px; border-radius: 50%; border: 1px solid ${theme.goldDim};
-  background: radial-gradient(circle at 38% 32%, #fff8e6, ${theme.parchment} 58%, ${theme.parchmentDim});
-}
-
-#bw-creation select, #bw-creation input[type=text] {
-  font-family: ${theme.fonts.body}; font-size: 14.5px; color: ${theme.parchment};
-  padding: 5px 9px; border: 1px solid ${theme.goldDim}66;
-  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.45));
-}
-#bw-creation select {
-  -webkit-appearance: none; appearance: none; width: 100%; padding-right: 26px; cursor: pointer;
-  background-image: ${CARET}, linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.45));
-  background-repeat: no-repeat, no-repeat;
-  background-position: right 8px center, 0 0;
-  background-size: 12px 8px, auto;
-}
-#bw-creation select:focus, #bw-creation input[type=text]:focus { outline: none; border-color: ${theme.gold}; }
-#bw-creation select option { background: #100d09; color: ${theme.parchment}; }
-#bw-creation input[type=text] { width: 300px; max-width: 100%; letter-spacing: .02em; }
+#bw-creation .bw-cr-about { margin-top: 7px; font-size: 14px; line-height: 1.32; color: ${theme.parchmentDim}; }
 
 #bw-creation .bw-cr-budget {
-  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .1em;
+  font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .1em;
   text-transform: uppercase; color: ${theme.gold}; font-variant-numeric: tabular-nums;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
 }
 #bw-creation .bw-cr-budget.spent { color: ${theme.parchmentFaint}; }
 
+/* --- the stat bars, which are also the sliders --------------------------- */
+#bw-creation .bw-cr-bars { display: grid; gap: 3px; }
+#bw-creation .bw-cr-bar { display: grid; grid-template-columns: 30px 1fr 32px; gap: 9px; align-items: center; }
+#bw-creation .bw-cr-bk {
+  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .12em;
+  color: ${theme.parchmentFaint};
+}
+#bw-creation .bw-cr-bt {
+  position: relative; display: block; height: 11px;
+  background: rgba(0,0,0,.6); border: 1px solid ${theme.goldDim}55;
+}
+#bw-creation .bw-cr-bf { position: absolute; left: 0; top: 0; bottom: 0; display: block; }
+#bw-creation .bw-cr-bv {
+  font-family: ${theme.fonts.display}; font-size: 12.5px; font-variant-numeric: tabular-nums;
+  text-align: right; color: ${theme.parchment};
+}
+/* the range input IS the bar: no track of its own, sat exactly over it */
+#bw-creation input[type=range] {
+  -webkit-appearance: none; appearance: none; margin: 0; cursor: pointer;
+  position: absolute; left: -2px; top: -4px; width: calc(100% + 4px); height: 19px;
+  background: transparent;
+}
+#bw-creation input[type=range]::-webkit-slider-runnable-track { height: 19px; background: transparent; border: 0; }
+#bw-creation input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 11px; height: 15px; margin-top: 2px;
+  border: 1px solid #2b2118;
+  background: linear-gradient(180deg, #fff6e0, ${theme.parchment} 55%, ${theme.parchmentFaint});
+  box-shadow: 0 1px 4px rgba(0,0,0,.9);
+}
+#bw-creation input[type=range]::-moz-range-track { height: 19px; background: transparent; border: 0; }
+#bw-creation input[type=range]::-moz-range-thumb {
+  width: 10px; height: 15px; border-radius: 0; border: 1px solid #2b2118;
+  background: linear-gradient(180deg, #fff6e0, ${theme.parchment} 55%, ${theme.parchmentFaint});
+}
+
+/* --- the skills, behind a disclosure ------------------------------------- */
+#bw-creation .bw-cr-disc {
+  width: 100%; margin-top: 9px; text-align: left; cursor: pointer;
+  font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .18em;
+  text-transform: uppercase; color: ${theme.gold};
+  padding: 7px 10px; border: 1px solid ${theme.goldDim}66;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.42));
+}
+#bw-creation .bw-cr-disc:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
+#bw-creation .bw-cr-disc::after { content: ' +'; float: right; }
+#bw-creation .bw-cr-disc.open::after { content: ' -'; }
+#bw-creation .bw-cr-skillwrap { margin-top: 8px; }
+#bw-creation .bw-cr-skillwrap[hidden] { display: none; }
 #bw-creation .bw-cr-skills {
-  max-height: 280px; overflow-y: auto; padding: 4px 10px 4px 11px;
-  border: 1px solid ${theme.goldDim}44; background: rgba(0,0,0,.25);
+  max-height: 260px; overflow-y: auto; padding: 4px 9px 4px 10px;
+  border: 1px solid ${theme.goldDim}44; background: rgba(0,0,0,.3);
 }
 #bw-creation .bw-cr-skills .bw-cr-grp {
-  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .18em;
-  text-transform: uppercase; color: ${theme.goldDim}; margin: 11px 0 3px;
+  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .18em;
+  text-transform: uppercase; color: ${theme.goldDim}; margin: 10px 0 3px;
   border-bottom: 1px solid ${theme.goldDim}44; padding-bottom: 3px;
 }
 #bw-creation .bw-cr-skills .bw-cr-grp:first-child { margin-top: 0; }
-#bw-creation .bw-step { display: flex; gap: 3px; justify-content: flex-end; }
+#bw-creation .bw-row {
+  display: grid; grid-template-columns: 1fr 106px 34px; gap: 7px; align-items: center;
+  padding: 2px 0; border-bottom: 1px solid rgba(201,164,74,.13); font-size: 14px;
+}
+#bw-creation .bw-row .bw-k { color: ${theme.parchmentDim}; }
+#bw-creation .bw-row .bw-v {
+  text-align: right; font-family: ${theme.fonts.display}; font-size: 12.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: ${theme.parchment};
+}
+#bw-creation .bw-step { display: flex; gap: 2px; justify-content: flex-end; }
 #bw-creation .bw-step button {
-  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .04em;
-  width: 26px; padding: 3px 0; cursor: pointer; color: ${theme.parchmentDim};
+  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .03em;
+  width: 25px; padding: 3px 0; cursor: pointer; color: ${theme.parchmentDim};
   border: 1px solid ${theme.goldDim}66;
   background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.4));
 }
@@ -741,41 +944,119 @@ const CSS = `
 #bw-creation .bw-step button:disabled { opacity: .3; cursor: default; }
 
 /* --- what that comes to -------------------------------------------------- */
-#bw-creation .bw-cr-derived { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
+#bw-creation .bw-cr-derived { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
 #bw-creation .bw-cr-drow {
-  display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: center;
-  padding: 3px 0; border-bottom: 1px solid rgba(201,164,74,.13); font-size: 14.5px;
+  display: grid; grid-template-columns: 16px 1fr auto; gap: 7px; align-items: center;
+  padding: 2px 0; border-bottom: 1px solid rgba(201,164,74,.13); font-size: 13.5px;
 }
 #bw-creation .bw-cr-drow .bw-i { display: block; opacity: .85; }
 #bw-creation .bw-cr-drow .bw-cr-dk {
-  font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .13em;
+  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .12em;
   text-transform: uppercase; color: ${theme.gold};
 }
 #bw-creation .bw-cr-drow .bw-cr-dv {
-  font-family: ${theme.fonts.display}; font-size: 13.5px; font-weight: 600;
-  font-variant-numeric: tabular-nums; color: ${theme.parchment};
+  font-family: ${theme.fonts.display}; font-size: 12.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: ${theme.parchment}; white-space: nowrap;
 }
 
-/* --- begin --------------------------------------------------------------- */
+/* --- the gear row -------------------------------------------------------- */
+#bw-creation .bw-cr-kitrow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+#bw-creation .bw-cr-kit-i, #bw-creation .bw-cr-kit-gone {
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(0,0,0,.42));
+  border: 1px solid ${theme.goldDim}55;
+}
+#bw-creation .bw-cr-kit-i img, #bw-creation .bw-cr-kit-gone img { display: block; }
+/* a kit line the item tables cannot make yet: shown, greyed, and said again in
+   words under the button. Never simply absent. */
+#bw-creation .bw-cr-kit-gone { opacity: .4; border-style: dashed; }
+#bw-creation .bw-cr-kit-more {
+  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: ${theme.parchmentFaint}; padding-left: 3px;
+}
+
+/* --- the name, and the button -------------------------------------------- */
+#bw-creation select, #bw-creation input[type=text] {
+  font-family: ${theme.fonts.body}; font-size: 14px; color: ${theme.parchment};
+  padding: 4px 8px; border: 1px solid ${theme.goldDim}66;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.45));
+}
+#bw-creation select {
+  -webkit-appearance: none; appearance: none; width: 100%; padding-right: 22px; cursor: pointer;
+  background-image: ${CARET}, linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.45));
+  background-repeat: no-repeat, no-repeat;
+  background-position: right 6px center, 0 0;
+  background-size: 12px 8px, auto;
+}
+#bw-creation select:focus, #bw-creation input[type=text]:focus { outline: none; border-color: ${theme.gold}; }
+#bw-creation select option { background: #100d09; color: ${theme.parchment}; }
+#bw-creation input[type=text] {
+  width: 100%; font-size: 17px; padding: 8px 11px; letter-spacing: .04em;
+  font-family: ${theme.fonts.display};
+}
+
 #bw-creation .bw-cr-go {
-  margin-top: 18px; align-self: flex-start;
-  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
+  width: 100%; margin-top: 14px;
+  font-family: ${theme.fonts.display}; font-size: 14px; font-weight: 600;
   letter-spacing: .26em; text-transform: uppercase; color: ${theme.goldBright};
-  padding: 12px 42px; cursor: pointer;
+  padding: 14px 18px; cursor: pointer;
   border: 1px solid ${theme.gold};
-  background: linear-gradient(180deg, rgba(201,164,74,.22), rgba(0,0,0,.55));
-  box-shadow: 0 2px 14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.09);
+  background: linear-gradient(180deg, #8a3226, #55170f 55%, #2c0d08);
+  box-shadow: 0 3px 20px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.12);
 }
-#bw-creation .bw-cr-go:hover:not(:disabled) {
-  background: linear-gradient(180deg, rgba(201,164,74,.34), rgba(0,0,0,.5));
-}
+#bw-creation .bw-cr-go:hover:not(:disabled) { background: linear-gradient(180deg, #a03d2e, #651b12 55%, #351009); }
 #bw-creation .bw-cr-go:disabled {
-  opacity: .42; cursor: default; color: ${theme.parchmentFaint}; border-color: ${theme.goldDim};
+  opacity: .5; cursor: default; color: ${theme.parchmentFaint}; border-color: ${theme.goldDim};
+  background: linear-gradient(180deg, #3a2018, #221009 55%, #140805);
 }
-#bw-creation .bw-cr-err {
-  margin-top: 9px; min-height: 19px; font-size: 14.5px; color: ${theme.down};
+#bw-creation .bw-cr-err { margin-top: 8px; min-height: 18px; font-size: 14px; color: ${theme.down}; }
+#bw-creation .bw-cr-short { margin-top: 2px; font-size: 13px; font-style: italic; color: ${theme.parchmentFaint}; }
+
+/* --- the footer ---------------------------------------------------------- */
+#bw-creation .bw-cr-foot {
+  grid-column: 1 / -1; grid-row: 3;
+  display: flex; justify-content: space-between; align-items: center; gap: 18px;
+  padding: 6px 16px; border-top: 1px solid ${theme.goldDim}44;
+  background: linear-gradient(180deg, rgba(6,5,4,.6), rgba(6,5,4,.92));
+  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .2em;
+  text-transform: uppercase; color: ${theme.parchmentFaint};
 }
-#bw-creation .bw-cr-short { font-size: 13.5px; font-style: italic; color: ${theme.parchmentFaint}; }
+
+/* --- narrower windows ---------------------------------------------------- */
+/* 1280: the three columns still stand, at 260 and 360. */
+@media (max-width: 1400px) {
+  #bw-creation .bw-cr-panel { grid-template-columns: 260px minmax(0, 1fr) 360px; }
+  #bw-creation .bw-cr-left { padding: 14px 12px 18px; }
+  #bw-creation .bw-cr-card { padding: 8px 7px 9px 11px; }
+  #bw-creation .bw-cr-name { font-size: 12.5px; letter-spacing: 0; }
+  #bw-creation .bw-cr-blurb { font-size: 12px; }
+  #bw-creation .bw-cr-drow .bw-cr-dk { font-size: 9px; letter-spacing: .07em; }
+  #bw-creation .bw-cr-drow { gap: 6px; }
+  #bw-creation .bw-cr-art { height: min(174px, 19vh); }
+  #bw-creation .bw-cr-turn { gap: 150px; }
+}
+/* Below 1100 there is not room for three, so they stack and the preview is on
+   top, which is the thing a player is choosing between. */
+@media (max-width: 1099px) {
+  #bw-creation { overflow-y: auto; }
+  #bw-creation .bw-cr-panel {
+    position: relative; inset: auto; min-height: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto auto;
+  }
+  #bw-creation .bw-cr-plaque { grid-column: 1; grid-row: 1; }
+  #bw-creation .bw-cr-stage { grid-column: 1; grid-row: 2; height: 52vh; padding-top: 10px; }
+  #bw-creation .bw-cr-left { grid-column: 1; grid-row: 3; border-right: 0; box-shadow: none; overflow: visible; }
+  #bw-creation .bw-cr-right { grid-column: 1; grid-row: 4; border-left: 0; box-shadow: none; overflow: visible; }
+  /* stacked, the page itself scrolls, so the right column is not a viewport
+     of its own and the button rides down the page with everything else */
+  #bw-creation .bw-cr-scroll { overflow: visible; padding-bottom: 4px; }
+  #bw-creation .bw-cr-act { border-top: 0; background: none; }
+  #bw-creation .bw-cr-left, #bw-creation .bw-cr-right { border-top: 1px solid ${theme.goldDim}88; }
+  #bw-creation .bw-cr-foot { grid-column: 1; grid-row: 5; }
+  #bw-creation .bw-cr-cards { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+  #bw-creation .bw-cr-art { height: 200px; }
+}
 
 #bw-creation ::-webkit-scrollbar { width: 9px; height: 9px; }
 #bw-creation ::-webkit-scrollbar-track { background: rgba(0,0,0,.45); }
@@ -796,32 +1077,32 @@ const hs = (tag, cls, svgText) => {
   return e;
 };
 
-/**
- * The line under a card's name. Naming the archetype there put WARRIOR under
- * Warrior on five of the eleven cards, which is a line that says nothing, so
- * it says the thing the opening is best at instead: its highest starting
- * skill, read off openings.js rather than typed here. Blank has no skill above
- * zero, and what it has instead is the pool, so that is what its card says.
- */
-export function leadSkillLine(op) {
-  let bestId = null, best = 0;
-  for (const [id, v] of Object.entries(op.skills || {})) {
-    if (v > best) { best = v; bestId = id; }
-  }
-  if (!bestId) return `${op.freeSkillPoints} skill points to place`;
-  return `${SKILL_NAMES[bestId] || bestId} ${best}`;
-}
-
 /** The mark beside each derived number, from the codex's own icon set. */
 const DERIVED_ICON = {
   health: 'heart', mana: 'book', stamina: 'boot',
-  carry: 'scale', 'mana regen': 'drop', 'stamina regen': 'bolt',
+  // The unit rides in the label rather than the number. "STAMINA REGEN" beside
+  // "2.50 A SECOND" wrapped its own value at 360 px; this way the label wraps,
+  // which is what labels are allowed to do, and the number stays one line.
+  carry: 'scale', 'mana a second': 'drop', 'stamina a second': 'bolt',
 };
 
+/** The dais, in metres: how thick it is, and how wide at the foot and the top. */
+export const DAIS = { height: 0.16, top: 0.62, foot: 0.74 };
+
 /**
- * The screen. Over a darkened scene with the rig turning, if a scene was
- * handed in; without one it is still a working creation screen, which is what
- * lets it be opened from settings later.
+ * How the framing camera is placed. `fill` is the share of the open air in the
+ * middle column the rig and its dais are asked to take up, top to bottom.
+ * Nothing else is a number chosen here: how tall the rig actually is comes off
+ * its own bounding box, and the rest off the window and the fov, so the same
+ * one number frames it at 1280, at 1920, in the stacked layout under 1100, and
+ * at every height the pill offers.
+ */
+export const FRAME = { fill: 0.82, fallbackDist: 2.7, fallbackAim: 1.0 };
+
+/**
+ * The screen. Over the scene the rig is standing in, if a scene was handed in;
+ * without one it is still a working creation screen, which is what lets it be
+ * opened from settings later and driven in node by the suite.
  *
  * @param {HTMLElement} root
  * @param {{ sc?, buildCharacter?, onDone?, THREE? }} deps
@@ -835,6 +1116,10 @@ export function createCreation(root, deps = {}) {
     appearance: { ...APPEARANCE_DEFAULT },
     name: '',
   };
+  // Degrees, unbounded, changed only by the two arrows. The rig eases towards
+  // it in the render loop rather than snapping, and nothing else turns it: a
+  // figure that drifts on its own cannot be aimed by an arrow.
+  let yaw = 0;
 
   if (typeof document === 'undefined') {
     return { el: null, state, plan: () => planCharacter(state), destroy() {} };
@@ -857,58 +1142,109 @@ export function createCreation(root, deps = {}) {
   el.appendChild(panel);
   (root || document.body).appendChild(el);
 
-  const top = h('div', 'bw-cr-top');
-  top.appendChild(h('h1', null, 'Who walks out of the trees'));
-  const blurb = h('div', 'bw-cr-lede');
-  top.appendChild(blurb);
-  panel.appendChild(top);
+  // --- the plaque, top centre
+  const plaque = h('div', 'bw-cr-plaque');
+  plaque.appendChild(h('h1', null, GAME_TITLE));
+  plaque.appendChild(h('div', 'bw-cr-ask', 'Who walks out of the trees?'));
+  panel.appendChild(plaque);
 
-  panel.appendChild(h('div', 'bw-hdr', 'Choose your opening'));
+  // --- the left column: the eleven, small
+  const left = h('div', 'bw-cr-left');
+  panel.appendChild(left);
+  left.appendChild(h('div', 'bw-hdr', 'Choose your opening'));
   const cards = h('div', 'bw-cr-cards');
-  panel.appendChild(cards);
+  left.appendChild(cards);
 
-  panel.appendChild(h('div', 'bw-hdr', 'The kit'));
-  const kitList = h('div', 'bw-cr-kit');
-  panel.appendChild(kitList);
+  // --- the middle: nothing painted, the rig stands here
+  const stage = h('div', 'bw-cr-stage');
+  panel.appendChild(stage);
+  const openAir = h('div', 'bw-cr-void');
+  stage.appendChild(openAir);
+  const turn = h('div', 'bw-cr-turn');
+  for (const dir of [-1, 1]) {
+    const b = hs('button', 'bw-cr-arrow', chevron(dir));
+    b.dataset.turn = String(dir);
+    b.title = dir > 0 ? 'turn them to the right' : 'turn them to the left';
+    b.addEventListener('click', () => turnBy(dir * YAW_STEP));
+    turn.appendChild(b);
+  }
+  stage.appendChild(turn);
+  const lookEl = h('div', 'bw-cr-look');
+  stage.appendChild(lookEl);
 
-  panel.appendChild(h('div', 'bw-hdr', 'Stats'));
+  // --- the right column: this class, and everything you may change about it
+  const right = h('div', 'bw-cr-right');
+  panel.appendChild(right);
+  // The class, the points and the gear scroll. The name and the button do NOT:
+  // at 900 px of window the button was below the fold, which is a screen whose
+  // whole purpose is a button you cannot see.
+  const reading = h('div', 'bw-cr-scroll');
+  right.appendChild(reading);
+
+  const cname = h('div', 'bw-cr-cname');
+  reading.appendChild(cname);
+  const words = h('div', 'bw-cr-words');
+  reading.appendChild(words);
+  const art = h('div', 'bw-cr-art');
+  reading.appendChild(art);
+  const quote = h('div', 'bw-cr-quote');
+  reading.appendChild(quote);
+  const about = h('div', 'bw-cr-about');
+  reading.appendChild(about);
+
+  reading.appendChild(h('div', 'bw-hdr', 'Base stats'));
   const statBudget = h('div', 'bw-cr-budget');
-  panel.appendChild(statBudget);
-  const statRows = h('div');
-  panel.appendChild(statRows);
+  reading.appendChild(statBudget);
+  const statBars = h('div', 'bw-cr-bars');
+  reading.appendChild(statBars);
 
-  panel.appendChild(h('div', 'bw-hdr', 'What that comes to'));
-  const derivedEl = h('div', 'bw-cr-derived');
-  panel.appendChild(derivedEl);
-
-  panel.appendChild(h('div', 'bw-hdr', 'Skills'));
+  const disc = h('button', 'bw-cr-disc', 'Adjust skills');
+  reading.appendChild(disc);
+  const skillWrap = h('div', 'bw-cr-skillwrap');
+  skillWrap.hidden = true;                 // closed by default
+  reading.appendChild(skillWrap);
   const skillBudget = h('div', 'bw-cr-budget');
-  panel.appendChild(skillBudget);
+  skillWrap.appendChild(skillBudget);
   const skillScroll = h('div', 'bw-cr-skills');
-  panel.appendChild(skillScroll);
+  skillWrap.appendChild(skillScroll);
+  disc.addEventListener('click', () => {
+    skillWrap.hidden = !skillWrap.hidden;
+    disc.classList.toggle('open', !skillWrap.hidden);
+  });
 
-  panel.appendChild(h('div', 'bw-hdr', 'Appearance'));
-  const lookEl = h('div', 'bw-cr-two');
-  panel.appendChild(lookEl);
+  reading.appendChild(h('div', 'bw-hdr', 'What that comes to'));
+  const derivedEl = h('div', 'bw-cr-derived');
+  reading.appendChild(derivedEl);
 
-  panel.appendChild(h('div', 'bw-hdr', 'Name'));
+  reading.appendChild(h('div', 'bw-hdr', 'Starting gear'));
+  const kitRow = h('div', 'bw-cr-kitrow');
+  reading.appendChild(kitRow);
+
+  const act = h('div', 'bw-cr-act');
+  right.appendChild(act);
+  act.appendChild(h('div', 'bw-hdr', 'Name'));
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
   nameInput.maxLength = NAME_MAX;
   nameInput.placeholder = 'a name';
   nameInput.addEventListener('input', () => { state.name = nameInput.value; refresh(); });
-  panel.appendChild(nameInput);
+  act.appendChild(nameInput);
 
-  const go = h('button', 'bw-cr-go', 'Begin');
-  panel.appendChild(go);
+  const go = h('button', 'bw-cr-go', 'Create character');
+  act.appendChild(go);
   const err = h('div', 'bw-cr-err');
-  panel.appendChild(err);
+  act.appendChild(err);
   const shortfall = h('div', 'bw-cr-short');
-  panel.appendChild(shortfall);
+  act.appendChild(shortfall);
 
-  // --- the opening cards
-  // Built once. Nothing on a card depends on the points a player then moves,
-  // so only the lit border changes when the choice does.
+  // --- the footer, both ends
+  const foot = h('div', 'bw-cr-foot');
+  foot.appendChild(h('span', null, 'Eleven openings, thirty points to move, a name of your own'));
+  foot.appendChild(h('span', null, `${GAME_TITLE} : the making of somebody`));
+  panel.appendChild(foot);
+
+  // --- the eleven cards. Built once: nothing on a card changes with the
+  // points, so only the lit border moves when the choice does.
   for (const op of OPENINGS) {
     const colour = openingColour(op.id);
     const card = h('div', 'bw-cr-card');
@@ -918,54 +1254,11 @@ export function createCreation(root, deps = {}) {
     band.style.background = colour;
     card.appendChild(band);
 
-    const head = h('div', 'bw-cr-head');
-    const emblem = hs('div', 'bw-cr-emblem', emblemSvg(op.id, 24, colour));
+    const emblem = hs('div', 'bw-cr-emblem', emblemSvg(op.id, 20, colour));
     emblem.dataset.emblem = op.id;
-    head.appendChild(emblem);
-    const names = h('div');
-    names.appendChild(h('div', 'bw-cr-name', op.name));
-    const grp = h('div', 'bw-cr-group', leadSkillLine(op));
-    grp.style.color = colour;
-    names.appendChild(grp);
-    head.appendChild(names);
-    card.appendChild(head);
-
+    card.appendChild(emblem);
+    card.appendChild(h('div', 'bw-cr-name', op.name));
     card.appendChild(h('div', 'bw-cr-blurb', op.blurb));
-
-    const bars = h('div', 'bw-cr-bars');
-    for (const id of STAT_IDS) {
-      const v = op.stats[id];
-      const bar = h('div', 'bw-cr-bar');
-      bar.dataset.stat = id;
-      bar.appendChild(h('span', 'bw-cr-bk', STAT_LABELS[id]));
-      const track = h('span', 'bw-cr-bt');
-      const fill = h('i', 'bw-cr-bf');
-      fill.style.width = `${statPct(v)}%`;
-      fill.style.background = colour;
-      fill.dataset.pct = String(statPct(v));
-      track.appendChild(fill);
-      bar.appendChild(track);
-      bar.appendChild(h('span', 'bw-cr-bv', String(v)));
-      bars.appendChild(bar);
-    }
-    card.appendChild(bars);
-
-    // What the kit hands over, in pictures. `itemGlyph` prefers the painting
-    // and falls back to the drawn glyph, so a base with no painting still
-    // shows a thing rather than a hole.
-    const kitRow = h('div', 'bw-cr-kitrow');
-    const made = kitFor(op, 1).items;
-    kitRow.dataset.kit = String(made.length);
-    for (const { item } of made.slice(0, KIT_ICONS_SHOWN)) {
-      const b = baseFor(item);
-      const cell = hs('span', 'bw-cr-kit-i', itemGlyph(b, 22, null, { count: item.count, material: item.material }));
-      cell.title = b.name;
-      kitRow.appendChild(cell);
-    }
-    if (made.length > KIT_ICONS_SHOWN) {
-      kitRow.appendChild(h('span', 'bw-cr-kit-more', `+${made.length - KIT_ICONS_SHOWN} more`));
-    }
-    card.appendChild(kitRow);
 
     card.addEventListener('click', () => pick(op.id));
     cards.appendChild(card);
@@ -981,34 +1274,59 @@ export function createCreation(root, deps = {}) {
     refresh();
   }
 
-  // --- stats and skills, rebuilt when the opening changes because the budgets do
+  /** One arrow. Unbounded, so two lefts are sixty degrees and not three hundred. */
+  function turnBy(deg) {
+    yaw += deg;
+    return yaw;
+  }
+
+  // --- stats, skills and the face, rebuilt when the opening changes because
+  // the budgets and the wording do
   let statInputs = new Map();
   let skillRows = new Map();
 
   function build() {
     const op = OPENINGS_BY_ID[state.opening];
-    const isBlank = op.id === 'blank';
 
-    statRows.textContent = '';
+    cname.textContent = op.name;
+    words.textContent = statWords(op).join(' · ');
+    // The stable hook a painting is dropped on later. One id per class, and
+    // the drawing under it until there is one.
+    art.id = artId(op.id);
+    art.dataset.art = op.id;
+    art.style.backgroundImage = artUrl(op.id);
+    art.title = `${op.name}: the art is not painted yet`;
+    quote.textContent = QUOTES[op.id];
+    about.textContent = `${op.blurb} ${CLASS_NOTE[op.id]}`;
+
+    statBars.textContent = '';
     statInputs = new Map();
     for (const id of STAT_IDS) {
-      const row = h('div', 'bw-row');
-      row.appendChild(h('span', 'bw-k', STAT_NAMES[id]));
+      const bar = h('div', 'bw-cr-bar');
+      bar.dataset.stat = id;
+      bar.appendChild(h('span', 'bw-cr-bk', STAT_LABELS[id]));
+      const track = h('span', 'bw-cr-bt');
+      const fill = h('i', 'bw-cr-bf');
+      fill.style.background = openingColour(op.id);
+      track.appendChild(fill);
+      // The bar IS the slider: the range sits exactly over the track with no
+      // track of its own, so the thing you read is the thing you drag.
       const slider = document.createElement('input');
       slider.type = 'range';
-      slider.min = '10';
-      slider.max = '100';
+      slider.min = String(STAT_FLOOR);
+      slider.max = String(STAT_CEIL);
       slider.step = '1';
       slider.value = String(state.stats[id]);
+      slider.title = STAT_NAMES[id];
       slider.addEventListener('input', () => {
         state.stats[id] = Number(slider.value);
         refresh();
       });
-      row.appendChild(slider);
-      const v = h('span', 'bw-v');
-      row.appendChild(v);
-      statRows.appendChild(row);
-      statInputs.set(id, { slider, v });
+      track.appendChild(slider);
+      bar.appendChild(track);
+      bar.appendChild(h('span', 'bw-cr-bv', String(state.stats[id])));
+      statBars.appendChild(bar);
+      statInputs.set(id, { slider, fill, v: bar.children[2] });
     }
 
     skillScroll.textContent = '';
@@ -1034,46 +1352,41 @@ export function createCreation(root, deps = {}) {
         skillRows.set(sk.id, { v, buttons });
       }
     }
-    if (isBlank) skillScroll.scrollTop = 0;
 
     lookEl.textContent = '';
-    const choose = (label, field, list) => {
-      const row = h('div', 'bw-row');
-      row.appendChild(h('span', 'bw-k', label));
+    const pill = (label, field, list, format = String) => {
+      const cell = h('label', 'bw-cr-pill');
+      cell.appendChild(h('span', 'bw-cr-pk', label));
       const sel = document.createElement('select');
+      sel.dataset.look = field;
       for (const opt of list) {
         const o = document.createElement('option');
-        o.value = opt; o.textContent = opt;
+        o.value = String(opt); o.textContent = format(opt);
         sel.appendChild(o);
       }
-      sel.value = state.appearance[field];
-      sel.addEventListener('change', () => { state.appearance[field] = sel.value; refresh(); });
-      row.appendChild(sel);
-      row.appendChild(h('span'));
-      lookEl.appendChild(row);
+      sel.value = String(state.appearance[field]);
+      sel.addEventListener('change', () => {
+        state.appearance[field] = field === 'height' ? Number(sel.value) : sel.value;
+        if (field === 'height' && rig) rig.group.scale.setScalar(state.appearance.height / 1.8);
+        refresh();
+      });
+      cell.appendChild(sel);
+      lookEl.appendChild(cell);
     };
-    choose('build', 'build', APPEARANCE.builds);
-    choose('skin', 'skin', APPEARANCE.skins);
-    choose('hair', 'hairStyle', APPEARANCE.hairStyles);
-    choose('hair colour', 'hairColour', APPEARANCE.hairColours);
-    choose('marks', 'mark', APPEARANCE.marks);
-    const hRow = h('div', 'bw-row');
-    hRow.appendChild(h('span', 'bw-k', 'height'));
-    const hSlider = document.createElement('input');
-    hSlider.type = 'range';
-    hSlider.min = String(APPEARANCE.height.min);
-    hSlider.max = String(APPEARANCE.height.max);
-    hSlider.step = String(APPEARANCE.height.step);
-    hSlider.value = String(state.appearance.height);
-    const hVal = h('span', 'bw-v');
-    hSlider.addEventListener('input', () => {
-      state.appearance.height = Number(hSlider.value);
-      if (rig) rig.group.scale.setScalar(state.appearance.height / 1.8);
-      refresh();
-    });
-    hRow.appendChild(hSlider); hRow.appendChild(hVal);
-    lookEl.appendChild(hRow);
-    lookEl._height = hVal;
+    pill('build', 'build', APPEARANCE.builds);
+    pill('skin', 'skin', APPEARANCE.skins);
+    pill('hair', 'hairStyle', APPEARANCE.hairStyles);
+    pill('hair colour', 'hairColour', APPEARANCE.hairColours);
+    pill('marks', 'mark', APPEARANCE.marks);
+    // Height is the sixth choice and wears the same pill as the other five.
+    // The values are openings.js's own min, max and step, so a range that
+    // widens there widens here.
+    const heights = [];
+    const rungs = Math.round((APPEARANCE.height.max - APPEARANCE.height.min) / APPEARANCE.height.step);
+    for (let i = 0; i <= rungs; i++) {
+      heights.push(Number((APPEARANCE.height.min + i * APPEARANCE.height.step).toFixed(2)));
+    }
+    pill('height', 'height', heights, (v) => `${v.toFixed(2)} m`);
   }
 
   /** Move a skill, clamped to what the rules would take. */
@@ -1089,7 +1402,7 @@ export function createCreation(root, deps = {}) {
     refresh();
   }
 
-  /** Just the points half, so the sliders can be refused before the name is typed. */
+  /** Just the points half, so a slider can be refused before the name is typed. */
   function planPoints() {
     const op = OPENINGS_BY_ID[state.opening];
     const isBlank = op.id === 'blank';
@@ -1105,34 +1418,30 @@ export function createCreation(root, deps = {}) {
   function refresh() {
     const op = OPENINGS_BY_ID[state.opening];
     const isBlank = op.id === 'blank';
-    blurb.textContent = op.blurb;
     for (const card of cards.children) card.classList.toggle('on', card.dataset.opening === state.opening);
 
+    // What the kit hands over, in pictures. `itemGlyph` prefers the painting
+    // and falls back to the drawn glyph, so a base with no painting still
+    // shows a thing rather than a hole.
     const { items, missing } = kitFor(op, 1);
-    kitList.textContent = '';
-    for (const { item, from } of items) {
+    kitRow.textContent = '';
+    kitRow.dataset.kit = String(items.length);
+    for (const { item } of items.slice(0, KIT_ICONS_SHOWN)) {
       const b = baseFor(item);
-      const line = h('div', 'bw-cr-kitline');
-      line.appendChild(hs('span', 'bw-cr-kg', itemGlyph(b, 22, null, { count: item.count, material: item.material })));
-      const n = item.count && item.count > 1 ? `${item.count} ` : '';
-      const words = h('span');
-      words.appendChild(h('span', 'bw-cr-kn', `${n}${b.name.toLowerCase()}`));
-      if (STAND_INS[from]) {
-        words.appendChild(h('span', 'bw-cr-kwhy',
-          ` (the kit says ${from.replace(/([A-Z])/g, ' $1').toLowerCase()}, and ${STAND_INS[from]} is what the tables have)`));
-      }
-      line.appendChild(words);
-      kitList.appendChild(line);
+      const cell = hs('span', 'bw-cr-kit-i', itemGlyph(b, 22, null, { count: item.count, material: item.material }));
+      cell.title = item.count && item.count > 1 ? `${item.count} ${b.name.toLowerCase()}` : b.name;
+      kitRow.appendChild(cell);
     }
-    // What the kit named and the tables cannot make, greyed, with the reason.
+    if (items.length > KIT_ICONS_SHOWN) {
+      kitRow.appendChild(h('span', 'bw-cr-kit-more', `+${items.length - KIT_ICONS_SHOWN} more`));
+    }
+    // Anything the kit names and the tables cannot make: greyed, in its place
+    // in the row, and said again in words under the button.
     for (const m of missing) {
-      const line = h('div', 'bw-cr-kitline gone');
-      line.appendChild(hs('span', 'bw-cr-kg', itemGlyph(null, 22, theme.parchmentFaint)));
-      const words = h('span');
-      words.appendChild(h('span', 'bw-cr-kn', m.replace(/([A-Z])/g, ' $1').toLowerCase()));
-      words.appendChild(h('span', 'bw-cr-kwhy', ', which the item tables do not have yet'));
-      line.appendChild(words);
-      kitList.appendChild(line);
+      const cell = hs('span', 'bw-cr-kit-gone', itemGlyph(null, 22, theme.parchmentFaint));
+      cell.dataset.missing = m;
+      cell.title = `${m.replace(/([A-Z])/g, ' $1').toLowerCase()}, which the item tables do not have yet`;
+      kitRow.appendChild(cell);
     }
 
     const points = planPoints();
@@ -1148,8 +1457,11 @@ export function createCreation(root, deps = {}) {
     skillBudget.classList.toggle('spent', skillMoved === skillCap);
 
     for (const [id, ref] of statInputs) {
-      ref.slider.value = String(state.stats[id]);
-      ref.v.textContent = `${state.stats[id]} ${STAT_LABELS[id]}`;
+      const v = state.stats[id];
+      ref.slider.value = String(v);
+      ref.fill.style.width = `${statPct(v)}%`;
+      ref.fill.dataset.pct = String(statPct(v));
+      ref.v.textContent = String(v);
     }
     for (const [id, ref] of skillRows) {
       const v = state.skills[id] || 0;
@@ -1159,13 +1471,12 @@ export function createCreation(root, deps = {}) {
         b.disabled = by < 0 ? v <= 0 : v >= op.maxSkillAtStart;
       }
     }
-    if (lookEl._height) lookEl._height.textContent = `${state.appearance.height.toFixed(2)} m`;
 
     const d = derived(state.stats, state.skills);
     derivedEl.textContent = '';
     const dline = (label, value) => {
       const row = h('div', 'bw-cr-drow');
-      row.appendChild(hs('span', null, icon(DERIVED_ICON[label] || 'crossed', theme.gold, 14)));
+      row.appendChild(hs('span', null, icon(DERIVED_ICON[label] || 'crossed', theme.gold, 13)));
       row.appendChild(h('span', 'bw-cr-dk', label));
       row.appendChild(h('span', 'bw-cr-dv', String(value)));
       derivedEl.appendChild(row);
@@ -1174,13 +1485,29 @@ export function createCreation(root, deps = {}) {
     dline('mana', Math.floor(d.maxMana));
     dline('stamina', Math.floor(d.maxStamina));
     dline('carry', `${Math.round(d.carry)} stones`);
-    dline('mana regen', `${d.manaRegen.toFixed(2)} a second`);
-    dline('stamina regen', `${d.staminaRegen.toFixed(2)} a second`);
+    dline('mana a second', d.manaRegen.toFixed(2));
+    dline('stamina a second', d.staminaRegen.toFixed(2));
+
+    // A BUG THIS SCREEN HID, measured on the shipped code before it was fixed:
+    // drag STR from 65 to 55 and put the ten points nowhere and planCharacter
+    // returns ok with a character whose STR is 65, because a donor with no
+    // gainer makes no move at all. The bar read 55 and the save held 65. The
+    // rules are right and stay untouched; what was missing was anybody reading
+    // `movesFrom`'s own `spare`, which has counted the loose points all along.
+    const looseStat = (points.sm && points.sm.spare) || 0;
+    const looseSkill = (points.km && points.km.spare) || 0;
+    const parts = [];
+    if (looseStat) parts.push(`${looseStat} stat point${looseStat === 1 ? '' : 's'}`);
+    if (looseSkill) parts.push(`${looseSkill} skill point${looseSkill === 1 ? '' : 's'}`);
+    const many = looseStat + looseSkill > 1;
+    const loose = parts.length
+      ? `${parts.join(' and ')} you took off ${many ? 'are' : 'is'} lying loose. Put ${many ? 'them' : 'it'} on something else.`
+      : '';
 
     const plan = planCharacter(state);
-    err.textContent = plan.ok ? '' : plan.errors.join('. ');
-    go.disabled = !plan.ok;
-    shortfall.textContent = plan.ok ? shortfallLine(plan) : '';
+    err.textContent = [loose, plan.ok ? '' : plan.errors.join('. ')].filter(Boolean).join(' ');
+    go.disabled = !plan.ok || !!loose;
+    shortfall.textContent = plan.ok && !loose ? shortfallLine(plan) : '';
   }
 
   go.addEventListener('click', () => {
@@ -1190,23 +1517,119 @@ export function createCreation(root, deps = {}) {
     if (typeof onDone === 'function') onDone(plan.character, plan);
   });
 
-  // --- the rig, turning, over a darkened scene
+  // --- the rig, on its dais, framed by the middle column --------------------
   let rig = null;
+  let dais = null;
   let raf = 0;
   let stopped = false;
+  let shownYaw = 0;                       // radians actually on the rig
+  let lastBox = '';                       // the open air, last time it was measured
+
+  /**
+   * Put the camera where the rig fills `FRAME.fill` of the open air in the
+   * middle column, and lands in the middle of THAT box rather than in the
+   * middle of the window. The two side panels are not the same width, and
+   * under 1100 the stage is at the top of a scrolling page, so a camera aimed
+   * at the centre of the screen would be aimed at a panel.
+   */
+  const span = new THREE.Box3();
+  /**
+   * How tall the thing on the dais actually is, in metres, measured off the rig
+   * rather than taken from BODY.HEIGHT: hair, boots and the appearance scale
+   * all move it, and a framing worked out from a number nobody checked is the
+   * failure this file is full of warnings about.
+   */
+  function rigSpan() {
+    if (!rig) return { lo: 0, hi: 1.8 * (state.appearance.height / 1.8) + DAIS.height };
+    rig.group.updateWorldMatrix(true, true);
+    span.setFromObject(rig.group);
+    return { lo: 0, hi: Number.isFinite(span.max.y) ? span.max.y : 1.94 };
+  }
+
+  function frameCamera() {
+    const cam = sc?.camera;
+    if (!cam) return;
+    const { lo, hi } = rigSpan();
+    const tall = Math.max(0.4, hi - lo);
+    const aim = (lo + hi) / 2;
+    const fov = ((cam.fov || 55) * Math.PI) / 180;
+    const win = typeof window !== 'undefined' ? window : null;
+    const box = openAir.getBoundingClientRect ? openAir.getBoundingClientRect() : null;
+
+    if (!box || !box.width || !box.height || !win?.innerWidth) {
+      cam.position.set(0, FRAME.fallbackAim, FRAME.fallbackDist);
+      cam.lookAt(0, FRAME.fallbackAim, 0);
+      cam.updateProjectionMatrix?.();
+      return;
+    }
+    // The box the rig has to land in is NOT the middle of the window: the two
+    // side panels are different widths, and stacked under 1100 the preview is
+    // at the top of the page. Sliding the camera sideways and down to make up
+    // the difference was the first attempt and it put the camera under the
+    // ground in the stacked layout, looking up at the dais from below.
+    //
+    // So the camera stays level with the middle of the rig, looking straight
+    // at it, and the LENS is offset instead: setViewOffset renders the window
+    // as a crop of a larger frame that has the rig at its own centre. Same
+    // frontal view, no camera acrobatics, and it holds at any window and any
+    // arrangement of the columns.
+    const W = win.innerWidth, H = win.innerHeight;
+    const bx = box.left + box.width / 2;
+    const by = box.top + box.height / 2;
+    const perPx = tall / (FRAME.fill * box.height);
+    // the smallest frame that both centres the rig and still contains the window
+    const fullW = 2 * Math.max(bx, W - bx);
+    const fullH = 2 * Math.max(by, H - by);
+    const dist = (fullH * perPx) / (2 * Math.tan(fov / 2));
+    cam.aspect = fullW / fullH;
+    cam.setViewOffset(fullW, fullH, fullW / 2 - bx, fullH / 2 - by, W, H);
+    cam.position.set(0, aim, dist);
+    cam.lookAt(0, aim, 0);
+    cam.updateProjectionMatrix();
+  }
+
   if (sc && typeof buildCharacter === 'function') {
     try {
       rig = buildCharacter();
-      rig.group.position.set(0, 0, 0);
+      rig.group.position.set(0, DAIS.height, 0);
       rig.group.scale.setScalar(state.appearance.height / 1.8);
       sc.scene.add(rig.group);
-      sc.camera.position.set(1.4, 1.5, 2.9);
-      sc.camera.lookAt(0, 1.0, 0);
-      sc.setDay?.(0.28);
-      sc.setFog?.(40, 90);
+
+      // The dais is a real mesh in the real scene, so the light and the fog of
+      // the world fall on it, and it goes when the screen goes.
+      dais = new THREE.Group();
+      dais.name = 'creation-dais';
+      const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(DAIS.top, DAIS.foot, DAIS.height, 40, 1),
+        new THREE.MeshStandardMaterial({ color: 0x46413a, roughness: 0.97, metalness: 0 }),
+      );
+      body.position.y = DAIS.height / 2;
+      body.receiveShadow = true;
+      dais.add(body);
+      const lip = new THREE.Mesh(
+        new THREE.CylinderGeometry(DAIS.top * 0.94, DAIS.top * 0.94, 0.02, 40, 1),
+        new THREE.MeshStandardMaterial({ color: 0x585045, roughness: 0.92, metalness: 0 }),
+      );
+      lip.position.y = DAIS.height;
+      lip.receiveShadow = true;
+      dais.add(lip);
+      sc.scene.add(dais);
+
+      sc.setDay?.(0.34);
+      sc.setFog?.(26, 74);
+      frameCamera();
       const spin = () => {
         if (stopped) return;
-        rig.group.rotation.y += 0.006;
+        // the arrows, eased. Nothing turns it but them.
+        const want = (yaw * Math.PI) / 180;
+        shownYaw += (want - shownYaw) * 0.16;
+        rig.group.rotation.y = shownYaw;
+        // the window, the side panels and the scroll all move the box the rig
+        // has to sit in, so it is measured rather than assumed, and the camera
+        // is only rebuilt when it actually moved
+        const box = openAir.getBoundingClientRect ? openAir.getBoundingClientRect() : null;
+        const key = box ? `${Math.round(box.left)}:${Math.round(box.top)}:${Math.round(box.width)}:${Math.round(box.height)}:${state.appearance.height}` : '';
+        if (key !== lastBox) { lastBox = key; frameCamera(); }
         try { sc.render(); } catch { /* a lost context is not worth a crash here */ }
         raf = requestAnimationFrame(spin);
       };
@@ -1220,25 +1643,42 @@ export function createCreation(root, deps = {}) {
   function destroy() {
     stopped = true;
     if (raf) cancelAnimationFrame(raf);
+    // The lens goes back the way it was found. A view offset left on the shared
+    // camera would frame the whole game off centre for the rest of the session.
+    if (sc?.camera?.clearViewOffset) {
+      sc.camera.clearViewOffset();
+      if (typeof sc.resize === 'function') sc.resize();
+      else sc.camera.updateProjectionMatrix();
+    }
     if (rig && sc) sc.scene.remove(rig.group);
+    if (dais && sc) {
+      sc.scene.remove(dais);
+      for (const m of dais.children) { m.geometry?.dispose?.(); m.material?.dispose?.(); }
+      dais = null;
+    }
     el.remove();
   }
 
   build();
   pick(state.opening);
-  // Taking the caret is worth it; taking the caret and dragging the sheet down
-  // to the name field, past the eleven cards the player came here to look at,
-  // is not. The scroll is put back either way, because preventScroll is not
-  // honoured everywhere.
+  // Taking the caret is worth it; taking the caret and dragging the right hand
+  // column down to the name field, past the class the player came here to read
+  // about, is not. The scroll is put back either way, because preventScroll is
+  // not honoured everywhere.
   try { nameInput.focus?.({ preventScroll: true }); } catch { nameInput.focus?.(); }
-  panel.scrollTop = 0;
+  left.scrollTop = 0;
+  reading.scrollTop = 0;
 
   return {
     el, state,
     plan: () => planCharacter(state),
     pick,
+    turnBy,
     destroy,
+    get yaw() { return yaw; },
+    get skillsOpen() { return !skillWrap.hidden; },
     get rig() { return rig; },
+    get dais() { return dais; },
   };
 }
 

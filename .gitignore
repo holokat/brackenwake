@@ -13,3 +13,4 @@ public/audio/music/
 # local save backups, never commit somebody's farm
 .saves/
 .wrangler/
+.shot/
