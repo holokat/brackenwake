@@ -481,8 +481,8 @@ unchanged; run each as PLACE prefix + realm tag + place text.
 > The dragonriders' hall cut into the lightning peak: landing steps a
 > hundred feet wide climbing to a hall with a doorway sixty feet high, nine
 > stone perches on pillars around it, each with a ghostly rider seated,
-> lightning striking the peak above, cloud streaming past, the whole
-> highland below.
+> lightning striking the peak above, cloud streaming past at the frame's
+> edge.
 
 **eyrieroost, the Eyrie's Roost (dungeon, boss Warden Hask)**
 > Three levels cut into the peak down to a mounting stair: vast halls for
