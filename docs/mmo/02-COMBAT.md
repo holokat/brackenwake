@@ -59,6 +59,54 @@ capped at 70%. Armour gives physical AR and small typed resists by tier.
 poisoned target loses `level * 2` health a second for `level * 6` seconds,
 Healing or a cure potion ends it.
 
+## Armour and casting
+
+Armour is worn against a blade, and a spell has to get out through it. Every
+tier carries a **cast burden** beside its Meditation fraction: 0 is armour a
+spell does not notice, 1 is armour that fights it the whole way.
+
+| tier | material | cast burden | cast time | fizzles |
+| --- | --- | --- | --- | --- |
+| 1 | Cloth | 0 | unchanged | never |
+| 2 | Leather | 0.10 | 1.1x | 6 in 100 |
+| 3 | Studded leather | 0.30 | 1.3x | 18 in 100 |
+| 4 | Ringmail | 0.55 | 1.55x | 33 in 100 |
+| 5 | Chainmail | 0.75 | 1.75x | 45 in 100 |
+| 6 | Platemail | 1.00 | twice as long | 60 in 100 |
+
+**The number you wear** is the mean over the eight armour slots, an empty slot
+counting as 0, exactly the way the Meditation fraction is combined. A plate
+breastplate and nothing else is 1/8 = 0.125; a full suit of plate is 1.0. A
+piece carrying the **Mage Armour** affix counts as 0, which is the one way to
+wear metal and still cast out of it.
+
+```
+castTime = ability.castTime * (1 + castBurden)
+fizzle   = castBurden * 0.6                     rolled when the cast completes
+```
+
+**A fizzle** costs half the mana, plays the denied cue, floats a grey word and
+says which material did it: "Fireball fizzles: your platemail gets in the way."
+It still teaches the skill, at the half chance a failed attempt always teaches
+at. A cast with no cast bar is rolled the moment it is pressed, so Lightning
+and Magic Arrow are burdened like anything else; only the cast time half of the
+rule is free for them, since twice nothing is nothing.
+
+**Chivalry is exempt.** The paladin's holy magic works in plate, which is what
+`04-CLASSES-ABILITIES.md` has always said, so Heal, Cleanse, Greater Heal,
+Bless, Sanctuary, Consecrate Weapon, Smite, Resurrect and Lay on Hands cast at
+their own speed out of a full suit and never fizzle. Every other spell, all
+twenty six of them, pays the burden. That is the whole answer to the tank
+wizard: you may wear the plate, and in it you may cast the paladin's nine.
+
+The bar says so before you press anything. A burdened spell carries an amber
+line in its tooltip in the band's own words (a little, often, mostly) with the
+two numbers it is promising, and above 0.25 the cell wears an amber corner.
+
+The per tier numbers are `ARMOR_TIERS` in `src/mmo/items.js`, the mean is
+`castBurdenOf` in `src/game/actor.js`, and the penalty is applied in
+`src/game/abilities_runtime.js`. `docs/mmo/wiring/C1.md` records the whole path.
+
 ## Health, death, respawn
 
 Health 0 is death. The body drops; for now every item stays with you. You

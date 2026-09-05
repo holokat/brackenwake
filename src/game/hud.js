@@ -59,6 +59,19 @@ export const BAR_SLOTS = BAR_KEYS.length;
 /** What a key cap says when the key itself is not the clearest glyph. */
 export const KEY_LABELS = { '=': '+' };
 
+/**
+ * C1: above this much armour burden a bar cell wears an amber corner, so a
+ * plated mage sees it without hovering. The same number as
+ * abilities_runtime.js's BURDEN_MARK, which is where the bands are decided;
+ * it is repeated here rather than imported for the reason BAR_KEYS is (this
+ * file draws and does not reach into the runtime), and hud.test.mjs fails if
+ * the two ever differ.
+ */
+export const BURDEN_MARK = 0.25;
+
+/** The amber the burden warning is written in, in the tooltip and on the cell. */
+export const BURDEN_AMBER = '#f0a63c';
+
 /** The three pools, in the order 06-ECONOMY-UI.md lists them. */
 export const POOLS = [
   { id: 'health', label: 'health', colour: theme.health },
@@ -359,6 +372,14 @@ const CSS = `
 /* G2: the weapon rule. A cell you cannot fire because of what is in your hands
    is greyed rather than left looking ready. The reason is in the title. */
 #bw-bar .cell.unusable { opacity: .5; filter: grayscale(1); }
+/* C1: the armour rule. A spell your plate will fumble more often than not is
+   still pressable, so it is not greyed; it wears an amber corner instead, and
+   the tooltip says how much slower and how often it fizzles. */
+#bw-bar .cell.burdened::after {
+  content: ''; position: absolute; top: 0; right: 0; z-index: 2;
+  border-top: 9px solid ${BURDEN_AMBER}; border-left: 9px solid transparent;
+  filter: drop-shadow(0 0 2px rgba(0,0,0,.8));
+}
 #bw-bar .cell .art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; pointer-events: none; z-index: 0; }
 #bw-bar .cell .k, #bw-bar .cell .n, #bw-bar .cell .c, #bw-bar .cell .sweep, #bw-bar .cell .cd { z-index: 1; }
 #bw-bar .cell.has-art .art { display: block; }
@@ -383,6 +404,8 @@ const CSS = `
 #bw-abtip .chip { font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
   padding: 2px 6px; color: ${theme.parchmentDim}; background: rgba(0,0,0,.45); border: 1px solid ${theme.goldDim}55; }
 #bw-abtip .desc { font-size: 15px; line-height: 1.35; color: ${theme.parchment}; }
+#bw-abtip .burden { font-size: 14px; line-height: 1.3; color: ${BURDEN_AMBER}; margin-top: 6px; }
+#bw-abtip .burden[hidden] { display: none; }
 #bw-abtip .reason { font-size: 14px; font-style: italic; line-height: 1.3; color: #ff9a80; margin-top: 6px; }
 #bw-abtip .reason[hidden] { display: none; }
 #bw-bar .cell.has-art .k, #bw-bar .cell.has-art .c { text-shadow: 0 1px 2px #000, 0 0 3px #000; }
@@ -577,6 +600,10 @@ export function createHud(root) {
   const tipKey = add(tipHead, mk('div', null, 'key'));
   const tipChips = add(tipBody, mk('div', null, 'chips'));
   const tipDesc = add(tipBody, mk('div', null, 'desc'));
+  // C1: what the armour on your back does to this spell, in amber, under the
+  // description and above the red refusal. A spell only: barView leaves it
+  // empty for everything else, and for a Chivalry row, which casts in plate.
+  const tipBurden = add(tipBody, mk('div', null, 'burden'));
   const tipReason = add(tipBody, mk('div', null, 'reason'));
   let tipOwner = null;
 
@@ -604,6 +631,8 @@ export function createHud(root) {
       tipChips.textContent = '';
       for (const t of abilityChips(a)) add(tipChips, mk('span', null, 'chip')).textContent = t;
       tipDesc.textContent = a.description || '';
+      tipBurden.textContent = c.burden || '';
+      tipBurden.hidden = !c.burden;
       tipReason.textContent = c.reason || '';
       tipReason.hidden = !c.reason;
     } else if (c.item) {
@@ -612,6 +641,7 @@ export function createHud(root) {
       tipKey.textContent = c.key || '';
       tipChips.textContent = '';
       tipDesc.textContent = c.tip || '';
+      tipBurden.textContent = ''; tipBurden.hidden = true;
       tipReason.textContent = ''; tipReason.hidden = true;
     } else { hideAbTip(); return; }
     abTip.hidden = false;
@@ -656,7 +686,7 @@ export function createHud(root) {
       if (onBarPick) onBarPick(i);
     });
     barRow.appendChild(c);
-    const rec = { el: c, art, name: n, cost, sweep: sw, cd, key, last: null, tip: null, ability: null, reason: '' };
+    const rec = { el: c, art, name: n, cost, sweep: sw, cd, key, last: null, tip: null, ability: null, reason: '', burden: '' };
     hoverTip(rec);
     return rec;
   });
@@ -777,6 +807,7 @@ export function createHud(root) {
         if (c.last !== null) {
           c.el.className = 'cell empty';
           setArt(c.art, null); c.hasArt = false; c.tip = null; c.ability = null;
+          c.reason = ''; c.burden = '';
           c.name.textContent = ''; c.cost.textContent = '';
           if (tipOwner === c) hideAbTip();
           c.sweep.style.height = '0%'; c.cd.className = 'cd'; c.cd.textContent = '';
@@ -798,11 +829,14 @@ export function createHud(root) {
       // G2: what is in your hands can refuse an ability, and the reason is the
       // sentence to show. It changes as you draw and sheathe, so the title is
       // rebuilt when it changes rather than once when the slot was filled.
-      const tip = `${ability.name}. ${ability.description || ''}${e.unusableReason ? `\n${e.unusableReason}` : ''}`;
+      // C1: and what your armour does to it, which changes as you dress, so
+      // the burden line is part of the key that decides a rebuild too.
+      const burdenLine = e.burdenText || '';
+      const tip = `${ability.name}. ${ability.description || ''}${burdenLine ? `\n${burdenLine}` : ''}${e.unusableReason ? `\n${e.unusableReason}` : ''}`;
       if (c.tip !== tip) {
         // no native title: the styled tooltip below carries the words, and a
         // second yellow box from the browser on top of it would be noise
-        c.tip = tip; c.ability = ability; c.reason = e.unusableReason || '';
+        c.tip = tip; c.ability = ability; c.reason = e.unusableReason || ''; c.burden = burdenLine;
         if (tipOwner === c) showAbTip(c);
       }
       const left = num(e.cooldownLeft);
@@ -812,7 +846,8 @@ export function createHud(root) {
       if (c.cd.textContent !== label) c.cd.textContent = label;
       c.cd.className = 'cd' + (left > 0 ? ' on' : '');
       c.cost.className = 'c' + (e.affordable === false ? ' poor' : '');
-      c.el.className = 'cell' + (c.hasArt ? ' has-art' : '') + (e.casting ? ' casting' : '') + (e.unusable ? ' unusable' : '');
+      c.el.className = 'cell' + (c.hasArt ? ' has-art' : '') + (e.casting ? ' casting' : '')
+        + (e.unusable ? ' unusable' : '') + (num(e.burden) > BURDEN_MARK ? ' burdened' : '');
     }
   }
 

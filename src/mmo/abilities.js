@@ -371,6 +371,53 @@ export function isSpell(ability) {
   return !!cost && typeof cost.mana === 'number' && cost.mana > 0;
 }
 
+/**
+ * Is this row holy magic? 04-CLASSES-ABILITIES.md says it in one line,
+ * "Chivalry is holy magic that works in plate", and this is that line as a
+ * predicate: a row gated on Chivalry, by its own skill or by one of the routes
+ * in its `anyOf`.
+ *
+ * The `anyOf` clause is there for Resurrect and only for Resurrect: it is the
+ * one row in the table with two ways in (Healing 80 with Anatomy 80, or
+ * Chivalry 85), and an ability cannot be holy down one route and arcane down
+ * the other without being two abilities. It is exempt, and a plated Healing 80
+ * physician gets the paladin's pass with it. That is the price of one row
+ * having two doors, and it is written down here rather than discovered.
+ */
+export function isChivalry(ability) {
+  if (!ability) return false;
+  if (ability.skill === 'chivalry') return true;
+  const routes = Array.isArray(ability.anyOf) ? ability.anyOf : [];
+  return routes.some((r) => (r.all || []).some((c) => c.skill === 'chivalry'));
+}
+
+/**
+ * Does armour get in the way of this row? A spell, unless it is holy.
+ *
+ * THE PALADIN IS THE EXCEPTION, BY DESIGN. The user's rule was "casting
+ * penalty for any armor that is not cloth or leather ... yes paladin can cast
+ * in plate, but limited to paladin spells". So Chivalry casts out of a
+ * breastplate at full speed and never fizzles, and every other spell pays the
+ * armour's `castBurden` (items.js) in cast time and in failures.
+ *
+ * INSTANT SPELLS ARE INCLUDED, and that is a judgement worth naming. Fourteen
+ * of the thirty five spells have `castTime 0`, and ten of those fourteen are
+ * burdened: Magic Arrow, Lightning, Blink, Mana Shield, Hex, Eldritch Bolt,
+ * Life Drain, Fear, Corpse Explosion and Curse of Weakness. (The other four,
+ * Cleanse, Consecrate Weapon, Smite and Lay on Hands, are Chivalry and exempt
+ * already.) Exempting a spell with no cast bar would have left a plated mage a
+ * full instant kit, Lightning included, with no penalty at all, which is
+ * exactly the tank wizard the rule exists to prevent. The cast time half of the penalty is a no op for
+ * them either way, since 0 * 2 is still 0; the fizzle is what they feel.
+ *
+ * abilities_runtime.js applies it, docs/mmo/02-COMBAT.md carries the table,
+ * and auditAbilities counts both sides so a new Chivalry row cannot slip into
+ * the burdened list unnoticed.
+ */
+export function burdensInArmour(ability) {
+  return isSpell(ability) && !isChivalry(ability);
+}
+
 function normalizeNeeds(needs) {
   const out = { kind: needs.kind };
   if (needs.skills) out.skills = [...needs.skills];
@@ -1883,6 +1930,26 @@ export function auditAbilities(list = ABILITIES) {
     if (!usedNeeds.has(kind)) {
       throw new Error(`auditAbilities: no ability needs ${kind}, and the kind is declared`);
     }
+  }
+
+  // The armour rule, both sides counted. Every spell is either burdened or
+  // Chivalry and never both, no row that costs no mana is burdened, and the
+  // nine holy rows are named rather than counted by hand, so a tenth Chivalry
+  // spell (or a Magery row typed with `skill: 'chivalry'`) shows up here as a
+  // changed list instead of as a mage who casts freely in plate.
+  const spells = list.filter(isSpell);
+  const holy = spells.filter(isChivalry).map((x) => x.id);
+  const burdened = spells.filter(burdensInArmour);
+  if (holy.length + burdened.length !== spells.length) {
+    throw new Error(`auditAbilities: ${spells.length} spells, ${holy.length} holy and ${burdened.length} burdened; every spell is one or the other`);
+  }
+  if (burdened.some(isChivalry)) throw new Error('auditAbilities: a Chivalry row is in the burdened list');
+  if (list.some((x) => !isSpell(x) && burdensInArmour(x))) {
+    throw new Error('auditAbilities: something that costs no mana is burdened by armour');
+  }
+  const HOLY_ROWS = ['heal', 'cleanse', 'greaterHeal', 'bless', 'sanctuary', 'consecrateWeapon', 'smite', 'resurrect', 'layOnHands'];
+  if (list.length === ABILITY_COUNT && holy.join(',') !== HOLY_ROWS.join(',')) {
+    throw new Error(`auditAbilities: the Chivalry exemption covers ${holy.join(', ')}, and the rule was written for ${HOLY_ROWS.join(', ')}`);
   }
 
   if (list.length !== ABILITY_COUNT) {

@@ -24,9 +24,10 @@
 
 import {
   ABILITIES_BY_ID, EFFECT_KINDS, canUse, startCast, interruptRule, lessonFor,
-  manaCostFor, costKind, MELEE_RANGE, weaponCheck, weaponNeeds,
+  manaCostFor, costKind, MELEE_RANGE, weaponCheck, weaponNeeds, burdensInArmour,
 } from '../mmo/abilities.js';
 import { JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
+import { castBurdenOf, burdenSources } from './actor.js';
 import { GRAVITY, JUMP_V0 } from './player.js';
 import { pickTarget, DEFAULT_HALF_ANGLE, flatDistance, isTargetable } from './targeting.js';
 
@@ -146,6 +147,75 @@ export function saySeconds(s) {
 }
 
 // ---------------------------------------------------------------------------
+// Armour and the spell going out
+// ---------------------------------------------------------------------------
+//
+// `actor.castBurden` (actor.js) is the mean of the worn armour's `castBurden`
+// over the eight armour slots: 0 in cloth, 0.10 in leather, 0.30 studded, 0.55
+// ringmail, 0.75 chainmail, 1.0 in full plate. Two things come off it, and
+// only for a row `burdensInArmour` calls burdened, which is every spell except
+// the nine Chivalry rows. The paladin casts in plate; nobody else does well.
+//
+//   cast time   ability.castTime * (1 + burden). Plate doubles a cast.
+//   fizzle      burden * CAST_BURDEN_FIZZLE, rolled the moment the spell
+//               would land. Plate fails three casts in five, leather one in
+//               about seventeen, cloth never.
+//
+// A fizzle costs half the mana (the other half comes back, on the same rule a
+// broken cast uses), plays the denied cue, says a sentence naming the armour,
+// floats a grey word, and still teaches the skill at a failure's reduced
+// chance. The whole rule is in docs/mmo/02-COMBAT.md.
+
+/** A fizzle is this fraction of the burden: full plate fails 60% of casts. */
+export const CAST_BURDEN_FIZZLE = 0.6;
+
+/** Above this, the bar cell wears its amber corner. Below it, the tooltip alone. */
+export const BURDEN_MARK = 0.25;
+
+/** How long this row really takes with that armour on. Instants stay instant. */
+export const burdenedCastTime = (castTime, burden) => num(castTime) * (1 + Math.max(0, num(burden)));
+
+/** The chance this row fails outright. Never above CAST_BURDEN_FIZZLE. */
+export const fizzleChance = (burden) => clamp(num(burden), 0, 1) * CAST_BURDEN_FIZZLE;
+
+/** none, a little, often, mostly. The bands the bar's warning is worded in. */
+export function burdenBand(burden) {
+  const b = num(burden);
+  if (b <= 0) return 'none';
+  if (b <= BURDEN_MARK) return 'a little';
+  if (b < 0.6) return 'often';
+  return 'mostly';
+}
+
+const BURDEN_LEAD = {
+  'a little': 'This armour gets in the way a little',
+  often: 'This armour gets in the way often',
+  mostly: 'This armour mostly stops a spell',
+};
+
+/**
+ * The amber line the bar tooltip shows, in the band's words and with the two
+ * numbers it is promising, so nothing here is a feeling the code does not
+ * keep. Empty for a row armour does not touch, and empty in cloth.
+ */
+export function burdenText(burden) {
+  const b = num(burden);
+  if (b <= 0) return '';
+  const times = Math.round((1 + b) * 100) / 100;
+  const longer = times === 2 ? 'twice as long' : `${times} times as long`;
+  const fizzle = Math.round(fizzleChance(b) * 100);
+  return `${BURDEN_LEAD[burdenBand(b)]}: a cast takes ${longer}, and ${fizzle} in 100 fizzle.`;
+}
+
+/** "platemail", "chainmail and ringmail", "platemail, chainmail and ringmail". */
+export function andList(words) {
+  const w = (words || []).filter(Boolean);
+  if (w.length === 0) return '';
+  if (w.length === 1) return w[0];
+  return `${w.slice(0, -1).join(', ')} and ${w[w.length - 1]}`;
+}
+
+// ---------------------------------------------------------------------------
 // createAbilities
 // ---------------------------------------------------------------------------
 
@@ -216,6 +286,30 @@ export function createAbilities(deps = {}) {
    * compares equal to itself and lapses nothing.
    */
   const weaponIdNow = () => actor.weapon?.id ?? character.equipment?.mainHand?.base ?? null;
+
+  /** The paper doll, whichever object is holding it. */
+  const wornNow = () => actor.equipment || character.equipment || null;
+
+  /**
+   * How much the armour on this player's back is fighting this row, 0 to 1.
+   * Zero for anything that is not a burdened spell, so a warrior's Power
+   * Strike and a paladin's Bless both read 0 and never look at the plate.
+   *
+   * `actor.castBurden` is written by actor.js's recompute, which inventory.js
+   * calls on every equip, so it is the fresh number. The fallback is for a
+   * fixture with a paper doll and no recompute behind it: without it such a
+   * character would cast out of full plate as if naked, which is the class of
+   * bug where the writer exists and the reader quietly reads nothing.
+   */
+  function burdenFor(ability) {
+    if (!burdensInArmour(ability)) return 0;
+    const own = actor.castBurden;
+    const b = typeof own === 'number' && Number.isFinite(own) ? own : castBurdenOf(wornNow());
+    return clamp(num(b), 0, 1);
+  }
+
+  /** The materials to blame, as a phrase: "platemail", "chainmail and ringmail". */
+  const armourWords = () => andList(burdenSources(wornNow()));
 
   const moving = () => num(player?.speed) > MOVING_SPEED;
   const airborne = () => !!player?.airborne;
@@ -1024,15 +1118,50 @@ export function createAbilities(deps = {}) {
     return ctx;
   }
 
-  /** "Using an ability is a lesson in its skill at its minSkill + 20." */
-  function teach(ability) {
+  /**
+   * "Using an ability is a lesson in its skill at its minSkill + 20."
+   *
+   * `success` is false for a cast the armour fumbled. progression.lesson's own
+   * rule is that "a failure still teaches, at half the chance", so a plated
+   * mage does learn Magery from a morning of fizzling, at half the rate of one
+   * in a robe, and the reduced gain costs this file nothing but the flag.
+   */
+  function teach(ability, success = true) {
     if (!progression?.lesson) return;
     const l = lessonFor(ability);
     let skill = l.skill;
     if (ability.skillAny) skill = actor.weapon?.skill || character.equipment?.mainHand?.skill || l.skill;
     if (!skill) return;
     // W1's progression teaches the character it was built with: (skillId, difficulty, success, rng)
-    try { progression.lesson(skill, l.difficulty, true, rng); } catch (err) { /* a lesson is never worth a crash */ }
+    try { progression.lesson(skill, l.difficulty, !!success, rng); } catch (err) { /* a lesson is never worth a crash */ }
+  }
+
+  /**
+   * The armour's roll, taken the moment the spell would land rather than when
+   * it was begun: a cast you paid for and stood still through can still come
+   * apart at the end, which is what "fizzle" has meant since Ultima.
+   *
+   * True when it failed, and then it has already said so: half the mana back,
+   * the denied cue, a sentence naming the material, a grey word over your own
+   * head, and a lesson at a failure's reduced chance. Nothing silent.
+   */
+  function fizzled(ability, rec, now) {
+    const burden = num(rec && rec.burden);
+    if (burden <= 0) return false;
+    if (rng() >= fizzleChance(burden)) return false;
+    const back = refund(rec);
+    const armour = armourWords() || 'your armour';
+    say(`${ability.name} fizzles: your ${armour} gets in the way.${back ? ` ${back}.` : ''}`, 'bad');
+    float(pos(), `fizzle: ${burdenSources(wornNow())[0] || 'armour'}`, 'miss');
+    cue('denied');
+    teach(ability, false);
+    return true;
+  }
+
+  /** Fire, unless the armour ate it. Every spell goes through here. */
+  function land(ability, rec, target, now, ground) {
+    if (fizzled(ability, rec, now)) return null;
+    return fire(ability, target, now, ground);
   }
 
   // ------------------------------------------------------------------ use --
@@ -1104,12 +1233,27 @@ export function createAbilities(deps = {}) {
     rec.ground = ground;
     rec.startedMoving = moving();
 
-    if (ability.castTime > 0) {
+    // The armour, before the bar is drawn and before the clock is set: a cast
+    // in plate is twice as long, and the record carries the number so the bar,
+    // the sentence and the moment it lands are all the same one. The fizzle
+    // roll waits for the landing; see fizzled().
+    rec.burden = burdenFor(ability);
+    if (rec.burden > 0) {
+      rec.castTime = burdenedCastTime(ability.castTime, rec.burden);
+      rec.endsAt = rec.startedAt + rec.castTime;
+    }
+
+    if (rec.castTime > 0) {
       cast = rec;
-      effects?.cast?.(player, ability.castTime, effects.colourFor?.(ability.id) ?? 0xffffff);
-      say(`${ability.name}: casting for ${saySeconds(ability.castTime)}${ability.rooted ? ', and moving ends it' : ''}.`, 'ability');
+      effects?.cast?.(player, rec.castTime, effects.colourFor?.(ability.id) ?? 0xffffff);
+      const slower = rec.castTime > ability.castTime ? `, slowed by your ${armourWords() || 'armour'}` : '';
+      say(`${ability.name}: casting for ${saySeconds(rec.castTime)}${slower}${ability.rooted ? ', and moving ends it' : ''}.`, 'ability');
       return { ok: true, casting: true, paid, record: rec };
     }
+
+    // An instant spell still has an armour roll, and it is taken here rather
+    // than inside fire(), so a fizzled Lightning never reaches its effect.
+    if (fizzled(ability, rec, t)) return { ok: true, casting: false, fizzled: true, paid, record: rec };
 
     if (ability.effect?.kind === 'damageMult' || ability.effect?.parts?.some?.((p) => p.kind === 'damageMult')) {
       effects?.swing?.(player);
@@ -1256,7 +1400,7 @@ export function createAbilities(deps = {}) {
       const rec = cast;
       cast = null;
       effects?.stopCast?.(player);
-      fire(ability, rec.target, t, rec.ground);
+      land(ability, rec, rec.target, t, rec.ground);
     }
 
     // 3. delayed effects: Meteor's fall, Volley's rain
@@ -1390,6 +1534,12 @@ export function createAbilities(deps = {}) {
     for (let i = 0; i < BAR_SLOTS; i++) {
       const ability = ABILITIES_BY_ID[bar[i]] || null;
       const hands = handsCheck(ability);
+      // What the armour will do to this row, BEFORE it is pressed. hud.js
+      // draws the sentence in amber under the description and marks the cell
+      // itself above BURDEN_MARK, so a plated mage sees the problem on the bar
+      // rather than in his third fizzle. Zero for a Chivalry row and for
+      // everything that is not a spell, which is how those show nothing.
+      const burden = ability ? burdenFor(ability) : 0;
       out.push({
         key: BAR_KEYS[i],
         ability,
@@ -1400,6 +1550,8 @@ export function createAbilities(deps = {}) {
         unusable: ability ? !hands.ok : false,
         unusableReason: hands.ok ? '' : hands.reason,
         needs: ability ? weaponNeeds(ability).kind : 'none',
+        burden,
+        burdenText: burdenText(burden),
       });
     }
     return out;

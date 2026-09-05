@@ -207,6 +207,19 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   check('the plate chest alone is AR 24', baseFor('plate_chest').ar === 24);
   check('plate blocks Meditation entirely', baseFor('plate_chest').meditation === 0);
   check('cloth casts freely', baseFor('cloth_chest').meditation === 1);
+
+  // C1: the casting burden, the same eight rows read from the other end.
+  const burdens = [0, 0.1, 0.3, 0.55, 0.75, 1];
+  check('every tier carries the documented cast burden',
+    ARMOR_TIERS.every((t, i) => t.castBurden === burdens[i]),
+    ARMOR_TIERS.map((t) => `${t.id} ${t.castBurden}`).join(', '));
+  check('cloth does not burden a cast at all', baseFor('cloth_chest').castBurden === 0);
+  check('leather burdens it a tenth', baseFor('leather_legs').castBurden === 0.1);
+  check('platemail burdens it entirely', baseFor('plate_chest').castBurden === 1);
+  check('the burden rises with every tier and Meditation falls with it',
+    ARMOR_TIERS.every((t, i) => i === 0 || (t.castBurden > ARMOR_TIERS[i - 1].castBurden && t.meditation <= ARMOR_TIERS[i - 1].meditation)));
+  check('all 48 pieces carry the burden of their tier, not just the chest',
+    ARMOR_TIERS.every((t) => setOf(t.id).every((b) => b.castBurden === t.castBurden)), '48 bases');
   check('all six materials give all eight pieces', ARMOR_TIERS.every((t) => setOf(t.id).every(Boolean)), '48 bases');
 }
 
@@ -504,6 +517,21 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   check('an armour tier with no Meditation column throws', threw(auditItems));
   ARMOR_TIERS[5].meditation = med;
   check('and passes again once the column is back', auditItems() === true);
+
+  const cb = ARMOR_TIERS[5].castBurden;
+  delete ARMOR_TIERS[5].castBurden;
+  check('an armour tier with no cast burden column throws', threw(auditItems));
+  ARMOR_TIERS[5].castBurden = 2;
+  check('a burden above one throws', threw(auditItems));
+  ARMOR_TIERS[5].castBurden = 0;
+  check('plate that burdens a cast less than chainmail throws', threw(auditItems));
+  ARMOR_TIERS[5].castBurden = cb;
+  check('and passes again once the burden is back', auditItems() === true);
+  const cloth = ARMOR_TIERS[0].castBurden;
+  ARMOR_TIERS[0].castBurden = 0.05;
+  check('cloth that burdens a cast at all throws', threw(auditItems));
+  ARMOR_TIERS[0].castBurden = cloth;
+  check('and passes again once cloth is free', auditItems() === true);
 
   const resist = ARMOR_TIERS[2].resist;
   ARMOR_TIERS[2].resist = {};

@@ -72,7 +72,7 @@ const {
   TOOLS, MATERIALS, BAR_KEYS, BAR_SLOTS, POOLS, LOG_LINES, KEY_LABELS,
   poolView, sweep, costLabel, timerLabel, logTrim, createHud,
   bannerAt, devLine, BANNER, BANNER_TOTAL,
-  gainAt, GAIN, GAIN_TOTAL, GAIN_LINES,
+  gainAt, GAIN, GAIN_TOTAL, GAIN_LINES, BURDEN_MARK,
 } = hudMod;
 const itemBarMod = await import('./item_bar.js');
 // state.js runs its own audit at import and another agent is mid-flight on the
@@ -116,6 +116,8 @@ ck('every key is distinct', new Set(BAR_KEYS).size === 12);
 ck('the hud and the runtime read the same twelve keys',
   BAR_KEYS.join(',') === runtime.BAR_KEYS.join(','),
   `hud ${BAR_KEYS.join('')} vs runtime ${runtime.BAR_KEYS.join('')}`);
+ck('and the same line for the amber corner, so the mark and the wording agree',
+  BURDEN_MARK === runtime.BURDEN_MARK, `hud ${BURDEN_MARK} vs runtime ${runtime.BURDEN_MARK}`);
 ck('the four keys the tool row shares with the bar are exactly 1 to 4',
   BAR_KEYS.filter((k) => TOOLS.some((t) => t.key === k)).join('') === '1234',
   'main.js decides which layer eats the press; both lists agree on which four are contended');
@@ -512,6 +514,62 @@ ck('at 3 s it is done, and stays done', gainAt(3).phase === 'done' && gainAt(90)
   ck('drawing the sword takes the grey off again, and the reason with it',
     !barRow.children[0].classList.contains('unusable') && !/hands are empty/.test(hud.tipFor(0)),
     hud.tipFor(0));
+}
+
+// --- C1: what the armour does to a spell, on the bar and in the tooltip --------
+{
+  const plate = runtime.burdenText(1);          // full platemail
+  const leather = runtime.burdenText(0.1);      // full leather
+  const bar = () => BAR_KEYS.map(() => ({ ability: null, cooldownLeft: 0, affordable: true }));
+
+  const b = bar();
+  b[0] = {
+    ability: ABILITIES_BY_ID.fireball, cooldownLeft: 0, affordable: true, casting: false,
+    burden: 1, burdenText: plate,
+  };
+  b[1] = {
+    ability: ABILITIES_BY_ID.bless, cooldownLeft: 0, affordable: true, casting: false,
+    burden: 0, burdenText: '',
+  };
+  hud.update(0.016, { bar: b });
+  ck('Fireball in full plate says so in its tooltip',
+    /mostly stops a spell/.test(hud.tipFor(0)) && /60 in 100 fizzle/.test(hud.tipFor(0)), hud.tipFor(0));
+  ck('and the cell wears the amber corner',
+    barRow.children[0].classList.contains('burdened'), barRow.children[0].className);
+  ck('Bless in the same plate says nothing, because a paladin casts in it',
+    !/fizzle/.test(hud.tipFor(1)) && !barRow.children[1].classList.contains('burdened'),
+    `${hud.tipFor(1)} | ${barRow.children[1].className}`);
+  ck('the description is still there under the name',
+    /It lands hot and keeps burning/.test(hud.tipFor(0)), hud.tipFor(0));
+
+  // The same slot, in cloth: the line goes, and so does the corner.
+  b[0] = { ability: ABILITIES_BY_ID.fireball, cooldownLeft: 0, affordable: true, casting: false, burden: 0, burdenText: '' };
+  hud.update(0.016, { bar: b });
+  ck('taking the plate off takes the line off with it',
+    !/fizzle/.test(hud.tipFor(0)), hud.tipFor(0));
+  ck('and the amber corner too', !barRow.children[0].classList.contains('burdened'), barRow.children[0].className);
+
+  // Leather is under the mark: a line to read, no corner to see.
+  b[0] = { ability: ABILITIES_BY_ID.fireball, cooldownLeft: 0, affordable: true, casting: false, burden: 0.1, burdenText: leather };
+  hud.update(0.016, { bar: b });
+  ck('leather is worth a line but not a corner',
+    /a little/.test(hud.tipFor(0)) && !barRow.children[0].classList.contains('burdened'),
+    `${hud.tipFor(0)} | ${barRow.children[0].className}`);
+
+  // and the panel itself, which is what a player actually reads
+  b[0] = { ability: ABILITIES_BY_ID.fireball, cooldownLeft: 0, affordable: true, casting: false, burden: 1, burdenText: plate };
+  hud.update(0.016, { bar: b });
+  barRow.children[0].fire('pointerenter');
+  const panel = find(document.body, (n) => n.id === 'bw-abtip');
+  const body = panel.children.find((c) => c.className === 'body');
+  const burdenEl = body.children.find((c) => c.className === 'burden');
+  ck('the hovered panel shows the burden as its own line, under the description',
+    !!burdenEl && burdenEl.hidden === false && /mostly stops a spell/.test(burdenEl.textContent),
+    burdenEl ? burdenEl.textContent : 'no burden line in the panel');
+  ck('and it sits between the description and the red refusal',
+    body.children.map((c) => c.className).join(',') === 'head,chips,desc,burden,reason',
+    body.children.map((c) => c.className).join(','));
+  barRow.children[0].fire('pointerleave');
 }
 
 console.log(`\n${pass} passed, ${bad} failed`);

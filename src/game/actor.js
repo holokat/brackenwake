@@ -61,6 +61,13 @@
 //    counting as free, so full plate is 0 and full cloth is 1. A piece carrying
 //    the Mage Armour affix counts as free.
 //
+// 5b. The casting burden. Same eight slots, same mean, opposite end: cloth is
+//    0 and full plate is 1, an empty slot counts as 0, and a Mage Armour piece
+//    counts as 0 too. `actor.castBurden` is written by every recompute;
+//    abilities_runtime.js multiplies a spell's cast time by (1 + burden) and
+//    rolls burden * 0.6 for a fizzle. Chivalry is exempt: the paladin casts in
+//    plate. The per tier fractions are items.js's; the combining rule is here.
+//
 // 6. Weaknesses. resistOf() clamps a resist at zero, so `fireWeak` cannot be
 //    carried as a negative resist. It is carried as `actor.weakTo` and
 //    `actor.vulnerability`, and W2 applies it as a damage multiplier.
@@ -68,7 +75,7 @@
 import { derived, STATS } from '../mmo/stats.js';
 import { SKILLS } from '../mmo/skills.js';
 import { AFFIXES, POWER_BY_ID } from '../mmo/affixes.js';
-import { baseFor, armourOf, ARMOR_PIECES, SLOTS, WEAPONS } from '../mmo/items.js';
+import { baseFor, armourOf, ARMOR_PIECES, ARMOR_TIERS, SLOTS, WEAPONS } from '../mmo/items.js';
 import { MONSTERS, TIERS, aggroRadius, leashRadius } from '../mmo/monsters.js';
 import { UNARMED, RESIST_CAP } from '../mmo/combat_rules.js';
 
@@ -302,8 +309,13 @@ export function shieldFrom(item) {
 
 const ARMOUR_SLOTS = ARMOR_PIECES.map((p) => p.slot);
 
-/** Does this piece carry the Mage Armour line? Then it does not block Meditation. */
-const hasMageArmour = (item) =>
+/**
+ * Does this piece carry the Mage Armour line? Then it does not block
+ * Meditation, and it does not burden a cast either: the affix is the one way
+ * to wear metal and still cast out of it, and it would be a strange line that
+ * gave the mana back while still fumbling the spell.
+ */
+export const hasMageArmour = (item) =>
   !!(item && Array.isArray(item.affixes) && item.affixes.some((a) => (a.id || a.stat) === 'mageArmour'));
 
 /**
@@ -322,6 +334,60 @@ export function meditationFactor(equipment) {
     total += b.meditation;
   }
   return r4(total / ARMOUR_SLOTS.length);
+}
+
+/**
+ * How much the worn armour fights a spell on its way out: 0 in cloth, 1 in
+ * full plate. Combined exactly the way meditationFactor is, because it is the
+ * same eight slots seen from the other end: the mean over the eight armour
+ * slots, an EMPTY slot counting as 0 (nothing on your arm cannot get in the
+ * way), and a piece carrying Mage Armour counting as 0 as well.
+ *
+ * A plate chest and nothing else is therefore 1/8 = 0.125, which is the point
+ * of a mean rather than a maximum: one heavy piece is a nuisance and a full
+ * suit is a wall. abilities_runtime.js turns the number into a longer cast and
+ * a chance to fizzle; the per tier numbers are items.js's ARMOR_TIERS.
+ *
+ * Not player-only, unlike meditationFactor. A monster wears no armour piece,
+ * so it measures 0 for every row in the roster today, and the day one is
+ * dressed in plate its casting should suffer for it like anybody else's.
+ */
+export function castBurdenOf(equipment) {
+  if (!equipment) return 0;
+  let total = 0;
+  for (const slot of ARMOUR_SLOTS) {
+    const item = equipment[slot];
+    const b = baseFor(item);
+    if (!item || !b || b.castBurden == null || hasMageArmour(item)) continue;
+    total += b.castBurden;
+  }
+  return r4(total / ARMOUR_SLOTS.length);
+}
+
+/**
+ * The materials that are in the way, heaviest first, in the words a sentence
+ * wants: "platemail", "chainmail and ringmail". Only pieces that actually
+ * carry a burden are named, so a Mage Armour breastplate is not blamed for a
+ * fizzle it had nothing to do with, and cloth is never named at all.
+ *
+ * The display name comes from ARMOR_TIERS.material, lowercased, so "Studded
+ * leather" reads as "studded leather" mid sentence and a seventh tier arrives
+ * here with its own name rather than a word this file invented.
+ */
+export function burdenSources(equipment) {
+  if (!equipment) return [];
+  const seen = new Map();
+  for (const slot of ARMOUR_SLOTS) {
+    const item = equipment[slot];
+    const b = baseFor(item);
+    if (!item || !b || !b.castBurden || hasMageArmour(item)) continue;
+    const tier = ARMOR_TIERS.find((t) => t.id === b.material);
+    if (!tier) continue;
+    if (!seen.has(tier.id)) seen.set(tier.id, tier);
+  }
+  return [...seen.values()]
+    .sort((a, b) => b.castBurden - a.castBurden)
+    .map((t) => t.material.toLowerCase());
 }
 
 // ------------------------------------------------------------------ recompute
@@ -401,6 +467,10 @@ export function recompute(actor) {
   actor.resists = Object.fromEntries(DAMAGE_TYPES.map((k) => [k, clamp(r4(num(actor.naturalResists && actor.naturalResists[k]) + sum.resists[k]), 0, RESIST_CAP)]));
   actor.powers = sum.powers;
   actor.meditationFactor = medFactor;
+  // What the armour does to a spell on the way out. Read by
+  // abilities_runtime.js on every cast and by the bar's amber warning, so a
+  // player sees the plate in the tooltip before he sees it in a fizzle.
+  actor.castBurden = castBurdenOf(equipment);
   actor.carry = r4(d.carry + sum.bonuses.carry);
 
   actor.maxHealth = maxHealth;

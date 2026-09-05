@@ -55,16 +55,26 @@ export const skillNameOf = (id) => SKILLS.find((s) => s.id === id)?.name ?? id;
 // audit fails if one goes missing. `ar` is per piece before the chest doubling;
 // `meditation` is the fraction of Meditation regeneration the piece still
 // allows (full, full, 75%, 40%, 20%, none).
+//
+// `castBurden` is the other half of that idea and runs the other way: 0 is a
+// piece a spell does not notice and 1 is a piece that fights it the whole way.
+// Meditation is about the mana coming back; the burden is about the spell
+// going out, and the rule is in 02-COMBAT.md. The mean of it over the eight
+// armour slots is `actor.castBurden` (actor.js), which lengthens a cast and
+// gives it a chance to fizzle (abilities_runtime.js). Cloth is free, leather
+// is a tenth, and platemail doubles a cast and fails three casts in five,
+// which is what stops the plated wizard. Chivalry is exempt by design: the
+// paladin's holy magic works in plate, as 04-CLASSES-ABILITIES.md says.
 export const ARMOR_TIERS = [
-  { tier: 1, id: 'cloth', material: 'Cloth', ar: 1, weight: 1, strReq: 0, meditation: 1, resist: { energy: 1 } },
-  { tier: 2, id: 'leather', material: 'Leather', ar: 3, weight: 2, strReq: 15, meditation: 1, resist: { cold: 1, poison: 1 } },
-  { tier: 3, id: 'studded', material: 'Studded leather', ar: 5, weight: 3, strReq: 25, meditation: 0.75, resist: { poison: 2 } },
-  { tier: 4, id: 'ring', material: 'Ringmail', ar: 7, weight: 5, strReq: 40, meditation: 0.4, resist: { physical: 1, fire: 1 } },
-  { tier: 5, id: 'chain', material: 'Chainmail', ar: 9, weight: 6, strReq: 55, meditation: 0.2, resist: { physical: 2 } },
-  { tier: 6, id: 'plate', material: 'Platemail', ar: 12, weight: 9, strReq: 75, meditation: 0, resist: { physical: 3, fire: 2 } },
+  { tier: 1, id: 'cloth', material: 'Cloth', ar: 1, weight: 1, strReq: 0, meditation: 1, castBurden: 0, resist: { energy: 1 } },
+  { tier: 2, id: 'leather', material: 'Leather', ar: 3, weight: 2, strReq: 15, meditation: 1, castBurden: 0.1, resist: { cold: 1, poison: 1 } },
+  { tier: 3, id: 'studded', material: 'Studded leather', ar: 5, weight: 3, strReq: 25, meditation: 0.75, castBurden: 0.3, resist: { poison: 2 } },
+  { tier: 4, id: 'ring', material: 'Ringmail', ar: 7, weight: 5, strReq: 40, meditation: 0.4, castBurden: 0.55, resist: { physical: 1, fire: 1 } },
+  { tier: 5, id: 'chain', material: 'Chainmail', ar: 9, weight: 6, strReq: 55, meditation: 0.2, castBurden: 0.75, resist: { physical: 2 } },
+  { tier: 6, id: 'plate', material: 'Platemail', ar: 12, weight: 9, strReq: 75, meditation: 0, castBurden: 1, resist: { physical: 3, fire: 2 } },
 ];
 
-export const TIER_COLUMNS = ['tier', 'id', 'material', 'ar', 'weight', 'strReq', 'meditation', 'resist'];
+export const TIER_COLUMNS = ['tier', 'id', 'material', 'ar', 'weight', 'strReq', 'meditation', 'castBurden', 'resist'];
 
 // The eight pieces. Only the chest doubles its AR; weight is flat per piece,
 // which is what makes a full plate set 8 x 9 = 72 stones and AR 7 x 12 + 24 = 108.
@@ -239,7 +249,7 @@ for (const t of ARMOR_TIERS) {
       id: `${t.id}_${p.id}`, name: `${t.material} ${noun}`, kind: 'armour', kinds,
       slot: p.slot, piece: p.id, tier: t.tier, material: t.id,
       ar: t.ar * p.arMul, weight: t.weight, strReq: t.strReq,
-      meditation: t.meditation, resist: { ...t.resist },
+      meditation: t.meditation, castBurden: t.castBurden, resist: { ...t.resist },
       durability: GEAR_DURABILITY, stack: false,
     });
   }
@@ -913,11 +923,25 @@ export function auditItems(items = []) {
     for (const col of TIER_COLUMNS) {
       if (t[col] === undefined || t[col] === null) bad(`armour tier ${t.id || t.tier} has no ${col}`);
     }
-    for (const num of ['tier', 'ar', 'weight', 'strReq', 'meditation']) {
+    for (const num of ['tier', 'ar', 'weight', 'strReq', 'meditation', 'castBurden']) {
       if (typeof t[num] !== 'number' || !Number.isFinite(t[num])) bad(`armour tier ${t.id} has a ${num} that is not a number`);
     }
+    if (t.castBurden < 0 || t.castBurden > 1) bad(`armour tier ${t.id} burdens a cast by ${t.castBurden}, and the burden is a fraction of one`);
+    if (t.meditation < 0 || t.meditation > 1) bad(`armour tier ${t.id} allows ${t.meditation} of Meditation, and that is a fraction of one`);
     if (typeof t.resist !== 'object' || Object.keys(t.resist).length === 0) bad(`armour tier ${t.id} carries no typed resist`);
   }
+
+  // The two fractions are one idea seen from either end: heavier armour lets
+  // less Meditation through AND burdens a cast more. A seventh tier, or a
+  // number typed into the wrong column, breaks the ordering rather than
+  // shipping a plate that casts more freely than cloth.
+  for (let i = 1; i < ARMOR_TIERS.length; i++) {
+    const prev = ARMOR_TIERS[i - 1], t = ARMOR_TIERS[i];
+    if (t.castBurden < prev.castBurden) bad(`${t.material} burdens a cast less than ${prev.material}, and it is the heavier tier`);
+    if (t.meditation > prev.meditation) bad(`${t.material} allows more Meditation than ${prev.material}, and it is the heavier tier`);
+  }
+  if (ARMOR_TIERS[0].castBurden !== 0) bad('cloth burdens a cast, and cloth is what a mage wears');
+  if (ARMOR_TIERS[ARMOR_TIERS.length - 1].castBurden !== 1) bad('the heaviest tier does not carry a full burden');
 
   if (ARMOR_PIECES.length !== 8) bad(`there are ${ARMOR_PIECES.length} armour pieces, a set has 8`);
   const doubled = ARMOR_PIECES.filter((p) => p.arMul === 2);

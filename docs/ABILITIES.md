@@ -4,6 +4,8 @@ Every ability in the game, from `src/mmo/abilities.js`. Cost, cooldown, cast tim
 
 The **In hand** column is `weaponCheck` in words, and it is not decoration: an ability whose row is not satisfied is greyed on the bar and refuses with a sentence naming what you are holding instead. Every spell reads **wand or staff**, because a spell goes through a focus or it does not go. Consecrate Weapon is the one row in the four casting groups that does not, since what it enchants is the blade already in your hand.
 
+**And what you are wearing counts too.** Every spell but the nine Chivalry rows pays the worn armour's cast burden: the cast takes `1 + burden` times as long and has a `burden * 0.6` chance to fizzle outright, which is nothing in cloth, about one cast in seventeen in leather, and three in five in full plate. The Healer's Heal, Cleanse, Greater Heal, Bless, Sanctuary, Consecrate Weapon, Smite, Resurrect and Lay on Hands are exempt, because holy magic works in plate; that is what a paladin is. The table of burdens is in `docs/mmo/02-COMBAT.md`.
+
 ## Warrior (12)
 
 | Ability | Cost | Cooldown | Cast | Moving | In hand | Unlocks at | What it does |

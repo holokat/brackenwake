@@ -16,7 +16,7 @@ import {
   interruptChance, lessonFor, spellDamage, manaCostFor, costKind,
   auditAbilities,
   WEAPON_BASES, SHIELD_BASES, INSTRUMENT_BASES, AMMO_BASES, WEAPON_WORDS,
-  FOCUS_BASES, isSpell, isFocusItem,
+  FOCUS_BASES, isSpell, isFocusItem, isChivalry, burdensInArmour,
   NEEDS_KINDS, weaponNeeds, weaponCheck, countInPack,
 } from './abilities.js';
 import { BASES as ITEM_BASES, isFocus as itemIsFocus, FOCUS_BASES as ITEM_FOCUS_BASES } from './items.js';
@@ -770,6 +770,38 @@ const emptyPack = { slots: 20, items: [] };
     isSpell(ABILITIES_BY_ID.fireball) === true && isSpell(ABILITIES_BY_ID.arcaneMastery) === false
     && isSpell(ABILITIES_BY_ID.bandage) === false && isSpell(ABILITIES_BY_ID.powerStrike) === false
     && isSpell(null) === false);
+
+  // C1: which spells the armour gets in the way of, counted the same way.
+  const holy = spells.filter(isChivalry).map((x) => x.id);
+  const burdened = spells.filter(burdensInArmour).map((x) => x.id);
+  check('nine Chivalry rows are exempt from the armour rule, by name',
+    holy.join(', ') === 'heal, cleanse, greaterHeal, bless, sanctuary, consecrateWeapon, smite, resurrect, layOnHands',
+    holy.join(', '));
+  check('and the other 26 spells are burdened by it',
+    burdened.length === 26 && burdened.length + holy.length === spells.length,
+    `${burdened.length} burdened, ${holy.length} holy, ${spells.length} spells`);
+  check('no row is both, and no row is neither',
+    spells.every((x) => isChivalry(x) !== burdensInArmour(x)));
+  check('isChivalry is driven both ways',
+    isChivalry(ABILITIES_BY_ID.bless) === true && isChivalry(ABILITIES_BY_ID.fireball) === false
+    && isChivalry(ABILITIES_BY_ID.powerStrike) === false && isChivalry(null) === false);
+  check('Resurrect is exempt through its Chivalry 85 route, which is the only anyOf in the table',
+    isChivalry(ABILITIES_BY_ID.resurrect) === true && ABILITIES_BY_ID.resurrect.skill === 'healing',
+    JSON.stringify(ABILITIES_BY_ID.resurrect.anyOf));
+  check('burdensInArmour is driven both ways',
+    burdensInArmour(ABILITIES_BY_ID.fireball) === true && burdensInArmour(ABILITIES_BY_ID.lightning) === true
+    && burdensInArmour(ABILITIES_BY_ID.bless) === false && burdensInArmour(ABILITIES_BY_ID.powerStrike) === false
+    && burdensInArmour(ABILITIES_BY_ID.arcaneMastery) === false && burdensInArmour(ABILITIES_BY_ID.bandage) === false
+    && burdensInArmour(null) === false);
+  const instants = burdened.filter((id) => ABILITIES_BY_ID[id].castTime === 0);
+  check('the ten instant spells are burdened too, or a plated mage would just cast those',
+    instants.length === 10 && instants.includes('lightning') && instants.includes('magicArrow'),
+    instants.join(', '));
+  check('and the audit refuses a Chivalry row that has wandered into the burdened list', (() => {
+    const rogue = { ...ABILITIES_BY_ID.bless, skill: 'magery' };
+    try { auditAbilities(ABILITIES.map((x) => (x.id === 'bless' ? rogue : x))); return false; }
+    catch (e) { return /Chivalry exemption/.test(e.message); }
+  })());
 
   const cw = weaponCheck(ABILITIES_BY_ID.consecrateWeapon, doll(), emptyPack);
   const cwMace = weaponCheck(ABILITIES_BY_ID.consecrateWeapon, doll({ mainHand: it('mace') }), emptyPack);

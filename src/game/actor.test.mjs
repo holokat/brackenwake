@@ -5,7 +5,8 @@
 // and prints both. Every gate is driven true AND false.
 import {
   playerActor, spawnMonster, recompute, tickPools, syncToCharacter,
-  meditationFactor, naturalWeaponFor, difficultyOfMonster, weaponFrom, shieldFrom,
+  meditationFactor, castBurdenOf, burdenSources, naturalWeaponFor, difficultyOfMonster,
+  weaponFrom, shieldFrom,
   auditActor, AFFIX_EFFECT, BONUS_KEYS, MONSTER_STAMINA,
 } from './actor.js';
 import { blankCharacter, makeStack } from './state.js';
@@ -137,6 +138,53 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
   recompute(a);
   check('100 Meditation is worth 1.0 mana a second in the open', open === 2.55, String(open));
   check('and none of it in full plate', a.manaRegen === 1.55, String(a.manaRegen));
+}
+
+// ---- the casting burden, the same eight slots from the other end -----------
+{
+  const full = (mat) => Object.fromEntries(ARMOR_PIECES.map((p) => [p.slot, gear(`${mat}_${p.id}`)]));
+  check('naked casts freely', castBurdenOf({}) === 0, String(castBurdenOf({})));
+  check('and so does nothing at all', castBurdenOf(null) === 0);
+  check('full cloth burdens a cast by nothing', castBurdenOf(full('cloth')) === 0, String(castBurdenOf(full('cloth'))));
+  check('full leather burdens it by a tenth', castBurdenOf(full('leather')) === 0.1, String(castBurdenOf(full('leather'))));
+  check('full studded by three tenths', castBurdenOf(full('studded')) === 0.3, String(castBurdenOf(full('studded'))));
+  check('full ringmail by 0.55', castBurdenOf(full('ring')) === 0.55, String(castBurdenOf(full('ring'))));
+  check('full chainmail by 0.75', castBurdenOf(full('chain')) === 0.75, String(castBurdenOf(full('chain'))));
+  check('full plate by all of it', castBurdenOf(full('plate')) === 1, String(castBurdenOf(full('plate'))));
+
+  const oneChest = { chest: gear('plate_chest') };
+  check('a plate chest and nothing else is 1 of 8', castBurdenOf(oneChest) === 0.125, String(castBurdenOf(oneChest)));
+  const mageArm = [{ id: 'mageArmour', stat: 'mageArmour', value: 1, unit: 'flag' }];
+  const mage = Object.fromEntries(ARMOR_PIECES.map((p) => [p.slot, gear(`plate_${p.id}`, mageArm)]));
+  check('full plate with Mage Armour on every piece burdens nothing', castBurdenOf(mage) === 0, String(castBurdenOf(mage)));
+  check('and one Mage Armour breastplate alone is free too',
+    castBurdenOf({ chest: gear('plate_chest', mageArm) }) === 0, String(castBurdenOf({ chest: gear('plate_chest', mageArm) })));
+
+  // a mixed set: plate chest, chain legs, ring helm, the other five empty
+  const mixed = { chest: gear('plate_chest'), legs: gear('chain_legs'), head: gear('ring_head') };
+  check('a mixed set is the mean of what is worn over eight slots',
+    castBurdenOf(mixed) === 0.2875, `${castBurdenOf(mixed)}, want (1 + 0.75 + 0.55) / 8`);
+  check('and it names the materials heaviest first',
+    burdenSources(mixed).join(', ') === 'platemail, chainmail, ringmail', burdenSources(mixed).join(', '));
+  check('cloth is never named, because cloth is never to blame',
+    burdenSources(full('cloth')).length === 0, burdenSources(full('cloth')).join(', '));
+  check('a full plate suit is named once, not eight times',
+    burdenSources(full('plate')).join(', ') === 'platemail', burdenSources(full('plate')).join(', '));
+  check('and a Mage Armour piece is not blamed for a fizzle it did not cause',
+    burdenSources({ chest: gear('plate_chest', mageArm), legs: gear('chain_legs') }).join(', ') === 'chainmail',
+    burdenSources({ chest: gear('plate_chest', mageArm), legs: gear('chain_legs') }).join(', '));
+
+  // and the field recompute writes, which is what the runtime actually reads
+  const c = blankCharacter();
+  c.stats.str = 100;
+  const a = playerActor(c);
+  check('a fresh actor carries no burden', a.castBurden === 0, String(a.castBurden));
+  c.equipment = { ...c.equipment, ...full('plate') };
+  recompute(a);
+  check('recompute writes the burden onto the actor', a.castBurden === 1, String(a.castBurden));
+  c.equipment = { ...c.equipment, ...full('cloth') };
+  recompute(a);
+  check('and takes it off again when the plate comes off', a.castBurden === 0, String(a.castBurden));
 }
 
 // ---- the weapon in the hand ------------------------------------------------

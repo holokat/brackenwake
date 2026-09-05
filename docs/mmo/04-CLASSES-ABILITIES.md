@@ -48,8 +48,9 @@ Powerful spells are the rooted ones; the small ones travel. Melee abilities
 replace the next swing.
 
 **Costs.** Melee abilities cost stamina; spells cost mana. Mana cost is
-`base * (1 - lowerManaCost)`. Casting anything in armour that blocks
-Meditation is allowed; it only slows regeneration.
+`base * (1 - lowerManaCost)`. Armour burdens casting (C1, 02-COMBAT "Armour
+and casting"): cloth not at all, leather a little, plate mostly; a cast takes
+longer by the burden and fizzles by it times 0.6. Chivalry is exempt.
 
 **Gain.** Using an ability is a lesson in its skill at the ability's difficulty
 (its minSkill + 20).

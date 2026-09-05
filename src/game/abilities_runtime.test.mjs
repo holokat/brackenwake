@@ -9,15 +9,19 @@
 import {
   createAbilities, auditEffectHandlers, EFFECT_HANDLERS, BAR_KEYS, BAR_SLOTS,
   slotForKey, leapArc, MOVING_SPEED, saySeconds, PENDING_SECONDS,
+  CAST_BURDEN_FIZZLE, BURDEN_MARK, burdenBand, burdenText, burdenedCastTime,
+  fizzleChance, andList,
 } from './abilities_runtime.js';
+import { castBurdenOf } from './actor.js';
 import { createTargeting } from './targeting.js';
 import {
   ABILITIES, ABILITIES_BY_ID, EFFECT_KINDS, canUse, unlockedFor, weaponNeeds, weaponCheck,
+  burdensInArmour,
 } from '../mmo/abilities.js';
 import { OPENINGS } from '../mmo/openings.js';
 import { planCharacter } from './creation.js';
 import { settlerKitFor } from './app/systems/inventory.js';
-import { makeItem } from '../mmo/items.js';
+import { makeItem, ARMOR_PIECES } from '../mmo/items.js';
 import { resolveMelee, JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
 import { GRAVITY, JUMP_V0 } from './player.js';
 
@@ -92,6 +96,14 @@ function harness(opts = {}) {
     stamina: 200, maxStamina: 200, buffs: [], status: {}, shield: { parryFactor: 1 },
     weapon: { skill: 'swordsmanship' },
   };
+  // C1: a paper doll, when the test is about what the armour does. Setting it
+  // turns the weapon check on for this harness, so anything cast here holds a
+  // wand; `actor.castBurden` is written the way actor.js's recompute writes it.
+  if (opts.equipment) {
+    character.equipment = opts.equipment;
+    character.pack = opts.pack || [];
+    if (opts.burdenFromActor !== false) actor.castBurden = castBurdenOf(opts.equipment);
+  }
   const summoned = [];
   const abilities = createAbilities({
     character, actor, combat, monsters, effects, floaters, hud, audio, player,
@@ -1103,6 +1115,204 @@ const item = (base, count) => (count == null ? { base } : { base, count });
       const c = planCharacter({ opening: 'bard', name: 'Testing', seed: 3 }).character;
       return weaponCheck(ABILITIES_BY_ID.provoke, c.equipment, c.pack).ok === true;
     })(), 'rapier in hand, lute in the off hand');
+}
+
+// --- C1: the armour rule, measured ---------------------------------------------
+//
+// Nothing below is asserted from the shape of the code. Every fizzle number is
+// a count of 200 real casts through useById and update with a seeded rng, and
+// every gate is driven both ways: plate fizzles and cloth does not, Fireball
+// fizzles and Bless never does, a fizzle pays half and a landing pays all.
+console.log('abilities_runtime: armour and the spell going out');
+
+/** A full suit of `mat` with a wand in the hand. `null` is a wand and nothing else. */
+function worn(mat) {
+  const eq = { mainHand: makeItem({ base: 'wand', seed: 1 }) };
+  if (mat) for (const p of ARMOR_PIECES) eq[p.slot] = makeItem({ base: `${mat}_${p.id}`, seed: 2 });
+  return eq;
+}
+
+/**
+ * `n` real casts of `id` in a full suit of `mat`. Returns what was counted:
+ * how many fizzled, how much mana the first landing and the first fizzle each
+ * cost, and the cast bar's own length.
+ */
+function castRun(mat, opts = {}) {
+  const { id = 'fireball', n = 200, seed = 1, rng = null } = opts;
+  const h = harness({
+    monsters: [mob('Skeleton', 0, 3)],
+    equipment: worn(mat),
+    seed,
+    ...(rng ? { extra: { rng } } : {}),
+  });
+  h.actor.maxMana = 500;
+  let fizzles = 0, landed = 0, t = 0;
+  let spentOnFizzle = null, spentOnLanding = null, barLength = null;
+  for (let i = 0; i < n; i++) {
+    h.actor.mana = 500;
+    h.list[0].health = 100; h.list[0].buffs.length = 0;
+    const before = h.hudLines.length;
+    const r = h.abilities.useById(id, t);
+    if (r.record && barLength === null) barLength = r.record.castTime;
+    h.abilities.update(0.016, t + 3);
+    const lines = h.hudLines.slice(before).map((l) => l.t);
+    const spent = 500 - h.actor.mana;
+    if (lines.some((l) => /fizzles/.test(l))) { fizzles++; if (spentOnFizzle === null) spentOnFizzle = spent; }
+    else { landed++; if (spentOnLanding === null) spentOnLanding = spent; }
+    t += 10;
+  }
+  return { fizzles, landed, spentOnFizzle, spentOnLanding, barLength, h };
+}
+
+{
+  // The table, tier by tier: 200 casts of Fireball in a full suit of each.
+  const want = [
+    ['no armour at all', null, 0], ['cloth', 'cloth', 0], ['leather', 'leather', 12],
+    ['studded leather', 'studded', 36], ['ringmail', 'ring', 66], ['chainmail', 'chain', 90],
+    ['platemail', 'plate', 120],
+  ];
+  for (const [name, mat, expect] of want) {
+    const r = castRun(mat);
+    ck(`200 Fireballs in ${name} fizzle ${expect} times, give or take 8`,
+      Math.abs(r.fizzles - expect) <= 8,
+      `${r.fizzles} fizzled, ${r.landed} landed, wanted ${expect} (burden ${castBurdenOf(worn(mat))})`);
+  }
+}
+
+{
+  // The cast bar, both ends.
+  const cloth = castRun('cloth', { n: 1 });
+  const plate = castRun('plate', { n: 1 });
+  const fire = ABILITIES_BY_ID.fireball;
+  ck('Fireball in cloth casts for its own 0.6 s', cloth.barLength === fire.castTime, `${cloth.barLength} s`);
+  ck('and in full plate it takes twice as long', plate.barLength === fire.castTime * 2, `${plate.barLength} s`);
+  ck('the sentence names the armour that is slowing it',
+    /casting for 1.2 seconds, slowed by your platemail/.test(said(plate.h)), said(plate.h).split(' | ')[0]);
+  ck('and says nothing about armour in cloth',
+    !/slowed by/.test(said(cloth.h)), said(cloth.h).split(' | ')[0]);
+  const leather = castRun('leather', { n: 1 });
+  ck('leather is a tenth longer, not a tenth of a second longer',
+    near(leather.barLength, 0.66), `${leather.barLength} s`);
+}
+
+{
+  // Chivalry, which is the exception the user asked for by name.
+  const r = castRun('plate', { id: 'bless', n: 200 });
+  const bless = ABILITIES_BY_ID.bless;
+  ck('200 Blessings in full plate fizzle not once', r.fizzles === 0, `${r.fizzles} fizzled, ${r.landed} landed`);
+  ck('and Bless casts for its own 0.5 s in plate, unslowed',
+    r.barLength === bless.castTime, `${r.barLength} s against ${bless.castTime} s`);
+  ck('and nothing in the log blames the armour',
+    !/gets in the way|slowed by/.test(said(r.h)), 'the paladin casts in plate');
+}
+
+{
+  // What a fizzle costs, forced both ways with an rng that cannot argue.
+  const always = castRun('plate', { n: 1, rng: () => 0 });
+  const never = castRun('plate', { n: 1, rng: () => 0.999 });
+  ck('a fizzle spends half a Fireball\'s 9 mana and gives 5 back',
+    always.fizzles === 1 && always.spentOnFizzle === 4, `${always.spentOnFizzle} mana spent`);
+  ck('and a landed cast spends all nine of them',
+    never.landed === 1 && never.spentOnLanding === 9, `${never.spentOnLanding} mana spent`);
+  ck('the fizzle says which armour did it, in the log',
+    /Fireball fizzles: your platemail gets in the way/.test(said(always.h)), said(always.h));
+  ck('and floats a grey word over your own head as well',
+    always.h.floaters.spawned.some((f) => /fizzle: platemail/.test(f.t) && f.k === 'miss'),
+    always.h.floaters.spawned.map((f) => `${f.t} (${f.k})`).join(', ') || 'nothing floated');
+  ck('and plays the denied cue', always.h.audio.played.includes('denied'), always.h.audio.played.join(', '));
+  ck('a landing says none of that', !/fizzles/.test(said(never.h)), said(never.h));
+}
+
+{
+  // A mixed suit, and the instant spell a plated mage would otherwise abuse.
+  const eq = worn(null);
+  eq.chest = makeItem({ base: 'plate_chest', seed: 2 });
+  eq.legs = makeItem({ base: 'chain_legs', seed: 2 });
+  const h = harness({ monsters: [mob('Skeleton', 0, 3)], equipment: eq });
+  ck('a plate chest and chain legs burden a cast by (1 + 0.75) / 8',
+    h.actor.castBurden === 0.2188, String(h.actor.castBurden));
+  const view = h.abilities.barView(0);
+  h.character.bar[0] = 'lightning';
+  h.character.bar[1] = 'bless';
+  h.character.bar[2] = 'powerStrike';
+  const v = h.abilities.barView(0);
+  ck('the bar tells the player before he presses anything',
+    v[0].burden === 0.2188 && /gets in the way a little/.test(v[0].burdenText), v[0].burdenText);
+  ck('a Chivalry row on the same bar shows nothing at all',
+    v[1].burden === 0 && v[1].burdenText === '', `"${v[1].burdenText}"`);
+  ck('and neither does a warrior ability', v[2].burden === 0 && v[2].burdenText === '');
+  ck('an empty bar of twelve is still twelve entries', view.length === 12);
+
+  // Lightning has no cast bar at all, and is burdened anyway: this is the
+  // whole point of including the instants. Forced, so it is not a coin toss.
+  const zap = castRun('plate', { id: 'lightning', n: 1, rng: () => 0 });
+  ck('an instant Lightning in plate still fizzles, which is why instants are in',
+    zap.fizzles === 1 && zap.barLength === 0, `${zap.fizzles} fizzled, bar ${zap.barLength} s`);
+  const zapOk = castRun('plate', { id: 'lightning', n: 1, rng: () => 0.999 });
+  ck('and lands when the roll is kind, with no cast bar either way',
+    zapOk.landed === 1 && zapOk.barLength === 0, `${zapOk.landed} landed`);
+}
+
+{
+  // The pure half, driven both ways.
+  ck('the fizzle is six tenths of the burden', CAST_BURDEN_FIZZLE === 0.6
+    && fizzleChance(1) === 0.6 && fizzleChance(0.1) === 0.06 && fizzleChance(0) === 0);
+  ck('and it is clamped, so a broken number cannot make every cast fail',
+    fizzleChance(5) === 0.6 && fizzleChance(-2) === 0);
+  ck('a cast in plate takes twice as long, and in cloth exactly as long',
+    burdenedCastTime(0.6, 1) === 1.2 && burdenedCastTime(0.6, 0) === 0.6 && burdenedCastTime(0, 1) === 0);
+  ck('the four bands are none, a little, often and mostly',
+    burdenBand(0) === 'none' && burdenBand(0.1) === 'a little' && burdenBand(BURDEN_MARK) === 'a little'
+    && burdenBand(0.3) === 'often' && burdenBand(0.55) === 'often' && burdenBand(0.75) === 'mostly'
+    && burdenBand(1) === 'mostly',
+    [0, 0.1, 0.25, 0.3, 0.55, 0.75, 1].map((b) => `${b}: ${burdenBand(b)}`).join(', '));
+  ck('the band and the amber corner agree on where the line is',
+    [0.1, 0.25, 0.3, 1].every((b) => (burdenBand(b) === 'a little') === (b <= BURDEN_MARK)));
+  ck('cloth gets no line to read at all', burdenText(0) === '');
+  ck('and plate gets the two numbers it is promising',
+    burdenText(1) === 'This armour mostly stops a spell: a cast takes twice as long, and 60 in 100 fizzle.',
+    burdenText(1));
+  ck('leather says a little, and says how little',
+    burdenText(0.1) === 'This armour gets in the way a little: a cast takes 1.1 times as long, and 6 in 100 fizzle.',
+    burdenText(0.1));
+  ck('the materials are listed the way a sentence lists them',
+    andList([]) === '' && andList(['platemail']) === 'platemail'
+    && andList(['chainmail', 'ringmail']) === 'chainmail and ringmail'
+    && andList(['a', 'b', 'c']) === 'a, b and c');
+}
+
+{
+  // Every opening, measured, because a rule that quietly cripples the kit a
+  // player is handed in the first minute is a bad rule however sound it reads.
+  const rows = OPENINGS.map((o) => {
+    const c = planCharacter({ opening: o.id, name: 'Testing', seed: 3 }).character;
+    return { id: o.id, burden: castBurdenOf(c.equipment) };
+  });
+  const casters = rows.filter((r) => ['mage', 'sorcerer', 'necromancer', 'healer'].includes(r.id));
+  ck('the four casting openings start in cloth and cast free',
+    casters.every((r) => r.burden === 0), casters.map((r) => `${r.id} ${r.burden}`).join(', '));
+  ck('and no opening starts above the amber mark, so nobody is handed a broken kit',
+    rows.every((r) => r.burden <= BURDEN_MARK), rows.map((r) => `${r.id} ${r.burden}`).join(', '));
+  const paladin = rows.find((r) => r.id === 'paladin');
+  ck('the paladin starts in ringmail, and it costs his Chivalry nothing',
+    paladin.burden === 0.1375 && burdensInArmour(ABILITIES_BY_ID.bless) === false,
+    `burden ${paladin.burden}, Bless exempt`);
+}
+
+{
+  // The fallback: a character with a paper doll and no recompute behind it.
+  // Without it, a fixture would cast out of full plate as if it were naked.
+  const h = harness({ monsters: [mob('Skeleton', 0, 3)], equipment: worn('plate'), burdenFromActor: false });
+  ck('an actor with no castBurden field falls back to the paper doll',
+    h.actor.castBurden === undefined && h.abilities.barView(0) && (() => {
+      h.character.bar[0] = 'fireball';
+      return h.abilities.barView(0)[0].burden === 1;
+    })(), 'burden read from character.equipment');
+  // and a character with no equipment at all is not burdened by anything
+  const bare = harness({ monsters: [mob('Skeleton', 0, 3)] });
+  bare.character.bar[0] = 'fireball';
+  ck('and a fixture with no paper doll at all casts free, as it always did',
+    bare.abilities.barView(0)[0].burden === 0 && bare.abilities.barView(0)[0].burdenText === '');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
