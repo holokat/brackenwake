@@ -440,7 +440,7 @@ for (const [base, name, recipeBase, materials, buff] of MEALS) {
     id: `meal.${base}`,
     name,
     family: 'meal',
-    result: { base, material: 'food' },
+    result: { base, material: base },   // a meal is its own base now; there is no food stack to tag
     buff,
     skill: 'cooking',
     difficulty: difficultyFor(recipeBase, 1),

@@ -233,10 +233,14 @@ export function addItem(ctx, item) {
 export const isRawMaterial = (it) => !!it && baseFor(it)?.kind === 'material';
 
 /** How many of one material the pack holds. See the convention note at the top. */
+/** A stack a recipe can spend: a raw material, or a food (venison pays for "meat"). */
+export const isIngredient = (it) => !!it && (isRawMaterial(it) || baseFor(it)?.kind === 'food');
+/** True when this stack answers to the recipe's material id, by its own tag, its base, or its base's material. */
+export const answersTo = (it, id) => !!it && (it.material === id || it.base === id || baseFor(it)?.material === id);
 export function countMaterial(ctx, id) {
   let n = 0;
   for (const it of packOf(ctx)) {
-    if (isRawMaterial(it) && (it.material === id || it.base === id)) n += it.count ?? 1;
+    if (isIngredient(it) && answersTo(it, id)) n += it.count ?? 1;
   }
   return n;
 }
@@ -248,8 +252,8 @@ export function takeMaterial(ctx, id, n) {
   const list = packSlots(ctx);
   for (const it of [...list]) {
     if (left <= 0) break;
-    if (!isRawMaterial(it)) continue;
-    if (it.material !== id && it.base !== id) continue;
+    if (!isIngredient(it)) continue;
+    if (!answersTo(it, id)) continue;
     const have = it.count ?? 1;
     const k = Math.min(have, left);
     const i = list.indexOf(it);
