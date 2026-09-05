@@ -649,6 +649,11 @@ function boot() {
      */
     function onClick(now, nowS) {
       const ray = aim();
+      // a held spell owns the click: it is choosing who, not starting a fight
+      if (abilities.pending) {
+        const mon = monsters.pick(ray);
+        return abilities.onTargetPicked(mon ? mon.actor : null, nowS);
+      }
       const bag = loot.pick(ray);
       if (bag) return loot.take(bag, takeLoot);
       // a person in front of a house takes the click, not the roof
@@ -736,8 +741,8 @@ function boot() {
       if (now - cursorAt < 100 || dev.on || windows.anyOpen) return;
       cursorAt = now;
       const ray = aim();
-      let want = '';
-      if (loot.pick(ray)) want = 'grab';
+      let want = abilities.cursor || '';       // a held spell owns the cursor
+      if (!want && loot.pick(ray)) want = 'grab';
       else if (forage.pick(ray)) want = 'grab';
       else if (npcs.pick?.(ray) || stations.pick(ray)) want = 'pointer';
       else if (monsters.pick(ray)) want = 'crosshair';
@@ -812,7 +817,7 @@ function boot() {
       runtime.update(dt, now, centre.x, centre.z, day);
       npcs.update(dt, player.pos, day);
       stations.update(player.pos.x, player.pos.z, now);
-      forage.update(player.pos.x, player.pos.z, seasonAt(Date.now()));
+      forage.update(player.pos.x, player.pos.z, seasonAt(Date.now()), now);   // one clock with harvest
 
       // the fight: monsters queue, combat resolves, the bar reacts
       monsters.update(dt, now, actor, night);
@@ -824,7 +829,10 @@ function boot() {
       lastHealth = actor.health;
       targeting.update(dt);
       updateAttack(now, nowS);
+      // a held spell that Escape lets go must not also open the settings window
+      const hadPending = !!abilities.pending;
       abilities.update(dt, nowS);
+      if (hadPending && !abilities.pending && input.pressed('escape')) input.swallow('escape');
       tickPools(actor, dt, combat.inCombat(actor, now));
       loot.update(dt);
 

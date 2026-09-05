@@ -37,6 +37,8 @@ export function createInput(domElement) {
     dblclick: null,                   // the second of two quick clicks on the same spot, this frame
     down: (k) => keys.has(String(k).toLowerCase()),
     pressed: (k) => fresh.has(String(k).toLowerCase()),
+    /** Take a fresh press away so nothing later in the frame acts on it too. */
+    swallow: (k) => fresh.delete(String(k).toLowerCase()),
     endFrame() {
       drag.dx = 0; drag.dy = 0;
       api.wheel = 0;
