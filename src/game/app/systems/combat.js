@@ -115,11 +115,40 @@ export const combat = {
         get attacking() { return attacking; },
       },
 
+      /**
+       * THE TWO CLOCKS, and this is the joint they turn on.
+       *
+       *   monsters.update      the WORLD clock. Their walking, their swings,
+       *                        their shots and their cast bars all hang.
+       *   combatRules.update   the WORLD clock, and that is what makes dragon
+       *                        time work. `queueSwing` stamps a job with
+       *                        `now + SWING_LAND_S` off whatever clock the
+       *                        QUEUER used: a monster queues on the world clock
+       *                        (it is called from inside monsters.update, which
+       *                        was handed the world clock), the player queues on
+       *                        the player clock through `swingAt` below. One
+       *                        pending list, driven by the world clock, so a
+       *                        monster's blow lands on its own time and the
+       *                        player's blows pile up until the end pulse pays
+       *                        the clock back and they all land at once, in
+       *                        order. That IS "everything you touched happens
+       *                        at once", and it needed no line in combat.js.
+       *   targeting.update     the PLAYER's clock: the cursor is the player's.
+       *   updateAttack         the PLAYER's clock: the auto attack's rhythm is
+       *                        the player's own swing timer, at full speed.
+       *   loot.update          the WORLD clock: a sack ages with the world.
+       *
+       * `night` is read off the world clock too, so a dusk that is hanging does
+       * not spawn a wolf a second early.
+       */
       run(frame) {
-        const { dt, now, nowS, night } = frame;
+        const { dt, now, nowS } = frame;
+        const worldDt = frame.worldDt ?? dt;
+        const worldNow = frame.worldNow ?? now;
+        const night = frame.worldNow != null ? ctx.isNight(worldNow) : frame.night;
         // the fight: monsters queue, combat resolves, the bar reacts
-        monsters.update(dt, now, actor, night);
-        combatRules.update(dt, now);
+        monsters.update(worldDt, worldNow, actor, night);
+        combatRules.update(worldDt, worldNow);
         if (actor.health < lastHealth) {
           const { abilities, effects } = ctx.get('abilities');
           abilities.onDamaged(lastHealth - actor.health, nowS);
@@ -128,7 +157,7 @@ export const combat = {
         lastHealth = actor.health;
         targeting.update(dt);
         updateAttack(now, nowS);
-        loot.update(dt);
+        loot.update(worldDt);
       },
 
       ring(dt) {

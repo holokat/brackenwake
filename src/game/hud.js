@@ -60,6 +60,74 @@ export const BAR_SLOTS = BAR_KEYS.length;
 export const KEY_LABELS = { '=': '+' };
 
 /**
+ * The thirteenth cell, and it is NOT one of BAR_KEYS.
+ *
+ * `14-KALDERA.md`: "A key on the bar (the big slot at the far right, where
+ * nothing else may go)." So it is built outside the twelve, drawn to the right
+ * of the rail, and `abilities_runtime.js` cannot put an ability in it: its
+ * `BAR_SLOTS` is twelve and its `slotForKey` returns -1 for R.
+ *
+ * WHY R. Every key already spoken for was counted before this one was chosen:
+ * `windows.RESERVED_KEYS` is w a s d q e space shift control tab; the window
+ * keys are C, B, K, P, V, M, N, Escape and F2; the ability bar is 1 to 0, minus
+ * and equals; the item bar is F5 to F12; the tool row shares 1 to 4 with the
+ * ability bar; dev is F1 and backquote. R is free, and `hud.test.mjs` and
+ * `wyrmsoul.test.mjs` both drive that list rather than take it on trust.
+ */
+export const WYRMSOUL_KEY = 'r';
+
+/** How long the flash at the end of dragon time takes to fade, in seconds. */
+export const FLASH_S = 0.45;
+
+/**
+ * The Bond arc, drawn once and re-strung when the number moves.
+ *
+ * A semicircle of radius 26 over a 62 x 34 box, swept left to right. Its length
+ * is pi * r, and the fill is the same path with a dash the length of the arc
+ * and an offset that walks it back, which is how an arc fills without a mask.
+ */
+export const BOND_ARC = { w: 62, h: 34, cx: 31, cy: 30, r: 26 };
+export const BOND_ARC_LENGTH = Math.PI * BOND_ARC.r;
+
+/** Pure. The dash offset for a fraction 0..1 of the arc. 0 empty, full at 1. */
+export function bondDash(fraction, length = BOND_ARC_LENGTH) {
+  const f = clamp(num(fraction), 0, 1);
+  return length * (1 - f);
+}
+
+/** Pure. The arc's markup at this fraction. One string, so a fake DOM can read it. */
+export function bondArcSvg(fraction) {
+  const { w, h, cx, cy, r } = BOND_ARC;
+  const d = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
+  const off = bondDash(fraction).toFixed(2);
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true">`
+    + `<path class="edge" d="${d}"/><path class="track" d="${d}"/>`
+    + `<path class="fill" d="${d}" stroke-dasharray="${BOND_ARC_LENGTH.toFixed(2)}" stroke-dashoffset="${off}"/>`
+    + '</svg>';
+}
+
+/**
+ * The Wyrmsoul mark: a dragon's eye in gold. A slit pupil inside a lidded
+ * almond, drawn rather than painted, so the thirteenth cell is not a letter in
+ * a box while it waits for art.
+ */
+export const WYRMSOUL_MARK = '<svg viewBox="0 0 40 40" width="100%" height="100%" aria-hidden="true">'
+  + '<defs><radialGradient id="bw-wyrm-iris" cx="50%" cy="50%" r="50%">'
+  + '<stop offset="0%" stop-color="#fff2c8"/><stop offset="55%" stop-color="#f0b93c"/>'
+  + '<stop offset="100%" stop-color="#8a5a12"/></radialGradient></defs>'
+  // the lidded almond
+  + '<path d="M3 20 C11 7 29 7 37 20 C29 33 11 33 3 20 Z" fill="#120d06" stroke="#c9a44a" stroke-width="1.6"/>'
+  // the iris
+  + '<ellipse cx="20" cy="20" rx="9.5" ry="9.5" fill="url(#bw-wyrm-iris)"/>'
+  // the slit
+  + '<path d="M20 11 C22.6 15 22.6 25 20 29 C17.4 25 17.4 15 20 11 Z" fill="#140a03"/>'
+  // the catchlight, so it reads as wet and alive
+  + '<circle cx="16.6" cy="16.2" r="1.7" fill="#fff6dd" opacity=".9"/>'
+  // the brow ridge
+  + '<path d="M4 17 C12 8 28 8 36 17" fill="none" stroke="#8f6f2a" stroke-width="1.2" opacity=".9"/>'
+  + '</svg>';
+
+/**
  * C1: above this much armour burden a bar cell wears an amber corner, so a
  * plated mage sees it without hovering. The same number as
  * abilities_runtime.js's BURDEN_MARK, which is where the bands are decided;
@@ -278,6 +346,70 @@ const CSS = `
 #bw-auras .aura .t {
   position: absolute; right: 1px; bottom: 0; font-size: 9px; font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* --- the Bond, beside the pools -------------------------------------------
+   A long gold arc rather than a fourth bar, because the Bond is not a pool:
+   it is not spent by walking about and it does not come back on its own. The
+   arc is one SVG path with a dash offset for the fill, so the "long gold arc"
+   of 14-KALDERA is a real arc and not a rectangle with a rounded end. */
+#bw-bond { display: none; width: 236px; align-items: center; gap: 8px; }
+#bw-bond.on { display: flex; }
+#bw-bond .arc { width: 62px; height: 34px; flex: none; }
+#bw-bond .arc .track { fill: none; stroke: rgba(0,0,0,.62); stroke-width: 7; stroke-linecap: round; }
+#bw-bond .arc .edge { fill: none; stroke: ${theme.goldDim}; stroke-width: 8.5; stroke-linecap: round; opacity: .75; }
+#bw-bond .arc .fill { fill: none; stroke: ${theme.gold}; stroke-width: 6; stroke-linecap: round;
+  transition: stroke-dashoffset .16s linear; }
+#bw-bond .txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+#bw-bond .nm {
+  font-family: ${theme.fonts.display}; font-size: 12px; font-weight: 600; letter-spacing: .05em;
+  color: ${theme.parchment}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#bw-bond .n {
+  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: ${theme.goldDim}; font-variant-numeric: tabular-nums;
+}
+/* full: the arc glows and the name goes bright, which is the one thing that
+   says the key at the end of the bar will now answer */
+#bw-bond.full .arc .fill { stroke: ${theme.goldBright}; filter: drop-shadow(0 0 6px rgba(242,220,156,.85)); }
+#bw-bond.full .nm { color: ${theme.goldBright}; }
+#bw-bond.full .n { color: ${theme.goldBright}; }
+
+/* --- the thirteenth cell, at the far right of the rail --------------------- */
+#bw-wyrm {
+  position: relative; width: 46px; height: 46px; flex: none; align-self: flex-end;
+  background: rgba(10,8,6,.86); border: 1px solid ${theme.goldDim};
+  cursor: pointer; opacity: .5; filter: grayscale(.7); pointer-events: auto;
+}
+#bw-wyrm.lit { opacity: 1; filter: none; border-color: ${theme.goldBright};
+  box-shadow: 0 0 0 1px ${theme.goldBright} inset, 0 0 18px rgba(242,220,156,.55); }
+#bw-wyrm.up { border-color: #ffb04a; box-shadow: 0 0 0 2px #ffb04a inset, 0 0 26px rgba(255,140,40,.8); }
+#bw-wyrm .mark { position: absolute; inset: 3px; }
+#bw-wyrm .k {
+  position: absolute; top: 1px; left: 3px; font-family: ${theme.fonts.display};
+  font-size: 9px; color: ${theme.gold}; text-shadow: 0 1px 2px #000;
+}
+#bw-wyrm .t {
+  position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  font-family: ${theme.fonts.display}; font-size: 16px; font-weight: 700; color: #ffe6b0;
+  text-shadow: 0 0 8px #000; font-variant-numeric: tabular-nums;
+}
+#bw-wyrm.up .t { display: flex; }
+
+/* --- the screen, while the world is slow ----------------------------------
+   Amber at the edges and clear in the middle: a fixed div with one radial
+   gradient, pointer-events off, under nothing and over everything else. */
+#bw-wyrmshell {
+  position: fixed; inset: 0; pointer-events: none; z-index: 40; opacity: 0;
+  transition: opacity .18s linear;
+  background: radial-gradient(ellipse at 50% 50%,
+    rgba(255,150,40,0) 32%, rgba(255,130,30,.16) 62%, rgba(180,60,10,.5) 100%);
+}
+#bw-wyrmshell.on { opacity: 1; }
+/* the flash at the end: one white sheet, faded out by hud.update */
+#bw-wyrmflash {
+  position: fixed; inset: 0; pointer-events: none; z-index: 41; opacity: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255,238,200,.85) 0%, rgba(255,170,60,.35) 55%, rgba(255,170,60,0) 100%);
 }
 
 #bw-tc { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
@@ -521,6 +653,14 @@ export function createHud(root) {
   const leftCol = add(topLeft, mk('div', 'bw-tl-col'));
   const purse = add(leftCol, mk('div', 'bw-purse', 'panel'));
   const poolBox = add(leftCol, mk('div', 'bw-pools'));
+  // the Bond, beside the pools, with the dragon's name over it (14-KALDERA s3)
+  const bondBox = add(leftCol, mk('div', 'bw-bond'));
+  // the arc is one innerHTML string, re-strung only when the rounded number
+  // moves, so nothing here allocates an SVG node sixty times a second
+  const bondArc = add(bondBox, mk('div', null, 'arc'));
+  const bondTxt = add(bondBox, mk('div', null, 'txt'));
+  const bondName = add(bondTxt, mk('div', null, 'nm'));
+  const bondNum = add(bondTxt, mk('div', null, 'n'));
   const auraBox = add(leftCol, mk('div', 'bw-auras'));
 
   // top centre: place, then the target frame under it
@@ -543,12 +683,32 @@ export function createHud(root) {
   const barRow = add(barRail, mk('div', 'bw-bar'));
   const railMark = add(barRail, mk('div', null, 'rail off'));
   const itemRow = add(barRail, mk('div', 'bw-items'));
+  // the thirteenth cell: outside BAR_KEYS, at the far right, where nothing else
+  // may go. Built once, always present, dim until the Bond is full.
+  const wyrmCell = add(barRail, mk('div', 'bw-wyrm'));
+  const wyrmMark = add(wyrmCell, mk('div', null, 'mark'));
+  wyrmMark.innerHTML = WYRMSOUL_MARK;
+  const wyrmKey = add(wyrmCell, mk('span', null, 'k'));
+  wyrmKey.textContent = String(WYRMSOUL_KEY).toUpperCase();
+  const wyrmTimer = add(wyrmCell, mk('div', null, 't'));
+  // the tooltip record for the thirteenth cell. `hoverTip` and `showAbTip` are
+  // function declarations and so are already hoisted here; `tipOwner` is only
+  // read inside the handlers, which fire long after it exists.
+  const wyrmRec = { el: wyrmCell, key: WYRMSOUL_KEY, wyrm: true, tip: '', last: '' };
+  let onWyrmPick = null;
+  wyrmCell.addEventListener('click', () => { if (onWyrmPick) onWyrmPick(); });
 
   const gainBox = add(el, mk('div', 'bw-gains'));
 
   const bottomLeft = add(el, mk('div', 'bw-bl'));
   const toasts = add(bottomLeft, mk('div', 'bw-toasts'));
   const logBox = add(bottomLeft, mk('div', 'bw-log'));
+
+  // dragon time: the amber edges and the flash at the end. Fixed to the
+  // viewport rather than to the HUD, because they are the screen and not a
+  // widget on it.
+  const wyrmShell = add(el, mk('div', 'bw-wyrmshell'));
+  const wyrmFlash = add(el, mk('div', 'bw-wyrmflash'));
 
   // the zone banner, last so it sits over everything
   const zoneBox = add(el, mk('div', 'bw-zone'));
@@ -635,6 +795,21 @@ export function createHud(root) {
       tipBurden.hidden = !c.burden;
       tipReason.textContent = c.reason || '';
       tipReason.hidden = !c.reason;
+    } else if (c.wyrm) {
+      // The thirteenth cell's card, in the same shape as an ability's: the
+      // name, the key, the chips, what it is, which realms have given something
+      // back, and in red the reason it will not answer right now.
+      const w = c.wyrmTip || {};
+      setArt(tipArt, null); tipArt.hidden = true;
+      tipName.textContent = w.name || 'Wyrmsoul';
+      tipKey.textContent = `key ${String(WYRMSOUL_KEY).toUpperCase()}`;
+      tipChips.textContent = '';
+      for (const t of (w.chips || [])) add(tipChips, mk('span', null, 'chip')).textContent = t;
+      tipDesc.textContent = `${w.head || ''}${w.heldLine ? ` ${w.heldLine}` : ''}`;
+      tipBurden.textContent = w.tired || '';
+      tipBurden.hidden = !w.tired;
+      tipReason.textContent = w.reason || '';
+      tipReason.hidden = !w.reason;
     } else if (c.item) {
       setArt(tipArt, null); tipArt.hidden = true;
       tipName.textContent = c.item.name || '';
@@ -664,7 +839,7 @@ export function createHud(root) {
   function hoverTip(rec) {
     const el = rec.el;
     if (!el.addEventListener) return;
-    el.addEventListener('pointerenter', () => { if (rec.ability || rec.item) showAbTip(rec); });
+    el.addEventListener('pointerenter', () => { if (rec.ability || rec.item || rec.wyrm) showAbTip(rec); });
     el.addEventListener('pointerleave', () => { if (tipOwner === rec) hideAbTip(); });
   }
 
@@ -690,6 +865,8 @@ export function createHud(root) {
     hoverTip(rec);
     return rec;
   });
+
+  hoverTip(wyrmRec);
 
   // one cell per item slot, built once from item_bar.js's own list, so the two
   // files can never disagree about how many there are.
@@ -795,6 +972,49 @@ export function createHud(root) {
     tTier.style.color = t.colour || theme.parchment;
     tFill.style.width = `${(clamp(num(t.fraction), 0, 1) * 100).toFixed(1)}%`;
     tNum.textContent = `${Math.round(num(t.health))} / ${Math.round(num(t.maxHealth))}`;
+  }
+
+  // --- the Bond, and the thirteenth cell -------------------------------------
+  //
+  // Both are driven by the dragon system (`app/systems/dragon.js`), which runs
+  // AFTER the fight and BEFORE this file's `update`, so what the Bond did this
+  // frame is drawn this frame and not the next one.
+
+  let bondState = { value: 0, name: null, callable: false, shown: false };
+  let bondLast = '';
+
+  function drawBond() {
+    bondBox.classList.toggle('on', !!bondState.shown);
+    if (!bondState.shown) return;
+    const v = clamp(num(bondState.value), 0, 100);
+    const full = v >= 100;
+    const name = bondState.name || 'the hatchling';
+    const stamp = `${Math.round(v)}|${name}|${full ? 1 : 0}`;
+    if (stamp === bondLast) return;
+    bondLast = stamp;
+    bondArc.innerHTML = bondArcSvg(v / 100);
+    bondName.textContent = name;
+    bondNum.textContent = full ? `bond ${Math.round(v)} - wyrmsoul` : `bond ${Math.round(v)}`;
+    bondBox.classList.toggle('full', full);
+  }
+
+  let wyrmState = { callable: false, active: false, left: 0, reason: '', tip: null };
+  let wyrmLast = '';
+  let flash = 0;
+
+  function drawWyrm() {
+    const stamp = `${wyrmState.callable ? 1 : 0}|${wyrmState.active ? 1 : 0}|${wyrmState.left > 0 ? wyrmState.left.toFixed(1) : ''}`;
+    if (stamp !== wyrmLast) {
+      wyrmLast = stamp;
+      wyrmCell.className = 'bw-wyrm' + (wyrmState.callable ? ' lit' : '') + (wyrmState.active ? ' up' : '');
+      wyrmTimer.textContent = wyrmState.active && wyrmState.left > 0 ? timerLabel(wyrmState.left) : '';
+    }
+    wyrmShell.classList.toggle('on', !!wyrmState.active);
+  }
+
+  /** Where the flash is, so the fade is a measured number and not a CSS guess. */
+  function drawFlash() {
+    wyrmFlash.style.opacity = flash > 0 ? flash.toFixed(3) : '0';
   }
 
   // --- the ability bar -------------------------------------------------------
@@ -985,6 +1205,8 @@ export function createHud(root) {
     onTool(fn) { onToolPick = fn; },
     /** A click on a bar cell, for the mouse. The keys go through input.js. */
     onBar(fn) { onBarPick = fn; },
+    /** A click on the thirteenth cell. The key goes through the dragon system. */
+    onWyrmsoul(fn) { onWyrmPick = fn; },
     /** The words the tooltip shows for bar slot i, or '' when the slot is empty. */
     tipFor(i) { const c = cells[i]; return c && c.tip ? c.tip : ''; },
     /** The same for item slot i. */
@@ -1027,6 +1249,62 @@ export function createHud(root) {
     /** What the ticker is showing right now, newest last. For tests. */
     get gains() { return gains.map((g) => ({ text: g.text, kind: g.kind, t: g.t })); },
     clearGains() { gains.length = 0; drawGains(); },
+
+    /**
+     * The Bond arc, beside the pools, with the dragon's name over it.
+     *
+     * @param {number} value 0..100, the record's own Bond
+     * @param {string} name  what the player called it, or null for "the hatchling"
+     * @param {boolean} callable  is the key at the end of the bar going to answer
+     * @returns what it will draw, so a caller can log it rather than guess
+     */
+    setBond(value, name, callable) {
+      const v = clamp(num(value), 0, 100);
+      bondState = { value: v, name: name || null, callable: !!callable, shown: true };
+      drawBond();
+      return { value: v, name: bondState.name || 'the hatchling', full: v >= 100, callable: !!callable };
+    },
+    /** Take the arc off the screen: no dragon, or a character without one. */
+    clearBond() { bondState = { ...bondState, shown: false }; bondBox.classList.remove('on'); return false; },
+    /** What the arc is showing. For the tests and the console. */
+    get bond() { return { ...bondState }; },
+
+    /**
+     * The thirteenth cell and the screen shell.
+     *
+     * @param {object} st
+     *   `callable`  the mark lights
+     *   `active`    dragon time is up: the cell burns and the edges go amber
+     *   `left`      seconds of dragon time remaining, drawn in the cell
+     *   `reason`    why it cannot be called, for the tooltip, in red
+     *   `tip`       `wyrmsoul.tooltipFor()`: name, head, chips, heldLine
+     *   `flash`     0..1, the sheet at the end. Run down by `update`.
+     */
+    setWyrmsoul(st = {}) {
+      wyrmState = {
+        callable: !!st.callable,
+        active: !!st.active,
+        left: num(st.left),
+        reason: st.reason || '',
+        tip: st.tip || null,
+      };
+      if (Number.isFinite(st.flash)) { flash = clamp(st.flash, 0, 1); drawFlash(); }
+      // the card's own words, kept on the record so the tooltip can be opened
+      // at any moment and is never a frame behind what the cell is showing
+      const card = { ...(st.tip || {}), reason: wyrmState.reason };
+      wyrmRec.wyrmTip = card;
+      wyrmRec.tip = [card.name || 'Wyrmsoul', card.head, card.heldLine, card.tired, card.reason]
+        .filter(Boolean).join(' ');
+      drawWyrm();
+      if (tipOwner === wyrmRec) showAbTip(wyrmRec);
+      return { ...wyrmState };
+    },
+    /** What the cell is showing. For the tests and the console. */
+    get wyrmsoul() { return { ...wyrmState, flash }; },
+    /** The white sheet at the end of it. `update` fades it out over FLASH_S. */
+    wyrmFlash(k = 1) { flash = clamp(num(k), 0, 1); drawFlash(); return flash; },
+    /** The words the Wyrmsoul tooltip is showing. '' when it has none. */
+    get wyrmsoulTip() { return wyrmRec.tip || ''; },
 
     setPlace(text) { place.textContent = text || ''; place.style.display = text ? '' : 'none'; },
 
@@ -1108,6 +1386,9 @@ export function createHud(root) {
       drawTarget(v.target || null);
       drawBar(v.bar);
       drawItems(v.items);
+      // the flash at the end of dragon time, run down on the PLAYER's clock so
+      // it is over in FLASH_S of real time whatever the world is doing
+      if (flash > 0) { flash = Math.max(0, flash - step / FLASH_S); drawFlash(); }
       if (banner) { banner.t += step; drawBanner(); }
       if (gains.length) {
         for (const g of gains) g.t += step;

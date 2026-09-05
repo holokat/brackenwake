@@ -749,6 +749,76 @@ export const RECIPES = [
       return reverb(y, { wet: 0.2, rt: 0.8 });
     },
   },
+
+  // ------------------------------------------------------------- Wyrmsoul --
+  //
+  // 14-KALDERA.md section 3: "sound drops to a low roar and a heartbeat" on the
+  // call, and "a flash, the trails snap back, the sound returns" at the end.
+  // Two files, and only two, because MAX_SECONDS is 2 and audio.js has no
+  // looping cue: the roar and the first beats of the heart are one sound, and
+  // the amber at the edges of the screen carries the rest of the six seconds.
+  // docs/mmo/wiring/D2.md says so out loud rather than implying a bed of sound
+  // that is not there.
+  {
+    name: 'wyrmsoul_call',
+    seconds: 1.9,
+    recipe: 'A dragon under the floor, and a heart. The roar is a saw at 41 Hz '
+      + 'with its first five harmonics, bent DOWN a fifth over the whole file (the '
+      + 'sound of everything slowing), lowpassed at 700 Hz, with a slow 5 Hz growl '
+      + 'on its amplitude. Under it, three heartbeats at 0.10, 0.72 and 1.34 s, '
+      + 'each a lub-dub pair of 55 to 28 Hz sines 140 ms apart. A long dark room '
+      + 'behind all of it.',
+    render(n, rng) {
+      const out = buf(n);
+      // the roar, bending down: 41 Hz to about 27 Hz over the file
+      const f = (t) => 41 * Math.pow(2, -0.6 * clamp(t / 1.9, 0, 1));
+      const hold = envAHR(n, 0.06, 0.7);
+      const growl = (t) => 0.78 + 0.22 * Math.sin(TAU * 5 * t);
+      for (const [h, a] of [[1, 1.0], [2, 0.5], [3, 0.3], [4, 0.16], [5, 0.09]]) {
+        add(out, tone(n, (t) => f(t) * h, growl, h === 1 ? 'saw' : 'sine', rng() * TAU), a * 0.5, hold);
+      }
+      let y = biquad(out, 'lp', 700, 1.1);
+      // the heart: a lub and a dub, three times
+      const beat = buf(n);
+      const thump = (startS, gain) => {
+        const len = nsec(0.22);
+        const v = shape(tone(len, (t) => 28 + 27 * Math.exp(-t / 0.035), 1, 'sine'), envAD(len, 0.002, 0.055));
+        at(beat, v, nsec(startS), gain);
+      };
+      for (const t0 of [0.10, 0.72, 1.34]) { thump(t0, 1.0); thump(t0 + 0.14, 0.62); }
+      add(y, biquad(beat, 'lp', 220, 0.8), 0.9);
+      // air moving the wrong way, quietly, for the sense of the world slowing
+      const air = biquad(noise(n, rng), 'bp', (t) => 900 - 600 * clamp(t / 1.9, 0, 1), 2.0);
+      add(y, air, 0.12, hold);
+      return reverb(y, { wet: 0.3, rt: 1.4 });
+    },
+  },
+  {
+    name: 'wyrmsoul_end',
+    seconds: 1.0,
+    recipe: 'Time letting go. A 12 ms click of full band noise is the snap; a '
+      + 'bright sine sweeping 320 up to 2.6 kHz in 90 ms and gone is the flash; '
+      + 'then everything the world owed arrives as a bandpassed noise swell that '
+      + 'rises over 180 ms and falls away over half a second, with a 55 Hz sine '
+      + 'under it for the weight of it landing. A short bright room.',
+    render(n, rng) {
+      const out = buf(n);
+      // the snap
+      const snapLen = nsec(0.012);
+      at(out, shape(noise(snapLen, rng), envAD(snapLen, 0.0002, 0.004)), 0, 1.0);
+      // the flash
+      const flash = shape(
+        tone(n, (t) => 320 * Math.pow(8, clamp(t / 0.09, 0, 1)), 1, 'sine'),
+        envAD(n, 0.001, 0.045),
+      );
+      add(out, flash, 0.55);
+      // the world arriving all at once
+      const swell = envBell(n, 0.22, 1.6);
+      add(out, biquad(noise(n, rng), 'bp', (t) => 600 + 3400 * clamp(t / 0.5, 0, 1), 1.6), 0.42, swell);
+      add(out, tone(n, (t) => 55 + 20 * Math.exp(-t / 0.08), 1, 'sine'), 0.7, envAD(n, 0.004, 0.16));
+      return reverb(out, { wet: 0.16, rt: 0.45 });
+    },
+  },
 ];
 
 export const RECIPE_BY_NAME = Object.fromEntries(RECIPES.map((r) => [r.name, r]));

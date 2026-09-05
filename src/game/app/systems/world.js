@@ -168,14 +168,29 @@ export const world = {
       runtime, sky, water,
       refreshEnvironment, nearestSettlement, keepInside, clampCamera, listen,
       heightAt: (x, z) => runtime.heightAt(x, z),
+      /** The day, at any instant of the WORLD clock. One place, so it agrees. */
+      dayFactor: (nowMs) => sc.dayFactor(nowMs),
       get lastInside() { return lastInside; },
       get underwater() { return wasUnder; },
 
       bw: { runtime, sky, water, refreshEnvironment },
 
-      /** The picture, and only ever last. */
+      /**
+       * The picture, and only ever last.
+       *
+       * THE WORLD CLOCK. The sky, the sea and the day belong to the world, so
+       * every one of them reads `worldDt / worldNow / worldNowS` and the day
+       * factor is taken from `worldNow` rather than from the frame's own `day`,
+       * which main.js computes off the player's clock. In ordinary time the two
+       * are the same number; in dragon time the sun and the swell hang with
+       * everything else. docs/mmo/wiring/D2.md lists every call by name.
+       */
       draw(frame) {
-        const { dt, now, nowS, day, centre } = frame;
+        const dt = frame.worldDt ?? frame.dt;
+        const now = frame.worldNow ?? frame.now;
+        const nowS = frame.worldNowS ?? frame.nowS;
+        const day = sc.dayFactor(now);
+        const { centre } = frame;
         // sky first, then the water that reflects it; both centre on the eye
         sky.update(day, sc.camera.position, dt, now);
         sc.setSunDir(sky.shadowDir);
@@ -196,8 +211,14 @@ export const world = {
 
   ready(ctx) { ctx.get('world').listen(); },
 
+  // The world streams on the WORLD clock: chunks, fauna, weather and the
+  // dungeon's own timers all belong to the world and hang with it in dragon
+  // time. `frame.centre` is still the eye's real position, because the eye is
+  // the player's and the player never slows.
   update(ctx, frame) {
-    ctx.get('world').runtime.update(frame.dt, frame.now, frame.centre.x, frame.centre.z, frame.day);
+    const self = ctx.get('world');
+    const now = frame.worldNow ?? frame.now;
+    self.runtime.update(frame.worldDt ?? frame.dt, now, frame.centre.x, frame.centre.z, self.dayFactor(now));
   },
 
   render(ctx, frame) { ctx.get('world').draw(frame); },

@@ -106,7 +106,7 @@ export const SYNTH_FILES = [
   'synth/spell_cold.wav', 'synth/spell_dark.wav', 'synth/spell_energy.wav',
   'synth/spell_fire.wav', 'synth/spell_holy.wav', 'synth/spell_physical.wav',
   'synth/spell_poison.wav', 'synth/stat_up.wav', 'synth/swing_heavy.wav',
-  'synth/swing_light.wav',
+  'synth/swing_light.wav', 'synth/wyrmsoul_call.wav', 'synth/wyrmsoul_end.wav',
 ];
 
 /** Everything a cue may name: the recordings and the synthesised set together. */
@@ -254,6 +254,18 @@ export const CUES = {
   // is theirs to call. The row is here so that the day it is wanted it is a
   // one-line change and not a week of waiting for a sound.
   level_boss_phase: { file: 'synth/level_boss_phase.wav', gain: 1 },
+
+  // Wyrmsoul. 14-KALDERA.md section 3: the call is "a low roar and a
+  // heartbeat", the end is "a flash, the trails snap back, the sound returns".
+  //
+  // TWO CUES AND NOT THREE, AND WHAT THAT COSTS. `tools/synth-sfx.mjs` caps a
+  // file at two seconds and this file has no looping cue, so the heartbeat runs
+  // for the first 1.9 s of a six second effect and then the amber at the edges
+  // of the screen carries it alone. That is a real gap and it is written down
+  // here rather than left to be discovered: a third, looping bed is the thing
+  // to make the day somebody wants it.
+  wyrmsoul_call: { file: 'synth/wyrmsoul_call.wav', gain: 1 },
+  wyrmsoul_end: { file: 'synth/wyrmsoul_end.wav', gain: 0.95 },
 };
 
 /**

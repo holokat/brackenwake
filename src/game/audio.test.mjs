@@ -69,7 +69,7 @@ function memStore() {
   check(`every take of every cue is a file on disk`, allThere, `${rows} cues, ${takes} takes`);
   check('no cue points at a file measured silent', allAlive);
   check('the audit list is the 61 recordings in public/audio/sfx', SFX_FILES.length === 61, String(SFX_FILES.length));
-  check('and the 25 synthesised files under it', SYNTH_FILES.length === 25, String(SYNTH_FILES.length));
+  check('and the 27 synthesised files under it', SYNTH_FILES.length === 27, String(SYNTH_FILES.length));
   check('urlFor puts a synthesised take under /audio/sfx/synth/',
     urlFor(CUES.spell_fire) === '/audio/sfx/synth/spell_fire.wav', urlFor(CUES.spell_fire));
   check('urlFor puts a take under /audio/sfx/', urlFor(CUES.mine, 2) === '/audio/sfx/pickaxe-3.mp3', urlFor(CUES.mine, 2));

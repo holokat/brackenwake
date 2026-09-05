@@ -52,6 +52,17 @@
 // effect. Anything called after boot may simply ask `ctx.get(name)` at the
 // moment it fires.
 
+// THE TWO CLOCKS. Every phase below is handed the same frame record, and that
+// record carries two clocks: `dt/now/nowS` for the player and
+// `worldDt/worldNow/worldNowS` for everything else. `ctx.clock` (context.js)
+// owns the second one, and the runner syncs it once per frame, at the top of
+// whichever phase runs first. It is done here rather than in main.js's loop so
+// that a test which drives one phase gets the same clock the game does: there
+// is no second code path, and `frame.worldNow` is never stale or absent.
+//
+// In ordinary time the two clocks are the same number to the millisecond.
+// docs/mmo/wiring/D2.md lists, by name, every call that reads which.
+
 /** Every per frame hook, in the order the loop calls them. */
 export const PHASES = ['hotkeys', 'click', 'move', 'update', 'late', 'render'];
 
@@ -111,7 +122,11 @@ export function createSystems(ctx, list) {
     ctx.register(s.name, s.create(ctx) ?? {});
   }
 
-  const each = (hook) => (a, b) => { for (const s of list) s[hook]?.(ctx, a, b); };
+  // One sync per frame, whichever phase gets there first. `sync` is idempotent
+  // on `frame.now`, so calling it six times a frame moves the clock once.
+  const tick = (frame) => { if (frame && ctx.clock) ctx.clock.sync(frame); return frame; };
+
+  const each = (hook) => (a, b) => { tick(a); for (const s of list) s[hook]?.(ctx, a, b); };
 
   return {
     /** Names in the order they were built. */
@@ -129,6 +144,7 @@ export function createSystems(ctx, list) {
 
     /** The first system that says it handled the click ends the click. */
     click(ray, frame) {
+      tick(frame);
       for (const s of list) {
         const handled = s.click?.(ctx, ray, frame);
         if (handled) return handled;

@@ -52,6 +52,21 @@ export const abilities = {
     };
   },
 
+  // THE PLAYER'S CLOCK, all of it, and on purpose. `14-KALDERA.md` section 3:
+  // "The player's cooldowns and casts run at full speed, so a rogue gets ten
+  // seconds of free hits; a mage gets ten seconds of casts that all land as
+  // time resumes." So `runtime.update` and the item bar take `dt` and `nowS`
+  // and never the world's.
+  //
+  // `effects.update` is the player's clock too, which is a decision and not an
+  // oversight: the pool holds the player's own bolts and the swing, cast and
+  // flinch clips on the player's rig, and every one of those is the player's.
+  // A monster's shot is NOT in here at all: `monsters.js` steps its own
+  // projectiles inside `monsters.update`, which is already on the world clock,
+  // so an arrow really does hang. What is on the player's clock and belongs to
+  // the world is the impact burst a monster's blow throws, which lasts a third
+  // of a second and is over before anybody could time it. Written down here
+  // rather than left to be found.
   update(ctx, frame) {
     const { abilities: runtimeAbilities, itemBar } = ctx.get('abilities');
     const input = ctx.input;

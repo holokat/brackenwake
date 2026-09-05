@@ -22,6 +22,7 @@ import { createCombat } from '../../combat.js';
 import { playerActor, spawnMonster, recompute } from '../../actor.js';
 import { stepMonster } from '../../monsters.js';
 import { AGE_STATS, FALL_MIN_MS, APART_M, WAKE_BOND, stageBody } from '../../dragon.js';
+import { createWorldClock } from '../context.js';
 import { makeItem } from '../../../mmo/items.js';
 
 let pass = 0, fail = 0;
@@ -41,8 +42,9 @@ console.log('\nthe system is in the list, in the right place');
   check('it declares everything it reaches for while building',
     ['world', 'player', 'combat', 'inventory', 'ui'].every((d) => dragonSystem.deps.includes(d)),
     dragonSystem.deps.join(','));
-  check('it has an update and no other frame hook it does not need',
-    typeof dragonSystem.update === 'function' && !dragonSystem.render && !dragonSystem.late);
+  check('it has an update, and the two hooks Wyrmsoul needs and nothing else',
+    typeof dragonSystem.update === 'function' && typeof dragonSystem.hotkeys === 'function'
+    && typeof dragonSystem.move === 'function' && !dragonSystem.render && !dragonSystem.late);
 }
 
 // ===========================================================================
@@ -66,9 +68,10 @@ function boot(opts = {}) {
   const scene = new THREE.Scene();
   const rig = {
     pos: { x: 0, y: 0, z: 0 }, yaw: 0, group: new THREE.Group(),
-    parts: { back: new THREE.Object3D() },
+    parts: { back: new THREE.Object3D(), head: new THREE.Object3D() },
   };
   rig.group.add(rig.parts.back);
+  rig.group.add(rig.parts.head);
   const me = playerActor(character, { pos: rig.pos });
   const combatRules = createCombat({ recompute });
 
@@ -76,6 +79,7 @@ function boot(opts = {}) {
   const live = [];
   const monsters = {
     actors: () => live.filter((a) => a.health > 0),
+    all: () => live.map((a) => ({ actor: a, model: null })),
     swingAt(attacker, defender, o) {
       const r = combatRules.queueSwing(attacker, defender, o);
       swings.push({ attacker, defender, queued: !!r.queued, reason: r.reason });
@@ -85,14 +89,37 @@ function boot(opts = {}) {
 
   const panelCtx = { hud: null };
   const registry = new Map();
+  const clock = createWorldClock(1000);
+  // what the HUD was told, so the arc and the thirteenth cell are read back
+  // rather than described
+  const hudSaid = { bond: null, wyrm: null, flash: 0 };
+  const keysDown = new Set(), keysFresh = new Set();
   const ctx = {
     sc: { scene },
-    hud: { log: (t, k) => logs.push({ t, k }), toast: (t, k) => logs.push({ t, k }) },
+    hud: {
+      log: (t, k) => logs.push({ t, k }), toast: (t, k) => logs.push({ t, k }),
+      setBond: (v, n, c) => { hudSaid.bond = { value: v, name: n, callable: c }; return hudSaid.bond; },
+      setWyrmsoul: (st) => { hudSaid.wyrm = st; return st; },
+      wyrmFlash: (k) => { hudSaid.flash = k; return k; },
+      onWyrmsoul: () => {},
+    },
+    audio: { play: () => null },
+    camera: { yaw: 0, pitch: 0, flySpeed: 60 },
+    input: {
+      down: (k) => keysDown.has(k),
+      pressed: (k) => keysFresh.has(k),
+      swallow: (k) => keysFresh.delete(k),
+    },
+    clock,
     character,
-    frame: { dt: 0, now: 1000, nowS: 1, day: 1, night: false, centre: null },
+    frame: {
+      dt: 0, now: 1000, nowS: 1, day: 1, night: false, centre: null,
+      worldDt: 0, worldNow: 1000, worldNowS: 1, timeScale: 1,
+    },
     get(name) {
       if (registry.has(name)) return registry.get(name);
-      if (name === 'world') return { runtime: { heightAt: () => 0 } };
+      if (name === 'world') return { runtime: { heightAt: () => 0 }, underwater: false, dayFactor: () => 1 };
+      if (name === 'abilities') return { effects: { bolt: () => {}, burst: () => {} } };
       if (name === 'player') return { rig, actor: me };
       if (name === 'combat') {
         return {
@@ -133,7 +160,10 @@ function boot(opts = {}) {
 
   return {
     ctx, made, logs, registered, opened, swings, character, rig, me, scene,
-    combat: combatRules, monsters, live,
+    combat: combatRules, monsters, live, clock, hudSaid,
+    press: (k) => keysFresh.add(k),
+    hold: (k) => keysDown.add(k),
+    release: (k) => keysDown.delete(k),
     setAttacking(mon) { attacking = mon; },
     said: () => logs.map((l) => l.t).join('\n'),
     /** N frames through the system's own update hook and the resolver. */
@@ -142,8 +172,12 @@ function boot(opts = {}) {
       for (let i = 0; i < n; i++) {
         now += dt * 1000;
         ctx.frame.dt = dt; ctx.frame.now = now; ctx.frame.nowS = now / 1000;
+        clock.sync(ctx.frame);
+        dragonSystem.hotkeys(ctx, ctx.frame);
+        dragonSystem.move(ctx, ctx.frame);
         dragonSystem.update(ctx, ctx.frame);
-        combatRules.update(dt, now);
+        combatRules.update(ctx.frame.worldDt, ctx.frame.worldNow);
+        keysFresh.clear();
       }
       return now;
     },
