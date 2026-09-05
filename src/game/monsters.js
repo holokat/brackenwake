@@ -1322,6 +1322,12 @@ export function createMonsters(sc, runtime, opts = {}) {
       return null;
     },
     corpses: () => corpses.slice(),
+    /** The dev bench's Clear spawned: every dev: keyed body goes, no corpse, no sack, no dead list entry. */
+    despawnDev() {
+      let n = 0;
+      for (const key of [...live.keys()]) if (key.startsWith('dev:')) { despawn(key); n++; }
+      return n;
+    },
     /** The dev bench: one monster of this id at x, z, outside the world's own roll. */
     spawnAt(id, x, z) {
       if (!MONSTERS[id]) return null;

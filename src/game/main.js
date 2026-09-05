@@ -290,7 +290,7 @@ function boot() {
       state, hud, audio,
       nearestSettlement: () => nearestSettlement(),
     });
-    const dev = createDev({ sc, camera, player, hud, runtime, state });
+    const dev = createDev({ sc, camera, player, hud, runtime, state, monsters, floaters, loot });
     applySettings(character.settings);
     // the dev bench reaches everything through ctx; nothing here is a second path
     ctx.targeting = targeting; ctx.abilities = abilities; ctx.effects = effects;
@@ -320,6 +320,7 @@ function boot() {
     const forage = createForageField(sc, { field: runtime.field, treesFor, season: seasonAt(Date.now()) });
     const foraging = createForaging({ field: forage, inventory, progression, hud, audio, floaters, character, actor, combat });
     ctx.foraging = foraging;
+    ctx.forage = forage;
     ctx.useItem = (item, where) => foraging.useItem(item, where);
     tradeNet.onInvite((partner, peer) => {
       hud.log(`${peer?.name || 'somebody'} wants to trade.`);
