@@ -50,6 +50,7 @@ import { createTargeting } from './targeting.js';
 import { createAbilities } from './abilities_runtime.js';
 import { dressRig } from './gear_visuals.js';
 import { createSky } from './sky.js';
+import { createTargetRing } from './target_ring.js';
 import { createWater } from '../world/water.js';
 import { createForageField, seasonAt } from '../world/forage.js';
 import { createForaging } from './foraging.js';
@@ -232,6 +233,11 @@ function boot() {
 
     dress();
     const effects = createEffects(sc, { audio });
+    const targetRing = createTargetRing(sc);
+    // Auto attack, the UO way: a single click on a monster looks at it, a
+    // double click fights it until it or you is down, or you click the ground.
+    let attacking = null;
+    const ATTACK_LEASH = 30;
     const targeting = createTargeting(sc, input, monsters, {
       self: actor, hud,
       pos: () => player.pos,
@@ -442,6 +448,17 @@ function boot() {
     // biome, because a name is what a player can point at on the way back.
     let placeText = '';
     let placeCheck = -1e9;
+    let placeSub = '';
+    // frame timing for the dev badge: a one second rolling average
+    let fpsFrames = 0, fpsAt = performance.now(), fps = 0;
+    function tickFps(now) {
+      fpsFrames++;
+      if (now - fpsAt >= 1000) {
+        fps = Math.round(fpsFrames * 1000 / (now - fpsAt));
+        fpsFrames = 0; fpsAt = now;
+        if (dev.on) hud.setDev(true, { fps, frameMs: +(1000 / Math.max(1, fps)).toFixed(1), draws: sc.renderer.info.render.calls, tris: sc.renderer.info.render.triangles, monsters: monsters.count, ...(dev.stats || {}) });
+      }
+    }
     function updatePlace(nowMs) {
       if (nowMs - placeCheck < 500) return;
       placeCheck = nowMs;
@@ -460,7 +477,13 @@ function boot() {
         if (best) text = best.name;
         else text = BIOME_NAMES[sample.biome] || sample.biome;
       }
-      if (text !== placeText) { placeText = text; hud.setPlace(text); }
+      if (text !== placeText) {
+        placeText = text; hud.setPlace(text);
+        // the banner: a named place gets its kind, the open ground its biome
+        const sample = runtime.field.sampleAt(p.x, p.z);
+        placeSub = runtime.inDungeon ? 'underground' : (BIOME_NAMES[sample.biome] || sample.biome);
+        hud.zone?.(text, placeSub);
+      }
     }
 
     // -------------------------------------------------------------- death --
@@ -607,16 +630,52 @@ function boot() {
       const mon = monsters.pick(ray);
       if (mon) {
         targeting.set?.(mon.actor, 'click');
-        const extra = abilities.takeNextSwing(nowS) || {};
-        // swingAt is queueSwing with the monster's weaknesses folded in
-        const r = monsters.swingAt(actor, mon.actor, { now, jumpAttack: player.airborne, ...extra });
-        if (r && !r.queued && r.reason === 'out_of_reach') hud.log(`${mon.name} is ${Math.round(r.dist)} m off`);
-        return r;
+        if (input.dblclick) {
+          startAttack(mon);
+          return swingAt(mon.actor, now, nowS, true);
+        }
+        return { targeted: mon.name };
       }
+      // a click on bare ground with a fight running calls it off
+      if (attacking) stopAttack('you look away');
       // a body under the cursor, with a knife in hand and something to skin
       const corpse = skinning.pick(ray) || skinning.nearest(player.pos);
       if (corpse && skinning.canSkin(corpse)) return skinning.skin(corpse, now);
       return interact.click();
+    }
+
+    function startAttack(mon) {
+      if (attacking?.actor === mon.actor) return;
+      attacking = mon;
+      hud.log(`You attack the ${mon.name}.`, 'good');
+      hud.setHint?.(`fighting the ${mon.name}`);
+    }
+    function stopAttack(why) {
+      if (!attacking) return;
+      const name = attacking.name;
+      attacking = null;
+      hud.setHint?.('');
+      if (why) hud.log(`You stop fighting the ${name}: ${why}.`);
+    }
+    let lastReachLine = -1e9;
+    function swingAt(target, now, nowS, sayReach) {
+      const extra = abilities.takeNextSwing(nowS) || {};
+      // swingAt is queueSwing with the monster's weaknesses folded in
+      const r = monsters.swingAt(actor, target, { now, jumpAttack: player.airborne, ...extra });
+      if (r && !r.queued && r.reason === 'out_of_reach' && (sayReach || now - lastReachLine > 2500)) {
+        lastReachLine = now;
+        hud.log(`${attacking?.name || 'It'} is ${Math.round(r.dist)} m off, walk closer`);
+      }
+      return r;
+    }
+    /** Each frame: swing at the fight, and let it go when it is over. */
+    function updateAttack(now, nowS) {
+      if (!attacking || dying) return;
+      const t = attacking.actor;
+      if (!t || t.health <= 0) { const n = attacking.name; attacking = null; hud.setHint?.(''); hud.log(`The ${n} is down.`, 'good'); return; }
+      if (Math.hypot(t.pos.x - player.pos.x, t.pos.z - player.pos.z) > ATTACK_LEASH) return stopAttack('it is too far away');
+      if (targeting.current !== t) targeting.set?.(t, 'attack');
+      swingAt(t, now, nowS, false);
     }
 
     // ------------------------------------------------------------- the loop --
@@ -686,6 +745,7 @@ function boot() {
       }
       lastHealth = actor.health;
       targeting.update(dt);
+      updateAttack(now, nowS);
       abilities.update(dt, nowS);
       tickPools(actor, dt, combat.inCombat(actor, now));
       loot.update(dt);
@@ -698,9 +758,12 @@ function boot() {
       }
 
       interact.update(dt, now);
+      tickFps(now);
       tradeNet.update(now);
       updatePlace(now);
 
+      const ringTarget = attacking?.actor || targeting.current;
+      targetRing.update(dt, ringTarget, !!attacking, ringTarget ? runtime.heightAt(ringTarget.pos.x, ringTarget.pos.z) : 0);
       floaters.update(dt);
       effects.update(dt);               // after player.update: the clips add to the gait
       // sky first, then the water that reflects it; both centre on the eye
@@ -741,10 +804,10 @@ function boot() {
       actor, get playerActor() { return actor; }, get character() { return state.character; },
       progression, combat, loot, monsters, inventory, windows, effects, targeting, abilities, npcs, stations,
       panels: { talk: talkPanel, trade: tradePanel, crafting: craftingPanel, map: mapPanel, settings: settingsPanel },
-      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, forage, foraging, refreshEnvironment, devPanel, get devBench() { return devBenchOf(); },
+      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, forage, foraging, refreshEnvironment, targetRing, get attacking() { return attacking; }, stopAttack, get fps() { return fps; }, devPanel, get devBench() { return devBenchOf(); },
       wake, get dying() { return dying; },
     };
-    hud.toast('WASD walks, Space jumps, drag to look. Click a monster to fight it, 1 to = use the bar. C character, B bag, K skills, A abilities, V crafting, M map, Escape settings, E goes in.');
+    hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the bar. C character, B bag, K skills, P abilities, V crafting, M map, Escape settings, F2 dev bench, E goes in.');
     return window.__bw;
   }
 }

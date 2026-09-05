@@ -12,6 +12,8 @@
 
 export const DRAG_PX = 6;       // a press that wanders further than this is a drag
 export const CLICK_MS = 400;    // a press held longer than this is a drag
+export const DBL_MS = 380;      // two clicks this close in time
+export const DBL_PX = 10;       // and this close on screen are a double click
 const FIELDS = { INPUT: 1, TEXTAREA: 1, SELECT: 1 };
 
 function typingIn(el) {
@@ -32,12 +34,14 @@ export function createInput(domElement) {
     keys, drag, pointer,
     wheel: 0,
     click: null,
+    dblclick: null,                   // the second of two quick clicks on the same spot, this frame
     down: (k) => keys.has(String(k).toLowerCase()),
     pressed: (k) => fresh.has(String(k).toLowerCase()),
     endFrame() {
       drag.dx = 0; drag.dy = 0;
       api.wheel = 0;
       api.click = null;
+      api.dblclick = null;
       fresh.clear();
     },
     dispose,
@@ -92,6 +96,7 @@ export function createInput(domElement) {
     press.last = { x: e.clientX, y: e.clientY };
   };
 
+  let lastClick = null;
   const onPointerUp = (e) => {
     if (!press) return;
     const now = (e.timeStamp != null ? e.timeStamp : Date.now());
@@ -101,6 +106,11 @@ export function createInput(domElement) {
       ndc(e);
       const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : { left: 0, top: 0 };
       api.click = { x: pointer.x, y: pointer.y, px: e.clientX - r.left, py: e.clientY - r.top, button: press.button };
+      // two clicks within DBL_MS and DBL_PX of each other make the second a double click
+      if (lastClick && now - lastClick.t <= DBL_MS && Math.hypot(e.clientX - lastClick.x, e.clientY - lastClick.y) <= DBL_PX && lastClick.button === press.button) {
+        api.dblclick = api.click;
+        lastClick = null;
+      } else lastClick = { t: now, x: e.clientX, y: e.clientY, button: press.button };
     }
     press = null; dragging = false; drag.active = false;
     if (el && el.releasePointerCapture && e.pointerId != null) { try { el.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ } }
