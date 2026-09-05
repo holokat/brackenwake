@@ -12,6 +12,15 @@
 //   const hit = forage.pick(raycaster);        // { rec, id } or null
 //   forage.remove(hit.rec, now);               // harvested; comes back later
 //
+// A CLUSTER IS ONE THING. A bunch of dandelions is drawn as the seven separate
+// plants the reference scatters, and it is ONE pickable: one record, one click,
+// one stack, one Foraging lesson. `placeForage` returns
+// `{ id, x, y, z, count, onTrunk, members: [{ x, y, z, yaw, scale }] }` and
+// `count` is how many plants stand in the bunch. The instancing draws every
+// member; the raycast back-index maps every member back to its cluster, so
+// clicking any one dandelion picks the whole patch, and `remove` hides all
+// seven in the same frame.
+//
 // Three things this file does NOT do, on purpose:
 //
 //   * It does not import flora.js, tree_gen.js or arbor.js. Trees arrive as
@@ -59,6 +68,27 @@
 //    sphere (36 triangles) here and elder carries four umbels of nine instead
 //    of seven of fourteen. Every prototype is under 2,000 triangles, measured
 //    in forage.test.mjs, which prints the real number for each.
+//
+// 5. DENSITY. Every `per` was thinned when the cluster became the pickable.
+//    A dandelion patch used to be seven separate clicks, seven separate stacks
+//    and seven separate Foraging lessons, which is why a player crossing a
+//    meadow trained faster than one clearing a dungeon. The pickables in a 64 m
+//    meadow chunk, measured in forage.test.mjs and printed there both ways:
+//
+//      Spring 267 -> 31,  Summer 282 -> 43,  Autumn 139 -> 32
+//
+//    Autumn lands on a quarter. Spring and Summer land lower, at an eighth and
+//    a seventh, and that is arithmetic rather than a choice: a Spring cluster
+//    holds 6.1 plants on average and an Autumn one 3.0, so the same `per` buys
+//    a smaller share of the old pickable count in Spring, and thinning only
+//    ever moves that share further down.
+//
+//    The thin is per entry rather than one multiplier, so the scarce things
+//    (wild honey at 0.7 a chunk, an elder bush at 1.5) were left alone and the
+//    carpets (dandelion 10 -> 7, wild garlic 8 -> 5) took it. Every forageable
+//    that grows in a biome still shows up somewhere in a 3x3 ring in its
+//    season, which forage.test.mjs drives for all seven biomes, both moisture
+//    bands and all four seasons: 120 rings, 825 claims, none missing.
 
 import * as THREE from 'three';
 import { CHUNK } from './field.js';
@@ -335,45 +365,45 @@ const F = (o) => ({ ...o, bio: mapBio(o.src, o.extra) });
 
 export const FORAGE = [
   F({
-    id: 'chanterelle', name: 'Chanterelle', tag: 'edible', colour: '#e9a825', difficulty: 18,
+    id: 'chanterelle', name: 'Chanterelle', many: 'chanterelles', tag: 'edible', colour: '#e9a825', difficulty: 18,
     seasons: ['Summer', 'Autumn'],
     src: { 'Temperate broadleaf': 1, 'Boreal conifer': 0.9, 'Birch grove': 0.8, 'Mediterranean pine': 0.3 },
-    place: 'nearTree', per: 7, cluster: [3, 8],
+    place: 'nearTree', per: 5, cluster: [3, 8],
     build: (gb, r) => mushroom(gb, r, 0.05 + r() * 0.03, 0.03 + r() * 0.02, C('#e9a825'), C('#f0c465'), 'funnel', 0),
   }),
   F({
-    id: 'porcini', name: 'Porcini', tag: 'edible', colour: '#8a5a2b', difficulty: 25,
+    id: 'porcini', name: 'Porcini', many: 'porcini', tag: 'edible', colour: '#8a5a2b', difficulty: 25,
     seasons: ['Summer', 'Autumn'],
     src: { 'Temperate broadleaf': 1, 'Boreal conifer': 1, 'Birch grove': 0.6, 'Mediterranean pine': 0.7 },
-    place: 'nearTree', per: 4, cluster: [1, 3],
+    place: 'nearTree', per: 3, cluster: [1, 3],
     build: (gb, r) => mushroom(gb, r, 0.07 + r() * 0.04, 0.05 + r() * 0.03, C('#8a5a2b'), C('#e8dcc0'), 'dome', 0),
   }),
   F({
-    id: 'fly_agaric', name: 'Fly agaric', tag: 'toxic', colour: '#d23a2a', difficulty: 12,
+    id: 'fly_agaric', name: 'Fly agaric', many: 'fly agarics', tag: 'toxic', colour: '#d23a2a', difficulty: 12,
     seasons: ['Autumn'],
     src: { 'Birch grove': 1, 'Boreal conifer': 1, 'Temperate broadleaf': 0.5 },
-    place: 'nearTree', per: 3, cluster: [1, 4],
+    place: 'nearTree', per: 2, cluster: [1, 4],
     build: (gb, r) => mushroom(gb, r, 0.09 + r() * 0.05, 0.06 + r() * 0.03, C('#d23a2a'), C('#f2eee4'), 'dome', 7),
   }),
   F({
-    id: 'morel', name: 'Morel', tag: 'edible', colour: '#a08050', difficulty: 35,
+    id: 'morel', name: 'Morel', many: 'morels', tag: 'edible', colour: '#a08050', difficulty: 35,
     seasons: ['Spring'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 0.8, 'Boreal conifer': 0.4, 'Mediterranean pine': 0.5 },
-    place: 'nearTree', per: 3, cluster: [1, 3],
+    place: 'nearTree', per: 2.5, cluster: [1, 3],
     build: (gb, r) => mushroom(gb, r, 0.04 + r() * 0.02, 0.025 + r() * 0.012, C('#8a7048'), C('#e4dcc8'), 'cone', 0),
   }),
   F({
-    id: 'oyster_mushroom', name: 'Oyster mushroom', tag: 'edible', colour: '#d8d2c4', difficulty: 22,
+    id: 'oyster_mushroom', name: 'Oyster mushroom', many: 'oyster mushrooms', tag: 'edible', colour: '#d8d2c4', difficulty: 22,
     seasons: ['Spring', 'Autumn'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 1, 'Tropical wet': 0.8, 'Boreal conifer': 0.3 },
-    place: 'trunk', hgt: [0.3, 1.6], per: 3, cluster: [1, 1],
+    place: 'trunk', hgt: [0.3, 1.6], per: 2, cluster: [1, 1],
     build: (gb, r) => shelf(gb, r, 4 + Math.floor(r() * 4), C('#d8d2c4')),
   }),
   F({
     // The reference calls this Wild honey. The item it becomes is `honey`, and
     // there is exactly one of it, so the recipe that wants honey and the hive
     // in the tree are the same string.
-    id: 'honey', name: 'Wild honey', tag: 'edible', colour: '#e0a020', difficulty: 40,
+    id: 'honey', name: 'Wild honey', many: 'wild honey', tag: 'edible', colour: '#e0a020', difficulty: 40,
     seasons: ['Summer', 'Autumn'],
     src: ALLB,
     // Bees keep a nest in whatever stands: a dune pine, a desert snag.
@@ -382,47 +412,47 @@ export const FORAGE = [
     build: (gb, r) => hive(gb, r),
   }),
   F({
-    id: 'blueberry', name: 'Blueberry', tag: 'edible', colour: '#3b4a9a', difficulty: 8,
+    id: 'blueberry', name: 'Blueberry', many: 'blueberries', tag: 'edible', colour: '#3b4a9a', difficulty: 8,
     seasons: ['Summer'],
     src: { 'Boreal conifer': 1, 'Birch grove': 1, 'Temperate broadleaf': 0.6 },
-    place: 'any', per: 10, cluster: [2, 6],
+    place: 'any', per: 7, cluster: [2, 6],
     build: (gb, r) => shrub(gb, r, 0.28, 0.3, C('#3f7a2c'), 26, 0.07, C('#3b4a9a'), 14, 0.014),
   }),
   F({
-    id: 'lingonberry', name: 'Lingonberry', tag: 'edible', colour: '#b8202a', difficulty: 8,
+    id: 'lingonberry', name: 'Lingonberry', many: 'lingonberries', tag: 'edible', colour: '#b8202a', difficulty: 8,
     seasons: ['Autumn'],
     src: { 'Boreal conifer': 1, 'Birch grove': 0.6 },
-    place: 'any', per: 10, cluster: [3, 8],
+    place: 'any', per: 7, cluster: [3, 8],
     build: (gb, r) => shrub(gb, r, 0.22, 0.14, C('#2f5a24'), 22, 0.05, C('#b8202a'), 12, 0.012),
   }),
   F({
-    id: 'blackberry', name: 'Blackberry', tag: 'edible', colour: '#2a1b30', difficulty: 10,
+    id: 'blackberry', name: 'Blackberry', many: 'blackberries', tag: 'edible', colour: '#2a1b30', difficulty: 10,
     seasons: ['Summer', 'Autumn'],
     src: { 'Temperate broadleaf': 1, 'Mediterranean pine': 0.8, 'Birch grove': 0.5 },
     // Bramble is the first scrub to take dune sand behind the tideline.
     extra: { beach: 0.3 },
-    place: 'clearing', per: 5, cluster: [1, 3],
+    place: 'clearing', per: 3.5, cluster: [1, 3],
     build: (gb, r) => shrub(gb, r, 0.7, 0.75, C('#356a28'), 44, 0.13, C('#2a1b30'), 24, 0.018),
   }),
   F({
-    id: 'raspberry', name: 'Raspberry', tag: 'edible', colour: '#d0305a', difficulty: 10,
+    id: 'raspberry', name: 'Raspberry', many: 'raspberries', tag: 'edible', colour: '#d0305a', difficulty: 10,
     seasons: ['Summer'],
     src: { 'Temperate broadleaf': 1, 'Boreal conifer': 0.7, 'Birch grove': 0.9 },
-    place: 'clearing', per: 5, cluster: [2, 4],
+    place: 'clearing', per: 3.5, cluster: [2, 4],
     build: (gb, r) => shrub(gb, r, 0.4, 0.9, C('#4f8a35'), 30, 0.11, C('#d0305a'), 16, 0.016, 1.2),
   }),
   F({
-    id: 'wild_strawberry', name: 'Wild strawberry', tag: 'edible', colour: '#d83030', difficulty: 12,
+    id: 'wild_strawberry', name: 'Wild strawberry', many: 'wild strawberries', tag: 'edible', colour: '#d83030', difficulty: 12,
     seasons: ['Spring', 'Summer'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 1, 'Boreal conifer': 0.5, 'Mediterranean pine': 0.5 },
-    place: 'clearing', per: 8, cluster: [3, 9],
+    place: 'clearing', per: 6, cluster: [3, 9],
     build: (gb, r) => { herb(gb, r, 7, 0.05, 0.06, C('#3f7a2c'), null); berries(gb, r, 4, 0.08, 0.02, 0.05, 0.012, C('#d83030'), 1.3); },
   }),
   F({
-    id: 'elderberry', name: 'Elderberry', tag: 'caution', colour: '#3a2a4a', difficulty: 20,
+    id: 'elderberry', name: 'Elderberry', many: 'elderberries', tag: 'caution', colour: '#3a2a4a', difficulty: 20,
     seasons: ['Autumn'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 0.6 },
-    place: 'clearing', per: 2, cluster: [1, 1],
+    place: 'clearing', per: 1.5, cluster: [1, 1],
     build: (gb, r) => {
       shrub(gb, r, 0.9, 1.5, C('#3c6e2c'), 50, 0.16, null, 0, 0);
       // Four umbels of nine. The reference builds seven of fourteen, which is
@@ -431,46 +461,46 @@ export const FORAGE = [
     },
   }),
   F({
-    id: 'rosehip', name: 'Rosehip', tag: 'edible', colour: '#c8402a', difficulty: 12,
+    id: 'rosehip', name: 'Rosehip', many: 'rosehips', tag: 'edible', colour: '#c8402a', difficulty: 12,
     seasons: ['Autumn'],
     src: { 'Temperate broadleaf': 1, 'Mediterranean pine': 1, 'Birch grove': 0.7 },
     // Rosa rugosa is the beach rose. It holds a dune where nothing else will.
     extra: { beach: 0.8 },
-    place: 'clearing', per: 3, cluster: [1, 2],
+    place: 'clearing', per: 2.5, cluster: [1, 2],
     build: (gb, r) => shrub(gb, r, 0.6, 1.1, C('#3f6e2a'), 36, 0.1, C('#c8402a'), 18, 0.014, 1.5),
   }),
   F({
-    id: 'hazelnut', name: 'Hazelnut', tag: 'edible', colour: '#8a6a3a', difficulty: 15,
+    id: 'hazelnut', name: 'Hazelnut', many: 'hazelnuts', tag: 'edible', colour: '#8a6a3a', difficulty: 15,
     seasons: ['Autumn'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 0.8, 'Mediterranean pine': 0.5 },
-    place: 'any', per: 2, cluster: [1, 1],
+    place: 'any', per: 1.5, cluster: [1, 1],
     build: (gb, r) => shrub(gb, r, 0.9, 1.7, C('#4a7d2f'), 52, 0.17, C('#8a6a3a'), 16, 0.014, 1.2),
   }),
   F({
-    id: 'wild_garlic', name: 'Wild garlic', tag: 'edible', colour: '#e8f0e0', difficulty: 10,
+    id: 'wild_garlic', name: 'Wild garlic', many: 'wild garlic', tag: 'edible', colour: '#e8f0e0', difficulty: 10,
     seasons: ['Spring'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 0.8 },
-    place: 'nearTree', per: 8, cluster: [6, 16],
+    place: 'nearTree', per: 5, cluster: [6, 16],
     build: (gb, r) => herb(gb, r, 6, 0.22, 0.16, C('#3d8a30'), C('#eef2e4'), 0.03),
   }),
   F({
-    id: 'nettle', name: 'Nettle', tag: 'caution', colour: '#3f6a2a', difficulty: 5,
+    id: 'nettle', name: 'Nettle', many: 'nettles', tag: 'caution', colour: '#3f6a2a', difficulty: 5,
     seasons: ['Spring', 'Summer', 'Autumn'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 1, 'Boreal conifer': 0.5, 'Tropical wet': 0.4 },
     // Nettle wants disturbed ground with nitrogen in it, which is the strand
     // line behind a beach as reliably as it is a field gate.
     extra: { beach: 0.3 },
-    place: 'any', per: 6, cluster: [4, 10],
+    place: 'any', per: 4, cluster: [4, 10],
     build: (gb, r) => {
       gbAdd(gb, CYL, T(0, 0.3, 0, 0.006, 0.6, 0.006), C('#4a7a30'));
       leaves(gb, r, 10, 0.08, 0.1, 0.6, 0.09, C('#355e24'), 0.5);
     },
   }),
   F({
-    id: 'fiddlehead', name: 'Fiddlehead fern', tag: 'edible', colour: '#4f8a3a', difficulty: 14,
+    id: 'fiddlehead', name: 'Fiddlehead fern', many: 'fiddlehead ferns', tag: 'edible', colour: '#4f8a3a', difficulty: 14,
     seasons: ['Spring', 'Summer', 'Autumn'],
     src: { 'Temperate broadleaf': 1, 'Tropical wet': 1.3, 'Boreal conifer': 0.8, 'Birch grove': 0.8 },
-    place: 'nearTree', per: 6, cluster: [2, 5],
+    place: 'nearTree', per: 4, cluster: [2, 5],
     build: (gb, r) => {
       for (let i = 0; i < 9; i++) {
         const a = i / 9 * 6.28 + r() * 0.4;
@@ -484,43 +514,43 @@ export const FORAGE = [
     // The reference calls the scatter "Acorns & chestnuts". What goes in the
     // pack is a chestnut, and the id is `nut`, because that is the word a
     // nut bread recipe asks for.
-    id: 'nut', name: 'Chestnuts', tag: 'edible', colour: '#6a4a2a', difficulty: 8,
+    id: 'nut', name: 'Chestnuts', many: 'chestnuts', tag: 'edible', colour: '#6a4a2a', difficulty: 8,
     seasons: ['Autumn'],
     src: { 'Temperate broadleaf': 1, 'Mediterranean pine': 0.5 },
-    place: 'nearTree', per: 6, cluster: [1, 1],
+    place: 'nearTree', per: 4, cluster: [1, 1],
     build: (gb, r) => scatter(gb, r, 9, C('#6a4a2a'), 0.012, 0.017, C('#4a3420')),
   }),
   F({
-    id: 'dandelion', name: 'Dandelion', tag: 'edible', colour: '#f0c020', difficulty: 3,
+    id: 'dandelion', name: 'Dandelion', many: 'dandelions', tag: 'edible', colour: '#f0c020', difficulty: 3,
     seasons: ['Spring', 'Summer'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 1, 'Mediterranean pine': 0.7, 'Boreal conifer': 0.4 },
     // A dandelion takes a sand verge as happily as a lawn.
     extra: { beach: 0.4 },
-    place: 'clearing', per: 10, cluster: [3, 9],
+    place: 'clearing', per: 7, cluster: [3, 9],
     build: (gb, r) => herb(gb, r, 8, 0.16 + r() * 0.08, 0.09, C('#4a8a32'), C('#f0c020'), 0.022),
   }),
   F({
-    id: 'fig', name: 'Wild figs', tag: 'edible', colour: '#6a3a5a', difficulty: 16,
+    id: 'fig', name: 'Wild figs', many: 'wild figs', tag: 'edible', colour: '#6a3a5a', difficulty: 16,
     seasons: ['Summer', 'Autumn'],
     src: { 'Tropical wet': 1 },
     // A fig at an oasis is the one fruit a desert honestly grows, and the
     // desert forest type's wet mix is palm, so there is a tree to drop it.
     extra: { desert: 0.5 },
-    place: 'nearTree', per: 6, cluster: [1, 1],
+    place: 'nearTree', per: 4, cluster: [1, 1],
     build: (gb, r) => scatter(gb, r, 8, C('#6a3a5a'), 0.02, 0.024, null),
   }),
   F({
-    id: 'wild_ginger', name: 'Wild ginger', tag: 'edible', colour: '#d8503a', difficulty: 28,
+    id: 'wild_ginger', name: 'Wild ginger', many: 'wild ginger', tag: 'edible', colour: '#d8503a', difficulty: 28,
     seasons: ['Spring', 'Summer', 'Autumn'],
     src: { 'Tropical wet': 1 },
-    place: 'any', per: 6, cluster: [2, 5],
+    place: 'any', per: 4, cluster: [2, 5],
     build: (gb, r) => herb(gb, r, 7, 0.35, 0.22, C('#2f7a2a'), C('#d8503a'), 0.04),
   }),
   F({
-    id: 'cacao', name: 'Cacao pods', tag: 'edible', colour: '#c87a2a', difficulty: 30,
+    id: 'cacao', name: 'Cacao pods', many: 'cacao pods', tag: 'edible', colour: '#c87a2a', difficulty: 30,
     seasons: ['Summer', 'Autumn'],
     src: { 'Tropical wet': 1 },
-    place: 'trunk', hgt: [0.6, 2.2], per: 2, cluster: [1, 1],
+    place: 'trunk', hgt: [0.6, 2.2], per: 1.5, cluster: [1, 1],
     build: (gb, r) => {
       for (let i = 0; i < 3; i++) {
         gbAdd(gb, SPH, T((r() - 0.5) * 0.2, (r() - 0.5) * 0.3, 0.08, 0.05, 0.09, 0.05, 0, 0, (r() - 0.5) * 0.6),
@@ -554,6 +584,11 @@ export function auditForage() {
     if (seen.has(f.id)) bad.push(`${at}: two of them share an id`);
     seen.add(f.id);
     if (!f.name) bad.push(`${at}: no name`);
+    // `many` is what a bunch is called: "a patch of dandelions, seven of them".
+    // No rule can turn "Wild garlic" into a plural that reads, so every entry
+    // carries its own, and a twenty third forageable cannot ship without one.
+    if (!f.many || typeof f.many !== 'string') bad.push(`${at}: no plural, so a patch of them has no name`);
+    else if (f.many !== f.many.toLowerCase()) bad.push(`${at}: plural "${f.many}" is capitalised; it sits mid sentence`);
     if (!FORAGE_TAGS.includes(f.tag)) bad.push(`${at}: tag "${f.tag}" is not one of ${FORAGE_TAGS.join(', ')}`);
     if (!/^#[0-9a-f]{6}$/i.test(f.colour)) bad.push(`${at}: colour ${f.colour} is not a hex`);
     if (!f.seasons.length) bad.push(`${at}: grows in no season, so nothing will ever place it`);
@@ -650,7 +685,15 @@ export const ABUNDANCE = 1;
  * @param season   'Spring' | 'Summer' | 'Autumn' | 'Winter'
  * @param seed     the world seed
  * @param opts     `{ abundance, scale, heightAt(x, z), only }`
- * @returns `[{ id, x, y, z, yaw, scale, onTrunk }]`
+ * @returns `[{ id, x, y, z, count, onTrunk, members: [{ x, y, z, yaw, scale }] }]`
+ *
+ * ONE RECORD PER CLUSTER. The reference scatters a bunch of dandelions as
+ * seven plants and this still places all seven, in `members`, because that is
+ * what the eye wants. What the hand gets is one thing: `count` plants, one
+ * click, one stack. `x, y, z` is the middle of the bunch, which is what a
+ * hover line and a pickup sound want; the reach check in `foraging.js` measures
+ * to the NEAREST member, because standing over the edge of a patch is standing
+ * over the patch.
  *
  * `y` is a world height when `heightAt` is given and an offset above zero when
  * it is not, so a caller that has no terrain still gets usable records and a
@@ -715,6 +758,8 @@ export function placeForage(sample, cx, cz, trees, season, seed = 1, opts = {}) 
         if (!ok) continue;
       }
       const n = f.cluster[0] + Math.floor(r() * (f.cluster[1] - f.cluster[0] + 1));
+      const members = [];
+      let sx = 0, sy = 0, sz = 0;
       for (let k = 0; k < n; k++) {
         let px = cx0, pz = cz0;
         if (n > 1) {
@@ -723,18 +768,42 @@ export function placeForage(sample, cx, cz, trees, season, seed = 1, opts = {}) 
           pz += Math.sin(a) * d;
         }
         const sc = (0.7 + r() * 0.6) * scale;
-        out.push({
-          id: f.id,
-          x: px, z: pz,
-          y: cy0 != null ? cy0 : groundAt(px, pz) - 0.01,
-          yaw: yaw != null ? yaw : r() * 6.28,
-          scale: sc,
-          onTrunk,
-        });
+        const py = cy0 != null ? cy0 : groundAt(px, pz) - 0.01;
+        members.push({ x: px, y: py, z: pz, yaw: yaw != null ? yaw : r() * 6.28, scale: sc });
+        sx += px; sy += py; sz += pz;
       }
+      // The middle of the bunch, not the first plant in it: a patch of seven
+      // reads as one thing standing in one place.
+      out.push({
+        id: f.id,
+        x: sx / n, y: sy / n, z: sz / n,
+        count: n,
+        onTrunk,
+        members,
+      });
     }
   }
   return out;
+}
+
+/** How many plants stand in a pickable. One for anything that is not a bunch. */
+export const plantsIn = (rec) => (rec && Number.isFinite(rec.count) ? rec.count
+  : rec && Array.isArray(rec.members) ? rec.members.length : 1);
+
+/**
+ * How far a point is from the NEAREST plant in a bunch. Standing over the edge
+ * of a patch is standing over the patch, so the reach is not measured to the
+ * centre: a wild garlic cluster is over two metres across and the reach is 2.5.
+ */
+export function distanceToForage(rec, x, z) {
+  if (!rec) return Infinity;
+  const ms = Array.isArray(rec.members) && rec.members.length ? rec.members : [rec];
+  let best = Infinity;
+  for (const m of ms) {
+    const d = Math.hypot(m.x - x, m.z - z);
+    if (d < best) best = d;
+  }
+  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -775,7 +844,7 @@ export function createForageField(sc, opts = {}) {
   const clock = typeof opts.now === 'function' ? opts.now : () => Date.now();
   let season = SEASONS.includes(opts.season) ? opts.season : seasonAt(clock());
   let lastCX = null, lastCZ = null;
-  const stats = { chunks: 0, records: 0, harvested: 0, rebuilds: 0, drawCalls: 0, treeless: 0, foreignClock: 0 };
+  const stats = { chunks: 0, records: 0, plants: 0, harvested: 0, rebuilds: 0, drawCalls: 0, treeless: 0, foreignClock: 0 };
 
   /**
    * The one door every `now` comes through. See CLOCK_SKEW_MS. A reading on
@@ -803,23 +872,38 @@ export function createForageField(sc, opts = {}) {
   const heightAt = (x, z) => field.heightAt(x, z);
   const _mm = new THREE.Matrix4(), _pp = new THREE.Vector3(), _qq = new THREE.Quaternion(), _ss = new THREE.Vector3();
 
-  /** One record's transform, written into instance slot `i` of `im`. */
-  function writeMatrix(im, i, rec) {
-    _pp.set(rec.x, rec.y, rec.z);
-    _qq.setFromAxisAngle(YUP, rec.yaw);
-    _ss.setScalar(rec.scale);
+  /** One plant's transform, written into instance slot `i` of `im`. */
+  function writeMatrix(im, i, m) {
+    _pp.set(m.x, m.y, m.z);
+    _qq.setFromAxisAngle(YUP, m.yaw);
+    _ss.setScalar(m.scale);
     _mm.compose(_pp, _qq, _ss);
     im.setMatrixAt(i, _mm);
   }
 
+  /** Swap two instance slots, both maps and both matrices, in one move. */
+  function swapSlots(im, a, b) {
+    if (a === b) return;
+    const own = im.userData.forageMap, mem = im.userData.forageMembers;
+    const or = own[a], om = mem[a];
+    own[a] = own[b]; mem[a] = mem[b];
+    own[b] = or; mem[b] = om;
+    writeMatrix(im, a, mem[a]);
+    writeMatrix(im, b, mem[b]);
+  }
+
   /**
-   * Draw one chunk. Every record of a kind gets an instance slot, live ones
-   * FIRST, and `im.count` is set to how many are standing. That is what lets a
-   * pick hide exactly one mushroom in place (see `hideInstance`) instead of
-   * throwing away and rebuilding every InstancedMesh in the chunk, and it is
-   * what lets regrowth put the same one back without a rebuild either. Three's
-   * InstancedMesh honours `count` in both `raycast` and `computeBoundingSphere`,
-   * so a hidden slot is neither drawn nor picked.
+   * Draw one chunk. Every PLANT of a kind gets an instance slot, the plants of
+   * live clusters FIRST, and `im.count` is set to how many are standing. That
+   * is what lets a pick hide a whole patch in place (see `hideInstance`)
+   * instead of throwing away and rebuilding every InstancedMesh in the chunk,
+   * and it is what lets regrowth put the same patch back without a rebuild
+   * either. Three's InstancedMesh honours `count` in both `raycast` and
+   * `computeBoundingSphere`, so a hidden slot is neither drawn nor picked.
+   *
+   * `forageMap[i]` is the CLUSTER that owns slot i, so a raycast onto any one
+   * dandelion hands back the patch. `forageMembers[i]` is that slot's own
+   * transform, because the cluster no longer has one of its own.
    */
   function drawChunk(entry) {
     for (const m of entry.meshes.values()) { entry.group.remove(m); m.dispose?.(); }
@@ -830,11 +914,17 @@ export function createForageField(sc, opts = {}) {
       byId.get(rec.id)[rec.harvestedUntil ? 'picked' : 'live'].push(rec);
     }
     for (const [id, both] of byId) {
-      const recs = both.live.concat(both.picked);
+      const owners = [], members = [];
+      let live = 0;
+      for (const rec of both.live.concat(both.picked)) {
+        for (const m of rec.members) { owners.push(rec); members.push(m); }
+        if (!rec.harvestedUntil) live += rec.members.length;
+      }
+      if (!owners.length) continue;
       const geo = forageGeometry(id, 900);
-      const im = new THREE.InstancedMesh(geo, material, recs.length);
-      for (let i = 0; i < recs.length; i++) writeMatrix(im, i, recs[i]);
-      im.count = both.live.length;
+      const im = new THREE.InstancedMesh(geo, material, owners.length);
+      for (let i = 0; i < owners.length; i++) writeMatrix(im, i, members[i]);
+      im.count = live;
       im.instanceMatrix.needsUpdate = true;
       im.castShadow = true;
       im.receiveShadow = true;
@@ -842,7 +932,8 @@ export function createForageField(sc, opts = {}) {
       im.computeBoundingSphere();
       im.name = `forage:${id}`;
       im.userData.forageId = id;
-      im.userData.forageMap = recs;        // instanceId -> the record itself
+      im.userData.forageMap = owners;        // instanceId -> the cluster it belongs to
+      im.userData.forageMembers = members;   // instanceId -> that plant's transform
       entry.group.add(im);
       entry.meshes.set(id, im);
     }
@@ -850,46 +941,39 @@ export function createForageField(sc, opts = {}) {
   }
 
   /**
-   * Take one record out of the drawing, this instant and without a rebuild.
-   * The slot it sat in is swapped with the last live slot and the count comes
-   * down by one, so the mushroom stops being drawn AND stops being raycast on
-   * the very frame it was picked. Returns false when the mesh does not hold it,
-   * which is the caller's signal to fall back to `drawChunk`.
+   * Take one whole cluster out of the drawing, this instant and without a
+   * rebuild. Every plant in the patch is swapped down to the end of the live
+   * range and the count comes down by all of them, so the bunch stops being
+   * drawn AND stops being raycast on the very frame it was picked. Returns
+   * false when the mesh does not hold the whole patch, which is the caller's
+   * signal to fall back to `drawChunk`.
    */
   function hideInstance(entry, rec) {
     const im = entry.meshes.get(rec.id);
     if (!im) return false;
     const map = im.userData.forageMap;
-    const i = map.indexOf(rec);
-    if (i < 0 || i >= im.count) return false;
-    const last = im.count - 1;
-    if (i !== last) {
-      const other = map[last];
-      map[i] = other; map[last] = rec;
-      writeMatrix(im, i, other);
-      writeMatrix(im, last, rec);
-    }
-    im.count = last;
+    const mine = [];
+    for (let i = 0; i < im.count; i++) if (map[i] === rec) mine.push(i);
+    if (mine.length !== rec.members.length) return false;
+    let last = im.count - 1;
+    for (let k = mine.length - 1; k >= 0; k--) { swapSlots(im, mine[k], last); last--; }
+    im.count = last + 1;
     im.instanceMatrix.needsUpdate = true;
     im.computeBoundingSphere();
     return true;
   }
 
-  /** The same move backwards: a regrown record takes the first free slot. */
+  /** The same move backwards: a regrown patch takes back the first free slots. */
   function showInstance(entry, rec) {
     const im = entry.meshes.get(rec.id);
     if (!im) return false;
     const map = im.userData.forageMap;
-    const j = map.indexOf(rec);
-    if (j < 0 || j < im.count) return false;
-    const slot = im.count;
-    if (j !== slot) {
-      const other = map[slot];
-      map[slot] = rec; map[j] = other;
-      writeMatrix(im, j, other);
-    }
-    writeMatrix(im, slot, rec);
-    im.count = slot + 1;
+    const mine = [];
+    for (let j = im.count; j < map.length; j++) if (map[j] === rec) mine.push(j);
+    if (mine.length !== rec.members.length) return false;
+    let slot = im.count;
+    for (const j of mine) { swapSlots(im, j, slot); slot++; }
+    im.count = slot;
     im.instanceMatrix.needsUpdate = true;
     im.computeBoundingSphere();
     return true;
@@ -912,6 +996,7 @@ export function createForageField(sc, opts = {}) {
     chunks.set(key, entry);
     stats.chunks = chunks.size;
     stats.records += entry.recs.length;
+    for (const rec of entry.recs) stats.plants += rec.count;
     drawChunk(entry);
     return entry;
   }
@@ -923,6 +1008,7 @@ export function createForageField(sc, opts = {}) {
     entry.meshes.clear();
     group.remove(entry.group);
     stats.records -= entry.recs.length;
+    for (const rec of entry.recs) stats.plants -= rec.count;
     chunks.delete(key);
     stats.chunks = chunks.size;
   }
@@ -947,20 +1033,38 @@ export function createForageField(sc, opts = {}) {
   return {
     group, stats, material,
     get season() { return season; },
+
+    /** Pickables standing: one per bunch, which is what a click can take. */
     get count() { return [...chunks.values()].reduce((n, e) => n + e.recs.filter((r) => !r.harvestedUntil).length, 0); },
+
+    /** Plants standing, which is what the eye sees and the instancing draws. */
+    get plants() {
+      let n = 0;
+      for (const e of chunks.values()) for (const r of e.recs) if (!r.harvestedUntil) n += r.count;
+      return n;
+    },
     get chunkCount() { return chunks.size; },
 
-    /** Every live record, for a test or a minimap. */
+    /** Every live pickable, for a test or a minimap. */
     records() {
       const out = [];
       for (const e of chunks.values()) for (const r of e.recs) if (!r.harvestedUntil) out.push(r);
       return out;
     },
 
-    /** How many of each kind are standing right now, for the HUD. */
-    tally() {
+    /**
+     * How many of each kind are standing right now, for the HUD. Pickables by
+     * default; `tally({ plants: true })` counts the plants inside them, which
+     * is a bigger number and a different question.
+     */
+    tally(o = {}) {
       const out = {};
-      for (const e of chunks.values()) for (const r of e.recs) if (!r.harvestedUntil) out[r.id] = (out[r.id] || 0) + 1;
+      for (const e of chunks.values()) {
+        for (const r of e.recs) {
+          if (r.harvestedUntil) continue;
+          out[r.id] = (out[r.id] || 0) + (o.plants ? r.count : 1);
+        }
+      }
       return out;
     },
 

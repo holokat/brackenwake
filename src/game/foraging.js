@@ -10,6 +10,11 @@
 // and a Foraging lesson. `useItem` turns a stack in the pack into something
 // that happens to the body: health, a timed buff, a poison, a cure.
 //
+// A RECORD IS A BUNCH, NOT A PLANT. `forage.js` places a patch of dandelions
+// as one pickable holding seven plants, so one click here is one stack, one
+// line and ONE lesson. It used to be seven of each, and that is the whole
+// reason a walk across a meadow trained Foraging faster than a season of work.
+//
 // ---------------------------------------------------------------------------
 // THE THINGS THAT WOULD OTHERWISE HAVE GONE WRONG, AND WHAT IS DONE INSTEAD
 // ---------------------------------------------------------------------------
@@ -35,10 +40,15 @@
 // 4. WHAT DID NOT HAPPEN GETS WORDS TOO. A full pack, a patch already picked, a
 //    step too far, a cure with nothing to cure: each says so. Silence is
 //    indistinguishable from a broken button.
+//
+// 5. THE REACH IS TO THE NEAREST PLANT. A wild garlic bunch is over two metres
+//    across and the reach is 2.5, so measuring to the middle would refuse a
+//    click on a plant the player is standing on top of. `distanceToForage`
+//    takes the nearest member, which is what "stand over it" means.
 
-import { FORAGE_BY_ID, REGROW_MS } from '../world/forage.js';
+import { FORAGE_BY_ID, REGROW_MS, plantsIn, distanceToForage } from '../world/forage.js';
 import { baseFor, makeItem, FORAGE_TAG } from '../mmo/items.js';
-import { SKILL_BY_ID } from '../mmo/skills.js';
+import { SKILL_BY_ID, SKILL_CAP } from '../mmo/skills.js';
 import { poisonTick } from '../mmo/combat_rules.js';
 import { recompute as recomputeActor } from './actor.js';
 
@@ -48,31 +58,61 @@ export const HARVEST_REACH = 2.5;
 /** Foraging if the skill sheet has it, Cooking if a future edit takes it away. */
 export const FORAGE_SKILL = SKILL_BY_ID.has('foraging') ? 'foraging' : 'cooking';
 
-/** Skill thresholds where a patch gives one more. Measured, not guessed. */
-export const YIELD_STEPS = [40, 80];
+/**
+ * The worst share of a patch anybody gets. A beginner who kneels down in a
+ * bunch of seven dandelions walks away with five of them, not with one: the
+ * skill decides how much of the patch is spoiled or missed, not whether the
+ * patch was worth stopping for.
+ */
+export const YIELD_FLOOR = 0.6;
 
-/** One to three, by Foraging. 0 to 39 gives one, 40 to 79 two, 80 and over three. */
-export function yieldFor(skill) {
-  const s = Number.isFinite(skill) ? skill : 0;
-  let n = 1;
-  for (const step of YIELD_STEPS) if (s >= step) n++;
-  return n;
+/**
+ * How many of a bunch's `plants` end up in the pack, at this Foraging.
+ *
+ * The share runs from YIELD_FLOOR at 0 to the whole patch at SKILL_CAP, and it
+ * rounds UP, so the floor is a floor and never a rounding accident: at skill 0
+ * a patch of seven gives five (71%), never four (57%). A grandmaster gets every
+ * plant that stood there and no more, because there is no more: `SKILL_CAP` is
+ * 100 and a hundred out of a hundred is all of it.
+ */
+export function yieldFor(skill, plants = 1) {
+  const s = clamp(Number.isFinite(skill) ? skill : 0, 0, SKILL_CAP);
+  const n = Math.max(1, Math.round(Number.isFinite(plants) ? plants : 1));
+  const share = YIELD_FLOOR + (1 - YIELD_FLOOR) * (s / SKILL_CAP);
+  return clamp(Math.ceil(n * share), 1, n);
 }
+
+/** One to twenty in words, for a hover line. Past twenty, the digits read better. */
+const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen',
+  'eighteen', 'nineteen', 'twenty'];
+export const numberWord = (n) => (Number.isInteger(n) && n >= 0 && n < WORDS.length ? WORDS[n] : String(n));
 
 const num = (v) => (Number.isFinite(v) ? v : 0);
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-/** "3 chanterelles", "1 wild honey". Plurals only where a plural is right. */
+/**
+ * "3 chanterelles", "a chanterelle", "3 wild honey".
+ *
+ * The plural is the table's own `many` field and not a rule, because no rule
+ * turns Wild garlic into something a sentence can hold: -s gives "wild garlics"
+ * and -ies gives worse. `auditForage` refuses an entry without one, so a twenty
+ * third forageable cannot ship with a plural nobody wrote.
+ */
 export function amountText(id, n) {
   const f = FORAGE_BY_ID[id];
   const name = (f ? f.name : id).toLowerCase();
   if (n === 1) return `a ${name}`;
-  // Chestnuts, cacao pods and wild figs are already plural; honey is a mass noun.
-  if (/s$/.test(name) || name === 'wild honey') return `${n} ${name}`;
-  // berry -> berries, not berrys
-  if (/[^aeiou]y$/.test(name)) return `${n} ${name.slice(0, -1)}ies`;
-  return `${n} ${name}s`;
+  return `${n} ${f && f.many ? f.many : name}`;
+}
+
+/** "a patch of dandelions, seven of them". What a bunch is called on sight. */
+export function patchText(id, plants) {
+  const f = FORAGE_BY_ID[id];
+  if (!f) return String(id);
+  if (plants <= 1) return f.name;
+  return `A patch of ${f.many}, ${numberWord(plants)} of them`;
 }
 
 /** What a tag means, in the words the pickup line uses. */
@@ -125,30 +165,38 @@ export function createForaging(o = {}) {
   // ------------------------------------------------------------------ pick
 
   /**
-   * Take a forage record. Returns
-   *   { ok, reason, id, count, text, dist, rec }
+   * Take a forage record, which is a WHOLE BUNCH. Returns
+   *   { ok, reason, id, count, plants, text, dist, rec }
    * and `ok` is only true when the pack really took something and the patch
    * really went away.
+   *
+   * A bunch of seven dandelions is one call, one stack, one line and ONE
+   * Foraging lesson. It used to be seven of each, which is what made a walk
+   * across a meadow train Foraging faster than a season of work.
    */
   function harvest(rec, now = clock()) {
     const no = (reason, text) => { stats.refused++; return { ok: false, reason, text: text || '', count: 0, id: rec?.id || null, rec: rec || null }; };
     if (!rec || !rec.id) return no('nothing', say('there is nothing there to pick', 'bad'));
     const f = FORAGE_BY_ID[rec.id];
     if (!f) return no('unknown', say(`nothing here knows what ${rec.id} is`, 'bad'));
+    const plants = plantsIn(rec);
     if (rec.harvestedUntil) {
       const left = Math.max(0, Math.round((rec.harvestedUntil - now) / 60000));
       return no('picked', say(left ? `this patch is picked over, about ${left} minutes to grow back` : 'this patch is picked over', 'bad'));
     }
     const p = where();
-    const dist = p ? Math.hypot(num(p.x) - rec.x, num(p.z) - rec.z) : Infinity;
+    // To the nearest plant in the bunch, not to its middle: a wild garlic patch
+    // is over two metres across and the reach is 2.5.
+    const dist = p ? distanceToForage(rec, num(p.x), num(p.z)) : Infinity;
     if (!(dist <= HARVEST_REACH)) {
-      const r = no('too_far', say(`the ${f.name.toLowerCase()} is ${dist === Infinity ? 'out of reach' : Math.round(dist) + ' m off'}, stand over it`, 'bad'));
+      const what = plants > 1 ? `patch of ${f.many}` : f.name.toLowerCase();
+      const r = no('too_far', say(`the ${what} is ${dist === Infinity ? 'out of reach' : Math.round(dist) + ' m off'}, stand over it`, 'bad'));
       r.dist = dist;
       return r;
     }
 
     const skill = skillValue();
-    const count = yieldFor(skill);
+    const count = yieldFor(skill, plants);
     const item = makeItem({ base: rec.id, count });
     const res = inventory?.add
       ? inventory.add(item, { quiet: true })
@@ -163,30 +211,36 @@ export function createForaging(o = {}) {
     field?.remove?.(rec, now);
     stats.picked++;
 
+    // ONE lesson for the bunch. `stats.taught` counts calls, not plants, and
+    // foraging.test.mjs drives a seven plant patch and measures exactly one.
     if (progression?.lesson) { progression.lesson(FORAGE_SKILL, f.difficulty, true); stats.taught++; }
 
     cue('pickup', { x: rec.x, z: rec.z });
     float(`+${added} ${f.name}`, 'loot');
     const warn = TAG_LINE[f.tag];
     const dropped = num(res.dropped);
-    let text = `${cap(amountText(rec.id, added))} in the pack.`;
-    if (dropped > 0) text += ` ${dropped} would not fit and is left on the ground.`;
+    let text = plants > 1
+      ? `You pick the whole patch: ${amountText(rec.id, added)}.`
+      : `${cap(amountText(rec.id, added))} in the pack.`;
+    // What did NOT happen gets words too, and the verb has to agree.
+    if (dropped > 0) text += ` ${dropped} would not fit and ${dropped === 1 ? 'is' : 'are'} left on the ground.`;
     if (warn) text += ` ${warn}`;
     say(text, f.tag === 'toxic' ? 'bad' : undefined);
-    return { ok: true, reason: 'picked', id: rec.id, count: added, dropped, text, dist, rec, item };
+    return { ok: true, reason: 'picked', id: rec.id, count: added, plants, dropped, text, dist, rec, item };
   }
 
-  /** The HUD hint under the cursor. Names the thing and says what it is. */
+  /** The HUD hint under the cursor. Names the bunch, and says how big it is. */
   function hoverText(rec) {
     if (!rec || !rec.id) return '';
     const f = FORAGE_BY_ID[rec.id];
     if (!f) return '';
-    if (rec.harvestedUntil) return `${f.name}, picked over`;
+    const head = patchText(rec.id, plantsIn(rec));
+    if (rec.harvestedUntil) return `${head}, picked over`;
     const p = where();
-    const d = p ? Math.hypot(num(p.x) - rec.x, num(p.z) - rec.z) : Infinity;
-    if (!(d <= HARVEST_REACH)) return `${f.name}, too far`;
+    const d = p ? distanceToForage(rec, num(p.x), num(p.z)) : Infinity;
+    if (!(d <= HARVEST_REACH)) return `${head}, too far`;
     const tail = f.tag === 'toxic' ? ', poison' : f.tag === 'caution' ? ', cook it first' : '';
-    return `${f.name}${tail}, click to pick`;
+    return `${head}${tail}, click to pick`;
   }
 
   // ------------------------------------------------------------------- use
@@ -335,8 +389,8 @@ export function createForaging(o = {}) {
   }
 
   return {
-    harvest, useItem, hoverText, yieldFor,
-    HARVEST_REACH, FORAGE_SKILL, REGROW_MS,
+    harvest, useItem, hoverText, yieldFor, patchText,
+    HARVEST_REACH, FORAGE_SKILL, REGROW_MS, YIELD_FLOOR,
     stats,
     get lastSaid() { return lastSaid; },
     /** What the HUD prints beside the season. */

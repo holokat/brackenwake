@@ -7,6 +7,10 @@
 // without, a wet meadow AND a dry one); the joins to items.js and recipes.js
 // are checked in both directions, so a mushroom with no base and a base with no
 // mushroom both fail here.
+//
+// A RECORD IS A BUNCH. `placeForage` returns one pickable per cluster, holding
+// `count` plants in `members`, so "records" below means pickables and "plants"
+// means what is drawn. Both are printed everywhere the difference matters.
 
 import * as THREE from 'three';
 import {
@@ -14,6 +18,7 @@ import {
   seasonAt, seasonIndexAt, seasonProgress, nextSeasonAt,
   placeForage, createForageField, forageGeometry, forageTriangles, auditForage,
   weightFor, mapBio, idsIn, WET_MOIST, WET_KEY, CLEARING_GAP, FORAGE_SCALE,
+  plantsIn, distanceToForage,
 } from './forage.js';
 import { CHUNK } from './field.js';
 import { BASES, FORAGE_BASES, FORAGE_PRODUCT_BASES, auditForageBases } from '../mmo/items.js';
@@ -156,20 +161,44 @@ const meadow = { biome: 'meadow', moist: 0.3 };
 const wet = { biome: 'meadow', moist: 0.8 };
 const flat = () => 0;
 
-console.log('\nforage: what a meadow chunk gets, by season');
+// What a 64 m meadow chunk grew BEFORE a cluster became one pickable, measured
+// on the shipped table at the commit before this one and written down here so
+// the change has a number to be measured against rather than a memory. Every
+// plant was its own pickable then, so these are also the old pickable counts
+// AND the old lessons-per-chunk counts.
+const WAS = { Spring: 267, Summer: 282, Autumn: 139, Winter: 0 };
+
+console.log('\nforage: what a meadow chunk gets, by season, as pickables and as plants');
 {
   const T = trees(30);
   const counts = {};
+  console.log('     season  pickables  plants   was (plants, and pickables too, before clusters)');
   for (const s of SEASONS) {
     const recs = placeForage(meadow, 0, 0, T, s, 1, { heightAt: flat });
     const kinds = [...new Set(recs.map((r) => r.id))];
-    counts[s] = { records: recs.length, kinds: kinds.length };
-    console.log(`     ${s.padEnd(7)} ${String(recs.length).padStart(4)} records of ${kinds.length} kinds: ${kinds.join(', ') || 'nothing'}`);
+    const plants = recs.reduce((n, r) => n + r.count, 0);
+    counts[s] = { records: recs.length, kinds: kinds.length, plants };
+    const share = WAS[s] ? `${Math.round(recs.length / WAS[s] * 100)}% of the old pickables` : '';
+    console.log(`     ${s.padEnd(7)} ${String(recs.length).padStart(6)} ${String(plants).padStart(9)}   ${String(WAS[s]).padStart(4)}   ${share}`);
+    console.log(`             ${kinds.length} kinds: ${kinds.join(', ') || 'nothing'}`);
   }
+  const nowAll = counts.Spring.records + counts.Summer.records + counts.Autumn.records;
+  const wasAll = WAS.Spring + WAS.Summer + WAS.Autumn;
+  console.log(`     over the three growing seasons: ${wasAll} pickables became ${nowAll}, which is ${Math.round(nowAll / wasAll * 100)}%`);
+  check('an Autumn meadow chunk holds about a quarter of the pickables it did',
+    counts.Autumn.records / WAS.Autumn > 0.18 && counts.Autumn.records / WAS.Autumn < 0.30,
+    `${counts.Autumn.records} against ${WAS.Autumn}, ${Math.round(counts.Autumn.records / WAS.Autumn * 100)}%`);
+  check('and no season holds even a third of what it did',
+    SEASONS.every((s) => !WAS[s] || counts[s].records / WAS[s] < 0.33),
+    SEASONS.map((s) => `${s[0]}${WAS[s] ? Math.round(counts[s].records / WAS[s] * 100) : 0}%`).join(' '));
+  check('the wood still LOOKS full: more plants stand than there are pickables',
+    counts.Spring.plants > counts.Spring.records * 3 && counts.Summer.plants > counts.Summer.records * 3,
+    `Spring ${counts.Spring.plants} plants in ${counts.Spring.records} patches`);
   check('Summer is full', counts.Summer.records > 0 && counts.Summer.kinds >= 5, JSON.stringify(counts.Summer));
   check('Autumn is full', counts.Autumn.records > 0, JSON.stringify(counts.Autumn));
   check('Spring is full', counts.Spring.records > 0, JSON.stringify(counts.Spring));
-  check('WINTER IS BARE: zero records, zero kinds', counts.Winter.records === 0 && counts.Winter.kinds === 0, JSON.stringify(counts.Winter));
+  check('WINTER IS BARE: zero records, zero kinds, zero plants',
+    counts.Winter.records === 0 && counts.Winter.kinds === 0 && counts.Winter.plants === 0, JSON.stringify(counts.Winter));
 
   const spring = placeForage(meadow, 0, 0, T, 'Spring', 1, { heightAt: flat }).map((r) => r.id);
   check('a Spring chunk has morels', spring.includes('morel'), `${spring.filter((i) => i === 'morel').length} of them`);
@@ -197,21 +226,27 @@ console.log('\nforage: a trunk sitter really sits on the trunk it was given');
   const recs = placeForage(meadow, 0, 0, T, 'Autumn', 2, { heightAt: () => 12 });
   const onTrunk = recs.filter((r) => r.onTrunk);
   check('some of them are on trunks', onTrunk.length > 0, `${onTrunk.length} of ${recs.length}`);
+  check('and a trunk dweller is one pickable of one plant, never a bunch',
+    onTrunk.every((r) => r.count === 1), onTrunk.map((r) => `${r.id}:${r.count}`).join(' ').slice(0, 60));
   let worst = 0, offGround = 0;
   for (const r of onTrunk) {
-    let best = Infinity;
-    for (const t of T) {
-      const d = Math.abs(Math.hypot(r.x - t.x, r.z - t.z) - t.radius * 0.92);
-      if (d < best) best = d;
+    for (const m of r.members) {
+      let best = Infinity;
+      for (const t of T) {
+        const d = Math.abs(Math.hypot(m.x - t.x, m.z - t.z) - t.radius * 0.92);
+        if (d < best) best = d;
+      }
+      if (best > worst) worst = best;
+      // the ground was handed back as 12, so a trunk plant must be above it
+      if (m.y <= 12) offGround++;
     }
-    if (best > worst) worst = best;
-    // the ground was handed back as 12, so a trunk record must be above it
-    if (r.y <= 12) offGround++;
   }
   check('every one of them stands at 0.92 of a real trunk radius', worst < 1e-9, `worst drift ${worst.toExponential(2)} m`);
   check('and every one of them is above the ground it grew from', offGround === 0, `${offGround} were not`);
   const ground = recs.filter((r) => !r.onTrunk);
-  check('a ground record sits just under the surface', ground.every((r) => Math.abs(r.y - 11.99) < 1e-9), `${ground.length} ground records`);
+  check('every ground plant sits just under the surface',
+    ground.every((r) => r.members.every((m) => Math.abs(m.y - 11.99) < 1e-9)),
+    `${ground.reduce((n, r) => n + r.count, 0)} ground plants in ${ground.length} patches`);
 }
 
 console.log('\nforage: a clearing dweller keeps out of the crowns');
@@ -221,15 +256,19 @@ console.log('\nforage: a clearing dweller keeps out of the crowns');
   const clearingIds = new Set(FORAGE.filter((f) => f.place === 'clearing').map((f) => f.id));
   const inClearing = recs.filter((r) => clearingIds.has(r.id));
   check('clearing dwellers did place', inClearing.length > 0, `${inClearing.length}`);
-  // A cluster is scattered up to 1.05 m off its centre, so the test is on the
-  // cluster centre rule, measured with that slack.
-  let tooClose = 0;
+  // A cluster is scattered up to 1.05 m off its centre, so the rule is on the
+  // centre and every PLANT is measured with that slack. The centroid would be
+  // an easier test than the truth; this walks the members.
+  let tooClose = 0, plants = 0;
   for (const r of inClearing) {
-    for (const t of T) {
-      if (Math.hypot(r.x - t.x, r.z - t.z) < (t.radius + CLEARING_GAP) - 1.06) { tooClose++; break; }
+    for (const m of r.members) {
+      plants++;
+      for (const t of T) {
+        if (Math.hypot(m.x - t.x, m.z - t.z) < (t.radius + CLEARING_GAP) - 1.06) { tooClose++; break; }
+      }
     }
   }
-  check('and none of them grew inside a crown', tooClose === 0, `${tooClose} did`);
+  check('and not one PLANT of them grew inside a crown', tooClose === 0, `${tooClose} of ${plants} did`);
 }
 
 console.log('\nforage: placement is deterministic, and the seed really separates worlds');
@@ -243,8 +282,25 @@ console.log('\nforage: placement is deterministic, and the seed really separates
   const d = placeForage(meadow, -3, 8, T, 'Autumn', 1, { heightAt: flat });
   check('a different chunk gives different ones', JSON.stringify(a) !== JSON.stringify(d));
   check('every record carries the fields the field needs', a.every((r) => r.id && Number.isFinite(r.x) && Number.isFinite(r.y)
-    && Number.isFinite(r.z) && Number.isFinite(r.yaw) && r.scale > 0));
-  const sc = a.map((r) => r.scale);
+    && Number.isFinite(r.z) && r.count >= 1 && Array.isArray(r.members) && r.members.length === r.count));
+  check('and every plant in every bunch carries a transform', a.every((r) => r.members.every((m) => Number.isFinite(m.x)
+    && Number.isFinite(m.y) && Number.isFinite(m.z) && Number.isFinite(m.yaw) && m.scale > 0)));
+  check('the record sits in the middle of its own bunch', a.every((r) => {
+    const mx = r.members.reduce((n, m) => n + m.x, 0) / r.count;
+    const mz = r.members.reduce((n, m) => n + m.z, 0) / r.count;
+    return Math.abs(mx - r.x) < 1e-9 && Math.abs(mz - r.z) < 1e-9;
+  }));
+  check('plantsIn reads the bunch, and reads 1 off a bare record', a.every((r) => plantsIn(r) === r.count)
+    && plantsIn({ id: 'x' }) === 1 && plantsIn(null) === 1);
+  {
+    const big = a.find((r) => r.count > 2);
+    const near = big.members[0];
+    check('distanceToForage measures to the NEAREST plant, not the middle',
+      Math.abs(distanceToForage(big, near.x, near.z)) < 1e-9
+      && distanceToForage(big, near.x, near.z) <= Math.hypot(big.x - near.x, big.z - near.z) + 1e-9,
+      `${big.count} plants, centre is ${Math.hypot(big.x - near.x, big.z - near.z).toFixed(2)} m from the nearest`);
+  }
+  const sc = a.flatMap((r) => r.members.map((m) => m.scale));
   check('scales sit in the reference band', sc.every((s) => s >= 0.7 * FORAGE_SCALE - 1e-9 && s <= 1.3 * FORAGE_SCALE + 1e-9),
     `${Math.min(...sc).toFixed(2)} to ${Math.max(...sc).toFixed(2)}`);
 }
@@ -281,8 +337,16 @@ console.log('\nforage: the live field streams, picks, is harvested and grows bac
   check('the first update loads a 3x3 ring', moved && ff.chunkCount === 9, `${ff.chunkCount} chunks`);
   const n0 = ff.count;
   check('and it is not empty', n0 > 0, `${n0} standing`);
-  console.log(`     ${n0} forageables across nine chunks, ${ff.stats.drawCalls} draw calls, ${JSON.stringify(ff.tally())}`);
+  console.log(`     ${n0} pickables holding ${ff.plants} plants across nine chunks, ${ff.stats.drawCalls} draw calls`);
+  console.log(`     pickables by kind: ${JSON.stringify(ff.tally())}`);
+  console.log(`     plants by kind:    ${JSON.stringify(ff.tally({ plants: true }))}`);
   check('one draw call per kind per chunk, no more', ff.stats.drawCalls <= 9 * 22 && ff.stats.drawCalls > 0, `${ff.stats.drawCalls}`);
+  check('more plants stand than there are pickables', ff.plants > n0, `${ff.plants} plants, ${n0} pickables`);
+  check('the two tallies agree with the two counts',
+    Object.values(ff.tally()).reduce((a2, b2) => a2 + b2, 0) === n0
+    && Object.values(ff.tally({ plants: true })).reduce((a2, b2) => a2 + b2, 0) === ff.plants);
+  check('and stats says the same as the getters', ff.stats.records === n0 && ff.stats.plants === ff.plants,
+    `${ff.stats.records}/${ff.stats.plants} against ${n0}/${ff.plants}`);
 
   const again = ff.update(1, 1, 'Autumn', 0);
   check('standing still reloads nothing', again === false && ff.chunkCount === 9);
@@ -295,25 +359,32 @@ console.log('\nforage: the live field streams, picks, is harvested and grows bac
   check('a record knows which chunk it belongs to', !!rec && !!rec.chunk);
 
   const before = ff.count;
+  const plantsBefore = ff.plants;
   const gone = ff.remove(rec, 1000);
   check('harvesting a record takes it out', gone && ff.count === before - 1, `${ff.count} of ${before}`);
+  check('and takes the whole bunch of plants with it', ff.plants === plantsBefore - rec.count,
+    `${ff.plants} of ${plantsBefore}, the patch held ${rec.count}`);
   check('and the record itself says when it comes back', rec.harvestedUntil === 1000 + REGROW_MS, `${rec.harvestedUntil}`);
   check('picking the same one twice is refused', ff.remove(rec, 1001) === false);
   check('one minute later it is still gone', ff.regrow(1000 + 60_000) === 0 && ff.count === before - 1);
   const back = ff.regrow(1000 + REGROW_MS);
   check(`eighteen minutes later it is back`, back === 1 && ff.count === before, `${ff.count}`);
+  check('and every plant in it came back with it', ff.plants === plantsBefore, `${ff.plants} of ${plantsBefore}`);
 
   // the season turning empties the wood
   ff.update(0, 0, 'Winter', 0);
-  check('WINTER: the loaded ring holds nothing', ff.count === 0 && ff.season === 'Winter', `${ff.count} standing`);
+  check('WINTER: the loaded ring holds nothing', ff.count === 0 && ff.plants === 0 && ff.season === 'Winter', `${ff.count} standing`);
   check('and draws nothing', ff.stats.drawCalls === 0, `${ff.stats.drawCalls}`);
   ff.update(0, 0, 'Summer', 0);
   check('Summer brings it back', ff.count > 0 && ff.season === 'Summer', `${ff.count} standing`);
 
   // the raycast back-index
   const target = ff.records().find((r) => r.id === 'blueberry') || ff.records()[0];
+  // a ray onto a PLANT of the patch. The centre of a bunch is a spot between
+  // the plants and may have nothing standing on it at all.
+  const aimAt = target.members[0];
   const ray = new THREE.Raycaster();
-  ray.set(new THREE.Vector3(target.x, target.y + 6, target.z), new THREE.Vector3(0, -1, 0));
+  ray.set(new THREE.Vector3(aimAt.x, aimAt.y + 6, aimAt.z), new THREE.Vector3(0, -1, 0));
   const hit = ff.pick(ray);
   check('a ray straight down onto one finds a record', !!hit && !!hit.rec, hit ? hit.id : 'nothing');
   check('and the record it finds is really there', !!hit && ff.records().includes(hit.rec));
@@ -322,6 +393,8 @@ console.log('\nforage: the live field streams, picks, is harvested and grows bac
   empty.set(new THREE.Vector3(0, 900, 0), new THREE.Vector3(0, 1, 0));
   check('a ray into the sky finds nothing', ff.pick(empty) === null);
 
+  check('and the patch it hands back is the patch, not the plant', !!hit && hit.rec === target && hit.rec.count === target.count,
+    hit ? `${hit.id} x${hit.rec.count}` : 'nothing');
   const near = ff.nearest(target.x, target.z, 1);
   check('nearest() finds the one under your feet', near === target || (near && Math.hypot(near.x - target.x, near.z - target.z) < 1));
   check('and nothing at all a kilometre away', ff.nearest(9999, 9999, 3) === null);
@@ -343,13 +416,17 @@ console.log('\nforage: a harvest takes the mushroom out of the world the same fr
   const ff = createForageField(scene, { field: world, season: 'Autumn', treesFor: () => T, now: () => clock });
   ff.update(0, 0, 'Autumn');
 
-  // pick the one a ray really hits, so the thing measured is the thing drawn
-  const rec = ff.records().find((r) => !r.onTrunk) || ff.records()[0];
-  const down = () => {
+  // pick a real BUNCH the ray really hits, so the thing measured is the thing
+  // drawn, and so that "every member" means more than one member
+  const rec = ff.records().find((r) => !r.onTrunk && r.count > 2) || ff.records()[0];
+  console.log(`     the patch under test is ${rec.count} ${rec.id}`);
+  // a ray onto any ONE plant of the bunch. The patch is what should come back.
+  const downAt = (m) => {
     const ray = new THREE.Raycaster();
-    ray.set(new THREE.Vector3(rec.x, rec.y + 6, rec.z), new THREE.Vector3(0, -1, 0));
+    ray.set(new THREE.Vector3(m.x, m.y + 6, m.z), new THREE.Vector3(0, -1, 0));
     return ff.pick(ray);
   };
+  const down = () => downAt(rec.members[0]);
   const meshOf = () => {
     for (const child of scene.getObjectByName('world-forage').children) {
       for (const m of child.children) if (m.userData.forageMap?.includes(rec)) return m;
@@ -361,20 +438,46 @@ console.log('\nforage: a harvest takes the mushroom out of the world the same fr
   const drawnBefore = im.count;
   const hitBefore = down();
   check('and a ray straight down finds it', !!hitBefore && hitBefore.rec === rec, hitBefore ? hitBefore.id : 'nothing');
+  // EVERY plant of the bunch answers with a BUNCH, never with a bare plant.
+  // A given plant can be occluded from straight above by a taller neighbour of
+  // another kind (a fiddlehead fern over a chanterelle, measured), so what is
+  // claimed is what is true: whatever a ray finds is a cluster record, and at
+  // least one of the bunch's own plants hands back the bunch.
+  const each = rec.members.map((m) => downAt(m));
+  const mine = each.filter((h) => h && h.rec === rec).length;
+  check(`a ray down each of the ${rec.count} plants hands back the patch, ${mine} of ${rec.count} times`,
+    mine >= 1, each.map((h) => (h ? h.id : 'null')).join(','));
+  check('and never a bare plant: every hit is a whole bunch',
+    each.every((h) => !h || (Array.isArray(h.rec.members) && h.rec.members.length === h.rec.count)),
+    each.map((h) => (h ? `${h.id}x${h.rec.count}` : 'null')).join(','));
+  check('and every plant of it has an instance slot of its own',
+    im.userData.forageMap.filter((r) => r === rec).length === rec.count,
+    `${im.userData.forageMap.filter((r) => r === rec).length} slots for ${rec.count} plants`);
+  check('all of them inside the drawn range', im.userData.forageMap
+    .map((r, i) => (r === rec ? i : -1)).filter((i) => i >= 0).every((i) => i < im.count));
 
   const rebuildsBefore = ff.stats.rebuilds;
   ff.remove(rec);
-  check('after the pick the mesh draws one fewer instance', im.count === drawnBefore - 1, `${im.count}, was ${drawnBefore}`);
+  check(`after ONE pick the mesh draws ${rec.count} fewer instances`, im.count === drawnBefore - rec.count,
+    `${im.count}, was ${drawnBefore}, the patch held ${rec.count}`);
+  check('and not one plant of the patch is in a ray\'s way any more',
+    rec.members.every((m) => { const h = downAt(m); return h === null || h.rec !== rec; }));
   check('and the record is no longer in the ray\'s way', down() === null || down().rec !== rec, String(down()?.id));
   check('and NOTHING was rebuilt to do it', ff.stats.rebuilds === rebuildsBefore, `${ff.stats.rebuilds - rebuildsBefore} rebuilds`);
-  check('and every other instance still stands', ff.count > 0 && im.count === drawnBefore - 1);
+  check('and every other instance still stands', ff.count > 0 && im.count === drawnBefore - rec.count);
+  check('every slot still drawn belongs to a patch that is still standing',
+    im.userData.forageMap.slice(0, im.count).every((r) => !r.harvestedUntil));
+  check('and every slot past the count belongs to one that is not',
+    im.userData.forageMap.slice(im.count).every((r) => !!r.harvestedUntil));
 
   // the other direction: it comes back the same way, in the same slot family
   clock += REGROW_MS;
   const back = ff.regrow();
   check('eighteen minutes on it grows back', back >= 1 && ff.records().includes(rec), `${back} came back`);
-  check('the mesh draws it again', im.count === drawnBefore, `${im.count} of ${drawnBefore}`);
-  check('and a ray finds it once more', down()?.rec === rec, String(down()?.id));
+  check(`the mesh draws all ${rec.count} of its plants again`, im.count === drawnBefore, `${im.count} of ${drawnBefore}`);
+  check('and a ray finds the patch once more, on the same plants it did before',
+    rec.members.filter((m) => downAt(m)?.rec === rec).length === mine,
+    `${rec.members.filter((m) => downAt(m)?.rec === rec).length} of ${mine}`);
   check('with no rebuild for that either', ff.stats.rebuilds === rebuildsBefore, `${ff.stats.rebuilds - rebuildsBefore} rebuilds`);
 
   // and the whole kind picked leaves a mesh drawing nothing, counted as nothing
@@ -382,7 +485,7 @@ console.log('\nforage: a harvest takes the mushroom out of the world the same fr
   const sameKind = ff.records().filter((r) => r.chunk === rec.chunk && r.id === kind);
   const callsBefore = ff.stats.drawCalls;
   for (const r of sameKind) ff.remove(r);
-  check(`picking all ${sameKind.length} ${kind} in the chunk empties its mesh`, im.count === 0, `count ${im.count}`);
+  check(`picking all ${sameKind.length} patches of ${kind} in the chunk empties its mesh`, im.count === 0, `count ${im.count}`);
   check('and an empty mesh is not counted as a draw call', ff.stats.drawCalls === callsBefore - 1,
     `${ff.stats.drawCalls}, was ${callsBefore}`);
   // an emptied mesh is still in the list a raycast walks, so prove it neither
@@ -399,8 +502,69 @@ console.log('\nforage: a harvest takes the mushroom out of the world the same fr
   }
   clock += REGROW_MS;
   ff.regrow();
-  check('and all of them come back together', im.count === sameKind.length, `${im.count} of ${sameKind.length}`);
+  const plantsOfKind = sameKind.reduce((n, r) => n + r.count, 0);
+  check('and all of them come back together, every plant of every patch',
+    im.count === plantsOfKind, `${im.count} of ${plantsOfKind} plants in ${sameKind.length} patches`);
+  check('and every instance matrix sits where its own plant stands', (() => {
+    const mm = new THREE.Matrix4(), pp = new THREE.Vector3();
+    let worst = 0;
+    for (let i = 0; i < im.count; i++) {
+      im.getMatrixAt(i, mm);
+      pp.setFromMatrixPosition(mm);
+      const m = im.userData.forageMembers[i];
+      worst = Math.max(worst, Math.hypot(pp.x - m.x, pp.y - m.y, pp.z - m.z));
+    }
+    // the instance matrix is a Float32Array, so the tolerance is float32's, not
+    // float64's: the measured worst drift over 29 slots is 1.9e-6 m.
+    return worst < 1e-4;
+  })(), 'every drawn slot matches the member it maps to, to float32');
   ff.dispose();
+}
+
+// ======================================================= variety after the thin
+//
+// The thin took `per` down across the table. "One case is never the case": a
+// thin that quietly stopped a kind from ever appearing would be a forageable a
+// player can never find and a recipe they can never cook, so every biome, every
+// moisture band and every season is driven, over three different 3x3 rings.
+console.log('\nforage: every forageable that grows somewhere still turns up in a 3x3 ring');
+{
+  const T = trees(30);
+  const missing = [];
+  let rings = 0, kinds = 0;
+  for (const b of ['meadow', 'boreal', 'sakura', 'mountain', 'snow', 'desert', 'beach']) {
+    for (const moist of [0.3, 0.8]) {
+      for (const s of SEASONS) {
+        const want = FORAGE.filter((f) => f.seasons.includes(s) && weightFor(f, b, moist) > 0).map((f) => f.id);
+        if (!want.length) continue;
+        for (const [ox, oz] of [[0, 0], [17, -9], [-40, 63]]) {
+          rings++;
+          kinds += want.length;
+          const got = new Set();
+          for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j++) {
+              for (const r of placeForage({ biome: b, moist }, ox + i, oz + j, T, s, 1, { heightAt: flat })) got.add(r.id);
+            }
+          }
+          const gone = want.filter((id) => !got.has(id));
+          if (gone.length) missing.push(`${b} ${s} moist ${moist} ring at ${ox},${oz}: ${gone.join(',')}`);
+        }
+      }
+    }
+  }
+  console.log(`     ${rings} rings driven, ${kinds} biome-season-kind claims checked`);
+  check('not one of them is missing from its own ring', missing.length === 0, missing.slice(0, 3).join(' | '));
+  // and the other way: a kind that does NOT grow here never turns up
+  const winterRing = new Set();
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+    for (const r of placeForage(meadow, i, j, T, 'Winter', 1, { heightAt: flat })) winterRing.add(r.id);
+  }
+  check('and a Winter ring turns up nothing at all', winterRing.size === 0, `${winterRing.size} kinds`);
+  const dryRing = new Set();
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+    for (const r of placeForage(meadow, i, j, T, 'Summer', 1, { heightAt: flat })) dryRing.add(r.id);
+  }
+  check('a dry meadow ring never turns up a cacao pod', !dryRing.has('cacao') && !dryRing.has('fig'), [...dryRing].join(','));
 }
 
 console.log(`\nforage: one clock, and a reading from another is translated onto it`);
