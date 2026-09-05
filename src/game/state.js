@@ -256,6 +256,7 @@ export function blankCharacter() {
     waypoint: null,       // { x, z, name } from the map, read by the compass
     dragon: null,         // the companion's record, written by dragon.js (D1)
     uniques: [],          // signature uniques found, once each (L1)
+    bosses: [],           // wandering bosses met, so the map keeps them (E2)
     settings: { ...DEFAULT_SETTINGS },
   };
 }
@@ -1011,6 +1012,7 @@ export function hydrate(raw) {
   if (raw.dragon && typeof raw.dragon === 'object' && !Array.isArray(raw.dragon)) doc.dragon = { ...raw.dragon };
   // the signature uniques already found (L1): once per character, so the list must survive a reload
   if (Array.isArray(raw.uniques)) doc.uniques = raw.uniques.filter((u) => typeof u === 'string');
+  if (Array.isArray(raw.bosses)) doc.bosses = raw.bosses.filter((u) => typeof u === 'string');
   if (Array.isArray(raw.deadUntil)) doc.deadUntil = raw.deadUntil.filter((d) => d && typeof d === 'object');
   if (raw.settings && typeof raw.settings === 'object') {
     doc.settings = { ...DEFAULT_SETTINGS, ...raw.settings };

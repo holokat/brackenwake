@@ -161,6 +161,8 @@ export function createForaging(o = {}) {
 
   const where = () => actorOf()?.pos || o.at || null;
   const skillValue = () => num(character?.skills?.[FORAGE_SKILL]);
+  /** What the actor's Harvest Yield is worth: 1 ordinarily, 2 in the Blossom Fall (E2). */
+  const yieldFactor = () => 1 + num(actorOf()?.bonuses?.harvestYield);
 
   // ------------------------------------------------------------------ pick
 
@@ -196,7 +198,9 @@ export function createForaging(o = {}) {
     }
 
     const skill = skillValue();
-    const count = yieldFor(skill, plants);
+    const share = yieldFor(skill, plants);
+    const factor = yieldFactor();
+    const count = Math.max(1, Math.round(share * factor));
     const item = makeItem({ base: rec.id, count });
     const res = inventory?.add
       ? inventory.add(item, { quiet: true })
@@ -224,6 +228,7 @@ export function createForaging(o = {}) {
       : `${cap(amountText(rec.id, added))} in the pack.`;
     // What did NOT happen gets words too, and the verb has to agree.
     if (dropped > 0) text += ` ${dropped} would not fit and ${dropped === 1 ? 'is' : 'are'} left on the ground.`;
+    if (factor > 1 && added > share) text += ` The blossom is falling, so it came up ${added} instead of ${share}.`;
     if (warn) text += ` ${warn}`;
     say(text, f.tag === 'toxic' ? 'bad' : undefined);
     return { ok: true, reason: 'picked', id: rec.id, count: added, plants, dropped, text, dist, rec, item };
