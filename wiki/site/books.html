@@ -1,0 +1,3023 @@
+<title>The Brackenwake Books</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap">
+<style>
+:root{
+  --ground:#f3ecdc; --panel:#ebe2cd; --ink:#23201a; --ink-soft:#4d463a; --ink-mute:#7b7160;
+  --gold:#8a6d2a; --gold-dim:#b59a5e; --rule:#cdbf9c; --moss:#4f6d47; --quote:#5a4a26;
+  --link:#6b5220; --sel:#e0d2ad;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#15130f; --panel:#1d1a14; --ink:#e8dcc0; --ink-soft:#c3b69a; --ink-mute:#8b7f66;
+    --gold:#c9a24a; --gold-dim:#7d6a3a; --rule:#3a3324; --moss:#8fb27f; --quote:#d9c48a;
+    --link:#dcb96a; --sel:#2b2619;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#15130f; --panel:#1d1a14; --ink:#e8dcc0; --ink-soft:#c3b69a; --ink-mute:#8b7f66;
+  --gold:#c9a24a; --gold-dim:#7d6a3a; --rule:#3a3324; --moss:#8fb27f; --quote:#d9c48a;
+  --link:#dcb96a; --sel:#2b2619;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"Cormorant Garamond",Georgia,"Times New Roman",serif;font-size:19px;line-height:1.55}
+::selection{background:var(--sel)}
+a{color:var(--link)}
+.wrap{display:grid;grid-template-columns:280px minmax(0,1fr);min-height:100vh}
+nav{position:sticky;top:0;height:100vh;overflow:auto;background:var(--panel);border-right:1px solid var(--rule);padding:28px 22px 40px}
+.brand{font-family:Cinzel,Georgia,serif;font-weight:700;letter-spacing:.08em;font-size:15px;color:var(--gold);text-transform:uppercase}
+.brand small{display:block;font-family:"Cormorant Garamond",serif;font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-mute);font-size:15px;margin-top:4px}
+.books{display:flex;flex-direction:column;gap:6px;margin:24px 0 18px}
+.books button{all:unset;cursor:pointer;display:block;padding:9px 12px;border:1px solid transparent;border-radius:3px;font-family:Cinzel,Georgia,serif;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.books button span{display:block;font-family:"Cormorant Garamond",serif;text-transform:none;letter-spacing:0;font-size:15px;color:var(--ink-mute);margin-top:3px;line-height:1.3}
+.books button[aria-selected="true"]{border-color:var(--gold-dim);color:var(--gold);background:var(--ground)}
+.books button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.toc{border-top:1px solid var(--rule);padding-top:14px}
+.toc h4{margin:0 0 8px;font-family:Cinzel,serif;font-size:11px;letter-spacing:.14em;color:var(--ink-mute);text-transform:uppercase;font-weight:600}
+.toc a{display:block;text-decoration:none;color:var(--ink-soft);font-size:16px;line-height:1.35;padding:4px 0}
+.toc a.h3{padding-left:14px;font-size:15px;color:var(--ink-mute)}
+.toc a:hover{color:var(--gold)}
+main{padding:56px 64px 120px;max-width:820px}
+article{display:none}article[data-active]{display:block}
+.eyebrow{font-family:Cinzel,serif;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+article h1{font-family:Cinzel,Georgia,serif;font-weight:600;font-size:40px;line-height:1.1;margin:0 0 6px;text-wrap:balance;color:var(--ink)}
+article h2{font-family:Cinzel,Georgia,serif;font-weight:600;font-size:24px;line-height:1.2;margin:56px 0 14px;padding-top:20px;border-top:1px solid var(--rule);text-wrap:balance}
+article h3{font-family:Cinzel,Georgia,serif;font-weight:600;font-size:18px;letter-spacing:.02em;margin:40px 0 10px;text-wrap:balance}
+article h4{font-family:Cinzel,serif;font-weight:600;font-size:15px;margin:30px 0 8px;color:var(--gold)}
+article p{margin:0 0 16px;max-width:66ch}
+article p:first-of-type{margin-top:6px}
+article li{margin:4px 0;max-width:64ch}
+article ul,article ol{padding-left:26px;margin:0 0 16px}
+article em{font-style:italic;color:var(--quote)}
+article strong{font-weight:600}
+article hr{border:0;border-top:1px solid var(--rule);margin:40px 0}
+article blockquote{margin:18px 0;padding:6px 20px;border-left:2px solid var(--gold-dim);color:var(--ink-soft);font-style:italic}
+article code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.78em;background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:1px 5px;color:var(--ink-soft)}
+article pre{background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:14px 16px;overflow-x:auto;font-size:14px;line-height:1.45}
+article pre code{border:0;background:none;padding:0;font-size:inherit}
+.tbl{overflow-x:auto;margin:14px 0 22px}
+article table{border-collapse:collapse;width:100%;font-size:16.5px;font-variant-numeric:tabular-nums}
+article th{font-family:Cinzel,serif;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);text-align:left;padding:8px 10px;border-bottom:1px solid var(--gold-dim);font-weight:600}
+article td{padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+.foot{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);color:var(--ink-mute);font-size:15px}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--rule)}main{padding:36px 22px 90px}.toc{display:none}}
+@media (prefers-reduced-motion:no-preference){article[data-active]{animation:in .25s ease-out}@keyframes in{from{opacity:.6}to{opacity:1}}}
+</style>
+<div class="wrap">
+<nav>
+  <div class="brand">Brackenwake<small>The books the zones are written from</small></div>
+  <div class="books" role="tablist" id="books"></div>
+  <div class="toc" id="toc"><h4>In this book</h4></div>
+</nav>
+<main id="main"></main>
+</div>
+<script type="text/markdown" id="md-story" data-title="The Story" data-sub="The kingdom, the Guest, the Wake, four acts, twenty one zones">
+# Brackenwake: the story
+
+This is the book the zones are written from. Everything in it fits the world
+that already exists: the twenty one zones of `zones.js` and their one-line
+moods, the four bosses already in `monsters.js`, the ore ladder, the mines, the
+ruins and the words on them. Nothing here asks the map to move. It asks the map
+to mean something.
+
+The user's brief: who are we, what are we doing here, what is the mission; a
+storyline per zone, each connected to the next, with a progression; friends,
+enemies, a plot that thickens; dungeons, a boss and semi-bosses per zone, open
+world encounters; and a cinematic entry for every zone, whose story the zone
+then tells as you walk it.
+
+One pillar in `00-OVERVIEW.md` has to be read carefully against this: "The
+world is the content. There are no quests." That pillar stands. What it rules
+out is a man with an exclamation mark handing you a list. What it does not rule
+out is a world that knows what you have seen and speaks to it. Section 8 says
+how the story is delivered without a single quest log entry.
+
+---
+
+## 1. The pitch, in one breath
+
+Three hundred years ago something fell out of the sky into the south of a
+kingdom that held its land by holding its water. The sea came up, the kilns went
+cold, the king welcomed the thing that fell and burned his hall to glass around
+it, and the kingdom drowned or scattered. What it left behind is called the
+Wake: a slow tide of wrongness that has crept inward from the coasts for three
+centuries and stopped, every time, at the hedges of one green valley in the
+middle of the continent.
+
+You live in that valley. This spring the hedges have started to fail. Wolves in
+the meadow at night. Dead men walking out of the barrows. An old woman who
+keeps the boundary stones hands you a cloak and says the thing the valley has
+said to one person in every generation: **walk out and find out why.**
+
+You are not the chosen one. You are the one who was sent.
+
+---
+
+## 2. The setting
+
+### The name
+
+*Bracken* is the fern that grows over everything nobody tends. *Wake* is two
+things at once: the water a ship leaves behind it, and the night the living sit
+up with the dead. Brackenwake is a continent sitting up with a dead kingdom,
+and the ferns are winning.
+
+### The Kingdom of the Weirs
+
+The old kingdom was never named for a king. It was named for what it built. The
+continent is wet: a slow river through the heart, a shallow sound to the east,
+fens to the south east, moor and peat to the north. The first people who held it
+did so with weirs, mills and sea gates, and their rulers were called the Weir
+Kings because that was the whole of their claim: *we hold the water, so the
+land is ours.*
+
+Their works are still on the map. Weircross and the Weir Steps and the Weir
+Tower. The Drowned Mill whose river moved. The Hollow Workings. Every ruin with
+"weir" in its name is a piece of the thing that used to keep the sea and the
+fens in their places.
+
+They built seven great weirs. This is the fact the whole story turns on, and
+the player learns it in the second act. Six were made of stone and water. The
+seventh was made of something else, and it is under the Bracken Vale.
+
+### The Fall
+
+Three hundred years ago, in the reign of Ossian, the last Weir King, a light
+came down in the south and landed in the country that is now the Sallow Wastes.
+"Nothing grows and something fell here, and the second fact explains the
+first." The thing that fell is never called a star in this story, because the
+people who saw it did not think it was one. Ossian rode south to see it and
+came back changed, and he called it **the Guest**, because he had decided to
+welcome it.
+
+He had it brought north and east to his hall on the coast, and there he tried
+to make the kingdom's seventh weir out of it: a weir against death itself. The
+hall burned so hot the coast turned to black glass, which is Cinderreach now,
+and Ossian is still on his chair in the middle of it. "He is still on the
+chair. That is the problem."
+
+The sea came up the same year. Whether the Guest raised it or the weirs simply
+failed with no one left to keep them is a question the story leaves to the
+player, because the people in the story disagree about it. Half the eastern
+kingdom went under. Its knight marshal, Sir Caradoc, held the sea gate at the
+Drowned Steps until the water was over his head and is still holding it: "He
+walks up them every night and finds the sea still there."
+
+### The Wake
+
+What the Guest left behind is not an army and not a curse. It is a tide. It
+comes in from the rim of the world a little further every generation: blossom
+out of season in Witchwood with no birds in it, ice a hand thick in the Cold
+Adit when it is not winter, heather that burned three hundred years ago and
+never grew back. Where it is thick, dead things do not stay down, and living
+things grow into something else. Where it is thin, the country is just a little
+wrong, and the people living in it have learned not to look at the wrong part.
+
+This is why the danger of the world rises with distance from the heart. The map
+already does this. The story says why.
+
+### The Vale
+
+The Bracken Vale is the one place the Wake has never entered. Hedged fields, a
+slow river, nobody in a hurry. The people of the Vale do not talk about why
+they are safe, in the way people do not talk about a thing they are afraid of
+finding out. They keep the hedges. They keep the boundary stones. They send out
+a Walker when the stones say to.
+
+The reason they are safe is under their feet. The Bracken Sink, the dungeon in
+the heart of the Vale, is the seventh weir, and it was not built by Ossian. It
+was built by the people who fled him, out of the only material that had ever
+held the Wake back: someone willing to stand in it. The Sink has always had a
+keeper. The last one died the winter before the game begins, and the hedges
+have been failing since.
+
+---
+
+## 3. Who you are
+
+You are a Walker.
+
+In the Vale, the hedge is a thing you walk. Every family takes a turn: a season
+walking the boundary, mending gaps, resetting stones, noting what has come
+through in the night. Most Walkers never leave the Vale. But the stones are
+older than the hedge, and when they are read a certain way, they name someone,
+and that person walks out.
+
+You are that person this generation. The ten openings in creation are what you
+were before the stones named you: a soldier back from somewhere, a ranger who
+knew the Thornwood edge, a healer, a thief, a smith. The Vale does not care.
+Maud Fallow, who reads the stones, does not care either. "The stones said a
+name. I do not have to like it."
+
+The player writes their own name in creation and that is the name the stones
+said. Every named character in the story uses it.
+
+**What you are not.** You are not of royal blood. You are not the reincarnated
+king. The world does not end if you fail. The Wake would take the Vale in a
+generation or two and the people would scatter as everyone else did, and the
+continent would go on being green and wrong with nobody in it. The stakes are a
+valley, and the people in it, and that is enough.
+
+**The one thing that is special about you.** You can stand in the Wake longer
+than other people. Not for ever. This is what the stones read for, and it is
+what a keeper of the Sink has to be able to do. The player learns this about
+themselves slowly, from what other people say, and the ending turns on what it
+means.
+
+---
+
+## 4. The people
+
+Six people carry the story across the whole map. Each one is met early, changes
+across the acts, and is standing somewhere specific at the end.
+
+**Maud Fallow.** Hedge-reeve of the Vale. Seventy, sharp, reads the boundary
+stones and has for fifty years. She sends you. She knows more than she says
+about the Sink, because her sister was its keeper and died last winter, and she
+has not decided whether to tell you what a keeper is. Her arc is deciding. She
+never leaves the Vale; she is the voice the story comes home to. Her last scene
+is at the mouth of the Sink.
+
+**Tam Weir.** Fourteen, the miller's boy in the Mill Run, the first friend the
+player makes outside the Vale. He attaches himself and will not be sent home.
+He is comic relief for one act and then he is not: in the second act the Weir
+Tower's stones name his family, and he is the last of the line that built the
+weirs, which is why the Sink calls to him and why Hesk wants him. He grows up
+across the game. He is seventeen by the end and he is the one who offers to
+take the keeper's place, and the player's last decision is whether to let him.
+
+**Brother Hesk.** A scholar of the Grey Hall on Ashen Moor, the only man on the
+continent who can still read the old script. Kind, patient, genuinely curious,
+and the story's betrayer, though he never thinks of it that way. He believes the
+Wake is a misunderstanding: that the Guest is not malign, only asleep and
+dreaming badly, and that if it were woken and spoken to properly the Wake would
+stop. He is possibly right. He deciphers the Guest's writing at the end of the
+second act and goes south to wake it, taking what he needs from the player's
+finds, and by the third act the Sallow Wastes have a new lich in them who still
+speaks in Hesk's voice and still wants to explain.
+
+**Ysolt of the Strand.** Salvager, boat owner, the only person who will take you
+across water. Forties, sardonic, has lost two boats and a brother to the Drowned
+Coast. Runs the Broken Strand's camp. She is the story's pragmatist: she does
+not care why the Wake exists, she wants the sea to give her brother back. Her
+arc runs through the Drowned Knight: he has her brother's body among the
+drowned who walk up the steps every night, and what she does about that is the
+Drowned Coast's ending.
+
+**Fern.** A girl of about ten who keeps the moss off a stone in Witchwood, and
+who nobody has ever seen doing it. She is dead, and has been for three hundred
+years, and she is a Weir: Ossian's youngest, who was sent inland when the sea
+came and did not survive the journey. She does not know she is dead. She is the
+gentlest thing in the game and the key to the middle act, because she remembers
+the seven weirs as a nursery rhyme. She cannot leave her stone. At the end,
+someone has to tell her.
+
+**The Ashen King.** Ossian. Not a villain who wants anything. He is the man who
+made the worst decision in the history of the continent for a reason he still
+believes was love, and he has been sitting with it for three centuries. He can
+be fought. He would rather be asked a question. He is the story's mirror for
+the player: he stood in the Wake longer than anyone, and this is what it did.
+
+And the enemy, which is not a person. **The Guest** never speaks and is never
+seen whole. It is the crater, the ore that burns, the web that is load bearing,
+the cold that keeps a hill from thawing, the dark trees that keep step. The
+four Powers of the rim are each a piece of the world that grew up around it,
+and Hesk is what happens when a man decides to introduce himself.
+
+---
+
+## 5. The shape of the journey
+
+Four acts. The first three follow the three rings the zones already sit in,
+which means the danger bands the world already uses are the story's pacing.
+The fourth is one dungeon, at home.
+
+| act | ring | tiers | what the player is doing |
+| --- | --- | --- | --- |
+| I. The Hedge | the Vale and the six zones at 3 km | 1 to 2 | finding out what has come through, and that it came from further out |
+| II. The Kingdom | the eight zones at 4.4 km | 3 to 4 | finding out what the kingdom was, what a weir is, and what is under the Vale |
+| III. The Vigils | the six zones at 6.6 km | 4 to 5 | facing the four Powers, losing Hesk, reaching the Fall |
+| IV. The Wake | the Bracken Sink | 5 | the seventh weir, and who keeps it |
+
+The acts are not gates. A player can walk to Cinderreach on the first day and
+die there, and the world lets them. What the acts control is what the world
+*says*: the people in the outer ring will talk to a stranger who has not been to
+the Weir Tower, but they will not tell them anything, because the stranger does
+not know the right questions. Knowledge is the progression. Section 8.
+
+### The through-line, act by act
+
+**Act I.** Maud sends you to the six neighbours of the Vale with one question:
+what has come through, and where from. Each answers with one fact and one
+friend or enemy. By the end of the act you have Tam, you have met Ysolt once,
+you have a name for the thing (the Wake) from the Grey Barrows' dead, and you
+know it came from the sea and the south and the north all at once, which means
+it did not come from anywhere. It came from everywhere but here. Why here?
+
+**Act II.** The question drives you into the old kingdom's ruins. Brother Hesk
+at the Grey Hall reads you the first of the weir-stones. The Weir Tower's
+records name seven weirs and place six. Fern in Witchwood sings the rhyme that
+places the seventh: "and one where the bracken grows." The Warden of the Cut in
+the Stone Garden guards the kings' tally, which says what the seventh was made
+of. By the end of the act, the player knows the Vale is safe because someone is
+standing under it, that the someone died last winter, and that Hesk has read
+something on the Sallow tally that he will not repeat. He leaves for the south
+that night. Tam, told what his name means, goes very quiet.
+
+**Act III.** Four Powers stand between the player and the Fall, one at each
+compass point of the rim, and each holds a piece of the answer to the only
+question left: can the Wake be ended, or only held? The Ashen King says it
+cannot be ended and he has proof, and the proof is him. The Drowned Knight says
+duty is the only weir that holds and he has proof, and the proof is the sea. The
+Frost thanes of the Frostcrown say the Guest sleeps because the cold makes it
+sleep, and they have been paying for that cold for three hundred years. The
+Mother of Spiders says nothing, because she is a spider, but her web is the
+only thing on the continent the Wake has never crossed, and it is anchored in
+the Teeth for a reason. The Night March is the Guest dreaming: its army keeps
+step and walks up out of the Night Shaft every dusk in order, going nowhere.
+And in the Sallow Wastes, at the bottom of the Fall, Hesk has done what he went
+to do, and the Guest has half woken, and the Wake is moving faster than it has
+in three hundred years.
+
+**Act IV.** You come home. The hedges are gone. The Vale is fighting in its
+lanes. Maud is at the mouth of the Sink and finally says what a keeper is:
+someone who stands in the Wake so that other people do not have to, for as long
+as they can, and then someone else. Her sister did it for forty years. The
+stones named you because you could. Tam says he is a Weir and it should be
+him. The Sink is a dungeon with the Wake pouring up it, and at the bottom is the
+place where the last keeper sat, and the game's last choice is who sits down.
+
+There are three endings, and the systems already exist to carry them: the
+character record, and a world that can be told to change.
+
+- **You sit.** The Wake recedes to where it was. The Vale is safe for a
+  lifetime, yours. The credits play over the Vale in summer and the character
+  is retired to the keeper's chair, in the game, for ever: a new character can
+  walk down and find them there. This is the "true" ending only in the sense
+  that it costs the most.
+- **Tam sits.** He is a Weir and he is stronger in it than you would have been.
+  The Vale is safe for his lifetime, which is long. You walk out of the Sink
+  into the Vale and keep playing, and you can visit him, and he gets older,
+  and he does not blame you. Maud does not speak to you again.
+- **Nobody sits.** You take Hesk's side after all, go back to the Fall and
+  finish what he started: wake the Guest fully and speak to it. This is the
+  hardest fight in the game and it is a dialogue as much as a fight. The Wake
+  stops. Everywhere. The rim thaws, the blossom in Witchwood falls, the Drowned
+  Knight walks up the steps and finds the sea gone down. And the Guest is
+  awake, and it is still here, and the last shot of the game is the crater with
+  something standing in it, looking north.
+
+---
+
+## 6. The zones
+
+Every zone below is written to the same frame, so the same author can write
+them and the same systems can carry them:
+
+- **Arrival.** What the entry cinematic shows, in one paragraph. This is the
+  brief for the video the user will make. It is also the toast under the banner
+  the first time you walk in.
+- **The story here.** What this zone is about and how it connects.
+- **People.** Who is standing here and what they want.
+- **The threads.** The beats the zone tells as you walk it, in the order a
+  player would most likely meet them. Not quests. Things that are true in the
+  world and get said when you have earned them.
+- **Underground.** The dungeon or cave, what is at the bottom, and its boss or
+  keeper.
+- **Out in the open.** Named encounters: the semi-bosses. Each is one monster
+  from the roster, promoted with a name, a place, a habit and something in its
+  pockets.
+- **What carries forward.** The one fact or object that the next zone wants.
+
+Danger tiers are the zone's own. Bosses are placed where `monsters.js` already
+puts them; every other named encounter is a promotion of a rostered monster,
+which `monster_models.js` can already draw.
+
+---
+
+### Act I: The Hedge
+
+#### The Bracken Vale
+*Hedged fields, a slow river, and nobody in a hurry. Whatever the rest of the
+world turns out to be, it starts here.* Tier 1. Home.
+
+**Arrival.** Dawn over hedged fields. A woman in a grey shawl walking a
+boundary of standing stones, touching each as she passes. She stops at one and
+reads it for a long time. Cut to a wolf's print in a lane, full of dew. Cut to
+the same woman at your door, holding out a cloak.
+
+**The story here.** The Vale is safety, and the story's job in the Vale is to
+make the player love it before it is threatened. The first hour is farms, a
+river, a town, people who know your name. The first night is the first wolf,
+and the first skeleton walking up out of the churchyard, and the meadow spawn
+tables already do exactly this: rats and boar and goblins by day, wolves and
+dead by night. The Vale is the one zone where the story never leaves: every act
+returns here, and its state changes with each. In Act I it is worried. In Act
+II it is arming. In Act III the hedges are down and there are barricades in the
+lanes. In Act IV it is a battlefield.
+
+**People.** Maud Fallow, hedge-reeve. The Sink's mouth is behind her cottage
+and she never mentions it. A blacksmith who taught you, a healer who bound your
+first wound, an innkeeper who has heard every Walker's story and tells you what
+the last one said before he left: "he said he would be back by harvest."
+
+**The threads.**
+1. Maud reads the stones and names you. The town knows by noon.
+2. The first night. Something comes through the hedge. What it is depends on
+   where you are standing; the world decides.
+3. Maud shows you the gap. Wolf prints going in, going out. She says the six
+   words: *walk out and find out why.*
+4. The innkeeper gives you the last Walker's cloak. It has a mill-wheel sewn on
+   the inside, badly, by a child. (Tam's. His father was the last Walker.)
+5. Each return through the acts: the Vale has changed, and Maud has one more
+   thing to say that she should have said before.
+
+**Underground.** The Bracken Sink. Sealed in Acts I to III: the door behind
+Maud's cottage is a door and it does not open, and she says "not yet" and
+nothing else. It opens in Act IV and it is the last dungeon in the game.
+
+**Out in the open.** *Old Grist*, a boar the size of a pony that has killed
+three dogs, in the beech hangar above the river. *The Churchyard Sexton*, a
+skeleton in a torn surplice that walks the graves at night and rings the bell
+if it sees you. Neither is the Wake. Both are what the Vale has always had and
+lived with, and that is the point: the Vale was never soft.
+
+**What carries forward.** The cloak, and Maud's question.
+
+#### The Mill Run
+*Wheat, a water mill, and the first hole in the ground anyone will let you
+into.* Tier 1 to 2. North.
+
+**Arrival.** A mill wheel turning in a fast stream, wheat to the horizon, a boy
+on the roof of the mill with a slingshot watching the road. The camera follows
+his gaze to the green hill behind the mill, and three black mouths in it, and a
+yard trodden flat.
+
+**The story here.** The Mill Run is where the player learns the world has a
+past. The Millrun Adit is a copper and tin mine that has been worked for a
+century by people who do not ask what the older marks on the walls are. The
+miller's boy, Tam, does ask. He has been down all three cuts and he has a map
+and he wants to show someone. The Mill Run is also where the story makes its
+first friend, and the first person the player will lose if they are careless:
+Tam follows you. In Act I he is a voice at your elbow and a slingshot in the
+Adit. He goes home when told and comes back the next day.
+
+**People.** Tam Weir. His mother, who runs the mill alone and does not want him
+going out and knows she cannot stop him. A foreman at the Adit who will sell
+you a pickaxe and knows the third cut has "a wall that is not ours."
+
+**The threads.**
+1. Tam finds you on the road. He knows who you are; the Vale's news reaches the
+   mill by the miller's cart.
+2. The Adit: three cuts of copper and tin, and in the third, behind a fall of
+   rock the miners never cleared, a wall of fitted stone with the weir-mark on
+   it. The first weir. It is broken.
+3. Tam's mother tells you what happened to his father: the last Walker, gone
+   north to Ashen Moor and not back by harvest, or the harvest after.
+4. Leaving, Tam is on the road ahead of you with a bag.
+
+**Underground.** The Millrun Adit, three cuts. Copper, tin, iron. Rats, bats,
+thorn grubs, and in the third cut, a *Goblin Scout* band that has been living
+in the old weir-chamber and wearing its stones as armour. Their chief is the
+cut's keeper: *Sallow Pike*, a goblin warrior in a breastplate made of a
+weir-stone, who has scratched a copy of the mark onto his own face.
+
+**Out in the open.** *The Miller's Son*, a bandit captain who used to be exactly
+that at a mill up the Run that burned, and who holds the ford at night with
+six men. He is not a monster; he can be talked past with the mill's name.
+
+**What carries forward.** Tam. And the weir-mark, seen once, not yet understood.
+
+#### Saltmere
+*A shallow sound that is half land at low tide and none of it at high.* Tier 2.
+North east.
+
+**Arrival.** A tide going out over a mile of sand, fast, and stone steps coming
+up out of the water as it goes: the Weir Steps, going down into a floor that
+is now the sea bed. Crabs the size of dogs coming out of the weed. A boat with
+one sail, beating in against the wind, a woman at the tiller not looking at
+the steps at all.
+
+**The story here.** Saltmere is the first time the player sees what the sea
+did. The Weir Steps are the top of a drowned building, and the tide reveals it
+twice a day and takes it back. It is also where Ysolt is first met, briefly:
+she salvages the Steps at low water and will not talk about why the water is
+where it is. Saltmere is the sea's threat made small and legible before the
+Drowned Coast makes it enormous.
+
+**People.** Ysolt of the Strand, passing through, salvaging. A hamlet of
+cocklers who have a rhyme about the Steps that ends "and the king came up to
+count them." A drowned man who stands on the Steps at high water and is gone at
+low.
+
+**The threads.**
+1. The tide and the Steps: walk down them at low water and there is a door at
+   the bottom with the weir-mark on it. Second weir. Broken.
+2. Ysolt. She will sell you what she has salvaged and say one true thing: "the
+   water is not rising. It is looking for something."
+3. The cocklers' rhyme, which is the first mention of a king.
+4. At high water, the drowned man. He is *Saltmere's Reeve*, the local named
+   encounter, and he was the Steps' last keeper. He does not attack until you
+   go down.
+
+**Underground.** None authored. The Weir Steps are a ruin, not a dungeon: the
+door at the bottom does not open, and will not until Act III's Drowned Coast.
+
+**Out in the open.** *The Tide-Widow*, a Drowned in a bridal shift who walks the
+sand at the turn of every tide, exactly where the water's edge will be in an
+hour, so that anyone who follows her is caught by it. *The Reeve*, above.
+
+**What carries forward.** Ysolt's name, and the fact that the Steps have a door.
+
+#### The Sedge Flats
+*Standing water to the knee and sedge to the shoulder, and something in it that
+is not a frog.* Tier 1 to 2. South east.
+
+**Arrival.** Sedge moving in a wind that is not blowing anything else. A mill
+wheel standing in dry grass with no river near it. The camera drops to water
+level and something long moves under the surface toward it.
+
+**The story here.** The Sedge Flats are the fens the weirs used to hold back,
+and the Drowned Mill is the proof: a mill whose river moved when the weir at
+the Hollow Hills failed, so that the wheel stands in a field and the flood
+stands where the field was. The Flats teach the player that the Wake does not
+only bring monsters: it moves the world. Bog crawlers and ghouls live in the
+water. The people here are eel-fishers who have gone strange, not from the
+Wake but from being the only ones who stayed.
+
+**People.** A fen-family at the Drowned Mill who have made the millhouse a
+stilt-house and will trade eels for anything metal. Their grandmother remembers
+the river moving "in my mother's mother's time," which puts a date on it, the
+first the player gets.
+
+**The threads.**
+1. The Drowned Mill. Inside, a millstone with the weir-mark cut into it by the
+   miller as a charm, the third mark. It did not work.
+2. The grandmother's date. Two hundred and eighty years. Roughly.
+3. The thing in the water: it is *Long Sarah*, a Bog Crawler grown beyond its
+   kind, and the fen-family feed it a sheep a month so it leaves them alone.
+   Killing it frees them and they are not grateful.
+
+**Underground.** None. The Flats are open water and the fear of what is in it.
+
+**Out in the open.** *Long Sarah*. *The Eel-Man*, a Ghoul in fisherman's oilskins
+who still checks the traps every night and will follow you for a mile in the
+sedge without ever quite attacking, until you stop.
+
+**What carries forward.** A date, and the direction the river went: south, to
+the Hollow Hills.
+
+#### Kiln Heath
+*Gorse, dry sand and the brick kilns that gave it the name, all of them cold.*
+Tier 2. South.
+
+**Arrival.** A row of brick kilns like beehives across a heath of yellow gorse,
+every one of them cold, one of them with its door bricked up from the outside.
+A wind takes ash off the heath in a long veil. Under the largest kiln, stairs.
+
+**The story here.** Kiln Heath fired the bricks the kingdom was built from, and
+the Kiln Cellars under the biggest kiln are where the bricks were stacked to
+cure. Now the kilns are cold and the Cellars are full of bandits who found them
+first and cultists who found the bandits. The Heath is the first place the
+player meets the Wake's human face: people who went looking for the Guest on
+purpose. The cultists here are the outer edge of Hesk's eventual road, though
+Hesk would be appalled to hear it.
+
+**People.** A brickmaker's widow at Fallow's Adit who mines clay and sells
+pots and knows which kiln has the stair. A cultist who has come out of the
+Cellars to sit in the sun and has changed his mind and will tell you the
+Cellars' layout in exchange for being walked to the Vale.
+
+**The threads.**
+1. The bricked-up kiln. Somebody bricked it from outside with someone inside.
+   The pot-widow did it. She does not say why until Act III.
+2. Fallow's Adit: a dry cave propped with rotten timber, copper and tin, the
+   widow's clay pit at the back, and a Thorn Grub nest.
+3. The Kiln Cellars: bandits above, cultists below, and at the bottom the
+   fourth weir-mark, cut into the kiln's foundation, with the cultists praying
+   at it because they think it is the Guest's mark. It is the opposite.
+
+**Underground.** The Kiln Cellars, two levels. Bandits and goblin warriors
+above; cultists below. The keeper is *the Kiln-Warden*, a Cultist who has
+burned his own face in the one kiln that still works and speaks the first words
+the player hears in the Guest's language, which Hesk will later translate as
+"open."
+
+**Out in the open.** *The Bricked Man*, what came out of the bricked-up kiln
+when the player opens it: a Zombie, the widow's husband, who went into the
+Cellars and came back different, and she could not kill him, so she walled him
+in. He is the game's first small tragedy and he should be sad to fight.
+
+**What carries forward.** The word "open," and the fact that some people want
+the Wake.
+
+#### The Grey Barrows
+*Grass mounds in rows, and the rows go on past where anyone bothered to
+count.* Tier 2 to 3. South west.
+
+**Arrival.** Grass mounds in rows under a grey sky, a thousand of them, and the
+camera rising until the rows resolve into a pattern: a spiral, and at its centre
+one standing stone that is not the biggest. Night falls in the shot. A mound
+opens.
+
+**The story here.** The Barrows are the kingdom's dead, and the kingdom buried
+its dead in the order they died, so the spiral is a calendar. Walk it inward
+and the graves get newer. The outermost ring is a thousand years old. The
+innermost is three hundred, and it is where the rows stop, because after that
+there was nobody left to bury anyone. This is where the player learns the word
+*Wake*, from the dead themselves: a Necromancer who lives in the Long Barrow
+ruin, night only, and has been asking the dead questions for thirty years.
+
+**People.** *Aldous the Quiet*, the Necromancer of the Long Barrow. Not evil,
+not kind, curious in the way Hesk is curious but without Hesk's hope. He will
+teach the player the first bones of necromancy and tell them what the dead
+call what killed them: they call it the Wake, and they say it came in on the
+tide.
+
+**The threads.**
+1. The spiral. Walking it inward, mound by mound, is the zone's story: the
+   graves get richer, then poorer, then hurried, then stop.
+2. Aldous, at night, at the Long Barrow. He knows what you are; the dead told
+   him. He is the one who says the Vale has a keeper, and will not say more.
+3. The Barrow Cellars: the last king's family vault, "cut by people who
+   expected to be visited." Nobody visited. Inside, a row of stone coffins,
+   and the last one is empty and its lid is off, and the name on it is Ossian.
+4. At the innermost mound, at midnight, the Barrows' dead stand up in their
+   rows and face south east, toward the Fall, and stand until dawn. They do not
+   attack anyone who stands with them.
+
+**Underground.** The Barrow Cellars. Skeletons, zombies, ghouls, and a *Bone
+Knight* keeper who was the royal family's tomb guard and is still guarding a
+row of coffins with one empty. *Sir Anselm of the Vault* has a name because he
+will tell it to you before he attacks, and he will let you leave if you do not
+touch the coffins.
+
+**Out in the open.** *The Counting Man*, a Wraith that walks the rows at night
+counting under its breath and loses its place if you say a number aloud, which
+enrages it. *The Rows at Midnight*, above, an event rather than a monster.
+
+**What carries forward.** The word Wake. The name Ossian. An empty coffin.
+
+#### Thornwood
+*Spruce close enough together that the light gives up two paces in.* Tier 2.
+North west.
+
+**Arrival.** Spruce so close the camera has to push through them. Silence. A
+cold fire in a clearing, ash still shaped like the logs it was. Somebody's
+pack, open. The camera turns slowly to the trees, and every tree has eyes at
+the same height.
+
+**The story here.** Thornwood is wolves. It is the first zone where the player
+is hunted rather than attacked: the wolves of the Thornwood run in a pack with
+a name and a leader, and they take a person a season from the road. The cold
+fire is the last Walker's. Tam's father made it. Thornwood is where Tam finds
+out, if he is with you, and where the story decides whether he goes home.
+
+**People.** A ranger at the wood's edge, the only one who goes in, who will
+teach archery and tracking and has a map of the pack's dens. Nobody else. The
+wood has no hamlets. That is the point of it.
+
+**The threads.**
+1. The cold fire. Tam's father's pack. His Walker's cloak is not in it. His
+   knife is.
+2. The ranger's map. Seven dens, one alpha. Clearing them is the zone.
+3. The alpha: *Greymaw*, a Dire Wolf with a Walker's cloak-pin in his hide, who
+   does not run. Killing him gives back the pin. It matches yours.
+4. Tam, at the fire, with the knife. He does not cry. He asks if he can keep
+   walking with you. This is the end of Act I, whichever zone you did last.
+
+**Underground.** None. Thornwood's dread is above ground.
+
+**Out in the open.** *Greymaw*, above. *The Watcher in the Spruce*, a Giant
+Spider that has taken the ranger's old blind twenty feet up and drops on
+anyone who camps under it.
+
+**What carries forward.** The pin. And Tam's decision.
+
+---
+
+### Act II: The Kingdom
+
+#### The Broken Strand
+*A coast that came apart. Half of it is islands now and the other half is
+deciding.* Tier 3. East.
+
+**Arrival.** A coastline shattered into stacks and islands, sea running white
+between them. A camp on the last piece of mainland, boats drawn up, a woman
+mending a sail with a needle the size of a knife. Out on the furthest stack, a
+cave mouth with a tide mark above head height.
+
+**The story here.** The Strand is Ysolt's, and it is the story's harbour: from
+here she will take you to the Drowned Coast in Act III, and it is here the
+sea's half of the story is told plainly. Crook's Delve, the cave on the stack,
+was a sea-cave the tide got into once, three hundred years ago, and the mark
+above your head is how high. The Strand is where the player understands the
+scale of the flood, because the ground they stand on used to be ten miles from
+the sea.
+
+**People.** Ysolt, at home, with her crew of salvagers, harpies nesting on her
+stacks and crabs in her boats. She has a chart of the Drowned Coast that she
+made herself over twenty years, and a name she does not say: her brother's.
+
+**The threads.**
+1. Ysolt's camp. She remembers you from Saltmere. She will teach fishing and
+   sailing and sell you what the sea gave back.
+2. Crook's Delve: iron and silver, and at the back, in the dark above the tide
+   mark, a boat. Not a wreck: drawn up, three hundred years ago, by people
+   fleeing east who found the sea had beaten them there. Their bones are in it.
+   One of them wore a weir-key on a chain, the first key of the story, and it
+   has the fifth mark on it.
+3. Ysolt's brother. She says it once, late, at the fire. He went to the Drowned
+   Steps to see if the stories were true and did not come back, and she has
+   seen him since, at the top of the steps, at night, in the line.
+4. Ysolt will not sail to the Drowned Coast for any money. In Act III she will
+   sail for a reason.
+
+**Underground.** Crook's Delve, a cave. Crabs, harpies, drowned. Its keeper is
+*Mother Crab*, a Crab promoted to the size of a cart, who has made the boat her
+den and does not want you in it.
+
+**Out in the open.** *The Stack-Queen*, a Harpy on the tallest stack who has
+learned to say three words and says them to sailors: "come up here." *Ysolt's
+Bad Luck*, a Drowned in salvager's gear who follows her boats along the shore.
+It is not her brother. She has checked.
+
+**What carries forward.** The first weir-key. Ysolt, who will sail when she has
+a reason.
+
+#### The Ember Flats
+*Sand, red stone and heat off the ground at noon. The ore here burns.* Tier 3
+to 4. South east.
+
+**Arrival.** Red rock and white sand under a sun that is too big. A mine yard
+where the rails have warped from heat. A man breaking ore with a hammer, and
+the ore glowing where it breaks, and him not looking at it. Behind him, in the
+heat shimmer, a manticore lying on a rock like a cat.
+
+**The story here.** The Ember Cut is the first emberite the player sees, and
+emberite is the first ore that is *of* the Guest: it fell with it, or grew from
+where it fell, and it burns without fire. The Flats are the beginning of the
+south's story, the road the Guest was carried along from the Fall to Ossian's
+hall, and everything along it caught. The miners here are hard people who
+mine a thing they know is wrong because it is worth more than anything else on
+the continent, and the cultists of Kiln Heath came from here.
+
+**People.** The Cut's mine-captain, *Rook*, a woman with burn scars to the
+elbow who will trade emberite for iron and tell you the road: "they carried it
+north east, to the coast. You can see where. The sand is glass." A cultist camp
+on the Flats' edge that is recruiting, openly.
+
+**The threads.**
+1. The Ember Cut: iron and emberite, four cuts, and the cuts are warm. The
+   deepest has a floor of fused sand, and the shape of something pressed into
+   it: a sledge, and the ruts of what dragged it.
+2. The glass road: a line of fused sand running north east across the Flats
+   toward Cinderreach, visible from any height. Following it is the zone.
+3. The cultists. They know your name now. Their captain offers you the Guest's
+   mark and says Hesk's name, which the player may or may not know yet.
+4. Rook's warning, on leaving: "do not take the ore into the Vale."
+
+**Underground.** The Ember Cut, four cuts, the deepest a small dungeon. Giant
+spiders, cultists, and at the fused floor, *the Sledge-Master*, an Ogre in
+cultist rags who has decided he is the Guest's bearer and hauls an empty sledge
+around the chamber for ever.
+
+**Out in the open.** *Noon*, a Manticore that hunts only in the heat of the day
+and lies on the same red rock every noon like a sundial. *The Recruiter*, the
+cultist captain, who can be fought or listened to.
+
+**What carries forward.** The glass road, pointing at Cinderreach. Hesk's name
+in the wrong mouth.
+
+#### The Hollow Hills
+*Green hills with the sound wrong under them, and doors in the sides.* Tier 3.
+South.
+
+**Arrival.** Green downs, a footstep echoing where there should be no echo, and
+a door set into a hillside, closed, with light behind it. A tower on the
+skyline, roofless, watching a road that is not there. The camera goes down
+through the turf to a hall the size of a cathedral, and something moving in
+it.
+
+**The story here.** The Hollow Hills are the kingdom's granaries and the fifth
+weir: the Hollow Workings were cut to hold grain for a siege that never came,
+and the weir under them held the river that now runs through the Sedge Flats.
+When it broke, the river moved and the Hills' people went underground to live
+in the workings, and something else lived there too. The Weir Tower is where
+the player finally reads the kingdom's own account: it kept the road, and it
+kept the records, and the records name seven weirs and place six.
+
+**People.** The Hills have a hamlet of people who live half underground and
+speak quietly, because the sound carries. *Old Wynn*, the Weir Tower's last
+warden, blind, who has memorised the records because the pages are going, and
+will recite them to anyone who brings him the Barrows' name. He is the one who
+first says: "seven weirs. Six of stone. And one where the bracken grows."
+
+**The threads.**
+1. The doors in the hillsides. Some open. Some are painted on.
+2. The Weir Tower and Old Wynn. The recitation. The list of six places, five of
+   which the player has seen a mark at. The sixth is the Stone Garden. The
+   seventh he will not place: "the rhyme places it, and I was never taught the
+   rhyme."
+3. The Hollow Workings: a mine that became a home that became something else.
+   The people who lived here left in a hurry, and left the tables set.
+4. Tam, if present, recognises a name in the recitation. Weir. He asks Wynn
+   what it means. Wynn asks him his name, and goes quiet, and then says: "then
+   you should not go south."
+
+**Underground.** The Hollow Workings, two levels. Ghouls above, in the homes;
+below, in the granary hall, *the Granary Wraith*, the Hills' keeper, who was
+the Workings' quartermaster and still counts stores that rotted three
+centuries ago, and a Mire Troll that came up from the flooded weir-channel and
+lives in the bottom of the hall.
+
+**Out in the open.** *The Painted Door*, which is not a monster but an event: a
+door that is painted on opens once, at night, when you are near, and a Hobgoblin
+war party comes out of it and it is painted again in the morning. *The Echo*,
+a Harpy that has learned the Hills' acoustics and calls in voices from a mile
+off.
+
+**What carries forward.** The list of six. The word "rhyme." Tam's name, out
+loud.
+
+#### Witchwood
+*Blossom out of season and no birds in any of it.* Tier 3. South west.
+
+**Arrival.** Cherry blossom falling in a wood where nothing else is in leaf. No
+birdsong; the silence is the sound. A standing stone with the moss freshly
+scraped off, and the scrapings still wet, and nobody there. The camera holds on
+the stone until a small hand comes into frame and brushes a petal off it.
+
+**The story here.** Witchwood is the Wake's gentlest and strangest face. The
+blossom is the wood trying to be spring for someone. Fern is the someone. She
+keeps her stone and sings her rhyme and does not know she is dead, and the
+wood has grown up around her grief for three hundred years into a place where
+nothing is quite right and nothing wants to hurt her. The player comes for the
+rhyme, and the rhyme places the seventh weir, and getting it means sitting with
+a dead child and not telling her.
+
+**People.** Fern. Nobody else lives here. Her stone is the shrine, "Fern's
+Stone," and she will only appear to someone who is alone and has not drawn a
+weapon in the wood.
+
+**The threads.**
+1. The wood. Blossom, silence, spiders in the blossom, and the feeling of being
+   watched by something that means no harm.
+2. The stone. Wait. Fern comes. She thinks you are a servant sent to fetch her
+   home to the hall by the sea, and she asks if her father has stopped being
+   angry.
+3. The rhyme. She sings it if asked nicely, and it is the seven weirs as a
+   skipping song, and it ends: "and one where the bracken grows, and one to
+   keep it, and nobody knows." She does not know what it means. She learned it
+   in the nursery.
+4. She asks you to tell her father she is being good. The player can promise.
+   The promise is remembered, and kept or broken in Cinderreach.
+
+**Underground.** None. Witchwood does not go down.
+
+**Out in the open.** *The Blossom Mother*, a Giant Spider that has made the
+whole canopy one web so fine the blossom hangs in it, and which drops
+everything on anyone who draws steel near the stone. *The Birds*, an event: at
+dusk, once, every bird that should be in the wood arrives at once and sits in
+the trees in silence for a minute and leaves.
+
+**What carries forward.** The rhyme. The promise.
+
+#### The Iron Shoulder
+*Bare stone shoulders with the ore showing on the outside of them, which is why
+anybody came.* Tier 3 to 4. West.
+
+**Arrival.** Mountains with the ore showing in blue veins across bare rock. Two
+mine yards on one hillside, one worn to rock, the older one colder. An iron
+golem standing perfectly still at the old cut's mouth with snow on its
+shoulders, which means it has stood there since before the snow.
+
+**The story here.** The Shoulder is the kingdom's arsenal and the story's
+forge. The Deep Shoulder and the Low Shoulder are iron, silver and coldiron,
+and coldiron is the second ore of the Guest: not fallen, but grown where the
+Wake's cold pooled, and it takes an edge nothing else does. The golems here
+were the kingdom's, made to guard the mines, and they are still guarding them
+from the only thing left to guard them from, which is you. The Shoulder is
+where the player arms for Act III, and where the smiths who can work the
+Guest's metals still live.
+
+**People.** A mining town in the Shoulder's lee, the hardest town in the game,
+with the only smith who works coldiron, *Hild Ironshoulder*, who will teach it
+for a price and asks where you mean to use it. A golem at the Low Shoulder's
+mouth that does not attack and says one word if you stand in front of it for a
+minute: "pass."
+
+**The threads.**
+1. The two mines. The Deep Shoulder is worked and hostile: ogres have taken
+   the fourth mouth. The Low Shoulder is old and cold and its golem lets you
+   pass and nobody knows why.
+2. In the Low Shoulder's deepest cut, the kingdom's armoury: racks, rusted
+   empty, and one coldiron blade still in its stand with the weir-mark on the
+   hilt. The sixth key. It is a sword.
+3. Hild, shown the sword, goes quiet, then tells you what coldiron is and what
+   it does to the man who carries it long enough. Then she sharpens it.
+4. The golems, if you carry the sword, all turn to face you as you pass. None
+   attack.
+
+**Underground.** The Deep Shoulder, four cuts. Ogres and an Iron Golem keeper
+in the fourth, *the Foreman*, who is the kingdom's last working golem and is
+still running the shift. The Low Shoulder, two cuts, empty but for cold and one
+Wyvern that has denned in the second and is the reason the golem says pass: it
+wants you to deal with it.
+
+**Out in the open.** *The Stone Shepherd*, an Ogre that keeps a flock of
+stoneback bears on the high shoulder and calls them down on climbers. *The
+Watch at the Low Shoulder*, the speaking golem, which can be fought if you
+insist and is very sorry.
+
+**What carries forward.** The coldiron sword: the sixth key, and a weapon.
+
+#### The Long Dark
+*Old forest, and old means the trees were here before the word for them.* Tier
+3 to 4. North west.
+
+**Arrival.** Trees so old their trunks are rooms. No canopy visible; the light
+is green and comes from nowhere. Werewolf tracks in moss that has not been
+stepped on in a century. Deep in, a wall of living wood with a face in it, eyes
+closed. It opens them.
+
+**The story here.** The Long Dark is the oldest thing on the continent and the
+only one that remembers before the kingdom. The Elder Treants here were the
+kingdom's western border and its treaty: the Weir Kings did not cut the Long
+Dark and the Long Dark did not walk. The Wake has been in the wood for three
+centuries and the wood has been holding it, alone, the way the Vale has, by
+standing in it. The eldest treant is the story's one witness who was there,
+and it will speak if brought the right thing, and what it says reframes the
+Guest: "it did not fall. It was dropped."
+
+**People.** No people. Werewolves, who were people, and the treants, who were
+never people and are the closest thing the wood has to them. *Marl*, a
+prospector's ghost at Marl's Seam, who found the verdite and died of it and
+will show you where.
+
+**The threads.**
+1. The wood. Getting lost is the story: the Long Dark has no roads and the
+   trees move at night, slightly.
+2. Marl's Seam: a cave with verdite in the wall, "green gold in the wall of it,
+   if the light is right and you are not." Verdite is the third ore of the
+   Guest and it is the one that grew where the Wake touched living things.
+3. The Elder, in the heart of the wood, a treant older than the others by a
+   thousand years. It speaks to someone carrying the coldiron sword, because
+   the sword was forged from the wood's own cold. It says the Guest was dropped
+   and asks nothing.
+4. The werewolves. They are the wood's own keepers, changed by three centuries
+   of standing in the Wake with it, and the pack leader was a Weir knight.
+
+**Underground.** Marl's Seam, a cave. Giant spiders, thorn grubs, and *Marl
+Himself*, a Ghoul in a prospector's coat who dug too deep into the green and
+will not stop showing you the seam.
+
+**Out in the open.** *The Elder*, above, who is not fought unless you cut a
+tree in its sight. *Sir Bryn of the Wood*, a Werewolf who was a knight and
+wears what is left of his surcoat, and who will duel the player once, at the
+full moon, and yield at half health and say the Guest was "carried past here in
+a box with three men on it, and two of them were weeping."
+
+**What carries forward.** "Dropped." Verdite. The wood's alliance, which
+matters in Act IV.
+
+#### Ashen Moor
+*Peat, standing water and burnt heather that never grew back.* Tier 3 to 4.
+North.
+
+**Arrival.** Heather burnt black across a whole horizon, three hundred years
+ago, and never green since. A long hall of grey stone, roofed, lamplit,
+absurdly intact in the desolation. A man in brown robes in the doorway, holding
+a lamp up to see who is coming, smiling.
+
+**The story here.** Ashen Moor is where the kingdom's memory lives and where
+the story's betrayer is met, and the player should like him more than anyone
+else on the map. Brother Hesk keeps the Grey Hall, the kingdom's library, alone,
+and he can read the old script, and he has been waiting thirty years for
+someone to bring him things to read. The moor burned the year of the Fall
+because the Guest passed over it, or because the peat caught, or because the
+kingdom burned it to stop something following the Guest; Hesk has all three
+accounts and thinks the third is true. Tam's father came here. Hesk remembers
+him. He went down the Ashen Steps and did not come up.
+
+**People.** Brother Hesk. A hamlet of peat-cutters who bring him food and
+think he is a saint. The Ashen Steps' cultists, who think the same and mean it
+differently.
+
+**The threads.**
+1. The Grey Hall. Hesk reads everything you have found: the keys, the
+   marks, the rhyme if you have it. He is delighted. He tells you what a weir
+   is for, and what the seventh one is made of, and stops, and says "I would
+   like to see the Stone Garden's tally before I say the rest."
+2. Tam's father. Hesk has his Walker's cloak. He gave it to Hesk to keep the
+   moor's wet off a book. Hesk gives it to Tam.
+3. The Ashen Steps: "down, and then down again, and the second flight is wider
+   than the first." Cultists, wraiths, and at the bottom the sixth weir-mark
+   and the last Walker's bones, with a note in a script Hesk can read and the
+   player cannot. He reads it aloud. It says the Sink's keeper is dying and
+   someone must be sent, and it is addressed to Maud.
+4. Hesk asks to come with you to the Stone Garden. He should be allowed.
+
+**Underground.** The Ashen Steps, two levels, the second wider than the first,
+because it was a hall before it was a stair. Cultists, wraiths, a Bone Knight,
+and the keeper, *the Abbot Below*, a Cultist who founded the order in the
+Steps forty years ago after reading one page of Hesk's library that Hesk does
+not know is missing.
+
+**Out in the open.** *The Heather-Fire*, a Wraith made of the burning that
+never stopped, which walks the moor at night as a line of small flames and
+sets nothing alight. *The Peat-Cutters' Bear*, a Stoneback Bear that has learned
+the cutters' work-songs and hums them, which is how you know it is close.
+
+**What carries forward.** Hesk, walking beside you. The last Walker's cloak on
+Tam. The note to Maud.
+
+#### The Stone Garden
+*Standing rocks in rows nobody planted, and the Warden at the bottom of the
+cut.* Tier 4. North east.
+
+**Arrival.** Standing stones in rows across a mountainside, each one carved
+with a tally, each one taller than a house. A cut in the mountain with a door
+the size of a barn, and the door is open, and it was not built for people. Deep
+inside, something the size of the door turns its head.
+
+**The story here.** The Stone Garden is the kingdom's account book. Every stone
+is a tally of one year: what the weirs held, what they cost, who kept them. The
+Warden of the Cut is the first true boss of the game and the kingdom's greatest
+work: a construct built to guard the tally, immune to poison, weak to energy,
+and it has been guarding a stone nobody has read in three hundred years. That
+stone is the last one, cut in Ossian's last year, and it is the one Hesk wants.
+The Stone Garden is the end of Act II, and the moment the story turns: Hesk
+reads the last tally and does not tell you what it says.
+
+**People.** Nobody lives here. Hesk, if he came. Tam, if he came. The Warden.
+
+**The threads.**
+1. The rows. Walking them with Hesk is the zone's first half: he reads each
+   tally as you pass and the kingdom rises and falls in numbers. The weirs
+   held. The weirs cost more every year. Then a year with one word on it.
+2. The Warden's Cut. The door. The fight.
+3. The last tally, at the bottom, behind the Warden. Hesk reads it in silence.
+   He tells you the six weirs were stone and water, and the seventh was a
+   person, and the Vale's keeper died last winter, and the Wake is moving. He
+   does not tell you the other half of the stone, which is Ossian's own
+   account of what the Guest said to him, in the Guest's script.
+4. That night, at camp, Hesk is gone. He has taken the rhyme, the note to Maud,
+   and Tam's father's knife, and he has left a letter that says he is sorry and
+   he thinks he can end it and to look after the boy. He has gone south.
+
+**Underground.** The Warden's Cut, one vast level. Iron golems, wyverns, and
+**the Warden of the Cut**, the game's first boss: 4000 health, a knockback, a
+stun, poison-immune, energy-weak, and the door it guards is the size of a barn
+because so is it.
+
+**Out in the open.** *The Tally-Keeper*, an Iron Golem that walks the rows and
+re-cuts the stones where weather has worn them, and will fight only if you
+deface one. *The Roost*, a Wyvern pair on the highest stone that takes it in
+turns to hunt.
+
+**What carries forward.** The truth about the seventh weir. Hesk's absence.
+Everything the player has learned, now pointing south.
+
+---
+
+### Act III: The Vigils
+
+#### Cinderreach
+*A coast of black glass and red rock, and the sea steams where it meets it.*
+Tier 4 to 5. East.
+
+**Arrival.** A coast of black glass, the sea steaming where it touches. A mine
+yard that rings underfoot. A hall on a headland with no roof and every wall
+fused to glass, and inside it, on a chair, a figure in a crown, quite still,
+facing the sea. The camera comes round to its face. Its eyes are open and it
+is looking at the camera.
+
+**The story here.** Cinderreach is Ossian's hall and the end of the glass road.
+The Ashen King is the story's second boss and its most important conversation.
+He will talk before he fights, and what he says is the Guest's side of the
+story, filtered through the one man who ever heard it: that the Guest was
+dropped here by something that wanted rid of it, that it does not want to be
+here either, that it dreams, and that when Ossian tried to make it into a weir
+against death it did exactly what he asked, for him alone, and he has not died
+since and cannot. He is the proof that the Wake cannot be ended by welcoming
+it. Fern's promise is kept or broken here: tell him his daughter is being good,
+and he weeps, and the fight is different.
+
+**People.** The Cinder Cut's miners, who mine emberite and voidrock off a coast
+that kills them by forty and are paid enough not to mind. Ossian.
+
+**The threads.**
+1. The Cinder Cut: emberite and voidrock, and voidrock is the fourth ore of the
+   Guest, the one that is a piece of it, and it is heavy and cold and does not
+   reflect light. The yard is black glass and rings.
+2. The hall. The Ashen King on his chair. He speaks first. What he says depends
+   on what you carry: the coldiron sword, the rhyme, Fern's promise.
+3. The fight, if it comes to one, and it does: he cannot stop being what he is
+   and he knows it and asks you to be quick.
+4. What he leaves: the Guest's crown, a circlet of glass that lets whoever
+   wears it hear the Night March keeping step, from anywhere. And a last thing
+   about Hesk: "a monk came through. I told him the same. He thanked me."
+
+**Underground.** The Ashen King's Hall, one level, a fused throne room and the
+crypt beneath it where Ossian's court died sitting up. Vampire knights, bone
+knights, wraiths, and **the Ashen King**: 3200 health, undead, weak to holy,
+casts, and has a phylactery, which is the crown, and which the player can
+choose to break or wear.
+
+**Out in the open.** *The Glass-Walker*, a Wraith that leaves footprints of
+melted glass and follows the tide line at dawn. *The Cinder Cut's Bell*, a
+Manticore that has learned the shift bell means food.
+
+**What carries forward.** The crown. "Dropped," confirmed by the man it was
+dropped on. Hesk was here.
+
+#### The Drowned Coast
+*Half a kingdom under the tide, and its owner still doing his rounds.* Tier 4
+to 5. North east.
+
+**Arrival.** A drowned city under clear water, towers and streets visible from
+above, fish moving down its avenues. Stone steps coming up out of the sea onto
+a headland. Dusk. The water at the foot of the steps moves, and a knight in
+full plate walks up them, water pouring off him, and behind him, in a line,
+the drowned, and at the top of the steps he stops and looks at the sea and
+turns around and walks back down.
+
+**The story here.** The Drowned Coast is Ysolt's ending and the Drowned
+Knight's. Sir Caradoc held the sea gate and drowned holding it and has walked
+up the steps every night since to find the sea still there. The drowned of the
+coast follow him because he is the last order left. He is the story's third
+boss and the Vale's mirror: he has been a weir made of a person for three
+hundred years, and he has no keeper's chair, only duty, and it has not been
+enough to bring the sea down but it has been enough to keep him. Ysolt sails
+you here because her brother is in the line and she has decided to bring him
+home whatever it costs, and it costs the knight's respect, which he gives her.
+
+**People.** Ysolt, at the tiller. Sir Caradoc. Ysolt's brother, *Aled*, a
+Drowned in a salvager's coat, tenth in the line.
+
+**The threads.**
+1. Ysolt's boat across the sound from the Broken Strand. The drowned city under
+   the keel. She does not look down.
+2. The steps at dusk. The knight's round. He does not attack anyone who does not
+   stand in the line's way. Standing in it is the challenge.
+3. Aled. Ysolt has to be the one to do it. The player can hold the line back,
+   or fight the knight, or ask the knight, who says: "take him. I did not ask
+   him to come."
+4. The knight, asked about the seventh weir, laughs for the first time in three
+   centuries and says the Weir Kings never built a weir that did not have a man
+   standing in it, and that the stone was only ever there to give the man
+   something to lean on.
+
+**Underground.** The Drowned Knight's Steps, one level going down into the
+drowned gatehouse, air pockets and flooded halls, drowned and vampire knights
+and **the Drowned Knight**: 2800 health, undead, holy-weak, coast-bound, and he
+leeches life with every blow because the sea taught him to. He can be fought
+without being killed: yield at a quarter health and he stops, and asks you to
+tell the Vale's keeper that the gate held.
+
+**Out in the open.** *The Bell Under the Water*, an event: at low water on the
+first night, the drowned city's bell rings from under the sea and every
+drowned on the coast turns toward it. *The Harbourmaster*, a Drowned in a chain
+of office who checks every boat that lands and will let Ysolt's pass because
+he remembers her brother.
+
+**What carries forward.** Aled, home or not. "The stone was only ever there to
+give the man something to lean on."
+
+#### The Frostcrown
+*Snow to the waterline, and the giants here do not care that you are cold too.*
+Tier 4 to 5. South west.
+
+**Arrival.** Snow to the sea's edge in a country that should be temperate. A
+mine yard that has never thawed, breathing cold out of its mouths. A giant,
+forty feet tall, sitting on a mountainside with its back to the camera, and
+the camera comes round to show it is sitting on the mouth of a shaft, and the
+snow around the shaft is melted, and the giant is shivering.
+
+**The story here.** The Frostcrown is the Wake's cold, and the frost giants are
+the people who have been paying for it. The Frostcrown Shaft "goes down until
+it is warm, and that is worse": at its bottom is a vein of the Guest's own heat,
+and the giants came here three centuries ago to sit on it, because a giant is
+the only thing large enough to be a weir against warmth. Their thane, *Ulfra
+Coldseat*, is the story's clearest ally among the Powers and its most tragic:
+she knows exactly what she is doing and why, and her people are dying of it,
+and she will let the player go down the Shaft if they can promise it will help,
+and the player cannot honestly promise.
+
+**People.** The frost giants, a dozen, on the mountain. Ulfra. The Rime Cut's
+miners, who are giants too, mining rimesteel, the fifth ore of the Guest, the
+one that grew where its heat met the giants' cold.
+
+**The threads.**
+1. The giants do not attack anyone who does not attack them. The zone's fear
+   is being small.
+2. Ulfra, on her shaft. She knows the Vale. "Your people sit on it too. Ours
+   just sits harder." She has a message for Maud: "tell her we are still here."
+3. The Rime Cut, rimesteel, and the smith among the giants who will work it for
+   someone who brings word from the Iron Shoulder's Hild, whom she trained.
+4. The Shaft. Ulfra moves. The way down is warm, and warmer, and at the bottom
+   is a vein of something that glows and a hydra that came up out of it, and
+   the wall at the bottom has the Guest's script on it, and someone has
+   recently scraped the frost off to read it. Hesk.
+
+**Underground.** The Frostcrown Shaft, three levels, cold then warm then hot,
+dire wolves and frost giants who have gone wrong above, and at the bottom **a
+Hydra** as the keeper, *Nine-Cold*, that grew in the vein and is the first thing
+the player has fought that is made of the Guest.
+
+**Out in the open.** *The Shivering Giant*, above, who is Ulfra. *The White
+Pack*, a dire wolf pack that hunts the giants' herd and has a leader,
+*Rimemouth*, with frost in his coat that does not melt.
+
+**What carries forward.** Ulfra's message. Hesk's trail, going south. Proof
+that the Guest can be held, and what it costs.
+
+#### The Teeth
+*Black rock standing up out of the ground in rows, and nothing between the
+rows.* Tier 5. West.
+
+**Arrival.** Black stone teeth in rows across a mountainside, and between them
+nothing at all, no snow, no moss. A cave mouth with web across it, and the web
+is thick as cable and it is holding the mouth up. The camera goes in along a
+strand. Something the size of a house is sleeping at the centre of the web, and
+under it, held in the web, is a piece of something black that is not stone.
+
+**The story here.** The Teeth are the Mother of Spiders' and the story's one
+Power that cannot be spoken to. Her web is the only thing on the continent the
+Wake has never crossed, and she anchored it here three hundred years ago
+around a piece of the Guest that broke off when it was carried past, and she
+has been wrapping it since. She is not good. She eats what comes in. But she
+is a weir, and the oldest thing in the Teeth's rows is her, and the treants of
+the Long Dark call her sister. The Teeth are the game's hardest open zone and
+the place the player understands the Wake can be *bound*, not ended, and that
+everything that binds it becomes something else.
+
+**People.** None. The Teeth have no people and never did. Voidrock and starfall
+lie on the surface here, unmined, because nothing that came to mine them left.
+
+**The threads.**
+1. The rows. Walking between them, nothing lives. That is the whole first hour.
+2. The Mother's Deep: web across the mouth, load bearing. Cutting it brings the
+   roof down on the first chamber; the way in is along it.
+3. The centre. The Mother, asleep. Under her, the shard. Take it and she wakes.
+   Leave it and she does not, and the player can leave with what they have
+   seen.
+4. The shard, if taken, is the only piece of the Guest that can be carried into
+   the Vale without the Wake following it, because it has been wrapped for
+   three hundred years. It is what the Sink needs, in Act IV, to hold a little
+   longer. Taking it costs the Teeth their weir.
+
+**Underground.** The Mother's Deep, two levels of web and dark, giant spiders
+without number and **the Mother of Spiders**: 2600 health, poison that stacks
+to three, a web that roots for two seconds, and she is fought on her own web,
+which is the floor, which she can move.
+
+**Out in the open.** *The Rows' Silence*, an event: nothing. For the whole zone.
+The player's own footsteps and nothing else, and it should be the most
+frightening sound design in the game. *The Cyclops of the Teeth*, one Cyclops
+that lives at the rows' edge and eats what the Mother does not, and is blind
+in its one eye, and hunts by the silence breaking.
+
+**What carries forward.** The shard, or the knowledge of it. Sister.
+
+#### The Night March
+*Dark trees on frozen ground, and the things in them keep step.* Tier 4 to 5.
+North.
+
+**Arrival.** Frozen forest at dusk. Silence, then a sound: a step, in unison,
+from a thousand feet. Down a shaft in the frozen ground they come, in order, in
+ranks, dead soldiers in the kingdom's colours, and they march up out of the
+shaft and into the trees and stand in rows facing south, and do nothing, and
+at dawn they march back down, in order.
+
+**The story here.** The Night March is the Guest dreaming. The dead of the
+kingdom's last army, who marched north to draw the Wake off and died in the
+frozen wood, come up every dusk because something in the south is dreaming of
+an army and they are the nearest one. They do not attack. They stand. Wearing
+the Ashen King's crown, the player can hear them, and what they are saying, all
+of them, quietly, in unison, is the word the Kiln-Warden said: open. The Night
+March is the story's clearest warning about the third ending: wake the Guest
+and this army marches where it is told.
+
+**People.** None living. The Cold Adit's ice has a prospector in it, standing,
+preserved, three hundred years dead with a pick raised. He is the zone's
+loneliest sight.
+
+**The threads.**
+1. Dusk. The March. Stand in the rows and nothing happens. Stand in their way
+   and everything does.
+2. The Cold Adit: ice a hand thick, rimesteel and verdite, the prospector. His
+   pack has a letter home in it, which is the last ordinary human voice in the
+   game before the end.
+3. The Night Shaft, by day, when the March is below: down, past the ranks,
+   standing in the dark in their rows with their eyes open, to the bottom,
+   where the shaft opens on a chamber with the Guest's script all over it and
+   a general on a stone chair with his sword across his knees who is the
+   March's keeper and has been waiting for orders.
+4. The crown, worn here: the general looks up. "Are you it?" The player can say
+   yes. This is the one place in the game the player can lie to the dead and
+   the world remembers it.
+
+**Underground.** The Night Shaft, two levels of ranked dead who do not fight
+unless you break rank, and at the bottom **the General of the March**, a Lich
+promoted with a name, *Marshal Corvin*, 520 health and every soldier in the
+shaft if he calls them, and he only calls them if the player has said yes.
+
+**Out in the open.** *The March*, above. *The Straggler*, a Bone Knight that
+missed the last step down and has been trying to find the shaft by daylight
+for three hundred years and asks directions.
+
+**What carries forward.** "Open." The army that waits for a word. The general's
+question.
+
+#### The Sallow Wastes
+*Nothing grows and something fell here, and the second fact explains the
+first.* Tier 4 to 5. South.
+
+**Arrival.** A desert that was a forest: petrified trunks standing in sand. A
+crater a mile across with a mine yard on its rim, and the miners are not
+mining the hill, they are mining what landed in it. At the crater's centre, a
+shaft going down. On the rim, a man in brown robes with his back to the camera,
+reading the crater floor like a page. He turns. It is Hesk's face and it is not
+Hesk's eyes.
+
+**The story here.** The Wastes are the Fall, and the end of Act III, and where
+Hesk is found and lost. He has read the last tally, walked the glass road
+backward to its start, gone down the Sallow Fall, and spoken to the Guest, and
+the Guest has half woken, and the Wake is moving. Hesk is a lich now, still
+kind, still patient, still explaining, and he does not think anything has gone
+wrong. He thinks he needs one more thing to finish: a Weir. The last of the
+line. He has asked the player to look after the boy, and he meant it, and he
+also means to use him. The Sallow Fall is a dungeon that goes down into the
+Guest itself, and its floor is a crater biome: cyclops, treants that grew from
+nothing, hydras, and a bone dragon that was the kingdom's last dragon and came
+here to die and did not.
+
+**People.** The Sallow Fall's miners, who mine starfall, the last ore, the one
+that is the Guest's own bone, and who are all cultists now, and were all
+miners before, and do not see a difference. Hesk.
+
+**The threads.**
+1. The petrified forest. Every tree is facing away from the crater.
+2. The rim. Hesk. He is glad to see you. He explains: the Guest is a child, in
+   the way the treants are children of something, and it is having a
+   nightmare, and the Wake is the nightmare leaking, and it can be woken, and
+   he has almost done it, and a Weir's voice would finish it because the Guest
+   remembers Ossian's. He asks where Tam is.
+3. The Fall: down through the mine into the crater's throat, past the point
+   where the walls stop being rock. The floor at the bottom is not a floor. The
+   dragon is there. So is Hesk, at the end, and he does not fight you. He asks
+   you to choose. The player can kill him, and he lets them, or leave him, and
+   he waits.
+4. Whatever is chosen, the Wake surges. And if the player said yes to Marshal
+   Corvin in the Night March and takes the third door in Act IV, the March is
+   here, in ranks, on the crater's rim, having walked the length of the
+   continent in the dark to stand behind the one who said the word.
+5. Whatever is chosen, the Wake surges. The player feels it as the world
+   changing on the way home: the map's danger bands step up one, everywhere,
+   for the rest of the game. The Vale's hedges are down. Act IV.
+
+**Underground.** The Sallow Fall, three levels: the mine, the throat, the
+floor. Cultists and cyclops above, elder treants and hydras in the throat, and
+on the floor **the Bone Dragon**, *Ashrend*, 1100 health as the roster has it,
+promoted with a name and a phase where it stops fighting and speaks in Hesk's
+voice, and **Brother Hesk**, who is the Lich of the roster with his own name
+and his own face, and who is the only boss in the game who can be walked away
+from.
+
+**Out in the open.** *The Cultist Shift*, an event: at the change of shift the
+miners walk up out of the Fall in a line and sit on the rim facing the centre
+for an hour and go back down. *The One Who Left*, a Cyclops that was a miner
+and grew, and walks the petrified forest looking for the road home to the
+Ember Flats.
+
+**What carries forward.** The Wake, moving. Hesk, dead or waiting. The choice
+of the third ending, held open.
+
+---
+
+### Act IV: The Wake
+
+#### The Bracken Sink
+*Under the Vale.* Tier 5. Home.
+
+**Arrival.** The Vale at night, hedges down, torches in the lanes, wolves and
+worse in the wheat and the people of the Vale fighting them with what they
+have. Maud at the door behind her cottage, and the door is open, and a wind is
+coming up out of it. Tam beside her with his father's cloak and his father's
+knife. She looks at you and says the thing she should have said at the start.
+
+**The story here.** The Sink is the seventh weir, and it was never stone. The
+first people of the Vale, fleeing Ossian's coast, found the one place on the
+continent where the Wake pooled deepest and understood that it could only be
+held by someone standing in it, and they built a stair down to the deepest
+point and a chair at the bottom, and somebody has sat in it ever since. The
+stair is a dungeon now because the chair is empty and the Wake has come up it:
+the Sink is a mirror of every dungeon in the game, its levels the kingdom's
+history in the wrong order, its dead the Vale's own keepers standing up out of
+their rest to see who is coming. At the bottom, the chair. The choice.
+
+**People.** Maud, at the mouth, who does not come down. Tam, who does. Every
+named ally who is still alive and was earned: Ysolt at the mouth with a boat
+crew, Hild with the Shoulder's miners, Ulfra's cold frosting the stair from
+the third landing down, the Long Dark's alliance as a treant standing in the
+Vale's lane with its roots in the hedge, the Drowned Knight's word that the
+gate held. Lowri with a lamp: "one night off. You gave me one. I owe you the
+rest." Enid with a finished pot, the first, and it is an urn. Aldous at the
+door with his skeleton holding the lamp, who goes down one landing and stops.
+Selwyn in the lane with a cup of water gone warm: "I sat in that chair for a
+week. Ask her what she did." The Vale's own people, in the lanes, doing what
+the Vale has always done. `12-UNFORGETTABLE.md` has each of them.
+
+**The threads.**
+1. The lanes. Fighting through the Vale to Maud's door is the act's first
+   movement, and every ally the player earned is in it somewhere.
+2. Maud. What a keeper is. What her sister was. Why the stones said your name.
+   "You can stand in it. Not for ever. Longer than us."
+3. The stair. Down through levels that are the Vale's own dead keepers, forty
+   of them across three centuries, each standing at the landing where they
+   sat, none attacking anyone who says their name, which is cut into the wall
+   beside them.
+4. The chair. Tam says it should be him. The game's last choice. Or the third
+   door, which is the way back up and out and south, to finish what Hesk
+   started, with the crown and the shard and the general's army waiting for a
+   word.
+
+**Underground.** The Bracken Sink, five levels, one per act and one more, and
+the keepers on the landings, and the Wake itself as the dungeon's weather:
+darker with every level, and at the bottom, the boss is the chair, and there
+is nothing to fight, and that is the hardest fight in the game.
+
+**Out in the open.** The Vale at war. Every open-world encounter from Act I,
+promoted: Old Grist leading the boar out of the beech hangar against the
+wolves, because the Vale's own things fight for it too. The Sexton ringing the
+bell all night.
+
+**What carries forward.** Whoever sits. The credits. The world, changed to
+match, for as long as the save lasts.
+
+---
+
+## 7. The ores are the story's spine
+
+The ore ladder was built before this book, and it happens to be the Guest's
+anatomy. This is worth writing down so the smiths' dialogue and the item
+descriptions can say it.
+
+| ore | what the story says it is | where |
+| --- | --- | --- |
+| copper, tin, iron | the world's own | everywhere the kingdom mined |
+| silver | the kingdom's coin, and holy to the dead | the Barrows' offerings, the Shoulder |
+| emberite | fell with the Guest, burns without fire | the Ember Flats, the glass road |
+| coldiron | grew where the Wake's cold pooled | the Iron Shoulder, the Long Dark's edge |
+| verdite | grew where the Wake touched living things | Marl's Seam, Witchwood's roots |
+| rimesteel | the Guest's heat meeting the giants' cold | the Frostcrown, the Night March |
+| voidrock | a piece of the Guest itself, heavy, dark | Cinderreach, the Teeth, the Fall |
+| starfall | the Guest's bone | the Sallow Fall, and the Teeth's surface |
+
+A weapon of the Guest's metals should say so when identified, and the smith who
+makes it should ask where you mean to use it. Carrying starfall into the Vale
+should be a thing Maud notices.
+
+---
+
+## 8. How the story is told without quests
+
+The pillar stands: no quest giver, no log of tasks, no exclamation marks. The
+story is delivered by five things the game already half has, and one it needs.
+
+**1. Arrival.** The zone banner and its toast are the first line of every
+chapter. The cinematic the user will make plays here, once, on first entry. The
+`discovery.checkZone` event already fires exactly once per zone per character.
+That is the hook.
+
+**2. The world remembers what you have seen.** This is the one new system. A
+`story.js` with a flat set of **facts** on the character record: `saw:weirmark`,
+`met:tam`, `has:rhyme`, `promised:fern`, `killed:warden`, `read:tally`,
+`hesk:gone`, `said_yes:corvin`, and so on. A fact is set by a trigger the
+world already produces: entering a zone, standing near a site, killing a named
+monster, picking up a named item, ending a conversation on a particular line.
+Nothing asks the player to do anything. The facts are what they did.
+
+**3. People say different things.** The talk window exists. Named NPCs get
+lines keyed on facts: what Maud says depends on which act you are in; what
+Ysolt says depends on whether you have been to Saltmere; what Hesk reads
+depends on what you carry. A line is a `{ when: [facts], say: text, sets:
+[facts] }` row. The conversation is the story. The same window that sells
+bandages tells it.
+
+**4. Things in the world are readable.** Stones, coffins, a letter in a pack, a
+tally, the wall at the bottom of a shaft. `interact.js` already handles
+standing near a thing and pressing E; a readable is a site-like record with a
+text and a fact it sets. Hesk reads the ones the player cannot, which is why
+losing him costs something: after Act II the player carries a script they
+cannot read and has to find another reader, and there are two, and one is a
+lich and the other is a dead king.
+
+**5. Named encounters and events.** A semi-boss is a monster row with a
+`name`, a `site` it stands at, an optional `habit` (a time, a trigger) and a
+`says` line. `monsters.js` has the promotion mechanism in `boss()` already; the
+open-world names are the same thing at smaller numbers. Events (the Rows at
+Midnight, the Birds, the Bell Under the Water, the March) are timed spawns
+with a script and no loot, and they are what make a zone feel inhabited by
+something other than a spawn table.
+
+**6. The journal.** Not a quest log. A book, on a codex tab, that writes itself
+in the player's voice from the facts: "Saltmere. The Steps go down into the
+sea and there is a door at the bottom. Ysolt would not say why the water is
+where it is." One paragraph per fact that deserves one, in the order they were
+learned. A player who has forgotten what they are doing reads their own book.
+A player who has never read it loses nothing, because the world will say it
+again.
+
+**What the acts gate.** Nothing physical. The Sink's door is the one exception,
+and it is a door in the world with a woman standing at it saying not yet. The
+Powers of the rim can be walked to on day one and they will kill a tier 1
+character, which the danger bands already do. What the acts gate is words: the
+General does not ask his question of someone without the crown; Fern does not
+sing to someone with a drawn sword; Hesk does not read the tally to someone who
+has not brought him the Barrows' name. Knowledge is the key, and the keys are
+things the player has to have done.
+
+**Endings.** Three facts at the chair: `sat:you`, `sat:tam`, `sat:nobody`. The
+world reads them. Danger bands step down or up. Named NPCs get their last
+lines. A character who sat is retired to the chair and a new character can find
+them there, which is the one piece of persistence this asks of the save that it
+does not already have.
+
+---
+
+## 9. For the cinematics
+
+Every zone's **Arrival** paragraph above is the shot list. Some notes that hold
+across all of them:
+
+- Every arrival ends on a **living thing looking back**: the boy on the roof,
+  the drowned man on the steps, the golem with snow on its shoulders, the King's
+  open eyes, the giant shivering, Hesk turning. The world is inhabited and it
+  has noticed you.
+- No narration. The zone's one line is the only text, in the banner's serif,
+  and it appears as the shot ends.
+- Weather and time of day are the zone's own: the Flats at noon, the Barrows
+  at nightfall, Witchwood in falling blossom, the Night March at dusk, the Sink
+  by torchlight.
+- Music: the two themes rotate by biome now. Each act could take one: I is the
+  Vale's, II the kingdom's, III the rim's, IV the Vale's again, slower.
+- The Vale's arrival is the game's opening and should be the longest. The
+  Sink's is the game's ending and should be the shortest: a door, a wind, a
+  woman, a boy, and the line.
+
+---
+
+## 10. What this asks of the code, in order
+
+1. `src/mmo/story.js`: facts, the named characters, their lines keyed on facts,
+   the readables, the named encounters and events, and the three endings, as
+   data. Node-testable. An `auditStory()` that proves every fact set is read
+   somewhere and every fact read is set somewhere, so a thread can never dangle.
+2. Named NPC placement: six people at fixed sites, with the talk window
+   reading `story.js` before it reads the shop catalog.
+3. Readables in `interact.js`, and the journal tab.
+4. Semi-boss promotion in `monsters.js`: a name, a site, a habit, a line, on a
+   rostered row. Events as timed spawns with no loot.
+5. The Sink: sealed door, Act IV unseal, the keepers on the landings, the
+   chair, the three endings, the retired character.
+6. Zone-state: the Vale's four states, the world's danger step after the Fall,
+   the rim's thaw after the third ending.
+
+Each of these is a wiring note on its own. None of them moves a zone.
+
+</script>
+<script type="text/markdown" id="md-cast" data-title="The Cast" data-sub="Sixty named people, what they want, know, sell and say">
+# Brackenwake: the cast
+
+The companion to `10-STORY.md`. That book says what each zone is about. This
+one says who is standing in it, and what they will talk to you about.
+
+Every person below is written to one frame, because the talk window will carry
+all of them the same way:
+
+- **Who.** Name, role, age, one line of how they look and sound.
+- **Wants.** The one thing that drives them. Everything they say bends toward it.
+- **Knows.** What they can tell you that nobody else can.
+- **Offers.** Trade, training, a service, a passage. What the shop side of the
+  talk window shows. Where it says *nothing*, the person is not a vendor and
+  the window is only talk.
+- **Talks about.** The topics, in the order you can earn them. Each topic is
+  gated by a fact from `story.js` (in brackets) and sets one when it ends. A
+  topic with no bracket is open to a stranger.
+- **Tell.** The habit that makes them a person and not a shop: the thing they
+  do while you stand there.
+
+Voice is given as one line they would say. Every character gets a different
+music. The Vale talks plain and short. The kingdom's remnants talk in old
+phrases. The rim talks in whatever three hundred years alone has done to them.
+
+The six who carry the story (Maud, Tam, Hesk, Ysolt, Fern, the Ashen King) are
+in `10-STORY.md` section 4 and are only sketched here where they stand.
+
+---
+
+## Act I: The Hedge
+
+### The Bracken Vale
+
+**Maud Fallow.** Hedge-reeve, seventy. Grey shawl, a walking stick she does not
+lean on, a way of looking at you as if reading a stone. Voice: *"The stones
+said a name. I do not have to like it."*
+- **Wants.** The Vale kept. Then, slowly, to stop lying to you about how.
+- **Knows.** What the Sink is. What her sister was. Why the stones named you.
+- **Offers.** Nothing. She is not a shop.
+- **Talks about.** The stones and your name. The gap in the hedge and the six
+  words. Each return: what the Vale has lost since you left [each act]. Her
+  sister [read:tally]. What a keeper is [act:4]. Whether you should let Tam sit
+  [at the chair].
+- **Tell.** She touches the nearest boundary stone before she answers anything.
+
+**Osric Hale.** Innkeeper of the Bracken Arms, fifties, a big man gone soft, an
+apron that was white once. Voice: *"Every Walker sits in that chair before they
+go. Every one of them orders the same thing. Sit down."*
+- **Wants.** To have a Walker come back, once, before he dies.
+- **Knows.** What every Walker for forty years said the night before leaving.
+  Tam's father's last words in the Vale: "back by harvest."
+- **Offers.** Food, drink, a bed that heals, the trade channel's board.
+- **Talks about.** The last Walker and the cloak [met:maud]. What the Vale is
+  saying about you [each act, varies]. Tam's father, if Tam is with you
+  [met:tam]. A toast, on your return from each act, with the whole room. The
+  Walker who came back, forty years ago, whom he saw again in Crookwell market
+  wearing the mark and never told Maud about [met:selwyn, sets: knows:selwyn].
+- **Tell.** He wipes the same glass the whole conversation.
+
+**Bett Colley.** Blacksmith, forties, forearms like hawsers, burn-freckled,
+laughs once a day at most. Voice: *"That edge is a disgrace. Give it here."*
+- **Wants.** To have made something that mattered. She taught you and worries
+  it was not enough.
+- **Knows.** Iron. That the Iron Shoulder's Hild is the only smith who works the
+  cold metals, and that Hild was her master's master.
+- **Offers.** Repairs, copper and iron work, blacksmithing training to 50.
+- **Talks about.** Your kit, honestly. Hild and the Shoulder [act:2]. The
+  coldiron sword, which she will not touch [has:coldsword]. Starfall, which she
+  will not have in the forge [has:starfall].
+- **Tell.** She takes whatever weapon you are holding and tests the edge on her
+  thumbnail while you talk.
+
+**Wenna Pryce.** Healer, thirties, quick hands, quicker eyes, a satchel that
+smells of comfrey. Voice: *"You are bleeding on my floor. Talk after."*
+- **Wants.** Nobody in the Vale to die of something she could have stopped.
+- **Knows.** What the Wake does to a body: she has treated three people who came
+  back through the hedge changed and buried two.
+- **Offers.** Healing, resurrection, bandages, healing training to 50.
+- **Talks about.** What you can and cannot survive out there. The changed ones
+  [act:1, after the first night]. What the Wake does to a keeper, which she
+  has guessed [act:4].
+- **Tell.** She checks your pulse at the wrist while she is speaking, whether
+  you asked or not.
+
+**Old Grist** is a boar and the **Sexton** is a skeleton, and neither talks,
+but the Sexton rings the church bell when he sees you and Osric says the bell
+has rung every night since the Walker left.
+
+### The Mill Run
+
+**Tam Weir.** Fourteen. Slingshot, a map of the Adit drawn on a flour sack,
+never quiet. Voice: *"I have been down all three. Nobody else has. Well. One
+other."*
+- **Wants.** To go with you. To find out what happened to his father. Later, to
+  be worth his name.
+- **Knows.** The Adit's cuts and the wall in the third that is not the miners'.
+- **Offers.** Nothing to sell. In a fight he is a slingshot and a warning.
+- **Talks about.** The Adit. His father [after Thornwood]. His name [after
+  Wynn]. Whether he is a Weir, and what that means [read:tally]. Hesk
+  [hesk:gone]. The chair [act:4].
+- **Tell.** He is always slightly ahead of you on the road.
+
+**Ivy Weir.** Tam's mother, the miller, forties, flour to the elbow, tired in
+the way that has stopped being tired and become a shape. Voice: *"He will
+follow you. I know it. I am asking you to make sure he can come home."*
+- **Wants.** Her son alive. She has already lost her husband to the same road.
+- **Knows.** Exactly where Tam's father went and when: north, to Ashen Moor, to
+  find the monk who could read the old marks.
+- **Offers.** Flour, bread, the mill's storeroom as a stash.
+- **Talks about.** Tam. Her husband and the monk [met:tam]. The wall in the
+  third cut, which her husband found first [saw:weirmark]. Tam's name, which
+  she never told him meant anything [read:tally].
+- **Tell.** She keeps working the whole time. The mill does not stop for talk.
+
+**Gower Blane.** Foreman of the Millrun Adit, sixties, one eye, a ledger, a
+belief that most problems are rock. Voice: *"Copper pays. Tin pays. Whatever is
+behind that wall does not pay, so I have not moved it."*
+- **Wants.** The Adit to keep paying. He is not a bad man; he is a foreman.
+- **Knows.** The third cut's wall, the goblins who have moved in behind it, and
+  the price of every ore on the continent.
+- **Offers.** Pickaxes, ore purchase, mining training to 40.
+- **Talks about.** Ore prices. The goblin chief who wears a stone as a
+  breastplate [entered:adit]. The wall, and that "the marks on it are the same
+  as on the ford-stone in the Vale, and I never liked that" [saw:weirmark].
+- **Tell.** He does sums in the ledger while you talk and tells you the answer
+  at the end, whether it was about you or not.
+
+**Sallow Pike** is the goblin warrior in the third cut. He does not talk, but
+he has scratched the weir-mark into his own face, and the miners have a rhyme
+about him that Gower will not repeat.
+
+### Saltmere
+
+**Ysolt of the Strand**, passing through. Voice here: *"The water is not
+rising. It is looking for something."* She sells salvage and says one true
+thing and leaves. Her whole self is in the Broken Strand.
+
+**Nance Cockle.** Cockler, sixty, bare feet in all weathers, a voice like a
+gull. Matriarch of the Saltmere hamlet. Voice: *"The Steps go down to the
+King's floor, and the King came up to count them, and that's the rhyme, and
+that's all it is."*
+- **Wants.** The tide to keep its times. It has not, lately.
+- **Knows.** The cocklers' rhyme, which is the first mention of a king. The
+  tide tables, which are the story's clock for the Steps.
+- **Offers.** Shellfish, salt, fishing training to 40.
+- **Talks about.** The tides and when the Steps show. The rhyme, if you ask
+  twice. The drowned man on the Steps at high water, whom she calls the Reeve
+  and will not look at [saw:steps]. Ysolt, whom she trusts and does not like.
+- **Tell.** She never stops sorting shells into two baskets by a rule you cannot
+  work out.
+
+**Piran Cockle.** Nance's grandson, twenty, restless, wants to leave and has
+nowhere to go. Voice: *"There is a door at the bottom of the Steps. I have
+touched it. Do not tell her."*
+- **Wants.** Out. He will ask to come with you and should not be let.
+- **Knows.** The door at the bottom of the Weir Steps, because he has dived to
+  it at the lowest tide of the year.
+- **Offers.** He will dive for anything you drop in the sound, for a price.
+- **Talks about.** The door [saw:steps]. What is carved on it, which he drew
+  from memory and got half right [has:key1 corrects him]. The Drowned Coast,
+  which he wants to see [act:3, he begs].
+- **Tell.** He is always wet.
+
+**The Reeve.** The drowned man who stands on the Steps at high water. Named
+encounter, a Drowned. He does not talk, but if you stand on the top step at
+high water and do not go down, he turns his head toward Saltmere's hamlet and
+raises one hand, and Nance, if asked, says that was her great-grandfather's
+gesture for "all in."
+
+### The Sedge Flats
+
+**Granny Eel.** The fen-family's grandmother at the Drowned Mill, eighties,
+lives on the stilt-house's top floor and has not come down in a decade. Voice:
+*"The river went south in my mother's mother's time. I was told. Two hundred
+and eighty years, near enough. Now you know something."*
+- **Wants.** To be listened to once before she dies. Everyone in the family has
+  heard everything.
+- **Knows.** The date. The millstone with the charm cut into it. That the fen
+  has been getting deeper every year of her life.
+- **Offers.** Nothing. She is talk.
+- **Talks about.** The river moving. The date, if asked properly. The millstone
+  [entered:mill]. Long Sarah, whom she remembers as a normal size [killed:sarah,
+  she is furious]. The Hollow Hills, where the river went [act:2].
+- **Tell.** She counts something on her fingers the whole time and never says
+  what.
+
+**Dylan Eel.** Her grandson, the family's head, thirties, oilskin, a gaff hook,
+never looks at the water directly. Voice: *"A sheep a month. It costs less than
+a boat."*
+- **Wants.** The arrangement to hold. He does not want Long Sarah dead. He wants
+  her fed.
+- **Knows.** Where Long Sarah lies. The safe paths through the sedge, marked
+  with sticks only the family can read.
+- **Offers.** Eels, the family's stilt-house as a place to sleep, fishing and
+  swimming training.
+- **Talks about.** The paths. The sheep. Long Sarah, and why you should leave
+  her be [saw:sarah]. The Eel-Man, who was his father [killed:eelman, he thanks
+  you and does not mean it].
+- **Tell.** He turns everything you hand him over twice, looking for water
+  damage.
+
+**Morwen Eel.** Dylan's daughter, twelve, fearless, the only one who goes out
+at night. Voice: *"Grandmother says the river went south. I have been south. It
+did not stop there."*
+- **Wants.** To know what is under the water. She is Tam's opposite: she does
+  not want to leave, she wants to go down.
+- **Knows.** That the flood has a floor, and there are houses on it, and one of
+  them has a light in it.
+- **Offers.** She will show you the sunk houses for a hook of your own.
+- **Talks about.** The light under the water. The Hollow Hills' door, which she
+  has seen from the fen's south edge [act:2].
+- **Tell.** She is up a pole when you arrive and comes down head first.
+
+### Kiln Heath
+
+**Enid Brick.** The brickmaker's widow, fifties, clay under every nail, lives at
+Fallow's Adit and sells pots. Voice: *"That one I bricked from outside. You
+want to know why, you can come back when you have been down the Cellars."*
+- **Wants.** Nobody to open the bricked kiln. Then, when you have, for him to
+  be buried.
+- **Knows.** Which kiln has the stair. What her husband became. What the
+  cultists pray to.
+- **Offers.** Pots, clay, the Adit's copper and tin, pottery training to 40.
+- **Talks about.** The kilns and which is which. The Cellars' bandits, who buy
+  her pots. The bricked kiln [entered:cellars]. Her husband, in full, and asks
+  you to end it [act:3]. Whether it is the same thing as the keeper, when she
+  hears what a keeper is [act:4].
+- **Tell.** She throws a pot on the wheel throughout and it is always the same
+  pot.
+
+**Caradog Wynn.** Ex-cultist, twenties, sitting in the sun outside the Cellars
+with his robe off, shaking. Voice: *"They say open. All day. Open, open. I said
+it too. Then I heard what answered."*
+- **Wants.** To go to the Vale and never see a kiln again. He will walk with you
+  as far as the hedge and stay there.
+- **Knows.** The Cellars' layout, the Kiln-Warden's face, and the word.
+- **Offers.** Nothing. He is the game's first turncoat.
+- **Talks about.** The Cellars. The word "open," which he says once and will
+  not again [sets: heard:open]. Hesk, whose name the Abbot Below spoke, which
+  Caradog took for a saint's [act:2, when you mention Hesk].
+- **Tell.** He flinches at the kilns every time the wind moves the ash.
+
+**Rhys the Torch.** Bandit captain of the Cellars' upper level, forties, a
+burned scalp under a cap, honest in the way thieves are. Voice: *"We were here
+first. They came up from below. We keep the stair and they keep to it. You are
+welcome to change that."*
+- **Wants.** The cultists gone from under him. He will pay you to do it and
+  fight you after.
+- **Knows.** The Cellars' second level, the cultists' numbers, and that the
+  bricks at the bottom have a mark on them.
+- **Offers.** Stolen goods, a fence for anything you do not want asked about.
+- **Talks about.** The arrangement. The mark, which he thinks is a king's
+  [saw:weirmark]. A bounty on the Kiln-Warden.
+- **Tell.** He counts your gear and names a price for each piece, aloud.
+
+### The Grey Barrows
+
+**Aldous the Quiet.** Necromancer of the Long Barrow, sixties, night only,
+robes that were good once, a voice that has not been raised in thirty years.
+Voice: *"They call it the Wake. They say it came in on the tide. They are dead
+and they are still afraid of it, which I have found instructive."*
+- **Wants.** To know. Not to use, not to free, not to heal. To know.
+- **Knows.** What the dead say: the word Wake, the tide, that the Vale has a
+  keeper. He will not say more about the keeper "because they will not."
+- **Offers.** Necromancy training to 60, bone components, the spellbook's
+  first pages.
+- **Talks about.** The dead and what they say. The Wake [sets: knows:wake]. The
+  spiral and its calendar. Ossian's empty coffin, once you have seen it
+  [saw:coffin]. The keeper, one sentence [read:tally]. Hesk, whom he calls "the
+  hopeful one" and does not trust [met:hesk].
+- **Tell.** A skeleton stands behind him the whole time, holding his lamp, and
+  he corrects its posture twice, gently, the way you would a nephew. The
+  skeleton is Owain, his brother, and Aldous has never asked him a question.
+  See `12-UNFORGETTABLE.md`.
+
+**Sir Anselm of the Vault.** Bone Knight, keeper of the Barrow Cellars. He
+speaks before he fights and this is the game's first talking monster. Voice:
+*"My name is Anselm. I was set to keep this row. One is empty. That is not my
+failing. Do not touch the others."*
+- **Wants.** The row kept. He will let you leave if you do not touch a coffin.
+- **Knows.** That Ossian's coffin was never filled. That the king rode east and
+  "did not come back to us, and we did not go to him."
+- **Talks about.** His duty, once. Ossian, if you say the name [knows:ossian].
+  He will not speak twice.
+- **Tell.** He straightens the lid of the coffin nearest him before he draws.
+
+**Gwil Mound.** A grave-robber, thirties, camped at the Barrows' outer ring,
+cheerful, missing two fingers. Voice: *"Outer rings are safe and poor. Inner
+rings are rich and not. I work the middle. So does he, and he is not paying."*
+- **Wants.** The Counting Man dead. It counts him every night and he cannot
+  sleep.
+- **Knows.** The spiral's rule: newer inward. Which mounds have been opened.
+  That the dead stand up at midnight and face south east, and where to stand
+  so they do not notice you.
+- **Offers.** Grave goods, silver, a map of the spiral for a price.
+- **Talks about.** The spiral. The Counting Man and its number [killed:
+  counting man, he pays]. The midnight rows [saw:rows]. Aldous, whom he thinks
+  is harmless and is wrong.
+- **Tell.** He weighs a coin on his palm before he answers anything, as if
+  deciding what the answer is worth.
+
+### Thornwood
+
+**Brannoc.** The ranger at the wood's edge, fifties, one name, a longbow taller
+than he is, speaks to dogs more than people. Voice: *"Seven dens. One alpha.
+You will not find the alpha. He will find you. I am telling you where the dens
+are so that you are standing somewhere useful when he does."*
+- **Wants.** Greymaw dead. Greymaw killed his dogs. All of them, over years.
+- **Knows.** The dens. The cold fire and whose it was. The Long Dark, which he
+  has been into once and will not describe.
+- **Offers.** Archery and tracking training to 60, arrows, hides, a dog if you
+  earn it.
+- **Talks about.** The dens and the map. The cold fire and the Walker who made
+  it [saw:coldfire]. Greymaw's pin [killed:greymaw]. Tam, whom he watches and
+  says nothing about until Tam is out of earshot: "he is going to follow you
+  whatever you do. Teach him the bow." The Long Dark [act:2].
+- **Tell.** He is never looking at you. He is looking past you, at the trees.
+
+**Greymaw** is a Dire Wolf with a Walker's cloak-pin in his hide and he does not
+talk, but Brannoc says Greymaw has come to the edge of the wood three times and
+looked at the ranger's hut and gone back, "which wolves do not do."
+
+**Delwyn Ash.** A charcoal burner who lives in a clearing a mile in and has
+never been taken, thirties, soot to the eyes, talks to the wolves. Voice: *"They
+do not take me. I do not know why. I have stopped asking."*
+- **Wants.** To be left alone by everyone, wolves included. He is the zone's
+  one mystery: the wolves leave him be because the Wake has touched him and
+  they know their own.
+- **Knows.** Where the pack sleeps by day. That Greymaw "talks in his sleep."
+- **Offers.** Charcoal, and the only fire in the wood you can sleep by.
+- **Talks about.** The wolves' habits. What Greymaw says in his sleep, which is
+  "open" [heard:open, he goes white]. Sir Bryn of the Long Dark, whom he has
+  seen at the wood's far edge at full moon [act:2].
+- **Tell.** He never faces the fire. He faces the dark and lets the fire warm
+  his back.
+
+---
+
+## Act II: The Kingdom
+
+### The Broken Strand
+
+**Ysolt of the Strand.** Salvager, forties, a needle like a knife, a chart of
+the Drowned Coast twenty years in the making. Voice: *"I have lost two boats
+and a brother to that coast. You want to go there, you will need a reason I
+believe."*
+- **Wants.** Aled back. She will not say so until the fire, late.
+- **Knows.** The Drowned Coast's channels. The line of the drowned at the
+  Steps and who is tenth in it. That Crook's Delve has a boat in it.
+- **Offers.** Salvage, sailing and fishing training to 60, passage across the
+  sound [act:3, with a reason].
+- **Talks about.** Salvage prices. Crook's Delve and the tide mark
+  [entered:delve]. The boat and the key [has:key5]. Aled, once [nightfall at
+  camp, sets: knows:aled]. The Drowned Coast, and no. Then yes [act:3, after
+  Cinderreach or the Frostcrown]. Aled, after [act:3 ending].
+- **Tell.** She sews the whole time and never pricks herself and never looks at
+  the needle.
+
+**Hedd Salt.** Ysolt's mate, sixties, a face like a cliff, one word where one
+will do. Voice: *"Aye."*
+- **Wants.** Ysolt not to sail east. He will say this in four words if pressed.
+- **Knows.** Every wreck on the Strand and who was in it.
+- **Offers.** Rope, tar, boat repair.
+- **Talks about.** Wrecks, in one word each. Ysolt's brother: "Good lad. Went."
+  The Stack-Queen and what she says: "Don't."
+- **Tell.** He is always coiling a rope, and the coil is always perfect.
+
+**Mother Crab** is a Crab the size of a cart and does not talk, but Hedd says
+she has been in the Delve "since my father" and he does not want her killed:
+"She keeps the harpies off the boats."
+
+**The Stack-Queen.** A Harpy on the tallest stack who has learned three words:
+"come up here." Named encounter. Hedd says a sailor a year does.
+
+### The Ember Flats
+
+**Rook.** Mine-captain of the Ember Cut, forties, burn scars to both elbows,
+looks at the ore while she talks to you and at you while she talks about the
+ore. Voice: *"They carried it north east to the coast. You can see where. The
+sand is glass. Do not take the ore into the Vale."*
+- **Wants.** Her miners alive to forty. Most are not. She mines a thing she
+  knows is wrong because it pays for the ones who are.
+- **Knows.** The glass road. The sledge-shape in the deepest cut. That the
+  cultists recruit from her shift and she cannot stop them.
+- **Offers.** Emberite, iron, mining training to 70, the Cut's forge.
+- **Talks about.** Emberite and what it does to skin. The glass road [sets:
+  knows:glassroad]. The sledge [entered:embercut]. The Recruiter, whom she
+  wants gone. The Vale, and the warning, every time you leave.
+- **Tell.** She breaks ore with a hammer through the whole talk and the ore
+  glows where it breaks and she never looks at the glow.
+
+**Selwyn, the Recruiter.** Cultist captain on the Flats' edge, sixties and
+looks forty, a beautiful voice, clean robes in a country where nothing is
+clean, a cup of water that is always cold. He was the Vale's Walker two
+generations ago, sent out by a younger Maud, and he came back and was not let
+in. He is the story's recurring human antagonist and he never draws a weapon.
+See `12-UNFORGETTABLE.md`. Voice: *"You are the new one. She has not told you
+yet. She never does at first. Drink. It is only water."*
+- **Wants.** You, wearing the mark. And for someone from the Vale to hear what
+  happened to him.
+- **Knows.** What the hedges are made of. That he sat in the chair for a week.
+  Hesk's name and correspondence with the Abbot Below. The Sallow Fall's shifts.
+- **Offers.** The mark, a real item, at every meeting. Taking it sets a fact
+  every character reads. It can be taken off; nobody forgets you wore it.
+- **Talks about.** Water, first. The Guest, gently. Hesk [sets: hesk:named].
+  The Kiln-Warden, "a zealot, we do not all burn ourselves." The Vale and what
+  it sits on, which he knows [read:tally, he smiles]. Maud, by her first name,
+  which nobody else uses. The chair, and the week [act:4, in the Vale's lane].
+- **Tell.** He offers you water before anything, and it is always cold, and
+  nothing else on the Flats is. In the Vale in Act IV it is warm, and he looks
+  at the cup.
+- **Recurs.** Kiln Heath first (the cultist camp outside the Cellars), the
+  Ember Flats, the Sallow Wastes, the Vale in Act IV. Always one zone ahead.
+
+**Cai Blister.** A miner of the Cut, twenties, the youngest on the shift, dying
+of emberite and cheerful about it. Voice: *"Rook says forty. I say she is
+optimistic. Buy me a drink at the Kiln when I am dead."*
+- **Wants.** Someone to remember his name. He will ask you to say it back.
+- **Knows.** The Sledge-Master's chamber and the safe way past it.
+- **Offers.** He will sell you his emberite share cheap.
+- **Talks about.** The Cut's deep floor. The Sledge-Master, who was his
+  brother's foreman. Noon the manticore, and the rock it sleeps on, and the
+  hour it wakes.
+- **Tell.** He coughs, and looks at what he coughed, and puts it in his pocket.
+
+### The Hollow Hills
+
+**Old Wynn.** Last warden of the Weir Tower, eighties, blind, a memory that has
+replaced the records page by page as they rot. Voice: *"Seven weirs. Six of
+stone. And one where the bracken grows. The rhyme places it, and I was never
+taught the rhyme."*
+- **Wants.** Someone to have heard the recitation before he dies. Then, when
+  he hears Tam's name, for the boy not to go south.
+- **Knows.** The kingdom's records, entire. The six weirs and their places.
+  That a Weir still lives, when he hears one speak.
+- **Offers.** Nothing to sell. Lore training, if the skill exists; otherwise
+  only talk.
+- **Talks about.** The tower and its road. The recitation [needs: knows:ossian,
+  sets: knows:sixweirs]. The seventh weir and the rhyme. Tam's name [met:tam,
+  sets: tam:named]. The Stone Garden's tally, "which I was never permitted to
+  read, and which the Warden keeps." Hesk, whom he taught to read [met:hesk].
+- **Tell.** He recites with his eyes closed and his hand moving as if turning
+  pages, and stops mid-sentence if you move, and waits.
+
+**Siwan Underhill.** Head of the Hollow Hills hamlet, fifties, speaks in a
+whisper, everyone here does. Voice: *"Quietly. The sound carries. Everything
+you say down here is heard by something."*
+- **Wants.** The Painted Door to stay painted. She knows it opens.
+- **Knows.** Which doors are real. The Workings' upper level, where her
+  grandparents lived before "the counting man came up from the granary."
+- **Offers.** Root vegetables, candles, shelter, the hamlet's cellar as a stash.
+- **Talks about.** The doors. The Painted Door and the night it opens
+  [saw:painteddoor]. The Granary Wraith, whom she calls the Quartermaster.
+  The river under the hills, which is the one from the Sedge Flats
+  [knows:rivermoved].
+- **Tell.** She puts a finger to her lips before every sentence, out of habit,
+  not at you.
+
+**Bedwyr Hollow.** A young man of the hamlet who wants to go down into the
+Workings and reclaim them, twenties, loud in a place where nobody is. Voice:
+*"My grandfather's table is still set down there. I want to eat at it."*
+- **Wants.** The Workings back. He will follow you in if you let him and die if
+  you are careless, and Siwan will not forgive you.
+- **Knows.** The Workings' second level from his grandfather's stories.
+- **Offers.** He will carry. That is all.
+- **Talks about.** The Workings. The table. The Mire Troll in the granary hall
+  [entered:workings]. His grandfather's chair, if you clear the hall [killed:
+  quartermaster, he goes down and eats and comes back different and quiet].
+- **Tell.** He speaks at full volume and everyone within earshot winces.
+
+### Witchwood
+
+**Fern.** Ten. Dead three hundred years and does not know it. Voice: *"Has my
+father stopped being angry? He was angry when he sent me. Will you tell him I
+am being good?"*
+- **Wants.** To go home to the hall by the sea. To be told her father is not
+  angry.
+- **Knows.** The rhyme, as a skipping song. That her father was a king and did
+  not like being one.
+- **Offers.** Nothing. She will give you a petal and it does not fade.
+- **Talks about.** Whether you are a servant sent to fetch her. Her father. The
+  rhyme [needs: knows:sixweirs, sets: has:rhyme]. The promise [sets:
+  promised:fern]. What you said to her father [after Cinderreach, kept or
+  broken, and she knows which].
+- **Tell.** She brushes petals off the stone as she talks and there are always
+  more.
+
+**Idris Coal.** A charcoal burner at the wood's edge, sixties, will not go in,
+has not gone in for forty years since the day he saw the child. Voice: *"There
+is a girl in there. Do not tell her anything. I told her the year once and she
+cried for a week and the blossom fell like snow."*
+- **Wants.** Fern left in peace. He is the closest thing she has to a guardian
+  and he has never been within a hundred yards of her.
+- **Knows.** How to approach the stone: alone, unarmed, and wait.
+- **Offers.** Charcoal, and the last fire before the silence.
+- **Talks about.** The girl. The rule. The Blossom Mother and the drawn steel.
+  What he told her, and what happened [has:rhyme]. What to tell her, and what
+  not to, when you come back from the coast [after Cinderreach].
+- **Tell.** He faces the wood the whole conversation and never blinks.
+
+**Nest Hazel.** A herbalist who gathers at Witchwood's edge for what grows
+nowhere else, thirties, sharp, unsentimental. Voice: *"Blossom out of season
+means roots out of season. Half of what I sell comes from here. Do not ask me
+what it does to the people who take it."*
+- **Wants.** The wood to stay as it is. It is her livelihood.
+- **Knows.** Verdite grows under the roots here. The Wake's herbs and what they
+  do.
+- **Offers.** Alchemy training to 60, herbs, potions, verdite in small pieces.
+- **Talks about.** Herbs. Verdite [sets: knows:verdite]. The Long Dark's
+  Marl's Seam, where verdite is in the wall [act:2]. Fern, whom she has never
+  seen and does not believe in.
+- **Tell.** She tastes everything she picks, a fleck on the tongue, and spits.
+
+### The Iron Shoulder
+
+**Hild Ironshoulder.** The only smith who works coldiron, sixties, forearms
+blue-veined from the metal, a hammer she has named. Voice: *"Coldiron takes an
+edge nothing else does and it takes something back off whoever carries it. I
+will sharpen it. I am asking where you mean to use it."*
+- **Wants.** Her craft to outlive her. Nobody has learned coldiron in twenty
+  years. She trained Ulfra's smith in the Frostcrown and has not seen her since.
+- **Knows.** What the Guest's metals do to the carrier. The Low Shoulder's
+  armoury. Bett Colley's lineage.
+- **Offers.** Coldiron work, blacksmithing training to 100, the Shoulder's
+  forge.
+- **Talks about.** The metals, honestly [sets: knows:coldiron]. The sword
+  [has:coldsword, she goes quiet, then sharpens it]. Her apprentice in the
+  Frostcrown, and a message for her [act:3]. Bett, whom she has heard of and
+  approves of. Starfall, which she will work once, for the chair [act:4].
+- **Tell.** She holds your weapon up to the forge light and turns it and does
+  not speak until she has seen the whole edge.
+
+**The Watch at the Low Shoulder.** An Iron Golem at the old cut's mouth with
+snow on its shoulders. It says one word to anyone who stands before it a
+minute: "pass." Named encounter, and it can be asked more, once, if you carry
+the sword: "The wyvern. In the second. I cannot go in. It is not in my
+orders." It is very sorry if fought.
+
+**Morcant Ore.** The Shoulder town's headman and the Deep Shoulder's owner,
+fifties, rich by the standards of a country with no money, a chain of office
+made of ore samples. Voice: *"Four mouths. Ogres in the fourth. I will pay to
+have them out. I will not pay to have the Foreman out. The Foreman is the
+reason the other three still work."*
+- **Wants.** The Deep Shoulder producing. He respects the Foreman as a fellow
+  manager.
+- **Knows.** The golems were the kingdom's and still keep the kingdom's shifts.
+  The Foreman "rings a bell nobody can hear and the golems change over."
+- **Offers.** Silver, iron, ore purchase at the best price on the continent,
+  the town's bank.
+- **Talks about.** The mines. The ogres and the bounty. The Foreman, and a
+  plea not to [entered:deepshoulder]. The Stone Shepherd on the high shoulder,
+  which takes a bear's worth of his goats a month.
+- **Tell.** He fingers a different ore sample on his chain for each subject.
+
+**Efa Cold.** A miner of the Low Shoulder, the only one who still goes in, thirties,
+frostbite scars on her face, quiet. Voice: *"It lets me pass too. I do not know
+why. I think it is lonely."*
+- **Wants.** The golem talked to. She has tried for years.
+- **Knows.** The Low Shoulder's second cut and the wyvern's den. The armoury,
+  which she found and did not touch.
+- **Offers.** Coldiron ore, the only source outside the Frostcrown.
+- **Talks about.** The golem. The wyvern. The armoury and the sword in its stand
+  [sets: knows:armoury]. What the golems do when you carry the sword past them
+  [has:coldsword]: "they turned. All of them. I have never seen them turn."
+- **Tell.** She rubs her scarred cheek with the back of her hand when she is
+  thinking, and she is always thinking.
+
+### The Long Dark
+
+**The Elder.** A treant older than the others by a thousand years. It speaks
+only to someone carrying the coldiron sword, and says one thing: *"It did not
+fall. It was dropped. Whatever dropped it wanted rid of it. Your kingdom picked
+it up."* Named encounter; it asks nothing and is fought only if you cut a tree
+in its sight. In Act IV it stands in the Vale's lane.
+
+**Sir Bryn of the Wood.** Werewolf, a knight of the Weir Kings, wears what is
+left of his surcoat, will duel once at the full moon and yield at half health.
+Voice: *"They carried it past here in a box with three men on it, and two of
+them were weeping, and the third was the king."*
+- **Wants.** To have done his duty. He was set to guard the western border and
+  the border is gone and he is still guarding it.
+- **Knows.** The Guest's passage. That Ossian wept. That the pack were all
+  knights once.
+- **Talks about.** The duel, first. The box [after yielding, sets: knows:
+  wept]. Fern, whom he carried inland: "I left her at a stone in a wood where
+  the blossom was. I did not go back. I could not go back as this."
+  [has:rhyme]. The Vale, in Act IV: he brings the pack.
+- **Tell.** He wipes the blade of a sword he no longer has.
+
+**Marl Himself.** A Ghoul in a prospector's coat in Marl's Seam. Named
+encounter. He does not talk in words; he beckons, and shows you the seam, and
+beckons, and shows you the seam.
+
+**Heledd Marl.** The prospector's great-granddaughter, camped at the Long
+Dark's edge, forties, has come to bring him out and cannot make herself go in.
+Voice: *"He found the green gold and it found him back. I have his map. I do
+not have his nerve."*
+- **Wants.** Marl buried. She will pay in his map, which shows every verdite
+  vein in the wood.
+- **Knows.** Verdite's price and its danger. The Seam's layout from his letters.
+- **Offers.** Prospecting training, the map [killed:marl].
+- **Talks about.** Marl. The Seam. Verdite [knows:verdite]. The Elder, which
+  her great-grandfather wrote of as "the old one who watches and does not
+  mind me." The Frostcrown, where she means to go next [act:3].
+- **Tell.** She reads the same letter over while you talk and has it by heart.
+
+### Ashen Moor
+
+**Brother Hesk.** Scholar of the Grey Hall, fifties, brown robes, a lamp, the
+kindest face in the game. Voice: *"You have brought me things to read. Nobody
+has brought me anything to read in thirty years. Sit. Sit."*
+- **Wants.** To understand. Then, having understood, to fix it. He never wants
+  anything for himself and that is what makes him dangerous.
+- **Knows.** The old script. What a weir is for. What the seventh is made of.
+  Tam's father. Eventually, what the Guest said to Ossian.
+- **Offers.** Reading. Scholarship training. The Hall's library as a stash.
+- **Talks about.** Everything you carry, in delight. The weirs [sets:
+  knows:weirs]. Tam's father and the cloak [met:tam]. The Steps' note to Maud
+  [read:note]. The Stone Garden, and asking to come [sets: hesk:with]. At the
+  Garden: the tally, half of it [read:tally]. Then the letter, and gone. In the
+  Sallow: everything, patiently, as a lich.
+- **Tell.** He holds every object you show him up to the lamp and turns it and
+  says "oh" softly before he says anything else.
+
+**Peredur Peat.** Head of the peat-cutters, fifties, thinks Hesk is a saint,
+brings him food. Voice: *"The Brother has kept the Hall forty years alone. If
+that is not holiness I do not know the word."*
+- **Wants.** Hesk safe and honoured. He will not hear a word against him, ever,
+  including after.
+- **Knows.** The moor's safe paths. The Heather-Fire's walk. That the Abbot
+  Below "was one of ours, once, and read a page he should not have."
+- **Offers.** Peat, food, the cutters' hut, shelter from the moor's cold.
+- **Talks about.** Hesk, at length. The Ashen Steps and the cultists. The
+  Abbot. The bear that sings. Hesk gone [hesk:gone, he refuses to believe it].
+  Hesk in the Sallow [act:3 end, he goes to the Hall and sits in Hesk's chair
+  and will not come out].
+- **Tell.** He crosses himself at the Hall's door every time he passes it.
+
+**The Abbot Below.** Cultist, founder of the order in the Steps, sixties,
+keeper of the Ashen Steps' second level. Voice: *"I read one page. One. The
+Brother has read all of them and calls himself a scholar. We want the same
+thing. I am only honest about it."*
+- **Wants.** The Guest woken. He is Hesk without the kindness or the patience.
+- **Knows.** The missing page. The note to Maud, which he has read and left
+  because it "changes nothing."
+- **Talks about.** Hesk, contemptuously. The page. The Walker's bones and the
+  note [sets: saw:note]. The word.
+- **Tell.** He holds the missing page and will not let you see it and it burns
+  with him.
+
+### The Stone Garden
+
+**The Tally-Keeper.** An Iron Golem that walks the rows re-cutting the stones
+where weather has worn them. Named encounter. It does not talk. If you stand
+by a stone it is cutting, it stops, and waits, and resumes when you move. Hesk
+says it is "the only honest historian on the continent."
+
+**The Warden of the Cut.** The first boss. It does not talk. The door it guards
+is the size of a barn because so is it, and Hesk, reading the tallies on the
+way down, finds the year it was built and the cost, and says the cost was
+"more than the kingdom spent on bread that year."
+
+The Stone Garden has no living people, and that is the point of it. Hesk and
+Tam are the only voices, and the zone is where you lose one of them.
+
+---
+
+## Act III: The Vigils
+
+### Cinderreach
+
+**The Ashen King.** Ossian. On his chair, in a hall of glass, three hundred
+years. Voice: *"I asked it for a weir against death. It gave me one. For me.
+Only for me. Sit down. Nobody has sat down in a very long time."*
+- **Wants.** To be asked a question. Then to be quick.
+- **Knows.** What the Guest said. That it was dropped. That it does not want to
+  be here. That Hesk came through and thanked him.
+- **Talks about.** Why you came. The Guest [sets: knows:guest]. Fern
+  [promised:fern: kept, he weeps and the fight is slower and he does not use
+  the crown; broken or not mentioned, the fight is what it is]. Hesk [sets:
+  hesk:washere]. The crown, and what to do with it.
+- **Tell.** He does not move anything but his eyes until he stands, and when
+  he stands the glass of the floor cracks under him.
+
+**Gethin Glass.** Mine-captain of the Cinder Cut, forties, coughs black, a
+voice like gravel in a bucket. Voice: *"The yard rings when you walk on it. You
+get used to it. You do not get used to the hall. Nobody goes to the hall."*
+- **Wants.** His shift paid before they die. Everything else is somebody
+  else's.
+- **Knows.** Voidrock and how to carry it. The hall's door and that "the miner
+  who went in came out and sat down on the yard and did not get up, and we
+  buried him sitting."
+- **Offers.** Emberite, voidrock, mining training to 90, the Cut's forge, which
+  will work voidrock if you bring Hild's word.
+- **Talks about.** Voidrock [sets: knows:voidrock]. The hall, and no. The Bell,
+  the manticore that comes at shift change. Hesk, who "went in and came out
+  and said thank you to the door" [hesk:washere].
+- **Tell.** He stamps the yard once as he talks and listens to it ring and nods.
+
+**Anwen Tide.** A woman who came to Cinderreach to find the king's court, a
+descendant, thirties, has a family tree on vellum and a small good sword.
+Voice: *"My line goes back to a lady of his court. I came to see if she was
+still sitting up. She is. Third chair on the left. She does not know me."*
+- **Wants.** Her ancestor released. She cannot do it herself.
+- **Knows.** The crypt under the hall, the court's names and chairs.
+- **Offers.** A vampire knight's location and name, and her own blade if you
+  free her line.
+- **Talks about.** The court. Her lady [entered:hall]. What the king says,
+  which she has listened to from the door for a year and never dared answer.
+  Fern, whose name is on her tree with no date of death.
+- **Tell.** She unrolls the vellum and traces the line with a finger while she
+  talks, and stops at the same name every time.
+
+### The Drowned Coast
+
+**Sir Caradoc, the Drowned Knight.** Knight marshal, three hundred years in the
+water. Voice: *"The gate held. Tell the Vale's keeper the gate held. That is
+the only message I have and I have had nobody to give it to."*
+- **Wants.** The message given. Then the sea to go down. He knows only one of
+  those can happen.
+- **Knows.** That the Weir Kings never built a weir without a man in it. That
+  the stone was only there to give the man something to lean on.
+- **Talks about.** The line, and standing in its way. Aled [knows:aled: "take
+  him. I did not ask him to come."]. The weirs [sets: knows:leanon]. The Vale's
+  keeper, and his message [sets: has:caradocmsg]. He laughs once, at the
+  question about the seventh, and it is the game's saddest sound.
+- **Tell.** Water pours off him the whole time and the pool at his feet never
+  grows.
+
+**Aled.** Ysolt's brother, a Drowned in a salvager's coat, tenth in the line. He
+does not speak. When Ysolt stands in front of him he stops, and the line stops
+behind him, and the knight turns to look, and what happens next is Ysolt's.
+
+**The Harbourmaster.** A Drowned in a chain of office who checks every boat that
+lands. Named encounter. He says one thing, to Ysolt: "Your brother's boat is
+still here. Slip four." It is.
+
+### The Frostcrown
+
+**Ulfra Coldseat.** Thane of the frost giants, sitting on the Frostcrown Shaft,
+forty feet of her, shivering. Voice: *"Your people sit on it too. Ours just
+sits harder. Tell Maud Fallow we are still here. She will know what it costs."*
+- **Wants.** Her people to stop dying. She knows they will not while she sits.
+  She sits.
+- **Knows.** What is at the bottom of the Shaft. That Hesk went down "and came
+  up faster, and did not stop to thank me, which the monks used to."
+- **Offers.** Passage down the Shaft, once, if you carry a message for Maud.
+- **Talks about.** The Vale, which she knows of. Maud, whom she has never met
+  and has corresponded with by a runner every ten years [sets: has:ulframsg].
+  The Shaft and what is at the bottom. Hesk [hesk:gone]. The chair, in Act IV:
+  she cannot come. She sends the cold.
+- **Tell.** She shivers, and every time she does the snow around the Shaft melts
+  a little further, and she looks at it.
+
+**Brenna Coldseat.** Ulfra's daughter and the giants' smith, the one Hild
+trained, thirties in giant years, a hammer the size of a door. Voice: *"Hild
+taught me. Tell her the rimesteel takes the edge she said it would and I have
+not told anyone how she said to do it."*
+- **Wants.** Her mother off the Shaft. She would sit instead. Ulfra will not
+  let her.
+- **Knows.** Rimesteel, the fifth ore. The Rime Cut.
+- **Offers.** Rimesteel work, blacksmithing to 100 in the giants' way, if you
+  bring Hild's word [has:hildmsg].
+- **Talks about.** Hild. Rimesteel [sets: knows:rimesteel]. Her mother, and
+  the argument they have every night. The White Pack, and Rimemouth, who takes
+  the herd.
+- **Tell.** She works a piece of rimesteel cold, with her hands, and it bends.
+
+**Skarn.** A frost giant gone wrong in the Shaft's upper level, the giants' lost
+one, Ulfra's brother. Named encounter, a Frost Giant with a name and one line
+if you carry Ulfra's message: "Tell her I am warm now." Then the fight.
+
+### The Teeth
+
+**Pellam Starfall.** A buyer camped at the edge of the rows who has never gone
+in and pays for what others bring out, sixties, fat in a thin country, a scale,
+a ledger of the dead. Voice: *"Voidrock, by weight. Starfall, by the piece.
+Forty one people have sold to me. I have their names here. None of them sold
+twice."*
+- **Wants.** Starfall. He is the story's one plain merchant of the Guest's bone
+  and he sleeps fine.
+- **Knows.** The rows' silence and what breaks it. The Cyclops's blindness.
+  Forty one ways not to come back.
+- **Offers.** He buys voidrock and starfall at the best price anywhere and sells
+  nothing, and will sell you the ledger's names for a story.
+- **Talks about.** Prices. The ledger. The Mother, whom he has never seen and
+  describes exactly. The shard [has:shard, he offers everything he owns].
+- **Tell.** He weighs your pack with his eyes while you talk and names the
+  figure at the end.
+
+**The Mother of Spiders** does not talk. **The Cyclops of the Teeth** does not
+talk. The Teeth are the one zone where the only voice is Pellam's, at the edge,
+and the silence past him is the point.
+
+### The Night March
+
+**Marshal Corvin.** General of the March, a Lich on a stone chair with his sword
+across his knees at the bottom of the Night Shaft. Voice: *"We marched north to
+draw it off. We drew it off. Nobody came to tell us we could stop. Are you it?"*
+- **Wants.** Orders. He has waited three hundred years for someone to say the
+  word and he does not know what the word will do.
+- **Knows.** The kingdom's last campaign. What his men say in their sleep.
+- **Talks about.** The campaign. The question, if you wear the crown
+  [has:crown]. Yes or no [sets: said_yes:corvin or said_no:corvin]. If yes, in
+  Act IV's third ending, the March comes south. If no, he says "then we wait,"
+  and they do.
+- **Tell.** His hand rests on the sword and never closes on it.
+
+**Lowri Lamp.** The Lamplighter, a woman of fifty who lives at the March's edge
+and lights lamps along the tree line every dusk so the dead do not come into
+the open, and has for thirty years. Voice: *"They stop at the lamps. I do not
+know why. I light them anyway. You would too."*
+- **Wants.** One night off. She has not had one in thirty years.
+- **Knows.** The March's timing to the minute. The Straggler, whom she gives
+  directions to every few nights.
+- **Offers.** Lamp oil, a bed, and if you light the lamps for her one dusk she
+  sleeps and tells you the thing she has never told anyone: her husband is in
+  the third rank.
+- **Talks about.** The lamps. The March. The Straggler. Her husband [after the
+  night off, sets: knows:lowri]. The Cold Adit and the man in the ice, whose
+  letter she has read and put back.
+- **Tell.** She trims a wick while she talks and her hands never stop.
+
+**The Straggler.** A Bone Knight who missed the last step down and has been
+looking for the shaft by daylight for three hundred years. Named encounter. He
+asks directions. If you give the right ones he thanks you and goes down and is
+in the ranks that night. If you give the wrong ones he is grateful anyway.
+
+### The Sallow Wastes
+
+**Brother Hesk**, as he is now. Voice: *"It is a child. It is having a
+nightmare. The Wake is the nightmare leaking. I have almost woken it. A Weir's
+voice would finish it. Where is the boy?"* Everything he says is true as far as
+he knows, and he asks about Tam every time, gently, and means it both ways.
+
+**Ffion Shift.** Forewoman of the Sallow Fall, forties, was a miner and is a
+cultist and does not see a difference, dust to the eyes, calm. Voice: *"We mine
+what landed. It is the best ore there is. The Brother says it is a child. Fine.
+It pays."*
+- **Wants.** The shift to keep. The Fall is the only work in the Wastes.
+- **Knows.** The Fall's three levels. The point where the walls stop being
+  rock. That Ashrend the dragon "came here to die and changed its mind."
+- **Offers.** Starfall, voidrock, mining training to 100, the Fall's forge.
+- **Talks about.** Starfall [sets: knows:starfall]. The Fall's levels. Hesk,
+  fondly. The One Who Left, who was on her shift. The shift change and the
+  sitting on the rim, which she cannot explain and does every day.
+- **Tell.** She sits down facing the crater's centre at some point in every
+  conversation without noticing she has done it.
+
+**Gruffydd Wall.** A miner who will not go below the second level, sixties, the
+oldest man on the shift, the only one who is afraid. Voice: *"Below the second
+the walls are not rock. Put your hand on them. Then tell me what they are."*
+- **Wants.** Out, and he is too old and too far. He will give you everything he
+  has to be walked to the Ember Flats.
+- **Knows.** The throat's safe ledges. The dragon's phase where it speaks.
+- **Offers.** His starfall share, all of it.
+- **Talks about.** The walls. Ashrend and the voice it uses [entered:fall]. The
+  cultist shift and how it started: "one day we all sat down at once." Hesk,
+  whom he is the only person in the Wastes to be afraid of.
+- **Tell.** He keeps his back to the crater at all times and walks backward to
+  do it.
+
+**Ashrend.** The Bone Dragon on the crater floor. In its speaking phase it stops
+fighting and says, in Hesk's voice: *"You see? It only wants to be understood."*
+Then it does not stop fighting.
+
+---
+
+## Act IV: The Wake
+
+### The Bracken Sink
+
+Everyone who is still alive and was earned is in the Vale's lanes, and each has
+one line, keyed on their own arc, as you pass. Ysolt with her crew at the
+mouth. Hild with the Shoulder's miners. Brannoc with a dog. Sir Bryn and the
+pack. The Elder in the lane with its roots in the hedge. Nance Cockle, of all
+people, with a basket of shells and a gutting knife. Aldous, who has never
+left the Barrows, at the Sink's door with his skeleton holding the lamp. And
+the keepers on the landings, forty of them, each with a name cut in the wall,
+each with one sentence if you say it:
+
+- **Brigid Fallow**, the last, Maud's sister, on the lowest landing: *"Tell
+  her I sat down glad. She will not believe you. Tell her anyway."*
+
+And Maud, at the mouth, and Tam, at the chair.
+
+---
+
+## The count
+
+Sixty three named people across twenty two zones, six of whom carry the story,
+eleven of whom are monsters promoted to a name and a line, and the rest of whom
+stand in one place and sell you something and know one thing you need. Every
+zone has at least two living voices, except the Stone Garden and the Teeth,
+which have one and none by design, because the story needs a place where you
+lose your reader and a place where nothing speaks.
+
+Every topic above is a `{ when, say, sets }` row for `story.js`. The gates are
+the facts of `10-STORY.md` section 8, and the audit there holds here: every
+fact a line sets is read by another line somewhere, and every fact a line
+reads is set somewhere, or the thread dangles and the audit throws.
+
+</script>
+<script type="text/markdown" id="md-thirteen" data-title="The Thirteen" data-sub="The ones built to be remembered, and the rule">
+# Brackenwake: the ones you do not forget
+
+`11-CAST.md` puts sixty named people in the world. Most of them are there so a
+zone has voices in it. This book is about the thirteen who are there so the
+player remembers the game ten years later, and it says what each of them is
+built from, so the writing and the systems can be held to it.
+
+## What makes a character impossible to forget
+
+Not a backstory. Nobody remembers a backstory. Five things, and a character
+in this book has all five:
+
+1. **A contradiction you can say in one sentence.** A kind man who ends the
+   world. A king who cannot die because he asked not to. A dead child keeping
+   a stone clean for a father who killed the kingdom. The sentence is the
+   hook; a player tells it to a friend.
+2. **A signature.** One thing they always do or say, so that the second time
+   you meet them you know them before they speak, and the last time it breaks
+   your heart because it is the same. Hesk says "oh" softly. Caradoc has one
+   message. Ulfra shivers and the snow melts.
+3. **A secret that flips them.** Something the player learns, late, that makes
+   every earlier scene mean something else. Not a twist for its own sake: the
+   flip has to make them *more* themselves, not different.
+4. **A mechanic.** Something the player *does* with them that nobody else in
+   the game offers, so the memory is in the hands, not only the ears. You lie
+   to Corvin. You light Lowri's lamps. You give the Straggler directions. You
+   keep or break a promise to a dead girl and a king weeps or does not.
+5. **They come back.** A character met once is a set piece. A character met
+   four times across the map, changed each time, is a person. Everyone in
+   this book is in at least two zones or two acts, and their last scene rhymes
+   with their first.
+
+And one rule over all five: **they want something the player cannot give them.**
+Ossian wants to be asked. Fern wants to go home. Ysolt wants her brother. Ulfra
+wants her people to stop dying. The player can help, or end it, or lie. They
+cannot give it. That is what makes the player remember: the thing they could
+not do.
+
+---
+
+## The thirteen
+
+### 1. Maud Fallow, who sends you and lies about why
+
+**Hook.** The old woman who reads the stones sent you out to save the valley
+and knew the whole time that the valley is saved by someone sitting in a
+chair until they die, and that her sister was that someone, and that you are
+next.
+
+**Signature.** She touches the nearest boundary stone before she answers
+anything. In Act IV, at the Sink's mouth, there is no stone, and she reaches
+for one, and her hand closes on nothing, and she tells you the truth.
+
+**Secret.** She did not send you to find out why the hedges fail. She knows
+why. She sent you out so you would be strong enough to come back and sit down,
+and so she would not have to ask a stranger. She has been choosing between
+you and Tam since the day the stones named you.
+
+**Mechanic.** Every return to the Vale between acts, Maud has one more thing
+to say that she should have said before, and the player can press her or let
+her go. Pressing costs nothing in the world and everything in the scene: she
+answers, and the answer is always half. The journal records what she has
+admitted so far. By Act IV the player has a list of the things Maud did not
+say, and she says them all.
+
+**The scene.** The Sink's mouth. Torchlight, wind coming up the stair, the Vale
+fighting behind you. "You can stand in it. Not for ever. Longer than us." And
+then, because Tam is there: "Or he can."
+
+**Recurs.** Every act, in the Vale. Her cottage is the door.
+
+### 2. Tam Weir, who grows up while you watch
+
+**Hook.** The miller's boy who follows you because he has nothing else to do
+turns out to be the last of the line that built the kingdom, and the one
+person the chair fits better than you.
+
+**Signature.** He is always slightly ahead of you on the road. In Act IV, on
+the stair down the Sink, he is behind you for the first time, and you notice.
+
+**Secret.** He has known since the Weir Tower. Wynn told him not to go south,
+and he heard why, and he never said, and he kept walking with you anyway. When
+he says at the chair "it should be me," it is not a boy's impulse. He decided
+two acts ago.
+
+**Mechanic.** Tam levels. Not in numbers: in what he does. Act I he is a
+slingshot and a warning. Act II, taught the bow by Brannoc if the player let
+him, he shoots. Act III he carries his father's cloak and knife and stands in
+fights. He can die, in the world, at any point, and if he does the game goes
+on without him and the chair has one fewer candidate and Maud's last line is
+different. Keeping Tam alive to the end is the game's one escort quest, and it
+is never written down anywhere.
+
+**The scene.** Thornwood, the cold fire, his father's knife in his hand. He does
+not cry. "Can I keep walking with you?"
+
+**Recurs.** Every zone the player takes him to. Nearly all of them.
+
+### 3. Brother Hesk, the kindest man on the continent, who ends it
+
+**Hook.** The gentle scholar who is the only person able to read the old
+words reads them, believes them, and goes to wake the thing everyone else has
+spent three hundred years keeping asleep, because he thinks it is a child
+having a nightmare and someone should hold it.
+
+**Signature.** He holds every object you show him up to the lamp, turns it,
+and says "oh" softly before he says anything else. In the Sallow Wastes, as a
+lich, you show him the shard, and he holds it up to a light that is not
+there, and says "oh."
+
+**Secret.** He is right. Or right enough that the game never says he is wrong.
+The Guest was dropped, does not want to be here, dreams badly, and the third
+ending proves that waking it stops the Wake. Hesk's crime is not being wrong.
+It is doing it alone, and needing a Weir's voice to finish, and knowing whose.
+
+**Mechanic.** Hesk is the reader. Every readable in the world the player cannot
+read, Hesk can, and the player carries them to him and he reads them aloud,
+and what he reads is the story. When he leaves, the player is illiterate in
+their own story until they find another reader, and there are two, and one is a
+dead king and the other is Hesk. The player *feels* the betrayal as a lost
+ability.
+
+**The scene.** The camp below the Stone Garden, morning, Hesk's blanket folded,
+a letter on it. "I think I can end it. Look after the boy." He has taken Tam's
+father's knife. The player realises, later, why.
+
+**Recurs.** Ashen Moor, the Stone Garden, the Sallow Wastes, and his voice in
+the Bone Dragon's mouth.
+
+### 4. Ysolt of the Strand, who will not sail east until she will
+
+**Hook.** The salvager who has spent twenty years charting a drowned coast she
+refuses to sail to, because her brother is standing on its steps every night
+in a line of the dead, and she has not decided what she owes him.
+
+**Signature.** She sews, and never pricks herself, and never looks at the
+needle. On the boat to the Drowned Coast she is not sewing. Her hands are on
+the tiller and they are shaking and she does not hide it.
+
+**Secret.** She has been to the Drowned Coast. Once. She saw Aled in the line
+and rowed back and told nobody, including Hedd, and the "two boats lost" were
+one boat lost and one boat she scuttled so she would have an excuse not to go
+again.
+
+**Mechanic.** Ysolt is the boat. The Drowned Coast cannot be reached without
+her, and she will not sail for money, only for a reason she believes, and the
+reasons are: the player has met the Ashen King, or the Frostcrown's thane, or
+carries the coldiron sword. Then, at the Steps, Aled is her choice and not the
+player's: the player can hold the line, or fight the knight, or ask him, but
+the hand that touches Aled is Ysolt's, and the player watches.
+
+**The scene.** Aled stops in the line. The line stops behind him. Caradoc turns
+his head. Ysolt walks down three steps into the water in her boots and puts a
+hand on her brother's face, and the knight says: "Take him. I did not ask him
+to come."
+
+**Recurs.** Saltmere, the Broken Strand, the Drowned Coast, the Vale in Act IV
+with a boat crew who came inland for the first time in their lives.
+
+### 5. Fern, who is ten and has been ten for three hundred years
+
+**Hook.** A dead child keeps the moss off a stone in a silent wood, waiting for
+a servant to come and take her home to her father, who was the king who ended
+the kingdom, and she does not know that she is dead or that he is on a chair of
+glass or that the blossom falling around her is the wood grieving for her.
+
+**Signature.** She brushes petals off the stone as she talks, and there are
+always more. When the player comes back from Cinderreach with an answer for
+her, the petals have stopped falling, for the length of the scene.
+
+**Secret.** She knows. Not in words. She knows the way children know a thing
+adults have decided not to tell them: she asks if her father has stopped being
+angry because she remembers him weeping as he put her on the horse, and she
+has spent three hundred years deciding that meant anger, because the other
+thing it could mean is worse.
+
+**Mechanic.** The promise. She asks you to tell her father she is being good.
+You can promise. At Cinderreach, before the Ashen King, the game gives you the
+line, and you can say it or not, and the fight is different either way: he
+weeps and does not use the crown and is slow, or he does not and it is what it
+is. Then you come back to Witchwood, and she asks what he said, and you tell
+her the truth or you do not, and the wood answers: the blossom falls all at
+once, or the birds come back. Nobody tells the player this is a mechanic. It
+is just a promise.
+
+**The scene.** "Has my father stopped being angry?"
+
+**Recurs.** Witchwood twice, and her name on Anwen Tide's family tree in
+Cinderreach with no date of death, and Sir Bryn in the Long Dark: "I left her
+at a stone in a wood where the blossom was. I did not go back."
+
+### 6. Ossian, the Ashen King, who asked not to die
+
+**Hook.** The last king welcomed the thing that fell, asked it for a weir
+against death, and got one, for himself alone, and has sat on a chair of glass
+for three hundred years being the proof that the Wake cannot be ended by
+loving it.
+
+**Signature.** He does not move anything but his eyes until he stands, and
+when he stands the glass floor cracks under him. Before that: "Sit down.
+Nobody has sat down in a very long time." There is a second chair. Sitting in
+it is the game's most frightening button.
+
+**Secret.** He never wanted the throne. He was the youngest, and his brothers
+died in the flood year, and the weir against death was not for him. It was
+for Fern. He asked it to keep his daughter alive, and it heard "keep the one
+who asks," and she died on the road inland anyway, and he has known for three
+hundred years that the kingdom drowned for a wish that missed.
+
+**Mechanic.** The conversation is the fight's difficulty. Every true thing the
+player brings him (the rhyme, the sword, Bryn's account of him weeping, Fern's
+promise) is a line he answers, and each answer changes the fight: slower, no
+crown, no crypt summon, until, with everything, he stands and says "be quick"
+and the fight is a formality and the player has to do it anyway. A player who
+brings nothing fights the full boss. Both are the right ending. Only one is
+remembered.
+
+**The scene.** The promise kept. "She is being good." He puts a hand over his
+eyes. Glass runs down his face, because it is glass.
+
+**Recurs.** Named in the Barrows (an empty coffin), the Hollow Hills (Wynn's
+recitation), the Long Dark (Bryn saw him weep), Cinderreach, and the crown he
+leaves, which speaks in the Night March.
+
+### 7. Sir Caradoc, the Drowned Knight, who has one message
+
+**Hook.** The knight marshal who held the sea gate until the water was over his
+head and has walked up the same steps every night for three hundred years to
+find the sea still there, carrying one message for a keeper he has never met,
+with nobody to give it to.
+
+**Signature.** Water pours off him the whole time he speaks and the pool at
+his feet never grows.
+
+**Secret.** He knows the gate did not hold. The sea came over it. He held his
+post while it did, and the message he has carried for three centuries is a
+lie he has told himself so long it has become a duty, and when the player
+brings him the truth about the seventh weir he understands, at last, what he
+has been: not a failed gate. A weir with a man in it. He laughs, once. It is
+the saddest sound in the game.
+
+**Mechanic.** He can be fought without being killed. Yield at a quarter health
+and he stops and gives you the message. Kill him and the drowned scatter and
+the coast is safer and the message is lost, and Maud in Act IV asks if you met
+him, and you say what you did. Either is allowed. The game never says which
+was right.
+
+**The scene.** "The Weir Kings never built a weir that did not have a man in
+it. The stone was only ever there to give the man something to lean on." And
+then: "Tell the Vale's keeper the gate held."
+
+**Recurs.** The Drowned Coast, and the Reeve at Saltmere is his, and his line
+is what Maud repeats at the chair.
+
+### 8. Ulfra Coldseat, forty feet of woman shivering on a hole in the world
+
+**Hook.** The thane of the frost giants sits on the mouth of a shaft that goes
+down to the Guest's own heat, because a giant is the only thing large enough
+to be a weir against warmth, and her people have been dying of the cold she
+makes for three hundred years, and she knows, and she sits.
+
+**Signature.** She shivers. Every time she does, the snow around the shaft
+melts a little further, and she looks at it.
+
+**Secret.** She and Maud have written to each other, by runner, every ten years,
+for fifty years. Two women sitting on two holes. Neither has ever seen the
+other. Ulfra's message for Maud is "tell her we are still here," and Maud's
+last message to Ulfra, which the player never sees, said "my sister is dying,
+I do not know who is next," and Ulfra has been waiting for the answer for a
+year. The player is the answer.
+
+**Mechanic.** The giants do not attack. The whole zone is being small among
+people who could end you and choose not to, and the fear is different from
+every other zone's fear. Ulfra moves off the shaft once, for the player, if
+they carry a message for Maud, and while she is off it the zone gets warmer,
+visibly, the snow line creeping down while you are underground, and you come
+up and she is back on it and it is snowing again.
+
+**The scene.** "Your people sit on it too. Ours just sits harder."
+
+**Recurs.** The Frostcrown, and Hild's apprentice is her daughter, and in Act IV
+she cannot come to the Vale and sends the cold: the Sink's stair is frosted
+from the third landing down, and Maud says "Ulfra," and that is all.
+
+### 9. Marshal Corvin, who asks if you are it
+
+**Hook.** A general who marched the kingdom's last army north to draw the Wake
+off and drew it off and died in a frozen wood, and has sat at the bottom of a
+shaft with his sword across his knees for three hundred years waiting for
+someone to come and say the word, and does not know what the word will do.
+
+**Signature.** His hand rests on the sword and never closes on it. If you say
+yes, it closes.
+
+**Secret.** He knows what the word will do. He has heard his men say it in
+their sleep for three centuries. He asks "are you it?" not because he cannot
+tell, but because he wants to be told no, and be allowed to keep waiting, and
+he has never been allowed to want anything.
+
+**Mechanic.** The lie. Wearing the Ashen King's crown, you can say yes. Nothing
+happens. The March comes up at dusk as always. Nothing happens for the rest of
+Act III. Then, in Act IV, if you take the third door and go south to wake the
+Guest, the March is there, in ranks, in the Sallow Wastes, having walked the
+length of the continent in the dark to stand behind you, because you said
+yes. It is the only time the game rewards a lie, and it is the most
+frightening reward in it. Say no and he says "then we wait," and they do, and
+that is its own ending for him.
+
+**The scene.** "Nobody came to tell us we could stop. Are you it?"
+
+**Recurs.** The Night March, and the March itself anywhere the crown is worn,
+and the Sallow Wastes in the third ending.
+
+### 10. Lowri Lamp, who has not had a night off in thirty years
+
+**Hook.** A woman who lights lamps along a tree line every dusk because the
+dead stop at the lamps and she does not know why, and has done it every night
+for thirty years, and her husband is in the third rank, and she has never told
+anyone.
+
+**Signature.** She trims a wick while she talks and her hands never stop. On
+her night off, her hands are in her lap, and she does not know what to do with
+them.
+
+**Secret.** The dead do not stop at the lamps. They stop at her. She has been
+standing in the Wake every dusk for thirty years, and she is a weir, a small
+one, and does not know it, and the player, who has by now heard what a keeper
+is, is the only one who can see what she is. The lamps are what she leans on.
+
+**Mechanic.** The night off. Light the lamps for her, one dusk, all forty,
+before the March comes up, and she sleeps for the first time in thirty years,
+and in the morning she tells you about her husband, and the March that night
+came to the lamps and stopped, as always, because the player was standing
+there. The player feels their own weir-ness for the first time and the game
+does not say so.
+
+**The scene.** Morning. Her hands in her lap. "He is in the third rank. Fourth
+from the left. He was tall. He still is."
+
+**Recurs.** The Night March, and she is in the Vale's lane in Act IV with a lamp,
+because she heard, and she says "one night off. You gave me one. I owe you the
+rest."
+
+### 11. Enid Brick, who bricked her husband in
+
+**Hook.** A potter who walled her husband into a kiln from the outside when he
+came back from the cellars changed, because she could not kill him and could
+not let him out, and has thrown the same pot on the wheel every day since,
+selling them to the bandits who live where he went wrong.
+
+**Signature.** The pot. It is always the same pot. Nobody has ever seen her
+finish one.
+
+**Secret.** He knocks. Every night. She has sat with her back to the kiln every
+night for eleven years listening to him knock, and the reason she will not let
+the player open it in Act I is not fear. It is that she is not finished
+listening.
+
+**Mechanic.** The kiln is a door the player can open at any time. Enid asks
+them not to, and the game lets them anyway, and what comes out is the Bricked
+Man, a zombie in a potter's apron, and he is slow and sad and easy to kill and
+the player should feel like a thief. Or the player waits, and in Act III she
+asks, and the fight is the same and the feeling is not. Or the player never
+does, and in Act IV she is in the Vale's lane with a pot, finished, the first
+one, and gives it to you, and it is a funeral urn.
+
+**The scene.** Act III. "You want to know why. Come back when you have been
+down the Cellars." You have. She tells you about the knocking.
+
+**Recurs.** Kiln Heath twice, the Vale in Act IV.
+
+### 12. Aldous the Quiet, who corrects his skeleton's posture
+
+**Hook.** A necromancer who has lived among a thousand graves for thirty years
+asking the dead questions, not to use them or free them or heal them, but to
+know, and who has learned more about the Wake than anyone alive and has told
+almost none of it to anyone, because nobody asked properly.
+
+**Signature.** A skeleton holds his lamp. He corrects its posture twice in
+every conversation, gently, the way you would a nephew.
+
+**Secret.** The skeleton is his brother. Aldous raised him the year he came to
+the Barrows, and has never let him lie down again, and has never once asked
+him a question, because he is afraid of the answer, and every other dead
+thing on the continent has been a way of not asking.
+
+**Mechanic.** Aldous teaches necromancy, and the first lesson is the game's
+first raised skeleton, and the player's own skeleton behaves like his: it
+holds things, it follows, it can be corrected. Necromancers who learn from
+Aldous get a skeleton that is a little more person than the ones from the
+book. And the Barrows' dead stand up at midnight and face the Fall, and Aldous
+has never once stood with them, and if the player does, the next dawn he asks
+what it was like.
+
+**The scene.** Late, the Long Barrow, Act III, the player back from the rim.
+Aldous asks what the King said. The player tells him. Aldous turns to the
+skeleton with the lamp and says, for the first time, "Owain. Was it like that?"
+And the skeleton does not answer, because they do not, and Aldous nods as if
+it had.
+
+**Recurs.** The Grey Barrows in every act, and the Sink's door in Act IV, with
+his skeleton holding the lamp, and he goes down the stair behind you and stops
+at the first landing and reads the name on the wall and stays there.
+
+### 13. Selwyn, the Walker before, who offers cold water
+
+**Hook.** The charming cultist captain who keeps turning up one zone ahead of
+you with a cup of cold water in a hot country was the Vale's Walker two
+generations ago, sent out by a younger Maud, and he found out what the hedges
+are made of, and chose the Wake, and has been waiting for the next Walker to
+explain it to.
+
+**Signature.** He offers you water first, always, and it is always cold, and
+nothing else around him is. In the Vale, in Act IV, in the lane, he offers
+you water, and it is warm, and he looks at the cup, and it is the only time
+he is not smiling.
+
+**Secret.** Osric knows. "Every Walker orders the same thing." Selwyn sat in
+the Bracken Arms' chair forty years ago and ordered it, and Osric, who was a
+boy pulling pints, remembers, and has never told Maud he saw the same man in
+Crookwell market twenty years later wearing the Guest's mark. Selwyn is what
+the Vale does not talk about: the Walker who came back and was not let in.
+
+**Mechanic.** The mark. Selwyn offers it at every meeting, and it is a real
+item, and taking it sets a fact that every character in the game reads: the
+cultists become friendly and everyone else notices, Maud most of all, and the
+third ending becomes easier and the first two become harder, and it can be
+taken off, and everyone remembers that you wore it. He is the game's one
+recurring villain who is not a monster and never draws a weapon. You cannot
+fight him. He walks away every time. In Act IV he is in the lane, and does not
+walk away, and does not fight, and says: "I sat in that chair for a week. Did
+she tell you that? A week. Then I got up. Ask her what she did."
+
+**The scene.** Kiln Heath, the first meeting, before the player knows anything.
+A man in clean robes in a filthy country, a cup of water so cold it hurts.
+"You are the new one. She has not told you yet. She never does at first. Drink.
+It is only water."
+
+**Recurs.** Kiln Heath, the Ember Flats, the Sallow Wastes, the Vale in Act IV.
+Always one zone ahead. Always the same cup.
+
+---
+
+## How they cross
+
+A character remembered is a character met twice. The table is who stands
+where, so the zones can be written to it:
+
+| | Vale | I ring | II ring | III ring | Sink |
+| --- | --- | --- | --- | --- | --- |
+| Maud | every act | | | | mouth |
+| Tam | I, IV | Mill Run, Thornwood | all | all | chair |
+| Hesk | | | Ashen Moor, Stone Garden | Sallow | |
+| Ysolt | IV | Saltmere | Strand | Drowned Coast | mouth |
+| Fern | | | Witchwood | named in Cinderreach | |
+| Ossian | | named in Barrows | named in Hills, Long Dark | Cinderreach | crown |
+| Caradoc | | Reeve at Saltmere | | Drowned Coast | message |
+| Ulfra | | | | Frostcrown | the cold |
+| Corvin | | | | Night March, Sallow | |
+| Lowri | IV | | | Night March | |
+| Enid | IV | Kiln Heath | | Kiln Heath | |
+| Aldous | | Barrows, every act | | | door, first landing |
+| Selwyn | IV | Kiln Heath | Ember Flats | Sallow | lane |
+
+Every column has at least three of them. No zone in the rings is without one.
+
+## What this changes in the other two books
+
+- `11-CAST.md`, the Recruiter: he is Selwyn, and he was a Walker, and his
+  entry is rewritten below this line in that file.
+- `11-CAST.md`, Osric: gains the topic "the Walker who came back" [met:selwyn].
+- `11-CAST.md`, Aldous: the skeleton is Owain, his brother, and the Act III
+  scene is his.
+- `10-STORY.md`, Cinderreach: Ossian's wish was for Fern. The Arrival and the
+  fight stand; the conversation gains the line.
+- `10-STORY.md`, the Night March: the third-ending payoff of Corvin's yes is
+  the March in the Sallow Wastes, and belongs in the Sallow Fall's Act IV
+  description.
+- `10-STORY.md`, the Sink: Lowri, Enid, Ysolt's crew, Aldous and Selwyn are in
+  the lane, each with the line above.
+
+The rule for anyone adding a character after this: if you cannot fill in all
+five things in section one, they are a vendor. That is fine. Give them a tell
+and a fact and let them sell bread. But do not put them in this book.
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script>
+(function(){
+  var srcs = Array.prototype.slice.call(document.querySelectorAll('script[type="text/markdown"]'));
+  var main = document.getElementById('main'), tabs = document.getElementById('books'), toc = document.getElementById('toc');
+  var slug = function(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); };
+  var articles = {};
+  srcs.forEach(function(s){
+    var id = s.id.replace('md-',''), title = s.getAttribute('data-title'), sub = s.getAttribute('data-sub');
+    var raw = s.textContent.replace(/<\\\/script/g,'</script');
+    var art = document.createElement('article'); art.id = 'book-' + id;
+    var eyebrow = document.createElement('div'); eyebrow.className = 'eyebrow'; eyebrow.textContent = 'Brackenwake · ' + title;
+    art.appendChild(eyebrow);
+    var body = document.createElement('div'); body.innerHTML = marked.parse(raw, { mangle:false, headerIds:false });
+    // headings get ids for the contents; tables get a scroll wrapper
+    var n = 0;
+    body.querySelectorAll('h1,h2,h3').forEach(function(h){ h.id = id + '-' + slug(h.textContent) + '-' + (n++); });
+    body.querySelectorAll('table').forEach(function(t){ var w = document.createElement('div'); w.className='tbl'; t.parentNode.insertBefore(w,t); w.appendChild(t); });
+    art.appendChild(body);
+    var foot = document.createElement('div'); foot.className = 'foot'; foot.textContent = 'From docs/mmo in the brackenwake repository. ' + sub + '.';
+    art.appendChild(foot);
+    main.appendChild(art); articles[id] = art;
+    var b = document.createElement('button'); b.setAttribute('role','tab'); b.dataset.id = id;
+    b.innerHTML = title + '<span>' + sub + '</span>';
+    b.addEventListener('click', function(){ show(id); history.replaceState(null,'','#'+id); main.scrollIntoView(); });
+    tabs.appendChild(b);
+  });
+  function show(id){
+    Object.keys(articles).forEach(function(k){ if (k===id) articles[k].setAttribute('data-active',''); else articles[k].removeAttribute('data-active'); });
+    Array.prototype.forEach.call(tabs.children, function(b){ b.setAttribute('aria-selected', b.dataset.id===id ? 'true' : 'false'); });
+    toc.innerHTML = '<h4>In this book</h4>';
+    articles[id].querySelectorAll('h2,h3').forEach(function(h){
+      var a = document.createElement('a'); a.href = '#' + h.id; a.textContent = h.textContent; a.className = h.tagName.toLowerCase(); toc.appendChild(a);
+    });
+    try { localStorage.setItem('bw-book', id); } catch(e){}
+  }
+  var want = (location.hash||'').slice(1);
+  if (!articles[want]) { try { want = localStorage.getItem('bw-book'); } catch(e){} }
+  show(articles[want] ? want : 'story');
+  window.addEventListener('hashchange', function(){ var h = location.hash.slice(1); if (articles[h]) show(h); });
+})();
+</script>

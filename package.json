@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "vite build && wrangler deploy"
+    "deploy": "vite build && wrangler deploy",
+    "wiki:build": "node scripts/build-wiki.mjs wiki/site/index.html",
+    "wiki:deploy": "npx wrangler deploy -c wiki/wrangler.jsonc"
   },
   "keywords": [
     "nostr",
