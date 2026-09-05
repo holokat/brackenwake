@@ -133,6 +133,34 @@ export const RARITY_COLUMNS = ['colour', 'affixes', 'weight', 'crafted'];
 // The colour words the unidentified line uses ("a green longsword").
 export const RARITY_WORD = { common: 'plain', uncommon: 'green', rare: 'blue', epic: 'purple', mythic: 'gold', legendary: 'orange' };
 
+// ------------------------------------------------------- what rarity is FOR
+//
+// Rarity is the affix language and nothing else. "Six tiers. Colour is the
+// whole language", and every row of that table is a count of affixes: uncommon
+// one line, rare two, legendary five and a named power. A carrot has no line to
+// carry, so a blue carrot is a colour with nothing behind it: it would glow in
+// the sack, arrive unidentified, refuse to stack with the other carrots, and
+// then identify into nothing at all. Four visible lies from one wrong field.
+//
+// So rarity applies to the six equipment kinds and to nothing else. This is the
+// one predicate that says so, and it is exported first because `makeItem`,
+// `rollAffixes`, `rollDrop`, the bag windows and the dev bench all ask it
+// rather than each keeping their own list of what counts as gear.
+export const RARITY_KINDS = ['weapon', 'shield', 'armour', 'jewellery', 'offhand', 'instrument'];
+/** Everything else. Named out loud so the audit can prove the two sets cover all bases. */
+export const NO_RARITY_KINDS = ['material', 'food', 'meal', 'potion', 'tool', 'ammunition'];
+
+/**
+ * Does rarity mean anything on this base? True only for gear.
+ * Takes a base id, a base record or an item record. False for a thing that
+ * is not a base at all, because a rarity on nothing is not a rarity.
+ */
+export function takesRarity(baseOrItem) {
+  const b = baseFor(baseOrItem);
+  if (!b) return false;
+  return RARITY_KINDS.includes(b.kind);
+}
+
 // ------------------------------------------------------- stacking materials
 // "Items stack when identical and common (ingots, ore, wood, arrows, potions,
 // food)." These are the stackable bases; they have no slot and no durability.
@@ -143,7 +171,8 @@ export const STACKS = [
   { id: 'arrow', name: 'Arrow', weight: 0.1 },
   { id: 'bolt', name: 'Bolt', weight: 0.1 },
   { id: 'potion', name: 'Potion', weight: 0.5 },
-  { id: 'food', name: 'Food', weight: 0.5 },
+  // There is no "Food" stack. A meal is a carrot, a loaf, a haunch of venison,
+  // never the word food; see FOOD_BASES below.
   { id: 'reagent', name: 'Reagent', weight: 0.1 },
   { id: 'gem', name: 'Gem', weight: 0.1 },
   { id: 'bandage', name: 'Bandage', weight: 0.1 },
@@ -232,9 +261,12 @@ kitBase({ id: 'lute', name: 'Lute', kind: 'instrument', kinds: ['equipment', 'in
 kitBase({ ...BASES.quarterstaff, id: 'bone_staff', name: 'Bone Staff', kinds: [...BASES.quarterstaff.kinds, 'bone'] });
 kitBase({ ...BASES.cloth_chest, id: 'dark_robe', name: 'Dark Robe', kinds: [...BASES.cloth_chest.kinds, 'dark'] });
 kitBase({ ...BASES.leather_chest, id: 'leather_apron', name: 'Leather Apron', kinds: [...BASES.leather_chest.kinds, 'apron'] });
-for (const [id, name, weight] of [['reagent_pouch', 'Reagent Pouch', 0.5], ['stone', 'Stone', 1], ['venison', 'Venison', 0.5], ['game_meat', 'Game Meat', 0.5]]) {
+for (const [id, name, weight] of [['reagent_pouch', 'Reagent Pouch', 0.5], ['stone', 'Stone', 1]]) {
   kitBase({ id, name, weight, kind: 'material', kinds: ['material'], slot: null, strReq: 0, durability: null, stack: true });
 }
+// venison and game_meat were kit materials here. They are food now, and they
+// are built in the FOOD_BASES section below with the rest of the meat, keeping
+// their ids so `state.js` GOOD_BASE and the hunting bag never notice.
 
 // ------------------------------------------------------------ hides
 // Skinning's materials, and the knife it wants.
@@ -286,6 +318,148 @@ export function auditHides() {
   }
   if (!BASES.skinning_knife) bad('there is no skinning knife');
   return true;
+}
+
+// -------------------------------------------------------------------- food
+//
+// There is no item called Food. "Food" is a shelf, not a thing you eat, and a
+// stack labelled Food in a pack is the same failure as a modifier nobody reads:
+// it looks like content and it says nothing. Every edible here is a specific
+// edible with its own name, its own weight and its own effect.
+//
+// Two families:
+//
+//   PANTRY. What a Provisioner sells and a farm grows: apple, carrot, turnip,
+//   onion, cabbage, bread, cheese, egg, fish, mutton. These do not drop from
+//   anything; they are bought, grown or cooked.
+//
+//   MEAT. What comes off a beast, one kind per beast. `loot_drops.js` maps a
+//   monster's `meat` word to the meat of THAT monster: a giant rat gives rat
+//   meat, a wolf gives wolf meat, a bear gives bear meat. Nothing gives "meat".
+//
+// Every one of them carries a `use` in the shape `src/game/foraging.js`
+// `useItem` already reads, `{ heal: [lo, hi], seconds }`, so eating one really
+// heals: the same field and the same single consumer as the forageables, not a
+// second parallel system. Raw meat heals slowly and less than the cooked dish
+// it becomes, which is what a kitchen is for.
+//
+// Weights are 0.3 to 0.5 stones: a carrot is lighter than a haunch, and twenty
+// of anything here is a real part of a pack that a longsword is four stones of.
+//
+// `material` is the word a recipe asks for. Every meat carries `material:
+// 'meat'` so the six kitchen recipes in `recipes.js` that ask for `meat: 2` can
+// be paid in rat meat or venison; `fish` and the pantry rows carry their own id.
+// See docs/mmo/wiring/G7.md for the one line `win_crafting.countMaterial` needs
+// in order to look at a base's material as well as an item's.
+
+/** Every food base id, pantry first then meat. */
+export const FOOD_BASES = [];
+/** The meats, in the order a beast gets bigger. `loot_drops.js` maps onto these. */
+export const MEAT_BASES = [];
+/** The six cooked dishes `recipes.js` MEALS names. Kitchen output, not loot. */
+export const MEAL_BASES = [];
+
+const foodBase = (id, name, weight, heal, seconds, extra = {}) => {
+  FOOD_BASES.push(id);
+  return addBase({
+    id, name, kind: 'food', kinds: ['food', extra.meat ? 'meat' : 'pantry'],
+    slot: null, weight, strReq: 0, durability: null, stack: true,
+    material: extra.material || id,
+    use: { heal, seconds },
+  });
+};
+
+// --- the pantry. Bought, grown, baked.
+foodBase('apple', 'Apple', 0.3, [4, 8], 8);
+foodBase('carrot', 'Carrot', 0.3, [3, 7], 8);
+foodBase('turnip', 'Turnip', 0.3, [3, 7], 8);
+foodBase('onion', 'Onion', 0.3, [2, 6], 8);
+foodBase('cabbage', 'Cabbage', 0.4, [4, 9], 10);
+foodBase('bread', 'Bread', 0.4, [8, 14], 12);
+foodBase('cheese', 'Cheese', 0.4, [8, 14], 12);
+foodBase('egg', 'Egg', 0.3, [5, 10], 10);
+foodBase('fish', 'Fish', 0.5, [6, 12], 10);
+foodBase('mutton', 'Mutton', 0.5, [10, 18], 14);
+
+// --- the meat. One kind per beast; see MEAT_OF in loot_drops.js for the join.
+const meatBase = (id, name, weight, heal, seconds) => {
+  MEAT_BASES.push(id);
+  return foodBase(id, name, weight, heal, seconds, { meat: true, material: 'meat' });
+};
+meatBase('rat_meat', 'Rat Meat', 0.3, [3, 6], 10);
+// The old game's two words, kept exactly: state.js GOOD_BASE, the hunting bag
+// and combat.js's LOOT table all name these two ids. `game_meat` is what a
+// rabbit, a squirrel, a gull, a crow, a frog and a bat all leave, so it stays
+// Game Meat and is not renamed after any one of them.
+meatBase('game_meat', 'Game Meat', 0.5, [6, 12], 12);
+meatBase('crab_meat', 'Crab Meat', 0.4, [6, 12], 10);
+meatBase('venison', 'Venison', 0.5, [10, 18], 14);
+meatBase('wolf_meat', 'Wolf Meat', 0.5, [8, 15], 12);
+meatBase('boar_meat', 'Boar Meat', 0.5, [10, 18], 14);
+meatBase('bear_meat', 'Bear Meat', 0.5, [12, 20], 14);
+
+// --- the six cooked meals `recipes.js` MEALS authors.
+//
+// They existed as recipes with nowhere to land: `win_crafting.resultBaseFor`
+// fell through to the generic `food` stack, so all six cooked into one grey
+// word. Each is its own dish now, with the buff its recipe card promises, in
+// the plain effect block `actor.recompute` sums and `foraging.useItem` applies.
+// `MEAL_SECONDS` is shared with the forage kitchen further down this file, so
+// one dish never outlasts another for no reason.
+const AUTHORED_MEAL_SECONDS = 300;
+const mealBase = (id, name, effect, line) => {
+  MEAL_BASES.push(id);
+  return addBase({
+    id, name, kind: 'meal', kinds: ['food', 'meal'], slot: null,
+    weight: 0.5, strReq: 0, durability: null, stack: true, material: id,
+    use: { buff: { name, seconds: AUTHORED_MEAL_SECONDS, effect }, line },
+  });
+};
+mealBase('hearty_stew', 'Hearty stew', { stats: { str: 5 } }, 'you feel like lifting something');
+mealBase('roast_fowl', 'Roast fowl', { stats: { dex: 5 } }, 'your hands are steady');
+mealBase('fish_pie', 'Fish pie', { stats: { int: 5 } }, 'the fog lifts a little');
+mealBase('honey_bread', 'Honey bread', { stats: { con: 5 } }, 'you could take a knock');
+mealBase('spiced_wine', 'Spiced wine', { stats: { wis: 5 } }, 'things arrange themselves');
+mealBase('travellers_ration', "Traveller's ration", { bonuses: { carry: 20 } }, 'packed to be carried, and it carries');
+
+/**
+ * Every food is a specific food, stacks, weighs what food weighs, and really
+ * does something when it is eaten. Runs at load under auditItems.
+ *
+ * The first check is the user's sentence, held as code: no base in this game is
+ * called food, and none of them is named Food.
+ */
+export function auditFoodBases() {
+  const bad = [];
+  if (BASES.food) bad.push('there is a base called "food"; a food is a carrot or a loaf, never the word');
+  for (const id of [...FOOD_BASES, ...MEAL_BASES]) {
+    const b = BASES[id];
+    if (!b) { bad.push(`food base "${id}" is not a base`); continue; }
+    if (/^food$/i.test(b.name)) bad.push(`${id} is named "${b.name}"`);
+    if (!b.stack) bad.push(`${id} does not stack, and a bag of them has to`);
+    if (b.slot !== null) bad.push(`${id} wants slot ${b.slot}, and you do not wear a turnip`);
+    if (!(b.weight >= 0.3 && b.weight <= 0.5)) bad.push(`${id} weighs ${b.weight}, and food is 0.3 to 0.5`);
+    if (takesRarity(b)) bad.push(`${id} takes rarity, and there is no such thing as a blue carrot`);
+    if (!b.use || typeof b.use !== 'object') bad.push(`${id} has no use, so eating it would be silent`);
+  }
+  // A raw food heals over time. A cooked meal buffs. Both directions checked,
+  // so a meal that heals nothing and buffs nothing cannot ship.
+  for (const id of FOOD_BASES) {
+    const u = BASES[id]?.use || {};
+    if (!Array.isArray(u.heal) || u.heal.length !== 2) bad.push(`${id} is raw food and heals nothing`);
+    else if (!(u.heal[0] > 0 && u.heal[1] >= u.heal[0])) bad.push(`${id} heals ${u.heal.join(' to ')}`);
+    if (!(u.seconds > 0)) bad.push(`${id} heals over ${u.seconds} seconds`);
+  }
+  for (const id of MEAL_BASES) {
+    const u = BASES[id]?.use || {};
+    if (!u.buff || !u.buff.effect) bad.push(`${id} grants a buff with no effect, which is decoration`);
+    if (!(u.buff?.seconds > 0)) bad.push(`${id} grants a buff that lasts ${u.buff?.seconds} s`);
+  }
+  for (const id of MEAT_BASES) {
+    if (BASES[id]?.material !== 'meat') bad.push(`${id} carries material "${BASES[id]?.material}", so a recipe asking for meat could never find it`);
+  }
+  if (bad.length) throw new Error(`auditFoodBases: ${bad.length} problem(s)\n  ${bad.join('\n  ')}`);
+  return { foods: FOOD_BASES.length, meats: MEAT_BASES.length, meals: MEAL_BASES.length };
 }
 
 
@@ -380,19 +554,27 @@ export function armourOf(item, stats = {}) {
  * Build the item record. Anything above common arrives unidentified with an
  * empty affix list; affixes.js rolls them from the seed when it is identified,
  * so the pack cannot be reloaded into a better sword.
+ *
+ * A base that does not take rarity comes out common, identified and without
+ * affixes WHATEVER is asked for. This is a coercion and not a throw on purpose:
+ * `rollDrop` picks a rarity before it knows which base it drew, a save from
+ * before this rule can hold a green apple, and the dev bench lets you type
+ * anything. All three should end at one carrot, not at an exception.
  */
 export function makeItem({ base, rarity = 'common', seed = 0, quality = 1, maker = null, count = 1, affixes = null } = {}) {
   const b = baseFor(base);
   if (!b) throw new Error(`makeItem: unknown base ${base}`);
   if (!RARITY[rarity]) throw new Error(`makeItem: unknown rarity ${rarity}`);
+  const gear = takesRarity(b);
+  const r = gear ? rarity : 'common';
   const s = seed >>> 0;
   const item = {
-    id: `${b.id}-${hash2(s, RARITY_ORDER.indexOf(rarity), 0x17e5).toString(36)}`,
+    id: `${b.id}-${hash2(s, RARITY_ORDER.indexOf(r), 0x17e5).toString(36)}`,
     base: b.id,
-    rarity,
+    rarity: r,
     seed: s,
-    identified: rarity === 'common',
-    affixes: affixes || [],
+    identified: r === 'common',
+    affixes: gear ? (affixes || []) : [],
     quality,
     durability: b.durability,
     maker,
@@ -413,8 +595,14 @@ export const setOf = (material) => ARMOR_PIECES.map((p) => BASES[`${material}_${
  * Runs at load. Throws on anything that would ship a lie: a weapon whose skill
  * is not a combat skill, an armour tier missing a column, a base pointing at a
  * slot that does not exist, or a set whose totals no longer match the document.
+ *
+ * `items` is an optional list of item RECORDS to hold to the rarity rule as
+ * well. The tables cannot catch a rare carrot on their own, because a base
+ * carries no rarity; a save, a loot roll or a dev bench can make one, and this
+ * is where such a thing is caught. `loot.test.mjs` hands it ten thousand rolled
+ * drops and `items.test.mjs` hands it one planted rare carrot.
  */
-export function auditItems() {
+export function auditItems(items = []) {
   const bad = (m) => { throw new Error(`auditItems: ${m}`); };
 
   if (SLOTS.length !== 14) bad(`there are ${SLOTS.length} slots, the paper doll has 14`);
@@ -469,7 +657,31 @@ export function auditItems() {
     if (b.slot !== null && !SLOTS.includes(b.slot)) bad(`base ${b.id} wants slot ${b.slot}, which is not a slot`);
     if (typeof b.weight !== 'number') bad(`base ${b.id} has no weight`);
     if (!Array.isArray(b.kinds) || !b.kinds.length) bad(`base ${b.id} carries no kind tags`);
-    if (b.kind !== 'material' && b.kind !== 'tool' && !b.kinds.includes('equipment')) bad(`base ${b.id} is wearable but is not tagged equipment`);
+    // Every kind is on exactly one side of the rarity line, so a seventh kind
+    // added tomorrow has to declare which side it is on rather than defaulting
+    // quietly to "no rarity" and losing its affixes.
+    if (!RARITY_KINDS.includes(b.kind) && !NO_RARITY_KINDS.includes(b.kind)) {
+      bad(`base ${b.id} is kind "${b.kind}", which is in neither RARITY_KINDS nor NO_RARITY_KINDS`);
+    }
+    if (takesRarity(b) && !b.kinds.includes('equipment')) bad(`base ${b.id} is wearable but is not tagged equipment`);
+    // A base is a table row and never an item, so it may not carry either of
+    // the two fields that only an item has. This is how a rarity field pasted
+    // onto a base by a future edit dies at import instead of in a sack.
+    if (!takesRarity(b)) {
+      if (b.affixes !== undefined) bad(`base ${b.id} carries an affixes list, and rarity does not apply to a ${b.kind}`);
+      if (b.rarity !== undefined && b.rarity !== 'common') bad(`base ${b.id} carries rarity "${b.rarity}", and rarity does not apply to a ${b.kind}`);
+    }
+  }
+
+  // The item records the caller handed over, held to the same rule.
+  for (const it of items || []) {
+    if (!it) continue;
+    const b = baseFor(it);
+    if (!b) bad(`an item names base "${it.base}", which is not a base`);
+    if (takesRarity(b)) continue;
+    if (it.rarity && it.rarity !== 'common') bad(`a ${b.id} is ${it.rarity}; rarity does not apply to a ${b.kind}`);
+    if (Array.isArray(it.affixes) && it.affixes.length) bad(`a ${b.id} carries ${it.affixes.length} affix(es); rarity does not apply to a ${b.kind}`);
+    if (it.identified === false) bad(`a ${b.id} arrived unidentified, and there is nothing about it to find out`);
   }
 
   // The two totals the document states out loud, counted from the tier table
@@ -683,4 +895,5 @@ export function auditForageBases() {
 
 
 auditItems();
+auditFoodBases();
 auditForageBases();

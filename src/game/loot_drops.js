@@ -48,8 +48,15 @@
 import * as THREE from 'three';
 import { MONSTERS } from '../mmo/monsters.js';
 import { rollKill } from '../mmo/loot.js';
-import { RARITY, RARITY_ORDER, RARITY_WORD, baseFor, BASES, LEATHER_BASE } from '../mmo/items.js';
+import { RARITY, RARITY_ORDER, RARITY_WORD, baseFor, BASES, LEATHER_BASE, MEAT_BASES, takesRarity } from '../mmo/items.js';
 import { nameFor as affixNameFor } from '../mmo/affixes.js';
+
+/**
+ * Words that take "some" rather than "a". Meat, bread and cheese are mass
+ * nouns; "a venison" and "a bread" are the sort of line a UI writes and an
+ * author does not. Kept here because this file is the one that speaks.
+ */
+export const MASS_NOUNS = /(^|\s)(meat|venison|mutton|bread|cheese|honey)$/i;
 
 /** Seconds a bag lies there. "Every drop is a bag on the ground for 90 s." */
 export const BAG_SECONDS = 90;
@@ -59,18 +66,84 @@ export const BAG_REACH = 3;
 /** Monster tier to armour material, which is what `helm` and `tunic` become. */
 export const ARMOUR_MATERIAL = { 1: 'cloth', 2: 'leather', 3: 'studded', 4: 'ring', 5: 'chain', 6: 'plate' };
 
+// ---------------------------------------------------------------------------
+// MEAT IS NEVER "MEAT".
+//
+// Sixteen monsters carry the word `meat` in their table and they all used to
+// join to one base called `food`, so a giant rat, a bear and a harpy left the
+// same grey stack. There is no `food` base any more, and there is no generic
+// meat either: the word resolves to the meat of THAT beast.
+//
+// `MEAT_OF` is the row, per monster, and it wins over everything. `MEAT_BY_KIND`
+// is the fallback for a monster added tomorrow, keyed on the `kind` field
+// monsters.js already carries. Three kinds have no meat on them at all:
+//
+//   undead      a skeleton is bone and a wraith is not there
+//   construct   an iron golem is ore
+//   elemental   there is nothing to butcher
+//
+// and `humanoid` is left out on purpose. None of the three, and no humanoid,
+// carries `meat` in its table today; the fallback exists so that when one does,
+// it drops nothing rather than quietly becoming rat meat.
+export const MEAT_OF = {
+  // critters, tier 0. combat.js's own LOOT table already gives the deer venison
+  // and everything else game meat, and this agrees with it word for word.
+  deer: 'venison',
+  rabbit: 'game_meat', squirrel: 'game_meat', gull: 'game_meat',
+  frog: 'game_meat', crow: 'game_meat',
+  fieldMouse: 'rat_meat',
+  // the dungeon and the woods
+  giantRat: 'rat_meat',
+  caveBat: 'game_meat',
+  crab: 'crab_meat',
+  wolf: 'wolf_meat',
+  boar: 'boar_meat',
+  direWolf: 'wolf_meat',
+  harpy: 'game_meat',
+  stonebackBear: 'bear_meat',
+  werewolf: 'wolf_meat',
+};
+
+/** The fallback, by the monster's own `kind`. Null means this thing has no meat. */
+export const MEAT_BY_KIND = {
+  critter: 'game_meat',
+  vermin: 'rat_meat',
+  flying: 'game_meat',
+  beast: 'game_meat',
+  humanoid: null,
+  undead: null,
+  construct: null,
+  elemental: null,
+};
+
+/**
+ * Which meat this monster leaves, or null when it has none.
+ * `monster` is a row or an id; without one there is no answer, because "meat"
+ * on its own is exactly the generic item this game no longer has.
+ */
+export function meatFor(monster) {
+  const m = typeof monster === 'string' ? MONSTERS[monster] : monster;
+  if (!m) return null;
+  if (MEAT_OF[m.id]) return MEAT_OF[m.id];
+  const byKind = MEAT_BY_KIND[m.kind];
+  return byKind || null;
+}
+
 /**
  * A monster's word for a drop, turned into an items.js base id. `tier` picks
  * the armour material. A null means "no honest base exists for this yet", and
  * the caller leaves it out of the roll.
  */
-export function itemBaseFor(word, tier = 1) {
+export function itemBaseFor(word, tier = 1, monster = null) {
   const mat = ARMOUR_MATERIAL[Math.min(6, Math.max(1, Math.round(tier)))] || 'leather';
   switch (word) {
     // materials that already are bases
     case 'ingot': case 'ore': case 'gem': case 'reagent': return word;
     case 'wood': return 'log';
-    case 'meat': return 'food';
+    // The meat of the beast that dropped it, or nothing. Null without a
+    // monster: there is no such item as "meat", so there is no honest answer
+    // to the word on its own. `tableFor` and `auditLootWords` both pass one.
+    case 'meat': return meatFor(monster);
     // 05-WORLD-CONTENT: the necromancer "sells bone reagents". Bone is a reagent.
     case 'bone': return 'reagent';
     // armour, by piece, in the material the tier wears
@@ -117,7 +190,7 @@ export function tableFor(monster) {
   const out = [];
   for (const word of m.lootTable) {
     if (SKINNING_WORDS.includes(word)) continue;      // a knife's, not a sack's
-    const base = itemBaseFor(word, m.tier);
+    const base = itemBaseFor(word, m.tier, m);
     if (base && BASES[base] && !out.includes(base)) out.push(base);
   }
   return out;
@@ -152,17 +225,32 @@ auditLootTables();
 export function auditLootWords() {
   const bad = [];
   const words = new Set();
-  for (const m of Object.values(MONSTERS)) for (const w of (m.lootTable || [])) words.add(w);
-  for (const w of words) {
-    if (UNJOINED.includes(w)) continue;
-    // tier 6 is the widest material the join can pick; tier 1 the narrowest
-    for (const tier of [1, 6]) {
-      const base = itemBaseFor(w, tier);
-      if (!base || !BASES[base]) bad.push(`"${w}" at tier ${tier} joins to ${base === null ? 'nothing' : `"${base}"`}`);
+  const meats = new Set();
+  // Walked monster by monster rather than word by word, because `meat` no
+  // longer has one answer: it has the answer this monster gives. A word is
+  // checked against its own monster's tier AND against the two ends of the
+  // material ladder, so a rename in the armour tiers is still caught.
+  for (const m of Object.values(MONSTERS)) {
+    for (const w of (m.lootTable || [])) {
+      words.add(w);
+      if (UNJOINED.includes(w)) continue;
+      for (const tier of [m.tier || 1, 1, 6]) {
+        const base = itemBaseFor(w, tier, m);
+        if (!base || !BASES[base]) {
+          bad.push(`${m.id}: "${w}" at tier ${tier} joins to ${base === null ? 'nothing' : `"${base}"`}`);
+        }
+      }
+      if (w === 'meat') meats.add(itemBaseFor('meat', m.tier, m));
     }
   }
+  // A monster whose word is `meat` must resolve to a real meat base, and never
+  // to a generic one. There is no generic one, so the check is that every meat
+  // that resolved is in the list items.js keeps.
+  for (const id of meats) {
+    if (!MEAT_BASES.includes(id)) bad.push(`the word "meat" resolved to "${id}", which is not one of the ${MEAT_BASES.length} meats`);
+  }
   if (bad.length) throw new Error(`loot_drops: ${bad.join('; ')}`);
-  return { words: words.size, unjoined: UNJOINED.length };
+  return { words: words.size, unjoined: UNJOINED.length, meats: meats.size };
 }
 auditLootWords();
 
@@ -186,6 +274,10 @@ export function rollFor(monster, { luck = 0, seed = 0 } = {}) {
 export function bagColour(items = [], gold = 0) {
   let best = -1;
   for (const it of items) {
+    // A sack lit by a carrot would be a white sack that is not advertising a
+    // white item. Only things rarity applies to have a say in the colour; a
+    // sack of nothing but food falls through to gold or to plain white below.
+    if (!takesRarity(it)) continue;
     const i = RARITY_ORDER.indexOf(it && it.rarity);
     if (i > best) best = i;
   }
@@ -206,6 +298,9 @@ export function describeItem(item) {
     ? (affixNameFor(item).toLowerCase() || name)
     : (item.rarity && item.rarity !== 'common' ? `${RARITY_WORD[item.rarity]} ${name}` : name);
   if (item.count > 1) return `${item.count} ${label}`;
+  // "a venison" is not a thing anybody says. Meat is a mass noun and so is
+  // bread and cheese: they take "some". Everything else keeps its article.
+  if (MASS_NOUNS.test(label)) return `some ${label}`;
   return `${/^[aeiou]/i.test(label) ? 'an' : 'a'} ${label}`;
 }
 

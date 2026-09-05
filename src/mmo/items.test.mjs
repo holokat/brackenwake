@@ -8,6 +8,7 @@ import {
   SLOTS, ARMOR_TIERS, ARMOR_PIECES, SHIELDS, WEAPONS, WEAPON_IDS, RARITY, RARITY_ORDER,
   COMBAT_SKILLS, skillNameOf, BASES, baseFor, makeItem, weightOf, canEquip, armourOf, equipSlotFor,
   slotsFor, stackable, twoHanded, setOf, auditItems, totalWeight,
+  takesRarity, RARITY_KINDS, NO_RARITY_KINDS, FOOD_BASES, MEAT_BASES, MEAL_BASES, auditFoodBases,
 } from './items.js';
 
 let pass = 0, fail = 0;
@@ -196,13 +197,110 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   check('an uncommon ingot does not', stackable({ base: 'ingot', rarity: 'uncommon', affixes: [] }) === false);
   check('an ingot with an affix does not', stackable({ base: 'ingot', rarity: 'common', affixes: [{ id: 'str' }] }) === false);
   check('a longsword never stacks', stackable({ base: 'longsword', rarity: 'common', affixes: [] }) === false);
-  check('arrows, potions, food, ore and wood all stack',
-    ['arrow', 'potion', 'food', 'ore', 'log'].every((b) => stackable({ base: b, rarity: 'common' })));
+  check('arrows, potions, bread, ore and wood all stack',
+    ['arrow', 'potion', 'bread', 'ore', 'log'].every((b) => stackable({ base: b, rarity: 'common' })));
+}
+
+// ------------------------------------------------------------ takes rarity
+//
+// The user's sentence: "rarity should not apply to food, rarity only applies to
+// items and has a chance of adding an effect to items." Driven true AND false
+// across every base there is, not on a sample.
+{
+  const kinds = [...new Set(Object.values(BASES).map((b) => b.kind))].sort();
+  check('every kind in the game is on one side of the rarity line or the other',
+    kinds.every((k) => RARITY_KINDS.includes(k) || NO_RARITY_KINDS.includes(k)), kinds.join(', '));
+  check('and no kind is on both sides', !kinds.some((k) => RARITY_KINDS.includes(k) && NO_RARITY_KINDS.includes(k)));
+
+  const yes = Object.values(BASES).filter((b) => takesRarity(b));
+  const no = Object.values(BASES).filter((b) => !takesRarity(b));
+  check(`${yes.length} bases take rarity and every one of them is gear`,
+    yes.length > 0 && yes.every((b) => RARITY_KINDS.includes(b.kind)),
+    [...new Set(yes.map((b) => b.kind))].join(', '));
+  check(`${no.length} bases do not, and not one of them is gear`,
+    no.length > 0 && no.every((b) => NO_RARITY_KINDS.includes(b.kind)),
+    [...new Set(no.map((b) => b.kind))].join(', '));
+
+  check('a longsword, a plate chest, a buckler, a ring, a torch and a lute take rarity',
+    ['longsword', 'plate_chest', 'buckler', 'ring', 'torch', 'lute'].every(takesRarity));
+  check('a carrot, a loaf, venison, an ingot, an arrow, a pickaxe and a healing draught do not',
+    !['carrot', 'bread', 'venison', 'ingot', 'arrow', 'pickaxe', 'healing_draught'].some(takesRarity));
+  check('and a thing that is not a base at all does not', takesRarity('moonsword') === false && takesRarity(null) === false);
+  check('takesRarity reads an item record as happily as a base id',
+    takesRarity(makeItem({ base: 'longsword' })) === true && takesRarity(makeItem({ base: 'carrot' })) === false);
+
+  // makeItem coerces rather than throwing, whatever it is asked for.
+  let coerced = 0;
+  for (const r of ['uncommon', 'rare', 'epic', 'mythic', 'legendary']) {
+    const it = makeItem({ base: 'carrot', rarity: r, seed: 3, affixes: [{ id: 'str', value: 7 }] });
+    if (it.rarity === 'common' && it.identified === true && it.affixes.length === 0) coerced++;
+  }
+  check('a carrot asked for at every rarity above common comes out common, identified and bare', coerced === 5, `${coerced} of 5`);
+  check('and a longsword asked for the same way keeps what it was given',
+    makeItem({ base: 'longsword', rarity: 'rare', seed: 3 }).rarity === 'rare');
+}
+
+// -------------------------------------------------------------------- food
+//
+// "There should be no Food item, it should be a specific food, carrot, apple,
+// whatever, but not food."
+{
+  check('the audit passes', !!auditFoodBases(), JSON.stringify(auditFoodBases()));
+  check('there is no base called food', !BASES.food && baseFor('food') === null);
+  check('and nothing in the game is named Food',
+    !Object.values(BASES).some((b) => /^food$/i.test(b.name)));
+  check(`there are ${FOOD_BASES.length} specific foods`, FOOD_BASES.length >= 15, FOOD_BASES.join(' '));
+  check('the ones the request named are all there',
+    ['apple', 'carrot', 'turnip', 'onion', 'cabbage', 'bread', 'cheese', 'egg', 'fish', 'venison', 'game_meat'].every((id) => !!BASES[id]));
+  check('every food is kind food, stacks, and weighs 0.3 to 0.5',
+    FOOD_BASES.every((id) => BASES[id].kind === 'food' && BASES[id].stack && BASES[id].weight >= 0.3 && BASES[id].weight <= 0.5),
+    FOOD_BASES.map((id) => BASES[id].weight).join(' '));
+  check('every food really does something when it is eaten',
+    FOOD_BASES.every((id) => Array.isArray(BASES[id].use?.heal) && BASES[id].use.seconds > 0),
+    FOOD_BASES.map((id) => `${id} ${BASES[id].use.heal.join('-')}/${BASES[id].use.seconds}s`).slice(0, 4).join(', '));
+  check(`all ${MEAT_BASES.length} meats carry material "meat", so a kitchen recipe asking for meat can be paid in any of them`,
+    MEAT_BASES.every((id) => BASES[id].material === 'meat'), MEAT_BASES.join(' '));
+  check('venison and game_meat kept their ids, so state.js GOOD_BASE and the hunting bag still work',
+    !!BASES.venison && !!BASES.game_meat && BASES.venison.stack && BASES.game_meat.stack);
+  check(`the ${MEAL_BASES.length} cooked meals each grant a real buff`,
+    MEAL_BASES.every((id) => BASES[id].use?.buff?.effect && BASES[id].use.buff.seconds > 0), MEAL_BASES.join(' '));
+  check('and no food takes rarity', ![...FOOD_BASES, ...MEAL_BASES].some(takesRarity));
+
+  // The guard fails as well as it passes.
+  const carrot = BASES.carrot;
+  const wt = carrot.weight;
+  carrot.weight = 3;
+  check('a carrot that weighs three stones throws', threw(auditFoodBases));
+  carrot.weight = wt;
+  const use = carrot.use;
+  delete carrot.use;
+  check('a carrot nothing happens when you eat throws', threw(auditFoodBases));
+  carrot.use = use;
+  check('and it is whole again', !!auditFoodBases());
 }
 
 // -------------------------------------------------------------------- audit
 {
   check('the tables audit clean', auditItems() === true);
+
+  // A planted rare carrot: the thing no table can catch on its own.
+  const rareCarrot = { ...makeItem({ base: 'carrot', seed: 1 }), rarity: 'rare', identified: false };
+  check('a rare carrot in a pack throws', threw(() => auditItems([rareCarrot])));
+  const affixedApple = { ...makeItem({ base: 'apple', seed: 1 }), affixes: [{ id: 'str', value: 7 }] };
+  check('an apple carrying an affix throws', threw(() => auditItems([affixedApple])));
+  check('and an honest carrot passes', auditItems([makeItem({ base: 'carrot', seed: 1 })]) === true);
+  check('a rare longsword in the same list passes, because rarity is what a longsword is for',
+    auditItems([makeItem({ base: 'longsword', rarity: 'rare', seed: 1 })]) === true);
+
+  // And a base that grew a rarity field, which is the version of this that
+  // would ship without anybody making an item at all.
+  BASES.carrot.rarity = 'epic';
+  check('a base that carries a rarity throws', threw(auditItems));
+  delete BASES.carrot.rarity;
+  BASES.carrot.affixes = [];
+  check('a base that carries an affix list throws', threw(auditItems));
+  delete BASES.carrot.affixes;
+  check('and the tables are clean again', auditItems() === true);
 
   // A weapon whose skill is not a combat skill.
   const skill = WEAPONS.longsword.skill;

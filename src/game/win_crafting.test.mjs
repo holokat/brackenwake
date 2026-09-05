@@ -84,7 +84,11 @@ console.log('win_crafting: the two spelling gaps between recipes.js and items.js
   const knives = RECIPES.find((r) => r.result.base === 'throwingKnives');
   check('throwingKnives finds throwing_knives', resultBaseFor(knives) === 'throwing_knives' && BASE_ALIAS.throwingKnives === 'throwing_knives');
   check('a potion becomes the potion stack', resultBaseFor(RECIPE['potion.heal']) === 'potion');
-  check('a meal becomes the food stack', resultBaseFor(RECIPE['meal.heartyStew']) === 'food');
+  check('a meal becomes its own dish, not a stack called food',
+    resultBaseFor(RECIPE['meal.heartyStew']) === 'hearty_stew', String(resultBaseFor(RECIPE['meal.heartyStew'])));
+  check('and all six meals have a dish of their own',
+    ['heartyStew', 'roastFowl', 'fishPie', 'honeyBread', 'spicedWine', 'travellersRation']
+      .every((k) => !!resultBaseFor(RECIPE[`meal.${k}`])));
   check('arrows are already the arrow stack', resultBaseFor(RECIPE['ammo.arrow.oak']) === 'arrow');
 }
 

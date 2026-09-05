@@ -8,7 +8,7 @@ import {
   weightFor, familyOf, rollAffixes, withAffixes, ranked, nameFor, identify, describe,
   lineFor, rangeLineFor, vagueCount, auditAffixes,
 } from './affixes.js';
-import { makeItem, baseFor, RARITY_ORDER } from './items.js';
+import { makeItem, baseFor, RARITY, RARITY_ORDER, BASES, takesRarity, FOOD_BASES, MEAL_BASES } from './items.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -377,6 +377,85 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
   SKILL_NAMES.push(skill);
 
   check('everything is whole again', auditAffixes().affixes === 62);
+}
+
+// ------------------------------------- rarity IS the chance of an effect
+//
+// "Rarity only applies to items and has a chance of adding an effect to items."
+// The effect is the affix, and the chance is the drop weight: a green sword is
+// one line, a blue two, an orange five and a named power. Measured over a
+// thousand seeds per tier, and the table printed, so a change to RARITY's affix
+// counts shows up here as numbers rather than as silence.
+{
+  const N = 1000;
+  const rows = [];
+  let wrong = 0;
+  for (const r of RARITY_ORDER) {
+    let min = Infinity, max = -Infinity, sum = 0;
+    for (let s = 0; s < N; s++) {
+      const n = rollAffixes(item('longsword', r, s)).length;
+      if (n < min) min = n;
+      if (n > max) max = n;
+      sum += n;
+    }
+    const want = RARITY[r].affixes + (RARITY[r].namedPower ? 1 : 0);
+    if (min !== want || max !== want) wrong++;
+    rows.push(`${r} ${min === max ? min : `${min} to ${max}`} (want ${want})`);
+  }
+  console.log(`     a longsword, ${N} seeds per tier: ${rows.join(', ')}`);
+  check('every rarity rolls exactly the number of lines its row promises', wrong === 0, rows.join(', '));
+  check('common rolls none, at every one of the thousand seeds',
+    Array.from({ length: N }, (_, s) => rollAffixes(item('longsword', 'common', s)).length).every((n) => n === 0));
+  check('and every rarity above common rolls at least one',
+    RARITY_ORDER.slice(1).every((r) => Array.from({ length: N }, (_, s) => rollAffixes(item('longsword', r, s)).length).every((n) => n >= 1)));
+}
+
+// ------------------------------------------- and it never touches a carrot
+{
+  // rollAffixes, withAffixes and identify, each driven with a food and with a
+  // sword, at every rarity a caller could hand them.
+  const foods = [...FOOD_BASES, ...MEAL_BASES];
+  let rolled = 0, changed = 0, identifiedAway = 0;
+  for (const id of foods) {
+    for (const r of RARITY_ORDER) {
+      // makeItem coerces to common, so the rarity is written on by hand here:
+      // this is the pack of a save made before the rule, and it must still be
+      // a carrot when it comes out.
+      const planted = { ...makeItem({ base: id, seed: 7 }), rarity: r };
+      if (rollAffixes(planted).length) rolled++;
+      if (withAffixes(planted) !== planted) changed++;
+      if (identify(planted, 100) !== planted) identifiedAway++;
+    }
+  }
+  check(`${foods.length} foods at all six rarities roll no affixes at all`, rolled === 0, `${rolled}`);
+  check('withAffixes hands every one of them straight back', changed === 0, `${changed}`);
+  check('and identify does the same, because there is nothing to find out', identifiedAway === 0, `${identifiedAway}`);
+
+  // The other direction: the same three functions really do work on a sword.
+  const sword = item('longsword', 'rare', 4);
+  check('while a rare longsword still rolls two lines', rollAffixes(sword).length === 2);
+  check('withAffixes really attaches them', withAffixes(sword).affixes.length === 2 && withAffixes(sword) !== sword);
+  check('and identify really reads them out', identify(sword, 100).shown.length === 2);
+
+  // The tooltip does not call a carrot common, and does say what eating it does.
+  const carrot = makeItem({ base: 'carrot', seed: 1 });
+  const lines = describe(carrot);
+  check('a carrot tooltip is "Carrot", "food", what it heals and what it weighs',
+    lines[0] === 'Carrot' && lines[1] === 'food' && lines.some((l) => /^Heals \d+ to \d+ over \d+ seconds$/.test(l)),
+    lines.join(' | '));
+  check('and it never says Common', !lines.some((l) => /common/i.test(l)), lines.join(' | '));
+  check('while a common longsword still says Common weapon',
+    describe(makeItem({ base: 'longsword', seed: 1 })).includes('Common weapon'));
+  check('a cooked meal says what the buff is and how long it lasts',
+    describe(makeItem({ base: 'hearty_stew', seed: 1 })).some((l) => /Hearty stew for 5 minutes/.test(l)),
+    describe(makeItem({ base: 'hearty_stew', seed: 1 })).join(' | '));
+  check('and a healing draught says what it heals',
+    describe(makeItem({ base: 'healing_draught', seed: 1 })).some((l) => /Heals 25 to 40/.test(l)));
+
+  check('no base that takes no rarity offers a single candidate affix',
+    Object.values(BASES).filter((b) => !takesRarity(b)).every((b) => candidatesFor(b).length === 0));
+  check('and every base that does takes at least five, so a legendary can fill itself',
+    Object.values(BASES).filter((b) => takesRarity(b) && b.slot).every((b) => candidatesFor(b).length >= 5));
 }
 
 // -------------------------------------------------------------------- cost

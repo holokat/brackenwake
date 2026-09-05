@@ -86,13 +86,32 @@ export function stationsForSite(site) {
 // ---------------------------------------------------------------------------
 // Resolving a recipe's result to an item this game can actually make.
 
-/** The two genuine spelling mismatches between recipes.js and items.js. */
+/**
+ * The spelling mismatches between recipes.js and items.js.
+ *
+ * The six meals joined here in a later wave. They used to fall through to a
+ * stack base literally called `food`, so all six cooked into one grey word;
+ * items.js has a real base for each dish now (see FOOD_BASES there) and these
+ * are the camel to snake joins that reach them.
+ */
 export const BASE_ALIAS = {
   throwingKnives: 'throwing_knives',
+  heartyStew: 'hearty_stew',
+  roastFowl: 'roast_fowl',
+  fishPie: 'fish_pie',
+  honeyBread: 'honey_bread',
+  spicedWine: 'spiced_wine',
+  travellersRation: 'travellers_ration',
 };
 
-/** Families whose result is a stack rather than a base of its own. */
-const FAMILY_STACK = { potion: 'potion', meal: 'food' };
+/**
+ * Families whose result is a stack rather than a base of its own.
+ *
+ * `meal` is not one of them any more. There is no `food` base: rarity does not
+ * apply to food and a thing called Food is not a thing you eat, so every dish
+ * is its own base and reaches it through BASE_ALIAS above.
+ */
+const FAMILY_STACK = { potion: 'potion' };
 
 /**
  * Recipe families items.js has no base for, with the reason. The panel greys
@@ -250,9 +269,12 @@ export function takeMaterial(ctx, id, n) {
 /** Put a material back, which is what a full pack after a craft costs us. */
 export function giveMaterial(ctx, id, n) {
   if (n <= 0) return true;
+  // A food material goes back as a real food. `fish` is its own base; `meat`
+  // is not an item in this game any more, so the generic haunch it comes back
+  // as is game meat, the same word the hunting bag has always used.
   const base = CRAFT_MATERIALS[id]?.kind === 'metal' ? 'ingot'
     : CRAFT_MATERIALS[id]?.kind === 'wood' ? 'log'
-      : CRAFT_MATERIALS[id]?.kind === 'food' ? 'food' : 'reagent';
+      : CRAFT_MATERIALS[id]?.kind === 'food' ? (BASES[id] ? id : 'game_meat') : 'reagent';
   const item = makeItem({ base, rarity: 'common', quality: 1, count: n, seed: n });
   item.material = id;
   item.label = CRAFT_MATERIALS[id]?.name || id;

@@ -81,9 +81,28 @@ export const PRICES = {
   ingot: 4 /* 06, "iron ingot 4" */, ore: 1 /* 06, "copper ore 1" */,
   log: 2 /* 06, "oak wood 2" */, bandage: 2 /* 06 */,
   arrow: 1, bolt: 1,          // 06 prices arrows "1 per 5"; the lot rows below carry that
-  potion: 25 /* 06, "heal potion 25" */, reagent: 3, food: 4, gem: 40,
+  potion: 25 /* 06, "heal potion 25" */, reagent: 3, gem: 40,
   ring: 60, amulet: 80, tome: 90, torch: 3,
 };
+
+// Food, per unit. There is no `food` base any more and no row called Ration:
+// a shop that sells "food" sells bread and cheese and a fish. The ladder is the
+// old game's catalog prices in `src/farm/catalog.js` read into this game's
+// scale, where a bandage is 2 and a torch is 3: a carrot is the cheapest thing
+// on the shelf and a haunch of bear is the dearest thing a hunter carries in.
+//
+// Every food is priced, not only the ones a vendor stocks, because
+// `basePriceOf` is also what a vendor PAYS, and a vendor who pays nothing for
+// wolf meat is a vendor who silently eats it.
+Object.assign(PRICES, {
+  carrot: 2, turnip: 2, onion: 2, apple: 2, egg: 3, cabbage: 3, bread: 3,
+  cheese: 5, fish: 5, mutton: 8,
+  rat_meat: 1, game_meat: 4, crab_meat: 5, venison: 6, wolf_meat: 6,
+  boar_meat: 8, bear_meat: 12,
+  // the six cooked dishes, dearer than what goes into them
+  hearty_stew: 14, roast_fowl: 14, fish_pie: 16, honey_bread: 14,
+  spiced_wine: 18, travellers_ration: 16,
+});
 for (const tier of Object.keys(ARMOUR_SET_PRICE)) {
   for (const piece of ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back']) {
     PRICES[`${tier}_${piece}`] = armourPiecePrice(tier, piece);
@@ -171,7 +190,15 @@ export const CATALOG = [
   row('bone', 'reagent', 'Bone', 3, { category: 'bone', count: 5, stock: 40, label: 'Bone', line: 'five to the handful, and do not ask' }),
   row('bandages', 'bandage', 'Bandage', 2, { category: 'bandages', count: 10, stock: 40, label: 'Bandage', line: 'ten to the bundle' }),
   // the road kit
-  row('food', 'food', 'Ration', 4, { category: 'food', count: 3, stock: 40, label: 'Ration', line: 'three days of it' }),
+  // the road kit. Seven specific foods rather than one row called Ration: this
+  // shop has never had a base called food to sell.
+  row('bread', 'bread', 'Bread', 3, { category: 'food', count: 3, stock: 40, label: 'Bread', line: 'three days of it, if you are careful' }),
+  row('cheese', 'cheese', 'Cheese', 5, { category: 'food', count: 2, stock: 30, label: 'Cheese', line: 'it keeps, which is the whole point of it' }),
+  row('apple', 'apple', 'Apple', 2, { category: 'food', count: 4, stock: 40, label: 'Apple', line: 'four to the handful' }),
+  row('carrot', 'carrot', 'Carrot', 2, { category: 'food', count: 4, stock: 40, label: 'Carrot' }),
+  row('egg', 'egg', 'Egg', 3, { category: 'food', count: 4, stock: 30, label: 'Egg' }),
+  row('fish', 'fish', 'Fish', 5, { category: 'food', count: 2, stock: 20, label: 'Fish', line: 'out of the water this morning' }),
+  row('mutton', 'mutton', 'Mutton', 8, { category: 'food', count: 1, stock: 15, label: 'Mutton', line: 'salted, and worth the weight' }),
   row('torch', 'torch', 'Torch', 3, { category: 'torches', stock: 20, line: 'the dark down there is not the dark up here' }),
   // the smith's raw stock, which is also what he buys
   row('ingot', 'ingot', 'Iron ingot', 4, { category: 'ingots', count: 1, stock: 40, materialTier: 3, label: 'Iron ingot' }),
@@ -191,6 +218,11 @@ for (const id of Object.keys(BASES)) {
   if (b.kind === 'weapon') CATEGORY_OF[id] = 'weapons';
   else if (b.kind === 'shield') CATEGORY_OF[id] = 'shields';
   else if (b.kind === 'armour') CATEGORY_OF[id] = b.material === 'cloth' ? 'cloth' : (b.tier <= 3 ? 'leather' : 'armour');
+  // Everything edible sits on the food shelf whether or not the shop stocks it,
+  // so the Innkeeper, who buys food and nothing else, really will take the
+  // venison off a hunter. Without this a wolf haunch was "anything", which only
+  // the Provisioner and the Thief would touch.
+  else if (b.kind === 'food' || b.kind === 'meal') CATEGORY_OF[id] = 'food';
   else CATEGORY_OF[id] = 'anything';
 }
 

@@ -24,7 +24,7 @@
 // Gold ranges are the per-tier ranges of docs/mmo/05-WORLD-CONTENT.md.
 
 import { hash2, rand2 } from '../world/noise.js';
-import { makeItem, RARITY, RARITY_ORDER, baseFor } from './items.js';
+import { makeItem, RARITY, RARITY_ORDER, baseFor, takesRarity } from './items.js';
 
 const SALT_RNG = 0x1007;
 const SALT_ITEM = 0x100d;
@@ -107,10 +107,16 @@ export function rollDrop({ table, tier = 1, luck = 0, seed = 0 } = {}) {
   if (!tier || tier === 0) return null;
   const rng = seededRng(seed);
   if (chance < 1 && rng() >= chance) return null;
-  const rarity = rollRarity(tier, luck, rng);
+  const rolled = rollRarity(tier, luck, rng);
   const pick = Math.min(bases.length - 1, Math.floor(rng() * bases.length));
   const base = bases[pick];
   if (!baseFor(base)) throw new Error(`rollDrop: the table names ${base}, which is not a base`);
+  // The rarity is rolled before the base is drawn, so that a wolf and a bandit
+  // face the same table; what the draw means is decided here. A material or a
+  // food takes no rarity, so it comes out common however the dice fell, and
+  // `makeItem` would coerce it anyway. Doing it here as well keeps the seed the
+  // item is built from honest about what the item actually is.
+  const rarity = takesRarity(base) ? rolled : 'common';
   return makeItem({ base, rarity, seed: hash2(seed, RARITY_ORDER.indexOf(rarity) * 31 + pick, SALT_ITEM) });
 }
 
@@ -133,7 +139,10 @@ export function bossRoll({ table, tier = 5, luck = 0, seed = 0, floor = null } =
   if (floor) {
     const want = RARITY_ORDER.indexOf(floor);
     if (want < 0) throw new Error(`bossRoll: ${floor} is not a rarity`);
-    if (RARITY_ORDER.indexOf(best.rarity) < want) {
+    // A purple floor cannot make a purple out of a haunch of venison. When the
+    // better of the two rolls is a thing rarity does not apply to, the floor is
+    // simply not applied: the boss's own table decides what it can leave.
+    if (takesRarity(best) && RARITY_ORDER.indexOf(best.rarity) < want) {
       best = makeItem({ base: best.base, rarity: floor, seed: best.seed });
     }
   }

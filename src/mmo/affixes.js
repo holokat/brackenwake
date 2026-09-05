@@ -33,7 +33,7 @@
 // gloves, which take offence lines, and every base at once for the pool lines.
 
 import { rand2 } from '../world/noise.js';
-import { baseFor, RARITY, RARITY_ORDER, RARITY_WORD, skillNameOf } from './items.js';
+import { BASES, baseFor, RARITY, RARITY_ORDER, RARITY_WORD, skillNameOf, takesRarity } from './items.js';
 import { SKILLS } from './skills.js';
 
 // The five rolling tiers. Common rolls nothing.
@@ -268,6 +268,9 @@ function rollPower(item, base) {
 export function rollAffixes(item) {
   const b = baseFor(item);
   if (!b) return [];
+  // Rarity is the affix language, so a base that does not take rarity has no
+  // lines to roll. A carrot is a carrot. See items.takesRarity.
+  if (!takesRarity(b)) return [];
   const r = RARITY[item.rarity];
   if (!r || !r.affixes) return [];
   const pool = candidatesFor(b);
@@ -288,8 +291,13 @@ export function rollAffixes(item) {
   return out;
 }
 
-/** The item with its affixes attached, leaving `identified` alone. */
-export const withAffixes = (item) => ({ ...item, affixes: rollAffixes(item) });
+/**
+ * The item with its affixes attached, leaving `identified` alone. A base that
+ * does not take rarity comes back exactly as it went in, the same object, so a
+ * stack of carrots is not quietly replaced by a copy carrying an empty array
+ * that `stackable` would then have to forgive.
+ */
+export const withAffixes = (item) => (takesRarity(item) ? { ...item, affixes: rollAffixes(item) } : item);
 
 // --------------------------------------------------------------- strength
 // How much of its own band a rolled line reached. A named power outranks
@@ -371,6 +379,10 @@ export function vagueCount(int, n) {
  * Identify (`{ scroll: true }`) tells everything regardless of INT.
  */
 export function identify(item, int = 0, opts = {}) {
+  // Nothing to find out about a loaf of bread. Returned unchanged rather than
+  // marked identified, because it was never unidentified: makeItem does not
+  // hide anything that has nothing to hide.
+  if (!takesRarity(item)) return item;
   const affixes = item.affixes && item.affixes.length ? item.affixes : rollAffixes(item);
   const order = ranked(affixes);
   const vague = opts.scroll ? 0 : vagueCount(int, order.length);
@@ -409,7 +421,27 @@ export function describe(item) {
   }
 
   lines.push(nameFor(item));
-  lines.push(`${r.label} ${b.kind === 'armour' ? 'armour' : b.kind}`);
+  // "Rare longsword", but never "Common carrot": a rarity word on a thing that
+  // cannot have one reads as a promise of a green one somewhere.
+  lines.push(takesRarity(b) ? `${r.label} ${b.kind === 'armour' ? 'armour' : b.kind}` : b.kind);
+
+  // What eating it does, in the words the effect really carries. items.js is
+  // the one place a `use` is written and foraging.useItem is the one place it
+  // is applied; this only reads it, so a tooltip cannot promise a heal the
+  // pack will not deliver.
+  if (b.use) {
+    const u = b.use;
+    if (Array.isArray(u.heal)) {
+      lines.push(u.seconds > 0
+        ? `Heals ${u.heal[0]} to ${u.heal[1]} over ${u.seconds} seconds`
+        : `Heals ${u.heal[0]} to ${u.heal[1]}`);
+    }
+    if (u.buff && u.buff.effect) lines.push(`${u.buff.name} for ${Math.round(u.buff.seconds / 60)} minutes`);
+    if (u.poison > 0) lines.push(`Poisons you at level ${u.poison}`);
+    if (u.cure) lines.push(`Cures ${u.cure}`);
+    if (u.restore) lines.push(`Restores ${u.amount[0]} to ${u.amount[1]} ${u.restore}`);
+    if (u.nothing) lines.push(u.nothing[0].toUpperCase() + u.nothing.slice(1));
+  }
 
   if (b.kind === 'weapon') {
     const q = item.quality || 1;
@@ -506,7 +538,20 @@ export function auditAffixes() {
     if (!POWERS.some((p) => allowedOn(p, baseId))) bad(`${baseId} can be legendary and no named power fits it`);
   }
 
-  return { affixes: AFFIXES.length, powers: POWERS.length };
+  // And the other direction, which is the one that would ship quietly: a base
+  // that does not take rarity must offer NO candidate at all. `rollAffixes`
+  // already refuses such a base, but an affix that listed `food` or `material`
+  // among its kinds would make the refusal the only thing standing between a
+  // carrot and a +7 Strength line, and one guard is not a guard.
+  let offered = 0;
+  for (const b of Object.values(BASES)) {
+    if (takesRarity(b)) continue;
+    const n = candidatesFor(b).length;
+    if (n) bad(`${b.id} is a ${b.kind}, takes no rarity, and yet offers ${n} affix(es)`);
+    offered++;
+  }
+
+  return { affixes: AFFIXES.length, powers: POWERS.length, rarityFreeBases: offered };
 }
 
 auditAffixes();

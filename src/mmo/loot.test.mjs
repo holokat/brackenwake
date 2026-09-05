@@ -10,7 +10,7 @@ import {
   BASE_WEIGHTS, GOLD, shiftFor, weightsFor, rollRarity, rollGold, rollDrop, bossRoll,
   rollKill, better, seededRng, auditLoot,
 } from './loot.js';
-import { RARITY, RARITY_ORDER, baseFor } from './items.js';
+import { RARITY, RARITY_ORDER, baseFor, takesRarity, auditItems, MEAT_BASES } from './items.js';
 import { rollAffixes, identify } from './affixes.js';
 
 let pass = 0, fail = 0;
@@ -246,6 +246,56 @@ const tally = (tier, luck, seed, n) => {
   check('a weight column that no longer sums to 100 throws', threw(auditLoot));
   RARITY.epic.weight = w;
   check('everything is whole again', auditLoot() === true);
+}
+
+// --------------------------------------------------- rarity is for gear only
+//
+// A food table and a mixed table, driven ten thousand times each, and the boss
+// floor driven against both. Measured, not asserted.
+{
+  const FOOD = ['carrot', 'bread', 'venison', 'wolf_meat', 'fish'];
+  const MIXED = ['longsword', 'carrot', 'reagent', 'plate_chest', 'venison', 'ingot'];
+  const N = 10000;
+
+  let above = 0, affixed = 0, unidentified = 0;
+  const drops = [];
+  for (let s = 0; s < N; s++) {
+    // tier 5 shifts the table so far that a common is impossible for gear,
+    // which is the hardest case for the rule: the roll WANTS to be blue.
+    const it = rollDrop({ table: FOOD, tier: 5, luck: 40, seed: s });
+    drops.push(it);
+    if (it.rarity !== 'common') above++;
+    if (it.affixes.length) affixed++;
+    if (it.identified === false) unidentified++;
+  }
+  check(`${N} tier 5 drops from a table of nothing but food: none above common`, above === 0, `${above}`);
+  check('none carrying an affix', affixed === 0, `${affixed}`);
+  check('and none arriving unidentified, because there is nothing to find out', unidentified === 0, `${unidentified}`);
+  check('items.js agrees when handed all ten thousand', auditItems(drops) === true);
+
+  let mixedFoodAbove = 0, mixedGearAbove = 0, food = 0, gear = 0;
+  for (let s = 0; s < N; s++) {
+    const it = rollDrop({ table: MIXED, tier: 5, luck: 40, seed: s + 1000000 });
+    if (takesRarity(it)) { gear++; if (it.rarity !== 'common') mixedGearAbove++; }
+    else { food++; if (it.rarity !== 'common') mixedFoodAbove++; }
+  }
+  check(`a mixed table drew ${gear} gear and ${food} food or material from the same rolls`, gear > 1000 && food > 1000);
+  check('every one of the gear drops is above common at tier 5', mixedGearAbove === gear, `${mixedGearAbove} of ${gear}`);
+  check('and not one of the food or material drops is', mixedFoodAbove === 0, `${mixedFoodAbove} of ${food}`);
+
+  // The boss floor is the one place a rarity is written onto an item after the
+  // fact, so it gets its own both-ways check.
+  let floored = 0, foodFloored = 0;
+  for (let s = 0; s < 2000; s++) {
+    const f = bossRoll({ table: FOOD, tier: 5, seed: s, floor: 'epic' });
+    if (f && f.rarity !== 'common') foodFloored++;
+    const g = bossRoll({ table: ['longsword'], tier: 5, seed: s, floor: 'epic' });
+    if (g && RARITY_ORDER.indexOf(g.rarity) >= RARITY_ORDER.indexOf('epic')) floored++;
+  }
+  check('a purple floor lifts every longsword to epic or better', floored === 2000, `${floored} of 2000`);
+  check('and lifts no haunch of venison at all', foodFloored === 0, `${foodFloored} of 2000`);
+  check('every meat items.js knows can be rolled without throwing',
+    MEAT_BASES.every((b) => rollDrop({ table: [b], tier: 3, seed: 1 }).base === b));
 }
 
 // -------------------------------------------------------------------- cost

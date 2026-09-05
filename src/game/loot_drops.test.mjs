@@ -10,10 +10,10 @@
 import * as THREE from 'three';
 import { MONSTERS } from '../mmo/monsters.js';
 import { weightsFor, rollKill } from '../mmo/loot.js';
-import { RARITY, RARITY_ORDER, BASES, makeItem } from '../mmo/items.js';
+import { RARITY, RARITY_ORDER, BASES, makeItem, takesRarity, MEAT_BASES, auditItems } from '../mmo/items.js';
 import {
   createLootDrops, auditLootTables, auditLootWords, tableFor, itemBaseFor, rollFor,
-  bagColour, describeItem, listText, BAG_SECONDS, ARMOUR_MATERIAL,
+  bagColour, describeItem, listText, BAG_SECONDS, ARMOUR_MATERIAL, meatFor, MEAT_OF, MEAT_BY_KIND,
 } from './loot_drops.js';
 
 let pass = 0, fail = 0;
@@ -25,7 +25,7 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
 
   check('a monster word that is already a base passes through', itemBaseFor('longsword', 2) === 'longsword');
   check('wood is a log', itemBaseFor('wood', 3) === 'log');
-  check('meat is food', itemBaseFor('meat', 1) === 'food');
+  check('meat on its own is nothing, because there is no item called meat', itemBaseFor('meat', 1) === null);
   check('a helm on a tier 1 is cloth, on a tier 4 is ringmail, on a boss is plate',
     itemBaseFor('helm', 1) === 'cloth_head' && itemBaseFor('helm', 4) === 'ring_head' && itemBaseFor('helm', 6) === 'plate_head');
   check('a robe is cloth whoever wears it', itemBaseFor('robe', 5) === 'cloth_chest');
@@ -41,33 +41,132 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
   const skel = tableFor('skeletonWarrior');
   check('a skeleton warrior drops swords and shields, as the document says',
     skel.includes('longsword') && skel.includes('kite'), skel.join(', '));
-  check('and a wolf drops what a beast drops', tableFor('wolf').join(',') === 'food', tableFor('wolf').join(', '));
+  check('and a wolf drops wolf meat', tableFor('wolf').join(',') === 'wolf_meat', tableFor('wolf').join(', '));
   check('a table with nothing translatable comes back empty rather than throwing',
     tableFor({ id: 'x', tier: 2, lootTable: ['hide', 'scroll'] }).length === 0);
   check('and every word in every table joins, but for the scroll', !!auditLootWords());
+}
+
+// ============================================================ meat is a beast
+//
+// "There should be no Food item, it should be a specific food." Sixteen
+// monsters carry the word `meat` and they all used to join to one grey stack.
+{
+  const named = [
+    ['giantRat', 'rat_meat'], ['wolf', 'wolf_meat'], ['direWolf', 'wolf_meat'],
+    ['werewolf', 'wolf_meat'], ['boar', 'boar_meat'], ['stonebackBear', 'bear_meat'],
+    ['deer', 'venison'], ['rabbit', 'game_meat'], ['crab', 'crab_meat'],
+    ['harpy', 'game_meat'], ['caveBat', 'game_meat'], ['fieldMouse', 'rat_meat'],
+  ];
+  const wrong = named.filter(([id, want]) => itemBaseFor('meat', MONSTERS[id].tier, MONSTERS[id]) !== want);
+  check(`all ${named.length} named beasts give their own meat`, wrong.length === 0,
+    wrong.map(([id, want]) => `${id} wanted ${want} got ${itemBaseFor('meat', 1, MONSTERS[id])}`).join('; '));
+
+  // Every monster carrying the word, counted rather than sampled.
+  const withMeat = Object.values(MONSTERS).filter((m) => (m.lootTable || []).includes('meat'));
+  const resolved = withMeat.map((m) => meatFor(m));
+  check(`${withMeat.length} monsters carry the word meat and every one resolves to a real meat`,
+    resolved.every((id) => MEAT_BASES.includes(id)),
+    [...new Set(resolved)].join(', '));
+  check('and none of them resolves to anything generic',
+    !resolved.some((id) => id === 'food' || id === 'meat' || !BASES[id]));
+
+  // The other direction: a thing with no meat on it gets none, even though its
+  // table says the word. None of these exists today; the fallback is what will
+  // be there when one does.
+  const none = [
+    { id: 'x1', tier: 3, kind: 'undead', lootTable: ['meat', 'bone'] },
+    { id: 'x2', tier: 4, kind: 'construct', lootTable: ['meat', 'ingot'] },
+    { id: 'x3', tier: 5, kind: 'elemental', lootTable: ['meat', 'gem'] },
+  ];
+  check('an undead, a construct and an elemental drop no meat at all',
+    none.every((m) => meatFor(m) === null && itemBaseFor('meat', m.tier, m) === null));
+  check('and the word simply falls out of their table, leaving the rest',
+    none.every((m) => !tableFor(m).some((b) => MEAT_BASES.includes(b)) && tableFor(m).length === 1),
+    none.map((m) => tableFor(m).join('+')).join(', '));
+  check('a beast nobody has named yet still gets meat rather than nothing',
+    meatFor({ id: 'x4', tier: 2, kind: 'beast', lootTable: ['meat'] }) === 'game_meat');
+  check('every id in MEAT_OF is a real monster, and every meat it names is a real meat',
+    Object.entries(MEAT_OF).every(([id, meat]) => !!MONSTERS[id] && MEAT_BASES.includes(meat)));
+  check('every kind monsters.js has is answered by MEAT_BY_KIND',
+    [...new Set(Object.values(MONSTERS).map((m) => m.kind))].every((k) => k in MEAT_BY_KIND),
+    [...new Set(Object.values(MONSTERS).map((m) => m.kind))].join(', '));
+}
+
+// ================================================ rarity does not touch food
+//
+// Ten thousand kills across every monster in the game, counted. Not a sample of
+// one wolf: every row, so a table added tomorrow is in the sweep the day it
+// lands.
+{
+  const all = Object.values(MONSTERS);
+  const N = 10000;
+  let rolled = 0, foodOrMaterial = 0, badRarity = 0, badAffix = 0, gear = 0, gearAbove = 0;
+  const everything = [];
+  for (let i = 0; i < N; i++) {
+    const m = all[i % all.length];
+    const { items } = rollFor(m, { seed: i * 7919 + 11, luck: i % 41 });
+    for (const it of items) {
+      rolled++;
+      everything.push(it);
+      if (takesRarity(it)) {
+        gear++;
+        if (it.rarity !== 'common') gearAbove++;
+      } else {
+        foodOrMaterial++;
+        if (it.rarity !== 'common') badRarity++;
+        if (it.affixes && it.affixes.length) badAffix++;
+      }
+    }
+  }
+  console.log(`     ${N} kills over all ${all.length} monsters: ${rolled} drops, ${gear} gear (${gearAbove} above common), ${foodOrMaterial} food or material`);
+  check('the sweep really produced food and materials to test', foodOrMaterial > 100, `${foodOrMaterial}`);
+  check('and gear above common, so the other side of the gate is exercised too', gearAbove > 100, `${gearAbove}`);
+  check('not one food or material came out above common', badRarity === 0, `${badRarity} of ${foodOrMaterial}`);
+  check('not one of them carried an affix', badAffix === 0, `${badAffix} of ${foodOrMaterial}`);
+  check('and items.js agrees when it is handed all ten thousand drops', auditItems(everything) === true);
+
+  // The sack colour ignores them too, both ways.
+  const carrot = makeItem({ base: 'carrot', seed: 1 });
+  const venison = makeItem({ base: 'venison', seed: 2 });
+  const epic = makeItem({ base: 'longsword', rarity: 'epic', seed: 3 });
+  check('a sack of nothing but food is not lit by the food', bagColour([carrot, venison], 0) === RARITY.common.colour);
+  check('a sack of food and gold is a purse', bagColour([carrot, venison], 12) === '#ffcf40');
+  check('and a purple in with the venison still reads purple', bagColour([carrot, venison, epic], 12) === RARITY.epic.colour);
 }
 
 // ========================================================= two hundred kills
 //
 // Every kill of one monster, with a different seed each time, counted by rarity
 // and checked against the weights loot.js computes for that tier.
+//
+// ONLY GEAR IS COUNTED BY RARITY. A skeleton warrior's `bone` is a reagent and a
+// wolf's `meat` is wolf meat, and rarity does not apply to either: they come out
+// common however the dice fell. Counting them would drag every band toward
+// common and the test would be measuring the table's composition rather than
+// loot.js's weights. `plain` is the count of those, reported so a monster that
+// quietly stops dropping gear at all is visible rather than hidden.
 function spread(id, n, seedBase) {
   const m = MONSTERS[id];
   const counts = Object.fromEntries(RARITY_ORDER.map((r) => [r, 0]));
-  let gold = 0, items = 0;
+  let gold = 0, items = 0, plain = 0;
   for (let i = 0; i < n; i++) {
     const roll = rollFor(m, { seed: seedBase + i });
     gold += roll.gold;
-    for (const it of roll.items) { counts[it.rarity]++; items++; }
+    for (const it of roll.items) {
+      if (takesRarity(it)) { counts[it.rarity]++; items++; } else plain++;
+    }
   }
-  return { counts, gold, items };
+  return { counts, gold, items, plain };
 }
 
 {
   const N = 200;
-  const id = 'skeletonWarrior';       // tier 2, four bases in its table
+  // Four bases, all four of them gear, so every drop has a rarity to count.
+  const id = 'bandit';
   const m = MONSTERS[id];
-  const { counts, gold, items } = spread(id, N, 1000);
+  const { counts, gold, items, plain } = spread(id, N, 1000);
+  check(`a ${m.name}'s whole table is gear, so nothing falls out of the count`, plain === 0, `${plain} plain`);
   const w = weightsFor(m.tier, 0);
   const total = w.reduce((a, b) => a + b, 0);
   check(`${N} kills of a ${m.name} leave ${N} drops`, items === N, `${items}`);
@@ -89,10 +188,14 @@ function spread(id, n, seedBase) {
   // never drops a white at all, which is the whole point of the shift
   check('a tier 2 drops no commons at all, because the shift ate the row',
     counts.common === 0 && w[0] === 0, `${counts.common} commons`);
-  const t1 = spread('giantRat', N, 2000);
+  const t1 = spread('goblinScout', N, 2000);   // dagger and throwing knives, both gear
   check('and a tier 1 is mostly commons, because it is the printed table',
-    t1.counts.common > N * 0.5, `${t1.counts.common} of ${N}`);
-  const t4 = spread('boneKnight', N, 3000);
+    t1.counts.common > N * 0.5, `${t1.counts.common} of ${t1.items}`);
+  // A giant rat's whole table is rat meat now, so it has no rarity to spread.
+  const rat = spread('giantRat', N, 2500);
+  check('a giant rat leaves meat and nothing with a colour on it',
+    rat.items === 0 && rat.plain === N, `${rat.items} gear, ${rat.plain} meat`);
+  const t4 = spread('vampireKnight', N, 3000);   // longsword, cloak, ring, amulet
   check('a tier 4 starts at blue, and drops nothing below it',
     t4.counts.common === 0 && t4.counts.uncommon === 0 && t4.counts.rare > N * 0.5,
     RARITY_ORDER.map((r) => `${r} ${t4.counts[r]}`).join(', '));
@@ -206,6 +309,20 @@ function spread(id, n, seedBase) {
   const many = makeItem({ base: 'ingot', rarity: 'common', seed: 1, count: 7 });
   check('a stack is counted', describeItem(many) === '7 ingot', describeItem(many));
   check('nothing is "nothing"', describeItem(null) === 'nothing');
+  // Meat is a mass noun. "a venison" is a UI writing, not an author.
+  check('a haunch of venison is "some venison", not "a venison"',
+    describeItem(makeItem({ base: 'venison', seed: 1 })) === 'some venison',
+    describeItem(makeItem({ base: 'venison', seed: 1 })));
+  check('and so are wolf meat, bread and cheese',
+    ['wolf_meat', 'bread', 'cheese'].every((b) => describeItem(makeItem({ base: b, seed: 1 })).startsWith('some ')));
+  check('but an apple is still an apple and a carrot a carrot',
+    describeItem(makeItem({ base: 'apple', seed: 1 })) === 'an apple'
+    && describeItem(makeItem({ base: 'carrot', seed: 1 })) === 'a carrot');
+  check('and a counted stack is counted, not "some"',
+    describeItem(makeItem({ base: 'venison', seed: 1, count: 3 })) === '3 venison');
+  check('a wolf\'s sack reads as a sentence',
+    listText([makeItem({ base: 'wolf_meat', seed: 1 })], 18) === '18 gold and some wolf meat',
+    listText([makeItem({ base: 'wolf_meat', seed: 1 })], 18));
   check('one thing has no comma', listText([common], 0) === 'a longsword');
   check('two things and a purse read as a sentence',
     listText([common, rare], 12) === '12 gold, a longsword and a blue longsword', listText([common, rare], 12));
