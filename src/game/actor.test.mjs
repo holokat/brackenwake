@@ -16,6 +16,7 @@ import { AFFIXES } from '../mmo/affixes.js';
 import { OPENINGS_BY_ID } from '../mmo/openings.js';
 import {
   attackSkill, defenceSkill, swingSeconds, hitChance, UNARMED, aggroCheck, fleeCheck,
+  resolveSpell,
 } from '../mmo/combat_rules.js';
 
 let pass = 0, fail = 0;
@@ -317,6 +318,28 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
   check('incorporeal50 halves physical damage', wraith.resists.physical === 50, String(wraith.resists.physical));
   const troll = spawnMonster('mireTroll', { x: 0, y: 0, z: 0 }, () => 0.5);
   check('regen3 is three health a second and nothing else regenerates', troll.healthRegen === 3 && wraith.healthRegen === 0, `${troll.healthRegen} vs ${wraith.healthRegen}`);
+
+  // M3, M2.md section 2: the third immunity. Written at the same RESIST_CAP the
+  // other two are, because recompute clamps every resist to it and a hundred
+  // would arrive as seventy while looking like it meant something more.
+  const drake = spawnMonster('emberDrake', { x: 0, y: 0, z: 0 }, () => 0.5);
+  check('fireImmune is fire 70, the same cap the other two immunities get',
+    drake.resists.fire === 70 && drake.naturalResists.fire === 70, JSON.stringify(drake.resists));
+  const carriers = MONSTER_LIST.filter((m) => (m.notes || []).includes('fireImmune'));
+  check('and every row that carries the tag really has it, all four of them',
+    carriers.length === 4 && carriers.every((m) => spawnMonster(m.id, { x: 0, y: 0, z: 0 }, () => 0.5).resists.fire === 70),
+    carriers.map((m) => m.id).join(', '));
+  check('and a row that does not carry it has no fire resist at all',
+    spawnMonster('wolf', { x: 0, y: 0, z: 0 }, () => 0.5).resists.fire === 0);
+  // and it really turns fire: the same spell against the drake and against a
+  // row of the same tier that is not immune to it
+  const spell = { base: [100, 100], damageType: 'fire', id: 'test', name: 'a test flame' };
+  const caster = playerActor(blankCharacter());
+  const burn = (id) => resolveSpell({ caster, target: spawnMonster(id, { x: 0, y: 0, z: 0 }, () => 0.5), spell, rng: () => 0.5, now: 0 }).damage;
+  const onDrake = burn('emberDrake'), onSpider = burn('blossomSpider');
+  check('a hundred points of fire is turned by seventy percent of it on the drake',
+    onDrake < onSpider && Math.abs(onDrake / onSpider - 0.3) < 0.02,
+    `${onSpider} on a blossom spider, ${onDrake} on an ember drake`);
 
   const wolf = spawnMonster('wolf', { x: 5, y: 0, z: 5 }, () => 0.5);
   check('a wolf is hostile', wolf.faction === 'hostile');

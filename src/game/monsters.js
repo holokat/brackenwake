@@ -40,7 +40,7 @@ import { CHUNK } from '../world/field.js';
 import { rand2 } from '../world/noise.js';
 import {
   MONSTERS, HABITAT, spawnRollFor, resolvePlace, respawnDelay,
-  NO_RESPAWN_RADIUS, SPAWN_SPACING_M,
+  NO_RESPAWN_RADIUS, SPAWN_SPACING_M, NOTE_TAGS,
 } from '../mmo/monsters.js';
 import { aggroCheck, leashCheck, fleeCheck, swingSeconds, UNARMED } from '../mmo/combat_rules.js';
 import { buildMonsterModel, DIE_SECONDS } from './monster_models.js';
@@ -50,8 +50,9 @@ import {
   castBroken, hoverHeight, approachHeight, bossPlanFor, phaseIndexFor, plateText,
   weaknessMultiplier, dungeonSpawns, normalizeDungeonLayout, dungeonHabitat,
   RANGED_FAR, RANGED_BACKOFF, CORNER_MOVE_FRACTION, CORNER_SECONDS, UNCORNER_M,
-  SWOOP_SECONDS, ENRAGE_SWING, SUMMON_COUNT, SUMMON_RING_M,
+  SWOOP_SECONDS, HOVER_HZ, ENRAGE_SWING, SUMMON_COUNT, SUMMON_RING_M,
   SLAM_WARN_S, SLAM_RADIUS, RETREAT_HEAL_PS, RETREAT_SECONDS,
+  STORM_WARN_S, STORM_RADIUS, POWDER_WARN_S, POWDER_RADIUS, POWDER_EVERY_S,
 } from './monster_ai.js';
 
 // --------------------------------------------------------------- constants
@@ -70,6 +71,14 @@ export const FLEE_BREAK_M = 25;      // a fleeing thing that gets this far away 
 export const RETURN_HEAL_S = 6;      // "flee below 25% health and return healed": full in six seconds
 export const IDLE_SPEED = 0.35;      // fraction of run speed while wandering
 export const FLEE_SPEED = 1.1;       // a bolting thing is quicker than a charging one
+/**
+ * A world animal (temperament `critter`, aggro 0) bolts when you come this
+ * close, before you touch it: a deer that stands while you walk up and swing
+ * is a target dummy, not a deer. The flee is the same `flee` state a hurt
+ * thing takes, so it breaks at FLEE_BREAK_M and walks home the same way, and a
+ * bird in it is in the air (see BIRD_BAND). Measured in monsters.test.mjs.
+ */
+export const SPOOK_M = 7;
 export const SLOW_DEFAULT = 0.3;     // fraction of speed a `slow` with no factor takes off
 export const CORPSE_LINGER_S = DIE_SECONDS + 0.4;   // the topple, and a moment after it
 // A body stays as long as its sack does, so a knife has something to skin.
@@ -95,6 +104,101 @@ export const PROJECTILE_R = 0.14;
 export const SLAM_EVERY_S = 9;
 /** Metres over the head the name plate floats. */
 export const PLATE_LIFT = 1.1;
+
+// -- the twenty one tags of wave A ------------------------------------------
+//
+// Every number below is `docs/mmo/wiring/M2.md` section 2's, and where M2 gives
+// none it says INVENTED and why. Nothing here is a second copy of a number that
+// already lives in `monster_ai.js`: the slam's radius, the swoop's seconds, the
+// summon ring and the storm's warning are all imported from there.
+//
+// THE RULE ALL OF THEM SHARE: a tag that changes state says a line. An audit of
+// this project's own story system found fifty silent effects and this is the
+// answer to it. `say` is the one door and it is not optional.
+
+/** `shieldWall`: metres, and how many of a row it takes. The roster's own words. */
+export const WALL_M = 4;
+export const WALL_MIN = 2;
+/** Armour rating each of them gains while the wall holds. M2's +10. */
+export const WALL_AR = 10;
+
+/** `healsAllies`: metres the chant reaches. */
+export const HEAL_ALLIES_M = 8;
+
+/** `howl`: metres it calls across, once, the first time it is hurt. */
+export const HOWL_M = 30;
+
+/** `dives`: seconds between stoops, and the metres of gap that earns one. */
+export const DIVE_EVERY_S = 6;          // INVENTED: M2 gives no cadence
+export const DIVE_TRIGGER_M = 8;        // M2's "more than 8 m from its target"
+export const DIVE_MULT = 2;             // M2's "one blow at double damage"
+
+/**
+ * `grab`: one blow in four takes hold.
+ *
+ * SECONDS: M2 section 2 writes 3 s in its own sentence and then says the rule
+ * "is `webRoot2` with damage on it and it should reuse that root". `webRoot2`
+ * is two seconds by its own name and by NOTE_TAG_MEANING's words for it, and
+ * the M3 brief asks for two, so two is what this is. One constant to change if
+ * the three was meant literally.
+ */
+export const GRAB_CHANCE = 0.25;
+export const GRAB_SECONDS = 2;
+
+/** `ambush`: metres of approach that reveals it, and what its first blow is worth. */
+export const AMBUSH_M = 6;
+export const AMBUSH_MULT = 2;
+
+/**
+ * `awakens`: metres. Four, which is NOTE_TAG_MEANING's own "never aggros at all
+ * until you come inside four metres of it" and M2's. The M3 brief says eight;
+ * the roster is the source of truth for a number the roster states.
+ */
+export const AWAKEN_M = 4;
+
+/** `burrows`: seconds under, seconds between, and how far out it comes up. */
+export const BURROW_EVERY_S = 12;
+export const BURROW_UNDER_S = 2;
+export const BURROW_MIN_M = 5;          // it only goes under if the gap is this wide
+export const BURROW_OUT_M = 3;          // and comes up inside this of the target
+
+/** `dropsFromAbove`: metres up it waits, and how near underneath sets it off. */
+export const DROP_HEIGHT_M = 6;
+export const DROP_UNDER_M = 2.5;
+/** Metres a second it comes down. INVENTED; six metres in half a second.
+ *  It takes NO fall damage, which is M2's own word: nothing calls applyFall. */
+export const DROP_FALL_MPS = 12;
+
+/** `hex`: seconds of cooldown, skill points off the target's hit, seconds held. */
+export const HEX_EVERY_S = 15;
+export const HEX_POINTS = 15;
+export const HEX_SECONDS = 10;
+
+/** `ashCloud`: the same shape on a landed blow rather than on a cast. */
+export const ASH_POINTS = 20;
+export const ASH_SECONDS = 6;
+
+/** `tailSweep`: every fourth swing, and the cone it opens. M2's 4 m and 90 degrees. */
+export const SWEEP_EVERY = 4;
+export const SWEEP_RANGE = 4;
+export const SWEEP_HALF_ANGLE = Math.PI / 4;    // 45 degrees each side is a 90 degree cone
+
+/**
+ * `dragonTime`: Malachar, and nothing else, ever.
+ *
+ * Above the last threshold his swing timer runs at half its seconds and his
+ * approach at one and a half times, which are both his own actor's numbers and
+ * are applied here. Below it the world slows instead, and THIS FILE DOES NOT DO
+ * THAT: the world clock is `app/context.js`'s and the wyrmsoul system owns it.
+ * `monsters.wantsPlayerSlow()` is the hook it reads. See M3.md.
+ */
+export const DRAGON_SWING = 0.5;        // fraction off his swing timer
+export const DRAGON_RUN = 1.5;          // multiplier on his approach
+export const DRAGON_PLAYER_SCALE = 0.5; // the fraction wantsPlayerSlow asks for
+
+/** Seconds a row that carries `summons` and is not a boss waits before calling. */
+export const SUMMON_AT = 0.5;           // M2's "the first time it drops below half health"
+export const SUMMON_COOLDOWN_S = 30;    // INVENTED: M2 says once, this is the guard on "once"
 
 /**
  * The chance a chunk holds a group at all.
@@ -325,6 +429,27 @@ export function stepMonster(m, dt, ctx = {}) {
   const home = ai.home || (ai.home = { x: num(m.pos.x), z: num(m.pos.z) });
   const speed = speedOf(m, now);
 
+  // -- is it in the world yet -----------------------------------------------
+  //
+  // `dormant` is the runtime saying this one has not started existing as far as
+  // a player is concerned: an ambusher still down in the reeds, a spider still
+  // on the branch, a statue in a niche you have walked past twice, a sandworm
+  // under the sand. It does not turn on anything, it does not drift, and it
+  // holds exactly where it was put, which is the whole point of all four.
+  //
+  // The runtime owns the trigger (six metres, four metres, standing underneath
+  // it, two seconds of being buried) because only the runtime knows where every
+  // body is. The moment it clears the flag the row's OWN aggro radius takes
+  // over with nothing else changed, so there is one aggro rule and not two.
+  if (ctx.dormant) {
+    ai.target = null;
+    ai.leashSince = null;
+    ai.state = 'dormant';
+    out.state = 'dormant';
+    if (player) out.dist = ctx.flying ? dist2D(m.pos, player.pos) : actorDistance(m, player);
+    return out;
+  }
+
   // -- who it is on ---------------------------------------------------------
   if (ai.state !== 'flee' && ai.state !== 'return') {
     if (ai.target && num(ai.target.health) <= 0) ai.target = null;
@@ -482,13 +607,27 @@ export function stepMonster(m, dt, ctx = {}) {
     // branch above writes pos.y from `heightAt`, so a height derived from it
     // would be knocked back to the floor on every frame the thing moved and the
     // bat would spend its life climbing the same six centimetres.
-    if (ai.alt == null) ai.alt = hoverHeight(0, false);
+    // A BIRD PERCHES. A bat hangs in the air because a bat is a fight; a gull
+    // stands on the sand until something walks at it, and takes off when it
+    // does. `ctx.perches` is true for a tier 0 flyer and false for everything
+    // else, so a harpy is untouched by this. `ctx.hoverBand` is the height a
+    // perching bird flies at once it is up, well above a sword's reach, since
+    // a gull that circles at three metres reads as a gull that cannot be
+    // bothered. See docs/mmo/wiring/F1.md section 4.
+    const band = ctx.hoverBand || null;
+    if (ai.alt == null) ai.alt = ctx.perches ? 0 : hoverHeight(0, false);
     ai.hoverT = num(ai.hoverT) + d;
     if (ai.state === 'attack') ai.swoopUntil = now + SWOOP_SECONDS * 1000;
     const swooping = num(ai.swoopUntil) > now;
-    ai.alt = approachHeight(ai.alt, hoverHeight(ai.hoverT, swooping), d);
+    const settled = !!ctx.perches && !ai.target && ai.state !== 'flee' && ai.state !== 'return';
+    let want;
+    if (swooping || settled) want = 0;
+    else if (band) want = band[0] + (band[1] - band[0]) * (0.5 + 0.5 * Math.sin(num(ai.hoverT) * HOVER_HZ * Math.PI * 2));
+    else want = hoverHeight(ai.hoverT, false);
+    ai.alt = approachHeight(ai.alt, want, d);
     m.pos.y = ground + ai.alt;
     out.altitude = ai.alt;
+    out.perched = settled && ai.alt <= 0.01;
   }
 
   out.state = ai.state;
@@ -574,6 +713,14 @@ export function makeMonsterActor(id, opts = {}) {
  *   loot, floaters, hud, audio
  * }
  */
+/**
+ * The height band a perching bird flies in once it is up, in metres over the
+ * ground: six to twelve, so a spooked gull is out of a sword's reach and reads
+ * as a bird in the air and not a bat. A tier 0 flyer gets this; every other
+ * flyer keeps monster_ai's hoverHeight band. See docs/mmo/wiring/F1.md.
+ */
+export const BIRD_BAND = [6, 12];
+
 export function createMonsters(sc, runtime, opts = {}) {
   const scene = sc && sc.scene ? sc.scene : sc;
   const group = new THREE.Group();
@@ -584,6 +731,13 @@ export function createMonsters(sc, runtime, opts = {}) {
   const rng = typeof opts.rng === 'function' ? opts.rng : Math.random;
   const combat = opts.combat || null;
   const loot = opts.loot || null;
+  /**
+   * effects.js, when a caller hands one in. GARNISH ONLY, and deliberately so:
+   * every call to it below is optional-chained, nothing reads a return value,
+   * and the rule each one decorates is complete without it. `app/systems/
+   * combat.js` does not pass one today; M3.md carries the one line that would.
+   */
+  const effects = opts.effects || null;
   const actorFactory = typeof opts.actorFactory === 'function' ? opts.actorFactory : makeMonsterActor;
   const heightAt = (x, z) => (typeof runtime?.heightAt === 'function' ? runtime.heightAt(x, z) : 0);
   const sitesNear = (x, z, r) => (typeof runtime?.sitesNear === 'function' ? runtime.sitesNear(x, z, r) : []);
@@ -609,7 +763,11 @@ export function createMonsters(sc, runtime, opts = {}) {
   const corpses = [];           // toppling bodies, waiting to be taken away
   let devSpawnN = 0;            // keys for the dev bench's spawns
   const shots = [];             // knives, spikes and boulders in the air
-  const slams = [];             // a ring on the ground, and what happens under it
+  const marks = [];             // a ring on the ground, and what happens under it
+  const blows = [];             // swings in the air, and whether they landed
+  const grabs = [];             // what a kraken is holding, and until when
+  const penalties = [];         // hexes and ash clouds, and when each comes off
+  const wallOn = new Set();     // row ids whose shield wall is up, so it says so once
   let lastScan = -1e9, lastChunk = null, lastNight = null;
   let lastNow = 0;
   // null above ground, "siteId:level" below it. A change is a whole new layer.
@@ -619,6 +777,10 @@ export function createMonsters(sc, runtime, opts = {}) {
   const stats = {
     alive: 0, spawned: 0, despawned: 0, killed: 0, capped: 0, chunks: 0,
     shots: 0, casts: 0, interrupted: 0, slams: 0, summoned: 0, phases: 0,
+    // wave A. Every one of these is incremented by exactly one branch below and
+    // is what monsters.test.mjs counts instead of taking a mechanism on trust.
+    marks: 0, storms: 0, charges: 0, dives: 0, grabs: 0, sweeps: 0,
+    hexes: 0, ambushes: 0, wakings: 0, burrows: 0, howls: 0, heals: 0, walls: 0,
   };
 
   // -- the dead list --------------------------------------------------------
@@ -678,6 +840,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       actor.weapon = rangedWeaponFor(actor, row);
     }
 
+    const tags = new Set(row.notes || []);
     const mon = {
       key: rec.key, rec, row, actor, model, id: rec.id, name: row.name,
       poison: poisonLevelOf(row), shares: sharesAggro(row),
@@ -686,8 +849,36 @@ export function createMonsters(sc, runtime, opts = {}) {
       cast: null, lastHealth: num(actor.health),
       phase: 0, plan: isBoss(row) ? bossPlanFor(row) : [], plate: null,
       slamAt: 0, retreatUntil: 0, ephemeral: !!rec.ephemeral,
+      // --- wave A's tags. One record per monster, every clock zeroed, so no
+      // branch below ever reads undefined and no tag can half exist.
+      tags,
+      wall: 0,                  // armour currently lent by a shield wall
+      swings: 0,                // for tailSweep, which is every fourth
+      diving: false, diveAt: 0, diveUntil: 0,
+      hexAt: 0, powderAt: 0,
+      howled: false,
+      summonReady: true, summonAt: 0,
+      hidden: false, dormant: false,
+      burrowAt: 0, burrowUntil: 0,
+      ambushBlow: false,
+      aloft: 0,                 // metres above the floor it is still hanging
+      dragonOn: false, playerSlow: false,
     };
     if (mon.boss) mon.plate = makePlate(mon);
+
+    // The four tags that decide what a monster IS before a player ever sees it.
+    // `dormant` is stepMonster's flag: no aggro, no drift, no wander.
+    if (tags.has('ambush')) { mon.dormant = true; setHidden(mon, true); }
+    else if (tags.has('awakens')) { mon.dormant = true; }
+    else if (tags.has('dropsFromAbove')) {
+      mon.dormant = true;
+      mon.aloft = DROP_HEIGHT_M;
+      actor.pos.y = y + DROP_HEIGHT_M;
+      model.group.position.y = y + DROP_HEIGHT_M;
+    }
+    // Malachar's own half speed swing and his one and a half times approach are
+    // on from the first frame and come off at his last threshold. See stepBoss.
+    if (tags.has('dragonTime')) dragonTime(mon, true);
     model.group.userData.monster = mon;
     model.parts.hit.userData.monster = mon;
     live.set(rec.key, mon);
@@ -700,6 +891,13 @@ export function createMonsters(sc, runtime, opts = {}) {
     if (!mon) return;
     live.delete(key);
     stats.alive--; stats.despawned++;
+    // A body that stops existing gives back everything it had lent or taken.
+    if (mon.wall) { mon.actor.ar = num(mon.actor.ar) - mon.wall; mon.wall = 0; }
+    mon.playerSlow = false;
+    for (let i = grabs.length - 1; i >= 0; i--) {
+      if (grabs[i].mon !== mon) continue;
+      releaseGrab(grabs.splice(i, 1)[0], null);
+    }
     // a swing already in the air belongs to a body that is about to stop
     // existing, and it must not land out of nowhere a third of a second later
     combat?.forget?.(mon.actor);
@@ -738,6 +936,25 @@ export function createMonsters(sc, runtime, opts = {}) {
         ? `the ${mon.name.toLowerCase()} goes down, and leaves a sack`
         : `the ${mon.name.toLowerCase()} goes down, and leaves nothing`);
     }
+
+    // M2: "the summoned monsters ... are cleaned up with their summoner's
+    // group, not left standing". A ring of wisps still circling a dead witch is
+    // a fight that never ends, and they were never a slot in the world's roll.
+    const mine = `${mon.key}:summon`;
+    const orphans = [...live.values()].filter((m) => m.groupKey === mine);
+    for (const m of orphans) despawn(m.key);
+    if (orphans.length) {
+      say(`What ${mon.name} called goes out with ${orphans.length === 1 ? 'it' : 'them'}. ${orphans.length} of them.`);
+    }
+    // Anything it was holding or had lent: the hold on your legs, the points off
+    // your hit, and Malachar's claim on your clock.
+    for (let i = grabs.length - 1; i >= 0; i--) {
+      if (grabs[i].mon !== mon) continue;
+      const g = grabs.splice(i, 1)[0];
+      releaseGrab(g, `${mon.name} lets go of you as it goes down.`);
+    }
+    mon.playerSlow = false;
+    if (mon.wall) { mon.actor.ar = num(mon.actor.ar) - mon.wall; mon.wall = 0; }
   }
 
   const hashKey = (key) => {
@@ -866,58 +1083,107 @@ export function createMonsters(sc, runtime, opts = {}) {
     }
   }
 
-  // -- the ground slam ------------------------------------------------------
+  // -- what lands on the ground and waits ------------------------------------
+  //
+  // Three things in the game are the same machine: a boss's ground slam, the
+  // reef eel's and the storm wyvern's `stormCall`, and the Legion Sapper's
+  // `powderCharge`. Each of them puts a ring on the floor, waits a stated
+  // number of seconds, and then hits whatever is still standing in it. They
+  // differ in radius, in how long the warning is, in the damage type and in
+  // what is said, and in nothing else, so there is one implementation and three
+  // specs rather than three copies of the same twenty lines.
+  //
+  // Every one goes out through `combat.queueSpell` and not `queueSwing`, for
+  // the reason written on `startSlam` before this was generalised: `landSwing`
+  // bins a blow whose distance has grown past `reachBetween * REACH_SLACK`, so
+  // a six metre ring queued as a swing would be silently thrown away for every
+  // target but the one under its feet. The cost is that `resolveSpell` has no
+  // armour term, so none of the three is reduced by AR.
 
   const RING_GEO = new THREE.RingGeometry(SLAM_RADIUS * 0.9, SLAM_RADIUS, 40);
   const RING_MAT = new THREE.MeshBasicMaterial({ color: 0xff6a3a, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false });
 
+  /** The slam, unchanged: a boss's own weight, physical, six metres, one second. */
+  const SLAM_SPEC = {
+    id: 'slam', name: 'the slam', radius: SLAM_RADIUS, warn: SLAM_WARN_S,
+    damageType: 'physical', colour: 0xff6a3a, stat: 'slams',
+    warnLine: (mon) => `${mon.name} brings it down where you are standing. Move.`,
+    hitLine: () => 'The floor comes up and catches you.',
+    missLine: () => 'The floor comes up where you were.',
+  };
+  /** The storm call: three metres of energy, a second and a half of warning. */
+  const STORM_SPEC = {
+    id: 'stormcall', name: 'the storm', radius: STORM_RADIUS, warn: STORM_WARN_S,
+    damageType: 'energy', colour: 0xb98cff, stat: 'storms',
+    warnLine: (mon) => `${mon.name} calls it down onto the ground you are standing on. Move.`,
+    hitLine: () => 'The sky answers, and it lands on you.',
+    missLine: () => 'The sky answers, and it lands where you were.',
+  };
+  /** The powder charge: three metres of fire, two seconds of it lying there. */
+  const POWDER_SPEC = {
+    id: 'powdercharge', name: 'the charge', radius: POWDER_RADIUS, warn: POWDER_WARN_S,
+    damageType: 'fire', colour: 0xff7a2a, stat: 'charges',
+    warnLine: (mon) => `${mon.name} lobs a charge at your feet. Two seconds of fuse.`,
+    hitLine: () => 'The charge goes off under you.',
+    missLine: () => 'The charge goes off where you were standing.',
+  };
+
   /**
-   * A ring on the floor for SLAM_WARN_S, then everything still standing in it.
+   * Put a ring on the floor at `at`, and hit whatever is still in it later.
    *
-   * It goes out through `combat.queueSpell` and not `queueSwing`, and the
-   * reason is worth writing down: `combat.landSwing` throws away any blow whose
-   * distance has grown past `reachBetween * REACH_SLACK`, which for a boss is
-   * under five metres, so a six metre slam queued as a swing would be silently
-   * binned for every target but the one under its feet. queueSpell has no reach
-   * gate and takes an exact `travel`. The cost is that `resolveSpell` has no
-   * armour term, so a slam is not reduced by AR: the ground going out from
-   * under you is not a thing a breastplate stops, and it is said here rather
-   * than discovered later.
+   * `effects` is optional and is only ever asked for a flash: nothing here
+   * depends on it, so a headless run and a run before app/systems/combat.js
+   * hands one in both behave identically. See M3.md.
    */
-  function startSlam(mon, at) {
-    const s = { mon, x: num(at.x), z: num(at.z), y: num(at.y), t: 0, mesh: null };
+  function startMark(mon, at, spec) {
+    const s = {
+      mon, spec, x: num(at.x), z: num(at.z), y: num(at.y), t: 0, mesh: null,
+      radius: spec.radius, warn: spec.warn,
+    };
     const mesh = new THREE.Mesh(RING_GEO, RING_MAT.clone());
+    mesh.material.color.setHex(spec.colour);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(s.x, s.y + 0.06, s.z);
+    const k = spec.radius / SLAM_RADIUS;
+    mesh.scale.set(k, k, 1);
     group.add(mesh);
     s.mesh = mesh;
-    slams.push(s);
-    stats.slams++;
-    say(`${mon.name} brings it down where you are standing. Move.`);
+    marks.push(s);
+    stats.marks++;
+    if (spec.stat && stats[spec.stat] != null) stats[spec.stat]++;
+    effects?.ring?.({ x: s.x, y: s.y, z: s.z }, spec.radius, spec.colour, spec.warn, 0.45);
+    say(spec.warnLine(mon), 'bad');
     return s;
   }
 
-  function stepSlams(d, playerActor) {
-    for (let i = slams.length - 1; i >= 0; i--) {
-      const s = slams[i];
+  /** The slam, by the name the rest of this file already calls it. */
+  function startSlam(mon, at) { return startMark(mon, at, SLAM_SPEC); }
+
+  function stepMarks(d, playerActor) {
+    for (let i = marks.length - 1; i >= 0; i--) {
+      const s = marks[i];
       s.t += d;
-      const u = clamp(s.t / SLAM_WARN_S, 0, 1);
+      const u = clamp(s.t / s.warn, 0, 1);
       s.mesh.material.opacity = 0.25 + 0.45 * u;
-      if (s.t < SLAM_WARN_S) continue;
+      if (s.t < s.warn) continue;
       s.mesh.parent?.remove(s.mesh);
       s.mesh.material.dispose();
-      slams.splice(i, 1);
+      marks.splice(i, 1);
       const row = s.mon.row;
-      const spell = { base: [row.damage[0], row.damage[1]], damageType: 'physical', id: 'slam', name: 'the slam' };
+      const spell = {
+        base: [row.damage[0], row.damage[1]], damageType: s.spec.damageType,
+        id: s.spec.id, name: s.spec.name,
+      };
       const caught = [];
       for (const who of [playerActor, ...[...live.values()].map((m) => m.actor)]) {
         if (!who || who === s.mon.actor || num(who.health) <= 0) continue;
         if (who.kind !== 'player') continue;                 // the boss's own do not take it
-        if (Math.hypot(num(who.pos.x) - s.x, num(who.pos.z) - s.z) > SLAM_RADIUS) continue;
+        if (Math.hypot(num(who.pos.x) - s.x, num(who.pos.z) - s.z) > s.radius) continue;
         caught.push(who);
         combat?.queueSpell?.(s.mon.actor, spell, who, { now: lastNow, travel: 0 });
       }
-      say(caught.length ? 'The floor comes up and catches you.' : 'The floor comes up where you were.');
+      effects?.burst?.({ x: s.x, y: s.y + 0.4, z: s.z }, s.spec.colour, s.radius / 3);
+      say(caught.length ? s.spec.hitLine(s.mon) : s.spec.missLine(s.mon), caught.length ? 'bad' : null);
     }
   }
 
@@ -930,6 +1196,12 @@ export function createMonsters(sc, runtime, opts = {}) {
       cx, cz, night,
       recs: field ? spawnsForChunk(field, cx, cz, { night, sitesNear, spawnPoint, spawnKeep, chance: opts.groupChance }) : [],
     };
+    // The world's own animals. src/world/fauna.js decides where a rabbit
+    // belongs (biome, forest edge, off the water, out of the towns); this layer
+    // stands it up. The records are this file's own record shape, so the cap
+    // ranks them, `deadUntil` remembers them and the sweep despawns them
+    // exactly as it does a wolf. See docs/mmo/wiring/F1.md.
+    if (typeof runtime?.critterSpawns === 'function') entry.recs = entry.recs.concat(runtime.critterSpawns(cx, cz, night));
     chunks.set(k, entry);
     return entry;
   }
@@ -1030,8 +1302,14 @@ export function createMonsters(sc, runtime, opts = {}) {
     for (const key of [...live.keys()]) despawn(key);
     for (let i = shots.length - 1; i >= 0; i--) { shots[i].mesh.parent?.remove(shots[i].mesh); }
     shots.length = 0;
-    for (const s of slams) { s.mesh.parent?.remove(s.mesh); s.mesh.material.dispose(); }
-    slams.length = 0;
+    for (const s of marks) { s.mesh.parent?.remove(s.mesh); s.mesh.material.dispose(); }
+    marks.length = 0;
+    // A hex or a hold belongs to a body that has just stopped existing, and a
+    // player who walked down a stair with fifteen points off his hit and no
+    // monster left alive to take them back off is the silent effect this whole
+    // file is written against. Everything outstanding is released here.
+    releaseAll('The last of them is gone, and it comes off you.');
+    blows.length = 0;
     chunks.clear();
     levelRecs = [];
     levelL = null;
@@ -1083,6 +1361,12 @@ export function createMonsters(sc, runtime, opts = {}) {
       }
     }
 
+    // The shield wall is a fact about a GROUP and not about one body, so it is
+    // recomputed once for the whole field before anybody swings, not inside the
+    // per monster loop where each of four soldiers would read a different half
+    // finished answer.
+    stepWall();
+
     for (const mon of [...live.values()]) {
       const a = mon.actor;
       if (num(a.health) <= 0) continue;                  // combat's onDeath will take it
@@ -1093,6 +1377,24 @@ export function createMonsters(sc, runtime, opts = {}) {
       mon.lastHealth = num(a.health);
       if (mon.boss) stepBoss(mon, d, playerActor);
 
+      // Is it in the world yet? An ambusher in the reeds, a statue nobody has
+      // walked up to, a spider on the branch, a worm two seconds under the
+      // sand. `stepDormant` owns the trigger and stepMonster is handed the flag.
+      const dormant = stepDormant(mon, d, playerActor);
+
+      // A critter bolts from you before you have touched it, and from the
+      // dragon too, since a hawk on your shoulder is still a hawk to a rabbit.
+      if (mon.row.temperament === 'critter' && a.ai.state !== 'flee' && a.ai.state !== 'dead' && num(a.health) > 0) {
+        const threats = [playerActor, ...(typeof opts.allies === 'function' ? (opts.allies() || []) : [])];
+        const near = threats.find((t) => t && num(t.health) > 0 && dist2D(a.pos, t.pos) <= SPOOK_M);
+        if (near) { a.ai.state = 'flee'; a.ai.fleeFrom = near; a.ai.target = null; }
+      }
+
+      // A stoop overrides the standoff: a harpy that shoots does not shoot on
+      // the way down, and the swoop is forced so the altitude actually reaches
+      // the floor rather than waiting for `state === 'attack'` to get there.
+      if (mon.diving) a.ai.swoopUntil = lastNow + SWOOP_SECONDS * 1000;
+
       const settled = a.ai && a.ai.target && num(a.ai.target.health) > 0 ? a.ai.target : playerActor;
       const res = stepMonster(a, d, {
         player: playerActor, now: lastNow, heightAt,
@@ -1101,12 +1403,19 @@ export function createMonsters(sc, runtime, opts = {}) {
         // the reach to whoever it settled on, not always the player: a wolf on
         // the dragon measures its bite against the dragon's body
         reach: combat ? combat.reachBetween(a, settled || a) : undefined,
-        mode: mon.mode,
+        mode: mon.diving ? 'melee' : mon.mode,
         flying: mon.flyer,
+        perches: mon.flyer && mon.row.tier === 0,
+        hoverBand: mon.flyer && mon.row.tier === 0 ? BIRD_BAND : null,
+        dormant,
         rng,
       });
       mon.cornered = !!res.cornered;
       if (!before && a.ai.target) alertGroup(mon, a.ai.target);
+
+      // Anything still hanging above the floor, and the fall when it lets go.
+      stepAloft(mon, d);
+      if (!dormant) stepSpecials(mon, d, playerActor, took);
 
       mon.model.group.position.set(a.pos.x, a.pos.y, a.pos.z);
       mon.model.group.rotation.y = num(a.yaw);
@@ -1117,11 +1426,38 @@ export function createMonsters(sc, runtime, opts = {}) {
       stepCast(mon, took, res, playerActor, onPlayer);
 
       if (res.wantSwing && onPlayer) {
-        const ranged = mon.mode === 'thrown' || mon.mode === 'shot';
-        const swing = combat.queueSwing(a, playerActor, { now: lastNow, poison: mon.poison || undefined });
-        if (swing.queued) {
-          mon.model.setAnim('swing');
-          if (ranged) throwShot(mon, playerActor);
+        // A stoop is hands and feet whatever the row usually does at range: a
+        // glass wyvern coming down does not also throw a spike on the way.
+        const ranged = !mon.diving && (mon.mode === 'thrown' || mon.mode === 'shot');
+        // Every fourth swing of a row that sweeps is the arc instead of the
+        // blow. It costs the same swing, so it is not a free fifth attack.
+        const sweeping = mon.tags.has('tailSweep') && (mon.swings + 1) % SWEEP_EVERY === 0;
+        if (sweeping) {
+          if (tailSweep(mon, playerActor)) mon.swings++;
+        } else {
+          const o = { now: lastNow, poison: mon.poison || undefined };
+          // A stoop is worth two, and so is the first blow out of an ambush.
+          let mult = 1;
+          if (mon.diving) mult *= DIVE_MULT;
+          if (mon.ambushBlow) mult *= AMBUSH_MULT;
+          if (mult !== 1) o.multiplier = mult;
+          const swing = combat.queueSwing(a, playerActor, o);
+          if (swing.queued) {
+            mon.swings++;
+            // Remembered so `grab` and `ashCloud` can ask, one frame after it
+            // was due, whether it actually took health off. See stepBlows.
+            blows.push({ mon, target: playerActor, at: swing.at, health: num(playerActor.health) });
+            if (mon.ambushBlow) {
+              mon.ambushBlow = false;
+              say(`It was waiting for you, and the first blow is worth two of them.`, 'bad');
+            }
+            if (mon.diving) {
+              mon.diving = false;
+              say(`${mon.name} strikes on the way past, twice as hard for the height, and climbs again.`, 'bad');
+            }
+            mon.model.setAnim('swing');
+            if (ranged) throwShot(mon, playerActor);
+          }
         }
       }
       // the animation follows the actor, which combat.js writes on a hit
@@ -1135,7 +1471,10 @@ export function createMonsters(sc, runtime, opts = {}) {
     }
 
     stepShots(d);
-    stepSlams(d, playerActor);
+    stepMarks(d, playerActor);
+    stepBlows();
+    stepGrabs();
+    stepPenalties();
     stepCorpses(d);
   }
 
@@ -1146,6 +1485,9 @@ export function createMonsters(sc, runtime, opts = {}) {
    * of the caster's health, which is 04-CLASSES-ABILITIES' rule for the player
    * and is not given a second, softer version here.
    */
+  /** The hex, as a spell record so it goes through exactly the same cast path. */
+  const HEX_SPELL = { id: 'hex', name: 'a hex', base: [0, 0], damageType: 'energy', cone: null, seconds: 1.5, travel: 0, hex: true };
+
   function stepCast(mon, took, res, playerActor, onPlayer) {
     if (!combat) return;
     if (mon.cast) {
@@ -1162,6 +1504,22 @@ export function createMonsters(sc, runtime, opts = {}) {
       const target = mon.cast.target;
       mon.cast = null;
       if (!target || num(target.health) <= 0) return;
+      // `healsAllies`: it lands as health on its own side rather than as damage
+      // on yours. The chaplain is the whole of this branch.
+      if (mon.tags.has('healsAllies')) { chantHeal(mon); return; }
+      // `hex`: no damage at all, points off the target's hit and a word for it.
+      if (spell.hex) {
+        hitPenalty(target, 'hex', HEX_POINTS, HEX_SECONDS,
+          `${mon.name} puts a hex on you. ${HEX_POINTS} off your hit for ${HEX_SECONDS} seconds.`);
+        effects?.burst?.(target.pos, 0xc07aff, 1.0);
+        return;
+      }
+      // `stormCall`: not a missile. A mark on the ground the target is standing
+      // on now, and the sky answers it STORM_WARN_S later, which is time to move.
+      if (spell.ground) {
+        startMark(mon, { x: target.pos.x, y: heightAt(target.pos.x, target.pos.z), z: target.pos.z }, STORM_SPEC);
+        return;
+      }
       if (spell.cone) {
         // "hitting everything in a 6 m cone": the cone is aimed where the thing
         // is facing, and it is measured, not assumed.
@@ -1177,12 +1535,20 @@ export function createMonsters(sc, runtime, opts = {}) {
     // the row's tabled speed is its casting rhythm too, so no second number
     const wait = num(mon.actor.lastSwingAt) + swingSeconds(mon.actor) * 1000 - lastNow;
     if (Number.isFinite(mon.actor.lastSwingAt) && wait > 0) return;
+    // `hex` is the SECOND cast of a row that already casts, on its own fifteen
+    // second cooldown: when it is up, this cast is the curse instead of the
+    // fireball. One cast at a time, so the hold and the interrupt still hold.
+    let spell = mon.spell;
+    if (mon.tags.has('hex') && lastNow >= mon.hexAt) {
+      spell = HEX_SPELL;
+      mon.hexAt = lastNow + HEX_EVERY_S * 1000;
+    }
     mon.actor.lastSwingAt = lastNow;
-    mon.cast = { until: lastNow + mon.spell.seconds * 1000, spell: mon.spell, target: playerActor };
+    mon.cast = { until: lastNow + spell.seconds * 1000, spell, target: playerActor };
     mon.actor.anim = 'cast';
     mon.model.setAnim('cast');
     stats.casts++;
-    say(`${mon.name} begins ${mon.spell.name}.`);
+    say(`${mon.name} begins ${spell.name}.`);
   }
 
   /**
@@ -1215,6 +1581,21 @@ export function createMonsters(sc, runtime, opts = {}) {
         a.ai.target = null;
       }
     }
+    // `dragonTime`: Malachar, and nothing else, ever. His half speed swing and
+    // his one and a half times approach hold WHILE HE IS ABOVE THE LAST
+    // THRESHOLD; under it they come off and the world is meant to slow instead,
+    // which is `wantsPlayerSlow()` and is not this file's to do.
+    if (mon.tags.has('dragonTime')) {
+      const last = mon.plan.length;
+      const above = mon.phase < last;
+      if (mon.dragonOn !== above) {
+        dragonTime(mon, above);
+        if (!above) {
+          mon.playerSlow = true;
+          say(`${mon.name} stops hurrying, and the room slows down around him. It is you who is slow now.`, 'bad');
+        }
+      }
+    }
     if (mon.retreatUntil > lastNow && combat?.heal) combat.heal(a, RETREAT_HEAL_PS * d, { quiet: true });
     if (mon.retreatUntil && lastNow >= mon.retreatUntil) {
       mon.retreatUntil = 0;
@@ -1234,13 +1615,29 @@ export function createMonsters(sc, runtime, opts = {}) {
    * world's roll and an entry for them would sit in the save matching nothing.
    */
   function summonFor(mon) {
+    // What it calls, in one of two ways and never a third.
+    //
+    // A row that carries `summons: { id, count }` calls exactly that: the Fen
+    // Witch's two wisps, Gallow's two bone hounds, Ossory's two knights. The
+    // roster's own audit has already proved the id is a real row of a lower
+    // tier, so nothing here can put down a thing that does not exist.
+    //
+    // A row with no `summons` field falls back to what the document's four
+    // bosses have always done: the level's own night roster, minus its bosses,
+    // SUMMON_COUNT of it. That path is unchanged.
+    const named = mon.row.summons && MONSTERS[mon.row.summons.id] ? mon.row.summons : null;
     const habitat = levelL ? dungeonHabitat(levelL.kind, levelL.level) : 'dungeon3';
-    const list = (HABITAT[habitat]?.night || []).filter((id) => MONSTERS[id] && !MONSTERS[id].boss);
-    if (!list.length) return 0;
-    let made = 0;
-    for (let i = 0; i < SUMMON_COUNT; i++) {
-      const id = list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
-      const ang = (i / SUMMON_COUNT) * Math.PI * 2 + rng();
+    const list = named ? [named.id] : (HABITAT[habitat]?.night || []).filter((id) => MONSTERS[id] && !MONSTERS[id].boss);
+    const want = named ? Math.max(1, Math.round(num(named.count)) || 1) : SUMMON_COUNT;
+    if (!list.length) { say(`${mon.name} calls, and nothing here answers.`); return 0; }
+    let made = 0, capped = 0;
+    for (let i = 0; i < want; i++) {
+      // A summon is a body like any other and counts against the same ceiling.
+      // Saying so matters: a boss that calls two and puts down none looks like
+      // a broken boss rather than a full world.
+      if (live.size >= cap) { capped = want - made; break; }
+      const id = named ? named.id : list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
+      const ang = (i / want) * Math.PI * 2 + rng();
       let x = num(mon.actor.pos.x) + Math.cos(ang) * SUMMON_RING_M;
       let z = num(mon.actor.pos.z) + Math.sin(ang) * SUMMON_RING_M;
       if (runtime?.inDungeon) { const c = clampXZ(x, z); x = num(c[0]); z = num(c[1]); }
@@ -1251,8 +1648,533 @@ export function createMonsters(sc, runtime, opts = {}) {
       if (spawn(rec)) made++;
     }
     stats.summoned += made;
-    say(made ? `${made} of them come out of the dark.` : 'Nothing answers.');
+    effects?.burst?.(mon.actor.pos, 0x7a5ea8, 1.6);
+    if (!made) say(`${mon.name} calls, and nothing comes.`);
+    else if (named) {
+      const what = MONSTERS[named.id].name.toLowerCase();
+      say(`${mon.name} calls, and ${made} ${what}${made === 1 ? '' : 's'} come out of the dark for it.`, 'bad');
+    } else say(`${made} of them come out of the dark.`, 'bad');
+    if (capped) say(`${capped} more would have come, and there is no room in the world for them.`);
     return made;
+  }
+
+  // ==========================================================================
+  // Wave A's tags: the rules M2.md section 2 asks for.
+  // ==========================================================================
+  //
+  // Read this before adding a twenty second one. Four things are true of every
+  // rule below and none of them is optional:
+  //
+  //   1. IT SAYS SOMETHING. A summon says how many came, a grab says it has
+  //      you, a wall says how many are in it, a heal says what went where. It
+  //      also says what did NOT happen: a howl nothing answered, a sweep you
+  //      were behind, a summon the body cap ate. A silent real effect is
+  //      indistinguishable from a broken one.
+  //   2. THE NUMBER IS COUNTED. Every line that names a count reads it off live
+  //      state on the frame it is said.
+  //   3. IT COMES OFF AGAIN. Anything lent to an actor (armour to a shield
+  //      wall, points off a player's hit, a hold on his legs, Malachar's half
+  //      speed swing) is tracked as a delta and given back, and `releaseAll`
+  //      gives back everything outstanding when the layer changes.
+  //   4. IT GOES THROUGH THE EXISTING DOOR. Damage is `combat.queueSpell` or
+  //      `combat.hurt`, a root is `combat.applyStatus`, a body is `spawn`, and
+  //      there is no second damage formula anywhere in here.
+
+  /** No body, no plate, nothing to click. An ambusher, or a worm under the sand. */
+  function setHidden(mon, hidden) {
+    mon.hidden = !!hidden;
+    if (mon.model && mon.model.group) mon.model.group.visible = !mon.hidden;
+    if (mon.plate && mon.plate.sprite) mon.plate.sprite.visible = !mon.hidden;
+  }
+
+  /** actor.js's recompute, if main.js handed one in. True when it really ran. */
+  function recomputeActor(a) {
+    if (typeof combat?.recompute !== 'function' || !a) return false;
+    combat.recompute(a);
+    return true;
+  }
+
+  // -- points off a hit: `hex` and `ashCloud` --------------------------------
+  //
+  // Both tags do the same thing to a target and differ only in how many points,
+  // for how long, and what set it off. The points come off `bonuses.hit`, which
+  // is what `combat_rules.attackSkill` adds to the weapon skill, so a hexed
+  // player genuinely misses more and the number is in the same unit the row's
+  // own `hit` is in: skill points.
+  //
+  // HOW IT IS CARRIED, and why it is not simply written onto `bonuses.hit`:
+  // `actor.recompute` REPLACES `actor.bonuses` wholesale out of gear and buffs,
+  // so a number written straight onto it disappears the moment the player puts
+  // a ring on. It is carried as a real buff instead, in the list recompute
+  // already reads. The buff carries NO `until` field on purpose: that field is
+  // in SECONDS over in abilities_runtime.js and in wall-clock milliseconds in
+  // recompute, and a curse expiring against the wrong clock is the units bug
+  // this project has already paid for once. The clock is `penalties` below, in
+  // the same milliseconds every other timer in this file uses, and it is the
+  // only thing that takes the buff off again.
+  function hitPenalty(target, kind, points, seconds, line) {
+    if (!target || num(target.health) <= 0) return null;
+    const had = penalties.find((x) => x.actor === target && x.kind === kind);
+    if (had) {
+      had.until = Math.max(had.until, lastNow + seconds * 1000);
+      return had;
+    }
+    const p = { actor: target, kind, points, until: lastNow + seconds * 1000, direct: false, buff: null };
+    target.buffs = Array.isArray(target.buffs) ? target.buffs : [];
+    p.buff = { name: kind, kind, source: 'monster', effect: { bonuses: { hit: -points } } };
+    target.buffs.push(p.buff);
+    if (!recomputeActor(target)) {
+      // No recompute in this tree: the points go on the live record instead and
+      // are added back by hand. Either path is real; neither is a no-op.
+      target.bonuses = target.bonuses || {};
+      target.bonuses.hit = num(target.bonuses.hit) - points;
+      p.direct = true;
+    }
+    penalties.push(p);
+    stats.hexes++;
+    combat?.float?.(target, `hit -${points}`, 'miss');
+    say(line, 'bad');
+    return p;
+  }
+
+  function dropPenalty(p, line) {
+    const at = Array.isArray(p.actor.buffs) ? p.actor.buffs.indexOf(p.buff) : -1;
+    if (at >= 0) p.actor.buffs.splice(at, 1);
+    if (p.direct) {
+      p.actor.bonuses = p.actor.bonuses || {};
+      p.actor.bonuses.hit = num(p.actor.bonuses.hit) + p.points;
+    } else recomputeActor(p.actor);
+    combat?.float?.(p.actor, `${p.kind} gone`, 'heal');
+    if (line) say(line);
+  }
+
+  function stepPenalties() {
+    for (let i = penalties.length - 1; i >= 0; i--) {
+      const p = penalties[i];
+      if (lastNow < p.until && num(p.actor.health) > 0) continue;
+      penalties.splice(i, 1);
+      dropPenalty(p, p.kind === 'hex'
+        ? 'The curse comes off you.'
+        : 'The ash settles, and you can see to swing again.');
+    }
+  }
+
+  // -- `grab`: the kraken has you --------------------------------------------
+  //
+  // One landed blow in four takes hold: the target is rooted for GRAB_SECONDS
+  // through `combat.applyStatus`, which is the same root a spider's web writes
+  // and is read by `speedOf` and by the player's own movement, and it takes the
+  // row's LOW damage every second while it holds. Killing the holder ends it,
+  // which is the answer to "what do I do about this".
+  function grabHold(mon, target) {
+    if (!combat || !target || num(target.health) <= 0) return null;
+    combat.applyStatus(target, 'root', { seconds: GRAB_SECONDS }, lastNow);
+    const g = {
+      mon, target, until: lastNow + GRAB_SECONDS * 1000,
+      nextTick: lastNow + 1000, per: num(mon.row.damage?.[0]) || 1,
+    };
+    grabs.push(g);
+    stats.grabs++;
+    effects?.burst?.(target.pos, 0xe8e2d4, 0.8);
+    say(`${mon.name} has you. ${GRAB_SECONDS} seconds of it, and ${g.per} a second while it squeezes.`, 'bad');
+    return g;
+  }
+
+  function releaseGrab(g, line) {
+    combat?.clearStatus?.(g.target, 'root');
+    if (line) say(line);
+  }
+
+  function stepGrabs() {
+    for (let i = grabs.length - 1; i >= 0; i--) {
+      const g = grabs[i];
+      const holderGone = !live.has(g.mon.key) || num(g.mon.actor.health) <= 0;
+      if (holderGone) {
+        grabs.splice(i, 1);
+        releaseGrab(g, `${g.mon.name} lets go of you, because it is dead.`);
+        continue;
+      }
+      while (lastNow >= g.nextTick && g.nextTick <= g.until && num(g.target.health) > 0) {
+        g.nextTick += 1000;
+        combat?.hurt?.(g.target, g.per, { now: lastNow, kind: 'damage', killer: g.mon.actor });
+      }
+      if (lastNow >= g.until || num(g.target.health) <= 0) {
+        grabs.splice(i, 1);
+        releaseGrab(g, num(g.target.health) > 0 ? `${g.mon.name} lets go of you.` : null);
+      }
+    }
+  }
+
+  /** Everything lent out, given back. A layer change, a dispose, a death screen. */
+  function releaseAll(line) {
+    const held = grabs.length + penalties.length;
+    for (const g of grabs.splice(0)) releaseGrab(g, null);
+    for (const p of penalties.splice(0)) dropPenalty(p, null);
+    wallOn.clear();
+    if (line && held) say(line);
+    return held;
+  }
+
+  // -- a blow, and whether it landed -----------------------------------------
+  //
+  // `grab` and `ashCloud` both fire ON A LANDED BLOW, and nothing in combat.js
+  // tells this file about one: `onHit` fires for weapon effects and thorns, not
+  // for every swing. So a queued swing is remembered with the target's health
+  // as it left, and asked about one frame after it was due, which is exactly
+  // the trick `throwShot` already uses to decide whether a knife stops in a
+  // chest or carries on past an ear. `monsters.update` runs BEFORE
+  // `combat.update` in the frame, so at any `now` past `at` the resolver has
+  // already spoken.
+  function stepBlows() {
+    for (let i = blows.length - 1; i >= 0; i--) {
+      const b = blows[i];
+      if (lastNow <= b.at) continue;
+      // ONE FRAME LATER, NOT THIS ONE. `monsters.update` runs BEFORE
+      // `combat.update`, so on the first frame past `at` the resolver has not
+      // spoken yet and the target's health has not moved. Asking here would
+      // read every landed blow as a miss, which is exactly what it did until
+      // this line existed. `stepShots` waits the same frame for the same reason.
+      if (!b.seen) { b.seen = true; continue; }
+      blows.splice(i, 1);
+      if (!live.has(b.mon.key)) continue;
+      if (!(num(b.target.health) < b.health)) continue;      // a miss, a parry, a dodge
+      if (b.mon.tags.has('grab') && rng() < GRAB_CHANCE) grabHold(b.mon, b.target);
+      if (b.mon.tags.has('ashCloud')) {
+        hitPenalty(b.target, 'ashCloud', ASH_POINTS, ASH_SECONDS,
+          `${b.mon.name} comes apart into ash around your head, and you cannot see to swing. ${ASH_POINTS} off your hit for ${ASH_SECONDS} seconds.`);
+      }
+    }
+  }
+
+  // -- `shieldWall`: they lock up ---------------------------------------------
+  //
+  // While WALL_MIN or more live monsters of the SAME ROW stand within WALL_M of
+  // each other, each of them carries WALL_AR more armour. Recomputed every
+  // frame from live positions, which is what makes it come off the moment the
+  // second one dies or walks away, and it is lent as a tracked delta so the
+  // armour a monster ends with is the armour its row says it has.
+  function stepWall() {
+    // Row first, not body first. A row whose last walled body despawns has to
+    // be forgotten, or the next two of its kind lock shields in silence.
+    const rows = new Set();
+    for (const mon of live.values()) if (mon.tags.has('shieldWall')) rows.add(mon.id);
+    for (const id of [...wallOn]) if (!rows.has(id)) wallOn.delete(id);
+    for (const id of rows) {
+      const members = [];
+      for (const m of live.values()) {
+        if (m.id === id && num(m.actor.health) > 0 && !m.hidden) members.push(m);
+      }
+      let most = 0;
+      for (const mon of members) {
+        let n = 0;
+        for (const other of members) if (dist2D(other.actor.pos, mon.actor.pos) <= WALL_M) n++;
+        if (n > most) most = n;
+        const want = n >= WALL_MIN ? WALL_AR : 0;
+        if (want === mon.wall) continue;
+        // lent as a tracked delta, so what it ends with is what its row says
+        mon.actor.ar = num(mon.actor.ar) - mon.wall + want;
+        mon.wall = want;
+      }
+      const up = members.some((m) => m.wall > 0);
+      // One line per ROW, not one per body: four soldiers locking up is one
+      // thing happening, and four identical lines in the log is a bug report.
+      if (up && !wallOn.has(id)) {
+        wallOn.add(id);
+        stats.walls++;
+        say(`${most} of them lock shields. That is ${WALL_AR} more armour on each while they hold.`, 'bad');
+      } else if (!up && wallOn.has(id)) {
+        wallOn.delete(id);
+        say('The shield wall breaks.', 'good');
+      }
+    }
+  }
+
+  // -- `healsAllies`: the chaplain's chant ------------------------------------
+  //
+  // A cast, using the caster path that already exists, because the chaplain
+  // also carries `casts` and so `attackModeOf` gives her `cast` and the hold
+  // and the interrupt are free. What is different is only what happens when it
+  // lands: nothing at the player, and the row's own damage range as health to
+  // every hurt ally within HEAL_ALLIES_M, herself included.
+  function chantHeal(mon) {
+    const [lo, hi] = mon.row.damage || [1, 3];
+    const amount = Math.round(lo + rng() * Math.max(0, hi - lo));
+    let n = 0, given = 0;
+    for (const other of live.values()) {
+      if (num(other.actor.health) <= 0 || other.hidden) continue;
+      if (num(other.actor.health) >= num(other.actor.maxHealth)) continue;
+      if (dist2D(other.actor.pos, mon.actor.pos) > HEAL_ALLIES_M) continue;
+      const got = combat?.heal?.(other.actor, amount) || 0;
+      if (got > 0) { n++; given += got; }
+    }
+    stats.heals++;
+    effects?.burst?.(mon.actor.pos, 0x8ef0a0, 1.2);
+    say(n
+      ? `${mon.name} lifts the cup, and the wall closes up. ${given} health back across ${n} of them.`
+      : `${mon.name} lifts the cup, and nobody standing near her needs it.`);
+    return { n, given };
+  }
+
+  // -- `howl`: the alpha calls the pack ---------------------------------------
+  //
+  // On the first blow it takes, once and never again, every monster of its own
+  // row within HOWL_M comes. It is `sharesAggro` with a bigger radius and a
+  // line, and the line counts what actually turned rather than promising a pack
+  // that is not there.
+  function howl(mon, target) {
+    mon.howled = true;
+    let n = 0;
+    for (const other of live.values()) {
+      if (other === mon || other.id !== mon.id) continue;
+      if (num(other.actor.health) <= 0 || other.dormant || other.hidden) continue;
+      if (other.actor.ai?.target) continue;
+      if (dist2D(other.actor.pos, mon.actor.pos) > HOWL_M) continue;
+      other.actor.ai.target = target;
+      other.actor.ai.state = 'chase';
+      n++;
+    }
+    stats.howls++;
+    say(n
+      ? `The ${mon.name.toLowerCase()} throws its head back, and ${n} more come out of the dark for it.`
+      : `The ${mon.name.toLowerCase()} throws its head back, and nothing answers.`, 'bad');
+    return n;
+  }
+
+  // -- `dives`: the stoop -----------------------------------------------------
+  //
+  // A flyer holding at hover height with its target more than DIVE_TRIGGER_M
+  // away drops to the floor over SWOOP_SECONDS, lands one blow worth
+  // DIVE_MULT, and climbs again. While it is diving it walks in as a melee row
+  // whatever its own mode is, which is what a stoop is: a harpy that shoots
+  // does not shoot on the way down.
+  function planDive(mon) {
+    if (!mon.tags.has('dives')) return;
+    const a = mon.actor;
+    const t = a.ai?.target;
+    if (!t || num(t.health) <= 0) { mon.diving = false; return; }
+    if (mon.diving) {
+      // it never got there: give up rather than hang in the swoop for ever
+      if (lastNow >= mon.diveUntil) {
+        mon.diving = false;
+        say(`${mon.name} misses its stoop and climbs again.`);
+      }
+      return;
+    }
+    if (lastNow < mon.diveAt) return;
+    if (dist2D(a.pos, t.pos) <= DIVE_TRIGGER_M) return;
+    mon.diving = true;
+    mon.diveAt = lastNow + DIVE_EVERY_S * 1000;
+    mon.diveUntil = lastNow + (SWOOP_SECONDS + 4) * 1000;
+    stats.dives++;
+    say(`${mon.name} folds its wings and comes down at you.`, 'bad');
+  }
+
+  // -- `tailSweep`: every fourth swing is a cone -------------------------------
+  //
+  // Not a blow at one target: `coneTargets` at SWEEP_RANGE and SWEEP_HALF_ANGLE
+  // and the row's damage to everything inside it. It costs the row's swing, so
+  // the cooldown gate `queueSwing` would have applied is applied here instead
+  // rather than being a free fifth attack. Like the slam, the boss's own do not
+  // take it.
+  function tailSweep(mon, target) {
+    const a = mon.actor;
+    const wait = num(a.lastSwingAt) + swingSeconds(a) * 1000 - lastNow;
+    if (Number.isFinite(a.lastSwingAt) && wait > 0) return false;
+    a.lastSwingAt = lastNow;
+    a.anim = 'swing';
+    mon.model.setAnim('swing');
+    const row = mon.row;
+    const spell = { base: [row.damage[0], row.damage[1]], damageType: 'physical', id: 'tailsweep', name: 'the tail' };
+    const caught = coneTargets(a.pos, a.yaw, SWEEP_RANGE, SWEEP_HALF_ANGLE, [target]);
+    for (const who of caught) combat?.queueSpell?.(a, spell, who, { now: lastNow, travel: 0 });
+    stats.sweeps++;
+    effects?.burst?.(a.pos, 0xe8e2d4, 1.4);
+    say(caught.length
+      ? `${mon.name} brings the tail round in an arc, and it catches you.`
+      : `${mon.name} brings the tail round in an arc, and you are outside it.`, caught.length ? 'bad' : null);
+    return true;
+  }
+
+  // -- `dragonTime`: Malachar's, and nothing else's ---------------------------
+  //
+  // Above his last threshold his swing timer runs at half its seconds and his
+  // approach at DRAGON_RUN, both of them on HIS OWN actor and both tracked so
+  // they come off exactly. Below it they come off and the world is supposed to
+  // slow instead, which this file does not do and must not: the world clock is
+  // `app/context.js`'s and the wyrmsoul system owns it. `wantsPlayerSlow()` on
+  // the returned api is the hook that system reads. See M3.md section 4.
+  function dragonTime(mon, on) {
+    if (!!on === !!mon.dragonOn) return;
+    const a = mon.actor;
+    mon.dragonOn = !!on;
+    a.bonuses = a.bonuses || {};
+    a.bonuses.swingSpeed = num(a.bonuses.swingSpeed) + (on ? DRAGON_SWING : -DRAGON_SWING);
+    a.run = on ? num(a.run) * DRAGON_RUN : num(a.run) / DRAGON_RUN;
+  }
+
+  // -- the four that decide whether a monster is there at all -----------------
+  //
+  // `ambush`, `awakens`, `dropsFromAbove` and `burrows`. Each returns true while
+  // the monster is still dormant, and `stepMonster` is handed that flag: no
+  // aggro, no drift, no wander, holds exactly where it was put.
+  function stepDormant(mon, d, playerActor) {
+    const a = mon.actor;
+    const p = playerActor && num(playerActor.health) > 0 ? playerActor : null;
+    const gap = p ? dist2D(a.pos, p.pos) : Infinity;
+
+    if (mon.tags.has('ambush') && mon.dormant) {
+      if (gap > AMBUSH_M) return true;
+      mon.dormant = false;
+      setHidden(mon, false);
+      a.ai.state = 'idle';
+      mon.ambushBlow = true;
+      stats.ambushes++;
+      effects?.burst?.(a.pos, 0x86e05a, 1.0);
+      say(`The ${mon.name.toLowerCase()} was in the reeds the whole time, and it is beside you now.`, 'bad');
+      return false;
+    }
+
+    if (mon.tags.has('awakens') && mon.dormant) {
+      // Visible the whole time. That is the entire difference from an ambush:
+      // this is a statue you have already walked past, not a thing in the grass.
+      if (gap > AWAKEN_M) return true;
+      mon.dormant = false;
+      a.ai.state = 'idle';
+      stats.wakings++;
+      say(`The carving you walked past is a ${mon.name.toLowerCase()}, and it steps down off its plinth.`, 'bad');
+      return false;
+    }
+
+    if (mon.tags.has('dropsFromAbove') && mon.dormant) {
+      if (gap > DROP_UNDER_M) return true;
+      mon.dormant = false;
+      a.ai.state = 'idle';
+      stats.ambushes++;
+      say(`The blossom above the path is a ${mon.name.toLowerCase()}, and it drops on you.`, 'bad');
+      return false;                                  // mon.aloft falls in stepAloft
+    }
+
+    if (mon.tags.has('burrows')) {
+      if (mon.dormant) {
+        if (lastNow < mon.burrowUntil) return true;
+        surface(mon);
+        return false;
+      }
+      const t = a.ai?.target;
+      if (t && num(t.health) > 0 && lastNow >= mon.burrowAt && dist2D(a.pos, t.pos) > BURROW_MIN_M) {
+        mon.dormant = true;
+        setHidden(mon, true);
+        mon.burrowUntil = lastNow + BURROW_UNDER_S * 1000;
+        mon.burrowAt = lastNow + BURROW_EVERY_S * 1000;
+        mon.burrowTarget = t;
+        stats.burrows++;
+        say(`The ${mon.name.toLowerCase()} goes down into the ground, and the shaking stops.`, 'bad');
+        return true;
+      }
+    }
+    return mon.dormant;
+  }
+
+  /**
+   * Up again, behind whoever it went down after.
+   *
+   * BEHIND is the target's own facing: `yaw` faces (sin yaw, cos yaw), so the
+   * point BURROW_OUT_M along the negative of that is at its back. Two things it
+   * must not do, both of them named in M2: come up inside geometry, and break
+   * the leash. The first is `blockedAt` and `clampWalkable`, tried at eight
+   * angles round the target before it gives up and stays where it was; the
+   * second is a clamp of the emergence point to the row's own leash radius from
+   * home, plus clearing `leashSince`, so a worm that surfaces at the far edge
+   * is not immediately sent back by the timer that was already running.
+   */
+  function surface(mon) {
+    const a = mon.actor;
+    const t = (mon.burrowTarget && num(mon.burrowTarget.health) > 0) ? mon.burrowTarget : (a.ai?.target || null);
+    setHidden(mon, false);
+    mon.dormant = false;
+    a.ai.state = 'idle';
+    if (!t) { say(`The ${mon.name.toLowerCase()} comes up out of the ground where it went down.`); return null; }
+
+    const home = a.ai.home || { x: num(a.pos.x), z: num(a.pos.z) };
+    const leash = num(a.ai.leash) || num(a.ai.aggro) * 2.5 || 30;
+    const back = num(t.yaw);
+    let placed = null;
+    for (let k = 0; k < 8 && !placed; k++) {
+      // straight behind first, then round the compass from there
+      const ang = back + Math.PI + (k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 4));
+      let x = num(t.pos.x) + Math.sin(ang) * BURROW_OUT_M;
+      let z = num(t.pos.z) + Math.cos(ang) * BURROW_OUT_M;
+      if (runtime?.inDungeon) { const c = clampXZ(x, z); x = num(c[0]); z = num(c[1]); }
+      // never further from home than the leash: coming up out of bounds would
+      // put it straight into `leashCheck` and it would walk away from the fight
+      const dh = Math.hypot(x - home.x, z - home.z);
+      if (dh > leash) {
+        const f = leash / dh;
+        x = home.x + (x - home.x) * f;
+        z = home.z + (z - home.z) * f;
+      }
+      const sample = field ? field.sampleAt(x, z) : null;
+      if (blockedAt(x, z, sample, { sites: sitesNear(x, z, 60), spawnPoint, spawnKeep })) continue;
+      placed = { x, z };
+    }
+    if (!placed) { say(`The ${mon.name.toLowerCase()} comes back up where it went down. There was nowhere else.`); return null; }
+    a.pos.x = placed.x;
+    a.pos.z = placed.z;
+    a.pos.y = heightAt(placed.x, placed.z);
+    mon.model.group.position.set(a.pos.x, a.pos.y, a.pos.z);
+    a.ai.leashSince = null;
+    a.ai.target = t;
+    a.ai.state = 'chase';
+    a.yaw = Math.atan2(num(t.pos.x) - a.pos.x, num(t.pos.z) - a.pos.z);
+    effects?.burst?.(a.pos, 0xd8c58a, 1.4);
+    say(`The ground opens behind you and the ${mon.name.toLowerCase()} comes up out of it.`, 'bad');
+    return placed;
+  }
+
+  /** A thing still hanging above the floor, and the fall when it lets go. */
+  function stepAloft(mon, d) {
+    if (mon.aloft <= 0) return;
+    if (!mon.dormant) mon.aloft = Math.max(0, mon.aloft - DROP_FALL_MPS * d);
+    const ground = heightAt(mon.actor.pos.x, mon.actor.pos.z);
+    mon.actor.pos.y = ground + mon.aloft;
+    mon.model.group.position.y = mon.actor.pos.y;
+  }
+
+  /**
+   * The tags that fire on their own clock rather than off a blow: `summons` on
+   * a row that is not a boss, `hex`'s second cast, `powderCharge`, and the
+   * stoop. Called once per monster per frame, after `stepMonster` has moved it.
+   */
+  function stepSpecials(mon, d, playerActor, took) {
+    const a = mon.actor;
+    const t = a.ai?.target && num(a.ai.target.health) > 0 ? a.ai.target : null;
+
+    // `howl`: the first blow it takes, once.
+    if (took > 0 && mon.tags.has('howl') && !mon.howled) howl(mon, t || playerActor);
+
+    // `summons` on a row that is not a boss: the first time it drops below half
+    // health it calls what its row names, and it may not call again for
+    // SUMMON_COOLDOWN_S even if it heals back over the line and falls again,
+    // which a row that flees and returns healed genuinely can do.
+    if (mon.tags.has('summons') && !mon.boss && mon.row.summons) {
+      const half = num(a.maxHealth) * SUMMON_AT;
+      if (num(a.health) > half) mon.summonReady = true;
+      else if (mon.summonReady && lastNow >= mon.summonAt && t) {
+        mon.summonReady = false;
+        mon.summonAt = lastNow + SUMMON_COOLDOWN_S * 1000;
+        summonFor(mon);
+      }
+    }
+
+    if (!t) return;
+
+    // `powderCharge`: a charge at the target's feet on a ten second cooldown.
+    if (mon.tags.has('powderCharge') && lastNow >= mon.powderAt && dist2D(a.pos, t.pos) <= RANGED_FAR) {
+      mon.powderAt = lastNow + POWDER_EVERY_S * 1000;
+      startMark(mon, { x: t.pos.x, y: heightAt(t.pos.x, t.pos.z), z: t.pos.z }, POWDER_SPEC);
+    }
+
+    planDive(mon);
   }
 
   function stepCorpses(d) {
@@ -1268,6 +2190,10 @@ export function createMonsters(sc, runtime, opts = {}) {
   function alertGroup(mon, target) {
     for (const other of live.values()) {
       if (other === mon || other.actor.ai?.target) continue;
+      // A dormant one keeps its own trigger: an ambusher given a target by a
+      // friend would have it cleared again on the next frame and would look
+      // like a monster that flickers rather than one that is waiting.
+      if (other.dormant || other.hidden) continue;
       if (!(other.shares || other.groupKey === mon.groupKey)) continue;
       if (dist2D(other.actor.pos, mon.actor.pos) > GROUP_AGGRO_M) continue;
       other.actor.ai.target = target;
@@ -1286,7 +2212,9 @@ export function createMonsters(sc, runtime, opts = {}) {
   /** Every live body, for picking. The models, as `fauna.targets()` returns models. */
   function targets() {
     const out = [];
-    for (const mon of live.values()) if (num(mon.actor.health) > 0) out.push(mon.model.group);
+    // A hidden one is genuinely not there: an ambusher you could put a cursor on
+    // is not an ambush, it is a monster with an invisible skin.
+    for (const mon of live.values()) if (num(mon.actor.health) > 0 && !mon.hidden) out.push(mon.model.group);
     return out;
   }
 
@@ -1298,7 +2226,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       let o = h.object;
       for (let n = 0; o && n < 6; n++, o = o.parent) {
         const mon = o.userData && o.userData.monster;
-        if (mon && live.has(mon.key) && num(mon.actor.health) > 0) return mon;
+        if (mon && live.has(mon.key) && num(mon.actor.health) > 0 && !mon.hidden) return mon;
       }
     }
     return null;
@@ -1314,7 +2242,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     const fx = Math.sin(num(yaw)), fz = Math.cos(num(yaw));
     for (const mon of live.values()) {
       const a = mon.actor;
-      if (num(a.health) <= 0) continue;
+      if (num(a.health) <= 0 || mon.hidden) continue;
       const dx = num(a.pos.x) - num(pos?.x), dz = num(a.pos.z) - num(pos?.z);
       const d = Math.hypot(dx, dz);
       if (d > bd || d < 1e-6) continue;
@@ -1364,7 +2292,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       return spawn({ id, x, z, key, groupKey: key, ephemeral: true });
     },
     /** Every live actor, for area effects and the cone. targets() is the meshes for picking. */
-    actors: () => [...live.values()].filter((m) => num(m.actor.health) > 0).map((m) => m.actor),
+    actors: () => [...live.values()].filter((m) => num(m.actor.health) > 0 && !m.hidden).map((m) => m.actor),
     /** Every live monster record. Debug, the HUD and the tests. */
     all: () => [...live.values()],
     get count() { return live.size; },
@@ -1411,7 +2339,41 @@ export function createMonsters(sc, runtime, opts = {}) {
       to: { ...s.to },
     })),
     /** The warning rings on the floor, and how long each has left. */
-    warnings: () => slams.map((s) => ({ x: s.x, z: s.z, radius: SLAM_RADIUS, left: Math.max(0, SLAM_WARN_S - s.t) })),
+    warnings: () => marks.map((s) => ({
+      x: s.x, z: s.z, radius: s.radius, kind: s.spec.id,
+      left: Math.max(0, s.warn - s.t),
+    })),
+    /**
+     * Does something standing here want the PLAYER'S clock slowed, and by how
+     * much? `{ active, scale, source, name }`, and `{ active: false, scale: 1 }`
+     * when nothing does.
+     *
+     * This is the one ability in the game that is allowed to touch the player's
+     * own time, and it is Malachar's last third and nothing else, ever. THIS
+     * FILE DOES NOT APPLY IT. The world clock lives in `app/context.js` as
+     * `ctx.clock`, the wyrmsoul system is the only thing that sets its scale,
+     * and two systems writing one clock is how a dragon call and a boss phase
+     * end up fighting over the same number and neither of them looks broken.
+     *
+     * So this is a QUESTION, asked every frame by whoever owns that clock, and
+     * it is a hook with NO CONSUMER YET: nothing in the tree reads it today.
+     * `docs/mmo/wiring/M3.md` section 4 carries the exact lines that would, and
+     * says outright that until they land Malachar's last phase is his half
+     * speed swing coming OFF and a line saying the room slowed, which is
+     * honest and half a boss.
+     */
+    wantsPlayerSlow() {
+      for (const mon of live.values()) {
+        if (!mon.playerSlow || num(mon.actor.health) <= 0) continue;
+        return { active: true, scale: DRAGON_PLAYER_SCALE, source: mon.id, name: mon.name };
+      }
+      return { active: false, scale: 1, source: null, name: null };
+    },
+    /** Which of the twenty one tags this monster is actually running. Debug. */
+    tagsOf(mon) { return mon && mon.tags ? [...mon.tags] : []; },
+    /** What is being held right now, and what has points off its hit. Tests. */
+    holds: () => grabs.map((g) => ({ by: g.mon.id, until: g.until, per: g.per })),
+    curses: () => penalties.map((p) => ({ kind: p.kind, points: p.points, until: p.until, direct: p.direct })),
     /** The level's roll as records, before the cap. Empty above ground. */
     levelSpawns: () => levelRecs.slice(),
     /** Which layer is standing: null above ground, "siteId:level" below it. */
@@ -1424,14 +2386,162 @@ export function createMonsters(sc, runtime, opts = {}) {
       corpses.length = 0;
       for (const s of shots) s.mesh.parent?.remove(s.mesh);
       shots.length = 0;
-      for (const s of slams) { s.mesh.parent?.remove(s.mesh); s.mesh.material.dispose(); }
-      slams.length = 0;
+      for (const s of marks) { s.mesh.parent?.remove(s.mesh); s.mesh.material.dispose(); }
+      marks.length = 0;
+      releaseAll(null);
+      blows.length = 0;
       chunks.clear();
       levelRecs = [];
       scene?.remove?.(group);
     },
   };
 }
+
+
+// ===========================================================================
+// The guard: every note tag, and what actually reads it
+// ===========================================================================
+//
+// M2 added twenty one tags at once and the roster could not tell which of them
+// were behaviour and which were decoration, because nothing in the tree wrote
+// that down. This table writes it down, one row per tag, and `auditTagRules`
+// throws at load if `NOTE_TAG_MEANING` and this table ever stop agreeing. A
+// twenty second tag added to the roster now takes this file out on import
+// rather than shipping as a sentence nobody reads, which is the whole of the
+// twenty-modifier-keys failure in one line.
+//
+// `where` is one of six, and only two of them mean "a player can feel this":
+//
+//   'monsters.js'    this file, named function
+//   'monster_ai.js'  the ranged table, the spells, the boss plans
+//   'actor.js'       a resist, a weakness, a natural guard, a regeneration
+//   'roster'         src/mmo/monsters.js itself: spawn tables and its audits
+//   'descriptive'    a TRUE statement about a number already on the row. There
+//                    is nothing to read and nothing missing.
+//   'unwired'        carried by rows and read by NOTHING. Not a lie on the
+//                    row, but not a thing that happens either. Counted, so the
+//                    number is known instead of assumed.
+export const TAG_RULES = {
+  // --- where and when it lives
+  flying: ['monsters.js', 'isFlyer puts it at hoverHeight and stepMonster brings it down to swing'],
+  erratic: ['unwired', 'the approach is a straight line for everything; nothing wanders it'],
+  night: ['roster', 'spawnRollFor reads the day and the night list'],
+  nightOnly: ['roster', 'it is only written into night lists'],
+  snowOnly: ['roster', 'the habitat audit keeps it out of every list that is not snow'],
+  fenOnly: ['roster', 'the same, for the fen'],
+  coastOnly: ['roster', 'the same, for the coast'],
+  noonOnly: ['unwired', 'the hour of the day is the events layer E2, which does not exist'],
+  wanders: ['unwired', 'a route of places is E2 as well; Noon and Rimemouth stand in their lair'],
+  huge: ['roster', 'auditMonsters exempts it from the tier 0 health band'],
+  // --- how it moves and swings
+  slow: ['unwired', 'the row already carries its own run speed; nothing reads the word'],
+  charges: ['unwired', 'no run up and no harder blow at the end of one'],
+  parries: ['actor.js', 'spawnMonster gives it a natural guard and Parrying at the row def'],
+  swordAndShield: ['descriptive', 'the row AR holds the shield; actor.js gives a parry to `parries` only'],
+  plate: ['descriptive', 'the row AR holds the plate'],
+  shield: ['descriptive', 'the row AR holds the shield'],
+  tailSweep: ['monsters.js', 'tailSweep(): every fourth swing is a cone at SWEEP_RANGE, SWEEP_HALF_ANGLE'],
+  dives: ['monsters.js', 'planDive(): the stoop from hover, DIVE_MULT on the blow, then it climbs'],
+  // --- groups
+  group: ['monsters.js', 'the roster rolls the count; alertGroup pulls the rest of it'],
+  sharesAggro: ['monsters.js', 'alertGroup, at GROUP_AGGRO_M'],
+  alpha: ['monsters.js', 'sharesAggro() counts it, so a pack comes together'],
+  leadsGoblins: ['unwired', 'no goblin spawns around one and none fights better for it'],
+  warCry: ['unwired', 'nothing is lifted by a shout'],
+  shieldWall: ['monsters.js', 'stepWall(): WALL_MIN of a row within WALL_M carry WALL_AR more'],
+  howl: ['monsters.js', 'howl(): the first blow it takes calls its own row within HOWL_M, once'],
+  healsAllies: ['monsters.js', 'chantHeal(): the cast lands as health on every hurt ally in HEAL_ALLIES_M'],
+  summons: ['monsters.js', 'summonFor(): the row summons block, or the habitat for the four that carry none'],
+  // --- what it throws, shoots, casts or breathes
+  throwsKnives: ['monster_ai.js', 'RANGED_TAGS: the thrown mode'],
+  bow: ['monster_ai.js', 'RANGED_TAGS: the shot mode'],
+  boulder: ['monster_ai.js', 'RANGED_TAGS: the thrown mode'],
+  rangedSpikes: ['monster_ai.js', 'RANGED_TAGS: the thrown mode'],
+  breath: ['monster_ai.js', 'RANGED_TAGS and spellFor: a cone of fire'],
+  poisonBreath: ['monster_ai.js', 'spellFor makes the cone poison; poisonLevelOf makes it level 2'],
+  casts: ['monster_ai.js', 'RANGED_TAGS and spellFor: a bolt or a fireball'],
+  hex: ['monsters.js', 'stepCast: a second cast on HEX_EVERY_S that takes HEX_POINTS off the target hit'],
+  stormCall: ['monsters.js', 'stepCast plus startMark(STORM_SPEC): a mark, STORM_WARN_S, then energy'],
+  powderCharge: ['monsters.js', 'stepSpecials plus startMark(POWDER_SPEC), every POWDER_EVERY_S'],
+  ashCloud: ['monsters.js', 'stepBlows: a landed blow takes ASH_POINTS off the target hit'],
+  // --- what it does when it reaches you
+  poison1: ['monsters.js', 'poisonLevelOf, onto combat.queueSwing'],
+  poison2: ['monsters.js', 'poisonLevelOf, onto combat.queueSwing'],
+  poison3: ['monsters.js', 'poisonLevelOf, onto combat.queueSwing'],
+  poisonTouch: ['monsters.js', 'poisonLevelOf, level 1'],
+  disease10: ['unwired', 'there is no disease in the tree at all'],
+  stun: ['unwired', 'combat.js has the stun STATUS; no monster blow applies one off this tag'],
+  paralyse15: ['unwired', 'nothing holds you still one blow in seven'],
+  silence3: ['unwired', 'nothing stops a cast for three seconds'],
+  knockback: ['unwired', 'abilities_runtime has doKnockback for the PLAYER; no monster can push'],
+  groundSlam: ['unwired', 'the boss slam is a BOSS PHASE and does not read this tag'],
+  webRoot2: ['unwired', 'the root exists (combat.applyStatus, and `grab` uses it) and no web writes one'],
+  roots: ['unwired', 'nothing comes out of the ground'],
+  frostNova: ['unwired', 'no ring of cold around anything'],
+  grab: ['monsters.js', 'stepBlows and grabHold(): GRAB_CHANCE of a landed blow, GRAB_SECONDS of root and damage'],
+  ambush: ['monsters.js', 'stepDormant: hidden until AMBUSH_M, then AMBUSH_MULT on the first blow'],
+  burrows: ['monsters.js', 'stepDormant and surface(): under for BURROW_UNDER_S, up behind the target'],
+  awakens: ['monsters.js', 'stepDormant: visible and inert until AWAKEN_M'],
+  dropsFromAbove: ['monsters.js', 'stepDormant and stepAloft: DROP_HEIGHT_M up until you walk under it'],
+  dragonTime: ['monsters.js', 'dragonTime() on his own actor; wantsPlayerSlow() is the hook for the rest'],
+  // --- what it is made of
+  undead: ['actor.js', 'the family, which combat_rules.fleeCheck reads as never fleeing'],
+  holyWeak: ['actor.js', 'NOTE_WEAKNESS, applied by monster_ai.weaknessMultiplier'],
+  silverWeak: ['actor.js', 'NOTE_WEAKNESS, applied by monster_ai.weaknessMultiplier'],
+  fireWeak: ['actor.js', 'NOTE_WEAKNESS, applied by monster_ai.weaknessMultiplier'],
+  energyWeak: ['actor.js', 'NOTE_WEAKNESS, applied by monster_ai.weaknessMultiplier'],
+  immunePoison: ['actor.js', 'NOTE_RESISTS at RESIST_CAP'],
+  coldImmune: ['actor.js', 'NOTE_RESISTS at RESIST_CAP'],
+  fireImmune: ['actor.js', 'NOTE_RESISTS at RESIST_CAP. M3 added this one'],
+  incorporeal50: ['actor.js', 'NOTE_RESISTS, physical 50'],
+  thickHide: ['descriptive', 'the row AR holds the hide'],
+  // --- what it does over time
+  regen3: ['actor.js', 'spawnMonster writes healthRegen 3'],
+  burnStopsRegen: ['unwired', 'nothing burns and nothing stops regenerating'],
+  regrows: ['unwired', 'nothing is severed, so nothing grows back'],
+  threeHeads: ['unwired', 'one head, one attack'],
+  healsInDaylight: ['unwired', 'the sun is on nothing'],
+  lifeLeech30: ['unwired', 'makeMonsterActor (the node stand-in) reads it; actor.js spawnMonster, which is what the game runs, does not'],
+  manaDrain: ['unwired', 'no monster takes mana'],
+  phylactery: ['unwired', 'nothing stands back up'],
+  // --- what it leaves
+  coinPurse: ['unwired', 'the gold is the tier band or the row gold; the word adds nothing'],
+  lootTwice: ['descriptive', 'loot.js rolls twice off the TIER and off boss, not off this word'],
+  purpleFloor: ['descriptive', 'loot.js floors a boss at epic off boss, not off this word'],
+  champion: ['unwired', 'only isBoss gets a name plate; a champion gets none'],
+};
+
+/** Where each tag is dealt with, counted rather than claimed. */
+export function tagRuleCounts() {
+  const out = {};
+  for (const [where] of Object.values(TAG_RULES)) out[where] = (out[where] || 0) + 1;
+  return out;
+}
+
+/**
+ * The roster and this table agree, or the file does not load.
+ *
+ * Both directions, because both have failed in this project: a tag with no rule
+ * is a sentence a player never sees, and a rule for a tag nobody carries is a
+ * branch that can never run and will rot.
+ */
+export function auditTagRules() {
+  const bad = [];
+  const wheres = new Set(['monsters.js', 'monster_ai.js', 'actor.js', 'roster', 'descriptive', 'unwired']);
+  for (const tag of NOTE_TAGS) {
+    const rule = TAG_RULES[tag];
+    if (!rule) { bad.push(`note tag "${tag}" has no row in TAG_RULES: say where it is acted on, or say 'unwired'`); continue; }
+    if (!wheres.has(rule[0])) bad.push(`"${tag}": "${rule[0]}" is not one of ${[...wheres].join(', ')}`);
+    if (!rule[1]) bad.push(`"${tag}": no sentence saying how`);
+  }
+  for (const tag of Object.keys(TAG_RULES)) {
+    if (!NOTE_TAGS.has(tag)) bad.push(`TAG_RULES has a rule for "${tag}", which no row carries`);
+  }
+  if (bad.length) throw new Error(`monsters: ${bad.length} problem(s)\n  ${bad.join('\n  ')}`);
+  return tagRuleCounts();
+}
+
+auditTagRules();
 
 // What `monsters.test.mjs` and the debug overlay reach for without having to
 // know that the AI moved into its own file. One import, one surface.

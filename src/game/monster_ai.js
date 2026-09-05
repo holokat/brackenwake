@@ -61,9 +61,18 @@ export const RANGED_TAGS = {
   throwsKnives: 'thrown',
   rangedSpikes: 'thrown',
   boulder: 'thrown',
+  // M3: the Legion Sapper's satchel. It stands off like anything else that
+  // throws; the charge itself is a ground mark on its own cooldown, over in
+  // `monsters.js`, and this line is only what keeps the sapper from walking
+  // into sword reach with a bag of powder on his hip.
+  powderCharge: 'thrown',
   bow: 'shot',
   crossbow: 'shot',
   casts: 'cast',
+  // M3: the reef eel and the storm wyvern. It is a cast, so the hold and the
+  // interrupt come free; what it produces is not a bolt but a mark on the
+  // ground, which `spellFor` says with `ground` and `monsters.js` acts on.
+  stormCall: 'cast',
   breath: 'breath',
 };
 
@@ -147,6 +156,18 @@ export const CAST_SECONDS = 1.5;
 export const BREATH_SECONDS = 1.0;
 /** Seconds a bolt or a fireball is in the air on its way to the target. */
 export const SPELL_TRAVEL_S = 0.35;
+/**
+ * The storm call. M2.md: "mark the ground under the target, wait 1.5 s, then
+ * hit everything within 3 m of the mark for the row's damage as energy". The
+ * warning and the radius are that sentence; the two seconds a powder charge
+ * lies there fizzing are M2's too and live beside it because they are the same
+ * machine with a different colour.
+ */
+export const STORM_WARN_S = 1.5;
+export const STORM_RADIUS = 3;
+export const POWDER_WARN_S = 2.0;
+export const POWDER_RADIUS = 3;
+export const POWDER_EVERY_S = 10;
 /** A cast is broken by a blow worth more than this fraction of the caster's health. */
 export const INTERRUPT_FRACTION = 0.10;
 
@@ -177,6 +198,18 @@ export function spellFor(row) {
       base, damageType: poison ? 'poison' : 'fire',
       cone: { range: BREATH_RANGE, halfAngle: BREATH_HALF_ANGLE },
       seconds: BREATH_SECONDS, travel: 0,
+    };
+  }
+  // The storm call is a cast that produces no missile at all: it puts a mark on
+  // the ground under whoever it is aimed at and the sky answers it a second and
+  // a half later. `ground` is the whole of the difference, and `monsters.js`
+  // reads it in `stepCast` instead of queueing a spell at a target.
+  if (has(row, 'stormCall')) {
+    return {
+      id: 'stormcall', name: 'a call for the storm',
+      base, damageType: 'energy', cone: null,
+      seconds: CAST_SECONDS, travel: 0,
+      ground: { radius: STORM_RADIUS, warn: STORM_WARN_S, colour: 0xb98cff },
     };
   }
   const energy = row.kind === 'undead';
@@ -301,6 +334,62 @@ export const BOSS_PLANS = {
   drownedKnight: [
     { kind: 'slam', line: 'The Drowned Knight brings his shield down, and the water comes up through the stone.' },
     { kind: 'retreat', line: 'The Drowned Knight turns for deep water, and the wounds close as he goes.' },
+  ],
+
+  // --- Wave A's twelve, authored in M2.md section 2 and pasted here whole.
+  //
+  // The kinds are chosen against the row: a boss whose row carries `summons`
+  // opens with the summon, so `summonFor` has a real id and a real count to put
+  // down rather than the habitat fallback; the four that carry none slam or go
+  // back to the water instead. Nothing here invents a behaviour: all four kinds
+  // are the ones `PHASE_WORDS` already has a plate word for.
+  oramBlackhand: [
+    { kind: 'summon', line: 'Oram puts two fingers in his mouth and whistles, and the cellar answers.' },
+    { kind: 'enrage', line: 'Oram drops the sack of shell and comes at you with both hands.' },
+  ],
+  keeperOfFaces: [
+    { kind: 'summon', line: 'The Keeper turns his head to the wall, and a hundred faces open their eyes.' },
+    { kind: 'enrage', line: 'The Keeper takes a face off the wall and puts it on.' },
+  ],
+  thalassa: [
+    { kind: 'slam', line: 'Thalassa brings her tail round, and the water in the cave stands up.' },
+    { kind: 'retreat', line: 'Thalassa goes back under the tide, and what is torn closes.' },
+  ],
+  brassHeart: [
+    { kind: 'slam', line: 'The Brass Heart plants both feet, and the floor of the crater rings.' },
+    { kind: 'enrage', line: 'Every vent on the Brass Heart opens at once.' },
+  ],
+  theLibrarian: [
+    { kind: 'summon', line: 'The Librarian says a name off the page, and the sand gives up who owned it.' },
+    { kind: 'enrage', line: 'The Librarian closes the book on his thumb and picks up the shelf.' },
+  ],
+  wardenHask: [
+    { kind: 'summon', line: 'Hask hauls on the chain, and two of his ogres come up the stair.' },
+    { kind: 'enrage', line: 'Hask throws the goad away, which is the first honest thing he has done.' },
+  ],
+  huntmasterGallow: [
+    { kind: 'summon', line: 'Gallow puts the whistle to his lips, and the hounds come up the throat behind you.' },
+    { kind: 'enrage', line: 'Gallow puts the bow down. He would rather this part anyway.' },
+  ],
+  legateOssory: [
+    { kind: 'summon', line: 'Ossory raises a hand without looking, and his knights step off the ice.' },
+    { kind: 'enrage', line: 'Ossory shuts the visor. He has been doing this for fifty years.' },
+  ],
+  kingCaradoc: [
+    { kind: 'summon', line: 'Caradoc strikes the stair once, and his marines come up out of the avenue.' },
+    { kind: 'retreat', line: 'The king walks back down into his own light, and the sea closes what you opened.' },
+  ],
+  malachar: [
+    { kind: 'summon', line: 'Malachar lifts one finger, and the knights of nine hunts stand up.' },
+    { kind: 'enrage', line: 'Malachar stops fighting like a knight of the Eyrie, and the room slows around him.' },
+  ],
+  noon: [
+    { kind: 'slam', line: 'Noon comes down off the rock, and the glass road cracks under him.' },
+    { kind: 'enrage', line: 'Noon turns his tail on you, which is how a manticore says the hunt is over.' },
+  ],
+  rimemouth: [
+    { kind: 'summon', line: 'Rimemouth throws his head back, and the White Pack comes out of the pines.' },
+    { kind: 'enrage', line: 'Rimemouth stops circling. The frost on his coat goes to water.' },
   ],
 };
 

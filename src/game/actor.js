@@ -642,6 +642,12 @@ export function difficultyOfMonster(m) {
 const NOTE_RESISTS = {
   immunePoison: ['poison', RESIST_CAP],
   coldImmune: ['cold', RESIST_CAP],
+  // M3, M2.md section 2: the ember drake, the cinder imp, the lava hound and
+  // the glass wyvern. Written at RESIST_CAP for the same reason the other two
+  // are: `recompute` clamps every resist to it, so a hundred and a seventy are
+  // the same number by the time the resolver sees them, and writing a hundred
+  // here would only look like it meant something more.
+  fireImmune: ['fire', RESIST_CAP],
   incorporeal50: ['physical', 50],
 };
 const NOTE_WEAKNESS = {

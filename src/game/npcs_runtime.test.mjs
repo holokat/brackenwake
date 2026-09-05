@@ -182,7 +182,9 @@ console.log('npcs_runtime: the runtime, headless');
   const facing = target.group.rotation.y;
   npcs.update(2.0, { x: target.x + 2, z: target.z });
   const want = Math.atan2(2, 0);
-  check('the turn settles facing you and stops', Math.abs(target.group.rotation.y - want) < 0.02, `${target.group.rotation.y.toFixed(3)} against ${want.toFixed(3)}`);
+  // the yaw is never wrapped, so compare the angle and not the number: -3pi/2 faces the same way as pi/2
+  const wrapped = Math.atan2(Math.sin(target.group.rotation.y - want), Math.cos(target.group.rotation.y - want));
+  check('the turn settles facing you and stops', Math.abs(wrapped) < 0.02, `${target.group.rotation.y.toFixed(3)} against ${want.toFixed(3)}, ${wrapped.toFixed(3)} apart`);
   npcs.update(0.1, { x: target.x + 40, z: target.z });
   check('a turn is not instant', Math.abs(target.group.rotation.y - facing) < Math.PI);
 

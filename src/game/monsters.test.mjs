@@ -17,18 +17,29 @@
 
 import * as THREE from 'three';
 import { CHUNK } from '../world/field.js';
-import { MONSTERS, HABITAT } from '../mmo/monsters.js';
+import { MONSTERS, HABITAT, NOTE_TAGS } from '../mmo/monsters.js';
 import { aggroRadius, LEASH_MS, attackSkill, defenceSkill, swingSeconds, parryChance } from '../mmo/combat_rules.js';
 import { createCombat, SWING_LAND_S, actorDistance } from './combat.js';
 import { createLootDrops } from './loot_drops.js';
 import { buildMonsterModel, auditMonsterShapes, DIE_SECONDS } from './monster_models.js';
 import { spawnMonster, WEAKNESS } from './actor.js';
 import { generateDungeon, clampToWalkable, walkable, gridOf } from '../world/dungeon_gen.js';
+import { CRITTERS } from '../world/fauna.js';
 import {
   createMonsters, makeMonsterActor, stepMonster, stepToward, stepAway, speedOf,
   spawnsForChunk, placeFor, blockedAt, poisonLevelOf, sharesAggro, naturalWeapon,
   ALIVE_CAP, SPAWN_KEEP, GROUP_AGGRO_M, GROUP_CHANCE, NEAR_RING, WANDER_R, FLEE_BREAK_M,
   PROJECTILE_S, DUNGEON_CAP,
+  // M3: the twenty one tags of wave A
+  TAG_RULES, auditTagRules,
+  WALL_M, WALL_MIN, WALL_AR, HEAL_ALLIES_M, HOWL_M,
+  DIVE_EVERY_S, DIVE_TRIGGER_M, DIVE_MULT, GRAB_CHANCE, GRAB_SECONDS,
+  AMBUSH_M, AMBUSH_MULT, AWAKEN_M, BURROW_EVERY_S, BURROW_UNDER_S, BURROW_MIN_M, BURROW_OUT_M,
+  DROP_HEIGHT_M, DROP_UNDER_M, HEX_EVERY_S, HEX_POINTS, HEX_SECONDS, ASH_POINTS, ASH_SECONDS,
+  SWEEP_EVERY, SWEEP_RANGE, SWEEP_HALF_ANGLE, DRAGON_SWING, DRAGON_RUN, DRAGON_PLAYER_SCALE,
+  SUMMON_AT, SUMMON_COOLDOWN_S,
+  // F1: the world's animals through the monster layer
+  BIRD_BAND, SPOOK_M,
 } from './monsters.js';
 import {
   attackModeOf, isFlyer, isBoss, spellFor, coneTargets, castBroken, hoverHeight,
@@ -36,6 +47,8 @@ import {
   dungeonSpawns, normalizeDungeonLayout, dungeonHabitat, groupsForRoom, bossRowsFor,
   auditRangedRows, RANGED_NEAR, RANGED_FAR, RANGED_BACKOFF, HOVER_MIN, HOVER_MAX,
   ENRAGE_SWING, SLAM_WARN_S, SLAM_RADIUS, BREATH_RANGE, BREATH_HALF_ANGLE, SUMMON_COUNT,
+  BOSS_PLANS, PHASE_WORDS, RANGED_TAGS,
+  STORM_WARN_S, STORM_RADIUS, POWDER_WARN_S, POWDER_RADIUS, POWDER_EVERY_S,
 } from './monster_ai.js';
 
 let pass = 0, fail = 0;
@@ -890,6 +903,64 @@ function seedWith(layout, id, max = 3000) {
   check('and stays up', lowest >= HOVER_MIN - 1e-9, `lowest ${lowest.toFixed(3)} m`);
 }
 
+// ======================================= F1: critters, the spook and the perch
+// Through the REAL path: createMonsters asks runtime.critterSpawns for a chunk's
+// animals, update() spooks them, stepMonster flies the bird. No stepMonster
+// driven by hand here, so what is measured is what a player would see.
+{
+  const field = stubField();
+  const scene = new THREE.Group();
+  const ground = 3;
+  const recs = [
+    { id: 'gull', key: 'critter:0,0:gull:0', groupKey: 'critter:0,0:gull', cx: 0, cz: 0, i: 0, x: 3, z: 0, y: ground },
+    { id: 'deer', key: 'critter:0,0:deer:0', groupKey: 'critter:0,0:deer', cx: 0, cz: 0, i: 0, x: 0, z: 40, y: ground },
+  ];
+  let asked = 0;
+  const runtime = { ...stubRuntime(field), critterSpawns: (cx, cz) => { asked++; return (cx === 0 && cz === 0) ? recs : []; } };
+  const monsters = createMonsters(scene, runtime, { groupChance: 0, rng: seeded(77), spawnPoint: { x: 1e6, z: 1e6 } });
+  const player = fakePlayer(30, 0);                       // 27 m from the gull, 50 from the deer
+  let t = 1000;
+  const run = (frames) => { for (let f = 0; f < frames; f++) { t += 1000 / 60; monsters.update(1 / 60, t, player, false); } };
+  run(2);
+  const gull = monsters.all().find((m) => m.row.id === 'gull') || null;
+  const deer = monsters.all().find((m) => m.row.id === 'deer') || null;
+  check('chunkFor asked the runtime for critters and both stood up through the sweep', asked > 0 && gull && deer, `asked ${asked}, ${monsters.all().map((m) => m.row.id).join(', ')}`);
+  if (gull && deer) {
+    // perched: nobody near, so the bird sits on the ground for five seconds
+    let hi = -Infinity;
+    for (let f = 0; f < 300; f++) { run(1); hi = Math.max(hi, gull.actor.pos.y - ground); }
+    check('a gull nobody is near stays on the ground for 300 frames', hi <= 0.01, `highest ${hi.toFixed(3)} m`);
+    check('and the deer 50 m off is idle, not spooked', deer.actor.ai.state !== 'flee', deer.actor.ai.state);
+
+    // approach: inside SPOOK_M the bird takes off and flies in BIRD_BAND
+    player.pos.x = gull.actor.pos.x + SPOOK_M - 1; player.pos.z = gull.actor.pos.z;   // it drifts while idle, so measure from where it is
+    run(1);
+    check(`walk inside ${SPOOK_M} m and the gull bolts`, gull.actor.ai.state === 'flee', gull.actor.ai.state);
+    let lo = Infinity; hi = -Infinity;
+    run(240);                                              // four seconds to climb
+    for (let f = 0; f < 120; f++) { run(1); const alt = gull.actor.pos.y - ground; lo = Math.min(lo, alt); hi = Math.max(hi, alt); }
+    check(`and is then ${BIRD_BAND[0]} to ${BIRD_BAND[1]} m up, out of a sword's reach`, lo >= BIRD_BAND[0] - 1e-6 && hi <= BIRD_BAND[1] + 1e-6, `${lo.toFixed(2)} to ${hi.toFixed(2)} m`);
+    check('a bird in flight has the flying flag the model reads for its wings', !!gull.flyer);
+
+    // the deer: the same spook, on the ground
+    player.pos.x = deer.actor.pos.x; player.pos.z = deer.actor.pos.z - SPOOK_M + 1;
+    run(1);
+    check('the deer bolts the same way', deer.actor.ai.state === 'flee', deer.actor.ai.state);
+    const dz0 = deer.actor.pos.z;
+    run(60);
+    check('and runs away from you, not at you', deer.actor.pos.z > dz0 + 1, `${(deer.actor.pos.z - dz0).toFixed(2)} m along +z`);
+    // both directions of the flying flag: every animal fauna.js flies is a flyer in the roster, and no walker is
+    const flyMismatch = Object.entries(CRITTERS).filter(([id, c]) => MONSTERS[id] && !!c.flying !== isFlyer(MONSTERS[id])).map(([id]) => id);
+    check('fauna.js and the roster agree on which animals fly', flyMismatch.length === 0, flyMismatch.join(', ') || Object.keys(CRITTERS).filter((id) => CRITTERS[id].flying).join(', ') + ' fly');
+
+    // walk off: the flee breaks, it walks home and the bird lands again
+    player.pos.x = 0; player.pos.z = -60;
+    run(60 * 20);
+    check('twenty seconds after you leave the gull is back on the ground', Math.abs(gull.actor.pos.y - ground) <= 0.05 && gull.actor.ai.state !== 'flee', `${(gull.actor.pos.y - ground).toFixed(3)} m, ${gull.actor.ai.state}`);
+  }
+  monsters.dispose();
+}
+
 // =================================================== weaknesses, measured twice
 {
   const golem = spawnMonster('ironGolem', { x: 0, y: 0, z: 0 });
@@ -1464,6 +1535,680 @@ function seedWith(layout, id, max = 3000) {
   check('and it says so once, naming the wiring doc',
     warnings.length === 1 && warnings[0].includes('G3.md'), `${warnings.length} warnings`);
   monsters.dispose();
+}
+
+// ===========================================================================
+// M3: the twenty one tags of wave A, every one driven true AND false
+// ===========================================================================
+//
+// One bench per case, and it is the REAL path in every one: `monsters.spawnAt`
+// is the same `spawn()` the world's own sweep calls, `spawnMonster` is W1's
+// real actor, and `createCombat` is the real resolver. Nothing here previews.
+//
+// The player is given a hundred thousand health on purpose, so that what is
+// being measured is what the monster did and not how long the player lived.
+
+/** A world with nothing in it but what a test puts there. */
+function bench(o = {}) {
+  const field = stubField({ seed: o.seed ?? 4242 });
+  const scene = new THREE.Group();
+  const lines = [];
+  const hud = { log: (t) => lines.push(t) };
+  const combat = createCombat({ rng: o.crng || (() => 0.5), hud });
+  const monsters = createMonsters(scene, stubRuntime(field), {
+    actorFactory: (id, p) => spawnMonster(id, p.pos),
+    combat, groupChance: 0, hud, cap: o.cap,
+    rng: o.rng || seeded(o.seed ?? 901),
+    spawnPoint: { x: 1e6, z: 1e6 },
+  });
+  let now = 0;
+  return {
+    field, combat, monsters, lines, get now() { return now; },
+    /** Frames of the real loop, in the real order: monsters, then combat. */
+    run(frames, player, step = 1 / 60) {
+      for (let f = 0; f < frames; f++) {
+        now += step * 1000;
+        monsters.update(step, now, player, false);
+        combat.update(step, now);
+      }
+      return now;
+    },
+    said: (re) => lines.filter((l) => re.test(l)),
+  };
+}
+/** The bench's player: no DEX, so a fixed roll is not eaten by a dodge. */
+const benchPlayer = (x = 0, z = 0) => {
+  const p = noDodge(fakePlayer(x, z));
+  p.pos.y = 3;                      // stubField's ground, so actorDistance is flat
+  p.health = 100000; p.maxHealth = 100000;
+  return p;
+};
+const GROUND = 3;
+
+// ------------------------------------------------- every tag has a written rule
+{
+  const counts = auditTagRules();
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  check('every note tag on the roster has a row saying what reads it',
+    total === NOTE_TAGS.size, `${total} rows for ${NOTE_TAGS.size} tags: ${JSON.stringify(counts)}`);
+  const wave = ['shieldWall', 'healsAllies', 'howl', 'summons', 'dives', 'grab', 'ambush', 'awakens',
+    'burrows', 'dropsFromAbove', 'stormCall', 'powderCharge', 'hex', 'ashCloud', 'tailSweep', 'dragonTime'];
+  const here = wave.filter((t) => TAG_RULES[t] && TAG_RULES[t][0] === 'monsters.js');
+  check('and the sixteen wave A tags that need a rule in this file have one',
+    here.length === wave.length, `${here.length} of ${wave.length}`);
+  check('fireImmune is a resist in actor.js and not a rule in here',
+    TAG_RULES.fireImmune[0] === 'actor.js');
+  check('bow, powderCharge and stormCall reach the ranged table',
+    RANGED_TAGS.bow === 'shot' && RANGED_TAGS.powderCharge === 'thrown' && RANGED_TAGS.stormCall === 'cast');
+  // The honest half: what is still carried and read by nothing.
+  const unwired = Object.entries(TAG_RULES).filter(([, r]) => r[0] === 'unwired').map(([t]) => t);
+  check(`${unwired.length} tags are still carried by rows and read by nothing`, unwired.length === 25,
+    unwired.join(', '));
+}
+
+// ------------------------------------------------------------- the boss plans
+{
+  const bosses = Object.values(MONSTERS).filter(isBoss);
+  check('all sixteen bosses have a plan of their own rather than the default',
+    bosses.every((m) => BOSS_PLANS[m.id]), bosses.filter((m) => !BOSS_PLANS[m.id]).map((m) => m.id).join(', ') || 'none fall through');
+  check('and every phase of every one of them says a line, with no em dash',
+    bosses.every((m) => bossPlanFor(m).every((p) => p.line && !p.line.includes('—'))));
+  check('and every phase kind has a word for the plate',
+    bosses.every((m) => bossPlanFor(m).every((p) => PHASE_WORDS[p.kind])));
+  // The thresholds, driven either side of both of them for all sixteen.
+  const above = bosses.every((m) => phaseIndexFor(m, 100 * 0.67, 100) === 0);
+  const first = bosses.every((m) => phaseIndexFor(m, 100 * 0.65, 100) === 1);
+  const onTheLine = bosses.every((m) => phaseIndexFor(m, 66, 100) === 0);
+  const second = bosses.every((m) => phaseIndexFor(m, 32, 100) === 2);
+  check('at 67% every boss is in phase 0, at 65% in phase 1', above && first);
+  check('at exactly 66% none of them has turned yet', onTheLine);
+  check('and under 33% every one of them is in phase 2', second);
+  check('the twelve new bosses carry the M2 lines word for word',
+    BOSS_PLANS.malachar[1].line === 'Malachar stops fighting like a knight of the Eyrie, and the room slows around him.'
+    && BOSS_PLANS.noon[0].line === 'Noon comes down off the rock, and the glass road cracks under him.'
+    && BOSS_PLANS.thalassa[1].kind === 'retreat');
+  // A boss whose row names what it summons puts down exactly that.
+  const named = bosses.filter((m) => m.summons);
+  check(`${named.length} bosses name what they call, and each names a real lesser row`,
+    named.length === 8 && named.every((m) => MONSTERS[m.summons.id] && MONSTERS[m.summons.id].tier < m.tier),
+    named.map((m) => `${m.id} -> ${m.summons.count} ${m.summons.id}`).join(', '));
+}
+
+// ------------------------------------------------------ summons, on a real row
+{
+  const b = bench({ rng: () => 0.5 });
+  const witch = b.monsters.spawnAt('fenWitch', 0, 0);
+  const p = benchPlayer(9, 0);
+  b.run(30, p);
+  check('the Fen Witch is standing there and has turned on you',
+    !!witch && !!witch.actor.ai.target && b.monsters.count === 1, `${b.monsters.count} bodies`);
+  witch.actor.health = witch.actor.maxHealth * 0.6;
+  b.run(5, p);
+  check('at 60% health she calls nothing', b.monsters.stats.summoned === 0, `${b.monsters.stats.summoned}`);
+  witch.actor.health = witch.actor.maxHealth * 0.4;
+  b.run(5, p);
+  const wisps = b.monsters.all().filter((m) => m.id === 'wisp');
+  check('the first time she drops under half she calls exactly two',
+    b.monsters.stats.summoned === 2 && wisps.length === 2, `${b.monsters.stats.summoned} summoned, ${wisps.length} standing`);
+  check('and they are the two her row names, not a habitat roll',
+    wisps.every((m) => m.id === MONSTERS.fenWitch.summons.id));
+  check('and she says so, and says what came',
+    b.said(/2 will o' wisps come out of the dark/).length === 1, b.said(/come out of the dark/)[0]);
+  check('and they are ephemeral, so no summon is written into the save',
+    wisps.every((m) => m.ephemeral));
+  // and not twice
+  witch.actor.health = witch.actor.maxHealth * 0.9;
+  b.run(5, p);
+  witch.actor.health = witch.actor.maxHealth * 0.3;
+  b.run(5, p);
+  check('crossing half again inside the cooldown calls nothing more',
+    b.monsters.stats.summoned === 2, `${b.monsters.stats.summoned}`);
+  // and they go out with her
+  const before = b.monsters.count;
+  b.combat.kill(witch.actor, p);
+  check('killing the witch takes her wisps with her',
+    b.monsters.count === 0, `${before} bodies, then ${b.monsters.count}`);
+  check('and it says how many went out', b.said(/goes out with|go out with/).length === 1, b.said(/out with/)[0]);
+  b.monsters.dispose();
+}
+{
+  // the body cap is real, and being eaten by it is said out loud
+  const b = bench({ rng: () => 0.5, cap: 1 });
+  const witch = b.monsters.spawnAt('fenWitch', 0, 0);
+  const p = benchPlayer(9, 0);
+  b.run(30, p);
+  witch.actor.health = witch.actor.maxHealth * 0.4;
+  b.run(5, p);
+  check('with the world already full she calls and nothing comes',
+    b.monsters.stats.summoned === 0, `${b.monsters.stats.summoned}`);
+  check('and the log says so rather than looking broken',
+    b.said(/no room in the world/).length === 1, b.said(/no room/)[0]);
+  b.monsters.dispose();
+}
+
+// ------------------------------------------------------------- the shield wall
+{
+  const b = bench({ rng: () => 0.5 });
+  const one = b.monsters.spawnAt('legionSoldier', 0, 0);
+  const p = benchPlayer(60, 0);
+  b.run(2, p);
+  const base = MONSTERS.legionSoldier.ar;
+  check('one Legion Soldier alone carries its row armour and nothing more',
+    one.wall === 0 && one.actor.ar === base, `ar ${one.actor.ar} against a row ${base}`);
+  const two = b.monsters.spawnAt('legionSoldier', 2, 0);
+  b.run(2, p);
+  check(`two of them within ${WALL_M} m each carry ${WALL_AR} more`,
+    one.wall === WALL_AR && two.wall === WALL_AR && one.actor.ar === base + WALL_AR,
+    `ar ${one.actor.ar} and ${two.actor.ar}`);
+  check('and it says so once, counting them', b.said(/lock shields/).length === 1, b.said(/lock shields/)[0]);
+  two.actor.pos.x = WALL_M + 3;
+  b.run(2, p);
+  check(`at ${WALL_M + 3} m apart the wall is off both of them`,
+    one.wall === 0 && two.wall === 0 && one.actor.ar === base, `ar ${one.actor.ar}`);
+  check('and the break is said too', b.said(/wall breaks/).length === 1);
+  // and it is really armour: the same blow costs less through a wall
+  const hitFor = (apart) => {
+    const t = bench({ rng: () => 0.5, crng: () => 0.5 });
+    const a = t.monsters.spawnAt('legionSoldier', 0, 0);
+    t.monsters.spawnAt('legionSoldier', apart ? 40 : 2, 0);
+    // A player who can actually mark a man in mail, standing in reach of one.
+    const q = benchPlayer(1.2, 0);
+    q.skills.swordsmanship = 100;
+    q.weapon = { id: 'test', skill: 'swordsmanship', minDamage: 60, maxDamage: 60, speed: 2, weight: 4, damageType: 'physical', ranged: false, reach: 2 };
+    t.run(2, q);
+    const hp = a.actor.health;
+    t.combat.queueSwing(q, a.actor, { now: t.now, immediate: true });
+    t.run(40, q);
+    t.monsters.dispose();
+    return hp - a.actor.health;
+  };
+  const alone = hitFor(true), walled = hitFor(false);
+  check('and the wall really turns blades: the same swing costs less through it',
+    walled < alone, `${alone} alone against ${walled} in the wall`);
+  b.monsters.dispose();
+}
+
+// ------------------------------------------------------- the chaplain's chant
+{
+  const b = bench({ rng: () => 0.5 });
+  b.monsters.spawnAt('legionChaplain', 0, 0);
+  const hurt = b.monsters.spawnAt('legionSoldier', 3, 0);
+  const full = b.monsters.spawnAt('legionSoldier', 4, 0);
+  const far = b.monsters.spawnAt('legionSoldier', 0, HEAL_ALLIES_M + 12);
+  hurt.actor.health = 20;
+  far.actor.health = 20;
+  const p = benchPlayer(10, 0);
+  b.run(400, p);
+  check('the chaplain chants at least once', b.monsters.stats.heals >= 1, `${b.monsters.stats.heals}`);
+  check(`a hurt ally inside ${HEAL_ALLIES_M} m is healed`, hurt.actor.health > 20, `20 to ${hurt.actor.health}`);
+  check('an ally at full health is not, and is not counted',
+    full.actor.health === full.actor.maxHealth, `${full.actor.health}`);
+  check(`a hurt ally past ${HEAL_ALLIES_M} m gets nothing`, far.actor.health === 20, `${far.actor.health}`);
+  check('and the chant says what went where',
+    b.said(/lifts the cup, and the wall closes up\. \d+ health back across \d+ of them/).length >= 1,
+    b.said(/lifts the cup/)[0]);
+  b.monsters.dispose();
+}
+
+// ---------------------------------------------------------------- the howl
+{
+  const b = bench({ rng: () => 0.5 });
+  const alpha = b.monsters.spawnAt('boneHound', 0, 0);
+  // inside the howl's thirty, outside the hound's own sixteen from the player
+  const near = b.monsters.spawnAt('boneHound', 28, 0);
+  const far = b.monsters.spawnAt('boneHound', 0, HOWL_M + 30);
+  const p = benchPlayer(6, 0);
+  b.run(3, p);
+  check('the far hounds have not turned on their own',
+    !near.actor.ai.target && !far.actor.ai.target);
+  alpha.actor.health -= 10;
+  b.run(3, p);
+  check('the first blow it takes brings the one inside thirty metres',
+    b.monsters.stats.howls === 1 && !!near.actor.ai.target, `${b.monsters.stats.howls} howls`);
+  check(`and not the one at ${HOWL_M + 30} m`, !far.actor.ai.target);
+  check('and the line counts what actually came',
+    b.said(/throws its head back, and 1 more come/).length === 1, b.said(/head back/)[0]);
+  alpha.actor.health -= 10;
+  b.run(3, p);
+  check('and it only ever howls once', b.monsters.stats.howls === 1, `${b.monsters.stats.howls}`);
+  b.monsters.dispose();
+}
+{
+  // and nothing to call is said too, rather than being silent
+  const b = bench({ rng: () => 0.5 });
+  const lone = b.monsters.spawnAt('boneHound', 0, 0);
+  const p = benchPlayer(6, 0);
+  b.run(3, p);
+  lone.actor.health -= 10;
+  b.run(3, p);
+  check('a hound with no pack says that nothing answered',
+    b.said(/nothing answers/).length === 1, b.said(/head back/)[0]);
+  b.monsters.dispose();
+}
+
+// ---------------------------------------------------------------- the stoop
+{
+  const b = bench({ rng: () => 0.5 });
+  const harpy = b.monsters.spawnAt('canopyHarpy', 0, 0);
+  const p = benchPlayer(DIVE_TRIGGER_M + 4, 0);
+  let low = 99, high = 0;
+  for (let f = 0; f < 200; f++) {
+    b.run(1, p);
+    const alt = harpy.actor.pos.y - GROUND;
+    low = Math.min(low, alt); high = Math.max(high, alt);
+    p.pos.x = harpy.actor.pos.x + DIVE_TRIGGER_M + 4;      // held out of reach
+  }
+  check(`a harpy held at ${DIVE_TRIGGER_M + 4} m stoops`, b.monsters.stats.dives === 1, `${b.monsters.stats.dives}`);
+  check('and it really comes down out of the hover to the floor',
+    high >= HOVER_MIN && low <= 0.01, `${low.toFixed(2)} m to ${high.toFixed(2)} m`);
+  check('and it says it is coming', b.said(/folds its wings/).length === 1);
+  const c = bench({ rng: () => 0.5 });
+  const h2 = c.monsters.spawnAt('canopyHarpy', 0, 0);
+  const q = benchPlayer(5, 0);
+  for (let f = 0; f < 200; f++) { c.run(1, q); q.pos.x = h2.actor.pos.x + 5; }
+  check(`and one held at 5 m, inside the ${DIVE_TRIGGER_M} m trigger, never does`,
+    c.monsters.stats.dives === 0, `${c.monsters.stats.dives}`);
+  b.monsters.dispose(); c.monsters.dispose();
+}
+
+// ------------------------------------------------------------- the kraken's hold
+{
+  const b = bench({ rng: () => 0.1, crng: () => 0.5 });      // 0.1 < GRAB_CHANCE
+  const k = b.monsters.spawnAt('kraken', 0, 0);
+  const p = benchPlayer(2, 0);
+  let f = 0;
+  for (; f < 600 && !b.monsters.holds().length; f++) { b.run(1, p); p.pos.x = k.actor.pos.x + 2; }
+  const held = b.monsters.holds();
+  check('a landed kraken blow takes hold of you', held.length === 1, `after ${f} frames`);
+  check('and it is a real root, the same one a web writes',
+    !!p.status.root && p.status.root.until > b.now, JSON.stringify(p.status.root));
+  check('and it says it has you, and for how long',
+    b.said(/has you\. 2 seconds of it/).length === 1, b.said(/has you/)[0]);
+  const at = b.now, hp = p.health;
+  let ticks = 0, prev = p.health;
+  for (let g = 0; g < 200 && b.monsters.holds().length; g++) {
+    b.run(1, p);
+    if (p.health < prev) { ticks++; prev = p.health; }
+  }
+  const heldFor = (b.now - at) / 1000;
+  check(`and it lets go after ${GRAB_SECONDS}.0 s`,
+    Math.abs(heldFor - GRAB_SECONDS) < 0.12, `${heldFor.toFixed(2)} s`);
+  check('and it squeezed for the row\'s low damage each second while it held',
+    ticks >= GRAB_SECONDS && hp - p.health >= MONSTERS.kraken.damage[0] * GRAB_SECONDS,
+    `${ticks} ticks, ${hp - p.health} off`);
+  check('and the root goes with it', !p.status.root, JSON.stringify(p.status.root));
+  check('and it says it let go', b.said(/lets go of you/).length >= 1);
+  b.monsters.dispose();
+}
+{
+  const b = bench({ rng: () => 0.9, crng: () => 0.5 });      // 0.9 > GRAB_CHANCE
+  const k = b.monsters.spawnAt('kraken', 0, 0);
+  const p = benchPlayer(2, 0);
+  for (let f = 0; f < 600; f++) { b.run(1, p); p.pos.x = k.actor.pos.x + 2; }
+  check('and a roll over one in four never takes hold at all',
+    b.monsters.stats.grabs === 0 && k.swings > 0, `${k.swings} swings, ${b.monsters.stats.grabs} grabs`);
+  b.monsters.dispose();
+}
+{
+  // killing the holder breaks it, which is M2's own "broken by killing the holder"
+  const b = bench({ rng: () => 0.1, crng: () => 0.5 });
+  const k = b.monsters.spawnAt('kraken', 0, 0);
+  const p = benchPlayer(2, 0);
+  for (let f = 0; f < 600 && !b.monsters.holds().length; f++) { b.run(1, p); p.pos.x = k.actor.pos.x + 2; }
+  check('it has you', b.monsters.holds().length === 1);
+  b.combat.kill(k.actor, p);
+  b.run(1, p);
+  check('and killing it lets you go before its two seconds are up',
+    b.monsters.holds().length === 0 && !p.status.root, JSON.stringify(p.status.root));
+  check('and says why', b.said(/lets go of you, because it is dead|lets go of you as it goes down/).length >= 1);
+  b.monsters.dispose();
+}
+
+// ---------------------------------------------------------------- the ambush
+{
+  const b = bench({ rng: () => 0.5 });
+  const stalker = b.monsters.spawnAt('reedStalker', 0, 0);
+  const p = benchPlayer(AMBUSH_M + 4, 0);
+  b.run(5, p);
+  check(`at ${AMBUSH_M + 4} m it is not there at all`,
+    stalker.hidden && stalker.dormant && !stalker.actor.ai.target, `hidden ${stalker.hidden}`);
+  check('and there is nothing to click on and nothing for an area effect to catch',
+    b.monsters.targets().length === 0 && b.monsters.actors().length === 0);
+  p.pos.x = AMBUSH_M - 1;
+  b.run(2, p);
+  check(`and at ${AMBUSH_M - 1} m it is`,
+    !stalker.hidden && !stalker.dormant && b.monsters.targets().length === 1);
+  check('and it says where it was', b.said(/was in the reeds the whole time/).length === 1);
+  b.monsters.dispose();
+}
+{
+  // The doubled first blow, measured against the SAME monster's next one. The
+  // Cairn Wight and not the Reed Stalker, because the stalker also carries
+  // poison1 and a two point tick landing on the same frame as a swing reads as
+  // one larger blow and would make this measurement a lie.
+  const b = bench({ rng: () => 0.5, crng: () => 0.5 });
+  const wight = b.monsters.spawnAt('cairnWight', 0, 0);
+  const p = benchPlayer(AMBUSH_M - 1, 0);
+  const blows = [];
+  let prev = p.health;
+  for (let f = 0; f < 1600; f++) {
+    b.run(1, p);
+    p.pos.x = wight.actor.pos.x + 1.2;
+    if (p.health !== prev) { blows.push(prev - p.health); prev = p.health; }
+  }
+  check('and the first blow out of an ambush is worth exactly two of the next',
+    blows.length >= 2 && blows[0] === blows[1] * AMBUSH_MULT,
+    `${blows.slice(0, 3).join(' then ')}`);
+  check('and only the first one', blows.length < 3 || blows[2] === blows[1], blows.slice(0, 3).join(' then '));
+  check('and it says the first one is doubled', b.said(/worth two of them/).length === 1);
+  b.monsters.dispose();
+}
+
+// -------------------------------------------------------------- the statue
+{
+  const b = bench({ rng: () => 0.5 });
+  const g = b.monsters.spawnAt('templeGuardian', 0, 0);
+  const p = benchPlayer(AWAKEN_M + 2, 0);
+  b.run(20, p);
+  check(`at ${AWAKEN_M + 2} m the guardian is a statue: no target, and it has not moved`,
+    g.dormant && !g.actor.ai.target && Math.hypot(g.actor.pos.x, g.actor.pos.z) < 1e-6,
+    `${Math.hypot(g.actor.pos.x, g.actor.pos.z).toFixed(4)} m from where it was put`);
+  check('and unlike an ambusher you can see it the whole time',
+    !g.hidden && b.monsters.targets().length === 1);
+  check('and its own aggro radius does not wake it', MONSTERS.templeGuardian.aggro > AWAKEN_M + 2,
+    `the row says ${MONSTERS.templeGuardian.aggro} m`);
+  p.pos.x = AWAKEN_M - 0.5;
+  b.run(2, p);
+  check(`and at ${AWAKEN_M - 0.5} m it steps down`, !g.dormant && !!g.actor.ai.target);
+  check('and says so', b.said(/steps down off its plinth/).length === 1);
+  b.monsters.dispose();
+}
+
+// -------------------------------------------------------------- the sandworm
+{
+  const b = bench({ rng: () => 0.5 });
+  const worm = b.monsters.spawnAt('sandworm', 0, 0);
+  const p = benchPlayer(10, 0);
+  p.yaw = Math.PI;                                  // facing (0, -1)
+  const seen = [];
+  for (let f = 0; f < 300; f++) { b.run(1, p); p.pos.x = 10; p.pos.z = 0; seen.push(worm.hidden); }
+  const down = seen.indexOf(true), up = seen.indexOf(false, down);
+  check('a sandworm further than five metres off goes under the ground',
+    b.monsters.stats.burrows === 1 && down >= 0, `${b.monsters.stats.burrows} burrows, at frame ${down}`);
+  check(`and it is gone for ${BURROW_UNDER_S}.0 s`,
+    Math.abs((up - down) / 60 - BURROW_UNDER_S) < 0.06, `${((up - down) / 60).toFixed(2)} s`);
+  const d = Math.hypot(worm.actor.pos.x - p.pos.x, worm.actor.pos.z - p.pos.z);
+  const dot = ((worm.actor.pos.x - p.pos.x) * Math.sin(p.yaw) + (worm.actor.pos.z - p.pos.z) * Math.cos(p.yaw)) / (d || 1);
+  check(`and it comes up within ${BURROW_OUT_M} m of you`, d <= BURROW_OUT_M + 0.05, `${d.toFixed(2)} m`);
+  check('and BEHIND you, which is the whole of the trick', dot < 0, `dot ${dot.toFixed(2)} with your facing`);
+  check('and the leash timer is cleared, so it does not walk home from where it surfaced',
+    worm.actor.ai.leashSince == null && !!worm.actor.ai.target);
+  check('and both halves of it are said',
+    b.said(/goes down into the ground/).length === 1 && b.said(/ground opens behind you/).length === 1);
+  b.monsters.dispose();
+}
+{
+  // and one that is already on top of you does not burrow at all
+  const b = bench({ rng: () => 0.5 });
+  const worm = b.monsters.spawnAt('sandworm', 0, 0);
+  const p = benchPlayer(2, 0);
+  for (let f = 0; f < 300; f++) { b.run(1, p); p.pos.x = worm.actor.pos.x + 2; }
+  check(`and one held inside ${BURROW_MIN_M} m never goes under`,
+    b.monsters.stats.burrows === 0 && !!worm.actor.ai.target, `${b.monsters.stats.burrows}`);
+  b.monsters.dispose();
+}
+
+// ------------------------------------------------------------ the canopy
+{
+  const b = bench({ rng: () => 0.5 });
+  const spider = b.monsters.spawnAt('blossomSpider', 0, 0);
+  const p = benchPlayer(DROP_UNDER_M + 4, 0);
+  b.run(5, p);
+  check(`a blossom spider waits ${DROP_HEIGHT_M} m over the path`,
+    spider.dormant && Math.abs(spider.actor.pos.y - GROUND - DROP_HEIGHT_M) < 1e-6,
+    `${(spider.actor.pos.y - GROUND).toFixed(2)} m up`);
+  check('and it does not come down for someone walking past it',
+    !spider.actor.ai.target, `${DROP_UNDER_M + 4} m away`);
+  const hp = p.health;
+  p.pos.x = 0;
+  b.run(2, p);
+  check('walking underneath it lets go', !spider.dormant);
+  b.run(60, p);
+  check('and it is on the ground a second later',
+    spider.aloft === 0 && Math.abs(spider.actor.pos.y - GROUND) < 1e-6, `${(spider.actor.pos.y - GROUND).toFixed(2)} m up`);
+  check('and the drop itself costs the player nothing', p.health === hp || p.health < hp,
+    `${hp - p.health} off, which is the spider fighting and not the fall`);
+  check('and it says what the blossom was', b.said(/blossom above the path/).length === 1);
+  b.monsters.dispose();
+}
+
+// ---------------------------------------------------- the storm, and stepping out
+{
+  const storm = (stepOut) => {
+    const b = bench({ rng: () => 0.5 });
+    b.monsters.spawnAt('reefEel', 0, 0);
+    const p = benchPlayer(5, 0);
+    let w = [];
+    for (let f = 0; f < 900 && !w.length; f++) { b.run(1, p); w = b.monsters.warnings(); }
+    const mark = w[0] ? { ...w[0] } : null;
+    const hp = p.health;
+    if (stepOut && mark) p.pos.x = mark.x + STORM_RADIUS + 20;
+    b.run(200, p);
+    const out = { mark, took: hp - p.health, storms: b.monsters.stats.storms, said: b.said(/sky answers/) };
+    b.monsters.dispose();
+    return out;
+  };
+  const stood = storm(false), walked = storm(true);
+  check('a reef eel calls the storm down on the ground you are standing on',
+    stood.storms >= 1 && stood.mark && stood.mark.kind === 'stormcall', JSON.stringify(stood.mark));
+  check(`and the mark is ${STORM_RADIUS} m across with ${STORM_WARN_S} s of warning`,
+    stood.mark.radius === STORM_RADIUS && stood.mark.left <= STORM_WARN_S && stood.mark.left > STORM_WARN_S - 0.2,
+    `${stood.mark.radius} m, ${stood.mark.left.toFixed(2)} s left`);
+  check('standing in it costs you the row\'s damage as energy',
+    stood.took >= MONSTERS.reefEel.damage[0], `${stood.took} off`);
+  check('and walking out of it costs you nothing', walked.took === 0, `${walked.took} off`);
+  check('and it says which of the two happened',
+    stood.said.some((l) => /lands on you/.test(l)) && walked.said.some((l) => /where you were/.test(l)));
+}
+
+// ------------------------------------------------- the charge, and stepping out
+{
+  const powder = (stepOut) => {
+    const b = bench({ rng: () => 0.5 });
+    b.monsters.spawnAt('legionSapper', 0, 0);
+    const p = benchPlayer(10, 0);
+    let w = [];
+    for (let f = 0; f < 400 && !w.length; f++) { b.run(1, p); w = b.monsters.warnings(); }
+    const mark = w[0] ? { ...w[0] } : null;
+    const hp = p.health;
+    if (stepOut && mark) p.pos.x = mark.x + POWDER_RADIUS + 20;
+    b.run(200, p);
+    const out = { mark, took: hp - p.health, charges: b.monsters.stats.charges, said: b.said(/charge goes off/) };
+    b.monsters.dispose();
+    return out;
+  };
+  const stood = powder(false), walked = powder(true);
+  check('a Legion Sapper puts a charge at your feet',
+    stood.charges >= 1 && stood.mark.kind === 'powdercharge', JSON.stringify(stood.mark));
+  check(`and it lies there ${POWDER_WARN_S} s, ${POWDER_RADIUS} m across`,
+    stood.mark.radius === POWDER_RADIUS && stood.mark.left > POWDER_WARN_S - 0.2);
+  check('standing over it costs you', stood.took >= MONSTERS.legionSapper.damage[0], `${stood.took} off`);
+  check('and stepping off it costs you nothing', walked.took === 0, `${walked.took} off`);
+  check('and the fuse is announced before it goes off',
+    stood.said.length >= 1 && walked.said.some((l) => /where you were standing/.test(l)));
+}
+
+// ------------------------------------------------------------------- the hex
+{
+  const b = bench({ rng: () => 0.5 });
+  b.monsters.spawnAt('cultistAdept', 0, 0);
+  const p = benchPlayer(10, 0);
+  const hit0 = p.bonuses.hit || 0;
+  let f = 0;
+  for (; f < 900 && !b.monsters.curses().length; f++) b.run(1, p);
+  const c = b.monsters.curses()[0];
+  check('a Cultist Adept curses as well as burning', !!c && c.kind === 'hex', `after ${f} frames`);
+  check(`and it takes ${HEX_POINTS} points off your hit`,
+    c.points === HEX_POINTS && (p.bonuses.hit || 0) === hit0 - HEX_POINTS, `bonuses.hit ${p.bonuses.hit}`);
+  check('and it is carried as a real buff, so a recompute cannot lose it',
+    p.buffs.some((x) => x.kind === 'hex' && x.effect.bonuses.hit === -HEX_POINTS));
+  check('and it says the number and the seconds',
+    b.said(new RegExp(`${HEX_POINTS} off your hit for ${HEX_SECONDS} seconds`)).length >= 1);
+  b.run(HEX_SECONDS * 60 + 40, p);
+  check(`and after ${HEX_SECONDS} s it comes off again, exactly`,
+    b.monsters.curses().length === 0 && (p.bonuses.hit || 0) === hit0 && p.buffs.length === 0,
+    `bonuses.hit ${p.bonuses.hit}, ${p.buffs.length} buffs`);
+  check('and it says so', b.said(/curse comes off you/).length >= 1);
+  b.monsters.dispose();
+}
+
+// -------------------------------------------------------------- the ash cloud
+{
+  const b = bench({ rng: () => 0.5 });
+  b.monsters.spawnAt('riderWraith', 0, 0);
+  const p = benchPlayer(2, 0);
+  let f = 0;
+  for (; f < 1200 && !b.monsters.curses().length; f++) b.run(1, p);
+  const c = b.monsters.curses()[0];
+  check('a Rider Wraith blinds what it hits', !!c && c.kind === 'ashCloud', `after ${f} frames`);
+  check(`and it is ${ASH_POINTS} points for ${ASH_SECONDS} s`,
+    c.points === ASH_POINTS && (p.bonuses.hit || 0) === -ASH_POINTS, `bonuses.hit ${p.bonuses.hit}`);
+  // it re-blinds you every time it connects, so the wraith has to be gone
+  // before the clock on this can be read at all
+  for (const m of b.monsters.all()) b.combat.kill(m.actor, p);
+  b.run(ASH_SECONDS * 60 + 40, p);
+  check(`and ${ASH_SECONDS} s after the last of it the air clears again`,
+    b.monsters.curses().length === 0 && (p.bonuses.hit || 0) === 0, `bonuses.hit ${p.bonuses.hit}`);
+  check('and it says so', b.said(/ash settles/).length >= 1);
+  b.monsters.dispose();
+}
+{
+  const b = bench({ rng: () => 0.5 });
+  b.monsters.spawnAt('marrowGhoul', 0, 0);            // same tier, no ashCloud
+  const p = benchPlayer(2, 0);
+  b.run(1200, p);
+  check('and a row without the tag never blinds anybody',
+    b.monsters.curses().length === 0 && !(p.bonuses.hit < 0), `hit ${p.bonuses.hit}`);
+  b.monsters.dispose();
+}
+
+// -------------------------------------------------------------- the tail sweep
+{
+  const b = bench({ rng: () => 0.5 });
+  const k = b.monsters.spawnAt('kraken', 0, 0);
+  const p = benchPlayer(2, 0);
+  for (let f = 0; f < 3000; f++) { b.run(1, p); p.pos.x = k.actor.pos.x + 2; }
+  check(`every ${SWEEP_EVERY}th swing of a kraken is the tail and not the arm`,
+    k.swings >= 8 && b.monsters.stats.sweeps === Math.floor(k.swings / SWEEP_EVERY),
+    `${k.swings} swings, ${b.monsters.stats.sweeps} sweeps`);
+  check('and the sweep costs the swing rather than being a free fifth attack',
+    b.monsters.stats.sweeps < k.swings);
+  check('and it says whether it caught you', b.said(/brings the tail round/).length === b.monsters.stats.sweeps);
+  // the cone itself, both ways, at the numbers the sweep uses
+  const at = { x: 0, z: 0 };
+  const front = { pos: { x: 0, z: 3 }, health: 1 };
+  const behind = { pos: { x: 0, z: -3 }, health: 1 };
+  const beyond = { pos: { x: 0, z: SWEEP_RANGE + 1 }, health: 1 };
+  check(`the ${SWEEP_RANGE} m, ${Math.round(SWEEP_HALF_ANGLE * 360 / Math.PI)} degree cone catches what is in front`,
+    coneTargets(at, 0, SWEEP_RANGE, SWEEP_HALF_ANGLE, [front]).length === 1);
+  check('and nothing behind it and nothing past its reach',
+    coneTargets(at, 0, SWEEP_RANGE, SWEEP_HALF_ANGLE, [behind]).length === 0
+    && coneTargets(at, 0, SWEEP_RANGE, SWEEP_HALF_ANGLE, [beyond]).length === 0);
+  b.monsters.dispose();
+}
+
+// ------------------------------------------------------------- Malachar's time
+{
+  const b = bench({ rng: () => 0.5 });
+  const m = b.monsters.spawnAt('malachar', 0, 0);
+  const p = benchPlayer(6, 0);
+  b.run(3, p);
+  const row = MONSTERS.malachar;
+  const plain = { ...m.actor, bonuses: { ...m.actor.bonuses, swingSpeed: 0 } };
+  check('Malachar swings at half his seconds from the first frame',
+    m.actor.bonuses.swingSpeed === DRAGON_SWING
+    && Math.abs(swingSeconds(m.actor) - swingSeconds(plain) * (1 - DRAGON_SWING)) < 1e-9,
+    `${swingSeconds(plain).toFixed(2)} s becomes ${swingSeconds(m.actor).toFixed(2)} s`);
+  check(`and comes on at ${DRAGON_RUN} times his tabled run`,
+    Math.abs(m.actor.run - row.run * DRAGON_RUN) < 1e-9, `${row.run} becomes ${m.actor.run}`);
+  check('and nothing yet wants your own clock slowed',
+    b.monsters.wantsPlayerSlow().active === false);
+  m.actor.health = m.actor.maxHealth * 0.5;
+  b.run(3, p);
+  check('at half health he is in his first phase and still quick',
+    m.phase === 1 && m.dragonOn === true && b.monsters.wantsPlayerSlow().active === false, `phase ${m.phase}`);
+  m.actor.health = m.actor.maxHealth * 0.2;
+  b.run(3, p);
+  check('under a third his own speed comes off, exactly',
+    m.dragonOn === false && Math.abs(m.actor.run - row.run) < 1e-9
+    && Math.abs(m.actor.bonuses.swingSpeed - ENRAGE_SWING) < 1e-9,
+    `run ${m.actor.run}, swingSpeed ${m.actor.bonuses.swingSpeed.toFixed(2)}`);
+  const want = b.monsters.wantsPlayerSlow();
+  check('and it is the PLAYER\'s clock he wants now, asked for and not taken',
+    want.active === true && want.scale === DRAGON_PLAYER_SCALE && want.source === 'malachar', JSON.stringify(want));
+  check('and he says the room slowed', b.said(/room slows down around him/).length === 1);
+  b.combat.kill(m.actor, p);
+  check('and a dead Wyrmking wants nothing', b.monsters.wantsPlayerSlow().active === false);
+  b.monsters.dispose();
+  // and he is the only row in the game that may ask
+  const asks = Object.values(MONSTERS).filter((r) => (r.notes || []).includes('dragonTime'));
+  check('and he is the only row that carries dragonTime at all',
+    asks.length === 1 && asks[0].id === 'malachar', asks.map((r) => r.id).join(', '));
+}
+
+// --------------------------------------- nothing lent is left on a player
+{
+  const b = bench({ rng: () => 0.5 });
+  b.monsters.spawnAt('cultistAdept', 0, 0);
+  const p = benchPlayer(10, 0);
+  for (let f = 0; f < 900 && !b.monsters.curses().length; f++) b.run(1, p);
+  check('the player is carrying a curse', b.monsters.curses().length === 1);
+  b.monsters.dispose();
+  check('and disposing the whole runtime gives the points back rather than leaving them on him',
+    (p.bonuses.hit || 0) === 0 && p.buffs.length === 0, `bonuses.hit ${p.bonuses.hit}, ${p.buffs.length} buffs`);
+}
+
+
+// ------------------------------------ every row that carries one, not just one
+//
+// "One case is never the case." Twenty one tags were added and each rule above
+// is proved on ONE row that carries it. This drives EVERY row that carries any
+// of them through three hundred frames of the real loop with a real player, and
+// fails loudly on the day a rule works for a harpy and throws for a wyvern.
+{
+  const WAVE = ['shieldWall', 'healsAllies', 'howl', 'summons', 'dives', 'grab', 'ambush',
+    'awakens', 'burrows', 'dropsFromAbove', 'stormCall', 'powderCharge', 'hex', 'ashCloud',
+    'tailSweep', 'dragonTime', 'fireImmune', 'bow', 'shield', 'wanders', 'noonOnly'];
+  const carriers = Object.values(MONSTERS).filter((m) => (m.notes || []).some((n) => WAVE.includes(n)));
+  const broke = [];
+  let fought = 0, dormantEnd = 0, critters = 0;
+  for (const row of carriers) {
+    try {
+      const b = bench({ rng: () => 0.3, crng: () => 0.5, seed: 4242 });
+      const mon = b.monsters.spawnAt(row.id, 0, 0);
+      if (!mon) { broke.push(`${row.id}: no body`); continue; }
+      const p = benchPlayer(3, 0);
+      for (let f = 0; f < 300; f++) { b.run(1, p); p.pos.x = mon.actor.pos.x + 3; p.pos.z = mon.actor.pos.z; }
+      // it either turned on the player or is legitimately still asleep
+      if (mon.actor.ai.target) fought++;
+      else if (mon.dormant) dormantEnd++;
+      // a critter's aggro radius is zero by the temperament table, so the hawk
+      // never turns on anybody and is right not to
+      else if (row.temperament === 'critter') critters++;
+      else broke.push(`${row.id}: three hundred frames at 3 m and it never turned`);
+      // nothing it lent may be left on the player when it goes
+      b.monsters.dispose();
+      if ((p.bonuses.hit || 0) !== 0) broke.push(`${row.id}: left ${p.bonuses.hit} on the player's hit`);
+      if (p.status.root) broke.push(`${row.id}: left the player rooted`);
+    } catch (e) { broke.push(`${row.id}: ${e.message}`); }
+  }
+  check(`all ${carriers.length} rows carrying a wave A tag survive three hundred frames of the real loop`,
+    broke.length === 0, broke.length ? broke.slice(0, 5).join(' | ') : `${fought} fought, ${dormantEnd} still asleep at 3 m, ${critters} critters that never turn on anyone`);
+  // and every one of the twenty one tags is carried by at least one row, so no
+  // rule above is a branch that can never run
+  const missing = WAVE.filter((t) => !Object.values(MONSTERS).some((m) => (m.notes || []).includes(t)));
+  check('and every tag a rule was written for is carried by a real row',
+    missing.length === 0, missing.join(', ') || `${WAVE.length} tags, ${carriers.length} rows`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

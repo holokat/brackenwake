@@ -212,9 +212,9 @@ const critter = (id, name, hp, run, group, extra = {}) => M({
 critter('rabbit', 'Rabbit', 2, 4.2, [1, 3]);
 critter('squirrel', 'Squirrel', 2, 4.6, [1, 2]);
 critter('deer', 'Deer', 8, 7.0, [1, 4]);
-critter('gull', 'Gull', 3, 9.0, [2, 6]);
+critter('gull', 'Gull', 3, 9.0, [2, 6], { notes: ['flying'] });
 critter('frog', 'Frog', 2, 2.0, [1, 3]);
-critter('crow', 'Crow', 3, 9.0, [2, 5]);
+critter('crow', 'Crow', 3, 9.0, [2, 5], { notes: ['flying'] });
 critter('fieldMouse', 'Field Mouse', 1, 4.0, [1, 2]);
 
 // --- Tier 1, vermin and the newly dead (skill 10 to 25, 4 to 12 gold)
