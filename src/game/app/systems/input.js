@@ -1,5 +1,13 @@
 // The keys that are not movement, and the click router.
 //
+// THE RIGHT BUTTON IS A MENU, AND IT USED TO BE A SECOND LEFT BUTTON. `input.js`
+// prevents the browser's own context menu on the canvas and then reports the
+// press as a click like any other, with `button: 2` on it, and nothing here read
+// that button. So a right click on a wolf started a fight, and a right click on
+// bare ground called one off. It now goes to `context_menu`, which resolves the
+// same ray and opens a list at the cursor. `targeting.js` already gated itself
+// on `button === 0` and is unchanged.
+//
 // THE ORDER OF A CLICK, and it is the order it has always been: a held spell
 // owns the click before anything else, because it is choosing a target and not
 // starting a fight. Then a sack, a person, a station, a plant at your feet, a
@@ -130,6 +138,14 @@ export const input = {
 
   click(ctx, ray, frame) {
     if (ctx.get('world_life').shop.isOpen || ctx.get('dev').on || ctx.get('player').dying) return false;
+    // The right button never routes. It resolves the same ray and asks for the
+    // short list of what can be done to whatever it found, which for an empty
+    // ray is the ground.
+    if ((ctx.input.click?.button || 0) === 2) {
+      return ctx.has('context_menu')
+        ? ctx.get('context_menu').openAt(ray, ctx.input.click.px, ctx.input.click.py)
+        : false;
+    }
     return ctx.get('input').route(ray, frame.now, frame.nowS);
   },
 };

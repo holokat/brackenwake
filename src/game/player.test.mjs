@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import {
   createPlayer, buildCharacter, poseCharacter, stepPlayer, legIK,
   WALK_SPEED, RUN_SPEED, ACCEL, DECEL, TURN_RATE, MAX_SLOPE, STRIDE_WALK, STRIDE_RUN, PALETTE, JUMP_HEIGHT, JUMP_AIR_S,
-  HAIR_STYLES, HAIRLINE, GRIP_POSES, BODY, APPEARANCE_FALLBACK,
+  HAIR_STYLES, HAIRLINE, GRIP_POSES, BODY, APPEARANCE_FALLBACK, GENDERS, auditAppearance,
   EMOTE_ANIMS, EMOTE_POSES, auditEmotePoses, isEmoteAnim, clearEmotePose, SIT_HIP, LIE_HIP,
 } from './player.js';
 
@@ -522,6 +522,82 @@ console.log('player: the emote poses');
     });
   check('a run after an emote is exactly the run it would have been', same,
     `hips ${a.hips.position.y.toFixed(6)} vs ${b.hips.position.y.toFixed(6)}`);
+}
+
+// ---------------------------------------------------------------------------
+// CR3: the gender is recorded, and it moves nothing.
+//
+// The claim the creation screen makes is that choosing female picks a body.
+// Today it does not: the models are being made. So the claim this file has to
+// prove is the honest one, in both directions: the choice is KEPT, and not one
+// vertex of the rig moves because of it. Measured by walking every mesh in the
+// group, in order, and comparing the whole position buffer and the world matrix
+// of each, before and after.
+// ---------------------------------------------------------------------------
+console.log('\nplayer: the gender, recorded and drawing nothing');
+{
+  /** Every vertex of every mesh, in traversal order, with each mesh's world matrix. */
+  function skeletonOf(group) {
+    group.updateMatrixWorld(true);
+    const out = [];
+    group.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      const pos = o.geometry.getAttribute('position');
+      out.push({
+        n: pos ? pos.count : 0,
+        verts: pos ? Array.from(pos.array) : [],
+        world: o.matrixWorld.elements.slice(),
+      });
+    });
+    return out;
+  }
+  const sameAs = (a, b) => {
+    if (a.length !== b.length) return `${a.length} meshes became ${b.length}`;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i].n !== b[i].n) return `mesh ${i}: ${a[i].n} vertices became ${b[i].n}`;
+      for (let k = 0; k < a[i].verts.length; k++) {
+        if (a[i].verts[k] !== b[i].verts[k]) return `mesh ${i} vertex value ${k}: ${a[i].verts[k]} became ${b[i].verts[k]}`;
+      }
+      for (let k = 0; k < 16; k++) {
+        if (a[i].world[k] !== b[i].world[k]) return `mesh ${i} world matrix ${k}: ${a[i].world[k]} became ${b[i].world[k]}`;
+      }
+    }
+    return null;
+  };
+
+  check('the two genders the rig knows are openings.js s two', GENDERS.join(',') === 'male,female', GENDERS.join(','));
+  check('and the fallback look is male, so a rig built with no appearance still answers the question',
+    APPEARANCE_FALLBACK.gender === 'male', String(APPEARANCE_FALLBACK.gender));
+
+  const rig = buildCharacter({ ...APPEARANCE_FALLBACK });
+  check('a rig built from the fallback records male', rig.appearance.gender === 'male', String(rig.appearance.gender));
+  const before = skeletonOf(rig.group);
+  const meshes = before.length;
+  const verts = before.reduce((n, m) => n + m.n, 0);
+
+  rig.setAppearance({ ...rig.appearance, gender: 'female' });
+  check('setAppearance({ gender: female }) records it on the rig', rig.appearance.gender === 'female', String(rig.appearance.gender));
+  const diff = sameAs(before, skeletonOf(rig.group));
+  check(`and moves not one of the ${verts} vertices across ${meshes} meshes`, diff === null, diff || `${meshes} meshes, ${verts} vertices, identical`);
+
+  rig.setAppearance({ ...rig.appearance, gender: 'male' });
+  check('and back to male is still the same body', sameAs(before, skeletonOf(rig.group)) === null, sameAs(before, skeletonOf(rig.group)) || 'identical');
+
+  // The other direction: something that IS meant to move the body still does,
+  // so the check above is a measurement and not a broken comparison.
+  rig.setAppearance({ ...rig.appearance, build: 'heavy' });
+  check('while a change of build does move it, so the comparison above can fail', sameAs(before, skeletonOf(rig.group)) !== null,
+    sameAs(before, skeletonOf(rig.group)) || 'nothing moved, which means the check cannot fail');
+
+  const junk = buildCharacter({ ...APPEARANCE_FALLBACK, gender: 'wyvern' });
+  check('a gender nothing has a body for falls back to male rather than being kept',
+    junk.appearance.gender === 'male', String(junk.appearance.gender));
+  check('and the audit passes over openings.js own list',
+    auditAppearance({ genders: ['male', 'female'], builds: ['average'], skins: ['fair'], hairColours: ['chestnut'], hairStyles: ['short'], marks: ['none'] }) === true);
+  let threw = '';
+  try { auditAppearance({ genders: ['male', 'other'], builds: ['average'], skins: ['fair'], hairColours: ['chestnut'], hairStyles: ['short'], marks: ['none'] }); }
+  catch (e) { threw = e.message; }
+  check('and fails loudly the day a third gender arrives with no body', threw.includes('other'), threw);
 }
 
 console.log(`\nplayer: ${pass} passed, ${fail} failed`);

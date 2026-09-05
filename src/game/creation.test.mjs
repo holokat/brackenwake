@@ -16,7 +16,7 @@ import { GROUP_COLOUR } from './win_abilities.js';
 import { STAT_IDS as STAT_ORDER, STAT_LABELS, STAT_NAMES, SKILL_NAMES } from '../mmo/openings.js';
 import {
   OPENINGS, OPENINGS_BY_ID, STAT_IDS, SKILL_IDS, ITEM_BASES,
-  CUSTOM_STAT_POINTS, CUSTOM_SKILL_POINTS, BLANK_STAT_POINTS, APPEARANCE,
+  CUSTOM_STAT_POINTS, CUSTOM_SKILL_POINTS, BLANK_STAT_POINTS, APPEARANCE, APPEARANCE_DEFAULT,
 } from '../mmo/openings.js';
 import { statTotal, derived, STAT_START_TOTAL } from '../mmo/stats.js';
 import { total as skillTotal, SKILLS, SKILL_GROUPS } from '../mmo/skills.js';
@@ -544,7 +544,7 @@ check('and it wears the shared look, so the fonts and the tokens reach it',
     ['bw-cr-cname', 'bw-cr-art', 'bw-cr-quote', 'bw-cr-about', 'bw-cr-bars', 'bw-cr-kitrow', 'bw-cr-derived', 'bw-cr-go']
       .filter((c) => withClass(one(s1.cr.el, 'bw-cr-right'), c).length !== 1).join(','));
   const stage = one(s1.cr.el, 'bw-cr-stage');
-  check('the middle column paints nothing over the rig but the arrows and the six pills',
+  check('the middle column paints nothing over the rig but the arrows and the two pills',
     stage.children.length === 3
     && stage.children[0].classList.contains('bw-cr-void')
     && stage.children[1].classList.contains('bw-cr-turn')
@@ -591,8 +591,8 @@ check('and the shared theme went in with it',
 }
 
 // --- REWRITTEN. Seven headers became five: THE KIT is now the icon row under
-// STARTING GEAR, and APPEARANCE is the six pills under the preview, which are
-// labelled one by one and want no header over them.
+// STARTING GEAR, and APPEARANCE is the two pills under the preview, which name
+// themselves and want no header over them.
 {
   const want = ['choose your opening', 'base stats', 'what that comes to', 'starting gear', 'name'];
   const got = withClass(s1.cr.el, 'bw-hdr').map((n) => n.textContent.toLowerCase());
@@ -801,7 +801,14 @@ check('there is a card for every opening, in the openings order',
   s.cr.destroy();
 }
 
-// --- the six pills under the preview
+// --- the two pills under the preview
+//
+// REWRITTEN (CR3). The face was six pills: build, skin, hair, hair colour,
+// marks and height, each a labelled select. It is two buttons now, MALE and
+// FEMALE, because the models that would make the other five mean anything are
+// not drawn yet and a control over a body that cannot change is a lie. The
+// other five fields are still in the document, at their defaults, and that is
+// checked here too: what left the screen did not leave the save.
 {
   const s = screen();
   const named = textInput(s.cr.el);
@@ -809,29 +816,44 @@ check('there is a card for every opening, in the openings order',
   named.fire('input');
   const pills = withClass(s.cr.el, 'bw-cr-pill');
   const selects = walk(s.cr.el).filter((n) => n.tagName === 'SELECT');
-  // REWRITTEN: the face was five selects and a height slider in a column of
-  // rows. It is six pills under the preview now, height among them, because
-  // the height of a person is a choice about their appearance like the rest.
-  check('the face is six pills under the preview, height among them',
-    pills.length === 6 && selects.length === 6
-    && selects.map((x) => x.dataset.look).join(',') === 'build,skin,hairStyle,hairColour,mark,height',
-    selects.map((x) => x.dataset.look).join(','));
-  check('and every pill is a label over the choice', pills.every((p) => p.children.length === 2 && p.children[0].textContent.length > 2));
-  const heightSel = selects[5];
-  check('the height pill offers every rung openings.js allows, from 1.60 to 2.00',
-    heightSel.children.length === 41
-    && heightSel.children[0].textContent === '1.60 m'
-    && heightSel.children[40].textContent === '2.00 m',
-    `${heightSel.children.length} rungs, ${heightSel.children[0].textContent} to ${heightSel.children[heightSel.children.length - 1].textContent}`);
-  heightSel.value = '1.94';
-  heightSel.fire('change');
-  check('and choosing one is kept in the character that is planned',
-    s.cr.state.appearance.height === 1.94 && s.cr.plan().character.appearance.height === 1.94,
-    String(s.cr.state.appearance.height));
-  const build = selects[0];
-  build.value = 'heavy';
-  build.fire('change');
-  check('as is a build', s.cr.state.appearance.build === 'heavy', s.cr.state.appearance.build);
+  check('the face is two pills under the preview, male and female',
+    pills.length === 2
+    && pills.every((p) => p.tagName === 'BUTTON' && p.dataset.look === 'gender')
+    && pills.map((p) => p.dataset.gender).join(',') === 'male,female'
+    && pills.map((p) => p.textContent).join(',') === 'MALE,FEMALE',
+    pills.map((p) => `${p.tagName}:${p.dataset.gender}:${p.textContent}`).join(' | '));
+  check('and the six selects the old face wore are gone from the document',
+    selects.length === 0, `${selects.length} selects left`);
+  check('male is lit on open, because that is the default',
+    pills[0].classList.contains('on') && !pills[1].classList.contains('on'),
+    pills.map((p) => `${p.dataset.gender}=${p.classList.contains('on')}`).join(' '));
+  pills[1].fire('click');
+  check('clicking female lights female and puts male out',
+    pills[1].classList.contains('on') && !pills[0].classList.contains('on'),
+    pills.map((p) => `${p.dataset.gender}=${p.classList.contains('on')}`).join(' '));
+  check('and the character that is planned carries the gender',
+    s.cr.state.appearance.gender === 'female' && s.cr.plan().character.appearance.gender === 'female',
+    String(s.cr.plan().character?.appearance?.gender));
+  pills[0].fire('click');
+  check('and clicking back is male again, on the screen and in the plan',
+    pills[0].classList.contains('on') && s.cr.plan().character.appearance.gender === 'male',
+    String(s.cr.plan().character?.appearance?.gender));
+  const look = s.cr.plan().character.appearance;
+  check('the five fields the screen no longer offers are still written, at their defaults',
+    look.build === APPEARANCE_DEFAULT.build && look.skin === APPEARANCE_DEFAULT.skin
+    && look.hairStyle === APPEARANCE_DEFAULT.hairStyle && look.hairColour === APPEARANCE_DEFAULT.hairColour
+    && look.mark === APPEARANCE_DEFAULT.mark && look.height === APPEARANCE_DEFAULT.height,
+    JSON.stringify(look));
+  // A change of class rebuilds the middle column. The pill that was lit has to
+  // still be lit afterwards, or the choice is quietly thrown away.
+  pills[1].fire('click');
+  const mageCard = withClass(s.cr.el, 'bw-cr-card').find((c) => c.dataset.opening === 'mage');
+  mageCard.fire('click');
+  const after = withClass(s.cr.el, 'bw-cr-pill');
+  check('and a change of class keeps the gender, and keeps it lit',
+    s.cr.state.appearance.gender === 'female'
+    && after.length === 2 && after[1].classList.contains('on') && !after[0].classList.contains('on'),
+    `${s.cr.state.appearance.gender}, ${after.map((p) => p.classList.contains('on')).join(',')}`);
   s.cr.destroy();
 }
 

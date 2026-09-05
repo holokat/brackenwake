@@ -284,6 +284,34 @@ check(`the skill budget for a kitted opening is ${CUSTOM_SKILL_POINTS}`,
 console.log('\nAppearance');
 // ---------------------------------------------------------------------------
 
+// CR3: gender is the one choice the creation screen offers today. The other
+// five stay in the table and in every save, so a character made before CR3
+// loads without an error and the day the models land nothing has to be
+// invented back. Both halves are checked: the new field, and the old ones.
+check('two genders, male and female, in that order',
+  APPEARANCE.genders.length === 2 && APPEARANCE.genders.join(',') === 'male,female',
+  APPEARANCE.genders.join(', '));
+check('and the default is male', APPEARANCE_DEFAULT.gender === 'male', String(APPEARANCE_DEFAULT.gender));
+check('both genders validate',
+  APPEARANCE.genders.every((g) => validateAppearance({ ...APPEARANCE_DEFAULT, gender: g }).ok),
+  APPEARANCE.genders.join(', '));
+{
+  const bad = validateAppearance({ ...APPEARANCE_DEFAULT, gender: 'other' });
+  check('and a gender that is not one of the two is refused, by name and by count',
+    bad.ok === false && bad.error.includes('gender') && bad.error.includes('2 choices'), bad.error);
+}
+{
+  const { gender, ...noGender } = APPEARANCE_DEFAULT;
+  const r = validateAppearance(noGender);
+  check('an appearance with no gender at all is refused rather than guessed',
+    r.ok === false && r.error.startsWith('gender'), r.error);
+  const filled = validateAppearance({ ...APPEARANCE_DEFAULT, ...noGender });
+  check('and the same record read the way state.js reads a save, over the default, comes back male',
+    filled.ok === true && filled.appearance.gender === 'male', JSON.stringify(filled.appearance));
+}
+check('the five the screen dropped are still in the table, whole',
+  APPEARANCE.builds.length === 3 && APPEARANCE.skins.length === 8 && APPEARANCE.hairStyles.length === 12
+  && APPEARANCE.hairColours.length === 10 && APPEARANCE.marks.length > 1 && APPEARANCE.height.default === 1.75);
 check('three builds', APPEARANCE.builds.length === 3, APPEARANCE.builds.join(', '));
 check('eight skins', APPEARANCE.skins.length === 8, APPEARANCE.skins.join(', '));
 check('twelve hair styles', APPEARANCE.hairStyles.length === 12, `${APPEARANCE.hairStyles.length}`);
@@ -291,12 +319,12 @@ check('ten hair colours', APPEARANCE.hairColours.length === 10, `${APPEARANCE.ha
 check('face marks exist and include none', APPEARANCE.marks.includes('none'), `${APPEARANCE.marks.length} marks`);
 check('height runs 1.6 to 2.0', APPEARANCE.height.min === 1.6 && APPEARANCE.height.max === 2.0);
 check('no list repeats a value',
-  [APPEARANCE.builds, APPEARANCE.skins, APPEARANCE.hairStyles, APPEARANCE.hairColours, APPEARANCE.marks]
+  [APPEARANCE.genders, APPEARANCE.builds, APPEARANCE.skins, APPEARANCE.hairStyles, APPEARANCE.hairColours, APPEARANCE.marks]
     .every((l) => new Set(l).size === l.length));
 
 check('the default appearance validates', validateAppearance(APPEARANCE_DEFAULT).ok === true);
 check('every single choice validates against the default',
-  [['build', 'builds'], ['skin', 'skins'], ['hairStyle', 'hairStyles'], ['hairColour', 'hairColours'], ['mark', 'marks']]
+  [['gender', 'genders'], ['build', 'builds'], ['skin', 'skins'], ['hairStyle', 'hairStyles'], ['hairColour', 'hairColours'], ['mark', 'marks']]
     .every(([f, list]) => APPEARANCE[list].every((v) => validateAppearance({ ...APPEARANCE_DEFAULT, [f]: v }).ok)),
   `${APPEARANCE.builds.length + APPEARANCE.skins.length + APPEARANCE.hairStyles.length + APPEARANCE.hairColours.length + APPEARANCE.marks.length} choices`);
 {

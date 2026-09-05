@@ -14,10 +14,15 @@
 //    card, greyed, and said out loud when you begin, because a kit that
 //    silently hands over five of six items is the jam-and-bread failure again.
 //
-// 2. `buildCharacter()` takes no appearance. Height scales the rig; build,
-//    skin, hair and marks are written to the document and shown nowhere until
-//    the Blender rigs land. The card says so rather than implying a model that
-//    changes.
+// 2. THE FACE IS ONE CHOICE NOW (CR3). The screen offers male or female and
+//    nothing else, because the character models are still being made and six
+//    controls over a body that cannot change any of them is six lies. The other
+//    five fields (build, skin, hair, hair colour, marks, height) keep their
+//    defaults in openings.js and are still written into every save, so a
+//    character made before this loads unchanged and the day the models land the
+//    controls come back rather than the records being invented again.
+//    `setAppearance` takes the gender and records it on the rig; it moves not
+//    one vertex today, and player.js says so where it does it.
 
 // The dais the character stands on is a real mesh in the real scene, so this
 // file needs the library that makes one. main.js hands over the scene and the
@@ -816,19 +821,24 @@ const CSS = `
 }
 #bw-creation .bw-cr-arrow:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
 
+/* CR3: six pills became two. The row is a pair of buttons rather than a grid
+   of labelled selects, so it centres under the rig at any width. */
 #bw-creation .bw-cr-look {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;
+  display: flex; justify-content: center; gap: 10px;
   width: 100%; max-width: 540px;
 }
 #bw-creation .bw-cr-pill {
-  display: flex; flex-direction: column; gap: 2px;
-  padding: 5px 8px 6px;
+  min-width: 116px; padding: 7px 16px 8px; cursor: pointer;
+  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .2em;
+  text-transform: uppercase; color: ${theme.parchmentDim};
   border: 1px solid ${theme.goldDim}66;
   background: linear-gradient(180deg, rgba(20,16,11,.86), rgba(6,5,4,.92));
 }
-#bw-creation .bw-cr-pk {
-  font-family: ${theme.fonts.display}; font-size: 8.5px; letter-spacing: .18em;
-  text-transform: uppercase; color: ${theme.gold};
+#bw-creation .bw-cr-pill:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
+#bw-creation .bw-cr-pill.on {
+  color: ${theme.goldBright}; border-color: ${theme.gold};
+  background: linear-gradient(180deg, rgba(90,68,24,.55), rgba(30,22,10,.9));
+  box-shadow: inset 0 0 12px rgba(201,164,74,.28);
 }
 
 /* --- the right hand panel ------------------------------------------------ */
@@ -1312,6 +1322,7 @@ export function createCreation(root, deps = {}) {
   // the budgets and the wording do
   let statInputs = new Map();
   let skillRows = new Map();
+  let genderPills = new Map();
 
   function build() {
     const op = OPENINGS_BY_ID[state.opening];
@@ -1381,40 +1392,44 @@ export function createCreation(root, deps = {}) {
       }
     }
 
+    // CR3: ONE CHOICE, AND THE REST OF THE RECORD IS NOT GONE.
+    //
+    // The screen used to offer six: build, skin, hair, hair colour, marks and
+    // height. Five of the six drew a body the models cannot make yet, so they
+    // are off the screen and their defaults are still written into the save by
+    // `planCharacter` through APPEARANCE_DEFAULT. What is left is the one
+    // choice that will change a whole model when the models arrive.
+    //
+    // The pills are rebuilt with the rest of `build()` on every change of
+    // class, so `paintGender` is what a click calls: `refresh()` does not
+    // rebuild this row and a pill that lit only on a class change would be a
+    // button that looks broken.
     lookEl.textContent = '';
-    const pill = (label, field, list, format = String) => {
-      const cell = h('label', 'bw-cr-pill');
-      cell.appendChild(h('span', 'bw-cr-pk', label));
-      const sel = document.createElement('select');
-      sel.dataset.look = field;
-      for (const opt of list) {
-        const o = document.createElement('option');
-        o.value = String(opt); o.textContent = format(opt);
-        sel.appendChild(o);
-      }
-      sel.value = String(state.appearance[field]);
-      sel.addEventListener('change', () => {
-        state.appearance[field] = field === 'height' ? Number(sel.value) : sel.value;
-        if (field === 'height' && rig) rig.group.scale.setScalar(state.appearance.height / 1.8);
+    genderPills = new Map();
+    for (const g of APPEARANCE.genders) {
+      const b = h('button', 'bw-cr-pill', g.toUpperCase());
+      b.dataset.look = 'gender';
+      b.dataset.gender = g;
+      b.title = `make them ${g}`;
+      b.addEventListener('click', () => {
+        if (state.appearance.gender === g) return;
+        state.appearance.gender = g;
+        // The rig is told, through the same call the game uses. It changes
+        // nothing you can see yet and says so in player.js; this is the wire,
+        // laid now so the model swap is one function and not a search.
+        if (rig && typeof rig.setAppearance === 'function') rig.setAppearance({ ...state.appearance });
+        paintGender();
         refresh();
       });
-      cell.appendChild(sel);
-      lookEl.appendChild(cell);
-    };
-    pill('build', 'build', APPEARANCE.builds);
-    pill('skin', 'skin', APPEARANCE.skins);
-    pill('hair', 'hairStyle', APPEARANCE.hairStyles);
-    pill('hair colour', 'hairColour', APPEARANCE.hairColours);
-    pill('marks', 'mark', APPEARANCE.marks);
-    // Height is the sixth choice and wears the same pill as the other five.
-    // The values are openings.js's own min, max and step, so a range that
-    // widens there widens here.
-    const heights = [];
-    const rungs = Math.round((APPEARANCE.height.max - APPEARANCE.height.min) / APPEARANCE.height.step);
-    for (let i = 0; i <= rungs; i++) {
-      heights.push(Number((APPEARANCE.height.min + i * APPEARANCE.height.step).toFixed(2)));
+      genderPills.set(g, b);
+      lookEl.appendChild(b);
     }
-    pill('height', 'height', heights, (v) => `${v.toFixed(2)} m`);
+    paintGender();
+  }
+
+  /** Which of the two is lit. Called by build() and by a click, and nothing else. */
+  function paintGender() {
+    for (const [g, b] of genderPills) b.classList.toggle('on', state.appearance.gender === g);
   }
 
   /** Move a skill, clamped to what the rules would take. */

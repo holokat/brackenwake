@@ -615,6 +615,12 @@ export function applyCustomisation(opening, statMoves = [], skillMoves = []) {
  * asserts them.
  */
 export const APPEARANCE = {
+  // GENDER IS THE ONLY ONE THE SCREEN OFFERS TODAY (CR3). The rest of this
+  // table is still here, still validated and still written into every save,
+  // because a character made before CR3 carries all six fields and has to load
+  // without an error. What changed is the screen: two pills, and the models
+  // that would make a build or a hair style mean anything are not drawn yet.
+  genders: ['male', 'female'],
   builds: ['slight', 'average', 'heavy'],
   skins: ['pale', 'fair', 'sand', 'olive', 'tan', 'copper', 'umber', 'ebony'],
   hairStyles: [
@@ -629,6 +635,7 @@ export const APPEARANCE = {
 };
 
 export const APPEARANCE_DEFAULT = Object.freeze({
+  gender: 'male',
   build: 'average',
   skin: 'fair',
   hairStyle: 'short',
@@ -638,6 +645,7 @@ export const APPEARANCE_DEFAULT = Object.freeze({
 });
 
 const APPEARANCE_FIELDS = [
+  ['gender', 'genders'],
   ['build', 'builds'],
   ['skin', 'skins'],
   ['hairStyle', 'hairStyles'],
@@ -733,7 +741,7 @@ export function auditOpenings(list = OPENINGS) {
 
   // Appearance counts, exactly as the document writes them.
   const counts = [
-    ['builds', 3], ['skins', 8], ['hairStyles', 12], ['hairColours', 10],
+    ['genders', 2], ['builds', 3], ['skins', 8], ['hairStyles', 12], ['hairColours', 10],
   ];
   for (const [name, n] of counts) {
     if (APPEARANCE[name].length !== n) {

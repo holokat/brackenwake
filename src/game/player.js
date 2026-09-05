@@ -157,7 +157,16 @@ export const HAIR_STYLES = [
   'shaved', 'cropped', 'short', 'tousled', 'swept', 'bob',
   'braid', 'twin braids', 'ponytail', 'topknot', 'long', 'wild',
 ];
+/**
+ * The two the creation screen offers (CR3). Nothing in this file draws a
+ * different body for either of them yet: the models are being made, and until
+ * they land `setAppearance` records the choice on the rig and changes not one
+ * vertex. This list is the hook the swap lands on, and `auditAppearance` fails
+ * if openings.js ever offers a gender that is not in it.
+ */
+export const GENDERS = ['male', 'female'];
 export const APPEARANCE_FALLBACK = Object.freeze({
+  gender: 'male',
   build: 'average', skin: 'fair', hairStyle: 'short', hairColour: 'chestnut',
   mark: 'none', height: 1.80,
 });
@@ -557,8 +566,17 @@ export function buildCharacter(appearance) {
     }
   }
 
+  /**
+   * The whole look, applied. `gender` is CR3's one live choice and the ONLY
+   * field here that draws nothing: it is merged, kept, and written onto
+   * `rig.appearance.gender` so the day the male and female models land there is
+   * exactly one place to read the answer from. Everything else below moves real
+   * geometry, and a gender that silently moved some of it would be a lie about
+   * what the screen said.
+   */
   function setAppearance(a) {
     const next = { ...APPEARANCE_FALLBACK, ...(a || {}) };
+    if (!GENDERS.includes(next.gender)) next.gender = APPEARANCE_FALLBACK.gender;
     const N = matsFor(a ? next : null);
     buildHair(next.hairStyle, N.hair);
     buildMark(next.mark);
@@ -631,6 +649,7 @@ export function buildCharacter(appearance) {
  */
 export function auditAppearance(APPEARANCE) {
   const bad = (m) => { throw new Error(`auditAppearance: ${m}`); };
+  for (const id of (APPEARANCE.genders || [])) if (!GENDERS.includes(id)) bad(`gender "${id}" has no body`);
   for (const id of APPEARANCE.builds) if (BUILD_GIRTH[id] == null) bad(`build "${id}" has no girth`);
   for (const id of APPEARANCE.skins) if (SKIN_COLOURS[id] == null) bad(`skin "${id}" has no colour`);
   for (const id of APPEARANCE.hairColours) if (HAIR_COLOURS[id] == null) bad(`hair colour "${id}" has no hex`);
