@@ -77,6 +77,7 @@ export const EDGE_DROP = 0.5;    // a step down this big is a fall, not a step
 export const WALL_STEP = 0.3;    // in the air, ground higher than this above the feet is a wall
 export const STRIDE_WALK = 1.4;  // metres of ground per full gait cycle
 export const STRIDE_RUN = 3.2;  // longer, or the legs blur at 18 m/s
+export const HIP_REACH = 0.5;   // fraction of the stride half excursion the hips drop for; the rest bends the knee
 
 const TAU = Math.PI * 2;
 const DEG = Math.PI / 180;
@@ -669,7 +670,11 @@ export function poseCharacter(parts, s) {
 
   // the hips ride exactly as high as a straight stance leg allows, which is
   // what gives a knee-jointed walk its bob without lifting the feet
-  const walkHip = ANKLE_Y + Math.sqrt(Math.max(0.0001, (LEG * 0.995) ** 2 - A * A));
+  // The hip height comes from the leg at mid stance, foot under the body,
+  // not from the leg at full reach: at a 3.2 m running stride the old sum put
+  // the hips 0.5 m down and the runner squatted. HIP_REACH is how much of the
+  // reach the standing leg is allowed to give up; the swing leg bends for the rest.
+  const walkHip = ANKLE_Y + Math.sqrt(Math.max(0.0001, (LEG * 0.995) ** 2 - (A * HIP_REACH) ** 2));
   const hipY = walkHip + (IDLE_HIP - walkHip) * idle;
   parts.hips.position.y = hipY;
 

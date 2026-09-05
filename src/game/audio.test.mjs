@@ -450,7 +450,7 @@ function memStore() {
   check('setBiome before anything starts reports the change', a.music.setBiome('meadow') === true);
   a.music.start();
   a.unlock();
-  check('it opens on the theme', a.music.kind === 'theme' && /meadow\/theme/.test(a.music.track), String(a.music.track));
+  check('it opens on the first theme song', a.music.kind === 'theme' && /themes\/theme1/.test(a.music.track), String(a.music.track));
   check('and lays the ambience bed under it', /meadow\/ambience/.test(a.music.ambience.url));
   check('the bed loops', a.music.ambience.loop === true && a.music.el.loop === true);
   check('the track is at music volume, not sfx volume', a.music.el.volume === MUSIC_VOLUME, String(a.music.el.volume));
@@ -458,18 +458,20 @@ function memStore() {
   check('mid-slot nothing rotates', a.music.tick() === null);
   t += SLOT_MS.theme + 1;
   a.music.tick();
-  check('an idle player gets the calm track next', a.music.kind === 'calm', String(a.music.kind));
-  a.play('chop');                                  // the player is working again
-  t += SLOT_MS.calm + 1;
+  // The kits hold the two theme songs and nothing else, so the rotation walks
+  // them in turn: the same song is never heard twice running.
+  check('the second theme song follows the first', a.music.kind === 'theme' && /themes\/theme2/.test(a.music.track), String(a.music.track));
+  a.play('chop');                                  // working changes nothing: there is no lively track
+  t += SLOT_MS.theme + 1;
   a.music.tick();
-  check('then the lively one', a.music.kind === 'lively', String(a.music.kind));
-  t += SLOT_MS.lively + 1;
+  check('and the first comes back after it', /themes\/theme1/.test(a.music.track), String(a.music.track));
+  t += SLOT_MS.theme + 1;
   a.music.tick();
-  check('and the theme comes back on the third slot', a.music.kind === 'theme', String(a.music.kind));
+  check('and so on, never the same one twice running', /themes\/theme2/.test(a.music.track), String(a.music.track));
 
   check('crossing into a biome with the same kit changes nothing', a.music.setBiome('meadow') === false);
   check('beach and ocean share the shore kit', a.music.setBiome('beach') === true && a.music.setBiome('ocean') === false);
-  check('and the shore music is now what is playing', /oceanside\//.test(a.music.track), String(a.music.track));
+  check('and the shore ambience bed is now what lies under the song', /oceanside\/ambience/.test(a.music.ambience.url), String(a.music.ambience.url));
 
   check('sakura is a different kit', a.music.setBiome('sakura') === true);
   const first = a.music.track;

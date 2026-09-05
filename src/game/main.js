@@ -45,6 +45,7 @@ import { panel as bagPanel } from './win_bag.js';
 import { panel as skillsPanel } from './win_skills.js';
 import { panel as abilitiesPanel, setBarSlot, barOf } from './win_abilities.js';
 import { unlockedFor } from '../mmo/abilities.js';
+import { makeItem } from '../mmo/items.js';
 import { createEffects } from './effects.js';
 import { createTargeting } from './targeting.js';
 import { createAbilities } from './abilities_runtime.js';
@@ -207,7 +208,14 @@ function boot() {
     // in two places. Health, mana and stamina live on the actor during play and
     // are copied back to the document before every save (syncToCharacter).
     const actor = buildPlayerActor(character, { pos: player.pos });
-    const progression = createProgression({ character, actor, floaters, hud, audio, state });
+    // gains go to the ticker bottom right when the HUD has one, so they never
+    // sit over the label of what you just picked up; everything else floats
+    const gainFloaters = {
+      spawn: (pos, text, kind, extra) => (kind === 'gain' || kind === 'stat') && typeof hud.gain === 'function'
+        ? hud.gain(text, kind) : floaters.spawn(pos, text, kind, extra),
+      get count() { return floaters.count; },
+    };
+    const progression = createProgression({ character, actor, floaters: gainFloaters, hud, audio, state });
     // combat.js teaches by actor: (who, skill, difficulty, success). Only the
     // player has a document to learn into; a skeleton is never taught.
     const teach = {
@@ -239,6 +247,19 @@ function boot() {
       onDrop: (item) => loot.drop(player.pos, { items: [item], gold: 0 }),
     });
 
+    // Every settler gets tools once: an axe, a pickaxe, a hunting bow with
+    // arrows and a skinning knife, so chopping, mining, shooting and skinning
+    // can be tried without a market first. Said once, then never again.
+    if (!character.toolsGranted) {
+      const given = [];
+      for (const [base, count] of [['axe', 1], ['pickaxe', 1], ['shortbow', 1], ['arrow', 40], ['skinning_knife', 1]]) {
+        const r = inventory.add(makeItem(base, { count, rarity: 'common', identified: true }), { quiet: true });
+        if (r && r.added) given.push(count > 1 ? `${count} arrows` : base.replace('_', ' '));
+      }
+      character.toolsGranted = true;
+      state.touch('pack');
+      if (given.length) hud.log(`Your kit has a settler's tools in it: ${given.join(', ')}.`, 'good');
+    }
     dress();
     const effects = createEffects(sc, { audio });
     const targetRing = createTargetRing(sc);

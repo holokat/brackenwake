@@ -398,17 +398,15 @@ const kit = (dir) => ({
  * slot holds an array and the rotation walks it, and it borrows the meadow's
  * ambience bed because quiet outdoor air is quiet outdoor air.
  */
+/** The two theme songs, walked in turn so the same one is never heard twice running. */
+export const THEMES = [`${MUSIC_DIR}themes/theme1.mp3`, `${MUSIC_DIR}themes/theme2.mp3`];
+const themeKit = (ambienceDir) => ({ theme: THEMES, calm: null, lively: null, ambience: `${MUSIC_DIR}${ambienceDir}/ambience.mp3` });
 export const MUSIC_KITS = {
-  meadow: kit('meadow'),
-  oceanside: kit('oceanside'),
-  desert: kit('desert'),
-  boreal: { ...kit('boreal'), lively: null },
-  sakura: {
-    theme: [`${MUSIC_DIR}sakura/theme.mp3`, `${MUSIC_DIR}sakura/theme2.mp3`],
-    calm: null,
-    lively: null,
-    ambience: `${MUSIC_DIR}meadow/ambience.mp3`,
-  },
+  meadow: themeKit('meadow'),
+  oceanside: themeKit('oceanside'),
+  desert: themeKit('desert'),
+  boreal: themeKit('boreal'),
+  sakura: themeKit('meadow'),
 };
 
 /**
