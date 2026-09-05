@@ -250,13 +250,16 @@ function boot() {
     // Every settler gets tools once: an axe, a pickaxe, a hunting bow with
     // arrows and a skinning knife, so chopping, mining, shooting and skinning
     // can be tried without a market first. Said once, then never again.
-    if (!character.toolsGranted) {
+    // The flag would not survive hydrate, which keeps only the document's own
+    // keys, so the pack itself is the record: a settler with no axe and no
+    // pickaxe anywhere has not had the kit.
+    const owns = (base) => character.pack.items.some((it) => it && it.base === base) || Object.values(character.equipment || {}).some((it) => it && it.base === base);
+    if (!owns('axe') && !owns('pickaxe')) {
       const given = [];
       for (const [base, count] of [['axe', 1], ['pickaxe', 1], ['shortbow', 1], ['arrow', 40], ['skinning_knife', 1]]) {
-        const r = inventory.add(makeItem(base, { count, rarity: 'common', identified: true }), { quiet: true });
+        const r = inventory.add(makeItem({ base, count, rarity: 'common' }), { quiet: true });
         if (r && r.added) given.push(count > 1 ? `${count} arrows` : base.replace('_', ' '));
       }
-      character.toolsGranted = true;
       state.touch('pack');
       if (given.length) hud.log(`Your kit has a settler's tools in it: ${given.join(', ')}.`, 'good');
     }

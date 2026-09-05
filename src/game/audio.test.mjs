@@ -477,8 +477,8 @@ function memStore() {
   const first = a.music.track;
   t += 400_000;
   a.music.tick();
-  check('sakura has two themes and alternates them',
-    a.music.track !== first && /sakura\/theme/.test(a.music.track), `${first} -> ${a.music.track}`);
+  check('sakura walks the two theme songs like everywhere else',
+    a.music.track !== first && /themes\/theme/.test(a.music.track), `${first} -> ${a.music.track}`);
   check('and borrows the meadow ambience, because it has none of its own',
     /meadow\/ambience/.test(a.music.ambience.url));
 
