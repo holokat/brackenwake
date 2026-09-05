@@ -218,7 +218,10 @@ export const player = {
   move(ctx, frame) {
     const self = ctx.get('player');
     self.walk(frame);
-    self.lantern.intensity = Math.max(0, 1 - frame.day / 0.6) * 14;
+    // by night, and underground at any hour: a dungeon is as dark as midnight
+    // and the player was a silhouette in it
+    const underground = ctx.get('world').runtime.inDungeon;
+    self.lantern.intensity = underground ? 14 : Math.max(0, 1 - frame.day / 0.6) * 14;
   },
 
   late(ctx, frame) {

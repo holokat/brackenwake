@@ -87,7 +87,9 @@ export const ui = {
     // one likeness shared by the character sheet and the HUD portrait plate
     try {
       panelCtx.paperdoll = createPaperdoll(sc, () => rig, { width: 244, height: 400 });
-      hud.setPortrait?.(panelCtx.paperdoll.canvas);
+      // the portrait is the doll's second canvas: the first hangs in the
+      // character sheet's arch, and a node can only be in one place
+      hud.setPortrait?.(panelCtx.paperdoll.portrait || panelCtx.paperdoll.canvas);
     } catch (err) { console.warn('paperdoll not available', err); }
 
     // ------------------------------------------------------------- the HUD --

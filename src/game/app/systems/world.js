@@ -56,7 +56,9 @@ export const world = {
       if (envRT) envRT.dispose();
       envRT = rt;
       sc.scene.environment = rt.texture;
-      if ('environmentIntensity' in sc.scene) sc.scene.environmentIntensity = 0.55;
+      // the sky's light on shaded sides. At 0.55 a cloak seen from the north
+      // at noon went to black; 0.9 reads as a bright day's sky filling the shade
+      if ('environmentIntensity' in sc.scene) sc.scene.environmentIntensity = 0.9;
       return true;
     }
 

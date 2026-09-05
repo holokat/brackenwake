@@ -98,7 +98,8 @@ export function createWorldRuntime(sc, opts = {}) {
     world.update(center);
     flora.update(nowMs, x, z);
     fauna.update(dt, nowMs, x, z, dayFactor < 0.4);
-    siteMarkers.update(x, z, world.viewRadius);
+    // the mines' headframe wheel turns and their lanterns light at dusk (M1)
+    siteMarkers.update(x, z, world.viewRadius, dt, 1 - dayFactor);
     const found = discovery.check(x, z, nowMs);
     if (found && discoverFn) { try { discoverFn(found); } catch (err) { console.warn('onDiscover threw', err); } }
     // a named region, entered for the first time: once per zone, ever
