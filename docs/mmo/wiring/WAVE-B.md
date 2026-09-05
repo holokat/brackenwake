@@ -280,3 +280,23 @@ in their places, the Standing Hedge as the waystone ring with the fast travel
 mechanic, the Old Cellars as the first cavern with Oram, Highwayman's Hollow
 moving after raids, the Sunken Chapel to swim into, Old Grist, the Tithe
 Wagon and Vane's camp, the first hour scripted end to end.
+
+## Addendum, 2026-09-06: four more tasks beside the four
+
+The user looked at the Boneyard and saw a flat plain with pebbles under the
+meadow's sky, and asked for what World of Warcraft does: a sky per zone,
+something authored every forty metres, mountains on the horizon, roads with
+lamps and signs and bridges, castles, temples, towers, camps with fires,
+graveyards and arenas, and trees that look like trees. Four tasks, same rules.
+
+| task | owns (may create or edit) | must not touch |
+|---|---|---|
+| Z3 dressing and skies | `src/world/dressing.js`, `src/world/dressing_models.js`, `src/game/sky.js`, `src/game/scene.js`, their tests, `Z3.md` | world_runtime.js (hand over the create and update lines), flora.js, field.js |
+| A1 trees | `src/world/arbor.js`, `src/world/arbor_textures.js`, `src/world/tree_gen.js`, `src/world/flora.js`, `src/world/grass.js`, their tests, `A1.md` | field.js, zones.js, world_runtime.js, chunks.js |
+| A2 road furniture | `src/world/roads.js`, `src/world/wayside.js` (new), `src/world/wayside_models.js` (new), their tests, `A2.md` | field.js (roads.js already reads it), world_runtime.js (hand over the lines), site_models.js |
+| A3 wild structures | `src/world/sitegrid.js`, `src/world/site_models.js`, `src/world/structures.js` (new), `src/world/fire.js` (new), `src/game/effects.js`, their tests, `A3.md` | zones.js (V1), monsters.js and mmo/monsters.js (hand over habitat and placeFor lines), npcs files (hand over the mage in the tower), field.js |
+
+Fable wires every handed over line after all eight land, in this order:
+world_runtime.js (D3 finishes it first), systems/index.js, state.js,
+monsters.js constants (ALIVE_CAP up, SPAWN_SPACING down), realm rim ridges
+in field.js (after V1).
