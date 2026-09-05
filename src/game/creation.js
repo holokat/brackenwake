@@ -31,7 +31,8 @@ import {
 } from '../mmo/openings.js';
 import { derived, validateSpread } from '../mmo/stats.js';
 import { SKILLS, SKILL_GROUPS } from '../mmo/skills.js';
-import { BASES, makeItem, baseFor } from '../mmo/items.js';
+import { BASES, makeItem, baseFor, equipSlotFor, twoHanded } from '../mmo/items.js';
+import { dressRig } from './gear_visuals.js';
 import { createInventory, PACK_SLOTS } from './inventory.js';
 import { BAR_SLOTS, GROUP_COLOUR } from './win_abilities.js';
 import { defaultSettings } from './win_settings.js';
@@ -1264,6 +1265,32 @@ export function createCreation(root, deps = {}) {
     cards.appendChild(card);
   }
 
+  /**
+   * What the kit would put on, one item per slot in kit order, the same order
+   * the real inventory wears it at Begin. Used to dress the preview so the
+   * figure on the dais wears the sword, shield and leathers the panel lists,
+   * instead of standing in its underclothes beside a picture of them.
+   */
+  function kitEquipment(op) {
+    const eq = {};
+    const { items } = kitFor(op, 1);
+    for (const row of items) {
+      const it = row && row.item ? row.item : row;   // kitFor wraps each made item with where it came from
+      const slot = equipSlotFor(it);
+      if (!slot || eq[slot]) continue;
+      if (slot === 'offHand' && eq.mainHand && twoHanded(eq.mainHand)) continue;
+      if (slot === 'mainHand' && twoHanded(it) && eq.offHand) continue;
+      eq[slot] = it;
+    }
+    return eq;
+  }
+
+  function dressPreview() {
+    if (!rig) return;
+    const op = OPENINGS_BY_ID[state.opening];
+    try { dressRig(rig, kitEquipment(op)); } catch (err) { console.warn('creation: the preview could not be dressed', err); }
+  }
+
   function pick(id) {
     const op = OPENINGS_BY_ID[id];
     if (!op) return;
@@ -1272,6 +1299,7 @@ export function createCreation(root, deps = {}) {
     state.skills = { ...op.skills };
     build();
     refresh();
+    dressPreview();
   }
 
   /** One arrow. Unbounded, so two lefts are sixty degrees and not three hundred. */
@@ -1594,6 +1622,7 @@ export function createCreation(root, deps = {}) {
       rig.group.position.set(0, DAIS.height, 0);
       rig.group.scale.setScalar(state.appearance.height / 1.8);
       sc.scene.add(rig.group);
+      dressPreview();
 
       // The dais is a real mesh in the real scene, so the light and the fog of
       // the world fall on it, and it goes when the screen goes.
