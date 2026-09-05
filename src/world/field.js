@@ -45,12 +45,12 @@
 //
 // Units are the game's world units, which the farm treats as roughly metres.
 
-import { createNoise, clamp01, lerp, smoothstep } from './noise.js';
+import { createNoise, rand2, clamp01, lerp, smoothstep } from './noise.js';
 import { cellRoll, siteAllowed, cellOf, mineParts, MINE_MOUTH_CELL, SITE_CELL } from './sitegrid.js';
 import {
   zoneBias, oceanBeyond, OCEAN_FLOOR, WORLD_HALF,
   SEA, seaWithin, reefTopAt, ARCHIPELAGO, archipelagoWithin,
-  authoredSites, CELL_PAD_MAX,
+  authoredSites, CELL_PAD_MAX, RELIEF_ZONES, heartFade, weightOf, ZONE,
 } from './zones.js';
 import { roadDistanceAt, roadHeightAt, roadStrength, roadSurface, fordFade, ROAD_HALF_WIDTH } from './roads.js';
 
@@ -79,6 +79,54 @@ const SNOW_LINE = 78;
 const CAVE_MOUND = 6;             // how far a cave's mound rises above the hillside
 const ROCK_LINE = 46;
 
+// ---------------------------------------------------------------- relief ---
+//
+// Five realms are not the ground the noise made, and `zones.js` says which and
+// how much (`REALM_RELIEF`). This is where that is turned into metres.
+//
+// EVERY WALL IN HERE IS BUILT OUT OF A DISTANCE, never out of a noise value,
+// and that is the whole reason the world still meshes. A smoothstep over a
+// noise field has a gradient you cannot bound: the same band of noise is a
+// forty metre ramp in one place and a three metre cliff in another, because
+// fbm's own gradient varies threefold across the world (measured: 0.0052 per
+// metre on average at a 520 m wavelength, 0.0171 at the worst). A smoothstep
+// over a DISTANCE has a gradient of exactly 1.5 * height / run, everywhere,
+// because the gradient of a distance is 1. So a table, a terrace, a plateau and
+// a crater rim are all discs and rings, and the number that decides how steep
+// they are is `grade`, in metres of rise per metre of ground.
+//
+//   RELIEF_GRADE      the steepest face relief may cut, before the smoothstep
+//   RELIEF_MAX_STEP   what that becomes at the middle of the face, which is
+//                     1.5 x RELIEF_GRADE, and what `field.test.mjs` measures
+//   RAMP_GRADE        the ONE way up every table, plateau and rim has, so
+//                     relief adds places to stand and not places to look at
+//
+// `field.test.mjs` drives both: the steepest step anywhere in the world stays
+// under the 8 m per metre the mesher can show, and the way up every named climb
+// is walkable at every metre of it.
+export const RELIEF_GRADE = 2.0;
+export const RELIEF_MAX_STEP = 1.5 * RELIEF_GRADE;
+export const RAMP_GRADE = 0.34;
+/** Radians of a table's rim that the ramp takes. */
+export const RAMP_ARC = 1.15;
+/** Metres past its own pad that a site holds the relief around it level. */
+export const RELIEF_HOLD = 34;
+/** How much of its relief a realm gives up where the ground is already ridge. */
+export const RELIEF_ON_MOUNTAIN = 0.8;
+/** Metres of lift that leave a river bed with no river in it. */
+export const RIVER_LIFT = 3;
+
+const TAU = Math.PI * 2;
+/** The smaller of the two ways round from a to b, in radians. */
+function angleGap(a, b) {
+  let d = (a - b) % TAU;
+  if (d > Math.PI) d -= TAU;
+  if (d < -Math.PI) d += TAU;
+  return Math.abs(d);
+}
+/** 1 inside `r - run`, 0 at `r`, smooth between: the wall of a table. */
+const wallOf = (d, r, run) => 1 - smoothstep(r - run, r, d);
+
 export function createWorldField(seed = 1, opts = {}) {
   // The field is built onto one object so sampleAt can hand it to roads.js,
   // which needs raw, homeFactor and siteInCell back. One object also means one
@@ -90,6 +138,272 @@ export function createWorldField(seed = 1, opts = {}) {
   const homeY = opts.homeY ?? 0;          // ground level under the farm pad
   const roadsOn = opts.roads !== false;   // off only so a test can weigh the difference
   const N = createNoise(seed);
+
+  // ---- relief: the shape five realms insist on --------------------------
+  //
+  // Built once per field. Each row here is one realm of `RELIEF_ZONES`, with
+  // its lattice cache, the sites whose ground it must leave level, and, for the
+  // crater, the two places the sheet measures it from.
+  //
+  // `holds` is the reason an authored site never wakes up halfway down a cliff.
+  // Relief is worked out first, then held at the value it has at the site's own
+  // centre for `flatR + RELIEF_HOLD` metres around it, so the pad the site lays
+  // afterwards has level relief under it and the shoulder is a shoulder and not
+  // a step. Without it a mesa wall crossing the Brass City's yard would have
+  // put twenty metres of cliff through the middle of it.
+  const reliefOn = opts.relief !== false;         // off only so a test can weigh it
+  const RELIEF = reliefOn ? RELIEF_ZONES.map((zn) => {
+    const rl = zn.relief;
+    const row = { zn, rl, kind: rl.kind, reach: zn.r + zn.edge, cache: new Map(), wet: rl.kind === 'karst' };
+    if (rl.kind === 'crater') {
+      const at = ZONE[rl.at], gate = ZONE[rl.rampAt];
+      row.cx = at.x; row.cz = at.z;
+      row.gate = Math.atan2(gate.z - at.z, gate.x - at.x);
+      row.run = rl.h / RELIEF_GRADE;
+      row.ramp = rl.h / RAMP_GRADE;
+    }
+    if (rl.plateau) {
+      const at = ZONE[rl.plateau.place];
+      row.plateau = {
+        x: at.x, z: at.z, r: rl.plateau.r, h: rl.plateau.h,
+        run: rl.plateau.h / RELIEF_GRADE, ramp: rl.plateau.h / RAMP_GRADE,
+        a: rl.plateau.bearing,
+      };
+    }
+    return row;
+  }) : [];
+  const RELIEF_DRY = RELIEF.filter((r) => !r.wet);
+  const RELIEF_WET = RELIEF.filter((r) => r.wet);
+
+  /** The table standing in lattice cell (i, j) of this realm's relief, or null. */
+  function tableOf(row, i, j) {
+    const key = i * 65537 + j;
+    let t = row.cache.get(key);
+    if (t !== undefined) return t;
+    const rl = row.rl;
+    const cell = Array.isArray(rl.cell) ? rl.cell[0] : rl.cell;
+    if (rand2(i, j, seed + 811) > rl.chance) t = null;
+    else {
+      // A terrace realm stacks its tables: half of them are one step up and
+      // half are two, so the ground reads 0, 15 and 30 m without ever needing
+      // two walls in the same place.
+      const h = rl.step
+        ? rl.step * (rand2(i, j, seed + 817) < 0.5 ? 1 : 2)
+        : rl.h[0] + rand2(i, j, seed + 812) * (rl.h[1] - rl.h[0]);
+      const r = rl.r[0] + rand2(i, j, seed + 813) * (rl.r[1] - rl.r[0]);
+      // the run is the height over the grade, so every wall in the world is
+      // exactly as steep as every other one whatever height it stands at
+      let ramp = h / RAMP_GRADE;
+      if (ramp > r * 0.82) ramp = r * 0.82;
+      t = {
+        x: (i + 0.5 + (rand2(i, j, seed + 814) - 0.5) * 0.62) * cell,
+        z: (j + 0.5 + (rand2(i, j, seed + 815) - 0.5) * 0.62) * cell,
+        h, r, run: h / RELIEF_GRADE, ramp,
+        a: rand2(i, j, seed + 816) * TAU,
+      };
+    }
+    row.cache.set(key, t);
+    return t;
+  }
+
+  /**
+   * How high the tables of one realm stand at (x, z). The tallest wins rather
+   * than the sum, so two tables that touch become one wider table instead of a
+   * sixty metre stack, and the gradient of a maximum is the gradient of
+   * whichever one won.
+   */
+  function tablesAt(row, x, z) {
+    const cell = Array.isArray(row.rl.cell) ? row.rl.cell[0] : row.rl.cell;
+    const ci = Math.floor(x / cell), cj = Math.floor(z / cell);
+    let best = 0;
+    for (let dj = -1; dj <= 1; dj++) {
+      for (let di = -1; di <= 1; di++) {
+        const t = tableOf(row, ci + di, cj + dj);
+        if (!t) continue;
+        const dx = x - t.x, dz = z - t.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= t.r * t.r) continue;
+        const d = Math.sqrt(d2);
+        // one side of every table is a long ramp, so a table is somewhere to
+        // walk up and not a wall with a view
+        const w = 1 - smoothstep(RAMP_ARC * 0.5, RAMP_ARC, angleGap(Math.atan2(dz, dx), t.a));
+        const v = t.h * lerp(wallOf(d, t.r, t.run), wallOf(d, t.r, t.ramp), w);
+        if (v > best) best = v;
+      }
+    }
+    return best;
+  }
+
+  /** The Ashen Throne's rim: a ring about the throne, with one way up it. */
+  function craterAt(row, x, z) {
+    const rl = row.rl;
+    const dx = x - row.cx, dz = z - row.cz;
+    const d = Math.hypot(dx, dz);
+    const inner = rl.rim - rl.crest, outer = rl.rim + rl.crest;
+    if (d <= inner - row.ramp || d >= outer + row.ramp) return 0;
+    const w = 1 - smoothstep(rl.rampArc * 0.5, rl.rampArc, angleGap(Math.atan2(dz, dx), row.gate));
+    // the inner face is the crater wall and is never graded; the outer face is
+    // the way in, and on the gate's bearing it is stretched into a road
+    const up = smoothstep(inner - row.run, inner, d);
+    const down = (run) => 1 - smoothstep(outer, outer + run, d);
+    const v = Math.min(up, lerp(down(row.run), down(row.ramp), w));
+    return rl.h * v;
+  }
+
+  /** Frostreach's shelf: no wall anywhere, just ground that rises outward. */
+  function glacierAt(row, x, z) {
+    const zn = row.zn;
+    const home = Math.hypot(zn.x, zn.z) || 1;
+    // outward means away from the world's centre, so the shelf climbs as you
+    // walk out of the kingdom and not as you walk back into it
+    const t = clamp01(0.5 + ((x - zn.x) * (zn.x / home) + (z - zn.z) * (zn.z / home)) / (2 * zn.r));
+    return row.rl.h * smoothstep(0, 1, t);
+  }
+
+  /**
+   * The Sunken Kingdom's stacks, which are the one relief that belongs in the
+   * water. They live only in the band where the Caldera Sea is letting go of
+   * the shore, so the open water over the drowned city is never touched.
+   * Returned as a target height and a weight, the way a reef is.
+   */
+  function karstAt(row, x, z, lake) {
+    const band = smoothstep(0, 0.30, lake) * (1 - smoothstep(0.78, 1.0, lake));
+    if (band <= 0) return 0;
+    const rl = row.rl, cell = rl.cell;
+    const ci = Math.floor(x / cell), cj = Math.floor(z / cell);
+    let best = 0, top = 0;
+    for (let dj = -1; dj <= 1; dj++) {
+      for (let di = -1; di <= 1; di++) {
+        const i = ci + di, j = cj + dj;
+        if (rand2(i, j, seed + 831) > rl.chance) continue;
+        const h = rl.h[0] + rand2(i, j, seed + 832) * (rl.h[1] - rl.h[0]);
+        const r = rl.r[0] + rand2(i, j, seed + 833) * (rl.r[1] - rl.r[0]);
+        const tx = (i + 0.5 + (rand2(i, j, seed + 834) - 0.5) * 0.6) * cell;
+        const tz = (j + 0.5 + (rand2(i, j, seed + 835) - 0.5) * 0.6) * cell;
+        const d = Math.hypot(x - tx, z - tz);
+        if (d >= r) continue;
+        // the run counts the whole rise, sea floor to crown, so a stack's face
+        // is the same steepness as every other face in the world
+        const run = Math.min(r * 0.9, (h - SEA.floor) / RELIEF_GRADE);
+        const w = wallOf(d, r, run) * band;
+        if (w > best) { best = w; top = h; }
+      }
+    }
+    return best > 0 ? { w: best, top } : 0;
+  }
+
+  /**
+   * How much of its relief a realm keeps here.
+   *
+   * A fifteen metre terrace laid on the side of a ridge is a wall on a wall,
+   * and the Stormpeaks are the one realm that is both a terrace country and a
+   * mountain one. So relief gives way where the mountain mask says the ground
+   * is already ridge. The mask is the mountain noise WITHOUT its land factor,
+   * because `land` swings by 0.17 in a metre at an islet's edge and sixty
+   * metres of relief through that would be a cliff of its own.
+   */
+  function reliefKeep(x, z) {
+    const mtnN = smoothstep(0.22, 0.58, N.fbm(x / W_MTN_MASK + 55, z / W_MTN_MASK + 55, 3));
+    return 1 - RELIEF_ON_MOUNTAIN * mtnN;
+  }
+
+  function shapeOf(row, x, z) {
+    const keep = reliefKeep(x, z);
+    if (row.kind === 'crater') return craterAt(row, x, z) * keep;
+    if (row.kind === 'glacier') return glacierAt(row, x, z) * keep;
+    let v = tablesAt(row, x, z);
+    if (row.plateau) {
+      const p = row.plateau;
+      const dx = x - p.x, dz = z - p.z;
+      const d = Math.hypot(dx, dz);
+      if (d < p.r) {
+        const w = 1 - smoothstep(RAMP_ARC * 0.5, RAMP_ARC, angleGap(Math.atan2(dz, dx), p.a));
+        const pv = p.h * lerp(wallOf(d, p.r, p.run), wallOf(d, p.r, p.ramp), w);
+        if (pv > v) v = pv;
+      }
+    }
+    return v * keep;
+  }
+
+  // Every authored site that stands where any relief realm reaches, with the
+  // relief its own centre stands on, so the ground under it can be held level.
+  //
+  // NOT just the sites of that realm: realms overlap, and the Legion Pass
+  // stands in the Stormpeaks and inside Frostreach's shelf as well, so a hold
+  // that only knew its own realm left a metre of shelf tilted across the camp.
+  // What is held is the WHOLE relief at the point, realm weights and all, and
+  // it is held at the number the site's own centre gets, so the pad has one
+  // flat surface under it and not a sum of five sloping ones.
+  //
+  // Filled lazily on the first sample, because `authoredSites()` and the shape
+  // functions are both ready by then and building it here would run before the
+  // field is assembled.
+  let holdsReady = false;
+  const HOLDS = [];
+  function buildHolds() {
+    holdsReady = true;
+    for (const st of authoredSites()) {
+      let touched = false;
+      for (const row of RELIEF) {
+        const dx = st.x - row.zn.x, dz = st.z - row.zn.z;
+        if (dx * dx + dz * dz < row.reach * row.reach) { touched = true; break; }
+      }
+      if (!touched) continue;
+      HOLDS.push({
+        x: st.x, z: st.z,
+        // level all the way across the pad, then fading over RELIEF_HOLD metres
+        // outside it, so the pad's own shoulder has flat relief to blend into
+        r0: st.flatR + 4, r: st.flatR + 4 + RELIEF_HOLD,
+        y: reliefRaw(st.x, st.z),
+      });
+    }
+  }
+
+  /** The relief at a point before any site holds it level. */
+  function reliefRaw(x, z) {
+    const heart = heartFade(x, z);
+    if (heart <= 0) return 0;
+    let out = 0;
+    for (let i = 0; i < RELIEF_DRY.length; i++) {
+      const row = RELIEF_DRY[i];
+      const dx = x - row.zn.x, dz = z - row.zn.z;
+      if (dx * dx + dz * dz >= row.reach * row.reach) continue;
+      const w = weightOf(row.zn, x, z);
+      if (w <= 0) continue;
+      out += shapeOf(row, x, z) * w * heart;
+    }
+    return out;
+  }
+
+  /**
+   * Metres of relief at (x, z), 0 everywhere no realm asks for any.
+   *
+   * Three things shape it, and only three: the realm's own weight, so relief
+   * ends where the realm ends; `heartFade`, which is exactly zero inside
+   * HEART_SAFE and is why the digest in field.test.mjs did not move; and the
+   * level ground every authored site holds across its own pad, so nothing the
+   * world builds ever wakes up halfway down a cliff.
+   */
+  function reliefAt(x, z) {
+    if (!RELIEF_DRY.length) return 0;
+    if (!holdsReady) buildHolds();
+    let inReach = false;
+    for (let i = 0; i < RELIEF_DRY.length && !inReach; i++) {
+      const row = RELIEF_DRY[i];
+      const dx = x - row.zn.x, dz = z - row.zn.z;
+      if (dx * dx + dz * dz < row.reach * row.reach) inReach = true;
+    }
+    if (!inReach) return 0;              // no relief here, so nothing to hold
+    let v = reliefRaw(x, z);
+    for (let k = 0; k < HOLDS.length; k++) {
+      const hd = HOLDS[k];
+      const hx = x - hd.x, hz = z - hd.z;
+      const d2 = hx * hx + hz * hz;
+      if (d2 >= hd.r * hd.r) continue;
+      v = lerp(v, hd.y, 1 - smoothstep(hd.r0, hd.r, Math.sqrt(d2)));
+    }
+    return v;
+  }
 
   // Raw terrain before the home flattening, so the flattening can be tested
   // independently and so tools can look at the world "as if the farm were not
@@ -130,6 +444,33 @@ export function createWorldField(seed = 1, opts = {}) {
       h = lerp(h, Math.min(h, bed), carve);
     }
 
+    // relief: the tables, terraces, plateau and crater rim that five realms of
+    // Kaldera carry, laid on top of the ground the noise made.
+    //
+    // AFTER the rivers, and that is not a detail. The river block carves toward
+    // a fixed bed at -1.8 and fades itself out between 12 and 24 m of height,
+    // so relief applied before it fed a fast changing height into a lever with
+    // a fifteen metre arm: measured at 2632, -4041, ten metres of relief turned
+    // a 0.31 m step in the world without it into a 12.43 m one, which is over
+    // the 8 m the mesher can show. Laid on afterwards, a river rides up with
+    // the ground it is cut into, and a table with a river across it is a table
+    // with a canyon in it, which is what a table with a river across it is.
+    //
+    // Before the climate, though, so that a crater rim eighty metres up is as
+    // cold as any other ground eighty metres up.
+    const lift = reliefAt(x, z);
+    if (lift !== 0) {
+      h += lift;
+      // A river carried up onto a table is not a river any more. The channel
+      // stays, because it was cut into the ground the table is made of and a
+      // canyon across a mesa is a good thing to find; what goes is the CLAIM
+      // that there is water in it. Nothing downstream would have been right
+      // otherwise: the sheet in water.js floods every bed carved below sea
+      // level and this one is forty metres above it, the ground would have been
+      // painted as a river bed, and roads.js would have forded thin air.
+      if (lift > RIVER_LIFT * 0.05 && river > 0) river *= 1 - clamp01(lift / RIVER_LIFT);
+    }
+
     // climate: temperature falls with height, moisture rises toward the sea
     const temp = clamp01(0.5 + 0.5 * N.fbm(x / W_TEMP - 1000, z / W_TEMP + 1000, 3) - Math.max(0, h) * 0.0045);
     const moist = clamp01(0.5 + 0.5 * N.fbm(x / W_MOIST + 2000, z / W_MOIST + 2000, 3) + (1 - land) * 0.25 + river * 0.2);
@@ -167,6 +508,25 @@ export function createWorldField(seed = 1, opts = {}) {
       if (reef.w > 0) {
         h = lerp(h, reef.top, reef.w);
         land = Math.max(land, reef.w * 0.92);
+      }
+      // and the Sunken Kingdom's stacks, which stand in the water on purpose
+      // and only where the sea is already letting go of the shore, so the open
+      // water over the drowned city is never touched. This is the one relief
+      // applied here, after the sea, rather than with the dry ones above.
+      for (let i = 0; i < RELIEF_WET.length; i++) {
+        const row = RELIEF_WET[i];
+        const dxr = x - row.zn.x, dzr = z - row.zn.z;
+        if (dxr * dxr + dzr * dzr >= row.reach * row.reach) continue;
+        const rw = weightOf(row.zn, x, z) * heartFade(x, z);
+        if (rw <= 0) continue;
+        const stack = karstAt(row, x, z, lake);
+        if (!stack) continue;
+        // a stack rises out of the water; it never pulls ground down onto its
+        // own crown, which is what a plain lerp did where the Ember Wastes'
+        // tables reach into the same lens (measured: 16.3 m of table removed)
+        const up = (stack.top - h) * stack.w * rw;
+        if (up > 0) h += up;
+        land = Math.max(land, stack.w * rw * 0.9);
       }
     }
 
@@ -316,7 +676,12 @@ export function createWorldField(seed = 1, opts = {}) {
       if (wide) site = wide;
     }
     let pad = 0;
-    if (site) {
+    // A PAD OF ZERO IS NO PAD, and not a four metre one. The shoulder below
+    // reaches `flatR + 4`, so a site with `flatR` 0 used to level a four metre
+    // disc under itself: measured, 0.057 m of the hillside under the Standing
+    // Hedge, which stands in the heart where nothing may move. A place that
+    // asks for no ground gets none.
+    if (site && site.flatR > 0) {
       const d = Math.hypot(x - site.x, z - site.z);
       if (d < site.flatR + 4) {
         // 1 at the centre, 0 at the rim, soft shoulder

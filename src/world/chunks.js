@@ -47,7 +47,7 @@ import * as THREE from 'three';
 import { CHUNK, SEA_LEVEL } from './field.js';
 import { hash2, smoothstep } from './noise.js';
 import { roadDistanceAt } from './roads.js';
-import { createTerrainMaterial, layerWeights, ROAD_FADE } from './terrain_material.js';
+import { createTerrainMaterial, layerWeights, ROAD_FADE, CLIFF_SLOPE } from './terrain_material.js';
 
 export const RING = 9;              // chunks kept in each direction: 19 x 19 = 361
 export const UNLOAD_MARGIN = 2;     // chunks beyond RING before disposal
@@ -64,6 +64,9 @@ const WATER_Y = SEA_LEVEL - 0.06;
  * on vertices the build has already sampled.
  */
 export const NORMAL_STEP = 2;
+
+/** The faintest road tint the ground is painted with, where any road is at all. */
+export const ROAD_TINT_MIN = 1 / 512;
 
 // Ground colours per biome, above and below the waterline. Themes supply the
 // living greens so a meadow here is the meadow the farm already wears; the
@@ -185,7 +188,7 @@ export function buildChunkGeometry(field, cx, cz, verts, palette) {
       layerWeights(s, slope, road, w6);
       layA[k * 3] = w6[0]; layA[k * 3 + 1] = w6[1]; layA[k * 3 + 2] = w6[2];
       layB[k * 3] = w6[3]; layB[k * 3 + 1] = w6[4]; layB[k * 3 + 2] = w6[5];
-      colourAt(tmp, s, x, z, palette);
+      colourAt(tmp, s, x, z, palette, slope);
       col[k * 3] = tmp.r; col[k * 3 + 1] = tmp.g; col[k * 3 + 2] = tmp.b;
     }
   }
@@ -241,19 +244,33 @@ export function buildChunkGeometry(field, cx, cz, verts, palette) {
   return { geo, hasWater, minH, maxH, heights, verts: n };
 }
 
-function colourAt(out, s, x, z, palette) {
+function colourAt(out, s, x, z, palette, slope = 0) {
   const p = palette[s.biome] || palette.meadow;
   // higher ground within a biome runs paler, lower runs into the deep tone
   const t = Math.max(0, Math.min(1, (s.h - 2) / 40));
   out.copy(p.deep).lerp(p.top, 0.35 + 0.65 * t);
   if (s.river > 0.55 && s.h < SEA_LEVEL + 0.5) out.lerp(palette.riverbed, 0.7);
   if (s.h > 20 && s.biome !== 'snow' && s.biome !== 'mountain') out.lerp(palette.rock, Math.min(0.5, (s.h - 20) / 50));
+  // A FACE IS STONE, WHATEVER COUNTRY IT IS IN. The layer weights already put
+  // rock on a steep vertex (terrain_material.layerWeights), but the vertex
+  // colour is a tint OVER those layers, so a thirty metre mesa wall in the
+  // Ember Wastes came out as sand coloured stone: the right texture under the
+  // wrong paint. Height alone cannot answer this, because the foot of a wall is
+  // as low as the desert beside it. So the tint follows the slope the normal
+  // just measured, over the same CLIFF_SLOPE line the layers use.
+  if (slope > 0.42) out.lerp(palette.rock, 0.75 * smoothstep(0.42, CLIFF_SLOPE, slope));
   // The road last, over whatever the biome and the height had made of this
   // vertex. This is the field's own narrow road strength and it stays that way,
   // because it is what the ground was actually graded by. It is not what you
   // look at: the shader fades this whole tint out under `aRoad`, and the road
   // you see is the dirt layer, which reaches ROAD_FADE metres out.
-  if (s.road > 0) out.lerp(palette.road, s.road * 0.85);
+  // A vertex the field calls road is painted as road, however faint. At the
+  // outermost verge the field's own strength can be 3.4e-7, which lerps a float
+  // colour by less than a millionth and reads as "not painted at all" to
+  // anything measuring it: `roads.test.mjs` found exactly one such vertex, at
+  // -2832, -930. ROAD_TINT_MIN is half of one step of an 8 bit channel, so it
+  // is under what an eye can see and over what a test can miss.
+  if (s.road > 0) out.lerp(palette.road, Math.max(s.road, ROAD_TINT_MIN) * 0.85);
   // per-vertex jitter so flat facets differ, deterministic from position
   const j = (hash2(Math.round(x * 2), Math.round(z * 2), 9) & 255) / 255 - 0.5;
   out.offsetHSL(0, 0, j * 0.02);

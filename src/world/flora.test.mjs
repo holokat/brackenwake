@@ -17,8 +17,10 @@ import {
   recordsFor, createFlora, ROCK_DENSITY, WATER_SPECIES, isWet, variantOf,
   auditBiomeHarvest, VARIANTS, ALL_KINDS, REBAND_M, LIMITS, DETAIL, mixFor,
   ARBOR_SPECIES, isArborKind, biomesIn, pairCheck,
+  ROAD_CLEAR, roadWithin, avenueFor, AVENUE_REALMS, AVENUE_KIND, AVENUE_STEP, STAND_PURITY,
 } from './flora.js';
 import { LOD_RANGE, LOD_SHARE, lodForDistance, geometryVariant } from './tree_gen.js';
+import { roadsForCell, roadDistanceAt, ROAD_REACH } from './roads.js';
 import * as arbor from './arbor.js';
 import { chopTree, regrowTrees, clearTreeFields, treeFieldsFor } from '../farm/tree_edit.js';
 import { nounFor } from '../game/interact.js';
@@ -127,7 +129,14 @@ console.log('  chunks found per biome:', Object.keys(byBiome).join(', '));
 
 // A sparse global grid under-samples the rare biomes, so each biome gets its
 // own census, walked outward from its anchor chunk.
-const CENSUS = 40;
+//
+// A1 raised this from 40 chunks to 110. The forest is laid out in stands now,
+// so forty chunks of meadow can be forty chunks of the same two copses and one
+// hedgerow, and a census that small says more about which stands it happened to
+// land in than about what the biome grows. The thresholds below came down with
+// the density: a meadow carries about a fifth of the trees it used to, on
+// purpose, because it is fields with copses in it and not a wood.
+const CENSUS = 110;
 function censusOf(biome, anchor) {
   const [ax, az] = anchor;
   const row = { chunks: 0 };
@@ -169,18 +178,24 @@ for (const [b, row] of Object.entries(perBiome)) {
   const trees = (b) => kindsOf(b).filter((k) => k !== 'rock' && k !== 'ore');
   const rocks = (b) => kindsOf(b).filter((k) => k === 'rock' || k === 'ore');
   check('meadow grows arbor\'s temperate mix, all three of it',
-    trees('meadow').length >= 3 && (perBiome.meadow.oak || 0) > 50 && (perBiome.meadow.beech || 0) > 30,
+    trees('meadow').length >= 3 && (perBiome.meadow.oak || 0) > 20 && (perBiome.meadow.beech || 0) > 15,
     JSON.stringify(perBiome.meadow));
   check('boreal grows two conifers and a birch through them',
-    (perBiome.boreal.fir || 0) > 50 && (perBiome.boreal.spruce || 0) > 50 && (perBiome.boreal.pine || 0) > 30 /* Kaldera has no conifer realm; boreal is 3.3% of the world now (Z2) */,
+    (perBiome.boreal.fir || 0) > 40 && (perBiome.boreal.spruce || 0) > 40 && (perBiome.boreal.pine || 0) > 20 /* Kaldera has no conifer realm; boreal is 3.3% of the world now (Z2) */,
     JSON.stringify(perBiome.boreal));
   check('mountain thins out, and is mostly rock',
     (perBiome.mountain.rock || 0) > trees('mountain').reduce((a, k) => a + perBiome.mountain[k], 0),
     JSON.stringify(perBiome.mountain));
   check('desert grows cacti and dead wood',
-    (perBiome.desert.cactus || 0) > 5 && (perBiome.desert.dead || 0) > 5, JSON.stringify(perBiome.desert));
-  check('beach grows palms', (perBiome.beach.palm || 0) > 5, JSON.stringify(perBiome.beach));
-  check('sakura grows cherry and birch', (perBiome.sakura.sakura || 0) > 30 && (perBiome.sakura.birch || 0) > 20,
+    (perBiome.desert.cactus || 0) > 3 && (perBiome.desert.dead || 0) > 3, JSON.stringify(perBiome.desert));
+  check('beach grows palms', (perBiome.beach.palm || 0) > 3, JSON.stringify(perBiome.beach));
+  // the cherry wood is the smallest biome in the world, ten chunks of it, so
+  // it is only a handful of stands. Cherry has to dominate it and birch has to
+  // be in it; asking for equal numbers of both would be asking the stands not
+  // to be stands.
+  check('sakura is a cherry wood with birch through it',
+    (perBiome.sakura.sakura || 0) > 12 && (perBiome.sakura.birch || 0) > 2
+    && (perBiome.sakura.sakura || 0) > (perBiome.sakura.birch || 0),
     JSON.stringify(perBiome.sakura));
   check('snow still holds a stand of conifer', (perBiome.snow.fir || 0) + (perBiome.snow.spruce || 0) > 3,
     JSON.stringify(perBiome.snow));
@@ -271,13 +286,26 @@ for (const [b, row] of Object.entries(perBiome)) {
 // a rejection must never move the trees around it: that is what makes a
 // clearing a hole in the forest rather than a different forest
 {
-  const [cx, cz] = byBiome.meadow;
-  const all = arbor.placeTrees('meadow', cx, cz, 64, f.seed, { heightAt: f.heightAt });
-  const half = arbor.placeTrees('meadow', cx, cz, 64, f.seed, { heightAt: f.heightAt, keep: (x) => x > (cx + 0.5) * 64 });
-  const filtered = all.filter((s) => s.x > (cx + 0.5) * 64);
+  // find a chunk with a stand actually standing in it. A meadow has clearings
+  // in it now, and a test that lands in one proves nothing either way.
+  let cx = byBiome.meadow[0], cz = byBiome.meadow[1], all = [];
+  for (let r = 0; r <= 12 && all.length < 8; r++) {
+    for (let dz = -r; dz <= r && all.length < 8; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      const a = byBiome.meadow[0] + dx, b = byBiome.meadow[1] + dz;
+      const sp = arbor.placeTrees('meadow', a, b, 64, f.seed, { heightAt: f.heightAt });
+      if (sp.length >= 8) { cx = a; cz = b; all = sp; break; }
+    }
+  }
+  // split on the median of the trees that are actually there, not on the middle
+  // of the chunk: a copse can sit wholly in one half and a clip that removed all
+  // of it or none of it would pass this check without testing anything
+  const mid = [...all].map((s) => s.x).sort((a, b) => a - b)[Math.floor(all.length / 2)];
+  const half = arbor.placeTrees('meadow', cx, cz, 64, f.seed, { heightAt: f.heightAt, keep: (x) => x > mid });
+  const filtered = all.filter((s) => s.x > mid);
   check('a keep rejection is a filter of the unclipped layout, not a reshuffle',
     JSON.stringify(half) === JSON.stringify(filtered) && half.length > 0 && half.length < all.length,
-    `${half.length} of ${all.length}`);
+    `${half.length} of ${all.length} in chunk ${cx},${cz}`);
 }
 {
   const t0 = performance.now();
@@ -285,6 +313,201 @@ for (const [b, row] of Object.entries(perBiome)) {
   const ms = (performance.now() - t0) / 50;
   check('a chunk places in under 3 ms', ms < 3, `${ms.toFixed(2)} ms`);
 }
+// ============================================================================
+// Roads, and the trees beside them
+//
+// Two rules, both in metres, both measured on the real field rather than on a
+// stub: nothing stands within ROAD_CLEAR of a road's centreline anywhere in the
+// world, and in the realms that plant their roads there is a tree each side
+// every AVENUE_STEP.
+//
+// The old rule was `sampleAt().road > 0.15`, which is a strength and not a
+// distance: it works out at about 2.7 m from the centreline and it is zero
+// everywhere the grading has not run. This is the reason the new rule reads
+// roads.js directly.
+// ============================================================================
+console.log('\nflora: roads and avenues');
+{
+  // Every record over a block of chunks, against the nearest road. roads.js
+  // looks no further than ROAD_REACH, so a null answer is ground with no road
+  // within 6 m and passes the 4 m rule by a wide margin.
+  let n = 0, near = 0, worst = Infinity, sawRoad = 0;
+  const bins = [0, 0, 0, 0, 0, 0];
+  const centres = [];
+  for (let j = -22; j <= 22; j += 2) for (let i = -22; i <= 22; i += 2) centres.push([i, j]);
+  for (const [cx, cz] of centres) {
+    for (const list of Object.values(recordsFor(f, cx, cz, {}))) for (const t of list) {
+      n++;
+      const rd = roadDistanceAt(f, t.x, t.z);
+      if (!rd) continue;
+      sawRoad++;
+      bins[Math.min(5, Math.floor(rd.d))]++;
+      if (rd.d < worst) worst = rd.d;
+      if (rd.d < ROAD_CLEAR) near++;
+    }
+  }
+  console.log(`  ${n} records over ${centres.length} chunks, ${sawRoad} of them within ${ROAD_REACH} m of a road; `
+    + `by metre from the centreline: ${bins.join(' ')}`);
+  check(`no tree or boulder stands within ${ROAD_CLEAR} m of a road centre`,
+    near === 0, near ? `${near} of ${n} too close` : `closest is ${worst === Infinity ? 'no road in range' : worst.toFixed(2) + ' m'}`);
+  // and the other direction: the rule has to be capable of refusing something.
+  // Walk the road itself and show every point on it is refused.
+  {
+    const roads = [];
+    for (let j = -6; j <= 6 && roads.length < 3; j++) for (let i = -6; i <= 6 && roads.length < 3; i++) {
+      for (const r of roadsForCell(f, i, j)) roads.push(r);
+    }
+    let onRoad = 0, tested = 0;
+    for (const r of roads) {
+      for (let k = 1; k < 40; k++) {
+        const seg = r.segs[Math.min(r.segs.length - 1, Math.floor(k / 40 * r.segs.length))];
+        const u = (k % 7) / 7;
+        const x = seg.x0 + seg.dx * u, z = seg.z0 + seg.dz * u;
+        tested++;
+        if (roadWithin(f, x, z, ROAD_CLEAR)) onRoad++;
+      }
+    }
+    check('and the rule refuses the road itself, so it is not vacuous',
+      roads.length > 0 && onRoad === tested, `${onRoad} of ${tested} points on ${roads.length} roads refused`);
+    check('while open ground a long way from any road is allowed',
+      !roadWithin(f, 30000, 30000, ROAD_CLEAR));
+  }
+}
+{
+  // The avenues. Walked over the Greenwold, which is the realm that plants its
+  // roads, and the rhythm is read back out of the trees rather than assumed.
+  let trees = [], greenChunks = 0, elsewhere = 0;
+  for (let cz = -26; cz <= 26; cz++) for (let cx = -26; cx <= 26; cx++) {
+    const mid = f.sampleAt((cx + 0.5) * 64, (cz + 0.5) * 64);
+    const av = avenueFor(f, cx, cz, {});
+    if (mid.realm === 'greenwold') greenChunks++;
+    for (const t of av) {
+      if (!AVENUE_REALMS.includes(f.sampleAt(t.x, t.z).realm)) elsewhere++;
+      trees.push(t);
+    }
+  }
+  const kinds = [...new Set(trees.map((t) => t.kind))];
+  const dists = trees.map((t) => roadDistanceAt(f, t.x, t.z)).filter(Boolean);
+  const lo = Math.min(...dists.map((d) => d.d)), hi = Math.max(...dists.map((d) => d.d));
+  console.log(`  ${trees.length} avenue trees over ${greenChunks} Greenwold chunks, planted with ${kinds.join(' and ')}, `
+    + `${lo.toFixed(2)} to ${hi.toFixed(2)} m off the centreline`);
+  check('the Greenwold plants its roads', trees.length > 30, `${trees.length} trees`);
+  check('and plants them with the tree its realm is planted with',
+    kinds.length === 1 && kinds[0] === AVENUE_KIND.greenwold, kinds.join(', '));
+  check('every avenue tree is beside the road, not on it',
+    dists.length === trees.length && lo >= ROAD_CLEAR && hi <= ROAD_REACH,
+    `${dists.length} of ${trees.length} within roads.js reach, none closer than ${lo.toFixed(2)} m`);
+  check('and none of them is planted outside a realm that plants',
+    elsewhere === 0, `${elsewhere} of ${trees.length} outside the Greenwold`);
+  // the rhythm: one each side every AVENUE_STEP along one road
+  {
+    let best = null;
+    const seen = new Map();
+    // only the site cells the block above actually walked, or the longest road
+    // in the realm can be one whose trees were never collected
+    for (let j = -4; j <= 3; j++) for (let i = -4; i <= 3; i++) for (const r of roadsForCell(f, i, j)) seen.set(r.id, r);
+    for (const r of seen.values()) {
+      const m = r.segs[Math.floor(r.segs.length / 2)];
+      if (f.sampleAt(m.x0, m.z0).realm !== 'greenwold') continue;
+      if (!best || r.total > best.total) best = r;
+    }
+    const mine = trees.filter((t) => {
+      const rd = roadDistanceAt(f, t.x, t.z);
+      return rd && best && rd.road.id === best.id;
+    });
+    const ts = mine.map((t) => roadDistanceAt(f, t.x, t.z).t * best.total).sort((a, b) => a - b);
+    const gaps = [];
+    for (let i = 1; i < ts.length; i++) gaps.push(ts[i] - ts[i - 1]);
+    // a pair at one station reads as a gap of 0; the next station is one step on
+    const pairs = gaps.filter((g) => g < 1).length;
+    const steps = gaps.filter((g) => Math.abs(g - AVENUE_STEP) < 1.5).length;
+    const perHundred = mine.length / best.total * 100;
+    console.log(`  the longest Greenwold road is ${best.total.toFixed(0)} m and carries ${mine.length} of them, `
+      + `${perHundred.toFixed(1)} per 100 m of a full ${(200 / AVENUE_STEP).toFixed(1)}; `
+      + `${pairs} pairs across the road, ${steps} gaps of one step along it`);
+    check(`the avenue keeps its ${AVENUE_STEP} m step`, steps > 10 && pairs > 5,
+      `${steps} steps and ${pairs} pairs over ${mine.length} trees`);
+    check('and it is a real avenue rather than a tree here and there',
+      perHundred > 5, `${perHundred.toFixed(1)} trees per 100 m of road`);
+  }
+  // and the guard that keeps the line of trunks between roads.js's two numbers
+  {
+    const keep = AVENUE_REALMS.slice();
+    let threw = '';
+    AVENUE_REALMS.push('nosuchrealm');
+    try { auditBiomeHarvest(); } catch (e) { threw = e.message; }
+    AVENUE_REALMS.length = 0; AVENUE_REALMS.push(...keep);
+    check('the audit throws on a realm that plants roads and does not exist',
+      threw.includes('nosuchrealm'), threw || 'it did not throw');
+    check('and it is clean again', auditBiomeHarvest() === BIOMES.length);
+  }
+  // both directions on the realm gate: a realm that plants nothing gets nothing
+  {
+    // the real field with one thing changed: the realm every sample reports.
+    // The roads, the ground and the water are the world's own, so the only
+    // reason nothing is planted is the realm gate.
+    const elsewhere = Object.create(f);
+    elsewhere.sampleAt = (x, z) => ({ ...f.sampleAt(x, z), realm: 'saltmarch' });
+    let n = 0;
+    for (let cz = -26; cz <= 26; cz++) for (let cx = -26; cx <= 26; cx++) n += avenueFor(elsewhere, cx, cz, {}).length;
+    check('the same roads in a realm that does not plant them get no avenue at all', n === 0, `${n} trees`);
+  }
+}
+{
+  // What a chunk of each biome now holds, which is the number the whole layout
+  // was tuned against. Every record, not only the kinds a warmed field happens
+  // to have built, so it is a census of the ground and not of the streamer.
+  console.log('\n  trees a chunk, by biome, straight out of recordsFor:');
+  const rows = [];
+  for (const [b, anchor] of Object.entries(byBiome)) {
+    const [ax, az] = anchor;
+    let trees = 0, rocks = 0, chunks = 0, lone = 0;
+    for (let r = 0; r <= 24 && chunks < 40; r++) {
+      for (let dz = -r; dz <= r && chunks < 40; dz++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+        const cx = ax + dx, cz = az + dz;
+        if (f.biomeAt((cx + 0.5) * 64, (cz + 0.5) * 64) !== b) continue;
+        chunks++;
+        for (const [k, list] of Object.entries(recordsFor(f, cx, cz, {}))) {
+          if (k === 'rock' || k === 'ore') rocks += list.length; else trees += list.length;
+        }
+      }
+    }
+    rows.push({ b, per: trees / chunks, rocks: rocks / chunks, chunks });
+    console.log(`    ${b.padEnd(9)} ${(trees / chunks).toFixed(1).padStart(5)} trees and `
+      + `${(rocks / chunks).toFixed(1).padStart(4)} boulders a chunk over ${chunks} chunks`);
+  }
+  const of = (b) => rows.find((r) => r.b === b);
+  check('a boreal is dense and a meadow is not', of('boreal').per > of('meadow').per * 3,
+    `${of('boreal').per.toFixed(1)} against ${of('meadow').per.toFixed(1)} trees a chunk`);
+  check('a desert is the sparsest ground that grows anything',
+    of('desert').per < of('meadow').per && of('desert').per > 0,
+    `${of('desert').per.toFixed(2)} trees a chunk`);
+  check('and every biome that grows anything still grows something',
+    rows.every((r) => r.b === 'ocean' || r.per > 0), rows.filter((r) => r.per === 0).map((r) => r.b).join(', ') || 'all of them');
+  // a meadow has to have open ground in it that a player can stand in
+  {
+    const [ax, az] = byBiome.meadow;
+    const pts = [];
+    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+      for (const [k, list] of Object.entries(recordsFor(f, ax + dx, az + dz, {}))) {
+        if (k === 'rock' || k === 'ore') continue;
+        for (const t of list) pts.push(t);
+      }
+    }
+    const x0 = (ax - 3) * 64, z0 = (az - 3) * 64;
+    let best = 0, bestAt = null;
+    for (let z = z0 + 40; z < z0 + 408; z += 8) for (let x = x0 + 40; x < x0 + 408; x += 8) {
+      let d = Infinity;
+      for (const t of pts) { const q = (t.x - x) ** 2 + (t.z - z) ** 2; if (q < d) d = q; }
+      d = Math.sqrt(d);
+      if (d > best) { best = d; bestAt = [Math.round(x), Math.round(z)]; }
+    }
+    check('a meadow has a clearing in it: somewhere to stand with no tree within 25 m',
+      best > 25, `the emptiest spot in 49 chunks is ${best.toFixed(0)} m from the nearest tree, at ${bestAt}`);
+  }
+}
+
 // recordsFor pairs each spot with the ground sample `keep` took for it, by
 // position in the list. If placeTrees ever stopped calling keep exactly once
 // per surviving spot, every tree in the chunk would be sampled at the wrong

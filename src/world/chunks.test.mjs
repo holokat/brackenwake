@@ -12,9 +12,10 @@ import * as THREE from 'three';
 import { createWorldField, CHUNK } from './field.js';
 import {
   buildChunkGeometry, buildPalette, tierFor, roadWeightAt, NORMAL_STEP,
-  RING, BUILD_PER_FRAME,
+  RING, BUILD_PER_FRAME, ROAD_TINT_MIN,
 } from './chunks.js';
-import { LAYERS } from './terrain_material.js';
+import { ZONE } from './zones.js';
+import { LAYERS, layerWeights, CLIFF_SLOPE } from './terrain_material.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -267,6 +268,104 @@ const maxDelta = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
   console.log(`     build: 33 verts ${t33.toFixed(2)} ms, 17 ${t17.toFixed(2)} ms, 9 ${t9.toFixed(2)} ms`);
   check('a full frame of the build budget stays under 16 ms', t33 * BUILD_PER_FRAME < 16,
     `${(t33 * BUILD_PER_FRAME).toFixed(1)} ms for ${BUILD_PER_FRAME} of the most expensive tier`);
+}
+
+// ---- 8. relief: a mesa realm costs no more than a meadow does -----------
+//
+// V1 gave five realms relief, and relief is worked out on every terrain vertex
+// of every chunk in them. The promise is that a chunk over the Ember Wastes,
+// where the tables are, builds in under MESA_BUDGET ms, so the streaming budget
+// holds where the country is most interesting and not only where it is empty.
+{
+  const MESA_BUDGET = 12;                      // ms for one 33 x 33 chunk
+  const mesa = ZONE.emberwastes;
+  const cx0 = Math.floor(mesa.x / CHUNK), cz0 = Math.floor(mesa.z / CHUNK);
+  const time = (f, cx, cz, v) => {
+    buildChunkGeometry(f, cx, cz, v, palette);                  // warm
+    const t0 = process.hrtime.bigint();
+    for (let c = 0; c < 12; c++) buildChunkGeometry(f, cx + c, cz, v, palette);
+    return Number(process.hrtime.bigint() - t0) / 1e6 / 12;
+  };
+  // a cold field each time, because the first chunk over a cell also lays that
+  // cell's roads and builds that realm's relief lattice
+  const cold = createWorldField(SEED, { homeY: -0.3 });
+  const lifted = cold.heightAt(mesa.x, mesa.z);
+  const tMesa = time(cold, cx0, cz0, 33);
+  const flat = createWorldField(SEED, { homeY: -0.3, relief: false });
+  const tFlat = time(flat, cx0, cz0, 33);
+  const tHome = time(createWorldField(SEED, { homeY: -0.3 }), 8, 8, 33);
+  console.log(`     build over the Ember Wastes: ${tMesa.toFixed(2)} ms with relief, ${tFlat.toFixed(2)} ms without, ${tHome.toFixed(2)} ms over open country`);
+  check(`a 33 x 33 chunk in the mesa realm builds in under ${MESA_BUDGET} ms`, tMesa < MESA_BUDGET,
+    `${tMesa.toFixed(2)} ms, ground at the realm's centre ${lifted.toFixed(1)} m`);
+  check('and relief is not what makes a chunk expensive', tMesa < tFlat * 2.2,
+    `${tMesa.toFixed(2)} ms against ${tFlat.toFixed(2)} ms with relief off`);
+  check('a full frame of them still fits the budget', tMesa * BUILD_PER_FRAME < 16,
+    `${(tMesa * BUILD_PER_FRAME).toFixed(1)} ms for ${BUILD_PER_FRAME}`);
+}
+
+// ---- 9. a face is painted as stone, whatever country it is in ------------
+//
+// The bug this is for: the layer weights already put rock on a steep vertex,
+// but the vertex COLOUR is a tint over those layers, so a thirty metre mesa
+// wall in the desert came out as sand coloured stone. Both directions: a wall
+// is painted toward the rock colour, and the flat top above it is not.
+{
+  const f = createWorldField(SEED, { homeY: -0.3 });
+  const pal = buildPalette(theme);
+  const rockHex = pal.rock.getHex();
+  const slopeAt = (x, z) => {
+    const dx = f.heightAt(x - NORMAL_STEP, z) - f.heightAt(x + NORMAL_STEP, z);
+    const dz = f.heightAt(x, z - NORMAL_STEP) - f.heightAt(x, z + NORMAL_STEP);
+    const up = 2 * NORMAL_STEP;
+    const ny = up / Math.sqrt(dx * dx + dz * dz + up * up);
+    return Math.sqrt(Math.max(0, 1 - ny * ny));
+  };
+  // find a wall and a top in the Ember Wastes, from the real field
+  const mesa = ZONE.emberwastes;
+  let wall = null, top = null;
+  for (let x = mesa.x - 1200; x <= mesa.x + 1200 && (!wall || !top); x += 8) {
+    for (let z = mesa.z - 1200; z <= mesa.z + 1200; z += 8) {
+      const sl = slopeAt(x, z);
+      if (!wall && sl > CLIFF_SLOPE && f.sampleAt(x, z).biome === 'desert') wall = [x, z, sl];
+      if (!top && sl < 0.12 && f.heightAt(x, z) > 22 && f.sampleAt(x, z).biome === 'desert') top = [x, z, sl];
+      if (wall && top) break;
+    }
+  }
+  check('the Ember Wastes really has walls and flat tops in it', !!wall && !!top,
+    wall && top ? `a wall at ${wall[0].toFixed(0)}, ${wall[1].toFixed(0)} (slope ${wall[2].toFixed(2)}) and a top at ${top[0].toFixed(0)}, ${top[1].toFixed(0)} (slope ${top[2].toFixed(2)}, ${f.heightAt(top[0], top[1]).toFixed(0)} m up)` : 'none found');
+  if (wall && top) {
+    const near = (c, hex) => {
+      const t = new THREE.Color(hex);
+      return Math.hypot(c.r - t.r, c.g - t.g, c.b - t.b);
+    };
+    const paint = (p) => {
+      const c0 = new THREE.Color(); const s = f.sampleAt(p[0], p[1]);
+      // the same call chunks.js makes, through the geometry, so the test path
+      // is the real path: build the chunk and read the vertex
+      const cx = Math.floor(p[0] / CHUNK), cz = Math.floor(p[1] / CHUNK);
+      const { geo } = buildChunkGeometry(f, cx, cz, 33, pal);
+      const pos = geo.getAttribute('position').array, col = geo.getAttribute('color').array;
+      let best = Infinity, k = 0;
+      for (let i = 0; i < 33 * 33; i++) {
+        const d = Math.hypot(pos[i * 3] - p[0], pos[i * 3 + 2] - p[1]);
+        if (d < best) { best = d; k = i; }
+      }
+      c0.setRGB(col[k * 3], col[k * 3 + 1], col[k * 3 + 2]);
+      return { c: c0, s, at: best };
+    };
+    const w = paint(wall), t = paint(top);
+    check('a mesa wall is painted toward the rock colour', near(w.c, rockHex) < near(t.c, rockHex),
+      `the wall is ${near(w.c, rockHex).toFixed(3)} from the rock colour, the table top ${near(t.c, rockHex).toFixed(3)}`);
+    check('and the flat top above it is still the desert it stands in', near(t.c, rockHex) > 0.08,
+      `top #${t.c.getHexString()}, wall #${w.c.getHexString()}, rock #${pal.rock.getHexString()}`);
+    check('and the layers agree with the paint: the wall is rock and the top is not', (() => {
+      const ww = layerWeights(w.s, wall[2], 0), tw = layerWeights(t.s, top[2], 0);
+      return ww[LAYERS.indexOf('rock')] > 0.8 && tw[LAYERS.indexOf('rock')] < 0.3;
+    })(), (() => {
+      const ww = layerWeights(w.s, wall[2], 0), tw = layerWeights(t.s, top[2], 0);
+      return `wall rock ${ww[LAYERS.indexOf('rock')].toFixed(2)}, top rock ${tw[LAYERS.indexOf('rock')].toFixed(2)}`;
+    })());
+  }
 }
 
 console.log(`\n  chunks: ${pass} passed, ${fail} failed`);

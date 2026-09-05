@@ -44,6 +44,20 @@ export const TILE_A = 3.5;
 export const TILE_B = 17.0;
 /** Metres over which the road weight reaches zero. chunks.js honours this. */
 export const ROAD_FADE = 6;
+
+/**
+ * The sin of the ground angle at which a slope stops being a slope and becomes
+ * a face: 0.78 is about 51 degrees, which is steeper than anything vegetation
+ * holds on to. Below it the ground is a hillside with rock showing through;
+ * at and above it the ground is stone with nothing on it at all.
+ *
+ * V1 gave five realms relief, and a mesa wall or a crater rim is exactly this
+ * case: `field.RELIEF_GRADE` cuts faces at 2 m of rise per metre of ground,
+ * which is a slope of 0.89, so every relief wall in the world is past this
+ * line and every table top is far short of it. `chunks.js` reads the same
+ * number to decide when to paint a vertex as stone rather than as desert.
+ */
+export const CLIFF_SLOPE = 0.78;
 /** Height in metres at which snow has fully taken over on flat ground. */
 export const SNOW_FULL = 84;
 export const SNOW_START = 64;
@@ -88,6 +102,7 @@ const BIOME_BASE = {
 };
 const ROAD_MIX = [0.00, 0.08, 0.80, 0.06, 0.06, 0.00];
 const ROCK_ONLY = [0.00, 0.00, 0.06, 0.94, 0.00, 0.00];
+const ROCK_FACE = [0.00, 0.00, 0.02, 0.98, 0.00, 0.00];
 const SNOW_ONLY = [0.00, 0.00, 0.00, 0.08, 0.00, 0.92];
 const BED_MIX = [0.00, 0.00, 0.55, 0.08, 0.37, 0.00];
 const SAND_ONLY = [0.02, 0.04, 0.08, 0.02, 0.84, 0.00];
@@ -166,8 +181,11 @@ export function layerWeights(s, slope = 0, road = 0, out = new Array(6)) {
   const alpine = smoothstep(34, 54, s.h);
   if (alpine > 0) mixInto(out, ROCK_ONLY, alpine * 0.86);
 
-  // Slope shows rock. 0.42 is about 25 degrees, 0.78 about 51.
-  if (slope > 0.42) mixInto(out, ROCK_ONLY, smoothstep(0.42, 0.78, slope));
+  // Slope shows rock. 0.42 is about 25 degrees, CLIFF_SLOPE about 51.
+  if (slope > 0.42) mixInto(out, ROCK_ONLY, smoothstep(0.42, CLIFF_SLOPE, slope));
+  // And past the cliff line the last of the dirt goes with it: a wall cut by
+  // relief is bare stone, not stone with a skin of desert on it.
+  if (slope > CLIFF_SLOPE) mixInto(out, ROCK_FACE, smoothstep(CLIFF_SLOPE, 0.95, slope));
 
   // Snow settles by height, and slides off anything steep.
   const snow = smoothstep(SNOW_START, SNOW_FULL, s.h) * (1 - smoothstep(0.55, 0.88, slope) * 0.85);

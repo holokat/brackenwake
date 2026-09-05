@@ -142,7 +142,10 @@ const NEAR_SITE = rt.sitesNear(0, 0, 1200).sort(
 {
   ck('there is a place to walk to inside 1200 m', !!NEAR_SITE,
     NEAR_SITE ? `${NEAR_SITE.kind} at ${Math.round(Math.hypot(NEAR_SITE.x, NEAR_SITE.z))} m` : 'none');
-  ck('and nothing at all inside the streamed ring of the spawn', rt.sitesNear(0, 0, 576).length === 0);
+  // The Standing Hedge is a mile wide and pad-less, so its body reaches the
+  // ring; nothing WITH A PAD may (the heart promise is about the ground)
+  const inRing = rt.sitesNear(0, 0, 576);
+  ck('and nothing with a pad inside the streamed ring of the spawn', inRing.every((s) => !(s.flatR > 0)), inRing.map((s) => `${s.kind} flatR ${s.flatR}`).join(', ') || 'nothing');
   let t = 1000;
   for (let i = 0; i < 400 && rt.siteMarkers.count < 1; i++) {
     t += 16;

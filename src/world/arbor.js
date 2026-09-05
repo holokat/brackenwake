@@ -53,37 +53,73 @@ const GOLD = 2.39996;                 // golden angle, the reference's spiral
 // tropism      upward pull along an axis (negative droops)
 // gravity      downward pull, scaled by branch order (0 on the trunk)
 // habit        'round' | 'conical' | 'umbrella' | 'palm'
-// bole         first axis length as a fraction of h; defaults to the
-//              reference's 0.34 on a conical habit and 0.4 otherwise. Only
-//              palm sets it, because with levels 1 there is no chain of
-//              apical continuations to stack the rest of the height out of.
 // leaf         a kind in arbor_textures.LEAF_KINDS, or null for a bare tree
 // autumnTo     [A, B] the leaf colours autumn 1 lerps to
+//
+// The four fields below are what turns a bundle of axes into a silhouette. They
+// used to be defaults buried in growAxis, one number for every round tree and
+// one for every conical one, and that is why a spruce came out upside down.
+// Every species now says all four out loud and auditForestTypes() throws if one
+// does not.
+//
+// bole         the first axis, as a fraction of h. On a conical habit this is
+//              the whole leader, because a spire is one trunk with the branches
+//              hung off it; on everything else it is the length that the crown
+//              is then stacked on top of by apical continuations.
+// latFrom      where the lowest lateral sits on the first axis, as a fraction
+//              of that axis. bole x latFrom is therefore the height of the
+//              lowest branch as a fraction of the tree, which is the bare
+//              trunk a player sees: 0.52 x 0.82 puts a pine's first limb at
+//              43% of its height and leaves an umbrella on a bare pole.
+// latDeep      laterals per axis past the first, as a fraction of `lat`. A
+//              spruce carries 6 branches to a whorl and 2 off each of those;
+//              without this the whorls square up and the axis cap is spent
+//              before the leader is finished.
+// crownBase    the fraction of the grown height under which no leaf is ever
+//              emitted. It is a hard floor in pushLeaf, not a hope: a leaf
+//              hung lower is dropped. arbor.test.mjs grows every species at
+//              every band and fails if one quad hangs below it.
 export const SPECIES = {
-  oak:    { h: [13, 20], trunk: 0.055, levels: 4, lat: 4, apical: 0.52, latRatio: 0.62, spread: 52, tropism: 0.28, gravity: 0.35, habit: 'round',    leaf: 'oval',     leafPer: 4, leafSize: 0.5,  bark: '#4a3a28', leafA: '#2c5a22', leafB: '#6b9a3a', barkStyle: 'rough' },
-  beech:  { h: [16, 24], trunk: 0.045, levels: 4, lat: 3, apical: 0.6,  latRatio: 0.55, spread: 40, tropism: 0.35, gravity: 0.3,  habit: 'round',    leaf: 'oval',     leafPer: 4, leafSize: 0.42, bark: '#7d7565', leafA: '#3d7a2a', leafB: '#8fbf4a', barkStyle: 'smooth' },
-  birch:  { h: [10, 16], trunk: 0.03,  levels: 4, lat: 3, apical: 0.62, latRatio: 0.5,  spread: 34, tropism: 0.15, gravity: 0.75, habit: 'round',    leaf: 'oval',     leafPer: 3, leafSize: 0.3,  bark: '#e2ddd0', leafA: '#6fa233', leafB: '#a8d15a', barkStyle: 'birch' },
-  spruce: { h: [18, 30], trunk: 0.035, levels: 3, lat: 6, apical: 0.72, latRatio: 0.38, spread: 84, tropism: 0.2,  gravity: 0.4,  habit: 'conical',  leaf: 'needle',   leafPer: 6, leafSize: 0.55, bark: '#5a3f2c', leafA: '#213f22', leafB: '#3f6d3a', barkStyle: 'plates' },
-  pine:   { h: [16, 26], trunk: 0.04,  levels: 4, lat: 3, apical: 0.5,  latRatio: 0.5,  spread: 60, tropism: 0.5,  gravity: 0.2,  habit: 'umbrella', leaf: 'needle',   leafPer: 6, leafSize: 0.6,  bark: '#7a4a30', leafA: '#2f5d2a', leafB: '#5b8a44', barkStyle: 'plates' },
-  kapok:  { h: [24, 34], trunk: 0.065, levels: 4, lat: 3, apical: 0.66, latRatio: 0.55, spread: 70, tropism: 0.3,  gravity: 0.25, habit: 'umbrella', leaf: 'tropical', leafPer: 4, leafSize: 0.75, bark: '#8a8270', leafA: '#2f6b25', leafB: '#6fae3c', barkStyle: 'smooth' },
-  fig:    { h: [12, 18], trunk: 0.075, levels: 4, lat: 4, apical: 0.5,  latRatio: 0.7,  spread: 62, tropism: 0.2,  gravity: 0.45, habit: 'round',    leaf: 'tropical', leafPer: 5, leafSize: 0.6,  bark: '#6a6052', leafA: '#245a1e', leafB: '#5f9b35', barkStyle: 'rough' },
+  // An oak is round and broad: a short thick bole, wide angles, a crown wider
+  // than the tree is tall from about a quarter of the way up.
+  oak:    { h: [13, 20], trunk: 0.055, levels: 4, lat: 4, apical: 0.5,  latRatio: 0.6,  spread: 56, tropism: 0.24, gravity: 0.38, habit: 'round',    leaf: 'oval',     leafPer: 4, leafSize: 0.68, bark: '#4a3a28', leafA: '#2c5a22', leafB: '#6b9a3a', barkStyle: 'rough',  bole: 0.44, latFrom: 0.6,  latDeep: 0.8,  crownBase: 0.26 },
+  // A beech is tall and domed: a straight bole half the tree, a strong leader,
+  // narrow angles, and a crown that closes over the top.
+  beech:  { h: [16, 24], trunk: 0.045, levels: 4, lat: 3, apical: 0.6,  latRatio: 0.5,  spread: 38, tropism: 0.36, gravity: 0.3,  habit: 'round',    leaf: 'oval',     leafPer: 4, leafSize: 0.58, bark: '#7d7565', leafA: '#3d7a2a', leafB: '#8fbf4a', barkStyle: 'smooth', bole: 0.5,  latFrom: 0.64, latDeep: 0.8,  crownBase: 0.34 },
+  // A birch is slender and light: a thin white bole, a narrow crown, and few
+  // enough leaves that the sky comes through it.
+  birch:  { h: [10, 16], trunk: 0.03,  levels: 4, lat: 3, apical: 0.62, latRatio: 0.46, spread: 32, tropism: 0.2,  gravity: 0.75, habit: 'round',    leaf: 'oval',     leafPer: 4, leafSize: 0.48, bark: '#e2ddd0', leafA: '#6fa233', leafB: '#a8d15a', barkStyle: 'birch',  bole: 0.46, latFrom: 0.6,  latDeep: 0.75, crownBase: 0.3  },
+  // A spruce is a spire: ONE leader running the whole height with whorls up it,
+  // longest low down and shortest at the tip. It used to be a 6 m leader with
+  // every whorl on it and the rest of the tree stacked above by continuations,
+  // which put 70% of the needles in the bottom fifth of the tree and 8% in the
+  // top half. bole 0.9 is the fix: the leader IS the tree.
+  spruce: { h: [18, 30], trunk: 0.035, levels: 3, lat: 6, apical: 0.14, latRatio: 0.19, spread: 76, tropism: 0.2,  gravity: 0.5,  habit: 'conical',  leaf: 'needle',   leafPer: 6, leafSize: 0.7,  bark: '#5a3f2c', leafA: '#213f22', leafB: '#3f6d3a', barkStyle: 'plates', bole: 0.9,  latFrom: 0.13, latDeep: 0.35, crownBase: 0.1  },
+  // A pine is an umbrella on a bare trunk: nothing at all for the first two
+  // fifths, then everything at once.
+  pine:   { h: [16, 26], trunk: 0.04,  levels: 4, lat: 3, apical: 0.44, latRatio: 0.4,  spread: 60, tropism: 0.45, gravity: 0.22, habit: 'umbrella', leaf: 'needle',   leafPer: 6, leafSize: 0.72, bark: '#7a4a30', leafA: '#2f5d2a', leafB: '#5b8a44', barkStyle: 'plates', bole: 0.52, latFrom: 0.82, latDeep: 0.8,  crownBase: 0.42 },
+  kapok:  { h: [24, 34], trunk: 0.065, levels: 4, lat: 3, apical: 0.6,  latRatio: 0.55, spread: 70, tropism: 0.3,  gravity: 0.25, habit: 'umbrella', leaf: 'tropical', leafPer: 4, leafSize: 0.8,  bark: '#8a8270', leafA: '#2f6b25', leafB: '#6fae3c', barkStyle: 'smooth', bole: 0.5,  latFrom: 0.78, latDeep: 0.8,  crownBase: 0.44 },
+  fig:    { h: [12, 18], trunk: 0.075, levels: 4, lat: 4, apical: 0.5,  latRatio: 0.68, spread: 62, tropism: 0.22, gravity: 0.45, habit: 'round',    leaf: 'tropical', leafPer: 4, leafSize: 0.7,  bark: '#6a6052', leafA: '#245a1e', leafB: '#5f9b35', barkStyle: 'rough',  bole: 0.4,  latFrom: 0.55, latDeep: 0.8,  crownBase: 0.2  },
 
   // --- new, in the same language -------------------------------------------
   // A willow droops: the trunk climbs, everything hung off it falls. gravity
   // scales with branch order in growAxis, so 1.6 leaves the bole straight and
   // pulls the whips down hard; the small negative tropism stops the tips from
-  // curling back up. Long laterals (latRatio 0.72) make the curtain.
-  willow: { h: [12, 18], trunk: 0.05,  levels: 4, lat: 4, apical: 0.5,  latRatio: 0.72, spread: 68, tropism: -0.22, gravity: 1.6, habit: 'round', leaf: 'oval',    leafPer: 5, leafSize: 0.4,  bark: '#5d5240', leafA: '#4a7a2c', leafB: '#93c25a', barkStyle: 'rough' },
+  // curling back up. Long laterals (latRatio 0.72) make the curtain. Its
+  // crownBase is almost nothing ON PURPOSE, because a willow's whips are meant
+  // to sweep the grass; the ground floor in pushLeaf is what stops them going
+  // under it.
+  willow: { h: [12, 18], trunk: 0.05,  levels: 4, lat: 4, apical: 0.5,  latRatio: 0.72, spread: 68, tropism: -0.22, gravity: 1.6, habit: 'round', leaf: 'oval',    leafPer: 5, leafSize: 0.5,  bark: '#5d5240', leafA: '#4a7a2c', leafB: '#93c25a', barkStyle: 'rough',  bole: 0.46, latFrom: 0.62, latDeep: 0.8,  crownBase: 0.04 },
   // A palm is one unbranched bole with a crown of fronds. levels 1 means the
   // first laterals are already the last order, so they get the leaf spray; the
   // 'palm' habit puts all of them at the very top; gravity 1.3 arches them.
-  palm:   { h: [9, 15],  trunk: 0.028, levels: 1, lat: 7, apical: 0.12, latRatio: 0.3,  spread: 78, tropism: 0.1,  gravity: 1.3,  habit: 'palm',  leaf: 'frond',   leafPer: 4, leafSize: 0.95, bark: '#8a7350', leafA: '#3f8f52', leafB: '#7cc268', barkStyle: 'plates', bole: 0.92 },
+  palm:   { h: [9, 15],  trunk: 0.028, levels: 1, lat: 7, apical: 0.12, latRatio: 0.3,  spread: 78, tropism: 0.1,  gravity: 1.3,  habit: 'palm',  leaf: 'frond',   leafPer: 4, leafSize: 0.95, bark: '#8a7350', leafA: '#3f8f52', leafB: '#7cc268', barkStyle: 'plates', bole: 0.92, latFrom: 1,    latDeep: 1,    crownBase: 0.5  },
   // A cherry spreads: short, wide angles, long laterals, and blossom instead
   // of leaves. Autumn takes it to the dusty rose flora.js already uses.
-  sakura: { h: [8, 13],  trunk: 0.045, levels: 4, lat: 4, apical: 0.44, latRatio: 0.78, spread: 72, tropism: 0.12, gravity: 0.5,  habit: 'round', leaf: 'blossom', leafPer: 5, leafSize: 0.44, bark: '#5a4032', leafA: '#f2aac8', leafB: '#f7d2e2', barkStyle: 'rough', autumnTo: ['#d98a7a', '#e8c0a8'] },
+  sakura: { h: [8, 13],  trunk: 0.045, levels: 4, lat: 4, apical: 0.44, latRatio: 0.76, spread: 72, tropism: 0.16, gravity: 0.42, habit: 'round', leaf: 'blossom', leafPer: 4, leafSize: 0.58, bark: '#5a4032', leafA: '#f2aac8', leafB: '#f7d2e2', barkStyle: 'rough',  bole: 0.4,  latFrom: 0.56, latDeep: 0.85, crownBase: 0.22, autumnTo: ['#d98a7a', '#e8c0a8'] },
   // A snag: grey, bare, and knotted. leafPer 0 means leafSpray emits nothing,
   // so the leaf geometry comes back empty and `hasLeaves` is false.
-  dead:   { h: [10, 16], trunk: 0.05,  levels: 4, lat: 3, apical: 0.5,  latRatio: 0.55, spread: 58, tropism: 0.05, gravity: 0.55, habit: 'round', leaf: null,      leafPer: 0, leafSize: 0,    bark: '#8d8880', leafA: '#8d8880', leafB: '#8d8880', barkStyle: 'rough' },
+  dead:   { h: [10, 16], trunk: 0.05,  levels: 4, lat: 3, apical: 0.5,  latRatio: 0.55, spread: 58, tropism: 0.05, gravity: 0.55, habit: 'round', leaf: null,      leafPer: 0, leafSize: 0,    bark: '#8d8880', leafA: '#8d8880', leafB: '#8d8880', barkStyle: 'rough',  bole: 0.42, latFrom: 0.5,  latDeep: 0.8,  crownBase: 0    },
 };
 
 export const SPECIES_IDS = Object.keys(SPECIES);
@@ -110,9 +146,12 @@ export const FOREST_TYPES = {
   // flora.js can look a type up by whatever sampleAt() handed back.
   meadow: { mix: [['oak', 0.45], ['beech', 0.35], ['birch', 0.2]],  ground: ['#3e4a25', '#5a5a34', '#2f4a22'], grass: ['#3f6e24', '#7ea63c'], relief: 3.0, fog: 0.009, sky: ['#8fb7dd', '#dbe6ee'], under: 1.0, density: 'Natural', alias: 'Temperate broadleaf' },
   boreal: { mix: [['spruce', 0.6], ['pine', 0.25], ['birch', 0.15]], ground: ['#3a3524', '#4d4a30', '#31401f'], grass: ['#556f2e', '#8aa34a'], relief: 5.0, fog: 0.012, sky: ['#9fb6c9', '#e3e9ee'], under: 0.6, density: 'Dense', alias: 'Boreal conifer' },
-  // a birch grove with cherry through it: the grove's floor and air, a crown
-  // that reads pink from a distance
-  sakura: { mix: [['sakura', 0.5], ['birch', 0.4], ['oak', 0.1]], wetMix: [['willow', 0.5], ['sakura', 0.3], ['birch', 0.2]], ground: ['#4a5a2a', '#6b6a3c', '#3d5f2a'], grass: ['#4f8a2c', '#a4cf55'], relief: 2.0, fog: 0.007, sky: ['#9cc3e6', '#e6eef3'], under: 1.2, density: 'Natural' },
+  // A cherry wood with birch through it: the grove's floor and air, a crown
+  // that reads pink from a distance. The cherry weight went from 0.5 to 0.62
+  // when the stands went in, because a stand takes one species for all of it
+  // and a realm this small is only three or four stands: at 0.5 the whole
+  // biome could come up birch on a coin toss, which flora.test.mjs caught.
+  sakura: { mix: [['sakura', 0.62], ['birch', 0.3], ['oak', 0.08]], wetMix: [['willow', 0.5], ['sakura', 0.3], ['birch', 0.2]], ground: ['#4a5a2a', '#6b6a3c', '#3d5f2a'], grass: ['#4f8a2c', '#a4cf55'], relief: 2.0, fog: 0.007, sky: ['#9cc3e6', '#e6eef3'], under: 1.2, density: 'Natural' },
   // sparse: snags on the sand, palms only where there is water to find
   desert: { mix: [['dead', 0.75], ['palm', 0.25]], wetMix: [['palm', 0.85], ['dead', 0.15]], ground: ['#8a7a52', '#a89468', '#6f6142'], grass: ['#8a8046', '#c4b071'], relief: 3.0, fog: 0.003, sky: ['#87b4e2', '#f0e2c4'], under: 0.15, density: 'Open' },
   // Mediterranean pine, thinning out as the rock takes over. field.js puts the
@@ -162,6 +201,23 @@ export function auditForestTypes() {
     if (!BARK_STYLES.includes(sp.barkStyle)) bad.push(`species '${id}' wants bark style '${sp.barkStyle}', which has no recipe`);
     if (sp.leaf == null && sp.leafPer !== 0) bad.push(`species '${id}' has no leaf kind but asks for ${sp.leafPer} of them`);
     if (!['round', 'conical', 'umbrella', 'palm'].includes(sp.habit)) bad.push(`species '${id}' has habit '${sp.habit}'`);
+    // The silhouette four. A species that does not say them used to take
+    // whatever growAxis happened to default to for its habit, which is how the
+    // spruce ended up with its needles round its ankles. There is no default
+    // any more, and a twelfth species cannot skip them quietly.
+    for (const k of ['bole', 'latFrom', 'latDeep', 'crownBase']) {
+      if (typeof sp[k] !== 'number') bad.push(`species '${id}' does not say its ${k}`);
+    }
+    if (!(sp.bole > 0.2 && sp.bole <= 1)) bad.push(`species '${id}' has a bole of ${sp.bole}, which is not a workable fraction of its height`);
+    if (!(sp.latFrom >= 0 && sp.latFrom <= 1)) bad.push(`species '${id}' starts its laterals at ${sp.latFrom} of its bole`);
+    if (!(sp.latDeep > 0 && sp.latDeep <= 1)) bad.push(`species '${id}' carries ${sp.latDeep} of its laterals past the first order`);
+    if (!(sp.crownBase >= 0 && sp.crownBase <= 0.9)) bad.push(`species '${id}' puts its crown base at ${sp.crownBase} of its height`);
+    // A crown that starts far above the lowest branch is a crown floating over
+    // a scaffold of bare sticks, which is the other half of what the player saw.
+    if (sp.leafPer > 0 && sp.crownBase - sp.bole * sp.latFrom > 0.2) {
+      bad.push(`species '${id}' branches at ${(sp.bole * sp.latFrom).toFixed(2)} of its height `
+        + `and starts its leaves at ${sp.crownBase}, so bare limbs would stick out under the crown`);
+    }
   }
   if (bad.length) throw new Error('arbor: ' + bad.join('; '));
   return true;
@@ -334,8 +390,19 @@ function newCtx(rng, opt) {
   // `Ord` carries the branch order of every bark TRIANGLE (one entry per three
   // entries of `I`). Nothing in the growth pipeline reads it; it exists so
   // barkLod() can drop the twigs at distance without regrowing the tree.
-  return { P: [], Nr: [], U: [], I: [], Ord: [], vbase: 0, LP: [], LN: [], LU: [], LC: [], I2: [], axisCount: 0, rng, opt };
+  // `crownY` is the species' crownBase in metres and `groundY` the absolute
+  // floor under which no leaf geometry may reach. Both are filled in by
+  // buildPrototype once the height is drawn; pushLeaf reads them.
+  return {
+    P: [], Nr: [], U: [], I: [], Ord: [], vbase: 0,
+    LP: [], LN: [], LU: [], LC: [], I2: [], axisCount: 0,
+    crownY: -Infinity, groundY: -Infinity, dropped: 0,
+    rng, opt,
+  };
 }
+
+/** Metres of clear air under the lowest leaf a tree may ever grow. */
+export const LEAF_GROUND_CLEARANCE = 0.16;
 
 function emitRing(c, center, frameU, frameV, r, vseg, vc) {
   const start = c.vbase;
@@ -355,29 +422,62 @@ function connect(c, a, b, vseg, order = 0) {
     c.Ord.push(order, order);
   }
 }
+/**
+ * One leaf quad, and the only place a leaf is ever written.
+ *
+ * That makes it the place to hold the two floors. `p` is the anchor, the point
+ * on the twig the quad hangs from, and it must be at or above the species'
+ * crown base; the four corners are then built and the whole quad must clear the
+ * ground. A leaf that fails either is dropped and counted, so a species whose
+ * numbers throw its whole canopy away shows up as an empty tree in the test
+ * rather than as a mystery in the browser.
+ */
 function pushLeaf(c, p, q, sz, w, col) {
-  const base = c.LP.length / 3;
+  if (p.y < c.crownY) { c.dropped++; return; }
   const hw = sz * w * 0.5;
   const corners = [[-hw, 0, 0], [hw, 0, 0], [hw, sz, 0], [-hw, sz, 0]];
   const n = new V(0, 0, 1).applyQuaternion(q);
+  const vs = [];
+  let lowest = Infinity;
   for (const cc of corners) {
     const v = new V(cc[0], cc[1], cc[2]).applyQuaternion(q).add(p);
+    if (v.y < lowest) lowest = v.y;
+    vs.push(v);
+  }
+  if (lowest < c.groundY) { c.dropped++; return; }
+  const base = c.LP.length / 3;
+  for (const v of vs) {
     c.LP.push(v.x, v.y, v.z); c.LN.push(n.x, n.y, n.z); c.LC.push(col.r, col.g, col.b);
   }
   c.LU.push(0, 0, 1, 0, 1, 1, 0, 1);
   c.I2.push(base, base + 1, base + 2, base, base + 2, base + 3);
 }
 
+/**
+ * The leaves along the last order of an axis.
+ *
+ * One thing here is not the reference, and it is deliberate. `detail` and
+ * `foliage` decide how many of the leaves drawn actually get built, but EVERY
+ * leaf is still drawn from the rng. The reference multiplied the loop count by
+ * the sliders, so a tree grown at detail 0.5 consumed a different number of
+ * random numbers and every branch after the first leaf came out somewhere else:
+ * the shape measured in a test at detail 1 was not the shape flora.js shipped
+ * at 0.5, and sakura at its shipped detail had a quarter of its blossom in the
+ * bottom fifth of the tree while the same tree at detail 1 had a tenth. The
+ * stream is now the same at every detail, so detail is a cost lever and nothing
+ * else, which is what its own comment always claimed.
+ */
 function leafSpray(c, sp, nodes, dirs, scale, leafA, leafB) {
+  const full = Math.round(sp.leafPer);
+  if (full <= 0) return;
   const per = Math.round(sp.leafPer * c.opt.foliage * c.opt.detail);
-  if (per <= 0) return;
   const rng = c.rng;
   const needle = sp.leaf === 'needle';
   const frond = sp.leaf === 'frond';
   const start = Math.floor(nodes.length * (needle || frond ? 0.05 : 0.3));
   for (let i = start; i < nodes.length; i++) {
     const p = nodes[i], d = dirs[i];
-    for (let j = 0; j < per; j++) {
+    for (let j = 0; j < full; j++) {
       const pd = perp(d).applyAxisAngle(d, rng() * 6.28);
       const out = d.clone().multiplyScalar(0.3 + rng() * 0.4).add(pd.multiplyScalar(0.75));
       out.y += needle ? 0.05 : 0.3;
@@ -388,6 +488,7 @@ function leafSpray(c, sp, nodes, dirs, scale, leafA, leafB) {
       q.multiply(new Q().setFromAxisAngle(YUP, rng() * 6.28));
       q.multiply(new Q().setFromAxisAngle(new V(1, 0, 0), (rng() - 0.5) * 0.7));
       const col = hexLerp(leafA, leafB, rng()).multiplyScalar(0.85 + rng() * 0.3);
+      if (j >= per) continue;              // drawn, not built: see above
       // needles are long and thin; a frond is longer and thinner still
       const h = needle ? sz * 1.6 : frond ? sz * 2.4 : sz;
       const w = needle ? 0.55 : frond ? 0.4 : 1.0;
@@ -443,22 +544,37 @@ function growAxis(c, sp, pos, dir, len, rad, order, scale, gnarl, leafA, leafB) 
   ld.x += (rng() - 0.5) * 0.25 * gnarl;
   ld.z += (rng() - 0.5) * 0.25 * gnarl;
   ld.normalize();
-  const cont = order === 0 ? (sp.habit === 'umbrella' ? 0.62 : sp.apical) : sp.apical;
-  growAxis(c, sp, nodes[segs], ld, len * cont, endRad, order + 1, scale, gnarl, leafA, leafB);
+  growAxis(c, sp, nodes[segs], ld, len * sp.apical, endRad, order + 1, scale, gnarl, leafA, leafB);
   const whorl = sp.habit === 'conical' && order === 0;
-  const crown = sp.habit === 'palm' && order === 0;              // new: every lateral at the top
-  const n = whorl ? segs - 1 : (crown ? sp.lat : Math.max(1, Math.round(sp.lat * (order === 0 ? 1 : 0.75))));
+  const crown = sp.habit === 'palm' && order === 0;              // every lateral at the top
+  const n = whorl ? Math.max(3, segs - 1)
+    : (crown ? sp.lat : Math.max(1, Math.round(sp.lat * (order === 0 ? 1 : sp.latDeep))));
   let az = rng() * 6.28;
-  const t0 = sp.habit === 'umbrella' && order === 0 ? 0.72 : (order === 0 ? 0.35 : 0.2);
-  for (let k = 1; k <= n; k++) {
-    const t = crown ? 1 : (whorl ? k / segs : t0 + (0.96 - t0) * (k / (n + 1)));
+  // Where the lowest lateral sits on this axis. On the first axis that is the
+  // species' own latFrom, and it is what the bare trunk is made of; deeper in
+  // the tree the branches start near the base of their parent as they always
+  // did. This used to be a two case table keyed off the habit, which gave every
+  // round tree its first limb at a seventh of its height.
+  const t0 = order === 0 ? sp.latFrom : 0.2;
+  // Top down. The axis cap is a hard stop, and whatever it cuts off is the tail
+  // of this loop; going up the trunk meant a capped tree lost its crown and
+  // kept its skirt, which is the worst of both. Going down, a capped tree
+  // loses its lowest branches, which is what a tree in a wood looks like.
+  for (let k = n; k >= 1; k--) {
+    const t = crown ? 1 : (whorl ? t0 + (0.99 - t0) * (k / n) : t0 + (0.96 - t0) * (k / (n + 1)));
     const si = Math.max(1, Math.min(segs, Math.round(t * segs)));
-    const per = whorl ? 5 : 1;
+    // Branches to a whorl. The leader now runs the whole height of a conical
+    // tree, so there are three times as many whorls on it as there were, and
+    // five to a whorl squared the tree up and spent the axis cap before the
+    // spire was finished. Four, and the sub-branching cut by latDeep.
+    const per = whorl ? Math.max(3, Math.round(sp.lat * 0.7)) : 1;
     for (let w = 0; w < per; w++) {
       az += GOLD;
       const ang = (c.opt.crownSpread * sp.spread / 50 * (0.8 + rng() * 0.4)) * Math.PI / 180;
       const cd = branchOff(dirs[si], ang, az);
-      const f = sp.habit === 'conical' ? (1.15 - t * 0.95)
+      // How long a lateral is, by where it stands on its parent. The conical
+      // taper is the spire: longest at the foot of the crown, a tuft at the tip.
+      const f = sp.habit === 'conical' ? (1.32 - t * 1.16)
         : sp.habit === 'umbrella' ? (0.7 + t * 0.5)
           : sp.habit === 'palm' ? 1.0
             : (0.6 + t * 0.5);
@@ -509,11 +625,17 @@ export function buildPrototype(speciesId, seed, opts = {}) {
   const [autA, autB] = sp.autumnTo || ['#a8742c', '#d9a33a'];
   const leafA = hexLerp(sp.leafA, autA, opt.autumn).getStyle();
   const leafB = hexLerp(sp.leafB, autB, opt.autumn).getStyle();
+  // The two floors pushLeaf holds the canopy above. `h` is the height the tree
+  // was asked for and the crown base is a fraction of it, so a sapling's crown
+  // starts proportionally as high as an old tree's. The ground floor is
+  // absolute: whatever the species says, no leaf reaches under the turf.
+  c.crownY = h * sp.crownBase;
+  c.groundY = LEAF_GROUND_CLEARANCE;
   growAxis(
     c, sp,
     new V(0, -0.4 * scale, 0),
     new V((rng() - 0.5) * 0.04, 1, (rng() - 0.5) * 0.04).normalize(),
-    h * (sp.bole ?? (sp.habit === 'conical' ? 0.34 : 0.4)),
+    h * sp.bole,
     rad, 0, scale, opt.gnarl, leafA, leafB,
   );
 
@@ -563,6 +685,10 @@ export function buildPrototype(speciesId, seed, opts = {}) {
     species: speciesId, seed: seed >>> 0,
     triangles: c.I.length / 3 + c.I2.length / 3,
     axes: c.axisCount,
+    // where the canopy actually starts and how many leaves the floors refused.
+    // Both are measured off what was built, not off the species table.
+    crownBaseY: c.crownY, leavesDropped: c.dropped,
+    cappedAxes: c.axisCount > AXIS_CAP,
   };
 }
 
@@ -740,6 +866,142 @@ export function pickSpecies(mix, r) {
 
 // ------------------------------------------------------------- placement ----
 
+// ----------------------------------------------------------------- stands ---
+//
+// "doesnt feel organized". It was not. The reference thinned one fbm field
+// against one threshold, which is a fog of trees with soft holes in it: no
+// stand has an edge, no clearing has a shape, and a meadow and a wood differ
+// only in how thick the fog is.
+//
+// A stand is a place instead. The world is cut into cells of `grove * 2.2`
+// metres, each cell rolls once from its own coordinates, and a live cell holds
+// one stand: a centre jittered inside the cell, a radius, a bearing, a species
+// roll of its own, and either a round grove or a long thin hedgerow. `standAt`
+// takes the strongest stand covering a point and hands back how much of it is
+// there, which is 1 at the heart and falls to 0 over the last `edge` metres.
+//
+// Everything downstream comes out of that one number:
+//   - a tree grows where a roll drawn for its cell comes in under the cover, so
+//     a stand is thick at the middle and thins into open ground at the rim
+//   - `age` is the same number, so the old trees stand at the heart of a wood
+//     and the saplings at its edge
+//   - `roll` is the stand's own species roll, so a grove is a grove OF
+//     something rather than a scatter of one of everything
+//   - where no stand reaches at all, a biome may still allow lone trees, at
+//     most one to a lattice square, which is what a hedgerow country looks like
+//
+// It is a pure function of the world seed and the position, so two chunks meet
+// along a stand's edge without either knowing the other exists.
+
+/** Metres over which a stand thins into open ground, unless its type says less. */
+export const STAND_EDGE = 30;
+
+/**
+ * How each forest type is laid out on the ground, over and above its density.
+ *
+ *   cover    the chance a grove cell is live at all. This is the knob that
+ *            makes a boreal a forest and a meadow a field with copses in it.
+ *   grove    metres, the mean radius of one stand
+ *   hedge    the share of stands that are hedgerows: long, thin, and lying on
+ *            their own bearing, which is what divides fields
+ *   lone     metres, the lattice square that may hold one tree standing alone
+ *            in the open, outside every stand. 0 means the open stays open.
+ *   edge     metres the rim thins over, capped at three quarters of the radius
+ *            so a copse is not all edge
+ */
+export const STANDS = {
+  'Temperate broadleaf': { cover: 0.48, grove: 34, hedge: 0.45, lone: 60 },
+  'Boreal conifer':      { cover: 0.94, grove: 95, hedge: 0,    lone: 45 },
+  'Tropical wet':        { cover: 0.96, grove: 110, hedge: 0,   lone: 35 },
+  'Birch grove':         { cover: 0.62, grove: 52, hedge: 0.1,  lone: 60 },
+  'Mediterranean pine':  { cover: 0.74, grove: 58, hedge: 0,    lone: 75 },
+  sakura:  { cover: 0.72, grove: 30, hedge: 0.15, lone: 55 },
+  desert:  { cover: 0.42, grove: 30, hedge: 0,    lone: 100 },
+  snow:    { cover: 0.66, grove: 50, hedge: 0,    lone: 80 },
+  beach:   { cover: 0.68, grove: 34, hedge: 0.3,  lone: 65 },
+  ocean:   { cover: 0,    grove: 40, hedge: 0,    lone: 0 },
+};
+
+/** The stand layout for a forest type, through its alias so the two names agree. */
+export function standsFor(typeId) {
+  return STANDS[typeId] || STANDS[canonicalType(typeId)] || STANDS['Temperate broadleaf'];
+}
+
+const ZERO_STAND = { cover: 0, age: 0, roll: 0, id: null, hedge: false };
+const HEDGE_LONG = 3.4;              // a hedgerow is this many radii long
+const HEDGE_WIDE = 0.22;             // and this fraction of a radius across
+
+/**
+ * The stand standing over (x, z), or a cover of 0 where none does.
+ *
+ * Returns `{ cover, age, roll, id, hedge }`. `cover` and `age` are the same
+ * number and both lie in [0, 1]; `roll` is the stand's own species roll, flat
+ * in [0, 1); `id` names the cell so a test can count distinct stands.
+ *
+ * The nine cells around the point are read because a stand's reach can be
+ * longer than its cell, and the strongest wins rather than the first, so two
+ * overlapping groves make one wood with no seam down the middle.
+ */
+export function standAt(typeId, x, z, seed) {
+  const S = standsFor(typeId);
+  let best = { cover: 0, age: 0, roll: 0, id: null, hedge: false };
+  if (!(S.cover > 0)) return best;
+  const cell = S.grove * 2.2;
+  const cx = Math.floor(x / cell), cz = Math.floor(z / cell);
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const gx = cx + i, gz = cz + j;
+    const h = ahash2(gx, gz, seed + 8101);
+    if ((h & 1023) / 1024 >= S.cover) continue;                       // a clearing
+    const h2 = ahash2(gx, gz, seed + 8102);
+    const ox = ((h >>> 10) & 255) / 255, oz = ((h >>> 18) & 255) / 255;
+    const px = (gx + 0.15 + 0.7 * ox) * cell, pz = (gz + 0.15 + 0.7 * oz) * cell;
+    const r = S.grove * (0.62 + 0.76 * ((h2 & 255) / 255));
+    const hedge = ((h2 >>> 8) & 255) / 256 < (S.hedge || 0);
+    const bearing = ((h2 >>> 16) & 255) / 256 * Math.PI;
+    let dx = x - px, dz = z - pz;
+    let reach = r;
+    if (hedge) {
+      const ca = Math.cos(bearing), sa = Math.sin(bearing);
+      const along = dx * ca + dz * sa, across = -dx * sa + dz * ca;
+      // a hedgerow measured in its own frame: long one way, a line the other
+      dx = along / HEDGE_LONG; dz = across / HEDGE_WIDE;
+      reach = r;
+    }
+    const d = Math.hypot(dx, dz);
+    if (d >= reach) continue;
+    const edge = Math.min(S.edge ?? STAND_EDGE, reach * 0.75) / (hedge ? HEDGE_WIDE * 4 : 1);
+    const cover = Math.min(1, (reach - d) / Math.max(1e-3, edge));
+    if (cover > best.cover) {
+      best = {
+        cover, age: cover, roll: ((h2 >>> 24) & 255) / 256,
+        id: gx + ',' + gz, hedge,
+      };
+    }
+  }
+  return best;
+}
+
+/**
+ * Whether the placement cell (gi, gj) is the one cell of its lone-tree lattice
+ * that may grow a tree in the open.
+ *
+ * The lattice is `loneCells` placement cells on a side, so at most one tree
+ * stands to every (loneCells x spacing) metres square of open ground, measured
+ * and reported by flora.test.mjs rather than hoped for. The cell is drawn from
+ * the middle of the square, never its border, so two neighbouring squares
+ * cannot put their trees side by side along the seam.
+ */
+export function loneCellHere(gi, gj, loneCells, seed) {
+  if (loneCells <= 1) return true;
+  const lx = Math.floor(gi / loneCells), lz = Math.floor(gj / loneCells);
+  const h = ahash2(lx, lz, seed + 8203);
+  const inner = Math.max(1, loneCells - 2);
+  const lo = loneCells > 2 ? 1 : 0;
+  const ci = lo + (h & 1023) % inner;
+  const cj = lo + ((h >>> 10) & 1023) % inner;
+  return gi - lx * loneCells === ci && gj - lz * loneCells === cj;
+}
+
 export const DENSITIES = ['Open', 'Natural', 'Dense'];
 
 /** Metres between grid cells, before jitter. The reference's three numbers. */
@@ -761,9 +1023,26 @@ export function thresholdFor(density) {
  * `yScale` an extra stretch on y, `yaw` radians about y, `protoIndex` an index
  * into `forestPrototypes(...)`.
  *
- * The grid, the jitter, the four rolls per cell and the fbm thinning are the
+ * The grid, the jitter, the rolls per cell and the fbm thinning are the
  * reference's, including the order the rolls are drawn in: every roll happens
- * before any rejection, so removing a tree never shifts the rest.
+ * before any rejection, so removing a tree never shifts the rest. One roll is
+ * new, the stand roll, and it is drawn with the others for the same reason.
+ *
+ * What is not the reference is where a stand is. A tree now has to be inside
+ * one (see STANDS and standAt above) or be the one tree its lattice square of
+ * open ground is allowed, so a wood has an edge, a clearing has a shape, and a
+ * meadow is fields with copses and hedgerows in it rather than thin forest.
+ *
+ * Every spot carries what its stand said:
+ *   standRoll    the stand's own species roll, the same for every tree in it,
+ *                so a caller can grow a grove OF something
+ *   mixRoll      an independent roll, so a caller can decide how often a tree
+ *                takes its stand's species and how often its own without the
+ *                two decisions being made by the same number
+ *   standCover   1 at the heart of the stand, 0 at its rim
+ *   standId      the stand's cell, or null for a tree standing alone
+ *   age          0 for a sapling at the edge, 1 for old growth at the heart.
+ *                `scale` already carries it; this is the raw number.
  *
  * opts:
  *   density      'Open' | 'Natural' | 'Dense', default the forest type's own
@@ -774,6 +1053,8 @@ export function thresholdFor(density) {
  *   heightAt     (x, z) => metres. Only read when the type thins by height.
  *   keep         (x, z) => bool. The caller's own veto, drawn from no rng, so
  *                a rejection here also leaves the layout alone.
+ *   stands       false turns the stand layer off and gives the reference's own
+ *                even scatter back. Only a test asks for this.
  */
 export function placeTrees(typeId, cx, cz, size, seed, opts = {}) {
   const type = FOREST_TYPES[typeId];
@@ -788,10 +1069,25 @@ export function placeTrees(typeId, cx, cz, size, seed, opts = {}) {
   const thr = opts.threshold ?? thresholdFor(density);
   const thin = type.thinByHeight && opts.heightAt ? type.thinByHeight : null;
   const keep = opts.keep || null;
+  const standsOn = opts.stands !== false && standsFor(typeId).cover > 0;
+  const S = standsFor(typeId);
+  // the lone tree lattice, in placement cells, so the square it guarantees is
+  // an exact multiple of the spacing and can be quoted in metres
+  const loneCells = S.lone > 0 ? Math.max(1, Math.round(S.lone / spacing)) : 0;
   const ox = cx * size, oz = cz * size;
   const r = mulberry32(ahash2(cx, cz, seed));
-  for (let x = ox + spacing * 0.5; x < ox + size; x += spacing) {
-    for (let z = oz + spacing * 0.5; z < oz + size; z += spacing) {
+  // The grid is one lattice over the whole world, not one per chunk. It used
+  // to start afresh at every chunk's own corner, which put five cells of 13 m
+  // into 64 m and left the spacing between two chunks a metre out; harmless
+  // while a tree was only ever a roll against a threshold, and not harmless at
+  // all now that a lone tree in the open is "the one cell of its lattice square
+  // that may grow". A square has to mean the same square from either chunk.
+  const gi0 = Math.ceil((ox - spacing * 0.5) / spacing);
+  const gj0 = Math.ceil((oz - spacing * 0.5) / spacing);
+  for (let gi = gi0; gi * spacing + spacing * 0.5 < ox + size; gi++) {
+    const x = gi * spacing + spacing * 0.5;
+    for (let gj = gj0; gj * spacing + spacing * 0.5 < oz + size; gj++) {
+      const z = gj * spacing + spacing * 0.5;
       const px = x + (r() - 0.5) * spacing * 0.9;
       const pz = z + (r() - 0.5) * spacing * 0.9;
       const pick = r();
@@ -799,8 +1095,25 @@ export function placeTrees(typeId, cx, cz, size, seed, opts = {}) {
       const sy = 0.9 + r() * 0.25;
       const rot = r() * 6.28;
       const thinRoll = thin ? r() : 0;
+      const standRoll = r();
+      const mixRoll = r();
       if (clearR > 0 && Math.hypot(px, pz) < clearR) continue;
       if (fbm(px * 0.017 + 50, pz * 0.017) < thr) continue;
+      // which stand this is in, and whether it grew far enough out to be here
+      let st = ZERO_STAND, age = 1;
+      if (standsOn) {
+        st = standAt(typeId, px, pz, seed);
+        if (standRoll >= st.cover) {
+          // open ground. One tree to a lattice square is what keeps a meadow a
+          // meadow instead of a thin wood.
+          if (!loneCells) continue;
+          if (!loneCellHere(gi, gj, loneCells, seed)) continue;
+          st = ZERO_STAND;
+          age = 0.55 + (pick * 0.45);          // a lone tree in a field is an old one
+        } else {
+          age = st.age;
+        }
+      }
       if (thin) {
         const y = opts.heightAt(px, pz);
         const t = Math.max(0, Math.min(1, (y - thin[0]) / (thin[1] - thin[0])));
@@ -810,7 +1123,16 @@ export function placeTrees(typeId, cx, cz, size, seed, opts = {}) {
       // `pick` is the raw roll, kept because a caller that keeps one field per
       // SPECIES (flora.js does, so the axe and interact.js's nouns still work)
       // has to draw the species from it, not just a prototype slot.
-      out.push({ x: px, z: pz, scale: sc, yScale: sy, yaw: rot, pick, protoIndex: Math.floor(pick * protoCount) });
+      //
+      // The scale is the reference's own draw pulled toward the bottom of its
+      // range by the stand's age, so the sapling stands at the edge of the wood
+      // and the old tree at its heart. At age 1 it is exactly the reference.
+      const scale = 0.55 + (sc - 0.55) * (0.4 + 0.6 * age);
+      out.push({
+        x: px, z: pz, scale, yScale: sy, yaw: rot, pick,
+        protoIndex: Math.floor(pick * protoCount),
+        standRoll: st.roll, standCover: st.cover, standId: st.id, age, mixRoll,
+      });
     }
   }
   return out;

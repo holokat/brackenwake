@@ -45,7 +45,9 @@ export function sitesNear(field, x, z, radius) {
   const d0 = Math.floor((z - radius) / SITE_CELL), d1 = Math.floor((z + radius) / SITE_CELL);
   for (let cz = d0; cz <= d1; cz++) for (let cx = c0; cx <= c1; cx++) {
     const s = field.siteInCell(cx, cz);
-    if (s && Math.hypot(s.x - x, s.z - z) <= radius) out.push(s);
+    // `bodyR` (V1): the Standing Hedge is a mile across and the Obsidian Bridge
+    // 214 m, so a body stays alive while any of it is inside the radius
+    if (s && Math.hypot(s.x - x, s.z - z) <= radius + (s.bodyR || 0)) out.push(s);
   }
   return out;
 }

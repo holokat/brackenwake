@@ -1,10 +1,16 @@
 // The world field, driven both ways. Run: node src/world/field.test.mjs
 import { createHash } from 'node:crypto';
-import { createWorldField, SEA_LEVEL, HOME_RADIUS, BIOMES } from './field.js';
+import {
+  createWorldField, SEA_LEVEL, HOME_RADIUS, BIOMES,
+  RELIEF_GRADE, RELIEF_MAX_STEP, RAMP_GRADE, RELIEF_HOLD,
+} from './field.js';
 import {
   WORLD_HALF, OCEAN_FLOOR, COAST_MIN, HEART_SAFE, ZONE,
   SEA, seaWithin, REEFS, reefWithin, ARCHIPELAGO, archipelagoWithin,
+  RELIEF_ZONES, REALM_ZONES, heartFade, authoredSites, realmAt,
 } from './zones.js';
+import { rand2 } from './noise.js';
+import { roadsForCell, ROAD_GRADE } from './roads.js';
 
 let pass = 0, fail = 0;
 const check = (name, ok, detail = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? '   ' + detail : ''}`); };
@@ -86,14 +92,367 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
   // passes homeY -0.3, and it is that ground a save is standing on
   const g = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
   const h = createHash('sha256');
-  let n = 0;
+  let n = 0, named = 0, shaping = 0;
   for (let z = -1000; z <= 1000; z += 20) for (let x = -1000; x <= 1000; x += 20) {
     const s = g.sampleAt(x, z); n++;
-    h.update(`${s.h}|${s.biome}|${s.water}|${s.river}|${s.land}|${s.temp}|${s.moist}|${s.road}|${s.site ? s.site.id + ':' + s.site.kind : '-'}\n`);
+    if (s.site) named++;
+    if (s.site && s.site.flatR > 0) shaping++;
+    // The last column is the site that SHAPES this ground, which is what the
+    // rest of the row is about. V1 put the Standing Hedge in the heart, where
+    // the sheet has always had it: nine stones on a ring a mile across, on the
+    // hillside the seed made, laying no pad at all (`flatR` 0, and field.js
+    // does not run the pad code for one). So it is named on the samples inside
+    // its own cell and it moves none of them, and the digest below is the same
+    // number it was before zones.js existed. The two checks under this one are
+    // the proof: the hedge lays no pad, and the cell it took was empty.
+    const pad = s.site && s.site.flatR > 0 ? s.site.id + ':' + s.site.kind : '-';
+    h.update(`${s.h}|${s.biome}|${s.water}|${s.river}|${s.land}|${s.temp}|${s.moist}|${s.road}|${pad}\n`);
   }
   const HEART = '6408cb4e64daf869910a654e0737f570d78de706987ee244f8e55f76c265a521';
   const got = h.digest('hex');
-  check('the 2 km square around the origin is bit for bit what it was before zones existed', got === HEART, `${n} samples, ${got.slice(0, 16)}...`);
+  check('the 2 km square around the origin is bit for bit what it was before zones existed', got === HEART,
+    `${n} samples, ${named} name a site, ${shaping} name one that lays a pad, ${got.slice(0, 16)}...`);
+
+  // 6a. the pad-less site in the heart, driven both ways
+  const hedge = authoredSites().find((s) => s.sub === 'waystones');
+  check('the Standing Hedge stands inside the heart, which is where the sheet puts it',
+    !!hedge && Math.hypot(hedge.x, hedge.z) < HEART_SAFE,
+    `${hedge.name} at ${hedge.x}, ${hedge.z}, ${Math.hypot(hedge.x, hedge.z).toFixed(0)} m from the origin`);
+  {
+    // no pad: the ground at and around it is the ground the seed made, to the
+    // last bit, at the centre and at eight bearings inside where a pad's
+    // shoulder would have reached
+    let worst = 0;
+    // the same arithmetic field.js does, in the same order: a different order
+    // of the same lerp differs in the last bit and this claim is about every bit
+    const bare = (x, z) => { const k = g.homeFactor(x, z); return g.homeY + (g.raw(x, z).h - g.homeY) * k; };
+    for (const d of [0, 2, 4, 8, 14, 20]) {
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const x = hedge.x + Math.cos(a) * d, z = hedge.z + Math.sin(a) * d;
+        worst = Math.max(worst, Math.abs(g.heightAt(x, z) - bare(x, z)));
+      }
+    }
+    check('and it lays no pad: every metre under it is the raw hillside', hedge.flatR === 0 && worst === 0,
+      `flatR ${hedge.flatR}, 48 points out to 20 m, worst ${worst.toExponential(1)} m off the raw ground`);
+    // driven the other way: a site that DOES lay a pad moves its own ground
+    const padded = authoredSites().find((s) => s.flatR > 0 && s.kind === 'town');
+    let moved = 0;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const x = padded.x + Math.cos(a) * padded.flatR * 0.4, z = padded.z + Math.sin(a) * padded.flatR * 0.4;
+      moved = Math.max(moved, Math.abs(g.heightAt(x, z) - g.raw(x, z).h));
+    }
+    check('while a site with a pad moves its ground, so the measurement means something',
+      moved > 0.05, `${padded.name} lays a ${padded.flatR} m pad and lifts its ground ${moved.toFixed(2)} m`);
+  }
+  {
+    // and the cell it took away from the roll was empty. sitegrid.js rolls a
+    // cell in with `rand2(cx, cz, seed + 1) > 0.62 -> nothing here`, so this is
+    // the same arithmetic the world would have done, run on the cell the hedge
+    // now owns.
+    const SITE_CELL = 480, SEED = 20260904;
+    const cx = Math.floor(hedge.x / SITE_CELL), cz = Math.floor(hedge.z / SITE_CELL);
+    const empty = rand2(cx, cz, SEED + 1) > 0.62;
+    check('and the cell it took would have rolled nothing anyway', empty,
+      `cell ${cx}, ${cz} rolls ${rand2(cx, cz, SEED + 1).toFixed(4)} against the 0.62 the roll needs`);
+    // the other way: a cell in the same square that WOULD have rolled a site
+    let full = null;
+    for (let j = -3; j <= 2 && !full; j++) for (let i = -3; i <= 2; i++) {
+      if (rand2(i, j, SEED + 1) <= 0.62 && g.siteInCell(i, j)) { full = [i, j]; break; }
+    }
+    check('and cells in the same square DO roll sites, so that measurement means something',
+      !!full, full ? `cell ${full.join(', ')} rolls ${rand2(full[0], full[1], SEED + 1).toFixed(4)} and holds ${g.siteInCell(full[0], full[1]).kind}` : 'none found');
+  }
+}
+
+// 6b. THE SECOND DIGEST: the relief itself, so it cannot drift silently.
+//
+// The heart's digest says the ground a save stands on did not move. It says
+// nothing about the Ember Wastes, which V1 turned into mesa country, and a
+// world that can be reshaped without anyone noticing will be.
+//
+// So: the same 2 km square, about that realm's own centre, digesting the
+// DIFFERENCE between the world with relief and the world without it, taken
+// from `raw` rather than from `sampleAt`. `raw` never asks what stands on the
+// ground, so this number is a statement about relief and about nothing else,
+// and a site rolled or moved into the square by another hand cannot make it
+// go red. If a table moves by a millimetre, it does.
+{
+  const on = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
+  const off = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3, relief: false });
+  const c = ZONE.emberwastes;
+  const h = createHash('sha256');
+  let n = 0, lifted = 0, hi = 0, dropped = 0;
+  for (let z = c.z - 1000; z <= c.z + 1000; z += 20) for (let x = c.x - 1000; x <= c.x + 1000; x += 20) {
+    const a = on.raw(x, z), b = off.raw(x, z); n++;
+    const d = a.h - b.h;
+    if (d > 0.5) lifted++;
+    if (d > hi) hi = d;
+    if (b.river > 0.5 && a.river <= 0.5) dropped++;
+    h.update(`${d}|${a.river - b.river}\n`);
+  }
+  const MESA = 'c6900f56e4226872282239f5d7455e5f6f9bf17aa42da993090fdb412bef5deb';
+  const got = h.digest('hex');
+  check('the relief over the Ember Wastes is what V1 measured it to be', got === MESA,
+    `${n} samples, ${(100 * lifted / n).toFixed(0)}% lifted, up to ${hi.toFixed(1)} m, ${dropped} river cells left dry, ${got.slice(0, 16)}...`);
+}
+
+// 6c. RELIEF: five realms that are not the ground the noise made.
+//
+// Everything here is driven both ways. A realm with relief is lifted and a
+// realm without one is not; the way up a plateau is walkable and the face
+// beside it is not; the steepest step in the world with relief on is no worse
+// than with it off; and inside the heart the relief is not merely small, it is
+// the number zero.
+console.log('relief: mesas, terraces, a crater rim, a shelf and stacks');
+{
+  const on = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
+  const off = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3, relief: false });
+  const lift = (x, z) => on.raw(x, z).h - off.raw(x, z).h;
+
+  check('five of the nine realms carry relief, and the Greenwold is not one of them',
+    RELIEF_ZONES.length === 5 && !RELIEF_ZONES.some((z) => z.id === 'greenwold'),
+    RELIEF_ZONES.map((z) => `${z.id} ${z.relief.kind}`).join(', '));
+
+  // the heart, measured on a grid rather than argued from radii
+  {
+    let worst = 0, at = null;
+    for (let z = -HEART_SAFE; z <= HEART_SAFE; z += 20) for (let x = -HEART_SAFE; x <= HEART_SAFE; x += 20) {
+      if (x * x + z * z > HEART_SAFE * HEART_SAFE) continue;
+      const d = Math.abs(lift(x, z));
+      if (d > worst) { worst = d; at = [x, z]; }
+    }
+    check('no relief reaches the heart at all', worst === 0,
+      `the ${HEART_SAFE} m disc at 20 m, worst ${worst.toExponential(1)} m${at && worst ? ' at ' + at : ''}`);
+    check('and heartFade is exactly zero out to HEART_SAFE and exactly one past its fade',
+      heartFade(0, 0) === 0 && heartFade(HEART_SAFE, 0) === 0 && heartFade(HEART_SAFE + 401, 0) === 1
+      && heartFade(HEART_SAFE + 200, 0) > 0 && heartFade(HEART_SAFE + 200, 0) < 1,
+      `0 at the origin, 0 at ${HEART_SAFE} m, ${heartFade(HEART_SAFE + 200, 0).toFixed(3)} at ${HEART_SAFE + 200} m, 1 at ${HEART_SAFE + 401} m`);
+  }
+
+  // each realm that asks for relief gets it, and each one that does not, does not
+  {
+    const say = [];
+    let allLifted = true;
+    for (const zn of RELIEF_ZONES) {
+      let n = 0, up = 0, hi = 0;
+      for (let x = zn.x - zn.r; x <= zn.x + zn.r; x += 20) for (let z = zn.z - zn.r; z <= zn.z + zn.r; z += 20) {
+        if (Math.hypot(x - zn.x, z - zn.z) > zn.r) continue;
+        const d = lift(x, z); n++;
+        if (d > 0.5) up++;
+        if (d > hi) hi = d;
+      }
+      say.push(`${zn.id} ${(100 * up / n).toFixed(0)}% up to ${hi.toFixed(0)} m`);
+      if (up === 0 || hi < 10) allLifted = false;
+    }
+    check('every realm with relief is really reshaped by it', allLifted, say.join(', '));
+    // Realms overlap, and a relief realm's soft edge reaches into its
+    // neighbour's disc: the Stormpeaks' reach comes to 1688 m of the origin,
+    // which is inside the Greenwold. So the claim is the one that is actually
+    // being made, which is that relief belongs to the realm that asked for it:
+    // ground inside a relief-free realm and outside every relief realm's reach
+    // is untouched, to the last bit.
+    let flat = true; const flatSay = [];
+    const reaches = RELIEF_ZONES.map((z) => [z.x, z.z, (z.r + z.edge) ** 2]);
+    for (const zn of REALM_ZONES) {
+      if (zn.relief) continue;
+      let worst = 0, own = 0, lent = 0;
+      for (let x = zn.x - zn.r; x <= zn.x + zn.r; x += 40) for (let z = zn.z - zn.r; z <= zn.z + zn.r; z += 40) {
+        if (Math.hypot(x - zn.x, z - zn.z) > zn.r) continue;
+        if (reaches.some(([rx, rz, r2]) => (x - rx) ** 2 + (z - rz) ** 2 < r2)) { lent++; continue; }
+        own++;
+        worst = Math.max(worst, Math.abs(lift(x, z)));
+      }
+      flatSay.push(`${zn.id} ${worst.toExponential(0)} over ${own}${lent ? ' (' + lent + ' shared with a relief realm)' : ''}`);
+      if (worst !== 0) flat = false;
+    }
+    check('and every realm without one is untouched, to the last bit', flat, flatSay.join(', '));
+  }
+
+  // the mesher's limit, and relief is not what gets near it
+  {
+    let a = 0, b = 0, at = null;
+    for (let i = 0; i < 200000; i++) {
+      const x = (i * 97.3) % 15600 - 7800, z = (i * 53.9) % 15600 - 7800;
+      const da = Math.abs(on.heightAt(x + 1, z) - on.heightAt(x, z));
+      const db = Math.abs(off.heightAt(x + 1, z) - off.heightAt(x, z));
+      if (da > a) { a = da; at = [x, z]; }
+      if (db > b) b = db;
+    }
+    check('the steepest metre in the world with relief is no steeper than without it', a <= b + 1e-9,
+      `${a.toFixed(2)} m with relief at ${at}, ${b.toFixed(2)} m without, over 200000 probes of the whole 15.6 km square`);
+    check('and it is under the 8 m the mesher can show', a < 8, `${a.toFixed(2)} against 8`);
+    check('a relief face is steep, but never steeper than RELIEF_MAX_STEP asks',
+      RELIEF_MAX_STEP === 1.5 * RELIEF_GRADE && RELIEF_MAX_STEP < 8,
+      `grade ${RELIEF_GRADE} m per metre, so a face steps ${RELIEF_MAX_STEP} m at its middle`);
+  }
+
+  // the climbs. A megalith the sheet calls climbable is climbed on the ground,
+  // not on the mesh: the relief carries the way up, so `heightAt` is the whole
+  // of it and nothing has to be wired anywhere for a player to walk it.
+  {
+    const walk = (x0, z0, x1, z1) => {
+      const n = Math.round(Math.hypot(x1 - x0, z1 - z0));
+      let worst = 0, prev = on.heightAt(x0, z0), lo = prev, hi = prev;
+      for (let i = 1; i <= n; i++) {
+        const t = i / n, h = on.heightAt(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t);
+        worst = Math.max(worst, Math.abs(h - prev));
+        lo = Math.min(lo, h); hi = Math.max(hi, h);
+        prev = h;
+      }
+      return { worst, lo, hi, n };
+    };
+    const STEP_MAX = 1.2;   // metres of rise in a metre of walking, at a walk
+    const e = ZONE.eyrie;
+    const up = walk(e.x + 175, e.z, e.x, e.z);
+    const face = walk(e.x, e.z - 175, e.x, e.z);
+    check('the Eyrie stands on its plateau, sixty metres up', up.hi - up.lo > 55 && up.hi - up.lo < 70,
+      `the landing is at ${up.hi.toFixed(1)} m and the ground at the foot of the steps at ${up.lo.toFixed(1)} m, ${(up.hi - up.lo).toFixed(1)} m of it`);
+    check('and the landing steps are walkable at every metre of the climb', up.worst <= STEP_MAX,
+      `${up.n} m of climb, worst step ${up.worst.toFixed(3)} m against ${STEP_MAX}`);
+    check('while the face beside them is not, which is what makes the steps the way up',
+      face.worst > 2, `worst step ${face.worst.toFixed(3)} m on the north face`);
+
+    const th = ZONE.throneofash, gate = ZONE.ashengate;
+    const a = Math.atan2(gate.z - th.z, gate.x - th.x);
+    const road = walk(th.x + Math.cos(a) * 1900, th.z + Math.sin(a) * 1900, gate.x, gate.z);
+    const rim = walk(th.x + Math.cos(a + 0.9) * 1900, th.z + Math.sin(a + 0.9) * 1900,
+      th.x + Math.cos(a + 0.9) * 1432, th.z + Math.sin(a + 0.9) * 1432);
+    check('the Ashen Gate stands on a crater rim eighty metres over the crater floor',
+      on.heightAt(gate.x, gate.z) - on.heightAt(th.x, th.z) > 70,
+      `the gate at ${on.heightAt(gate.x, gate.z).toFixed(1)} m, the throne at ${on.heightAt(th.x, th.z).toFixed(1)} m`);
+    check('and the road up to it is walkable at every metre', road.worst <= STEP_MAX,
+      `${road.n} m of road, worst step ${road.worst.toFixed(3)} m against ${STEP_MAX}`);
+    check('while the rim half a radian round from it is a wall', rim.worst > 2,
+      `worst step ${rim.worst.toFixed(3)} m`);
+
+    // and every table in the Ember Wastes has one way up it, for the same
+    // reason and by the same construction: a hundred tables, each walked from
+    // its own rim to its own middle on the bearing its ramp was cut on
+    let tables = 0, walkable = 0, wallSides = 0, worstRamp = 0;
+    for (let x = ZONE.emberwastes.x - 1400; x <= ZONE.emberwastes.x + 1400; x += 100) {
+      for (let z = ZONE.emberwastes.z - 1400; z <= ZONE.emberwastes.z + 1400; z += 100) {
+        if (lift(x, z) < 14) continue;                       // not on a table top
+        tables++;
+        let best = Infinity, worstWay = 0;
+        for (let i = 0; i < 36; i++) {
+          const th2 = (i / 36) * Math.PI * 2;
+          for (const out of [140, 200, 260]) {
+            const w = walk(x + Math.cos(th2) * out, z + Math.sin(th2) * out, x, z);
+            if (w.worst < best) best = w.worst;
+            if (w.worst > worstWay) worstWay = w.worst;
+          }
+        }
+        if (best <= STEP_MAX) walkable++;
+        if (worstWay > 2) wallSides++;
+        if (best > worstRamp) worstRamp = best;
+      }
+    }
+    check('every table top in the Ember Wastes can be walked onto from some bearing',
+      tables > 20 && walkable === tables,
+      `${walkable} of ${tables} table tops, worst easiest way up ${worstRamp.toFixed(2)} m a metre`);
+    check('and every one of them has a side you cannot climb, or it is a hill and not a table',
+      wallSides === tables, `${wallSides} of ${tables}`);
+  }
+
+  // the stacks stay out of the open sea, where the drowned city is
+  {
+    let inside = 0, band = 0;
+    for (let x = SEA.x - SEA.edge; x <= SEA.x + SEA.edge; x += 20) {
+      for (let z = SEA.z - SEA.edge; z <= SEA.z + SEA.edge; z += 20) {
+        const d = lift(x, z);
+        if (d <= 0.5) continue;
+        if (seaWithin(x, z) >= 1) inside++; else band++;
+      }
+    }
+    check('no stack stands in the open water over the drowned city', inside === 0,
+      `${band} samples of stack in the Sunken Kingdom's shore band, ${inside} in the deep`);
+    check('and the shore band really has some, or the karst is a word and not a place', band > 40, `${band}`);
+  }
+
+  // THE ROADS STILL GRADE ON IT.
+  //
+  // `roads.js` lays a road, then walks the surface it would actually leave and
+  // throws the road away if the grading cannot get it under ROAD_GRADE. Relief
+  // is new ground under that judgement, so the question is not whether the road
+  // code still runs but whether any road survives across a mesa realm and meets
+  // its own promise at every sample of it. Measured here rather than in
+  // roads.test.mjs, which does not know relief exists.
+  {
+    const all = [];
+    for (let cz = -16; cz < 16; cz++) for (let cx = -16; cx < 16; cx++) all.push(...roadsForCell(on, cx, cz));
+    const alongRoad = (r, t) => {
+      const want = t * r.total;
+      let sg = r.segs[r.segs.length - 1], u = 1;
+      for (const q of r.segs) if (want <= q.cum + q.len) { sg = q; u = Math.max(0, (want - q.cum) / q.len); break; }
+      return { x: sg.x0 + sg.dx * u, z: sg.z0 + sg.dz * u };
+    };
+    const STEP = 4;
+    const through = [];
+    for (const r of all) {
+      const n = Math.max(2, Math.round(r.total / STEP));
+      const realms = new Set();
+      let worst = 0, prev = null;
+      for (let i = 0; i <= n; i++) {
+        const p = alongRoad(r, i / n);
+        const rm = realmAt(p.x, p.z);
+        if (rm) realms.add(rm.id);
+        const sm = on.sampleAt(p.x, p.z);
+        // a ford is the river's bank and not the road's grade, exactly as
+        // roads.js judges it
+        if (sm.river > 0) { prev = null; continue; }
+        if (prev !== null) worst = Math.max(worst, Math.abs(sm.h - prev) / STEP);
+        prev = sm.h;
+      }
+      for (const id of realms) if (RELIEF_ZONES.some((zn) => zn.id === id)) { through.push({ r, id, worst }); break; }
+    }
+    const mesas = through.filter((t) => t.id === 'emberwastes');
+    check('roads cross the mesa realm at all', mesas.length > 0,
+      `${through.length} roads cross a realm with relief, ${mesas.length} of them the Ember Wastes`);
+    const over = through.filter((t) => t.worst > ROAD_GRADE);
+    check(`and every one of them meets ROAD_GRADE at every ${STEP} m of it`, over.length === 0,
+      `worst ${Math.max(...through.map((t) => t.worst)).toFixed(3)} against ${ROAD_GRADE}; the mesa roads are `
+      + mesas.map((t) => `${t.r.id} ${t.worst.toFixed(3)} over ${t.r.total.toFixed(0)} m`).join(', '));
+    // and driven the other way: the ground 12 m off those roads is not graded
+    let steeper = 0;
+    for (const t of mesas) {
+      const n = Math.max(2, Math.round(t.r.total / STEP));
+      let off = 0, prev = null;
+      for (let i = 0; i <= n; i++) {
+        const p = alongRoad(t.r, i / n);
+        const a = Math.atan2(p.z - t.r.a.z, p.x - t.r.a.x) + Math.PI / 2;
+        const sm = on.sampleAt(p.x + Math.cos(a) * 12, p.z + Math.sin(a) * 12);
+        if (sm.river > 0) { prev = null; continue; }
+        if (prev !== null) off = Math.max(off, Math.abs(sm.h - prev) / STEP);
+        prev = sm.h;
+      }
+      if (off > t.worst) steeper++;
+    }
+    check('while the ground beside them is steeper, so the grading is doing work',
+      steeper === mesas.length, `${steeper} of ${mesas.length} mesa roads are smoother than their own verge`);
+  }
+
+  // the site hold: nothing V1 placed wakes up halfway down a cliff
+  {
+    let worst = 0, name = '', sites = 0;
+    for (const st of authoredSites()) {
+      const zn = ZONE[st.realm];
+      if (!zn.relief) continue;
+      sites++;
+      let lo = Infinity, hi = -Infinity;
+      for (const r of [0, st.flatR * 0.5, st.flatR, st.flatR + 4]) {
+        for (let i = 0; i < 16; i++) {
+          const a = (i / 16) * Math.PI * 2;
+          const d = lift(st.x + Math.cos(a) * r, st.z + Math.sin(a) * r);
+          lo = Math.min(lo, d); hi = Math.max(hi, d);
+        }
+      }
+      if (hi - lo > worst) { worst = hi - lo; name = st.name; }
+    }
+    check('every authored site in a relief realm has level relief right across its pad', worst < 1e-9,
+      `worst spread ${worst.toExponential(1)} m at ${name}, over ${sites} sites; the hold fades out over ${RELIEF_HOLD} m past each pad rim`);
+  }
 }
 
 // 7. the world ends, and it ends in water

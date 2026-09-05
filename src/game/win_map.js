@@ -93,6 +93,12 @@ export const ROAD_COLOUR = '#8a7350';
 export const SITE_COLOUR = {
   town: '#f0d98a', hamlet: '#d8c07a', ruin: '#b09090', shrine: '#c8c0e0',
   dungeon: '#e08a70', cave: '#a89078', camp: '#c8b090', mine: '#e8c264',
+  // V1: the bodies seen from a mile off, and the smaller named things
+  megastructure: '#f4e6b0', landmark: '#d0c8b0',
+  // A3: the wild structures between the places
+  tower: '#b0a0d8', temple: '#e8dcc0', castle: '#d8b0a0', bandit_camp: '#c86050',
+  graveyard: '#9098a8', tomb: '#8a8078', arena: '#d0a870', fountain: '#8fd0e0',
+  gate: '#c0b8a0', burned_farm: '#8a6050', watchtower: '#b8a878',
 };
 /** A zone's tint follows the top of its danger band: green at home, red at the rim. */
 export const DANGER_TINT = {
@@ -133,6 +139,10 @@ export const GROUND_WORD = {
 export const KIND_WORD = {
   town: 'town', hamlet: 'hamlet', ruin: 'ruin', shrine: 'shrine',
   dungeon: 'dungeon', cave: 'cave', camp: 'camp', mine: 'mine',
+  megastructure: 'mega structure', landmark: 'landmark',
+  tower: 'tower', temple: 'temple', castle: 'castle', bandit_camp: 'bandit camp',
+  graveyard: 'graveyard', tomb: 'tomb', arena: 'arena', fountain: 'fountain',
+  gate: 'gate', burned_farm: 'burned farm', watchtower: 'watchtower',
 };
 
 /** The eight compass points, written out. compass.js owns the bearings. */

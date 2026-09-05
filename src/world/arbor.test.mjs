@@ -45,10 +45,19 @@ check('the reference five are still here',
 check('the reference seven species are still here',
   ['oak', 'beech', 'birch', 'spruce', 'pine', 'kapok', 'fig'].every((k) => A.SPECIES[k]));
 check('the four new species are here', ['willow', 'palm', 'sakura', 'dead'].every((k) => A.SPECIES[k]));
-check('oak still has the reference numbers',
-  A.SPECIES.oak.h[0] === 13 && A.SPECIES.oak.h[1] === 20 && A.SPECIES.oak.trunk === 0.055 && A.SPECIES.oak.spread === 52);
-check('spruce still has the reference numbers',
+check('oak still has the reference size and bole',
+  A.SPECIES.oak.h[0] === 13 && A.SPECIES.oak.h[1] === 20 && A.SPECIES.oak.trunk === 0.055);
+check('spruce still has the reference structure',
   A.SPECIES.spruce.levels === 3 && A.SPECIES.spruce.lat === 6 && A.SPECIES.spruce.habit === 'conical');
+// A1 moved four numbers away from the reference on purpose, and each of them
+// paid for a silhouette the world needed. They are pinned here so the next
+// person to change one knows they are changing a shape, not a typo.
+check('the four numbers A1 moved off the reference are still where A1 put them',
+  A.SPECIES.oak.spread === 56 && A.SPECIES.spruce.bole === 0.9
+  && A.SPECIES.pine.latFrom === 0.82 && A.SPECIES.beech.spread === 38,
+  'oak spread 52 to 56, spruce bole 0.34 to 0.9, pine laterals from 0.72 to 0.82 of its bole, beech spread 40 to 38');
+check('every species says all four silhouette numbers out loud',
+  A.SPECIES_IDS.every((id) => ['bole', 'latFrom', 'latDeep', 'crownBase'].every((k) => typeof A.SPECIES[id][k] === 'number')));
 // and the other direction: the audit has to actually catch something
 {
   const keep = A.FOREST_TYPES.meadow.mix;
@@ -172,6 +181,333 @@ console.log('\narbor: seeds');
     'autumn recolours the leaves and must not move the bark');
 }
 
+
+// ===========================================================================
+// The silhouette: where the leaves are, and whether they hide the sticks
+//
+// The bug this section exists to stop: "some have leaves on the bottom and none
+// at the top, totally messed up". It was a real, measurable, one species class.
+// A spruce grew a 6 m leader, hung every one of its whorls on THAT, and stacked
+// the rest of its 19 m out of apical continuations, so the whorls, and with
+// them every needle, lived in the bottom third. Measured on the shipped code in
+// ten bands up the trunk: 70% of the needles in the bottom fifth, 8% in the top
+// half, and the lowest of them 1.1 m UNDER the ground. Spruce and fir are 60%
+// of the boreal mix and all of the snow, so two whole biomes were upside down.
+//
+// Nothing here trusts the species table. Every tree is grown, every leaf quad
+// is found by its anchor (the midpoint of its first two corners, which is the
+// point on the twig it hangs from) and counted into a band, at all three of the
+// LOD bands flora.js draws, because a near tree and a far tree that disagree
+// about where the canopy is is the same bug wearing a hat.
+// ===========================================================================
+console.log('\narbor: the crown, in ten bands up the trunk');
+
+const BANDS = 10;
+/** Leaf anchors per tenth of the tree's height, and the lowest of them. */
+function leafBands(geo, height) {
+  const pos = geo?.attributes?.position;
+  const h = new Array(BANDS).fill(0);
+  if (!pos || pos.count < 4) return { h, n: 0, ymin: null, ymax: null, lowVert: null };
+  let ymin = Infinity, ymax = -Infinity, lowVert = Infinity;
+  const quads = Math.floor(pos.count / 4);
+  for (let q = 0; q < quads; q++) {
+    const v = q * 4;
+    const y = (pos.getY(v) + pos.getY(v + 1)) * 0.5;
+    if (y < ymin) ymin = y;
+    if (y > ymax) ymax = y;
+    for (let k = 0; k < 4; k++) lowVert = Math.min(lowVert, pos.getY(v + k));
+    h[Math.max(0, Math.min(BANDS - 1, Math.floor(y / height * BANDS)))]++;
+  }
+  return { h, n: quads, ymin, ymax, lowVert };
+}
+const share = (b) => (b.n ? b.h.map((c) => c / b.n * 100) : b.h);
+const upperHalf = (b) => share(b).slice(5).reduce((a, x) => a + x, 0);
+/** The height, as a fraction of the tree, that half the leaves stand below. */
+function median(b) {
+  if (!b.n) return 0;
+  let seen = 0;
+  for (let i = 0; i < BANDS; i++) { seen += b.h[i]; if (seen >= b.n / 2) return (i + 0.5) / BANDS; }
+  return 1;
+}
+
+/**
+ * Crown coverage: stand outside the tree, look at a branch, and ask whether a
+ * leaf is in the way. Every bark triangle of order 1 or deeper that stands
+ * above the lowest leaf is a candidate scaffold; a ray is fired at a sample of
+ * them from three crown radii out on a random bearing and a shallow elevation,
+ * and the ray counts as covered if it meets leaf geometry before it arrives.
+ *
+ * This is the number behind "leaves dense enough to hide the branch scaffold
+ * from outside the crown". A bare armature reads as a dead tree with a green
+ * cloud floating near it, which is the other half of what the player saw.
+ */
+function crownCoverage(proto, samples = 300, seed = 7) {
+  if (!proto.hasLeaves) return null;
+  const bp = proto.bark.attributes.position, bi = proto.bark.index.array;
+  const ord = proto.barkOrder;
+  const R = Math.max(1, proto.crownRadius) * 3 + 6;
+  const mesh = new THREE.Mesh(proto.leaf, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  mesh.updateMatrixWorld();
+  const base = leafBands(proto.leaf, proto.height).ymin ?? 0;
+  const cand = [];
+  for (let t = 0; t < ord.length; t++) {
+    if (ord[t] < 1) continue;                    // the bole is meant to show
+    const a = bi[t * 3], b = bi[t * 3 + 1], c = bi[t * 3 + 2];
+    const y = (bp.getY(a) + bp.getY(b) + bp.getY(c)) / 3;
+    if (y < base) continue;
+    cand.push([(bp.getX(a) + bp.getX(b) + bp.getX(c)) / 3, y, (bp.getZ(a) + bp.getZ(b) + bp.getZ(c)) / 3]);
+  }
+  if (!cand.length) return null;
+  let s = seed >>> 0;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  const rc = new THREE.Raycaster();
+  const dir = new THREE.Vector3(), org = new THREE.Vector3(), tgt = new THREE.Vector3();
+  let hid = 0;
+  for (let i = 0; i < samples; i++) {
+    const p = cand[Math.floor(rnd() * cand.length)];
+    tgt.set(p[0], p[1], p[2]);
+    const az = rnd() * Math.PI * 2, el = rnd() * 0.9 - 0.25;
+    dir.set(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el)).normalize();
+    org.copy(tgt).addScaledVector(dir, R);
+    rc.set(org, dir.clone().multiplyScalar(-1));
+    rc.far = R + 0.5;
+    const hits = rc.intersectObject(mesh, false);
+    if (hits.length && hits[0].distance < R - 0.02) hid++;
+  }
+  return hid / samples;
+}
+
+// What each species has to be, and why, in one table. The thresholds are the
+// brief: an oak round and broad, a beech tall and domed, a birch slender and
+// light, a spruce a spire, a pine an umbrella on a bare trunk, a willow weeping
+// to the ground, a palm a bare bole with a crown, a sakura low and spreading.
+//
+//   upper      the least of the leaves that must sit in the top half. A cone
+//              legitimately carries most of its needle area low down, so a
+//              conical habit is judged against its own number and not a
+//              broadleaf's; 8% was the bug, 25% is a spire.
+//   base       the fraction of the height the lowest leaf must clear, so there
+//              is trunk under the crown. A willow's whips are meant to sweep
+//              the grass, so its floor is the ground clearance and no more.
+//   cover      the least of the scaffold rays a leaf must stop.
+//   aspect     [min, max] of crown radius over height, which is the whole of
+//              what a silhouette is at 100 m.
+const WANT = {
+  oak:    { upper: 0.55, base: 0.20, cover: 0.80, aspect: [0.45, 0.85], note: 'round and broad' },
+  beech:  { upper: 0.55, base: 0.25, cover: 0.70, aspect: [0.28, 0.55], note: 'tall and domed' },
+  birch:  { upper: 0.55, base: 0.25, cover: 0.60, aspect: [0.24, 0.48], note: 'slender and light' },
+  spruce: { upper: 0.25, base: 0.06, cover: 0.70, aspect: [0.20, 0.42], note: 'a spire' },
+  pine:   { upper: 0.70, base: 0.38, cover: 0.75, aspect: [0.35, 0.70], note: 'an umbrella on a bare trunk' },
+  kapok:  { upper: 0.50, base: 0.30, cover: 0.70, aspect: [0.45, 0.85], note: 'a rainforest emergent' },
+  fig:    { upper: 0.50, base: 0.18, cover: 0.80, aspect: [0.50, 0.95], note: 'low and heavy' },
+  willow: { upper: 0.35, base: 0.00, cover: 0.55, aspect: [0.55, 1.00], note: 'weeping to the ground' },
+  palm:   { upper: 0.90, base: 0.42, cover: 0.75, aspect: [0.30, 0.60], note: 'a bare bole and a crown' },
+  sakura: { upper: 0.55, base: 0.18, cover: 0.70, aspect: [0.60, 1.15], note: 'low and spreading' },
+};
+const SEEDS = [1, 977, 4242, 31337];
+// the detail each kind is actually shipped at by flora.js. Measuring the
+// reference detail and shipping half of it is how sakura came to have a quarter
+// of its blossom round its feet with nobody noticing.
+const SHIP_DETAIL = {
+  oak: 0.9, beech: 0.9, birch: 0.85, pine: 0.85, spruce: 0.7,
+  willow: 0.6, sakura: 0.75, palm: 1.0, dead: 0.9, kapok: 1, fig: 1,
+};
+
+console.log('  species  cover  base%  aspect  tris    leaf anchors by tenth of height, foot to crown');
+{
+  const badUpper = [], badBase = [], badCover = [], badAspect = [], underground = [];
+  for (const id of A.SPECIES_IDS) {
+    const det = SHIP_DETAIL[id];
+    const want = WANT[id];
+    const agg = new Array(BANDS).fill(0);
+    let n = 0, cov = 0, covN = 0, baseSum = 0, aspSum = 0, triSum = 0, lowest = Infinity;
+    for (const sd of SEEDS) {
+      const p = A.buildPrototype(id, sd, { detail: det });
+      const b = leafBands(p.leaf, p.height);
+      for (let i = 0; i < BANDS; i++) agg[i] += b.h[i];
+      n += b.n; triSum += p.triangles;
+      aspSum += p.crownRadius / p.height;
+      if (b.n) {
+        baseSum += b.ymin / p.height;
+        lowest = Math.min(lowest, b.lowVert);
+        const c = crownCoverage(p, 300, sd);
+        if (c != null) { cov += c; covN++; }
+      }
+    }
+    const pct = n ? agg.map((c) => c / n * 100) : agg;
+    const up = pct.slice(5).reduce((a, x) => a + x, 0) / 100;
+    const baseF = n ? baseSum / SEEDS.length : 0;
+    const asp = aspSum / SEEDS.length;
+    const covF = covN ? cov / covN : null;
+    console.log(`  ${id.padEnd(8)} ${covF == null ? '  -  ' : (covF * 100).toFixed(0).padStart(4) + '%'} `
+      + `${(baseF * 100).toFixed(0).padStart(5)}  ${asp.toFixed(2).padStart(5)}  ${String(Math.round(triSum / SEEDS.length)).padStart(6)}  `
+      + pct.map((v) => v.toFixed(0).padStart(3)).join(' ') + `   ${want ? want.note : 'bare'}`);
+    if (!want) continue;                                  // dead has no leaves
+    if (up < want.upper) badUpper.push(`${id} ${(up * 100).toFixed(0)}% wants ${(want.upper * 100).toFixed(0)}%`);
+    if (baseF < want.base) badBase.push(`${id} ${(baseF * 100).toFixed(0)}% wants ${(want.base * 100).toFixed(0)}%`);
+    if (covF != null && covF < want.cover) badCover.push(`${id} ${(covF * 100).toFixed(0)}% wants ${(want.cover * 100).toFixed(0)}%`);
+    if (asp < want.aspect[0] || asp > want.aspect[1]) badAspect.push(`${id} ${asp.toFixed(2)} wants ${want.aspect.join(' to ')}`);
+    if (lowest < A.LEAF_GROUND_CLEARANCE - 1e-6) underground.push(`${id} at y ${lowest.toFixed(2)} m`);
+  }
+  check('every species carries its leaves where its habit says it should',
+    badUpper.length === 0, badUpper.join(', ') || 'measured over 4 seeds each, at the detail flora.js ships');
+  check('no species has a leaf below its own bole', badBase.length === 0,
+    badBase.join(', ') || 'every canopy starts above bare trunk');
+  check('no leaf quad anywhere reaches under the ground', underground.length === 0,
+    underground.join(', ') || `the lowest vertex of every species clears ${A.LEAF_GROUND_CLEARANCE} m`);
+  check('leaves hide the branch scaffold from outside the crown', badCover.length === 0,
+    badCover.join(', ') || '1,200 rays a species, fired inward at its own branches');
+  check('every silhouette is the shape its species is meant to be', badAspect.length === 0,
+    badAspect.join(', ') || 'crown radius over height, inside the band the brief asks for');
+  check('dead is the one bare silhouette', A.buildPrototype('dead', 1).hasLeaves === false);
+}
+
+// The three bands have to agree about where the canopy is, or the tree changes
+// shape as the player walks toward it, which is a LOD swap you can see.
+//
+// The mid band keeps one leaf in three, so it can be held to the tenth. The far
+// band keeps 24 quads whatever grew, so one quad is 4.2 points of any tenth and
+// asking it to match tenth by tenth would only be measuring the quantisation.
+// It is held to the two numbers a silhouette at 140 m is actually made of:
+// how much of the canopy is in the top half, and where the bottom of it is.
+{
+  const drift = [], farDrift = [];
+  for (const id of A.SPECIES_IDS) {
+    const p = A.buildPrototype(id, 4242, { detail: SHIP_DETAIL[id] });
+    if (!p.hasLeaves) continue;
+    const nearB = leafBands(A.leafForBand(p.leaf, A.LOD_BANDS[0]), p.height);
+    const near = share(nearB);
+    const mid = share(leafBands(A.leafForBand(p.leaf, A.LOD_BANDS[1]), p.height));
+    let worst = 0;
+    for (let i = 0; i < BANDS; i++) worst = Math.max(worst, Math.abs(near[i] - mid[i]));
+    if (worst > 6) drift.push(`${id} mid off by ${worst.toFixed(0)} points`);
+    const farB = leafBands(A.leafForBand(p.leaf, A.LOD_BANDS[2]), p.height);
+    const dUp = Math.abs(upperHalf(nearB) - upperHalf(farB));
+    // the middle of the canopy, not its lowest leaf: one quad in a hundred is
+    // the bottom of a crown and 24 quads will not reliably contain it
+    const dMid = Math.abs(median(nearB) - median(farB));
+    if (dUp > 15 || dMid > 0.1) {
+      farDrift.push(`${id} top half off by ${dUp.toFixed(0)} points, canopy middle off by ${(dMid * 100).toFixed(0)}% of its height`);
+    }
+  }
+  check('the mid band draws the same canopy as the near band, tenth by tenth',
+    drift.length === 0, drift.join(', ') || 'no tenth more than 6 points apart, every species');
+  check('and the far band keeps the same silhouette on 24 quads',
+    farDrift.length === 0, farDrift.join(', ') || 'top half within 15 points, canopy middle within a tenth of the height');
+}
+
+// And the other direction: the floors have to be load bearing, not decoration.
+// crownBase is driven to three values on the same seed and the lowest leaf has
+// to follow it every time, which is the difference between a rule and a comment.
+{
+  const keep = A.SPECIES.oak.crownBase;
+  const lowestAt = (v) => {
+    A.SPECIES.oak.crownBase = v;
+    const p = A.buildPrototype('oak', 4242, { detail: 0.6 });
+    const b = leafBands(p.leaf, p.height);
+    // how much of the canopy is in the lowest two fifths, which is where a
+    // crown that has slipped down its own trunk shows up
+    return { f: b.ymin / p.height, vert: b.lowVert, low: b.h[0] + b.h[1] + b.h[2] + b.h[3] };
+  };
+  const none = lowestAt(-1), ship = lowestAt(keep), high = lowestAt(0.45);
+  A.SPECIES.oak.crownBase = keep;
+  check('the crown floor is load bearing: raise it and the canopy climbs, drop it and the leaves fall to the foot',
+    none.f < ship.f - 0.03 && ship.f < high.f - 0.03,
+    `lowest leaf at ${(none.f * 100).toFixed(0)}% of the height with no floor, `
+    + `${(ship.f * 100).toFixed(0)}% as shipped, ${(high.f * 100).toFixed(0)}% at crownBase 0.45`);
+  check('and it clears the lower crown as it rises',
+    none.low > ship.low && ship.low > high.low,
+    `${none.low} quads in the lowest two fifths with no floor, ${ship.low} as shipped, ${high.low} at crownBase 0.45`);
+  check('the ground clearance holds even with the species floor taken away',
+    none.vert >= A.LEAF_GROUND_CLEARANCE - 1e-6, `lowest vertex ${none.vert.toFixed(3)} m`);
+  const back = lowestAt(keep);
+  A.SPECIES.oak.crownBase = keep;
+  check('and putting it back puts the crown back', back.f === ship.f);
+}
+// The same, on the species the bug was actually found in: put the spruce's
+// leader back to the third of its height it used to be and the needles go
+// straight back round its ankles, floor and all.
+{
+  const keepBole = A.SPECIES.spruce.bole, keepAp = A.SPECIES.spruce.apical, keepBase = A.SPECIES.spruce.crownBase;
+  const now = leafBands(A.buildPrototype('spruce', 4242, { detail: 0.5 }).leaf,
+    A.buildPrototype('spruce', 4242, { detail: 0.5 }).height);
+  A.SPECIES.spruce.bole = 0.34; A.SPECIES.spruce.apical = 0.72; A.SPECIES.spruce.crownBase = 0;
+  const then = A.buildPrototype('spruce', 4242, { detail: 0.5 });
+  const old = leafBands(then.leaf, then.height);
+  A.SPECIES.spruce.bole = keepBole; A.SPECIES.spruce.apical = keepAp; A.SPECIES.spruce.crownBase = keepBase;
+  check('the old spruce really was upside down, and the new one is not',
+    upperHalf(old) < 20 && upperHalf(now) > 30,
+    `${upperHalf(old).toFixed(0)}% of the needles in the top half on the old leader, ${upperHalf(now).toFixed(0)}% on the new one`);
+}
+{
+  // the audit has to catch a badly set up species, both ways
+  const keep = A.SPECIES.oak.crownBase;
+  A.SPECIES.oak.crownBase = 0.8;                   // a crown floating over bare limbs
+  let threw = '';
+  try { A.auditForestTypes(); } catch (e) { threw = e.message; }
+  A.SPECIES.oak.crownBase = keep;
+  check('audit throws on a crown that floats over bare limbs', threw.includes('bare limbs'), threw || 'it did not throw');
+  const keep2 = A.SPECIES.birch.latDeep;
+  delete A.SPECIES.birch.latDeep;
+  let threw2 = '';
+  try { A.auditForestTypes(); } catch (e) { threw2 = e.message; }
+  A.SPECIES.birch.latDeep = keep2;
+  check('audit throws on a species that does not say a silhouette number', threw2.includes('latDeep'), threw2 || 'it did not throw');
+  check('audit is clean again', A.auditForestTypes() === true);
+}
+
+// Detail is a cost lever and nothing else. It used to multiply the leaf loop
+// count, so a tree grown at detail 0.4 consumed a different number of random
+// draws and every branch after the first leaf came out somewhere else: the
+// shape a test measured at detail 1 was not the shape flora.js shipped. Every
+// leaf is now still DRAWN and only some of them built, so the skeleton is the
+// same tree and the leaves that survive are a subset of the full canopy.
+{
+  const a = A.buildPrototype('sakura', 11, { detail: 1 });
+  const b = A.buildPrototype('sakura', 11, { detail: 0.4 });
+  check('the same tree grows at every detail: the same axes, the same height, the same reach',
+    a.axes === b.axes && Math.abs(a.height - b.height) < 0.01
+    && Math.abs(a.crownRadius - b.crownRadius) < a.crownRadius * 0.06,
+    `${a.axes} axes at both, ${a.height.toFixed(3)} m against ${b.height.toFixed(3)} m tall, `
+    + `${a.crownRadius.toFixed(2)} m against ${b.crownRadius.toFixed(2)} m of reach; `
+    + 'the rings are coarser, the skeleton is the same');
+  // every leaf the low detail tree kept has to be a leaf the full tree grew, in
+  // the same place, or the stream diverged after all
+  const anchors = (g) => {
+    const p = g.attributes.position, out = new Set();
+    for (let q = 0; q < p.count / 4; q++) {
+      const i = q * 4;
+      out.add([(p.getX(i) + p.getX(i + 1)) / 2, (p.getY(i) + p.getY(i + 1)) / 2, (p.getZ(i) + p.getZ(i + 1)) / 2]
+        .map((v) => v.toFixed(4)).join(','));
+    }
+    return out;
+  };
+  const full = anchors(a.leaf), lean = anchors(b.leaf);
+  let missing = 0;
+  for (const k of lean) if (!full.has(k)) missing++;
+  check('and every leaf on the cheap tree is a leaf the full tree has, in the same place',
+    missing === 0 && lean.size < full.size,
+    `${lean.size} of ${full.size} leaves kept, ${missing} of them somewhere the full tree has none`);
+  check('and it still buys back triangles', b.triangles < a.triangles * 0.7,
+    `${Math.round(b.triangles)} against ${Math.round(a.triangles)}`);
+  const ba = share(leafBands(a.leaf, a.height)), bb = share(leafBands(b.leaf, b.height));
+  let worst = 0;
+  for (let i = 0; i < BANDS; i++) worst = Math.max(worst, Math.abs(ba[i] - bb[i]));
+  check('and the canopy is in the same place at both details', worst < 6, `worst tenth off by ${worst.toFixed(1)} points`);
+}
+
+// the axis cap is a hard stop, and what it cuts has to be the skirt and not
+// the crown. Drive it: a species with far too many laterals to fit.
+{
+  const keep = A.SPECIES.oak.lat;
+  A.SPECIES.oak.lat = 9;
+  const p = A.buildPrototype('oak', 5, {});
+  A.SPECIES.oak.lat = keep;
+  const b = leafBands(p.leaf, p.height);
+  check('a tree that runs out of axes still has a top', p.cappedAxes && upperHalf(b) > 40,
+    `${p.axes} axes, cap hit, ${upperHalf(b).toFixed(0)}% of the leaves still in the top half`);
+}
+
 // ---------------------------------------------------------------------------
 console.log('\narbor: what the four new species are for');
 check('dead has no leaves', built.dead.hasLeaves === false && built.dead.leaf.attributes.position.count === 0);
@@ -281,10 +617,15 @@ console.log('\narbor: placement over a 64 m chunk (the game\'s CHUNK), Natural d
   check('ocean places nothing', A.placeTrees('ocean', 3, 4, 64, 42017).length === 0);
 }
 {
-  const open = A.placeTrees('meadow', 5, 5, 64, 1, { density: 'Open' }).length;
-  const nat = A.placeTrees('meadow', 5, 5, 64, 1, { density: 'Natural' }).length;
-  const dense = A.placeTrees('meadow', 5, 5, 64, 1, { density: 'Dense' }).length;
-  check('density orders Open < Natural < Dense', open < nat && nat < dense, `${open} / ${nat} / ${dense} in one chunk`);
+  // over a block, not one chunk: a chunk that falls in a clearing places nothing
+  // at any density and would order the three by accident
+  const over = (d) => {
+    let n = 0;
+    for (let cz = 0; cz < 8; cz++) for (let cx = 0; cx < 8; cx++) n += A.placeTrees('meadow', cx, cz, 64, 1, { density: d }).length;
+    return n;
+  };
+  const open = over('Open'), nat = over('Natural'), dense = over('Dense');
+  check('density orders Open < Natural < Dense', open < nat && nat < dense, `${open} / ${nat} / ${dense} over 64 chunks`);
 }
 {
   const a = JSON.stringify(A.placeTrees('boreal', -3, 11, 64, 42017));
@@ -304,33 +645,58 @@ console.log('\narbor: placement over a 64 m chunk (the game\'s CHUNK), Natural d
   check('no NaN in any placement', t.every((s) => Number.isFinite(s.x) && Number.isFinite(s.z) && Number.isFinite(s.scale) && Number.isFinite(s.yScale) && Number.isFinite(s.yaw)));
 }
 {
-  // a rejection must not shuffle the survivors: the reference draws every roll
+  // A rejection must not shuffle the survivors: the reference draws every roll
   // before any rejection, and that is what makes a clearing a hole rather than
-  // a different forest
-  const all = A.placeTrees('meadow', 0, 0, 64, 42017);
-  const clipped = A.placeTrees('meadow', 0, 0, 64, 42017, { clearRadius: 40 });
-  const survivors = all.filter((s) => Math.hypot(s.x, s.z) >= 40);
-  check('clearRadius removes trees without moving the rest',
-    JSON.stringify(clipped) === JSON.stringify(survivors), `${all.length} down to ${clipped.length}`);
-  check('clearRadius actually cleared something', clipped.length < all.length, `${all.length - clipped.length} removed`);
-  const kept = A.placeTrees('meadow', 0, 0, 64, 42017, { keep: (x) => x > 20 });
+  // a different forest. Both filters are driven over a block of chunks rather
+  // than one, because a meadow has clearings in it now and a single chunk that
+  // happened to be one would prove nothing in either direction.
+  let all = 0, clipped = 0, moved = 0, kept = 0, outside = 0;
+  for (let cz = 0; cz < 8; cz++) for (let cx = 0; cx < 8; cx++) {
+    const a = A.placeTrees('meadow', cx, cz, 64, 42017);
+    const c = A.placeTrees('meadow', cx, cz, 64, 42017, { clearRadius: 220 });
+    const survivors = a.filter((s) => Math.hypot(s.x, s.z) >= 220);
+    if (JSON.stringify(c) !== JSON.stringify(survivors)) moved++;
+    const k = A.placeTrees('meadow', cx, cz, 64, 42017, { keep: (x) => x > 240 });
+    if (JSON.stringify(k) !== JSON.stringify(a.filter((s) => s.x > 240))) moved++;
+    all += a.length; clipped += c.length; kept += k.length;
+    outside += k.filter((s) => s.x <= 240).length;
+  }
+  check('clearRadius and keep remove trees without moving the rest',
+    moved === 0, `${moved} of 128 filtered layouts came back reshuffled`);
+  check('clearRadius actually cleared something', clipped < all, `${all - clipped} of ${all} removed`);
   check('a keep predicate filters, both ways',
-    kept.length > 0 && kept.length < all.length && kept.every((s) => s.x > 20),
-    `${kept.length} of ${all.length} kept`);
+    kept > 0 && kept < all && outside === 0, `${kept} of ${all} kept, ${outside} of them on the wrong side`);
 }
 {
   // mountain thins with height, and has to be shown to do all of it: full stand
   // below the rock line, thinning through the middle, bare above the snow line
-  const at = (y) => A.placeTrees('mountain', 4, 4, 64, 42017, { density: 'Natural', heightAt: () => y }).length;
+  // Over a block of chunks, because one Open chunk of mountain can easily hold
+  // no trees at all now that a stand is a place and not a fog.
+  const at = (y) => {
+    let n = 0;
+    for (let cz = 0; cz < 8; cz++) for (let cx = 0; cx < 8; cx++) {
+      n += A.placeTrees('mountain', cx, cz, 64, 42017, { density: 'Natural', heightAt: () => y }).length;
+    }
+    return n;
+  };
   const ys = [0, 20, 46, 55, 62, 70, 78, 90];
   const n = ys.map(at);
   console.log('       mountain trees by ground height: ' + ys.map((y, i) => `${y}m ${n[i]}`).join(', '));
-  check('the stand is full anywhere below the rock line', n[0] === n[1] && n[1] === n[2] && n[0] > 0, `${n[0]} trees at 0, 20 and 46 m`);
+  check('the stand is full anywhere below the rock line', n[0] === n[1] && n[1] === n[2] && n[0] > 0,
+    `${n[0]} trees over 64 chunks at 0, 20 and 46 m`);
   check('it only ever thins as the ground rises', n.every((v, i) => i === 0 || v <= n[i - 1]), n.join(' > '));
   check('it is bare at and above the snow line', n[6] === 0 && n[7] === 0, `${n[6]} at 78 m, ${n[7]} at 90 m`);
   check('halfway up, some trees are left', n[4] > 0 && n[4] < n[0], `${n[4]} at 62 m of ${n[0]} at 0 m`);
   check('a type with no thinByHeight ignores heightAt',
     A.placeTrees('meadow', 4, 4, 64, 42017, { heightAt: () => 900 }).length === A.placeTrees('meadow', 4, 4, 64, 42017).length);
+  console.log(`       and the same run with the stands turned off: `
+    + [0, 62, 90].map((y) => {
+      let n = 0;
+      for (let cz = 0; cz < 8; cz++) for (let cx = 0; cx < 8; cx++) {
+        n += A.placeTrees('mountain', cx, cz, 64, 42017, { density: 'Natural', heightAt: () => y, stands: false }).length;
+      }
+      return `${y}m ${n}`;
+    }).join(', '));
 }
 {
   // desert swaps its mix where there is water
@@ -344,6 +710,191 @@ console.log('\narbor: placement over a 64 m chunk (the game\'s CHUNK), Natural d
   for (let i = 0; i < 200; i++) A.placeTrees('meadow', 100 + i, 7, 64, 42017);
   const ms = (performance.now() - t0) / 200;
   check('a chunk places in under 0.5 ms', ms < 0.5, `${ms.toFixed(3)} ms`);
+}
+
+
+// ---------------------------------------------------------------------------
+// Stands: whether a forest looks placed by a hand
+//
+// "doesnt feel organized" is not a number, so here are the numbers it turns
+// into. A forest laid out by one fbm threshold has no stand edges, no
+// clearings with a shape, and one density everywhere; the stand layer is
+// measured against all three, and against the reference's own scatter, which is
+// still one flag away (`stands: false`) so the difference is a measurement and
+// not a memory.
+console.log('\narbor: stands, clearings and edges');
+{
+  const SEED = 42017, N = 16;
+  const spotsOver = (type, n = N, opts = {}) => {
+    const out = [];
+    for (let cz = 0; cz < n; cz++) for (let cx = 0; cx < n; cx++) out.push(...A.placeTrees(type, cx, cz, 64, SEED, opts));
+    return out;
+  };
+  /** The share of a square of ground with no tree standing within `m` metres. */
+  const openShare = (spots, lo, hi, m, step = 8) => {
+    let open = 0, n = 0;
+    for (let z = lo; z < hi; z += step) for (let x = lo; x < hi; x += step) {
+      let best = Infinity;
+      for (const p of spots) {
+        const d = (p.x - x) ** 2 + (p.z - z) ** 2;
+        if (d < best) best = d;
+      }
+      n++;
+      if (Math.sqrt(best) > m) open++;
+    }
+    return open / n;
+  };
+  const rows = [];
+  for (const id of ['meadow', 'boreal', 'sakura', 'desert', 'mountain', 'snow', 'beach']) {
+    const on = spotsOver(id), off = spotsOver(id, N, { stands: false });
+    const open = openShare(on, 100, 900, 25);
+    const openFlat = openShare(off, 100, 900, 25);
+    const inStand = on.filter((s) => s.standId).length;
+    const stands = new Set(on.filter((s) => s.standId).map((s) => s.standId)).size;
+    rows.push({ id, on: on.length, off: off.length, open, openFlat, inStand, stands });
+    console.log(`  ${id.padEnd(9)} ${(on.length / (N * N)).toFixed(1).padStart(5)} trees a chunk `
+      + `(the flat scatter was ${(off.length / (N * N)).toFixed(1).padStart(5)}), `
+      + `${(inStand / Math.max(1, on.length) * 100).toFixed(0).padStart(3)}% of them in one of ${stands} stands, `
+      + `${(open * 100).toFixed(0).padStart(3)}% of the ground has no tree within 25 m (flat: ${(openFlat * 100).toFixed(0)}%)`);
+  }
+  check('every biome has clearings in it: open ground with no tree within 25 m',
+    rows.every((r) => r.open > 0.05), rows.map((r) => `${r.id} ${(r.open * 100).toFixed(0)}%`).join(', '));
+  check('and the stands are what put them there, not the old scatter',
+    rows.filter((r) => r.open > r.openFlat + 0.05).length >= 5,
+    rows.map((r) => `${r.id} ${(r.open * 100).toFixed(0)}% against ${(r.openFlat * 100).toFixed(0)}%`).join(', '));
+  check('a boreal is a wood and a meadow is not',
+    rows.find((r) => r.id === 'boreal').on > rows.find((r) => r.id === 'meadow').on * 5,
+    `${(rows.find((r) => r.id === 'boreal').on / (N * N)).toFixed(1)} trees a chunk against `
+    + `${(rows.find((r) => r.id === 'meadow').on / (N * N)).toFixed(1)}`);
+  check('and a desert is sparser than a meadow',
+    rows.find((r) => r.id === 'desert').on < rows.find((r) => r.id === 'meadow').on,
+    `${(rows.find((r) => r.id === 'desert').on / (N * N)).toFixed(1)} against ${(rows.find((r) => r.id === 'meadow').on / (N * N)).toFixed(1)}`);
+  check('most trees stand in a stand rather than alone',
+    rows.every((r) => r.inStand / r.on > 0.6), rows.map((r) => `${r.id} ${(r.inStand / r.on * 100).toFixed(0)}%`).join(', '));
+  check('turning the stands off gives the reference\'s own even scatter back',
+    rows.every((r) => r.off > r.on) && spotsOver('meadow', 4, { stands: false }).every((s) => s.standId === null),
+    'every type places more trees and none of them in a stand');
+
+  // The edge. A wood has to thin over about 30 m, not stop at a line.
+  {
+    const spots = spotsOver('boreal', 20);
+    const S = A.standsFor('boreal');
+    const cell = S.grove * 2.2;
+    // distance from a tree to the rim of the stand it is in, in metres, read
+    // back out of the cover the stand handed it: cover 1 is `edge` metres in
+    // or more, cover 0 is the rim itself
+    const edge = Math.min(A.STAND_EDGE, S.grove * 0.62 * 0.75);
+    const bins = new Array(8).fill(0);
+    for (const s of spots) {
+      if (!s.standId) continue;
+      const m = s.standCover * edge;                       // metres inside the rim
+      bins[Math.min(7, Math.floor(m / 6))]++;
+    }
+    const rim = bins.slice(0, 2).reduce((a, x) => a + x, 0);
+    const deep = bins.slice(5).reduce((a, x) => a + x, 0);
+    console.log(`  a boreal stand thins over its last ${edge.toFixed(0)} m: trees by metres inside the rim, `
+      + `0 to 48 in sixes: ${bins.join(' ')}`);
+    check('a wood thins into open ground rather than stopping at a line',
+      rim > 0 && deep > rim, `${rim} trees in the outer 12 m, ${deep} more than 30 m in`);
+    check('the thinning runs over the 30 m the brief asks for, or the stand\'s own three quarters',
+      edge >= 12 && edge <= A.STAND_EDGE, `${edge.toFixed(1)} m`);
+  }
+
+  // Old growth at the heart, saplings at the edge.
+  {
+    const spots = spotsOver('boreal', 20).filter((s) => s.standId);
+    let heart = 0, hn = 0, rim = 0, rn = 0;
+    for (const s of spots) {
+      if (s.standCover > 0.8) { heart += s.scale; hn++; } else if (s.standCover < 0.3) { rim += s.scale; rn++; }
+    }
+    check('the old trees stand at the heart of a wood and the young ones at its edge',
+      hn > 20 && rn > 20 && heart / hn > rim / rn + 0.1,
+      `mean scale ${(heart / hn).toFixed(2)} over ${hn} trees at the heart, ${(rim / rn).toFixed(2)} over ${rn} at the rim`);
+    check('and no tree is outside the reference\'s own scale range',
+      spots.every((s) => s.scale >= 0.55 && s.scale <= 1.5));
+  }
+
+  // Hedgerows: a meadow is fields, and fields have lines of trees between them.
+  {
+    const byStand = new Map();
+    for (const s of spotsOver('meadow', 22)) {
+      if (!s.standId) continue;
+      if (!byStand.has(s.standId)) byStand.set(s.standId, []);
+      byStand.get(s.standId).push(s);
+    }
+    let lines = 0, copses = 0;
+    for (const list of byStand.values()) {
+      if (list.length < 4) continue;
+      let mx = 0, mz = 0;
+      for (const p of list) { mx += p.x; mz += p.z; }
+      mx /= list.length; mz /= list.length;
+      let sxx = 0, szz = 0, sxz = 0;
+      for (const p of list) { const a = p.x - mx, b = p.z - mz; sxx += a * a; szz += b * b; sxz += a * b; }
+      const tr = sxx + szz, det = sxx * szz - sxz * sxz;
+      const root = Math.sqrt(Math.max(0, tr * tr / 4 - det));
+      const ratio = Math.sqrt((tr / 2 + root) / Math.max(1e-6, tr / 2 - root));
+      if (ratio > 2.4) lines++; else copses++;
+    }
+    check('a meadow grows hedgerow lines as well as copses', lines > 8 && copses > 8,
+      `${lines} stands of four or more read as a line, ${copses} as a copse, measured off the point cloud`);
+  }
+
+  // Lone trees: at most one to a lattice square of open ground.
+  {
+    const S = A.standsFor('meadow');
+    const spacing = A.spacingFor(A.FOREST_TYPES.meadow.density);
+    const cells = Math.max(1, Math.round(S.lone / spacing));
+    const square = cells * spacing;
+    const lone = [];
+    for (let cz = 0; cz < 22; cz++) for (let cx = 0; cx < 22; cx++) {
+      for (const s of A.placeTrees('meadow', cx, cz, 64, SEED)) if (!s.standId) lone.push(s);
+    }
+    // binned in world metres, on the lattice the rule is written in
+    const per = new Map();
+    for (const s of lone) {
+      const gi = Math.round((s.x - spacing * 0.5) / spacing);
+      const gj = Math.round((s.z - spacing * 0.5) / spacing);
+      const k = Math.floor(gi / cells) + ',' + Math.floor(gj / cells);
+      per.set(k, (per.get(k) || 0) + 1);
+    }
+    const worst = Math.max(0, ...per.values());
+    const area = (22 * 64) ** 2 / 1e4;                 // hectares
+    console.log(`  ${lone.length} lone trees over ${(area).toFixed(0)} ha, `
+      + `${(lone.length / area).toFixed(2)} a hectare, on a ${square} m lattice`);
+    check(`no lattice square of open meadow holds more than one lone tree (${square} m squares)`,
+      worst <= 1, `worst square holds ${worst}`);
+    check('and that is fewer than one lone tree to every 60 m of open meadow',
+      lone.length / area <= 1e4 / (60 * 60), `${(lone.length / area).toFixed(2)} a hectare against ${(1e4 / 3600).toFixed(2)}`);
+    check('the lattice bites, both ways: a type with no lone trees puts none in the open',
+      A.standsFor('ocean').lone === 0
+      && A.placeTrees('boreal', 3, 3, 64, SEED).length > 0, 'ocean plants nothing anywhere');
+  }
+
+  // Determinism, because everything above is worthless if it moves.
+  {
+    const a = JSON.stringify(A.placeTrees('meadow', -7, 13, 64, SEED));
+    const b = JSON.stringify(A.placeTrees('meadow', -7, 13, 64, SEED));
+    check('a chunk of stands places identically every time', a === b, `${JSON.parse(a).length} trees`);
+    check('and a different world seed lays the stands out differently',
+      a !== JSON.stringify(A.placeTrees('meadow', -7, 13, 64, SEED + 1)));
+    // a stand has to be the same stand from either side of a chunk line
+    const S = A.standsFor('boreal');
+    let seam = 0;
+    for (let k = 0; k < 400; k++) {
+      const x = 64 * 5 + (k % 20) * 3.2, z = 64 * 7 + Math.floor(k / 20) * 3.2;
+      const one = A.standAt('boreal', x, z, SEED), two = A.standAt('boreal', x, z, SEED);
+      if (one.id !== two.id || Math.abs(one.cover - two.cover) > 1e-12) seam++;
+    }
+    check('and standAt is a pure function of the place, so two chunks agree along their seam', seam === 0);
+    check('a type with no stands has no cover anywhere',
+      A.standAt('ocean', 100, 100, SEED).cover === 0 && A.standAt('ocean', 100, 100, SEED).id === null);
+  }
+  {
+    const t0 = performance.now();
+    for (let i = 0; i < 200; i++) A.placeTrees('boreal', 300 + i, 11, 64, SEED);
+    const ms = (performance.now() - t0) / 200;
+    check('a chunk of stands still places in under 1 ms', ms < 1, `${ms.toFixed(3)} ms`);
+  }
 }
 
 // ---------------------------------------------------------------------------

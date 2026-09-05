@@ -9,7 +9,7 @@ import { createWorldField } from './field.js';
 import {
   LAYERS, LAYER_INDEX, TILE_A, TILE_B, ROAD_FADE, TEX_SIZE, SNOW_START, SNOW_FULL,
   layerWeights, packWeights, heightBlend, buildLayer, layerTextures, buildTextureArrays,
-  createTerrainMaterial, SHADER_HOOKS, QUALITY, worley, fbm2, climate, biomeStepBudget,
+  createTerrainMaterial, SHADER_HOOKS, QUALITY, worley, fbm2, climate, biomeStepBudget, CLIFF_SLOPE,
 } from './terrain_material.js';
 
 let pass = 0, fail = 0;
@@ -335,6 +335,35 @@ check('the road fade is metres, not centimetres', ROAD_FADE >= 5, `${ROAD_FADE} 
   check('an unknown quality throws', threw && QUALITY.length === 3);
 
   ground.dispose();
+}
+
+// ---- a relief wall is a rock face, and a table top is not ---------------
+//
+// V1 cuts faces at `field.RELIEF_GRADE` metres of rise per metre of ground,
+// which is a slope of 0.89, and leaves table tops flat. Both cases are driven
+// here against the layer rows rather than against the world, so the claim is
+// about the rule and not about where a table happens to have landed.
+console.log('terrain_material: the cliff line');
+{
+  const desert = { h: 26, biome: 'desert', moist: 0.2, temp: 0.72, river: 0, land: 1 };
+  const face = layerWeights(desert, 0.89, 0);
+  const flat = layerWeights(desert, 0.05, 0);
+  const brow = layerWeights(desert, CLIFF_SLOPE - 0.02, 0);
+  check('CLIFF_SLOPE is about fifty one degrees, steeper than anything holds on to',
+    CLIFF_SLOPE > 0.7 && CLIFF_SLOPE < 0.85, `${CLIFF_SLOPE}, ${(Math.asin(CLIFF_SLOPE) * 180 / Math.PI).toFixed(0)} degrees`);
+  check('a mesa wall in the desert is bare stone', top(face) === 'rock' && face[3] > 0.95,
+    `rock ${face[3].toFixed(3)}, sand ${face[4].toFixed(3)}`);
+  check('and the table top above it is still desert', top(flat) !== 'rock' && flat[3] < 0.1,
+    `${top(flat)} ${Math.max(...flat).toFixed(2)}, rock ${flat[3].toFixed(3)}`);
+  check('and the cliff term only adds past the line it names', face[3] > brow[3],
+    `rock ${brow[3].toFixed(3)} just under CLIFF_SLOPE, ${face[3].toFixed(3)} past it`);
+  // the same both ways in a realm with a different biome under the wall
+  {
+    const snowy = { h: 40, biome: 'snow', moist: 0.5, temp: 0.1, river: 0, land: 1 };
+    const w = layerWeights(snowy, 0.89, 0), t2 = layerWeights(snowy, 0.05, 0);
+    check('a face in Frostreach is stone and the shelf beside it is snow',
+      top(w) === 'rock' && t2[5] > w[5], `face rock ${w[3].toFixed(2)}, shelf snow ${t2[5].toFixed(2)}`);
+  }
 }
 
 console.log(`\n  terrain_material: ${pass} passed, ${fail} failed   (default texture size ${TEX_SIZE} px)`);

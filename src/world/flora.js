@@ -38,6 +38,9 @@
 import * as THREE from 'three';
 import { createTreeField } from '../farm/tree_edit.js';
 import { CHUNK, BIOMES } from './field.js';
+import { roadsForCell, roadDistanceAt, ROAD_HALF_WIDTH, ROAD_REACH } from './roads.js';
+import { SITE_CELL } from './sitegrid.js';
+import { ZONE } from './zones.js';
 import { hash2, rand2 } from './noise.js';
 import {
   SPECIES as GEN_SPECIES, growTreeVariant, materialsFor, growBoulder, rockMaterial,
@@ -61,6 +64,41 @@ export const ORE_COUNT = 8;
 export const STUMP_CAP = 512;                // felled trees on screen at once
 export const STUMP_MS = 400;                 // how often the felled list is re-read
 export const BIOME_PROBE = 9;                // samples a side when asking which biomes a chunk holds
+
+// ---------------------------------------------------------------------------
+// Roads, and the trees along them
+// ---------------------------------------------------------------------------
+
+/**
+ * Metres from a road's centreline that no tree may stand inside.
+ *
+ * The old rule was `sampleAt().road > 0.15`, and that is not a distance. Road
+ * strength is 1 on the centreline and 0 at ROAD_HALF_WIDTH, so 0.15 works out
+ * at about 2.7 m and, worse, it is 0 everywhere a road has not been graded yet.
+ * `roadDistanceAt` gives metres, so the rule can be metres.
+ */
+export const ROAD_CLEAR = Math.max(4, ROAD_HALF_WIDTH + 1);
+
+/** Realms whose roads are planted on both sides. The Greenwold is the king's. */
+export const AVENUE_REALMS = ['greenwold'];
+export const AVENUE_STEP = 18;               // metres between one tree and the next
+// Metres from the centreline to the line of trunks, and how far a trunk may
+// wander off it so the line reads as a road and not a fence. The two together
+// keep every avenue tree between ROAD_CLEAR and roads.ROAD_REACH of the centre:
+// clear of the carriageway by a metre and a half of verge, and still close
+// enough that roadDistanceAt can see it, which is what lets a test prove the
+// avenue is beside the road rather than take it on trust.
+export const AVENUE_OFFSET = ROAD_CLEAR + 1.2;
+export const AVENUE_JITTER = 0.35;
+export const AVENUE_MAX_SLOPE = 1.1;         // an avenue does not climb a cliff
+
+/**
+ * Which kind an avenue is planted with, per realm. One species to a road, so a
+ * road reads as a road from a distance and not as forest that happens to be in
+ * a line. The kind must be in the realm's own biome mix, and auditBiomeHarvest
+ * checks that it is.
+ */
+export const AVENUE_KIND = { greenwold: 'beech' };
 
 // ---------------------------------------------------------------------------
 // Species: which Arbor recipe each kind of tree in this world is grown from.
@@ -111,19 +149,26 @@ export const EXTRA = { desert: [['cactus', 0.34]] };
 
 /**
  * `detail` per kind, the one lever arbor.js adds over the reference: it scales
- * the ring segment count and the leaves per node, and 1.0 IS the reference.
+ * the ring segment count and how many of the leaves a tree draws actually get
+ * built, and 1.0 IS the reference. It does not move a branch: the growth rng
+ * draws the same numbers at every detail, so the tree measured in a test is the
+ * tree that ships. arbor.test.mjs proves that both ways.
+ *
  * These are not taste, they are the budget: the near band of a chunk has to
  * stay under 250,000 triangles at Natural and under 500,000 at Dense, and
- * flora.test.mjs measures it per biome and fails if it drifts. birch is 0.5
- * rather than 0.7 because it is in both the meadow mix and the boreal one and
- * takes the lower of the two. Oak is the most expensive tree Arbor grows
- * (22,620 triangles at detail 1, against beech's 8,432) and it is 45% of the
- * meadow, so it is the one that sets the meadow's number: 0.7 puts a meadow
- * chunk at 264,000 and 0.6 puts it at 211,000.
+ * flora.test.mjs measures it per biome and fails if it drifts.
+ *
+ * A1 raised every one of them. The forest is laid out in stands now, so a
+ * Natural chunk of meadow carries about two trees where it used to carry
+ * twelve, and the near band went from 306,000 triangles, which was over the
+ * budget it was supposed to be inside, to 57,000. Spending some of that back on
+ * the trees the player is standing next to is the whole point of having it: a
+ * canopy at 0.5 has half its leaves and shows the sticks through it. The
+ * measured numbers per biome are in the near band table in flora.test.mjs.
  */
 export const DETAIL = {
-  oak: 0.6, beech: 0.7, birch: 0.5, pine: 0.5, spruce: 0.5, fir: 0.5,
-  willow: 0.4, sakura: 0.5, palm: 1.0, dead: 0.7,
+  oak: 0.9, beech: 0.9, birch: 0.85, pine: 0.85, spruce: 0.7, fir: 0.7,
+  willow: 0.6, sakura: 0.75, palm: 1.0, dead: 0.9,
 };
 
 /**
@@ -142,7 +187,7 @@ export const LIMITS = {
 };
 
 /**
- * Growing one prototype costs 2 to 9 ms, and rasterising a species' bark and
+ * Growing one prototype costs 2 to 13 ms, and rasterising a species' bark and
  * leaf sheets costs more again the first time. Paid on the frame a player first
  * walks into a boreal forest, five of those in a row is a visible stall. So a
  * field is created with ONE prototype and update() grows one more whenever the
@@ -163,6 +208,16 @@ export const ROCK_DENSITY = {
   meadow: 0.03, boreal: 0.06, desert: 0.09, beach: 0.03,
   sakura: 0.05, mountain: 0.24, snow: 0.08, ocean: 0,
 };
+
+/**
+ * How much of a stand is its own species.
+ *
+ * 1 would be a plantation and 0 would be the scatter the world had before. At
+ * 0.8 a grove of oak is a grove of oak with a beech or two in it, which is what
+ * a wood looks like and, more to the point, what a wood looks like FROM
+ * OUTSIDE: one shape repeated is what makes a stand read as a stand at 200 m.
+ */
+export const STAND_PURITY = 0.8;
 
 /** Species that will only grow with their feet near water. */
 export const WATER_SPECIES = new Set(['willow', 'palm']);
@@ -255,6 +310,32 @@ export function auditBiomeHarvest() {
     if (!WARM_ORDER.includes(k)) bad.push(`"${k}" is never warmed`);
   }
   for (const k of WARM_ORDER) if (!ALL_KINDS.includes(k)) bad.push(`the warm order builds "${k}", which nothing grows`);
+  // The avenues. A realm that is planted has to exist, and the tree it is
+  // planted with has to be one this world can actually grow, or a road through
+  // the Greenwold is lined with nothing at all and nobody finds out until they
+  // walk it.
+  for (const realm of AVENUE_REALMS) {
+    if (!ZONE[realm]) bad.push(`avenues are planted in "${realm}", which zones.js does not have`);
+    const k = AVENUE_KIND[realm];
+    if (!k) bad.push(`"${realm}" is planted with nothing`);
+    else if (!ALL_KINDS.includes(k)) bad.push(`"${realm}" is planted with "${k}", which no biome grows`);
+    else if (!LIMITS[k]) bad.push(`"${realm}" is planted with "${k}", which has no tree line`);
+  }
+  for (const realm of Object.keys(AVENUE_KIND)) {
+    if (!AVENUE_REALMS.includes(realm)) bad.push(`"${realm}" has an avenue tree and is not on the avenue list`);
+  }
+  // The line of trunks has to fit between the two numbers roads.js owns: clear
+  // of the carriageway, and inside the distance roadDistanceAt can see, or half
+  // the avenue would be unmeasurable and the other half would be in the ruts.
+  // If A2 ever widens a road, this is where it says so.
+  if (AVENUE_OFFSET - AVENUE_JITTER < ROAD_CLEAR) {
+    bad.push(`an avenue trunk can stand ${(AVENUE_OFFSET - AVENUE_JITTER).toFixed(2)} m off the centreline, `
+      + `inside the ${ROAD_CLEAR} m nothing may stand in`);
+  }
+  if (AVENUE_OFFSET + AVENUE_JITTER > ROAD_REACH) {
+    bad.push(`an avenue trunk can stand ${(AVENUE_OFFSET + AVENUE_JITTER).toFixed(2)} m off the centreline, `
+      + `past the ${ROAD_REACH} m roadDistanceAt looks`);
+  }
   if (bad.length) throw new Error(`flora: broken forest (${bad.join('; ')})`);
   return BIOMES.length;
 }
@@ -542,6 +623,116 @@ export function pairCheck(spots, kept, biome = '?') {
   return spots.length;
 }
 
+/**
+ * The nearest road to (x, z) within `m` metres of its centreline.
+ *
+ * roadDistanceAt looks no further than ROAD_REACH, which is twice the road's
+ * half width, so anything past that is null and counts as open ground. A field
+ * built with roads off has no roads to find and this is always false.
+ */
+export function roadWithin(field, x, z, m) {
+  const rd = roadDistanceAt(field, x, z);
+  return !!rd && rd.d < m;
+}
+
+/**
+ * Every road that reaches into chunk (cx, cz).
+ *
+ * A road belongs to the site cell of the settlement at its lexically smaller
+ * end and runs to a settlement in a touching cell, so the nine site cells about
+ * this chunk hold every road that can possibly cross it. roads.js caches per
+ * cell, so this is a map lookup after the first chunk of a cell.
+ */
+export function roadsNear(field, cx, cz) {
+  const x0 = cx * CHUNK, z0 = cz * CHUNK;
+  const sx = Math.floor(x0 / SITE_CELL), sz = Math.floor(z0 / SITE_CELL);
+  const sx1 = Math.floor((x0 + CHUNK) / SITE_CELL), sz1 = Math.floor((z0 + CHUNK) / SITE_CELL);
+  const out = [];
+  const seen = new Set();
+  for (let j = sz - 1; j <= sz1 + 1; j++) for (let i = sx - 1; i <= sx1 + 1; i++) {
+    for (const r of roadsForCell(field, i, j)) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      if (r.maxX < x0 || r.minX > x0 + CHUNK || r.maxZ < z0 || r.minZ > z0 + CHUNK) continue;
+      out.push(r);
+    }
+  }
+  return out;
+}
+
+/**
+ * The avenue: one tree each side of the road every AVENUE_STEP metres, in the
+ * realms that plant them.
+ *
+ * The road is walked in metres from its own start, not per chunk, so the rhythm
+ * carries across a chunk line and two chunks never plant the same tree twice:
+ * a tree belongs to the chunk its trunk stands in and to no other. The realm is
+ * read at the trunk, so an avenue stops where the Greenwold does.
+ *
+ * Every reason a tree is refused is the same list the wild trees pass: water, a
+ * river, a site pad, the home clearing, a slope, and the species' own tree
+ * line. An avenue tree that cannot stand is simply missing from the line, which
+ * is what a gap in an avenue looks like.
+ */
+export function avenueFor(field, cx, cz, opts = {}) {
+  const out = [];
+  const roads = roadsNear(field, cx, cz);
+  if (!roads.length) return out;
+  const seed = field.seed;
+  const x0 = cx * CHUNK, z0 = cz * CHUNK;
+  const chunkKey = cx + ',' + cz;
+  const homeClear = opts.homeClear ?? HOME_CLEAR;
+  const sitesNear = opts.sitesNear || (() => []);
+  const sites = sitesNear(x0 + CHUNK / 2, z0 + CHUNK / 2, CHUNK + 60);
+  const slopeAt = (x, z) => Math.max(
+    Math.abs(field.heightAt(x + 1, z) - field.heightAt(x - 1, z)),
+    Math.abs(field.heightAt(x, z + 1) - field.heightAt(x, z - 1)));
+  for (const road of roads) {
+    const n = Math.floor(road.total / AVENUE_STEP);
+    for (let k = 1; k < n; k++) {
+      const along = k * AVENUE_STEP;
+      // the segment this distance falls in, and the point and bearing on it
+      let seg = road.segs[road.segs.length - 1];
+      for (const sg of road.segs) if (along < sg.cum + sg.len) { seg = sg; break; }
+      const u = Math.max(0, Math.min(1, (along - seg.cum) / seg.len));
+      const px = seg.x0 + seg.dx * u, pz = seg.z0 + seg.dz * u;
+      const inv = 1 / Math.max(1e-6, seg.len);
+      const nx = -seg.dz * inv, nz = seg.dx * inv;          // the normal to the road
+      for (const side of [-1, 1]) {
+        const j = rand2(k, side + 2, seed + 8801) - 0.5;
+        const off = AVENUE_OFFSET + j * AVENUE_JITTER * 2;
+        const tx = px + nx * side * off, tz = pz + nz * side * off;
+        if (tx < x0 || tx >= x0 + CHUNK || tz < z0 || tz >= z0 + CHUNK) continue;  // another chunk's tree
+        const s = field.sampleAt(tx, tz);
+        const kind = AVENUE_KIND[s.realm];
+        if (!kind || !AVENUE_REALMS.includes(s.realm)) continue;
+        if (s.water || s.river > 0.1) continue;
+        if (Math.hypot(tx, tz) < homeClear) continue;
+        if (roadWithin(field, tx, tz, ROAD_CLEAR)) continue;   // a bend that swung the tree back over the road
+        const slope = slopeAt(tx, tz);
+        if (slope > AVENUE_MAX_SLOPE) continue;
+        const L = LIMITS[kind];
+        if (!L || s.h > L.maxH || slope > L.maxSlope) continue;
+        let onPad = false;
+        for (const st of sites) if (Math.hypot(st.x - tx, st.z - tz) < clearingOf(st)) { onPad = true; break; }
+        if (onPad) continue;
+        out.push({
+          x: tx, z: tz, gy: s.h - 0.15,
+          // a planted tree is a planted tree: they are of an age and they are
+          // upright, so the scale range is narrow and there is no lean
+          s: 0.92 + rand2(k, side, seed + 8802) * 0.26,
+          sy: 0.98 + rand2(k, side + 7, seed + 8803) * 0.14,
+          ry: rand2(k, side + 11, seed + 8804) * Math.PI * 2,
+          alt: hash2(Math.round(tx), Math.round(tz), seed + 26) % 3,
+          oa: rand2(Math.round(tx), Math.round(tz), seed + 27) * Math.PI * 2,
+          chunk: chunkKey, kind, avenue: true,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 /** Which biomes a chunk actually holds. A sliver at a border still grows its own. */
 export function biomesIn(field, cx, cz, n = BIOME_PROBE) {
   const out = new Set();
@@ -615,7 +806,11 @@ export function recordsFor(field, cx, cz, opts = {}) {
   // shared by trees and boulders: everything that is true of the ground itself
   const groundOk = (x, z, s, slope) => {
     if (Math.hypot(x, z) < homeClear) return false;
-    if (s.water || s.river > 0.15 || s.road > 0.15) return false;   // the verge keeps its trees, the road does not
+    if (s.water || s.river > 0.15) return false;
+    // the road, in metres rather than in strength. A road is ROAD_HALF_WIDTH
+    // wide, so ROAD_CLEAR of 4 leaves a metre of verge each side with nothing
+    // standing in it, and a cart can pass.
+    if (roadWithin(field, x, z, ROAD_CLEAR)) return false;
     if (slope > MAX_SLOPE_ROCK) return false;
     for (const st of sites) if (Math.hypot(st.x - x, st.z - z) < clearingOf(st)) return false;
     return true;
@@ -642,7 +837,14 @@ export function recordsFor(field, cx, cz, opts = {}) {
     pairCheck(spots, kept, biome);
     for (let i = 0; i < spots.length; i++) {
       const spot = spots[i], { s, slope } = kept[i];
-      const kind = pickFrom(mixFor(biome, isWet(s)), spot.pick);
+      const wet = isWet(s);
+      // A stand is a stand OF something. Most trees inside one take the roll
+      // arbor drew for the whole stand, so a grove is one species with a few
+      // others through it; a tree standing alone, and any tree on wet ground,
+      // draws for itself, because a bank grows what banks grow whatever the
+      // wood behind it is.
+      const roll = (wet || !spot.standId || spot.mixRoll >= STAND_PURITY) ? spot.pick : spot.standRoll;
+      const kind = pickFrom(mixFor(biome, wet), roll);
       if (!kind) continue;
       const L = LIMITS[kind];
       if (!L || s.h > L.maxH || slope > L.maxSlope) continue;       // the tree line is per species
@@ -655,6 +857,12 @@ export function recordsFor(field, cx, cz, opts = {}) {
         chunk: chunkKey,
       });
     }
+  }
+
+  // --- the avenues, where a realm plants its roads --------------------------
+  for (const rec of avenueFor(field, cx, cz, opts)) {
+    const { kind, ...t } = rec;
+    (out[kind] ||= []).push(t);
   }
 
   // --- boulders, on flora's own 8 m grid ------------------------------------

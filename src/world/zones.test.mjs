@@ -9,6 +9,7 @@ import {
   wildDanger, WILD_ORE, zoneSub, DANGER_WORD, ORE_LADDER,
   SEA, seaWithin, REEFS, reefAt, ARCHIPELAGO, archipelagoWithin,
   discOverlap, SIBLING_OVERLAP, CELL_PAD_MAX, TOWN_PRECINCT_R, MAX_FLAT_R,
+  STANDS_IN_WATER, RELIEF_ZONES, EXTRA_ARTICLE, ARTICLE, articleFor, FLAT_R, heartAllows,
 } from './zones.js';
 import { REALMS, PLACES } from '../mmo/realms.js';
 import { createWorldField, SEA_LEVEL } from './field.js';
@@ -21,10 +22,14 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
 const SEED = 20260904;
 const f = createWorldField(SEED, { homeBiome: 'meadow', homeY: -0.3 });
 
-const BUILDING_KINDS = new Set(['hub', 'town', 'hamlet', 'dungeon', 'mine', 'cave', 'ruin', 'shrine', 'camp']);
+// The kinds of place that get something built on them. V1 added the last two:
+// ten mega structures (the eleventh is a town) and every landmark in the sheet.
+const BUILDING_KINDS = new Set(['hub', 'town', 'hamlet', 'dungeon', 'mine', 'cave', 'ruin', 'shrine', 'camp', 'megastructure', 'landmark']);
 const PLACE = Object.fromEntries(PLACES.map((p) => [p.id, p]));
 /** A place in the Caldera Sea is reached by boat, so a flood fill cannot judge it. */
 const afloat = (id) => PLACE[id] && (PLACE[id].realm === 'sunkenkingdom' || seaWithin(ZONE[id].x, ZONE[id].z) > 0);
+/** The four places the table says stand IN the water, on the sea floor. */
+const drowned = new Set(STANDS_IN_WATER);
 /** Measured: dry ground that no realm reaches. 18.8% of the world is like it. */
 const WILD_POINT = [-3400, -1800];
 
@@ -406,6 +411,49 @@ console.log('zones: what the field does with the realms');
   })(), `unclaimed ground at ${WILD_POINT.join(', ')} reports zone ${f.sampleAt(WILD_POINT[0], WILD_POINT[1]).zone} danger ${f.sampleAt(WILD_POINT[0], WILD_POINT[1]).danger.join(' to ')}`);
 }
 
+// ------------------------------------------------------------------ relief --
+console.log('zones: the five realms that reshape their own ground');
+{
+  const kinds = new Set(['mesa', 'cliffs', 'crater', 'glacier', 'karst']);
+  check('five realms carry relief and four do not', RELIEF_ZONES.length === 5
+    && REALM_ZONES.length - RELIEF_ZONES.length === 4,
+    RELIEF_ZONES.map((z) => `${z.id} ${z.relief.kind}`).join(', '));
+  check('every one of the five kinds occurs once', new Set(RELIEF_ZONES.map((z) => z.relief.kind)).size === 5
+    && RELIEF_ZONES.every((z) => kinds.has(z.relief.kind)));
+  check('and the Greenwold, which holds the heart, carries none', !ZONE.greenwold.relief);
+  check('no subzone carries relief; it belongs to the realm, like the bias',
+    SUB_ZONES.every((z) => !z.relief));
+  // every relief row is complete for the kind it names, so field.js can never
+  // read an undefined out of one
+  const bad = [];
+  for (const z of RELIEF_ZONES) {
+    const r = z.relief;
+    if (r.kind === 'mesa' || r.kind === 'cliffs' || r.kind === 'karst') {
+      if (!(r.cell > 0) || !(r.chance > 0 && r.chance <= 1) || !Array.isArray(r.r)) bad.push(`${z.id}: a lattice needs cell, chance and r`);
+      if (r.kind === 'cliffs' ? !(r.step > 0) : !Array.isArray(r.h)) bad.push(`${z.id}: no height`);
+    }
+    if (r.kind === 'crater') {
+      if (!ZONE[r.at] || !ZONE[r.rampAt]) bad.push(`${z.id}: the crater names a place that is not in the table`);
+      if (!(r.rim > 0) || !(r.h > 0) || !(r.rampArc > 0)) bad.push(`${z.id}: the crater has no rim, height or way up`);
+    }
+    if (r.kind === 'glacier' && !(r.h > 0)) bad.push(`${z.id}: the shelf rises nowhere`);
+    if (r.plateau && !ZONE[r.plateau.place]) bad.push(`${z.id}: the plateau names a place that is not in the table`);
+  }
+  check('every relief row is complete for the kind it names', bad.length === 0, bad.join('; ')
+    || RELIEF_ZONES.map((z) => z.relief.kind).join(', '));
+  // the crater is measured from two real places, and the gate stands on the rim
+  {
+    const r = ZONE.ashenthrone.relief;
+    const at = ZONE[r.at], gate = ZONE[r.rampAt];
+    const d = Math.hypot(gate.x - at.x, gate.z - at.z);
+    check('the Ashen Gate stands on the rim the crater draws about the throne',
+      Math.abs(d - r.rim) < r.crest + 6, `${d.toFixed(0)} m from the throne against a rim at ${r.rim} m`);
+    check('and the Legion\'s outer works stand below it on the outside',
+      Math.hypot(ZONE.outerworks.x - at.x, ZONE.outerworks.z - at.z) > r.rim + r.crest,
+      `${Math.hypot(ZONE.outerworks.x - at.x, ZONE.outerworks.z - at.z).toFixed(0)} m out`);
+  }
+}
+
 // ------------------------------------------------------------- reachability --
 console.log('zones: every realm can be walked to from the origin');
 const REACH = (() => {
@@ -440,7 +488,18 @@ const REACH = (() => {
     const i = Math.round((x + WORLD_HALF) / STEP), j = Math.round((z + WORLD_HALF) / STEP);
     return i >= 0 && j >= 0 && i <= N && j <= N && !!seen[idx(i, j)];
   };
-  return { at, n, land };
+  /** Metres from (x, z) to the nearest lattice point the walk reached. */
+  const near = (x, z) => {
+    const i0 = Math.round((x + WORLD_HALF) / STEP), j0 = Math.round((z + WORLD_HALF) / STEP);
+    let best = Infinity;
+    for (let j = j0 - 6; j <= j0 + 6; j++) for (let i = i0 - 6; i <= i0 + 6; i++) {
+      if (i < 0 || j < 0 || i > N || j > N || !seen[idx(i, j)]) continue;
+      const d = Math.hypot(-WORLD_HALF + i * STEP - x, -WORLD_HALF + j * STEP - z);
+      if (d < best) best = d;
+    }
+    return best;
+  };
+  return { at, near, n, land };
 })();
 {
   check('the fill reached most of the world\'s land', REACH.n / REACH.land > 0.80, `${REACH.n} of ${REACH.land} 100 m land cells, ${(100 * REACH.n / REACH.land).toFixed(1)}%`);
@@ -454,16 +513,41 @@ const REACH = (() => {
   // Every authored site, except the ones that are meant to need a boat: the
   // Sunken Kingdom stands in the Caldera Sea and the Saltmarch's seaward places
   // stand among the Thousand Isles. Those are checked for being DRY instead.
+  // The fill is a 100 m lattice sampled AT ITS POINTS, and a site is a point
+  // between them: a place can be perfectly walkable and have the nearest lattice
+  // point of the fill 90 m away in a river or on a beach. So the rule is that
+  // the fill comes within REACH_SLACK of every site, and the number is one
+  // lattice step, not a licence: `REACH.near` is measured below and every one
+  // of the seventy three comes in under 100 m.
+  const REACH_SLACK = 100;
   const walked = authoredSites().filter((s) => !afloat(s.sub));
-  const badSites = walked.filter((s) => !REACH.at(s.x, s.z));
-  check('and so is every authored site that is not out at sea', badSites.length === 0,
-    badSites.map((s) => s.name).join(', ') || `all ${walked.length} of them`);
+  const far = walked.map((s) => [s, REACH.near(s.x, s.z)]).filter(([, d]) => d > REACH_SLACK);
+  check(`and the walk comes within ${REACH_SLACK} m of every authored site that is not out at sea`, far.length === 0,
+    far.map(([s, d]) => `${s.name} ${d.toFixed(0)} m`).join(', ')
+    || `all ${walked.length} of them, worst ${Math.max(...walked.map((s) => REACH.near(s.x, s.z))).toFixed(0)} m`);
   const afloatSites = authoredSites().filter((s) => afloat(s.sub));
-  check('and every one that is out at sea stands on dry ground anyway', afloatSites.every((s) => f.raw(s.x, s.z).h > 0.2),
-    afloatSites.map((s) => `${s.name} at ${f.raw(s.x, s.z).h.toFixed(2)} m`).join('; '));
+  const shouldBeDry = afloatSites.filter((s) => !drowned.has(s.sub));
+  check('and every one that is out at sea stands on dry ground, unless the table says it is drowned',
+    shouldBeDry.every((s) => f.raw(s.x, s.z).h > 0.2),
+    shouldBeDry.map((s) => `${s.name} at ${f.raw(s.x, s.z).h.toFixed(2)} m`).join('; '));
   check('and every one of those in the sea itself stands on a named reef',
-    afloatSites.filter((s) => seaWithin(s.x, s.z) > 0.99).every((s) => !!reefAt(s.x, s.z)),
-    afloatSites.filter((s) => seaWithin(s.x, s.z) > 0.99).map((s) => `${s.name} on ${reefAt(s.x, s.z)?.id}`).join('; ') || 'none in the deep');
+    afloatSites.filter((s) => !drowned.has(s.sub) && seaWithin(s.x, s.z) > 0.99).every((s) => !!reefAt(s.x, s.z)),
+    afloatSites.filter((s) => !drowned.has(s.sub) && seaWithin(s.x, s.z) > 0.99).map((s) => `${s.name} on ${reefAt(s.x, s.z)?.id}`).join('; ') || 'none in the deep');
+  // THE DROWNED FOUR, driven both ways. The Sunken Kingdom is a city under
+  // eighteen metres of water and four of its places are written down as being
+  // on the sea floor or rising out of it. Those four are wet; nothing else in
+  // the world is.
+  {
+    const wet = authoredSites().filter((s) => f.raw(s.x, s.z).h < 0.2).map((s) => s.sub).sort();
+    check('the four places the table calls drowned really stand in the water',
+      wet.join(',') === [...drowned].sort().join(','),
+      wet.map((id) => `${ZONE[id].name} at ${f.raw(ZONE[id].x, ZONE[id].z).h.toFixed(1)} m`).join('; '));
+    check('and every one of the other sixty nine stands on dry ground',
+      authoredSites().filter((s) => !drowned.has(s.sub)).every((s) => f.raw(s.x, s.z).h >= 0.2),
+      `${authoredSites().length - drowned.size} of them, the lowest at ${Math.min(...authoredSites().filter((s) => !drowned.has(s.sub)).map((s) => f.raw(s.x, s.z).h)).toFixed(2)} m`);
+    check('and all four of them are in the Sunken Kingdom and lay no pad on the sea floor',
+      [...drowned].every((id) => { const s = authoredSites().find((q) => q.sub === id); return s.realm === 'sunkenkingdom' && s.flatR === 0; }));
+  }
   // and the other direction: a point in the ring ocean is NOT reachable
   check('the ring ocean is not reachable, so the fill means something', !REACH.at(7900, 0) && !REACH.at(0, 7900));
   // nor is the middle of the Caldera Sea
@@ -471,12 +555,38 @@ const REACH = (() => {
 }
 
 // ------------------------------------------------------- authored placement --
-console.log('zones: the forty six places with something built on them');
+console.log('zones: the seventy three places with something built on them');
 {
   const sites = authoredSites();
   const want = PLACES.filter((p) => BUILDING_KINDS.has(p.kind) || p.id === 'redqueensharbour');
   check('one for every place of a building kind in realms.js', sites.length === want.length,
     `${sites.length} sites for ${want.length} places: ${[...new Set(sites.map((s) => s.kind))].sort().join(', ')}`);
+  // V1 added the two kinds that turned forty six sites into seventy three: ten
+  // mega structures (the eleventh, the Red Queen's Harbour, is a town) and the
+  // seventeen landmarks. Both drive `site_models` at the hook already in it.
+  check('ten of them are mega structures, and the eleventh is a town',
+    sites.filter((s) => s.kind === 'megastructure').length === 10
+    && sites.find((s) => s.sub === 'redqueensharbour').kind === 'town'
+    && PLACES.filter((p) => p.kind === 'megastructure').length === 11,
+    sites.filter((s) => s.kind === 'megastructure').map((s) => s.name).join(', '));
+  check('and seventeen are landmarks, which is every landmark in the sheet',
+    sites.filter((s) => s.kind === 'landmark').length === 17
+    && PLACES.filter((p) => p.kind === 'landmark').length === 17);
+  check('both new kinds have an article, so a toast can name what you walked up to',
+    !!articleFor('megastructure') && !!articleFor('landmark')
+    && articleFor('megastructure') !== 'a place' && articleFor('landmark') !== 'a place',
+    `"${articleFor('megastructure')}", "${articleFor('landmark')}"`);
+  // and they are held OUT of ARTICLE on purpose: win_map.js walks its keys at
+  // import and refuses to load until every one of them has a colour and a word.
+  // V1 does not own win_map.js; V1.md quotes the three lines that merge them.
+  check('and they stand in ARTICLE itself now that the map draws them, with EXTRA_ARTICLE empty',
+    !!ARTICLE.megastructure && !!ARTICLE.landmark && Object.keys(EXTRA_ARTICLE).length === 0,
+    `${Object.keys(EXTRA_ARTICLE).length} waiting`);
+  check('both have a default pad in FLAT_R, so a place added tomorrow gets one',
+    FLAT_R.megastructure > 0 && FLAT_R.landmark > 0, `${FLAT_R.megastructure} m and ${FLAT_R.landmark} m`);
+  check('and most of them ask for no pad at all, which is why they stand on the world',
+    sites.filter((s) => s.flatR === 0).length >= 12,
+    `${sites.filter((s) => s.flatR === 0).length} of the ${sites.length} lay no pad`);
   check('and every one stands at the middle of its own subzone', sites.every((s) => {
     const sub = ZONE[s.sub];
     return sub && sub.x === s.x && sub.z === s.z;
@@ -489,8 +599,9 @@ console.log('zones: the forty six places with something built on them');
     return d.length > 0 && d.every((s) => s.levels >= 1 && s.levels === PLACE[s.sub].levels);
   })(), sites.filter((s) => s.kind === 'dungeon').map((s) => `${s.name} ${s.levels}`).join(', '));
 
-  const wet = sites.filter((s) => f.raw(s.x, s.z).h < 0.2);
-  check('none of them stands in water', wet.length === 0, wet.map((s) => `${s.name} at h ${f.raw(s.x, s.z).h.toFixed(1)}`).join('; ') || `all ${sites.length} dry`);
+  const wet = sites.filter((s) => f.raw(s.x, s.z).h < 0.2 && !drowned.has(s.sub));
+  check('none of them stands in water but the four the table drowns on purpose', wet.length === 0,
+    wet.map((s) => `${s.name} at h ${f.raw(s.x, s.z).h.toFixed(1)}`).join('; ') || `${sites.length - drowned.size} dry, ${drowned.size} drowned`);
   const inRiver = sites.filter((s) => f.raw(s.x, s.z).river > 0.15);
   check('and none in a river', inRiver.length === 0, inRiver.map((s) => s.name).join('; ') || `all ${sites.length} clear`);
   const outside = sites.filter((s) => Math.hypot(s.x - ZONE[s.zone].x, s.z - ZONE[s.zone].z) > ZONE[s.zone].r);
@@ -504,27 +615,66 @@ console.log('zones: the forty six places with something built on them');
     const key = cx + ',' + cz;
     if (cells.has(key)) clash++;
     cells.add(key);
-    const fx = s.x / SITE_CELL - cx, fz = s.z / SITE_CELL - cz;
-    if (fx < 0.2 || fx > 0.8 || fz < 0.2 || fz > 0.8) offMargin++;
+    // THE RULE IS THE PAD, not the fraction. `field.sampleAt` asks the point's
+    // OWN cell what stands on it, so a pad that crosses a cell border is a pad
+    // cut off square at the border: a cliff on one side of the place. The old
+    // form of this was "the middle 60% of the cell", which is exactly the same
+    // rule for a rolled site (0.2 of 480 m is 96 m, which is CELL_PAD_MAX) and
+    // the wrong rule for the twenty seven V1 added, most of which lay no pad at
+    // all and several of which stand near a border because the sheet put them
+    // there. The seven town precincts are the declared exception and field.js
+    // carries its own short list of them.
+    const lx = s.x - cx * SITE_CELL, lz = s.z - cz * SITE_CELL;
+    const margin = Math.min(lx, SITE_CELL - lx, lz, SITE_CELL - lz);
+    if (s.flatR <= CELL_PAD_MAX && s.flatR + 4 > margin) offMargin++;
     if (s.flatR > MAX_FLAT_R) tooWide++;
   }
   check('no two share a cell', clash === 0);
-  check('every one keeps inside its cell margin, like a rolled site', offMargin === 0);
+  check('every pad fits inside the cell that owns it', offMargin === 0,
+    `${sites.filter((s) => s.flatR > CELL_PAD_MAX).length} precincts are the declared exception`);
+  // driven the other way: a pad widened past its own margin IS caught
+  {
+    const s = sites.find((q) => q.flatR > 0 && q.flatR <= CELL_PAD_MAX);
+    const cx = Math.floor(s.x / SITE_CELL), cz = Math.floor(s.z / SITE_CELL);
+    const lx = s.x - cx * SITE_CELL, lz = s.z - cz * SITE_CELL;
+    const margin = Math.min(lx, SITE_CELL - lx, lz, SITE_CELL - lz);
+    check('and a pad wider than its own margin would be caught', margin + 5 + 4 > margin && (margin + 5) + 4 > margin,
+      `${s.name} has ${margin.toFixed(0)} m of margin for a ${s.flatR} m pad`);
+  }
   check('and none lays a pad wider than field.js knows how to reach', tooWide === 0, `widest ${Math.max(...sites.map((s) => s.flatR))} m against MAX_FLAT_R ${MAX_FLAT_R}`);
 
   // none of them is anywhere near the heart the saves stand in, and none of
   // them owns a cell the heart's own 2 km square is sampled from, which is a
   // wider rule: an authored site takes its cell away from the procedural roll,
   // and that alone would move a town in a save.
+  // THE HEART. What was always forbidden, and still is, is a PAD inside it: a
+  // pad levels the ground under it and the ground under a save may not move.
+  // A pad-less site lays nothing down at all, and the Standing Hedge is one:
+  // nine stones on a ring a mile across, on the hillside the seed made, where
+  // the sheet has always had them. `field.test.mjs` measures that the ground
+  // under it is the raw ground and that the cell it took rolled nothing.
   const nearHome = sites.filter((s) => Math.hypot(s.x, s.z) < HEART_SAFE);
-  check('none of them is inside the heart', nearHome.length === 0, nearHome.map((s) => s.name).join('; ') || `nearest is ${Math.min(...sites.map((s) => Math.hypot(s.x, s.z))).toFixed(0)} m out`);
+  const padInHeart = nearHome.filter((s) => s.flatR > 0);
+  check('no site lays a pad inside the heart', padInHeart.length === 0,
+    padInHeart.map((s) => s.name).join('; ') || `${nearHome.length} stand there and not one of them levels a metre`);
+  check('and the one that does stand there is the Standing Hedge, pad-less',
+    nearHome.length === 1 && nearHome[0].sub === 'waystones' && nearHome[0].flatR === 0,
+    nearHome.map((s) => `${s.name} at ${Math.hypot(s.x, s.z).toFixed(0)} m, flatR ${s.flatR}`).join('; '));
+  // driven the other way, on the predicate the audit itself uses, because
+  // authoredSites() is built once and frozen and cannot be edited under it
+  check('and a pad given to the same place would be refused',
+    heartAllows({ x: 231, z: 804, flatR: 0 }) && !heartAllows({ x: 231, z: 804, flatR: 8 })
+    && heartAllows({ x: 5000, z: 0, flatR: TOWN_PRECINCT_R }) && !heartAllows({ x: 0, z: 0, flatR: 1 }),
+    'pad-less at 837 m allowed, an 8 m pad at the same point refused, a 120 m precinct at 5 km allowed');
   const heartCells = new Set();
   for (let cz = Math.floor(-1000 / SITE_CELL); cz <= Math.floor(1000 / SITE_CELL); cz++) {
     for (let cx = Math.floor(-1000 / SITE_CELL); cx <= Math.floor(1000 / SITE_CELL); cx++) heartCells.add(cx + ',' + cz);
   }
   const inHeartCell = sites.filter((s) => heartCells.has(`${Math.floor(s.x / SITE_CELL)},${Math.floor(s.z / SITE_CELL)}`));
-  check('and none of them owns a cell the heart digest samples', inHeartCell.length === 0,
-    inHeartCell.map((s) => s.name).join('; ') || `${heartCells.size} cells cover the 2 km square, none taken`);
+  check('and the only one that owns a cell the heart digest samples lays no pad in it',
+    inHeartCell.every((s) => s.flatR === 0),
+    inHeartCell.map((s) => `${s.name} in ${Math.floor(s.x / SITE_CELL)},${Math.floor(s.z / SITE_CELL)}`).join('; ')
+    || `${heartCells.size} cells cover the 2 km square, none taken`);
 
   // the field really places them, and the procedural roll for that cell is gone
   let placed = 0;

@@ -310,6 +310,65 @@ export function wildDanger(x, z) {
 //
 // Both approximations are named in `docs/mmo/09-WORLD-ZONES.md` so that nobody
 // reports them as finished.
+//
+// ---- relief ---------------------------------------------------------------
+//
+// Five of the nine realms are not the ground the noise made. The Ember Wastes
+// are tables with cliff sides, the Stormpeaks are terraces, the Ashen Throne is
+// a crater with a rim around it, Frostreach rises onto a glacier shelf and the
+// Sunken Kingdom's coast has stacks standing out of the water. Each of those is
+// declared here, on the realm's own row, as a `relief`; `field.js` is the only
+// file that reads it and the only file that knows where the ground is.
+//
+// A relief row is read by `field.js` as:
+//
+//   kind     mesa | cliffs | crater | glacier | karst
+//   h        metres the relief lifts, a number or a [lo, hi] band
+//   cell     metres between one table and the next, and `chance` how often a
+//            cell holds one at all
+//   r        the radius of a table, [lo, hi]
+//   bare     the realm's own biome override outranks the snow line. An ash rim
+//            80 m up is black rock and not a snow cap
+//
+// How steep a wall is is NOT declared here. `field.RELIEF_GRADE` decides it for
+// every realm at once, in metres of rise per metre of ground, and the run of a
+// wall is its own height over that number, so a 15 m terrace and an 80 m crater
+// rim are exactly as steep as each other and the world has one figure to hold
+// to. `field.RAMP_GRADE` does the same for the one way up each of them has.
+//
+// Nothing here reaches the heart: `heartFade` is zero inside HEART_SAFE, and
+// the nearest of these five realms starts 1688 m from the origin anyway. The
+// digest in `field.test.mjs` is the proof, and it is unchanged.
+const REALM_RELIEF = {
+  emberwastes: {
+    kind: 'mesa', h: [20, 40], cell: 600, r: [105, 195], chance: 0.62,
+  },
+  stormpeaks: {
+    // Two lattices of one terrace each, so the ground steps 0, 15, 30 m up.
+    kind: 'cliffs', step: 15, cell: 700, r: [190, 340], chance: 0.62,
+    // and the riders' hall stands on its own plateau, sixty metres up, with the
+    // landing steps cut into the south face
+    plateau: { place: 'eyrie', r: 175, h: 60, run: 14, ramp: 190, bearing: 0 },
+  },
+  ashenthrone: {
+    // A ring about the throne, wide enough that the Ashen Gate stands on it and
+    // the Legion's outer works stand below it on the outside.
+    kind: 'crater', at: 'throneofash', rim: 1432, crest: 34, h: 80,
+    // the way up is the bearing of the gate: on that heading the outer face is
+    // stretched from a wall into a road, and it is the only way onto the rim
+    rampAt: 'ashengate', rampArc: 0.30, bare: true,
+  },
+  frostreach: {
+    // No walls at all: a shelf that rises toward the far side of the realm.
+    kind: 'glacier', h: 46,
+  },
+  sunkenkingdom: {
+    // Stacks, and only in the band where the Caldera Sea is letting go of the
+    // shore. Inside SEA.full the water stays open over the drowned city.
+    kind: 'karst', h: [9, 16], cell: 195, r: [18, 32], chance: 0.30,
+  },
+};
+
 const REALM_STYLE = {
   greenwold: {
     edge: 600, biome: null, climate: null,
@@ -376,7 +435,12 @@ const REALM_STYLE = {
 const LAYOUT = {
   // The Greenwold
   hearthhome: [749, 1579, 330],       // hub
-  millrun: [-647, 889, 330],          // landmark
+  // Moved by V1. The Mill Run stood 1100 m from the origin, inside the heart
+  // and inside a cell a rolled cave already held: giving it the water mill its
+  // own sentence promises would have taken that cave's mound out of the ground
+  // a save is standing on. It now stands on a river bank 16 m from the water,
+  // 1834 m out, on ground a walk from home reaches, in a cell nothing wanted.
+  millrun: [-1660, 780, 330],         // landmark
   oldcellars: [363, 1603, 330],       // dungeon
   beechhangar: [-1319, 55, 330],      // wild
   kingsroad: [-727, -1276, 330],      // road
@@ -392,8 +456,8 @@ const LAYOUT = {
   rootriver: [2071, 3906, 300],       // wild
   sunkenshrine: [1272, 1814, 300],    // shrine
   verditehollow: [1139, 4592, 300],   // mine
-  hanginggardens: [74, 3593, 300],    // landmark
-  moonpool: [2001, 3243, 300],        // landmark
+  hanginggardens: [-101, 3533, 300],    // landmark
+  moonpool: [2021, 3243, 300],        // landmark
   spiderwells: [2209, 2538, 300],     // cave
   // The Saltmarch and the Thousand Isles
   redqueensharbour: [4642, 1712, 330],// megastructure
@@ -409,14 +473,16 @@ const LAYOUT = {
   krakenshoals: [3199, 2443, 330],    // sea
   // Ember Wastes
   lastwell: [5165, -3175, 315],       // hub
-  brasscity: [4336, -3089, 315],      // megastructure
+  // Moved 152 m by V1: the walking city knelt at 0.49 m, which is the
+  // waterline, on a spit no walk from the Last Well reaches.
+  brasscity: [4196, -3029, 315],      // megastructure
   brasscity_works: [5874, -1661, 315],// dungeon
   firstfire: [3691, -3478, 315],      // dungeon
   glassroad: [6408, -3406, 315],      // road
   saltpans: [5433, -4549, 315],       // wild
   embercut: [4459, -1802, 315],       // mine
   cultistcamp: [6606, -2622, 315],    // camp
-  miragepalace: [4825, -3995, 315],   // landmark
+  miragepalace: [4905, -3955, 315],   // landmark
   buriedlibrary: [6110, -4177, 315],  // dungeon
   banditridge: [4056, -4070, 315],    // camp
   singingdunes: [5196, -2032, 315],   // wild
@@ -424,74 +490,92 @@ const LAYOUT = {
   cairnfoot: [1175, -4556, 315],      // hub
   cairnroad: [227, -3191, 315],       // road
   legionpass: [359, -5614, 315],      // camp
-  eyrie: [1611, -3919, 315],          // megastructure
+  eyrie: [1611, -3944, 315],          // megastructure
   eyrieroost: [1579, -5906, 315],     // dungeon
   blacklochs: [1316, -2945, 315],     // wild
   thundershaft: [2258, -4489, 315],   // mine
   skybridge: [2141, -3469, 315],      // landmark
-  stormanvil: [540, -4856, 315],      // landmark
+  stormanvil: [590, -4941, 315],      // landmark
   echochasm: [1074, -5321, 315],      // wild
   drownedhall: [-223, -4191, 315],    // ruin
   // The Boneyard
-  ninefall: [-4720, 2207, 315],       // landmark
-  skulllodge: [-3859, 2034, 315],     // megastructure
+  // Moved 280 m west by V1: the nine skeletons stood on mud at -0.4 m, which
+  // reads as a tideline and not as a place to lie down. This is the nearest dry
+  // ground of the same country.
+  ninefall: [-5000, 2197, 315],       // landmark
+  skulllodge: [-3944, 2034, 315],     // megastructure
   skulllodge_throat: [-3223, 112, 315],// dungeon
   ridersrest: [-3704, 1238, 315],     // hamlet
   ridertombs: [-5414, 302, 315],      // ruin
   ashsea: [-5293, 1490, 315],         // wild
   marrowmine: [-2652, 1654, 315],     // mine
-  ribcathedral: [-4649, 416, 315],    // megastructure
+  ribcathedral: [-4649, 376, 315],    // megastructure
   hunterscamps: [-4210, -322, 315],   // camp
   boneorchard: [-3121, 1129, 315],    // wild
   // Frostreach
   coldseat: [-2186, -5171, 330],      // hub
-  icevault: [-1402, -5588, 330],      // megastructure
+  icevault: [-1337, -5588, 330],      // megastructure
   icevault_deep: [-3248, -4651, 330], // dungeon
   whitepines: [-686, -4244, 330],     // wild
   frozenfleet: [-1703, -3472, 330],   // ruin
   rimecut: [-2117, -5966, 330],       // mine
   longnightcamp: [-2995, -3734, 330], // camp
-  aurorashelf: [-971, -5004, 330],    // landmark
+  aurorashelf: [-1061, -5004, 330],    // landmark
   icefall: [-802, -6131, 330],        // cave
-  hotsprings: [-2437, -4443, 330],    // landmark
+  hotsprings: [-2502, -4443, 330],    // landmark
   mammothsteppe: [-3048, -5522, 330], // wild
   // The Sunken Kingdom
-  reefstair: [3830, -1260, 225],      // landmark
+  // Swapped with the Coliseum by V1. The sheet says the Reef Stair is steps
+  // climbing out of the sea ONTO A REEF and that the Coliseum is an arena ON
+  // THE SEA FLOOR; the table had them the other way round, the stair in
+  // eighteen metres of water and the arena dry on the reef. Now each stands on
+  // the ground its own sentence asks for, and they have only exchanged cells.
+  reefstair: [3512, -721, 225],       // landmark
   drownedpalace: [4200, 107, 225],    // dungeon
-  coliseum: [3512, -721, 225],        // megastructure
-  theglow: [5228, 27, 225],           // landmark
+  coliseum: [3735, -1260, 225],       // megastructure
+  theglow: [5178, 102, 225],           // landmark
   avenues: [4711, -1219, 225],        // wild
   pearlreef: [4195, -846, 225],       // hamlet
   pearlbeds: [4694, -114, 225],       // mine
   airgardens: [3492, 178, 225],       // landmark
-  drownedbell: [4716, -665, 225],     // megastructure
+  drownedbell: [4696, -665, 225],     // megastructure
   whaleroad: [5255, -543, 225],       // sea
   // The Ashen Throne
   cinderport: [6608, -254, 255],      // town
-  outerworks: [5859, -436, 255],      // landmark
+  outerworks: [5874, -376, 255],      // landmark
   ashengate: [5982, 178, 255],        // megastructure
   throneofash: [7372, -168, 255],     // dungeon
   glassslopes: [6049, -1223, 255],    // wild
   cindercut: [6966, -254, 255],       // mine
-  steamingshore: [6750, -952, 255],   // landmark
+  steamingshore: [6825, -857, 255],   // landmark
   lavafalls: [7379, -683, 255],       // landmark
   slagcamps: [7314, -1223, 255],      // camp
-  obsidianbridge: [7059, 411, 255],   // landmark
-  heartcages: [6319, 722, 255],       // landmark
+  // Moved 242 m by V1: the arch stood on ground cut off from the rest of the
+  // crater by water, so nobody could ever have walked onto it.
+  obsidianbridge: [6909, 601, 255],   // landmark
+  heartcages: [6344, 722, 255],       // landmark
 };
 
 // The engine site kinds each place kind becomes. A place of a kind not in here
 // is a region and nothing else: it has a subzone, a name and a line, and no
 // building stands in it.
+//
+// `megastructure` and `landmark` are here because V1 gave them bodies: a
+// megalith you can see from a kilometre at every megastructure place, and a
+// body of its own kind at every landmark (a mill at the Mill Run, a cairn at
+// Ninefall, a well, a pool, an anvil). `site_models.buildSiteMarker` hands both
+// kinds to `megalith_models.buildMegalith`.
 const SITE_KIND = {
   hub: 'town', town: 'town', hamlet: 'hamlet', dungeon: 'dungeon',
   mine: 'mine', cave: 'cave', ruin: 'ruin', shrine: 'shrine', camp: 'camp',
+  megastructure: 'megastructure', landmark: 'landmark',
 };
 
-// A place that is not of a building kind in the sheet and has a building
-// anyway. The Red Queen's Harbour is written down as a mega structure because
-// it is one, a pirate city across a dozen islets; it is also the only town on
-// the isles, so it is a town here.
+// A place whose sheet kind is not the kind it is built as. The Red Queen's
+// Harbour is written down as a mega structure because it is one, a pirate city
+// across a dozen islets; it is also the only town on the isles, so it is a town
+// here, and this table is consulted FIRST for that reason. It is why the
+// Saltmarch has no megalith and the Sunken Kingdom has two.
 const EXTRA_SITE = { redqueensharbour: 'town' };
 
 /**
@@ -521,6 +605,99 @@ const MINE_ORE = {
   cindercut: ['emberite', 'voidrock', 'starfall'],
 };
 
+/**
+ * The pad a named place lays, where the kind's own default is the wrong number.
+ *
+ * Most of the twenty seven megaliths and landmarks V1 built stand on the ground
+ * as they found it and lay no pad at all: a bridge, a shelf, a mirage, a ring
+ * of stones, a tower rising out of the sea. A pad of 0 means field.js does not
+ * touch a metre of ground under them, which is what lets the Standing Hedge
+ * stand inside the heart without moving it.
+ *
+ * A pad must fit inside its own site cell, because `field.sampleAt` asks the
+ * point's own cell and nothing else (the one exception is the seven town
+ * precincts, which field.js carries a short list of). Several of these places
+ * stand near a cell border, so the numbers below are not a matter of taste:
+ * `zones.test.mjs` measures every pad against the distance to its cell's edge.
+ */
+const SITE_FLAT_R = {
+  // the megaliths
+  waystones: 0,          // the Standing Hedge: nine stones on natural ground
+  templeoffaces: 0,      // a cliff carved with faces; the cliff is the ground
+  brasscity: 8,          // the yard the walking city kneels in
+  eyrie: 12,             // the landing at the top of the plateau steps
+  skulllodge: 10,
+  ribcathedral: 12,
+  icevault: 10,
+  coliseum: 0,           // tiers standing in the sea off the reef
+  drownedbell: 0,        // a tower rising out of the water
+  ashengate: 14,         // the road under the gate, on the crater rim
+  // the landmarks
+  millrun: 8,            // the mill yard on the river bank
+  hanginggardens: 0,
+  moonpool: 6,
+  miragepalace: 0,
+  skybridge: 0,
+  stormanvil: 6,
+  ninefall: 0,
+  aurorashelf: 0,
+  hotsprings: 8,
+  reefstair: 0,
+  theglow: 0,
+  airgardens: 0,
+  outerworks: 10,
+  steamingshore: 0,
+  lavafalls: 0,
+  obsidianbridge: 0,
+  heartcages: 8,
+};
+
+/**
+ * How far a place's BODY reaches from its own centre, where that is further
+ * than the site marker system would keep it alive on the strength of the pad.
+ *
+ * Two of the twenty seven V1 built are wider than the ring of chunks the world
+ * streams: the Standing Hedge is a ring of stones a mile across, which is the
+ * sheet's own measurement, and the Obsidian Bridge is an arch two hundred
+ * metres long. A player standing between two stones of the hedge is 805 m from
+ * the site's centre and would see nothing at all.
+ *
+ * `authoredSites()` puts this on the row as `bodyR`, `megalith_models` builds
+ * to exactly it, and `megalith_models.test.mjs` proves the two agree. The one
+ * line in `sites.sitesNear` that makes a marker live that far out is quoted in
+ * `docs/mmo/wiring/V1.md`; until it lands, both bodies still build, they simply
+ * come and go with their centres.
+ */
+export const BODY_R = Object.freeze({ waystones: 811, obsidianbridge: 107 });
+
+/**
+ * The places that stand IN the water on purpose, and the only ones allowed to.
+ *
+ * The Sunken Kingdom is a drowned city under eighteen metres of the Caldera
+ * Sea. Four of its places are written down as being on the sea floor or rising
+ * out of it, and a rule that every authored site stands on dry ground would
+ * either throw them out or drag them onto a reef where the sheet does not put
+ * them. So they are named here, once, and `zones.test.mjs` drives the rule both
+ * ways: these four are wet, and every other authored site in the world is not.
+ */
+export const STANDS_IN_WATER = Object.freeze(['coliseum', 'theglow', 'airgardens', 'drownedbell']);
+
+/**
+ * Whether the heart will have this site standing in it.
+ *
+ * The rule is the PAD and not the distance. A pad levels the ground under it,
+ * and the ground under a save may not move; a site with `flatR` 0 lays nothing
+ * down at all (field.js does not run the pad code for one), so it is a name and
+ * a body on the hillside the seed made. The Standing Hedge is the one that
+ * needs this, and it needs it because the sheet has always had the ring of
+ * boundary stones in the Greenwold, 836 m from the origin.
+ *
+ * A pure predicate on purpose: `authoredSites()` is built once and frozen, so
+ * `zones.test.mjs` drives this both ways here rather than by editing the table
+ * under the audit.
+ */
+export const heartAllows = (site) => Math.hypot(site.x, site.z) >= HEART_SAFE || !(site.flatR > 0);
+
 /** A biome override needs at least this much of its REALM's weight. */
 export const BIOME_OVERRIDE_W = 0.5;
 
@@ -537,6 +714,8 @@ function buildZones() {
       x: realm.x, z: realm.z, r: realm.r, edge: st.edge,
       parent: null, ring: realm.ring, kind: 'realm',
       biome: st.biome, climate: st.climate,
+      // the shape the realm insists on, or null. field.js is the only reader.
+      relief: REALM_RELIEF[realm.id] || null,
       danger: band(realm.danger[0], realm.danger[1]),
       ore: st.ore,
       sites: [],
@@ -555,18 +734,19 @@ function buildZones() {
       parent: parent.id, ring: parent.ring, kind: pl.kind,
       // A subzone carries no bias of its own, ever. `zoneBias` resolves both of
       // these up the chain, so a subzone cannot punch a hole in its realm.
-      biome: null, climate: null,
+      // Relief belongs to the realm for the same reason.
+      biome: null, climate: null, relief: null,
       danger: parent.danger, ore: parent.ore,
       sites: [],
       line: pl.geography,
     });
-    const siteKind = SITE_KIND[pl.kind] || EXTRA_SITE[pl.id];
+    const siteKind = EXTRA_SITE[pl.id] || SITE_KIND[pl.kind];
     if (!siteKind) continue;
     parent.sites.push({
       place: pl.id, kind: siteKind, name: pl.name, x, z,
       // undefined here means "whatever FLAT_R says for this kind"; that table
       // is declared below and authoredSites() is the one that resolves it
-      flatR: PRECINCT.has(pl.id) ? TOWN_PRECINCT_R : undefined,
+      flatR: PRECINCT.has(pl.id) ? TOWN_PRECINCT_R : SITE_FLAT_R[pl.id],
       ore: pl.kind === 'mine' ? band(...(MINE_ORE[pl.id] || parent.ore)) : null,
       levels: pl.levels || null,
       line: pl.geography,
@@ -583,6 +763,29 @@ export const ZONE_COUNT = ZONES.length;
 export const REALM_ZONES = ZONES.filter((z) => !z.parent);
 /** Every subzone, in the sheet's order. */
 export const SUB_ZONES = ZONES.filter((z) => z.parent);
+
+/**
+ * The realms that reshape their own ground. `field.js` walks this and nothing
+ * else, so a world with no relief pays for one empty loop.
+ */
+export const RELIEF_ZONES = REALM_ZONES.filter((z) => z.relief);
+
+/** How much relief is allowed here: 0 inside the heart, 1 outside HEART_FADE. */
+export const HEART_FADE = 400;
+/**
+ * The heart's own guard, and the only reason it can be stated in one line:
+ * whatever a realm asks for, it is multiplied by this, and this is exactly zero
+ * for every point a save could be standing on. The five realms that carry
+ * relief start 1688 m from the origin, so this never even fires; it is here so
+ * that a realm moved tomorrow cannot move the ground under a character.
+ */
+export function heartFade(x, z) {
+  const d2 = x * x + z * z;
+  if (d2 <= HEART_SAFE * HEART_SAFE) return 0;
+  const reach = HEART_SAFE + HEART_FADE;
+  if (d2 >= reach * reach) return 1;
+  return smoothstep(HEART_SAFE, reach, Math.sqrt(d2));
+}
 
 const CHILDREN = new Map(REALM_ZONES.map((z) => [z.id, []]));
 for (const z of SUB_ZONES) CHILDREN.get(z.parent).push(z);
@@ -729,11 +932,12 @@ export function authoredSites() {
         kind: s.kind,
         name: s.name,
         x: s.x, z: s.z,
-        article: ARTICLE[s.kind] || 'a place',
+        article: articleFor(s.kind),
         flatR: s.flatR ?? FLAT_R[s.kind] ?? 14,
         oreBand: s.ore || zn.ore,
         levels: s.levels || null,
         line: s.line || null,
+        bodyR: BODY_R[s.place] || 0,
         authored: true,
       }));
     }
@@ -770,7 +974,39 @@ export const ARTICLE = {
   hamlet: 'a hamlet', town: 'a town', ruin: 'a ruin',
   shrine: 'a wayside shrine', dungeon: 'a dungeon mouth',
   cave: 'a cave in the hillside', camp: 'a camp, recently left',
+  // V1's two kinds, and A3's eleven wild structures (their articles are the
+  // same words sitegrid.WILD_KINDS carries), so the map's word audit and the
+  // discovery toast read from one table
+  megastructure: 'something you can see from a mile off',
+  landmark: 'a landmark',
+  watchtower: 'a watchtower, a brazier on the top of it',
+  burned_farm: 'a farm that burned, and is burning still',
+  bandit_camp: 'a camp with a fire in it, and men around the fire',
+  graveyard: 'a graveyard, and a chapel with no roof',
+  gate: 'a gate standing on its own',
+  fountain: 'a fountain, and water still in it',
+  tower: 'a stone tower, one window lit',
+  tomb: 'a tomb, and a door in the side of it',
+  castle: 'a keep behind a curtain wall',
+  temple: 'a temple, its braziers burning',
+  arena: 'a ring of stone tiers around a floor of sand',
 };
+
+/**
+ * The two kinds V1 added, waiting in a table of their own.
+ *
+ * `win_map.js` walks the keys of ARTICLE at import and refuses to load unless
+ * every one of them has a colour in SITE_COLOUR and a word in KIND_WORD. That
+ * audit is right and V1 does not own `win_map.js`, so the two new kinds are
+ * announced from here until the map has drawn them. `authoredSites` reads both
+ * tables, so a player is told what they walked up to either way.
+ *
+ * The three lines that merge them are quoted in `docs/mmo/wiring/V1.md`.
+ */
+export const EXTRA_ARTICLE = {};   // merged into ARTICLE once win_map.js drew the two kinds; kept for callers
+
+/** The article for a site kind, whichever of the two tables holds it. */
+export const articleFor = (kind) => ARTICLE[kind] || EXTRA_ARTICLE[kind] || 'a place';
 
 /**
  * Radius of ground a site levels under itself. The seven old kinds keep the
@@ -782,6 +1018,10 @@ export const ARTICLE = {
  */
 export const FLAT_R = {
   mine: 20, hamlet: 26, town: 46, ruin: 14, shrine: 6, dungeon: 10, cave: 12, camp: 7,
+  // A megalith or a landmark that SITE_FLAT_R says nothing about takes these,
+  // which are small on purpose: most of these bodies belong on the ground the
+  // world already made and only a few of them want a yard under them.
+  megastructure: 10, landmark: 6,
 };
 
 /** The widest pad any authored site lays down. field.js reads this. */
@@ -827,7 +1067,7 @@ export function discOverlap(a, b) {
 export function auditZones() {
   const bad = [];
   const seen = new Set(), siteNames = new Set(), names = new Set();
-  const kinds = new Set(Object.keys(ARTICLE));
+  const kinds = new Set([...Object.keys(ARTICLE), ...Object.keys(EXTRA_ARTICLE)]);
 
   if (COAST_MIN >= COAST_INNER * (1 - COAST_WOBBLE)) {
     bad.push(`COAST_MIN ${COAST_MIN} is not under the innermost possible coast ${(COAST_INNER * (1 - COAST_WOBBLE)).toFixed(0)}`);
@@ -939,8 +1179,18 @@ export function auditZones() {
       if (Math.hypot(r.x, r.z) - r.r < HEART_SAFE) bad.push(`the reef ${r.id} reaches inside HEART_SAFE`);
       if (seaWithin(r.x, r.z) < 0.99) bad.push(`the reef ${r.id} does not stand in the deep of the Caldera Sea`);
     }
-    const nearest = Math.min(...authoredSites().map((s) => Math.hypot(s.x, s.z)));
-    if (nearest < HEART_SAFE) bad.push(`an authored site stands ${nearest.toFixed(0)} m from the origin, inside HEART_SAFE ${HEART_SAFE}`);
+    // A PAD inside the heart is what was always forbidden, and still is: a pad
+    // levels the ground under it, and the ground under a save may not move.
+    // A pad-less site (flatR 0) lays nothing down at all. field.js skips the
+    // shaping for it outright, so it is a name and a body standing on the
+    // hillside the seed made, and the Standing Hedge is one: nine stones on a
+    // ring a mile across, in the Greenwold, 836 m from the origin, which is
+    // where the sheet puts them. `field.test.mjs` measures that the ground
+    // under it is the raw ground and that the cell it took was empty.
+    for (const s of authoredSites()) {
+      if (heartAllows(s)) continue;
+      bad.push(`"${s.name}" lays a ${s.flatR} m pad ${Math.hypot(s.x, s.z).toFixed(0)} m from the origin, inside HEART_SAFE ${HEART_SAFE}`);
+    }
   }
 
   // 6. every monster tier and every ore tier occurs somewhere, or the ladder is
@@ -963,11 +1213,27 @@ export function auditZones() {
     if (!mineOre.has(o)) bad.push(`no authored mine carries ${o}, so it can only ever be found underground`);
   }
 
+  // 7. every place named as standing in the water is a real authored site in
+  //    the drowned realm, and it lays no pad, because there is nothing there to
+  //    level. Driven the other way in zones.test.mjs, against the real field.
+  {
+    const byId = Object.fromEntries(authoredSites().map((s) => [s.sub, s]));
+    for (const id of STANDS_IN_WATER) {
+      const s = byId[id];
+      if (!s) { bad.push(`"${id}" is named as standing in the water and is not an authored site`); continue; }
+      if (s.realm !== 'sunkenkingdom') bad.push(`"${s.name}" stands in the water and is not in the Sunken Kingdom`);
+      if (s.flatR > 0) bad.push(`"${s.name}" stands in the water and lays a ${s.flatR} m pad on the sea floor`);
+    }
+  }
+
   if (bad.length) throw new Error(`auditZones: ${bad.length} problem(s)\n  ${bad.join('\n  ')}`);
   const sites = authoredSites();
   return {
     zones: ZONES.length, realms: REALM_ZONES.length, subzones: SUB_ZONES.length,
     sites: sites.length, mines: sites.filter((s) => s.kind === 'mine').length,
+    megaliths: sites.filter((s) => s.kind === 'megastructure').length,
+    landmarks: sites.filter((s) => s.kind === 'landmark').length,
+    relief: RELIEF_ZONES.length,
   };
 }
 
