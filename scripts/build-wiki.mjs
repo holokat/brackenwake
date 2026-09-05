@@ -25,6 +25,7 @@ const S = await import('../src/mmo/stats.js');
 const N = await import('../src/mmo/npcs.js');
 const RC = await import('../src/mmo/recipes.js');
 const ART = await import('../src/game/icon_art.js');
+const W = await import('../src/mmo/realms.js');
 
 // ------------------------------------------------------------------ icons
 function dataUri(rel) {
@@ -113,7 +114,8 @@ const npcs = N.NPC_LIST.map((n) => ({ id: n.id, name: n.name, appearsIn: n.appea
 const recipes = (Array.isArray(RC.RECIPES) ? RC.RECIPES : Object.values(RC.RECIPES)).map((r) => ({ id: r.id, name: r.name, family: r.family, skill: r.skill, difficulty: r.difficulty, materials: r.materials, station: r.station, result: r.result }));
 const forageRecipes = (RC.FORAGE_RECIPES || []).map((r) => ({ id: r.id, name: r.name, skill: r.skill, difficulty: r.difficulty, materials: r.materials, station: r.station, result: r.result }));
 
-const DATA = { abilities, skills, skillGroups: K.SKILL_GROUPS, openings, weapons, tiers, pieces, shields, bases, rarity, materials, affixes, powers, monsters, bosses, habitat, tierBands, rules, npcs, recipes, forageRecipes, icons: { abilities: abilityIcons, items: itemIcons, gems: gemIcons, skills: skillIcons }, built: new Date().toISOString().slice(0, 10) };
+const realms = W.REALMS.map((r) => ({ ...r }));
+const DATA = { realms, abilities, skills, skillGroups: K.SKILL_GROUPS, openings, weapons, tiers, pieces, shields, bases, rarity, materials, affixes, powers, monsters, bosses, habitat, tierBands, rules, npcs, recipes, forageRecipes, icons: { abilities: abilityIcons, items: itemIcons, gems: gemIcons, skills: skillIcons }, built: new Date().toISOString().slice(0, 10) };
 
 const json = JSON.stringify(DATA).replace(/<\/script/g, '<\\/script');
 
@@ -235,6 +237,7 @@ let active = 'overview';
 // --- sections
 const SECTIONS = [
   ['overview', 'Overview', ''],
+  ['world', 'The World', D.realms.length + ' realms, ' + D.realms.reduce((n, r) => n + r.places.length, 0) + ' places'],
   ['classes', 'Classes', D.openings.length],
   ['skills', 'Skills', D.skills.length],
   ['abilities', 'Abilities', D.abilities.length],
@@ -313,6 +316,34 @@ R.overview = () => {
   for (const [id, n, t] of tiles) { const c = document.createElement('div'); c.className = 'card'; c.style.gridTemplateColumns = '1fr'; c.innerHTML = '<div><div class="nm" style="font-size:26px">' + n + '</div><div class="ds">' + esc(t) + '</div></div>'; c.addEventListener('click', () => show(id)); grid.appendChild(c); }
   f.appendChild(grid);
   f.appendChild(el('<h2>How the pieces bear on each other</h2><div class="note">You are what you practise: there are no levels. Every swing, cast and craft rolls a gain in the skill it used, along the bands in Rules. Stats (five, capped at ' + D.rules.stats.caps.statCap + ' each and ' + D.rules.stats.caps.totalCap + ' together) set health, mana, stamina and carry. Weapons train the skill they belong to and decide reach, speed and damage type. Armour tiers trade armour rating against weight, strength and the caster’s mana regeneration, and carry resistances. Rarity is only the number of affixes an item rolls; the affix tables say what those can be. Monsters carry a tier, resistances and weaknesses, and drop from loot tables by their kind. The calculators under Rules let you try the arithmetic.</div>'));
+  return f;
+};
+
+const KIND_WORD = { hub: 'hub', town: 'town', hamlet: 'hamlet', landmark: 'landmark', megastructure: 'mega structure', dungeon: 'dungeon', mine: 'mine', cave: 'cave', ruin: 'ruin', shrine: 'shrine', camp: 'camp', wild: 'open country', sea: 'open water', road: 'road' };
+const KIND_COLOUR = { megastructure: 'var(--gold)', dungeon: 'var(--red)', hub: 'var(--green)', town: 'var(--green)', hamlet: 'var(--green)', mine: 'var(--amber)', camp: 'var(--amber)', sea: 'var(--blue)', wild: 'var(--ink2)' };
+let worldKind = 'all';
+R.world = () => {
+  const total = D.realms.reduce((n, r) => n + r.places.length, 0);
+  const f = el('<h1>The World of Kaldera</h1><p class="lede">' + D.realms.length + ' realms in a ring around the Caldera Sea, ' + total + ' named places inside them. Every realm has a hub, a mega structure you can see from its edge, a dungeon with a boss, a mine, open country and its own encounters. A place with a <b>mechanic</b> is a place with a rule of its own, not a backdrop. This is the sheet the painted map and the zone table are drawn from.</p>');
+  const kinds = ['all', ...Array.from(new Set(D.realms.flatMap((r) => r.places.map((p) => p.kind))))];
+  const chips = document.createElement('div'); chips.className = 'chips';
+  for (const k of kinds) { const b = document.createElement('button'); b.className = 'chip'; b.textContent = k === 'all' ? 'all places' : (KIND_WORD[k] || k); b.setAttribute('aria-pressed', worldKind === k); b.onclick = () => { worldKind = k; render(); }; chips.appendChild(b); }
+  f.appendChild(chips);
+  const ringWord = ['the heart', 'the near ring', 'the middle ring', 'the rim'];
+  for (const r of D.realms) {
+    const places = r.places.filter((p) => (worldKind === 'all' || p.kind === worldKind) && hit(p.name + ' ' + p.geography + ' ' + p.contains + ' ' + (p.mechanic || '') + ' ' + r.name));
+    if (!places.length && filter) continue;
+    f.appendChild(el('<h2>' + esc(r.name) + ' <small style="color:var(--mute);letter-spacing:0;text-transform:none;font-family:\'Cormorant Garamond\',serif;font-size:14px">' + esc(r.biome) + ', ' + ringWord[r.ring] + ', danger ' + r.danger.join(' to ') + ', centre ' + r.x + ', ' + r.z + ' m, ' + (r.r / 1000).toFixed(1) + ' km across</small></h2>'));
+    f.appendChild(el('<div class="note" style="max-width:none"><i>' + esc(r.line) + '</i><br>' + esc(r.geography) + '<br><b>Mega structure:</b> ' + esc(r.mega) + '<br><b>Encounters:</b> ' + r.encounters.map(esc).join('; ') + '</div>'));
+    if (places.length) f.appendChild(table([
+      ['place', (p) => '<b>' + esc(p.name) + '</b>', { html: true }],
+      ['kind', (p) => '<span class="tag" style="color:' + (KIND_COLOUR[p.kind] || 'var(--ink2)') + '">' + esc(KIND_WORD[p.kind] || p.kind) + '</span>' + (p.boss ? '<br><span class="tag">boss: ' + esc(p.boss) + '</span>' : '') + (p.levels ? '<br><span class="tag">' + p.levels + ' level' + (p.levels > 1 ? 's' : '') + '</span>' : ''), { html: true }],
+      ['geography', 'geography'],
+      ['what is there', 'contains'],
+      ['mechanic', (p) => p.mechanic ? '<span style="color:var(--gold)">' + esc(p.mechanic) + '</span>' : '', { html: true }],
+    ], places));
+    else f.appendChild(el('<div class="empty">no places of that kind here</div>'));
+  }
   return f;
 };
 
