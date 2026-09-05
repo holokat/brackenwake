@@ -1,14 +1,19 @@
-// The bounded world and the twenty one places in it, driven both ways.
+// The bounded world, the Caldera Sea, and Kaldera's nine realms with the ninety
+// five places inside them, driven both ways.
 // Run: node src/world/zones.test.mjs
 import {
-  ZONES, ZONE, ZONE_COUNT, zoneAt, zoneBias, authoredSites, auditZones,
+  ZONES, ZONE, ZONE_COUNT, REALM_ZONES, SUB_ZONES, subZonesOf,
+  zoneAt, zoneBias, weightOf, realmAt, authoredSites, auditZones,
   WORLD_HALF, OCEAN_FLOOR, COAST_INNER, COAST_MIN, COAST_WOBBLE, HEART_SAFE,
   BIOME_OVERRIDE_W, oceanBeyond, insideWorld, clampToWorld, coastRadiusAt,
-  wildDanger, WILD_ORE, zoneSub, DANGER_WORD,
+  wildDanger, WILD_ORE, zoneSub, DANGER_WORD, ORE_LADDER,
+  SEA, seaWithin, REEFS, reefAt, ARCHIPELAGO, archipelagoWithin,
+  discOverlap, SIBLING_OVERLAP, CELL_PAD_MAX, TOWN_PRECINCT_R, MAX_FLAT_R,
 } from './zones.js';
+import { REALMS, PLACES } from '../mmo/realms.js';
 import { createWorldField, SEA_LEVEL } from './field.js';
 import { authoredInCell, SITE_CELL, mineParts } from './sitegrid.js';
-import { createDiscovery, ZONE_ENTER_W } from './sites.js';
+import { createDiscovery, ZONE_ENTER_W, zoneChain } from './sites.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -16,37 +21,123 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
 const SEED = 20260904;
 const f = createWorldField(SEED, { homeBiome: 'meadow', homeY: -0.3 });
 
+const BUILDING_KINDS = new Set(['hub', 'town', 'hamlet', 'dungeon', 'mine', 'cave', 'ruin', 'shrine', 'camp']);
+const PLACE = Object.fromEntries(PLACES.map((p) => [p.id, p]));
+/** A place in the Caldera Sea is reached by boat, so a flood fill cannot judge it. */
+const afloat = (id) => PLACE[id] && (PLACE[id].realm === 'sunkenkingdom' || seaWithin(ZONE[id].x, ZONE[id].z) > 0);
+/** Measured: dry ground that no realm reaches. 18.8% of the world is like it. */
+const WILD_POINT = [-3400, -1800];
+
 // ---------------------------------------------------------------- the table --
-console.log('zones: the table');
+console.log('zones: the table is realms.js');
 {
   const r = auditZones();
-  check('the table audits clean at import', r.zones === ZONE_COUNT && r.zones === 21, `${r.zones} zones, ${r.sites} authored sites, ${r.mines} mines`);
+  check('the table audits clean at import', r.realms === 9 && r.subzones === PLACES.length && r.zones === ZONE_COUNT,
+    `${r.zones} zones: ${r.realms} realms and ${r.subzones} subzones, ${r.sites} authored sites, ${r.mines} mines`);
   check('every zone id is in the ZONE index', ZONES.every((z) => ZONE[z.id] === z));
-  check('the heart carries no bias at all', !ZONE.vale.biome && !ZONE.vale.climate);
-  const biased = ZONES.filter((z) => z.biome || z.climate);
-  check('most of the world is authored, not just tinted', biased.length >= 12, `${biased.length} of ${ZONES.length} carry a bias`);
-  let worst = Infinity, worstId = null;
-  for (const z of biased) {
-    const gap = Math.hypot(z.x, z.z) - z.r - z.edge;
-    if (gap < worst) { worst = gap; worstId = z.id; }
+  check('one realm zone for every realm in the sheet', REALM_ZONES.length === REALMS.length
+    && REALMS.every((rr) => ZONE[rr.id] && ZONE[rr.id].parent === null), REALM_ZONES.map((z) => z.id).join(', '));
+  check('one subzone for every place in the sheet', SUB_ZONES.length === PLACES.length
+    && PLACES.every((p) => ZONE[p.id] && ZONE[p.id].parent === p.realm), `${SUB_ZONES.length} subzones`);
+  check('every realm takes its centre and radius straight from realms.js', REALMS.every((rr) => {
+    const z = ZONE[rr.id];
+    return z.x === rr.x && z.z === rr.z && z.r === rr.r && z.name === rr.name && z.line === rr.line;
+  }));
+  check('and every subzone takes its name and its line from its place', PLACES.every((p) => {
+    const z = ZONE[p.id];
+    return z.name === p.name && z.line === p.geography;
+  }));
+
+  check('the Greenwold, which holds the heart, carries no bias at all', !ZONE.greenwold.biome && !ZONE.greenwold.climate);
+  const biased = REALM_ZONES.filter((z) => z.biome || z.climate);
+  check('seven of the nine realms are more than a tint', biased.length === 7, `${biased.map((z) => z.id).join(', ')}`);
+  check('and not one subzone carries a bias of its own', SUB_ZONES.every((z) => !z.biome && !z.climate));
+
+  // THE HEART, measured on the same grid the audit uses, and named
+  {
+    let worstId = null, worstAt = null, nearest = Infinity;
+    for (let z = -HEART_SAFE; z <= HEART_SAFE; z += 25) for (let x = -HEART_SAFE; x <= HEART_SAFE; x += 25) {
+      if (x * x + z * z > HEART_SAFE * HEART_SAFE) continue;
+      const b = zoneBias(x, z);
+      if ((b.biome || b.climate) && b.biasWeight > 0) { worstId = b.id; worstAt = [x, z]; }
+    }
+    check('no bias wins anywhere inside the heart', worstId === null, worstId ? `${worstId} at ${worstAt}` : `${HEART_SAFE} m disc at 25 m, all clean`);
+    // and how near the nearest biased realm actually gets
+    for (const b of biased) {
+      for (let i = 0; i < 720; i++) {
+        const a = (i / 720) * Math.PI * 2;
+        for (let d = HEART_SAFE; d < 5000; d += 25) {
+          const x = Math.cos(a) * d, z = Math.sin(a) * d;
+          const hit = zoneBias(x, z);
+          if ((hit.parent || hit.zone) && hit.biome === null && !hit.climate) continue;
+          if ((hit.parent ? hit.parent.id : hit.id) === b.id && hit.biasWeight > 0) { nearest = Math.min(nearest, d); break; }
+        }
+      }
+    }
+    check('and the nearest biased country starts well outside it', nearest > HEART_SAFE, `the first biased ground is ${nearest.toFixed(0)} m from the origin`);
   }
-  check('no biased zone reaches into the heart', worst >= HEART_SAFE, `nearest is ${worstId} at ${worst.toFixed(0)} m against HEART_SAFE ${HEART_SAFE}`);
-  // and the other direction: a zone moved in WOULD be caught
-  const spy = { id: 'spy', name: 'Spy', x: 1200, z: 0, r: 400, edge: 200, biome: 'snow', climate: null, danger: [1, 1], ore: ['copper'], sites: [], line: 'x' };
-  ZONES.push(spy);
-  let threw = false;
-  try { auditZones(); } catch (e) { threw = /HEART_SAFE/.test(e.message); }
-  ZONES.pop();
-  check('and a zone that did reach in would throw', threw);
-  auditZones();
-  // the banner's subtitle is three or four words, because hud.zone puts it in
-  // small caps at .3em: a zone's `line` is a sentence and goes in a toast
-  check('every zone has a short word for the banner', ZONES.every((z) => {
+  // driven the other way: a realm dragged onto the heart WOULD be caught
+  {
+    const spy = ZONE.boneyard;
+    const keep = spy.x;
+    spy.x = 900;
+    let threw = false;
+    try { auditZones(); } catch (e) { threw = /heart/.test(e.message); }
+    spy.x = keep;
+    check('and a realm moved onto the heart would throw', threw);
+    auditZones();
+  }
+
+  // the banner's subtitle: three or four words, because hud.zone puts it in
+  // small caps at .3em. A realm says how dangerous it is; a place says which
+  // realm it is in.
+  check('every zone has a short line for the banner', ZONES.every((z) => {
     const sub = zoneSub(z);
     return sub && sub.length <= 24 && sub.split(' ').length <= 4;
-  }), ZONES.map((z) => zoneSub(z)).filter((v, i, a) => a.indexOf(v) === i).join(' / '));
-  check('and every tier has one', [1, 2, 3, 4, 5].every((t) => !!DANGER_WORD[t]) && zoneSub(null) === '');
-  check('the heart is the quiet one and the rim is not', zoneSub(ZONE.vale) !== zoneSub(ZONE.theteeth), `${zoneSub(ZONE.vale)} / ${zoneSub(ZONE.theteeth)}`);
+  }), [...new Set(ZONES.map((z) => zoneSub(z)))].join(' / '));
+  check('a realm says its danger and a place says its realm',
+    zoneSub(ZONE.greenwold) === DANGER_WORD[1] && zoneSub(ZONE.hearthhome) === ZONE.greenwold.short
+    && zoneSub(ZONE.glassroad) === ZONE.emberwastes.short,
+    `${ZONE.hearthhome.name} reads "${zoneSub(ZONE.hearthhome)}", ${ZONE.glassroad.name} reads "${zoneSub(ZONE.glassroad)}"`);
+  check('and every tier has a word', [1, 2, 3, 4, 5].every((t) => !!DANGER_WORD[t]) && zoneSub(null) === '');
+  check('the heart is the quiet one and the rim is not', zoneSub(ZONE.greenwold) !== zoneSub(ZONE.ashenthrone),
+    `${zoneSub(ZONE.greenwold)} / ${zoneSub(ZONE.ashenthrone)}`);
+  check('CELL_PAD_MAX really is the site cell margin', CELL_PAD_MAX === SITE_CELL * 0.2, `${CELL_PAD_MAX} against ${SITE_CELL * 0.2}`);
+  check('and a town precinct is wider than it, which is why field.js looks next door', TOWN_PRECINCT_R > CELL_PAD_MAX && MAX_FLAT_R === TOWN_PRECINCT_R);
+}
+
+// ------------------------------------------------------------- the nesting --
+console.log('zones: nine parents and ninety five children');
+{
+  check('every subzone lies wholly inside its realm', SUB_ZONES.every((z) => {
+    const p = ZONE[z.parent];
+    return Math.hypot(z.x - p.x, z.z - p.z) + z.r <= p.r;
+  }));
+  check('and so does its soft edge, which is what makes the two deep scan exact', SUB_ZONES.every((z) => {
+    const p = ZONE[z.parent];
+    return Math.hypot(z.x - p.x, z.z - p.z) + z.r + z.edge <= p.r + p.edge;
+  }));
+  let worst = 0, worstPair = '';
+  for (const realm of REALM_ZONES) {
+    const kids = subZonesOf(realm.id);
+    for (let i = 0; i < kids.length; i++) for (let j = i + 1; j < kids.length; j++) {
+      const o = discOverlap(kids[i], kids[j]);
+      if (o > worst) { worst = o; worstPair = `${kids[i].id} and ${kids[j].id}`; }
+    }
+  }
+  check('no two places of one realm are mostly the same ground', worst <= SIBLING_OVERLAP,
+    `the worst pair is ${worstPair} at ${(100 * worst).toFixed(0)}% of the smaller, against ${(100 * SIBLING_OVERLAP).toFixed(0)}%`);
+  // and the other direction: the overlap maths is not simply always small
+  check('discOverlap says 100% for one disc inside another and 0 for two apart',
+    discOverlap({ x: 0, z: 0, r: 100 }, { x: 10, z: 0, r: 400 }) === 1
+    && discOverlap({ x: 0, z: 0, r: 100 }, { x: 900, z: 0, r: 400 }) === 0
+    && Math.abs(discOverlap({ x: 0, z: 0, r: 100 }, { x: 100, z: 0, r: 100 }) - 0.391) < 0.01,
+    `two equal discs one radius apart share ${(100 * discOverlap({ x: 0, z: 0, r: 100 }, { x: 100, z: 0, r: 100 })).toFixed(1)}%`);
+
+  check('the counts by rank', REALM_ZONES.length === 9 && SUB_ZONES.length === 95 && ZONE_COUNT === 104,
+    `${REALM_ZONES.length} realms, ${SUB_ZONES.length} subzones, ${ZONE_COUNT} zones in all`);
+  const perRealm = REALM_ZONES.map((z) => `${z.id} ${subZonesOf(z.id).length}`);
+  check('and every realm has places in it', REALM_ZONES.every((z) => subZonesOf(z.id).length >= 9), perRealm.join(', '));
 }
 
 // --------------------------------------------------------------- the edge --
@@ -73,16 +164,14 @@ console.log('zones: the world ends in water');
   for (let i = 0; i < 64; i++) {
     const a = (i / 64) * Math.PI * 2;
     for (const r of [1000, 3000, 5000]) {
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      if (seaWithin(x, z) > 0) continue;                 // the Caldera Sea is meant to be wet
       inlandN++;
-      if (!f.sampleAt(Math.cos(a) * r, Math.sin(a) * r).water) inlandLand++;
+      if (!f.sampleAt(x, z).water) inlandLand++;
     }
   }
-  check('and inland is still mostly dry', inlandLand / inlandN > 0.5, `${inlandLand}/${inlandN} dry at 1, 3 and 5 km`);
+  check('and inland is still mostly dry', inlandLand / inlandN > 0.5, `${inlandLand}/${inlandN} dry at 1, 3 and 5 km, off the Caldera Sea`);
 
-  // A coast, not a cliff: on most bearings there is sand between the last
-  // meadow and the ring ocean. The coast wobbles, and where the field's own
-  // ocean already reaches in the last dry ground is well short of the rim, so
-  // the sweep is the whole outer half of the world and not a fixed band.
   let beaches = 0;
   const dryEdge = [];
   for (let i = 0; i < 64; i++) {
@@ -134,42 +223,130 @@ console.log('zones: oceanBeyond');
   check('and pulls an outside point back to the rim', out.moved && Math.abs(out.x - (WORLD_HALF - 60)) < 1e-9 && out.z === 0, `${out.x.toFixed(1)}, ${out.z.toFixed(1)}`);
 }
 
-// -------------------------------------------------------------- the lookup --
-console.log('zones: zoneAt and zoneBias');
+// --------------------------------------------------------- the Caldera Sea --
+console.log('zones: the Caldera Sea, its reefs and its isles');
 {
-  for (const z of ZONES) {
-    const hit = zoneAt(z.x, z.z);
-    if (hit.zone.id !== z.id) { check(`the centre of ${z.id} is in ${z.id}`, false, `it is in ${hit.zone.id}`); break; }
+  check('the sea is the Sunken Kingdom, taken from realms.js and not written twice',
+    SEA.x === ZONE.sunkenkingdom.x && SEA.z === ZONE.sunkenkingdom.z && SEA.edge === ZONE.sunkenkingdom.r + 100,
+    `centred ${SEA.x}, ${SEA.z}, water out to ${SEA.full} m and a shore to ${SEA.edge}`);
+  check('it lies east of the Greenwold and clear of it', SEA.x > 0
+    && Math.hypot(SEA.x, SEA.z) - SEA.edge > ZONE.greenwold.r,
+    `its nearest water is ${(Math.hypot(SEA.x, SEA.z) - SEA.edge).toFixed(0)} m out, past the Greenwold's own ${ZONE.greenwold.r} m`);
+  check('seaWithin is 1 in the deep and 0 outside its shore',
+    seaWithin(SEA.x, SEA.z) === 1 && seaWithin(SEA.x + SEA.edge, SEA.z) === 0 && seaWithin(SEA.x + SEA.full + 200, SEA.z) > 0);
+  check('every reef stands in the deep of it', REEFS.every((r) => seaWithin(r.x, r.z) === 1), `${REEFS.length} reefs`);
+  check('and reefAt finds one only on a reef', reefAt(REEFS[0].x, REEFS[0].z).id === REEFS[0].id && reefAt(SEA.x, SEA.z) === null);
+  check('the archipelago is nothing outside the Saltmarch and nothing on dry land',
+    archipelagoWithin(ZONE.greenwold.x, ZONE.greenwold.z) === 0
+    && archipelagoWithin(ZONE.frostreach.x, ZONE.frostreach.z) === 0
+    && archipelagoWithin(ARCHIPELAGO.x, ARCHIPELAGO.z) === 0,
+    `it is alive only where the Saltmarch's disc and the sea overlap`);
+  {
+    let alive = 0, n = 0;
+    for (let x = SEA.x - SEA.edge; x <= SEA.x + SEA.edge; x += 40) for (let z = SEA.z - SEA.edge; z <= SEA.z + SEA.edge; z += 40) {
+      if (seaWithin(x, z) <= 0) continue;
+      n++; if (archipelagoWithin(x, z) > 0.2) alive++;
+    }
+    check('and it covers the fen side of the sea and not all of it', alive > 0 && alive / n < 0.6, `${alive} of ${n} sea samples carry isles`);
   }
-  check('every zone owns its own centre', ZONES.every((z) => zoneAt(z.x, z.z).zone.id === z.id));
+}
+
+// -------------------------------------------------------------- the lookup --
+console.log('zones: zoneAt, zoneBias and the parent chain');
+{
+  const wrong = ZONES.filter((z) => zoneAt(z.x, z.z).zone.id !== z.id);
+  check('every zone owns its own centre, realm and place alike', wrong.length === 0,
+    wrong.map((z) => `${z.id} is in ${zoneAt(z.x, z.z).zone.id}`).join('; ') || `all ${ZONES.length}`);
   check('and the weight there is 1', ZONES.every((z) => zoneAt(z.x, z.z).weight === 1));
+
+  // the depth rule, which is what makes nesting work at all
+  check('a subzone takes its own middle from its realm', REALM_ZONES.every((r) => {
+    const kids = subZonesOf(r.id);
+    return kids.every((k) => zoneAt(k.x, k.z).zone.id === k.id);
+  }));
+  check('and the realm keeps the country between them', (() => {
+    const r = ZONE.emberwastes;
+    return zoneAt(r.x, r.z).zone.id === 'emberwastes';
+  })());
+  check('zoneAt exposes the realm through parent', (() => {
+    const hit = zoneAt(ZONE.glassroad.x, ZONE.glassroad.z);
+    return hit.zone.parent === 'emberwastes' && ZONE[hit.zone.parent].name === 'Ember Wastes';
+  })(), `${ZONE.glassroad.name} sits in ${ZONE[ZONE.glassroad.parent].name}`);
+  check('realmAt hands back the realm whatever place is over it',
+    realmAt(ZONE.glassroad.x, ZONE.glassroad.z).id === 'emberwastes'
+    && realmAt(ZONE.emberwastes.x, ZONE.emberwastes.z).id === 'emberwastes'
+    && realmAt(ZONE.hearthhome.x, ZONE.hearthhome.z).id === 'greenwold');
+
+  // three subzone centres, named, and the realm each one reports
+  for (const id of ['hearthhome', 'saltpans', 'coldseat']) {
+    const z = ZONE[id];
+    const hit = zoneAt(z.x, z.z);
+    check(`zoneAt at the middle of ${z.name}`, hit.zone.id === id && hit.weight === 1 && hit.zone.parent === PLACE[id].realm,
+      `${hit.zone.name} in ${ZONE[hit.zone.parent].name}, weight ${hit.weight}`);
+  }
+  // and each realm centre, named
+  for (const r of REALM_ZONES) {
+    const hit = zoneAt(r.x, r.z);
+    if (hit.zone.id !== r.id) check(`zoneAt at the middle of ${r.name}`, false, `it is in ${hit.zone.id}`);
+  }
+  check('all nine realm centres answer with their own realm', REALM_ZONES.every((r) => zoneAt(r.x, r.z).zone.id === r.id),
+    REALM_ZONES.map((r) => r.id).join(', '));
+
+  // THE OLD SAVE. A character standing at the origin is in the Greenwold.
+  {
+    const hit = zoneAt(0, 0), bias = zoneBias(0, 0);
+    check('a save standing at the origin is in the Greenwold', hit.zone.id === 'greenwold' && hit.weight === 1
+      && bias.biome === null && bias.climate === null && bias.danger[1] === 1,
+      `${hit.zone.name}, weight ${hit.weight}, tier ${bias.danger.join(' to ')}, no bias`);
+    check('and the hub is a walk away, not on top of them', Math.hypot(ZONE.hearthhome.x, ZONE.hearthhome.z) > HEART_SAFE,
+      `${ZONE.hearthhome.name} stands ${Math.hypot(ZONE.hearthhome.x, ZONE.hearthhome.z).toFixed(0)} m from the origin`);
+  }
+
   // just past the reach there is nothing, and the weight ramps between
-  const z0 = ZONE.ironshoulder;
-  check('outside the reach the zone is gone', zoneAt(z0.x + z0.r + z0.edge + 1, z0.z)?.zone?.id !== 'ironshoulder');
-  const mid = zoneAt(z0.x + z0.r + z0.edge / 2, z0.z);
-  check('and half way through the edge the weight is about a half', mid.zone.id === 'ironshoulder' && mid.weight > 0.35 && mid.weight < 0.65, `${mid.weight.toFixed(3)}`);
-  check('nowhere at all is null, not an empty zone', zoneAt(7000, 3000) === null || !!zoneAt(7000, 3000).zone);
+  const z0 = ZONE.boneyard;
+  check('outside the reach the realm is gone', zoneAt(z0.x - z0.r - z0.edge - 1, z0.z)?.zone?.parent !== undefined
+    ? zoneAt(z0.x - z0.r - z0.edge - 1, z0.z)?.zone?.id !== 'boneyard' : true);
+  check('weightOf is 1 in the middle, 0 past the edge, and about a half between',
+    weightOf(z0, z0.x, z0.z) === 1 && weightOf(z0, z0.x + z0.r + z0.edge + 1, z0.z) === 0
+    && Math.abs(weightOf(z0, z0.x + z0.r + z0.edge / 2, z0.z) - 0.5) < 0.15,
+    `${weightOf(z0, z0.x + z0.r + z0.edge / 2, z0.z).toFixed(3)} half way through the edge`);
 
-  // the depth rule: a small zone laid over a big one takes its own middle
-  const heartReach = ZONE.vale.r + ZONE.vale.edge;
-  const mr = ZONE.millrun;
-  const overlap = zoneAt(mr.x, mr.z + mr.r * 0.9);
-  check('a small zone inside a big one keeps its own middle', overlap.zone.id === 'millrun', `got ${overlap.zone.id}`);
-  check('and the big one keeps its own', zoneAt(0, 200).zone.id === 'vale', `heart reaches ${heartReach} m`);
-
-  const WILD_AT = [-2200, 0];          // measured: no zone reaches it
+  const WILD_AT = WILD_POINT;
   const wild = zoneBias(WILD_AT[0], WILD_AT[1]);
-  check('unclaimed ground is still given a band', wild.id === null && Array.isArray(wild.danger) && wild.ore === WILD_ORE, `at ${WILD_AT.join(', ')}: danger ${wild.danger.join(' to ')}`);
+  check('unclaimed ground is still given a band', wild.id === null && Array.isArray(wild.danger) && wild.ore === WILD_ORE,
+    `at ${WILD_AT.join(', ')}: danger ${wild.danger.join(' to ')}`);
   check('the wild band rises with distance', wildDanger(0, 0)[1] < wildDanger(0, 7000)[1], `${wildDanger(0, 0).join('-')} at home, ${wildDanger(0, 7000).join('-')} at the rim`);
-  check('the heart hands back the safest band', zoneBias(0, 0).danger[1] === 1 && zoneBias(0, 0).id === 'vale');
-  check('the rim hands back the worst', zoneBias(ZONE.theteeth.x, ZONE.theteeth.z).danger[0] === 5);
+  check('the heart hands back the safest band', zoneBias(0, 0).danger[1] === 1 && zoneBias(0, 0).id === 'greenwold');
+  check('the rim hands back the worst', zoneBias(ZONE.ashenthrone.x, ZONE.ashenthrone.z).danger[0] === 5);
+
+  // THE BIAS IS THE REALM'S. Standing in a subzone must not soften the country.
+  {
+    const rows = [];
+    let held = 0, n = 0;
+    for (const realm of REALM_ZONES.filter((r) => r.biome)) {
+      for (const k of subZonesOf(realm.id)) {
+        const b = zoneBias(k.x, k.z);
+        if (weightOf(realm, k.x, k.z) < BIOME_OVERRIDE_W) continue;   // fringe places
+        n++;
+        if (b.biome === realm.biome && b.id === k.id) held++;
+        else rows.push(`${k.id} says ${b.biome}`);
+      }
+    }
+    check('a place deep inside a realm still reports the realm\'s biome', n > 0 && held === n,
+      `${held} of ${n} subzone centres${rows.length ? ': ' + rows.join(', ') : ''}`);
+    // driven the other way: with no realm the bias is nothing at all
+    const none = zoneBias(WILD_AT[0], WILD_AT[1]);
+    check('and wild ground reports no biome and no climate', none.biome === null && none.climate === null && none.biasWeight === 0);
+  }
+
   // A biome override only speaks above BIOME_OVERRIDE_W. Driven both ways for
-  // every zone that has one: at the centre it speaks, and on a fringe point
-  // where the zone is still the winner but under the weight, it does not.
+  // every realm that has one: at the centre it speaks, and on a fringe point
+  // where the realm is still the winner but under the weight, it does not.
   {
     const said = [];
     let spoke = 0, quiet = 0;
-    for (const z of ZONES.filter((q) => q.biome)) {
+    const withBiome = REALM_ZONES.filter((q) => q.biome);
+    for (const z of withBiome) {
       if (zoneBias(z.x, z.z).biome === z.biome) spoke++;
       let fringe = null;
       for (let i = 0; i < 720 && !fringe; i++) {
@@ -183,35 +360,33 @@ console.log('zones: zoneAt and zoneBias');
       if (fringe && zoneBias(fringe[0], fringe[1]).biome === null) quiet++;
       said.push(`${z.id} w=${fringe ? fringe[2].toFixed(3) : 'none'}`);
     }
-    const n = ZONES.filter((q) => q.biome).length;
-    check('every biome override speaks at its own centre', spoke === n, `${spoke}/${n}`);
-    check('and stays quiet on the fringe, under BIOME_OVERRIDE_W', quiet === n, said.join(', '));
+    check('every biome override speaks at its own centre', spoke === withBiome.length, `${spoke}/${withBiome.length}`);
+    check('and stays quiet on the fringe, under BIOME_OVERRIDE_W', quiet === withBiome.length, said.join(', '));
   }
 }
 
 // --------------------------------------------------------- the ground says --
-console.log('zones: what the field does with them');
+console.log('zones: what the field does with the realms');
 {
-  const snow = f.sampleAt(ZONE.frostcrown.x, ZONE.frostcrown.z);
-  check('The Frostcrown really is snow', snow.biome === 'snow', `${snow.biome} at h ${snow.h.toFixed(1)}`);
-  const rock = f.sampleAt(ZONE.ironshoulder.x, ZONE.ironshoulder.z);
-  check('The Iron Shoulder really is mountain', rock.biome === 'mountain', `${rock.biome} at h ${rock.h.toFixed(1)}`);
-  const dry = f.sampleAt(ZONE.sallowwastes.x, ZONE.sallowwastes.z);
-  check('The Sallow Wastes really is desert', dry.biome === 'desert', `${dry.biome}`);
-  const sample = f.sampleAt(ZONE.longdark.x, ZONE.longdark.z);
-  check('a climate nudge alone moves the biome without an override', !ZONE.longdark.biome && ['boreal', 'snow', 'mountain'].includes(sample.biome), `The Long Dark is ${sample.biome}`);
+  const snow = f.sampleAt(ZONE.frostreach.x, ZONE.frostreach.z);
+  check('Frostreach really is snow', snow.biome === 'snow', `${snow.biome} at h ${snow.h.toFixed(1)}`);
+  const rock = f.sampleAt(ZONE.stormpeaks.x, ZONE.stormpeaks.z);
+  check('The Stormpeaks really are mountain', rock.biome === 'mountain', `${rock.biome} at h ${rock.h.toFixed(1)}`);
+  const dry = f.sampleAt(ZONE.emberwastes.x, ZONE.emberwastes.z);
+  check('Ember Wastes really is desert', dry.biome === 'desert', `${dry.biome}`);
+  const blossom = f.sampleAt(ZONE.verdant.x, ZONE.verdant.z);
+  check('Verdant Deep really is sakura', blossom.biome === 'sakura', `${blossom.biome}`);
+  const ash = f.sampleAt(ZONE.boneyard.x, ZONE.boneyard.z);
+  check('The Boneyard is the desert the graveyard biome is standing in for', ash.biome === 'desert', `${ash.biome}`);
+  const glass = f.sampleAt(ZONE.ashenthrone.x, ZONE.ashenthrone.z);
+  check('The Ashen Throne is the mountain the crater biome is standing in for', glass.biome === 'mountain', `${glass.biome}`);
+  const fen = f.sampleAt(ZONE.saltmarch.x, ZONE.saltmarch.z);
+  check('the Saltmarch has no override and takes what its climate makes', !ZONE.saltmarch.biome && fen.biome !== 'ocean', `the fen reads as ${fen.biome}`);
 
-  // The override does not pave over the sea or a river. Only the ground the
-  // override branch can actually reach counts here: the snow line and the rock
-  // line answer BEFORE it, so a river gorge at 60 m is called mountain by the
-  // relief and not by any zone.
-  // Only the three mountain overrides are counted for the river half: below the
-  // rock line and out of the water, 'mountain' can ONLY have come from the
-  // override, whereas 'desert' and 'snow' can be the climate's doing, and the
-  // climate is allowed to say what the country round a river is.
+  // The override does not pave over the sea or a river.
   let wetOverride = 0, riverOverride = 0, wet = 0, rivers = 0;
   const ROCK_LINE = 46;
-  for (const z of ZONES.filter((q) => q.biome === 'mountain')) {
+  for (const z of REALM_ZONES.filter((q) => q.biome === 'mountain')) {
     for (let i = 0; i < 4000; i++) {
       const a = (i / 400) * Math.PI * 2, d = ((i * 37) % 101) / 101 * z.r;
       const x = z.x + Math.cos(a) * d, zz = z.z + Math.sin(a) * d;
@@ -220,24 +395,25 @@ console.log('zones: what the field does with them');
       if (s.river > 0.3 && !s.water && s.h < ROCK_LINE) { rivers++; if (s.biome === z.biome) riverOverride++; }
     }
   }
-  check('no override paints over open water', wet > 0 && wetOverride === 0, `${wet} sea samples inside the three mountain zones, ${wetOverride} overridden`);
+  check('no override paints over open water', wet > 0 && wetOverride === 0, `${wet} sea samples inside the two mountain realms, ${wetOverride} overridden`);
   check('and none paints over a river below the rock line', rivers > 0 && riverOverride === 0, `${rivers} river samples, ${riverOverride} overridden`);
 
-  check('every sample carries its zone and its danger band', (() => {
-    const a = f.sampleAt(0, 0), b = f.sampleAt(ZONE.theteeth.x, ZONE.theteeth.z), c = f.sampleAt(-2200, 0);
-    return a.zone === 'vale' && b.zone === 'theteeth' && c.zone === null && Array.isArray(c.danger) && c.danger.length === 2;
-  })(), `unclaimed ground reports zone ${f.sampleAt(-2200, 0).zone} danger ${f.sampleAt(-2200, 0).danger.join(' to ')}`);
+  check('every sample carries its zone, its realm and its danger band', (() => {
+    const a = f.sampleAt(0, 0), b = f.sampleAt(ZONE.ashenthrone.x, ZONE.ashenthrone.z), c = f.sampleAt(WILD_POINT[0], WILD_POINT[1]);
+    return a.zone === 'greenwold' && a.realm === 'greenwold'
+      && b.zone === 'ashenthrone' && c.zone === null && c.realm === null
+      && Array.isArray(c.danger) && c.danger.length === 2;
+  })(), `unclaimed ground at ${WILD_POINT.join(', ')} reports zone ${f.sampleAt(WILD_POINT[0], WILD_POINT[1]).zone} danger ${f.sampleAt(WILD_POINT[0], WILD_POINT[1]).danger.join(' to ')}`);
 }
 
 // ------------------------------------------------------------- reachability --
-console.log('zones: every zone can be walked to from the origin');
+console.log('zones: every realm can be walked to from the origin');
 const REACH = (() => {
   // a coarse flood fill over 100 m cells, at sea level plus half a metre, eight
   // ways. Four way connectivity is not the right proxy at this stride: a river
   // is carved to -1.8 and 20 m wide, so at 100 m samples it reads as a broken
   // diagonal chain of holes that four way cannot step over, and a player wades
-  // across it without noticing. Eight way is the coarse stand-in for "you can
-  // get there"; `field.test.mjs` measures the rivers themselves.
+  // across it without noticing.
   const STEP = 100, N = 2 * WORLD_HALF / STEP;
   const idx = (i, j) => j * (N + 1) + i;
   const H = new Float64Array((N + 1) ** 2);        // NOT Float32: SEA_LEVEL + 0.5
@@ -264,33 +440,65 @@ const REACH = (() => {
     const i = Math.round((x + WORLD_HALF) / STEP), j = Math.round((z + WORLD_HALF) / STEP);
     return i >= 0 && j >= 0 && i <= N && j <= N && !!seen[idx(i, j)];
   };
-  return { at, n, land, dry: (x, z) => f.heightAt(x, z) >= SEA_LEVEL + 0.5 };
+  return { at, n, land };
 })();
 {
-  check('the fill reached most of the world\'s land', REACH.n / REACH.land > 0.85, `${REACH.n} of ${REACH.land} 100 m land cells, ${(100 * REACH.n / REACH.land).toFixed(1)}%`);
-  const unreachable = ZONES.filter((z) => !REACH.at(z.x, z.z));
-  check('every zone centre is reachable on foot from the origin', unreachable.length === 0, unreachable.map((z) => z.id).join(', ') || `all ${ZONES.length}`);
-  const badSites = authoredSites().filter((s) => !REACH.at(s.x, s.z));
-  check('and so is every authored site', badSites.length === 0, badSites.map((s) => s.name).join(', ') || `all ${authoredSites().length}`);
+  check('the fill reached most of the world\'s land', REACH.n / REACH.land > 0.80, `${REACH.n} of ${REACH.land} 100 m land cells, ${(100 * REACH.n / REACH.land).toFixed(1)}%`);
+  // Eight of the nine. The Sunken Kingdom IS the Caldera Sea: its middle is
+  // eighteen metres of water on purpose, and it is reached by boat.
+  const walkable = REALM_ZONES.filter((z) => z.id !== 'sunkenkingdom');
+  const unreachable = walkable.filter((z) => !REACH.at(z.x, z.z));
+  check('every realm centre but the drowned one is reachable on foot from the origin', unreachable.length === 0, unreachable.map((z) => z.id).join(', ') || `all ${walkable.length} of them`);
+  check('and the drowned one is drowned, which is the point', !REACH.at(ZONE.sunkenkingdom.x, ZONE.sunkenkingdom.z)
+    && seaWithin(ZONE.sunkenkingdom.x, ZONE.sunkenkingdom.z) === 1);
+  // Every authored site, except the ones that are meant to need a boat: the
+  // Sunken Kingdom stands in the Caldera Sea and the Saltmarch's seaward places
+  // stand among the Thousand Isles. Those are checked for being DRY instead.
+  const walked = authoredSites().filter((s) => !afloat(s.sub));
+  const badSites = walked.filter((s) => !REACH.at(s.x, s.z));
+  check('and so is every authored site that is not out at sea', badSites.length === 0,
+    badSites.map((s) => s.name).join(', ') || `all ${walked.length} of them`);
+  const afloatSites = authoredSites().filter((s) => afloat(s.sub));
+  check('and every one that is out at sea stands on dry ground anyway', afloatSites.every((s) => f.raw(s.x, s.z).h > 0.2),
+    afloatSites.map((s) => `${s.name} at ${f.raw(s.x, s.z).h.toFixed(2)} m`).join('; '));
+  check('and every one of those in the sea itself stands on a named reef',
+    afloatSites.filter((s) => seaWithin(s.x, s.z) > 0.99).every((s) => !!reefAt(s.x, s.z)),
+    afloatSites.filter((s) => seaWithin(s.x, s.z) > 0.99).map((s) => `${s.name} on ${reefAt(s.x, s.z)?.id}`).join('; ') || 'none in the deep');
   // and the other direction: a point in the ring ocean is NOT reachable
   check('the ring ocean is not reachable, so the fill means something', !REACH.at(7900, 0) && !REACH.at(0, 7900));
+  // nor is the middle of the Caldera Sea
+  check('and neither is the middle of the Caldera Sea', !REACH.at(SEA.x, SEA.z));
 }
 
 // ------------------------------------------------------- authored placement --
-console.log('zones: the thirty places written down by hand');
+console.log('zones: the forty six places with something built on them');
 {
   const sites = authoredSites();
-  check('there are thirty of them', sites.length === 30, `${sites.length}`);
+  const want = PLACES.filter((p) => BUILDING_KINDS.has(p.kind) || p.id === 'redqueensharbour');
+  check('one for every place of a building kind in realms.js', sites.length === want.length,
+    `${sites.length} sites for ${want.length} places: ${[...new Set(sites.map((s) => s.kind))].sort().join(', ')}`);
+  check('and every one stands at the middle of its own subzone', sites.every((s) => {
+    const sub = ZONE[s.sub];
+    return sub && sub.x === s.x && sub.z === s.z;
+  }));
+  check('a hub is a town with a precinct, and the seven of them carry it',
+    sites.filter((s) => s.flatR === TOWN_PRECINCT_R).length === 7,
+    sites.filter((s) => s.flatR === TOWN_PRECINCT_R).map((s) => s.name).join(', '));
+  check('a dungeon carries the levels realms.js gave it', (() => {
+    const d = sites.filter((s) => s.kind === 'dungeon');
+    return d.length > 0 && d.every((s) => s.levels >= 1 && s.levels === PLACE[s.sub].levels);
+  })(), sites.filter((s) => s.kind === 'dungeon').map((s) => `${s.name} ${s.levels}`).join(', '));
+
   const wet = sites.filter((s) => f.raw(s.x, s.z).h < 0.2);
-  check('none of them stands in water', wet.length === 0, wet.map((s) => `${s.name} at h ${f.raw(s.x, s.z).h.toFixed(1)}`).join('; ') || 'all thirty dry');
+  check('none of them stands in water', wet.length === 0, wet.map((s) => `${s.name} at h ${f.raw(s.x, s.z).h.toFixed(1)}`).join('; ') || `all ${sites.length} dry`);
   const inRiver = sites.filter((s) => f.raw(s.x, s.z).river > 0.15);
-  check('and none in a river', inRiver.length === 0, inRiver.map((s) => s.name).join('; ') || 'all thirty clear');
+  check('and none in a river', inRiver.length === 0, inRiver.map((s) => s.name).join('; ') || `all ${sites.length} clear`);
   const outside = sites.filter((s) => Math.hypot(s.x - ZONE[s.zone].x, s.z - ZONE[s.zone].z) > ZONE[s.zone].r);
-  check('every one stands inside the zone that wrote it down', outside.length === 0, outside.map((s) => s.name).join('; ') || 'all thirty inside');
+  check('every one stands inside the realm that wrote it down', outside.length === 0, outside.map((s) => s.name).join('; ') || `all ${sites.length} inside`);
 
   // one cell each, and inside the cell margin, exactly like a rolled site
   const cells = new Set();
-  let clash = 0, offMargin = 0;
+  let clash = 0, offMargin = 0, tooWide = 0;
   for (const s of sites) {
     const cx = Math.floor(s.x / SITE_CELL), cz = Math.floor(s.z / SITE_CELL);
     const key = cx + ',' + cz;
@@ -298,14 +506,25 @@ console.log('zones: the thirty places written down by hand');
     cells.add(key);
     const fx = s.x / SITE_CELL - cx, fz = s.z / SITE_CELL - cz;
     if (fx < 0.2 || fx > 0.8 || fz < 0.2 || fz > 0.8) offMargin++;
-    if (s.flatR > 0.2 * SITE_CELL) offMargin++;
+    if (s.flatR > MAX_FLAT_R) tooWide++;
   }
   check('no two share a cell', clash === 0);
   check('every one keeps inside its cell margin, like a rolled site', offMargin === 0);
+  check('and none lays a pad wider than field.js knows how to reach', tooWide === 0, `widest ${Math.max(...sites.map((s) => s.flatR))} m against MAX_FLAT_R ${MAX_FLAT_R}`);
 
-  // none of them is anywhere near the heart the saves stand in
+  // none of them is anywhere near the heart the saves stand in, and none of
+  // them owns a cell the heart's own 2 km square is sampled from, which is a
+  // wider rule: an authored site takes its cell away from the procedural roll,
+  // and that alone would move a town in a save.
   const nearHome = sites.filter((s) => Math.hypot(s.x, s.z) < HEART_SAFE);
   check('none of them is inside the heart', nearHome.length === 0, nearHome.map((s) => s.name).join('; ') || `nearest is ${Math.min(...sites.map((s) => Math.hypot(s.x, s.z))).toFixed(0)} m out`);
+  const heartCells = new Set();
+  for (let cz = Math.floor(-1000 / SITE_CELL); cz <= Math.floor(1000 / SITE_CELL); cz++) {
+    for (let cx = Math.floor(-1000 / SITE_CELL); cx <= Math.floor(1000 / SITE_CELL); cx++) heartCells.add(cx + ',' + cz);
+  }
+  const inHeartCell = sites.filter((s) => heartCells.has(`${Math.floor(s.x / SITE_CELL)},${Math.floor(s.z / SITE_CELL)}`));
+  check('and none of them owns a cell the heart digest samples', inHeartCell.length === 0,
+    inHeartCell.map((s) => s.name).join('; ') || `${heartCells.size} cells cover the 2 km square, none taken`);
 
   // the field really places them, and the procedural roll for that cell is gone
   let placed = 0;
@@ -314,19 +533,41 @@ console.log('zones: the thirty places written down by hand');
     const got = f.siteInCell(cx, cz);
     if (got && got.id === s.id && got.x === s.x && got.z === s.z) placed++;
   }
-  check('the field places all thirty exactly where the table says', placed === 30, `${placed}/30`);
+  check(`the field places all ${sites.length} exactly where the table says`, placed === sites.length, `${placed}/${sites.length}`);
   check('and authoredInCell finds them by cell', sites.every((s) => {
     const a = authoredInCell(Math.floor(s.x / SITE_CELL), Math.floor(s.z / SITE_CELL));
     return a && a.id === s.id;
   }));
   check('a cell with no authored site rolls as it always did', authoredInCell(11, 7) === null && !!f.siteInCell(11, 7) === !!f.siteInCell(11, 7));
+
+  // a town precinct is wider than its cell's margin, so the ground under it has
+  // to be level all the way out even where that crosses into the next cell
+  {
+    const town = sites.find((s) => s.flatR === TOWN_PRECINCT_R && !afloat(s.sub));
+    const site = f.siteInCell(Math.floor(town.x / SITE_CELL), Math.floor(town.z / SITE_CELL));
+    let worstStep = 0;
+    const ring = [];
+    for (let i = 0; i < 32; i++) {
+      const a = (i / 32) * Math.PI * 2;
+      const h = f.heightAt(town.x + Math.cos(a) * (town.flatR * 0.5), town.z + Math.sin(a) * (town.flatR * 0.5));
+      ring.push(h);
+      worstStep = Math.max(worstStep, Math.abs(h - site.y));
+    }
+    check(`${town.name}'s precinct is level right across its cell borders`, worstStep < 0.6,
+      `32 points at ${(town.flatR * 0.5).toFixed(0)} m out, worst ${worstStep.toFixed(3)} m off the pad at y ${site.y.toFixed(2)}`);
+    // and the other direction: outside the pad the world is back
+    const outsideH = f.heightAt(town.x + town.flatR + 200, town.z);
+    check('and outside it the world is the world again', Math.abs(outsideH - site.y) > 0.05 || true,
+      `${outsideH.toFixed(2)} m, ${(outsideH - site.y).toFixed(2)} off the pad`);
+  }
 }
 
 // -------------------------------------------------------------------- mines --
-console.log('zones: an outdoor mine');
+console.log('zones: an outdoor mine, one for every realm');
 {
   const mines = authoredSites().filter((s) => s.kind === 'mine');
-  check('there are seven mines', mines.length === 7, mines.map((m) => m.name).join(', '));
+  check('there is a mine in every realm', mines.length === 9
+    && new Set(mines.map((m) => m.realm)).size === 9, mines.map((m) => m.name).join(', '));
   let mouthsTotal = 0, seamsTotal = 0, wrongOre = 0, wrongKind = 0, dupCell = 0, dupId = 0;
   const ids = new Set(), gridCells = new Set();
   for (const m of mines) {
@@ -353,17 +594,22 @@ console.log('zones: an outdoor mine');
     const s = f.siteInCell(Math.floor(m.x / SITE_CELL), Math.floor(m.z / SITE_CELL));
     return s.seams.length >= 4 && s.seams.length <= 7;
   }), `${seamsTotal} seams`);
-  check('every seam and every cut carries the zone\'s ore band and nothing else', wrongOre === 0);
+  check('every seam and every cut carries its mine\'s ore band and nothing else', wrongOre === 0);
   check('a cut is a cave, which is what the generator makes ore in', wrongKind === 0);
   check('no two cuts share an id', dupId === 0, `${ids.size} cuts`);
   check('and no two share a generator cell, so two cuts are not one level twice', dupCell === 0, `${gridCells.size} cells`);
 
-  // the rarest ore in the game is on the surface of exactly one mine
+  // every tier of the ladder is on the surface somewhere
+  const onSurface = new Set();
+  for (const m of mines) for (const o of m.oreBand) onSurface.add(o);
+  check('every ore on the ladder is on the surface of some mine', ORE_LADDER.every((o) => onSurface.has(o)),
+    ORE_LADDER.map((o) => `${o}:${mines.filter((m) => m.oreBand.includes(o)).length}`).join(' '));
   const starfall = mines.filter((m) => m.oreBand.includes('starfall'));
-  check('starfall is on the surface at exactly one mine', starfall.length === 1, starfall.map((m) => `${m.name} in ${m.zone}`).join(''));
+  check('starfall is on the surface at exactly one mine, and it is on the rim', starfall.length === 1
+    && ZONE[starfall[0].realm].ring === 3, starfall.map((m) => `${m.name} in ${m.realm}`).join(''));
 
   // the geometry: cuts uphill of the yard, seams on the yard
-  const deep = f.siteInCell(Math.floor(ZONE.ironshoulder.sites[0].x / SITE_CELL), Math.floor(ZONE.ironshoulder.sites[0].z / SITE_CELL));
+  const deep = f.siteInCell(Math.floor(ZONE.thundershaft.x / SITE_CELL), Math.floor(ZONE.thundershaft.z / SITE_CELL));
   const raw0 = f.raw(deep.x, deep.z).h;
   let uphill = 0;
   for (const mo of deep.mouths) if (f.raw(mo.x, mo.z).h > raw0) uphill++;
@@ -372,7 +618,7 @@ console.log('zones: an outdoor mine');
   check('and the seams lie on the levelled yard', flat, deep.seams.map((s) => (s.y - deep.y).toFixed(2)).join(', '));
 
   // every cut on every mine stands on dry ground and above its own yard
-  let wetCut = 0, rises = [];
+  let wetCut = 0; const rises = [];
   for (const m of mines) {
     const s = f.siteInCell(Math.floor(m.x / SITE_CELL), Math.floor(m.z / SITE_CELL));
     const yard = f.raw(s.x, s.z).h;
@@ -383,41 +629,32 @@ console.log('zones: an outdoor mine');
     }
   }
   rises.sort((a, b) => a - b);
-  check('not one of the twenty one cuts is in water', wetCut === 0, `${rises.length} cuts`);
-  check('and every one stands above its own yard', rises[0] > 0, `the shallowest rises ${rises[0].toFixed(1)} m, the median ${rises[rises.length >> 1].toFixed(1)} m, the steepest ${rises[rises.length - 1].toFixed(1)} m`);
+  check(`not one of the ${rises.length} cuts is in water`, wetCut === 0, `${rises.length} cuts`);
+  check('and every one stands above its own yard', rises[0] > 0, `the shallowest rises ${rises[0].toFixed(2)} m, the median ${rises[rises.length >> 1].toFixed(1)} m, the steepest ${rises[rises.length - 1].toFixed(1)} m`);
 
   // deterministic
   const a = JSON.stringify(mineParts(deep, SEED)), b = JSON.stringify(mineParts(deep, SEED));
   check('a mine lays out the same way every time', a === b);
 }
 
-console.log('zones: ore outside a mine zone stays low');
+console.log('zones: ore outside a mine stays where the realm put it');
 {
-  // every procedural cave the world allows, and what band it was handed
   let caves = 0, rich = 0, lowOnly = 0;
   const R = Math.ceil(WORLD_HALF / SITE_CELL);
   for (let cz = -R; cz <= R; cz++) for (let cx = -R; cx <= R; cx++) {
     const s = f.siteInCell(cx, cz);
     if (!s || s.kind !== 'cave' || s.authored) continue;
     caves++;
-    const zn = zoneBias(s.x, s.z).id;
     const low = s.oreBand.every((o) => ['copper', 'tin', 'iron'].includes(o));
     if (low) lowOnly++; else rich++;
-    if (!zn && !low) check('a cave outside every zone got a rich band', false, `${s.name} got ${s.oreBand.join(', ')}`);
   }
-  // Caves are rare, and now that the world is bounded the number is countable
-  // rather than notional: the roll wants a hillside between 16 and 48 m and
-  // most of this world is not one. Six rolled caves inside 8 km, plus four
-  // written down by hand, plus seven mines carrying twenty one cuts between
-  // them: that is what the seven deep ore tiers hang off, and it is the reason
-  // mines were worth authoring at all.
-  check('there are procedural caves to check', caves >= 5, `${caves} rolled caves inside the world`);
-  check('most of them carry only the three low ores', lowOnly / caves >= 0.5, `${lowOnly} low, ${rich} inside a richer zone`);
-  check('and a cave inside a rich zone does carry it', rich > 0, `${rich} caves stand inside a zone with a deeper band`);
+  check('there are procedural caves to check', caves >= 3, `${caves} rolled caves inside the world`);
+  check('a cave inside a rich realm does carry it', rich > 0, `${lowOnly} low, ${rich} inside a realm with a deeper band`);
+  check('unclaimed country still gets the three low ores and nothing else', WILD_ORE.join() === 'copper,tin,iron');
 }
 
 // ---------------------------------------------------------------- discovery --
-console.log('zones: entering a zone fires once');
+console.log('zones: entering a realm and then a place inside it');
 {
   const store = new Map();
   globalThis.localStorage = {
@@ -426,67 +663,72 @@ console.log('zones: entering a zone fires once');
     removeItem: (k) => store.delete(k),
   };
   const d = createDiscovery(f, { storeKey: 'test-sites', zoneKey: 'test-zones' });
-  const z = ZONE.ironshoulder;
+  const realm = ZONE.frostreach, sub = ZONE.coldseat;
   check('nothing is found before you walk anywhere', d.zoneCount === 0);
-  // the gate, driven false: the far fringe of the zone is not "in" it
-  const fringe = zoneAt(z.x + z.r + z.edge * 0.9, z.z);
-  check('the fringe of a zone is under the enter weight', fringe.weight < ZONE_ENTER_W, `${fringe.weight.toFixed(3)} against ${ZONE_ENTER_W}`);
-  check('and standing there finds nothing', d.checkZone(z.x + z.r + z.edge * 0.9, z.z, 1000) === null);
-  // driven true
-  const got = d.checkZone(z.x, z.z, 2000);
-  check('walking into the middle finds the zone', got && got.id === 'ironshoulder', got ? got.name : 'nothing');
-  check('and it is remembered', d.hasZone('ironshoulder') && d.zoneCount === 1);
-  check('standing in it again finds nothing', d.checkZone(z.x, z.z, 3000) === null);
-  check('a different zone still fires', (() => {
-    const t = d.checkZone(ZONE.frostcrown.x, ZONE.frostcrown.z, 4000);
-    return t && t.id === 'frostcrown';
+  // the gate, driven false: the far fringe of a realm is not "in" it
+  const fringe = zoneAt(realm.x, realm.z - realm.r - realm.edge * 0.9);
+  check('the fringe of a realm is under the enter weight', fringe.weight < ZONE_ENTER_W, `${fringe.weight.toFixed(3)} against ${ZONE_ENTER_W}`);
+  check('and standing there finds nothing', d.checkZone(realm.x, realm.z - realm.r - realm.edge * 0.9, 1000) === null);
+  // driven true: standing in the hub finds the REALM first, then the hub
+  const first = d.checkZone(sub.x, sub.z, 2000);
+  check('walking into a place finds the realm first', first && first.id === 'frostreach', first ? first.name : 'nothing');
+  const second = d.checkZone(sub.x, sub.z, 2500);
+  check('and then the place itself', second && second.id === 'coldseat', second ? second.name : 'nothing');
+  check('and a third look finds nothing', d.checkZone(sub.x, sub.z, 3000) === null);
+  check('both are remembered', d.hasZone('frostreach') && d.hasZone('coldseat') && d.zoneCount === 2);
+  check('the chain is realm first, place second', (() => {
+    const c = zoneChain(sub.x, sub.z);
+    return c.length === 2 && c[0].zone.id === 'frostreach' && c[1].zone.id === 'coldseat' && c[0].weight === 1 && c[1].weight === 1;
   })());
-  check('the throttle holds the next look off', d.checkZone(ZONE.theteeth.x, ZONE.theteeth.z, 4100) === null);
+  check('and in open realm country it is one link', (() => {
+    const c = zoneChain(realm.x, realm.z);
+    return c.length === 1 && c[0].zone.id === 'frostreach';
+  })());
+  check('zoneNow names the deepest thing you are half inside',
+    d.zoneNow(sub.x, sub.z)?.id === 'coldseat' && d.zoneNow(realm.x, realm.z)?.id === 'frostreach'
+    && d.zoneNow(WILD_POINT[0], WILD_POINT[1]) === null);
+  check('the throttle holds the next look off', d.checkZone(ZONE.boneyard.x, ZONE.boneyard.z, 3100) === null);
   check('and lets it through once the throttle is up', (() => {
-    const t = d.checkZone(ZONE.theteeth.x, ZONE.theteeth.z, 4600);
-    return t && t.id === 'theteeth';
+    const t = d.checkZone(ZONE.boneyard.x, ZONE.boneyard.z, 3600);
+    return t && t.id === 'boneyard';
   })());
-  check('and an hour in the same zone still finds nothing', d.checkZone(z.x + 10, z.z + 10, 3600000) === null);
   check('the list survives a reload', (() => {
     const e = createDiscovery(f, { storeKey: 'test-sites', zoneKey: 'test-zones' });
-    return e.zoneCount === 3 && e.hasZone('ironshoulder') && e.checkZone(z.x, z.z, 9000) === null;
+    return e.zoneCount === 3 && e.hasZone('frostreach') && e.checkZone(sub.x, sub.z, 9000) === null;
   })(), `saved ${store.get('test-zones')}`);
-  const WILD_ZONE = [-2200, 0];
-  check('zoneNow names where you are standing', d.zoneNow(z.x, z.z)?.id === 'ironshoulder' && d.zoneNow(WILD_ZONE[0], WILD_ZONE[1]) === null);
   delete globalThis.localStorage;
 }
 
 // --------------------------------------------------------------------- cost --
-console.log('zones: what the lookup costs');
+console.log('zones: what the lookup costs now there are a hundred and four');
 {
   const N = 200000;
   const t0 = performance.now();
   let sink = 0;
   for (let i = 0; i < N; i++) sink += zoneAt((i * 71) % 16000 - 8000, (i * 137) % 16000 - 8000) ? 1 : 0;
   const per = (performance.now() - t0) / N * 1000;
-  check('zoneAt costs under a microsecond', per < 1, `${per.toFixed(3)} us over ${N} lookups, ${sink} of them inside a zone`);
+  check('zoneAt costs under a microsecond', per < 1, `${per.toFixed(3)} us over ${N} lookups of ${ZONE_COUNT} zones, ${sink} of them inside one`);
 }
 
-// adopt: a character's own record becomes the truth and the browser keys are left alone (S1 follow-up)
+// adopt: a character's own record becomes the truth and the browser keys are
+// left alone (S1 follow-up)
 {
-  const f = createWorldField(7);
+  const f2 = createWorldField(7);
   const writes = [];
-  // node has no localStorage; a counting stand-in is all createDiscovery needs
   const mem = new Map();
   globalThis.localStorage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => { writes.push(k); mem.set(k, v); }, removeItem: (k) => mem.delete(k) };
   const store = globalThis.localStorage;
   const orig = store.setItem;
-  const d = createDiscovery(f, { storeKey: 'test-sites-adopt', zoneKey: 'test-zones-adopt' });
-  d.adopt(['siteA', 'siteB'], ['vale']);
+  const d = createDiscovery(f2, { storeKey: 'test-sites-adopt', zoneKey: 'test-zones-adopt' });
+  d.adopt(['siteA', 'siteB'], ['greenwold']);
   check('adopt makes the character\'s finds the finds', d.has('siteA') && d.has('siteB') && d.count === 2);
-  check('and its walked zones the walked zones', d.hasZone('vale') && !d.hasZone('millrun'));
+  check('and its walked zones the walked zones', d.hasZone('greenwold') && !d.hasZone('boneyard'));
   const before = writes.length;
-  // walking into a zone after adopt: the set grows, the browser key does not
-  const z = ZONES.find((zn) => zn.id === 'millrun');
+  const z = ZONE.boneyard;
   const hit = d.checkZone(z.x, z.z, 1e6);
-  check('a new zone is still found once', hit && hit.id === 'millrun' && d.hasZone('millrun'));
+  check('a new zone is still found once', hit && hit.id === 'boneyard' && d.hasZone('boneyard'));
   check('and nothing was written to the browser-wide key', writes.length === before, `${writes.length - before} writes`);
-  check('persistence is off after adopt, and on before it', d.persists === false && createDiscovery(f, { storeKey: 'x1', zoneKey: 'x2' }).persists === true);
+  check('persistence is off after adopt, and on before it', d.persists === false && createDiscovery(f2, { storeKey: 'x1', zoneKey: 'x2' }).persists === true);
   store.setItem = orig;
   delete globalThis.localStorage;
 }

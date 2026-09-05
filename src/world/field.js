@@ -16,6 +16,12 @@
 //   home         within HOME_RADIUS of the origin the ground is flattened to 0
 //                and rivers are suppressed, so the farm pad sits on solid
 //                ground and the first steps off it are gentle
+//   caldera sea  an inland sea east of the origin, taken from the Sunken
+//                Kingdom's own disc in zones.js. The ground falls to SEA.floor
+//                and the land mask fades exactly as it does at the outer coast,
+//                so the sea has a beach on its landward side; five reefs and
+//                the Saltmarch's Thousand Isles stand back out of it. Outside
+//                SEA.edge the block does not run at all
 //   world edge   past the coast radius in zones.js the ground slides down to
 //                OCEAN_FLOOR and the land mask and the rivers fade out with it,
 //                so the continent ends in a beach and then in deep water. The
@@ -40,8 +46,12 @@
 // Units are the game's world units, which the farm treats as roughly metres.
 
 import { createNoise, clamp01, lerp, smoothstep } from './noise.js';
-import { cellRoll, siteAllowed, cellOf, mineParts, MINE_MOUTH_CELL } from './sitegrid.js';
-import { zoneBias, oceanBeyond, OCEAN_FLOOR, WORLD_HALF } from './zones.js';
+import { cellRoll, siteAllowed, cellOf, mineParts, MINE_MOUTH_CELL, SITE_CELL } from './sitegrid.js';
+import {
+  zoneBias, oceanBeyond, OCEAN_FLOOR, WORLD_HALF,
+  SEA, seaWithin, reefTopAt, ARCHIPELAGO, archipelagoWithin,
+  authoredSites, CELL_PAD_MAX,
+} from './zones.js';
 import { roadDistanceAt, roadHeightAt, roadStrength, roadSurface, fordFade, ROAD_HALF_WIDTH } from './roads.js';
 
 // The farm pad top is y 0 and the ground under it is homeY (-0.3). The sea has
@@ -123,6 +133,42 @@ export function createWorldField(seed = 1, opts = {}) {
     // climate: temperature falls with height, moisture rises toward the sea
     const temp = clamp01(0.5 + 0.5 * N.fbm(x / W_TEMP - 1000, z / W_TEMP + 1000, 3) - Math.max(0, h) * 0.0045);
     const moist = clamp01(0.5 + 0.5 * N.fbm(x / W_MOIST + 2000, z / W_MOIST + 2000, 3) + (1 - land) * 0.25 + river * 0.2);
+
+    // The Caldera Sea: the inland shore, east of the origin. It works exactly
+    // the way the world's rim does, and for the same reason, so the fen ends in
+    // a beach and then in water rather than in a cut. Outside SEA.edge
+    // `seaWithin` returns 0 without any arithmetic and this block does not run,
+    // so the heart, which is 2.5 km away from that edge, cannot be touched.
+    const lake = seaWithin(x, z);
+    if (lake > 0) {
+      h = lerp(h, SEA.floor, lake);
+      land *= 1 - lake;
+      river *= 1 - lake;
+      // and two kinds of ground stand back up out of it.
+      //
+      // The Thousand Isles: a noise driven island field in the lens where the
+      // Saltmarch's disc and the sea overlap. An islet's top is kept under the
+      // 2.2 m the biome chain calls a beach, so an islet is sand and palm.
+      const arch = archipelagoWithin(x, z);
+      if (arch > 0) {
+        // shoals first: the water among the isles is four metres deep and not
+        // eighteen, which is what makes an islet a small rise and not a spike
+        // out of a trench, and what keeps the ground continuous between them
+        h = lerp(h, ARCHIPELAGO.shoal, arch);
+        const n = N.fbm(x / ARCHIPELAGO.wave + 3100, z / ARCHIPELAGO.wave - 2400, 3);
+        const isle = smoothstep(ARCHIPELAGO.lo, ARCHIPELAGO.hi, n) * arch;
+        if (isle > 0) {
+          h = lerp(h, ARCHIPELAGO.top, isle);
+          land = Math.max(land, isle * 0.92);
+        }
+      }
+      // The reefs: the five points where the drowned city breaks the surface.
+      const reef = reefTopAt(x, z);
+      if (reef.w > 0) {
+        h = lerp(h, reef.top, reef.w);
+        land = Math.max(land, reef.w * 0.92);
+      }
+    }
 
     // The world's edge. Inside COAST_MIN `oceanBeyond` returns 0 without any
     // arithmetic and this block does not run, so every point inland is the
@@ -232,12 +278,43 @@ export function createWorldField(seed = 1, opts = {}) {
     return siteInCell(cx, cz);
   }
 
+  // ---- pads that reach out of their own cell -------------------------------
+  //
+  // sitegrid keeps every site inside the middle 60% of its 480 m cell, so any
+  // pad of CELL_PAD_MAX (96 m) or less is wholly inside that cell and a point
+  // only ever has to ask its own cell what it stands on. That was true of
+  // every kind in the game until the seven towns took a 120 m precinct.
+  //
+  // A precinct crosses cell borders, and a pad that a neighbouring cell cannot
+  // see is a pad cut off square at the border: a cliff on three sides of every
+  // town. So the handful of sites wide enough to do that are listed once, from
+  // the authored table, and every sample checks that short list by distance.
+  // There are seven of them, the check is seven squared distances, and for a
+  // world with none of them this costs one loop that does not run.
+  const WIDE = authoredSites().filter((s) => s.flatR > CELL_PAD_MAX);
+  function wideSiteAt(x, z) {
+    for (let i = 0; i < WIDE.length; i++) {
+      const b = WIDE[i];
+      const dx = x - b.x, dz = z - b.z, reach = b.flatR + 4;
+      if (dx * dx + dz * dz < reach * reach) {
+        return siteInCell(Math.floor(b.x / SITE_CELL), Math.floor(b.z / SITE_CELL));
+      }
+    }
+    return null;
+  }
+
   function sampleAt(x, z) {
     const r = raw(x, z);
     const k = homeFactor(x, z);
     let h = lerp(homeY, r.h, k);
     let river = k <= 0 ? 0 : r.river * k;
-    const site = siteAt(x, z);
+    // What stands here: the site in this point's own cell, unless the point is
+    // out of that site's pad and inside the pad of a town precinct next door.
+    let site = siteAt(x, z);
+    if (!site || (x - site.x) ** 2 + (z - site.z) ** 2 >= (site.flatR + 4) ** 2) {
+      const wide = wideSiteAt(x, z);
+      if (wide) site = wide;
+    }
     let pad = 0;
     if (site) {
       const d = Math.hypot(x - site.x, z - site.z);
@@ -274,11 +351,15 @@ export function createWorldField(seed = 1, opts = {}) {
     // terrain vertex costs no allocation. `zb.climate` nudges the climate the
     // biome is decided from; `zb.biome`, when a zone has one, replaces the
     // answer outright.
+    // `biasWeight` and not `weight`: the bias belongs to the REALM, and the
+    // weight it is scaled by has to be the realm's own. Using the deepest
+    // zone's weight would let a subzone standing in the middle of a desert
+    // fade the desert out, which is a hole in the country, not a place.
     const zb = zoneBias(x, z, ZB);
     let temp = r.temp, moist = r.moist;
-    if (zb.climate && zb.weight > 0) {
-      if (zb.climate.temp) temp = clamp01(temp + zb.climate.temp * zb.weight);
-      if (zb.climate.moist) moist = clamp01(moist + zb.climate.moist * zb.weight);
+    if (zb.climate && zb.biasWeight > 0) {
+      if (zb.climate.temp) temp = clamp01(temp + zb.climate.temp * zb.biasWeight);
+      if (zb.climate.moist) moist = clamp01(moist + zb.climate.moist * zb.biasWeight);
     }
 
     // A zone's override is allowed to say what kind of country this is. It is
@@ -297,9 +378,13 @@ export function createWorldField(seed = 1, opts = {}) {
     else if (temp > 0.58 && moist < 0.47) biome = 'desert';
     else if (moist > 0.62 && temp > 0.42 && temp < 0.66 && N.fbm(x / W_SAKURA + 5000, z / W_SAKURA - 5000, 2) > 0.38) biome = 'sakura';
     else biome = 'meadow';
-    // `zone` is the id or null, `danger` the monster tier band [lo, hi]: the
+    // `zone` is the deepest zone's id or null, `realm` the id of the realm of
+    // Kaldera it belongs to, and `danger` the monster tier band [lo, hi]: the
     // one number monsters.js should roll a spawn against (docs/mmo/wiring/Z1.md).
-    return { h, biome, water, river, land, temp, moist, site, road, zone: zb.id, danger: zb.danger };
+    return {
+      h, biome, water, river, land, temp, moist, site, road,
+      zone: zb.id, realm: zb.parent ? zb.parent.id : zb.id, danger: zb.danger,
+    };
   }
   // one scratch per field, never handed out, only ever read inside sampleAt
   const ZB = {};

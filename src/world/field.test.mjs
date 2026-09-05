@@ -1,7 +1,10 @@
 // The world field, driven both ways. Run: node src/world/field.test.mjs
 import { createHash } from 'node:crypto';
 import { createWorldField, SEA_LEVEL, HOME_RADIUS, BIOMES } from './field.js';
-import { WORLD_HALF, OCEAN_FLOOR, COAST_MIN } from './zones.js';
+import {
+  WORLD_HALF, OCEAN_FLOOR, COAST_MIN, HEART_SAFE, ZONE,
+  SEA, seaWithin, REEFS, reefWithin, ARCHIPELAGO, archipelagoWithin,
+} from './zones.js';
 
 let pass = 0, fail = 0;
 const check = (name, ok, detail = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? '   ' + detail : ''}`); };
@@ -114,11 +117,107 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
     if (Math.hypot(x, z) < COAST_MIN && f.raw(x, z).h <= OCEAN_FLOOR + 1e-9) touched++;
   }
   check('and nothing inside COAST_MIN has been dropped to the ocean floor', touched === 0, `${COAST_MIN} m, 200 probes`);
-  check('every sample carries a zone field and a danger band', (() => {
-    const a = f.sampleAt(0, 0), b = f.sampleAt(-4400, 0);
-    return a.zone === 'vale' && Array.isArray(a.danger) && b.zone === 'ironshoulder' && b.danger.length === 2;
-  })(), `home is ${f.sampleAt(0, 0).zone} at tier ${f.sampleAt(0, 0).danger.join(' to ')}`);
+  check('every sample carries a zone, a realm and a danger band', (() => {
+    const a = f.sampleAt(0, 0), b = f.sampleAt(ZONE.boneyard.x, ZONE.boneyard.z);
+    const c = f.sampleAt(ZONE.hearthhome.x, ZONE.hearthhome.z);
+    return a.zone === 'greenwold' && a.realm === 'greenwold' && Array.isArray(a.danger)
+      && b.zone === 'boneyard' && b.danger.length === 2
+      && c.zone === 'hearthhome' && c.realm === 'greenwold';
+  })(), `home is ${f.sampleAt(0, 0).zone} at tier ${f.sampleAt(0, 0).danger.join(' to ')}, and the hub reports ${f.sampleAt(ZONE.hearthhome.x, ZONE.hearthhome.z).zone} in ${f.sampleAt(ZONE.hearthhome.x, ZONE.hearthhome.z).realm}`);
   check('WORLD_HALF is the 16 km the map draws', WORLD_HALF === 8000);
+}
+
+// 7b. THE CALDERA SEA: the second shore, and the ground that stands out of it.
+//
+// Three claims, each driven both ways: the open sea is water at the sea floor,
+// the reefs and the isles standing in it are dry, and nothing outside SEA.edge
+// was touched at all.
+console.log('the Caldera Sea');
+{
+  let n = 0, wet = 0, floor = 0, shallowest = -1e9;
+  for (let x = SEA.x - SEA.full; x <= SEA.x + SEA.full; x += 25) {
+    for (let z = SEA.z - SEA.full; z <= SEA.z + SEA.full; z += 25) {
+      if (Math.hypot(x - SEA.x, z - SEA.z) > SEA.full) continue;
+      if (reefWithin(x, z) > 0 || archipelagoWithin(x, z) > 0.02) continue;
+      const s = f.sampleAt(x, z); n++;
+      if (s.water) wet++;
+      if (s.h <= SEA.floor + 0.001) floor++;
+      shallowest = Math.max(shallowest, s.h);
+    }
+  }
+  check('the open Caldera Sea is water', n > 1000 && wet === n, `${wet} of ${n} samples inside SEA.full, off the reefs and the isles`);
+  check('and it is deep water, not a shelf', shallowest < SEA.floor + 3,
+    `${floor} of ${n} sit exactly on the ${SEA.floor} m floor; the shallowest open water is ${shallowest.toFixed(2)} m`);
+
+  const dryReefs = REEFS.filter((r) => { const s = f.sampleAt(r.x, r.z); return !s.water && s.h > 0.5; });
+  check('every reef is dry ground', dryReefs.length === REEFS.length,
+    REEFS.map((r) => `${r.id} ${f.sampleAt(r.x, r.z).h.toFixed(2)} m ${f.sampleAt(r.x, r.z).biome}`).join(', '));
+  check('and a reef reads as shore, not as meadow', REEFS.every((r) => f.sampleAt(r.x, r.z).biome === 'beach'));
+  // driven the other way: two hundred metres off a reef is open water again
+  {
+    let n2 = 0, wet2 = 0; const dryOff = [];
+    for (const r of REEFS) for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const x = r.x + Math.cos(a) * (r.r + 120), z = r.z + Math.sin(a) * (r.r + 120);
+      if (reefWithin(x, z) > 0) continue;                  // two reefs, one bearing
+      n2++;
+      if (f.sampleAt(x, z).water) wet2++; else dryOff.push(`${r.id} at ${(i * 45)}deg`);
+    }
+    // Not all forty: the Thousand Isles run through the sea, so a bearing off a
+    // reef can genuinely land on an islet. Most of them have to be water or the
+    // reefs are not islands at all.
+    check('and a hundred and twenty metres off a reef you are almost always swimming', wet2 / n2 > 0.85,
+      `${wet2} of ${n2}; the dry ones are ${dryOff.join(', ') || 'none'}`);
+  }
+
+  // the Thousand Isles: count them by flooding the dry cells of the lens
+  {
+    const step = 20, pts = new Map();
+    const i0 = Math.round((ARCHIPELAGO.x - ARCHIPELAGO.far) / step), i1 = Math.round((ARCHIPELAGO.x + ARCHIPELAGO.far) / step);
+    const j0 = Math.round((ARCHIPELAGO.z - ARCHIPELAGO.far) / step), j1 = Math.round((ARCHIPELAGO.z + ARCHIPELAGO.far) / step);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+      const x = i * step, z = j * step;
+      if (archipelagoWithin(x, z) <= 0 || reefWithin(x, z) > 0) continue;
+      if (f.raw(x, z).h >= SEA_LEVEL + 0.5) pts.set(`${i},${j}`, [i, j]);
+    }
+    const seenC = new Set();
+    let islands = 0; const sizes = [];
+    for (const k of pts.keys()) {
+      if (seenC.has(k)) continue;
+      let size = 0; const st = [k]; seenC.add(k);
+      while (st.length) {
+        const [i, j] = pts.get(st.pop()); size++;
+        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const kk = `${i + di},${j + dj}`;
+          if (pts.has(kk) && !seenC.has(kk)) { seenC.add(kk); st.push(kk); }
+        }
+      }
+      islands++; sizes.push(size);
+    }
+    sizes.sort((a, b) => b - a);
+    check('the Thousand Isles are an archipelago and not one island', islands >= 40,
+      `${islands} islands over ${pts.size} dry cells at 20 m; the largest is ${sizes[0]} cells, the median ${sizes[sizes.length >> 1]}`);
+    check('and they are small: no islet is a tenth of the sea', sizes[0] * step * step < Math.PI * SEA.full * SEA.full * 0.1,
+      `${(sizes[0] * step * step / 1000).toFixed(0)} thousand square metres`);
+    // and the middle of the sea, over the drowned city, is still open water
+    let deepN = 0, deepWet = 0;
+    for (let a = 0; a < 64; a++) for (const rr of [0, 150, 300]) {
+      const x = SEA.x + Math.cos(a / 64 * 6.2832) * rr, z = SEA.z + Math.sin(a / 64 * 6.2832) * rr;
+      if (reefWithin(x, z) > 0) continue;                  // a reef is meant to be dry
+      deepN++; if (f.sampleAt(x, z).water) deepWet++;
+    }
+    check('and the middle of the sea, over the drowned city, is open water', deepWet === deepN, `${deepWet}/${deepN}`);
+  }
+
+  // nothing inland of the sea's own shore moved
+  let touchedSea = 0;
+  for (let i = 0; i < 3600; i++) {
+    const a = (i / 3600) * Math.PI * 2, d = SEA.edge + 1 + (i % 9) * 400;
+    if (seaWithin(SEA.x + Math.cos(a) * d, SEA.z + Math.sin(a) * d) !== 0) touchedSea++;
+  }
+  check('seaWithin is exactly zero everywhere outside SEA.edge', touchedSea === 0, `${SEA.edge} m, 3600 probes`);
+  check('and the sea stops well short of the heart', Math.hypot(SEA.x, SEA.z) - SEA.edge > HEART_SAFE,
+    `its nearest water is ${(Math.hypot(SEA.x, SEA.z) - SEA.edge).toFixed(0)} m from the origin, against HEART_SAFE ${HEART_SAFE}`);
 }
 
 // 8. cost: a 33x33 chunk must sample in a few milliseconds

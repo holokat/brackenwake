@@ -12,16 +12,22 @@
 //            town, a mine, a dungeon mouth. `check()` returns it once.
 //   a zone   you walked into a named region and are at least ZONE_ENTER_W into
 //            it. `checkZone()` returns it once. Firing on the outermost fringe
-//            would announce The Frostcrown from a mile of meadow, so half in is
-//            the rule, and half in is also where the zone's own bias reaches
-//            half strength, which is the first place the country looks changed.
+//            would announce Frostreach from a mile of meadow, so half in is the
+//            rule, and half in is also where the realm's own bias reaches half
+//            strength, which is the first place the country looks changed.
+//
+//            Zones NEST: a realm of Kaldera and the places inside it. Both are
+//            offered, realm first, because a subzone's weight is not its
+//            realm's and announcing only the deepest one would tell a player
+//            about the Glass Road without ever telling them they had walked
+//            into the Ashen Throne. See `zoneChain`.
 //
 // Both are throttled to CHECK_MS, both fire once and never again, and both are
 // saved. The two lists are separate keys, so a save from before zones existed
 // keeps every site it had found.
 
 import { SITE_CELL } from './sitegrid.js';
-import { zoneAt, ZONE } from './zones.js';
+import { zoneAt, weightOf, ZONE } from './zones.js';
 
 export { SITE_CELL };
 export const DISCOVER_RADIUS = 70;
@@ -56,6 +62,25 @@ export function mouthsNear(field, x, z, radius) {
     for (const m of s.mouths) if (Math.hypot(m.x - x, m.z - z) <= radius) out.push(m);
   }
   return out;
+}
+
+/**
+ * The realm and then the subzone you are standing in, each with its own weight,
+ * outermost first.
+ *
+ * `zoneAt` hands back the deepest zone only, and a subzone's weight is not its
+ * realm's: you can be half inside the Ashen Throne and only a fringe inside the
+ * Glass Road that lies over it. Announcing the deepest zone alone would then
+ * skip the realm entirely, and the player would be told the Glass Road without
+ * ever being told which country it runs through. So both are offered, the realm
+ * first, because that is the order they are walked into.
+ */
+export function zoneChain(x, z) {
+  const hit = zoneAt(x, z);
+  if (!hit || !hit.zone) return [];
+  if (!hit.zone.parent) return [hit];
+  const parent = ZONE[hit.zone.parent];
+  return parent ? [{ zone: parent, weight: weightOf(parent, x, z) }, hit] : [hit];
 }
 
 export function createDiscovery(field, opts = {}) {
@@ -98,17 +123,25 @@ export function createDiscovery(field, opts = {}) {
     checkZone(x, z, nowMs) {
       if (nowMs - lastZone < CHECK_MS) return null;
       lastZone = nowMs;
-      const hit = zoneAt(x, z);
-      if (!hit || hit.weight < ZONE_ENTER_W) return null;
-      if (zones.has(hit.zone.id)) return null;
-      zones.add(hit.zone.id); save(zoneKey, zones);
-      return hit.zone;
+      const chain = zoneChain(x, z);
+      for (const c of chain) {
+        if (c.weight < ZONE_ENTER_W || zones.has(c.zone.id)) continue;
+        zones.add(c.zone.id); save(zoneKey, zones);
+        return c.zone;
+      }
+      return null;
     },
 
-    /** The zone you are in right now, half in or better, or null. For the HUD. */
+    /**
+     * The zone you are in right now, half in or better, or null. For the HUD.
+     * The DEEPEST one you are half inside: standing in the Salt Pans says the
+     * Salt Pans, and standing in Ember Wastes country between them says Ember
+     * Wastes.
+     */
     zoneNow(x, z) {
-      const hit = zoneAt(x, z);
-      return hit && hit.weight >= ZONE_ENTER_W ? hit.zone : null;
+      const chain = zoneChain(x, z);
+      for (let i = chain.length - 1; i >= 0; i--) if (chain[i].weight >= ZONE_ENTER_W) return chain[i].zone;
+      return null;
     },
 
     has: (id) => found.has(id),

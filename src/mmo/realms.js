@@ -23,7 +23,7 @@ const p = (id, name, kind, geography, contains, opts = {}) => ({ id, name, kind,
 export const REALMS = [
   {
     id: 'greenwold', name: 'The Greenwold', ring: 0, danger: [1, 1],
-    biome: 'meadow', x: -1800, z: 0, r: 2200,
+    biome: 'meadow', x: 0, z: 0, r: 2200,
     line: 'Wheat to the horizon, a slow river, and a village that has never lost anything. Home.',
     geography: 'Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.',
     mega: 'The Standing Hedge: a ring of boundary stones older than the village, each the height of a man, a mile across, with the fields inside it. From the hills it reads as a ring drawn on the land.',
@@ -42,7 +42,7 @@ export const REALMS = [
   },
   {
     id: 'verdant', name: 'Verdant Deep', ring: 1, danger: [1, 2],
-    biome: 'sakura', x: -600, z: 3200, r: 2000,
+    biome: 'sakura', x: 1144, z: 3283, r: 2000,
     line: 'Blossom falling on a river the trees have swallowed, and a court that never comes down.',
     geography: 'A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.',
     mega: 'The Temple of Faces: a cliff a quarter mile long with a hundred faces carved into it, each the height of a house, vines over every mouth. The first Dragonsworn, and one of them is Malachar, young.',
@@ -62,7 +62,7 @@ export const REALMS = [
   },
   {
     id: 'saltmarch', name: 'The Saltmarch and the Thousand Isles', ring: 1, danger: [2, 2],
-    biome: 'fen', x: 3000, z: 2600, r: 2400,
+    biome: 'fen', x: 4800, z: 2600, r: 2200,
     line: 'Reed marsh to the horizon, then a thousand islands, each with one tree and one wreck.',
     geography: 'Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o\'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.',
     mega: 'The Red Queen\'s Harbour: a pirate city built across a dozen islets and the wrecks between them, joined by planked bridges and chains, its lighthouse a ship\'s mast a hundred feet tall with a fire in the crow\'s nest.',
@@ -83,7 +83,7 @@ export const REALMS = [
   },
   {
     id: 'emberwastes', name: 'Ember Wastes', ring: 2, danger: [3, 3],
-    biome: 'desert', x: 3600, z: -3200, r: 2400,
+    biome: 'desert', x: 5400, z: -3200, r: 2100,
     line: 'Red rock, white sand, a road of glass, and a city that walks.',
     geography: 'Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.',
     mega: 'The Brass City: the Legion\'s foundry, a city on legs the height of towers that walks the Wastes on a circuit of the wells, kneeling to drink. Smoke from a hundred stacks, its door open only when it kneels.',
@@ -105,7 +105,7 @@ export const REALMS = [
   },
   {
     id: 'stormpeaks', name: 'The Stormpeaks', ring: 2, danger: [3, 4],
-    biome: 'mountain', x: -700, z: -4200, r: 2300,
+    biome: 'mountain', x: 1123, z: -4190, r: 2100,
     line: 'Highland moor into storm-struck mountains, and the riders\' hall on the peak that takes the lightning.',
     geography: 'Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.',
     mega: 'The Eyrie: the dragonriders\' hall cut into the lightning peak, its landing steps a hundred feet wide built for things that flew, a roost of nine stone perches around it, ghosts on every one.',
@@ -126,7 +126,7 @@ export const REALMS = [
   },
   {
     id: 'boneyard', name: 'The Boneyard', ring: 2, danger: [3, 4],
-    biome: 'graveyard', x: -4600, z: 800, r: 2300,
+    biome: 'graveyard', x: -4250, z: 1202, r: 2100,
     line: 'A grey plain where nine dragons fell, and a lodge with lights in the eye sockets.',
     geography: 'An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders\' tombs at the plain\'s edge, opened.',
     mega: 'The Skull Lodge: the Wyrmking\'s hunting lodge built inside the largest skull, three storeys of timber behind the teeth, lanterns in the eye sockets seen for ten miles.',
@@ -146,7 +146,7 @@ export const REALMS = [
   },
   {
     id: 'frostreach', name: 'Frostreach', ring: 3, danger: [4, 4],
-    biome: 'snow', x: -3600, z: -4800, r: 2600,
+    biome: 'snow', x: -1909, z: -4967, r: 2200,
     line: 'Snow to the waterline, a glacier with a fortress in it, and a dragon frozen mid-breath.',
     geography: 'The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.',
     mega: 'The Ice Vault: a glacier three hundred feet high with a dragon visible inside it, curled around a fortress, frozen mid-breath, lit blue from within at night by the giants\' fires.',
@@ -167,7 +167,7 @@ export const REALMS = [
   },
   {
     id: 'sunkenkingdom', name: 'The Sunken Kingdom', ring: 3, danger: [4, 5],
-    biome: 'ocean', x: 1200, z: -400, r: 2600,
+    biome: 'ocean', x: 4100, z: -400, r: 1500,
     line: 'A city under clear water, lit from the sea floor, and a king walking up a stair every night.',
     geography: 'The Caldera Sea itself: flat, clear, warm, and under it a drowned city of white marble, towers, avenues, a coliseum, a palace, all visible from a boat. Reefs where the tallest towers break the surface. Sailed above, walked below once the deep is taken.',
     mega: 'The Drowned Coliseum: an arena the size of a hill on the sea floor, lit from below by the glow, where the drowned fight on the full moon and a living champion may enter.',
@@ -187,7 +187,7 @@ export const REALMS = [
   },
   {
     id: 'ashenthrone', name: 'The Ashen Throne', ring: 3, danger: [5, 5],
-    biome: 'crater', x: 5600, z: 1200, r: 2800,
+    biome: 'crater', x: 6699, z: -159, r: 1700,
     line: 'A volcano that is the whole eastern rim, and a fortress with nine dragon skulls on its gate.',
     geography: 'The eastern rim is one volcano: black glass slopes, rivers of red, cinder fields, sulphur light, the sea steaming where lava meets it. The Legion\'s fortress is cut into the crater wall; the throne room is inside the crater.',
     mega: 'The Ashen Throne itself: a fortress cut into the volcano\'s wall, a gate a hundred feet high with nine dragon skulls set above it, and inside, a throne room where the air moves like glass and nine hearts beat in nine iron cages.',
