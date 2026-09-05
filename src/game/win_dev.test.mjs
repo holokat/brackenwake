@@ -657,7 +657,7 @@ console.log('win_dev: a twenty slot save grows to eighty and keeps every item wh
   const bench = createBench(ctx);
   bench.giveSet('weapons', { rarity: 'common' });
   const free = ctx.character.pack.items.filter((x) => !x).length;
-  check('the weapon rack leaves twenty two slots free in a forty slot pack', free === 22, `${free} free`);
+  check(`the weapon rack leaves ${STATE_PACK_SLOTS - 18} slots free in a ${STATE_PACK_SLOTS} slot pack`, free === STATE_PACK_SLOTS - 18, `${free} free`);
 }
 
 console.log('win_dev: which bases take a rarity');
