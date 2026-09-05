@@ -70,7 +70,7 @@ globalThis.window = {
 
 const {
   cellOf, ROLL_MS, actionFor, categoryOf, inCategory, CATEGORIES,
-  USABLE, USE_IDS, USE_KINDS, usable, auditUsable, panel,
+  USABLE, USE_IDS, USE_KINDS, usable, auditUsable, panel, buildBag,
 } = await import('./win_bag.js');
 const { makeItem } = await import('../mmo/items.js');
 const { identify } = await import('../mmo/affixes.js');
@@ -156,7 +156,18 @@ check('and there are a good many things to eat or drink', USABLE > 20, `${USABLE
 check('the audit counts them rather than asserting them', auditUsable() === USABLE);
 check('an ingot is not one of them', usable({ id: 'ingot', kind: 'material' }) === false);
 
-// ---- the real panel, the real inventory, real dblclick events ---------------
+// ---- what is left of the old page ------------------------------------------
+console.log('bag: the page that is not a page');
+check('the pack still answers to its id and its key', panel.id === 'bag' && panel.key === 'b');
+check('and it is still called Inventory', panel.title === 'Inventory');
+check('but it has no build of its own, because nothing would ever call it',
+  typeof panel.build !== 'function', typeof panel.build);
+check('the grid is built by buildBag, which is what the character page calls',
+  typeof buildBag === 'function');
+
+// ---- the real grid, the real inventory, real dblclick events ----------------
+// buildBag IS the path the game runs: win_character calls exactly this, with
+// the same options. Nothing here is a harness standing in for the real thing.
 console.log('bag: two clicks on a real cell');
 
 function rig(opts = {}) {
@@ -179,11 +190,18 @@ function rig(opts = {}) {
     useItem: opts.noUseHook ? undefined : (item, where) => used.push({ item, where }),
   };
   const el = document.createElement('div');
-  const p = { ...panel };
-  p.build(el, ctx);
-  // grid is the second child of the panel root: head, grid, foot
-  const grid = el.children[0].children[1];
-  return { character, inventory, said, used, grid, el, panel: p };
+  const hovered = [];
+  const compared = [];
+  const changes = [];
+  const api = buildBag(el, ctx, {
+    compareFor: (item) => { compared.push(item); return opts.card || null; },
+    onHover: (item, i) => hovered.push({ item, i }),
+    onLeave: () => hovered.push(null),
+    onChange: () => changes.push(1),
+  });
+  // the root is filters, grid, purse, foot
+  const grid = api.grid;
+  return { character, inventory, said, used, grid, el, api, hovered, compared, changes };
 }
 
 {
@@ -233,6 +251,64 @@ function rig(opts = {}) {
   r.grid.children[7].fire('dblclick');
   check('two clicks on an empty slot do nothing and say nothing',
     r.said.length === 0 && r.used.length === 0, r.said.map((l) => l.text).join(' | '));
+}
+
+// ---- the hooks the character page hangs off the grid ------------------------
+console.log('bag: what the grid tells the sheet beside it');
+{
+  const r = rig();
+  r.grid.children[0].fire('pointerenter', { clientX: 10, clientY: 10 });
+  check('taking up an item tells whoever is listening which one',
+    r.hovered.length === 1 && r.hovered[0].item.base === 'longsword' && r.hovered[0].i === 0,
+    JSON.stringify(r.hovered.map((h) => (h ? h.item.base : null))));
+  check('and the tooltip asked for the equipped card for that same item',
+    r.compared.length >= 1 && r.compared[0].base === 'longsword',
+    r.compared.map((c) => c.base).join(','));
+  r.grid.children[0].fire('pointerleave');
+  check('putting it down says so', r.hovered.length === 2 && r.hovered[1] === null);
+}
+{
+  const r = rig();
+  r.grid.children[3].fire('pointerenter', { clientX: 10, clientY: 10 });
+  check('an empty slot hovers nothing and asks for no card',
+    r.hovered.length === 1 && r.hovered[0].item === null && r.compared.length === 0,
+    JSON.stringify(r.hovered));
+}
+{
+  const r = rig();
+  r.grid.children[0].fire('dblclick');
+  check('equipping tells the sheet to redraw', r.changes.length === 1, String(r.changes.length));
+  check('and lets go of the hover first, so the preview does not outlive the item',
+    r.hovered[r.hovered.length - 1] === null, JSON.stringify(r.hovered));
+}
+
+// ---- a drag that inventory.js thinks is unremarkable is still spoken for ----
+console.log('bag: dragging inside the pack');
+{
+  const r = rig();
+  r.api.dropInto({ pack: 0 }, 6);
+  check('the sword moves', r.character.pack.items[6] && r.character.pack.items[6].base === 'longsword'
+    && r.character.pack.items[0] === null, String(r.character.pack.items[6]?.base));
+  check('and the move is said out loud, though inventory.move said nothing',
+    r.said.some((l) => /goes into slot 7 of the pack/.test(l.text)), r.said.map((l) => l.text).join(' | '));
+  check('and the sheet beside it is told', r.changes.length === 1);
+}
+{
+  const r = rig();
+  const before = r.said.length;
+  r.api.dropInto({ pack: 0 }, 0);
+  check('a drop back onto the same slot says nothing and does nothing',
+    r.said.length === before && r.character.pack.items[0].base === 'longsword');
+}
+{
+  const r = rig();
+  r.api.dropInto({ pack: 0 }, 39);
+  check('the carry limit under the grid is its own element, so the sheet can light it',
+    r.api.carryNum && r.api.carryNum.textContent === '160', String(r.api.carryNum?.textContent));
+  check('with the weight in front of it and the word after',
+    /of $/.test(r.api.carryNum.parent.children[0].textContent)
+    && r.api.carryNum.parent.children[2].textContent === ' stones',
+    r.api.carryNum.parent.textContent);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

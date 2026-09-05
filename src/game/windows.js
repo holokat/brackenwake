@@ -5,11 +5,19 @@
 // six panels a player lives in are now tabs of ONE frame, the codex, so that
 // switching from the sheet to the pack is a tab and not a window dance:
 //
-//   codex tabs   Character (C), Inventory (B), Skills (K), Abilities (P),
-//                Crafting (V), Map (M). One tab is up at a time; its key opens
-//                the codex on it, and pressing that key again closes the codex.
+//   codex tabs   Character (C and B), Skills (K), Abilities (P), Crafting (V),
+//                Map (M). One tab is up at a time; its key opens the codex on
+//                it, and pressing that key again closes the codex.
 //   standalone   Talk and Trade (opened by code), Settings (Escape when
 //                nothing is open), Dev (F2). Each keeps its own themed frame.
+//
+// There is no Inventory tab any more. The pack lives in the right hand column
+// of the Character page, because swapping a sword and watching what it does to
+// your attack is one act and was two windows. `bag` and `inventory` are kept
+// as ALIASES of `character`, so main.js's `windows.register(bagPanel)` still
+// binds B, `windows.open('bag')` still lands somewhere sensible, and every
+// caller written against the old id goes on working. B carries a `focus` so
+// the page can light the grid up; C opens the same page plain.
 //
 // A is never a window key again. It is strafe left, and a window that stole it
 // made walking left open a panel. `RESERVED_KEYS` is the class fix: the
@@ -25,7 +33,7 @@
 // registers, opens, closes, switches tabs and reads keys with no DOM at all,
 // which is what windows.test.mjs drives: the test path is the real path.
 
-import { injectTheme, theme } from './ui_theme.js';
+import { injectTheme, theme, itemGlyph } from './ui_theme.js';
 
 /** The one frame the six everyday panels live in. */
 export const CODEX_ID = 'codex';
@@ -37,7 +45,6 @@ export const CODEX_ID = 'codex';
  */
 export const CODEX_TABS = [
   { id: 'character', label: 'Character' },
-  { id: 'bag', label: 'Inventory' },
   { id: 'skills', label: 'Skills' },
   { id: 'abilities', label: 'Abilities' },
   { id: 'crafting', label: 'Crafting' },
@@ -46,8 +53,18 @@ export const CODEX_TABS = [
 
 export const CODEX_IDS = CODEX_TABS.map((t) => t.id);
 
+/**
+ * Ids that are not pages of their own any more and land on the page that
+ * swallowed them. The value is where they go; the key is remembered and handed
+ * to the page as `extra.focus`, so Character can tell B from C.
+ */
+export const TAB_ALIAS = { bag: 'character', inventory: 'character' };
+
+/** The page an id really opens. Anything with no alias is itself. */
+export const resolveTab = (id) => TAB_ALIAS[String(id)] || String(id);
+
 /** True when this panel is a page of the codex rather than a window of its own. */
-export const isCodexTab = (id) => CODEX_IDS.includes(String(id));
+export const isCodexTab = (id) => CODEX_IDS.includes(resolveTab(id));
 
 /**
  * Keys the world drives and no window may ever take. WASD walks, space jumps,
@@ -60,7 +77,7 @@ export const RESERVED_KEYS = ['w', 'a', 's', 'd', 'q', 'e', ' ', 'shift', 'contr
  * anything. Kept as an export because it is the rule two panels are checked
  * against, and the test drives it directly.
  */
-export const PAIRS = [CODEX_IDS];
+export const PAIRS = [[...CODEX_IDS, ...Object.keys(TAB_ALIAS)]];
 
 export const ESCAPE_KEY = 'escape';
 
@@ -76,7 +93,11 @@ const CSS = `
 #bw-windows .bw-win { position: absolute; pointer-events: auto; }
 #bw-windows .bw-win[hidden] { display: none; }
 #bw-windows .bw-win-plain { min-width: 300px; max-width: min(820px, 94vw); }
-#bw-windows .bw-win-codex { width: min(1180px, 96vw); }
+/* Wide enough for the Character page's three columns: 280 for the sheet, 424
+   for the arch and its two flanks, 400 for the pack, and the gaps. Under that
+   the pack's grid drops to four squares a row and the page has to be scrolled
+   to see the bottom of it. */
+#bw-windows .bw-win-codex { width: min(1320px, 96vw); }
 
 #bw-windows .bw-win-title {
   display: flex; align-items: flex-end; justify-content: space-between; gap: 14px;
@@ -128,12 +149,32 @@ const CSS = `
   font-family: ${theme.fonts.body}; font-size: 14px; line-height: 1.4;
   color: ${theme.parchment};
 }
+#bw-tip { display: flex; align-items: flex-start; gap: 11px; max-width: 660px; }
 #bw-tip[hidden] { display: none; }
+#bw-tip .bw-tip-main { max-width: 320px; }
 #bw-tip .bw-tip-name {
   font-family: ${theme.fonts.display}; font-size: 13.5px; font-weight: 600;
   letter-spacing: .05em; margin-bottom: 4px;
 }
 #bw-tip .bw-tip-line { color: ${theme.parchmentDim}; }
+/* the second card: what you are already wearing where this would go */
+#bw-tip .bw-tip-cmp {
+  max-width: 300px; padding-left: 11px; align-self: stretch;
+  border-left: 1px solid ${theme.goldDim}88;
+}
+#bw-tip .bw-tip-cmp-head {
+  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .2em;
+  text-transform: uppercase; color: ${theme.gold}; margin-bottom: 6px;
+}
+#bw-tip .bw-tip-blk { margin-bottom: 8px; }
+#bw-tip .bw-tip-blk:last-child { margin-bottom: 0; }
+#bw-tip .bw-tip-blk-top { display: flex; align-items: center; gap: 7px; }
+#bw-tip .bw-tip-slot {
+  font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .16em;
+  text-transform: uppercase; color: ${theme.goldDim}; margin: 1px 0 3px;
+}
+#bw-tip .bw-tip-empty { color: ${theme.parchmentFaint}; font-style: italic; }
+#bw-tip .bw-tip-warn { color: #ff8f7a; margin-top: 5px; }
 #bw-windows .bw-drop-hot { outline: 2px solid ${theme.goldBright}; outline-offset: -2px; }
 `;
 
@@ -166,12 +207,9 @@ function tipNode() {
   return tipEl;
 }
 
-/** Show lines at a point. `colour` tints the first line, which is the name. */
-export function showTip(lines, colour, x, y) {
-  const el = tipNode();
-  if (!el || !lines || !lines.length) return;
-  el.textContent = '';
-  lines.forEach((line, i) => {
+/** One block of lines, the first of which is the name and takes the colour. */
+function tipLines(into, lines, colour) {
+  (lines || []).forEach((line, i) => {
     const d = document.createElement('div');
     d.className = i === 0 ? 'bw-tip-name' : 'bw-tip-line';
     if (i === 0 && colour) d.style.color = colour;
@@ -179,8 +217,74 @@ export function showTip(lines, colour, x, y) {
       d.textContent = line.text;
       if (line.colour) d.style.color = line.colour;
     } else d.textContent = String(line);
-    el.appendChild(d);
+    into.appendChild(d);
   });
+}
+
+/**
+ * The card that hangs beside a tooltip: what is already worn where the hovered
+ * item would go. One block per slot, so a two handed weapon shows the sword in
+ * your hand and the shield it would take off your arm, and an empty slot says
+ * "nothing worn there" rather than being left out.
+ *
+ * `card` is compare.js's `equippedCard` shape:
+ *   { head, blocks: [{ slot, slotLabel, name, colour, base, lines, empty }],
+ *     warn }
+ */
+function compareCard(card) {
+  const wrap = document.createElement('div');
+  wrap.className = 'bw-tip-cmp';
+  const head = document.createElement('div');
+  head.className = 'bw-tip-cmp-head';
+  head.textContent = card.head || 'Equipped';
+  wrap.appendChild(head);
+  for (const b of card.blocks || []) {
+    const blk = document.createElement('div');
+    blk.className = 'bw-tip-blk';
+    const top = document.createElement('div');
+    top.className = 'bw-tip-blk-top';
+    if (b.base) {
+      const g = document.createElement('span');
+      g.innerHTML = itemGlyph(b.base, 26);
+      top.appendChild(g);
+    }
+    const name = document.createElement('span');
+    name.className = b.empty ? 'bw-tip-empty' : 'bw-tip-name';
+    name.textContent = b.name;
+    if (b.colour) name.style.color = b.colour;
+    top.appendChild(name);
+    blk.appendChild(top);
+    const slot = document.createElement('div');
+    slot.className = 'bw-tip-slot';
+    slot.textContent = b.slotLabel || b.slot || '';
+    blk.appendChild(slot);
+    if (!b.empty) tipLines(blk, (b.lines || []).slice(1), null);
+    wrap.appendChild(blk);
+  }
+  if (card.warn) {
+    const w = document.createElement('div');
+    w.className = 'bw-tip-warn';
+    w.textContent = card.warn;
+    wrap.appendChild(w);
+  }
+  return wrap;
+}
+
+/**
+ * Show lines at a point. `colour` tints the first line, which is the name.
+ * `compare` is optional and draws the EQUIPPED card beside them.
+ */
+export function showTip(lines, colour, x, y, compare = null) {
+  const el = tipNode();
+  if (!el || !lines || !lines.length) return;
+  el.textContent = '';
+  const main = document.createElement('div');
+  main.className = 'bw-tip-main';
+  tipLines(main, lines, colour);
+  el.appendChild(main);
+  if (compare && Array.isArray(compare.blocks) && compare.blocks.length) {
+    el.appendChild(compareCard(compare));
+  }
   el.hidden = false;
   const w = el.offsetWidth || 260, h = el.offsetHeight || 80;
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
@@ -198,20 +302,32 @@ export function hideTip() {
  * `{ lines, colour }` or null when there is nothing to say, so a slot that
  * empties while the cursor sits on it stops talking about what used to be there.
  */
-export function attachTip(el, getter) {
+export function attachTip(el, getter, hooks = null) {
   if (!el || !el.addEventListener) return () => {};
   const move = (e) => {
     const got = getter();
     if (!got || !got.lines || !got.lines.length) { hideTip(); return; }
-    showTip(got.lines, got.colour, e.clientX, e.clientY);
+    showTip(got.lines, got.colour, e ? e.clientX : 0, e ? e.clientY : 0, got.compare || null);
   };
-  el.addEventListener('pointerenter', move);
+  const enter = (e) => {
+    if (hooks && typeof hooks.onEnter === 'function') {
+      try { hooks.onEnter(e); } catch (err) { console.error('[windows] a hover hook threw', err); }
+    }
+    move(e);
+  };
+  const leave = (e) => {
+    hideTip();
+    if (hooks && typeof hooks.onLeave === 'function') {
+      try { hooks.onLeave(e); } catch (err) { console.error('[windows] a hover hook threw', err); }
+    }
+  };
+  el.addEventListener('pointerenter', enter);
   el.addEventListener('pointermove', move);
-  el.addEventListener('pointerleave', hideTip);
+  el.addEventListener('pointerleave', leave);
   return () => {
-    el.removeEventListener('pointerenter', move);
+    el.removeEventListener('pointerenter', enter);
     el.removeEventListener('pointermove', move);
-    el.removeEventListener('pointerleave', hideTip);
+    el.removeEventListener('pointerleave', leave);
   };
 }
 
@@ -310,6 +426,11 @@ export function createWindows(root, input, ctx = {}) {
 
   const openTab = () => stack.find((id) => isCodexTab(id)) || null;
 
+  /** True when this id is an alias AND the page it points at is registered. */
+  const aliased = (id) => !!TAB_ALIAS[String(id)] && panels.has(TAB_ALIAS[String(id)]);
+  /** The id that really answers to this one, here, with these panels. */
+  const here = (id) => (aliased(id) ? TAB_ALIAS[String(id)] : String(id));
+
   // --------------------------------------------------------------- dragging
   // Both kinds of window drag by their top bar, and both stop pointer events
   // at the window so the camera, which listens on the canvas, never sees them.
@@ -396,7 +517,12 @@ export function createWindows(root, input, ctx = {}) {
       b.className = 'bw-tab' + (here === t.id ? ' on' : '');
       b.dataset.tab = t.id;
       b.textContent = t.label;
-      if (p.key) b.title = `${t.label}, key ${keyCap(p.key)}`;
+      // Every key that lands on this page, not just the page's own: B is an
+      // alias of Character now and the cap has to say so.
+      const keys = [p.key, ...Object.keys(TAB_ALIAS)
+        .filter((a) => TAB_ALIAS[a] === t.id)
+        .map((a) => panels.get(a)?.key)].filter(Boolean);
+      if (keys.length) b.title = `${t.label}, key ${[...new Set(keys)].map(keyCap).join(' or ')}`;
       b.addEventListener('click', (e) => { e.stopPropagation(); open(t.id); });
       codex.tabs.appendChild(b);
       tabButtons.set(t.id, b);
@@ -469,7 +595,7 @@ export function createWindows(root, input, ctx = {}) {
 
   function raise(id) {
     if (isCodexTab(id) || id === CODEX_ID) { if (codex) codex.el.style.zIndex = String(++zTop); return; }
-    const f = frames.get(id);
+    const f = frames.get(here(id));
     if (f) f.el.style.zIndex = String(++zTop);
   }
 
@@ -509,7 +635,7 @@ export function createWindows(root, input, ctx = {}) {
     return true;
   }
 
-  const isOpen = (id) => (id === CODEX_ID ? openTab() !== null : stack.includes(id));
+  const isOpen = (id) => (id === CODEX_ID ? openTab() !== null : stack.includes(here(id)));
   const list = () => [...panels.values()];
 
   // ------------------------------------------------------------- open/close
@@ -527,6 +653,16 @@ export function createWindows(root, input, ctx = {}) {
     if (id === CODEX_ID) {
       const want = lastTab || CODEX_IDS.find((t) => panels.has(t));
       return want ? open(want, extra) : false;
+    }
+    // An alias is not a page. `open('bag')` is `open('character')` with a note
+    // saying which door it came through, so the page can light the pack up.
+    // The alias only bites when the page it points at is actually registered:
+    // an embedder that registers the pack and not the sheet gets its pack,
+    // rather than a warning about a panel it never asked for.
+    if (aliased(id)) {
+      const ex = (extra && typeof extra === 'object') ? { ...extra } : {};
+      ex.focus = String(id);
+      return open(TAB_ALIAS[String(id)], ex);
     }
     const panel = panels.get(id);
     if (!panel) { console.warn(`[windows] no panel called "${id}"`); return false; }
@@ -570,6 +706,7 @@ export function createWindows(root, input, ctx = {}) {
 
   function close(id) {
     if (id === CODEX_ID) { const t = openTab(); return t ? close(t) : false; }
+    if (aliased(id)) return close(TAB_ALIAS[String(id)]);
     const i = stack.indexOf(id);
     if (i < 0) return false;
     stack.splice(i, 1);
@@ -652,23 +789,24 @@ export function createWindows(root, input, ctx = {}) {
   }
 
   function bodyOf(id) {
-    if (isCodexTab(id)) return tabBodies.get(id) || null;
+    if (isCodexTab(id)) return tabBodies.get(here(id)) || null;
     return frames.get(id)?.body || null;
   }
 
   /** Rebuild a panel's body, for when the document changed underneath. */
   function refresh(id) {
-    const p = panels.get(id);
-    const body = bodyOf(id);
+    const real = here(id);
+    const p = panels.get(real);
+    const body = bodyOf(real);
     if (!p || !body || !isFn(p.build)) return false;
     body.textContent = '';
-    built.delete(id);
-    return buildInto(id, body);
+    built.delete(real);
+    return buildInto(real, body);
   }
 
   function frameOf(id) {
     if (isCodexTab(id)) return codex ? codex.el : null;
-    return frames.get(id)?.el || null;
+    return frames.get(here(id))?.el || null;
   }
 
   function dispose() {

@@ -45,6 +45,10 @@ export const theme = {
   mana: '#4a8ff0',
   stamina: '#e0bb3a',
 
+  // better and worse, for a number a piece of gear would move
+  up: '#79df6d',
+  down: '#ff7a66',
+
   fonts: {
     display: "'Cinzel', 'Trajan Pro', Palatino, Georgia, serif",
     body: "'Cormorant Garamond', 'EB Garamond', Palatino, Georgia, serif",
@@ -506,6 +510,13 @@ ${rarityRules()}
 .bw-btn:hover:not(:disabled) { border-color: ${theme.gold}; color: ${theme.goldBright}; }
 .bw-btn:disabled { opacity: .45; cursor: default; }
 .bw-btn.on { background: linear-gradient(180deg, ${theme.plateUp}, ${theme.plate}); border-color: ${theme.gold}; }
+
+/* the two colours a previewed number wears. compare.js decides which; every
+   panel that shows a number a piece of gear could move uses these two so the
+   language is one language. Higher is always better in this game, so up is
+   green and down is red with no per number exception. */
+.bw-up { color: ${theme.up}; }
+.bw-down { color: ${theme.down}; }
 
 .bw-dim { color: ${theme.parchmentDim}; }
 .bw-num { font-variant-numeric: tabular-nums; font-family: ${theme.fonts.display}; }

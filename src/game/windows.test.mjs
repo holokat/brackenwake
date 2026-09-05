@@ -8,6 +8,7 @@
 import {
   createWindows, sharesScreen, PAIRS, ESCAPE_KEY,
   CODEX_ID, CODEX_TABS, CODEX_IDS, isCodexTab, RESERVED_KEYS, keyCap,
+  TAB_ALIAS, resolveTab,
 } from './windows.js';
 import { panel as characterPanel } from './win_character.js';
 import { panel as bagPanel } from './win_bag.js';
@@ -62,19 +63,55 @@ const realSix = () => rig([
 
 // ---- the codex is data, not a special case ---------------------------------
 console.log('windows: the codex');
-check('there are six tabs', CODEX_TABS.length === 6, CODEX_IDS.join(','));
-check('and they are the six a player lives in',
-  CODEX_IDS.join(',') === 'character,bag,skills,abilities,crafting,map', CODEX_IDS.join(','));
+check('there are five tabs', CODEX_TABS.length === 5, CODEX_IDS.join(','));
+check('and they are the five a player lives in',
+  CODEX_IDS.join(',') === 'character,skills,abilities,crafting,map', CODEX_IDS.join(','));
+check('there is no Inventory tab any more', !CODEX_IDS.includes('bag'), CODEX_IDS.join(','));
 check('every tab has a label to read', CODEX_TABS.every((t) => typeof t.label === 'string' && t.label.length));
-check('the inventory tab is called Inventory, not Bag',
-  CODEX_TABS.find((t) => t.id === 'bag').label === 'Inventory');
 check('no tab carries its own key, so the label and the hotkey cannot drift',
   CODEX_TABS.every((t) => t.key === undefined));
 check('isCodexTab knows its own', isCodexTab('bag') && isCodexTab('map') && !isCodexTab('settings') && !isCodexTab('talk'));
 check('the tabs share one frame', sharesScreen('bag', 'character') && sharesScreen('map', 'skills'));
 check('and nothing else shares with them', !sharesScreen('bag', 'settings') && !sharesScreen('talk', 'character'));
 check('a window shares the screen with itself', sharesScreen('settings', 'settings'));
-check('PAIRS is that one group', PAIRS.length === 1 && PAIRS[0].length === 6, JSON.stringify(PAIRS));
+check('PAIRS is that one group, the aliases in it',
+  PAIRS.length === 1 && PAIRS[0].length === 7, JSON.stringify(PAIRS));
+
+// ---- the two names for the one page ----------------------------------------
+console.log('windows: bag and inventory are Character');
+check('bag resolves to character', resolveTab('bag') === 'character');
+check('and so does inventory', resolveTab('inventory') === 'character');
+check('and a real tab resolves to itself', resolveTab('map') === 'map' && resolveTab('character') === 'character');
+check('both aliases point at a page that exists',
+  Object.values(TAB_ALIAS).every((v) => CODEX_IDS.includes(v)), JSON.stringify(TAB_ALIAS));
+check('no alias shadows a real tab',
+  Object.keys(TAB_ALIAS).every((k) => !CODEX_IDS.includes(k)), Object.keys(TAB_ALIAS).join(','));
+{
+  const { w } = realSix();
+  check('open("bag") lands on the character page', w.open('bag') === true && w.tab === 'character');
+  check('and it counts as open under either name', w.isOpen('bag') && w.isOpen('character'));
+  check('and exactly one thing is open', w.openIds.join(',') === 'character', w.openIds.join(','));
+  check('close("bag") shuts it', w.close('bag') === true && w.anyOpen === false);
+  check('open("inventory") lands there too', w.open('inventory') === true && w.tab === 'character');
+  w.close('inventory');
+  check('and inventory closes it', w.anyOpen === false);
+}
+{
+  // The page is told WHICH door it came through, so B can light the pack up.
+  const seen = [];
+  const { w } = rig([
+    panelOf('character', 'c', { open(_c, extra) { seen.push(extra ? extra.focus : null); } }),
+    panelOf('bag', 'b'),
+  ]);
+  w.open('character');
+  check('C opens the page with no focus', seen[0] === undefined || seen[0] === null, JSON.stringify(seen));
+  w.close('character');
+  w.open('bag');
+  check('B opens the same page and says the pack asked', seen[1] === 'bag', JSON.stringify(seen));
+  w.close('character');
+  w.open('inventory');
+  check('and so does the older name', seen[2] === 'inventory', JSON.stringify(seen));
+}
 
 // ---- the keys the panels actually carry ------------------------------------
 console.log('windows: the panels\' own keys');
@@ -92,15 +129,15 @@ check('so are space, shift, E and Q', [' ', 'shift', 'e', 'q'].every((k) => RESE
 check('and C, B, K, P, V and M are not',
   ['c', 'b', 'k', 'p', 'v', 'm'].every((k) => !RESERVED_KEYS.includes(k)));
 {
-  const { w, input } = rig([panelOf('greedy', 'a'), panelOf('bag', 'b')]);
+  const { w, input } = rig([panelOf('greedy', 'a'), panelOf('skills', 'k')]);
   check('a panel that asks for A is registered anyway', w.panels.some((p) => p.id === 'greedy'));
   check('but with no key at all', w.keyOf('greedy') === null, String(w.keyOf('greedy')));
   input.press('a');
   w.update(0.016);
   check('so A opens nothing', w.anyOpen === false, w.openIds.join(','));
-  input.press('b');
+  input.press('k');
   w.update(0.016);
-  check('and the key that was not reserved still works', w.isOpen('bag'));
+  check('and the key that was not reserved still works', w.isOpen('skills'));
 }
 
 // ---- register ---------------------------------------------------------------
@@ -121,20 +158,20 @@ console.log('windows: open and close');
 {
   const { w } = realSix();
   check('nothing is open to start', w.anyOpen === false && w.top === null && w.tab === null);
-  check('opening the bag opens it', w.open('bag') === true && w.isOpen('bag'));
+  check('opening the skills opens them', w.open('skills') === true && w.isOpen('skills'));
   check('and the codex counts as open', w.isOpen(CODEX_ID) === true);
-  check('and the bag is the tab that is up', w.tab === 'bag');
+  check('and skills is the tab that is up', w.tab === 'skills');
   // build() fills a DOM element and there is no DOM here, so the manager does
   // not call it. open, close and tick are rules and are called either way.
-  check('nothing is built without a document', trace.filter((t) => t === 'build:bag').length === 0, trace.join(','));
-  check('and told it opened', trace.includes('open:bag'));
-  check('opening it again is not a second open', w.open('bag') === true && trace.filter((t) => t === 'open:bag').length === 1);
-  check('closing closes', w.close('bag') === true && !w.isOpen('bag') && w.anyOpen === false);
+  check('nothing is built without a document', trace.filter((t) => t === 'build:skills').length === 0, trace.join(','));
+  check('and told it opened', trace.includes('open:skills'));
+  check('opening it again is not a second open', w.open('skills') === true && trace.filter((t) => t === 'open:skills').length === 1);
+  check('closing closes', w.close('skills') === true && !w.isOpen('skills') && w.anyOpen === false);
   check('and the codex is shut with it', w.isOpen(CODEX_ID) === false && w.tab === null);
-  check('and told it closed', trace.includes('close:bag'));
-  check('closing what is closed does nothing', w.close('bag') === false);
-  check('toggle opens', w.toggle('bag') === true && w.isOpen('bag'));
-  check('toggle closes', w.toggle('bag') === false && !w.isOpen('bag'));
+  check('and told it closed', trace.includes('close:skills'));
+  check('closing what is closed does nothing', w.close('skills') === false);
+  check('toggle opens', w.toggle('skills') === true && w.isOpen('skills'));
+  check('toggle closes', w.toggle('skills') === false && !w.isOpen('skills'));
   check('opening a panel nobody registered is refused', w.open('dragons') === false);
   check('and it is not open', w.isOpen('dragons') === false);
 }
@@ -144,8 +181,8 @@ console.log('windows: one tab at a time');
 {
   const { w } = realSix();
   w.open('character');
-  w.open('bag');
-  check('opening the pack leaves the sheet', w.isOpen('bag') && !w.isOpen('character'), w.openIds.join(','));
+  w.open('skills');
+  check('opening the skills leaves the sheet', w.isOpen('skills') && !w.isOpen('character'), w.openIds.join(','));
   check('and exactly one thing is open', w.openIds.length === 1);
   check('the closed tab was told', trace.includes('close:character'));
   w.open('map');
@@ -166,7 +203,11 @@ console.log('windows: hotkeys');
   check('C opens the codex on the character page', w.tab === 'character' && w.isOpen(CODEX_ID));
   input.press('b');
   w.update(0.016);
-  check('B turns to the inventory page', w.tab === 'bag' && !w.isOpen('character'));
+  check('B is the same page, so a second name for it shuts it like its own key',
+    w.anyOpen === false, w.openIds.join(','));
+  input.press('b');
+  w.update(0.016);
+  check('and B on its own opens the character page', w.tab === 'character', String(w.tab));
   input.press('p');
   w.update(0.016);
   check('P turns to the abilities page', w.tab === 'abilities', String(w.tab));
@@ -237,6 +278,8 @@ console.log('windows: consumes');
 {
   const { w } = rig([panelOf('bag', 'b'), panelOf('crafting', 'v', { keys: ['1', '2'] })]);
   w.open('bag');
+  check('with no character page registered, the pack opens as itself',
+    w.isOpen('bag') && w.openIds.join(',') === 'bag', w.openIds.join(','));
   check('an open pack claims no ability key', w.consumes('1') === false && w.consumes('2') === false);
   check('and never claims a movement key', w.consumes('w') === false && w.consumes('d') === false);
   w.open('crafting');
@@ -360,12 +403,15 @@ console.log('windows: the codex, built');
   const frame = codexEl.children[0];
   check('it wears the gilded frame', frame.classList.contains('bw-frame'), frame.className);
   const tabs = frame.children[0].children[0];
-  check('the strip holds one tab per registered page', tabs.children.length === 4,
-    tabs.children.map((t) => t.textContent).join(','));
+  check('the strip holds one tab per registered PAGE, and the pack is not one',
+    tabs.children.length === 3, tabs.children.map((t) => t.textContent).join(','));
   check('in the order CODEX_TABS gives',
-    tabs.children.map((t) => t.dataset.tab).join(',') === 'character,bag,skills,abilities',
+    tabs.children.map((t) => t.dataset.tab).join(',') === 'character,skills,abilities',
     tabs.children.map((t) => t.dataset.tab).join(','));
-  check('the Inventory tab reads Inventory', tabs.children[1].textContent === 'Inventory');
+  check('no tab says Inventory', !tabs.children.some((t) => t.textContent === 'Inventory'),
+    tabs.children.map((t) => t.textContent).join(','));
+  check('the character tab names both keys that reach it',
+    /C or B|B or C/.test(String(tabs.children[0].title || '')), String(tabs.children[0].title));
   check('the page that is up is the one on the red plate',
     tabs.children[0].classList.contains('on') && !tabs.children[1].classList.contains('on'));
   check('and the codex is showing', codexEl.hidden === false);
@@ -374,21 +420,29 @@ console.log('windows: the codex, built');
   check('only the pages that have been opened are built', bodies.children.length === 1);
   check('and the built one is not hidden', bodies.children[0].hidden === false);
   check('bodyOf hands back that page', w.bodyOf('character') === bodies.children[0]);
+  check('and asking for it by the old name lands on the same page',
+    w.bodyOf('bag') === bodies.children[0]);
 
   let clickThrew = null;
   try { tabs.children[1].fire('click'); } catch (e) { clickThrew = e; }
-  check('clicking the Inventory tab turns the page', clickThrew === null && w.tab === 'bag',
+  check('clicking the Skills tab turns the page', clickThrew === null && w.tab === 'skills',
     clickThrew ? clickThrew.stack.split('\n')[0] : String(w.tab));
-  check('the pack page is now built and shown', bodies.children.length === 2 && bodies.children[1].hidden === false);
+  check('the skills page is now built and shown', bodies.children.length === 2 && bodies.children[1].hidden === false);
   check('and the sheet is hidden, not thrown away', bodies.children[0].hidden === true);
   check('the plate moved with it',
     tabs.children[1].classList.contains('on') && !tabs.children[0].classList.contains('on'));
 
-  let skillsThrew = null;
-  try { w.open('skills'); w.open('abilities'); } catch (e) { skillsThrew = e; }
-  check('the skills and abilities pages build too', skillsThrew === null, skillsThrew ? skillsThrew.stack.split('\n')[0] : '');
-  check('four pages built, one shown', bodies.children.length === 4
+  let abilitiesThrew = null;
+  try { w.open('abilities'); } catch (e) { abilitiesThrew = e; }
+  check('the abilities page builds too', abilitiesThrew === null, abilitiesThrew ? abilitiesThrew.stack.split('\n')[0] : '');
+  check('three pages built, one shown', bodies.children.length === 3
     && bodies.children.filter((b) => !b.hidden).length === 1, String(bodies.children.filter((b) => !b.hidden).length));
+
+  let bagThrew = null;
+  try { w.open('bag'); } catch (e) { bagThrew = e; }
+  check('and opening the pack by name turns BACK to the character page, without building a fourth',
+    bagThrew === null && w.tab === 'character' && bodies.children.length === 3,
+    bagThrew ? bagThrew.stack.split('\n')[0] : `${w.tab}, ${bodies.children.length} pages`);
 
   const closeBtn = frame.children[0].children[1];
   closeBtn.fire('click', { stopPropagation() {} });
@@ -401,7 +455,9 @@ console.log('windows: the codex, built');
     tickThrew ? tickThrew.stack.split('\n')[0] : '');
 
   check('refresh rebuilds a page and says it worked', w.refresh('character') === true);
-  check('and there is still exactly one page element for it', bodies.children.length === 4);
+  check('and there is still exactly one page element for it', bodies.children.length === 3);
+  check('refreshing by the old name rebuilds the same page', w.refresh('bag') === true
+    && bodies.children.length === 3, String(bodies.children.length));
   check('refreshing a page nobody registered is refused', w.refresh('dragons') === false);
 
   delete globalThis.document;
