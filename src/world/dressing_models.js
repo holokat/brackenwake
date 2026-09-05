@@ -93,6 +93,16 @@ const OVERRIDE = {
   giant_mushroom: { stone: 0xd8a05a, dark: 0xa87038, accent: 0xf0e0c0 },
   mushroom_ring: { stone: 0xc88a4a, dark: 0x96602c, accent: 0xe8dcc0 },
   legion_banner: { cloth: 0x9a2b22 },
+  // The farm. A crop is its own colour wherever it grows: ripe wheat is ripe
+  // wheat in the Greenwold and in the Stormpeaks, and a turned furrow is the
+  // colour of turned earth. The scarecrow is NOT overridden, because a
+  // scarecrow wears whatever the country wears, and that is the one thing in
+  // a field that should look different from realm to realm.
+  dew_pond: { dark: 0x39543f, stone: 0x7b776b, green: 0x5c7a38 },
+  wheat_row: { cloth: 0xdcb75c, wooddark: 0xb99a4e, accent: 0xe8d08a },
+  cabbage_row: { green: 0x6f8f42, accent: 0x8fae5c, dark: 0x4a3a2a },
+  furrow: { dark: 0x453424, wooddark: 0x362819, stone: 0x8d887e },
+  field_hedge: { stone: 0x3f6b32, dark: 0x2b4a24 },
 };
 
 export function paletteFor(realm, kind) {
@@ -543,6 +553,123 @@ export const BODIES = {
     P(box(0.9, 0.16, 0.2), c.dark, [0, 0.98, 0.56]),
     P(rock(0.5, r, 0.5, 0.3), c.green, [0.8, 0.2, 0.7])],
 
+  /** A ring of dry stone with a way into it: a fold for the sheep. */
+  fold: (r, c) => {
+    const out = [];
+    const gapAt = r() * 6.283;
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * 6.283;
+      // the way in. A fold with no gate in it is a well, not a fold
+      let d = Math.abs(((a - gapAt + Math.PI) % 6.283) - Math.PI);
+      if (d < 0.34) continue;
+      const h = 0.46 + (i % 3) * 0.13;
+      out.push(P(box(0.92, h, 0.42), i % 2 ? c.dark : c.stone,
+        [Math.cos(a) * 2.4, h / 2, Math.sin(a) * 2.4], [0, -a, jit(r, 0.06)]));
+    }
+    out.push(P(rock(0.42, r, 0.5, 0.3), c.dark, [1.3, 0.17, -1.1], [0, r() * 6.28, 0]));
+    out.push(P(rock(0.3, r, 0.5, 0.3), c.stone, [-1.6, 0.13, 0.8], [0, r() * 6.28, 0]));
+    return out;
+  },
+  /** A dew pond: still water in a dug hollow, a stone rim, reeds on one side. */
+  pond: (r, c) => {
+    const out = [P(cyl(1.95, 2.05, 0.16, 12), c.dark, [0, 0.07, 0])];
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * 6.283 + jit(r, 0.18);
+      out.push(P(rock(0.4, r, 0.34, 0.32), c.stone, [Math.cos(a) * 2.2, 0.1, Math.sin(a) * 2.2], [0, r() * 6.28, 0]));
+    }
+    for (let i = 0; i < 10; i++) {
+      const a = 1.4 + r() * 1.6, d = 1.9 + r() * 0.5, h = 0.5 + r() * 0.55;
+      out.push(P(cyl(0.012, 0.04, h, 4), c.green,
+        [Math.cos(a) * d, h / 2 + 0.1, Math.sin(a) * d], [jit(r, 0.24), a, jit(r, 0.24)]));
+    }
+    return out;
+  },
+
+  // -- the farm ----------------------------------------------------------
+  //
+  // A crop is not one plant. A row body is EIGHT METRES of row, laid along its
+  // own local X, and the field lays them end to end and side by side, so a
+  // sixty metre field of wheat is about a hundred and fifty instances of one
+  // geometry and one draw call. Standing a stalk at a time would be forty
+  // thousand.
+
+  /** Eight metres of standing corn: thin stems, a heavy ear on each. */
+  wheatrow: (r, c) => {
+    const out = [];
+    const N = 18;
+    for (let i = 0; i < N; i++) {
+      const x = -3.85 + (i / (N - 1)) * 7.7;
+      for (const side of [-0.22, 0.22]) {
+        const h = 0.92 + r() * 0.34;
+        const zz = side + jit(r, 0.14), xx = x + jit(r, 0.16);
+        out.push(P(cyl(0.016, 0.045, h, 4), c.wooddark, [xx, h / 2, zz], [jit(r, 0.14), 0, jit(r, 0.14)]));
+        out.push(P(cone(0.055, 0.3, 4), c.cloth, [xx, h + 0.13, zz], [jit(r, 0.2), r() * 6.28, jit(r, 0.2)]));
+      }
+    }
+    return out;
+  },
+  /** Eight metres of a cabbage row: heads on a raised bed, leaves flung out. */
+  cabbagerow: (r, c) => {
+    const out = [P(box(7.8, 0.1, 0.62), c.dark, [0, 0.05, 0])];
+    for (let i = 0; i < 9; i++) {
+      const x = -3.5 + i * 0.875 + jit(r, 0.1), zz = jit(r, 0.1);
+      out.push(P(sph(0.26, 6, 4), c.green, [x, 0.24, zz], [0, r() * 6.28, 0], [1, 0.78, 1]));
+      for (let k = 0; k < 3; k++) {
+        const a = r() * 6.28;
+        out.push(P(box(0.36, 0.03, 0.22), c.accent,
+          [x + Math.cos(a) * 0.24, 0.12, zz + Math.sin(a) * 0.24], [0, -a, jit(r, 0.3)]));
+      }
+    }
+    return out;
+  },
+  /** Eight metres of a ploughed strip: dark ridges, and the stones turned up. */
+  furrow: (r, c) => {
+    const out = [];
+    for (let i = 0; i < 4; i++) {
+      out.push(P(box(7.9, 0.15, 0.34), i % 2 ? c.dark : c.wooddark,
+        [0, 0.075, (i - 1.5) * 0.44], [0, 0, 0]));
+    }
+    for (let i = 0; i < 7; i++) out.push(P(rock(0.11, r, 0.5, 0.4), c.stone, [jit(r, 3.6), 0.06, jit(r, 0.75)]));
+    return out;
+  },
+  /** Three metres of post and rail, the fence a field is closed with. */
+  railfence: (r, c) => {
+    const out = [];
+    for (const sx of [-1.4, 0, 1.4]) out.push(P(cyl(0.07, 0.1, 1.35, 6), c.wood, [sx, 0.67, 0], [jit(r, 0.05), 0, jit(r, 0.05)]));
+    out.push(P(box(2.95, 0.09, 0.06), c.wooddark, [0, 1.16, 0], [0, 0, jit(r, 0.02)]));
+    out.push(P(box(2.95, 0.09, 0.06), c.wooddark, [0, 0.82, 0], [0, 0, jit(r, 0.02)]));
+    out.push(P(box(2.95, 0.08, 0.05), c.wooddark, [0, 0.5, 0], [0, 0, jit(r, 0.02)]));
+    return out;
+  },
+  /**
+   * A cross of poles with a coat on it, arms out, a straw head and a hat.
+   *
+   * Authored standing up, so its longest dimension is its height and the kit's
+   * `size` is how tall it is. The arms are a cylinder turned on its side, and
+   * the coat hangs off them, which is what makes the silhouette read from the
+   * far side of a field.
+   */
+  scarecrow: (r, c) => [
+    P(cyl(0.055, 0.08, 2.15, 6), c.wood, [0, 1.07, 0], [jit(r, 0.04), 0, jit(r, 0.04)]),
+    P(cyl(0.042, 0.05, 1.5, 5), c.wooddark, [0, 1.6, 0], [0, jit(r, 0.25), Math.PI / 2]),
+    P(box(0.6, 0.78, 0.26), c.cloth, [0, 1.3, 0], [0, jit(r, 0.18), jit(r, 0.05)]),
+    P(box(0.22, 0.44, 0.17), c.cloth, [0.56, 1.46, 0], [0, 0, 0.22]),
+    P(box(0.22, 0.44, 0.17), c.cloth, [-0.56, 1.46, 0], [0, 0, -0.22]),
+    P(sph(0.2, 7, 5), c.accent, [0, 1.94, 0], [0, r() * 6.28, 0], [1, 1.1, 1]),
+    P(cyl(0.33, 0.35, 0.05, 9), c.wooddark, [0, 2.08, 0], [jit(r, 0.12), 0, jit(r, 0.12)]),
+    P(cyl(0.15, 0.19, 0.24, 8), c.wooddark, [0, 2.2, 0], [jit(r, 0.12), 0, jit(r, 0.12)]),
+  ],
+  /** The same, and a crow sitting on the arm, unimpressed. */
+  crowedscarecrow: (r, c) => {
+    const out = BODIES.scarecrow(r, c);
+    const sx = r() < 0.5 ? -0.68 : 0.68;
+    out.push(P(sph(0.15, 7, 5), c.dark, [sx, 1.76, 0], [0, 0, 0], [1.35, 1, 0.85]));
+    out.push(P(sph(0.09, 6, 4), c.dark, [sx + 0.13, 1.87, 0]));
+    out.push(P(cone(0.035, 0.13, 4), c.accent, [sx + 0.23, 1.87, 0], [0, 0, -1.4]));
+    out.push(P(box(0.22, 0.04, 0.07), c.dark, [sx - 0.19, 1.74, 0], [0, jit(r, 0.3), -0.2]));
+    return out;
+  },
+
   // -- bone --------------------------------------------------------------
   bones: (r, c) => {
     const out = [];
@@ -612,6 +739,11 @@ export const DRESS_NAME = {
   hedgerow: 'a hedgerow', drystone_wall: 'a dry stone wall', hay_rick: 'a hay rick',
   wayside_shrine: 'a wayside shrine', field_gate: 'a field gate', milestone: 'a milestone',
   sheaf: 'a sheaf', sarsen: 'a boundary stone',
+  field_hedge: 'a field hedge', rail_fence: 'a post and rail fence',
+  sheep_fold: 'a sheep fold', dew_pond: 'a dew pond',
+  wheat_row: 'standing wheat', cabbage_row: 'a row of cabbages',
+  furrow: 'a ploughed strip', scarecrow: 'a scarecrow',
+  crowed_scarecrow: 'a scarecrow, and a crow on its arm',
   fallen_giant: 'a fallen giant', root_arch: 'an arch of roots', carved_face: 'a carved face',
   rope_bridge_stub: 'the end of a rope bridge', buttress_root: 'a buttress root',
   vine_curtain: 'a curtain of vines', mushroom_ring: 'a ring of mushrooms',
@@ -648,8 +780,20 @@ export const nameOf = (kind) => DRESS_NAME[kind] || ('a ' + String(kind).replace
 const bodyCache = new Map();
 const strHash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 
-/** How many bodies a kind is grown in. Anchors vary; scatter does not need to. */
-export const variantsOf = (spec) => (spec.tier === 'anchor' ? ANCHOR_VARIANTS : SCATTER_VARIANTS);
+/**
+ * How many bodies a kind is grown in.
+ *
+ * A rib cage twelve metres across wants two, because two of them in sight are
+ * two objects and one repeated is wallpaper. A hay rick four metres across
+ * does not: at that size a random turn and a scale between 0.85 and 1.25 is
+ * already more variety than the eye takes in, and every extra variant is
+ * another InstancedMesh and another draw call. The whole streamed ring
+ * standing on the Greenwold and Verdant border, both realms farming, came to
+ * exactly 40 draws with two variants for everything and 33 with this.
+ */
+export const VARIANT_SIZE = 5;
+export const variantsOf = (spec) => (spec.variants
+  ?? (spec.tier === 'anchor' && spec.size >= VARIANT_SIZE ? ANCHOR_VARIANTS : SCATTER_VARIANTS));
 
 /**
  * The geometry of one kind, in one of its variants, scaled so its largest
@@ -708,6 +852,18 @@ export function auditBodies(kits = KITS) {
         if (foot > spec.size * 2.0) bad.push(`${realm}:${spec.kind}: a footprint of ${foot.toFixed(1)} m under a ${spec.size} m thing`);
         if (b.min.y < -spec.size * 0.45) bad.push(`${realm}:${spec.kind}: ${(-b.min.y).toFixed(2)} m of it is under the ground it stands on`);
         if (b.min.y > spec.size * 0.12) bad.push(`${realm}:${spec.kind}: it floats ${b.min.y.toFixed(2)} m above the ground`);
+        // The declared long axis, measured. `dressing.js` turns a run's
+        // segments to lie ALONG the run using this, so a hedge whose body is
+        // actually longer in z would come out crosswise: exactly the comb the
+        // Greenwold's hedgerows were before Z4. Both files or neither.
+        if (spec.along) {
+          const ex = b.max.x - b.min.x, ez = b.max.z - b.min.z;
+          const long = ex >= ez ? 'x' : 'z';
+          if (long !== spec.along) {
+            bad.push(`${realm}:${spec.kind}: declares along "${spec.along}" and is `
+              + `${ex.toFixed(2)} m in x by ${ez.toFixed(2)} m in z, so its long axis is ${long}`);
+          }
+        }
         const t = geo.attributes.position.count / 3;
         if (t > 3000) bad.push(`${realm}:${spec.kind}: ${t} triangles, too heavy to instance`);
         tris += t;

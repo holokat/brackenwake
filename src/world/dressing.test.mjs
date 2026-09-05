@@ -1,17 +1,27 @@
 // The world's dressing, measured. Run: node src/world/dressing.test.mjs
 //
-// The Boneyard was a flat grey plain with pebbles on it. The three claims this
-// file exists to prove, because all three would otherwise be taken on trust:
+// The Boneyard was a flat grey plain with pebbles on it, and then the
+// Greenwold was a meadow with a dozen field gates standing in it, each one
+// leading from grass into grass. The claims this file exists to prove:
 //
 //   1. open country is never empty. In every one of the nine realms, from
 //      twenty points of real open ground, something authored stands inside
 //      60 m. The number is measured per realm and printed, not asserted from
 //      the density and hoped for.
-//   2. nothing stands where it must not. Not in water, not on a road, not on a
-//      site's pad, not inside the home clear, and not on ground steeper than
-//      its own kind takes. Every one of those gates is driven true AND false.
-//   3. none of it costs anything. Placement and build time per chunk, draw
-//      calls, instances and triangles, all measured and under budget.
+//   2. NO GATE STANDS ALONE. Over four hundred chunks, every field gate and
+//      every stile in the world is the gap in a run, with the segment before
+//      it and the segment after it standing, and it is within a metre and a
+//      half of the middle of the two. Zero lone gates, counted.
+//   3. every Greenwold settlement has farmland. The settlements within six
+//      kilometres of the origin are taken one by one and each has a field
+//      inside four hundred metres. No field lies on a road, in water, on a
+//      pad, over a grade of 0.12 or across a stand of trees, and the desert,
+//      the snow and the fen have none at all.
+//   4. the open country carries less. The small loose scatter of the Greenwold
+//      away from a road and away from a farm is measured against the same
+//      placement with the thinning switched off, which is the world as it
+//      stood, and the drop is printed.
+//   5. nothing stands where it must not, and none of it costs anything.
 //
 // A NOTE ON THE CLOCK. `field.sampleAt` builds a road cell on its first touch,
 // so the first chunk in a region can cost fifty times the twentieth. Every
@@ -23,10 +33,15 @@ import * as THREE from 'three';
 import { createWorldField, CHUNK, HOME_RADIUS } from './field.js';
 import { REALM_ZONES } from './zones.js';
 import { sitesNear } from './sites.js';
+import { standAt } from './arbor.js';
+import { rand2 } from './noise.js';
 import {
-  dressingFor, openAt, inPad, realmAt, kitFor, auditKits, densityAt,
+  dressingFor, openAt, probeAt, inPad, inField, realmAt, kitFor, auditKits, densityAt,
   KITS, DENSITY, ALL_KINDS, ANCHOR, SCATTER, JITTER, TRIES, RUGGED,
   SCATTER_CHANCE, ROAD_KEEP, PAD_MARGIN, SHORE_LINE,
+  FIELD_KIT, FIELDS_PER, FARM_REALMS, FARM_KINDS, FIELD_REACH, FIELD_GRADE,
+  FIELD_MIN, FIELD_MAX, FIELD_SIZES, OPEN_THIN, THIN_REALMS, CROPS, BOUNDS,
+  farmFor, fieldGate, roadCrosses, clearFarms, farmsHeld, poolFor, dressSeed, ryAlong,
 } from './dressing.js';
 import {
   createDressing, bodyFor, auditBodies, materials, materialFor, variantsOf,
@@ -50,11 +65,16 @@ console.log('\nthe kits');
     `${ALL_KINDS.length} kinds over ${Object.keys(KITS).length} realms`);
 
   // both directions: it has to refuse as loudly as it accepts
+  const gw = () => KITS.greenwold.map((k) => ({ ...k }));
   const cases = [
     ['a realm with no kit', () => { const k = { ...KITS }; delete k.boneyard; return k; }, 'no kit'],
     ['a kit of three kinds', () => ({ ...KITS, boneyard: KITS.boneyard.slice(0, 3) }), 'wanted eight to twelve'],
     ['a prop a hundred metres wide', () => ({ ...KITS, boneyard: KITS.boneyard.map((k, i) => (i ? k : { ...k, size: 100 })) }), 'wanted 0.5 to 12'],
     ['a kind naming a body nobody wrote', () => ({ ...KITS, boneyard: KITS.boneyard.map((k, i) => (i ? k : { ...k, build: 'unicorn' })) }), 'does not exist'],
+    ['a realm that farms with its gate taken out', () => ({ ...KITS, greenwold: gw().filter((k) => k.kind !== 'field_gate') }), 'field kinds'],
+    ['a realm that does not farm carrying a crop', () => ({ ...KITS, boneyard: KITS.boneyard.concat([{ ...FIELD_KIT[4] }]) }), 'does not farm'],
+    ['an axis that is no axis', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'hedgerow' ? { ...k, along: 'q' } : k)) }), 'which is no axis'],
+    ['a chance of nothing at all', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'hedgerow' ? { ...k, chance: 0 } : k)) }), 'a chance of 0'],
   ];
   for (const [what, make, want] of cases) {
     let threw = '';
@@ -65,12 +85,71 @@ console.log('\nthe kits');
   const sizes = Object.values(KITS).flat().map((k) => k.size);
   ck('every prop is between half a metre and twelve', Math.min(...sizes) >= 0.5 && Math.max(...sizes) <= 12,
     `${Math.min(...sizes)} m to ${Math.max(...sizes)} m`);
-  const counts = Object.entries(KITS).map(([r, l]) => `${r} ${l.length}`);
-  ck('eight to twelve kinds a realm', Object.values(KITS).every((l) => l.length >= 8 && l.length <= 12), counts.join(', '));
+  const counts = Object.entries(KITS).map(([r, l]) => `${r} ${l.filter((k) => k.tier !== 'field').length}`);
+  ck('eight to twelve kinds a realm on the two grids',
+    Object.values(KITS).every((l) => {
+      const n = l.filter((k) => k.tier !== 'field').length;
+      return n >= 8 && n <= 12;
+    }), counts.join(', '));
   ck('every realm keeps one kind that stands on a mountainside',
     Object.values(KITS).every((l) => l.some((k) => k.slope >= RUGGED)),
     Object.entries(KITS).filter(([, l]) => !l.some((k) => k.slope >= RUGGED)).map(([r]) => r).join(', ') || `slope ${RUGGED}`);
   ck('every realm has a density', REALM_ZONES.every((z) => DENSITY[z.id] > 0));
+
+  // Z4: the gate and the stile are not on either grid, anywhere in the world.
+  const loose = [];
+  for (const [id, list] of Object.entries(KITS)) {
+    for (const k of list) if ((k.kind === 'field_gate' || k.kind === 'stile') && k.tier !== 'field') loose.push(`${id}:${k.kind} is tier ${k.tier}`);
+  }
+  ck('no grid anywhere in the world can roll a gate or a stile', loose.length === 0,
+    loose.join(', ') || 'both are tier field in every realm that has them');
+  ck('every realm that farms carries all nine field kinds and no realm else carries any',
+    [...FARM_REALMS].every((r) => FIELD_KIT.every((k) => KITS[r].some((q) => q.kind === k.kind)))
+    && Object.entries(KITS).every(([r, l]) => FARM_REALMS.has(r) || !l.some((k) => k.tier === 'field')),
+    `${[...FARM_REALMS].join(', ')} farm; ${Object.keys(KITS).length - FARM_REALMS.size} realms do not`);
+  ck('the realms that grow nothing are the desert, the snow, the fen, the ash and the slag',
+    ['emberwastes', 'frostreach', 'saltmarch', 'boneyard', 'ashenthrone'].every((r) => !FARM_REALMS.has(r)),
+    Object.entries(FIELDS_PER).map(([r, n]) => `${r} ${n}`).join(', '));
+}
+
+// ------------------------------------------------- the seed, and its bits --
+//
+// noise.hash2 mixes its seed in as seed * 2147483647, and the world seed is
+// 20260904, so that product is past 2^53 and the low bits of the seed go with
+// it. Two salts of the same cell then come out nearly the same number, and
+// every roll drawn after another one is correlated with it.
+
+console.log('\nthe seed, and the bits it was losing');
+{
+  const mix = (S) => {
+    let n = 0; const got = [0, 0, 0];
+    for (let x = 0; x < 300; x++) for (let z = -300; z < 0; z++) {
+      if (rand2(x, z, S + 21) > SCATTER_CHANCE) continue;       // the roll dressingFor draws first
+      const u = rand2(x, z, S + 24); n++;                        // and the roll it draws next
+      got[u < 2 / 9 ? 0 : u < 5 / 9 ? 1 : 2]++;
+    }
+    return got.map((v) => v / n * 100);
+  };
+  const raw = mix(field.seed);
+  const cut = mix(dressSeed(field.seed));
+  ck('the raw world seed skews the roll that follows another roll',
+    Math.abs(raw[2] - 44.4) > 20,
+    `beehive ${f2(raw[0])}%, sheaf ${f2(raw[1])}%, boundary stone ${f2(raw[2])}%, against 22.2 / 33.3 / 44.4 wanted`);
+  ck('and the seed cut to twenty bits does not',
+    Math.abs(cut[0] - 22.2) < 4 && Math.abs(cut[1] - 33.3) < 4 && Math.abs(cut[2] - 44.4) < 4,
+    `beehive ${f2(cut[0])}%, sheaf ${f2(cut[1])}%, boundary stone ${f2(cut[2])}%`);
+  ck('dressSeed is stable and small', dressSeed(20260904) === dressSeed(20260904)
+    && dressSeed(20260904) < 1048576 && dressSeed(20260904) !== dressSeed(20260905),
+    `${dressSeed(20260904)} for this world, ${dressSeed(20260905)} for the next`);
+
+  // and the world can be seen to have got the mix back
+  const kinds = {};
+  for (let dz = -5; dz <= 5; dz++) for (let dx = -5; dx <= 5; dx++) {
+    for (const p of dressingFor(field, -6 + dx, -21 + dz)) if (!p.farm) kinds[p.kind] = (kinds[p.kind] || 0) + 1;
+  }
+  ck('the Greenwold keeps its boundary stones, which the skew had all but taken away',
+    (kinds.sarsen || 0) > (kinds.beehive || 0),
+    `${kinds.sarsen || 0} boundary stones to ${kinds.beehive || 0} beehives over 121 chunks`);
 }
 
 // ------------------------------------------------------------ the bodies --
@@ -85,10 +164,20 @@ console.log('\nthe bodies');
   ck('no body is heavy enough to hurt instanced', m.tris / m.bodies < 400,
     `${(m.tris / m.bodies).toFixed(0)} triangles a body on average`);
 
-  // both directions: a body that floats, and one built the wrong size
   let threw = '';
   try { auditBodies({ test: [{ ...KITS.boneyard[0], kind: 'floater', build: 'floater' }] }); } catch (e) { threw = e.message; }
   ck('and throws when a kind names a body nobody wrote', threw.includes('does not exist'), threw.split('\n')[1]?.trim() || 'it did not throw');
+
+  // Z4: the declared long axis, both ways. A hedge that says it is long in z is
+  // a hedge laid across its own run, which is what the Greenwold looked like.
+  const hedge = KITS.greenwold.find((k) => k.kind === 'hedgerow');
+  let axisThrew = '';
+  try { auditBodies({ greenwold: [{ ...hedge, along: 'z' }] }); } catch (e) { axisThrew = e.message; }
+  ck('and throws when a kind declares the wrong long axis', axisThrew.includes('long axis is x'),
+    axisThrew.split('\n')[1]?.trim() || 'it did not throw');
+  const declared = Object.values(KITS).flat().filter((k) => k.along);
+  ck('and passes on every kind that really does declare one', declared.length > 0,
+    `${declared.length} kinds declare an axis, all measured against their geometry`);
 
   ck('the whole world runs on four materials', Object.keys(materials()).length === 4, Object.keys(materials()).join(', '));
   ck('every material a kind asks for exists',
@@ -100,16 +189,17 @@ console.log('\nthe bodies');
   ck('the same kind in two realms is two colours',
     paletteFor('greenwold', 'cart').wood !== paletteFor('emberwastes', 'broken_cart').wood,
     'a Greenwold cart is oak and a Wastes cart is bleached');
+  ck('wheat is wheat in every realm that grows it, and a scarecrow is not',
+    paletteFor('greenwold', 'wheat_row').cloth === paletteFor('stormpeaks', 'wheat_row').cloth
+    && paletteFor('greenwold', 'scarecrow').cloth !== paletteFor('stormpeaks', 'scarecrow').cloth,
+    'the crop is the crop; the coat on the pole is the country\'s');
 }
 
 // -------------------------------------------------------------- the gate --
-//
-// Six rules, each driven true and false against real ground.
 
 console.log('\nthe gate, both ways');
 {
   const spec = kitFor('boneyard').find((k) => k.kind === 'bone_shard');
-  // find one point of each kind by walking the world rather than by guessing
   const findWhere = (why, from, step, n = 6000) => {
     for (let i = 0; i < n; i++) {
       const x = from[0] + Math.cos(i * 0.7) * i * step, z = from[1] + Math.sin(i * 0.7) * i * step;
@@ -129,7 +219,6 @@ console.log('\nthe gate, both ways');
   const justOut = openAt(field, HOME_RADIUS + 2, 0, spec);
   ck('and two metres past it does not refuse for that reason', justOut.why !== 'home', justOut.why || 'open');
 
-  // a road: sweep the ground round the heart until a sample says it is graded
   let onRoad = null;
   for (let gz = -2400; gz <= 2400 && !onRoad; gz += 7) {
     for (let gx = -2400; gx <= 2400; gx += 7) {
@@ -140,16 +229,11 @@ console.log('\nthe gate, both ways');
   if (onRoad) {
     const g = openAt(field, onRoad.x, onRoad.z, spec, sitesNear(field, onRoad.x, onRoad.z, 260));
     ck('a road refuses', !g.ok && g.why === 'road', `road strength ${f2(onRoad.s.road)} at ${onRoad.x.toFixed(0)}, ${onRoad.z.toFixed(0)}`);
-    // Sixty metres off it, ON GROUND THAT IS NOT ITSELF A ROAD. The old probe
-    // stepped a fixed sixty metres north east and landed on another road when
-    // the network changed on 2026-09-06, so the check read "road" and looked
-    // like a broken gate. Roads meet, so the direction has to be chosen by
-    // asking the field, not by picking one.
     let off = null, offAt = null;
     for (let i = 0; i < 8 && !off; i++) {
       const a = (i / 8) * Math.PI * 2;
       const ox = onRoad.x + Math.cos(a) * 60, oz = onRoad.z + Math.sin(a) * 60;
-      if (field.sampleAt(ox, oz).road > 0) continue;      // still on a road, try the next bearing
+      if (field.sampleAt(ox, oz).road > 0) continue;
       offAt = [ox, oz];
       off = openAt(field, ox, oz, spec, sitesNear(field, ox, oz, 260));
     }
@@ -157,7 +241,6 @@ console.log('\nthe gate, both ways');
       off ? `${off.why || 'open'} at ${offAt[0].toFixed(0)}, ${offAt[1].toFixed(0)}` : 'every bearing at 60 m is on a road');
   } else ck('a road refuses', false, 'no road found to test against');
 
-  // a pad: take a real site out of the world and stand in the middle of it
   const someSite = sitesNear(field, -4250, 1202, 2600).find((s) => s.flatR > 20);
   if (someSite) {
     const g = openAt(field, someSite.x, someSite.z, spec, [someSite]);
@@ -168,8 +251,6 @@ console.log('\nthe gate, both ways');
     ck('inPad holds inside it', inPad(someSite, someSite.x + someSite.flatR * 0.5, someSite.z));
   } else ck('a site\'s pad refuses', false, 'no site found to test against');
 
-  // slope: the same point, once for a kind that will stand on it and once for
-  // one that will not
   let steep = null;
   for (let i = 0; i < 8000 && !steep; i++) {
     const x = 1123 + Math.cos(i * 0.7) * i * 0.5, z = -4190 + Math.sin(i * 0.7) * i * 0.5;
@@ -178,12 +259,252 @@ console.log('\nthe gate, both ways');
   }
   if (steep) {
     const rugged = kitFor('stormpeaks').find((k) => k.slope >= RUGGED);
-    const fussy = kitFor('stormpeaks').find((k) => k.slope < 0.5);
+    const fussy = kitFor('stormpeaks').find((k) => k.slope < 0.5 && k.tier !== 'field');
     const a = openAt(field, steep.x, steep.z, rugged);
     const b = openAt(field, steep.x, steep.z, fussy);
     ck('a slope of ' + f2(steep.g.slope) + ' takes the rugged kind', a.ok, rugged.kind);
     ck('and refuses the fussy one', !b.ok && b.why === 'slope', `${fussy.kind}, limit ${fussy.slope}`);
   } else ck('slope, both ways', false, 'no slope found to test against');
+
+  // Z4: a field is a place nothing else stands in, and probeAt is openAt's own
+  // first half, so the two cannot come to different answers.
+  const box = { x: 3000, z: 3000, hw: 30, hh: 30, ca: 1, sa: 0 };
+  ck('a field refuses everything that is not its own', openAt(field, 3000, 3000, spec, null, [box]).why === 'field');
+  ck('and lets go of it forty metres out', openAt(field, 3040, 3000, spec, null, [box]).why !== 'field');
+  ck('inField holds inside and not outside',
+    inField(box, 3020, 3020) && !inField(box, 3040, 3000) && inField(box, 3032, 3000, 4));
+  const px = -4250 + 811, pz = 1202 + 233;
+  const pa = probeAt(field, px, pz, null), oa = openAt(field, px, pz, null);
+  ck('probeAt is openAt with the slope taken out, and they agree',
+    pa.ok === oa.ok && pa.why === oa.why && pa.s.h === oa.s.h, `both say ${oa.why || 'open'}`);
+}
+
+// ------------------------------------------------ NO GATE STANDS ALONE --
+//
+// The whole of Z4, in one measurement. A field gate and a stile reach the
+// world through exactly one code path: the gap a run leaves for them. This
+// walks four hundred chunks of the farmed country and asks of every one it
+// finds whether the run either side of it is standing.
+
+console.log('\nno gate stands alone');
+{
+  const spots = [[-6, -21], [-33, -18], [26, -12], [11, 24], [17, 51]];   // five Greenwold neighbourhoods
+  const props = [], runs = new Map();
+  let chunks = 0;
+  for (const [cx0, cz0] of spots) {
+    for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) {
+      chunks++;
+      for (const p of dressingFor(field, cx0 + dx, cz0 + dz)) {
+        props.push(p);
+        if (p.run) { if (!runs.has(p.run)) runs.set(p.run, new Map()); runs.get(p.run).set(p.ri, p); }
+      }
+    }
+  }
+  const gates = props.filter((p) => p.kind === 'field_gate' || p.kind === 'stile');
+  let lone = 0, offCentre = 0, worst = 0, noRun = 0;
+  for (const g of gates) {
+    if (!g.run || !g.gap) { noRun++; lone++; continue; }
+    const R = runs.get(g.run);
+    const a = R && R.get(g.ri - 1), b = R && R.get(g.ri + 1);
+    if (!a || !b) { lone++; continue; }
+    const d = Math.hypot(g.x - (a.x + b.x) / 2, g.z - (a.z + b.z) / 2);
+    if (d > worst) worst = d;
+    if (d > 1.5) offCentre++;
+  }
+  ck('there are gates to test at all', gates.length > 20, `${gates.length} gates and stiles over ${chunks} chunks, ${props.length} props`);
+  ck('not one of them stands on its own', lone === 0,
+    `${lone} lone (${noRun} carrying no run at all) of ${gates.length}`);
+  ck('and every one is in the middle of the gap its run left', offCentre === 0,
+    `worst ${f2(worst)} m off the middle of its two neighbours, against 1.5 m allowed`);
+  const inRuns = gates.filter((g) => g.run && runs.get(g.run) && runs.get(g.run).size >= 4).length;
+  ck('and every one of them is in a run of real length', inRuns === gates.length,
+    `${inRuns} of ${gates.length} in runs of four segments or more`);
+
+  // the runs themselves: field boundaries, not squiggles ending in grass
+  const lens = [], counts = [];
+  for (const [id, m] of runs) {
+    if (id.startsWith('f:')) continue;               // a farm's own boundary is measured further down
+    const list = [...m.values()];
+    if (list.length < 3) continue;
+    let far = 0;
+    for (const a of list) for (const b of list) far = Math.max(far, Math.hypot(a.x - b.x, a.z - b.z));
+    lens.push(far); counts.push(list.length);
+  }
+  lens.sort((a, b) => a - b);
+  const median = lens[lens.length >> 1];
+  ck('a hedgerow is a field boundary and not a squiggle', median >= 40,
+    `${lens.length} open country runs, median ${f2(median)} m, longest ${f2(lens[lens.length - 1])} m, `
+    + `up to ${Math.max(...counts)} segments`);
+
+  // every segment of a run lies ALONG the run and not across it
+  let straight = 0, combed = 0;
+  for (const [, m] of runs) {
+    const list = [...m.values()].filter((p) => !p.gap).sort((a, b) => a.ri - b.ri);
+    if (list.length < 3) continue;
+    const spec = kitFor(list[0].realm).find((k) => k.kind === list[0].kind);
+    if (!spec || spec.along !== 'x') continue;
+    for (let i = 1; i < list.length; i++) {
+      // consecutive steps only: where a segment was refused, the step from the
+      // one before the hole to the one after it crosses the gap, and where the
+      // run turns its corner that step is the corner itself
+      if (list[i].ri - list[i - 1].ri !== 1) continue;
+      const dx = list[i].x - list[i - 1].x, dz = list[i].z - list[i - 1].z;
+      const d = Math.hypot(dx, dz);
+      if (d < 1e-6) continue;
+      // a body turned by ry lays its own local +X along (cos ry, -sin ry)
+      const dot = (Math.cos(list[i].ry) * dx + (-Math.sin(list[i].ry)) * dz) / d;
+      if (Math.abs(dot) > 0.9) straight++; else combed++;
+    }
+  }
+  ck('and lies along the run rather than across it', combed === 0 && straight > 50,
+    `${straight} segments along the line, ${combed} across it`);
+}
+
+// -------------------------------------------------------- the farmland --
+
+console.log('\nthe farmland');
+{
+  const settle = sitesNear(field, 0, 0, 6000).filter((s) => FARM_KINDS.has(s.kind));
+  const green = settle.filter((s) => realmAt(s.x, s.z).id === 'greenwold');
+  let farmed = 0, fields = 0, nearest = 0, worstD = 0;
+  const sizes = [];
+  for (const s of green) {
+    const farm = farmFor(field, s, 'greenwold');
+    if (!farm.fields.length) continue;
+    farmed++;
+    fields += farm.fields.length;
+    let best = Infinity;
+    for (const f of farm.fields) {
+      sizes.push(f.hw * 2);
+      best = Math.min(best, Math.hypot(f.x - s.x, f.z - s.z));
+      worstD = Math.max(worstD, Math.hypot(f.x - s.x, f.z - s.z));
+    }
+    nearest += best;
+  }
+  ck('every Greenwold settlement within six kilometres has a farm', farmed === green.length,
+    `${farmed} of ${green.length}, ${fields} fields, ${(fields / Math.max(1, farmed)).toFixed(1)} a village`);
+  ck('and every field of every one of them is inside the four hundred metre promise', worstD <= FIELD_REACH,
+    `nearest field a mean ${(nearest / Math.max(1, farmed)).toFixed(0)} m out, furthest ${worstD.toFixed(0)} m, `
+    + `against ${FIELD_REACH} m`);
+  ck('and a field is between thirty and eighty metres a side',
+    sizes.every((v) => v >= FIELD_MIN && v <= FIELD_MAX),
+    `${Math.min(...sizes)} m to ${Math.max(...sizes)} m over ${sizes.length} fields, `
+    + `off a ladder of ${FIELD_SIZES.map((h) => h * 2).join(', ')} m`);
+  ck('and the ladder itself is guarded, so a fifth size cannot break the promise',
+    FIELD_SIZES.every((h) => h * 2 >= FIELD_MIN && h * 2 <= FIELD_MAX),
+    'dressing.js throws at import if one ever does');
+  ck('and farms cluster: fields share their boundaries rather than stand apart',
+    fields / Math.max(1, farmed) >= 2,
+    `${(fields / Math.max(1, farmed)).toFixed(1)} fields a farm, against two to four asked`);
+
+  // every realm, and the ones that grow nothing
+  const perRealm = {};
+  for (const s of sitesNear(field, 0, 0, 7900).filter((q) => FARM_KINDS.has(q.kind))) {
+    const r = realmAt(s.x, s.z).id;
+    const p = (perRealm[r] ||= { places: 0, fields: 0 });
+    p.places++; p.fields += farmFor(field, s, r).fields.length;
+  }
+  const dead = ['emberwastes', 'frostreach', 'saltmarch', 'boneyard', 'ashenthrone'];
+  ck('the desert, the snow, the fen, the ash and the slag grow nothing at all',
+    dead.every((r) => !perRealm[r] || perRealm[r].fields === 0),
+    dead.map((r) => `${r} ${perRealm[r] ? perRealm[r].places : 0} places, 0 fields`).join('; '));
+  ck('the Greenwold has the most and the other realms\' meadow has a few',
+    perRealm.greenwold.fields > 20
+    && ['verdant', 'stormpeaks', 'sunkenkingdom'].some((r) => perRealm[r] && perRealm[r].fields > 0),
+    Object.entries(perRealm).sort((a, b) => b[1].fields - a[1].fields)
+      .map(([r, p]) => `${r} ${p.fields}`).join(', '));
+
+  // WHAT THE GROUND UNDER A FIELD IS. The gate is asked again on a denser grid
+  // than the one that placed the field, so this is a check and not a restating.
+  const all = [];
+  for (const s of green) for (const f of farmFor(field, s, 'greenwold').fields) all.push({ f, s });
+  let onRoad = 0, wet = 0, onPad = 0, steep = 0, wooded = 0, notMeadow = 0, worstGrade = 0;
+  const N = 7;                       // seven a side against the four the placement used
+  for (const { f } of all) {
+    const near = sitesNear(field, f.x, f.z, 400);
+    let lo = Infinity, hi = -Infinity;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const u = (i / (N - 1) - 0.5) * 2 * (f.hw - 1), v = (j / (N - 1) - 0.5) * 2 * (f.hh - 1);
+      const x = f.x + u * f.ca - v * f.sa, z = f.z + u * f.sa + v * f.ca;
+      const g = probeAt(field, x, z, near);
+      if (g.s.water) wet++;
+      if (g.s.road > ROAD_KEEP) onRoad++;
+      if (near.some((st) => inPad(st, x, z))) onPad++;
+      if (g.s.biome !== 'meadow') notMeadow++;
+      if (standAt('meadow', x, z, field.seed).cover > 0) wooded++;
+      lo = Math.min(lo, g.s.h); hi = Math.max(hi, g.s.h);
+    }
+    const grade = (hi - lo) / (Math.max(f.hw, f.hh) * 2);
+    if (grade > FIELD_GRADE) steep++;
+    worstGrade = Math.max(worstGrade, grade);
+    if (roadCrosses(field, f)) onRoad++;
+  }
+  ck('no field lies in water', wet === 0, `${wet} of ${all.length * N * N} probes`);
+  ck('no field lies on a road', onRoad === 0,
+    `${onRoad}, counting both the probes and an exact walk of every road segment whose box touches the rectangle`);
+  ck('no field lies on a site\'s pad', onPad === 0, `${onPad} probes`);
+  ck('every field is meadow', notMeadow === 0, `${notMeadow} probes off the meadow`);
+  // The placement measures the grade on its own five by five grid; this looks
+  // on seven, which finds high and low points the placement never sampled. The
+  // margin is what that costs and it is printed rather than hidden: a claim of
+  // "exactly 0.12 however hard you look" would be a claim about a continuous
+  // surface made from a finite number of samples, and it would not be true.
+  ck('no field lies over a grade of ' + FIELD_GRADE + ', even looked at harder than it was placed',
+    worstGrade <= FIELD_GRADE + 0.02,
+    `worst ${worstGrade.toFixed(4)} rise per metre corner to corner on a grid of ${N} a side, `
+    + `${steep} of ${all.length} fields over ${FIELD_GRADE} there, none over ${(FIELD_GRADE + 0.02).toFixed(2)}`);
+  // THE CHECK, stated: arbor.standAt is the function flora itself asks before
+  // it grows a tree. A tree stands where its cell's roll comes in under the
+  // cover, so a cover of zero at every probe is a rectangle no stand of trees
+  // reaches into. What can still stand in a field is flora's LONE tree, at
+  // most one to a sixty metre square of open ground, which is an oak in the
+  // middle of a field and is the right answer anyway.
+  ck('no field lies over a stand of trees', wooded === 0,
+    `${wooded} of ${all.length * N * N} probes inside a stand, by arbor.standAt, which is the same `
+    + 'function flora asks before it grows one');
+
+  // and both directions on the field gate itself
+  const good = all[0].f;
+  ck('fieldGate accepts the ground it accepted', fieldGate(field, good, sitesNear(field, good.x, good.z, 400)).ok);
+  const sea = { ...good, x: 5200, z: 2200 };
+  ck('and refuses the open sea', !fieldGate(field, sea).ok, fieldGate(field, sea).why);
+  const huge = { ...good, hw: 400, hh: 400 };
+  ck('and refuses a rectangle four hundred metres across', !fieldGate(field, huge).ok, fieldGate(field, huge).why);
+
+  // what a field is made of
+  let noBound = 0, noGate = 0, noScare = 0, noCrop = 0, crows = 0, ricks = 0, carts = 0;
+  const cropsSeen = new Set(), boundsSeen = new Set();
+  for (const s of green) {
+    const farm = farmFor(field, s, 'greenwold');
+    for (const f of farm.fields) {
+      // by the field the layout built it FOR, not by where it happens to
+      // stand: a boundary two fields share is inside both of them
+      const mine = farm.props.filter((p) => p.fid === f.id);
+      const bound = mine.filter((p) => p.kind === 'field_hedge' || p.kind === 'rail_fence');
+      const gate = mine.filter((p) => p.kind === 'field_gate' || p.kind === 'stile');
+      const scare = mine.filter((p) => p.kind === 'scarecrow' || p.kind === 'crowed_scarecrow');
+      const crop = mine.filter((p) => p.kind === 'wheat_row' || p.kind === 'cabbage_row' || p.kind === 'furrow');
+      if (bound.length < 8) noBound++;
+      if (gate.length !== 1) noGate++;
+      if (scare.length !== 1) noScare++;
+      if (!crop.length) noCrop++;
+      if (scare.some((p) => p.kind === 'crowed_scarecrow')) crows++;
+      if (mine.some((p) => p.kind === 'hay_rick')) ricks++;
+      if (mine.some((p) => p.kind === 'cart')) carts++;
+      for (const p of crop) cropsSeen.add(p.kind);
+      for (const p of bound) boundsSeen.add(p.kind);
+    }
+  }
+  ck('every field is closed with a boundary', noBound === 0, `${noBound} of ${all.length} with fewer than eight segments`);
+  ck('every field has one gate in that boundary and no more', noGate === 0, `${noGate} of ${all.length} without exactly one`);
+  ck('every field has one scarecrow standing in it', noScare === 0, `${noScare} of ${all.length} without exactly one`);
+  ck('every field is sown', noCrop === 0, `${noCrop} of ${all.length} with no crop`);
+  ck('all three crops and both boundaries are grown somewhere',
+    cropsSeen.size === CROPS.length && boundsSeen.size === BOUNDS.length,
+    `${[...cropsSeen].join(', ')} / ${[...boundsSeen].join(', ')}`);
+  ck('a crow sits on some of the scarecrows and a rick stands in some of the fields',
+    crows > 0 && crows < all.length * 0.75 && ricks > 0,
+    `${crows} crows, ${ricks} ricks and ${carts} carts over ${all.length} fields`);
 }
 
 // ---------------------------------------------------- open country is full --
@@ -191,7 +512,7 @@ console.log('\nthe gate, both ways');
 console.log('\nopen country, twenty points a realm');
 {
   const POINTS = 20, REACH = 60, RING = 2;
-  let worstAll = 0, over = 0;
+  let worstAll = 0, over = 0, gwWorst = 0;
   for (const zn of REALM_ZONES) {
     let seed = 20260906;
     const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -200,7 +521,7 @@ console.log('\nopen country, twenty points a realm');
       tries++;
       const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * zn.r * 0.92;
       const x = zn.x + Math.cos(a) * d, z = zn.z + Math.sin(a) * d;
-      if (!openAt(field, x, z, null).ok) continue;      // not open country, not this test's business
+      if (!openAt(field, x, z, null).ok) continue;
       tested++;
       const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK);
       let best = Infinity;
@@ -211,22 +532,135 @@ console.log('\nopen country, twenty points a realm');
       if (best > REACH) bad++;
     }
     over += bad; if (worst > worstAll) worstAll = worst;
+    if (zn.id === 'greenwold') gwWorst = worst;
     ck(`${zn.id}: something authored inside ${REACH} m from every one of ${tested} open points`,
       tested === POINTS && bad === 0, `mean ${f2(sum / tested)} m, worst ${f2(worst)} m`);
   }
   ck('and nowhere in the world is further than that', over === 0, `worst of all nine: ${f2(worstAll)} m`);
+  // Z4 took the road furniture out of the open Greenwold and thinned the
+  // scatter. The promise Z3 measured has to survive that.
+  ck('and the thinned Greenwold still keeps the 24 m it had', gwWorst <= 24,
+    `worst nearest prop in the Greenwold ${f2(gwWorst)} m, against 24`);
+}
+
+// ---------------------------------------------- less clutter in the open --
+//
+// "Clutter" is the SCATTER TIER: the small loose things, a beehive, a sheaf, a
+// milestone, a boundary stone. The measurement is taken in open Greenwold
+// meadow only: no road in the chunk, no farm in the chunk, so the thickening a
+// road and a village get is not in the number either way.
+//
+// The before is the same placement with OPEN_THIN at 1, which is the world as
+// it stood: the thinning is one roll drawn after the kind, so switching it off
+// gives back exactly the props that were there.
+
+console.log('\nless clutter in the open');
+{
+  const spots = [[-6, -21], [-33, -18], [26, -12], [11, 24], [17, 51], [-25, 8], [8, -34]];
+  let wasScatter = 0, nowScatter = 0, wasAll = 0, nowAll = 0, chunks = 0, area = 0;
+  const wasKinds = {}, nowKinds = {};
+  const scatterOf = (p) => {
+    const spec = kitFor(p.realm).find((k) => k.kind === p.kind);
+    return spec && spec.tier === 'scatter';
+  };
+  for (const [cx0, cz0] of spots) {
+    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+      const cx = cx0 + dx, cz = cz0 + dz;
+      if (realmAt(cx * CHUNK + 32, cz * CHUNK + 32).id !== 'greenwold') continue;
+      const nowP = dressingFor(field, cx, cz);
+      if (nowP.some((p) => p.farm)) continue;
+      let roaded = false;
+      for (let i = 0; i < 5 && !roaded; i++) for (let j = 0; j < 5; j++) {
+        const s = field.sampleAt(cx * CHUNK + i * 16, cz * CHUNK + j * 16);
+        if (s.road > 0 || s.biome !== 'meadow') { roaded = true; break; }
+      }
+      if (roaded) continue;
+      const was = dressingFor(field, cx, cz, { openThin: 1 });
+      chunks++; area += CHUNK * CHUNK;
+      for (const p of was) { wasAll++; if (scatterOf(p)) { wasScatter++; wasKinds[p.kind] = (wasKinds[p.kind] || 0) + 1; } }
+      for (const p of nowP) { nowAll++; if (scatterOf(p)) { nowScatter++; nowKinds[p.kind] = (nowKinds[p.kind] || 0) + 1; } }
+    }
+  }
+  const ha = area / 10000;
+  const drop = 1 - nowScatter / wasScatter;
+  const say = (o) => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', ');
+  console.log(`  ..  ${chunks} chunks of open Greenwold meadow, no road and no farm in any of them, ${ha.toFixed(1)} hectares`);
+  console.log(`  ..  before: ${wasScatter} loose props, ${(wasScatter / ha).toFixed(1)} a hectare   (${say(wasKinds)})`);
+  console.log(`  ..  after:  ${nowScatter} loose props, ${(nowScatter / ha).toFixed(1)} a hectare   (${say(nowKinds)})`);
+  console.log(`  ..  all props, both tiers: ${wasAll} before, ${nowAll} after. The anchor grid is not thinned: `
+    + 'its promise is that open country is never bare, and the 24 m below is that promise measured.');
+  ck('there was open meadow to measure', chunks > 20 && wasScatter > 100, `${chunks} chunks`);
+  ck('the loose clutter of the open Greenwold is down by at least a quarter', drop >= 0.25,
+    `${(drop * 100).toFixed(1)}% fewer, ${(wasScatter / ha).toFixed(1)} to ${(nowScatter / ha).toFixed(1)} a hectare`);
+  ck('and the props of every kind together are down too', nowAll < wasAll,
+    `${wasAll} to ${nowAll}, ${((1 - nowAll / wasAll) * 100).toFixed(1)}% fewer`);
+  ck('OPEN_THIN is what did it, and only in the realms named', OPEN_THIN < 1 && THIN_REALMS.has('greenwold') && THIN_REALMS.size === 1,
+    `OPEN_THIN ${OPEN_THIN} in ${[...THIN_REALMS].join(', ')}`);
+
+  // A ROADSIDE KEEPS WHAT IT HAD, and this is asked of the PROP and not of the
+  // chunk. A road crosses one corner of a chunk and leaves the other three in
+  // the open, so the cells of one chunk do not all answer the same way. Every
+  // record carries the `near` its own cell was placed under, which is the one
+  // number the thinning turns on, so the question can be asked exactly.
+  let roadWas = 0, roadNow = 0, siteWas = 0, siteNow = 0, openWas = 0, openNow = 0;
+  const tally = (list, road, site, open) => {
+    for (const p of list) {
+      if (!scatterOf(p)) continue;
+      if (p.near === 'road') road[0]++; else if (p.near === 'site') site[0]++; else open[0]++;
+    }
+  };
+  const rw = [0], rn = [0], sw = [0], sn = [0], ow = [0], on = [0];
+  for (const [cx0, cz0] of spots) {
+    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+      const cx = cx0 + dx, cz = cz0 + dz;
+      if (realmAt(cx * CHUNK + 32, cz * CHUNK + 32).id !== 'greenwold') continue;
+      tally(dressingFor(field, cx, cz, { openThin: 1 }), rw, sw, ow);
+      tally(dressingFor(field, cx, cz), rn, sn, on);
+    }
+  }
+  roadWas = rw[0]; roadNow = rn[0]; siteWas = sw[0]; siteNow = sn[0]; openWas = ow[0]; openNow = on[0];
+  ck('and a roadside keeps every prop it had, to the prop',
+    roadWas > 0 && roadNow === roadWas && siteNow === siteWas,
+    `beside a road ${roadWas} before and ${roadNow} after, beside a place ${siteWas} and ${siteNow}, `
+    + `out in the open ${openWas} and ${openNow}`);
+  ck('and the open is the only ground that lost anything', openNow < openWas,
+    `${((1 - openNow / openWas) * 100).toFixed(1)}% fewer out in the open, 0% anywhere else`);
+
+  // and the other reason the open is emptier: a cart and a signpost are road
+  // things now, and the record says what its own cell had near it
+  let openCarts = 0, roadCarts = 0;
+  for (const [cx0, cz0] of spots) for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+    for (const p of dressingFor(field, cx0 + dx, cz0 + dz)) {
+      if (p.farm) continue;
+      if (!['cart', 'signpost', 'milestone', 'wayside_shrine'].includes(p.kind)) continue;
+      if (p.near === 'road') roadCarts++; else openCarts++;
+    }
+  }
+  ck('a cart, a signpost, a milestone and a shrine stand by a road and nowhere else',
+    openCarts === 0 && roadCarts > 0, `${roadCarts} beside a road, ${openCarts} out in the open`);
+  const anchors = kitFor('greenwold').filter((k) => k.tier === 'anchor');
+  const gwCart = anchors.find((k) => k.kind === 'cart');
+  ck('and poolFor is what does it, both ways',
+    poolFor(anchors, 'road', 3, 5, 99).includes(gwCart) && !poolFor(anchors, null, 3, 5, 99).includes(gwCart),
+    'a cart is in the pool beside a road and out of it anywhere else');
 }
 
 // --------------------------------------------- nothing stands where it must not --
 
 console.log('\nwhere nothing stands');
 {
-  let props = 0, onWater = 0, onRoad = 0, onPad = 0, atHome = 0, tooSteep = 0, strayKind = 0;
+  let props = 0, onWater = 0, onRoad = 0, onPad = 0, atHome = 0, tooSteep = 0, strayKind = 0, inCrop = 0;
   const slopes = [];
   for (const zn of REALM_ZONES) {
     const cx0 = Math.floor(zn.x / CHUNK), cz0 = Math.floor(zn.z / CHUNK);
     for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
-      for (const p of dressingFor(field, cx0 + dx, cz0 + dz)) {
+      const here = dressingFor(field, cx0 + dx, cz0 + dz);
+      const fields = [];
+      for (const st of sitesNear(field, (cx0 + dx) * CHUNK + 32, (cz0 + dz) * CHUNK + 32, CHUNK + FIELD_REACH)) {
+        if (!FARM_KINDS.has(st.kind)) continue;
+        for (const f of farmFor(field, st, realmAt(st.x, st.z).id).fields) fields.push(f);
+      }
+      for (const p of here) {
         props++;
         const spec = kitFor(p.realm).find((k) => k.kind === p.kind);
         if (!spec) { strayKind++; continue; }
@@ -236,7 +670,8 @@ console.log('\nwhere nothing stands');
         if (g.s.road > ROAD_KEEP) onRoad++;
         if (near.some((st) => inPad(st, p.x, p.z))) onPad++;
         if (Math.hypot(p.x, p.z) < HOME_RADIUS) atHome++;
-        if (g.slope > spec.slope + 1e-9) tooSteep++;
+        if (!p.farm && g.slope > spec.slope + 1e-9) tooSteep++;
+        if (!p.farm && fields.some((f) => inField(f, p.x, p.z))) inCrop++;
         slopes.push(g.slope);
       }
     }
@@ -250,6 +685,7 @@ console.log('\nwhere nothing stands');
   ck('none of them stands on ground steeper than its kind takes', tooSteep === 0,
     `${tooSteep} of ${props}, median slope ${f2(slopes[slopes.length >> 1])}, steepest ${f2(slopes[slopes.length - 1])}`);
   ck('every prop is of a kind its own realm keeps', strayKind === 0, `${strayKind} strays`);
+  ck('nothing that is not a farm\'s own stands in the standing corn', inCrop === 0, `${inCrop} of ${props}`);
 }
 
 // ------------------------------------------------- the home clear, both ways --
@@ -276,59 +712,39 @@ console.log('\ndeterminism');
   const b = key(dressingFor(field, cx, cz));
   ck('the same chunk builds the same props twice', a === b, `${a.split('|').length} props`);
 
-  // and from a field built fresh, which is what a reload is
   const again = createWorldField(20260904, { homeY: -0.3 });
   ck('and the same props after a reload', key(dressingFor(again, cx, cz)) === a);
 
   const other = createWorldField(20260905, { homeY: -0.3 });
   ck('and different props under a different seed', key(dressingFor(other, cx, cz)) !== a);
 
-  // walking in from the west and from the east has to give one world
   const west = key(dressingFor(field, cx - 1, cz));
   const east = key(dressingFor(field, cx + 1, cz));
   ck('a chunk does not depend on the order its neighbours loaded',
     key(dressingFor(field, cx - 1, cz)) === west && key(dressingFor(field, cx + 1, cz)) === east);
-}
 
-// ----------------------------------------------------------------- runs --
-
-console.log('\nruns');
-{
-  // a hedgerow is a hedgerow because it runs. Find one and measure it.
-  const runs = new Map();
-  for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) {
-    for (const p of dressingFor(field, dx, dz)) {
-      if (!p.run) continue;
-      if (!runs.has(p.run)) runs.set(p.run, []);
-      runs.get(p.run).push(p);
-    }
-  }
-  const lens = [...runs.values()].map((r) => {
-    let far = 0;
-    for (const a of r) for (const b of r) far = Math.max(far, Math.hypot(a.x - b.x, a.z - b.z));
-    return far;
-  });
-  ck('the Greenwold runs its hedges and walls', runs.size > 0, `${runs.size} runs in the thirteen by thirteen chunks round home`);
-  ck('and a run is a run, not a pair', lens.length > 0 && Math.max(...lens) > 15,
-    `longest ${f2(Math.max(...lens, 0))} m over ${Math.max(...[...runs.values()].map((r) => r.length), 0)} segments`);
-  // a run is a chain, not a heap: each segment stands a step from the last, and
-  // faces along that step
-  let chained = 0, chains = 0;
-  for (const r of runs.values()) {
-    if (r.length < 3) continue;
-    chains++;
-    const spec = kitFor(r[0].realm).find((k) => k.kind === r[0].kind);
-    r.sort((a, b) => a.ri - b.ri);
-    let ok = true;
-    for (let i = 1; i < r.length; i++) {
-      const steps = r[i].ri - r[i - 1].ri;                 // a refused segment leaves a gap
-      const d = Math.hypot(r[i].x - r[i - 1].x, r[i].z - r[i - 1].z);
-      if (steps < 1 || d < spec.run.gap * steps * 0.6 || d > spec.run.gap * steps * 1.15) { ok = false; break; }
-    }
-    if (ok) chained++;
-  }
-  ck('every segment of a run stands a step from the last, in order',
-    chains > 0 && chained === chains, `${chained} of ${chains} runs of three or more`);
+  // A FARM IS THE HARD CASE. It is four hundred metres across and about a
+  // hundred and fifty chunks can see one, so it is laid out once and kept. If
+  // the layout depended on which chunk asked first, walking in from the west
+  // would give a different farm from walking in from the east.
+  const town = sitesNear(field, 0, 0, 6000).find((s) => FARM_KINDS.has(s.kind) && realmAt(s.x, s.z).id === 'greenwold'
+    && farmFor(field, s, 'greenwold').fields.length > 1);
+  const fk = (farm) => farm.props.map((p) => `${p.kind}@${p.x.toFixed(3)},${p.z.toFixed(3)},${p.ry.toFixed(3)}`).join('|');
+  const first = fk(farmFor(field, town, 'greenwold'));
+  clearFarms();
+  const cold = fk(farmFor(field, town, 'greenwold'));
+  clearFarms();
+  const fresh = fk(farmFor(createWorldField(20260904, { homeY: -0.3 }), town, 'greenwold'));
+  ck('a farm laid out from nothing is the farm that was there before',
+    first === cold && cold === fresh, `${first.split('|').length} props, ${farmsHeld()} farms held`);
+  const fx = Math.floor(town.x / CHUNK), fz = Math.floor(town.z / CHUNK);
+  clearFarms();
+  const fromWest = key(dressingFor(field, fx, fz));
+  clearFarms();
+  for (let i = 6; i >= 0; i--) dressingFor(field, fx + i, fz);      // walk in from the east first
+  const fromEast = key(dressingFor(field, fx, fz));
+  ck('and a chunk full of farmland is the same whichever way the player walked in',
+    fromWest === fromEast, `${fromWest.split('|').length} props at ${fx}, ${fz}`);
 }
 
 // ------------------------------------------------------------ the layer --
@@ -360,6 +776,33 @@ console.log('\nthe layer');
   ck('a chunk that comes back brings the same props', dressing.stats.records > 0);
   dressing.dispose();
   ck('and dispose leaves nothing in the scene', !scene.getObjectByName('world-dressing'));
+
+  // a farm, streamed in and thrown away, with every new kind on screen
+  const town = sitesNear(field, 0, 0, 6000).find((q) => FARM_KINDS.has(q.kind) && realmAt(q.x, q.z).id === 'greenwold'
+    && farmFor(field, q, 'greenwold').fields.length > 1);
+  const scene2 = new THREE.Scene();
+  const farmLayer = createDressing(scene2, field, {});
+  const fx = Math.floor(town.x / CHUNK), fz = Math.floor(town.z / CHUNK);
+  for (let dz = -5; dz <= 5; dz++) for (let dx = -5; dx <= 5; dx++) farmLayer.onChunk(fx + dx, fz + dz, 33);
+  farmLayer.flush();
+  const seen = new Set([...farmLayer.layers.values()].filter((L) => L.recs.length).map((L) => L.kind));
+  ck('a farm streams in as instanced rows and stays inside the draw budget',
+    farmLayer.stats.drawCalls < 40 && [...seen].some((k) => k.endsWith('_row') || k === 'furrow'),
+    `${farmLayer.stats.drawCalls} draws, ${farmLayer.stats.instances} instances over 121 chunks round ${town.name}`);
+  ck('and the crop, the boundary, the gate and the scarecrow are all in the scene',
+    ['field_gate', 'stile'].some((k) => seen.has(k))
+    && ['scarecrow', 'crowed_scarecrow'].some((k) => seen.has(k))
+    && ['field_hedge', 'rail_fence'].some((k) => seen.has(k)),
+    [...seen].sort().join(', '));
+  ck('and every farm mesh names its kind and its realm for the hover pass',
+    scene2.getObjectByName('world-dressing').children.every((m) => m.userData.dressing?.kind && m.userData.dressing?.realm),
+    scene2.getObjectByName('world-dressing').children.length + ' meshes');
+  for (let dz = -5; dz <= 5; dz++) for (let dx = -5; dx <= 5; dx++) farmLayer.offChunk(fx + dx, fz + dz);
+  farmLayer.flush();
+  ck('and the whole farm leaves with its chunks',
+    farmLayer.stats.records === 0 && farmLayer.stats.drawCalls === 0,
+    `${farmLayer.stats.records} records, ${farmLayer.stats.drawCalls} draws`);
+  farmLayer.dispose();
 }
 
 // ------------------------------------------------------------- the budget --
@@ -368,7 +811,6 @@ console.log('\nwhat it costs (warm field)');
 {
   const cx = Math.floor(-4250 / CHUNK), cz = Math.floor(1202 / CHUNK);
   const N = 40;
-  // warm: every road cell and every site cell these chunks touch
   for (let i = 0; i < N; i++) dressingFor(field, cx + (i % 8), cz + Math.floor(i / 8));
 
   let t0 = now(), recs = 0;
@@ -391,9 +833,25 @@ console.log('\nwhat it costs (warm field)');
   console.log(`  ..  DRESS_TIER ${DRESS_TIER}, REBUILD_MS ${REBUILD_MS}, ANCHOR ${ANCHOR} m, SCATTER ${SCATTER} m, jitter ${JITTER}, ${TRIES} tries`);
   dressing.dispose();
 
-  // The worst case is not one chunk, it is the whole streamed ring standing on
-  // a border, where two realms' kits are both on screen at once. Nineteen by
-  // nineteen chunks is what chunks.js keeps.
+  // FARMED COUNTRY IS THE WORST CASE NOW and not the Boneyard: a chunk inside
+  // a field carries a hundred rows of corn on top of everything else.
+  const town = sitesNear(field, 0, 0, 6000).find((q) => FARM_KINDS.has(q.kind) && realmAt(q.x, q.z).id === 'greenwold'
+    && farmFor(field, q, 'greenwold').fields.length > 2);
+  const fx = Math.floor(town.x / CHUNK), fz = Math.floor(town.z / CHUNK);
+  const scene3 = new THREE.Scene();
+  const farmLayer = createDressing(scene3, field, {});
+  for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) dressingFor(field, fx + dx, fz + dz);   // warm
+  const tf = now();
+  let n2 = 0;
+  for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) { farmLayer.onChunk(fx + dx, fz + dz, 33); n2++; }
+  farmLayer.flush();
+  const farmMs = (now() - tf) / n2;
+  ck('a chunk of farmland places and builds under 3 ms', farmMs < 3,
+    `${f2(farmMs)} ms a chunk over ${n2} chunks round ${town.name}, ${farmLayer.stats.records} props`);
+  ck('and farmland stays under 40 draws', farmLayer.stats.drawCalls < 40,
+    `${farmLayer.stats.drawCalls} draws, ${farmLayer.stats.instances} instances, ${(farmLayer.stats.tris / 1e6).toFixed(2)}M triangles`);
+  farmLayer.dispose();
+
   const scene2 = new THREE.Scene();
   const border = createDressing(scene2, field, {});
   const bx = Math.floor(572 / CHUNK), bz = Math.floor(1641 / CHUNK);
@@ -420,6 +878,9 @@ console.log('\ndensity');
   ck('the realm at the Boneyard\'s centre is the Boneyard', inside.id === 'boneyard' && inside.weight === 1);
   ck('and wild ground still belongs to its nearest realm, at no weight',
     between.weight < 1 && !!between.id, `${between.id} at ${f2(between.weight)}`);
+  ck('ryAlong lays a body\'s own x down a world bearing',
+    Math.abs(Math.cos(ryAlong(1, 0)) - 1) < 1e-9 && Math.abs(-Math.sin(ryAlong(0, 1)) - 1) < 1e-9,
+    'east and south, to the bit');
 }
 
 // --------------------------------------------------------------- the words --
@@ -428,10 +889,14 @@ console.log('\nthe words');
 {
   const kinds = Object.values(KITS).flat().map((k) => k.kind);
   ck('every kind has a name to put on hover', kinds.every((k) => nameOf(k).length > 2),
-    `${Object.keys(DRESS_NAME).length} written down, ${kinds.length - Object.keys(DRESS_NAME).filter((k) => kinds.includes(k)).length} read off the id`);
+    `${Object.keys(DRESS_NAME).length} written down, ${new Set(kinds).size} kinds in the world`);
   ck('and a name is a noun with its article, not a sentence',
-    kinds.every((k) => !/[.!?]/.test(nameOf(k)) && nameOf(k).split(' ').length <= 6));
+    kinds.every((k) => !/[.!?]/.test(nameOf(k)) && nameOf(k).split(' ').length <= 9));
   ck('nameOf falls back rather than throwing', nameOf('stone_wheel') === 'a stone wheel');
+  ck('every kind Z4 added is written down and not read off its id',
+    ['field_hedge', 'rail_fence', 'wheat_row', 'cabbage_row', 'furrow', 'scarecrow', 'crowed_scarecrow', 'sheep_fold', 'dew_pond']
+      .every((k) => DRESS_NAME[k]),
+    [...new Set(FIELD_KIT.map((k) => nameOf(k.kind)))].join(', '));
   for (const f of ['src/world/dressing.js', 'src/world/dressing_models.js', 'src/world/dressing.test.mjs']) {
     ck(`${f} has no em dashes`, !readFileSync(f, 'utf8').includes('\u2014'));
   }
