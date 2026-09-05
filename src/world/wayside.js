@@ -24,7 +24,8 @@
 //   milestone  every MILESTONE metres along a road from the settlement that
 //              owns it
 //   bridge     wherever the road is over a river. The deck is the road's own
-//              graded profile, which is the line the ford dives out of
+//              graded profile, which is the line the ford dives out of, and it
+//              follows the road's own bends rather than cutting the corner
 //   gate       where a road crosses the middle of a realm's edge band, with
 //              that realm's name on the lintel
 //   bench      at the road, within GATE_ROOM of where it leaves a settlement
@@ -42,25 +43,51 @@
 //
 // ---- what is never placed -------------------------------------------------
 //
-// Nothing stands on a site's pad, nothing stands in water except a bridge,
-// nothing stands in a river, nothing stands on the graded road itself except a
-// bridge and a gate, and no two pieces stand within the larger of their two
-// `clear` radii. The overlap pass runs over a box wider than the largest
-// clearance, so the same piece is kept or dropped identically in every chunk
-// that can see it.
+// Nothing stands on a site's pad, nothing stands in water, nothing stands in a
+// river, and no two pieces a chunk builds stand within the larger of their two
+// `clear` radii. A bridge is the one thing allowed over water, and a bridge and
+// a border gate are the two things allowed on the graded road itself.
+//
+// EVERY kind goes through the same gate, `probeAt().ok`, including the border
+// gate, which for a while did not: it stands on the road rather than on the
+// verge, and standing on the road was taken for permission to stand anywhere
+// the road went. Two gates ended up in river water and three on a settlement's
+// pad. A gate now walks the road looking for ground like everything else does,
+// and `wayside.test.mjs` counts both to zero over the whole network.
 //
 // ---- what it costs --------------------------------------------------------
 //
-// A road's furniture is worked out once, on the first chunk that touches the
-// road, and read by every chunk after it. The walk is done on `field.raw`
-// rather than on `field.sampleAt`, and the graded road surface is rebuilt from
-// it here with roads.js's own `roadSurface`, which is EXACTLY what field.js
-// does at the centreline: the same arithmetic, at half the price, because raw
-// is the expensive half of a sample and the zone lookup and the biome chain
-// are no part of this question. `sampleAt` is still asked for the final ground
-// under every piece that is actually placed, because a verge within reach of a
-// second road is graded by that road and a lamp post owes the player its feet
-// on the ground.
+// The expensive question on a road is where the water is: the road has to be
+// walked at WALK_STEP with a terrain sample at every step, and on a kilometre
+// of road that is three hundred samples. A2 paid it whole road on the first
+// chunk that touched the road, which cost 2.4 ms on the worst chunk of the
+// bigger network and was over its own budget.
+//
+// So a road is no longer laid out all at once. Its state is a set of probes
+// along the road, filled lazily, and:
+//
+//   the bridges   found from those probes over an arc window, widened either
+//                 side to a CUT, which is two probes running that are neither
+//                 in a river nor under the deck. No river band and no abutment
+//                 walk can reach across a cut, so a window's answer is the
+//                 answer the whole road would have given. Cached per road by
+//                 the probe the span starts at, so the same bridge found from
+//                 two chunks is one bridge
+//   the lamps     per station, and a station is a point on a cheap walk that
+//                 asks the site grid for the spacing and never asks the terrain
+//   the spine     the border gates, the signposts, the shrines, the benches,
+//                 the hitching posts and the milestones. These are FEW, a dozen
+//                 on a long road, and each one looks at the terrain in one
+//                 place, so the spine is worked out whole road and costs
+//                 almost nothing
+//
+// The ground under a piece is worked out from `field.raw` rather than from
+// `field.sampleAt`, and the graded road surface is rebuilt here with roads.js's
+// own `roadSurface`, which is EXACTLY what field.js does at the centreline: the
+// same arithmetic, at half the price, because raw is the expensive half of a
+// sample and the zone lookup and the biome chain are no part of this question.
+// `wayside.test.mjs` measures every placed piece against `sampleAt` and fails
+// on a nanometre, so the two cannot drift apart.
 
 import { SEA_LEVEL, CHUNK } from './field.js';
 import { hash2 } from './noise.js';
@@ -91,12 +118,20 @@ export const SIGN_REACH = 1400;
 /** The rings it looks over, nearest first, so it stops as soon as it can. */
 export const SIGN_RINGS = [SITE_CELL, SIGN_REACH];
 /**
- * Metres past a settlement's gate a signpost will walk before it gives up.
- * A road leaves some towns straight into a river bank, and a post in the water
- * is refused; the answer is to stand it a little further on, not to leave the
- * road unsigned.
+ * Metres a signpost walks at a time past a settlement's gate, and the furthest
+ * it will go before it gives up.
+ *
+ * A road leaves some towns straight onto a bridge: Tannerford's road is over
+ * water from 42 m past the pad to 162 m past it, and Lowthorpe's leaves into a
+ * river bank with a border gate on the far side of it. Neither post could stand
+ * anywhere in the first forty four metres, and A2's five fixed offsets gave up
+ * there and left two of the world's settlements with no board on them at all.
+ * The post now walks until it finds ground, both verges at every step, and the
+ * walk stops at the road's own halfway mark so a sign never wanders into the
+ * next settlement's half of the road.
  */
-export const SIGN_STEPS = [0, 9, 18, 30, 44];
+export const SIGN_STEP = 9;
+export const SIGN_WALK = 300;
 /** The widest angle a finger may be wrong by, in radians. 45 degrees. */
 export const SIGN_ARC = Math.PI / 4;
 /** Fingers on one post: never fewer than the first, never more than the last. */
@@ -120,11 +155,11 @@ export const DECK_CLEAR = 0.8;
  * How far the road has to fall below its own deck inside a river band before
  * that band is a crossing and not a damp dip.
  *
- * Measured on this world at a metre's resolution: thirty two river bands lie
- * across a road, twenty six of them carry the road under the water sheet or
- * drop it between 1.9 and 10.7 m below the deck, and the other six take it
- * down by a tenth of a metre or less. The first sort gets a bridge; the second
- * is a wet patch in the road and gets nothing, which is the honest answer.
+ * Measured on this world at a metre's resolution: a hundred and sixteen river
+ * bands lie across a road, a hundred and seven of them carry the road under the
+ * water sheet or drop it well below the deck, and the other nine take it down
+ * by a tenth of a metre or less. The first sort gets a bridge; the second is a
+ * wet patch in the road and gets nothing, which is the honest answer.
  * `wayside.test.mjs` drives both sides of that line.
  */
 export const BRIDGE_DROP = 1.2;
@@ -150,6 +185,14 @@ export const SHORE_LINE = SEA_LEVEL + 0.35;
  * overlap differently in the two chunks either side of a border.
  */
 export const GATHER = 24;
+/** Metres of arc either side of a piece that are searched for a bridge under it. */
+export const BRIDGE_LOOK = 24;
+/** Metres from a deck's centreline that still count as standing on the deck. */
+export const DECK_HALF = ROAD_HALF_WIDTH + 0.4;
+/** Metres of arc past an abutment that `deckAt` still answers over. */
+export const DECK_END = 0.25;
+/** Metres between points when a road's arc is matched against a chunk's box. */
+export const ARC_SCAN = 8;
 
 /** How much room each kind keeps to itself, in metres. */
 export const CLEAR = {
@@ -213,21 +256,12 @@ export function auditWaysideStyles() {
 }
 auditWaysideStyles();
 
-// ---------------------------------------------------------------- the cache --
-//
-// A road's furniture is a pure function of the road and the field, so it is
-// worked out once for the road and read by every chunk the road passes
-// through. Roads are themselves cached per field object (roads.js), so keying
-// on the road object keys on the field as well and two seeds never share a
-// lamp post.
+// ------------------------------------------------------------- the questions --
 
-const BY_ROAD = new WeakMap();
 const CONTEXT = new WeakMap();
 const NEAR_PLACE = new WeakMap();      // field -> Map(24 m cell -> boolean)
 
 const isSettlement = (s) => !!s && (s.kind === 'town' || s.kind === 'hamlet');
-
-// ------------------------------------------------------------ the questions --
 
 /**
  * What one road has to know about the ground it runs over: every pad near
@@ -238,14 +272,21 @@ const isSettlement = (s) => !!s && (s.kind === 'town' || s.kind === 'hamlet');
  * point, so it asks once for the lot and then tests a handful of distances per
  * probe, which is cheaper than a cell lookup per probe and, unlike one, sees
  * the 120 m precincts as well.
+ *
+ * A site with no pad (`flatR` 0) levels no ground and is not in this list: the
+ * Standing Hedge is a ring of stones a mile across standing on the hillside the
+ * seed made, and refusing every lamp post inside `bodyR` would take the light
+ * off eight hundred metres of the Greenwold's road for a ring that is empty in
+ * the middle. `bodyR` is a body's reach and not a pad, and `wayside.test.mjs`
+ * counts what stands inside one rather than assuming nothing does.
  */
 export function contextFor(field, road) {
   const had = CONTEXT.get(road);
   if (had) return had;
   const mid = roadPointAt(road, 0.5);
   const reach = road.total / 2 + 300;
-  const pads = sitesNear(field, mid.x, mid.z, reach).filter((s) => s && s.flatR > 0);
-  const ctx = { pads, seed: field.seed };
+  const near = sitesNear(field, mid.x, mid.z, reach);
+  const ctx = { pads: near.filter((s) => s && s.flatR > 0), bodies: near.filter((s) => s && s.bodyR > 0), seed: field.seed };
   CONTEXT.set(road, ctx);
   return ctx;
 }
@@ -315,95 +356,15 @@ export function nearPlace(field, x, z) {
 export const spacingAt = (field, x, z) => (nearPlace(field, x, z) ? LAMP_NEAR : LAMP_FAR);
 
 /**
- * Where a road is over water, and what a bridge there has to span.
- *
- * A river is carved to -1.8 and a road fords it: `fordFade` takes the whole
- * earthwork away at the crossing, so the graded surface IS the river bed there
- * while the road's own profile carries straight across at the level of the dry
- * ground either side. That profile is the deck. The span then reaches out from
- * the wet run to the last point either side where the surface comes back
- * within DECK_CLEAR of the deck, which is the abutment, so a bridge lands on
- * solid ground and not on a bank it is still hanging over.
- *
- *   { t0, t1, tMid, len, x0, z0, x1, z1, y0, y1, deckY, bed }
- */
-export function crossingsOf(field, road, ctx = contextFor(field, road)) {
-  const n = Math.max(2, Math.ceil(road.total / WALK_STEP));
-  const surf = new Float64Array(n + 1), deck = new Float64Array(n + 1);
-  const river = new Uint8Array(n + 1);
-  const px = new Float64Array(n + 1), pz = new Float64Array(n + 1);
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    const p = roadPointAt(road, t);
-    const r = field.raw(p.x, p.z);
-    px[i] = p.x; pz[i] = p.z;
-    deck[i] = roadHeightAt(road, t);
-    // exactly what field.js leaves at the centreline: the graded surface, with
-    // the earthwork faded out by the ford
-    surf[i] = roadSurface(r.h, deck[i], fordFade(r.river));
-    river[i] = r.river > FORD_RIVER && !onPad(ctx, p.x, p.z) ? 1 : 0;
-  }
-  const runs = [];
-  for (let i = 0; i <= n; i++) {
-    if (!river[i]) continue;
-    const start = i;
-    let j = i;
-    while (j + 1 <= n && river[j + 1]) j++;
-    i = j;
-    // A river the road runs level through is a wet patch and not a crossing,
-    // and that is decided on a walk of its own at REFINE_STEP rather than on
-    // the coarse probes. A band three metres wide gets one coarse probe and it
-    // lands wherever it lands: measured, a crossing whose road is 2.4 m under
-    // the deck at its middle read 1.09 m at the one probe inside it, which is
-    // under BRIDGE_DROP, and the bridge over it would have gone missing.
-    let deepest = 0, bed = Infinity;
-    const t0 = Math.max(0, (start - 1) / n), t1 = Math.min(1, (j + 1) / n);
-    const fine = Math.max(2, Math.ceil((t1 - t0) * road.total / REFINE_STEP));
-    for (let k = 0; k <= fine; k++) {
-      const t = t0 + (t1 - t0) * (k / fine);
-      const q = roadPointAt(road, t);
-      const r = field.raw(q.x, q.z);
-      // the depth of the RIVER, not of the ground beside it: the window
-      // reaches a coarse step past the band on either side so that a band
-      // narrower than one step is measured at all, and a point outside the
-      // water has nothing to say about how deep the water is
-      if (r.river <= FORD_RIVER || onPad(ctx, q.x, q.z)) continue;
-      const d = roadHeightAt(road, t);
-      const sf = roadSurface(r.h, d, fordFade(r.river));
-      if (d - sf > deepest) deepest = d - sf;
-      if (sf < bed) bed = sf;
-    }
-    if (deepest <= BRIDGE_DROP && bed >= SEA_LEVEL) continue;
-    // out to the abutments: the last ground either side that reaches the deck
-    let a = start;
-    while (a > 0 && surf[a] < deck[a] - DECK_CLEAR) a--;
-    let b = j;
-    while (b < n && surf[b] < deck[b] - DECK_CLEAR) b++;
-    // two crossings that reach into each other are one bridge
-    const last = runs[runs.length - 1];
-    if (last && a <= last.i1) last.i1 = Math.max(last.i1, b);
-    else runs.push({ i0: a, i1: b });
-  }
-  return runs.map((c) => {
-    const t0 = c.i0 / n, t1 = c.i1 / n;
-    let bed = Infinity;
-    for (let i = c.i0; i <= c.i1; i++) if (surf[i] < bed) bed = surf[i];
-    return {
-      t0, t1, tMid: (t0 + t1) / 2, len: (t1 - t0) * road.total,
-      x0: px[c.i0], z0: pz[c.i0], x1: px[c.i1], z1: pz[c.i1],
-      y0: deck[c.i0], y1: deck[c.i1], deckY: (deck[c.i0] + deck[c.i1]) / 2, bed,
-    };
-  });
-}
-
-/**
  * Where a road crosses the middle of a realm's edge band.
  *
  * A realm is a disc with a soft edge (`zones.js`): full strength inside `r`,
  * gone at `r + edge`. Half way through that band is where the realm's bias
  * reaches half, which is where `sites.js` says you have entered it, and it is
  * where a border gate belongs. One gate per crossing, carrying the name of the
- * realm whose band it is.
+ * realm whose band it is. A road that goes into a realm and out of it again
+ * crosses twice and carries two gates, which is why the crossing's index is in
+ * the gate's id.
  */
 export function realmCrossingsOf(field, road) {
   const n = Math.max(2, Math.ceil(road.total / WALK_STEP));
@@ -463,7 +424,282 @@ export function angleGap(a, b) {
 /** Metres, to the nearest hundred, and never zero. */
 export const roundDist = (d) => Math.max(100, Math.round(d / 100) * 100);
 
+// ------------------------------------------------------ a road's own state --
+//
+// One of these per road object, and roads are cached per field (roads.js), so
+// keying on the road keys on the field as well and two seeds never share a
+// lamp post. Everything in it is filled in on demand.
+
+const ROAD_STATE = new WeakMap();
+
+function roadState(field, road) {
+  let st = ROAD_STATE.get(road);
+  if (st) return st;
+  const n = Math.max(2, Math.ceil(road.total / WALK_STEP));
+  st = {
+    field, road, n, ctx: contextFor(field, road),
+    px: new Float64Array(n + 1), pz: new Float64Array(n + 1),
+    deck: new Float64Array(n + 1), surf: new Float64Array(n + 1),
+    river: new Uint8Array(n + 1), low: new Uint8Array(n + 1),
+    filled: new Uint8Array(n + 1), scanned: new Uint8Array(n + 1),
+    wet: new Map(),           // first probe of a river run -> whether it wants a bridge
+    spans: new Map(),         // first probe of a span -> the bridge record
+    spine: null, stations: null, all: null,
+    lamps: new Map(),         // station index -> its lamp records
+    abut: new Map(),          // bridge id -> the two abutment lamps
+  };
+  ROAD_STATE.set(road, st);
+  return st;
+}
+
+/**
+ * One probe on the road, worked out once.
+ *
+ *   river  the road is in water here, and not on a pad where a river is held off
+ *   low    the graded surface is more than DECK_CLEAR under what the road's own
+ *          profile wants, which is a ravine and not a road
+ *   surf   exactly what field.js leaves at the centreline: the graded surface,
+ *          with the earthwork faded out by the ford
+ */
+function fill(st, i) {
+  if (st.filled[i]) return;
+  const road = st.road;
+  const t = i / st.n;
+  const p = roadPointAt(road, t);
+  const r = st.field.raw(p.x, p.z);
+  const d = roadHeightAt(road, t);
+  const s = roadSurface(r.h, d, fordFade(r.river));
+  st.px[i] = p.x; st.pz[i] = p.z;
+  st.deck[i] = d; st.surf[i] = s;
+  st.river[i] = r.river > FORD_RIVER && !onPad(st.ctx, p.x, p.z) ? 1 : 0;
+  st.low[i] = s < d - DECK_CLEAR ? 1 : 0;
+  st.filled[i] = 1;
+}
+
+/**
+ * Whether probe p is a CUT: p and p + 1 are both out of the water and both up
+ * at the level the road wants.
+ *
+ * This is the whole reason a window of road can be asked about its bridges
+ * without walking the road it belongs to. A river run cannot cross a cut, and
+ * neither can the walk out to an abutment, which only ever moves while the
+ * surface is under the deck. So the spans found by scanning from one cut to the
+ * next are exactly the spans a walk of the whole road would have found, and
+ * `wayside.test.mjs` proves it by walking the roads again at a metre.
+ */
+function isCut(st, p) {
+  if (p < 0 || p >= st.n) return false;
+  fill(st, p); fill(st, p + 1);
+  return !st.river[p] && !st.low[p] && !st.river[p + 1] && !st.low[p + 1];
+}
+
+/**
+ * Whether a river run wants a bridge, measured at REFINE_STEP inside it.
+ *
+ * A river the road runs level through is a wet patch and not a crossing, and
+ * that is decided on a walk of its own rather than on the coarse probes. A band
+ * three metres wide gets one coarse probe and it lands wherever it lands:
+ * measured, a crossing whose road is 2.4 m under the deck at its middle read
+ * 1.09 m at the one probe inside it, which is under BRIDGE_DROP, and the bridge
+ * over it would have gone missing.
+ */
+function wantsBridge(st, start, end) {
+  const had = st.wet.get(start);
+  if (had !== undefined) return had;
+  const road = st.road, n = st.n;
+  let deepest = 0, bed = Infinity;
+  const t0 = Math.max(0, (start - 1) / n), t1 = Math.min(1, (end + 1) / n);
+  const fine = Math.max(2, Math.ceil((t1 - t0) * road.total / REFINE_STEP));
+  for (let k = 0; k <= fine; k++) {
+    const t = t0 + (t1 - t0) * (k / fine);
+    const q = roadPointAt(road, t);
+    const r = st.field.raw(q.x, q.z);
+    // the depth of the RIVER, not of the ground beside it: the window reaches a
+    // coarse step past the band on either side so that a band narrower than one
+    // step is measured at all, and a point outside the water has nothing to say
+    // about how deep the water is
+    if (r.river <= FORD_RIVER || onPad(st.ctx, q.x, q.z)) continue;
+    const d = roadHeightAt(road, t);
+    const sf = roadSurface(r.h, d, fordFade(r.river));
+    if (d - sf > deepest) deepest = d - sf;
+    if (sf < bed) bed = sf;
+  }
+  const want = !(deepest <= BRIDGE_DROP && bed >= SEA_LEVEL);
+  st.wet.set(start, want);
+  return want;
+}
+
+/** The deck's own line: the road's points across the span, ends and every bend. */
+export function deckPath(road, t0, t1) {
+  const at = (t) => {
+    const p = roadPointAt(road, t);
+    return { x: p.x, z: p.z, y: roadHeightAt(road, t) };
+  };
+  const out = [at(t0)];
+  const s0 = t0 * road.total, s1 = t1 * road.total;
+  for (const s of road.segs) {
+    if (s.cum > s0 + 0.05 && s.cum < s1 - 0.05) out.push(at(s.cum / road.total));
+  }
+  out.push(at(t1));
+  return out;
+}
+
+/**
+ * One bridge, from the probes it spans.
+ *
+ * A ford in this terrain is a ravine: measured, the graded road falls seven
+ * metres in four, crosses a stream and climbs out. The terrain is not changed
+ * to fix that and it cannot be, because `roadSurface` clamps the earthwork to
+ * 1.5 m either way and lifting the ground would fill in the river the bridge is
+ * over. So the DECK is the road's own profile, and `deckAt` hands it to
+ * `world_runtime.heightAt` as ground.
+ *
+ * The deck follows the road's bends. A2 laid it along the straight line between
+ * the two abutments, which on the world's longest span, 182 m over an inlet of
+ * the Caldera Sea, left the deck twelve metres off the road it is carrying: the
+ * body was a beam beside the road, and `deckAt` answered null in the middle of
+ * it because the point was out of the road's reach. `path` is the road's own
+ * corners across the span and the body is built along it.
+ */
+function bridgeAt(st, i0, i1) {
+  const had = st.spans.get(i0);
+  if (had) return had;
+  const road = st.road, n = st.n;
+  const t0 = i0 / n, t1 = i1 / n;
+  let bed = Infinity;
+  for (let i = i0; i <= i1; i++) { fill(st, i); if (st.surf[i] < bed) bed = st.surf[i]; }
+  const path = deckPath(road, t0, t1);
+  const a = path[0], b = path[path.length - 1];
+  const tm = (t0 + t1) / 2;
+  const mid = roadPointAt(road, tm);
+  const zn = realmAt(a.x, a.z);
+  const realm = zn ? zn.id : 'wild';
+  const style = styleFor(realm);
+  const rec = {
+    id: `${road.id}#bridge@${i0}`, kind: 'bridge', road: road.id, t: tm,
+    // the arc the deck covers, which is what says whether a point on the road
+    // is on the bridge: `deckAt`, the placement and the test all read it
+    t0, t1,
+    realm, style: style.bridge, glow: style.glow,
+    x: mid.x, z: mid.z, y: roadHeightAt(road, tm),
+    yaw: Math.atan2(b.x - a.x, b.z - a.z),
+    x0: a.x, z0: a.z, y0: a.y, x1: b.x, z1: b.z, y1: b.y,
+    path, span: (t1 - t0) * road.total, bed,
+    width: ROAD_HALF_WIDTH * 2, clear: CLEAR.bridge,
+  };
+  st.spans.set(i0, rec);
+  return rec;
+}
+
+/**
+ * Every bridge whose span touches probes i0 to i1, worked out from the cuts
+ * either side of that window.
+ *
+ * The scan is A2's own: a maximal run of river probes, thrown out if the road
+ * runs level through it, then the walk out to the last ground either side that
+ * comes back within DECK_CLEAR of the deck, then two runs whose walks reach
+ * into each other made into one bridge. What is new is that it starts and ends
+ * at a cut instead of at the ends of the road.
+ */
+function scanSpans(st, i0, i1) {
+  const n = st.n;
+  let lo = Math.max(0, Math.min(i0, n - 1));
+  while (lo > 0 && !isCut(st, lo)) lo--;
+  let hi = Math.max(1, Math.min(i1, n - 1));
+  while (hi < n - 1 && !isCut(st, hi)) hi++;
+  hi = Math.min(n, hi + 1);
+  let last = null;
+  for (let i = lo; i <= hi; i++) {
+    fill(st, i);
+    if (!st.river[i]) continue;
+    const start = i;
+    let j = i;
+    while (j + 1 <= hi && (fill(st, j + 1), st.river[j + 1])) j++;
+    i = j;
+    if (!wantsBridge(st, start, j)) continue;
+    let a = start;
+    while (a > 0 && (fill(st, a), st.low[a])) a--;
+    let b = j;
+    while (b < n && (fill(st, b), st.low[b])) b++;
+    if (last !== null && a <= last.i1) {
+      // two crossings that reach into each other are one bridge, so the first
+      // one's record is replaced by the wider one under the same key
+      st.spans.delete(last.i0);
+      last.i1 = Math.max(last.i1, b);
+      bridgeAt(st, last.i0, last.i1);
+    } else {
+      last = { i0: a, i1: b };
+      bridgeAt(st, a, b);
+    }
+  }
+  for (let i = lo; i <= hi; i++) st.scanned[i] = 1;
+}
+
+/** Every bridge on this road whose span touches probes i0 to i1. */
+function spansIn(st, i0, i1) {
+  const a = Math.max(0, i0), b = Math.min(st.n, i1);
+  let all = true;
+  for (let i = a; i <= b && all; i++) if (!st.scanned[i]) all = false;
+  if (!all) scanSpans(st, a, b);
+  const out = [];
+  for (const rec of st.spans.values()) {
+    if (rec.t1 * st.n < a || rec.t0 * st.n > b) continue;
+    out.push(rec);
+  }
+  out.sort((m, o) => m.t0 - o.t0);
+  return out;
+}
+
+/** Every bridge whose span touches the arc from s0 to s1 metres. */
+function spansAtArc(st, s0, s1) {
+  const k = st.n / st.road.total;
+  return spansIn(st, Math.floor(s0 * k) - 1, Math.ceil(s1 * k) + 1);
+}
+
+/** Whether the road at arc fraction t is on a bridge. */
+function onBridgeAt(st, t) {
+  const s = t * st.road.total;
+  for (const rec of spansAtArc(st, s, s)) {
+    if (t >= rec.t0 - 1e-6 && t <= rec.t1 + 1e-6) return true;
+  }
+  return false;
+}
+
+/** Every bridge on the road, which is what the sweep and the tests ask for. */
+function spansAll(st) { return spansIn(st, 0, st.n); }
+
+/**
+ * Where a road is over water. Kept as an export because it is the question the
+ * whole bridge idea is built on, and `wayside.test.mjs` drives it whole road
+ * against its own independent walk at a metre.
+ */
+export function crossingsOf(field, road) {
+  return spansAll(roadState(field, road));
+}
+
 // -------------------------------------------------------------- placement --
+
+/**
+ * Whether a piece may stand where it wants to, given what is already there and
+ * the bridges under it.
+ *
+ * The largest room any kind keeps is CLEAR.gate, nine metres, so a piece can
+ * only ever be blocked by something within nine metres of it, and the bridges
+ * are asked for over BRIDGE_LOOK of arc either side, which is more than that.
+ */
+function blocked(st, list, rec) {
+  for (let i = 0; i < list.length; i++) {
+    const t = list[i];
+    const room = Math.max(t.clear, rec.clear);
+    if (room > 0 && (t.x - rec.x) ** 2 + (t.z - rec.z) ** 2 < room * room) return true;
+  }
+  const s = rec.t * st.road.total;
+  for (const b of spansAtArc(st, s - BRIDGE_LOOK, s + BRIDGE_LOOK)) {
+    const room = Math.max(b.clear, rec.clear);
+    if (room > 0 && (b.x - rec.x) ** 2 + (b.z - rec.z) ** 2 < room * room) return true;
+  }
+  return false;
+}
 
 /** Arc length at which a road leaves a settlement's own pad, in metres. */
 export function gateArc(road, site, end) {
@@ -530,73 +766,51 @@ export function fingersAt(field, site, roads) {
 }
 
 /**
- * Every piece of furniture one road carries, worked out once and cached.
- *
- * The list comes back in KIND_ORDER, which is also the order overlaps are
- * settled in: a bridge and a border gate own the road they stand on, a
- * signpost owns its corner of a settlement, and a lamp post gives way to all
- * of them.
+ * The border gates, the signposts, the shrines, the benches, the hitching
+ * posts and the milestones: everything on a road that is not a bridge and not a
+ * lamp. A long road carries about a dozen of them, each of them looking at the
+ * terrain in one place, so this is worked out whole road and cached.
  */
-export function waysideForRoad(field, road) {
-  const had = BY_ROAD.get(road);
-  if (had) return had;
+function spineOf(field, road) {
+  const st = roadState(field, road);
+  if (st.spine) return st.spine;
   const out = [];
-  BY_ROAD.set(road, out);
-  const ctx = contextFor(field, road);
-  const taken = [];
-
-  function place(rec) {
-    for (let i = 0; i < taken.length; i++) {
-      const t = taken[i];
-      const room = Math.max(t.clear, rec.clear);
-      if (room > 0 && (t.x - rec.x) ** 2 + (t.z - rec.z) ** 2 < room * room) return null;
-    }
-    taken.push(rec); out.push(rec);
+  st.spine = out;
+  const ctx = st.ctx;
+  const place = (rec) => {
+    if (blocked(st, out, rec)) return null;
+    out.push(rec);
     return rec;
-  }
-
-  // ---- the bridges, first, because a bridge takes the road away from
-  // everything else that would have stood on it
-  const spans = crossingsOf(field, road, ctx);
-  spans.forEach((c, i) => {
-    const zn = realmAt(c.x0, c.z0);
-    const realm = zn ? zn.id : 'wild';
-    const st = styleFor(realm);
-    place({
-      id: `${road.id}#bridge${i}`, kind: 'bridge', road: road.id, t: c.tMid,
-      // the arc the deck covers, which is what says whether a point on the
-      // road is on the bridge: `onBridge`, `deckAt` and the test all read it
-      t0: c.t0, t1: c.t1,
-      realm, style: st.bridge, glow: st.glow,
-      x: (c.x0 + c.x1) / 2, z: (c.z0 + c.z1) / 2, y: c.deckY,
-      yaw: Math.atan2(c.x1 - c.x0, c.z1 - c.z0),
-      x0: c.x0, z0: c.z0, y0: c.y0, x1: c.x1, z1: c.z1, y1: c.y1,
-      span: c.len, bed: c.bed, width: ROAD_HALF_WIDTH * 2, clear: CLEAR.bridge,
-    });
-  });
-  const onBridge = (t) => spans.some((c) => t >= c.t0 - 1e-6 && t <= c.t1 + 1e-6);
+  };
 
   // ---- the realm's own border
   //
   // A gate stands ON the road, so it walks along it until it finds a length of
-  // road with nothing else on it and no bridge under it. A border that falls
-  // in the middle of a river gets its gate on the near bank instead of not at
-  // all, which is where a real one would be.
-  for (const g of realmCrossingsOf(field, road)) {
-    const st = styleFor(g.realm);
+  // road with ground under it, nothing else on it and no bridge under it. A
+  // border that falls in the middle of a river gets its gate on the near bank
+  // instead of not at all, which is where a real one would be. The gate goes
+  // through `probeAt` like every other kind: standing on the road is not
+  // permission to stand in the river the road fords.
+  realmCrossingsOf(field, road).forEach((g, gi) => {
+    const style = styleFor(g.realm);
     for (const step of GATE_STEPS) {
       const t = g.t + step / road.total;
-      if (t < 0 || t > 1 || onBridge(t)) continue;
+      if (t < 0 || t > 1 || onBridgeAt(st, t)) continue;
       const q = roadPointAt(road, t);
+      const ground = probeAt(field, ctx, q.x, q.z);
+      if (!ground.ok) continue;
       const put = place({
-        id: `${road.id}#gate:${g.realm}`, kind: 'gate', road: road.id, t,
-        realm: g.realm, style: st.gate, glow: st.glow, label: g.name,
+        id: `${road.id}#gate${gi}:${g.realm}`, kind: 'gate', road: road.id, t,
+        realm: g.realm, style: style.gate, glow: style.glow, label: g.name,
         x: q.x, z: q.z, y: roadHeightAt(road, t), yaw: Math.atan2(q.dx, q.dz),
         height: GATE_H, half: ROAD_HALF_WIDTH + 1.2, clear: CLEAR.gate,
+        // the crossing this gate marks, so the test can ask a gate what it is
+        // for rather than guessing from how near it landed
+        crossing: gi, crossingT: g.t,
       });
       if (put) break;
     }
-  }
+  });
 
   // ---- what stands at each end: the sign, the shrine, the bench, the post
   for (const end of ['a', 'b']) {
@@ -609,46 +823,46 @@ export function waysideForRoad(field, road) {
 
     if (owner) {
       // A signpost is not optional: a road end with no board on it is the one
-      // thing this whole file exists to stop. So if the first spot is in the
-      // river, on a neighbour's pad or in the water, the post walks on down
-      // the road and tries the other verge, and only gives up after that.
+      // thing this whole file exists to stop. So the post walks down the road
+      // from the town's gate, both verges at every step, until it finds ground
+      // it is allowed to stand on with room to stand in, and it walks as far as
+      // SIGN_WALK or the road's own halfway mark, whichever comes first.
       let spot = null;
-      for (const step of SIGN_STEPS) {
+      const reach = Math.min(SIGN_WALK, road.total / 2);
+      for (let step = 0; step <= reach && !spot; step += SIGN_STEP) {
         for (const sgn of [side, -side]) {
           const s1 = gate + inward * step;
           if (s1 < 0 || s1 > road.total) continue;
           const t1 = s1 / road.total;
-          if (onBridge(t1)) continue;
+          if (onBridgeAt(st, t1)) continue;
           const p1 = roadPointAt(road, t1);
           const x1 = p1.x + p1.nx * OFF_ROAD * sgn, z1 = p1.z + p1.nz * OFF_ROAD * sgn;
           const g1 = probeAt(field, ctx, x1, z1);
-          if (g1.ok) { spot = { t: t1, p: p1, x: x1, z: z1, g: g1, sgn }; break; }
+          if (!g1.ok) continue;
+          const style = styleFor(g1.realm);
+          const sign = place({
+            id: `${site.id}#sign`, kind: 'sign', road: road.id, t: t1,
+            realm: g1.realm, style: style.lamp, glow: style.glow,
+            x: x1, z: z1, y: g1.h, yaw: Math.atan2(p1.dx, p1.dz),
+            fork: mine.length > 1, at: site.name, walked: step,
+            fingers: fingersAt(field, site, mine), clear: CLEAR.sign,
+          });
+          if (sign) { spot = { t: t1, p: p1, sgn }; break; }
         }
-        if (spot) break;
       }
-      if (spot) {
-        const { t, p, x, z, g } = spot;
-        const st = styleFor(g.realm);
-        const sign = place({
-          id: `${site.id}#sign`, kind: 'sign', road: road.id, t,
-          realm: g.realm, style: st.lamp, glow: st.glow,
-          x, z, y: g.h, yaw: Math.atan2(p.dx, p.dz),
-          fork: mine.length > 1, at: site.name,
-          fingers: fingersAt(field, site, mine), clear: CLEAR.sign,
-        });
-        // one sign spot in three keeps a shrine on the other side of the road
-        if (sign && hash2(site.cx, site.cz, field.seed + 93) % SHRINE_IN === 0) {
-          const sx = p.x - p.nx * OFF_ROAD * spot.sgn, sz = p.z - p.nz * OFF_ROAD * spot.sgn;
-          const sg = probeAt(field, ctx, sx, sz);
-          if (sg.ok) {
-            const sst = styleFor(sg.realm);
-            place({
-              id: `${site.id}#shrine`, kind: 'shrine', road: road.id, t,
-              realm: sg.realm, style: sst.lamp, glow: sst.glow,
-              x: sx, z: sz, y: sg.h, yaw: Math.atan2(-p.dx, -p.dz),
-              at: site.name, clear: CLEAR.shrine,
-            });
-          }
+      // one sign spot in three keeps a shrine on the other side of the road
+      if (spot && hash2(site.cx, site.cz, field.seed + 93) % SHRINE_IN === 0) {
+        const { p, sgn } = spot;
+        const sx = p.x - p.nx * OFF_ROAD * sgn, sz = p.z - p.nz * OFF_ROAD * sgn;
+        const sg = probeAt(field, ctx, sx, sz);
+        if (sg.ok) {
+          const style = styleFor(sg.realm);
+          place({
+            id: `${site.id}#shrine`, kind: 'shrine', road: road.id, t: spot.t,
+            realm: sg.realm, style: style.lamp, glow: style.glow,
+            x: sx, z: sz, y: sg.h, yaw: Math.atan2(-p.dx, -p.dz),
+            at: site.name, clear: CLEAR.shrine,
+          });
         }
       }
     }
@@ -660,16 +874,16 @@ export function waysideForRoad(field, road) {
       const s0 = gate + inward * at;
       if (s0 < 0 || s0 > road.total) continue;
       const t = s0 / road.total;
-      if (onBridge(t)) continue;
+      if (onBridgeAt(st, t)) continue;
       const p = roadPointAt(road, t);
       const sx = off * side;
       const x = p.x + p.nx * OFF_ROAD * sx, z = p.z + p.nz * OFF_ROAD * sx;
       const g = probeAt(field, ctx, x, z);
       if (!g.ok) continue;
-      const st = styleFor(g.realm);
+      const style = styleFor(g.realm);
       place({
         id: `${road.id}#${kind}:${end}`, kind, road: road.id, t,
-        realm: g.realm, style: st.lamp, glow: st.glow,
+        realm: g.realm, style: style.lamp, glow: style.glow,
         x, z, y: g.h,
         yaw: kind === 'bench' ? Math.atan2(-p.nx * sx, -p.nz * sx) : Math.atan2(p.dx, p.dz),
         at: site.name, clear: CLEAR[kind],
@@ -680,61 +894,206 @@ export function waysideForRoad(field, road) {
   // ---- the milestones, counted from the road's own settlement
   for (let m = MILESTONE, i = 1; m < road.total; m += MILESTONE, i++) {
     const t = m / road.total;
-    if (onBridge(t)) continue;
+    if (onBridgeAt(st, t)) continue;
     const p = roadPointAt(road, t);
     const side = hash2(Math.round(p.x), Math.round(p.z), field.seed + 95) % 2 ? 1 : -1;
     const x = p.x + p.nx * OFF_ROAD * side, z = p.z + p.nz * OFF_ROAD * side;
     const g = probeAt(field, ctx, x, z);
     if (!g.ok) continue;
-    const st = styleFor(g.realm);
+    const style = styleFor(g.realm);
     place({
       id: `${road.id}#mile${i}`, kind: 'milestone', road: road.id, t,
-      realm: g.realm, style: st.lamp, glow: st.glow,
+      realm: g.realm, style: style.lamp, glow: style.glow,
       x, z, y: g.h, yaw: Math.atan2(-p.nx * side, -p.nz * side),
       metres: m, from: road.a.name, clear: CLEAR.milestone,
     });
   }
 
-  // ---- the lamps: both verges, at the spacing the country asks for
-  const lampAt = (t, sideSign, id) => {
-    const p = roadPointAt(road, t);
-    const x = p.x + p.nx * VERGE * sideSign, z = p.z + p.nz * VERGE * sideSign;
-    const g = probeAt(field, ctx, x, z);
-    if (!g.ok) return null;
-    const st = styleFor(g.realm);
-    return place({
-      id, kind: 'lamp', road: road.id, t, realm: g.realm,
-      style: st.lamp, glow: st.glow, x, z, y: g.h,
-      yaw: Math.atan2(-p.nx * sideSign, -p.nz * sideSign), side: sideSign,
-      clear: CLEAR.lamp,
-    });
-  };
-  let s = 0, i = 0;
+  out.sort(byKindThenId);
+  return out;
+}
+
+/**
+ * The lamp stations along a road: where a post would stand if the ground let
+ * it. The walk asks the site grid for the local spacing and never asks the
+ * terrain, so a road of forty stations is worked out in the time one terrain
+ * sample takes, and a chunk can then pay for the two or three stations that
+ * stand in it and no more.
+ */
+function stationsOf(field, road) {
+  const st = roadState(field, road);
+  if (st.stations) return st.stations;
+  const out = [];
+  st.stations = out;
+  let s = 0;
   while (s <= road.total) {
     const t = s / road.total;
     const p = roadPointAt(road, t);
-    if (!onBridge(t)) {
-      lampAt(t, 1, `${road.id}#lamp${i}+`);
-      lampAt(t, -1, `${road.id}#lamp${i}-`);
-      s += spacingAt(field, p.x, p.z);
-    } else {
-      s += LAMP_NEAR;                                 // the bridge carries its own
-    }
-    i++;
+    out.push({ i: out.length, s, t, x: p.x, z: p.z, nx: p.nx, nz: p.nz });
+    s += spacingAt(field, p.x, p.z);
   }
-  // and one at each abutment, so a bridge has a light at both ends of it
-  spans.forEach((c, k) => {
-    lampAt(Math.max(0, c.t0 - 3 / road.total), 1, `${road.id}#bridge${k}lampA`);
-    lampAt(Math.min(1, c.t1 + 3 / road.total), -1, `${road.id}#bridge${k}lampB`);
-  });
+  return out;
+}
 
-  out.sort(byKindThenId);
+/** One lamp post beside the road, or null where the ground refuses it. */
+function lampRec(field, st, id, t, x, z, nx, nz, sideSign) {
+  const g = probeAt(field, st.ctx, x, z);
+  if (!g.ok) return null;
+  const style = styleFor(g.realm);
+  const rec = {
+    id, kind: 'lamp', road: st.road.id, t, realm: g.realm,
+    style: style.lamp, glow: style.glow, x, z, y: g.h,
+    yaw: Math.atan2(-nx * sideSign, -nz * sideSign), side: sideSign,
+    clear: CLEAR.lamp,
+  };
+  return blocked(st, spineOf(field, st.road), rec) ? null : rec;
+}
+
+/**
+ * The two lamps of one station, cached.
+ *
+ * A lamp is checked against the road's spine and against the bridges under it
+ * and against nothing else. Two lamps of one road cannot stand in each other's
+ * way: the stations are LAMP_NEAR apart along the road and the two verges are
+ * 2 * VERGE apart across it, both of them far outside CLEAR.lamp, and
+ * `wayside.test.mjs` measures the closest pair in the world rather than taking
+ * that on trust. Where a bridge's own abutment lamp does land on a station lamp
+ * the chunk's overlap pass settles it, which is the pass's whole job.
+ */
+function lampsAtStation(field, road, k) {
+  const st = roadState(field, road);
+  const had = st.lamps.get(k);
+  if (had) return had;
+  const out = [];
+  st.lamps.set(k, out);
+  const stn = stationsOf(field, road)[k];
+  if (!stn || onBridgeAt(st, stn.t)) return out;
+  for (const sideSign of [1, -1]) {
+    const x = stn.x + stn.nx * VERGE * sideSign, z = stn.z + stn.nz * VERGE * sideSign;
+    const rec = lampRec(field, st, `${road.id}#lamp${k}${sideSign > 0 ? '+' : '-'}`,
+      stn.t, x, z, stn.nx, stn.nz, sideSign);
+    if (rec) out.push(rec);
+  }
+  return out;
+}
+
+/** A lamp at each end of a bridge, so a span has a light at both abutments. */
+function abutmentLamps(field, road, bridge) {
+  const st = roadState(field, road);
+  const had = st.abut.get(bridge.id);
+  if (had) return had;
+  const out = [];
+  st.abut.set(bridge.id, out);
+  const off = 3 / road.total;
+  for (const [t, sideSign, tag] of [
+    [Math.max(0, bridge.t0 - off), 1, 'lampA'],
+    [Math.min(1, bridge.t1 + off), -1, 'lampB'],
+  ]) {
+    const p = roadPointAt(road, t);
+    const x = p.x + p.nx * VERGE * sideSign, z = p.z + p.nz * VERGE * sideSign;
+    const rec = lampRec(field, st, `${bridge.id}${tag}`, t, x, z, p.nx, p.nz, sideSign);
+    if (rec) out.push(rec);
+  }
   return out;
 }
 
 function byKindThenId(a, b) {
   const ka = KIND_ORDER.indexOf(a.kind), kb = KIND_ORDER.indexOf(b.kind);
   return ka !== kb ? ka - kb : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+/**
+ * Every piece of furniture one road carries, worked out once and cached.
+ *
+ * This is the whole road, which is what `waysideSweep`, `wayside.test.mjs` and
+ * an audit want. A chunk does NOT ask for it: `waysideFor` asks for the spine,
+ * which is cheap, and then for the bridges and the lamps of the arc it can
+ * actually see. Both go through the same three functions, so a piece is the
+ * same piece whichever way it was reached.
+ */
+export function waysideForRoad(field, road) {
+  const st = roadState(field, road);
+  if (st.all) return st.all;
+  const out = [];
+  st.all = out;
+  const spans = spansAll(st);
+  out.push(...spans);
+  out.push(...spineOf(field, road));
+  const stations = stationsOf(field, road);
+  for (let k = 0; k < stations.length; k++) out.push(...lampsAtStation(field, road, k));
+  for (const b of spans) out.push(...abutmentLamps(field, road, b));
+  out.sort(byKindThenId);
+  return out;
+}
+
+/**
+ * The stretches of a road that a box can see, in metres of arc.
+ *
+ * A road can enter a chunk's box, leave it round a bend and come back, so this
+ * gives the runs rather than one span from the first touch to the last. The
+ * walk is pure geometry at ARC_SCAN and asks the terrain nothing.
+ */
+function arcRunsIn(road, x0, z0, x1, z1) {
+  const pad = OFF_ROAD + ARC_SCAN;
+  const n = Math.max(2, Math.ceil(road.total / ARC_SCAN));
+  const runs = [];
+  let open = null;
+  for (let i = 0; i <= n; i++) {
+    const s = (i / n) * road.total;
+    const p = roadPointAt(road, s / road.total);
+    const near = p.x >= x0 - pad && p.x <= x1 + pad && p.z >= z0 - pad && p.z <= z1 + pad;
+    if (near) {
+      if (!open) open = { s0: s, s1: s };
+      open.s1 = s;
+    } else if (open) { runs.push(open); open = null; }
+  }
+  if (open) runs.push(open);
+  return runs;
+}
+
+/** Every piece one road puts anywhere near the box, and no more of the road than that. */
+function waysideNear(field, road, x0, z0, x1, z1) {
+  const st = roadState(field, road);
+  const out = [...spineOf(field, road)];
+  const stations = stationsOf(field, road);
+  for (const run of arcRunsIn(road, x0, z0, x1, z1)) {
+    const s0 = run.s0 - ARC_SCAN, s1 = run.s1 + ARC_SCAN;
+    for (const b of spansAtArc(st, s0, s1)) {
+      out.push(b);
+      out.push(...abutmentLamps(field, road, b));
+    }
+    for (const stn of stations) {
+      if (stn.s < s0 || stn.s > s1) continue;
+      out.push(...lampsAtStation(field, road, stn.i));
+    }
+  }
+  return out;
+}
+
+/**
+ * The overlap pass: what is left when every piece that stands inside another
+ * one's room has given way, in KIND_ORDER and then in id order.
+ *
+ * Two roads leaving the same town can each put a lamp on the same square metre,
+ * and so can a bridge's own abutment lamp and the station lamp beside it. A
+ * road works its furniture out on its own and knows nothing about the road next
+ * to it, so this is where that is settled, over a box wider than the largest
+ * clearance, which is what makes the two chunks either side of a border settle
+ * a pair the same way.
+ */
+export function settleOverlaps(list) {
+  const box = [...list].sort(byKindThenId);
+  const kept = [];
+  for (const rec of box) {
+    let clash = false;
+    for (let i = 0; i < kept.length; i++) {
+      const k = kept[i];
+      const room = Math.max(k.clear, rec.clear);
+      if (room > 0 && (k.x - rec.x) ** 2 + (k.z - rec.z) ** 2 < room * room) { clash = true; break; }
+    }
+    if (!clash) kept.push(rec);
+  }
+  return kept;
 }
 
 /**
@@ -746,27 +1105,20 @@ function byKindThenId(a, b) {
  */
 export function waysideFor(field, cx, cz) {
   const x0 = cx * CHUNK, z0 = cz * CHUNK, x1 = x0 + CHUNK, z1 = z0 + CHUNK;
-  const roads = roadsOverlapping(field, x0 - GATHER, z0 - GATHER, x1 + GATHER, z1 + GATHER);
+  const gx0 = x0 - GATHER, gz0 = z0 - GATHER, gx1 = x1 + GATHER, gz1 = z1 + GATHER;
+  const roads = roadsOverlapping(field, gx0, gz0, gx1, gz1);
   if (!roads.length) return [];
   const box = [];
+  const seen = new Set();
   for (const r of roads) {
-    for (const rec of waysideForRoad(field, r)) {
-      if (rec.x < x0 - GATHER || rec.x > x1 + GATHER || rec.z < z0 - GATHER || rec.z > z1 + GATHER) continue;
+    for (const rec of waysideNear(field, r, gx0, gz0, gx1, gz1)) {
+      if (rec.x < gx0 || rec.x > gx1 || rec.z < gz0 || rec.z > gz1) continue;
+      if (seen.has(rec.id)) continue;
+      seen.add(rec.id);
       box.push(rec);
     }
   }
-  box.sort(byKindThenId);
-  const kept = [];
-  for (const rec of box) {
-    let clash = false;
-    for (let i = 0; i < kept.length; i++) {
-      const k = kept[i];
-      const room = Math.max(k.clear, rec.clear);
-      if (room > 0 && (k.x - rec.x) ** 2 + (k.z - rec.z) ** 2 < room * room) { clash = true; break; }
-    }
-    if (!clash) kept.push(rec);
-  }
-  return kept.filter((r) => r.x >= x0 && r.x < x1 && r.z >= z0 && r.z < z1);
+  return settleOverlaps(box).filter((r) => r.x >= x0 && r.x < x1 && r.z >= z0 && r.z < z1);
 }
 
 /**
@@ -777,23 +1129,28 @@ export function waysideFor(field, cx, cz) {
  * a player walking a bridged crossing would swim under his own bridge unless
  * the ground he is given there is the deck. `world_runtime.heightAt` asks this
  * first and falls back to the terrain, and `docs/mmo/wiring/A2.md` quotes the
- * line. It is one call into roads.js's own cache, which is the same question
- * `field.sampleAt` already asks for every terrain vertex, so it is cheap
- * enough to ask for every body in the world every frame.
+ * line.
+ *
+ * The answer is the road's own profile at the point, which IS the deck, so a
+ * bridge over a bend carries the player round the bend. It costs one
+ * `roadDistanceAt`, which is roads.js's own cached lookup and the same question
+ * `field.sampleAt` asks for every terrain vertex, and then the bridges of the
+ * few probes around the point, which are worked out once and kept.
+ *
+ * The road the point is nearest is taken to be the road whose deck it is on.
+ * That is true of every one of the deck points `wayside.test.mjs` walks, and
+ * the test asserts it rather than assuming it: two roads would have to run
+ * within a deck's width of each other over a river to break it.
  */
 export function deckAt(field, x, z) {
   const rd = roadDistanceAt(field, x, z);
-  if (!rd) return null;
-  for (const rec of waysideForRoad(field, rd.road)) {
-    if (rec.kind !== 'bridge') continue;
-    const dx = rec.x1 - rec.x0, dz = rec.z1 - rec.z0;
-    const len2 = dx * dx + dz * dz || 1;
-    let u = ((x - rec.x0) * dx + (z - rec.z0) * dz) / len2;
-    if (u < -0.03 || u > 1.03) continue;
-    u = u < 0 ? 0 : u > 1 ? 1 : u;
-    const px = rec.x0 + dx * u, pz = rec.z0 + dz * u;
-    if (Math.hypot(x - px, z - pz) > rec.width / 2 + 0.4) continue;
-    return rec.y0 + (rec.y1 - rec.y0) * u;
+  if (!rd || rd.d > DECK_HALF) return null;
+  const st = roadState(field, rd.road);
+  const s = rd.t * rd.road.total;
+  const pad = DECK_END / rd.road.total;
+  for (const rec of spansAtArc(st, s, s)) {
+    if (rd.t < rec.t0 - pad || rd.t > rec.t1 + pad) continue;
+    return roadHeightAt(rd.road, rd.t);
   }
   return null;
 }

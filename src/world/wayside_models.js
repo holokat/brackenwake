@@ -293,107 +293,194 @@ const LAMPS = {
 };
 
 // -------------------------------------------------------------- the bridges --
+//
+// A bridge is built along the DECK, and the deck is the road's own line across
+// the water, bends and all (`wayside.deckPath`). A2 laid the body along the
+// straight line between the two abutments, which is the same line on the
+// hundred spans that cross a river square and a very different one on the seven
+// that cross it on a bend: the world's longest, 182 m over an inlet of the
+// Caldera Sea, put the beam twelve metres off the road it was carrying.
+//
+// `legsOf` turns the record's path into the piece's own frame, one leg per
+// straight run, and everything below is placed at an arc length along it rather
+// than at a z between -len/2 and len/2. A bridge with one leg comes out exactly
+// as it did before.
 
-function deckOf(g, rec, st, mDeck, mRail) {
-  const len = Math.max(2, Math.hypot(rec.x1 - rec.x0, rec.z1 - rec.z0));
+/**
+ * The deck's legs in the piece's own frame: the group already stands at
+ * (rec.x, rec.y, rec.z) turned by `rec.yaw`, so the world points come back
+ * through that turn. `s0` and `s1` are arc length along the deck.
+ */
+function legsOf(rec) {
+  const a = rec.yaw || 0, ca = Math.cos(a), sa = Math.sin(a);
+  const pts = (rec.path && rec.path.length >= 2)
+    ? rec.path
+    : [{ x: rec.x0, z: rec.z0, y: rec.y0 }, { x: rec.x1, z: rec.z1, y: rec.y1 }];
+  const local = pts.map((p) => {
+    const wx = p.x - rec.x, wz = p.z - rec.z;
+    return { x: ca * wx - sa * wz, y: p.y - rec.y, z: sa * wx + ca * wz };
+  });
+  const legs = [];
+  let s = 0;
+  for (let i = 0; i < local.length - 1; i++) {
+    const p = local[i], q = local[i + 1];
+    const run = Math.hypot(q.x - p.x, q.z - p.z);
+    if (run < 1e-6) continue;
+    legs.push({
+      x0: p.x, y0: p.y, z0: p.z, x1: q.x, y1: q.y, z1: q.z,
+      run, s0: s, s1: s + run,
+      yaw: Math.atan2(q.x - p.x, q.z - p.z),
+      pitch: Math.atan2(q.y - p.y, run),
+    });
+    s += run;
+  }
+  if (!legs.length) {
+    legs.push({ x0: 0, y0: 0, z0: -1, x1: 0, y1: 0, z1: 1, run: 2, s0: 0, s1: 2, yaw: 0, pitch: 0 });
+  }
+  return legs;
+}
+
+const deckLen = (legs) => legs[legs.length - 1].s1;
+
+/** The point, the bearing and the pitch of the deck at arc length `s`. */
+function atArc(legs, s) {
+  let L = legs[legs.length - 1];
+  for (const leg of legs) { if (s <= leg.s1) { L = leg; break; } }
+  const u = L.run > 0 ? Math.min(1, Math.max(0, (s - L.s0) / L.run)) : 0;
+  return {
+    x: L.x0 + (L.x1 - L.x0) * u,
+    y: L.y0 + (L.y1 - L.y0) * u,
+    z: L.z0 + (L.z1 - L.z0) * u,
+    yaw: L.yaw, pitch: L.pitch,
+    // the way across the deck at this point, which is where a rail, a pile and
+    // a rib all stand
+    sx: Math.cos(L.yaw), sz: -Math.sin(L.yaw),
+  };
+}
+
+/** A box laid along the deck at `s`, `off` metres to the side of it. */
+function onDeck(g, m, w, h, d, legs, s, off, dy = 0) {
+  const p = atArc(legs, s);
+  const o = box(g, m, w, h, d, p.x + p.sx * off, p.y + dy, p.z + p.sz * off);
+  o.rotation.order = 'YXZ';
+  o.rotation.set(-p.pitch, p.yaw, 0);
+  return o;
+}
+
+/** A cylinder standing at `s`, `off` metres to the side of the deck. */
+function byDeck(g, m, rt, rb, h, seg, legs, s, off, dy = 0) {
+  const p = atArc(legs, s);
+  const o = cyl(g, m, rt, rb, h, seg, p.x + p.sx * off, p.y + dy, p.z + p.sz * off);
+  o.rotation.order = 'YXZ';
+  o.rotation.y = p.yaw;
+  return o;
+}
+
+function deckOf(g, rec, legs, mDeck, mRail) {
   const w = rec.width;
-  const drop = rec.y1 - rec.y0;
-  const pitch = Math.atan2(drop, len);
-  const deck = box(g, mDeck, w, 0.34, len, 0, 0, 0);
-  deck.rotation.x = -pitch;
-  for (const s of [-1, 1]) {
-    const rail = box(g, mRail, 0.16, 0.62, len, s * (w / 2 - 0.1), 0.48, 0);
-    rail.rotation.x = -pitch;
-    const n = Math.max(2, Math.round(len / 4));
-    for (let i = 0; i <= n; i++) {
-      const u = i / n;
-      box(g, mRail, 0.14, 0.66, 0.14, s * (w / 2 - 0.1), 0.2 + drop * (u - 0.5) * 0, -len / 2 + u * len);
+  const len = deckLen(legs);
+  for (const L of legs) {
+    // a leg's own beam, made a deck's width longer at a bend so the two legs
+    // meet without a gap at the corner
+    const grow = legs.length > 1 ? w * 0.6 : 0;
+    const mid = (L.s0 + L.s1) / 2;
+    onDeck(g, mDeck, w, 0.34, Math.hypot(L.run, L.y1 - L.y0) + grow, legs, mid, 0);
+    for (const s of [-1, 1]) {
+      onDeck(g, mRail, 0.16, 0.62, Math.hypot(L.run, L.y1 - L.y0) + grow, legs, mid, s * (w / 2 - 0.1), 0.48);
     }
   }
-  return { len, pitch };
+  const n = Math.max(2, Math.round(len / 4));
+  for (let i = 0; i <= n; i++) {
+    for (const s of [-1, 1]) onDeck(g, mRail, 0.14, 0.66, 0.14, legs, (i / n) * len, s * (w / 2 - 0.1), 0.2);
+  }
+  return { len };
 }
 
 const BRIDGES = {
   stone(g, rec, st) {
     const stone = mat(st.stone), dark = mat(st.wood);
-    const { len } = deckOf(g, rec, st, stone, stone);
+    const legs = legsOf(rec);
+    const { len } = deckOf(g, rec, legs, stone, stone);
     const arches = Math.max(1, Math.round(len / 26));
     const bay = len / arches;
     const rise = Math.min(3.2, Math.max(1.2, (rec.y0 + rec.y1) / 2 - rec.bed - 0.6));
     for (let a = 0; a < arches; a++) {
-      const z0 = -len / 2 + bay * a + bay / 2;
+      const s0 = bay * a + bay / 2;
       // the voussoirs of one arch, as a ring of stones under the deck
       const seg = 9;
       for (let i = 0; i < seg; i++) {
         const th = Math.PI * (i + 0.5) / seg;
-        const x = Math.cos(th) * (bay / 2 - 0.2), y = -0.2 - rise + Math.sin(th) * rise;
-        const v = box(g, stone, rec.width * 0.9, 0.5, bay / seg + 0.22, 0, y, z0 + x);
-        v.rotation.x = th - Math.PI / 2;
+        const along = Math.cos(th) * (bay / 2 - 0.2);
+        const p = atArc(legs, Math.min(len, Math.max(0, s0 + along)));
+        const v = box(g, stone, rec.width * 0.9, 0.5, bay / seg + 0.22, p.x, p.y - 0.2 - rise + Math.sin(th) * rise, p.z);
+        v.rotation.order = 'YXZ';
+        v.rotation.set(th - Math.PI / 2, p.yaw, 0);
       }
       if (a > 0) {
         const pierH = rise + Math.max(0.6, (rec.y0 + rec.y1) / 2 - rec.bed - rise);
-        box(g, dark, rec.width * 0.7, pierH, 1.5, 0, -0.3 - pierH / 2, -len / 2 + bay * a);
+        onDeck(g, dark, rec.width * 0.7, pierH, 1.5, legs, bay * a, 0, -0.3 - pierH / 2);
       }
     }
     // the abutments, which is what makes it land on the bank
-    for (const s of [-1, 1]) box(g, stone, rec.width + 0.6, 1.6, 1.6, 0, -0.9, s * (len / 2 - 0.4));
+    for (const s of [0.4, len - 0.4]) onDeck(g, stone, rec.width + 0.6, 1.6, 1.6, legs, s, 0, -0.9);
   },
   timber(g, rec, st) {
     const wood = mat(st.wood), dark = mat(st.metal, { rough: 1 });
-    const { len } = deckOf(g, rec, st, wood, wood);
+    const legs = legsOf(rec);
+    const { len } = deckOf(g, rec, legs, wood, wood);
     const bays = Math.max(1, Math.round(len / 7));
     const depth = Math.max(1.2, (rec.y0 + rec.y1) / 2 - rec.bed);
     for (let i = 1; i < bays; i++) {
-      const z = -len / 2 + (len / bays) * i;
-      for (const s of [-1, 1]) {
-        const pile = cyl(g, wood, 0.16, 0.2, depth, 5, s * (rec.width / 2 - 0.5), -depth / 2, z);
-        pile.rotation.x = 0.05 * s;
+      const s = (len / bays) * i;
+      for (const side of [-1, 1]) {
+        const pile = byDeck(g, wood, 0.16, 0.2, depth, 5, legs, s, side * (rec.width / 2 - 0.5), -depth / 2);
+        pile.rotation.z = 0.05 * side;
       }
-      box(g, dark, rec.width, 0.22, 0.3, 0, -0.28, z);
+      onDeck(g, dark, rec.width, 0.22, 0.3, legs, s, 0, -0.28);
     }
-    for (const s of [-1, 1]) box(g, wood, 1.2, 1.1, 1.2, 0, -0.65, s * (len / 2 - 0.3));
+    for (const s of [0.3, len - 0.3]) onDeck(g, wood, 1.2, 1.1, 1.2, legs, s, 0, -0.65);
   },
   rope(g, rec, st) {
     const wood = mat(st.wood), rope = mat(st.metal, { rough: 1 });
-    const len = Math.max(2, Math.hypot(rec.x1 - rec.x0, rec.z1 - rec.z0));
-    const drop = rec.y1 - rec.y0;
-    const pitch = Math.atan2(drop, len);
+    const legs = legsOf(rec);
+    const len = deckLen(legs);
     // planks, laid flat on the line the deck runs, because the deck is what
     // the player walks on and a sagging one would drop him in the river
     const planks = Math.max(4, Math.round(len / 0.9));
     for (let i = 0; i < planks; i++) {
-      const u = (i + 0.5) / planks;
-      const p = box(g, wood, rec.width * 0.8, 0.12, 0.62, 0, 0, -len / 2 + u * len);
-      p.rotation.x = -pitch;
+      const p = onDeck(g, wood, rec.width * 0.8, 0.12, 0.62, legs, ((i + 0.5) / planks) * len, 0);
       p.rotation.z = 0.02 * Math.sin(i * 1.7);
     }
     // two hand ropes and the hangers, which do sag
     const n = 14;
-    for (const s of [-1, 1]) {
+    for (const side of [-1, 1]) {
       for (let i = 0; i < n; i++) {
-        const u = (i + 0.5) / n, z = -len / 2 + u * len;
+        const u = (i + 0.5) / n;
         const sag = Math.sin(Math.PI * u) * Math.min(1.4, len * 0.03);
-        const r = cyl(g, rope, 0.05, 0.05, len / n + 0.3, 4, s * (rec.width / 2 - 0.2), 1.0 - sag, z);
+        const r = byDeck(g, rope, 0.05, 0.05, len / n + 0.3, 4, legs, u * len, side * (rec.width / 2 - 0.2), 1.0 - sag);
+        r.rotation.order = 'YXZ';
         r.rotation.x = Math.PI / 2;
-        if (i % 3 === 0) cyl(g, rope, 0.03, 0.03, 1.0, 4, s * (rec.width / 2 - 0.2), 0.5 - sag / 2, z);
-      }
-      for (const e of [-1, 1]) box(g, wood, 0.3, 2.4, 0.3, s * (rec.width / 2 - 0.2), 0.9, e * (len / 2 + 0.2));
+        if (i % 3 === 0) byDeck(g, rope, 0.03, 0.03, 1.0, 4, legs, u * len, side * (rec.width / 2 - 0.2), 0.5 - sag / 2);
+        }
+      for (const e of [0.2, len - 0.2]) byDeck(g, wood, 0.3, 2.4, 0.3, 4, legs, e, side * (rec.width / 2 - 0.2), 0.9);
     }
   },
   bone(g, rec, st) {
     const bone = mat(st.stone), dark = mat(st.wood);
-    const { len } = deckOf(g, rec, st, dark, bone);
+    const legs = legsOf(rec);
+    const { len } = deckOf(g, rec, legs, dark, bone);
     const ribs = Math.max(2, Math.round(len / 6));
     const rise = Math.min(4, Math.max(1.4, (rec.y0 + rec.y1) / 2 - rec.bed));
     for (let i = 0; i <= ribs; i++) {
-      const z = -len / 2 + (len / ribs) * i;
-      for (const s of [-1, 1]) {
+      const s = (len / ribs) * i;
+      for (const side of [-1, 1]) {
         const seg = 5;
         for (let k = 0; k < seg; k++) {
           const th = (Math.PI / 2) * (k + 0.5) / seg;
-          const rb = cyl(g, bone, 0.11, 0.13, rise / seg + 0.2, 5,
-            s * Math.sin(th) * (rec.width / 2), -Math.cos(th) * rise - 0.2, z);
-          rb.rotation.z = -s * th;
+          const rb = byDeck(g, bone, 0.11, 0.13, rise / seg + 0.2, 5, legs, s,
+            side * Math.sin(th) * (rec.width / 2), -Math.cos(th) * rise - 0.2);
+          rb.rotation.order = 'YXZ';
+          rb.rotation.z = -side * th;
         }
       }
     }

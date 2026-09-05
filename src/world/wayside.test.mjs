@@ -26,16 +26,18 @@
 import { createWorldField, CHUNK } from './field.js';
 import {
   roadsOverlapping, roadsAtSite, roadPointAt, roadHeightAt, roadSurface, fordFade,
-  ROAD_HALF_WIDTH,
+  roadDistanceAt, ROAD_HALF_WIDTH,
 } from './roads.js';
 import { SITE_CELL } from './sitegrid.js';
-import { REALM_ZONES } from './zones.js';
+import { sitesNear } from './sites.js';
+import { REALM_ZONES, authoredSites, MAX_FLAT_R as MAX_PAD } from './zones.js';
 import {
   waysideFor, waysideForRoad, waysideSweep, contextFor, probeAt, onPad,
   nearPlace, spacingAt, deckAt, styleFor, angleGap, auditWaysideStyles,
-  WAYSIDE_STYLE, KIND_ORDER, LAMP_NEAR, LAMP_FAR, PLACE_NEAR, MILESTONE,
-  SIGN_ARC, FINGERS, GATE_ROOM, SHRINE_IN, BRIDGE_DROP, FORD_RIVER,
-  SHORE_LINE, WALK_STEP,
+  settleOverlaps, deckPath,
+  WAYSIDE_STYLE, KIND_ORDER, CLEAR, LAMP_NEAR, LAMP_FAR, PLACE_NEAR, MILESTONE,
+  SIGN_ARC, SIGN_WALK, FINGERS, GATE_ROOM, GATE_STEPS, SHRINE_IN, BRIDGE_DROP,
+  FORD_RIVER, SHORE_LINE, WALK_STEP, PAD_MARGIN, VERGE,
 } from './wayside.js';
 
 let pass = 0, fail = 0;
@@ -125,6 +127,49 @@ check('every kind the placement knows about is actually placed somewhere',
     && onPad(ctx, site.x, site.z), `${site.name}, pad ${site.flatR} m`);
   const open = probeAt(f, ctx, all.find((r) => r.kind === 'lamp').x, all.find((r) => r.kind === 'lamp').z);
   check('and lets a lamp\'s own ground through', open.ok, `realm ${open.realm}`);
+
+  // The pad check above asks `sampleAt` what site it is standing on, which is
+  // the site of the point's own cell and the seven town precincts wide enough
+  // to reach out of theirs. That is the ground the player walks; it is NOT the
+  // whole question, because a hamlet's 26 m pad in the next cell reaches out
+  // too. So every piece is measured against every pad within reach of it, at
+  // the margin the placement itself keeps, which is a stricter bound than the
+  // pad's own edge.
+  {
+    let inPad = 0, worst = null, pads = 0;
+    for (const r of all) {
+      for (const s of sitesNear(f, r.x, r.z, MAX_PAD + PAD_MARGIN)) {
+        if (!(s.flatR > 0)) continue;
+        pads++;
+        const d = Math.hypot(r.x - s.x, r.z - s.z);
+        if (d < s.flatR + PAD_MARGIN) {
+          inPad++;
+          if (!worst || d - s.flatR < worst.slack) worst = { slack: d - s.flatR, id: r.id, site: s.name };
+        }
+      }
+    }
+    check(`nothing stands within ${PAD_MARGIN} m of any site's pad, not only the one under it`,
+      inPad === 0, `${pads} piece and pad pairs looked at over ${all.length} pieces${worst ? `, worst ${worst.id} on ${worst.site}` : ''}`);
+    // the other direction, on the same measurement: the widest pad in the world
+    // holds a piece out, so the loop above is looking at something
+    const wide = authoredSites().filter((s) => s.flatR > 0).sort((a, b) => b.flatR - a.flatR)[0];
+    const at = sitesNear(f, wide.x, wide.z, 10).filter((s) => s.flatR > 0);
+    check('and a piece put in the middle of the widest pad in the world would be caught',
+      at.some((s) => Math.hypot(wide.x - s.x, wide.z - s.z) < s.flatR + PAD_MARGIN),
+      `${wide.name}, ${wide.flatR} m`);
+    // A BODY IS NOT A PAD. Two authored places carry `bodyR` and no pad at all:
+    // the Standing Hedge is a ring of stones 811 m across standing on the
+    // hillside the seed made, and the Obsidian Bridge is a 214 m arch. Refusing
+    // every lamp inside `bodyR` would take the light off eight hundred metres of
+    // the Greenwold for a ring that is empty in the middle, so the placement
+    // does not; this counts what actually stands inside one, and the day a road
+    // reaches a megalith somebody gets to look at it.
+    const bodies = authoredSites().filter((s) => s.bodyR > 0);
+    let inBody = 0;
+    for (const s of bodies) for (const r of all) if (Math.hypot(r.x - s.x, r.z - s.z) <= s.bodyR) inBody++;
+    check('and nothing stands inside the body of a megalith', inBody === 0,
+      `${bodies.map((s) => `${s.name} ${s.bodyR} m`).join(', ')}`);
+  }
 }
 
 // ---- 4. the lamps: where they stand, and how far apart --------------------
@@ -267,6 +312,28 @@ check('every kind the placement knows about is actually placed somewhere',
   let unrounded = 0;
   for (const s of signs) for (const fg of s.fingers) if (fg.dist % 100 !== 0 || fg.dist < 100) unrounded++;
   check('and every distance on a board is a round hundred metres', unrounded === 0, String(unrounded));
+
+  // How far a post had to walk to find ground. A2 gave it five fixed offsets
+  // ending at 44 m and two settlements were left unsigned, because the road
+  // leaves them onto a bridge over a hundred metres long. It now walks until it
+  // finds ground or runs out of its half of the road.
+  {
+    const roadById = new Map(roads.map((r) => [r.id, r]));
+    let over = 0, farthest = 0, at = '', stood = 0;
+    const buckets = new Map();
+    for (const s of signs) {
+      const road = roadById.get(s.road);
+      const bound = Math.min(SIGN_WALK, road.total / 2);
+      if (s.walked > bound + 1e-6) over++;
+      if (s.walked > farthest) { farthest = s.walked; at = s.at; }
+      if (s.walked === 0) stood++;
+      buckets.set(s.walked, (buckets.get(s.walked) || 0) + 1);
+    }
+    check(`no signpost walks further than ${SIGN_WALK} m or past the middle of its own road`,
+      over === 0, `${stood} of ${signs.length} stood where the road leaves the pad, the furthest walked ${farthest.toFixed(0)} m, at ${at}`);
+    check('and the ones that had to walk did have to', farthest > 0 && buckets.size > 1,
+      `${signs.length - stood} posts walked, at ${[...buckets.keys()].filter((k) => k > 0).sort((a, b) => a - b).join(', ')} m`);
+  }
 }
 
 // ---- 6. the shrines, one sign spot in three ------------------------------
@@ -342,7 +409,7 @@ check('every kind the placement knows about is actually placed somewhere',
     if (!wants.some((b) => b.road.id === br.road && b.wet0 >= br.t0 - 1e-9 && b.wet1 <= br.t1 + 1e-9)) orphanBridge++;
   }
   check('and every bridge is over a crossing that needed one', orphanBridge === 0,
-    `${bridges.length} bridges over ${wants.length} crossings, ${bridges.length - wants.length} of them carrying two`);
+    `${bridges.length} bridges over ${wants.length} crossings, ${wants.length - bridges.length} of them sharing a span with the crossing beside it`);
   const spans = bridges.map((b) => b.span).sort((a, b) => a - b);
   console.log(`  bridge spans: ${spans.map((v) => Math.round(v)).join(', ')} m`);
   // the deck stands over the water, and the abutments on dry ground
@@ -377,29 +444,50 @@ check('every kind the placement knows about is actually placed somewhere',
 }
 
 // ---- 8. the deck is ground, which is what makes a bridge real ------------
+//
+// The deck is the ROAD'S OWN LINE across the water and not the straight line
+// between the two abutments. A2 built it as a chord, which is the same line on
+// a span that crosses a river square and a different one on a span that crosses
+// it on a bend: measured below, up to twelve metres different. Three of the
+// test's own sample points fell outside the road's reach and `deckAt` answered
+// null in the middle of a bridge, which on the player's side of it is a swim.
+//
+// So the deck is walked here along the road, at both ends and all the way
+// through, and `deckAt` has to answer the road's own graded height at every
+// point of it.
 {
+  const byRoad = new Map(roads.map((r) => [r.id, r]));
   const bridges = all.filter((r) => r.kind === 'bridge');
-  let onDeck = 0, offDeck = 0, wrong = 0;
+  let onDeck = 0, missed = 0, wrong = 0, otherRoad = 0, worst = 0;
+  const bad = [];
   for (const b of bridges) {
-    for (const u of [0.2, 0.5, 0.8]) {
-      const x = b.x0 + (b.x1 - b.x0) * u, z = b.z0 + (b.z1 - b.z0) * u;
-      const d = deckAt(f, x, z);
-      const want = b.y0 + (b.y1 - b.y0) * u;
-      if (d === null) offDeck++;
-      else if (Math.abs(d - want) > 0.02) wrong++;
+    const road = byRoad.get(b.road);
+    const n = 12;
+    for (let k = 0; k <= n; k++) {
+      const t = b.t0 + (b.t1 - b.t0) * (k / n);
+      const p = roadPointAt(road, t);
+      // the road the point is nearest has to be the road carrying the deck, or
+      // `deckAt` would look up the wrong road's bridges
+      const rd = roadDistanceAt(f, p.x, p.z);
+      if (!rd || rd.road.id !== b.road) otherRoad++;
+      const d = deckAt(f, p.x, p.z);
+      const want = roadHeightAt(road, t);
+      if (d === null) { missed++; if (bad.length < 4) bad.push(`${b.id} at ${(k / n).toFixed(2)}`); }
+      else if (Math.abs(d - want) > 0.02) { wrong++; if (Math.abs(d - want) > worst) worst = Math.abs(d - want); }
       else onDeck++;
     }
   }
-  check('deckAt answers the deck\'s own height everywhere on a bridge',
-    onDeck === bridges.length * 3 && offDeck === 0 && wrong === 0,
-    `${onDeck} points on ${bridges.length} bridges, ${offDeck} missed, ${wrong} at the wrong height`);
+  check('deckAt answers the deck\'s own height everywhere on a bridge, both ends included',
+    bridges.length > 0 && missed === 0 && wrong === 0,
+    `${onDeck} points on ${bridges.length} bridges, ${missed} missed${bad.length ? ' (' + bad.join(', ') + ')' : ''}, ${wrong} at the wrong height`);
+  check('and the road under a deck is the road the deck belongs to', otherRoad === 0,
+    `${otherRoad} of ${onDeck + missed + wrong} deck points are nearer another road`);
   let stillDeck = 0;
   for (const b of bridges) {
-    const dx = (b.x1 - b.x0), dz = (b.z1 - b.z0);
-    const len = Math.hypot(dx, dz) || 1;
-    const nx = -dz / len, nz = dx / len;
+    const road = byRoad.get(b.road);
+    const p = roadPointAt(road, (b.t0 + b.t1) / 2);
     // twelve metres to the side of the middle of the span, which is off it
-    if (deckAt(f, b.x + nx * 12, b.z + nz * 12) !== null) stillDeck++;
+    if (deckAt(f, p.x + p.nx * 12, p.z + p.nz * 12) !== null) stillDeck++;
   }
   check('and null a step off it', stillDeck === 0, `${stillDeck} of ${bridges.length}`);
   // what the player would be standing in without it
@@ -407,11 +495,65 @@ check('every kind the placement knows about is actually placed somewhere',
   for (const b of bridges) if (f.sampleAt(b.x, b.z).h < f.seaLevel) drowned++;
   check('and the ground it replaces is under the water sheet, which is the point',
     drowned > 0, `${drowned} of ${bridges.length} bridge middles stand over water`);
+
+  // The deck's own line, which is what the body is built along. Measured
+  // against the road at forty points per span: the path is the road's corners,
+  // so it should lie ON the road, and the chord between the abutments should
+  // not, or the whole change was for nothing.
+  {
+    let worstPath = 0, worstChord = 0, bent = 0, chordOff = 0;
+    const near = (pts, x, z) => {
+      let best = Infinity;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const ax = pts[i].x, az = pts[i].z, bx = pts[i + 1].x, bz = pts[i + 1].z;
+        const dx = bx - ax, dz = bz - az;
+        const len2 = dx * dx + dz * dz || 1;
+        let u = ((x - ax) * dx + (z - az) * dz) / len2;
+        u = u < 0 ? 0 : u > 1 ? 1 : u;
+        best = Math.min(best, Math.hypot(ax + dx * u - x, az + dz * u - z));
+      }
+      return best;
+    };
+    for (const b of bridges) {
+      const road = byRoad.get(b.road);
+      if (b.path.length > 2) bent++;
+      let mineChord = 0;
+      for (let k = 0; k <= 40; k++) {
+        const u = k / 40;
+        const t = b.t0 + (b.t1 - b.t0) * u;
+        const p = roadPointAt(road, t);
+        worstPath = Math.max(worstPath, near(b.path, p.x, p.z));
+        const cx = b.x0 + (b.x1 - b.x0) * u, cz = b.z0 + (b.z1 - b.z0) * u;
+        mineChord = Math.max(mineChord, Math.hypot(cx - p.x, cz - p.z));
+      }
+      worstChord = Math.max(worstChord, mineChord);
+      if (mineChord > ROAD_HALF_WIDTH) chordOff++;
+    }
+    check('a bridge\'s deck lies on the road it carries, bend and all', worstPath < 0.02,
+      `${bent} of ${bridges.length} spans cross a bend, worst ${worstPath.toExponential(2)} m off the road`);
+    check('and the straight line between its abutments does not, which is why the deck bends',
+      chordOff > 0 && worstChord > ROAD_HALF_WIDTH,
+      `${chordOff} spans whose chord leaves the road, worst ${worstChord.toFixed(1)} m off it`);
+    // and the function that draws that line, driven both ways on one road: a
+    // stretch that holds a bend comes back with the bend in it, and a stretch
+    // inside one straight segment comes back as two points
+    {
+      const bentOne = bridges.find((b) => b.path.length > 2);
+      const road = byRoad.get(bentOne.road);
+      const corner = road.segs.find((s) => s.cum / road.total > bentOne.t0 && s.cum / road.total < bentOne.t1);
+      const across = deckPath(road, bentOne.t0, bentOne.t1);
+      const inside = deckPath(road, corner.cum / road.total + 0.02, corner.cum / road.total + 0.06);
+      check('deckPath puts a bend in a stretch that has one and leaves out one that has not',
+        across.length > 2 && inside.length === 2,
+        `${across.length} points across ${Math.round(bentOne.span)} m of bent span, ${inside.length} across a stretch of one segment`);
+    }
+  }
 }
 
 // ---- 9. the border gates -------------------------------------------------
 {
   const gates = all.filter((r) => r.kind === 'gate');
+  const byId = new Map(roads.map((r) => [r.id, r]));
   // walked again, at a metre
   const crossings = [];
   for (const road of roads) {
@@ -427,15 +569,55 @@ check('every kind the placement knows about is actually placed somewhere',
       }
     }
   }
-  let missing = 0, wrongName = 0;
+  // One gate per crossing and one crossing per gate, matched in METRES.
+  //
+  // A2 matched them on the fraction along the road, within 0.04 of it, which is
+  // 15 m on a short road and 40 m on a long one. A gate that cannot stand on
+  // its own border walks up to `GATE_STEPS` along the road to find ground, and
+  // on the Verdant Deep's road 1,11>2,11 the border falls in the middle of a
+  // 66 m bridge, so the gate stands 24 m past it on the far bank, which is
+  // where a real one would be, and the fraction test called it unmarked.
+  //
+  // So the pairing is done on the CROSSING each gate says it marks, which is
+  // its own 3 m walk's answer, matched to this file's 1 m walk by distance, and
+  // then the gate's own position is measured against how far it is allowed to
+  // walk. Every crossing takes one gate and no gate is taken twice.
+  const WALK_MAX = Math.max(...GATE_STEPS.map((s) => Math.abs(s)));
+  const FIND_MAX = WALK_STEP + 1;             // the two walks' own resolutions
+  const takenBy = new Map();
+  let missing = 0, wrongName = 0, doubled = 0, farthest = 0, foundOff = 0;
   for (const c of crossings) {
-    const hit = gates.find((gt) => gt.road === c.road && gt.realm === c.realm && Math.abs(gt.t - c.t) * 1000 < 40);
-    if (!hit) missing++;
-    else if (hit.label !== c.name) wrongName++;
+    const mine = gates
+      .filter((gt) => gt.road === c.road && gt.realm === c.realm)
+      .map((gt) => ({ gt, d: Math.abs(gt.crossingT - c.t) * byId.get(c.road).total }))
+      .filter((m) => m.d <= FIND_MAX)
+      .sort((m, o) => m.d - o.d);
+    const free = mine.find((m) => !takenBy.has(m.gt.id));
+    if (!free) { missing++; continue; }
+    takenBy.set(free.gt.id, c);
+    foundOff = Math.max(foundOff, free.d);
+    if (free.gt.label !== c.name) wrongName++;
+    const walked = Math.abs(free.gt.t - c.t) * byId.get(c.road).total;
+    if (walked > WALK_MAX + FIND_MAX) doubled++;
+    farthest = Math.max(farthest, walked);
   }
-  check('every road that crosses the middle of a realm\'s edge band has a gate on it',
-    crossings.length > 0 && missing === 0, `${crossings.length} crossings, ${gates.length} gates, ${missing} unmarked`);
+  check('every road that crosses the middle of a realm\'s edge band has a gate on it, one each',
+    crossings.length > 0 && missing === 0 && takenBy.size === gates.length,
+    `${crossings.length} crossings, ${gates.length} gates, ${missing} unmarked, ${gates.length - takenBy.size} marking no crossing`);
+  check(`and no gate stands further than the ${WALK_MAX} m it is allowed to walk for ground`,
+    doubled === 0, `farthest ${farthest.toFixed(1)} m from its border; the two walks agree to ${foundOff.toFixed(1)} m`);
   check('and the realm\'s own name is on the lintel', wrongName === 0, String(wrongName));
+  // the other direction: a gate moved a hundred metres up its own road would
+  // not be taken for the mark on that border
+  {
+    const one = gates[0];
+    const road = byId.get(one.road);
+    const shifted = { ...one, crossingT: one.crossingT + 100 / road.total };
+    const c = takenBy.get(one.id);
+    check('and a gate a hundred metres off its border would not be counted as marking it',
+      Math.abs(shifted.crossingT - c.t) * road.total > FIND_MAX,
+      `${(Math.abs(shifted.crossingT - c.t) * road.total).toFixed(0)} m against a ${FIND_MAX} m bound`);
+  }
   const roadsWith = new Set(crossings.map((c) => c.road));
   let spurious = 0;
   for (const gt of gates) if (!roadsWith.has(gt.road)) spurious++;
@@ -547,11 +729,68 @@ check('every kind the placement knows about is actually placed somewhere',
   const m = measure(built);
   check('no two pieces the chunks build stand inside each other\'s room', m.clashes === 0,
     `${m.pairs} neighbouring pairs over ${built.length} pieces${m.worst ? `, worst ${m.worst.a} and ${m.worst.b} at ${m.worst.d.toFixed(2)} m` : ''}`);
-  // and the other direction: the raw per road lists, before that pass, do hold
-  // pairs like it, which is what the pass is for
+  // How much work the pass had to do on THIS world is a fact about this seed
+  // and not a promise: A2 asserted that the raw lists held at least one such
+  // pair, and when the coast moved and the road network trebled there was a
+  // seed where they held none, which failed a check that was never about the
+  // code. So the count is reported, and the pass is proved on a case built for
+  // it below.
   const raw = measure(all);
-  check('and the pass has real work to do: two roads meeting do put furniture on the same ground',
-    raw.clashes > 0, `${raw.clashes} such pairs before the chunk pass${raw.worst ? `, worst ${raw.worst.d.toFixed(2)} m of ${raw.worst.room}` : ''}`);
+  console.log(`  the raw per road lists hold ${raw.clashes} pairs standing in each other's room`
+    + `${raw.worst ? `, worst ${raw.worst.a} and ${raw.worst.b} at ${raw.worst.d.toFixed(2)} m of ${raw.worst.room}` : ''}`);
+
+  // The pass itself, on two roads meeting at a town. Every piece here is the
+  // shape `waysideFor` hands the pass, and `settleOverlaps` is the function
+  // `waysideFor` calls, so this is the real pass and not a model of it.
+  {
+    const piece = (id, kind, x, z) => ({ id, kind, road: id.split('#')[0], x, z, y: 0, t: 0.5, realm: 'greenwold', clear: CLEAR[kind] });
+    const twoRoads = (gap) => [
+      piece('roadA#lamp3+', 'lamp', 100, 100),
+      piece('roadB#lamp0+', 'lamp', 100 + gap, 100),
+    ];
+    const tight = settleOverlaps(twoRoads(0.4));
+    const apart = settleOverlaps(twoRoads(CLEAR.lamp + 0.4));
+    check('the overlap pass drops one of two lamps two roads put on the same ground',
+      tight.length === 1 && tight[0].id === 'roadA#lamp3+',
+      `0.40 m apart, room ${CLEAR.lamp} m: kept ${tight.map((r) => r.id).join(', ')}`);
+    check('and keeps both once they are further apart than the room they keep',
+      apart.length === 2,
+      `${(CLEAR.lamp + 0.4).toFixed(2)} m apart: kept ${apart.length}`);
+    // and the order it settles in: the kind earlier in KIND_ORDER wins, whichever
+    // way round the two are handed over
+    const signAndLamp = [piece('roadB#lamp0+', 'lamp', 200, 200), piece('roadA#sign', 'sign', 201, 200)];
+    const oneWay = settleOverlaps(signAndLamp);
+    const other = settleOverlaps([...signAndLamp].reverse());
+    check('and a signpost beats a lamp post whichever order the two arrive in',
+      oneWay.length === 1 && other.length === 1 && oneWay[0].id === 'roadA#sign' && other[0].id === 'roadA#sign',
+      `1 m apart, the sign keeps ${CLEAR.sign} m`);
+    // the same two 4 m apart, which is outside the sign's room, both stand
+    const roomy = settleOverlaps([piece('roadB#lamp0+', 'lamp', 200, 200), piece('roadA#sign', 'sign', 204, 200)]);
+    check('and both stand once the lamp is outside the signpost\'s room', roomy.length === 2,
+      `4 m apart against ${CLEAR.sign} m`);
+  }
+
+  // Two lamps of ONE road never stand in each other's way, which is why a
+  // station's lamps are worked out on their own and checked against the road's
+  // spine and the bridges and nothing else. That is an argument about the
+  // numbers, so here is the measurement behind it.
+  {
+    let closest = Infinity, pair = '';
+    const byRoadId = new Map();
+    for (const r of all) {
+      if (r.kind !== 'lamp' || r.id.includes('bridge')) continue;
+      if (!byRoadId.has(r.road)) byRoadId.set(r.road, []);
+      byRoadId.get(r.road).push(r);
+    }
+    for (const list of byRoadId.values()) {
+      for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+        const d = Math.hypot(list[i].x - list[j].x, list[i].z - list[j].z);
+        if (d < closest) { closest = d; pair = `${list[i].id} and ${list[j].id}`; }
+      }
+    }
+    check(`no two station lamps of one road stand within the ${CLEAR.lamp} m a lamp keeps`,
+      closest > CLEAR.lamp, `closest ${closest.toFixed(2)} m, ${pair}; the two verges are ${(VERGE * 2).toFixed(1)} m apart and the stations ${LAMP_NEAR} m`);
+  }
 }
 
 // ---- 12. chunks: every piece in exactly one, and the same one every time --
@@ -579,12 +818,75 @@ check('every kind the placement knows about is actually placed somewhere',
   const dropped = all.length - seen.size;
   check('and the chunk pass drops only what it has to', dropped >= 0 && dropped < all.length * 0.05,
     `${dropped} of ${all.length} dropped where two roads' furniture met`);
+
+  // The books have to balance. A chunk asks its roads for the arc it can see
+  // and not for the whole road, so a piece could go missing between the two
+  // without anything above noticing: the count would simply be smaller. So
+  // every piece the whole road lays down is accounted for here, and the only
+  // excuse for one not being built is that it gave way to a piece that was.
+  {
+    let lost = 0, gaveWay = 0;
+    const near = (cx, cz) => {
+      const out = [];
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) out.push(...waysideFor(f, cx + dx, cz + dz));
+      return out;
+    };
+    const missing = [];
+    for (const r of all) {
+      if (seen.has(r.id)) continue;
+      const cx = Math.floor(r.x / CHUNK), cz = Math.floor(r.z / CHUNK);
+      const won = near(cx, cz).some((k) => {
+        const room = Math.max(k.clear, r.clear);
+        return room > 0 && k.id !== r.id && Math.hypot(k.x - r.x, k.z - r.z) < room;
+      });
+      if (won) gaveWay++; else { lost++; if (missing.length < 4) missing.push(r.id); }
+    }
+    check('every piece a road lays down is built by the chunk it stands in, or gave way to one that was',
+      lost === 0, `${seen.size} built, ${gaveWay} gave way, ${lost} unaccounted for${missing.length ? ': ' + missing.join(', ') : ''}`);
+  }
   // the same chunk asked on a second field of the same seed answers the same
   const w = createWorldField(SEED, { homeY: -0.3 });
   const one = [...chunks][0].split(',').map(Number);
   const a = waysideFor(f, one[0], one[1]).map((r) => r.id).join();
   const b = waysideFor(w, one[0], one[1]).map((r) => r.id).join();
   check('and a fresh field of the same seed builds the same chunk', a === b && a.length > 0, `${a.split(',').length} pieces`);
+
+  // A road is no longer laid out all at once: a chunk pays for the bridges and
+  // the lamps of the arc it can see and nothing else, and the next chunk along
+  // pays for its own. So the order the chunks are walked in is a thing that
+  // could change the answer, and this is the check that it does not.
+  //
+  // `want` is read off `f`, whose every road was walked end to end by the sweep
+  // at the top of this file, so it is the whole road's answer. `got` is a field
+  // that has never been asked anything, walked one chunk at a time in a
+  // shuffled order, so no road on it was ever laid out whole. The two have to
+  // be the same world.
+  {
+    const shuffled = createWorldField(SEED, { homeY: -0.3 });
+    const list = [...chunks];
+    // a fixed shuffle, so a failure is reproducible
+    let seed = 7;
+    for (let i = list.length - 1; i > 0; i--) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      const j = seed % (i + 1);
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    const got = new Set();
+    for (const k of list) {
+      const [cx, cz] = k.split(',').map(Number);
+      for (const r of waysideFor(shuffled, cx, cz)) got.add(`${r.id}|${r.x.toFixed(4)},${r.z.toFixed(4)},${r.y.toFixed(4)}`);
+    }
+    const want = new Set();
+    for (const k of list) {
+      const [cx, cz] = k.split(',').map(Number);
+      for (const r of waysideFor(f, cx, cz)) want.add(`${r.id}|${r.x.toFixed(4)},${r.z.toFixed(4)},${r.y.toFixed(4)}`);
+    }
+    let differ = 0;
+    for (const s of want) if (!got.has(s)) differ++;
+    for (const s of got) if (!want.has(s)) differ++;
+    check('and walking the chunks in a scrambled order builds exactly the same world',
+      differ === 0 && got.size === want.size, `${got.size} pieces over ${list.length} chunks, ${differ} different`);
+  }
 }
 
 // ---- 13. what a chunk costs ----------------------------------------------
@@ -847,14 +1149,72 @@ check('every kind the placement knows about is actually placed somewhere',
       sizes[kind] = m.size;
     }
     const gate = one('gate'), bridge = one('bridge');
-    const bridgeLen = Math.hypot(bridge.x1 - bridge.x0, bridge.z1 - bridge.z0);
+    // the deck's own arc, not the straight line between its ends, and the body
+    // measured on the diagonal of its box so a span running north east is held
+    // to the same length as one running north
+    let bridgeLen = 0;
+    for (let i = 0; i < bridge.path.length - 1; i++) {
+      bridgeLen += Math.hypot(bridge.path[i + 1].x - bridge.path[i].x, bridge.path[i + 1].z - bridge.path[i].z);
+    }
     check(`a border gate stands ${gate.height} m tall and spans the road`,
       Math.abs(sizes.gate.y - gate.height) < 1.2 && sizes.gate.x + sizes.gate.z > gate.half * 2,
       `${sizes.gate.x.toFixed(1)} x ${sizes.gate.y.toFixed(1)} x ${sizes.gate.z.toFixed(1)} m`);
     check('a bridge is as long as the water it crosses and as wide as the road',
-      Math.max(sizes.bridge.x, sizes.bridge.z) >= bridgeLen - 1
+      Math.hypot(sizes.bridge.x, sizes.bridge.z) >= bridgeLen - 1
       && Math.min(sizes.bridge.x, sizes.bridge.z) >= bridge.width - 1,
-      `${bridgeLen.toFixed(0)} m of span, body ${sizes.bridge.x.toFixed(1)} x ${sizes.bridge.y.toFixed(1)} x ${sizes.bridge.z.toFixed(1)} m`);
+      `${bridgeLen.toFixed(0)} m of deck, body ${sizes.bridge.x.toFixed(1)} x ${sizes.bridge.y.toFixed(1)} x ${sizes.bridge.z.toFixed(1)} m`);
+    // The body of a bridge that crosses a bend has to BE on the bend. A beam
+    // laid on the chord would leave the player walking on deck ground with
+    // nothing under him, which is the same failure as a deck that is only a
+    // picture, one step further along. Measured on the most bent span in the
+    // world, from the built geometry in world coordinates.
+    {
+      const bent = all.filter((r) => r.kind === 'bridge' && r.path.length > 2)
+        .sort((a, b) => b.span - a.span)[0];
+      const straight = all.filter((r) => r.kind === 'bridge' && r.path.length === 2)
+        .sort((a, b) => b.span - a.span)[0];
+      const road = new Map(roads.map((r) => [r.id, r]));
+      const verts = (rec) => {
+        const built = buildWaysideChunk([rec], { centre: [rec.x, rec.z] });
+        built.updateWorldMatrix(true, true);
+        const out = [];
+        const v = new THREE.Vector3();
+        built.traverse((o) => {
+          if (!o.isMesh || !o.geometry.attributes.position) return;
+          const p = o.geometry.attributes.position;
+          for (let i = 0; i < p.count; i++) {
+            v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
+            out.push([v.x, v.z]);
+          }
+        });
+        built.userData.dispose();
+        return out;
+      };
+      const cover = (rec, off) => {
+        const pts = verts(rec);
+        const r = road.get(rec.road);
+        let worstD = 0;
+        for (let k = 0; k <= 30; k++) {
+          const t = rec.t0 + (rec.t1 - rec.t0) * (k / 30);
+          const p = roadPointAt(r, t);
+          const x = p.x + p.nx * off, z = p.z + p.nz * off;
+          let best = Infinity;
+          for (const [vx, vz] of pts) best = Math.min(best, Math.hypot(vx - x, vz - z));
+          worstD = Math.max(worstD, best);
+        }
+        return worstD;
+      };
+      const onIt = cover(bent, 0);
+      const beside = cover(bent, 30);
+      check('the body of a bridge over a bend is built on the bend',
+        onIt < 4, `${Math.round(bent.span)} m span over ${bent.path.length - 1} legs, worst deck point ${onIt.toFixed(2)} m from the nearest built vertex`);
+      check('and thirty metres to the side of it there is nothing built at all',
+        beside > 12, `worst ${beside.toFixed(1)} m away, so the check above is measuring something`);
+      const flat = cover(straight, 0);
+      check('and a span that crosses no bend is covered the same way', flat < 4,
+        `${Math.round(straight.span)} m span over one leg, worst ${flat.toFixed(2)} m`);
+    }
+
     check('a signpost is a post a head taller than a man, a bench and a hitching post are furniture',
       sizes.sign.y > 2.6 && sizes.sign.y < 4 && sizes.bench.y < 1.2 && sizes.hitch.y < 1.6
       && sizes.milestone.y > 0.8 && sizes.shrine.y > 1.4 && nan === 0,
