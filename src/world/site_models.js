@@ -11,6 +11,8 @@ import { buildFarmhouse, buildBarn, buildSilo, HOUSE_ROOF_OPTIONS } from '../far
 import { buildProcessor } from '../farm/processors.js';
 import { buildCamp } from '../farm/camp_models.js';
 import { buildMineMouth, buildMineYard, buildSeam } from './mine_models.js';
+import { buildTown } from './town_models.js';
+import { buildMegalith } from './megalith_models.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // A kit house is dozens of small meshes, each its own draw call. A town of
@@ -164,6 +166,10 @@ export function buildSiteMarker(site, heightAt) {
   // a mine is several places at once and merges per part; every other kind is
   // one group merged in one pass, exactly as it always was
   if (site.kind === 'mine') return mineSite(site, heightAt);
+  // Wave B hands two kinds to their own builders. Each answers null until it
+  // is written (or for a site it does not know), and the old marker stands in.
+  if (site.kind === 'town' && site.authored) { const t = buildTown(site, heightAt); if (t) return t; }
+  if (site.kind === 'megastructure' || site.kind === 'landmark') { const m = buildMegalith(site, heightAt); if (m) return m; }
 
   const g = new THREE.Group();
   g.name = `site:${site.id}`;
