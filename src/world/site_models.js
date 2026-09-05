@@ -10,6 +10,7 @@ import { mulberry32, hash2 } from './noise.js';
 import { buildFarmhouse, buildBarn, buildSilo, HOUSE_ROOF_OPTIONS } from '../farm/buildings.js';
 import { buildProcessor } from '../farm/processors.js';
 import { buildCamp } from '../farm/camp_models.js';
+import { buildMineMouth, buildMineYard, buildSeam } from './mine_models.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // A kit house is dozens of small meshes, each its own draw call. A town of
@@ -101,7 +102,69 @@ function settlement(g, site, heightAt, rng, opts) {
   }
 }
 
+/**
+ * A mine, which is the one site kind that is not one place. It is a yard with
+ * two to four CUTS on the hill above it and four to seven surface SEAMS on the
+ * yard, and Z1 built all three as data (`docs/mmo/wiring/Z1.md` section 2.2,
+ * `docs/mmo/09-WORLD-ZONES.md` section 4). What makes it different from every
+ * other kind here:
+ *
+ *   A CUT IS THE THING YOU CLICK, not the mine. Each `mine.mouths[i]` is a
+ *   complete cave shaped site with its own id, name, generator cell and ore
+ *   band, and `world_runtime.enterDungeon` takes one with no change at all. So
+ *   every mesh of a mouth carries `userData.site = mouth`, and `pick()` hands
+ *   interact.js a site whose kind is 'cave'. Clicking the yard, or a seam,
+ *   names the MINE instead, because there is nothing to go into there.
+ *
+ *   THE PARTS MERGE SEPARATELY. `mergeByMaterial` buckets by colour across a
+ *   whole group, so merging the mine in one pass would fuse the second cut's
+ *   timber into the first cut's and there would be no way left to say which
+ *   mouth a triangle belongs to. Each part is built and merged on its own by
+ *   `mine_models.js` and tagged before it joins the group.
+ *
+ *   A SEAM IS NOT A SECOND MINABLE THING. `flora.js` already puts one ore
+ *   boulder at each seam's centre and that is what the pickaxe swings at. What
+ *   is added here is the outcrop AROUND it, tagged `userData.seam` so a caller
+ *   can tell the two apart, and given no harvest record of its own.
+ */
+function mineSite(site, heightAt) {
+  const g = new THREE.Group();
+  g.name = `site:${site.id}`;
+  const updates = [];
+  const tag = (part, extra) => {
+    part.traverse((o) => { if (o.isMesh) Object.assign(o.userData, extra); });
+    if (typeof part.userData.mineUpdate === 'function') updates.push(part.userData.mineUpdate);
+    g.add(part);
+  };
+
+  tag(buildMineYard(site, { heightAt }), { site });
+  for (const mouth of site.mouths || []) {
+    // a cut opens back down toward the yard; field.js worked out which way that
+    // is and put it on the mouth, so nothing here has to guess
+    tag(buildMineMouth(mouth, { heightAt }), { site: mouth });
+  }
+  for (const seam of site.seams || []) {
+    tag(buildSeam(seam, { heightAt }), { site, seam });
+  }
+
+  g.userData.site = site;
+  // The lantern at every cut and the wheel over the yard. Driven from
+  // `createSiteMarkers.animate`; see docs/mmo/wiring/M1.md for where that is
+  // called from. `nightFactor` is 0 in full day and 1 at midnight, which is
+  // `1 - dayFactor` as world_runtime.update is handed it.
+  g.userData.update = (dt, nightFactor) => {
+    for (const fn of updates) {
+      try { fn(dt, nightFactor); } catch (err) { console.warn('a mine update threw', err); }
+    }
+  };
+  return g;
+}
+
 export function buildSiteMarker(site, heightAt) {
+  // a mine is several places at once and merges per part; every other kind is
+  // one group merged in one pass, exactly as it always was
+  if (site.kind === 'mine') return mineSite(site, heightAt);
+
   const g = new THREE.Group();
   g.name = `site:${site.id}`;
   const rng = mulberry32(hash2(site.cx, site.cz, 77));
@@ -187,12 +250,39 @@ export function createSiteMarkers(scene, discovery, heightAt) {
   let lastX = Infinity, lastZ = Infinity;
   let meshCache = null;
   const pending = [];
+  const animated = new Map();          // id -> update(dt, nightFactor)
+
+  /**
+   * The moving parts of every live marker: a mine's headframe wheel and the
+   * lantern at each of its cuts. Nothing else has any, so this loop is empty
+   * until a mine is on screen. `nightFactor` is 0 in full day and 1 at midnight;
+   * `world_runtime.update` is handed `dayFactor`, which is the other way round,
+   * so pass `1 - dayFactor`.
+   */
+  function animate(dt, nightFactor = 0) {
+    for (const fn of animated.values()) {
+      try { fn(dt, nightFactor); } catch (err) { console.warn('a site marker update threw', err); }
+    }
+  }
+
   return {
-    update(x, z, radius) {
+    /**
+     * `dt` and `nightFactor` are optional and default to standing still, so the
+     * three argument call world_runtime.js has always made keeps working and a
+     * mine's lantern simply never lights. Pass them, or call `animate` beside
+     * this, and the wheels turn and the lanterns come up at dusk. See
+     * docs/mmo/wiring/M1.md.
+     */
+    update(x, z, radius, dt = 0, nightFactor = 0) {
+      if (dt) animate(dt, nightFactor);
       // one build per frame: a town is the most expensive thing the world makes
       if (pending.length) {
         const s = pending.shift();
-        if (!live.has(s.id)) { const g = buildSiteMarker(s, heightAt); scene.add(g); live.set(s.id, g); meshCache = null; }
+        if (!live.has(s.id)) {
+          const g = buildSiteMarker(s, heightAt);
+          scene.add(g); live.set(s.id, g); meshCache = null;
+          if (typeof g.userData.update === 'function') animated.set(s.id, g.userData.update);
+        }
       }
       if (Math.hypot(x - lastX, z - lastZ) < 48) return;
       lastX = x; lastZ = z;
@@ -202,9 +292,15 @@ export function createSiteMarkers(scene, discovery, heightAt) {
         keep.add(s.id);
         if (!live.has(s.id) && !pending.some((p) => p.id === s.id)) pending.push(s);
       }
-      for (const [id, g] of live) if (!keep.has(id)) { scene.remove(g); live.delete(id); meshCache = null; }
+      for (const [id, g] of live) {
+        if (keep.has(id)) continue;
+        scene.remove(g); live.delete(id); animated.delete(id); meshCache = null;
+      }
       for (let i = pending.length - 1; i >= 0; i--) if (!keep.has(pending[i].id)) pending.splice(i, 1);
     },
+    animate,
+    /** How many live markers have something that moves. */
+    get animatedCount() { return animated.size; },
     get pending() { return pending.length; },
     /** Every mesh of every live marker, for raycasting. */
     meshes() {
@@ -212,6 +308,9 @@ export function createSiteMarkers(scene, discovery, heightAt) {
       return meshCache;
     },
     get count() { return live.size; },
-    dispose() { for (const g of live.values()) scene.remove(g); live.clear(); meshCache = null; },
+    dispose() {
+      for (const g of live.values()) scene.remove(g);
+      live.clear(); animated.clear(); meshCache = null;
+    },
   };
 }
