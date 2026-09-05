@@ -1,46 +1,125 @@
-// The bag: a grid of the pack's slots, stacks with their counts, and the three
-// things you do to an item. Key B.
+// The inventory page of the codex: the pack as a grid of gilded slots, what
+// each thing weighs, what is in the purse, and the four things you do to an
+// item. Key B.
+//
+// DOUBLE CLICK IS THE VERB. One click on a mystery identifies it, as it always
+// did; two clicks put a sword on, drink a potion, eat the venison. Anything
+// that is neither says so out loud, because a double click that does nothing
+// and says nothing is indistinguishable from a broken grid. `actionFor(item)`
+// is the whole decision, it is pure, and win_bag.test.mjs drives every branch
+// of it without a browser.
 //
 // Clicking an unidentified item identifies it for real. The roll is done
 // first, through inventory.identify, and the spinning glyphs are drawn over an
-// item that has already changed; a flourish that gates the state change would
-// lose the item the moment the window closed, and a preview that pretends to
-// identify is the exact thing the project banned after test mode previewed
-// story choices and applied none of them.
+// item that has already changed; a flourish that gated the state change would
+// lose the item the moment the window closed.
 
-import { baseFor, RARITY_WORD } from '../mmo/items.js';
+import { baseFor, RARITY_WORD, BASES } from '../mmo/items.js';
 import { itemTipLines, colourOf, labelOf } from './inventory.js';
 import { attachTip, dragSource, dropTarget, hideTip } from './windows.js';
+import { theme, icon, itemGlyph } from './ui_theme.js';
 
 /** How long the glyphs spin over an item that has already been identified. */
 export const ROLL_MS = 450;
 const ROLL_GLYPHS = ['?', '/', '|', '\\', '*', '+'];
 
+// What a double click consumes is asked of items.js, not listed here. Anything
+// with a `use` on its base, and anything items.js calls food or a meal, is
+// eaten or drunk; the two stacking oddments that are neither are named, and
+// auditUsable() fails loudly if items.js ever stops carrying them.
+export const USE_KINDS = ['food', 'meal'];
+export const USE_IDS = ['potion', 'bandage'];
+
+/** True when a double click would consume this base. */
+export function usable(base) {
+  if (!base) return false;
+  if (base.use) return true;
+  if (USE_KINDS.includes(base.kind)) return true;
+  return USE_IDS.includes(base.id);
+}
+
+/** The named oddments are real bases, or the pack would refuse to drink a potion. */
+export function auditUsable() {
+  for (const id of USE_IDS) {
+    if (!BASES[id]) throw new Error(`win_bag: "${id}" is drunk or applied and items.js has no such base`);
+  }
+  let n = 0;
+  for (const b of Object.values(BASES)) if (usable(b)) n++;
+  if (n < USE_IDS.length) throw new Error('win_bag: nothing in the game can be eaten or drunk');
+  return n;
+}
+
+export const USABLE = auditUsable();
+
+/** The filter row, in the order it is drawn. `all` is first and is the default. */
+export const CATEGORIES = [
+  { id: 'all', label: 'all', mark: 'gem' },
+  { id: 'weapons', label: 'weapons', mark: 'sword' },
+  { id: 'armour', label: 'armour', mark: 'shield' },
+  { id: 'consumables', label: 'consumables', mark: 'flask' },
+  { id: 'materials', label: 'materials', mark: 'coin' },
+];
+
+/**
+ * Pure. Which shelf an item belongs on. Anything that does not fit one of the
+ * four is `other`, which only `all` shows, so nothing can go invisible.
+ */
+export function categoryOf(item) {
+  const b = baseFor(item);
+  if (!b) return 'other';
+  if (b.kind === 'weapon' || b.kind === 'shield') return 'weapons';
+  if (b.kind === 'armour' || b.kind === 'jewellery' || b.kind === 'offhand' || b.kind === 'instrument') return 'armour';
+  if (usable(b)) return 'consumables';
+  if (b.kind === 'material') return 'materials';
+  return 'other';
+}
+
+/** Pure. Whether this category shows this item. */
+export const inCategory = (item, cat) => cat === 'all' || categoryOf(item) === cat;
+
+/**
+ * Pure. What a double click does with this item, and what to say when it does
+ * nothing. `kind` is 'equip', 'use' or 'none'.
+ */
+export function actionFor(item) {
+  const b = baseFor(item);
+  if (!b) return { kind: 'none', reason: 'there is nothing there' };
+  if (b.slot) return { kind: 'equip', slot: b.slot, reason: null };
+  if (usable(b)) return { kind: 'use', reason: null };
+  if (b.kind === 'tool') {
+    return { kind: 'none', reason: `${b.name.toLowerCase()} works in your hands, not on your body` };
+  }
+  return { kind: 'none', reason: `${b.name.toLowerCase()} is a material. It goes into something, it does not go on you` };
+}
+
 const CSS = `
-.bw-bag-head { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 9px; }
-.bw-bag-grid { display: grid; grid-template-columns: repeat(5, 56px); gap: 6px; }
-.bw-bag-grid .bw-cell {
-  width: 56px; height: 56px; border-radius: 6px; position: relative; cursor: pointer;
-  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.14);
-  display: flex; align-items: center; justify-content: center; text-align: center;
-  font-size: 10px; line-height: 1.2; padding: 2px; overflow: hidden; color: #ece6da;
-}
-.bw-bag-grid .bw-cell.empty { cursor: default; }
-.bw-bag-grid .bw-cell .bw-q { font-size: 26px; font-weight: 700; }
-.bw-bag-grid .bw-cell .bw-count {
-  position: absolute; right: 3px; bottom: 2px; font-size: 10.5px; font-weight: 700;
-  font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #000;
-}
+.bw-bag { display: flex; flex-direction: column; gap: 12px; }
+.bw-bag-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.bw-bag-filters { display: flex; gap: 4px; }
+.bw-bag-filters .bw-btn { display: inline-flex; align-items: center; gap: 6px; }
+.bw-bag-purse { display: flex; gap: 18px; align-items: center; }
+.bw-bag-purse .bw-cell-line { display: inline-flex; align-items: center; gap: 7px; }
+.bw-bag-purse .bw-v { font-family: ${theme.fonts.display}; font-variant-numeric: tabular-nums; font-size: 15px; }
+.bw-bag-purse .bw-v.bw-heavy { color: #ff8f7a; }
+.bw-bag-grid { display: grid; grid-template-columns: repeat(auto-fill, 52px); gap: 7px; }
+.bw-bag-grid .bw-slot { width: 52px; height: 52px; }
+.bw-bag-grid .bw-slot.bw-filtered { opacity: .22; }
+.bw-bag-foot { font-style: italic; color: ${theme.parchmentDim}; }
 .bw-menu {
-  position: fixed; z-index: 80; min-width: 128px; padding: 4px;
-  background: rgba(16,19,21,.98); border: 1px solid rgba(255,255,255,.2); border-radius: 7px;
-  box-shadow: 0 12px 40px rgba(0,0,0,.55);
-  font: 12.5px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #e8e2d6;
+  position: fixed; z-index: 80; min-width: 140px; padding: 5px;
+  background: linear-gradient(180deg, ${theme.stoneUp}, ${theme.stone});
+  border: 1px solid ${theme.goldDim};
+  box-shadow: 0 14px 44px rgba(0,0,0,.7);
+  font-family: ${theme.fonts.body}; font-size: 14px; color: ${theme.parchment};
 }
 .bw-menu[hidden] { display: none; }
-.bw-menu .bw-menu-item { padding: 5px 9px; border-radius: 5px; cursor: pointer; }
-.bw-menu .bw-menu-item:hover { background: rgba(255,255,255,.10); }
-.bw-menu .bw-menu-head { padding: 4px 9px 6px; color: #95a08f; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: 4px; }
+.bw-menu .bw-menu-item { padding: 5px 10px; cursor: pointer; }
+.bw-menu .bw-menu-item:hover { background: rgba(201,164,74,.16); color: ${theme.goldBright}; }
+.bw-menu .bw-menu-head {
+  font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: ${theme.gold};
+  padding: 4px 10px 7px; border-bottom: 1px solid ${theme.goldDim}66; margin-bottom: 5px;
+}
 `;
 
 const h = (tag, cls, text) => {
@@ -58,9 +137,9 @@ function css() {
   document.head.appendChild(s);
 }
 
-/** What a cell shows: the short name, the count, the colour, and the mystery. */
+/** What a cell shows: the art, the count, the colour, and the mystery. */
 export function cellOf(item) {
-  if (!item) return { empty: true, text: '', count: 0, colour: null, mystery: false };
+  if (!item) return { empty: true, text: '', count: 0, colour: null, mystery: false, rarity: null };
   const b = baseFor(item);
   const mystery = !item.identified && item.rarity !== 'common';
   return {
@@ -68,13 +147,15 @@ export function cellOf(item) {
     text: mystery ? `${RARITY_WORD[item.rarity]} ${b.name.toLowerCase()}` : (b?.name || labelOf(item)),
     count: b && b.stack ? (item.count || 1) : 0,
     colour: colourOf(item),
+    rarity: item.rarity || 'common',
     mystery,
+    base: b,
   };
 }
 
 export const panel = {
   id: 'bag',
-  title: 'Bag',
+  title: 'Inventory',
   key: 'b',
 
   build(el, ctx) {
@@ -83,16 +164,53 @@ export const panel = {
     const inv = () => ctx.inventory;
     const say = (t, kind) => (ctx.hud?.log ? ctx.hud.log(t, kind) : ctx.hud?.toast?.(t, kind));
 
+    let filter = 'all';
+
+    const root = h('div', 'bw-bag');
+    el.appendChild(root);
+
     const head = h('div', 'bw-bag-head');
-    const used = h('span');
-    const load = h('span', 'bw-num');
-    head.appendChild(used); head.appendChild(load);
-    el.appendChild(head);
+    const filters = h('div', 'bw-bag-filters');
+    const purse = h('div', 'bw-bag-purse');
+    head.appendChild(filters); head.appendChild(purse);
+    root.appendChild(head);
 
     const grid = h('div', 'bw-bag-grid');
-    el.appendChild(grid);
+    root.appendChild(grid);
 
-    const menu = h('div', 'bw-menu');
+    const foot = h('div', 'bw-bag-foot');
+    root.appendChild(foot);
+
+    const buttons = new Map();
+    for (const c of CATEGORIES) {
+      const b = h('button', 'bw-btn' + (c.id === 'all' ? ' on' : ''));
+      b.type = 'button';
+      const i = h('span');
+      i.innerHTML = icon(c.mark, 'currentColor', 13);
+      b.appendChild(i);
+      b.appendChild(h('span', null, c.label));
+      b.addEventListener('click', () => {
+        filter = c.id;
+        for (const [id, el2] of buttons) el2.classList.toggle('on', id === filter);
+        draw();
+        const n = character().pack.items.filter((it) => it && inCategory(it, filter)).length;
+        say(filter === 'all' ? `the whole pack, ${n} things in it` : `${n} ${c.label} in the pack`);
+      });
+      filters.appendChild(b);
+      buttons.set(c.id, b);
+    }
+
+    const coinLine = h('span', 'bw-cell-line');
+    const coinIcon = h('span'); coinIcon.innerHTML = icon('coin', theme.gold, 15);
+    const coinNum = h('span', 'bw-v');
+    coinLine.appendChild(coinIcon); coinLine.appendChild(coinNum);
+    const loadLine = h('span', 'bw-cell-line');
+    const loadIcon = h('span'); loadIcon.innerHTML = icon('scale', theme.gold, 15);
+    const loadNum = h('span', 'bw-v');
+    loadLine.appendChild(loadIcon); loadLine.appendChild(loadNum);
+    purse.appendChild(coinLine); purse.appendChild(loadLine);
+
+    const menu = h('div', 'bw-menu bw-ui');
     menu.hidden = true;
     document.body.appendChild(menu);
     const closeMenu = () => { menu.hidden = true; };
@@ -114,20 +232,42 @@ export const panel = {
         menu.appendChild(row);
       };
       if (!item.identified && item.rarity !== 'common') add('identify', () => identify(i));
-      const b = baseFor(item);
-      if (b && b.slot) add('equip', () => inv()?.equip(i));
-      if (b && (b.kind === 'material' || b.stack)) {
-        add('use', () => {
-          if (typeof ctx.useItem === 'function') ctx.useItem(item, { pack: i });
-          else say(`nothing has been written yet that uses ${labelOf(item).toLowerCase()}`, 'bad');
-        });
-      }
+      const act = actionFor(item);
+      if (act.kind === 'equip') add('equip', () => doubleClick(i));
+      if (act.kind === 'use') add('use', () => doubleClick(i));
       add('sell', () => inv()?.sell({ pack: i }));
       add('drop', () => inv()?.drop({ pack: i }));
       menu.hidden = false;
-      const w = menu.offsetWidth || 130, hh = menu.offsetHeight || 100;
+      const w = menu.offsetWidth || 140, hh = menu.offsetHeight || 110;
       menu.style.left = `${Math.min(x, window.innerWidth - w - 6)}px`;
       menu.style.top = `${Math.min(y, window.innerHeight - hh - 6)}px`;
+    }
+
+    /**
+     * The double click. Equip, use, or say why neither. Equipping goes through
+     * inventory.equip, which speaks for itself; the other two branches speak
+     * here, and nothing is silent.
+     */
+    function doubleClick(i) {
+      const item = character().pack.items[i];
+      if (!item) return { kind: 'none' };
+      const act = actionFor(item);
+      if (act.kind === 'equip') {
+        inv()?.equip(i);
+        draw();
+        return act;
+      }
+      if (act.kind === 'use') {
+        if (typeof ctx.useItem === 'function') {
+          ctx.useItem(item, { pack: i });
+        } else {
+          say(`nothing has been written yet that uses ${labelOf(item).toLowerCase()}`, 'bad');
+        }
+        draw();
+        return act;
+      }
+      say(act.reason, 'bad');
+      return act;
     }
 
     /**
@@ -160,7 +300,7 @@ export const panel = {
       cells = [];
       const n = character().pack.slots;
       for (let i = 0; i < n; i++) {
-        const cell = h('div', 'bw-cell');
+        const cell = h('div', 'bw-slot');
         cell.dataset.index = String(i);
         grid.appendChild(cell);
         cells.push(cell);
@@ -175,6 +315,11 @@ export const panel = {
           if (!it) return;
           if (!it.identified && it.rarity !== 'common') identify(i);
         });
+        cell.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          hideTip();
+          doubleClick(i);
+        });
         cell.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           hideTip();
@@ -186,7 +331,7 @@ export const panel = {
     function draw() {
       const c = character();
       if (cells.length !== c.pack.slots) build();
-      let full = 0;
+      let full = 0, shown = 0;
       for (let i = 0; i < cells.length; i++) {
         const item = c.pack.items[i] || null;
         if (item) full++;
@@ -194,32 +339,43 @@ export const panel = {
         const v = cellOf(item);
         const cell = cells[i];
         cell.textContent = '';
-        cell.classList.toggle('empty', v.empty);
-        if (v.empty) { cell.style.borderColor = 'rgba(255,255,255,.14)'; continue; }
-        cell.style.borderColor = v.colour;
+        cell.classList.toggle('bw-empty', v.empty);
+        const hidden = !v.empty && !inCategory(item, filter);
+        cell.classList.toggle('bw-filtered', hidden);
+        if (v.empty) { cell.removeAttribute('data-rarity'); continue; }
+        if (!hidden) shown++;
+        cell.dataset.rarity = v.rarity;
         if (v.mystery) {
           const q = h('span', 'bw-q', '?');
           q.style.color = v.colour;
           cell.appendChild(q);
         } else {
-          const n = h('span', null, v.text);
-          n.style.color = v.colour;
-          cell.appendChild(n);
+          const g = h('span');
+          g.innerHTML = itemGlyph(v.base, 28);
+          cell.appendChild(g);
         }
         if (v.count > 1) cell.appendChild(h('span', 'bw-count', String(v.count)));
+        cell.title = v.text;
       }
-      used.textContent = `${full} of ${c.pack.slots} slots`;
-      const i = inv();
-      if (i) {
-        load.textContent = `${i.weight()} of ${i.carry()} stones`;
-        load.style.color = i.overweight() ? '#ff8f7a' : '';
+
+      const i2 = inv();
+      coinNum.textContent = String(c.gold ?? 0);
+      if (i2) {
+        loadNum.textContent = `${i2.weight()} of ${i2.carry()} stones`;
+        loadNum.classList.toggle('bw-heavy', i2.overweight());
       }
+      const room = c.pack.slots - full;
+      foot.textContent = filter === 'all'
+        ? `${full} of ${c.pack.slots} slots hold something. Double click a thing to put it on or use it, one click to look closer at a mystery.`
+        : `${shown} of the ${full} things in the pack are ${filter}. The rest are still there, only faded.`;
+      if (room === 0) foot.textContent += ' There is no room left.';
     }
 
     build();
     draw();
     this._draw = draw;
     this._closeMenu = closeMenu;
+    this._doubleClick = doubleClick;
   },
 
   open() { if (this._draw) this._draw(); },

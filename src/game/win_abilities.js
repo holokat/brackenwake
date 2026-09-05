@@ -1,5 +1,9 @@
 // Abilities: everything the skills have already bought, and the twelve slots
-// they go into. Key A.
+// they go into. Key P.
+//
+// It was A, which is also strafe left, so walking left flapped this window
+// open and shut. windows.js now refuses every key the world drives, and P is
+// what this page answers to.
 //
 // hud.js draws the bar the player fights from (W4). This window writes
 // `character.bar[slot]` and calls `ctx.onBarChange?.()` so that bar redraws.
@@ -13,6 +17,7 @@
 
 import { ABILITIES, ABILITIES_BY_ID, GROUPS, unlockedFor, costKind, manaCostFor } from '../mmo/abilities.js';
 import { dragSource, dropTarget, attachTip, hideTip } from './windows.js';
+import { theme } from './ui_theme.js';
 
 /** 06-ECONOMY-UI.md: twelve slots, keys 1 to 0 and minus and equals. */
 export const BAR_SLOTS = 12;
@@ -90,25 +95,28 @@ export function abilityLines(ability, character) {
 }
 
 const CSS = `
-.bw-abils { width: min(660px, 88vw); }
-.bw-bar-strip { display: flex; gap: 5px; margin: 0 0 12px; flex-wrap: wrap; }
+.bw-abils { width: 100%; }
+.bw-abils .bw-hint { color: ${theme.parchmentDim}; font-style: italic; margin-bottom: 10px; }
+.bw-bar-strip { display: flex; gap: 5px; margin: 0 0 14px; flex-wrap: wrap; }
 .bw-bar-strip .bw-slot {
-  width: 50px; height: 50px; border-radius: 6px; position: relative; cursor: pointer;
-  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.16);
-  display: flex; align-items: center; justify-content: center; text-align: center;
-  font-size: 9.5px; line-height: 1.15; padding: 2px 2px 10px; overflow: hidden; color: #ece6da;
+  width: 54px; height: 54px; padding: 3px 3px 11px;
+  font-family: ${theme.fonts.body}; font-size: 11px; line-height: 1.12; text-align: center;
+  color: ${theme.parchment};
 }
 .bw-bar-strip .bw-slot .bw-k {
-  position: absolute; left: 0; right: 0; bottom: 0; font-size: 9px; color: #8fa387; background: rgba(0,0,0,.35);
+  position: absolute; left: 0; right: 0; bottom: 0;
+  font-family: ${theme.fonts.display}; font-size: 8.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: ${theme.gold}; background: rgba(0,0,0,.55);
 }
 .bw-abil {
-  display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: baseline;
-  padding: 3px 0; border-top: 1px solid rgba(255,255,255,.07); cursor: grab;
+  display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: baseline;
+  padding: 4px 0; border-top: 1px solid rgba(201,164,74,.14); cursor: grab;
 }
 .bw-abil.passive { cursor: default; opacity: .8; }
-.bw-abil .bw-abil-name { font-weight: 600; }
-.bw-abil .bw-abil-line { color: #b6bfb0; font-size: 12px; }
-.bw-abil.on { border-left: 2px solid #ffd479; padding-left: 6px; }
+.bw-abil .bw-abil-name { font-family: ${theme.fonts.display}; font-size: 13px; font-weight: 600; }
+.bw-abil .bw-abil-line { color: ${theme.parchmentDim}; font-size: 13.5px; }
+.bw-abil.on { border-left: 2px solid ${theme.gold}; padding-left: 8px; }
+.bw-abil.on .bw-abil-name { color: ${theme.goldBright}; }
 `;
 
 const h = (tag, cls, text) => {
@@ -129,7 +137,7 @@ function css() {
 export const panel = {
   id: 'abilities',
   title: 'Abilities',
-  key: 'a',
+  key: 'p',
 
   build(el, ctx) {
     css();
@@ -140,7 +148,7 @@ export const panel = {
     const root = h('div', 'bw-abils');
     el.appendChild(root);
 
-    root.appendChild(h('div', 'bw-dim', 'drag an ability onto a slot, or click one and then a slot. Right click a slot to clear it.'));
+    root.appendChild(h('div', 'bw-hint', 'Drag an ability onto a slot, or click one and then a slot. Right click a slot to clear it. The bar answers to 1 to 0 and the two keys after them.'));
     const strip = h('div', 'bw-bar-strip');
     root.appendChild(strip);
     const listEl = h('div');

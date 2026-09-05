@@ -1,94 +1,140 @@
-// The window manager: the shell every panel lives in, the hotkeys, the
-// one-open rule, Escape, and the drag.
+// The window manager: the codex, the standalone windows, the hotkeys, Escape,
+// the tooltip and the drag.
 //
-// Panels are separate files so two hands can write two windows without
-// touching each other. This file owns everything they share and nothing they
-// do not:
+// It used to be one window at a time with a Bag and Character exception. The
+// six panels a player lives in are now tabs of ONE frame, the codex, so that
+// switching from the sheet to the pack is a tab and not a window dance:
 //
-//   panel = { id, title, key, build(el, ctx), open(ctx)?, close()?, tick(dt, ctx)?,
-//             keys?: ['1','2'] }
+//   codex tabs   Character (C), Inventory (B), Skills (K), Abilities (P),
+//                Crafting (V), Map (M). One tab is up at a time; its key opens
+//                the codex on it, and pressing that key again closes the codex.
+//   standalone   Talk and Trade (opened by code), Settings (Escape when
+//                nothing is open), Dev (F2). Each keeps its own themed frame.
 //
-// Three rules the contract in docs/mmo/07-RUNTIME-CONTRACT.md sets, and how
-// they are kept honest:
+// A is never a window key again. It is strafe left, and a window that stole it
+// made walking left open a panel. `RESERVED_KEYS` is the class fix: the
+// manager refuses ANY key the world drives, says which panel asked for it, and
+// registers the panel with no key rather than silently shadowing movement.
 //
-//   One window at a time, except Bag and Character, which may share the
-//   screen. Opening anything else closes what is up.
+// The panel contract is unchanged, so W5's panels and win_dev need no edit:
 //
-//   Escape closes the top window, meaning the one opened most recently. With
-//   nothing open, Escape opens whichever panel registered under that key,
-//   which is how Settings gets to be both "Escape" and "closes on Escape".
-//
-//   The world keeps WASD and the mouse. This manager reads keys through
-//   `input.pressed` and never calls preventDefault, and its layer is
-//   pointer-events: none except on the windows themselves, so a click beside a
-//   window still reaches the ground. A key is taken from the world only when
-//   an open panel declares it in `keys`, which `consumes(key)` answers.
+//   panel = { id, title, key, build(el, ctx), open(ctx, extra)?, close()?,
+//             tick(dt, ctx)?, keys?: ['1','2'] }
 //
 // The rules run without a document. `createWindows(null, input, ctx)` in node
-// registers, opens, closes and reads keys exactly as the browser does, which
-// is what windows.test.mjs drives: the test path is the real path.
+// registers, opens, closes, switches tabs and reads keys with no DOM at all,
+// which is what windows.test.mjs drives: the test path is the real path.
 
-/** Windows that may share the screen. Everything else is exclusive. */
-export const PAIRS = [['bag', 'character']];
+import { injectTheme, theme } from './ui_theme.js';
+
+/** The one frame the six everyday panels live in. */
+export const CODEX_ID = 'codex';
+
+/**
+ * The tabs, in the order they are drawn. The KEY IS NOT HERE: each panel
+ * carries its own, and the strip reads it off the registration, so the tab
+ * label and the hotkey can never drift apart.
+ */
+export const CODEX_TABS = [
+  { id: 'character', label: 'Character' },
+  { id: 'bag', label: 'Inventory' },
+  { id: 'skills', label: 'Skills' },
+  { id: 'abilities', label: 'Abilities' },
+  { id: 'crafting', label: 'Crafting' },
+  { id: 'map', label: 'Map' },
+];
+
+export const CODEX_IDS = CODEX_TABS.map((t) => t.id);
+
+/** True when this panel is a page of the codex rather than a window of its own. */
+export const isCodexTab = (id) => CODEX_IDS.includes(String(id));
+
+/**
+ * Keys the world drives and no window may ever take. WASD walks, space jumps,
+ * shift runs, E goes in, Q and E fly in dev mode, Tab cycles targets.
+ */
+export const RESERVED_KEYS = ['w', 'a', 's', 'd', 'q', 'e', ' ', 'shift', 'control', 'tab'];
+
+/**
+ * Which ids share a frame. The codex tabs share one; nothing else shares with
+ * anything. Kept as an export because it is the rule two panels are checked
+ * against, and the test drives it directly.
+ */
+export const PAIRS = [CODEX_IDS];
 
 export const ESCAPE_KEY = 'escape';
 
-/** Where the first window lands, and how far each next one steps. */
+/** Where the first standalone window lands, and how far each next one steps. */
 export const CASCADE = { x: 30, y: 26 };
 
 const CSS = `
 #bw-windows, #bw-windows * { box-sizing: border-box; }
 #bw-windows {
   position: fixed; inset: 0; z-index: 50; pointer-events: none;
-  font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: #f2ede2;
+  color: ${theme.parchment};
 }
-#bw-windows .bw-win {
-  position: absolute; pointer-events: auto; display: flex; flex-direction: column;
-  min-width: 260px; max-width: min(760px, 94vw); max-height: 86vh;
-  background: rgba(20,23,26,.94); border: 1px solid rgba(255,255,255,.16);
-  border-radius: 8px; box-shadow: 0 18px 60px rgba(0,0,0,.5);
-  text-shadow: 0 1px 2px rgba(0,0,0,.6);
-}
+#bw-windows .bw-win { position: absolute; pointer-events: auto; }
 #bw-windows .bw-win[hidden] { display: none; }
+#bw-windows .bw-win-plain { min-width: 300px; max-width: min(820px, 94vw); }
+#bw-windows .bw-win-codex { width: min(1180px, 96vw); }
+
 #bw-windows .bw-win-title {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 7px 8px 7px 12px; cursor: move; user-select: none; -webkit-user-select: none;
-  border-bottom: 1px solid rgba(255,255,255,.12);
-  font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: #cfd6c8;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 14px;
+  cursor: move; user-select: none; -webkit-user-select: none;
+  padding-bottom: 8px; margin-bottom: 10px;
+  background: linear-gradient(90deg, transparent, rgba(201,164,74,.5), transparent) bottom / 100% 1px no-repeat;
 }
-#bw-windows .bw-win-title .bw-win-key { opacity: .5; letter-spacing: .04em; }
+#bw-windows .bw-win-name {
+  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
+  letter-spacing: .2em; text-transform: uppercase; color: ${theme.gold};
+}
+#bw-windows .bw-win-key { font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .16em; color: ${theme.goldDim}; }
 #bw-windows .bw-win-x {
-  font: inherit; font-size: 13px; line-height: 1; padding: 3px 8px 4px; cursor: pointer;
-  background: transparent; border: 1px solid rgba(255,255,255,.18); border-radius: 5px; color: #e6e0d4;
+  font-family: ${theme.fonts.display}; font-size: 11px; line-height: 1; letter-spacing: .14em;
+  text-transform: uppercase; padding: 6px 10px; cursor: pointer; color: ${theme.parchmentDim};
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.4));
+  border: 1px solid ${theme.goldDim}88;
 }
-#bw-windows .bw-win-x:hover { background: rgba(255,255,255,.10); }
-#bw-windows .bw-win-body { padding: 12px 14px 14px; overflow: auto; }
+#bw-windows .bw-win-x:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
+#bw-windows .bw-win-body { overflow: auto; max-height: min(74vh, 820px); }
+#bw-windows .bw-codex-body { overflow: auto; height: min(72vh, 760px); }
+#bw-windows .bw-codex-body[hidden] { display: none; }
+#bw-windows .bw-codex-tabs { display: flex; align-items: flex-end; gap: 2px; flex-wrap: wrap; }
+
 #bw-windows h3 {
-  margin: 14px 0 7px; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: #8fa387;
+  font-family: ${theme.fonts.display};
+  margin: 14px 0 8px; font-size: 11px; letter-spacing: .2em;
+  text-transform: uppercase; color: ${theme.gold}; font-weight: 600;
 }
 #bw-windows h3:first-child { margin-top: 0; }
-#bw-windows button {
-  font: inherit; font-size: 12.5px; padding: 4px 10px; border-radius: 6px;
-  border: 1px solid #4f6349; background: #2c3a2b; color: #e8f0e2; cursor: pointer;
+/* Every panel's buttons take the frame's colours. They are NOT put in small
+   caps: a vendor button reads "buy 5 for 20 gold" and shouting it helps
+   nobody. Small caps are for headers, tabs and the .bw-btn row of filters. */
+#bw-windows button:not(.bw-tab):not(.bw-win-x):not(.bw-btn) {
+  font-family: ${theme.fonts.body}; font-size: 14px; padding: 4px 11px; cursor: pointer;
+  border: 1px solid ${theme.goldDim}; color: ${theme.parchment};
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.4));
 }
-#bw-windows button:hover:not(:disabled) { background: #38492f; }
-#bw-windows button:disabled { opacity: .5; cursor: default; border-color: #37402f; color: #9aa394; }
-#bw-windows .bw-dim { color: #95a08f; }
-#bw-windows .bw-num { font-variant-numeric: tabular-nums; }
+#bw-windows button:not(.bw-tab):not(.bw-win-x):hover:not(:disabled) { border-color: ${theme.gold}; color: ${theme.goldBright}; }
+#bw-windows button:disabled { opacity: .45; cursor: default; }
+#bw-windows input, #bw-windows select, #bw-windows textarea { font-family: ${theme.fonts.body}; font-size: 14px; }
+
 #bw-tip {
-  position: fixed; z-index: 70; pointer-events: none; max-width: 320px;
-  padding: 8px 10px; border-radius: 7px;
-  background: rgba(12,14,16,.96); border: 1px solid rgba(255,255,255,.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,.55);
-  font: 12.5px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: #e8e2d6;
+  position: fixed; z-index: 70; pointer-events: none; max-width: 340px;
+  padding: 9px 12px 10px;
+  background: linear-gradient(180deg, ${theme.stoneUp}, ${theme.stone});
+  border: 1px solid ${theme.goldDim};
+  box-shadow: 0 14px 44px rgba(0,0,0,.7), inset 0 0 26px rgba(0,0,0,.6);
+  font-family: ${theme.fonts.body}; font-size: 14px; line-height: 1.4;
+  color: ${theme.parchment};
 }
 #bw-tip[hidden] { display: none; }
-#bw-tip .bw-tip-name { font-weight: 600; margin-bottom: 2px; }
-#bw-tip .bw-tip-line { color: #cfd6c8; }
-#bw-tip .bw-tip-affix { color: inherit; }
-#bw-windows .bw-drop-hot { outline: 2px solid #ffd479; outline-offset: -2px; }
+#bw-tip .bw-tip-name {
+  font-family: ${theme.fonts.display}; font-size: 13.5px; font-weight: 600;
+  letter-spacing: .05em; margin-bottom: 4px;
+}
+#bw-tip .bw-tip-line { color: ${theme.parchmentDim}; }
+#bw-windows .bw-drop-hot { outline: 2px solid ${theme.goldBright}; outline-offset: -2px; }
 `;
 
 // --------------------------------------------------------------- the tooltip
@@ -99,6 +145,7 @@ let tipEl = null;
 
 function ensureCss() {
   if (typeof document === 'undefined' || !document) return false;
+  injectTheme(document);
   if (!document.getElementById('bw-windows-css')) {
     const style = document.createElement('style');
     style.id = 'bw-windows-css';
@@ -113,6 +160,7 @@ function tipNode() {
   if (tipEl && tipEl.isConnected) return tipEl;
   tipEl = document.createElement('div');
   tipEl.id = 'bw-tip';
+  tipEl.className = 'bw-ui';
   tipEl.hidden = true;
   document.body.appendChild(tipEl);
   return tipEl;
@@ -218,6 +266,14 @@ export function sharesScreen(a, b) {
   return PAIRS.some((p) => p.includes(a) && p.includes(b));
 }
 
+/** The word a key cap wears. */
+export function keyCap(key) {
+  if (!key) return '';
+  if (key === ESCAPE_KEY) return 'esc';
+  if (key === ' ') return 'space';
+  return String(key).toUpperCase();
+}
+
 /**
  * @param {HTMLElement|null} root  where the layer is appended; null or no
  *   document at all runs the manager headless, rules and all.
@@ -227,16 +283,22 @@ export function sharesScreen(a, b) {
 export function createWindows(root, input, ctx = {}) {
   const hasDom = typeof document !== 'undefined' && document && isFn(document.createElement);
   const panels = new Map();          // id -> panel
-  const frames = new Map();          // id -> { el, body, title }
+  const frames = new Map();          // id -> { el, body } for standalone panels
+  const tabBodies = new Map();       // id -> the codex page for that tab
+  const tabButtons = new Map();      // id -> the tab in the strip
+  const built = new Set();           // ids whose build() has run
   const stack = [];                  // open ids, most recently opened last
   let el = null;
+  let codex = null;                  // { el, tabs, bodies }
   let zTop = 1;
-  let built = 0;
+  let cascade = 0;
+  let lastTab = null;
 
   if (hasDom) ensureCss();
   if (hasDom) {
     el = document.createElement('div');
     el.id = 'bw-windows';
+    el.className = 'bw-ui';
     (root || document.body).appendChild(el);
   }
 
@@ -246,16 +308,130 @@ export function createWindows(root, input, ctx = {}) {
     else if (hud && isFn(hud.toast)) hud.toast(text, kind);
   };
 
-  // ------------------------------------------------------------------ frame
+  const openTab = () => stack.find((id) => isCodexTab(id)) || null;
+
+  // --------------------------------------------------------------- dragging
+  // Both kinds of window drag by their top bar, and both stop pointer events
+  // at the window so the camera, which listens on the canvas, never sees them.
+
+  function makeDraggable(win, handle, id) {
+    let drag = null;
+    const onMove = (e) => {
+      if (!drag) return;
+      win.style.left = `${drag.left + (e.clientX - drag.x)}px`;
+      win.style.top = `${Math.max(0, drag.top + (e.clientY - drag.y))}px`;
+    };
+    const onUp = () => {
+      if (!drag) return;
+      drag = null;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.target && (e.target.tagName === 'BUTTON' || (e.target.closest && e.target.closest('button')))) return;
+      e.stopPropagation();
+      // A centred window has no left and top of its own yet. Take the box it
+      // is actually in, so it does not jump on the first pixel of the drag.
+      if (!win.style.left || win.style.transform) {
+        const r = win.getBoundingClientRect ? win.getBoundingClientRect() : { left: win.offsetLeft, top: win.offsetTop };
+        win.style.left = `${Math.round(r.left)}px`;
+        win.style.top = `${Math.round(r.top)}px`;
+        win.style.transform = '';
+      }
+      drag = { x: e.clientX, y: e.clientY, left: win.offsetLeft, top: win.offsetTop };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      raise(id);
+    });
+    win.addEventListener('pointerdown', (e) => { e.stopPropagation(); raise(id); });
+  }
+
+  // ------------------------------------------------------------ the codex
+
+  function makeCodex() {
+    const win = document.createElement('div');
+    win.className = 'bw-win bw-win-codex bw-ui';
+    win.hidden = true;
+    win.style.left = '50%';
+    win.style.top = '50%';
+    win.style.transform = 'translate(-50%, -50%)';
+
+    const frame = document.createElement('div');
+    frame.className = 'bw-frame';
+    win.appendChild(frame);
+
+    const top = document.createElement('div');
+    top.className = 'bw-win-title';
+    const tabs = document.createElement('div');
+    tabs.className = 'bw-codex-tabs';
+    const x = document.createElement('button');
+    x.className = 'bw-win-x';
+    x.type = 'button';
+    x.textContent = 'close';
+    x.addEventListener('click', (e) => { e.stopPropagation(); const t = openTab(); if (t) close(t); });
+    top.appendChild(tabs);
+    top.appendChild(x);
+    frame.appendChild(top);
+
+    const bodies = document.createElement('div');
+    frame.appendChild(bodies);
+
+    el.appendChild(win);
+    makeDraggable(win, top, CODEX_ID);
+    codex = { el: win, tabs, bodies };
+    return codex;
+  }
+
+  /** The tab strip, in CODEX_TABS order, skipping tabs nobody registered. */
+  function drawTabs() {
+    if (!codex) return;
+    codex.tabs.textContent = '';
+    tabButtons.clear();
+    const here = openTab();
+    for (const t of CODEX_TABS) {
+      const p = panels.get(t.id);
+      if (!p) continue;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'bw-tab' + (here === t.id ? ' on' : '');
+      b.dataset.tab = t.id;
+      b.textContent = t.label;
+      if (p.key) b.title = `${t.label}, key ${keyCap(p.key)}`;
+      b.addEventListener('click', (e) => { e.stopPropagation(); open(t.id); });
+      codex.tabs.appendChild(b);
+      tabButtons.set(t.id, b);
+    }
+  }
+
+  function tabBody(id) {
+    if (!hasDom) return null;
+    let body = tabBodies.get(id);
+    if (body) return body;
+    if (!codex) makeCodex();
+    body = document.createElement('div');
+    body.className = 'bw-win-body bw-codex-body';
+    body.dataset.tab = id;
+    body.hidden = true;
+    codex.bodies.appendChild(body);
+    tabBodies.set(id, body);
+    return body;
+  }
+
+  // ------------------------------------------------------ standalone frames
 
   function makeFrame(panel) {
     const win = document.createElement('div');
-    win.className = `bw-win bw-win-${panel.id}`;
+    win.className = `bw-win bw-win-plain bw-ui bw-win-${panel.id}`;
     win.hidden = true;
+
+    const frame = document.createElement('div');
+    frame.className = 'bw-frame';
+    win.appendChild(frame);
 
     const title = document.createElement('div');
     title.className = 'bw-win-title';
     const name = document.createElement('span');
+    name.className = 'bw-win-name';
     name.textContent = panel.title || panel.id;
     const right = document.createElement('span');
     right.style.display = 'flex';
@@ -264,7 +440,7 @@ export function createWindows(root, input, ctx = {}) {
     if (panel.key) {
       const k = document.createElement('span');
       k.className = 'bw-win-key';
-      k.textContent = panel.key === ESCAPE_KEY ? 'esc' : panel.key.toUpperCase();
+      k.textContent = keyCap(panel.key);
       right.appendChild(k);
     }
     const x = document.createElement('button');
@@ -279,44 +455,20 @@ export function createWindows(root, input, ctx = {}) {
     const body = document.createElement('div');
     body.className = 'bw-win-body';
 
-    win.appendChild(title);
-    win.appendChild(body);
+    frame.appendChild(title);
+    frame.appendChild(body);
 
-    // Cascade so two windows are never exactly on top of each other, and the
-    // pair that may share the screen is offset furthest.
-    const n = built++;
+    const n = cascade++;
     win.style.left = `${Math.round(90 + n * CASCADE.x)}px`;
     win.style.top = `${Math.round(70 + n * CASCADE.y)}px`;
 
-    // Dragging by the title bar. Pointer events are stopped at the window so
-    // the camera, which listens on the canvas, never sees them.
-    let drag = null;
-    const onMove = (e) => {
-      if (!drag) return;
-      win.style.left = `${drag.left + (e.clientX - drag.x)}px`;
-      win.style.top = `${Math.max(0, drag.top + (e.clientY - drag.y))}px`;
-    };
-    const onUp = () => {
-      if (!drag) return;
-      drag = null;
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-    title.addEventListener('pointerdown', (e) => {
-      if (e.target && e.target.tagName === 'BUTTON') return;
-      e.stopPropagation();
-      drag = { x: e.clientX, y: e.clientY, left: win.offsetLeft, top: win.offsetTop };
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-      raise(panel.id);
-    });
-    win.addEventListener('pointerdown', (e) => { e.stopPropagation(); raise(panel.id); });
-
     el.appendChild(win);
+    makeDraggable(win, title, panel.id);
     return { el: win, body, title: name };
   }
 
   function raise(id) {
+    if (isCodexTab(id) || id === CODEX_ID) { if (codex) codex.el.style.zIndex = String(++zTop); return; }
     const f = frames.get(id);
     if (f) f.el.style.zIndex = String(++zTop);
   }
@@ -325,8 +477,9 @@ export function createWindows(root, input, ctx = {}) {
 
   /**
    * Take a panel. Refuses a second panel under the same id or the same key
-   * rather than quietly letting one shadow the other, which is how a key stops
-   * working for a week without anybody knowing why.
+   * rather than quietly letting one shadow the other, and refuses any key the
+   * world drives, because a window bound to A turned walking left into a
+   * window that opened and closed under the player's hands.
    */
   function register(panel) {
     if (!panel || typeof panel !== 'object' || !panel.id) {
@@ -337,44 +490,78 @@ export function createWindows(root, input, ctx = {}) {
       console.warn(`[windows] two panels claim the id "${panel.id}"; the second is ignored`);
       return false;
     }
-    const key = panel.key ? lower(panel.key) : null;
+    let key = panel.key ? lower(panel.key) : null;
+    if (key && RESERVED_KEYS.includes(key)) {
+      console.warn(`[windows] "${panel.id}" asked for the ${key} key, which the world drives; it is registered with no key`);
+      key = null;
+    }
     if (key) {
       for (const p of panels.values()) {
-        if (p.key && lower(p.key) === key) {
-          console.warn(`[windows] "${panel.id}" and "${p.id}" both want the ${key} key; ${panel.id} keeps its own but the key stays with ${p.id}`);
-          panel = { ...panel, key: null };
+        if (p.key && p.key === key) {
+          console.warn(`[windows] "${panel.id}" and "${p.id}" both want the ${key} key; it stays with ${p.id}`);
+          key = null;
           break;
         }
       }
     }
-    panels.set(panel.id, { ...panel, key: panel.key ? lower(panel.key) : null });
+    panels.set(panel.id, { ...panel, key });
+    if (hasDom && isCodexTab(panel.id)) { if (!codex) makeCodex(); drawTabs(); }
     return true;
   }
 
-  const isOpen = (id) => stack.includes(id);
+  const isOpen = (id) => (id === CODEX_ID ? openTab() !== null : stack.includes(id));
   const list = () => [...panels.values()];
 
   // ------------------------------------------------------------- open/close
 
+  /** Fill a page once. Returns whether the panel's own build ran clean. */
+  function buildInto(id, body) {
+    const panel = panels.get(id);
+    if (!panel || built.has(id) || !isFn(panel.build)) return false;
+    built.add(id);
+    try { panel.build(body, ctx); return true; }
+    catch (e) { console.error(`[windows] ${id} failed to build`, e); return false; }
+  }
+
   function open(id, extra) {
+    if (id === CODEX_ID) {
+      const want = lastTab || CODEX_IDS.find((t) => panels.has(t));
+      return want ? open(want, extra) : false;
+    }
     const panel = panels.get(id);
     if (!panel) { console.warn(`[windows] no panel called "${id}"`); return false; }
-    if (isOpen(id)) { raise(id); return true; }
+    if (stack.includes(id)) { raise(id); return true; }
 
     // The one-open rule: everything that cannot share the screen with this
     // goes, newest first so the closes read in the order a player would.
     for (const other of [...stack].reverse()) if (!sharesScreen(other, id)) close(other);
+    // Two codex tabs cannot both be up: the codex shows one page at a time.
+    if (isCodexTab(id)) { const t = openTab(); if (t) close(t); }
 
-    if (hasDom && !frames.has(id)) {
-      const f = makeFrame(panel);
-      frames.set(id, f);
-      if (isFn(panel.build)) {
-        try { panel.build(f.body, ctx); } catch (e) { console.error(`[windows] ${id} failed to build`, e); }
+    if (hasDom) {
+      if (isCodexTab(id)) buildInto(id, tabBody(id));
+      else if (!frames.has(id)) {
+        const f = makeFrame(panel);
+        frames.set(id, f);
+        buildInto(id, f.body);
       }
     }
+
     stack.push(id);
-    const f = frames.get(id);
-    if (f) { f.el.hidden = false; raise(id); }
+    if (isCodexTab(id)) lastTab = id;
+
+    if (hasDom) {
+      if (isCodexTab(id)) {
+        if (codex) codex.el.hidden = false;
+        for (const [tid, body] of tabBodies) body.hidden = tid !== id;
+        drawTabs();
+      } else {
+        const f = frames.get(id);
+        if (f) f.el.hidden = false;
+      }
+      raise(id);
+    }
+
     if (isFn(panel.open)) {
       try { panel.open(ctx, extra); } catch (e) { console.error(`[windows] ${id} failed to open`, e); }
     }
@@ -382,11 +569,19 @@ export function createWindows(root, input, ctx = {}) {
   }
 
   function close(id) {
+    if (id === CODEX_ID) { const t = openTab(); return t ? close(t) : false; }
     const i = stack.indexOf(id);
     if (i < 0) return false;
     stack.splice(i, 1);
-    const f = frames.get(id);
-    if (f) f.el.hidden = true;
+    if (isCodexTab(id)) {
+      const body = tabBodies.get(id);
+      if (body) body.hidden = true;
+      if (codex && !openTab()) codex.el.hidden = true;
+      drawTabs();
+    } else {
+      const f = frames.get(id);
+      if (f) f.el.hidden = true;
+    }
     const panel = panels.get(id);
     if (panel && isFn(panel.close)) {
       try { panel.close(ctx); } catch (e) { console.error(`[windows] ${id} failed to close`, e); }
@@ -399,18 +594,19 @@ export function createWindows(root, input, ctx = {}) {
   function closeAll() {
     let n = 0;
     for (const id of [...stack].reverse()) if (close(id)) n++;
+    hideTip();
     return n;
   }
 
   /**
-   * Escape. With something open it closes the top one and nothing else, so a
-   * player with Bag and Character up presses it twice. With nothing open it
+   * Escape. With something open it closes the top one. With nothing open it
    * hands the key to whichever panel claimed it, which is Settings.
    */
   function escape() {
     if (stack.length) {
       const top = stack[stack.length - 1];
       close(top);
+      hideTip();
       return { closed: top, opened: null };
     }
     for (const p of panels.values()) {
@@ -455,14 +651,24 @@ export function createWindows(root, input, ctx = {}) {
     }
   }
 
-  /** Rebuild an open panel's body, for when the document changed underneath. */
+  function bodyOf(id) {
+    if (isCodexTab(id)) return tabBodies.get(id) || null;
+    return frames.get(id)?.body || null;
+  }
+
+  /** Rebuild a panel's body, for when the document changed underneath. */
   function refresh(id) {
     const p = panels.get(id);
-    const f = frames.get(id);
-    if (!p || !f || !isFn(p.build)) return false;
-    f.body.textContent = '';
-    try { p.build(f.body, ctx); } catch (e) { console.error(`[windows] ${id} failed to rebuild`, e); return false; }
-    return true;
+    const body = bodyOf(id);
+    if (!p || !body || !isFn(p.build)) return false;
+    body.textContent = '';
+    built.delete(id);
+    return buildInto(id, body);
+  }
+
+  function frameOf(id) {
+    if (isCodexTab(id)) return codex ? codex.el : null;
+    return frames.get(id)?.el || null;
   }
 
   function dispose() {
@@ -471,16 +677,24 @@ export function createWindows(root, input, ctx = {}) {
     if (el) el.remove();
     panels.clear();
     frames.clear();
+    tabBodies.clear();
+    tabButtons.clear();
+    built.clear();
+    codex = null;
   }
 
   return {
     el, ctx, register, open, close, toggle, isOpen, closeAll, escape, consumes,
     update, refresh, dispose, say, raise,
-    bodyOf: (id) => frames.get(id)?.body || null,
-    frameOf: (id) => frames.get(id)?.el || null,
+    bodyOf, frameOf,
+    /** Which codex page is up, or null. */
+    get tab() { return openTab(); },
+    get codexEl() { return codex ? codex.el : null; },
     get anyOpen() { return stack.length > 0; },
     get top() { return stack.length ? stack[stack.length - 1] : null; },
     get openIds() { return [...stack]; },
     get panels() { return list(); },
+    /** The key a panel ended up with, which is not always the key it asked for. */
+    keyOf: (id) => panels.get(id)?.key || null,
   };
 }

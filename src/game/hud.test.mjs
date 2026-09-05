@@ -18,10 +18,16 @@ function makeDom() {
   const el = (tag) => {
     const style = {};
     const classes = new Set();
+    let text = '';
     const node = {
       tagName: String(tag).toUpperCase(),
       id: '', style, dataset: {}, children: [], parent: null,
-      textContent: '', innerHTML: '', title: '',
+      innerHTML: '', title: '',
+      get textContent() { return node.children.length ? node.children.map((c) => c.textContent).join('') : text; },
+      // Faithful to the real thing: setting textContent EMPTIES the node. Panels
+      // clear and rebuild with it, and a fake that only stored the string would
+      // let a tab strip grow four copies of itself and call it a pass.
+      set textContent(v) { for (const c of node.children) c.parent = null; node.children.length = 0; text = v == null ? '' : String(v); },
       listeners: {},
       get className() { return [...classes].join(' '); },
       set className(v) { classes.clear(); for (const c of String(v).split(/\s+/)) if (c) classes.add(c); },
@@ -65,6 +71,7 @@ const hudMod = await import('./hud.js');
 const {
   TOOLS, MATERIALS, BAR_KEYS, BAR_SLOTS, POOLS, LOG_LINES, KEY_LABELS,
   poolView, sweep, costLabel, timerLabel, logTrim, createHud,
+  bannerAt, devLine, BANNER, BANNER_TOTAL,
 } = hudMod;
 // state.js runs its own audit at import and another agent is mid-flight on the
 // items table it audits against. That is state.js's failure, reported by
@@ -248,6 +255,101 @@ ck('two aura icons, one buff one debuff, with timers',
 hud.update(0.016, { actor: null, target: null, bar: null, buffs: [] });
 ck('no target hides the frame again', !targetEl.classList.contains('on'));
 ck('no actor hides the pools again', !poolsEl.classList.contains('on'));
+
+// --- the zone banner, in seconds -------------------------------------------
+console.log('hud: the zone banner');
+ck('it fades in over 0.4 s, holds 2 s, and fades out over 0.6 s',
+  BANNER.fadeIn === 0.4 && BANNER.hold === 2 && BANNER.fadeOut === 0.6,
+  JSON.stringify(BANNER));
+ck('so the whole thing is 3 s', BANNER_TOTAL === 3, String(BANNER_TOTAL));
+ck('at 0 it is just starting', bannerAt(0).phase === 'in' && bannerAt(0).opacity === 0);
+ck('at 0.2 s it is half faded in',
+  bannerAt(0.2).phase === 'in' && Math.abs(bannerAt(0.2).opacity - 0.5) < 1e-9,
+  `${bannerAt(0.2).phase} ${bannerAt(0.2).opacity}`);
+ck('at 1 s it is held, full',
+  bannerAt(1).phase === 'held' && bannerAt(1).opacity === 1, `${bannerAt(1).phase} ${bannerAt(1).opacity}`);
+ck('at 2.4 s it is still up, and starting to go',
+  bannerAt(2.39).phase === 'held' && bannerAt(2.41).phase === 'out');
+ck('at 2.6 s it is two thirds of the way out',
+  bannerAt(2.6).phase === 'out' && Math.abs(bannerAt(2.6).opacity - 2 / 3) < 1e-9,
+  `${bannerAt(2.6).phase} ${bannerAt(2.6).opacity.toFixed(4)}`);
+ck('at 3 s it is gone', bannerAt(3).phase === 'done' && bannerAt(3).opacity === 0);
+ck('and it stays gone', bannerAt(90).phase === 'done');
+
+const zoneEl = find(root, (n) => n.id === 'bw-zone');
+{
+  const said = hud.zone('Fern\u2019s Stone', 'meadow');
+  ck('raising the banner says what it will show',
+    said.name === 'Fern\u2019s Stone' && said.sub === 'meadow' && said.seconds === 3, JSON.stringify(said));
+  ck('the banner turns on', zoneEl.classList.contains('on'));
+  ck('with the place large and the kind under it',
+    zoneEl.children[0].textContent === 'Fern\u2019s Stone' && zoneEl.children[2].textContent === 'meadow',
+    `"${zoneEl.children[0].textContent}" over "${zoneEl.children[2].textContent}"`);
+  ck('and a rule between them', zoneEl.children[1].className === 'zr');
+  ck('it starts invisible', zoneEl.style.opacity === '0.000', zoneEl.style.opacity);
+  hud.update(0.2, {});
+  ck('at 0.2 s it is half there', zoneEl.style.opacity === '0.500', zoneEl.style.opacity);
+  ck('and hud.zoneState agrees', hud.zoneState.phase === 'in' && Math.abs(hud.zoneState.t - 0.2) < 1e-9,
+    `${hud.zoneState.phase} at ${hud.zoneState.t}`);
+  hud.update(0.8, {});
+  ck('at 1 s it is full', zoneEl.style.opacity === '1.000' && hud.zoneState.phase === 'held', zoneEl.style.opacity);
+  hud.update(1.6, {});
+  ck('at 2.6 s it is fading out', hud.zoneState.phase === 'out' && zoneEl.style.opacity === '0.667',
+    `${hud.zoneState.phase} at ${zoneEl.style.opacity}`);
+  ck('and it is still on screen while it fades', zoneEl.classList.contains('on'));
+  hud.update(0.5, {});
+  ck('at 3.1 s it is gone', !zoneEl.classList.contains('on') && hud.zoneState.phase === 'done');
+  ck('and it stops counting once it is gone', hud.zoneState.t === 0);
+}
+{
+  hud.zone('Barrow of the Grey Hand', 'dungeon, level 2');
+  hud.update(2.0, {});
+  ck('walking in again restarts it', hud.zoneState.phase === 'held');
+  hud.zone('Barrow of the Grey Hand', 'dungeon, level 2');
+  ck('from the beginning', hud.zoneState.t === 0 && hud.zoneState.opacity === 0);
+  ck('a place with no name raises nothing', hud.zone('') === null && !zoneEl.classList.contains('on'));
+  hud.zone('The Long Fen');
+  ck('and a place with no kind still shows its name',
+    zoneEl.children[0].textContent === 'The Long Fen' && zoneEl.children[2].style.display === 'none');
+  hud.update(4, {});
+}
+
+// --- the dev badge ----------------------------------------------------------
+console.log('hud: the dev badge');
+ck('with no numbers it just says fly mode', devLine() === 'fly mode', devLine());
+ck('an unmeasured number is left out rather than printed as a zero',
+  devLine({ fps: 59 }) === 'fly mode   59 fps', devLine({ fps: 59 }));
+{
+  const line = devLine({ fps: 58.6, frameMs: 17.1, draws: 212, tris: 1249000, monsters: 7 });
+  ck('and every one it was given is there',
+    /59 fps/.test(line) && /17.1 ms/.test(line) && /212 draws/.test(line)
+    && /1249k tris/.test(line) && /7 alive/.test(line), line);
+  ck('which is exactly the five main.js measures',
+    line.split('   ').length === 6, line);
+}
+{
+  const badge = find(root, (n) => n.id === 'bw-dev');
+  hud.setDev(true, { fps: 60, draws: 100, tris: 500000, monsters: 3 });
+  ck('the badge lights and carries the numbers',
+    badge.classList.contains('on') && /60 fps/.test(badge.textContent) && /3 alive/.test(badge.textContent),
+    badge.textContent);
+  hud.setDev(true);
+  ck('and setDev(true) on its own still works, as dev.js calls it',
+    badge.classList.contains('on') && badge.textContent === 'fly mode', badge.textContent);
+  hud.setDev(false);
+  ck('setDev(false) puts it out', !badge.classList.contains('on'));
+}
+
+// --- the portrait plate ------------------------------------------------------
+{
+  const plate = find(root, (n) => n.id === 'bw-portrait');
+  ck('the portrait plate starts with a drawn helm in it', /<svg/.test(plate.innerHTML), plate.innerHTML.slice(0, 20));
+  const canvas = document.createElement('canvas');
+  ck('and takes the paper doll s canvas when there is one', hud.setPortrait(canvas) === true);
+  ck('which is then the only thing in it', plate.children.length === 1 && plate.children[0] === canvas);
+  ck('handing it nothing changes nothing', hud.setPortrait(null) === false && plate.children.length === 1);
+}
+
 
 console.log(`\n${pass} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

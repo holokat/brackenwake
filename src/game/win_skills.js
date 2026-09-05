@@ -14,6 +14,7 @@
 
 import { SKILLS, SKILL_GROUPS, SKILL_CAP, TOTAL_CAP, LOCKS, lockOf, setLock, total } from '../mmo/skills.js';
 import { ABILITIES, meetsRequirements } from '../mmo/abilities.js';
+import { theme } from './ui_theme.js';
 
 /** up, then locked, then down, then round again. */
 export const LOCK_CYCLE = ['up', 'locked', 'down'];
@@ -86,22 +87,37 @@ export function standingFor(skillId, skills, stats, list = ABILITIES) {
 }
 
 const CSS = `
-.bw-skills { width: min(680px, 88vw); }
-.bw-skills-head { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
-.bw-skills-head b { font-variant-numeric: tabular-nums; }
-.bw-skills-head b.full { color: #ffd479; }
-.bw-skill {
-  display: grid; grid-template-columns: 18px 160px 1fr 46px; gap: 8px; align-items: center;
-  padding: 2px 0; border-top: 1px solid rgba(255,255,255,.07);
+.bw-skills { width: 100%; }
+.bw-skills-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin-bottom: 10px;
+  color: ${theme.parchmentDim}; font-style: italic;
 }
-.bw-skill .bw-lock { cursor: pointer; text-align: center; font-size: 11px; color: #8fa387; user-select: none; }
-.bw-skill .bw-lock.locked { color: #cfd6c8; }
+.bw-skills-head b {
+  font-family: ${theme.fonts.display}; font-variant-numeric: tabular-nums;
+  font-style: normal; color: ${theme.parchment};
+}
+.bw-skills-head b.full { color: ${theme.goldBright}; }
+.bw-skill {
+  display: grid; grid-template-columns: 20px 190px 1fr 54px; gap: 10px; align-items: center;
+  padding: 2px 0; border-top: 1px solid rgba(201,164,74,.14);
+}
+.bw-skill .bw-lock { cursor: pointer; text-align: center; font-size: 11px; color: ${theme.goldDim}; user-select: none; }
+.bw-skill .bw-lock.locked { color: ${theme.parchment}; }
 .bw-skill .bw-lock.down { color: #ff8f7a; }
-.bw-skill .bw-bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,.09); overflow: hidden; }
-.bw-skill .bw-bar span { display: block; height: 100%; background: #7fb069; }
-.bw-skill .bw-val { text-align: right; font-variant-numeric: tabular-nums; }
-.bw-skill.gm .bw-bar span { background: #ffd479; }
-.bw-skill-note { grid-column: 2 / 5; color: #95a08f; font-size: 11.5px; padding: 0 0 4px; }
+.bw-skill .bw-bar {
+  height: 8px; background: rgba(0,0,0,.55); border: 1px solid ${theme.goldDim}66; overflow: hidden;
+}
+.bw-skill .bw-bar span {
+  display: block; height: 100%;
+  background: linear-gradient(180deg, #9ec97f, #5d8a48);
+}
+.bw-skill .bw-val {
+  text-align: right; font-variant-numeric: tabular-nums;
+  font-family: ${theme.fonts.display}; font-size: 13px;
+}
+.bw-skill.gm .bw-bar span { background: linear-gradient(180deg, ${theme.goldBright}, ${theme.goldDim}); }
+.bw-skill.gm .bw-val { color: ${theme.goldBright}; }
+.bw-skill-note { grid-column: 2 / 5; color: ${theme.parchmentDim}; font-size: 13px; padding: 0 0 5px; }
 `;
 
 const h = (tag, cls, text) => {
