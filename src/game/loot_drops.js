@@ -11,6 +11,16 @@
 // not pull you off your road. It turns, it bobs, and after 90 s it is gone,
 // which is 05-WORLD-CONTENT's own number.
 //
+// GOLD ALONE IS NOT A SACK. A kill that left nothing but coin used to leave the
+// same brown sack as a kill that left a sword, lit yellow, which is a UI saying
+// "money" rather than money lying there. A bag with no items in it is drawn as
+// the gold pile its amount deserves (`gold_piles.js`: a scatter, a mound or a
+// heap), it does not spin, and it wears no rarity ring because there is no
+// rarity in a coin. A bag that has BOTH keeps the sack, and a few coins lie
+// beside it. `shapeOf` is the one place that decides, and `take` re-shapes the
+// bag when what is left in it has changed the answer: take the sword out of a
+// mixed bag and the coins that stay behind become a pile.
+//
 // TAKING IS A TRANSACTION, NOT A GIFT. `take` hands the contents to a handler
 // and keeps whatever the handler REFUSED. A pack with two slots left takes two
 // swords and the third stays in the sack, and the line says both halves. This
@@ -50,6 +60,7 @@ import { MONSTERS } from '../mmo/monsters.js';
 import { rollKill } from '../mmo/loot.js';
 import { RARITY, RARITY_ORDER, RARITY_WORD, baseFor, BASES, LEATHER_BASE, MEAT_BASES, takesRarity } from '../mmo/items.js';
 import { nameFor as affixNameFor } from '../mmo/affixes.js';
+import { buildGoldPile, buildCoinScatter, tierFor } from './gold_piles.js';
 
 /**
  * Words that take "some" rather than "a". Meat, bread and cheese are mass
@@ -314,6 +325,36 @@ export function listText(items = [], gold = 0) {
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
+/**
+ * What the cursor calls a bag. "a pile of 46 gold" for coin on its own, and
+ * "a sack: an iron longsword and 12 gold" for anything with gear in it. The
+ * items come first and the gold last, which is the order a person reads a
+ * sack in: what is it, and how much was with it.
+ */
+export function labelFor(bag) {
+  if (!bag) return 'nothing';
+  const items = (bag.items || []).filter(Boolean);
+  const gold = Math.max(0, Math.round(bag.gold || 0));
+  if (!items.length) return gold > 0 ? `a pile of ${gold} gold` : 'an empty sack';
+  const parts = items.map(describeItem);
+  if (gold > 0) parts.push(`${gold} gold`);
+  const list = parts.length === 1
+    ? parts[0]
+    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  return `a sack: ${list}`;
+}
+
+/**
+ * What a bag looks like, from what is in it. Coin alone is a pile of the size
+ * its amount earns; anything with gear in it is a sack, with a coin scatter
+ * beside it when there is money too.
+ */
+export function shapeOf(items = [], gold = 0) {
+  const n = (items || []).filter(Boolean).length;
+  if (!n) return gold > 0 ? `pile:${tierFor(gold)}` : 'empty';
+  return gold > 0 ? 'sack+coins' : 'sack';
+}
+
 // ------------------------------------------------------------------ runtime
 
 export function createLootDrops(sc, { floaters, hud, audio } = {}) {
@@ -335,29 +376,52 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
   const tieGeo = new THREE.BoxGeometry(0.14, 0.12, 0.14);
   const ringGeo = new THREE.TorusGeometry(0.3, 0.02, 4, 12);
 
-  function build(colour) {
+  /**
+   * The body of a bag. `shape` decides whether that is a sack, a sack with a
+   * few coins beside it, or a pile of gold and nothing else. Whatever it is,
+   * the raycaster meets the same invisible cylinder, so nothing about picking
+   * a bag up depends on what is in it.
+   */
+  function build(colour, items = [], gold = 0, seed = 0) {
     const g = new THREE.Group();
     const hex = new THREE.Color(colour);
-    const cloth = new THREE.MeshStandardMaterial({ color: 0x6b5a42, roughness: 1, metalness: 0, flatShading: true, emissive: hex, emissiveIntensity: 0.55 });
-    const glow = new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.75 });
-    const sack = new THREE.Mesh(sackGeo, cloth);
-    sack.position.y = 0.16;
-    sack.castShadow = true;
-    const tie = new THREE.Mesh(tieGeo, cloth);
-    tie.position.y = 0.36;
-    const ring = new THREE.Mesh(ringGeo, glow);
-    ring.rotation.x = Math.PI / 2;
-    ring.position.y = 0.06;
-    g.add(sack, tie, ring);
+    const shape = shapeOf(items, gold);
+    const mats = [];
+    let ring = null, sack = null, pile = null;
+
+    if (shape.startsWith('pile:')) {
+      pile = buildGoldPile(gold, { seed });
+      if (pile) { g.add(pile); mats.push(pile.material); }
+    } else {
+      const cloth = new THREE.MeshStandardMaterial({ color: 0x6b5a42, roughness: 1, metalness: 0, flatShading: true, emissive: hex, emissiveIntensity: 0.55 });
+      const glow = new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.75 });
+      sack = new THREE.Mesh(sackGeo, cloth);
+      sack.position.y = 0.16;
+      sack.castShadow = true;
+      const tie = new THREE.Mesh(tieGeo, cloth);
+      tie.position.y = 0.36;
+      ring = new THREE.Mesh(ringGeo, glow);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.06;
+      g.add(sack, tie, ring);
+      mats.push(cloth, glow);
+      if (shape === 'sack+coins') {
+        // beside it, not under it: the sack is the subject and the coins are
+        // the note that there was money in the purse as well
+        pile = buildCoinScatter(gold, { seed });
+        if (pile) { pile.position.set(0.26, 0, 0.12); g.add(pile); mats.push(pile.material); }
+      }
+    }
     // the thing the raycaster actually meets, so a sack in long grass is still
-    // a target the size of a footstool
+    // a target the size of a footstool, and a pile of coins is not a target the
+    // size of a coin
     const hit = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.42, 0.42, 0.9, 6),
+      new THREE.CylinderGeometry(0.5, 0.5, 0.9, 6),
       new THREE.MeshBasicMaterial({ visible: false }),
     );
-    hit.position.y = 0.45;
+    hit.position.y = sack ? 0.45 : 0.3;
     g.add(hit);
-    return { g, ring, sack, hit, mats: [cloth, glow] };
+    return { g, ring, sack, pile, hit, mats, shape };
   }
 
   /**
@@ -371,13 +435,15 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
   function drop(pos, { items = [], gold = 0 } = {}) {
     const list = items.filter(Boolean);
     if (!list.length && !(gold > 0)) return null;
-    const built = build(bagColour(list, gold));
+    const coin = Math.max(0, Math.round(gold));
+    const seed = nextId * 2654435761;
+    const built = build(bagColour(list, coin), list, coin, seed);
     built.g.position.set(pos?.x ?? 0, pos?.y ?? 0, pos?.z ?? 0);
     group.add(built.g);
     const bag = {
-      id: nextId++, items: list, gold: Math.max(0, Math.round(gold)),
+      id: nextId++, items: list, gold: coin, seed,
       pos: built.g.position, age: 0, node: built.g, ring: built.ring, mats: built.mats,
-      spin: Math.random() * Math.PI * 2,
+      shape: built.shape, spin: Math.random() * Math.PI * 2,
     };
     built.g.userData.bag = bag;
     built.hit.userData.bag = bag;
@@ -385,12 +451,39 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
     return bag;
   }
 
+  function tearDown(node, mats) {
+    node.traverse((o) => { if (o.geometry && o.geometry !== sackGeo && o.geometry !== tieGeo && o.geometry !== ringGeo) o.geometry.dispose(); });
+    for (const m of mats) m.dispose();
+  }
+
   function remove(bag) {
     const i = bags.indexOf(bag);
     if (i >= 0) bags.splice(i, 1);
     group.remove(bag.node);
-    bag.node.traverse((o) => { if (o.geometry && o.geometry !== sackGeo && o.geometry !== tieGeo && o.geometry !== ringGeo) o.geometry.dispose(); });
-    for (const m of bag.mats) m.dispose();
+    tearDown(bag.node, bag.mats);
+  }
+
+  /**
+   * What is left in a bag is not always the same SHAPE as what was in it. Take
+   * the sword out of a sack of a sword and thirty gold and what stays is a pile
+   * of gold; take the gold out and the coins beside the sack have to go. Rebuilt
+   * in place, at the same spot, with the same id and the same age, so nothing
+   * that is holding this bag notices anything but the picture changing.
+   */
+  function reshape(bag) {
+    const want = shapeOf(bag.items, bag.gold);
+    if (want === bag.shape) return false;
+    const old = { node: bag.node, mats: bag.mats };
+    const built = build(bagColour(bag.items, bag.gold), bag.items, bag.gold, bag.seed);
+    built.g.position.copy(bag.pos);
+    group.add(built.g);
+    group.remove(old.node);
+    tearDown(old.node, old.mats);
+    bag.node = built.g; bag.ring = built.ring; bag.mats = built.mats; bag.shape = built.shape;
+    bag.pos = built.g.position;
+    built.g.userData.bag = bag;
+    built.hit.userData.bag = bag;
+    return true;
   }
 
   /** What is under the ray, or null. Same shape as `runtime.pick`'s answers. */
@@ -457,10 +550,18 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
     if (left.length || bag.gold > 0) {
       say(`${listText(left, bag.gold)} stays in the sack, there is no room for it`);
       audio?.play?.('denied');
-      // the colour follows what is still in there, so a bag that gave up its
-      // purple stops advertising one
+      // What is left may not be the same thing to look at any more: a sack that
+      // gave up its sword is a pile of coins now, and a pile that gave up half
+      // its gold may be a smaller pile. Rebuild first, then recolour whatever
+      // sack is still standing there.
+      reshape(bag);
       const colour = new THREE.Color(bagColour(left, bag.gold));
-      for (const m of bag.mats) { if (m.emissive) m.emissive.copy(colour); else m.color.copy(colour); }
+      if (bag.ring) {
+        for (const m of bag.mats) {
+          if (m.isMeshStandardMaterial && m.emissive && !m.vertexColors) m.emissive.copy(colour);
+          else if (m.isMeshBasicMaterial) m.color.copy(colour);
+        }
+      }
     } else {
       remove(bag);
     }
@@ -479,14 +580,19 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
       b.age += d;
       if (b.age >= BAG_SECONDS) { remove(b); continue; }
       b.spin += d * 1.2;
-      b.node.rotation.y = b.spin;
+      // A sack turns. Coins on the ground do not: gold that spun where it fell
+      // would read as a pickup icon rather than as money lying in the grass.
+      if (b.ring) b.node.rotation.y = b.spin;
       b.node.position.y = b.pos.y;
-      b.ring.rotation.z = b.spin * 2;
-      b.ring.scale.setScalar(1 + Math.sin(b.age * 3) * 0.08);
+      if (b.ring) {
+        b.ring.rotation.z = b.spin * 2;
+        b.ring.scale.setScalar(1 + Math.sin(b.age * 3) * 0.08);
+      }
       // the last ten seconds it fades, so a bag about to go says so
       const fade = b.age > BAG_SECONDS - 10 ? 1 - (b.age - (BAG_SECONDS - 10)) / 10 : 1;
       for (const m of b.mats) {
-        if (m.transparent) m.opacity = 0.75 * fade;
+        if (m.vertexColors) m.opacity = fade;          // the gold, which is opaque until it goes
+        else if (m.transparent) m.opacity = 0.75 * fade;
         else if (m.emissive) m.emissiveIntensity = 0.55 * fade;
       }
     }
@@ -494,6 +600,10 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
 
   return {
     group, drop, pick, take, update, nearest, rollFor,
+    /** What the cursor should say about this bag. */
+    labelFor,
+    /** 'pile:small' | 'pile:medium' | 'pile:large' | 'sack' | 'sack+coins'. */
+    shapeOf: (bag) => (bag ? shapeOf(bag.items, bag.gold) : 'empty'),
     /** Every bag on the ground right now. */
     bags: () => bags.slice(),
     get count() { return bags.length; },

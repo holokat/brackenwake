@@ -28,7 +28,7 @@ import {
 } from '../mmo/abilities.js';
 import { JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
 import { GRAVITY, JUMP_V0 } from './player.js';
-import { pickTarget, DEFAULT_HALF_ANGLE, flatDistance } from './targeting.js';
+import { pickTarget, DEFAULT_HALF_ANGLE, flatDistance, isTargetable } from './targeting.js';
 
 /** Twelve slots, keys 1 to 0 then minus and equals. 06-ECONOMY-UI.md. */
 export const BAR_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
@@ -47,6 +47,18 @@ export const NEXT_SWING_WINDOW = 10;
 
 /** Leap Slam's arc, as a multiple of a standing jump's launch speed. */
 export const LEAP_ARC = 1.6;
+
+/**
+ * A spell held on the cursor waits this long for you to say who it is for.
+ *
+ * INVENTED. No document names a number. Six seconds is two of the longest cast
+ * in the tables and about as long as a player will hold a raised hand before
+ * deciding the game has forgotten him; it is short enough that a spell cannot
+ * still be waiting after the fight it was meant for. It is a constant so the
+ * test drives the exact second rather than a feeling, and so it can be turned
+ * without hunting for it.
+ */
+export const PENDING_SECONDS = 6;
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -170,10 +182,11 @@ export function createAbilities(deps = {}) {
 
   const cooldowns = Object.create(null);
   let cast = null;              // the rooted or moving cast in flight
-  const pending = [];           // delayed effects: Meteor's fall, Volley's rain
+  const delayed = [];           // delayed effects: Meteor's fall, Volley's rain
   const zones = [];             // traps, wards, sanctuaries, rifts
   let nextSwing = null;         // an armed melee ability waiting for a swing
   let landing = null;           // what happens when a leap touches down
+  let waiting = null;           // a spell held on the cursor: { ability, slot, startedAt }
   let lastLine = '';
 
   const say = (text, kind) => {
@@ -305,6 +318,77 @@ export function createAbilities(deps = {}) {
       nearestHostile: typeof monsters?.nearestHostile === 'function'
         ? (p, y, r, h) => { const f = monsters.nearestHostile(p, y, r, h); return f ? (f.actor || f) : null; } : null,
     });
+  }
+
+  /** How far this ability reaches, the one number every range line quotes. */
+  const rangeOf = (ability) => num(ability?.range) || MELEE_RANGE;
+
+  /**
+   * Which abilities can be held on the cursor waiting for a target, counted
+   * rather than guessed. Of the 78 rows:
+   *
+   *   enemy   29, and 24 of them wait. The five that do not are the armed
+   *           swings (`effect.nextSwing`), which arm the NEXT swing and want
+   *           nobody in particular at the moment you press them.
+   *   ground  11, aoe and ground both. They never wait: the ground ring under
+   *           the cursor already says where they will land, and asking a
+   *           player to click twice for a Meteor is worse, not better.
+   *   corpse   2, Raise Skeleton and Corpse Explosion. Both find their own
+   *           corpse and both say so when there is none, so there is nothing
+   *           for a cursor to choose.
+   *   ally     7. They fall back to you when nothing friendly is selected, so
+   *           they never reach "no target" at all; a heal with nobody chosen
+   *           is a heal on yourself, which is what it was before this.
+   *   self    29. Nothing to choose.
+   */
+  const waitsForTarget = (ability) => ability?.target === 'enemy' && !ability?.effect?.nextSwing;
+
+  /**
+   * Turn to face what you are about to hit.
+   *
+   * `player.yaw` is a GETTER with no setter, so assigning to it throws in a
+   * module. `player.state` is the object the getter reads and player.js writes
+   * `group.rotation.y = s.yaw` from it every frame, so the facing is written
+   * there and mirrored onto the group so it shows on this frame rather than
+   * the next. `stepPlayer` only takes the yaw back when the player is actually
+   * walking (speed over 0.15), so a standing cast keeps the facing it chose.
+   */
+  function faceTowards(target) {
+    const p = target?.pos || target;
+    if (!p) return false;
+    const dx = num(p.x) - num(pos().x), dz = num(p.z) - num(pos().z);
+    if (Math.hypot(dx, dz) < 1e-4) return false;
+    const want = Math.atan2(dx, dz);          // forward is (sin yaw, cos yaw)
+    const st = player?.state;
+    if (st && typeof st.yaw === 'number') {
+      st.yaw = want;
+      if (player.group?.rotation) player.group.rotation.y = want;
+      return true;
+    }
+    return false;
+  }
+
+  // ------------------------------------------------- the spell on the cursor --
+
+  /** Let go of a held spell, out loud. Nothing was paid, so nothing comes back. */
+  function cancelPending(why = 'you let it go') {
+    if (!waiting) return null;
+    const it = waiting;
+    waiting = null;
+    say(`${it.ability.name} is no longer waiting for a target: ${why}.`, 'bad');
+    return it;
+  }
+
+  /**
+   * Hold a spell on the cursor. Nothing is paid here and no cooldown starts:
+   * the whole cost is taken when a target is picked, so letting it go costs
+   * exactly nothing and there is no refund arithmetic to get wrong.
+   */
+  function holdForTarget(ability, slot, now) {
+    waiting = { ability, slot: Number.isInteger(slot) ? slot : -1, startedAt: num(now) };
+    effects?.hideGroundRing?.();
+    say(`Choose a target for ${ability.name}. Click one, or press Escape to let it go.`, 'ability');
+    return { ok: false, pending: true, reason: `choose a target for ${ability.name}`, ability };
   }
 
   /** Where a ground ability lands: the cursor, or `range` metres ahead. */
@@ -462,7 +546,7 @@ export function createAbilities(deps = {}) {
       const centre = ground ? c.ground : pos();
       const radius = num(e.radius) || 3;
       if (e.delay > 0 && !c.delayed) {
-        pending.push({ at: c.now + e.delay, effect: { ...e }, ctx: { ...c, delayed: true, ground: { ...centre } } });
+        delayed.push({ at: c.now + e.delay, effect: { ...e }, ctx: { ...c, delayed: true, ground: { ...centre } } });
         if (e.telegraph) effects?.column?.(centre, radius, effects.colourFor?.(c.ability.id) ?? 0xff7a2a, e.delay);
         else effects?.ring?.(centre, radius, effects?.colourFor?.(c.ability.id) ?? 0xffffff, e.delay);
         return `It falls in ${saySeconds(e.delay)}. Stand clear.`;
@@ -947,11 +1031,27 @@ export function createAbilities(deps = {}) {
 
   // ------------------------------------------------------------------ use --
 
-  /** By id, so the Abilities window and a bar slot go down the same road. */
-  function useById(id, now) {
+  /**
+   * By id, so the Abilities window and a bar slot go down the same road.
+   *
+   * `opts.target` is the actor a held spell was finally pointed at. It skips
+   * the search entirely, which is what makes the click that chooses a target
+   * and a press with a target already chosen the same code path and not two.
+   */
+  function useById(id, now, opts = {}) {
     const ability = ABILITIES_BY_ID[id];
     if (!ability) { say(`There is no ability called ${id}.`, 'bad'); return { ok: false, reason: 'unknown' }; }
     const t = num(now);
+
+    // Pressing a second key puts the first spell down. Saying so matters: the
+    // cursor is about to stop being a crosshair and the player has to know why.
+    // Pressing the SAME key again is a change of mind, not a fresh press, so it
+    // puts the spell down and stops there rather than picking it straight up.
+    if (waiting && !opts.fromPending) {
+      const again = waiting.ability.id === ability.id;
+      cancelPending(again ? 'you pressed it again' : `you reached for ${ability.name} instead`);
+      if (again) return { ok: false, reason: 'let go', cancelled: true };
+    }
 
     if (cast) { say(`You are already casting ${cast.name}.`, 'bad'); cue('denied'); return { ok: false, reason: 'casting' }; }
 
@@ -960,12 +1060,20 @@ export function createAbilities(deps = {}) {
 
     // A target, where one is needed, before a coin of the cost is spent.
     let target = null, ground = null;
-    if (ability.target === 'enemy' || ability.target === 'corpse') {
+    if (opts.target !== undefined) {
+      target = opts.target;
+    } else if (ability.target === 'enemy' || ability.target === 'corpse') {
       const found = acquire(ability);
       target = found.target;
       if (!target && ability.target === 'enemy' && !ability.effect?.nextSwing) {
-        say(`${ability.name}: ${found.reason}.`, 'bad'); cue('denied');
-        return { ok: false, reason: found.reason };
+        // Two different answers wearing one word. A thing you chose and cannot
+        // reach is a distance to walk; nobody at all is a question, and the
+        // spell waits on the cursor for you to answer it.
+        if (found.outOfRange) {
+          say(`${ability.name}: ${found.reason}. Walk closer.`, 'bad'); cue('denied');
+          return { ok: false, reason: found.reason, outOfRange: true, dist: found.dist };
+        }
+        return holdForTarget(ability, opts.slot, t);
       }
     } else if (ability.target === 'ally') {
       target = targeting?.current && targeting.current.faction === 'player' ? targeting.current : actor;
@@ -980,6 +1088,10 @@ export function createAbilities(deps = {}) {
 
     const rec = startCast(ability, snapshot(t), t, target);
     if (rec.error) { say(rec.error, 'bad'); cue('denied'); return { ok: false, reason: rec.error }; }
+
+    // You look at what you are about to hit. This is before the cast starts, so
+    // a three second Meteor is aimed from the first frame and not the last.
+    if (target && target !== actor) faceTowards(target);
 
     const paid = pay(rec);
     cooldowns[ability.id] = rec.cooldownUntil;
@@ -1008,7 +1120,42 @@ export function createAbilities(deps = {}) {
     const bar = Array.isArray(character.bar) ? character.bar : [];
     const id = bar[i];
     if (!id) { say(`Slot ${BAR_KEYS[i]} is empty. Drag an ability onto it in the Abilities window.`, 'bad'); return { ok: false, reason: 'empty slot' }; }
-    return useById(id, now);
+    return useById(id, now, { slot: i });
+  }
+
+  /**
+   * The click that answers "who?". main.js routes its click here whenever
+   * `abilities.pending` is set, BEFORE the auto attack, so choosing a target
+   * for a spell is not also a swing at it.
+   *
+   * `hit` is the actor, or a monster record carrying one, or null for a click
+   * on bare ground. Returns null when nothing was waiting, so main.js can call
+   * it without asking first.
+   */
+  function onTargetPicked(hit, now) {
+    if (!waiting) return null;
+    const t = num(now);
+    const held = waiting;
+    const who = hit?.actor || hit || null;
+
+    if (!who) { cancelPending('you clicked bare ground'); return { ok: false, reason: 'no target there' }; }
+    if (!isTargetable(who, actor)) {
+      cancelPending(`${who.name || 'that'} is not something ${held.ability.name} can be aimed at`);
+      return { ok: false, reason: 'not a target' };
+    }
+    const range = rangeOf(held.ability);
+    const d = flatDistance(pos(), who.pos || who);
+    if (d > range) {
+      cancelPending(`${who.name || 'it'} is ${d.toFixed(1)} m away and the reach is ${range} m`);
+      cue('denied');
+      return { ok: false, reason: 'out of range', outOfRange: true, dist: d };
+    }
+
+    waiting = null;
+    // The chosen one becomes the target proper, so the frame at the top of the
+    // screen shows who the spell went to.
+    targeting?.set?.(who, 'pick');
+    return useById(held.ability.id, t, { target: who, fromPending: true, slot: held.slot });
   }
 
   // --------------------------------------------------------------- damage --
@@ -1080,6 +1227,17 @@ export function createAbilities(deps = {}) {
       for (let i = 0; i < BAR_SLOTS; i++) if (input.pressed(BAR_KEYS[i])) use(i, t);
     }
 
+    // 1b. a spell held on the cursor. Escape puts it down, and so does simply
+    // waiting: a crosshair that never goes away is a game that has forgotten
+    // what it asked you. Escape is read whatever `enabled()` says, because the
+    // held spell owns the cursor even while a window is up.
+    if (waiting) {
+      if (input?.pressed?.('escape')) cancelPending('you changed your mind');
+      else if (t - waiting.startedAt >= PENDING_SECONDS) {
+        cancelPending(`nothing was chosen in ${saySeconds(PENDING_SECONDS)}`);
+      }
+    }
+
     // 2. the cast in flight
     if (cast) {
       if (cast.rooted && moving()) {
@@ -1096,9 +1254,9 @@ export function createAbilities(deps = {}) {
     }
 
     // 3. delayed effects: Meteor's fall, Volley's rain
-    for (let i = pending.length - 1; i >= 0; i--) {
-      if (t >= pending[i].at) {
-        const p = pending.splice(i, 1)[0];
+    for (let i = delayed.length - 1; i >= 0; i--) {
+      if (t >= delayed[i].at) {
+        const p = delayed.splice(i, 1)[0];
         const ctx = { ...p.ctx, now: t, api, hit: [] };
         const words = runEffect(p.effect, ctx);
         say(`${p.ctx.ability.name} lands. ${words || ''}`.trim(), 'ability');
@@ -1274,6 +1432,7 @@ export function createAbilities(deps = {}) {
   return {
     use, useById, update, onDamaged, onLanded, applyPassives,
     barView, buffsView, cooldownLeft, affordable, acquire, groundPoint,
+    onTargetPicked, cancelPending, faceTowards,
 
     /** W2's combat consumes this on a plain player swing, or it lapses. */
     takeNextSwing(now) {
@@ -1294,13 +1453,28 @@ export function createAbilities(deps = {}) {
     get channelling() { return cast && breaksOnAnyDamage(cast) ? cast : null; },
     get cooldowns() { return cooldowns; },
     get zones() { return zones; },
-    get pending() { return pending; },
+
+    /**
+     * The spell held on the cursor, `{ ability, slot, startedAt }`, or null.
+     * The HUD lights its bar cell from `ability.id`; main.js reads it to know
+     * that this click chooses a target rather than starting a fight.
+     *
+     * The delayed effects that used to answer to this name (Meteor's fall,
+     * Volley's rain) are `delayed` now. They were never the same thing and one
+     * word for both would have read as if they were.
+     */
+    get pending() { return waiting; },
+    get delayed() { return delayed; },
+
+    /** What the cursor should be. main.js applies it in updateCursor. */
+    get cursor() { return waiting ? 'crosshair' : ''; },
+
     get armed() { return nextSwing; },
     get lastLine() { return lastLine; },
 
     dispose() {
-      cast = null; nextSwing = null; landing = null;
-      pending.length = 0; zones.length = 0;
+      cast = null; nextSwing = null; landing = null; waiting = null;
+      delayed.length = 0; zones.length = 0;
       effects?.hideGroundRing?.();
     },
   };

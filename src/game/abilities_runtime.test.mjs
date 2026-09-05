@@ -8,8 +8,9 @@
 
 import {
   createAbilities, auditEffectHandlers, EFFECT_HANDLERS, BAR_KEYS, BAR_SLOTS,
-  slotForKey, leapArc, MOVING_SPEED, saySeconds,
+  slotForKey, leapArc, MOVING_SPEED, saySeconds, PENDING_SECONDS,
 } from './abilities_runtime.js';
+import { createTargeting } from './targeting.js';
 import {
   ABILITIES, ABILITIES_BY_ID, EFFECT_KINDS, canUse, unlockedFor, weaponNeeds, weaponCheck,
 } from '../mmo/abilities.js';
@@ -210,10 +211,13 @@ console.log('abilities_runtime: every refusal says why');
   ck('a slot that does not exist is refused rather than crashing', bad.ok === false, bad.reason);
 }
 {
+  // Nobody within reach and nobody chosen is not a refusal any more: it is a
+  // question, and the spell waits on the cursor for the answer. The refusal
+  // with a distance in it is the CHOSEN target out of reach, below.
   const h = harness({ bar: ['lightning'], monsters: [mob('Skeleton', 0, 40)] });
   const r = h.abilities.use(0, 0);
-  ck('a target past the spell’s range is refused, and says how far away it is',
-    r.ok === false && /nothing hostile within/.test(r.reason), r.reason);
+  ck('a spell with nobody in reach asks who it is for rather than refusing',
+    r.ok === false && r.pending === true && /choose a target/i.test(r.reason), r.reason);
   ck('and no mana was taken for a spell that never left the hand', h.actor.mana === 200, String(h.actor.mana));
 }
 {
@@ -234,6 +238,228 @@ console.log('abilities_runtime: every refusal says why');
   const r = low.abilities.use(0, 0);
   ck('an ability you have not earned says what it needs',
     r.ok === false && /needs Magery 85/.test(r.reason), r.reason);
+}
+
+// --- the spell held on the cursor -------------------------------------------------
+//
+// "If a target is selected the spell casts at it, unless it is an area of
+// effect spell. If the target is not selected I should have some sort of
+// cursor to indicate who to select as my target for my precast spell."
+//
+// Every one of those clauses is driven here, and each is driven the other way
+// as well: a spell that waits AND four kinds that never do, a click that casts
+// AND a click that cannot, a cancel by key AND a cancel by clock.
+console.log('\nabilities_runtime: a spell with nobody to hit waits on the cursor');
+
+/** A fake keyboard, so Escape can be pressed for exactly one frame. */
+function keyboard() {
+  let key = null;
+  return { press(k) { key = k; }, release() { key = null; }, pressed: (k) => k === key, down: () => false };
+}
+
+{
+  // The skeleton is BEHIND him, so the cone in front finds nobody: this is the
+  // real "nothing selected and nothing under the cursor" case.
+  const behind = mob('Skeleton', 0, -3);
+  const h = harness({ bar: ['fireball'], monsters: [behind] });
+  const mana0 = h.actor.mana;
+  const r = h.abilities.use(0, 0);
+  ck('with nobody in front, Fireball waits instead of refusing',
+    r.pending === true && !!h.abilities.pending, r.reason);
+  ck('and the held spell says which one it is and which key held it',
+    h.abilities.pending.ability.id === 'fireball' && h.abilities.pending.slot === 0 && h.abilities.pending.startedAt === 0,
+    JSON.stringify({ id: h.abilities.pending.ability.id, slot: h.abilities.pending.slot, at: h.abilities.pending.startedAt }));
+  ck('it asks the player who it is for, by name', /Choose a target for Fireball/.test(said(h)), said(h).split('|').pop().trim());
+  ck('NOT ONE POINT OF MANA WAS PAID to hold it', h.actor.mana === mana0, `${h.actor.mana} of ${mana0}`);
+  ck('and no cooldown was started either', h.abilities.cooldownLeft('fireball', 0) === 0);
+  ck('the cursor becomes a crosshair', h.abilities.cursor === 'crosshair', `"${h.abilities.cursor}"`);
+
+  // the click that answers the question
+  const out = h.abilities.onTargetPicked(behind, 0.5);
+  ck('a click on the skeleton casts it at once', out.ok === true, out.reason || 'cast');
+  ck('and NOW the mana is paid, once', h.actor.mana === mana0 - 9, `${h.actor.mana} of ${mana0}`);
+  ck('the cooldown started at the moment of the click, not of the press',
+    h.abilities.cooldownLeft('fireball', 0.5) === 3, `${h.abilities.cooldownLeft('fireball', 0.5)} s left`);
+  ck('the spell is no longer waiting', h.abilities.pending === null);
+  ck('and the cursor goes back to whatever the world says', h.abilities.cursor === '', `"${h.abilities.cursor}"`);
+  ck('the player turned to face what he threw it at',
+    Math.abs(h.player.state.yaw - Math.PI) < 1e-9, `yaw ${h.player.state.yaw.toFixed(4)} for a target at due south`);
+  h.abilities.update(0.6, 1.1);
+  ck('and the spell really lands on the one that was clicked',
+    h.combat.spells.length > 0 && h.combat.spells.every((s) => s.target === behind), `${h.combat.spells.length} spells`);
+}
+{
+  const kb = keyboard();
+  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, -3)], extra: { input: kb } });
+  const mana0 = h.actor.mana;
+  h.abilities.use(0, 0);
+  h.abilities.update(0.1, 0.1);
+  ck('a quiet frame with no key pressed does not put it down', !!h.abilities.pending);
+  kb.press('escape');
+  h.abilities.update(0.1, 0.1);
+  ck('Escape puts the spell down', h.abilities.pending === null);
+  ck('and says so rather than going quiet', /no longer waiting for a target/.test(said(h)), said(h).split('|').pop().trim());
+  ck('and there is nothing to refund, because nothing was paid',
+    h.actor.mana === mana0 && h.actor.stamina === 200, `${h.actor.mana} mana, ${h.actor.stamina} stamina`);
+  kb.release();
+}
+{
+  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, -3)] });
+  h.abilities.use(0, 0);
+  h.abilities.update(0.1, PENDING_SECONDS - 0.001);
+  ck(`at ${PENDING_SECONDS - 0.001} s it is still waiting`, !!h.abilities.pending, 'held');
+  h.abilities.update(0.1, PENDING_SECONDS);
+  ck(`and at exactly ${PENDING_SECONDS} s it lapses`, h.abilities.pending === null);
+  ck('saying how long it waited', /6 seconds/.test(said(h)), said(h).split('|').pop().trim());
+}
+{
+  const h = harness({ bar: ['fireball', 'lightning'], monsters: [mob('Skeleton', 0, -3)] });
+  h.abilities.use(0, 0);
+  h.abilities.use(1, 0.2);
+  ck('reaching for another ability puts the first one down, by name',
+    /Fireball is no longer waiting for a target: you reached for Lightning instead/.test(said(h)),
+    said(h).split('|').filter((s) => /no longer waiting/.test(s))[0] || 'nothing said');
+  ck('and the second one is the one now waiting', h.abilities.pending?.ability.id === 'lightning',
+    h.abilities.pending?.ability.id || 'none');
+}
+{
+  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, -3)] });
+  h.abilities.use(0, 0);
+  const r = h.abilities.use(0, 0.2);
+  ck('pressing the same key again puts it down rather than picking it back up',
+    r.cancelled === true && h.abilities.pending === null && /you pressed it again/.test(said(h)),
+    said(h).split('|').pop().trim());
+  ck('and that costs nothing either', h.actor.mana === 200, `${h.actor.mana}`);
+}
+{
+  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, -3)] });
+  h.abilities.use(0, 0);
+  const r = h.abilities.onTargetPicked(null, 0.3);
+  ck('a click on bare ground puts it down and says so',
+    r.ok === false && h.abilities.pending === null && /clicked bare ground/.test(said(h)), r.reason);
+}
+{
+  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, -3)] });
+  const mana0 = h.actor.mana;
+  h.abilities.use(0, 0);
+  const far = mob('Far Skeleton', 0, 40);
+  const r = h.abilities.onTargetPicked(far, 0.3);
+  ck('clicking one 40 m off, with a 20 m spell, says the distance and the reach',
+    r.ok === false && r.outOfRange === true && /40\.0 m away and the reach is 20 m/.test(said(h)),
+    said(h).split('|').pop().trim());
+  ck('and it costs nothing', h.actor.mana === mana0, `${h.actor.mana}`);
+}
+{
+  const dead = mob('Bones', 0, -3, { health: 0 });
+  const h = harness({ bar: ['fireball'], monsters: [dead] });
+  h.abilities.use(0, 0);
+  const r = h.abilities.onTargetPicked(dead, 0.3);
+  ck('clicking a corpse is not a target for Fireball, and it says which corpse',
+    r.ok === false && /Bones is not something Fireball can be aimed at/.test(said(h)), said(h).split('|').pop().trim());
+}
+
+console.log('abilities_runtime: and the four kinds that never wait');
+{
+  // a chosen target in reach casts at once, exactly as before
+  const near = mob('Skeleton', 0, 4);
+  const h = harness({ bar: ['fireball'], monsters: [near] });
+  const r = h.abilities.use(0, 0);
+  ck('a target already in front casts straight away and holds nothing',
+    r.ok === true && h.abilities.pending === null, r.reason || 'cast');
+  ck('and the cursor is not a crosshair', h.abilities.cursor === '', `"${h.abilities.cursor}"`);
+}
+{
+  // the chosen target, out of reach: a distance to walk, not a question
+  const far = mob('Skeleton', 0, 40);
+  const targeting = createTargeting(null, null, { targets: () => [far] }, {
+    self: null, pos: () => ({ x: 0, y: 0, z: 0 }), yaw: () => 0,
+  });
+  targeting.set(far);
+  const h = harness({ bar: ['fireball'], monsters: [far], extra: { targeting } });
+  const r = h.abilities.use(0, 0);
+  ck('a CHOSEN target 40 m off refuses with the distance and does not wait',
+    r.ok === false && r.outOfRange === true && h.abilities.pending === null && /40\.0 m away and the reach is 20 m/.test(r.reason),
+    r.reason);
+  ck('and it tells the player to walk closer', /Walk closer/.test(said(h)), said(h).split('|').pop().trim());
+  ck('and takes no mana for it', h.actor.mana === 200, `${h.actor.mana}`);
+}
+{
+  const h = harness({ bar: ['meteor'] });                       // target ground, effect aoe
+  const r = h.abilities.use(0, 0);
+  ck('an area spell with nobody in sight never waits: it lands where the cursor is',
+    r.ok === true && h.abilities.pending === null, r.reason || 'cast');
+  ck('and it draws the ground ring instead of a crosshair',
+    h.effects.calls.includes('groundRing') && h.abilities.cursor === '', h.effects.calls.join(','));
+}
+{
+  const h = harness({ bar: ['whirlwind'] });                    // target self, effect aoe
+  const r = h.abilities.use(0, 0);
+  ck('an area swing around you never waits either', r.casting === true && h.abilities.pending === null);
+}
+{
+  const h = harness({ bar: ['battleCry'] });                    // target self, a buff
+  const r = h.abilities.use(0, 0);
+  ck('a self buff never waits', r.ok === true && h.abilities.pending === null, r.reason || 'used');
+}
+{
+  const h = harness({ bar: ['heal'] });                         // target ally
+  const r = h.abilities.use(0, 0);
+  ck('an ally spell with nobody chosen heals you rather than waiting',
+    r.ok === true && h.abilities.pending === null, r.reason || 'used');
+}
+{
+  const h = harness({ bar: ['powerStrike'] });                  // enemy, but arms a swing
+  const r = h.abilities.use(0, 0);
+  ck('an armed swing wants nobody in particular and never waits',
+    r.ok === true && h.abilities.pending === null, r.reason || 'used');
+}
+{
+  // counted, not guessed: which of the 78 can be held on the cursor
+  const waits = ABILITIES.filter((a) => a.target === 'enemy' && !a.effect?.nextSwing);
+  const byTarget = {};
+  for (const a of ABILITIES) byTarget[a.target] = (byTarget[a.target] || 0) + 1;
+  console.log(`     ${waits.length} of ${ABILITIES.length} can wait on the cursor; targets ${JSON.stringify(byTarget)}`);
+  let held = 0;
+  for (const a of ABILITIES) {
+    if (a.passive) continue;
+    const h = harness({ bar: [a.id] });                          // an empty world: nobody anywhere
+    h.abilities.use(0, 0);
+    if (h.abilities.pending) held++;
+  }
+  ck('pressed in an empty world, exactly the enemy spells that are not armed swings wait',
+    held === waits.length, `${held} waited, ${waits.length} expected`);
+}
+{
+  // The facing, driven at four points of the compass. Three of the four are
+  // outside the 120 degree cone in front, so they arrive by the held cursor,
+  // which is the path a player takes when he turns round to hit something.
+  const rows = [[0, 6, 0], [6, 0, Math.PI / 2], [0, -6, Math.PI], [-6, 0, -Math.PI / 2]];
+  const wrong = [];
+  const byPath = [];
+  for (const [x, z, want] of rows) {
+    const m = mob('Skeleton', x, z);
+    const h = harness({ bar: ['magicArrow'], monsters: [m] });
+    const r = h.abilities.use(0, 0);
+    byPath.push(r.pending ? 'held' : 'at once');
+    if (r.pending) h.abilities.onTargetPicked(m, 0.2);
+    const got = h.player.state.yaw;
+    if (Math.abs(Math.atan2(Math.sin(got - want), Math.cos(got - want))) > 1e-9) {
+      wrong.push(`(${x},${z}) got ${got.toFixed(3)} want ${want.toFixed(3)}`);
+    }
+  }
+  ck('a cast turns the player onto the target, at all four compass points',
+    wrong.length === 0, wrong.join(' / ') || `north, east, south, west (${byPath.join(', ')})`);
+}
+{
+  const h = harness({ bar: ['battleCry'] });
+  h.player.state.yaw = 1.234;
+  h.abilities.use(0, 0);
+  ck('and a spell on yourself does not spin you round', h.player.state.yaw === 1.234, String(h.player.state.yaw));
+}
+{
+  const h = harness({ bar: ['fireball'] });
+  ck('onTargetPicked with nothing held is null, so main.js may call it every click',
+    h.abilities.onTargetPicked(mob('Skeleton', 0, 2), 0) === null);
 }
 
 // --- Whirlwind, and the radius it really uses --------------------------------------
@@ -521,12 +747,12 @@ console.log('abilities_runtime: the rest of the kinds do something you can point
   const h = harness({ bar: ['meteor'], monsters: [mob('a', 0, 6)] });
   h.abilities.use(0, 0);
   h.abilities.update(2.5, 2.5);
-  ck('Meteor does not land the moment it is cast', h.combat.spells.length === 0 && h.abilities.pending.length === 1,
-    `${h.abilities.pending.length} falling`);
+  ck('Meteor does not land the moment it is cast', h.combat.spells.length === 0 && h.abilities.delayed.length === 1,
+    `${h.abilities.delayed.length} falling`);
   ck('and it telegraphs, so you can get out from under it', h.effects.calls.includes('column'));
   h.abilities.update(1.5, 4.0);
   ck('and 1.5 s later it lands on what is standing there',
-    h.combat.spells.length === 1 && h.abilities.pending.length === 0, `${h.combat.spells.length} hit`);
+    h.combat.spells.length === 1 && h.abilities.delayed.length === 0, `${h.combat.spells.length} hit`);
 }
 {
   const h = harness({ bar: ['hide'] });

@@ -8,7 +8,7 @@
 import {
   pickTarget, inCone, angleTo, flatDistance, isTargetable, targetFrame,
   tierColour, tierForSkill, playerTier, TIER_STEPS, TIER_BANDS,
-  DEFAULT_HALF_ANGLE, COMBAT_SKILLS, MAX_PLAYER_TIER,
+  DEFAULT_HALF_ANGLE, COMBAT_SKILLS, MAX_PLAYER_TIER, createTargeting,
 } from './targeting.js';
 
 let pass = 0, fail = 0;
@@ -105,6 +105,58 @@ console.log('targeting: pickTarget');
 {
   const r = pickTarget({ cursorHit: null, candidates: [], pos: me, yaw: 0, range: 5, nearestHostile: () => null });
   ck('and when it finds nothing that is still a refusal with words', r.target === null && r.reason.includes('5 m'), r.reason);
+}
+
+// --- acquire, which is the door every ability goes through ----------------------
+//
+// Three answers wearing one shape, and they must not be mistaken for one
+// another: somebody to hit, somebody chosen but too far, and nobody at all.
+// The middle one is a distance to walk; the last one is a question for the
+// player, and abilities_runtime holds the spell on the cursor to ask it.
+console.log('targeting: acquire tells "too far" apart from "nobody there"');
+{
+  const near = mob('Skeleton', 0, 4);
+  const far = mob('Ogre', 0, 40);
+  const t = createTargeting(null, null, { targets: () => [near, far] }, {
+    pos: () => ({ x: 0, y: 0, z: 0 }), yaw: () => 0,
+  });
+
+  const none = t.acquire({ range: 20 });
+  ck('with nothing chosen the cone answers', none.target === near && none.how === 'front', none.reason);
+  ck('and that answer is not flagged out of range', !none.outOfRange);
+
+  t.set(near);
+  const mine = t.acquire({ range: 20 });
+  ck('a chosen target in reach is the one used', mine.target === near && mine.how === 'current', mine.reason);
+
+  t.set(far);
+  const away = t.acquire({ range: 20 });
+  ck('a chosen target out of reach is NOT quietly swapped for the nearer one',
+    away.target === null && away.blocked === far, away.target ? away.target.name : 'nobody');
+  ck('it is flagged out of range and names the distance and the reach',
+    away.outOfRange === true && /Ogre is 40\.0 m away and the reach is 20 m/.test(away.reason), away.reason);
+  ck('and the distance comes back as a number too', away.dist === 40, String(away.dist));
+
+  // the other way: widen the reach and the same target is simply the target
+  const wide = t.acquire({ range: 50 });
+  ck('with 50 m of reach that same target needs no walking',
+    wide.target === far && wide.how === 'current' && !wide.outOfRange, wide.reason);
+
+  const empty = createTargeting(null, null, { targets: () => [] }, {
+    pos: () => ({ x: 0, y: 0, z: 0 }), yaw: () => 0,
+  });
+  const nobody = empty.acquire({ range: 20 });
+  ck('an empty world is "nobody there", and NOT out of range',
+    nobody.target === null && !nobody.outOfRange && /nothing hostile within 20 m/.test(nobody.reason), nobody.reason);
+}
+{
+  const far = mob('far', 0, 30);
+  const r = pickTarget({ cursorHit: far, candidates: [far], pos: me, yaw: 0, range: 20 });
+  ck('a cursor hit out of range carries the same flag, and who blocked it',
+    r.outOfRange === true && r.blocked === far, r.reason);
+  const near = mob('near', 0, 3);
+  const ok = pickTarget({ cursorHit: near, candidates: [near], pos: me, yaw: 0, range: 20 });
+  ck('and a cursor hit inside it carries neither', !ok.outOfRange && !ok.blocked, ok.reason);
 }
 
 // --- tiers and colours ---------------------------------------------------------

@@ -271,8 +271,11 @@ console.log('\nforage: the live field streams, picks, is harvested and grows bac
     sampleAt: () => ({ biome: 'meadow', moist: 0.3 }),
     heightAt: () => 0,
   };
+  // The field owns one clock and this section drives it. Every `now` below is
+  // within a month of that clock, which is what makes them readings of it and
+  // not of another; a genuinely foreign clock is driven further down.
   const ff = createForageField(scene, {
-    field: world, season: 'Autumn', treesFor: () => T,
+    field: world, season: 'Autumn', treesFor: () => T, now: () => 0,
   });
   const moved = ff.update(0, 0, 'Autumn', 0);
   check('the first update loads a 3x3 ring', moved && ff.chunkCount === 9, `${ff.chunkCount} chunks`);
@@ -325,6 +328,129 @@ console.log('\nforage: the live field streams, picks, is harvested and grows bac
 
   ff.dispose();
   check('disposing empties the scene of forage', scene.getObjectByName('world-forage') == null || ff.chunkCount === 0);
+}
+
+// ============================================ a picked one goes, and stays gone
+//
+// The bug this measures: a harvested mushroom stayed standing. Two separate
+// causes, both driven here, and both driven the other way as well.
+console.log('\nforage: a harvest takes the mushroom out of the world the same frame');
+{
+  const scene = new THREE.Scene();
+  const T = trees(30, 21);
+  const world = { seed: 4, sampleAt: () => ({ biome: 'meadow', moist: 0.3 }), heightAt: () => 0 };
+  let clock = 500_000;
+  const ff = createForageField(scene, { field: world, season: 'Autumn', treesFor: () => T, now: () => clock });
+  ff.update(0, 0, 'Autumn');
+
+  // pick the one a ray really hits, so the thing measured is the thing drawn
+  const rec = ff.records().find((r) => !r.onTrunk) || ff.records()[0];
+  const down = () => {
+    const ray = new THREE.Raycaster();
+    ray.set(new THREE.Vector3(rec.x, rec.y + 6, rec.z), new THREE.Vector3(0, -1, 0));
+    return ff.pick(ray);
+  };
+  const meshOf = () => {
+    for (const child of scene.getObjectByName('world-forage').children) {
+      for (const m of child.children) if (m.userData.forageMap?.includes(rec)) return m;
+    }
+    return null;
+  };
+  const im = meshOf();
+  check('the record is drawn by an InstancedMesh before it is picked', !!im, im ? `${im.name} count ${im.count}` : 'no mesh holds it');
+  const drawnBefore = im.count;
+  const hitBefore = down();
+  check('and a ray straight down finds it', !!hitBefore && hitBefore.rec === rec, hitBefore ? hitBefore.id : 'nothing');
+
+  const rebuildsBefore = ff.stats.rebuilds;
+  ff.remove(rec);
+  check('after the pick the mesh draws one fewer instance', im.count === drawnBefore - 1, `${im.count}, was ${drawnBefore}`);
+  check('and the record is no longer in the ray\'s way', down() === null || down().rec !== rec, String(down()?.id));
+  check('and NOTHING was rebuilt to do it', ff.stats.rebuilds === rebuildsBefore, `${ff.stats.rebuilds - rebuildsBefore} rebuilds`);
+  check('and every other instance still stands', ff.count > 0 && im.count === drawnBefore - 1);
+
+  // the other direction: it comes back the same way, in the same slot family
+  clock += REGROW_MS;
+  const back = ff.regrow();
+  check('eighteen minutes on it grows back', back >= 1 && ff.records().includes(rec), `${back} came back`);
+  check('the mesh draws it again', im.count === drawnBefore, `${im.count} of ${drawnBefore}`);
+  check('and a ray finds it once more', down()?.rec === rec, String(down()?.id));
+  check('with no rebuild for that either', ff.stats.rebuilds === rebuildsBefore, `${ff.stats.rebuilds - rebuildsBefore} rebuilds`);
+
+  // and the whole kind picked leaves a mesh drawing nothing, counted as nothing
+  const kind = rec.id;
+  const sameKind = ff.records().filter((r) => r.chunk === rec.chunk && r.id === kind);
+  const callsBefore = ff.stats.drawCalls;
+  for (const r of sameKind) ff.remove(r);
+  check(`picking all ${sameKind.length} ${kind} in the chunk empties its mesh`, im.count === 0, `count ${im.count}`);
+  check('and an empty mesh is not counted as a draw call', ff.stats.drawCalls === callsBefore - 1,
+    `${ff.stats.drawCalls}, was ${callsBefore}`);
+  // an emptied mesh is still in the list a raycast walks, so prove it neither
+  // throws nor swallows the hit behind it
+  {
+    const other = ff.records().find((r) => r.chunk === rec.chunk && r.id !== kind);
+    const ray = new THREE.Raycaster();
+    ray.set(new THREE.Vector3(other.x, other.y + 6, other.z), new THREE.Vector3(0, -1, 0));
+    const got = ff.pick(ray);
+    check('a raycast past an emptied mesh still finds what is behind it', got?.rec === other, got ? got.id : 'nothing');
+    const sky = new THREE.Raycaster();
+    sky.set(new THREE.Vector3(0, 900, 0), new THREE.Vector3(0, 1, 0));
+    check('and a ray into the sky is still nothing, not a throw', ff.pick(sky) === null);
+  }
+  clock += REGROW_MS;
+  ff.regrow();
+  check('and all of them come back together', im.count === sameKind.length, `${im.count} of ${sameKind.length}`);
+  ff.dispose();
+}
+
+console.log(`\nforage: one clock, and a reading from another is translated onto it`);
+{
+  const scene = new THREE.Scene();
+  const T = trees(30, 21);
+  const world = { seed: 4, sampleAt: () => ({ biome: 'meadow', moist: 0.3 }), heightAt: () => 0 };
+  // exactly main.js's pair of clocks: the field runs on Date.now(), and the
+  // click hands over the requestAnimationFrame stamp
+  let wall = 1_788_000_000_000;
+  const ff = createForageField(scene, { field: world, season: 'Autumn', treesFor: () => T, now: () => wall });
+  ff.update(0, 0, 'Autumn');
+  const rec = ff.records()[0];
+  const before = ff.count;
+  const rafStamp = 42_000;                 // 42 seconds after the page opened
+
+  ff.remove(rec, rafStamp);
+  check('a stamp from the page clock is translated onto the field\'s own',
+    rec.harvestedUntil === wall + REGROW_MS, `${rec.harvestedUntil} against ${wall + REGROW_MS}`);
+  check('and the field says out loud that it saw a foreign clock', ff.stats.foreignClock === 1, `${ff.stats.foreignClock}`);
+  ff.update(0, 0, 'Autumn');                // the very next frame, as main.js runs it
+  check('so the same frame does NOT grow it straight back', ff.count === before - 1, `${ff.count} of ${before}`);
+  check('and it is still gone a minute later', (wall += 60_000, ff.regrow(), ff.count) === before - 1, `${ff.count}`);
+  check('and it does come back at eighteen minutes', (wall += REGROW_MS, ff.regrow(), ff.count) === before, `${ff.count}`);
+
+  // a caller who stays on its own clock throughout keeps its elapsed time:
+  // eighteen minutes of page clock is eighteen minutes of regrowth
+  {
+    const scene2 = new THREE.Scene();
+    let w2 = 1_788_000_000_000;
+    const gg = createForageField(scene2, { field: world, season: 'Autumn', treesFor: () => T, now: () => w2 });
+    gg.update(0, 0, 'Autumn');
+    const r2 = gg.records()[0];
+    const n2 = gg.count;
+    gg.remove(r2, 42_000);                          // the page clock, all the way through
+    check('a page-clock caller is still gone a minute later on its own clock',
+      gg.regrow(42_000 + 60_000) === 0 && gg.count === n2 - 1, `${gg.count} of ${n2}`);
+    check('and gets it back at eighteen minutes of its own clock',
+      gg.regrow(42_000 + REGROW_MS) === 1 && gg.count === n2, `${gg.count} of ${n2}`);
+    gg.dispose();
+  }
+
+  // the other direction: a reading that IS this clock's is honoured to the ms
+  const seen = ff.stats.foreignClock;
+  const rec2 = ff.records()[1];
+  ff.remove(rec2, wall + 1234);
+  check('a reading on the field\'s own clock is used exactly as given',
+    rec2.harvestedUntil === wall + 1234 + REGROW_MS, `${rec2.harvestedUntil - wall}`);
+  check('and nothing was counted as foreign', ff.stats.foreignClock === seen, `${ff.stats.foreignClock}`);
+  ff.dispose();
 }
 
 console.log('\nforage: the field refuses to be built on nothing');

@@ -111,6 +111,27 @@ export function nextSeasonAt(nowMs, epoch = 0) {
  */
 export const REGROW_MS = DAY_MS * 3;                   // 1,080,000
 
+/**
+ * TWO CLOCKS ARE ONE CLOCK TOO MANY.
+ *
+ * `remove` is called from a click and `regrow` from the frame loop, and until
+ * this constant existed the two were driven by different clocks. main.js hands
+ * `foraging.harvest` the requestAnimationFrame stamp (`performance.now()`,
+ * tens of thousands of milliseconds after the page opened) and hands
+ * `forage.update` no clock at all, so regrowth ran on `Date.now()`, about
+ * 1.79e12. Measured before this was written: a chanterelle picked at 42,000
+ * was stamped to grow back at 1,122,000, and the very next `update` in the
+ * SAME FRAME read 1.79e12 >= 1,122,000, grew it back and redrew it. The pack
+ * got the mushroom and the mushroom never left the wood.
+ *
+ * So the field owns one clock (`opts.now`, `Date.now` by default) and every
+ * `now` handed in at the door is measured against it. A reading more than a
+ * month from the field's own is not this clock's time at all: it is ignored,
+ * the field's own reading is used, and `stats.foreignClock` counts it so the
+ * miswiring is visible rather than silent.
+ */
+export const CLOCK_SKEW_MS = 30 * 86_400_000;          // a month of real time
+
 // ---------------------------------------------------------------------------
 // Biome mapping
 // ---------------------------------------------------------------------------
@@ -751,34 +772,69 @@ export function createForageField(sc, opts = {}) {
   const treesFor = typeof opts.treesFor === 'function' ? opts.treesFor : null;
   const material = forageMaterial();
   const chunks = new Map();          // 'cx,cz' -> { group, meshes: Map(id -> mesh), recs: [] }
-  let season = SEASONS.includes(opts.season) ? opts.season : seasonAt(Date.now());
+  const clock = typeof opts.now === 'function' ? opts.now : () => Date.now();
+  let season = SEASONS.includes(opts.season) ? opts.season : seasonAt(clock());
   let lastCX = null, lastCZ = null;
-  const stats = { chunks: 0, records: 0, harvested: 0, rebuilds: 0, drawCalls: 0, treeless: 0 };
+  const stats = { chunks: 0, records: 0, harvested: 0, rebuilds: 0, drawCalls: 0, treeless: 0, foreignClock: 0 };
+
+  /**
+   * The one door every `now` comes through. See CLOCK_SKEW_MS. A reading on
+   * the field's own clock is used exactly as it was given. A reading from
+   * somewhere else is not refused, which would throw away the caller's
+   * intended elapsed time: it is TRANSLATED. The field learns the offset the
+   * first time it sees a foreign clock, by pinning that first reading to its
+   * own reading of the same instant, and applies the same offset to every
+   * reading afterwards. So a caller who picks at 42,000 and asks again at
+   * 43,000 gets one second of elapsed time, exactly as it meant to, and it is
+   * one second on the same clock the regrowth sweep uses.
+   *
+   * `stats.foreignClock` counts the translations, so the miswiring is visible.
+   */
+  let clockOffset = null;
+  function at(now) {
+    const mine = clock();
+    if (!Number.isFinite(now)) return mine;
+    if (Math.abs(now - mine) <= CLOCK_SKEW_MS) return now;
+    if (clockOffset === null) clockOffset = mine - now;
+    stats.foreignClock++;
+    return now + clockOffset;
+  }
 
   const heightAt = (x, z) => field.heightAt(x, z);
   const _mm = new THREE.Matrix4(), _pp = new THREE.Vector3(), _qq = new THREE.Quaternion(), _ss = new THREE.Vector3();
 
-  /** Draw one chunk's live records: one mesh per forageable that still stands. */
+  /** One record's transform, written into instance slot `i` of `im`. */
+  function writeMatrix(im, i, rec) {
+    _pp.set(rec.x, rec.y, rec.z);
+    _qq.setFromAxisAngle(YUP, rec.yaw);
+    _ss.setScalar(rec.scale);
+    _mm.compose(_pp, _qq, _ss);
+    im.setMatrixAt(i, _mm);
+  }
+
+  /**
+   * Draw one chunk. Every record of a kind gets an instance slot, live ones
+   * FIRST, and `im.count` is set to how many are standing. That is what lets a
+   * pick hide exactly one mushroom in place (see `hideInstance`) instead of
+   * throwing away and rebuilding every InstancedMesh in the chunk, and it is
+   * what lets regrowth put the same one back without a rebuild either. Three's
+   * InstancedMesh honours `count` in both `raycast` and `computeBoundingSphere`,
+   * so a hidden slot is neither drawn nor picked.
+   */
   function drawChunk(entry) {
     for (const m of entry.meshes.values()) { entry.group.remove(m); m.dispose?.(); }
     entry.meshes.clear();
     const byId = new Map();
     for (const rec of entry.recs) {
-      if (rec.harvestedUntil) continue;
-      if (!byId.has(rec.id)) byId.set(rec.id, []);
-      byId.get(rec.id).push(rec);
+      if (!byId.has(rec.id)) byId.set(rec.id, { live: [], picked: [] });
+      byId.get(rec.id)[rec.harvestedUntil ? 'picked' : 'live'].push(rec);
     }
-    for (const [id, recs] of byId) {
+    for (const [id, both] of byId) {
+      const recs = both.live.concat(both.picked);
       const geo = forageGeometry(id, 900);
       const im = new THREE.InstancedMesh(geo, material, recs.length);
-      for (let i = 0; i < recs.length; i++) {
-        const rec = recs[i];
-        _pp.set(rec.x, rec.y, rec.z);
-        _qq.setFromAxisAngle(YUP, rec.yaw);
-        _ss.setScalar(rec.scale);
-        _mm.compose(_pp, _qq, _ss);
-        im.setMatrixAt(i, _mm);
-      }
+      for (let i = 0; i < recs.length; i++) writeMatrix(im, i, recs[i]);
+      im.count = both.live.length;
       im.instanceMatrix.needsUpdate = true;
       im.castShadow = true;
       im.receiveShadow = true;
@@ -791,6 +847,52 @@ export function createForageField(sc, opts = {}) {
       entry.meshes.set(id, im);
     }
     stats.rebuilds++;
+  }
+
+  /**
+   * Take one record out of the drawing, this instant and without a rebuild.
+   * The slot it sat in is swapped with the last live slot and the count comes
+   * down by one, so the mushroom stops being drawn AND stops being raycast on
+   * the very frame it was picked. Returns false when the mesh does not hold it,
+   * which is the caller's signal to fall back to `drawChunk`.
+   */
+  function hideInstance(entry, rec) {
+    const im = entry.meshes.get(rec.id);
+    if (!im) return false;
+    const map = im.userData.forageMap;
+    const i = map.indexOf(rec);
+    if (i < 0 || i >= im.count) return false;
+    const last = im.count - 1;
+    if (i !== last) {
+      const other = map[last];
+      map[i] = other; map[last] = rec;
+      writeMatrix(im, i, other);
+      writeMatrix(im, last, rec);
+    }
+    im.count = last;
+    im.instanceMatrix.needsUpdate = true;
+    im.computeBoundingSphere();
+    return true;
+  }
+
+  /** The same move backwards: a regrown record takes the first free slot. */
+  function showInstance(entry, rec) {
+    const im = entry.meshes.get(rec.id);
+    if (!im) return false;
+    const map = im.userData.forageMap;
+    const j = map.indexOf(rec);
+    if (j < 0 || j < im.count) return false;
+    const slot = im.count;
+    if (j !== slot) {
+      const other = map[slot];
+      map[slot] = rec; map[j] = other;
+      writeMatrix(im, j, other);
+    }
+    writeMatrix(im, slot, rec);
+    im.count = slot + 1;
+    im.instanceMatrix.needsUpdate = true;
+    im.computeBoundingSphere();
+    return true;
   }
 
   function addChunk(cx, cz) {
@@ -831,9 +933,14 @@ export function createForageField(sc, opts = {}) {
     for (const [a, b] of keys) addChunk(a, b);
   }
 
+  /**
+   * A mesh whose whole kind has been picked has `count` 0, and three's buffer
+   * renderer returns before issuing a draw for an instance count of zero. So
+   * an empty mesh is not a draw call and is not counted as one.
+   */
   function drawCalls() {
     let n = 0;
-    for (const e of chunks.values()) n += e.meshes.size;
+    for (const e of chunks.values()) for (const m of e.meshes.values()) if (m.count > 0) n++;
     return n;
   }
 
@@ -861,7 +968,7 @@ export function createForageField(sc, opts = {}) {
      * Stream the 3x3 ring around the player, and rebuild the whole layer when
      * the season turns. Cheap when nothing moved: two integer compares.
      */
-    update(px, pz, nextSeason = null, now = Date.now()) {
+    update(px, pz, nextSeason = null, now = undefined) {
       let changed = false;
       if (nextSeason && SEASONS.includes(nextSeason) && nextSeason !== season) {
         season = nextSeason;
@@ -921,26 +1028,39 @@ export function createForageField(sc, opts = {}) {
     /**
      * Picked. The record is not deleted: it is marked, so the same patch grows
      * back in the same place, which is what makes a valley worth remembering.
+     *
+     * It stops being drawn and stops being picked THIS FRAME, through
+     * `hideInstance`, which swaps its instance slot with the last live one and
+     * takes the count down. `drawChunk` is only the fallback for a record whose
+     * mesh has since been rebuilt without it.
      */
-    remove(rec, now = Date.now()) {
+    remove(rec, now = undefined) {
       if (!rec || rec.harvestedUntil) return false;
       const entry = chunks.get(rec.chunk);
-      rec.harvestedUntil = now + REGROW_MS;
+      rec.harvestedUntil = at(now) + REGROW_MS;
       stats.harvested++;
-      if (entry) drawChunk(entry);
+      if (entry && !hideInstance(entry, rec)) drawChunk(entry);
       stats.drawCalls = drawCalls();
       return true;
     },
 
-    /** Anything whose clock has run out comes back. Cheap to call every frame. */
-    regrow(now = Date.now()) {
+    /**
+     * Anything whose clock has run out comes back, the same way it went: its
+     * instance slot is handed back and the count goes up by one. Cheap to call
+     * every frame, and it rebuilds a chunk only when a record's mesh has gone.
+     */
+    regrow(now = undefined) {
+      const t = at(now);
       let back = 0;
       for (const e of chunks.values()) {
-        let any = false;
+        let rebuild = false;
         for (const rec of e.recs) {
-          if (rec.harvestedUntil && now >= rec.harvestedUntil) { rec.harvestedUntil = 0; any = true; back++; }
+          if (!rec.harvestedUntil || t < rec.harvestedUntil) continue;
+          rec.harvestedUntil = 0;
+          back++;
+          if (!showInstance(e, rec)) rebuild = true;
         }
-        if (any) drawChunk(e);
+        if (rebuild) drawChunk(e);
       }
       if (back) stats.drawCalls = drawCalls();
       return back;

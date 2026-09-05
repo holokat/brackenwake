@@ -13,8 +13,10 @@ import { weightsFor, rollKill } from '../mmo/loot.js';
 import { RARITY, RARITY_ORDER, BASES, makeItem, takesRarity, MEAT_BASES, auditItems } from '../mmo/items.js';
 import {
   createLootDrops, auditLootTables, auditLootWords, tableFor, itemBaseFor, rollFor,
-  bagColour, describeItem, listText, BAG_SECONDS, ARMOUR_MATERIAL, meatFor, MEAT_OF, MEAT_BY_KIND,
+  bagColour, describeItem, listText, labelFor, shapeOf, BAG_SECONDS, ARMOUR_MATERIAL,
+  meatFor, MEAT_OF, MEAT_BY_KIND,
 } from './loot_drops.js';
+import { tierFor, MAX_TRIS } from './gold_piles.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -327,6 +329,155 @@ function spread(id, n, seedBase) {
   check('two things and a purse read as a sentence',
     listText([common, rare], 12) === '12 gold, a longsword and a blue longsword', listText([common, rare], 12));
   check('an empty hand says nothing', listText([], 0) === 'nothing');
+}
+
+// ======================================================= gold is not a sack
+//
+// "a gold-only drop uses a pile and an item drop uses a sack". Both directions,
+// on the real drop path, with the real meshes counted.
+{
+  const scene = new THREE.Group();
+  const drops = createLootDrops(scene, {});
+  const meshes = (bag) => { const out = []; bag.node.traverse((o) => { if (o.isMesh) out.push(o); }); return out; };
+  const named = (bag, pre) => meshes(bag).filter((m) => m.name.startsWith(pre));
+  const trisOf = (m) => (m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position.count / 3);
+
+  const purse = drops.drop({ x: 0, y: 0, z: 0 }, { gold: 46 });
+  check('a kill that left nothing but coin leaves a pile of coin',
+    drops.shapeOf(purse) === 'pile:medium' && named(purse, 'gold:').length === 1,
+    `${drops.shapeOf(purse)}, ${named(purse, 'gold:').map((m) => m.name).join(', ')}`);
+  check('and no sack, and no rarity ring, because there is no rarity in a coin',
+    purse.ring === null && named(purse, 'gold:')[0].name === 'gold:medium');
+  check('the pile in the bag is the pile the amount earns',
+    named(purse, 'gold:')[0].userData.gold.amount === 46
+    && named(purse, 'gold:')[0].userData.gold.tier === tierFor(46));
+  check('and it is still under the triangle budget once it is in the world',
+    trisOf(named(purse, 'gold:')[0]) < MAX_TRIS, `${trisOf(named(purse, 'gold:')[0])}`);
+
+  const sword = makeItem({ base: 'longsword', rarity: 'epic', seed: 9 });
+  const gear = drops.drop({ x: 3, y: 0, z: 0 }, { items: [sword] });
+  check('a kill that left gear leaves a sack', drops.shapeOf(gear) === 'sack' && !!gear.ring);
+  check('and no coins beside it, because there was no money in it',
+    named(gear, 'gold:').length === 0);
+  check('the rarity glow still lights the sack purple',
+    gear.ring.material.color.getHexString() === RARITY.epic.colour.replace('#', ''),
+    `#${gear.ring.material.color.getHexString()} against ${RARITY.epic.colour}`);
+
+  const both = drops.drop({ x: 6, y: 0, z: 0 }, { items: [sword], gold: 12 });
+  check('a sack with money in it keeps the sack and puts coins beside it',
+    drops.shapeOf(both) === 'sack+coins' && !!both.ring && named(both, 'gold:').length === 1);
+  check('and the coins really are beside it, not inside it',
+    Math.hypot(named(both, 'gold:')[0].position.x, named(both, 'gold:')[0].position.z) > 0.2,
+    `${named(both, 'gold:')[0].position.x.toFixed(2)}, ${named(both, 'gold:')[0].position.z.toFixed(2)}`);
+  check('the scatter beside a sack is a scatter whatever the purse',
+    named(drops.drop({ x: 9, y: 0, z: 0 }, { items: [sword], gold: 4000 }), 'gold:')[0].name === 'gold:small');
+
+  // the amount picks the pile, at every boundary, through the real drop path
+  const shapes = [[1, 'pile:small'], [30, 'pile:small'], [31, 'pile:medium'],
+    [150, 'pile:medium'], [151, 'pile:large'], [9999, 'pile:large']];
+  const wrong = shapes.filter(([g, want]) => drops.shapeOf(drops.drop({ x: 20 + g, y: 0, z: 0 }, { gold: g })) !== want);
+  check('and every gold boundary drops the pile it should, both ways', wrong.length === 0,
+    wrong.map(([g, want]) => `${g} wanted ${want}`).join('; '));
+
+  // THE CURSOR. Read for both, because a label nobody reads is a label nobody
+  // notices is wrong.
+  check('the cursor calls a purse a pile of gold', labelFor(purse) === 'a pile of 46 gold', labelFor(purse));
+  check('and a sack a sack, with what is in it and the money last',
+    labelFor(both) === 'a sack: a purple longsword and 12 gold', labelFor(both));
+  check('a sack of gear alone names no money',
+    labelFor(gear) === 'a sack: a purple longsword', labelFor(gear));
+  check('two things in a sack read as a sentence',
+    labelFor({ items: [sword, makeItem({ base: 'kite', rarity: 'common', seed: 2 })], gold: 5 })
+      === 'a sack: a purple longsword, a kite shield and 5 gold',
+    labelFor({ items: [sword, makeItem({ base: 'kite', rarity: 'common', seed: 2 })], gold: 5 }));
+  check('and nothing at all is nothing', labelFor(null) === 'nothing'
+    && labelFor({ items: [], gold: 0 }) === 'an empty sack');
+  check('shapeOf agrees with labelFor about what is a pile',
+    shapeOf([], 46).startsWith('pile:') && shapeOf([sword], 46) === 'sack+coins'
+    && shapeOf([sword], 0) === 'sack');
+
+  // the pick path is unchanged: a real raycast, straight down, finds both.
+  // The world matrices are stale until something updates them; the renderer
+  // does that every frame and this harness has no renderer, so it says so.
+  const ray = new THREE.Raycaster();
+  scene.updateMatrixWorld(true);
+  ray.set(new THREE.Vector3(0, 4, 0), new THREE.Vector3(0, -1, 0));
+  check('a raycast finds the pile of gold under the cursor', drops.pick(ray) === purse);
+  ray.set(new THREE.Vector3(3, 4, 0), new THREE.Vector3(0, -1, 0));
+  check('and the sack', drops.pick(ray) === gear);
+  ray.set(new THREE.Vector3(3, 4, 40), new THREE.Vector3(0, -1, 0));
+  check('and nothing where there is nothing', drops.pick(ray) === null);
+
+  // a pile does not turn on the spot. A sack does.
+  const beforeSack = gear.node.rotation.y, beforePile = purse.node.rotation.y;
+  drops.update(1);
+  check('a sack turns where it fell', gear.node.rotation.y !== beforeSack);
+  check('and coins on the ground lie still', purse.node.rotation.y === beforePile);
+  drops.dispose();
+}
+
+// ================================== what is left changes what it looks like
+{
+  const scene = new THREE.Group();
+  const said = [];
+  const drops = createLootDrops(scene, { hud: { log: (t) => said.push(t) } });
+  const named = (bag, pre) => { const out = []; bag.node.traverse((o) => { if (o.isMesh && o.name.startsWith(pre)) out.push(o); }); return out; };
+
+  // take the sword out of a mixed bag and what stays behind is a pile of coin
+  const sword = makeItem({ base: 'longsword', rarity: 'rare', seed: 5 });
+  const mixed = drops.drop({ x: 0, y: 0, z: 0 }, { items: [sword], gold: 200 });
+  check('it starts as a sack with coins beside it', drops.shapeOf(mixed) === 'sack+coins');
+  const id = mixed.id, node0 = mixed.node;
+  drops.take(mixed, (items) => ({ items: [items[0]], gold: 0 }));
+  check('taking the sword leaves the gold', mixed.gold === 200 && mixed.items.length === 0);
+  check('and what is on the ground is a heap of coin, not an empty sack',
+    drops.shapeOf(mixed) === 'pile:large' && named(mixed, 'gold:').length === 1
+    && named(mixed, 'gold:')[0].name === 'gold:large' && mixed.ring === null,
+    drops.shapeOf(mixed));
+  check('the bag is the same bag, rebuilt, not a new one',
+    mixed.id === id && mixed.node !== node0 && drops.count === 1);
+  check('and the raycast follows it', (() => {
+    const ray = new THREE.Raycaster();
+    scene.updateMatrixWorld(true);
+    ray.set(new THREE.Vector3(0, 4, 0), new THREE.Vector3(0, -1, 0));
+    return drops.pick(ray) === mixed;
+  })());
+  check('the cursor says so too', labelFor(mixed) === 'a pile of 200 gold', labelFor(mixed));
+
+  // and the other direction: take the gold and the coins beside the sack go
+  const helm = makeItem({ base: 'leather_head', rarity: 'uncommon', seed: 6 });
+  const other = drops.drop({ x: 5, y: 0, z: 0 }, { items: [helm], gold: 40 });
+  check('a mixed sack has coins beside it', named(other, 'gold:').length === 1);
+  drops.take(other, () => ({ items: [], gold: 40 }));
+  check('taking only the money leaves a plain sack and no coins',
+    drops.shapeOf(other) === 'sack' && named(other, 'gold:').length === 0 && !!other.ring,
+    drops.shapeOf(other));
+  check('and the helm is still in it', other.items.length === 1 && other.gold === 0);
+
+  // a pile that gives up half its gold becomes a smaller pile
+  const heap = drops.drop({ x: 10, y: 0, z: 0 }, { gold: 400 });
+  check('four hundred gold is a heap', drops.shapeOf(heap) === 'pile:large');
+  drops.take(heap, () => ({ items: [], gold: 380 }));
+  check('and twenty of it left behind is a scatter',
+    drops.shapeOf(heap) === 'pile:small' && named(heap, 'gold:')[0].name === 'gold:small',
+    drops.shapeOf(heap));
+  check('and it still says what stayed', said.some((t) => t.includes('20 gold stays in the sack')),
+    said[said.length - 1]);
+
+  // taking it all is still taking it all
+  drops.take(heap, () => undefined);
+  check('emptying a pile takes it off the ground', drops.count === 2);
+
+  // and the ninety seconds still expire a pile
+  const doomed = drops.drop({ x: 20, y: 0, z: 0 }, { gold: 60 });
+  const pileMat = named(doomed, 'gold:')[0].material;
+  for (let i = 0; i < BAG_SECONDS - 5; i++) drops.update(1);
+  check('a pile of gold fades before it goes', pileMat.opacity < 1 && pileMat.opacity > 0,
+    `opacity ${pileMat.opacity.toFixed(2)}`);
+  for (let i = 0; i < 6; i++) drops.update(1);
+  check('and is gone at ninety seconds', !drops.bags().includes(doomed));
+  drops.dispose();
+  check('disposing clears every pile and sack out of the scene', scene.children.length === 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

@@ -156,8 +156,11 @@ export function pickTarget({
   if (cursorHit && isTargetable(cursorHit, self)) {
     const d = flatDistance(pos, cursorHit.pos || cursorHit);
     if (d <= range) return { target: cursorHit, how: 'cursor', dist: d, reason: 'under the cursor' };
+    // `outOfRange` is named so a caller can tell "too far" from "nothing
+    // there". They want different words and different behaviour: one is a
+    // distance to walk, the other is a question about who you meant.
     return {
-      target: null, how: 'none', dist: d,
+      target: null, how: 'none', dist: d, outOfRange: true, blocked: cursorHit,
       reason: `${cursorHit.name || 'it'} is ${d.toFixed(1)} m away and the reach is ${range} m`,
     };
   }
@@ -272,8 +275,15 @@ export function createTargeting(sc, input, monsters, opts = {}) {
   function acquire({ range = 20, halfAngle = DEFAULT_HALF_ANGLE, pos, yaw, preferCurrent = true } = {}) {
     const at = pos || opts.pos?.() || self?.pos || { x: 0, z: 0 };
     const face = yaw != null ? yaw : (opts.yaw?.() ?? self?.yaw ?? 0);
-    if (preferCurrent && isTargetable(current, self) && flatDistance(at, current.pos || current) <= range) {
-      return { target: current, how: 'current', dist: flatDistance(at, current.pos || current), reason: 'your target' };
+    if (preferCurrent && isTargetable(current, self)) {
+      const d = flatDistance(at, current.pos || current);
+      if (d <= range) return { target: current, how: 'current', dist: d, reason: 'your target' };
+      // A target you chose and cannot reach is a distance to walk, not a
+      // reason to quietly hit something else. Say the number and stop here.
+      return {
+        target: null, how: 'none', dist: d, outOfRange: true, blocked: current,
+        reason: `${current.name || 'your target'} is ${d.toFixed(1)} m away and the reach is ${range} m`,
+      };
     }
     return pickTarget({
       cursorHit: hover, candidates: list(), pos: at, yaw: face, range, halfAngle, self,
