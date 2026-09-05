@@ -264,7 +264,7 @@ export function swingText(res) {
 // knows: it queues a swing, waits for the blow to land, hands the result to the
 // actors, the floaters and the progression, and says so.
 //
-// The five things it owns, and nothing else owns:
+// The six things it owns, and nothing else owns:
 //
 //   1. TIME. `queueSwing` starts the cooldown; the blow lands SWING_LAND_S
 //      later so the number arrives with the animation and not before it.
@@ -277,6 +277,12 @@ export function swingText(res) {
 //      right head, and `damage` becomes `taken` when the head is the player's.
 //   5. DEATH. One place decides a thing is dead, sets 'die', and tells whoever
 //      is listening.
+//   6. WHAT A BLOW COSTS BOTH SIDES. `afterBlow` is the whole of it: the
+//      weapon's seven hit effects through `hit_effects.js`, one hit off any
+//      enchantment counted in hits, the defender's Damage Reflect and Thorns
+//      back down the same line, and the attacker's Stamina Leech. Every one of
+//      those is a bonus key `actor.js` has been summing since W1 and nothing in
+//      the tree read. See docs/mmo/wiring/G11.md.
 //
 // Monsters do not learn. `lessons` are routed to `progression` only for an
 // actor whose `kind` is 'player', because a skeleton has no character document
@@ -285,7 +291,12 @@ export function swingText(res) {
 import {
   resolveMelee, resolveSpell, applyLeech, poisonTick, swingSeconds,
   fallDamage, weaponOf, UNARMED, damage as damageOf, JUMP_ATTACK_MULT,
+  HIT_BASE, HIT_PER_SKILL,
 } from '../mmo/combat_rules.js';
+import {
+  rollHitEffects, rollSpellEffects, applyHitEffects, cssColour, EFFECT_COLOURS,
+  who, target, cap,
+} from './hit_effects.js';
 
 /** Seconds between a swing starting and the blow landing. The animation's fault. */
 export const SWING_LAND_S = 0.3;
@@ -308,7 +319,48 @@ export const BODY_RADIUS = 0.45;
 /** How much further than its reach a swing already in the air may still land. */
 export const REACH_SLACK = 1.5;
 
+/**
+ * `bonuses.parry` in DEFENCE SKILL POINTS per whole point of the fraction.
+ *
+ * 03-ITEMS-LOOT sells a "Parry 2 to 10%" affix and `actor.js` sums it as a
+ * fraction, but `combat_rules.parryChance` reads exactly two things, the
+ * defender's Parrying skill and its SHIELD's `parryFactor`, and takes no
+ * additive term at all. That file is finished and is not editable here, so the
+ * bonus is folded into `bonuses.defence` on a shallow copy of the defender for
+ * the length of one swing.
+ *
+ * The conversion, out loud: `hitChance` moves by HIT_PER_SKILL (0.005) per
+ * point of defence, and the fight the resolver is built around is the even one
+ * at HIT_BASE (0.50). Taking 10% of the blows off an even fight is 0.05 of
+ * absolute hit chance, which is 10 points of defence. So one whole point of the
+ * parry fraction is worth `HIT_BASE / HIT_PER_SKILL` = 100 points, and a 10%
+ * parry affix reads as +10 defence.
+ *
+ * The cost, said plainly: the player sees "miss" and not "parry", because the
+ * roll it moved is the hit roll. When `combat_rules` grows an additive parry
+ * term this constant and `guard()` below both go.
+ */
+export const PARRY_DEFENCE_POINTS = HIT_BASE / HIT_PER_SKILL;
+
+/**
+ * The most of a stun `bonuses.stunResist` may take off. 03 sells the affix at
+ * 10 to 50% and says nothing about stacking, and four pieces of Steadfast
+ * armour would add to 200%. INVENTED: a stun always lands for at least a tenth
+ * of its time, because a status that can be reduced to nothing is a status a
+ * player can build immunity to and then never see again.
+ */
+export const STUN_RESIST_CAP = 0.9;
+
+/**
+ * Thorns is on the armour, so it needs something to prick. An archer thirty
+ * metres away is not touching the breastplate and does not take it; Damage
+ * Reflect is magic and comes back down the same line the blow went up.
+ * INVENTED, and it is the one asymmetry between the two.
+ */
+export const THORNS_MELEE_ONLY = true;
+
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+const clamp01 = (v, hi = 1) => (v < 0 ? 0 : v > hi ? hi : v);
 const alive = (a) => !!a && num(a.health) > 0;
 const posOf = (a) => (a && a.pos ? a.pos : null);
 const isPlayer = (a) => !!a && a.kind === 'player';
@@ -367,18 +419,22 @@ function findSpellDamage(effect) {
 /**
  * The runtime.
  *
- *   const combat = createCombat({ floaters, hud, audio, progression, rng });
+ *   const combat = createCombat({ floaters, hud, audio, progression, recompute, rng });
  *   combat.queueSwing(playerActor, monsterActor, { now, jumpAttack });
  *   combat.update(dt, now);          // in the frame, after monsters.update
  *   combat.onDeath((actor, killer) => ...);
+ *   combat.onHit(({ defender, colour, kind }) => effects.burst(defender.pos, colour));
  *
  * Every argument is optional. With none of them it still resolves fights
- * correctly and silently, which is what the node tests run.
+ * correctly and silently, which is what the node tests run. `recompute` is
+ * `actor.js`'s, and only Hit Dispel wants it: see `hit_effects.stripOneBuff`
+ * for what happens without one, which is correct but one frame slower.
  */
-export function createCombat({ floaters, hud, audio, progression, rng = Math.random } = {}) {
+export function createCombat({ floaters, hud, audio, progression, recompute, rng = Math.random } = {}) {
   const pending = [];              // swings and casts in the air
   const tracked = new Set();       // actors carrying status, or lately hit
   const deathFns = [];
+  const hitFns = [];               // W6's particles: see onHit below
   const lastActionAt = new WeakMap();
   let lastNow = 0;
 
@@ -412,6 +468,25 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
   function onDeath(fn) { if (typeof fn === 'function') deathFns.push(fn); return () => {
     const i = deathFns.indexOf(fn); if (i >= 0) deathFns.splice(i, 1);
   }; }
+
+  /**
+   * Every hit effect that fired, so something with a particle system can paint
+   * it. This file owns no THREE and never will, so the burst is main.js's:
+   *
+   *   combat.onHit(({ defender, colour, kind, damage }) => {
+   *     effects.burst(defender.pos, colour, damage > 20 ? 1.4 : 1);
+   *   });
+   *
+   * `colour` is a NUMBER (0x6fd0ff), which is what `effects.burst` wants, and
+   * `hit_effects.cssColour` is the same value for a floater. Fires once per
+   * effect, on the frame it landed, and never on a miss. `fired` is false for
+   * an effect that resolved to nothing, a dispel that found no buff for
+   * instance, so a listener can choose not to paint one.
+   */
+  function onHit(fn) { if (typeof fn === 'function') hitFns.push(fn); return () => {
+    const i = hitFns.indexOf(fn); if (i >= 0) hitFns.splice(i, 1);
+  }; }
+  const onHitFire = (info) => { for (const fn of hitFns) fn(info); };
 
   /**
    * The one place a thing dies. Sets the animation the model reads, empties the
@@ -471,39 +546,70 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
    * A stronger level replaces a weaker one and refreshes the clock; a weaker
    * one only extends the clock. Either way it says so, because a status nobody
    * was told about is a health bar draining for no reason.
+   *
+   * Three things it also does, all of them for whoever is stopping a monster:
+   *
+   * * `spec.factor` is carried onto the entry, because `monsters.speedOf` reads
+   *   `status.slow.factor` and falls back to its own SLOW_DEFAULT without one.
+   *   Applying a 40% slow that arrives as a 30% one is the silent-effect bug.
+   * * `bonuses.stunResist` shortens a STUN, and only a stun. A root, which is
+   *   what a freeze is, is not a stun and Steadfast armour does not shorten it.
+   * * `spec.quiet` suppresses the floater, for a caller that wants to say the
+   *   word its own way and in its own colour, which is what hit_effects does
+   *   with "frozen".
    */
   function applyStatus(actor, id, spec = {}, now = lastNow) {
     if (!alive(actor)) return null;
     const t = num(now);
     actor.status = actor.status || {};
     const level = Math.max(0, num(spec.level) || 0);
-    let until, perSecond = null;
+    let until, perSecond = null, seconds = Math.max(0, num(spec.seconds) || 0);
+    let resisted = 0;
     if (id === 'poison') {
       if (level <= 0) return null;
       const tick = poisonTick(level);
-      until = t + tick.seconds * 1000;
+      seconds = tick.seconds;
+      until = t + seconds * 1000;
       perSecond = tick.perSecond;
     } else if (id === 'bleed') {
       perSecond = num(spec.perSecond) || level * BLEED_PER_LEVEL;
       if (perSecond <= 0) return null;
-      until = t + Math.max(0, num(spec.seconds) || 0) * 1000;
+      until = t + seconds * 1000;
       if (until <= t) return null;
     } else {
-      until = t + Math.max(0, num(spec.seconds) || 0) * 1000;
+      if (id === 'stun') {
+        resisted = clamp01(num(actor.bonuses && actor.bonuses.stunResist), STUN_RESIST_CAP);
+        seconds *= 1 - resisted;
+      }
+      until = t + seconds * 1000;
       if (until <= t) return null;
     }
     const had = actor.status[id];
     const stronger = !had || level > num(had.level);
+    const factor = Number.isFinite(spec.factor) ? spec.factor : null;
     const entry = {
       level: stronger ? level : num(had.level),
       perSecond: stronger || perSecond > num(had.perSecond) ? perSecond : had.perSecond,
       until: Math.max(until, had ? num(had.until) : 0),
       nextTick: had && !stronger ? num(had.nextTick) : t + TICK_MS,
+      seconds,
     };
+    // the slow's own strength, kept only when it is the stronger of the two, so
+    // a 30% slow landing on a 40% one does not quietly loosen it
+    const hadFactor = had && Number.isFinite(had.factor) ? had.factor : null;
+    if (factor != null || hadFactor != null) {
+      entry.factor = stronger || hadFactor == null ? factor : Math.max(factor ?? 0, hadFactor);
+    }
     actor.status[id] = entry;
     tracked.add(actor);
-    if (id === 'poison' || id === 'bleed') float(actor, id === 'poison' ? 'poisoned' : 'bleeding', 'miss');
-    else float(actor, id, 'miss');
+    if (spec.quiet !== true) {
+      if (id === 'poison' || id === 'bleed') float(actor, id === 'poison' ? 'poisoned' : 'bleeding', 'miss');
+      else if (resisted > 0) float(actor, `${id} ${seconds.toFixed(1)}s`, 'miss');
+      else float(actor, id, 'miss');
+    }
+    if (resisted > 0 && isPlayer(actor)) {
+      say(`You shrug most of it off, the stun is ${seconds.toFixed(1)} s instead of ${(seconds / (1 - resisted)).toFixed(1)}.`);
+    }
     return entry;
   }
 
@@ -640,6 +746,116 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
     return { ...attacker, bonuses: { ...b, hit: num(b.hit) + hit, armourPiercing: num(b.armourPiercing) + pierce } };
   }
 
+  /**
+   * A defender wearing its `bonuses.parry`, or the defender itself.
+   *
+   * The same trick `swinger` uses and for the same reason: `combat_rules` reads
+   * a name it already knows rather than growing a term it does not. See
+   * PARRY_DEFENCE_POINTS above for the conversion and for what it costs.
+   */
+  function guard(defender) {
+    const p = num(defender && defender.bonuses && defender.bonuses.parry);
+    if (!p) return defender;
+    const b = defender.bonuses;
+    return { ...defender, bonuses: { ...b, defence: num(b.defence) + p * PARRY_DEFENCE_POINTS } };
+  }
+
+  /**
+   * Everything a landed blow owes both sides beyond the damage: the weapon's
+   * hit effects, the defender's reflect and thorns, the attacker's stamina
+   * leech, and one hit off any enchantment counted in hits.
+   *
+   * All of it runs ONLY on a blow that actually took health. A miss, a dodge
+   * and a parry all arrive here with `res.damage` at zero and leave with
+   * nothing said, which is the whole of "nothing fires on a miss".
+   */
+  function afterBlow(res, attacker, defender, now, opts = {}) {
+    const dealt = num(res && res.damage);
+    if (dealt <= 0) return null;
+    const both = isPlayer(attacker) || isPlayer(defender);
+    const out = { effects: [], lines: [], reflected: 0, thorns: 0, stamina: 0 };
+
+    // 1. the weapon's own effects, and the enchantment on it
+    const list = opts.spell
+      ? rollSpellEffects(attacker, defender, res, rng)
+      : rollHitEffects(attacker, defender, res, rng);
+    if (list.length) {
+      const applied = applyHitEffects(list, attacker, defender, api, now);
+      out.effects = list;
+      out.lines.push(...applied.lines);
+      if (both) for (const line of applied.lines) say(line);
+    }
+    // a hit off the enchantment, and only for a hit: a weapon enchantment is
+    // counted in hits of the WEAPON, so casting five spells does not scrub the
+    // poison off the blade.
+    if (!opts.spell) spendEnchant(attacker, now);
+
+    // 2. what comes back off the defender. `hurt` owns the write and the death,
+    //    so an attacker can genuinely be killed by the thing it just hit.
+    const reflect = clamp01(num(defender.bonuses && defender.bonuses.damageReflect));
+    if (reflect > 0 && alive(attacker)) {
+      const back = Math.round(dealt * reflect);
+      const took = hurt(attacker, back, { now, quiet: true, kind: 'damage', killer: defender });
+      if (took > 0) {
+        out.reflected = took;
+        float(attacker, String(took), 'damage', { color: cssColour(EFFECT_COLOURS.dispel) });
+        const line = `${cap(target(defender))} throws ${took} of it straight back at ${who(attacker)}.`;
+        out.lines.push(line);
+        if (both) say(line);
+        onHitFire({ attacker: defender, defender: attacker, kind: 'reflect', colour: EFFECT_COLOURS.dispel, damage: took, fired: true, now });
+      }
+    }
+    const thorns = Math.round(num(defender.bonuses && defender.bonuses.thorns));
+    const outOfTouch = !!opts.spell || !!weaponOf(attacker).ranged;
+    if (thorns > 0 && alive(attacker) && !(THORNS_MELEE_ONLY && outOfTouch)) {
+      const took = hurt(attacker, thorns, { now, quiet: true, kind: 'damage', killer: defender });
+      if (took > 0) {
+        out.thorns = took;
+        float(attacker, String(took), 'damage', { color: cssColour(EFFECT_COLOURS.thorns) });
+        const line = `${cap(target(defender))} is barbed, and ${who(attacker)} ${isPlayer(attacker) ? 'lose' : 'loses'} ${took} on the way out.`;
+        out.lines.push(line);
+        if (both) say(line);
+        onHitFire({ attacker: defender, defender: attacker, kind: 'thorns', colour: EFFECT_COLOURS.thorns, damage: took, fired: true, now });
+      }
+    }
+
+    // 3. the attacker's stamina leech. PERCENT POINTS of the damage dealt, the
+    //    same unit and the same shape as lifeLeech in combat_rules.applyLeech.
+    const leech = opts.spell ? 0 : num(attacker.bonuses && attacker.bonuses.staminaLeech);
+    if (leech > 0) {
+      const want = Math.round(dealt * leech / 100);
+      const max = num(attacker.maxStamina) || Infinity;
+      const before = num(attacker.stamina);
+      attacker.stamina = Math.min(max, before + want);
+      const got = attacker.stamina - before;
+      if (got > 0) {
+        out.stamina = got;
+        float(attacker, `+${got} stamina`, 'heal');
+        const line = `${cap(who(attacker))} ${isPlayer(attacker) ? 'take' : 'takes'} ${got} stamina out of ${target(defender)}.`;
+        out.lines.push(line);
+        if (both) say(line);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * One hit off a `weaponEnchant` counted in hits, and the word when it runs
+   * out. NOTHING ELSE IN THE TREE DECREMENTS `hitsLeft`: abilities_runtime.js
+   * writes it as 5 for Poison Blade and only ever expires an enchant by its
+   * clock, so a hits-based enchantment lasted for ever. A landed blow is the
+   * only thing that can spend one, and this file is where a blow lands.
+   */
+  function spendEnchant(attacker, now) {
+    const e = attacker && attacker.enchant;
+    if (!e || !Number.isFinite(e.hitsLeft)) return null;
+    e.hitsLeft -= 1;
+    if (e.hitsLeft > 0) return e;
+    attacker.enchant = null;
+    if (isPlayer(attacker)) say('The last of it goes off the blade.');
+    return null;
+  }
+
   /** The blow lands. This is the only writer of health from a resolved swing. */
   function landSwing(job, now) {
     const { attacker, defender, opts } = job;
@@ -650,7 +866,7 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
       cue('beastMiss', posOf(defender));
       return null;
     }
-    const res = resolveMelee({ attacker: swinger(attacker, opts), defender, now, rng, jumpAttack: !!opts.jumpAttack });
+    const res = resolveMelee({ attacker: swinger(attacker, opts), defender: guard(defender), now, rng, jumpAttack: !!opts.jumpAttack });
     if (defender.godMode) { res.damage = 0; res.killed = false; res.numbers = (res.numbers || []).filter((n) => n.kind !== 'damage'); }
 
     // An ability multiplier: Power Strike's 1.6, Whirlwind's 0.8. resolveMelee
@@ -692,6 +908,12 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
     if (res.damage > 0 && opts.poison > 0) applyStatus(defender, 'poison', { level: opts.poison }, now);
     if (res.damage > 0 && opts.bleed) applyStatus(defender, 'bleed', opts.bleed, now);
 
+    // The effects run BEFORE the death is declared, so a fireball off the blade
+    // can be the thing that finishes it and `hurt` owns that death the way it
+    // owns a poison tick's. A defender the swing itself already emptied is not
+    // alive by the time they run, so they take nothing further off it, and the
+    // kill below is still this swing's.
+    res.after = afterBlow(res, attacker, defender, now);
     if (defender.health <= 0) kill(defender, attacker);
     return res;
   }
@@ -715,6 +937,12 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
     if (leech.mana > 0) attacker.mana = Math.min(num(attacker.maxMana) || Infinity, num(attacker.mana) + leech.mana);
     show(leech.numbers, attacker, defender);
     if (res.damage > 0 && opts.poison > 0) applyStatus(defender, 'poison', { level: opts.poison }, now);
+    // A SPELL IS NOT A HIT. 03 sells the seven hit lines on a weapon and prices
+    // them as a "chance per hit", and a fireball is not the sword going in, so
+    // `rollSpellEffects` deliberately ignores the affixes and the powers and
+    // asks only the enchantment, and only one that says `onSpell`. See G11.md
+    // section 5 for what that means today, which is: nothing, loudly.
+    res.after = afterBlow(res, attacker, defender, now, { spell: true });
     if (defender.health <= 0) kill(defender, attacker);
     return res;
   }
@@ -755,10 +983,27 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
     }
   }
 
-  return {
-    queueSwing, queueSpell, applyFall, update, onDeath, inCombat,
+  const api = {
+    queueSwing, queueSpell, applyFall, update, onDeath, onHit, inCombat,
     // the pieces the other runtimes need to reach without re-deriving them
     applyStatus, clearStatus, hurt, heal, kill,
+    /**
+     * A word over a head, in a colour if you have one. `hit_effects.js` uses it
+     * for "frozen" in ice blue: `hurt` and `applyStatus` both float plainly,
+     * and an effect that has a colour should not have to give it up to use
+     * them. `extra.color` is a CSS string, which is what floaters.js reads.
+     */
+    float,
+    /** What `hit_effects.applyHitEffects` calls to fan an effect out to onHit. */
+    onHitFire,
+    /**
+     * `actor.js`'s recompute, when main.js handed one in. Hit Dispel needs it:
+     * a buff taken off `actor.buffs` without one leaves its bonuses behind for
+     * ever. See `hit_effects.stripOneBuff` for the two paths.
+     */
+    recompute: typeof recompute === 'function' ? recompute : null,
+    /** Hit effects, standalone, for a caller that has its own reason to roll. */
+    rollHitEffects: (a, d, res) => rollHitEffects(a, d, res, rng),
     reachBetween, distance: actorDistance, stunned: (a, n = lastNow) => stunned(a, n),
     /**
      * Drop everything in the air that involves this actor, and stop tracking
@@ -779,4 +1024,5 @@ export function createCombat({ floaters, hud, audio, progression, rng = Math.ran
     /** Forget everything: a death screen, a teleport, a dungeon change. */
     clear() { pending.length = 0; tracked.clear(); },
   };
+  return api;
 }
