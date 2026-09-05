@@ -10,10 +10,11 @@
 //
 //  - There is no farm island, so "hide the overworld" is no longer a blanket
 //    sweep of every visible scene child. That sweep would take the player with
-//    it. The list is explicit: the streamed chunks, the flora, the fauna, the
-//    site markers, the sky group and the four overworld lights. Everything
-//    else in the scene (the player, the level you are standing in) is left
-//    alone.
+//    it. The list is explicit: the streamed chunks, the flora, the site
+//    markers, the sky group and the four overworld lights. Everything else in
+//    the scene (the player, the level you are standing in) is left alone.
+//    The wild animals are NOT on that list any more: they are monsters now,
+//    and monsters.js empties its own layer on the way underground.
 //  - The camera is not this module's business. Entering reports where you
 //    arrived through onDungeonState, and main.js walks the player there.
 //  - Fog goes through sc.setFog, which pins the colour while a level owns it
@@ -59,11 +60,14 @@ export function createWorldRuntime(sc, opts = {}) {
   const terrainY = (x, z) => field.heightAt(x, z);
   const discovery = createDiscovery(field);
   const flora = createFlora(scene, field, { sitesNear: discovery.sitesNear });
-  const fauna = createFauna(scene, field, { sitesNear: discovery.sitesNear });
+  // fauna draws nothing any more. It says where the world's animals belong and
+  // the monster layer stands them up, which is what makes a squirrel a thing
+  // you can click. See src/world/fauna.js and docs/mmo/wiring/F1.md.
+  const fauna = createFauna(field, { sitesNear: discovery.sitesNear });
   const world = createWorldStream(scene, field, {
     palette: buildPalette(THEMES), waterMap: waterTexture(),
-    onBuilt: (cx, cz, verts) => { flora.onChunk(cx, cz, verts); fauna.onChunk(cx, cz, verts); },
-    onDisposed: (cx, cz) => { flora.offChunk(cx, cz); fauna.offChunk(cx, cz); },
+    onBuilt: (cx, cz, verts) => { flora.onChunk(cx, cz, verts); },
+    onDisposed: (cx, cz) => { flora.offChunk(cx, cz); },
   });
   const siteMarkers = createSiteMarkers(scene, discovery, terrainY);
 
@@ -89,7 +93,6 @@ export function createWorldRuntime(sc, opts = {}) {
     }
     if (world.group) out.add(world.group);
     if (flora.group) out.add(flora.group);
-    if (fauna.group) out.add(fauna.group);
     return [...out];
   }
 
@@ -97,7 +100,6 @@ export function createWorldRuntime(sc, opts = {}) {
     center.set(x, terrainY(x, z), z);
     world.update(center);
     flora.update(nowMs, x, z);
-    fauna.update(dt, nowMs, x, z, dayFactor < 0.4);
     // the mines' headframe wheel turns and their lanterns light at dusk (M1)
     siteMarkers.update(x, z, world.viewRadius, dt, 1 - dayFactor);
     const found = discovery.check(x, z, nowMs);
@@ -280,6 +282,23 @@ export function createWorldRuntime(sc, opts = {}) {
     },
 
     sitesNear(x, z, r) { return discovery.sitesNear(x, z, r); },
+
+    /**
+     * THE CRITTER SOURCE. Spawn records for one chunk's worth of the world's
+     * own animals, in `monsters.spawnsForChunk`'s exact record shape.
+     *
+     * `monsters.js` already holds this runtime, so this is the seam: one line
+     * in its `chunkFor` concatenates these onto the chunk's own roll and every
+     * rule downstream (the cap, the dead list, the eight to fifteen minute
+     * respawn, the despawn when the ring moves) applies to a rabbit exactly as
+     * it does to a wolf. docs/mmo/wiring/F1.md quotes the line.
+     *
+     * Underground there are no critters: a level is not a meadow.
+     */
+    critterSpawns(cx, cz, night = false) {
+      if (dungeon) return [];
+      return fauna.spawnsFor(cx, cz, !!night);
+    },
     /** The character's own found list and walked zones become discovery's truth (S1 follow-up). */
     adoptDiscovery(character) { discovery.adopt?.(character?.discovered, character?.zones); },
 

@@ -111,8 +111,13 @@ ck('the runtime hands back every module the contract names',
 ck('fog in the open is 90 to 536', sc.scene.fog.near === 90 && sc.scene.fog.far === 536,
   `${sc.scene.fog.near}-${sc.scene.fog.far}`);
 ck('the fog colour is not pinned above ground', sc.fogPinned === false);
-ck('the three streamed groups are in the scene',
-  ['world-stream', 'world-flora', 'world-fauna'].every((n) => sc.scene.children.some((o) => o.name === n)));
+// Two, not three. `world-fauna` is gone: fauna draws nothing now, it says where
+// the world's animals belong and the monster layer stands them up (F1). What
+// used to be checked here is checked in src/world/fauna.test.mjs instead.
+ck('the two streamed groups are in the scene',
+  ['world-stream', 'world-flora'].every((n) => sc.scene.children.some((o) => o.name === n)));
+ck('and there is no fauna group any more, because fauna draws nothing',
+  !sc.scene.children.some((o) => o.name === 'world-fauna'));
 
 // heightAt above ground is the field, not an approximation of it
 {
@@ -152,13 +157,26 @@ const NEAR_SITE = rt.sitesNear(0, 0, 1200).sort(
 // ---------------------------------------------------------------------------
 // 3. the night gate is driven both ways through the real update
 // ---------------------------------------------------------------------------
+// The runtime no longer tells fauna what time it is: `monsters.js` already
+// knows, and it is the thing that asks. What the runtime owes the monster layer
+// is the critter source, so that is what is checked.
 {
-  rt.update(0.016, 5000, 0, 0, dayFactorAt(0));           // day
-  const byDay = rt.fauna.stats.night;
-  rt.update(0.016, 6000, 0, 0, dayFactorAt(0.38 * DAY_CYCLE_MS));      // midnight (dayclock: noon is 0.12 before zero)
-  const byNight = rt.fauna.stats.night;
-  ck('the fauna is told it is day at full daylight', byDay === false);
-  ck('and told it is night at full dark', byNight === true);
+  // a chunk that actually rolls something, or every check below passes on an
+  // empty array and proves nothing
+  let at = null, day = [];
+  for (let cx = 0; cx < 300 && !day.length; cx++) { day = rt.critterSpawns(cx, 17, false); at = [cx, 17]; }
+  const night = rt.critterSpawns(at[0], at[1], true);
+  ck('the runtime hands out critter spawn records', day.length > 0, `${day.length} at chunk ${at.join(',')}`);
+  ck('and they are the records fauna placed, in the monster layer\'s shape',
+    day.every((r) => typeof r.id === 'string' && r.key.startsWith('critter:')
+      && Number.isFinite(r.x) && Number.isFinite(r.z) && Number.isFinite(r.y)),
+    day.map((r) => r.id).join(', '));
+  ck('a night ask carries the night flag through to the record',
+    night.length > 0 && night.every((r) => r.night === true) && day.every((r) => r.night === false),
+    `${day.length} by day, ${night.length} by night`);
+  let placed = 0;
+  for (let cx = 0; cx < 60; cx++) for (let cz = 0; cz < 6; cz++) placed += rt.critterSpawns(cx, cz, false).length;
+  ck('and over 360 chunks of real world it places a good number of them', placed > 20, `${placed} animals`);
 }
 
 // ---------------------------------------------------------------------------
@@ -190,9 +208,11 @@ for (const kind of ['dungeon', 'cave']) {
 
   rt.enterDungeon(site);
   ck(`${kind}: inside at level 1`, rt.inDungeon && rt.dungeonLevel === 1);
-  ck(`${kind}: the sky, the four lights and the three world groups are all off`,
-    ['sky', 'sun-light', 'hemi-light', 'ambient-light', 'fill-light', 'world-stream', 'world-flora', 'world-fauna']
+  ck(`${kind}: the sky, the four lights and the two world groups are all off`,
+    ['sky', 'sun-light', 'hemi-light', 'ambient-light', 'fill-light', 'world-stream', 'world-flora']
       .every((n) => !sc.scene.children.find((o) => o.name === n).visible));
+  ck(`${kind}: and there are no critters underground, because a level is not a meadow`,
+    rt.critterSpawns(6, 17, false).length === 0);
   ck(`${kind}: every site marker is off`, sc.scene.children.filter((o) => o.name.startsWith('site:')).every((o) => !o.visible));
   ck(`${kind}: THE PLAYER IS STILL VISIBLE`, player.visible === true);
   ck(`${kind}: the fog is pinned to the level's own colour`,

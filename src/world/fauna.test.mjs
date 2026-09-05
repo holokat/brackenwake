@@ -1,23 +1,38 @@
-// Wild animals, driven both ways. Run: node src/world/fauna.test.mjs
+// Where the animals of the world stand, and what happens to them once the
+// monster layer stands them up. Run: node src/world/fauna.test.mjs
 //
-// spawnsFor and blockedAt are pure, so the spawn table and every exclusion can
-// be checked in node against the real world field. The runtime (cap, night,
-// despawn, the hunt contract) is checked by driving the REAL createFauna with a
-// THREE.Group standing in for the scene and a small stub field, so the code the
-// player runs is the code under test.
+// THIS SUITE WAS REWRITTEN, and the reason matters. The old one drove
+// `createFauna` as a thing that built deer out of THREE and walked them itself:
+// eighty six checks about a hit column, a roam record shaped like farm.js's, an
+// hp table, a flee timer and a body that sank into the ground. None of that
+// exists now. The animals are tier 0 monster rows, so the hp, the flee, the
+// death and the corpse are `src/game/monsters.js`'s and are tested there; what
+// is left for this file is placement, which is the half fauna was always for.
+//
+// Everything below is measured on the REAL world field or driven through the
+// REAL monster runtime. The one thing that is stubbed is named and explained
+// where it happens.
+
 import * as THREE from 'three';
 import { createWorldField, BIOMES, CHUNK } from './field.js';
 import {
-  createFauna, spawnsFor, countsFor, blockedAt, isForestEdge, neighbourHas, auditSpawnTable,
-  auditCombatTable, hpFor, SPAWN, KINDS, EDGES, ALIVE_CAP, HOME_KEEP, NEAR_RING, siteClear, HIT_FLEE_MS,
+  createFauna, spawnsFor, countsFor, blockedAt, isForestEdge, neighbourHas,
+  auditSpawnTable, SPAWN, CRITTERS, EDGES, siteClear, SITE_PAD, HOME_KEEP, RIVER_MAX,
 } from './fauna.js';
+import { MONSTERS } from '../mmo/monsters.js';
+import {
+  createMonsters, spawnsForChunk, stepMonster, makeMonsterActor,
+  blockedAt as monsterBlockedAt, ALIVE_CAP, NEAR_RING, SETTLEMENT_PAD,
+} from '../game/monsters.js';
+import { buildMonsterModel } from '../game/monster_models.js';
+import { createCombat } from '../game/combat.js';
+import { hoverHeight, HOVER_MIN, HOVER_MAX, SWOOP_SECONDS } from '../game/monster_ai.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 const f = createWorldField(20260904, { homeY: -0.3 });
 
-// A field that answers whatever the test needs it to, with the same surface
-// createFauna uses: seed, seaLevel, sampleAt, heightAt, biomeAt, chunkOf.
+/** A field that answers whatever a test needs, with createFauna's own surface. */
 function stubField(o = {}) {
   const biome = o.biome || (() => 'meadow');
   const water = o.water || (() => false);
@@ -25,7 +40,7 @@ function stubField(o = {}) {
   const height = o.height || (() => 3);
   const sampleAt = (x, z) => ({
     h: height(x, z), biome: biome(x, z), water: water(x, z), river: river(x, z),
-    land: 1, temp: 0.5, moist: 0.5, site: null,
+    land: 1, temp: 0.5, moist: 0.5, site: null, danger: null,
   });
   return {
     seed: o.seed ?? 4242, seaLevel: -0.8, chunk: CHUNK,
@@ -34,107 +49,218 @@ function stubField(o = {}) {
   };
 }
 
-// ---------------------------------------------------------------- the table
+// ===========================================================================
+console.log('fauna: the table, both directions');
 {
-  check('the spawn table covers every biome', auditSpawnTable() === true);
-  // and the other way: a table with a hole, or a species in the wrong biome, throws
+  check('the spawn table passes', auditSpawnTable() === true);
   let threw = 0;
   const row = SPAWN.snow;
   delete SPAWN.snow;
   try { auditSpawnTable(); } catch { threw++; }
   SPAWN.snow = row;
-  SPAWN.desert.push({ kind: 'gull', p: 1, n: [1, 1] });
+
+  SPAWN.desert.push({ id: 'gull', p: 1, n: [1, 1] });          // a gull in a desert
   try { auditSpawnTable(); } catch { threw++; }
   SPAWN.desert.pop();
-  check('a missing biome row and a misplaced species both throw', threw === 2, `${threw} of 2`);
-  check('the table is whole again', auditSpawnTable() === true);
+
+  SPAWN.meadow.push({ id: 'basilisk', p: 1, n: [1, 1] });      // a species that does not exist
+  try { auditSpawnTable(); } catch { threw++; }
+  SPAWN.meadow.pop();
+
+  const keptBiomes = CRITTERS.crow.biomes;
+  CRITTERS.crow = { ...CRITTERS.crow, biomes: ['nowhere'] };    // a biome that does not exist
+  try { auditSpawnTable(); } catch { threw++; }
+  CRITTERS.crow.biomes = keptBiomes;
+
+  const kept = CRITTERS.rabbit;
+  CRITTERS.wolf = { biomes: ['boreal'] };                       // a tier 2 monster in a tier 0 table
+  SPAWN.boreal.push({ id: 'wolf', p: 1, n: [1, 1] });
+  try { auditSpawnTable(); } catch { threw++; }
+  SPAWN.boreal.pop();
+  delete CRITTERS.wolf;
+  CRITTERS.rabbit = kept;
+
+  check('a missing biome, a misplaced species, an unknown species, an unknown biome and a tier 2 row all throw',
+    threw === 5, `${threw} of 5`);
+  check('and the table is whole again', auditSpawnTable() === true);
+  check('every biome the field can return has a row', BIOMES.every((b) => SPAWN[b]), BIOMES.join(', '));
+  check('every species placed is a real tier 0 monster',
+    Object.keys(CRITTERS).every((id) => MONSTERS[id] && MONSTERS[id].tier === 0),
+    Object.keys(CRITTERS).map((id) => `${id} t${MONSTERS[id]?.tier}`).join(', '));
 }
 
-// -------------------------------------------------- one chunk per biome
-const byBiome = {};
-for (let cz = -60; cz <= 60 && Object.keys(byBiome).length < BIOMES.length; cz++) for (let cx = -60; cx <= 60; cx++) {
-  const b = f.biomeAt((cx + 0.5) * CHUNK, (cz + 0.5) * CHUNK);
-  if (!byBiome[b] && f.biomeAt(cx * CHUNK + 8, cz * CHUNK + 8) === b && f.biomeAt(cx * CHUNK + 56, cz * CHUNK + 56) === b) byBiome[b] = [cx, cz];
-}
-console.log('  chunks found per biome:', Object.keys(byBiome).join(', '));
-
-// -------------------------------------------------------------- determinism
+// ===========================================================================
+console.log('\nfauna: the record is the monster layer\'s own record');
 {
-  const [cx, cz] = byBiome.meadow;
-  const a = JSON.stringify(spawnsFor(f, cx, cz)), b = JSON.stringify(spawnsFor(f, cx, cz));
+  // Find a chunk that actually rolls something, then compare its records field
+  // for field against a REAL record out of monsters.spawnsForChunk. If the two
+  // shapes ever drift, the concatenation in monsters.chunkFor would hand the
+  // cap a record it cannot rank and nothing would say so.
+  let mine = [];
+  for (let cx = 0; cx < 400 && !mine.length; cx++) mine = spawnsFor(f, cx, 17);
+  check('there is a chunk with animals in it to compare', mine.length > 0, `${mine.length} placed`);
+
+  let theirs = [];
+  for (let cx = 0; cx < 600 && !theirs.length; cx++) theirs = spawnsForChunk(f, cx, 23, { night: true, chance: 1 });
+  check('and a chunk with monsters in it', theirs.length > 0, `${theirs.length} rolled`);
+
+  const keysOf = (r) => Object.keys(r).sort().join(',');
+  check('a critter record carries exactly the fields a monster record does',
+    keysOf(mine[0]) === keysOf(theirs[0]), `${keysOf(mine[0])}\n            vs ${keysOf(theirs[0])}`);
+  check('and every value is of the type the monster layer reads',
+    mine.every((r) => typeof r.id === 'string' && typeof r.key === 'string' && typeof r.groupKey === 'string'
+      && Number.isFinite(r.x) && Number.isFinite(r.z) && Number.isFinite(r.y)
+      && Number.isInteger(r.i) && Number.isInteger(r.cx) && Number.isInteger(r.cz) && typeof r.night === 'boolean'));
+  check('every id is a monster the roster knows', mine.every((r) => !!MONSTERS[r.id]));
+
+  // the keys are what the character's dead list matches on: unique, stable, and
+  // never equal to a monster key rolled on the same chunk
+  const allKeys = [];
+  for (let cx = 0; cx < 60; cx++) for (let cz = 0; cz < 12; cz++) allKeys.push(...spawnsFor(f, cx, cz).map((r) => r.key));
+  check('keys are unique across 720 chunks', new Set(allKeys).size === allKeys.length, `${allKeys.length} keys`);
+  const monsterKeys = new Set();
+  for (let cx = 0; cx < 60; cx++) for (let cz = 0; cz < 12; cz++) {
+    for (const r of spawnsForChunk(f, cx, cz, { night: true, chance: 1 })) monsterKeys.add(r.key);
+  }
+  check('and not one of them collides with a monster key on the same ground',
+    allKeys.every((k) => !monsterKeys.has(k)), `${monsterKeys.size} monster keys rolled`);
+  check('a key says what it is, so a save can be read by eye', allKeys.every((k) => k.startsWith('critter:')));
+}
+
+// ===========================================================================
+console.log('\nfauna: the same ground gives the same animals');
+{
+  const a = JSON.stringify(spawnsFor(f, 12, 17)), b = JSON.stringify(spawnsFor(f, 12, 17));
   check('same chunk, same animals', a === b);
-  // across a stretch of world, another seed has to disagree: one chunk is not
-  // enough, because an empty chunk is empty under every seed
   const other = createWorldField(20260905, { homeY: -0.3 });
   let same = 0, looked = 0;
-  // a 20 x 20 block of chunks round the meadow one, not 400 chunks in a line
-  // east: the world is bounded now (src/world/zones.js) and a 25 km line runs
-  // off the coast into the ring ocean, where nothing lives under any seed
   for (let i = 0; i < 400; i++) {
-    const dx = (i % 20) - 10, dz = ((i / 20) | 0) - 10;
-    const A = spawnsFor(f, cx + dx, cz + dz), B = spawnsFor(other, cx + dx, cz + dz);
-    if (!A.length && !B.length) continue;          // empty ground agrees under any seed
+    const cx = 12 + (i % 20) - 10, cz = 17 + ((i / 20) | 0) - 10;
+    const A = spawnsFor(f, cx, cz), B = spawnsFor(other, cx, cz);
+    if (!A.length && !B.length) continue;
     looked++;
     if (JSON.stringify(A) === JSON.stringify(B)) same++;
   }
-  check('there were chunks with animals to compare', looked > 40, `${looked}`);
-  check('another seed, another world', same === 0, `${same} of ${looked} populated chunks agreed`);
+  check('there were populated chunks to compare', looked > 20, `${looked}`);
+  check('another seed, another world', same === 0, `${same} of ${looked} agreed`);
 }
 
-// ------------------------------------------------- the table, both directions
+// ===========================================================================
+console.log('\nfauna: a 3 by 3 chunk block of real ground, per biome');
+//
+// 3 x 3 chunks is 192 m square, which is 36,864 square metres of world. The
+// counts are printed rather than asserted against a number pulled out of the
+// air; what IS asserted is that every biome the world has produces animals over
+// a large enough sample, and that none of them is standing anywhere it may not.
 {
-  const seen = {};        // biome of the chunk -> kinds it produced
-  const wrongCell = [];
-  let total = 0;
-  for (let cz = -40; cz < 40; cz += 2) for (let cx = -40; cx < 40; cx += 2) {
-    const b = f.biomeAt((cx + 0.5) * CHUNK, (cz + 0.5) * CHUNK);
-    const recs = spawnsFor(f, cx, cz);
-    seen[b] = seen[b] || new Set();
-    for (const r of recs) {
-      total++;
-      seen[b].add(r.kind);
-      const own = f.biomeAt(r.x, r.z);
-      if (!KINDS[r.kind].biomes.includes(own)) wrongCell.push(`${r.kind} in ${own}`);
+  // Up to twenty solid 3 x 3 blocks per biome, not one: a single block of nine
+  // chunks at these densities comes up empty more often than not, and reporting
+  // the first one found would say "the meadow holds no animals", which is a lie
+  // about the distribution rather than a fact about the world.
+  const blocks = {};
+  for (const b of BIOMES) blocks[b] = [];
+  for (let cz = -70; cz <= 70; cz++) {
+    for (let cx = -70; cx <= 70; cx++) {
+      const b = f.biomeAt((cx + 0.5) * CHUNK, (cz + 0.5) * CHUNK);
+      if (!blocks[b] || blocks[b].length >= 20) continue;
+      let whole = true;
+      for (let dz = -1; dz <= 1 && whole; dz++) for (let dx = -1; dx <= 1; dx++) {
+        if (f.biomeAt((cx + dx + 0.5) * CHUNK, (cz + dz + 0.5) * CHUNK) !== b) { whole = false; break; }
+      }
+      if (!whole) continue;
+      const recs = [];
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) recs.push(...spawnsFor(f, cx + dx, cz + dz));
+      blocks[b].push({ at: `${cx},${cz}`, recs });
+      cx += 2;                                   // do not count the same ground twice
     }
   }
-  check('animals placed over 1600 chunks', total > 300, `${total}`);
-  check('every animal stands in a biome its species lives in', wrongCell.length === 0, wrongCell.slice(0, 3).join(', '));
-  const list = (b) => [...(seen[b] || [])].sort().join(',');
-  console.log('  kinds per chunk biome:', Object.entries(seen).map(([b, s]) => `${b}[${[...s].sort().join(' ')}]`).join(' '));
-  // the negatives the brief names
-  check('a boreal chunk never rolls gulls', !(seen.boreal || new Set()).has('gull'), list('boreal'));
-  check('a beach chunk never rolls wolves or foxes', !(seen.beach || new Set()).has('wolf') && !(seen.beach || new Set()).has('fox'), list('beach'));
-  check('a meadow chunk never rolls wolves, foxes or gulls', !['wolf', 'fox', 'gull'].some((k) => (seen.meadow || new Set()).has(k)), list('meadow'));
-  check('desert, mountain and snow chunks roll nothing', !seen.desert?.size && !seen.mountain?.size && !seen.snow?.size,
-    `${list('desert')}|${list('mountain')}|${list('snow')}`);
-  // and the positives, or the negatives would pass on an empty world
-  check('meadow chunks do hold deer and rabbits', (seen.meadow || new Set()).has('deer') && (seen.meadow || new Set()).has('rabbit'), list('meadow'));
-  check('boreal chunks do hold wolves and foxes', (seen.boreal || new Set()).has('wolf') && (seen.boreal || new Set()).has('fox'), list('boreal'));
-  check('beach chunks do hold gulls', (seen.beach || new Set()).has('gull'), list('beach'));
-  check('sakura chunks do hold squirrels', (seen.sakura || new Set()).has('squirrel'), list('sakura'));
-  check('ocean chunks hold gulls and nothing else', (seen.ocean || new Set()).has('gull') && [...(seen.ocean || [])].every((k) => k === 'gull'), list('ocean'));
+  // How many solid 3 x 3 blocks a biome HAS is the world's business, not this
+  // file's: a beach is a strip and a mountain range can be a scatter of single
+  // chunks, and both move whenever zones.js does. So the assertion is on the
+  // size of the sample overall, and the per biome density that a thin biome
+  // cannot report is reported by the wide single chunk sweep below instead.
+  const sampled = BIOMES.filter((b) => blocks[b].length >= 12);
+  check('the 3 by 3 sample is large enough to mean something',
+    Object.values(blocks).reduce((n, x) => n + x.length, 0) >= 80 && sampled.length >= 5,
+    BIOMES.map((b) => `${b} ${blocks[b].length}`).join(', '));
+
+  const perBiome = {};
+  for (const b of BIOMES) {
+    const bs = blocks[b];
+    if (!bs.length) continue;
+    const all = bs.flatMap((x) => x.recs);
+    const byId = {};
+    for (const r of all) byId[r.id] = (byId[r.id] || 0) + 1;
+    const busiest = bs.reduce((w, x) => (x.recs.length > w.recs.length ? x : w));
+    perBiome[b] = { recs: all, byId };
+    console.log(`       ${b.padEnd(9)} ${String(all.length).padStart(3)} animals over ${bs.length} blocks of 9 chunks`
+      + ` (${(all.length / bs.length).toFixed(1)} a block, busiest ${busiest.recs.length} at ${busiest.at})`
+      + (all.length ? `: ${Object.entries(byId).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${v} ${k}`).join(', ')}` : ''));
+  }
+  // A block of ocean that is solid ocean is by definition NOT coast, and gulls
+  // keep the coast, so the zero above is the rule working rather than a hole.
+  // The wide sample below is where the ocean's gulls turn up.
+  check('a 3 by 3 block of meadow holds animals about half the time',
+    blocks.meadow.filter((x) => x.recs.length).length >= blocks.meadow.length * 0.4,
+    `${blocks.meadow.filter((x) => x.recs.length).length} of ${blocks.meadow.length} blocks were not empty`);
+
+  // and the same over a much wider sample, which is what the density really is
+  const wide = {};
+  for (let cz = -70; cz <= 70; cz += 1) for (let cx = -70; cx <= 70; cx += 3) {
+    const b = f.biomeAt((cx + 0.5) * CHUNK, (cz + 0.5) * CHUNK);
+    wide[b] = wide[b] || { chunks: 0, n: 0, ids: new Set() };
+    wide[b].chunks++;
+    for (const r of spawnsFor(f, cx, cz)) { wide[b].n++; wide[b].ids.add(r.id); }
+  }
+  for (const b of BIOMES) {
+    const w = wide[b];
+    if (!w) continue;
+    console.log(`       ${b.padEnd(9)} ${w.n} animals over ${w.chunks} single chunks (${(w.n / w.chunks).toFixed(2)} a chunk): ${[...w.ids].sort().join(' ') || 'none'}`);
+  }
+  check('every biome in the world holds animals, including the dry and the cold',
+    BIOMES.every((b) => !wide[b] || wide[b].n > 0),
+    BIOMES.filter((b) => wide[b] && !wide[b].n).join(', ') || 'all of them');
+
+  // and the negatives, or the positives would pass on an empty world
+  check('a gull never stands inland', !(wide.meadow?.ids.has('gull')) && !(wide.boreal?.ids.has('gull')));
+  check('a squirrel never stands on a beach', !(wide.beach?.ids.has('squirrel')));
+  check('open water holds gulls and nothing else',
+    [...(wide.ocean?.ids || [])].every((id) => id === 'gull'), [...(wide.ocean?.ids || [])].join(' '));
+
+  // nothing is in the water and nothing is up a river, on real ground
+  let wet = 0, total = 0;
+  for (const b of BIOMES) {
+    for (const r of perBiome[b]?.recs || []) {
+      total++;
+      const s = f.sampleAt(r.x, r.z);
+      if (CRITTERS[r.id].flying) continue;             // a gull may be over the sea
+      if (s.water || s.river > RIVER_MAX) wet++;
+    }
+  }
+  check('not one animal on legs is standing in water or in a river', wet === 0, `${wet} of ${total}`);
 }
 
-// -------------------------------------------------------- deer keep the edge
+// ===========================================================================
+console.log('\nfauna: the forest edge and the coast, both directions');
 {
   let interiorDeer = 0, edgeDeer = 0, interior = 0, edge = 0;
-  for (let cz = -40; cz < 40; cz++) for (let cx = -40; cx < 40; cx++) {
+  for (let cz = -50; cz < 50; cz++) for (let cx = -50; cx < 50; cx++) {
     if (f.biomeAt((cx + 0.5) * CHUNK, (cz + 0.5) * CHUNK) !== 'boreal') continue;
     const isEdge = isForestEdge(f, cx, cz);
     if (isEdge) edge++; else interior++;
-    const n = (countsFor(f, cx, cz).deer || 0);
+    const n = countsFor(f, cx, cz).deer || 0;
     if (isEdge) edgeDeer += n; else interiorDeer += n;
   }
-  check('deep boreal chunks exist to test with', interior > 20 && edge > 20, `${interior} interior, ${edge} edge`);
+  check('deep boreal and edge boreal chunks both exist', interior > 20 && edge > 20, `${interior} deep, ${edge} edge`);
   check('no deer deep in the forest', interiorDeer === 0, `${interiorDeer}`);
   check('deer along the forest edge', edgeDeer > 0, `${edgeDeer}`);
-  // and the same rule for gulls: the coast, not the middle of the sea
+
   let openSeaGulls = 0, coastGulls = 0, openSea = 0, coast = 0;
-  for (let cz = -40; cz < 40; cz++) for (let cx = -40; cx < 40; cx++) {
+  for (let cz = -50; cz < 50; cz++) for (let cx = -50; cx < 50; cx++) {
     if (f.biomeAt((cx + 0.5) * CHUNK, (cz + 0.5) * CHUNK) !== 'ocean') continue;
     const isCoast = neighbourHas(f, cx, cz, EDGES.coast);
     if (isCoast) coast++; else openSea++;
-    const n = (countsFor(f, cx, cz).gull || 0);
+    const n = countsFor(f, cx, cz).gull || 0;
     if (isCoast) coastGulls += n; else openSeaGulls += n;
   }
   check('open sea and coast chunks both exist', openSea > 20 && coast > 20, `${openSea} open, ${coast} coast`);
@@ -142,30 +268,37 @@ console.log('  chunks found per biome:', Object.keys(byBiome).join(', '));
   check('gulls along the coast', coastGulls > 0, `${coastGulls}`);
 }
 
-// ------------------------------------------------ exclusions, true and false
+// ===========================================================================
+console.log('\nfauna: nothing stands where it may not');
 {
-  // water and river, driven both ways on a field that is half wet
-  const wet = stubField({ water: (x) => x > 0, biome: () => 'meadow' });
+  // water and river, on a field that is half wet
+  const wet = stubField({ water: (x) => x > 0 });
   let wetSide = 0, drySide = 0;
-  for (let cz = 3; cz < 12; cz++) for (let cx = -12; cx < 12; cx++) {
-    for (const r of spawnsFor(wet, cx, cz)) { if (r.x > 0) wetSide++; else drySide++; }
+  for (let cz = 3; cz < 22; cz++) for (let cx = -22; cx < 22; cx++) {
+    for (const r of spawnsFor(wet, cx, cz)) {
+      if (CRITTERS[r.id].flying) continue;
+      if (r.x > 0) wetSide++; else drySide++;
+    }
   }
-  check('nothing spawns on water', wetSide === 0, `${wetSide}`);
-  check('the same rolls do spawn on the dry half', drySide > 20, `${drySide}`);
+  check('nothing on legs spawns on water', wetSide === 0, `${wetSide}`);
+  check('and the same rolls do spawn on the dry half', drySide > 20, `${drySide}`);
 
-  const streamy = stubField({ river: (x) => (Math.abs(x % 200) < 40 ? 0.9 : 0), biome: () => 'meadow' });
+  const streamy = stubField({ river: (x) => (Math.abs(x % 200) < 40 ? 0.9 : 0) });
   let inRiver = 0, outRiver = 0;
-  for (let cz = 3; cz < 14; cz++) for (let cx = 3; cx < 14; cx++) {
-    for (const r of spawnsFor(streamy, cx, cz)) { if (Math.abs(r.x % 200) < 40) inRiver++; else outRiver++; }
+  for (let cz = 3; cz < 26; cz++) for (let cx = 3; cx < 26; cx++) {
+    for (const r of spawnsFor(streamy, cx, cz)) {
+      if (CRITTERS[r.id].flying) continue;
+      if (Math.abs(r.x % 200) < 40) inRiver++; else outRiver++;
+    }
   }
-  check('nothing spawns in a river', inRiver === 0, `${inRiver}`);
-  check('the same rolls do spawn off the river', outRiver > 20, `${outRiver}`);
+  check('nothing on legs spawns in a river', inRiver === 0, `${inRiver}`);
+  check('and the same rolls do spawn off it', outRiver > 20, `${outRiver}`);
 
-  // a site keeps its clearing, and the clearing is the site's doing. Find a
-  // patch of ground that DOES hold animals, then drop a town on it.
-  const plain = stubField({ biome: () => 'meadow' });
+  // A SITE'S FLAT GROUND. Find ground that DOES hold animals, then put a town
+  // on it and roll it again: the same rolls, one site's worth of difference.
+  const plain = stubField({});
   let site = null, thereWithout = 0, inTown = 0;
-  for (let gz = 9; gz <= 20 && !site; gz++) for (let gx = 9; gx <= 20 && !site; gx++) {
+  for (let gz = 4; gz <= 40 && !site; gz++) for (let gx = 4; gx <= 40 && !site; gx++) {
     const c = { x: gx * CHUNK + 32, z: gz * CHUNK + 32, flatR: 46, kind: 'town' };
     const near = (r) => Math.hypot(r.x - c.x, r.z - c.z) < siteClear(c);
     let n = 0;
@@ -174,372 +307,323 @@ console.log('  chunks found per biome:', Object.keys(byBiome).join(', '));
     }
     if (n > 0) { site = c; thereWithout = n; }
   }
-  check('found open ground that holds animals', !!site, site ? `${thereWithout} there` : 'none');
+  check('found open ground that holds animals', !!site, site ? `${thereWithout} standing on it` : 'none');
   if (site) {
     const near = (r) => Math.hypot(r.x - site.x, r.z - site.z) < siteClear(site);
-    const [gx, gz] = [Math.floor(site.x / CHUNK), Math.floor(site.z / CHUNK)];
+    const gx = Math.floor(site.x / CHUNK), gz = Math.floor(site.z / CHUNK);
     for (let cz = gz - 1; cz <= gz + 1; cz++) for (let cx = gx - 1; cx <= gx + 1; cx++) {
       for (const r of spawnsFor(plain, cx, cz, { sitesNear: () => [site] })) if (near(r)) inTown++;
     }
   }
-  check('a town clears the animals off that same ground', inTown === 0, `${thereWithout} -> ${inTown}`);
+  check('a town clears every animal off its own flat ground', inTown === 0, `${thereWithout} -> ${inTown}`);
+  check('and the clearing is the flat radius plus the pad, not a guess',
+    siteClear({ flatR: 46 }) === 46 + SITE_PAD, `${siteClear({ flatR: 46 })} m`);
+  check('and the pad is at least the monster layer\'s own settlement pad',
+    SITE_PAD >= SETTLEMENT_PAD, `fauna ${SITE_PAD}, monsters ${SETTLEMENT_PAD}`);
 
-  // the farm keeps its own 130 m
-  let atHome = 0, justOutside = 0;
-  for (let cz = -3; cz <= 2; cz++) for (let cx = -3; cx <= 2; cx++) {
-    for (const r of spawnsFor(plain, cx, cz)) {
-      const d = Math.hypot(r.x, r.z);
-      if (d < HOME_KEEP) atHome++; else if (d < HOME_KEEP + 120) justOutside++;
-    }
+  // The site rule and the monster layer's own settlement rule have to agree, or
+  // a rabbit stands in a market square that a wolf may not walk into.
+  const sq = { x: site.x, z: site.z, flatR: 46, kind: 'town' };
+  const recs = [];
+  const gx = Math.floor(site.x / CHUNK), gz = Math.floor(site.z / CHUNK);
+  for (let cz = gz - 8; cz <= gz + 8; cz++) for (let cx = gx - 8; cx <= gx + 8; cx++) {
+    recs.push(...spawnsFor(plain, cx, cz, { sitesNear: () => [sq] }));
   }
-  check(`nothing spawns within ${HOME_KEEP} m of the farm`, atHome === 0, `${atHome}`);
-  check('animals do spawn just beyond it', justOutside > 0, `${justOutside}`);
+  check('and the monster layer agrees that every one of the placed animals may stand there',
+    recs.length > 20 && recs.every((r) => monsterBlockedAt(r.x, r.z, plain.sampleAt(r.x, r.z), { sites: [sq], spawnKeep: 0 }) === null),
+    `${recs.length} placed, ${recs.filter((r) => monsterBlockedAt(r.x, r.z, plain.sampleAt(r.x, r.z), { sites: [sq], spawnKeep: 0 })).length} refused`);
 
-  // and the predicate itself, both ways, one reason at a time
+  // the predicate itself, one reason at a time, both ways
   const dry = { h: 4, biome: 'meadow', water: false, river: 0 };
   check('blockedAt: open meadow is fine', blockedAt(900, 900, dry, { sites: [] }) === null);
   check('blockedAt: water is not', blockedAt(900, 900, { ...dry, water: true }, { sites: [] }) === 'water');
-  check('blockedAt: a river is not', blockedAt(900, 900, { ...dry, river: 0.9 }, { sites: [] }) === 'river' || blockedAt(900, 900, { ...dry, river: 0.9 }, { sites: [] }) === 'water');
+  check('blockedAt: a river is not', blockedAt(900, 900, { ...dry, river: 0.9 }, { sites: [] }) === 'water');
   check('blockedAt: a site clearing is not', blockedAt(site.x + 10, site.z, dry, { sites: [site] }) === 'site');
   check('blockedAt: just outside that clearing is fine', blockedAt(site.x + siteClear(site) + 1, site.z, dry, { sites: [site] }) === null);
-  check('blockedAt: the farm is not', blockedAt(20, 20, dry, { sites: [] }) === 'home');
-  check('blockedAt: a gull may fly over water', blockedAt(900, 900, { ...dry, water: true }, { sites: [], flying: true }) === null);
+  check('blockedAt: a bird may be over water', blockedAt(900, 900, { ...dry, water: true }, { sites: [], flying: true }) === null);
+  check('blockedAt: but not over a town', blockedAt(site.x, site.z, dry, { sites: [site], flying: true }) === 'site');
   check('blockedAt: the wrong biome is refused', blockedAt(900, 900, dry, { sites: [], biomes: ['boreal'] }) === 'biome');
+  check('blockedAt: a quiet ring is kept when one is asked for', blockedAt(20, 20, dry, { sites: [], homeKeep: 130 }) === 'home');
+  check('and there is no quiet ring by default, because there is no farm any more',
+    HOME_KEEP === 0 && blockedAt(20, 20, dry, { sites: [] }) === null);
 }
 
-// ------------------------------------------------------------- the runtime
-const ring = (fauna, r = NEAR_RING) => { for (let cz = -r; cz <= r; cz++) for (let cx = -r; cx <= r; cx++) fauna.onChunk(20 + cx, 20 + cz, 33); };
-const CENTRE = 20 * CHUNK + 32;   // middle of chunk (20, 20)
-
+// ===========================================================================
+console.log('\nfauna: the near ring, and what it costs the monster cap');
 {
-  const scene = new THREE.Group();
-  const fauna = createFauna(scene, stubField({ biome: () => 'meadow' }), {});
-  ring(fauna);
-  fauna.update(0.016, 1000, CENTRE, CENTRE, false);
-  check('animals spawn in the near ring', fauna.stats.alive > 0, `${fauna.stats.alive} alive`);
-  check(`no more than ${ALIVE_CAP} alive at once`, fauna.stats.alive <= ALIVE_CAP, `${fauna.stats.alive}`);
-  check('the cap was actually reached, not merely respected', fauna.stats.alive === ALIVE_CAP && fauna.stats.capped > 0,
-    `${fauna.stats.alive} alive, ${fauna.stats.capped} turned away`);
-  check('every animal is in the scene graph', fauna.group.children.length === fauna.stats.alive,
-    `${fauna.group.children.length} vs ${fauna.stats.alive}`);
-  // 20 seconds of walking, then check nobody is standing anywhere they should not
-  for (let i = 0; i < 1200; i++) fauna.update(0.016, 1000 + i * 16, CENTRE, CENTRE, false);
-  check('everyone is still alive after 20 s of walking', fauna.stats.alive === ALIVE_CAP, `${fauna.stats.alive}`);
-  let strayed = 0;
-  for (const m of fauna.all()) if (Math.hypot(m.position.x - m.userData.wild.home.x, m.position.z - m.userData.wild.home.z) > 60) strayed++;
-  check('nobody wandered off the leash', strayed === 0, `${strayed}`);
-  fauna.dispose();
-  check('dispose empties the scene', scene.children.length === 0);
-}
-
-// walking into water is refused, and the same animal walks freely on dry ground
-{
-  const SHORE = 20 * CHUNK + 40;
-  const half = stubField({ biome: () => 'meadow', water: (x) => x > SHORE });
-  const scene = new THREE.Group();
-  const fauna = createFauna(scene, half, {});
-  ring(fauna);
-  fauna.update(0.016, 1000, CENTRE, CENTRE, false);
-  check('animals stand on the dry side of the shore', fauna.all().every((m) => m.position.x <= SHORE), `${fauna.stats.alive} alive`);
-  // take one animal, aim it at the water and hold it there
-  const swimmer = fauna.targets()[0];
-  const rm = swimmer.userData.roam;
-  // well clear of the player, or it would bolt instead of walking where it is told
-  const LANE = CENTRE + 80;
-  swimmer.position.set(SHORE - 0.5, 3, LANE);
-  swimmer.userData.wild.home = { x: SHORE - 0.5, z: LANE };
-  const blocked0 = fauna.stats.blockedSteps;
-  for (let i = 0; i < 90; i++) {
-    rm.state = 'walk'; rm.heading = 0; rm.until = 1e9; rm.speed = 4;
-    fauna.update(0.033, 2000 + i * 33, CENTRE, CENTRE, false);
+  const fauna = createFauna(f, {});
+  // walk a line and measure what the ring actually asks for at each step
+  const counts = [];
+  for (let i = 0; i < 24; i++) {
+    fauna.forget();
+    counts.push(fauna.ringSpawns(6 + i * 3, 17, NEAR_RING, false).length);
   }
-  check('an animal walked at the water stops at the shore', swimmer.position.x <= SHORE, `x ${swimmer.position.x.toFixed(1)} of ${SHORE}`);
-  check('and the refusals are counted', fauna.stats.blockedSteps > blocked0, `${fauna.stats.blockedSteps - blocked0} steps refused`);
-  // and the other way: aimed inland, the same animal walks
-  const x0 = swimmer.position.x;
-  for (let i = 0; i < 90; i++) {
-    rm.state = 'walk'; rm.heading = Math.PI; rm.until = 1e9; rm.speed = 4;
-    fauna.update(0.033, 5000 + i * 33, CENTRE, CENTRE, false);
+  const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
+  const worst = Math.max(...counts);
+  console.log(`       the near ring wants ${counts.join(', ')} critters as you walk`);
+  check(`the near ring averages under a quarter of the ${ALIVE_CAP} body cap`,
+    avg < ALIVE_CAP * 0.25, `${avg.toFixed(1)} on average, ${worst} at the worst`);
+  check('but it is not empty either, or there would be nothing to look at',
+    avg > 3, `${avg.toFixed(1)}`);
+
+  // THE NUMBER THAT ACTUALLY MATTERS is not how many critters the ring wants,
+  // it is how many MONSTERS survive the shared cap once the two lists are
+  // ranked together, because that is the thing a player would notice going
+  // wrong. So it is measured rather than argued about: the real monster roll,
+  // the real critter roll, ranked by distance the way `rescan` ranks them, and
+  // counted. At night the roster alone already wants more than the cap, which
+  // is the worst case for a rabbit taking a wolf's slot.
+  const kept = [];
+  for (let i = 0; i < 24; i++) {
+    const px = (6 + i * 3) * CHUNK + 32, pz = 17 * CHUNK + 32;
+    const [pcx, pcz] = f.chunkOf(px, pz);
+    const all = [];
+    fauna.forget();
+    for (let dz = -NEAR_RING; dz <= NEAR_RING; dz++) for (let dx = -NEAR_RING; dx <= NEAR_RING; dx++) {
+      all.push(...spawnsForChunk(f, pcx + dx, pcz + dz, { night: true }));
+      all.push(...fauna.spawnsFor(pcx + dx, pcz + dz, true));
+    }
+    all.sort((a, b) => ((a.x - px) ** 2 + (a.z - pz) ** 2) - ((b.x - px) ** 2 + (b.z - pz) ** 2));
+    const top = all.slice(0, ALIVE_CAP);
+    kept.push({
+      monsters: top.filter((r) => !r.key.startsWith('critter:')).length,
+      critters: top.filter((r) => r.key.startsWith('critter:')).length,
+      wanted: all.length,
+    });
   }
-  check('aimed inland, it walks', x0 - swimmer.position.x > 3, `${(x0 - swimmer.position.x).toFixed(1)} m inland`);
-  // and nobody else got wet in the meantime
-  let inWater = 0;
-  for (let i = 0; i < 2000; i++) fauna.update(0.033, 9000 + i * 33, CENTRE, CENTRE, false);
-  for (const m of fauna.all()) if (half.sampleAt(m.position.x, m.position.z).water) inWater++;
-  check('66 s more of wandering puts nobody in the water', inWater === 0, `${inWater} of ${fauna.stats.alive}`);
+  const saturated = kept.filter((k) => k.wanted >= ALIVE_CAP);
+  // only the steps where the cap actually had to turn something away: a step in
+  // the middle of the sea keeps no monsters because there were none to keep
+  const worstNight = saturated.reduce((w, k) => (k.monsters < w.monsters ? k : w), { monsters: Infinity });
+  console.log(`       at night the cap keeps ${kept.map((k) => `${k.monsters}+${k.critters}`).join(' ')} (monsters + critters)`);
+  check('the merged night ring is genuinely over the cap somewhere, or this proves nothing',
+    saturated.length > 0, `${saturated.length} of 24 steps want more than ${ALIVE_CAP} bodies`);
+  check('and even at the worst of them the monsters keep well over half the cap',
+    worstNight.monsters >= ALIVE_CAP * 0.55,
+    `worst step keeps ${worstNight.monsters} monsters and ${worstNight.critters} critters of ${worstNight.wanted} wanted`);
+
+  // the memo answers the same question the same way and does not grow for ever
+  const one = fauna.spawnsFor(9, 17, false);
+  check('asking twice gives the same records', fauna.spawnsFor(9, 17, false) === one);
+  check('and day and night are two different questions',
+    fauna.spawnsFor(9, 17, true) !== one);
+  for (let i = 0; i < 900; i++) fauna.spawnsFor(i, 3, false);
+  check('the memo is a cache, not a world', fauna.stats.chunks > 900, `${fauna.stats.chunks} chunks rolled`);
   fauna.dispose();
 }
 
-// predators only after dark
+// ===========================================================================
+console.log('\nfauna: the seam, and the one line that is not written yet');
+//
+// STUB, AND SAID SO. `monsters.chunkFor` does not read `runtime.critterSpawns`
+// yet: docs/mmo/wiring/F1.md quotes the one line that makes it. What is checked
+// here is the property that line depends on, which is the risky half: that the
+// two lists really can be concatenated and ranked as one.
 {
-  const woods = stubField({ biome: () => 'boreal' });
-  const scene = new THREE.Group();
-  const fauna = createFauna(scene, woods, {});
-  ring(fauna);
-  fauna.update(0.016, 1000, CENTRE, CENTRE, false);
-  const byDay = { ...fauna.stats.byKind };
-  check('no predators by day', !byDay.fox && !byDay.wolf, JSON.stringify(byDay));
-  check('squirrels are out by day', (byDay.squirrel || 0) > 0, JSON.stringify(byDay));
-  fauna.update(0.016, 2000, CENTRE, CENTRE, true);
-  const byNight = { ...fauna.stats.byKind };
-  check('predators come out at night', (byNight.fox || 0) + (byNight.wolf || 0) > 0, JSON.stringify(byNight));
-  check('but they do not empty the wood', (byNight.squirrel || 0) > 0, JSON.stringify(byNight));
-  check('and no species takes more than its share', (byNight.wolf || 0) <= 4 && (byNight.fox || 0) <= 3, JSON.stringify(byNight));
-  fauna.update(0.016, 3000, CENTRE, CENTRE, false);
-  const back = { ...fauna.stats.byKind };
-  check('and go again at dawn', !back.fox && !back.wolf, JSON.stringify(back));
-  check('the cap holds through the night flip', fauna.stats.alive <= ALIVE_CAP, `${fauna.stats.alive}`);
+  const fauna = createFauna(f, {});
+  let merged = 0, ranked = 0;
+  for (let cx = 0; cx < 80; cx++) {
+    const own = spawnsForChunk(f, cx, 17, { night: true });
+    const critters = fauna.spawnsFor(cx, 17, true);
+    const all = own.concat(critters);
+    merged += critters.length;
+    // this is what rescan does with them: rank by distance, keep the cap
+    const wanted = all.map((rec) => ({ rec, d2: (rec.x - 0) ** 2 + (rec.z - 0) ** 2 }));
+    wanted.sort((a, b) => a.d2 - b.d2 || (a.rec.key < b.rec.key ? -1 : 1));
+    ranked += wanted.length;
+    if (new Set(all.map((r) => r.key)).size !== all.length) { check('keys stay unique through the merge', false, `chunk ${cx}`); break; }
+  }
+  check('eighty chunks of both lists concatenate with no key collision', merged > 0 && ranked > merged,
+    `${merged} critters into ${ranked} records`);
+  check('and every merged record ranks, which is all the cap asks of it', ranked > 0);
   fauna.dispose();
 }
 
-// a predator breaks at 12 m, and not at 30
+// ===========================================================================
+console.log('\nfauna: a critter is a monster now, driven through the real runtime');
 {
-  const woods = stubField({ biome: () => 'boreal' });
+  // THE BUG THE USER FOUND. `buildMonsterModel` returned null for every tier 0
+  // row, so `monsters.spawn` refused to stand one up and a squirrel was not
+  // there to click.
+  for (const id of ['rabbit', 'squirrel', 'deer', 'gull', 'crow', 'frog', 'fieldMouse']) {
+    const m = buildMonsterModel(id);
+    if (!m) { check(`${id} builds a body`, false); continue; }
+    m.dispose();
+  }
+  check('every tier 0 row in the roster builds a body', true, 'rabbit, squirrel, deer, gull, crow, frog, fieldMouse');
+
   const scene = new THREE.Group();
-  const fauna = createFauna(scene, woods, {});
-  ring(fauna);
-  fauna.update(0.016, 1000, CENTRE, CENTRE, true);
-  const pred = fauna.all().find((m) => m.userData.roam && KINDS[m.userData.wild.kind].predator);
-  check('there is a predator to test with', !!pred, pred && pred.userData.wild.kind);
-  const put = (d) => {
-    pred.position.set(CENTRE + d, 3, CENTRE);
-    pred.userData.wild.home = { x: CENTRE + d, z: CENTRE };
-    pred.userData.roam.state = 'walk';
-    pred.userData.roam.fleeUntil = 0;
-    pred.userData.roam.t0 = 0; pred.userData.roam.until = 1e9;
+  const runtime = {
+    field: f,
+    heightAt: (x, z) => f.heightAt(x, z),
+    sitesNear: () => [],
+    inDungeon: false,
+    critterSpawns: (cx, cz, night) => spawnsFor(f, cx, cz, { night }),
   };
-  put(30);
-  fauna.update(0.033, 2000, CENTRE, CENTRE, true);
-  check('at 30 m it holds its ground', pred.userData.roam.state !== 'flee', pred.userData.roam.state);
-  put(8);
-  fauna.update(0.033, 3000, CENTRE, CENTRE, true);
-  check('at 8 m it breaks', pred.userData.roam.state === 'flee', pred.userData.roam.state);
-  const d0 = Math.hypot(pred.position.x - CENTRE, pred.position.z - CENTRE);
-  for (let i = 0; i < 40; i++) fauna.update(0.033, 3033 + i * 33, CENTRE, CENTRE, true);
-  const d1 = Math.hypot(pred.position.x - CENTRE, pred.position.z - CENTRE);
-  check('and it runs away from you, not at you', d1 > d0 + 3, `${d0.toFixed(1)} -> ${d1.toFixed(1)} m`);
-  fauna.dispose();
+  const monsters = createMonsters(scene, runtime, { rng: () => 0.5, deadUntil: [], spawnPoint: { x: 0, z: 0 } });
+  const mon = monsters.spawnAt('squirrel', 400, 400);
+  check('the monster layer stands a squirrel up', !!mon, mon ? mon.name : 'nothing');
+  check('and it is an actor with health, a tier and a temperament',
+    mon.actor.health > 0 && mon.actor.tier === 0 && mon.actor.temperament === 'critter',
+    `${mon.actor.health} hp, tier ${mon.actor.tier}, ${mon.actor.temperament}`);
+  check('it has a body in the scene', monsters.group.children.includes(mon.model.group));
+  check('IT IS TARGETABLE: a click column on the group the raycaster tests',
+    !!mon.model.parts.hit && mon.model.parts.hit.userData.monster === mon);
+  check('and the column is big enough to hit even on a small animal',
+    mon.model.parts.hit.geometry.parameters.radiusTop >= 0.34
+    && mon.model.parts.hit.geometry.parameters.height >= 0.95,
+    `r ${mon.model.parts.hit.geometry.parameters.radiusTop.toFixed(2)} m, h ${mon.model.parts.hit.geometry.parameters.height.toFixed(2)} m`);
+  check('it is in targets(), which is what the cursor tests against', monsters.targets().includes(mon.model.group));
+  check('and in actors(), which is what an area effect sweeps', monsters.actors().includes(mon.actor));
+
+  // the raycaster, for real: a ray straight down onto the column
+  const ray = new THREE.Raycaster();
+  monsters.group.updateMatrixWorld(true);
+  const p = mon.actor.pos;
+  ray.set(new THREE.Vector3(p.x, p.y + 30, p.z), new THREE.Vector3(0, -1, 0));
+  check('a ray from overhead picks the squirrel', monsters.pick(ray) === mon, `${monsters.pick(ray)?.name}`);
+  const miss = new THREE.Raycaster();
+  miss.set(new THREE.Vector3(p.x + 20, p.y + 30, p.z), new THREE.Vector3(0, -1, 0));
+  check('and a ray twenty metres to the side picks nothing', miss.pick === undefined && monsters.pick(miss) === null);
+
+  // it is skinnable, which is the other half of "it is a real animal"
+  check('its row carries a hide for the knife', (MONSTERS.squirrel.lootTable || []).includes('hide'),
+    (MONSTERS.squirrel.lootTable || []).join(', '));
+
+  // it never attacks first: aggro 0 is the whole of "critters never aggro"
+  const player = { kind: 'player', health: 100, maxHealth: 100, pos: { x: p.x + 0.5, y: p.y, z: p.z }, yaw: 0 };
+  for (let i = 0; i < 60; i++) monsters.update(1 / 60, 1000 + i * 16, player, false);
+  check('a squirrel stood on your boot never turns on you',
+    !mon.actor.ai.target && mon.actor.ai.state !== 'chase' && mon.actor.ai.state !== 'attack',
+    `state ${mon.actor.ai.state}`);
+  check('and the player took nothing off it', player.health === 100, `${player.health}`);
+  monsters.dispose();
 }
 
-// despawn when the chunk leaves, both by ring and by chunks.js disposing it
+// ===========================================================================
+console.log('\nfauna: killing one, through the real resolver');
+//
+// The other half of the user's complaint. An animal you cannot kill and cannot
+// skin is scenery whatever it looks like, so the kill goes through the REAL
+// createCombat, into the REAL monsters.died, and the body is looked for through
+// the REAL corpsesNear, which is the call skinning.js uses.
 {
-  const plain = stubField({ biome: () => 'meadow' });
   const scene = new THREE.Group();
-  const fauna = createFauna(scene, plain, {});
-  ring(fauna);
-  fauna.update(0.016, 1000, CENTRE, CENTRE, false);
-  const started = fauna.stats.alive;
-  check('a full ring to start with', started === ALIVE_CAP, `${started}`);
-  // walk 40 chunks away: everything behind is out of the ring and out of memory
-  fauna.update(0.016, 2000, CENTRE + 40 * CHUNK, CENTRE, false);
-  check('walking away despawns every animal', fauna.stats.alive === 0, `${fauna.stats.alive} left`);
-  check('and their chunks with them', fauna.stats.chunks === 0, `${fauna.stats.chunks}`);
-  check('the scene graph is empty too', fauna.group.children.length === 0, `${fauna.group.children.length}`);
-  // come back: the same ground, the same animals, from the pool not the builder
-  fauna.update(0.016, 3000, CENTRE, CENTRE, false);
-  check('walking back brings them back', fauna.stats.alive === started, `${fauna.stats.alive}`);
-  const posA = fauna.all().map((m) => `${m.userData.wild.kind}@${m.userData.wild.home.x.toFixed(2)},${m.userData.wild.home.z.toFixed(2)}`).sort().join('|');
-  fauna.update(0.016, 4000, CENTRE + 40 * CHUNK, CENTRE, false);
-  fauna.update(0.016, 5000, CENTRE, CENTRE, false);
-  const posB = fauna.all().map((m) => `${m.userData.wild.kind}@${m.userData.wild.home.x.toFixed(2)},${m.userData.wild.home.z.toFixed(2)}`).sort().join('|');
-  check('and they come back to the same places', posA === posB);
-  // chunks.js disposing a chunk takes its animals with it
-  const victim = fauna.all()[0].userData.wild.chunk.split(',').map(Number);
-  const doomed = fauna.all().filter((m) => m.userData.wild.chunk === victim.join(',')).length;
-  fauna.offChunk(victim[0], victim[1]);
-  check('offChunk despawns that chunk\'s animals', fauna.all().filter((m) => m.userData.wild.chunk === victim.join(',')).length === 0, `${doomed} were there`);
-  fauna.dispose();
+  const runtime = {
+    field: f, heightAt: () => 0, sitesNear: () => [], inDungeon: false,
+    critterSpawns: () => [],
+  };
+  const said = [];
+  const combat = createCombat({ rng: () => 0, hud: { log: (t) => said.push(String(t)) } });
+  const deadUntil = [];
+  const monsters = createMonsters(scene, runtime, {
+    combat, rng: () => 0.5, deadUntil, spawnPoint: { x: 0, z: 0 },
+    hud: { log: (t) => said.push(String(t)) },
+    clock: () => 1000000,
+  });
+  const deer = monsters.spawnAt('deer', 200, 200);
+  check('a deer stands up', !!deer && deer.actor.health > 0, `${deer?.actor.health} hp`);
+
+  const hunter = {
+    id: 'you', kind: 'player', name: 'you', pos: { x: 200.5, y: 0, z: 200 }, yaw: 0,
+    stats: { str: 0, dex: 0, int: 0, con: 0, wis: 0 },
+    skills: { swordsmanship: 100, tactics: 0, anatomy: 0, parrying: 0 },
+    bonuses: {}, ar: 0, resists: {},
+    weapon: { skill: 'swordsmanship', minDamage: 60, maxDamage: 60, speed: 0.2, weight: 3, damageType: 'physical', reach: 3 },
+    shield: null, health: 100, maxHealth: 100, mana: 0, maxMana: 0, stamina: 100, maxStamina: 100,
+    buffs: [], status: {}, lastSwingAt: -Infinity, casting: null, faction: 'player', ai: null, anim: 'idle',
+  };
+  let now = 1000, swings = 0;
+  while (deer.actor.health > 0 && swings < 40) {
+    const q = combat.queueSwing(hunter, deer.actor, { now });
+    if (q.queued) swings++;
+    for (let i = 0; i < 40 && deer.actor.health > 0; i++) { now += 16; combat.update(1 / 60, now); }
+  }
+  check('a sword really takes its health off', deer.actor.health <= 0, `${swings} swings, ${deer.actor.health} hp left`);
+  check('and the monster layer heard about it and made a body',
+    monsters.corpses().length === 1, `${monsters.corpses().length} corpses`);
+  const body = monsters.corpsesNear({ x: 200, z: 200 }, 3)[0];
+  check('the body answers corpsesNear, which is what skinning.js asks',
+    !!body && body.id === 'deer' && body.skinned === false, body ? `${body.name}, skinned ${body.skinned}` : 'nothing');
+  check('and it carries the row the knife reads its hide off',
+    !!body && (body.row.lootTable || []).includes('hide'), body ? (body.row.lootTable || []).join(', ') : '');
+  check('the kill said something, rather than a silent state change',
+    said.some((t) => /deer/i.test(t)), said.join(' | ').slice(0, 90));
+  check('a corpse is not a target any more', !monsters.actors().includes(deer.actor));
+  // The dead list is deliberately NOT written for this one: `spawnAt` is the dev
+  // bench's door and marks its spawns `ephemeral`, and an ephemeral body is not
+  // a slot in the world's roll, so an entry for it would sit in the save
+  // matching nothing. That rule is monsters.js's and is right.
+  check('a bench spawn writes no dead list entry, because it was never a slot',
+    deadUntil.length === 0, JSON.stringify(deadUntil));
+  // What decides whether a REAL critter goes into the dead list is one field on
+  // the record, and fauna does not set it, so once the merge in F1.md section 2
+  // lands a killed rabbit stays killed for eight to fifteen minutes exactly as a
+  // wolf does. That is the field, checked; the eight to fifteen minutes
+  // themselves are monsters.js's `respawnDelay` and are tested there.
+  const wild = [];
+  for (let cx = 0; cx < 200 && !wild.length; cx++) wild.push(...spawnsFor(f, cx, 17));
+  check('and a real critter record is not ephemeral, so it will go in',
+    wild.length > 0 && wild.every((r) => !r.ephemeral), `${wild.length} records, none ephemeral`);
+  monsters.dispose();
 }
 
-// ------------------------------------------------------- the hunting contract
+// ===========================================================================
+console.log('\nfauna: a bird, driven through the real stepMonster');
 {
-  const plain = stubField({ biome: () => 'meadow' });
-  const scene = new THREE.Group();
-  const fauna = createFauna(scene, plain, {});
-  ring(fauna);
-  fauna.update(0.016, 1000, CENTRE, CENTRE, false);
-  const targets = fauna.targets();
-  check('targets() returns models the bow can shoot', targets.length > 0, `${targets.length}`);
-  check('every target carries a hit column pointing back at itself',
-    targets.every((m) => m.userData.hit && m.userData.hit.userData.deer === m));
-  check('every target carries a farm-shaped roam record',
-    targets.every((m) => {
-      const r = m.userData.roam;
-      return r && typeof r.state === 'string' && typeof r.heading === 'number' && typeof r.speed === 'number'
-        && Array.isArray(r.legs) && typeof r.hp === 'number' && typeof r.hpMax === 'number' && r.quarry;
-    }));
-  check('quarry ids are the farm\'s own where the farm has one',
-    targets.every((m) => ['deer', 'bunny', 'squirrel', 'fox', 'wolf'].includes(m.userData.roam.quarry)));
-  const deer = targets.find((m) => m.userData.roam.quarry === 'deer');
-  check('a world deer is a buck, a doe or a fawn', !deer || ['buck', 'doe', 'fawn'].includes(deer.userData.roam.variant), deer && deer.userData.roam.variant);
-  // farm.js `_spookDeer` writes these three fields and expects a bolt
-  const victim = targets[0];
-  const startX = victim.position.x, startZ = victim.position.z;
-  victim.userData.roam.state = 'flee';
-  victim.userData.roam.fleeUntil = 4000;
-  victim.userData.roam.speed = 12;
-  victim.userData.roam.heading = 0;
-  for (let i = 0; i < 60; i++) fauna.update(0.033, 1100 + i * 33, CENTRE, CENTRE, false);
-  const ran = Math.hypot(victim.position.x - startX, victim.position.z - startZ);
-  check('a spooked animal bolts', ran > 8, `${ran.toFixed(1)} m in 2 s`);
-  // farm.js `_killDeer` writes state 'dead'; it must fall, sink and leave
-  const kill = fauna.targets()[0];
-  const deadRec = kill.userData.wild.rec;
-  const goneBefore = fauna.stats.despawned;
-  kill.userData.roam.state = 'dead'; kill.userData.roam.t0 = 0;
-  fauna.update(0.033, 4000, CENTRE, CENTRE, false);
-  check('a killed animal tips over', kill.rotation.z > 0.02, `${kill.rotation.z.toFixed(2)} rad`);
-  check('and it is still there while it falls', fauna.all().includes(kill));
-  check('a dying animal is no longer a target', !fauna.targets().includes(kill));
-  for (let i = 0; i < 200; i++) fauna.update(0.033, 4033 + i * 33, CENTRE, CENTRE, false);
-  check('and then the body is taken off the field', fauna.stats.despawned > goneBefore, `${goneBefore} -> ${fauna.stats.despawned}`);
-  check('the dead do not come back while you stand there',
-    !fauna.all().some((m) => m.userData.wild.rec === deadRec));
-  check('nothing left on the field is dead', fauna.all().every((m) => !m.userData.roam || m.userData.roam.state !== 'dead'));
-  // gulls are scenery, not quarry
-  const sky = createFauna(new THREE.Group(), stubField({ biome: () => 'beach' }), {});
-  ring(sky);
-  sky.update(0.016, 1000, CENTRE, CENTRE, false);
-  check('gulls fly', sky.all().length > 0 && sky.all().every((m) => m.userData.fly), `${sky.all().length}`);
-  check('gulls are not shootable', sky.targets().length === 0);
-  const gull = sky.all()[0];
-  const gy = gull.position.y;
-  sky.update(0.05, 1050, CENTRE, CENTRE, false);
-  check('a gull circles at height', gull.position.y > 10 && Math.abs(gull.position.y - gy) < 3,
-    `y ${gull.position.y.toFixed(1)}`);
-  sky.dispose();
-  fauna.dispose();
+  // The flyer path monsters.js already runs for bats and harpies, driven here
+  // with a critter actor. `ctx.flying` is what monsters.js passes for a row
+  // whose notes carry 'flying'.
+  const gull = makeMonsterActor('gull', { pos: { x: 0, y: 0, z: 0 } });
+  const ground = () => 0;
+  const ctx = { player: null, now: 0, heightAt: ground, rng: () => 0.5, flying: true };
+
+  check('it starts on the ground', gull.pos.y === 0, `${gull.pos.y}`);
+  let took = 0, top = 0;
+  for (let i = 0; i < 240; i++) {
+    ctx.now = i * 16.7;
+    const out = stepMonster(gull, 1 / 60, ctx);
+    top = Math.max(top, out.altitude);
+    if (out.altitude > 0.5 && !took) took = i;
+  }
+  check('IT TAKES OFF: the altitude climbs off the floor', took > 0 && top > HOVER_MIN * 0.9,
+    `airborne by frame ${took}, ${top.toFixed(2)} m at the top`);
+  const band = [];
+  for (let i = 0; i < 600; i++) {
+    ctx.now = 4000 + i * 16.7;
+    band.push(stepMonster(gull, 1 / 60, ctx).altitude);
+  }
+  const lo = Math.min(...band), hi = Math.max(...band);
+  check('IT CIRCLES: ten seconds of hovering stays inside the band monster_ai gives it',
+    lo >= HOVER_MIN - 0.01 && hi <= HOVER_MAX + 0.01, `${lo.toFixed(2)} to ${hi.toFixed(2)} m, band ${HOVER_MIN} to ${HOVER_MAX}`);
+  check('and it moves while it does, rather than hanging on a wire',
+    band.some((v, i) => i && Math.abs(v - band[i - 1]) > 1e-4));
+  console.log(`       NOTE: that band is HOVER_MIN..HOVER_MAX in src/game/monster_ai.js, which is ${HOVER_MIN} to ${HOVER_MAX} m.`);
+  console.log('       The brief asks for 6 to 12 m for a bird. docs/mmo/wiring/F1.md carries the patch.');
+
+  // IT LANDS. `hoverHeight(t, true)` is zero, which is the swoop, and it is the
+  // only thing in the existing flyer path that puts a flyer on the floor.
+  check('the flyer path has a pose that is on the ground', hoverHeight(0, true) === 0);
+  gull.ai.swoopUntil = 20000 + SWOOP_SECONDS * 1000;
+  let landed = null;
+  for (let i = 0; i < 240 && landed == null; i++) {
+    ctx.now = 20000 + i * 16.7;
+    const out = stepMonster(gull, 1 / 60, ctx);
+    if (out.altitude <= 0.02) landed = i;
+  }
+  check('IT LANDS: driven to the swoop it comes all the way down to the floor',
+    landed != null, landed != null ? `on the ground by frame ${landed}` : `still at ${gull.pos.y.toFixed(2)} m`);
+  check('and the body is at ground level when it is down', Math.abs(gull.pos.y - ground()) < 0.03, `${gull.pos.y.toFixed(3)}`);
+  // and back up again when the swoop is over
+  let up = 0;
+  for (let i = 0; i < 300; i++) {
+    ctx.now = 24000 + i * 16.7;
+    up = stepMonster(gull, 1 / 60, ctx).altitude;
+  }
+  check('and it goes back up when the swoop is over', up > HOVER_MIN - 0.01, `${up.toFixed(2)} m`);
+  console.log('       NOTE: nothing sets swoopUntil for a critter today, because a critter never attacks.');
+  console.log('       "lands when idle, takes off when approached" is the second patch in F1.md.');
 }
 
-// ------------------------------------------------------------- taking a hit
-// The combat surface: hp per species, hitTest, animalAt and damage. What a
-// weapon does with these lives in src/game/combat.js and is tested there; this
-// is the world's half of the contract.
-{
-  check('every species has hp', auditCombatTable() === true);
-  check('the hp table is the one the weapons were built against',
-    hpFor('rabbit') === 1 && hpFor('squirrel') === 1 && hpFor('gull') === 1
-    && hpFor('fox') === 2 && hpFor('deer') === 3 && hpFor('wolf') === 4,
-    Object.keys(KINDS).map((k) => `${k} ${hpFor(k)}`).join(', '));
-  let threw = 0;
-  try { hpFor('griffin'); } catch { threw++; }
-  const kept = KINDS.fox.hp; KINDS.fox.hp = undefined;
-  try { auditCombatTable(); } catch { threw++; }
-  KINDS.fox.hp = kept;
-  check('an unknown species and a species with no hp both throw', threw === 2, `${threw} of 2`);
-  check('the hp table is whole again', auditCombatTable() === true);
-
-  const plain = stubField({ biome: () => 'meadow' });
-  const scene = new THREE.Group();
-  const fauna = createFauna(scene, plain, {});
-  ring(fauna);
-  fauna.update(0.016, 1000, CENTRE, CENTRE, false);
-
-  // hitTest: a radius that holds it, and the same radius one step short
-  const victim = fauna.targets()[0];
-  const AWAY = { x: CENTRE + 70, z: CENTRE + 70 };   // clear of the player, so nothing bolts
-  for (const m of fauna.all()) m.position.set(CENTRE + 900, 3, CENTRE + 900);
-  victim.position.set(AWAY.x + 2, 3, AWAY.z);
-  victim.userData.wild.home = { x: AWAY.x + 2, z: AWAY.z };
-  check('hitTest finds an animal inside the radius', fauna.hitTest(AWAY.x, AWAY.z, 3).includes(victim));
-  check('and does not find the same animal just outside it', !fauna.hitTest(AWAY.x, AWAY.z, 1.9).includes(victim),
-    `${fauna.hitTest(AWAY.x, AWAY.z, 1.9).length} inside 1.9 m`);
-  check('a radius of zero or nonsense finds nothing',
-    fauna.hitTest(AWAY.x, AWAY.z, 0).length === 0 && fauna.hitTest(AWAY.x, AWAY.z, NaN).length === 0);
-  // nearest first, with a second animal further out
-  const second = fauna.targets().find((m) => m !== victim);
-  second.position.set(AWAY.x + 5, 3, AWAY.z);
-  second.userData.wild.home = { x: AWAY.x + 5, z: AWAY.z };
-  const near = fauna.hitTest(AWAY.x, AWAY.z, 8);
-  check('hitTest hands them back nearest first', near[0] === victim && near[1] === second, `${near.length} in reach`);
-
-  // animalAt: the farm's hit column, a mesh inside the model, the model itself,
-  // and something that is not an animal at all
-  check('animalAt maps the hit column back to the animal', fauna.animalAt(victim.userData.hit) === victim);
-  check('animalAt maps a mesh inside the model back to the animal',
-    fauna.animalAt(victim.children.find((c) => c !== victim.userData.hit) || victim) === victim);
-  check('animalAt takes the animal itself', fauna.animalAt(victim) === victim);
-  check('animalAt refuses a mesh that is not an animal',
-    fauna.animalAt(new THREE.Mesh()) === null && fauna.animalAt(null) === null);
-
-  // damage: it comes off the hp, and the animal runs from the blow
-  victim.userData.roam.hp = 5; victim.userData.roam.hpMax = 5;
-  const res = fauna.damage(victim, 2, AWAY.x, AWAY.z, 50000);
-  check('damage takes what it says off the hp', res && res.damage === 2 && victim.userData.roam.hp === 3,
-    `5 -> ${victim.userData.roam.hp}`);
-  check('a wounded animal is fleeing, on the clock', victim.userData.roam.state === 'flee'
-    && victim.userData.roam.fleeUntil === 50000 + HIT_FLEE_MS, `${victim.userData.roam.state}`);
-  const dot = Math.cos(victim.userData.roam.heading) * (victim.position.x - AWAY.x)
-    + Math.sin(victim.userData.roam.heading) * (victim.position.z - AWAY.z);
-  check('and it is pointed away from the blow, not toward it', dot > 0, `dot ${dot.toFixed(2)}`);
-  check('a wounded animal is still a target', fauna.targets().includes(victim) && fauna.hitTest(AWAY.x, AWAY.z, 3).includes(victim));
-
-  // a blow landed on its own square leaves the heading alone rather than
-  // snapping every such animal due east
-  victim.userData.roam.heading = 1.234;
-  fauna.damage(victim, 1, victim.position.x, victim.position.z, 51000);
-  check('a blow with no direction in it does not spin the animal', victim.userData.roam.heading === 1.234,
-    `${victim.userData.roam.heading}`);
-
-  // the kill, and what it costs the world
-  const rec = victim.userData.wild.rec;
-  const goneBefore = fauna.stats.despawned;
-  const kill = fauna.damage(victim, 99, AWAY.x, AWAY.z, 52000);
-  check('enough damage kills', kill && kill.killed && kill.hp === 0, JSON.stringify(kill));
-  check('hp never goes below zero', victim.userData.roam.hp === 0);
-  check('a dead animal is out of hitTest and out of targets at once',
-    !fauna.hitTest(AWAY.x, AWAY.z, 6).includes(victim) && !fauna.targets().includes(victim));
-  check('a second blow on a corpse does nothing', fauna.damage(victim, 1, AWAY.x, AWAY.z, 52100) === null);
-  check('but the body is still there to fall over', fauna.all().includes(victim));
-  for (let i = 0; i < 200; i++) fauna.update(0.033, 52000 + i * 33, CENTRE, CENTRE, false);
-  check('and then it is gone', fauna.stats.despawned > goneBefore, `${goneBefore} -> ${fauna.stats.despawned}`);
-  check('and does not stand up again while you are here', !fauna.all().some((m) => m.userData.wild.rec === rec));
-  check('nothing left on the field is dead or dying',
-    fauna.all().every((m) => (!m.userData.roam || m.userData.roam.state !== 'dead') && (!m.userData.fly || !m.userData.fly.dying)));
-  fauna.dispose();
-}
-
-// a gull carries hp too, and a shot one falls out of the sky instead of circling
-{
-  const sky = createFauna(new THREE.Group(), stubField({ biome: () => 'beach' }), {});
-  ring(sky);
-  sky.update(0.016, 1000, CENTRE, CENTRE, false);
-  const gull = sky.all()[0];
-  check('a gull has hp on its fly record', gull.userData.fly.hp === hpFor('gull'), `${gull.userData.fly.hp}`);
-  check('a live gull answers hitTest', sky.hitTest(gull.position.x, gull.position.z, 3).includes(gull));
-  const y0 = gull.position.y;
-  const rec = gull.userData.wild.rec;
-  const goneBefore = sky.stats.despawned;
-  const res = sky.damage(gull, 1, gull.position.x + 4, gull.position.z, 60000);
-  check('a gull dies to one hit', res && res.killed && res.kind === 'gull');
-  check('a shot gull is out of hitTest at once', !sky.hitTest(gull.position.x, gull.position.z, 3).includes(gull));
-  for (let i = 0; i < 20; i++) sky.update(0.033, 60000 + i * 33, CENTRE, CENTRE, false);
-  check('it falls rather than circling', gull.position.y < y0 - 1, `${y0.toFixed(1)} -> ${gull.position.y.toFixed(1)}`);
-  for (let i = 0; i < 200; i++) sky.update(0.033, 62000 + i * 33, CENTRE, CENTRE, false);
-  check('then the body goes and does not come back', sky.stats.despawned > goneBefore
-    && !sky.all().some((m) => m.userData.wild.rec === rec), `${goneBefore} -> ${sky.stats.despawned}`);
-  // and the other way: an untouched gull is still circling at height
-  const other = sky.all().find((m) => m.userData.fly && !m.userData.fly.dying);
-  check('the gulls that were not hit are still up there', !!other && other.position.y > 10,
-    other ? `y ${other.position.y.toFixed(1)}` : 'none');
-  sky.dispose();
-}
-
-// ------------------------------------------------------------------- cost
-{
-  const t0 = performance.now();
-  for (let i = 0; i < 200; i++) spawnsFor(f, 30 + i, 17);
-  const ms = (performance.now() - t0) / 200;
-  check('a chunk rolls its animals in under 1 ms', ms < 1, `${ms.toFixed(3)} ms`);
-  const scene = new THREE.Group();
-  const fauna = createFauna(scene, stubField({ biome: () => 'meadow' }), {});
-  ring(fauna);
-  fauna.update(0.016, 1000, CENTRE, CENTRE, false);
-  const t1 = performance.now();
-  for (let i = 0; i < 600; i++) fauna.update(0.016, 2000 + i * 16, CENTRE, CENTRE, false);
-  const fms = (performance.now() - t1) / 600;
-  check(`${ALIVE_CAP} animals step in under 0.5 ms a frame`, fms < 0.5, `${fms.toFixed(3)} ms`);
-  fauna.dispose();
-}
-
-console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

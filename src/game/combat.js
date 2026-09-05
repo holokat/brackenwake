@@ -20,7 +20,6 @@
 // the alternative is a player locked out of hitting anything for half a second
 // because they clicked the sky.
 
-import { KINDS } from '../world/fauna.js';
 import { GOODS } from '../farm/catalog.js';
 
 /**
@@ -83,20 +82,28 @@ export function lootFor(species) {
 }
 
 /**
- * Every species fauna.js can spawn has loot, and every loot names a good the
- * catalog actually sells. Called at module load, so a seventh animal added to
- * KINDS cannot ship dropping nothing, and a rename in the catalog cannot leave
- * a kill crediting a good that is no longer there.
+ * Every loot row names a good the catalog actually sells, so a rename in the
+ * catalog cannot leave a kill crediting a good that is no longer there.
+ *
+ * IT USED TO CHECK THE OTHER DIRECTION TOO, against `KINDS` in
+ * `src/world/fauna.js`: every species that could spawn had to have a row here.
+ * That table is gone. The animals of the world are tier 0 monsters now
+ * (F1, docs/mmo/wiring/F1.md), they are killed through the resolver in the
+ * lower half of this file, and what they drop is `MONSTERS[id].lootTable` read
+ * by `loot_drops.js` and `skinning.js`. Everything above this line is the
+ * farmstead's hunting knife and is now UNREACHED: `interact.js` hands it a
+ * fauna object that has no `hitTest`, so `pickTarget` refuses with 'no_fauna'
+ * every time and the click falls through to the monster path in
+ * `app/systems/input.js`, which is where a rabbit is now clicked. It is left
+ * standing rather than deleted because it is not this task's file to delete;
+ * F1.md names it as the next thing to go.
  */
 export function auditLootTable() {
   const bad = [];
-  for (const kind of Object.keys(KINDS)) {
-    const row = LOOT[kind];
-    if (!row) { bad.push(`${kind} drops nothing`); continue; }
+  for (const [kind, row] of Object.entries(LOOT)) {
     if (!GOODS[row.good]) bad.push(`${kind} drops "${row.good}", which is not a catalog good`);
     if (!(row.n > 0)) bad.push(`${kind} drops ${row.n} of ${row.good}`);
   }
-  for (const kind of Object.keys(LOOT)) if (!KINDS[kind]) bad.push(`loot for "${kind}", which is not a species`);
   if (bad.length) throw new Error(`combat: bad loot table (${bad.join('; ')})`);
   return true;
 }

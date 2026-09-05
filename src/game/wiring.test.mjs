@@ -28,7 +28,6 @@ import { dirname, join } from 'node:path';
 
 const THREE = await import('three');
 const { CHUNK } = await import('../world/field.js');
-const { createFauna, hpFor, NEAR_RING } = await import('../world/fauna.js');
 const { createTreeField, clearTreeFields } = await import('../farm/tree_edit.js');
 const { createInteract, aimDistTo, auditLootCarry, SWING_MS } = await import('./interact.js');
 const { createState, CARRIED, GOOD_CAP } = await import('./state.js');
@@ -74,19 +73,6 @@ function stubField() {
 const CENTRE = 20 * CHUNK + 32;
 const GROUND = 3;
 
-/** Stand an animal on a spot, whole and calm. */
-function place(m, x, z) {
-  m.position.set(x, GROUND, z);
-  m.userData.wild.home = { x, z };
-  m.userData.wild.groundY = GROUND;
-  const rm = m.userData.roam;
-  if (rm) {
-    rm.hp = hpFor(m.userData.wild.kind); rm.state = 'walk'; rm.t0 = 0; rm.until = 1e9;
-    rm.fleeUntil = 0; rm.heading = 0;
-  }
-  return m;
-}
-const hpOf = (m) => (m.userData.roam ? m.userData.roam.hp : m.userData.fly.hp);
 
 /**
  * Everything the game hands createInteract, real except for `runtime.pick`,
@@ -95,15 +81,10 @@ const hpOf = (m) => (m.userData.roam ? m.userData.roam.hp : m.userData.fly.hp);
  */
 function rig() {
   clearTreeFields();
-  const scene = new THREE.Group();
-  const fauna = createFauna(scene, stubField(), {});
-  for (let cz = -NEAR_RING; cz <= NEAR_RING; cz++) {
-    for (let cx = -NEAR_RING; cx <= NEAR_RING; cx++) fauna.onChunk(20 + cx, 20 + cz, 33);
-  }
-  fauna.update(0.016, clock, CENTRE, CENTRE, false);
-  // everything out of the way, so a swing has exactly the candidates a check puts back
-  for (const m of fauna.all()) m.position.set(CENTRE + 900, GROUND, CENTRE + 900);
-
+  // No fauna. The animals of the world are tier 0 monsters now (F1), and
+  // `runtime.fauna` no longer carries a `hitTest`, so interact.js's animal
+  // branch refuses with 'no_fauna' and the click goes to the trees. That is the
+  // real shape of the runtime this rig is standing in for.
   const parent = new THREE.Group();
   const layer = { geo: new THREE.BoxGeometry(1, 1, 1), mat: new THREE.MeshBasicMaterial(), of: (t) => ({ x: t.x, y: t.gy + 1, z: t.z, s: t.s, ry: t.ry }) };
   const field = (name, kind, opts = {}) => {
@@ -126,7 +107,7 @@ function rig() {
   const sc = { camera: new THREE.PerspectiveCamera(55, 1, 0.1, 1800) };
   const input = { pointer: { x: 0, y: 0 } };
   let picked = null;
-  const runtime = { fauna, inDungeon: false, pick: () => picked };
+  const runtime = { fauna: null, inDungeon: false, pick: () => picked };
 
   const kit = fakeKit();
   const scheduled = [];
@@ -148,14 +129,13 @@ function rig() {
   const treePick = (f, index) => ({ kind: 'tree', tree: { field: f, index, point: { x: f.trees[index].x, y: GROUND, z: f.trees[index].z } } });
 
   return {
-    fauna, state, hud, player, audio, kit, scheduled, it, aimAt, treePick, runtime,
+    state, hud, player, audio, kit, scheduled, it, aimAt, treePick, runtime,
     oaks, rocks, seams,
     setPick: (p) => { picked = p; },
     toasts, hints,
     last: () => toasts[toasts.length - 1] || '',
     urls: () => kit.built.map((e) => e.url),
     fired: (re) => kit.built.some((e) => re.test(e.url)),
-    beast: (kind) => fauna.all().find((m) => m.userData.wild.kind === kind && m.userData.roam),
   };
 }
 
@@ -171,190 +151,25 @@ function rig() {
 }
 
 // ===========================================================================
-// A swing at an animal, all the way through
+// A swing at an animal used to be checked here, all the way through
 // ===========================================================================
-
-// ---- the animal in front beats the tree behind ----------------------------
-{
-  const r = rig();
-  const deer = place(r.beast('deer'), CENTRE + 1.5, CENTRE);
-  check('a deer is standing 1.5 m off', !!deer && Math.abs(deer.position.x - CENTRE - 1.5) < 1e-6);
-  r.setPick(r.treePick(r.oaks, 0));
-  r.state.giveTool('axe'); r.state.tool = 'axe';
-
-  // the cursor on the deer: the deer is nearer the cursor than the oak behind it
-  r.aimAt(deer.position.x, deer.position.z);
-  const hp0 = hpOf(deer);
-  r.kit.reset();
-  const d = r.it.click();
-  check('the cursor on the deer swings at the deer, not the oak', d.action === 'kill' || d.action === 'hit', JSON.stringify(d.action));
-  check('and the oak is still standing', !r.oaks.trees[0].felledUntil);
-  check('and the deer took the axe', hpOf(deer) < hp0 || hpOf(deer) === 0, `${hp0} then ${hpOf(deer)}`);
-  check('and a blow on something alive made a sound', r.fired(/arrow-hit-\d\.mp3/), r.urls().join(' '));
-  check('and no chop sound came out of it', !r.fired(/axe-chop/), r.urls().join(' '));
-}
-
-// ---- the tree still wins when it is nearer the cursor ---------------------
-{
-  const r = rig();
-  const deer = place(r.beast('deer'), CENTRE + 1.5, CENTRE);
-  r.setPick(r.treePick(r.oaks, 0));
-  r.state.giveTool('axe'); r.state.tool = 'axe';
-  r.aimAt(r.oaks.trees[0].x, r.oaks.trees[0].z);
-  const hp0 = hpOf(deer);
-  r.kit.reset();
-  const d = r.it.click();
-  check('the cursor on the oak chops the oak, with a deer at your feet', d.action === 'chop', JSON.stringify(d.action));
-  check('and the deer is untouched', hpOf(deer) === hp0, `${hp0} then ${hpOf(deer)}`);
-  check('and the axe was heard', r.fired(/axe-chop-1\.mp3/), r.urls().join(' '));
-  check('and no blow landed on anything alive', !r.fired(/arrow-hit/));
-  check('the wood is really in the pack', r.state.materials.wood > 0, `${r.state.materials.wood} wood`);
-  check('and the pickup was heard', r.fired(/pickup\.ogg/), r.urls().join(' '));
-  const fell = r.scheduled.find(([, ms]) => ms === 1300);
-  check('the tree falling is booked for 1300 ms, not played with the swing', !!fell, r.scheduled.map(([, ms]) => ms).join(','));
-  r.kit.reset();
-  fell[1] && fell[0]();
-  check('and when it fires, the thud is a real file', r.fired(/place-object\.opus/), r.urls().join(' '));
-}
-
-// ---- aimDistTo, both ways -------------------------------------------------
-{
-  const r = rig();
-  const pick = r.treePick(r.oaks, 0);
-  const aim = { x: r.oaks.trees[0].x + 3, z: r.oaks.trees[0].z };
-  check('a tree pick measures from the cursor to the tree', Math.abs(aimDistTo(pick, aim) - 3) < 1e-6, String(aimDistTo(pick, aim)));
-  check('a site pick is infinitely far from the cursor', aimDistTo({ kind: 'site', site: {} }, aim) === Infinity);
-  check('no pick at all is infinitely far too', aimDistTo(null, aim) === Infinity);
-  check('and so is any pick when the cursor is on the sky', aimDistTo(pick, null) === Infinity);
-}
-
-// ---- the kill, the loot, and the line that has to match it ----------------
-{
-  const r = rig();
-  const deer = place(r.beast('deer'), CENTRE + 1.5, CENTRE);
-  r.state.giveTool('axe'); r.state.tool = 'axe';
-  r.setPick(null);
-  r.aimAt(deer.position.x, deer.position.z);
-  const loot = lootFor('deer');
-  check('an axe does 3 and a deer has 3, so one blow kills', WEAPONS.axe.damage >= hpFor('deer'));
-  r.kit.reset();
-  const d = r.it.click();
-  check('the deer goes down', d.action === 'kill', String(d.action) + '/' + String(d.reason));
-  check('and the toast says so', /the deer goes down/.test(r.last()), r.last());
-  check('the venison is really in the pack', r.state.goods.venison === loot.n, `${r.state.goods.venison}`);
-  check('and the toast says where it went', /2 venison in the pack/.test(r.last()), r.last());
-  check('and the pack taking it was heard', r.fired(/pickup\.ogg/), r.urls().join(' '));
-  check('and the blow was heard too', r.fired(/arrow-hit-\d\.mp3/), r.urls().join(' '));
-  check('the body does not stand up again', !r.fauna.isLive(deer));
-}
-
-// ---- a blow that does not kill --------------------------------------------
-{
-  const r = rig();
-  const deer = place(r.beast('deer'), CENTRE + 1.5, CENTRE);
-  r.state.tool = 'hand';
-  r.setPick(null);
-  r.aimAt(deer.position.x, deer.position.z);
-  const hp0 = hpOf(deer);
-  const d = r.it.click();
-  check('bare hands wound a deer rather than killing it', d.action === 'hit' && hpOf(deer) === hp0 - 1, `${hp0} then ${hpOf(deer)}`);
-  // combat.js writes "your hands lands on the deer": WEAPONS.hand.noun is
-  // plural and swingText's verb is not. It is combat.js's line and combat.js is
-  // not this task's to edit, so this pins what it really says rather than what
-  // COMBAT.WIRING.md's table says it says.
-  check('and the toast names the hands and the deer', /your hands land/.test(r.last()) && /on the deer, and it runs/.test(r.last()), r.last());
-  check('and nothing was credited for a wound', r.state.goods.venison === 0 && r.state.goods.game_meat === 0);
-}
-
-// ---- the cooldown is one arm, and it is silent ----------------------------
-{
-  const r = rig();
-  const deer = place(r.beast('deer'), CENTRE + 1.5, CENTRE);
-  r.state.tool = 'hand';
-  r.setPick(null);
-  r.aimAt(deer.position.x, deer.position.z);
-  const t0 = clock;
-  let landed = 0;
-  r.toasts.length = 0;
-  r.kit.reset();
-  for (let i = 0; i < 12; i++) { clock += 0.25; if (r.it.click().action === 'hit') landed++; }
-  check(`12 clicks in ${(clock - t0).toFixed(0)} ms land 1 blow`, landed === 1, `${landed} blows`);
-  check('and only one of them spoke', r.toasts.length === 1, `${r.toasts.length} toasts`);
-  check('and the eleven refusals made no sound', r.kit.built.filter((e) => /arrow-hit/.test(e.url)).length === 1, r.urls().join(' '));
-  clock += WEAPONS.hand.cooldown;
-  check(`and ${WEAPONS.hand.cooldown} ms later the next click lands`, r.it.click().action === 'hit');
-}
-
-// ---- one arm: chopping and swinging share the timer -----------------------
-{
-  const r = rig();
-  const deer = place(r.beast('deer'), CENTRE + 1.5, CENTRE);
-  r.state.giveTool('axe'); r.state.tool = 'axe';
-  r.setPick(r.treePick(r.oaks, 1));
-  r.aimAt(r.oaks.trees[1].x, r.oaks.trees[1].z);
-  check('the oak is chopped', r.it.click().action === 'chop');
-  clock += 1;
-  r.aimAt(deer.position.x, deer.position.z);
-  const hp0 = hpOf(deer);
-  const d = r.it.click();
-  check('and a swing at the deer 1 ms later is refused', d.action === 'blocked' && d.reason === 'cooldown', JSON.stringify(d.reason));
-  check('so the deer is untouched', hpOf(deer) === hp0);
-  clock += WEAPONS.axe.cooldown;
-  check('after the axe cooldown it lands', r.it.click().action === 'kill');
-}
-
-// ---- a full bag says so, and does not sound like a reward -----------------
-{
-  const r = rig();
-  const deer = place(r.beast('deer'), CENTRE + 1.5, CENTRE);
-  r.state.giveTool('axe'); r.state.tool = 'axe';
-  r.state.addGood('venison', GOOD_CAP);
-  check('the bag is full of venison', r.state.goods.venison === GOOD_CAP);
-  r.setPick(null);
-  r.aimAt(deer.position.x, deer.position.z);
-  r.kit.reset();
-  const d = r.it.click();
-  check('the deer still goes down', d.action === 'kill');
-  check('the bag stays at the cap', r.state.goods.venison === GOOD_CAP);
-  check('and the toast says it stayed on the ground', /pack is full/.test(r.last()) && /on the ground/.test(r.last()), r.last());
-  check('and the refusal sounds like a refusal, not a pickup', r.fired(/denied\.ogg/) && !r.fired(/pickup\.ogg/), r.urls().join(' '));
-}
-
-// ---- underground, the animals are not there -------------------------------
-{
-  const r = rig();
-  const deer = place(r.beast('deer'), CENTRE + 1.5, CENTRE);
-  r.state.giveTool('axe'); r.state.tool = 'axe';
-  r.runtime.inDungeon = true;
-  r.setPick(null);
-  r.aimAt(deer.position.x, deer.position.z);
-  const hp0 = hpOf(deer);
-  const d = r.it.click();
-  check('a click underground does not club a deer through the roof', d.action !== 'kill' && d.action !== 'hit', JSON.stringify(d.action));
-  check('and the deer is untouched', hpOf(deer) === hp0);
-  r.it.update();
-  check('and the hint does not name one either', !/click to swing/.test(r.hints[r.hints.length - 1] || ''), r.hints[r.hints.length - 1]);
-  r.runtime.inDungeon = false;
-  r.it.update();
-  check('back above ground the hint names the deer', /deer, click to swing/.test(r.hints[r.hints.length - 1] || ''), r.hints[r.hints.length - 1]);
-}
-
-// ---- the hint and the click can never disagree ----------------------------
-{
-  const r = rig();
-  const deer = place(r.beast('deer'), CENTRE + 1.5, CENTRE);
-  r.state.giveTool('axe'); r.state.tool = 'axe';
-  r.setPick(r.treePick(r.oaks, 0));
-  r.aimAt(r.oaks.trees[0].x, r.oaks.trees[0].z);
-  r.it.update();
-  check('the cursor on the oak hints the oak', /oak, the axe/.test(r.hints[r.hints.length - 1] || ''), r.hints[r.hints.length - 1]);
-  check('and the click chops it', r.it.click().action === 'chop');
-  clock += WEAPONS.axe.cooldown + SWING_MS;
-  r.aimAt(deer.position.x, deer.position.z);
-  r.it.update();
-  check('the cursor on the deer hints the deer', /deer, click to swing/.test(r.hints[r.hints.length - 1] || ''), r.hints[r.hints.length - 1]);
-  check('and the click swings at it', r.it.click().action === 'kill');
-}
+//
+// Twenty checks: the animal in front beating the tree behind, an axe taking a
+// deer's hit points, bare hands wounding rather than killing, the venison in
+// the pack, the cue that fired. Every one of them drove `createFauna`'s own
+// deer through `resolveSwing`, and F1 retired that layer: the animals of the
+// world are tier 0 monster rows, a click on one goes through
+// `fight.monsters.pick` in `app/systems/input.js` long before interact.js sees
+// it, and interact.js's animal branch is unreachable. Checking it here would be
+// checking that dead code still works.
+//
+// What replaced these checks, and where:
+//   placement, biome by biome            src/world/fauna.test.mjs
+//   a rabbit is targetable and killable  src/world/fauna.test.mjs (real runtime)
+//   the bodies                           src/game/monster_models.test.mjs
+//   the swing that kills it              src/game/combat.test.mjs (the resolver)
+//
+// docs/mmo/wiring/F1.md section 9 names the dead code that should follow.
 
 // ===========================================================================
 // The tool on rock and ore, and the refusals

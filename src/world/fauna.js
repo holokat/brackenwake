@@ -1,154 +1,199 @@
-// Wild animals for the endless world: deer in the meadows and along the forest
-// edge, rabbits and squirrels in the meadow and the sakura groves, foxes and
-// wolves out in the boreal after dark, gulls turning over the beaches.
+// Where the animals of the world stand.
 //
-// The shape is flora's. chunks.js hands every built chunk to onChunk and every
-// disposed chunk to offChunk; fauna only ever puts animals on the ground in the
-// NEAR RING (3 chunks, so 7 x 7 = 49 chunks, 224 m each way), and never more
-// than ALIVE_CAP of them at once. Which chunk holds a herd, a fox, a squirrel
-// pair or a flock is a pure function of the seed and the chunk, so walking away
-// and back finds the same animals in the same field.
+// THIS MODULE USED TO DRAW THEM. It built deer and rabbits and gulls out of
+// `src/farm/`, kept them in its own group, walked them itself, and gave them a
+// private little combat surface (`hitTest`, `damage`, `hpFor`) that nothing in
+// Brackenwake's fight ever called. The result was the thing the user found: a
+// squirrel you could not target, a deer you could not skin, a gull that was
+// scenery, all of them running on the farm's hunting rules in a game that no
+// longer has a farm.
 //
-//   const fauna = createFauna(scene, field, { sitesNear });
-//   chunks.js  fauna.onChunk(cx, cz, verts) / fauna.offChunk(cx, cz)
-//   farm.js    fauna.update(dt, nowMs, x, z, night) every frame
-//   hunting    fauna.targets() -> the models the bow can shoot
+// So the drawing is gone. The animals of the world are tier 0 monster rows
+// (`src/mmo/monsters.js`: Rabbit, Squirrel, Deer, Gull, Frog, Crow, Field
+// Mouse), which means they are actors: targetable, killable, skinnable, and
+// tamable the day Animal Taming has a runtime. What is left here is the half
+// this file was always best at, and the half `src/game/monsters.js` has no
+// answer for: WHERE a rabbit belongs. Biome by biome, chunk by chunk, off the
+// water, out of the towns, deer along the forest edge and gulls on the coast.
 //
-// Huntability is the farm's own contract, not a new one. Every ground animal
-// carries userData.roam (state, heading, speed, hp, quarry, variant, legs,
-// head) and userData.hit (an invisible target column whose userData.deer points
-// back at the model), which is exactly what farm.js `_resolveShot`,
-// `_spookDeer`, `_woundDeer` and `_killDeer` reach for. This module then honours
-// what they wrote: a 'flee' bolts, a 'dead' tips over, sinks and despawns.
+//   const fauna = createFauna(field, { sitesNear });
+//   fauna.spawnsFor(cx, cz, night)   // -> spawn records for one chunk
 //
-// See FAUNA.WIRING.md for the farm.js lines, including the two table entries
-// farm.js and main.js still need before a shot wolf reads as a wolf.
+// A record is EXACTLY the shape `monsters.spawnsForChunk` returns, so the
+// monster layer can concatenate the two lists and never know which is which:
+// the cap ranks them together, the dead list remembers them the same way, and
+// a killed rabbit stays killed for the same eight to fifteen minutes a wolf
+// does. `docs/mmo/wiring/F1.md` carries the one line in monsters.js that joins
+// them up, and until that line lands this module places nothing that anybody
+// can see, which is a state the tests say out loud rather than hide.
+//
+// Nothing in here imports THREE. It is a table and some arithmetic.
 
-import * as THREE from 'three';
-import { buildDeer } from '../farm/deer.js';
-import { buildCritter } from '../farm/critter_models.js';
-import { buildPredator } from '../farm/predator_models.js';
-import { buildSeagull } from '../farm/beach_life.js';
 import { CHUNK, BIOMES } from './field.js';
 import { rand2 } from './noise.js';
+import { MONSTERS } from '../mmo/monsters.js';
 
-export const NEAR_RING = 3;        // chunks each way that may hold animals
-export const ALIVE_CAP = 24;       // never more than this many alive at once
-export const HOME_KEEP = 130;      // the farm has its own deer; keep clear of it
-export const SITE_PAD = 6;         // a site's flat radius plus this is off limits
+// A site's flat radius plus this is off limits. Twelve, not six, and the number
+// is not free: `monsters.SETTLEMENT_PAD` is 12, so a monster may not stand
+// within `flatR + 12` of a town. At six, fauna placed rabbits in the ring
+// between the two, and the layer that stands them up would then have refused to
+// let them walk anywhere. Fauna is never laxer than the monster layer;
+// `fauna.test.mjs` drives every placed record through `monsters.blockedAt` and
+// fails if one of them is refused.
+export const SITE_PAD = 12;
 export const RIVER_MAX = 0.15;     // river strength a hoof will not stand in
-export const LEASH = 30;           // how far an animal drifts from where it spawned
-export const SCAN_MS = 300;        // between spawn/despawn sweeps
-export const HERD_SPREAD = 14;     // herd members scatter this far from the leader
+export const GROUP_SPREAD = 14;    // metres a group scatters from its first member
+export const HOME_KEEP = 0;        // metres of quiet around the origin. See below.
 const PLACE_TRIES = 8;             // candidate points per animal before giving up
-const DEAD_SINK_MS = 2700;         // tip over, sink, gone
-export const HIT_FLEE_MS = 4200;   // how long a wounded animal runs from the blow
-export const FALL_MS = 1600;       // a shot bird from the top of its arc to the ground
 
-// One entry per species. `quarry` and `hp` are read by the farm's hunt code and
-// by `src/game/combat.js`; `speed` is metres per second and `flee` multiplies it
-// while bolting.
-//
-// `hp` is a flat number per species, not a range, because a weapon table is only
-// legible if the answer to "how many swings is a wolf" is the same wolf to wolf.
-// Read it with `hpFor(kind)`; the roam record then carries its own copy so a
-// wounded animal remembers what it has left.
-export const KINDS = {
-  deer:     { model: 'deer',     quarry: 'deer',     hp: 3, hitR: 0.95, speed: 1.6, flee: 6.0, spook: 20, scale: 1,    biomes: ['meadow', 'sakura', 'boreal'] },
-  rabbit:   { model: 'bunny',    quarry: 'bunny',    hp: 1, hitR: 0.55, speed: 4.2, flee: 1.8, spook: 12, scale: 1.5,  biomes: ['meadow', 'sakura'], restless: true },
-  squirrel: { model: 'squirrel', quarry: 'squirrel', hp: 1, hitR: 0.5,  speed: 4.6, flee: 1.7, spook: 12, scale: 1.5,  biomes: ['meadow', 'sakura', 'boreal'], restless: true },
-  fox:      { model: 'fox',      quarry: 'fox',      hp: 2, hitR: 0.7,  speed: 4.4, flee: 1.9, spook: 12, scale: 1.15, biomes: ['boreal'], predator: true },
-  wolf:     { model: 'wolf',     quarry: 'wolf',     hp: 4, hitR: 0.9,  speed: 6.0, flee: 1.6, spook: 12, scale: 1.0,  biomes: ['boreal'], predator: true },
-  gull:     { model: 'seagull',  quarry: 'gull',     hp: 1, flying: true, scale: 1.5, biomes: ['beach', 'ocean'] },
+// HOME_KEEP is zero on purpose, and it used to be 130. That number was the
+// farm's: the homestead had its own tame deer and wild ones on the doorstep
+// read as a bug. Brackenwake has no farm, and a rabbit in the first field you
+// walk through is the whole point of having rabbits. The mechanism is kept
+// because a caller may still want a quiet ring (a town square, a starting
+// clearing) and passing `homeKeep` is how it asks.
+
+/**
+ * One row per species, and every one of them is a real tier 0 monster.
+ *
+ * `biomes` is where it lives, which is checked against the spawn table below in
+ * both directions: a species cannot be placed in a biome it does not live in,
+ * and a biome cannot list a species that does not live there.
+ *
+ * There is no hp, no speed, no flee multiplier and no quarry id here any more.
+ * All four live on the monster row, where the fight can read them.
+ */
+export const CRITTERS = {
+  rabbit: { biomes: ['meadow', 'sakura'] },
+  squirrel: { biomes: ['boreal', 'sakura', 'meadow'] },
+  deer: { biomes: ['meadow', 'sakura', 'boreal'] },
+  gull: { biomes: ['beach', 'ocean'], flying: true },
+  frog: { biomes: ['meadow', 'beach'] },
+  crow: { biomes: ['meadow', 'sakura', 'boreal', 'beach', 'desert', 'mountain', 'snow'], flying: true },
+  fieldMouse: { biomes: ['meadow', 'sakura', 'boreal', 'desert', 'mountain', 'snow'] },
 };
 
 /**
- * How much a species can take. Throws on a species with no answer, so a sixth
- * animal added to KINDS without an hp cannot ship as an invulnerable one.
+ * Which chunks hold what. `p` is the chance this chunk rolls the group at all,
+ * `n` the size of it. `night` groups exist only while the night flag is set;
+ * `edge` groups need a neighbouring chunk of a named kind, which is what makes
+ * boreal deer a forest EDGE animal rather than a deep woods one.
+ *
+ * DENSITY IS DELIBERATELY LOW, and here is the arithmetic, because the number
+ * is not obvious and it is not free. `monsters.js` holds ONE cap over the near
+ * ring (`ALIVE_CAP`, 40 bodies across 7 x 7 chunks) and ranks by distance, so
+ * every critter standing is a monster not standing. The rows below come to
+ * about a quarter of an animal per chunk in a meadow, which is roughly a dozen
+ * over the whole ring: enough that a walk turns up rabbits, few enough that a
+ * wood at night is still mostly wolves. The first pass at these numbers was
+ * twice as high and a long walk across the real field had the near ring asking
+ * for 35 bodies of the 40; the suite is what caught it, and it now measures the
+ * thing that actually matters instead: it merges this table's roll with the
+ * roster's own night roll, ranks the two together the way `rescan` does, caps
+ * them at 40 and fails if the monsters are left fewer than 22 of the slots.
+ * F1.md carries the note for the day a share of the cap is worth setting aside
+ * explicitly.
+ *
+ * `night: true` on a row is honoured and no row uses it: there is no nocturnal
+ * animal in tier 0 yet. The flag is kept because the roster will get an owl
+ * before this file gets another rewrite, and because the record carries `night`
+ * either way, which is what the monster layer's own chunk memo keys on.
  */
-export function hpFor(kind) {
-  const spec = KINDS[kind];
-  if (!spec) throw new Error(`fauna: no species "${kind}"`);
-  if (!Number.isFinite(spec.hp) || spec.hp < 1) throw new Error(`fauna: species "${kind}" has no hp`);
-  return spec.hp;
-}
-
-/** Every species has hp. Called at module load, like auditSpawnTable. */
-export function auditCombatTable() {
-  for (const kind of Object.keys(KINDS)) hpFor(kind);
-  return true;
-}
-
-// Which chunks hold what. `p` is the chance this chunk rolls the group at all,
-// `n` the size of it. `night` groups exist only while the night flag is set;
-// `edge` groups need a neighbouring chunk of open country, which is what makes
-// boreal deer a forest EDGE animal rather than a deep woods one.
 export const SPAWN = {
   meadow: [
-    { kind: 'deer',     p: 0.20, n: [3, 5] },
-    { kind: 'rabbit',   p: 0.30, n: [2, 3] },
-    { kind: 'squirrel', p: 0.10, n: [2, 2] },
+    { id: 'rabbit', p: 0.05, n: [1, 3] },
+    { id: 'deer', p: 0.03, n: [1, 4] },
+    { id: 'fieldMouse', p: 0.03, n: [1, 2] },
+    { id: 'crow', p: 0.02, n: [1, 2] },
+    { id: 'frog', p: 0.01, n: [1, 2] },
   ],
   sakura: [
-    { kind: 'deer',     p: 0.12, n: [2, 3] },
-    { kind: 'rabbit',   p: 0.26, n: [2, 3] },
-    { kind: 'squirrel', p: 0.34, n: [2, 2] },
+    { id: 'squirrel', p: 0.05, n: [1, 2] },
+    { id: 'rabbit', p: 0.04, n: [1, 3] },
+    { id: 'deer', p: 0.02, n: [1, 3] },
+    { id: 'crow', p: 0.02, n: [1, 2] },
   ],
   boreal: [
-    { kind: 'deer',     p: 0.30, n: [2, 4], edge: 'open' },
-    { kind: 'squirrel', p: 0.22, n: [2, 2] },
-    { kind: 'fox',      p: 0.20, n: [1, 1], night: true },
-    { kind: 'wolf',     p: 0.14, n: [2, 3], night: true },
+    { id: 'squirrel', p: 0.05, n: [1, 2] },
+    { id: 'deer', p: 0.04, n: [1, 4], edge: 'open' },
+    { id: 'fieldMouse', p: 0.02, n: [1, 2] },
+    { id: 'crow', p: 0.02, n: [1, 2] },
   ],
   beach: [
-    { kind: 'gull',     p: 0.45, n: [2, 4] },
+    { id: 'gull', p: 0.08, n: [1, 4] },
+    { id: 'crow', p: 0.02, n: [1, 2] },
+    { id: 'frog', p: 0.01, n: [1, 2] },
   ],
   ocean: [
-    { kind: 'gull',     p: 0.30, n: [2, 3], edge: 'coast' },
+    { id: 'gull', p: 0.06, n: [1, 3], edge: 'coast' },
   ],
-  desert: [],
-  mountain: [],
-  snow: [],
+  // The dry and the cold are not empty. A crow over a dune and a mouse under a
+  // stone are what a desert has, and a biome with no row at all was how five
+  // biomes shipped with nothing living in them the first time round.
+  desert: [
+    { id: 'crow', p: 0.03, n: [1, 2] },
+    { id: 'fieldMouse', p: 0.02, n: [1, 2] },
+  ],
+  mountain: [
+    { id: 'crow', p: 0.03, n: [1, 3] },
+    { id: 'fieldMouse', p: 0.02, n: [1, 2] },
+  ],
+  snow: [
+    { id: 'crow', p: 0.02, n: [1, 2] },
+    { id: 'fieldMouse', p: 0.02, n: [1, 2] },
+  ],
 };
 
-// Independent roll streams, so adding a wolf table never moves the deer.
-const GROUP_SEED = { deer: 61, rabbit: 67, squirrel: 71, fox: 73, wolf: 79, gull: 83 };
-const DEER_VARIANTS = ['buck', 'doe', 'fawn'];
+// Independent roll streams, so adding a crow row never moves the deer.
+const GROUP_SEED = { rabbit: 61, squirrel: 71, deer: 67, gull: 83, frog: 89, crow: 97, fieldMouse: 101 };
 
 /**
  * Every biome the field can return needs a row here, even an empty one, or a
- * new biome would quietly ship with no animals and nobody would notice.
- * Throws on the first gap. Called at module load.
+ * new biome would quietly ship with nothing living in it and nobody would
+ * notice. Every species named has to be a real tier 0 monster row, or the
+ * record would go to `monsters.spawn` and be dropped on the floor. Both
+ * directions, at module load.
  */
 export function auditSpawnTable() {
-  const missing = BIOMES.filter((b) => !SPAWN[b]);
-  if (missing.length) throw new Error(`fauna: no spawn row for biome ${missing.join(', ')}`);
-  const unknown = [];
+  const bad = [];
+  for (const b of BIOMES) if (!SPAWN[b]) bad.push(`no spawn row for biome ${b}`);
+  for (const [id, spec] of Object.entries(CRITTERS)) {
+    const row = MONSTERS[id];
+    if (!row) bad.push(`"${id}" is not a monster`);
+    else if (row.tier !== 0) bad.push(`"${id}" is tier ${row.tier}, and this file only places tier 0`);
+    if (!GROUP_SEED[id]) bad.push(`"${id}" has no roll stream of its own`);
+    for (const b of spec.biomes) if (!BIOMES.includes(b)) bad.push(`"${id}" lives in "${b}", which is not a biome`);
+  }
   for (const [b, rows] of Object.entries(SPAWN)) {
-    if (!BIOMES.includes(b)) unknown.push(b);
+    if (!BIOMES.includes(b)) bad.push(`a spawn row for "${b}", which is not a biome`);
     for (const r of rows) {
-      if (!KINDS[r.kind]) unknown.push(`${b}:${r.kind}`);
-      else if (!KINDS[r.kind].biomes.includes(b)) unknown.push(`${b} spawns ${r.kind}, which does not live there`);
+      if (!CRITTERS[r.id]) bad.push(`${b} spawns "${r.id}", which has no species row`);
+      else if (!CRITTERS[r.id].biomes.includes(b)) bad.push(`${b} spawns ${r.id}, which does not live there`);
+      if (r.edge && !EDGES[r.edge]) bad.push(`${b}:${r.id} wants edge "${r.edge}", which is not an edge`);
+      if (!Array.isArray(r.n) || r.n[1] < r.n[0] || r.n[0] < 1) bad.push(`${b}:${r.id} has a nonsense group size`);
     }
   }
-  if (unknown.length) throw new Error(`fauna: bad spawn table (${unknown.join('; ')})`);
+  // and the other way: a species nothing ever places is a species that does not
+  // exist, and a body was built for it for nothing
+  const placed = new Set(Object.values(SPAWN).flatMap((rows) => rows.map((r) => r.id)));
+  for (const id of Object.keys(CRITTERS)) if (!placed.has(id)) bad.push(`"${id}" lives nowhere: no biome places it`);
+  if (bad.length) throw new Error(`fauna: ${bad.join('; ')}`);
   return true;
 }
-auditSpawnTable();
-auditCombatTable();
 
 export const siteClear = (st) => (st.flatR != null ? st.flatR : 20) + SITE_PAD;
 
 /**
  * Pure: may an animal stand at (x, z), given the field sample there?
- * Returns null when it may, otherwise the reason it may not. The same call
- * guards placement and every step an animal takes, so an animal can no more
- * walk into a river than it can spawn in one.
+ * Returns null when it may, otherwise the reason it may not. Water and rivers
+ * are refused for anything on legs; a site's cleared ground is refused for
+ * everything, birds included, because a gull standing in the market square is
+ * a bug whichever way it got there.
  */
-export function blockedAt(x, z, s, ctx) {
-  if (Math.hypot(x, z) < (ctx.homeKeep ?? HOME_KEEP)) return 'home';
-  const sites = ctx.sites || [];
-  for (const st of sites) if (Math.hypot(st.x - x, st.z - z) < siteClear(st)) return 'site';
+export function blockedAt(x, z, s, ctx = {}) {
+  const keep = ctx.homeKeep ?? HOME_KEEP;
+  if (keep > 0 && Math.hypot(x, z) < keep) return 'home';
+  for (const st of ctx.sites || []) if (Math.hypot(st.x - x, st.z - z) < siteClear(st)) return 'site';
   if (!ctx.flying && (s.water || s.river > RIVER_MAX)) return 'water';
   if (ctx.biomes && !ctx.biomes.includes(s.biome)) return 'biome';
   return null;
@@ -173,599 +218,128 @@ export const EDGES = {
 /** Pure: is this boreal chunk on the edge of open country? */
 export const isForestEdge = (field, cx, cz) => neighbourHas(field, cx, cz, EDGES.open);
 
+auditSpawnTable();
+
 /**
- * Pure: the animals this chunk holds, as plain records. No THREE, no scene, so
- * the whole spawn table is testable in node. Records carry their own random
- * numbers (r0, r1, r2) so heading, speed and gait phase are as deterministic as
- * the placement is.
+ * Pure: the animals this chunk holds, as SPAWN RECORDS FOR THE MONSTER LAYER.
+ *
+ * The shape is `monsters.spawnsForChunk`'s, field for field:
+ *
+ *   { id, key, groupKey, cx, cz, i, x, z, y, night }
+ *
+ * `key` is what the character's dead list matches on, so it has to be stable
+ * across a walk away and back and unique against every monster key in the
+ * world. It carries the word "critter" for exactly that reason: a chunk can
+ * hold a monster group and a rabbit warren at the same index and the two keys
+ * must not collide.
+ *
+ * @param opts { night, sitesNear, homeKeep }
  */
 export function spawnsFor(field, cx, cz, opts = {}) {
   const seed = field.seed;
+  const night = !!opts.night;
   const homeKeep = opts.homeKeep ?? HOME_KEEP;
   const sitesNear = opts.sitesNear || (() => []);
   const x0 = cx * CHUNK, z0 = cz * CHUNK, mid = CHUNK / 2;
   const centre = field.sampleAt(x0 + mid, z0 + mid);
   const table = SPAWN[centre.biome];
   if (!table || !table.length) return [];
-  const sites = sitesNear(x0 + mid, z0 + mid, CHUNK + 120);
+  const sites = sitesNear(x0 + mid, z0 + mid, CHUNK + 120) || [];
   const out = [];
   for (const g of table) {
-    const gs = GROUP_SEED[g.kind];
+    if (g.night && !night) continue;
+    const gs = GROUP_SEED[g.id];
     if (rand2(cx, cz, seed + gs) >= g.p) continue;
     if (g.edge && !neighbourHas(field, cx, cz, EDGES[g.edge])) continue;
-    const spec = KINDS[g.kind];
+    const spec = CRITTERS[g.id];
     const span = g.n[1] - g.n[0] + 1;
     const n = g.n[0] + Math.floor(rand2(cx * 7 + 13, cz * 5 + 3, seed + gs + 1) * span);
     const ctx = { sites, homeKeep, flying: !!spec.flying, biomes: spec.biomes };
+    const groupKey = `critter:${cx},${cz}:${g.id}`;
     let anchor = null;
     for (let i = 0; i < n; i++) {
       let placed = null;
       for (let t = 0; t < PLACE_TRIES; t++) {
         const ra = rand2(cx * 131 + i * 17 + t, cz * 97 + t * 5, seed + gs + 2);
         const rb = rand2(cx * 89 + t * 11, cz * 149 + i * 23 + t, seed + gs + 3);
-        const x = anchor ? anchor.x + (ra - 0.5) * 2 * HERD_SPREAD : x0 + 4 + ra * (CHUNK - 8);
-        const z = anchor ? anchor.z + (rb - 0.5) * 2 * HERD_SPREAD : z0 + 4 + rb * (CHUNK - 8);
+        const x = anchor ? anchor.x + (ra - 0.5) * 2 * GROUP_SPREAD : x0 + 4 + ra * (CHUNK - 8);
+        const z = anchor ? anchor.z + (rb - 0.5) * 2 * GROUP_SPREAD : z0 + 4 + rb * (CHUNK - 8);
         const s = field.sampleAt(x, z);
         if (blockedAt(x, z, s, ctx)) continue;
-        placed = { x, z, h: s.h };
+        placed = { x, z, y: s.h };
         break;
       }
       if (!placed) continue;
       if (!anchor) anchor = placed;
       out.push({
-        kind: g.kind,
-        x: placed.x, z: placed.z, y: placed.h,
-        variant: g.kind === 'deer' ? DEER_VARIANTS[i % DEER_VARIANTS.length] : null,
-        night: !!g.night,
-        chunk: cx + ',' + cz,
-        i,
-        r0: rand2(cx * 5 + i, cz * 3 + 1, seed + gs + 4),
-        r1: rand2(cx * 3 + 1, cz * 5 + i, seed + gs + 5),
-        r2: rand2(cx * 11 + i * 3, cz * 13 + i, seed + gs + 6),
+        id: g.id, cx, cz, i, groupKey, night,
+        key: `${groupKey}:${i}`,
+        x: placed.x, z: placed.z, y: placed.y,
       });
     }
   }
   return out;
 }
 
-/** Pure: how many of each kind a chunk holds. Handy for tests and for stats. */
+/** Pure: how many of each species a chunk holds. For tests and for stats. */
 export function countsFor(field, cx, cz, opts) {
   const out = {};
-  for (const r of spawnsFor(field, cx, cz, opts)) out[r.kind] = (out[r.kind] || 0) + 1;
+  for (const r of spawnsFor(field, cx, cz, opts)) out[r.id] = (out[r.id] || 0) + 1;
   return out;
 }
 
-// ---------------------------------------------------------------- runtime ---
-
-function buildModel(kind) {
-  const m = KINDS[kind].model;
-  if (kind === 'gull') return buildSeagull();
-  if (kind === 'fox' || kind === 'wolf') return buildPredator(m);
-  if (kind === 'deer') return null;             // variant decides, handled by caller
-  return buildCritter(m);
-}
-
-export function createFauna(scene, field, opts = {}) {
-  const group = new THREE.Group();
-  group.name = 'world-fauna';
-  scene.add(group);
+/**
+ * The placement layer, with a small memo in front of it.
+ *
+ * `monsters.js` asks a chunk for its critters once, when the chunk enters the
+ * near ring or when the night flag flips, which is the same rhythm it rolls its
+ * own groups on. The memo is there for the second ask (a rescan forced by a
+ * teleport, the debug window) and is dropped when the ring moves on.
+ */
+export function createFauna(field, opts = {}) {
   const sitesNear = opts.sitesNear || (() => []);
   const homeKeep = opts.homeKeep ?? HOME_KEEP;
-  const cap = opts.cap ?? ALIVE_CAP;
-  const ring = opts.ring ?? NEAR_RING;
+  const memo = new Map();
+  const stats = { chunks: 0, placed: 0, byId: {}, biomes: {} };
 
-  const built = new Set();          // chunk keys chunks.js has meshed
-  const live = new Map();           // chunk key -> { cx, cz, recs, spawned:Map, gone:Set }
-  const animals = [];               // every model on the ground or in the air
-  const pool = new Map();           // "kind:variant" -> spare models
-  const stats = {
-    alive: 0, chunks: 0, spawned: 0, despawned: 0, capped: 0, blockedSteps: 0,
-    night: false, byKind: {},
-  };
-  let lastScan = -1e9, lastChunk = null, lastNight = false, lastNow = 0;
-
-  // ---- models: built once, pooled, never rebuilt for the same species ------
-  const poolKey = (kind, variant) => kind + ':' + (variant || '');
-  function takeModel(kind, variant) {
-    const key = poolKey(kind, variant);
-    const spares = pool.get(key);
-    if (spares && spares.length) return spares.pop();
-    const spec = KINDS[kind];
-    const model = kind === 'deer' ? buildDeer(variant || 'doe') : buildModel(kind);
-    const s = spec.scale || 1;
-    if (s !== 1) model.scale.setScalar(s);
-    if (!spec.flying) {
-      // the farm's hit column: a fixed world-size cylinder despite model scale
-      const r = spec.hitR / s;
-      const hit = new THREE.Mesh(
-        new THREE.CylinderGeometry(r, r, Math.max(1.4, spec.hitR * 2.6) / s, 6),
-        new THREE.MeshBasicMaterial({ visible: false }),
-      );
-      hit.position.y = Math.max(0.7, spec.hitR * 1.3) / s;
-      hit.userData.deer = model;
-      model.add(hit);
-      model.userData.hit = hit;
-    }
-    return model;
-  }
-  function giveBack(model, kind, variant) {
-    model.visible = true;
-    model.rotation.set(0, 0, 0);
-    model.scale.setScalar(KINDS[kind].scale || 1);
-    model.userData.roam = null;
-    model.userData.fly = null;
-    const key = poolKey(kind, variant);
-    if (!pool.has(key)) pool.set(key, []);
-    pool.get(key).push(model);
-  }
-
-  // ---- spawn / despawn ----------------------------------------------------
-  function spawn(rec, entry) {
-    const spec = KINDS[rec.kind];
-    const model = takeModel(rec.kind, rec.variant);
-    model.position.set(rec.x, rec.y, rec.z);
-    const avoid = sitesNear(rec.x, rec.z, 240).map((st) => ({ x: st.x, z: st.z, flatR: st.flatR }));
-    const wild = {
-      kind: rec.kind, spec, chunk: rec.chunk, rec,
-      home: { x: rec.x, z: rec.z },
-      groundY: rec.y,
-      ctx: { sites: avoid, homeKeep, flying: !!spec.flying, biomes: null },
-    };
-    model.userData.wild = wild;
-    if (spec.flying) {
-      const base = Math.max(rec.y, field.seaLevel);
-      model.userData.fly = {
-        wings: model.userData.wings || {},
-        cx: rec.x, cz: rec.z,
-        r: 16 + rec.r0 * 16,
-        ang: rec.r1 * Math.PI * 2,
-        w: (0.22 + rec.r2 * 0.16) * (rec.i % 2 ? -1 : 1),   // radians per second
-        h: base + 16 + rec.i * 2.5,
-        ph: rec.r0 * 10,
-        bank: 0,
-        flapSpeed: 150,
-        // a gull is hittable too, though nothing in a swing's reach can touch
-        // one 16 m up. It is here so an arrow has something to subtract from.
-        hp: hpFor(rec.kind), hpMax: hpFor(rec.kind), dying: null,
-      };
-    } else {
-      const hp = hpFor(rec.kind);
-      const speed = spec.speed * (0.85 + rec.r1 * 0.3);
-      // Shaped exactly like farm.js addQuarry's record, so the farm's hunt code
-      // can spook, wound and kill one of these without knowing it is wild.
-      model.userData.roam = {
-        legs: model.userData.legs || [], head: model.userData.head,
-        cz: rec.z, minR: 0, maxR: LEASH,
-        heading: rec.r0 * Math.PI * 2,
-        speed, homeSpeed: speed,
-        state: 'walk', until: 3000 + rec.r1 * 4000, t0: 0,
-        ph: rec.r2 * 10, turtle: false,
-        quarry: spec.quarry, variant: rec.variant,
-        hp, hpMax: hp, restless: !!spec.restless,
-        mixer: null, actions: null, clip: null,
-      };
-    }
-    group.add(model);
-    animals.push(model);
-    entry.spawned.set(rec.i + ':' + rec.kind, model);
-    stats.alive++; stats.spawned++;
-    stats.byKind[rec.kind] = (stats.byKind[rec.kind] || 0) + 1;
-    return model;
-  }
-
-  function despawn(model, permanent) {
-    const w = model.userData.wild;
-    const i = animals.indexOf(model);
-    if (i >= 0) animals.splice(i, 1);
-    group.remove(model);
-    const entry = live.get(w.chunk);
-    if (entry) {
-      entry.spawned.delete(w.rec.i + ':' + w.rec.kind);
-      if (permanent) entry.gone.add(w.rec.i + ':' + w.rec.kind);
-    }
-    stats.alive--; stats.despawned++;
-    stats.byKind[w.kind]--;
-    giveBack(model, w.kind, w.rec.variant);
-  }
-
-  // Who gets to exist when the near ring wants more animals than the cap
-  // allows. A wolf you can be eaten by beats a squirrel you cannot, and near
-  // beats far, so the cap is spent on the animals a player would actually meet.
-  const PRIORITY = { wolf: 0, fox: 0, deer: 1, gull: 2, rabbit: 3, squirrel: 3 };
-  // and no one species takes the whole cap: four wolves is a night to remember,
-  // twenty-four of them is a wolf simulator with no wood left around it
-  const MAX_ALIVE = opts.maxAlive || { wolf: 4, fox: 3, deer: 8, gull: 8, rabbit: 8, squirrel: 8 };
-
-  function addChunk(cx, cz) {
-    const key = cx + ',' + cz;
-    if (live.has(key)) return live.get(key);
-    const entry = { key, cx, cz, recs: spawnsFor(field, cx, cz, { sitesNear, homeKeep }), spawned: new Map(), gone: new Set() };
-    live.set(key, entry);
+  function forChunk(cx, cz, night = false) {
+    const key = `${cx},${cz}:${night ? 'n' : 'd'}`;
+    const had = memo.get(key);
+    if (had) return had;
+    const recs = spawnsFor(field, cx, cz, { night, sitesNear, homeKeep });
+    memo.set(key, recs);
     stats.chunks++;
-    return entry;
-  }
-
-  /**
-   * One sweep: rank every animal the near ring wants, keep the best `cap` of
-   * them, spawn what is missing and despawn what fell off the end. Ranking by
-   * (priority, distance) rather than by chunk order is what lets a wolf appear
-   * at nightfall in a wood already full of squirrels.
-   */
-  function rescan(px, pz, night) {
-    const wanted = [];
-    for (const entry of live.values()) {
-      for (const rec of entry.recs) {
-        const key = rec.i + ':' + rec.kind;
-        if (rec.night && !night) continue;
-        if (entry.gone.has(key)) continue;
-        const dx = rec.x - px, dz = rec.z - pz;
-        wanted.push({ entry, rec, key, d2: dx * dx + dz * dz, pr: PRIORITY[rec.kind] ?? 4 });
-      }
+    stats.placed += recs.length;
+    for (const r of recs) stats.byId[r.id] = (stats.byId[r.id] || 0) + 1;
+    const b = field.biomeAt(cx * CHUNK + CHUNK / 2, cz * CHUNK + CHUNK / 2);
+    stats.biomes[b] = (stats.biomes[b] || 0) + recs.length;
+    // the memo is a cache, not a world: a long walk must not grow it for ever
+    if (memo.size > 400) {
+      let n = 0;
+      for (const k of memo.keys()) { memo.delete(k); if (++n > 200) break; }
     }
-    wanted.sort((a, b) => a.pr - b.pr || a.d2 - b.d2
-      || (a.entry.key < b.entry.key ? -1 : a.entry.key > b.entry.key ? 1 : a.rec.i - b.rec.i));
-    const keep = [];
-    const perKind = {};
-    for (const w of wanted) {
-      if (keep.length >= cap) break;
-      const k = w.rec.kind;
-      const used = perKind[k] || 0;
-      if (used >= (MAX_ALIVE[k] ?? cap)) continue;
-      perKind[k] = used + 1;
-      keep.push(w);
-    }
-    stats.capped = wanted.length - keep.length;
-    const keepIds = new Set(keep.map((w) => w.entry.key + '/' + w.key));
-    for (const entry of live.values()) {
-      for (const [key, model] of [...entry.spawned]) {
-        if (!keepIds.has(entry.key + '/' + key)) despawn(model, false);
-      }
-    }
-    for (const w of keep) if (!w.entry.spawned.has(w.key)) spawn(w.rec, w.entry);
-  }
-  function dropChunk(key) {
-    const entry = live.get(key);
-    if (!entry) return;
-    for (const model of [...entry.spawned.values()]) despawn(model, false);
-    live.delete(key);
-    stats.chunks--;
-  }
-
-  // ---- one animal, one step ----------------------------------------------
-  const TURN_AWAY = 2.2;   // radians a blocked animal turns before trying again
-
-  function stepGround(model, dt, now, px, pz) {
-    const rm = model.userData.roam;
-    const w = model.userData.wild;
-    const spec = w.spec;
-    const p = model.position;
-    rm.t0 += dt * 1000;
-
-    // the venison haunch the farm spawns on a kill floats up and fades. It is
-    // placed at y = 1 in farm coordinates, which is sea level out here, so ride
-    // it on the animal's own ground instead of leaving it buried in a hill.
-    if (rm.meatFx) {
-      const mt = (now - rm.meatFx.start) / rm.meatFx.dur;
-      if (mt >= 1) { scene.remove(rm.meatFx.mesh); rm.meatFx = null; }
-      else {
-        if (rm.meatFx.baseY == null) rm.meatFx.baseY = p.y + 1.0;
-        rm.meatFx.mesh.position.set(p.x, rm.meatFx.baseY + mt * 2.2, p.z);
-        rm.meatFx.mesh.rotation.y += dt * 2.4;
-        const s = 1.6 * (1 - Math.max(0, mt - 0.7) / 0.3);
-        rm.meatFx.mesh.scale.setScalar(Math.max(0.001, s));
-      }
-    }
-
-    if (rm.state === 'dead') {
-      const tp = Math.min(1, rm.t0 / 600);
-      model.rotation.z = tp * (Math.PI / 2);
-      for (const leg of rm.legs) if (leg) leg.rotation.x *= 0.85;
-      if (rm.t0 > 2000) {
-        const sink = Math.min(1, (rm.t0 - 2000) / 700);
-        p.y = (w.groundY != null ? w.groundY : p.y) - sink * 2.2;
-        model.scale.setScalar((spec.scale || 1) * (1 - sink * 0.6));
-      }
-      if (rm.t0 > DEAD_SINK_MS && !rm.meatFx) despawn(model, true);
-      return;
-    }
-    if (rm.state === 'respawning') { despawn(model, true); return; }
-
-    // the player is the thing to run from. Predators break at 12 m, deer at 20.
-    const pd = Math.hypot(p.x - px, p.z - pz);
-    if (rm.state !== 'flee' && rm.state !== 'rage' && pd < spec.spook) {
-      rm.state = 'flee';
-      rm.fleeUntil = now + 3500;
-      rm.speed = spec.speed * spec.flee;
-      rm.heading = Math.atan2(p.z - pz, p.x - px);
-      rm.t0 = 0;
-    }
-    const fleeing = rm.state === 'flee';
-    const raging = rm.state === 'rage';
-    if (fleeing && now >= (rm.fleeUntil || 0)) {
-      rm.state = 'walk'; rm.speed = rm.homeSpeed || rm.speed; rm.t0 = 0; rm.until = 2500 + Math.random() * 3000;
-    }
-    if (raging) {
-      // farm.js `_enrageBear` can set this on any quarry. Out here there is no
-      // farm to charge, so it charges the player, then breaks off and bolts.
-      rm.heading = Math.atan2(pz - p.z, px - p.x);
-      if (now >= (rm.rageUntil || 0)) { rm.state = 'flee'; rm.fleeUntil = now + 3000; rm.speed = spec.speed * spec.flee; rm.t0 = 0; }
-    }
-
-    if (rm.state === 'graze') {
-      for (const leg of rm.legs) if (leg) leg.rotation.x *= 0.9;
-      if (rm.head) rm.head.rotation.x = 0.5 + Math.sin(now / 500 + rm.ph) * 0.05;
-      if (rm.t0 > rm.until) {
-        rm.state = 'walk'; rm.t0 = 0; rm.until = 3000 + Math.random() * 5000;
-        rm.heading = Math.random() * Math.PI * 2;
-      }
-      return;
-    }
-
-    // heading: a little jitter, plus a pull back toward where it spawned
-    if (!fleeing && !raging) rm.heading += (Math.random() - 0.5) * 0.06;
-    else if (fleeing) rm.heading += (Math.random() - 0.5) * 0.03;
-    const hx = p.x - w.home.x, hz = p.z - w.home.z;
-    const away = Math.hypot(hx, hz);
-    const leash = fleeing ? LEASH * 1.6 : LEASH;
-    if (away > leash) {
-      const inward = Math.atan2(-hz, -hx);
-      let df = inward - rm.heading;
-      while (df > Math.PI) df -= Math.PI * 2;
-      while (df < -Math.PI) df += Math.PI * 2;
-      rm.heading += df * (fleeing ? 0.12 : 0.08);
-    }
-
-    // the step itself, refused if it would put a hoof in water, in a river,
-    // inside a site's clearing or back inside the farm's ground
-    const step = rm.speed * dt;
-    const nx = p.x + Math.cos(rm.heading) * step;
-    const nz = p.z + Math.sin(rm.heading) * step;
-    const s = field.sampleAt(nx, nz);
-    if (blockedAt(nx, nz, s, w.ctx)) {
-      rm.heading += TURN_AWAY;
-      stats.blockedSteps++;
-    } else {
-      p.x = nx; p.z = nz; p.y = s.h;
-      w.groundY = s.h;
-    }
-    model.rotation.y = Math.atan2(-Math.sin(rm.heading), Math.cos(rm.heading));
-
-    // gait: the farm's leg swing, faster when bolting
-    const gait = (fleeing || raging) ? 70 : 150;
-    const swing = Math.sin(now / gait + rm.ph) * ((fleeing || raging) ? 0.8 : 0.5);
-    if (rm.legs[0]) rm.legs[0].rotation.x = swing;
-    if (rm.legs[3]) rm.legs[3].rotation.x = swing;
-    if (rm.legs[1]) rm.legs[1].rotation.x = -swing;
-    if (rm.legs[2]) rm.legs[2].rotation.x = -swing;
-    if (rm.head) rm.head.rotation.x = Math.sin(now / 600 + rm.ph) * 0.05;
-
-    if (!fleeing && !raging && rm.t0 > rm.until) {
-      if (rm.restless) {
-        // a rabbit never rests. It darts somewhere else instead.
-        rm.heading = Math.random() * Math.PI * 2;
-        rm.t0 = 0; rm.until = 500 + Math.random() * 1100;
-      } else {
-        rm.state = 'graze'; rm.t0 = 0; rm.until = 2500 + Math.random() * 4000;
-      }
-    }
-  }
-
-  function stepFlying(model, dt, now) {
-    const f = model.userData.fly;
-    // shot out of the sky: it drops, it does not circle. The same ending as a
-    // deer, and the same promise: it does not come back while you stand there.
-    if (f.dying) {
-      f.dying.t0 += dt * 1000;
-      const p = model.position;
-      const gy = field.heightAt(p.x, p.z);
-      const t = Math.min(1, f.dying.t0 / FALL_MS);
-      p.y = Math.max(gy, f.dying.y0 - (f.dying.y0 - gy) * t * t);
-      model.rotation.z = Math.min(Math.PI / 2, f.dying.t0 / 400);
-      if (f.dying.t0 > FALL_MS + 700) despawn(model, true);
-      return;
-    }
-    f.ang += f.w * dt;
-    const x = f.cx + Math.cos(f.ang) * f.r;
-    const z = f.cz + Math.sin(f.ang) * f.r;
-    model.position.set(x, f.h + Math.sin(now / 1400 + f.ph) * 1.6, z);
-    // the tangent of the circle is the way it is going; the model faces +x
-    const dx = -Math.sin(f.ang) * Math.sign(f.w), dz = Math.cos(f.ang) * Math.sign(f.w);
-    model.rotation.y = Math.atan2(-dz, dx);
-    const wantBank = Math.max(-0.5, Math.min(0.5, -f.w * 1.6));
-    f.bank += (wantBank - f.bank) * 0.08;
-    model.rotation.z = f.bank;
-    const flap = Math.sin(now / f.flapSpeed + f.ph);
-    if (f.wings.left) f.wings.left.rotation.z = flap * 0.85;
-    if (f.wings.right) f.wings.right.rotation.z = -flap * 0.85;
-  }
-
-
-  // ---- taking a hit -------------------------------------------------------
-  //
-  // One rule holds this together: this module stays the only owner of movement.
-  // `damage` never moves an animal and never sets a position. It writes the
-  // same three fields the farm's `_spookDeer` writes (state, heading, speed)
-  // and lets `stepGround` do the running, so a wounded animal obeys the leash,
-  // the water, the site clearings and the cap exactly as a calm one does.
-
-  /** The record a hit subtracts from: roam for anything on legs, fly for a bird. */
-  const combatRec = (model) => (model && model.userData ? (model.userData.roam || model.userData.fly || null) : null);
-
-  /** Is this animal on the field and still on its feet (or on the wing)? */
-  function isLive(model) {
-    if (!model || !model.userData || !model.userData.wild) return false;
-    if (animals.indexOf(model) < 0) return false;
-    const rm = model.userData.roam;
-    if (rm) return rm.state !== 'dead' && rm.state !== 'respawning';
-    const f = model.userData.fly;
-    return !!f && !f.dying;
-  }
-
-  /**
-   * A picked mesh back to the animal it belongs to. Takes the farm's hit column
-   * (whose `userData.deer` points at the model), any mesh inside the model, or
-   * the model itself. Returns null for a mesh that is not an animal at all, and
-   * for one whose animal has already left the field.
-   */
-  function animalAt(mesh) {
-    let o = mesh;
-    for (let guard = 0; o && guard < 24; guard++, o = o.parent) {
-      const target = o.userData && o.userData.deer ? o.userData.deer : o;
-      if (target && target.userData && target.userData.wild && animals.indexOf(target) >= 0) return target;
-    }
-    return null;
-  }
-
-  /**
-   * Every live animal within `radius` of (x, z), nearest first. Horizontal
-   * distance only, so a gull circling 16 m up counts as being under the cursor
-   * when you are stood beneath it: the caller decides whether its weapon can
-   * reach that high (`src/game/combat.js` refuses it for a swing).
-   */
-  function hitTest(x, z, radius) {
-    const r = Number.isFinite(radius) ? radius : 0;
-    if (!(r > 0) || !Number.isFinite(x) || !Number.isFinite(z)) return [];
-    const out = [];
-    for (const m of animals) {
-      if (!isLive(m)) continue;
-      const d = Math.hypot(m.position.x - x, m.position.z - z);
-      if (d <= r) out.push({ m, d });
-    }
-    out.sort((a, b) => a.d - b.d);
-    return out.map((e) => e.m);
-  }
-
-  /**
-   * Hurt one animal. `n` comes off its hp, it bolts away from (fromX, fromZ),
-   * and at zero it dies: the ground animals tip over and sink through the
-   * existing 'dead' state, a bird falls. Either way the body despawns
-   * permanently, so the animal you killed is not standing there again a second
-   * later while you watch.
-   *
-   * @returns null when there was nothing there to hit, otherwise
-   *   { kind, quarry, damage, hp, hpMax, killed, heading }
-   */
-  function damage(animal, n = 1, fromX, fromZ, now) {
-    const model = animalAt(animal);
-    if (!model || !isLive(model)) return null;
-    const rec = combatRec(model);
-    if (!rec) return null;
-    const amount = Math.max(1, Math.round(Number.isFinite(n) ? n : 1));
-    const t = Number.isFinite(now) ? now : lastNow;
-    const w = model.userData.wild;
-    const spec = w.spec;
-    const p = model.position;
-
-    rec.hp = Math.max(0, (Number.isFinite(rec.hp) ? rec.hp : hpFor(w.kind)) - amount);
-    const killed = rec.hp <= 0;
-
-    // away from the blow, not away from the world origin. A blow landed on the
-    // animal's own square (dx and dz both zero) leaves the heading alone rather
-    // than snapping every such animal to due east.
-    const rm = model.userData.roam;
-    let heading = rm ? rm.heading : (model.userData.fly ? model.userData.fly.ang : 0);
-    const dx = p.x - fromX, dz = p.z - fromZ;
-    if (Number.isFinite(dx) && Number.isFinite(dz) && Math.hypot(dx, dz) > 1e-3) heading = Math.atan2(dz, dx);
-
-    if (rm) {
-      if (killed) {
-        rm.state = 'dead'; rm.t0 = 0; rm.speed = 0;
-      } else {
-        rm.state = 'flee';
-        rm.fleeUntil = t + HIT_FLEE_MS;
-        rm.speed = spec.speed * (spec.flee || 1);
-        rm.heading = heading;
-        rm.t0 = 0;
-      }
-    } else {
-      const f = model.userData.fly;
-      if (killed) f.dying = { t0: 0, y0: p.y };
-      else { f.w *= 1.5; f.h += 6; }        // a missed bird climbs and turns harder
-    }
-    return { kind: w.kind, quarry: spec.quarry || w.kind, damage: amount, hp: rec.hp, hpMax: rec.hpMax, killed, heading };
+    return recs;
   }
 
   return {
-    group, stats, live, animals,
-
-    hitTest, animalAt, damage, isLive,
-    /** What this species can take, without reaching into KINDS. */
-    hpFor,
-
-    /** chunks.js: a chunk was meshed (or re-meshed at another resolution). */
-    onChunk(cx, cz) { built.add(cx + ',' + cz); },
-
-    /** chunks.js: a chunk was disposed. Its animals go with it. */
-    offChunk(cx, cz) {
-      const key = cx + ',' + cz;
-      built.delete(key);
-      dropChunk(key);
+    stats,
+    /** THE ONE CALL. Spawn records for one chunk, in monsters' own record shape. */
+    spawnsFor: forChunk,
+    /** The same, counted by species. Debug and tests. */
+    countsFor(cx, cz, night) {
+      const out = {};
+      for (const r of forChunk(cx, cz, night)) out[r.id] = (out[r.id] || 0) + 1;
+      return out;
     },
-
-    /**
-     * Every frame. dt in seconds, nowMs in milliseconds, the player at
-     * (centerX, centerZ), `night` true while the predators are out.
-     */
-    update(dt, nowMs, centerX, centerZ, night = false) {
-      if (Number.isFinite(nowMs)) lastNow = nowMs;
-      if (centerX === undefined || centerZ === undefined) return;
-      const [pcx, pcz] = field.chunkOf(centerX, centerZ);
-      const moved = !lastChunk || lastChunk[0] !== pcx || lastChunk[1] !== pcz;
-      const flipped = night !== lastNight;
-      if (moved || flipped || nowMs - lastScan >= SCAN_MS) {
-        lastScan = nowMs; lastChunk = [pcx, pcz]; lastNight = night;
-        stats.night = night;
-        // anything outside the near ring leaves
-        for (const [key, entry] of [...live]) {
-          if (Math.abs(entry.cx - pcx) > ring || Math.abs(entry.cz - pcz) > ring) dropChunk(key);
-        }
-        // every built chunk in the near ring rolls its animals once, then the
-        // cap decides which of them are actually standing there
-        for (let dz = -ring; dz <= ring; dz++) for (let dx = -ring; dx <= ring; dx++) {
-          const cx = pcx + dx, cz = pcz + dz;
-          if (built.has(cx + ',' + cz)) addChunk(cx, cz);
-        }
-        rescan(centerX, centerZ, night);
-      }
-      const step = Math.min(0.05, Math.max(0, dt));
-      for (let i = animals.length - 1; i >= 0; i--) {
-        const model = animals[i];
-        if (model.userData.fly) stepFlying(model, step, nowMs);
-        else stepGround(model, step, nowMs, centerX, centerZ);
-      }
-    },
-
-    /**
-     * The models the bow may shoot: alive, on the ground, carrying a hit column.
-     * farm.js reads `.userData.hit` off each of these, exactly as it does for
-     * its own deer.
-     */
-    targets() {
+    /** Every record the near ring would ask for, for measuring density. */
+    ringSpawns(pcx, pcz, ring = 3, night = false) {
       const out = [];
-      for (const m of animals) {
-        const rm = m.userData.roam;
-        if (!rm || !m.userData.hit || !m.visible) continue;
-        if (rm.state === 'dead' || rm.state === 'respawning') continue;
-        out.push(m);
+      for (let dz = -ring; dz <= ring; dz++) for (let dx = -ring; dx <= ring; dx++) {
+        out.push(...forChunk(pcx + dx, pcz + dz, night));
       }
       return out;
     },
-
-    /** Everything alive right now, flying included. Debug and tests. */
-    all() { return animals.slice(); },
-
-    dispose() {
-      for (const key of [...live.keys()]) dropChunk(key);
-      const kill = (m) => m.traverse((o) => {
-        if (o.geometry) o.geometry.dispose();
-        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((mm) => mm.dispose());
-      });
-      for (const spares of pool.values()) for (const m of spares) kill(m);
-      for (const m of animals) { group.remove(m); kill(m); }
-      animals.length = 0;
-      pool.clear();
-      built.clear();
-      scene.remove(group);
-    },
+    forget() { memo.clear(); },
+    dispose() { memo.clear(); },
   };
 }

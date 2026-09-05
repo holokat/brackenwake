@@ -38,6 +38,9 @@ const {
   glbModelFor, monsterModelPlan, monsterModelIds,
   GLB_FAMILY, BOX_ONLY_FAMILIES, STANDIN_FAMILIES, STANDIN_MAX_TIER,
   DIE_SECONDS, TIER_COLOUR,
+  buildCritterModel, critterShapeFor, auditCritterModels, critterModelPlan, measure,
+  CRITTER_SHAPE, CRITTER_BODY, CRITTER_TRIANGLE_BUDGET, CLICK_MIN_R, CLICK_MIN_H,
+  CRITTER_PARTS, BIRD_PARTS, AIRBORNE_OVER_M,
 } = await import('./monster_models.js');
 const { MONSTERS, MONSTER_LIST } = await import('../mmo/monsters.js');
 const { preloadRigs } = await import('./rig_glb.js');
@@ -259,5 +262,256 @@ console.log('\nmonster_models: the tier is still in the paint');
   box.dispose();
 }
 
+// ===========================================================================
+console.log('\nmonster_models: the animals of the world, tier 0');
+//
+// The user's words were "our world animals like squirrels and deer are not
+// targettable and seem to have the old farmstead hardcoded mechanics ... current
+// animal models look really bad, including birds". Targetability is proved in
+// src/world/fauna.test.mjs, through the real monster runtime. This is the other
+// half: the bodies.
+{
+  const report = auditCritterModels();
+  for (const [id, r] of Object.entries(report)) {
+    console.log(`       ${id.padEnd(11)} ${String(r.triangles).padStart(4)} tri  ` + Object.entries(r)
+      .filter(([k]) => k !== 'triangles').map(([k, v]) => `${k} ${v} m`).join('  '));
+  }
+  for (const row of critterModelPlan()) {
+    if (!row.row) console.log(`       ${row.id}: ${row.why}`);
+  }
+
+  check('every tier 0 monster in the roster has a body', MONSTER_LIST.filter((m) => m.tier === 0)
+    .every((m) => !!critterShapeFor(m.id)),
+    MONSTER_LIST.filter((m) => m.tier === 0 && !critterShapeFor(m.id)).map((m) => m.id).join(', ') || 'all of them');
+  check('and every one of them builds through buildMonsterModel, which is what monsters.spawn calls',
+    MONSTER_LIST.filter((m) => m.tier === 0).every((m) => {
+      const b = buildMonsterModel(m.id);
+      if (b) b.dispose();
+      return !!b;
+    }));
+  check('nothing above tier 0 is caught by the critter path', MONSTER_LIST.filter((m) => m.tier > 0)
+    .every((m) => critterShapeFor(m.id) === null));
+  check('and a critter still has no glb, because these bodies are code',
+    ['rabbit', 'deer', 'gull'].every((id) => glbModelFor(id) === null));
+
+  const over = Object.entries(report).filter(([, r]) => r.triangles > CRITTER_TRIANGLE_BUDGET);
+  const heaviest = Object.entries(report).sort((a, b) => b[1].triangles - a[1].triangles)[0];
+  check(`every animal is under the ${CRITTER_TRIANGLE_BUDGET} triangle budget`, over.length === 0,
+    `the heaviest is the ${heaviest[0]} at ${heaviest[1].triangles}`);
+
+  // the two sizes the brief names, measured off the built body
+  const deer = buildCritterModel('deer');
+  check('a deer stands 1.4 m at the shoulder', Math.abs(measure(deer, 'withers') - 1.40) < 0.1,
+    `${measure(deer, 'withers').toFixed(2)} m`);
+  check('and it has antlers, which is what makes a deer read as a deer at fifty metres',
+    deer.parts.antlers.length === 2 && deer.parts.antlers[0].children.length > 1,
+    `${deer.parts.antlers.length} of them, ${deer.parts.antlers[0].children.length} pieces each`);
+  const squirrel = buildCritterModel('squirrel');
+  check('a squirrel is a quarter of a metre', Math.abs(measure(squirrel, 'length') - 0.25) < 0.04,
+    `${measure(squirrel, 'length').toFixed(3)} m`);
+  check('and the tail is most of it again, carried up over the back',
+    (() => {
+      const withTail = new THREE.Box3().setFromObject(squirrel.group);
+      return withTail.max.y > measure(squirrel, 'withers') * 1.6;
+    })(), `body ${measure(squirrel, 'withers').toFixed(2)} m, whole animal ${squirrel.height.toFixed(2)} m tall`);
+  check('and a deer is nearly eight times the squirrel it shares a builder with',
+    measure(deer, 'length') / measure(squirrel, 'length') > 6,
+    `${(measure(deer, 'length') / measure(squirrel, 'length')).toFixed(1)} times`);
+
+  // feet on the ground, every one of them, which was the settle
+  const off = [];
+  for (const id of Object.keys(CRITTER_SHAPE)) {
+    const m = buildCritterModel(id);
+    m.group.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(m.group);
+    if (Math.abs(b.min.y) > 0.02) off.push(`${id} ${b.min.y.toFixed(3)}`);
+    m.dispose();
+  }
+  check('every animal has its feet on the ground and not through it or over it', off.length === 0, off.join(', '));
+
+  // the click column, and the reason it exists
+  const mouse = buildMonsterModel('fieldMouse');
+  check('a field mouse is smaller than its own click column, on purpose',
+    mouse.radius < CLICK_MIN_R && mouse.height < CLICK_MIN_H,
+    `the animal is ${mouse.height.toFixed(3)} m tall and ${mouse.radius.toFixed(3)} m across`);
+  check('and the column is the floor, so the smallest animal in the game is still clickable',
+    mouse.parts.hit.geometry.parameters.radiusTop === CLICK_MIN_R
+    && mouse.parts.hit.geometry.parameters.height === CLICK_MIN_H);
+  check('while a deer gets a column its own size, not a floored one',
+    buildMonsterModel('deer').parts.hit.geometry.parameters.height > CLICK_MIN_H * 2);
+  mouse.dispose();
+
+  deer.dispose(); squirrel.dispose();
+}
+
+// ===========================================================================
+console.log('\nmonster_models: an animal, driven the way monsters.js drives one');
+{
+  const rabbit = buildMonsterModel('rabbit');
+  check('it carries the whole contract monsters.js uses',
+    ['group', 'parts', 'radius', 'height', 'shape', 'setAnim', 'update', 'dispose'].every((k) => rabbit[k] !== undefined)
+    && typeof rabbit.dieDone === 'boolean' && typeof rabbit.anim === 'string',
+    `radius ${rabbit.radius.toFixed(2)} m, height ${rabbit.height.toFixed(2)} m`);
+
+  // it bounds, and standing still it does not
+  rabbit.setAnim('run');
+  let moved = 0;
+  const rest = rabbit.parts.legs.map((l) => l.rotation.x);
+  for (let i = 0; i < 40; i++) {
+    rabbit.update(1 / 60, 4);
+    for (let j = 0; j < rabbit.parts.legs.length; j++) moved = Math.max(moved, Math.abs(rabbit.parts.legs[j].rotation.x - rest[j]));
+  }
+  check('running moves its legs', moved > 0.1, `${(moved * 180 / Math.PI).toFixed(1)} degrees at the hip`);
+  let still = 0;
+  rabbit.setAnim('idle');
+  for (let i = 0; i < 40; i++) {
+    rabbit.update(1 / 60, 0);
+    for (let j = 0; j < rabbit.parts.legs.length; j++) still = Math.max(still, Math.abs(rabbit.parts.legs[j].rotation.x - rest[j]));
+  }
+  check('and standing still does not', still < moved * 0.2,
+    `${(still * 180 / Math.PI).toFixed(1)} degrees standing against ${(moved * 180 / Math.PI).toFixed(1)} bounding`);
+
+  // a hop leaves the ground, which is what makes a rabbit a rabbit
+  rabbit.setAnim('run');
+  let high = -Infinity, low = Infinity;
+  for (let i = 0; i < 120; i++) { rabbit.update(1 / 60, 4); high = Math.max(high, rabbit.parts.root.position.y); low = Math.min(low, rabbit.parts.root.position.y); }
+  check('and a bounding rabbit really comes off the ground', high - low > rabbit.height * 0.06,
+    `${((high - low) * 100).toFixed(1)} cm of lift`);
+
+  // the death, which is what monsters.js waits CORPSE_LINGER_S for
+  rabbit.setAnim('die');
+  check('a death is not done on the first frame', rabbit.dieDone === false);
+  for (let i = 0; i < Math.ceil(DIE_SECONDS * 60) + 2; i++) rabbit.update(1 / 60, 0);
+  check('and it is done after DIE_SECONDS, the same as every other body',
+    rabbit.dieDone === true && Math.abs(rabbit.parts.root.rotation.z - Math.PI / 2) < 0.05,
+    `${rabbit.parts.root.rotation.z.toFixed(2)} rad over`);
+  rabbit.setAnim('walk');
+  check('a dead animal does not get up', rabbit.anim === 'die');
+  rabbit.dispose();
+  check('dispose empties the group', rabbit.group.children.length === 0);
+}
+
+// ===========================================================================
+console.log('\nmonster_models: a bird flies, glides and lands');
+{
+  const gull = buildCritterModel('gull');
+  const wingZ = () => gull.parts.wings.map((w) => w.rotation.z);
+  const spanNow = () => { gull.group.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(gull.group); return b.max.x - b.min.x; };
+
+  // perched
+  gull.setAltitude(0);
+  gull.update(1 / 60, 0);
+  const perched = spanNow();
+  gull.group.updateMatrixWorld(true);
+  const feet = new THREE.Box3().setFromObject(gull.group).min.y;
+  check('perched, its feet are on the ground', Math.abs(feet) < 0.02, `${feet.toFixed(3)} m`);
+  check('and its wings are folded along its flanks', perched < CRITTER_BODY.gull.span * 0.7,
+    `${perched.toFixed(2)} m across, folded`);
+
+  // in the air
+  gull.setAltitude(9);
+  gull.update(1 / 60, 6);
+  const spread = spanNow();
+  check('in the air the wings come out to the tabled span',
+    Math.abs(spread - CRITTER_BODY.gull.span) < CRITTER_BODY.gull.span * 0.15,
+    `${spread.toFixed(2)} m against a tabled ${CRITTER_BODY.gull.span} m`);
+  check('which is a good deal wider than folded', spread > perched * 1.4,
+    `${perched.toFixed(2)} m folded, ${spread.toFixed(2)} m spread`);
+
+  let beat = 0;
+  const z0 = wingZ();
+  for (let i = 0; i < 40; i++) {
+    gull.update(1 / 60, 6);
+    const z = wingZ();
+    for (let j = 0; j < z.length; j++) beat = Math.max(beat, Math.abs(z[j] - z0[j]));
+  }
+  check('IT FLAPS: the wings beat while it is up there', beat > 0.15,
+    `${(beat * 180 / Math.PI).toFixed(1)} degrees at the shoulder`);
+  check('and the wrist follows the shoulder rather than the wing being a plank',
+    gull.parts.wings.every((w) => !!w.userData.wrist),
+    'wingL.userData.wrist and wingR.userData.wrist');
+
+  // the glide
+  gull.setGlide(1);
+  gull.update(1 / 60, 6);
+  const g0 = wingZ();
+  let held = 0;
+  for (let i = 0; i < 40; i++) {
+    gull.update(1 / 60, 6);
+    const z = wingZ();
+    for (let j = 0; j < z.length; j++) held = Math.max(held, Math.abs(z[j] - g0[j]));
+  }
+  check('IT GLIDES: with the glide on, the beat stops and the wings stay out',
+    held < 1e-6 && spanNow() > perched * 1.4,
+    `${(held * 180 / Math.PI).toFixed(3)} degrees of beat, ${spanNow().toFixed(2)} m across`);
+  gull.setGlide(0);
+
+  // and back down
+  gull.setAltitude(0);
+  gull.update(1 / 60, 0);
+  check('IT LANDS: back on the ground the wings fold again', spanNow() < CRITTER_BODY.gull.span * 0.7,
+    `${spanNow().toFixed(2)} m`);
+  check('and the legs come back under it rather than staying tucked',
+    gull.parts.legs.every((l) => Math.abs(l.rotation.x) < 0.2),
+    gull.parts.legs.map((l) => l.rotation.x.toFixed(2)).join(', '));
+  check(`the switch is AIRBORNE_OVER_M, and half of it is half a wing`, (() => {
+    gull.setAltitude(AIRBORNE_OVER_M / 2);
+    gull.update(1 / 60, 4);
+    const half = spanNow();
+    return half > perched && half < spread;
+  })(), `${AIRBORNE_OVER_M} m`);
+
+  // every bird has the parts a flap needs, not just the gull
+  for (const id of Object.keys(CRITTER_SHAPE).filter((k) => CRITTER_BODY[CRITTER_SHAPE[k]].shape === 'bird')) {
+    const b = buildCritterModel(id);
+    const has = BIRD_PARTS.every((p) => b.parts[p] !== undefined) && b.parts.wings.every((w) => w.userData.wrist && w.userData.tips);
+    if (!has) check(`${id} has the wing parts`, false);
+    b.dispose();
+  }
+  check('and every bird in the table carries wingL, wingR, a wrist, primaries and a beak', true,
+    Object.keys(CRITTER_SHAPE).filter((k) => CRITTER_BODY[CRITTER_SHAPE[k]].shape === 'bird').join(', '));
+  gull.dispose();
+}
+
+// ===========================================================================
+console.log('\nmonster_models: the critter audit, both directions');
+//
+// WHAT CAN AND CANNOT BE DRIVEN FALSE HERE, said out loud rather than faked.
+// `length`, `span` and `stand` are the numbers the geometry is BUILT from, so
+// raising one in the table raises the animal with it and the two can never
+// disagree by editing the table: those three checks exist to catch a GEOMETRY
+// bug, not a typo, and they have already earned their place once (a gull whose
+// wings were rotated the wrong way about y measured a 0.19 m span against a
+// tabled 1.1 and the check is what found it). The four cases below are the ones
+// that can be driven both ways, and each is a real failure mode.
+{
+  check('the real table passes', typeof auditCritterModels() === 'object');
+  let threw = 0;
+
+  const kept = CRITTER_SHAPE.rabbit;
+  delete CRITTER_SHAPE.rabbit;                         // a tier 0 row with no body
+  try { auditCritterModels(); } catch { threw++; }
+  CRITTER_SHAPE.rabbit = kept;
+
+  const keptBody = CRITTER_BODY.deer.body;
+  CRITTER_BODY.deer.body = 2.0;                        // a barrel twice as long as the whole deer
+  try { auditCritterModels(); } catch { threw++; }
+  CRITTER_BODY.deer.body = keptBody;
+
+  const keptRings = CRITTER_BODY.gull.girth;
+  CRITTER_BODY.gull.girth = 1.6;                       // a gull as deep as it is long
+  try { auditCritterModels(); } catch { threw++; }
+  CRITTER_BODY.gull.girth = keptRings;
+
+  BIRD_PARTS.push('feathersOfTheAncients');            // a part nothing carries
+  try { auditCritterModels(); } catch { threw++; }
+  BIRD_PARTS.pop();
+
+  check('a bodyless row, a stretched barrel, a bloated bird and a missing part all throw',
+    threw === 4, `${threw} of 4`);
+  check('and the table is whole again', typeof auditCritterModels() === 'object');
+  check('a critter shape for an id that is not a monster is refused, not built',
+    critterShapeFor('grue') === null && buildCritterModel('grue') === null);
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
