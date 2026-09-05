@@ -680,8 +680,10 @@ console.log('abilities_runtime: buffs expire and the pools follow');
   const target = mob('a', 0, 1.5);
   const h = harness({ bar: ['crushingBlow'], monsters: [target] });
   h.abilities.use(0, 0);
-  ck('a stun is data on the target that combat and monsters can read',
-    target.status.stun && near(target.status.stun.until, 3), JSON.stringify(target.status.stun));
+  // combat.js and monsters.js read status.until on the millisecond frame clock;
+  // this module's seconds ride along as untilS
+  ck('a stun is data on the target that combat and monsters can read, in their milliseconds',
+    target.status.stun && near(target.status.stun.until, 3000) && near(target.status.stun.untilS, 3), JSON.stringify(target.status.stun));
   ck('and the armour break went on as a debuff at the same time',
     target.buffs.some((b) => b.mods?.armourRatingFlat === -10), JSON.stringify(target.buffs.map((b) => b.mods)));
   ck('one press, three things, and all three were said',

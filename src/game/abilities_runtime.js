@@ -466,10 +466,16 @@ export function createAbilities(deps = {}) {
 
   // -------------------------------------------------------- status and mods --
 
+  // This module keeps time in seconds; combat.js and monsters.js read
+  // `status.until` in milliseconds (the frame clock). A stun written here in
+  // seconds read as long expired over there, so a Frost Nova never held a rat.
+  // The shared field is milliseconds; `untilS` keeps the seconds for us.
   function statusOn(who, key, data) {
     if (!who) return;
     who.status = who.status || {};
-    who.status[key] = { ...(who.status[key] || {}), ...data };
+    const out = { ...data };
+    if (Number.isFinite(out.until)) { out.untilS = out.until; out.until = out.until * 1000; }
+    who.status[key] = { ...(who.status[key] || {}), ...out };
   }
 
   function addBuff(who, entry) {
