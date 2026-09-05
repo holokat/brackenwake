@@ -54,6 +54,7 @@ import { createSky } from './sky.js';
 import { createTargetRing } from './target_ring.js';
 import { createPaperdoll } from './paperdoll.js';
 import { createItemBar } from './item_bar.js';
+import { labelFor as lootLabel } from './loot_drops.js';
 import { cameraClamp } from '../world/dungeon.js';
 import { createWater } from '../world/water.js';
 import { createForageField, seasonAt } from '../world/forage.js';
@@ -748,18 +749,32 @@ function boot() {
 
     // The cursor says what a click would do: a grab over a sack, a body to
     // skin or a thing to pick, a pointer over a person or a station.
-    let cursorAt = -1e9, cursorNow = '';
+    let cursorAt = -1e9, cursorNow = '', hoverNow = '';
     function updateCursor(now) {
       if (now - cursorAt < 100 || dev.on || windows.anyOpen) return;
       cursorAt = now;
       const ray = aim();
-      let want = abilities.cursor || '';       // a held spell owns the cursor
-      if (!want && loot.pick(ray)) want = 'grab';
-      else if (forage.pick(ray)) want = 'grab';
-      else if (npcs.pick?.(ray) || stations.pick(ray)) want = 'pointer';
-      else if (monsters.pick(ray)) want = 'crosshair';
-      else { const c = skinning.pick(ray); if (c && skinning.canSkin(c)) want = 'grab'; }
+      // the cursor says what a click would do, and the hint line names it:
+      // "a patch of dandelions, seven of them", "a pile of 46 gold", "wolf, not yet skinned"
+      let want = abilities.cursor || '', hover = '';
+      const bag = loot.pick(ray);
+      const patch = bag ? null : forage.pick(ray);
+      const who = bag || patch ? null : npcs.pick?.(ray);
+      const st = bag || patch || who ? null : stations.pick(ray);
+      const mon = bag || patch || who || st ? null : monsters.pick(ray);
+      const corpse = bag || patch || who || st || mon ? null : skinning.pick(ray);
+      if (bag) { want = want || 'grab'; hover = lootLabel(bag); }
+      else if (patch) { want = want || 'grab'; hover = foraging.hoverText(patch.rec); }
+      else if (who) { want = want || 'pointer'; hover = who.name ? `${who.name}, click to talk` : ''; }
+      else if (st) { want = want || 'pointer'; hover = `the ${st.name}, click to craft`; }
+      else if (mon) { want = want || 'crosshair'; }
+      else if (corpse && skinning.canSkin(corpse)) { want = want || 'grab'; hover = skinning.labelFor(corpse); }
       if (want !== cursorNow) { cursorNow = want; sc.renderer.domElement.style.cursor = want; }
+      if (hover !== hoverNow) {
+        hoverNow = hover;
+        if (hover) hud.setHint?.(hover);
+        else if (!attacking) hud.setHint?.('');
+      }
     }
 
     // ------------------------------------------------------------- the loop --
