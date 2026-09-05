@@ -1296,7 +1296,11 @@ miners before, and do not see a difference. Hesk.
    dragon is there. So is Hesk, at the end, and he does not fight you. He asks
    you to choose. The player can kill him, and he lets them, or leave him, and
    he waits.
-4. Whatever is chosen, the Wake surges. The player feels it as the world
+4. Whatever is chosen, the Wake surges. And if the player said yes to Marshal
+   Corvin in the Night March and takes the third door in Act IV, the March is
+   here, in ranks, on the crater's rim, having walked the length of the
+   continent in the dark to stand behind the one who said the word.
+5. Whatever is chosen, the Wake surges. The player feels it as the world
    changing on the way home: the map's danger bands step up one, everywhere,
    for the rest of the game. The Vale's hedges are down. Act IV.
 
@@ -1342,10 +1346,15 @@ their rest to see who is coming. At the bottom, the chair. The choice.
 
 **People.** Maud, at the mouth, who does not come down. Tam, who does. Every
 named ally who is still alive and was earned: Ysolt at the mouth with a boat
-crew, Hild with the Shoulder's miners, Ulfra's message, the Long Dark's
-alliance as a treant standing in the Vale's lane with its roots in the hedge,
-the Drowned Knight's word that the gate held. The Vale's own people, in the
-lanes, doing what the Vale has always done.
+crew, Hild with the Shoulder's miners, Ulfra's cold frosting the stair from
+the third landing down, the Long Dark's alliance as a treant standing in the
+Vale's lane with its roots in the hedge, the Drowned Knight's word that the
+gate held. Lowri with a lamp: "one night off. You gave me one. I owe you the
+rest." Enid with a finished pot, the first, and it is an urn. Aldous at the
+door with his skeleton holding the lamp, who goes down one landing and stops.
+Selwyn in the lane with a cup of water gone warm: "I sat in that chair for a
+week. Ask her what she did." The Vale's own people, in the lanes, doing what
+the Vale has always done. `12-UNFORGETTABLE.md` has each of them.
 
 **The threads.**
 1. The lanes. Fighting through the Vale to Maud's door is the act's first

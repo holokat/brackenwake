@@ -52,7 +52,9 @@ go. Every one of them orders the same thing. Sit down."*
 - **Offers.** Food, drink, a bed that heals, the trade channel's board.
 - **Talks about.** The last Walker and the cloak [met:maud]. What the Vale is
   saying about you [each act, varies]. Tam's father, if Tam is with you
-  [met:tam]. A toast, on your return from each act, with the whole room.
+  [met:tam]. A toast, on your return from each act, with the whole room. The
+  Walker who came back, forty years ago, whom he saw again in Crookwell market
+  wearing the mark and never told Maud about [met:selwyn, sets: knows:selwyn].
 - **Tell.** He wipes the same glass the whole conversation.
 
 **Bett Colley.** Blacksmith, forties, forearms like hawsers, burn-freckled,
@@ -267,7 +269,9 @@ and they are still afraid of it, which I have found instructive."*
   [saw:coffin]. The keeper, one sentence [read:tally]. Hesk, whom he calls "the
   hopeful one" and does not trust [met:hesk].
 - **Tell.** A skeleton stands behind him the whole time, holding his lamp, and
-  he corrects its posture twice.
+  he corrects its posture twice, gently, the way you would a nephew. The
+  skeleton is Owain, his brother, and Aldous has never asked him a question.
+  See `12-UNFORGETTABLE.md`.
 
 **Sir Anselm of the Vault.** Bone Knight, keeper of the Barrow Cellars. He
 speaks before he fights and this is the game's first talking monster. Voice:
@@ -385,20 +389,28 @@ sand is glass. Do not take the ore into the Vale."*
 - **Tell.** She breaks ore with a hammer through the whole talk and the ore
   glows where it breaks and she never looks at the glow.
 
-**The Recruiter.** Cultist captain on the Flats' edge, thirties, a beautiful
-voice, clean robes in a country where nothing is clean. Real name Selwyn.
-Voice: *"Brother Hesk says the same as we do. He only says it more politely.
-Ask him."*
-- **Wants.** You. The Vale's Walker in the Guest's mark would bring the whole
-  Vale after.
-- **Knows.** Hesk's name and that Hesk has corresponded with the Abbot Below.
-  The Sallow Fall's shift changes.
-- **Offers.** The mark. Nothing else. Taking it is a fact the world remembers.
-- **Talks about.** The Guest, gently. Hesk [sets: hesk:named]. The Kiln-Warden,
-  "a zealot, we do not all burn ourselves." The Vale, and what it is sitting on,
-  which he knows and should not [read:tally, he smiles].
-- **Tell.** He offers you water first, always, and it is always cold, and
-  nothing else on the Flats is.
+**Selwyn, the Recruiter.** Cultist captain on the Flats' edge, sixties and
+looks forty, a beautiful voice, clean robes in a country where nothing is
+clean, a cup of water that is always cold. He was the Vale's Walker two
+generations ago, sent out by a younger Maud, and he came back and was not let
+in. He is the story's recurring human antagonist and he never draws a weapon.
+See `12-UNFORGETTABLE.md`. Voice: *"You are the new one. She has not told you
+yet. She never does at first. Drink. It is only water."*
+- **Wants.** You, wearing the mark. And for someone from the Vale to hear what
+  happened to him.
+- **Knows.** What the hedges are made of. That he sat in the chair for a week.
+  Hesk's name and correspondence with the Abbot Below. The Sallow Fall's shifts.
+- **Offers.** The mark, a real item, at every meeting. Taking it sets a fact
+  every character reads. It can be taken off; nobody forgets you wore it.
+- **Talks about.** Water, first. The Guest, gently. Hesk [sets: hesk:named].
+  The Kiln-Warden, "a zealot, we do not all burn ourselves." The Vale and what
+  it sits on, which he knows [read:tally, he smiles]. Maud, by her first name,
+  which nobody else uses. The chair, and the week [act:4, in the Vale's lane].
+- **Tell.** He offers you water before anything, and it is always cold, and
+  nothing else on the Flats is. In the Vale in Act IV it is warm, and he looks
+  at the cup.
+- **Recurs.** Kiln Heath first (the cultist camp outside the Cellars), the
+  Ember Flats, the Sallow Wastes, the Vale in Act IV. Always one zone ahead.
 
 **Cai Blister.** A miner of the Cut, twenties, the youngest on the shift, dying
 of emberite and cheerful about it. Voice: *"Rook says forty. I say she is
