@@ -137,6 +137,9 @@ export const player = {
       teleport(x, z);
       state.setPos(x, z);
       actor.health = Math.max(1, Math.round(actor.maxHealth * WAKE_HEALTH));
+      // combat.kill latched this; without clearing it a second death never
+      // fired onDeath and the death screen never came back (found by D1)
+      actor.dead = false;
       actor.status = {};
       actor.dots = [];
       combat.forget(actor);

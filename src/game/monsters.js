@@ -328,7 +328,13 @@ export function stepMonster(m, dt, ctx = {}) {
   // -- who it is on ---------------------------------------------------------
   if (ai.state !== 'flee' && ai.state !== 'return') {
     if (ai.target && num(ai.target.health) <= 0) ai.target = null;
-    if (!ai.target && player && aggroCheck(m, player.pos)) { ai.target = player; ai.alerted = now; }
+    // who it is on: the player, or an ally of theirs standing closer (the
+    // dragon, D1); the first that is alive and inside the aggro radius
+    if (!ai.target) {
+      for (const cand of [player, ...(ctx.allies || [])]) {
+        if (cand && num(cand.health) > 0 && aggroCheck(m, cand.pos)) { ai.target = cand; ai.alerted = now; break; }
+      }
+    }
   }
 
   // -- has it had enough ----------------------------------------------------
@@ -1084,10 +1090,14 @@ export function createMonsters(sc, runtime, opts = {}) {
       mon.lastHealth = num(a.health);
       if (mon.boss) stepBoss(mon, d, playerActor);
 
+      const settled = a.ai && a.ai.target && num(a.ai.target.health) > 0 ? a.ai.target : playerActor;
       const res = stepMonster(a, d, {
         player: playerActor, now: lastNow, heightAt,
+        allies: typeof opts.allies === 'function' ? opts.allies() : undefined,
         clampXZ: under ? clampXZ : undefined,
-        reach: combat ? combat.reachBetween(a, playerActor || a) : undefined,
+        // the reach to whoever it settled on, not always the player: a wolf on
+        // the dragon measures its bite against the dragon's body
+        reach: combat ? combat.reachBetween(a, settled || a) : undefined,
         mode: mon.mode,
         flying: mon.flyer,
         rng,

@@ -11,13 +11,14 @@ import { combat } from './combat.js';
 import { abilities } from './abilities.js';
 import { inventory } from './inventory.js';
 import { world_life } from './world_life.js';
+import { dragon } from './dragon.js';
 import { ui } from './ui.js';
 import { dev } from './dev.js';
 import { input } from './input.js';
 
 /** The frame order of docs/mmo/07-RUNTIME-CONTRACT.md, by name. */
-export const FRAME_ORDER = ['world', 'player', 'combat', 'abilities', 'inventory', 'world_life', 'ui', 'dev', 'input'];
+export const FRAME_ORDER = ['world', 'player', 'combat', 'abilities', 'inventory', 'world_life', 'dragon', 'ui', 'dev', 'input'];
 
-export const SYSTEMS = [world, player, combat, abilities, inventory, world_life, ui, dev, input];
+export const SYSTEMS = [world, player, combat, abilities, inventory, world_life, dragon, ui, dev, input];
 
-export { world, player, combat, abilities, inventory, world_life, ui, dev, input };
+export { world, player, combat, abilities, inventory, world_life, dragon, ui, dev, input };

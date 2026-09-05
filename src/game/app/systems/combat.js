@@ -30,6 +30,8 @@ export const combat = {
     const combatRules = createCombat({ floaters, hud, audio, progression: teach, recompute });
     const loot = createLootDrops(sc, { floaters, hud, audio });
     const monsters = createMonsters(sc, runtime, {
+      // the dragon is a target a monster may pick over the player; asked at call time so this system needs no dependency on it
+      allies: () => (ctx.has('dragon') && ctx.get('dragon').entity && ctx.get('dragon').entity.awake ? [ctx.get('dragon').actor] : []),
       // W2 calls actorFactory(id, { pos, key, row, rec }); W1's builder takes (id, pos)
       actorFactory: (id, o) => spawnMonster(id, o.pos),
       combat: combatRules, loot, floaters, hud, audio,
