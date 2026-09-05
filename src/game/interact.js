@@ -382,8 +382,9 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
   }
 
   /** What the swing that felled the thing leaves behind, and where. */
-  function creditYield(res, noun, field, dropAt, at) {
+  function creditYield(res, noun, field, dropAt, at, rec) {
     if (res.stone != null) return creditStone(res.stone, noun);
+    // the record's own tier (a mine seam, a cave ring) beats the field's, which beats copper
     if (res.ore != null) return dropYield(oreBaseFor(field, rec), res.ore, noun, 'breaks open', dropAt, at);
     if (res.wood != null) return dropYield(logBaseFor(field) || DEFAULT_LOG, res.wood, noun, 'comes down', dropAt, at);
     say(`the ${noun} comes apart and leaves nothing`);
@@ -464,7 +465,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
           // the tree takes 1500 ms to go over (DUR in farm/tree_edit.js), so
           // the thud waits for the ground instead of landing with the swing
           else audio?.play?.('chopDown', { at, delay: 1300 });
-          creditYield(res, noun, d.field, dropAt, at);
+          creditYield(res, noun, d.field, dropAt, at, rec);
         } else say(d.action === 'mine'
           ? `the ${noun} cracks, ${res.remaining} more`
           : `the ${noun} takes the blow, ${res.remaining} more`);
