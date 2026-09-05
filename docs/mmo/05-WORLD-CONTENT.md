@@ -107,6 +107,255 @@ the monster's table (skeleton warriors drop swords and shields, cultists drop
 robes and staves, beasts drop hides and meat, golems drop ingots). Critters
 never drop gold. Every drop is a bag on the ground for 90 s, then gone.
 
+## The wave A roster
+
+Forty rows and twelve bosses, written so that every sentence in
+`src/mmo/realms.js` has something behind it. The sheet says a kraken takes boats
+in the Kraken's Shoals, that the Singing Dunes hum a tone lower when a sandworm
+is under you, that the Mammoth Steppe has herds on it and that the Kingsroad
+carries Legion patrols. A place that promises a monster and spawns a giant rat
+is the same failure as a gift that will not fit in the barn, so each of those is
+a row here, in the tier its realm's danger asks for.
+
+Health and damage are not free numbers. Each tier's band is read off the rows
+above, widened by a fifth either way, and `auditMonsters()` holds every new row
+inside it, so a tier 3 monster cannot quietly be a tier 4 one:
+
+| tier | health | low damage | high damage |
+| --- | --- | --- | --- |
+| 1 | 9 to 54 | 0 to 6 | 3 to 12 |
+| 2 | 32 to 84 | 4 to 11 | 7 to 18 |
+| 3 | 56 to 240 | 6 to 24 | 11 to 41 |
+| 4 | 144 to 480 | 14 to 36 | 24 to 58 |
+| 5 | 416 to 1320 | 24 to 60 | 40 to 96 |
+
+**Tier 0, wave A.** The Fox, the Goose and the Hawk are the three the fauna
+needs and the three whose bodies were already built and waiting for a row. The
+Whale is the fourth: twenty five metres of it, tier 0 because it is never a
+fight and not because it is small, and the one row tagged `huge`, which is what
+lets it out of the document's "1 to 8 health". A whale lets a boat ride its
+wake across the Caldera Sea and a kraken follows the whales.
+**Tier 1, wave A** (the same band: 10 to 25 skill, 4 to 12 gold)
+| monster | hp | dmg | spd | hit | def | AR | run | aggro | notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Salt Crab | 26 | 3 to 7 | 2.8 | 18 | 12 | 14 | 3.2 | 6 | coastOnly, group, sharesAggro |
+| Reed Stalker | 22 | 4 to 9 | 3.0 | 24 | 20 | 4 | 6.5 | 6 | fenOnly, ambush, poison1 |
+
+**Tier 2, wave A** (the same band: 30 to 45 skill, 12 to 30 gold)
+| monster | hp | dmg | spd | hit | def | AR | run | aggro | notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Legion Soldier | 62 | 8 to 14 | 2.6 | 42 | 36 | 20 | 5.8 | 12 | group, sharesAggro, shieldWall, warCry |
+| Legion Archer | 50 | 7 to 13 | 2.4 | 44 | 40 | 12 | 6.2 | 14 | group, sharesAggro, bow |
+| Raider | 58 | 8 to 15 | 2.5 | 43 | 38 | 14 | 6.4 | 14 | group, sharesAggro, coinPurse, charges |
+| Musk Ox | 80 | 9 to 16 | 3.4 | 30 | 22 | 18 | 6 | 8 | snowOnly, charges, group |
+| Coral Crab | 46 | 7 to 12 | 2.6 | 36 | 30 | 22 | 3.6 | 8 | coastOnly, group, poison1 |
+| Will o' Wisp | 34 | 6 to 12 | 2.0 | 44 | 45 | 0 | 7 | 12 | flying, erratic, fenOnly, casts, incorporeal50 |
+
+**Tier 3, wave A** (the same band: 50 to 65 skill, 30 to 80 gold)
+| monster | hp | dmg | spd | hit | def | AR | run | aggro | notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Blossom Spider | 95 | 11 to 19 | 2.0 | 58 | 55 | 10 | 7.5 | 12 | poison2, webRoot2, dropsFromAbove, group |
+| Canopy Harpy | 78 | 10 to 18 | 2.0 | 62 | 60 | 8 | 10.5 | 18 | flying, dives, silence3, group |
+| Cultist Adept | 92 | 10 to 17 | 2.5 | 60 | 50 | 10 | 5.5 | 14 | casts, hex, group, sharesAggro |
+| Fen Witch | 86 | 9 to 16 | 2.4 | 62 | 58 | 6 | 5 | 14 | fenOnly, casts, hex, poison2, summons |
+| Ember Drake | 130 | 14 to 24 | 2.8 | 60 | 55 | 20 | 10 | 18 | flying, breath, fireImmune |
+| Legion Chaplain | 88 | 9 to 16 | 2.6 | 58 | 52 | 14 | 5.4 | 14 | casts, healsAllies, group |
+| Legion Sapper | 105 | 12 to 20 | 3.0 | 55 | 45 | 18 | 5.6 | 12 | group, sharesAggro, powderCharge, knockback |
+| Cairn Wight | 100 | 12 to 21 | 2.8 | 58 | 50 | 16 | 5 | 12 | undead, holyWeak, manaDrain, ambush |
+| Bone Hound | 76 | 11 to 19 | 2.2 | 60 | 52 | 10 | 9.5 | 16 | undead, holyWeak, group, sharesAggro, howl |
+| Marrow Ghoul | 110 | 13 to 22 | 2.6 | 56 | 44 | 14 | 6 | 12 | undead, holyWeak, disease10, paralyse15 |
+| Frost Wolf | 105 | 13 to 22 | 2.1 | 60 | 55 | 14 | 9.8 | 16 | snowOnly, group, alpha, frostNova |
+| Drowned Marine | 115 | 12 to 21 | 3.0 | 56 | 46 | 22 | 4.2 | 12 | undead, holyWeak, coastOnly, group, sharesAggro, shieldWall |
+| Reef Eel | 70 | 12 to 20 | 2.0 | 62 | 60 | 8 | 8 | 6 | coastOnly, ambush, stormCall |
+| Cinder Imp | 68 | 10 to 18 | 2.0 | 58 | 58 | 6 | 8.5 | 12 | flying, erratic, casts, fireImmune, group |
+
+**Tier 4, wave A** (the same band: 70 to 85 skill, 80 to 250 gold)
+| monster | hp | dmg | spd | hit | def | AR | run | aggro | notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Temple Guardian | 380 | 28 to 46 | 4.0 | 70 | 35 | 52 | 4 | 10 | immunePoison, energyWeak, awakens, knockback, groundSlam |
+| Brass Sentinel | 340 | 26 to 44 | 3.8 | 72 | 40 | 46 | 4.8 | 12 | immunePoison, energyWeak, breath, group, sharesAggro |
+| Legion Knight | 300 | 26 to 42 | 3.0 | 80 | 70 | 46 | 5.2 | 14 | plate, parries, swordAndShield, shieldWall, group, sharesAggro, warCry |
+| Rider Wraith | 200 | 20 to 34 | 2.4 | 80 | 78 | 12 | 7.5 | 16 | undead, holyWeak, incorporeal50, manaDrain, ashCloud |
+| Ice Troll | 420 | 30 to 50 | 4.0 | 70 | 38 | 34 | 4.8 | 12 | snowOnly, regen3, burnStopsRegen, fireWeak, coldImmune, knockback |
+| Mammoth | 480 | 30 to 52 | 4.4 | 66 | 30 | 36 | 7.5 | 10 | snowOnly, charges, knockback, group, thickHide |
+| Lava Hound | 260 | 24 to 40 | 2.2 | 78 | 66 | 24 | 10.5 | 18 | fireImmune, breath, charges, group |
+| Ash Wraith | 190 | 19 to 32 | 2.4 | 78 | 76 | 8 | 7 | 16 | undead, holyWeak, incorporeal50, ashCloud, silence3 |
+| Sandworm | 460 | 32 to 55 | 4.2 | 72 | 30 | 40 | 8 | 14 | burrows, grab, immunePoison, tailSweep |
+
+**Tier 5, wave A** (the same band: 90 to 100 skill, 250 to 800 gold)
+| monster | hp | dmg | spd | hit | def | AR | run | aggro | notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Kraken | 1250 | 52 to 88 | 3.4 | 92 | 60 | 40 | 7 | 22 | coastOnly, grab, tailSweep, knockback, lootTwice, champion |
+| Sea Wyrm | 1150 | 46 to 76 | 2.4 | 90 | 62 | 38 | 6.5 | 14 | coastOnly, threeHeads, regrows, grab, lootTwice, champion |
+| Storm Wyvern | 760 | 48 to 78 | 2.8 | 94 | 78 | 30 | 12 | 24 | flying, stormCall, dives, knockback, lootTwice, champion |
+| Glacier Golem | 900 | 50 to 80 | 4.6 | 88 | 40 | 62 | 3.6 | 12 | snowOnly, immunePoison, coldImmune, fireWeak, frostNova, groundSlam, knockback, lootTwice, champion |
+| Glass Wyvern | 700 | 44 to 72 | 2.6 | 92 | 80 | 34 | 11.5 | 22 | flying, rangedSpikes, dives, fireImmune, lootTwice, champion |
+
+### The bosses of the nine realms
+
+The document's four are the boss of any dungeon level 3. These twelve are the
+ones the realms name, each in one place, with the phases every boss has at 66%
+and 33% health.
+
+A boss is read against its realm and not against tier 6. Rank is the realm's own
+danger: rank 5 is the document's band, 2,000 to 4,000 health and 800 to 3,000
+gold, and rank 1 is a cellar under a mill fought by a character an hour old, who
+has forty health and a 20 skill. A 2,000 health boss hitting at 98 is not a
+fight there, it is a wall with a name.
+
+| rank | health | gold | hit and defence band |
+| --- | --- | --- | --- |
+| 1 | 300 to 600 | 60 to 180 | 10 to 25 |
+| 2 | 600 to 1,200 | 150 to 450 | 30 to 45 |
+| 3 | 1,200 to 1,800 | 400 to 1,200 | 50 to 65 |
+| 4 | 1,800 to 2,600 | 800 to 3,000 | 70 to 85 |
+| 5 | 2,600 to 4,000 | 800 to 3,000 | 90 to 100 |
+| 6 | 3,400 to 4,000 | 1,200 to 4,000 | 90 to 100 |
+
+| boss | realm | lair | rank | hp | gold | its own three |
+| --- | --- | --- | --- | --- | --- | --- |
+| Sergeant Oram Blackhand | The Greenwold | The Old Cellars | 1 | 520 | 60 to 180 | coinPurse, warCry, summons, charges |
+| the Keeper of Faces | Verdant Deep | The Deep of Faces | 2 | 1050 | 150 to 450 | incorporeal50, casts, silence3, summons |
+| Thalassa the Sea-Wyrm | The Saltmarch and the Thousand Isles | The Leviathan's Rest | 2 | 1200 | 150 to 450 | threeHeads, regrows, grab, tailSweep |
+| the Brass Heart | Ember Wastes | The Firstfire Crater | 3 | 1800 | 400 to 1200 | immunePoison, energyWeak, groundSlam, knockback, stun, breath |
+| the Librarian | Ember Wastes | The Buried Library | 3 | 1300 | 400 to 1200 | boulder, casts, hex, summons |
+| Warden Hask | The Stormpeaks | The Eyrie's Roost | 4 | 2200 | 800 to 3000 | knockback, groundSlam, stun, warCry, summons |
+| Huntmaster Gallow | The Boneyard | The Trophy Throat | 4 | 2000 | 800 to 3000 | bow, howl, coinPurse, summons |
+| Legate Ossory | Frostreach | The Vault Below | 4 | 2400 | 800 to 3000 | plate, parries, swordAndShield, shieldWall, warCry, summons |
+| King Caradoc the Drowned | The Sunken Kingdom | The Drowned Palace | 5 | 3000 | 800 to 3000 | lifeLeech30, casts, summons |
+| Malachar, the Wyrmking | The Ashen Throne | The Throne of Ash | 6 | 4000 | 1200 to 4000 | plate, parries, breath, dragonTime, lifeLeech30, summons |
+| Noon the Manticore | Ember Wastes | The Glass Road | 3 | 1500 | 400 to 1200 | rangedSpikes, charges, noonOnly, wanders |
+| Rimemouth | Frostreach | The White Pines | 4 | 1900 | 800 to 3000 | alpha, howl, frostNova, wanders |
+
+### What can be tamed
+
+Animal Taming's difficulty is on the same 0 to 100 the skill is, so a character
+who has been taught to 40 can take a fox, a goose or a reed stalker and is going
+to be bitten by anything else. `food` is a real items.js base: taming is fed,
+not talked at. Loyalty is how long it stays yours without being fed again.
+
+Nothing dead, built, thinking or verminous is on this list, and the audit
+enforces it: a tamable row has to be a beast, a critter or a flying animal.
+
+| tamable | tier | kind | Animal Taming | fed on | loyalty, days |
+| --- | --- | --- | --- | --- | --- |
+| Fox | 0 | critter | 20 | game meat | 7 |
+| Goose | 0 | critter | 10 | bread | 3 |
+| Hawk | 0 | critter | 45 | rat meat | 10 |
+| Reed Stalker | 1 | beast | 40 | fish | 5 |
+| Musk Ox | 2 | beast | 50 | nettle | 14 |
+| Ember Drake | 3 | flying | 90 | emberite ore | 30 |
+| Frost Wolf | 3 | beast | 70 | venison | 21 |
+| Mammoth | 4 | beast | 85 | nettle | 30 |
+| Lava Hound | 4 | beast | 88 | voidrock ore | 21 |
+| Glass Wyvern | 5 | flying | 95 | gem | 30 |
+
+### The tag vocabulary
+
+Every ability a row can carry is one of these tags, and a tag that is not in the
+list is refused at load. This is the whole vocabulary, and the meaning is the
+contract: `docs/mmo/wiring/M2.md` carries the rule each of wave A's new tags
+needs in `src/game/monsters.js`.
+
+| tag | means |
+| --- | --- |
+| `flying` | stays in the air; monster_ai.isFlyer holds it at hoverHeight and it comes down to swing |
+| `erratic` | does not fly a straight line at you; the approach wanders |
+| `night` | commoner after dusk, still present by day |
+| `nightOnly` | never spawns in daylight above ground |
+| `snowOnly` | only in snow, mountain or crater habitats |
+| `fenOnly` | only in the fen |
+| `coastOnly` | only on the beach, in the ocean or underground beside them |
+| `noonOnly` | only between the hours the sun is highest, which is the whole of its legend |
+| `wanders` | does not sit in its lair; it walks a route of places and can be met anywhere on it |
+| `huge` | a body far larger than its tier suggests, so the tier health band does not hold for it |
+| `slow` | walks slower than its run speed suggests; it never runs you down |
+| `charges` | closes the last stretch at a run and the blow that lands hits harder |
+| `parries` | carries a natural guard, so combat_rules gives it a parry roll |
+| `swordAndShield` | fights one handed behind a shield |
+| `plate` | wears plate: the AR on the row already holds it |
+| `shield` | carries a shield |
+| `tailSweep` | a wide arc that catches everything in front of it, not one target |
+| `dives` | a flyer stoops from the air for a doubled blow and climbs again |
+| `group` | spawns with its own kind and fights as one |
+| `sharesAggro` | pulling one pulls every one of its kind within the group |
+| `alpha` | the leader of its pack; the pack holds while it lives |
+| `leadsGoblins` | goblins spawn around it and fight better for it |
+| `warCry` | a shout that lifts every ally of its own kind nearby |
+| `shieldWall` | while two or more of the same row stand within four metres, each gains armour |
+| `howl` | calls every monster of its own row within thirty metres into the fight |
+| `healsAllies` | a chant that heals every ally within eight metres |
+| `summons` | calls lesser monsters into the fight; the row carries `summons: { id, count }` |
+| `throwsKnives` | thrown weapon; monster_ai.RANGED_TAGS maps it to the thrown mode |
+| `bow` | shot weapon; monster_ai.RANGED_TAGS already maps it to the shot mode |
+| `boulder` | thrown weapon, and a heavy one |
+| `rangedSpikes` | thrown weapon fired off its own body |
+| `breath` | a cone of fire, held for BREATH_SECONDS |
+| `poisonBreath` | a cone of poison |
+| `casts` | a bolt or a fireball at range, interruptible |
+| `hex` | a curse that lowers the target hit chance for a while, the document Fireball and Hex |
+| `stormCall` | calls lightning down on the ground a target is standing on, after a warning |
+| `powderCharge` | throws a charge that goes off a moment later and hits an area |
+| `ashCloud` | a cloud that blinds: the target hit chance falls while it stands in it |
+| `poison1` | poison level 1 on a landed blow |
+| `poison2` | poison level 2 on a landed blow |
+| `poison3` | poison level 3 on a landed blow |
+| `poisonTouch` | poison level 1 by touch |
+| `disease10` | one blow in ten carries disease |
+| `stun` | a blow that stuns |
+| `paralyse15` | fifteen percent of blows hold you still |
+| `silence3` | a screech that stops casting for three seconds |
+| `knockback` | a blow that moves you |
+| `groundSlam` | an area blow around itself after a warning |
+| `webRoot2` | a web that roots for two seconds |
+| `roots` | roots out of the ground that hold you where you stand |
+| `frostNova` | a ring of cold around itself |
+| `grab` | takes hold of you and holds you there while it squeezes |
+| `ambush` | unseen until you are close, and the first blow is doubled |
+| `burrows` | goes under the ground, and comes up somewhere else |
+| `awakens` | never aggros at all until you come inside four metres of it |
+| `dropsFromAbove` | hangs above the path and drops on whatever walks under it |
+| `dragonTime` | the world runs slow around it: it acts twice for every once of yours |
+| `undead` | undead: no meat, never flees, holy hurts it |
+| `holyWeak` | holy damage doubled |
+| `silverWeak` | silver doubled |
+| `fireWeak` | fire doubled |
+| `energyWeak` | energy doubled |
+| `immunePoison` | poison does nothing to it |
+| `coldImmune` | cold does nothing to it |
+| `fireImmune` | fire does nothing to it |
+| `incorporeal50` | half of all physical damage passes straight through |
+| `thickHide` | a hide that turns blades, which the AR on the row already holds |
+| `regen3` | three health a second |
+| `burnStopsRegen` | burning stops the regeneration |
+| `regrows` | a severed part grows back |
+| `threeHeads` | three heads, three attacks |
+| `healsInDaylight` | heals while the sun is on it |
+| `lifeLeech30` | thirty percent of the damage it does comes back as health |
+| `manaDrain` | takes mana as well as health |
+| `phylactery` | it stands back up unless the phylactery is broken first |
+| `coinPurse` | carries coin over its tier band |
+| `lootTwice` | the loot roll is made twice and the better kept |
+| `purpleFloor` | never drops worse than an epic |
+| `champion` | a champion or a boss: the plate says so and the colour is the tier |
+
+### Where they live, by name
+
+`HABITAT` answers "what walks on a meadow". It cannot answer "what is in the
+Kraken's Shoals". `HABITAT_BY_PLACE` in `src/mmo/monsters.js` is keyed by the
+place ids of `src/mmo/realms.js`, eighty three of the ninety five places have a
+roster of their own, and `spawnRollFor` reads it before it reads the biome. Each
+entry carries the biome it reads as, which is not always its realm's: the
+Saltmarch is a fen whose causeway, isles and shoals are salt water, and the
+Sunken Chapel is a meadow's ruin with a river over its roof.
+
+The rule the audit keeps: a row tagged `snowOnly` is only ever written into
+snow, mountain or crater; `fenOnly` only into the fen; `coastOnly` only into the
+beach, the ocean or a dungeon under them. Every place named in the table is a
+real place in realms.js, every boss's lair holds that boss, and every realm has
+at least six rows that can stand in it.
+
+
 ## Resources
 
 **Ore veins** by biome and depth as in `03-ITEMS-LOOT.md`. A vein has 3 to 8
