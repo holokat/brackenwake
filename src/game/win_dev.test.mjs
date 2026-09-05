@@ -304,9 +304,10 @@ console.log('win_dev: the full sets');
   const bench = createBench(ctx);
   const r = bench.giveSet('weapons', { rarity: 'common' });
   const wanted = WEAPON_IDS.filter((id) => BASES[id].slot).length;
-  check('the weapon rack is every weapon with a slot, fists left out', wanted === 18, `${wanted} of ${WEAPON_IDS.length} weapons`);
+  // W7 added the wand and the staff, so the rack is twenty, not eighteen.
+  check('the weapon rack is every weapon with a slot, fists left out', wanted === 20, `${wanted} of ${WEAPON_IDS.length} weapons`);
   const held = ctx.character.pack.items.filter(Boolean).length;
-  check('all eighteen fit a twenty slot pack', r.ok === true && r.added === wanted && held === wanted, r.text);
+  check('all twenty fit the pack', r.ok === true && r.added === wanted && held === wanted, r.text);
   const none = bench.giveSet('mithril');
   check('a set nobody has is refused', none.ok === false && /no set called mithril/.test(none.text), none.text);
 }
@@ -652,12 +653,15 @@ console.log('win_dev: a twenty slot save grows to eighty and keeps every item wh
 }
 {
   // And the pack the bench fills is the bigger one: the weapon rack used to be
-  // eighteen into twenty, which left two slots. Now it leaves twenty two.
+  // eighteen into twenty, which left two slots. It is twenty now, with the
+  // wand and the staff on it, and it still leaves sixty.
   const ctx = realCtx();
   const bench = createBench(ctx);
   bench.giveSet('weapons', { rarity: 'common' });
   const free = ctx.character.pack.items.filter((x) => !x).length;
-  check(`the weapon rack leaves ${STATE_PACK_SLOTS - 18} slots free in a ${STATE_PACK_SLOTS} slot pack`, free === STATE_PACK_SLOTS - 18, `${free} free`);
+  const rack = WEAPON_IDS.filter((id) => BASES[id].slot).length;
+  check(`the weapon rack leaves ${STATE_PACK_SLOTS - rack} slots free in a ${STATE_PACK_SLOTS} slot pack`,
+    free === STATE_PACK_SLOTS - rack, `${free} free, ${rack} on the rack`);
 }
 
 console.log('win_dev: which bases take a rarity');

@@ -16,9 +16,10 @@ import {
   interruptChance, lessonFor, spellDamage, manaCostFor, costKind,
   auditAbilities,
   WEAPON_BASES, SHIELD_BASES, INSTRUMENT_BASES, AMMO_BASES, WEAPON_WORDS,
+  FOCUS_BASES, isSpell, isFocusItem,
   NEEDS_KINDS, weaponNeeds, weaponCheck, countInPack,
 } from './abilities.js';
-import { BASES as ITEM_BASES } from './items.js';
+import { BASES as ITEM_BASES, isFocus as itemIsFocus, FOCUS_BASES as ITEM_FOCUS_BASES } from './items.js';
 import { SKILL_NAMES as OPENING_SKILL_NAMES, OPENINGS_BY_ID } from './openings.js';
 
 let pass = 0, fail = 0;
@@ -538,6 +539,27 @@ console.log('\nWhat has to be in your hands');
   check('and both ammunition bases are real stacking items',
     AMMO_BASES.every((id) => ITEM_BASES[id] && ITEM_BASES[id].stack), AMMO_BASES.join(', '));
 
+  // The foci, both ways against items.js. A base tagged `focus` there and not
+  // listed here would be a wand no spell would go through; an id listed here
+  // and not tagged there would be a sword every spell went through.
+  const missingFoci = ITEM_FOCUS_BASES.filter((id) => !FOCUS_BASES.includes(id));
+  const extraFoci = FOCUS_BASES.filter((id) => !ITEM_FOCUS_BASES.includes(id));
+  check('every focus base in items.js is in the mirror', missingFoci.length === 0,
+    missingFoci.join(', ') || ITEM_FOCUS_BASES.join(', '));
+  check('and the mirror invents none', extraFoci.length === 0, extraFoci.join(', ') || `${FOCUS_BASES.length} ids`);
+  check('a focus is held in the main hand and comes in one hand and in two',
+    FOCUS_BASES.every((id) => ITEM_BASES[id].slot === 'mainHand')
+    && FOCUS_BASES.some((id) => ITEM_BASES[id].hands === 1)
+    && FOCUS_BASES.some((id) => ITEM_BASES[id].hands === 2),
+    FOCUS_BASES.map((id) => `${id} ${ITEM_BASES[id].hands}h`).join(', '));
+  check('the quarterstaff is a Macefighting stick and not a focus',
+    itemIsFocus('quarterstaff') === false && !FOCUS_BASES.includes('quarterstaff')
+    && WEAPON_BASES.quarterstaff.skill === 'macefighting');
+  check('and isFocusItem reads an item record, a base record and a bare id',
+    isFocusItem({ base: 'wand' }) === true && isFocusItem(ITEM_BASES.staff) === true
+    && isFocusItem('bone_staff') === true && isFocusItem('longsword') === false
+    && isFocusItem(null) === false);
+
   // A refusal must name the thing it wants. Every weapon is named by its own
   // skill's phrase, so adding a weapon nobody mentions fails here.
   const unnamed = Object.entries(WEAPON_BASES).filter(([, w]) => {
@@ -563,7 +585,7 @@ console.log('\nWhat has to be in your hands');
     const shown = list.length > 8 ? `${list.slice(0, 8).join(' ')} and ${list.length - 8} more` : list.join(' ');
     console.log(`  ${kind.padEnd(11)}${String(list.length).padStart(2)}  ${shown}`);
   }
-  check(`the seven kinds account for all ${ABILITY_COUNT} abilities`, total === ABILITY_COUNT, `${total} counted`);
+  check(`the eight kinds account for all ${ABILITY_COUNT} abilities`, total === ABILITY_COUNT, `${total} counted`);
   check('and every kind is used by at least one of them',
     NEEDS_KINDS.every((k) => (by[k] || []).length > 0),
     NEEDS_KINDS.map((k) => `${k} ${(by[k] || []).length}`).join(', '));
@@ -682,19 +704,81 @@ const emptyPack = { slots: 20, items: [] };
     `${ABILITIES.filter((x) => x.group === 'bard').length} of them`);
 }
 {
-  const fb = ABILITIES_BY_ID.fireball;      // none
-  const bare = weaponCheck(fb, doll(), emptyPack);
-  const plated = weaponCheck(fb, doll({ mainHand: it('longsword'), offHand: it('tower') }), emptyPack);
-  check('Fireball casts bare handed', bare.ok === true, bare.reason || 'allowed');
-  check('and in plate with a sword and a tower shield', plated.ok === true, plated.reason || 'allowed');
-  const spells = ABILITIES.filter((x) => ['mage', 'sorcerer', 'necromancer', 'healer'].includes(x.group));
-  const held = spells.filter((x) => weaponNeeds(x).kind !== 'none').map((x) => x.id);
-  check('every spell but the one that enchants a weapon needs nothing in hand',
-    held.length === 1 && held[0] === 'consecrateWeapon',
-    `${spells.length} spells, ${held.join(', ') || 'none'} excepted`);
+  // The casting rule, driven true and false on six spells and four things that
+  // are not spells. The user's line was "spells cannot be cast while a sword is
+  // equipped for example", so the sword is the case that must refuse.
+  const SIX = ['fireball', 'magicArrow', 'lifeDrain', 'hex', 'heal', 'raiseSkeleton'];
+  const NOT_SPELLS = ['powerStrike', 'bandage', 'meditate', 'jump', 'aimedShot', 'provoke'];
+
+  const withWand = SIX.map((id) => weaponCheck(ABILITIES_BY_ID[id], doll({ mainHand: it('wand') }), emptyPack));
+  const withStaff = SIX.map((id) => weaponCheck(ABILITIES_BY_ID[id], doll({ mainHand: it('staff') }), emptyPack));
+  const withBone = SIX.map((id) => weaponCheck(ABILITIES_BY_ID[id], doll({ mainHand: it('bone_staff') }), emptyPack));
+  const withSword = SIX.map((id) => weaponCheck(ABILITIES_BY_ID[id], doll({ mainHand: it('longsword') }), emptyPack));
+  const bareHanded = SIX.map((id) => weaponCheck(ABILITIES_BY_ID[id], doll(), emptyPack));
+  const withStick = SIX.map((id) => weaponCheck(ABILITIES_BY_ID[id], doll({ mainHand: it('quarterstaff') }), emptyPack));
+
+  check(`all ${SIX.length} spells cast with a wand`, withWand.every((r) => r.ok),
+    withWand.find((r) => !r.ok)?.reason || SIX.join(', '));
+  check('and with a staff', withStaff.every((r) => r.ok), withStaff.find((r) => !r.ok)?.reason || 'all six');
+  check('and with the necromancer\'s bone staff', withBone.every((r) => r.ok),
+    withBone.find((r) => !r.ok)?.reason || 'all six');
+  check('not one of them casts with a longsword in the hand', withSword.every((r) => !r.ok),
+    withSword[0].reason);
+  check('nor bare handed', bareHanded.every((r) => !r.ok), bareHanded[0].reason);
+  check('nor on a quarterstaff, which is a Macefighting stick', withStick.every((r) => !r.ok),
+    withStick[0].reason);
+  check('the refusal names the ability, what it wants and what is in the hand',
+    /^Fireball wants a wand or a staff in your hand, and you are holding a Longsword\.$/.test(withSword[0].reason),
+    withSword[0].reason);
+  check('and says the hand is empty when it is',
+    /and your hands are empty\.$/.test(bareHanded[0].reason), bareHanded[0].reason);
+
+  // The other direction: four abilities that are not spells care nothing for a
+  // focus, and the two that want a weapon refuse the wand instead.
+  const nonSpellKinds = NOT_SPELLS.map((id) => weaponNeeds(ABILITIES_BY_ID[id]).kind);
+  check(`none of the ${NOT_SPELLS.length} non spells asks for a focus`,
+    nonSpellKinds.every((k) => k !== 'focus'), NOT_SPELLS.map((id, i) => `${id} ${nonSpellKinds[i]}`).join(', '));
+  const everyone = ['bandage', 'meditate', 'jump', 'sprint', 'camp'];
+  check('Bandage, Meditate, Jump, Sprint and Camp still need nothing at all',
+    everyone.every((id) => weaponCheck(ABILITIES_BY_ID[id], doll({ mainHand: it('wand') }), { bandage: 3, wood: 1 }).ok
+      && weaponCheck(ABILITIES_BY_ID[id], doll({ mainHand: it('longsword') }), { bandage: 3, wood: 1 }).ok
+      && weaponCheck(ABILITIES_BY_ID[id], doll(), { bandage: 3, wood: 1 }).ok),
+    everyone.join(', '));
+  const psSword = weaponCheck(ABILITIES_BY_ID.powerStrike, doll({ mainHand: it('longsword') }), emptyPack);
+  const psWand = weaponCheck(ABILITIES_BY_ID.powerStrike, doll({ mainHand: it('wand') }), emptyPack);
+  check('Power Strike still lands with a longsword', psSword.ok === true, psSword.reason || 'allowed');
+  check('and is refused with a wand, which is not a weapon you swing',
+    psWand.ok === false && /is not one you swing/.test(psWand.reason), psWand.reason);
+  const shotWand = weaponCheck(ABILITIES_BY_ID.aimedShot, doll({ mainHand: it('wand'), ranged: it('shortbow') }), { arrow: 20 });
+  check('and a wand in the hand still blocks a bow shot', shotWand.ok === false, shotWand.reason);
+
+  // Which rows are spells, counted from the table rather than asserted.
+  const casters = ABILITIES.filter((x) => ['mage', 'sorcerer', 'necromancer', 'healer'].includes(x.group));
+  const spells = ABILITIES.filter((x) => isSpell(x));
+  const wrongGroup = spells.filter((x) => !casters.includes(x)).map((x) => x.id);
+  check('every ability that costs mana sits in one of the four casting groups',
+    wrongGroup.length === 0, wrongGroup.join(', ') || `${spells.length} spells`);
+  const notFocus = spells.filter((x) => weaponNeeds(x).kind !== 'focus').map((x) => x.id);
+  check('and every one of them wants a focus, but for the one that enchants a blade',
+    notFocus.length === 1 && notFocus[0] === 'consecrateWeapon',
+    `${spells.length} spells, ${notFocus.join(', ') || 'none'} excepted`);
+  const freeCasters = casters.filter((x) => !isSpell(x)).map((x) => x.id);
+  check('the two mana free passives in those groups are not spells and need nothing',
+    freeCasters.length === 2 && freeCasters.every((id) => weaponNeeds(ABILITIES_BY_ID[id]).kind === 'none'),
+    freeCasters.join(', '));
+  check('isSpell is driven both ways',
+    isSpell(ABILITIES_BY_ID.fireball) === true && isSpell(ABILITIES_BY_ID.arcaneMastery) === false
+    && isSpell(ABILITIES_BY_ID.bandage) === false && isSpell(ABILITIES_BY_ID.powerStrike) === false
+    && isSpell(null) === false);
+
   const cw = weaponCheck(ABILITIES_BY_ID.consecrateWeapon, doll(), emptyPack);
-  check('and Consecrate Weapon, which puts holy on your hits, refuses empty hands',
+  const cwMace = weaponCheck(ABILITIES_BY_ID.consecrateWeapon, doll({ mainHand: it('mace') }), emptyPack);
+  const cwWand = weaponCheck(ABILITIES_BY_ID.consecrateWeapon, doll({ mainHand: it('wand') }), emptyPack);
+  check('Consecrate Weapon, which puts holy on your hits, refuses empty hands',
     cw.ok === false && /wants a weapon in your hand/.test(cw.reason), cw.reason);
+  check('takes the mace it is meant to bless', cwMace.ok === true, cwMace.reason || 'allowed');
+  check('and refuses a wand, which has no edge to bless',
+    cwWand.ok === false && /is not one you swing/.test(cwWand.reason), cwWand.reason);
 }
 
 // Through canUse, which is what the runtime calls.

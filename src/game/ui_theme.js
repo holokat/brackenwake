@@ -215,6 +215,9 @@ export const GLYPHS = {
   bow: '<path d="M7 3 c7 2 11 8 11 18 -1 0 -2 0 -3 -1 0 -8 -3 -13 -8 -15 z M6 4 L20 20"/>',
   dagger: '<path d="M16 3 l2 2 -7 7 -2 -2 z M7 12 l5 5 -1.6 1.6 -5 -5 z M4 19 l3 3 M5 16 l3 3"/>',
   staff: '<path d="M11 21 L16 4 l2 .6 -5 17 z M17 2 a3 3 0 1 1 -.1 0 z"/>',
+  // a wand: a short rod on the diagonal with a four pointed star off its tip,
+  // so the pack tells a wand from a staff at 44 px before anyone paints one
+  wand: '<path d="M3 20 L14 9 l1.8 1.8 -11 11 z M18 2 l1.1 2.9 2.9 1.1 -2.9 1.1 -1.1 2.9 -1.1 -2.9 -2.9 -1.1 2.9 -1.1 z M11.5 4 l.7 1.8 1.8 .7 -1.8 .7 -.7 1.8 -.7 -1.8 -1.8 -.7 1.8 -.7 z"/>',
   spear: '<path d="M13 2 l3 5 -3 4 -3 -4 z M12 11 l1 11 -2 0 z"/>',
   mace: '<path d="M9 22 l7 -7 -2 -2 -7 7 z M17 3 a5 5 0 1 1 -.1 0 z M12 4 h10 M17 1 v10"/>',
   shield: '<path d="M12 2 L21 5 v7 c0 6 -5 8 -9 10 -4 -2 -9 -4 -9 -10 V5 z"/>',
@@ -272,6 +275,9 @@ export function glyphNameFor(base) {
     if (/axe/.test(id)) return 'axe';
     if (kinds.includes('ranged')) return id === 'throwing_knives' ? 'dagger' : 'bow';
     if (kinds.includes('polearm')) return 'spear';
+    // a focus before a staff: a wand carries the `staff` tag too (it is the
+    // word affixes.js uses for a magic implement) and would draw as a staff
+    if (id === 'wand') return 'wand';
     if (kinds.includes('staff')) return 'staff';
     if (kinds.includes('mace')) return 'mace';
     if (id === 'dagger' || id === 'spear') return id === 'spear' ? 'spear' : 'dagger';

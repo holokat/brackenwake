@@ -169,6 +169,42 @@ console.log('gear_visuals: every grip the hands can take');
 }
 
 // ---------------------------------------------------------------------------
+console.log('gear_visuals: the wand in one hand and the staff in two');
+{
+  // The user's line: "wand is 1 handed, staff is 2 handed". dressRig reads
+  // items.js twoHanded(), so nothing here was special cased; this is the
+  // measurement that says the table and the hands agree.
+  const wandR = dressRig(rig, { mainHand: makeItem({ base: 'wand' }) }, { light: false });
+  check('a wand is a one hand grip', wandR.grip === 'one', wandR.grip);
+  check('and it hangs off the right fist on the one hand hold',
+    onAnchor(rig, 'handR', 'weapon:wand'), wornNodes(rig).map((w) => w.anchor).join(', '));
+  const held = wornNodes(rig).find((w) => w.node.name === 'weapon:wand').node;
+  check('with the one handed offsets, not the two handed ones',
+    held.position.z === HOLD.weapon.pos[2] && held.rotation.x === HOLD.weapon.rot[0],
+    `z ${held.position.z}, x rot ${held.rotation.x}`);
+
+  const staffR = dressRig(rig, { mainHand: makeItem({ base: 'staff' }) }, { light: false });
+  check('a staff closes both hands on it', staffR.grip === 'two', staffR.grip);
+  const staffNode = wornNodes(rig).find((w) => w.node.name === 'weapon:staff').node;
+  check('and takes the two hander hold', staffNode.position.z === HOLD.twoHander.pos[2]
+    && staffNode.rotation.x === HOLD.twoHander.rot[0],
+    `z ${staffNode.position.z}, x rot ${staffNode.rotation.x}`);
+  check('the bone staff is held the same way', dressRig(rig, { mainHand: makeItem({ base: 'bone_staff' }) }, { light: false }).grip === 'two');
+
+  // A two hander with a shield beside it: the shield is not drawn, exactly as
+  // it is not for a halberd. Driven so the staff cannot become the exception.
+  const both = dressRig(rig, { mainHand: makeItem({ base: 'staff' }), offHand: makeItem({ base: 'kite' }) }, { light: false });
+  check('a shield beside a staff is not drawn, the way it is not beside a halberd',
+    both.grip === 'two' && !onAnchor(rig, 'handL', 'weapon:kite'), both.grip);
+
+  // A wand leaves the off hand free, which is the point of a one handed focus.
+  const wandShield = dressRig(rig, { mainHand: makeItem({ base: 'wand' }), offHand: makeItem({ base: 'buckler' }) }, { light: false });
+  check('a wand and a buckler is the weapon and shield grip',
+    wandShield.grip === 'oneShield' && onAnchor(rig, 'handL', 'weapon:buckler'), wandShield.grip);
+  undress(rig);
+}
+
+// ---------------------------------------------------------------------------
 console.log('gear_visuals: all six tiers, not just the one that was tested');
 {
   for (const t of ARMOR_TIERS) {

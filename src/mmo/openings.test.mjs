@@ -105,8 +105,21 @@ const badBases = Object.values(ITEM_BASES)
   .map((b) => `${b.id} (${b.docName})`);
 check('every doc-sourced item base is named in 03-ITEMS-LOOT.md', badBases.length === 0,
   badBases.length ? badBases.join(', ') : `${Object.keys(ITEM_BASES).length} bases`);
-check('and the invented ones are declared, not hidden', INVENTED_ITEM_BASES.length === 10,
+// Eleven since W7 added the wand: 03-ITEMS-LOOT.md has no wand row, and this
+// list is where a base the item document does not define is counted out loud
+// rather than pretending to be sourced.
+check('and the invented ones are declared, not hidden', INVENTED_ITEM_BASES.length === 11,
   INVENTED_ITEM_BASES.join(', '));
+check('the wand is among them and the staff is not, because 03 names a staff',
+  INVENTED_ITEM_BASES.includes('wand') && !INVENTED_ITEM_BASES.includes('staff'));
+check('every casting opening carries a focus in its kit',
+  ['mage', 'sorcerer', 'necromancer', 'healer', 'blank'].every((id) => kitItems(OPENINGS_BY_ID[id])
+    .some((e) => ['wand', 'staff', 'bone_staff'].includes(e.base))),
+  ['mage', 'sorcerer', 'necromancer', 'healer', 'blank']
+    .map((id) => `${id}: ${kitItems(OPENINGS_BY_ID[id]).map((e) => e.base).find((b) => ['wand', 'staff', 'bone_staff'].includes(b))}`)
+    .join(', '));
+check('and no kit still hands a caster a quarterstaff to cast with',
+  OPENINGS.every((o) => !kitItems(o).some((e) => e.base === 'quarterstaff')));
 
 // ---------------------------------------------------------------------------
 console.log('\nEvery opening, both bounds');

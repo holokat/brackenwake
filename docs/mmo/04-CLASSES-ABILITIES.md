@@ -17,13 +17,13 @@ few coins and a kit. Skills listed at 0 are not restricted, just not begun.
 | Paladin | 60 | 40 | 35 | 60 | 55 | Swordsmanship 45, Chivalry 45, Tactics 40, Parrying 35, Healing 35 | longsword, buckler, ringmail chest and legs, holy book |
 | Ranger | 45 | 70 | 35 | 50 | 50 | Archery 50, Tracking 45, Tactics 35, Foraging 35, Animal Lore 35 | shortbow, 60 arrows, dagger, leather set |
 | Rogue | 40 | 75 | 40 | 45 | 50 | Fencing 50, Stealth 45, Hiding 40, Lockpicking 35, Poisoning 30 | two daggers, cloth hood, leather, 3 lockpicks |
-| Mage | 30 | 40 | 70 | 45 | 65 | Magery 50, Evaluating Intelligence 45, Meditation 45, Resisting Spells 30, Inscription 30 | quarterstaff, robe set, 4 mana potions |
+| Mage | 30 | 40 | 70 | 45 | 65 | Magery 50, Evaluating Intelligence 45, Meditation 45, Resisting Spells 30, Inscription 30 | staff, robe set, 4 mana potions |
 | Sorcerer | 30 | 45 | 75 | 40 | 60 | Mysticism 50, Evaluating Intelligence 45, Meditation 40, Magery 35, Alchemy 30 | staff, robe, 6 reagent pouches |
 | Necromancer | 35 | 40 | 65 | 50 | 60 | Necromancy 50, Spirit Speak 45, Meditation 40, Evaluating Intelligence 35, Anatomy 30 | bone staff, dark robe, skull |
-| Healer | 40 | 45 | 50 | 55 | 60 | Healing 50, Anatomy 45, Chivalry 35, Meditation 35, Veterinary 35 | mace, cloth set, 20 bandages |
+| Healer | 40 | 45 | 50 | 55 | 60 | Healing 50, Anatomy 45, Chivalry 35, Meditation 35, Veterinary 35 | wand, mace, cloth set, 20 bandages |
 | Bard | 40 | 55 | 50 | 50 | 55 | Musicianship 50, Provocation 40, Peacemaking 40, Discordance 35, Fencing 35 | lute, rapier, leather |
 | Artisan | 55 | 50 | 50 | 50 | 45 | Blacksmithing 45, Mining 45, Tailoring 40, Carpentry 35, Tinkering 35 | pickaxe, axe, hammer, tongs, leather apron, 20 iron ingots |
-| Blank | 50 | 50 | 50 | 50 | 50 | 200 points to place, no skill above 50 | dagger, cloth, 100 coins |
+| Blank | 50 | 50 | 50 | 50 | 50 | 200 points to place, no skill above 50 | dagger, wand, cloth, 100 coins |
 
 **Customising:** after picking an opening you may move up to 30 stat points and
 30 skill points around before you set foot in the world, so a Warrior can be

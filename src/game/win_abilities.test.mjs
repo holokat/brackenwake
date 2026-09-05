@@ -260,8 +260,17 @@ console.log('abilities: the requirement line');
   const armed = { equipment: { mainHand: makeItem({ base: 'longsword' }) }, pack: { items: [] } };
   check('and says nothing once the sword is in it', weaponLine(ABILITIES_BY_ID.powerStrike, armed) === '',
     `"${weaponLine(ABILITIES_BY_ID.powerStrike, armed)}"`);
-  check('a spell wants nothing and never says a word',
-    weaponLine(ABILITIES_BY_ID.fireball, bare) === '' && weaponLine(ABILITIES_BY_ID.fireball, armed) === '');
+  // W7 changed the rule under this line: a spell wants a wand or a staff now,
+  // so the book says so with empty hands AND with a longsword in them, and
+  // goes quiet the moment a wand is in the hand.
+  const wanded = { equipment: { mainHand: makeItem({ base: 'wand' }) }, pack: { items: [] } };
+  check('a spell says what it wants when there is no focus in the hand',
+    /wants a wand or a staff in your hand/.test(weaponLine(ABILITIES_BY_ID.fireball, bare))
+    && /wants a wand or a staff in your hand/.test(weaponLine(ABILITIES_BY_ID.fireball, armed)),
+    weaponLine(ABILITIES_BY_ID.fireball, armed));
+  check('and never says a word once the wand is in it',
+    weaponLine(ABILITIES_BY_ID.fireball, wanded) === '',
+    `"${weaponLine(ABILITIES_BY_ID.fireball, wanded)}"`);
   check('a document with no paper doll is not told its hands are empty',
     weaponLine(ABILITIES_BY_ID.powerStrike, {}) === '');
 }

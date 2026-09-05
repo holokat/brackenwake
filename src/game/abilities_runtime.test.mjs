@@ -16,6 +16,8 @@ import {
 } from '../mmo/abilities.js';
 import { OPENINGS } from '../mmo/openings.js';
 import { planCharacter } from './creation.js';
+import { settlerKitFor } from './app/systems/inventory.js';
+import { makeItem } from '../mmo/items.js';
 import { resolveMelee, JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
 import { GRAVITY, JUMP_V0 } from './player.js';
 
@@ -950,8 +952,10 @@ const item = (base, count) => (count == null ? { base } : { base, count });
   const v = h.abilities.barView(0);
   ck('barView marks the slot the player cannot use, with the reason on it',
     v[0].unusable === true && /sword or an axe/.test(v[0].unusableReason), v[0].unusableReason);
-  ck('and leaves the spell alone, which needs nothing in hand',
-    v[1].unusable === false && v[1].unusableReason === '' && v[1].needs === 'none');
+  // W7: a spell wants a wand or a staff, so a mace in the hand greys it too.
+  ck('and marks the spell, which wants a focus the mace is not',
+    v[1].unusable === true && /wand or a staff/.test(v[1].unusableReason) && v[1].needs === 'focus',
+    v[1].unusableReason);
   ck('and marks the shot, which has no bow behind it',
     v[2].unusable === true && /bow drawn/.test(v[2].unusableReason), v[2].unusableReason);
   h.character.equipment = gear({ mainHand: item('longsword') });
@@ -1015,28 +1019,71 @@ const item = (base, count) => (count == null ? { base } : { base, count });
 
 // --- every opening, against the kit it is handed ----------------------------------
 {
-  const weaponKinds = ['melee', 'anyMelee', 'unarmed', 'ranged', 'shield', 'instrument'];
+  // `focus` is in this list on purpose: W7 made every spell want a wand or a
+  // staff, so a casting opening whose kit hands it the wrong stick fails here.
+  const weaponKinds = ['melee', 'anyMelee', 'unarmed', 'ranged', 'focus', 'shield', 'instrument'];
+  /**
+   * Answerable out of what this character is carrying: allowed as they stand,
+   * or allowed once one carried item is moved into a hand, or once the hand is
+   * emptied. That last is what a shot wants, and moving a thing from the pack
+   * into the hand is one click in the bag window.
+   *
+   * The bar is "carried", not "worn", on purpose. Magic Arrow unlocks at Magery
+   * 0, which means EVERY opening unlocks it, and after W7 it wants a wand: a
+   * warrior cannot be expected to walk out of creation holding one. The
+   * settler's kit puts a wand in his pack in his first minute
+   * (app/systems/inventory.js, measured in its own test), and one swap arms it.
+   */
+  const answerable = (ability, c) => {
+    if (weaponCheck(ability, c.equipment, c.pack).ok) return true;
+    if (weaponCheck(ability, { ...c.equipment, mainHand: null }, c.pack).ok) return true;
+    for (const it of c.pack.items.filter(Boolean)) {
+      for (const eq of [
+        { ...c.equipment, mainHand: it },
+        { ...c.equipment, offHand: it },
+        { ...c.equipment, mainHand: null, ranged: it },
+      ]) if (weaponCheck(ability, eq, c.pack).ok) return true;
+    }
+    return false;
+  };
+
   const rows = [];
   for (const op of OPENINGS) {
     const plan = planCharacter({ opening: op.id, name: 'Testing', seed: 3 });
     if (!plan.ok) { rows.push({ id: op.id, error: plan.reason }); continue; }
     const c = plan.character;
+    // the pack a player really has: the creation kit plus the settler's kit,
+    // which is granted at boot before anything can be clicked
+    for (const { base, count } of settlerKitFor(c)) {
+      const i = c.pack.items.indexOf(null);
+      if (i >= 0) c.pack.items[i] = makeItem({ base, count });
+    }
     const wanted = unlockedFor(c.skills, c.stats)
       .filter((x) => !x.passive && weaponKinds.includes(weaponNeeds(x).kind));
     const refused = wanted.filter((x) => !weaponCheck(x, c.equipment, c.pack).ok);
-    rows.push({ id: op.id, wanted: wanted.length, refused: refused.map((x) => x.id) });
+    const stranded = wanted.filter((x) => !answerable(x, c));
+    rows.push({ id: op.id, wanted: wanted.length, refused: refused.map((x) => x.id), stranded: stranded.map((x) => x.id) });
   }
   for (const r of rows) {
-    console.log(`  ${r.id.padEnd(12)} ${String(r.wanted).padStart(2)} weapon abilities unlocked, refused: ${r.refused.join(', ') || 'none'}`);
+    console.log(`  ${r.id.padEnd(12)} ${String(r.wanted).padStart(2)} unlocked, refused as worn: ${r.refused.join(', ') || 'none'}`);
   }
-  const offenders = rows.filter((r) => r.refused.length);
+  const offenders = rows.filter((r) => r.stranded.length);
   // The ranger once started with a dagger in the main hand and the bow on the
   // back, so every archery ability was refused. creation.js now leaves the
   // melee weapon in the pack when the kit draws a bow, and no opening starts
-  // unable to use what it unlocked.
+  // carrying nothing that would answer for what it unlocked.
   ck('no opening starts unable to use an ability its own kit unlocked',
     offenders.length === 0,
-    offenders.map((r) => `${r.id}: ${r.refused.join(', ')}`).join(' | ') || 'none');
+    offenders.map((r) => `${r.id}: ${r.stranded.join(', ')}`).join(' | ') || 'none');
+  // And every caster starts with the focus already in the hand, not one swap
+  // away: a mage whose first click is refused has been handed a broken game.
+  const casters = ['mage', 'sorcerer', 'necromancer', 'healer'];
+  const armed = casters.filter((id) => {
+    const c = planCharacter({ opening: id, name: 'Testing', seed: 3 }).character;
+    return weaponCheck(ABILITIES_BY_ID.magicArrow, c.equipment, c.pack).ok;
+  });
+  ck('and all four casting openings start with the focus already in the hand',
+    armed.length === casters.length, armed.join(', ') || 'none');
   ck('the ranger draws the bow and keeps the dagger in the pack',
     (() => {
       const c = planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character;

@@ -818,6 +818,8 @@ export const LENGTHS = {
   dagger: 0.35, rapier: 1.05, spear: 2.00, shortsword: 0.75, longsword: 1.00,
   greatsword: 1.50, axe: 0.80, battleaxe: 1.40, mace: 0.70, warhammer: 1.10,
   maul: 1.20, halberd: 2.20, glaive: 2.00, quarterstaff: 1.80, bone_staff: 1.80,
+  // the two foci: a wand is a forearm, a staff stands over its owner
+  wand: 0.37, staff: 2.00,
   shortbow: 1.20, longbow: 1.70, crossbow: 0.75, throwing_knives: 0.28,
   // shields, measured tall
   buckler: 0.40, kite: 0.90, tower: 1.20,
@@ -969,6 +971,80 @@ const RECIPES = {
     band.position.y = 0.840;
     g.add(band);
     c.rune(g, 0.78, 0.90, 0.070, 0.070);
+    return g;
+  },
+
+  /**
+   * A wand: a short turned rod, a metal cap, and a small stone the cap holds.
+   * 37 cm, which is a forearm, and the smallest thing in this file that is not
+   * a lockpick. There is no blade to put a rune down, so a legendary wand gets
+   * its rune line along the rod.
+   */
+  wand: (c) => {
+    const g = new THREE.Group();
+    // its own turned butt cap rather than pommel(), whose silhouette starts at
+    // a fixed 20 mm radius and so turns inside out on anything this slender
+    const butt = lathe([[0.0010, -0.062], [0.0075, -0.056], [0.0110, -0.045], [0.0104, -0.034], [0.0010, -0.030]], 12);
+    g.add(mesh(butt, c.metal));
+    g.add(grip(-0.040, 0.034, 0.0100, c.wrap));
+    g.add(haft(0.030, 0.252, 0.0088, 0.0062, c.wood, 6));
+    // three turned rings up the rod, the way a lathe leaves them
+    for (const y of [0.078, 0.126, 0.174]) g.add(haft(y - 0.0035, y + 0.0035, 0.0106, 0.0106, c.metal, 1));
+    const cap = lathe([[0.002, -0.022], [0.0104, -0.017], [0.0128, 0.003], [0.0092, 0.016], [0.0040, 0.021]], 12);
+    cap.translate(0, 0.262, 0);
+    g.add(mesh(cap, c.metal));
+    // three claws, and the stone they close on
+    for (let i = 0; i < 3; i++) {
+      const claw = new THREE.BoxGeometry(0.0034, 0.030, 0.0034);
+      claw.translate(0, 0.290, 0.0105);
+      claw.rotateY((i / 3) * Math.PI * 2);
+      g.add(mesh(claw, c.metal));
+    }
+    const stone = new THREE.SphereGeometry(0.0118, 10, 8);
+    stone.scale(1, 1.22, 1);
+    stone.translate(0, 0.296, 0);
+    g.add(mesh(stone, c.stone));
+    c.rune(g, 0.05, 0.24, 0.009, 0.009);
+    return g;
+  },
+
+  /**
+   * A staff: a shaft taller than the person holding it, and a headpiece of
+   * three arms curving up out of a collar to hold a stone clear of the wood.
+   * Two metres, so it stands a head above the tallest character the appearance
+   * table allows (2.0 m), which is what makes it read as a staff and not a
+   * long stick.
+   */
+  staff: (c) => {
+    const g = new THREE.Group();
+    g.add(haft(-0.920, 0.900, 0.0185, 0.0150, c.wood, 8));
+    g.add(grip(-0.140, 0.140, 0.0205, c.wrap));
+    // a shod foot, so the end that goes in the mud is not bare wood
+    g.add(haft(-0.955, -0.895, 0.0158, 0.0200, c.metal, 2));
+    // the collar the head grows out of
+    g.add(haft(0.880, 0.930, 0.0212, 0.0195, c.metal, 2));
+    // three arms, each curving out from the collar and back in over the stone
+    for (let i = 0; i < 3; i++) {
+      const rings = [];
+      const n = 7;
+      for (let k = 0; k <= n; k++) {
+        const t = k / n;
+        rings.push({
+          y: 0.925 + 0.115 * t,
+          sx: 0.0058 * (1 - t * 0.45),
+          dx: Math.sin(t * Math.PI) * 0.036,
+          v: t,
+        });
+      }
+      const arm = loft(circle(8), rings);
+      arm.rotateY((i / 3) * Math.PI * 2);
+      g.add(mesh(arm, c.metal));
+    }
+    const stone = new THREE.SphereGeometry(0.036, 12, 10);
+    stone.scale(1, 1.15, 1);
+    stone.translate(0, 0.998, 0);
+    g.add(mesh(stone, c.stone));
+    c.rune(g, 0.20, 0.86, 0.020, 0.020);
     return g;
   },
 

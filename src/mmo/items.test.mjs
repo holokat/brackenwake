@@ -6,7 +6,8 @@
 // as to pass.
 import {
   SLOTS, ARMOR_TIERS, ARMOR_PIECES, SHIELDS, WEAPONS, WEAPON_IDS, RARITY, RARITY_ORDER,
-  COMBAT_SKILLS, skillNameOf, BASES, baseFor, makeItem, weightOf, canEquip, armourOf, equipSlotFor,
+  COMBAT_SKILLS, CASTING_SKILLS, WEAPON_TRAINS, isFocus, FOCUS_BASES,
+  skillNameOf, BASES, baseFor, makeItem, weightOf, canEquip, armourOf, equipSlotFor,
   slotsFor, stackable, twoHanded, setOf, auditItems, totalWeight,
   takesRarity, RARITY_KINDS, NO_RARITY_KINDS, FOOD_BASES, MEAT_BASES, MEAL_BASES, auditFoodBases,
   LOG_BASES, ORE_BASES, INGOT_BASES, LOG_OF, ORE_OF, INGOT_OF, BASE_ALIASES,
@@ -211,7 +212,7 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
 
 // ------------------------------------------------------------------ weapons
 {
-  check('nineteen weapons', WEAPON_IDS.length === 19, WEAPON_IDS.join(' '));
+  check('twenty one weapons', WEAPON_IDS.length === 21, WEAPON_IDS.join(' '));
   const doc = {
     dagger: ['Fencing', 1, 3, 8, 2.0, 1, 0], rapier: ['Fencing', 1, 6, 12, 2.4, 2, 15],
     spear: ['Fencing', 2, 10, 20, 3.2, 6, 35], shortsword: ['Swordsmanship', 1, 6, 12, 2.5, 3, 15],
@@ -231,7 +232,43 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
       && w.speed === row[4] && w.weight === row[5] && w.strReq === row[6]) same++;
   }
   check('every weapon matches the document row for row', same === 19, `${same} of 19`);
-  check('every weapon trains a combat skill', Object.values(WEAPONS).every((w) => COMBAT_SKILLS.includes(w.skill)));
+  check('every weapon trains a combat skill, or one of the named casting exceptions',
+    Object.values(WEAPONS).every((w) => WEAPON_TRAINS.includes(w.skill)),
+    `${CASTING_SKILLS.join(', ')} excepted`);
+  check('and the exceptions are real skills that are not already combat skills',
+    CASTING_SKILLS.length === 1 && CASTING_SKILLS[0] === 'magery'
+    && skillNameOf('magery') === 'Magery' && !COMBAT_SKILLS.includes('magery'));
+
+  // The two foci. Both are held, both are worse in a fight than the stick they
+  // look like, and both are the only thing a spell will go through.
+  check('the wand is one handed and the staff is two',
+    WEAPONS.wand.hands === 1 && WEAPONS.staff.hands === 2);
+  check('both train Magery and hit for energy',
+    WEAPONS.wand.skill === 'magery' && WEAPONS.staff.skill === 'magery'
+    && WEAPONS.wand.damageType === 'energy' && WEAPONS.staff.damageType === 'energy');
+  check('the staff taps harder than the wand and softer than the quarterstaff',
+    WEAPONS.wand.maxDamage < WEAPONS.staff.maxDamage
+    && WEAPONS.staff.maxDamage < WEAPONS.quarterstaff.maxDamage,
+    `wand ${WEAPONS.wand.minDamage}-${WEAPONS.wand.maxDamage}, staff ${WEAPONS.staff.minDamage}-${WEAPONS.staff.maxDamage}, quarterstaff ${WEAPONS.quarterstaff.minDamage}-${WEAPONS.quarterstaff.maxDamage}`);
+  check('"casts" is a flag with one meaning and no other row carries it',
+    Object.values(WEAPONS).filter((w) => w.casts).map((w) => w.id).join(',') === 'wand,staff',
+    'the quarterstaff used to claim it and nothing read the claim');
+  check('isFocus is driven both ways',
+    isFocus('wand') === true && isFocus('staff') === true && isFocus('bone_staff') === true
+    && isFocus('quarterstaff') === false && isFocus('longsword') === false
+    && isFocus('cloth_chest') === false && isFocus(null) === false);
+  check('FOCUS_BASES is exactly the bases tagged focus',
+    FOCUS_BASES.join(',') === Object.values(BASES).filter((b) => b.kinds.includes('focus')).map((b) => b.id).join(','),
+    FOCUS_BASES.join(', '));
+  check('every focus goes to the main hand and none of them shoots',
+    FOCUS_BASES.every((id) => BASES[id].slot === 'mainHand' && BASES[id].range == null));
+  check('a focus can still roll the magic affixes, because it carries the staff tag',
+    FOCUS_BASES.every((id) => BASES[id].kinds.includes('staff')), FOCUS_BASES.join(', '));
+  check('the bone staff is a staff in every number and a focus too',
+    BASES.bone_staff.skill === 'magery' && BASES.bone_staff.hands === 2
+    && BASES.bone_staff.minDamage === WEAPONS.staff.minDamage
+    && BASES.bone_staff.maxDamage === WEAPONS.staff.maxDamage
+    && isFocus('bone_staff') === true);
   check('the spear and the polearms have their reach', WEAPONS.spear.reach === 3 && WEAPONS.halberd.reach === 3.5 && WEAPONS.glaive.reach === 3.5);
   check('the ranged weapons have their range', WEAPONS.shortbow.range === 25 && WEAPONS.longbow.range === 35 && WEAPONS.crossbow.range === 30 && WEAPONS.throwing_knives.range === 12);
   check('the notes survived', WEAPONS.mace.stun === 0.08 && WEAPONS.warhammer.stun === 0.15 && WEAPONS.maul.armourPiercing === 0.2 && WEAPONS.greatsword.cleave === 2 && WEAPONS.halberd.cleave === 3);

@@ -49,6 +49,10 @@ const PIECES = ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'ba
 export const PREFERRED = {
   longsword: 'longsword', dagger: 'dagger', rapier: 'rapier', mace: 'mace',
   quarterstaff: 'quarterstaff', shortbow: 'shortbow', axe: 'axe',
+  // W7's two foci. Without these two lines the kit resolves them to null, the
+  // mage's staff is silently never made, and the shortfall line is the only
+  // thing that says so.
+  wand: 'wand', staff: 'staff',
   buckler: 'buckler', kiteShield: 'kite', towerShield: 'tower',
   clothRobe: 'cloth_chest',
   arrow: 'arrow', ironIngot: 'iron_ingot', potionMana: 'potion', bandage: 'bandage',
@@ -312,8 +316,16 @@ export function planCharacter(choice = {}) {
     if (i < 0) continue;
     const slot = inv.chooseSlot(it, null);
     const twoHandBusy = slot === 'mainHand' && character.equipment.offHand && baseFor(it).hands === 2;
+    // And the same rule the other way round. inventory.equip now sends a two
+    // hander to the pack when something is raised in the off hand, which is
+    // right for a player who chooses it and wrong here: the necromancer's kit
+    // is a bone staff and a skull, and the skull was quietly taking the staff
+    // out of his hands the moment he was made, leaving the only caster in the
+    // game who could not cast. The skull stays in the pack and is named among
+    // what stayed behind, exactly as the paladin's holy book is.
+    const twoHanderUp = slot === 'offHand' && baseFor(character.equipment.mainHand)?.hands === 2;
     const handBusyForBow = drawsBow && slot === 'mainHand';
-    if (!slot || character.equipment[slot] || twoHandBusy || handBusyForBow) { notWorn.push(it); continue; }
+    if (!slot || character.equipment[slot] || twoHandBusy || twoHanderUp || handBusyForBow) { notWorn.push(it); continue; }
     const r = inv.equip(i, slot);
     if (!r.ok) notWorn.push(it);
   }

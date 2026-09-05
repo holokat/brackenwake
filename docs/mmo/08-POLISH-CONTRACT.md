@@ -63,7 +63,7 @@ at load and throws if one has no recipe.
 A melee ability needs a weapon of its skill in the main hand; a Wrestling
 ability needs empty hands; a ranged ability needs a bow or crossbow in the
 ranged slot and ammunition in the pack; Parrying abilities need a shield; a
-spell needs nothing in hand but a rooted cast. `abilities.js` gains
+spell needs a wand or a staff in the main hand (W7), and a rooted cast. `abilities.js` gains
 `weaponNeeds(ability)` and `weaponCheck(ability, equipment, pack)` returning
 `{ ok, reason }` with the reason in words ("Power Strike wants a sword or an
 axe in your hand"), and the runtime refuses through the same reason. A plain

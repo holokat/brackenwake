@@ -194,6 +194,22 @@ export const DOC_GAPS = {
 // bow or crossbow in the ranged slot and ammunition in the pack; Parrying
 // abilities need a shield; a spell needs nothing in hand but a rooted cast."
 //
+// THE LAST CLAUSE OF THAT SENTENCE IS NO LONGER TRUE, and the user is the one
+// who changed it: "to be a mage and cast spells, player needs a Staff or Wand,
+// wand is 1 handed, staff is 2 handed. spells cannot be cast while a sword is
+// equipped". So a spell needs a FOCUS in the main hand, which is the eighth
+// answer weaponNeeds can give, and the rule that decides which rows are spells
+// is one line: an ability that costs mana is a spell. That catches all 36 of
+// them across mage, sorcerer, necromancer and healer, leaves the two mana-free
+// passives alone, and touches nothing a warrior, ranger, rogue or bard owns,
+// because not one of their rows costs mana. The single exception is Consecrate
+// Weapon, which puts holy on the blade you are already holding and therefore
+// keeps wanting the blade; the ordering below is what grants it. See
+// docs/mmo/wiring/W7.md for the decision, row by row.
+//
+// 08-POLISH-CONTRACT.md is not this agent's document to edit; W7.md records
+// that its spell clause and this file now disagree.
+//
 // THE WEAPON TABLE IS MIRRORED, NOT IMPORTED, for the same reason the skill
 // ids are: this module stays pure and importless, and abilities.test.mjs walks
 // every weapon, shield, instrument and ammunition base in src/mmo/items.js and
@@ -219,7 +235,9 @@ export const WEAPON_BASES = {
   warhammer: { name: 'Warhammer', skill: 'macefighting', hands: 2, ranged: false },
   maul: { name: 'Maul', skill: 'macefighting', hands: 2, ranged: false },
   quarterstaff: { name: 'Quarterstaff', skill: 'macefighting', hands: 2, ranged: false },
-  bone_staff: { name: 'Bone Staff', skill: 'macefighting', hands: 2, ranged: false },
+  wand: { name: 'Wand', skill: 'magery', hands: 1, ranged: false },
+  staff: { name: 'Staff', skill: 'magery', hands: 2, ranged: false },
+  bone_staff: { name: 'Bone Staff', skill: 'magery', hands: 2, ranged: false },
   halberd: { name: 'Halberd', skill: 'polearms', hands: 2, ranged: false },
   glaive: { name: 'Glaive', skill: 'polearms', hands: 2, ranged: false },
   shortbow: { name: 'Shortbow', skill: 'archery', hands: 2, ranged: true },
@@ -228,6 +246,14 @@ export const WEAPON_BASES = {
   throwing_knives: { name: 'Throwing Knives', skill: 'marksmanship', hands: 1, ranged: true },
   fists: { name: 'Fists', skill: 'wrestling', hands: 0, ranged: false },
 };
+
+/**
+ * What a spell goes through, by base id. Mirrors every items.js base tagged
+ * `focus`: the wand (one hand), the staff (two) and the necromancer's bone
+ * staff. A quarterstaff is NOT one of them; it is a Macefighting stick.
+ * abilities.test.mjs compares this list against items.js in both directions.
+ */
+export const FOCUS_BASES = ['wand', 'staff', 'bone_staff'];
 
 /** The three shields of 03-ITEMS-LOOT.md, by base id. */
 export const SHIELD_BASES = ['buckler', 'kite', 'tower'];
@@ -239,8 +265,8 @@ export const AMMO_BASES = ['arrow', 'bolt'];
 /** The bard's four skills. Every one of them is played on an instrument. */
 export const BARD_SKILLS = ['musicianship', 'provocation', 'peacemaking', 'discordance'];
 
-/** The seven answers weaponNeeds can give. */
-export const NEEDS_KINDS = ['melee', 'anyMelee', 'unarmed', 'ranged', 'shield', 'instrument', 'none'];
+/** The eight answers weaponNeeds can give. */
+export const NEEDS_KINDS = ['melee', 'anyMelee', 'unarmed', 'ranged', 'focus', 'shield', 'instrument', 'none'];
 
 /**
  * How a refusal names what it wants. One phrase per weapon skill, and
@@ -255,6 +281,7 @@ export const WEAPON_WORDS = {
   archery: 'a bow',
   marksmanship: 'a crossbow or throwing knives',
   wrestling: 'your fists',
+  magery: 'a wand or a staff',
 };
 
 /** Ammunition, said the way a person says it. */
@@ -281,6 +308,8 @@ export function heldWeapon(item) {
 
 const isShieldItem = (item) => SHIELD_BASES.includes(baseIdOf(item));
 const isInstrumentItem = (item) => INSTRUMENT_BASES.includes(baseIdOf(item));
+/** A wand, a staff or a bone staff, and nothing else. */
+export const isFocusItem = (item) => FOCUS_BASES.includes(baseIdOf(item));
 
 /** "a Longsword", "an Axe", "Throwing Knives". */
 function aName(row) {
@@ -330,6 +359,18 @@ export function effectUsesWeapon(effect) {
   return found;
 }
 
+/**
+ * Does this row cost mana? That is the whole definition of a spell here, and
+ * it is deliberately not the ability's group: Bandage sits in the healer group
+ * and costs a bandage, Meditate costs nothing at all, and neither of them is
+ * something you cast. Written as its own function so `auditAbilities` can
+ * count the spells and the test can drive it both ways.
+ */
+export function isSpell(ability) {
+  const cost = ability && ability.cost;
+  return !!cost && typeof cost.mana === 'number' && cost.mana > 0;
+}
+
 function normalizeNeeds(needs) {
   const out = { kind: needs.kind };
   if (needs.skills) out.skills = [...needs.skills];
@@ -351,7 +392,14 @@ function deriveNeeds(row) {
   if (row.requiresShield || skill === 'parrying') return { kind: 'shield' };
   if (skill === 'wrestling') return { kind: 'unarmed' };
   if (BARD_SKILLS.includes(skill)) return { kind: 'instrument', bases: [...INSTRUMENT_BASES] };
-  if (!effectUsesWeapon(row.effect)) return { kind: 'none' };
+  // A spell wants a focus, EXCEPT where the spell's whole effect is on the
+  // weapon you are holding. Consecrate Weapon is the only row in the table
+  // where both are true, and it is why this test comes before the mana one
+  // rather than after it: a wand with holy on it would enchant nothing.
+  if (!effectUsesWeapon(row.effect)) {
+    if (isSpell(row)) return { kind: 'focus', bases: [...FOCUS_BASES] };
+    return { kind: 'none' };
+  }
   if (row.skillAny) return { kind: 'anyMelee', skills: [...row.skillAny] };
   if (skill === 'archery') return { kind: 'ranged', skills: ['archery'], ammo: ['arrow'] };
   if (skill === 'marksmanship') {
@@ -404,8 +452,12 @@ export function weaponCheck(ability, equipment = null, pack = null) {
     return { ok: false, reason: `${name} wants empty hands, and you are holding ${aName(held)}.` };
   }
 
+  // "Any weapon you swing" is any weapon you SWING. A focus is held in the same
+  // hand and is not one of them: Power Strike is a shoulder behind a blade, and
+  // a wand has no blade to put it behind. Without this line every warrior
+  // ability in the anyMelee kind would have quietly accepted a wand.
   if (needs.kind === 'anyMelee') {
-    if (main && !main.ranged) return { ok: true };
+    if (main && !main.ranged && !isFocusItem(eq.mainHand)) return { ok: true };
     return {
       ok: false,
       reason: `${name} wants a weapon in your hand, and ${main ? `${aName(main)} is not one you swing` : 'your hands are empty'}.`,
@@ -433,6 +485,15 @@ export function weaponCheck(ability, equipment = null, pack = null) {
     for (const id of needs.ammo || []) have += countInPack(pack, id);
     if (have <= 0) return { ok: false, reason: `${head}, and you have none.` };
     return { ok: true };
+  }
+
+  // A spell goes through a wand or a staff or it does not go. The refusal
+  // names what IS in the hand, the way the melee one does, because "you need a
+  // wand" with no mention of the sword you are holding is half a sentence.
+  if (needs.kind === 'focus') {
+    if (isFocusItem(eq.mainHand)) return { ok: true };
+    const held = main ? `you are holding ${aName(main)}` : 'your hands are empty';
+    return { ok: false, reason: `${name} wants a wand or a staff in your hand, and ${held}.` };
   }
 
   if (needs.kind === 'shield') {
@@ -1792,6 +1853,21 @@ export function auditAbilities(list = ABILITIES) {
       for (const id of needs.bases || []) {
         if (!INSTRUMENT_BASES.includes(id)) throw new Error(`auditAbilities: ${where} wants ${id}, which is not an instrument`);
       }
+    }
+    if (needs.kind === 'focus') {
+      if (!isSpell(ability)) throw new Error(`auditAbilities: ${where} wants a focus and costs no mana, so it is not a spell`);
+      if (!Array.isArray(needs.bases) || !needs.bases.length) {
+        throw new Error(`auditAbilities: ${where} wants a focus and names none`);
+      }
+      for (const id of needs.bases) {
+        if (!FOCUS_BASES.includes(id)) throw new Error(`auditAbilities: ${where} wants ${id}, which is not a focus`);
+        if (!WEAPON_BASES[id]) throw new Error(`auditAbilities: ${where} wants ${id}, which is not a weapon`);
+      }
+    }
+    // Both directions: a row that costs mana is a spell, and a spell either
+    // wants a focus or is the one that enchants the blade in your hand.
+    if (isSpell(ability) && needs.kind !== 'focus' && needs.kind !== 'anyMelee') {
+      throw new Error(`auditAbilities: ${where} costs mana and needs ${needs.kind}; a spell wants a focus`);
     }
   }
 

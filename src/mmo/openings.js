@@ -196,6 +196,10 @@ base('mace', 'Mace', 'weapon');
 base('quarterstaff', 'Quarterstaff', 'weapon');
 base('shortbow', 'Shortbow', 'weapon');
 base('axe', 'Axe', 'weapon');
+// The two foci. 03-ITEMS-LOOT.md's slot table already says the main hand takes
+// "a staff", which is the word this row is sourced from; it has no wand, so the
+// wand is declared invented below with the rest of 04's kit oddments.
+base('staff', 'staff', 'weapon');
 
 // Shields.
 base('buckler', 'buckler', 'shield');
@@ -221,6 +225,7 @@ base('lute', null, 'instrument');
 base('smithHammer', null, 'tool');
 base('leatherApron', null, 'armour');
 base('darkRobe', null, 'armour');
+base('wand', null, 'weapon'); // 03 has no wand row; W7 added the base to items.js
 
 export { ITEM_BASES };
 
@@ -380,7 +385,10 @@ export const OPENINGS = [
     STR: 30, DEX: 40, INT: 70, CON: 45, WIS: 65,
     skills: { magery: 50, evaluatingIntelligence: 45, meditation: 45, resistingSpells: 30, inscription: 30 },
     kit: [
-      { base: 'quarterstaff', count: 1 },
+      // was a quarterstaff, which is a Macefighting stick: under W7's casting
+      // rule the mage would have started unable to cast a single one of the
+      // nine spells the kit's Magery 50 unlocks.
+      { base: 'staff', count: 1 },
       ...robeSet(),
       { base: 'potionMana', count: 4 },
     ],
@@ -391,7 +399,7 @@ export const OPENINGS = [
     STR: 30, DEX: 45, INT: 75, CON: 40, WIS: 60,
     skills: { mysticism: 50, evaluatingIntelligence: 45, meditation: 40, magery: 35, alchemy: 30 },
     kit: [
-      { base: 'quarterstaff', count: 1 }, // the kit says "staff"; the staff in 03 is the quarterstaff
+      { base: 'staff', count: 1 }, // the kit says "staff", and now there is one
       { base: 'clothRobe', count: 1 },
       { base: 'reagentPouch', count: 6 },
     ],
@@ -413,6 +421,11 @@ export const OPENINGS = [
     STR: 40, DEX: 45, INT: 50, CON: 55, WIS: 60,
     skills: { healing: 50, anatomy: 45, chivalry: 35, meditation: 35, veterinary: 35 },
     kit: [
+      // the wand FIRST, and that ordering is load bearing: creation.js wears the
+      // kit in the order it arrives, so the wand takes the main hand and the
+      // mace waits in the pack. A healer whose first two abilities (Heal at
+      // Chivalry 20, Cleanse at 35) are spells has to start holding a focus.
+      { base: 'wand', count: 1 },
       { base: 'mace', count: 1 },
       ...setOf('cloth'),
       { base: 'bandage', count: 20 },
@@ -449,7 +462,11 @@ export const OPENINGS = [
     STR: 50, DEX: 50, INT: 50, CON: 50, WIS: 50,
     skills: {},
     kit: [
+      // Blank decides nothing for you, so it hands over both halves: a dagger
+      // to swing and a wand to cast with. The dagger is listed first and takes
+      // the hand; the wand is one swap away in the pack.
       { base: 'dagger', count: 1 },
+      { base: 'wand', count: 1 },
       ...setOf('cloth'),
     ],
     coins: BLANK_COINS,

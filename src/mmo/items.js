@@ -33,6 +33,20 @@ export const SLOT_ALTERNATES = { ring1: ['ring1', 'ring2'] };
 // auditItems() enforces it, so renaming a skill over there breaks loudly here
 // instead of leaving a weapon nobody can train.
 export const COMBAT_SKILLS = SKILLS.filter((s) => /^Combat/.test(s.group)).map((s) => s.id);
+
+/**
+ * The skills a weapon may train that are NOT in the combat groups.
+ *
+ * A wand and a staff are held, swung and trained like any other weapon, but
+ * Magery sits in the Magic group of skills.js, so the "every weapon trains a
+ * combat skill" rule would refuse them both. They are named here rather than
+ * by loosening that rule, so a third exception has to be written down too.
+ * auditItems() proves each id is a real skill.
+ */
+export const CASTING_SKILLS = ['magery'];
+/** Every skill a weapon in these tables is allowed to train. */
+export const WEAPON_TRAINS = [...COMBAT_SKILLS, ...CASTING_SKILLS];
+
 /** Display name of a weapon's skill, for tooltips; the record carries the id. */
 export const skillNameOf = (id) => SKILLS.find((s) => s.id === id)?.name ?? id;
 
@@ -90,9 +104,16 @@ export const SHIELDS = {
 };
 
 // ----------------------------------------------------------------- weapons
-// All nineteen rows of the base table, before material and affixes. `reach` is
-// metres for melee (the document names 3 m and 3.5 m; everything else is the
-// default 1.5 m) and `range` is metres for anything thrown or fired.
+// All twenty one rows of the base table, before material and affixes. `reach`
+// is metres for melee (the document names 3 m and 3.5 m; everything else is
+// the default 1.5 m) and `range` is metres for anything thrown or fired.
+//
+// `casts: true` MEANS SOMETHING NOW. It marks a focus: the two implements a
+// spell can be cast through, which `abilities.js` weaponCheck refuses every
+// spell without. It used to sit on the quarterstaff and be read by nothing at
+// all, which is the decoration this project's CLAUDE.md was written about; the
+// quarterstaff is a Macefighting stick and no longer claims to cast, and the
+// flag is now what puts the `focus` tag on a base a few dozen lines below.
 export const WEAPONS = {
   dagger: { id: 'dagger', name: 'Dagger', skill: 'fencing', hands: 1, minDamage: 3, maxDamage: 8, speed: 2.0, weight: 1, strReq: 0, reach: 1.5, damageType: 'physical', backstab: true },
   rapier: { id: 'rapier', name: 'Rapier', skill: 'fencing', hands: 1, minDamage: 6, maxDamage: 12, speed: 2.4, weight: 2, strReq: 15, reach: 1.5, damageType: 'physical' },
@@ -107,7 +128,15 @@ export const WEAPONS = {
   maul: { id: 'maul', name: 'Maul', skill: 'macefighting', hands: 2, minDamage: 12, maxDamage: 24, speed: 3.6, weight: 9, strReq: 55, reach: 1.5, damageType: 'physical', armourPiercing: 0.2 },
   halberd: { id: 'halberd', name: 'Halberd', skill: 'polearms', hands: 2, minDamage: 14, maxDamage: 25, speed: 3.9, weight: 11, strReq: 60, reach: 3.5, damageType: 'physical', cleave: 3 },
   glaive: { id: 'glaive', name: 'Glaive', skill: 'polearms', hands: 2, minDamage: 12, maxDamage: 22, speed: 3.5, weight: 9, strReq: 50, reach: 3.5, damageType: 'physical' },
-  quarterstaff: { id: 'quarterstaff', name: 'Quarterstaff', skill: 'macefighting', hands: 2, minDamage: 6, maxDamage: 12, speed: 2.6, weight: 3, strReq: 10, reach: 1.5, damageType: 'physical', casts: true },
+  quarterstaff: { id: 'quarterstaff', name: 'Quarterstaff', skill: 'macefighting', hands: 2, minDamage: 6, maxDamage: 12, speed: 2.6, weight: 3, strReq: 10, reach: 1.5, damageType: 'physical' },
+  // The two foci. A wand is a rod you point; a staff is a shaft you lean on.
+  // Both are worse in a fight than anything else that costs a hand, which is
+  // the price of being the only thing a spell will go through: the wand's tap
+  // is the weakest swing in the table after fists, and the staff's is under
+  // the quarterstaff it looks like. Both train Magery, so a mage who runs out
+  // of mana and starts hitting things is still training the right skill.
+  wand: { id: 'wand', name: 'Wand', skill: 'magery', hands: 1, minDamage: 2, maxDamage: 6, speed: 2.2, weight: 1, strReq: 0, reach: 1.5, damageType: 'energy', casts: true },
+  staff: { id: 'staff', name: 'Staff', skill: 'magery', hands: 2, minDamage: 5, maxDamage: 11, speed: 2.8, weight: 4, strReq: 10, reach: 1.5, damageType: 'energy', casts: true },
   shortbow: { id: 'shortbow', name: 'Shortbow', skill: 'archery', hands: 2, minDamage: 7, maxDamage: 13, speed: 2.8, weight: 3, strReq: 15, range: 25, damageType: 'physical' },
   longbow: { id: 'longbow', name: 'Longbow', skill: 'archery', hands: 2, minDamage: 11, maxDamage: 19, speed: 3.4, weight: 5, strReq: 35, range: 35, damageType: 'physical' },
   crossbow: { id: 'crossbow', name: 'Crossbow', skill: 'marksmanship', hands: 2, minDamage: 14, maxDamage: 24, speed: 4.2, weight: 7, strReq: 30, range: 30, damageType: 'physical' },
@@ -223,7 +252,16 @@ for (const w of Object.values(WEAPONS)) {
   if (w.skill === 'macefighting') kinds.push('mace');
   if (w.skill === 'fencing') kinds.push('blade');
   if (w.skill === 'polearms') kinds.push('polearm');
-  if (w.id === 'quarterstaff') kinds.push('staff');
+  // A focus is what a spell goes through. The `casts` flag is the only thing
+  // that puts the tag on, and abilities.js refuses every spell without one.
+  //
+  // It carries `staff` as well, and that is not sloppiness: `staff` is the word
+  // affixes.js already uses for a magic implement (its MAGIC list is robe,
+  // staff, ring, amulet), and affixes.js is not this agent's file to edit. A
+  // wand tagged only `focus` would be the one magic weapon in the game that
+  // could not roll Spell Damage, Cast Speed or Lower Mana Cost. See W7.md.
+  if (w.casts) kinds.push('focus', 'staff');
+  else if (w.id === 'quarterstaff') kinds.push('staff');
   if (w.hands === 2) kinds.push('twohand'); else if (w.hands === 1) kinds.push('onehand');
   addBase({
     ...w, kind: 'weapon', kinds,
@@ -474,9 +512,15 @@ tool('lockpick', 'Lockpick', 0.1, true);
 kitBase({ id: 'holy_book', name: 'Holy Book', kind: 'offhand', kinds: ['equipment', 'tome', 'holy'], slot: 'offHand', weight: 2, strReq: 0, durability: GEAR_DURABILITY, stack: false });
 kitBase({ id: 'skull', name: 'Skull', kind: 'offhand', kinds: ['equipment', 'skull'], slot: 'offHand', weight: 1, strReq: 0, durability: null, stack: false });
 kitBase({ id: 'lute', name: 'Lute', kind: 'instrument', kinds: ['equipment', 'instrument'], slot: 'offHand', weight: 2, strReq: 0, durability: GEAR_DURABILITY, stack: false });
-// A bone staff is a quarterstaff in every number; a dark robe is a cloth robe;
+// A bone staff is a mage's staff in every number; a dark robe is a cloth robe;
 // a leather apron is a leather tunic. Same rows, their own names and tags.
-kitBase({ ...BASES.quarterstaff, id: 'bone_staff', name: 'Bone Staff', kinds: [...BASES.quarterstaff.kinds, 'bone'] });
+//
+// It used to be built off the quarterstaff, which was harmless while `casts`
+// meant nothing. It is not harmless now: the necromancer's whole kit is that
+// staff, and a Macefighting stick is a stick a spell will not go through, so
+// the opening would have started unable to cast a single one of the ten
+// necromancy spells it unlocks. It is a focus, and it always should have been.
+kitBase({ ...BASES.staff, id: 'bone_staff', name: 'Bone Staff', kinds: [...BASES.staff.kinds, 'bone'] });
 kitBase({ ...BASES.cloth_chest, id: 'dark_robe', name: 'Dark Robe', kinds: [...BASES.cloth_chest.kinds, 'dark'] });
 kitBase({ ...BASES.leather_chest, id: 'leather_apron', name: 'Leather Apron', kinds: [...BASES.leather_chest.kinds, 'apron'] });
 for (const [id, name, weight] of [['reagent_pouch', 'Reagent Pouch', 0.5], ['stone', 'Stone', 1]]) {
@@ -726,6 +770,20 @@ export function equipSlotFor(item) {
   return slotsFor(item)[0] || null;
 }
 
+/**
+ * Is this the thing a spell goes through? True for a wand, a staff and the
+ * necromancer's bone staff; false for a longsword, a quarterstaff and an empty
+ * hand. `abilities.js` mirrors the answer rather than importing it, and
+ * `abilities.test.mjs` compares the two lists both ways.
+ */
+export function isFocus(item) {
+  const b = baseFor(item);
+  return !!b && b.kind === 'weapon' && Array.isArray(b.kinds) && b.kinds.includes('focus');
+}
+
+/** Every focus base id, in table order. */
+export const FOCUS_BASES = Object.values(BASES).filter((b) => isFocus(b)).map((b) => b.id);
+
 /** A two handed weapon empties the offHand. */
 export function twoHanded(item) {
   const b = baseFor(item);
@@ -867,17 +925,37 @@ export function auditItems(items = []) {
   for (const p of ARMOR_PIECES) if (!SLOTS.includes(p.slot)) bad(`armour piece ${p.id} wants slot ${p.slot}, which is not a slot`);
 
   if (COMBAT_SKILLS.length !== 11) bad(`the skill table now has ${COMBAT_SKILLS.length} combat skills, the document lists 11`);
+  for (const id of CASTING_SKILLS) {
+    if (!SKILLS.some((s) => s.id === id)) bad(`CASTING_SKILLS names ${id}, which is not a skill`);
+    if (COMBAT_SKILLS.includes(id)) bad(`${id} is a combat skill, so it needs no exception`);
+  }
   const weaponIds = Object.keys(WEAPONS);
-  if (weaponIds.length !== 19) bad(`there are ${weaponIds.length} weapons, the table has 19`);
+  if (weaponIds.length !== 21) bad(`there are ${weaponIds.length} weapons, the table has 21`);
   for (const w of Object.values(WEAPONS)) {
     for (const col of WEAPON_COLUMNS) {
       if (w[col] === undefined || w[col] === null) bad(`weapon ${w.id} has no ${col}`);
     }
-    if (!COMBAT_SKILLS.includes(w.skill)) bad(`weapon ${w.id} trains ${w.skill}, which is not a combat skill`);
+    if (!WEAPON_TRAINS.includes(w.skill)) bad(`weapon ${w.id} trains ${w.skill}, which is neither a combat skill nor ${CASTING_SKILLS.join('/')}`);
     if (!(w.minDamage < w.maxDamage)) bad(`weapon ${w.id} has min ${w.minDamage} and max ${w.maxDamage}`);
     if (!(w.speed > 0)) bad(`weapon ${w.id} swings in ${w.speed} s`);
     if (w.range == null && w.reach == null) bad(`weapon ${w.id} has neither reach nor range`);
   }
+
+  // The foci, both directions. `casts` is the flag and `focus` is the tag, and
+  // neither may exist without the other, or a spell would refuse a wand that
+  // says it casts, or go through a longsword somebody tagged by hand.
+  for (const b of Object.values(BASES)) {
+    const tagged = Array.isArray(b.kinds) && b.kinds.includes('focus');
+    if (b.casts && !tagged) bad(`base ${b.id} says it casts and is not tagged focus`);
+    if (tagged && !b.casts) bad(`base ${b.id} is tagged focus and does not say it casts`);
+    if (!tagged) continue;
+    if (b.kind !== 'weapon') bad(`base ${b.id} is a focus and a ${b.kind}; a spell goes through a held weapon`);
+    if (b.slot !== 'mainHand') bad(`base ${b.id} is a focus and sits in ${b.slot}; weaponCheck reads the main hand`);
+    if (!CASTING_SKILLS.includes(b.skill)) bad(`base ${b.id} is a focus and trains ${b.skill}`);
+    if (b.hands !== 1 && b.hands !== 2) bad(`base ${b.id} is a focus held in ${b.hands} hands`);
+  }
+  if (!FOCUS_BASES.some((id) => BASES[id].hands === 1)) bad('there is no one handed focus, so a caster can never carry a shield');
+  if (!FOCUS_BASES.some((id) => BASES[id].hands === 2)) bad('there is no two handed focus');
 
   if (Object.keys(SHIELDS).length !== 3) bad('there are three shields');
   for (const s of Object.values(SHIELDS)) {

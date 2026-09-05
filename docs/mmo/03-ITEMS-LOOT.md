@@ -71,7 +71,9 @@ reach, damageType }`. Base table (before material and affixes):
 | Maul | Macefighting | 2 | 12 to 24 | 3.6 | 9 | 55 | armour piercing 20% |
 | Halberd | Polearms | 2 | 14 to 25 | 3.9 | 11 | 60 | reach 3.5 m, cleave 3 |
 | Glaive | Polearms | 2 | 12 to 22 | 3.5 | 9 | 50 | reach 3.5 m |
-| Quarterstaff | Macefighting | 2 | 6 to 12 | 2.6 | 3 | 10 | a mage's stick, casts with it |
+| Quarterstaff | Macefighting | 2 | 6 to 12 | 2.6 | 3 | 10 | a fighting stick; it does not cast |
+| Wand | Magery | 1 | 2 to 6 | 2.2 | 1 | 0 | a focus: every spell needs a wand or a staff in hand |
+| Staff | Magery | 2 | 5 to 11 | 2.8 | 4 | 10 | a focus, two handed, no shield beside it |
 | Shortbow | Archery | 2 | 7 to 13 | 2.8 | 3 | 15 | range 25 m |
 | Longbow | Archery | 2 | 11 to 19 | 3.4 | 5 | 35 | range 35 m |
 | Crossbow | Marksmanship | 2 | 14 to 24 | 4.2 | 7 | 30 | range 30 m |
