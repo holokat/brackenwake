@@ -64,6 +64,7 @@ import {
 import { ZONE_ENTER_W } from '../world/sites.js';
 import { bearingOf, distanceText, POINTS } from './compass.js';
 import { theme } from './ui_theme.js';
+import { paintGround, makeCache } from './map_paint.js';
 
 /** The map is this many metres across: the whole world, plus its ocean rim. */
 export const MAP_SPAN = 2 * WORLD_HALF;
@@ -72,7 +73,7 @@ export const MAP_SAMPLES = 128;
 /** Metres between samples. */
 export const MAP_STRIDE = MAP_SPAN / MAP_SAMPLES;
 /** A draw that takes longer than this is a bug, and the test says so. */
-export const MAP_BUDGET_MS = 130;
+export const MAP_BUDGET_MS = 260;   // the painted ground is 168 ms cold at 640 px and 18 ms cached (M4); 130 was the flat fill's number
 /** Redrawn this often while the window is open. */
 export const REDRAW_S = 2;
 /** A click within this many pixels of a site takes the site, not the zone. */
@@ -511,18 +512,20 @@ export function drawMap(g2d, opts) {
   const x0 = cx - span / 2, z0 = cz - span / 2;
 
   g2d.save();
-  g2d.fillStyle = '#0d1014';
-  g2d.fillRect(0, 0, size, size);
 
-  // 1. the ground, one filled cell per sample
-  for (let j = 0; j < n; j++) {
-    for (let i = 0; i < n; i++) {
-      const s = field.sampleAt(x0 + (i + 0.5) * stride, z0 + (j + 0.5) * stride);
-      const [r, g, b] = shadeFor(s);
-      g2d.fillStyle = `rgb(${r},${g},${b})`;
-      g2d.fillRect(Math.floor(i * cell), Math.floor(j * cell), Math.ceil(cell), Math.ceil(cell));
-    }
-  }
+  // 1. the ground, painted. map_paint.js reads the same field on the same grid
+  // and lays it down as a chart: parchment, coast, rivers, relief, forest,
+  // roads, and a soft border round each realm. It reads the same discovery this
+  // panel does, so unwalked country comes back as blank hatched paper.
+  // docs/mmo/wiring/M4.md. `names: false` because the zone loop below already
+  // writes every name this panel is willing to say, and each of those is a
+  // click target. The cache is the panel's own, so the two second redraw and
+  // every redraw after a discovery costs the marks and nothing else.
+  paintGround(g2d, {
+    field, x: cx, z: cz, w: span, h: span, px: size, py: size,
+    known: { zones: opts.zonesFound, places: opts.discovered },
+    cache: opts.paintCache, samples: n, names: false, rolled: false,
+  });
 
   // 2. the world's edge
   {
@@ -870,6 +873,7 @@ export const panel = {
     const left = el('div', 'bw-map-left');
     const wrap = el('div', 'bw-map-wrap');
     this._canvas = document.createElement('canvas');
+    this._paintCache = makeCache();   // the painted ground survives between redraws (M4)
     this._canvas.width = 640;
     this._canvas.height = 640;
     this._canvas.addEventListener('click', (e) => this.clickAt(e));
@@ -981,6 +985,7 @@ export const panel = {
       field,
       cx: p.x, cz: p.z,
       size: this._canvas.width,
+      paintCache: this._paintCache,
       yaw: ctx?.player?.yaw ?? 0,
       discovered: discoveredOf(ctx),
       zonesFound: zonesFoundOf(ctx),

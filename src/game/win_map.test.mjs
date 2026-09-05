@@ -143,7 +143,10 @@ console.log('win_map: what it draws');
 {
   const g = recorder();
   const res = drawMap(g, { field, cx: 0, cz: 0, size: 640, yaw: 0.5, discovered: [], zonesFound: [] });
-  check('one filled cell per sample, plus the background', g.calls.fillRect >= res.samples + 1, `${g.calls.fillRect} fills`);
+  // the ground is painted by map_paint.js now (M4): parchment, coast, forest and
+  // relief are fills and strokes, not one cell per sample, so the check is that
+  // the paper was laid down at all and the field was read once per sample
+  check('the painted ground lays down paper and marks', g.calls.fillRect >= 1 && res.samples > 0, `${g.calls.fillRect} fills, ${res.samples} samples`);
   check('the player arrow is drawn', g.calls.moveTo >= 1 && g.calls.restore >= 2);
   check('no site is named when none is found', g.texts.length === 0, g.texts.join(', '));
   check('and the count of found places is nothing', res.sites === 0);
