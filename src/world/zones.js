@@ -371,7 +371,11 @@ const REALM_RELIEF = {
 
 const REALM_STYLE = {
   greenwold: {
-    edge: 600, biome: null, climate: null,
+    // The Greenwold is farmland: its own biome, since 2026-09-06 when the heart
+    // moved with the coast. Before that it carried nothing so old saves' ground
+    // would not change; desert and pine patches from the climate noise sat in
+    // the wheat.
+    edge: 600, biome: 'meadow', climate: null,
     ore: band('copper', 'tin'), short: 'the Greenwold',
   },
   verdant: {
@@ -460,7 +464,21 @@ const LAYOUT = {
   moonpool: [2021, 3243, 300],        // landmark
   spiderwells: [2209, 2538, 300],     // cave
   // The Saltmarch and the Thousand Isles
-  redqueensharbour: [4642, 1712, 330],// megastructure
+  // Moved by R1, 2026-09-06, when the continent mask changed and the fen it
+  // stood on became dry land. A pirate port has to stand on the sea: the water
+  // it faced was 114 m off and it was a RIVER, so `seawardOf` found a channel
+  // and the quay stood on a bank looking at it. It now stands on the north
+  // shore of the Caldera Sea, water 90 m out east south east, on the bearing
+  // the spec was written for. 992 m, into a cell nothing else wanted.
+  // Moved by R1, 2026-09-06, when the continent mask changed and the fen this
+  // stood in became dry land. A pirate port has to stand on the sea. The water
+  // `seawardOf` found off the old spot was 114 m away and it was a RIVER, so
+  // the quay looked across a bank at a channel. It stands on the Caldera Sea's
+  // north shore now, eleven metres of water 90 m out east south east, which is
+  // the bearing the port spec was written for, seven degrees off it. 992 m,
+  // into a cell nothing else wanted. Its subzone came in from 330 m to 260 so
+  // that the whole of it still fits inside the Saltmarch's own disc.
+  redqueensharbour: [4660, 720, 260],// megastructure
   drownedmill: [4462, 2508, 330],     // hub
   sedgesea: [5657, 1587, 330],        // wild
   leviathansrest: [3966, 2185, 330],  // dungeon
@@ -541,7 +559,17 @@ const LAYOUT = {
   drownedbell: [4696, -665, 225],     // megastructure
   whaleroad: [5255, -543, 225],       // sea
   // The Ashen Throne
-  cinderport: [6608, -254, 255],      // town
+  // Moved by R1 for the same reason and on the same day. The Legion's harbour
+  // faced a river 112 m away to the south west; it now stands on the Caldera
+  // Sea's east shore with sixteen metres of water 86 m out to the west, which
+  // is the bearing the spec measured. 1154 m, and it is still the realm's own
+  // ground and alone in its cell.
+  // Moved by R1 for the same reason and on the same day: the water off the old
+  // spot was a river 112 m to the south west. The Legion's harbour now stands
+  // on the Caldera Sea's east shore with sixteen metres of water 86 m out due
+  // west, thirty eight degrees off the bearing the spec measured and inside
+  // the arc it allows. 1154 m, still the realm's own ground, alone in its cell.
+  cinderport: [5520, -640, 255],      // town
   outerworks: [5874, -376, 255],      // landmark
   ashengate: [5982, 178, 255],        // megastructure
   throneofash: [7372, -168, 255],     // dungeon
@@ -1168,10 +1196,11 @@ export function auditZones() {
       for (let xx = -HEART_SAFE; xx <= HEART_SAFE; xx += 50) {
         if (xx * xx + zz * zz > HEART_SAFE * HEART_SAFE) continue;
         const b = zoneBias(xx, zz);
-        if ((b.biome || b.climate) && b.biasWeight > 0) { biased = `${b.id} at ${xx}, ${zz}`; break; }
+        // the Greenwold's own meadow is the heart's ground now; nobody else's bias may reach it
+        if ((b.biome || b.climate) && b.biasWeight > 0 && (b.parent ? b.parent.id : b.id) !== 'greenwold') { biased = `${b.id} at ${xx}, ${zz}`; break; }
       }
     }
-    if (biased) bad.push(`a bias reaches the heart: ${biased}, inside HEART_SAFE ${HEART_SAFE}`);
+    if (biased) bad.push(`another realm's bias reaches the heart: ${biased}, inside HEART_SAFE ${HEART_SAFE}`);
 
     const seaGap = Math.hypot(SEA.x, SEA.z) - SEA.edge;
     if (seaGap < HEART_SAFE) bad.push(`the Caldera Sea reaches to ${seaGap.toFixed(0)} m of the origin, inside HEART_SAFE ${HEART_SAFE}`);

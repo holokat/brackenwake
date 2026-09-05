@@ -15,7 +15,7 @@ import {
   clockOffsetFor, clockWords, panel, SETS, GOLD_STEPS, PLACE_RADIUS, KIND_ORDER, ENTERABLE,
   zoneSearch, rarityTable, rarest, sackRing, takesRarity,
   RECENT_MAX, HOME, SACK_COUNT, SACK_RADIUS, ZONE_MAX_R, RAREST_SHOWN, SPAWN_MANY,
-  tourStops, landingFor, TOUR_KIND_ORDER, EDGE_PAD,
+  tourStops, landingFor, TOUR_KIND_ORDER, EDGE_PAD, BODY_LAND, TOUR_LAND_STEP,
 } from './win_dev.js';
 import { SUB_ZONES, REALM_ZONES, authoredSites } from '../world/zones.js';
 import { REALMS } from '../mmo/realms.js';
@@ -1068,9 +1068,56 @@ console.log('win_dev: a teleport tells the forage field where you went');
   const sea = stops.find((st) => st.kind === 'sea' && field.sampleAt(st.x, st.z).water);
   check('there is a sea stop whose centre is water', !!sea, sea ? sea.name : 'none: every sea stop is dry at the centre');
   if (sea) {
+    // THE CHECK ASKS WHAT landingFor PROMISES, which is not "inside the circle".
+    //
+    // A sea stop's circle is water: that is what makes it a sea stop. So the
+    // dry ground it lands you on is on the shore or on a stack BESIDE it, and
+    // landingFor says so in as many words, searching outward to twice the
+    // place's own radius. The old form asked for a landing inside `sea.r` and
+    // went red on 2026-09-06 with "240 m from the centre, mountain": a karst
+    // stack, dry land, a perfectly good place to stand, fifteen metres outside
+    // an arbitrary circle. The check was the wrong one, not the landing.
     const atSea = landingFor(sea, field, sites);
     const s = field.sampleAt(atSea.x, atSea.z);
-    check('and it lands you on dry ground inside the place, not under the water', atSea.dry && !s.water && Math.hypot(atSea.x - sea.x, atSea.z - sea.z) <= sea.r, `${sea.name}: ${Math.round(Math.hypot(atSea.x - sea.x, atSea.z - sea.z))} m from the centre, ${s.biome}`);
+    const d = Math.hypot(atSea.x - sea.x, atSea.z - sea.z);
+    check('and it lands you on dry ground beside the place, not under the water',
+      atSea.dry && !s.water && d <= Math.max(sea.r * 2, TOUR_LAND_STEP),
+      `${sea.name}: ${Math.round(d)} m from the centre against a reach of ${Math.round(Math.max(sea.r * 2, TOUR_LAND_STEP))}, ${s.biome} at ${s.h.toFixed(2)} m`);
+    // the other way: a world that is water everywhere has nowhere to put you,
+    // and landingFor says so rather than pretending
+    const allSea = { sampleAt: () => ({ water: true, h: -18, biome: 'ocean' }) };
+    const nowhere = landingFor(sea, allSea, []);
+    check('while a stop with no dry ground anywhere in reach comes back not dry',
+      nowhere.dry === false && nowhere.x === sea.x && nowhere.z === sea.z,
+      `dry ${nowhere.dry}`);
+  }
+
+  // A wide body lands you AT ITS STONES and not at the point in the middle of
+  // them. Driven both ways: the two sites that carry a bodyR, and one that does
+  // not and still lands at its pad's edge.
+  {
+    const hedge = sites.find((st) => st.bodyR > 0 && st.sub === 'waystones');
+    const hedgeStop = stops.find((st) => st.id === 'waystones');
+    const from = { x: hedge.x + 2000, z: hedge.z };
+    const at = landingFor(hedgeStop, field, sites, from);
+    const d = Math.hypot(at.x - hedge.x, at.z - hedge.z);
+    check('a mega structure with a body lands you at nine tenths of its own reach',
+      near(d, hedge.bodyR * BODY_LAND, 1e-6) && at.site === hedge,
+      `${hedge.name}: bodyR ${hedge.bodyR}, pad ${hedge.flatR}, landed ${d.toFixed(1)} m out against ${(hedge.bodyR * BODY_LAND).toFixed(1)}`);
+    check('and on the side you came from, looking back in',
+      at.x > hedge.x && near(at.z, hedge.z, 1e-6) && near(at.yaw, -Math.PI / 2, 1e-9),
+      `${at.x.toFixed(0)}, ${at.z.toFixed(0)}, yaw ${at.yaw.toFixed(3)}`);
+    const other = landingFor(hedgeStop, field, sites, { x: hedge.x, z: hedge.z - 2000 });
+    check('and coming from the other side lands you on that side instead',
+      other.z < hedge.z && near(Math.hypot(other.x - hedge.x, other.z - hedge.z), hedge.bodyR * BODY_LAND, 1e-6),
+      `${other.x.toFixed(0)}, ${other.z.toFixed(0)}`);
+    // the other direction: no bodyR, so the pad's edge as before
+    const flatSite = sites.find((st) => !(st.bodyR > 0) && st.flatR > 0);
+    const flatStop = stops.find((st) => st.id === flatSite.sub);
+    const atFlat = landingFor(flatStop, field, sites, { x: flatSite.x + 2000, z: flatSite.z });
+    check('while a place with no body of its own still lands at its pad\'s edge',
+      near(Math.hypot(atFlat.x - flatSite.x, atFlat.z - flatSite.z), flatSite.flatR + EDGE_PAD, 1e-6),
+      `${flatSite.name}: ${Math.hypot(atFlat.x - flatSite.x, atFlat.z - flatSite.z).toFixed(1)} m against ${flatSite.flatR + EDGE_PAD}`);
   }
   const wild = stops.find((st) => st.kind === 'wild' && !sites.some((s) => s.sub === st.id) && !field.sampleAt(st.x, st.z).water);
   const atWild = landingFor(wild, field, sites);

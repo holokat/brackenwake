@@ -46,7 +46,7 @@
 // Units are the game's world units, which the farm treats as roughly metres.
 
 import { createNoise, rand2, clamp01, lerp, smoothstep } from './noise.js';
-import { cellRoll, siteAllowed, cellOf, mineParts, MINE_MOUTH_CELL, SITE_CELL } from './sitegrid.js';
+import { cellRoll, siteAllowed, cellOf, mineParts, MINE_MOUTH_CELL, MINE_MOUTH_ARC, MINE_MOUTH_D, SITE_CELL } from './sitegrid.js';
 import {
   zoneBias, oceanBeyond, OCEAN_FLOOR, WORLD_HALF,
   SEA, seaWithin, reefTopAt, ARCHIPELAGO, archipelagoWithin,
@@ -57,6 +57,17 @@ import { roadDistanceAt, roadHeightAt, roadStrength, roadSurface, fordFade, ROAD
 // The farm pad top is y 0 and the ground under it is homeY (-0.3). The sea has
 // to sit below both or the home disc counts as flooded and gets a water sheet.
 export const SEA_LEVEL = -0.8;
+/**
+ * Where the continent function stops being sea. The old pair (-0.20, 0.06) left
+ * 55% of the world as water: the Greenwold read as a green archipelago, the
+ * Boneyard's hamlet stood on a beach and the Brass City walked in the surf.
+ * A zone is a bowl of land with the Caldera Sea in the middle of the world and
+ * the ocean past the rim; inland water is the rivers and the lakes the sheet
+ * asks for, not the continent falling away every kilometre. Measured in
+ * field.test.mjs: land per realm.
+ */
+export const LAND_LO = -0.62;
+export const LAND_HI = -0.34;
 export const HOME_RADIUS = 110;      // flat ground around the farm pad
 export const HOME_BLEND = 90;        // metres over which the world takes over
 export const CHUNK = 64;             // world units per chunk edge
@@ -78,6 +89,8 @@ const RIVER_HALF_WIDTH = 0.045;   // in noise units; wider rivers, raise it
 const SNOW_LINE = 78;
 const CAVE_MOUND = 6;             // how far a cave's mound rises above the hillside
 const ROCK_LINE = 46;
+/** Bearings tried when a mine's yard is turned to face away from its own cuts. */
+const MINE_AIM_STEPS = 32;
 
 // ---------------------------------------------------------------- relief ---
 //
@@ -405,6 +418,33 @@ export function createWorldField(seed = 1, opts = {}) {
     return v;
   }
 
+  /**
+   * How much of a WET relief a point may keep: 0 across an authored site's own
+   * pad, rising to 1 over RELIEF_HOLD past its rim.
+   *
+   * The dry reliefs are held level across a pad by `reliefAt` above. The karst
+   * is not, because it is laid inside the sea block, after the sea, where the
+   * dry ones have already been and gone. That was fine while no authored site
+   * stood on the shore. When R1 moved Cinderport onto the Caldera Sea on
+   * 2026-09-06 a sea stack came up 4.3 m through the middle of the town's
+   * precinct, which the pad then flattened, leaving a step at the pad's rim
+   * instead of a shoulder. A stack is a thing that stands in open water; it
+   * does not stand in a harbour.
+   */
+  function holdFade(x, z) {
+    if (!holdsReady) buildHolds();
+    let k = 1;
+    for (let i = 0; i < HOLDS.length && k > 0; i++) {
+      const hd = HOLDS[i];
+      const hx = x - hd.x, hz = z - hd.z;
+      const d2 = hx * hx + hz * hz;
+      if (d2 >= hd.r * hd.r) continue;
+      const w = smoothstep(hd.r0, hd.r, Math.sqrt(d2));
+      if (w < k) k = w;
+    }
+    return k;
+  }
+
   // Raw terrain before the home flattening, so the flattening can be tested
   // independently and so tools can look at the world "as if the farm were not
   // there".
@@ -412,7 +452,7 @@ export function createWorldField(seed = 1, opts = {}) {
     // continents, domain warped so coasts wander
     const [wx, wz] = N.warp(x / W_CONT, z / W_CONT, 0.35, 1.7);
     const cont = N.fbm(wx, wz, 4);                       // -1..1
-    const landMask = smoothstep(-0.20, 0.06, cont);       // 0 ocean .. 1 land; shifted so ~55% is land
+    const landMask = smoothstep(LAND_LO, LAND_HI, cont);   // 0 ocean .. 1 land; see LAND_LO
 
     // islands where the continent function says ocean
     const isle = N.fbm(x / W_ISLE + 900, z / W_ISLE - 300, 3);
@@ -517,7 +557,7 @@ export function createWorldField(seed = 1, opts = {}) {
         const row = RELIEF_WET[i];
         const dxr = x - row.zn.x, dzr = z - row.zn.z;
         if (dxr * dxr + dzr * dzr >= row.reach * row.reach) continue;
-        const rw = weightOf(row.zn, x, z) * heartFade(x, z);
+        const rw = weightOf(row.zn, x, z) * heartFade(x, z) * holdFade(x, z);
         if (rw <= 0) continue;
         const stack = karstAt(row, x, z, lake);
         if (!stack) continue;
@@ -606,6 +646,33 @@ export function createWorldField(seed = 1, opts = {}) {
    * back down toward the yard, which is where the barrows went.
    */
   function buildMine(site) {
+    // Aim the yard before the cuts are cut.
+    //
+    // A mine's promise is that every cut stands up the hill from the yard, and
+    // the eight direction probe that picked `facing` above asks about ONE point
+    // fifteen metres out. The cuts stand twenty one metres out across an arc up
+    // to 1.4 radians wide, so a bearing that is downhill in the middle can be
+    // uphill at its edges. When the coast moved, three of the nine mines had a
+    // cut standing BELOW their own yard for exactly that reason: the Salt Cut by
+    // 1.15 m, the Rime Cut by 0.90 m, the Marrow Mine by 0.36 m.
+    //
+    // So the bearing is chosen on the cuts themselves. Thirty two bearings, and
+    // the one whose LOWEST cut stands highest wins, ties to the first, which
+    // keeps it a pure function of the seed. `zones.test.mjs` measures the rise
+    // of every cut of every mine in the world, both directions.
+    const aim = mineParts(site, seed).mouths.length;
+    let bestA = site.facing, bestLow = -Infinity;
+    for (let i = 0; i < MINE_AIM_STEPS; i++) {
+      const a = (i / MINE_AIM_STEPS) * Math.PI * 2;
+      let low = Infinity;
+      for (let k = 0; k < aim; k++) {
+        const b = a + Math.PI + (k - (aim - 1) / 2) * MINE_MOUTH_ARC;
+        const h = raw(site.x + Math.sin(b) * MINE_MOUTH_D, site.z + Math.cos(b) * MINE_MOUTH_D).h;
+        if (h < low) low = h;
+      }
+      if (low > bestLow) { bestLow = low; bestA = a; }
+    }
+    site.facing = bestA;
     const parts = mineParts(site, seed);
     // the same shoulder sampleAt grades a pad with, so a reported y is the
     // ground a player will actually stand on and not the hillside under it
@@ -663,7 +730,31 @@ export function createWorldField(seed = 1, opts = {}) {
     return null;
   }
 
-  function sampleAt(x, z) {
+  /**
+   * The ground before any road touches it: the raw world, the home disc, and
+   * whatever pad stands here.
+   *
+   * THIS IS THE ONE PLACE THE PAD IS APPLIED. `roads.js` grades toward a
+   * profile and then judges whether what it left is walkable, and it used to
+   * work that judgement out on its own copy of this arithmetic, which knew
+   * about the road's own two settlements and nothing else and did not know
+   * that a pad takes the road's authority away as it takes its ground. So the
+   * judgement said 0.49 where the field laid 0.64. One function now, called by
+   * both, and the road a test measures is the road the field lays.
+   *
+   * Fills `out` rather than allocating, because a terrain vertex may not
+   * allocate. The caller passes its OWN scratch: `sampleAt` calls this and then
+   * asks `roads.js` for a road, and `roads.js` may call this again while laying
+   * one out, so a single shared scratch would be clobbered mid sample.
+   *
+   *   h      metres, the surface with the pad on it and no road
+   *   river  river strength after the home disc and the pad have had their say
+   *   pad    0 to 1, how much of this point the pad owns
+   *   site   the site whose pad that is, or the site standing here, or null
+   *   k      the home factor
+   *   r      the raw sample, so a caller that has one need not take two
+   */
+  function groundNoRoads(x, z, out) {
     const r = raw(x, z);
     const k = homeFactor(x, z);
     let h = lerp(homeY, r.h, k);
@@ -694,6 +785,16 @@ export function createWorldField(seed = 1, opts = {}) {
         pad = w;
       }
     }
+    out.h = h; out.river = river; out.pad = pad; out.site = site; out.k = k; out.r = r;
+    return out;
+  }
+  // sampleAt's own scratch, never handed out and never shared with roads.js
+  const GB = { h: 0, river: 0, pad: 0, site: null, k: 0, r: null };
+
+  function sampleAt(x, z) {
+    groundNoRoads(x, z, GB);
+    const r = GB.r, k = GB.k, site = GB.site, pad = GB.pad;
+    let h = GB.h, river = GB.river;
     // roads: a dirt strip graded toward the road's own smoothed profile. The
     // farm disc, a site's pad and a river each hold it off, in that order, so
     // the home ground stays clean, a town square stays level, and a road meets
@@ -762,6 +863,7 @@ export function createWorldField(seed = 1, opts = {}) {
 
   return Object.assign(self, {
     seed, heightAt, biomeAt, sampleAt, raw, homeFactor, chunkOf, siteInCell, siteAt,
+    groundNoRoads,
     seaLevel: SEA_LEVEL, chunk: CHUNK, homeRadius, homeY, biomes: BIOMES,
     roadHalfWidth: ROAD_HALF_WIDTH,
     // the world's own half width, so a caller with a field does not need to

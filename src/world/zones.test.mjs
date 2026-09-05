@@ -28,6 +28,21 @@ const BUILDING_KINDS = new Set(['hub', 'town', 'hamlet', 'dungeon', 'mine', 'cav
 const PLACE = Object.fromEntries(PLACES.map((p) => [p.id, p]));
 /** A place in the Caldera Sea is reached by boat, so a flood fill cannot judge it. */
 const afloat = (id) => PLACE[id] && (PLACE[id].realm === 'sunkenkingdom' || seaWithin(ZONE[id].x, ZONE[id].z) > 0);
+/**
+ * And which places the WALK is allowed to skip, which is a narrower list.
+ *
+ * `afloat` says the sea's own falloff reaches a point, and `seaWithin` is alive
+ * out to SEA.edge, 600 m past the open water. That is the right question for
+ * "is this among the isles"; it is the wrong one for "can you get there",
+ * because it exempts any town on the sea's landward shore from having to be
+ * walkable at all. When R1 moved the two ports onto the real shore in 2026-09-06
+ * both of them fell straight through that hole, and a harbour you cannot reach
+ * on foot is not a harbour. So the walk skips the Sunken Kingdom and nothing
+ * else: its ten places are the drowned city and the reefs over it, and a boat is
+ * the point of them. Measured on the current world: The Red Queen's Harbour and
+ * Cinderport are 45 m from the walk, The Salt Cut 36 m, The Ember Cut 41 m.
+ */
+const byBoat = (id) => PLACE[id] && PLACE[id].realm === 'sunkenkingdom';
 /** The four places the table says stand IN the water, on the sea floor. */
 const drowned = new Set(STANDS_IN_WATER);
 /** Measured: dry ground that no realm reaches. 18.8% of the world is like it. */
@@ -53,9 +68,9 @@ console.log('zones: the table is realms.js');
     return z.name === p.name && z.line === p.geography;
   }));
 
-  check('the Greenwold, which holds the heart, carries no bias at all', !ZONE.greenwold.biome && !ZONE.greenwold.climate);
+  check('the Greenwold, which holds the heart, is farmland: its own meadow and no climate nudge', ZONE.greenwold.biome === 'meadow' && !ZONE.greenwold.climate);
   const biased = REALM_ZONES.filter((z) => z.biome || z.climate);
-  check('seven of the nine realms are more than a tint', biased.length === 7, `${biased.map((z) => z.id).join(', ')}`);
+  check('eight of the nine realms are more than a tint, the Greenwold included since it became farmland', biased.length === 8, `${biased.map((z) => z.id).join(', ')}`);
   check('and not one subzone carries a bias of its own', SUB_ZONES.every((z) => !z.biome && !z.climate));
 
   // THE HEART, measured on the same grid the audit uses, and named
@@ -64,11 +79,12 @@ console.log('zones: the table is realms.js');
     for (let z = -HEART_SAFE; z <= HEART_SAFE; z += 25) for (let x = -HEART_SAFE; x <= HEART_SAFE; x += 25) {
       if (x * x + z * z > HEART_SAFE * HEART_SAFE) continue;
       const b = zoneBias(x, z);
-      if ((b.biome || b.climate) && b.biasWeight > 0) { worstId = b.id; worstAt = [x, z]; }
+      if ((b.biome || b.climate) && b.biasWeight > 0 && (b.parent ? b.parent.id : b.id) !== 'greenwold') { worstId = b.id; worstAt = [x, z]; }
     }
-    check('no bias wins anywhere inside the heart', worstId === null, worstId ? `${worstId} at ${worstAt}` : `${HEART_SAFE} m disc at 25 m, all clean`);
+    check('no other realm\'s bias wins anywhere inside the heart', worstId === null, worstId ? `${worstId} at ${worstAt}` : `${HEART_SAFE} m disc at 25 m, all Greenwold`);
     // and how near the nearest biased realm actually gets
     for (const b of biased) {
+      if (b.id === 'greenwold') continue;
       for (let i = 0; i < 720; i++) {
         const a = (i / 720) * Math.PI * 2;
         for (let d = HEART_SAFE; d < 5000; d += 25) {
@@ -301,8 +317,8 @@ console.log('zones: zoneAt, zoneBias and the parent chain');
   {
     const hit = zoneAt(0, 0), bias = zoneBias(0, 0);
     check('a save standing at the origin is in the Greenwold', hit.zone.id === 'greenwold' && hit.weight === 1
-      && bias.biome === null && bias.climate === null && bias.danger[1] === 1,
-      `${hit.zone.name}, weight ${hit.weight}, tier ${bias.danger.join(' to ')}, no bias`);
+      && bias.biome === 'meadow' && bias.climate === null && bias.danger[1] === 1,
+      `${hit.zone.name}, weight ${hit.weight}, tier ${bias.danger.join(' to ')}, biome ${bias.biome}`);
     check('and the hub is a walk away, not on top of them', Math.hypot(ZONE.hearthhome.x, ZONE.hearthhome.z) > HEART_SAFE,
       `${ZONE.hearthhome.name} stands ${Math.hypot(ZONE.hearthhome.x, ZONE.hearthhome.z).toFixed(0)} m from the origin`);
   }
@@ -520,9 +536,9 @@ const REACH = (() => {
   // lattice step, not a licence: `REACH.near` is measured below and every one
   // of the seventy three comes in under 100 m.
   const REACH_SLACK = 100;
-  const walked = authoredSites().filter((s) => !afloat(s.sub));
+  const walked = authoredSites().filter((s) => !byBoat(s.sub));
   const far = walked.map((s) => [s, REACH.near(s.x, s.z)]).filter(([, d]) => d > REACH_SLACK);
-  check(`and the walk comes within ${REACH_SLACK} m of every authored site that is not out at sea`, far.length === 0,
+  check(`and the walk comes within ${REACH_SLACK} m of every authored site outside the drowned realm`, far.length === 0,
     far.map(([s, d]) => `${s.name} ${d.toFixed(0)} m`).join(', ')
     || `all ${walked.length} of them, worst ${Math.max(...walked.map((s) => REACH.near(s.x, s.z))).toFixed(0)} m`);
   const afloatSites = authoredSites().filter((s) => afloat(s.sub));

@@ -15,6 +15,8 @@ import {
   RING, BUILD_PER_FRAME, ROAD_TINT_MIN,
 } from './chunks.js';
 import { ZONE } from './zones.js';
+import { roadsForCell, roadDistanceAt } from './roads.js';
+import { SITE_CELL } from './sitegrid.js';
 import { LAYERS, layerWeights, CLIFF_SLOPE } from './terrain_material.js';
 
 let pass = 0, fail = 0;
@@ -210,20 +212,45 @@ const maxDelta = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
 {
   // Find a road and walk across it at every tier's vertex spacing. The old
   // vertex road strength ran 1 to 0 over 1.8 m; this one runs over 6.
-  let hit = null;
-  outer:
-  for (let cz = -30; cz <= 30 && !hit; cz++) for (let cx = -30; cx <= 30; cx++) {
-    for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) {
-      const x = cx * CHUNK + i * 8, z = cz * CHUNK + j * 8;
-      if (field.sampleAt(x, z).road > 0.9) { hit = [x, z]; break outer; }
+  // THE ROAD COMES FROM ROADS.JS, and the sweep runs along the road's own
+  // NORMAL. Sweeping a fixed compass direction over a spot found by scanning a
+  // grid measures a road obliquely, and when the coast moved on 2026-09-06 the
+  // spot the scan happened to land on was a road running nearly parallel to the
+  // sweep: the "width" came back as 21 and 28 m of a 6 m road and the
+  // centreline read 0.85. So: take a real road, stand on its centreline at half
+  // its length, and step across it at right angles.
+  let hit = null, road = null;
+  {
+    const R = Math.ceil(8000 / SITE_CELL);
+    const all = [];
+    for (let cz = -R; cz <= R; cz++) for (let cx = -R; cx <= R; cx++) all.push(...roadsForCell(field, cx, cz));
+    // the longest one, so the mid point is a long way from either town pad, and
+    // one whose mid point no OTHER road runs within a verge's width of
+    all.sort((a, b) => b.total - a.total);
+    for (const r of all) {
+      const seg = r.segs[Math.floor(r.segs.length / 2)];
+      const u = 0.5, px = seg.x0 + seg.dx * u, pz = seg.z0 + seg.dz * u;
+      const inv = 1 / seg.len, nx = -seg.dz * inv, nz = seg.dx * inv;
+      // 14 m either side must be clear of any other road, or the sweep below
+      // measures two roads and calls them one
+      let clean = true;
+      for (const d of [-14, -10, 10, 14]) {
+        const rd = roadDistanceAt(field, px + nx * d, pz + nz * d);
+        if (rd && rd.road !== r) { clean = false; break; }
+      }
+      if (!clean || field.sampleAt(px, pz).road < 0.999) continue;
+      hit = [px, pz]; road = { r, nx, nz };
+      break;
     }
   }
-  check('a road was found to measure', !!hit, hit ? `at ${hit[0]}, ${hit[1]}` : 'none in the search box');
+  check('a road was found to measure', !!hit,
+    hit ? `${road.r.id}, ${road.r.total.toFixed(0)} m long, measured across its centreline at ${hit[0].toFixed(0)}, ${hit[1].toFixed(0)}` : 'none over the whole continent');
   if (hit) {
     const [x, z] = hit;
+    const { nx, nz } = road;
     const widthOf = (fn) => {
       let lo = null, hi = null;
-      for (let d = -14; d <= 14; d += 0.05) { const v = fn(x, z + d); if (v > 0.001) { if (lo === null) lo = d; hi = d; } }
+      for (let d = -14; d <= 14; d += 0.05) { const v = fn(x + nx * d, z + nz * d); if (v > 0.001) { if (lo === null) lo = d; hi = d; } }
       return hi - lo;
     };
     const oldW = widthOf((px, pz) => field.sampleAt(px, pz).road);
@@ -236,21 +263,42 @@ const maxDelta = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
     // painted weight. The offsets are swept so the answer is not an accident
     // of where the first sample happened to land.
     for (const step of [2, 4, 8]) {
-      let worstOld = 0, worstNew = 0;
+      let worstOld = 0, worstNew = 0, missedOld = 0, missedNew = 0, offs = 0;
       for (let off = 0; off < step; off += 0.25) {
-        let po = null, pn = null;
+        let po = null, pn = null, sawO = 0, sawN = 0;
+        offs++;
         for (let d = -20 + off; d <= 20; d += step) {
-          const o = field.sampleAt(x, z + d).road, w = roadWeightAt(field, x, z + d);
+          const px = x + nx * d, pz = z + nz * d;
+          const o = field.sampleAt(px, pz).road, w = roadWeightAt(field, px, pz);
+          sawO = Math.max(sawO, o); sawN = Math.max(sawN, w);
           if (po !== null) { worstOld = Math.max(worstOld, Math.abs(o - po)); worstNew = Math.max(worstNew, Math.abs(w - pn)); }
           po = o; pn = w;
         }
+        if (sawO <= 0) missedOld++;
+        if (sawN <= 0) missedNew++;
       }
       const label = `graded ${worstOld.toFixed(2)}, painted ${worstNew.toFixed(2)}`;
-      check(`at ${step} m vertex spacing the painted road steps less than the graded one`, worstNew < worstOld, label);
+      if (step < 8) {
+        check(`at ${step} m vertex spacing the painted road steps less than the graded one`, worstNew < worstOld, label);
+      } else {
+        // AND AT THE FAR TIER IT CANNOT, which is worth saying rather than
+        // hiding. The painted ramp is ROAD_FADE wide, 6 m each way, and the far
+        // tier puts a vertex every 8, so an offset that lands one vertex on the
+        // centreline and the next off the ramp altogether steps the whole road
+        // in one go, exactly as the graded strength does. What the wide ramp
+        // buys at that tier is that the road is never MISSED: the graded strip
+        // is 3.6 m across and an 8 m stride steps clean over it, and a road that
+        // vanishes when a chunk drops a tier is worse than one that steps.
+        check('at 8 m vertex spacing the painted road steps no harder than the graded one',
+          worstNew <= worstOld, label);
+        check('and unlike the graded one it is never stepped over altogether',
+          missedNew === 0 && missedOld > 0,
+          `over ${offs} sweep offsets the graded strip was missed ${missedOld} times, the painted ramp ${missedNew}`);
+      }
       if (step === 2) check('and at the near tier it never steps more than 0.55', worstNew < 0.55, label);
     }
     check('and it is zero well away from the road',
-      roadWeightAt(field, x, z + 40) === 0 && roadWeightAt(field, x, z - 40) === 0);
+      roadWeightAt(field, x + nx * 40, z + nz * 40) === 0 && roadWeightAt(field, x - nx * 40, z - nz * 40) === 0);
     check('and full on the centreline', roadWeightAt(field, x, z) > 0.9, roadWeightAt(field, x, z).toFixed(3));
   }
   check('inside the home disc there is no road at all', roadWeightAt(field, 0, 0) === 0);

@@ -503,31 +503,59 @@ for (const kind of ['dungeon', 'cave']) {
   {
     // walking back to the origin unloaded the marker, which is the ring doing
     // its job; walk out to the place again before asking what is under a ray
-    for (let i = 0; i < 400 && rt.siteMarkers.count < 1; i++) {
+    // Wait for the PLACE, not for a marker. Two markers reach this spot and the
+    // Standing Hedge is the wide one, so "count >= 1" was satisfied by a body
+    // 837 m away while the one being walked to was still in the build queue.
+    const builtNear = () => rt.siteMarkers.meshes().some((o) => o.userData.site && o.userData.site.id === NEAR_SITE.id);
+    for (let i = 0; i < 400 && !builtNear(); i++) {
       clock += 16;
       rt.update(0.016, clock, NEAR_SITE.x, NEAR_SITE.z, 1);
     }
     sc.scene.updateMatrixWorld(true);
-    ck(`${NEAR_SITE.name} loads again when you walk back to it`, rt.siteMarkers.count >= 1);
+    ck(`${NEAR_SITE.name} loads again when you walk back to it`, builtNear(),
+      `${rt.siteMarkers.count} markers live`);
 
-    // merged markers keep their geometry at the group origin, so aim at where
-    // each mesh actually is in the world, not at where its transform says
+    // Merged markers keep their geometry at the group origin, so aim at where
+    // the body actually IS in the world and not at where its transform says.
+    //
+    // At its OWN VERTICES, and not at the centre of its bounding box. The
+    // nearest place to the spawn used to be a village and a box centre stood
+    // over its roofs; the nearest place is a dungeon mouth now, and the centre
+    // of the box round an arch is the hole in the middle of the arch, so every
+    // ray went straight through and the check read "nothing" over a marker that
+    // was standing there in one piece. A vertex is on the body by definition.
+    // And the claim is about EVERY marker mesh in the world, not about one of
+    // them: a ray onto a body picks the place that body belongs to. The old
+    // form asked only whether SOME mesh answered with the nearest place, and
+    // two markers are loaded here (the Standing Hedge is a mile across and its
+    // stones reach the ring from 837 m away), so the first mesh answered with
+    // the hedge and the check went red over a Tanner Cut that was standing
+    // there in one piece.
     const meshes = rt.siteMarkers.meshes();
-    let hit = null, tried = 0;
-    const box = new THREE.Box3(), c = new THREE.Vector3();
+    let proved = 0, wrong = '', aimed = 0;
+    const names = new Set();
+    const box = new THREE.Box3(), v = new THREE.Vector3();
     for (const m of meshes) {
-      if (hit) break;
       box.setFromObject(m);
-      if (box.isEmpty()) continue;
-      box.getCenter(c);
-      tried++;
-      const ray = new THREE.Raycaster();
-      ray.set(new THREE.Vector3(c.x, box.max.y + 60, c.z), new THREE.Vector3(0, -1, 0));
-      const p = rt.pick(ray);
-      if (p && p.kind === 'site') hit = p;
+      const pos = m.geometry && m.geometry.getAttribute('position');
+      const own = m.userData.site;
+      if (box.isEmpty() || !pos || !own) continue;
+      let hit = null;
+      const stride = Math.max(1, Math.floor(pos.count / 24));
+      for (let i = 0; i < pos.count && !hit; i += stride) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+        aimed++;
+        const ray = new THREE.Raycaster();
+        ray.set(new THREE.Vector3(v.x, box.max.y + 60, v.z), new THREE.Vector3(0, -1, 0));
+        const p = rt.pick(ray);
+        if (p && p.kind === 'site') hit = p;
+      }
+      if (hit && hit.site.id === own.id) { proved++; names.add(own.name); }
+      else if (!wrong) wrong = hit ? `${own.name} answered with ${hit.site.name}` : `${own.name} answered with nothing`;
     }
-    ck(`a ray onto ${NEAR_SITE.name} picks the site`, !!hit && hit.site.id === NEAR_SITE.id,
-      hit ? hit.site.name : `nothing over ${tried} of ${meshes.length} meshes`);
+    ck('a ray onto a streamed marker picks the place that marker belongs to',
+      proved === meshes.length && proved > 0,
+      wrong || `${proved} of ${meshes.length} meshes over ${aimed} aims: ${[...names].join(', ')}`);
   }
 
   // a ray into empty sky picks nothing at all

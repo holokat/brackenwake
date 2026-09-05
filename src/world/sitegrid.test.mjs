@@ -7,7 +7,7 @@
 import {
   cellRoll, siteAllowed, KINDS, SITE_CELL, authoredInCell, mineParts, MINE_MOUTHS, MINE_SEAMS,
   WILD_KINDS, WILD_KIND_IDS, ALL_KINDS, SITE_CHANCE, WILD_CHANCE, WILD_MIN_R, heartCell,
-  CASTLE_TOWN_R, nameFor, gateWord,
+  CASTLE_TOWN_R, nameFor, gateWord, SPAWN_CLEAR,
 } from './sitegrid.js';
 import { rand2 } from './noise.js';
 import { createWorldField } from './field.js';
@@ -131,17 +131,56 @@ console.log('sitegrid: the wild structures');
     `WILD_MIN_R ${WILD_MIN_R}`);
 
   // ---- siteAllowed, both directions ---------------------------------------
+  //
+  // Every site handed in here carries a POINT as well as a cell, because
+  // `siteAllowed` asks where a site stands and not only which cell it is in:
+  // a site with no point at all is refused rather than quietly waved through.
   const dry = { h: 12, river: 0, land: 1 };
+  const at = (kind, cx, cz) => ({ kind, cx, cz, x: cx * SITE_CELL + 240, z: cz * SITE_CELL + 240 });
   check('siteAllowed refuses a wild kind in a heart cell',
-    siteAllowed({ kind: 'temple', cx: 1, cz: 1 }, dry, 1) === false
-    && siteAllowed({ kind: 'castle', cx: 0, cz: 0 }, dry, 1) === false);
+    siteAllowed(at('temple', 1, 1), dry, 1) === false
+    && siteAllowed(at('castle', 0, 0), dry, 1) === false);
   check('and lets the same kind stand one cell further out',
-    siteAllowed({ kind: 'temple', cx: 6, cz: 6 }, dry, 1) === true
-    && siteAllowed({ kind: 'castle', cx: 6, cz: 6 }, dry, 1) === true);
-  check('an old kind is still allowed in the heart, so the gate is on the new ones only',
-    siteAllowed({ kind: 'town', cx: 1, cz: 1 }, dry, 1) === true);
+    siteAllowed(at('temple', 6, 6), dry, 1) === true
+    && siteAllowed(at('castle', 6, 6), dry, 1) === true);
+  check('an old kind is still allowed in the heart, so the wild gate is on the new ones only',
+    siteAllowed(at('town', 2, 2), dry, 1) === true);
   check('and a wild kind in deep water is still refused wherever it is',
-    siteAllowed({ kind: 'temple', cx: 9, cz: 9 }, { h: -30, river: 0, land: 0 }, 1) === false);
+    siteAllowed(at('temple', 9, 9), { h: -30, river: 0, land: 0 }, 1) === false);
+
+  // ---- SPAWN_CLEAR, both directions ---------------------------------------
+  //
+  // The first place has to be a walk. Nothing the world rolls for itself stands
+  // within SPAWN_CLEAR of the origin, whatever kind it is and whatever the
+  // ground says, and one metre past that line the same site is allowed.
+  const spot = (kind, d) => ({ kind, cx: 0, cz: 0, x: d, z: 0 });
+  check(`nothing rolled stands inside SPAWN_CLEAR of the origin`,
+    siteAllowed(spot('town', SPAWN_CLEAR - 1), dry, 1) === false
+    && siteAllowed(spot('dungeon', 348), dry, 1) === false
+    && siteAllowed(spot('cave', 0), { h: 30, river: 0, land: 1 }, 1) === false,
+    `SPAWN_CLEAR ${SPAWN_CLEAR} m`);
+  check('and one metre past it the same site stands',
+    siteAllowed(spot('town', SPAWN_CLEAR + 1), dry, 1) === true
+    && siteAllowed(spot('dungeon', SPAWN_CLEAR + 1), dry, 1) === true
+    && siteAllowed(spot('cave', SPAWN_CLEAR + 1), { h: 30, river: 0, land: 1 }, 1) === true);
+  check('while an authored site is not asked, because an author already looked',
+    siteAllowed({ kind: 'megastructure', authored: true, x: 231, z: 804 }, dry, 1) === true,
+    'the Standing Hedge stands 837 m out and lays no pad');
+  check('and a site handed in with no point at all is refused, not exempted',
+    siteAllowed({ kind: 'town', cx: 6, cz: 6 }, dry, 1) === false);
+  {
+    // and the world agrees: walk every cell that can reach inside the circle
+    let inside = 0, nearest = Infinity, what = '';
+    for (let cz = -3; cz <= 2; cz++) for (let cx = -3; cx <= 2; cx++) {
+      const st = f.siteInCell(cx, cz);
+      if (!st || st.authored) continue;
+      const d = Math.hypot(st.x, st.z);
+      if (d < SPAWN_CLEAR) inside++;
+      if (d < nearest) { nearest = d; what = `${st.kind} "${st.name}"`; }
+    }
+    check('and no rolled site in the real world stands inside the circle', inside === 0,
+      `the nearest is ${what} at ${nearest.toFixed(0)} m`);
+  }
 
   // ---- every kind occurs within 8 km, and one cell holds one site ----------
   const R8 = Math.ceil(8000 / SITE_CELL);
@@ -274,8 +313,8 @@ console.log('sitegrid: authored sites');
   check('a cell with nothing authored in it rolls as it always did',
     authoredInCell(11, 7) === null && before === JSON.stringify(cellRoll(seed, 11, 7)));
   check('an authored site is exempt from the terrain rules but not from the farm disc',
-    siteAllowed({ kind: 'mine', authored: true }, { h: -40, river: 1, land: 0 }, 1) === true
-    && siteAllowed({ kind: 'mine', authored: true }, { h: 20, river: 0, land: 1 }, 0.5) === false);
+    siteAllowed({ kind: 'mine', authored: true, x: 4430, z: 1081 }, { h: -40, river: 1, land: 0 }, 1) === true
+    && siteAllowed({ kind: 'mine', authored: true, x: 4430, z: 1081 }, { h: 20, river: 0, land: 1 }, 0.5) === false);
 }
 
 console.log('sitegrid: a mine, laid out');

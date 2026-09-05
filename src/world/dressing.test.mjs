@@ -140,8 +140,21 @@ console.log('\nthe gate, both ways');
   if (onRoad) {
     const g = openAt(field, onRoad.x, onRoad.z, spec, sitesNear(field, onRoad.x, onRoad.z, 260));
     ck('a road refuses', !g.ok && g.why === 'road', `road strength ${f2(onRoad.s.road)} at ${onRoad.x.toFixed(0)}, ${onRoad.z.toFixed(0)}`);
-    const off = openAt(field, onRoad.x + 60, onRoad.z + 60, spec, sitesNear(field, onRoad.x + 60, onRoad.z + 60, 260));
-    ck('and sixty metres off it does not refuse for that reason', off.why !== 'road', off.why || 'open');
+    // Sixty metres off it, ON GROUND THAT IS NOT ITSELF A ROAD. The old probe
+    // stepped a fixed sixty metres north east and landed on another road when
+    // the network changed on 2026-09-06, so the check read "road" and looked
+    // like a broken gate. Roads meet, so the direction has to be chosen by
+    // asking the field, not by picking one.
+    let off = null, offAt = null;
+    for (let i = 0; i < 8 && !off; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const ox = onRoad.x + Math.cos(a) * 60, oz = onRoad.z + Math.sin(a) * 60;
+      if (field.sampleAt(ox, oz).road > 0) continue;      // still on a road, try the next bearing
+      offAt = [ox, oz];
+      off = openAt(field, ox, oz, spec, sitesNear(field, ox, oz, 260));
+    }
+    ck('and sixty metres off it does not refuse for that reason', !!off && off.why !== 'road',
+      off ? `${off.why || 'open'} at ${offAt[0].toFixed(0)}, ${offAt[1].toFixed(0)}` : 'every bearing at 60 m is on a road');
   } else ck('a road refuses', false, 'no road found to test against');
 
   // a pad: take a real site out of the world and stand in the middle of it

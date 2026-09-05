@@ -50,7 +50,13 @@ for (let x = -6000; x <= 6000; x += 40) for (let z = -6000; z <= 6000; z += 40) 
   if (s.river > 0.5) { riverCells++; if (s.land > 0.9) riverOnLand++; }
   hMin = Math.min(hMin, s.h); hMax = Math.max(hMax, s.h);
 }
-check('ocean exists (15% to 55%)', ocean / n > 0.15 && ocean / n < 0.55, `${(100 * ocean / n).toFixed(0)}% water`);
+// The band moved on 2026-09-06 with LAND_LO and LAND_HI. The old pair left 55%
+// of the world under water and every realm reading as a green archipelago; the
+// new one leaves the continent whole, with the Caldera Sea in the middle of it
+// and the ring ocean past the rim. Measured over this same 12 km square: 14%.
+// The band is kept wide because it is a smoke alarm and not a spec, and 8% is
+// low enough to catch a world with no sea left in it.
+check('ocean exists (8% to 40%)', ocean / n > 0.08 && ocean / n < 0.40, `${(100 * ocean / n).toFixed(0)}% water`);
 check('land is the majority', land / n > 0.45, `${(100 * land / n).toFixed(0)}% land`);
 check('mountains exist (some ground above 60)', hMax > 60, `max h ${hMax.toFixed(1)}`);
 check('sea floor is below sea level', hMin < -5, `min h ${hMin.toFixed(1)}`);
@@ -61,6 +67,47 @@ for (const b of BIOMES) check(`biome "${b}" occurs`, counts[b] > 0, `${(100 * co
 check('deserts are findable (at least 3% of the world)', counts.desert / n > 0.03);
 check('mountains are findable (at least 2%)', (counts.mountain + counts.snow) / n > 0.02);
 check('no single biome is over 60% of the world', Math.max(...Object.values(counts)) / n < 0.6);
+
+// 3a. LAND PER REALM, which is the claim the world average cannot make.
+//
+// One big sea can hold the world average down while a realm the player has to
+// walk across is half water, and that is exactly what the old continent mask
+// did. So each realm is measured on a uniform grid over its OWN disc, and two
+// of the nine are water on purpose and are named rather than waved through:
+// the Sunken Kingdom IS the Caldera Sea, and the Ashen Throne's disc reaches
+// nine hundred metres into that sea, which is what gives Cinderport a shore to
+// stand on. The other seven are dry country with water in them.
+//
+// Driven both ways: the 70% floor holds for the seven, and the two named ones
+// are measured against it and are under it, so the floor is a bound and not a
+// formality.
+{
+  const COAST_REALMS = new Set(['sunkenkingdom', 'ashenthrone']);
+  const rows = [];
+  for (const zn of REALM_ZONES) {
+    let m = 0, dry = 0;
+    for (let x = zn.x - zn.r; x <= zn.x + zn.r; x += 40) for (let z = zn.z - zn.r; z <= zn.z + zn.r; z += 40) {
+      if ((x - zn.x) ** 2 + (z - zn.z) ** 2 > zn.r * zn.r) continue;
+      m++; if (!f.sampleAt(x, z).water) dry++;
+    }
+    rows.push({ id: zn.id, land: dry / m, n: m });
+  }
+  const say = rows.map((r) => `${r.id} ${(100 * r.land).toFixed(0)}%`).join(', ');
+  const inland = rows.filter((r) => !COAST_REALMS.has(r.id));
+  const worst = inland.reduce((a, b) => (a.land < b.land ? a : b));
+  check('every realm but the two the sea is in is at least 70% land',
+    worst.land >= 0.70, `${say}; the driest walked realm is ${worst.id} at ${(100 * worst.land).toFixed(1)}% over ${worst.n} samples of its disc`);
+  const green = rows.find((r) => r.id === 'greenwold');
+  check('and the Greenwold, where the first hour happens, is nearly all of it land',
+    green.land >= 0.94, `${(100 * green.land).toFixed(1)}% over ${green.n} samples`);
+  // the other way: the floor is one a realm can fail, and two of them do
+  const sunk = rows.find((r) => r.id === 'sunkenkingdom');
+  const ash = rows.find((r) => r.id === 'ashenthrone');
+  check('while the Sunken Kingdom is under it, because it is the sea',
+    sunk.land < 0.35, `${(100 * sunk.land).toFixed(1)}% land`);
+  check('and the Ashen Throne is under it too, because a third of its disc is the Caldera Sea',
+    ash.land < 0.70 && ash.land > 0.50, `${(100 * ash.land).toFixed(1)}% land, and Cinderport stands on that shore`);
+}
 
 // 4. rivers sit at or below sea level so the water plane fills them
 let riverAbove = 0, riverSamples = 0;
@@ -77,16 +124,40 @@ for (let i = 0; i < 4000; i++) {
 }
 check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows this as a cliff, which mountains are allowed to be)', worst < 8, `worst ${worst.toFixed(2)}`);
 
-// 6. THE HEART DOES NOT MOVE.
+// 6. THE HEART, AND THE TWO TIMES IT HAS MOVED.
 //
-// Saves already exist and a character is standing in one of the towns near the
-// origin. When the world was bounded and the zones were laid over it, the one
-// thing that could not change was the ground a save is on. So: a 2 km square
-// about the origin, 101 x 101 samples at 20 m, every field of every sample
-// digested. The constant below was taken from the commit BEFORE zones.js
-// existed, by running the same loop against that checkout. If a later change
-// moves so much as one metre of the heart, this line goes red and names the
-// change that did it.
+// A 2 km square about the origin, 101 x 101 samples at 20 m, every field of
+// every sample digested. It exists because saves exist: a character is standing
+// in one of the towns near the origin, and the ground under them may not shift
+// under a change that was about something else. The number held from before
+// zones.js existed through zones, the world's rim, the Caldera Sea, A3's wild
+// structures and V1's relief, and every one of those was proved harmless by
+// this line staying green.
+//
+// IT MOVED ON 2026-09-06, deliberately, twice in one day, and the number below
+// is what it moved to.
+//
+// First the coast. `field.LAND_LO` and `LAND_HI` went from (-0.20, 0.06) to
+// (-0.62, -0.34) because 55% of the world was water: the Greenwold read as a
+// green archipelago and the Boneyard's hamlet stood on a beach. That is the
+// continent function itself, so it moved the raw ground everywhere outside the
+// home disc, the heart with it. There was no way to have the world be land and
+// have this square be what it was.
+//
+// Then the spawn. `sitegrid.SPAWN_CLEAR` (600 m) stops the world rolling
+// anything for itself within sight of the origin, because the first place has
+// to be a walk and a dungeon mouth at 348 m is furniture. Isolated by running
+// this same digest with SPAWN_CLEAR set to 0: that gives
+// 47ff5817bbd7265ba9f1635840ef43de3f09b7f9c603b2747d784f26f60aefaf, the number
+// the coast alone left, and the whole of the difference is 576 samples that
+// used to name the Cold Workings and 2 whose height moved, by 0.10 m, where its
+// ten metre pad had been. Nothing else R1 did touches this square at all: the
+// road judgement, the mine aiming, the karst hold and the two ports that moved
+// are all measured against that same 47ff5817 and change none of it.
+//
+// The promise stands, with a new number under it. If a later change moves so
+// much as one metre of the heart, this line goes red and names the change that
+// did it.
 {
   // the field the GAME builds, not this file's default one: world_runtime.js
   // passes homeY -0.3, and it is that ground a save is standing on
@@ -108,9 +179,10 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
     const pad = s.site && s.site.flatR > 0 ? s.site.id + ':' + s.site.kind : '-';
     h.update(`${s.h}|${s.biome}|${s.water}|${s.river}|${s.land}|${s.temp}|${s.moist}|${s.road}|${pad}\n`);
   }
-  const HEART = '6408cb4e64daf869910a654e0737f570d78de706987ee244f8e55f76c265a521';
+  const HEART = '701b023f02253c6d363e59737d8c0c0bb4cc5dd72329379c5941aacf36c1e151';   // re-pinned 2026-09-06 when the Greenwold became meadow; before that 77a4a1da (the spawn clear) and 6408cb4e (before the coast moved)
   const got = h.digest('hex');
-  check('the 2 km square around the origin is bit for bit what it was before zones existed', got === HEART,
+  if (process.env.PRINT_HEART) console.log('HEART DIGEST', got);
+  check('the 2 km square around the origin is bit for bit what the coast and the spawn clear left it', got === HEART,
     `${n} samples, ${named} name a site, ${shaping} name one that lays a pad, ${got.slice(0, 16)}...`);
 
   // 6a. the pad-less site in the heart, driven both ways
@@ -192,9 +264,15 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
     if (b.river > 0.5 && a.river <= 0.5) dropped++;
     h.update(`${d}|${a.river - b.river}\n`);
   }
-  const MESA = 'c6900f56e4226872282239f5d7455e5f6f9bf17aa42da993090fdb412bef5deb';
+  // Re-pinned on 2026-09-06 with the coast. Relief is laid on top of the ground
+  // the noise made, so a continent function that moves the ground moves what
+  // relief is laid over: 12% of the Ember Wastes was lifted before and 11% is
+  // now, up to 39.9 m against 49.6. Nothing in the relief code changed, and
+  // nothing R1 did moves this number: it read c8738d3e before R1 touched a file
+  // and it reads c8738d3e now.
+  const MESA = 'c8738d3e0ea76e50069ffe317fc0ad9298a4199042f3c48c9029133a00698623';
   const got = h.digest('hex');
-  check('the relief over the Ember Wastes is what V1 measured it to be', got === MESA,
+  check('the relief over the Ember Wastes is what it is on this coast', got === MESA,
     `${n} samples, ${(100 * lifted / n).toFixed(0)}% lifted, up to ${hi.toFixed(1)} m, ${dropped} river cells left dry, ${got.slice(0, 16)}...`);
 }
 
@@ -556,8 +634,17 @@ console.log('the Caldera Sea');
     sizes.sort((a, b) => b - a);
     check('the Thousand Isles are an archipelago and not one island', islands >= 40,
       `${islands} islands over ${pts.size} dry cells at 20 m; the largest is ${sizes[0]} cells, the median ${sizes[sizes.length >> 1]}`);
-    check('and they are small: no islet is a tenth of the sea', sizes[0] * step * step < Math.PI * SEA.full * SEA.full * 0.1,
-      `${(sizes[0] * step * step / 1000).toFixed(0)} thousand square metres`);
+    // The bound is an absolute one now and not a share of the sea. It was a
+    // tenth of SEA.full's area, which meant that a sea shrinking round the
+    // isles could make a fixed islet illegal without the islet changing by a
+    // metre, which is what happened on 2026-09-06 when the coast moved. What an
+    // islet actually has to be is small enough to walk round: half a square
+    // kilometre is about eight hundred metres across at the widest.
+    const ISLET_MAX = 500000;
+    check(`and they are small: no islet is over ${ISLET_MAX / 1000} thousand square metres`,
+      sizes[0] * step * step < ISLET_MAX,
+      `the largest is ${(sizes[0] * step * step / 1000).toFixed(0)} thousand, the median ${(sizes[sizes.length >> 1] * step * step / 1000).toFixed(1)} thousand, `
+      + `against ${(Math.PI * SEA.full * SEA.full / 1000000).toFixed(1)} square km of open sea`);
     // and the middle of the sea, over the drowned city, is still open water
     let deepN = 0, deepWet = 0;
     for (let a = 0; a < 64; a++) for (const rr of [0, 150, 300]) {

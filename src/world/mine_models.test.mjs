@@ -164,11 +164,18 @@ console.log('mine_models: every cut of every mine, on its own hillside');
 }
 
 // The one thing a mouth cannot get wrong: the track. Measured on the steepest
-// cut in the world, where the ground falls 9.5 m over six metres.
+// cut in the world, FOUND by measuring every mouth's fall over six metres and
+// its rise four metres back, not by naming one: the coast moved on 2026-09-06
+// and the Marrow Mine's first mouth, once the steepest, stands on flat ground.
 console.log('mine_models: the track follows the ground it is laid on');
 {
-  const ember = MINES.find((m) => m.name === 'The Marrow Mine');
-  const mouth = ember.mouths[0];
+  let mouth = null, steep = -Infinity;
+  for (const m of MINES) for (const mo of m.mouths) {
+    const fall = mo.y - heightAt(mo.x + Math.sin(mo.facing) * 6, mo.z + Math.cos(mo.facing) * 6);
+    const rise = heightAt(mo.x - Math.sin(mo.facing) * 4, mo.z - Math.cos(mo.facing) * 4) - mo.y;
+    if (rise > 0 && fall > steep) { steep = fall; mouth = mo; }
+  }
+  check('some mouth in the world stands on a real slope', !!mouth && steep > 2, `steepest fall ${steep.toFixed(1)} m over six metres`);
   const g = buildMineMouth(mouth, { heightAt });
   // every vertex of the merged mouth, checked against the terrain under it
   g.updateMatrixWorld(true);

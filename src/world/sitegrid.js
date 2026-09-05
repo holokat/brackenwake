@@ -127,6 +127,20 @@ export const WILD_CHANCE = 0.93;
  */
 export const WILD_MIN_R = HEART_SAFE;
 
+/**
+ * Metres from the origin inside which the world rolls nothing at all.
+ *
+ * The heart rule above is about the GROUND under a save. This one is about
+ * what the player sees on the first morning: the walk out of the farm should
+ * cross open country and arrive somewhere, and it cannot do that if a dungeon
+ * mouth is standing three hundred metres from the gate. `world_runtime.js`
+ * streams sites within 576 m of the player, so 600 puts the nearest rolled
+ * thing outside the ring the spawn builds, and the first place is always a
+ * walk. Authored places are exempt: the Standing Hedge stands at 837 m because
+ * the sheet has always put it there, and it lays no ground down.
+ */
+export const SPAWN_CLEAR = 600;
+
 /** Is any part of cell (cx, cz) within WILD_MIN_R of the origin? */
 export function heartCell(cx, cz) {
   const x0 = cx * SITE_CELL, x1 = x0 + SITE_CELL;
@@ -436,6 +450,17 @@ export function cellRoll(seed, cx, cz) {
 export function siteAllowed(site, r, homeK) {
   if (homeK < 1) return false;                       // not on the farm's disc
   if (site.authored) return true;
+  // Nothing the world rolls for itself stands within sight of the spawn. The
+  // first place has to be a walk: a dungeon mouth three hundred metres from
+  // where a character wakes up is not a discovery, it is furniture, and the
+  // ground round the origin belongs to the player before it belongs to the
+  // generator. `world_runtime.js` streams a 576 m ring about the player, so
+  // SPAWN_CLEAR stands outside it and the ring holds nothing rolled at all.
+  // Driven both ways in sitegrid.test.mjs and measured in
+  // world_runtime.test.mjs.
+  // Written as "not far enough" rather than "near", so a site handed in with no
+  // point at all is refused instead of quietly exempted.
+  if (!(site.x * site.x + site.z * site.z >= SPAWN_CLEAR * SPAWN_CLEAR)) return false;
   // No wild structure in the heart. `cellRoll` already refuses to roll one
   // there, and this is the second lock on the same door: the digest of the 2 km
   // square in field.test.mjs is the ground every save already stands on, and a

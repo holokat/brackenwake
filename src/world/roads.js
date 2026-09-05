@@ -67,25 +67,36 @@ function stateOf(field) {
   return st;
 }
 
-// The ground a road's profile is sampled from: the raw terrain, plus the home
-// disc and the flat pads of the road's own two settlements. It cannot call
+// The ground a road's profile is sampled from and judged against: the raw
+// terrain, the home disc, and whatever pad stands here. It cannot call
 // field.sampleAt, because sampleAt is what asks for roads.
 //
-// The river reading comes back with the height in a shared scratch rather than
-// a fresh object, because raw() is the expensive call in this module and asking
-// it twice for one point doubled the cost of laying a road.
-const G = { h: 0, river: 0 };
-function groundUnder(field, x, z, a, b) {
-  const r = field.raw(x, z);
-  let h = lerp(field.homeY, r.h, field.homeFactor(x, z));
-  for (let i = 0; i < 2; i++) {
-    const s = i === 0 ? a : b;
-    const d = Math.hypot(x - s.x, z - s.z);
-    if (d < s.flatR + 4) h = lerp(h, s.y, 1 - smoothstep(s.flatR * 0.55, s.flatR + 4, d));
-  }
-  G.h = h; G.river = r.river;
-  return h;
+// IT IS FIELD.JS'S OWN FUNCTION and no longer a copy of it. The copy that lived
+// here knew about the road's own two settlements and about nothing else, and it
+// did not know that a pad takes the road's AUTHORITY as well as its ground:
+// field.js grades a road by `road * (1 - pad) * fordFade(river)`, so where a
+// town's shoulder owns the ground the road moves none of it. Judged with the
+// full weight, the last twelve metres of the road into a hamlet standing on a
+// bank read 0.49 to this file and 0.64 to the world. One function, one weight,
+// and what a road is judged on is what a road does.
+//
+// The readings come back in a scratch rather than a fresh object, because
+// raw() is the expensive call in this module and asking it twice for one point
+// doubled the cost of laying a road. The scratch is this module's own: field.js
+// keeps a separate one, so a sampleAt that asks for a road while a road asks
+// for the ground cannot clobber either.
+const G = { h: 0, river: 0, pad: 0, site: null, k: 0, r: null };
+function groundUnder(field, x, z) {
+  field.groundNoRoads(x, z, G);
+  return G.h;
 }
+
+/**
+ * The weight field.sampleAt gives a road ON ITS CENTRELINE at this point: the
+ * home factor, less whatever the pad owns, less whatever a ford gives back to
+ * the river. `roadStrength(0)` is 1, so this is the whole of it.
+ */
+const roadWeight = () => G.k * (1 - G.pad) * fordFade(G.river);
 
 /** World point at arc-length fraction t along a segment list. */
 function pointAlong(segs, total, t) {
@@ -177,12 +188,16 @@ function roadFor(field, p, q) {
   const n = Math.max(2, Math.round(total / ANCHOR_STEP) + 1);
   const prof = new Float64Array(n), ground = new Float64Array(n);
   const wetAnchor = new Uint8Array(n);
+  // how much of each anchor the road is actually allowed to move, which is what
+  // field.sampleAt will give it there and nothing more
+  const wAnchor = new Float64Array(n);
   const ceiling = Math.max(a.y, b.y) + ROAD_CLIMB;
   const dry = field.seaLevel + ROAD_DRY;
   for (let i = 0; i < n; i++) {
     const [x, z] = pointAlong(segs, total, i / (n - 1));
-    ground[i] = groundUnder(field, x, z, a, b);
+    ground[i] = groundUnder(field, x, z);
     wetAnchor[i] = G.river > FORD ? 1 : 0;
+    wAnchor[i] = roadWeight();
     prof[i] = ground[i];
   }
   for (let i = 1; i < n - 1; i++) {
@@ -214,7 +229,7 @@ function roadFor(field, p, q) {
   let usable = true;
   for (let i = 0; i < n && usable; i++) {
     if (wetAnchor[i]) continue;                        // a ford, not the sea
-    const s = roadSurface(ground[i], prof[i]);
+    const s = roadSurface(ground[i], prof[i], wAnchor[i]);
     if (s < dry || s > ceiling) usable = false;
   }
   if (usable) {
@@ -224,9 +239,9 @@ function roadFor(field, p, q) {
     for (let i = 1; i <= m && usable; i++) {
       const t = i / m;
       const [x, z] = pointAlong(segs, total, t);
-      const g = groundUnder(field, x, z, a, b);
+      const g = groundUnder(field, x, z);
       const rv = G.river;
-      const s = roadSurface(g, roadHeightAt(road, t), fordFade(rv));
+      const s = roadSurface(g, roadHeightAt(road, t), roadWeight());
       // a ford is the river's bank, not the road's grade: the crossing is not
       // judged, and neither is the step back out of it onto dry ground
       if (rv > 0) { prev = null; continue; }

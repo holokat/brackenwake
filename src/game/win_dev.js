@@ -68,6 +68,8 @@ export const GOLD_STEPS = [100, 1000, 10000];
 export const PLACE_RADIUS = 8000;
 /** How far outside a site's flat ground a teleport puts you, in metres. */
 export const EDGE_PAD = 8;
+/** How far along a wide body's own reach a landing stands, as a fraction of `bodyR`. */
+export const BODY_LAND = 0.9;
 /** Where a spawn lands when the cursor is not on the ground, in metres ahead. */
 export const SPAWN_AHEAD_M = 6;
 /** Rows kept per kind in the places list. 119 sites stand within 6 km. */
@@ -202,7 +204,16 @@ export function groupSites(sites, from = { x: 0, z: 0 }) {
  */
 export function edgeOf(site, from, pad = EDGE_PAD) {
   const sx = num(site?.x), sz = num(site?.z);
-  const off = num(site?.flatR) + pad;
+  // A pad is what a place STANDS ON; `bodyR` is how far its stones actually
+  // reach. The Standing Hedge lays no pad at all and its nine stones sit on a
+  // ring 811 m out, so landing at `flatR + pad` put you eight metres from a
+  // point in the middle of a mile of grass with nothing in sight. So the
+  // landing is taken at nine tenths of the body's own reach, on the side the
+  // player is coming from, looking in: close enough to a stone to touch it,
+  // and inside the ring rather than outside it, which is where the place is.
+  // `bodyR` is 0 on every site but two, so nothing else moves.
+  const body = num(site?.bodyR);
+  const off = body > 0 ? Math.max(num(site?.flatR) + pad, body * BODY_LAND) : num(site?.flatR) + pad;
   const dx = num(from?.x) - sx, dz = num(from?.z) - sz;
   const d = Math.hypot(dx, dz);
   const ux = d > 1e-3 ? dx / d : Math.sin(num(site?.facing));

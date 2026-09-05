@@ -7,6 +7,7 @@ import { createWorldField, CHUNK } from './field.js';
 import {
   roadsForCell, roadDistanceAt, roadHeightAt, linksForCell,
   ROAD_HALF_WIDTH, ROAD_CUT, ROAD_FILL, ROAD_GRADE, ROAD_LINKS, ROAD_REACH,
+  roadSurface, fordFade,
 } from './roads.js';
 import { recordsFor } from './flora.js';
 import { buildChunkGeometry, buildPalette } from './chunks.js';
@@ -281,6 +282,41 @@ const maxSlope = (a) => {
   let smoother = 0; for (let i = 0; i < on.length; i++) if (on[i] < off[i]) smoother++;
   check(`no road is ever steeper than ${ROAD_GRADE} over ${STEP} m`, worstOn <= ROAD_GRADE,
     `worst ${worstOn.toFixed(3)}, median road ${med(on).toFixed(3)}`);
+  // AND THE JUDGEMENT IS THE SAME SURFACE, which is the bug this bound had.
+  //
+  // roads.js decides a road is usable by walking the surface it would leave.
+  // It used to work that surface out from its own copy of field.js's pad
+  // arithmetic, and the copy did not know that a pad takes the road's AUTHORITY
+  // as well as its ground: `field.sampleAt` grades by `road * (1 - pad) *
+  // fordFade`, so where a town's shoulder owns the ground the road moves none
+  // of it. On 2026-09-06 the last twelve metres of the road into the hamlet at
+  // cell -12, 4 read 0.49 to the judgement and 0.64 to the world, and this
+  // bound went red on a road the module had already approved. It is one
+  // function now, `field.groundNoRoads`, and this is the check that it stays
+  // one: the surface roads.js judges, on the centreline, is the surface
+  // field.sampleAt lays. Not to the last bit, and the reason is named rather
+  // than hidden: sampleAt scales by `roadStrength(rd.d)` and `rd.d` on a
+  // centreline point is a float's width from zero, not zero, so the two answers
+  // part company in the fourteenth decimal place and nowhere else.
+  {
+    let worstGap = 0, at = '', n = 0;
+    for (const r of roads) {
+      const m = Math.max(2, Math.round(r.total / 4));
+      for (let i = 1; i < m; i++) {
+        const p = alongRoad(r, i / m);
+        const g = {};
+        f.groundNoRoads(p.x, p.z, g);
+        if (g.river > 0) continue;                      // a ford is the river's
+        const judged = roadSurface(g.h, roadHeightAt(r, i / m), g.k * (1 - g.pad) * fordFade(g.river));
+        const laid = f.sampleAt(p.x, p.z).h;
+        n++;
+        const d = Math.abs(judged - laid);
+        if (d > worstGap) { worstGap = d; at = `${r.id} at ${p.x.toFixed(0)}, ${p.z.toFixed(0)}`; }
+      }
+    }
+    check('and the surface roads.js judged is the surface field.js laid',
+      worstGap < 1e-9, `${n} centreline points over ${roads.length} roads, worst ${worstGap.toExponential(1)} m${worstGap > 1e-9 ? ' at ' + at : ''}`);
+  }
   // The grading is doing work when the road is smoother than the ground beside
   // it. The old form asked for a verge steeper than ROAD_GRADE somewhere, which
   // was an example rather than a property, and the twelve roads the bounded

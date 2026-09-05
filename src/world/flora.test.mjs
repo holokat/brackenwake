@@ -401,20 +401,39 @@ console.log('\nflora: roads and avenues');
     elsewhere === 0, `${elsewhere} of ${trees.length} outside the Greenwold`);
   // the rhythm: one each side every AVENUE_STEP along one road
   {
+    // THE ROAD IS THE LONGEST ONE IN THE REALM, AND THE TREES ARE HARVESTED
+    // OVER THE CHUNKS IT ACTUALLY CROSSES.
+    //
+    // The old form took its road from an eight by eight block of site cells and
+    // its trees from the census above, which walked a fixed 53 x 53 block of
+    // chunks: 3.8 km of road against 3.4 km of trees. When the coast moved on
+    // 2026-09-06 the longest Greenwold road became one that leaves the tree
+    // block half way along, so six of its seventy five trees were counted and
+    // it read as 0.7 per 100 m. The avenue was never broken. Measured over its
+    // own chunks, every Greenwold road carries between 5.4 and 10.4 trees per
+    // 100 m against a full line of 11.1.
     let best = null;
     const seen = new Map();
-    // only the site cells the block above actually walked, or the longest road
-    // in the realm can be one whose trees were never collected
-    for (let j = -4; j <= 3; j++) for (let i = -4; i <= 3; i++) for (const r of roadsForCell(f, i, j)) seen.set(r.id, r);
+    const CELLS = Math.ceil(8000 / 480);
+    for (let j = -CELLS; j <= CELLS; j++) for (let i = -CELLS; i <= CELLS; i++) {
+      for (const r of roadsForCell(f, i, j)) seen.set(r.id, r);
+    }
     for (const r of seen.values()) {
       const m = r.segs[Math.floor(r.segs.length / 2)];
       if (f.sampleAt(m.x0, m.z0).realm !== 'greenwold') continue;
       if (!best || r.total > best.total) best = r;
     }
-    const mine = trees.filter((t) => {
-      const rd = roadDistanceAt(f, t.x, t.z);
-      return rd && best && rd.road.id === best.id;
-    });
+    const mine = [];
+    if (best) {
+      const c0x = Math.floor((best.minX - 70) / 64), c1x = Math.floor((best.maxX + 70) / 64);
+      const c0z = Math.floor((best.minZ - 70) / 64), c1z = Math.floor((best.maxZ + 70) / 64);
+      for (let cz = c0z; cz <= c1z; cz++) for (let cx = c0x; cx <= c1x; cx++) {
+        for (const t of avenueFor(f, cx, cz, {})) {
+          const rd = roadDistanceAt(f, t.x, t.z);
+          if (rd && rd.road.id === best.id) mine.push(t);
+        }
+      }
+    }
     const ts = mine.map((t) => roadDistanceAt(f, t.x, t.z).t * best.total).sort((a, b) => a - b);
     const gaps = [];
     for (let i = 1; i < ts.length; i++) gaps.push(ts[i] - ts[i - 1]);
