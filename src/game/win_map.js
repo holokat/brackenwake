@@ -20,6 +20,32 @@
 //
 // Click any discovered site or zone to set a waypoint. compass.js reads it.
 //
+// ---- the right hand column ----------------------------------------------
+//
+// The map was 640 pixels of picture beside 640 pixels of nothing, and a footer
+// that said three numbers. A picture cannot tell you which way a place is, or
+// how far, or what the country is called, so the other half of the page is the
+// index to the map, in the codex's own hand:
+//
+//   WHERE YOU STAND   the zone you are in and its line, the ground under your
+//                     feet in words, the way to the nearest town, and the way
+//                     to your mark with a button to drop it
+//   REGIONS           all twenty one, nearest first. Walked: its name and its
+//                     danger band in the game's own words. Not walked: the way,
+//                     the distance and the word "unwalked", and NOT the name,
+//                     which is exactly what the hatching on the map means
+//   PLACES FOUND      every site the character has walked up to, nearest first
+//   the key           one swatch for every colour the draw above actually uses
+//
+// Every row of the last two lists is a click that sets the waypoint, and every
+// one of those clicks says so in the line under the map and in a toast.
+//
+// `sideModel()` works all of it out with no DOM, so what is tested is what is
+// shown, and the places it lists come out of `foundPlaces()`, which is the same
+// call the draw itself makes: the list and the footer's count cannot disagree.
+// The bearings and the distances are compass.js's `bearingOf` and
+// `distanceText`, not a second copy of the same arithmetic in another frame.
+//
 // THE STRIDE, MEASURED.
 //
 //   `field.sampleAt` costs about 2.0 microseconds warm on this machine. The
@@ -31,7 +57,13 @@
 
 import { roadsForCell } from '../world/roads.js';
 import { SITE_CELL } from '../world/sitegrid.js';
-import { ZONES, WORLD_HALF, zoneAt } from '../world/zones.js';
+import { BIOMES } from '../world/field.js';
+import {
+  ZONES, WORLD_HALF, zoneAt, wildDanger, DANGER_WORD, ARTICLE,
+} from '../world/zones.js';
+import { ZONE_ENTER_W } from '../world/sites.js';
+import { bearingOf, distanceText, POINTS } from './compass.js';
+import { theme } from './ui_theme.js';
 
 /** The map is this many metres across: the whole world, plus its ocean rim. */
 export const MAP_SPAN = 2 * WORLD_HALF;
@@ -68,6 +100,128 @@ export const DANGER_TINT = {
 };
 export const EDGE_COLOUR = '#7fa8c8';
 export const WAYPOINT_COLOUR = '#8fe0ff';
+/** The arrow that is you. The draw and the key take the same value. */
+export const PLAYER_COLOUR = '#ffe08a';
+/** The wash and the strokes over country nobody has walked into. */
+export const HATCH_INK = 'rgba(150,160,175,.30)';
+export const HATCH_WASH = 'rgba(10,12,16,.55)';
+
+/**
+ * The word for the ground under a point. These are the words the place plate
+ * says as you walk, so the map and the HUD call the same field the same thing.
+ */
+export const GROUND_WORD = {
+  ocean: 'open water', beach: 'the shore', meadow: 'open meadow',
+  boreal: 'pine woods', desert: 'dry country', sakura: 'blossom country',
+  mountain: 'high ground', snow: 'the snowline',
+};
+
+/**
+ * The short word a place's kind wears in a row. `ARTICLE` in zones.js is the
+ * sentence a toast says on arriving; this is the label a list can hold.
+ */
+export const KIND_WORD = {
+  town: 'town', hamlet: 'hamlet', ruin: 'ruin', shrine: 'shrine',
+  dungeon: 'dungeon', cave: 'cave', camp: 'camp', mine: 'mine',
+};
+
+/** The eight compass points, written out. compass.js owns the bearings. */
+export const POINT_WORD = {
+  N: 'north', NE: 'north east', E: 'east', SE: 'south east',
+  S: 'south', SW: 'south west', W: 'west', NW: 'north west',
+};
+
+/**
+ * The key under the lists: one row per thing the draw above actually paints.
+ * `swatch` says how the mark is drawn, not what it means.
+ */
+export const LEGEND = [
+  { id: 'ocean', label: 'sea', swatch: 'biome' },
+  { id: 'beach', label: 'shore', swatch: 'biome' },
+  { id: 'meadow', label: 'meadow', swatch: 'biome' },
+  { id: 'boreal', label: 'forest', swatch: 'biome' },
+  { id: 'sakura', label: 'blossom', swatch: 'biome' },
+  { id: 'desert', label: 'desert', swatch: 'biome' },
+  { id: 'mountain', label: 'mountain', swatch: 'biome' },
+  { id: 'snow', label: 'snow', swatch: 'biome' },
+  { id: 'road', label: 'road', swatch: 'line', colour: ROAD_COLOUR },
+  { id: 'unwalked', label: 'unwalked', swatch: 'hatch', colour: HATCH_INK },
+  { id: 'waypoint', label: 'your mark', swatch: 'ring', colour: WAYPOINT_COLOUR },
+  { id: 'you', label: 'you', swatch: 'arrow', colour: PLAYER_COLOUR },
+];
+
+/** The css colour a key row's swatch takes. Biomes come out of the palette. */
+export function legendColour(row) {
+  if (row.swatch === 'biome') {
+    const c = BIOME_COLOUR[row.id];
+    return c ? `rgb(${c[0]},${c[1]},${c[2]})` : '#888888';
+  }
+  return row.colour || '#888888';
+}
+
+/**
+ * Every word this panel promises, checked at import.
+ *
+ * A ninth biome, a ninth kind of place or a ninth compass point would otherwise
+ * be drawn with no name, no swatch and no row, which is the class of bug that
+ * shipped four biomes with a pickaxe that did nothing.
+ */
+export function auditMapWords() {
+  const bad = [];
+  for (const b of BIOMES) {
+    if (!BIOME_COLOUR[b]) bad.push(`the field can return "${b}" and the map has no colour for it`);
+    if (!GROUND_WORD[b]) bad.push(`the field can return "${b}" and the map has no word for it`);
+    if (!LEGEND.some((r) => r.swatch === 'biome' && r.id === b)) bad.push(`"${b}" is drawn on the map and is not in the key`);
+  }
+  for (const r of LEGEND) {
+    if (!r.label) bad.push(`a key row has no label`);
+    if (r.swatch === 'biome' && !BIOME_COLOUR[r.id]) bad.push(`the key has a swatch for "${r.id}", which the map never draws`);
+    if (r.swatch !== 'biome' && !r.colour) bad.push(`the "${r.id}" key row has no colour`);
+  }
+  for (const k of Object.keys(ARTICLE)) {
+    if (!SITE_COLOUR[k]) bad.push(`a ${k} is a place in the world and has no colour on the map`);
+    if (!KIND_WORD[k]) bad.push(`a ${k} is a place in the world and has no word for the list`);
+  }
+  for (const k of Object.keys(KIND_WORD)) if (!ARTICLE[k]) bad.push(`"${k}" is a word for a kind of place the world never makes`);
+  for (const [label] of POINTS) if (!POINT_WORD[label]) bad.push(`the compass has a ${label} point and the map has no word for it`);
+  for (let t = 1; t <= 5; t++) if (!DANGER_WORD[t]) bad.push(`monster tier ${t} has no word for a region row`);
+  if (bad.length) throw new Error(`auditMapWords: ${bad.length} problem(s)\n  ${bad.join('\n  ')}`);
+  return { biomes: BIOMES.length, kinds: Object.keys(KIND_WORD).length, key: LEGEND.length };
+}
+
+auditMapWords();
+
+/** The compass point a direction is nearest, in words: "north east". */
+export function bearingWord(dx, dz) {
+  if (!dx && !dz) return 'here';
+  const step = (Math.PI * 2) / POINTS.length;
+  const i = Math.round(bearingOf(dx, dz) / step) % POINTS.length;
+  return POINT_WORD[POINTS[i][0]];
+}
+
+/**
+ * How a row says where a thing is: the point of the compass and the distance,
+ * both in compass.js's own words, so the strip across the top of the screen and
+ * the list in the codex never round the same walk two different ways.
+ */
+export function wayText(dx, dz) {
+  const d = Math.hypot(dx, dz);
+  if (d < 20) return 'right here';
+  return `${bearingWord(dx, dz)}, ${distanceText(d)}`;
+}
+
+/**
+ * A danger band in the game's own words. A band of one tier is the word the
+ * arrival banner uses; a band of two says both ends, because "3 to 4" is a
+ * number a player has never been shown and cannot read.
+ */
+export function dangerWords(danger) {
+  if (!Array.isArray(danger)) return '';
+  const [lo, hi] = danger;
+  const a = DANGER_WORD[lo], b = DANGER_WORD[hi];
+  if (!a || !b) return '';
+  return lo === hi ? a : `${a} at best, ${b} at worst`;
+}
 
 /**
  * The colour of one sample: the biome, shaded by height so a range reads as a
@@ -148,6 +302,122 @@ export function pickAt(px, py, opts) {
   return null;
 }
 
+/**
+ * Every site on this map the character has found, in cell order.
+ *
+ * The draw calls this and so does the list beside it, which is the whole point
+ * of it being a function: the footer says "two places found" because this
+ * returned two rows, and the list under PLACES FOUND holds those same two rows.
+ * Two loops over the same cells would eventually disagree and the player would
+ * be the one who noticed.
+ */
+export function foundPlaces(opts) {
+  const { field, cx = 0, cz = 0 } = opts;
+  const span = opts.span ?? MAP_SPAN;
+  const has = asHas(opts.discovered);
+  const out = [];
+  if (!field) return out;
+  for (const [ccx, ccz] of cellsIn(cx, cz, span)) {
+    const s = field.siteInCell(ccx, ccz);
+    if (!s || !has(s.id)) continue;
+    out.push(s);
+  }
+  return out;
+}
+
+/** A row of any list: what it is, where it is, and how a player says so. */
+function wayRow(x, z, cx, cz) {
+  const dx = x - cx, dz = z - cz;
+  return { x, z, dist: Math.hypot(dx, dz), way: wayText(dx, dz), bearing: bearingWord(dx, dz) };
+}
+
+const byDist = (a, b) => a.dist - b.dist;
+
+/**
+ * Everything the column beside the map says, worked out with no DOM at all.
+ *
+ * @param opts { field, cx, cz, span, discovered, zonesFound, waypoint }
+ * @returns {{
+ *   here: { zone, name, line, danger, ground, wild },
+ *   town: object | null,
+ *   waypoint: object | null,
+ *   regions: object[], walked: number,
+ *   places: object[],
+ *   key: object[],
+ * }}
+ *
+ * A region a player has not walked into comes back with `name: null` and
+ * `id: null`. The name is the thing the hatching on the map is withholding, and
+ * a model that carried it would put it one careless `textContent` away from the
+ * screen.
+ */
+export function sideModel(opts = {}) {
+  const { field = null, cx = 0, cz = 0 } = opts;
+  const span = opts.span ?? MAP_SPAN;
+  const foundZone = asHas(opts.zonesFound);
+
+  // where you stand. Half inside is what discovery calls being in a zone, so
+  // the header and the arrival banner agree about which country this is.
+  const hit = zoneAt(cx, cz);
+  const zone = hit && hit.weight >= ZONE_ENTER_W ? hit.zone : null;
+  let ground = null;
+  if (field && typeof field.sampleAt === 'function') {
+    const s = field.sampleAt(cx, cz);
+    ground = GROUND_WORD[s.biome] || s.biome || null;
+  }
+  const here = {
+    zone,
+    name: zone ? zone.name : null,
+    line: zone ? zone.line : null,
+    danger: dangerWords(zone ? zone.danger : wildDanger(cx, cz)),
+    ground,
+    wild: !zone,
+  };
+
+  // the places, out of the same call the draw makes
+  const places = foundPlaces({ field, cx, cz, span, discovered: opts.discovered })
+    .map((s) => ({
+      id: s.id, kind: s.kind, kindWord: KIND_WORD[s.kind] || s.kind, name: s.name,
+      ...wayRow(s.x, s.z, cx, cz),
+    }))
+    .sort(byDist);
+
+  // the nearest town you have found. A hamlet is not a town and is not called
+  // one, but it is the nearest thing with a roof and it is better than a blank.
+  const town = places.find((p) => p.kind === 'town')
+    || places.find((p) => p.kind === 'hamlet')
+    || null;
+
+  // A region's row is walked exactly when the MAP says it is walked, so the
+  // list and the hatching can never say two different things about one zone.
+  const regions = ZONES.map((zn) => {
+    const known = foundZone(zn.id);
+    return {
+      id: known ? zn.id : null,
+      name: known ? zn.name : null,
+      known: !!known,
+      danger: known ? dangerWords(zn.danger) : null,
+      here: !!(zone && zone.id === zn.id),
+      ...wayRow(zn.x, zn.z, cx, cz),
+    };
+  }).sort(byDist);
+
+  const wp = opts.waypoint;
+  const waypoint = wp && Number.isFinite(wp.x) && Number.isFinite(wp.z)
+    ? { name: wp.name || 'your mark', ...wayRow(wp.x, wp.z, cx, cz) }
+    : null;
+
+  return {
+    here,
+    town,
+    waypoint,
+    regions,
+    walked: regions.filter((r) => r.known).length,
+    places,
+    key: LEGEND.map((r) => ({ ...r, colour: legendColour(r) })),
+  };
+}
+
 /** Diagonal hatching inside whatever path is clipped on `g2d`. */
 function hatch(g2d, x0, y0, x1, y1, step, colour) {
   g2d.strokeStyle = colour;
@@ -222,9 +492,9 @@ export function drawMap(g2d, opts) {
         g2d.fillRect(zx - rpx, zy - rpx, rpx * 2, rpx * 2);
       } else {
         // country you have not walked into is hatched and says nothing
-        g2d.fillStyle = 'rgba(10,12,16,.55)';
+        g2d.fillStyle = HATCH_WASH;
         g2d.fillRect(zx - rpx, zy - rpx, rpx * 2, rpx * 2);
-        hatch(g2d, zx - rpx, zy - rpx, zx + rpx, zy + rpx, 7, 'rgba(150,160,175,.30)');
+        hatch(g2d, zx - rpx, zy - rpx, zx + rpx, zy + rpx, 7, HATCH_INK);
       }
       g2d.restore();
       g2d.strokeStyle = known ? `rgba(${tr},${tg},${tb},.75)` : 'rgba(150,160,175,.35)';
@@ -267,13 +537,11 @@ export function drawMap(g2d, opts) {
 
   // 5. sites the character has found, named
   // `discovered` is a list, a Set, or anything with `has`: the character
-  // document keeps an array and sites.js keeps a Set behind a `has`.
-  const has = asHas(opts.discovered);
-  const sites = [];
-  for (const [ccx, ccz] of cellsIn(cx, cz, span)) {
-    const s = field.siteInCell(ccx, ccz);
-    if (!s || !has(s.id)) continue;
-    sites.push(s);
+  // document keeps an array and sites.js keeps a Set behind a `has`. The list
+  // is `foundPlaces`, which is what the column beside the map lists, so the
+  // count in the footer and the rows under PLACES FOUND are one answer.
+  const sites = foundPlaces({ field, cx, cz, span, discovered: opts.discovered });
+  for (const s of sites) {
     const [px, py] = toPixel(s.x, s.z, cx, cz, size, span);
     const r = s.kind === 'town' ? 4.5 : s.kind === 'mine' ? 4 : s.kind === 'hamlet' ? 3.5 : 3;
     g2d.fillStyle = SITE_COLOUR[s.kind] || '#e0e0e0';
@@ -335,7 +603,7 @@ export function drawMap(g2d, opts) {
   g2d.lineTo(0, 3);
   g2d.lineTo(-5, 6);
   g2d.closePath();
-  g2d.fillStyle = '#ffe08a';
+  g2d.fillStyle = PLAYER_COLOUR;
   g2d.fill();
   g2d.strokeStyle = '#241d10';
   g2d.lineWidth = 1.2;
@@ -355,13 +623,123 @@ export function arrowTip(yaw, len = 8) {
 
 // ---------------------------------------------------------------------------
 // The panel.
+//
+// Two columns: the picture on the left with its footer and its one gold line of
+// speech, the index on the right in the codex's own furniture. The headers are
+// `bw-hdr`, which is the rule under THE PACK on the character page, and the
+// rows sit on the same hairline gold border a stat row does, so the map reads
+// as another page of the same book and not as a screenshot with a list beside
+// it.
 
 const CSS = `
-.bw-win-map .bw-map-wrap{position:relative;width:min(640px,78vh);max-width:100%}
-.bw-win-map canvas{display:block;width:100%;height:auto;border-radius:8px;border:1px solid #2f3a2e;background:#0d1014;cursor:crosshair}
-.bw-win-map .bw-map-foot{display:flex;justify-content:space-between;gap:10px;color:#8b9686;font-size:12px;margin-top:8px}
-.bw-win-map .bw-map-say{color:#c9a44a;font-size:12px;margin-top:4px;min-height:15px}
+.bw-win-map .bw-map-cols{
+  display:grid; gap:16px; align-items:start;
+  grid-template-columns:min(640px,78vh) minmax(300px,1fr);
+}
+@media (max-width:1080px){ .bw-win-map .bw-map-cols{ grid-template-columns:1fr; } }
+.bw-win-map .bw-map-wrap{position:relative;width:100%;max-width:min(640px,78vh)}
+.bw-win-map canvas{display:block;width:100%;height:auto;border-radius:8px;border:1px solid ${theme.goldDim}66;background:#0d1014;cursor:crosshair}
+.bw-win-map .bw-map-foot{
+  display:flex;justify-content:space-between;gap:10px;margin-top:8px;
+  font-family:${theme.fonts.display};font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:${theme.parchmentFaint};
+}
+.bw-win-map .bw-map-say{
+  color:${theme.gold};font-size:13.5px;font-style:italic;margin-top:5px;min-height:19px;
+}
+
+.bw-win-map .bw-map-side{ min-width:0; }
+.bw-win-map .bw-map-hint{
+  color:${theme.parchmentFaint};font-size:12.5px;font-style:italic;margin:-2px 0 9px;
+}
+.bw-win-map .bw-map-here{ margin-bottom:9px; }
+.bw-win-map .bw-map-here .zn{
+  font-family:${theme.fonts.display};font-size:18px;font-weight:700;letter-spacing:.04em;
+  color:${theme.parchment};
+}
+.bw-win-map .bw-map-here .dg{
+  font-family:${theme.fonts.display};font-size:10.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:${theme.gold};margin-top:1px;
+}
+.bw-win-map .bw-map-here .ln{
+  font-size:14px;font-style:italic;line-height:1.45;color:${theme.parchmentDim};
+  border-left:2px solid ${theme.goldDim}88;padding-left:9px;margin:6px 0 2px;
+}
+.bw-win-map .bw-map-fact{
+  display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:baseline;
+  padding:3px 0;border-bottom:1px solid rgba(201,164,74,.14);font-size:14px;
+}
+.bw-win-map .bw-map-fact .k{color:${theme.parchmentDim};}
+.bw-win-map .bw-map-fact .v{
+  font-family:${theme.fonts.display};font-size:13px;font-weight:600;
+  font-variant-numeric:tabular-nums;color:${theme.parchment};text-align:right;
+}
+.bw-win-map .bw-map-fact .v.none{font-weight:400;font-style:italic;color:${theme.parchmentFaint};}
+.bw-win-map .bw-map-clear{margin-top:7px;}
+
+.bw-win-map .bw-map-row{
+  display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:baseline;
+  padding:4px 5px;border-bottom:1px solid rgba(201,164,74,.14);
+}
+.bw-win-map .bw-map-row:last-child{border-bottom:0;}
+.bw-win-map .bw-map-row.pick{cursor:pointer;}
+.bw-win-map .bw-map-row.pick:hover{background:rgba(201,164,74,.10);}
+.bw-win-map .bw-map-row.off{opacity:.6;}
+.bw-win-map .bw-map-row.here{background:rgba(201,164,74,.07);}
+.bw-win-map .bw-map-row .nm{
+  font-family:${theme.fonts.display};font-size:14px;color:${theme.parchment};
+}
+.bw-win-map .bw-map-row.off .nm{
+  font-family:${theme.fonts.display};font-size:10.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:${theme.parchmentFaint};
+}
+.bw-win-map .bw-map-row .ds{
+  font-family:${theme.fonts.display};font-size:12.5px;font-variant-numeric:tabular-nums;
+  color:${theme.gold};text-align:right;white-space:nowrap;
+}
+.bw-win-map .bw-map-row .sub{font-size:13px;font-style:italic;color:${theme.parchmentDim};}
+.bw-win-map .bw-map-row .wy{
+  font-size:12px;color:${theme.parchmentFaint};text-align:right;white-space:nowrap;
+}
+.bw-win-map .bw-map-none{
+  font-size:13.5px;font-style:italic;line-height:1.45;color:${theme.parchmentDim};padding:3px 0;
+}
+
+.bw-win-map .bw-map-key{display:flex;flex-wrap:wrap;gap:5px 14px;padding-top:2px;}
+.bw-win-map .bw-map-key .k{
+  display:flex;align-items:center;gap:6px;font-size:12.5px;color:${theme.parchmentDim};
+}
+.bw-win-map .bw-map-key .sw{
+  width:15px;height:11px;flex:0 0 auto;border:1px solid rgba(0,0,0,.55);
+}
+.bw-win-map .bw-map-key .sw.hatch{
+  background-color:${HATCH_WASH};
+  background-image:repeating-linear-gradient(45deg, ${HATCH_INK} 0 1px, rgba(0,0,0,0) 1px 4px);
+}
+.bw-win-map .bw-map-key .sw.line{height:4px;border:0;}
+.bw-win-map .bw-map-key .sw.ring{
+  width:12px;height:12px;border-radius:50%;background:none;border-width:2px;
+}
+.bw-win-map .bw-map-key .sw.arrow{
+  border:0;width:12px;height:13px;clip-path:polygon(50% 0,100% 100%,50% 74%,0 100%);
+}
 `;
+
+/** Where the panel thinks you are. redraw and render must never disagree. */
+function playerAt(ctx) {
+  return ctx?.player?.pos || ctx?.actor?.pos || ctx?.character?.pos || { x: 0, z: 0 };
+}
+
+/** The character document is the record; the runtime's sets are the fallback. */
+function discoveredOf(ctx) { return ctx?.character?.discovered || ctx?.runtime?.discovery || []; }
+function zonesFoundOf(ctx) { return ctx?.character?.zones || ctx?.runtime?.discovery?.zonesFound || []; }
+
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+};
 
 export const panel = {
   id: 'map',
@@ -379,25 +757,35 @@ export const panel = {
     root.classList.add('bw-win-map');
     root.textContent = '';
     this._ctx = ctx;
-    const wrap = document.createElement('div');
-    wrap.className = 'bw-map-wrap';
+
+    const cols = el('div', 'bw-map-cols');
+    const left = el('div', 'bw-map-left');
+    const wrap = el('div', 'bw-map-wrap');
     this._canvas = document.createElement('canvas');
     this._canvas.width = 640;
     this._canvas.height = 640;
     this._canvas.addEventListener('click', (e) => this.clickAt(e));
     wrap.appendChild(this._canvas);
-    this._foot = document.createElement('div');
-    this._foot.className = 'bw-map-foot';
-    this._say = document.createElement('div');
-    this._say.className = 'bw-map-say';
-    root.append(wrap, this._foot, this._say);
+    this._foot = el('div', 'bw-map-foot');
+    this._say = el('div', 'bw-map-say');
+    left.appendChild(wrap);
+    left.appendChild(this._foot);
+    left.appendChild(this._say);
+
+    this._side = el('div', 'bw-map-side bw-panel');
+    cols.appendChild(left);
+    cols.appendChild(this._side);
+    root.appendChild(cols);
     this._since = 0;
+    this.render();
   },
 
   open(ctx) {
     this._ctx = ctx || this._ctx;
     this._since = 0;
-    this.redraw();
+    // with no world loaded yet the draw bows out, and the column still has to
+    // say something rather than leaving the half of the page it owns black
+    if (this.redraw() === null) this.render();
   },
 
   close() { },
@@ -422,16 +810,28 @@ export const panel = {
     const scale = this._canvas.width / (rect.width || this._canvas.width);
     const px = ((ev?.clientX ?? 0) - rect.left) * scale;
     const py = ((ev?.clientY ?? 0) - rect.top) * scale;
-    const p = ctx?.player?.pos || { x: 0, z: 0 };
+    const p = playerAt(ctx);
     const hit = pickAt(px, py, {
       field, cx: p.x, cz: p.z, size: this._canvas.width,
-      discovered: ctx?.character?.discovered || ctx?.runtime?.discovery,
-      zonesFound: ctx?.character?.zones || ctx?.runtime?.discovery?.zonesFound,
+      discovered: discoveredOf(ctx),
+      zonesFound: zonesFoundOf(ctx),
     });
     if (!hit) {
       this.setSay('Nothing there you have been to. Click a place or a region you have found.');
       return null;
     }
+    return this.setWaypoint(hit);
+  },
+
+  /**
+   * The one way a waypoint is ever written. The map's click lands here and so
+   * does every row of the two lists, so a row and a click cannot write to two
+   * different fields, and neither can forget to tell `state` to save it.
+   */
+  setWaypoint(hit) {
+    if (!hit || !Number.isFinite(hit.x) || !Number.isFinite(hit.z)) return null;
+    const ctx = this._ctx;
+    const p = playerAt(ctx);
     const wp = { x: hit.x, z: hit.z, name: hit.name };
     if (ctx?.character) ctx.character.waypoint = wp;
     ctx?.state?.touch?.('waypoint');
@@ -440,6 +840,23 @@ export const panel = {
     ctx?.hud?.toast?.(`waypoint set on <b>${hit.name}</b>, ${d} m off`);
     this.redraw();
     return wp;
+  },
+
+  /** The mark comes off, and the panel says which mark came off. */
+  clearWaypoint() {
+    const ctx = this._ctx;
+    const had = ctx?.character?.waypoint || null;
+    if (!had) {
+      this.setSay('There is no mark on the map to clear.');
+      return null;
+    }
+    if (ctx?.character) ctx.character.waypoint = null;
+    ctx?.state?.touch?.('waypoint');
+    const name = had.name || 'the map';
+    this.setSay(`The mark on ${name} is cleared. The compass has nothing to point at now.`);
+    ctx?.hud?.toast?.(`waypoint on <b>${name}</b> cleared`);
+    this.redraw();
+    return had;
   },
 
   setSay(text) { if (this._say) this._say.textContent = text || ''; },
@@ -451,30 +868,127 @@ export const panel = {
     if (!this._canvas || !field) return null;
     const g2d = this._canvas.getContext('2d');
     if (!g2d) return null;
-    const p = ctx?.player?.pos || ctx?.actor?.pos || ctx?.character?.pos || { x: 0, z: 0 };
-    // the character document is the record; the runtime's discovery set is the
-    // fallback for a character that has not grown the field yet
-    const discovered = ctx?.character?.discovered || ctx?.runtime?.discovery || [];
-    const zonesFound = ctx?.character?.zones || ctx?.runtime?.discovery?.zonesFound || [];
+    const p = playerAt(ctx);
     const res = drawMap(g2d, {
       field,
       cx: p.x, cz: p.z,
       size: this._canvas.width,
       yaw: ctx?.player?.yaw ?? 0,
-      discovered, zonesFound,
+      discovered: discoveredOf(ctx),
+      zonesFound: zonesFoundOf(ctx),
       waypoint: ctx?.character?.waypoint || null,
     });
     this._last = res;
     if (this._foot) {
       this._foot.textContent = '';
-      const left = document.createElement('span');
-      left.textContent = `${(MAP_SPAN / 1000).toFixed(0)} km across, ${res.sites} place${res.sites === 1 ? '' : 's'} found, ${res.named} of ${ZONES.length} regions walked`;
-      const right = document.createElement('span');
-      right.textContent = `${Math.round(p.x)}, ${Math.round(p.z)}`;
-      this._foot.append(left, right);
+      const left = el('span', null, `${(MAP_SPAN / 1000).toFixed(0)} km across, ${res.sites} place${res.sites === 1 ? '' : 's'} found, ${res.named} of ${ZONES.length} regions walked`);
+      const right = el('span', null, `${Math.round(p.x)}, ${Math.round(p.z)}`);
+      this._foot.appendChild(left);
+      this._foot.appendChild(right);
     }
+    // the column beside the map is a reading of the same state, so it is
+    // rebuilt with the picture and never a walk behind it
+    this.render();
     return res;
   },
+
+  /**
+   * The right hand column, rebuilt out of `sideModel`. Returns the model it
+   * drew, so a test can count what a player would count.
+   */
+  render() {
+    if (typeof document === 'undefined' || !this._side) return null;
+    const ctx = this._ctx;
+    const p = playerAt(ctx);
+    const m = sideModel({
+      field: ctx?.runtime?.field || null,
+      cx: p.x, cz: p.z,
+      discovered: discoveredOf(ctx),
+      zonesFound: zonesFoundOf(ctx),
+      waypoint: ctx?.character?.waypoint || null,
+    });
+    this._model = m;
+    const side = this._side;
+    side.textContent = '';
+
+    // ---- where you stand ------------------------------------------------
+    side.appendChild(el('div', 'bw-hdr', 'Where you stand'));
+    side.appendChild(el('div', 'bw-map-hint', 'Click anywhere on the map, or any row below, to set your mark. The compass at the top of the screen points at it.'));
+
+    const here = el('div', 'bw-map-here');
+    here.appendChild(el('div', 'zn', m.here.name || 'Open country'));
+    if (m.here.danger) here.appendChild(el('div', 'dg', m.here.danger));
+    here.appendChild(el('div', 'ln', m.here.line || 'Nobody has written this part of the world down. It is yours to walk.'));
+    side.appendChild(here);
+
+    const fact = (k, v, none) => {
+      const row = el('div', 'bw-map-fact');
+      row.appendChild(el('span', 'k', k));
+      row.appendChild(el('span', none ? 'v none' : 'v', v));
+      side.appendChild(row);
+      return row;
+    };
+    fact('the ground here', m.here.ground || 'not known yet', !m.here.ground);
+    fact(m.town ? `the nearest ${m.town.kindWord}, ${m.town.name}` : 'the nearest town',
+      m.town ? m.town.way : 'none found yet', !m.town);
+    fact(m.waypoint ? `your mark, ${m.waypoint.name}` : 'your mark',
+      m.waypoint ? m.waypoint.way : 'not set', !m.waypoint);
+    if (m.waypoint) {
+      const b = el('button', 'bw-btn bw-map-clear', 'clear waypoint');
+      b.addEventListener('click', () => this.clearWaypoint());
+      side.appendChild(b);
+    }
+
+    // ---- the regions ----------------------------------------------------
+    side.appendChild(el('div', 'bw-hdr', `Regions, ${m.walked} of ${m.regions.length} walked`));
+    for (const r of m.regions) {
+      const row = el('div', `bw-map-row bw-map-region${r.known ? ' pick' : ' off'}${r.here ? ' here' : ''}`);
+      row.appendChild(el('span', 'nm', r.known ? r.name : 'unwalked'));
+      row.appendChild(el('span', 'ds', distanceText(r.dist)));
+      row.appendChild(el('span', 'sub', r.known ? r.danger : ''));
+      row.appendChild(el('span', 'wy', r.bearing));
+      if (r.known) {
+        row.dataset.zone = r.id;
+        row.addEventListener('click', () => this.setWaypoint({ x: r.x, z: r.z, name: r.name }));
+      }
+      side.appendChild(row);
+    }
+
+    // ---- the places -----------------------------------------------------
+    side.appendChild(el('div', 'bw-hdr', `Places found, ${m.places.length}`));
+    if (!m.places.length) {
+      side.appendChild(el('div', 'bw-map-none', 'You have walked up to nowhere yet. Get close to a town, a mine or a hole in a hillside and it is written down here, with the way back to it.'));
+    }
+    for (const s of m.places) {
+      const row = el('div', 'bw-map-row bw-map-place pick');
+      row.appendChild(el('span', 'nm', s.name));
+      row.appendChild(el('span', 'ds', distanceText(s.dist)));
+      row.appendChild(el('span', 'sub', s.kindWord));
+      row.appendChild(el('span', 'wy', s.bearing));
+      row.dataset.site = s.id;
+      row.addEventListener('click', () => this.setWaypoint({ x: s.x, z: s.z, name: s.name }));
+      side.appendChild(row);
+    }
+
+    // ---- the key --------------------------------------------------------
+    side.appendChild(el('div', 'bw-hdr', 'What the colours mean'));
+    const key = el('div', 'bw-map-key');
+    for (const k of m.key) {
+      const row = el('div', 'k');
+      const sw = el('span', `sw ${k.swatch}`);
+      if (k.swatch === 'hatch') sw.style.borderColor = k.colour;
+      else if (k.swatch === 'ring') sw.style.borderColor = k.colour;
+      else sw.style.background = k.colour;
+      row.appendChild(sw);
+      row.appendChild(el('span', 'lb', k.label));
+      key.appendChild(row);
+    }
+    side.appendChild(key);
+    return m;
+  },
+
+  /** The model the column last drew, for a test or the dev bench. */
+  get lastSide() { return this._model || null; },
 
   get lastDraw() { return this._last || null; },
 };
