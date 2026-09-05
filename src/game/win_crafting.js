@@ -121,7 +121,7 @@ const FAMILY_STACK = { potion: 'potion' };
 export const UNMAKEABLE = {
   bag: 'the pack has no bag item yet, so a bag cannot be made or carried',
   scroll: 'nothing in this game is a scroll yet, so there is nothing to write on',
-  tool: 'only the axe exists as an item; the other tools have no shape yet',
+  tool: 'the hatchet, sewing kit, saw and tinker\'s tools have no item shape yet; the axe, pickaxe and tongs do',
 };
 
 /** The items.js base a recipe would really produce, or null when there is none. */

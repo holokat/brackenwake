@@ -17,7 +17,7 @@
 
 import * as THREE from 'three';
 import { CHUNK } from '../world/field.js';
-import { MONSTERS, HABITAT, NOTE_TAGS } from '../mmo/monsters.js';
+import { MONSTERS, HABITAT, HABITAT_BY_PLACE, NOTE_TAGS } from '../mmo/monsters.js';
 import { aggroRadius, LEASH_MS, attackSkill, defenceSkill, swingSeconds, parryChance } from '../mmo/combat_rules.js';
 import { createCombat, SWING_LAND_S, actorDistance } from './combat.js';
 import { createLootDrops } from './loot_drops.js';
@@ -61,6 +61,7 @@ function stubField(o = {}) {
   const sampleAt = (x, z) => ({
     h: 3, biome: biome(x, z), water: !!(o.water && o.water(x, z)), river: 0,
     land: 1, temp: 0.5, moist: 0.5, site: null,
+    zone: o.zone ? o.zone(x, z) : undefined, danger: o.danger || undefined,
   });
   return {
     seed: o.seed ?? 4242, seaLevel: -0.8, chunk: CHUNK,
@@ -901,6 +902,31 @@ function seedWith(layout, id, max = 3000) {
   }
   check('and once it is done it goes back up', back >= HOVER_MIN - 1e-9, `${back.toFixed(3)} m`);
   check('and stays up', lowest >= HOVER_MIN - 1e-9, `lowest ${lowest.toFixed(3)} m`);
+}
+
+// ================================ the named places spawn what the sheet says
+// Before this, placeFor answered a biome and HABITAT_BY_PLACE was read by
+// nothing: eighty three place tables were decoration. Both directions here.
+{
+  const road = stubField({ zone: () => 'kingsroad', danger: [1, 1] });
+  const ids = new Set();
+  for (let k = 0; k < 40; k++) for (const rec of spawnsForChunk(road, k, 3, { night: false, chance: 1 })) ids.add(rec.id);
+  const want = new Set(HABITAT_BY_PLACE.kingsroad.day);
+  check('placeFor answers the named place the field sample carries', placeFor(road, [], 10, 10) === 'kingsroad');
+  check('a Kingsroad chunk spawns from the Kingsroad table by day', ids.size > 0 && [...ids].every((id) => want.has(id)), [...ids].join(', ') || 'nothing');
+  check('and the Legion, tier 2, stands there in spite of the realm band of 1 to 1', [...ids].some((id) => MONSTERS[id].tier === 2), [...ids].map((id) => id + ':' + MONSTERS[id].tier).join(', '));
+  const nightIds = new Set();
+  for (let k = 0; k < 40; k++) for (const rec of spawnsForChunk(road, k, 3, { night: true, chance: 1 })) nightIds.add(rec.id);
+  check('by night the road table changes', [...nightIds].every((id) => HABITAT_BY_PLACE.kingsroad.night.includes(id)) && nightIds.size > 0, [...nightIds].join(', '));
+
+  // the other way: open Greenwold between the places is a realm zone with no table, and the band holds
+  const open = stubField({ zone: () => 'greenwold', danger: [1, 1] });
+  const openIds = new Set();
+  for (let k = 0; k < 60; k++) for (const rec of spawnsForChunk(open, k, 5, { night: true, chance: 1 })) openIds.add(rec.id);
+  check('open Greenwold ground falls back to the meadow table', placeFor(open, [], 10, 10) === 'meadow');
+  check('and nothing above tier 1 spawns on it', openIds.size > 0 && [...openIds].every((id) => MONSTERS[id].tier <= 1), [...openIds].map((id) => id + ':' + MONSTERS[id].tier).join(', '));
+  const noZone = stubField();
+  check('a field with no zone at all still answers the biome', placeFor(noZone, [], 10, 10) === 'meadow');
 }
 
 // ======================================= F1: critters, the spook and the perch

@@ -39,7 +39,7 @@ import * as THREE from 'three';
 import { CHUNK } from '../world/field.js';
 import { rand2 } from '../world/noise.js';
 import {
-  MONSTERS, HABITAT, spawnRollFor, resolvePlace, respawnDelay,
+  MONSTERS, HABITAT, HABITAT_BY_PLACE, spawnRollFor, resolvePlace, respawnDelay,
   NO_RESPAWN_RADIUS, SPAWN_SPACING_M, NOTE_TAGS,
 } from '../mmo/monsters.js';
 import { aggroCheck, leashCheck, fleeCheck, swingSeconds, UNARMED } from '../mmo/combat_rules.js';
@@ -247,6 +247,13 @@ const isSettlement = (site) => site && (site.kind === 'town' || site.kind === 'h
  * biome, which HABITAT has a row for in every case.
  */
 export function placeFor(field, sites, x, z) {
+  // A NAMED PLACE FIRST. The field's sample carries the deepest zone at the
+  // point, and the roster's HABITAT_BY_PLACE is keyed by those same realms.js
+  // ids, so the Kingsroad spawns Legion patrols and the Beech Hangar spawns
+  // boar because the sheet says so, not because the ground is a meadow. Before
+  // this line the eighty three place tables were written and read by nothing.
+  const zone = typeof field.sampleAt === 'function' ? field.sampleAt(x, z)?.zone : null;
+  if (zone && HABITAT_BY_PLACE[zone]) return zone;
   for (const s of sites || []) {
     if (!s) continue;
     const r = (s.flatR != null ? s.flatR : 14) + 10;
@@ -295,7 +302,10 @@ export function spawnsForChunk(field, cx, cz, opts = {}) {
   // of monster tiers, and a roll above it is rolled again from the same rng,
   // then dropped if the habitat has nothing that tame. Below the band is fine.
   const rng = chunkRng(cx, cz, seed);
-  const band = field.sampleAt(x0 + mid, z0 + mid).danger || null;
+  // An authored place's table is deliberate (wolves at night in the Beech
+  // Hangar, the Legion on the Kingsroad), so the realm's band does not cut it;
+  // open country between the places keeps the cap.
+  const band = HABITAT_BY_PLACE[place] ? null : (field.sampleAt(x0 + mid, z0 + mid).danger || null);
   let roll = spawnRollFor(place, night, rng);
   if (band) {
     for (let k = 0; k < 6 && roll && (MONSTERS[roll.id]?.tier ?? 1) > band[1]; k++) roll = spawnRollFor(place, night, rng);
