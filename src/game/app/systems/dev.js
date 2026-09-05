@@ -42,6 +42,15 @@ export const dev = {
 
   hotkeys(ctx, frame) {
     const input = ctx.input;
-    if (input.pressed('f1') || input.pressed('`')) ctx.get('dev').toggle();
+    if (input.pressed('f1') || input.pressed('`')) {
+      const d = ctx.get('dev');
+      d.toggle();
+      // Dev mode and the bench are one idea to the person pressing the key:
+      // turning it on opens the bench with the tour, the warps and the lab, and
+      // says how to hide it. Turning it off closes the bench with it.
+      const windows = ctx.get('ui').windows;
+      if (d.on) { if (windows && !windows.isOpen('dev')) windows.open('dev'); ctx.hud.toast?.('Dev mode on. The bench is open: Tour warps you place to place. F2 hides and shows the bench, F1 leaves dev mode.'); }
+      else if (windows && windows.isOpen('dev')) windows.close('dev');
+    }
   },
 };

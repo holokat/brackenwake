@@ -454,13 +454,16 @@ const CSS = `
   text-transform: uppercase; color: ${theme.gold};
 }
 
-#bw-dev {
+/* #bw-hud #bw-dev, not #bw-dev: the .panel rule above is more specific than an
+   id alone and was winning position: relative, which put the badge in flow across
+   the top of the HUD over the purse and the counters */
+#bw-hud #bw-dev {
   position: absolute; top: 14px; right: 14px; display: none;
   font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .14em;
   text-transform: uppercase; color: #ffd479; white-space: pre;
   border-color: rgba(255,212,121,.5);
 }
-#bw-dev.on { display: block; }
+#bw-hud #bw-dev.on { display: block; }
 #bw-hint {
   position: absolute; left: 50%; bottom: 148px; transform: translateX(-50%);
   font-size: 15px; opacity: 0; transition: opacity .12s ease; white-space: nowrap;
