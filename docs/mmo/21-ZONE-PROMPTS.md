@@ -3,12 +3,14 @@
 Written 2026-09-06. The user's process, adopted: author each place from a
 concept image instead of scattering a kit.
 
-1. Every prompt below is run as `STYLE + REALM + PLACE`. The style prefix is
-   the same for all 95 images so they read as one game; the realm prefix is
-   the same for every place in that realm so a realm reads as one zone; the
-   place text is the location itself.
-2. Run the realm's **wide shot** prompt first: it is the zone's poster and
-   the reference for everything under it.
+1. Two cameras. The realm's **wide shot** is run once as `WIDE prefix + realm
+   paragraph + wide shot text` and kept as the master. Every **place** is run
+   as `PLACE prefix + realm tag + place text`, a close view of that place
+   alone, with the master attached as the reference image.
+2. `node scripts/zone-prompts.mjs` assembles every final prompt string from
+   this file into `docs/concepts/prompts.json` and `docs/concepts/prompts.txt`
+   with the file name each image must be saved under, so the whole book can
+   be fed to the image tool in order and nothing is retyped.
 3. File the images as `docs/concepts/<realm>/<place-id>.png`, ids as below,
    the wide shot as `docs/concepts/<realm>/_realm.png`.
 4. Fable reads each image and writes `docs/concepts/<realm>/<place-id>.md`
@@ -116,17 +118,16 @@ unchanged; run each as PLACE prefix + realm tag + place text.
 > with one door; a stone manor with a single tower at the back of the
 > village above the roofs; cottages between. Lanes of packed earth, flowers
 > at the doors, a 4 m standing stone with a carved face at the edge of the
-> green. Beyond the wall, wheat fields with scarecrows and hedgerows, and
-> one of the great standing stones on the skyline.
+> green. The wall and the wheat beyond it are the edge of the frame.
 
 **waystones, the Standing Hedge (megastructure)**
 > Nine tall grey sarsen stones, each 3 m high and carved with a single
 > face, standing on a ring a mile across through wheat fields and
 > hedgerows, with eighty smaller boundary stones between them. At dusk the
 > nine hum with a faint amber light in the carved lines. One stone in the
-> foreground with a worn path circling it and offerings at its foot, the
-> ring curving away across the fields to the far stones on the horizon, the
-> village inside the ring in the middle distance.
+> foreground with a worn path circling it and offerings at its foot, two
+> more of the nine small on the skyline to show the curve of the ring, wheat
+> and a hedgerow between.
 
 **millrun, the Mill Run (landmark)**
 > A slow river running east through wheat, with a stone water mill and its
@@ -140,7 +141,8 @@ unchanged; run each as PLACE prefix + realm tag + place text.
 > stone arch half sunk in the slope with a stair going down into the dark,
 > brick vaulting visible inside, a lantern on a chain, the Legion's black
 > and brass banner planted crooked beside the door, a broken cart, goblin
-> footprints in the mud, rats. Wheat and the mill above.
+> footprints in the mud, rats. The grass slope and the mill's wall are the
+> top edge of the frame.
 
 **beechhangar, the Beech Hangar (open country)**
 > An old beech wood on a chalk ridge above the village: tall grey trunks,
@@ -167,8 +169,8 @@ unchanged; run each as PLACE prefix + realm tag + place text.
 > A bandit camp in a chalk hollow under an overhang off the Kingsroad:
 > tents, a campfire, a stolen tithe cart under a tarp, a lookout post in a
 > tree, stakes, loot sacks, a weapons rack, a target dummy, men in stolen
-> coats around the fire, bones of a stolen sheep. The road visible below
-> through the hedge.
+> coats around the fire, bones of a stolen sheep. The hedge and a glimpse of
+> paving are the frame's edge.
 
 **sunkenchapel, the Sunken Chapel (ruin)**
 > A small stone chapel the river took, standing in a flooded meadow with the
@@ -249,8 +251,8 @@ unchanged; run each as PLACE prefix + realm tag + place text.
 > Terraces of an old temple grown into the cliff face, a hundred feet of
 > vertical garden: broken balustrades, flowering vines, waterfalls from
 > terrace to terrace, roots and ropes as the way up, rare flowers on every
-> level, a harpy roost of sticks and bones at the very top, the whole Deep
-> spread out below.
+> level, a harpy roost of sticks and bones at the very top, canopy at the
+> frame's edge.
 
 **moonpool, the Moon Pool (landmark)**
 > A still black pool under the canopy that shows no reflection, ringed with
@@ -507,7 +509,7 @@ unchanged; run each as PLACE prefix + realm tag + place text.
 **stormanvil, the Storm Anvil (landmark)**
 > An iron anvil on the highest bare rock, black and scarred, a lightning
 > bolt striking it, a blank of metal glowing on it, a smith crouched behind
-> a boulder, the whole world of peaks and cloud below.
+> a boulder, cloud at the frame's edge.
 
 **echochasm, the Echo Chasm (open country)**
 > A gorge of grey rock with ledges on both walls, ogre camps of hides and
