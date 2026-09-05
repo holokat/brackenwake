@@ -15,7 +15,10 @@ import {
   clockOffsetFor, clockWords, panel, SETS, GOLD_STEPS, PLACE_RADIUS, KIND_ORDER, ENTERABLE,
   zoneSearch, rarityTable, rarest, sackRing, takesRarity,
   RECENT_MAX, HOME, SACK_COUNT, SACK_RADIUS, ZONE_MAX_R, RAREST_SHOWN, SPAWN_MANY,
+  tourStops, landingFor, TOUR_KIND_ORDER, EDGE_PAD,
 } from './win_dev.js';
+import { SUB_ZONES, REALM_ZONES, authoredSites } from '../world/zones.js';
+import { REALMS } from '../mmo/realms.js';
 import { createState, PACK_SLOTS as STATE_PACK_SLOTS, hydrate } from './state.js';
 import { PACK_SLOTS as INV_PACK_SLOTS } from './inventory.js';
 import { createWorldField } from '../world/field.js';
@@ -1038,6 +1041,63 @@ console.log('win_dev: a teleport tells the forage field where you went');
   const bare = createBench(recordingCtx());
   const r = bare.goTo(5, 5);
   check('and a game with no forage field warps anyway', r.ok === true);
+}
+
+// ================================================================== the tour
+// Every named place, realm by realm, so the zones can be seen without running.
+{
+  const stops = tourStops();
+  check(`the tour has a stop for every one of the ${SUB_ZONES.length} named places`, stops.length === SUB_ZONES.length && stops.length >= 95, `${stops.length}`);
+  check('every stop stands somewhere, is named and has a line', stops.every((st) => Number.isFinite(st.x) && Number.isFinite(st.z) && st.name && st.line));
+  const realmsInOrder = [...new Set(stops.map((st) => st.realm))];
+  check('the realms come in the order the sheet gives them, the heart first', JSON.stringify(realmsInOrder) === JSON.stringify(REALMS.map((r) => r.id)), realmsInOrder.join(' > '));
+  const firsts = REALMS.map((r) => stops.find((st) => st.realm === r.id));
+  check('and each realm opens on its settlement, which the sheet calls a hub, a town or a hamlet', firsts.every((st) => st && ['hub', 'town', 'hamlet'].includes(st.kind)), firsts.map((st) => `${st.realmName}: ${st.name} (${st.kind})`).join('; '));
+  check('the first stop of the whole tour is Hearthhome', stops[0].id === 'hearthhome', stops[0].name);
+  check('every kind on the tour has a place in TOUR_KIND_ORDER', stops.every((st) => TOUR_KIND_ORDER.includes(st.kind)), [...new Set(stops.filter((st) => !TOUR_KIND_ORDER.includes(st.kind)).map((st) => st.kind))].join(', ') || 'all placed');
+  const bosses = stops.filter((st) => st.boss);
+  check('the bosses are named on their stops and every one is a dungeon', bosses.length >= 11 && bosses.every((st) => st.kind === 'dungeon'), `${bosses.length}: ${bosses.map((st) => st.boss).join(', ')}`);
+
+  // landing: a built site lands you at its edge, country at its centre, water on the nearest dry ground
+  const field = createWorldField(20260904, { homeBiome: 'meadow' });
+  const sites = authoredSites();
+  const town = stops.find((st) => sites.some((s) => s.sub === st.id));
+  const site = sites.find((s) => s.sub === town.id);
+  const atTown = landingFor(town, field, sites, { x: site.x + 1000, z: site.z });
+  check(`a stop with a built site lands ${EDGE_PAD} m outside its flat ground`, near(Math.hypot(atTown.x - site.x, atTown.z - site.z), site.flatR + EDGE_PAD, 1e-6) && atTown.site === site, `${town.name}: ${Math.hypot(atTown.x - site.x, atTown.z - site.z).toFixed(1)} m against ${site.flatR + EDGE_PAD}`);
+  const sea = stops.find((st) => st.kind === 'sea' && field.sampleAt(st.x, st.z).water);
+  check('there is a sea stop whose centre is water', !!sea, sea ? sea.name : 'none: every sea stop is dry at the centre');
+  if (sea) {
+    const atSea = landingFor(sea, field, sites);
+    const s = field.sampleAt(atSea.x, atSea.z);
+    check('and it lands you on dry ground inside the place, not under the water', atSea.dry && !s.water && Math.hypot(atSea.x - sea.x, atSea.z - sea.z) <= sea.r, `${sea.name}: ${Math.round(Math.hypot(atSea.x - sea.x, atSea.z - sea.z))} m from the centre, ${s.biome}`);
+  }
+  const wild = stops.find((st) => st.kind === 'wild' && !sites.some((s) => s.sub === st.id) && !field.sampleAt(st.x, st.z).water);
+  const atWild = landingFor(wild, field, sites);
+  check('a country stop with dry ground lands you on its centre', atWild.x === wild.x && atWild.z === wild.z && atWild.dry, wild.name);
+  const noField = landingFor(wild, null, []);
+  check('with no field at all it still answers the centre', noField.x === wild.x && noField.dry);
+
+  // through the bench: the warp really moves the feet and the words name the stop
+  const ctx = realCtx({ runtime: { field, heightAt: () => 3, sitesNear: (x, z, r) => sites.filter((s) => Math.hypot(s.x - x, s.z - z) <= r), inDungeon: false } });
+  const bench = createBench(ctx);
+  check('before the first press the tour is nowhere', bench.tour().at === -1);
+  const r1 = bench.nextStop();
+  check('next stop from nowhere goes to the first stop', r1.ok && r1.index === 0 && r1.stop.id === 'hearthhome', r1.text);
+  check('and the feet are there', near(ctx.player.pos.x, r1.x) && near(ctx.player.pos.z, r1.z));
+  check('and the words say which stop of how many, and what it is', /Stop 1 of \d+: Hearthhome, the hub of The Greenwold/.test(r1.text) && r1.text.includes('You stand'), r1.text);
+  const r2 = bench.prevStop();
+  check('previous from the first wraps to the last', r2.ok && r2.index === stops.length - 1, `${r2.index}`);
+  const r3 = bench.nextStop();
+  check('and next from the last wraps back to the first', r3.ok && r3.index === 0);
+  const oc = bench.goToStop('oldcellars');
+  check('a boss stop says who is down there', oc.ok && /Sergeant Oram Blackhand is down there/.test(oc.text), oc.text);
+  check('and the tour cursor follows a direct jump', bench.tour().at === stops.findIndex((st) => st.id === 'oldcellars'));
+  const nope = bench.goToStop('nowhere');
+  check('a stop that does not exist is refused in words', nope.ok === false && /no place is called nowhere/.test(nope.text));
+  const wet = stops.filter((st) => !landingFor(st, field, sites).dry);
+  check('every stop but the open sea lands on dry ground', wet.every((st) => st.kind === 'sea'), wet.length ? `${wet.length} wet: ${wet.map((st) => st.name + ' (' + st.kind + ')').join(', ')}` : 'none wet');
+  if (wet.length) { const w = bench.goToStop(wet[0].id); check('and a stop on the water says so in red', w.ok && /on the water/.test(w.text) && ctx.said.some((e) => e[1] === 'bad' && /on the water/.test(e[0])), w.text); }
 }
 
 console.log(`\nwin_dev: ${pass} passed, ${fail} failed`);

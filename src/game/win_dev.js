@@ -52,6 +52,8 @@ import { describeItem as sackWordsFor, rollFor } from './loot_drops.js';
 import { DAY_CYCLE_MS } from './scene.js';
 import { createFrameMeter } from './dev.js';
 import { itemTipLines } from './inventory.js';
+import { SUB_ZONES, ZONE, authoredSites } from '../world/zones.js';
+import { PLACES, REALMS } from '../mmo/realms.js';
 
 // --------------------------------------------------------------- the numbers
 
@@ -207,6 +209,77 @@ export function edgeOf(site, from, pad = EDGE_PAD) {
   const uz = d > 1e-3 ? dz / d : Math.cos(num(site?.facing));
   const x = sx + ux * off, z = sz + uz * off;
   return { x, z, yaw: Math.atan2(sx - x, sz - z) };
+}
+
+// ---------------------------------------------------------------------- tour
+
+/**
+ * The order the places of one realm are visited in: the hub first, because it
+ * is where a player would arrive, then the things worth looking at in the
+ * order a tourist would want them, and the open country and the roads last.
+ */
+export const TOUR_KIND_ORDER = ['hub', 'town', 'hamlet', 'megastructure', 'landmark', 'dungeon', 'camp', 'ruin', 'shrine', 'cave', 'mine', 'wild', 'road', 'sea'];
+/** Metres between ring samples when a stop's centre is water and land is wanted. */
+export const TOUR_LAND_STEP = 40;
+
+const PLACE_BY_ID = Object.fromEntries(PLACES.map((p) => [p.id, p]));
+const REALM_ORDER = Object.fromEntries(REALMS.map((r, i) => [r.id, i]));
+let tourCache = null;
+
+/**
+ * Every named place in the world as one ordered list of stops: realm by realm
+ * in the order the sheet gives them (the heart first, the rim last), and
+ * within a realm by TOUR_KIND_ORDER, then by name. A stop carries what the
+ * panel and the readout need and nothing the bench has to look up again:
+ * where it is, what kind of place it is, whose realm, its line, and the boss
+ * if it has one. Pure and cached: the world does not move.
+ */
+export function tourStops() {
+  if (tourCache) return tourCache;
+  const stops = SUB_ZONES.map((z) => {
+    const place = PLACE_BY_ID[z.id] || {};
+    const realm = ZONE[z.parent] || {};
+    return Object.freeze({
+      id: z.id, name: z.name, kind: z.kind, x: z.x, z: z.z, r: z.r,
+      realm: z.parent, realmName: realm.name || z.parent,
+      line: z.line || place.geography || '',
+      boss: place.boss || null, levels: place.levels || null, mechanic: place.mechanic || null,
+    });
+  });
+  stops.sort((a, b) => (REALM_ORDER[a.realm] ?? 99) - (REALM_ORDER[b.realm] ?? 99)
+    || (TOUR_KIND_ORDER.indexOf(a.kind) === -1 ? 99 : TOUR_KIND_ORDER.indexOf(a.kind)) - (TOUR_KIND_ORDER.indexOf(b.kind) === -1 ? 99 : TOUR_KIND_ORDER.indexOf(b.kind))
+    || a.name.localeCompare(b.name));
+  tourCache = Object.freeze(stops);
+  return tourCache;
+}
+
+/**
+ * Where a warp to a stop puts your feet. A stop with a built site (a town, a
+ * dungeon mouth, a camp) lands you at the edge of its flat ground looking in,
+ * the way the Sites list does. A stop that is only country lands you at its
+ * centre, unless the centre is water, in which case the rings around it are
+ * sampled outward until dry ground is found, because a "sea" stop with the
+ * camera under the surface shows nothing. Pure: `field` and `sites` come in.
+ */
+export function landingFor(stop, field, sites = [], from = null) {
+  const site = (sites || []).find((st) => st && (st.sub === stop.id || st.id === `z:${stop.id}`));
+  const at = from || { x: num(stop.x) + 1, z: num(stop.z) + 1 };
+  if (site) return { ...edgeOf(site, at), site, dry: true };
+  const cx = num(stop.x), cz = num(stop.z);
+  const wet = (x, z) => typeof field?.sampleAt === 'function' && !!field.sampleAt(x, z).water;
+  if (!wet(cx, cz)) return { x: cx, z: cz, yaw: Math.atan2(num(at.x) - cx, num(at.z) - cz) + Math.PI, site: null, dry: true };
+  // out to twice the place's radius: a reef stair or a bell tower in the sea
+  // has its dry ground on the shore beside it, not inside its own circle
+  const maxR = Math.max(num(stop.r) * 2, TOUR_LAND_STEP);
+  for (let r = TOUR_LAND_STEP; r <= maxR; r += TOUR_LAND_STEP) {
+    const n = Math.max(8, Math.round((2 * Math.PI * r) / TOUR_LAND_STEP));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const x = cx + Math.sin(a) * r, z = cz + Math.cos(a) * r;
+      if (!wet(x, z)) return { x, z, yaw: Math.atan2(cx - x, cz - z), site: null, dry: true };
+    }
+  }
+  return { x: cx, z: cz, yaw: 0, site: null, dry: false };
 }
 
 // --------------------------------------------------------------------- zones
@@ -809,6 +882,48 @@ export function createBench(ctx = {}) {
     return { ...res, text: line(`home, ${round(d)} m back the way you came, at ${round(home.x)}, ${round(home.z)}. ${groundWords(home.x, home.z)}`) };
   }
 
+  // ------------------------------------------------------------------- tour
+
+  /** Where the tour stands: -1 before the first stop. */
+  let tourAt = -1;
+
+  function tour() { return { stops: tourStops(), at: tourAt }; }
+
+  /** The words a stop is announced with, so the panel and the readout agree. */
+  function stopWords(stop, i, at) {
+    const n = tourStops().length;
+    const what = stop.kind === 'hub' ? 'the hub of' : `${stop.kind === 'megastructure' ? 'the mega structure' : stop.kind === 'wild' ? 'the open country' : 'the ' + stop.kind} of`;
+    const boss = stop.boss ? ` ${stop.boss} is down there.` : '';
+    const where = at.site ? 'at its edge, looking in' : (at.dry ? (at.x === stop.x && at.z === stop.z ? 'at its centre' : 'on the nearest dry ground to it') : 'on the water, since no dry ground was found near it');
+    return `Stop ${i + 1} of ${n}: ${stop.name}, ${what} ${stop.realmName}. ${stop.line}${boss} You stand ${where}, at ${round(at.x)}, ${round(at.z)}.`;
+  }
+
+  /** Warp to one stop by id, and make it the tour's place. */
+  function goToStop(id) {
+    const stops = tourStops();
+    const i = stops.findIndex((st) => st.id === id);
+    if (i < 0) return bad(`no place is called ${id}.`);
+    const stop = stops[i];
+    const sites = typeof ctx.runtime?.sitesNear === 'function' ? ctx.runtime.sitesNear(stop.x, stop.z, Math.max(num(stop.r), 200)) : [];
+    const at = landingFor(stop, field(), sites, here());
+    const res = warp(at.x, at.z, { yaw: at.yaw, label: stop.name });
+    if (!res.ok) return res;
+    tourAt = i;
+    return { ...res, stop, index: i, text: line(stopWords(stop, i, at), at.dry ? undefined : 'bad') };
+  }
+
+  /** The next stop on the tour, wrapping at the end. */
+  function nextStop() {
+    const n = tourStops().length;
+    return goToStop(tourStops()[(tourAt + 1) % n].id);
+  }
+
+  /** The stop before, wrapping at the start. */
+  function prevStop() {
+    const n = tourStops().length;
+    return goToStop(tourStops()[(tourAt - 1 + n) % n].id);
+  }
+
   function enterSite(site) {
     if (!site) return bad('there is no such place.');
     if (!ENTERABLE.includes(site.kind)) return bad(`${site.name} has nothing to go into.`);
@@ -1211,6 +1326,7 @@ export function createBench(ctx = {}) {
     giveItem, giveSet,
     // travel
     places, teleport, enterSite, dungeonGo, goTo, warp,
+    tour, goToStop, nextStop, prevStop,
     zones, goToZone, goHome, biomeAt, groundWords,
     recent: () => recent.slice(),
     // the loot lab
@@ -1247,6 +1363,7 @@ const CSS = `
 .bw-win-dev .bw-list.tall{max-height:250px}
 .bw-win-dev .bw-list .r{display:flex;align-items:center;gap:8px;padding:2px 4px;border-radius:4px}
 .bw-win-dev .bw-list .r:hover{background:rgba(255,255,255,.06)}
+.bw-win-dev .bw-list .r.here{background:rgba(201,167,90,.14);outline:1px solid rgba(201,167,90,.4)}
 .bw-win-dev .bw-list .r .nm{flex:1 1 auto}
 .bw-win-dev .bw-list .r .d{color:#95a08f;font-variant-numeric:tabular-nums}
 .bw-win-dev .bw-group{color:#8fa387;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:6px 0 2px}
@@ -1331,6 +1448,38 @@ export const panel = {
     btn(go, 'home', () => { bench.goHome(); drawRecent(); });
     btn(go, 'deeper', () => { bench.dungeonGo('down'); });
     btn(go, 'out', () => { bench.dungeonGo('up'); });
+
+    // The tour: every named place in the world, realm by realm, so the zones
+    // can be looked at without running or flying between them.
+    const tourRow = row('Tour', `${tourStops().length} named places, realm by realm`);
+    const tourList = h('div', 'bw-list tall');
+    let drawTour = () => {};
+    btn(tourRow, 'previous', () => { bench.prevStop(); drawTour(); drawRecent(); });
+    btn(tourRow, 'next stop', () => { bench.nextStop(); drawTour(); drawRecent(); });
+    const tourHere = h('span', 'd', 'nowhere on the tour yet');
+    tourRow.appendChild(tourHere);
+    root.appendChild(tourList);
+    drawTour = () => {
+      const { stops, at } = bench.tour();
+      tourHere.textContent = at >= 0 ? `${at + 1} of ${stops.length}: ${stops[at].name}` : 'nowhere on the tour yet';
+      tourList.textContent = '';
+      let realm = null;
+      stops.forEach((st, i) => {
+        if (st.realm !== realm) {
+          realm = st.realm;
+          const rz = ZONE[realm] || {};
+          tourList.appendChild(h('div', 'bw-group', `${st.realmName}${rz.danger ? ` (danger ${rz.danger[0]} to ${rz.danger[1]})` : ''}`));
+        }
+        const r = h('div', 'r' + (i === at ? ' here' : ''));
+        r.appendChild(h('span', 'nm', st.name));
+        r.appendChild(h('span', 'd', `${st.kind}${st.boss ? ', boss: ' + st.boss : ''}`));
+        btn(r, 'teleport', () => { bench.goToStop(st.id); drawTour(); drawRecent(); });
+        tourList.appendChild(r);
+      });
+      const cur = tourList.querySelector('.r.here');
+      if (cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ block: 'nearest' });
+    };
+    drawTour();
 
     const zoneRow = row('Zones', 'the nearest of every biome');
     const zoneList = h('div', 'bw-list');
@@ -1640,6 +1789,8 @@ export const panel = {
     this._drawPlaces = drawPlaces;
     this._drawZones = drawZones;
     this._drawRecent = drawRecent;
+    this._drawTour = drawTour;
+    this._tourAt = -1;
     this._since = 0;
   },
 
@@ -1647,6 +1798,7 @@ export const panel = {
     if (this._drawPlaces) this._drawPlaces();
     if (this._drawZones) this._drawZones();
     if (this._drawRecent) this._drawRecent();
+    if (this._drawTour) this._drawTour();
   },
 
   tick(dt) {
@@ -1673,6 +1825,9 @@ export const panel = {
     if (r.god) bits.push('god mode');
     if (r.fly) bits.push('flying');
     this._read.textContent = bits.join('   ');
+    // the tour can be moved from the console or a hotkey; the row follows it
+    const at = this._bench.tour ? this._bench.tour().at : -1;
+    if (at !== this._tourAt) { this._tourAt = at; if (this._drawTour) this._drawTour(); }
   },
 };
 
