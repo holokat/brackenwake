@@ -35,6 +35,7 @@ function dataUri(rel) {
 const abilityIcons = Object.fromEntries(Object.entries(ART.ABILITY_ICONS).map(([k, v]) => [k, dataUri(v)]));
 const itemIcons = Object.fromEntries(Object.entries(ART.ITEM_ICONS).map(([k, v]) => [k, dataUri(v)]));
 const gemIcons = Object.fromEntries(Object.entries(ART.GEM_ICONS).map(([k, v]) => [k, dataUri(v)]));
+const skillIcons = Object.fromEntries(Object.entries(ART.SKILL_ICONS || {}).map(([k, v]) => [k, dataUri(v)]));
 
 // -------------------------------------------------------------- abilities
 const abilities = A.ABILITIES.map((a) => ({
@@ -112,7 +113,7 @@ const npcs = N.NPC_LIST.map((n) => ({ id: n.id, name: n.name, appearsIn: n.appea
 const recipes = (Array.isArray(RC.RECIPES) ? RC.RECIPES : Object.values(RC.RECIPES)).map((r) => ({ id: r.id, name: r.name, family: r.family, skill: r.skill, difficulty: r.difficulty, materials: r.materials, station: r.station, result: r.result }));
 const forageRecipes = (RC.FORAGE_RECIPES || []).map((r) => ({ id: r.id, name: r.name, skill: r.skill, difficulty: r.difficulty, materials: r.materials, station: r.station, result: r.result }));
 
-const DATA = { abilities, skills, skillGroups: K.SKILL_GROUPS, openings, weapons, tiers, pieces, shields, bases, rarity, materials, affixes, powers, monsters, bosses, habitat, tierBands, rules, npcs, recipes, forageRecipes, icons: { abilities: abilityIcons, items: itemIcons, gems: gemIcons }, built: new Date().toISOString().slice(0, 10) };
+const DATA = { abilities, skills, skillGroups: K.SKILL_GROUPS, openings, weapons, tiers, pieces, shields, bases, rarity, materials, affixes, powers, monsters, bosses, habitat, tierBands, rules, npcs, recipes, forageRecipes, icons: { abilities: abilityIcons, items: itemIcons, gems: gemIcons, skills: skillIcons }, built: new Date().toISOString().slice(0, 10) };
 
 const json = JSON.stringify(DATA).replace(/<\/script/g, '<\\/script');
 
@@ -225,6 +226,7 @@ const baseById = Object.fromEntries(D.bases.map((b) => [b.id, b]));
 const GROUP_LABEL = { warrior: 'Warrior', ranger: 'Ranger', mage: 'Mage', sorcerer: 'Sorcerer', necromancer: 'Necromancer', healer: 'Healer', rogue: 'Rogue', bard: 'Bard', everyone: 'Everyone', paladin: 'Paladin', artisan: 'Artisan', blank: 'Blank' };
 const GROUP_COLOUR = { warrior: '#c8553d', ranger: '#5f9e4a', mage: '#4a8fe0', sorcerer: '#a06be0', necromancer: '#7fb27f', healer: '#e0c066', rogue: '#c0a070', bard: '#d977a8', everyone: '#a0a0a0', paladin: '#e0d0a0' };
 const icoA = (id, cls = 'ico') => D.icons.abilities[id] ? '<img class="' + cls + '" src="' + D.icons.abilities[id] + '" alt="">' : '<span class="glyph">' + esc(id.slice(0, 3)) + '</span>';
+const icoS = (id, cls = 'ico') => D.icons.skills && D.icons.skills[id] ? '<img class="' + cls + '" src="' + D.icons.skills[id] + '" alt="">' : '';
 const icoI = (id, cls = 'ico') => D.icons.items[id] ? '<img class="' + cls + '" src="' + D.icons.items[id] + '" alt="">' : '<span class="glyph" title="no painting yet">' + esc((baseById[id] || { name: id }).name.slice(0, 3)) + '</span>';
 const rar = (id) => '<span class="rar-' + id + '">' + cap(id) + '</span>';
 let filter = '';
@@ -336,7 +338,7 @@ R.skills = () => {
     const rows = D.skills.filter((s) => s.group === g && hit(s.name + ' ' + s.description));
     if (!rows.length) continue;
     f.appendChild(el('<h2>' + esc(g) + ' <small style="color:var(--mute);letter-spacing:0;text-transform:none;font-family:\'Cormorant Garamond\',serif;font-size:14px">' + rows.length + '</small></h2>'));
-    f.appendChild(table([['skill', 'name'], ['what it does', 'description'], ['abilities it unlocks', (s) => s.abilities.map((id) => '<span title="' + esc(abById[id].name) + '">' + icoA(id, 'ico sm') + '</span>').join(' ') || '<span class="empty">none</span>', { html: true }]], rows));
+    f.appendChild(table([['', (s) => icoS(s.id, 'ico lg'), { html: true }], ['skill', 'name'], ['what it does', 'description'], ['abilities it unlocks', (s) => s.abilities.map((id) => '<span title="' + esc(abById[id].name) + '">' + icoA(id, 'ico sm') + '</span>').join(' ') || '<span class="empty">none</span>', { html: true }]], rows));
   }
   return f;
 };
