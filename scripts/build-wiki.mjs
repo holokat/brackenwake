@@ -287,7 +287,7 @@ function effectText(e) {
 function reqText(a) {
   const parts = [];
   if (a.skill && a.minSkill) parts.push(cap(words(skById[a.skill]?.name || a.skill)) + ' ' + a.minSkill);
-  if (a.anyOf && a.anyOf.length) parts.push('any of ' + a.anyOf.map((s) => skById[s]?.name || s).join(', ') + ' ' + (a.minSkill || ''));
+  if (a.anyOf && a.anyOf.length) parts.push(a.anyOf.map((alt) => (alt.all || [alt]).map((r) => (skById[r.skill]?.name || r.skill || r) + (r.min != null ? ' ' + r.min : '')).join(' and ')).join(', or '));
   if (a.extraReq) parts.push(typeof a.extraReq === 'string' ? a.extraReq : Object.entries(a.extraReq).map(([k, v]) => (skById[k]?.name || cap(k)) + ' ' + v).join(', '));
   return parts.join(' and ') || 'nothing';
 }
