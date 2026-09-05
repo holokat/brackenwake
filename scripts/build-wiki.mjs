@@ -78,6 +78,14 @@ const monsters = M.MONSTER_LIST.map((m) => ({ ...m }));
 const bosses = (M.BOSSES || []).map((m) => ({ ...m }));
 const habitat = M.HABITAT;
 const tierBands = M.TIERS;
+// where each monster lives, by named place (M2), inverted from HABITAT_BY_PLACE
+const placeName = Object.fromEntries(W.PLACES.map((p) => [p.id, p.name]));
+const placeRealm = Object.fromEntries(W.PLACES.map((p) => [p.id, W.REALM_BY_ID?.[p.realm]?.name || p.realm]));
+const habitatByPlace = Object.fromEntries(Object.entries(M.HABITAT_BY_PLACE || {}).map(([id, h]) => [id, { name: placeName[id] || id, realm: placeRealm[id] || '', biome: h.biome, day: h.day || [], night: h.night || [] }]));
+const livesAt = {};
+for (const [id, h] of Object.entries(habitatByPlace)) for (const mid of new Set([...h.day, ...h.night])) (livesAt[mid] ||= []).push(h.name);
+const tagMeaning = M.NOTE_TAG_MEANING || {};
+const lairName = Object.fromEntries(Object.entries(M.BOSS_BY_LAIR || {}).map(([lair, b]) => [b.id || b, placeName[lair.replace(/_deep$|_throat$/, '')] || lair]));
 
 // ------------------------------------------------------------------ rules
 const rules = {
@@ -115,11 +123,11 @@ const recipes = (Array.isArray(RC.RECIPES) ? RC.RECIPES : Object.values(RC.RECIP
 const forageRecipes = (RC.FORAGE_RECIPES || []).map((r) => ({ id: r.id, name: r.name, skill: r.skill, difficulty: r.difficulty, materials: r.materials, station: r.station, result: r.result }));
 
 const realms = W.REALMS.map((r) => ({ ...r }));
-const DATA = { realms, abilities, skills, skillGroups: K.SKILL_GROUPS, openings, weapons, tiers, pieces, shields, bases, rarity, materials, affixes, powers, monsters, bosses, habitat, tierBands, rules, npcs, recipes, forageRecipes, icons: { abilities: abilityIcons, items: itemIcons, gems: gemIcons, skills: skillIcons }, built: new Date().toISOString().slice(0, 10) };
+const DATA = { realms, livesAt, habitatByPlace, tagMeaning, lairName, abilities, skills, skillGroups: K.SKILL_GROUPS, openings, weapons, tiers, pieces, shields, bases, rarity, materials, affixes, powers, monsters, bosses, habitat, tierBands, rules, npcs, recipes, forageRecipes, icons: { abilities: abilityIcons, items: itemIcons, gems: gemIcons, skills: skillIcons }, built: new Date().toISOString().slice(0, 10) };
 
 const json = JSON.stringify(DATA).replace(/<\/script/g, '<\\/script');
 
-const html = String.raw`<title>The Brackenwake Codex</title>
+const html = String.raw`<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>The Kaldera Codex</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <style>
 :root{--ground:#f3ecdc;--panel:#eae1cb;--panel2:#e2d7bd;--ink:#23201a;--ink2:#4f4838;--mute:#7d735f;--gold:#8a6d2a;--gold2:#b59a5e;--rule:#cdbf9c;--sel:#e0d2ad;--red:#9b3b2a;--green:#3f6b3a;--blue:#2b5f9e;--amber:#9a6b12;
@@ -140,6 +148,8 @@ nav{position:sticky;top:0;height:100vh;overflow:auto;background:var(--panel);bor
 .search input{width:100%;padding:8px 10px;border:1px solid var(--rule);background:var(--ground);color:var(--ink);font:inherit;font-size:15px;border-radius:3px}
 .search input:focus{outline:2px solid var(--gold);outline-offset:1px}
 .secs{display:flex;flex-direction:column;gap:2px}
+.xlink{display:block;margin-top:18px;padding:7px 10px;border-top:1px solid var(--rule);font-family:Cinzel,serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);text-decoration:none}
+.xlink small{display:block;font-family:"Cormorant Garamond",serif;text-transform:none;letter-spacing:0;color:var(--mute);font-size:13px}
 .secs button{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;padding:7px 10px;border-radius:3px;font-family:Cinzel,serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
 .secs button small{font-family:"Cormorant Garamond",serif;text-transform:none;letter-spacing:0;color:var(--mute);font-size:13px}
 .secs button[aria-selected="true"]{background:var(--ground);color:var(--gold);box-shadow:inset 3px 0 0 var(--gold)}
@@ -206,9 +216,10 @@ td.num{text-align:right;white-space:nowrap}
 </style>
 <div class="wrap">
 <nav>
-  <div class="brand">Brackenwake<small>The codex of rules, from the rules themselves</small></div>
+  <div class="brand">Kaldera<small>The codex of rules, from the rules themselves</small></div>
   <div class="search"><input id="q" type="search" placeholder="Search everything" aria-label="Search"></div>
   <div class="secs" id="secs" role="tablist"></div>
+  <a class="xlink" href="books.html">The books<small>the world, the story, the cast</small></a>
 </nav>
 <main id="main"></main>
 </div>
@@ -310,7 +321,7 @@ function abilityCard(a) {
 // --- renderers
 const R = {};
 R.overview = () => {
-  const f = el('<h1>The Brackenwake Codex</h1><p class="lede">Every rule the game runs on, read straight from the rules modules on ' + esc(D.built) + ', so this page cannot say something the code does not. Search at the left works on every section. Click any ability or monster for its full record. Column headers sort.</p>');
+  const f = el('<h1>The Kaldera Codex</h1><p class="lede">Every rule the game runs on, read straight from the rules modules on ' + esc(D.built) + ', so this page cannot say something the code does not. Search at the left works on every section. Click any ability or monster for its full record. Column headers sort.</p>');
   const tiles = [['classes', D.openings.length, 'openings, each a kit, stats and skills'], ['skills', D.skills.length, 'skills in ' + D.skillGroups.length + ' groups, 0 to 100, ' + D.rules.stats.caps.skillTotalCap + ' in all'], ['abilities', D.abilities.length, 'abilities, ' + D.abilities.filter((a) => a.spell).length + ' of them spells'], ['weapons', D.weapons.length, 'weapons across ' + new Set(D.weapons.map((w) => w.skill)).size + ' skills'], ['armour', D.tiers.length, 'armour tiers by eight pieces, ' + D.shields.length + ' shields'], ['materials', D.materials.ores.length, 'ores, ' + D.materials.woods.length + ' woods, ' + D.materials.gems.length + ' gems, ' + D.materials.leathers.length + ' hides'], ['rarity', D.affixes.length, 'affixes over ' + D.rarity.length + ' rarities, ' + D.powers.length + ' named powers'], ['monsters', D.monsters.length, 'monsters and ' + D.bosses.length + ' bosses'], ['crafting', D.recipes.length + D.forageRecipes.length, 'recipes'], ['people', D.npcs.length, 'kinds of townsfolk']];
   const grid = document.createElement('div'); grid.className = 'cards';
   for (const [id, n, t] of tiles) { const c = document.createElement('div'); c.className = 'card'; c.style.gridTemplateColumns = '1fr'; c.innerHTML = '<div><div class="nm" style="font-size:26px">' + n + '</div><div class="ds">' + esc(t) + '</div></div>'; c.addEventListener('click', () => show(id)); grid.appendChild(c); }
@@ -470,17 +481,22 @@ R.monsters = () => {
   const chips = document.createElement('div'); chips.className = 'chips';
   for (const t of tiers) { const b = document.createElement('button'); b.className = 'chip'; b.textContent = t === 'all' ? 'all tiers' : 'tier ' + t; b.setAttribute('aria-pressed', monTier === t); b.onclick = () => { monTier = t; render(); }; chips.appendChild(b); }
   f.appendChild(chips);
-  const rows = D.monsters.filter((m) => (monTier === 'all' || m.tier === monTier) && hit(m.name + ' ' + m.kind + ' ' + (m.notes || []).join(' ') + ' ' + (m.lootTable || []).join(' ')));
-  const t = table([['monster', 'name'], ['tier', 'tier', { num: true }], ['kind', 'kind'], ['health', 'hp', { num: true }], ['damage', (m, s) => s ? (m.damage[0] + m.damage[1]) / 2 : m.damage.join(' to '), { num: true }], ['swing s', 'speed', { num: true }], ['hit', 'hit', { num: true }], ['def', 'def', { num: true }], ['AR', 'ar', { num: true }], ['run m/s', 'run', { num: true }], ['aggro m', 'aggro', { num: true }], ['gold', (m) => (m.gold || []).join(' to ')], ['drops', (m) => (m.lootTable || []).join(', ')], ['notes', (m) => (m.notes || []).map(words).join(', ')]], rows, { sort: 1 });
+  const rows = D.monsters.filter((m) => (monTier === 'all' || m.tier === monTier) && hit(m.name + ' ' + m.kind + ' ' + (m.family || '') + ' ' + (m.notes || []).join(' ') + ' ' + (m.lootTable || []).join(' ') + ' ' + (D.livesAt[m.id] || []).join(' ')));
+  const noteHtml = (m) => (m.notes || []).map((n) => '<span class="tag" title="' + esc(D.tagMeaning[n] || '') + '">' + esc(words(n)) + '</span>').join(' ');
+  const tameText = (m) => m.tamable ? 'Taming ' + m.tamable.difficulty + ', fed ' + words(m.tamable.food) : '';
+  const t = table([['monster', 'name'], ['tier', 'tier', { num: true }], ['kind', 'kind'], ['family', (m) => words(m.family || '')], ['health', 'hp', { num: true }], ['damage', (m, s) => s ? (m.damage[0] + m.damage[1]) / 2 : m.damage.join(' to '), { num: true }], ['swing s', 'speed', { num: true }], ['hit', 'hit', { num: true }], ['def', 'def', { num: true }], ['AR', 'ar', { num: true }], ['aggro m', 'aggro', { num: true }], ['gold', (m) => (m.gold || []).join(' to ')], ['drops', (m) => (m.lootTable || []).map(words).join(', ')], ['tamable', tameText], ['lives at', (m) => (D.livesAt[m.id] || []).join(', ')], ['notes', noteHtml, { html: true }]], rows, { sort: 1 });
   t.querySelectorAll('tbody tr').forEach((tr, i) => tr.addEventListener('click', () => { const nm = tr.children[0].textContent; const m = D.monsters.find((x) => x.name === nm); if (m) openModal('<h3>' + esc(m.name) + '</h3><pre>' + esc(JSON.stringify(m, null, 2)) + '</pre>'); }));
   f.appendChild(t);
   f.appendChild(el('<h2>Bosses</h2>'));
-  const bt = table([['boss', 'name'], ['health', 'hp', { num: true }], ['damage', (m) => m.damage.join(' to ')], ['hit', 'hit', { num: true }], ['def', 'def', { num: true }], ['AR', 'ar', { num: true }], ['phases at', (m) => (m.phases || []).map((p) => Math.round(p * 100) + '%').join(', ')], ['gold', (m) => (m.gold || []).join(' to ')], ['notes', (m) => (m.notes || []).map(words).join(', ')]], D.bosses.filter((m) => hit(m.name)));
+  const bt = table([['boss', 'name'], ['lair', (m) => D.lairName[m.id] || (m.lair ? words(m.lair) : '')], ['health', 'hp', { num: true }], ['damage', (m) => m.damage.join(' to ')], ['hit', 'hit', { num: true }], ['def', 'def', { num: true }], ['AR', 'ar', { num: true }], ['phases at', (m) => (m.phases || []).map((p) => Math.round(p * 100) + '%').join(', ')], ['summons', (m) => m.summons ? m.summons.count + ' ' + ((D.monsters.find((x) => x.id === m.summons.id) || { name: words(m.summons.id) }).name) : ''], ['gold', (m) => (m.gold || []).join(' to ')], ['drops', (m) => (m.lootTable || []).map(words).join(', ')], ['notes', noteHtml, { html: true }]], D.bosses.filter((m) => hit(m.name + ' ' + (D.lairName[m.id] || ''))));
   bt.querySelectorAll('tbody tr').forEach((tr) => tr.addEventListener('click', () => { const m = D.bosses.find((x) => x.name === tr.children[0].textContent); if (m) openModal('<h3>' + esc(m.name) + '</h3><pre>' + esc(JSON.stringify(m, null, 2)) + '</pre>'); }));
   f.appendChild(bt);
   f.appendChild(el('<h2>Tier bands</h2><div class="note">A tier’s band is the skill range of the player it is meant for; its gold is what one kill leaves.</div>'));
   f.appendChild(table([['tier', 'tier', { num: true }], ['for skills', (t) => t.band.join(' to ')], ['gold per kill', (t) => t.gold.join(' to ')]], Object.entries(D.tierBands).map(([k, v]) => ({ tier: +k, ...v }))));
-  f.appendChild(el('<h2>Habitat</h2>'));
+  f.appendChild(el('<h2>Who lives where</h2><div class="note">By named place, day and night. A place with nothing listed spawns from its biome table below.</div>'));
+  const nm = (id) => (D.monsters.find((m) => m.id === id) || { name: words(id) }).name;
+  f.appendChild(table([['place', 'name'], ['realm', 'realm'], ['biome', 'biome'], ['by day', (h) => h.day.map(nm).join(', ') || 'nothing'], ['by night', (h) => h.night.map(nm).join(', ') || 'nothing']], Object.values(D.habitatByPlace).filter((h) => hit(h.name + ' ' + h.realm + ' ' + [...h.day, ...h.night].map(nm).join(' '))), { sort: 1 }));
+  f.appendChild(el('<h2>Habitat by biome</h2>'));
   f.appendChild(table([['biome', 'biome'], ['by day', (h) => h.day.map((id) => (D.monsters.find((m) => m.id === id) || { name: id }).name).join(', ') || 'nothing'], ['by night', (h) => h.night.map((id) => (D.monsters.find((m) => m.id === id) || { name: id }).name).join(', ') || 'nothing']], Object.entries(D.habitat).map(([k, v]) => ({ biome: k, ...v }))));
   return f;
 };
