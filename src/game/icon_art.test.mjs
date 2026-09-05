@@ -62,9 +62,9 @@ console.log('icon_art: items');
   check('a base record works as well as an id', /oak-log\.webp$/.test(itemIcon(BASES.oak_log)));
   check('a gem with a material wears that gem', /ruby-gem\.webp$/.test(itemIcon('gem', { material: 'ruby' })));
   check('and every gem in ores.js has a picture', GEMS.every((g) => GEM_ICONS[g.id]), GEMS.filter((g) => !GEM_ICONS[g.id]).map((g) => g.id).join(', ') || `${GEMS.length} gems`);
-  check('a base with no painting answers null', itemIcon('potion') === null);
+  check('a base with no painting answers null', itemIcon('apple') === null);
   check('itemGlyph hands back an <img> for a painted base', /^<img[^>]*icons\/items\/longsword\.webp/.test(itemGlyph(BASES.longsword, 28)));
-  check('and the drawn <svg> for one without', /^<svg/.test(itemGlyph(BASES.potion, 28)));
+  check('and the drawn <svg> for one without', /^<svg/.test(itemGlyph(BASES.apple, 28)));
   check('iconImg is sized and has no alt text', /width="26" height="26" alt=""/.test(iconImg('x.webp', 26)));
 
   // the coverage report: what the library still owes the game
