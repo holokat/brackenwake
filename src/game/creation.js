@@ -28,8 +28,11 @@ import { derived, validateSpread } from '../mmo/stats.js';
 import { SKILLS, SKILL_GROUPS } from '../mmo/skills.js';
 import { BASES, makeItem, baseFor } from '../mmo/items.js';
 import { createInventory, PACK_SLOTS } from './inventory.js';
-import { BAR_SLOTS } from './win_abilities.js';
+import { BAR_SLOTS, GROUP_COLOUR } from './win_abilities.js';
 import { defaultSettings } from './win_settings.js';
+import {
+  injectTheme, theme, icon, itemGlyph, ruleUrl, cornerUrl, parchmentUrl,
+} from './ui_theme.js';
 
 // ---------------------------------------------------------------- the kits
 
@@ -358,58 +361,426 @@ export function shortfallLine(plan) {
   return parts.join('. ');
 }
 
+// ------------------------------------------------------- the look of a hero
+
+/**
+ * Which ability group each opening's spells and strikes come out of, so the
+ * card wears the colour the codex already uses for that archetype rather than
+ * a second palette invented here.
+ *
+ * Two are not archetypes at all. The paladin has no group of his own: every
+ * chivalry ability in abilities.js is filed under `healer`, so that is the
+ * colour honestly owed him. The artisan and Blank take `everyone`, which is
+ * the parchment neutral, because neither is an archetype and a red or a blue
+ * would be a promise about abilities they do not have.
+ */
+export const OPENING_GROUP = {
+  warrior: 'warrior', paladin: 'healer', ranger: 'ranger', rogue: 'rogue',
+  mage: 'mage', sorcerer: 'sorcerer', necromancer: 'necromancer',
+  healer: 'healer', bard: 'bard', artisan: 'everyone', blank: 'everyone',
+};
+
+/** The colour a card is banded and barred in. win_abilities.js's, never a copy. */
+export function openingColour(id) {
+  return GROUP_COLOUR[OPENING_GROUP[id]] || theme.parchmentDim;
+}
+
+/**
+ * One drawing per opening, on the same 24 x 24 field ui_theme.js's GLYPHS use,
+ * filled in the class colour rather than stroked, so a card reads as a hero at
+ * a glance instead of as a row in a list.
+ *
+ * These are markup fragments, not whole documents: `emblemSvg` wraps them.
+ */
+/**
+ * The open palm four of these are built on, so the mage's hand and the
+ * healer's are the same hand and only what is done to it differs. Four
+ * fingers, a thumb, and a palm that ends in a round heel; the fingers stop on
+ * the palm's top edge rather than overlapping it, which is what lets the
+ * healer punch the wrapping through the whole shape with one fill rule.
+ */
+const PALM = `M7.6 10.6 a1.1 1.1 0 0 1 2.2 0 V14.2 h-2.2 Z
+  M10.4 8.4 a1.1 1.1 0 0 1 2.2 0 V14.2 h-2.2 Z
+  M13.2 9 a1.1 1.1 0 0 1 2.2 0 V14.2 h-2.2 Z
+  M16 11 a1.1 1.1 0 0 1 2.2 0 V14.2 h-2.2 Z
+  M7.6 14.6 L4.4 16.6 L5.7 18.9 L7.6 17.9 Z
+  M7.6 14.2 H18.2 V17.4 a5.3 5.3 0 0 1 -10.6 0 Z`;
+
+/**
+ * One drawing per opening, on the same 24 x 24 field ui_theme.js's GLYPHS use,
+ * filled in the class colour rather than stroked, so a card reads as a hero at
+ * a glance instead of as a row in a list.
+ *
+ * These are markup fragments, not whole documents: `emblemSvg` wraps them.
+ */
+export const EMBLEMS = {
+  // a sword laid over a shield
+  warrior: `<path d="M2.2 4.6 L6.8 2.8 L11.4 4.6 v7.1 c0 4.4 -3.1 6.3 -4.6 7.4 -1.5 -1.1 -4.6 -3 -4.6 -7.4 Z"/>
+    <g transform="rotate(35 17 12)">
+      <path d="M17 1.6 L18.4 4.4 V13.6 H15.6 V4.4 Z"/>
+      <path d="M13.2 13.8 H20.8 V15.4 H13.2 Z"/>
+      <path d="M16.1 15.4 H17.9 V19.9 H16.1 Z"/>
+      <path d="M15.4 19.9 H18.6 V21.4 H15.4 Z"/>
+    </g>`,
+  // an armoured fist, knuckles up, under a light
+  paladin: `<path d="M12 .8 l.9 2.3 2.3 .9 -2.3 .9 -.9 2.3 -.9 -2.3 -2.3 -.9 2.3 -.9 Z"/>
+    <path d="M4.8 4 l.6 1.5 1.5 .6 -1.5 .6 -.6 1.5 -.6 -1.5 -1.5 -.6 1.5 -.6 Z"/>
+    <path d="M19.4 4.6 l.5 1.3 1.3 .5 -1.3 .5 -.5 1.3 -.5 -1.3 -1.3 -.5 1.3 -.5 Z"/>
+    <path d="M6.8 13.4 a1.5 1.5 0 0 1 3 0 a1.5 1.5 0 0 1 3 0 a1.5 1.5 0 0 1 3 0
+      a1.5 1.5 0 0 1 3 0 V17.4 a4.3 4.3 0 0 1 -4.3 4.3 H11.1 a4.3 4.3 0 0 1 -4.3 -4.3 Z
+      M7.6 16.7 L17.6 16.7 L17.6 17.7 L7.6 17.7 Z" fill-rule="evenodd"/>`,
+  // a bow, drawn, with the arrow on the string
+  ranger: `<path d="M15.2 2 C8 6.2 8 17.8 15.2 22 L13.2 22 C6 17.8 6 6.2 13.2 2 Z"/>
+    <path d="M14.6 2.2 h.9 V21.8 h-.9 Z"/>
+    <path d="M11.6 11.3 H20.4 v1.4 H11.6 Z"/>
+    <path d="M19.6 9.2 L23.2 12 L19.6 14.8 Z"/>
+    <path d="M10.4 9.8 L13.2 12 L10.4 14.2 Z"/>`,
+  // two daggers, crossed
+  rogue: `<g transform="rotate(-26 12 12)">
+      <path d="M8.6 2.4 L10.4 6 V12.6 H6.8 V6 Z"/>
+      <path d="M5.4 12.8 H11.8 V14.2 H5.4 Z"/>
+      <path d="M7.8 14.2 H9.4 V19 H7.8 Z"/>
+      <path d="M7 19 H10.2 V20.6 H7 Z"/>
+    </g>
+    <g transform="rotate(26 12 12)">
+      <path d="M15.4 2.4 L17.2 6 V12.6 H13.6 V6 Z"/>
+      <path d="M12.2 12.8 H18.6 V14.2 H12.2 Z"/>
+      <path d="M14.6 14.2 H16.2 V19 H14.6 Z"/>
+      <path d="M13.8 19 H17 V20.6 H13.8 Z"/>
+    </g>`,
+  // an open hand under a rune
+  mage: `<path d="M12 .6 L15.4 4.4 L12 8.2 L8.6 4.4 Z M12 2.8 L10.4 4.4 L12 6 L13.6 4.4 Z" fill-rule="evenodd"/>
+    <path d="${PALM}"/>`,
+  // an eye inside a ring
+  sorcerer: `<path d="M12 1.6 a10.4 10.4 0 1 0 .1 0 Z m0 2.4 a8 8 0 1 1 -.1 0 Z"/>
+    <path d="M6 12 C8.6 8.6 15.4 8.6 18 12 C15.4 15.4 8.6 15.4 6 12 Z M8.2 12 C10.1 9.9 13.9 9.9 15.8 12 C13.9 14.1 10.1 14.1 8.2 12 Z" fill-rule="evenodd"/>
+    <path d="M12 10.1 a1.9 1.9 0 1 0 .1 0 Z"/>`,
+  // a skull, the same one the pack draws
+  necromancer: `<path d="M12 2 a8 8 0 0 1 8 8 v4 l-3 2 v3 H7 v-3 l-3 -2 v-4 a8 8 0 0 1 8 -8 Z
+    M9 10 a2 2 0 1 0 .1 0 Z M15 10 a2 2 0 1 0 .1 0 Z
+    M12 12.6 L10.6 15.4 L13.4 15.4 Z
+    M10.4 16.9 L10.4 18.9 L11.4 18.9 L11.4 16.9 Z
+    M12.6 16.9 L12.6 18.9 L13.6 18.9 L13.6 16.9 Z"/>`,
+  // the same hand, with the wrapping cut through it
+  healer: `<path d="${PALM}
+    M8.6 18.4 L17.2 15 L17.2 16.4 L8.6 19.8 Z
+    M9.4 20.6 L17.2 17.6 L17.2 19 L10.2 21.7 Z" fill-rule="evenodd"/>`,
+  // a lute: a round body with its hole, a neck, and the head bent back
+  bard: `<path d="M8.4 11.2 a5.2 5.2 0 1 0 .1 0 Z M6.8 13.4 a1.5 1.5 0 1 1 -.1 0 Z"/>
+    <path d="M10.6 13.6 L18.2 4.6 L19.8 5.9 L12.2 14.9 Z"/>
+    <path d="M17 1.6 L21.8 5.6 L20 7.8 L15.2 3.8 Z"/>`,
+  // a hammer raised over an anvil
+  artisan: `<g transform="rotate(-26 11 6)">
+      <path d="M6.6 2.2 H15.4 V5.4 H6.6 Z"/>
+      <path d="M10.2 5.4 H12.2 V11.4 H10.2 Z"/>
+    </g>
+    <path d="M2.6 14.8 L5.2 13.4 H20.2 V16.8 h-4 l1.2 2.6 h2 V22 H6.6 v-2.6 h2 l1.2 -2.6 H5.2 Z"/>`,
+  // a rune stone with nothing cut into it
+  blank: `<path d="M12 1.6 L18.6 5 v14 L12 22.4 L5.4 19 V5 Z M12 4 L7.6 6.3 v11.4 L12 20 l4.4 -2.3 V6.3 Z" fill-rule="evenodd"/>`,
+};
+
+/** One opening's emblem as an inline svg string, at `size` px. */
+export function emblemSvg(id, size = 26, colour = null) {
+  const body = EMBLEMS[id];
+  if (!body) return '';
+  return `<svg class="bw-cr-e" viewBox="0 0 24 24" width="${size}" height="${size}"
+    fill="${colour || openingColour(id)}" stroke="none">${body}</svg>`;
+}
+
+/** How far along its range a stat sits, as a percentage of the bar. */
+export const STAT_FLOOR = 10;
+export const STAT_CEIL = 100;
+export function statPct(v) {
+  const n = typeof v === 'number' && Number.isFinite(v) ? v : STAT_FLOOR;
+  const clamped = Math.max(STAT_FLOOR, Math.min(STAT_CEIL, n));
+  return Math.round(((clamped - STAT_FLOOR) / (STAT_CEIL - STAT_FLOOR)) * 100);
+}
+
+/** How many kit icons a card shows before it starts counting the rest. */
+export const KIT_ICONS_SHOWN = 8;
+
+/**
+ * Every opening has a colour, an emblem, and an emblem made of drawings that
+ * a browser will actually paint. Runs at import, so a twelfth opening arrives
+ * with a blank square here rather than on the first screen a player sees.
+ */
+export function auditEmblems() {
+  const bad = [];
+  for (const op of OPENINGS) {
+    if (!OPENING_GROUP[op.id]) bad.push(`${op.id} is in no ability group`);
+    else if (!GROUP_COLOUR[OPENING_GROUP[op.id]]) bad.push(`${op.id}'s group has no colour`);
+    if (!EMBLEMS[op.id]) bad.push(`${op.id} has no emblem`);
+    else if (!/<path\b[^>]*\bd="/.test(EMBLEMS[op.id])) bad.push(`${op.id}'s emblem draws nothing`);
+  }
+  for (const id of Object.keys(EMBLEMS)) {
+    if (!OPENINGS_BY_ID[id]) bad.push(`"${id}" has an emblem and is not an opening`);
+  }
+  if (bad.length) throw new Error(`creation: ${bad.length} openings are not drawn. ${bad[0]}`);
+  return OPENINGS.length;
+}
+
+auditEmblems();
+
 // ------------------------------------------------------------------- the DOM
+
+const enc = (s) => `url("data:image/svg+xml,${encodeURIComponent(s.replace(/\s+/g, ' ').trim())}")`;
+
+const CARET = enc(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" width="12" height="8">
+  <path d="M1.4 1.8 L6 6.2 L10.6 1.8" fill="none" stroke="${theme.gold}" stroke-width="1.6"
+    stroke-linecap="round" stroke-linejoin="round"/></svg>`);
 
 const CSS = `
 #bw-creation, #bw-creation * { box-sizing: border-box; }
 #bw-creation {
   position: fixed; inset: 0; z-index: 90; display: flex; align-items: stretch;
-  background: linear-gradient(90deg, rgba(8,10,12,.94) 0%, rgba(8,10,12,.86) 46%, rgba(8,10,12,0) 62%);
-  font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: #f2ede2; text-shadow: 0 1px 2px rgba(0,0,0,.7);
+  background: linear-gradient(90deg, rgba(6,5,4,.97) 0%, rgba(6,5,4,.93) 50%, rgba(6,5,4,.55) 66%, rgba(6,5,4,0) 78%);
+  font-family: ${theme.fonts.body}; font-size: 15px; line-height: 1.4;
+  color: ${theme.parchment};
 }
 #bw-creation[hidden] { display: none; }
+
+/* the sheet: dark parchment, a gold rule down its open edge, corner marks */
 #bw-creation .bw-cr-panel {
-  width: min(720px, 60vw); padding: 22px 26px; overflow: auto;
-  display: flex; flex-direction: column; gap: 4px;
+  position: relative;
+  width: min(880px, 52vw); min-width: 520px; max-width: 100vw;
+  padding: 24px 30px 34px; overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column;
+  /* The sheet is taller than the window and scrolls. Without this every
+     section is a flex item the browser is free to squeeze, and the skills box
+     with its own max-height was the one that squeezed to nothing at all. */
+  background-image:
+    ${cornerUrl(theme.gold)}, ${cornerUrl(theme.gold)},
+    ${parchmentUrl()},
+    linear-gradient(100deg, rgba(0,0,0,.55), rgba(0,0,0,.15));
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat;
+  background-position: left 8px top 8px, right 8px top 8px, 0 0, 0 0;
+  background-size: 18px 18px, 18px 18px, 140px 90px, auto;
+  border-right: 1px solid ${theme.goldDim}88;
+  box-shadow: 14px 0 44px rgba(0,0,0,.6);
 }
-#bw-creation h1 { margin: 0 0 2px; font-size: 22px; font-weight: 600; letter-spacing: .01em; }
-#bw-creation h2 { margin: 16px 0 8px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #8fa387; }
-#bw-creation p { margin: 0 0 8px; color: #b6bfb0; }
-#bw-creation .bw-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 7px; }
-#bw-creation .bw-card {
-  padding: 8px 10px; border-radius: 7px; cursor: pointer;
-  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.14);
+#bw-creation .bw-cr-panel > * { flex: 0 0 auto; }
+@media (min-width: 1700px) { #bw-creation .bw-cr-panel { width: min(940px, 50vw); } }
+
+#bw-creation .bw-cr-top { margin-bottom: 4px; }
+#bw-creation h1 {
+  margin: 0; font-family: ${theme.fonts.display}; font-size: 27px; font-weight: 700;
+  letter-spacing: .05em; color: ${theme.parchment}; text-shadow: 0 2px 12px rgba(0,0,0,.85);
 }
-#bw-creation .bw-card:hover { background: rgba(255,255,255,.08); }
-#bw-creation .bw-card.on { border-color: #ffd479; background: rgba(255,212,121,.10); }
-#bw-creation .bw-card b { display: block; font-size: 13.5px; margin-bottom: 2px; }
-#bw-creation .bw-card small { color: #95a08f; line-height: 1.35; display: block; }
-#bw-creation .bw-row { display: grid; grid-template-columns: 128px 1fr 60px; gap: 10px; align-items: center; padding: 2px 0; }
-#bw-creation .bw-row .bw-v { text-align: right; font-variant-numeric: tabular-nums; }
-#bw-creation input[type=range] { width: 100%; }
-#bw-creation input[type=text], #bw-creation select {
-  font: inherit; padding: 5px 8px; border-radius: 6px; color: #eee8dc;
-  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.18);
+#bw-creation .bw-cr-lede {
+  margin: 6px 0 2px; font-style: italic; font-size: 16px; line-height: 1.45;
+  color: ${theme.parchmentDim}; border-left: 2px solid ${theme.goldDim}88; padding-left: 11px;
 }
-#bw-creation .bw-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 22px; }
-#bw-creation .bw-budget { color: #ffd479; font-variant-numeric: tabular-nums; }
-#bw-creation .bw-budget.spent { color: #95a08f; }
-#bw-creation .bw-kit li.gone { color: #7f887d; text-decoration: line-through; }
-#bw-creation ul { margin: 0; padding-left: 18px; color: #b6bfb0; }
-#bw-creation .bw-err { color: #ff8f7a; min-height: 18px; }
-#bw-creation .bw-go {
-  margin-top: 14px; font: inherit; font-size: 14px; padding: 9px 16px; border-radius: 7px;
-  border: 1px solid #6f8a5f; background: #35492f; color: #eef5e6; cursor: pointer;
+
+/* headers: the codex's small caps in Cinzel over its thin gold rule */
+#bw-creation .bw-hdr {
+  font-family: ${theme.fonts.display}; font-size: 11.5px; font-weight: 600;
+  letter-spacing: .22em; text-transform: uppercase; color: ${theme.gold};
+  margin: 20px 0 9px; padding-bottom: 9px;
+  background: ${ruleUrl()} bottom center / 100% 9px no-repeat;
 }
-#bw-creation .bw-go:disabled { opacity: .5; cursor: default; }
-#bw-creation .bw-skill-scroll { max-height: 220px; overflow: auto; padding-right: 6px; }
-#bw-creation .bw-step { display: flex; gap: 4px; }
+
+/* --- the hero cards ------------------------------------------------------ */
+#bw-creation .bw-cr-cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 9px;
+}
+#bw-creation .bw-cr-card {
+  position: relative; padding: 10px 11px 11px 15px; cursor: pointer;
+  background: linear-gradient(150deg, rgba(30,25,18,.88), rgba(10,9,7,.92));
+  border: 1px solid ${theme.goldDim}55;
+  transition: border-color .12s ease;
+}
+#bw-creation .bw-cr-card .bw-cr-band {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+}
+#bw-creation .bw-cr-card:hover { border-color: ${theme.gold}; }
+#bw-creation .bw-cr-card.on { border-color: ${theme.gold}; box-shadow: inset 3px 0 0 ${theme.gold}; }
+#bw-creation .bw-cr-card.on .bw-cr-band { width: 0; }
+
+#bw-creation .bw-cr-head { display: grid; grid-template-columns: 34px 1fr; gap: 9px; align-items: center; }
+#bw-creation .bw-cr-emblem {
+  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 38%, rgba(255,255,255,.09), rgba(0,0,0,.5));
+  border: 1px solid ${theme.goldDim}77;
+}
+#bw-creation .bw-cr-name {
+  font-family: ${theme.fonts.display}; font-size: 17px; font-weight: 600;
+  letter-spacing: .03em; color: ${theme.parchment}; line-height: 1.1;
+}
+#bw-creation .bw-cr-card.on .bw-cr-name, #bw-creation .bw-cr-card:hover .bw-cr-name { color: ${theme.goldBright}; }
+#bw-creation .bw-cr-group {
+  font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .18em;
+  text-transform: uppercase; margin-top: 2px;
+}
+#bw-creation .bw-cr-blurb {
+  margin: 7px 0 8px; font-size: 14px; line-height: 1.32; color: ${theme.parchmentDim};
+}
+
+#bw-creation .bw-cr-bars { display: grid; gap: 2px; margin-bottom: 8px; }
+#bw-creation .bw-cr-bar { display: grid; grid-template-columns: 26px 1fr 22px; gap: 6px; align-items: center; }
+#bw-creation .bw-cr-bk {
+  font-family: ${theme.fonts.display}; font-size: 8.5px; letter-spacing: .1em;
+  color: ${theme.parchmentFaint};
+}
+#bw-creation .bw-cr-bt {
+  display: block; height: 4px; background: rgba(0,0,0,.55);
+  border: 1px solid ${theme.goldDim}44; overflow: hidden;
+}
+#bw-creation .bw-cr-bf { display: block; height: 100%; }
+#bw-creation .bw-cr-bv {
+  font-family: ${theme.fonts.display}; font-size: 10px; font-variant-numeric: tabular-nums;
+  text-align: right; color: ${theme.parchmentDim};
+}
+
+#bw-creation .bw-cr-kitrow {
+  display: flex; flex-wrap: wrap; gap: 3px; align-items: center;
+  padding-top: 7px; border-top: 1px solid ${theme.goldDim}33;
+}
+#bw-creation .bw-cr-kit-i {
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(0,0,0,.42));
+  border: 1px solid ${theme.goldDim}55;
+}
+#bw-creation .bw-cr-kit-i img { display: block; }
+#bw-creation .bw-cr-kit-more {
+  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: ${theme.parchmentFaint}; padding-left: 3px;
+}
+
+/* --- the kit, spelled out ------------------------------------------------ */
+#bw-creation .bw-cr-kit { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2px 18px; }
+#bw-creation .bw-cr-kitline {
+  display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: center;
+  padding: 3px 0; border-bottom: 1px solid rgba(201,164,74,.13); font-size: 14.5px;
+}
+#bw-creation .bw-cr-kitline .bw-cr-kg { display: flex; align-items: center; justify-content: center; }
+#bw-creation .bw-cr-kitline .bw-cr-kn { color: ${theme.parchment}; }
+#bw-creation .bw-cr-kitline .bw-cr-kwhy { color: ${theme.parchmentFaint}; font-style: italic; font-size: 13px; }
+#bw-creation .bw-cr-kitline.gone { opacity: .55; }
+#bw-creation .bw-cr-kitline.gone .bw-cr-kn { color: ${theme.parchmentFaint}; text-decoration: line-through; }
+
+/* --- rows, sliders, steppers, selects ------------------------------------ */
+#bw-creation .bw-cr-two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
+/* The control is capped rather than left on 1fr: at 1920 a 1fr slider for a
+   number that runs 10 to 100 was eight hundred pixels long. */
+#bw-creation .bw-row {
+  display: grid; grid-template-columns: 108px minmax(130px, 330px) 76px; gap: 11px;
+  align-items: center; justify-content: start;
+  padding: 3px 0; border-bottom: 1px solid rgba(201,164,74,.13); font-size: 14.5px;
+}
+#bw-creation .bw-row .bw-k { color: ${theme.parchmentDim}; }
+#bw-creation .bw-row .bw-v {
+  text-align: right; font-family: ${theme.fonts.display}; font-size: 13px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: ${theme.parchment};
+}
+
+#bw-creation input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 16px;
+  background: transparent; cursor: pointer; margin: 0;
+}
+#bw-creation input[type=range]::-webkit-slider-runnable-track {
+  height: 3px; border: 0;
+  background: linear-gradient(90deg, ${theme.goldDim}, ${theme.gold});
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.65);
+}
+#bw-creation input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 13px; height: 13px; margin-top: -5px;
+  border-radius: 50%; border: 1px solid ${theme.goldDim};
+  background: radial-gradient(circle at 38% 32%, #fff8e6, ${theme.parchment} 58%, ${theme.parchmentDim});
+  box-shadow: 0 1px 3px rgba(0,0,0,.85);
+}
+#bw-creation input[type=range]::-moz-range-track {
+  height: 3px; border: 0;
+  background: linear-gradient(90deg, ${theme.goldDim}, ${theme.gold});
+}
+#bw-creation input[type=range]::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 50%; border: 1px solid ${theme.goldDim};
+  background: radial-gradient(circle at 38% 32%, #fff8e6, ${theme.parchment} 58%, ${theme.parchmentDim});
+}
+
+#bw-creation select, #bw-creation input[type=text] {
+  font-family: ${theme.fonts.body}; font-size: 14.5px; color: ${theme.parchment};
+  padding: 5px 9px; border: 1px solid ${theme.goldDim}66;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.45));
+}
+#bw-creation select {
+  -webkit-appearance: none; appearance: none; width: 100%; padding-right: 26px; cursor: pointer;
+  background-image: ${CARET}, linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.45));
+  background-repeat: no-repeat, no-repeat;
+  background-position: right 8px center, 0 0;
+  background-size: 12px 8px, auto;
+}
+#bw-creation select:focus, #bw-creation input[type=text]:focus { outline: none; border-color: ${theme.gold}; }
+#bw-creation select option { background: #100d09; color: ${theme.parchment}; }
+#bw-creation input[type=text] { width: 300px; max-width: 100%; letter-spacing: .02em; }
+
+#bw-creation .bw-cr-budget {
+  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: ${theme.gold}; font-variant-numeric: tabular-nums;
+  margin-bottom: 6px;
+}
+#bw-creation .bw-cr-budget.spent { color: ${theme.parchmentFaint}; }
+
+#bw-creation .bw-cr-skills {
+  max-height: 280px; overflow-y: auto; padding: 4px 10px 4px 11px;
+  border: 1px solid ${theme.goldDim}44; background: rgba(0,0,0,.25);
+}
+#bw-creation .bw-cr-skills .bw-cr-grp {
+  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .18em;
+  text-transform: uppercase; color: ${theme.goldDim}; margin: 11px 0 3px;
+  border-bottom: 1px solid ${theme.goldDim}44; padding-bottom: 3px;
+}
+#bw-creation .bw-cr-skills .bw-cr-grp:first-child { margin-top: 0; }
+#bw-creation .bw-step { display: flex; gap: 3px; justify-content: flex-end; }
 #bw-creation .bw-step button {
-  font: inherit; width: 24px; padding: 2px 0; border-radius: 5px; cursor: pointer;
-  border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #eee8dc;
+  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .04em;
+  width: 26px; padding: 3px 0; cursor: pointer; color: ${theme.parchmentDim};
+  border: 1px solid ${theme.goldDim}66;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.4));
 }
-#bw-creation .bw-step button:disabled { opacity: .35; cursor: default; }
+#bw-creation .bw-step button:hover:not(:disabled) { color: ${theme.goldBright}; border-color: ${theme.gold}; }
+#bw-creation .bw-step button:disabled { opacity: .3; cursor: default; }
+
+/* --- what that comes to -------------------------------------------------- */
+#bw-creation .bw-cr-derived { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
+#bw-creation .bw-cr-drow {
+  display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: center;
+  padding: 3px 0; border-bottom: 1px solid rgba(201,164,74,.13); font-size: 14.5px;
+}
+#bw-creation .bw-cr-drow .bw-i { display: block; opacity: .85; }
+#bw-creation .bw-cr-drow .bw-cr-dk {
+  font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .13em;
+  text-transform: uppercase; color: ${theme.gold};
+}
+#bw-creation .bw-cr-drow .bw-cr-dv {
+  font-family: ${theme.fonts.display}; font-size: 13.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: ${theme.parchment};
+}
+
+/* --- begin --------------------------------------------------------------- */
+#bw-creation .bw-cr-go {
+  margin-top: 18px; align-self: flex-start;
+  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
+  letter-spacing: .26em; text-transform: uppercase; color: ${theme.goldBright};
+  padding: 12px 42px; cursor: pointer;
+  border: 1px solid ${theme.gold};
+  background: linear-gradient(180deg, rgba(201,164,74,.22), rgba(0,0,0,.55));
+  box-shadow: 0 2px 14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.09);
+}
+#bw-creation .bw-cr-go:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(201,164,74,.34), rgba(0,0,0,.5));
+}
+#bw-creation .bw-cr-go:disabled {
+  opacity: .42; cursor: default; color: ${theme.parchmentFaint}; border-color: ${theme.goldDim};
+}
+#bw-creation .bw-cr-err {
+  margin-top: 9px; min-height: 19px; font-size: 14.5px; color: ${theme.down};
+}
+#bw-creation .bw-cr-short { font-size: 13.5px; font-style: italic; color: ${theme.parchmentFaint}; }
+
+#bw-creation ::-webkit-scrollbar { width: 9px; height: 9px; }
+#bw-creation ::-webkit-scrollbar-track { background: rgba(0,0,0,.45); }
+#bw-creation ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, ${theme.goldDim}, #4a3818); border: 1px solid #000; }
+#bw-creation ::-webkit-scrollbar-thumb:hover { background: ${theme.gold}; }
 `;
 
 const h = (tag, cls, text) => {
@@ -417,6 +788,34 @@ const h = (tag, cls, text) => {
   if (cls) e.className = cls;
   if (text != null) e.textContent = text;
   return e;
+};
+/** The same, with a drawing inside it. */
+const hs = (tag, cls, svgText) => {
+  const e = h(tag, cls);
+  e.innerHTML = svgText;
+  return e;
+};
+
+/**
+ * The line under a card's name. Naming the archetype there put WARRIOR under
+ * Warrior on five of the eleven cards, which is a line that says nothing, so
+ * it says the thing the opening is best at instead: its highest starting
+ * skill, read off openings.js rather than typed here. Blank has no skill above
+ * zero, and what it has instead is the pool, so that is what its card says.
+ */
+export function leadSkillLine(op) {
+  let bestId = null, best = 0;
+  for (const [id, v] of Object.entries(op.skills || {})) {
+    if (v > best) { best = v; bestId = id; }
+  }
+  if (!bestId) return `${op.freeSkillPoints} skill points to place`;
+  return `${SKILL_NAMES[bestId] || bestId} ${best}`;
+}
+
+/** The mark beside each derived number, from the codex's own icon set. */
+const DERIVED_ICON = {
+  health: 'heart', mana: 'book', stamina: 'boot',
+  carry: 'scale', 'mana regen': 'drop', 'stamina regen': 'bolt',
 };
 
 /**
@@ -440,6 +839,10 @@ export function createCreation(root, deps = {}) {
   if (typeof document === 'undefined') {
     return { el: null, state, plan: () => planCharacter(state), destroy() {} };
   }
+  // The fonts and the shared tokens come from the same sheet the HUD and the
+  // codex use, and this is the first screen, so it puts them in itself rather
+  // than waiting for a HUD that does not exist yet.
+  injectTheme(document);
   if (!document.getElementById('bw-creation-css')) {
     const s = document.createElement('style');
     s.id = 'bw-creation-css';
@@ -449,44 +852,46 @@ export function createCreation(root, deps = {}) {
 
   const el = h('div');
   el.id = 'bw-creation';
+  el.className = 'bw-ui';
   const panel = h('div', 'bw-cr-panel');
   el.appendChild(panel);
   (root || document.body).appendChild(el);
 
-  panel.appendChild(h('h1', null, 'Who walks out of the trees'));
-  const blurb = h('p');
-  panel.appendChild(blurb);
+  const top = h('div', 'bw-cr-top');
+  top.appendChild(h('h1', null, 'Who walks out of the trees'));
+  const blurb = h('div', 'bw-cr-lede');
+  top.appendChild(blurb);
+  panel.appendChild(top);
 
-  panel.appendChild(h('h2', null, 'Opening'));
-  const cards = h('div', 'bw-cards');
+  panel.appendChild(h('div', 'bw-hdr', 'Choose your opening'));
+  const cards = h('div', 'bw-cr-cards');
   panel.appendChild(cards);
 
-  panel.appendChild(h('h2', null, 'Kit'));
-  const kitList = h('ul', 'bw-kit');
+  panel.appendChild(h('div', 'bw-hdr', 'The kit'));
+  const kitList = h('div', 'bw-cr-kit');
   panel.appendChild(kitList);
 
-  const statsHead = h('h2', null, 'Stats');
-  panel.appendChild(statsHead);
-  const statBudget = h('div', 'bw-budget');
+  panel.appendChild(h('div', 'bw-hdr', 'Stats'));
+  const statBudget = h('div', 'bw-cr-budget');
   panel.appendChild(statBudget);
   const statRows = h('div');
   panel.appendChild(statRows);
 
-  panel.appendChild(h('h2', null, 'What that comes to'));
-  const derivedEl = h('div', 'bw-two');
+  panel.appendChild(h('div', 'bw-hdr', 'What that comes to'));
+  const derivedEl = h('div', 'bw-cr-derived');
   panel.appendChild(derivedEl);
 
-  panel.appendChild(h('h2', null, 'Skills'));
-  const skillBudget = h('div', 'bw-budget');
+  panel.appendChild(h('div', 'bw-hdr', 'Skills'));
+  const skillBudget = h('div', 'bw-cr-budget');
   panel.appendChild(skillBudget);
-  const skillScroll = h('div', 'bw-skill-scroll');
+  const skillScroll = h('div', 'bw-cr-skills');
   panel.appendChild(skillScroll);
 
-  panel.appendChild(h('h2', null, 'Appearance'));
-  const lookEl = h('div', 'bw-two');
+  panel.appendChild(h('div', 'bw-hdr', 'Appearance'));
+  const lookEl = h('div', 'bw-cr-two');
   panel.appendChild(lookEl);
 
-  panel.appendChild(h('h2', null, 'Name'));
+  panel.appendChild(h('div', 'bw-hdr', 'Name'));
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
   nameInput.maxLength = NAME_MAX;
@@ -494,20 +899,74 @@ export function createCreation(root, deps = {}) {
   nameInput.addEventListener('input', () => { state.name = nameInput.value; refresh(); });
   panel.appendChild(nameInput);
 
-  const err = h('div', 'bw-err');
-  panel.appendChild(err);
-  const go = h('button', 'bw-go', 'Begin');
+  const go = h('button', 'bw-cr-go', 'Begin');
   panel.appendChild(go);
-  const shortfall = h('div', 'bw-dim');
-  shortfall.style.color = '#95a08f';
+  const err = h('div', 'bw-cr-err');
+  panel.appendChild(err);
+  const shortfall = h('div', 'bw-cr-short');
   panel.appendChild(shortfall);
 
   // --- the opening cards
+  // Built once. Nothing on a card depends on the points a player then moves,
+  // so only the lit border changes when the choice does.
   for (const op of OPENINGS) {
-    const card = h('div', 'bw-card');
+    const colour = openingColour(op.id);
+    const card = h('div', 'bw-cr-card');
     card.dataset.opening = op.id;
-    card.appendChild(h('b', null, op.name));
-    card.appendChild(h('small', null, op.blurb));
+
+    const band = h('div', 'bw-cr-band');
+    band.style.background = colour;
+    card.appendChild(band);
+
+    const head = h('div', 'bw-cr-head');
+    const emblem = hs('div', 'bw-cr-emblem', emblemSvg(op.id, 24, colour));
+    emblem.dataset.emblem = op.id;
+    head.appendChild(emblem);
+    const names = h('div');
+    names.appendChild(h('div', 'bw-cr-name', op.name));
+    const grp = h('div', 'bw-cr-group', leadSkillLine(op));
+    grp.style.color = colour;
+    names.appendChild(grp);
+    head.appendChild(names);
+    card.appendChild(head);
+
+    card.appendChild(h('div', 'bw-cr-blurb', op.blurb));
+
+    const bars = h('div', 'bw-cr-bars');
+    for (const id of STAT_IDS) {
+      const v = op.stats[id];
+      const bar = h('div', 'bw-cr-bar');
+      bar.dataset.stat = id;
+      bar.appendChild(h('span', 'bw-cr-bk', STAT_LABELS[id]));
+      const track = h('span', 'bw-cr-bt');
+      const fill = h('i', 'bw-cr-bf');
+      fill.style.width = `${statPct(v)}%`;
+      fill.style.background = colour;
+      fill.dataset.pct = String(statPct(v));
+      track.appendChild(fill);
+      bar.appendChild(track);
+      bar.appendChild(h('span', 'bw-cr-bv', String(v)));
+      bars.appendChild(bar);
+    }
+    card.appendChild(bars);
+
+    // What the kit hands over, in pictures. `itemGlyph` prefers the painting
+    // and falls back to the drawn glyph, so a base with no painting still
+    // shows a thing rather than a hole.
+    const kitRow = h('div', 'bw-cr-kitrow');
+    const made = kitFor(op, 1).items;
+    kitRow.dataset.kit = String(made.length);
+    for (const { item } of made.slice(0, KIT_ICONS_SHOWN)) {
+      const b = baseFor(item);
+      const cell = hs('span', 'bw-cr-kit-i', itemGlyph(b, 22, null, { count: item.count, material: item.material }));
+      cell.title = b.name;
+      kitRow.appendChild(cell);
+    }
+    if (made.length > KIT_ICONS_SHOWN) {
+      kitRow.appendChild(h('span', 'bw-cr-kit-more', `+${made.length - KIT_ICONS_SHOWN} more`));
+    }
+    card.appendChild(kitRow);
+
     card.addEventListener('click', () => pick(op.id));
     cards.appendChild(card);
   }
@@ -534,7 +993,7 @@ export function createCreation(root, deps = {}) {
     statInputs = new Map();
     for (const id of STAT_IDS) {
       const row = h('div', 'bw-row');
-      row.appendChild(h('span', null, STAT_NAMES[id]));
+      row.appendChild(h('span', 'bw-k', STAT_NAMES[id]));
       const slider = document.createElement('input');
       slider.type = 'range';
       slider.min = '10';
@@ -555,10 +1014,10 @@ export function createCreation(root, deps = {}) {
     skillScroll.textContent = '';
     skillRows = new Map();
     for (const group of SKILL_GROUPS) {
-      skillScroll.appendChild(h('h2', null, group));
+      skillScroll.appendChild(h('div', 'bw-cr-grp', group));
       for (const sk of SKILLS.filter((s) => s.group === group)) {
         const row = h('div', 'bw-row');
-        row.appendChild(h('span', null, SKILL_NAMES[sk.id] || sk.name));
+        row.appendChild(h('span', 'bw-k', SKILL_NAMES[sk.id] || sk.name));
         // Four buttons rather than a slider: fifty two sliders is a wall, and
         // points move whole, so five and one between them reach any number.
         const step = h('div', 'bw-step');
@@ -580,7 +1039,7 @@ export function createCreation(root, deps = {}) {
     lookEl.textContent = '';
     const choose = (label, field, list) => {
       const row = h('div', 'bw-row');
-      row.appendChild(h('span', null, label));
+      row.appendChild(h('span', 'bw-k', label));
       const sel = document.createElement('select');
       for (const opt of list) {
         const o = document.createElement('option');
@@ -599,7 +1058,7 @@ export function createCreation(root, deps = {}) {
     choose('hair colour', 'hairColour', APPEARANCE.hairColours);
     choose('marks', 'mark', APPEARANCE.marks);
     const hRow = h('div', 'bw-row');
-    hRow.appendChild(h('span', null, 'height'));
+    hRow.appendChild(h('span', 'bw-k', 'height'));
     const hSlider = document.createElement('input');
     hSlider.type = 'range';
     hSlider.min = String(APPEARANCE.height.min);
@@ -653,12 +1112,27 @@ export function createCreation(root, deps = {}) {
     kitList.textContent = '';
     for (const { item, from } of items) {
       const b = baseFor(item);
+      const line = h('div', 'bw-cr-kitline');
+      line.appendChild(hs('span', 'bw-cr-kg', itemGlyph(b, 22, null, { count: item.count, material: item.material })));
       const n = item.count && item.count > 1 ? `${item.count} ` : '';
-      const li = h('li', null, `${n}${b.name.toLowerCase()}${STAND_INS[from] ? ` (the kit says ${from.replace(/([A-Z])/g, ' $1').toLowerCase()}, and ${STAND_INS[from]} is what the tables have)` : ''}`);
-      kitList.appendChild(li);
+      const words = h('span');
+      words.appendChild(h('span', 'bw-cr-kn', `${n}${b.name.toLowerCase()}`));
+      if (STAND_INS[from]) {
+        words.appendChild(h('span', 'bw-cr-kwhy',
+          ` (the kit says ${from.replace(/([A-Z])/g, ' $1').toLowerCase()}, and ${STAND_INS[from]} is what the tables have)`));
+      }
+      line.appendChild(words);
+      kitList.appendChild(line);
     }
+    // What the kit named and the tables cannot make, greyed, with the reason.
     for (const m of missing) {
-      kitList.appendChild(h('li', 'gone', `${m.replace(/([A-Z])/g, ' $1').toLowerCase()}, which the item tables do not have yet`));
+      const line = h('div', 'bw-cr-kitline gone');
+      line.appendChild(hs('span', 'bw-cr-kg', itemGlyph(null, 22, theme.parchmentFaint)));
+      const words = h('span');
+      words.appendChild(h('span', 'bw-cr-kn', m.replace(/([A-Z])/g, ' $1').toLowerCase()));
+      words.appendChild(h('span', 'bw-cr-kwhy', ', which the item tables do not have yet'));
+      line.appendChild(words);
+      kitList.appendChild(line);
     }
 
     const points = planPoints();
@@ -690,10 +1164,10 @@ export function createCreation(root, deps = {}) {
     const d = derived(state.stats, state.skills);
     derivedEl.textContent = '';
     const dline = (label, value) => {
-      const row = h('div', 'bw-row');
-      row.style.gridTemplateColumns = '1fr auto';
-      row.appendChild(h('span', 'bw-dim', label));
-      row.appendChild(h('b', null, String(value)));
+      const row = h('div', 'bw-cr-drow');
+      row.appendChild(hs('span', null, icon(DERIVED_ICON[label] || 'crossed', theme.gold, 14)));
+      row.appendChild(h('span', 'bw-cr-dk', label));
+      row.appendChild(h('span', 'bw-cr-dv', String(value)));
       derivedEl.appendChild(row);
     };
     dline('health', Math.floor(d.maxHealth));
@@ -752,7 +1226,12 @@ export function createCreation(root, deps = {}) {
 
   build();
   pick(state.opening);
-  nameInput.focus?.();
+  // Taking the caret is worth it; taking the caret and dragging the sheet down
+  // to the name field, past the eleven cards the player came here to look at,
+  // is not. The scroll is put back either way, because preventScroll is not
+  // honoured everywhere.
+  try { nameInput.focus?.({ preventScroll: true }); } catch { nameInput.focus?.(); }
+  panel.scrollTop = 0;
 
   return {
     el, state,
