@@ -227,7 +227,7 @@ function boot() {
       lesson: (who, skill, difficulty, success) => (who === actor ? progression.lesson(skill, difficulty, success) : null),
       statLesson: (who, stat) => (who === actor ? progression.statLesson(stat) : null),
     };
-    const combat = createCombat({ floaters, hud, audio, progression: teach });
+    const combat = createCombat({ floaters, hud, audio, progression: teach, recompute });
     const loot = createLootDrops(sc, { floaters, hud, audio });
     const monsters = createMonsters(sc, runtime, {
       // W2 calls actorFactory(id, { pos, key, row, rec }); W1's builder takes (id, pos)
@@ -270,6 +270,11 @@ function boot() {
     }
     dress();
     const effects = createEffects(sc, { audio });
+    // a weapon's hit effect bursts where it landed, in its colour
+    combat.onHit?.(({ defender, colour, damage, fired }) => {
+      if (!fired || !defender?.pos) return;
+      effects.burst(defender.pos, colour, damage > 20 ? 1.4 : 1);
+    });
     const targetRing = createTargetRing(sc);
     // Auto attack, the UO way: a single click on a monster looks at it, a
     // double click fights it until it or you is down, or you click the ground.
