@@ -152,18 +152,18 @@ console.log('win_map: what it draws');
 
 console.log('win_map: a zone you have walked into is named, one you have not is hatched');
 {
-  const known = drawMap(recorder(), { field, cx: 0, cz: 0, size: 640, zonesFound: ['vale', 'ironshoulder'] });
+  const known = drawMap(recorder(), { field, cx: 0, cz: 0, size: 640, zonesFound: ['greenwold', 'boneyard'] });
   check('two found zones are two named zones', known.named === 2, `${known.named} named of ${known.zones}`);
   const g = recorder();
-  drawMap(g, { field, cx: 0, cz: 0, size: 640, zonesFound: ['ironshoulder'] });
-  check('the found one is written on the map', g.texts.includes(ZONE.ironshoulder.name), `"${ZONE.ironshoulder.name}"`);
-  check('and the unfound one is not', !g.texts.includes(ZONE.frostcrown.name));
+  drawMap(g, { field, cx: 0, cz: 0, size: 640, zonesFound: ['boneyard'] });
+  check('the found one is written on the map', g.texts.includes(ZONE.boneyard.name), `"${ZONE.boneyard.name}"`);
+  check('and the unfound one is not', !g.texts.includes(ZONE.frostreach.name));
   // hatching is strokes inside a clip, so unknown country costs many more lines
   const hatched = recorder(); drawMap(hatched, { field, cx: 0, cz: 0, size: 640, zonesFound: [] });
   const clear = recorder(); drawMap(clear, { field, cx: 0, cz: 0, size: 640, zonesFound: ZONES.map((z) => z.id) });
   check('unknown country is hatched and known country is not', hatched.calls.moveTo > clear.calls.moveTo + 100,
     `${hatched.calls.moveTo} line starts hatched against ${clear.calls.moveTo} clear`);
-  check('a Set of zone ids works as well as a list', drawMap(recorder(), { field, cx: 0, cz: 0, size: 640, zonesFound: new Set(['vale']) }).named === 1);
+  check('a Set of zone ids works as well as a list', drawMap(recorder(), { field, cx: 0, cz: 0, size: 640, zonesFound: new Set(['greenwold']) }).named === 1);
   check('every danger tier has a tint', [1, 2, 3, 4, 5].every((t) => Array.isArray(DANGER_TINT[t]) && DANGER_TINT[t].length === 3));
   check('and the heart is greener than the rim', DANGER_TINT[1][1] > DANGER_TINT[5][1] && DANGER_TINT[5][0] > DANGER_TINT[1][0]);
 }
@@ -227,9 +227,9 @@ console.log('win_map: clicking sets it');
   check('clicking one you have not found picks nothing there',
     pickAt(px, py, { field, cx: 0, cz: 0, size: 640, discovered: [], zonesFound: [] }) === null);
   // the middle of the map is the player, and the player is in the heart
-  const heart = pickAt(320, 320, { field, cx: 0, cz: 0, size: 640, discovered: [], zonesFound: ['vale'] });
+  const heart = pickAt(320, 320, { field, cx: 0, cz: 0, size: 640, discovered: [], zonesFound: ['greenwold'] });
   check('but the zone under the click, once walked, is picked instead',
-    heart && heart.kind === 'zone' && heart.id === 'vale' && heart.x === 0 && heart.z === 0, JSON.stringify(heart));
+    heart && heart.kind === 'zone' && heart.id === 'greenwold' && heart.x === 0 && heart.z === 0, JSON.stringify(heart));
   check('and a zone you have not walked into is not', pickAt(320, 320, { field, cx: 0, cz: 0, size: 640, zonesFound: [] }) === null);
   check('a site wins over the zone it stands in', hit.kind === 'site');
   check('the pick radius is what PICK_PX says', (() => {
@@ -379,7 +379,7 @@ const someTown = (() => {
   }
   return null;
 })();
-const WALKED = ['vale', 'ironshoulder', 'frostcrown'];
+const WALKED = ['greenwold', 'boneyard', 'frostreach'];
 
 function makePanel(character, extra = {}) {
   const said = [];
@@ -418,7 +418,7 @@ console.log('win_map: the column beside the map');
   check('the key has one swatch per row', rowsOf(root, 'sw').length === LEGEND.length, `${rowsOf(root, 'sw').length} swatches of ${LEGEND.length}`);
   check('every region row is sorted by distance', m.regions.every((r, i) => i === 0 || m.regions[i - 1].dist <= r.dist));
   check('and so is every place', m.places.every((r, i) => i === 0 || m.places[i - 1].dist <= r.dist));
-  check('the header names the region you are standing in', m.here.name === ZONE.vale.name && m.here.line === ZONE.vale.line, m.here.name);
+  check('the header names the region you are standing in', m.here.name === ZONE.greenwold.name && m.here.line === ZONE.greenwold.line, m.here.name);
   check('and says the ground under you in words', !!m.here.ground && Object.values(GROUND_WORD).includes(m.here.ground), m.here.ground);
   check('and the danger band in the game words, never a bare number', m.here.danger === DANGER_WORD[1] && !/\d/.test(m.here.danger), m.here.danger);
 }
@@ -458,15 +458,15 @@ console.log('win_map: a row click and a map click write the same field');
   const mapTouches = touched.length;
   check('and touches the waypoint field', mapTouches === 1 && touched[0] === 'waypoint', touched.join(','));
 
-  const row = rowsOf(root, 'bw-map-region').find((r) => r.dataset.zone === 'ironshoulder');
+  const row = rowsOf(root, 'bw-map-region').find((r) => r.dataset.zone === 'boneyard');
   check('the walked region has a row to click', !!row);
   row.fire('click');
   const byRow = character.waypoint;
-  check('a row click writes THE SAME field', byRow !== byMap && ctx.character.waypoint === byRow && byRow.name === ZONE.ironshoulder.name, JSON.stringify(byRow));
-  check('on the centre of that region', byRow.x === ZONE.ironshoulder.x && byRow.z === ZONE.ironshoulder.z);
+  check('a row click writes THE SAME field', byRow !== byMap && ctx.character.waypoint === byRow && byRow.name === ZONE.boneyard.name, JSON.stringify(byRow));
+  check('on the centre of that region', byRow.x === ZONE.boneyard.x && byRow.z === ZONE.boneyard.z);
   check('and it calls state.touch too', touched.length === mapTouches + 1 && touched[touched.length - 1] === 'waypoint', touched.join(','));
-  check('and says so under the map', /Waypoint set on The Iron Shoulder/.test(p._say.textContent), p._say.textContent);
-  check('and in a toast', said.length === 2 && said[1].includes(ZONE.ironshoulder.name), said[1]);
+  check('and says so under the map', /Waypoint set on The Boneyard/.test(p._say.textContent), p._say.textContent);
+  check('and in a toast', said.length === 2 && said[1].includes(ZONE.boneyard.name), said[1]);
   check('nothing else on the character moved', Object.keys(character).join(',') === 'discovered,zones,waypoint');
 
   // a place row does it too
@@ -489,7 +489,7 @@ console.log('win_map: the mark comes off again');
   const { p, root, said, touched } = makePanel(character);
   check('with no mark there is no clear button', !walk(root).some((n) => n.tagName === 'BUTTON'));
   check('and the sheet says so rather than leaving a gap', textOf(root).includes('not set'));
-  p.setWaypoint({ x: ZONE.vale.x, z: ZONE.vale.z, name: ZONE.vale.name });
+  p.setWaypoint({ x: ZONE.greenwold.x, z: ZONE.greenwold.z, name: ZONE.greenwold.name });
   const btn = walk(p._side).find((n) => n.tagName === 'BUTTON');
   check('setting one grows the button', !!btn && btn.textContent === 'clear waypoint', btn && btn.textContent);
   check('and the way to it is written in words', /north|south|east|west|right here/.test(textOf(p._side)));
@@ -497,7 +497,7 @@ console.log('win_map: the mark comes off again');
   btn.fire('click');
   check('clicking it clears the mark', character.waypoint === null);
   check('and saves that', touched.length === n + 1 && touched[touched.length - 1] === 'waypoint');
-  check('and says which mark went', /is cleared/.test(p._say.textContent) && p._say.textContent.includes(ZONE.vale.name), p._say.textContent);
+  check('and says which mark went', /is cleared/.test(p._say.textContent) && p._say.textContent.includes(ZONE.greenwold.name), p._say.textContent);
   check('and tells the HUD', said[said.length - 1].includes('cleared'), said[said.length - 1]);
   check('the button is gone with it', !walk(p._side).some((x) => x.tagName === 'BUTTON'));
   const again = p.clearWaypoint();
@@ -533,13 +533,13 @@ console.log('win_map: with no world loaded the column is still a page');
   check('the draw bows out with no field', p.open(ctx) === undefined && p.lastDraw === null);
   check('and the column is built anyway', rowsOf(root, 'bw-map-region').length === ZONES.length, `${rowsOf(root, 'bw-map-region').length} rows`);
   check('the ground under you is not invented', p.lastSide.here.ground === null && textOf(root).includes('not known yet'));
-  check('and the region you stand in is still worked out from the world table', p.lastSide.here.name === ZONE.vale.name, p.lastSide.here.name);
+  check('and the region you stand in is still worked out from the world table', p.lastSide.here.name === ZONE.greenwold.name, p.lastSide.here.name);
 }
 
 console.log('win_map: the key says what the draw actually paints');
 {
   const g = recorder();
-  drawMap(g, { field, cx: 0, cz: 0, size: 640, zonesFound: ['vale'], discovered: [someSites[0].id], waypoint: { x: 1000, z: 1000, name: 'a mark' } });
+  drawMap(g, { field, cx: 0, cz: 0, size: 640, zonesFound: ['greenwold'], discovered: [someSites[0].id], waypoint: { x: 1000, z: 1000, name: 'a mark' } });
   const used = g.colours;
   for (const [what, colour] of [['the road', ROAD_COLOUR], ['the waypoint', WAYPOINT_COLOUR], ['you', PLAYER_COLOUR], ['the hatching', HATCH_INK], ['the wash under it', HATCH_WASH]]) {
     check(`${what} is drawn in the colour the key shows`, used.has(colour), colour);
@@ -597,7 +597,7 @@ console.log('win_map: foundPlaces is the one list');
   check('and a bearing and a distance', model.places.every((r) => /,/.test(r.way) || r.way === 'right here'), model.places[0].way);
   // the column is rebuilt with the picture, so what it costs is worth knowing
   const ids = [someSites[0].id, someSites[1].id, someTown.id];
-  const zs = ['vale', 'ironshoulder', 'frostcrown'];
+  const zs = ['greenwold', 'boneyard', 'frostreach'];
   sideModel({ field, cx: 0, cz: 0, discovered: ids, zonesFound: zs });
   const t0 = performance.now();
   for (let i = 0; i < 50; i++) sideModel({ field, cx: i * 7, cz: -i * 7, discovered: ids, zonesFound: zs });

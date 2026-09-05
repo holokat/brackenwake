@@ -689,7 +689,7 @@ console.log('state: the summary follows the document on every save');
   check('and leaves the fourth out', row.summary.skills.length === 3);
   check('the gold is on it', row.summary.gold === 3);
   check('and where they stand, by the same lookup the world names ground with',
-    row.summary.place === 'The Bracken Vale', String(row.summary.place));
+    row.summary.place === 'The Greenwold', String(row.summary.place));
   check('the row no longer asks to be made', row.needsCreation === false);
 
   s.character.gold = 800; s.character.skills.mining = 99; s.setPos(0, -3000);
@@ -697,13 +697,13 @@ console.log('state: the summary follows the document on every save');
   row = s.roster()[0];
   check('a second save moves the gold on the card', row.summary.gold === 800, String(row.summary.gold));
   check('and the skills', row.summary.skills[0].id === 'mining' && row.summary.skills[0].value === 99);
-  check('and where they stand', row.summary.place === 'The Mill Run', String(row.summary.place));
+  check('and where they stand', row.summary.place === 'The Stormpeaks', String(row.summary.place));
   check('and the summary never needs the document to be opened',
     deepEq(JSON.parse(store.m.get(ROSTER_KEY)).slots[0].summary, row.summary));
 
   const blank = summarise(blankCharacter());
   check('a document with nothing learned lists no skills at all rather than three zeroes',
-    blank.skills.length === 0 && blank.needsCreation === true && blank.place === 'The Bracken Vale',
+    blank.skills.length === 0 && blank.needsCreation === true && blank.place === 'The Greenwold',
     JSON.stringify(blank.skills));
 
   s.setPos(7000, 7000);

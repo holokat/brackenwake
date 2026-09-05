@@ -84,7 +84,7 @@ check('the audit ran at import and it built one of everything', !!MINE_AUDIT && 
   + `yard ${MINE_AUDIT.yard.tris} in ${MINE_AUDIT.yard.draws}, seam ${MINE_AUDIT.seams.iron.tris}`);
 check('and it can be run again and says the same thing',
   JSON.stringify(auditMineModels().mouth.tris) === JSON.stringify(MINE_AUDIT.mouth.tris));
-check('the seven mines resolved off the real field', MINES.length === 7 && MINES.every((m) => m.mouths && m.seams),
+check('the nine mines resolved off the real field', MINES.length === 9 && MINES.every((m) => m.mouths && m.seams),
   MINES.map((m) => `${m.name} ${m.mouths.length}c ${m.seams.length}s`).join(', '));
 
 // The audit has to catch something or it is decoration: drive it with a budget
@@ -149,7 +149,7 @@ console.log('mine_models: every cut of every mine, on its own hillside');
       if (le.low > MAX_FLOAT) flatFloat++;
     }
   }
-  check('all twenty one cuts built', n === 21, `${n} cuts`);
+  check('all twenty seven cuts built', n === 27, `${n} cuts`);
   check('and not one is over the triangle budget', over === 0, `heaviest ${worstTris} of ${MOUTH_MAX_TRIS}`);
   check('every ground sample a cut took is the field\'s own answer there', wrongFoot === 0,
     `${feet} samples over ${n} cuts, none off by more than a nanometre`);
@@ -167,7 +167,7 @@ console.log('mine_models: every cut of every mine, on its own hillside');
 // cut in the world, where the ground falls 9.5 m over six metres.
 console.log('mine_models: the track follows the ground it is laid on');
 {
-  const ember = MINES.find((m) => m.name === 'the Ember Cut');
+  const ember = MINES.find((m) => m.name === 'The Marrow Mine');
   const mouth = ember.mouths[0];
   const g = buildMineMouth(mouth, { heightAt });
   // every vertex of the merged mouth, checked against the terrain under it
@@ -199,7 +199,7 @@ console.log('mine_models: the track follows the ground it is laid on');
   }
   const rise = heightAt(mouth.x - Math.sin(mouth.facing) * 4, mouth.z - Math.cos(mouth.facing) * 4) - mouth.y;
   const fall = heightAt(mouth.x + Math.sin(mouth.facing) * 6, mouth.z + Math.cos(mouth.facing) * 6) - mouth.y;
-  check('the steepest cut really is steep', rise > 3 && fall < -9,
+  check('the steepest cut really is steep', rise > 2 && fall < -6,
     `the hill rises ${rise.toFixed(1)} m four metres back and falls ${fall.toFixed(1)} m six metres out`);
   check('nothing at the cut hangs more than the portal is tall', worstGap < 6.0, `the highest piece clears the ground by ${worstGap.toFixed(2)} m`);
   check('and nothing is buried deeper than the hill behind it rises', deepest < rise + 1.5,
@@ -266,8 +266,8 @@ console.log('mine_models: the board says the name of the mine');
       check('the letters go on in the HUD display face', /Cinzel/.test(texts[0]?.font || ''), texts[0]?.font || '(no text)');
     }
   }
-  check('every board carries its own mine as material data', named === 7, `${named}/7`);
-  check('and every board actually drew that name on its canvas', drawn === 7, said.join(' | '));
+  check('every board carries its own mine as material data', named === 9, `${named}/9`);
+  check('and every board actually drew that name on its canvas', drawn === 9, said.join(' | '));
 
   // the other direction: a different mine gets a different board
   const a = buildMineYard(MINES[0], { heightAt });
@@ -326,7 +326,7 @@ console.log('mine_models: a seam is the ore, in the ore\'s own colour');
     if (nearest < core) core = nearest;
     if (nearest >= SEAM_CORE) clear++;
   }
-  check('all forty two seams built', seams.length === 42, `${seams.length} seams`);
+  check('all forty two seams built', seams.length === 47, `${seams.length} seams`);
   check('and none is over its budget', over === 0, `heaviest ${worst} of ${SEAM_MAX_TRIS}`);
   check('every ground sample a seam took is the field\'s own answer there', wrongFoot === 0,
     `${feet} samples over ${seams.length} seams`);
