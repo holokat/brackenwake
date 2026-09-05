@@ -467,5 +467,29 @@ console.log('zones: what the lookup costs');
   check('zoneAt costs under a microsecond', per < 1, `${per.toFixed(3)} us over ${N} lookups, ${sink} of them inside a zone`);
 }
 
+// adopt: a character's own record becomes the truth and the browser keys are left alone (S1 follow-up)
+{
+  const f = createWorldField(7);
+  const writes = [];
+  // node has no localStorage; a counting stand-in is all createDiscovery needs
+  const mem = new Map();
+  globalThis.localStorage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => { writes.push(k); mem.set(k, v); }, removeItem: (k) => mem.delete(k) };
+  const store = globalThis.localStorage;
+  const orig = store.setItem;
+  const d = createDiscovery(f, { storeKey: 'test-sites-adopt', zoneKey: 'test-zones-adopt' });
+  d.adopt(['siteA', 'siteB'], ['vale']);
+  check('adopt makes the character\'s finds the finds', d.has('siteA') && d.has('siteB') && d.count === 2);
+  check('and its walked zones the walked zones', d.hasZone('vale') && !d.hasZone('millrun'));
+  const before = writes.length;
+  // walking into a zone after adopt: the set grows, the browser key does not
+  const z = ZONES.find((zn) => zn.id === 'millrun');
+  const hit = d.checkZone(z.x, z.z, 1e6);
+  check('a new zone is still found once', hit && hit.id === 'millrun' && d.hasZone('millrun'));
+  check('and nothing was written to the browser-wide key', writes.length === before, `${writes.length - before} writes`);
+  check('persistence is off after adopt, and on before it', d.persists === false && createDiscovery(f, { storeKey: 'x1', zoneKey: 'x2' }).persists === true);
+  store.setItem = orig;
+  delete globalThis.localStorage;
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

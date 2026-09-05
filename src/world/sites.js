@@ -64,9 +64,15 @@ export function createDiscovery(field, opts = {}) {
   const load = (key) => {
     try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch { return new Set(); }
   };
-  const found = load(storeKey);
-  const zones = load(zoneKey);
+  let found = load(storeKey);
+  let zones = load(zoneKey);
+  // Once a character has been adopted, the character's own document is the
+  // store and the two browser-wide keys are left alone: with more than one
+  // character in the roster (S1), a shared key meant the second one booted
+  // having found everything the first had.
+  let persist = true;
   const save = (key, set) => {
+    if (!persist) return;
     try { localStorage.setItem(key, JSON.stringify([...set])); } catch { /* private window */ }
   };
   let lastCheck = -1e9, lastZone = -1e9;
@@ -108,6 +114,19 @@ export function createDiscovery(field, opts = {}) {
     has: (id) => found.has(id),
     hasZone: (id) => zones.has(id),
     get count() { return found.size; },
+    /**
+     * Take a character's own record as the truth: the sets become what the
+     * document says, and nothing is written to the browser-wide keys again.
+     * The world system pushes every new find into the same arrays, so the save
+     * and this stay one list.
+     */
+    adopt(foundIds = [], zoneIds = []) {
+      found = new Set((foundIds || []).filter((d) => typeof d === 'string'));
+      zones = new Set((zoneIds || []).filter((d) => typeof d === 'string'));
+      persist = false;
+      lastCheck = -1e9; lastZone = -1e9;
+    },
+    get persists() { return persist; },
     get zoneCount() { return zones.size; },
     /** The set of zone ids found, which win_map and the character document read. */
     get zonesFound() { return zones; },

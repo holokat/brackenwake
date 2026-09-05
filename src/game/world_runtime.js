@@ -280,6 +280,8 @@ export function createWorldRuntime(sc, opts = {}) {
     },
 
     sitesNear(x, z, r) { return discovery.sitesNear(x, z, r); },
+    /** The character's own found list and walked zones become discovery's truth (S1 follow-up). */
+    adoptDiscovery(character) { discovery.adopt?.(character?.discovered, character?.zones); },
 
     pick,
     enterDungeon, dungeonGo, leaveDungeon,

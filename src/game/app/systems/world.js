@@ -112,6 +112,10 @@ export const world = {
     function listen() {
       const character = ctx.character;
       if (!Array.isArray(character.zones)) character.zones = [];
+      if (!Array.isArray(character.discovered)) character.discovered = [];
+      // discovery reads this character's record, not the browser-wide keys, so
+      // a second character in the roster starts knowing nothing
+      runtime.adoptDiscovery?.(character);
 
       runtime.onZone((zone) => {
         hud.zone?.(zone.name, zoneSub(zone));
