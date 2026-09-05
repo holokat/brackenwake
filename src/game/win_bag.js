@@ -423,7 +423,7 @@ export function buildBag(el, ctx, opts = {}) {
         cell.appendChild(q);
       } else {
         const g = h('span');
-        g.innerHTML = itemGlyph(v.base, 28);
+        g.innerHTML = itemGlyph(v.base, 28, null, { count: v.count, material: v.material });
         cell.appendChild(g);
       }
       if (v.count > 1) cell.appendChild(h('span', 'bw-count', String(v.count)));

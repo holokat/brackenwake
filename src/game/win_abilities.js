@@ -21,6 +21,7 @@
 // glyphs: one mark per effect kind (a blade for a swing, a bolt for a spell
 // roll, a heart for a heal, a shield for an absorb, chains for a control), and
 // the mark takes the archetype's colour. `auditArt()` runs at import and
+import { abilityIcon, iconImg } from './icon_art.js';
 // throws if any row in the table falls through to no drawing, which is the
 // guard against the class of bug where the fifth thing added quietly shows an
 // empty square.
@@ -228,6 +229,10 @@ export const LOCK_SVG = `<svg viewBox="0 0 24 24" width="15" height="15" fill="c
 
 /** One card's art, as an inline svg string, at `size` px. */
 export function artSvg(ability, size = 40) {
+  // the painted icon when the library has one; every ability has one today,
+  // and the drawing below is what a new ability wears until it is painted
+  const src = abilityIcon(ability && ability.id);
+  if (src) return iconImg(src, size, 'bw-a-art');
   const a = artFor(ability);
   return `<svg class="bw-a-art" viewBox="0 0 24 24" width="${size}" height="${size}" fill="${a.colour}" stroke="none">${ART[a.glyph] || ART.rune}</svg>`;
 }
@@ -450,10 +455,10 @@ const CSS = `
 }
 .bw-abils h3:first-child { margin-top: 0; }
 
-.bw-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; }
+.bw-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; }
 
 .bw-card {
-  position: relative; display: grid; grid-template-columns: 64px 1fr; gap: 12px;
+  position: relative; display: grid; grid-template-columns: 112px 1fr; gap: 14px;
   padding: 11px 13px; align-items: start; cursor: grab;
   background: linear-gradient(150deg, rgba(30,25,18,.86), rgba(10,9,7,.9));
   border: 1px solid ${theme.goldDim}55;
@@ -464,12 +469,14 @@ const CSS = `
 .bw-card.on { border-color: ${theme.gold}; box-shadow: inset 3px 0 0 ${theme.gold}; }
 
 .bw-card .bw-tile {
-  position: relative; width: 64px; height: 64px; display: flex;
+  position: relative; width: 112px; height: 112px; display: flex; overflow: hidden;
   align-items: center; justify-content: center;
   background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.07), rgba(0,0,0,.45));
   border: 1px solid ${theme.goldDim}77;
 }
+.bw-card .bw-tile img.bw-a-art { width: 100%; height: 100%; object-fit: cover; display: block; }
 .bw-card.locked .bw-tile { filter: grayscale(1); }
+.bw-card .bw-tile svg.bw-a-art { width: 64px; height: 64px; }
 .bw-card .bw-lock {
   position: absolute; right: 2px; bottom: 1px; font-family: ${theme.fonts.display};
   font-size: 15px; line-height: 1; color: ${theme.parchmentFaint};
@@ -606,7 +613,7 @@ export const panel = {
         for (const { ability } of section.rows) {
           const card = h('div', 'bw-card');
           const tile = h('div', 'bw-tile');
-          tile.innerHTML = artSvg(ability, 40);
+          tile.innerHTML = artSvg(ability, 112);
           const art = artFor(ability);
           if (art.tint) tile.style.background = `radial-gradient(circle at 50% 38%, ${art.tint}2e, rgba(0,0,0,.5))`;
           const lock = h('span', 'bw-lock');

@@ -38,6 +38,7 @@
 // A HUD that could only be checked by eye is a HUD nobody checks.
 
 import { injectTheme, theme, icon, itemGlyph } from './ui_theme.js';
+import { abilityIcon } from './icon_art.js';
 import { dropTarget } from './windows.js';
 import { ITEM_SLOTS, ITEM_KEYS, keyCap as itemKeyCap } from './item_bar.js';
 import { baseFor } from '../mmo/items.js';
@@ -358,6 +359,33 @@ const CSS = `
 /* G2: the weapon rule. A cell you cannot fire because of what is in your hands
    is greyed rather than left looking ready. The reason is in the title. */
 #bw-bar .cell.unusable { opacity: .5; filter: grayscale(1); }
+#bw-bar .cell .art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; pointer-events: none; z-index: 0; }
+#bw-bar .cell .k, #bw-bar .cell .n, #bw-bar .cell .c, #bw-bar .cell .sweep, #bw-bar .cell .cd { z-index: 1; }
+#bw-bar .cell.has-art .art { display: block; }
+#bw-bar .cell.has-art .n { display: none; }
+#bw-abtip {
+  position: fixed; z-index: 60; pointer-events: none; display: flex; gap: 12px; align-items: flex-start;
+  width: max-content; max-width: min(340px, calc(100vw - 16px)); padding: 11px 13px 12px;
+  background: linear-gradient(180deg, rgba(38,31,22,.97), rgba(12,10,7,.98));
+  border: 1px solid ${theme.gold}; outline: 1px solid rgba(0,0,0,.6);
+  box-shadow: 0 16px 48px rgba(0,0,0,.75), inset 0 0 28px rgba(0,0,0,.55);
+  font-family: ${theme.fonts.body}; color: ${theme.parchment};
+}
+#bw-abtip[hidden] { display: none; }
+#bw-abtip .art { width: 56px; height: 56px; flex: none; object-fit: cover; border: 1px solid ${theme.goldDim}; background: #000; }
+#bw-abtip .art[hidden] { display: none; }
+#bw-abtip .body { min-width: 0; }
+#bw-abtip .head { display: flex; align-items: baseline; gap: 10px; justify-content: space-between; }
+#bw-abtip .nm { font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600; letter-spacing: .04em; color: ${theme.goldBright}; }
+#bw-abtip .key { font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: ${theme.goldDim}; white-space: nowrap; }
+#bw-abtip .chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 7px; }
+#bw-abtip .chips:empty { display: none; }
+#bw-abtip .chip { font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 6px; color: ${theme.parchmentDim}; background: rgba(0,0,0,.45); border: 1px solid ${theme.goldDim}55; }
+#bw-abtip .desc { font-size: 15px; line-height: 1.35; color: ${theme.parchment}; }
+#bw-abtip .reason { font-size: 14px; font-style: italic; line-height: 1.3; color: #ff9a80; margin-top: 6px; }
+#bw-abtip .reason[hidden] { display: none; }
+#bw-bar .cell.has-art .k, #bw-bar .cell.has-art .c { text-shadow: 0 1px 2px #000, 0 0 3px #000; }
 #bw-bar .cell .k { position: absolute; top: 1px; left: 3px; font-family: ${theme.fonts.display}; font-size: 9px; color: ${theme.gold}; }
 #bw-bar .cell .n {
   position: absolute; left: 3px; right: 3px; top: 14px; font-size: 10px; line-height: 1.08;
@@ -525,6 +553,91 @@ export function createHud(root) {
 
   // one cell per bar key, built once, for the same reason.
   let onBarPick = null;
+  /** An <img>'s src, set or cleared, on a real element or the tests' fake one. */
+  function setArt(img, src) {
+    if (!img) return;
+    if (src) img.src = src;
+    else if (typeof img.removeAttribute === 'function') img.removeAttribute('src');
+    else img.src = '';
+  }
+
+  // --- the bar tooltip ---------------------------------------------------------
+  // One panel for both bars, anchored above the cell under the pointer rather
+  // than riding the cursor, so it never covers the bar and never leaves the
+  // screen. An ability gets its painting, name, key, cost, cooldown, cast and
+  // reach, the sentence that explains it, and in red the reason it cannot fire.
+  // An item gets its name and count. The browser's own title tooltip is not
+  // used on these cells at all.
+  const abTip = add(root, mk('div', 'bw-abtip'));
+  abTip.hidden = true;
+  const tipArt = add(abTip, mk('img', null, 'art')); tipArt.alt = ''; tipArt.draggable = false;
+  const tipBody = add(abTip, mk('div', null, 'body'));
+  const tipHead = add(tipBody, mk('div', null, 'head'));
+  const tipName = add(tipHead, mk('div', null, 'nm'));
+  const tipKey = add(tipHead, mk('div', null, 'key'));
+  const tipChips = add(tipBody, mk('div', null, 'chips'));
+  const tipDesc = add(tipBody, mk('div', null, 'desc'));
+  const tipReason = add(tipBody, mk('div', null, 'reason'));
+  let tipOwner = null;
+
+  /** Pure. The chips a bar tooltip shows for an ability, in reading order. */
+  function abilityChips(a) {
+    const out = [];
+    const cost = a.cost || {};
+    if (cost.stamina) out.push(`${cost.stamina} stamina`);
+    if (cost.mana) out.push(`${cost.mana} mana`);
+    if (cost.item) out.push(`${cost.count ?? 1} ${String(cost.item).replace(/_/g, ' ')}`);
+    if (a.cooldown) out.push(`${a.cooldown} s cooldown`);
+    if (a.castTime) out.push(`${a.castTime} s cast${a.rooted ? ', rooted' : ''}`);
+    if (Number.isFinite(a.range) && a.range > 0) out.push(`${a.range} m`);
+    return out;
+  }
+
+  function showAbTip(c) {
+    tipOwner = c;
+    const a = c.ability;
+    if (a) {
+      const src = abilityIcon(a.id);
+      setArt(tipArt, src); tipArt.hidden = !src;
+      tipName.textContent = a.name;
+      tipKey.textContent = c.key ? `key ${KEY_LABELS[c.key] || c.key}` : '';
+      tipChips.textContent = '';
+      for (const t of abilityChips(a)) add(tipChips, mk('span', null, 'chip')).textContent = t;
+      tipDesc.textContent = a.description || '';
+      tipReason.textContent = c.reason || '';
+      tipReason.hidden = !c.reason;
+    } else if (c.item) {
+      setArt(tipArt, null); tipArt.hidden = true;
+      tipName.textContent = c.item.name || '';
+      tipKey.textContent = c.key || '';
+      tipChips.textContent = '';
+      tipDesc.textContent = c.tip || '';
+      tipReason.textContent = ''; tipReason.hidden = true;
+    } else { hideAbTip(); return; }
+    abTip.hidden = false;
+    placeAbTip(c.el);
+  }
+  function hideAbTip() { tipOwner = null; abTip.hidden = true; }
+  /** Above the cell, centred on it, kept inside the viewport with a hand's margin. */
+  function placeAbTip(cell) {
+    if (typeof cell.getBoundingClientRect !== 'function' || typeof window === 'undefined') return;
+    const r = cell.getBoundingClientRect();
+    const w = abTip.offsetWidth || 260, h = abTip.offsetHeight || 120;
+    const vw = window.innerWidth || 1280, vh = window.innerHeight || 720;
+    let x = r.left + r.width / 2 - w / 2;
+    x = Math.max(8, Math.min(vw - w - 8, x));
+    let y = r.top - h - 10;
+    if (y < 8) y = Math.min(vh - h - 8, r.bottom + 10);
+    abTip.style.left = `${Math.round(x)}px`;
+    abTip.style.top = `${Math.round(y)}px`;
+  }
+  function hoverTip(rec) {
+    const el = rec.el;
+    if (!el.addEventListener) return;
+    el.addEventListener('pointerenter', () => { if (rec.ability || rec.item) showAbTip(rec); });
+    el.addEventListener('pointerleave', () => { if (tipOwner === rec) hideAbTip(); });
+  }
+
   const cells = BAR_KEYS.map((key, i) => {
     const c = mk('div', null, 'cell empty');
     c.dataset.slot = String(i);
@@ -533,12 +646,19 @@ export function createHud(root) {
     const cost = add(c, mk('span', null, 'c'));
     const sw = add(c, mk('div', null, 'sweep'));
     const cd = add(c, mk('div', null, 'cd'));
+    // the painting goes in last so the cap, name, cost, sweep and timer keep
+    // their places as children (the tests and the CSS count on the order); it
+    // sits under them by z-index
+    const art = add(c, mk('img', null, 'art'));
+    art.alt = ''; art.draggable = false;
     c.addEventListener('click', () => {
       if (c.classList.contains('empty')) return;
       if (onBarPick) onBarPick(i);
     });
     barRow.appendChild(c);
-    return { el: c, name: n, cost, sweep: sw, cd, key, last: null };
+    const rec = { el: c, art, name: n, cost, sweep: sw, cd, key, last: null, tip: null, ability: null, reason: '' };
+    hoverTip(rec);
+    return rec;
   });
 
   // one cell per item slot, built once from item_bar.js's own list, so the two
@@ -562,7 +682,9 @@ export function createHud(root) {
     // `{ slot: 'mainHand' }` under the same mime; item_bar.assign reads both
     dropTarget(c, (payload) => { if (onItemDropped) onItemDropped(i, payload); });
     itemRow.appendChild(c);
-    return { el: c, glyph: g, count: n, worn: w, key, last: '' };
+    const rec = { el: c, glyph: g, count: n, worn: w, key, last: '' };
+    hoverTip(rec);
+    return rec;
   });
 
   let coins = 0;
@@ -654,13 +776,20 @@ export function createHud(root) {
       if (!ability) {
         if (c.last !== null) {
           c.el.className = 'cell empty';
+          setArt(c.art, null); c.hasArt = false; c.tip = null; c.ability = null;
           c.name.textContent = ''; c.cost.textContent = '';
+          if (tipOwner === c) hideAbTip();
           c.sweep.style.height = '0%'; c.cd.className = 'cd'; c.cd.textContent = '';
           c.last = null;
         }
         continue;
       }
       if (c.last !== ability.id) {
+        // the painted icon fills the cell and the name becomes a caption; a
+        // cell with no painting keeps the name in the middle as before
+        const src = abilityIcon(ability.id);
+        setArt(c.art, src);
+        c.hasArt = !!src;
         c.name.textContent = ability.name;
         c.cost.textContent = costLabel(ability);
         c.last = ability.id;
@@ -670,7 +799,12 @@ export function createHud(root) {
       // sentence to show. It changes as you draw and sheathe, so the title is
       // rebuilt when it changes rather than once when the slot was filled.
       const tip = `${ability.name}. ${ability.description || ''}${e.unusableReason ? `\n${e.unusableReason}` : ''}`;
-      if (c.tip !== tip) { c.el.title = tip; c.tip = tip; }
+      if (c.tip !== tip) {
+        // no native title: the styled tooltip below carries the words, and a
+        // second yellow box from the browser on top of it would be noise
+        c.tip = tip; c.ability = ability; c.reason = e.unusableReason || '';
+        if (tipOwner === c) showAbTip(c);
+      }
       const left = num(e.cooldownLeft);
       const frac = sweep(left, ability.cooldown);
       c.sweep.style.height = `${(frac * 100).toFixed(0)}%`;
@@ -678,7 +812,7 @@ export function createHud(root) {
       if (c.cd.textContent !== label) c.cd.textContent = label;
       c.cd.className = 'cd' + (left > 0 ? ' on' : '');
       c.cost.className = 'c' + (e.affordable === false ? ' poor' : '');
-      c.el.className = 'cell' + (e.casting ? ' casting' : '') + (e.unusable ? ' unusable' : '');
+      c.el.className = 'cell' + (c.hasArt ? ' has-art' : '') + (e.casting ? ' casting' : '') + (e.unusable ? ' unusable' : '');
     }
   }
 
@@ -698,7 +832,8 @@ export function createHud(root) {
         if (c.last !== '') {
           c.el.className = 'icell empty';
           c.glyph.innerHTML = ''; c.count.textContent = '';
-          c.worn.style.display = 'none'; c.el.title = '';
+          c.worn.style.display = 'none'; c.tip = '';
+          if (tipOwner === c) hideAbTip();
           c.last = '';
         }
         continue;
@@ -707,13 +842,15 @@ export function createHud(root) {
       if (c.last === stamp) continue;
       c.last = stamp;
       c.el.className = 'icell' + (e.worn ? ' worn' : '') + (e.ghost ? ' ghost' : '');
-      c.glyph.innerHTML = itemGlyph(baseFor(e.base), 26);
+      c.glyph.innerHTML = itemGlyph(baseFor(e.base), 26, null, { count: e.count });
       c.count.textContent = e.count > 1 ? String(e.count) : '';
       c.worn.textContent = e.worn ? `on ${e.wornAt}` : '';
       c.worn.style.display = e.worn ? '' : 'none';
-      c.el.title = e.ghost
+      c.tip = e.ghost
         ? `${e.name}. You have none left.`
         : e.worn ? `${e.name}, worn on your ${e.wornAt}` : `${e.name}${e.count > 1 ? `, ${e.count} of them` : ''}`;
+      c.item = e;
+      if (tipOwner === c) showAbTip(c);
     }
   }
 
@@ -813,6 +950,10 @@ export function createHud(root) {
     onTool(fn) { onToolPick = fn; },
     /** A click on a bar cell, for the mouse. The keys go through input.js. */
     onBar(fn) { onBarPick = fn; },
+    /** The words the tooltip shows for bar slot i, or '' when the slot is empty. */
+    tipFor(i) { const c = cells[i]; return c && c.tip ? c.tip : ''; },
+    /** The same for item slot i. */
+    itemTipFor(i) { const c = itemCells[i]; return c && c.tip ? c.tip : ''; },
 
     /**
      * A click on an item slot. `fn(slot, 'use')` for a left click and

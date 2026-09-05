@@ -406,8 +406,7 @@ console.log('hud: the item bar');
     itemRow.children[0].classList.contains('ghost') && !itemRow.children[0].classList.contains('empty')
     && /<svg/.test(itemRow.children[0].children[1].innerHTML),
     itemRow.children[0].className);
-  ck('and the ghost says so on hover', /You have none left/.test(itemRow.children[0].el === undefined ? itemRow.children[0].title : ''),
-    itemRow.children[0].title);
+  ck('and the ghost says so on hover', /You have none left/.test(hud.itemTipFor(0)), hud.itemTipFor(0));
 
   let clicked = null;
   hud.onItem((slot, how) => { clicked = { slot, how }; });
@@ -506,12 +505,13 @@ ck('at 3 s it is done, and stays done', gainAt(3).phase === 'done' && gainAt(90)
   };
   hud.update(0.016, { bar: greyBar });
   ck('the cell greys out', barRow.children[0].classList.contains('unusable'), barRow.children[0].className);
-  ck('and the reason is on it to read', /hands are empty/.test(barRow.children[0].title), barRow.children[0].title);
+  ck('and the reason is in its tooltip to read', /hands are empty/.test(hud.tipFor(0)), hud.tipFor(0));
+  ck('and not in a browser title, which would stack a second box on the styled one', !barRow.children[0].title, barRow.children[0].title);
   greyBar[0] = { ability: ABILITIES_BY_ID.powerStrike, cooldownLeft: 0, affordable: true, casting: false };
   hud.update(0.016, { bar: greyBar });
   ck('drawing the sword takes the grey off again, and the reason with it',
-    !barRow.children[0].classList.contains('unusable') && !/hands are empty/.test(barRow.children[0].title),
-    barRow.children[0].title);
+    !barRow.children[0].classList.contains('unusable') && !/hands are empty/.test(hud.tipFor(0)),
+    hud.tipFor(0));
 }
 
 console.log(`\n${pass} passed, ${bad} failed`);

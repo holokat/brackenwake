@@ -180,6 +180,8 @@ console.log('abilities: the art');
   check('every archetype has a heading and a colour',
     GROUPS.every((g) => GROUP_LABEL[g] && GROUP_COLOUR[g]), GROUPS.map((g) => GROUP_LABEL[g]).join(','));
   check('artSvg draws at the size it is asked for', /width="64"/.test(artSvg(ABILITIES_BY_ID.fireball, 64)));
+  check('and it is the painted fireball from the library, not the drawn bolt', /icons\/abilities\/fireball\.webp/.test(artSvg(ABILITIES_BY_ID.fireball, 64)));
+  check('an ability nobody has painted still gets the drawn mark', /<svg/.test(artSvg({ id: 'notPaintedYet', effect: { kind: 'heal' }, group: 'healer' }, 40)));
 }
 
 // ---- what it takes, and what you have -------------------------------------------------
@@ -343,7 +345,7 @@ console.log('abilities: the real panel');
     new RegExp(`unlocks at Magery ${ABILITIES_BY_ID.fireball.minSkill}, you are at 0`).test(fireball.textContent),
     fireball.textContent.slice(0, 140));
   check('the art tile holds a drawing, not an empty square',
-    /<svg/.test(find(powerStrike, (n) => n.classList.contains('bw-tile'))[0].innerHTML));
+    /<img[^>]*icons\/abilities\/powerStrike\.webp/.test(find(powerStrike, (n) => n.classList.contains('bw-tile'))[0].innerHTML));
   check('a locked card wears a padlock and an unlocked one does not',
     find(fireball, (n) => n.classList.contains('bw-lock'))[0].style.display !== 'none'
     && find(powerStrike, (n) => n.classList.contains('bw-lock'))[0].style.display === 'none');

@@ -12,6 +12,7 @@
 //   from RARITY at load, so a seventh rarity gets a slot border for free.
 //
 //   Every base in items.js has a glyph. `auditGlyphs()` runs at import and
+import { itemIcon, iconImg } from './icon_art.js';
 //   throws if a base ever falls through to nothing, which is the guard against
 //   the class of bug where four biomes shipped a tool that did nothing.
 
@@ -326,7 +327,11 @@ export function tintFor(base) {
 }
 
 /** One item's art, as an inline svg string, at `size` px. */
-export function itemGlyph(base, size = 30, colour = null) {
+export function itemGlyph(base, size = 30, colour = null, opts = {}) {
+  // the painted icon first, when the library has one for this base (and this
+  // many of it, and this material); the drawn glyph stands in for the rest
+  const src = itemIcon(base, opts);
+  if (src) return iconImg(src, size);
   const name = glyphNameFor(base);
   const fill = colour || tintFor(base);
   return `<svg class="bw-g" viewBox="0 0 24 24" width="${size}" height="${size}" fill="${fill}"
