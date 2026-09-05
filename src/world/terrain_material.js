@@ -326,15 +326,20 @@ const RECIPES = {
         clamp01(0.44 + 1.05 * (clod - 0.5) + 0.60 * peb + 0.30 * (grain - 0.5))];
     },
   },
+  // Rock. Twelve plates a tile at the 17 m scale gave plates a metre and a
+  // half across with cracks a hand wide: seen beside the player it read as a
+  // dried mud flat, not a mountainside. Smaller plates, hairline cracks, and
+  // the ridged noise carrying the form, so it reads as fractured stone.
   rock: {
-    a: [0x4a, 0x47, 0x44], b: [0x9c, 0x97, 0x8f], rough: [0.90, 0.62], bump: 3.4,
+    a: [0x45, 0x43, 0x41], b: [0x8e, 0x8a, 0x84], rough: [0.92, 0.66], bump: 6.0,
     shape(u, v, s) {
-      const [, edge] = worley(u, v, 12, s);
-      const crack = clamp01(1 - edge * 5.5);            // 1 on a plate boundary
+      const [, edge] = worley(u, v, 26, s);
+      const crack = clamp01(1 - edge * 11);             // 1 on a plate boundary, and narrow
       const ridged = 1 - Math.abs(2 * fbm(u, v, 48, 5, s + 5) - 1);
+      const strata = 0.5 + 0.5 * Math.sin((v * 9 + fbm(u, v, 6, 2, s + 13) * 1.4) * Math.PI * 2);
       const fine = fbm(u, v, 320, 3, s + 9);
-      return [clamp01(0.58 + 0.34 * ridged - 0.62 * crack + 0.16 * (fine - 0.5)),
-        clamp01(0.38 + 1.25 * (ridged - 0.5) + 0.35 * (fine - 0.5) - 0.35 * crack)];
+      return [clamp01(0.52 + 0.30 * ridged - 0.40 * crack + 0.12 * (strata - 0.5) + 0.16 * (fine - 0.5)),
+        clamp01(0.48 + 0.72 * (ridged - 0.5) + 0.20 * (strata - 0.5) + 0.30 * (fine - 0.5) - 0.30 * crack)];
     },
   },
   sand: {
