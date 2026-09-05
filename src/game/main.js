@@ -186,6 +186,13 @@ function boot() {
     }
     player.teleport(state.pos.x || 0, state.pos.z || 0, (x, z) => runtime.heightAt(x, z));
     const spawnPoint = { x: player.pos.x, z: player.pos.z };
+    // A lantern's worth of warm light rides at the shoulder and comes up as the
+    // day goes down, so the character is never a black cutout against a moonlit
+    // field. Off by day, full at midnight.
+    const lantern = new THREE.PointLight(0xffc082, 0, 9, 2);
+    lantern.position.set(0.35, 1.7, 0.25);
+    lantern.name = 'lantern';
+    player.group.add(lantern);
 
     // the kit is chosen from where you actually woke up, not from the origin
     audio.music.setBiome(runtime.field.sampleAt(player.pos.x, player.pos.z).biome);
@@ -769,6 +776,7 @@ function boot() {
       audio.setListener(centre.x, centre.z);
       const day = sc.dayFactor(now);
       const night = day < NIGHT_BELOW;
+      lantern.intensity = Math.max(0, 1 - day / 0.6) * 14;
       runtime.update(dt, now, centre.x, centre.z, day);
       npcs.update(dt, player.pos, day);
       stations.update(player.pos.x, player.pos.z, now);
