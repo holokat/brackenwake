@@ -13,16 +13,23 @@
 import {
   createBench, searchBases, searchMonsters, groupSites, edgeOf, abilityNeeds,
   clockOffsetFor, clockWords, panel, SETS, GOLD_STEPS, PLACE_RADIUS, KIND_ORDER, ENTERABLE,
+  zoneSearch, rarityTable, rarest, sackRing, takesRarity,
+  RECENT_MAX, HOME, SACK_COUNT, SACK_RADIUS, ZONE_MAX_R, RAREST_SHOWN, SPAWN_MANY,
 } from './win_dev.js';
-import { createState } from './state.js';
+import { createState, PACK_SLOTS as STATE_PACK_SLOTS, hydrate } from './state.js';
+import { PACK_SLOTS as INV_PACK_SLOTS } from './inventory.js';
+import { createWorldField } from '../world/field.js';
+import { tableFor, rollFor } from './loot_drops.js';
+import { weightsFor, GOLD } from '../mmo/loot.js';
+import * as itemRules from '../mmo/items.js';
 import { playerActor, recompute } from './actor.js';
 import { createInventory } from './inventory.js';
 import { createCombat } from './combat.js';
-import { makeItem, RARITY, BASES, setOf, WEAPON_IDS } from '../mmo/items.js';
+import { makeItem, RARITY, RARITY_ORDER, BASES, setOf, WEAPON_IDS } from '../mmo/items.js';
 import { ABILITIES, unlockedFor } from '../mmo/abilities.js';
-import { MONSTERS } from '../mmo/monsters.js';
+import { MONSTERS, MONSTER_LIST } from '../mmo/monsters.js';
 import { dayFactorAt, DAY_CYCLE_MS } from './scene.js';
-import { createDev, DEBUG_FLAGS } from './dev.js';
+import { createDev, DEBUG_FLAGS, createFrameMeter } from './dev.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -590,6 +597,428 @@ console.log('dev.js: F1 fly, and the mode that is remembered');
   check('the debug switches start false and are the two the bench flips', DEBUG_FLAGS.join(',') === 'chunks,colliders' && DEBUG_FLAGS.every((k) => dev.debug[k] === false));
   check('an unknown switch is refused', dev.setDebug('wireframe', true) === null);
   check('a known one is written', dev.setDebug('colliders', true) === true && dev.debug.colliders === true);
+}
+
+
+// ===========================================================================
+// U2: travel, the frame rate, the loot lab and a bigger pack.
+
+/** Every monster of a tier whose table survives the join. */
+const subjectOfTier = (t) => MONSTER_LIST.filter((m) => m.tier === t && tableFor(m).length);
+/**
+ * The same, narrowed to the ones that can drop something a colour will stick
+ * to. A giant rat's whole table is rat meat, which is always plain whatever the
+ * roll said, so it proves nothing about rarity.
+ */
+const gearSubjectOfTier = (t) => subjectOfTier(t).filter((m) => tableFor(m).some(takesRarity));
+
+console.log('win_dev: the pack is bigger, and both files agree');
+{
+  check('state.js says 40 slots', STATE_PACK_SLOTS === 40, String(STATE_PACK_SLOTS));
+  check('and inventory.js says the same', INV_PACK_SLOTS === STATE_PACK_SLOTS, `${INV_PACK_SLOTS} and ${STATE_PACK_SLOTS}`);
+  const blank = createState({ storage: null }).character;
+  check('a fresh document has forty empty slots', blank.pack.slots === 40 && blank.pack.items.length === 40 && blank.pack.items.every((x) => x === null));
+}
+
+console.log('win_dev: a twenty slot save grows to forty and keeps every item where it was');
+{
+  // A save written when the pack was twenty: twenty slots, five things in it,
+  // one of them at the last index so a resize that truncates would be caught.
+  const old = {
+    v: 2, name: 'Ash', gold: 40,
+    pack: { slots: 20, items: new Array(20).fill(null) },
+    settings: {},
+  };
+  const bases = ['longsword', 'plate_chest', 'ingot', 'ore', 'kite'];
+  bases.forEach((b, i) => { old.pack.items[i * 4] = makeItem({ base: b, seed: i + 1 }); });
+  const doc = hydrate(JSON.parse(JSON.stringify(old)));
+  check('the pack now has forty slots', doc.pack.slots === 40 && doc.pack.items.length === 40, `${doc.pack.slots} slots, ${doc.pack.items.length} entries`);
+  check('every item is at the index it was at', bases.every((b, i) => doc.pack.items[i * 4] && doc.pack.items[i * 4].base === b),
+    doc.pack.items.map((it, i) => (it ? `${i}:${it.base}` : null)).filter(Boolean).join(' '));
+  check('nothing was lost', doc.pack.items.filter(Boolean).length === bases.length);
+  check('and the twenty new slots are empty, not undefined', doc.pack.items.slice(20).every((x) => x === null));
+}
+{
+  // The other direction: a save that already carries MORE than forty keeps
+  // them, because a bag was bought and a migration must not take it away.
+  const big = { v: 2, pack: { slots: 64, items: new Array(64).fill(null) } };
+  big.pack.items[63] = makeItem({ base: 'longsword', seed: 9 });
+  const doc = hydrate(big);
+  check('a sixty four slot pack stays sixty four', doc.pack.slots === 64 && doc.pack.items.length === 64, String(doc.pack.slots));
+  check('and the item in the last slot is still there', !!doc.pack.items[63] && doc.pack.items[63].base === 'longsword');
+  const daft = hydrate({ v: 2, pack: { slots: 4, items: [makeItem({ base: 'ingot', seed: 1 })] } });
+  check('a save claiming four slots is raised to forty, not honoured', daft.pack.slots === 40 && daft.pack.items[0].base === 'ingot');
+  check('and a save with no slot count at all is forty', hydrate({ v: 2, pack: { items: [] } }).pack.slots === 40);
+}
+{
+  // And the pack the bench fills is the bigger one: the weapon rack used to be
+  // eighteen into twenty, which left two slots. Now it leaves twenty two.
+  const ctx = realCtx();
+  const bench = createBench(ctx);
+  bench.giveSet('weapons', { rarity: 'common' });
+  const free = ctx.character.pack.items.filter((x) => !x).length;
+  check('the weapon rack leaves twenty two slots free in a forty slot pack', free === 22, `${free} free`);
+}
+
+console.log('win_dev: which bases take a rarity');
+{
+  check('a longsword can be blue', takesRarity('longsword') === true);
+  check('a breastplate can be blue', takesRarity('plate_chest') === true);
+  check('an ingot cannot', takesRarity('ingot') === false);
+  check('and a base nobody has cannot', takesRarity('lightsabre') === false);
+  if (typeof itemRules.takesRarity === 'function') {
+    const same = Object.keys(BASES).every((id) => takesRarity(id) === !!itemRules.takesRarity(id));
+    check('items.js publishes takesRarity, and the bench asks it rather than guessing', same);
+  } else {
+    check('items.js has no takesRarity yet, so the bench falls back on the five gear kinds', true, 'the fallback is RARITY_KINDS');
+  }
+}
+
+console.log('win_dev: the frame meter is a rolling second, not one frame');
+{
+  const m = createFrameMeter(1);
+  m.push(1 / 60);
+  check('the first frame publishes something rather than a blank', m.fps === 60 && m.frameMs === 16.67, `${m.fps} fps, ${m.frameMs} ms`);
+  for (let i = 0; i < 59; i++) m.push(1 / 60);
+  check('sixty frames of a sixtieth of a second read 60 fps', m.fps === 60, `${m.fps} fps`);
+  check('and 16.67 ms a frame', m.frameMs === 16.67, `${m.frameMs} ms`);
+  const jumpy = createFrameMeter(1);
+  // a quarter of a second at 200 fps and three quarters at 100: 125 frames in
+  // one second is 125 fps, and a single frame reading would have said 100
+  for (let i = 0; i < 50; i++) jumpy.push(0.005);
+  for (let i = 0; i < 75; i++) jumpy.push(0.01);
+  check('a stuttering second averages, it does not follow the last frame', jumpy.fps === 125 && jumpy.frameMs === 8, `${jumpy.fps} fps, ${jumpy.frameMs} ms`);
+  const idle = createFrameMeter(1);
+  idle.push(0);
+  check('a zero frame is not counted and does not divide by zero', idle.fps === 0 && idle.frameMs === 0);
+}
+
+console.log('win_dev: bench.stats reads the renderer and the runtimes');
+{
+  const ctx = recordingCtx({
+    monsters: { rescan() {}, count: 12 },
+    floaters: { count: 4 },
+    loot: { count: 3 },
+    runtime: { heightAt: () => 0, sitesNear: () => [], world: { stats: { loaded: 37 } } },
+    sc: { dayFactor: () => 1, renderer: { info: { render: { calls: 210, triangles: 431000 } } } },
+  });
+  const bench = createBench(ctx);
+  let st = null;
+  for (let i = 0; i < 60; i++) st = bench.stats(1 / 60);
+  check('every field is a number', ['fps', 'frameMs', 'draws', 'tris', 'monsters', 'chunks', 'floaters'].every((k) => typeof st[k] === 'number'), JSON.stringify(st));
+  check('fps is the rolling second', st.fps === 60 && st.frameMs === 16.67, `${st.fps} fps, ${st.frameMs} ms`);
+  check('draws and triangles come off renderer.info', st.draws === 210 && st.tris === 431000);
+  check('monsters, chunks, floaters and sacks are counted', st.monsters === 12 && st.chunks === 37 && st.floaters === 4 && st.sacks === 3);
+  check('the object is one object, rewritten, not a new one a frame', bench.stats(1 / 60) === st);
+  const bare = createBench(recordingCtx()).stats(1 / 60);
+  check('nothing wired reads null, and never a zero it made up',
+    bare.draws === null && bare.tris === null && bare.monsters === null && bare.chunks === null && bare.floaters === null && bare.sacks === null);
+  check('but the frame rate is still real', bare.fps > 0);
+}
+
+console.log('dev.js: the badge numbers, and that they are null while the mode is off');
+{
+  const dev = createDev({
+    sc: { camera: { position: { x: 0, z: 0 } }, renderer: { info: { render: { calls: 88, triangles: 1234 } } } },
+    camera: { setMode: () => {}, flyUpdate: () => {} },
+    player: { setVisible: () => {}, teleport: () => {} },
+    hud: { setDev: () => {}, toast: () => {} },
+    runtime: { clampWalkable: (x, z) => [x, z], heightAt: () => 0, world: { stats: { loaded: 9 } } },
+    state: createState({ storage: null }),
+    monsters: { count: 5 },
+    floaters: { count: 2 },
+    loot: { count: 1 },
+  });
+  check('with the mode off there are no stats to read', dev.stats === null);
+  for (let i = 0; i < 60; i++) dev.update(1 / 60);
+  check('and the meter was still running, so turning it on is not blank', dev.liveStats.fps === 60, `${dev.liveStats.fps} fps`);
+  dev.toggle();
+  const st = dev.stats;
+  check('with the mode on the object is there', !!st && st === dev.liveStats);
+  check('and every count is read', st.draws === 88 && st.tris === 1234 && st.monsters === 5 && st.chunks === 9 && st.floaters === 2 && st.sacks === 1, JSON.stringify(st));
+  dev.toggle();
+  check('off again, and it is null again', dev.stats === null);
+  const bare = createDev({
+    sc: { camera: { position: { x: 0, z: 0 } } },
+    camera: { setMode: () => {}, flyUpdate: () => {} },
+    player: { setVisible: () => {}, teleport: () => {} },
+    hud: { setDev: () => {}, toast: () => {} },
+    runtime: { clampWalkable: (x, z) => [x, z], heightAt: () => 0 },
+    state: createState({ storage: null }),
+  });
+  bare.toggle();
+  bare.update(1 / 60);
+  check('a dev built without the runtimes reports null rather than zero',
+    bare.stats.monsters === null && bare.stats.chunks === null && bare.stats.floaters === null && bare.stats.draws === null);
+}
+
+console.log('win_dev: the zone hunt finds every biome the field has');
+{
+  const field = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
+  const r = zoneSearch(field, { x: 0, z: 0 });
+  check(`all ${field.biomes.length} biomes stand within ${Math.round(r.reach)} m of the origin`,
+    r.missing.length === 0 && r.zones.length === field.biomes.length,
+    `${r.samples} samples, ${r.ms} ms, farthest ${Math.round(Math.max(...r.zones.map((z) => z.d)))} m`);
+  check('every one of them really is that biome where it says it is',
+    r.zones.every((z) => field.sampleAt(z.x, z.z).biome === z.biome),
+    r.zones.map((z) => `${z.biome} ${Math.round(z.d)}m`).join(', '));
+  check('and they come nearest first', r.zones.every((z, i) => i === 0 || r.zones[i - 1].d <= z.d));
+  // Not one lucky spot: four places a long way apart, none of them the origin.
+  const far = [[5000, -9000], [-30000, 12000], [100000, 100000], [-999, 88888]];
+  const runs = far.map(([x, z]) => zoneSearch(field, { x, z }));
+  check('and from four places thousands of metres apart, all eight every time',
+    runs.every((q) => q.missing.length === 0),
+    far.map(([x, z], i) => `${x},${z}: ${Math.round(Math.max(...runs[i].zones.map((q) => q.d)))} m in ${runs[i].samples} samples`).join('   '));
+  const worst = Math.max(...runs.map((q) => q.samples));
+  check('the hunt stays under two thousand samples', worst < 2000, `the worst of the five was ${worst}`);
+}
+{
+  // The other direction: a field that has a biome it never shows gives up and
+  // says which one, rather than looking for ever.
+  const stub = { biomes: ['meadow', 'desert'], sampleAt: () => ({ biome: 'meadow' }) };
+  const r = zoneSearch(stub, { x: 0, z: 0 }, { maxR: 600 });
+  check('a biome that is not out there is reported missing', r.missing.join(',') === 'desert' && r.zones.length === 1, `${r.samples} samples`);
+  check('and the hunt stopped at the limit it was given', r.reach <= 600, `${r.reach} m`);
+  const none = zoneSearch(null, { x: 0, z: 0 });
+  check('no field at all is an empty answer, not a throw', none.zones.length === 0 && none.samples === 0);
+}
+
+console.log('win_dev: travel says where you landed and what the ground is');
+{
+  const ctx = recordingCtx({
+    runtime: { heightAt: () => 7, sitesNear: () => [], field: { biomes: ['meadow', 'desert'], biomeAt: (x) => (x > 100 ? 'desert' : 'meadow'), sampleAt: (x) => ({ biome: x > 100 ? 'desert' : 'meadow' }) } },
+  });
+  const bench = createBench(ctx);
+  const r = bench.goTo(400, 0);
+  check('a warp names the ground it put you on', /desert/.test(r.text), r.text);
+  const back = bench.goTo(0, 0);
+  check('and names a different one when it is different', /meadow/.test(back.text), back.text);
+  const t = bench.teleport({ name: 'Coldmere', kind: 'town', x: 500, z: 0, flatR: 46, facing: 0 });
+  check('a teleport to a site says the place, the distance, the spot and the ground',
+    /Coldmere/.test(t.text) && / m off/.test(t.text) && /446, 0/.test(t.text) && /desert/.test(t.text), t.text);
+  const bare = createBench(recordingCtx()).goTo(10, 10);
+  check('with no field it says the field is not wired rather than inventing a biome',
+    /field is not wired/.test(bare.text), bare.text);
+}
+
+console.log('win_dev: home, the zone rows, and the last five places');
+{
+  const field = { biomes: ['meadow', 'desert'], biomeAt: (x) => (x > 100 ? 'desert' : 'meadow'), sampleAt: (x) => ({ biome: x > 100 ? 'desert' : 'meadow' }) };
+  const ctx = recordingCtx({ runtime: { heightAt: () => 0, sitesNear: () => [], field } });
+  const bench = createBench(ctx);
+  const z = bench.zones();
+  check('both biomes are found', z.zones.length === 2 && z.ok === true, z.text);
+  check('and the line counts the samples it spent', /samples/.test(z.text), z.text);
+  const gone = bench.goToZone('desert');
+  check('teleporting to a zone lands on that biome', gone.ok === true && bench.biomeAt(gone.x, gone.z) === 'desert', gone.text);
+  const nope = bench.goToZone('tundra');
+  check('a biome the field does not have is refused in words', nope.ok === false && /no tundra/.test(nope.text), nope.text);
+  const home = bench.goHome();
+  check('home puts you on the pad at the origin', home.ok === true && home.x === HOME.x && home.z === HOME.z, home.text);
+  check('and says how far back it was', /m back the way you came/.test(home.text), home.text);
+  for (let i = 0; i < 7; i++) bench.goTo(i * 10, 0);
+  const recent = bench.recent();
+  check(`only the last ${RECENT_MAX} places are kept`, recent.length === RECENT_MAX, `${recent.length} kept`);
+  check('and the newest is first', recent[0].x === 60 && recent[RECENT_MAX - 1].x === 20, recent.map((e) => e.x).join(', '));
+  check('each one carries the biome it was', recent.every((e) => e.biome === 'meadow' || e.biome === 'desert'));
+}
+
+console.log('win_dev: the loot lab rolls the real join');
+{
+  const tier1 = gearSubjectOfTier(1);
+  check('there are tier 1 monsters that drop something a colour sticks to', tier1.length > 0,
+    `${tier1.length} of ${subjectOfTier(1).length} whose tables survive the join`);
+  const ctx = realCtx();
+  const bench = createBench(ctx);
+  const r = bench.rollLoot({ monster: tier1[0].id, count: 1000, seed: 4242 });
+  check('a thousand kills is a thousand rolls', r.ok === true && r.rolls === 1000);
+  check('and every roll is accounted for: the six counts plus the empty kills equal the rolls',
+    r.table.sum === 1000, `${r.table.sum} accounted for`);
+  check('the items and the empty kills add up too', r.items.length + r.empty === 1000, `${r.items.length} items, ${r.empty} empty`);
+  const table = tableFor(tier1[0]);
+  check('every item came off that monster\'s own table, so there is no second roller',
+    r.items.every((it) => table.includes(it.base)), table.join(', '));
+  const [lo, hi] = GOLD[tier1[0].tier];
+  check('and the gold stayed inside loot.js\'s own range for the tier',
+    r.gold.low >= lo && r.gold.high <= hi, `${r.gold.low} to ${r.gold.high}, the table says ${lo} to ${hi}`);
+  const again = createBench(realCtx()).rollLoot({ monster: tier1[0].id, count: 1000, seed: 4242 });
+  check('the same seed rolls the same thousand', again.table.rows.map((x) => x.count).join(',') === r.table.rows.map((x) => x.count).join(','),
+    r.table.rows.map((x) => `${x.rarity} ${x.count}`).join(', '));
+  const other = createBench(realCtx()).rollLoot({ monster: tier1[0].id, count: 1000, seed: 777 });
+  check('and a different seed does not', other.table.rows.map((x) => x.count).join(',') !== r.table.rows.map((x) => x.count).join(','));
+}
+{
+  // The claim that matters: a tier 5 kill cannot leave a white. It is only
+  // true of the items that COULD have been coloured, because items.makeItem
+  // hands the rarity back on a base that cannot take one, and half a tier 5
+  // table is materials. Both halves are checked.
+  const bench = createBench(realCtx());
+  const r = bench.rollLoot({ tier: 5, count: 2000, seed: 99 });
+  const gear = r.table.gearRows;
+  const common = gear.find((x) => x.rarity === 'common').count;
+  const uncommon = gear.find((x) => x.rarity === 'uncommon').count;
+  check('a tier 5 roll leaves no common gear', common === 0, `${common} of ${r.table.gear}`);
+  check('and no uncommon gear either, which is what the two row shift means', uncommon === 0, `${uncommon} of ${r.table.gear}`);
+  check('every plain item in the pile is a base that cannot take a colour',
+    r.items.filter((it) => it.rarity === 'common').every((it) => !takesRarity(it.base)),
+    `${r.table.plain} of ${r.items.length} items are materials`);
+  const w = weightsFor(5, 0);
+  const total = w.reduce((a, b) => a + b, 0);
+  const worst = Math.max(...gear.map((x, i) => Math.abs(x.pct - (w[i] / total) * 100)));
+  check('and the gear that did drop follows loot.js\'s own weights', worst < 8,
+    gear.filter((x) => x.count).map((x) => `${x.rarity} ${x.pct.toFixed(1)}% against ${x.expected.toFixed(1)}%`).join(', '));
+  check('the expected column is loot.js\'s table, not a copy of it',
+    gear.every((x, i) => Math.abs(x.expected - (w[i] / total) * 100) < 1e-9));
+  const t1 = createBench(realCtx()).rollLoot({ tier: 1, count: 2000, seed: 99 });
+  check('and the other direction: a tier 1 roll does leave commons', t1.table.gearRows[0].count > 0,
+    `${t1.table.gearRows[0].count} common of ${t1.table.gear} gear`);
+}
+{
+  const bench = createBench(realCtx());
+  const none = bench.rollLoot({ monster: 'gribbly', count: 10 });
+  check('a monster nobody has is refused in words', none.ok === false && /gribbly/.test(none.text), none.text);
+  const noTier = bench.rollLoot({ tier: 99, count: 10 });
+  check('and so is a tier nobody stands at', noTier.ok === false && /tier 99/.test(noTier.text), noTier.text);
+}
+
+console.log('win_dev: ten real sacks on the ground');
+{
+  const dropped = [];
+  const ctx = realCtx({
+    player: { pos: { x: 500, y: 0, z: -200 }, yaw: 0, teleport() {} },
+    runtime: { heightAt: () => 11, sitesNear: () => [] },
+    loot: {
+      drop(pos, what) { const bag = { pos, ...what }; dropped.push(bag); return bag; },
+      get count() { return dropped.length; },
+    },
+  });
+  const bench = createBench(ctx);
+  const tier = gearSubjectOfTier(3)[0];
+  const r = bench.dropSacks({ monster: tier.id, count: SACK_COUNT, seed: 31337 });
+  check(`${SACK_COUNT} sacks went down`, r.ok === true && dropped.length === SACK_COUNT, r.text);
+  const far = Math.max(...dropped.map((b) => Math.hypot(b.pos.x - 500, b.pos.z + 200)));
+  check('every one of them is within 6 m of the player', far <= 6, `the farthest is ${far.toFixed(2)} m`);
+  check('and the line reports the distance it measured, not the one it asked for',
+    Math.abs(r.farthest - far) < 1e-9 && r.text.includes(far.toFixed(1)), r.text);
+  check('and none of them is on top of another', new Set(dropped.map((b) => `${b.pos.x.toFixed(2)},${b.pos.z.toFixed(2)}`)).size === SACK_COUNT);
+  check('each sack holds at least one item', dropped.every((b) => b.items.length >= 1), dropped.map((b) => b.items.length).join(''));
+  check('and gold in the tier\'s range', dropped.every((b) => b.gold >= GOLD[tier.tier][0] && b.gold <= GOLD[tier.tier][1]),
+    `${Math.min(...dropped.map((b) => b.gold))} to ${Math.max(...dropped.map((b) => b.gold))}`);
+  const table = tableFor(tier);
+  check('every item in every sack came off the monster\'s own table',
+    dropped.every((b) => b.items.every((it) => table.includes(it.base))));
+  check('they were put down on the ground the runtime reports', dropped.every((b) => b.pos.y === 11));
+  const bare = createBench(realCtx()).dropSacks({ tier: 1 });
+  check('with no loot runtime it refuses and names what is missing', bare.ok === false && /loot.drop/.test(bare.text), bare.text);
+}
+{
+  const ring = sackRing({ x: 10, z: -10 }, SACK_COUNT, SACK_RADIUS);
+  check('the ring is the count that was asked for', ring.length === SACK_COUNT);
+  check('and every point is inside the radius', ring.every((p) => Math.hypot(p.x - 10, p.z + 10) <= SACK_RADIUS + 1e-9));
+  check('and none of them is under your feet', ring.every((p) => Math.hypot(p.x - 10, p.z + 10) > 1));
+}
+
+console.log('win_dev: give all, and inspect');
+{
+  const ctx = realCtx();
+  const bench = createBench(ctx);
+  bench.rollLoot({ tier: 2, count: 12, seed: 5 });
+  const r = bench.giveAll();
+  check('a small pile all goes in', r.ok === true && r.refused === 0 && r.added === bench.lastRoll().items.length, r.text);
+  check('and the pack really holds them', ctx.character.pack.items.filter(Boolean).length > 0);
+}
+{
+  const ctx = realCtx();
+  const bench = createBench(ctx);
+  const items = ctx.character.pack.items;
+  for (let i = 0; i < items.length; i++) items[i] = makeItem({ base: 'longsword', seed: i + 1 });
+  const before = items.map((it) => it.id).join(',');
+  bench.rollLoot({ tier: 2, count: 9, seed: 5 });
+  const r = bench.giveAll();
+  check('a full pack takes none of them and counts every refusal', r.ok === false && r.added === 0 && r.refused === 9, r.text);
+  check('the pack is byte for byte what it was', items.map((it) => it.id).join(',') === before);
+  check('and it says how many did not fit and that they were kept', /9 did not fit and are still in the lab/.test(r.text), r.text);
+  const nothing = createBench(realCtx()).giveAll();
+  check('nothing rolled is nothing to give, and it says so', nothing.ok === false && /nothing has been rolled/.test(nothing.text), nothing.text);
+}
+{
+  const bench = createBench(realCtx());
+  const r = bench.rollLoot({ tier: 4, count: 400, seed: 8 });
+  check(`the rarest are named, at most ${RAREST_SHOWN} of them`, r.rarest.length === Math.min(RAREST_SHOWN, r.items.length), `${r.rarest.length}`);
+  check('and they really are the rarest first',
+    r.rarest.every((it, i) => i === 0 || RARITY_ORDER.indexOf(r.rarest[i - 1].rarity) >= RARITY_ORDER.indexOf(it.rarity)),
+    r.rarest.slice(0, 6).map((it) => it.rarity).join(', '));
+  const gear = r.items.find((it) => takesRarity(it.base) && it.rarity !== 'common');
+  const shown = bench.inspect(gear);
+  check('inspect identifies it, so there is something to read', shown.item.identified === true && !!gear && gear.identified === false);
+  check('and gives the full tooltip out of affixes.describe', shown.lines.length >= 3, shown.lines.join(' | '));
+  check('in the rarity colour', shown.colour === RARITY[gear.rarity].colour, `${gear.rarity} ${shown.colour}`);
+  check('with the affixes on it, not a range it could not read', shown.item.affixes.length === RARITY[gear.rarity].affixes,
+    `${shown.item.affixes.length} affixes for ${gear.rarity}`);
+  check('the name line carries the colour and the plain facts do not',
+    shown.tip[0].colour === shown.colour && shown.tip.some((l) => l.colour === null), shown.tip.map((l) => l.text).join(' | '));
+  check('inspecting nothing is nothing, not a throw', bench.inspect(null).ok === false);
+}
+{
+  const bench = createBench(realCtx());
+  const empty = rarityTable([], 1, 0, 50);
+  check('an empty pile still accounts for every roll', empty.sum === 50 && empty.none === 50);
+  check('and reports no gear and no plain', empty.gear === 0 && empty.plain === 0);
+  check('rarest of nothing is nothing', rarest([], 20).length === 0);
+  check('the lab remembers nothing until it has rolled', createBench(realCtx()).lastRoll() === null);
+  bench.rollLoot({ tier: 1, count: 5, seed: 1 });
+  check('and remembers the last roll after it has', bench.lastRoll().rolls === 5);
+}
+
+console.log('win_dev: spawn five, and clear what the bench spawned');
+{
+  const spawned = [];
+  const ctx = recordingCtx({
+    player: { pos: { x: 0, z: 0 }, yaw: 0, teleport() {} },
+    monsters: {
+      rescan() {},
+      spawnAt: (id, x, z) => { const m = { id, key: `dev:${id}:${spawned.length + 1}` }; spawned.push([id, x, z]); return m; },
+      all: () => spawned.map((s, i) => ({ key: `dev:${s[0]}:${i + 1}` })),
+    },
+  });
+  const bench = createBench(ctx);
+  const r = bench.spawnMany('wolf', SPAWN_MANY);
+  check(`${SPAWN_MANY} wolves went down`, r.ok === true && spawned.length === SPAWN_MANY, r.text);
+  const centre = { x: Math.sin(0) * 6, z: Math.cos(0) * 6 };
+  check('all of them within 4 m of the spot one would have stood on',
+    spawned.every(([, x, z]) => Math.hypot(x - centre.x, z - centre.z) <= 4),
+    spawned.map(([, x, z]) => Math.round(Math.hypot(x - centre.x, z - centre.z))).join(', '));
+  check('and the line counts them and names the tier', /5 Wolf/.test(r.text) && /tier 2/.test(r.text), r.text);
+  const clear = bench.clearSpawned();
+  check('with no despawnDev it clears nothing, counts what is standing and names the export it needs',
+    clear.ok === false && /5 of the bench/.test(clear.text) && /despawnDev\(\)/.test(clear.text), clear.text);
+}
+{
+  let cleared = 0;
+  const ctx = recordingCtx({ monsters: { rescan() {}, despawnDev: () => { cleared = 4; return 4; } } });
+  const r = createBench(ctx).clearSpawned();
+  check('a runtime that has despawnDev uses it and says how many went', r.ok === true && r.cleared === 4 && cleared === 4, r.text);
+  const none = createBench(recordingCtx({ monsters: { rescan() {}, despawnDev: () => 0 } })).clearSpawned();
+  check('and nothing standing says nothing standing', none.ok === true && /nothing standing/.test(none.text), none.text);
+  const bare = createBench(recordingCtx({ monsters: { rescan() {} } })).clearSpawned();
+  check('with neither despawnDev nor all it says both', bare.ok === false && /despawnDev\(\)/.test(bare.text), bare.text);
+  const nope = createBench(recordingCtx({ monsters: { rescan() {} } })).spawnMany('wolf');
+  check('spawn five with no spawnAt names the export it needs and builds nothing',
+    nope.ok === false && /spawnAt\(id, x, z\)/.test(nope.text), nope.text);
+  const gribbly = createBench(recordingCtx({ monsters: { rescan() {}, spawnAt: () => ({}) } })).spawnMany('gribbly');
+  check('and nothing is called gribbly', gribbly.ok === false, gribbly.text);
+}
+
+console.log('win_dev: a teleport tells the forage field where you went');
+{
+  const told = [];
+  const ctx = recordingCtx({ forage: { update: (x, z) => told.push([x, z]) } });
+  const bench = createBench(ctx);
+  bench.goTo(900, -400);
+  check('the forage field is moved with you', told.length === 1 && told[0][0] === 900 && told[0][1] === -400, JSON.stringify(told));
+  const bare = createBench(recordingCtx());
+  const r = bare.goTo(5, 5);
+  check('and a game with no forage field warps anyway', r.ok === true);
 }
 
 console.log(`\nwin_dev: ${pass} passed, ${fail} failed`);

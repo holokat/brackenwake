@@ -25,8 +25,12 @@ import {
 import { identify as identifyItem, describe, nameFor, lineFor, ranked } from '../mmo/affixes.js';
 import { derived } from '../mmo/stats.js';
 
-/** The document's starting pack. Bags add to it; 06-ECONOMY-UI.md prices them. */
-export const PACK_SLOTS = 20;
+/**
+ * The document's starting pack. Bags add to it; 06-ECONOMY-UI.md prices them.
+ * 40, not the 20 03-ITEMS-LOOT prints: the user asked for a bigger pack, and
+ * `state.js` carries the same number and grows an older save to it on hydrate.
+ */
+export const PACK_SLOTS = 40;
 
 /** The two ring slots, in the order an empty one is looked for. */
 export const RING_SLOTS = ['ring1', 'ring2'];
@@ -94,6 +98,11 @@ export function parseWhere(where) {
  * Fill in anything the document is missing, in place. A save written before a
  * slot existed, or a pack whose array is shorter than its slot count, would
  * otherwise read as `undefined` in the middle of a grid.
+ *
+ * This REPAIRS a document; it does not migrate one. Growing a 20 slot pack to
+ * today's PACK_SLOTS is `state.hydrate`'s job, on the way in from the save,
+ * because a pack handed here with a smaller slot count on purpose (a test, a
+ * shop preview) is entitled to keep it.
  */
 export function normalise(character) {
   if (!character || typeof character !== 'object') return character;

@@ -17,6 +17,9 @@ import { statTotal, derived, STAT_START_TOTAL } from '../mmo/stats.js';
 import { total as skillTotal, SKILLS } from '../mmo/skills.js';
 import { BASES, SLOTS, baseFor } from '../mmo/items.js';
 import { BAR_SLOTS } from './win_abilities.js';
+// The pack grew from 20 to 40 (see src/game/state.js and docs/mmo/wiring/U2.md),
+// so this asks inventory.js what the number is rather than carrying a copy.
+import { PACK_SLOTS } from './inventory.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -110,7 +113,7 @@ console.log(`       (items.js makes ${Object.values(KIT_BASES).filter(Boolean).l
   check('all five stats are there and total 250', statTotal(c.stats) === STAT_START_TOTAL && STAT_IDS.every((k) => k in c.stats), String(statTotal(c.stats)));
   check('all fifty two skills are written, not only the five that started', Object.keys(c.skills).length === SKILLS.length, String(Object.keys(c.skills).length));
   check('and they total 200', skillTotal(c.skills) === 200, String(skillTotal(c.skills)));
-  check('the pack has twenty slots', c.pack.slots === 20 && c.pack.items.length === 20);
+  check(`the pack has ${PACK_SLOTS} slots`, c.pack.slots === PACK_SLOTS && c.pack.items.length === PACK_SLOTS, `${c.pack.slots} slots, ${c.pack.items.length} entries`);
   check('the doll has all fourteen', SLOTS.every((s) => s in c.equipment));
   check('the bar has twelve empty slots', c.bar.length === BAR_SLOTS && c.bar.every((x) => x === null));
   check('the pools start full', c.health === Math.floor(derived(c.stats, c.skills).maxHealth), `${c.health}`);

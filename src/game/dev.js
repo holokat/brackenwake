@@ -34,13 +34,92 @@
 // owns the object so there is exactly one of it, and main.js hands the same
 // reference to the window layer as `ctx.debug`. Nothing here draws anything: a
 // flag is a request, and docs/mmo/wiring/G1.md names who has to answer it.
+//
+// ---------------------------------------------------------------------------
+// The frame rate
+// ---------------------------------------------------------------------------
+// "Dev mode needs to show current FPS." `dev.stats` is the live object while
+// the mode is on and null while it is off, and `dev.update(dt)` refreshes it
+// every frame: fps and the average frame in milliseconds over a rolling second,
+// plus draw calls, triangles, monsters, chunks, floaters and sacks read
+// straight off the renderer and the runtimes. Anything that is not wired reads
+// null, never a zero. `createFrameMeter` is the averaging, exported so the dev
+// bench's own readout uses the same one and the two agree.
+//
+// docs/mmo/wiring/U2.md has the two lines main.js needs to hand the counts over.
 
 /** Overlay switches. False until something is written that reads them. */
 export const DEBUG_FLAGS = ['chunks', 'colliders'];
 
-export function createDev({ sc, camera, player, hud, runtime, state }) {
+/** The window the frame rate is averaged over, in seconds. */
+export const FPS_WINDOW = 1;
+
+/**
+ * A frame rate that does not jitter. One frame's dt reads anywhere between 50
+ * and 70 fps on a steady machine, which is a number nobody can use, so this
+ * counts whole frames over a second of real time and publishes fps and the
+ * average frame in milliseconds once a second.
+ *
+ * Until the first second is up it publishes the instantaneous reading, so the
+ * badge is never blank and never a zero it made up.
+ */
+export function createFrameMeter(window = FPS_WINDOW) {
+  let frames = 0, elapsed = 0, fps = 0, frameMs = 0;
+  return {
+    /** One frame. Returns the current published reading. */
+    push(dt) {
+      const d = Number.isFinite(dt) && dt > 0 ? dt : 0;
+      if (d > 0) { frames++; elapsed += d; }
+      if (elapsed >= window && frames > 0) {
+        fps = Math.round(frames / elapsed);
+        frameMs = Math.round((elapsed / frames) * 1000 * 100) / 100;
+        frames = 0; elapsed = 0;
+      } else if (!fps && d > 0) {
+        fps = Math.round(1 / d);
+        frameMs = Math.round(d * 1000 * 100) / 100;
+      }
+      return { fps, frameMs };
+    },
+    get fps() { return fps; },
+    get frameMs() { return frameMs; },
+    reset() { frames = 0; elapsed = 0; fps = 0; frameMs = 0; },
+  };
+}
+
+const numOf = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+/**
+ * `sc`, `camera`, `player`, `hud`, `runtime` and `state` are what F1 has always
+ * needed. `monsters`, `floaters` and `loot` are new and OPTIONAL: they are only
+ * read for the counts on the badge, and every one of them reports null rather
+ * than a zero when it is not handed over. docs/mmo/wiring/U2.md has the line
+ * main.js needs.
+ */
+export function createDev({ sc, camera, player, hud, runtime, state, monsters, floaters, loot }) {
   let on = false;
   const debug = Object.fromEntries(DEBUG_FLAGS.map((k) => [k, false]));
+  const meter = createFrameMeter();
+  // One object, rewritten in place every frame, so whoever holds it holds the
+  // live numbers and main.js does not allocate sixty of these a second.
+  const stats = {
+    fps: 0, frameMs: 0, draws: null, tris: null,
+    monsters: null, chunks: null, floaters: null, sacks: null,
+  };
+
+  /** Read the counts off whoever is wired. Nothing here is computed or guessed. */
+  function sample(dt) {
+    const r = meter.push(dt);
+    stats.fps = r.fps;
+    stats.frameMs = r.frameMs;
+    const info = sc && sc.renderer && sc.renderer.info;
+    stats.draws = info ? numOf(info.render.calls) : null;
+    stats.tris = info ? numOf(info.render.triangles) : null;
+    stats.monsters = numOf(monsters?.count);
+    stats.chunks = numOf(runtime?.world?.stats?.loaded);
+    stats.floaters = numOf(floaters?.count);
+    stats.sacks = numOf(loot?.count);
+    return stats;
+  }
 
   /**
    * Remember the mode on the document. Quiet when nothing changed, so a
@@ -93,6 +172,19 @@ export function createDev({ sc, camera, player, hud, runtime, state }) {
       debug[key] = !!value;
       return debug[key];
     },
-    update(dt) { if (on) camera.flyUpdate(dt, (x, z) => runtime.heightAt(x, z)); },
+    /**
+     * The live numbers while dev mode is up, and null while it is not, so a
+     * badge reading them shows nothing rather than a stale frame rate from
+     * whenever the mode was last on.
+     */
+    get stats() { return on ? stats : null; },
+    /** The same object whether or not the mode is on. The panel's readout. */
+    get liveStats() { return stats; },
+    update(dt) {
+      // Counted every frame, not only while flying, so the first second after
+      // F1 already has a real reading in it.
+      sample(dt);
+      if (on) camera.flyUpdate(dt, (x, z) => runtime.heightAt(x, z));
+    },
   };
 }

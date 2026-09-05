@@ -2,8 +2,12 @@
 //
 // v1 of this file was coins, three materials, a hunting bag and three tools.
 // v2 is the document docs/mmo/07-RUNTIME-CONTRACT.md specifies: stats, skills,
-// a twenty slot pack of item records, fourteen equipment slots, an ability bar,
-// and the settings. Nothing about the old game was thrown away. Every export v1
+// a pack of item records, fourteen equipment slots, an ability bar,
+// and the settings.
+//
+// THE PACK IS 40 SLOTS, not the 20 03-ITEMS-LOOT prints. The user asked for a
+// bigger one. `hydrate` grows an older save to it without moving anything, and
+// a save with more keeps more; docs/mmo/wiring/U2.md has the reasoning. Nothing about the old game was thrown away. Every export v1
 // had is still here and still means the same thing, because it is now a VIEW
 // over the document:
 //
@@ -78,7 +82,20 @@ export const GOOD_CAP = 20;
 export const TOOLS = ['axe', 'pickaxe', 'bow'];
 export const START_COINS = 120;   // the first axe is 60, so you can buy one and eat
 
-export const PACK_SLOTS = 20;     // 03-ITEMS-LOOT: "a pack has slots (starting 20)"
+/**
+ * How many slots a pack has.
+ *
+ * 03-ITEMS-LOOT says "a pack has slots (starting 20)" and it started there. The
+ * user asked for a bigger one, so it is 40, and `hydrate` grows an older save
+ * to match: the items keep their indices and the new slots are appended empty.
+ * A save that already has MORE than this (a bag bought in 06-ECONOMY-UI) keeps
+ * what it has, up to the 200 the clamp allows.
+ *
+ * `src/game/inventory.js` carries the same number and `normalise` grows any
+ * document that reaches it with fewer, so a character that never went through
+ * hydrate is not left on 20.
+ */
+export const PACK_SLOTS = 40;
 export const BAR_SLOTS = 12;      // 07: bar[12]
 
 // --------------------------------------------------------------- local bases
@@ -573,6 +590,11 @@ export function hydrate(raw) {
   if (isNum(raw.gold)) doc.gold = Math.max(0, Math.round(raw.gold));
 
   if (raw.pack && Array.isArray(raw.pack.items)) {
+    // The migration to a bigger pack. A save written when PACK_SLOTS was 20
+    // says slots: 20 and carries 20 records; the clamp raises the floor to
+    // today's PACK_SLOTS, the array is built at the new size, and the records
+    // are copied at their own indices, so nothing moves and nothing is lost.
+    // A save with more slots than PACK_SLOTS keeps every one of them.
     const slots = isNum(raw.pack.slots) ? clamp(Math.floor(raw.pack.slots), PACK_SLOTS, 200) : PACK_SLOTS;
     doc.pack = { slots, items: new Array(slots).fill(null) };
     for (let i = 0; i < Math.min(slots, raw.pack.items.length); i++) {
