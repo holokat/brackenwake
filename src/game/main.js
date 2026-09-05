@@ -53,6 +53,7 @@ import { dressRig } from './gear_visuals.js';
 import { createSky } from './sky.js';
 import { createTargetRing } from './target_ring.js';
 import { createPaperdoll } from './paperdoll.js';
+import { cameraClamp } from '../world/dungeon.js';
 import { createWater } from '../world/water.js';
 import { createForageField, seasonAt } from '../world/forage.js';
 import { createForaging } from './foraging.js';
@@ -81,6 +82,8 @@ const NIGHT_BELOW = 0.4;
 const DEATH_S = 5;
 /** Health you wake with, as a fraction of the maximum. */
 const WAKE_HEALTH = 0.5;
+/** Where the follow camera looks on the body, matching camera.js. */
+const CAMERA_EYE = 1.5;
 
 const BIOME_NAMES = {
   ocean: 'open water', beach: 'the shore', meadow: 'open meadow',
@@ -788,10 +791,15 @@ function boot() {
         }
         shapeDrag();
         camera.update(dt, player.pos, (x, z) => runtime.heightAt(x, z));
-        // underground the camera stays inside the room: pull it onto the walkable floor
+        // underground the camera stays inside the room: dungeon.js walks the grid
+        // from the player to the eye and stops it short of the first rock cell
         if (runtime.inDungeon) {
-          const [kx, kz] = runtime.clampWalkable(sc.camera.position.x, sc.camera.position.z);
-          if (kx !== sc.camera.position.x || kz !== sc.camera.position.z) { sc.camera.position.x = kx; sc.camera.position.z = kz; }
+          const L = runtime.dungeonLayout();
+          const c = cameraClamp(L, sc.camera.position, player.pos);
+          if (c.moved) {
+            sc.camera.position.set(c.x, c.y, c.z);
+            sc.camera.lookAt(player.pos.x, player.pos.y + CAMERA_EYE, player.pos.z);
+          }
         }
         state.setPos(player.pos.x, player.pos.z);
       }
