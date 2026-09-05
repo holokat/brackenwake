@@ -724,6 +724,10 @@ export function createBench(ctx = {}) {
   function warp(x, z, opts = {}) {
     if (!Number.isFinite(x) || !Number.isFinite(z)) return bad('that is not a place.');
     if (typeof ctx.player?.teleport !== 'function') return bad('the player cannot be moved from here: no teleport is wired.');
+    // Every warp is to a place on the surface. Taken from a dungeon floor
+    // without coming up first, "home" landed the player in the dungeon's field
+    // at the home coordinates: a black void, 24 monsters, and no ground.
+    if (ctx.runtime?.inDungeon && typeof ctx.runtime.leaveDungeon === 'function') ctx.runtime.leaveDungeon();
     ctx.player.teleport(x, z, heightAt);
     if (ctx.camera) {
       if (Number.isFinite(opts.yaw)) ctx.camera.yaw = opts.yaw;

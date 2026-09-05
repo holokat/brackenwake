@@ -797,6 +797,17 @@ console.log('win_dev: travel says where you landed and what the ground is');
   check('a warp names the ground it put you on', /desert/.test(r.text), r.text);
   const back = bench.goTo(0, 0);
   check('and names a different one when it is different', /meadow/.test(back.text), back.text);
+  // a warp taken from a dungeon floor comes up first, so home is never a black
+  // void at the home coordinates; a warp taken on the surface leaves nothing
+  const left = [];
+  const under = recordingCtx({
+    runtime: { heightAt: () => 7, sitesNear: () => [], inDungeon: true, leaveDungeon: () => { left.push(1); under.runtime.inDungeon = false; } },
+  });
+  const belowBench = createBench(under);
+  belowBench.goHome();
+  check('a warp from underground leaves the dungeon before the feet move', left.length === 1, `left ${left.length} times`);
+  belowBench.goTo(10, 10);
+  check('and on the surface it does not call leave at all', left.length === 1, `left ${left.length} times`);
   const t = bench.teleport({ name: 'Coldmere', kind: 'town', x: 500, z: 0, flatR: 46, facing: 0 });
   check('a teleport to a site says the place, the distance, the spot and the ground',
     /Coldmere/.test(t.text) && / m off/.test(t.text) && /446, 0/.test(t.text) && /desert/.test(t.text), t.text);
