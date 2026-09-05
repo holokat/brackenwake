@@ -258,6 +258,8 @@ export function blankCharacter() {
     uniques: [],          // signature uniques found, once each (L1)
     bosses: [],           // wandering bosses met, so the map keeps them (E2)
     opened: [],           // chest keys already emptied, once each (D3)
+    story: null,          // the first hour: which beats have been said (S2)
+    waystones: null,      // the stones touched, and when each last carried you (S2)
     settings: { ...DEFAULT_SETTINGS },
   };
 }
@@ -1017,6 +1019,12 @@ export function hydrate(raw) {
   // the boxes this character has already emptied (D3): a chest pays once ever,
   // so the list has to survive a reload or every level is a fresh payday
   if (Array.isArray(raw.opened)) doc.opened = raw.opened.filter((k) => typeof k === 'string');
+  // the first hour (S2): a beat fires once per character, ever, so the list has
+  // to survive a reload or Old Wynn tells you about the Standing Hedge again
+  if (raw.story && typeof raw.story === 'object' && !Array.isArray(raw.story)) doc.story = { ...raw.story };
+  // and the stones this character has put a hand on, with the day clock stamp of
+  // the last time each carried them (S2); both readers take a half written record
+  if (raw.waystones && typeof raw.waystones === 'object' && !Array.isArray(raw.waystones)) doc.waystones = { ...raw.waystones };
   if (Array.isArray(raw.deadUntil)) doc.deadUntil = raw.deadUntil.filter((d) => d && typeof d === 'object');
   if (raw.settings && typeof raw.settings === 'object') {
     doc.settings = { ...DEFAULT_SETTINGS, ...raw.settings };

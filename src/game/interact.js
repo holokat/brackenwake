@@ -206,6 +206,7 @@ export function decide(pick, tool, playerPos, now, lastSwingAt) {
   if (pick.kind === 'site') {
     const site = pick.site;
     if (!site) return { action: 'none', reason: 'nothing' };
+    if (pick.waystone) return { action: 'waystone', reason: 'stone', site };
     if (site.kind === 'dungeon' || site.kind === 'cave') {
       const d = horiz(playerPos, site);
       if (d > SITE_REACH) return { action: 'blocked', reason: 'too_far', site, dist: d };
@@ -244,7 +245,7 @@ export function decide(pick, tool, playerPos, now, lastSwingAt) {
   return { action: 'none', reason: 'nothing' };
 }
 
-export function createInteract({ sc, runtime, player, state, hud, input, audio, progression, loot, chests }) {
+export function createInteract({ sc, runtime, player, state, hud, input, audio, progression, loot, chests, story }) {
   // Where a felled tree leaves its wood. `main.js` builds `loot` (createLootDrops)
   // before it builds this, so passing it is one word at the call site; until it
   // does, `runtime.loot` is tried and then the pack, so nothing is ever lost.
@@ -314,6 +315,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
       return d > CHEST_REACH ? `${noun}, too far` : `${noun}, E to open`;
     }
     if (pick.kind === 'site') {
+      if (pick.waystone) return `${pick.site?.name || 'a stone'}, a waystone, E to put your hand on it`;
       const s = pick.site;
       if (!s) return '';
       if (s.kind === 'dungeon' || s.kind === 'cave') {
@@ -487,6 +489,12 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
           : `the ${noun} takes the blow, ${res.remaining} more`);
         return d;
       }
+      case 'waystone': {
+        const s = typeof story === 'function' ? story() : story;
+        if (!s?.touchStone) { say('the stone is warm and nothing in this build knows what to do about it'); return d; }
+        s.touchStone();
+        return d;
+      }
       case 'open': {
         chests?.open?.(d.chest, { at: player?.pos });
         return d;
@@ -546,7 +554,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
     enter() {
       const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
       const d = decide(pickNow(), state.tool, player?.pos, now, lastSwingAt);
-      if (d.action === 'enter' || d.action === 'exit' || d.action === 'open'
+      if (d.action === 'enter' || d.action === 'exit' || d.action === 'open' || d.action === 'waystone'
         || (d.action === 'blocked' && (d.site || d.chest))) return act(d);
       // E never moves you on its own. Underground a stray press would otherwise
       // climb a level, which is a real change nobody asked for.

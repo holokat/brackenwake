@@ -169,6 +169,11 @@ wake across the Caldera Sea and a kraken follows the whales.
 | Reef Eel | 70 | 12 to 20 | 2.0 | 62 | 60 | 8 | 8 | 6 | coastOnly, ambush, stormCall |
 | Cinder Imp | 68 | 10 to 18 | 2.0 | 58 | 58 | 6 | 8.5 | 12 | flying, erratic, casts, fireImmune, group |
 
+**Tier 3, wave C** (the same band, and one row: the Greenwold's named beast)
+| monster | hp | dmg | spd | hit | def | AR | run | aggro | notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Old Grist | 210 | 16 to 28 | 2.6 | 58 | 46 | 20 | 8.5 | 16 | charges, knockback, alpha |
+
 **Tier 4, wave A** (the same band: 70 to 85 skill, 80 to 250 gold)
 | monster | hp | dmg | spd | hit | def | AR | run | aggro | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

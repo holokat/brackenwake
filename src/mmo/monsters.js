@@ -286,6 +286,16 @@ M({ id: 'hobgoblin', name: 'Hobgoblin', tier: 3, hp: 120, damage: [15, 25], spee
 M({ id: 'harpy', name: 'Harpy', tier: 3, hp: 70, damage: [10, 17], speed: 2.0, hit: 60, def: 60, ar: 6, run: 10, aggro: 18,
   kind: 'flying', temperament: 'hunter', flees: 'low', group: [1, 3], notes: ['flying', 'silence3'],
   lootTable: ['meat', 'reagent', 'amulet'] });
+// --- Wave C, S2: the Greenwold's one named beast.
+//
+// "Old Grist, a boar the size of a pony in the beech hangar" (14-KALDERA.md,
+// section 5.1, and the Greenwold's `encounters` in realms.js). A boar row with
+// a name, a tier over the common boar's and a body a third again as tall,
+// standing alone in one wood. Not a boss: no arena, no phases, no purple floor.
+M({ id: 'oldGrist', name: 'Old Grist', tier: 3, hp: 210, damage: [16, 28], speed: 2.6, hit: 58, def: 46, ar: 20, run: 8.5, aggro: 16,
+  kind: 'beast', temperament: 'hunter', flees: 'never', group: [1, 1], notes: ['charges', 'knockback', 'alpha'],
+  lootTable: ['meat', 'thickHide', 'gem'], family: 'wolf', authored: true,
+  model: 'A boar the size of a pony, grey down the spine, one tusk broken off short and the other polished, with the leaf litter of the Beech Hangar worn into his shoulders like bark.', wave: 'S2' });
 M({ id: 'stonebackBear', name: 'Stoneback Bear', tier: 3, hp: 160, damage: [18, 30], speed: 3.4, hit: 50, def: 30, ar: 30, run: 7, aggro: 10,
   kind: 'beast', temperament: 'normal', flees: 'low', group: [1, 1], notes: ['thickHide'],
   lootTable: ['meat', 'thickHide'] });
@@ -915,7 +925,9 @@ const at = (biome, day, night = day) => ({ biome, day, night });
 export const HABITAT_BY_PLACE = {
   // --- The Greenwold, ring 0
   millrun: at('meadow', ['goose', 'giantRat', 'bandit'], ['goose', 'wolf', 'zombie']),
-  beechhangar: at('meadow', ['boar', 'fox', 'giantRat'], ['wolf', 'fox', 'boar']),
+  // Old Grist once in fourteen night rolls: spawnRollFor picks uniformly, so the
+  // common rows are written down more than once to make him the rare one (S2)
+  beechhangar: at('meadow', ['boar', 'fox', 'giantRat'], ['wolf', 'fox', 'boar', 'wolf', 'boar', 'wolf', 'fox', 'boar', 'wolf', 'boar', 'wolf', 'fox', 'boar', 'oldGrist']),
   kingsroad: at('meadow', ['legionSoldier', 'legionArcher', 'bandit'], ['legionSoldier', 'legionArcher', 'wolf']),
   highwaymanshollow: at('meadow', ['bandit', 'raider', 'goblinScout'], ['bandit', 'raider', 'wolf']),
   greenwoldpits: at('meadow', ['giantRat', 'thornGrub'], ['giantRat', 'thornGrub', 'skeleton']),

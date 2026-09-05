@@ -506,15 +506,27 @@ function goldFloat(ctx, n) {
 
 /**
  * @param ctx  { character, actor, inventory, hud, audio, floaters, player, now }
- * @param npc  the record from npcs_runtime.js: { role, personName, site }
+ * @param npc  the record from npcs_runtime.js: { role, personName, site }, or
+ *             one of S2's named people, which is the same record with a `story`
+ *             on it: `{ name, title, lines }` out of `src/mmo/story.js`.
+ *
+ * A NAMED PERSON IS NOT A SECOND KIND OF SHOP. The story replaces exactly two
+ * things: the name at the top of the panel and the lines on the Talk tab. Every
+ * other tab is still the role's, so Cobb Ashby keeps the Blacksmith's shelf,
+ * his prices and his repair, and Ivy Weir's Miller sells what a Miller sells.
+ * `tabsFor` is therefore asked about the ROLE and never about the story, and a
+ * named person whose role trades in nothing opens on Talk, correctly.
  */
 export function createTalkEngine(ctx, npc) {
   const role = npc?.role || NPCS[npc?.roleId] || null;
+  const story = (npc?.story && typeof npc.story === 'object' && Array.isArray(npc.story.lines)) ? npc.story : null;
   const site = npc?.site || {};
   const siteId = site.id || 'nowhere';
   const mult = multiplierFor(site);
   const isProvisioner = role?.id === 'provisioner';
-  const who = npc?.personName ? `${npc.personName}, the ${role?.name}` : (role?.name || 'they');
+  const who = story
+    ? `${story.name}, ${story.title}`
+    : (npc?.personName ? `${npc.personName}, the ${role?.name}` : (role?.name || 'they'));
   const now = () => (typeof ctx?.now === 'function' ? ctx.now() : (ctx?.now ?? Date.now()));
 
   const character = () => ctx?.character || {};
@@ -698,9 +710,12 @@ export function createTalkEngine(ctx, npc) {
   }
 
   return {
-    role, npc, who, site, siteId, mult, isProvisioner,
+    role, npc, who, site, siteId, mult, isProvisioner, story,
     shelf, offers, buy, sell, train, heal, cure, rest,
-    lines: () => role?.lines || [],
+    // A named person says their own lines. The role's lines are the shop's
+    // patter and belong to whoever is standing in that door when nobody has
+    // been written for it.
+    lines: () => (story ? story.lines : (role?.lines || [])),
     tabs: () => tabsFor(role),
     trainable: () => (role?.teaches || []).map((id) => ({ id, name: skillNameOf(id), quote: trainQuote(character(), role, id) })),
     packRoom,

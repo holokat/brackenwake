@@ -11,6 +11,7 @@ import {
   SELL_RATE, SELL_RATE_FLOOR, PROVISIONER_SELL_RATE, RESURRECT_COST,
 } from '../mmo/npcs.js';
 import { BASES, makeItem } from '../mmo/items.js';
+import { PERSON, STORY_ROLES } from '../mmo/story.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -347,6 +348,52 @@ console.log('win_talk: against the real inventory, not a stand-in for it');
     const refused = e.buy('dagger', 1);
     check('a real full pack refuses the buy and keeps the gold', refused.ok === false && inv.character.gold === gold, refused.text);
   }
+}
+
+// ---------------------------------------------------------------------------
+// S2: the Greenwold's named people. A `story` on the record replaces the name
+// and the lines and nothing else.
+
+console.log('\nNamed people (S2)');
+{
+  const ctx = mkCtx();
+  // Cobb Ashby is the Blacksmith of Hearthhome with a name on him.
+  const cobb = createTalkEngine(ctx, { personName: 'Cobb Ashby', role: NPCS.blacksmith, site, story: PERSON.cobb });
+  check('a named person is named, and told what they are', cobb.who === 'Cobb Ashby, the smith', cobb.who);
+  check('and says their own lines', cobb.lines()[0] === PERSON.cobb.lines[0], cobb.lines()[0]);
+  check('and not the role\'s patter', !cobb.lines().includes(NPCS.blacksmith.lines[0]));
+  check('and keeps the Blacksmith\'s tabs', cobb.tabs().join(' ') === tabsFor(NPCS.blacksmith).join(' '), cobb.tabs().join(' '));
+  check('and the Blacksmith\'s whole shelf', cobb.shelf().length === stockFor(NPCS.blacksmith).length,
+    `${cobb.shelf().length} rows`);
+  const bought = cobb.buy('longsword', 1);
+  check('and a sword bought off him is a sword bought off the smith', bought.ok === true, bought.text);
+
+  // The same door with nobody written for it is unchanged.
+  const plain = createTalkEngine(ctx, npcFor('blacksmith', 'Alred'));
+  check('an unnamed smith is still the Blacksmith', plain.who === 'Alred, the Blacksmith'
+    && plain.lines()[0] === NPCS.blacksmith.lines[0], plain.who);
+
+  // Old Wynn keeps a role of story.js's own, with nothing behind the panel.
+  const wynn = createTalkEngine(ctx, { personName: 'Old Wynn Ashby', role: STORY_ROLES.elder, site, story: PERSON.wynn });
+  check('Old Wynn opens on Talk and nothing else', wynn.tabs().join(' ') === 'talk', wynn.tabs().join(' '));
+  check('and every one of her lines is hers', wynn.lines().length === PERSON.wynn.lines.length);
+  check('and the panel says who she is', wynn.who === 'Old Wynn Ashby, the oldest woman in the Greenwold', wynn.who);
+
+  // Ivy Weir's Miller really has a shelf, so her Buy tab is not a promise.
+  const ivy = createTalkEngine(ctx, { personName: 'Ivy Weir', role: STORY_ROLES.miller, site, story: PERSON.ivy });
+  check('Ivy Weir has a shelf behind her Buy tab', ivy.tabs().includes('buy') && ivy.shelf().length > 0,
+    `${ivy.shelf().length} rows of food`);
+  check('and a lesson behind her Train tab', ivy.trainable().length === 1 && ivy.trainable()[0].id === 'cooking');
+
+  // A record with a `story` that is not one of ours must not throw or lie.
+  const junk = createTalkEngine(ctx, { personName: 'Bess', role: NPCS.healer, site, story: { name: 'Bess' } });
+  check('a half written story on a record is ignored rather than believed',
+    junk.who === 'Bess, the Healer' && junk.lines()[0] === NPCS.healer.lines[0], junk.who);
+}
+{
+  // and the load time audit, which knows nothing about any of this, is still green
+  const before = auditTalk();
+  check('auditTalk still passes with the named people in the game', !!before, JSON.stringify(before));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

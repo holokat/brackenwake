@@ -214,11 +214,14 @@ export const ui = {
       const sack = fight.loot.pick(ray);
       const patch = sack ? null : life.forage.pick(ray);
       const who = sack || patch ? null : life.npcs.pick?.(ray);
+      // S2: the six named people the story raises are not in npcs.pick
+      const named = sack || patch || who ? null : (ctx.has('story') ? ctx.get('story').story?.pick?.(ray) : null);
       const st = sack || patch || who ? null : life.stations.pick(ray);
       const mon = sack || patch || who || st ? null : fight.monsters.pick(ray);
       const corpse = sack || patch || who || st || mon ? null : skinning.pick(ray);
       if (sack) { want = want || 'grab'; hover = lootLabel(sack); }
       else if (patch) { want = want || 'grab'; hover = life.foraging.hoverText(patch.rec); }
+      else if (named) { want = want || 'pointer'; hover = `${named.npc?.person?.name || named.name || 'somebody'}, click to talk`; }
       else if (who) { want = want || 'pointer'; hover = who.name ? `${who.name}, click to talk` : ''; }
       else if (st) { want = want || 'pointer'; hover = `the ${st.name}, click to craft`; }
       // a monster says what it is and how dangerous it is, in the con colour:

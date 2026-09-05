@@ -775,6 +775,10 @@ export function buildMegalith(site, heightAt) {
   const merged = mergeByMaterial(g);
   merged.userData.pieces = pieces;
   merged.traverse((o) => { if (o.isMesh) o.userData.site = site; });
+  // S2: the Standing Hedge's nine tall stones are the only thing in that body
+  // built out of M.stonePale, so after the merge the pale mesh IS the nine, and
+  // a ray onto one of them has to come back as a waystone. See S2.md.
+  if (site.sub === 'waystones') merged.traverse((o) => { if (o.isMesh && o.material === M.stonePale) o.userData.waystone = true; });
   merged.userData.site = site;
   // How far from the site's centre this body actually reaches, so a caller can
   // keep it alive while the player is standing inside it. Most are small enough

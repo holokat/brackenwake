@@ -153,8 +153,13 @@ export function climate(w, temp, moist) {
  * @returns {number[]} six weights, summing to 1, in LAYERS order
  */
 export function layerWeights(s, slope = 0, road = 0, out = new Array(6)) {
+  // The base is the biome's, but a biome that reaches up to the rock line hands
+  // over to the mountain's base as it climbs, so the label flipping to
+  // 'mountain' at ROCK_LINE changes nothing the eye can see: before this the
+  // Greenwold's meadow met the rock at 46 m with a 0.30 step in the weights.
   const base = BIOME_BASE[s.biome] || BIOME_BASE.meadow;
-  for (let i = 0; i < 6; i++) out[i] = base[i];
+  const toRock = s.biome === 'mountain' || s.biome === 'snow' ? 0 : smoothstep(26, 46, s.h);   // full at ROCK_LINE, where the label flips
+  for (let i = 0; i < 6; i++) out[i] = base[i] * (1 - toRock) + BIOME_BASE.mountain[i] * toRock;
 
   const moist = s.moist == null ? 0.5 : s.moist;
   const temp = s.temp == null ? 0.5 : s.temp;
