@@ -34,8 +34,11 @@ export const SKILL_IDS = Object.keys(SKILL_DOC);
 
 // What an NPC can stand in front of.
 export const SETTLEMENT_KINDS = ['town', 'hamlet', 'ruin'];
-// The things a talk panel can offer beyond buying and selling.
-export const SERVICES = ['heal', 'cure', 'resurrect', 'repair', 'rest', 'rumour', 'tame'];
+// The things a talk panel can offer beyond buying and selling. `bank` is the
+// newest and the only one nothing acts on yet: the Banker stands at the bank
+// door in the seven precinct towns so the building has a person in it, and the
+// panel that opens is Talk, as it is for anybody whose service has no window.
+export const SERVICES = ['heal', 'cure', 'resurrect', 'repair', 'rest', 'rumour', 'tame', 'bank'];
 
 // Goods, as base kinds or as the category a stall carries. Checked against
 // 03-ITEMS-LOOT.md and 05-WORLD-CONTENT.md by `npcs.test.mjs`.
@@ -76,7 +79,7 @@ export function townMultiplier(hash) {
 }
 
 // ---------------------------------------------------------------------------
-// The fourteen roles.
+// The fifteen roles.
 //
 // `lines` are what the talk panel shows: three to five short lines in the
 // character's own voice. No em dashes, and each one names the thing it is
@@ -220,6 +223,26 @@ export const NPC_LIST = [
     ],
   }),
   R({
+    id: 'banker', name: 'Banker', appearsIn: ['town'],
+    // A bank buys bullion and always has. It is also the reason this role has
+    // a second tab: `win_talk.auditTalk` refuses at load any role whose panel
+    // offers nothing but Talk, and there is no Bank tab yet. When one exists,
+    // `buys` can go and the Bank tab takes its place. See docs/mmo/wiring/T1.md.
+    sells: [], buys: ['ingots'],
+    teaches: [], services: ['bank'],
+    // A Banker with no bank is a person standing in a field saying the vault is
+    // open. `needs` is the same gate the Ranger's forest edge uses: the caller
+    // says whether this settlement has the thing, and only the seven precinct
+    // towns do. See `npcs_runtime.streetFor`.
+    needs: 'bank',
+    lines: [
+      'The bank is open. Your gold is safer behind this door than in your pack.',
+      'Bullion I will weigh and buy, at the day\'s rate and not a copper over.',
+      'Deposits are not taken yet. The ledger is being copied out and I am told to wait.',
+      'A strongbox costs what it costs. Ask again when the ledger comes back.',
+    ],
+  }),
+  R({
     id: 'innkeeper', name: 'Innkeeper', appearsIn: ['town'],
     sells: ['food'], buys: ['food'],
     teaches: [], services: ['rest'],
@@ -298,7 +321,9 @@ export function npcsFor(settlement, rng = Math.random) {
   const pool = NPC_LIST.filter((n) => (
     n.appearsIn.includes(kind)
     && n.id !== 'necromancer'
-    && (!n.needs || (n.needs === 'forestEdge' && !!s.forestEdge))
+    // `needs` names a fact about this settlement the caller has to have
+    // established: `forestEdge` for the Ranger, `bank` for the Banker.
+    && (!n.needs || !!s[n.needs])
   ));
 
   const [lo, hi] = kind === 'town' ? TOWN_NPCS : HAMLET_NPCS;
@@ -327,7 +352,7 @@ export const DOC_REFS = {
   npcs: Object.fromEntries(NPC_LIST.map((n) => [n.id, n.name])),
   services: {
     heal: 'heals', cure: 'cures', resurrect: 'resurrect', repair: 'repairs',
-    rest: 'rest', rumour: 'rumours', tame: 'tames',
+    rest: 'rest', rumour: 'rumours', tame: 'tames', bank: 'bank',
   },
 };
 
@@ -339,7 +364,7 @@ export function auditNpcs() {
   const services = new Set(SERVICES);
   const goods = new Set(GOODS);
 
-  if (NPC_LIST.length !== 14) bad.push(`there should be fourteen roles, there are ${NPC_LIST.length}`);
+  if (NPC_LIST.length !== 15) bad.push(`there should be fifteen roles, there are ${NPC_LIST.length}`);
 
   for (const n of NPC_LIST) {
     const at = `npc ${n.id}`;
@@ -374,6 +399,19 @@ export function auditNpcs() {
   if (!NPCS.provisioner.appearsIn.includes('town') || !NPCS.provisioner.appearsIn.includes('hamlet')) bad.push('the Provisioner stands in both a town and a hamlet');
   if (NPCS.provisioner.paysRate !== PROVISIONER_SELL_RATE) bad.push('the Provisioner pays 15%');
   if (!NPCS.healer.appearsIn.includes('hamlet')) bad.push('the Healer stands in a hamlet too');
+  // The Banker keeps the bank, which only a precinct town has.
+  const bank = NPCS.banker;
+  if (!bank) bad.push('there is no Banker, and the bank in every town is empty');
+  else {
+    if (bank.appearsIn.length !== 1 || bank.appearsIn[0] !== 'town') bad.push('the Banker stands in a town and nowhere else');
+    if (bank.needs !== 'bank') bad.push('the Banker needs a bank to stand in the door of');
+    if (!bank.services.includes('bank')) bad.push('the Banker does not bank');
+    if (NPC_LIST.filter((n) => n.services.includes('bank')).length !== 1) bad.push('one role banks, and it is the Banker');
+  }
+  // Every `needs` has to be a fact somebody actually supplies, or the role is
+  // written down and unreachable.
+  const NEEDS = ['forestEdge', 'bank'];
+  for (const n of NPC_LIST) if (n.needs && !NEEDS.includes(n.needs)) bad.push(`npc ${n.id}: needs "${n.needs}", which nobody ever says is true`);
   for (const id of ['town', 'hamlet']) {
     const n = NPC_LIST.filter((x) => x.appearsIn.includes(id)).length;
     const want = id === 'town' ? TOWN_NPCS[1] : HAMLET_NPCS[1];

@@ -4,25 +4,31 @@
 // them on the ground, gives each one a body, a name and a plate over its head,
 // turns it toward you when you come close, and hands a click to the Talk panel.
 //
-// WHERE THEY STAND, and the one thing to watch.
+// WHERE THEY STAND, which is now two different things.
 //
-//   `sites.js` exposes a site's centre, its `flatR` and its `facing`, and
-//   nothing about its buildings. `site_models.js` lays a settlement out on a
-//   ring between `plaza` and `ring` metres from the well, but keeps those two
-//   numbers private to the function that uses them. So the numbers in `PLAZA`
-//   below are COPIES, read off `settlement()` in site_models.js on the day this
-//   was written: town plaza 12, hamlet plaza 8. NPCs stand on a smaller ring
-//   inside that, which is the empty square between the well and the innermost
-//   house. If site_models.js ever shrinks its plaza, the people will stand in a
-//   wall and nothing here will notice. `auditNpcSpots()` at least holds the
-//   ring inside the flattened ground and clear of the well, and runs at load.
+//   A PRECINCT TOWN has a plan. `town_layout.layoutTown` says where the inn,
+//   the forge, the pens, the healer and the bank are and which way each of them
+//   faces, so the five people who keep those buildings stand at their own doors
+//   and everybody else takes the square. Nothing is copied and nothing is
+//   guessed: the door is `doorOf(lot, DOOR_STAND)` off the same plan
+//   `town_models.js` builds the walls from, so a person cannot end up standing
+//   in one.
+//
+//   A ROLLED VILLAGE has no plan, and keeps the ring it has always had.
+//   `site_models.settlement()` lays it out between `plaza` and `ring` metres
+//   from the well but keeps those numbers private, so `PLAZA` below is a COPY,
+//   read off that function: town plaza 12, hamlet plaza 8. If site_models.js
+//   ever shrinks its plaza the people will stand in a wall and nothing here
+//   will notice. `auditNpcSpots()` at least holds the ring inside the flattened
+//   ground and clear of the well, and runs at load.
 //
 // Everything geometric is a pure function, so the placement is tested in node
 // against the real field without a renderer.
 
 import * as THREE from 'three';
 import { mulberry32, hash2 } from '../world/noise.js';
-import { npcsFor, NPCS } from '../mmo/npcs.js';
+import { npcsFor, NPCS, NPC_LIST, TOWN_NPCS } from '../mmo/npcs.js';
+import { layoutTown, lotOf, doorOf, REQUIRED_LOTS } from '../world/town_layout.js';
 import { buildCharacter as defaultBuildCharacter, poseCharacter, PALETTE } from './player.js';
 
 /** How far out settlements are peopled. Smaller than the world's view radius. */
@@ -48,6 +54,21 @@ export const WELL_CLEAR = 2.2;
 /** Which site kinds hold people at all. `npcs.js` names the same three. */
 export const PEOPLED = ['town', 'hamlet', 'ruin'];
 
+/**
+ * The seven precinct towns have real buildings, so their people stand at real
+ * doors: the innkeeper under the sign, the smith at his forge, the stablemaster
+ * at the pens, the healer and the banker at their own doors. Everybody else
+ * takes the ring in the square, which is where the market is.
+ *
+ * A rolled village has no plan and keeps the ring it has always had.
+ */
+export const TOWN_ANCHOR = {
+  innkeeper: 'inn', blacksmith: 'forge', healer: 'healer',
+  stablemaster: 'pens', banker: 'bank',
+};
+/** Metres a person stands out from the wall of the building they keep. */
+export const DOOR_STAND = 2.0;
+
 // Given names, from work and weather and birds, the same register the site
 // names use. Never a fantasy word list.
 export const GIVEN_NAMES = [
@@ -56,13 +77,13 @@ export const GIVEN_NAMES = [
   'Quill', 'Rook', 'Sef', 'Tam', 'Udd', 'Vess', 'Wren', 'Yarrow',
 ];
 
-// A tunic colour for each of the fourteen roles, so a street reads at a glance
+// A tunic colour for each of the fifteen roles, so a street reads at a glance
 // before any plate is legible. Every id in npcs.js has one; the audit says so.
 export const ROLE_TINT = {
   blacksmith: 0x4a3f38, tailor: 0x8a5f7a, bowyer: 0x5d6b3a, alchemist: 0x3f6f6a,
   healer: 0xcfc7b4, mage: 0x3d4a86, provisioner: 0x7a6234, stablemaster: 0x6b4a2e,
   weaponsmaster: 0x7a3b32, ranger: 0x38553a, bard: 0x8a6f2e, necromancer: 0x2b2733,
-  thief: 0x33333a, innkeeper: 0x6d5136,
+  thief: 0x33333a, innkeeper: 0x6d5136, banker: 0x2f3c4e,
 };
 
 /** The plate over a head. Named the way the world would name them. */
@@ -105,6 +126,35 @@ export function forestEdgeAt(field, x, z, r = 45) {
   return false;
 }
 
+// A town's plan is worked out once and kept. `restream` asks for a street every
+// time the player walks 48 m, and packing forty five lots on every one of those
+// would be paid for out of the frame the player is standing in.
+const PLANS = new Map();
+/** The plan of a precinct town, or null for a village the world rolled. */
+export function townPlanFor(site) {
+  if (!site || site.kind !== 'town' || !site.authored) return null;
+  if (PLANS.has(site.id)) return PLANS.get(site.id);
+  let plan = null;
+  try { plan = layoutTown(site, 0); } catch (err) { console.warn('a town plan threw', err); }
+  PLANS.set(site.id, plan);
+  return plan;
+}
+
+/**
+ * Who stands in a precinct town: everybody with a building, and enough of the
+ * rolled street to fill the square. `npcsFor` alone would leave the smithy shut
+ * and the bank empty two towns in three, because it draws six to nine roles out
+ * of thirteen and does not know which of them own a door.
+ */
+function townRoles(site, rng) {
+  const want = new Set(['provisioner', ...Object.keys(TOWN_ANCHOR)]);
+  for (const role of npcsFor({ kind: 'town', bank: true }, rng)) {
+    if (want.size >= TOWN_NPCS[1]) break;
+    want.add(role.id);
+  }
+  return NPC_LIST.filter((n) => want.has(n.id));
+}
+
 /**
  * The whole street of one site: role, name, spot, in a stable order. Pure but
  * for the field it samples. This is the function the node test drives.
@@ -112,19 +162,41 @@ export function forestEdgeAt(field, x, z, r = 45) {
 export function streetFor(site, field, opts = {}) {
   if (!PEOPLED.includes(site.kind)) return [];
   const rng = mulberry32(hash2(site.cx | 0, site.cz | 0, opts.salt ?? 0x9e37));
+  const plan = site.kind === 'town' ? townPlanFor(site) : null;
   const forestEdge = site.kind === 'hamlet' && field ? forestEdgeAt(field, site.x, site.z) : false;
-  const roles = npcsFor({ kind: site.kind, forestEdge }, rng);
-  const spots = npcSpotsFor(site, roles.length);
-  return roles.map((role, i) => ({
-    id: `${site.id}:${role.id}`,
-    site,
-    role,
-    personName: nameFor(site, role.id, i),
-    nightOnly: !!role.nightOnly,
-    x: spots[i].x,
-    z: spots[i].z,
-    homeYaw: spots[i].yaw,
-  }));
+  // `bank` is false without a plan, and that is what keeps a Banker out of a
+  // village that has no bank for one to stand in.
+  const roles = plan ? townRoles(site, rng) : npcsFor({ kind: site.kind, forestEdge, bank: false }, rng);
+
+  // The people without a building of their own share the ring in the square,
+  // and are spaced as if they were the whole street, so a town of nine with
+  // five doors does not put its four traders shoulder to shoulder.
+  const loose = roles.filter((r) => !(plan && TOWN_ANCHOR[r.id]));
+  const ring = npcSpotsFor(site, Math.max(3, loose.length));
+  let next = 0;
+
+  return roles.map((role, i) => {
+    let spot = null;
+    if (plan && TOWN_ANCHOR[role.id]) {
+      const lot = lotOf(plan, TOWN_ANCHOR[role.id]);
+      if (lot) {
+        const at = doorOf(lot, DOOR_STAND);
+        spot = { x: at.x, z: at.z, yaw: at.yaw };
+      }
+    }
+    if (!spot) spot = ring[next++ % ring.length];
+    return {
+      id: `${site.id}:${role.id}`,
+      site,
+      role,
+      personName: nameFor(site, role.id, i),
+      nightOnly: !!role.nightOnly,
+      at: plan && TOWN_ANCHOR[role.id] ? TOWN_ANCHOR[role.id] : 'square',
+      x: spot.x,
+      z: spot.z,
+      homeYaw: spot.yaw,
+    };
+  });
 }
 
 /** Every claim this module's layout makes, checked at load. */
@@ -142,6 +214,18 @@ export function auditNpcSpots() {
   for (const id of Object.keys(ROLE_TINT)) {
     if (!NPCS[id]) bad.push(`there is a tunic colour for "${id}", which is not a role`);
   }
+  // Every role that owns a building has one to own, and every building it is
+  // pointed at is a building `town_layout` promises every town has.
+  for (const [roleId, kind] of Object.entries(TOWN_ANCHOR)) {
+    if (!NPCS[roleId]) bad.push(`the ${roleId} keeps the ${kind} and is not a role`);
+    else if (!NPCS[roleId].appearsIn.includes('town')) bad.push(`the ${roleId} keeps the ${kind} and never stands in a town`);
+    if (!REQUIRED_LOTS.includes(kind)) bad.push(`the ${roleId} stands at a ${kind}, which is not a building every town has`);
+  }
+  // A precinct town holds its anchors plus a provisioner, and npcs.js has to
+  // allow a street that wide or somebody's door would always be shut.
+  const anchored = Object.keys(TOWN_ANCHOR).length + 1;
+  if (anchored > TOWN_NPCS[1]) bad.push(`a town needs ${anchored} people to keep its doors and npcs.js allows ${TOWN_NPCS[1]}`);
+
   // Two people must never share a spot. The tightest case is a ruin's one
   // stall; the widest is a town of nine.
   for (const [kind, n] of [['town', 9], ['hamlet', 4], ['ruin', 1]]) {

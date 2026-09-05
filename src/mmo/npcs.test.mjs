@@ -52,23 +52,53 @@ for (const [what, row] of plants) {
 }
 check('auditNpcs passes again once the plants are pulled', !throws(auditNpcs));
 
-// --- the fourteen ---------------------------------------------------------
-check('there are fourteen roles', NPC_LIST.length === 14, NPC_LIST.map((n) => n.id).join(' '));
-check('every id is unique', new Set(NPC_LIST.map((n) => n.id)).size === 14);
+// --- the fifteen ----------------------------------------------------------
+check('there are fifteen roles', NPC_LIST.length === 15, NPC_LIST.map((n) => n.id).join(' '));
+check('every id is unique', new Set(NPC_LIST.map((n) => n.id)).size === 15);
 check('every role has three to five lines', NPC_LIST.every((n) => n.lines.length >= 3 && n.lines.length <= 5),
   NPC_LIST.map((n) => n.lines.length).join(' '));
 check('no line anywhere carries an em dash', !NPC_LIST.some((n) => n.lines.some((l) => l.includes('—'))));
 check('every taught skill is a real skill', NPC_LIST.every((n) => n.teaches.every((t) => SKILL_IDS.includes(t))));
-check('every service is one of the seven', NPC_LIST.every((n) => n.services.every((s) => SERVICES.includes(s))));
+check('every service is one of the eight', NPC_LIST.every((n) => n.services.every((s) => SERVICES.includes(s))));
 check('every good traded is a good this game has', NPC_LIST.every((n) => [...n.sells, ...n.buys].every((g) => GOODS.includes(g))));
 check('the Necromancer stands at a ruin, at night, and nowhere else',
   NPCS.necromancer.appearsIn.join() === 'ruin' && NPCS.necromancer.nightOnly === true);
 check('the Ranger needs a forest edge', NPCS.ranger.needs === 'forestEdge');
+check('the Banker needs a bank', NPCS.banker.needs === 'bank');
+check('a Banker never turns up where there is no bank', (() => {
+  let seen = 0;
+  for (let i = 0; i < 400; i++) if (npcsFor({ kind: 'town', bank: false }, lcg(i)).some((n) => n.id === 'banker')) seen++;
+  return seen === 0;
+})(), 'over 400 towns with no bank');
+check('and does turn up where there is one', (() => {
+  let seen = 0;
+  for (let i = 0; i < 400; i++) if (npcsFor({ kind: 'town', bank: true }, lcg(i)).some((n) => n.id === 'banker')) seen++;
+  return seen > 0;
+})(), (() => { let n = 0; for (let i = 0; i < 400; i++) if (npcsFor({ kind: 'town', bank: true }, lcg(i)).some((x) => x.id === 'banker')) n++; return `${n} of 400 towns with a bank`; })());
+check('auditNpcs rejects a need nobody ever supplies', (() => {
+  const keep = NPCS.banker.needs;
+  NPCS.banker.needs = 'a moat';
+  const caught = throws(auditNpcs);
+  NPCS.banker.needs = keep;
+  return caught;
+})());
 check('the Healer heals, cures and resurrects',
   ['heal', 'cure', 'resurrect'].every((s) => NPCS.healer.services.includes(s)));
 check('the Blacksmith is the one who repairs', NPCS.blacksmith.services.includes('repair')
   && NPC_LIST.filter((n) => n.services.includes('repair')).length === 1);
 check('the Innkeeper is the one who rests you', NPCS.innkeeper.services.includes('rest'));
+check('the Banker stands in a town, banks, and is the only one who does',
+  NPCS.banker.appearsIn.join() === 'town' && NPCS.banker.services.includes('bank')
+  && NPC_LIST.filter((n) => n.services.includes('bank')).length === 1);
+check('and the Banker has a second tab, so the Talk panel is not a dead end',
+  NPCS.banker.buys.length > 0, `buys ${NPCS.banker.buys.join(', ')}`);
+check('auditNpcs rejects a Banker let into a hamlet', (() => {
+  const keep = NPCS.banker.appearsIn;
+  NPCS.banker.appearsIn = ['town', 'hamlet'];
+  const caught = throws(auditNpcs);
+  NPCS.banker.appearsIn = keep;
+  return caught;
+})());
 check('the Provisioner buys almost anything', NPCS.provisioner.buys.includes('anything'));
 check('every teachable skill in the document has a teacher', (() => {
   const taught = new Set(NPC_LIST.flatMap((n) => n.teaches));
@@ -225,7 +255,11 @@ check('a town is never without a Healer', (() => {
 })());
 
 // --- the documents --------------------------------------------------------
-const doc = ['01-STATS-SKILLS.md', '03-ITEMS-LOOT.md', '05-WORLD-CONTENT.md', '06-ECONOMY-UI.md']
+// The four design documents, and the Wave B contract, which is where the
+// Banker and the `bank` service were written down: they are not in the
+// original four and pretending otherwise would make this check a formality.
+const doc = ['01-STATS-SKILLS.md', '03-ITEMS-LOOT.md', '05-WORLD-CONTENT.md', '06-ECONOMY-UI.md',
+  'wiring/WAVE-B.md']
   .map((f) => readFileSync(new URL(`../../docs/mmo/${f}`, import.meta.url), 'utf8')).join('\n').toLowerCase();
 for (const [group, map] of Object.entries(DOC_REFS)) {
   const missing = Object.entries(map).filter(([, phrase]) => !doc.includes(String(phrase).toLowerCase()));

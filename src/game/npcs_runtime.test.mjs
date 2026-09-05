@@ -2,12 +2,14 @@
 import {
   npcSpotsFor, streetFor, nameFor, forestEdgeAt, plateText, auditNpcSpots,
   NPC_RING, PLAZA, WELL_CLEAR, ROLE_TINT, GIVEN_NAMES, PEOPLED,
-  TALK_REACH, NOTICE, createNpcs,
+  TALK_REACH, NOTICE, createNpcs, TOWN_ANCHOR, townPlanFor, DOOR_STAND,
 } from './npcs_runtime.js';
 import { NPCS, npcsFor } from '../mmo/npcs.js';
 import { createWorldField } from '../world/field.js';
 import { SITE_CELL } from '../world/sitegrid.js';
 import { mulberry32 } from '../world/noise.js';
+import { authoredSites, TOWN_PRECINCT_R } from '../world/zones.js';
+import { lotOf, lotsOverlap, SQUARE_R } from '../world/town_layout.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -93,6 +95,94 @@ console.log('npcs_runtime: streets');
   check('everybody stands on the site pad', a.every((n) => Math.hypot(n.x - towns[0].x, n.z - towns[0].z) < pad), `pad ${pad} m`);
   const ys = a.map((n) => field.heightAt(n.x, n.z));
   check('the ground under a town street is level', Math.max(...ys) - Math.min(...ys) < 0.6, `${(Math.max(...ys) - Math.min(...ys)).toFixed(3)} m of rise across the whole street`);
+}
+
+console.log('npcs_runtime: the seven precinct towns keep their doors');
+{
+  const precinct = authoredSites().filter((s) => s.flatR === TOWN_PRECINCT_R)
+    .map((s) => field.siteInCell(Math.floor(s.x / SITE_CELL), Math.floor(s.z / SITE_CELL)));
+  check('all seven are in the world to be peopled', precinct.length === 7, precinct.map((s) => s.sub).join(', '));
+  check('and every one of them has a plan', precinct.every((s) => !!townPlanFor(s)));
+
+  const rows = [];
+  let unmanned = 0, farFromDoor = 0, worstDoor = 0, worstAt = '';
+  let inside = 0, offPad = 0, tooClose = 0, closest = Infinity, closestAt = '';
+  for (const site of precinct) {
+    const plan = townPlanFor(site);
+    const street = streetFor(site, field);
+    rows.push(`${site.sub}: ${street.length} people, ${street.filter((n) => n.at !== 'square').length} at doors`);
+    for (const [roleId, kind] of Object.entries(TOWN_ANCHOR)) {
+      const person = street.find((n) => n.role.id === roleId);
+      if (!person) { unmanned++; continue; }
+      const lot = lotOf(plan, kind);
+      // they stand DOOR_STAND metres out from the front wall, and no further
+      const d = Math.hypot(person.x - lot.x, person.z - lot.z) - lot.d / 2;
+      if (Math.abs(d - DOOR_STAND) > 0.02) farFromDoor++;
+      if (d > worstDoor) { worstDoor = d; worstAt = `${site.sub} ${roleId}`; }
+      // and never inside the walls of the building they keep
+      if (lotsOverlap({ x: person.x, z: person.z, w: 0.7, d: 0.7, yaw: 0 }, lot, 0)) inside++;
+    }
+    for (const n of street) {
+      if (Math.hypot(n.x - site.x, n.z - site.z) > site.flatR) offPad++;
+    }
+    for (let i = 0; i < street.length; i++) for (let j = i + 1; j < street.length; j++) {
+      const d = Math.hypot(street[i].x - street[j].x, street[i].z - street[j].z);
+      if (d < 1.2) tooClose++;
+      if (d < closest) { closest = d; closestAt = `${site.sub}: ${street[i].role.id} and ${street[j].role.id}`; }
+    }
+  }
+  console.log('    ' + rows.join('\n    '));
+  check('every building that owns a person has one', unmanned === 0,
+    `${Object.keys(TOWN_ANCHOR).length} doors in each of ${precinct.length} towns`);
+  check(`and every one of them stands ${DOOR_STAND} m out from their own front wall`, farFromDoor === 0,
+    `the furthest is ${worstDoor.toFixed(2)} m (${worstAt})`);
+  check('nobody is standing inside the building they keep', inside === 0);
+  {
+    // and not inside anybody else's either: a door stand of 2 m is wider than
+    // the 1.6 m of daylight the packer leaves between two lots, so this is the
+    // one that could have gone wrong quietly
+    let inAny = 0, who = '';
+    for (const site of precinct) {
+      const plan = townPlanFor(site);
+      for (const n of streetFor(site, field)) {
+        for (const lot of plan.lots) {
+          if (lotsOverlap({ x: n.x, z: n.z, w: 0.7, d: 0.7, yaw: 0 }, lot, 0)) { inAny++; who = `${site.sub} ${n.role.id} in the ${lot.kind}`; }
+        }
+      }
+    }
+    check('and nobody is standing inside any building at all', inAny === 0, who || 'all seven streets clear of every wall');
+  }
+  check('everybody in all seven is on the pad', offPad === 0);
+  check('and no two people share a spot', tooClose === 0,
+    `the closest pair is ${closest.toFixed(2)} m apart (${closestAt})`);
+
+  // the people without a building take the ring in the square, which the plan
+  // keeps empty of buildings on purpose
+  let outOfSquare = 0, loose = 0;
+  for (const site of precinct) {
+    for (const n of streetFor(site, field)) {
+      if (n.at !== 'square') continue;
+      loose++;
+      if (Math.hypot(n.x - site.x, n.z - site.z) > SQUARE_R) outOfSquare++;
+    }
+  }
+  check('the traders with no shop stand in the square', outOfSquare === 0,
+    `${loose} of them over the seven, all within the ${SQUARE_R} m square`);
+
+  // both directions: a rolled town has no plan and keeps the ring it always had
+  const rolled = realSites(['town'], 12).filter((s) => !s.authored);
+  check('the world still rolls towns of its own to compare against', rolled.length > 0, `${rolled.length}`);
+  check('a rolled town gets no plan', rolled.every((s) => townPlanFor(s) === null));
+  check('and every one of its people is on the old ring, as before',
+    rolled.every((s) => streetFor(s, field).every((n) => Math.abs(Math.hypot(n.x - s.x, n.z - s.z) - NPC_RING.town) < 1e-9)),
+    `ring ${NPC_RING.town} m`);
+  check('and none of them is anchored to a building', rolled.every((s) => streetFor(s, field).every((n) => n.at === 'square')));
+
+  // the Banker is the role this wave added, so prove they are really there
+  check('the bank in every one of the seven has a Banker in the door',
+    precinct.every((s) => streetFor(s, field).some((n) => n.role.id === 'banker' && n.at === 'bank')));
+  check('and the Banker never turns up in a rolled village',
+    rolled.every((s) => !streetFor(s, field).some((n) => n.role.id === 'banker')));
 }
 
 console.log('npcs_runtime: the forest edge, driven both ways');
