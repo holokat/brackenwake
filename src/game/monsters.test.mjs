@@ -1732,6 +1732,14 @@ const GROUND = 3;
   check(`at ${WALL_M + 3} m apart the wall is off both of them`,
     one.wall === 0 && two.wall === 0 && one.actor.ar === base, `ar ${one.actor.ar}`);
   check('and the break is said too', b.said(/wall breaks/).length === 1);
+  // the other direction: a wall forming two hundred metres off is not your fight and says nothing
+  {
+    const far = bench({ rng: () => 0.5 });
+    far.monsters.spawnAt('legionSoldier', 200, 0); far.monsters.spawnAt('legionSoldier', 202, 0);
+    far.run(2, benchPlayer(0, 0));
+    check('a wall forming 200 m away locks in silence', far.said(/lock shields/).length === 0, far.said(/lock shields/).join(' | '));
+    far.monsters.dispose();
+  }
   // and it is really armour: the same blow costs less through a wall
   const hitFor = (apart) => {
     const t = bench({ rng: () => 0.5, crng: () => 0.5 });

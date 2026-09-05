@@ -1383,7 +1383,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     // recomputed once for the whole field before anybody swings, not inside the
     // per monster loop where each of four soldiers would read a different half
     // finished answer.
-    stepWall();
+    stepWall(playerActor);
 
     for (const mon of [...live.values()]) {
       const a = mon.actor;
@@ -1871,7 +1871,12 @@ export function createMonsters(sc, runtime, opts = {}) {
   // frame from live positions, which is what makes it come off the moment the
   // second one dies or walks away, and it is lent as a tracked delta so the
   // armour a monster ends with is the armour its row says it has.
-  function stepWall() {
+  /** Metres inside which a shield wall forming is worth a line; further off it is not your fight. */
+  const WALL_SAY_M = 60;
+  /** A row says its wall once in this many ms at most: soldiers drifting in and out of 4 m is one wall, not twenty. */
+  const WALL_SAY_EVERY_MS = 30000;
+  const wallSaidAt = new Map();
+  function stepWall(playerActor) {
     // Row first, not body first. A row whose last walled body despawns has to
     // be forgotten, or the next two of its kind lock shields in silence.
     const rows = new Set();
@@ -1899,10 +1904,14 @@ export function createMonsters(sc, runtime, opts = {}) {
       if (up && !wallOn.has(id)) {
         wallOn.add(id);
         stats.walls++;
-        say(`${most} of them lock shields. That is ${WALL_AR} more armour on each while they hold.`, 'bad');
+        // only a wall you can see, and once in a while: the Legion drifting in and
+        // out of four metres two hundred metres off filled the log with it
+        const near = playerActor && members.some((m) => dist2D(m.actor.pos, playerActor.pos) <= WALL_SAY_M);
+        const quiet = wallSaidAt.has(id) && lastNow - wallSaidAt.get(id) < WALL_SAY_EVERY_MS;
+        if (near && !quiet) { wallSaidAt.set(id, lastNow); say(`${most} of them lock shields. That is ${WALL_AR} more armour on each while they hold.`, 'bad'); }
       } else if (!up && wallOn.has(id)) {
         wallOn.delete(id);
-        say('The shield wall breaks.', 'good');
+        if (wallSaidAt.has(id) && lastNow - num(wallSaidAt.get(id)) < WALL_SAY_EVERY_MS) say('The shield wall breaks.', 'good');
       }
     }
   }

@@ -221,6 +221,8 @@ export const STAND_PURITY = 0.8;
 
 /** Species that will only grow with their feet near water. */
 export const WATER_SPECIES = new Set(['willow', 'palm']);
+/** A palm needs warmth: below this temperature a beach or a wet desert grows a snag instead, so the Stormpeaks' shore is not Hawaii. */
+ export const PALM_TEMP = 0.5;
 const WET_H = 3.2;                   // this close to sea level counts as wet ground
 const WET_RIVER = 0.05;
 const MAX_SLOPE_ROCK = 2.0;          // boulders sit on slopes; that is where they came from
@@ -844,8 +846,9 @@ export function recordsFor(field, cx, cz, opts = {}) {
       // draws for itself, because a bank grows what banks grow whatever the
       // wood behind it is.
       const roll = (wet || !spot.standId || spot.mixRoll >= STAND_PURITY) ? spot.pick : spot.standRoll;
-      const kind = pickFrom(mixFor(biome, wet), roll);
+      let kind = pickFrom(mixFor(biome, wet), roll);
       if (!kind) continue;
+      if (kind === 'palm' && s.temp < PALM_TEMP) kind = 'dead';    // a cold shore grows driftwood snags, not palms
       const L = LIMITS[kind];
       if (!L || s.h > L.maxH || slope > L.maxSlope) continue;       // the tree line is per species
       if (WATER_SPECIES.has(kind) && !isWet(s)) continue;           // a willow away from water is not a willow
