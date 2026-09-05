@@ -101,7 +101,11 @@ check('longsword 90', PRICES.longsword === 90);
 check('kite shield 70', PRICES.kite === 70);
 check('longbow 140', PRICES.longbow === 140);
 check('quarterstaff 30', PRICES.quarterstaff === 30);
-check('iron ingot 4, copper ore 1, oak wood 2, bandage 2', PRICES.ingot === 4 && PRICES.ore === 1 && PRICES.log === 2 && PRICES.bandage === 2);
+// G9 named the three grey stacks, so the three prices 06 gives out loud now sit
+// on the bases that say which metal and which wood they are.
+check('iron ingot 4, copper ore 1, oak wood 2, bandage 2',
+  PRICES.iron_ingot === 4 && PRICES.copper_ore === 1 && PRICES.oak_log === 2 && PRICES.bandage === 2,
+  `${PRICES.iron_ingot} ${PRICES.copper_ore} ${PRICES.oak_log} ${PRICES.bandage}`);
 check('heal potion 25', PRICES.potion === 25);
 {
   // a set of eight priced as nine shares comes back to the document's number

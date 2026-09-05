@@ -15,8 +15,10 @@ import {
   createLootDrops, auditLootTables, auditLootWords, tableFor, itemBaseFor, rollFor,
   bagColour, describeItem, listText, labelFor, shapeOf, BAG_SECONDS, ARMOUR_MATERIAL,
   meatFor, MEAT_OF, MEAT_BY_KIND,
+  loneMaterial, currentDrops, countWord,
 } from './loot_drops.js';
 import { tierFor, MAX_TRIS } from './gold_piles.js';
+import { MAX_TRIS as LOG_MAX_TRIS, LOG_SEG } from './log_piles.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -26,7 +28,18 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
   check('every monster still drops something the pack could hold', auditLootTables() === true);
 
   check('a monster word that is already a base passes through', itemBaseFor('longsword', 2) === 'longsword');
-  check('wood is a log', itemBaseFor('wood', 3) === 'log');
+  // G9: there is no generic ingot, ore or log any more, so the three words a
+  // monster table uses have to say WHICH, and they do it off the same tier the
+  // armour ladder already reads.
+  check('wood is a log of the tier the beast carries',
+    itemBaseFor('wood', 1) === 'oak_log' && itemBaseFor('wood', 3) === 'ash_log' && itemBaseFor('wood', 6) === 'ironbark_log',
+    [itemBaseFor('wood', 1), itemBaseFor('wood', 3), itemBaseFor('wood', 6)].join(', '));
+  check('and an ingot and an ore say which metal',
+    itemBaseFor('ingot', 1) === 'copper_ingot' && itemBaseFor('ingot', 3) === 'iron_ingot'
+    && itemBaseFor('ore', 5) === 'coldiron_ore' && itemBaseFor('ore', 6) === 'voidrock_ore',
+    [itemBaseFor('ingot', 1), itemBaseFor('ingot', 3), itemBaseFor('ore', 5), itemBaseFor('ore', 6)].join(', '));
+  check('a tier off the end of the ladder still lands on a real metal',
+    !!BASES[itemBaseFor('ingot', 0)] && !!BASES[itemBaseFor('ingot', 99)] && !!BASES[itemBaseFor('wood', 99)]);
   check('meat on its own is nothing, because there is no item called meat', itemBaseFor('meat', 1) === null);
   check('a helm on a tier 1 is cloth, on a tier 4 is ringmail, on a boss is plate',
     itemBaseFor('helm', 1) === 'cloth_head' && itemBaseFor('helm', 4) === 'ring_head' && itemBaseFor('helm', 6) === 'plate_head');
@@ -308,8 +321,26 @@ function spread(id, n, seedBase) {
   check('a plain sword is called a longsword', describeItem(common) === 'a longsword', describeItem(common));
   const rare = makeItem({ base: 'longsword', rarity: 'rare', seed: 1 });
   check('an unidentified one is called by its colour', describeItem(rare) === 'a blue longsword', describeItem(rare));
-  const many = makeItem({ base: 'ingot', rarity: 'common', seed: 1, count: 7 });
-  check('a stack is counted', describeItem(many) === '7 ingot', describeItem(many));
+  const many = makeItem({ base: 'arrow', rarity: 'common', seed: 1, count: 7 });
+  check('a stack is counted', describeItem(many) === '7 arrow', describeItem(many));
+  // G9: logs, ore and ingots are the stacks a player is told about by the
+  // handful, so they get the spoken number and the plural.
+  check('four oak logs are "four oak logs", not "4 oak log"',
+    describeItem(makeItem({ base: 'oak_log', count: 4 })) === 'four oak logs',
+    describeItem(makeItem({ base: 'oak_log', count: 4 })));
+  check('and one is "an oak log"', describeItem(makeItem({ base: 'oak_log', count: 1 })) === 'an oak log');
+  check('seven iron ingots are seven iron ingots',
+    describeItem(makeItem({ base: 'iron_ingot', count: 7 })) === 'seven iron ingots');
+  check('past twelve the digits are easier to read than the words',
+    describeItem(makeItem({ base: 'iron_ingot', count: 20 })) === '20 iron ingots',
+    describeItem(makeItem({ base: 'iron_ingot', count: 20 })));
+  check('ore is a mass noun: three copper ore, and some of it when there is one',
+    describeItem(makeItem({ base: 'copper_ore', count: 3 })) === 'three copper ore'
+    && describeItem(makeItem({ base: 'copper_ore', count: 1 })) === 'some copper ore',
+    describeItem(makeItem({ base: 'copper_ore', count: 3 })));
+  check('and so is deadwood, which is not "three deadwoods"',
+    describeItem(makeItem({ base: 'deadwood', count: 3 })) === 'three deadwood',
+    describeItem(makeItem({ base: 'deadwood', count: 3 })));
   check('nothing is "nothing"', describeItem(null) === 'nothing');
   // Meat is a mass noun. "a venison" is a UI writing, not an author.
   check('a haunch of venison is "some venison", not "a venison"',
@@ -478,6 +509,93 @@ function spread(id, n, seedBase) {
   check('and is gone at ninety seconds', !drops.bags().includes(doomed));
   drops.dispose();
   check('disposing clears every pile and sack out of the scene', scene.children.length === 0);
+}
+
+
+// ======================================================== G9: what an axe leaves
+//
+// "when chopping down trees, we should see visible wood fall to the ground that
+// we can pick up as loot." A bag of nothing but logs is a woodpile, a bag of
+// nothing but ore is a heap of broken rock, and neither of them is a sack.
+{
+  const scene = new THREE.Scene();
+  const said = [];
+  const drops = createLootDrops(scene, { hud: { log: (t) => said.push(String(t)) } });
+  const meshes = (bag) => { const out = []; bag.node.traverse((o) => { if (o.isMesh) out.push(o); }); return out; };
+  const named = (bag, pre) => meshes(bag).filter((m) => m.name.startsWith(pre));
+  const trisOf = (m) => (m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position.count / 3);
+
+  const logs = drops.drop({ x: 0, y: 0, z: 0 }, { items: [makeItem({ base: 'oak_log', count: 4 })] });
+  check('four oak logs on the ground are a woodpile', drops.shapeOf(logs) === 'logs:oak', drops.shapeOf(logs));
+  check('and it is a real pile of logs, not a sack',
+    named(logs, 'logs:').length === 1 && named(logs, 'logs:')[0].userData.logs.drawn === 4,
+    named(logs, 'logs:').map((m) => m.name).join(', '));
+  check('with no cloth sack and no rarity ring anywhere near it',
+    logs.ring === null && logs.sack === undefined);
+  check('and it is under the log budget in the world',
+    trisOf(named(logs, 'logs:')[0]) <= LOG_MAX_TRIS,
+    `${trisOf(named(logs, 'logs:')[0])} of ${LOG_MAX_TRIS}`);
+  check('the cursor calls it four oak logs and does not say sack',
+    labelFor(logs) === 'four oak logs', labelFor(logs));
+
+  const heap = drops.drop({ x: 4, y: 0, z: 0 }, { items: [makeItem({ base: 'starfall_ore', count: 2 })] });
+  check('two starfall ore are an ore heap', drops.shapeOf(heap) === 'ore:starfall', drops.shapeOf(heap));
+  check('and it is drawn as broken rock', named(heap, 'ore:').length === 1 && named(heap, 'ore:')[0].userData.ore.ore === 'starfall');
+  check('the cursor says which vein', labelFor(heap) === 'two starfall ore', labelFor(heap));
+
+  // the other direction, four ways: anything else is still a sack
+  const sword = makeItem({ base: 'longsword', rarity: 'epic', seed: 4 });
+  check('a log with a sword in the bag is a sack',
+    shapeOf([makeItem({ base: 'oak_log', count: 2 }), sword], 0) === 'sack');
+  check('a log with money in the bag is a sack, because coins do not lie in a woodpile',
+    shapeOf([makeItem({ base: 'oak_log', count: 2 })], 12) === 'sack+coins');
+  check('two different woods in one bag are a sack, because a pile is one wood',
+    shapeOf([makeItem({ base: 'oak_log', count: 2 }), makeItem({ base: 'birch_log', count: 2 })], 0) === 'sack');
+  check('and a log with an ore in it is a sack too',
+    shapeOf([makeItem({ base: 'oak_log', count: 2 }), makeItem({ base: 'copper_ore', count: 1 })], 0) === 'sack');
+  check('gold on its own is still a pile of gold', shapeOf([], 46) === 'pile:medium');
+
+  // loneMaterial, the predicate underneath, driven both ways
+  check('loneMaterial reads one wood and its count',
+    JSON.stringify(loneMaterial([makeItem({ base: 'palm_log', count: 5 })], 'wood')) === '{"material":"palm","count":5}');
+  check('and two stacks of the same wood add up',
+    loneMaterial([makeItem({ base: 'palm_log', count: 2 }), makeItem({ base: 'palm_log', count: 3 })], 'wood').count === 5);
+  check('but a sword in the list makes it null',
+    loneMaterial([makeItem({ base: 'palm_log', count: 5 }), sword], 'wood') === null);
+  check('and an empty list is null, not a pile of nothing', loneMaterial([], 'wood') === null);
+
+  // taking a woodpile
+  said.length = 0;
+  const got = drops.take(logs, () => true);
+  check('taking a woodpile takes the logs', got.taken.length === 1 && got.left.length === 0);
+  check('and it says so in the same words the axe used',
+    said.some((t) => /four oak logs in the pack/.test(t)), said.join(' | '));
+  check('and the pile is off the ground', !drops.bags().includes(logs));
+
+  // a refusal leaves a smaller pile that is still a pile
+  const big = drops.drop({ x: 8, y: 0, z: 0 }, { items: [makeItem({ base: 'fir_log', count: 3 }), makeItem({ base: 'fir_log', count: 2 })] });
+  check('two fir stacks in one bag are still a fir pile', drops.shapeOf(big) === 'logs:fir');
+  const half = drops.take(big, (items) => ({ items: [items[0]], gold: 0 }));
+  check('a pack that takes one stack leaves the other', half.taken.length === 1 && half.left.length === 1);
+  check('and what is left is still a woodpile, rebuilt in place',
+    drops.shapeOf(big) === 'logs:fir' && named(big, 'logs:').length === 1
+    && named(big, 'logs:')[0].userData.logs.drawn === 2,
+    `${drops.shapeOf(big)}, ${named(big, 'logs:')[0]?.userData.logs.drawn} logs`);
+
+  // and a woodpile does not spin, for the same reason gold does not
+  const spinBefore = big.node.rotation.y;
+  drops.update(1);
+  check('a woodpile lies still: wood on the ground is not a pickup icon',
+    big.node.rotation.y === spinBefore, `${big.node.rotation.y}`);
+
+  // the module registry interact.js reaches for
+  check('the live loot layer is the one this test just built', currentDrops() === drops);
+  drops.dispose();
+  check('and disposing clears it, so a torn down scene leaves nothing behind',
+    currentDrops() === null && scene.children.length === 0);
+
+  check('the spoken numbers stop at twelve', countWord(12) === 'twelve' && countWord(13) === '13');
+  check('and a log is 4 x LOG_SEG triangles wherever it is counted', LOG_SEG > 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

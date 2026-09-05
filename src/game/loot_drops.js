@@ -58,9 +58,13 @@
 import * as THREE from 'three';
 import { MONSTERS } from '../mmo/monsters.js';
 import { rollKill } from '../mmo/loot.js';
-import { RARITY, RARITY_ORDER, RARITY_WORD, baseFor, BASES, LEATHER_BASE, MEAT_BASES, takesRarity } from '../mmo/items.js';
+import {
+  RARITY, RARITY_ORDER, RARITY_WORD, baseFor, BASES, LEATHER_BASE, MEAT_BASES, takesRarity,
+  LOG_OF, ORE_OF, INGOT_OF,
+} from '../mmo/items.js';
 import { nameFor as affixNameFor } from '../mmo/affixes.js';
 import { buildGoldPile, buildCoinScatter, tierFor } from './gold_piles.js';
+import { buildLogPile, buildOreHeap, logsDrawn, chunksDrawn } from './log_piles.js';
 
 /**
  * Words that take "some" rather than "a". Meat, bread and cheese are mass
@@ -69,6 +73,26 @@ import { buildGoldPile, buildCoinScatter, tierFor } from './gold_piles.js';
  */
 export const MASS_NOUNS = /(^|\s)(meat|venison|mutton|bread|cheese|honey)$/i;
 
+/**
+ * Numbers you say rather than print. "four oak logs" is a sentence; "4 oak log"
+ * is a spreadsheet. Past twelve the digits are easier to read than the words,
+ * which is where every style guide draws the line and where this one does too.
+ */
+export const NUM_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six',
+  'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+export const countWord = (n) => (n >= 0 && n < NUM_WORDS.length ? NUM_WORDS[n] : String(n));
+
+/** True for the stacks that are spoken about by the pound rather than the piece. */
+const isMassStack = (base, label) => {
+  if (!base) return MASS_NOUNS.test(label);
+  if (base.kinds?.includes('ore')) return true;            // "three copper ore"
+  if (/wood$/i.test(base.name || '')) return true;         // Deadwood, Cactus Wood
+  return MASS_NOUNS.test(label);
+};
+/** True for the material stacks that get spoken numbers: logs, ore and ingots. */
+const isSpokenStack = (base) => !!base
+  && (base.kinds?.includes('wood') || base.kinds?.includes('ore') || base.kinds?.includes('metal'));
+
 /** Seconds a bag lies there. "Every drop is a bag on the ground for 90 s." */
 export const BAG_SECONDS = 90;
 /** Metres. "clickable within 3 m", 07-RUNTIME-CONTRACT. */
@@ -76,6 +100,20 @@ export const BAG_REACH = 3;
 
 /** Monster tier to armour material, which is what `helm` and `tunic` become. */
 export const ARMOUR_MATERIAL = { 1: 'cloth', 2: 'leather', 3: 'studded', 4: 'ring', 5: 'chain', 6: 'plate' };
+
+/**
+ * Monster tier to a metal and to a wood, the same shape and the same reason as
+ * ARMOUR_MATERIAL above: `ingot`, `ore` and `wood` are words in a monster's
+ * table and there is no generic ingot any more to hand back.
+ *
+ * The metals are `ores.js`'s own ladder with tin left out, because tin forges
+ * nothing on its own. The woods are its four WOODS in tier order. Both are
+ * AUTHORED joins: 03-ITEMS-LOOT says nothing about which beast carries which
+ * metal, only that the ladder exists.
+ */
+export const METAL_TIER = { 1: 'copper', 2: 'copper', 3: 'iron', 4: 'silver', 5: 'coldiron', 6: 'voidrock' };
+export const WOOD_TIER = { 1: 'oak', 2: 'oak', 3: 'ash', 4: 'ash', 5: 'heartwood', 6: 'ironbark' };
+const tierIndex = (tier) => Math.min(6, Math.max(1, Math.round(Number(tier) || 1)));
 
 // ---------------------------------------------------------------------------
 // MEAT IS NEVER "MEAT".
@@ -149,8 +187,14 @@ export function itemBaseFor(word, tier = 1, monster = null) {
   const mat = ARMOUR_MATERIAL[Math.min(6, Math.max(1, Math.round(tier)))] || 'leather';
   switch (word) {
     // materials that already are bases
-    case 'ingot': case 'ore': case 'gem': case 'reagent': return word;
-    case 'wood': return 'log';
+    case 'gem': case 'reagent': return word;
+    // G9 split the one grey stack into a named metal, a named vein and a named
+    // wood, so a monster's word has to say WHICH. There is no more honest
+    // answer than the ladder the rest of this file already uses for armour:
+    // a tier 1 raider carries copper, a tier 6 thing carries voidrock.
+    case 'ingot': return INGOT_OF[METAL_TIER[tierIndex(tier)]];
+    case 'ore': return ORE_OF[METAL_TIER[tierIndex(tier)]];
+    case 'wood': return LOG_OF[WOOD_TIER[tierIndex(tier)]];
     // The meat of the beast that dropped it, or nothing. Null without a
     // monster: there is no such item as "meat", so there is no honest answer
     // to the word on its own. `tableFor` and `auditLootWords` both pass one.
@@ -308,10 +352,17 @@ export function describeItem(item) {
   const label = item.identified
     ? (affixNameFor(item).toLowerCase() || name)
     : (item.rarity && item.rarity !== 'common' ? `${RARITY_WORD[item.rarity]} ${name}` : name);
-  if (item.count > 1) return `${item.count} ${label}`;
-  // "a venison" is not a thing anybody says. Meat is a mass noun and so is
-  // bread and cheese: they take "some". Everything else keeps its article.
-  if (MASS_NOUNS.test(label)) return `some ${label}`;
+  const mass = isMassStack(b, label);
+  if (item.count > 1) {
+    // "four oak logs", not "4 oak log". Logs, ore and ingots are the stacks a
+    // player is told about by the handful, so they are the ones that get the
+    // spoken number and the plural; everything else keeps the old shape.
+    if (isSpokenStack(b)) return `${countWord(item.count)} ${label}${mass ? '' : 's'}`;
+    return `${item.count} ${label}`;
+  }
+  // "a venison" is not a thing anybody says. Meat is a mass noun, and so are
+  // bread, cheese, ore and deadwood: they take "some".
+  if (mass) return `some ${label}`;
   return `${/^[aeiou]/i.test(label) ? 'an' : 'a'} ${label}`;
 }
 
@@ -336,6 +387,10 @@ export function labelFor(bag) {
   const items = (bag.items || []).filter(Boolean);
   const gold = Math.max(0, Math.round(bag.gold || 0));
   if (!items.length) return gold > 0 ? `a pile of ${gold} gold` : 'an empty sack';
+  // A woodpile is not a sack and the cursor should not call it one: what is
+  // lying there is four oak logs, and that is the whole of the label.
+  const shape = shapeOf(items, gold);
+  if (shape.startsWith('logs:') || shape.startsWith('ore:')) return items.map(describeItem).join(' and ');
   const parts = items.map(describeItem);
   if (gold > 0) parts.push(`${gold} gold`);
   const list = parts.length === 1
@@ -349,13 +404,74 @@ export function labelFor(bag) {
  * its amount earns; anything with gear in it is a sack, with a coin scatter
  * beside it when there is money too.
  */
+/**
+ * The wood or the ore a bag is entirely made of, or null. A felled oak leaves
+ * one stack of one species and nothing else, which is the case this answers;
+ * a sack with a sword and a log in it is a sack, and says so.
+ */
+export function loneMaterial(items = [], tag) {
+  const list = (items || []).filter(Boolean);
+  if (!list.length) return null;
+  let mat = null, count = 0;
+  for (const it of list) {
+    const b = baseFor(it);
+    if (!b || !b.kinds?.includes(tag) || !b.material) return null;
+    if (mat && b.material !== mat) return null;             // two woods is a sack
+    mat = b.material;
+    count += it.count ?? 1;
+  }
+  return { material: mat, count };
+}
+
 export function shapeOf(items = [], gold = 0) {
   const n = (items || []).filter(Boolean).length;
   if (!n) return gold > 0 ? `pile:${tierFor(gold)}` : 'empty';
+  if (!(gold > 0)) {
+    // A pile of cut logs and a heap of broken ore are what the axe and the pick
+    // actually leave on the ground, and neither of them is a sack. Money in
+    // with them makes it a sack again: coins do not lie loose in a woodpile.
+    const wood = loneMaterial(items, 'wood');
+    if (wood) return `logs:${wood.material}`;
+    const ore = loneMaterial(items, 'ore');
+    if (ore) return `ore:${ore.material}`;
+  }
   return gold > 0 ? 'sack+coins' : 'sack';
 }
 
+/**
+ * What the bag LOOKS like, which is not the same question as what shape it is.
+ *
+ * A pile of five fir logs that gives up three is still `logs:fir`, and the mesh
+ * on the ground would happily go on showing five. `shapeOf` is the answer to
+ * "sack or pile"; this is the answer to "does the picture have to change", and
+ * it is what `reshape` compares. Gold is the exception it always was: a pile
+ * redraws when its TIER moves, because a heap losing four coins should not
+ * rebuild its geometry every time somebody takes a handful.
+ */
+export function lookOf(items = [], gold = 0) {
+  const shape = shapeOf(items, gold);
+  if (shape.startsWith('logs:')) return `${shape}:${logsDrawn(loneMaterial(items, 'wood')?.count || 1)}`;
+  if (shape.startsWith('ore:')) return `${shape}:${chunksDrawn(loneMaterial(items, 'ore')?.count || 1)}`;
+  return shape;
+}
+
 // ------------------------------------------------------------------ runtime
+
+/**
+ * The loot layer this session is using.
+ *
+ * There is exactly one of these in a running game (`main.js` builds it once),
+ * and `interact.js` needs it in order to leave a pile of logs at a stump. The
+ * clean wiring is to pass it in, and `createInteract` takes a `loot` argument
+ * for exactly that; but `main.js` belongs to another agent and builds interact
+ * without one, so this registry is what makes the axe really leave wood on the
+ * ground today instead of a to-do in a document.
+ *
+ * The same pattern `tree_edit.js` uses for its fields. `dispose()` clears it, so
+ * a torn down scene does not leave a dead group behind for the next one.
+ */
+let currentDropsInstance = null;
+export const currentDrops = () => currentDropsInstance;
 
 export function createLootDrops(sc, { floaters, hud, audio } = {}) {
   const scene = sc && sc.scene ? sc.scene : sc;
@@ -392,6 +508,14 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
     if (shape.startsWith('pile:')) {
       pile = buildGoldPile(gold, { seed });
       if (pile) { g.add(pile); mats.push(pile.material); }
+    } else if (shape.startsWith('logs:')) {
+      const wood = loneMaterial(items, 'wood');
+      pile = buildLogPile(shape.slice(5), wood ? wood.count : 1, { seed });
+      if (pile) { g.add(pile); mats.push(pile.material); }
+    } else if (shape.startsWith('ore:')) {
+      const ore = loneMaterial(items, 'ore');
+      pile = buildOreHeap(shape.slice(4), ore ? ore.count : 1, { seed });
+      if (pile) { g.add(pile); mats.push(pile.material); }
     } else {
       const cloth = new THREE.MeshStandardMaterial({ color: 0x6b5a42, roughness: 1, metalness: 0, flatShading: true, emissive: hex, emissiveIntensity: 0.55 });
       const glow = new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.75 });
@@ -421,7 +545,7 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
     );
     hit.position.y = sack ? 0.45 : 0.3;
     g.add(hit);
-    return { g, ring, sack, pile, hit, mats, shape };
+    return { g, ring, sack, pile, hit, mats, shape, look: lookOf(items, gold) };
   }
 
   /**
@@ -443,7 +567,7 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
     const bag = {
       id: nextId++, items: list, gold: coin, seed,
       pos: built.g.position, age: 0, node: built.g, ring: built.ring, mats: built.mats,
-      shape: built.shape, spin: Math.random() * Math.PI * 2,
+      shape: built.shape, look: built.look, spin: Math.random() * Math.PI * 2,
     };
     built.g.userData.bag = bag;
     built.hit.userData.bag = bag;
@@ -471,15 +595,16 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
    * that is holding this bag notices anything but the picture changing.
    */
   function reshape(bag) {
-    const want = shapeOf(bag.items, bag.gold);
-    if (want === bag.shape) return false;
+    const want = lookOf(bag.items, bag.gold);
+    if (want === bag.look) return false;
     const old = { node: bag.node, mats: bag.mats };
     const built = build(bagColour(bag.items, bag.gold), bag.items, bag.gold, bag.seed);
     built.g.position.copy(bag.pos);
     group.add(built.g);
     group.remove(old.node);
     tearDown(old.node, old.mats);
-    bag.node = built.g; bag.ring = built.ring; bag.mats = built.mats; bag.shape = built.shape;
+    bag.node = built.g; bag.ring = built.ring; bag.mats = built.mats;
+    bag.shape = built.shape; bag.look = built.look;
     bag.pos = built.g.position;
     built.g.userData.bag = bag;
     built.hit.userData.bag = bag;
@@ -598,11 +723,11 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
     }
   }
 
-  return {
+  const api = {
     group, drop, pick, take, update, nearest, rollFor,
     /** What the cursor should say about this bag. */
     labelFor,
-    /** 'pile:small' | 'pile:medium' | 'pile:large' | 'sack' | 'sack+coins'. */
+    /** 'pile:<tier>' | 'logs:<wood>' | 'ore:<vein>' | 'sack' | 'sack+coins'. */
     shapeOf: (bag) => (bag ? shapeOf(bag.items, bag.gold) : 'empty'),
     /** Every bag on the ground right now. */
     bags: () => bags.slice(),
@@ -614,6 +739,9 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
       this.clear();
       sackGeo.dispose(); tieGeo.dispose(); ringGeo.dispose();
       scene?.remove?.(group);
+      if (currentDropsInstance === api) currentDropsInstance = null;
     },
   };
+  currentDropsInstance = api;
+  return api;
 }

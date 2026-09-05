@@ -9,11 +9,163 @@ import {
   COMBAT_SKILLS, skillNameOf, BASES, baseFor, makeItem, weightOf, canEquip, armourOf, equipSlotFor,
   slotsFor, stackable, twoHanded, setOf, auditItems, totalWeight,
   takesRarity, RARITY_KINDS, NO_RARITY_KINDS, FOOD_BASES, MEAT_BASES, MEAL_BASES, auditFoodBases,
+  LOG_BASES, ORE_BASES, INGOT_BASES, LOG_OF, ORE_OF, INGOT_OF, BASE_ALIASES,
+  baseForQuiet, aliasesUsed, auditMaterialBases, LOG_WEIGHT,
 } from './items.js';
+import { RECIPES } from './recipes.js';
+import { ORES, METALS, WOODS } from './ores.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 const threw = (fn) => { try { fn(); return false; } catch { return true; } };
+
+
+// ----------------------------------------------------- G9: typed materials
+//
+// The user: "Wood and logs and ingots should be different types ... Ore would
+// be iron, copper, whatever we authored already. Ingot should say what kind of
+// ingot it is. Log should say Oak Log or Sakura Log or Palm Log."
+//
+// This block runs FIRST in the file on purpose: the alias warning fires once
+// per id for the life of the process, and the older checks below still say
+// `ingot` and `log`, which would spend it before it could be measured.
+{
+  check('there is no base called log, ore or ingot',
+    !BASES.log && !BASES.ore && !BASES.ingot);
+  check('and nothing in the game is NAMED Log, Ore or Ingot',
+    !Object.values(BASES).some((b) => /^(log|ore|ingot|wood)$/i.test(b.name)));
+
+  // the three the user named, by name
+  check('a log says which tree it came off',
+    BASES.oak_log.name === 'Oak Log' && BASES.sakura_log.name === 'Sakura Log' && BASES.palm_log.name === 'Palm Log',
+    [BASES.oak_log.name, BASES.sakura_log.name, BASES.palm_log.name].join(', '));
+  check('deadwood and cactus wood are called what they are, not "Dead Log"',
+    BASES.deadwood.name === 'Deadwood' && BASES.cactus_wood.name === 'Cactus Wood');
+  check('an ingot says which metal', BASES.iron_ingot.name === 'Iron Ingot' && BASES.starfall_ingot.name === 'Starfall Ingot');
+  check('an ore says which vein', BASES.copper_ore.name === 'Copper Ore' && BASES.voidrock_ore.name === 'Voidrock Ore');
+
+  const report = auditMaterialBases();
+  check(`${report.logs} woods, ${report.ores} veins and ${report.ingots} metals`,
+    report.logs === LOG_BASES.length && report.ores === 10 && report.ingots === METALS.length,
+    JSON.stringify(report));
+  check('every ore tier ores.js authored has a stack, and no more than that',
+    ORE_BASES.length === ORES.length && ORES.every((o) => BASES[ORE_OF[o.id]]),
+    ORE_BASES.join(', '));
+  check('every metal a smith can work has an ingot, tin excepted, which forges nothing',
+    METALS.every((m) => !!BASES[INGOT_OF[m.id]]) && !INGOT_OF.tin && !!ORE_OF.tin,
+    INGOT_BASES.join(', '));
+  check('every ores.js wood has a log', WOODS.every((w) => !!BASES[LOG_OF[w.id]]));
+  check('a log weighs two stones, an ore and an ingot one',
+    BASES.oak_log.weight === LOG_WEIGHT && LOG_WEIGHT === 2
+    && BASES.copper_ore.weight === 1 && BASES.iron_ingot.weight === 1);
+
+  // the join a recipe uses, and the one thing that makes it work
+  check('a log carries the word a recipe asks for',
+    BASES.oak_log.material === 'oak' && BASES.sakura_log.material === 'sakura' && BASES.deadwood.material === 'dead');
+  check('an ingot and its ore carry the same word, so a smith may pay in either',
+    BASES.iron_ingot.material === 'iron' && BASES.iron_ore.material === 'iron');
+  check('and no two stacks in one family answer to one word',
+    new Set(LOG_BASES.map((id) => BASES[id].material)).size === LOG_BASES.length
+    && new Set(ORE_BASES.map((id) => BASES[id].material)).size === ORE_BASES.length
+    && new Set(INGOT_BASES.map((id) => BASES[id].material)).size === INGOT_BASES.length);
+
+  // eleven of the fourteen woods really stand in the world; three do not, and
+  // say so rather than looking like something you could go and chop
+  const grown = LOG_BASES.filter((id) => BASES[id].grown);
+  check('eleven woods are grown by the forest and three are not',
+    grown.length === 11 && LOG_BASES.length - grown.length === 3,
+    LOG_BASES.filter((id) => !BASES[id].grown).join(', '));
+}
+
+// --------------------------------------------- G9: every recipe can be paid
+//
+// The reason the split happened at all. `recipes.js` has asked for `oak`,
+// `iron` and `starfall` by name since it was written, and the one grey `ingot`
+// base carried no `material` tag, so every metal recipe in the game was
+// unpayable and nothing had ever counted it.
+{
+  const spendable = new Map();       // material word -> the stacks that answer to it
+  for (const b of Object.values(BASES)) {
+    if (!b.material || !b.stack) continue;
+    if (b.kind !== 'material' && b.kind !== 'food' && b.kind !== 'meal') continue;
+    if (!spendable.has(b.material)) spendable.set(b.material, []);
+    spendable.get(b.material).push(b.id);
+  }
+  const asked = new Set();
+  for (const r of RECIPES) for (const k of Object.keys(r.materials || {})) asked.add(k);
+
+  const metals = new Set([...ORES.map((o) => o.id), ...METALS.map((m) => m.id)]);
+  const woods = new Set(WOODS.map((w) => w.id));
+  const wantedMetals = [...asked].filter((m) => metals.has(m));
+  const wantedWoods = [...asked].filter((m) => woods.has(m));
+  const unpaidMetals = wantedMetals.filter((m) => !spendable.has(m));
+  const unpaidWoods = wantedWoods.filter((m) => !spendable.has(m));
+
+  check(`${RECIPES.length} recipes ask for ${asked.size} different materials`, asked.size > 0);
+  check(`every metal ${wantedMetals.length} recipes name is a stack the pack can hold`,
+    unpaidMetals.length === 0, unpaidMetals.join(', ') || wantedMetals.sort().join(', '));
+  check(`every wood they name is too`, unpaidWoods.length === 0,
+    unpaidWoods.join(', ') || wantedWoods.sort().join(', '));
+
+  // driven the other way: a word nothing carries really does come back empty,
+  // so the check above is measuring something
+  check('a material nothing carries resolves to nothing', !spendable.has('mithril'));
+
+  // and the honest record of what is still unpayable, which is not wood or metal
+  const stillMissing = [...asked].filter((m) => !spendable.has(m)).sort();
+  check('what is left unpayable is alchemy herbs and cloth, and nothing else',
+    stillMissing.every((m) => !metals.has(m) && !woods.has(m)), stillMissing.join(', '));
+}
+
+// ------------------------------------------------------------- G9: the aliases
+//
+// `log`, `ore` and `ingot` are dead ids that a v1 save, an old sack on the
+// ground and a dev bench all still say. They resolve, they warn once, and the
+// warning names the caller.
+{
+  const warned = [];
+  const real = console.warn;
+  console.warn = (...a) => warned.push(a.join(' '));
+
+  check('the three aliases are the three ids that were removed',
+    JSON.stringify(BASE_ALIASES) === JSON.stringify({ log: 'oak_log', ore: 'copper_ore', ingot: 'iron_ingot' }),
+    JSON.stringify(BASE_ALIASES));
+  check('nothing has spent a warning before this point', aliasesUsed().length === 0, aliasesUsed().join(', '));
+
+  const b = baseFor('log');
+  check('baseFor("log") resolves to an oak log', b?.id === 'oak_log');
+  check('and it warned exactly once', warned.length === 1, warned[0] || '');
+  check('and the warning names the caller, not this module',
+    /items\.test\.mjs:\d+:\d+/.test(warned[0] || ''), warned[0] || '');
+  check('and it says what the id became', /oak_log/.test(warned[0] || ''));
+
+  baseFor('log'); baseFor('log'); baseFor('log');
+  check('the second, third and fourth time it says nothing', warned.length === 1, `${warned.length} warning(s)`);
+
+  check('ore and ingot resolve too', baseFor('ore')?.id === 'copper_ore' && baseFor('ingot')?.id === 'iron_ingot');
+  check('and each of them warned once, so three ids are three warnings', warned.length === 3);
+  check('the audit lists all three', Object.keys(auditItems.materials.aliases).length === 3,
+    JSON.stringify(auditItems.materials.aliases));
+  check('and aliasesUsed says which have been asked for', aliasesUsed().sort().join(',') === 'ingot,log,ore',
+    aliasesUsed().join(','));
+
+  // both directions: the quiet resolver does the same lookup and never warns
+  const before = warned.length;
+  check('baseForQuiet reaches the same base', baseForQuiet('ingot')?.id === 'iron_ingot');
+  check('and adds no warning at all', warned.length === before);
+  check('a real base is not an alias and warns for nobody',
+    baseFor('oak_log')?.id === 'oak_log' && warned.length === before);
+  check('and a base that has never existed still resolves to nothing',
+    baseFor('mithril_ingot') === null && baseForQuiet('mithril_ingot') === null && warned.length === before);
+
+  // the whole point: an old save and an old caller keep working
+  const old = makeItem({ base: 'log', count: 7 });
+  check('an old save holding a stack of "log" becomes seven oak logs',
+    old.base === 'oak_log' && old.count === 7 && weightOf(old) === 14, `${weightOf(old)} stones`);
+  check('and it stacks, because it is a real stack now', stackable(old) === true);
+
+  console.warn = real;
+}
 
 // -------------------------------------------------------------------- slots
 {

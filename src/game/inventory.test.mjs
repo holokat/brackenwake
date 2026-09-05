@@ -80,7 +80,7 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
   check('two lots of arrows are one stack', character.pack.items.filter(Boolean).length === 1);
   check('and the count is the sum', character.pack.items[0].count === 60, String(character.pack.items[0].count));
   check('and the report says all sixty went in', r.added === 20 && r.dropped === 0);
-  inv.add(item('ingot', { count: 5 }));
+  inv.add(item('iron_ingot', { count: 5 }));
   check('a different material takes its own slot', character.pack.items.filter(Boolean).length === 2);
   const sword = item('longsword');
   inv.add(sword);
@@ -142,7 +142,7 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
   const sword = item('greatsword');
   inv.add(sword);
   const swordAt = character.pack.items.indexOf(sword);
-  for (let i = 0; i < PACK_SLOTS; i++) if (!character.pack.items[i]) character.pack.items[i] = item('ingot', { count: 1, seed: i });
+  for (let i = 0; i < PACK_SLOTS; i++) if (!character.pack.items[i]) character.pack.items[i] = item('iron_ingot', { count: 1, seed: i });
   check('the pack is full', inv.emptySlot() === -1);
   const r = inv.equip(swordAt);
   check('the two hander still draws, because its own slot frees as it leaves', r.ok === true, r.reason || '');
@@ -159,7 +159,7 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
   const sword = item('greatsword');
   inv.add(sword);
   const swordAt = character.pack.items.indexOf(sword);
-  for (let i = 0; i < PACK_SLOTS; i++) if (!character.pack.items[i]) character.pack.items[i] = item('ingot', { count: 1, seed: i });
+  for (let i = 0; i < PACK_SLOTS; i++) if (!character.pack.items[i]) character.pack.items[i] = item('iron_ingot', { count: 1, seed: i });
   check('and the pack is full', inv.emptySlot() === -1);
   const r = inv.equip(swordAt);
   check('the two hander is refused when both hands have nowhere to go', r.ok === false, r.reason);
@@ -196,7 +196,7 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
   const { inv, character, last } = rig();
   inv.add(item('cloth_head'));
   inv.equip(0);
-  for (let i = 0; i < PACK_SLOTS; i++) character.pack.items[i] = item('ingot', { count: 1, seed: i });
+  for (let i = 0; i < PACK_SLOTS; i++) character.pack.items[i] = item('iron_ingot', { count: 1, seed: i });
   const r = inv.unequip('head');
   check('with a full pack it stays on', r.ok === false && character.equipment.head !== null);
   check('and says why', /pack is full/.test(r.reason), r.reason);
@@ -392,9 +392,9 @@ console.log('inventory: the quick sort');
   // the scattered pack the brief describes, byte for byte
   const c = blank();
   const p = c.pack.items;
-  p[0] = lump('ingot', 3, 'iron', 'Iron ingot');
+  p[0] = lump('iron_ingot', 3, 'iron', 'Iron ingot');
   p[2] = lump('longsword', 1);
-  p[5] = lump('ingot', 2, 'iron', 'Iron ingot');
+  p[5] = lump('iron_ingot', 2, 'iron', 'Iron ingot');
   p[7] = lump('potion', 4);
   p[9] = lump('cloth_head', 1);
   p[11] = lump('pickaxe', 1);
@@ -405,12 +405,12 @@ console.log('inventory: the quick sort');
   const r = inv.sort();
 
   check('the sort reports itself', r.ok === true, JSON.stringify({ merged: r.merged, moved: r.moved, free: r.free }));
-  check('the two iron ingot stacks become one', r.merged === 1 && p.filter((x) => x && x.base === 'ingot').length === 1,
-    `${r.merged} merged, ${p.filter((x) => x && x.base === 'ingot').length} ingot stack(s)`);
-  check('and the one stack holds all five', p.find((x) => x && x.base === 'ingot').count === 5,
-    String(p.find((x) => x && x.base === 'ingot').count));
+  check('the two iron ingot stacks become one', r.merged === 1 && p.filter((x) => x && x.base === 'iron_ingot').length === 1,
+    `${r.merged} merged, ${p.filter((x) => x && x.base === 'iron_ingot').length} ingot stack(s)`);
+  check('and the one stack holds all five', p.find((x) => x && x.base === 'iron_ingot').count === 5,
+    String(p.find((x) => x && x.base === 'iron_ingot').count));
   check('the order comes out byte for byte',
-    stamp(p) === 'longswordx1 bucklerx1 cloth_headx1 potionx4 applex2 ingot:ironx5 pickaxex1', stamp(p));
+    stamp(p) === 'longswordx1 bucklerx1 cloth_headx1 potionx4 applex2 iron_ingot:ironx5 pickaxex1', stamp(p));
   check('nothing is lost: the same bases and the same counts', same(before, tally(p)), `${JSON.stringify(before)} -> ${JSON.stringify(tally(p))}`);
   check('everything is compacted to the front, holes all at the back',
     p.slice(0, 7).every(Boolean) && p.slice(7).every((x) => !x), stamp(p));
@@ -425,12 +425,16 @@ console.log('inventory: the quick sort');
   // the guard the sentence has to earn: two DIFFERENT materials must not merge
   const c = blank();
   const p = c.pack.items;
-  p[0] = lump('ingot', 3, 'iron', 'Iron ingot');
-  p[1] = lump('ingot', 2, 'copper', 'Copper ingot');
+  p[0] = lump('iron_ingot', 3, 'iron', 'Iron ingot');
+  p[1] = lump('copper_ingot', 2, 'copper', 'Copper ingot');
   const before = tally(p);
   const r = createInventory({ character: c }).sort();
+  // G9 gave each metal its own base, so two metals are two bases as well as two
+  // material stamps. Both halves are checked: one stack of each, and no merge.
   check('an iron stack and a copper stack stay two stacks',
-    r.merged === 0 && p.filter((x) => x && x.base === 'ingot').length === 2, stamp(p));
+    r.merged === 0
+    && p.filter((x) => x && x.base === 'iron_ingot').length === 1
+    && p.filter((x) => x && x.base === 'copper_ingot').length === 1, stamp(p));
   check('and neither one changed material', same(before, tally(p)), stamp(p));
   check('copper comes before iron, by the name a player reads', p[0].material === 'copper', stamp(p));
 }
@@ -469,18 +473,18 @@ console.log('inventory: the quick sort');
     rank('cloth_head') < rank('cloth_chest') && rank('cloth_chest') < rank('cloth_feet'),
     `${rank('cloth_head')} ${rank('cloth_chest')} ${rank('cloth_feet')}`);
   check('then jewellery, then what you drink, what you eat, what you build with, and tools last',
-    rank('ring') < rank('potion') && rank('potion') < rank('apple') && rank('apple') < rank('ingot') && rank('ingot') < rank('pickaxe'),
-    [rank('ring'), rank('potion'), rank('apple'), rank('ingot'), rank('pickaxe')].join(' '));
+    rank('ring') < rank('potion') && rank('potion') < rank('apple') && rank('apple') < rank('iron_ingot') && rank('iron_ingot') < rank('pickaxe'),
+    [rank('ring'), rank('potion'), rank('apple'), rank('iron_ingot'), rank('pickaxe')].join(' '));
   check('a base this build has never heard of still gets a shelf and is carried through',
     sortRank({ base: 'moon_cheese' }) === 99 && sortOrder([{ base: 'moon_cheese' }]).items.length === 1);
   check('the sort name prefers the crafted label over the base word',
-    sortName({ base: 'ingot', label: 'Iron ingot' }) === 'Iron ingot' && sortName({ base: 'ingot' }) === 'Ingot');
+    sortName({ base: 'iron_ingot', label: 'Iron ingot' }) === 'Iron ingot' && sortName({ base: 'iron_ingot' }) === 'Iron Ingot');
 }
 {
   // a full pack, because a sort that needed one spare slot would be a trap
   const c = normalise({ stats: { str: 60 }, skills: {}, pack: { slots: 6, items: [] }, equipment: {} });
   const p = c.pack.items;
-  for (let i = 0; i < 6; i++) p[i] = makeItem({ base: 'ingot', count: 1, seed: i });
+  for (let i = 0; i < 6; i++) p[i] = makeItem({ base: 'iron_ingot', count: 1, seed: i });
   const before = tally(p);
   const r = createInventory({ character: c }).sort();
   check('six single ingots in six slots become one stack of six',

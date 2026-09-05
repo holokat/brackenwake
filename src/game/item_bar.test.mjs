@@ -94,9 +94,9 @@ check('a shield is held', planFor(makeItem({ base: 'buckler' })).kind === 'equip
 check('a helm is worn', planFor(makeItem({ base: 'cloth_head' })).kind === 'equip');
 check('a pickaxe is a tool, which is its own answer', planFor(makeItem({ base: 'pickaxe' })).kind === 'tool');
 check('an ingot is none of the three, and says why',
-  planFor(makeItem({ base: 'ingot', count: 1 })).kind === 'none'
-  && /goes into something/.test(planFor(makeItem({ base: 'ingot', count: 1 })).reason),
-  planFor(makeItem({ base: 'ingot', count: 1 })).reason);
+  planFor(makeItem({ base: 'iron_ingot', count: 1 })).kind === 'none'
+  && /goes into something/.test(planFor(makeItem({ base: 'iron_ingot', count: 1 })).reason),
+  planFor(makeItem({ base: 'iron_ingot', count: 1 })).reason);
 check('and a base nobody wrote is refused rather than guessed',
   planFor({ base: 'moon_cheese' }).kind === 'none');
 
@@ -151,8 +151,8 @@ console.log('item bar: the pack moves and the slot still fires');
     fired.kind === 'use' && used[0].where.pack === 17, JSON.stringify(used[0].where));
 
   // and the class of the bug driven the other way: something else in slot 0
-  inventory.add(makeItem({ base: 'ingot', count: 2 }));
-  check('an ingot has fallen into pack slot 0', character.pack.items[0].base === 'ingot');
+  inventory.add(makeItem({ base: 'iron_ingot', count: 2 }));
+  check('an ingot has fallen into pack slot 0', character.pack.items[0].base === 'iron_ingot');
   down.add('f5');
   const again = bar.update(0.016);
   check('and F5 still drinks a potion rather than whatever fell into slot 0',
@@ -223,7 +223,7 @@ console.log('item bar: a sword equips and the slot reads worn');
 console.log('item bar: the refusals');
 {
   const { inventory, bar, said } = rig();
-  inventory.add(makeItem({ base: 'ingot', count: 4 }));
+  inventory.add(makeItem({ base: 'iron_ingot', count: 4 }));
   const r = bar.assign(0, { pack: 0 });
   check('a lump of iron will not go on a key, and says why',
     r.ok === false && /does not answer to a key/.test(r.reason), r.reason);
@@ -367,7 +367,7 @@ console.log('item bar: F5 does not reload the page');
   check('and the empty ones carry them too, so a cell never reads undefined',
     fields.every((f) => f in v[7]), JSON.stringify(v[7]));
   check('labelOf prefers a crafted label over the base word',
-    labelOf({ base: 'ingot', label: 'Iron ingot' }) === 'Iron ingot' && labelOf('ingot') === 'Ingot');
+    labelOf({ base: 'iron_ingot', label: 'Iron ingot' }) === 'Iron ingot' && labelOf('iron_ingot') === 'Iron Ingot');
   check('the doll it searches is items.js s fourteen, not a second list',
     SLOTS.length === 14, String(SLOTS.length));
 }

@@ -126,13 +126,13 @@ check('so is a shield, since it is held in a fight', categoryOf(makeItem({ base:
 check('a breastplate is armour', categoryOf(makeItem({ base: 'plate_chest', seed: 1 })) === 'armour');
 check('and so is a ring', categoryOf(makeItem({ base: 'ring', seed: 1 })) === 'armour');
 check('a potion is a consumable', categoryOf(makeItem({ base: 'potion', seed: 1 })) === 'consumables');
-check('an ingot is a material', categoryOf(makeItem({ base: 'ingot', seed: 1 })) === 'materials');
+check('an ingot is a material', categoryOf(makeItem({ base: 'iron_ingot', seed: 1 })) === 'materials');
 check('a pickaxe fits none of the four and is not lost', categoryOf(makeItem({ base: 'pickaxe', seed: 1 })) === 'other');
 check('all shows everything, including the odd one out',
-  ['longsword', 'potion', 'ingot', 'pickaxe'].every((b) => inCategory(makeItem({ base: b, seed: 1 }), 'all')));
+  ['longsword', 'potion', 'iron_ingot', 'pickaxe'].every((b) => inCategory(makeItem({ base: b, seed: 1 }), 'all')));
 check('and a filter shows only its own',
   inCategory(makeItem({ base: 'potion', seed: 1 }), 'consumables')
-  && !inCategory(makeItem({ base: 'ingot', seed: 1 }), 'consumables'));
+  && !inCategory(makeItem({ base: 'iron_ingot', seed: 1 }), 'consumables'));
 
 // ---- what a double click decides -------------------------------------------
 console.log('bag: what a double click decides');
@@ -143,7 +143,7 @@ check('bread is eaten', actionFor(makeItem({ base: 'bread', seed: 1 })).kind ===
 check('and so is a cooked meal', actionFor(makeItem({ base: 'honey_bread', seed: 1 })).kind === 'use');
 check('and venison off a deer', actionFor(makeItem({ base: 'venison', seed: 1 })).kind === 'use');
 {
-  const ingot = actionFor(makeItem({ base: 'ingot', seed: 1 }));
+  const ingot = actionFor(makeItem({ base: 'iron_ingot', seed: 1 }));
   check('an ingot is neither', ingot.kind === 'none');
   check('and it says why, in words', /material/.test(ingot.reason), ingot.reason);
   const pick = actionFor(makeItem({ base: 'pickaxe', seed: 1 }));
@@ -154,7 +154,7 @@ check('what can be eaten is read off items.js, not typed here',
   USE_KINDS.join(',') === 'food,meal' && USE_IDS.join(',') === 'potion,bandage');
 check('and there are a good many things to eat or drink', USABLE > 20, `${USABLE} bases`);
 check('the audit counts them rather than asserting them', auditUsable() === USABLE);
-check('an ingot is not one of them', usable({ id: 'ingot', kind: 'material' }) === false);
+check('an ingot is not one of them', usable({ id: 'iron_ingot', kind: 'material' }) === false);
 
 // ---- what is left of the old page ------------------------------------------
 console.log('bag: the page that is not a page');
@@ -179,7 +179,7 @@ function rig(opts = {}) {
   });
   character.pack.items[0] = makeItem({ base: 'longsword', seed: 11 });
   character.pack.items[1] = makeItem({ base: 'potion', seed: 12, count: 3 });
-  character.pack.items[2] = makeItem({ base: 'ingot', seed: 13, count: 5 });
+  character.pack.items[2] = makeItem({ base: 'iron_ingot', seed: 13, count: 5 });
 
   const said = [];
   const hud = { log: (t, kind) => { said.push({ text: String(t), kind }); return t; } };
@@ -241,7 +241,7 @@ function rig(opts = {}) {
   const before = JSON.stringify(r.character.equipment);
   r.grid.children[2].fire('dblclick');
   check('two clicks on an ingot change nothing', JSON.stringify(r.character.equipment) === before);
-  check('and it is still in the pack', r.character.pack.items[2].base === 'ingot');
+  check('and it is still in the pack', r.character.pack.items[2].base === 'iron_ingot');
   check('but it is not silent about it', r.said.some((l) => /material/.test(l.text)),
     r.said.map((l) => l.text).join(' | '));
   check('and nothing was handed to useItem', r.used.length === 0);

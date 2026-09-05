@@ -27,7 +27,7 @@ import {
   NPCS, trainCost, TRAIN_CAP, resurrectCost, RESURRECT_COST, RESURRECT_FREE_AT,
   vendorPrice, vendorPays, townMultiplier, PROVISIONER_SELL_RATE, RESTOCK_S,
 } from '../mmo/npcs.js';
-import { BASES, makeItem, RARITY } from '../mmo/items.js';
+import { BASES, makeItem, RARITY, LOG_BASES, ORE_BASES, INGOT_BASES } from '../mmo/items.js';
 import { skillNameOf } from '../mmo/items.js';
 import { hash2 } from '../world/noise.js';
 
@@ -76,10 +76,12 @@ export const SHIELD_PRICE = { buckler: 30, kite: 70 /* 06 */, tower: 130 };
  * Every base a vendor deals in, priced per unit. A stack row's price is per
  * unit too; the row says how many units a lot holds.
  */
+/** ores.js WOODS tiers, by material id. Anything not in it is common timber. */
+const WOOD_TIER_OF = { oak: 1, ash: 2, heartwood: 3, ironbark: 4 };
+
 export const PRICES = {
   ...WEAPON_PRICE, ...SHIELD_PRICE,
-  ingot: 4 /* 06, "iron ingot 4" */, ore: 1 /* 06, "copper ore 1" */,
-  log: 2 /* 06, "oak wood 2" */, bandage: 2 /* 06 */,
+  bandage: 2 /* 06 */,
   arrow: 1, bolt: 1,          // 06 prices arrows "1 per 5"; the lot rows below carry that
   potion: 25 /* 06, "heal potion 25" */, reagent: 3, gem: 40,
   ring: 60, amulet: 80, tome: 90, torch: 3,
@@ -103,6 +105,23 @@ Object.assign(PRICES, {
   hearty_stew: 14, roast_fowl: 14, fish_pie: 16, honey_bread: 14,
   spiced_wine: 18, travellers_ration: 16,
 });
+// Logs, ore and ingots, per unit.
+//
+// G9 split the three grey stacks into fourteen woods, ten veins and ten metals,
+// and a vendor who pays nothing for a Silver Ingot is a vendor who silently
+// eats it, so every one of them is priced rather than only the three the shelf
+// stocks. The ladder is anchored on the three numbers 06-ECONOMY-UI gives out
+// loud, and nothing else about it is from a document:
+//
+//   "copper ore 1"     an ore is worth its tier: copper 1 ... starfall 10
+//   "iron ingot 4"     an ingot is its tier plus one: iron is tier 3, so 4
+//   "oak wood 2"       a log is its tier plus one; oak is tier 1, so 2, and
+//                      the ten woods `ores.js` never tiered are common timber
+//                      and priced with the oak
+for (const id of ORE_BASES) PRICES[id] = Math.max(1, BASES[id].tier || 1);
+for (const id of INGOT_BASES) PRICES[id] = Math.max(2, (BASES[id].tier || 1) + 1);
+for (const id of LOG_BASES) PRICES[id] = 2 + Math.max(0, (WOOD_TIER_OF[BASES[id].material] || 1) - 1);
+
 for (const tier of Object.keys(ARMOUR_SET_PRICE)) {
   for (const piece of ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back']) {
     PRICES[`${tier}_${piece}`] = armourPiecePrice(tier, piece);
@@ -201,14 +220,22 @@ export const CATALOG = [
   row('mutton', 'mutton', 'Mutton', 8, { category: 'food', count: 1, stock: 15, label: 'Mutton', line: 'salted, and worth the weight' }),
   row('torch', 'torch', 'Torch', 3, { category: 'torches', stock: 20, line: 'the dark down there is not the dark up here' }),
   // the smith's raw stock, which is also what he buys
-  row('ingot', 'ingot', 'Iron ingot', 4, { category: 'ingots', count: 1, stock: 40, materialTier: 3, label: 'Iron ingot' }),
-  row('ore', 'ore', 'Copper ore', 1, { category: 'ore', count: 1, stock: 40, materialTier: 1, label: 'Copper ore' }),
+  // G9: there is no base called `ingot` or `ore` any more, and the smith says
+  // which metal he is selling, the way the rest of his shelf already did.
+  row('iron_ingot', 'iron_ingot', 'Iron ingot', 4, { category: 'ingots', count: 1, stock: 40, materialTier: 3, label: 'Iron ingot' }),
+  row('copper_ore', 'copper_ore', 'Copper ore', 1, { category: 'ore', count: 1, stock: 40, materialTier: 1, label: 'Copper ore' }),
 ];
 
 /** Which shelf a base sits on, so a thing out of the pack can find its buyer. */
 export const CATEGORY_OF = {};
 for (const r of CATALOG) if (!CATEGORY_OF[r.base]) CATEGORY_OF[r.base] = r.category;
-CATEGORY_OF.log = 'anything';
+// Every wood, every vein and every metal, not only the two on the shelf: a
+// smith who buys "ingots" buys the silver as well as the iron, and a carter who
+// takes wood takes the birch as well as the oak. `CATEGORY_OF.log` used to be
+// the whole of this and it named one dead base.
+for (const id of LOG_BASES) CATEGORY_OF[id] = 'anything';
+for (const id of ORE_BASES) CATEGORY_OF[id] = 'ore';
+for (const id of INGOT_BASES) CATEGORY_OF[id] = 'ingots';
 CATEGORY_OF.gem = 'anything';
 CATEGORY_OF.amulet = 'anything';
 CATEGORY_OF.ring = 'anything';

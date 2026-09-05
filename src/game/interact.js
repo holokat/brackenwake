@@ -18,7 +18,9 @@
 import * as THREE from 'three';
 import { chopTree } from '../farm/tree_edit.js';
 import { pickTarget, resolveSwing, swingText, nameFor, LOOT } from './combat.js';
-import { CARRIED } from './state.js';
+import { CARRIED, materialFamilyOf } from './state.js';
+import { makeItem, LOG_OF, ORE_OF, BASES } from '../mmo/items.js';
+import { describeItem, currentDrops } from './loot_drops.js';
 
 /**
  * Every species combat.js can drop loot for names a good the pack can really
@@ -37,6 +39,91 @@ export function auditLootCarry() {
 }
 auditLootCarry();
 
+// ---------------------------------------------------------------------------
+// WHAT A FELLED TREE LEAVES
+//
+// The user: "when chopping down trees, we should see visible wood fall to the
+// ground that we can pick up as loot."
+//
+// So the axe no longer teleports a number into the pack. The tree goes over and
+// a pile of cut logs is left at the stump, in the wood of the tree that fell,
+// and it is picked up with E or a click exactly like any sack: `loot_drops` is
+// the one thing that owns something lying on the ground, and this goes through
+// it rather than growing a second kind of pickup nobody has to maintain.
+//
+// A seam does the same with ore. STONE DOES NOT. A boulder is quarried away
+// rather than felled, there is nothing to leave lying there that is not already
+// lying there, and the pickaxe would otherwise put a bag on the ground every
+// time you tapped a rock. Stone goes straight into the pack, as it always did.
+//
+// The join from a field to a wood is the field's NAME. `flora.js` builds every
+// stand as `world:<kind>` and a dungeon builds `dungeon:<id>:<level>:ore`, and
+// the last segment is the kind: that is the same read `nounFor` has always
+// done. It is NOT `field.species`, which is the Arbor recipe and says `spruce`
+// for a fir.
+// ---------------------------------------------------------------------------
+
+/** Every tree kind `world/flora.js` ALL_KINDS grows. `interact.test.mjs` drives both lists against each other. */
+export const GROWN_KINDS = [
+  'oak', 'beech', 'birch', 'pine', 'spruce', 'fir', 'willow', 'palm', 'sakura', 'dead', 'cactus',
+];
+/**
+ * Tree words `NOUNS` knows that no field in this world grows, and so no axe can
+ * fell. Kapok and fig are Arbor recipes used by the tropical forest type, which
+ * no biome in `field.js` selects; if one ever does, they need a log and this
+ * list is where the audit will say so.
+ */
+export const NO_LOG = ['kapok', 'fig', 'trees', 'woods', 'rock', 'boulders', 'ore'];
+/** The wood a felled field leaves, or null when the field is not a tree we know. */
+export function logBaseFor(field) {
+  const tail = String(field?.name || '').split(':').pop();
+  return LOG_OF[tail] || null;
+}
+/** When a field is a tree but nothing says which, it is oak. Said once, here. */
+export const DEFAULT_LOG = 'oak_log';
+/**
+ * The vein a seam gives up. A rock field may name it with `oreId`; none does
+ * yet, because neither `flora.js` nor `dungeon.js` has a tier on a seam, so
+ * every seam in the game today is copper. That is a real gap and it is written
+ * down in docs/mmo/wiring/G9.md rather than guessed at here.
+ */
+export const DEFAULT_ORE = 'copper_ore';
+export function oreBaseFor(field) {
+  const want = typeof field?.oreId === 'string' ? field.oreId : null;
+  return (want && ORE_OF[want]) || DEFAULT_ORE;
+}
+
+/**
+ * Every tree this world grows leaves a real log, and every tree word the cursor
+ * knows either leaves one or is on the list of words that cannot be chopped.
+ * Runs at module load beside `auditLootCarry`, for the same reason: a species
+ * added tomorrow with no log would drop nothing and say nothing.
+ */
+export function auditHarvestDrops() {
+  const bad = [];
+  for (const k of GROWN_KINDS) {
+    const id = LOG_OF[k];
+    if (!id) { bad.push(`the forest grows "${k}" and items.js has no log for it`); continue; }
+    if (!BASES[id]) bad.push(`"${k}" joins to "${id}", which is not a base`);
+    if (materialFamilyOf(id) !== 'wood') bad.push(`"${id}" does not count as wood in the pack`);
+    if (logBaseFor({ name: `world:${k}` }) !== id) bad.push(`a world:${k} field does not resolve to ${id}`);
+  }
+  for (const word of Object.keys(NOUNS)) {
+    if (NO_LOG.includes(word)) {
+      // driven the other way too: a word on the no-log list must really have no
+      // log, or the list is hiding a species that does drop one
+      if (LOG_OF[word]) bad.push(`"${word}" is on NO_LOG and items.js does have a ${LOG_OF[word]}`);
+      continue;
+    }
+    if (!LOG_OF[word]) bad.push(`the cursor can name a "${word}" and nothing says what it leaves`);
+  }
+  if (!BASES[DEFAULT_LOG]) bad.push(`the default log "${DEFAULT_LOG}" is not a base`);
+  if (!BASES[DEFAULT_ORE]) bad.push(`the default ore "${DEFAULT_ORE}" is not a base`);
+  if (materialFamilyOf(DEFAULT_ORE) !== 'ore') bad.push(`"${DEFAULT_ORE}" does not count as ore in the pack`);
+  if (bad.length) throw new Error(`interact: harvest drops (${bad.join('; ')})`);
+  return { kinds: GROWN_KINDS.length, named: Object.keys(NOUNS).length - NO_LOG.length };
+}
+
 export const REACH = 6;        // metres, horizontal, player to the point you hit
 export const SITE_REACH = 14;  // you have to stand at a mouth to go down it
 export const SWING_MS = 450;   // one swing per 450 ms, however fast you click
@@ -53,6 +140,8 @@ const NOUNS = {
   kapok: 'kapok', fig: 'fig tree',
   ore: 'ore seam', rock: 'boulder', boulders: 'boulder', trees: 'tree', woods: 'tree',
 };
+
+auditHarvestDrops();
 
 /** What to call the thing under the cursor. Never invents a name it cannot read. */
 export function nounFor(field) {
@@ -146,7 +235,11 @@ export function decide(pick, tool, playerPos, now, lastSwingAt) {
   return { action: 'none', reason: 'nothing' };
 }
 
-export function createInteract({ sc, runtime, player, state, hud, input, audio, progression }) {
+export function createInteract({ sc, runtime, player, state, hud, input, audio, progression, loot }) {
+  // Where a felled tree leaves its wood. `main.js` builds `loot` (createLootDrops)
+  // before it builds this, so passing it is one word at the call site; until it
+  // does, `runtime.loot` is tried and then the pack, so nothing is ever lost.
+  const lootSink = () => loot || runtime?.loot || currentDrops();
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const aimPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -240,16 +333,61 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
     hint(hoverText(pick));
   }
 
-  function creditYield(res, noun) {
-    const good = res.wood != null ? 'wood' : res.stone != null ? 'stone' : res.ore != null ? 'ore' : null;
-    if (!good) { say(`the ${noun} comes apart and leaves nothing`); return; }
-    const n = res[good];
-    const { added, dropped } = state.add(good, n);
-    if (added && dropped) say(`${added} ${good} from the ${noun}, and ${dropped} left behind, your pack is full`);
-    else if (added) say(`${added} ${good} from the ${noun}`);
-    else say(`your pack is full, the ${n} ${good} stays on the ground`);
+  /**
+   * Stone. The one yield that still goes straight into the pack, because a
+   * boulder is quarried away rather than felled and there is nothing left
+   * standing to leave a bag beside. Unchanged words, on purpose.
+   */
+  function creditStone(n, noun) {
+    const { added, dropped } = state.add('stone', n);
+    if (added && dropped) say(`${added} stone from the ${noun}, and ${dropped} left behind, your pack is full`);
+    else if (added) say(`${added} stone from the ${noun}`);
+    else say(`your pack is full, the ${n} stone stays on the ground`);
     // a full pack is a refusal, and it should not sound like a reward
     audio?.play?.(added ? 'pickup' : 'denied', { gain: added ? 0.6 : 1 });
+  }
+
+  /**
+   * Wood and ore. Neither goes into the pack: both are left lying at the stump
+   * or the seam, as a real pile you can see and walk over to, and the pack does
+   * not change at all until it is picked up.
+   *
+   * Says what is on the ground, in the same words the sack will use when it is
+   * taken, so "four oak logs" is one phrase from the axe to the pack.
+   *
+   * If there is no loot layer at all (a headless harness, or a `main.js` that
+   * has not been given one) the wood goes into the pack instead and the line
+   * says so, because a swing that quietly produced nothing is the one outcome
+   * that must never happen.
+   */
+  function dropYield(baseId, n, noun, verb, dropAt, at) {
+    const item = makeItem({ base: baseId, count: n, rarity: 'common' });
+    const words = describeItem(item);
+    const sink = lootSink();
+    if (sink?.drop) {
+      const bag = sink.drop(dropAt || { x: 0, y: 0, z: 0 }, { items: [item], gold: 0 });
+      if (bag) {
+        say(`the ${noun} ${verb} and leaves ${words}`);
+        audio?.play?.('pickup', { at, gain: 0.45 });
+        return { dropped: bag, added: 0 };
+      }
+    }
+    const family = materialFamilyOf(baseId);
+    const r = state.addMaterial ? state.addMaterial(baseId, n) : state.add(family, n);
+    if (r.added && r.dropped) say(`the ${noun} ${verb}, ${r.added} into the pack and ${r.dropped} left behind, your pack is full`);
+    else if (r.added) say(`the ${noun} ${verb}, ${words} into the pack`);
+    else say(`your pack is full, ${words} stay on the ground`);
+    audio?.play?.(r.added ? 'pickup' : 'denied', { at, gain: r.added ? 0.6 : 1 });
+    return { dropped: null, added: r.added };
+  }
+
+  /** What the swing that felled the thing leaves behind, and where. */
+  function creditYield(res, noun, field, dropAt, at) {
+    if (res.stone != null) return creditStone(res.stone, noun);
+    if (res.ore != null) return dropYield(oreBaseFor(field), res.ore, noun, 'breaks open', dropAt, at);
+    if (res.wood != null) return dropYield(logBaseFor(field) || DEFAULT_LOG, res.wood, noun, 'comes down', dropAt, at);
+    say(`the ${noun} comes apart and leaves nothing`);
+    audio?.play?.('denied');
   }
 
   /**
@@ -305,6 +443,10 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
         // read the record before the swing: where the sound comes from
         const rec = d.field.trees?.[d.index];
         const at = rec ? { x: rec.x, z: rec.z } : undefined;
+        // the bag needs a height as well as a place: `gy` is the ground the
+        // trunk stands on, and a pile of logs floating a metre up is the sort
+        // of thing that only shows up in the browser
+        const dropAt = rec ? { x: rec.x, y: rec.gy ?? 0, z: rec.z } : (player?.pos || { x: 0, y: 0, z: 0 });
         const res = chopTree(d.field, d.index);
         // chopTree refuses a record that is gone or already down
         if (!res) { say('a sapling is coming back here'); audio?.play?.('denied'); return d; }
@@ -322,7 +464,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
           // the tree takes 1500 ms to go over (DUR in farm/tree_edit.js), so
           // the thud waits for the ground instead of landing with the swing
           else audio?.play?.('chopDown', { at, delay: 1300 });
-          creditYield(res, noun);
+          creditYield(res, noun, d.field, dropAt, at);
         } else say(d.action === 'mine'
           ? `the ${noun} cracks, ${res.remaining} more`
           : `the ${noun} takes the blow, ${res.remaining} more`);

@@ -15,6 +15,7 @@
 
 import { hash2 } from '../world/noise.js';
 import { SKILLS } from './skills.js';
+import { ORES, ALLOYS, METALS, WOODS } from './ores.js';
 
 // ------------------------------------------------------------------- slots
 // Fourteen. The paper doll shows all of them.
@@ -164,10 +165,17 @@ export function takesRarity(baseOrItem) {
 // ------------------------------------------------------- stacking materials
 // "Items stack when identical and common (ingots, ore, wood, arrows, potions,
 // food)." These are the stackable bases; they have no slot and no durability.
+//
+// THERE IS NO STACK CALLED Ingot, Ore OR Log, for the same reason G7 left no
+// stack called Food. A pack that reads "12 Log" cannot tell you whether you are
+// carrying the oak a bow wants or the palm a bow does not, and `recipes.js` has
+// asked for `oak`, `iron` and `starfall` BY NAME since the day it was written:
+// with one grey `ingot` base carrying no `material` tag at all, every metal
+// recipe in this game was unpayable and nobody had counted it. The named bases
+// are built further down, out of `ores.js`, which is the one table that says
+// what the metals and the woods are. The three old ids survive as aliases;
+// see BASE_ALIASES.
 export const STACKS = [
-  { id: 'ingot', name: 'Ingot', weight: 1 },
-  { id: 'ore', name: 'Ore', weight: 1 },
-  { id: 'log', name: 'Log', weight: 2 },
   { id: 'arrow', name: 'Arrow', weight: 0.1 },
   { id: 'bolt', name: 'Bolt', weight: 0.1 },
   { id: 'potion', name: 'Potion', weight: 0.5 },
@@ -238,6 +246,216 @@ addBase({ id: 'torch', name: 'Torch', kind: 'offhand', kinds: ['equipment', 'tor
 
 for (const s of STACKS) {
   addBase({ ...s, kind: 'material', kinds: ['material'], slot: null, strReq: 0, durability: null, stack: true });
+}
+
+// ------------------------------------------------- logs, ore and ingots
+//
+// The user's sentence, which is the brief:
+//
+//   "Wood and logs and ingots should be different types. Depending on the wood,
+//    we get different types of wood because eventually we can craft different
+//    types of furniture. Ore would be iron, copper, whatever we authored
+//    already. Ingot should say what kind of ingot it is. Log should say Oak Log
+//    or Sakura Log or Palm Log."
+//
+// Three families, and the SAME join in all three: the base carries
+// `material: '<id>'`, where the id is the word `recipes.js` already asks for.
+// `win_crafting.answersTo` reads a base's own `material`, so a recipe wanting
+// `iron: 4` is paid out of a stack of Iron Ingots and one wanting `oak: 1` out
+// of a stack of Oak Logs, with nothing to stamp at the call site. That is the
+// join the hides and the forageables already use, held to here as well.
+//
+// Nothing is invented about WHICH metals and woods exist. `ores.js` is the
+// table: ten ore tiers, the METALS ladder (every ore that forges something,
+// plus the bronze alloy) and the four WOODS. The tree species come from
+// `world/flora.js` ALL_KINDS, which grows eleven; `interact.js` holds the join
+// from a felled tree's kind to its log and audits it both ways.
+
+/** Every log base id, in the order they are built. */
+export const LOG_BASES = [];
+/** Every ore base id, tier 1 first. */
+export const ORE_BASES = [];
+/** Every ingot base id, tier order. */
+export const INGOT_BASES = [];
+/** material id -> log base id. 'oak' -> 'oak_log', 'dead' -> 'deadwood'. */
+export const LOG_OF = {};
+/** ores.js ore id -> ore base id. 'copper' -> 'copper_ore'. */
+export const ORE_OF = {};
+/** ores.js metal id -> ingot base id. 'iron' -> 'iron_ingot'. */
+export const INGOT_OF = {};
+
+/** A log weighs two stones. It always has; only its name is new. */
+export const LOG_WEIGHT = 2;
+/** Ore and ingots weigh one, as the generic stacks they replace did. */
+export const ORE_WEIGHT = 1;
+export const INGOT_WEIGHT = 1;
+
+/**
+ * A metal's ORE and its INGOT deliberately carry the same word. `iron_ore` and
+ * `iron_ingot` are both `material: 'iron'`, so a recipe asking for `iron: 4` is
+ * payable out of either, and a player who has mined but not smelted is not told
+ * they have no iron while standing on twenty lumps of it. Nothing in
+ * `recipes.js` smelts ore into an ingot today, so a rule that only ingots count
+ * would leave every metal recipe unpayable, which is the state this change
+ * found the game in. The uniqueness check below is therefore per family.
+ */
+const materialBase = (id, name, material, weight, tag, extra = {}) => addBase({
+  id, name, kind: 'material', kinds: ['material', tag], slot: null,
+  weight, strReq: 0, durability: null, stack: true, material, ...extra,
+});
+
+/**
+ * The woods.
+ *
+ * `grown: true` means a tree of that kind really stands in the world and an axe
+ * really fells it. The four `ores.js` WOODS that no forest grows (`ash`,
+ * `heartwood`, `ironbark`; `oak` is both) are still bases, because bows, staves
+ * and hafts are authored against them in `recipes.js` and a recipe that can
+ * never be paid is worse than a log nothing drops. They are `grown: false`, and
+ * `auditMaterialBases` counts them out loud rather than letting them look like
+ * something you could go and chop.
+ *
+ * Deadwood and Cactus Wood are not "logs" in the sentence sense, so they are
+ * not called one. Their material ids stay the flora kind (`dead`, `cactus`),
+ * which is what `interact.js` reads off the field it felled.
+ */
+const logBase = (material, id, name, grown) => {
+  LOG_BASES.push(id);
+  LOG_OF[material] = id;
+  return materialBase(id, name, material, LOG_WEIGHT, 'wood', { wood: true, grown });
+};
+// The eleven the forest grows, in flora.js WARM_ORDER's own order.
+logBase('oak', 'oak_log', 'Oak Log', true);
+logBase('birch', 'birch_log', 'Birch Log', true);
+logBase('beech', 'beech_log', 'Beech Log', true);
+logBase('fir', 'fir_log', 'Fir Log', true);
+logBase('spruce', 'spruce_log', 'Spruce Log', true);
+logBase('pine', 'pine_log', 'Pine Log', true);
+logBase('sakura', 'sakura_log', 'Sakura Log', true);
+logBase('willow', 'willow_log', 'Willow Log', true);
+logBase('palm', 'palm_log', 'Palm Log', true);
+logBase('dead', 'deadwood', 'Deadwood', true);
+logBase('cactus', 'cactus_wood', 'Cactus Wood', true);
+// The three ores.js woods with no tree of their own yet.
+logBase('ash', 'ash_log', 'Ash Log', false);
+logBase('heartwood', 'heartwood_log', 'Heartwood Log', false);
+logBase('ironbark', 'ironbark_log', 'Ironbark Log', false);
+
+// The ten veins. "Ore would be iron, copper, whatever we authored already":
+// this IS what was authored already, read straight off the ladder.
+for (const o of ORES) {
+  const id = `${o.id}_ore`;
+  ORE_BASES.push(id);
+  ORE_OF[o.id] = id;
+  materialBase(id, `${o.name} Ore`, o.id, ORE_WEIGHT, 'ore', { tier: o.tier });
+}
+
+// The ingots. `ores.js` METALS is the list of everything a smith can work: the
+// nine ores that forge something, plus Bronze, which is an alloy and not a vein.
+// Tin is deliberately not here, because ores.js says "tin alone forges nothing;
+// it becomes bronze"; a recipe asking for tin is paid in Tin Ore.
+for (const m of METALS) {
+  const id = `${m.id}_ingot`;
+  INGOT_BASES.push(id);
+  INGOT_OF[m.id] = id;
+  materialBase(id, `${m.name} Ingot`, m.id, INGOT_WEIGHT, 'metal', { tier: m.tier, alloy: !!ALLOYS[m.id] });
+}
+
+/**
+ * The three ids this change removed, and what each one now means.
+ *
+ * A v1 save, an old sack, a dev bench and `win_crafting.giveMaterial` all still
+ * say `log`, `ore` and `ingot`. None of them should throw, and none of them
+ * should silently become nothing, so `baseFor` resolves them to a default and
+ * warns ONCE per id, naming the file and line that asked. The warning is the
+ * point: it is a list of the callers that still have to be taught the real id.
+ */
+export const BASE_ALIASES = { log: 'oak_log', ore: 'copper_ore', ingot: 'iron_ingot' };
+
+const warnedAliases = new Set();
+/** The first frame outside this file, for the warning. "unknown" when there is no stack. */
+function callerOf() {
+  const lines = String(new Error().stack || '').split('\n').slice(1);
+  for (const l of lines) {
+    if (/items\.js/.test(l)) continue;
+    const m = l.match(/\(?([^()\s]+:\d+:\d+)\)?\s*$/);
+    if (m) return m[1];
+  }
+  return 'unknown';
+}
+function aliasWarn(id) {
+  if (warnedAliases.has(id)) return;
+  warnedAliases.add(id);
+  console.warn(`[items] "${id}" is no longer a base. It resolves to "${BASE_ALIASES[id]}"; `
+    + `the caller at ${callerOf()} should name the material it means.`);
+}
+/** Which alias ids have actually been used this session. The test drives it both ways. */
+export const aliasesUsed = () => [...warnedAliases];
+
+/**
+ * Every material family is complete, joined both ways, and nothing is a base
+ * twice. Runs at load under `auditItems`, so a rename in ores.js that leaves a
+ * recipe unpayable dies at import instead of in front of a smith.
+ */
+export function auditMaterialBases() {
+  const bad = [];
+
+  const check = (list, join, table, tag, weight, what) => {
+    const seenMaterial = new Map();
+    for (const id of list) {
+      const b = BASES[id];
+      if (!b) { bad.push(`${what} base "${id}" is not a base`); continue; }
+      if (!b.stack) bad.push(`${id} does not stack, and a pile of ${what} has to`);
+      if (b.kind !== 'material') bad.push(`${id} is kind "${b.kind}", not a material`);
+      if (!b.kinds.includes(tag)) bad.push(`${id} is not tagged "${tag}"`);
+      if (b.weight !== weight) bad.push(`${id} weighs ${b.weight}, and ${what} weighs ${weight}`);
+      if (!b.material) bad.push(`${id} carries no material, so no recipe could ever find it`);
+      if (join[b.material] !== id) bad.push(`${id} says material "${b.material}", which joins back to "${join[b.material]}"`);
+      if (b.slot !== null) bad.push(`${id} wants slot ${b.slot}`);
+      if (takesRarity(b)) bad.push(`${id} takes rarity, and there is no such thing as a purple ingot`);
+      const twin = seenMaterial.get(b.material);
+      // Two stacks answering to one word would make `countMaterial` count one
+      // and spend the other, which is the quietest bug in a crafting system.
+      if (twin) bad.push(`"${b.material}" is carried by both ${twin} and ${id}`);
+      seenMaterial.set(b.material, id);
+    }
+    for (const row of table) {
+      if (!join[row.id]) bad.push(`${what}: ores.js has "${row.id}" and nothing joins to it`);
+    }
+  };
+
+  check(LOG_BASES, LOG_OF, WOODS, 'wood', LOG_WEIGHT, 'wood');
+  check(ORE_BASES, ORE_OF, ORES, 'ore', ORE_WEIGHT, 'ore');
+  check(INGOT_BASES, INGOT_OF, METALS, 'metal', INGOT_WEIGHT, 'metal');
+
+  // Names say what the thing is. "Log" and "Ore" and "Ingot" on their own are
+  // the words this change exists to remove, so they may not come back as a name.
+  for (const id of [...LOG_BASES, ...ORE_BASES, ...INGOT_BASES]) {
+    const n = BASES[id]?.name || '';
+    if (/^(log|ore|ingot|wood)$/i.test(n)) bad.push(`${id} is named "${n}", which says nothing`);
+  }
+  for (const id of ORE_BASES) if (!/ Ore$/.test(BASES[id].name)) bad.push(`${BASES[id].name} does not say it is ore`);
+  for (const id of INGOT_BASES) if (!/ Ingot$/.test(BASES[id].name)) bad.push(`${BASES[id].name} does not say it is an ingot`);
+
+  // The aliases: each resolves to a real base, and none of them is a base
+  // itself, or `addBase` would have thrown and `baseFor` would never reach the
+  // alias table at all.
+  for (const [from, to] of Object.entries(BASE_ALIASES)) {
+    if (BASES[from]) bad.push(`"${from}" is still a base, so the alias is dead code`);
+    if (!BASES[to]) bad.push(`the alias "${from}" points at "${to}", which is not a base`);
+    // baseForQuiet, not baseFor: the warning fires once per id for ever, and an
+    // audit that spent it at import would leave every real caller silent.
+    if (baseForQuiet(from)?.id !== to) bad.push(`baseForQuiet("${from}") does not reach "${to}"`);
+  }
+
+  if (bad.length) throw new Error(`auditMaterialBases: ${bad.length} problem(s)\n  ${bad.join('\n  ')}`);
+  return {
+    logs: LOG_BASES.length,
+    grown: LOG_BASES.filter((id) => BASES[id].grown).length,
+    ores: ORE_BASES.length,
+    ingots: INGOT_BASES.length,
+    aliases: { ...BASE_ALIASES },
+  };
 }
 // The kit oddments 04-CLASSES-ABILITIES names and 03 never tabled, plus the
 // hunting bag's goods and stone, which the old game carried and Masonry needs.
@@ -465,11 +683,35 @@ export function auditFoodBases() {
 
 // --------------------------------------------------------------- accessors
 
-/** The base record for an id, an item, or a base record. Null when unknown. */
+/**
+ * The base record for an id, an item, or a base record. Null when unknown.
+ *
+ * `log`, `ore` and `ingot` are not bases any more. They resolve here, to the
+ * default in BASE_ALIASES, with one warning per id naming the caller: a v1
+ * save, an old sack on the ground and a dev bench that still says `ingot` all
+ * keep working, and the console says exactly which line has to be taught the
+ * real material. The lookup is a plain miss first, so nothing that names a real
+ * base pays for this.
+ */
 export function baseFor(id) {
   if (!id) return null;
   if (typeof id === 'object') return baseFor(id.base || id.id);
-  return BASES[id] || null;
+  const b = BASES[id];
+  if (b) return b;
+  const alias = BASE_ALIASES[id];
+  if (alias) { aliasWarn(id); return BASES[alias] || null; }
+  return null;
+}
+
+/**
+ * The same lookup with the warning switched off, for audits and for a test that
+ * wants to prove the join without spending the one warning the real path owes
+ * its caller.
+ */
+export function baseForQuiet(id) {
+  if (!id) return null;
+  if (typeof id === 'object') return baseForQuiet(id.base || id.id);
+  return BASES[id] || BASES[BASE_ALIASES[id]] || null;
 }
 
 /** Every slot this base could sit in, best first. Empty when it is not wearable. */
@@ -705,6 +947,11 @@ export function auditItems(items = []) {
   if (clothAr !== 9) bad(`full cloth is AR ${clothAr}, the document says 9`);
   if (clothWt !== 8) bad(`full cloth is ${clothWt} stones, the document says 8`);
 
+  // The material report hangs off the function rather than off its return
+  // value, because `loot.test.mjs` and `loot_drops.test.mjs` both assert
+  // `auditItems(...) === true` and neither of them is this agent's to change.
+  // `auditItems.materials.aliases` is where the three dead ids are listed.
+  auditItems.materials = auditMaterialBases();
   return true;
 }
 

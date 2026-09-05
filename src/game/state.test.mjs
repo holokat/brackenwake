@@ -13,9 +13,9 @@ import {
   createState, migrateV1, hydrate, blankCharacter, auditState, baseOf, weightOf, makeStack,
   CAP, SAVE_KEY, SAVE_KEY_V1, SAVE_VERSION, SAVE_VERSION_V1, START_COINS,
   CARRIED, GOOD_CAP, TOOLS, PACK_SLOTS, BAR_SLOTS,
-  MATERIAL_BASE, LOCAL_BASES, SKILL_IDS,
+  MATERIAL_BASE, MATERIAL_STACKS, MATERIAL_OF, materialFamilyOf, MATERIALS, LOCAL_BASES, SKILL_IDS,
 } from './state.js';
-import { SLOTS } from '../mmo/items.js';
+import { SLOTS, LOG_BASES, ORE_BASES, BASES } from '../mmo/items.js';
 import { SKILLS } from '../mmo/skills.js';
 import { STATS } from '../mmo/stats.js';
 
@@ -42,7 +42,12 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('every material, good and tool maps to a base something knows', !!r, `${r.locals} bases written locally, ${r.skills} skills`);
   check('no base is local any more: items.js carries stone, pickaxe, venison and game_meat', Object.keys(LOCAL_BASES).length === 0
     && ['stone', 'pickaxe', 'venison', 'game_meat'].every((id) => baseOf(id) && !baseOf(id).localBase), Object.keys(LOCAL_BASES).join(',') || 'none local');
-  check('wood is a log, ore is ore, stone is stone', MATERIAL_BASE.wood === 'log' && MATERIAL_BASE.ore === 'ore' && baseOf('stone').stack === true && baseOf('pickaxe').kind === 'tool');
+  // G9 split the one `log` base into fourteen woods and the one `ore` into ten
+  // veins, so the three HUD counters became sums and the default a caller with
+  // no species gets is oak and copper.
+  check('wood defaults to an oak log, ore to copper ore, stone is stone',
+    MATERIAL_BASE.wood === 'oak_log' && MATERIAL_BASE.ore === 'copper_ore'
+    && baseOf('stone').stack === true && baseOf('pickaxe').kind === 'tool');
   check('and the skill list is the whole of skills.js', SKILL_IDS.length === SKILLS.length, `${SKILL_IDS.length}`);
 }
 
@@ -84,7 +89,7 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('200 wood into an empty pack keeps 150', a.added === 150, JSON.stringify(a));
   check('and reports the other 50 as dropped', a.dropped === 50, JSON.stringify(a));
   check('the pack holds exactly the cap', s.materials.wood === 150, String(s.materials.wood));
-  check('and it is one stack of 150 logs, in one slot', stacksIn(s.character, 'log').length === 1 && stacksIn(s.character, 'log')[0].count === 150, JSON.stringify(stacksIn(s.character, 'log').map((i) => i.count)));
+  check('and it is one stack of 150 oak logs, in one slot', stacksIn(s.character, 'oak_log').length === 1 && stacksIn(s.character, 'oak_log')[0].count === 150, JSON.stringify(stacksIn(s.character, 'oak_log').map((i) => i.count)));
   const b = s.add('wood', 10);
   check('a full pack takes nothing and drops all 10', b.added === 0 && b.dropped === 10, JSON.stringify(b));
 
@@ -109,6 +114,76 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('take 99 of 7 takes 7 and cannot go negative', s.take('wood', 99).taken === 7 && s.materials.wood === 0);
   check('and the empty stack gives its slot back', s.character.pack.items.every((i) => i === null), JSON.stringify(s.character.pack.items.filter(Boolean)));
   check('take from an empty pack takes nothing', s.take('wood', 1).taken === 0);
+}
+
+
+// ---- G9: the three counters count every species -----------------------------
+//
+// The HUD still draws three numbers and the market still sells three things,
+// but underneath there are fourteen woods and ten veins. So `materials.wood` is
+// a SUM, `addMaterial` is the species aware write, and `take` comes out of
+// every stack in the family rather than only the first one it thinks of.
+{
+  const s = createState({ storage: null });
+  check('every stack a counter counts is real, stacks, and joins back',
+    MATERIALS.every((m) => MATERIAL_STACKS[m].length > 0
+      && MATERIAL_STACKS[m].every((b) => BASES[b]?.stack && materialFamilyOf(b) === m)),
+    MATERIALS.map((m) => `${m}:${MATERIAL_STACKS[m].length}`).join(' '));
+  check('wood counts all fourteen woods and ore all ten veins',
+    MATERIAL_STACKS.wood.length === LOG_BASES.length && MATERIAL_STACKS.ore.length === ORE_BASES.length,
+    `${MATERIAL_STACKS.wood.length} woods, ${MATERIAL_STACKS.ore.length} veins`);
+  check('and no stack is counted twice, which would double a HUD number',
+    new Set(Object.keys(MATERIAL_OF)).size === MATERIALS.reduce((t, m) => t + MATERIAL_STACKS[m].length, 0));
+  check('a longsword is not a material and says so', materialFamilyOf('longsword') === null);
+  check('and neither is a word nobody has heard of', materialFamilyOf('mithril_log') === null);
+
+  const a = s.addMaterial('birch_log', 4);
+  check('four birch logs go in as birch, not as oak',
+    a.added === 4 && a.base === 'birch_log' && a.material === 'wood', JSON.stringify(a));
+  check('and the HUD reads four wood', s.materials.wood === 4, String(s.materials.wood));
+  s.addMaterial('sakura_log', 3);
+  s.addMaterial('palm_log', 2);
+  check('three species in the pack are one number on the HUD', s.materials.wood === 9, String(s.materials.wood));
+  check('and three stacks in the pack', s.character.pack.items.filter((i) => i && /_log$/.test(i.base)).length === 3,
+    s.character.pack.items.filter(Boolean).map((i) => `${i.base}x${i.count}`).join(' '));
+
+  s.addMaterial('starfall_ore', 2);
+  s.addMaterial('copper_ore', 5);
+  check('two veins are one ore number', s.materials.ore === 7, String(s.materials.ore));
+  check('and wood did not move when ore did', s.materials.wood === 9);
+
+  // the cap is the FAMILY's, not the stack's
+  const t = createState({ storage: null });
+  t.addMaterial('oak_log', 100);
+  const over = t.addMaterial('birch_log', 100);
+  check('a hundred oak and a hundred birch is a hundred and fifty of wood, not three hundred',
+    over.added === 50 && over.dropped === 50 && t.materials.wood === CAP, JSON.stringify(over));
+  check('and the fifty that did not fit came back rather than vanishing', over.dropped === 50);
+
+  // the write with no species at all
+  const u = createState({ storage: null });
+  u.add('wood', 6);
+  check('add("wood") with no species opens a stack of oak',
+    u.character.pack.items.some((i) => i && i.base === 'oak_log' && i.count === 6),
+    u.character.pack.items.filter(Boolean).map((i) => i.base).join(' '));
+  check('and add still reports both halves', JSON.stringify(u.add('wood', 0)) === '{"added":0,"dropped":0}');
+  const bad = u.addMaterial('longsword', 3);
+  check('addMaterial refuses a thing that is not a material stack',
+    bad.added === 0 && bad.dropped === 3 && bad.material === null, JSON.stringify(bad));
+
+  // taking comes out of every species, which is what makes "sell all" work
+  const v = createState({ storage: null });
+  v.addMaterial('oak_log', 4);
+  v.addMaterial('birch_log', 3);
+  v.addMaterial('palm_log', 2);
+  const took = v.take('wood', 8);
+  check('selling eight wood takes it out of three species, oldest stack first',
+    took.taken === 8 && JSON.stringify(took.by) === '{"oak_log":4,"birch_log":3,"palm_log":1}', JSON.stringify(took));
+  check('and one palm log is left', v.materials.wood === 1, String(v.materials.wood));
+  const rest = v.take('wood', 99);
+  check('asking for more than is there takes what is there and says so',
+    rest.taken === 1 && v.materials.wood === 0, JSON.stringify(rest));
+  check('and taking from an empty family takes nothing', v.take('wood', 5).taken === 0);
 }
 
 // ---- the views really are views --------------------------------------------
@@ -267,9 +342,9 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   }));
   const s = createState({ storage: store });
   check('a v1 save loads when there is no v2', s.load() === true);
-  check('37 wood migrates to a stack of 37 logs', stacksIn(s.character, 'log').length === 1 && stacksIn(s.character, 'log')[0].count === 37, JSON.stringify(stacksIn(s.character, 'log').map((i) => i.count)));
+  check('37 wood migrates to a stack of 37 oak logs', stacksIn(s.character, 'oak_log').length === 1 && stacksIn(s.character, 'oak_log')[0].count === 37, JSON.stringify(stacksIn(s.character, 'oak_log').map((i) => i.count)));
   check('12 stone migrates to a stack of 12', stacksIn(s.character, 'stone')[0].count === 12);
-  check('4 ore migrates to a stack of 4', stacksIn(s.character, 'ore')[0].count === 4);
+  check('4 ore migrates to a stack of 4 copper ore', stacksIn(s.character, 'copper_ore')[0].count === 4);
   check('and the old views read the same numbers back', s.materials.wood === 37 && s.materials.stone === 12 && s.materials.ore === 4, JSON.stringify({ ...s.materials }));
   check('6 venison and 2 game meat come with them', s.goods.venison === 6 && s.goods.game_meat === 2, JSON.stringify(s.goods));
   check('245 coins become 245 gold', s.character.gold === 245 && s.coins === 245, String(s.coins));
@@ -346,6 +421,37 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   const s = createState({ storage: memStore() });
   check('no save at all is not an error, and leaves a new game', s.load() === false && s.coins === 120 && s.tools.size === 0);
 }
+
+// ---- G9: a v2 save from before the split -----------------------------------
+//
+// A save written yesterday holds stacks called `log`, `ore` and `ingot`, and
+// none of those is a base any more. They must not be dropped as unknown and
+// they must not stop being counted by the HUD's three numbers, or a player who
+// reloads finds their timber gone.
+{
+  const store = memStore();
+  store.setItem(SAVE_KEY, JSON.stringify({
+    v: 2, gold: 30,
+    pack: { slots: 40, items: [
+      { base: 'log', count: 9 }, { base: 'ore', count: 4 },
+      { base: 'ingot', count: 2 }, { base: 'stone', count: 3 },
+      { base: 'unobtanium', count: 5 },
+    ] },
+  }));
+  const s = createState({ storage: store });
+  check('an old v2 save loads', s.load() === true);
+  const bases = s.character.pack.items.filter(Boolean).map((i) => `${i.base}x${i.count}`);
+  check('the nine logs become nine oak logs and are still counted as wood',
+    bases.includes('oak_logx9') && s.materials.wood === 9, bases.join(' '));
+  check('the four ore become four copper ore and are still counted as ore',
+    bases.includes('copper_orex4') && s.materials.ore === 4, String(s.materials.ore));
+  check('the two ingots become iron ingots, which the HUD never counted and still does not',
+    bases.includes('iron_ingotx2') && s.materials.ore === 4);
+  check('the stone is untouched', s.materials.stone === 3);
+  check('and a base nothing has ever heard of is still dropped rather than carried as a hole',
+    !bases.some((b) => /unobtanium/.test(b)), bases.join(' '));
+}
+
 {
   const store = memStore(); store.setItem(SAVE_KEY, '{not json');
   const s = createState({ storage: store });

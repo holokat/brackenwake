@@ -233,7 +233,11 @@ export { ITEM_BASES };
 // ---------------------------------------------------------------------------
 const KIT_MATERIAL = { cloth: 'cloth', leather: 'leather', studdedLeather: 'studded', ringmail: 'ring', chainmail: 'chain', plate: 'plate' };
 const KIT_SPECIAL = {
-  clothRobe: 'cloth_chest', kiteShield: 'kite', towerShield: 'tower', ironIngot: 'ingot', potionMana: 'potion',
+  // G9 split the one grey `ingot` stack into a named ingot per metal, so the
+  // artisan's kit says which one it is. `iron_ingot` is what "ironIngot" always
+  // meant. `auditKitBases` reads items.js BASES directly, not `baseFor`, so the
+  // alias would not have saved this file: it threw at import.
+  clothRobe: 'cloth_chest', kiteShield: 'kite', towerShield: 'tower', ironIngot: 'iron_ingot', potionMana: 'potion',
   holyBook: 'holy_book', boneStaff: 'bone_staff', darkRobe: 'dark_robe', leatherApron: 'leather_apron',
   smithHammer: 'smith_hammer', reagentPouch: 'reagent_pouch',
 };

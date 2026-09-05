@@ -629,7 +629,7 @@ console.log('win_dev: a twenty slot save grows to eighty and keeps every item wh
     pack: { slots: 20, items: new Array(20).fill(null) },
     settings: {},
   };
-  const bases = ['longsword', 'plate_chest', 'ingot', 'ore', 'kite'];
+  const bases = ['longsword', 'plate_chest', 'iron_ingot', 'copper_ore', 'kite'];
   bases.forEach((b, i) => { old.pack.items[i * 4] = makeItem({ base: b, seed: i + 1 }); });
   const doc = hydrate(JSON.parse(JSON.stringify(old)));
   check('the pack now has eighty slots', doc.pack.slots === 80 && doc.pack.items.length === 80, `${doc.pack.slots} slots, ${doc.pack.items.length} entries`);
@@ -646,8 +646,8 @@ console.log('win_dev: a twenty slot save grows to eighty and keeps every item wh
   const doc = hydrate(big);
   check('a hundred and twenty slot pack stays a hundred and twenty', doc.pack.slots === 120 && doc.pack.items.length === 120, String(doc.pack.slots));
   check('and the item in the last slot is still there', !!doc.pack.items[119] && doc.pack.items[119].base === 'longsword');
-  const daft = hydrate({ v: 2, pack: { slots: 4, items: [makeItem({ base: 'ingot', seed: 1 })] } });
-  check('a save claiming four slots is raised to eighty, not honoured', daft.pack.slots === 80 && daft.pack.items[0].base === 'ingot');
+  const daft = hydrate({ v: 2, pack: { slots: 4, items: [makeItem({ base: 'iron_ingot', seed: 1 })] } });
+  check('a save claiming four slots is raised to eighty, not honoured', daft.pack.slots === 80 && daft.pack.items[0].base === 'iron_ingot');
   check('and a save with no slot count at all is eighty', hydrate({ v: 2, pack: { items: [] } }).pack.slots === 80);
 }
 {
@@ -664,7 +664,7 @@ console.log('win_dev: which bases take a rarity');
 {
   check('a longsword can be blue', takesRarity('longsword') === true);
   check('a breastplate can be blue', takesRarity('plate_chest') === true);
-  check('an ingot cannot', takesRarity('ingot') === false);
+  check('an ingot cannot', takesRarity('iron_ingot') === false);
   check('and a base nobody has cannot', takesRarity('lightsabre') === false);
   if (typeof itemRules.takesRarity === 'function') {
     const same = Object.keys(BASES).every((id) => takesRarity(id) === !!itemRules.takesRarity(id));

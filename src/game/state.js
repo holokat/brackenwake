@@ -56,6 +56,7 @@
 
 import {
   makeItem, baseFor, BASES, SLOTS, weightOf as itemWeight,
+  LOG_BASES, ORE_BASES,
 } from '../mmo/items.js';
 import { STATS } from '../mmo/stats.js';
 import { SKILLS, DEFAULT_LOCK, LOCKS } from '../mmo/skills.js';
@@ -126,8 +127,40 @@ export function weightOf(item) {
   return b.weight * n;
 }
 
-// The material and good names of the old game, and the item base each becomes.
-export const MATERIAL_BASE = { wood: 'log', stone: 'stone', ore: 'ore' };
+// ------------------------------------------------------ the legacy view
+//
+// The old game had three counters: wood, stone and ore. The HUD still draws
+// three numbers, `shop.js` still sells three things and a v1 save still holds
+// three keys, and none of that changes. What changed underneath is that there
+// is no longer one base called `log` and one called `ore`: G9 split them into
+// fourteen woods and ten ores, because a pack that says "12 Log" cannot tell
+// you whether it is the oak a bow wants.
+//
+// So the view is a SUM and the write is a CHOICE:
+//
+//   MATERIAL_STACKS  every base the counter counts. `state.materials.wood` is
+//                    the total of all fourteen logs, so an oak, a birch and a
+//                    palm in the pack read as one number on the HUD and sell
+//                    as one lot in the market.
+//   MATERIAL_BASE    the ONE base a caller gets when it does not say which. It
+//                    is what `add('wood', n)` opens a stack of, and what a v1
+//                    save's `wood: 37` migrates into. Oak, because oak is the
+//                    tier 1 wood in `ores.js` and the commonest tree in the
+//                    meadow a settler starts in.
+//
+// A caller that knows the species uses `addMaterial(baseId, n)` instead, and
+// `interact.js` is the one that does: a felled birch leaves birch.
+export const MATERIAL_BASE = { wood: 'oak_log', stone: 'stone', ore: 'copper_ore' };
+/** Every base each legacy counter counts, in items.js's own order. */
+export const MATERIAL_STACKS = { wood: LOG_BASES, stone: ['stone'], ore: ORE_BASES };
+/** items.js base id -> the legacy counter it belongs to. Null for anything else. */
+export const MATERIAL_OF = (() => {
+  const out = {};
+  for (const [m, list] of Object.entries(MATERIAL_STACKS)) for (const b of list) out[b] = m;
+  return out;
+})();
+/** Which of wood, stone and ore this base counts as, or null. */
+export const materialFamilyOf = (baseId) => MATERIAL_OF[baseId] || null;
 export const GOOD_BASE = { venison: 'venison', game_meat: 'game_meat' };
 // 07: "axe in mainHand, pickaxe in the pack, bow in ranged".
 export const TOOL_ITEM = {
@@ -297,9 +330,10 @@ export function createState(opts = {}) {
   // Enumerable getters, so `{ ...state.materials }` and JSON.stringify read the
   // pack rather than a stale copy. hud.setMaterials spreads them every redraw.
   const materials = {};
+  const countFamily = (m) => MATERIAL_STACKS[m].reduce((t, b) => t + countOf(b), 0);
   for (const m of MATERIALS) {
     Object.defineProperty(materials, m, {
-      enumerable: true, get: () => countOf(MATERIAL_BASE[m]),
+      enumerable: true, get: () => countFamily(m),
     });
   }
   const goods = {};
@@ -351,17 +385,40 @@ export function createState(opts = {}) {
       doc.heldTool = t; notify('tool');
     },
 
-    /** Put `n` of a material in the pack. Never silent: what did not fit comes back. */
+    /**
+     * Put `n` of a NAMED material stack in the pack: `addMaterial('birch_log', 4)`.
+     * The cap is the family's, not the stack's, so twenty oak and twenty birch
+     * are forty of the hundred and fifty a pack will hold in wood.
+     *
+     * Never silent: what did not fit comes back, and so does the base it went
+     * in as, because a caller that says "four logs" has to be able to say WHICH.
+     */
+    addMaterial(baseId, n) {
+      const want = Math.max(0, Math.floor(isNum(n) ? n : 0));
+      const family = materialFamilyOf(baseId);
+      if (!family) {
+        console.warn(`[state] addMaterial("${baseId}") is not a material stack this game carries`);
+        return { added: 0, dropped: want, base: baseId, material: null };
+      }
+      const room = Math.max(0, CAP - countFamily(family));
+      const added = stackIn(baseId, want, room);
+      if (added > 0) notify('materials');
+      return { added, dropped: want - added, base: baseId, material: family };
+    },
+
+    /**
+     * The old three-counter call, kept for every caller that has no species to
+     * offer: a shop, a story card, the dev bench. It opens the default stack of
+     * the family, which for wood is oak.
+     */
     add(material, n) {
       const want = Math.max(0, Math.floor(isNum(n) ? n : 0));
       if (!MATERIALS.includes(material)) {
         console.warn(`[state] add("${material}") is not a material this game carries`);
         return { added: 0, dropped: want };
       }
-      const room = Math.max(0, CAP - countOf(MATERIAL_BASE[material]));
-      const added = stackIn(MATERIAL_BASE[material], want, room);
-      if (added > 0) notify('materials');
-      return { added, dropped: want - added };
+      const { added, dropped } = state.addMaterial(MATERIAL_BASE[material], want);
+      return { added, dropped };
     },
 
     /**
@@ -389,13 +446,26 @@ export function createState(opts = {}) {
       return { taken };
     },
 
-    /** Take `n` out of the pack, or as much of it as is there. */
+    /**
+     * Take `n` of a material out of the pack, or as much of it as is there.
+     *
+     * It comes out of EVERY stack in the family, in pack order, which is what
+     * makes `shop.js` "sell all wood" sell the birch as well as the oak. What
+     * came out of which stack is reported in `by`, so a caller that wants to
+     * say "four oak and two birch" can.
+     */
     take(material, n) {
-      if (!MATERIALS.includes(material)) return { taken: 0 };
-      const want = Math.max(0, Math.floor(isNum(n) ? n : 0));
-      const taken = stackOut(MATERIAL_BASE[material], want);
+      if (!MATERIALS.includes(material)) return { taken: 0, by: {} };
+      let left = Math.max(0, Math.floor(isNum(n) ? n : 0));
+      let taken = 0;
+      const by = {};
+      for (const baseId of MATERIAL_STACKS[material]) {
+        if (left <= 0) break;
+        const got = stackOut(baseId, left);
+        if (got > 0) { by[baseId] = got; taken += got; left -= got; }
+      }
       if (taken > 0) notify('materials');
-      return { taken };
+      return { taken, by };
     },
 
     spend(c) {
@@ -699,8 +769,25 @@ export function migrateV1(d) {
  */
 export function auditState() {
   for (const [m, b] of Object.entries(MATERIAL_BASE)) {
-    if (!baseOf(b)) throw new Error(`auditState: the material ${m} maps to "${b}", which is not a base`);
+    if (!BASES[b]) throw new Error(`auditState: the material ${m} maps to "${b}", which is not a base`);
+    if (!MATERIAL_STACKS[m]?.includes(b)) throw new Error(`auditState: the default ${b} is not one of the stacks ${m} counts`);
   }
+  // Every counter counts something, every stack it counts is real and stacks,
+  // and no stack is counted by two counters, which would double a HUD number.
+  const counted = new Map();
+  for (const m of MATERIALS) {
+    const list = MATERIAL_STACKS[m];
+    if (!Array.isArray(list) || !list.length) throw new Error(`auditState: ${m} counts no stacks at all`);
+    for (const b of list) {
+      const base = BASES[b];
+      if (!base) throw new Error(`auditState: ${m} counts "${b}", which is not a base`);
+      if (!base.stack) throw new Error(`auditState: ${m} counts "${b}", which does not stack`);
+      if (counted.has(b)) throw new Error(`auditState: "${b}" is counted as both ${counted.get(b)} and ${m}`);
+      counted.set(b, m);
+      if (materialFamilyOf(b) !== m) throw new Error(`auditState: "${b}" joins back to ${materialFamilyOf(b)}, not ${m}`);
+    }
+  }
+  if (materialFamilyOf('longsword') !== null) throw new Error('auditState: a longsword is not a material');
   for (const [g, b] of Object.entries(GOOD_BASE)) {
     if (!baseOf(b)) throw new Error(`auditState: the good ${g} maps to "${b}", which is not a base`);
   }
@@ -712,7 +799,10 @@ export function auditState() {
     if (BASES[id]) throw new Error(`auditState: items.js now has a "${id}" base, so the local one should go`);
   }
   if (SKILL_IDS.length !== SKILLS.length) throw new Error('auditState: the skill list lost an entry');
-  return { locals: Object.keys(LOCAL_BASES).length, skills: SKILL_IDS.length };
+  return {
+    locals: Object.keys(LOCAL_BASES).length, skills: SKILL_IDS.length,
+    stacks: Object.fromEntries(MATERIALS.map((m) => [m, MATERIAL_STACKS[m].length])),
+  };
 }
 
 auditState();

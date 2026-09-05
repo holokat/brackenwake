@@ -51,7 +51,7 @@ export const PREFERRED = {
   quarterstaff: 'quarterstaff', shortbow: 'shortbow', axe: 'axe',
   buckler: 'buckler', kiteShield: 'kite', towerShield: 'tower',
   clothRobe: 'cloth_chest',
-  arrow: 'arrow', ironIngot: 'ingot', potionMana: 'potion', bandage: 'bandage',
+  arrow: 'arrow', ironIngot: 'iron_ingot', potionMana: 'potion', bandage: 'bandage',
   reagentPouch: 'reagent_pouch',
   pickaxe: 'pickaxe', tongs: 'tongs', smithHammer: 'smith_hammer', lockpick: 'lockpick',
   holyBook: 'holy_book', skull: 'skull', lute: 'lute',
