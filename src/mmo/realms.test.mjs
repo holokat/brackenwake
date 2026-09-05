@@ -7,10 +7,7 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
 console.log('realms: the sheet');
 check('nine realms', REALM_COUNT === 9, String(REALM_COUNT));
 check('every realm has a hub, town or hamlet', REALMS.every((r) => r.places.some((p) => ['hub', 'town', 'hamlet'].includes(p.kind))));
-// the Greenwold's is its ring of stones and the Isles' is the Harbour itself,
-// so the mega structure may be a place of that kind or the named hub
-check('every realm has a mega structure', REALMS.every((r) => r.mega && (r.places.some((p) => p.kind === 'megastructure') || r.places.some((p) => ['hub', 'landmark'].includes(p.kind) && r.mega.toLowerCase().includes(p.name.replace(/^the /i, '').toLowerCase().split(' ')[0])))),
-  REALMS.filter((r) => !r.places.some((p) => p.kind === 'megastructure')).map((r) => r.id).join(', '));
+check('every realm has a mega structure among its places', REALMS.every((r) => r.mega && r.places.some((p) => p.kind === 'megastructure')), REALMS.filter((r) => !r.places.some((p) => p.kind === 'megastructure')).map((r) => r.id).join(', '));
 check('every realm has a dungeon with a boss', REALMS.every((r) => r.places.some((p) => p.kind === 'dungeon' && p.boss)));
 check('every realm has a mine', REALMS.every((r) => r.places.some((p) => p.kind === 'mine')));
 check('every realm has at least three places with a mechanic of their own', REALMS.every((r) => r.places.filter((p) => p.mechanic).length >= 3),
