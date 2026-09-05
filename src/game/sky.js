@@ -372,7 +372,9 @@ export function createSky(sc, opts = {}) {
     time += Math.max(0, dt);
 
     if (nowMs != null && Number.isFinite(nowMs)) {
-      setPhase(phaseFromClock(nowMs, opts.cycleS ?? DAY_CYCLE_S));
+      // the scene's clock offset (the dev bench's time of day) moves the sun too
+      const shifted = nowMs + (Number.isFinite(sc?.clockOffset) ? sc.clockOffset : 0);
+      setPhase(phaseFromClock(shifted, opts.cycleS ?? DAY_CYCLE_S));
     } else {
       if (lastDay != null && Math.abs(d - lastDay) > 1e-7) rising = d > lastDay;
       if (d > 1e-6 && d < 1 - 1e-6) setPhase(phaseFromDay(d, rising));

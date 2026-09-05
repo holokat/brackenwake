@@ -305,6 +305,8 @@ export function createScene(container) {
     for (const o of [...skyDomes, sunBall, sunGlow, moon]) o.visible = !analytic;
   }
 
+  let clockOffset = 0;   // ms added to the frame clock, for the dev bench's time of day
+
   function setDay(dayFactor) {
     const d = clamp01(dayFactor);
     day = d;
@@ -356,7 +358,15 @@ export function createScene(container) {
     setDay, setFog, follow, resize, useAnalyticSky, setSunDir,
     get analyticSky() { return analytic; },
     render() { renderer.render(scene, camera); },
-    dayFactor(nowMs) { return dayFactorAt(nowMs); },
+    /**
+     * The clock the sky and the lights read. The dev bench moves it with
+     * setClockOffset(ms) so a tester can see noon at midnight; the sky adds
+     * the same offset to the frame clock it is handed, so the sun in the dome
+     * and the light on the ground never disagree.
+     */
+    dayFactor(nowMs) { return dayFactorAt(nowMs + clockOffset); },
+    get clockOffset() { return clockOffset; },
+    setClockOffset(ms) { clockOffset = Number.isFinite(ms) ? ms : 0; },
     /** The curve setDay just applied, for anything that wants to match it. */
     lightingAt, applyLighting,
     get day() { return day; },

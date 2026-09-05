@@ -250,6 +250,20 @@ ck('the shared sky function is called skyCol, which water.js relies on',
   }
   ck('cloud cover is settable', sky.setCloud(0.9) === 0.9 && sky.uniforms.uCloud.value === 0.9);
 
+  // the scene's clock offset moves the sun: noon on the clock plus half a cycle is midnight in the dome
+  {
+    const sc = { scene: new THREE.Scene(), clockOffset: 0 };
+    const shifted = createSky(sc);
+    const noonMs = DAY_CYCLE_MS * 0.5;   // wherever noon falls, the two reads below are half a cycle apart
+    shifted.update(1, cam, 0.016, noonMs);
+    const y0 = shifted.sunDir.y;
+    sc.clockOffset = DAY_CYCLE_MS / 2;
+    shifted.update(1, cam, 0.016, noonMs);
+    const y1 = shifted.sunDir.y;
+    ck('the sky adds the scene clock offset, so the sun moves when the bench moves the clock',
+      Math.abs(y0 - y1) > 0.5, `sun y ${y0.toFixed(2)} then ${y1.toFixed(2)}`);
+  }
+
   // the clockless fallback: 60 frames of dt across a whole cycle
   const sky2 = createSky({ scene: new THREE.Scene() });
   let t = 0, rose = false, set = false, prevY = null;
