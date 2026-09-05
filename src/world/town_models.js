@@ -40,6 +40,7 @@ import { buildEnclosure } from '../farm/buildings.js';
 import { buildCamp } from '../farm/camp_models.js';
 import {
   layoutTown, lotOf, lotsOfKind, lotCorners, COMMON, WAYSTONE_H, doorOf, TOWN_SPECS,
+  angDiff,
 } from './town_layout.js';
 
 /** A town may cost this many draw calls and no more. Measured in the test. */
@@ -68,6 +69,56 @@ export function footingFor(lot, heightAt) {
   const lo = Math.min(...hs), hi = Math.max(...hs);
   const spread = hi - lo;
   return { y: lo, hi, lo, spread, plinth: spread > PLINTH_AT ? spread + 0.25 : 0 };
+}
+
+// ------------------------------------------------------------- how tall ----
+//
+// One place says how tall a body is, and the builder and the measuring both
+// read it. A house's eaves height is carried on the lot by `town_layout` for
+// the same reason: two numbers for one roof is how a test comes to pass while
+// the thing it tests is wrong.
+
+/** The eaves height of a body: where its walls stop and its roof starts. */
+export function bodyHeightOf(lot) {
+  if (lot.kind === 'inn') return lot.style === 'hall' ? 7.6 : 8.4;
+  return lot.h ?? 6;
+}
+
+/**
+ * The top of a lot's body, in metres above its own floor. Chimneys, spires,
+ * masts and mast lights count, because the question this answers is what a
+ * sight line has to clear. Where a body's shape is awkward this rounds UP, so
+ * the roofline it reports is never lower than the roofline that was drawn.
+ */
+export function bodyTopOf(lot, plan) {
+  switch (lot.kind) {
+    case 'keeptower': return plan.keep ? keepTopOf(plan.keep) : lot.h;
+    case 'keeptowerlet': return lot.h + 3.2;
+    case 'greathall': return bodyHeightOf(lot) + lot.d * 0.575 + 1.4;
+    case 'stall': return 2.5 + lot.w * 0.2;
+    case 'forge': return 4.7;
+    case 'gallows': return 5.2;
+    case 'cairn': return 2.7;
+    case 'block': return 4.3;
+    case 'pens': case 'fold': return 2.8;
+    case 'palmyard': return 7.4;
+    case 'butts': return 2.4;
+    case 'jetty': case 'mole': return 3.0;
+    case 'hull': return 13.0;
+    default: break;
+  }
+  if (lot.prop) return 3.2;                    // the dressing has its own bodies
+  const h = bodyHeightOf(lot);
+  const flat = (lot.style === 'hall' ? 'gable' : ROOF_STYLE[plan.realm]) === 'flat';
+  const pitch = lot.style === 'hall' ? 1.25 : 0.8;
+  let top = flat ? h + 0.95 : h + lot.d * 0.5 * pitch + 0.2;
+  const chimney = lot.kind === 'inn' || lot.kind === 'house' || lot.kind === 'brewhouse' || lot.kind === 'forgehouse';
+  if (chimney) top = Math.max(top, h * 1.475);
+  if (lot.kind === 'church') top = Math.max(top, h + 13.5);
+  if (lot.kind === 'granary' || lot.kind === 'cistern' || lot.kind === 'icehouse') top = Math.max(top, h + 2.1);
+  if (lot.kind === 'warehouse' || lot.kind === 'salvage') top = Math.max(top, h + 4.4);
+  if (lot.kind === 'drying') top = Math.max(top, h + 1.3);
+  return top;
 }
 
 // ---------------------------------------------------------------- material --
@@ -260,6 +311,361 @@ function gallowsBody(pal) {
   put(g, box(0.28, 0.28, 0.28, mat(pal.trim)), 0.6, 2.95, 0);
   for (let i = 0; i < 3; i++) put(g, box(2.0, 0.16, 0.5, mat(pal.timber)), 0, 0.62 + i * 0.3, 2.1 + i * 0.5);
   return g;
+}
+
+// ------------------------------------------------------------------ keep ---
+//
+// THE CASTLE AT THE BACK OF THE TOWN.
+//
+//   `town_layout` decides the precinct, its wall line, its gate and where its
+//   four bodies stand. This builds them. The one number everything else hangs
+//   off is `plan.keep.tower.h`, the height of the great tower's shaft, which is
+//   between 18 and 30 m in every town and is what puts the tower over the
+//   roofs; `KEEP_TOP_EXTRA` is what each realm's tower carries above its shaft,
+//   and it is read BOTH by the builder, which puts the roof there, and by
+//   `keepTopOf`, which is what the visibility test measures against. One
+//   number, two readers, so the test cannot be measuring a tower nobody drew.
+//
+//   The gate is built, merged and tagged on its own, exactly as the waystone
+//   is: `mergeByMaterial` buckets by colour, so a `userData.keep` flag set on a
+//   mesh before the merge would end up on every wall of the same stone in the
+//   town, and a click on a house would open the castle.
+
+/** The keep's own wall: lower than a town wall, thicker than a garden one. */
+export const KEEP_WALL_H = 6.0;
+const KEEP_WALL_T = 1.8;
+/** The water gate in a sea wall, metres across: one hull's beam and a margin. */
+const WATER_GATE_W = 12;
+/** Metres each realm's tower carries above its shaft: roof, dome, crown, mast. */
+// Each of these is at or a little under the real top of the body below, never
+// over it: the tower is the thing a sight line is measured TO, so rounding this
+// down makes the measurement harder and never flatters it.
+export const KEEP_TOP_EXTRA = {
+  manor: 3.0, greattree: 17.0, seafort: 10.4, wellkeep: 3.0,
+  cragkeep: 2.4, icehall: 3.9, citadel: 4.4,
+};
+/** Which of the palette's colours the keep's walls are faced in, per style. */
+const KEEP_FACE = {
+  manor: 'stone', greattree: 'timber', seafort: 'stone', wellkeep: 'wallDark',
+  cragkeep: 'stone', icehall: 'timber', citadel: 'stoneDark',
+};
+
+/** How high above its own floor the great tower reaches, roof and all. */
+export const keepTopOf = (keep) => keep.tower.h + (KEEP_TOP_EXTRA[keep.style] ?? 3);
+
+/** Crenellations along a wall segment: the thing that says a wall is defended. */
+function merlons(g, len, yaw, x, y, z, m, t = KEEP_WALL_T) {
+  const n = Math.max(2, Math.round(len / 2.0));
+  for (let k = 0; k < n; k++) {
+    const o = (k + 0.5) / n - 0.5;
+    put(g, box(1.1, 0.85, t + 0.3, m), x + Math.cos(yaw) * o * len, y, z - Math.sin(yaw) * o * len, yaw);
+  }
+}
+
+/**
+ * The keep's wall: an arc across the town side with the gate in it, a radial
+ * wall down each flank to the town wall, and, where the town wall is a harbour
+ * mouth instead of a wall, the castle's own sea wall closing it.
+ */
+function buildKeepWall(g, plan, heightAt) {
+  const keep = plan.keep, pal = plan.palette;
+  const { x: cx, z: cz } = plan;
+  const faceM = mat(pal[KEEP_FACE[keep.style]] ?? pal.stone);
+  const capM = mat(pal.stoneDark);
+  const H = KEEP_WALL_H;
+  const gateHalf = keep.gate.half + 0.03;
+
+  const run = (r, from, to, gapAt = null, gapHalf = 0) => {
+    const step = 3.2;
+    const n = Math.max(2, Math.round(((to - from) * r) / step));
+    for (let i = 0; i < n; i++) {
+      const a = from + ((i + 0.5) / n) * (to - from);
+      if (gapAt !== null && Math.abs(angDiff(a, gapAt)) <= gapHalf) continue;
+      const x = cx + Math.sin(a) * r, z = cz + Math.cos(a) * r;
+      const y = heightAt(x, z);
+      put(g, box(((to - from) * r) / n + 0.3, H, KEEP_WALL_T, faceM), x, y + H / 2 - 0.3, z, a);
+      put(g, box(((to - from) * r) / n + 0.4, 0.5, KEEP_WALL_T + 0.4, capM), x, y + H - 0.15, z, a);
+      merlons(g, ((to - from) * r) / n, a, x, y + H + 0.5, z, capM);
+    }
+  };
+
+  // the town side, with the gate's gap left in it
+  run(keep.rIn, keep.bearing - keep.half, keep.bearing + keep.half, keep.axis, gateHalf);
+
+  // the two flanks, running out to the town wall
+  for (const s of [-1, 1]) {
+    const a = keep.bearing + s * keep.half;
+    const step = 3.2;
+    const n = Math.max(2, Math.round((keep.rOut - keep.rIn) / step));
+    for (let i = 0; i < n; i++) {
+      const r = keep.rIn + ((i + 0.5) / n) * (keep.rOut - keep.rIn);
+      const x = cx + Math.sin(a) * r, z = cz + Math.cos(a) * r;
+      const y = heightAt(x, z);
+      const len = (keep.rOut - keep.rIn) / n + 0.3;
+      put(g, box(KEEP_WALL_T, H, len, faceM), x, y + H / 2 - 0.3, z, a);
+      put(g, box(KEEP_WALL_T + 0.4, 0.5, len, capM), x, y + H - 0.15, z, a);
+    }
+  }
+
+  // where the outer arc is open water, the castle closes it itself, with a
+  // water gate on its own axis: this is what makes the Red Queen's a sea fort
+  if (keep.sea) {
+    const inAxis = Math.abs(angDiff(keep.axis, keep.bearing)) <= keep.half
+      && angDiff(keep.bearing, keep.axis) >= keep.sea.lo && angDiff(keep.bearing, keep.axis) <= keep.sea.hi;
+    // The water gate is WATER_GATE_W metres of arc, wide enough for a hull and
+    // no wider. Reusing the land gate's half ANGLE here would have opened it to
+    // 36 m at this radius, which is a harbour mouth and not a gate: measured.
+    const wg = Math.asin(Math.min(0.9, (WATER_GATE_W / 2) / (keep.rOut - 1.2)));
+    run(keep.rOut - 1.2, keep.sea.from, keep.sea.from + (keep.sea.hi - keep.sea.lo),
+      inAxis ? keep.axis : null, wg);
+  }
+}
+
+/** The keep's gate, built alone so the merge cannot spread its flag. */
+function keepGateBody(plan, heightAt) {
+  const keep = plan.keep, pal = plan.palette;
+  const g = new THREE.Group();
+  const gate = keep.gate;
+  const a = gate.bearing;
+  const across = a + Math.PI / 2;
+  const hw = gate.w / 2;
+  const th = KEEP_WALL_H + 4.2;
+  for (const s of [-1, 1]) {
+    const px = gate.x + Math.sin(across) * (hw + 1.6) * s, pz = gate.z + Math.cos(across) * (hw + 1.6) * s;
+    const py = heightAt(px, pz);
+    put(g, box(3.0, th, KEEP_WALL_T + 1.8, mat(pal.stone)), px, py + th / 2 - 0.3, pz, a);
+    put(g, box(3.5, 0.6, KEEP_WALL_T + 2.3, mat(pal.stoneDark)), px, py + th - 0.2, pz, a);
+    for (let k = 0; k < 3; k++) {
+      put(g, box(0.85, 0.9, 0.85, mat(pal.stoneDark)), px + Math.sin(across) * (k - 1) * 1.05, py + th + 0.6, pz + Math.cos(across) * (k - 1) * 1.05, a);
+    }
+    // a banner in the realm's colour down each tower's face
+    put(g, box(1.2, 3.4, 0.1, mat(pal.banner)), px + Math.sin(a) * (KEEP_WALL_T / 2 + 1.0), py + th * 0.55, pz + Math.cos(a) * (KEEP_WALL_T / 2 + 1.0), a);
+  }
+  const y = heightAt(gate.x, gate.z);
+  put(g, box(gate.w + 3.4, 1.8, KEEP_WALL_T + 1.4, mat(pal.stone)), gate.x, y + KEEP_WALL_H + 0.9, gate.z, a);
+  put(g, box(gate.w + 3.8, 0.7, KEEP_WALL_T + 1.9, mat(pal.stoneDark)), gate.x, y + KEEP_WALL_H + 2.1, gate.z, a);
+  // the portcullis, up in its housing
+  for (let k = 0; k < 7; k++) {
+    put(g, box(0.18, KEEP_WALL_H - 1.4, 0.18, mat(pal.metal)),
+      gate.x + Math.sin(across) * (k - 3) * 0.55, y + (KEEP_WALL_H - 1.4) / 2 + 1.2, gate.z + Math.cos(across) * (k - 3) * 0.55, a);
+  }
+  put(g, box(gate.w - 0.4, 0.3, 0.3, mat(pal.metal)), gate.x, y + 1.3, gate.z, a);
+  // nine skulls over the Legion's gate, one for every dragon
+  if (plan.sub === 'cinderport') {
+    for (let k = 0; k < 9; k++) {
+      const o = (k - 4) * 1.05;
+      put(g, ball(0.34, mat(pal.trim), 6), gate.x + Math.sin(across) * o, y + KEEP_WALL_H + 2.9, gate.z + Math.cos(across) * o, a);
+    }
+  }
+  // two lamps at the arch, because a castle whose gate is dark reads as a ruin
+  for (const s of [-1, 1]) {
+    const px = gate.x + Math.sin(across) * hw * s + Math.sin(a) * 0.9;
+    const pz = gate.z + Math.cos(across) * hw * s + Math.cos(a) * 0.9;
+    put(g, ball(0.3, mat(pal.glow, 'lit'), 5), px, heightAt(px, pz) + 3.4, pz);
+  }
+  return g;
+}
+
+/** The great tower, in its own frame: floor at y 0, front at +z, facing the town. */
+function keepTowerBody(lot, plan, rng) {
+  const g = new THREE.Group();
+  const pal = plan.palette, style = plan.keep.style;
+  const w = lot.w, d = lot.d, h = lot.h;
+  const faceM = mat(pal[KEEP_FACE[style]] ?? pal.stone);
+  const capM = mat(pal.stoneDark);
+
+  if (style === 'greattree') {
+    // the Court's seat is a tree: the bole of the oldest giant, a hall built
+    // round its foot and platforms up it to the crown
+    put(g, cyl(1.5, 3.1, h, mat(pal.timber), 9), 0, h / 2, 0);
+    put(g, cyl(w * 0.5, w * 0.56, 4.6, mat(pal.wall), 9), 0, 2.3, 0);
+    put(g, cyl(w * 0.56, w * 0.5, 0.5, mat(pal.roof), 9), 0, 4.8, 0);
+    for (let k = 0; k < 3; k++) {
+      const py = 9 + k * 5.5, pr = 4.4 - k * 0.5;
+      put(g, cyl(pr, pr, 0.3, mat(pal.timber), 9), 0, py, 0);
+      put(g, cyl(pr + 0.2, pr + 0.2, 0.16, mat(pal.trim), 9), 0, py + 0.9, 0);
+      put(g, ball(0.3, mat(pal.glow, 'lit'), 5), pr - 0.5, py + 1.2, 0);
+    }
+    for (let k = 0; k < 3; k++) put(g, cyl(6.2 - k * 1.2, 0.7, 3.0, mat(k % 2 ? pal.roof : pal.roofDark), 9), 0, h * 0.68 + k * 3.4, 0);
+    // and the tree goes on above the hall. Measured: the Court's own trunks
+    // stand 34 to 50 m, so a seat that stopped at the top of its hall would
+    // have been a stump among giants. The hall is 28 m; the bole is 45.
+    put(g, cyl(0.85, 1.5, 15.6, mat(pal.timber), 8), 0, h + 7.2, 0);
+    for (let k = 0; k < 3; k++) put(g, cyl(4.6 - k * 1.0, 0.6, 2.6, mat(k % 2 ? pal.roof : pal.roofDark), 8), 0, h + 4.4 + k * 4.2, 0);
+    put(g, cyl(4.4, 0.6, 3.6, mat(pal.roof), 9), 0, h + 15.8, 0);
+    put(g, box(1.2, 2.6, 0.09, mat(pal.banner)), 0, h * 0.5, w * 0.5 + 0.1);
+    return g;
+  }
+
+  if (style === 'wellkeep') {
+    // the tower stands ON the well: a shaft to the same sweet water, kerbed in
+    // stone, four piers over it and the keep on top of them, so whoever holds
+    // the keep can close the well
+    const kerb = Math.min(w, d) * 0.34;
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      put(g, box(kerb * 0.7, 1.1, 0.6, mat(pal.stone)), Math.sin(a) * kerb, 0.55, Math.cos(a) * kerb, a);
+    }
+    const water = new THREE.Mesh(new THREE.CircleGeometry(kerb * 0.86, 14), mat(COMMON.water, 'water'));
+    put(g, water, 0, 0.36, 0, 0, -Math.PI / 2);
+    const pier = 5.6;
+    for (const sx of [1, -1]) for (const sz of [1, -1]) {
+      put(g, box(1.9, pier, 1.9, faceM), sx * (w / 2 - 1.2), pier / 2, sz * (d / 2 - 1.2));
+    }
+    put(g, box(w, h - pier, d, faceM), 0, pier + (h - pier) / 2, 0);
+    put(g, box(w + 0.8, 0.7, d + 0.8, capM), 0, pier + 0.35, 0);
+    put(g, box(w + 0.6, 0.5, d + 0.6, capM), 0, h + 0.25, 0);
+    put(g, cone(w * 0.56, 2.6, mat(pal.roof), 8), 0, h + 1.6, 0);
+    put(g, ball(0.5, mat(COMMON.gold), 6), 0, h + 3.0, 0);
+    put(g, box(1.2, 3.0, 0.09, mat(pal.banner)), 0, h * 0.72, d / 2 + 0.1);
+    return g;
+  }
+
+  // every other keep is a shaft, and what it is made of and wears on top is
+  // what tells one realm's castle from another's
+  const base = style === 'seafort' ? 3.4 : style === 'cragkeep' ? 2.2 : 1.0;
+  put(g, box(w + 1.6, base, d + 1.6, capM), 0, base / 2, 0);
+  put(g, box(w, h, d, faceM), 0, h / 2, 0);
+  for (const sx of [1, -1]) for (const sz of [1, -1]) {
+    put(g, box(1.0, h, 1.0, capM), sx * (w / 2 - 0.4), h / 2, sz * (d / 2 - 0.4));
+  }
+  // lit windows up the front, so the tower is a lantern at night
+  for (let k = 0; k < Math.max(2, Math.floor(h / 6)); k++) {
+    put(g, box(0.9, 1.3, 0.14, mat(pal.glow, 'glass')), 0, 4.5 + k * 5.2, d / 2 + 0.05);
+    put(g, box(1.2, 0.16, 0.24, mat(pal.trim)), 0, 5.4 + k * 5.2, d / 2 + 0.07);
+  }
+  put(g, box(w + 1.2, 0.7, d + 1.2, capM), 0, h + 0.35, 0);
+  merlons(g, w + 1.2, 0, 0, h + 1.15, d / 2 + 0.3, capM, 1.0);
+  merlons(g, w + 1.2, 0, 0, h + 1.15, -d / 2 - 0.3, capM, 1.0);
+  merlons(g, d + 1.2, Math.PI / 2, w / 2 + 0.3, h + 1.15, 0, capM, 1.0);
+  merlons(g, d + 1.2, Math.PI / 2, -w / 2 - 0.3, h + 1.15, 0, capM, 1.0);
+  put(g, box(1.3, 3.2, 0.09, mat(pal.banner)), 0, h * 0.66, d / 2 + 0.1);
+
+  if (style === 'manor') {
+    put(g, cone(w * 0.62, 2.2, mat(pal.roof), 4), 0, h + 1.9, 0, Math.PI / 4);
+    put(g, cyl(0.09, 0.09, 1.6, mat(pal.metal), 5), 0, h + 3.4, 0);
+    put(g, box(0.9, 0.5, 0.06, mat(pal.trim)), 0.4, h + 3.9, 0);
+  } else if (style === 'seafort') {
+    // the lighthouse: a ship's mast with a fire in the crow's nest, which is
+    // what the sheet says the Harbour steers by
+    put(g, cyl(0.24, 0.4, 9.2, mat(pal.timber), 7), 0, h + 4.6, 0);
+    put(g, box(0.22, 0.22, 6.4, mat(pal.timber)), 0, h + 7.2, 0, Math.PI / 2);
+    put(g, cyl(0.95, 0.75, 1.1, mat(pal.metal), 8), 0, h + 9.4, 0);
+    put(g, ball(0.72, mat(pal.glow, 'lit'), 6), 0, h + 9.9, 0);
+    for (const s of [1, -1]) put(g, box(0.06, 2.6, 0.06, mat(pal.trim)), s * 2.6, h + 3.0, 0, 0, 0, s * 0.7);
+  } else if (style === 'cragkeep') {
+    // half a tower and half a cliff: the crag comes up behind it and the keep
+    // is cut into the rock, which is what the sheet says Cairnfoot is built on
+    // Measured: the tower stands 17.8 m in front of the town wall, so the crag
+    // is four slabs reaching 14.3 m back and stops 3.5 m short of it. A crag
+    // that reached the wall would swallow thirteen metres of it.
+    for (let k = 0; k < 4; k++) {
+      const kw = w + 5.5 - k * 0.9, kh = 4.2 + k * 3.0;
+      put(g, box(kw, kh, 3.8 + k * 0.35, mat(k % 2 ? pal.stoneDark : pal.stone)),
+        (k % 2 ? 0.7 : -0.7), kh / 2, -d / 2 - 2.0 - k * 1.3, (k % 2 ? 0.06 : -0.05));
+    }
+    for (let k = 0; k < 6; k++) put(g, box(2.2, 0.4, 1.1, mat(pal.stone)), w / 2 + 1.2, 1.2 + k * 1.6, -d / 2 - 0.4 - k * 1.2);
+    put(g, cone(w * 0.5, 2.0, mat(pal.roof), 6), 0, h + 1.7, 0);
+  } else if (style === 'icehall') {
+    // timber and ice: blocks cut out of the glacier stacked into the walls, and
+    // a rib arch over the roof, the way the town's own hall is roofed
+    for (let k = 0; k < 4; k++) {
+      put(g, box(2.2, 1.6, 2.2, mat(pal.roof)), (k % 2 ? 1 : -1) * (w / 2 - 1.1), 2.2 + Math.floor(k / 2) * 6.0, (k < 2 ? 1 : -1) * (d / 2 - 1.1));
+    }
+    put(g, box(w + 2.4, 0.5, 2.0, mat(pal.roofDark)), 0, h + 2.6, 0);
+    for (const s of [1, -1]) put(g, cyl(0.24, 0.44, 9.0, mat(pal.trim), 6), s * (w / 2 + 0.6), h + 1.2, 0, 0, 0, s * 0.5);
+    put(g, cone(w * 0.58, 3.0, mat(pal.roofDark), 6), 0, h + 2.4, 0);
+  } else if (style === 'citadel') {
+    // black stone and brass: the Legion builds flat and puts metal on it
+    put(g, box(w + 0.6, 0.5, d + 0.6, mat(pal.roof)), 0, h + 1.9, 0);
+    for (const sx of [1, -1]) for (const sz of [1, -1]) {
+      put(g, cyl(1.0, 1.2, 4.0, faceM, 7), sx * (w / 2 - 1.0), h + 2.9, sz * (d / 2 - 1.0));
+      put(g, cyl(1.1, 0.4, 1.2, mat(pal.roof), 7), sx * (w / 2 - 1.0), h + 5.3, sz * (d / 2 - 1.0));
+    }
+    put(g, cyl(0.14, 0.14, 3.4, mat(pal.metal), 6), 0, h + 3.4, 0);
+    put(g, box(1.6, 2.2, 0.08, mat(pal.banner)), 0.9, h + 3.6, 0);
+    put(g, ball(0.4, mat(pal.glow, 'lit'), 5), 0, h + 5.2, 0);
+  }
+  return g;
+}
+
+/** A flanking tower on the keep's outer corner, round and roofed. */
+function keepCornerBody(lot, plan) {
+  const g = new THREE.Group();
+  const pal = plan.palette;
+  const r = Math.min(lot.w, lot.d) / 2 + 0.4;
+  const h = lot.h;
+  put(g, cyl(r, r + 0.4, h, mat(pal[KEEP_FACE[plan.keep.style]] ?? pal.stone), 9), 0, h / 2, 0);
+  put(g, cyl(r + 0.6, r + 0.6, 0.6, mat(pal.stoneDark), 9), 0, h - 0.1, 0);
+  put(g, cone(r + 0.8, 3.0, mat(pal.roof), 9), 0, h + 1.7, 0);
+  put(g, box(0.7, 1.0, 0.14, mat(pal.glow, 'glass')), 0, h * 0.66, r + 0.05);
+  return g;
+}
+
+/** The great hall: one long room, a high roof, a big door and banners on it. */
+function keepHallBody(lot, plan) {
+  const built = building(lot, plan.palette, plan.realm, {
+    h: lot.h, pitch: 1.15, doorW: 2.6, doorH: 3.0,
+    windows: Math.max(2, Math.round(lot.w / 4)),
+    wallHex: plan.palette[KEEP_FACE[plan.keep.style]] ?? plan.palette.stone,
+    darkHex: plan.palette.stoneDark,
+  });
+  const pal = plan.palette;
+  for (let k = -1; k <= 1; k++) {
+    put(built.g, box(0.9, 2.4, 0.07, mat(pal.banner)), k * (lot.w / 3), built.h * 0.6, lot.d / 2 + 0.12);
+  }
+  // the louvre over the hearth, which is how a hall lets its smoke out
+  put(built.g, box(lot.w * 0.22, 1.0, 1.8, mat(pal.roofDark)), 0, built.h + lot.d * 0.575 + 0.5, 0);
+  put(built.g, ball(0.28, mat(pal.glow, 'lit'), 5), 0, built.h + lot.d * 0.575 + 1.1, 0);
+  return built.g;
+}
+
+/**
+ * The whole castle. Answers where the top of its great tower is, in world
+ * space, which is the point the visibility test casts at.
+ */
+function buildKeep(g, plan, heightAt) {
+  const keep = plan.keep;
+  if (!keep) return null;
+  const pal = plan.palette;
+  buildKeepWall(g, plan, heightAt);
+
+  // the court: paved, with braziers on it and the realm's colours on poles
+  const court = keep.courtyard;
+  const cy = heightAt(court.x, court.z);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(court.r, 20), mat(pal.stone));
+  put(g, disc, court.x, cy + 0.06, court.z, 0, -Math.PI / 2);
+  for (let i = 0; i < 4; i++) {
+    const a = keep.axis + Math.PI + (i - 1.5) * 0.7;
+    const x = court.x + Math.sin(a) * (court.r - 1.4), z = court.z + Math.cos(a) * (court.r - 1.4);
+    const y = heightAt(x, z);
+    if (i % 2 === 0) {
+      put(g, cyl(0.14, 0.2, 2.8, mat(pal.metal), 6), x, y + 1.4, z);
+      put(g, cyl(0.44, 0.3, 0.5, mat(pal.metal), 7), x, y + 2.9, z);
+      put(g, ball(0.36, mat(pal.glow, 'lit'), 5), x, y + 3.1, z);
+    } else {
+      put(g, cyl(0.11, 0.11, 6.4, mat(pal.timber), 6), x, y + 3.2, z);
+      put(g, box(1.1, 2.6, 0.07, mat(pal.banner)), x, y + 4.8, z, keep.axis + Math.PI);
+    }
+  }
+
+  let top = null;
+  for (const lot of plan.keepLots) {
+    const foot = footingFor(lot, heightAt);
+    const y = foot.y - 0.12 + foot.plinth;
+    let piece;
+    if (lot.kind === 'keeptower') piece = keepTowerBody(lot, plan);
+    else if (lot.kind === 'greathall') piece = keepHallBody(lot, plan);
+    else piece = keepCornerBody(lot, plan);
+    if (foot.plinth > 0) {
+      put(g, box(lot.w + 0.9, foot.plinth + 0.4, lot.d + 0.9, mat(pal.stone)), lot.x, foot.y - 0.12 + foot.plinth / 2, lot.z, lot.yaw);
+    }
+    piece.position.set(lot.x, y, lot.z);
+    piece.rotation.y = lot.yaw;
+    g.add(piece);
+    if (lot.kind === 'keeptower') top = { x: lot.x, y: y + keepTopOf(keep), z: lot.z };
+  }
+  return top;
 }
 
 /** A standing stone with a face cut in it, four metres of it. */
@@ -660,13 +1066,14 @@ export function buildTown(site, heightAt, opts = {}) {
   buildSquare(body, plan, probe);
   buildWall(body, plan, probe);
   buildGates(body, plan, probe);
+  const keepTop = buildKeep(body, plan, probe);
 
   for (const lot of plan.lots) {
     // the water side is built by buildPort and the dressing by realmDressing,
     // both off the same list; building them here as well would put a house on
     // every standing stone in the ring round Hearthhome
     if (lot.kind === 'jetty' || lot.kind === 'hull' || lot.kind === 'mole') continue;
-    if (lot.prop) continue;
+    if (lot.prop || lot.keep) continue;
     const foot = footingFor(lot, probe);
     const y = foot.y - 0.12 + foot.plinth;
     let piece;
@@ -712,7 +1119,7 @@ export function buildTown(site, heightAt, opts = {}) {
       const isInn = lot.kind === 'inn';
       const civic = lot.kind === 'bank' || lot.kind === 'church' || lot.kind === 'court';
       const built = building(lot, pal, plan.realm, {
-        h: isInn ? (lot.style === 'hall' ? 7.6 : 8.4) : lot.kind === 'house' ? 4.6 + rng() * 1.4 : 6,
+        h: bodyHeightOf(lot),
         style: lot.style === 'hall' ? 'gable' : undefined,
         pitch: lot.style === 'hall' ? 1.25 : 0.8,
         chimney: isInn || lot.kind === 'house' || lot.kind === 'brewhouse' || lot.kind === 'forgehouse',
@@ -799,10 +1206,30 @@ export function buildTown(site, heightAt, opts = {}) {
   wsMerged.userData.waystone = true;
   wsMerged.userData.site = site;
 
+  // ---- and the castle's gate, for the same reason ------------------------
+  // A raycast has to be able to tell the castle's gate from the wall beside it,
+  // and the merge buckets by colour, so the gate is built and merged alone and
+  // its flag is set after. Merged with the town, `userData.keep` would have sat
+  // on every stone body in the place.
+  let keepMerged = null;
+  if (plan.keep) {
+    const kg = new THREE.Group();
+    kg.add(keepGateBody(plan, probe));
+    keepMerged = mergeByMaterial(kg);
+    keepMerged.traverse((o) => { if (o.isMesh) { o.userData.site = site; o.userData.keep = true; } });
+    keepMerged.userData.keep = true;
+    keepMerged.userData.site = site;
+  }
+
   const out = new THREE.Group();
   out.name = `site:${site.id}`;
   out.add(merged, wsMerged);
+  if (keepMerged) out.add(keepMerged);
   out.userData.site = site;
   out.userData.town = plan;
+  // where the castle is, and where the top of its tower is, so a caller does
+  // not have to work either out from the plan a second time
+  out.userData.keep = plan.keep ? { ...plan.keep, top: keepTop } : null;
+  out.userData.keepNote = plan.keepNote;
   return out;
 }

@@ -74,6 +74,12 @@ export const WALL_GAP = 3.5;
 export const PRECINCT_GAP = 5;
 /** The waystone: a standing stone four metres tall at the square's edge. */
 export const WAYSTONE_H = 4;
+/**
+ * Metres of doorstep kept clear in front of every named building, which has to
+ * be at least `npcs_runtime.DOOR_STAND` or the person who keeps that door ends
+ * up standing inside whatever the packer put there.
+ */
+export const DOOR_CLEAR = 2.2;
 /** Rings the packer tries, metres from the middle. */
 const STALL_RING = 22;
 const CIVIC_RING = 31;
@@ -173,7 +179,12 @@ export const TOWN_SPECS = {
     realm: 'verdant', wall: 'thorn', gates: 3, wallR: WALL_R,
     inn: [17, 12, 'gabled'], centre: 'fountain', houses: 14, stalls: 7,
     extras: [['court', 17, 12], ['butts', 11, 4], ['loom', 9, 7]],
-    props: [['trunk', 4.6, 4.6, 9, 30, 'inside']],
+    // Eight giants in the streets and the ninth inside the castle: the
+    // Speaker's Tree is a trunk like the rest of them with a hall built round
+    // its bole. Measured: with the keep taking a quarter of the walled ground
+    // the ninth trunk had nowhere left to stand, and a giant standing in the
+    // keep is a better answer than a giant the packer quietly dropped.
+    props: [['trunk', 4.6, 4.6, 8, 30, 'inside']],
     note: 'A court under the blossom crowns, lantern lit, rope walks between the trunks.',
   }),
   redqueensharbour: S({
@@ -287,6 +298,201 @@ export function doorOf(lot, out = 1.7) {
   return { x: lot.x + fx * (lot.d / 2 + out), z: lot.z + fz * (lot.d / 2 + out), yaw: lot.yaw };
 }
 
+/** Whether (x, z) stands on this lot's rectangle, grown by `grow` metres. */
+export function pointInLot(lot, x, z, grow = 0) {
+  const [fx, fz] = fwd(lot.yaw);
+  const u = (x - lot.x) * fz - (z - lot.z) * fx;   // across the front
+  const v = (x - lot.x) * fx + (z - lot.z) * fz;   // back from it
+  return Math.abs(u) <= lot.w / 2 + grow && Math.abs(v) <= lot.d / 2 + grow;
+}
+
+// ------------------------------------------------------------------- keep --
+//
+// THE CASTLE AT THE BACK OF THE TOWN.
+//
+//   Rule 5 of the look book asks for a castle with a keep, and rule 9 asks for
+//   a tower above the roofline. Before this there were five castles in the
+//   world, all of them rolled, and the nearest was five kilometres from the
+//   start, because `structures.js` only rolls a `castle` beside a rolled
+//   village. The seven authored towns are the seats the sheet writes rulers
+//   for, so each of them now holds one.
+//
+//   The keep is a PRECINCT and not a building: an annular sector of the walled
+//   town, from just outside the ring street to the town wall itself, at the
+//   back, which is the arc opposite the main gate. Its own inner wall closes
+//   it off from the streets and its gate opens onto the street that runs from
+//   the square. Every other lot is forbidden the ground inside it and the
+//   keep's own lots are forbidden the ground outside it, both by `keepFit` in
+//   the packer, so the exclusion is proved by the same separating axis work
+//   that keeps two houses apart.
+//
+// HOW WIDE.
+//
+//   The target is a quarter of the walled area. The area of the sector is
+//   `half * (rOut^2 - rIn^2)`, so the half angle a quarter wants is
+//   `0.25 * PI * wallR^2 / (rOut^2 - rIn^2)`, which is 49.6 degrees at the
+//   seven's numbers. It is then clamped so the keep's side walls never cross
+//   an avenue: the avenue nearest the back, less the angle its own kerb takes
+//   at the keep's inner radius. Six of the seven have a gate 60 degrees away
+//   on each side and lose half a degree to that; Hearthhome has four gates and
+//   one of them stands dead at the back.
+//
+// THE GATE THAT THE KEEP SWALLOWS.
+//
+//   Where a town gate already points at the keep's ground (Hearthhome's north
+//   gate, and the Red Queen's harbour mouth) the keep does not fight it: that
+//   gate becomes the castle's own outer gate, its avenue runs through the
+//   courtyard, and the great tower stands to one side of the road rather than
+//   across it. Everywhere else the keep is closed at the back by the town wall
+//   and a new `keepway` street is cut from the square to its gate.
+
+/** The share of the walled area a keep precinct wants. */
+export const KEEP_TARGET = 0.25;
+/** Metres of daylight between the keep's wall line and anything either side. */
+export const KEEP_GAP = 1.6;
+/** A precinct narrower than this is not a castle; the town says so and has none. */
+export const KEEP_MIN_HALF = 0.45;
+/** A wall smaller than this has no room for a keep behind the ring street. */
+export const KEEP_MIN_WALL_R = 46;
+/** The open court inside the keep's gate, metres. */
+export const KEEP_COURT_R = 8;
+/** Half the width of the keep's own gate, in radians at its inner wall. */
+const KEEP_GATE_W = 7;
+
+/** The seven ways a keep is built. `town_models` has a body for each. */
+export const KEEP_STYLES = ['manor', 'greattree', 'seafort', 'wellkeep', 'cragkeep', 'icehall', 'citadel'];
+
+/**
+ * One row per town, written off that place's own line in `realms.js` and the
+ * story in `docs/mmo/14-KALDERA.md`. `towerH` is the height of the great
+ * tower's shaft in metres and is what makes it show over the roofs; the bodies
+ * add a roof, a dome or a mast on top of it.
+ *
+ * Every footprint here is smaller than that town's inn, because the inn is the
+ * largest building on the town's streets and the test says so. The great hall
+ * stands behind the castle's own wall and is not on a street.
+ */
+export const KEEP_SPECS = {
+  hearthhome: {
+    style: 'manor', name: 'The Manor', towerH: 19,
+    tower: [10, 10], hall: [14, 10], corner: [5, 5],
+    note: 'A stone manor with one tower, a hall and a walled yard, which is all a village that has never lost anything has ever needed.',
+  },
+  canopycourt: {
+    style: 'greattree', name: 'The Speaker\'s Tree', towerH: 28,
+    tower: [11, 11], hall: [15, 11], corner: [5, 5],
+    note: 'The Court\'s seat is a tree: a hall built round the bole of the oldest giant, platforms up it, lanterns to the crown.',
+  },
+  redqueensharbour: {
+    style: 'seafort', name: 'The Red Fort', towerH: 22,
+    tower: [13, 13], hall: [15, 11], corner: [6, 6],
+    note: 'A sea fort across the harbour mouth with a ship\'s mast for a lighthouse, and every load that lands passes under it.',
+  },
+  lastwell: {
+    style: 'wellkeep', name: 'The Wellkeep', towerH: 24,
+    tower: [12, 12], hall: [16, 11], corner: [6, 6],
+    note: 'A mudbrick tower standing on four piers over a shaft to the same sweet water, so whoever holds the keep can close the well.',
+  },
+  cairnfoot: {
+    style: 'cragkeep', name: 'The Crag Keep', towerH: 25,
+    tower: [12, 12], hall: [14, 10], corner: [5, 5],
+    note: 'Half a tower and half a cliff: the keep is cut into the crag at the town\'s back and the rock is the other two walls.',
+  },
+  coldseat: {
+    style: 'icehall', name: 'The Cold Seat', towerH: 24,
+    tower: [13, 13], hall: [18, 12], corner: [6, 6],
+    note: 'The seat the town is named for: a timber tower packed with cut glacier ice, blue at night, with the Thane\'s hall beside it.',
+  },
+  cinderport: {
+    style: 'citadel', name: 'The Black Citadel', towerH: 26,
+    tower: [14, 14], hall: [15, 11], corner: [6, 6],
+    note: 'The Legion\'s citadel in black stone and brass, nine skulls over the gate and a banner for each of them.',
+  },
+};
+
+/**
+ * How deep inside the keep the point (x, z) stands, in metres. Negative is
+ * outside it. It is the smallest of the three clearances the sector has: to
+ * the inner arc, to the town wall, and sideways to the nearer radial wall.
+ */
+export function keepDepth(keep, x, z) {
+  const dx = x - keep.x, dz = z - keep.z;
+  const r = Math.hypot(dx, dz);
+  const da = Math.abs(angDiff(keep.bearing, Math.atan2(dx, dz)));
+  const t = keep.half - da;
+  // beyond a quarter turn the chord is no longer the distance to the side wall,
+  // and the point is a long way outside anyway
+  const dAng = Math.abs(t) >= Math.PI / 2 ? (t > 0 ? r : -r) : Math.sin(t) * r;
+  return Math.min(r - keep.rIn, keep.rOut - r, dAng);
+}
+
+/** The keep's own wall line, as points about `step` metres apart. */
+export function keepRim(keep, step = 2) {
+  const out = [];
+  for (const r of [keep.rIn, keep.rOut]) {
+    const n = Math.max(2, Math.ceil((2 * keep.half * r) / step));
+    for (let i = 0; i <= n; i++) {
+      const a = keep.bearing - keep.half + (i / n) * 2 * keep.half;
+      out.push([keep.x + Math.sin(a) * r, keep.z + Math.cos(a) * r]);
+    }
+  }
+  for (const s of [-1, 1]) {
+    const a = keep.bearing + s * keep.half;
+    const n = Math.max(2, Math.ceil((keep.rOut - keep.rIn) / step));
+    for (let i = 0; i <= n; i++) {
+      const r = keep.rIn + (i / n) * (keep.rOut - keep.rIn);
+      out.push([keep.x + Math.sin(a) * r, keep.z + Math.cos(a) * r]);
+    }
+  }
+  return out;
+}
+
+const RIMS = new WeakMap();
+const rimOf = (keep) => { let r = RIMS.get(keep); if (!r) { r = keepRim(keep); RIMS.set(keep, r); } return r; };
+
+/** Corners, edge midpoints and quarter points of a lot: what `keepFit` reads. */
+function lotSamples(lot) {
+  const c = lotCorners(lot);
+  const out = [[lot.x, lot.z]];
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4;
+    out.push(c[i]);
+    for (const t of [0.25, 0.5, 0.75]) {
+      out.push([c[i][0] + (c[j][0] - c[i][0]) * t, c[i][1] + (c[j][1] - c[i][1]) * t]);
+    }
+  }
+  return out;
+}
+
+/**
+ * Whether a lot stands wholly inside the keep (1), wholly outside it (-1), or
+ * across its wall (0). Both answers are load bearing: a keep lot has to be 1
+ * and every other lot has to be -1, and a lot that straddles the wall is
+ * refused whichever it belongs to.
+ *
+ * The lot is read at thirteen points and the keep's wall line at ninety odd,
+ * because a long thin building can step over the sector's corner with all four
+ * of its own corners outside.
+ */
+export function keepFit(keep, lot) {
+  const dc = keepDepth(keep, lot.x, lot.z);
+  const reach = lot.r + KEEP_GAP + 0.5;
+  if (dc > reach) return 1;
+  if (dc < -reach) return -1;
+  let lo = Infinity, hi = -Infinity;
+  for (const [x, z] of lotSamples(lot)) {
+    const d = keepDepth(keep, x, z);
+    if (d < lo) lo = d;
+    if (d > hi) hi = d;
+  }
+  if (lo >= KEEP_GAP) return 1;
+  if (hi <= -KEEP_GAP) {
+    for (const [x, z] of rimOf(keep)) if (pointInLot(lot, x, z, KEEP_GAP)) return 0;
+    return -1;
+  }
+  return 0;
+}
+
 // ----------------------------------------------------------------- layout --
 
 /**
@@ -312,6 +518,8 @@ export function layoutTown(site, seed = 0, opts = {}) {
   const wallR = Math.min(spec.wallR, precinctR - 30);
   const palette = PALETTES[site.realm] || PALETTES.greenwold;
   const rng = mulberry32((hash2(site.cx | 0, site.cz | 0, 0x7047) ^ (seed >>> 0)) >>> 0);
+  /** A stream of its own for house heights, so adding them moved nothing. */
+  const hrng = mulberry32((hash2(site.cx | 0, site.cz | 0, 0x7051) ^ (seed >>> 0)) >>> 0);
 
   // ---- the port, if this is one ------------------------------------------
   let port = null;
@@ -368,12 +576,100 @@ export function layoutTown(site, seed = 0, opts = {}) {
     })),
   };
 
-  // ---- the square and its streets -----------------------------------------
+  // ---- the square ---------------------------------------------------------
   const square = {
     x: cx, z: cz, r: SQUARE_R,
     centre: { kind: spec.centre, x: cx, z: cz, r: spec.centre === 'sweetwell' ? 3.2 : 2.2 },
   };
 
+  // The outer edge of the ring street, which is the first radius a lot may use
+  // and the radius the keep's inner wall stands two metres beyond.
+  const CHORDS = 18;
+  const ringOuter = RING_R + RING_W / 2 + (RING_R * (1 - Math.cos(Math.PI / CHORDS)));
+
+  // ---- the keep precinct ---------------------------------------------------
+  const keepSpec = KEEP_SPECS[site.sub];
+  let keep = null;
+  let keepNote = '';
+  if (!keepSpec) {
+    keepNote = `${site.sub} has no row in KEEP_SPECS, so it has no castle`;
+  } else if (wallR < KEEP_MIN_WALL_R) {
+    keepNote = `${site.name || site.sub}: the wall stands at ${wallR.toFixed(1)} m and a keep needs ${KEEP_MIN_WALL_R} m, so there is no castle here`;
+  } else {
+    const rIn = ringOuter + 2;
+    const rOut = wallR;
+    const back = norm(gates[0].bearing + Math.PI);
+    // A gate that already points at the keep's ground becomes the castle's own
+    // outer gate rather than something the castle has to dodge.
+    let own = null;
+    for (const g of gates) {
+      const d = Math.abs(angDiff(g.bearing, back));
+      if (d < 0.22 && (!own || d < Math.abs(angDiff(own.bearing, back)))) own = g;
+    }
+    // Otherwise the castle sits in the middle of the ground the streets leave
+    // at the back, which is not always dead opposite the main gate: Cinderport
+    // has its harbour mouth 45 degrees off the back, and a keep centred on the
+    // back would have had a fifth of the room a keep centred in the gap has.
+    let bearing = back;
+    if (!own) {
+      let lo = -Math.PI, hi = Math.PI;
+      for (const g of gates) {
+        const d = angDiff(back, g.bearing);
+        if (d >= 0 && d < hi) hi = d;
+        if (d < 0 && d > lo) lo = d;
+      }
+      bearing = norm(back + (lo + hi) / 2);
+    }
+    // as wide as a quarter of the walled area wants, and no wider than the
+    // nearest avenue's kerb allows
+    const kerb = Math.asin(Math.min(0.9, (AVENUE_W / 2 + STREET_GAP) / rIn));
+    let halfMax = Math.PI;
+    for (const g of gates) {
+      if (own && g === own) continue;
+      const d = Math.abs(angDiff(g.bearing, bearing)) - kerb;
+      if (d < halfMax) halfMax = d;
+    }
+    const halfArea = (KEEP_TARGET * Math.PI * wallR * wallR) / (rOut * rOut - rIn * rIn);
+    const half = Math.min(halfMax, halfArea);
+    if (half < KEEP_MIN_HALF) {
+      keepNote = `${site.name || site.sub}: the widest precinct the streets leave at the back is ${(half * 2 * 180 / Math.PI).toFixed(0)} degrees, which is no castle, so there is none`;
+    } else {
+      const axis = own ? own.bearing : bearing;
+      keep = {
+        kind: 'keep', style: keepSpec.style, name: keepSpec.name, note: keepSpec.note,
+        x: cx, z: cz, bearing, axis, half, rIn, rOut,
+        from: norm(bearing - half), to: norm(bearing + half),
+        /** The gate that lets the town in, on the street that runs to the square. */
+        gate: {
+          kind: 'keepgate', bearing: axis, w: KEEP_GATE_W,
+          half: Math.asin(Math.min(1, (KEEP_GATE_W / 2) / rIn)),
+          x: cx + Math.sin(axis) * rIn, z: cz + Math.cos(axis) * rIn,
+          yaw: norm(axis + Math.PI),
+        },
+        /** The gate through the town wall the castle keeps for itself, or null. */
+        outerGate: own ? own.i : null,
+        through: !!own,
+        courtyard: {
+          x: cx + Math.sin(axis) * (rIn + KEEP_COURT_R + 2.5),
+          z: cz + Math.cos(axis) * (rIn + KEEP_COURT_R + 2.5),
+          r: KEEP_COURT_R,
+        },
+        towerH: keepSpec.towerH,
+        area: half * (rOut * rOut - rIn * rIn),
+        fraction: (half * (rOut * rOut - rIn * rIn)) / (Math.PI * wallR * wallR),
+        /** Where the keep's outer arc is open water instead of town wall. */
+        sea: null,
+      };
+      if (port) {
+        const off = angDiff(bearing, port.bearing);
+        const lo = Math.max(-half, off - port.half);
+        const hi = Math.min(half, off + port.half);
+        if (hi > lo + 0.02) keep.sea = { from: norm(bearing + lo), to: norm(bearing + hi), lo, hi };
+      }
+    }
+  }
+
+  // ---- the streets ---------------------------------------------------------
   const streets = [];
   for (const g of gates) {
     const [sx, sz] = fwd(g.bearing);
@@ -387,7 +683,17 @@ export function layoutTown(site, seed = 0, opts = {}) {
       x1: cx + sx * from, z1: cz + sz * from, x2: cx + sx * to, z2: cz + sz * to,
     });
   }
-  const CHORDS = 18;
+  // The way to the castle: the square's main street, carried on to the keep's
+  // gate. Where a town gate stands at the back its avenue is already that
+  // street and runs on through the courtyard, so nothing is added.
+  if (keep && !keep.through) {
+    const [sx, sz] = fwd(keep.axis);
+    streets.push({
+      kind: 'keepway', bearing: keep.axis, w: AVENUE_W,
+      x1: cx + sx * (SQUARE_R + 1.5), z1: cz + sz * (SQUARE_R + 1.5),
+      x2: keep.gate.x, z2: keep.gate.z,
+    });
+  }
   for (let i = 0; i < CHORDS; i++) {
     const a1 = (i / CHORDS) * TAU, a2 = ((i + 1) / CHORDS) * TAU;
     streets.push({
@@ -396,8 +702,6 @@ export function layoutTown(site, seed = 0, opts = {}) {
       x2: cx + Math.sin(a2) * RING_R, z2: cz + Math.cos(a2) * RING_R,
     });
   }
-  // The outer edge of the ring street, which is the first radius a lot may use.
-  const ringOuter = RING_R + RING_W / 2 + (RING_R * (1 - Math.cos(Math.PI / CHORDS)));
 
   // ---- the waystone --------------------------------------------------------
   // At the square's edge, between two avenues so it never stands in a street.
@@ -414,6 +718,12 @@ export function layoutTown(site, seed = 0, opts = {}) {
   // an arch, it is open water a hundred metres across, and blocking it would
   // forbid the jetties the very ground they are for.
   for (const g of gates) if (g.kind !== 'harbour') blocked.push({ x: g.x, z: g.z, r: g.w / 2 + 2 });
+  // The castle's court and the arch of its gate: open ground, the way the
+  // square is open ground, and the keep's own bodies keep off it too.
+  if (keep) {
+    blocked.push({ x: keep.courtyard.x, z: keep.courtyard.z, r: keep.courtyard.r });
+    blocked.push({ x: keep.gate.x, z: keep.gate.z, r: keep.gate.w / 2 + 2 });
+  }
 
   /**
    * Whether a lot may stand where it has been put. Every test is on the lot's
@@ -460,6 +770,13 @@ export function layoutTown(site, seed = 0, opts = {}) {
     for (const b of blocked) {
       if (lotsOverlap(lot, { x: b.x, z: b.z, w: b.r * 2, d: b.r * 2, yaw: 0 }, LOT_GAP)) return false;
     }
+    // The castle's ground is the castle's. A keep lot has to be wholly inside
+    // the precinct and everything else wholly outside it, and a body lying
+    // across the keep's wall belongs to neither.
+    if (keep) {
+      const side = keepFit(keep, lot);
+      if (lot.keep ? side !== 1 : side !== -1) return false;
+    }
     for (const l of lots) if (lotsOverlap(lot, l, LOT_GAP)) return false;
     return true;
   }
@@ -484,6 +801,8 @@ export function layoutTown(site, seed = 0, opts = {}) {
             if (o.outside) lot.outside = true;
             if (o.beyond) lot.beyond = true;
             if (o.prop) lot.prop = true;
+            if (o.keep) lot.keep = true;
+            if (o.h) lot.h = o.h;
             if (o.name) lot.name = o.name;
             if (!fits(lot)) continue;
             lots.push(lot);
@@ -499,21 +818,69 @@ export function layoutTown(site, seed = 0, opts = {}) {
   // The order is the order of importance: the inn takes the best frontage on
   // the square, then the trades, then the extras this realm brings, then the
   // stalls in the gaps, then houses out to the wall.
+  /**
+   * The doorstep of a building somebody keeps is not building ground.
+   * `npcs_runtime` stands the innkeeper, the smith, the healer, the
+   * stablemaster and the banker `DOOR_STAND` = 2.0 m out from their own front
+   * wall, and the packer only leaves `LOT_GAP` = 1.6 m of daylight between two
+   * lots, so without this a town can pack something into a doorway and put the
+   * person who keeps it inside. It did: the Last Well grew a palm tree in the
+   * inn's door the first time the castle moved anything.
+   */
+  const doorstep = (lot) => {
+    if (!lot) return lot;
+    const at = doorOf(lot, DOOR_CLEAR);
+    blocked.push({ x: at.x, z: at.z, r: DOOR_CLEAR * 0.55 });
+    return lot;
+  };
+
+  // The castle goes down first, because it is the one thing here whose place
+  // is decided by the town's shape and not by what is left over.
+  if (keep) {
+    const axis = keep.axis;
+    const side = Math.min(0.62, keep.half * 0.52);
+    const backR = Math.min(keep.rIn + 28, keep.rOut - 14);
+    const tower = doorstep(place('keeptower', keepSpec.tower[0], keepSpec.tower[1],
+      keep.through ? Math.min(keep.rIn + 24, keep.rOut - 14) : backR,
+      keep.through ? axis + side : axis, { keep: true, h: keep.towerH }));
+    const hall = doorstep(place('greathall', keepSpec.hall[0], keepSpec.hall[1],
+      Math.min(keep.rIn + 19, keep.rOut - 12), axis - side, { keep: true, h: 8.5 }));
+    const corners = [];
+    for (const s of [-1, 1]) {
+      const c = place('keeptowerlet', keepSpec.corner[0], keepSpec.corner[1],
+        keep.rOut - 8, norm(keep.bearing + s * (keep.half - 0.17)), { keep: true, h: 12 });
+      if (c) corners.push(c);
+    }
+    // Nothing is skipped in silence: a castle that could not be stood up says
+    // so, and the town goes on without one rather than with half of one.
+    if (!tower || !hall || corners.length < 2) {
+      const short = [!tower && 'the great tower', !hall && 'the great hall',
+        corners.length < 2 && `${2 - corners.length} of the two corner towers`].filter(Boolean);
+      keepNote = `${site.name || site.sub}: the keep could not be stood up, ${short.join(' and ')} would not fit inside its wall`;
+      for (let i = lots.length - 1; i >= 0; i--) if (lots[i].keep) lots.splice(i, 1);
+      for (let i = streets.length - 1; i >= 0; i--) if (streets[i].kind === 'keepway') streets.splice(i, 1);
+      keep = null;
+    } else {
+      keep.tower = { x: tower.x, z: tower.z, yaw: tower.yaw, w: tower.w, d: tower.d, h: tower.h };
+      keepNote = `${keepSpec.name} holds ${(keep.fraction * 100).toFixed(1)}% of the walled ground`;
+    }
+  }
+
   const seat = norm(gates[0].bearing + Math.PI / Math.max(2, nGates + 1));
   const [iw, id, istyle] = spec.inn;
-  const inn = place('inn', iw, id, CIVIC_RING, seat);
+  const inn = doorstep(place('inn', iw, id, CIVIC_RING, seat));
   if (inn) inn.style = istyle;
 
-  const smith = place('smith', 13, 10, CIVIC_RING, seat + 1.15);
+  const smith = doorstep(place('smith', 13, 10, CIVIC_RING, seat + 1.15));
   if (smith) {
     // The forge stands beside the smithy, on the side away from the square, so
     // the fire is never between a customer and the door.
-    place('forge', 5.5, 5, smith.ring + 8, smith.bearing + 0.1);
+    doorstep(place('forge', 5.5, 5, smith.ring + 8, smith.bearing + 0.1));
   }
-  place('healer', 11, 9, CIVIC_RING, seat - 1.15);
-  const stable = place('stable', 13, 10, CIVIC_RING, seat + 2.3);
-  if (stable) place('pens', 15, 12, stable.ring + 12, stable.bearing + 0.12);
-  place('bank', 11, 10, CIVIC_RING, seat - 2.3);
+  doorstep(place('healer', 11, 9, CIVIC_RING, seat - 1.15));
+  const stable = doorstep(place('stable', 13, 10, CIVIC_RING, seat + 2.3));
+  if (stable) doorstep(place('pens', 15, 12, stable.ring + 12, stable.bearing + 0.12));
+  doorstep(place('bank', 11, 10, CIVIC_RING, seat - 2.3));
 
   for (let i = 0; i < spec.extras.length; i++) {
     const [kind, w, d] = spec.extras[i];
@@ -530,7 +897,11 @@ export function layoutTown(site, seed = 0, opts = {}) {
     const d = 6 + Math.floor(rng() * 3);
     const ring = HOUSE_RING + (i % 2) * 9;
     const a = seat + 0.3 + (i / spec.houses) * TAU + (rng() - 0.5) * 0.2;
-    const lot = place('house', w, d, ring, a);
+    // The eaves height is decided here rather than in the builder, so that the
+    // thing that measures whether the keep shows over the roofs is reading the
+    // same number the thing that draws the roofs reads. It comes off its own
+    // stream, so adding it moved no other building by a millimetre.
+    const lot = place('house', w, d, ring, a, { h: 4.6 + hrng() * 1.4 });
     if (lot) lot.style = ['a', 'b', 'c'][Math.floor(rng() * 3)];
   }
 
@@ -581,7 +952,11 @@ export function layoutTown(site, seed = 0, opts = {}) {
     id: site.id, sub: site.sub, realm: site.realm, kind: 'town', name: site.name,
     x: cx, z: cz, precinctR, palette, spec, note: spec.note,
     wall, gates, square, streets, waystone, port,
+    /** The castle precinct, or null with `keepNote` saying why there is none. */
+    keep, keepNote,
     lots,
+    /** The castle's own bodies: the great tower, the hall, two corner towers. */
+    keepLots: lots.filter((l) => l.keep),
     /** The dressing, packed with everything else so none of it stands on a wall. */
     props: lots.filter((l) => l.prop),
     /** The buildings, which is `lots` without the dressing and without the water. */
@@ -622,6 +997,31 @@ export function auditTownSpecs() {
     }
   }
   if (Object.keys(TOWN_SPECS).length !== 7) bad.push(`there are seven precinct towns, this table has ${Object.keys(TOWN_SPECS).length}`);
+  // Every town is a seat, so every town has a castle, and no two of them are
+  // built the same way. The fifth biome with no axe is how this project has
+  // been bitten before.
+  for (const id of Object.keys(TOWN_SPECS)) {
+    const k = KEEP_SPECS[id];
+    if (!k) { bad.push(`town ${id}: no keep`); continue; }
+    const at = `keep of ${id}`;
+    if (!KEEP_STYLES.includes(k.style)) bad.push(`${at}: "${k.style}" is not a way a keep is built`);
+    if (!(k.towerH >= 18 && k.towerH <= 30)) bad.push(`${at}: a tower of ${k.towerH} m, wanted 18 to 30`);
+    if (!k.name || !k.note || k.note.includes('—') || k.name.includes('—')) bad.push(`${at}: no name, no note, or an em dash in one`);
+    for (const part of ['tower', 'hall', 'corner']) {
+      if (!Array.isArray(k[part]) || k[part].length !== 2) bad.push(`${at}: the ${part} has no size`);
+    }
+    const innArea = TOWN_SPECS[id].inn[0] * TOWN_SPECS[id].inn[1];
+    for (const part of ['tower', 'hall']) {
+      if (k[part][0] * k[part][1] > innArea) bad.push(`${at}: the ${part} is bigger than the inn, which the inn is not allowed to be`);
+    }
+  }
+  for (const id of Object.keys(KEEP_SPECS)) {
+    if (!TOWN_SPECS[id]) bad.push(`there is a keep for "${id}", which is not one of the seven towns`);
+  }
+  if (new Set(Object.values(KEEP_SPECS).map((k) => k.style)).size !== Object.keys(KEEP_SPECS).length) {
+    bad.push('two keeps are built the same way, and a realm you cannot tell from another realm is not a realm');
+  }
+  if (KEEP_MIN_WALL_R >= WALL_R) bad.push(`a keep needs ${KEEP_MIN_WALL_R} m of wall and the wall is ${WALL_R} m, so no town could have one`);
   // The inn is the largest building in every town, which is what the contract
   // says it is and what makes it findable from the square.
   for (const [id, s] of Object.entries(TOWN_SPECS)) {
