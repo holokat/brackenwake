@@ -176,6 +176,62 @@ export const GEM_ICONS = {
   'starstone': 'icons/items/starstone-gem.webp'
 };
 
+/** skill id -> path under public/. 0 of 0 skills. */
+export const SKILL_ICONS = {
+  'alchemy': 'icons/skills/alchemy.webp',
+  'anatomy': 'icons/skills/anatomy.webp',
+  'animalLore': 'icons/skills/animalLore.webp',
+  'animalTaming': 'icons/skills/animalTaming.webp',
+  'archery': 'icons/skills/archery.webp',
+  'blacksmithing': 'icons/skills/blacksmithing.webp',
+  'camping': 'icons/skills/camping.webp',
+  'carpentry': 'icons/skills/carpentry.webp',
+  'chivalry': 'icons/skills/chivalry.webp',
+  'cooking': 'icons/skills/cooking.webp',
+  'detectHidden': 'icons/skills/detectHidden.webp',
+  'discordance': 'icons/skills/discordance.webp',
+  'evaluatingIntelligence': 'icons/skills/evaluatingIntelligence.webp',
+  'fencing': 'icons/skills/fencing.webp',
+  'fishing': 'icons/skills/fishing.webp',
+  'fletching': 'icons/skills/fletching.webp',
+  'focus': 'icons/skills/focus.webp',
+  'foraging': 'icons/skills/foraging.webp',
+  'healing': 'icons/skills/healing.webp',
+  'herding': 'icons/skills/herding.webp',
+  'hiding': 'icons/skills/hiding.webp',
+  'inscription': 'icons/skills/inscription.webp',
+  'lockpicking': 'icons/skills/lockpicking.webp',
+  'lumberjacking': 'icons/skills/lumberjacking.webp',
+  'macefighting': 'icons/skills/macefighting.webp',
+  'magery': 'icons/skills/magery.webp',
+  'marksmanship': 'icons/skills/marksmanship.webp',
+  'masonry': 'icons/skills/masonry.webp',
+  'meditation': 'icons/skills/meditation.webp',
+  'mining': 'icons/skills/mining.webp',
+  'musicianship': 'icons/skills/musicianship.webp',
+  'mysticism': 'icons/skills/mysticism.webp',
+  'necromancy': 'icons/skills/necromancy.webp',
+  'parrying': 'icons/skills/parrying.webp',
+  'peacemaking': 'icons/skills/peacemaking.webp',
+  'poisoning': 'icons/skills/poisoning.webp',
+  'polearms': 'icons/skills/polearms.webp',
+  'provocation': 'icons/skills/provocation.webp',
+  'removeTrap': 'icons/skills/removeTrap.webp',
+  'resistingSpells': 'icons/skills/resistingSpells.webp',
+  'skinning': 'icons/skills/skinning.webp',
+  'spiritSpeak': 'icons/skills/spiritSpeak.webp',
+  'stealing': 'icons/skills/stealing.webp',
+  'stealth': 'icons/skills/stealth.webp',
+  'swimming': 'icons/skills/swimming.webp',
+  'swordsmanship': 'icons/skills/swordsmanship.webp',
+  'tactics': 'icons/skills/tactics.webp',
+  'tailoring': 'icons/skills/tailoring.webp',
+  'tinkering': 'icons/skills/tinkering.webp',
+  'tracking': 'icons/skills/tracking.webp',
+  'veterinary': 'icons/skills/veterinary.webp',
+  'wrestling': 'icons/skills/wrestling.webp'
+};
+
 /** How many of a thing make the stacked picture. Five ingots is a stack; two is two ingots. */
 export const STACK_AT = 5;
 
@@ -204,4 +260,9 @@ export function itemIcon(base, { count = 1, material = null } = {}) {
 /** An <img> for an icon path, sized, with no alt text because the name is always beside it. */
 export function iconImg(src, size, cls = 'bw-g') {
   return `<img class="${cls} bw-img" src="${src}" width="${size}" height="${size}" alt="" draggable="false">`;
+}
+
+/** The icon for a skill id, or null when the sheet still draws its mark. */
+export function skillIcon(id) {
+  return iconUrl(SKILL_ICONS[id] || null);
 }

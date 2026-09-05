@@ -5,12 +5,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  ABILITY_ICONS, ITEM_ICONS, STACK_ICONS, GEM_ICONS, STACK_AT,
-  abilityIcon, itemIcon, iconImg,
+  ABILITY_ICONS, ITEM_ICONS, STACK_ICONS, GEM_ICONS, SKILL_ICONS, STACK_AT,
+  abilityIcon, itemIcon, skillIcon, iconImg,
 } from './icon_art.js';
 import { ABILITIES } from '../mmo/abilities.js';
 import { BASES } from '../mmo/items.js';
 import { GEMS } from '../mmo/ores.js';
+import { SKILLS } from '../mmo/skills.js';
 import { itemGlyph } from './ui_theme.js';
 
 let pass = 0, fail = 0;
@@ -21,7 +22,7 @@ const exists = (p) => fs.existsSync(path.join(pub, p));
 
 console.log('icon_art: every path is a file');
 {
-  const all = [...Object.values(ABILITY_ICONS), ...Object.values(ITEM_ICONS), ...Object.values(STACK_ICONS), ...Object.values(GEM_ICONS)];
+  const all = [...Object.values(ABILITY_ICONS), ...Object.values(ITEM_ICONS), ...Object.values(STACK_ICONS), ...Object.values(GEM_ICONS), ...Object.values(SKILL_ICONS)];
   const gone = all.filter((p) => !exists(p));
   check('every manifest path is a file under public/', gone.length === 0, gone.slice(0, 3).join(', ') || `${all.length} files`);
   const big = all.filter((p) => exists(p) && fs.statSync(path.join(pub, p)).size > 40 * 1024);
@@ -37,6 +38,17 @@ console.log('icon_art: abilities');
   check('and no painting names an ability that does not exist', orphan.length === 0, orphan.join(', ') || 'none');
   check('abilityIcon answers a url for fireball', /icons\/abilities\/fireball\.webp$/.test(abilityIcon('fireball')));
   check('and null for a name nobody painted, so the drawn mark is used', abilityIcon('notAThing') === null);
+}
+
+console.log('icon_art: skills');
+{
+  const ids = SKILLS.map((s) => s.id);
+  const unpainted = ids.filter((id) => !SKILL_ICONS[id]);
+  check('every skill has a painting', unpainted.length === 0, unpainted.join(', ') || `${ids.length} of ${ids.length}`);
+  const orphan = Object.keys(SKILL_ICONS).filter((id) => !ids.includes(id));
+  check('and no painting names a skill that does not exist', orphan.length === 0, orphan.join(', ') || 'none');
+  check('skillIcon answers a url for swordsmanship', /icons\/skills\/swordsmanship\.webp$/.test(skillIcon('swordsmanship')));
+  check('and null for a name nobody painted', skillIcon('notASkill') === null);
 }
 
 console.log('icon_art: items');
