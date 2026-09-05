@@ -596,6 +596,7 @@ export function createMonsters(sc, runtime, opts = {}) {
   // camp cleared before lunch has to still be clear after it.
   const wallClock = typeof opts.clock === 'function' ? opts.clock : () => Date.now();
   const deadUntil = Array.isArray(opts.deadUntil) ? opts.deadUntil : [];
+  const playerCharacter = (opts.character && typeof opts.character === 'object') ? opts.character : null;   // L1: the class the drops steer toward
 
   const say = (text, kind) => {
     if (!text) return;
@@ -728,7 +729,9 @@ export function createMonsters(sc, runtime, opts = {}) {
     // entry for it would sit in the save for ever matching nothing.
     if (!mon.ephemeral) deadUntil.push({ key: mon.key, id: mon.id, until: wallClock() + respawnDelay(rng) * 1000 });
 
-    const drop = loot?.rollFor ? loot.rollFor(mon.row, { luck: num(killer?.bonuses?.luck), seed: hashKey(mon.key) }) : null;
+    // the player's own character steers the roll toward what they practise (L1);
+    // a kill by the dragon or by another monster is nobody's class and spends no unique
+    const drop = loot?.rollFor ? loot.rollFor(mon.row, { luck: num(killer?.bonuses?.luck), seed: hashKey(mon.key), character: killer?.kind === 'player' ? playerCharacter : null }) : null;
     const bag = drop && loot?.drop ? loot.drop(mon.actor.pos, drop) : null;
     if (killer && killer.kind === 'player') {
       say(bag

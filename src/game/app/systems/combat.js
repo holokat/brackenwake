@@ -36,6 +36,7 @@ export const combat = {
       actorFactory: (id, o) => spawnMonster(id, o.pos),
       combat: combatRules, loot, floaters, hud, audio,
       deadUntil: character.deadUntil,
+      character,                            // L1: the class the drops steer toward
       spawnPoint,
     });
 

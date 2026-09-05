@@ -255,6 +255,7 @@ export function blankCharacter() {
     zones: [],            // zone ids entered, once each (Z1)
     waypoint: null,       // { x, z, name } from the map, read by the compass
     dragon: null,         // the companion's record, written by dragon.js (D1)
+    uniques: [],          // signature uniques found, once each (L1)
     settings: { ...DEFAULT_SETTINGS },
   };
 }
@@ -1008,6 +1009,8 @@ export function hydrate(raw) {
   // the dragon companion's record (D1, 14-KALDERA.md section 2): kept whole,
   // since dragon.js owns its shape and reads it defensively
   if (raw.dragon && typeof raw.dragon === 'object' && !Array.isArray(raw.dragon)) doc.dragon = { ...raw.dragon };
+  // the signature uniques already found (L1): once per character, so the list must survive a reload
+  if (Array.isArray(raw.uniques)) doc.uniques = raw.uniques.filter((u) => typeof u === 'string');
   if (Array.isArray(raw.deadUntil)) doc.deadUntil = raw.deadUntil.filter((d) => d && typeof d === 'object');
   if (raw.settings && typeof raw.settings === 'object') {
     doc.settings = { ...DEFAULT_SETTINGS, ...raw.settings };

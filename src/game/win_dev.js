@@ -993,8 +993,8 @@ export function createBench(ctx = {}) {
     for (let i = 0; i < n; i++) {
       const m = subjects[i % subjects.length];
       const r = ctx.loot && typeof ctx.loot.rollFor === 'function'
-        ? ctx.loot.rollFor(m, { luck, seed: (base + i * 2654435761) >>> 0 })
-        : rollFor(m, { luck, seed: (base + i * 2654435761) >>> 0 });
+        ? ctx.loot.rollFor(m, { luck, seed: (base + i * 2654435761) >>> 0, character: character() })
+        : rollFor(m, { luck, seed: (base + i * 2654435761) >>> 0, character: character() });
       gold += r.gold;
       goldLo = Math.min(goldLo, r.gold);
       goldHi = Math.max(goldHi, r.gold);
@@ -1052,7 +1052,7 @@ export function createBench(ctx = {}) {
       for (let t = 0; t < SACK_TRIES; t++) {
         tries++;
         seed = (seed + 2654435761) >>> 0;
-        r = ctx.loot.rollFor ? ctx.loot.rollFor(m, { luck: num(opts.luck), seed }) : rollFor(m, { luck: num(opts.luck), seed });
+        r = ctx.loot.rollFor ? ctx.loot.rollFor(m, { luck: num(opts.luck), seed, character: character() }) : rollFor(m, { luck: num(opts.luck), seed, character: character() });
         if (r.items.length) break;
       }
       const at = ring[i];
