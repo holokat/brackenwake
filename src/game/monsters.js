@@ -260,6 +260,14 @@ export function placeFor(field, sites, x, z) {
     if (dist2D(s, { x, z }) > r) continue;
     if (s.kind === 'ruin') return 'ruin';
     if (s.kind === 'cave') return 'cave';
+    // A3's wild structures. A graveyard and a burned farm read as the tables
+    // they already have; a bandit camp, an arena and a tomb have their own.
+    if (s.kind === 'bandit_camp') return 'bandit_camp';
+    if (s.kind === 'arena') return 'arena';
+    if (s.kind === 'tomb') return 'tomb';
+    if (s.kind === 'graveyard') return 'graveyard';
+    if (s.kind === 'burned_farm') return 'ruin';
+    if (s.kind === 'castle') return 'ruin';
   }
   const biome = field.biomeAt(x, z);
   return HABITAT[resolvePlace(biome)] ? resolvePlace(biome) : 'meadow';

@@ -852,6 +852,23 @@ export const HABITAT = {
     day: [],
     night: ['skeleton', 'zombie', 'ghoul', 'vampireKnight', 'boneHound', 'marrowGhoul', 'riderWraith', 'cairnWight'],
   },
+  // A3: a bandit camp is men round a fire, and they are there in the dark too.
+  bandit_camp: {
+    day: ['bandit', 'raider', 'goblinScout', 'hobgoblin'],
+    night: ['bandit', 'raider', 'goblinScout', 'hobgoblin'],
+  },
+  // A3: an arena has a champion in it by day and nothing after dark. The rows
+  // are tier 3 and 4, and the count is the row's own group size.
+  arena: {
+    day: ['ogre', 'orc', 'hobgoblin', 'boneKnight'],
+    night: [],
+  },
+  // A3: a sealed barrow. What is in it is what is in a ruin, and it does not
+  // come out in daylight.
+  tomb: {
+    day: [],
+    night: ['skeleton', 'cairnWight', 'wraith', 'marrowGhoul'],
+  },
   // "crater: starfall ore, starbloom, a champion". The Ashen Throne is a
   // crater the size of a realm, so its own rows are here too.
   crater: {

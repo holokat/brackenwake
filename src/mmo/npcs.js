@@ -33,7 +33,7 @@ export const SKILL_DOC = {
 export const SKILL_IDS = Object.keys(SKILL_DOC);
 
 // What an NPC can stand in front of.
-export const SETTLEMENT_KINDS = ['town', 'hamlet', 'ruin'];
+export const SETTLEMENT_KINDS = ['town', 'hamlet', 'ruin', 'tower'];   // a tower holds one person (A3)
 // The things a talk panel can offer beyond buying and selling. `bank` is the
 // newest and the only one nothing acts on yet: the Banker stands at the bank
 // door in the seven precinct towns so the building has a person in it, and the
@@ -141,7 +141,7 @@ export const NPC_LIST = [
     ],
   }),
   R({
-    id: 'mage', name: 'Mage', appearsIn: ['town'],
+    id: 'mage', name: 'Mage', appearsIn: ['town', 'tower'],
     sells: ['scrolls', 'reagents', 'staves', 'robes'], buys: ['scrolls', 'reagents'],
     teaches: ['magery', 'evaluatingIntelligence', 'meditation', 'inscription'], services: [],
     lines: [
@@ -317,6 +317,8 @@ export function npcsFor(settlement, rng = Math.random) {
   // A ruin is not a settlement with people in it. It has one stall, and only
   // the Necromancer keeps it.
   if (kind === 'ruin') return [NPCS.necromancer];
+  // A tower is one person: the Mage at the door (A3).
+  if (kind === 'tower') return [NPCS.mage];
 
   const pool = NPC_LIST.filter((n) => (
     n.appearsIn.includes(kind)

@@ -84,7 +84,9 @@ export function createWorldRuntime(sc, opts = {}) {
     onBuilt: (cx, cz, verts) => { flora.onChunk(cx, cz, verts); dressing.onChunk(cx, cz, verts); },
     onDisposed: (cx, cz) => { flora.offChunk(cx, cz); dressing.offChunk(cx, cz); },
   });
-  const siteMarkers = createSiteMarkers(scene, discovery, terrainY);
+  // `effects` is the shared particle pool (a burning wreck puffs smoke into it,
+  // A3) and `field` lets a town face its gates at the roads (T1); both optional.
+  const siteMarkers = createSiteMarkers(scene, discovery, terrainY, { effects: opts.effects || null, field });
 
   const viewFar = world.viewRadius - FOG_MARGIN;
   sc.setFog(Math.min(90, viewFar * 0.28), viewFar);

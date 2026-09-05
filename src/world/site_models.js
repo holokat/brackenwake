@@ -13,6 +13,9 @@ import { buildCamp } from '../farm/camp_models.js';
 import { buildMineMouth, buildMineYard, buildSeam } from './mine_models.js';
 import { buildTown } from './town_models.js';
 import { buildMegalith } from './megalith_models.js';
+import { linksForCell } from './roads.js';
+import { buildStructure } from './structures.js';
+import { createFires, createGlows } from './fire.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // A kit house is dozens of small meshes, each its own draw call. A town of
@@ -162,13 +165,63 @@ function mineSite(site, heightAt) {
   return g;
 }
 
-export function buildSiteMarker(site, heightAt) {
+/**
+ * Hang everything the merge would have destroyed back onto a merged marker.
+ *
+ * `mergeByMaterial` bakes every mesh into one geometry per colour, in world
+ * space, and deletes every attribute but position and normal. That is right for
+ * a wall and fatal for four things a wild structure has:
+ *
+ *   a flame     it has to face the camera and change every frame
+ *   a window    it has to come up at dusk, which means its own material
+ *   a board     it is lettered, and lettering is a uv set
+ *   a door      it carries a DIFFERENT site from the rest of the marker, and the
+ *               blanket tag at the end of buildSiteMarker would overwrite it
+ *
+ * So `structures.js` hands those back beside the group and they are added here,
+ * after the merge, with one update hook driving all of them. That hook is the
+ * same `userData.update(dt, nightFactor)` a mine's wheel and lantern use, and
+ * `createSiteMarkers.animate` already calls it.
+ */
+function dressStructure(merged, built, site, opts = {}) {
+  const seed = (hash2(site.cx, site.cz, 4211) % 100000) + 1;
+  const fires = createFires(built.fires, { seed, effects: opts.effects || null });
+  const glows = createGlows(built.glows, { seed });
+  if (built.fires.length) merged.add(fires.group);
+  if (built.glows.length) merged.add(glows.group);
+  for (const extra of built.extras) {
+    extra.traverse((o) => { if (o.isMesh && !o.userData.site) o.userData.site = site; });
+    merged.add(extra);
+  }
+  merged.userData.wild = { fires, glows, door: built.door, word: built.word, bodyR: built.bodyR };
+  if (built.fires.length || built.glows.length) {
+    merged.userData.update = (dt, nightFactor = 0) => {
+      const n = Math.max(0, Math.min(1, nightFactor));
+      fires.setNight(n); fires.update(dt);
+      glows.setNight(n); glows.update(dt);
+    };
+  }
+  return merged;
+}
+
+/**
+ * `opts.effects` is `createEffects`'s return and is optional. With it, a fire in
+ * the world also puffs smoke into the shared particle pool; without it, every
+ * fire is exactly what it is here and nothing throws. See docs/mmo/wiring/A3.md
+ * for the one line in world_runtime.js that hands it over.
+ */
+export function buildSiteMarker(site, heightAt, opts = {}) {
   // a mine is several places at once and merges per part; every other kind is
   // one group merged in one pass, exactly as it always was
   if (site.kind === 'mine') return mineSite(site, heightAt);
   // Wave B hands two kinds to their own builders. Each answers null until it
   // is written (or for a site it does not know), and the old marker stands in.
-  if (site.kind === 'town' && site.authored) { const t = buildTown(site, heightAt); if (t) return t; }
+  if (site.kind === 'town' && site.authored) {
+    // the gates face the roads when the field can say where they arrive (T1)
+    const bearings = opts.field ? linksForCell(opts.field, site.cx, site.cz).map((b) => Math.atan2(b.x - site.x, b.z - site.z)) : undefined;
+    const t = buildTown(site, heightAt, { ...opts, bearings });
+    if (t) return t;
+  }
   if (site.kind === 'megastructure' || site.kind === 'landmark') { const m = buildMegalith(site, heightAt); if (m) return m; }
 
   const g = new THREE.Group();
@@ -176,6 +229,17 @@ export function buildSiteMarker(site, heightAt) {
   const rng = mulberry32(hash2(site.cx, site.cz, 77));
   const ground = (dx, dz) => heightAt(site.x + dx, site.z + dz);
   const y0 = site.y;
+
+  // A3's eleven. Each one is built whole by `structures.js`, merged like every
+  // other kind, and then dressed with the pieces the merge would have eaten.
+  const built = buildStructure(site, heightAt);
+  if (built) {
+    g.add(built.group);
+    g.userData.site = site;
+    const dressed = dressStructure(mergeByMaterial(g), built, site, opts);
+    dressed.traverse((o) => { if (o.isMesh && !o.userData.site) o.userData.site = site; });
+    return dressed;
+  }
 
   if (site.kind === 'town') {
     settlement(g, site, heightAt, rng, { count: 9 + Math.floor(rng() * 4), ring: 36, plaza: 12, workshops: true, maxLevel: 4 });
@@ -251,7 +315,7 @@ export function buildSiteMarker(site, heightAt) {
 }
 
 /** Keeps markers alive for every site within `radius` of (x, z). */
-export function createSiteMarkers(scene, discovery, heightAt) {
+export function createSiteMarkers(scene, discovery, heightAt, opts = {}) {
   const live = new Map();
   let lastX = Infinity, lastZ = Infinity;
   let meshCache = null;
@@ -285,7 +349,7 @@ export function createSiteMarkers(scene, discovery, heightAt) {
       if (pending.length) {
         const s = pending.shift();
         if (!live.has(s.id)) {
-          const g = buildSiteMarker(s, heightAt);
+          const g = buildSiteMarker(s, heightAt, opts);
           scene.add(g); live.set(s.id, g); meshCache = null;
           if (typeof g.userData.update === 'function') animated.set(s.id, g.userData.update);
         }

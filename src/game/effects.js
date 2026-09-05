@@ -331,6 +331,53 @@ export function deathPose(t) {
 export const PARTICLE_GRAVITY = 6;    // m/s^2; sparks are light, they do not fall like people
 export const MAX_PARTICLES = 900;
 
+// --- fire ---------------------------------------------------------------------
+//
+// A3 put fires in the world: the campfire in a bandit camp, the braziers on a
+// temple's steps and on a watchtower's head, the two places a burned farm is
+// still going. The bodies are `src/world/fire.js`; what lives here is the part
+// the rest of the game already owns, which is the colours and the arithmetic of
+// a flame that never stands still.
+//
+// Both files read these, so the ember off a burning roof is the same orange as
+// the flame it came off, and there is one place to change it.
+
+/** The three bands of a flame, the spark that comes off it, and its smoke. */
+export const FIRE_COLOURS = {
+  core: 0xffe6a8,
+  mid: 0xff9a2e,
+  outer: 0xd23c12,
+  ember: 0xff8b3a,
+  smoke: 0x4a423c,
+};
+
+/**
+ * `drag` for a rising particle. `stepParticle` does `vy -= gravity * drag * dt`,
+ * so a NEGATIVE drag is a thing lighter than the air it is in: an ember off a
+ * fire climbs instead of falling, which is the only reason it reads as heat and
+ * not as gravel.
+ */
+export const EMBER_DRAG = -0.35;
+/** And smoke, which is lighter still and slower. */
+export const SMOKE_DRAG = -0.22;
+
+/**
+ * How bright a flame is at time `t`, in 0.68 to 1. Two slow sines beaten
+ * against each other, which is the same trick a mine lantern uses, so a flame
+ * never repeats on a period a player can see. Pure, and the fires, the light
+ * and the ember rate all read this one function.
+ */
+export function flameFlicker(t) {
+  return 0.84 + 0.16 * Math.sin(t * 7.1) * Math.sin(t * 2.3 + 1.1);
+}
+
+/** Which frame of a flame sheet of `frames` is showing at time `t`, at `fps`. */
+export function flameFrameAt(t, frames, fps) {
+  const n = Math.max(1, frames | 0);
+  const i = Math.floor(Math.max(0, t) * fps) % n;
+  return i < 0 ? i + n : i;
+}
+
 /** One particle, one step. Mutates and returns it. Pure. */
 export function stepParticle(p, dt, gravity = PARTICLE_GRAVITY) {
   p.age += dt;
@@ -768,10 +815,29 @@ export function createEffects(sc, opts = {}) {
     }
   }
 
+  /**
+   * A thing burning: embers off it, and smoke above them.
+   *
+   * `strength` is how big the fire is, roughly in metres of flame. There is no
+   * sound: audio.js has no crackle in its table and this file does not get to
+   * add one, so a fire is silent until somebody records one. See
+   * docs/mmo/wiring/A3.md.
+   */
+  function fire(pos, strength = 1) {
+    const y = (pos.y ?? 0) + 0.35 * strength;
+    emit(pos.x, y, pos.z, FIRE_COLOURS.ember, Math.max(1, Math.round(5 * strength)),
+      0.3 * strength, 0.9 * strength, 1.4, 0.55 * strength, EMBER_DRAG, 0.5);
+    emit(pos.x, y + 0.6 * strength, pos.z, FIRE_COLOURS.smoke, Math.max(1, Math.round(3 * strength)),
+      0.4 * strength, 0.5 * strength, 2.6, 1.5 * strength, SMOKE_DRAG, 0.4);
+    return true;
+  }
+
   return {
     root, update,
     // spells
     colourFor, bolt, burst, ring, column, showGroundRing, hideGroundRing, emit,
+    // the world burning
+    fire,
     // bodies
     swing, cast, stopCast, flinch, die, handPos, play,
     get particleCount() { return pool.length; },

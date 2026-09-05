@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { createWorldField } from './field.js';
 import { authoredSites } from './zones.js';
-import { SITE_CELL } from './sitegrid.js';
+import { SITE_CELL, ALL_KINDS } from './sitegrid.js';
 import { sitesNear, mouthsNear } from './sites.js';
 import { buildSiteMarker, createSiteMarkers, mergeByMaterial } from './site_models.js';
 import { MOUTH_MAX_TRIS, YARD_MAX_TRIS, SEAM_MAX_TRIS, trisOf, LANTERN_COLOUR } from './mine_models.js';
@@ -39,30 +39,43 @@ function meshesOf(g) {
 // ============================================================================
 console.log('site_models: every other kind is exactly as it was');
 {
-  // A mine must not have cost the other seven kinds anything. Find one of each
-  // in the real world and build it.
+  // A mine must not have cost the other kinds anything, and neither must A3's
+  // eleven. Find one of every kind the roll can make and build it: the seven
+  // old ones and the eleven wild ones, eighteen in all.
+  const WANT = ALL_KINDS.length;
   const found = new Map();
-  const R = 40;
-  for (let cz = -R; cz <= R && found.size < 7; cz++) {
-    for (let cx = -R; cx <= R && found.size < 7; cx++) {
+  const R = 60;
+  for (let cz = -R; cz <= R && found.size < WANT; cz++) {
+    for (let cx = -R; cx <= R && found.size < WANT; cx++) {
       const s = f.siteInCell(cx, cz);
       if (s && s.kind !== 'mine' && !found.has(s.kind)) found.set(s.kind, s);
     }
   }
-  check('the world still holds one of every other kind', found.size === 7,
+  check(`the world still holds one of every one of the ${WANT} rolled kinds`, found.size === WANT,
     [...found.keys()].sort().join(', '));
-  let untagged = 0, empty = 0;
+  let untagged = 0, empty = 0, derived = 0;
   const rows = [];
   for (const [kind, site] of found) {
     const g = buildSiteMarker(site, heightAt);
     const meshes = meshesOf(g);
     if (!meshes.length) empty++;
-    for (const m of meshes) if (m.userData.site !== site) untagged++;
+    for (const m of meshes) {
+      if (m.userData.site === site) continue;
+      // A3's tomb is the second kind, after a mine, whose marker carries a
+      // DERIVED site: the door in the barrow is a site of kind 'dungeon' with
+      // the tomb's id on it, so `enterDungeon` opens a level behind it while the
+      // pad, the habitat and the map still see a tomb. Anything else is a mesh
+      // no raycast could name.
+      if (m.userData.site?.tomb === site.id && m.userData.site.kind === 'dungeon') derived++;
+      else untagged++;
+    }
     rows.push(`${kind} ${meshes.length}m/${trisOf(g)}t`);
     check(`a ${kind} is one group named for its site`, g.name === `site:${site.id}`, g.name);
   }
   check('every one of them built meshes', empty === 0, rows.join(', '));
-  check('and every mesh of every one carries its own site, as it always did', untagged === 0);
+  check('and every mesh of every one carries its own site, as it always did', untagged === 0,
+    `${derived} meshes carry a derived site instead, which is the tomb's door`);
+  check('and the tomb really is the one that has one', derived === 2, `${derived} door meshes`);
 
   // mergeByMaterial itself, driven both ways
   const grp = new THREE.Group();

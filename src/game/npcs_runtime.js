@@ -45,14 +45,14 @@ export const TURN_RATE = 1.8;
 export const RESTREAM = 48;
 
 // Copies of site_models.js's private layout numbers. See the note at the top.
-export const PLAZA = { town: 12, hamlet: 8, ruin: 3 };
+export const PLAZA = { town: 12, hamlet: 8, ruin: 3, tower: 6 };     // a tower's plaza is its step (A3)
 /** The ring the people stand on, inside the plaza and clear of the well. */
-export const NPC_RING = { town: 8, hamlet: 5, ruin: 1.6 };
+export const NPC_RING = { town: 8, hamlet: 5, ruin: 1.6, tower: 5.2 };
 /** The well and its roof posts take the middle of a settlement square. */
 export const WELL_CLEAR = 2.2;
 
 /** Which site kinds hold people at all. `npcs.js` names the same three. */
-export const PEOPLED = ['town', 'hamlet', 'ruin'];
+export const PEOPLED = ['town', 'hamlet', 'ruin', 'tower'];
 
 /**
  * The seven precinct towns have real buildings, so their people stand at real
@@ -161,6 +161,15 @@ function townRoles(site, rng) {
  */
 export function streetFor(site, field, opts = {}) {
   if (!PEOPLED.includes(site.kind)) return [];
+  // A3: a tower is one person at one door, not a street. 5.2 m out on the
+  // facing side: the shaft is 3.4 m and the step reaches 4.6.
+  if (site.kind === 'tower') {
+    const role = NPCS.mage;
+    return [{
+      id: `${site.id}:${role.id}`, site, role, personName: nameFor(site, role.id, 0), nightOnly: !!role.nightOnly, at: 'door',
+      x: site.x + Math.sin(site.facing) * 5.2, z: site.z + Math.cos(site.facing) * 5.2, homeYaw: site.facing,
+    }];
+  }
   const rng = mulberry32(hash2(site.cx | 0, site.cz | 0, opts.salt ?? 0x9e37));
   const plan = site.kind === 'town' ? townPlanFor(site) : null;
   const forestEdge = site.kind === 'hamlet' && field ? forestEdgeAt(field, site.x, site.z) : false;

@@ -24,7 +24,16 @@ export const world = {
   create(ctx) {
     const { sc, hud, audio, state } = ctx;
 
-    const runtime = createWorldRuntime(sc, { homeBiome: 'meadow' });
+    // The particle pool belongs to the abilities system, which is built after
+    // this one, so the world gets a proxy that finds it when it is asked.
+    const effectsLater = new Proxy({}, {
+      get(_, key) {
+        const e = ctx.has('abilities') ? ctx.get('abilities').effects : null;
+        const v = e ? e[key] : undefined;
+        return typeof v === 'function' ? v.bind(e) : v;
+      },
+    });
+    const runtime = createWorldRuntime(sc, { homeBiome: 'meadow', effects: effectsLater });
     // the analytic sky and the ocean sheet share one shader block; the water
     // reads the sky's sun and palette, and scene.js takes its fog colour from it
     const sky = createSky(sc);
