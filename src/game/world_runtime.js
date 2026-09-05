@@ -73,7 +73,7 @@ export function createWorldRuntime(sc, opts = {}) {
   const center = new THREE.Vector3();
   let dungeon = null;      // { site, level, layout, scene }
   let surface = null;      // what was switched off on the way in
-  let discoverFn = null, stateFn = null;
+  let discoverFn = null, stateFn = null, zoneFn = null;
   let lastSweep = 0;
 
   world.update(center);
@@ -101,6 +101,9 @@ export function createWorldRuntime(sc, opts = {}) {
     siteMarkers.update(x, z, world.viewRadius);
     const found = discovery.check(x, z, nowMs);
     if (found && discoverFn) { try { discoverFn(found); } catch (err) { console.warn('onDiscover threw', err); } }
+    // a named region, entered for the first time: once per zone, ever
+    const zone = discovery.checkZone?.(x, z, nowMs);
+    if (zone && zoneFn) { try { zoneFn(zone); } catch (err) { console.warn('onZone threw', err); } }
   }
 
   // ---------------------------------------------------------------- below --
@@ -302,6 +305,8 @@ export function createWorldRuntime(sc, opts = {}) {
     },
 
     onDiscover(fn) { discoverFn = fn; },
+    onZone(fn) { zoneFn = fn; },
+    zoneNow(x, z) { return discovery.zoneNow?.(x, z) ?? null; },
     onDungeonState(fn) { stateFn = fn; },
 
     dispose() {

@@ -187,7 +187,16 @@ export function spawnsForChunk(field, cx, cz, opts = {}) {
   const sitesNear = opts.sitesNear || (() => []);
   const sites = sitesNear(x0 + mid, z0 + mid, CHUNK + 160) || [];
   const place = placeFor(field, sites, x0 + mid, z0 + mid);
-  const roll = spawnRollFor(place, night, chunkRng(cx, cz, seed));
+  // the zone says how hard the ground is: field.sampleAt carries a danger band
+  // of monster tiers, and a roll above it is rolled again from the same rng,
+  // then dropped if the habitat has nothing that tame. Below the band is fine.
+  const rng = chunkRng(cx, cz, seed);
+  const band = field.sampleAt(x0 + mid, z0 + mid).danger || null;
+  let roll = spawnRollFor(place, night, rng);
+  if (band) {
+    for (let k = 0; k < 6 && roll && (MONSTERS[roll.id]?.tier ?? 1) > band[1]; k++) roll = spawnRollFor(place, night, rng);
+    if (roll && (MONSTERS[roll.id]?.tier ?? 1) > band[1]) roll = null;
+  }
   if (!roll) return [];
 
   const ctx = { sites, spawnPoint: opts.spawnPoint, spawnKeep: opts.spawnKeep };

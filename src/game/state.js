@@ -226,6 +226,8 @@ export function blankCharacter() {
     bar: new Array(BAR_SLOTS).fill(null),
     discovered: [],
     deadUntil: [],
+    zones: [],            // zone ids entered, once each (Z1)
+    waypoint: null,       // { x, z, name } from the map, read by the compass
     settings: { ...DEFAULT_SETTINGS },
   };
 }
@@ -680,6 +682,8 @@ export function hydrate(raw) {
     }
   }
   if (Array.isArray(raw.discovered)) doc.discovered = raw.discovered.filter((d) => typeof d === 'string');
+  if (Array.isArray(raw.zones)) doc.zones = raw.zones.filter((d) => typeof d === 'string');
+  if (raw.waypoint && Number.isFinite(raw.waypoint.x) && Number.isFinite(raw.waypoint.z)) doc.waypoint = { x: raw.waypoint.x, z: raw.waypoint.z, name: String(raw.waypoint.name || '') };
   if (Array.isArray(raw.deadUntil)) doc.deadUntil = raw.deadUntil.filter((d) => d && typeof d === 'object');
   if (raw.settings && typeof raw.settings === 'object') {
     doc.settings = { ...DEFAULT_SETTINGS, ...raw.settings };

@@ -88,8 +88,8 @@ export const DEFAULT_LOG = 'oak_log';
  * down in docs/mmo/wiring/G9.md rather than guessed at here.
  */
 export const DEFAULT_ORE = 'copper_ore';
-export function oreBaseFor(field) {
-  const want = typeof field?.oreId === 'string' ? field.oreId : null;
+export function oreBaseFor(field, rec) {
+  const want = typeof rec?.tier === 'string' ? rec.tier : typeof field?.oreId === 'string' ? field.oreId : null;
   return (want && ORE_OF[want]) || DEFAULT_ORE;
 }
 
@@ -384,7 +384,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
   /** What the swing that felled the thing leaves behind, and where. */
   function creditYield(res, noun, field, dropAt, at) {
     if (res.stone != null) return creditStone(res.stone, noun);
-    if (res.ore != null) return dropYield(oreBaseFor(field), res.ore, noun, 'breaks open', dropAt, at);
+    if (res.ore != null) return dropYield(oreBaseFor(field, rec), res.ore, noun, 'breaks open', dropAt, at);
     if (res.wood != null) return dropYield(logBaseFor(field) || DEFAULT_LOG, res.wood, noun, 'comes down', dropAt, at);
     say(`the ${noun} comes apart and leaves nothing`);
     audio?.play?.('denied');

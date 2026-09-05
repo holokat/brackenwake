@@ -756,6 +756,7 @@ export function createDungeonScene(THREE, layout, opts = {}) {
       const p = worldOf(layout, o.gx, o.gz);
       oreField.trees.push({ x: p.x, z: p.z, gy: 0, s: 0.5 + rng() * 0.3, ry: rng() * Math.PI, alt: 0, oa: 0 });
     }
+    oreField.oreId = layout.oreTier || null;   // interact.oreBaseFor reads it: a starfall cut gives starfall
     oreField.hydrated = true;   // a level is never saved, so never load one either
     oreField.rebuild();
   }

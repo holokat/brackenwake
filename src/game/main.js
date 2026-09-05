@@ -55,6 +55,8 @@ import { createTargetRing } from './target_ring.js';
 import { createPaperdoll } from './paperdoll.js';
 import { createItemBar } from './item_bar.js';
 import { labelFor as lootLabel } from './loot_drops.js';
+import { createCompass } from './compass.js';
+import { zoneSub, clampToWorld } from '../world/zones.js';
 import { cameraClamp } from '../world/dungeon.js';
 import { createWater } from '../world/water.js';
 import { createForageField, seasonAt } from '../world/forage.js';
@@ -451,6 +453,16 @@ function boot() {
     }
 
     // ---------------------------------------------------------- the world ----
+    // the compass strip under the place plate: heading, and the map's waypoint
+    const compass = createCompass(hudRoot, { player, camera, character });
+    if (!Array.isArray(character.zones)) character.zones = [];
+    runtime.onZone((zone) => {
+      hud.zone?.(zone.name, zoneSub(zone));
+      hud.toast(zone.line);
+      if (!character.zones.includes(zone.id)) { character.zones.push(zone.id); state.touch('zones'); }
+      audio.play('discover');
+    });
+
     runtime.onDiscover((s) => {
       hud.toast(`you found <b>${s.name}</b>, ${s.article}`, 'good');
       if (Array.isArray(character.discovered) && !character.discovered.includes(s.id ?? s.name)) {
@@ -533,7 +545,9 @@ function boot() {
         }
         const sample = runtime.field.sampleAt(p.x, p.z);
         audio.music.setBiome(sample.biome);
+        const zone = runtime.zoneNow?.(p.x, p.z);
         if (best) text = best.name;
+        else if (zone) text = zone.name;       // a named region beats "meadow"
         else text = BIOME_NAMES[sample.biome] || sample.biome;
       }
       if (text !== placeText) {
@@ -724,7 +738,7 @@ function boot() {
       hud.setHint?.('');
       if (why) hud.log(`You stop fighting the ${name}: ${why}.`);
     }
-    let lastReachLine = -1e9;
+    let lastReachLine = -1e9, lastEdgeLine = -1e9;
     function swingAt(target, now, nowS, sayReach) {
       const extra = abilities.takeNextSwing(nowS) || {};
       // swingAt is queueSwing with the monster's weaknesses folded in
@@ -820,6 +834,11 @@ function boot() {
           abilities.onLanded(nowS, player.landed.fallMetres);
           if (player.landed.fallMetres > 4) audio.play('land', { at: { x: player.pos.x, z: player.pos.z } });
         }
+        // the continent ends in deep water: the sea floor is walkable, the edge is not
+        if (!runtime.inDungeon) {
+          const edge = clampToWorld(player.pos.x, player.pos.z);
+          if (edge.moved) { player.pos.x = edge.x; player.pos.z = edge.z; if (now - lastEdgeLine > 4000) { lastEdgeLine = now; hud.toast('the sea, and no way across it'); } }
+        }
         // underground the walls are the edge of the world
         const [cx, cz] = runtime.clampWalkable(player.pos.x, player.pos.z);
         if (cx !== player.pos.x || cz !== player.pos.z) {
@@ -905,6 +924,7 @@ function boot() {
       });
       windows.update(dt);
       ctx.paperdoll?.update?.(dt);
+      compass.update();
       sc.follow(centre);
       sc.setDay(day);
       water.beforeRender(sc.renderer, sc.scene, sc.camera);   // the refraction pass, right before the frame
@@ -932,7 +952,7 @@ function boot() {
       actor, get playerActor() { return actor; }, get character() { return state.character; },
       progression, combat, loot, monsters, inventory, windows, effects, targeting, abilities, npcs, stations,
       panels: { talk: talkPanel, trade: tradePanel, crafting: craftingPanel, map: mapPanel, settings: settingsPanel },
-      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, forage, foraging, itemBar, refreshEnvironment, targetRing, get attacking() { return attacking; }, stopAttack, get fps() { return fps; }, get codexTab() { return windows.tab; }, devPanel, get devBench() { return devBenchOf(); },
+      spawnMonster, recompute, tickPools, syncToCharacter, skinning, tradeNet, dress, forage, foraging, itemBar, compass, refreshEnvironment, targetRing, get attacking() { return attacking; }, stopAttack, get fps() { return fps; }, get codexTab() { return windows.tab; }, devPanel, get devBench() { return devBenchOf(); },
       wake, get dying() { return dying; },
     };
     hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the bar. C character, B bag, K skills, P abilities, V crafting, M map, Escape settings, F2 dev bench, E goes in.');

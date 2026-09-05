@@ -96,6 +96,10 @@ export function generateDungeon(seed, site, depthLevel = 1) {
     id: site.id, name: site.name, cx: site.cx, cz: site.cz, seed,
     cells: new Array(w * h).fill(ROCK),
     rooms: [], entrance: null, stair: null, tags: {}, ore: [], chests: [],
+    // the zone's ore band (zones.js) picks this level's metal; null means the
+    // old depth ladder (veinsFor) for a level whose site carries no band
+    oreBand: site.oreBand || null,
+    oreTier: site.oreBand ? site.oreBand[hash2(site.cx ?? 0, site.cz ?? 0, (seed | 0) + level * 7919) % site.oreBand.length] : null,
   };
   const set = (gx, gz) => {
     // a one cell rim of rock is never carved: every level is sealed
@@ -223,7 +227,7 @@ export function generateDungeon(seed, site, depthLevel = 1) {
   const tag = (gx, gz, what) => {
     if (!inside(layout, gx, gz) || layout.cells[gz * w + gx] !== FLOOR || taken(gx, gz) || layout.tags[gz * w + gx]) return false;
     layout.tags[gz * w + gx] = what;
-    (what === 'ore' ? layout.ore : layout.chests).push({ gx, gz });
+    (what === 'ore' ? layout.ore : layout.chests).push(what === 'ore' ? { gx, gz, ore: layout.oreTier } : { gx, gz });
     return true;
   };
   // ore sits against a wall, where a seam would show. Ore cells stay walkable:

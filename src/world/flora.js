@@ -576,6 +576,20 @@ export function recordsFor(field, cx, cz, opts = {}) {
   // ore rings around cave mouths, placed by the cave's own hash so the ring is
   // whole across chunk borders and each chunk only keeps the rocks inside it
   for (const st of sites) {
+    // a mine's surface seams come with their places and their metals worked
+    // out by the zone (zones.js); the chunk keeps the ones inside it
+    if (st.kind === 'mine' && Array.isArray(st.seams)) {
+      st.seams.forEach((sm, i) => {
+        if (sm.x < x0 || sm.x >= x0 + CHUNK || sm.z < z0 || sm.z >= z0 + CHUNK) return;
+        (out.ore ||= []).push({
+          x: sm.x, z: sm.z, gy: (sm.y ?? field.sampleAt(sm.x, sm.z).h) - 0.2,
+          s: SIZE.ore[0] + rand2(i, st.cx + st.cz, seed + 47) * SIZE.ore[1],
+          ry: rand2(i, st.cx - st.cz, seed + 48) * Math.PI,
+          alt: 0, oa: 0, chunk: chunkKey, ore: true, tier: sm.ore || null,
+        });
+      });
+      continue;
+    }
     if (st.kind !== 'cave') continue;
     for (let i = 0; i < ORE_COUNT; i++) {
       const a = rand2(st.cx * 31 + i, st.cz, seed + 41) * Math.PI * 2;
@@ -589,6 +603,7 @@ export function recordsFor(field, cx, cz, opts = {}) {
         s: SIZE.ore[0] + rand2(i, st.cx + st.cz, seed + 43) * SIZE.ore[1],
         ry: rand2(i, st.cx - st.cz, seed + 44) * Math.PI,
         alt: 0, oa: 0, chunk: chunkKey, ore: true,
+        tier: Array.isArray(st.oreBand) && st.oreBand.length ? st.oreBand[i % st.oreBand.length] : null,
       });
     }
   }
