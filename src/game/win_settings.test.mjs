@@ -29,6 +29,12 @@ console.log('win_settings: the table');
 check('the audit passes at load', (() => { try { auditSettings(); return true; } catch (e) { console.log(e.message); return false; } })());
 check('06 asks for eleven things and all of them are here', ['music', 'sfx', 'shadows', 'ring', 'pixelRatio', 'grass', 'textScale', 'invertDrag', 'sensitivity', 'bar', 'dev'].every((k) => !!SETTING[k]), SETTINGS.map((s) => s.key).join(', '));
 check('every setting says what applying it does', SETTINGS.every((s) => s.apply && s.apply.length > 8));
+// the wiring note is for main.js; the player reads `help`, which is a sentence
+// and not code (the browser showed "audio.toggleMusic() until audio.musicOn matches" under Music)
+check('every setting has a sentence for the player', SETTINGS.every((s) => typeof s.help === 'string' && /^[A-Z].*\.$/.test(s.help)),
+  SETTINGS.filter((s) => !s.help).map((s) => s.key).join(', ') || 'all');
+check('and none of it is code', SETTINGS.every((s) => !/[()=\[\]]|\w\.\w/.test(s.help)),
+  SETTINGS.filter((s) => /[()=\[\]]|\w\.\w/.test(s.help || '')).map((s) => s.key).join(', ') || 'none');
 check('nothing carries an em dash', !SETTINGS.some((s) => s.label.includes('—') || s.apply.includes('—')));
 check('the bar has twelve slots, keys 1 to 0 and minus and equals', BAR_KEYS.length === 12 && BAR_KEYS[0] === '1' && BAR_KEYS[9] === '0' && BAR_KEYS[10] === '-' && BAR_KEYS[11] === '=', BAR_KEYS.join(' '));
 check('the draw distance rings are the three 06 names', SETTING.ring.options.join(',') === '6,9,12');

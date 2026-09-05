@@ -18,37 +18,52 @@ export const BAR_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', 
 
 /**
  * Every setting: its default, its shape, and what main.js has to do about it.
- * `apply` is prose for the wiring note, not code.
+ * `apply` is prose for the wiring note, not code, and is never shown to a
+ * player. `help` is what the player reads under the row.
  */
 export const SETTINGS = [
   { key: 'music', label: 'Music volume', kind: 'range', min: 0, max: 1, step: 0.05, def: 0.5,
-    apply: 'audio.setMusicVolume(v)' },
+    apply: 'audio.setMusicVolume(v)',
+    help: 'How loud the music plays.' },
   { key: 'sfx', label: 'Sound volume', kind: 'range', min: 0, max: 1, step: 0.05, def: 0.7,
-    apply: 'audio.setSfxVolume(v)' },
+    apply: 'audio.setSfxVolume(v)',
+    help: 'How loud swords, footsteps and the rest of the world are.' },
   { key: 'musicOn', label: 'Music', kind: 'toggle', def: true,
-    apply: 'audio.toggleMusic() until audio.musicOn matches' },
+    apply: 'audio.toggleMusic() until audio.musicOn matches',
+    help: 'Music on or off. The world keeps its own sounds.' },
   { key: 'sfxOn', label: 'Sound', kind: 'toggle', def: true,
-    apply: 'audio.toggleSfx() until it matches' },
+    apply: 'audio.toggleSfx() until it matches',
+    help: 'The sounds of the world on or off. The music keeps playing.' },
   { key: 'shadows', label: 'Shadows', kind: 'toggle', def: true,
-    apply: 'renderer.shadowMap.enabled = v, and sun.castShadow = v' },
+    apply: 'renderer.shadowMap.enabled = v, and sun.castShadow = v',
+    help: 'Shadows from the sun and the moon. Off is faster on an older machine.' },
   { key: 'ring', label: 'Draw distance', kind: 'choice', options: [6, 9, 12], def: 9,
-    apply: 'world stream ring radius in chunks, and sc.setFog to just inside it' },
+    apply: 'world stream ring radius in chunks, and sc.setFog to just inside it',
+    help: 'How far the world is drawn around you, in chunks. Further is slower.' },
   { key: 'pixelRatio', label: 'Pixel ratio', kind: 'choice', options: [1, 'device'], def: 'device',
-    apply: 'renderer.setPixelRatio(v === "device" ? devicePixelRatio : 1)' },
+    apply: 'renderer.setPixelRatio(v === "device" ? devicePixelRatio : 1)',
+    help: 'Sharp uses every pixel your screen has. One is softer and faster.' },
   { key: 'grass', label: 'Grass density', kind: 'range', min: 0, max: 1, step: 0.1, def: 1,
-    apply: 'flora density multiplier; 0 means no grass at all' },
+    apply: 'flora density multiplier; 0 means no grass at all',
+    help: 'How thick the grass grows. All the way down is bare ground.' },
   { key: 'hudScale', label: 'Bars size', kind: 'choice', options: ['small', 'medium', 'large'], def: 'medium',
-    apply: 'hud.setScale(v): the ability and item bars and the gains ticker grow; small is the size they shipped at' },
+    apply: 'hud.setScale(v): the ability and item bars and the gains ticker grow; small is the size they shipped at',
+    help: 'The size of the ability bar, the item bar and the gains ticker.' },
   { key: 'textScale', label: 'Floating text size', kind: 'range', min: 0.6, max: 2, step: 0.1, def: 1,
-    apply: 'floaters textScale(): the multiplier on every number that flies off a thing' },
+    apply: 'floaters textScale(): the multiplier on every number that flies off a thing',
+    help: 'The size of the numbers and words that fly off things when they happen.' },
   { key: 'invertDrag', label: 'Invert drag', kind: 'toggle', def: false,
-    apply: 'camera drag dy sign' },
+    apply: 'camera drag dy sign',
+    help: 'Drag up to look down, if that is how your hands work.' },
   { key: 'sensitivity', label: 'Mouse sensitivity', kind: 'range', min: 0.25, max: 3, step: 0.05, def: 1,
-    apply: 'camera drag multiplier on dx and dy' },
+    apply: 'camera drag multiplier on dx and dy',
+    help: 'How far the camera turns for a drag of the mouse.' },
   { key: 'bar', label: 'Ability bar keys', kind: 'keys', def: BAR_KEYS,
-    apply: 'abilities_runtime reads settings.bar[i] for slot i instead of the default key' },
+    apply: 'abilities_runtime reads settings.bar[i] for slot i instead of the default key',
+    help: 'The key each slot of the ability bar answers to. Click a slot and press a key.' },
   { key: 'dev', label: 'Dev mode', kind: 'toggle', def: false,
-    apply: 'dev.toggle() until dev.on matches' },
+    apply: 'dev.toggle() until dev.on matches',
+    help: 'The dev bench on F2, flying, and the numbers over everything. For testing, not for playing.' },
 ];
 
 export const SETTING = Object.fromEntries(SETTINGS.map((s) => [s.key, s]));
@@ -147,6 +162,7 @@ export function auditSettings() {
     seen.add(s.key);
     if (!s.label) bad.push(`${s.key}: no label`);
     if (!s.apply) bad.push(`${s.key}: nothing is said about what applying it does, so nothing would`);
+    if (!s.help) bad.push(`${s.key}: nothing for the player to read under the row`);
     if (s.label.includes('—') || s.apply.includes('—')) bad.push(`${s.key}: em dash`);
     if (s.kind === 'range' && !(s.min < s.max && s.step > 0)) bad.push(`${s.key}: a range from ${s.min} to ${s.max} by ${s.step}`);
     if (s.kind === 'choice' && !s.options.includes(s.def)) bad.push(`${s.key}: the default is not one of the choices`);
@@ -267,7 +283,7 @@ export const panel = {
         const def = SETTING[key];
         const row = el('div', 'bw-s');
         const n = el('span', 'n', def.label);
-        n.appendChild(el('small', null, def.apply));
+        n.appendChild(el('small', null, def.help || ''));
         row.appendChild(n);
 
         if (def.kind === 'toggle') {
