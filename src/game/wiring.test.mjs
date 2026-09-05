@@ -9,12 +9,12 @@
 // sound is the real createAudio with a fake element in place of an <audio> tag,
 // so a cue that fires is a URL that was really built and really played.
 //
-// Only main.js is checked by reading its source, and every one of those checks
-// says so in its name. main.js is a boot function that needs a document, a
-// renderer and a WebGL context; there is no honest way to run it in node, and a
-// grep that says `audio.setListener` is on the frame is worth more than nothing
-// at all. It is worth less than the checks above it, which is why it is a
-// handful of lines and not the file.
+// The boot is now a list of systems (src/game/app/), and the last third of this
+// file is about that list. The runner is driven for real with fake systems, so
+// build order, cycle detection and the click chain are measured rather than
+// read. The real systems themselves need a document, a renderer and a WebGL
+// context, so what is left of them here is read from their source, and every
+// one of those checks says so in its name.
 
 let clock = 100000;
 Object.defineProperty(globalThis, 'performance', { value: { now: () => clock }, writable: true, configurable: true });
@@ -481,42 +481,281 @@ function rig() {
   check('selling a good through the material door is still refused', shop.sell('venison', 1) === false);
 }
 
+
 // ===========================================================================
-// main.js, by reading it. UNVERIFIED AT RUNTIME: main.js needs a document and a
-// WebGL context, so these are source checks and nothing more.
+// The systems runner, driven for real with fake systems
+// ===========================================================================
+const { createSystems, PHASES } = await import('./app/system.js');
+const { SYSTEMS, FRAME_ORDER } = await import('./app/systems/index.js');
+
+/** A context with nothing in it but the register the runner needs. */
+function fakeCtx() {
+  const reg = new Map();
+  return {
+    log: [],
+    register(name, system) {
+      if (reg.has(name)) throw new Error(`the system name "${name}" is already taken`);
+      reg.set(name, system); return system;
+    },
+    get(name) { if (!reg.has(name)) throw new Error(`no system named "${name}"`); return reg.get(name); },
+    has: (name) => reg.has(name),
+    names: () => [...reg.keys()],
+  };
+}
+/** A system that writes its name into the context log whenever it is touched. */
+const spy = (name, deps = [], hooks = {}) => ({
+  name, deps,
+  create(ctx) { ctx.log.push(`create:${name}`); return { name }; },
+  ...Object.fromEntries(Object.entries(hooks).map(([k, v]) => [k, (ctx, ...rest) => { ctx.log.push(`${k}:${name}`); return v?.(ctx, ...rest); }])),
+});
+
+// ---- deps decide what is built first, the list decides what runs first -----
+{
+  const ctx = fakeCtx();
+  // listed last, needed first: the runner has to build `ground` before `sky`
+  const list = [spy('sky', ['ground'], { update: () => {} }), spy('roof', ['sky'], { update: () => {} }), spy('ground', [], { update: () => {} })];
+  const sys = createSystems(ctx, list);
+  check('createSystems builds in dependency order, not list order',
+    sys.built.join(',') === 'ground,sky,roof', sys.built.join(','));
+  check('and runs in list order, which is the frame order',
+    sys.order.join(',') === 'sky,roof,ground', sys.order.join(','));
+  check('every system was created exactly once',
+    ctx.log.filter((l) => l.startsWith('create:')).join(',') === 'create:ground,create:sky,create:roof', ctx.log.join(','));
+  ctx.log.length = 0;
+  sys.update({ dt: 0.016 });
+  check('and update walks the list in list order', ctx.log.join(',') === 'update:sky,update:roof,update:ground', ctx.log.join(','));
+}
+
+// ---- a system already standing is used, not built twice -------------------
+// This is how main.js raises the world before the character creation screen
+// and then builds the rest with the same list.
+{
+  const ctx = fakeCtx();
+  const list = [spy('ground', []), spy('sky', ['ground'])];
+  createSystems(ctx, [list[0]]);
+  check('the first call built the ground', ctx.log.join(',') === 'create:ground', ctx.log.join(','));
+  const sys = createSystems(ctx, list);
+  check('and the second call left it alone', ctx.log.join(',') === 'create:ground,create:sky', ctx.log.join(','));
+  check('while still running it in the frame', sys.order.join(',') === 'ground,sky', sys.order.join(','));
+}
+
+// ---- a cycle is named out loud, not left to blow the stack ----------------
+{
+  const ctx = fakeCtx();
+  let err = null;
+  try { createSystems(ctx, [spy('a', ['b']), spy('b', ['a'])]); } catch (e) { err = e; }
+  check('a dependency cycle throws', !!err, String(err && err.message));
+  check('and the message names the loop', /cycle/.test(err?.message || '') && /a -> b -> a/.test(err?.message || ''), err?.message);
+  check('and nothing was built on the way in', ctx.log.length === 0, ctx.log.join(','));
+}
+
+// ---- a dep that is not in the list is named too ---------------------------
+{
+  let err = null;
+  try { createSystems(fakeCtx(), [spy('a', ['nobody'])]); } catch (e) { err = e; }
+  check('a missing dependency throws', !!err);
+  check('and the message names both sides', /"a" needs "nobody"/.test(err?.message || ''), err?.message);
+}
+
+// ---- the click stops at the first system that says it handled it ----------
+{
+  const ctx = fakeCtx();
+  const list = [
+    spy('first', [], { click: () => false }),
+    spy('second', [], { click: () => ({ took: 'it' }) }),
+    spy('third', [], { click: () => ({ took: 'nothing' }) }),
+  ];
+  const sys = createSystems(ctx, list);
+  ctx.log.length = 0;
+  const handled = sys.click({ ray: true }, { now: 1 });
+  check('the click walks the list until one answers', ctx.log.join(',') === 'click:first,click:second', ctx.log.join(','));
+  check('the third never saw it', !ctx.log.includes('click:third'), ctx.log.join(','));
+  check('and what the handler returned comes back', handled && handled.took === 'it', JSON.stringify(handled));
+  ctx.log.length = 0;
+  const none = createSystems(fakeCtx(), [spy('only', [], { click: () => null })]).click({}, {});
+  check('a click nobody wanted comes back false', none === false, String(none));
+}
+
+// ---- ready, save and dispose ----------------------------------------------
+{
+  const ctx = fakeCtx();
+  const sys = createSystems(ctx, [spy('a', [], { ready: () => {}, save: () => {} }), spy('b', [], { ready: () => {}, save: () => {} })]);
+  ctx.log.length = 0;
+  sys.ready(); sys.save();
+  check('ready and save run in list order', ctx.log.join(',') === 'ready:a,ready:b,save:a,save:b', ctx.log.join(','));
+  const bin = [];
+  createSystems(fakeCtx(), [
+    { name: 'a', create: () => ({}), dispose: () => bin.push('a') },
+    { name: 'b', create: () => ({}), dispose: () => bin.push('b') },
+  ]).dispose();
+  check('dispose runs backwards, so nothing is torn down under something else', bin.join(',') === 'b,a', bin.join(','));
+}
+
+// ---- the contract is checked when the list is handed over -----------------
+{
+  const bad = (list, re, name) => {
+    let err = null;
+    try { createSystems(fakeCtx(), list); } catch (e) { err = e; }
+    check(`the runner refuses ${name}`, !!err && re.test(err.message), err?.message);
+  };
+  bad([{ deps: [], create() {} }], /no name/, 'a system with no name');
+  bad([{ name: 'a' }], /no create/, 'a system with no create');
+  bad([{ name: 'a', create() {}, update: 3 }], /update that is not a function/, 'a hook that is not a function');
+  bad([spy('a'), spy('a')], /two systems are called "a"/, 'two systems with one name');
+}
+
+// ===========================================================================
+// The real list: every system in the frame order 07-RUNTIME-CONTRACT.md gives
 // ===========================================================================
 {
-  const m = src('main.js');
-  const has = (re, name) => check(`main.js source: ${name}`, re.test(m), re.source);
-  has(/import \{ createAudio \} from '\.\/audio\.js'/, 'imports createAudio');
-  has(/const audio = createAudio\(\)/, 'creates the audio');
-  has(/audio\.music\.setBiome\(runtime\.field\.sampleAt\(player\.pos\.x, player\.pos\.z\)\.biome\)/, 'sets the biome from where you woke up');
-  has(/audio\.music\.start\(\)/, 'starts the music');
-  has(/createInteract\(\{[^}]*\baudio\b[^}]*\}\)/, 'hands the audio to interact');
-  has(/createShop\(\{\s*\n?\s*state, hud, audio,/, 'hands the audio to the shop');
-  has(/audio\.play\('discover'\)/, 'plays a cue on a discovery');
-  has(/audio\.play\('enterCave'\)/, 'plays a cue on going under');
-  has(/audio\.setListener\(centre\.x, centre\.z\)/, 'moves the ear every frame');
+  const names = SYSTEMS.map((s) => s.name);
+  check('the systems list is the frame order, in order',
+    names.join(',') === FRAME_ORDER.join(','), names.join(','));
+  check('and the frame order is the nine 07-RUNTIME-CONTRACT.md documents',
+    FRAME_ORDER.join(',') === 'world,player,combat,abilities,inventory,world_life,ui,dev,input', FRAME_ORDER.join(','));
+  check('each one has a file of its own', SYSTEMS.every((s) => src(`app/systems/${s.name}.js`).includes(`name: '${s.name}'`)));
+
+  // every dep resolves, and the whole list really does sort
+  const have = new Set(names);
+  const unresolved = SYSTEMS.flatMap((s) => (s.deps || []).filter((d) => !have.has(d)).map((d) => `${s.name}->${d}`));
+  check('every dependency names a system in the list', unresolved.length === 0, unresolved.join(','));
+  const ctx = fakeCtx();
+  const stubs = SYSTEMS.map((s) => ({ name: s.name, deps: s.deps, create: (c) => { c.log.push(s.name); return {}; } }));
+  const sys = createSystems(ctx, stubs);
+  const at = (n) => sys.built.indexOf(n);
+  const late = SYSTEMS.flatMap((s) => (s.deps || []).filter((d) => at(d) > at(s.name)).map((d) => `${s.name} before ${d}`));
+  check('and every system is built after everything it needs', late.length === 0, late.join(','));
+  check('the build order is the one R1.md documents',
+    sys.built.join(',') === 'world,player,combat,inventory,abilities,ui,world_life,dev,input', sys.built.join(','));
+
+  // A system may reach any other system from inside a function that runs after
+  // the boot, because everything exists by then. What it may NOT do is reach
+  // one while its own create is still running unless it declared it: the runner
+  // has not built that one yet, and ctx.get would throw on the first boot.
+  const early = [];
+  for (const s of SYSTEMS) {
+    const file = src(`app/systems/${s.name}.js`);
+    const from = file.indexOf('create(ctx) {');
+    const body = file.slice(from, file.indexOf('\n  },', from));
+    const deps = new Set(s.deps || []);
+    for (const line of body.split('\n')) {
+      if (!/^ {4}\S/.test(line) || /^\s*\/\//.test(line)) continue;   // 4 spaces is create's own body, and a comment is not code
+      for (const m of line.matchAll(/ctx\.get\('(\w+)'\)/g)) {
+        if (!deps.has(m[1])) early.push(`${s.name} reaches ${m[1]} while building, without declaring it`);
+      }
+    }
+  }
+  check('no system reaches an unbuilt system while it is being built', early.length === 0, early.join('; '));
+
+  const known = new Set([...PHASES, 'ready', 'save', 'dispose', 'name', 'deps', 'create']);
+  const strays = SYSTEMS.flatMap((s) => Object.keys(s).filter((k) => !known.has(k)).map((k) => `${s.name}.${k}`));
+  check('and no system carries a hook the runner would never call', strays.length === 0, strays.join(','));
+}
+
+// ===========================================================================
+// The boot, by reading it. UNVERIFIED AT RUNTIME: main.js and the systems need
+// a document and a WebGL context, so these are source checks and nothing more.
+// ===========================================================================
+const app = (f) => src(`app/${f}`);
+const sysSrc = (f) => src(`app/systems/${f}`);
+const ALL = ['main.js'].map(src).join('\n') + '\n'
+  + ['context.js', 'system.js'].map(app).join('\n') + '\n'
+  + SYSTEMS.map((s) => sysSrc(`${s.name}.js`)).join('\n') + '\n' + app('systems/index.js');
+
+{
+  const has = (text, re, name) => check(`source: ${name}`, re.test(text), re.source);
+
+  // ---- the ear ------------------------------------------------------------
+  has(app('context.js'), /import \{ createAudio \} from '\.\.\/audio\.js'/, 'context.js imports createAudio');
+  has(app('context.js'), /const audio = createAudio\(\)/, 'context.js creates the audio');
+  has(sysSrc('player.js'), /audio\.music\.setBiome\(runtime\.field\.sampleAt\(rig\.pos\.x, rig\.pos\.z\)\.biome\)/, 'player.js sets the biome from where you woke up');
+  has(sysSrc('player.js'), /audio\.music\.start\(\)/, 'player.js starts the music');
+  has(sysSrc('world_life.js'), /createInteract\(\{[^}]*\baudio\b[^}]*\}\)/, 'world_life.js hands the audio to interact');
+  has(sysSrc('world_life.js'), /createShop\(\{\s*\n?\s*state, hud, audio,/, 'world_life.js hands the audio to the shop');
+  has(sysSrc('world.js'), /audio\.play\('discover'\)/, 'world.js plays a cue on a discovery');
+  has(sysSrc('world.js'), /audio\.play\('enterCave'\)/, 'world.js plays a cue on going under');
+  has(src('main.js'), /audio\.setListener\(f\.centre\.x, f\.centre\.z\)/, 'main.js moves the ear every frame');
   // M and N used to be mute keys. M is the Map and Escape is Settings now, so the
-  // mutes live in the settings window and main.js applies them from the document.
-  has(/audio\.musicOn !== s\.musicOn\) audio\.toggleMusic\(\)/, 'the saved musicOn setting drives the music');
-  has(/audio\.sfxOn !== s\.sfxOn\) audio\.toggleSfx\(\)/, 'the saved sfxOn setting drives the sound');
-  has(/settingsPanel, devPanel\]\) windows\.register\(p\)/, 'the settings window is registered');
-  has(/applySettings\(character\.settings\)/, 'and the saved settings are applied at boot');
-  has(/window\.__bw = \{[^}]*\baudio\b/, 'exposes the audio for the console');
-  has(/Escape settings/, 'the opening line tells you where the sound settings are');
+  // mutes live in the settings window and ui.js applies them from the document.
+  has(sysSrc('ui.js'), /audio\.musicOn !== s\.musicOn\) audio\.toggleMusic\(\)/, 'ui.js lets the saved musicOn setting drive the music');
+  has(sysSrc('ui.js'), /audio\.sfxOn !== s\.sfxOn\) audio\.toggleSfx\(\)/, 'ui.js lets the saved sfxOn setting drive the sound');
+  has(sysSrc('ui.js'), /settingsPanel, devPanel\]\) windows\.register\(p\)/, 'ui.js registers the settings window');
+  has(sysSrc('dev.js'), /applySettings\(ctx\.character\.settings\)/, 'dev.js applies the saved settings the moment there is a dev to turn on');
+  has(app('context.js'), /ctx\.bw = \{[^}]*\baudio\b/, 'context.js exposes the audio for the console');
+  has(sysSrc('ui.js'), /Escape settings/, 'the opening line tells you where the sound settings are');
 
+  const m = src('main.js');
   const ear = m.indexOf('audio.setListener(');
-  const update = m.indexOf('runtime.update(dt, now');
-  check('main.js source: the ear moves before anything can fire a cue', ear > 0 && update > ear, `setListener at ${ear}, runtime.update at ${update}`);
+  const update = m.indexOf('systems.update(f)');
+  check('source: the ear moves before any system can fire a cue', ear > 0 && update > ear, `setListener at ${ear}, systems.update at ${update}`);
 
-  const place = m.slice(m.indexOf('function updatePlace'), m.indexOf('function updatePlace') + 1600);
-  check('main.js source: the music follows the ground in updatePlace', /audio\.music\.setBiome\(sample\.biome\)/.test(place));
-  check('main.js source: and it is inside the above-ground branch, so it is left alone underground', place.indexOf('audio.music.setBiome') > place.indexOf('} else {'));
+  const u = sysSrc('ui.js');
+  const place = u.slice(u.indexOf('function updatePlace'), u.indexOf('function updatePlace') + 1600);
+  check('source: the music follows the ground in updatePlace', /audio\.music\.setBiome\(sample\.biome\)/.test(place));
+  check('source: and it is inside the above-ground branch, so it is left alone underground', place.indexOf('audio.music.setBiome') > place.indexOf('} else {'));
 
-  const cave = m.slice(m.indexOf('onDungeonState'), m.indexOf('onDungeonState') + 1400);
-  check('main.js source: going deeper is going under, so the cue is on st.inside', /if \(st\.inside\) audio\.play\('enterCave'\)/.test(cave));
-  check('main.js source: and climbing out has no cue of its own', !/audio\.play\('[^']*'\);?\s*\n\s*hud\.toast\(`back above ground/.test(cave));
+  const w = sysSrc('world.js');
+  const cave = w.slice(w.indexOf('onDungeonState'), w.indexOf('onDungeonState') + 1600);
+  check('source: going deeper is going under, so the cue is on st.inside', /if \(st\.inside\) audio\.play\('enterCave'\)/.test(cave));
+  check('source: and climbing out has no cue of its own', !/audio\.play\('[^']*'\);?\s*\n\s*hud\.toast\(`back above ground/.test(cave));
+
+  // ---- the sky and the sea ------------------------------------------------
+  has(w, /sc\.useAnalyticSky\(true\)/, 'world.js turns the analytic sky on');
+  has(w, /createWater\(sc, runtime\.field, \{ sky \}\)/, 'and the water is built against that same sky');
+  const pass = w.indexOf('water.beforeRender(');
+  const render = w.indexOf('sc.render()');
+  check('source: the refraction pass runs before the frame is drawn, not after',
+    pass > 0 && render > pass, `beforeRender at ${pass}, render at ${render}`);
+  check('source: and the sky is updated before the water that reflects it',
+    w.indexOf('sky.update(') < w.indexOf('water.update('), `${w.indexOf('sky.update(')} then ${w.indexOf('water.update(')}`);
+  check('source: the world is the only system that draws', 
+    SYSTEMS.filter((s) => typeof s.render === 'function').map((s) => s.name).join(',') === 'world');
+
+  // ---- the keys the HUD may not eat ---------------------------------------
+  has(u, /hud\.onTool\?\.\(\(id\) => pickTool\(id\)\)/, 'the tool row is wired to the click');
+  has(u, /The tool row is click only/, 'and says why it is click only');
+  check('source: no tool is bound to a key anywhere in the boot',
+    !/pressed\(['"][0-9=-]['"]\)/.test(ALL), 'a digit key would swing and swap in one press');
+  has(u, /1 to = use the bar\./, 'the opening line gives the ability bar the number row');
+  has(u, /P abilities/, 'and P for the abilities window');
+
+  // ---- the frame, in the order the contract gives it -----------------------
+  const at = (s) => m.indexOf(s);
+  const seq = ['systems.hotkeys(f)', 'systems.click(', 'systems.move(f)', 'systems.update(f)', 'systems.late(f)', 'systems.render(f)', 'input.endFrame()'];
+  let ordered = true, where = [];
+  for (let i = 0; i < seq.length; i++) { where.push(`${seq[i]}@${at(seq[i])}`); if (at(seq[i]) < 0 || (i && at(seq[i]) < at(seq[i - 1]))) ordered = false; }
+  check('source: main.js runs the phases in the documented order', ordered, where.join(' '));
+  check('source: and the save tick is the last thing in the frame',
+    at('lastSave = now') > at('input.endFrame()'), `${at('lastSave = now')} vs ${at('input.endFrame()')}`);
+  check('source: the harness step is the same frame function, not a second path',
+    /step: \(ms = 16\.7\) => frame\(last \+ ms, true\)/.test(m));
+}
+
+// ---- everything the console had, it still has -----------------------------
+// __bw is assembled from each system's own `bw` bag. These are the keys the old
+// single file exposed; a rename that drops one is caught here by name.
+{
+  const bags = [];
+  for (const re = /\bbw\s*[:=]\s*\{/g, s = ALL; ;) {
+    const m = re.exec(s);
+    if (!m) break;
+    let i = re.lastIndex - 1, depth = 0;
+    do { if (s[i] === '{') depth++; else if (s[i] === '}') depth--; i++; } while (depth > 0 && i < s.length);
+    bags.push(s.slice(m.index, i));
+  }
+  // the last __bw literal in main.js is the real one; the first is the creation screen's
+  const mm = src('main.js');
+  const merged = bags.join('\n') + '\n' + mm.slice(mm.lastIndexOf('window.__bw = {'), mm.lastIndexOf('window.__bw = {') + 400);
+  const KEYS = ['step', 'now', 'sc', 'runtime', 'player', 'camera', 'state', 'hud', 'dev', 'input', 'interact', 'shop',
+    'audio', 'floaters', 'THREE', 'sky', 'water', 'actor', 'playerActor', 'character', 'progression', 'combat', 'loot',
+    'monsters', 'inventory', 'windows', 'effects', 'targeting', 'abilities', 'npcs', 'stations', 'panels', 'spawnMonster',
+    'recompute', 'tickPools', 'syncToCharacter', 'skinning', 'tradeNet', 'dress', 'forage', 'foraging', 'itemBar',
+    'compass', 'refreshEnvironment', 'targetRing', 'attacking', 'stopAttack', 'fps', 'codexTab', 'devPanel', 'devBench',
+    'wake', 'dying'];
+  const gone = KEYS.filter((k) => !new RegExp(`(^|[^\\w.])(get\\s+)?${k}\\b\\s*[,:(}]`, 'm').test(merged));
+  check(`source: all ${KEYS.length} keys the console had are still put on __bw`, gone.length === 0, gone.join(','));
+  check('source: main.js merges those bags with their getters intact',
+    /Object\.defineProperties\(window\.__bw, Object\.getOwnPropertyDescriptors\(bag\)\)/.test(src('main.js')));
 }
 
 // ---- interact.js and shop.js, the call sites themselves --------------------
