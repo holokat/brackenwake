@@ -53,14 +53,16 @@ export const STAT_MILESTONE_STEP = 10;
 const trim = (v) => String(Math.round(v * 100) / 100);
 
 /** The line a skill gain puts over the player's head: "+0.3 Mining". */
-export function gainText(skillId, amount) {
+export function gainText(skillId, amount, after) {
   const def = SKILL_BY_ID.get(skillId);
-  return `+${trim(amount)} ${def ? def.name : skillId}`;
+  const level = Number.isFinite(after) ? ` (${after.toFixed(1)})` : '';
+  return `+${trim(amount)} ${def ? def.name : skillId}${level}`;
 }
 
 /** The line a stat gain puts over the player's head: "+1 STR". */
-export function statText(stat, amount = STAT_GAIN) {
-  return `+${trim(amount)} ${STAT_LABELS[stat] || String(stat).toUpperCase()}`;
+export function statText(stat, amount = STAT_GAIN, after) {
+  const level = Number.isFinite(after) ? ` (${after})` : '';
+  return `+${trim(amount)} ${STAT_LABELS[stat] || String(stat).toUpperCase()}${level}`;
 }
 
 export function createProgression({ character, actor, floaters, hud, audio, state } = {}) {
@@ -116,7 +118,7 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
     recompute?.(actor);
 
     const amount = Math.round((res.to - res.from) * 100) / 100;
-    const floated = float(gainText(skillId, amount), 'gain');
+    const floated = float(gainText(skillId, amount, res.to), 'gain');
 
     // A skill that paid for itself out of another one owes both names.
     if (res.tookFrom) {
@@ -167,7 +169,7 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
     lastRefusal.delete(`stat:${stat}`);
     recompute?.(actor);
 
-    const floated = float(statText(stat, STAT_GAIN), 'stat');
+    const floated = float(statText(stat, STAT_GAIN, res.value), 'stat');
     if (res.value % STAT_MILESTONE_STEP === 0) {
       said.push(say(`${STAT_NAMES[stat] || label} ${res.value}`, 'good'));
       // A stat at 100 is the same news as a skill at 100, so it gets the same

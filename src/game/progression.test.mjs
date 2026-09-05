@@ -75,7 +75,7 @@ const never = () => 1;       // no roll ever succeeds
   const hit = r.prog.lesson('mining', 10, true, always);
   check('a lucky roll gains the band step of 0.3', hit.gained === true && hit.to === 0.3, `${hit.from} to ${hit.to}`);
   check('the skill on the document really moved', r.character.skills.mining === 0.3, String(r.character.skills.mining));
-  check('a green floater says "+0.3 Mining"', r.lastFloat().text === '+0.3 Mining' && r.lastFloat().kind === 'gain', JSON.stringify(r.lastFloat().text));
+  check('a green floater says "+0.3 Mining (0.3)", the gain and where it stands', r.lastFloat().text === '+0.3 Mining (0.3)' && r.lastFloat().kind === 'gain', JSON.stringify(r.lastFloat().text));
   check('and it is over the player', r.lastFloat().pos === r.actor.pos);
   check('the HUD was told to redraw', r.touched.includes('skills'));
 }
@@ -146,7 +146,7 @@ const never = () => 1;       // no roll ever succeeds
   r.character.skills.mining = 10.5;
   r.prog.lesson('mining', 100, true, always);
   check('a gain that crosses nothing toasts nothing', r.toasts.length === before, `${r.toasts.length}`);
-  check('but still floats', r.lastFloat().text === '+0.3 Mining');
+  check('but still floats, with the level', /^\+0\.3 Mining \(\d+\.\d\)$/.test(r.lastFloat().text), r.lastFloat().text);
 
   r.character.skills.mining = 99.99;
   const gm = r.prog.lesson('mining', 100, true, always);
@@ -223,7 +223,7 @@ const never = () => 1;       // no roll ever succeeds
   check('an unlucky stat roll gains nothing and says nothing', missed.gained === false && r.floats.length === 0);
   const got = r.prog.statLesson('con', always);
   check('a lucky one is exactly +1', got.gained === true && r.character.stats.con === 51, String(r.character.stats.con));
-  check('and floats "+1 CON" in the larger stat style', r.lastFloat().text === '+1 CON' && r.lastFloat().kind === 'stat', JSON.stringify(r.lastFloat()));
+  check('and floats "+1 CON (51)" in the larger stat style', r.lastFloat().text === '+1 CON (51)' && r.lastFloat().kind === 'stat', JSON.stringify(r.lastFloat()));
   check('the actor was recomputed, so the health bar really grew', r.actor.maxHealth === before + 2, `${before} then ${r.actor.maxHealth}`);
   check('and the HUD was told', r.touched.includes('stats'));
 }

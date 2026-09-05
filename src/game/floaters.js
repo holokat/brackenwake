@@ -17,27 +17,35 @@ export const RISE = 1.6;           // metres
 export const MAX_PER_ANCHOR = 6;
 export const MAX_LIVE = 60;        // hard cap on elements in the DOM
 
+// Sizes are multiples of the base 22 px. Damage pops in large and settles;
+// a crit pops larger and shakes; gains glow. The user asked for numbers that
+// are "larger and more fun", so a hit is never smaller than the body text.
 export const KINDS = {
-  damage: { color: '#f4f1ea', size: 1.0 },
-  crit:   { color: '#ffd23f', size: 1.5, shake: true },
-  taken:  { color: '#ff5a4d', size: 1.2 },
-  heal:   { color: '#7ee07a', size: 1.0 },
-  miss:   { color: '#9aa0a6', size: 0.8 },
-  fall:   { color: '#ff9a3c', size: 1.2 },
-  gain:   { color: '#5dff6a', size: 1.3, glow: true },
-  stat:   { color: '#5dff6a', size: 1.6, glow: true },
-  gold:   { color: '#ffd76a', size: 1.0 },
-  loot:   { color: '#f4f1ea', size: 1.2 },     // colour overridden by rarity
+  damage: { color: '#fff3d6', size: 1.5, pop: true, drift: true },
+  crit:   { color: '#ffd23f', size: 2.3, shake: true, pop: true, drift: true },
+  taken:  { color: '#ff5a4d', size: 1.7, pop: true, drift: true },
+  heal:   { color: '#7ee07a', size: 1.4, pop: true },
+  miss:   { color: '#c0c4c8', size: 1.0 },
+  fall:   { color: '#ff9a3c', size: 1.6, pop: true },
+  gain:   { color: '#5dff6a', size: 1.6, glow: true },
+  stat:   { color: '#5dff6a', size: 2.0, glow: true, pop: true },
+  gold:   { color: '#ffd76a', size: 1.3, pop: true },
+  loot:   { color: '#f4f1ea', size: 1.4 },     // colour overridden by rarity
 };
+export const BASE_PX = 22;
 
 const CSS = `
 .bw-float{position:absolute;left:0;top:0;pointer-events:none;white-space:nowrap;
-  font:700 18px/1 "Segoe UI",system-ui,sans-serif;letter-spacing:.01em;
-  text-shadow:0 1px 0 #000,0 0 3px #000,0 0 8px #0009;will-change:transform,opacity;
+  font:700 22px/1 "Cinzel","Trajan Pro",Georgia,serif;letter-spacing:.02em;
+  -webkit-text-stroke:1px #1a1008;paint-order:stroke fill;
+  text-shadow:0 2px 0 #000,0 0 4px #000,0 0 10px #0009;will-change:transform,opacity;
   transform:translate(-50%,-100%)}
-.bw-float.glow{text-shadow:0 1px 0 #000,0 0 4px #000,0 0 14px currentColor}
-@keyframes bw-shake{0%,100%{margin-left:0}25%{margin-left:-3px}75%{margin-left:3px}}
-.bw-float.shake{animation:bw-shake .18s ease-in-out 2}
+.bw-float .in{display:inline-block}
+.bw-float.pop .in{animation:bw-pop .28s cubic-bezier(.2,1.6,.4,1) 1}
+@keyframes bw-pop{0%{transform:scale(2.1) rotate(-6deg)}60%{transform:scale(.92) rotate(2deg)}100%{transform:scale(1) rotate(0)}}
+.bw-float.glow{text-shadow:0 2px 0 #000,0 0 4px #000,0 0 16px currentColor}
+@keyframes bw-shake{0%,100%{margin-left:0}25%{margin-left:-4px}75%{margin-left:4px}}
+.bw-float.shake .in{animation:bw-pop .28s cubic-bezier(.2,1.6,.4,1) 1,bw-shake .18s ease-in-out 3}
 `;
 
 /** Pure: where a floater is in its life. Exported for the node test. */
@@ -78,15 +86,16 @@ export function createFloaters(sc, root, opts = {}) {
     if (live.length >= MAX_LIVE) kill(pickEviction(live));
 
     const el = doc.createElement('div');
-    el.className = 'bw-float' + (k.glow ? ' glow' : '') + (k.shake ? ' shake' : '');
-    el.textContent = text;
+    el.className = 'bw-float' + (k.glow ? ' glow' : '') + (k.shake ? ' shake' : '') + (k.pop ? ' pop' : '');
+    const inner = doc.createElement('span'); inner.className = 'in'; inner.textContent = text; el.appendChild(inner);
     el.style.color = extra.color || k.color;
-    el.style.fontSize = `${Math.round(18 * k.size * scale())}px`;
+    el.style.fontSize = `${Math.round(BASE_PX * k.size * scale())}px`;
     layer.appendChild(el);
     const f = {
       el, key, age: 0,
       x: worldPos.x, y: worldPos.y + (extra.height ?? 1.9), z: worldPos.z,
       jitter: (Math.random() - 0.5) * 0.5,   // so two numbers do not stack exactly
+      drift: k.drift ? (Math.random() - 0.5) * 1.2 : 0,   // damage arcs a little sideways as it rises
     };
     live.push(f);
     return f;
@@ -106,7 +115,7 @@ export function createFloaters(sc, root, opts = {}) {
       f.age += dt;
       const s = lifeState(f.age);
       if (s.dead) { kill(f); continue; }
-      v.set(f.x + f.jitter, f.y + s.rise, f.z).project(sc.camera);
+      v.set(f.x + f.jitter + f.drift * s.t, f.y + s.rise, f.z).project(sc.camera);
       if (v.z > 1) { f.el.style.opacity = '0'; continue; }     // behind the camera
       const px = (v.x + 1) / 2 * w, py = (1 - v.y) / 2 * h;
       f.el.style.transform = `translate(${px.toFixed(0)}px,${py.toFixed(0)}px) translate(-50%,-100%)`;

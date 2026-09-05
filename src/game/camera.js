@@ -105,7 +105,7 @@ export function createFollowCamera(camera, input) {
       const down = (k) => !!(input && input.down && input.down(k));
       const f = (down('w') ? 1 : 0) - (down('s') ? 1 : 0);
       const r = (down('d') ? 1 : 0) - (down('a') ? 1 : 0);
-      const u = (down('e') ? 1 : 0) - (down('q') ? 1 : 0);
+      const u = ((down('e') || down(' ')) ? 1 : 0) - (down('q') ? 1 : 0);   // E or Space up, Q down
 
       let vx = fx * f + rx * r, vy = fy * f + u, vz = fz * f + rz * r;
       const len = Math.hypot(vx, vy, vz);

@@ -636,8 +636,11 @@ function boot() {
       }
       const mon = monsters.pick(ray);
       if (mon) {
+        // a first click looks; a second click on the same one, or a double
+        // click, fights. Clicking another monster mid fight switches to it.
+        const again = targeting.current === mon.actor || !!attacking;
         targeting.set?.(mon.actor, 'click');
-        if (input.dblclick) {
+        if (input.dblclick || again) {
           startAttack(mon);
           return swingAt(mon.actor, now, nowS, true);
         }
@@ -669,9 +672,16 @@ function boot() {
       const extra = abilities.takeNextSwing(nowS) || {};
       // swingAt is queueSwing with the monster's weaknesses folded in
       const r = monsters.swingAt(actor, target, { now, jumpAttack: player.airborne, ...extra });
-      if (r && !r.queued && r.reason === 'out_of_reach' && (sayReach || now - lastReachLine > 2500)) {
-        lastReachLine = now;
-        hud.log(`${attacking?.name || 'It'} is ${Math.round(r.dist)} m off, walk closer`);
+      if (r && r.queued) {
+        // the arm goes through: a plain swing is animated like an ability's
+        effects.swing(player, { hands: actor.weapon?.hands ?? 1 });
+        if (attacking) hud.setHint?.(`fighting the ${attacking.name}`);
+      } else if (r && !r.queued && r.reason === 'out_of_reach') {
+        if (attacking) hud.setHint?.(`too far from the ${attacking.name}, walk closer`);
+        if (sayReach || now - lastReachLine > 2500) {
+          lastReachLine = now;
+          hud.log(`${attacking?.name || 'It'} is ${Math.round(r.dist)} m off, walk closer`);
+        }
       }
       return r;
     }
@@ -683,6 +693,22 @@ function boot() {
       if (Math.hypot(t.pos.x - player.pos.x, t.pos.z - player.pos.z) > ATTACK_LEASH) return stopAttack('it is too far away');
       if (targeting.current !== t) targeting.set?.(t, 'attack');
       swingAt(t, now, nowS, false);
+    }
+
+    // The cursor says what a click would do: a grab over a sack, a body to
+    // skin or a thing to pick, a pointer over a person or a station.
+    let cursorAt = -1e9, cursorNow = '';
+    function updateCursor(now) {
+      if (now - cursorAt < 100 || dev.on || windows.anyOpen) return;
+      cursorAt = now;
+      const ray = aim();
+      let want = '';
+      if (loot.pick(ray)) want = 'grab';
+      else if (forage.pick(ray)) want = 'grab';
+      else if (npcs.pick?.(ray) || stations.pick(ray)) want = 'pointer';
+      else if (monsters.pick(ray)) want = 'crosshair';
+      else { const c = skinning.pick(ray); if (c && skinning.canSkin(c)) want = 'grab'; }
+      if (want !== cursorNow) { cursorNow = want; sc.renderer.domElement.style.cursor = want; }
     }
 
     // ------------------------------------------------------------- the loop --
@@ -731,6 +757,11 @@ function boot() {
         }
         shapeDrag();
         camera.update(dt, player.pos, (x, z) => runtime.heightAt(x, z));
+        // underground the camera stays inside the room: pull it onto the walkable floor
+        if (runtime.inDungeon) {
+          const [kx, kz] = runtime.clampWalkable(sc.camera.position.x, sc.camera.position.z);
+          if (kx !== sc.camera.position.x || kz !== sc.camera.position.z) { sc.camera.position.x = kx; sc.camera.position.z = kz; }
+        }
         state.setPos(player.pos.x, player.pos.z);
       }
 
@@ -766,6 +797,7 @@ function boot() {
 
       interact.update(dt, now);
       tickFps(now);
+      updateCursor(now);
       tradeNet.update(now);
       updatePlace(now);
 
@@ -798,6 +830,12 @@ function boot() {
       input.endFrame();
 
       if (now - lastSave > SAVE_EVERY_MS) { lastSave = now; syncToCharacter(actor); state.save(); }
+    }
+    // A save written mid death (health 0, no count running) comes back as a
+    // corpse that cannot fight or die again. Wake it at once.
+    if (actor.health <= 0) {
+      hud.log('You were dead when the world came back.');
+      wake();
     }
     requestAnimationFrame(frame);
 

@@ -73,11 +73,14 @@ export const DAWN = 0.34;
 const STOPS = [
   // Midnight is moonlit, not black: seen in the browser at the old numbers the
   // ground vanished and only the leaves against the sky were left to steer by.
-  { d: 0, exposure: 0.82,
-    sun: { c: [0.30, 0.38, 0.62], i: 0.30 },
-    hemi: { sky: [0.12, 0.17, 0.32], ground: [0.06, 0.07, 0.10], i: 0.34 },
-    ambient: { c: [0.22, 0.30, 0.48], i: 0.12 },
-    fill: { c: [0.24, 0.34, 0.58], i: 0.12 } },
+  // The moon is a light source: the sun lamp points along the moon by night
+  // (sky.shadowDir) and carries this cool light. The user could not see the
+  // ground at the first numbers; these read as a bright moonlit night.
+  { d: 0, exposure: 0.92,
+    sun: { c: [0.42, 0.50, 0.72], i: 0.70 },
+    hemi: { sky: [0.16, 0.22, 0.40], ground: [0.07, 0.08, 0.11], i: 0.50 },
+    ambient: { c: [0.24, 0.32, 0.50], i: 0.14 },
+    fill: { c: [0.24, 0.34, 0.58], i: 0.16 } },
   { d: DAWN, exposure: 1.14,
     sun: { c: [1.00, 0.52, 0.24], i: 1.45 },
     hemi: { sky: [0.55, 0.45, 0.52], ground: [0.34, 0.24, 0.18], i: 0.48 },
