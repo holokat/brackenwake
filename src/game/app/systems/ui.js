@@ -17,6 +17,7 @@ import { panel as craftingPanel } from '../../win_crafting.js';
 import { panel as mapPanel } from '../../win_map.js';
 import { panel as settingsPanel } from '../../win_settings.js';
 import { panel as devPanel } from '../../win_dev.js';
+import { panel as editorPanel } from '../../editor/panel.js';
 import { unlockedFor, ABILITY_FOR_ITEM } from '../../../mmo/abilities.js';
 import { labelFor as lootLabel } from '../../loot_drops.js';
 import { conOf, conLabel } from '../../con.js';
@@ -102,6 +103,10 @@ export const ui = {
     const windows = createWindows(hudRoot, input, panelCtx);
     panelCtx.windows = windows;
     for (const p of [characterPanel, bagPanel, skillsPanel, abilitiesPanel, talkPanel, tradePanel, craftingPanel, mapPanel, settingsPanel, devPanel]) windows.register(p);
+    // The editor is registered on its own line and not in the row above,
+    // because it is not one of the player's windows: it refuses to open unless
+    // dev mode is on, and `wiring.test.mjs` reads that row by name.
+    windows.register(editorPanel);
     // A fresh character's bar is not left empty: what the opening already
     // unlocked goes on it in order, so the first fight has something on key 1.
     if (barOf(character).every((x) => !x)) {

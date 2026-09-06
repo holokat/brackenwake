@@ -15,6 +15,7 @@ import { buildTown } from './town_models.js';
 import { buildMegalith } from './megalith_models.js';
 import { linksForCell } from './roads.js';
 import { PLANS } from '../mmo/plans/index.js';
+import { SPACES } from '../mmo/spaces/index.js';
 import { buildPlan } from './plan_models.js';
 import { buildStructure } from './structures.js';
 import { createFires, createGlows } from './fire.js';
@@ -218,6 +219,12 @@ export function buildSiteMarker(site, heightAt, opts = {}) {
   if (site.kind === 'mine') return mineSite(site, heightAt);
   // P1: a place somebody painted is built from the painting and not rolled.
   if (PLANS[site.sub]) { const g = buildPlan(PLANS[site.sub], site, heightAt); if (g) return g; }
+  // ED1: a space somebody laid out with the editor is built the same way, out
+  // of the same buildPlan, so what the editor shows is what the world builds.
+  if (site.space && SPACES[site.space]) {
+    const g = buildPlan(SPACES[site.space], site, heightAt);
+    if (g) return g;
+  }
   // Wave B hands two kinds to their own builders. Each answers null until it
   // is written (or for a site it does not know), and the old marker stands in.
   if (site.kind === 'town' && site.authored) {

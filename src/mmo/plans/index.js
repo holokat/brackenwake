@@ -21,6 +21,7 @@ import highwaymanshollow from './highwaymanshollow.json' with { type: 'json' };
 import sunkenchapel from './sunkenchapel.json' with { type: 'json' };
 import { auditPlans } from './plan_schema.js';
 import { insidePlan, PLAN_MARGIN } from './footprints.js';
+import { SPACES } from '../spaces/index.js';
 
 /** Every plan, by the place it is drawn about. */
 export const PLANS = Object.freeze({
@@ -35,6 +36,19 @@ export const PLAN_IDS = Object.freeze(Object.keys(PLANS));
 export const planFor = (place) => PLANS[place] || null;
 
 /**
+ * The plan OR the space keyed by this id.
+ *
+ * A space (src/mmo/spaces/) is a plan that stands at a point instead of at a
+ * named place, and a space's site row carries its id as `sub` exactly as a
+ * planned place does. So the three functions below, which are the whole of
+ * what the rest of the game asks a plan for, answer for both. There is no
+ * second path: a space's people are stood by `npcs_runtime.streetFor`, its
+ * monsters by `monsters.plannedSpawnsForChunk` and its ground is left alone by
+ * `dressing.js`, all through these three calls and no others.
+ */
+export const layoutFor = (id) => PLANS[id] || SPACES[id] || null;
+
+/**
  * The people a plan stands, for `npcs_runtime.streetFor`.
  *
  * `name` is a person id in `story.js` where the plan names one of the cast and
@@ -42,7 +56,7 @@ export const planFor = (place) => PLANS[place] || null;
  * itself, the way it always has. `role` is a role id in `npcs.js` or in
  * `story.js`'s STORY_ROLES, and both are checked at load.
  */
-export const peopleFor = (place) => (PLANS[place]?.people || []);
+export const peopleFor = (place) => (layoutFor(place)?.people || []);
 
 /**
  * The monsters a plan puts in a place, for `monsters.placeFor`.
@@ -53,7 +67,7 @@ export const peopleFor = (place) => (PLANS[place]?.people || []);
  * both night rows and both come back empty by day.
  */
 export function spawnsFor(place, night = false) {
-  const all = PLANS[place]?.spawns || [];
+  const all = layoutFor(place)?.spawns || [];
   return night ? all : all.filter((s) => !s.night);
 }
 
@@ -68,7 +82,7 @@ export function spawnsFor(place, night = false) {
  */
 export function inPlannedPlace(site, x, z, margin = PLAN_MARGIN) {
   if (!site || !site.sub) return false;
-  const plan = PLANS[site.sub];
+  const plan = layoutFor(site.sub);
   return plan ? insidePlan(plan, site, x, z, margin) : false;
 }
 

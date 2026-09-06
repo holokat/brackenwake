@@ -3,6 +3,8 @@
 import { createDev } from '../../dev.js';
 import { panel as devPanel, benchOf as devBenchOf } from '../../win_dev.js';
 import { buildModelTown, disposeModelTown } from '../../../world/model_town.js';
+import { panel as editorPanel, editorOf } from '../../editor/panel.js';
+import { setMarkersVisible } from '../../../world/plan_models.js';
 
 export const dev = {
   name: 'dev',
@@ -51,6 +53,20 @@ export const dev = {
         sc.scene.remove(town); disposeModelTown(town); town = null;
       }
     });
+    // A space's MARKERS are notes to ourselves standing in the world, and they
+    // come up and go down with dev mode, so a player never meets one. The
+    // scene is walked, not only the flag set, because a space that streamed in
+    // an hour ago is already standing.
+    runtimeDev.onChange((on) => {
+      const { turned } = setMarkersVisible(on, sc.scene);
+      if (turned) hud.toast?.(`${turned} marker ${turned === 1 ? 'post is' : 'posts are'} ${on ? 'up' : 'down'}.`);
+    });
+    // The editor closes with dev mode: it flies the camera and writes files,
+    // and neither belongs to a player.
+    runtimeDev.onChange((on) => {
+      const windows = face.windows;
+      if (!on && windows && windows.isOpen('editor')) windows.close('editor');
+    });
     // the numbers at the top right are a button: a click hides or shows the bench
     ctx.hud.onDev?.(() => { const w = face.windows; if (w && runtimeDev.on) w.toggle('dev'); });
     // The settings window can turn fly mode on, so the saved settings are
@@ -66,8 +82,10 @@ export const dev = {
       /** The eye flies instead of walking. The player system decides which. */
       fly: (dt) => runtimeDev.update(dt),
       bw: {
-        dev: runtimeDev, devPanel,
+        dev: runtimeDev, devPanel, editorPanel,
         get devBench() { return devBenchOf(); },
+        /** The editor the open window built, for the console. Null until it opens. */
+        get editor() { return editorOf(); },
       },
     };
   },

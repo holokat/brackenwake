@@ -1984,6 +1984,18 @@ export const panel = {
     drawSpells();
 
     // -------------------------------------------------------------- world --
+    // ---------------------------------------------------------- the editor --
+    // The bench is where the tools are, so the way into the editor is here.
+    root.appendChild(h('h3', null, 'Editor'));
+    const edRow = row('Lay out a place', 'the palette, the ghost and the space files');
+    btn(edRow, 'edit the world (L)', () => {
+      const w = ctx.windows;
+      if (!w || typeof w.open !== 'function') { say(ctx, 'there is no window layer here, so the editor cannot open.', 'bad'); return; }
+      w.open('editor');
+      say(ctx, 'the editor is open. Close its window, or press L again, to leave it and go back to flying.');
+    });
+    edRow.appendChild(h('span', 'd', 'close its window, or press L again, to leave'));
+
     root.appendChild(h('h3', null, 'World'));
     const clock = row('Time of day');
     const slider = h('input');

@@ -36,6 +36,10 @@ import * as THREE from 'three';
 import { mergeByMaterial } from './site_models.js';
 import * as arbor from './arbor.js';
 import { PALETTES } from './town_layout.js';
+import { growBoulder } from './tree_gen.js';
+import { KITS } from './dressing.js';
+import { bodyFor as dressBody, materialFor as dressMaterial, BODIES as DRESS_BODIES } from './dressing_models.js';
+import { SPACES } from '../mmo/spaces/index.js';
 import {
   FOOTPRINT, RUN_SPAN, isRunKind, AREA_KINDS, STANDIN, hasStandIn, SOLO,
   WAYSTONE_MODEL, KEEP_MODEL, PLAN_MARGIN, footprintOf, stopsOf, insidePlan,
@@ -753,17 +757,202 @@ export const TREE_SPECIES = {
   willow: 'willow',
 };
 const treeProtos = new Map();
+
+/** A stable seed off a name, so the same name grows the same tree every run. */
+function seedOf(name, salt = 0x51ed) {
+  let seed = salt;
+  for (const ch of String(name)) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) >>> 0;
+  return seed;
+}
+
 /** One grown prototype per tree model, cached for the session. */
 export function treeProto(model) {
   const species = TREE_SPECIES[model];
   if (!species) return null;
   let p = treeProtos.get(model);
   if (!p) {
-    let seed = 0x51ed; for (const ch of model) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) >>> 0;
-    try { p = arbor.buildPrototype(species, seed, { maturity: 1 }); } catch { p = null; }
+    try { p = arbor.buildPrototype(species, seedOf(model), { maturity: 1 }); } catch { p = null; }
     if (p) treeProtos.set(model, p);
   }
   return p;
+}
+
+/**
+ * One grown prototype per ARBOR SPECIES, for a space's `trees` list.
+ *
+ * A plan names a model (`beech_a`) and `treeProto` grows the species behind it.
+ * A space names the species itself (`beech`), because the editor's Trees tab is
+ * `arbor.SPECIES` and there is no reason to invent three model ids to say oak.
+ * The two share the cache and the seed rule, so `beech` and `beech_a` are two
+ * different beeches for the same reason `beech_a` and `beech_b` are.
+ */
+export function speciesProto(species) {
+  if (!arbor.SPECIES[species]) return null;
+  const key = `sp:${species}`;
+  let p = treeProtos.get(key);
+  if (!p) {
+    try { p = arbor.buildPrototype(species, seedOf(key), { maturity: 1 }); } catch { p = null; }
+    if (p) treeProtos.set(key, p);
+  }
+  return p;
+}
+
+// ------------------------------------------------------------------- rocks --
+//
+// What a space's `rocks` list may name, and what each one is built out of.
+//
+// TWO SOURCES, AND BOTH OF THEM ARE THE GAME'S OWN. `rock` and `ore` are the
+// boulders `flora.js` scatters, grown by `tree_gen.growBoulder`, which is what
+// a pickaxe is swung at in the open world. Everything else is one of
+// `dressing.js`'s own kinds, built by `dressing_models.bodyFor`: the sarsen,
+// the drystone wall, the hay rick, the cart, the wayside shrine, the rib cage,
+// the reed bed, all ninety odd of them across the nine realms. Nothing here is
+// a new body; this is the scatter's vocabulary, made placeable by hand.
+//
+// `size` is the metres the body's longest side is built to at scale 1, and it
+// is the kit's own number, so a rick placed here is the size a rick is.
+
+/** Every rock kind a space may name: the kit's own kinds, plus two boulders. */
+export const ROCK_KINDS = (() => {
+  const out = {
+    rock: { kind: 'rock', build: 'boulder', size: 1.6, boulder: true, ore: false },
+    ore: { kind: 'ore', build: 'boulder', size: 1.2, boulder: true, ore: true },
+  };
+  for (const [realm, list] of Object.entries(KITS)) {
+    for (const k of list) {
+      if (!out[k.kind]) out[k.kind] = { kind: k.kind, build: k.build, size: k.size, realm };
+    }
+  }
+  return out;
+})();
+export const ROCK_KIND_IDS = Object.freeze(Object.keys(ROCK_KINDS));
+export const isRockKind = (id) => Object.prototype.hasOwnProperty.call(ROCK_KINDS, id);
+
+const rockGeos = new Map();
+/**
+ * The geometry of one rock kind, built once and kept. `realm` only matters for
+ * a dressing body, whose colours are baked into its vertices.
+ */
+export function rockGeometry(kind, realm = 'greenwold') {
+  const spec = ROCK_KINDS[kind];
+  if (!spec) return null;
+  const key = spec.boulder ? `b:${kind}` : `${realm}:${kind}`;
+  let geo = rockGeos.get(key);
+  if (geo) return geo;
+  if (spec.boulder) {
+    const b = growBoulder(seedOf(kind, 0xb0d1), { detail: 2, squash: spec.ore ? 0.7 : 0.62, lump: spec.ore ? 0.26 : 0.2 });
+    geo = b.geo;
+    const h = b.height || 1;
+    if (h > 1e-6) geo.scale(spec.size / h, spec.size / h, spec.size / h);
+  } else {
+    try { geo = dressBody(realm, spec, 0); } catch { geo = null; }
+  }
+  if (geo) rockGeos.set(key, geo);
+  return geo;
+}
+
+/** The material a rock kind is drawn with. A boulder is stone; a body is its own. */
+export function rockMaterialFor(kind, c) {
+  const spec = ROCK_KINDS[kind];
+  if (!spec) return null;
+  // A dressing body carries its colours in a vertex attribute, so it MUST keep
+  // its own vertexColors material; the palette's flat stone would paint a
+  // ninety piece rib cage one colour and a merge would throw the colours away
+  // altogether. That is why rocks are instanced per kind and never merged.
+  if (!spec.boulder) return dressMaterial(kind);
+  return c(spec.ore ? 'metal' : 'stone');
+}
+
+// ----------------------------------------------------------------- markers --
+//
+// A marker is a note to ourselves standing in the world: "a watchtower goes
+// here", "a boss spawns here", "we need a bridge". It is a post, a board and
+// the words, and it is DEV ONLY: `markersVisible` starts false, so a player who
+// walks into a half authored space sees the space and not the notes.
+//
+// `setMarkersVisible(on, scene)` is the switch. app/systems/dev.js throws it
+// with dev mode, and the editor throws it when it opens, so the notes come up
+// with the tools and go down with them.
+
+/** How tall a marker post stands, in metres. */
+export const MARKER_POST_H = 2.4;
+/** The colour of a marker's board, by what it is a marker for. */
+export const MARKER_COLOUR = {
+  structure: 0xc9a44a, monster: 0xc4523a, creature: 0x6f9a4a, tree: 0x4a7a3a,
+  rock: 0x8d887e, prop: 0x7a6a9a, other: 0x9c9c9c,
+};
+
+let markersVisible = false;
+/** Whether marker posts are being drawn at all. */
+export const markersAreVisible = () => markersVisible;
+/**
+ * Show or hide every marker in the world. The flag is what a marker built from
+ * now on is born with, and the scene walk is what turns the ones already
+ * standing, so a space that streamed in an hour ago answers the switch too.
+ */
+export function setMarkersVisible(on, scene = null) {
+  markersVisible = !!on;
+  let turned = 0;
+  if (scene && typeof scene.traverse === 'function') {
+    scene.traverse((o) => { if (o.userData && o.userData.marker) { o.visible = markersVisible; turned++; } });
+  }
+  return { visible: markersVisible, turned };
+}
+
+/**
+ * The words over a marker, as a sprite.
+ *
+ * `model_town.labelSprite` does the same job for the model rows and is NOT
+ * reused here, for one reason and not for taste: model_town.js imports this
+ * file at its top and uses `PROP_DIR` at module level, so importing it back
+ * reads that constant before it is initialised and the whole world fails to
+ * load. Measured: the import throws "Cannot access 'PROP_DIR' before
+ * initialization". A marker also says a different thing in a different colour,
+ * a label over a note rather than a name over a model.
+ */
+export function markerLabel(marker) {
+  if (typeof document === 'undefined') return null;   // node: the post still stands, unlabelled
+  const lines = [marker.label, marker.kind + (marker.note ? ': ' + marker.note : '')];
+  const canvas = document.createElement('canvas');
+  canvas.width = 640; canvas.height = 64 * lines.length + 24;
+  const g = canvas.getContext('2d');
+  g.fillStyle = 'rgba(10, 8, 6, 0.82)';
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  const colour = MARKER_COLOUR[marker.kind] || MARKER_COLOUR.other;
+  g.strokeStyle = '#' + colour.toString(16).padStart(6, '0');
+  g.lineWidth = 6;
+  g.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
+  g.textAlign = 'center';
+  lines.forEach((line, i) => {
+    g.fillStyle = i === 0 ? '#f2dc9c' : '#' + colour.toString(16).padStart(6, '0');
+    g.font = `${i === 0 ? 'bold 42px' : '28px'} Georgia, serif`;
+    g.fillText(String(line).slice(0, 44), canvas.width / 2, 48 + i * 64);
+  });
+  const tex = new THREE.CanvasTexture(canvas);
+  if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  const aspect = canvas.width / canvas.height;
+  sprite.scale.set(4, 4 / aspect, 1);
+  sprite.renderOrder = 999;
+  return sprite;
+}
+
+/**
+ * One marker's body, standing on y = 0: a post, a board across the top of it in
+ * the colour of what it marks, and the label floating over it.
+ */
+export function markerBody(marker, c) {
+  const g = new THREE.Group();
+  const colour = MARKER_COLOUR[marker.kind] || MARKER_COLOUR.other;
+  const post = new THREE.MeshStandardMaterial({ color: 0x4c3b2a, roughness: 0.95, flatShading: true });
+  const board = new THREE.MeshStandardMaterial({ color: colour, roughness: 0.8, flatShading: true });
+  put(g, cyl(0.07, 0.09, MARKER_POST_H, post, 6), 0, MARKER_POST_H / 2, 0);
+  put(g, box(1.1, 0.42, 0.08, board), 0, MARKER_POST_H - 0.3, 0);
+  const label = markerLabel(marker);
+  if (label) { label.position.set(0, MARKER_POST_H + 1.1, 0); g.add(label); }
+  g.userData.marker = marker;
+  g.visible = markersVisible;
+  return g;
 }
 
 /**
@@ -892,11 +1081,16 @@ export function runSegments(model, length) {
  * height field. Answers a merged group, or null if the plan is not one.
  */
 export function buildPlan(plan, site, heightAt) {
-  if (!plan || !plan.pieces) return null;
+  // A plan is its pieces; a SPACE may be nothing but trees, or nothing but
+  // markers, and refusing that would mean the first thing the editor ever puts
+  // down does not appear. Anything with none of the five is not a layout.
+  if (!plan || !(plan.pieces || plan.runs || plan.trees || plan.rocks || plan.markers)) return null;
   PALETTE_FOR = palette(site.realm || 'greenwold');
   const c = PALETTE_FOR;
   const groups = new Map();      // tag -> { g, piece, waystone, keep }
-  const trees = new Map();       // model -> [{ x, y, z, yaw, k }] laid as real arbor trees, instanced
+  const trees = new Map();       // key -> { proto, list } laid as real arbor trees, instanced
+  const rocks = new Map();       // kind -> [{ x, y, z, yaw, k }] instanced per kind
+  const markers = new THREE.Group();
   const sub = (tag, piece) => {
     let e = groups.get(tag);
     if (!e) { e = { g: new THREE.Group(), piece: piece ?? null }; groups.set(tag, e); }
@@ -919,7 +1113,7 @@ export function buildPlan(plan, site, heightAt) {
     return [stop.x + px * c0 + pz * s0, stop.z + pz * c0 - px * s0];
   };
 
-  for (const stop of stops) buildStop(plan, site, heightAt, c, sub, stop, world, trees);
+  for (const stop of stops) buildStop(plan, site, heightAt, c, sub, stop, world, trees, rocks, markers);
 
   // ---- merge each tag on its own, so a name survives and the count stays low
   const out = new THREE.Group();
@@ -928,9 +1122,10 @@ export function buildPlan(plan, site, heightAt) {
   // same generator the forests use, never a ball on a post, and every tree of
   // one model in the plan is one instanced bark mesh and one instanced leaf
   // mesh, so forty beeches cost two draw calls. The user said no low poly trees.
-  for (const [model, list] of trees) {
-    const proto = treeProto(model);
-    if (!proto) continue;
+  for (const [key, entry] of trees) {
+    const { proto, list } = entry;
+    const model = entry.name || key;
+    if (!proto || !list.length) continue;
     const n = list.length;
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3();
     const bark = new THREE.InstancedMesh(proto.bark, proto.barkMat, n);
@@ -952,6 +1147,41 @@ export function buildPlan(plan, site, heightAt) {
       out.add(im);
     }
   }
+  // THE ROCKS ARE THE WORLD'S OWN ROCKS. A boulder is `tree_gen.growBoulder`,
+  // the one a pickaxe is swung at, and everything else is a `dressing.js` kind
+  // built by `dressing_models.bodyFor`. Both are instanced per kind rather than
+  // merged, because a dressing body's colours live in a vertex attribute and
+  // `mergeByMaterial` throws every attribute but position and normal away.
+  for (const [kind, list] of rocks) {
+    if (!list.length) continue;
+    const geo = rockGeometry(kind, site.realm || 'greenwold');
+    const mat = rockMaterialFor(kind, c);
+    if (!geo || !mat) continue;
+    const im = new THREE.InstancedMesh(geo, mat, list.length);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3();
+    list.forEach((r, i) => {
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r.yaw);
+      pos.set(r.x, r.y, r.z); scl.setScalar(r.k);
+      m4.compose(pos, q, scl);
+      im.setMatrixAt(i, m4);
+    });
+    im.instanceMatrix.needsUpdate = true;
+    im.castShadow = true; im.receiveShadow = true;
+    im.name = `plan:${plan.id}:rocks:${kind}`;
+    im.userData.site = site;
+    im.userData.plan = { id: plan.id, piece: kind, source: 'rock' };
+    out.add(im);
+  }
+
+  // The markers ride along unmerged, because each one carries its own words on
+  // a sprite and a merge would eat both the sprite and the userData that says
+  // what the note said.
+  if (markers.children.length) {
+    markers.name = `plan:${plan.id}:markers`;
+    markers.userData.site = site;
+    out.add(markers);
+  }
+
   for (const [tag, e] of groups) {
     if (!e.g.children.length) continue;
     // A glb piece keeps its uvs and its textures. mergeByMaterial buckets by
@@ -986,16 +1216,25 @@ export function buildPlan(plan, site, heightAt) {
     out.add(merged);
   }
   out.userData.site = site;
-  out.userData.plan = { id: plan.id, place: plan.place, radius: plan.radius, arrival: plan.arrival, stops: stops.length };
+  out.userData.plan = {
+    id: plan.id, place: plan.place || null, radius: plan.radius,
+    arrival: plan.arrival || null, stops: stops.length,
+    space: plan.at ? { x: plan.at.x, z: plan.at.z } : null,
+    counts: {
+      pieces: (plan.pieces || []).length, runs: (plan.runs || []).length, areas: (plan.areas || []).length,
+      trees: (plan.trees || []).length, rocks: (plan.rocks || []).length, markers: (plan.markers || []).length,
+      people: (plan.people || []).length, spawns: (plan.spawns || []).length,
+    },
+  };
   return out;
 }
 
 /** One laying of a plan's composition, at one stop. */
-function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map()) {
+function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map(), rocks = new Map(), markers = null) {
   const yawOf = (deg) => (deg || 0) * D2R + stop.rot;
 
   // ---- the pieces
-  for (const p of plan.pieces) {
+  for (const p of plan.pieces || []) {
     if (TREE_SPECIES[p.model]) {
       // a real tree, batched per model and grown after the stops (see buildPlan)
       const f = FOOTPRINT[p.model];
@@ -1004,9 +1243,9 @@ function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map())
       const [wx, wz] = world(stop, p.x, p.z);
       const h = f[2] * (p.scale ?? 1);
       const k = proto.height > 0 ? h / proto.height : 1;
-      const list = trees.get(p.model) || [];
-      list.push({ x: wx, y: heightAt(wx, wz) - 0.05, z: wz, yaw: yawOf(p.yaw), k });
-      trees.set(p.model, list);
+      const e = trees.get(p.model) || { proto, name: p.model, list: [] };
+      e.list.push({ x: wx, y: heightAt(wx, wz) - 0.05, z: wz, yaw: yawOf(p.yaw), k });
+      trees.set(p.model, e);
       continue;
     }
     const body = pieceBody(p.model, p.scale ?? 1);
@@ -1063,6 +1302,37 @@ function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map())
     else mesh = areaMesh(a.points, at, heightAt, m, lift, null);
     if (mesh) areas.g.add(mesh);
   }
+
+  // ---- a space's trees, by arbor species, grown and instanced with the rest
+  for (const t of plan.trees || []) {
+    const proto = speciesProto(t.species);
+    if (!proto) continue;
+    const [wx, wz] = world(stop, t.x, t.z);
+    const e = trees.get(`sp:${t.species}`) || { proto, name: t.species, list: [] };
+    e.list.push({ x: wx, y: heightAt(wx, wz) - 0.05, z: wz, yaw: yawOf(t.yaw), k: t.scale ?? 1 });
+    trees.set(`sp:${t.species}`, e);
+  }
+
+  // ---- a space's rocks. `SINK` beds a rock the way it beds a piece.
+  for (const r of plan.rocks || []) {
+    if (!ROCK_KINDS[r.kind]) continue;
+    const [wx, wz] = world(stop, r.x, r.z);
+    const list = rocks.get(r.kind) || [];
+    list.push({ x: wx, y: heightAt(wx, wz) - SINK * 0.5, z: wz, yaw: yawOf(r.yaw), k: r.scale ?? 1 });
+    rocks.set(r.kind, list);
+  }
+
+  // ---- a space's markers, dev only, one post each
+  if (markers) {
+    for (const m of plan.markers || []) {
+      const g = markerBody(m, c);
+      const [wx, wz] = world(stop, m.x, m.z);
+      g.position.set(wx, heightAt(wx, wz), wz);
+      g.rotation.y = stop.rot;
+      g.traverse((o) => { if (o.userData) o.userData.marker = m; });
+      markers.add(g);
+    }
+  }
 }
 
 /** How many draw calls a built plan costs. One per merged mesh. */
@@ -1107,4 +1377,48 @@ export function auditPlanModels() {
   return { models: Object.keys(FOOTPRINT).length, bodies: Object.keys(BODY).length, runs: Object.keys(RUN_SPAN).length, solo: SOLO.size };
 }
 
+/**
+ * The tree species and the rock kinds a space may name, checked against the two
+ * tables they really come from.
+ *
+ * `plan_schema.js` is pure and cannot ask arbor.js what a species is or
+ * dressing.js what a kind is, so it checks a space's shape and leaves the
+ * vocabulary to this file, which already holds both. It runs at import, beside
+ * `auditPlanModels`, so a space naming a species that does not exist is a load
+ * error and not a hole in a wood.
+ *
+ * BOTH DIRECTIONS. A kind that has no body fails, and a `rock` or `ore` that
+ * collided with a dressing kind of the same name would fail too, because the
+ * boulder would silently shadow the kit's own body.
+ */
+export function auditSpaceKinds(spaces = {}) {
+  const bad = [];
+  for (const [realm, list] of Object.entries(KITS)) {
+    for (const k of list) {
+      if (k.kind === 'rock' || k.kind === 'ore') bad.push(`the ${realm} kit has a kind called "${k.kind}", which is the name of a boulder and would be shadowed by it`);
+      if (!DRESS_BODIES[k.build]) bad.push(`the ${realm} kit's "${k.kind}" names a body "${k.build}" that does not exist`);
+    }
+  }
+  for (const id of ROCK_KIND_IDS) {
+    const spec = ROCK_KINDS[id];
+    if (!spec.boulder && !DRESS_BODIES[spec.build]) bad.push(`the rock kind "${id}" names a body "${spec.build}" that does not exist`);
+    if (!(spec.size > 0)) bad.push(`the rock kind "${id}" is built to ${spec.size} m`);
+  }
+  let trees = 0, rocks = 0;
+  for (const [key, space] of Object.entries(spaces)) {
+    for (const t of space.trees || []) {
+      trees++;
+      if (!arbor.SPECIES[t.species]) bad.push(`the space "${key}" plants a "${t.species}", which arbor.js does not grow`);
+    }
+    for (const r of space.rocks || []) {
+      rocks++;
+      if (!ROCK_KINDS[r.kind]) bad.push(`the space "${key}" lays a "${r.kind}", which is neither a boulder nor a dressing kind`);
+    }
+  }
+  if (bad.length) throw new Error('spaces: ' + bad.join('; '));
+  return { species: arbor.SPECIES_IDS.length, rockKinds: ROCK_KIND_IDS.length, trees, rocks };
+}
+
 auditPlanModels();
+/** The one place a space's vocabulary is checked. See auditSpaceKinds. */
+export const SPACE_KIND_STATS = auditSpaceKinds(SPACES);

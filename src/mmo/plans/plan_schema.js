@@ -118,25 +118,63 @@ export const reachOf = (r) => Math.max(...cornersOf(r).map(([x, z]) => Math.hypo
 
 const isRole = (id) => !!(NPCS[id] || STORY_ROLES[id]);
 
+/** What a marker may be a marker FOR. The editor's Markers tab is this list. */
+export const MARKER_KINDS = ['structure', 'monster', 'creature', 'tree', 'rock', 'prop', 'other'];
+
 /**
  * Every plan, checked. Throws with all of it at once rather than the first
  * thing wrong, because a JSON is usually wrong in several places and finding
  * them one run at a time is how an afternoon goes.
  */
-export function auditPlans(plans) {
+export function auditPlans(plans) { return auditAll(plans, 'plan'); }
+
+/**
+ * Every space, checked the same way.
+ *
+ * A SPACE is a plan that stands at a point rather than at a named place: it
+ * carries `at: { x, z }` in absolute world metres instead of `place`, a `name`
+ * and a `note` instead of `notes`, and three lists a plan has never had. It is
+ * what the editor writes, and the editor is how the Greenwold gets laid out
+ * space by space instead of scattered.
+ *
+ * Every rule a plan is held to, a space is held to as well: nothing outside
+ * the radius, no two footprints in each other, no person inside a wall, no
+ * monster id that is not a monster, no model without a body, no em dash.
+ *
+ * What it does NOT check is whether a tree species or a rock kind is real,
+ * because that answer lives in arbor.js and dressing.js and this file is pure.
+ * `plan_models.auditSpaceKinds` asks that question, at import, where those two
+ * tables are already in hand, and spaces.test.mjs drives it both ways.
+ */
+export function auditSpaces(spaces) { return auditAll(spaces, 'space'); }
+
+function auditAll(plans, kind = 'plan') {
+  const isSpace = kind === 'space';
   const bad = [];
   const seen = new Set();
   let pieces = 0, runs = 0, areas = 0, people = 0, spawns = 0, exempt = 0;
+  let trees = 0, rocks = 0, markers = 0;
 
   for (const [key, plan] of Object.entries(plans)) {
-    const at = `the plan "${key}"`;
-    if (!plan || typeof plan !== 'object') { bad.push(`${at} is not a plan`); continue; }
+    const at = `the ${kind} "${key}"`;
+    if (!plan || typeof plan !== 'object') { bad.push(`${at} is not a ${kind}`); continue; }
     if (plan.id !== key) bad.push(`${at} calls itself "${plan.id}"`);
-    if (seen.has(plan.place)) bad.push(`${at} is the second plan for the place "${plan.place}"`);
-    seen.add(plan.place);
-    if (!ZONE[plan.place]) bad.push(`${at} stands at "${plan.place}", which is not a place in zones.js`);
+    if (isSpace) {
+      if (!plan.at || !Number.isFinite(plan.at.x) || !Number.isFinite(plan.at.z)) {
+        bad.push(`${at} does not say where in the world it stands`);
+      }
+      if (typeof plan.name !== 'string' || !plan.name.trim()) bad.push(`${at} has no name`);
+      if (plan.place) bad.push(`${at} names a place; a space stands at a point and carries "at" instead`);
+    } else {
+      if (seen.has(plan.place)) bad.push(`${at} is the second plan for the place "${plan.place}"`);
+      seen.add(plan.place);
+      if (!ZONE[plan.place]) bad.push(`${at} stands at "${plan.place}", which is not a place in zones.js`);
+    }
     if (!(plan.radius > 0)) bad.push(`${at} has no radius`);
-    if (typeof plan.notes !== 'string' || plan.notes.length < 12) bad.push(`${at} says nothing about itself`);
+    const said = isSpace ? plan.note : plan.notes;
+    if (isSpace) {
+      if (said != null && typeof said !== 'string') bad.push(`${at} has a note that is not words`);
+    } else if (typeof said !== 'string' || said.length < 12) bad.push(`${at} says nothing about itself`);
     if (/—/.test(JSON.stringify(plan))) bad.push(`${at} has an em dash in it`);
 
     const R = plan.radius || 0;
@@ -192,9 +230,9 @@ export function auditPlans(plans) {
 
     if (plan.arrival) {
       const { x, z } = plan.arrival;
-      if (Math.hypot(x, z) > R + 0.001) bad.push(`${at}: the arrival is ${Math.hypot(x, z).toFixed(1)} m out, outside the plan's ${R} m`);
+      if (Math.hypot(x, z) > R + 0.001) bad.push(`${at}: the arrival is ${Math.hypot(x, z).toFixed(1)} m out, outside the ${kind}'s ${R} m`);
       for (const r of rects) if (pointInRect(x, z, r)) bad.push(`${at}: the arrival stands inside the ${r.model}`);
-    } else bad.push(`${at} has no arrival`);
+    } else if (!isSpace) bad.push(`${at} has no arrival`);
 
     for (const p of plan.people || []) {
       people++;
@@ -211,10 +249,45 @@ export function auditPlans(plans) {
     for (const s of plan.spawns || []) {
       spawns++;
       if (!MONSTERS[s.id]) bad.push(`${at}: "${s.id}" is not a monster row`);
-      if (Math.hypot(s.x, s.z) > R + 0.001) bad.push(`${at}: the ${s.id} spawns ${Math.hypot(s.x, s.z).toFixed(1)} m out, outside the plan's ${R} m`);
+      if (Math.hypot(s.x, s.z) > R + 0.001) bad.push(`${at}: the ${s.id} spawns ${Math.hypot(s.x, s.z).toFixed(1)} m out, outside the ${kind}'s ${R} m`);
+    }
+
+    // ---- the three lists only a space carries.
+    //
+    // A plan that grew one would be a plan the editor wrote, so they are
+    // checked wherever they appear rather than only inside a space, and a PLAN
+    // that carries one is told to be a space instead.
+    for (const t of plan.trees || []) {
+      trees++;
+      if (!isSpace) { bad.push(`${at} plants trees, which only a space may do`); break; }
+      const where = `${at}: the ${t.species || 'nameless'} at ${t.x},${t.z}`;
+      if (typeof t.species !== 'string' || !t.species) bad.push(`${where} is not a species`);
+      if (!Number.isFinite(t.x) || !Number.isFinite(t.z)) { bad.push(`${where} is not anywhere`); continue; }
+      if (t.scale != null && !(t.scale > 0)) bad.push(`${where} is grown to a scale of ${t.scale}`);
+      if (Math.hypot(t.x, t.z) > R + 0.001) bad.push(`${where} stands ${Math.hypot(t.x, t.z).toFixed(1)} m out, outside the ${kind}'s ${R} m`);
+    }
+    for (const r of plan.rocks || []) {
+      rocks++;
+      if (!isSpace) { bad.push(`${at} lays rocks, which only a space may do`); break; }
+      const where = `${at}: the ${r.kind || 'nameless'} at ${r.x},${r.z}`;
+      if (typeof r.kind !== 'string' || !r.kind) bad.push(`${where} is not a kind`);
+      if (!Number.isFinite(r.x) || !Number.isFinite(r.z)) { bad.push(`${where} is not anywhere`); continue; }
+      if (r.scale != null && !(r.scale > 0)) bad.push(`${where} is built to a scale of ${r.scale}`);
+      if (Math.hypot(r.x, r.z) > R + 0.001) bad.push(`${where} lies ${Math.hypot(r.x, r.z).toFixed(1)} m out, outside the ${kind}'s ${R} m`);
+    }
+    for (const m of plan.markers || []) {
+      markers++;
+      if (!isSpace) { bad.push(`${at} carries markers, which only a space may do`); break; }
+      const where = `${at}: the marker "${m.label || ''}" at ${m.x},${m.z}`;
+      if (typeof m.label !== 'string' || !m.label.trim()) bad.push(`${where} says nothing, and a marker that says nothing marks nothing`);
+      if (!MARKER_KINDS.includes(m.kind)) bad.push(`${where} is a "${m.kind}", which is not one of ${MARKER_KINDS.join(', ')}`);
+      if (!Number.isFinite(m.x) || !Number.isFinite(m.z)) { bad.push(`${where} is not anywhere`); continue; }
+      if (Math.hypot(m.x, m.z) > R + 0.001) bad.push(`${where} stands ${Math.hypot(m.x, m.z).toFixed(1)} m out, outside the ${kind}'s ${R} m`);
     }
   }
 
-  if (bad.length) throw new Error('plans: ' + bad.join('; '));
-  return { plans: Object.keys(plans).length, pieces, runs, areas, people, spawns, exempt };
+  if (bad.length) throw new Error(`${isSpace ? 'spaces' : 'plans'}: ` + bad.join('; '));
+  const out = { plans: Object.keys(plans).length, pieces, runs, areas, people, spawns, exempt };
+  if (isSpace) { out.spaces = out.plans; out.trees = trees; out.rocks = rocks; out.markers = markers; }
+  return out;
 }

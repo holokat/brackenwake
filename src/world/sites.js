@@ -28,6 +28,7 @@
 
 import { SITE_CELL } from './sitegrid.js';
 import { zoneAt, weightOf, ZONE } from './zones.js';
+import { SPACES } from '../mmo/spaces/index.js';
 
 export { SITE_CELL };
 export const DISCOVER_RADIUS = 70;
@@ -37,6 +38,54 @@ export const ZONE_ENTER_W = 0.5;
 export const CHECK_MS = 400;
 const STORE = 'brackenwake-discovered';
 const ZONE_STORE = 'brackenwake-zones';
+
+/**
+ * A SPACE as a site row.
+ *
+ * A space (src/mmo/spaces/) is a place somebody laid out by hand with the
+ * editor, standing at an absolute point rather than in a cell the grid rolled.
+ * It becomes a site row here, and one row is the whole of the wiring: the
+ * marker streamer builds it, the dressing stops scattering inside it, the
+ * monster layer stands its spawns and the npc layer stands its people, all
+ * because those four already walk this list.
+ *
+ * `sub` is the space's id, which is the key `plans/index.js` looks a layout up
+ * under, so a space answers `peopleFor`, `spawnsFor` and `inPlannedPlace`
+ * exactly as a planned place does.
+ */
+export function spaceSiteRow(space, field) {
+  const x = space.at.x, z = space.at.z;
+  return {
+    id: `s:${space.id}`,
+    zone: null, realm: null, sub: space.id, space: space.id,
+    kind: 'space',
+    name: space.name || space.id,
+    x, z,
+    y: typeof field?.heightAt === 'function' ? field.heightAt(x, z) : 0,
+    cx: Math.floor(x / SITE_CELL), cz: Math.floor(z / SITE_CELL),
+    facing: 0,
+    article: 'a place laid out by hand',
+    // Nothing here asks the terrain for a pad. A space is authored ON the
+    // ground it is authored on, and the terrain half of the editor is what
+    // raises or carves that ground; a flatR here would fight it.
+    flatR: 0, dish: 0, oreBand: [], levels: null,
+    line: space.note || null,
+    bodyR: space.radius || 0,
+    radius: space.radius || 0,
+    authored: true,
+  };
+}
+
+/** Every space whose ground reaches within `radius` of (x, z). */
+export function spaceSitesNear(x, z, radius, field, spaces = SPACES) {
+  const out = [];
+  for (const space of Object.values(spaces)) {
+    if (!space || !space.at) continue;
+    if (Math.hypot(space.at.x - x, space.at.z - z) > radius + (space.radius || 0)) continue;
+    out.push(spaceSiteRow(space, field));
+  }
+  return out;
+}
 
 /** Every site within `radius` world units of (x, z). */
 export function sitesNear(field, x, z, radius) {
@@ -49,6 +98,9 @@ export function sitesNear(field, x, z, radius) {
     // 214 m, so a body stays alive while any of it is inside the radius
     if (s && Math.hypot(s.x - x, s.z - z) <= radius + (s.bodyR || 0)) out.push(s);
   }
+  // The hand authored spaces stand outside the grid entirely: they own no cell,
+  // so nothing above would ever find one.
+  for (const s of spaceSitesNear(x, z, radius, field)) out.push(s);
   return out;
 }
 
