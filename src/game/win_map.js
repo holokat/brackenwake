@@ -62,6 +62,8 @@ import {
   ZONES, WORLD_HALF, zoneAt, wildDanger, DANGER_WORD, ARTICLE,
 } from '../world/zones.js';
 import { ZONE_ENTER_W } from '../world/sites.js';
+import { openAt } from '../mmo/release.js';
+import { authoredSites } from '../world/zones.js';
 import { bearingOf, distanceText, POINTS } from './compass.js';
 import { theme } from './ui_theme.js';
 import { paintGround, makeCache } from './map_paint.js';
@@ -347,6 +349,7 @@ export function foundPlaces(opts) {
   }
   return out;
 }
+
 
 /**
  * The marks the events layer wants drawn, cleaned up so the draw never has to
@@ -842,7 +845,25 @@ function playerAt(ctx) {
 }
 
 /** The character document is the record; the runtime's sets are the fallback. */
-function discoveredOf(ctx) { return ctx?.character?.discovered || ctx?.runtime?.discovery || []; }
+/**
+ * What the map counts as found: what the character has walked to, PLUS the
+ * authored places of the open realm, on the map from the first morning. A
+ * character was born in Hearthhome and every villager knows where the Chalk
+ * Pits and the Old Cellars are. Rolled places (a hamlet the world made up)
+ * still have to be walked to, and so does every place in a realm the release
+ * gate keeps shut. `foundPlaces` and `pickAt` stay pure: they ask has(id).
+ */
+let homeKnownIds = null;
+export function homeKnown() {
+  if (!homeKnownIds) homeKnownIds = new Set(authoredSites().filter((s) => openAt(s.x, s.z)).map((s) => s.id));
+  return homeKnownIds;
+}
+export function knownOf(discovered) {
+  const has = asHas(discovered);
+  const home = homeKnown();
+  return { has: (id) => has(id) || home.has(id) };
+}
+function discoveredOf(ctx) { return knownOf(ctx?.character?.discovered || ctx?.runtime?.discovery || []); }
 function zonesFoundOf(ctx) { return ctx?.character?.zones || ctx?.runtime?.discovery?.zonesFound || []; }
 
 const el = (tag, cls, text) => {

@@ -281,10 +281,10 @@ console.log('\nplans: the ground a plan claims, so the dressing knows to stop');
   check('and neither does nothing', !inPlannedPlace(null, 0, 0) && !inPlannedPlace({ x: 0, z: 0 }, 0, 0));
 
   // the Standing Hedge is the one that would go wrong quietly
-  const ws = { sub: 'waystones', x: 231, z: 804 };
+  const ws = { sub: 'waystones', x: 580, z: 1120 };
   const stops = stopsOf(PLANS.waystones, ws);
   check('the Standing Hedge stands in nine places', stops.length === 9);
-  check('and the middle of its ring is not one of them', !inPlannedPlace(ws, 231, 804),
+  check('and the middle of its ring is not one of them', !inPlannedPlace(ws, 580, 1120),
     'the ring is a mile across and its centre is an empty field');
   check('every one of the nine claims its own ground', stops.every((s) => inPlannedPlace(ws, s.x, s.z)));
   check('and the ground between two stones does not belong to either',

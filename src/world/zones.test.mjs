@@ -10,8 +10,11 @@ import {
   SEA, seaWithin, REEFS, reefAt, ARCHIPELAGO, archipelagoWithin,
   discOverlap, SIBLING_OVERLAP, CELL_PAD_MAX, TOWN_PRECINCT_R, MAX_FLAT_R,
   STANDS_IN_WATER, RELIEF_ZONES, EXTRA_ARTICLE, ARTICLE, articleFor, FLAT_R, heartAllows,
-  SITE_DISH,
+  SITE_DISH, BIRTHPLACE,
 } from './zones.js';
+import { PLANS } from '../mmo/plans/index.js';
+import { stopsOf } from '../mmo/plans/footprints.js';
+import { openAt } from '../mmo/release.js';
 import { REALMS, PLACES } from '../mmo/realms.js';
 import { createWorldField, SEA_LEVEL, RAMP_MAX_STEP } from './field.js';
 import { authoredInCell, SITE_CELL, mineParts } from './sitegrid.js';
@@ -720,9 +723,9 @@ console.log('zones: the seventy three places with something built on them');
   // driven the other way, on the predicate the audit itself uses, because
   // authoredSites() is built once and frozen and cannot be edited under it
   check('and a pad given to the same place would be refused',
-    heartAllows({ x: 231, z: 804, flatR: 0 }) && !heartAllows({ x: 231, z: 804, flatR: 8 })
+    heartAllows({ x: 580, z: 1120, flatR: 0 }) && !heartAllows({ x: 580, z: 1120, flatR: 8 })
     && heartAllows({ x: 5000, z: 0, flatR: TOWN_PRECINCT_R }) && !heartAllows({ x: 0, z: 0, flatR: 1 }),
-    'pad-less at 837 m allowed, an 8 m pad at the same point refused, a 120 m precinct at 5 km allowed');
+    'pad-less at 1261 m allowed, an 8 m pad at the same point refused, a 120 m precinct at 5 km allowed');
   const heartCells = new Set();
   for (let cz = Math.floor(-1000 / SITE_CELL); cz <= Math.floor(1000 / SITE_CELL); cz++) {
     for (let cx = Math.floor(-1000 / SITE_CELL); cx <= Math.floor(1000 / SITE_CELL); cx++) heartCells.add(cx + ',' + cz);
@@ -907,6 +910,28 @@ console.log('zones: entering a realm and then a place inside it');
 }
 
 // --------------------------------------------------------------------- cost --
+console.log('zones: where a character is born');
+{
+  const hh = ZONE.hearthhome;
+  const arr = PLANS.hearthhome.arrival;
+  check('the birthplace is Hearthhome plus its plan\'s arrival', BIRTHPLACE.x === hh.x + arr.x && BIRTHPLACE.z === hh.z + arr.z,
+    `${BIRTHPLACE.x}, ${BIRTHPLACE.z} against ${hh.x + arr.x}, ${hh.z + arr.z}`);
+  const dIn = Math.hypot(BIRTHPLACE.x - hh.x, BIRTHPLACE.z - hh.z);
+  const hhSite = authoredSites().find((st) => st.sub === 'hearthhome');
+  check('and it is inside the town\'s pad', dIn < hh.r && dIn < hhSite.flatR, `${dIn.toFixed(0)} m from the well, pad ${hhSite.flatR}`);
+  const g = createWorldField(20260904);
+  const s = g.sampleAt(BIRTHPLACE.x, BIRTHPLACE.z);
+  check('on dry ground', !s.water && (s.river || 0) < 0.2 && s.h > SEA_LEVEL, `h ${s.h.toFixed(1)}, river ${(s.river || 0).toFixed(2)}`);
+  check('on open ground under the release gate', openAt(BIRTHPLACE.x, BIRTHPLACE.z));
+  check('and the birthplace is inside the Standing Hedge', Math.hypot(BIRTHPLACE.x - ZONE.waystones.x, BIRTHPLACE.z - ZONE.waystones.z) < 805,
+    `${Math.hypot(BIRTHPLACE.x - ZONE.waystones.x, BIRTHPLACE.z - ZONE.waystones.z).toFixed(0)} m from the ring's centre`);
+  // the nine stones stand on dry meadow: the old centre put one in the river
+  const stones = stopsOf(PLANS.waystones, { sub: 'waystones', x: ZONE.waystones.x, z: ZONE.waystones.z }).map((st) => [st.x, st.z]);
+  check('the plan puts nine stones on the ring', stones.length === 9);
+  const wet = stones.filter(([x, z]) => { const t = g.sampleAt(x, z); return t.water || (t.river || 0) >= 0.2 || t.h <= SEA_LEVEL; });
+  check('and not one of the nine stones stands in water', wet.length === 0, wet.map(([x, z]) => `${x.toFixed(0)}, ${z.toFixed(0)}`).join('; ') || 'nine dry');
+}
+
 console.log('zones: what the lookup costs now there are a hundred and four');
 {
   const N = 200000;

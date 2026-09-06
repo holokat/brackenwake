@@ -6,6 +6,7 @@
 // copied back to the document before every save (syncToCharacter).
 
 import * as THREE from 'three';
+import { BIRTHPLACE, ZONE } from '../../../world/zones.js';
 import { createPlayer } from '../../player.js';
 import { playerActor as buildPlayerActor, recompute, tickPools, syncToCharacter } from '../../actor.js';
 import { createProgression } from '../../progression.js';
@@ -27,21 +28,16 @@ export const player = {
 
     // the body is built from the chosen appearance; an old save without one gets the house default
     const rig = createPlayer(sc.scene, character.appearance);
-    // First boot: no site stands within the streamed ring of the origin, so a new
-    // player would face empty meadow with nowhere to walk to. Spawn instead a
-    // short walk outside the nearest settlement, on the side facing the origin.
+    // First boot: a character is born on Hearthhome's green, facing the well,
+    // which is where the story starts (story.js: "standing inside Hearthhome
+    // for the first time"). Before this a new character woke a short walk
+    // outside the NEAREST ROLLED TOWN to the origin, a generated village with
+    // generated people, 1.7 km from the one every quest assumes.
     let faceTo = null;
     if (!state.pos.x && !state.pos.z) {
-      const towns = runtime.sitesNear(0, 0, 4000).filter((s) => s.kind === 'town' || s.kind === 'hamlet')
-        .sort((p, q) => Math.hypot(p.x, p.z) - Math.hypot(q.x, q.z));
-      if (towns.length) {
-        const t = towns[0];
-        const d = Math.hypot(t.x, t.z) || 1;
-        const off = t.flatR + 22;
-        state.setPos(t.x - (t.x / d) * off, t.z - (t.z / d) * off);
-        faceTo = t;
-        hud.toast(`you wake a short walk from <b>${t.name}</b>, ${t.article}`);
-      }
+      state.setPos(BIRTHPLACE.x, BIRTHPLACE.z);
+      faceTo = { x: ZONE.hearthhome.x, z: ZONE.hearthhome.z };
+      hud.toast('You wake on the green at Hearthhome, the well in front of you and the whole village round it.');
     }
     rig.teleport(state.pos.x || 0, state.pos.z || 0, heightAt);
     const spawnPoint = { x: rig.pos.x, z: rig.pos.z };

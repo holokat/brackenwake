@@ -59,7 +59,7 @@ globalThis.document = makeDom();
 
 const {
   drawMap, shadeFor, toPixel, toWorld, cellsIn, pickAt, asHas, arrowTip,
-  foundPlaces, sideModel, bearingWord, wayText, dangerWords, legendColour, auditMapWords,
+  foundPlaces, knownOf, homeKnown, sideModel, bearingWord, wayText, dangerWords, legendColour, auditMapWords,
   eventMarks, marksOf, EVENT_COLOUR, BOSS_COLOUR,
   BIOME_COLOUR, SITE_COLOUR, DANGER_TINT, GROUND_WORD, KIND_WORD, POINT_WORD, LEGEND,
   ROAD_COLOUR, WAYPOINT_COLOUR, PLAYER_COLOUR, HATCH_INK, HATCH_WASH,
@@ -417,8 +417,11 @@ console.log('win_map: the column beside the map');
   check('three walked, eighteen not', m.walked === 3 && m.regions.filter((r) => !r.known).length === ZONES.length - 3, `${m.walked} walked`);
   check('the walked ones are drawn as rows you can click', rowsOf(root, 'bw-map-region').filter((r) => r.className.includes('pick')).length === 3);
   check('and the rest are dimmed', rowsOf(root, 'bw-map-region').filter((r) => r.className.includes('off')).length === ZONES.length - 3);
-  check('two places found is two rows', rowsOf(root, 'bw-map-place').length === 2, `${rowsOf(root, 'bw-map-place').length} rows`);
-  check('and the footer counts the same two', p.lastDraw.sites === 2 && p.lastDraw.sites === m.places.length, `footer ${p.lastDraw.sites}, list ${m.places.length}`);
+  // two found, plus the home realm's authored places, which are on the map
+  // from the first morning (knownOf): counted, never assumed
+  const expectRows = new Set([someSites[0].id, someSites[1].id, ...homeKnown()]).size;
+  check('two places found, plus the home places, is that many rows', rowsOf(root, 'bw-map-place').length === expectRows, `${rowsOf(root, 'bw-map-place').length} rows, expected ${expectRows}`);
+  check('and the footer counts the same', p.lastDraw.sites === expectRows && p.lastDraw.sites === m.places.length, `footer ${p.lastDraw.sites}, list ${m.places.length}`);
   check('the key has one swatch per row', rowsOf(root, 'sw').length === LEGEND.length, `${rowsOf(root, 'sw').length} swatches of ${LEGEND.length}`);
   check('every region row is sorted by distance', m.regions.every((r, i) => i === 0 || m.regions[i - 1].dist <= r.dist));
   check('and so is every place', m.places.every((r, i) => i === 0 || m.places[i - 1].dist <= r.dist));
@@ -432,9 +435,12 @@ console.log('win_map: an unwalked region keeps its name, exactly as the map hatc
   const character = { discovered: [], zones: [...WALKED], waypoint: null };
   const { root, p } = makePanel(character);
   const shown = textOf(root);
-  const hidden = ZONES.filter((z) => !WALKED.includes(z.id));
+  // a home place's name is on the page from the first morning (its row in
+  // the places list), so the names checked are the unwalked regions that are
+  // not also a home place
+  const hidden = ZONES.filter((z) => !WALKED.includes(z.id) && !homeKnown().has(`z:${z.id}`));
   const leaked = hidden.filter((z) => shown.includes(z.name));
-  check('not one of the eighteen unwalked names is anywhere on the page', leaked.length === 0, leaked.map((z) => z.name).join(', ') || `${hidden.length} names checked`);
+  check('not one of the unwalked names is anywhere on the page', leaked.length === 0, leaked.map((z) => z.name).join(', ') || `${hidden.length} names checked`);
   const named = WALKED.filter((id) => shown.includes(ZONE[id].name));
   check('and all three walked ones are', named.length === 3, named.join(', '));
   check('an unwalked row says the word instead', shown.includes('unwalked'));
@@ -474,7 +480,7 @@ console.log('win_map: a row click and a map click write the same field');
   check('nothing else on the character moved', Object.keys(character).join(',') === 'discovered,zones,waypoint');
 
   // a place row does it too
-  const place = rowsOf(root, 'bw-map-place')[0];
+  const place = rowsOf(root, 'bw-map-place').find((r) => r.dataset.site === someSites[0].id);
   check('a found place has a row', !!place && place.dataset.site === someSites[0].id);
   place.fire('click');
   check('and clicking it sets the mark on that place', character.waypoint.name === someSites[0].name && character.waypoint.x === someSites[0].x, character.waypoint.name);
@@ -512,10 +518,14 @@ console.log('win_map: the empty states are sentences');
 {
   const { p, root } = makePanel({ discovered: [], zones: [], waypoint: null });
   const m = p.lastSide;
-  check('nothing found is no place rows', rowsOf(root, 'bw-map-place').length === 0 && m.places.length === 0);
-  const none = rowsOf(root, 'bw-map-none');
-  check('and one sentence instead of a blank', none.length === 1 && none[0].textContent.length > 40, none[0]?.textContent);
-  check('with no town to point at, the row says so in words', m.town === null && textOf(root).includes('none found yet'));
+  // nothing walked to: the home realm's places are still there, and Hearthhome
+  // is the town the header points at, because a character was born in it
+  check('nothing found still lists the home places', rowsOf(root, 'bw-map-place').length === homeKnown().size && m.places.length === homeKnown().size,
+    `${m.places.length} rows, ${homeKnown().size} home places`);
+  check('and the nearest town on the first morning is Hearthhome', m.town && m.town.id === 'z:hearthhome', m.town && m.town.name);
+  // the true empty state, below the home rule: the pure model with nothing at all
+  const bare = sideModel({ field, cx: 0, cz: 0, discovered: [], zonesFound: [] });
+  check('and with nothing known at all the model has no places and no town', bare.places.length === 0 && bare.town === null);
   check('the regions list is still all twenty one', rowsOf(root, 'bw-map-region').length === ZONES.length);
   check('every one of them dimmed', rowsOf(root, 'bw-map-region').every((r) => r.className.includes('off')));
   check('and the header counts none walked', textOf(root).includes(`0 of ${ZONES.length} walked`));
@@ -523,7 +533,8 @@ console.log('win_map: the empty states are sentences');
   check('the world has a town to find', !!someTown, someTown && someTown.name);
   const withTown = makePanel({ discovered: [someTown.id, someSites[0].id], zones: [], waypoint: null });
   const wt = withTown.p.lastSide;
-  check('find one and the header names it', wt.town && wt.town.name === someTown.name && wt.town.kind === 'town', `${someTown.name}`);
+  check('find one and it is on the list', wt.places.some((r) => r.id === someTown.id), `${someTown.name}`);
+  check('and the header names a town', wt.town && wt.town.kind === 'town', wt.town && wt.town.name);
   check('and points at it in words', /^(north|south|east|west|north east|north west|south east|south west), /.test(wt.town.way) || wt.town.way === 'right here', wt.town.way);
   check('and it is the nearest town, not the first one found', wt.places.filter((r) => r.kind === 'town').every((r) => r.dist >= wt.town.dist));
 }
@@ -585,6 +596,20 @@ console.log('win_map: the words, and the audit that keeps them');
   check('a one tier band is the word the banner uses', dangerWords([1, 1]) === DANGER_WORD[1], dangerWords([1, 1]));
   check('a two tier band says both ends and no number', dangerWords([4, 5]).includes(DANGER_WORD[4]) && dangerWords([4, 5]).includes(DANGER_WORD[5]) && !/\d/.test(dangerWords([4, 5])), dangerWords([4, 5]));
   check('every zone in the world can say its danger in words', ZONES.every((z) => dangerWords(z.danger).length > 3));
+}
+
+console.log('win_map: the home realm\'s authored places are on the map from the first morning');
+{
+  const known = knownOf([]);
+  check('a character who has found nothing still knows the Old Cellars and the Chalk Pits', known.has('z:oldcellars') && known.has('z:greenwoldpits'));
+  check('and Hearthhome and the Standing Hedge', known.has('z:hearthhome') && known.has('z:waystones'));
+  check('but not a rolled place it has not walked to', !known.has('0,-2') && knownOf(['0,-2']).has('0,-2'));
+  check('and nothing in a realm the gate keeps shut', !known.has('z:canopycourt') && !known.has('z:coldseat'));
+  const hh = { x: 749, z: 1579 };
+  const fresh = foundPlaces({ field, cx: hh.x, cz: hh.z, discovered: known });
+  check('so the map round Hearthhome lists them on the first morning', fresh.some((s) => s.id === 'z:oldcellars') && fresh.some((s) => s.id === 'z:greenwoldpits'),
+    fresh.map((s) => s.name).join(', '));
+  check('and every one of them is authored', fresh.every((s) => s.authored));
 }
 
 console.log('win_map: foundPlaces is the one list');

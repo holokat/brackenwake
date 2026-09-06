@@ -52,7 +52,7 @@ import { describeItem as sackWordsFor, rollFor } from './loot_drops.js';
 import { DAY_CYCLE_MS } from './scene.js';
 import { createFrameMeter } from './dev.js';
 import { itemTipLines } from './inventory.js';
-import { SUB_ZONES, ZONE, authoredSites } from '../world/zones.js';
+import { SUB_ZONES, ZONE, authoredSites, BIRTHPLACE } from '../world/zones.js';
 import { PLANS } from '../mmo/plans/index.js';
 import { stopsOf } from '../mmo/plans/footprints.js';
 import { PLACES, REALMS } from '../mmo/realms.js';
@@ -95,7 +95,8 @@ export const NIGHT_BELOW = 0.4;
 /** How many places the Travel section remembers. */
 export const RECENT_MAX = 5;
 /** Where Home is: the flat pad the world field keeps clear around the origin. */
-export const HOME = { x: 0, z: 0 };
+/** Where "home" takes the bench: the birthplace on Hearthhome's green, not the origin. */
+export const HOME = { x: BIRTHPLACE.x, z: BIRTHPLACE.z };
 
 // ------------------------------------------------------------- the zone hunt
 /** Metres between ring samples close in. The mesh coarsens further out. */

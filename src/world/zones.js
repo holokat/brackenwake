@@ -436,6 +436,17 @@ const REALM_STYLE = {
 // stand among the Thousand Isles. Those are reached by boat, so the flood fill
 // has nothing to say about them; what is checked instead is that every building
 // among them is DRY, which in the sea means standing on a named reef.
+/**
+ * Where a character is born, and where a save standing on closed ground is
+ * brought back to: Hearthhome's green, at the hearthhome plan's own arrival
+ * point (src/mmo/plans/hearthhome.json `arrival`, 40 m east and 46 m north
+ * of the well). The numbers are LAYOUT.hearthhome plus that arrival, and
+ * zones.test.mjs proves the sum, that it is inside the town's pad, on dry
+ * ground, and on open ground under the release gate. A player faces the well
+ * from here, which player.js works out from `LAYOUT.hearthhome` itself.
+ */
+export const BIRTHPLACE = { x: 789, z: 1533 };
+
 const LAYOUT = {
   // The Greenwold
   hearthhome: [749, 1579, 330],       // hub
@@ -449,7 +460,15 @@ const LAYOUT = {
   beechhangar: [-1319, 55, 330],      // wild
   kingsroad: [-727, -1276, 330],      // road
   greenwoldpits: [-108, 1720, 330],   // mine
-  waystones: [231, 804, 330],         // megastructure
+  // Moved 2026-09-06 so Hearthhome stands INSIDE the ring, which is what its
+  // own line has always said ("all inside the ring of stones"). At 231, 804
+  // the ring's centre was 932 m from the village and its radius is 805, so the
+  // village stood outside, and one of the nine stones (848, 1321) stood in the
+  // river. Measured at the new centre: all nine stones on dry meadow, no river,
+  // Hearthhome 489 m in, the Old Cellars 530 m in, the Chalk Pits just outside,
+  // the nearest stone 382 m from the well, and no zone disc overlaps another
+  // by more than 15 percent (the audit refuses 30).
+  waystones: [580, 1120, 330],        // megastructure
   highwaymanshollow: [353, -1801, 330],// camp
   sunkenchapel: [-124, -1755, 330],   // ruin
   // Verdant Deep
@@ -1247,8 +1266,8 @@ export function auditZones() {
     // A pad-less site (flatR 0) lays nothing down at all. field.js skips the
     // shaping for it outright, so it is a name and a body standing on the
     // hillside the seed made, and the Standing Hedge is one: nine stones on a
-    // ring a mile across, in the Greenwold, 836 m from the origin, which is
-    // where the sheet puts them. `field.test.mjs` measures that the ground
+    // ring a mile across, in the Greenwold, 1261 m from the origin, round
+    // Hearthhome. `field.test.mjs` measures that the ground
     // under it is the raw ground and that the cell it took was empty.
     for (const s of authoredSites()) {
       if (heartAllows(s)) continue;
