@@ -1,5 +1,11 @@
 # ED2: the terrain half of the editor
 
+> **Superseded in part by ED3** (`docs/mmo/wiring/ED3-SCULPT.md`, 2026-09-07).
+> The eight kinds below are now sixteen, the five painted words are ten, the
+> file carries a header that can put the generator away entirely, and the
+> index's cell key was a hash that could put one big stroke into a list twice.
+> Everything else here still stands and ED3 says what it changed.
+
 Written 2026-09-07. The request, in the user's words: "i need to be able to
 raise terrain, carve mini caves into terrain". A person walks the Greenwold in
 dev mode, points at the ground, and the ground moves.

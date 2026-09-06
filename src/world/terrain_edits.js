@@ -24,7 +24,7 @@
 // outside it is C1 and not a ridge. `(1 - t^2)^2` and `smoothstep` are the only
 // two shapes used, for exactly that reason.
 //
-// ---- the eight kinds --------------------------------------------------------
+// ---- the sixteen kinds ------------------------------------------------------
 //
 //   raise     a dome, `amount` metres at the centre, 0 at r
 //   lower     the same, down
@@ -41,23 +41,76 @@
 //   ground    no height at all: the word the ground is made of, inside r, which
 //             grass and dressing read to keep off it
 //
+// ED3 added eight more, because a person given a blank world has to be able to
+// build a country in it and not just dent one:
+//
+//   mountain  a raise up to 600 m across and 400 m tall with ridged noise laid
+//             over it, `roughness` 0 (a bare dome) to 1 (all spine), seeded off
+//             the stroke so the file grows the same mountain on every machine
+//   ridge     a raise along the line from the stroke to a point `length` metres
+//             away on `yaw`: a capsule, so a whole range is one stroke
+//   valley    the same line, down
+//   plateau   the ground pulled to `height` metres, flat across most of r and
+//             let go over a skirt steeper than a flatten's
+//   terrace   the ground rounded onto steps `step` metres apart, the riser
+//             smoothed over `sharp` of a tread so it is a stair and not a tear
+//   noise     `amount` metres of fbm over the disc, for roughening flat ground
+//   erode     a smooth that may only take ground away, never add it
+//   lake      a pit whose floor is an ABSOLUTE height, below sea level by
+//             default, so one click fills with water
+//
 // ---- what a stroke has to carry --------------------------------------------
 //
-// Three kinds cannot be worked out from (x, z) alone. `flatten` needs the height
-// it is flattening to and `smooth` needs the ring average, so `stroke()` asks
-// the `baseHeight` sampler for them ONCE, at the moment the stroke is made, and
-// writes the answer into the stroke as `h0`. `cliff` and `cave` need a bearing,
-// which the caller supplies as `yaw` (world bearing: +x is sin, +z is cos, the
-// same convention `site.facing` uses in field.js). A stroke with no yaw is
-// treated as yaw 0, which is a step facing +z.
+// Five kinds cannot be worked out from (x, z) alone. `flatten` and `plateau`
+// need the height they are pulling to, and `smooth`, `erode` and `lake` need
+// the ring average or the ground at the centre, so `stroke()` asks the
+// `baseHeight` sampler for them ONCE, at the moment the stroke is made, and
+// writes the answer into the stroke as `h0`. `cliff`, `cave`, `ridge` and
+// `valley` need a bearing, which the caller supplies as `yaw` (world bearing:
+// +x is sin, +z is cos, the same convention `site.facing` uses in field.js). A
+// stroke with no yaw is treated as yaw 0, which is a step facing +z.
 //
-// That is also why the list serialises: `h0` is IN the stroke, so a saved file
-// lays the same ground back down on a machine that never took the sample.
+// `mountain` and `noise` need a seed, and `stroke()` writes one into the stroke
+// for the same reason: a seed left to be derived at read time is a seed that
+// can be derived differently.
+//
+// That is also why the list serialises: `h0` and `seed` are IN the stroke, so a
+// saved file lays the same ground back down on a machine that never took the
+// sample.
+//
+// ---- the header -------------------------------------------------------------
+//
+// A file is `{ mode, base, strokes }`. `mode: 'sculpt'` tells `field.js` to put
+// the generator away and hand back a flat world at `base.height` for a person to
+// cut by hand; `mode: 'generate'`, or no header at all, is the world the seed
+// makes and is what every world before ED3 was. See docs/mmo/wiring/ED3-SCULPT.md.
 
-/** The eight things a stroke can be. */
-export const STROKE_KINDS = ['raise', 'lower', 'flatten', 'smooth', 'pit', 'cliff', 'cave', 'ground'];
+import { createNoise } from './noise.js';
+
+/** The sixteen things a stroke can be. */
+export const STROKE_KINDS = [
+  'raise', 'lower', 'flatten', 'smooth', 'pit', 'cliff', 'cave', 'ground',
+  'mountain', 'ridge', 'plateau', 'valley', 'terrace', 'noise', 'erode', 'lake',
+];
 /** The words `ground` may paint. Anything else is refused. */
-export const GROUND_WORDS = ['dirt', 'rock', 'sand', 'grass', 'mud'];
+export const GROUND_WORDS = ['dirt', 'rock', 'sand', 'grass', 'mud', 'snow', 'gravel', 'ash', 'cobble', 'path'];
+/**
+ * The words a whole world may be MADE of, which is a shorter list.
+ *
+ * A base word is not paint: it says what the flat world is, and the only way it
+ * can say so without a second path is by taking a biome with it, because the
+ * vertex colour, the texture row, the turf and the species all read the biome
+ * already. `field.PAINT_BIOME` has four words with a biome in it and these are
+ * they. The other six paint fine over a disc, where `sample.ground` carries
+ * them, and that is what a brush is for.
+ */
+export const BASE_GROUNDS = ['grass', 'sand', 'rock', 'snow'];
+/** The header a world with no header at all is treated as. */
+export const DEFAULT_MODE = 'generate';
+/** What a sculpt world is, before anybody says otherwise. */
+export const DEFAULT_BASE = { height: 6, ground: 'grass', snowLine: 180, beachLine: 1 };
+/** The two things a `mode` may be. */
+export const MODES = ['generate', 'sculpt'];
 /** Metres of a stroke's radius under which nothing is worth drawing. */
 export const MIN_R = 0.5;
 /** The steepest wall a pit may cut, in metres of fall per metre of ground. */
@@ -81,6 +134,82 @@ export const SMOOTH_PULL = 0.6;
 export const SMOOTH_RING = 1.5;
 /** Metres of the spatial index's cell. A stroke goes into every cell it touches. */
 export const GRID = 32;
+/**
+ * ONE INDEX, AND A SECOND ONE WAS TRIED AND WAS SLOWER.
+ *
+ * A 600 m mountain lands in 1,444 cells of the 32 m grid, and fifty of them lay
+ * 72,200 entries down, which looks like the moment to put big strokes on a
+ * coarse grid of their own and merge the two lists at every sample. It was
+ * built that way first and measured against this one on the same 2,000 stroke
+ * world: one index 1.504 us a sample, two indexes 1.806. The merge costs more
+ * than the shorter lists save, because the strokes that make the list long are
+ * exactly the ones that cover the point and have to be evaluated anyway.
+ *
+ * The other half of the measurement, and the reason this is written down rather
+ * than deleted: building the index the other way round is FASTER, 0.91 ms
+ * against 3.56 for the same 2,000 strokes. An index is built once per undo,
+ * load or reset, and read once per vertex of every chunk in the ring, so the
+ * per sample number is the one that decides.
+ */
+/** The widest and the tallest a mountain may be, in metres. */
+export const MOUNTAIN_MAX_R = 600;
+export const MOUNTAIN_MAX_AMOUNT = 400;
+/**
+ * Octaves of ridged noise a mountain wears, and its wavelength as a fraction of r.
+ *
+ * TWO OCTAVES AND NOT THREE, and it is a measured trade and not a preference.
+ * Three octaves cost 3.23 us a sample on the 2,000 stroke world in
+ * terrain_edits.test.mjs, where 50 of the strokes are 600 m mountains and an
+ * average point stands inside 11.2 of them; two cost 2.74. The wavelength came
+ * down from 0.5 of the radius to 0.4 at the same time, so the finest ridge a
+ * mountain wears (a quarter of that, one octave up) is 24 m on the default
+ * 240 m brush, which is finer than the three octave version had at 0.5.
+ */
+export const MOUNTAIN_OCTAVES = 2;
+export const MOUNTAIN_WAVE = 0.4;
+/**
+ * How deep the ridges cut, as a fraction of the mountain's own height.
+ *
+ * The profile is `a * dome * (1 - m + m * ridged)` with `m = roughness * this`,
+ * and `ridged` is in [0, 1], so the flanks vary by 45% of the height and THE
+ * PEAK NEVER EXCEEDS `amount`. That last part is why it is written that way
+ * round rather than as a plus and a minus: a mountain asked for at 400 m that
+ * came out at 512 would make a liar of the slider.
+ */
+export const MOUNTAIN_RIDGE = 0.45;
+/** How much ridge a mountain wears when nobody says. */
+export const MOUNTAIN_ROUGHNESS = 0.6;
+/**
+ * The steepest the ridged noise itself gets, per unit of its own wavelength.
+ *
+ * `maxGrade` has to be an UPPER BOUND or the words a stroke says about being
+ * too steep to draw are worth nothing. The dome's own gradient is analytic; the
+ * noise laid over it is not, so this is a MEASURED CEILING, and it is a ceiling
+ * and not a typical: over 400,000 samples of eight seeds of
+ * `ridged(x, y, MOUNTAIN_OCTAVES)` the median gradient is 3.347 per unit, the
+ * 99th is 9.550 and the worst seen is 14.627. Simplex noise itself reaches 7.33
+ * per unit, which is where those come from. 15 is the worst with a little room.
+ * `terrain_edits.test.mjs` drives the claim against the real profile and fails
+ * if the claim is ever SHORT of what the ground does; it will usually be well
+ * over, which is what a bound is.
+ */
+export const RIDGE_SLOPE = 15;
+/** The same ceiling for `fbm(x, y, 3)`, which the `noise` kind uses: measured 10.459. */
+export const FBM_SLOPE = 11;
+/** How far a `noise` stroke's fbm repeats, in metres, when nobody says. */
+export const NOISE_WAVE = 24;
+/** Metres between one tread of a `terrace` and the next, when nobody says. */
+export const TERRACE_STEP = 4;
+/** How much of a tread the riser takes: 1 is a ramp, 0.1 is a wall. */
+export const TERRACE_SHARP = 0.5;
+/** How much of a `plateau`'s radius is its flat top. The rest is skirt. */
+export const PLATEAU_SKIRT = 0.75;
+/** Where a `lake`'s floor sits when nobody says, in metres. Sea level is 0. */
+export const LAKE_FLOOR = -3;
+/** How much of the way an `erode` pulls, when it is not told. */
+export const ERODE_PULL = 0.6;
+/** How many stroke seeds keep a noise table alive before the cache is dropped. */
+export const NOISE_CACHE = 512;
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 function smoothstep(e0, e1, v) {
@@ -115,6 +244,82 @@ export function pitProfile(t, amount, r) {
   return 1 - smoothstep(t0, 1, t);
 }
 
+// ---- the noise a mountain and a `noise` stroke are made of ------------------
+//
+// One table per seed, kept, because building one shuffles 256 entries and a
+// terrain vertex may not do that. The seed is IN the stroke (`makeStroke`
+// writes it), so a saved file grows the same mountain on any machine, and the
+// cache is dropped whole rather than aged: a world with more than NOISE_CACHE
+// distinct noise strokes in it is rebuilding tables either way, and a Map that
+// grows without a bound is a leak.
+const NOISE_TABLES = new Map();
+export function noiseFor(seed) {
+  const key = seed | 0;
+  let n = NOISE_TABLES.get(key);
+  if (!n) {
+    if (NOISE_TABLES.size >= NOISE_CACHE) NOISE_TABLES.clear();
+    n = createNoise(key);
+    NOISE_TABLES.set(key, n);
+  }
+  return n;
+}
+/** How many noise tables are alive. Only the test asks. */
+export const noiseTablesHeld = () => NOISE_TABLES.size;
+/**
+ * The table this stroke's own noise comes off.
+ *
+ * A MAP LOOKUP AND NOT A PROPERTY ON THE STROKE, which was tried and was worse:
+ * hanging the table off the stroke gave the mountain strokes a different hidden
+ * class from every other kind, `deltaOf`'s property reads went megamorphic, and
+ * the same 10,000 samples went from 3.19 us to 3.75. The Map is the cheaper of
+ * the two. Measured, both ways, 2026-09-07.
+ */
+export const noiseOf = (s) => noiseFor(s.seed || 1);
+
+/** The wavelength a mountain's ridge repeats over, in metres. */
+export const mountainWave = (s) => Math.max(8, (s.wave || MOUNTAIN_WAVE * Math.max(MIN_R, s.r || 0)));
+/** How much ridge a mountain wears, 0 to 1. */
+export const roughnessOf = (s) => (s.roughness == null ? MOUNTAIN_ROUGHNESS : clamp01(s.roughness));
+
+/**
+ * Metres from (x, z) to the line a `ridge` or a `valley` draws.
+ *
+ * The line runs from the stroke's own point to `length` metres away on `yaw`,
+ * and the profile is the dome of that DISTANCE, so a range is a capsule: a
+ * half dome cap at each end and a constant cross section between them. The
+ * distance to a segment has a gradient of exactly 1 everywhere off the segment
+ * itself, which is the whole reason relief in this game is built out of
+ * distances, so `maxGrade` for a ridge is a raise's and no more.
+ */
+export function lineDist(s, x, z) {
+  const len = Math.max(0, s.length || 0);
+  const ux = Math.sin(s.yaw || 0), uz = Math.cos(s.yaw || 0);
+  let u = (x - s.x) * ux + (z - s.z) * uz;
+  if (u < 0) u = 0; else if (u > len) u = len;
+  const ex = s.x + ux * u - x, ez = s.z + uz * u - z;
+  return Math.sqrt(ex * ex + ez * ez);
+}
+
+/**
+ * The ground rounded onto steps, with the riser smoothed.
+ *
+ * A hard `round(h / step) * step` is a terrace with vertical risers, which is
+ * a tear in a heightfield and not a stair: the mesher cannot show it and the
+ * lighting reads it as a crack. So the tread is flat over `1 - sharp` of the
+ * step and the riser climbs over the remaining `sharp` as a smoothstep, which
+ * puts the steepest metre at 1.5 * step / (sharp * step / grade)... in plain
+ * words, the smaller `sharp` the steeper the riser, and `maxGrade` cannot say
+ * how steep because it is not given the ground's own slope.
+ */
+export function terraceOf(h, step, sharp) {
+  const st = Math.max(0.05, step);
+  const sh = Math.min(1, Math.max(0.02, sharp));
+  const q = h / st;
+  const f = Math.floor(q);
+  const u = q - f;
+  return (f + smoothstep(1 - sh, 1, u)) * st;
+}
+
 /**
  * The steepest metre a stroke cuts anywhere, in metres of rise per metre.
  *
@@ -140,6 +345,35 @@ export function maxGrade(s) {
       const cut = s.cut == null ? CAVE_CUT : s.cut;
       return 1.5 * cut / ((1 - wallStart(cut, r)) * r);
     }
+    // A ridge is a dome of the distance to a SEGMENT, and the gradient of a
+    // distance is 1 whether it is measured to a point or to a line, so a range
+    // is exactly as steep as the raise that made its cap and no steeper.
+    case 'ridge': case 'valley': return 8 * a / (3 * Math.sqrt(3) * r);
+    /**
+     * A mountain is the dome PLUS the ridged noise laid on it, and the two
+     * steepest metres need not be the same metre, so this is their sum: an
+     * upper bound, which is what a warning has to be. The noise term is
+     * `a * roughness * |grad ridged| / wave`, and RIDGE_SLOPE is the measured
+     * ceiling on that gradient in the noise's own units.
+     */
+    case 'mountain': {
+      const dome0 = 8 * a / (3 * Math.sqrt(3) * r);
+      return dome0 + a * roughnessOf(s) * MOUNTAIN_RIDGE * RIDGE_SLOPE / mountainWave(s);
+    }
+    case 'noise': {
+      const wave = Math.max(2, s.wave || NOISE_WAVE);
+      return a * FBM_SLOPE / wave + 8 * a / (3 * Math.sqrt(3) * r);
+    }
+    case 'lake': {
+      // the depth is whatever the ground was, which is captured in h0
+      if (s.h0 == null) return null;
+      const depth = Math.abs(s.h0 - (s.floor == null ? LAKE_FLOOR : s.floor));
+      return 1.5 * depth / ((1 - wallStart(depth, r)) * r);
+    }
+    // Every one of these cuts whatever the ground was already doing, and this
+    // function is not given the ground. Null, rather than a number taken from
+    // the wrong variable.
+    case 'plateau': case 'terrace': case 'erode': return null;
     default: return 0;
   }
 }
@@ -148,6 +382,9 @@ export function maxGrade(s) {
 export function reachOf(s) {
   const r = Math.max(MIN_R, s.r || 0);
   if (s.kind === 'cave') return r * (1 + CAVE_CUT_AHEAD);
+  // A capsule reaches r past the far end of its own line, and the index boxes a
+  // stroke about its own point, so this is the whole of it in every direction.
+  if (s.kind === 'ridge' || s.kind === 'valley') return r + Math.max(0, s.length || 0);
   return r;
 }
 
@@ -171,6 +408,13 @@ export function deltaOf(s, x, z, h) {
     if (d >= r) return 0;
     const cut = s.cut == null ? CAVE_CUT : s.cut;
     return -cut * pitProfile(d / r, cut, r);
+  }
+  // The two kinds that are a LINE and not a disc, so the plain radius check
+  // below would throw away everything past the first cap.
+  if (s.kind === 'ridge' || s.kind === 'valley') {
+    const d = lineDist(s, x, z);
+    if (d >= r) return 0;
+    return (s.kind === 'ridge' ? a : -a) * dome(d / r);
   }
   const dx = x - s.x, dz = z - s.z;
   const d2 = dx * dx + dz * dz;
@@ -198,38 +442,217 @@ export function deltaOf(s, x, z, h) {
       const b = Math.max(0.25, Math.abs(a) / 4);       // half the run of the step
       return a * smoothstep(-b, b, u) * plateau(t, 0.6);
     }
+    /**
+     * A mountain: the dome, with ridged noise laid over it and WINDOWED BY THE
+     * SAME DOME.
+     *
+     * The window is not decoration. The noise has a gradient of its own and the
+     * rim of a stroke has to be C1 with the world outside it, so the noise is
+     * multiplied by the dome as well: at t = 1 the dome is 0 and its derivative
+     * is 0, so `d/dx (dome * N)` is `dome' N + dome N'`, which is 0 too. Lay the
+     * noise on unwindowed and every mountain in the world has a hairline crack
+     * round it at every chunk seam.
+     *
+     * `1 - m + m * ridged` with `m = roughness * MOUNTAIN_RIDGE` keeps the peak
+     * at `amount` and no higher, and makes roughness 0 exactly a raise, which
+     * is what the test drives both ways.
+     */
+    case 'mountain': {
+      const d0 = dome(t);
+      if (d0 <= 0) return 0;
+      const rough = roughnessOf(s);
+      if (rough <= 0) return a * d0;
+      const m = rough * MOUNTAIN_RIDGE;
+      const wave = mountainWave(s);
+      const n = noiseOf(s).ridged(x / wave, z / wave, MOUNTAIN_OCTAVES);
+      return a * d0 * (1 - m + m * n);
+    }
+    /** Roughening: fbm in [-1, 1] times `amount`, windowed by the dome. */
+    case 'noise': {
+      const d0 = dome(t);
+      if (d0 <= 0) return 0;
+      const wave = Math.max(2, s.wave || NOISE_WAVE);
+      return a * d0 * noiseOf(s).fbm(x / wave, z / wave, 3);
+    }
+    /**
+     * A plateau: the ground pulled to an ABSOLUTE height, flat out to
+     * PLATEAU_SKIRT of the radius and let go over the rest.
+     *
+     * Absolute and not captured, unlike a flatten, so a person can say "this
+     * mesa is forty metres" and get forty metres. `h0` is only the fallback for
+     * a stroke made with no height given, and it is written into the stroke, so
+     * the file is portable either way.
+     */
+    case 'plateau': {
+      const top = s.height == null ? s.h0 : s.height;
+      if (top == null) return 0;
+      const hold = s.skirt == null ? PLATEAU_SKIRT : clamp01(s.skirt);
+      return (top - h) * plateau(t, hold);
+    }
+    /** A stair cut into whatever the ground is doing, feathered like a flatten. */
+    case 'terrace': {
+      const step = s.step == null ? TERRACE_STEP : s.step;
+      const sharp = s.sharp == null ? TERRACE_SHARP : s.sharp;
+      return (terraceOf(h, step, sharp) - h) * plateau(t, 0.5);
+    }
+    /** A smooth that may only take ground away. Half a smooth, on purpose. */
+    case 'erode': {
+      const h0 = s.h0;
+      if (h0 == null) return 0;
+      const pull = s.amount == null ? ERODE_PULL : clamp01(Math.abs(s.amount));
+      const d = (h0 - h) * dome(t) * pull;
+      return d < 0 ? d : 0;
+    }
+    /**
+     * A lake: a pit whose floor is an absolute height, below sea level by
+     * default, so one click makes water.
+     *
+     * `(floor - h)` AND NOT `-depth`, and the difference is the whole point of
+     * the kind. A `pit` takes a fixed number of metres off whatever it finds,
+     * so a pit dug across a hillside has a floor that slopes exactly as the
+     * hillside did and holds water at one end. This pulls the ground TO a
+     * height, so the floor is that height across the whole flat of the profile
+     * however the ground ran before. Measured on the test's own wrinkled
+     * hillside: relative, the floor came out 3.82 m off level; absolute, 0.
+     *
+     * `h0`, the ground at the centre when the stroke was made, is still carried
+     * and is still used, for the one thing it is needed for: how wide the wall
+     * has to be so it is not steeper than the mesher can draw.
+     */
+    case 'lake': {
+      const floor = s.floor == null ? LAKE_FLOOR : s.floor;
+      const depth = (s.h0 == null ? h : s.h0) - floor;
+      if (depth <= 0) return 0;
+      return (floor - h) * pitProfile(t, depth, r);
+    }
     default: return 0;
   }
+}
+
+// ---- the brush list the editor builds itself out of -------------------------
+//
+// THE PARAMS TABLE IS THE CONTRACT, and it is here rather than in the editor
+// because it is this file that clamps, defaults and refuses. A slider built off
+// a number the editor holds its own copy of is a slider that goes out of date
+// the first time this file changes its mind; a slider built off this goes with
+// it. `window.__bw.terrain.kinds()` hands it over unchanged.
+//
+// Every row is [name, min, max, step, default], in the order a brush panel
+// should show them, and every name is a property `makeStroke` reads by that
+// exact name. `words` is only on `ground`, and is the list it will accept.
+const P = (name, min, max, step, def) => ({ name, min, max, step, default: def });
+const R_PARAM = P('r', MIN_R, 600, 0.5, 12);
+const YAW_PARAM = P('yaw', 0, Math.PI * 2, 0.01, 0);
+export const KIND_PARAMS = {
+  raise:    { label: 'raise',    params: [R_PARAM, P('amount', 0, 400, 0.1, 2)] },
+  lower:    { label: 'lower',    params: [R_PARAM, P('amount', 0, 400, 0.1, 2)] },
+  flatten:  { label: 'flatten',  params: [R_PARAM] },
+  smooth:   { label: 'smooth',   params: [R_PARAM, P('amount', 0, 1, 0.05, SMOOTH_PULL)] },
+  pit:      { label: 'pit',      params: [R_PARAM, P('amount', 0, 400, 0.1, 3)] },
+  cliff:    { label: 'cliff',    params: [R_PARAM, P('amount', -400, 400, 0.1, 4), YAW_PARAM] },
+  cave:     { label: 'cave mouth', params: [P('r', MIN_R, 60, 0.5, 8), P('amount', 0, 4, 0.1, 2), YAW_PARAM] },
+  ground:   { label: 'paint',    params: [R_PARAM], words: GROUND_WORDS.slice() },
+  mountain: { label: 'mountain', params: [P('r', MIN_R, MOUNTAIN_MAX_R, 1, 240), P('amount', 0, MOUNTAIN_MAX_AMOUNT, 1, 120), P('roughness', 0, 1, 0.05, MOUNTAIN_ROUGHNESS)] },
+  ridge:    { label: 'ridge',    params: [P('r', MIN_R, 300, 0.5, 40), P('amount', 0, MOUNTAIN_MAX_AMOUNT, 0.5, 60), P('length', 0, 4000, 1, 300), YAW_PARAM] },
+  plateau:  { label: 'plateau',  params: [P('r', MIN_R, 600, 0.5, 60), P('height', -200, MOUNTAIN_MAX_AMOUNT, 0.5, 20), P('skirt', 0.05, 0.95, 0.05, PLATEAU_SKIRT)] },
+  valley:   { label: 'valley',   params: [P('r', MIN_R, 300, 0.5, 40), P('amount', 0, MOUNTAIN_MAX_AMOUNT, 0.5, 20), P('length', 0, 4000, 1, 300), YAW_PARAM] },
+  terrace:  { label: 'terrace',  params: [P('r', MIN_R, 600, 0.5, 40), P('step', 0.5, 40, 0.5, TERRACE_STEP), P('sharp', 0.02, 1, 0.02, TERRACE_SHARP)] },
+  noise:    { label: 'roughen',  params: [P('r', MIN_R, 600, 0.5, 60), P('amount', 0, 60, 0.1, 2), P('wave', 2, 400, 1, NOISE_WAVE)] },
+  erode:    { label: 'erode',    params: [P('r', MIN_R, 600, 0.5, 30), P('amount', 0, 1, 0.05, ERODE_PULL)] },
+  lake:     { label: 'lake',     params: [P('r', MIN_R, MOUNTAIN_MAX_R, 0.5, 24), P('floor', -200, 0, 0.5, LAKE_FLOOR)] },
+};
+
+/**
+ * The kinds that carry a bearing, DERIVED FROM THE TABLE ABOVE.
+ *
+ * `src/game/app/systems/world.js` fills a bearing in when the caller did not
+ * give one: a cave's mouth opens out of the hillside, and a cliff, a ridge and
+ * a valley take the way the player is looking. ED3 took that from two kinds to
+ * four, and a hand written list is a list a fifth kind gets forgotten out of,
+ * so it is read off the params table: a kind with a `yaw` slider is a kind that
+ * needs a yaw. `terrain_edits.test.mjs` drives it against `deltaOf` itself.
+ */
+export const NEEDS_YAW = new Set(
+  STROKE_KINDS.filter((k) => KIND_PARAMS[k].params.some((p) => p.name === 'yaw')),
+);
+
+/**
+ * Every brush, with its sliders, for an editor to build a palette from.
+ *
+ * A fresh array of fresh rows every call: the caller is a UI and a UI mutates
+ * what it is handed. `terrain_edits.test.mjs` checks that the list names every
+ * kind in STROKE_KINDS and nothing else, and that every default the table gives
+ * is inside the min and max beside it.
+ */
+export function kinds() {
+  return STROKE_KINDS.map((kind) => {
+    const row = KIND_PARAMS[kind];
+    const out = { kind, label: row.label, params: row.params.map((p) => ({ ...p })) };
+    if (row.words) out.words = row.words.slice();
+    return out;
+  });
 }
 
 /**
  * The stroke list.
  *
  * `baseHeight(x, z)` is the ground as it stands NOW, edits and all. It is asked
- * only by `stroke()`, only for `flatten` and `smooth`, and only when the stroke
- * does not already carry its own `h0` (a loaded file does).
+ * only by `stroke()`, only for the five kinds that capture a sample, and only
+ * when the stroke does not already carry its own `h0` (a loaded file does).
  */
 export function createTerrainEdits(opts = {}) {
   const baseHeight = typeof opts.baseHeight === 'function' ? opts.baseHeight : null;
   const strokes = [];
+  // Steps, not strokes. One ordinary stroke is a step of one; `reset` is a step
+  // of however many it dropped, so taking it back is one undo and not two
+  // thousand. Each entry is { add: [strokes] } for something laid down or
+  // { drop: [strokes] } for something taken away wholesale.
+  const done = [];
   const undone = [];
   let nextId = 1;
   let version = 0;
+  // The header. `baseVersion` moves only when the header does, which is what
+  // field.js and world_runtime.js watch to know the whole world has to be
+  // built again rather than one hillside.
+  let mode = MODES.includes(opts.mode) ? opts.mode : DEFAULT_MODE;
+  let base = { ...DEFAULT_BASE, ...(opts.base || null) };
+  let baseVersion = 0;
   // key -> array of strokes touching that cell, in the order they were made
   let index = null;
 
-  // A HASH, not a coordinate, and a collision is safe by construction: two
-  // cells that land on the same key share one list, so a lookup can only ever
-  // see MORE strokes than it should, and every one of those answers 0 outside
-  // its own radius. A stroke can never go missing, because it is put in and
-  // looked up with the same function. `terrain_edits.test.mjs` checks the
-  // indexed answer against a walk of all 2,000 strokes at 400 points.
-  const cellKey = (ix, iz) => ix * 73856093 ^ iz * 19349663;
+  /**
+   * THE CELL, EXACTLY, AND NOT A HASH OF IT. This changed in ED3 and it was a
+   * bug fix, not a tidy up.
+   *
+   * The key used to be `ix * 73856093 ^ iz * 19349663`, and the reason given
+   * was that a collision is safe: two cells sharing one list only ever show a
+   * lookup MORE strokes than it should, and every extra one answers 0 outside
+   * its own radius. That is true of a lookup. It is NOT true of the insert.
+   *
+   * `put` walks every cell a stroke covers and pushes the stroke into each. If
+   * two of THAT STROKE'S OWN cells collide, the stroke goes into the same list
+   * twice and is applied twice, so a raise raises double and a flatten pulls to
+   * a height it already reached. A stroke covering four cells is not going to
+   * hit that; ED3's 600 m mountain covers 1,444 of them on a 32 m grid, and it
+   * did: measured on a 2,000 stroke world, a point at -128, -112 came out
+   * 1,383.95 m off what a walk of every stroke gives.
+   *
+   * So the key is a pair packed into one double. Each axis is offset into
+   * [0, 2^26) and the pair fits in 2^52, inside the 2^53 an integer keeps
+   * exactly, which covers cells from -2^25 to 2^25: at the 32 m grid that is a
+   * world 2.1 billion metres across, which is enough. `terrain_edits.test.mjs`
+   * drives the indexed answer against a walk of all 2,000 strokes and against
+   * the old hash, both.
+   */
+  const CELL_BIAS = 0x2000000;          // 2^25
+  const CELL_SPAN = 0x4000000;          // 2^26
+  const cellKey = (ix, iz) => (ix + CELL_BIAS) * CELL_SPAN + (iz + CELL_BIAS);
 
   function reindex() {
     index = new Map();
     for (const s of strokes) put(s);
   }
+  /** One stroke into every cell it touches, in the order the strokes were made. */
   function put(s) {
     const reach = reachOf(s);
     const i0 = Math.floor((s.x - reach) / GRID), i1 = Math.floor((s.x + reach) / GRID);
@@ -255,15 +678,37 @@ export function createTerrainEdits(opts = {}) {
     if (!STROKE_KINDS.includes(s.kind)) throw new Error(`no such stroke kind: ${s.kind}`);
     if (!Number.isFinite(s.x) || !Number.isFinite(s.z)) throw new Error('a stroke needs x and z');
     s.r = Math.max(MIN_R, Number.isFinite(s.r) ? s.r : 8);
-    if (!Number.isFinite(s.amount)) s.amount = s.kind === 'smooth' ? SMOOTH_PULL : 1;
+    if (!Number.isFinite(s.amount)) s.amount = s.kind === 'smooth' ? SMOOTH_PULL : s.kind === 'erode' ? ERODE_PULL : 1;
     if (s.yaw != null && !Number.isFinite(s.yaw)) s.yaw = 0;
+    // THE CLAMPS ARE HERE AND NOWHERE ELSE, so the number the words report is
+    // the number the ground got. A mountain asked for at 4 km wide comes back
+    // at 600 m and says 600.
+    if (s.kind === 'mountain') {
+      s.r = Math.min(s.r, MOUNTAIN_MAX_R);
+      s.amount = Math.min(Math.abs(s.amount), MOUNTAIN_MAX_AMOUNT);
+      if (s.roughness != null) s.roughness = clamp01(s.roughness);
+    }
+    if (s.kind === 'ridge' || s.kind === 'valley') {
+      s.length = Math.max(0, Number.isFinite(s.length) ? s.length : 0);
+      s.amount = Math.min(Math.abs(s.amount), MOUNTAIN_MAX_AMOUNT);
+      if (!Number.isFinite(s.yaw)) s.yaw = 0;
+    }
+    // A SEED IN THE STROKE, not derived at read time. Derived, it would be
+    // derived by whatever code read it, and two readers is two mountains.
+    if ((s.kind === 'mountain' || s.kind === 'noise') && !Number.isFinite(s.seed)) {
+      s.seed = (Math.round(s.x) * 73856093 ^ Math.round(s.z) * 19349663 ^ (s.id || nextId) * 83492791) >>> 0;
+    }
     if (s.kind === 'ground') {
       s.word = s.word || s.ground || 'dirt';
       if (!GROUND_WORDS.includes(s.word)) throw new Error(`no such ground: ${s.word}, try ${GROUND_WORDS.join(', ')}`);
     }
-    if ((s.kind === 'flatten' || s.kind === 'smooth') && s.h0 == null) {
+    // The five kinds that are a function of the ground take their sample once,
+    // now, and carry it, which is what makes the file portable.
+    const wantsH0 = s.kind === 'flatten' || s.kind === 'smooth' || s.kind === 'erode'
+      || s.kind === 'lake' || (s.kind === 'plateau' && s.height == null);
+    if (wantsH0 && s.h0 == null) {
       if (!baseHeight) throw new Error(`a ${s.kind} stroke needs a baseHeight sampler or its own h0`);
-      s.h0 = s.kind === 'flatten' ? baseHeight(s.x, s.z) : ringAverage(s);
+      s.h0 = (s.kind === 'smooth' || s.kind === 'erode') ? ringAverage(s) : baseHeight(s.x, s.z);
     }
     if (s.id == null) s.id = nextId++;
     else nextId = Math.max(nextId, (s.id | 0) + 1);
@@ -299,10 +744,69 @@ export function createTerrainEdits(opts = {}) {
     get count() { return strokes.length; },
     get undoneCount() { return undone.length; },
 
+    // ---- the header (ED3) ---------------------------------------------------
+    /** 'sculpt' or 'generate'. What kind of world field.js is to hand back. */
+    get mode() { return mode; },
+    /** The flat world's height, ground word and lines. A COPY: callers mutate. */
+    base() { return { ...base }; },
+    /**
+     * The header when it is a sculpt world, and null when it is not.
+     *
+     * This is the property `field.js` reads, and it is the whole join: a field
+     * whose edits say `sculpt` puts the generator away. A getter and not a
+     * stored flag, so there is one truth.
+     */
+    get sculpt() { return mode === 'sculpt' ? base : null; },
+    /** Moves only when the header moves, which is when the WHOLE world rebuilds. */
+    get baseVersion() { return baseVersion; },
+
+    /**
+     * Say what the flat world is. Returns what it became, and what changed.
+     *
+     * Refuses a ground word that carries no biome, by name, rather than taking
+     * it and painting nothing: `BASE_GROUNDS` is the short list and the reason
+     * is written beside it.
+     */
+    setBase(patch = {}) {
+      const next = { ...base };
+      const changed = [];
+      if (patch.height != null) {
+        if (!Number.isFinite(patch.height)) throw new Error('a base height has to be a number of metres');
+        if (patch.height !== next.height) changed.push(`height ${next.height} to ${patch.height} m`);
+        next.height = patch.height;
+      }
+      if (patch.ground != null) {
+        if (!BASE_GROUNDS.includes(patch.ground)) {
+          throw new Error(`a world cannot be made of ${patch.ground}: try ${BASE_GROUNDS.join(', ')}. The other words paint over a disc`);
+        }
+        if (patch.ground !== next.ground) changed.push(`ground ${next.ground} to ${patch.ground}`);
+        next.ground = patch.ground;
+      }
+      if (patch.snowLine != null) {
+        if (!Number.isFinite(patch.snowLine)) throw new Error('a snow line has to be a number of metres');
+        if (patch.snowLine !== next.snowLine) changed.push(`snow line ${next.snowLine} to ${patch.snowLine} m`);
+        next.snowLine = patch.snowLine;
+      }
+      if (patch.beachLine != null) {
+        if (!Number.isFinite(patch.beachLine)) throw new Error('a beach line has to be a number of metres');
+        if (patch.beachLine !== next.beachLine) changed.push(`beach line ${next.beachLine} to ${patch.beachLine} m`);
+        next.beachLine = patch.beachLine;
+      }
+      if (patch.mode != null) {
+        if (!MODES.includes(patch.mode)) throw new Error(`no such mode: ${patch.mode}, try ${MODES.join(' or ')}`);
+        if (patch.mode !== mode) changed.push(`mode ${mode} to ${patch.mode}`);
+        mode = patch.mode;
+      }
+      base = next;
+      if (changed.length) { baseVersion++; version++; }
+      return { base: { ...base }, mode, changed };
+    },
+
     /** Lay a stroke down. Returns the stroke as it was stored. */
     stroke(input) {
       const s = makeStroke(input);
       strokes.push(s);
+      done.push({ add: [s] });
       undone.length = 0;                 // a new stroke is a new future
       if (index) put(s);                 // one stroke into a live index, not a rebuild
       version++;
@@ -310,22 +814,56 @@ export function createTerrainEdits(opts = {}) {
       return s;
     },
 
-    /** Take the last stroke back. Returns it, or null if there was none. */
+    /**
+     * Take the last STEP back. Returns the stroke, or, for a step that was a
+     * reset, `{ kind: 'reset', restored: n, strokes }`. Null when there is none.
+     */
     undo() {
-      const s = strokes.pop();
-      if (!s) return null;
-      undone.push(s);
+      const step = done.pop();
+      if (!step) return null;
+      undone.push(step);
+      if (step.drop) {
+        // a reset, going backwards: everything it dropped comes back
+        for (const s of step.drop) strokes.push(s);
+        touch();
+        return { kind: 'reset', restored: step.drop.length, strokes: step.drop.slice() };
+      }
+      let last = null;
+      for (let i = 0; i < step.add.length; i++) last = strokes.pop();
       touch();
-      return s;
+      return last;
     },
 
-    /** Put the last undone stroke back. Returns it, or null. */
+    /** Put the last undone step back. Returns it in the same two shapes, or null. */
     redo() {
-      const s = undone.pop();
-      if (!s) return null;
-      strokes.push(s);
+      const step = undone.pop();
+      if (!step) return null;
+      done.push(step);
+      if (step.drop) {
+        strokes.length = Math.max(0, strokes.length - step.drop.length);
+        touch();
+        return { kind: 'reset', dropped: step.drop.length, strokes: step.drop.slice() };
+      }
+      let last = null;
+      for (const s of step.add) { strokes.push(s); last = s; }
       touch();
-      return s;
+      return last;
+    },
+
+    /**
+     * Every stroke gone, in ONE step that `undo` puts back.
+     *
+     * Returns how many it dropped, counted off the list rather than claimed, so
+     * the words the contract says are a measurement.
+     */
+    reset() {
+      if (!strokes.length) return { dropped: 0 };
+      const dropped = strokes.slice();
+      strokes.length = 0;
+      done.push({ drop: dropped });
+      undone.length = 0;
+      touch();
+      return { dropped: dropped.length, caves: dropped.filter((s) => s.kind === 'cave').length };
     },
 
     /**
@@ -334,6 +872,10 @@ export function createTerrainEdits(opts = {}) {
      * `h` is the world's own height there, which `flatten` and `smooth` need.
      * `skipKind` drops one kind out of the answer, which is how field.js asks
      * which way a hillside falls without the cave's own cut in the way.
+     *
+     * The cell's list is in the order the strokes were laid, because `put`
+     * walks `strokes` in order, so a flatten made after a mountain flattens the
+     * mountain and not the ground it used to stand on.
      */
     heightDelta(x, z, h = 0, skipKind = null) {
       if (!strokes.length) return 0;
@@ -378,18 +920,41 @@ export function createTerrainEdits(opts = {}) {
       return { x0, z0, x1, z1 };
     },
 
-    /** The file. Plain JSON, no functions, no undo history. */
+    /**
+     * The file. Plain JSON, no functions, no undo history.
+     *
+     * The header goes out on EVERY file, sculpt or not, so a world saved from a
+     * generated one says `"mode": "generate"` out loud rather than relying on
+     * the reader's default. A file written before ED3 has no header and loads
+     * as `generate`, which is what it was.
+     */
     serialize() {
-      return { v: 1, strokes: strokes.map((s) => ({ ...s })) };
+      return { v: 1, mode, base: { ...base }, strokes: strokes.map((s) => ({ ...s })) };
     },
 
     /**
      * Take a file as the whole truth. Accepts what `serialize` wrote, or a bare
-     * array of strokes. Returns how many were laid down.
+     * array of strokes. Returns how many strokes were laid down.
+     *
+     * THE HEADER IS PART OF THE TRUTH. A file that says `sculpt` puts this list
+     * into sculpt mode and a file with no header at all puts it back to
+     * `generate`, so loading the same file twice cannot leave two different
+     * worlds. `baseVersion` moves whenever the header does, which is what
+     * `world_runtime.js` watches to know it must rebuild everything and not
+     * just the ground under the strokes.
      */
     load(json) {
       const rows = Array.isArray(json) ? json : (json && Array.isArray(json.strokes) ? json.strokes : []);
-      strokes.length = 0; undone.length = 0; nextId = 1;
+      const wasMode = mode, wasBase = base;
+      mode = json && MODES.includes(json.mode) ? json.mode : DEFAULT_MODE;
+      base = { ...DEFAULT_BASE, ...(json && json.base && typeof json.base === 'object' ? json.base : null) };
+      if (!BASE_GROUNDS.includes(base.ground)) base.ground = DEFAULT_BASE.ground;
+      if (!Number.isFinite(base.height)) base.height = DEFAULT_BASE.height;
+      if (!Number.isFinite(base.snowLine)) base.snowLine = DEFAULT_BASE.snowLine;
+      if (!Number.isFinite(base.beachLine)) base.beachLine = DEFAULT_BASE.beachLine;
+      if (wasMode !== mode || wasBase.height !== base.height || wasBase.ground !== base.ground
+        || wasBase.snowLine !== base.snowLine || wasBase.beachLine !== base.beachLine) baseVersion++;
+      strokes.length = 0; undone.length = 0; done.length = 0; nextId = 1;
       for (const row of rows) {
         try { strokes.push(makeStroke(row)); } catch (err) { console.warn('a stroke would not load', row, err.message); }
       }
@@ -397,8 +962,8 @@ export function createTerrainEdits(opts = {}) {
       return strokes.length;
     },
 
-    /** Everything gone, as if the field had never been touched. */
-    clear() { strokes.length = 0; undone.length = 0; touch(); return true; },
+    /** Everything gone, as if the field had never been touched. Not undoable. */
+    clear() { strokes.length = 0; undone.length = 0; done.length = 0; touch(); return true; },
   };
   return api;
 }

@@ -58,9 +58,36 @@ export const ROAD_FADE = 6;
  * number to decide when to paint a vertex as stone rather than as desert.
  */
 export const CLIFF_SLOPE = 0.78;
-/** Height in metres at which snow has fully taken over on flat ground. */
-export const SNOW_FULL = 84;
-export const SNOW_START = 64;
+/**
+ * Height in metres at which snow has fully taken over on flat ground.
+ *
+ * `let`, and settable through `setSnowBand`, for exactly one caller: ED3's
+ * sculpt mode puts the snow line in the terrain file's header so a person can
+ * decide how high their own mountains have to be before they go white, and the
+ * BIOME reading 'snow' at 180 m while the TEXTURE started going white at 64
+ * would be two answers to one question. `world_runtime.js` sets the band from
+ * the header and puts it back to these numbers for a generated world.
+ */
+export let SNOW_FULL = 84;
+export let SNOW_START = 64;
+/** How far below the line the snow starts creeping in, in metres. */
+export const SNOW_BAND = SNOW_FULL - SNOW_START;
+/**
+ * Move the snow line. `null` puts it back where the generated world has it.
+ *
+ * Returns the pair it left, so a caller can say what it did rather than claim
+ * it. This is module state and it is deliberate: the layer weights are asked on
+ * every vertex of every chunk and threading a number through that call for the
+ * benefit of one mode would cost every world the extra argument.
+ */
+export function setSnowBand(line) {
+  if (line == null) { SNOW_FULL = 84; SNOW_START = 64; }
+  else {
+    SNOW_FULL = line;
+    SNOW_START = line - SNOW_BAND;
+  }
+  return { start: SNOW_START, full: SNOW_FULL };
+}
 /** Edge of the texture set, in pixels. */
 export const TEX_SIZE = 512;
 
@@ -123,6 +150,23 @@ export const PAINT_MIX = {
   rock:  [0.00, 0.00, 0.06, 0.94, 0.00, 0.00],
   sand:  [0.02, 0.04, 0.08, 0.02, 0.84, 0.00],
   mud:   [0.00, 0.04, 0.72, 0.06, 0.18, 0.00],
+  // ED3's five. `snow` is SNOW_ONLY, the same row the height ramp mixes in, so
+  // a painted drift and a summit above the line are made of the same thing.
+  snow:   [0.00, 0.00, 0.00, 0.08, 0.00, 0.92],
+  gravel: [0.00, 0.02, 0.44, 0.42, 0.12, 0.00],
+  ash:    [0.00, 0.06, 0.62, 0.20, 0.12, 0.00],
+  // THE TRODDEN SURFACE, and it is the road's own and not a copy of it.
+  //
+  // There is no road LAYER in this material: the six layers are grass, dry
+  // grass, dirt, rock, sand and snow, and what makes a road look like a road is
+  // ROAD_MIX, a blend of them that `layerWeights` lays over the country at the
+  // end. So `path` is ROAD_MIX exactly, which is what a dirt road already is
+  // here, and `cobble` is that with the dirt traded for stone, which is what a
+  // paved one would be. Neither gets a new texture, because there is none to
+  // give them, and both keep the grass off by the word alone: `sample.ground`
+  // is not 'grass', so grass.js drops every blade and dressing.js refuses.
+  cobble: [0.00, 0.04, 0.30, 0.58, 0.08, 0.00],
+  path:   ROAD_MIX.slice(),
 };
 /** How much of the paint takes, so the country still shows faintly through it. */
 export const PAINT_STRENGTH = 0.9;

@@ -5,8 +5,12 @@
 // a hillside it knows the shape of and then asks what the ground became.
 
 import {
-  createTerrainEdits, deltaOf, maxGrade, dome, wallStart,
-  STROKE_KINDS, GROUND_WORDS, CAVE_CUT, CAVE_CUT_AHEAD, SMOOTH_PULL,
+  createTerrainEdits, deltaOf, maxGrade, dome, wallStart, kinds, KIND_PARAMS,
+  terraceOf, lineDist, reachOf, noiseFor, noiseTablesHeld,
+  STROKE_KINDS, GROUND_WORDS, BASE_GROUNDS, MODES, DEFAULT_BASE, GRID, NEEDS_YAW,
+  CAVE_CUT, CAVE_CUT_AHEAD, SMOOTH_PULL, ERODE_PULL, LAKE_FLOOR,
+  MOUNTAIN_MAX_R, MOUNTAIN_MAX_AMOUNT, MOUNTAIN_RIDGE, MOUNTAIN_WAVE, MOUNTAIN_OCTAVES,
+  TERRACE_STEP, PLATEAU_SKIRT, MIN_R,
 } from './terrain_edits.js';
 
 let pass = 0, fail = 0;
@@ -340,6 +344,563 @@ function wired(hf) {
   try { createTerrainEdits().stroke({ kind: 'flatten', x: 0, z: 0, r: 8 }); } catch (err) { threw = err.message; }
   check('a flatten with no sampler and no h0 refuses rather than doing nothing quietly',
     !!threw && threw.includes('baseHeight'), threw || 'it was accepted');
+}
+
+// ---------------------------------------------------------------------------
+// 12. ED3: the eight new kinds, each driven both ways
+// ---------------------------------------------------------------------------
+//
+// "Both ways" means the same thing here it means everywhere else in this file:
+// the case the kind is FOR is measured, and so is the case it must refuse. A
+// ridge is measured along its line AND off the end of it; an erode is measured
+// where it lowers AND where it would have raised; a mountain is measured with
+// its ridges on AND with them off, where it has to be exactly a raise.
+
+// 12a. mountain
+{
+  const e = createTerrainEdits({ baseHeight: flat });
+  const m = e.stroke({ kind: 'mountain', x: 0, z: 0, r: 240, amount: 120, roughness: 0.6 });
+  const g = ground(e, flat);
+  check('a mountain carries its own seed, so the file grows the same one anywhere',
+    Number.isFinite(m.seed), `seed ${m.seed}`);
+  let peak = -Infinity, rim = 0, out = 0;
+  for (let a = 0; a < 720; a++) {
+    const th = a / 720 * Math.PI * 2;
+    for (let d = 0; d < 240; d += 4) peak = Math.max(peak, g(Math.cos(th) * d, Math.sin(th) * d));
+    rim = Math.max(rim, Math.abs(g(Math.cos(th) * 240, Math.sin(th) * 240)));
+    out = Math.max(out, Math.abs(g(Math.cos(th) * 260, Math.sin(th) * 260)));
+  }
+  check('its summit is at or under the height asked for, never over it',
+    peak <= 120 + 1e-9 && peak > 120 * 0.8, `${peak.toFixed(2)} m of the 120 asked for`);
+  check('and it comes to nothing at its own rim and outside it',
+    rim < 1e-9 && out === 0, `rim ${rim.toExponential(1)} m, 20 m out ${out} m`);
+  // the ridges are real: a bare dome is a function of the distance alone, so
+  // two points the same distance out would be the same height
+  const ring = [];
+  for (let a = 0; a < 64; a++) { const th = a / 64 * Math.PI * 2; ring.push(g(Math.cos(th) * 100, Math.sin(th) * 100)); }
+  const spread = Math.max(...ring) - Math.min(...ring);
+  check('the ridges are real: a ring 100 m out is not all one height',
+    spread > 10, `${spread.toFixed(2)} m between the highest and the lowest of 64 points on the ring`);
+  // and with the roughness off it is EXACTLY a raise, to the last bit
+  const bare = createTerrainEdits({ baseHeight: flat });
+  bare.stroke({ kind: 'mountain', x: 0, z: 0, r: 100, amount: 50, roughness: 0 });
+  const plain = createTerrainEdits({ baseHeight: flat });
+  plain.stroke({ kind: 'raise', x: 0, z: 0, r: 100, amount: 50 });
+  let diff = 0;
+  for (let i = 0; i < 400; i++) {
+    const x = (i % 20) * 10 - 100, z = Math.floor(i / 20) * 10 - 100;
+    diff = Math.max(diff, Math.abs(bare.heightDelta(x, z, 0) - plain.heightDelta(x, z, 0)));
+  }
+  check('roughness 0 is a raise, bit for bit, over 400 points', diff === 0, `worst difference ${diff} m`);
+  // the same seed twice is the same mountain; a different seed is a different one
+  const twin = createTerrainEdits({ baseHeight: flat });
+  twin.stroke({ ...m, id: null });
+  let same = 0, other = 0;
+  const odd = createTerrainEdits({ baseHeight: flat });
+  odd.stroke({ ...m, id: null, seed: m.seed + 1 });
+  for (let i = 0; i < 200; i++) {
+    const x = (i % 20) * 20 - 200, z = Math.floor(i / 20) * 20 - 100;
+    same = Math.max(same, Math.abs(twin.heightDelta(x, z, 0) - e.heightDelta(x, z, 0)));
+    other = Math.max(other, Math.abs(odd.heightDelta(x, z, 0) - e.heightDelta(x, z, 0)));
+  }
+  check('the same seed is the same mountain, and another seed is another mountain',
+    same === 0 && other > 1, `same seed ${same} m apart, other seed ${other.toFixed(1)} m apart`);
+  // maxGrade is a BOUND, so it has to be at least what the ground does
+  let steep = 0, prev = g(-260, 0);
+  for (let d = -260; d <= 260; d += 0.25) { const h = g(d, 0); steep = Math.max(steep, Math.abs(h - prev) / 0.25); prev = h; }
+  check('and maxGrade is an upper bound on what the ground actually does',
+    maxGrade(m) >= steep, `measured ${steep.toFixed(3)}, claimed ${maxGrade(m).toFixed(3)} m per m`);
+  // the clamps: asked for a mountain the size of a realm, given one of 600 m
+  const huge = e.stroke({ kind: 'mountain', x: 5000, z: 5000, r: 4000, amount: 9000, roughness: 3 });
+  check('a mountain bigger than the module allows is clamped, and says the clamped number',
+    huge.r === MOUNTAIN_MAX_R && huge.amount === MOUNTAIN_MAX_AMOUNT && huge.roughness === 1,
+    `asked 4000 m by 9000 m, got ${huge.r} by ${huge.amount}, roughness ${huge.roughness}`);
+}
+
+// 12b. ridge and valley: the line, and the ground off the end of it
+{
+  const e = createTerrainEdits({ baseHeight: flat });
+  const r = e.stroke({ kind: 'ridge', x: 0, z: 0, r: 40, amount: 60, length: 300, yaw: 0 });   // yaw 0 is +z
+  const g = ground(e, flat);
+  let along = Infinity;
+  for (let d = 0; d <= 300; d += 2) along = Math.min(along, g(0, d));
+  check('a ridge stands its full height everywhere along its own line',
+    Math.abs(along - 60) < 1e-9, `lowest point of 151 along the line ${along.toFixed(6)} m`);
+  check('and it is a capsule: nothing at its side rim, nothing past its far cap',
+    Math.abs(g(40, 150)) < 1e-9 && g(0, 341) === 0 && g(0, -41) === 0,
+    `side ${g(40, 150).toExponential(1)} m, 41 m past the end ${g(0, 341)} m, 41 m behind the start ${g(0, -41)} m`);
+  check('half way out from the line it is the same dome a raise draws',
+    Math.abs(g(20, 150) - 60 * dome(0.5)) < 1e-9, `${g(20, 150).toFixed(4)} against ${(60 * dome(0.5)).toFixed(4)}`);
+  check('lineDist measures to the segment and not to the point',
+    Math.abs(lineDist(r, 0, 150)) < 1e-9 && Math.abs(lineDist(r, 0, 400) - 100) < 1e-9,
+    `on the line 0 m, 100 m past the end ${lineDist(r, 0, 400).toFixed(1)} m`);
+  check('and the index is told how far a capsule reaches, or half of it would be missed',
+    reachOf(r) === 340, `${reachOf(r)} m against r 40 plus length 300`);
+  // No crack anywhere across the side rim. The threshold is the grade the
+  // module CLAIMS for this stroke and not a flat number: a ridge 60 m high in a
+  // 40 m radius is genuinely 2.3 m per metre on its flank, so a fixed 2 cm
+  // would be measuring the ridge's steepness rather than its continuity.
+  let step = 0;
+  for (let d = 0; d < 50; d += 0.01) step = Math.max(step, Math.abs(g(d, 150) - g(d - 0.01, 150)));
+  check('the side of a ridge is continuous over its rim, at the grade it claims',
+    step <= maxGrade(r) * 0.01 + 1e-9,
+    `worst 1 cm step ${step.toFixed(5)} m, which is ${(step / 0.01).toFixed(3)} m per metre against the claimed ${maxGrade(r).toFixed(3)}`);
+  const v = createTerrainEdits({ baseHeight: flat });
+  v.stroke({ kind: 'valley', x: 0, z: 0, r: 40, amount: 20, length: 300, yaw: Math.PI / 2 });   // +x
+  check('a valley is the same line, downward, and on the bearing it was given',
+    Math.abs(v.heightDelta(150, 0, 0) + 20) < 1e-9 && v.heightDelta(0, 150, 0) === 0,
+    `${v.heightDelta(150, 0, 0).toFixed(4)} m along +x, ${v.heightDelta(0, 150, 0)} m along +z`);
+}
+
+// 12c. plateau: an absolute height, a steeper skirt than a flatten
+{
+  const e = wired(base);
+  const p = e.stroke({ kind: 'plateau', x: 0, z: 0, r: 40, height: 20 });
+  const g = ground(e, base);
+  let worst = 0;
+  for (let a = 0; a < 64; a++) {
+    const th = a / 64 * Math.PI * 2;
+    for (let d = 0; d <= 40 * PLATEAU_SKIRT; d += 2) worst = Math.max(worst, Math.abs(g(Math.cos(th) * d, Math.sin(th) * d) - 20));
+  }
+  check('a plateau puts its whole top at the height it was told, not at the height it found',
+    worst < 1e-9, `worst point inside the skirt ${(worst * 100).toFixed(3)} cm off 20 m, on ground that ran ${base(0, 0).toFixed(2)} to ${base(30, 0).toFixed(2)} m`);
+  check('and it lets the ground go entirely at its own rim',
+    Math.abs(g(40, 0) - base(40, 0)) < 1e-9 && Math.abs(g(46, 0) - base(46, 0)) < 1e-9,
+    `at r ${(g(40, 0) - base(40, 0)).toExponential(1)} m off the hillside`);
+  check('its skirt is steeper than a flatten: the top holds out to 0.75 of r where a flatten holds to 0.5',
+    PLATEAU_SKIRT === 0.75, `${PLATEAU_SKIRT} of the radius`);
+  // with no height given it captures one, and the capture is IN the stroke
+  const cap = wired(base);
+  const c = cap.stroke({ kind: 'plateau', x: 12, z: -7, r: 20 });
+  check('a plateau with no height given captures the ground it stands on, and carries it',
+    Math.abs(c.h0 - base(12, -7)) < 1e-9 && c.height == null, `h0 ${c.h0.toFixed(4)} m`);
+  check('and maxGrade will not guess at a kind whose steepness belongs to the ground',
+    maxGrade(p) === null, String(maxGrade(p)));
+}
+
+// 12d. terrace: a stair, and not a tear
+{
+  // With `sharp` 0.5 the lower half of every step is flat tread and the upper
+  // half is the riser, so ground at 8, 9 and 10 all stand on the 8 m tread and
+  // the climb to 12 happens between 10 and 12.
+  check('terraceOf holds a tread flat over `1 - sharp` of the step and climbs over the rest',
+    terraceOf(8.0, 4, 0.5) === 8 && terraceOf(9.0, 4, 0.5) === 8 && terraceOf(10.0, 4, 0.5) === 8
+    && Math.abs(terraceOf(11.0, 4, 0.5) - 10) < 1e-9 && Math.abs(terraceOf(11.999, 4, 0.5) - 12) < 0.001,
+    `8.0, 9.0 and 10.0 all to 8, 11.0 to ${terraceOf(11.0, 4, 0.5)}, 11.999 to ${terraceOf(11.999, 4, 0.5).toFixed(4)}`);
+  // it is continuous in the ground, which is what stops it being a tear
+  let jump = 0;
+  for (let h = -20; h < 20; h += 0.001) jump = Math.max(jump, Math.abs(terraceOf(h, 4, 0.5) - terraceOf(h - 0.001, 4, 0.5)));
+  check('and it is continuous in the ground: a stair with no vertical riser in it',
+    jump < 0.01, `worst step for a 1 mm change in the ground ${(jump * 1000).toFixed(3)} mm`);
+  // driven the other way: a sharper riser is steeper, and it is bounded
+  let sharpJump = 0;
+  for (let h = -20; h < 20; h += 0.001) sharpJump = Math.max(sharpJump, Math.abs(terraceOf(h, 4, 0.1) - terraceOf(h - 0.001, 4, 0.1)));
+  check('a sharper riser is steeper and still bounded', sharpJump > jump && sharpJump < 0.06,
+    `sharp 0.5 ${(jump * 1000).toFixed(2)} mm, sharp 0.1 ${(sharpJump * 1000).toFixed(2)} mm per mm of ground`);
+  const e = wired(base);
+  e.stroke({ kind: 'terrace', x: 0, z: 0, r: 30, step: 3 });
+  const g = ground(e, base);
+  let offTread = 0, n = 0;
+  for (let a = 0; a < 32; a++) {
+    const th = a / 32 * Math.PI * 2;
+    for (let d = 0; d <= 15; d += 1) {
+      const h = g(Math.cos(th) * d, Math.sin(th) * d);
+      offTread = Math.max(offTread, Math.abs(h / 3 - Math.round(h / 3)) * 3); n++;
+    }
+  }
+  check('inside a terrace the ground stands on treads a step apart',
+    offTread < 3 * 0.5, `worst of ${n} points is ${offTread.toFixed(3)} m off the nearest 3 m tread`);
+  check('and outside it the hillside is the hillside',
+    Math.abs(g(31, 0) - base(31, 0)) < 1e-9, `${(g(31, 0) - base(31, 0)).toExponential(1)} m`);
+}
+
+// 12e. noise: roughening, and the emptiness it leaves at its rim
+{
+  const e = createTerrainEdits({ baseHeight: flat });
+  const s = e.stroke({ kind: 'noise', x: 0, z: 0, r: 60, amount: 3, wave: 20 });
+  const g = ground(e, flat);
+  let lo = Infinity, hi = -Infinity, sum = 0, n = 0;
+  for (let i = 0; i < 2000; i++) {
+    const th = (i * 0.61) % (Math.PI * 2), d = (i * 0.37) % 40;
+    const h = g(Math.cos(th) * d, Math.sin(th) * d);
+    lo = Math.min(lo, h); hi = Math.max(hi, h); sum += h * h; n++;
+  }
+  check('a noise stroke roughens the ground both ways, up and down',
+    lo < -0.5 && hi > 0.5 && hi <= 3 + 1e-9 && lo >= -3 - 1e-9,
+    `${lo.toFixed(3)} m to ${hi.toFixed(3)} m of the 3 m asked for, rms ${Math.sqrt(sum / n).toFixed(3)} m`);
+  check('and it leaves the rim alone, so it cannot crack a chunk seam',
+    Math.abs(g(60, 0)) < 1e-9 && g(64, 0) === 0, `${g(60, 0).toExponential(1)} m at r`);
+  check('its seed is in the stroke too', Number.isFinite(s.seed), `seed ${s.seed}`);
+  // the noise tables are kept per seed, and the cache is bounded rather than
+  // growing for ever: a terrain vertex may not shuffle a 256 entry table
+  const held = noiseTablesHeld();
+  for (let i = 0; i < 40; i++) e.stroke({ kind: 'noise', x: i * 200, z: 0, r: 20, amount: 1, seed: 90000 + i });
+  for (let i = 0; i < 40; i++) e.heightDelta(i * 200, 0, 0);
+  const grew = noiseTablesHeld();
+  for (let i = 0; i < 40; i++) e.heightDelta(i * 200, 0, 0);
+  check('one noise table per seed, kept, and no more built on the second pass',
+    grew >= held + 40 && noiseTablesHeld() === grew && grew < 600,
+    `${held} tables before, ${grew} after 40 new seeds, ${noiseTablesHeld()} after sampling them again`);
+}
+
+// 12f. erode: a smooth that may only take away
+{
+  const e = wired(base);
+  e.stroke({ kind: 'erode', x: 0, z: 0, r: 30, amount: 0.6 });
+  let up = 0, down = 0, n = 0;
+  for (let a = 0; a < 64; a++) {
+    const th = a / 64 * Math.PI * 2;
+    for (let d = 0; d <= 30; d += 1) {
+      const x = Math.cos(th) * d, z = Math.sin(th) * d;
+      const dlt = e.heightDelta(x, z, base(x, z)); n++;
+      if (dlt > up) up = dlt;
+      if (dlt < down) down = dlt;
+    }
+  }
+  check('an erode lowers ground that stands proud of the ring average', down < -0.5, `most it took away ${down.toFixed(3)} m`);
+  check('and over ' + n + ' points it never once raised any', up === 0, `most it added ${up} m`);
+  // the same brush as a smooth, on the same ground, DOES raise: so the refusal
+  // is the erode's own and not a property of this hillside
+  const sm = wired(base);
+  sm.stroke({ kind: 'smooth', x: 0, z: 0, r: 30, amount: 0.6 });
+  let smUp = 0;
+  for (let a = 0; a < 64; a++) {
+    const th = a / 64 * Math.PI * 2;
+    for (let d = 0; d <= 30; d += 1) {
+      const x = Math.cos(th) * d, z = Math.sin(th) * d;
+      smUp = Math.max(smUp, sm.heightDelta(x, z, base(x, z)));
+    }
+  }
+  check('driven the other way: a smooth over the same ground raises part of it',
+    smUp > 0.5, `the smooth added up to ${smUp.toFixed(3)} m where the erode added none`);
+  check('and an erode takes its ring average once and carries it, like a smooth',
+    e.strokes[0].h0 != null, `h0 ${e.strokes[0].h0.toFixed(4)} m`);
+}
+
+// 12g. lake: one click, and there is water in it
+{
+  const e = wired(base);
+  const l = e.stroke({ kind: 'lake', x: 0, z: 0, r: 24 });
+  const g = ground(e, base);
+  check('a lake floor is an absolute height, and the default is under the water line',
+    Math.abs(g(0, 0) - LAKE_FLOOR) < 1e-9 && LAKE_FLOOR < -0.85,
+    `floor ${g(0, 0).toFixed(4)} m, the game floods anything under -0.85 m`);
+  // The floor is measured across a WRINKLED hillside (`base` runs 3.7 m up and
+  // down inside this radius), because a floor that is level on level ground
+  // proves nothing about the kind. A `pit` on the same ground leaves a floor
+  // that slopes exactly as the hillside did, and the check below drives that.
+  let flatFloor = 0, rawSpread = 0;
+  for (let a = 0; a < 32; a++) {
+    const th = a / 32 * Math.PI * 2;
+    for (let d = 0; d <= 24 * 0.6; d += 1) {
+      const x = Math.cos(th) * d, z = Math.sin(th) * d;
+      flatFloor = Math.max(flatFloor, Math.abs(g(x, z) - LAKE_FLOOR));
+      rawSpread = Math.max(rawSpread, Math.abs(base(x, z) - base(0, 0)));
+    }
+  }
+  check('and the floor is level across a hillside that was not',
+    flatFloor < 0.01, `worst ${(flatFloor * 100).toFixed(2)} cm off the floor, on ground that ran ${rawSpread.toFixed(2)} m up and down under it`);
+  {
+    const rel = wired(base);
+    rel.stroke({ kind: 'pit', x: 0, z: 0, r: 24, amount: 3 });
+    const gp = ground(rel, base);
+    let pitSpread = 0;
+    for (let a = 0; a < 32; a++) {
+      const th = a / 32 * Math.PI * 2;
+      for (let d = 0; d <= 24 * 0.6; d += 1) pitSpread = Math.max(pitSpread, Math.abs(gp(Math.cos(th) * d, Math.sin(th) * d) - gp(0, 0)));
+    }
+    check('driven the other way: a pit on the same ground leaves a floor that is not level, which is why lake is its own kind',
+      pitSpread > 1, `the pit's floor ran ${pitSpread.toFixed(2)} m where the lake's ran ${flatFloor.toFixed(2)} m`);
+  }
+  check('it captures the depth once, so the floor does not follow the hillside',
+    Math.abs(l.h0 - base(0, 0)) < 1e-9, `h0 ${l.h0.toFixed(4)} m against the ground's ${base(0, 0).toFixed(4)} m`);
+  check('and it meets the bank with no step in it',
+    Math.abs(g(24, 0) - base(24, 0)) < 1e-9, `${(g(24, 0) - base(24, 0)).toExponential(1)} m at the rim`);
+  // driven the other way: a floor above the water line leaves dry ground
+  const dry = wired(base);
+  dry.stroke({ kind: 'lake', x: 200, z: 200, r: 20, floor: 4 });
+  const gd = ground(dry, base);
+  check('a lake asked for above the water line is a dry hollow and not water',
+    Math.abs(gd(200, 200) - 4) < 1e-9 && 4 > -0.85, `floor ${gd(200, 200).toFixed(3)} m, which is dry`);
+  check('and maxGrade knows how steep a lake wall is, because the depth is in the stroke',
+    maxGrade(l) > 0 && Number.isFinite(maxGrade(l)), `${maxGrade(l).toFixed(3)} m per m`);
+}
+
+// ---------------------------------------------------------------------------
+// 13. ED3: the brush list the editor builds its palette out of
+// ---------------------------------------------------------------------------
+{
+  const list = kinds();
+  check('kinds() names every kind the module has, and nothing else',
+    list.length === STROKE_KINDS.length && list.every((k, i) => k.kind === STROKE_KINDS[i]),
+    `${list.length} brushes: ${list.map((k) => k.kind).join(' ')}`);
+  const bad = [];
+  for (const row of list) {
+    if (!row.label) bad.push(`${row.kind} has no label`);
+    if (!Array.isArray(row.params) || !row.params.length) bad.push(`${row.kind} has no params`);
+    for (const p of row.params || []) {
+      if (!p.name) bad.push(`${row.kind} has a param with no name`);
+      if (!Number.isFinite(p.min) || !Number.isFinite(p.max) || !Number.isFinite(p.step)) bad.push(`${row.kind}.${p.name} has no min, max or step`);
+      if (!Number.isFinite(p.default)) bad.push(`${row.kind}.${p.name} has no default`);
+      else if (p.default < p.min || p.default > p.max) bad.push(`${row.kind}.${p.name} defaults to ${p.default}, outside ${p.min} to ${p.max}`);
+      if (p.min >= p.max) bad.push(`${row.kind}.${p.name} has min ${p.min} at or over max ${p.max}`);
+    }
+  }
+  check('every brush has a label, sliders with a min, a max, a step and a default, and every default is inside its own range',
+    bad.length === 0, bad.length ? bad.join('; ') : `${list.reduce((n, r) => n + r.params.length, 0)} sliders over ${list.length} brushes`);
+  check('only the paint brush carries a word list, and it is every word the module takes',
+    list.filter((k) => k.words).length === 1 && list.find((k) => k.kind === 'ground').words.join(' ') === GROUND_WORDS.join(' '),
+    list.find((k) => k.kind === 'ground').words.join(' '));
+  // EVERY SLIDER MUST DO SOMETHING. A param name that is not a property the
+  // module reads is a slider that moves and changes nothing, which is exactly
+  // the class of bug this table exists to prevent, and it cannot be caught by
+  // reading the table: it has to be driven.
+  //
+  // Two of the sixteen brushes cannot be judged on the height they move and
+  // both are named here rather than skipped quietly:
+  //
+  //   ground   moves no height at all. It is judged on the WORD it leaves.
+  //   cave     `amount` is the size of the cavern under the mouth and not the
+  //            shape of the mouth, so it changes the stroke and not the ground.
+  //            What it changes it into is measured in world_runtime.test.mjs,
+  //            where small, medium and large come out at 1, 2 and 3 levels.
+  const dead = [];
+  const probe = (row, p, val) => {
+    const e = createTerrainEdits({ baseHeight: base });
+    return e.stroke({ kind: row.kind, x: 0, z: 0, r: 30, amount: 4, length: 100, word: 'dirt', [p.name]: val });
+  };
+  for (const row of list) {
+    for (const p of row.params) {
+      const mid = (p.min + p.max) / 2;
+      const other = p.default === mid ? p.max : mid;
+      const A = probe(row, p, p.default), B = probe(row, p, other);
+      if (row.kind === 'ground') {
+        // the paint brush: the word and the reach are all it has
+        const a2 = createTerrainEdits({ baseHeight: base }); a2.stroke({ ...A, id: null });
+        if (a2.groundOverride(0, 0) !== 'dirt' || A.r === B.r) dead.push(`${row.kind}.${p.name}`);
+        continue;
+      }
+      if (row.kind === 'cave' && p.name === 'amount') {
+        if (A.amount === B.amount) dead.push(`${row.kind}.${p.name}`);
+        continue;
+      }
+      // The probe is a STRIP ALONG THE STROKE'S OWN BEARING, 31 by 31 with the
+      // centre line exactly on it, reaching past the furthest either setting
+      // can. A square grid over the bounding box misses a capsule: a ridge with
+      // no yaw is a 60 m wide strip up the z axis, and a 30 column grid over
+      // 4 km never puts a sample inside it, so `length` read as a dead slider
+      // when it was not.
+      const span = Math.max(reachOf(A), reachOf(B)) + 20;
+      const wide = Math.max(reachOf(A), reachOf(B), 60);
+      const one = createTerrainEdits({ baseHeight: base }); one.stroke({ ...A, id: null });
+      const two = createTerrainEdits({ baseHeight: base }); two.stroke({ ...B, id: null });
+      let moved = false;
+      for (let i = 0; i < 31 * 31 && !moved; i++) {
+        const x = ((i % 31) / 30 * 2 - 1) * Math.min(wide, 90), z = (Math.floor(i / 31) / 30 * 2 - 1) * span;
+        const h = base(x, z);
+        if (Math.abs(one.heightDelta(x, z, h) - two.heightDelta(x, z, h)) > 1e-9) moved = true;
+      }
+      if (!moved) dead.push(`${row.kind}.${p.name}`);
+    }
+  }
+  check('and moving any one of them moves the ground, so no slider on the palette is decoration',
+    dead.length === 0, dead.length ? `dead: ${dead.join(', ')}` : 'every one of the 40 sliders changes what the stroke does');
+  // NEEDS_YAW is read off the table, so a kind with a yaw slider is a kind the
+  // contract fills a bearing in for. Driven against `deltaOf` itself: a stroke
+  // whose ground moves when only its yaw moves is a stroke that needs one.
+  {
+    const turns = STROKE_KINDS.filter((k) => {
+      const a = createTerrainEdits({ baseHeight: base }), b = createTerrainEdits({ baseHeight: base });
+      const at = { kind: k, x: 0, z: 0, r: 30, amount: 4, length: 120, word: 'dirt' };
+      a.stroke({ ...at, yaw: 0 }); b.stroke({ ...at, yaw: Math.PI / 2 });
+      for (let i = 0; i < 31 * 31; i++) {
+        const x = ((i % 31) / 30 * 2 - 1) * 160, z = (Math.floor(i / 31) / 30 * 2 - 1) * 160;
+        const h = base(x, z);
+        if (Math.abs(a.heightDelta(x, z, h) - b.heightDelta(x, z, h)) > 1e-9) return true;
+      }
+      return false;
+    });
+    check('NEEDS_YAW is exactly the kinds whose ground moves when only the bearing moves',
+      turns.sort().join(' ') === [...NEEDS_YAW].sort().join(' '),
+      `the table says ${[...NEEDS_YAW].sort().join(' ')}, the ground says ${turns.sort().join(' ')}`);
+  }
+  check('a fresh copy every call, because the caller is a UI and a UI writes to what it is handed',
+    kinds() !== list && kinds()[0].params !== list[0].params && KIND_PARAMS.raise.params[0].default === 12);
+}
+
+// ---------------------------------------------------------------------------
+// 14. ED3: the header, and a world made of one word
+// ---------------------------------------------------------------------------
+{
+  const e = createTerrainEdits({ baseHeight: flat });
+  check('a list with no header told otherwise is the world the seed makes',
+    e.mode === 'generate' && e.sculpt === null, `mode ${e.mode}`);
+  const said = e.setBase({ mode: 'sculpt', height: 12, snowLine: 90 });
+  check('setBase says what it changed, in words, and only what changed',
+    said.changed.length === 3 && said.changed.some((w) => w.includes('12')) && said.changed.some((w) => w.includes('90')),
+    said.changed.join('; '));
+  check('and the header is then what it says it is',
+    e.mode === 'sculpt' && e.sculpt.height === 12 && e.sculpt.snowLine === 90 && e.sculpt.ground === 'grass',
+    JSON.stringify(e.base()));
+  const again = e.setBase({ height: 12 });
+  check('asking for what is already set changes nothing and says so',
+    again.changed.length === 0, `changed: ${JSON.stringify(again.changed)}`);
+  let threw = null;
+  try { e.setBase({ ground: 'cobble' }); } catch (err) { threw = err.message; }
+  check('a world cannot be made of a word that carries no biome, and the refusal names the words that work',
+    !!threw && BASE_GROUNDS.every((w) => threw.includes(w)), threw || 'it was accepted');
+  check('though the paint brush takes that word happily, which is the point of the two lists',
+    GROUND_WORDS.includes('cobble') && !BASE_GROUNDS.includes('cobble'),
+    `${GROUND_WORDS.length} words to paint with, ${BASE_GROUNDS.length} to build a world out of`);
+  threw = null;
+  try { e.setBase({ mode: 'wobble' }); } catch (err) { threw = err.message; }
+  check('and a mode nobody knows is refused by name', !!threw && MODES.every((m) => threw.includes(m)), threw || 'it was accepted');
+  check('base() hands out a copy, so a caller cannot edit the world by editing the answer',
+    (() => { const b = e.base(); b.height = 999; return e.sculpt.height === 12; })(), `still ${e.sculpt.height} m`);
+  // the header survives the file
+  e.stroke({ kind: 'raise', x: 4, z: 4, r: 10, amount: 2 });
+  const file = JSON.parse(JSON.stringify(e.serialize()));
+  const back = createTerrainEdits({ baseHeight: flat });
+  const n = back.load(file);
+  check('the header goes out on the file and comes back off it',
+    n === 1 && back.mode === 'sculpt' && back.sculpt.height === 12 && back.sculpt.snowLine === 90,
+    `${n} stroke, ${JSON.stringify(back.base())}`);
+  check('and a file with no header at all loads as the world the seed makes',
+    (() => { const g = createTerrainEdits({ baseHeight: flat }); g.setBase({ mode: 'sculpt' }); g.load({ v: 1, strokes: [] }); return g.mode === 'generate' && g.sculpt === null; })(),
+    'loading a headerless file puts the mode back to generate');
+  check('a file with a header the module cannot use falls back rather than loading nonsense',
+    (() => { const g = createTerrainEdits({ baseHeight: flat });
+      g.load({ v: 1, mode: 'sculpt', base: { height: 'high', ground: 'lava', snowLine: null }, strokes: [] });
+      return g.sculpt.height === DEFAULT_BASE.height && g.sculpt.ground === DEFAULT_BASE.ground && g.sculpt.snowLine === DEFAULT_BASE.snowLine; })(),
+    `back to ${JSON.stringify(DEFAULT_BASE)}`);
+  check('baseVersion moves when the header moves and stands still when it does not',
+    (() => { const g = createTerrainEdits({ baseHeight: flat });
+      const v0 = g.baseVersion; g.setBase({ height: 40 }); const v1 = g.baseVersion;
+      g.setBase({ height: 40 }); const v2 = g.baseVersion;
+      g.stroke({ kind: 'raise', x: 0, z: 0, r: 5, amount: 1 }); const v3 = g.baseVersion;
+      return v1 > v0 && v2 === v1 && v3 === v1; })(),
+    'a stroke does not move it; only the header does');
+  // and nothing private leaked into the file
+  const keys = new Set();
+  for (const row of file.strokes) for (const k of Object.keys(row)) keys.add(k);
+  check('and the file holds stroke properties only, no private bookkeeping',
+    ![...keys].some((k) => k.startsWith('__')), [...keys].join(' '));
+}
+
+// ---------------------------------------------------------------------------
+// 15. ED3: reset, which is one step and not a thousand
+// ---------------------------------------------------------------------------
+{
+  const e = wired(base);
+  for (let i = 0; i < 40; i++) e.stroke({ kind: i % 7 === 0 ? 'cave' : 'raise', x: i * 12, z: i * 5, r: 9, amount: 2, yaw: 0 });
+  const before = [];
+  for (let i = 0; i < 60; i++) { const x = i * 8 - 40, z = i * 3; before.push(e.heightDelta(x, z, base(x, z))); }
+  const did = e.reset();
+  check('reset says how many it dropped, counted off the list it emptied',
+    did.dropped === 40 && did.caves === 6 && e.count === 0, `${did.dropped} strokes, ${did.caves} of them caves`);
+  let any = false;
+  for (let i = 0; i < 60; i++) { const x = i * 8 - 40, z = i * 3; if (e.heightDelta(x, z, base(x, z)) !== 0) any = true; }
+  check('and the ground is the ground again', !any);
+  const u = e.undo();
+  check('ONE undo puts all forty back, and says how many',
+    u && u.kind === 'reset' && u.restored === 40 && e.count === 40, u ? `${u.restored} restored, ${e.count} on the ground` : 'undo gave nothing');
+  let worst = 0;
+  for (let i = 0; i < 60; i++) { const x = i * 8 - 40, z = i * 3; worst = Math.max(worst, Math.abs(e.heightDelta(x, z, base(x, z)) - before[i])); }
+  check('and the ground is bit for bit what it was before the reset', worst === 0, `worst difference ${worst} m over 60 points`);
+  const r = e.redo();
+  check('and redo drops them again, as one step', r && r.kind === 'reset' && r.dropped === 40 && e.count === 0,
+    r ? `${r.dropped} dropped, ${e.count} left` : 'redo gave nothing');
+  e.undo();
+  check('an ordinary undo after that is still an ordinary undo of one stroke',
+    (() => { const s = e.undo(); return s && s.kind === 'raise' && e.count === 39; })(), `${e.count} on the ground`);
+  check('reset on an empty list drops nothing and says nothing happened',
+    (() => { const g = createTerrainEdits({ baseHeight: flat }); return g.reset().dropped === 0; })());
+}
+
+// ---------------------------------------------------------------------------
+// 16. ED3: the index cell, which used to be a hash, and the bug that was in it
+// ---------------------------------------------------------------------------
+//
+// `cellKey` was `ix * 73856093 ^ iz * 19349663`, and the comment beside it said
+// a collision was safe because a lookup can only ever see MORE strokes than it
+// should. That is true of the LOOKUP and false of the INSERT: `put` walks every
+// cell a stroke covers, so two of one stroke's own cells landing on the same
+// key put that stroke in the same list twice, and a stroke applied twice raises
+// twice. Under 128 m of reach it never came up. A 600 m mountain covers 1,444
+// cells of the 32 m grid and it came up at once.
+{
+  const e = createTerrainEdits({ baseHeight: flat });
+  e.stroke({ kind: 'mountain', x: 0, z: 0, r: 600, amount: 300, roughness: 0.6 });
+  const oldKey = (ix, iz) => ix * 73856093 ^ iz * 19349663;
+  const seen = new Map();
+  let clashes = 0;
+  const reach = 600, i0 = Math.floor(-reach / GRID), i1 = Math.floor(reach / GRID);
+  for (let j = i0; j <= i1; j++) for (let i = i0; i <= i1; i++) {
+    const k = oldKey(i, j);
+    if (seen.has(k)) clashes++; else seen.set(k, [i, j]);
+  }
+  check('the old hash put one 600 m mountain into its own cells more than once',
+    clashes > 0, `${clashes} of the ${(i1 - i0 + 1) ** 2} cells it covers collided with another of its own`);
+  // and the index the module has now gives the answer a walk of every stroke gives
+  const SOME = ['raise', 'lower', 'flatten', 'pit', 'cliff', 'plateau', 'terrace', 'noise', 'ridge', 'valley'];
+  const big = wired(base);
+  for (let i = 0; i < 50; i++) {
+    const a = i / 50 * Math.PI * 2;
+    big.stroke({ kind: 'mountain', x: Math.cos(a) * 700, z: Math.sin(a) * 700, r: 600, amount: 300, roughness: 0.6 });
+  }
+  for (let i = 0; i < 300; i++) {
+    big.stroke({ kind: SOME[i % SOME.length], x: (i * 733.7) % 2000 - 1000, z: (i * 311.3) % 2000 - 1000, r: 4 + i % 20, amount: 1 + i % 5, length: 60, yaw: i * 0.1 });
+  }
+  const walk = (x, z, h) => { let cur = h; for (const s of big.strokes) cur += deltaOf(s, x, z, cur); return cur - h; };
+  let worst = 0, at = null;
+  for (let i = 0; i < 1200; i++) {
+    const x = (i * 97.3) % 2000 - 1000, z = (i * 61.7) % 2000 - 1000;
+    const d = Math.abs(big.heightDelta(x, z, base(x, z)) - walk(x, z, base(x, z)));
+    if (d > worst) { worst = d; at = [x, z]; }
+  }
+  check('and the indexed answer is now the answer a walk of all 350 strokes gives, mountains and all',
+    worst === 0, `worst difference ${worst} m over 1,200 points${at && worst ? ' at ' + at : ''}`);
+}
+
+// ---------------------------------------------------------------------------
+// 17. ED3: what a world of mountains costs
+// ---------------------------------------------------------------------------
+{
+  const e = createTerrainEdits({ baseHeight: flat });
+  const SMALL = ['raise', 'lower', 'flatten', 'smooth', 'pit', 'cliff', 'ground', 'plateau', 'terrace', 'noise', 'erode', 'ridge', 'valley', 'lake'];
+  let n = 0;
+  for (let i = 0; i < 50; i++) {
+    const a = i / 50 * Math.PI * 2;
+    e.stroke({ kind: 'mountain', x: Math.cos(a) * 700 + (i * 37) % 400, z: Math.sin(a) * 700 + (i * 53) % 400, r: 600, amount: 300, roughness: 0.6 });
+    n++;
+  }
+  for (; n < 2000; n++) {
+    const k = SMALL[n % SMALL.length];
+    e.stroke({ kind: k, x: (n * 733.7) % 2000 - 1000, z: (n * 311.3) % 2000 - 1000, r: 4 + n % 20,
+      amount: k === 'smooth' || k === 'erode' ? 0.5 : 1 + n % 5, word: 'dirt', length: 60, yaw: n * 0.1 });
+  }
+  const pts = [];
+  for (let i = 0; i < 10000; i++) pts.push([(i * 97.3) % 2000 - 1000, (i * 61.7) % 2000 - 1000]);
+  for (const [x, z] of pts) e.heightDelta(x, z, 6);
+  let best = Infinity;
+  for (let r = 0; r < 5; r++) {
+    const t = performance.now();
+    let acc = 0;
+    for (const [x, z] of pts) acc += e.heightDelta(x, z, 6);
+    best = Math.min(best, performance.now() - t);
+  }
+  const us = best * 1000 / pts.length;
+  // how many strokes a sample really walks, so the number above has a shape
+  let cover = 0;
+  for (const [x, z] of pts.slice(0, 500)) {
+    for (const s of e.strokes) { const rr = reachOf(s); if ((x - s.x) ** 2 + (z - s.z) ** 2 < rr * rr) cover++; }
+  }
+  check('2,000 strokes, 50 of them 600 m mountains, cost under 3 us a sample',
+    us < 3, `${us.toFixed(3)} us a sample, ${(cover / 500).toFixed(1)} strokes covering an average point`);
+  const t0 = performance.now();
+  e.undo(); e.heightDelta(0, 0, 6);
+  check('and the index of a world that big is rebuilt in under 30 ms',
+    performance.now() - t0 < 30, `${(performance.now() - t0).toFixed(2)} ms`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

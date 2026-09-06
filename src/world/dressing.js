@@ -1261,6 +1261,12 @@ export function wanted(spec, cellX, cellZ, seed, salt) {
 export function dressingFor(field, cx, cz, opts = {}) {
   const seed = field.seed;
   const out = [];
+  // A SCULPT WORLD IS NOT DRESSED (ED3). Every record below is the generator
+  // deciding what stands on ground it also decided, and a person sculpting a
+  // world from nothing has asked for neither. One line, at the top of the one
+  // function that emits a record, so the farms, the ring nominees, the scatter
+  // and the road furniture all go together and none of them can be missed.
+  if (field.sculpt) return out;
   const chunk = cx + ',' + cz;
   const x0 = cx * CHUNK, z0 = cz * CHUNK;
   const per = CHUNK / ANCHOR;                 // anchor cells a side

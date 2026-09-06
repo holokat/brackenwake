@@ -66,6 +66,33 @@ function stateOf(field) {
   }
   return st;
 }
+/**
+ * Throw this field's roads away, because the ground under them moved.
+ *
+ * A road is laid out ONCE and kept for the life of the field, which was safe
+ * while a field was a pure function of its seed. ED3's sculpt header is a thing
+ * a person changes at runtime, and every road in the cache was laid on the
+ * hillsides the old header made. `field.setTerrainEdits` calls this whenever
+ * that header moves, and it is the only caller.
+ */
+export function resetRoads(field) {
+  CACHE.delete(field);
+  return true;
+}
+
+/**
+ * A SCULPT WORLD HAS NO ROADS.
+ *
+ * The request was a world cleared of everything the generator put in it, and a
+ * road is the generator joining two places it also rolled. It is refused at the
+ * two functions that BUILD one, rather than only where field.js grades the
+ * ground, so nothing downstream sees a road either: flora's avenues ask
+ * `roadsNear`, dressing stands its carts and signposts beside a road, and
+ * wayside hangs the lamps and the bridges on one. All three come through here.
+ * A person who wants a road paints `cobble` or `path` and gets one that goes
+ * where they said it should.
+ */
+const NO_ROADS = Object.freeze([]);
 
 // The ground a road's profile is sampled from and judged against: the raw
 // terrain, the home disc, and whatever pad stands here. It cannot call
@@ -257,6 +284,7 @@ function roadFor(field, p, q) {
 
 /** The up to ROAD_LINKS nearest usable neighbours in the 8 cells around a cell. */
 export function linksForCell(field, cx, cz) {
+  if (field.sculpt) return NO_ROADS;
   const st = stateOf(field), key = cx + ',' + cz;
   const had = st.links.get(key);
   if (had) return had;
@@ -291,6 +319,7 @@ export function linksForCell(field, cx, cz) {
  * site has the lexically smaller id and either end picked the other.
  */
 export function roadsForCell(field, cx, cz) {
+  if (field.sculpt) return NO_ROADS;
   const st = stateOf(field), key = cx + ',' + cz;
   const had = st.owned.get(key);
   if (had) return had;

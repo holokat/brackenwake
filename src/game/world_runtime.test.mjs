@@ -773,5 +773,149 @@ for (const kind of ['dungeon', 'cave']) {
   ck('and empties the tree field registry', treeFieldsFor().length === 0);
 }
 
+// ---------------------------------------------------------------------------
+// 8. SCULPT MODE AT BOOT (ED3)
+//
+// A runtime of its own, with its own scene, so nothing above this line can be
+// touched by it and so this is the real boot path and not a poke at the field.
+// The file the server ships is `{ "mode": "sculpt", "base": {...},
+// "strokes": [] }`, and the whole claim is that a world booted on it comes up
+// blank: flat ground, no trees, no boulders, no dressing, nothing the seed
+// rolled, and the authored places still standing on it.
+// ---------------------------------------------------------------------------
+{
+  const sc2 = standScene();
+  const rt2 = createWorldRuntime(sc2, { homeBiome: 'meadow', terrainFile: false });
+  const blank = { v: 1, mode: 'sculpt', base: { height: 6, ground: 'grass', snowLine: 180, beachLine: 1 }, strokes: [] };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => blank });
+  let said = null;
+  rt2.onTerrain((info) => { said = info; });
+
+  // what it looked like before the file landed, so the change is measured
+  const wasSculpt = rt2.field.sculpt;
+  const info = await rt2.loadTerrainFile('/terrain/greenwold.json');
+  if (realFetch) globalThis.fetch = realFetch; else delete globalThis.fetch;
+
+  ck('a file with a header and NO strokes is applied, where before ED3 it was walked away from',
+    !!info && info.strokes === 0 && info.mode === 'sculpt' && wasSculpt === null,
+    info ? `${info.strokes} strokes, mode ${info.mode}, base ${JSON.stringify(info.base)}` : 'nothing was applied');
+  ck('and it said so, with the numbers, through onTerrain',
+    !!said && said.chunks === rt2.world.stats.loaded && said.chunks > 0,
+    said ? `${said.chunks} chunks of ${rt2.world.stats.loaded} rebuilt` : 'it said nothing');
+  ck('the field is a sculpt field now', !!rt2.field.sculpt && rt2.field.sculpt.height === 6, JSON.stringify(rt2.field.sculpt));
+
+  // the ground the streamer actually meshed, read off the meshes and not off
+  // the field, because a mesh built before the file landed and never rebuilt is
+  // exactly the bug this is here to catch
+  //
+  // THE GRID VERTICES ONLY. A chunk is n by n of ground plus 4n of skirt hung
+  // SKIRT metres below its own rim to hide a seam between two resolutions
+  // (chunks.js), and total = n^2 + 4n, so n is exactly sqrt(total + 4) - 2 and
+  // the skirt is everything past n^2. Counting it would report 396 vertices
+  // "off the field" by exactly 4.0000 m, which is the skirt doing its job.
+  const gridVerts = (pos) => { const n = Math.round(Math.sqrt(pos.count + 4)) - 2; return n * n; };
+  const meshOff = () => {
+    let verts = 0, off = 0, worst = 0;
+    for (const g of rt2.world.group.children) {
+      const pos = g.geometry && g.geometry.getAttribute && g.geometry.getAttribute('position');
+      if (!pos) continue;
+      const grid = gridVerts(pos);
+      for (let i = 0; i < grid; i++) {
+        const x = pos.getX(i) + g.position.x, y = pos.getY(i) + g.position.y, z = pos.getZ(i) + g.position.z;
+        verts++;
+        const d = Math.abs(y - rt2.field.heightAt(x, z));
+        if (d > 1e-3) { off++; worst = Math.max(worst, d); }
+      }
+    }
+    return { verts, off, worst };
+  };
+  {
+    const m = meshOff();
+    ck('every vertex of every built chunk carries the sculpt world and not the one it was built with',
+      m.verts > 0 && m.off === 0, `${m.verts} ground vertices, ${m.off} off the field, worst ${m.worst.toFixed(4)} m`);
+  }
+
+  // nothing grew, nothing was scattered, nothing was rolled
+  {
+    ck('no trees and no boulders stand in it, over every chunk the ring has built',
+      rt2.flora.stats.records === 0 && rt2.flora.stats.chunks > 0,
+      `flora holds ${rt2.flora.stats.records} records over ${rt2.flora.stats.chunks} chunks`);
+    ck('and nothing is dressed in it',
+      rt2.dressing.stats.records === 0 && rt2.dressing.stats.chunks > 0,
+      `dressing holds ${rt2.dressing.stats.records} records over ${rt2.dressing.stats.chunks} chunks`);
+  }
+  {
+    const near = rt2.sitesNear(0, 0, 3000);
+    const rolledNear = near.filter((s) => !s.authored && !s.edit);
+    ck('nothing the seed rolled for itself stands anywhere near the spawn',
+      rolledNear.length === 0, `${near.length} places within 3 km, ${rolledNear.length} of them rolled`);
+  }
+
+  // 8a. setBase moves the whole world and says what it cost
+  {
+    const before = rt2.heightAt(400, 400);
+    const did = rt2.setBase({ height: 22 });
+    ck('setBase moves the base height under everything and rebuilds every loaded chunk',
+      rt2.heightAt(400, 400) === 22 && before === 6 && did.chunks === rt2.world.stats.loaded && did.chunks > 0,
+      `${before} m to ${rt2.heightAt(400, 400)} m, ${did.chunks} chunks of ${rt2.world.stats.loaded} rebuilt, changed: ${did.changed.join('; ')}`);
+    const m = meshOff();
+    ck('and the meshes came with it', m.off === 0, `${m.off} of ${m.verts} ground vertices left behind`);
+    rt2.setBase({ height: 6 });
+  }
+
+  // 8b. what a 600 m mountain costs to put back up, in node, with no GPU
+  //
+  // The ring is FILLED first. The streamer builds three chunks a frame, so a
+  // runtime that has never been updated holds the three the constructor's own
+  // first `world.update` got round to, and a rebuild measured against three
+  // chunks would be a measurement of nothing.
+  {
+    const edits = rt2.terrainEdits;
+    let clk = 0;
+    for (let i = 0; i < 60; i++) rt2.update(0.016, clk += 16, 0, 0, 1);
+    const s = edits.stroke({ kind: 'mountain', x: 0, z: 0, r: 600, amount: 300, roughness: 0.6 });
+    const t0 = performance.now();
+    const did = rt2.rebuildAround(s.x, s.z, 608);
+    const ms = performance.now() - t0;
+    ck('a 600 m mountain puts every chunk it touches back up, and this is what that costs',
+      did.chunks > 0 && ms < 4000,
+      `${did.chunks} of the ${rt2.world.stats.loaded} loaded chunks rebuilt in ${ms.toFixed(0)} ms in node, ${(ms / did.chunks).toFixed(1)} ms a chunk`);
+    ck('and the mountain is in the mesh, not only in the field',
+      (() => { let top = -Infinity;
+        for (const g of rt2.world.group.children) {
+          const pos = g.geometry && g.geometry.getAttribute && g.geometry.getAttribute('position');
+          if (!pos) continue;
+          for (let i = 0; i < pos.count; i++) top = Math.max(top, pos.getY(i) + g.position.y);
+        }
+        return top > 100; })(),
+      `the highest vertex in the streamed world stands well above the 6 m base`);
+    // and one undo takes it away again
+    rt2.terrainEdits.undo();
+    rt2.rebuildAround(s.x, s.z, 608);
+    ck('and one undo takes it off again', rt2.heightAt(0, 0) === 6, `${rt2.heightAt(0, 0)} m`);
+  }
+
+  // 8c. reset, as one step
+  {
+    const edits = rt2.terrainEdits;
+    for (let i = 0; i < 12; i++) edits.stroke({ kind: 'raise', x: i * 30 - 180, z: 40, r: 20, amount: 4 });
+    const raised = rt2.heightAt(0, 40);
+    const did = edits.reset();
+    rt2.rebuildAll();
+    ck('reset drops every stroke and counts what it dropped',
+      did.dropped === 12 && rt2.heightAt(0, 40) === 6, `${did.dropped} dropped, ground back to ${rt2.heightAt(0, 40)} m`);
+    const u = edits.undo();
+    rt2.rebuildAll();
+    ck('and one undo puts all twelve back on the ground',
+      u.kind === 'reset' && u.restored === 12 && rt2.heightAt(0, 40) === raised,
+      `${u.restored} restored, ${rt2.heightAt(0, 40).toFixed(3)} m against the ${raised.toFixed(3)} m it was`);
+    edits.reset();
+    rt2.rebuildAll();
+  }
+
+  rt2.dispose();
+}
+
 console.log(`\n${pass} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

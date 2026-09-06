@@ -1115,5 +1115,200 @@ check('sampleAt under 12 microseconds', perSample < 12, `${perSample.toFixed(2)}
     same === before.length && e.sampleAt(P[0], P[1]).ground === null, `${same}/${before.length} points`);
 }
 
+// ---------------------------------------------------------------------------
+// 10. SCULPT MODE (ED3): the world with the generator put away
+//
+// A terrain file may carry a header saying `sculpt`, and when it does the field
+// hands back a table instead of a country: land at `base.height` inside the
+// continent mask, the coast and the two seas as they were, and nothing else at
+// all. Everything below is driven through `field.sampleAt`, which is the
+// surface the mesher, the collision, the grass, the trees and the dressing all
+// read, so what passes here is the world a player would walk into.
+//
+// The digest at the bottom is the same promise the heart's digest makes, for
+// the same reason: a blank world is a thing people will build on, and the
+// ground under what they build may not move under a change that was about
+// something else.
+// ---------------------------------------------------------------------------
+{
+  const { createTerrainEdits } = await import('./terrain_edits.js');
+  const { dressingFor } = await import('./dressing.js');
+  const { recordsFor } = await import('./flora.js');
+  const { roadsForCell, roadDistanceAt, linksForCell } = await import('./roads.js');
+
+  // A field of its own, wired exactly as world_runtime.js wires one.
+  const s = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
+  const edits = createTerrainEdits({ baseHeight: (x, z) => s.heightAt(x, z) });
+  s.setTerrainEdits(edits);
+  check('a field with a plain list over it is still the generated world',
+    s.sculpt === null && s.heightAt(1480, -2360) === f.heightAt(1480, -2360),
+    `${s.heightAt(1480, -2360).toFixed(3)} m, the same as the field with no list at all`);
+
+  edits.setBase({ mode: 'sculpt' });
+  s.setTerrainEdits(edits);                       // the one join, called again for the header
+  check('and the header turns it into a flat one', !!s.sculpt && s.sculpt.height === 6, JSON.stringify(s.sculpt));
+
+  // 10a. FLAT, and flat to the last bit where the continent mask has closed.
+  let inland = 0, worstFlat = 0, worstAt = null;
+  for (let z = -4000; z <= 4000; z += 37) for (let x = -4000; x <= 4000; x += 37) {
+    if (s.raw(x, z).land !== 1) continue;         // the mask has not closed here: it is coast
+    inland++;
+    const d = Math.abs(s.heightAt(x, z) - 6);
+    if (d > worstFlat) { worstFlat = d; worstAt = [x, z]; }
+  }
+  check('inside the continent mask the ground is the base height, exactly',
+    worstFlat === 0 && inland > 30000,
+    `${inland} points, worst ${worstFlat} m off 6 m${worstAt ? ' at ' + worstAt : ''}`);
+
+  // 10b. what the generator used to put there, and does not any more
+  let rivers = 0, roads = 0, rolled = 0, authored = 0, hills = 0;
+  const biomes = {};
+  for (let z = -6000; z <= 6000; z += 97) for (let x = -6000; x <= 6000; x += 97) {
+    const p = s.sampleAt(x, z);
+    biomes[p.biome] = (biomes[p.biome] || 0) + 1;
+    if (p.river > 0) rivers++;
+    if (p.road > 0) roads++;
+    if (p.site) { if (p.site.authored) authored++; else rolled++; }
+    if (p.land === 1 && p.h !== 6) hills++;
+  }
+  check('no rivers anywhere in it', rivers === 0, `${rivers} of ${Object.values(biomes).reduce((a, b) => a + b, 0)} samples`);
+  check('no roads anywhere in it', roads === 0, `${roads} samples on a road`);
+  check('no hills anywhere inland', hills === 0, `${hills} samples off the base height`);
+  check('and nothing the seed rolled for itself stands in it',
+    rolled === 0 && authored > 0,
+    `${rolled} samples name a rolled site, ${authored} name an authored one`);
+  check('the country is one biome, plus the water at its edges and the shore between',
+    Object.keys(biomes).sort().join(' ') === 'beach meadow ocean',
+    Object.entries(biomes).map(([k, v]) => `${k} ${v}`).join(', '));
+
+  // driven the other way: the SAME field, generating, has all of it
+  const gen = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
+  let genRivers = 0, genRolled = 0, genBiomes = new Set();
+  for (let z = -6000; z <= 6000; z += 97) for (let x = -6000; x <= 6000; x += 97) {
+    const p = gen.sampleAt(x, z);
+    genBiomes.add(p.biome);
+    if (p.river > 0) genRivers++;
+    if (p.site && !p.site.authored) genRolled++;
+  }
+  check('and the same square of the generated world has all three of those',
+    genRivers > 0 && genRolled > 0 && genBiomes.size > 3,
+    `${genRivers} river samples, ${genRolled} rolled sites, ${genBiomes.size} biomes: ${[...genBiomes].sort().join(' ')}`);
+
+  // 10c. the authored places still stand, on the flat, with no pad under them
+  const town = s.siteAt(789, 1533);
+  check('an authored town still stands where the sheet puts it',
+    !!town && town.authored && town.id === gen.siteAt(789, 1533).id, town ? town.id : 'nothing there');
+  check('but it lays no pad: the ground across its precinct is the base height',
+    (() => { let off = 0; for (let a = 0; a < 32; a++) { const th = a / 32 * Math.PI * 2;
+      for (const d of [0, 30, 60, 90, 120]) off = Math.max(off, Math.abs(s.heightAt(789 + Math.cos(th) * d, 1533 + Math.sin(th) * d) - 6)); } return off === 0; })(),
+    `flatR ${town.flatR} m, and 160 points across it are all at 6 m`);
+  check('where the generated world grades that same precinct',
+    (() => { let off = 0; for (const d of [0, 60, 120]) off = Math.max(off, Math.abs(gen.heightAt(789 + d, 1533) - gen.heightAt(789 + 300, 1533))); return off > 1; })(),
+    'the pad moves the ground there by more than a metre');
+
+  // 10d. no roads, and refused where a road is BUILT and not only where it is graded
+  check('roads.js will not lay a road out for a sculpt field at all',
+    roadsForCell(s, 1, 3).length === 0 && linksForCell(s, 1, 3).length === 0 && roadDistanceAt(s, 789, 1533) === null,
+    'roadsForCell, linksForCell and roadDistanceAt all come back empty');
+  check('and it does lay them for the same cell of the generated world',
+    (() => { let n = 0; for (let cx = -6; cx <= 6; cx++) for (let cz = -6; cz <= 6; cz++) n += roadsForCell(gen, cx, cz).length; return n > 0; })(),
+    'the generated world has roads in the same 169 cells');
+
+  // 10e. nothing is scattered and nothing grows
+  let dressed = 0, grown = 0;
+  for (let cx = 10; cx < 16; cx++) for (let cz = 20; cz < 26; cz++) {
+    dressed += dressingFor(s, cx, cz, { sitesNear: (x, z, r) => s.editSitesNear(x, z, r) }).length;
+    const rec = recordsFor(s, cx, cz, { sitesNear: () => [] });
+    for (const k of Object.keys(rec)) grown += rec[k].length;
+  }
+  check('36 chunks of a sculpt world hold nothing dressed and nothing grown',
+    dressed === 0 && grown === 0, `${dressed} dressing records, ${grown} trees and boulders`);
+  {
+    let gd = 0, gg = 0;
+    for (let cx = 10; cx < 16; cx++) for (let cz = 20; cz < 26; cz++) {
+      gd += dressingFor(gen, cx, cz, { sitesNear: (x, z, r) => [] }).length;
+      const rec = recordsFor(gen, cx, cz, { sitesNear: () => [] });
+      for (const k of Object.keys(rec)) gg += rec[k].length;
+    }
+    check('and the same 36 chunks of the generated world are full of both',
+      gd > 0 && gg > 0, `${gd} dressing records, ${gg} trees and boulders`);
+  }
+
+  // 10f. the two lines in the header, and paint winning over both
+  const m = edits.stroke({ kind: 'mountain', x: 0, z: 0, r: 400, amount: 260, roughness: 0.6 });
+  check('a mountain somebody raised wears snow above the header line, without anybody painting it',
+    s.sampleAt(0, 0).h >= s.sculpt.snowLine && s.sampleAt(0, 0).biome === 'snow',
+    `${s.sampleAt(0, 0).h.toFixed(1)} m, biome ${s.sampleAt(0, 0).biome}, snow line ${s.sculpt.snowLine} m`);
+  check('and its flank below the line does not',
+    s.sampleAt(300, 0).h < s.sculpt.snowLine && s.sampleAt(300, 0).biome === 'meadow',
+    `${s.sampleAt(300, 0).h.toFixed(1)} m, biome ${s.sampleAt(300, 0).biome}`);
+  edits.setBase({ snowLine: 40 });
+  s.setTerrainEdits(edits);
+  check('moving the line moves the snow, which is what putting it in the header is for',
+    s.sampleAt(300, 0).biome === 'snow',
+    `the same flank at ${s.sampleAt(300, 0).h.toFixed(1)} m was meadow under a 180 m line and is ${s.sampleAt(300, 0).biome} under a 40 m one`);
+  edits.setBase({ snowLine: 180 });
+  s.setTerrainEdits(edits);
+
+  const lake = edits.stroke({ kind: 'lake', x: 1500, z: 0, r: 40 });
+  check('a lake fills, because water is decided after the strokes are laid',
+    s.sampleAt(1500, 0).water && s.sampleAt(1500, 0).biome === 'ocean',
+    `floor ${s.sampleAt(1500, 0).h.toFixed(2)} m, sea level ${SEA_LEVEL} m`);
+  check('and there is a beach round its edge, from the other line in the header',
+    (() => { for (let d = 30; d <= 44; d += 0.5) { const p = s.sampleAt(1500 + d, 0);
+      if (!p.water && p.h < s.sculpt.beachLine && p.biome === 'beach') return true; } return false; })(),
+    `beach line ${s.sculpt.beachLine} m`);
+
+  edits.stroke({ kind: 'ground', x: 0, z: 0, r: 30, word: 'gravel' });
+  check('painted ground wins over the snow line, over the beach line and over the base',
+    s.sampleAt(0, 0).ground === 'gravel', `ground ${s.sampleAt(0, 0).ground}, biome ${s.sampleAt(0, 0).biome}`);
+  edits.undo();
+
+  // 10g. a world made of another word
+  edits.setBase({ ground: 'snow' });
+  s.setTerrainEdits(edits);
+  check('a world can be made of snow, and then it is snow everywhere the base shows',
+    s.sampleAt(3000, 3000).biome === 'snow' && s.sampleAt(3000, 3000).h === 6,
+    `biome ${s.sampleAt(3000, 3000).biome} at ${s.sampleAt(3000, 3000).h} m`);
+  edits.setBase({ ground: 'grass' });
+  s.setTerrainEdits(edits);
+
+  // 10h. and back again: taking the header off gives the seed its world back
+  edits.reset();
+  edits.setBase({ mode: 'generate' });
+  s.setTerrainEdits(edits);
+  let same = 0, n = 0;
+  for (let z = -3000; z <= 3000; z += 311) for (let x = -3000; x <= 3000; x += 311) {
+    n++;
+    if (s.heightAt(x, z) === gen.heightAt(x, z) && s.sampleAt(x, z).biome === gen.sampleAt(x, z).biome) same++;
+  }
+  check('putting the header back to generate gives the seed its world back, bit for bit',
+    same === n, `${same}/${n} points, height and biome both`);
+
+  // ---- 10i. THE DIGEST OF THE BLANK WORLD -------------------------------
+  //
+  // A 6 km square at 60 m, every field of every sample. Pinned for the same
+  // reason the heart's digest is pinned: this is the ground a person is going
+  // to build a world on, and if a later change moves so much as one metre of
+  // it, this line goes red and names the change that did it.
+  {
+    const d = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
+    const de = createTerrainEdits({ baseHeight: (x, z) => d.heightAt(x, z), mode: 'sculpt' });
+    d.setTerrainEdits(de);
+    const h = createHash('sha256');
+    let cells = 0, named = 0;
+    for (let z = -3000; z <= 3000; z += 60) for (let x = -3000; x <= 3000; x += 60) {
+      const p = d.sampleAt(x, z); cells++;
+      if (p.site) named++;
+      h.update(`${p.h}|${p.biome}|${p.water}|${p.river}|${p.land}|${p.temp}|${p.moist}|${p.road}|${p.site ? p.site.id : '-'}\n`);
+    }
+    const SCULPT = '19a62f5b918b21edf3eb8c937096b91e8f0d4eb369511dd0990a9376a4b38e64';   // pinned 2026-09-07, ED3
+    const got = h.digest('hex');
+    if (process.env.PRINT_SCULPT) console.log('SCULPT DIGEST', got);
+    check('the 6 km square of the blank world is what ED3 laid down', got === SCULPT,
+      `${cells} samples, ${named} name a site, ${got.slice(0, 16)}...`);
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

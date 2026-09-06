@@ -816,6 +816,19 @@ export function recordsFor(field, cx, cz, opts = {}) {
     }
   }
 
+  // A SCULPT WORLD GROWS NOTHING AND CARRIES NO STONES (ED3). "clear all the
+  // rocks and just reset all the terrain": every tree and every boulder below
+  // this line is the generator scattering on ground it also made, and none of
+  // it belongs in a world somebody is cutting by hand.
+  //
+  // ABOVE this line, and deliberately, are the ore rocks that ring a cave mouth
+  // and stud a mine's yard. Those are not scatter: they belong to a PLACE, and
+  // in a sculpt world the only caves are the ones a person cut themselves with
+  // a `cave` stroke, so their ore ring is part of what that stroke placed. With
+  // no cave strokes cut there are none, which is what world_runtime.test.mjs
+  // measures at boot.
+  if (field.sculpt) return out;
+
   const slopeAt = (x, z) => Math.max(
     Math.abs(field.heightAt(x + 1, z) - field.heightAt(x - 1, z)),
     Math.abs(field.heightAt(x, z + 1) - field.heightAt(x, z - 1)));

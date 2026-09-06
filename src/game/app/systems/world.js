@@ -11,8 +11,11 @@ import { createWorldRuntime, EDIT_CAVE_SPEC, TERRAIN_FILE } from '../../world_ru
 import { createSky } from '../../sky.js';
 import { createWater } from '../../../world/water.js';
 import { zoneSub, clampToWorld, BIRTHPLACE } from '../../../world/zones.js';
+// SEA_LEVEL, so the words a lake reports quote the number the field floods at
+// rather than a second copy of it that could drift.
+import { SEA_LEVEL } from '../../../world/field.js';
 import { cameraClamp } from '../../../world/dungeon.js';
-import { reachOf, maxGrade, GROUND_WORDS } from '../../../world/terrain_edits.js';
+import { reachOf, maxGrade, kinds as strokeKinds, NEEDS_YAW, GROUND_WORDS, BASE_GROUNDS } from '../../../world/terrain_edits.js';
 
 /** Where the follow camera looks on the body, matching camera.js. */
 const CAMERA_EYE = 1.5;
@@ -53,6 +56,24 @@ export function strokeWords(s, chunks, extra = '') {
     case 'cliff': body = `cut a step of ${m1(s.amount)} m at ${at}, the high side facing ${deg(s.yaw || 0)} degrees`; break;
     case 'cave': body = `cut a cave mouth at ${at}, facing ${deg(s.yaw || 0)} degrees`; break;
     case 'ground': body = `painted ${s.word} over ${r} m at ${at}`; break;
+    // ED3's eight. Every number here is read off the STORED stroke, after the
+    // clamps, so a mountain asked for at a kilometre across says 600 m.
+    case 'mountain': body = `raised a mountain ${m1(s.amount)} m tall and ${r * 2} m across at ${at}, roughness ${m1(s.roughness == null ? 0.6 : s.roughness)}`; break;
+    case 'ridge': body = `drew a ridge ${m1(s.amount)} m high and ${Math.round(s.length || 0)} m long from ${at}, bearing ${deg(s.yaw || 0)} degrees`; break;
+    case 'valley': body = `cut a valley ${m1(s.amount)} m deep and ${Math.round(s.length || 0)} m long from ${at}, bearing ${deg(s.yaw || 0)} degrees`; break;
+    case 'plateau': body = `levelled ${r} m of ground to ${m1(s.height == null ? s.h0 : s.height)} m at ${at}`; break;
+    case 'terrace': body = `stepped ${r} m of ground into ${m1(s.step == null ? 4 : s.step)} m terraces at ${at}`; break;
+    case 'noise': body = `roughened ${r} m of ground by ${m1(s.amount)} m at ${at}`; break;
+    case 'erode': body = `eroded ${r} m of ground toward ${m1(s.h0)} m at ${at}, taking away only`; break;
+    case 'lake': {
+      const floor = s.floor == null ? -3 : s.floor;
+      // the field calls a point water at `h < SEA_LEVEL - 0.05`, and this is
+      // that same test rather than a number typed out again
+      const wet = floor < SEA_LEVEL - 0.05;
+      body = `sank a lake ${r * 2} m across at ${at}, its floor at ${m1(floor)} m, `
+        + (wet ? 'which is under the water line, so it fills' : `which is over the ${m1(SEA_LEVEL - 0.05)} m water line, so it stays dry`);
+      break;
+    }
     default: body = `${s.kind} at ${at}`;
   }
   const built = chunks == null ? '' : `, ${chunks} ${chunks === 1 ? 'chunk' : 'chunks'} of ground rebuilt`;
@@ -251,15 +272,28 @@ export const world = {
     //
     // `window.__bw.terrain` is the whole contract between the two halves of the
     // editor. The placement half (src/game/editor) never touches the field, the
-    // stream or the stroke list: it calls these five, and every one of them
-    // does the work, rebuilds what it moved, and hands back the words it earned.
+    // stream or the stroke list: it calls these, and every one of them does the
+    // work, rebuilds what it moved, and hands back the words it earned.
+    //
+    // ED3 added `kinds`, `base`, `mode`, `baseWords`, `setBase` and `reset`, and
+    // `kinds()` is the one that matters most: the palette is built out of it, so
+    // a brush the module clamps is a slider the palette clamps, and a kind added
+    // to `terrain_edits.js` is a brush that appears without anybody editing the
+    // editor. See docs/mmo/wiring/ED3-SCULPT.md.
     //
     // Every stroke is logged. A silent state change is indistinguishable from a
     // broken button, and a brush that moved four chunks of ground in silence is
     // exactly that.
     const say = (text, tone) => { try { hud.log?.(text, tone); } catch { /* no hud in a test */ } };
 
-    /** The bearing a stroke that needs one gets when the caller did not say. */
+    /**
+     * The bearing a stroke that needs one gets when the caller did not say.
+     *
+     * Four kinds need one and all four are handled: a cliff's step, a cave's
+     * mouth, and the line a ridge or a valley is drawn along. A ridge with no
+     * bearing would run due north for its whole length, which is a range nobody
+     * asked for, so it runs the way the player is looking instead.
+     */
     function yawFor(kind, x, z) {
       if (kind === 'cave') {
         // a mouth opens out of the hillside, which is the rule field.js already
@@ -282,7 +316,7 @@ export const world = {
         const edits = runtime.terrainEdits;
         const kind = input && input.kind;
         const req = { ...input };
-        if ((kind === 'cliff' || kind === 'cave') && !Number.isFinite(req.yaw)) req.yaw = yawFor(kind, req.x, req.z);
+        if (NEEDS_YAW.has(kind) && !Number.isFinite(req.yaw)) req.yaw = yawFor(kind, req.x, req.z);
         const s = edits.stroke(req);
         const did = runtime.rebuildAround(s.x, s.z, reachOf(s) + REBUILD_MARGIN);
         let extra = '';
@@ -298,20 +332,41 @@ export const world = {
         return text;
       },
 
-      /** Take the last stroke back. False when there was nothing to take. */
+      /**
+       * Take the last STEP back. False when there was nothing to take.
+       *
+       * A step is usually one stroke. `reset` is a step too, of however many it
+       * dropped, so taking a reset back is one undo, it puts the whole world on
+       * again, and it rebuilds everything rather than a circle round a point
+       * that a thousand strokes were never inside.
+       */
       undo() {
         const s = runtime.terrainEdits.undo();
         if (!s) { say('there is no terrain stroke left to take back'); return false; }
+        if (s.kind === 'reset') {
+          const did = runtime.rebuildAll();
+          const text = `put back the ${s.restored} ${s.restored === 1 ? 'stroke' : 'strokes'} the reset dropped, `
+            + `${did.chunks} ${did.chunks === 1 ? 'chunk' : 'chunks'} of ground rebuilt`;
+          say(text);
+          return text;
+        }
         const did = runtime.rebuildAround(s.x, s.z, reachOf(s) + REBUILD_MARGIN);
         const text = `took back the ${s.kind} at ${Math.round(s.x)}, ${Math.round(s.z)}, ${did.chunks} ${did.chunks === 1 ? 'chunk' : 'chunks'} of ground rebuilt`;
         say(text);
         return text;
       },
 
-      /** Put the last undone stroke back. False when there was none. */
+      /** Put the last undone step back. False when there was none. */
       redo() {
         const s = runtime.terrainEdits.redo();
         if (!s) { say('there is no terrain stroke waiting to come back'); return false; }
+        if (s.kind === 'reset') {
+          const did = runtime.rebuildAll();
+          const text = `dropped the ${s.dropped} ${s.dropped === 1 ? 'stroke' : 'strokes'} again, `
+            + `${did.chunks} ${did.chunks === 1 ? 'chunk' : 'chunks'} of ground rebuilt`;
+          say(text);
+          return text;
+        }
         const did = runtime.rebuildAround(s.x, s.z, reachOf(s) + REBUILD_MARGIN);
         const text = strokeWords(s, did.chunks, ', again');
         say(text);
@@ -355,6 +410,58 @@ export const world = {
       },
       /** The words a `ground` stroke will take. */
       words: GROUND_WORDS.slice(),
+
+      // ---- ED3: the brushes, the base and the reset ---------------------
+      /**
+       * EVERY BRUSH, WITH ITS SLIDERS, so the editor's palette is built out of
+       * this and not out of a second copy of the same numbers.
+       *
+       * `[{ kind, label, params: [{ name, min, max, step, default }], words? }]`,
+       * straight out of `terrain_edits.KIND_PARAMS`, fresh objects every call
+       * because the caller is a UI and a UI writes to what it is handed. A
+       * brush the module clamps is clamped by the module and reported by the
+       * module, so a slider that goes to 600 is a slider whose 600 arrives.
+       */
+      kinds() { return strokeKinds(); },
+      /** What the flat world is: `{ height, ground, snowLine, beachLine }`. */
+      base() { return runtime.terrainEdits.base(); },
+      /** 'sculpt' or 'generate'. What kind of world the field is handing back. */
+      mode() { return runtime.terrainEdits.mode; },
+      /** The words a whole world may be made of, which is shorter than `words`. */
+      baseWords: BASE_GROUNDS.slice(),
+      /**
+       * Say what the flat world is, and rebuild everything that is loaded.
+       *
+       * Everything, and not a circle: a base height is under every chunk in the
+       * ring. Says what changed and what it cost, and says so even when nothing
+       * changed, because a setting that was already what you asked for should
+       * not read like one that was refused.
+       */
+      setBase(patch) {
+        const did = runtime.setBase(patch);
+        const text = did.changed.length
+          ? `${did.changed.join(', ')}, ${did.chunks} ${did.chunks === 1 ? 'chunk' : 'chunks'} of ground rebuilt`
+          : `the base was already ${did.base.height} m of ${did.base.ground}, snow at ${did.base.snowLine} m, beach under ${did.base.beachLine} m, in ${did.mode} mode: nothing moved`;
+        say(text);
+        return text;
+      },
+      /**
+       * Every stroke off the ground, in ONE step that `undo` puts back.
+       *
+       * The count is read off the list it emptied, not off anything it was
+       * told, and it is said before the rebuild so a reset that moved nothing
+       * says so rather than looking like a button that did not work.
+       */
+      reset() {
+        const did = runtime.terrainEdits.reset();
+        if (!did.dropped) { say('there was nothing on the ground to reset'); return false; }
+        const built = runtime.rebuildAll();
+        const text = `dropped all ${did.dropped} ${did.dropped === 1 ? 'stroke' : 'strokes'}`
+          + (did.caves ? `, ${did.caves} of them ${did.caves === 1 ? 'a cave' : 'caves'}` : '')
+          + `, ${built.chunks} ${built.chunks === 1 ? 'chunk' : 'chunks'} of ground rebuilt. One undo puts them all back`;
+        say(text);
+        return text;
+      },
       /** Put the ground back up around a point, without laying anything down. */
       rebuildAround: (x, z, r) => runtime.rebuildAround(x, z, r),
       get runtime() { return runtime; },
@@ -365,6 +472,11 @@ export const world = {
     runtime.onTerrain((info) => {
       say(`the hand cut ground loaded: ${info.strokes} ${info.strokes === 1 ? 'stroke' : 'strokes'}`
         + (info.caves ? `, ${info.caves} of them ${info.caves === 1 ? 'a cave' : 'caves'}` : '')
+        + (info.base
+          ? `, and the file says sculpt: a flat world at ${info.base.height} m of ${info.base.ground}, `
+            + `snow above ${info.base.snowLine} m, beach under ${info.base.beachLine} m, `
+            + 'no hills, no rivers, no roads, nothing rolled and nothing scattered'
+          : '')
         + `, ${info.chunks} ${info.chunks === 1 ? 'chunk' : 'chunks'} of ground rebuilt`);
     });
 

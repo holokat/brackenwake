@@ -52,7 +52,7 @@ import {
   SEA, seaWithin, reefTopAt, ARCHIPELAGO, archipelagoWithin,
   authoredSites, CELL_PAD_MAX, RELIEF_ZONES, heartFade, weightOf, ZONE,
 } from './zones.js';
-import { roadDistanceAt, roadHeightAt, roadStrength, roadSurface, fordFade, ROAD_HALF_WIDTH } from './roads.js';
+import { roadDistanceAt, roadHeightAt, roadStrength, roadSurface, fordFade, resetRoads, ROAD_HALF_WIDTH } from './roads.js';
 
 // The farm pad top is y 0 and the ground under it is homeY (-0.3). The sea has
 // to sit below both or the home disc counts as flooded and gets a water sheet.
@@ -95,13 +95,18 @@ const MINE_AIM_STEPS = 32;
 /**
  * The biome a painted word means, where there is one.
  *
- * `dirt` and `mud` are not in here because the world has no dirt biome and no
- * mud one; they travel on `sample.ground` alone, which grass.js, dressing.js
- * and terrain_material.js read. The three that ARE here take the biome with
- * them, so a rock patch is painted, textured, grassless and treeless from one
- * line rather than from four.
+ * `dirt`, `mud`, `gravel`, `ash`, `cobble` and `path` are not in here because
+ * the world has no biome for any of them; they travel on `sample.ground` alone,
+ * which grass.js, dressing.js and terrain_material.js read. The four that ARE
+ * here take the biome with them, so a rock patch is painted, textured,
+ * grassless and treeless from one line rather than from four.
+ *
+ * `snow` joined them in ED3, for the same reason and to the same effect: a snow
+ * patch takes the snow biome, which is the snow texture row, no turf worth the
+ * name and no broadleaf trees. It is also the word a whole sculpt world may be
+ * made of (`terrain_edits.BASE_GROUNDS`), which is why it had to have a biome.
  */
-export const PAINT_BIOME = { grass: 'meadow', sand: 'beach', rock: 'mountain' };
+export const PAINT_BIOME = { grass: 'meadow', sand: 'beach', rock: 'mountain', snow: 'snow' };
 /**
  * The generator cell a hand cut cave's level is keyed off, offset far out of
  * the lattice the rolled sites use so no cave shares a level with a real place.
@@ -175,6 +180,17 @@ export function createWorldField(seed = 1, opts = {}) {
   const homeY = opts.homeY ?? 0;          // ground level under the farm pad
   const roadsOn = opts.roads !== false;   // off only so a test can weigh the difference
   const N = createNoise(seed);
+  /**
+   * The sculpt header, or null for the world the seed makes (ED3).
+   *
+   * Declared HERE, at the top of the closure, and not beside `EDITS` where it
+   * is set: `raw` reads it and `raw` is defined four hundred lines above that,
+   * so a `let` down there would be a temporal dead zone the first time anything
+   * asked the field a question before `setTerrainEdits` had run.
+   *
+   * `{ height, ground, snowLine, beachLine }`, out of `terrain_edits.js`.
+   */
+  let SCULPT = null;
 
   // ---- relief: the shape five realms insist on --------------------------
   //
@@ -547,10 +563,51 @@ export function createWorldField(seed = 1, opts = {}) {
     return k;
   }
 
+  // ---- SCULPT MODE: the world with the generator put away ------------------
+  //
+  // ED3. The request, in the user's words: "the server should be cleared of
+  // other zones, clear all the rocks and just reset all the terrain, i will
+  // sculpt it all myself". So a terrain file may carry a header saying `sculpt`,
+  // and when it does this function hands back a table instead of a country.
+  //
+  // WHAT SURVIVES, and it is a short list on purpose:
+  //
+  //   the continent mask   so there is a shape to the land and an edge to walk
+  //                        to. It is the same warped fbm the generator uses, so
+  //                        the coast is where it always was
+  //   the ocean floor      the land is `base.height` and the sea bed is -14, the
+  //                        same pair the generator lerps between, so a shore is
+  //                        a shore and the water sheet fills it
+  //   the Caldera Sea      the inland basin, and the world's rim ocean past the
+  //                        coast, both untouched, so water exists at the edges
+  //                        without anybody having to dig for it
+  //
+  // WHAT DOES NOT: the hills, the mountain mask and its ridges, the rivers, the
+  // relief (every table, terrace, plateau and crater rim five realms carry), the
+  // island field, the Thousand Isles, the reefs and the karst stacks. All of
+  // them are the generator saying what the country is, and the whole point of
+  // this mode is that nobody says that but the person holding the brush.
+  //
+  // The climate is neutral, 0.5 and 0.5, so the biome chain in `sampleAt` falls
+  // through to the base ground's own biome and the world is one country until
+  // somebody paints another one.
+  function rawSculpt(x, z) {
+    const [wx, wz] = N.warp(x / W_CONT, z / W_CONT, 0.35, 1.7);
+    const cont = N.fbm(wx, wz, 4);
+    let land = smoothstep(LAND_LO, LAND_HI, cont);
+    let h = lerp(-14, SCULPT.height, land);
+    const lake = seaWithin(x, z);
+    if (lake > 0) { h = lerp(h, SEA.floor, lake); land *= 1 - lake; }
+    const sea = oceanBeyond(x, z);
+    if (sea > 0) { h = lerp(h, OCEAN_FLOOR, sea); land *= 1 - sea; }
+    return { h, land, river: 0, temp: 0.5, moist: 0.5, cont };
+  }
+
   // Raw terrain before the home flattening, so the flattening can be tested
   // independently and so tools can look at the world "as if the farm were not
   // there".
   function raw(x, z) {
+    if (SCULPT) return rawSculpt(x, z);
     // continents, domain warped so coasts wander
     const [wx, wz] = N.warp(x / W_CONT, z / W_CONT, 0.35, 1.7);
     const cont = N.fbm(wx, wz, 4);                       // -1..1
@@ -686,6 +743,13 @@ export function createWorldField(seed = 1, opts = {}) {
   }
 
   function homeFactor(x, z) {
+    // NO FARM DISC IN A SCULPT WORLD. The disc is a hole the generator digs at
+    // the origin so the first steps off the spawn pad are gentle; in sculpt the
+    // whole world is already that flat, and a disc pulled down to homeY would
+    // put a six metre bowl at 0, 0 for no reason. 1 everywhere also means
+    // `siteAllowed` lets the authored places stand, which it refuses to do
+    // anywhere the home factor is under 1.
+    if (SCULPT) return 1;
     const d = Math.hypot(x, z);
     // Snapped: at d = homeRadius float error leaves a 1e-32 residue, and a river
     // scaled by that is still "a river" to any strict comparison.
@@ -701,6 +765,12 @@ export function createWorldField(seed = 1, opts = {}) {
     const key = cx + ',' + cz;
     if (siteCache.has(key)) return siteCache.get(key);
     let site = cellRoll(seed, cx, cz);
+    // A SCULPT WORLD ROLLS NOTHING. `cellRoll` hands back an authored site where
+    // there is one and the seed's own roll everywhere else, and it is only the
+    // roll that goes: Hearthhome, the Standing Hedge and every other place the
+    // sheet names still stands, on the flat, because a person sculpting a world
+    // is sculpting the ground under the places and not deleting them.
+    if (site && SCULPT && !site.authored) site = null;
     if (site) {
       const r = raw(site.x, site.z);
       if (!siteAllowed(site, r, homeFactor(site.x, site.z))) site = null;
@@ -962,7 +1032,13 @@ export function createWorldField(seed = 1, opts = {}) {
     // disc under itself: measured, 0.057 m of the hillside under the Standing
     // Hedge, which stands in the heart where nothing may move. A place that
     // asks for no ground gets none.
-    if (site && site.flatR > 0) {
+    // NO PAD AND NO DISH IN A SCULPT WORLD. An authored place still stands here
+    // and still comes out on the sample, so `site_models.js` builds it and the
+    // plans and spaces open where they always did; what it does not get is the
+    // right to move the ground. That is the whole promise of the mode: the only
+    // thing that shapes a sculpt world is a stroke somebody made. A town square
+    // needs levelling, so level it with a `flatten` and it stays levelled.
+    if (site && site.flatR > 0 && !SCULPT) {
       const d = Math.hypot(x - site.x, z - site.z);
       if (d < site.flatR + 4) {
         // 1 at the centre, 0 at the rim, soft shoulder
@@ -1001,8 +1077,13 @@ export function createWorldField(seed = 1, opts = {}) {
     // farm disc, a site's pad and a river each hold it off, in that order, so
     // the home ground stays clean, a town square stays level, and a road meets
     // a river as a ford instead of damming it.
+    // NO ROADS IN A SCULPT WORLD, and `roads.js` refuses to lay one out for the
+    // same field, so this is the second lock on that door rather than the only
+    // one: nothing here grades the ground and nothing there builds a polyline,
+    // so `sample.road` is 0, the surface mix never runs and the wayside has no
+    // road to hang a lamp on.
     let road = 0;
-    if (roadsOn && k > 0) {
+    if (roadsOn && !SCULPT && k > 0) {
       const rd = roadDistanceAt(self, x, z);
       if (rd) {
         road = roadStrength(rd.d) * k;
@@ -1043,7 +1124,12 @@ export function createWorldField(seed = 1, opts = {}) {
     // fade the desert out, which is a hole in the country, not a place.
     const zb = zoneBias(x, z, ZB);
     let temp = r.temp, moist = r.moist;
-    if (zb.climate && zb.biasWeight > 0) {
+    // A SCULPT WORLD TAKES NO CLIMATE BIAS AND NO ZONE BIOME. "The server should
+    // be cleared of other zones": a realm's own frost or ash is the generator
+    // saying what the country is, which is the one thing this mode takes away.
+    // `zb` is still asked and still comes out on the sample, because `zone`,
+    // `realm` and `danger` are identity and the monster layer needs them.
+    if (!SCULPT && zb.climate && zb.biasWeight > 0) {
       if (zb.climate.temp) temp = clamp01(temp + zb.climate.temp * zb.biasWeight);
       if (zb.climate.moist) moist = clamp01(moist + zb.climate.moist * zb.biasWeight);
     }
@@ -1054,7 +1140,19 @@ export function createWorldField(seed = 1, opts = {}) {
     // all answer first, and the override takes what is left, which is every
     // ordinary hillside and shore in the zone.
     let biome;
-    if (k < 0.5) biome = homeBiome;
+    if (SCULPT) {
+      // THREE RULES AND A DEFAULT, and the two lines are in the header so a
+      // person can move them. Water first, so a lake is a lake; then the snow
+      // line, so a mountain somebody raised wears a cap without anybody
+      // painting one; then the beach line, so the rim of that lake is sand.
+      // Everything else is the base ground's own biome, which is meadow until
+      // somebody says otherwise. Paint still wins over all four, below.
+      if (water) biome = 'ocean';
+      else if (h >= SCULPT.snowLine) biome = 'snow';
+      else if (h < SCULPT.beachLine) biome = 'beach';
+      else biome = PAINT_BIOME[SCULPT.ground] || 'meadow';
+    }
+    else if (k < 0.5) biome = homeBiome;
     else if (water && river < 0.4) biome = 'ocean';
     else if (h >= SNOW_LINE) biome = 'snow';
     else if (h >= ROCK_LINE) biome = 'mountain';
@@ -1102,6 +1200,15 @@ export function createWorldField(seed = 1, opts = {}) {
   // into the literal below would have handed out `null` for ever, whatever was
   // set afterwards. Measured: world_runtime.test.mjs went red on the first ask.
   Object.defineProperty(self, 'terrainEdits', { get: () => EDITS, configurable: true });
+  /**
+   * The sculpt header, or null. A getter for the same reason as the one above.
+   *
+   * This is what `roads.js`, `dressing.js` and `flora.js` read to know they
+   * have nothing to do, and what a test reads to know which world it is
+   * looking at. It is null on every field until a list with a `sculpt` header
+   * is laid over it, so nothing in the generated world can tell the difference.
+   */
+  Object.defineProperty(self, 'sculpt', { get: () => SCULPT, configurable: true });
 
   return Object.assign(self, {
     seed, heightAt, biomeAt, sampleAt, raw, homeFactor, chunkOf, siteInCell, siteAt,
@@ -1109,10 +1216,32 @@ export function createWorldField(seed = 1, opts = {}) {
     /**
      * Lay a stroke list over this field, or take it away with null. Everything
      * that reads the field, which is everything, sees it from the next sample.
+     *
+     * THE HEADER COMES IN HERE TOO, and this is the one place a mode changes,
+     * which is why the caches are dropped here and nowhere else. A world that
+     * has just become a sculpt world has a different answer for every cell it
+     * has already rolled a site in and every road it has already laid out, and
+     * both of those are cached forever by design. Call this again after
+     * `edits.setBase(...)` or `edits.load(...)` and the field is the new world.
      */
     setTerrainEdits(edits) {
       EDITS = edits || null;
+      const was = SCULPT;
+      SCULPT = EDITS && EDITS.sculpt ? EDITS.sculpt : null;
       editSites = null; editSitesAt = -1;
+      // A cheap comparison and not a deep one: the header is four numbers and a
+      // word, and a base that has been REPLACED rather than mutated (which is
+      // what `setBase` does) is a different object, so this catches it either
+      // way. Dropping the caches when nothing changed costs a re-roll; not
+      // dropping them when something did is a town standing on the old ground.
+      const moved = was !== SCULPT
+        || (was && SCULPT && (was.height !== SCULPT.height || was.ground !== SCULPT.ground
+          || was.snowLine !== SCULPT.snowLine || was.beachLine !== SCULPT.beachLine));
+      // `HOLDS` is deliberately NOT dropped: it is built from the authored
+      // table and the relief rows, neither of which a header can move, and it
+      // is a const array that `buildHolds` pushes into, so clearing the flag
+      // would build it twice into the same list.
+      if (moved) { siteCache.clear(); resetRoads(self); }
       return EDITS;
     },
     editSitesNear,

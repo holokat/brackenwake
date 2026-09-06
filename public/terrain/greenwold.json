@@ -1,0 +1,6 @@
+{
+  "v": 1,
+  "mode": "sculpt",
+  "base": { "height": 6, "ground": "grass", "snowLine": 180, "beachLine": 1 },
+  "strokes": []
+}

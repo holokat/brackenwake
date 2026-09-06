@@ -23,6 +23,7 @@
 import * as THREE from 'three';
 import { createWorldField, CHUNK } from '../world/field.js';
 import { createTerrainEdits } from '../world/terrain_edits.js';
+import { setSnowBand } from '../world/terrain_material.js';
 import { createWorldStream, buildPalette } from '../world/chunks.js';
 import { createDiscovery } from '../world/sites.js';
 import { createSiteMarkers } from '../world/site_models.js';
@@ -114,7 +115,10 @@ export function createWorldRuntime(sc, opts = {}) {
   // is what makes a `flatten` flatten the ground as it stands rather than the
   // hillside three strokes ago.
   let terrainEdits = opts.terrainEdits || createTerrainEdits({ baseHeight: (x, z) => field.heightAt(x, z) });
-  field.setTerrainEdits(terrainEdits);
+  // `applyTerrainHeader` and not `field.setTerrainEdits`: a list handed in by a
+  // test may already carry a sculpt header, and the snow line has to go with it
+  // from the first chunk. A hoisted function declaration, so it exists here.
+  applyTerrainHeader();
 
   const discovery = createDiscovery(field);
   // A HAND CUT CAVE IS A PLACE, and this is the one line that makes it one.
@@ -260,6 +264,26 @@ export function createWorldRuntime(sc, opts = {}) {
   }
 
   /**
+   * Hand the field whatever the stroke list's header now says, and put the snow
+   * line where the header puts it. Returns whether the world moved.
+   *
+   * ONE FUNCTION, because a header change has to reach three places and missing
+   * any of them leaves the world half changed: the field (which drops its site
+   * and road caches and swaps the generator for the table), the terrain material
+   * (whose snow ramp is a module constant and would otherwise go white at 64 m
+   * in a world whose header says 180), and everything already built.
+   */
+  function applyTerrainHeader() {
+    const was = field.sculpt;
+    field.setTerrainEdits(terrainEdits);
+    const now = field.sculpt;
+    setSnowBand(now ? now.snowLine : null);
+    return was !== now
+      || !!(was && now && (was.height !== now.height || was.ground !== now.ground
+        || was.snowLine !== now.snowLine || was.beachLine !== now.beachLine));
+  }
+
+  /**
    * The hand cut world on disk, if there is one.
    *
    * Missing is the ordinary case and is silent: nobody has cut anything yet.
@@ -267,6 +291,13 @@ export function createWorldRuntime(sc, opts = {}) {
    * `fetch` is asynchronous and the streamer does not wait for anybody. In
    * practice the first ring is a few chunks old when the file lands and those
    * few are rebuilt; `onTerrain` says how many, so the words are counted.
+   *
+   * A FILE WITH NO STROKES IN IT IS NOT NOTHING (ED3). It used to be: `if (!n)
+   * return null` walked away from an empty list, which was right while a file
+   * was only a list. A file now carries a header, and `{ "mode": "sculpt",
+   * "strokes": [] }` is the whole request "give me a blank world to build in".
+   * So the header is applied first and the early return only happens when
+   * neither the header nor the list said anything.
    */
   async function loadTerrainFile(url = TERRAIN_FILE) {
     try {
@@ -274,9 +305,13 @@ export function createWorldRuntime(sc, opts = {}) {
       if (!res || !res.ok) return null;
       const json = await res.json();
       const n = terrainEdits.load(json);
-      if (!n) return null;
+      const moved = applyTerrainHeader();
+      if (!n && !moved) return null;
       const did = rebuildAll();
-      const info = { url, strokes: n, chunks: did.chunks, caves: terrainEdits.caves().length };
+      const info = {
+        url, strokes: n, chunks: did.chunks, caves: terrainEdits.caves().length,
+        mode: terrainEdits.mode, base: field.sculpt ? { ...field.sculpt } : null,
+      };
       if (terrainFn) { try { terrainFn(info); } catch (err) { console.warn('onTerrain threw', err); } }
       return info;
     } catch {
@@ -546,8 +581,22 @@ export function createWorldRuntime(sc, opts = {}) {
     /** Hand it a different list: it goes onto the field and the world rebuilds. */
     setTerrainEdits(edits) {
       terrainEdits = edits || createTerrainEdits({ baseHeight: (x, z) => field.heightAt(x, z) });
-      field.setTerrainEdits(terrainEdits);
+      applyTerrainHeader();
       return rebuildAll();
+    },
+    /**
+     * Say what the flat world is: its height, its ground, its snow and beach
+     * lines, or its mode (ED3). Rebuilds everything that is loaded, because a
+     * base height is under every chunk in the ring and not just the near ones.
+     *
+     * Returns `{ base, mode, changed, chunks }`, where `changed` is the list of
+     * what actually moved and `chunks` is counted off the rebuild.
+     */
+    setBase(patch) {
+      const did = terrainEdits.setBase(patch);
+      applyTerrainHeader();
+      const built = did.changed.length ? rebuildAll() : { chunks: 0, sites: 0 };
+      return { ...did, chunks: built.chunks };
     },
     /** Ground moved at (x, z): put every chunk the circle touches back up. */
     rebuildAround,
