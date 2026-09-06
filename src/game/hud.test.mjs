@@ -5,8 +5,13 @@
 // stacked on the first, and the last one in the DOM ate every click, so tool
 // switching was impossible for days. That bug was a mismatch between a list
 // and a container, and this suite is the guard against it coming back: every
-// row is flex and sized by its own list, the hotkeys are that list's indices,
-// and the tools the HUD can show are exactly the tools state.js can own.
+// row is flex and sized by its own list, and the hotkeys are that list's
+// indices.
+//
+// The tool row itself is gone (T3). Nothing is taken in hand by clicking a
+// cell, so the section that used to count its four slots now proves there is
+// no row at all, that hud.js does not export a list of tools, and that keys 1
+// to 4 belong to the ability bar and to nothing else.
 //
 // The second half runs the REAL createHud against a small fake document, so
 // what is measured is what a player would get rather than a description of it.
@@ -93,7 +98,7 @@ globalThis.setTimeout ||= () => 0;
 
 const hudMod = await import('./hud.js');
 const {
-  TOOLS, MATERIALS, BAR_KEYS, BAR_SLOTS, POOLS, LOG_LINES, KEY_LABELS,
+  MATERIALS, BAR_KEYS, BAR_SLOTS, POOLS, LOG_LINES, KEY_LABELS,
   poolView, sweep, costLabel, timerLabel, logTrim, createHud, UNLOCK_TOTAL,
   bannerAt, devLine, BANNER, BANNER_TOTAL,
   gainAt, GAIN, GAIN_TOTAL, GAIN_LINES, BURDEN_MARK, SKULL_MARK,
@@ -112,25 +117,26 @@ let state = null, stateWhy = '';
 try { state = await import('./state.js'); } catch (err) { stateWhy = err.message; }
 const { ABILITIES_BY_ID } = await import('../mmo/abilities.js');
 const runtime = await import('./abilities_runtime.js');
+// hud.js's own source, for the checks that a thing was really taken out rather
+// than merely stopped being called
+const { readFileSync: readSrc } = await import('node:fs');
+const { fileURLToPath: toPath } = await import('node:url');
+const hudSrc = readSrc(toPath(new URL('./hud.js', import.meta.url)), 'utf8');
 
 let bad = 0, pass = 0;
 const ck = (n, ok, d = '') => { (ok ? pass++ : bad++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 
-// --- the old contract, unchanged --------------------------------------------
-console.log('hud: the tool row');
-ck('there are four tool slots', TOOLS.length === 4, TOOLS.map((t) => t.id).join(' '));
-ck('the keys are 1 to 4, in order', TOOLS.every((t, i) => t.key === String(i + 1)), TOOLS.map((t) => t.key).join(''));
-ck('every key is distinct', new Set(TOOLS.map((t) => t.key)).size === TOOLS.length);
-ck('every id is distinct', new Set(TOOLS.map((t) => t.id)).size === TOOLS.length);
-ck('every slot has a label to read', TOOLS.every((t) => typeof t.label === 'string' && t.label.length > 0));
-ck('hand is the only free slot', TOOLS.filter((t) => t.free).length === 1 && TOOLS[0].id === 'hand');
+// --- the row that is gone (T3) ----------------------------------------------
+console.log('hud: there is no tool row');
+ck('hud.js exports no list of tools at all', hudMod.TOOLS === undefined, String(hudMod.TOOLS));
+ck('and no way to draw one or to be told a cell was clicked',
+  hudMod.createHud !== undefined && !('setTool' in hudMod) && !('onTool' in hudMod));
+ck('the source has no tool row left in it: no id, no class, no handler',
+  !/bw-tools/.test(hudSrc) && !/onToolPick/.test(hudSrc) && !/setTool\(/.test(hudSrc),
+  [/bw-tools/, /onToolPick/, /setTool\(/].filter((re) => re.test(hudSrc)).join(' '));
 if (!state) {
-  console.log(`  SKIP three cross checks against state.js: it will not import   ${stateWhy}`);
+  console.log(`  SKIP the cross check against state.js: it will not import   ${stateWhy}`);
 } else {
-  const buyable = TOOLS.filter((t) => !t.free).map((t) => t.id).sort();
-  ck('every tool state.js can own has a slot', JSON.stringify(buyable) === JSON.stringify([...state.TOOLS].sort()),
-    `hud ${buyable.join(',')} vs state ${[...state.TOOLS].sort().join(',')}`);
-  ck('and no slot names a tool state.js has never heard of', TOOLS.every((t) => t.free || state.TOOLS.includes(t.id)));
   ck('the purse shows every material state.js carries',
     JSON.stringify([...MATERIALS].sort()) === JSON.stringify([...state.MATERIALS].sort()),
     `hud ${MATERIALS.join(',')} vs state ${state.MATERIALS.join(',')}`);
@@ -147,9 +153,15 @@ ck('the hud and the runtime read the same twelve keys',
   `hud ${BAR_KEYS.join('')} vs runtime ${runtime.BAR_KEYS.join('')}`);
 ck('and the same line for the amber corner, so the mark and the wording agree',
   BURDEN_MARK === runtime.BURDEN_MARK, `hud ${BURDEN_MARK} vs runtime ${runtime.BURDEN_MARK}`);
-ck('the four keys the tool row shares with the bar are exactly 1 to 4',
-  BAR_KEYS.filter((k) => TOOLS.some((t) => t.key === k)).join('') === '1234',
-  'main.js decides which layer eats the press; both lists agree on which four are contended');
+// 1 to 4 used to be contended: the tool row wanted them and so did the bar.
+// The row is gone, so they are the bar's outright, and nothing else in the game
+// is allowed to claim them.
+ck('1 to 4 are the ability bar s own, and are the first four of its twelve',
+  ['1', '2', '3', '4'].every((k, i) => BAR_KEYS[i] === k), BAR_KEYS.slice(0, 4).join(''));
+ck('and no other bar on the HUD wants them',
+  itemBarMod.ITEM_KEYS.every((k) => !BAR_KEYS.includes(k))
+  && !BAR_KEYS.includes(hudMod.WYRMSOUL_KEY),
+  `item bar ${itemBarMod.ITEM_KEYS.join(',')}, thirteenth cell ${hudMod.WYRMSOUL_KEY}`);
 
 // --- the pure views ----------------------------------------------------------
 console.log('hud: pools');
@@ -199,14 +211,14 @@ const find = (node, pred) => {
 };
 const root = hud.el;
 const barRow = find(root, (n) => n.id === 'bw-bar');
-const toolRowEl = find(root, (n) => n.id === 'bw-tools');
 const logEl = find(root, (n) => n.id === 'bw-log');
 const targetEl = find(root, (n) => n.id === 'bw-target');
 const poolsEl = find(root, (n) => n.id === 'bw-pools');
 const auraEl = find(root, (n) => n.id === 'bw-auras');
 
 ck('the bar has exactly twelve cells and not thirteen', barRow.children.length === 12, String(barRow.children.length));
-ck('the tool row still has exactly four', toolRowEl.children.length === 4, String(toolRowEl.children.length));
+ck('and the built HUD has no tool row node in it at all',
+  find(root, (n) => n.id === 'bw-tools') === null);
 ck('each cell wears its own key cap',
   barRow.children.map((c) => c.children[0].textContent).join(',')
   === BAR_KEYS.map((k) => KEY_LABELS[k] || k).join(','),
@@ -214,23 +226,14 @@ ck('each cell wears its own key cap',
 ck('every cell starts empty', barRow.children.every((c) => c.classList.contains('empty')));
 
 ck('every export the old contract names is still here',
-  ['toast', 'setMaterials', 'setCoins', 'setTool', 'onTool', 'setPlace', 'setDev', 'setHint', 'el', 'dispose']
+  ['toast', 'setMaterials', 'setCoins', 'setPlace', 'setDev', 'setHint', 'el', 'dispose']
     .every((k) => hud[k] !== undefined));
+ck('and the two that drew the tool row are gone, not left as no ops',
+  hud.setTool === undefined && hud.onTool === undefined);
 hud.setCoins(41);
 ck('the purse still draws coins',
   find(root, (n) => n.id === 'bw-purse').children[0].children[1].textContent === '41',
   find(root, (n) => n.id === 'bw-purse').children[0].textContent);
-hud.setTool('axe', new Set(['axe']));
-ck('an owned tool unlocks and lights up',
-  !toolRowEl.children[1].classList.contains('locked') && toolRowEl.children[1].classList.contains('active'));
-ck('an unowned tool stays locked', toolRowEl.children[2].classList.contains('locked'));
-let picked = null;
-hud.onTool((id) => { picked = id; });
-toolRowEl.children[1].fire('click');
-ck('clicking an unlocked tool still calls back', picked === 'axe', String(picked));
-picked = null;
-toolRowEl.children[2].fire('click');
-ck('and clicking a locked one does not', picked === null);
 hud.setPlace('Fern’s Stone');
 ck('setPlace still writes the place', find(root, (n) => n.id === 'bw-place').textContent === 'Fern’s Stone');
 hud.setDev(true);
@@ -558,6 +561,22 @@ console.log('hud: the item bar');
   ck('an equipped thing lights the cell and says where it went',
     itemRow.children[1].classList.contains('worn') && /on mainHand/.test(itemRow.children[1].children[3].textContent),
     itemRow.children[1].children[3].textContent);
+
+  // the chosen tool (T3): the one cell that says which tool the work goes
+  // through, drawn from the real bar rather than a hand written view
+  inventory.add(items.makeItem({ base: 'pickaxe' }));
+  itemBar.assign(4, 'pickaxe');
+  itemBar.use(4);
+  hud.update(0.016, { items: itemBar.view() });
+  ck('the chosen tool lights its own cell, and only that one',
+    itemRow.children[4].classList.contains('chosen')
+    && itemRow.children.filter((c) => c.classList.contains('chosen')).length === 1,
+    itemRow.children.map((c) => c.className).join(' | '));
+  ck('and says on hover what being chosen means', /the tool you chose/.test(hud.itemTipFor(4)), hud.itemTipFor(4));
+  itemBar.deselect();
+  hud.update(0.016, { items: itemBar.view() });
+  ck('putting the choice down puts the light out',
+    !itemRow.children[4].classList.contains('chosen'), itemRow.children[4].className);
 
   inventory.remove({ pack: 0 }, 4);
   hud.update(0.016, { items: itemBar.view() });

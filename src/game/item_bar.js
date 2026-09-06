@@ -38,11 +38,29 @@
 // which is why every one of the eight is rebindable through
 // `character.settings.itemBar`. See docs/mmo/wiring/U4.md.
 //
+// WHAT A SELECTED SLOT MEANS
+//
+// The tool row at the bottom of the screen is gone (T3). Nothing is taken "in
+// hand" by pressing a number any more: melee, ranged and casting read
+// `character.equipment`, and chopping, mining and skinning read what you carry,
+// through `toolFor` in `src/game/tools.js`. The one thing a player still gets
+// to say is WHICH of two tools does the work, and this bar is where they say
+// it: pressing a slot that holds a tool SELECTS it, and `character.itemBarSlot`
+// remembers which. `toolFor` prefers that slot over everything else it finds.
+//
+// Only a tool selects. A potion is drunk and a helm is worn, and neither of
+// them decides how a tree comes down, so neither moves the selection: a light
+// on the HUD that changed nothing would be a lie.
+//
 // No DOM and no THREE: `hud.js` draws what `view()` returns. This file runs in
 // node, which is where item_bar.test.mjs drives it.
 
 import { baseFor, SLOTS } from '../mmo/items.js';
 import { RESERVED_KEYS } from './windows.js';
+import { workWords } from './tools.js';
+
+/** "mining" at the head of a sentence. */
+const capitalise = (s) => String(s || '').replace(/^./, (c) => c.toUpperCase());
 
 /** Eight slots, and eight keys, and never a number typed twice. */
 export const ITEM_KEYS = ['f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12'];
@@ -82,7 +100,19 @@ export function itemBarOf(character) {
     const e = character.itemBar[i];
     character.itemBar[i] = e && typeof e === 'object' && e.base ? { base: String(e.base), name: String(e.name || '') } : null;
   }
+  // The selection is an index into the list above, and it is only a selection
+  // while that slot still holds something. A save written before T3 has no
+  // `itemBarSlot` at all, and a slot emptied since points at nothing.
+  const sel = character.itemBarSlot;
+  character.itemBarSlot = Number.isInteger(sel) && sel >= 0 && sel < ITEM_SLOTS && character.itemBar[sel]
+    ? sel : null;
   return character.itemBar;
+}
+
+/** Which slot the player chose, or null. `tools.js` reads the base on it. */
+export function selectedSlotOf(character) {
+  itemBarOf(character);
+  return character && Number.isInteger(character.itemBarSlot) ? character.itemBarSlot : null;
 }
 
 /**
@@ -133,7 +163,8 @@ export function rebind(character, slot, key) {
  * it: anything with a slot is worn or held, anything with a `use` is eaten or
  * drunk, and the two stacking oddments that have neither (`potion`, `bandage`)
  * are named there and here. A tool is its own answer, because a pickaxe in
- * Brackenwake is not worn and not eaten; see `setTool` in createItemBar.
+ * Brackenwake is not worn and not eaten: it is chosen, and `select` in
+ * createItemBar is what a press on one does.
  */
 export const USE_KINDS = ['food', 'meal'];
 export const USE_IDS = ['potion', 'bandage'];
@@ -174,7 +205,6 @@ auditItemBar();
  * @param {object} [o.input]        input.js; `pressed(key)` per frame
  * @param {object} [o.hud]          hud.log, else hud.toast
  * @param {function} [o.useItem]    ctx.useItem, which is foraging.useItem
- * @param {function} [o.setTool]    main.js's pickTool, for a tool in a slot
  * @param {function} [o.enabled]    false while a window has the keyboard
  * @param {boolean} [o.guardKeys]   preventDefault the bound keys; true by default
  * @param {object} [o.win]          the window to guard on; defaults to globalThis
@@ -185,8 +215,9 @@ export function createItemBar(o = {}) {
   const input = o.input || null;
   const hud = o.hud || null;
   const useItem = typeof o.useItem === 'function' ? o.useItem : null;
-  const setTool = typeof o.setTool === 'function' ? o.setTool : null;
   const enabled = typeof o.enabled === 'function' ? o.enabled : () => true;
+  /** Told when the selection moves, so the HUD and the save can follow it. */
+  const onSelect = typeof o.onSelect === 'function' ? o.onSelect : null;
 
   itemBarOf(character);
 
@@ -232,12 +263,14 @@ export function createItemBar(o = {}) {
    */
   function view() {
     const bar = itemBarOf(character);
+    const chosen = selectedSlotOf(character);
     return bar.map((entry, i) => {
       const key = keyOf(character, i);
       const out = {
         slot: i, key, cap: keyCap(key),
         base: null, name: '', count: 0, have: false, worn: false,
         wornAt: null, ghost: false, empty: true, kind: null,
+        selected: chosen === i,
       };
       if (!entry) return out;
       out.empty = false;
@@ -253,6 +286,71 @@ export function createItemBar(o = {}) {
       out.kind = planFor(found.item || entry.base).kind;
       return out;
     });
+  }
+
+  // -------------------------------------------------------------- selection
+
+  /**
+   * Choose the tool on a slot. This is the whole of what "in hand" used to
+   * mean: `toolFor` prefers a selected tool over anything else you carry, so a
+   * player with two things that could do the work says which one does it.
+   *
+   * EVERY PATH OUT OF HERE SPEAKS, including the two refusals. A slot with
+   * nothing on it, and a slot holding something that is not a tool, would both
+   * leave a light on the HUD that decides nothing, and so would a lockpick,
+   * which the lock takes out of the pack by itself the moment you click a box.
+   *
+   * `use` calls this rather than saying anything of its own, so a press of the
+   * key and a click of the cell produce one sentence and it is this one.
+   */
+  function select(slot) {
+    const bar = itemBarOf(character);
+    if (!Number.isInteger(slot) || slot < 0 || slot >= ITEM_SLOTS) {
+      return { ok: false, kind: 'none', reason: say(`the item bar has ${ITEM_SLOTS} slots and that is not one of them`, 'bad') };
+    }
+    const entry = bar[slot];
+    const cap = keyCap(keyOf(character, slot));
+    if (!entry) return { ok: false, kind: 'empty', reason: say(`${cap} has nothing on it to choose`, 'bad') };
+    const name = entry.name || labelOf(entry.base);
+    if (planFor(entry.base).kind !== 'tool') {
+      return { ok: false, kind: 'none', reason: say(`${name} is not a tool, so there is nothing to choose it for`, 'bad') };
+    }
+    const work = workWords(entry.base);
+    if (!work) {
+      return {
+        ok: false, kind: 'unchosen',
+        reason: say(`${name} is not something you choose. It is used out of your pack the moment it is wanted.`),
+      };
+    }
+    const was = selectedSlotOf(character);
+    character.itemBarSlot = slot;
+    onSelect?.(slot, was);
+    return {
+      ok: true, kind: 'tool', slot, base: entry.base, was,
+      reason: say(was === slot
+        ? `${name} is chosen already. ${capitalise(work)} goes through it.`
+        : `${name} chosen. ${capitalise(work)} goes through it now.`),
+    };
+  }
+
+  /**
+   * Put the choice down again. What you carry decides once more.
+   *
+   * `quiet` is for the callers that are already saying it in a longer sentence
+   * of their own (`clear` and `assign`); on its own it speaks, because a tool
+   * silently ceasing to be the chosen one is a change to what the next click
+   * picks up.
+   */
+  function deselect({ quiet = false } = {}) {
+    const was = selectedSlotOf(character);
+    if (was === null) return { ok: false, slot: null, was: null, reason: '' };
+    const name = itemBarOf(character)[was]?.name || 'the tool';
+    character.itemBarSlot = null;
+    onSelect?.(null, was);
+    return {
+      ok: true, slot: null, was,
+      reason: quiet ? '' : say(`${name} is no longer the tool you chose. What you carry decides again.`),
+    };
   }
 
   // ---------------------------------------------------------------- assign
@@ -284,14 +382,26 @@ export function createItemBar(o = {}) {
 
     // One base, one slot. Two keys on the same potions is two counts of one truth.
     const already = bar.findIndex((e, i) => e && e.base === base && i !== slot);
+    // Read the choice BEFORE anything moves. A chosen tool dragged to another
+    // key is still chosen and follows the key; a chosen tool buried under
+    // something that is not a tool is not chosen any more, and that changes
+    // what the next swing picks up, so it is said out loud.
+    const chosen = selectedSlotOf(character);
+    const moved = chosen !== null && chosen === already;
+    const buried = chosen !== null && chosen === slot && plan.kind !== 'tool';
+    const buriedName = buried ? (bar[chosen]?.name || bar[chosen]?.base || 'the tool') : '';
     if (already >= 0) bar[already] = null;
     const displaced = bar[slot];
     bar[slot] = { base, name: labelOf(item) };
+    if (moved) character.itemBarSlot = slot;
+    if (buried) deselect({ quiet: true });
 
     const words = [`${labelOf(item)} answers to ${keyCap(keyOf(character, slot))}`];
     if (displaced && displaced.base !== base) words.push(`${displaced.name || displaced.base} comes off`);
     if (already >= 0) words.push(`and leaves ${keyCap(keyOf(character, already))}`);
-    return { ok: true, slot, base, displaced, reason: say(words.join(', ')) };
+    if (moved) words.push('and is still the tool you chose');
+    if (buried) words.push(`${buriedName.toLowerCase()} is no longer chosen, and comes out of your pack as before`);
+    return { ok: true, slot, base, displaced, moved, deselected: buried, reason: say(words.join(', ')) };
   }
 
   /** Take a slot back off the bar. */
@@ -302,8 +412,15 @@ export function createItemBar(o = {}) {
     }
     const had = bar[slot];
     if (!had) return { ok: false, reason: say(`${keyCap(keyOf(character, slot))} is already empty`, 'bad') };
+    const wasChosen = selectedSlotOf(character) === slot;
     bar[slot] = null;
-    return { ok: true, slot, removed: had, reason: say(`${had.name || had.base} comes off ${keyCap(keyOf(character, slot))}`) };
+    // itemBarOf would drop a selection pointing at an empty slot on its own;
+    // this says so, because taking your chosen tool off the bar changes what
+    // the next tree is cut with
+    if (wasChosen) deselect({ quiet: true });
+    const words = [`${had.name || had.base} comes off ${keyCap(keyOf(character, slot))}`];
+    if (wasChosen) words.push('and is no longer the tool you chose, so what you carry decides again');
+    return { ok: true, slot, removed: had, deselected: wasChosen, reason: say(words.join(', ')) };
   }
 
   // ------------------------------------------------------------------- use
@@ -346,15 +463,14 @@ export function createItemBar(o = {}) {
       return { ok: !!r?.ok, kind: 'equip', index: found.index, result: r, reason: r?.text || r?.reason || '' };
     }
 
+    // A TOOL IS CHOSEN, NOT TAKEN IN HAND. `select` owns the words and the
+    // refusals, so pressing the key and clicking the cell say the same thing.
     if (plan.kind === 'tool') {
-      if (!setTool) {
-        return {
-          ok: false, kind: 'unwired',
-          reason: say(`${name} is a tool, and nothing is wired to take one in hand from a slot yet; main.js passes setTool to createItemBar`, 'bad'),
-        };
-      }
-      const took = setTool(plan.base.id, item);
-      return { ok: took !== false, kind: 'tool', index: found.index, reason: took === false ? '' : say(`${name} in hand`) };
+      const r = select(slot);
+      return {
+        ok: r.ok, kind: r.kind || 'tool', index: found.index,
+        selected: r.ok ? slot : null, reason: r.reason,
+      };
     }
 
     return { ok: false, kind: 'none', reason: say(plan.reason || `nothing happens with ${name.toLowerCase()}`, 'bad') };
@@ -399,7 +515,9 @@ export function createItemBar(o = {}) {
     get bar() { return itemBarOf(character); },
     slots: ITEM_SLOTS,
     keys: () => keysOf(character),
-    view, assign, clear, use, update,
+    view, assign, clear, use, update, select, deselect,
+    /** The slot whose tool does the work, or null. `tools.js` reads the base. */
+    get selected() { return selectedSlotOf(character); },
     rebind: (slot, key) => {
       const r = rebind(character, slot, key);
       say(r.reason, r.ok ? undefined : 'bad');

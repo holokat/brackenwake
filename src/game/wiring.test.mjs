@@ -173,10 +173,14 @@ function rig() {
 
 // ===========================================================================
 // The tool on rock and ore, and the refusals
+//
+// T3: nothing is taken in hand. Buying the pickaxe puts it in the pack and the
+// very next click on a boulder uses it, with no cell clicked in between, and
+// that is what is driven here through the real state and the real interactor.
 // ===========================================================================
 {
   const r = rig();
-  r.state.giveTool('pickaxe'); r.state.tool = 'pickaxe';
+  r.state.giveTool('pickaxe');
   r.setPick(r.treePick(r.rocks, 0));
   r.aimAt(r.rocks.trees[0].x, r.rocks.trees[0].z);
   r.kit.reset();
@@ -199,21 +203,33 @@ function rig() {
   r.aimAt(r.oaks.trees[0].x, r.oaks.trees[0].z);
   r.kit.reset();
   const d = r.it.click();
-  check('a pickaxe on an oak is refused', d.reason === 'wrong_tool');
+  // there is no 'wrong_tool' any more: carrying the pickaxe and nothing else is
+  // the same as carrying nothing, as far as an oak is concerned
+  check('a pack with only a pickaxe cannot fell an oak', d.reason === 'no_tool' && d.need === 'axe');
+  check('and the refusal asks for the axe by name', /wants an axe/.test(r.last()), r.last());
   check('and the refusal is heard', r.fired(/denied\.ogg/), r.urls().join(' '));
   check('and no chop came out of it', !r.fired(/axe-chop/));
 
   clock += SWING_MS;
-  r.state.tool = 'hand';
   r.kit.reset();
-  check('bare hands on an oak are refused', r.it.click().reason === 'no_tool');
+  check('and an empty handed click on the same oak is refused the same way',
+    r.it.click().reason === 'no_tool');
   check('and that refusal is heard too', r.fired(/denied\.ogg/));
+
+  // the other direction, through the real state: the moment the axe is carried
+  // the same click chops, and nothing was pressed in between
+  clock += SWING_MS;
+  r.state.giveTool('axe');
+  r.kit.reset();
+  check('and the moment an axe is in the pack the same click chops',
+    r.it.click().action === 'chop', r.last());
+  check('and the axe was heard', r.fired(/axe-chop/), r.urls().join(' '));
 }
 
 // ---- silence where silence was chosen -------------------------------------
 {
   const r = rig();
-  r.state.giveTool('axe'); r.state.tool = 'axe';
+  r.state.giveTool('axe');
   // a tree 40 m off: too far, and clicking at it is something a player repeats
   r.oaks.add({ x: CENTRE + 40, z: CENTRE, gy: GROUND, s: 1, ry: 0, alt: 0 });
   r.oaks.rebuild();
@@ -238,7 +254,7 @@ function rig() {
 // ---- out of earshot, nothing is even built --------------------------------
 {
   const r = rig();
-  r.state.giveTool('axe'); r.state.tool = 'axe';
+  r.state.giveTool('axe');
   r.audio.setListener(CENTRE + 900, CENTRE + 900);   // the ear is a long way off
   r.setPick(r.treePick(r.oaks, 0));
   r.aimAt(r.oaks.trees[0].x, r.oaks.trees[0].z);
@@ -571,11 +587,19 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
   }
 
   // ---- the keys the HUD may not eat ---------------------------------------
-  has(u, /hud\.onTool\?\.\(\(id\) => pickTool\(id\)\)/, 'the tool row is wired to the click');
-  has(u, /The tool row is click only/, 'and says why it is click only');
+  //
+  // T3 took the tool row off the screen, so the four keys that were contended
+  // are the ability bar's outright. These check the row is really gone from the
+  // boot rather than merely unused: no pickTool, no hud.setTool, no hud.onTool.
+  check('source: the boot has no tool picker left in it',
+    !/pickTool/.test(ALL) && !/hud\.setTool/.test(ALL) && !/hud\.onTool/.test(ALL),
+    ['pickTool', 'hud.setTool', 'hud.onTool'].filter((w) => ALL.includes(w)).join(' '));
+  check('source: and no item bar slot is wired to take a tool in hand',
+    !/setTool:/.test(ALL), 'setTool: would be the tool row coming back through the item bar');
   check('source: no tool is bound to a key anywhere in the boot',
     !/pressed\(['"][0-9=-]['"]\)/.test(ALL), 'a digit key would swing and swap in one press');
-  has(u, /1 to = use the bar\./, 'the opening line gives the ability bar the number row');
+  has(u, /1 to = use the ability bar/, 'the opening line gives the ability bar the number row');
+  has(u, /works from your pack/, 'and says a tool works from the pack, with no cell to click');
   has(u, /P abilities/, 'and P for the abilities window');
 
   // ---- the frame, in the order the contract gives it -----------------------

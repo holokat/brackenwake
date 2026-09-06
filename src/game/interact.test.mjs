@@ -17,13 +17,28 @@ const {
   logBaseFor, oreBaseFor, auditHarvestDrops, GROWN_KINDS, NO_LOG, DEFAULT_LOG, DEFAULT_ORE,
 } = await import('./interact.js');
 const { createState } = await import('./state.js');
-const { LOG_OF, BASES } = await import('../mmo/items.js');
+const { LOG_OF, BASES, makeItem } = await import('../mmo/items.js');
+const { normalise } = await import('./inventory.js');
 const { ALL_KINDS } = await import('../world/flora.js');
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 
 const at = (x, z) => ({ x, z });
+
+/**
+ * T3: `decide` takes the CHARACTER, not a tool word. There is no row of cells
+ * to click any more, so what is being driven below is what is in the pack.
+ */
+const carrying = (...bases) => {
+  const c = normalise({ name: 'T', stats: {}, skills: {}, gold: 0, pack: { slots: 80, items: [] }, equipment: {} });
+  bases.forEach((b, i) => { c.pack.items[i] = makeItem({ base: b, count: 1 }); });
+  return c;
+};
+const BARE = carrying();
+const AXE = carrying('axe');
+const PICK = carrying('pickaxe');
+const BOW = carrying('shortbow');
 const treePick = (field, index, x, z) => ({ kind: 'tree', tree: { field, index, point: { x, y: 0, z } } });
 const fakeField = (name, kind, extra = {}) => ({ name, kind, trees: [{ x: 0, z: 0 }, { x: 0, z: 0, felledUntil: Date.now() + 60000 }], ...extra });
 
@@ -32,59 +47,80 @@ const rocks = fakeField('world:rock', 'rock');
 const seams = fakeField('world:ore', 'rock', { yield: 'ore' });
 
 // ---- decide: nothing under the cursor -------------------------------------
-check('nothing picked is no action', decide(null, 'axe', at(0, 0), 0, -Infinity).action === 'none');
-check('a pick of an unknown kind is no action', decide({ kind: 'weather' }, 'axe', at(0, 0), 0, -Infinity).action === 'none');
-check('a tree pick with no field is no action', decide({ kind: 'tree', tree: {} }, 'axe', at(0, 0), 0, -Infinity).action === 'none');
+check('nothing picked is no action', decide(null, AXE, at(0, 0), 0, -Infinity).action === 'none');
+check('a pick of an unknown kind is no action', decide({ kind: 'weather' }, AXE, at(0, 0), 0, -Infinity).action === 'none');
+check('a tree pick with no field is no action', decide({ kind: 'tree', tree: {} }, AXE, at(0, 0), 0, -Infinity).action === 'none');
 
 // ---- decide: the tool rule, both ways -------------------------------------
 {
   const p = treePick(oaks, 0, 0, 0), q = treePick(rocks, 0, 0, 0), r = treePick(seams, 0, 0, 0);
-  const d = (pick, tool) => decide(pick, tool, at(0, 0), 10_000, -Infinity);
-  check('bare hands on a tree: no tool', d(p, 'hand').reason === 'no_tool', JSON.stringify(d(p, 'hand')));
-  check('and it names the axe as what is missing', d(p, 'hand').need === 'axe');
-  check('bare hands on a rock name the pickaxe', d(q, 'hand').need === 'pickaxe' && d(q, 'hand').reason === 'no_tool');
-  check('a pickaxe on a tree is the wrong tool', d(p, 'pickaxe').reason === 'wrong_tool');
-  check('a bow on a tree is the wrong tool', d(p, 'bow').reason === 'wrong_tool');
-  check('an axe on a boulder is the wrong tool', d(q, 'axe').reason === 'wrong_tool');
-  check('an axe on a tree chops', d(p, 'axe').action === 'chop', JSON.stringify(d(p, 'axe')));
-  check('a pickaxe on a boulder mines', d(q, 'pickaxe').action === 'mine');
-  check('a pickaxe on an ore seam mines', d(r, 'pickaxe').action === 'mine');
-  check('and an axe on an ore seam does not', d(r, 'axe').action === 'blocked');
+  const d = (pick, who) => decide(pick, who, at(0, 0), 10_000, -Infinity);
+  check('an empty pack on a tree: no tool', d(p, BARE).reason === 'no_tool', JSON.stringify(d(p, BARE).reason));
+  check('and it names the axe as what is missing', d(p, BARE).need === 'axe');
+  check('in the words a player reads',
+    d(p, BARE).tool.reason === 'An oak wants an axe, and there is none in your pack.', d(p, BARE).tool.reason);
+  check('an empty pack on a rock names the pickaxe', d(q, BARE).need === 'pickaxe' && d(q, BARE).reason === 'no_tool');
+  // THERE IS NO 'wrong_tool' ANY MORE. Carrying the other tool is the same as
+  // carrying nothing, as far as this tree is concerned, and the refusal asks
+  // for what the tree wants rather than complaining about what you have.
+  check('a pack with only a pickaxe cannot fell a tree', d(p, PICK).reason === 'no_tool' && d(p, PICK).need === 'axe');
+  check('and a bow is no more use than the pickaxe', d(p, BOW).reason === 'no_tool' && d(p, BOW).need === 'axe');
+  check('an axe on a boulder is refused, and the boulder asks for a pickaxe',
+    d(q, AXE).reason === 'no_tool' && d(q, AXE).need === 'pickaxe');
+  check('an axe in the pack chops', d(p, AXE).action === 'chop', JSON.stringify(d(p, AXE).action));
+  check('and the decision says which tool did it, and from where',
+    d(p, AXE).tool.id === 'axe' && d(p, AXE).tool.where === 'pack', JSON.stringify(d(p, AXE).tool.where));
+  check('a pickaxe on a boulder mines', d(q, PICK).action === 'mine');
+  check('a pickaxe on an ore seam mines', d(r, PICK).action === 'mine');
+  check('and an axe on an ore seam does not', d(r, AXE).action === 'blocked');
+  // carrying both is the ordinary case, and it works on both
+  const bothC = carrying('axe', 'pickaxe');
+  check('carrying both, a tree chops and a seam mines, with no cell to click',
+    d(p, bothC).action === 'chop' && d(r, bothC).action === 'mine');
+  // an axe in the hand rather than the pack is the same axe
+  const held = carrying(); held.equipment.mainHand = makeItem({ base: 'axe', count: 1 });
+  check('an axe on the doll chops as well as one in the pack',
+    d(p, held).action === 'chop' && d(p, held).tool.where === 'mainHand', d(p, held).tool.where);
+  // dev mode carries one of everything, and only when it is asked for
+  check('dev mode chops with an empty pack',
+    decide(p, BARE, at(0, 0), 10_000, -Infinity, { dev: true }).action === 'chop');
+  check('and without it the same pack cannot',
+    decide(p, BARE, at(0, 0), 10_000, -Infinity, { dev: false }).reason === 'no_tool');
 }
 
 // ---- decide: reach, both ways ---------------------------------------------
 {
   const inR = treePick(oaks, 0, REACH - 0.01, 0);
   const outR = treePick(oaks, 0, REACH + 0.01, 0);
-  check(`a tree at ${REACH - 0.01} m is in reach`, decide(inR, 'axe', at(0, 0), 10_000, -Infinity).action === 'chop');
-  check(`a tree at ${REACH + 0.01} m is too far`, decide(outR, 'axe', at(0, 0), 10_000, -Infinity).reason === 'too_far');
+  check(`a tree at ${REACH - 0.01} m is in reach`, decide(inR, AXE, at(0, 0), 10_000, -Infinity).action === 'chop');
+  check(`a tree at ${REACH + 0.01} m is too far`, decide(outR, AXE, at(0, 0), 10_000, -Infinity).reason === 'too_far');
   // reach is horizontal: standing under a tall tree still reaches its crown
   const overhead = { kind: 'tree', tree: { field: oaks, index: 0, point: { x: 0, y: 40, z: 0 } } };
-  check('height does not count against reach', decide(overhead, 'axe', at(0, 0), 10_000, -Infinity).action === 'chop');
-  check('and reach is measured from the player, not the origin', decide(outR, 'axe', at(REACH, 0), 10_000, -Infinity).action === 'chop');
-  check('missing a tool matters more than being far away', decide(outR, 'hand', at(0, 0), 10_000, -Infinity).reason === 'no_tool');
+  check('height does not count against reach', decide(overhead, AXE, at(0, 0), 10_000, -Infinity).action === 'chop');
+  check('and reach is measured from the player, not the origin', decide(outR, AXE, at(REACH, 0), 10_000, -Infinity).action === 'chop');
+  check('missing a tool matters more than being far away', decide(outR, BARE, at(0, 0), 10_000, -Infinity).reason === 'no_tool');
 }
 
 // ---- decide: the swing timer, both ways -----------------------------------
 {
   const p = treePick(oaks, 0, 0, 0);
-  check(`${SWING_MS - 1} ms after a swing is too soon`, decide(p, 'axe', at(0, 0), 10_000, 10_000 - (SWING_MS - 1)).reason === 'cooldown');
-  check(`${SWING_MS} ms after a swing is a new swing`, decide(p, 'axe', at(0, 0), 10_000, 10_000 - SWING_MS).action === 'chop');
-  check('the first ever swing is never on cooldown', decide(p, 'axe', at(0, 0), 0, -Infinity).action === 'chop');
+  check(`${SWING_MS - 1} ms after a swing is too soon`, decide(p, AXE, at(0, 0), 10_000, 10_000 - (SWING_MS - 1)).reason === 'cooldown');
+  check(`${SWING_MS} ms after a swing is a new swing`, decide(p, AXE, at(0, 0), 10_000, 10_000 - SWING_MS).action === 'chop');
+  check('the first ever swing is never on cooldown', decide(p, AXE, at(0, 0), 0, -Infinity).action === 'chop');
 }
 
 // ---- decide: a stump that is growing back ---------------------------------
 {
   const felled = treePick(oaks, 1, 0, 0);
-  check('a felled tree is regrowing, not choppable', decide(felled, 'axe', at(0, 0), 10_000, -Infinity).reason === 'regrowing');
-  check('a record that is gone is regrowing too', decide(treePick(oaks, 99, 0, 0), 'axe', at(0, 0), 10_000, -Infinity).reason === 'regrowing');
-  check('the one still standing is not', decide(treePick(oaks, 0, 0, 0), 'axe', at(0, 0), 10_000, -Infinity).action === 'chop');
+  check('a felled tree is regrowing, not choppable', decide(felled, AXE, at(0, 0), 10_000, -Infinity).reason === 'regrowing');
+  check('a record that is gone is regrowing too', decide(treePick(oaks, 99, 0, 0), AXE, at(0, 0), 10_000, -Infinity).reason === 'regrowing');
+  check('the one still standing is not', decide(treePick(oaks, 0, 0, 0), AXE, at(0, 0), 10_000, -Infinity).action === 'chop');
 }
 
 // ---- decide: sites, every kind --------------------------------------------
 {
   const site = (kind, x = 0) => ({ kind: 'site', site: { kind, name: `the ${kind}`, x, z: 0, article: `a ${kind}` } });
-  const d = (s) => decide(s, 'hand', at(0, 0), 0, -Infinity);
+  const d = (s) => decide(s, BARE, at(0, 0), 0, -Infinity);
   check('a dungeon mouth at your feet is enterable', d(site('dungeon')).action === 'enter');
   check('a cave mouth at your feet is enterable', d(site('cave')).action === 'enter');
   check(`a mouth ${SITE_REACH + 1} m off is too far`, d(site('dungeon', SITE_REACH + 1)).reason === 'too_far');
@@ -94,18 +130,18 @@ check('a tree pick with no field is no action', decide({ kind: 'tree', tree: {} 
   check('a ruin is just named', d(site('ruin')).action === 'name' && d(site('ruin')).reason === 'site');
   check('a shrine is just named', d(site('shrine')).reason === 'site');
   check('a camp is just named', d(site('camp')).reason === 'site');
-  check('a town is named from any distance', decide(site('town', 900), 'hand', at(0, 0), 0, -Infinity).action === 'name');
-  check('a site pick with no site is no action', decide({ kind: 'site' }, 'hand', at(0, 0), 0, -Infinity).action === 'none');
+  check('a town is named from any distance', decide(site('town', 900), BARE, at(0, 0), 0, -Infinity).action === 'name');
+  check('a site pick with no site is no action', decide({ kind: 'site' }, BARE, at(0, 0), 0, -Infinity).action === 'none');
 }
 
 // ---- decide: dungeon exits ------------------------------------------------
 {
-  const d = (e) => decide({ kind: 'exit', exit: e }, 'hand', at(0, 0), 0, -Infinity);
+  const d = (e) => decide({ kind: 'exit', exit: e }, BARE, at(0, 0), 0, -Infinity);
   check('a down exit is an exit down', d('down').action === 'exit' && d('down').dir === 'down');
   check('an up exit is an exit up', d('up').dir === 'up');
   check('an exit carried on an object works too', d({ dir: 'up' }).dir === 'up');
   check('an exit that says nothing is no action', d('sideways').action === 'none');
-  check('a bare exit pick is no action', decide({ kind: 'exit' }, 'hand', at(0, 0), 0, -Infinity).action === 'none');
+  check('a bare exit pick is no action', decide({ kind: 'exit' }, BARE, at(0, 0), 0, -Infinity).action === 'none');
 }
 
 // ---- what things are called -----------------------------------------------
@@ -188,9 +224,13 @@ check('hovering nothing clears the hint', hints[hints.length - 1] === '');
 
 // hover text
 const hoverOf = (p) => { picked = p; hints.length = 0; it.update(); return hints[hints.length - 1] ?? '(unchanged)'; };
-check('hovering an oak names it and the axe', hoverOf(treePick(realOaks, 0, 1, 0)) === 'oak, the axe');
-check('hovering a boulder names the pickaxe', hoverOf(treePick(realRocks, 0, 1, 0)) === 'boulder, the pickaxe');
-check('hovering an ore seam names the pickaxe', hoverOf(treePick(realSeams, 0, 1, 0)) === 'ore seam, the pickaxe');
+// The pack is empty at this point, so the cursor says what is missing BEFORE
+// the click refuses. A player should never learn about the axe from a refusal.
+check('hovering an oak with an empty pack says there is no axe',
+  hoverOf(treePick(realOaks, 0, 1, 0)) === 'oak, and no axe in your pack', hoverOf(treePick(realOaks, 0, 1, 0)));
+check('hovering a boulder says there is no pickaxe',
+  hoverOf(treePick(realRocks, 0, 1, 0)) === 'boulder, and no pickaxe in your pack');
+check('hovering an ore seam says the same', hoverOf(treePick(realSeams, 0, 1, 0)) === 'ore seam, and no pickaxe in your pack');
 check('an oak out of reach says so', hoverOf(treePick(realOaks, 0, 40, 0)) === 'oak, too far');
 check('a dungeon mouth offers E', hoverOf({ kind: 'site', site: { kind: 'dungeon', name: 'the Ash Cut', x: 2, z: 0 } }) === 'the Ash Cut, E to enter');
 check('a far mouth says how far', hoverOf({ kind: 'site', site: { kind: 'cave', name: "Fern's Delve", x: 60, z: 0 } }) === "Fern's Delve, too far, 60 m");
@@ -201,20 +241,30 @@ check('a way up invites a click', hoverOf({ kind: 'exit', exit: 'up' }) === 'the
 
 // clicking with the wrong tool changes nothing
 picked = treePick(realOaks, 0, 1, 0);
-state.tool = 'hand';
 let before = JSON.stringify(state.materials);
 let d = it.click();
-check('bare hands on a tree are refused', d.reason === 'no_tool');
-check('and the toast sends you to the market', /need an axe.*market/.test(last()), last());
+check('an empty pack on a tree is refused', d.reason === 'no_tool');
+check('and the toast names the tree, the axe and the market',
+  /An oak wants an axe, and there is none in your pack\. The market in town sells one\./.test(last()), last());
 check('and nothing lands in the pack', JSON.stringify(state.materials) === before);
-state.giveTool('pickaxe'); state.tool = 'pickaxe';
+// buying the pickaxe puts it in the pack and NOTHING in a hand: there is no
+// hand to put it in. The oak still wants an axe and says so.
+state.giveTool('pickaxe');
 d = it.click();
-check('a pickaxe on a tree is refused', d.reason === 'wrong_tool');
-check('and the toast names the axe and the oak', /a pickaxe is no use on an oak, you want the axe/.test(last()), last());
+check('carrying only a pickaxe, the oak is still refused', d.reason === 'no_tool' && d.need === 'axe');
+check('and the toast asks for the axe rather than blaming the pickaxe',
+  /An oak wants an axe/.test(last()) && !/pickaxe is no use/.test(last()), last());
 check('and nothing lands in the pack', JSON.stringify(state.materials) === before);
+check('but the boulder it CAN work now says so on the cursor',
+  hoverOf(treePick(realRocks, 0, 1, 0)) === 'boulder, the pickaxe', hoverOf(treePick(realRocks, 0, 1, 0)));
+picked = treePick(realOaks, 0, 1, 0);
 
-// chopping for real
-state.giveTool('axe'); state.tool = 'axe';
+// chopping for real: the axe goes in the pack and the very next click chops,
+// with no cell clicked in between, which is the whole of T3
+state.giveTool('axe');
+check('the moment the axe is carried the cursor changes its mind',
+  hoverOf(treePick(realOaks, 0, 1, 0)) === 'oak, the axe', hoverOf(treePick(realOaks, 0, 1, 0)));
+picked = treePick(realOaks, 0, 1, 0);
 clock += 1000;
 toasts.length = 0;
 const packBefore = state.materials.wood;
@@ -291,7 +341,6 @@ check('and the felled oak is out of the standing list', !!realOaks.trees[0].fell
 // rock and ore go to the right materials
 {
   clock += SWING_MS;
-  state.tool = 'pickaxe';
   picked = treePick(realRocks, 0, 1, 0);
   it.click();
   // stone still goes straight into the pack: a boulder is quarried away, not
@@ -320,7 +369,6 @@ check('and the felled oak is out of the standing list', !!realOaks.trees[0].fell
   state.add('stone', 150);
   check('the pack is full of stone', state.materials.stone === 150);
   picked = treePick(realRocks, 1, 1, 0);
-  state.tool = 'pickaxe';
   it.click();
   check('mining into a full pack still breaks the rock', !!realRocks.trees[1].felledUntil);
   check('the pack stays at the cap', state.materials.stone === 150);
@@ -371,6 +419,42 @@ check('and the felled oak is out of the standing list', !!realOaks.trees[0].fell
 }
 
 
+// ---- the item bar's chosen slot reaches the cursor and the click ----------
+//
+// The whole chain, driven: item_bar.js writes the choice onto the document,
+// state.character is that document, and interact.js reads it through toolFor.
+// Nothing here reaches past the real path to set it.
+{
+  const { createItemBar } = await import('./item_bar.js');
+  const said = [];
+  const bar = createItemBar({
+    character: state.character,
+    inventory: { pack: state.character.pack, equipment: state.character.equipment },
+    hud: { log: (t) => said.push(String(t)) },
+    guardKeys: false,
+  });
+  // the hint only speaks when it CHANGES, so each look starts from nothing
+  const lookAt = (p) => { hoverOf(null); return hoverOf(p); };
+  const packAt = state.character.pack.items.findIndex((i) => i && i.base === 'pickaxe');
+  check('the pickaxe bought above is in the pack, where the bar can find it', packAt >= 0, String(packAt));
+  bar.assign(2, 'pickaxe');
+  const r = bar.use(2);
+  check('pressing its slot chooses it rather than taking it in hand',
+    r.kind === 'tool' && state.character.itemBarSlot === 2, `${r.kind}/${state.character.itemBarSlot}`);
+  const chosenHint = lookAt(treePick(realRocks, 2, 1, 0));
+  check('and the cursor says the boulder will be worked with the one you chose',
+    chosenHint === 'boulder, the pickaxe you chose', chosenHint);
+  clock += SWING_MS;
+  picked = treePick(realRocks, 2, 1, 0);
+  const dSel = it.click();
+  check('and the click mines with it, from the bar', dSel.action === 'mine' && dSel.tool.where === 'bar', JSON.stringify(dSel.tool?.where));
+  bar.clear(2);
+  const afterHint = lookAt(treePick(realRocks, 3, 1, 0));
+  check('taking it off the bar leaves the pickaxe still working, out of the pack',
+    afterHint === 'boulder, the pickaxe', afterHint);
+  picked = null;
+}
+
 // ===========================================================================
 // G9: every tree in the world leaves ITS OWN wood, and the pack only changes
 // when the pile is picked up.
@@ -379,6 +463,28 @@ console.log('\ninteract: the wood a tree leaves');
 {
   const report = auditHarvestDrops();
   check('the harvest audit runs clean at load and again here', !!report, JSON.stringify(report));
+  // and the other direction: it really would fail on a field kind whose work
+  // tools.js has no rule for, which is the guard against a third kind of field
+  // quietly falling through to the axe
+  {
+    const { WORK_FOR } = await import('./interact.js');
+    const kinds = Object.entries(WORK_FOR);
+    check('every field kind names a piece of work, and every one wants a tool',
+      kinds.length === 2 && kinds.every(([, w]) => ['chop', 'mine'].includes(w)),
+      kinds.map(([k, w]) => `${k}->${w}`).join(' '));
+    WORK_FOR.hedge = 'trim';
+    let threw = '';
+    try { auditHarvestDrops(); } catch (err) { threw = err.message; }
+    check('and a field kind naming work nothing knows fails loudly',
+      /trim/.test(threw), threw || 'it did not throw');
+    WORK_FOR.hedge = 'forage';
+    threw = '';
+    try { auditHarvestDrops(); } catch (err) { threw = err.message; }
+    check('and so does one naming work that wants no tool',
+      /wants no tool/.test(threw), threw || 'it did not throw');
+    delete WORK_FOR.hedge;
+    check('and it is clean again once the made up kind is taken away', !!auditHarvestDrops());
+  }
 
   // both directions against flora.js's own list, so a twelfth species cannot
   // ship with no log and a log cannot ship for a tree nothing grows
@@ -413,7 +519,6 @@ console.log('\ninteract: a birch leaves birch and a palm leaves palm');
     f.rebuild();
     return [k, f];
   });
-  state.tool = 'axe';
   const rows = [];
   let right = 0;
   for (const [k, f] of fields) {
@@ -449,7 +554,6 @@ console.log('\ninteract: chop it, then pick it up');
   // NO `loot` argument: this interactor finds the live layer the way the
   // running game does, through the module registry loot_drops keeps.
   const it2 = createInteract({ sc, runtime, player, state, hud, input });
-  state.tool = 'axe';
   clock += SWING_MS;
   picked = treePick(birches, 0, 1, 0);
   const woodBefore = state.materials.wood;
@@ -486,7 +590,7 @@ console.log('\ninteract: chop it, then pick it up');
 console.log('\ninteract: with nowhere to drop it, the wood goes in the pack and says so');
 {
   const spare = createState({ storage: null });
-  spare.giveTool('axe'); spare.tool = 'axe';
+  spare.giveTool('axe');
   const spareToasts = [];
   const it3 = createInteract({
     sc, runtime, player, state: spare, input,

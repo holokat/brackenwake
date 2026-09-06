@@ -18,6 +18,7 @@ import {
   MATERIAL_BASE, MATERIAL_STACKS, MATERIAL_OF, materialFamilyOf, MATERIALS, LOCAL_BASES, SKILL_IDS,
 } from './state.js';
 import { SLOTS, LOG_BASES, ORE_BASES, BASES } from '../mmo/items.js';
+import { toolFor } from './tools.js';
 import { SKILLS } from '../mmo/skills.js';
 import { STATS } from '../mmo/stats.js';
 
@@ -213,17 +214,20 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
 // ---- tools ----------------------------------------------------------------
 {
   const s = createState({ storage: null });
-  check('a tool you do not own cannot be held', (s.tool = 'axe', s.tool === 'hand'));
+  // T3 took the tool row off the screen. OWNING a tool is still a real thing
+  // the market sells; HOLDING one is not, and `state.tool` is a read only
+  // window on what an old save said. So these are about the pack and the doll.
+  check('a fresh character has nothing in hand to speak of', s.tool === 'hand');
+  check('and there is no way to write it: the setter is gone', (() => {
+    try { s.tool = 'axe'; return false; } catch { return s.tool === 'hand'; }
+  })());
   check('giving the axe works once', s.giveTool('axe') === true && s.tools.has('axe'));
   check('and it went to the main hand, as 07 says', s.character.equipment.mainHand.base === 'axe', JSON.stringify(s.character.equipment.mainHand && s.character.equipment.mainHand.base));
   check('and not twice', s.giveTool('axe') === false && s.tools.size === 1);
-  check('the first tool goes into the hand by itself', s.tool === 'axe');
+  check('and buying one writes nothing to the old held field', s.tool === 'hand' && s.character.heldTool === 'hand');
   check('a tool that is not in the game is refused', s.giveTool('sword') === false && s.tools.size === 1);
   s.giveTool('bow');
   check('the bow goes to the ranged slot', s.character.equipment.ranged.base === 'shortbow');
-  check('a later tool does not snatch the hand', s.tool === 'axe');
-  check('but can be taken out', (s.tool = 'bow', s.tool === 'bow'));
-  check('and the hand is always available', (s.tool = 'hand', s.tool === 'hand'));
   s.giveTool('pickaxe');
   check('the pickaxe goes in the pack, as 07 says', s.character.pack.items.some((i) => i && i.base === 'pickaxe'));
   check('all three read as owned', s.tools.size === 3 && TOOLS.every((t) => s.hasTool(t)));
@@ -247,9 +251,10 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   s.earn(5); check('earn notifies', n === 3, String(n));
   s.spend(5); check('spend notifies', n === 4, String(n));
   s.coins = 200; check('assigning coins notifies', n === 5, String(n));
-  s.giveTool('axe'); check('a tool notifies twice, once for the pack and once for the hand', n === 7, String(n));
-  s.tool = 'hand'; check('changing tool notifies', n === 8, String(n));
-  s.touch('skills'); check('and progression.js can say a skill changed', n === 9, String(n));
+  // once, for the pack. It used to notify twice, the second time for the tool
+  // row taking it into the hand, and there is no row to redraw any more (T3).
+  s.giveTool('axe'); check('a tool notifies once, for the pack', n === 6, String(n));
+  s.touch('skills'); check('and progression.js can say a skill changed', n === 7, String(n));
   const before = n;
   s.add('wood', 0); check('an add of nothing says nothing', n === before);
   s.spend(9999); check('a refused spend says nothing', n === before);
@@ -301,7 +306,12 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   const a = createState({ storage: store });
   a.add('wood', 40); a.add('stone', 7); a.add('ore', 2);
   a.addGood('venison', 3); a.addGood('game_meat', 1);
-  a.spend(60); a.giveTool('axe'); a.giveTool('pickaxe'); a.tool = 'pickaxe';
+  a.spend(60); a.giveTool('axe'); a.giveTool('pickaxe');
+  // the tool row is gone (T3): what a player chooses now is a slot on the item
+  // bar, written by item_bar.js, and it has to survive a reload or the next tree
+  // is felled with something else without a word said
+  a.character.itemBar = [{ base: 'pickaxe', name: 'Pickaxe' }];
+  a.character.itemBarSlot = 0;
   a.setPos(123.5, -88.25);
   a.character.skills.mining = 42.5;
   a.character.skillLocks.mining = 'down';
@@ -317,7 +327,7 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('the bare v2 key is not a document any more', !store.m.has(SAVE_KEY));
   const raw = JSON.parse(store.m.get(slotKeyFor('1')));
   check('the save is version 2', raw.v === SAVE_VERSION, JSON.stringify(raw.v));
-  check('the save shape is the 07 document', JSON.stringify(Object.keys(raw).sort()) === '["appearance","bar","bosses","deadUntil","discovered","dragon","equipment","gold","health","heldTool","mana","name","needsCreation","opened","opening","pack","pos","settings","skillLocks","skills","stamina","statLocks","stats","story","uniques","unlockedAbilities","v","waypoint","waystones","zones"]', Object.keys(raw).join(','));
+  check('the save shape is the 07 document', JSON.stringify(Object.keys(raw).sort()) === '["appearance","bar","bosses","deadUntil","discovered","dragon","equipment","gold","health","heldTool","itemBar","itemBarSlot","mana","name","needsCreation","opened","opening","pack","pos","settings","skillLocks","skills","stamina","statLocks","stats","story","uniques","unlockedAbilities","v","waypoint","waystones","zones"]', Object.keys(raw).join(','));
 
   const b = createState({ storage: store });
   check('load finds it', b.load() === true);
@@ -325,7 +335,10 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('materials come back', b.materials.wood === 40 && b.materials.stone === 7 && b.materials.ore === 2);
   check('the hunting bag comes back', b.goods.venison === 3 && b.goods.game_meat === 1, JSON.stringify(b.goods));
   check('tools come back', b.tools.has('axe') && b.tools.has('pickaxe') && b.tools.size === 2);
-  check('the held tool comes back', b.tool === 'pickaxe');
+  check('the item bar comes back', b.character.itemBar[0]?.base === 'pickaxe', JSON.stringify(b.character.itemBar?.[0]));
+  check('and so does the slot the player chose', b.character.itemBarSlot === 0, String(b.character.itemBarSlot));
+  check('so the pickaxe is still what mines, from the bar and not from the pack',
+    toolFor('mine', b.character).where === 'bar', toolFor('mine', b.character).where);
   check('the place you stood comes back', b.pos.x === 123.5 && b.pos.z === -88.25);
   check('the skill comes back to the tenth', b.character.skills.mining === 42.5, String(b.character.skills.mining));
   check('and so does its lock', b.character.skillLocks.mining === 'down');
@@ -490,6 +503,25 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('an item base this version does not know is dropped, not carried as a hole', s.character.pack.items.filter(Boolean).length === 1, JSON.stringify(s.character.pack.items.filter(Boolean).map((i) => i.base)));
   check('an equipment slot this version does not have is ignored', !('tail' in s.character.equipment) && Object.keys(s.character.equipment).length === 14);
   check('and a hand holding a tool it does not own falls back to the hand', s.tool === 'hand');
+}
+// ---- a save from before T3, when there was a tool row ----------------------
+//
+// The row is gone and nothing writes `heldTool` any more, but a document that
+// has one has to open, and `state.tool` has to be able to answer with it.
+{
+  const c = hydrate({
+    heldTool: 'pickaxe',
+    pack: { slots: 80, items: [{ base: 'pickaxe', count: 1 }] },
+  });
+  check('a save with a tool field loads, and the field survives', c.heldTool === 'pickaxe', String(c.heldTool));
+  check('and the pickaxe in it is what mines, out of the pack',
+    toolFor('mine', c).ok === true && toolFor('mine', c).where === 'pack', toolFor('mine', c).where);
+  const bare = hydrate({ heldTool: 'pickaxe' });
+  check('a save that claims a tool it does not carry cannot mine with it',
+    bare.heldTool === 'hand' && toolFor('mine', bare).ok === false, bare.heldTool);
+  const noBar = hydrate({ heldTool: 'hand' });
+  check('and a save from before the item bar existed loads with no choice made',
+    noBar.itemBarSlot === null && Array.isArray(noBar.itemBar), JSON.stringify(noBar.itemBar));
 }
 {
   const c = hydrate({ stats: { con: 100, str: 100 }, health: 99999 });

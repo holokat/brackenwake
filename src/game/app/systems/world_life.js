@@ -38,7 +38,7 @@ export const world_life = {
     // the story system is built after this one, so the interactor gets a getter
     // that finds it when a stone is touched, not the thing (S2)
     const later = (name) => () => (ctx.has(name) ? ctx.get(name) : null);
-    const interact = createInteract({ sc, runtime, player: rig, state, hud, input, audio, progression, loot: fight.loot, chests, story: later('story') });
+    const interact = createInteract({ sc, runtime, player: rig, state, hud, input, audio, progression, loot: fight.loot, chests, story: later('story'), character });
     const shop = createShop({
       state, hud, audio,
       nearestSettlement: () => world.nearestSettlement(),

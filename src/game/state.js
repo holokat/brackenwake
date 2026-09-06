@@ -15,7 +15,10 @@
 //   materials    counts the wood, stone and ore stacks in the pack
 //   goods        counts the venison and game_meat stacks in the pack
 //   tools        looks for the axe, pickaxe and bow among equipment and pack
-//   tool         which of them is in the hand, kept on the document as heldTool
+//   tool         what an old save said was in the hand, kept on the document as
+//                heldTool. READ ONLY, and read by nothing that decides
+//                anything: the tool row is gone and `src/game/tools.js` derives
+//                the tool from what is carried (T3).
 //
 // So interact.js and shop.js run unchanged against a document they know nothing
 // about. When W3's inventory.js lands it works on the same pack, and the two
@@ -40,9 +43,15 @@
 // ---------------------------------------------------------------------------
 // WHERE THIS FILE DIVERGES FROM A DOCUMENT, on purpose
 // ---------------------------------------------------------------------------
-//   heldTool          07's document has no room for the v1 tool row, and the
-//                     HUD still draws it and interact.js still reads it every
-//                     click. It is a top level key, saved and loaded.
+//   heldTool          07's document has no room for the v1 tool row. It is a
+//                     top level key, saved and loaded, and since T3 took the
+//                     row off the screen it is written by nothing and read by
+//                     nothing but `state.tool`, which exists so an old save
+//                     still opens.
+//   itemBar           the eight slots of `src/game/item_bar.js`, and
+//   itemBarSlot       which one holds the tool the player chose. 07 has no room
+//                     for either, and a chosen slot now decides which tool
+//                     fells a tree, so both are carried across a reload.
 //   START_COINS 120   openings.js gives Blank 100 coins. The axe is 60 and the
 //                     pickaxe 80 in shop.js, and every shop test is written
 //                     against 120, so a fresh document keeps 120 until
@@ -246,10 +255,19 @@ export function blankCharacter() {
     pos: { x: 0, z: 0 },
     health: null, mana: null, stamina: null,   // filled from the stats below
     gold: START_COINS,
+    // The tool row is gone (T3). `heldTool` is READ ONLY now and nothing in the
+    // game writes it: it is here so a save written when there was a row still
+    // loads, and so `state.tool` still has something to answer with.
     heldTool: 'hand',
     pack: { slots: PACK_SLOTS, items: new Array(PACK_SLOTS).fill(null) },
     equipment: emptyEquipment(),
     bar: new Array(BAR_SLOTS).fill(null),
+    // The eight slots of the item bar, and which of them holds the tool the
+    // player chose. `src/game/item_bar.js` owns their shape and repairs them on
+    // every read; the document only has to carry them across a reload, which
+    // matters more now that a chosen slot decides what fells a tree.
+    itemBar: [],
+    itemBarSlot: null,
     // Abilities this character has already been shown the unlock banner for.
     // `progression.js` seeds it SILENTLY the first time a document is seen, so
     // a save written before the banner existed does not replay a week of them,
@@ -624,12 +642,18 @@ export function createState(opts = {}) {
     },
     get dev() { return dev; },
     set dev(v) { const n = !!v; if (n === dev) return; dev = n; notify('dev'); },
+    /**
+     * What an old save said was in the hand.
+     *
+     * READ ONLY, and read by nothing that decides anything. The tool row is
+     * gone (T3): which tool does a piece of work is derived from what you carry
+     * by `toolFor` in `src/game/tools.js`, and there is no way to hold the
+     * wrong one any more. This getter is here so a document written when there
+     * was a row still loads and can still be looked at. There is deliberately
+     * no setter: an assignment throws rather than quietly writing a field the
+     * game no longer reads.
+     */
     get tool() { return doc.heldTool; },
-    set tool(v) {
-      const t = v === 'hand' || (TOOLS.includes(v) && (dev || ownsTool(v))) ? v : 'hand';
-      if (t === doc.heldTool) return;
-      doc.heldTool = t; notify('tool');
-    },
 
     /**
      * Put `n` of a NAMED material stack in the pack: `addMaterial('birch_log', 4)`.
@@ -746,7 +770,6 @@ export function createState(opts = {}) {
         packItems()[slot] = item;
       }
       notify('tools');
-      if (doc.heldTool === 'hand') { doc.heldTool = id; notify('tool'); }
       return true;
     },
     hasTool(id) { return dev ? TOOLS.includes(id) : ownsTool(id); },
@@ -1013,6 +1036,17 @@ export function hydrate(raw) {
       doc.bar[i] = typeof raw.bar[i] === 'string' ? raw.bar[i] : null;
     }
   }
+  // The item bar, and the tool chosen on it (T3). The bar used to be written
+  // by item_bar.js onto a document that never carried it home, so every reload
+  // emptied it; now that a chosen slot decides which tool fells a tree, losing
+  // it would silently change what the next click does. item_bar.js owns the
+  // shape and repairs it on every read, so this only has to carry it over.
+  if (Array.isArray(raw.itemBar)) {
+    doc.itemBar = raw.itemBar.map((e) => (
+      e && typeof e === 'object' && e.base ? { base: String(e.base), name: String(e.name || '') } : null
+    ));
+  }
+  doc.itemBarSlot = Number.isInteger(raw.itemBarSlot) && raw.itemBarSlot >= 0 ? raw.itemBarSlot : null;
   if (Array.isArray(raw.discovered)) doc.discovered = raw.discovered.filter((d) => typeof d === 'string');
   if (Array.isArray(raw.zones)) doc.zones = raw.zones.filter((d) => typeof d === 'string');
   if (raw.waypoint && Number.isFinite(raw.waypoint.x) && Number.isFinite(raw.waypoint.z)) doc.waypoint = { x: raw.waypoint.x, z: raw.waypoint.z, name: String(raw.waypoint.name || '') };

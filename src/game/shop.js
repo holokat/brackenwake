@@ -174,10 +174,15 @@ export function createShop({ state, hud, audio, nearestSettlement, root } = {}) 
     if (state.tools.has(id)) { say(`you already carry ${t.name === 'Axe' ? 'an axe' : 'a ' + t.name.toLowerCase()}`); audio?.play?.('denied'); return false; }
     if (!state.dev && state.coins < t.price) { say(`the ${t.name.toLowerCase()} is ${t.price} coins and you have ${state.coins}`); audio?.play?.('denied'); return false; }
     if (!state.dev) state.spend(t.price);
-    const first = state.tool === 'hand';
+    // Where it goes is where it works from. `giveTool` puts the axe on the doll
+    // and the pickaxe in the pack, and since T3 that is enough: there is no row
+    // to click, and the next tree or seam uses it. The line says so, because a
+    // player who bought a tool and was told nothing about using it would go
+    // looking for the cell that is not there any more.
     state.giveTool(id);
-    say(state.dev ? `the ${t.name.toLowerCase()} is yours, free, because dev mode is on`
-      : `you buy the ${t.name.toLowerCase()} for ${t.price} coins${first ? ', and it goes straight into your hand' : ''}`);
+    const where = id === 'axe' ? 'to your hand' : id === 'bow' ? 'across your back' : 'in your pack';
+    say(state.dev ? `the ${t.name.toLowerCase()} is yours, free, because dev mode is on. It is ${where}, and it works from there.`
+      : `you buy the ${t.name.toLowerCase()} for ${t.price} coins. It goes ${where}, and it works from there: nothing to pick up first.`);
     // paying and being paid are deliberately different sounds: a market where
     // they are the same tells the player nothing
     audio?.play?.('buy');

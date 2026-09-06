@@ -124,30 +124,18 @@ export const ui = {
     } catch (err) { console.warn('paperdoll not available', err); }
 
     // ------------------------------------------------------------- the HUD --
+    // THE TOOL ROW IS GONE (T3). There is no cell to light and no tool to pick:
+    // what does a piece of work is derived from what the character carries, by
+    // `toolFor` in src/game/tools.js, and the one choice a player still makes
+    // is which item bar slot to select, which item_bar.js owns. So the purse is
+    // all this draws, and keys 1 to 0, minus and equals are the ability bar's
+    // outright (07-RUNTIME-CONTRACT.md).
     const drawHud = () => {
       hud.setCoins(state.coins);
       hud.setMaterials(state.materials, state.caps);
-      // in dev mode every slot is live, so the bar shows what the game will let
-      // you hold rather than what is in the purse
-      hud.setTool(state.tool, state.dev ? new Set(['axe', 'pickaxe', 'bow']) : state.tools);
     };
     state.onChange(drawHud);
     drawHud();
-    // The tool row is click only. Keys 1 to 0, minus and equals belong to the
-    // ability bar (07-RUNTIME-CONTRACT.md), and a key that did both would swing
-    // and swap in one press.
-    hud.onTool?.((id) => pickTool(id));
-
-    function pickTool(id) {
-      if (id !== 'hand' && !state.tools.has(id)) {
-        hud.toast(`you do not own a ${id} yet. The market in town sells one.`, 'bad');
-        return false;
-      }
-      if (state.tool === id) return true;
-      state.tool = id;
-      hud.toast(id === 'hand' ? 'bare hands' : `${id} in hand`);
-      return true;
-    }
 
     // The compass strip: heading, the map's waypoint, and where you stand.
     //
@@ -278,7 +266,7 @@ export const ui = {
     }
 
     return {
-      windows, panelCtx, compass, applySettings, pickTool, drawHud,
+      windows, panelCtx, compass, applySettings, drawHud,
       get fps() { return fps; },
       get placeText() { return placeText; },
       bw: {
@@ -323,7 +311,7 @@ export const ui = {
   },
 
   ready(ctx) {
-    ctx.hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the bar. C character, B bag, K skills, P abilities, V crafting, M map, X emotes, Escape settings, the key under Escape for dev mode and its bench, E goes in.');
+    ctx.hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the ability bar, F5 to F12 the things you carry. An axe or a pickaxe works from your pack, with nothing to pick up first. C character, B bag, K skills, P abilities, V crafting, M map, X emotes, Escape settings, the key under Escape for dev mode and its bench, E goes in.');
   },
 
   late(ctx, frame) { ctx.get('ui').draw(frame); },

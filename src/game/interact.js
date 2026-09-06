@@ -2,10 +2,18 @@
 // you click it.
 //
 // Two swings never come from one frame's worth of clicking, a tree never falls
-// to a pickaxe, and nothing changes without a line of text saying it did. The
+// to bare hands, and nothing changes without a line of text saying it did. The
 // decision itself is pulled out into `decide`, which is pure and tested both
-// ways for every branch: it is easier to prove that a bow does not fell an oak
-// than to prove that the code which felled it was reachable.
+// ways for every branch: it is easier to prove that an empty pack does not fell
+// an oak than to prove that the code which felled it was reachable.
+//
+// NOBODY CHOOSES A TOOL ANY MORE (T3). There was a row of cells at the bottom
+// of the screen and `state.tool` was whichever one had been clicked, so a
+// player carrying an axe was told "you need an axe" for as long as the wrong
+// cell was lit. `decide` now takes the CHARACTER and asks `src/game/tools.js`
+// what does this work, out of the item bar slot the player chose, the paper
+// doll and the pack, in that order. There is no 'wrong_tool' branch left: the
+// work picks the tool, so the wrong one cannot be in hand.
 //
 // A click asks two questions in one order. `combat.js` is asked first, because
 // the animal in front of a tree is what you were aiming at; the tree wins back
@@ -19,6 +27,7 @@ import * as THREE from 'three';
 import { chopTree } from '../farm/tree_edit.js';
 import { pickTarget, resolveSwing, swingText, nameFor, LOOT } from './combat.js';
 import { CARRIED, materialFamilyOf } from './state.js';
+import { toolFor, swingWordFor, GATHER, nameOf } from './tools.js';
 import { makeItem, LOG_OF, ORE_OF, BASES } from '../mmo/items.js';
 import { describeItem, currentDrops } from './loot_drops.js';
 import { CHEST_REACH } from './chests.js';   // the reach only; the runtime is built in world_life.js
@@ -118,6 +127,14 @@ export function auditHarvestDrops() {
     }
     if (!LOG_OF[word]) bad.push(`the cursor can name a "${word}" and nothing says what it leaves`);
   }
+  // Every kind of field this file can pick names a piece of work tools.js has a
+  // rule for, and every one of those wants a tool. The day a third kind of
+  // field appears (a bush to cut, a wall to break), this is what says so rather
+  // than the field quietly falling through to `chop` and asking for an axe.
+  for (const [kind, work] of Object.entries(WORK_FOR)) {
+    if (!GATHER[work]) bad.push(`a ${kind} field asks for "${work}" and tools.js has no such work`);
+    else if (GATHER[work].bare) bad.push(`a ${kind} field asks for "${work}", which wants no tool at all`);
+  }
   if (!BASES[DEFAULT_LOG]) bad.push(`the default log "${DEFAULT_LOG}" is not a base`);
   if (!BASES[DEFAULT_ORE]) bad.push(`the default ore "${DEFAULT_ORE}" is not a base`);
   if (materialFamilyOf(DEFAULT_ORE) !== 'ore') bad.push(`"${DEFAULT_ORE}" does not count as ore in the pack`);
@@ -129,9 +146,24 @@ export const REACH = 6;        // metres, horizontal, player to the point you hi
 export const SITE_REACH = 14;  // you have to stand at a mouth to go down it
 export const SWING_MS = 450;   // one swing per 450 ms, however fast you click
 
-// Which tool a field answers to. A rock field is a rock field whether it holds
-// hillside boulders or the ore seams at a cave mouth.
-export const TOOL_FOR = { tree: 'axe', rock: 'pickaxe' };
+// Which piece of WORK a field answers to. A rock field is a rock field whether
+// it holds hillside boulders or the ore seams at a cave mouth.
+//
+// It used to be a map from a field to a tool WORD, and the word was compared
+// against `state.tool`, the cell the player had clicked on the tool row. The
+// row is gone (T3): the field says what work this is, and `toolFor` in
+// tools.js says what does that work out of everything you carry, so there is no
+// longer any such thing as having the wrong thing in hand.
+export const WORK_FOR = { tree: 'chop', rock: 'mine' };
+/**
+ * The tool each kind of field wants, for the hover line. Read out of the one
+ * table in tools.js rather than typed a second time here, so a field cannot
+ * come to want one thing on the cursor and another in the click.
+ */
+export const TOOL_FOR = {
+  tree: GATHER[WORK_FOR.tree].need[0],
+  rock: GATHER[WORK_FOR.rock].need[0],
+};
 
 // The last segment of a field name is what the thing is: `world:oak`,
 // `world:ore`, `dungeon:12,3:2:ore`.
@@ -183,18 +215,26 @@ const exitDir = (e) => (typeof e === 'string' ? e : (e?.dir || e?.exit || null))
  * The whole interaction rulebook, with no THREE, no DOM and no side effects.
  *
  * @param pick        what runtime.pick returned, or null
- * @param tool        'hand' | 'axe' | 'pickaxe' | 'bow'
+ * @param character   the document: what is equipped, what is packed, and which
+ *                    item bar slot the player chose. The TOOL IS NOT PASSED IN
+ *                    any more and there is no cell to click: `toolFor` works it
+ *                    out from this, which is why a pickaxe in the pack cannot
+ *                    be told "you need a pickaxe" ever again.
  * @param playerPos   { x, z }
  * @param now         ms
  * @param lastSwingAt ms of the last swing that actually landed
+ * @param opts        { dev } dev mode carries one of every tool
  * @returns {{ action: string, reason: string, [k: string]: any }}
  *
  * Actions: 'none' | 'chop' | 'mine' | 'enter' | 'exit' | 'name' | 'blocked'.
- * Precedence for a tree or a rock is tool, then reach, then regrowth, then the
- * swing timer: being told "you need an axe" is worth more than being told you
- * are standing too far from a tree you could never have chopped anyway.
+ * Precedence for a tree or a rock is the tool, then reach, then regrowth, then
+ * the swing timer: being told "a tree wants an axe" is worth more than being
+ * told you are standing too far from a tree you could never have felled anyway.
+ *
+ * 'wrong_tool' is gone with the row. You cannot hold the wrong thing when the
+ * thing is chosen by the work.
  */
-export function decide(pick, tool, playerPos, now, lastSwingAt) {
+export function decide(pick, character, playerPos, now, lastSwingAt, opts = {}) {
   if (!pick) return { action: 'none', reason: 'nothing' };
 
   if (pick.kind === 'exit') {
@@ -229,27 +269,32 @@ export function decide(pick, tool, playerPos, now, lastSwingAt) {
     const field = t?.field;
     if (!field) return { action: 'none', reason: 'nothing' };
     const kind = field.kind || 'tree';
-    const need = TOOL_FOR[kind] || 'axe';
-    if (tool !== need) {
-      return { action: 'blocked', reason: tool === 'hand' || !tool ? 'no_tool' : 'wrong_tool', need, kind, field };
+    const work = WORK_FOR[kind] || 'chop';
+    const tool = toolFor(work, character, { dev: !!opts.dev, noun: nounFor(field) });
+    if (!tool.ok) {
+      return { action: 'blocked', reason: 'no_tool', need: tool.need[0], want: tool.want, tool, kind, field };
     }
     const p = hitPoint(t);
     const d = p ? horiz(playerPos, p) : Infinity;
-    if (d > REACH) return { action: 'blocked', reason: 'too_far', need, kind, field, dist: d };
+    if (d > REACH) return { action: 'blocked', reason: 'too_far', need: tool.id, tool, kind, field, dist: d };
     const rec = field.trees?.[t.index];
     if (!rec || rec.felledUntil) return { action: 'blocked', reason: 'regrowing', kind, field };
     if (isFinite(lastSwingAt) && now - lastSwingAt < SWING_MS) return { action: 'blocked', reason: 'cooldown', kind, field };
-    return { action: kind === 'rock' ? 'mine' : 'chop', reason: kind, field, index: t.index };
+    return { action: work, reason: kind, field, index: t.index, tool };
   }
 
   return { action: 'none', reason: 'nothing' };
 }
 
-export function createInteract({ sc, runtime, player, state, hud, input, audio, progression, loot, chests, story }) {
+export function createInteract({ sc, runtime, player, state, hud, input, audio, progression, loot, chests, story, character = null }) {
   // Where a felled tree leaves its wood. `main.js` builds `loot` (createLootDrops)
   // before it builds this, so passing it is one word at the call site; until it
   // does, `runtime.loot` is tried and then the pack, so nothing is ever lost.
   const lootSink = () => loot || runtime?.loot || currentDrops();
+  // The document, read fresh every time. `state.character` is a getter and the
+  // roster can swap the whole document under this module, so holding on to one
+  // would leave the axe being looked for in a character who is no longer here.
+  const who = () => state?.character || character || null;
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const aimPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -292,7 +337,10 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
   function beastNow(aim) {
     return pickTarget({
       fauna: runtime?.inDungeon ? null : runtime?.fauna,
-      tool: state.tool, playerPos: player?.pos, aimPos: aim,
+      // what you carry, not what you clicked: `swingWordFor` is the same rule
+      // the axe on a tree goes through, narrowed to the word combat.js weighs
+      tool: swingWordFor(who(), { dev: !!state.dev }),
+      playerPos: player?.pos, aimPos: aim,
     });
   }
 
@@ -333,7 +381,12 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
       const p = hitPoint(t);
       const d = p ? horiz(player?.pos, p) : Infinity;
       if (d > REACH) return `${noun}, too far`;
-      return `${noun}, the ${TOOL_FOR[field.kind || 'tree'] || 'axe'}`;
+      // The line names the tool AND whether you have one, so the refusal is
+      // never the first a player hears of it. A chosen slot is named too: with
+      // two things that could do the work, the cursor says which one will.
+      const tool = toolFor(WORK_FOR[field.kind || 'tree'] || 'chop', who(), { dev: !!state.dev, noun });
+      if (!tool.ok) return `${noun}, and no ${nameOf(tool.need[0])} in your pack`;
+      return tool.where === 'bar' ? `${noun}, the ${tool.name} you chose` : `${noun}, the ${tool.name}`;
     }
     return '';
   }
@@ -432,7 +485,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
   function swing(aim, now) {
     const res = resolveSwing({
       fauna: runtime?.inDungeon ? null : runtime?.fauna,
-      tool: state.tool,
+      tool: swingWordFor(who(), { dev: !!state.dev }),
       playerPos: player?.pos,
       aimPos: aim,
       now,
@@ -517,8 +570,15 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
         return d;
       }
       case 'blocked': {
-        if (d.reason === 'no_tool') { say(`you need ${d.need === 'axe' ? 'an axe' : 'a pickaxe'}, the market in town sells one`); audio?.play?.('denied'); }
-        else if (d.reason === 'wrong_tool') { say(`${anA(state.tool)} is no use on ${anA(nounFor(d.field))}, you want the ${d.need}`); audio?.play?.('denied'); }
+        // The refusal is tools.js's own words, which name the thing that is
+        // missing and where it is not: "A tree wants an axe, and there is none
+        // in your pack." There is no 'wrong_tool' any more, because the work
+        // picks the tool and a player cannot hold the wrong one.
+        if (d.reason === 'no_tool') {
+          const words = d.tool?.reason || `This wants ${anA(nameOf(d.need))}, and there is none in your pack.`;
+          say(`${words} The market in town sells one.`);
+          audio?.play?.('denied');
+        }
         else if (d.reason === 'too_far') say(d.site ? `${d.site.name} is ${Math.round(d.dist)} m off, walk to the mouth` : 'too far, get closer');
         else if (d.reason === 'regrowing') say('a sapling is coming back here');
         // 'cooldown' says nothing on purpose: the swing 450 ms ago already
@@ -548,12 +608,12 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
       // chopping usable in a meadow full of them.
       const beast = beastNow(aim);
       if (beastWins(beast, pick, aim)) return swing(aim, now);
-      return act(decide(pick, state.tool, player?.pos, now, lastSwingAt));
+      return act(decide(pick, who(), player?.pos, now, lastSwingAt, { dev: !!state.dev }));
     },
     /** E, or the HUD. Same rules as clicking a mouth. */
     enter() {
       const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-      const d = decide(pickNow(), state.tool, player?.pos, now, lastSwingAt);
+      const d = decide(pickNow(), who(), player?.pos, now, lastSwingAt, { dev: !!state.dev });
       if (d.action === 'enter' || d.action === 'exit' || d.action === 'open' || d.action === 'waystone'
         || (d.action === 'blocked' && (d.site || d.chest))) return act(d);
       // E never moves you on its own. Underground a stray press would otherwise

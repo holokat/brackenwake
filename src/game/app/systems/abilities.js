@@ -131,12 +131,15 @@ export const abilities = {
       utility: hooks.utility,
     });
 
-    // the item bar: eight slots on F5 to F12 for potions, food, weapons and tools,
-    // kept apart from the ability bar so a sword and a spell never share a key
+    // the item bar: eight slots on F5 to F12 for potions, food, weapons and
+    // tools, kept apart from the ability bar so a sword and a spell never share
+    // a key. Since T3 it is also where a tool is CHOSEN: there is no tool row,
+    // and a slot holding a pickaxe answers its key by becoming the pickaxe that
+    // `toolFor` reaches for first. No setTool hook, because there is no hand to
+    // put anything into.
     const itemBar = createItemBar({
       character, inventory: pack, input, hud,
       useItem: (item, where) => ctx.get('ui').panelCtx.useItem(item, where),
-      setTool: (id) => ctx.get('ui').pickTool(id),
       enabled: () => !ctx.get('ui').windows.anyOpen && !player.dying,
     });
     hud.onItem?.((slot, how) => (how === 'clear' ? itemBar.clear(slot) : itemBar.use(slot)));

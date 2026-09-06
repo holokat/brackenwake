@@ -39,7 +39,6 @@ function rig(opts = {}) {
   const down = new Set();
   const swallowed = [];
   const used = [];
-  const tools = [];
   const bar = createItemBar({
     character, inventory, hud,
     input: { pressed: (k) => down.has(k), swallow: (k) => { swallowed.push(k); down.delete(k); } },
@@ -49,12 +48,11 @@ function rig(opts = {}) {
       inventory.remove(where, 1);
       return { ok: true, text: `${baseFor(item).name}: drunk` };
     },
-    setTool: opts.setTool ? (id) => { tools.push(id); return true; } : undefined,
     enabled: opts.enabled,
     guardKeys: false,
     ...opts.extra,
   });
-  return { character, inventory, bar, said, down, used, tools, swallowed };
+  return { character, inventory, bar, said, down, used, swallowed };
 }
 
 // ---- the list, and the container it goes in ------------------------------------
@@ -258,21 +256,81 @@ console.log('item bar: the refusals');
   check('and the potion is still in the pack, unspent', bar.view()[0].count === 1);
 }
 {
-  // a tool: the same, and it works the moment the hook is handed over
-  const cold = rig();
-  cold.inventory.add(makeItem({ base: 'pickaxe' }));
-  cold.bar.assign(0, { pack: 0 });
-  cold.down.add('f5');
-  const r = cold.bar.update(0.016);
-  check('a tool with no setTool wired says so rather than pretending',
-    r.kind === 'unwired' && /is a tool/.test(cold.said[cold.said.length - 1]), cold.said[cold.said.length - 1]);
-  const warm = rig({ setTool: true });
-  warm.inventory.add(makeItem({ base: 'pickaxe' }));
-  warm.bar.assign(0, { pack: 0 });
-  warm.down.add('f5');
-  const ok = warm.bar.update(0.016);
-  check('and with the hook it takes the tool in hand',
-    ok.kind === 'tool' && ok.ok === true && warm.tools[0] === 'pickaxe', warm.tools.join(','));
+  // A TOOL IS CHOSEN, NOT TAKEN IN HAND (T3). There is no tool row and no
+  // setTool hook any more: the press marks the slot, and `toolFor` in tools.js
+  // prefers it over everything else that is carried.
+  const r = rig();
+  r.inventory.add(makeItem({ base: 'pickaxe' }));
+  r.bar.assign(0, { pack: 0 });
+  r.down.add('f5');
+  const first = r.bar.update(0.016);
+  check('pressing a tool slot chooses it, with no hook wired to anything',
+    first.kind === 'tool' && first.ok === true && r.bar.selected === 0, `${first.kind}/${r.bar.selected}`);
+  check('and says what the choice does', /chosen/i.test(r.said[r.said.length - 1]) && /mining/i.test(r.said[r.said.length - 1]),
+    r.said[r.said.length - 1]);
+  check('the document remembers it, so the save and toolFor can read it', r.character.itemBarSlot === 0);
+  check('and the view lights that cell and no other',
+    r.bar.view().filter((e) => e.selected).map((e) => e.slot).join(',') === '0');
+
+  r.down.add('f5');
+  const again = r.bar.update(0.016);
+  check('pressing it again keeps it chosen and says so rather than going quiet',
+    again.ok === true && r.bar.selected === 0 && /already/i.test(r.said[r.said.length - 1]), r.said[r.said.length - 1]);
+
+  // the other direction: a tool nothing reads is not a thing to choose
+  const pick = rig();
+  pick.inventory.add(makeItem({ base: 'lockpick', count: 3 }));
+  pick.bar.assign(0, { pack: 0 });
+  pick.down.add('f5');
+  const lp = pick.bar.update(0.016);
+  check('a lockpick is not chosen, because the lock takes one out of the pack itself',
+    lp.ok === false && lp.kind === 'unchosen' && pick.bar.selected === null, lp.kind);
+  check('and it says so instead of lighting a cell that decides nothing',
+    /not something you choose/.test(pick.said[pick.said.length - 1]), pick.said[pick.said.length - 1]);
+
+  // taking the chosen tool off the bar puts the choice down, out loud
+  const off = rig();
+  off.inventory.add(makeItem({ base: 'pickaxe' }));
+  off.bar.assign(2, { pack: 0 });
+  off.bar.use(2);
+  check('a tool is chosen from a mouse click as well as from a key', off.bar.selected === 2);
+  off.bar.clear(2);
+  check('clearing the slot puts the choice down', off.bar.selected === null);
+  check('and says what that means for the next tree',
+    /no longer the tool you chose/.test(off.said[off.said.length - 1]), off.said[off.said.length - 1]);
+
+  // putting the choice down on its own says so too: a tool that quietly stopped
+  // being the chosen one would change the next click and look like nothing
+  const put = rig();
+  put.inventory.add(makeItem({ base: 'pickaxe' }));
+  put.bar.assign(0, { pack: 0 });
+  put.bar.use(0);
+  const dr = put.bar.deselect();
+  check('putting the choice down on its own says what it means',
+    dr.ok === true && put.bar.selected === null && /What you carry decides again/.test(put.said[put.said.length - 1]),
+    put.said[put.said.length - 1]);
+  check('and putting down a choice nobody made says nothing and changes nothing',
+    put.bar.deselect().ok === false && put.bar.selected === null);
+
+  // and dragging it to another key keeps it chosen, since it is the same tool
+  const drag = rig();
+  drag.inventory.add(makeItem({ base: 'pickaxe' }));
+  drag.bar.assign(1, { pack: 0 });
+  drag.bar.use(1);
+  drag.bar.assign(4, { pack: 0 });
+  check('a chosen tool dragged to another key is still chosen', drag.bar.selected === 4, String(drag.bar.selected));
+  check('and the line says so', /still the tool you chose/.test(drag.said[drag.said.length - 1]), drag.said[drag.said.length - 1]);
+
+  // burying it under something that is not a tool is a real change, and said
+  const bury = rig();
+  bury.inventory.add(makeItem({ base: 'pickaxe' }));
+  bury.inventory.add(makeItem({ base: 'potion', count: 2 }));
+  bury.bar.assign(3, { pack: 0 });
+  bury.bar.use(3);
+  bury.bar.assign(3, { pack: 1 });
+  check('a potion dropped on the chosen slot puts the choice down', bury.bar.selected === null);
+  check('and says the pack decides again',
+    /no longer chosen/.test(bury.said[bury.said.length - 1]), bury.said[bury.said.length - 1]);
 }
 {
   // the keyboard is not the bar's while a window has it

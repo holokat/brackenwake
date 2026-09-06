@@ -6,6 +6,7 @@
 import { createShop, compassWord, sellPrice, FOR_SALE, MARKET_RANGE } from './shop.js';
 import { createState } from './state.js';
 import { GOODS } from '../farm/catalog.js';
+const { toolFor } = await import('./tools.js');
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -81,8 +82,17 @@ check('northwest', compassWord(-10, -10) === 'northwest');
   check('the axe is bought', shop.buy('axe') === true);
   check('60 coins are gone', state.coins === 60, String(state.coins));
   check('the axe is carried', state.tools.has('axe'));
-  check('the first tool goes into the hand', state.tool === 'axe');
+  // T3: there is no hand to put it in and no cell to click. It goes on the doll
+  // and the next tree uses it, and the line has to say that or a player goes
+  // looking for the tool row that is not there any more.
+  check('it goes on the paper doll rather than into a tool row',
+    state.character.equipment.mainHand?.base === 'axe' && state.tool === 'hand',
+    JSON.stringify(state.character.equipment.mainHand?.base));
   check('and the buy said so', /axe/.test(last()) && /60/.test(last()), last());
+  check('and said it works from where it went, with nothing to pick up first',
+    /works from there/.test(last()) && /to your hand/.test(last()), last());
+  check('and the axe really does chop, straight out of the purchase',
+    toolFor('chop', state.character).ok === true, toolFor('chop', state.character).reason);
   check('and the game saved', store.writes > writes0);
 
   check('the same axe cannot be bought twice', shop.buy('axe') === false);
@@ -96,7 +106,10 @@ check('northwest', compassWord(-10, -10) === 'northwest');
 
   state.earn(60);
   check('with 120 again the pickaxe is bought', shop.buy('pickaxe') === true && state.coins === 40);
-  check('and it does not snatch the hand', state.tool === 'axe');
+  check('and it goes in the pack, and mines from there', state.tool === 'hand'
+    && toolFor('mine', state.character).where === 'pack', toolFor('mine', state.character).where);
+  check('while the axe still chops, so buying one did not put the other down',
+    toolFor('chop', state.character).ok === true);
   state.earn(200);
   check('the bow is 120', shop.buy('bow') === true && state.coins === 120, String(state.coins));
   check('all three are carried', state.tools.size === 3);

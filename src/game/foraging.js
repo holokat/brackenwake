@@ -55,6 +55,7 @@ import { baseFor, makeItem, FORAGE_TAG } from '../mmo/items.js';
 import { SKILL_BY_ID, SKILL_CAP } from '../mmo/skills.js';
 import { poisonTick } from '../mmo/combat_rules.js';
 import { recompute as recomputeActor } from './actor.js';
+import { toolFor } from './tools.js';
 
 /** You have to be standing over it. Half a swing's reach; this is not chopping. */
 export const HARVEST_REACH = 2.5;
@@ -202,6 +203,14 @@ export function createForaging(o = {}) {
       r.dist = dist;
       return r;
     }
+
+    // What picks a plant. Foraging is the one gathering job that wants no tool
+    // at all, and it goes through the same rule the axe and the pickaxe do
+    // (T3, src/game/tools.js) rather than saying nothing and assuming hands:
+    // the day a crop wants a sickle, this refuses in words instead of picking
+    // it anyway. `bare` is why `ok` is true here for every character alive.
+    const tool = toolFor('forage', character, { noun: f.name.toLowerCase() });
+    if (!tool.ok) return no('no_tool', say(tool.reason, 'bad'));
 
     const skill = skillValue();
     const share = yieldFor(skill, plants);

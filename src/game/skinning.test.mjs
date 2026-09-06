@@ -142,6 +142,13 @@ console.log('skinning: no knife refuses, both hands checked');
   check('a skinning knife in hand counts', knifeOf({ equipment: { mainHand: makeItem({ base: 'skinning_knife' }) } }).ok === true);
   check('a skinning knife in the pack counts', knifeOf({ pack: { items: [makeItem({ base: 'skinning_knife' })] } }).ok === true);
   check('an empty character does not', knifeOf({}).ok === false);
+  // T3: the same rule the axe and the pickaxe go through, so the lens that
+  // lends you an axe lends you a knife too and cannot leave one out
+  check('but dev mode lends one, so a kill can still be skinned under the lens',
+    knifeOf({}, { dev: true }).ok === true && knifeOf({}, { dev: true }).what === 'skinning knife',
+    knifeOf({}, { dev: true }).what);
+  check('and a knife you really carry still reports where it really is',
+    knifeOf({ pack: { items: [makeItem({ base: 'skinning_knife' })] } }, { dev: true }).where === 'pack');
   check('and neither does one holding nothing but a sword',
     knifeOf({ equipment: { mainHand: makeItem({ base: 'greatsword' }) }, pack: { items: [] } }).ok === false);
 

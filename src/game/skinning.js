@@ -65,6 +65,7 @@ import { craftChance } from '../mmo/recipes.js';
 import { makeItem, LEATHER_BASE, BASES } from '../mmo/items.js';
 import { MONSTERS } from '../mmo/monsters.js';
 import { skinWordFor, SKINNING_ORDER } from './loot_drops.js';
+import { toolFor } from './tools.js';
 
 /** Metres. The same reach a sack is taken from, 07-RUNTIME-CONTRACT's 3 m. */
 export const SKIN_REACH = 3;
@@ -117,19 +118,20 @@ export function makeHide(word, count = 1, seed = 0) {
  * A dagger is held: `equipment.mainHand`. A skinning knife has no slot in
  * items.js (it is a tool, like the pickaxe, and giving it a slot would put a
  * thing with no damage in the weapon hand), so it counts wherever it is
- * carried, which is what the pickaxe already does through `state.js`. Both are
- * named in the refusal, so nobody has to guess which one the game wants.
+ * carried. Both are named in the refusal, so nobody has to guess which one the
+ * game wants.
+ *
+ * THE RULE IS NOT WRITTEN HERE ANY MORE. It is `toolFor('skin', ...)` in
+ * `src/game/tools.js`, the same one the axe and the pickaxe go through since
+ * T3 took the tool row off the screen, so skinning cannot come to prefer the
+ * pack while chopping prefers the hand. This is the shape the rest of this
+ * file and `context_menu.js` already read: `{ ok, what, where }`.
  */
-export function knifeOf(character) {
-  const main = character?.equipment?.mainHand;
-  if (main && (main.base === 'dagger' || main.base === 'skinning_knife')) {
-    return { ok: true, what: BASES[main.base].name.toLowerCase(), where: 'hand' };
-  }
-  const pack = character?.pack?.items || character?.pack || [];
-  for (const it of (Array.isArray(pack) ? pack : [])) {
-    if (it && it.base === 'skinning_knife') return { ok: true, what: 'skinning knife', where: 'pack' };
-  }
-  return { ok: false, what: null, where: null };
+export function knifeOf(character, opts = {}) {
+  const t = toolFor('skin', character, opts);
+  return t.ok
+    ? { ok: true, what: t.name, where: t.where === 'pack' ? 'pack' : t.where === 'bar' ? 'bar' : 'hand', id: t.id }
+    : { ok: false, what: null, where: null, id: null };
 }
 
 /** The name to say, always the row's own. */
@@ -166,6 +168,10 @@ auditSkinnable();
 export function createSkinning(opts = {}) {
   const { monsters, inventory, progression, hud, audio, floaters, character } = opts;
   const rng = opts.rng || Math.random;
+  // Dev mode carries one of every tool, and it has to carry the knife too or
+  // the lens would let you fell a tree and refuse to skin what you killed.
+  // Read every time, because the lens goes up and down while the game runs.
+  const isDev = typeof opts.dev === 'function' ? opts.dev : () => !!opts.dev;
   const posOf = () => {
     const p = typeof opts.at === 'function' ? opts.at() : opts.at;
     return p || character?.pos || { x: 0, y: 0, z: 0 };
@@ -219,7 +225,7 @@ export function createSkinning(opts = {}) {
     if (!corpse) return false;
     if (corpse.skinned) return false;
     if (!skinWordFor(corpse.row)) return false;
-    return knifeOf(character).ok;
+    return knifeOf(character, { dev: isDev() }).ok;
   }
 
   /**
@@ -245,8 +251,11 @@ export function createSkinning(opts = {}) {
 
     if (corpse.skinned) return refuse(`The ${name} is already skinned.`);
 
-    const knife = knifeOf(character);
-    if (!knife.ok) return refuse(`You need a dagger in hand or a skinning knife in your pack to skin the ${name}.`);
+    // The words are tools.js's, so the refusal a body gives is the same
+    // sentence whether it comes from here, from the context menu or from a
+    // hover line, and there is only one place to change it.
+    const knife = toolFor('skin', character, { noun: name, dev: isDev() });
+    if (!knife.ok) return refuse(knife.reason);
 
     const where = posOf();
     const at = corpse.pos || corpse.actor?.pos;
@@ -310,7 +319,7 @@ export function createSkinning(opts = {}) {
       if (corpse.skinned) return `${name}, skinned`;
       return skinWordFor(corpse.row) ? `${name}, not yet skinned` : `${name}`;
     },
-    difficultyFor, chanceFor, yieldFor, knifeOf: () => knifeOf(character),
+    difficultyFor, chanceFor, yieldFor, knifeOf: () => knifeOf(character, { dev: isDev() }),
   };
 }
 

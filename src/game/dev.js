@@ -1,9 +1,14 @@
 // Dev mode. F1 or backquote (the key under Escape), or the Settings toggle.
 //
 // Two things at once: the camera flies, and the game stops asking whether you
-// can afford anything. Every tool reports as owned, the market opens anywhere
+// can afford anything. Every tool counts as CARRIED, the market opens anywhere
 // and charges nothing. None of that is written to the save, so turning it off
 // leaves you with exactly what you bought.
+//
+// "Carried", not "in hand": there is no hand to hold a tool in since T3 took
+// the tool row off the screen. `toolFor` in src/game/tools.js is asked for the
+// dev flag and answers with the tool the work wants, from nowhere, and every
+// refusal that would have named an axe stops happening while the lens is up.
 //
 // On: the camera leaves the player where it is and flies free, the player is
 // hidden and stops being simulated, the badge lights, and the world streams
@@ -20,7 +25,7 @@
 // What the lens keeps, and what it remembers
 // ---------------------------------------------------------------------------
 // `state.dev` is still the lens: a live flag, never written to the save, read
-// by the tool row and the market while it is up. What IS remembered is the
+// by the market and by the tool rule while it is up. What IS remembered is the
 // intent, as `character.settings.dev`, which 08-POLISH-CONTRACT asks for by
 // name. It goes on the document, so `state.save()` carries it and main.js's
 // `applySettings` puts the mode back at the next boot without this file
@@ -148,7 +153,7 @@ export function createDev({ sc, camera, player, hud, runtime, state, monsters, f
       hud?.setDev(true);
       if (state) state.dev = true;
       persist(true);
-      hud?.toast('dev mode on. WASD flies, Q down, E up, shift for speed. Every tool is in hand and the market is free and opens anywhere. The bench is open: Tour warps you place to place. Click the numbers at the top right to hide or show it.');
+      hud?.toast('dev mode on. WASD flies, Q down, E up, shift for speed. Every tool counts as carried and the market is free and opens anywhere. The bench is open: Tour warps you place to place. Click the numbers at the top right to hide or show it.');
     } else {
       const p = sc.camera.position;
       const [cx, cz] = runtime ? runtime.clampWalkable(p.x, p.z) : [p.x, p.z];
@@ -156,8 +161,11 @@ export function createDev({ sc, camera, player, hud, runtime, state, monsters, f
       camera.setMode('follow');
       player?.setVisible(true);
       hud?.setDev(false);
-      // the lens comes off: what was bought is what is carried
-      if (state) { state.dev = false; if (!state.boughtTool?.(state.tool)) state.tool = 'hand'; }
+      // The lens comes off: what was bought is what is carried. Nothing has to
+      // be put down, because nothing was ever taken up. `toolFor` reads the
+      // pack and the doll again the moment `state.dev` goes false, so an axe
+      // the lens lent you stops chopping on the next click and says so.
+      if (state) state.dev = false;
       persist(false);
       hud?.toast(`dev mode off. You are on the ground at ${Math.round(cx)}, ${Math.round(cz)}, carrying what you actually own.`);
     }

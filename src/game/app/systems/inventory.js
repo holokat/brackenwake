@@ -145,7 +145,7 @@ export const inventory = {
     player.dress();
 
     // a knife on a body, and the trade channel between tabs
-    const skinning = createSkinning({ monsters, inventory: pack, progression, character, hud, audio, floaters, at: () => player.pos, rng: Math.random });
+    const skinning = createSkinning({ monsters, inventory: pack, progression, character, hud, audio, floaters, at: () => player.pos, rng: Math.random, dev: () => state.dev });
     const tradeNet = createTradeNet({ character, name: character.name, at: () => player.pos, now: () => performance.now(), hud });
     tradeNet.onInvite((partner, peer) => {
       hud.log(`${peer?.name || 'somebody'} wants to trade.`);

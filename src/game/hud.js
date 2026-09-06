@@ -3,11 +3,13 @@
 //
 // The farm's HUD was art first: a painted wooden frame with three tool cells
 // cut into it, which is how five tools ended up stacked on top of each other
-// and eating one another's clicks. This one counts its slots in code. TOOLS is
-// the only list, the keys are its indices plus one, and if a fifth tool is
-// added the row grows instead of overflowing. The ability bar below is built
-// the same way from BAR_KEYS, and BAR_SLOTS is its length, never a number
-// typed twice. The ornament is CSS on top of that; the counting is unchanged.
+// and eating one another's clicks. THAT ROW IS GONE (T3). Nothing is taken in
+// hand by clicking a cell any more: melee, ranged and casting read what is
+// equipped, and chopping, mining and skinning read what is carried, through
+// `toolFor` in src/game/tools.js. What is left of the lesson is how the two
+// bars below are built: every cell is counted in code, the ability bar from
+// BAR_KEYS and the item bar from ITEM_KEYS, and BAR_SLOTS is a list's length
+// and never a number typed twice. The ornament is CSS on top of that.
 //
 // WHAT IS HERE (W4 plus U1):
 //   a purse of pictures top left: a coin, a log, a block and a seamed rock,
@@ -35,11 +37,9 @@
 //     and monsters, every one of which main.js already measures
 //   hud.update(dt, view)
 //
-// Everything that was here before is here still and behaves the same way:
-// toast, setMaterials, setCoins, setTool, onTool, setPlace, setDev, setHint,
-// onBar, log, lines, clearLog, el and dispose. interact.js and shop.js call
-// four of those every frame, so this file grows around them rather than
-// through them.
+// Everything else that was here before is here still and behaves the same way:
+// toast, setMaterials, setCoins, setPlace, setDev, setHint, onBar, log, lines,
+// clearLog, el and dispose. `setTool` and `onTool` went with the row they drew.
 //
 // The skeleton is built with createElement rather than one innerHTML string,
 // so hud.test.mjs can run the real createHud against a small fake document.
@@ -51,13 +51,6 @@ import { dropTarget } from './windows.js';
 import { ITEM_SLOTS, ITEM_KEYS, keyCap as itemKeyCap } from './item_bar.js';
 import { baseFor } from '../mmo/items.js';
 import { ABILITIES_BY_ID } from '../mmo/abilities.js';
-
-export const TOOLS = [
-  { id: 'hand',    label: 'hand',    key: '1', free: true },
-  { id: 'axe',     label: 'axe',     key: '2' },
-  { id: 'pickaxe', label: 'pickaxe', key: '3' },
-  { id: 'bow',     label: 'bow',     key: '4' },
-];
 
 export const MATERIALS = ['wood', 'stone', 'ore'];
 
@@ -307,8 +300,9 @@ export const KEY_LABELS = { '=': '+' };
  * WHY R. Every key already spoken for was counted before this one was chosen:
  * `windows.RESERVED_KEYS` is w a s d q e space shift control tab; the window
  * keys are C, B, K, P, V, M, N, Escape and F2; the ability bar is 1 to 0, minus
- * and equals; the item bar is F5 to F12; the tool row shares 1 to 4 with the
- * ability bar; dev is F1 and backquote. R is free, and `hud.test.mjs` and
+ * and equals; the item bar is F5 to F12; dev is F1 and backquote. There is no
+ * tool row sharing 1 to 4 with the ability bar any more (T3), so the twelve are
+ * the bar's alone. R is free, and `hud.test.mjs` and
  * `wyrmsoul.test.mjs` both drive that list rather than take it on trust.
  */
 export const WYRMSOUL_KEY = 'r';
@@ -864,20 +858,6 @@ const CSS = `
   text-transform: uppercase; opacity: .85;
   text-shadow: 0 1px 0 #000, 0 0 4px #000;
 }
-#bw-tools {
-  position: absolute; left: 50%; bottom: 88px; transform: translateX(-50%);
-  display: flex; gap: 8px; pointer-events: auto;
-}
-#bw-tools .slot {
-  width: 66px; padding: 5px 0 6px; text-align: center; cursor: pointer;
-  background: linear-gradient(180deg, rgba(23,19,15,.82), rgba(9,8,6,.86));
-  border: 1px solid ${theme.goldDim}aa;
-}
-#bw-tools .slot .k { display: block; font-family: ${theme.fonts.display}; font-size: 9.5px; color: ${theme.goldDim}; }
-#bw-tools .slot .n { display: block; font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; }
-#bw-tools .slot.locked { opacity: .34; cursor: default; }
-#bw-tools .slot.active { border-color: ${theme.gold}; box-shadow: 0 0 0 1px ${theme.gold} inset, 0 0 14px rgba(201,164,74,.35); }
-
 /* the two bars sit side by side on one centred rail: the twelve you know on
    the left, the eight you carry on the right, with a gold rule between them */
 #bw-bars {
@@ -967,6 +947,14 @@ const CSS = `
 #bw-items .icell.ghost { opacity: .42; }
 #bw-items .icell.ghost .g { filter: grayscale(1); }
 #bw-items .icell.worn { border-color: ${theme.gold}; box-shadow: 0 0 0 1px ${theme.gold} inset, 0 0 12px rgba(201,164,74,.4); }
+/* the tool this character chose (T3). It is not "worn", so it wears a brighter
+   edge and a lit corner rather than the gold ring, and item_bar.js only ever
+   marks a slot holding a real tool, so this can never light on a potion. */
+#bw-items .icell.chosen { border-color: ${theme.goldBright}; box-shadow: 0 0 0 1px ${theme.goldBright} inset, 0 0 16px rgba(230,201,122,.5); }
+#bw-items .icell.chosen::after {
+  content: ''; position: absolute; right: 2px; top: 2px; width: 5px; height: 5px;
+  background: ${theme.goldBright}; box-shadow: 0 0 6px ${theme.goldBright};
+}
 #bw-items .icell.bw-drop-hot { border-color: ${theme.goldBright}; box-shadow: 0 0 0 1px ${theme.goldBright} inset; }
 #bw-items .icell .k {
   position: absolute; top: 1px; left: 3px; font-family: ${theme.fonts.display};
@@ -1105,7 +1093,6 @@ export function createHud(root) {
   plateSkull.innerHTML = SKULL_MARK;
   const plateName = add(plate, mk('div', null, 'nm'));
   const plateWord = add(plate, mk('div', null, 'wd'));
-  const toolRow = add(el, mk('div', 'bw-tools'));
   // one rail, two bars: what you know, then what you carry
   const barRail = add(el, mk('div', 'bw-bars'));
   const barRow = add(barRail, mk('div', 'bw-bar'));
@@ -1158,23 +1145,7 @@ export function createHud(root) {
 
   (root || document.body).appendChild(el);
 
-  // one slot per tool, built once. The row is flex, so the count is whatever
-  // TOOLS says and nothing lands on top of anything else.
-  let onToolPick = null;
-  const slots = TOOLS.map((t) => {
-    const s = mk('div', null, 'slot locked');
-    s.dataset.tool = t.id;
-    const k = add(s, mk('span', null, 'k')); k.textContent = t.key;
-    const n = add(s, mk('span', null, 'n')); n.textContent = t.label;
-    s.addEventListener('click', () => {
-      if (s.classList.contains('locked')) return;
-      if (onToolPick) onToolPick(t.id);
-    });
-    toolRow.appendChild(s);
-    return s;
-  });
-
-  // one cell per bar key, built once, for the same reason.
+  // one cell per bar key, built once, so nothing can land on top of anything.
   let onBarPick = null;
   /** An <img>'s src, set or cleared, on a real element or the tests' fake one. */
   function setArt(img, src) {
@@ -1679,17 +1650,18 @@ export function createHud(root) {
         }
         continue;
       }
-      const stamp = `${e.base}|${e.count}|${e.worn ? 1 : 0}|${e.ghost ? 1 : 0}`;
+      const stamp = `${e.base}|${e.count}|${e.worn ? 1 : 0}|${e.ghost ? 1 : 0}|${e.selected ? 1 : 0}`;
       if (c.last === stamp) continue;
       c.last = stamp;
-      c.el.className = 'icell' + (e.worn ? ' worn' : '') + (e.ghost ? ' ghost' : '');
+      c.el.className = 'icell' + (e.worn ? ' worn' : '') + (e.ghost ? ' ghost' : '') + (e.selected ? ' chosen' : '');
       c.glyph.innerHTML = itemGlyph(baseFor(e.base), 26, null, { count: e.count });
       c.count.textContent = e.count > 1 ? String(e.count) : '';
       c.worn.textContent = e.worn ? `on ${e.wornAt}` : '';
       c.worn.style.display = e.worn ? '' : 'none';
       c.tip = e.ghost
         ? `${e.name}. You have none left.`
-        : e.worn ? `${e.name}, worn on your ${e.wornAt}` : `${e.name}${e.count > 1 ? `, ${e.count} of them` : ''}`;
+        : e.selected ? `${e.name}, the tool you chose. It is what the work goes through.`
+          : e.worn ? `${e.name}, worn on your ${e.wornAt}` : `${e.name}${e.count > 1 ? `, ${e.count} of them` : ''}`;
       c.item = e;
       if (tipOwner === c) showAbTip(c);
     }
@@ -1824,16 +1796,6 @@ export function createHud(root) {
     },
     setCoins(c) { coins = c | 0; drawPurse(); },
 
-    /** `owned` is a Set of tool ids, or anything with .has. 'hand' is free. */
-    setTool(tool, owned) {
-      for (let i = 0; i < TOOLS.length; i++) {
-        const t = TOOLS[i];
-        const has = t.free || (owned && owned.has && owned.has(t.id));
-        slots[i].classList.toggle('locked', !has);
-        slots[i].classList.toggle('active', t.id === tool);
-      }
-    },
-    onTool(fn) { onToolPick = fn; },
     /** A click on the dev badge. The dev system hides and shows the bench with it. */
     onDev(fn) { onDevClick = fn; },
     /** A click on a bar cell, for the mouse. The keys go through input.js. */
