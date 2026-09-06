@@ -10,11 +10,19 @@
 // typed twice. The ornament is CSS on top of that; the counting is unchanged.
 //
 // WHAT IS HERE (W4 plus U1):
-//   pools with numbers top left, red health, blue mana, yellow stamina
+//   a purse of pictures top left: a coin, a log, a block and a seamed rock,
+//     each with its number beside it and its word on the title, and each
+//     preferring public/icons/hud/<id>.webp the moment that file exists
+//   pools with numbers under them, red health, blue mana, yellow stamina
 //   a portrait plate beside them, which takes the paper doll's canvas if one
 //     is handed over and otherwise wears a drawn helm
-//   buff and debuff icons with timers under them
-//   the target frame under the place name, tier coloured
+//   the effects row under the pools: one square per buff, debuff, status,
+//     stance and binding running on the player, gold edged or red edged, the
+//     ability's own painting in it, a bar draining with the time and the
+//     seconds printed in the last ten. `effectsView` gathers it from the five
+//     different places the game keeps such a thing, and never from passives
+//   the place name, the compass strip and the target frame, in one column
+//     down the top centre, stacked by layout rather than by guessed offsets
 //   the twelve slot bar with cooldown sweeps, red unaffordable costs, keys
 //   the eight slot item bar beside it, keys F5 to F12, with stack counts, a
 //     ghost of a stack that has run out, and a gold ring on what you are
@@ -38,10 +46,11 @@
 // A HUD that could only be checked by eye is a HUD nobody checks.
 
 import { injectTheme, theme, icon, itemGlyph } from './ui_theme.js';
-import { abilityIcon } from './icon_art.js';
+import { abilityIcon, itemIcon, iconUrl } from './icon_art.js';
 import { dropTarget } from './windows.js';
 import { ITEM_SLOTS, ITEM_KEYS, keyCap as itemKeyCap } from './item_bar.js';
 import { baseFor } from '../mmo/items.js';
+import { ABILITIES_BY_ID } from '../mmo/abilities.js';
 
 export const TOOLS = [
   { id: 'hand',    label: 'hand',    key: '1', free: true },
@@ -51,6 +60,234 @@ export const TOOLS = [
 ];
 
 export const MATERIALS = ['wood', 'stone', 'ore'];
+
+/** The purse, left to right: the coins first, then what state.js carries. */
+export const RESOURCES = ['gold', ...MATERIALS];
+
+// ---------------------------------------------------------------- the purse --
+//
+// The counters used to read "562 GOLD  0/150 WOOD", which is four words of
+// uppercase Cinzel taking more room than the numbers they label. They are
+// pictures now, and the word is on the title so a player who does not know the
+// picture can still find out by resting on it.
+//
+// EVERY ONE OF THEM FALLS BACK. The first candidate is always
+// `icons/hud/<id>.webp`, which does not exist yet: the user is drawing that
+// art, and dropping the file into public/icons/hud is the whole of the work
+// required to see it. Until it lands the img raises an error, the next
+// candidate is tried, and when the candidates run out the drawn mark below is
+// written into the cell instead. So the row is never empty and never waits.
+
+/** A gold coin, drawn, for the day before public/icons/hud/gold.webp exists. */
+export const COIN_MARK = '<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">'
+  + '<defs><radialGradient id="bw-coin-face" cx="38%" cy="32%" r="74%">'
+  + '<stop offset="0%" stop-color="#ffeeb4"/><stop offset="52%" stop-color="#dfb349"/>'
+  + '<stop offset="100%" stop-color="#8a6316"/></radialGradient></defs>'
+  + '<circle cx="12" cy="12" r="9.3" fill="url(#bw-coin-face)" stroke="#6b4a10" stroke-width="1"/>'
+  + '<circle cx="12" cy="12" r="6.7" fill="none" stroke="#8a6316" stroke-width=".8" opacity=".75"/>'
+  + '<path d="M12 6.6 l1.5 3.9 3.9 1.5 -3.9 1.5 -1.5 3.9 -1.5 -3.9 -3.9 -1.5 3.9 -1.5 z" fill="#fff3cf" opacity=".9"/>'
+  + '</svg>';
+
+/** A split log, end on, for the day before public/icons/hud/wood.webp exists. */
+export const LOG_MARK = '<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">'
+  + '<rect x="3" y="7.5" width="18" height="9" rx="1.4" fill="#7a5730" stroke="#4a3318" stroke-width="1"/>'
+  + '<ellipse cx="4.6" cy="12" rx="1.9" ry="4.5" fill="#c39a5e" stroke="#4a3318" stroke-width="1"/>'
+  + '<ellipse cx="4.6" cy="12" rx="1" ry="2.4" fill="none" stroke="#7a5730" stroke-width=".8"/>'
+  + '<path d="M9 8.6 v6.8 M13.5 8.4 v7.2 M17.6 8.8 v6.4" stroke="#5e412166" stroke-width="1" fill="none"/>'
+  + '</svg>';
+
+/** A cut block, for the day before public/icons/hud/stone.webp exists. */
+export const STONE_MARK = '<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">'
+  + '<path d="M4 9 L12 5 L20 9 L20 16 L12 20 L4 16 Z" fill="#8b8983" stroke="#3d3b37" stroke-width="1"/>'
+  + '<path d="M4 9 L12 13 L20 9" fill="none" stroke="#3d3b37" stroke-width="1"/>'
+  + '<path d="M12 13 V20" fill="none" stroke="#3d3b37" stroke-width="1"/>'
+  + '<path d="M4 9 L12 5 L20 9 L12 13 Z" fill="#a8a69e"/>'
+  + '</svg>';
+
+/** A seamed rock, for the day before public/icons/hud/ore.webp exists. */
+export const ORE_MARK = '<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">'
+  + '<path d="M5 15 L8 7 L16 5.5 L20 12 L16.5 19 L8 19 Z" fill="#6f6a63" stroke="#332f2b" stroke-width="1"/>'
+  + '<path d="M9.5 9.5 l2.6 1.2 -1 2.7 -2.8 -1 z" fill="#d7b06a"/>'
+  + '<path d="M14 13.6 l2.2 .9 -.8 2.2 -2.2 -.9 z" fill="#d7b06a"/>'
+  + '<path d="M15.4 8 l1.6 .7 -.6 1.6 -1.6 -.7 z" fill="#d7b06a"/>'
+  + '</svg>';
+
+/**
+ * One entry per cell in the purse: what it is called when you rest on it, the
+ * pictures to try in order, and the drawing to fall back on when none of them
+ * loads. `iconUrl` puts Vite's base in front, exactly as the bar and the bag do.
+ */
+export const RESOURCE_ART = {
+  gold: { label: 'gold', srcs: [iconUrl('icons/hud/gold.webp')], mark: COIN_MARK },
+  wood: { label: 'wood', srcs: [iconUrl('icons/hud/wood.webp'), itemIcon('oak_log')], mark: LOG_MARK },
+  stone: { label: 'stone', srcs: [iconUrl('icons/hud/stone.webp')], mark: STONE_MARK },
+  ore: { label: 'ore', srcs: [iconUrl('icons/hud/ore.webp'), itemIcon('iron_ore')], mark: ORE_MARK },
+};
+
+// ------------------------------------------------------- the effects row -----
+//
+// One square per thing running on you right now, under the pools, so a shield
+// you cast is a thing you can SEE holding rather than a sentence that scrolled
+// past. Four places can put one there and none of them knew about the others:
+//
+//   actor.buffs      abilities_runtime.addBuff, read through `buffsView(nowS)`:
+//                    { id, abilityId, name, kind: 'buff' | 'debuff', remaining }
+//                    with remaining Infinity for a channelled hold like Sprint
+//   actor.status     combat.js applyStatus and the runtime's statusOn:
+//                    { poison: { level, perSecond, until, seconds } }, and
+//                    `until` there is MILLISECONDS on the frame clock, which is
+//                    not the seconds clock the buffs keep. Both are passed in.
+//   actor.meditating, actor.hidden, actor.absorb, actor.enchant
+//                    four states the runtime writes straight onto the actor,
+//                    each with its own shape and none of them in `buffs`
+//   the binding      a bandage is a four second CAST, so while it runs it is
+//                    `abilities.channelling` and nothing else
+//
+// actor.passives is deliberately not in that list. A passive is always on, so a
+// square for it would never leave, and a row that never changes is furniture.
+
+/**
+ * What combat.js and the runtime can put in `actor.status`, and the words and
+ * the mark each one gets. A status id with no entry here still draws, with its
+ * own id for a name, and `hud.test.mjs` greps both files and fails when a new
+ * one appears, so the next one is a test failure rather than a blank square.
+ */
+export const STATUS_EFFECTS = {
+  poison: { name: 'Poisoned', mark: 'drop', colour: '#8ee07a', line: 'It takes a bite out of you every second until it runs out. A cure, or a bandage at Healing 60.' },
+  bleed: { name: 'Bleeding', mark: 'drop', colour: '#ff7a66', line: 'You are losing blood by the second until it stops.' },
+  stun: { name: 'Stunned', mark: 'bolt', colour: '#ffd23f', line: 'Nothing you press lands until it passes.' },
+  root: { name: 'Rooted', mark: 'snow', colour: '#8fe0ff', line: 'Your feet are held. You can still swing and still cast.' },
+  slow: { name: 'Slowed', mark: 'boot', colour: '#8fe0ff', line: 'You move at less than your own pace.' },
+  plague: { name: 'Plagued', mark: 'flame', colour: '#b58cff', line: 'Every spell that lands on you now bursts.' },
+};
+
+/** Pure. `remaining` for a status, whose `until` is milliseconds on the frame clock. */
+export function statusRemaining(entry, nowMs) {
+  const until = num(entry && entry.until);
+  if (!until) return 0;
+  return Math.max(0, (until - num(nowMs)) / 1000);
+}
+
+/** The three letters a square wears when there is no picture for it. */
+export function initialsOf(name) {
+  return String(name || '').split(/\s+/).filter(Boolean).map((w) => w.slice(0, 1)).join('').slice(0, 3).toUpperCase();
+}
+
+/** Below this many seconds left, the square prints the number. Over it, the bar says enough. */
+export const EFFECT_COUNTDOWN_AT = 10;
+
+/**
+ * Pure. Everything running on the player right now, in one list, newest rules
+ * last. Nothing here reads a clock of its own: `nowS` is the abilities
+ * runtime's seconds and `nowMs` is the frame's milliseconds, and each source is
+ * measured against the one it was written with.
+ *
+ * @returns [{ key, abilityId, name, kind, remaining, duration, icon, mark,
+ *             colour, line }]
+ *   `remaining` is Infinity for a hold with no end (Sprint, Meditate, Hide),
+ *   and every entry that is on the list is on it because it has time left.
+ */
+export function effectsView(view = {}) {
+  const actor = view.actor || {};
+  const nowS = num(view.nowS);
+  const nowMs = num(view.nowMs);
+  const out = [];
+  const seen = new Set();
+  const alive = (r) => r === Infinity || num(r) > 0;
+
+  const push = (rec) => {
+    if (!rec || !alive(rec.remaining)) return;
+    if (seen.has(rec.key)) return;
+    seen.add(rec.key);
+    out.push(rec);
+  };
+
+  /** An ability's own square: its picture, its name, and its line from abilities.js. */
+  const fromAbility = (abilityId, over = {}) => {
+    const ability = ABILITIES_BY_ID[abilityId] || null;
+    // A passive is always on. It is not an effect and it never gets a square.
+    if (ability && ability.passive) return null;
+    return {
+      key: over.key || `ability:${abilityId}`,
+      abilityId: abilityId || null,
+      name: over.name || (ability && ability.name) || 'something',
+      kind: over.kind || 'buff',
+      remaining: over.remaining,
+      duration: over.duration ?? (ability && ability.effect && Number.isFinite(ability.effect.duration) ? ability.effect.duration : null),
+      icon: abilityId ? abilityIcon(abilityId) : null,
+      mark: over.mark || null,
+      colour: over.colour || null,
+      line: over.line || (ability && ability.description) || '',
+    };
+  };
+
+  // 1. the buffs and debuffs the runtime keeps, already measured in its seconds
+  for (const b of Array.isArray(view.buffs) ? view.buffs : []) {
+    if (!b) continue;
+    const id = b.abilityId || b.id || null;
+    const rec = fromAbility(id, {
+      key: `buff:${b.id || id || b.name}`,
+      name: b.name, kind: b.kind === 'debuff' ? 'debuff' : 'buff',
+      remaining: b.remaining,
+      duration: Number.isFinite(b.duration) ? b.duration : undefined,
+    });
+    push(rec);
+  }
+
+  // 2. the four states written straight onto the actor, each with its own shape
+  if (actor.meditating) push(fromAbility('meditate', { key: 'state:meditate', remaining: Infinity }));
+  if (actor.hidden) push(fromAbility(actor.hidden.abilityId || 'hide', { key: 'state:hidden', remaining: Infinity }));
+  if (actor.absorb) {
+    push(fromAbility(actor.absorb.abilityId, {
+      key: 'state:absorb', remaining: Number.isFinite(actor.absorb.until) ? Math.max(0, actor.absorb.until - nowS) : Infinity,
+    }));
+  }
+  if (actor.enchant) {
+    push(fromAbility(actor.enchant.abilityId, {
+      key: 'state:enchant', remaining: Number.isFinite(actor.enchant.until) ? Math.max(0, actor.enchant.until - nowS) : Infinity,
+    }));
+  }
+
+  // 3. the binding: a bandage IS its cast, so while the bar fills it is here.
+  //
+  // The cast record is FLAT. It carries `abilityId` and `name` and no
+  // `ability` object at all, which the first draft of this read, so the square
+  // would never have appeared and the code that made it would have looked
+  // right. `ability?.id` stays as a second reading only so a caller that hands
+  // over an ability rather than a record is not silently dropped either.
+  const cast = view.binding || null;
+  const castId = cast ? (cast.abilityId || (cast.ability && cast.ability.id) || null) : null;
+  if (castId) {
+    const left = Number.isFinite(cast.endsAt) ? Math.max(0, cast.endsAt - nowS) : Infinity;
+    push(fromAbility(castId, {
+      key: `cast:${castId}`, name: cast.name, remaining: left,
+      duration: Number.isFinite(cast.castTime) ? cast.castTime : null,
+    }));
+  }
+
+  // 4. poison, bleed and the rest, on the frame's milliseconds
+  const status = actor.status || null;
+  if (status) {
+    for (const id of Object.keys(status)) {
+      const e = status[id];
+      if (!e) continue;
+      const known = STATUS_EFFECTS[id] || null;
+      push({
+        key: `status:${id}`,
+        abilityId: null,
+        name: known ? known.name : id,
+        kind: 'debuff',
+        remaining: statusRemaining(e, nowMs),
+        duration: Number.isFinite(e.seconds) && e.seconds > 0 ? e.seconds : null,
+        icon: null,
+        mark: known ? known.mark : 'crossed',
+        colour: known ? known.colour : theme.parchment,
+        line: known ? known.line : 'Something is on you and this build has no words for it yet.',
+      });
+    }
+  }
+  return out;
+}
 
 /** Twelve slots, keys 1 to 0 then minus and equals. Same list as the runtime's. */
 export const BAR_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
@@ -291,6 +528,57 @@ export function devLine(stats) {
   return parts.join('   ');
 }
 
+// ------------------------------------------------- the top centre column ----
+//
+// The place plate, the compass strip and the target frame, in that order, one
+// under the other. These are the numbers the CSS below is written from, and
+// they are here rather than only in the style sheet so that `hud.test.mjs` and
+// `compass.test.mjs` can work out where each box lands without a browser. A
+// widget placed at a guessed offset over this column has already gone wrong
+// twice; the offsets are counted now.
+
+export const TOP_CENTRE = {
+  /** #bw-tc top, px from the top of the HUD. */
+  top: 14,
+  /** the flex gap between the plate, the strip and the frame. */
+  gap: 7,
+  /** #bw-place: the font, the line, the panel's padding and its border. */
+  font: 13, line: 1.35, padY: 7, padX: 12, border: 1,
+  /**
+   * A deliberate over-estimate of one uppercase Cinzel character at 13px with
+   * .22em of letter spacing, which measures about 11.3px. Over-estimating
+   * makes the plate WIDER in every calculation, so a "these two boxes do not
+   * touch" claim proved with this number is still true at the real width.
+   */
+  charW: 13,
+};
+
+/** The plate's height in px: one line of 13px Cinzel in a 7px panel. 33.55. */
+export const PLACE_H = TOP_CENTRE.font * TOP_CENTRE.line + TOP_CENTRE.padY * 2 + TOP_CENTRE.border * 2;
+
+/** Where the compass strip's own box starts, px from the top of the HUD. */
+export const COMPASS_SLOT_TOP = TOP_CENTRE.top + PLACE_H + TOP_CENTRE.gap;
+
+/**
+ * Pure. The place plate's box on a screen `screenW` wide, in px from the top
+ * left of the HUD. The plate is centred and grows both ways from the middle.
+ */
+export function placeBox(text, screenW = 1280) {
+  const chars = String(text || '').length;
+  const w = chars * TOP_CENTRE.charW + TOP_CENTRE.padX * 2 + TOP_CENTRE.border * 2;
+  const half = w / 2;
+  return {
+    left: screenW / 2 - half, right: screenW / 2 + half,
+    top: TOP_CENTRE.top, bottom: TOP_CENTRE.top + PLACE_H,
+    width: w, height: PLACE_H,
+  };
+}
+
+/** Pure. Do two boxes share any pixel at all? */
+export function boxesOverlap(a, b) {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
 const CSS = `
 #bw-hud, #bw-hud * { box-sizing: border-box; }
 #bw-hud {
@@ -321,15 +609,21 @@ const CSS = `
 #bw-portrait canvas { width: 100%; height: 100%; display: block; }
 #bw-tl-col { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 
+/* the purse: a picture and a number, and the word only on hover. The cells
+   take pointer events so the title has something to land on; #bw-hud itself
+   is pointer-events none and a title on a node nothing can reach never shows. */
 #bw-purse { display: flex; gap: 12px; align-items: center; }
-#bw-purse .stat { display: inline-flex; gap: 5px; align-items: baseline; }
+#bw-purse .stat { display: inline-flex; gap: 5px; align-items: center; pointer-events: auto; }
+#bw-purse .stat .ic {
+  width: 19px; height: 19px; flex: none; display: flex; align-items: center; justify-content: center;
+}
+#bw-purse .stat .ic img, #bw-purse .stat .ic svg {
+  width: 100%; height: 100%; display: block; object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.8));
+}
 #bw-purse .stat b {
   font-family: ${theme.fonts.display}; font-weight: 600; font-size: 14px;
   font-variant-numeric: tabular-nums; color: ${theme.parchment};
-}
-#bw-purse .stat span {
-  font-family: ${theme.fonts.display}; opacity: .8; font-size: 9.5px;
-  letter-spacing: .16em; text-transform: uppercase; color: ${theme.goldDim};
 }
 #bw-purse .stat.full b { color: #ffb37a; }
 
@@ -350,16 +644,40 @@ const CSS = `
   font-variant-numeric: tabular-nums; letter-spacing: .06em;
 }
 
-#bw-auras { display: flex; gap: 4px; flex-wrap: wrap; width: 236px; }
+/* --- the effects row, under the pools -------------------------------------
+   One square per thing running on you. Gold edge for a buff, red for a
+   debuff, the ability's own painting inside it, a bar along the bottom
+   draining with the time and the seconds printed over it in the last ten.
+   The squares take pointer events because the name and the ability's line
+   are on the title. */
+#bw-auras { display: none; gap: 4px; flex-wrap: wrap; width: 236px; }
+#bw-auras.on { display: flex; }
 #bw-auras .aura {
-  position: relative; width: 27px; height: 27px;
-  background: rgba(18,20,24,.8); border: 1px solid rgba(140,200,140,.6);
-  font-family: ${theme.fonts.display}; font-size: 9px; line-height: 1.05; padding: 2px; overflow: hidden;
+  position: relative; width: 27px; height: 27px; pointer-events: auto;
+  background: rgba(18,20,24,.8); border: 1px solid ${theme.gold};
+  box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.5);
+  font-family: ${theme.fonts.display}; font-size: 9px; line-height: 1.05; overflow: hidden;
 }
-#bw-auras .aura.debuff { border-color: rgba(232,120,110,.7); }
+#bw-auras .aura.debuff { border-color: #e0483a; }
+#bw-auras .aura .art { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+#bw-auras .aura .art img, #bw-auras .aura .art svg { width: 100%; height: 100%; display: block; object-fit: cover; }
+#bw-auras .aura .art.mark { padding: 3px; }
+#bw-auras .aura .art.mark img, #bw-auras .aura .art.mark svg { object-fit: contain; }
+#bw-auras .aura .nm {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; letter-spacing: .04em; color: ${theme.parchment};
+  text-shadow: 0 1px 2px #000;
+}
+/* the sweep: a thin bar along the bottom that shortens with the time left */
+#bw-auras .aura .dr {
+  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+  background: ${theme.gold}; box-shadow: 0 0 4px rgba(0,0,0,.8);
+}
+#bw-auras .aura.debuff .dr { background: #e0483a; }
+#bw-auras .aura.held .dr { width: 100% !important; opacity: .55; }
 #bw-auras .aura .t {
-  position: absolute; right: 1px; bottom: 0; font-size: 9px; font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  position: absolute; right: 1px; bottom: 2px; font-size: 9px; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: #fff2cf; text-shadow: 0 1px 3px #000, 0 0 4px #000;
 }
 
 /* --- the Bond, beside the pools -------------------------------------------
@@ -426,12 +744,16 @@ const CSS = `
   background: radial-gradient(ellipse at 50% 50%, rgba(255,238,200,.85) 0%, rgba(255,170,60,.35) 55%, rgba(255,170,60,0) 100%);
 }
 
-#bw-tc { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-  display: flex; flex-direction: column; align-items: center; gap: 7px; max-width: 60vw; }
+#bw-tc { position: absolute; top: ${TOP_CENTRE.top}px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: ${TOP_CENTRE.gap}px; max-width: 60vw; }
 #bw-place {
-  font-family: ${theme.fonts.display}; font-size: 13px; font-weight: 600;
+  font-family: ${theme.fonts.display}; font-size: ${TOP_CENTRE.font}px; font-weight: 600;
   letter-spacing: .22em; text-transform: uppercase; color: ${theme.gold}; text-align: center;
 }
+/* where compass.js hangs its strip, so the strip is a row in this column
+   rather than a rectangle floated over the plate above it */
+#bw-compass-slot { display: flex; justify-content: center; }
+#bw-compass-slot:empty { display: none; }
 #bw-target { display: none; width: 236px; }
 #bw-target.on { display: block; }
 #bw-target .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -751,9 +1073,18 @@ export function createHud(root) {
   const bondNum = add(bondTxt, mk('div', null, 'n'));
   const auraBox = add(leftCol, mk('div', 'bw-auras'));
 
-  // top centre: place, then the target frame under it
+  // top centre: the place, then the compass strip, then the target frame.
+  //
+  // THE COMPASS IS IN THE COLUMN, not floated over it. It used to be an
+  // absolutely positioned strip at top 38px, which is inside the place plate's
+  // own box (14px down and about 34px tall), so the strip printed its letters
+  // and its waypoint straight through the name of the place you were standing
+  // in. It also crossed the target frame beneath. In the column all three stack
+  // by layout, and the class of bug (a guessed pixel offset into a stack whose
+  // heights nobody measured) cannot come back for the third widget either.
   const topCentre = add(el, mk('div', 'bw-tc'));
   const place = add(topCentre, mk('div', 'bw-place', 'panel'));
+  const compassSlot = add(topCentre, mk('div', 'bw-compass-slot'));
   const targetBox = add(topCentre, mk('div', 'bw-target', 'panel'));
   const tRow = add(targetBox, mk('div', null, 'row'));
   const tName = add(tRow, mk('div', null, 'nm'));
@@ -1007,14 +1338,48 @@ export function createHud(root) {
   let mats = { wood: 0, stone: 0, ore: 0 };
   let caps = { wood: 150, stone: 150, ore: 150 };
 
-  function drawPurse() {
-    const parts = [`<span class="stat"><b>${coins}</b><span>gold</span></span>`];
-    for (const m of MATERIALS) {
-      const have = mats[m] ?? 0, cap = caps[m] ?? 0;
-      const full = cap > 0 && have >= cap;
-      parts.push(`<span class="stat${full ? ' full' : ''}"><b>${have}/${cap}</b><span>${m}</span></span>`);
+  // The four cells are built ONCE. They used to be one innerHTML string rebuilt
+  // on every state change, which with pictures in them would have asked the
+  // browser for four files again every time a coin moved, and thrown away four
+  // 404s a coin for art that has not been drawn yet.
+  const purseCells = RESOURCES.map((id) => {
+    const art = RESOURCE_ART[id];
+    const cell = add(purse, mk('span', null, 'stat'));
+    cell.title = art.label;
+    const ic = add(cell, mk('span', null, 'ic'));
+    const n = add(cell, mk('b'));
+    n.textContent = '0';
+    const srcs = (art.srcs || []).filter(Boolean);
+    const drawn = () => { ic.textContent = ''; ic.innerHTML = art.mark; };
+    if (!srcs.length) drawn();
+    else {
+      const img = add(ic, mk('img'));
+      img.alt = ''; img.draggable = false;
+      let at = 0;
+      // The user's own art first, the game's library second, the drawing last.
+      // Dropping public/icons/hud/gold.webp in is the whole of the work.
+      if (img.addEventListener) {
+        img.addEventListener('error', () => {
+          at += 1;
+          if (at < srcs.length) img.src = srcs[at];
+          else { img.remove(); drawn(); }
+        });
+      }
+      img.src = srcs[0];
     }
-    purse.innerHTML = parts.join('');
+    return { id, el: cell, n, last: '' };
+  });
+
+  function drawPurse() {
+    for (const cell of purseCells) {
+      const text = cell.id === 'gold'
+        ? String(coins)
+        : `${mats[cell.id] ?? 0}/${caps[cell.id] ?? 0}`;
+      const cap = caps[cell.id] ?? 0;
+      const full = cell.id !== 'gold' && cap > 0 && (mats[cell.id] ?? 0) >= cap;
+      if (cell.last !== text) { cell.n.textContent = text; cell.last = text; }
+      cell.el.classList.toggle('full', full);
+    }
   }
   drawPurse();
 
@@ -1048,26 +1413,96 @@ export function createHud(root) {
     }
   }
 
-  // --- buffs and debuffs -----------------------------------------------------
+  // --- the effects row -------------------------------------------------------
+  //
+  // Two speeds. The set of effects changes rarely, so the picture, the name,
+  // the edge colour and the title are re-strung only when the KEYS change, and
+  // the cost of a frame on which nothing started or ended is one width and at
+  // most one short string per square. The squares themselves are made once and
+  // kept: a cell that is not wanted is hidden, never destroyed.
+  //
+  // `longest` is how the sweep knows what full looks like. A buff from the
+  // runtime carries no duration of its own, and asking abilities.js for one
+  // only answers for the effects that declare one, so the longest time this
+  // square has been seen with IS the duration, which is true for a refresh too.
   const auras = [];
-  function drawAuras(list) {
-    const want = Array.isArray(list) ? list : [];
-    while (auras.length < want.length) {
+  const longest = new Map();
+  let auraStamp = null;
+  let lastEffects = [];
+
+  function auraCell(i) {
+    while (auras.length <= i) {
       const a = add(auraBox, mk('div', null, 'aura'));
+      const art = add(a, mk('div', null, 'art'));
       const nm = add(a, mk('span', null, 'nm'));
       const t = add(a, mk('span', null, 't'));
-      auras.push({ el: a, nm, t, last: '' });
+      const dr = add(a, mk('i', null, 'dr'));
+      auras.push({ el: a, art, nm, t, dr, key: null, lastName: '', lastTime: '', lastWidth: '' });
     }
-    for (let i = 0; i < auras.length; i++) {
-      const slot = auras[i];
-      const b = want[i];
-      if (!b) { slot.el.style.display = 'none'; continue; }
-      slot.el.style.display = '';
-      slot.el.className = 'aura' + (b.kind === 'debuff' ? ' debuff' : '');
-      const short = String(b.name || '').split(' ').map((w) => w.slice(0, 1)).join('').slice(0, 3).toUpperCase();
-      if (slot.last !== short) { slot.nm.textContent = short; slot.last = short; }
-      slot.el.title = `${b.name}${Number.isFinite(b.remaining) ? `, ${Math.ceil(b.remaining)} s left` : ''}`;
-      slot.t.textContent = timerLabel(b.remaining);
+    return auras[i];
+  }
+
+  function drawEffects(list) {
+    const want = Array.isArray(list) ? list : [];
+    const stamp = want.map((e) => e.key).join('|');
+    const rebuild = stamp !== auraStamp;
+    auraStamp = stamp;
+    auraBox.classList.toggle('on', want.length > 0);
+
+    // anything that ended forgets how long it was, so the next cast starts full
+    if (rebuild) {
+      const live = new Set(want.map((e) => e.key));
+      for (const k of [...longest.keys()]) if (!live.has(k)) longest.delete(k);
+    }
+
+    for (let i = 0; i < want.length; i++) {
+      const e = want[i];
+      const slot = auraCell(i);
+      const held = e.remaining === Infinity;
+      if (rebuild || slot.key !== e.key) {
+        slot.key = e.key;
+        slot.el.style.display = '';
+        slot.el.className = `aura${e.kind === 'debuff' ? ' debuff' : ''}${held ? ' held' : ''}`;
+        // the ability's own painting; a status or an ability with no art gets
+        // the drawn mark, and a name with neither gets its initials
+        if (e.icon) {
+          slot.art.className = 'art';
+          slot.art.innerHTML = `<img src="${e.icon}" alt="" draggable="false">`;
+          slot.nm.textContent = '';
+        } else if (e.mark) {
+          slot.art.className = 'art mark';
+          slot.art.innerHTML = icon(e.mark, e.colour || theme.gold, 18);
+          slot.nm.textContent = '';
+        } else {
+          slot.art.className = 'art';
+          slot.art.innerHTML = '';
+          slot.nm.textContent = initialsOf(e.name);
+        }
+        slot.lastName = e.name;
+        slot.el.title = e.line ? `${e.name}. ${e.line}` : e.name;
+        // The cell is second hand: it was another effect a moment ago and its
+        // seconds are still written in it. Clearing the MEMO without clearing
+        // the NODE left Sprint, which counts nothing down, wearing the 6 that
+        // Stone Skin left behind.
+        slot.t.textContent = ''; slot.lastTime = '';
+        slot.dr.style.width = '100%'; slot.lastWidth = '100%';
+      } else if (held !== slot.el.classList.contains('held')) {
+        slot.el.classList.toggle('held', held);
+      }
+
+      // the sweep, and the seconds in the last ten
+      const seen = Math.max(num(longest.get(e.key)), num(e.duration), held ? 0 : num(e.remaining));
+      if (!held) longest.set(e.key, seen);
+      const width = held || seen <= 0 ? '100%' : `${(clamp(e.remaining / seen, 0, 1) * 100).toFixed(1)}%`;
+      if (slot.lastWidth !== width) { slot.dr.style.width = width; slot.lastWidth = width; }
+      const time = held || e.remaining >= EFFECT_COUNTDOWN_AT ? '' : timerLabel(e.remaining);
+      if (slot.lastTime !== time) { slot.t.textContent = time; slot.lastTime = time; }
+    }
+
+    for (let i = want.length; i < auras.length; i++) {
+      if (auras[i].el.style.display === 'none') continue;
+      auras[i].el.style.display = 'none';
+      auras[i].key = null;
     }
   }
 
@@ -1345,6 +1780,13 @@ export function createHud(root) {
   return {
     el,
 
+    /**
+     * The row in the top centre column that compass.js mounts its strip into.
+     * `app/systems/ui.js` hands it to `createCompass`. Anything that puts the
+     * strip anywhere else is back to floating it over the place name.
+     */
+    compassSlot,
+
     /** A line of feedback. kind: 'good' | 'bad' | undefined. */
     toast(html, kind) {
       const t = document.createElement('div');
@@ -1618,19 +2060,27 @@ export function createHud(root) {
       return true;
     },
 
+    /** The effects the row is drawing right now, so a test can read them. */
+    get effects() { return lastEffects; },
+
     /**
-     * The per frame draw. `view` is built by main.js:
+     * The per frame draw. `view` is built by app/systems/ui.js:
      *   { actor, target, bar: [{ ability, cooldownLeft, affordable, casting,
      *       unusable, unusableReason }],
-     *     items: item_bar.view(), buffs: [{ name, kind, remaining }] }
+     *     items: item_bar.view(),
+     *     buffs: abilities.buffsView(nowS), binding: abilities.channelling,
+     *     nowS, nowMs }
      * Every part is optional, and a missing part hides its widget rather than
-     * drawing an empty one.
+     * drawing an empty one. `nowS` is the abilities runtime's seconds and
+     * `nowMs` is the frame's milliseconds: the effects row needs both, because
+     * a buff's clock and a poison's clock are not the same clock.
      */
     update(dt, view) {
       const v = view || {};
       const step = num(dt);
       drawPools(v.actor || null);
-      drawAuras(v.buffs);
+      lastEffects = effectsView(v);
+      drawEffects(lastEffects);
       drawTarget(v.target || null);
       drawBar(v.bar);
       drawItems(v.items);

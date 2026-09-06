@@ -144,8 +144,17 @@ export const ui = {
       return true;
     }
 
-    // the compass strip under the place plate: heading, and the map's waypoint
-    const compass = createCompass(hudRoot, { player: rig, camera, character });
+    // The compass strip: heading, the map's waypoint, and where you stand.
+    //
+    // It goes in the HUD's own top centre column, under the place plate, so
+    // the layout stacks the two. It used to be dropped on hudRoot at a fixed
+    // 38px from the top, which is inside the plate's box, and the strip
+    // printed itself through the name of the place you were in. `flow` is what
+    // tells compass.js it is a row in a column rather than a floating strip;
+    // an older HUD with no slot still gets the strip it always had.
+    const compass = createCompass(hud.compassSlot || hudRoot, {
+      player: rig, camera, character, flow: !!hud.compassSlot,
+    });
 
     // docs/mmo/wiring/W5.md section 6: every key and what it does here.
     function applySettings(s) {
@@ -280,12 +289,26 @@ export const ui = {
         updateCursor(now);
         updatePlace(now);
         floaters.update(dt);
+        // The effects row needs BOTH clocks and every place an effect can be
+        // kept. `buffsView` measures actor.buffs in the abilities runtime's
+        // seconds, and app/systems/abilities.js runs that runtime on the
+        // PLAYER's clock: `nowS`. `actor.status` is written by combat.js,
+        // which app/systems/combat.js runs on the WORLD clock, so a poison's
+        // `until` is world milliseconds and reading it against `now` would
+        // count it down at the wrong rate the whole time the dragon is holding
+        // the world still. Meditating, hidden, absorb and enchant sit on the
+        // actor with no clock of their own, and a bandage is a cast, so while
+        // it runs it is `channelling` and is nowhere else. hud.effectsView
+        // gathers all five, and hud.js says what each one costs to draw.
         hud.update(dt, {
           actor,
           target: fight.targeting.frame(character),
           bar: bars.abilities.barView(nowS),
           items: bars.itemBar.view(),
           buffs: bars.abilities.buffsView(nowS),
+          binding: bars.abilities.channelling,
+          nowS,
+          nowMs: frame.worldNow ?? now,
         });
         windows.update(dt);
         panelCtx.paperdoll?.update?.(dt);

@@ -1,8 +1,52 @@
 // The compass strip, driven both ways. Run: node src/game/compass.test.mjs
-import {
+//
+// The last section builds the real strip against a small fake document and
+// measures where the coordinates land, because "they are out from under the
+// place name now" is not a thing anybody should have to take on trust.
+
+// --- a document, small enough to read ---------------------------------------
+function makeDom() {
+  const el = (tag) => {
+    const style = {};
+    const classes = new Set();
+    let text = '';
+    const node = {
+      tagName: String(tag).toUpperCase(),
+      id: '', style, dataset: {}, children: [], parent: null, innerHTML: '', title: '',
+      get textContent() { return node.children.length ? node.children.map((c) => c.textContent).join('') : text; },
+      set textContent(v) { for (const c of node.children) c.parent = null; node.children.length = 0; text = v == null ? '' : String(v); },
+      get className() { return [...classes].join(' '); },
+      set className(v) { classes.clear(); for (const c of String(v).split(/\s+/)) if (c) classes.add(c); },
+      classList: {
+        add: (...c) => c.forEach((x) => classes.add(x)),
+        remove: (...c) => c.forEach((x) => classes.delete(x)),
+        contains: (c) => classes.has(c),
+        toggle(c, force) { const on = force === undefined ? !classes.has(c) : !!force; if (on) classes.add(c); else classes.delete(c); return on; },
+      },
+      appendChild(c) { if (c.parent) c.parent.children.splice(c.parent.children.indexOf(c), 1); c.parent = node; node.children.push(c); return c; },
+      get parentNode() { return node.parent; },
+      removeChild(c) { const i = node.children.indexOf(c); if (i >= 0) { node.children.splice(i, 1); c.parent = null; } return c; },
+      addEventListener() {},
+    };
+    return node;
+  };
+  const byId = new Map();
+  return {
+    createElement: el,
+    getElementById: (id) => byId.get(id) || null,
+    head: { appendChild(c) { if (c.id) byId.set(c.id, c); return c; } },
+    body: el('body'),
+  };
+}
+globalThis.document = makeDom();
+
+const {
   createCompass, compassFrame, bearingOf, headingOf, relativeAngle, markerX,
-  distanceText, COMPASS_SPAN, COMPASS_W, POINTS,
-} from './compass.js';
+  distanceText, coordsText, markerName, coordBox, trackBox,
+  COMPASS_SPAN, COMPASS_W, COMPASS_H, COMPASS_SIDE_W, COMPASS_STRIP_W, POINTS,
+} = await import('./compass.js');
+// the column the strip is a row in: hud.js owns those numbers
+const { placeBox, boxesOverlap, COMPASS_SLOT_TOP, TOP_CENTRE, PLACE_H } = await import('./hud.js');
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -144,6 +188,123 @@ console.log('compass: createCompass without a document');
   check('clearing the waypoint clears the marker', c2.update().waypoint === null);
   c.dispose();
   check('dispose on a DOM-less compass is harmless', true);
+}
+
+console.log('compass: the marker prints the words, not the coordinates');
+{
+  // context_menu.js names every mark on open ground this way, and it was this
+  // string, centred on the track, that ran through the place plate
+  check('a mark on open ground keeps its words and drops its numbers',
+    markerName('the ground at 1209, -226') === 'the ground', markerName('the ground at 1209, -226'));
+  check('and the same with a comma instead of the word at',
+    markerName('a spot, 1209, -226') === 'a spot', markerName('a spot, 1209, -226'));
+  check('a real name with no numbers on it is untouched',
+    markerName('the Millrun Adit') === 'the Millrun Adit');
+  check('a name that is only numbers still says something',
+    markerName('at 12, 30') === 'your mark' && markerName('') === 'your mark' && markerName(null) === 'your mark',
+    `"${markerName('at 12, 30')}"`);
+  check('a name with a number in it that is not a coordinate keeps it',
+    markerName('Mile 12') === 'Mile 12', markerName('Mile 12'));
+  check('and a very long name is cut rather than reaching across the screen',
+    markerName('the Hall of the Nine Sleeping Kings').length === 18, markerName('the Hall of the Nine Sleeping Kings'));
+
+  check('where you stand reads as two rounded numbers',
+    coordsText({ x: 1208.7, z: -226.2 }) === '1209, -226', coordsText({ x: 1208.7, z: -226.2 }));
+  check('and nowhere reads as nothing',
+    coordsText(null) === '' && coordsText({ x: NaN, z: 0 }) === '');
+
+  const f = compassFrame(0, { x: 1209, z: -226 }, { x: 0, z: -1000, name: 'the ground at 40, -50' });
+  check('the frame carries both: the full name and what the marker prints',
+    f.waypoint.name === 'the ground at 40, -50' && f.waypoint.short === 'the ground',
+    `${f.waypoint.name} | ${f.waypoint.short}`);
+  check('and the coordinates of where you are, not of the mark',
+    f.coords === '1209, -226', f.coords);
+}
+
+console.log('compass: the strip, built in a document');
+{
+  const root = document.createElement('div');
+  const player = { pos: { x: 1209, z: -226 }, yaw: Math.PI };
+  const character = { waypoint: { x: 1209, z: -1226, name: 'the ground at 1209, -1226' } };
+  const c = createCompass(root, { player, character, flow: true });
+  check('the strip is three cells: a side, the track, a side',
+    c.el.children.length === 3
+    && c.el.children[0].className === 'bw-c-side left'
+    && c.el.children[1].className === 'bw-c-track'
+    && c.el.children[2].className === 'bw-c-side right',
+    c.el.children.map((n) => n.className).join(' | '));
+  check('mounted in the HUD column it knows it is in the flow',
+    c.el.classList.contains('flow') && c.el.parent === root);
+  check('the ticks and the marker are in the TRACK, not loose in the strip',
+    c.el.children[1].children.length === 1 + POINTS.length + 1,
+    String(c.el.children[1].children.length));
+
+  const f = c.update();
+  const dist = c.el.children[0].children[0];
+  const coords = c.el.children[2].children[0];
+  check('the coordinates are the right hand cell, right aligned',
+    coords.className === 'bw-c-at' && coords.textContent === '1209, -226', coords.textContent);
+  check('the distance is the left hand cell, out of the middle too',
+    dist.className === 'bw-c-dist' && dist.textContent === '1.0 km', dist.textContent);
+  const wp = c.el.children[1].children[POINTS.length + 1];
+  check('the marker prints the words and no numbers at all',
+    wp.textContent === '◆ the ground' && !/\d/.test(wp.textContent), wp.textContent);
+  check('and it is still dead centre, because that is where the mark is',
+    Math.abs(f.waypoint.x) < 1e-12 && wp.style.left === '50.000%', wp.style.left);
+
+  // the readouts are written only when they change
+  const same = c.update();
+  check('standing still, the frame is the same reading', same.coords === f.coords);
+  player.pos = { x: 1210, z: -226 };
+  c.update();
+  check('a metre east moves the readout', coords.textContent === '1210, -226', coords.textContent);
+  character.waypoint = null;
+  c.update();
+  check('clearing the mark clears the distance and keeps the coordinates',
+    dist.textContent === '' && coords.textContent === '1210, -226',
+    `"${dist.textContent}" "${coords.textContent}"`);
+  c.setShown(false);
+  check('the settings window can still put the whole strip away', !c.el.classList.contains('on'));
+  c.dispose();
+  check('and dispose takes it out of the document', root.children.length === 0);
+}
+
+console.log('compass: the coordinates are clear of the place plate');
+{
+  // What the user saw: "...ND AT 1209, -226" printed through MARLFIELD. Two
+  // things were wrong. The strip sat at a fixed 38px from the top of the HUD,
+  // which is inside the plate's own box, and the coordinates were part of the
+  // waypoint's name, printed by the marker in the middle of the track. The
+  // strip is a row in the plate's column now and the coordinates are a readout
+  // at the far right, so the two boxes are disjoint on BOTH axes.
+  check('the plate ends before the strip begins',
+    TOP_CENTRE.top + PLACE_H <= COMPASS_SLOT_TOP,
+    `plate to ${(TOP_CENTRE.top + PLACE_H).toFixed(2)}, strip from ${COMPASS_SLOT_TOP.toFixed(2)}`);
+  check('the old 38px offset really was inside the plate, which is why it broke',
+    38 < TOP_CENTRE.top + PLACE_H, `plate runs to ${(TOP_CENTRE.top + PLACE_H).toFixed(2)}px`);
+  for (const [w, name] of [[1280, 'MARLFIELD'], [1600, 'THE SNOWLINE'], [1920, 'THE GREAT NORTHERN WOODLANDS OF MARLFIELD']]) {
+    const plate = placeBox(name, w);
+    const box = coordBox(w, COMPASS_SLOT_TOP);
+    check(`"${name}" on a ${w} wide screen never touches the readout`,
+      !boxesOverlap(plate, box),
+      `plate ${plate.left.toFixed(0)}..${plate.right.toFixed(0)}, coords ${box.left.toFixed(0)}..${box.right.toFixed(0)}`);
+  }
+  // The old geometry, to prove the measurement can fail. The coordinates used
+  // to be part of the marker, so the box to test them in is the TRACK, and at
+  // 38px from the top the track ran through the plate.
+  check('at the old 38px the very same measurement says the track hit the plate',
+    boxesOverlap(placeBox('MARLFIELD', 1280), trackBox(1280, 38)) === true,
+    `track ${JSON.stringify(trackBox(1280, 38))}`);
+  check('and in the column it does not, so the letters are clear of the name too',
+    !boxesOverlap(placeBox('MARLFIELD', 1280), trackBox(1280, COMPASS_SLOT_TOP)));
+  check('the readout is the far right cell of the row',
+    coordBox(1280, 0).right === 640 + COMPASS_STRIP_W / 2
+    && coordBox(1280, 0).width === COMPASS_SIDE_W
+    && COMPASS_STRIP_W === COMPASS_W + COMPASS_SIDE_W * 2,
+    `${COMPASS_W} track, ${COMPASS_SIDE_W} a side, ${COMPASS_STRIP_W} in all`);
+  check('the track is still centred on the screen, so the middle is still ahead',
+    (coordBox(1280, 0).right - COMPASS_STRIP_W / 2) === 640
+    && COMPASS_H === 20);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

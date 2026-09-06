@@ -14,20 +14,42 @@
 // skeleton is built with createElement and nothing queries into markup.
 
 // --- a document, small enough to read ---------------------------------------
+//
+// It counts. `document.made` is how many nodes have been created and
+// `document.writes` is how many strings have been written into them, so "the
+// effects row does not rebuild when nothing changed" is a measurement of two
+// numbers before and after a frame rather than a claim about the code.
 function makeDom() {
+  const tally = { made: 0, writes: 0 };
   const el = (tag) => {
     const style = {};
     const classes = new Set();
     let text = '';
+    let html = '';
+    tally.made += 1;
     const node = {
       tagName: String(tag).toUpperCase(),
       id: '', style, dataset: {}, children: [], parent: null,
-      innerHTML: '', title: '',
+      title: '',
+      get innerHTML() { return html; },
+      // the real thing empties the node before it parses the markup
+      set innerHTML(v) {
+        for (const c of node.children) c.parent = null;
+        node.children.length = 0;
+        html = v == null ? '' : String(v);
+        tally.writes += 1;
+      },
       get textContent() { return node.children.length ? node.children.map((c) => c.textContent).join('') : text; },
       // Faithful to the real thing: setting textContent EMPTIES the node. Panels
       // clear and rebuild with it, and a fake that only stored the string would
       // let a tab strip grow four copies of itself and call it a pass.
-      set textContent(v) { for (const c of node.children) c.parent = null; node.children.length = 0; text = v == null ? '' : String(v); },
+      set textContent(v) {
+        for (const c of node.children) c.parent = null;
+        node.children.length = 0;
+        text = v == null ? '' : String(v);
+        html = '';
+        tally.writes += 1;
+      },
       listeners: {},
       get className() { return [...classes].join(' '); },
       set className(v) { classes.clear(); for (const c of String(v).split(/\s+/)) if (c) classes.add(c); },
@@ -62,6 +84,8 @@ function makeDom() {
     getElementById: (id) => byId.get(id) || null,
     head: { appendChild(c) { if (c.id) byId.set(c.id, c); return c; } },
     body: el('body'),
+    get made() { return tally.made; },
+    get writes() { return tally.writes; },
   };
 }
 globalThis.document = makeDom();
@@ -73,6 +97,9 @@ const {
   poolView, sweep, costLabel, timerLabel, logTrim, createHud, UNLOCK_TOTAL,
   bannerAt, devLine, BANNER, BANNER_TOTAL,
   gainAt, GAIN, GAIN_TOTAL, GAIN_LINES, BURDEN_MARK, SKULL_MARK,
+  RESOURCES, RESOURCE_ART, COIN_MARK, LOG_MARK, effectsView, initialsOf,
+  STATUS_EFFECTS, EFFECT_COUNTDOWN_AT, statusRemaining,
+  TOP_CENTRE, PLACE_H, COMPASS_SLOT_TOP, placeBox, boxesOverlap,
 } = hudMod;
 const { targetFrame } = await import('./targeting.js');
 const { theme } = await import('./ui_theme.js');
@@ -190,7 +217,9 @@ ck('every export the old contract names is still here',
   ['toast', 'setMaterials', 'setCoins', 'setTool', 'onTool', 'setPlace', 'setDev', 'setHint', 'el', 'dispose']
     .every((k) => hud[k] !== undefined));
 hud.setCoins(41);
-ck('the purse still draws coins', find(root, (n) => n.id === 'bw-purse').innerHTML.includes('>41<'));
+ck('the purse still draws coins',
+  find(root, (n) => n.id === 'bw-purse').children[0].children[1].textContent === '41',
+  find(root, (n) => n.id === 'bw-purse').children[0].textContent);
 hud.setTool('axe', new Set(['axe']));
 ck('an owned tool unlocks and lights up',
   !toolRowEl.children[1].classList.contains('locked') && toolRowEl.children[1].classList.contains('active'));
@@ -258,8 +287,8 @@ ck('a filled slot stops being empty', !barRow.children[0].classList.contains('em
 ck('an untouched slot is still empty', barRow.children[5].classList.contains('empty'));
 ck('two aura icons, one buff one debuff, with timers',
   auraEl.children.length === 2 && auraEl.children[1].classList.contains('debuff')
-  && auraEl.children[1].children[1].textContent === '2',
-  `${auraEl.children.length} icons, last timer "${auraEl.children[1]?.children[1]?.textContent}"`);
+  && auraEl.children[1].children[2].textContent === '2',
+  `${auraEl.children.length} icons, last timer "${auraEl.children[1]?.children[2]?.textContent}"`);
 
 // no target, no frame
 hud.update(0.016, { actor: null, target: null, bar: null, buffs: [] });
@@ -698,6 +727,372 @@ ck('at 3 s it is done, and stays done', gainAt(3).phase === 'done' && gainAt(90)
     body.children.map((c) => c.className).join(',') === 'head,chips,desc,burden,reason',
     body.children.map((c) => c.className).join(','));
   barRow.children[0].fire('pointerleave');
+}
+
+// --- the purse: four pictures and four numbers, and not one word ------------
+//
+// The counters read "562 GOLD  0/150 WOOD  0/150 STONE  0/150 ORE", which is
+// four words of uppercase Cinzel taking more room than the numbers. What is
+// counted here is that the word has left the flow and gone onto the title,
+// that every cell really carries a picture, and that the fallback chain the
+// user's art will land in front of actually runs.
+console.log('hud: the purse is pictures');
+{
+  const purseEl = find(root, (n) => n.id === 'bw-purse');
+  ck('four cells: the coins and the three materials state.js carries',
+    purseEl.children.length === 4 && RESOURCES.join(',') === `gold,${MATERIALS.join(',')}`,
+    RESOURCES.join(','));
+  for (let i = 0; i < RESOURCES.length; i++) {
+    const id = RESOURCES[i];
+    const cell = purseEl.children[i];
+    const ic = cell.children[0];
+    const img = ic.children[0];
+    ck(`${id} draws a picture, an img or an svg`,
+      (img && img.tagName === 'IMG') || /<svg/.test(ic.innerHTML),
+      img ? `${img.tagName} ${img.src}` : ic.innerHTML.slice(0, 30));
+    ck(`${id} tries the user's own art first`,
+      !img || String(img.src).endsWith(`icons/hud/${id}.webp`), img && img.src);
+    ck(`${id} keeps its word on the title, not in the row`,
+      cell.title === RESOURCE_ART[id].label && !/[a-z]/i.test(cell.textContent),
+      `title "${cell.title}" flow "${cell.textContent}"`);
+  }
+  // the fallback: gold has one candidate, so one failure lands on the drawing
+  const goldIc = purseEl.children[0].children[0];
+  goldIc.children[0].fire('error');
+  ck('gold with no art file falls back to the drawn coin',
+    goldIc.children.length === 0 && goldIc.innerHTML === COIN_MARK,
+    goldIc.innerHTML.slice(0, 40));
+  // wood has two, so the first failure steps to the game's own oak log
+  const woodIc = purseEl.children[1].children[0];
+  woodIc.children[0].fire('error');
+  ck('wood with no hud art steps to the oak log rather than giving up',
+    String(woodIc.children[0].src).endsWith('icons/items/oak-log.webp'), woodIc.children[0].src);
+  woodIc.children[0].fire('error');
+  ck('and only then to the drawn log',
+    woodIc.children.length === 0 && woodIc.innerHTML === LOG_MARK, woodIc.innerHTML.slice(0, 40));
+
+  // the numbers, and the silence when they do not move
+  hud.setCoins(562);
+  hud.setMaterials({ wood: 12, stone: 0, ore: 150 }, { wood: 150, stone: 150, ore: 150 });
+  ck('the numbers are beside the pictures',
+    purseEl.children[0].children[1].textContent === '562'
+    && purseEl.children[1].children[1].textContent === '12/150',
+    purseEl.children.map((c) => c.children[1].textContent).join(' '));
+  ck('a full material still goes amber', purseEl.children[3].classList.contains('full')
+    && !purseEl.children[1].classList.contains('full'));
+  const before = document.writes;
+  hud.setCoins(562);
+  hud.setMaterials({ wood: 12, stone: 0, ore: 150 }, { wood: 150, stone: 150, ore: 150 });
+  ck('drawing the same purse again writes nothing at all',
+    document.writes === before, `${document.writes - before} writes`);
+  hud.setCoins(563);
+  ck('and one coin moving writes exactly one string',
+    document.writes === before + 1, `${document.writes - before} writes`);
+}
+
+// --- the effects row ---------------------------------------------------------
+//
+// Five different places can put something on the player and none of them knew
+// about the others: actor.buffs through the runtime's buffsView, actor.status
+// through combat.js, the four states written straight onto the actor, and the
+// bandage, which is a cast and is therefore in none of them. Each source is
+// driven here, and each is driven OFF again, because a square that appears and
+// will not leave is worse than no square.
+console.log('hud: the effects row');
+{
+  const auras = () => auraEl.children.filter((c) => c.style.display !== 'none');
+  const S = { nowS: 100, nowMs: 100000 };
+  const stone = ABILITIES_BY_ID.stoneSkin;
+  const curse = ABILITIES_BY_ID.curseOfWeakness;
+
+  hud.update(0.016, { ...S, buffs: [{ id: 'stoneSkin:100', abilityId: 'stoneSkin', name: 'Stone Skin', kind: 'buff', remaining: 12 }] });
+  let cells = auras();
+  ck('a buff on the player is one square, and the row turns on',
+    cells.length === 1 && auraEl.classList.contains('on'), `${cells.length} squares`);
+  ck('it wears the ability own painting',
+    /icons\/abilities\/stoneSkin\.webp/.test(cells[0].children[0].innerHTML),
+    cells[0].children[0].innerHTML.slice(0, 60));
+  ck('a buff has the gold edge, which is the absence of the red one',
+    !cells[0].classList.contains('debuff'), cells[0].className);
+  ck('over ten seconds left it prints no number, the bar says enough',
+    cells[0].children[2].textContent === '' && EFFECT_COUNTDOWN_AT === 10);
+  ck('the bar is full on the frame it lands', cells[0].children[3].style.width === '100.0%',
+    cells[0].children[3].style.width);
+  ck('the name and the ability own line are on the hover',
+    cells[0].el === undefined && cells[0].title === `Stone Skin. ${stone.description}`, cells[0].title);
+
+  // the same square, later: the bar drains and the seconds appear
+  hud.update(0.016, { ...S, nowS: 106, buffs: [{ id: 'stoneSkin:100', abilityId: 'stoneSkin', name: 'Stone Skin', kind: 'buff', remaining: 6 }] });
+  cells = auras();
+  ck('six of twelve seconds left drains the bar to half',
+    cells[0].children[3].style.width === '50.0%', cells[0].children[3].style.width);
+  ck('and under ten seconds the number appears',
+    cells[0].children[2].textContent === '6', `"${cells[0].children[2].textContent}"`);
+
+  // and the frame it ends, it is gone
+  hud.update(0.016, { ...S, buffs: [{ id: 'stoneSkin:100', abilityId: 'stoneSkin', name: 'Stone Skin', kind: 'buff', remaining: 0 }] });
+  ck('the frame it expires the square is gone and the row is off',
+    auras().length === 0 && !auraEl.classList.contains('on'), `${auras().length} squares`);
+
+  // a debuff is red
+  hud.update(0.016, { ...S, buffs: [{ id: 'c:1', abilityId: 'curseOfWeakness', name: 'Curse of Weakness', kind: 'debuff', remaining: 15 }] });
+  cells = auras();
+  ck('a debuff wears the red edge',
+    cells.length === 1 && cells[0].classList.contains('debuff'), cells[0].className);
+  ck('and says what it does on hover',
+    cells[0].title === `Curse of Weakness. ${curse.description}`, cells[0].title);
+
+  // a passive is not an effect and never gets a square
+  hud.update(0.016, {
+    ...S,
+    actor: { passives: { arcaneMastery: { spellPower: 0.1 }, riposte: {} } },
+    buffs: [{ id: 'a:1', abilityId: 'arcaneMastery', name: 'Arcane Mastery', kind: 'buff', remaining: Infinity }],
+  });
+  ck('a passive gets no square, even handed to the row as a buff',
+    auras().length === 0, `${auras().length} squares`);
+
+  // Sprint: a held buff with no end. It shows, with no number and a full bar.
+  hud.update(0.016, { ...S, buffs: [{ id: 's:1', abilityId: 'sprint', name: 'Sprint', kind: 'buff', remaining: Infinity }] });
+  cells = auras();
+  ck('Sprint, held with no duration, still gets its square',
+    cells.length === 1 && cells[0].classList.contains('held'), cells[0].className);
+  ck('a held effect counts nothing down',
+    cells[0].children[2].textContent === '' && cells[0].children[3].style.width === '100%',
+    `"${cells[0].children[2].textContent}" ${cells[0].children[3].style.width}`);
+
+  // Meditate and Hide are not buffs at all: they are states on the actor
+  hud.update(0.016, { ...S, actor: { meditating: { since: 90 }, hidden: { abilityId: 'hide' } }, buffs: [] });
+  ck('sitting to meditate and going to ground are two squares',
+    auras().length === 2, auras().map((c) => c.title.split('.')[0]).join(', '));
+  ck('and they are the right two, with the right art',
+    /meditate\.webp/.test(auras()[0].children[0].innerHTML) && /hide\.webp/.test(auras()[1].children[0].innerHTML),
+    auras().map((c) => c.title.split('.')[0]).join(', '));
+  hud.update(0.016, { ...S, actor: {}, buffs: [] });
+  ck('standing up and being seen takes both squares away', auras().length === 0);
+
+  // The bandage: a cast, and nowhere else in the game. The record the runtime
+  // keeps is FLAT: `abilityId` and `name`, and no `ability` object, which the
+  // first draft of effectsView read. The shape here is the shape a real cast
+  // has, and the section below drives the real runtime to prove it.
+  hud.update(0.016, {
+    ...S, actor: {}, buffs: [],
+    binding: { abilityId: 'bandage', name: 'Bandage', startedAt: 99, endsAt: 103, castTime: 4, rooted: true },
+  });
+  cells = auras();
+  ck('a bandage being bound is a square while the cast runs',
+    cells.length === 1 && /bandage\.webp/.test(cells[0].children[0].innerHTML), `${cells.length} squares`);
+  ck('and three of its four seconds left is three quarters of a bar and a 3',
+    cells[0].children[3].style.width === '75.0%' && cells[0].children[2].textContent === '3',
+    `${cells[0].children[3].style.width} "${cells[0].children[2].textContent}"`);
+  hud.update(0.016, { ...S, actor: {}, buffs: [], binding: null });
+  ck('letting go of the bandage takes the square with it', auras().length === 0);
+
+  // poison, on the OTHER clock: combat.js writes `until` in milliseconds
+  hud.update(0.016, { ...S, actor: { status: { poison: { level: 2, until: 108000, seconds: 12 } } }, buffs: [] });
+  cells = auras();
+  ck('poison is a square, from actor.status and the frame milliseconds',
+    cells.length === 1 && cells[0].classList.contains('debuff'), `${cells.length} squares`);
+  ck('eight of its twelve seconds are left, which is two thirds of the bar',
+    cells[0].children[3].style.width === '66.7%', cells[0].children[3].style.width);
+  ck('it says what poison does, in words',
+    cells[0].title === `Poisoned. ${STATUS_EFFECTS.poison.line}`, cells[0].title);
+  ck('and the seconds clock is not used for it',
+    statusRemaining({ until: 108000 }, 100000) === 8, String(statusRemaining({ until: 108000 }, 100000)));
+  hud.update(0.016, { ...S, actor: { status: { poison: { level: 2, until: 100000, seconds: 12 } } }, buffs: [] });
+  ck('a poison that has run out is off the row the same frame', auras().length === 0);
+
+  // everything at once, and then the same frame twice
+  const busy = {
+    ...S,
+    actor: { meditating: { since: 90 }, status: { bleed: { until: 104000, seconds: 6 } } },
+    buffs: [{ id: 's:1', abilityId: 'sprint', name: 'Sprint', kind: 'buff', remaining: Infinity }],
+  };
+  hud.update(0.016, busy);
+  ck('three at once is three squares, and the set is stable', auras().length === 3,
+    auras().map((c) => c.title.split('.')[0]).join(', '));
+  const made = document.made, writes = document.writes;
+  hud.update(0.016, busy);
+  ck('the same three effects again make no new node',
+    document.made === made, `${document.made - made} nodes`);
+  ck('and write nothing, because not one number moved',
+    document.writes === writes, `${document.writes - writes} writes`);
+  hud.update(0.016, { ...busy, actor: { ...busy.actor, status: { bleed: { until: 103000, seconds: 6 } } } });
+  ck('a second off the bleed writes exactly one string, the seconds',
+    document.writes === writes + 1, `${document.writes - writes} writes`);
+  hud.update(0.016, { ...S, actor: {}, buffs: [] });
+  ck('and clearing everything hides the squares rather than destroying them',
+    auras().length === 0 && auraEl.children.length >= 3, `${auraEl.children.length} kept`);
+}
+
+// --- the same row, driven by the REAL abilities runtime ----------------------
+//
+// Everything above hands the row records this file wrote. That is exactly how
+// the first draft came to read `cast.ability.id` off a record that has no
+// `ability` on it at all: the test agreed with the code and both were wrong.
+// So a real runtime casts real abilities here and the row draws what it says.
+console.log('hud: the effects row, from the real runtime');
+{
+  const auras = () => auraEl.children.filter((c) => c.style.display !== 'none');
+  const skills = {};
+  for (const k of ['magery', 'meditation', 'healing', 'anatomy', 'hiding', 'stealth', 'focus', 'tactics',
+    'swordsmanship', 'resistingSpells', 'evaluatingIntelligence', 'inscription', 'mysticism']) skills[k] = 100;
+  const player = {
+    speed: 0, yaw: 0, airborne: false, pos: { x: 0, y: 0, z: 0 },
+    state: { x: 0, y: 0, z: 0, vx: 0, vz: 0, vy: 0, yaw: 0, airborne: false, peakY: 0 },
+    parts: {}, teleport() {},
+  };
+  const actor = {
+    id: 'player', name: 'You', faction: 'player', pos: player.pos,
+    health: 200, maxHealth: 200, mana: 200, maxMana: 200, stamina: 200, maxStamina: 200,
+    buffs: [], status: {}, weapon: { skill: 'swordsmanship' },
+  };
+  const character = { skills, stats: { str: 100, dex: 100, int: 100, con: 100, wis: 100 }, bar: [], items: { bandage: 10 } };
+  const ab = runtime.createAbilities({
+    character, actor, player,
+    hud: { log() {}, toast() {}, gain() {} },
+    combat: { queueSpell() {}, queueSwing() {} },
+    monsters: {}, effects: { colourFor: () => 0, cast() {}, stopCast() {} },
+    floaters: { spawn() {} }, audio: { play() {} }, rng: () => 0.5, heightAt: () => 0,
+  });
+  const frame = (t) => hud.update(0.016, {
+    actor, nowS: t, nowMs: t * 1000,
+    buffs: ab.buffsView(t), binding: ab.channelling,
+  });
+
+  ab.useById('stoneSkin', 0);
+  ab.update(0.6, 0.6);
+  frame(0.6);
+  ck('a real Stone Skin, cast and landed, is a square with its own art',
+    auras().length === 1 && /stoneSkin\.webp/.test(auras()[0].children[0].innerHTML),
+    `${auras().length} squares`);
+  ck('and the runtime measures its twelve seconds, not this file',
+    Math.abs(ab.buffsView(0.6)[0].remaining - 12) < 1e-9, String(ab.buffsView(0.6)[0].remaining));
+  ab.update(0.1, 13);
+  frame(13);
+  ck('when the runtime drops it, the square goes with it', auras().length === 0);
+
+  ab.useById('sprint', 13);
+  frame(13);
+  ck('a real Sprint is held, with no number counting down',
+    auras().length === 1 && auras()[0].classList.contains('held')
+    && auras()[0].children[2].textContent === '',
+    `${auras().length} squares, "${auras()[0]?.children[2]?.textContent}"`);
+  ck('and the runtime really does hand back an endless remaining',
+    ab.buffsView(13)[0].remaining === Infinity, String(ab.buffsView(13)[0].remaining));
+
+  ab.useById('bandage', 20);
+  frame(21);
+  const binding = auras().find((c) => /bandage\.webp/.test(c.children[0].innerHTML));
+  ck('a real bandage being bound is a square while its cast runs',
+    !!binding && ab.channelling && ab.channelling.abilityId === 'bandage',
+    ab.channelling ? `channelling ${ab.channelling.abilityId}` : 'nothing channelling');
+  ck('with three of its four seconds left on the bar',
+    !!binding && binding.children[3].style.width === '75.0%' && binding.children[2].textContent === '3',
+    binding ? `${binding.children[3].style.width} "${binding.children[2].textContent}"` : 'no square');
+  ck('THE CAST RECORD IS FLAT: abilityId and name, and no ability object',
+    ab.channelling.ability === undefined && typeof ab.channelling.abilityId === 'string',
+    Object.keys(ab.channelling).slice(0, 5).join(','));
+}
+
+// --- effectsView, on its own -------------------------------------------------
+console.log('hud: effectsView gathers all five sources and no sixth');
+{
+  ck('nothing running is an empty list', effectsView({}).length === 0);
+  ck('an expired buff never reaches the row',
+    effectsView({ buffs: [{ id: 'x', abilityId: 'stoneSkin', name: 'Stone Skin', kind: 'buff', remaining: 0 }] }).length === 0);
+  ck('a passive is refused by id, whatever it is called',
+    effectsView({ buffs: [{ id: 'x', abilityId: 'riposte', name: 'Riposte', kind: 'buff', remaining: 10 }] }).length === 0);
+  const one = effectsView({ nowS: 10, actor: { absorb: { abilityId: 'manaShield', until: 22 } } });
+  ck('Mana Shield, which is an absorb and not a buff, is on the row',
+    one.length === 1 && one[0].abilityId === 'manaShield' && one[0].remaining === 12,
+    JSON.stringify(one.map((e) => [e.abilityId, e.remaining])));
+  ck('it takes its duration from the ability own line', one[0].duration === 15, String(one[0].duration));
+  const two = effectsView({ nowS: 10, actor: { enchant: { abilityId: 'consecrateWeapon', until: Infinity } } });
+  ck('a weapon enchant with no end is held rather than dropped',
+    two.length === 1 && two[0].remaining === Infinity);
+  ck('initials stand in when there is no picture and no mark',
+    initialsOf('Battle Cry') === 'BC' && initialsOf('') === '');
+  // the same effect from two sources is one square, not two
+  const dup = effectsView({
+    nowS: 10,
+    actor: { hidden: { abilityId: 'hide' } },
+    buffs: [{ id: 'state:hidden', abilityId: 'hide', name: 'Hide', kind: 'buff', remaining: 5 }],
+  });
+  ck('one thing running is one square however many places keep it',
+    dup.filter((e) => e.abilityId === 'hide').length <= 2 && dup.length === 2,
+    dup.map((e) => e.key).join(' '));
+}
+
+// --- every status combat.js can apply has words on the row -------------------
+//
+// "If the fix is add it to the other four, add the check that fails loudly
+// when a fifth appears." STATUS_EFFECTS is that list, and this is that check:
+// the two files that write actor.status are read, and a status with no entry
+// here is a failure rather than a square with an id in it.
+console.log('hud: every status has words');
+{
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, join } = await import('node:path');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const files = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) walk(join(dir, e.name));
+      else if (e.name.endsWith('.js')) files.push(join(dir, e.name));
+    }
+  };
+  walk(here);
+  const src = files.map((f) => readFileSync(f, 'utf8')).join('\n');
+  const ids = new Set();
+  for (const m of src.matchAll(/(?:applyStatus|statusOn)\??\.?\([^,]+,\s*'([a-zA-Z]+)'/g)) ids.add(m[1]);
+  ck(`the game applies ${ids.size} named statuses, across ${files.length} files`, ids.size >= 5, [...ids].sort().join(' '));
+  const missing = [...ids].filter((id) => !STATUS_EFFECTS[id]);
+  ck('and every one of them has a name and a line on the row', missing.length === 0, missing.join(','));
+  ck('every entry has a mark, a colour and words',
+    Object.values(STATUS_EFFECTS).every((s) => s.name && s.mark && s.colour && s.line));
+}
+
+// --- the top centre column stacks, it does not overlap -----------------------
+//
+// The compass strip used to be dropped at a fixed 38px from the top of the
+// HUD, which is inside the place plate's own box, so its coordinates ran
+// through MARLFIELD. The plate, the strip and the target frame are one column
+// now. This measures the boxes, including the coordinate readout at the far
+// right of the strip, against a place name far longer than any the game has.
+console.log('hud: the top centre column');
+{
+  const { coordBox, COMPASS_STRIP_W, COMPASS_H, COMPASS_SIDE_W } = await import('./compass.js');
+  ck('the plate is 33.55px tall: one 13px line in a 7px panel',
+    Math.abs(PLACE_H - 33.55) < 1e-9, String(PLACE_H));
+  ck('the strip starts below it, with the column gap between',
+    COMPASS_SLOT_TOP === TOP_CENTRE.top + PLACE_H + TOP_CENTRE.gap
+    && COMPASS_SLOT_TOP > TOP_CENTRE.top + PLACE_H, String(COMPASS_SLOT_TOP));
+  for (const [w, name] of [[1280, 'MARLFIELD'], [1920, 'THE GREAT NORTHERN WOODLANDS OF MARLFIELD'], [900, 'high ground']]) {
+    const plate = placeBox(name, w);
+    const coords = coordBox(w, COMPASS_SLOT_TOP);
+    ck(`"${name}" at ${w} wide does not touch the coordinates`,
+      !boxesOverlap(plate, coords),
+      `plate ${plate.left.toFixed(0)}..${plate.right.toFixed(0)} x ${plate.top}..${plate.bottom.toFixed(1)}, `
+      + `coords ${coords.left.toFixed(0)}..${coords.right.toFixed(0)} x ${coords.top.toFixed(1)}..${coords.bottom.toFixed(1)}`);
+  }
+  // and the horizontal alone would clear it for a name the game really uses
+  const plate = placeBox('MARLFIELD', 1280);
+  const coords = coordBox(1280, COMPASS_SLOT_TOP);
+  ck('MARLFIELD does not even reach the coordinate column sideways',
+    plate.right < coords.left, `${plate.right.toFixed(0)} vs ${coords.left.toFixed(0)}`);
+  ck('the readout is the far right cell of the strip',
+    coords.right === 1280 / 2 + COMPASS_STRIP_W / 2 && coords.width === COMPASS_SIDE_W
+    && coords.height === COMPASS_H);
+  ck('the box arithmetic itself is checked both ways',
+    boxesOverlap({ left: 0, right: 10, top: 0, bottom: 10 }, { left: 9, right: 20, top: 9, bottom: 20 })
+    && !boxesOverlap({ left: 0, right: 10, top: 0, bottom: 10 }, { left: 10, right: 20, top: 0, bottom: 10 }));
+  // and the HUD really does build the slot the compass is meant to mount into
+  ck('the HUD builds a compass slot in the column, between the plate and the frame',
+    !!hud.compassSlot && hud.compassSlot.id === 'bw-compass-slot'
+    && hud.compassSlot.parent.id === 'bw-tc'
+    && hud.compassSlot.parent.children.map((c) => c.id).join(',') === 'bw-place,bw-compass-slot,bw-target',
+    hud.compassSlot?.parent?.children.map((c) => c.id).join(','));
 }
 
 console.log(`\n${pass} passed, ${bad} failed`);
