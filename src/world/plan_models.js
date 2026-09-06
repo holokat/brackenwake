@@ -609,10 +609,39 @@ export const hasProp = (id) => props.has(id);
 /** How many models are loaded, for a report. */
 export const propCount = () => props.size;
 /** Put a model in by hand. The loader's own landing point. */
+/**
+ * A model's own yaw, in degrees, so a door faces +z the way the plans expect.
+ * The AI mesh tools hand back a model facing whichever way the reference
+ * image did; a row here turns it once at load and the plan never knows.
+ */
+export const PROP_YAW = {};
+
 export function registerProp(id, object3D) {
   object3D.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  props.set(id, object3D);
-  return object3D;
+  // FIT TO THE FOOTPRINT. The tools that make these hand back a model
+  // normalised to a metre (Tripo: every one of the user's six was 0.98 m tall,
+  // the castle and the sack alike), so a model is scaled uniformly until its
+  // height is the footprint's height, its base is put on y = 0 and its middle
+  // on x = z = 0. A model without a footprint is kept as it came.
+  const f = FOOTPRINT[id];
+  const wrap = new THREE.Group();
+  wrap.name = `prop:${id}`;
+  if (PROP_YAW[id]) object3D.rotation.y = PROP_YAW[id] * Math.PI / 180;
+  wrap.add(object3D);
+  if (f) {
+    wrap.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(wrap);
+    const height = box.max.y - box.min.y;
+    const k = height > 1e-6 ? f[2] / height : 1;
+    object3D.scale.multiplyScalar(k);
+    wrap.updateMatrixWorld(true);
+    box.setFromObject(wrap);
+    object3D.position.x -= (box.min.x + box.max.x) / 2;
+    object3D.position.z -= (box.min.z + box.max.z) / 2;
+    object3D.position.y -= box.min.y;
+  }
+  props.set(id, wrap);
+  return wrap;
 }
 /** Forget a model, so a test can drive both directions on the same id. */
 export const forgetProp = (id) => props.delete(id);
