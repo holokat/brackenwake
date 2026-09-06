@@ -764,7 +764,10 @@ export function createWorldField(seed = 1, opts = {}) {
     // ground a player will actually stand on and not the hillside under it
     const padded = (x, z, d) => {
       const w = 1 - smoothstep(site.flatR * 0.55, site.flatR + 4, d);
-      return lerp(raw(x, z).h, site.y, w);
+      // the dish too, for the same reason: this is a copy of the pad and a copy
+      // that knows one less thing than the original is how a mouth ends up
+      // reported at a height nobody stands at. No mine asks for one today.
+      return lerp(raw(x, z).h, site.y, w) - (site.dish > 0 ? site.dish * w : 0);
     };
     site.mouths = parts.mouths.map((m) => {
       const x = site.x + Math.sin(m.a) * m.d;
@@ -867,6 +870,18 @@ export function createWorldField(seed = 1, opts = {}) {
           ? site.y - CAVE_MOUND * smoothstep(3, site.flatR, d)   // a mound that peaks at the mouth
           : site.y;
         h = lerp(h, target, w);
+        // A DISH: the pad's floor under its own rim, for a place that is a
+        // hollow and not a table. `zones.SITE_DISH` says how deep, in metres,
+        // and it is taken off by the pad's OWN weight, so the floor is the full
+        // depth down across the flat middle (where `w` is exactly 1) and comes
+        // back up to the rim over the same shoulder the pad already blends on.
+        // That is deliberate: the shoulder's grade is the one this file has
+        // always laid at a pad edge, so the side of a dish is exactly as
+        // walkable as the side of every pad in the world, and a player walks
+        // down into the Sunken Chapel's flooded meadow and back out of it.
+        // `site.dish` is 0 on every site but that one and this line is then
+        // arithmetic that does not run.
+        if (site.dish > 0) h -= site.dish * w;
         river *= 1 - w;
         pad = w;
       }

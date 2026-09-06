@@ -28,7 +28,7 @@
 import * as THREE from 'three';
 import { mulberry32, hash2 } from '../world/noise.js';
 import { npcsFor, NPCS, NPC_LIST, TOWN_NPCS } from '../mmo/npcs.js';
-import { peopleFor } from '../mmo/plans/index.js';
+import { peopleFor, PLAN_IDS } from '../mmo/plans/index.js';
 import { roleOf, PERSON, STORY_ROLES } from '../mmo/story.js';
 import { layoutTown, lotOf, doorOf, REQUIRED_LOTS } from '../world/town_layout.js';
 import { buildCharacter as defaultBuildCharacter, poseCharacter, PALETTE } from './player.js';
@@ -110,10 +110,48 @@ export function npcSpotsFor(site, n) {
   return out;
 }
 
-/** A person's given name, stable for a site, a role and a place in the street. */
-export function nameFor(site, roleId, index) {
+/**
+ * A person's given name, stable for a site, a role and a place in the street.
+ *
+ * The hash takes the ROLE'S LENGTH and not the role, which is a table of
+ * twenty four names indexed by a number that half a dozen roles share, so a
+ * street of nine draws nine times out of twenty four and two of them come up
+ * the same about as often as not. Measured over every settlement within 6 km:
+ * 29 of 129 streets held a repeat, 45 people of 440, and Hearthhome stood Pell
+ * the Stablemaster next to Pell the Banker and Udd the Alchemist next to Udd
+ * the Provisioner.
+ *
+ * So a caller that is naming a whole street passes `taken`, a Set of the names
+ * already spoken for in it, and a name that is spoken for walks on to the next
+ * in the table. That keeps every name a pure function of the site, the role and
+ * the order of the street, and it keeps the FIRST person to want a name, which
+ * is why the cast's own names are put in the Set before anybody is generated.
+ * With no Set it is the bare hash it always was.
+ */
+export function nameFor(site, roleId, index, taken = null) {
   const h = hash2(site.cx | 0, site.cz | 0, 3907 + index * 31 + roleId.length);
-  return GIVEN_NAMES[h % GIVEN_NAMES.length];
+  const i0 = h % GIVEN_NAMES.length;
+  if (!taken) return GIVEN_NAMES[i0];
+  for (let k = 0; k < GIVEN_NAMES.length; k++) {
+    const name = GIVEN_NAMES[(i0 + k) % GIVEN_NAMES.length];
+    if (!taken.has(name)) { taken.add(name); return name; }
+  }
+  return GIVEN_NAMES[i0];      // a street wider than the table; auditNpcSpots forbids it
+}
+
+/**
+ * The names already spoken for in a street, seeded with the cast standing in
+ * it. A story person's plate reads "Cobb Ashby" and the table has "Cobb" in it,
+ * so BOTH go in: two Cobbs at one crossroads is the same bug wearing a surname.
+ */
+function takenIn(people) {
+  const taken = new Set();
+  for (const name of people) {
+    if (!name) continue;
+    taken.add(name);
+    taken.add(String(name).split(' ')[0]);
+  }
+  return taken;
 }
 
 /**
@@ -164,17 +202,22 @@ function townRoles(site, rng) {
  * for the field it samples. This is the function the node test drives.
  */
 export function streetFor(site, field, opts = {}) {
-  if (!PEOPLED.includes(site.kind)) return [];
+  // a planned place stands its people whatever its kind (P1: the miller at the
+  // mill, Vane at his camp), so the kind gate is only for the packer's streets
+  if (!PEOPLED.includes(site.kind) && !peopleFor(site.sub).length) return [];
   // P1: a planned town's street is the plan's, not the packer's
   const planned = peopleFor(site.sub);
   if (planned.length) {
+    // The cast first, so nobody the plan names is displaced and nobody
+    // generated is given a name that is already standing at the next door.
+    const taken = takenIn(planned.map((p) => (p.name && PERSON[p.name] ? PERSON[p.name].name : null)));
     return planned.map((p, i) => {
       const role = roleOf(p.role) || NPCS.provisioner;
       const person = p.name ? PERSON[p.name] : null;
       return {
         id: `${site.id}:${p.name || p.role}:${i}`,
         site, role,
-        personName: person ? person.name : nameFor(site, p.role, i),
+        personName: person ? person.name : nameFor(site, p.role, i, taken),
         nightOnly: !!role.nightOnly,
         at: p.name || 'square',
         x: site.x + p.x, z: site.z + p.z, homeYaw: p.yaw * Math.PI / 180,
@@ -203,6 +246,7 @@ export function streetFor(site, field, opts = {}) {
   const loose = roles.filter((r) => !(plan && TOWN_ANCHOR[r.id]));
   const ring = npcSpotsFor(site, Math.max(3, loose.length));
   let next = 0;
+  const taken = takenIn([]);
 
   return roles.map((role, i) => {
     let spot = null;
@@ -218,7 +262,7 @@ export function streetFor(site, field, opts = {}) {
       id: `${site.id}:${role.id}`,
       site,
       role,
-      personName: nameFor(site, role.id, i),
+      personName: nameFor(site, role.id, i, taken),
       nightOnly: !!role.nightOnly,
       at: plan && TOWN_ANCHOR[role.id] ? TOWN_ANCHOR[role.id] : 'square',
       x: spot.x,
@@ -254,6 +298,17 @@ export function auditNpcSpots() {
   // allow a street that wide or somebody's door would always be shut.
   const anchored = Object.keys(TOWN_ANCHOR).length + 1;
   if (anchored > TOWN_NPCS[1]) bad.push(`a town needs ${anchored} people to keep its doors and npcs.js allows ${TOWN_NPCS[1]}`);
+
+  // A NAME EACH. `nameFor` walks the table for a name nobody in the street has
+  // yet, and it can only do that while the table is longer than the street. The
+  // widest street in the game is the widest plan, and the widest rolled town is
+  // whatever npcs.js allows; if either ever passes twenty four, two people at
+  // one crossroads answer to the same name again and this says so at load.
+  const widestPlan = Math.max(0, ...PLAN_IDS.map((id) => peopleFor(id).length));
+  const widest = Math.max(widestPlan, TOWN_NPCS[1]);
+  if (widest > GIVEN_NAMES.length) {
+    bad.push(`a street of ${widest} draws from ${GIVEN_NAMES.length} given names, so two of them must share`);
+  }
 
   // Two people must never share a spot. The tightest case is a ruin's one
   // stall; the widest is a town of nine.

@@ -10,9 +10,10 @@ import {
   SEA, seaWithin, REEFS, reefAt, ARCHIPELAGO, archipelagoWithin,
   discOverlap, SIBLING_OVERLAP, CELL_PAD_MAX, TOWN_PRECINCT_R, MAX_FLAT_R,
   STANDS_IN_WATER, RELIEF_ZONES, EXTRA_ARTICLE, ARTICLE, articleFor, FLAT_R, heartAllows,
+  SITE_DISH,
 } from './zones.js';
 import { REALMS, PLACES } from '../mmo/realms.js';
-import { createWorldField, SEA_LEVEL } from './field.js';
+import { createWorldField, SEA_LEVEL, RAMP_MAX_STEP } from './field.js';
 import { authoredInCell, SITE_CELL, mineParts } from './sitegrid.js';
 import { createDiscovery, ZONE_ENTER_W, zoneChain } from './sites.js';
 
@@ -660,6 +661,44 @@ console.log('zones: the seventy three places with something built on them');
       `${s.name} has ${margin.toFixed(0)} m of margin for a ${s.flatR} m pad`);
   }
   check('and none lays a pad wider than field.js knows how to reach', tooWide === 0, `widest ${Math.max(...sites.map((s) => s.flatR))} m against MAX_FLAT_R ${MAX_FLAT_R}`);
+
+  // THE DISH (P2): a pad that is a hollow. `field.js` sinks the floor of one
+  // under its own rim and blends it back up over the pad's shoulder, so three
+  // things have to hold or the dish is decoration. It has to name a real place;
+  // that place has to lay a pad at all, because a dish is taken off by the
+  // pad's weight and a site with `flatR` 0 never runs the pad code; and the
+  // shoulder has to be long enough to carry the depth back up at a grade a
+  // player can walk. `field.test.mjs` measures the one that exists on the real
+  // ground; these are the rules a second one added tomorrow has to meet.
+  {
+    const dishIds = Object.keys(SITE_DISH);
+    const named = dishIds.filter((id) => sites.some((s) => s.sub === id));
+    check('every dish names a place that is really there', named.length === dishIds.length,
+      dishIds.map((id) => `${id} ${SITE_DISH[id]} m`).join(', '));
+    const dished = sites.filter((s) => s.dish > 0);
+    check('and the row carries it, and every other site carries a flat 0',
+      dished.length === dishIds.length && sites.every((s) => s.dish === (SITE_DISH[s.sub] || 0)),
+      `${dished.length} of ${sites.length} sites are hollows: ${dished.map((s) => `${s.name} ${s.dish} m`).join(', ')}`);
+    const padless = dished.filter((s) => !(s.flatR > 0));
+    check('and a dish always has a pad to be cut into', padless.length === 0,
+      padless.map((s) => s.name).join(', ') || dished.map((s) => `${s.name} on a ${s.flatR} m pad`).join(', '));
+    // the shoulder runs from flatR * 0.55 to flatR + 4, and a smoothstep is
+    // steepest in the middle of its own run at 1.5 times the average
+    let worstSide = 0, steep = '';
+    for (const s of dished) {
+      const run = (s.flatR + 4) - s.flatR * 0.55;
+      const grade = 1.5 * s.dish / run;
+      if (grade > worstSide) { worstSide = grade; steep = s.name; }
+    }
+    check('and its side is walkable: the shoulder is long enough to carry the depth',
+      worstSide < RAMP_MAX_STEP, dished.length
+        ? `${steep} falls ${dished[0].dish} m over a ${((dished[0].flatR + 4) - dished[0].flatR * 0.55).toFixed(1)} m shoulder, ${worstSide.toFixed(3)} m per metre against RAMP_MAX_STEP ${RAMP_MAX_STEP}`
+        : 'no dishes');
+    // driven the other way: the same rule catches a dish too deep for its pad
+    const tooDeep = 1.5 * 20 / ((32 + 4) - 32 * 0.55);
+    check('while a twenty metre dish on the same pad would be refused', tooDeep > RAMP_MAX_STEP,
+      `${tooDeep.toFixed(2)} m per metre`);
+  }
 
   // none of them is anywhere near the heart the saves stand in, and none of
   // them owns a cell the heart's own 2 km square is sampled from, which is a

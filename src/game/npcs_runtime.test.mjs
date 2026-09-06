@@ -5,6 +5,8 @@ import {
   TALK_REACH, NOTICE, createNpcs, TOWN_ANCHOR, townPlanFor, DOOR_STAND,
 } from './npcs_runtime.js';
 import { NPCS, npcsFor } from '../mmo/npcs.js';
+import { PERSON } from '../mmo/story.js';
+import { peopleFor } from '../mmo/plans/index.js';
 import { createWorldField } from '../world/field.js';
 import { SITE_CELL } from '../world/sitegrid.js';
 import { mulberry32 } from '../world/noise.js';
@@ -325,6 +327,96 @@ console.log('npcs_runtime: night at the ruin');
   npcs.update(0.1, { x: ruin.x, z: ruin.z });          // nothing said about the time
   check('with no time given nobody is hidden', nec.group.visible === true);
   npcs.dispose();
+}
+
+console.log('npcs_runtime: a name each, and the cast keep theirs');
+{
+  // THE BUG, MEASURED. `nameFor` hashes the ROLE'S LENGTH and the index into a
+  // table of twenty four, so a street of nine draws nine times out of twenty
+  // four and two of them come up the same about as often as not. Before this,
+  // over every settlement within 6 km: 29 of 129 streets held a repeat and 45
+  // people of 440 answered to a name somebody at the next door also had.
+  // Hearthhome stood Pell the Stablemaster beside Pell the Banker and Udd the
+  // Alchemist beside Udd the Provisioner.
+  const R = 6000, C = Math.ceil(R / SITE_CELL);
+  const streets = [];
+  for (let cz = -C; cz <= C; cz++) for (let cx = -C; cx <= C; cx++) {
+    const st = field.siteInCell(cx, cz);
+    if (!st || !PEOPLED.includes(st.kind)) continue;
+    if (Math.hypot(st.x, st.z) > R) continue;
+    streets.push({ site: st, people: streetFor(st, field) });
+  }
+  const planned = streets.filter((s) => peopleFor(s.site.sub).length);
+  const rolled = streets.filter((s) => !peopleFor(s.site.sub).length);
+  check('there are streets of both kinds inside 6 km, so the sweep means something',
+    planned.length >= 1 && rolled.length > 50 && streets.reduce((n, s) => n + s.people.length, 0) > 300,
+    `${streets.length} settlements, ${planned.length} planned, ${rolled.length} rolled, ${streets.reduce((n, s) => n + s.people.length, 0)} people`);
+
+  // The comparison is on the FIRST WORD, because the cast's plates carry a
+  // surname and "Cobb" standing beside "Cobb Ashby" is the same bug in a coat.
+  const clashes = [];
+  let counted = 0, widest = 0;
+  for (const s of streets) {
+    const seen = new Map();
+    widest = Math.max(widest, s.people.length);
+    for (const p of s.people) {
+      counted++;
+      const first = String(p.personName).split(' ')[0];
+      if (seen.has(first)) clashes.push(`${s.site.name}: ${seen.get(first)} and ${p.personName}`);
+      seen.set(first, p.personName);
+    }
+  }
+  check('no two people in one street share a name, over every settlement within 6 km',
+    clashes.length === 0,
+    clashes.slice(0, 6).join('; ') || `${counted} people over ${streets.length} streets, the widest ${widest}, not one repeat`);
+  check('and the table is longer than the widest street, which is why that is possible',
+    GIVEN_NAMES.length > widest, `${GIVEN_NAMES.length} names against a street of ${widest}`);
+
+  // The named cast keep their names, and stand where the plan stands them.
+  {
+    const hh = realSites(['town'], 40).find((st) => st.sub === 'hearthhome')
+      || field.siteAt(authoredSites().find((st) => st.sub === 'hearthhome').x, authoredSites().find((st) => st.sub === 'hearthhome').z);
+    const street = streetFor(hh, field);
+    const want = peopleFor('hearthhome').filter((p) => p.name).map((p) => PERSON[p.name].name);
+    const got = street.map((p) => p.personName);
+    check('the cast the plan names keep the names story.js gives them',
+      want.length >= 5 && want.every((n) => got.includes(n)),
+      want.join(', '));
+    check('and Hearthhome no longer stands two Pells and two Udds at its doors',
+      new Set(got.map((n) => n.split(' ')[0])).size === got.length,
+      got.map((n, i) => `${n} the ${street[i].role.name}`).join('; '));
+    // stable: the same street asked twice is the same street
+    const again = streetFor(hh, field).map((p) => p.personName);
+    check('and asking twice gives the same names in the same order', again.join('|') === got.join('|'));
+  }
+
+  // DRIVEN THE OTHER WAY, on nameFor itself. Without a Set it is the bare hash
+  // it always was, and the bare hash still collides: that is the proof the
+  // uniqueness is doing the work and not the hash quietly having changed.
+  {
+    const hh = field.siteAt(authoredSites().find((st) => st.sub === 'hearthhome').x, authoredSites().find((st) => st.sub === 'hearthhome').z);
+    const bare = peopleFor('hearthhome').map((p, i) => nameFor(hh, p.role, i));
+    const bareDupes = bare.filter((n, i) => bare.indexOf(n) !== i);
+    check('nameFor with no street still collides, which is the bug this fixes',
+      bareDupes.length > 0, `${bare.join(', ')} -> repeats: ${[...new Set(bareDupes)].join(', ') || 'none'}`);
+    const taken = new Set();
+    const uniq = peopleFor('hearthhome').map((p, i) => nameFor(hh, p.role, i, taken));
+    check('and the same calls with a street give everybody their own',
+      new Set(uniq).size === uniq.length && uniq[0] === bare[0],
+      `${uniq.join(', ')}; the first person keeps the name the hash gave them`);
+    // a name already spoken for is stepped over, and only that one
+    const held = new Set([GIVEN_NAMES[0]]);
+    const first = nameFor({ cx: 0, cz: 0 }, 'provisioner', 0, held);
+    check('a name already in the street is stepped over to the next in the table',
+      first !== GIVEN_NAMES[0] && GIVEN_NAMES.includes(first) && held.has(first),
+      `${GIVEN_NAMES[0]} was held, so the next asker got ${first}`);
+  }
+
+  // and the audit refuses a street the table cannot dress
+  check('the audit knows the table has to outlast the widest street',
+    (() => { try { auditNpcSpots(); return true; } catch { return false; } })()
+    && GIVEN_NAMES.length >= Math.max(...['hearthhome'].map((id) => peopleFor(id).length)),
+    `${GIVEN_NAMES.length} names, the widest plan stands ${Math.max(...['hearthhome'].map((id) => peopleFor(id).length))}`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -7,9 +7,14 @@ import {
 import {
   WORLD_HALF, OCEAN_FLOOR, COAST_MIN, HEART_SAFE, ZONE,
   SEA, seaWithin, REEFS, reefWithin, ARCHIPELAGO, archipelagoWithin,
-  RELIEF_ZONES, REALM_ZONES, heartFade, authoredSites, realmAt,
+  RELIEF_ZONES, REALM_ZONES, heartFade, authoredSites, realmAt, SITE_DISH,
 } from './zones.js';
-import { rand2 } from './noise.js';
+import { rand2, smoothstep } from './noise.js';
+import { PLANS } from '../mmo/plans/index.js';
+// The walkable step is the PLAYER's number and there is only one of it. Copying
+// 1.2 into this file would make a second source that could drift from the rule
+// the game actually applies, so it is imported, THREE and all.
+import { MAX_SLOPE } from '../game/player.js';
 import { SITE_CELL, SITE_CHANCE, WILD_CHANCE, KINDS, ALL_KINDS, heartCell } from './sitegrid.js';
 import { roadsForCell, ROAD_GRADE } from './roads.js';
 
@@ -167,6 +172,12 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
 // roads and the dressing. The authored places did not move. For any seed under
 // about four million the fix changes nothing at all, which is why every test
 // that builds its own small world is untouched by it.
+//
+// IT DID NOT MOVE FOR THE DISH (P2, 2026-09-06). `zones.SITE_DISH` sinks the
+// floor of a pad under its own rim, and the one site in the world that asks for
+// one is the Sunken Chapel, 1759 m from the origin with a 36 m reach. This
+// square is 1 km on a side. So the number below is untouched, and section 7c
+// measures the 3.6 m it did move out there.
 //
 // The promise stands, with a new number under it. If a later change moves so
 // much as one metre of the heart, this line goes red and names the change that
@@ -821,6 +832,150 @@ console.log('the Caldera Sea');
   check('seaWithin is exactly zero everywhere outside SEA.edge', touchedSea === 0, `${SEA.edge} m, 3600 probes`);
   check('and the sea stops well short of the heart', Math.hypot(SEA.x, SEA.z) - SEA.edge > HEART_SAFE,
     `its nearest water is ${(Math.hypot(SEA.x, SEA.z) - SEA.edge).toFixed(0)} m from the origin, against HEART_SAFE ${HEART_SAFE}`);
+}
+
+// 7c. THE DISH: a pad that is a hollow and not a table.
+//
+// The Sunken Chapel is a flooded meadow. Its plan lays a water plane 3.6 m over
+// the ground at the chapel, and a pad levels that ground, so before this the
+// lake stood 3.6 m over a dry, level table thirty five metres across: water
+// with nothing under it and nothing holding it in.
+//
+// `zones.SITE_DISH` gives a site a floor under its own rim, and field.js takes
+// it off by the pad's own weight, so the middle of the pad is `dish` metres
+// down and the side back up to the rim is the shoulder the pad already had.
+// The claims below are the whole of what that has to be true for: the depth is
+// the plan's own number, the floor is exactly that far under the rim, the rim
+// is still the meadow, the side is walkable in both directions, and a site with
+// no dish is the table it always was.
+console.log('the dish under the Sunken Chapel');
+{
+  const st = authoredSites().find((s) => s.sub === 'sunkenchapel');
+  const site = f.siteAt(st.x, st.z);
+  const R = site.flatR, dish = site.dish;
+  const water = (PLANS.sunkenchapel.areas || []).find((a) => a.kind === 'water');
+
+  check('the dish is the depth the plan floods to, and not a second opinion about it',
+    SITE_DISH.sunkenchapel === water.y && site.dish === water.y,
+    `SITE_DISH ${SITE_DISH.sunkenchapel} m against the plan's water at y ${water.y}`);
+
+  // 1. the floor
+  const centre = f.heightAt(site.x, site.z);
+  check('the ground at the chapel is 3.6 m below the pad rim it would otherwise stand on',
+    Math.abs((site.y - centre) - dish) < 1e-9,
+    `rim ${site.y.toFixed(3)} m, floor ${centre.toFixed(3)} m, ${(site.y - centre).toFixed(4)} m of fall`);
+  // and it is FLAT down there, not a bowl with a dip in it
+  {
+    let lo = Infinity, hi = -Infinity;
+    for (const d of [0, 4, 8, 12, 16, R * 0.55]) for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      const h = f.heightAt(site.x + Math.cos(a) * d, site.z + Math.sin(a) * d);
+      lo = Math.min(lo, h); hi = Math.max(hi, h);
+    }
+    check('and the floor is level right across the flat part of the pad', hi - lo < 1e-9,
+      `${(R * 0.55).toFixed(1)} m of floor, 144 points, spread ${(hi - lo).toExponential(1)} m`);
+  }
+
+  // 2. the rim is the meadow. At and outside `flatR + 4` the pad has no weight
+  // at all, so the ground there has to be the ground the seed made, to the bit.
+  // Same arithmetic in the same order as field.js, for the same reason as 6a.
+  {
+    const bare = (x, z) => { const k = f.homeFactor(x, z); return f.homeY + (f.raw(x, z).h - f.homeY) * k; };
+    let off = 0, n = 0;
+    for (const d of [R + 4, R + 6, R + 10, R + 20, R + 40]) for (let i = 0; i < 32; i++) {
+      const a = (i / 32) * Math.PI * 2;
+      const x = site.x + Math.cos(a) * d, z = site.z + Math.sin(a) * d;
+      off = Math.max(off, Math.abs(f.heightAt(x, z) - bare(x, z))); n++;
+    }
+    check('and the rim is level with the meadow outside: past it the dish has moved nothing',
+      off === 0, `${n} points from ${R + 4} m to ${R + 40} m, worst ${off.toExponential(1)} m off the raw ground`);
+  }
+
+  // 3. the side. Two numbers: what the dish itself lays, which is the thing
+  // this change is answerable for, and what the ground actually does over the
+  // whole pad, which is the number a player's legs meet.
+  {
+    let dishG = 0;
+    for (let d = 0; d <= R + 4; d += 0.05) {
+      const w1 = 1 - smoothstep(R * 0.55, R + 4, d), w2 = 1 - smoothstep(R * 0.55, R + 4, d + 0.05);
+      dishG = Math.max(dishG, Math.abs(dish * (w2 - w1)) / 0.05);
+    }
+    check('the dish itself is gentler than the walkable step, everywhere on its side',
+      dishG < MAX_SLOPE && dishG < RAMP_MAX_STEP,
+      `${dishG.toFixed(3)} m of rise per metre at the steepest, against the ${MAX_SLOPE} the player refuses and the ${RAMP_MAX_STEP} every named climb stands at`);
+    let all = 0, at = 0, ang = 0;
+    for (let i = 0; i < 72; i++) {
+      const a = (i / 72) * Math.PI * 2;
+      for (let d = 0; d <= R + 6; d += 0.25) {
+        const h1 = f.heightAt(site.x + Math.cos(a) * d, site.z + Math.sin(a) * d);
+        const h2 = f.heightAt(site.x + Math.cos(a) * (d + 0.25), site.z + Math.sin(a) * (d + 0.25));
+        const gg = Math.abs(h2 - h1) / 0.25;
+        if (gg > all) { all = gg; at = d; ang = i * 5; }
+      }
+    }
+    check('and the ground over the whole pad, dish and hillside together, is walkable',
+      all < MAX_SLOPE, `worst ${all.toFixed(3)} m per metre, ${at.toFixed(1)} m out on the ${ang} degree radial`);
+  }
+
+  // 4. a player walks in and out. The rule is player.js's own: a step is
+  // refused when the rise over its length is more than MAX_SLOPE. Driven both
+  // ways, because a slope you can fall into and not climb out of is a trap.
+  {
+    let inOk = 0, outOk = 0, steps = 0, worstRise = 0;
+    for (let i = 0; i < 32; i++) {
+      const a = (i / 32) * Math.PI * 2;
+      for (let d = 0; d < R + 8; d += 1) {
+        const h1 = f.heightAt(site.x + Math.cos(a) * d, site.z + Math.sin(a) * d);
+        const h2 = f.heightAt(site.x + Math.cos(a) * (d + 1), site.z + Math.sin(a) * (d + 1));
+        steps++;
+        worstRise = Math.max(worstRise, Math.abs(h2 - h1));
+        if (h2 - h1 <= MAX_SLOPE) outOk++;      // walking out, up the side
+        if (h1 - h2 <= MAX_SLOPE) inOk++;       // walking in, down it
+      }
+    }
+    check('and a player walks in and back out of it, one metre at a time',
+      inOk === steps && outOk === steps,
+      `${steps} strides on 32 radials, every one accepted both ways, worst rise ${worstRise.toFixed(3)} m in a metre`);
+  }
+
+  // 5. what the dish was FOR: the water at the rim and the chapel on the floor.
+  // `plan_models` lays the water at `heightAt(centre) + area.y` and beds a
+  // piece on the lowest ground under its own footprint, so both of these are
+  // the numbers the built place will actually have.
+  {
+    const surface = centre + water.y;
+    let floor = Infinity;
+    for (let i = -6; i <= 6; i += 0.5) for (let j = -3.5; j <= 3.5; j += 0.5) {
+      floor = Math.min(floor, f.heightAt(site.x + i, site.z + j));
+    }
+    check('so the water lies at the rim and not over it', Math.abs(surface - site.y) < 1e-9,
+      `surface ${surface.toFixed(3)} m, rim ${site.y.toFixed(3)} m`);
+    check('and the chapel floor is the floor of the dish, 3.6 m under the surface',
+      Math.abs(surface - floor - dish) < 1e-9,
+      `floor ${floor.toFixed(3)} m under a 12 by 7 chapel, ${(surface - floor).toFixed(3)} m of water over it`);
+  }
+
+  // 6. AND THE OTHER WAY. A site with no dish lays the table it always laid.
+  {
+    const rows = authoredSites().filter((s) => s.flatR > 0 && !s.dish);
+    let worstFlat = 0, name = '';
+    for (const row of rows.slice(0, 40)) {
+      const sd = f.siteAt(row.x, row.z);
+      if (!sd || sd.sub !== row.sub || sd.kind === 'cave' || sd.kind === 'mine') continue;
+      const h0 = f.heightAt(sd.x, sd.z);
+      let spread = Math.abs(h0 - sd.y);
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2;
+        spread = Math.max(spread, Math.abs(f.heightAt(sd.x + Math.cos(a) * sd.flatR * 0.5, sd.z + Math.sin(a) * sd.flatR * 0.5) - sd.y));
+      }
+      if (spread > worstFlat) { worstFlat = spread; name = sd.name; }
+    }
+    check('while every site with no dish is still a table at its own height',
+      worstFlat < 1e-9 && rows.length > 20,
+      `${rows.length} padded sites carry no dish; the worst of the first 40 is ${name}, ${worstFlat.toExponential(1)} m off its own y`);
+    check('and only one site in the world asks for one', Object.keys(SITE_DISH).length === 1,
+      Object.entries(SITE_DISH).map(([k, v]) => `${k} ${v} m`).join(', '));
+  }
 }
 
 // 8. cost: a 33x33 chunk must sample in a few milliseconds

@@ -53,6 +53,8 @@ import { DAY_CYCLE_MS } from './scene.js';
 import { createFrameMeter } from './dev.js';
 import { itemTipLines } from './inventory.js';
 import { SUB_ZONES, ZONE, authoredSites } from '../world/zones.js';
+import { PLANS } from '../mmo/plans/index.js';
+import { stopsOf } from '../mmo/plans/footprints.js';
 import { PLACES, REALMS } from '../mmo/realms.js';
 
 // --------------------------------------------------------------- the numbers
@@ -70,6 +72,15 @@ export const PLACE_RADIUS = 8000;
 export const EDGE_PAD = 8;
 /** How far along a wide body's own reach a landing stands, as a fraction of `bodyR`. */
 export const BODY_LAND = 0.9;
+/**
+ * How far outside a repeated stop a landing stands, in metres.
+ *
+ * A plan with a `repeat` is not one place: the Standing Hedge is one sarsen
+ * laid nine times on a ring 805 m across, and the ground between two of them is
+ * a field. Eight metres puts a stone at arm's length and clears its own
+ * boundary stones, which stand on a 6.5 m ring around it.
+ */
+export const RING_LAND = 8;
 /** Where a spawn lands when the cursor is not on the ground, in metres ahead. */
 export const SPAWN_AHEAD_M = 6;
 /** Rows kept per kind in the places list. 119 sites stand within 6 km. */
@@ -212,6 +223,29 @@ export function edgeOf(site, from, pad = EDGE_PAD) {
   // player is coming from, looking in: close enough to a stone to touch it,
   // and inside the ring rather than outside it, which is where the place is.
   // `bodyR` is 0 on every site but two, so nothing else moves.
+  //
+  // AND A PLACE THAT IS LAID SEVERAL TIMES IS NOT AT ITS OWN CENTRE AT ALL.
+  // `bodyR` gets the distance right and says nothing about the bearing, so a
+  // landing at nine tenths of 811 m came down 75 to 112 m from the nearest
+  // stone, in the grass, with the hedge a rumour on the skyline. A plan with a
+  // `repeat` carries its own stops, so the landing is taken at the one nearest
+  // the player, RING_LAND metres beyond it on the ring's own radial, looking
+  // back in: the stone is the first thing in front of you and the ring is the
+  // walk. Every plan but the Standing Hedge has one stop at the centre, and for
+  // those this branch is the arithmetic below with an extra lookup.
+  const plan = site && site.sub ? PLANS[site.sub] : null;
+  if (plan && plan.repeat) {
+    const stops = stopsOf(plan, site);
+    let best = stops[0], bd = Infinity;
+    for (const st of stops) {
+      const d2 = (num(from?.x) - st.x) ** 2 + (num(from?.z) - st.z) ** 2;
+      if (d2 < bd) { bd = d2; best = st; }
+    }
+    const rx = best.x - sx, rz = best.z - sz;
+    const rd = Math.hypot(rx, rz) || 1;
+    const lx = best.x + (rx / rd) * RING_LAND, lz = best.z + (rz / rd) * RING_LAND;
+    return { x: lx, z: lz, yaw: Math.atan2(best.x - lx, best.z - lz) };
+  }
   const body = num(site?.bodyR);
   const off = body > 0 ? Math.max(num(site?.flatR) + pad, body * BODY_LAND) : num(site?.flatR) + pad;
   const dx = num(from?.x) - sx, dz = num(from?.z) - sz;

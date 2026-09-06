@@ -15,8 +15,10 @@ import {
   clockOffsetFor, clockWords, panel, SETS, GOLD_STEPS, PLACE_RADIUS, KIND_ORDER, ENTERABLE,
   zoneSearch, rarityTable, rarest, sackRing, takesRarity,
   RECENT_MAX, HOME, SACK_COUNT, SACK_RADIUS, ZONE_MAX_R, RAREST_SHOWN, SPAWN_MANY,
-  tourStops, landingFor, TOUR_KIND_ORDER, EDGE_PAD, BODY_LAND, TOUR_LAND_STEP,
+  tourStops, landingFor, TOUR_KIND_ORDER, EDGE_PAD, BODY_LAND, TOUR_LAND_STEP, RING_LAND,
 } from './win_dev.js';
+import { PLANS } from '../mmo/plans/index.js';
+import { stopsOf, FOOTPRINT } from '../mmo/plans/footprints.js';
 import { SUB_ZONES, REALM_ZONES, authoredSites } from '../world/zones.js';
 import { REALMS } from '../mmo/realms.js';
 import { createState, PACK_SLOTS as STATE_PACK_SLOTS, hydrate } from './state.js';
@@ -1092,26 +1094,87 @@ console.log('win_dev: a teleport tells the forage field where you went');
       `dry ${nowhere.dry}`);
   }
 
-  // A wide body lands you AT ITS STONES and not at the point in the middle of
-  // them. Driven both ways: the two sites that carry a bodyR, and one that does
-  // not and still lands at its pad's edge.
+  // A PLACE LAID NINE TIMES LANDS YOU AT A STONE.
+  //
+  // `bodyR` alone got the distance right and the bearing wrong: nine tenths of
+  // the Standing Hedge's 811 m reach is a point on a circle, and the nine
+  // sarsens stand on nine bearings, so the landing came down in the grass with
+  // the hedge on the skyline. Measured before the fix, from Hearthhome, from
+  // the origin and from the far side: 112.3 m, 92.0 m and 75.2 m from the
+  // nearest stone. The plan's own `repeat` says where the stones are, so the
+  // landing is taken at the nearest of them.
   {
     const hedge = sites.find((st) => st.bodyR > 0 && st.sub === 'waystones');
     const hedgeStop = stops.find((st) => st.id === 'waystones');
-    const from = { x: hedge.x + 2000, z: hedge.z };
-    const at = landingFor(hedgeStop, field, sites, from);
-    const d = Math.hypot(at.x - hedge.x, at.z - hedge.z);
-    check('a mega structure with a body lands you at nine tenths of its own reach',
-      near(d, hedge.bodyR * BODY_LAND, 1e-6) && at.site === hedge,
-      `${hedge.name}: bodyR ${hedge.bodyR}, pad ${hedge.flatR}, landed ${d.toFixed(1)} m out against ${(hedge.bodyR * BODY_LAND).toFixed(1)}`);
-    check('and on the side you came from, looking back in',
-      at.x > hedge.x && near(at.z, hedge.z, 1e-6) && near(at.yaw, -Math.PI / 2, 1e-9),
-      `${at.x.toFixed(0)}, ${at.z.toFixed(0)}, yaw ${at.yaw.toFixed(3)}`);
-    const other = landingFor(hedgeStop, field, sites, { x: hedge.x, z: hedge.z - 2000 });
+    const ring = stopsOf(PLANS.waystones, hedge);
+    /** Is a world point inside any footprint of the plan laid at this stop? */
+    const inPiece = (stop, x, z) => (PLANS.waystones.pieces || []).some((pc) => {
+      const f = FOOTPRINT[pc.model];
+      if (!f) return false;
+      // the plan's frame at this stop, exactly as plan_models.world does it
+      const c0 = Math.cos(stop.rot), s0 = Math.sin(stop.rot);
+      const wx = stop.x + pc.x * c0 + pc.z * s0, wz = stop.z + pc.z * c0 - pc.x * s0;
+      const yaw = (pc.yaw || 0) * Math.PI / 180 + stop.rot;
+      const dx = x - wx, dz = z - wz;
+      const rx = dx * Math.cos(yaw) - dz * Math.sin(yaw), rz = dx * Math.sin(yaw) + dz * Math.cos(yaw);
+      return Math.abs(rx) <= f[0] / 2 && Math.abs(rz) <= f[1] / 2;
+    });
+
+    check('the Standing Hedge is the one plan in the world laid more than once',
+      Object.values(PLANS).filter((pl) => pl.repeat).length === 1 && ring.length === 9,
+      `${ring.length} stops on a ${PLANS.waystones.repeat.radius} m ring`);
+
+    const froms = [
+      { name: 'Hearthhome', x: 749, z: 1579 },
+      { name: 'the origin', x: 0, z: 0 },
+      { name: 'the far south west', x: -2000, z: -500 },
+    ];
+    const rows = froms.map((from) => {
+      const at = landingFor(hedgeStop, field, sites, from);
+      const ds = ring.map((st) => Math.hypot(at.x - st.x, at.z - st.z));
+      const best = Math.min(...ds);
+      const which = ds.indexOf(best);
+      const nearestToPlayer = ring
+        .map((st, i) => [Math.hypot(from.x - st.x, from.z - st.z), i])
+        .sort((a, b) => a[0] - b[0])[0][1];
+      return { from, at, best, which, nearestToPlayer, ds };
+    });
+    check('from three places on the map the landing is within 10 m of one of the nine stones',
+      rows.every((r) => r.best < 10),
+      rows.map((r) => `${r.from.name}: ${r.best.toFixed(2)} m from stone ${r.which + 1}`).join('; '));
+    check(`and it is exactly ${RING_LAND} m out, which is clear of the stone and of its boundary ring`,
+      rows.every((r) => Math.abs(r.best - RING_LAND) < 1e-6 && !inPiece(ring[r.which], r.at.x, r.at.z)),
+      rows.map((r) => `${r.from.name}: ${r.best.toFixed(3)} m, in a footprint ${inPiece(ring[r.which], r.at.x, r.at.z)}`).join('; '));
+    check('and it is the stone nearest the player, and three different stones for three different sides',
+      rows.every((r) => r.which === r.nearestToPlayer) && new Set(rows.map((r) => r.which)).size === 3,
+      rows.map((r) => `${r.from.name} -> stone ${r.which + 1}`).join('; '));
+    check('and you stand outside the ring looking in, so the stone is the first thing in front of you',
+      rows.every((r) => {
+        const out = Math.hypot(r.at.x - hedge.x, r.at.z - hedge.z) > PLANS.waystones.repeat.radius;
+        const want = Math.atan2(ring[r.which].x - r.at.x, ring[r.which].z - r.at.z);
+        return out && Math.abs(r.at.yaw - want) < 1e-9;
+      }),
+      rows.map((r) => `${Math.hypot(r.at.x - hedge.x, r.at.z - hedge.z).toFixed(0)} m out, yaw ${r.at.yaw.toFixed(3)}`).join('; '));
+    // and the old failure, stated as the number it was: the ring's own centre
+    check('while the middle of the ring, where nine tenths of the reach used to put you, is 75 m or more from every stone',
+      ring.every((st) => Math.hypot(st.x - hedge.x, st.z - hedge.z) > 700)
+      && Math.min(...ring.map((st) => Math.hypot(st.x - (hedge.x + hedge.bodyR * BODY_LAND), st.z - hedge.z))) > 75,
+      `${(hedge.bodyR * BODY_LAND).toFixed(1)} m along one bearing against stones on a ${PLANS.waystones.repeat.radius} m ring at nine others`);
+
+    // DRIVEN THE OTHER WAY, twice. A wide body with no repeat still lands at
+    // nine tenths of its reach on the side you came from, and a plain pad still
+    // lands at its own edge.
+    const bridge = sites.find((st) => st.bodyR > 0 && st.sub !== 'waystones');
+    const bridgeStop = stops.find((st) => st.id === bridge.sub);
+    const atB = landingFor(bridgeStop, field, sites, { x: bridge.x + 2000, z: bridge.z });
+    check('a wide body with no repeat still lands at nine tenths of its own reach, on your side',
+      !PLANS[bridge.sub] && near(Math.hypot(atB.x - bridge.x, atB.z - bridge.z), bridge.bodyR * BODY_LAND, 1e-6)
+      && atB.x > bridge.x && near(atB.yaw, -Math.PI / 2, 1e-9),
+      `${bridge.name}: bodyR ${bridge.bodyR}, landed ${Math.hypot(atB.x - bridge.x, atB.z - bridge.z).toFixed(1)} m out, yaw ${atB.yaw.toFixed(3)}`);
+    const otherB = landingFor(bridgeStop, field, sites, { x: bridge.x, z: bridge.z - 2000 });
     check('and coming from the other side lands you on that side instead',
-      other.z < hedge.z && near(Math.hypot(other.x - hedge.x, other.z - hedge.z), hedge.bodyR * BODY_LAND, 1e-6),
-      `${other.x.toFixed(0)}, ${other.z.toFixed(0)}`);
-    // the other direction: no bodyR, so the pad's edge as before
+      otherB.z < bridge.z && near(Math.hypot(otherB.x - bridge.x, otherB.z - bridge.z), bridge.bodyR * BODY_LAND, 1e-6),
+      `${otherB.x.toFixed(0)}, ${otherB.z.toFixed(0)}`);
     const flatSite = sites.find((st) => !(st.bodyR > 0) && st.flatR > 0);
     const flatStop = stops.find((st) => st.id === flatSite.sub);
     const atFlat = landingFor(flatStop, field, sites, { x: flatSite.x + 2000, z: flatSite.z });

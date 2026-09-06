@@ -669,7 +669,6 @@ const SITE_FLAT_R = {
   drownedbell: 0,        // a tower rising out of the water
   ashengate: 14,         // the road under the gate, on the crater rim
   // the landmarks
-  millrun: 8,            // the mill yard on the river bank
   hanginggardens: 0,
   moonpool: 6,
   miragepalace: 0,
@@ -687,6 +686,31 @@ const SITE_FLAT_R = {
   obsidianbridge: 0,
   heartcages: 8,
 };
+
+/**
+ * The places whose pad is a BOWL and not a table, in metres of depth.
+ *
+ * A pad levels the ground to the site's own height. That is the right shape for
+ * a village and the wrong shape for a lake: the Sunken Chapel's plan lays a
+ * water plane 3.6 m over the ground at its centre, and on a level pad that is a
+ * sheet of water standing on a table with nothing holding it in. What the
+ * painting has is a flooded meadow, which is a hollow with the water lying in
+ * it up to the height of the field around.
+ *
+ * So a dish is the depth the pad's FLOOR sits below the site's rim. The rim is
+ * where the pad has always been, level with the meadow outside it; the floor is
+ * `dish` metres under that across the flat middle of the pad; and the side
+ * between them is the pad's own shoulder, so it is exactly as walkable as every
+ * other pad edge in the world. `field.js` is the only reader and it applies
+ * this in the one place the pad is applied; `authoredSites()` puts it on the
+ * row as `dish`, 0 on every site that does not ask for one.
+ *
+ * The number is the plan's own: `sunkenchapel.json` floods to y 3.6 over the
+ * ground at the chapel, so a dish of 3.6 puts the surface exactly at the rim
+ * and the chapel floor exactly on the floor of the dish. If one moves the other
+ * has to move with it, and `field.test.mjs` measures the pair.
+ */
+export const SITE_DISH = Object.freeze({ sunkenchapel: 3.6 });
 
 /**
  * How far a place's BODY reaches from its own centre, where that is further
@@ -950,8 +974,8 @@ let authored = null;
  * Each row is the shape sitegrid.js hands the rest of the game, minus the parts
  * only the terrain can answer (y, facing, and a mine's mouths and seams):
  *
- *   { id, zone, realm, sub, kind, name, x, z, article, flatR, oreBand, levels,
- *     line, authored }
+ *   { id, zone, realm, sub, kind, name, x, z, article, flatR, dish, oreBand,
+ *     levels, line, authored }
  *
  * The list is built once and frozen. The id is the PLACE's own id out of
  * realms.js rather than an index, so a place may be moved, or another added
@@ -970,6 +994,8 @@ export function authoredSites() {
         x: s.x, z: s.z,
         article: articleFor(s.kind),
         flatR: s.flatR ?? FLAT_R[s.kind] ?? 14,
+        // metres the pad's floor sits below its rim: see SITE_DISH. 0 is a table.
+        dish: SITE_DISH[s.place] || 0,
         oreBand: s.ore || zn.ore,
         levels: s.levels || null,
         line: s.line || null,
