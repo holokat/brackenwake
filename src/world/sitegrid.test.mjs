@@ -23,7 +23,7 @@ check('same cell, same roll', JSON.stringify(cellRoll(seed, 3, -7)) === JSON.str
 // a site never leaves its cell's inner 60%, so footprints never cross cells
 let out = 0, n = 0; const kinds = {};
 for (let cz = -40; cz < 40; cz++) for (let cx = -40; cx < 40; cx++) { const s = cellRoll(seed, cx, cz); if (!s) continue; n++; kinds[s.kind] = (kinds[s.kind] || 0) + 1;
-  const fx = s.x / SITE_CELL - cx, fz = s.z / SITE_CELL - cz; if (fx < 0.2 || fx > 0.8 || fz < 0.2 || fz > 0.8) out++; if (s.flatR > 0.2 * SITE_CELL && !s.authored) out++; /* town precincts are 120 m and cross cells on purpose (Z2) */ }
+  const fx = s.x / SITE_CELL - cx, fz = s.z / SITE_CELL - cz; if (!s.authored && (fx < 0.2 || fx > 0.8 || fz < 0.2 || fz > 0.8)) out++;   /* an authored site stands where the sheet puts it, not where the roll would */ if (s.flatR > 0.2 * SITE_CELL && !s.authored) out++; /* town precincts are 120 m and cross cells on purpose (Z2) */ }
 check('every candidate stays inside its cell margin', out === 0, `${out} of ${n}`);
 // A3 raised the chance outside the heart and left it alone inside, so the share
 // is the wild one over a window this wide.

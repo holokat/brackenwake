@@ -604,7 +604,12 @@ const SITE_KIND = {
 // across a dozen islets; it is also the only town on the isles, so it is a town
 // here, and this table is consulted FIRST for that reason. It is why the
 // Saltmarch has no megalith and the Sunken Kingdom has two.
-const EXTRA_SITE = { redqueensharbour: 'town' };
+const EXTRA_SITE = {
+  redqueensharbour: 'town',
+  // P1: a wild or a road place with a painting needs a site row to be handed
+  // to site_models at all; pad-less landmarks, built from their plans
+  beechhangar: 'landmark', kingsroad: 'landmark',
+};
 
 /**
  * The seven the programme calls towns, which get a precinct rather than a
@@ -649,6 +654,9 @@ const MINE_ORE = {
  * `zones.test.mjs` measures every pad against the distance to its cell's edge.
  */
 const SITE_FLAT_R = {
+  // the painted places (P1): the ground each plan stands on, measured in P1.md
+  millrun: 40, oldcellars: 16, greenwoldpits: 30, highwaymanshollow: 26, sunkenchapel: 32,
+  beechhangar: 0, kingsroad: 0,
   // the megaliths
   waystones: 0,          // the Standing Hedge: nine stones on natural ground
   templeoffaces: 0,      // a cliff carved with faces; the cliff is the ground

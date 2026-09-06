@@ -574,7 +574,9 @@ const REACH = (() => {
 console.log('zones: the seventy three places with something built on them');
 {
   const sites = authoredSites();
-  const want = PLACES.filter((p) => BUILDING_KINDS.has(p.kind) || p.id === 'redqueensharbour');
+  // the Beech Hangar and the Kingsroad are wild and road, built from their paintings (P1)
+  const PLANNED_WILD = new Set(['beechhangar', 'kingsroad']);
+  const want = PLACES.filter((p) => BUILDING_KINDS.has(p.kind) || p.id === 'redqueensharbour' || PLANNED_WILD.has(p.id));
   check('one for every place of a building kind in realms.js', sites.length === want.length,
     `${sites.length} sites for ${want.length} places: ${[...new Set(sites.map((s) => s.kind))].sort().join(', ')}`);
   // V1 added the two kinds that turned forty six sites into seventy three: ten
@@ -585,8 +587,8 @@ console.log('zones: the seventy three places with something built on them');
     && sites.find((s) => s.sub === 'redqueensharbour').kind === 'town'
     && PLACES.filter((p) => p.kind === 'megastructure').length === 11,
     sites.filter((s) => s.kind === 'megastructure').map((s) => s.name).join(', '));
-  check('and seventeen are landmarks, which is every landmark in the sheet',
-    sites.filter((s) => s.kind === 'landmark').length === 17
+  check('and nineteen are landmarks: every landmark in the sheet and the two painted wilds',
+    sites.filter((s) => s.kind === 'landmark').length === 19
     && PLACES.filter((p) => p.kind === 'landmark').length === 17);
   check('both new kinds have an article, so a toast can name what you walked up to',
     !!articleFor('megastructure') && !!articleFor('landmark')
@@ -673,8 +675,8 @@ console.log('zones: the seventy three places with something built on them');
   const padInHeart = nearHome.filter((s) => s.flatR > 0);
   check('no site lays a pad inside the heart', padInHeart.length === 0,
     padInHeart.map((s) => s.name).join('; ') || `${nearHome.length} stand there and not one of them levels a metre`);
-  check('and the one that does stand there is the Standing Hedge, pad-less',
-    nearHome.length === 1 && nearHome[0].sub === 'waystones' && nearHome[0].flatR === 0,
+  check('and the three that stand there are the Standing Hedge, the Beech Hangar and the Kingsroad, all pad-less',
+    nearHome.length === 3 && ['waystones', 'beechhangar', 'kingsroad'].every((id) => nearHome.some((s) => s.sub === id && s.flatR === 0)),
     nearHome.map((s) => `${s.name} at ${Math.hypot(s.x, s.z).toFixed(0)} m, flatR ${s.flatR}`).join('; '));
   // driven the other way, on the predicate the audit itself uses, because
   // authoredSites() is built once and frozen and cannot be edited under it

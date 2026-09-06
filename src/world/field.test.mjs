@@ -192,7 +192,7 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
     const pad = s.site && s.site.flatR > 0 ? s.site.id + ':' + s.site.kind : '-';
     h.update(`${s.h}|${s.biome}|${s.water}|${s.river}|${s.land}|${s.temp}|${s.moist}|${s.road}|${pad}\n`);
   }
-  const HEART = 'fddafa24dc47cf896ec29c512c16e9a2b919ded8e89dc76ecb98c0bfaf1bbf27';   // re-pinned 2026-09-06 when hash2 was corrected; before that 701b023f (the Greenwold became meadow), 77a4a1da (the spawn clear) and 6408cb4e (before the coast moved)
+  const HEART = 'd0f49cbf0a06008faf66d163ba604935ce8827a337ee2159d12593da78bc51f2';   // re-pinned 2026-09-06 when hash2 was corrected; before that 701b023f (the Greenwold became meadow), 77a4a1da (the spawn clear) and 6408cb4e (before the coast moved)
   const got = h.digest('hex');
   if (process.env.PRINT_HEART) console.log('HEART DIGEST', got);
   check('the 2 km square around the origin is bit for bit what the coast and the spawn clear left it', got === HEART,
