@@ -76,6 +76,10 @@ console.log('\nthe kits');
     ['a realm that does not farm carrying a crop', () => ({ ...KITS, boneyard: KITS.boneyard.concat([{ ...FIELD_KIT[4] }]) }), 'does not farm'],
     ['an axis that is no axis', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'hedgerow' ? { ...k, along: 'q' } : k)) }), 'which is no axis'],
     ['a chance of nothing at all', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'hedgerow' ? { ...k, chance: 0 } : k)) }), 'a chance of 0'],
+    ['a kind put down never', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'sarsen' ? { ...k, rare: 0 } : k)) }), 'rare 0'],
+    ['a kind put down more than always', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'sarsen' ? { ...k, rare: 1.4 } : k)) }), 'rare 1.4'],
+    ['a lattice nobody wrote', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'sheep_fold' ? { ...k, spaced: 'grid' } : k)) }), 'which is no lattice'],
+    ['a scatter kind asking to be spaced', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'sarsen' ? { ...k, spaced: 'ring' } : k)) }), 'only an anchor can be spaced'],
   ];
   for (const [what, make, want] of cases) {
     let threw = '';
@@ -181,11 +185,29 @@ console.log('\nthe seed, and the bits it was losing');
     })(), 'which is why every suite that builds its own small world is untouched by the fix');
 
   // AND THE MEADOW SHOWS IT. The roll above is the arithmetic; this is what a
-  // player walks through. It is not the same number and it is not meant to be:
+  // player walks through. It is not the same number and it is not meant to be,
+  // for two reasons now.
+  //
   // `openAt` lets a boulder stand on ground a beehive will not (RUGGED against
-  // a slope of 0.30), so the boulder comes out over its share of the roll. What
-  // matters is that all three are there. The skew the user saw was the other
-  // way round and far worse: 72% beehives and 1.5% boundary stones.
+  // a slope of 0.30), and `stubborn` puts a boulder down in an anchor cell
+  // whose four rolls the ground refused, so the boulder comes out over its
+  // share of the roll on both counts.
+  //
+  // And D4 gave the hive and the boulder a `rare`, which is a veto drawn after
+  // the pick: the roll above still picks two, three and four in nine, and then
+  // one in five of the hives and one in twenty of the boulders is really put
+  // down. So what stands in the ground is the weight TIMES the rarity, and
+  // that, not the weight, is what this measurement is compared against. The
+  // arithmetic of the roll itself is proved above and is untouched by D4.
+  //
+  // What still has to be true is what the old skew broke: all three are there,
+  // and none of them is the whole of it. The skew the user saw was 72%
+  // beehives and 1.5% boundary stones.
+  const gwKit = kitFor('greenwold');
+  const rareOf = (k) => gwKit.find((q) => q.kind === k).rare;
+  const thinned = [2 * rareOf('beehive'), 3 * rareOf('sheaf'), 4 * rareOf('sarsen')];
+  const thinnedTotal = thinned.reduce((a, b) => a + b, 0);
+  const WANT_GROUND = thinned.map((v) => v / thinnedTotal * 100);
   const kinds = { beehive: 0, sheaf: 0, sarsen: 0 };
   let props = 0, chunks = 0;
   for (let dz = -16; dz < 16; dz++) for (let dx = -16; dx < 16; dx++) {
@@ -198,12 +220,15 @@ console.log('\nthe seed, and the bits it was losing');
   const share = [kinds.beehive, kinds.sheaf, kinds.sarsen].map((v) => v / props * 100);
   console.log(`    in the ground  ${props} of them over ${chunks} chunks of the Greenwold: `
     + `beehive ${f2(share[0])}%, sheaf ${f2(share[1])}%, boundary stone ${f2(share[2])}%`);
+  console.log(`    the weight times the rarity wanted  beehive ${f2(WANT_GROUND[0])}%, `
+    + `sheaf ${f2(WANT_GROUND[1])}%, boundary stone ${f2(WANT_GROUND[2])}%`);
   ck('every kind of the Greenwold\'s scatter is really in the meadow, none vanished and none the whole of it',
-    share.every((v, i) => v > WANT[i] * 0.5 && v < WANT[i] * 2),
-    `${share.map((v, i) => f2(v) + '% against ' + f2(WANT[i]) + '%').join(', ')}`);
+    share.every((v, i) => v > WANT_GROUND[i] * 0.4 && v < WANT_GROUND[i] * 2.6),
+    `${share.map((v, i) => f2(v) + '% against ' + f2(WANT_GROUND[i]) + '%').join(', ')}`);
   ck('the Greenwold keeps its boundary stones, which the skew had all but taken away',
-    kinds.sarsen > kinds.beehive,
-    `${kinds.sarsen} boundary stones to ${kinds.beehive} beehives over ${chunks} chunks`);
+    kinds.sarsen > props * 0.03 && kinds.beehive > props * 0.03,
+    `${kinds.sarsen} boundary stones and ${kinds.beehive} beehives over ${chunks} chunks, `
+    + `${f2(share[2])}% and ${f2(share[0])}% of the loose scatter, against the 1.5% the skew left`);
 }
 
 // ------------------------------------------------------------ the bodies --
@@ -566,7 +591,7 @@ console.log('\nthe farmland');
 console.log('\nopen country, twenty points a realm');
 {
   const POINTS = 20, REACH = 60, RING = 2;
-  let worstAll = 0, over = 0, gwWorst = 0;
+  let worstAll = 0, over = 0, gwWorst = 0, gwMean = 0;
   for (const zn of REALM_ZONES) {
     let seed = 20260906;
     const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -586,15 +611,29 @@ console.log('\nopen country, twenty points a realm');
       if (best > REACH) bad++;
     }
     over += bad; if (worst > worstAll) worstAll = worst;
-    if (zn.id === 'greenwold') gwWorst = worst;
+    if (zn.id === 'greenwold') { gwWorst = worst; gwMean = sum / tested; }
     ck(`${zn.id}: something authored inside ${REACH} m from every one of ${tested} open points`,
       tested === POINTS && bad === 0, `mean ${f2(sum / tested)} m, worst ${f2(worst)} m`);
   }
   ck('and nowhere in the world is further than that', over === 0, `worst of all nine: ${f2(worstAll)} m`);
   // Z4 took the road furniture out of the open Greenwold and thinned the
-  // scatter. The promise Z3 measured has to survive that.
-  ck('and the thinned Greenwold still keeps the 24 m it had', gwWorst <= 24,
-    `worst nearest prop in the Greenwold ${f2(gwWorst)} m, against 24`);
+  // scatter, and kept the 24 m Z3 had measured. D4 has spent that 24 m ON
+  // PURPOSE, and the sum is worth writing down: the user asked for a Greenwold
+  // with 40 boulders, 12 folds and 6 ponds to the square kilometre instead of
+  // 467, 230 and 55, and most of an anchor cell's rolls now put nothing down
+  // at all. The worst nearest prop went from 14.5 m to 37.7 m and the mean
+  // from 8.2 m to 15.8 m with it.
+  //
+  // What still has to hold is the promise this whole section is named for and
+  // the one a player can feel: 60 m from any open point in any realm, checked
+  // above, and a Greenwold that is emptier without being bare. The band below
+  // is the room D4 asked for and no more: at 48 m the worst point would be
+  // inside a hedgeless quarter the size of four anchor cells, which is the
+  // country going bare rather than going quiet.
+  ck('and the Greenwold is quieter than Z4 left it without being bare',
+    gwWorst <= 48 && gwMean <= 22,
+    `worst nearest prop in the Greenwold ${f2(gwWorst)} m against 48, mean ${f2(gwMean)} m against 22, `
+    + `where Z4 measured 14.52 m and 8.24 m`);
 }
 
 // ---------------------------------------------- less clutter in the open --
@@ -641,8 +680,9 @@ console.log('\nless clutter in the open');
   console.log(`  ..  ${chunks} chunks of open Greenwold meadow, no road and no farm in any of them, ${ha.toFixed(1)} hectares`);
   console.log(`  ..  before: ${wasScatter} loose props, ${(wasScatter / ha).toFixed(1)} a hectare   (${say(wasKinds)})`);
   console.log(`  ..  after:  ${nowScatter} loose props, ${(nowScatter / ha).toFixed(1)} a hectare   (${say(nowKinds)})`);
-  console.log(`  ..  all props, both tiers: ${wasAll} before, ${nowAll} after. The anchor grid is not thinned: `
-    + 'its promise is that open country is never bare, and the 24 m below is that promise measured.');
+  console.log(`  ..  all props, both tiers: ${wasAll} before, ${nowAll} after. OPEN_THIN reaches only the `
+    + 'scatter tier; what thinned the anchor grid is D4\'s own veto, which is the same in both columns '
+    + 'here and is measured in dressing_density.test.mjs.');
   ck('there was open meadow to measure', chunks > 20 && wasScatter > 100, `${chunks} chunks`);
   ck('the loose clutter of the open Greenwold is down by at least a quarter', drop >= 0.25,
     `${(drop * 100).toFixed(1)}% fewer, ${(wasScatter / ha).toFixed(1)} to ${(nowScatter / ha).toFixed(1)} a hectare`);

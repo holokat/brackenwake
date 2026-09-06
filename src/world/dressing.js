@@ -175,6 +175,57 @@ export const OPEN_THIN = 0.45;
 /** The realms whose open country is thinned. Only the farmed one, so far. */
 export const THIN_REALMS = new Set(['greenwold']);
 
+// ------------------------------------------------- one fold to a parish --
+//
+// D4. The Greenwold read as a rockery with camp fires in it. Measured over a
+// 31 by 31 chunk square on the world seed, 3.94 square kilometres, it carried
+// 473 sarsens, 296 hay ricks, 230 sheep folds, 116 beehives and 55 dew ponds
+// to the square kilometre. A sheep fold and a dew pond are both a low ring of
+// stones on the grass, so 285 rings a square kilometre is one every sixty
+// metres, and every one of them looked like somebody's fire pit.
+//
+// The ricks, the hives and the sarsens are thinned by `rare`, which is a roll
+// drawn after the kind is picked, so the cell stands empty instead of handing
+// its turn to a hedgerow. The two RING SHAPED kinds are not thinned at all;
+// they are SPACED, which is a different promise and the one the user asked
+// for: a fold or a pond is a landmark, so there is at most one of them in a
+// lattice cell RING_CELLS anchor cells a side, and the lattice cell only keeps
+// its own if no neighbouring cell's is close and higher priority.
+//
+// WHY THE CENTRES AND NOT THE PROPS. A nominated anchor cell puts its prop
+// down within JITTER of its own centre, and which of the four tries lands is
+// not known without sampling the ground, which the spacing test cannot afford
+// to do for every neighbour. So the CENTRES are compared, at RING_GUARD, which
+// is the promise plus the whole of the jitter both props could spend closing
+// the gap. Whatever the two props then do inside their cells, they are
+// RING_APART or more from each other.
+
+/** Metres between one ring shaped landmark and the next. The promise. */
+export const RING_APART = 200;
+/** The lattice a ring landmark is nominated on, in ANCHOR cells a side. */
+export const RING_CELLS = 7;
+/** That lattice cell's side, in metres. */
+export const RING_CELL = RING_CELLS * ANCHOR;
+/**
+ * The distance two nominated CELL CENTRES keep, so the two props keep
+ * RING_APART however far each one jitters towards the other.
+ */
+export const RING_GUARD = RING_APART + 2 * JITTER * ANCHOR;
+// The 3 by 3 neighbourhood has to be the whole of the question. Two nominees
+// two lattice cells apart are at least this far apart whatever they roll, so
+// if that is already over the guard, nothing outside the ring of eight can
+// ever be the one that refuses. Thrown here rather than left to a test,
+// because a wider RING_APART with the same lattice would quietly start
+// missing the neighbour that mattered.
+{
+  const farthestApartInACell = (RING_CELLS - 1) * ANCHOR;
+  const twoCellsOut = 2 * RING_CELL - farthestApartInACell;
+  if (twoCellsOut < RING_GUARD) {
+    throw new Error(`dressing: a ${RING_CELL} m ring lattice guards only ${twoCellsOut.toFixed(1)} m `
+      + `at two cells out, under the ${RING_GUARD.toFixed(1)} m guard`);
+  }
+}
+
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 // THE SEED IS THE WORLD'S SEED, and there is nothing between them any more.
@@ -218,6 +269,18 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 //            forty to a hundred and twenty metres long, so it has to START in
 //            far fewer cells than it did at eighteen metres, or the country
 //            fills up with hedge
+//   rare     the kind is really put down only this often, and the roll is
+//            drawn AFTER the pick, so the cell stands empty rather than
+//            handing its turn to the next kind along. That is the whole
+//            difference between `rare` and `chance`, and it is why D4 uses
+//            it: `chance` takes a kind out of the pool and its weight goes
+//            to the rest, so thinning the sarsens with `chance` would have
+//            grown the sheaves and the hedgerows to fill the hole. `rare`
+//            thins one kind and moves nothing else
+//   spaced   'ring' says no two of these stand within RING_APART of each
+//            other. A sheep fold and a dew pond are both a ring of stones
+//            on the grass, and a dozen of them in sight read as a dozen
+//            camp fires. Anchor tier only, and `auditKits` says so
 //   along    'x' says the body's long axis is its own local X. A run then
 //            turns each segment to lie ALONG the run instead of across it,
 //            which is the difference between a hedgerow and a comb.
@@ -239,6 +302,8 @@ const K = (kind, build, size, o = {}) => ({
   near: o.near || null,
   only: o.only || null,
   chance: o.chance ?? 1,
+  rare: o.rare ?? 1,
+  spaced: o.spaced || null,
   along: o.along || null,
 });
 
@@ -303,16 +368,33 @@ export const KITS = {
     // five. All three are things that stand alone in a field and mean
     // something standing there: hay under a cap, a fold for the sheep, and a
     // dew pond dug where the ground already held water.
-    A('hay_rick', 'rick', 4.2, { weight: 3, slope: 0.16 }),
-    A('sheep_fold', 'fold', 7.0, { weight: 2, slope: 0.22, sink: 0.12 }),
-    A('dew_pond', 'pond', 6.0, { weight: 1, slope: 0.09, sink: 0.3 }),
+    //
+    // D4: and all three were EVERYWHERE, which is the opposite of meaning
+    // something. A rick is one in seven of the cells that roll one now, and
+    // the fold and the pond are spaced two hundred metres apart, so each one
+    // is the fold, on the hill above the village, and not a pattern.
+    A('hay_rick', 'rick', 4.2, { weight: 3, slope: 0.16, rare: 0.14 }),
+    A('sheep_fold', 'fold', 7.0, { weight: 2, slope: 0.22, sink: 0.12, spaced: 'ring' }),
+    A('dew_pond', 'pond', 6.0, { weight: 1, slope: 0.09, sink: 0.3, spaced: 'ring' }),
     A('wayside_shrine', 'shrine', 2.6, { weight: 1, slope: 0.2, near: 'road', only: 'road' }),
     A('cart', 'cart', 3.4, { weight: 1, slope: 0.14, near: 'road', only: 'road' }),
     K('milestone', 'stele', 1.1, { weight: 2, slope: 0.45, near: 'road', only: 'road' }),
     K('signpost', 'signpost', 2.8, { weight: 1, slope: 0.4, near: 'road', only: 'road' }),
-    K('beehive', 'hive', 0.9, { weight: 2, slope: 0.3 }),
+    // The loose scatter. A sheaf is a sheaf and there are meant to be a lot of
+    // them; the hive and the sarsen are thinned by `rare` and their weights
+    // are untouched, so the roll that picks between the three is the same roll
+    // it always was and the sheaves did not grow to fill the gap.
+    //
+    // The sarsen is cut hardest because it was the worst of it: a low poly
+    // rock blob at 467 a square kilometre. And it was the FALLBACK as well,
+    // since it is the one kind of the Greenwold that stands on any slope at
+    // all and `stubborn` walks its list slope first. Counted over the 31 by 31
+    // chunk square, 742 of the 1841 sarsens standing there came through
+    // `stubborn` and not off the scatter grid, which is why the veto had to be
+    // asked in both places.
+    K('beehive', 'hive', 0.9, { weight: 2, slope: 0.3, rare: 0.20 }),
     K('sheaf', 'sheaf', 1.4, { weight: 3, slope: 0.28 }),
-    K('sarsen', 'boulder', 1.9, { weight: 4, slope: RUGGED, sink: 0.3 }),
+    K('sarsen', 'boulder', 1.9, { weight: 4, slope: RUGGED, sink: 0.3, rare: 0.05 }),
   ],
   // A jungle of flowering giants. Nothing straight, everything overgrown.
   verdant: [
@@ -1045,6 +1127,71 @@ function pickWeighted(list, u, near) {
 }
 
 /**
+ * The one anchor cell of a ring lattice cell that may hold a fold or a pond,
+ * its centre, and how loudly it claims the ground.
+ *
+ * Pure arithmetic on the lattice coordinates and the seed: four hashes, no
+ * ground sampled, so any chunk can work out any neighbour's nominee for less
+ * than a height read costs. That is what makes the spacing rule local.
+ */
+export function ringNominee(lx, lz, seed) {
+  const ax = Math.floor(rand2(lx, lz, seed + 41) * RING_CELLS) % RING_CELLS;
+  const az = Math.floor(rand2(lx * 7 + 1, lz * 5 + 3, seed + 42) * RING_CELLS) % RING_CELLS;
+  const cellX = lx * RING_CELLS + ax, cellZ = lz * RING_CELLS + az;
+  return {
+    cellX, cellZ,
+    x: cellX * ANCHOR + ANCHOR / 2,
+    z: cellZ * ANCHOR + ANCHOR / 2,
+    pri: rand2(lx * 3 + 5, lz * 11 + 7, seed + 43),
+  };
+}
+
+/**
+ * May a ring shaped landmark stand in this anchor cell?
+ *
+ * Only the nominee of its own lattice cell, and only if no neighbouring
+ * nominee within RING_GUARD claims the ground more loudly. Two survivors
+ * within the guard would each have to be louder than the other, so there
+ * cannot be two: the promise is proved by the rule and not by a sweep, and
+ * `dressing_density.test.mjs` measures it anyway.
+ *
+ * A cell the ground then refuses is simply lost. The loser next door is not
+ * promoted, because promotion is not local: it would have to know whether the
+ * winner's ground was any good, which is the sampling this rule exists to
+ * avoid. A parish with one fewer fold is the right price.
+ */
+export function ringOpen(cellX, cellZ, seed) {
+  const lx = Math.floor(cellX / RING_CELLS), lz = Math.floor(cellZ / RING_CELLS);
+  const me = ringNominee(lx, lz, seed);
+  if (me.cellX !== cellX || me.cellZ !== cellZ) return false;
+  for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dz) continue;
+    const o = ringNominee(lx + dx, lz + dz, seed);
+    if (Math.hypot(o.x - me.x, o.z - me.z) >= RING_GUARD) continue;
+    // louder wins, and a dead heat is settled by the lattice coordinates so
+    // that both cells come to the same answer about which of them it was
+    if (o.pri > me.pri) return false;
+    if (o.pri === me.pri && (dz < 0 || (dz === 0 && dx < 0))) return false;
+  }
+  return true;
+}
+
+/**
+ * Is the kind this cell rolled really put down here?
+ *
+ * The two vetoes that run AFTER the pick, so a cell that refuses its own roll
+ * stands empty instead of handing the ground to whatever was next in the pool.
+ * `salt` differs per caller: the anchor roll, the fallback and the scatter all
+ * ask this of the same cell coordinates, and one roll shared between them
+ * would make the fallback's answer a reading of the roll's.
+ */
+export function wanted(spec, cellX, cellZ, seed, salt) {
+  if (spec.spaced === 'ring' && !ringOpen(cellX, cellZ, seed)) return false;
+  if (spec.rare < 1 && rand2(cellX * 5 + 3, cellZ * 3 + 7, salt) >= spec.rare) return false;
+  return true;
+}
+
+/**
  * Every prop standing in one chunk.
  *
  * Deterministic in (seed, cx, cz) and nothing else: the same chunk builds the
@@ -1105,20 +1252,44 @@ export function dressingFor(field, cx, cz, opts = {}) {
     // ground refuses a kind, not a place: a cell too steep for a wreck may
     // still take a stack of reeds. When four tries have all been refused the
     // cell falls back to whichever of the kinds its pool still holds tolerates
-    // the most slope, so an anchor cell only ever stands empty over water, a
-    // road, a pad, a field or the home clear.
-    let hit = null;
+    // the most slope, so an anchor cell stands empty over water, a road, a
+    // pad, a field, the home clear, or because it rolled a kind that is meant
+    // to be rare here and would rather leave the grass alone.
+    //
+    // THAT LAST ONE IS D4, and it is the difference between a thinner
+    // Greenwold and the same Greenwold with different clutter in it. A cell
+    // that rolls a hay rick and then loses the `rare` roll does NOT go round
+    // again and it does NOT fall through to `stubborn`: it puts nothing down.
+    // Rolling again would only hand the ground to the next kind along, which
+    // is how the meadow filled up in the first place.
+    //
+    // AND THE VETO IS ASKED AFTER THE GROUND, not before it. Ask it first and
+    // a cell that rolls a rick on ground too steep for one never gets to its
+    // second try, so the hedgerows and the walls that used to win those tries
+    // quietly go with the ricks: 21 per cent of the Greenwold's hedge, in the
+    // first cut of D4, for a change that was supposed to be about ricks. Held
+    // until the gate has passed, the veto takes away exactly the prop that
+    // would have stood there and touches nothing else's turn.
+    //
+    // The cell the ring lattice nominated works the ring kinds and nothing
+    // else. It was chosen to hold a fold or a pond, and leaving it to the
+    // weighted roll threw six of every ten of them away on a hedgerow that
+    // could have started in any of the other forty eight cells.
+    const rings = anchors.filter((k) => k.spaced === 'ring');
+    const ringCell = rings.length > 0 && ringOpen(cellX, cellZ, seed);
+    let hit = null, refused = false;
     for (let t = 0; t < TRIES && !hit; t++) {
       const jx = t === 0 ? j0x : (rand2(cellX, cellZ * 7 + t, seed + 11) - 0.5) * 2 * JITTER * ANCHOR;
       const jz = t === 0 ? j0z : (rand2(cellX * 7 + t, cellZ, seed + 12) - 0.5) * 2 * JITTER * ANCHOR;
       const x = midX + jx, z = midZ + jz;
-      const spec = pickWeighted(anchors, rand2(cellX, cellZ * 13 + t, seed + 13), near);
+      const spec = pickWeighted(ringCell ? rings : anchors, rand2(cellX, cellZ * 13 + t, seed + 13), near);
       if (!spec) break;
       const gate = openAt(field, x, z, spec, sites, fields);
       if (!gate.ok) continue;
+      if (!wanted(spec, cellX, cellZ, seed, seed + 26)) { refused = true; break; }
       hit = { spec, x, z, gate };
     }
-    if (!hit) hit = stubborn(field, realm.id, cellX, cellZ, midX, midZ, seed, sites, near, fields);
+    if (!hit && !refused) hit = stubborn(field, realm.id, cellX, cellZ, midX, midZ, seed, sites, near, fields);
     if (hit) emit(out, field, hit.spec, hit.x, hit.z, cellX, cellZ, seed, realm.id, chunk, sites, fields, near);
 
     // the scatter under this anchor cell, thickened where a road or a place is
@@ -1134,9 +1305,15 @@ export function dressingFor(field, cx, cz, opts = {}) {
       const x = scX * SCATTER + SCATTER / 2 + jx, z = scZ * SCATTER + SCATTER / 2 + jz;
       const spec = pickWeighted(scatters, rand2(scX, scZ, seed + 24), near);
       if (!spec) continue;
-      // the thinning roll is drawn AFTER the kind, so a kind that is kept in
-      // the open (a boulder is not clutter, it is the ground) can say so
-      if (open < 1 && !spec.keepOpen && rand2(scX, scZ, seed + 25) > open) continue;
+      // Both of these are drawn AFTER the kind, and for the same reason: a
+      // veto here leaves the cell empty, where taking the kind out of the pool
+      // would only have moved its share onto the sheaves. The first thins the
+      // whole of the open country, the second thins one kind of it wherever it
+      // stands, and D4 needed the second because the sarsens were four in nine
+      // of every scatter cell in the realm and had to come down to one in
+      // twenty without the sheaves growing at all.
+      if (open < 1 && rand2(scX, scZ, seed + 25) > open) continue;
+      if (!wanted(spec, scX, scZ, seed, seed + 28)) continue;
       const gate = openAt(field, x, z, spec, sites, fields);
       if (!gate.ok) continue;
       emit(out, field, spec, x, z, scX, scZ, seed, realm.id, chunk, sites, fields, near);
@@ -1288,6 +1465,14 @@ function stubborn(field, realm, cellX, cellZ, midX, midZ, seed, sites, near = nu
   // where the first could not
   const spec = list[0];
   if (!spec) return null;
+  // AND THE FALLBACK IS THINNED TOO. The most slope tolerant kind of the
+  // Greenwold is the sarsen, so every anchor cell whose four rolls the ground
+  // refused put down another boulder: 742 of the 1841 sarsens over the 31 by
+  // 31 chunk square came through here and not off the scatter grid, which is
+  // two of every five of them. A rare kind is rare
+  // wherever it is placed from, or the word means nothing. The salt is its
+  // own, so this answer is not a reading of the roll's.
+  if (!wanted(spec, cellX, cellZ, seed, seed + 27)) return null;
   for (const [ox, oz] of spots) {
     const x = midX + ox, z = midZ + oz;
     const gate = openAt(field, x, z, spec, sites, fields);
@@ -1437,6 +1622,13 @@ export function auditKits(kits = KITS, bodies = null) {
       if (!(k.slope > 0)) bad.push(`${id}:${k.kind}: no slope limit`);
       if (!(k.scale[0] > 0) || k.scale[1] < k.scale[0]) bad.push(`${id}:${k.kind}: bad scale band`);
       if (!(k.chance > 0) || k.chance > 1) bad.push(`${id}:${k.kind}: a chance of ${k.chance}`);
+      if (!(k.rare > 0) || k.rare > 1) bad.push(`${id}:${k.kind}: rare ${k.rare}, which is never or more than always`);
+      if (k.spaced && k.spaced !== 'ring') bad.push(`${id}:${k.kind}: spaced "${k.spaced}", which is no lattice`);
+      // A spaced kind is nominated on the ANCHOR lattice, so a scatter kind
+      // that asked to be spaced would be asking `ringOpen` a question about a
+      // sixteen metre cell in a thirty two metre lattice, and would answer it
+      // wrongly and quietly.
+      if (k.spaced && k.tier !== 'anchor') bad.push(`${id}:${k.kind}: spaced and tier ${k.tier}, and only an anchor can be spaced`);
       if (k.only && k.only !== 'road' && k.only !== 'site') bad.push(`${id}:${k.kind}: only "${k.only}", which is nothing`);
       if (k.along && k.along !== 'x' && k.along !== 'z') bad.push(`${id}:${k.kind}: along "${k.along}", which is no axis`);
       if (bodies && !bodies[k.build]) bad.push(`${id}:${k.kind}: names a body "${k.build}" that does not exist`);
