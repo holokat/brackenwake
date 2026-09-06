@@ -28,6 +28,8 @@
 import * as THREE from 'three';
 import { mulberry32, hash2 } from '../world/noise.js';
 import { npcsFor, NPCS, NPC_LIST, TOWN_NPCS } from '../mmo/npcs.js';
+import { peopleFor } from '../mmo/plans/index.js';
+import { roleOf, PERSON, STORY_ROLES } from '../mmo/story.js';
 import { layoutTown, lotOf, doorOf, REQUIRED_LOTS } from '../world/town_layout.js';
 import { buildCharacter as defaultBuildCharacter, poseCharacter, PALETTE } from './player.js';
 
@@ -84,6 +86,8 @@ export const ROLE_TINT = {
   healer: 0xcfc7b4, mage: 0x3d4a86, provisioner: 0x7a6234, stablemaster: 0x6b4a2e,
   weaponsmaster: 0x7a3b32, ranger: 0x38553a, bard: 0x8a6f2e, necromancer: 0x2b2733,
   thief: 0x33333a, innkeeper: 0x6d5136, banker: 0x2f3c4e,
+  // the story's own roles (S2), stood by the plans (P1)
+  farmer: 0x6f5a2c, elder: 0x5a4f5e, child: 0x9a7a4a, miller: 0xb8ad8e, officer: 0x1e1c1a, outlaw: 0x4a3a2e,
 };
 
 /** The plate over a head. Named the way the world would name them. */
@@ -161,6 +165,22 @@ function townRoles(site, rng) {
  */
 export function streetFor(site, field, opts = {}) {
   if (!PEOPLED.includes(site.kind)) return [];
+  // P1: a planned town's street is the plan's, not the packer's
+  const planned = peopleFor(site.sub);
+  if (planned.length) {
+    return planned.map((p, i) => {
+      const role = roleOf(p.role) || NPCS.provisioner;
+      const person = p.name ? PERSON[p.name] : null;
+      return {
+        id: `${site.id}:${p.name || p.role}:${i}`,
+        site, role,
+        personName: person ? person.name : nameFor(site, p.role, i),
+        nightOnly: !!role.nightOnly,
+        at: p.name || 'square',
+        x: site.x + p.x, z: site.z + p.z, homeYaw: p.yaw * Math.PI / 180,
+      };
+    });
+  }
   // A3: a tower is one person at one door, not a street. 5.2 m out on the
   // facing side: the shaft is 3.4 m and the step reaches 4.6.
   if (site.kind === 'tower') {
@@ -221,7 +241,7 @@ export function auditNpcSpots() {
     if (ROLE_TINT[id] === undefined) bad.push(`role ${id} has no tunic colour`);
   }
   for (const id of Object.keys(ROLE_TINT)) {
-    if (!NPCS[id]) bad.push(`there is a tunic colour for "${id}", which is not a role`);
+    if (!NPCS[id] && !STORY_ROLES[id]) bad.push(`there is a tunic colour for "${id}", which is not a role`);
   }
   // Every role that owns a building has one to own, and every building it is
   // pointed at is a building `town_layout` promises every town has.

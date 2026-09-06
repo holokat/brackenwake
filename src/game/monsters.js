@@ -37,6 +37,7 @@
 
 import * as THREE from 'three';
 import { CHUNK } from '../world/field.js';
+import { spawnsFor as plannedSpawnsFor } from '../mmo/plans/index.js';
 import { rand2 } from '../world/noise.js';
 import {
   MONSTERS, HABITAT, HABITAT_BY_PLACE, spawnRollFor, resolvePlace, respawnDelay,
@@ -246,6 +247,21 @@ const isSettlement = (site) => site && (site.kind === 'town' || site.kind === 'h
  * A cave mouth reads as a cave for the same reason. Everything else is the
  * biome, which HABITAT has a row for in every case.
  */
+/** The monsters a planned place stands at its own points, in this chunk (P1). */
+export function plannedSpawnsForChunk(field, cx, cz, sites, night) {
+  const out = [];
+  const x0 = cx * CHUNK, z0 = cz * CHUNK;
+  for (const s of sites || []) {
+    if (!s || !s.sub) continue;
+    plannedSpawnsFor(s.sub, night).forEach((sp, i) => {
+      const x = s.x + sp.x, z = s.z + sp.z;
+      if (x < x0 || x >= x0 + CHUNK || z < z0 || z >= z0 + CHUNK) return;
+      out.push({ id: sp.id, cx, cz, i, groupKey: `${s.id}:plan`, night, key: `${s.id}:plan:${i}`, x, z, y: field.sampleAt(x, z).h });
+    });
+  }
+  return out;
+}
+
 export function placeFor(field, sites, x, z) {
   // A NAMED PLACE FIRST. The field's sample carries the deepest zone at the
   // point, and the roster's HABITAT_BY_PLACE is keyed by those same realms.js
@@ -1220,6 +1236,8 @@ export function createMonsters(sc, runtime, opts = {}) {
     // ranks them, `deadUntil` remembers them and the sweep despawns them
     // exactly as it does a wolf. See docs/mmo/wiring/F1.md.
     if (typeof runtime?.critterSpawns === 'function') entry.recs = entry.recs.concat(runtime.critterSpawns(cx, cz, night));
+    // P1: a painted place stands its own monsters at its own points
+    if (field) entry.recs = entry.recs.concat(plannedSpawnsForChunk(field, cx, cz, sitesNear(cx * CHUNK + CHUNK / 2, cz * CHUNK + CHUNK / 2, CHUNK + 160) || [], night));
     chunks.set(k, entry);
     return entry;
   }

@@ -1,0 +1,165 @@
+{
+  "id": "waystones",
+  "place": "waystones",
+  "radius": 20,
+  "repeat": {
+    "kind": "ring",
+    "count": 9,
+    "radius": 805,
+    "face": "in"
+  },
+  "arrival": {
+    "x": 12,
+    "z": 0,
+    "yaw": 270
+  },
+  "pieces": [
+    {
+      "model": "waystone_village",
+      "x": 0,
+      "z": 0,
+      "yaw": 0
+    },
+    {
+      "model": "offerings",
+      "x": 0,
+      "z": 1.5,
+      "yaw": 180
+    },
+    {
+      "model": "boundary_stone",
+      "x": 0,
+      "z": 6.5,
+      "yaw": 0
+    },
+    {
+      "model": "boundary_stone",
+      "x": 4.6,
+      "z": 4.6,
+      "yaw": 45
+    },
+    {
+      "model": "boundary_stone",
+      "x": 6.5,
+      "z": 0,
+      "yaw": 90
+    },
+    {
+      "model": "boundary_stone",
+      "x": 4.6,
+      "z": -4.6,
+      "yaw": 135
+    },
+    {
+      "model": "boundary_stone",
+      "x": 0,
+      "z": -6.5,
+      "yaw": 180
+    },
+    {
+      "model": "boundary_stone",
+      "x": -4.6,
+      "z": -4.6,
+      "yaw": 225
+    },
+    {
+      "model": "boundary_stone",
+      "x": -6.5,
+      "z": 0,
+      "yaw": 270
+    },
+    {
+      "model": "boundary_stone",
+      "x": -4.6,
+      "z": 4.6,
+      "yaw": 315
+    }
+  ],
+  "runs": [
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -15,
+        "z": -12
+      },
+      "to": {
+        "x": 15,
+        "z": -12
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "bare",
+      "points": [
+        [
+          0,
+          5
+        ],
+        [
+          1.91,
+          4.62
+        ],
+        [
+          3.54,
+          3.54
+        ],
+        [
+          4.62,
+          1.91
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          4.62,
+          -1.91
+        ],
+        [
+          3.54,
+          -3.54
+        ],
+        [
+          1.91,
+          -4.62
+        ],
+        [
+          0,
+          -5
+        ],
+        [
+          -1.91,
+          -4.62
+        ],
+        [
+          -3.54,
+          -3.54
+        ],
+        [
+          -4.62,
+          -1.91
+        ],
+        [
+          -5,
+          0
+        ],
+        [
+          -4.62,
+          1.91
+        ],
+        [
+          -3.54,
+          3.54
+        ],
+        [
+          -1.91,
+          4.62
+        ]
+      ]
+    }
+  ],
+  "people": [],
+  "spawns": [],
+  "notes": "One of the nine sarsens of the Standing Hedge, a bearded face cut in it and the grass worn to earth in a ring where people have walked round it. The offerings at its foot are left by somebody every week and nobody says who."
+}

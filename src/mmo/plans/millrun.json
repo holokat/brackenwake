@@ -1,0 +1,289 @@
+{
+  "id": "millrun",
+  "place": "millrun",
+  "radius": 56,
+  "arrival": {
+    "x": -40,
+    "z": -20,
+    "yaw": 63.43
+  },
+  "pieces": [
+    {
+      "model": "mill",
+      "x": 0,
+      "z": 0,
+      "yaw": 90
+    },
+    {
+      "model": "mill_wheel",
+      "x": 5.2,
+      "z": 0,
+      "yaw": 90,
+      "on": "mill"
+    },
+    {
+      "model": "eel_weir",
+      "x": 20,
+      "z": 10,
+      "yaw": 82
+    },
+    {
+      "model": "eel_weir",
+      "x": 24,
+      "z": -2,
+      "yaw": 82
+    },
+    {
+      "model": "eel_weir",
+      "x": 26,
+      "z": -14,
+      "yaw": 100
+    },
+    {
+      "model": "footbridge",
+      "x": -6,
+      "z": -24,
+      "yaw": 90
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": -11,
+      "z": -24,
+      "yaw": 0
+    },
+    {
+      "model": "stepping_stones",
+      "x": 18,
+      "z": -30,
+      "yaw": 100
+    },
+    {
+      "model": "millers_house",
+      "x": -22,
+      "z": 4,
+      "yaw": 90
+    },
+    {
+      "model": "granary",
+      "x": -34,
+      "z": 10,
+      "yaw": 90
+    },
+    {
+      "model": "cart_laden",
+      "x": -30,
+      "z": -8,
+      "yaw": 20
+    },
+    {
+      "model": "willow",
+      "x": 34,
+      "z": 30,
+      "yaw": 0
+    },
+    {
+      "model": "willow",
+      "x": 40,
+      "z": 18,
+      "yaw": 0
+    },
+    {
+      "model": "willow",
+      "x": 38,
+      "z": 4,
+      "yaw": 0
+    },
+    {
+      "model": "willow",
+      "x": 36,
+      "z": -12,
+      "yaw": 0
+    },
+    {
+      "model": "willow",
+      "x": 30,
+      "z": -26,
+      "yaw": 0
+    }
+  ],
+  "runs": [
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 9,
+        "z": 4
+      },
+      "to": {
+        "x": 9,
+        "z": -10
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "water",
+      "y": -0.4,
+      "points": [
+        [
+          24,
+          38
+        ],
+        [
+          18,
+          10
+        ],
+        [
+          20,
+          -4
+        ],
+        [
+          22,
+          -18
+        ],
+        [
+          20,
+          -30
+        ],
+        [
+          28,
+          -30
+        ],
+        [
+          30,
+          -18
+        ],
+        [
+          28,
+          -4
+        ],
+        [
+          26,
+          10
+        ],
+        [
+          32,
+          38
+        ]
+      ]
+    },
+    {
+      "kind": "water",
+      "y": -0.5,
+      "points": [
+        [
+          -7,
+          -7
+        ],
+        [
+          7,
+          -7
+        ],
+        [
+          7,
+          -17
+        ],
+        [
+          -7,
+          -17
+        ]
+      ]
+    },
+    {
+      "kind": "water",
+      "y": -0.5,
+      "points": [
+        [
+          3.5,
+          5
+        ],
+        [
+          8.5,
+          5
+        ],
+        [
+          8.5,
+          -8
+        ],
+        [
+          3.5,
+          -8
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 4,
+      "points": [
+        [
+          -40,
+          -20
+        ],
+        [
+          -30,
+          -10
+        ],
+        [
+          -20,
+          -2
+        ],
+        [
+          -8,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "wheat",
+      "points": [
+        [
+          -40,
+          20
+        ],
+        [
+          -20,
+          24
+        ],
+        [
+          -24,
+          40
+        ],
+        [
+          -42,
+          34
+        ]
+      ]
+    }
+  ],
+  "people": [
+    {
+      "name": "ivy",
+      "role": "miller",
+      "x": -8,
+      "z": 0,
+      "yaw": 90
+    }
+  ],
+  "spawns": [
+    {
+      "id": "goose",
+      "x": -3,
+      "z": -10
+    },
+    {
+      "id": "goose",
+      "x": 2,
+      "z": -13
+    },
+    {
+      "id": "goose",
+      "x": -1,
+      "z": -15
+    },
+    {
+      "id": "goose",
+      "x": 4,
+      "z": -11
+    }
+  ],
+  "notes": "Ivy Weir's mill, the wheel on the river side and the pond in front of it with four geese on it. The plank bridge and the ford are the two ways over, and the eel weirs are hers as well."
+}

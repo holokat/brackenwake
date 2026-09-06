@@ -54,8 +54,9 @@
 //   `only: 'road'` and are struck out of the pool anywhere else, and the small
 //   loose scatter of the open Greenwold is thinned by OPEN_THIN on top of that.
 
+import { inPlannedPlace } from '../mmo/plans/index.js';
 import { CHUNK, HOME_RADIUS, SEA_LEVEL } from './field.js';
-import { rand2, hash2 } from './noise.js';
+import { rand2 } from './noise.js';
 import { REALM_ZONES, weightOf } from './zones.js';
 import { sitesNear as sitesNearField } from './sites.js';
 import { roadsOverlapping, ROAD_HALF_WIDTH } from './roads.js';
@@ -176,31 +177,23 @@ export const THIN_REALMS = new Set(['greenwold']);
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
-/**
- * The world seed, cut down to twenty bits before anything hashes with it.
- *
- * THIS IS NOT TIDINESS. `noise.hash2` mixes its seed in as
- * `seed * 2147483647`, and the world seed is 20260904, so that product is
- * 4.35e16: past 2^53, where a double stops being able to hold every integer.
- * The low bits of the seed's contribution are rounded away, two salts of the
- * same cell come out nearly the same number, and every roll drawn from the
- * same (x, z) with a neighbouring salt is correlated with the last one.
- *
- * Measured, on the real world seed, over 160000 scatter cells whose "is there
- * anything here" roll passed: the kind roll that should have come out
- * 22 / 33 / 44 per cent beehive, sheaf and boundary stone came out
- * 72 / 26 / 1.5. The Greenwold's meadow was very nearly all beehives, and the
- * boundary stone the user asked to keep had all but vanished. With the seed cut
- * to twenty bits the same measurement gives 24.6 / 31.9 / 43.5, and the same
- * numbers as a seed of 1000, which is small enough for the multiply to be
- * exact. `dressing.test.mjs` drives both.
- *
- * Only this file is fixed. flora.js, sitegrid.js and field.js hash the same way
- * with the same seed and are not Z4's to touch; it is worth somebody's eye.
- */
-export function dressSeed(seed) {
-  return hash2(seed & 0xffff, (seed >>> 16) & 0xffff, 7) % 1048576;
-}
+// THE SEED IS THE WORLD'S SEED, and there is nothing between them any more.
+//
+// Z4 found, on 2026-09-06, that `noise.hash2` mixed its seed in as
+// `seed * 2147483647` in a double: with the world seed 20260904 that product is
+// 4.35e16, past the 2^53 where a double stops holding every integer, so the low
+// bits of the seed's contribution were rounded away and two salts of the same
+// cell came out correlated. The kind roll that wanted 22 / 33 / 44 per cent
+// beehive, sheaf and boundary stone gave 72 / 26 / 1.5, and the Greenwold's
+// meadow was very nearly all beehives.
+//
+// Z4 could not touch `noise.js`, so it cut the seed to twenty bits in this file
+// alone (`dressSeed`) and the mix came back. `hash2` uses `Math.imul` on all
+// three terms now and loses nothing, so the cut is not only redundant, it is a
+// second thing between the dressing and the world seed that every other file
+// does without. It is gone. `dressing.test.mjs` measures the mix on the world
+// seed itself, and against the old arithmetic rebuilt in the test, so what was
+// fixed is still visible.
 
 // ---------------------------------------------------------------- the kits --
 //
@@ -565,6 +558,7 @@ export function inField(f, x, z, pad = 0) {
 
 /** A site's pad plus its margin. A mine's mouths keep their own room too. */
 export function inPad(site, x, z) {
+  if (inPlannedPlace(site, x, z)) return true;   // P1: a painted place dresses itself
   const r = (site.flatR != null ? site.flatR : SITE_CLEAR) + PAD_MARGIN;
   if ((x - site.x) ** 2 + (z - site.z) ** 2 < r * r) return true;
   if (site.mouths) {
@@ -775,7 +769,7 @@ export const farmsHeld = () => farmCache.size;
 const EMPTY_FARM = Object.freeze({ fields: [], props: [] });
 
 function buildFarm(field, site, realm) {
-  const seed = dressSeed(field.seed);
+  const seed = field.seed;
   // The layout asks the world for its OWN neighbours rather than taking the
   // chunk's list. A field lies four hundred metres from its village and a
   // chunk's list reaches two hundred, so a layout built off the caller's list
@@ -1061,7 +1055,7 @@ function pickWeighted(list, u, near) {
  * the prop less its own sink, so a half buried giant is already half buried.
  */
 export function dressingFor(field, cx, cz, opts = {}) {
-  const seed = dressSeed(field.seed);
+  const seed = field.seed;
   const out = [];
   const chunk = cx + ',' + cz;
   const x0 = cx * CHUNK, z0 = cz * CHUNK;

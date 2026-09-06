@@ -28,6 +28,8 @@ import { createSiteMarkers } from '../world/site_models.js';
 import { createFlora } from '../world/flora.js';
 import { createDressing } from '../world/dressing_models.js';
 import { createWayside } from '../world/wayside_models.js';
+import { loadPropsFor } from '../world/plan_models.js';
+import { PLANS } from '../mmo/plans/index.js';
 import { deckAt } from '../world/wayside.js';
 import { createFauna } from '../world/fauna.js';
 import { generateDungeon, clampToWalkable, maxLevel, floorAt, gridOf, walkable, roomAt } from '../world/dungeon_gen.js';
@@ -80,6 +82,9 @@ export function createWorldRuntime(sc, opts = {}) {
   // The roads' own furniture (A2): lamps lit at dusk, signs at the forks,
   // bridges over the rivers, gates at the realm lines.
   const wayside = createWayside(scene, field);
+  // P1: a painted place's models, if the user has made them, load ahead of the
+  // build; a model not on disk leaves its stand-in standing
+  for (const plan of Object.values(PLANS)) loadPropsFor(plan);
   // fauna draws nothing any more. It says where the world's animals belong and
   // the monster layer stands them up, which is what makes a squirrel a thing
   // you can click. See src/world/fauna.js and docs/mmo/wiring/F1.md.

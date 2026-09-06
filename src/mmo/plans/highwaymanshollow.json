@@ -1,0 +1,429 @@
+{
+  "id": "highwaymanshollow",
+  "place": "highwaymanshollow",
+  "radius": 34,
+  "arrival": {
+    "x": 0,
+    "z": -30,
+    "yaw": 0
+  },
+  "pieces": [
+    {
+      "model": "oak_a",
+      "x": -12,
+      "z": -4,
+      "yaw": 0
+    },
+    {
+      "model": "lookout_platform",
+      "x": -12,
+      "z": -4,
+      "yaw": 0,
+      "on": "oak_a"
+    },
+    {
+      "model": "tent_ragged",
+      "x": -6,
+      "z": 8,
+      "yaw": 170
+    },
+    {
+      "model": "tent_ragged",
+      "x": 0,
+      "z": 10,
+      "yaw": 180
+    },
+    {
+      "model": "tent_ragged",
+      "x": 6,
+      "z": 8,
+      "yaw": 190
+    },
+    {
+      "model": "tent_ragged",
+      "x": 10,
+      "z": 4,
+      "yaw": 220
+    },
+    {
+      "model": "tarp_cart",
+      "x": 10,
+      "z": -2,
+      "yaw": 90
+    },
+    {
+      "model": "campfire",
+      "x": 0,
+      "z": -2,
+      "yaw": 0
+    },
+    {
+      "model": "weapons_rack",
+      "x": 11,
+      "z": -6,
+      "yaw": 270
+    },
+    {
+      "model": "crate",
+      "x": 8,
+      "z": -8,
+      "yaw": 20
+    },
+    {
+      "model": "loot_sack",
+      "x": 9.3,
+      "z": -8.9,
+      "yaw": 0
+    },
+    {
+      "model": "target_dummy",
+      "x": 8,
+      "z": -14,
+      "yaw": 0
+    },
+    {
+      "model": "sheep_skeleton",
+      "x": 3,
+      "z": -6,
+      "yaw": 40
+    },
+    {
+      "model": "crate",
+      "x": 0,
+      "z": 0.6,
+      "yaw": 0
+    },
+    {
+      "model": "crate",
+      "x": 2.47,
+      "z": -1.2,
+      "yaw": 72
+    },
+    {
+      "model": "crate",
+      "x": 1.53,
+      "z": -4.1,
+      "yaw": 144
+    },
+    {
+      "model": "crate",
+      "x": -1.53,
+      "z": -4.1,
+      "yaw": 216
+    },
+    {
+      "model": "crate",
+      "x": -2.47,
+      "z": -1.2,
+      "yaw": 288
+    }
+  ],
+  "runs": [
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -4.79,
+        "z": -13.16
+      },
+      "to": {
+        "x": -8.23,
+        "z": -11.33
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -8.23,
+        "z": -11.33
+      },
+      "to": {
+        "x": -11.03,
+        "z": -8.62
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -11.03,
+        "z": -8.62
+      },
+      "to": {
+        "x": -12.98,
+        "z": -5.24
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -12.98,
+        "z": -5.24
+      },
+      "to": {
+        "x": -13.92,
+        "z": -1.46
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -13.92,
+        "z": -1.46
+      },
+      "to": {
+        "x": -13.79,
+        "z": 2.43
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -13.79,
+        "z": 2.43
+      },
+      "to": {
+        "x": -12.58,
+        "z": 6.14
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -12.58,
+        "z": 6.14
+      },
+      "to": {
+        "x": -10.4,
+        "z": 9.37
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -10.4,
+        "z": 9.37
+      },
+      "to": {
+        "x": -7.42,
+        "z": 11.87
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -7.42,
+        "z": 11.87
+      },
+      "to": {
+        "x": -3.86,
+        "z": 13.46
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -3.86,
+        "z": 13.46
+      },
+      "to": {
+        "x": 0,
+        "z": 14
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": 0,
+        "z": 14
+      },
+      "to": {
+        "x": 3.86,
+        "z": 13.46
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": 3.86,
+        "z": 13.46
+      },
+      "to": {
+        "x": 7.42,
+        "z": 11.87
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": 7.42,
+        "z": 11.87
+      },
+      "to": {
+        "x": 10.4,
+        "z": 9.37
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": 10.4,
+        "z": 9.37
+      },
+      "to": {
+        "x": 12.58,
+        "z": 6.14
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": 12.58,
+        "z": 6.14
+      },
+      "to": {
+        "x": 13.79,
+        "z": 2.43
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": 13.79,
+        "z": 2.43
+      },
+      "to": {
+        "x": 13.92,
+        "z": -1.46
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": 13.92,
+        "z": -1.46
+      },
+      "to": {
+        "x": 12.98,
+        "z": -5.24
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": 12.98,
+        "z": -5.24
+      },
+      "to": {
+        "x": 11.03,
+        "z": -8.62
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": 11.03,
+        "z": -8.62
+      },
+      "to": {
+        "x": 8.23,
+        "z": -11.33
+      }
+    },
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": 8.23,
+        "z": -11.33
+      },
+      "to": {
+        "x": 4.79,
+        "z": -13.16
+      }
+    },
+    {
+      "model": "palisade_stake_3m",
+      "from": {
+        "x": -12,
+        "z": -12
+      },
+      "to": {
+        "x": -1.5,
+        "z": -12
+      }
+    },
+    {
+      "model": "palisade_stake_3m",
+      "from": {
+        "x": 1.5,
+        "z": -12
+      },
+      "to": {
+        "x": 12,
+        "z": -12
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "lane",
+      "w": 2.5,
+      "points": [
+        [
+          0,
+          -30
+        ],
+        [
+          0,
+          -12
+        ]
+      ]
+    }
+  ],
+  "people": [
+    {
+      "name": "millersson",
+      "role": "outlaw",
+      "x": 6.3,
+      "z": 5,
+      "yaw": 221.99
+    }
+  ],
+  "spawns": [
+    {
+      "id": "bandit",
+      "x": -4,
+      "z": 4,
+      "night": true
+    },
+    {
+      "id": "bandit",
+      "x": 3,
+      "z": 4,
+      "night": true
+    },
+    {
+      "id": "bandit",
+      "x": 6,
+      "z": 0,
+      "night": true
+    },
+    {
+      "id": "bandit",
+      "x": -7,
+      "z": 0,
+      "night": true
+    },
+    {
+      "id": "raider",
+      "x": 4,
+      "z": -9,
+      "night": true
+    },
+    {
+      "id": "raider",
+      "x": -3,
+      "z": -8,
+      "night": true
+    }
+  ],
+  "notes": "A hollow under a chalk overhang with a stake palisade across the open side and a gap in the middle of it. The fire is in the centre and there are five seats round it, a lookout in the oak on the west, and a straw dummy outside the wall with arrows still in it."
+}

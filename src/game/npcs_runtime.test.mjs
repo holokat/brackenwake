@@ -9,6 +9,15 @@ import { createWorldField } from '../world/field.js';
 import { SITE_CELL } from '../world/sitegrid.js';
 import { mulberry32 } from '../world/noise.js';
 import { authoredSites, TOWN_PRECINCT_R } from '../world/zones.js';
+import { PLANS } from '../mmo/plans/index.js';
+import { FOOTPRINT } from '../mmo/plans/footprints.js';
+/** Is a point inside any piece's footprint of a planned site? A rough box test in the plan's frame. */
+function inPlannedPieceAt(site, x, z) {
+  const plan = PLANS[site.sub];
+  if (!plan) return false;
+  const lx = x - site.x, lz = z - site.z;
+  return (plan.pieces || []).some((pc) => { const f = FOOTPRINT[pc.model]; if (!f) return false; const dx = lx - pc.x, dz = lz - pc.z; const a = (pc.yaw || 0) * Math.PI / 180;   // the plan turns clockwise from north, so the local frame turns with it const rx = dx * Math.cos(a) - dz * Math.sin(a), rz = dx * Math.sin(a) + dz * Math.cos(a); return Math.abs(rx) < f[0] / 2 && Math.abs(rz) < f[1] / 2; });
+}
 import { lotOf, lotsOverlap, SQUARE_R } from '../world/town_layout.js';
 
 let pass = 0, fail = 0;
@@ -99,9 +108,21 @@ console.log('npcs_runtime: streets');
 
 console.log('npcs_runtime: the seven precinct towns keep their doors');
 {
-  const precinct = authoredSites().filter((s) => s.flatR === TOWN_PRECINCT_R)
+  const all = authoredSites().filter((s) => s.flatR === TOWN_PRECINCT_R)
     .map((s) => field.siteInCell(Math.floor(s.x / SITE_CELL), Math.floor(s.z / SITE_CELL)));
-  check('all seven are in the world to be peopled', precinct.length === 7, precinct.map((s) => s.sub).join(', '));
+  check('all seven are in the world to be peopled', all.length === 7, all.map((s) => s.sub).join(', '));
+  // Hearthhome is painted (P1): its street is the plan's, fourteen people by
+  // name at the doors the painting gives them, so the packer's door rules
+  // below are for the six the packer still lays out
+  const planned = all.filter((s) => PLANS[s.sub]);
+  const precinct = all.filter((s) => !PLANS[s.sub]);
+  check('one of the seven is painted and the other six are packed', planned.length === 1 && planned[0].sub === 'hearthhome' && precinct.length === 6, planned.map((s) => s.sub).join(', '));
+  {
+    const street = streetFor(planned[0], field);
+    check('the painted town stands the plan\'s people, fourteen of them', street.length === 14, `${street.length}`);
+    check('and five of them are the story\'s named cast at their doors', ['Nan Ockley', 'Cobb Ashby', 'Alys Fenn', 'Old Wynn Ashby', 'Bram Haywood'].every((n) => street.some((p) => p.personName === n)), street.map((p) => p.personName).join(', '));
+    check('and none of them stands inside a plan piece', street.every((p) => !inPlannedPieceAt(planned[0], p.x, p.z)));
+  }
   check('and every one of them has a plan', precinct.every((s) => !!townPlanFor(s)));
 
   const rows = [];

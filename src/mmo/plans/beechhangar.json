@@ -1,0 +1,369 @@
+{
+  "id": "beechhangar",
+  "place": "beechhangar",
+  "radius": 66,
+  "arrival": {
+    "x": -50,
+    "z": -40,
+    "yaw": 55.01
+  },
+  "pieces": [
+    {
+      "model": "beech_a",
+      "x": -8,
+      "z": 4,
+      "yaw": 0
+    },
+    {
+      "model": "beech_a",
+      "x": 12,
+      "z": -6,
+      "yaw": 0
+    },
+    {
+      "model": "beech_a",
+      "x": 20,
+      "z": 14,
+      "yaw": 0
+    },
+    {
+      "model": "beech_a",
+      "x": -21,
+      "z": -19,
+      "yaw": 0
+    },
+    {
+      "model": "fallen_beech",
+      "x": -14,
+      "z": -8,
+      "yaw": 135
+    },
+    {
+      "model": "badger_sett",
+      "x": -20,
+      "z": 6,
+      "yaw": 180
+    },
+    {
+      "model": "badger_sett",
+      "x": 8,
+      "z": -14,
+      "yaw": 180
+    },
+    {
+      "model": "badger_sett",
+      "x": 26,
+      "z": 10,
+      "yaw": 180,
+      "on": "beech_a"
+    },
+    {
+      "model": "rooting_patch",
+      "x": 0,
+      "z": 0,
+      "yaw": 0
+    },
+    {
+      "model": "rooting_patch",
+      "x": 10,
+      "z": 8,
+      "yaw": 0
+    },
+    {
+      "model": "rooting_patch",
+      "x": -6,
+      "z": -16,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 5.42,
+      "z": 20.54,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 2.41,
+      "z": -20.77,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": -12.34,
+      "z": 17.48,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 26.79,
+      "z": -1.09,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 25.89,
+      "z": -12.81,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": -26.09,
+      "z": -7.73,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": -28.73,
+      "z": 5.42,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": -6.18,
+      "z": 30.12,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": 12.97,
+      "z": 36.67,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 37.01,
+      "z": 9.84,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": 24.31,
+      "z": -24.69,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": 10.37,
+      "z": -34.03,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": -6.96,
+      "z": -38.36,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": -17.97,
+      "z": -30.03,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": -36.18,
+      "z": -6.52,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": -39,
+      "z": 4.92,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": -30.37,
+      "z": 17.82,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 1.2,
+      "z": 44.08,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 43.47,
+      "z": -4.45,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": 39.16,
+      "z": -18.14,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 37.26,
+      "z": -30.16,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": 27.53,
+      "z": -34.02,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 3.5,
+      "z": -46.42,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": -28.2,
+      "z": -34.17,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": -41.65,
+      "z": -18.82,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": -40.75,
+      "z": 18.21,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": -36.59,
+      "z": 30.74,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": -27.31,
+      "z": 33.45,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": -16.4,
+      "z": 39.94,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 1.59,
+      "z": 54.16,
+      "yaw": 0
+    },
+    {
+      "model": "beech_b",
+      "x": 15.44,
+      "z": 51.45,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": 29.84,
+      "z": 46.79,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": 45.49,
+      "z": 26.1,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": 55.95,
+      "z": 8.03,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": 55.19,
+      "z": -10.93,
+      "yaw": 0
+    },
+    {
+      "model": "beech_c",
+      "x": 36.66,
+      "z": -41.7,
+      "yaw": 0
+    }
+  ],
+  "runs": [],
+  "areas": [
+    {
+      "kind": "lane",
+      "w": 3,
+      "points": [
+        [
+          -50,
+          -40
+        ],
+        [
+          -30,
+          -26
+        ],
+        [
+          -10,
+          -6
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          26,
+          20
+        ],
+        [
+          50,
+          40
+        ]
+      ]
+    },
+    {
+      "kind": "wheat",
+      "points": [
+        [
+          -28,
+          -50
+        ],
+        [
+          8,
+          -44
+        ],
+        [
+          6,
+          -56
+        ],
+        [
+          -30,
+          -56
+        ]
+      ]
+    }
+  ],
+  "people": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": -4,
+      "z": 10
+    },
+    {
+      "id": "boar",
+      "x": 16,
+      "z": -2
+    },
+    {
+      "id": "oldGrist",
+      "x": 30,
+      "z": -10,
+      "night": true
+    }
+  ],
+  "notes": "A hollow way sunk between banks under old beeches, the leaf litter copper over the whole ridge. The turned earth in the path is boar work, the holes under the roots are badgers, and by night Old Grist stands in the shade on the right."
+}

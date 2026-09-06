@@ -1,0 +1,92 @@
+{
+  "id": "oldcellars",
+  "place": "oldcellars",
+  "radius": 16,
+  "arrival": {
+    "x": 0,
+    "z": -12,
+    "yaw": 0
+  },
+  "pieces": [
+    {
+      "model": "cellar_arch",
+      "x": 0,
+      "z": 0,
+      "yaw": 180
+    },
+    {
+      "model": "chain_lantern",
+      "x": 0,
+      "z": 1,
+      "yaw": 0,
+      "on": "cellar_arch"
+    },
+    {
+      "model": "legion_banner",
+      "x": 6,
+      "z": -1,
+      "yaw": 200
+    },
+    {
+      "model": "cart_broken",
+      "x": -6,
+      "z": -3,
+      "yaw": 40
+    }
+  ],
+  "runs": [
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -10,
+        "z": 8
+      },
+      "to": {
+        "x": 10,
+        "z": 8
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "mud",
+      "points": [
+        [
+          -4,
+          -2
+        ],
+        [
+          4,
+          -2
+        ],
+        [
+          4,
+          -7
+        ],
+        [
+          -4,
+          -7
+        ]
+      ]
+    }
+  ],
+  "people": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": 2,
+      "z": -4
+    },
+    {
+      "id": "giantRat",
+      "x": -3,
+      "z": -5
+    },
+    {
+      "id": "giantRat",
+      "x": 5,
+      "z": -6
+    }
+  ],
+  "notes": "A stone arch half sunk in a grass slope with a brick vault behind it and a stair going down. Somebody planted a Legion banner beside the door and did not straighten it, and there are footprints in the mud that go in and do not come out."
+}

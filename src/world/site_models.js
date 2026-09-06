@@ -14,6 +14,8 @@ import { buildMineMouth, buildMineYard, buildSeam } from './mine_models.js';
 import { buildTown } from './town_models.js';
 import { buildMegalith } from './megalith_models.js';
 import { linksForCell } from './roads.js';
+import { PLANS } from '../mmo/plans/index.js';
+import { buildPlan } from './plan_models.js';
 import { buildStructure } from './structures.js';
 import { createFires, createGlows } from './fire.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -214,6 +216,8 @@ export function buildSiteMarker(site, heightAt, opts = {}) {
   // a mine is several places at once and merges per part; every other kind is
   // one group merged in one pass, exactly as it always was
   if (site.kind === 'mine') return mineSite(site, heightAt);
+  // P1: a place somebody painted is built from the painting and not rolled.
+  if (PLANS[site.sub]) { const g = buildPlan(PLANS[site.sub], site, heightAt); if (g) return g; }
   // Wave B hands two kinds to their own builders. Each answers null until it
   // is written (or for a site it does not know), and the old marker stands in.
   if (site.kind === 'town' && site.authored) {
