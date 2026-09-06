@@ -42,7 +42,19 @@ concept images. Read `PLANS.md` beside this for where each piece stands.
 - **Rigged bodies**: exactly one skin, clips named exactly as the game asks
   (humans `idle walk run swing cast hurt die jump`, monsters `idle walk
   attack hurt die special`), walk authored at 7 m/s and run at 18 m/s.
-- **Validate** with `node tools/validate-glb.mjs` before handing over.
+- **Size**: `src/mmo/plans/footprints.js` FOOTPRINT[id] is [width, depth,
+  height] in metres and the game scales a model to that HEIGHT, so build to
+  it. A model with no footprint row is never loaded.
+- **Budgets by footprint height**, which is the one number every model has:
+  under 2 m (barrel, crate, bench, fence panel, headstone) 512 textures and
+  800 triangles; under 4 m (wall piece, stall, well, bridge, standing stone)
+  1024 and 1,500 (2,500 for a bridge or a well); under 7 m (cottage, stable,
+  smithy, gate tower) 2048 and 8,000; 7 m and up (inn, chapel, manor, mill)
+  2048 and 15,000.
+- **Validate** props and buildings with `node tools/validate-props.mjs`
+  (`--file <path>` for one), which measures the file against the footprint
+  and these budgets and fails anything over. Rigged bodies use
+  `node tools/validate-glb.mjs`.
 
 The prompt language below is for a text-to-3D or image-to-3D tool. Attach
 the matching concept image to each prompt; the words say what the crop is.
