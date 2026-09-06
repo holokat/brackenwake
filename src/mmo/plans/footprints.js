@@ -45,7 +45,10 @@ export const FOOTPRINT = {
   waystone_village: [1.2, 0.9, 4],
   gate_tower: [7, 6, 9],
   stone_bridge_10m: [10, 4, 2.2],
-  mound_fence: [2, 0.18, 1],
+  // 0.75 high, not 1: the user's Blender panel is 0.73 m (2 by 0.24 by 0.73,
+  // measured from the glb), and fitting it to a metre would stretch the posts
+  // by a third. The model is the authored look; the footprint follows it.
+  mound_fence: [2, 0.24, 0.75],
   bench: [1.8, 0.5, 0.9],
   barrel: [0.8, 0.8, 1],
   crate: [0.9, 0.9, 0.8],
