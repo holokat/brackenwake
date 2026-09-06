@@ -18,7 +18,7 @@ import {
   seasonAt, seasonIndexAt, seasonProgress, nextSeasonAt,
   placeForage, createForageField, forageGeometry, forageTriangles, auditForage,
   weightFor, mapBio, idsIn, WET_MOIST, WET_KEY, CLEARING_GAP, FORAGE_SCALE,
-  plantsIn, distanceToForage,
+  plantsIn, distanceToForage, TREE_CLUSTER_MAX, GROUND_CLUSTER_MAX, clusterCapFor,
 } from './forage.js';
 import { CHUNK } from './field.js';
 import { BASES, FORAGE_BASES, FORAGE_PRODUCT_BASES, auditForageBases } from '../mmo/items.js';
@@ -124,6 +124,23 @@ console.log('\nforage: the audit fails on a broken row, not only on a good one')
   try { auditForage(); } catch (e) { threw = e.message; }
   FORAGE_BY_ID.nettle.cluster = keepC;
   check('a cluster that counts backwards throws', /cluster/.test(threw), threw.split('\n')[0]);
+  // Both directions on the cap: one over it throws, one exactly on it does not.
+  FORAGE_BY_ID.nettle.cluster = [1, GROUND_CLUSTER_MAX + 1];
+  threw = '';
+  try { auditForage(); } catch (e) { threw = e.message; }
+  check(`a ground patch of ${GROUND_CLUSTER_MAX + 1} throws`, /may hold/.test(threw), threw.split('\n')[1] || threw.split('\n')[0]);
+  FORAGE_BY_ID.nettle.cluster = [1, GROUND_CLUSTER_MAX];
+  threw = '';
+  try { auditForage(); } catch (e) { threw = e.message; }
+  check(`and one of exactly ${GROUND_CLUSTER_MAX} does not`, threw === '', threw.split('\n')[0]);
+  FORAGE_BY_ID.nettle.cluster = keepC;
+  const keepM = FORAGE_BY_ID.morel.cluster;
+  FORAGE_BY_ID.morel.cluster = [1, TREE_CLUSTER_MAX + 1];
+  threw = '';
+  try { auditForage(); } catch (e) { threw = e.message; }
+  check(`a bunch at a tree of ${TREE_CLUSTER_MAX + 1} throws, where the same ${TREE_CLUSTER_MAX + 1} on the ground would not`,
+    /may hold/.test(threw), threw.split('\n')[1] || threw.split('\n')[0]);
+  FORAGE_BY_ID.morel.cluster = keepM;
   check('and the real table is clean again', !!auditForage());
 }
 
@@ -168,18 +185,32 @@ const flat = () => 0;
 // AND the old lessons-per-chunk counts.
 const WAS = { Spring: 267, Summer: 282, Autumn: 139, Winter: 0 };
 
+// And what the same chunk grew after clusters but BEFORE the caps, measured on
+// the shipped table at the commit before this one with this same `trees(30)`
+// list. The pickables barely move under the caps; the PLANTS are the number
+// the user was complaining about, because plants are what one click hands over.
+const BEFORE_CAP = {
+  Spring: { records: 31, plants: 177 },
+  Summer: { records: 43, plants: 200 },
+  Autumn: { records: 32, plants: 91 },
+  Winter: { records: 0, plants: 0 },
+};
+
 console.log('\nforage: what a meadow chunk gets, by season, as pickables and as plants');
 {
   const T = trees(30);
   const counts = {};
-  console.log('     season  pickables  plants   was (plants, and pickables too, before clusters)');
+  console.log('     season  pickables  plants     before caps (pick/plants)   before clusters (plants)');
   for (const s of SEASONS) {
     const recs = placeForage(meadow, 0, 0, T, s, 1, { heightAt: flat });
     const kinds = [...new Set(recs.map((r) => r.id))];
     const plants = recs.reduce((n, r) => n + r.count, 0);
     counts[s] = { records: recs.length, kinds: kinds.length, plants };
-    const share = WAS[s] ? `${Math.round(recs.length / WAS[s] * 100)}% of the old pickables` : '';
-    console.log(`     ${s.padEnd(7)} ${String(recs.length).padStart(6)} ${String(plants).padStart(9)}   ${String(WAS[s]).padStart(4)}   ${share}`);
+    const b = BEFORE_CAP[s];
+    console.log(`     ${s.padEnd(7)} ${String(recs.length).padStart(6)} ${String(plants).padStart(9)}`
+      + `     ${String(b.records).padStart(4)} / ${String(b.plants).padStart(4)}`
+      + `${b.plants ? ` (${Math.round(plants / b.plants * 100)}% of the plants)` : ''}`.padEnd(30)
+      + `${String(WAS[s]).padStart(4)}`);
     console.log(`             ${kinds.length} kinds: ${kinds.join(', ') || 'nothing'}`);
   }
   const nowAll = counts.Spring.records + counts.Summer.records + counts.Autumn.records;
@@ -192,8 +223,17 @@ console.log('\nforage: what a meadow chunk gets, by season, as pickables and as 
     SEASONS.every((s) => !WAS[s] || counts[s].records / WAS[s] < 0.33),
     SEASONS.map((s) => `${s[0]}${WAS[s] ? Math.round(counts[s].records / WAS[s] * 100) : 0}%`).join(' '));
   check('the wood still LOOKS full: more plants stand than there are pickables',
-    counts.Spring.plants > counts.Spring.records * 3 && counts.Summer.plants > counts.Summer.records * 3,
+    counts.Spring.plants > counts.Spring.records && counts.Summer.plants > counts.Summer.records,
     `Spring ${counts.Spring.plants} plants in ${counts.Spring.records} patches`);
+  // The caps are the whole point of this change, so they get a number rather
+  // than a claim: the plants a chunk grows fell by better than half, and the
+  // pickables did not, because a bunch of two is still a bunch.
+  check('and the caps took the PLANTS down by more than a third, in every growing season',
+    ['Spring', 'Summer', 'Autumn'].every((s) => counts[s].plants < BEFORE_CAP[s].plants * 0.67),
+    ['Spring', 'Summer', 'Autumn'].map((s) => `${s[0]} ${counts[s].plants}/${BEFORE_CAP[s].plants}`).join('  '));
+  check('while the pickables stayed within a fifth of what they were',
+    ['Spring', 'Summer', 'Autumn'].every((s) => Math.abs(counts[s].records - BEFORE_CAP[s].records) <= BEFORE_CAP[s].records * 0.2),
+    ['Spring', 'Summer', 'Autumn'].map((s) => `${s[0]} ${counts[s].records}/${BEFORE_CAP[s].records}`).join('  '));
   check('Summer is full', counts.Summer.records > 0 && counts.Summer.kinds >= 5, JSON.stringify(counts.Summer));
   check('Autumn is full', counts.Autumn.records > 0, JSON.stringify(counts.Autumn));
   check('Spring is full', counts.Spring.records > 0, JSON.stringify(counts.Spring));
@@ -218,6 +258,131 @@ console.log('\nforage: a chunk with no trees loses everything that needs one');
   check('with trees, the trunk and near-tree kinds place', withT.some((r) => needsTree.has(r.id)), `${withT.filter((r) => needsTree.has(r.id)).length} of ${withT.length}`);
   check('with none, not one of them does', stillThere.length === 0, stillThere.join(','));
   check('but the ground kinds still do', without.length > 0, `${without.length} records`);
+}
+
+// The user's report: "we have far too many forageable materials around a single
+// tree. we can pick like 20 oyster mushrooms, 20 garlic .. its just ridiculous.
+// i want to be able to pick maybe 2 of each max if that." A lone tree in an open
+// meadow used to take EVERY near-tree bunch the chunk rolled, because each one
+// chose a tree at random out of a list of one. These are the numbers that report
+// is about, driven on the worst case: one tree, nothing else to hang anything on.
+console.log('\nforage: ONE tree in a chunk carries one bunch of a kind, and two plants at most');
+{
+  const one = [{ x: 32, z: 32, radius: 0.4 }];
+  const treeIds = new Set(FORAGE.filter((f) => f.place === 'nearTree' || f.place === 'trunk').map((f) => f.id));
+  // Measured on the shipped table at the commit before this one, same one tree,
+  // same seed: the bunches hung on it and the plants a player could take off it.
+  const BEFORE = { Spring: [14, 78], Summer: [13, 51], Autumn: [20, 60] };
+  let worstKind = 0, worstBunch = 0, everySeason = true;
+  console.log('     season  bunches  plants at that tree   was (bunches/plants)   worst kind');
+  for (const s of ['Spring', 'Summer', 'Autumn']) {
+    const at = placeForage(meadow, 0, 0, one, s, 1, { heightAt: flat }).filter((r) => treeIds.has(r.id));
+    const byKind = {};
+    for (const r of at) byKind[r.id] = (byKind[r.id] || 0) + r.count;
+    const plants = at.reduce((n, r) => n + r.count, 0);
+    const bunches = {};
+    for (const r of at) bunches[r.id] = (bunches[r.id] || 0) + 1;
+    const mostBunches = Math.max(0, ...Object.values(bunches));
+    const mostPlants = Math.max(0, ...Object.values(byKind));
+    if (mostBunches > 1) everySeason = false;
+    worstKind = Math.max(worstKind, mostPlants);
+    worstBunch = Math.max(worstBunch, ...at.map((r) => r.count), 0);
+    console.log(`     ${s.padEnd(7)} ${String(at.length).padStart(7)} ${String(plants).padStart(10)}`
+      + `           ${String(BEFORE[s][0]).padStart(2)} / ${String(BEFORE[s][1]).padStart(2)}`
+      + `           ${Object.entries(byKind).map(([k, v]) => `${k} ${v}`).join(', ') || 'nothing'}`);
+  }
+  check('one tree never carries two bunches of the same kind', everySeason, `worst bunch held ${worstBunch} plants`);
+  check(`and never more than ${TREE_CLUSTER_MAX} plants of any one kind, in any growing season`,
+    worstKind <= TREE_CLUSTER_MAX, `the worst was ${worstKind}`);
+  check('which is the user\'s "maybe 2 of each max", where it used to be 57 wild garlic',
+    worstKind <= 2 && worstBunch <= TREE_CLUSTER_MAX, `${worstKind} of a kind, biggest bunch ${worstBunch}`);
+}
+
+console.log('\nforage: with twelve trees, no tree is given two bunches of the same kind');
+{
+  const T = trees(12, 31);
+  // Which tree a bunch belongs to is not written on the record, so it has to be
+  // inferred, and the inference has to be safe. It is the nearest trunk, and
+  // that is only the right answer while every bunch sits closer to its own tree
+  // than to half the gap between two trees. Both numbers are MEASURED below and
+  // the check fails if the second ever overtakes the first.
+  let closestPair = Infinity;
+  for (let i = 0; i < T.length; i++) {
+    for (let j = i + 1; j < T.length; j++) closestPair = Math.min(closestPair, Math.hypot(T[i].x - T[j].x, T[i].z - T[j].z));
+  }
+  let farthestBunch = 0;
+  let clashes = 0, checked = 0, hung = 0;
+  for (const s of SEASONS) {
+    for (let cx = -2; cx <= 2; cx++) {
+      for (let cz = -2; cz <= 2; cz++) {
+        const recs = placeForage(meadow, cx, cz, T, s, 1, { heightAt: flat });
+        const seen = new Set();
+        for (const r of recs) {
+          const f = FORAGE_BY_ID[r.id];
+          if (f.place !== 'nearTree' && f.place !== 'trunk') continue;
+          hung++;
+          let best = -1, bd = Infinity;
+          for (let i = 0; i < T.length; i++) {
+            const d = Math.hypot(T[i].x - r.x, T[i].z - r.z);
+            if (d < bd) { bd = d; best = i; }
+          }
+          if (bd > farthestBunch) farthestBunch = bd;
+          const key = `${r.id}@${best}`;
+          checked++;
+          if (seen.has(key)) clashes++;
+          seen.add(key);
+        }
+      }
+    }
+  }
+  check('the nearest trunk really is the trunk it was dealt',
+    farthestBunch < closestPair / 2,
+    `the farthest bunch sat ${farthestBunch.toFixed(2)} m from its tree and the closest two trees are ${closestPair.toFixed(2)} m apart`);
+  check('no tree in any of those chunks holds two bunches of one kind',
+    clashes === 0, `${clashes} clashes over ${checked} tree bunches in 100 chunks`);
+  check('and there were real bunches to clash, so the check is not vacuous', hung > 200, `${hung} tree bunches`);
+}
+
+console.log('\nforage: no bunch anywhere in the world holds more than three plants');
+{
+  const biomes = ['meadow', 'boreal', 'sakura', 'mountain', 'snow', 'desert', 'beach'];
+  let worst = 0, worstAt = '', bunches = 0, plants = 0, overCap = 0;
+  // How wide a bunch is matters to the reach: `foraging.js` measures to the
+  // NEAREST plant because a patch is wider than a step, and both files say so
+  // in prose. This is where the prose gets its number.
+  let widest = 0, offCentre = 0;
+  const hist = {};
+  for (const b of biomes) {
+    for (const moist of [0.2, 0.9]) {
+      for (const s of SEASONS) {
+        for (let i = 0; i < 4; i++) {
+          for (let j = 0; j < 4; j++) {
+            for (const recs of [placeForage({ biome: b, moist }, i, j, trees(18, 7 + i), s, 3, { heightAt: flat })]) {
+              for (const r of recs) {
+                bunches++; plants += r.count;
+                hist[r.count] = (hist[r.count] || 0) + 1;
+                for (const m of r.members) {
+                  offCentre = Math.max(offCentre, Math.hypot(m.x - r.x, m.z - r.z));
+                  for (const o of r.members) widest = Math.max(widest, Math.hypot(m.x - o.x, m.z - o.z));
+                }
+                if (r.count > clusterCapFor(FORAGE_BY_ID[r.id].place)) overCap++;
+                if (r.count > worst) { worst = r.count; worstAt = `${r.id} in ${b} ${s}`; }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  console.log(`     ${bunches} bunches over 448 chunks, ${plants} plants, sizes ${JSON.stringify(hist)}`);
+  check(`the biggest bunch anywhere holds ${GROUND_CLUSTER_MAX} plants`, worst <= GROUND_CLUSTER_MAX, `${worst}, ${worstAt}`);
+  check('and not one bunch is over the cap for where it grows', overCap === 0, `${overCap} of ${bunches}`);
+  check('the average bunch is under two plants', plants / bunches < 2, `${(plants / bunches).toFixed(2)} plants a bunch`);
+  console.log(`     the widest bunch is ${widest.toFixed(2)} m across and no plant sits more than ${offCentre.toFixed(2)} m off its own centre`);
+  check('a patch is still wider than a step, which is why the reach is to the nearest plant',
+    widest > 1.5, `${widest.toFixed(2)} m across`);
+  check('and no plant is further from its centre than the 2.5 m reach, so the centre is never the only way in',
+    offCentre < 2.5, `${offCentre.toFixed(2)} m`);
 }
 
 console.log('\nforage: a trunk sitter really sits on the trunk it was given');
@@ -416,16 +581,24 @@ console.log('\nforage: a harvest takes the mushroom out of the world the same fr
   const ff = createForageField(scene, { field: world, season: 'Autumn', treesFor: () => T, now: () => clock });
   ff.update(0, 0, 'Autumn');
 
-  // pick a real BUNCH the ray really hits, so the thing measured is the thing
-  // drawn, and so that "every member" means more than one member
-  const rec = ff.records().find((r) => !r.onTrunk && r.count > 2) || ff.records()[0];
-  console.log(`     the patch under test is ${rec.count} ${rec.id}`);
   // a ray onto any ONE plant of the bunch. The patch is what should come back.
   const downAt = (m) => {
     const ray = new THREE.Raycaster();
     ray.set(new THREE.Vector3(m.x, m.y + 6, m.z), new THREE.Vector3(0, -1, 0));
     return ff.pick(ray);
   };
+  // Pick a real BUNCH the ray really hits, so the thing measured is the thing
+  // drawn, and so that "every member" means more than one member. The hit is
+  // MEASURED here rather than assumed: a shrub scatters its leaves off the
+  // stem, so a ray straight down the plant's own axis passes through the hole
+  // in the middle of a bramble and finds nothing. That is a fact about a
+  // vertical ray and not about picking, which comes in at a camera's angle,
+  // but a test that assumed it would fail on whichever bunch happened to sort
+  // first.
+  const hittable = ff.records().filter((r) => !r.onTrunk && r.count > 1
+    && r.members.every((m) => downAt(m)?.rec === r));
+  const rec = hittable[0] || ff.records()[0];
+  console.log(`     the patch under test is ${rec.count} ${rec.id}, one of ${hittable.length} bunches a straight down ray finds on every plant`);
   const down = () => downAt(rec.members[0]);
   const meshOf = () => {
     for (const child of scene.getObjectByName('world-forage').children) {

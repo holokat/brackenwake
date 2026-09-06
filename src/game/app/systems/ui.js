@@ -209,7 +209,7 @@ export const ui = {
       const skinning = bag.skinning;
       const ray = ctx.aim();
       // the cursor says what a click would do, and the hint line names it:
-      // "a patch of dandelions, seven of them", "a pile of 46 gold", "wolf, not yet skinned"
+      // "a patch of dandelions, three of them", "a pile of 46 gold", "wolf, not yet skinned"
       let want = bars.abilities.cursor || '', hover = '', hoverColour = '';
       const sack = fight.loot.pick(ray);
       const patch = sack ? null : life.forage.pick(ray);

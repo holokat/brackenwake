@@ -11,7 +11,8 @@ import {
   createForaging, effectFromBuff, yieldFor, HARVEST_REACH, FORAGE_SKILL, amountText, TAG_LINE,
   YIELD_FLOOR, patchText, numberWord,
 } from './foraging.js';
-import { createForageField, FORAGE_BY_ID, FORAGE, REGROW_MS, placeForage } from '../world/forage.js';
+import { createForageField, FORAGE_BY_ID, FORAGE, REGROW_MS, placeForage, clusterCapFor,
+  TREE_CLUSTER_MAX, GROUND_CLUSTER_MAX } from '../world/forage.js';
 import { BASES, makeItem, FORAGE_BASES, FORAGE_PRODUCT_BASES } from '../mmo/items.js';
 import { FORAGE_RECIPES } from '../mmo/recipes.js';
 import { playerActor, recompute } from './actor.js';
@@ -119,6 +120,15 @@ console.log('foraging: how much of a bunch you get, by skill');
   check('a broken skill value falls to the floor, not to nothing',
     yieldFor(undefined, 7) === yieldFor(0, 7) && yieldFor(NaN, 5) === yieldFor(0, 5), `${yieldFor(NaN, 5)}`);
   check('and no plant count at all is one', yieldFor(50) === 1 && yieldFor(50, NaN) === 1);
+  // The caps in forage.js are only worth what the yield hands over, so the two
+  // sizes that cap actually produces are driven here rather than reasoned about.
+  // A bunch at a tree holds two, so ceil(2 * 0.6) = 2, and a beginner gets both.
+  check(`a bunch of ${TREE_CLUSTER_MAX} gives ${TREE_CLUSTER_MAX} at skill 0, so "two of each max" really is two`,
+    yieldFor(0, 2) === 2, `${yieldFor(0, 2)}`);
+  check('a lone plant gives one at skill 0, and a lone plant is what a hive is',
+    yieldFor(0, 1) === 1, `${yieldFor(0, 1)}`);
+  check(`the biggest patch on open ground, ${GROUND_CLUSTER_MAX} plants, gives 2 at skill 0 and 3 at the cap`,
+    yieldFor(0, 3) === 2 && yieldFor(100, 3) === 3, `${yieldFor(0, 3)} then ${yieldFor(100, 3)}`);
 }
 
 // ============================================ what the change did to the numbers
@@ -179,23 +189,28 @@ console.log('\nforaging: what a pick puts in the pack, and what it says');
   check('and it said so', /chanterelle/i.test(r.text) && /pack/.test(r.text), r.text);
   check('with a pickup cue', h.cues.includes('pickup'), h.cues.join(','));
 
-  // THE BUNCH. One click, one stack, one line.
+  // THE BUNCH. One click, one stack, one line. Three is the biggest a patch on
+  // open ground grows to, so three is what is driven here.
   const g = harness({ skill: 100 });
-  const r2 = g.foraging.harvest(patch('dandelion', 7));
-  check('a master picking a patch of seven dandelions gets all seven', r2.ok && r2.count === 7, r2.text);
-  check('and it is ONE stack in the pack, not seven',
-    g.packed.length === 1 && g.packed[0].base === 'dandelion' && g.packed[0].count === 7,
+  const r2 = g.foraging.harvest(patch('dandelion', GROUND_CLUSTER_MAX));
+  check('a master picking a patch of three dandelions gets all three', r2.ok && r2.count === 3, r2.text);
+  check('and it is ONE stack in the pack, not three',
+    g.packed.length === 1 && g.packed[0].base === 'dandelion' && g.packed[0].count === 3,
     `${g.packed.length} stacks`);
   check('and ONE line, which names the patch and counts it',
-    r2.text === 'You pick the whole patch: 7 dandelions.' && g.said.length === 1, `${g.said.length} lines: ${r2.text}`);
+    r2.text === 'You pick the whole patch: 3 dandelions.' && g.said.length === 1, `${g.said.length} lines: ${r2.text}`);
 
   const b2 = harness({ skill: 0 });
-  const r3 = b2.foraging.harvest(patch('dandelion', 7));
-  check('a beginner on the same patch gets five of the seven', r3.ok && r3.count === 5, r3.text);
-  check('which is over the sixty per cent floor', r3.count / 7 >= YIELD_FLOOR, `${Math.round(r3.count / 7 * 100)}%`);
+  const r3 = b2.foraging.harvest(patch('dandelion', GROUND_CLUSTER_MAX));
+  check('a beginner on the same patch gets two of the three', r3.ok && r3.count === 2, r3.text);
+  check('which is over the sixty per cent floor', r3.count / 3 >= YIELD_FLOOR, `${Math.round(r3.count / 3 * 100)}%`);
   check('and the line counts what really went in, not what stood there',
-    r3.text === 'You pick the whole patch: 5 dandelions.', r3.text);
-  check('the record carries the plant count back to the caller', r3.plants === 7, `${r3.plants}`);
+    r3.text === 'You pick the whole patch: 2 dandelions.', r3.text);
+  check('the record carries the plant count back to the caller', r3.plants === 3, `${r3.plants}`);
+  const t2 = harness({ skill: 0 });
+  const r5 = t2.foraging.harvest(patch('chanterelle', TREE_CLUSTER_MAX));
+  check('and a beginner at a tree gets BOTH chanterelles, which is the cap being honest',
+    r5.ok && r5.count === 2 && r5.text === 'You pick the whole patch: 2 chanterelles.', r5.text);
 
   const one = harness({ skill: 100 });
   const r4 = one.foraging.harvest(rec('honey'));
@@ -206,17 +221,17 @@ console.log('\nforaging: what a pick puts in the pack, and what it says');
 console.log('\nforaging: ONE lesson per patch, however many plants are in it');
 {
   const h = harness({ skill: 0 });
-  h.foraging.harvest(patch('dandelion', 9));
-  check('picking nine dandelions in one bunch teaches exactly once', h.taught.length === 1, `${h.taught.length} lessons`);
+  h.foraging.harvest(patch('dandelion', GROUND_CLUSTER_MAX));
+  check('picking three dandelions in one bunch teaches exactly once', h.taught.length === 1, `${h.taught.length} lessons`);
   check('at the dandelion\'s own difficulty', h.taught[0].difficulty === FORAGE_BY_ID.dandelion.difficulty, `${h.taught[0].difficulty}`);
-  check('and stats counts one, not nine', h.foraging.stats.taught === 1, `${h.foraging.stats.taught}`);
-  check('and the beginner\'s six of the nine went in as ONE stack',
-    h.packed.length === 1 && h.packed[0].count === yieldFor(0, 9), `${h.packed.length} stacks of ${h.packed[0]?.count}`);
-  // the other direction: nine separate pickables really do teach nine times
+  check('and stats counts one, not three', h.foraging.stats.taught === 1, `${h.foraging.stats.taught}`);
+  check('and the beginner\'s two of the three went in as ONE stack',
+    h.packed.length === 1 && h.packed[0].count === yieldFor(0, GROUND_CLUSTER_MAX), `${h.packed.length} stacks of ${h.packed[0]?.count}`);
+  // the other direction: three separate pickables really do teach three times
   const g = harness({ skill: 0 });
-  for (let i = 0; i < 9; i++) g.foraging.harvest(rec('dandelion', i * 0.1, 0));
-  check('whereas nine SEPARATE pickables teach nine times, which is what this fixed',
-    g.taught.length === 9, `${g.taught.length} lessons for the same nine plants`);
+  for (let i = 0; i < 3; i++) g.foraging.harvest(rec('dandelion', i * 0.1, 0));
+  check('whereas three SEPARATE pickables teach three times, which is what this fixed',
+    g.taught.length === 3, `${g.taught.length} lessons for the same three plants`);
 }
 
 console.log('\nforaging: a toxic pickup says what it is, and a caution says why');
@@ -274,32 +289,44 @@ console.log('\nforaging: the hover line names the bunch, and says how big it is'
   const h = harness();
   const hov = (r) => h.foraging.hoverText(r);
   check('a lone thing keeps its own name', hov(rec('chanterelle')) === 'Chanterelle, click to pick', hov(rec('chanterelle')));
+  // The sizes driven here are the sizes the world can really grow: three on
+  // open ground, two at a tree, one for a hive. A hover line for a patch of
+  // eleven would be a line no player will ever be shown.
   check('A PATCH is named as a patch, and counted in words',
-    hov(patch('dandelion', 7)) === 'A patch of dandelions, seven of them, click to pick', hov(patch('dandelion', 7)));
+    hov(patch('dandelion', 3)) === 'A patch of dandelions, three of them, click to pick', hov(patch('dandelion', 3)));
   check('a toxic patch still says poison',
-    hov(patch('fly_agaric', 3)) === 'A patch of fly agarics, three of them, poison, click to pick', hov(patch('fly_agaric', 3)));
+    hov(patch('fly_agaric', 2)) === 'A patch of fly agarics, two of them, poison, click to pick', hov(patch('fly_agaric', 2)));
   check('a caution patch still says cook it first',
-    hov(patch('nettle', 6)) === 'A patch of nettles, six of them, cook it first, click to pick', hov(patch('nettle', 6)));
+    hov(patch('nettle', 3)) === 'A patch of nettles, three of them, cook it first, click to pick', hov(patch('nettle', 3)));
   check('a mass noun does not get an -s it cannot carry',
-    hov(patch('wild_garlic', 11)) === 'A patch of wild garlic, eleven of them, click to pick', hov(patch('wild_garlic', 11)));
+    hov(patch('wild_garlic', 2)) === 'A patch of wild garlic, two of them, click to pick', hov(patch('wild_garlic', 2)));
   check('a bunch of two is still a patch', /A patch of morels, two of them/.test(hov(patch('morel', 2))), hov(patch('morel', 2)));
   check('and a bunch of one is not', hov(patch('morel', 1)) === 'Morel, click to pick', hov(patch('morel', 1)));
   check('out of reach says so, and still names the patch',
-    hov(patch('morel', 4, 0, 40)) === 'A patch of morels, four of them, too far', hov(patch('morel', 4, 0, 40)));
-  const picked = patch('morel', 4); picked.harvestedUntil = 1;
-  check('and a picked one says picked over', hov(picked) === 'A patch of morels, four of them, picked over', hov(picked));
+    hov(patch('dandelion', 3, 0, 40)) === 'A patch of dandelions, three of them, too far', hov(patch('dandelion', 3, 0, 40)));
+  const picked = patch('dandelion', 3); picked.harvestedUntil = 1;
+  check('and a picked one says picked over', hov(picked) === 'A patch of dandelions, three of them, picked over', hov(picked));
   check('nothing under the cursor is an empty line', h.foraging.hoverText(null) === '');
   check('past twenty the digits read better than the words', numberWord(21) === '21' && numberWord(20) === 'twenty');
-  // every forageable, named as a bunch, with nothing that reads wrong
+  // Every forageable, named at every size it can really grow to, with nothing
+  // that reads wrong. The size comes from the kind's own cap, so a twenty third
+  // forageable is driven at its own sizes and not at a number written here.
   const bad = [];
+  let lines = 0;
   for (const f of FORAGE) {
-    const t = patchText(f.id, 5);
-    if (!/^A patch of [a-z]/.test(t)) bad.push(`${f.id}: ${t}`);
-    if (/ss$|ys$/.test(t)) bad.push(`${f.id}: ${t}`);
+    for (let n = 2; n <= clusterCapFor(f.place); n++) {
+      const t = patchText(f.id, n);
+      lines++;
+      if (!/^A patch of [a-z]/.test(t)) bad.push(`${f.id}: ${t}`);
+      if (/ss$|ys$/.test(t)) bad.push(`${f.id}: ${t}`);
+      if (!new RegExp(`, ${numberWord(n)} of them$`).test(t)) bad.push(`${f.id}: ${t} does not count itself`);
+    }
+    if (patchText(f.id, 1) !== f.name) bad.push(`${f.id}: a lone one is called "${patchText(f.id, 1)}"`);
   }
-  check(`all ${FORAGE.length} of them have a plural a sentence can hold`, bad.length === 0, bad.join(' | '));
-  console.log(`     ${FORAGE.slice(0, 4).map((f) => patchText(f.id, 5)).join(' | ')}`);
-  console.log(`     ${FORAGE.slice(14, 18).map((f) => patchText(f.id, 5)).join(' | ')}`);
+  check(`all ${FORAGE.length} of them read as a patch at every size they grow to, ${lines} lines`,
+    bad.length === 0, bad.join(' | '));
+  console.log(`     ${FORAGE.slice(0, 4).map((f) => patchText(f.id, clusterCapFor(f.place))).join(' | ')}`);
+  console.log(`     ${FORAGE.slice(14, 18).map((f) => patchText(f.id, clusterCapFor(f.place))).join(' | ')}`);
 }
 
 console.log('\nforaging: the reach is to the nearest plant in the bunch, not to its middle');
@@ -482,7 +509,10 @@ console.log('\nforaging: the whole path, from a real field to a stack and back a
   const ff = createForageField(scene, { field: world, season: 'Autumn', treesFor: () => trees });
   ff.update(0, 0, 'Autumn', 0);
 
-  const target = ff.records().find((r) => r.id === 'chanterelle' && r.count > 2);
+  // A chanterelle bunch holds at most TREE_CLUSTER_MAX now, so the target is
+  // the biggest one the field really grew rather than a size written here.
+  const target = ff.records().filter((r) => r.id === 'chanterelle')
+    .sort((a, b) => b.count - a.count)[0];
   const want = yieldFor(100, target.count);
   const h = harness({ field: ff, at: { x: target.x, y: 0, z: target.z }, skill: 100 });
   const before = ff.count;

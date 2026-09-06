@@ -12,14 +12,14 @@
 //   const hit = forage.pick(raycaster);        // { rec, id } or null
 //   forage.remove(hit.rec, now);               // harvested; comes back later
 //
-// A CLUSTER IS ONE THING. A bunch of dandelions is drawn as the seven separate
-// plants the reference scatters, and it is ONE pickable: one record, one click,
-// one stack, one Foraging lesson. `placeForage` returns
+// A CLUSTER IS ONE THING. A bunch of dandelions is drawn as the two or three
+// separate plants it holds, and it is ONE pickable: one record, one click, one
+// stack, one Foraging lesson. `placeForage` returns
 // `{ id, x, y, z, count, onTrunk, members: [{ x, y, z, yaw, scale }] }` and
 // `count` is how many plants stand in the bunch. The instancing draws every
 // member; the raycast back-index maps every member back to its cluster, so
 // clicking any one dandelion picks the whole patch, and `remove` hides all
-// seven in the same frame.
+// three in the same frame.
 //
 // Three things this file does NOT do, on purpose:
 //
@@ -89,6 +89,43 @@
 //    that grows in a biome still shows up somewhere in a 3x3 ring in its
 //    season, which forage.test.mjs drives for all seven biomes, both moisture
 //    bands and all four seasons: 120 rings, 825 claims, none missing.
+//
+// 6. THE BUNCH ITSELF. Thinning the `per` count fixed the chunk and left the
+//    tree alone. Every near-tree and trunk bunch chose a tree out of the
+//    chunk's list at random, so a chunk holding ONE tree in an open meadow
+//    hung every bunch it rolled on that one tree: fourteen bunches in Spring,
+//    seventy eight plants, fifty seven of them wild garlic, and a player could
+//    stand under a single oak and pick twenty things without moving. The user
+//    put it plainly: "we can pick like 20 oyster mushrooms, 20 garlic .. its
+//    just ridiculous. i want to be able to pick maybe 2 of each max if that."
+//
+//    Two changes, both in placeForage and the table:
+//
+//      * The trees are DEALT OUT, one to a bunch. No tree gets two bunches of
+//        the same kind in a chunk, and when the chunk rolled more bunches than
+//        it has trees the extras are dropped rather than stacked.
+//      * A bunch at a tree holds one or two plants (TREE_CLUSTER_MAX) and a
+//        patch on open ground holds up to three (GROUND_CLUSTER_MAX), so a
+//        dandelion lawn still reads as a lawn and one click is still one pick.
+//        `auditForage` holds the table to both, so a twenty third forageable
+//        cannot ship the reference's own cluster of sixteen.
+//
+//    That one tree, measured in forage.test.mjs, before and after:
+//
+//      Spring 14 bunches / 78 plants -> 4 / 5,  wild garlic 57 -> 1
+//      Summer 13 / 51 -> 4 / 5,  Autumn 20 / 60 -> 7 / 10
+//
+//    And the 64 m meadow chunk with thirty trees in it, where the pickables
+//    barely move because a bunch of two is still a bunch:
+//
+//      Spring 31 pickables / 177 plants -> 31 / 65
+//      Summer 43 / 200 -> 40 / 81
+//      Autumn 32 /  91 -> 34 / 54
+//
+//    Over 448 chunks of every biome, moisture band and season: 11,679 bunches,
+//    none over its cap, 1.98 plants in the average one, and the widest patch
+//    1.99 m across, which is why the reach is still measured to the nearest
+//    plant and not to the middle.
 
 import * as THREE from 'three';
 import { CHUNK } from './field.js';
@@ -373,6 +410,28 @@ export function scatter(gb, r, n, col, sx, sy, capCol) {
 // which has no skills: it is set from how hard the thing is to find and to know,
 // which is roughly the inverse of `per`. A dandelion is 3 and a morel is 35.
 
+/**
+ * How big a bunch is allowed to get, which is the whole of "how much can one
+ * click give you".
+ *
+ * A bunch that grows at a tree holds at most two plants, and a tree carries at
+ * most one bunch of any one kind (see `placeForage`), so the most a player can
+ * take off a single oak is two chanterelles, two wild garlic, two ferns: one
+ * pick each. On open ground a patch is allowed three, because a dandelion lawn
+ * or a bramble has to READ as a patch, and three is still a pick and not a
+ * harvest.
+ *
+ * These are the caps the table is held to by `auditForage`, not caps applied
+ * on the way out, so `f.cluster` is the truth about what will stand there and
+ * nothing downstream has to clamp it a second time.
+ */
+export const TREE_CLUSTER_MAX = 2;
+export const GROUND_CLUSTER_MAX = 3;
+
+/** The cap that applies where this kind grows. */
+export const clusterCapFor = (place) =>
+  (place === 'nearTree' || place === 'trunk' ? TREE_CLUSTER_MAX : GROUND_CLUSTER_MAX);
+
 const F = (o) => ({ ...o, bio: mapBio(o.src, o.extra) });
 
 export const FORAGE = [
@@ -380,28 +439,28 @@ export const FORAGE = [
     id: 'chanterelle', name: 'Chanterelle', many: 'chanterelles', tag: 'edible', colour: '#e9a825', difficulty: 18,
     seasons: ['Summer', 'Autumn'],
     src: { 'Temperate broadleaf': 1, 'Boreal conifer': 0.9, 'Birch grove': 0.8, 'Mediterranean pine': 0.3 },
-    place: 'nearTree', per: 5, cluster: [3, 8],
+    place: 'nearTree', per: 5, cluster: [1, 2],
     build: (gb, r) => mushroom(gb, r, 0.05 + r() * 0.03, 0.03 + r() * 0.02, C('#e9a825'), C('#f0c465'), 'funnel', 0),
   }),
   F({
     id: 'porcini', name: 'Porcini', many: 'porcini', tag: 'edible', colour: '#8a5a2b', difficulty: 25,
     seasons: ['Summer', 'Autumn'],
     src: { 'Temperate broadleaf': 1, 'Boreal conifer': 1, 'Birch grove': 0.6, 'Mediterranean pine': 0.7 },
-    place: 'nearTree', per: 3, cluster: [1, 3],
+    place: 'nearTree', per: 3, cluster: [1, 2],
     build: (gb, r) => mushroom(gb, r, 0.07 + r() * 0.04, 0.05 + r() * 0.03, C('#8a5a2b'), C('#e8dcc0'), 'dome', 0),
   }),
   F({
     id: 'fly_agaric', name: 'Fly agaric', many: 'fly agarics', tag: 'toxic', colour: '#d23a2a', difficulty: 12,
     seasons: ['Autumn'],
     src: { 'Birch grove': 1, 'Boreal conifer': 1, 'Temperate broadleaf': 0.5 },
-    place: 'nearTree', per: 2, cluster: [1, 4],
+    place: 'nearTree', per: 2, cluster: [1, 2],
     build: (gb, r) => mushroom(gb, r, 0.09 + r() * 0.05, 0.06 + r() * 0.03, C('#d23a2a'), C('#f2eee4'), 'dome', 7),
   }),
   F({
     id: 'morel', name: 'Morel', many: 'morels', tag: 'edible', colour: '#a08050', difficulty: 35,
     seasons: ['Spring'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 0.8, 'Boreal conifer': 0.4, 'Mediterranean pine': 0.5 },
-    place: 'nearTree', per: 2.5, cluster: [1, 3],
+    place: 'nearTree', per: 2.5, cluster: [1, 2],
     build: (gb, r) => mushroom(gb, r, 0.04 + r() * 0.02, 0.025 + r() * 0.012, C('#8a7048'), C('#e4dcc8'), 'cone', 0),
   }),
   F({
@@ -427,14 +486,14 @@ export const FORAGE = [
     id: 'blueberry', name: 'Blueberry', many: 'blueberries', tag: 'edible', colour: '#3b4a9a', difficulty: 8,
     seasons: ['Summer'],
     src: { 'Boreal conifer': 1, 'Birch grove': 1, 'Temperate broadleaf': 0.6 },
-    place: 'any', per: 7, cluster: [2, 6],
+    place: 'any', per: 7, cluster: [2, 3],
     build: (gb, r) => shrub(gb, r, 0.28, 0.3, C('#3f7a2c'), 26, 0.07, C('#3b4a9a'), 14, 0.014),
   }),
   F({
     id: 'lingonberry', name: 'Lingonberry', many: 'lingonberries', tag: 'edible', colour: '#b8202a', difficulty: 8,
     seasons: ['Autumn'],
     src: { 'Boreal conifer': 1, 'Birch grove': 0.6 },
-    place: 'any', per: 7, cluster: [3, 8],
+    place: 'any', per: 7, cluster: [2, 3],
     build: (gb, r) => shrub(gb, r, 0.22, 0.14, C('#2f5a24'), 22, 0.05, C('#b8202a'), 12, 0.012),
   }),
   F({
@@ -450,14 +509,14 @@ export const FORAGE = [
     id: 'raspberry', name: 'Raspberry', many: 'raspberries', tag: 'edible', colour: '#d0305a', difficulty: 10,
     seasons: ['Summer'],
     src: { 'Temperate broadleaf': 1, 'Boreal conifer': 0.7, 'Birch grove': 0.9 },
-    place: 'clearing', per: 3.5, cluster: [2, 4],
+    place: 'clearing', per: 3.5, cluster: [2, 3],
     build: (gb, r) => shrub(gb, r, 0.4, 0.9, C('#4f8a35'), 30, 0.11, C('#d0305a'), 16, 0.016, 1.2),
   }),
   F({
     id: 'wild_strawberry', name: 'Wild strawberry', many: 'wild strawberries', tag: 'edible', colour: '#d83030', difficulty: 12,
     seasons: ['Spring', 'Summer'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 1, 'Boreal conifer': 0.5, 'Mediterranean pine': 0.5 },
-    place: 'clearing', per: 6, cluster: [3, 9],
+    place: 'clearing', per: 6, cluster: [2, 3],
     build: (gb, r) => { herb(gb, r, 7, 0.05, 0.06, C('#3f7a2c'), null); berries(gb, r, 4, 0.08, 0.02, 0.05, 0.012, C('#d83030'), 1.3); },
   }),
   F({
@@ -492,7 +551,7 @@ export const FORAGE = [
     id: 'wild_garlic', name: 'Wild garlic', many: 'wild garlic', tag: 'edible', colour: '#e8f0e0', difficulty: 10,
     seasons: ['Spring'],
     src: { 'Temperate broadleaf': 1, 'Birch grove': 0.8 },
-    place: 'nearTree', per: 5, cluster: [6, 16],
+    place: 'nearTree', per: 5, cluster: [1, 2],
     build: (gb, r) => herb(gb, r, 6, 0.22, 0.16, C('#3d8a30'), C('#eef2e4'), 0.03),
   }),
   F({
@@ -502,7 +561,7 @@ export const FORAGE = [
     // Nettle wants disturbed ground with nitrogen in it, which is the strand
     // line behind a beach as reliably as it is a field gate.
     extra: { beach: 0.3 },
-    place: 'any', per: 4, cluster: [4, 10],
+    place: 'any', per: 4, cluster: [2, 3],
     build: (gb, r) => {
       gbAdd(gb, CYL, T(0, 0.3, 0, 0.006, 0.6, 0.006), C('#4a7a30'));
       leaves(gb, r, 10, 0.08, 0.1, 0.6, 0.09, C('#355e24'), 0.5);
@@ -512,7 +571,7 @@ export const FORAGE = [
     id: 'fiddlehead', name: 'Fiddlehead fern', many: 'fiddlehead ferns', tag: 'edible', colour: '#4f8a3a', difficulty: 14,
     seasons: ['Spring', 'Summer', 'Autumn'],
     src: { 'Temperate broadleaf': 1, 'Tropical wet': 1.3, 'Boreal conifer': 0.8, 'Birch grove': 0.8 },
-    place: 'nearTree', per: 4, cluster: [2, 5],
+    place: 'nearTree', per: 4, cluster: [1, 2],
     build: (gb, r) => {
       for (let i = 0; i < 9; i++) {
         const a = i / 9 * 6.28 + r() * 0.4;
@@ -538,7 +597,7 @@ export const FORAGE = [
     src: { 'Temperate broadleaf': 1, 'Birch grove': 1, 'Mediterranean pine': 0.7, 'Boreal conifer': 0.4 },
     // A dandelion takes a sand verge as happily as a lawn.
     extra: { beach: 0.4 },
-    place: 'clearing', per: 7, cluster: [3, 9],
+    place: 'clearing', per: 7, cluster: [2, 3],
     build: (gb, r) => herb(gb, r, 8, 0.16 + r() * 0.08, 0.09, C('#4a8a32'), C('#f0c020'), 0.022),
   }),
   F({
@@ -555,7 +614,7 @@ export const FORAGE = [
     id: 'wild_ginger', name: 'Wild ginger', many: 'wild ginger', tag: 'edible', colour: '#d8503a', difficulty: 28,
     seasons: ['Spring', 'Summer', 'Autumn'],
     src: { 'Tropical wet': 1 },
-    place: 'any', per: 4, cluster: [2, 5],
+    place: 'any', per: 4, cluster: [2, 3],
     build: (gb, r) => herb(gb, r, 7, 0.35, 0.22, C('#2f7a2a'), C('#d8503a'), 0.04),
   }),
   F({
@@ -596,7 +655,7 @@ export function auditForage() {
     if (seen.has(f.id)) bad.push(`${at}: two of them share an id`);
     seen.add(f.id);
     if (!f.name) bad.push(`${at}: no name`);
-    // `many` is what a bunch is called: "a patch of dandelions, seven of them".
+    // `many` is what a bunch is called: "a patch of dandelions, three of them".
     // No rule can turn "Wild garlic" into a plural that reads, so every entry
     // carries its own, and a twenty third forageable cannot ship without one.
     if (!f.many || typeof f.many !== 'string') bad.push(`${at}: no plural, so a patch of them has no name`);
@@ -616,6 +675,15 @@ export function auditForage() {
     if (!(f.per > 0)) bad.push(`${at}: per is ${f.per}, so no chunk ever gets one`);
     if (!Array.isArray(f.cluster) || f.cluster.length !== 2 || f.cluster[1] < f.cluster[0] || f.cluster[0] < 1) {
       bad.push(`${at}: cluster ${JSON.stringify(f.cluster)}`);
+    } else {
+      // A bunch is one click, so the biggest bunch is the biggest thing one
+      // click can give. A twenty third forageable written with the reference's
+      // own cluster sizes would hand a player sixteen wild garlic again, and
+      // this is the line that refuses it rather than a player finding out.
+      const capN = clusterCapFor(f.place);
+      if (f.cluster[1] > capN) {
+        bad.push(`${at}: a bunch of up to ${f.cluster[1]} plants, and the most a "${f.place}" bunch may hold is ${capN}`);
+      }
     }
     if (typeof f.build !== 'function') bad.push(`${at}: has no builder`);
     if (!(f.difficulty >= 1 && f.difficulty <= 95)) bad.push(`${at}: difficulty ${f.difficulty} is off the ladder`);
@@ -712,8 +780,8 @@ export const ABUNDANCE = 1;
  * @returns `[{ id, x, y, z, count, onTrunk, members: [{ x, y, z, yaw, scale }] }]`
  *
  * ONE RECORD PER CLUSTER. The reference scatters a bunch of dandelions as
- * seven plants and this still places all seven, in `members`, because that is
- * what the eye wants. What the hand gets is one thing: `count` plants, one
+ * seven plants; this places up to three of them, in `members`, because that is
+ * what the eye wants and three is what one click may hand over (note 6). What the hand gets is one thing: `count` plants, one
  * click, one stack. `x, y, z` is the middle of the bunch, which is what a
  * hover line and a pickup sound want; the reach check in `foraging.js` measures
  * to the NEAREST member, because standing over the edge of a patch is standing
@@ -748,13 +816,21 @@ export function placeForage(sample, cx, cz, trees, season, seed = 1, opts = {}) 
     const base = f.per * abundance * bf;
     let nCl = Math.floor(base) + (r() < base - Math.floor(base) ? 1 : 0);
     const wantsTree = f.place === 'nearTree' || f.place === 'trunk';
-    if (wantsTree && !list.length) nCl = 0;
+    // ONE BUNCH OF A KIND PER TREE. Every cluster used to pick a tree out of
+    // the chunk's list at random, so a chunk holding a single oak in an open
+    // meadow hung every bunch it rolled on that one oak, and a player standing
+    // under it could pick twenty separate things without moving. The trees are
+    // dealt out instead, one to a cluster and no tree twice for the same kind.
+    // When the chunk rolled more clusters than it has trees, the extras are
+    // DROPPED, not stacked: a lone tree is a lone tree, not a market stall.
+    const pool = wantsTree ? list.map((_, i) => i) : null;
+    if (wantsTree) nCl = Math.min(nCl, pool.length);
     if (nCl <= 0) continue;
 
     for (let c = 0; c < nCl; c++) {
       let cx0, cz0, cy0 = null, yaw = null, onTrunk = false;
       if (wantsTree) {
-        const t = list[Math.floor(r() * list.length)];
+        const t = list[pool.splice(Math.floor(r() * pool.length), 1)[0]];
         const a = r() * 6.28;
         const br = Math.max(0.1, t.radius || 0.35);
         if (f.place === 'trunk') {
@@ -796,7 +872,7 @@ export function placeForage(sample, cx, cz, trees, season, seed = 1, opts = {}) 
         members.push({ x: px, y: py, z: pz, yaw: yaw != null ? yaw : r() * 6.28, scale: sc });
         sx += px; sy += py; sz += pz;
       }
-      // The middle of the bunch, not the first plant in it: a patch of seven
+      // The middle of the bunch, not the first plant in it: a patch of three
       // reads as one thing standing in one place.
       out.push({
         id: f.id,
@@ -817,7 +893,9 @@ export const plantsIn = (rec) => (rec && Number.isFinite(rec.count) ? rec.count
 /**
  * How far a point is from the NEAREST plant in a bunch. Standing over the edge
  * of a patch is standing over the patch, so the reach is not measured to the
- * centre: a wild garlic cluster is over two metres across and the reach is 2.5.
+ * centre: the widest bunch this table grows is 1.99 m across, with a plant
+ * 1.26 m off its own centre, and the reach is 2.5. Both numbers are measured
+ * over 448 chunks in forage.test.mjs rather than reasoned from the scatter.
  */
 export function distanceToForage(rec, x, z) {
   if (!rec) return Infinity;

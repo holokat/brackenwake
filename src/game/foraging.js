@@ -11,9 +11,12 @@
 // that happens to the body: health, a timed buff, a poison, a cure.
 //
 // A RECORD IS A BUNCH, NOT A PLANT. `forage.js` places a patch of dandelions
-// as one pickable holding seven plants, so one click here is one stack, one
-// line and ONE lesson. It used to be seven of each, and that is the whole
-// reason a walk across a meadow trained Foraging faster than a season of work.
+// as one pickable holding two or three plants, so one click here is one stack,
+// one line and ONE lesson. It used to be one of each PER PLANT, and that is the
+// whole reason a walk across a meadow trained Foraging faster than a season of
+// work. The bunch is small on purpose: a tree carries at most one bunch of a
+// kind and a bunch at a tree holds at most two plants, so the most one oak can
+// give is two chanterelles. See TREE_CLUSTER_MAX in forage.js.
 //
 // ---------------------------------------------------------------------------
 // THE THINGS THAT WOULD OTHERWISE HAVE GONE WRONG, AND WHAT IS DONE INSTEAD
@@ -41,10 +44,11 @@
 //    step too far, a cure with nothing to cure: each says so. Silence is
 //    indistinguishable from a broken button.
 //
-// 5. THE REACH IS TO THE NEAREST PLANT. A wild garlic bunch is over two metres
-//    across and the reach is 2.5, so measuring to the middle would refuse a
-//    click on a plant the player is standing on top of. `distanceToForage`
-//    takes the nearest member, which is what "stand over it" means.
+// 5. THE REACH IS TO THE NEAREST PLANT. A three plant patch is 1.99 m across at
+//    its widest, with a plant 1.26 m off its own centre, and the reach is 2.5:
+//    measuring to the middle would refuse a click on a plant the player is
+//    standing on top of. `distanceToForage` takes the nearest member, which is
+//    what "stand over it" means. Both numbers are measured in forage.test.mjs.
 
 import { FORAGE_BY_ID, REGROW_MS, plantsIn, distanceToForage } from '../world/forage.js';
 import { baseFor, makeItem, FORAGE_TAG } from '../mmo/items.js';
@@ -60,7 +64,7 @@ export const FORAGE_SKILL = SKILL_BY_ID.has('foraging') ? 'foraging' : 'cooking'
 
 /**
  * The worst share of a patch anybody gets. A beginner who kneels down in a
- * bunch of seven dandelions walks away with five of them, not with one: the
+ * bunch of three dandelions walks away with two of them, not with one: the
  * skill decides how much of the patch is spoiled or missed, not whether the
  * patch was worth stopping for.
  */
@@ -71,9 +75,11 @@ export const YIELD_FLOOR = 0.6;
  *
  * The share runs from YIELD_FLOOR at 0 to the whole patch at SKILL_CAP, and it
  * rounds UP, so the floor is a floor and never a rounding accident: at skill 0
- * a patch of seven gives five (71%), never four (57%). A grandmaster gets every
- * plant that stood there and no more, because there is no more: `SKILL_CAP` is
- * 100 and a hundred out of a hundred is all of it.
+ * a patch of three gives two (67%), never one (33%). The rounding is what makes
+ * the caps in forage.js honest, too: a bunch of two gives two at every skill,
+ * so "two of each max" is two and not one. A grandmaster gets every plant that
+ * stood there and no more, because there is no more: `SKILL_CAP` is 100 and a
+ * hundred out of a hundred is all of it.
  */
 export function yieldFor(skill, plants = 1) {
   const s = clamp(Number.isFinite(skill) ? skill : 0, 0, SKILL_CAP);
@@ -107,7 +113,7 @@ export function amountText(id, n) {
   return `${n} ${f && f.many ? f.many : name}`;
 }
 
-/** "a patch of dandelions, seven of them". What a bunch is called on sight. */
+/** "a patch of dandelions, three of them". What a bunch is called on sight. */
 export function patchText(id, plants) {
   const f = FORAGE_BY_ID[id];
   if (!f) return String(id);
@@ -172,9 +178,9 @@ export function createForaging(o = {}) {
    * and `ok` is only true when the pack really took something and the patch
    * really went away.
    *
-   * A bunch of seven dandelions is one call, one stack, one line and ONE
-   * Foraging lesson. It used to be seven of each, which is what made a walk
-   * across a meadow train Foraging faster than a season of work.
+   * A bunch of three dandelions is one call, one stack, one line and ONE
+   * Foraging lesson. It used to be one of each PER PLANT, which is what made a
+   * walk across a meadow train Foraging faster than a season of work.
    */
   function harvest(rec, now = clock()) {
     const no = (reason, text) => { stats.refused++; return { ok: false, reason, text: text || '', count: 0, id: rec?.id || null, rec: rec || null }; };
@@ -216,7 +222,7 @@ export function createForaging(o = {}) {
     stats.picked++;
 
     // ONE lesson for the bunch. `stats.taught` counts calls, not plants, and
-    // foraging.test.mjs drives a seven plant patch and measures exactly one.
+    // foraging.test.mjs drives a three plant patch and measures exactly one.
     if (progression?.lesson) { progression.lesson(FORAGE_SKILL, f.difficulty, true); stats.taught++; }
 
     cue('pickup', { x: rec.x, z: rec.z });
