@@ -35,6 +35,7 @@ import * as THREE from 'three';
 import { mulberry32, hash2 } from './noise.js';
 import { SEA_LEVEL } from './field.js';
 import { mergeByMaterial } from './site_models.js';
+import { PLANS } from '../mmo/plans/index.js';
 
 /** A megalith may cost this many draw calls and no more. Measured in the test. */
 export const MEGALITH_MAX_DRAWS = 14;
@@ -739,7 +740,8 @@ export function auditMegaliths(sites) {
   for (const s of sites) {
     if (s.kind !== 'megastructure' && s.kind !== 'landmark') continue;
     want.add(s.sub);
-    if (!BODIES[s.sub]) bad.push(`the ${s.kind} "${s.name}" (${s.sub}) has no body in megalith_models.js`);
+    // a place with a painting is built from its plan (P1) and needs no body here
+    if (!BODIES[s.sub] && !PLANS[s.sub]) bad.push(`the ${s.kind} "${s.name}" (${s.sub}) has no body in megalith_models.js`);
   }
   for (const id of MEGALITH_PLACES) {
     if (!want.has(id)) bad.push(`megalith_models.js builds "${id}", which is no authored megastructure or landmark`);
