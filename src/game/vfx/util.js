@@ -75,8 +75,14 @@ export function createSpellEffectContext(actor, sockets, options = {}) {
     sockets,
     textures: options.textures || null,
     resolveImpact: options.resolveImpact || null,
+    // `options.anchors` is the code body's answer to a socket it has not
+    // got: a map from socket name to an Object3D (the rig's hand, head and
+    // hip anchors), consulted before the fixed chest point, so a fireball
+    // gathers in the hand on a body that was never rigged with sockets.
+    anchors: options.anchors || null,
     socketPosition(name, target) {
-      const socket = sockets && sockets.get ? sockets.get(name) : null;
+      const socket = (sockets && sockets.get ? sockets.get(name) : null)
+        || (this.anchors && this.anchors[name]) || null;
       if (!socket) return target.set(0, 1.25, 0.18);
       actor.updateWorldMatrix(true, false);
       socket.getWorldPosition(target);

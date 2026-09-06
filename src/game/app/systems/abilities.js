@@ -59,6 +59,14 @@ export const abilities = {
     const spellVfx = createSpellVfx({
       body: rig.group,
       scene: sc.scene,
+      // the code body has no socket bones: the rig's anchors stand in, so the
+      // effects gather in the hand and not at a fixed point on the chest
+      anchors: rig.parts ? {
+        Socket_HandVFX_Right: rig.parts.handR, Socket_HandVFX_Left: rig.parts.handL,
+        Socket_Weapon_Right: rig.parts.handR, Socket_Weapon_Left: rig.parts.handL,
+        Socket_HeadVFX: rig.parts.head, Socket_RootVFX: rig.parts.hips,
+        Socket_FootVFX_Left: rig.parts.footL, Socket_FootVFX_Right: rig.parts.footR,
+      } : null,
       moveInfo: (move) => moveInfo(rig.rig.modelId, move),
       abilityMoves: (id) => abilityMoves(rig.rig.modelId, id),
       resolveImpact: groundImpact,

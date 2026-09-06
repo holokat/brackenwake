@@ -10,7 +10,7 @@
 // as a fireball. That is for the reviewer.
 
 import * as THREE from 'three';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   createSpellVfx, planFor, auditSpellVisuals, signatureFor, specialFor, tailFor,
   readEvents, damageTypeOf, elementFor, effectKindsOf,
@@ -96,7 +96,11 @@ function drawCalls(root) {
 // --- 1. the bank says the same thing this file says ---------------------------
 
 console.log('spell_vfx: the clip bank and the constants agree');
+// The studio bodies and their banks were taken out of the tree on 2026-09-07
+// (the user chose the code body). The check runs when a bank is present, so
+// the day a bank comes back it is measured again, and says so when it is not.
 for (const body of ['human-male', 'human-female']) {
+  if (!existsSync(`public/animations/${body}.json`)) { console.log(`  note: no bank for ${body} in the tree; FALLBACK_EVENTS stand on their own`); continue; }
   const bank = JSON.parse(readFileSync(`public/animations/${body}.json`, 'utf8'));
   const types = new Set();
   for (const move of Object.values(bank.moves)) for (const e of move.events || []) types.add(e.type);

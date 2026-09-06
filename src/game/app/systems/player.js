@@ -7,8 +7,7 @@
 
 import * as THREE from 'three';
 import { BIRTHPLACE, ZONE } from '../../../world/zones.js';
-import { createGlbPlayer, preloadRigs } from '../../rig_glb.js';
-import { PLAYER_MODEL_IDS } from '../../models.js';
+import { createPlayer } from '../../player.js';
 import { playerActor as buildPlayerActor, recompute, tickPools, syncToCharacter } from '../../actor.js';
 import { createProgression } from '../../progression.js';
 import { dressRig } from '../../gear_visuals.js';
@@ -28,13 +27,12 @@ export const player = {
     const heightAt = (x, z) => runtime.heightAt(x, z);
 
     // the body is built from the chosen appearance; an old save without one gets the house default
-    // The player is the studio body for their gender (human-male or
-    // human-female, with the 36 clip bank) the moment it is loaded, and the
-    // Blender body until then: createGlbPlayer asks for the file itself and
-    // swaps when it lands. Preload both so the swap is usually before the
-    // first frame; the monster bodies are preloaded by the combat system.
-    preloadRigs(PLAYER_MODEL_IDS).catch(() => {});
-    const rig = createGlbPlayer(sc.scene, character.appearance);
+    // The player is the code built body (player.js buildCharacter), by the
+    // user's decision on 2026-09-07: the studio mesh bodies were tried and
+    // taken out again, and the code body is the one being refined. The
+    // studio path (rig_glb.createGlbPlayer and the clip banks) stays in the
+    // tree, unused, for the day a mesh body is wanted again.
+    const rig = createPlayer(sc.scene, character.appearance);
     // First boot: a character is born on Hearthhome's green, facing the well,
     // which is where the story starts (story.js: "standing inside Hearthhome
     // for the first time"). Before this a new character woke a short walk

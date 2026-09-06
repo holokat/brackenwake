@@ -438,7 +438,7 @@ export function createSpellVfx(deps = {}) {
   }
   bindSockets();
 
-  const context = createSpellEffectContext(body, sockets, { textures, resolveImpact: deps.resolveImpact });
+  const context = createSpellEffectContext(body, sockets, { textures, resolveImpact: deps.resolveImpact, anchors: deps.anchors || null });
 
   // --- the effects, built once, and rebuilt once if the atlases land --------
   //

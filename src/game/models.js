@@ -46,7 +46,7 @@ export const MODEL_IDS = [
 // The player bodies, in the order a preload should want them: the three
 // Blender builds first because they are 2 KB each, the two studio bodies after.
 export const PLAYER_MODEL_IDS = [
-  'human-slim', 'human-medium', 'human-heavy', 'human-male', 'human-female',
+  'human-slim', 'human-medium', 'human-heavy',
 ];
 
 // The clips each family carries. Asking for one that is not here is a
