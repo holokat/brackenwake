@@ -2,7 +2,7 @@
 
 Written after the work. Every count quoted here is printed by
 `node src/mmo/spaces/spaces.test.mjs` (76 checks) and
-`node src/game/editor/editor.test.mjs` (119 checks), on world seed 20260904.
+`node src/game/editor/editor.test.mjs` (239 checks), on world seed 20260904.
 
 The user asked for an editor: "i want to be able to place structures, monsters,
 creatures, trees, rocks, etc... or even just a placeholder with some description
@@ -10,9 +10,11 @@ for an object we create later". The Greenwold is going to be laid out space by
 space by hand, because random scatter reads as filler.
 
 This is the PLACEMENT half. The terrain half (raising ground, carving mini
-caves) is a separate piece of work that publishes `window.__bw.terrain`; the
-editor's Terrain tab calls that contract and says so in words when it is not
-there yet.
+caves, mountains, lakes, snow) is a separate piece of work that publishes
+`window.__bw.terrain`; the editor's Terrain tab is BUILT OUT OF that contract
+and says so in words when it is not there yet. Not one brush is named in
+`src/game/editor`: `kinds()` is the vocabulary, the knobs and their ranges, and
+every row and every slider on the tab is drawn from the answer.
 
 ---
 
@@ -34,6 +36,49 @@ there yet.
 7. **Ctrl S** saves. The file lands in `src/mmo/spaces/<id>.json`, the
    generated index picks it up, and the game reloads with the place in it.
 
+### How to sculpt the ground
+
+The Terrain tab is the whole landscape: mountains, ridges, valleys, plateaus,
+terraces, noise, erosion, lakes, and the ground itself in whatever word the
+terrain half paints with, snow among them. It is built from `kinds()`, so this
+list is whatever that contract answers on the day and not a list kept here.
+
+1. Open the editor in dev mode and pick the **Terrain** tab. The other tabs put
+   their tools away and the terrain rows come up in their place.
+2. The **World** row is the floor everything else is cut into: the mode the
+   terrain half is in, the base height, the base ground and the snow line.
+   Type into the three fields and press **set the floor**. **Reset terrain**
+   asks before it acts: the first press says it will drop every stroke and
+   changes nothing, and a second press inside eight seconds does it. There is
+   no undo behind that one.
+3. Below it is **one row per brush**, numbered for its key, with **one slider
+   per knob** at the range the contract gave that knob. A mountain reaches
+   600 m across and 400 m up because the contract says 600 and 400; nothing in
+   the editor caps it at anything of its own. The ground brush carries a word
+   picker holding every word it may paint.
+4. Click a row, or press its number, to take that brush in hand. The ring on
+   the ground is the real radius it will take, so what will be hit is seen
+   before the press.
+5. **Area brushes are painted.** Hold the left button and drag. A stroke is
+   laid every half radius along the drag and no oftener than every 60 ms, so a
+   sweep reads as one brush and not as a row of dots. The end of the drag says
+   how many strokes it laid, and **one ctrl Z takes the whole drag back**, one
+   call to the contract's undo per stroke in it.
+6. **Hold shift while you drag to turn the brush over.** Raise lays lower, a
+   ridge lays a valley, a brush whose amount is allowed to go negative has its
+   amount negated, and a brush that can do neither says in words that shift
+   changed nothing. A plateau flattens either way.
+7. **A ridge and a valley take two clicks.** The first sets where the line
+   starts and says so, the ghost draws the line to the cursor over the real
+   ground, and the second click cuts it, once. The bearing is clockwise from
+   north and the length is the distance between the two clicks. A line longer
+   than the brush reaches is cut to what it reaches AND says it was cut.
+   Escape lets a half drawn line go.
+8. **Ctrl Z and ctrl Y walk the ground's stack while the Terrain tab is up**,
+   and the space's stack on every other tab, because the ground is what is
+   being made there. **save ground** writes the stroke list through the same
+   dev endpoint the spaces use.
+
 ### The keys
 
 | key | what it does |
@@ -45,9 +90,13 @@ there yet.
 | `R` / `shift R` | turn the selection 15 degrees, right or left |
 | `]` / `[` | make the selection a tenth bigger or smaller |
 | `Delete` / `Backspace` | remove the selection |
-| `ctrl Z` / `ctrl Y` | undo and redo, through the whole session |
+| `ctrl Z` / `ctrl Y` | undo and redo. On the Terrain tab this is the GROUND's stack, a whole drag at a time; on every other tab it is the space's |
 | `ctrl S` | save the open space |
-| `Escape` | drop the tool. Press it again to close the window. |
+| `Escape` | drop the tool, and let a half drawn ridge go. Press it again to close the window. |
+| `1` to `9` | Terrain tab only: take the first nine brushes in hand, in the order `kinds()` named them |
+| `+` / `-` | Terrain tab only: widen and narrow the brush by 15 percent of itself, never by less than one step of its own slider, and never outside the range the contract set |
+| left drag | Terrain tab only: paint the brush along the ground. Hold `shift` to turn it over |
+| left click, twice | Terrain tab only, on a ridge or a valley: the start, then the far end |
 
 Every one of those prints a line, in the editor's own status panel and in the
 HUD log. A placement says what went down, where in the space's own frame AND
@@ -65,7 +114,7 @@ why, and changes nothing.
 | Creatures | every critter `fauna.js` grows. Each is placed as a spawn, because each is also a monster row | 7 |
 | People | every role in `npcs.js` plus the story's own | 22 |
 | Markers | a form: a label, a note, and one of seven kinds | 7 |
-| Terrain | the seven brushes of the terrain contract | 7 |
+| Terrain | whatever `window.__bw.terrain.kinds()` answers, one row and one slider per knob. Empty, with the reason in words, when that contract is not there | as many as the contract names |
 
 Not one of those lists is typed out in the editor. Each is read off the module
 that owns it, and `editor.test.mjs` counts them against those modules both ways,
@@ -131,12 +180,12 @@ field of the plan shape a space treats differently.
 | `src/world/sites.js` | `spaceSiteRow`, `spaceSitesNear`, and the two lines in `sitesNear` that hand a space to the streamer. |
 | `src/world/site_models.js` | three lines: a site with a `space` is built with `buildPlan`, exactly as a planned place is. |
 | `src/game/editor/space_doc.js` | new, pure. The document and the command stack. |
-| `src/game/editor/palette.js` | new, pure. Every tab, derived from the game's own tables. |
+| `src/game/editor/palette.js` | new, pure. Every tab, derived from the game's own tables; the Terrain tab derived from `terrain.kinds()` through `brushRow` and `brushRows`. |
 | `src/game/editor/editor.js` | new. `createEditor(ctx)`: every action, with no DOM. |
-| `src/game/editor/ghost.js` | new. The thing under the cursor and the ring under that. |
+| `src/game/editor/ghost.js` | new. The thing under the cursor and the ring under that, plus `brushRing` at exactly the brush's radius and `lineGhost` sampled onto the ground. |
 | `src/game/editor/panel.js` | new. The window, the canvas listeners and the keys. |
 | `src/game/editor/index.js` | new. One import for all of it. |
-| `src/game/editor/editor.test.mjs` | new. 119 checks. |
+| `src/game/editor/editor.test.mjs` | new. 239 checks, 32 of them the real panel built over a fake document. |
 | `tools/editor_save.mjs` | new. The dev only save endpoint and its path guard. |
 | `vite.config.js` | new. The plugin, `apply: 'serve'`, and the 5198 port. |
 | `src/game/win_dev.js` | the bench's Editor row, and the button that opens it. |
@@ -204,18 +253,73 @@ breaking the next reload.
 The editor calls, and never implements:
 
 ```js
-window.__bw.terrain.stroke({ kind, x, z, r, amount })   // raise lower flatten smooth pit cliff cave
-window.__bw.terrain.undo()
-window.__bw.terrain.redo()
-window.__bw.terrain.save()
+window.__bw.terrain.kinds()      // [{ kind, label, params: [{ name, min, max, step, default }], words? }]
+window.__bw.terrain.stroke(s)    // words
+window.__bw.terrain.undo()       // words, or false when there is nothing left
+window.__bw.terrain.redo()       // words, or false
+window.__bw.terrain.save()       // words
+window.__bw.terrain.list()       // every stroke on the ground, or count()
+window.__bw.terrain.mode()       // 'sculpt' | 'generate'
+window.__bw.terrain.base()       // { height, ground, snowLine }
+window.__bw.terrain.setBase({ height, ground, snowLine })   // words
+window.__bw.terrain.reset()      // words
 runtime.rebuildAround(x, z, r)
 ```
 
-Click and drag on the Terrain tab lays a stroke every 70 ms while the button is
-down, and calls `rebuildAround` after each. The end of a drag says how many
-strokes it laid. With nothing on `window.__bw.terrain`, every one of those five
-buttons answers **"the terrain tools are not in yet: nothing answers
-window.__bw.terrain"** and changes nothing. Driven both ways in the test.
+`kinds()` is the whole vocabulary. The tab is one row per kind and one slider
+per param, at that param's own min, max, step and default, so a brush that
+reaches 600 m gets a slider that reaches 600 m with nothing to change in
+`src/game/editor`. A kind is a **line tool** when its params hold a `yaw` and a
+`length`, or a second point (`x2`/`z2`, `tox`/`toz`, `ex`/`ez`); everything else
+is painted with a held button. A kind whose row carries a `words` ARRAY gets a
+word picker, and the word chosen is sent as both `word` and `ground`, because
+`world.js` reads `s.word || s.ground`.
+
+Three things the editor reads off the param table rather than deciding for
+itself, each of which is a wrong picture on the ground if it is got wrong:
+
+- **The unit of a bearing is its own range.** `terrain_edits.js` counts `yaw` in
+  radians (`0` to `2 pi`); a knob that ran to `360` would be degrees. A ridge
+  drawn due east is sent `1.5708` to the first and `90` to the second, and the
+  words say `bearing 90 degrees` either way, because nobody reads a hillside in
+  radians.
+- **A bearing on a brush that is not a line tool is not sent until it is
+  moved.** `cliff` and `cave` carry a `yaw` with a default of 0, and `world.js`
+  fills a missing one with the downhill at that point for a cave mouth and the
+  player's own facing otherwise. Sending the untouched slider would overrule
+  both in silence and open every cave mouth due north, so the slider reads
+  **the ground decides** until it is dragged.
+- **`r` and `amount` go down only where the kind really has such a knob.** A
+  `lake` takes an `r` and a `floor`; an `amount` it never asked for would read
+  as a knob it has.
+
+What one stroke carries:
+
+```js
+{ kind, x, z,                 // the kind and the point, always
+  ...params,                  // every knob of that kind, under its own name
+  r, amount,                  // and again under the two names the first contract used
+  word, ground,               // only for a kind that paints a word
+  yaw, length, x2, z2 }       // only for a line tool, worked out from the two clicks
+```
+
+A held drag lays a stroke every half radius along the drag and no oftener than
+every 60 ms (`DRAG_SPACING` and `DRAG_MS` in `editor.js`), calls
+`rebuildAround` after each, says how many it laid at the end, and pushes them
+onto the editor's own stack as ONE group: undo pops the group and calls
+`terrain.undo()` once per stroke in it, so one ctrl Z takes back the whole
+sweep. Shift at the press turns the brush over for the whole drag: a named pair
+where both halves are in `kinds()` (raise and lower, ridge and valley, mountain
+and lake, hill and pit), else a negated amount where the amount may go
+negative, else nothing at all and a line of words saying so.
+
+With nothing on `window.__bw.terrain`, every button and every key on the tab
+answers **"the terrain tools are not in yet: nothing answers
+window.__bw.terrain"** and changes nothing. With a `stroke` but no `kinds()`,
+the tab shows one line naming that half and no brushes, and the seven of the
+first contract are still the only kinds `stroke()` will pass. A `kinds()` that
+throws, or that answers something that is not a list, is caught and said.
+Driven every one of those ways in the test.
 
 ---
 
@@ -248,6 +352,54 @@ Measured, in node, no renderer:
 - The save payload: it goes to `/__editor/save` as a POST, at the path the id
   makes, and is the space document field for field, with every list present
   even when empty, and it passes the load audit.
+- The Terrain tab, against a fake `kinds()` of eleven kinds shaped exactly as
+  `world.js` publishes them: eleven rows in the order the fake named them, each
+  with the contract's own label, and 26 sliders, one per knob, the mountain's
+  radius running 20 to 600 in steps of 5 from 300 and its lift 5 to 400 while
+  raise, on the same tab, runs to 200 and 60. A knob with no name is dropped, a
+  knob whose max is under its min is pulled up to it, a duplicate kind is taken
+  once. The ground brush gets the one word picker on the tab, holding all ten
+  words, snow among them; choosing snow in the real `<select>` reaches the
+  editor and the next stroke carries `word: 'snow'` and `ground: 'snow'`.
+- One stroke carries every knob under its own name AND `r` and `amount`. A
+  slider dragged to 9999 is pulled back to the 600 the contract allows, not to
+  the 120 the old editor capped at; one dragged below the floor is pulled up.
+- A drag of 300 m at a radius of 20 lays **31 strokes**, at x = 0, 10, 20 ...
+  300, and the panel says "31 strokes"; one undo calls the contract's undo
+  **31 times** and a second undo finds nothing, because the drag is one step
+  and not thirty one; redo puts all 31 back. Seven moves 30 m apart inside
+  60 ms lay 2 strokes, six slow moves of a metre lay 1, and the same drag with
+  a 300 m mountain lays 5 strokes 150 m apart, because the spacing is half the
+  radius.
+- The bearing, both units and both kinds of knob: a ridge drawn due east on a
+  radian knob is sent 1.5708 and on a degree knob 90, and says `bearing 90
+  degrees` either way; south west is 3.927 radians; a `cave` with an untouched
+  `yaw` is sent no `yaw` at all and the same cave sent 3 once the slider moves;
+  a `lake` is sent its `floor` and no `amount`.
+- Shift, four ways: raise lays lower, a ridge lays a valley, a noise whose
+  amount may go negative has its amount negated to -3, and a plateau lays a
+  plateau and says shift changed nothing. A contract with no `lower` in it does
+  not send shift at a kind that is not there.
+- A ridge takes two clicks: the first cuts nothing, the second cuts exactly one
+  stroke anchored at the first point, bearing 0 due north, 90 due east, 225
+  south west, length the distance between them. 900 m on a brush that reaches
+  600 is cut to 600 and says so. Two clicks 0.1 m apart are refused with the
+  distance in the refusal. Escape lets the line go and cuts nothing. A kind
+  that asks for `x2`/`z2` gets the point instead of a bearing.
+- The World row reads `mode()` and `base()` and shows them; Set sends all three
+  fields; Reset asks first (nothing dropped, the button says "press again"),
+  does it on the second press, asks again nine seconds later rather than acting
+  on a stale yes, and empties the editor's own drag stack so undo does not
+  chase ground that is gone.
+- The keys, fired at the real handler: 1, 3 and 9 take the first, third and
+  ninth brush; plus and minus move a 20 m radius to 23 and back to 19.55; ctrl
+  Z on the Terrain tab calls the ground's undo; a key the editor has no use for
+  is left for the game.
+- Every one of those with the contract absent, half present and thrown: no
+  `window.__bw.terrain` gives one line of words and no sliders, a `stroke` with
+  no `kinds()` names that half and still passes the original seven, a `kinds()`
+  that throws is caught and said, and a `kinds()` answering a string leaves no
+  brushes. The tab redraws itself the moment a contract does answer.
 - `npx vite build`: 217 modules, clean, with only the two warnings the project
   already had.
 
@@ -269,10 +421,18 @@ reviewer has that. Specifically unverified by a test:
   the ground under a camera a hundred metres up;
 - the left button being swallowed in the capture phase so `input.js` never
   publishes a click, and the right drag still turning the camera;
-- the key handler taking `R`, the brackets, Delete, ctrl Z, ctrl Y and ctrl S
-  while leaving this window's own text boxes alone;
+- the key handler leaving this window's own text boxes alone (the keys
+  themselves are fired at the real handler in node, over a fake document);
 - the marker label sprite, which needs a 2D canvas and returns null in node (the
   post still stands, unlabelled, and the marker's own words are on its
   `userData` either way);
-- the terrain tab against a real `window.__bw.terrain`, which does not exist
-  yet.
+- the brush ring and the line ghost as three.js objects: `brushRing` is built
+  at exactly r metres and `lineGhost` samples 48 points onto `heightAt`, but
+  neither has been rendered, and no scene exists in the node tests;
+- the pointer path on the Terrain tab: the press starting a drag, each move
+  feeding `dragStroke`, and the release ending it. The spacing, the interval
+  and the batching all live in `editor.js` and ARE measured; what is not
+  measured is the three lines of `panel.js` that hand the pointer to them;
+- the terrain tab against a real `window.__bw.terrain`. Every test above runs
+  against a fake shaped like the contract, so the two halves meeting for the
+  first time is still the reviewer's to see.

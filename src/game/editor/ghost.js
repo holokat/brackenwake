@@ -121,11 +121,76 @@ export function ghostFor(tab, id, opts = {}) {
   }
   if (tab === 'terrain') {
     const r = opts.r || 8;
-    const g = new THREE.Group();
-    g.add(footprintRing(r * 2, r * 2, 0x4a8ff0));
-    return { group: g, w: r * 2, d: r * 2, h: 0, words: `the ${id} brush, ${r} m across` };
+    const g = brushRing(r);
+    return { group: g, w: r * 2, d: r * 2, h: 0, words: `the ${id} brush, ${r} m across the radius, ${(r * 2).toFixed(0)} m corner to corner` };
   }
   return null;
+}
+
+/** The blue the terrain half is drawn in, everywhere it is drawn. */
+export const BRUSH_COLOUR = 0x4a8ff0;
+
+/**
+ * A ring of EXACTLY r metres, which is the ground the brush will take.
+ *
+ * `footprintRing` is measured corner to corner, because a building is a box.
+ * A brush is a circle of radius r, and a ring 41% too wide would have the user
+ * aiming a 600 m mountain at ground it was never going to touch. So this is its
+ * own ring: the outer edge is r, and the cross in the middle is there because a
+ * 600 m ring has no visible centre.
+ */
+export function brushRing(r, colour = BRUSH_COLOUR) {
+  const g = new THREE.Group();
+  const rr = Math.max(0.3, r);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(rr * (1 - Math.min(0.06, 1.2 / rr)), rr, 72), ghostMat(colour));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = RING_LIFT;
+  g.add(ring);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(rr, 48), ghostMat(colour));
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.y = RING_LIFT * 0.5;
+  disc.material.opacity = 0.1;
+  g.add(disc);
+  const arm = Math.max(0.4, rr * 0.06);
+  for (const [w, d] of [[arm * 2, arm * 0.2], [arm * 0.2, arm * 2]]) {
+    const bar = new THREE.Mesh(new THREE.PlaneGeometry(w, d), ghostMat(colour));
+    bar.rotation.x = -Math.PI / 2;
+    bar.position.y = RING_LIFT * 1.5;
+    g.add(bar);
+  }
+  return g;
+}
+
+/** How many points a line ghost is sampled at, so it follows the ground. */
+export const LINE_SAMPLES = 48;
+
+/**
+ * The line a ridge or a valley will be cut along, drawn on the ground.
+ *
+ * It is sampled, not a straight segment between two points, because a straight
+ * line between two hilltops runs a hundred metres over the valley between them
+ * and reads as pointing at nothing. `set` takes the two ends and the height
+ * field, and lifts every sample onto the ground it is over.
+ */
+export function lineGhost(colour = BRUSH_COLOUR) {
+  const pts = [];
+  for (let i = 0; i <= LINE_SAMPLES; i++) pts.push(new THREE.Vector3());
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity: 0.9, depthTest: false }));
+  line.renderOrder = 999;
+  line.set = (a, b, heightAt) => {
+    const pos = geo.attributes.position;
+    const h = typeof heightAt === 'function' ? heightAt : () => 0;
+    for (let i = 0; i <= LINE_SAMPLES; i++) {
+      const t = i / LINE_SAMPLES;
+      const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t;
+      pos.setXYZ(i, x, h(x, z) + 0.5, z);
+    }
+    pos.needsUpdate = true;
+    geo.computeBoundingSphere();
+    return line;
+  };
+  return line;
 }
 
 /** A ring that says where the space's own edge is. Built once per space. */

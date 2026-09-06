@@ -120,7 +120,20 @@ export function markers() {
   return MARKER_KINDS.map((id) => ({ id, label: id, real: true, placeable: true, hint: `a note that a ${id} belongs here` }));
 }
 
-/** The terrain brushes. The editor calls window.__bw.terrain with these. */
+// ---------------------------------------------------------------- terrain --
+//
+// THE BRUSHES ARE NOT A LIST IN THIS FILE. `window.__bw.terrain.kinds()` is the
+// whole vocabulary: every kind, its label, and every knob it takes with the
+// range that knob is allowed. The panel builds one row and one slider per thing
+// that comes back, so a mountain whose radius reaches 600 m gets a slider that
+// reaches 600 m without a line being changed here. What follows only READS that
+// answer and gives every field a shape the panel can trust.
+//
+// The seven below are what the FIRST contract named, and they are here for one
+// job only: to hold the line on `stroke()` when a terrain half answers `stroke`
+// but not `kinds`. Nothing is drawn from them.
+
+/** The seven the first terrain contract named. A guard, not a palette. */
 export const BRUSHES = [
   { id: 'raise', label: 'raise', hint: 'pull the ground up under the brush' },
   { id: 'lower', label: 'lower', hint: 'push it down' },
@@ -132,7 +145,136 @@ export const BRUSHES = [
 ];
 export const BRUSH_IDS = BRUSHES.map((b) => b.id);
 
-/** Every tab's entries, built now. */
+/** Param names that mean "how wide", in the order they are looked for. */
+export const RADIUS_NAMES = ['r', 'radius', 'width'];
+/** Param names that mean "how much", in the order they are looked for. */
+export const AMOUNT_NAMES = ['amount', 'height', 'depth', 'lift', 'strength'];
+/** Pairs of param names that mean "and the other end is here". */
+export const SECOND_POINT = [['x2', 'z2'], ['tox', 'toz'], ['ex', 'ez']];
+/**
+ * The kinds that are one another turned over, for shift.
+ *
+ * A pair is only used when BOTH of them are in the live `kinds()`, so a
+ * contract that drops `lower` does not leave shift pointing at a kind that is
+ * not there. A kind with no pair here falls back to negating its amount, and a
+ * kind that cannot do either says so rather than pretending: a plateau
+ * flattens whether or not shift is down.
+ */
+export const OPPOSITE = {
+  raise: 'lower', lower: 'raise',
+  ridge: 'valley', valley: 'ridge',
+  mountain: 'lake', lake: 'mountain',
+  hill: 'pit', pit: 'hill',
+};
+
+const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+
+/** The unit a param is measured in, so a slider can say "600 m" and not "600". */
+export function unitFor(name) {
+  const n = String(name || '').toLowerCase();
+  if (ANGLE_NAMES.includes(n)) return 'degrees';
+  if (RADIUS_NAMES.includes(n) || AMOUNT_NAMES.includes(n) || ['length', 'x2', 'z2', 'tox', 'toz', 'ex', 'ez', 'step', 'rise'].includes(n)) return 'm';
+  return '';
+}
+
+/** Param names that mean "which way it points". */
+export const ANGLE_NAMES = ['yaw', 'bearing', 'angle', 'turn'];
+
+/**
+ * Whether an angle knob is counted in radians or in degrees.
+ *
+ * THE RANGE IS THE ANSWER, and nothing else could be: a knob that runs 0 to
+ * 6.28 is a turn in radians and one that runs 0 to 360 is a turn in degrees,
+ * and the editor has no business holding an opinion about which the terrain
+ * half chose. Getting this wrong sends 90 to a knob that stops at 6.28, and a
+ * ridge drawn due east comes out pointing north west.
+ */
+export const angleUnitOf = (p) => (p && p.max > 7 ? 'degrees' : 'radians');
+
+/**
+ * One knob of one brush, with every field filled and in range.
+ *
+ * A param with no name is dropped rather than drawn as a nameless slider, and
+ * a max below its min is pulled up to it, because a slider whose max is under
+ * its min silently refuses every value the user drags to.
+ */
+export function brushParam(p) {
+  const name = String((p && p.name) || '').trim();
+  if (!name) return null;
+  const min = numOr(p && p.min, 0);
+  const max = Math.max(min, numOr(p && p.max, min + 1));
+  const span = max - min;
+  const step = Math.min(Math.max(span, 1e-6), Math.max(1e-6, Math.abs(numOr(p && p.step, span / 100 || 1))));
+  const def = Math.min(max, Math.max(min, numOr(p && p.default, min)));
+  const out = { name, min, max, step, default: def, unit: typeof (p && p.unit) === 'string' ? p.unit : unitFor(name) };
+  if (ANGLE_NAMES.includes(name.toLowerCase())) out.unit = angleUnitOf(out);
+  return out;
+}
+
+/** What a brush row says about itself when the contract sent no sentence. */
+export function brushHint(params, words) {
+  const bits = params.map((p) => `${p.name} ${p.min} to ${p.max}${p.unit ? ` ${p.unit}` : ''}`);
+  if (words.length) bits.push(`paints ${words.join(', ')}`);
+  return bits.join(', ');
+}
+
+/**
+ * One row of `kinds()`, read into the shape the panel and the editor use.
+ *
+ * `line` is worked out and not asked for: a kind that takes a yaw AND a length,
+ * or a kind that takes a second point, is drawn between two clicks. Everything
+ * else is painted with a held button.
+ */
+export function brushRow(k) {
+  const id = String((k && (k.kind || k.id)) || '').trim();
+  if (!id) return null;
+  const params = (Array.isArray(k.params) ? k.params : []).map(brushParam).filter(Boolean);
+  const by = (list) => params.find((p) => list.includes(p.name.toLowerCase())) || null;
+  const named = (n) => params.find((p) => p.name.toLowerCase() === n) || null;
+  const yaw = named('yaw') || named('bearing');
+  const length = named('length');
+  const pairNames = SECOND_POINT.find(([a, b]) => named(a) && named(b)) || null;
+  const pair = pairNames ? [named(pairNames[0]), named(pairNames[1])] : null;
+  const words = Array.isArray(k && k.words) ? k.words.map((w) => String(w)).filter(Boolean) : [];
+  const said = typeof (k && k.words) === 'string' ? k.words : (typeof (k && k.hint) === 'string' ? k.hint : '');
+  const byYaw = !!(yaw && length);
+  return {
+    id,
+    label: String((k && k.label) || id),
+    real: true,
+    placeable: true,
+    params,
+    radius: by(RADIUS_NAMES),
+    amount: by(AMOUNT_NAMES),
+    words,
+    yaw, length, pair,
+    line: byYaw || !!pair,
+    hint: said || brushHint(params, words),
+  };
+}
+
+/** Every row `kinds()` answered, in the order it answered them. */
+export function brushRows(kinds) {
+  if (!Array.isArray(kinds)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const k of kinds) {
+    const row = brushRow(k);
+    if (!row || seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push(row);
+  }
+  return out;
+}
+
+/**
+ * Every tab's entries, built now.
+ *
+ * The Terrain tab is the one tab with nothing of its own: it is whatever
+ * `kinds()` answered, handed in as `opts.kinds`. With nothing handed in it is
+ * EMPTY, and the panel says why in words rather than showing seven brushes that
+ * may not be there.
+ */
 export function paletteFor(tab, opts = {}) {
   switch (tab) {
     case 'structures': return structures(opts.has);
@@ -142,7 +284,7 @@ export function paletteFor(tab, opts = {}) {
     case 'rocks': return rocks();
     case 'people': return people();
     case 'markers': return markers();
-    case 'terrain': return BRUSHES.map((b) => ({ ...b, real: true, placeable: true }));
+    case 'terrain': return brushRows(opts.kinds);
     default: return [];
   }
 }

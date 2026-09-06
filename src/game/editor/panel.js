@@ -20,22 +20,31 @@
 //   button back.
 //
 //   THE KEYS. R and shift R turn, the brackets scale, Delete removes, ctrl Z
-//   and ctrl Y walk the stack, ctrl S saves. They are taken in the capture
-//   phase while the window is open, and they are NOT taken while the caret is
-//   in one of this window's own text boxes, because a space called "Reedy" is
-//   otherwise unnameable.
+//   and ctrl Y walk the stack, ctrl S saves. On the Terrain tab 1 to 9 pick a
+//   brush, plus and minus widen and narrow it, and ctrl Z walks the GROUND's
+//   stack instead of the space's, because the ground is what is being made
+//   there. They are taken in the capture phase while the window is open, and
+//   they are NOT taken while the caret is in one of this window's own text
+//   boxes, because a space called "Reedy" is otherwise unnameable.
 
 import * as THREE from 'three';
 import { createEditor } from './editor.js';
-import { TABS, TAB_IDS, BRUSHES, MARKER_KINDS } from './palette.js';
-import { ghostFor, radiusRing, selectionBox, disposeGhost } from './ghost.js';
+import { TABS, TAB_IDS, MARKER_KINDS, ANGLE_NAMES } from './palette.js';
+import { ghostFor, radiusRing, selectionBox, disposeGhost, lineGhost } from './ghost.js';
 import { LIST_WORD, TURN_DEG, SCALE_STEP, labelOf, pointOf } from './space_doc.js';
 import { setMarkersVisible } from '../../world/plan_models.js';
 
 /** How far the pointer may move between press and release and still be a click. */
 export const CLICK_SLOP = 5;
-/** How often a held brush lays another stroke, in milliseconds. */
-export const STROKE_MS = 70;
+/**
+ * What the panel says when the Terrain tab has no brushes to show.
+ *
+ * How often a held brush lays a stroke, and how far apart, is NOT here: that is
+ * `DRAG_MS` and `DRAG_SPACING` in editor.js, because the editor is what the
+ * test drives and a spacing rule kept in the panel would be a rule no test
+ * could reach.
+ */
+export const NO_BRUSHES = 'the terrain tools name no brushes, so there is nothing to sculpt with yet.';
 /** How far the ground march looks, in metres, and how fine it gets. */
 export const MARCH_MAX = 900;
 export const MARCH_FINE = 0.05;
@@ -113,6 +122,11 @@ const CSS = `
   padding:4px 8px;margin:6px 0 0;border-radius:0 4px 4px 0;font-size:12px;line-height:1.45}
 .bw-win-editor .bw-say .l{color:#cbd8c2}
 .bw-win-editor .bw-say .l.bad{color:#e0a08a}
+.bw-win-editor .bw-list .r.bw-brush{flex-wrap:wrap;gap:6px;padding:4px}
+.bw-win-editor .bw-list .r.bw-brush .nm{flex:0 0 132px;color:#dff0d4}
+.bw-win-editor .bw-list .r.bw-brush .p{display:inline-flex;align-items:center;gap:4px}
+.bw-win-editor .bw-list .r.bw-brush .p input[type=range]{width:104px}
+.bw-win-editor .bw-list .r.bw-brush .p .d{min-width:58px;text-align:right;font-variant-numeric:tabular-nums}
 `;
 
 function css() {
@@ -238,24 +252,146 @@ export const panel = {
     root.appendChild(rowsList);
 
     // ----------------------------------------------------------- terrain --
-    const brushRow = row('Brush', 'the terrain half of the editor');
-    const brushSel = h('select');
-    for (const b of BRUSHES) { const o = h('option', null, `${b.label}: ${b.hint}`); o.value = b.id; brushSel.appendChild(o); }
-    const brR = h('input'); brR.type = 'range'; brR.min = '1'; brR.max = '60'; brR.value = '8';
-    const brA = h('input'); brA.type = 'range'; brA.min = '-10'; brA.max = '10'; brA.step = '0.25'; brA.value = '1';
-    const brWords = h('span', 'd', '8 m, 1 m');
-    const brSet = () => {
-      const b = ed.setBrush({ kind: brushSel.value, r: Number(brR.value), amount: Number(brA.value) });
-      brWords.textContent = `${b.r} m across, ${b.amount} m`;
-      rebuildGhost();
-    };
-    brushSel.addEventListener('change', brSet);
-    brR.addEventListener('input', brSet);
-    brA.addEventListener('input', brSet);
-    brushRow.appendChild(brushSel); brushRow.appendChild(brR); brushRow.appendChild(brA); brushRow.appendChild(brWords);
-    btn(brushRow, 'undo ground', () => { ed.terrainUndo(); drawSay(); });
-    btn(brushRow, 'redo ground', () => { ed.terrainRedo(); drawSay(); });
-    btn(brushRow, 'save ground', async () => { await ed.terrainSave(); drawSay(); });
+    //
+    // NOT ONE BRUSH IS NAMED HERE. Every row below the World line is built out
+    // of what `window.__bw.terrain.kinds()` answered, and every slider takes
+    // its min, max, step and starting value from the knob the contract
+    // described. That is why a mountain gets a 600 m radius and a 400 m lift
+    // while a smooth gets 40 m, with nothing in this file to keep up to date.
+
+    // The list is rebuilt only when the contract's own answer changes, because
+    // rebuilding it under a slider the user is dragging takes the slider away.
+    let brushSig = null;
+    const brushCells = new Map();
+
+    const worldRow = row('World', 'the floor every stroke is cut into');
+    const worldMode = h('span', 'd', '');
+    const baseH = h('input'); baseH.type = 'number'; baseH.step = '1'; baseH.placeholder = 'height';
+    const baseG = h('input'); baseG.type = 'text'; baseG.placeholder = 'grass'; baseG.style.width = '90px';
+    const baseS = h('input'); baseS.type = 'number'; baseS.step = '5'; baseS.placeholder = 'snow line';
+    worldRow.appendChild(worldMode);
+    worldRow.appendChild(h('small', null, 'height')); worldRow.appendChild(baseH);
+    worldRow.appendChild(h('small', null, 'ground')); worldRow.appendChild(baseG);
+    worldRow.appendChild(h('small', null, 'snow line')); worldRow.appendChild(baseS);
+    btn(worldRow, 'set the floor', () => {
+      ed.setTerrainBase({ height: Number(baseH.value), ground: baseG.value, snowLine: Number(baseS.value) });
+      drawAll();
+    });
+    const resetBtn = btn(worldRow, 'reset terrain', () => { ed.terrainReset(); drawAll(); });
+
+    const groundRow = row('Ground', 'undo takes back a whole drag, not a dot of it');
+    btn(groundRow, 'undo ground (ctrl Z)', () => { ed.terrainUndo(); drawAll(); });
+    btn(groundRow, 'redo ground (ctrl Y)', () => { ed.terrainRedo(); drawAll(); });
+    btn(groundRow, 'save ground', async () => { await ed.terrainSave(); drawAll(); });
+    btn(groundRow, 'read the brushes again', () => { ed.refreshKinds(); brushSig = null; drawAll(); });
+    const groundWords = h('span', 'd', '');
+    groundRow.appendChild(groundWords);
+
+    const keysRow = row('Keys', 'while the Terrain tab is up');
+    keysRow.appendChild(h('small', null,
+      '1 to 9 pick a brush. + and - widen and narrow it. Hold the left button and drag to paint; '
+      + 'shift while you drag turns the brush over where it has an other way round. A ridge or a valley takes two clicks, '
+      + 'and Escape lets a half drawn one go. Ctrl Z takes back a whole drag at once.'));
+
+    const brushList = h('div', 'bw-list');
+    root.appendChild(brushList);
+    this._brushList = brushList;
+    this._worldRow = worldRow;
+
+    function brushSigOf(rows) {
+      // With no brushes the signature still has to say WHICH nothing this is,
+      // or a terrain half that arrives half wired never redraws the line that
+      // names the half that is missing.
+      if (!rows) return ed.terrainReady() ? 'no kinds' : 'no terrain';
+      return rows.map((r) => `${r.id}/${r.label}/${r.words.join('|')}/`
+        + r.params.map((p) => `${p.name}:${p.min}:${p.max}:${p.step}:${p.default}`).join(',')).join(';');
+    }
+
+    function buildBrushes(rows) {
+      brushList.textContent = '';
+      brushCells.clear();
+      if (!rows || !rows.length) {
+        brushList.appendChild(h('div', 'r', ed.terrainReady()
+          ? 'the terrain tools are there but they answer no kinds(), so there is nothing to sculpt with. Nothing on this tab will move any ground.'
+          : 'the terrain tools are not in yet: nothing answers window.__bw.terrain. Nothing on this tab will move any ground.'));
+        return;
+      }
+      rows.forEach((brow, i) => {
+        const r = h('div', 'r bw-brush');
+        r.appendChild(h('span', 'nm', `${i < 9 ? `${i + 1}. ` : ''}${brow.label}${brow.line ? ' (two clicks)' : ''}`));
+        r.addEventListener('click', () => { ed.arm(brow.id); rebuildGhost(); drawAll(); });
+        const outs = [];
+        // A bearing knob on a brush that is not drawn between two points is
+        // not sent until it is moved, so its readout says who is deciding it
+        // rather than showing a number that is going nowhere.
+        const loose = (p) => ANGLE_NAMES.includes(p.name.toLowerCase()) && !brow.line;
+        for (const p of brow.params) {
+          const wrap = h('span', 'p');
+          wrap.appendChild(h('small', null, `${p.name} `));
+          const s = h('input');
+          s.type = 'range';
+          s.min = String(p.min); s.max = String(p.max); s.step = String(p.step);
+          s.value = String(ed.brushValue(brow.id, p.name));
+          const out = h('span', 'd', '');
+          const show = () => {
+            const v = ed.brushValue(brow.id, p.name);
+            s.value = String(v);
+            out.textContent = loose(p) && !ed.brushTouched(brow.id, p.name)
+              ? 'the ground decides'
+              : `${v}${p.unit ? ` ${p.unit}` : ''}`;
+          };
+          show();
+          s.addEventListener('input', () => {
+            ed.setBrushParam(brow.id, p.name, Number(s.value));
+            show();
+            if (brow.id === ed.brush.kind) rebuildGhost();
+          });
+          wrap.appendChild(s); wrap.appendChild(out);
+          r.appendChild(wrap);
+          outs.push(show);
+        }
+        let wordSel = null;
+        if (brow.words.length) {
+          wordSel = h('select');
+          for (const w of brow.words) { const o = h('option', null, w); o.value = w; wordSel.appendChild(o); }
+          wordSel.value = ed.brushWord(brow.id) || brow.words[0];
+          wordSel.addEventListener('change', () => { ed.setBrushWord(brow.id, wordSel.value); drawSay(); });
+          r.appendChild(wordSel);
+        }
+        brushList.appendChild(r);
+        brushCells.set(brow.id, { r, outs, wordSel });
+      });
+    }
+
+    function drawBrushes() {
+      const rows = ed.terrainKinds();
+      const sig = brushSigOf(rows);
+      if (sig !== brushSig) { brushSig = sig; buildBrushes(rows); }
+      const held = ed.brush;
+      for (const [id, cell] of brushCells) {
+        cell.r.classList.toggle('here', id === held.kind);
+        for (const f of cell.outs) f();
+        if (cell.wordSel) cell.wordSel.value = ed.brushWord(id) || cell.wordSel.value;
+      }
+      const mode = ed.terrainMode();
+      const base = ed.terrainBase();
+      const count = ed.terrainCount();
+      worldMode.textContent = mode ? `${mode} mode` : (ed.terrainReady() ? 'no mode() yet' : 'no terrain tools');
+      if (base) {
+        if (document.activeElement !== baseH) baseH.value = Number.isFinite(base.height) ? String(base.height) : '';
+        if (document.activeElement !== baseG) baseG.value = typeof base.ground === 'string' ? base.ground : '';
+        if (document.activeElement !== baseS) baseS.value = Number.isFinite(base.snowLine) ? String(base.snowLine) : '';
+      }
+      const depth = ed.terrainDepth;
+      groundWords.textContent = [
+        count && Number.isFinite(count.strokes) ? `${count.strokes} ${count.strokes === 1 ? 'stroke' : 'strokes'} on the ground` : '',
+        depth.done ? `${depth.done} ${depth.done === 1 ? 'drag' : 'drags'} to undo` : 'nothing to undo',
+        depth.undone ? `${depth.undone} to put back` : '',
+        ed.lineAt() ? `a line is open at ${ed.lineAt().x}, ${ed.lineAt().z}` : '',
+      ].filter(Boolean).join(', ');
+      resetBtn.classList.toggle('armed', ed.resetAsked());
+      resetBtn.textContent = ed.resetAsked() ? 'reset terrain: press again' : 'reset terrain';
+    }
 
     // ---------------------------------------------------------- contents --
     root.appendChild(h('h3', null, 'What stands in this space'));
@@ -286,6 +422,9 @@ export const panel = {
     }
 
     function drawRows() {
+      // The Terrain tab has a list of its own, built from the contract, so the
+      // palette list is not drawn twice over the same brushes.
+      if (ed.tab === 'terrain') { rowsList.textContent = ''; return; }
       const list = ed.rows();
       rowsList.textContent = '';
       if (!list.length) { rowsList.appendChild(h('div', 'r', 'nothing here matches that')); return; }
@@ -331,9 +470,10 @@ export const panel = {
         bits.push({ text: `${c.total} in it` });
         bits.push({ text: ed.dirty ? 'unsaved' : 'saved' });
       }
-      bits.push({ text: ed.pick ? `holding ${ed.pick}` : (ed.tab === 'terrain' ? `brush ${ed.brush.kind}` : 'nothing in hand') });
+      const b = ed.brush;
+      bits.push({ text: ed.pick ? `holding ${ed.pick}` : (ed.tab === 'terrain' ? `${b.kind}, ${b.r} m${b.word ? `, ${b.word}` : ''}` : 'nothing in hand') });
       bits.push({ text: `yaw ${Math.round(g.yaw)}, scale ${g.scale}` });
-      bits.push({ text: ed.terrainReady() ? 'terrain wired' : 'no terrain tools' });
+      bits.push({ text: ed.terrainReady() ? `${(ed.terrainKinds() || []).length} brushes` : 'no terrain tools' });
       read.textContent = '';
       bits.forEach((b, i) => {
         if (i) read.appendChild(document.createTextNode('   '));
@@ -346,12 +486,14 @@ export const panel = {
       yawIn.value = String(Math.round(g.yaw));
       sclIn.value = String(g.scale);
       for (const [id, b] of tabBtns) b.classList.toggle('on', id === ed.tab);
+      const onTerrain = ed.tab === 'terrain';
       markRow.style.display = ed.tab === 'markers' ? '' : 'none';
-      brushRow.style.display = ed.tab === 'terrain' ? '' : 'none';
-      knobRow.style.display = ed.tab === 'terrain' ? 'none' : '';
+      knobRow.style.display = onTerrain ? 'none' : '';
+      for (const el of [worldRow, groundRow, keysRow, brushList]) el.style.display = onTerrain ? '' : 'none';
+      rowsList.style.display = onTerrain ? 'none' : '';
     }
 
-    function drawAll() { drawSpaces(); drawRows(); drawContents(); drawRead(); drawSay(); syncSelectionBox(); }
+    function drawAll() { drawSpaces(); drawRows(); drawBrushes(); drawContents(); drawRead(); drawSay(); syncSelectionBox(); syncLineGhost(); }
     this._drawAll = drawAll;
 
     // ------------------------------------------------------- the cursor --
@@ -368,7 +510,8 @@ export const panel = {
     let ghost = null, ghostAt = null, ghostKey = '';
     let ring = null;
     let selBox = null;
-    let press = null, dragging = null, strokeAt = 0, strokes = 0;
+    let lineDraw = null;
+    let press = null, dragging = null;
     // The window is built once and never taken down (windows.js has no dispose
     // hook for a panel), so the canvas and key listeners live for the life of
     // the page and are made inert here instead. A listener that stayed armed
@@ -397,6 +540,23 @@ export const panel = {
       scene.add(ghost);
     }
     this._rebuildGhost = rebuildGhost;
+
+    /**
+     * The line a ridge or a valley is about to be cut along.
+     *
+     * It is drawn from the click that started it to wherever the pointer is
+     * now, sampled onto the ground, so the length and the bearing are seen
+     * before the second click and not read off the status line after it.
+     */
+    function syncLineGhost() {
+      if (!scene) return;
+      const from = ed.tab === 'terrain' ? ed.lineAt() : null;
+      if (!from || !live) { if (lineDraw) lineDraw.visible = false; return; }
+      if (!lineDraw) { lineDraw = lineGhost(); scene.add(lineDraw); }
+      const to = ghostAt || from;
+      lineDraw.set(from, to, heightAt);
+      lineDraw.visible = true;
+    }
 
     function syncRing() {
       if (!scene) return;
@@ -459,12 +619,15 @@ export const panel = {
         ed.moveTo(p.x, p.z);
         drawAll();
       }
-      // a held terrain brush lays a stroke at a fixed interval
-      if (press && press.brush && p && Date.now() - strokeAt >= STROKE_MS) {
-        strokeAt = Date.now();
-        const res = ed.stroke(p.x, p.z);
-        if (res.ok) { strokes++; ed.rebuildGround(p.x, p.z, ed.brush.r + 8); }
-        else { press.brush = false; drawSay(); }
+      // a half drawn ridge follows the cursor to its far end
+      if (ed.tab === 'terrain' && ed.lineAt()) syncLineGhost();
+      // A HELD BRUSH. The spacing and the interval are the editor's, not this
+      // file's: it is handed every move and answers whether that move was far
+      // enough and late enough to be worth a stroke.
+      if (press && press.brush && !press.line && p) {
+        const res = ed.dragStroke(p.x, p.z, { now: Date.now() });
+        if (res.ok) ed.rebuildGround(p.x, p.z, ed.brush.r + 8);
+        else if (res.text) { press.brush = false; drawSay(); }
       }
     }
 
@@ -479,23 +642,41 @@ export const panel = {
       // therefore never publishes a click for main.js to route.
       e.preventDefault();
       e.stopPropagation();
-      press = { x: e.clientX, y: e.clientY, brush: ed.tab === 'terrain' && !onGizmo };
-      strokes = 0; strokeAt = 0;
+      const onBrush = ed.tab === 'terrain' && !onGizmo;
+      press = { x: e.clientX, y: e.clientY, brush: onBrush, line: onBrush && ed.brush.line };
       if (onGizmo && !ed.pick) dragging = true;
-      if (press.brush && p) {
-        strokeAt = Date.now();
-        const res = ed.stroke(p.x, p.z);
-        if (res.ok) { strokes++; ed.rebuildGround(p.x, p.z, ed.brush.r + 8); }
-        else { press.brush = false; drawSay(); }
+      // A line tool is two clicks and is settled on the way up. A painting
+      // brush starts here, so the first stroke lands under the press itself.
+      if (press.brush && !press.line) {
+        // A press that laid nothing drops the press entirely rather than
+        // leaving one behind for `onUp` to read as a click on the palette,
+        // which would answer a second refusal for a tool nobody is holding.
+        if (!p) { press = null; ed.say('the cursor is not on any ground, so the brush had nothing to take hold of.', 'bad'); drawSay(); return; }
+        const res = ed.dragBegin(p.x, p.z, { shift: e.shiftKey, now: Date.now() });
+        if (res.ok) ed.rebuildGround(p.x, p.z, ed.brush.r + 8);
+        else { press = null; drawSay(); }
       }
     }
 
     function onUp(e) {
       if (!live || !press) return;
       const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
-      const wasDrag = dragging, wasBrush = press.brush;
+      const wasDrag = dragging, wasBrush = press.brush, wasLine = press.line;
       press = null; dragging = null;
-      if (wasBrush) { ed.strokeDone(strokes); drawSay(); return; }
+      if (wasBrush && wasLine) {
+        if (moved > CLICK_SLOP) return;           // a drag with a line tool is not a click
+        const p = groundUnder(camera, ndcOf(e), heightAt, ray);
+        if (!p) { ed.say('the cursor is not on any ground, so the line has no end there.', 'bad'); drawSay(); return; }
+        const from = ed.lineAt();
+        const res = from ? ed.lineEnd(p.x, p.z, { shift: e.shiftKey }) : ed.lineStart(p.x, p.z);
+        if (from && res.ok) {
+          const mid = { x: (from.x + p.x) / 2, z: (from.z + p.z) / 2 };
+          ed.rebuildGround(mid.x, mid.z, Math.hypot(p.x - from.x, p.z - from.z) / 2 + ed.brush.r + 8);
+        }
+        drawAll();
+        return;
+      }
+      if (wasBrush) { ed.dragEnd(); drawAll(); return; }
       if (wasDrag) { drawAll(); return; }
       if (moved > CLICK_SLOP) return;
       const p = groundUnder(camera, ndcOf(e), heightAt, ray);
@@ -512,14 +693,25 @@ export const panel = {
       const k = e.key.toLowerCase();
       const mod = e.ctrlKey || e.metaKey;
       let took = true;
+      const onTerrain = ed.tab === 'terrain';
+      // On the Terrain tab ctrl Z is the ground, because the ground is what is
+      // being made there. Everywhere else it is the space, as it always was.
       if (mod && k === 's') { e.preventDefault(); ed.save().then(() => ed.list()).then(drawAll); }
-      else if (mod && k === 'z' && !e.shiftKey) ed.undo();
-      else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) ed.redo();
+      else if (mod && k === 'z' && !e.shiftKey) { if (onTerrain) ed.terrainUndo(); else ed.undo(); }
+      else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { if (onTerrain) ed.terrainRedo(); else ed.redo(); }
+      else if (!mod && onTerrain && /^[1-9]$/.test(k)) {
+        const list = ed.terrainKinds() || [];
+        const row = list[Number(k) - 1];
+        if (row) { ed.arm(row.id); rebuildGhost(); }
+        else ed.say(list.length ? `there is no ${k}th brush; there are ${list.length}.` : NO_BRUSHES, 'bad');
+      }
+      else if (!mod && onTerrain && (k === '+' || k === '=')) { ed.bumpRadius(1); rebuildGhost(); }
+      else if (!mod && onTerrain && (k === '-' || k === '_')) { ed.bumpRadius(-1); rebuildGhost(); }
       else if (!mod && k === 'r') ed.turn(e.shiftKey ? -TURN_DEG : TURN_DEG);
       else if (!mod && k === ']') ed.grow(SCALE_STEP);
       else if (!mod && k === '[') ed.grow(1 / SCALE_STEP);
       else if (!mod && (k === 'delete' || k === 'backspace')) ed.del();
-      else if (!mod && k === 'escape' && armed()) { ed.disarm(); rebuildGhost(); }
+      else if (!mod && k === 'escape' && (armed() || ed.lineAt())) { ed.disarm(); rebuildGhost(); syncLineGhost(); }
       else took = false;
       if (!took) return;
       e.stopPropagation();
@@ -535,8 +727,14 @@ export const panel = {
 
     this._setLive = (on) => {
       live = !!on;
-      if (!live) { press = null; dragging = null; if (ghost) ghost.visible = false; if (selBox) selBox.visible = false; if (ring) { scene.remove(ring); ring = null; } }
-      else { syncSelectionBox(); }
+      if (!live) {
+        press = null; dragging = null;
+        ed.lineCancel();
+        if (ghost) ghost.visible = false;
+        if (lineDraw) lineDraw.visible = false;
+        if (selBox) selBox.visible = false;
+        if (ring) { scene.remove(ring); ring = null; }
+      } else { syncSelectionBox(); syncLineGhost(); }
       return live;
     };
 
@@ -548,6 +746,7 @@ export const panel = {
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('keydown', onKey, true);
       if (ghost && scene) { scene.remove(ghost); disposeGhost(ghost); ghost = null; }
+      if (lineDraw && scene) { scene.remove(lineDraw); lineDraw.geometry.dispose(); lineDraw.material.dispose(); lineDraw = null; }
       if (ring && scene) { scene.remove(ring); ring = null; }
       if (selBox && scene) { scene.remove(selBox); selBox = null; }
     };
@@ -566,7 +765,7 @@ export const panel = {
     }
     setMarkersVisible(true, ctx.sc && ctx.sc.scene);
     if (this._setLive) this._setLive(true);
-    ctx?.hud?.toast?.('the editor is open. Pick something out of the palette, then left click the ground. Escape drops the tool, R turns, brackets size, Delete removes, ctrl Z undoes, ctrl S saves. Right drag still turns the camera. Close this window to leave.');
+    ctx?.hud?.toast?.('the editor is open. Pick something out of the palette, then left click the ground. Escape drops the tool, R turns, brackets size, Delete removes, ctrl Z undoes, ctrl S saves. On the Terrain tab 1 to 9 pick a brush, plus and minus widen it, and a held drag paints. Right drag still turns the camera. Close this window to leave.');
     if (this._drawAll) this._drawAll();
   },
 
