@@ -617,7 +617,21 @@ export const propCount = () => props.size;
 export const PROP_YAW = {};
 
 export function registerProp(id, object3D) {
-  object3D.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  object3D.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true; o.receiveShadow = true;
+    // The mesh tools bake a metalness map with the blue channel high on stone
+    // and thatch, and this scene has no environment map to reflect, so a metal
+    // renders black: the user's smithy and manor came in as silhouettes. A
+    // building is not metal. Metalness goes to zero and the map stays for the
+    // roughness in its green channel; base colour reads as sRGB.
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+      if (!m) continue;
+      if ('metalness' in m) m.metalness = 0;
+      if (m.map && THREE.SRGBColorSpace) m.map.colorSpace = THREE.SRGBColorSpace;
+      m.needsUpdate = true;
+    }
+  });
   // FIT TO THE FOOTPRINT. The tools that make these hand back a model
   // normalised to a metre (Tripo: every one of the user's six was 0.98 m tall,
   // the castle and the sack alike), so a model is scaled uniformly until its

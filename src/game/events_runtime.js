@@ -222,7 +222,7 @@ export function createEvents(runtime, monsters, hud, clock, opts = {}) {
         // it has begun, and it is near enough that a player could see it begin
         if (d <= LOG_M && !inDungeon) {
           stats.logged++;
-          say(`<b>${entry.name}</b>. ${entry.line}`, 'good');
+          say(`${entry.name}. ${entry.line}`, 'good');
           rec.said = true;
         }
       }
@@ -230,7 +230,7 @@ export function createEvents(runtime, monsters, hud, clock, opts = {}) {
       if (!rec.walkedIn && d <= entry.r && !inDungeon) {
         rec.walkedIn = true;
         stats.toasted++;
-        shout(`you are in <b>${entry.name}</b>, ${entry.article}`, entry.kind === 'blossom' ? 'good' : undefined);
+        shout(`you are in ${entry.name}, ${entry.article}`, entry.kind === 'blossom' ? 'good' : undefined);
         if (!rec.said) { rec.said = true; say(entry.line); }
       }
 
@@ -312,7 +312,7 @@ export function createEvents(runtime, monsters, hud, clock, opts = {}) {
       const d = dist(pos, point);
       if (d <= DISCOVER_M && !found.has(w.id)) {
         found.add(w.id);
-        say(`<b>${w.name}</b> walks a round of this country, and the map has it now.`, 'good');
+        say(`${w.name} walks a round of this country, and the map has it now.`, 'good');
       }
       if (!rec) {
         roaming.set(w.id, { body: null, index: point.index, placeName: point.placeName, seen: false });
@@ -324,7 +324,7 @@ export function createEvents(runtime, monsters, hud, clock, opts = {}) {
         if (r2.body) {
           stats.spawned++;
           r2.seen = true;
-          say(`<b>${w.name}</b> is standing at ${point.placeName}.`, 'bad');
+          say(`${w.name} is standing at ${point.placeName}.`, 'bad');
         }
       }
       // the route is walked by the thing itself: the hour moves its home and
