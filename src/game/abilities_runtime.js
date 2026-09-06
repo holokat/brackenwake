@@ -25,7 +25,8 @@
 import {
   ABILITIES_BY_ID, EFFECT_KINDS, canUse, startCast, interruptRule, lessonFor,
   manaCostFor, costKind, MELEE_RANGE, weaponCheck, weaponNeeds, burdensInArmour,
-  itemsHeld, payingBases,
+  itemsHeld, payingBases, practiceChance, isPractice, practiceText,
+  requirementSentence, meetsRequirements,
 } from '../mmo/abilities.js';
 import { JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
 import { castBurdenOf, burdenSources } from './actor.js';
@@ -190,6 +191,19 @@ export const burdenedCastTime = (castTime, burden) => num(castTime) * (1 + Math.
 /** The chance this row fails outright. Never above CAST_BURDEN_FIZZLE. */
 export const fizzleChance = (burden) => clamp(num(burden), 0, 1) * CAST_BURDEN_FIZZLE;
 
+/** How often a step taken while hidden is rolled against Stealth. Seconds. */
+export const STEALTH_STEP_S = 1;
+
+/**
+ * The chance a step holds. A floor of PRACTICE_FLOOR so a beginner is not shut
+ * out of his own skill (nineteen steps in twenty still give him away), and a
+ * ceiling under 1 so a grandmaster is quiet rather than invisible.
+ */
+export const stealthHoldChance = (skill) => clamp(0.05 + num(skill) * 0.009, 0.05, 0.95);
+
+/** What a step while hidden is worth as a lesson. Hide's own mark plus twenty. */
+export const STEALTH_DIFFICULTY = 20;
+
 /** none, a little, often, mostly. The bands the bar's warning is worded in. */
 export function burdenBand(burden) {
   const b = num(burden);
@@ -252,8 +266,8 @@ export function andList(words) {
  *   utility { transmute, steal, meditate, camp }
  *   rng()                      seeded in tests, Math.random in the game
  *   recompute(actor)           else progression.recompute, else actor.recompute
- *   enabled()                  false while a window owns the keyboard, or
- *                              while main.js is giving 1 to 4 to the tools
+ *   enabled()                  false while a window owns the keyboard, while
+ *                              the market is up, or while the player is dying
  */
 export function createAbilities(deps = {}) {
   const {
@@ -275,6 +289,7 @@ export function createAbilities(deps = {}) {
   let nextSwing = null;         // an armed melee ability waiting for a swing
   let landing = null;           // what happens when a leap touches down
   let waiting = null;           // a spell held on the cursor: { ability, slot, startedAt }
+  let stealthAt = 0;            // when the last Stealth step was rolled
   let lastLine = '';
 
   const say = (text, kind) => {
@@ -1279,7 +1294,7 @@ export function createAbilities(deps = {}) {
     });
     if (words) say(`${ability.name}. ${words}`, 'ability');
     else say(`${ability.name}.`, 'ability');
-    teach(ability);
+    teach(ability, true, target);
     effects?.hideGroundRing?.();
     return ctx;
   }
@@ -1292,14 +1307,53 @@ export function createAbilities(deps = {}) {
    * mage does learn Magery from a morning of fizzling, at half the rate of one
    * in a robe, and the reduced gain costs this file nothing but the flag.
    */
-  function teach(ability, success = true) {
+  function teach(ability, success = true, target = null) {
     if (!progression?.lesson) return;
     const l = lessonFor(ability);
     let skill = l.skill;
     if (ability.skillAny) skill = actor.weapon?.skill || character.equipment?.mainHand?.skill || l.skill;
+    // "Veterinary: the same, for animals and summons" (01-STATS-SKILLS.md). A
+    // bandage is a bandage; who it is wrapped around is what decides which
+    // skill it teaches, and a pet is anything on your side that is not you.
+    // Without this line Veterinary had no path at all: no ability names it, no
+    // recipe uses it, and the only way to raise it was to pay Brannoc.
+    if (skill === 'healing' && isPet(target)) skill = 'veterinary';
     if (!skill) return;
     // W1's progression teaches the character it was built with: (skillId, difficulty, success, rng)
     try { progression.lesson(skill, l.difficulty, !!success, rng); } catch (err) { /* a lesson is never worth a crash */ }
+  }
+
+  /** On your side, alive, and not you. A summon, a raised skeleton, a tamed thing. */
+  function isPet(who) {
+    return !!who && who !== actor && who !== player && who.faction === 'player';
+  }
+
+  /**
+   * THE FUMBLE, which is the price of being allowed to try.
+   *
+   * `openAt` lets a character hold the first rung of a school at 0 (see
+   * abilities.js). This is what stops that being a gift: below the row's own
+   * mark the attempt mostly comes apart, and abilities.js owns the curve. It
+   * still costs, it still says what happened, and it still TEACHES at the
+   * reduced chance skills.js gives a failed lesson, which is the only way a
+   * school with no other door can be started without paying a trainer.
+   *
+   * True when it came apart, and then it has already said so.
+   */
+  function fumbled(ability, rec, target) {
+    const chance = practiceChance(ability, character.skills || {});
+    if (chance >= 1) return false;
+    if (rng() < chance) return false;
+    const back = refund(rec);
+    spellVfx?.interrupt?.('fizzled');
+    say(
+      `${ability.name} fizzles: your hand is not practised. You feel a little of how it should go.${back ? ` ${back}.` : ''}`,
+      'bad',
+    );
+    float(pos(), `${ability.name} fizzles`, 'miss');
+    cue('denied');
+    teach(ability, false, target);
+    return true;
   }
 
   /**
@@ -1327,9 +1381,15 @@ export function createAbilities(deps = {}) {
     return true;
   }
 
-  /** Fire, unless the armour ate it. Every spell goes through here. */
+  /**
+   * Fire, unless the armour ate it or the hand did. Every cast that finishes
+   * comes through here, and the two rolls are in the order a player would tell
+   * the story in: the armour first, because it was in the way from the start,
+   * and then the hand, because that is the part practice fixes.
+   */
   function land(ability, rec, target, now, ground) {
     if (fizzled(ability, rec, now)) return null;
+    if (fumbled(ability, rec, target)) return null;
     return fire(ability, target, now, ground);
   }
 
@@ -1453,6 +1513,10 @@ export function createAbilities(deps = {}) {
     // than inside fire(), so a fizzled Lightning never reaches its effect.
     if (fizzled(ability, rec, t)) return { ok: true, casting: false, fizzled: true, paid, record: rec };
 
+    // And the hand's own roll, for a row held below its mark. Same place, same
+    // reason: a fumbled Hex must never reach its effect.
+    if (fumbled(ability, rec, target)) return { ok: true, casting: false, fumbled: true, paid, record: rec };
+
     if (ability.effect?.kind === 'damageMult' || ability.effect?.parts?.some?.((p) => p.kind === 'damageMult')) {
       effects?.swing?.(player);
       if (ability.skill === 'archery' || ability.skill === 'marksmanship') cue('bowShot');
@@ -1528,6 +1592,18 @@ export function createAbilities(deps = {}) {
     }
 
     const r = interruptRule(cast, { type: 'damage', amount: num(amount), maxHealth: num(actor.maxHealth), roll: rng() });
+    // FOCUS LEARNS HERE, and nowhere else in the game. "Stamina regeneration
+    // and resistance to interruption" is what the skill does, `interruptChance`
+    // is the only rule that reads it, and this is the only moment that rule
+    // runs. Without this line no ability, recipe, vein or swing named Focus at
+    // all and Aldric's drill was the whole of it. A blow you held through is
+    // the lesson that landed; one that broke the cast still teaches, at the
+    // reduced chance skills.js gives a failure. The difficulty is the cast's
+    // own, so holding a Meteor together is worth more than holding a Heal.
+    if (r.chance > 0) {
+      const l = lessonFor(ABILITIES_BY_ID[cast.abilityId] || { minSkill: 0 });
+      try { progression?.lesson?.('focus', l.difficulty, !r.interrupted, rng); } catch (err) { /* a lesson is never worth a crash */ }
+    }
     if (!r.interrupted) {
       if (r.chance > 0) say(r.reason, 'ability');
       return r;
@@ -1567,11 +1643,12 @@ export function createAbilities(deps = {}) {
 
     // 1. the bar. One key, one slot.
     //
-    // `enabled()` is main.js's gate. It matters because keys 1 to 4 are ALSO
-    // the farm's tool row in main.js, and the runtime contract gives 1 to 0,
-    // minus and equals to the bar. Two handlers on one press is a swing and a
-    // tool change at once. See docs/mmo/wiring/W4.md, which asks main.js to
-    // settle it rather than leaving both listening.
+    // `enabled()` is the boot's gate: a window, the market or a death takes
+    // the keyboard away from the bar. It used to have a second job, because
+    // keys 1 to 4 were ALSO the farm's tool row and two handlers on one press
+    // was a swing and a tool change at once. T3 took that row off the screen,
+    // so the twelve the runtime contract names, 1 to 0 and minus and equals,
+    // are the bar's outright. See docs/mmo/wiring/T3-NO-TOOL-BAR.md.
     if (input?.pressed && barEnabled()) {
       for (let i = 0; i < BAR_SLOTS; i++) if (input.pressed(BAR_KEYS[i])) use(i, t);
     }
@@ -1680,10 +1757,34 @@ export function createAbilities(deps = {}) {
     if (actor.absorb && t >= actor.absorb.until) { say('The shield is spent.', 'ability'); actor.absorb = null; recompute(); }
     if (actor.leech && t >= actor.leech.until) actor.leech = null;
     if (actor.meditating && moving()) { actor.meditating = null; say('You get up.', 'ability'); }
-    if (actor.hidden?.requiresStill && moving() && !num((character.skills || {}).stealth)) {
-      actor.hidden = null;
-      say('Moving gave you away.', 'bad');
-    }
+    stealthStep(t);
+  }
+
+  /**
+   * WALKING WHILE HIDDEN, which is the whole of the Stealth skill and is the
+   * only place in the game that reads it.
+   *
+   * It used to be one line: `!num(skills.stealth)`, so a character at Stealth 0
+   * was seen the instant he moved and a character at Stealth 0.3 was NEVER
+   * seen, at any speed, for ever. A binary on a hundred point skill, and no
+   * lesson either way, so the only way to get that first tenth of a point was
+   * to buy it from Fenn. Now it is a roll every STEALTH_STEP_S of movement,
+   * scaled by the skill, and every roll teaches: a step held is a lesson that
+   * landed, a step that gave you away is a lesson at a failure's chance.
+   */
+  function stealthStep(t) {
+    const h = actor.hidden;
+    if (!h || !h.requiresStill) { stealthAt = 0; return; }
+    if (!moving()) return;
+    if (stealthAt && t - stealthAt < STEALTH_STEP_S) return;
+    stealthAt = t;
+    const skill = num((character.skills || {}).stealth);
+    const held = rng() < stealthHoldChance(skill);
+    try { progression?.lesson?.('stealth', STEALTH_DIFFICULTY, held, rng); } catch (err) { /* a lesson is never worth a crash */ }
+    if (held) return;
+    actor.hidden = null;
+    stealthAt = 0;
+    say('Moving gave you away.', 'bad');
   }
 
   function expire(who, t) {
@@ -1769,6 +1870,19 @@ export function createAbilities(deps = {}) {
       // rather than in his third fizzle. Zero for a Chivalry row and for
       // everything that is not a spell, which is how those show nothing.
       const burden = ability ? burdenFor(ability) : 0;
+      // THE GATE, ON THE BAR. A cell can hold a row the character no longer
+      // meets: a skill marked down can fall back under a mark, and an ability
+      // dragged on at Mysticism 20 is still on the bar at Mysticism 19.9. The
+      // cell used to grey only for what was in your hands, so a locked row
+      // looked pressable and answered a refusal the bar never hinted at. The
+      // sentence here is the SAME sentence the card shows and the same one the
+      // key answers with, out of abilities.js, so all three say one thing.
+      const gate = ability ? meetsRequirements(ability, character.skills || {}, character.stats || {}) : { ok: true };
+      const gateLine = gate.ok ? '' : requirementSentence(ability, character.skills || {}, character.stats || {});
+      // And the row you are allowed to hold but have not earned: it works some
+      // of the time, and the tooltip says how often before you spend the mana.
+      const practice = ability && gate.ok ? practiceText(ability, character.skills || {}) : '';
+      const why = [gateLine, hands.ok ? '' : hands.reason, practice].filter(Boolean).join('\n');
       out.push({
         key: BAR_KEYS[i],
         ability,
@@ -1776,8 +1890,11 @@ export function createAbilities(deps = {}) {
         affordable: ability ? affordable(ability) : true,
         casting: !!(cast && ability && cast.abilityId === ability.id),
         // hud.js greys the cell on `unusable`; the reason is the tooltip.
-        unusable: ability ? !hands.ok : false,
-        unusableReason: hands.ok ? '' : hands.reason,
+        unusable: ability ? (!hands.ok || !gate.ok) : false,
+        unusableReason: why,
+        /** True while the row is held below its own mark. hud.js need not
+         * read it; the sentence is already in `unusableReason`. */
+        practising: !!practice,
         needs: ability ? weaponNeeds(ability).kind : 'none',
         // How many of the thing this row is paid in are actually in the pack.
         // Null for a row paid in stamina or mana. hud.js draws it under the

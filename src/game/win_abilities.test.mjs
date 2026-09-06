@@ -131,7 +131,11 @@ check('which are 1 to 0 and minus and equals', BAR_KEYS.join('') === '1234567890
 {
   const none = unlockedFor({}, {});
   check('a character with no skills has some abilities anyway', none.length > 0, String(none.length));
-  check('and they are the ones that gate on nothing', none.every((a) => a.skill === null || a.minSkill === 0), none.map((a) => a.name).join(','));
+  check('and they are the ones that gate on nothing, or open at nothing',
+    none.every((a) => a.skill === null || a.openAt === 0), none.map((a) => a.name).join(','));
+  check('thirteen of them are first rungs held open below their own mark',
+    none.filter((a) => a.openAt < a.minSkill).length === 13,
+    none.filter((a) => a.openAt < a.minSkill).map((a) => a.name).join(','));
   const all = Object.fromEntries(SKILLS.map((s) => [s.id, 100]));
   const master = unlockedFor(all, { str: 100, dex: 100, int: 100, con: 100, wis: 100 });
   check('a grandmaster of everything has all seventy eight', master.length === ABILITIES.length, `${master.length} of ${ABILITIES.length}`);
@@ -192,27 +196,30 @@ console.log('abilities: the requirement line');
   check('Whirlwind is not yours at Swordsmanship 33.4', v.met === false);
   check('the requirement reads as the table writes it', v.text === 'Swordsmanship 50 and Tactics 40', v.text);
   check('and the locked line opens with the skill and your own number',
-    v.short.startsWith('unlocks at Swordsmanship 50, you are at 33.4'), v.short);
+    v.short.startsWith('Needs Swordsmanship 50, you are at 33.4'), v.short);
+  check('and it is cut into spans so the card can paint the missing clause red',
+    v.spans.length === 4 && v.spans[0].text === 'Needs ' && v.spans[1].met === false && v.spans[3].met === false,
+    JSON.stringify(v.spans));
   check('it names the second clause too', /Tactics 40, you are at 0/.test(v.short), v.short);
   check('the number is live: 33.4 and 49.9 read differently',
     requirementView(w, { swordsmanship: 49.9 }, {}).short !== v.short,
     requirementView(w, { swordsmanship: 49.9 }, {}).short);
   check('a skillAny row names the weapon skill you are best at, not "a weapon skill"',
-    requirementView(w, { macefighting: 41 }, {}).short.startsWith('unlocks at Macefighting 50, you are at 41'),
+    requirementView(w, { macefighting: 41 }, {}).short.startsWith('Needs Macefighting 50, you are at 41'),
     requirementView(w, { macefighting: 41 }, {}).short);
   const met = requirementView(w, { swordsmanship: 50, tactics: 40 }, {});
   check('and once you have it there is nothing left to say', met.met === true && met.short === '', `"${met.short}"`);
 
   check('a stat clause is named by its own word',
-    requirementView(ABILITIES_BY_ID.leapSlam, { swordsmanship: 60 }, { str: 20 }).short === 'unlocks at STR 50, you are at 20',
+    requirementView(ABILITIES_BY_ID.leapSlam, { swordsmanship: 60 }, { str: 20 }).short === 'Needs Swordsmanship 60 and STR 50, you are at 20',
     requirementView(ABILITIES_BY_ID.leapSlam, { swordsmanship: 60 }, { str: 20 }).short);
   check('an ability that gates on nothing says so',
     requirementView(ABILITIES_BY_ID.jump, {}, {}).text === 'nothing at all' && requirementView(ABILITIES_BY_ID.jump, {}, {}).met);
-  check('a two branch row reports the branch you are closest to finishing',
+  check('a two branch row shows both doors, joined with "or"',
     requirementView(ABILITIES_BY_ID.resurrect, { healing: 70, anatomy: 75, chivalry: 10 }, {}).short
-    === 'unlocks at Healing 80, you are at 70, and Anatomy 80, you are at 75',
+    === 'Needs Healing 80, you are at 70 and Anatomy 80, you are at 75, or Chivalry 85, you are at 10',
     requirementView(ABILITIES_BY_ID.resurrect, { healing: 70, anatomy: 75, chivalry: 10 }, {}).short);
-  check('and switches branch when the other one is nearer',
+  check('and the paladin\'s door is in the line whichever road you are on',
     /Chivalry 85/.test(requirementView(ABILITIES_BY_ID.resurrect, { chivalry: 80 }, {}).short),
     requirementView(ABILITIES_BY_ID.resurrect, { chivalry: 80 }, {}).short);
   const allSkills = Object.fromEntries(SKILLS.map((s) => [s.id, 100]));
@@ -288,7 +295,9 @@ console.log('abilities: the book');
   check('the book shows all seventy eight rows whatever your skills are',
     rows.length === ABILITIES.length, `${rows.length} of ${ABILITIES.length}`);
   check('and every archetype has a section', book.length === GROUPS.length, book.map((s) => s.label).join(','));
-  check('a fresh warrior has ten of them', open.length === 10, `${open.length}: ${open.map((a) => a.name).join(', ')}`);
+  check('a fresh warrior has twenty three of them, thirteen of which are first rungs held open',
+    open.length === 23 && open.filter((a) => a.openAt < a.minSkill).length === 13,
+    `${open.length}: ${open.map((a) => a.name).join(', ')}`);
   check('so the locked count is exactly seventy eight minus what unlockedFor says',
     rows.filter((r) => !r.unlocked).length === ABILITIES.length - open.length,
     `${rows.filter((r) => !r.unlocked).length} locked, ${ABILITIES.length - open.length} expected`);
@@ -339,10 +348,10 @@ console.log('abilities: the real panel');
   check('the bar preview strip is still twelve slots', strip.children.length === 12, String(strip.children.length));
 
   const locked = cards().filter((c) => c.classList.contains('locked'));
-  check('sixty eight of the cards are dimmed and locked',
-    locked.length === ABILITIES.length - 10, `${locked.length} locked`);
+  check('fifty five of the cards are dimmed and locked',
+    locked.length === ABILITIES.length - 23, `${locked.length} locked`);
   check('a locked card carries the sentence with your own number in it',
-    locked.some((c) => /unlocks at .+ you are at /.test(c.textContent)),
+    locked.some((c) => /Needs .+you are at /.test(c.textContent)),
     locked[0].textContent.slice(0, 100));
 
   const named = (name) => cards().find((c) => find(c, (n) => n.classList.contains('bw-name'))[0].textContent === name);
@@ -351,8 +360,19 @@ console.log('abilities: the real panel');
   check('Power Strike is bright for a warrior', !powerStrike.classList.contains('locked'));
   check('Fireball is not', fireball.classList.contains('locked'));
   check('and Fireball says what would change that, in Magery s own number',
-    new RegExp(`unlocks at Magery ${ABILITIES_BY_ID.fireball.minSkill}, you are at 0`).test(fireball.textContent),
+    new RegExp(`Magery ${ABILITIES_BY_ID.fireball.minSkill}, you are at 0`).test(fireball.textContent),
     fireball.textContent.slice(0, 140));
+  check('the gate is drawn above the description, which is what the player asked for',
+    (() => {
+      const kids = find(fireball, (n) => n.className === 'bw-req' || n.className === 'bw-desc');
+      return kids.length === 2 && kids[0].className === 'bw-req';
+    })(), find(fireball, (n) => /bw-(req|desc)/.test(n.className || '')).map((n) => n.className).join(' then '));
+  check('and the missing clause is the piece painted red, not the whole line',
+    find(fireball, (n) => n.classList.contains('bw-miss'))
+      .map((n) => n.textContent).join('|') === `Magery ${ABILITIES_BY_ID.fireball.minSkill}, you are at 0`,
+    find(fireball, (n) => n.classList.contains('bw-miss')).map((n) => n.textContent).join('|') || 'nothing red');
+  check('the word "Needs" is not painted red, because it is not the missing thing',
+    find(fireball, (n) => n.classList.contains('bw-miss')).every((n) => !/Needs/.test(n.textContent)));
   check('the art tile holds a drawing, not an empty square',
     /<img[^>]*icons\/abilities\/powerStrike\.webp/.test(find(powerStrike, (n) => n.classList.contains('bw-tile'))[0].innerHTML));
   check('a locked card wears a padlock and an unlocked one does not',
@@ -396,7 +416,7 @@ console.log('abilities: the real panel');
   said.length = 0;
   fireball.fire('click');
   check('clicking a locked card says what it would take, and marks it a refusal',
-    said.length === 1 && /^bad:Fireball unlocks at Magery \d+, you are at 0$/.test(said[0]), said[0] || 'nothing said');
+    said.length === 1 && /^bad:Fireball needs Magery \d+, you are at 0$/.test(said[0]), said[0] || 'nothing said');
 
   // and the number is live: raise Magery and let the page tick
   character.skills.magery = 35;

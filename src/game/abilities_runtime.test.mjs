@@ -10,6 +10,7 @@ import {
   createAbilities, auditEffectHandlers, EFFECT_HANDLERS, BAR_KEYS, BAR_SLOTS,
   slotForKey, leapArc, MOVING_SPEED, saySeconds, PENDING_SECONDS,
   CAST_BURDEN_FIZZLE, BURDEN_MARK, burdenBand, burdenText, burdenedCastTime,
+  stealthHoldChance, STEALTH_STEP_S,
   fizzleChance, andList,
 } from './abilities_runtime.js';
 import { castBurdenOf } from './actor.js';
@@ -22,6 +23,8 @@ import { OPENINGS } from '../mmo/openings.js';
 import { planCharacter } from './creation.js';
 import { settlerKitFor } from './app/systems/inventory.js';
 import { makeItem, ARMOR_PIECES } from '../mmo/items.js';
+import { RECIPES } from '../mmo/recipes.js';
+import { createProgression } from './progression.js';
 import { resolveMelee, JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
 import { GRAVITY, JUMP_V0 } from './player.js';
 
@@ -614,6 +617,64 @@ console.log('abilities_runtime: damage interrupts, over and under a tenth');
     big.interrupted === false && !!h.abilities.casting && /Focus held Whirlwind/.test(said(h)),
     said(h).split('|').pop().trim());
 }
+// SK2. Focus is the only rule that reads the Focus skill, and until now the
+// skill had no lesson anywhere in the game: no ability, recipe, vein or swing
+// named it, so Aldric's drill to 40 was the whole of it.
+{
+  const holder = { lesson: null };
+  const h = harness({
+    bar: ['whirlwind'], monsters: [mob('a', 1, 0)], seed: 4,
+    extra: { progression: { lesson: (...a) => holder.lesson?.(...a) } },
+  });
+  // Zeroed but for what Whirlwind's own gate wants, so the 700 total cap is not
+  // what refuses the lesson. Focus itself starts at nothing.
+  for (const k of Object.keys(h.character.skills)) h.character.skills[k] = 0;
+  h.character.skills.swordsmanship = 50;
+  h.character.skills.tactics = 40;
+  h.character.skillLocks = {};
+  const prog = createProgression({ character: h.character, actor: h.actor });
+  const taught = [];
+  holder.lesson = (...a) => { taught.push({ skill: a[0], success: a[2] }); return prog.lesson(...a); };
+
+  // 30 s apart, which clears Whirlwind's 12 s cooldown, so every iteration is a
+  // real cast with a real blow against it and not a refusal counted as a hold.
+  const blows = (n, from) => {
+    let held = 0, broken = 0;
+    for (let i = 0; i < n; i++) {
+      h.actor.stamina = 200;
+      const t0 = from + i * 30;
+      h.abilities.use(0, t0);
+      if (!h.abilities.casting) continue;
+      const r = h.abilities.onDamaged(21, t0 + 0.2);      // over a tenth: a roll
+      if (r.interrupted) broken++; else held++;
+      h.abilities.update(1, t0 + 5);                      // let the cast finish
+    }
+    return { held, broken };
+  };
+
+  const atZero = blows(40, 0);
+  const focus0 = taught.filter((x) => x.skill === 'focus');
+  ck('at Focus 0 the chance is 1, so every blow breaks the cast, and every one teaches',
+    atZero.broken === 40 && atZero.held === 0 && focus0.length === 40 && focus0.every((x) => x.success === false),
+    `${focus0.length} lessons, ${atZero.held} held, ${atZero.broken} broken`);
+  ck('and Focus is off zero, which it could never be before',
+    h.character.skills.focus > 0, `Focus 0 to ${h.character.skills.focus} over 40 blows`);
+
+  h.character.skills.focus = 100;
+  const atHundred = blows(20, 5000);
+  const focus100 = taught.filter((x) => x.skill === 'focus').slice(focus0.length);
+  ck('at Focus 100 most are held, and a hold teaches as a success: both directions',
+    atHundred.held > 10 && focus100.length === 20 && focus100.some((x) => x.success === true),
+    `${atHundred.held} held, ${atHundred.broken} broken of 20`);
+  ck('a blow too small to roll teaches nothing, which is the other direction',
+    (() => {
+      h.actor.stamina = 200;
+      h.abilities.use(0, 999);
+      const before = taught.filter((x) => x.skill === 'focus').length;
+      h.abilities.onDamaged(1, 999.1);                    // under a tenth: no roll
+      return taught.filter((x) => x.skill === 'focus').length === before;
+    })(), 'no lesson for a blow that was never a threat');
+}
 {
   // the other direction: no Focus at all, and the same blow still breaks it
   const h = harness({ bar: ['whirlwind'], monsters: [mob('a', 1, 0)], seed: 11 });
@@ -893,7 +954,10 @@ console.log('abilities_runtime: the rest of the kinds do something you can point
   ck('Hide is data on the actor that monsters can read', !!h.actor.hidden, JSON.stringify(h.actor.hidden));
   h.character.skills.stealth = 0;
   h.player.speed = 5;
-  h.abilities.update(0.1, 1.1);
+  // At Stealth 0 a step holds 5 times in 100, so one step is a coin toss with
+  // a heavy coin. Ten of them is not: the odds of holding all ten are one in
+  // 10^13, and the loop is what makes this deterministic rather than lucky.
+  for (let i = 0; i < 10 && h.actor.hidden; i++) h.abilities.update(0.1, 1.1 + i * 2);
   ck('and moving without Stealth gives you away, out loud',
     h.actor.hidden === null && /gave you away/.test(said(h)), said(h).split('|').pop().trim());
 }
@@ -1186,8 +1250,17 @@ const item = (base, count) => (count == null ? { base } : { base, count });
       const i = c.pack.items.indexOf(null);
       if (i >= 0) c.pack.items[i] = makeItem({ base, count });
     }
+    // A FIRST RUNG HELD OPEN IS NOT A PROMISE THE KIT MADE. Thirteen rows now
+    // carry `openAt: 0` so their school can be started at all (skill_paths.js),
+    // and four of them are the bard's, which want a lute. No opening but the
+    // bard's is handed one, and that is right: the lute is the bard's tool and
+    // a warrior gets it by making one at a workbench. What the guard below is
+    // for is an ability a character's OWN SKILLS earned and his own kit cannot
+    // answer, so a row nobody earned is not one of them. The next check proves
+    // those four still say what they want rather than failing in silence.
     const wanted = unlockedFor(c.skills, c.stats)
-      .filter((x) => !x.passive && weaponKinds.includes(weaponNeeds(x).kind));
+      .filter((x) => !x.passive && weaponKinds.includes(weaponNeeds(x).kind))
+      .filter((x) => x.openAt >= x.minSkill || c.skills[x.skill] >= x.minSkill);
     const refused = wanted.filter((x) => !weaponCheck(x, c.equipment, c.pack).ok);
     const stranded = wanted.filter((x) => !answerable(x, c));
     rows.push({ id: op.id, wanted: wanted.length, refused: refused.map((x) => x.id), stranded: stranded.map((x) => x.id) });
@@ -1203,6 +1276,19 @@ const item = (base, count) => (count == null ? { base } : { base, count });
   ck('no opening starts unable to use an ability its own kit unlocked',
     offenders.length === 0,
     offenders.map((r) => `${r.id}: ${r.stranded.join(', ')}`).join(' | ') || 'none');
+  // And the four held open that a warrior's kit cannot answer say so in words,
+  // naming the thing to go and get. A silent refusal would be the bug this
+  // whole block exists to catch.
+  {
+    const warrior = planCharacter({ opening: 'warrior', name: 'Testing', seed: 3 }).character;
+    const bard = ['provoke', 'peace', 'discord', 'marchingSong'].map((id) => ABILITIES_BY_ID[id]);
+    const said = bard.map((x) => weaponCheck(x, warrior.equipment, warrior.pack));
+    ck('the bard rows a warrior may hold refuse in words, and name the lute',
+      said.every((r) => !r.ok && /lute/.test(r.reason)), said[0].reason);
+    ck('and a lute can be made, so the circle is not closed',
+      RECIPES.some((r) => r.result.base === 'lute' && r.skill === 'carpentry'),
+      RECIPES.filter((r) => r.result.base === 'lute').map((r) => r.name).join(', ') || 'no lute recipe');
+  }
   // And every caster starts with the focus already in the hand, not one swap
   // away: a mage whose first click is refused has been handed a broken game.
   const casters = ['mage', 'sorcerer', 'necromancer', 'healer'];
@@ -1429,6 +1515,127 @@ function castRun(mat, opts = {}) {
   bare.character.bar[0] = 'fireball';
   ck('and a fixture with no paper doll at all casts free, as it always did',
     bare.abilities.barView(0)[0].burden === 0 && bare.abilities.barView(0)[0].burdenText === '');
+}
+
+// --- practising a school you have not started -----------------------------------------
+// SK2. Thirteen first rungs now open at 0 so their school can be started at
+// all. This is the measurement that the gift is not free: Hex pressed two
+// hundred times by a Mysticism 0 mage, through the real runtime, counting what
+// fizzled, what landed, and what the skill did.
+{
+  // The progression is the real one; it needs the harness's own character, and
+  // the harness needs the progression, so it is handed a holder and filled in.
+  const holder = { lesson: null };
+  const h = harness({
+    bar: ['hex'], monsters: [mob('Skeleton', 0, 3)], seed: 5,
+    extra: { progression: { lesson: (...a) => holder.lesson?.(...a) } },
+  });
+  // The harness hands out 100 in everything, which is 3600 points against
+  // skills.js's 700 total cap, so every lesson would be refused for the cap and
+  // not for the practice. A beginner has nothing, so this one does too.
+  for (const k of Object.keys(h.character.skills)) h.character.skills[k] = 0;
+  h.character.skillLocks = {};
+  h.character.unlockedAbilities = ['hex'];
+  const prog = createProgression({ character: h.character, actor: h.actor });
+  const taught = [];
+  holder.lesson = (...a) => { taught.push(a[0]); return prog.lesson(...a); };
+
+  const outcome = [];
+  let t = 0;
+  for (let i = 0; i < 200; i++) {
+    h.actor.mana = 200;
+    t += 10;                                     // past Hex's 6 s cooldown
+    const before = h.hudLines.length;
+    h.abilities.use(0, t);
+    const said = h.hudLines.slice(before).map((l) => l.t).join(' ');
+    outcome.push(/fizzles: your hand is not practised/.test(said) ? 'fizzle' : 'land');
+  }
+  const fizzlesIn = (from, to) => outcome.slice(from, to).filter((x) => x === 'fizzle').length;
+  const fizzles = fizzlesIn(0, 200);
+  ck('the first twenty presses at Mysticism 0 almost all fizzle',
+    fizzlesIn(0, 20) >= 15, `${fizzlesIn(0, 20)} of the first 20 fizzled`);
+  ck('and the last twenty, by then past the mark, almost none do',
+    fizzlesIn(180, 200) <= 3, `${fizzlesIn(180, 200)} of the last 20 fizzled`);
+  ck('every one of the 200 taught Mysticism, fizzle or not',
+    taught.length === 200 && taught.every((x) => x === 'mysticism'),
+    `${taught.length} lessons, ${new Set(taught).size} skill(s)`);
+  ck('and the skill is off zero at the end of it, which is the whole point',
+    h.character.skills.mysticism > 20,
+    `Mysticism 0 to ${h.character.skills.mysticism} over 200 presses, ${fizzles} of them fizzled`);
+  ck('and every fizzle says what it did',
+    h.hudLines.some((l) => /You feel a little of how it should go/.test(l.t)),
+    h.hudLines.find((l) => /fizzles: your hand/.test(l.t))?.t || 'nothing said');
+  ck('the same press at its own mark never fizzles for want of practice',
+    (() => {
+      const m = harness({ bar: ['hex'], monsters: [mob('Skeleton', 0, 3)], seed: 5 });
+      m.character.skills.mysticism = 20;
+      let f = 0, tt = 0;
+      for (let i = 0; i < 50; i++) {
+        m.actor.mana = 200; tt += 10;
+        const b = m.hudLines.length;
+        m.abilities.use(0, tt);
+        if (m.hudLines.slice(b).some((l) => /not practised/.test(l.t))) f++;
+      }
+      return f === 0;
+    })(), 'no fizzles at the mark');
+}
+
+// --- walking while hidden, which is the whole of Stealth --------------------------------
+// It used to be `!num(skills.stealth)`: seen at once at 0, never seen at 0.3,
+// and no lesson either way, so the first tenth of a point could only be bought.
+{
+  const holder = { lesson: null };
+  const h = harness({
+    bar: ['hide'], monsters: [], seed: 9,
+    extra: { progression: { lesson: (...a) => holder.lesson?.(...a) } },
+  });
+  for (const k of Object.keys(h.character.skills)) h.character.skills[k] = 0;
+  h.character.skillLocks = {};
+  const prog = createProgression({ character: h.character, actor: h.actor });
+  const taught = [];
+  holder.lesson = (...a) => { taught.push(a[0]); return prog.lesson(...a); };
+
+  let seen = 0, held = 0, t = 0;
+  for (let i = 0; i < 60; i++) {
+    h.actor.hidden = { requiresStill: true };
+    h.player.speed = 0;
+    t += 1;
+    h.abilities.update(0.1, t);                 // standing still: no roll at all
+    h.player.speed = 5;
+    t += 2;                                     // past STEALTH_STEP_S
+    h.abilities.update(0.1, t);
+    if (h.actor.hidden) held++; else seen++;
+  }
+  ck('one roll per step taken, and none at all for standing still',
+    taught.length === 60, `${taught.length} rolls across 60 still updates and 60 moving ones`);
+  ck('a step at Stealth 0 nearly always gives you away, and says so',
+    seen > 45 && h.hudLines.some((l) => /Moving gave you away/.test(l.t)), `${seen} seen, ${held} held`);
+  ck('and every step taught Stealth, which is how the skill starts at all',
+    taught.every((x) => x === 'stealth') && h.character.skills.stealth > 0,
+    `${taught.length} lessons, Stealth ${h.character.skills.stealth}`);
+  ck('the hold chance is the skill, floor to ceiling, driven both ends',
+    stealthHoldChance(0) === 0.05 && stealthHoldChance(100) === 0.95 && stealthHoldChance(-5) === 0.05,
+    `${stealthHoldChance(0)} at 0, ${stealthHoldChance(50).toFixed(2)} at 50, ${stealthHoldChance(100)} at 100`);
+}
+
+// --- the bar cell knows the gate ------------------------------------------------------
+{
+  const h = harness({ bar: ['meteor', 'hex'], monsters: [mob('Skeleton', 0, 3)] });
+  h.character.skills.magery = 0;
+  h.character.skills.mysticism = 0;
+  const view = h.abilities.barView(0);
+  ck('a cell holding a row you do not meet is greyed and says the card s own line',
+    view[0].unusable === true && /Needs Magery 85, you are at 0/.test(view[0].unusableReason),
+    view[0].unusableReason);
+  ck('and a cell you may press but have not earned is not greyed, and says how often it lands',
+    view[1].unusable === false && view[1].practising === true && /5 in 100 land/.test(view[1].unusableReason),
+    view[1].unusableReason);
+  h.character.skills.magery = 100;
+  h.character.skills.mysticism = 100;
+  const met = h.abilities.barView(0);
+  ck('and once both are yours the cell says nothing at all, which is the other direction',
+    met[0].unusable === false && met[0].unusableReason === '' && met[1].unusableReason === '',
+    `"${met[0].unusableReason}" / "${met[1].unusableReason}"`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -383,6 +383,31 @@ for (const [base, [name, recipeBase, skill]] of Object.entries(WOOD_WEAPON_BASE)
   }
 }
 
+// --- the lute, which is the whole of the bard's kit
+//
+// Musicianship, Provocation, Peacemaking and Discordance are played on an
+// instrument or they are not played at all (abilities.js weaponNeeds), and the
+// only lute in the game was the one the bard opening starts holding: no shop
+// sells one, no recipe made one, and loot.js drops one only to a character who
+// already has Musicianship in his top three. So the four bard skills were a
+// closed circle for every other character: no lute without the skill, no skill
+// without the lute. A lute is a carpenter's job at the same bench as a bow,
+// which is the smallest true thing that opens the circle.
+const LUTE_BASE = 10;
+for (const w of WOODS) {
+  add({
+    id: `instrument.lute.${w.id}`,
+    name: `${w.name} Lute`,
+    family: 'instrument',
+    result: { base: 'lute', material: w.id },
+    skill: 'carpentry',
+    difficulty: difficultyFor(LUTE_BASE, w.tier),
+    recipeBase: LUTE_BASE, materialTier: w.tier,
+    materials: { [w.id]: 2, hide: 1 },        // the body, and the strings
+    station: 'workbench',
+  });
+}
+
 // --- arrows and bolts, twenty to the batch
 for (const [base, name, recipeBase, yields] of [['arrow', 'Arrows', 4, 20], ['bolt', 'Bolts', 6, 20]]) {
   for (const w of WOODS) {
@@ -758,14 +783,14 @@ export function auditRecipes() {
   }
   for (const s of STATIONS) if (!RECIPE_LIST.some((r) => r.station === s.id)) bad.push(`station ${s.id} makes nothing`);
   for (const sp of SPELLS) if (!RECIPE[`scroll.${sp.id}`]) bad.push(`spell ${sp.id} has no scroll`);
-  for (const f of ['weapon', 'armour', 'shield', 'bow', 'staff', 'ammo', 'potion', 'meal', 'tool', 'bag', 'scroll']) {
+  for (const f of ['weapon', 'armour', 'shield', 'bow', 'staff', 'instrument', 'ammo', 'potion', 'meal', 'tool', 'bag', 'scroll']) {
     if (recipesOfFamily(f).length === 0) bad.push(`family ${f} is empty`);
   }
 
   if (bad.length) throw new Error(`auditRecipes: ${bad.length} problem(s)\n  ${bad.join('\n  ')}`);
   return {
     recipes: RECIPE_LIST.length,
-    byFamily: Object.fromEntries(['weapon', 'armour', 'shield', 'bow', 'staff', 'ammo', 'potion', 'meal', 'tool', 'bag', 'scroll'].map((f) => [f, recipesOfFamily(f).length])),
+    byFamily: Object.fromEntries(['weapon', 'armour', 'shield', 'bow', 'staff', 'instrument', 'ammo', 'potion', 'meal', 'tool', 'bag', 'scroll'].map((f) => [f, recipesOfFamily(f).length])),
     stations: STATIONS.length,
   };
 }

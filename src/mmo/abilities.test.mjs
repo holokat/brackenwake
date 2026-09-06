@@ -19,6 +19,7 @@ import {
   FOCUS_BASES, isSpell, isFocusItem, isChivalry, burdensInArmour,
   NEEDS_KINDS, weaponNeeds, weaponCheck, countInPack,
   COST_ITEM_BASES, costItemIds, itemsHeld, payingBase, ABILITY_FOR_ITEM,
+  practiceChance, isPractice, practiceText, requirementSentence, requirementClauses,
 } from './abilities.js';
 import { BASES as ITEM_BASES, BASES, isFocus as itemIsFocus, FOCUS_BASES as ITEM_FOCUS_BASES } from './items.js';
 import { SKILL_NAMES as OPENING_SKILL_NAMES, OPENINGS_BY_ID } from './openings.js';
@@ -262,9 +263,16 @@ const ids = (list) => new Set(list.map((x) => x.id));
   check('a character with nothing at all still gets Jump, Sprint, Bandage, Meditate and Magic Arrow',
     ['jump', 'sprint', 'bandage', 'meditate', 'magicArrow', 'hide'].every((id) => ids(nobody).has(id)),
     `${nobody.length} abilities: ${nobody.map((x) => x.name).join(', ')}`);
-  check('and not Camp, which wants Camping 20', !ids(nobody).has('camp'));
-  check('Camping 20 adds it', ids(unlockedFor({ camping: 20 }, {})).has('camp'));
-  check('Camping 19 does not', !ids(unlockedFor({ camping: 19 }, {})).has('camp'));
+  // Camp is one of the thirteen first rungs held open at 0 so its school can
+  // be started at all (see skill_paths.js). It is HELD, not GIVEN: below
+  // Camping 20 it mostly fumbles, and this is the pair of numbers that says so.
+  check('and Camp too, because Camping has no other door', ids(nobody).has('camp'));
+  check('but at Camping 0 it lands 5 times in 100',
+    practiceChance(ABILITIES_BY_ID.camp, {}) === 0.05, String(practiceChance(ABILITIES_BY_ID.camp, {})));
+  check('and at Camping 20, its own mark, it always lands',
+    practiceChance(ABILITIES_BY_ID.camp, { camping: 20 }) === 1);
+  check('a row that was never held open never rolls: Meteor at Magery 85 or nothing',
+    practiceChance(ABILITIES_BY_ID.meteor, {}) === 1 && !ids(nobody).has('meteor'));
 }
 {
   const all = {};
@@ -364,8 +372,8 @@ const warriorish = () => ({
   const c = warriorish();
   c.skills.swordsmanship = 20;
   const r = canUse(ABILITIES_BY_ID.powerStrike, c, 0);
-  check('an ability you have not unlocked is refused for that reason first',
-    !r.ok && r.reason.includes('weapon skill 30'), r.reason);
+  check('an ability you have not unlocked is refused for that reason first, in the same words the card shows',
+    !r.ok && r.reason === 'Power Strike needs Swordsmanship 30, you are at 20', r.reason);
 }
 {
   // Lich Form pays in health, not mana.

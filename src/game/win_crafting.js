@@ -524,7 +524,7 @@ export function craft(recipeId, ctx, opts = {}) {
 export const FAMILY_LABEL = {
   weapon: 'Weapons', armour: 'Armour', shield: 'Shields', staff: 'Staves',
   bow: 'Bows', ammo: 'Ammunition', potion: 'Potions', meal: 'Meals',
-  tool: 'Tools', bag: 'Bags', scroll: 'Scrolls',
+  tool: 'Tools', bag: 'Bags', scroll: 'Scrolls', instrument: 'Instruments',
   forageMeal: 'Forage meals', foragePotion: 'Forage draughts',
 };
 
@@ -538,7 +538,7 @@ export const FAMILY_LABEL = {
 export const FAMILY_GLYPH = {
   weapon: 'sword', armour: 'chest', shield: 'shield', staff: 'staff',
   bow: 'bow', ammo: 'arrow', potion: 'flask', meal: 'food',
-  tool: 'tool', bag: 'parcel', scroll: 'book',
+  tool: 'tool', bag: 'parcel', scroll: 'book', instrument: 'lute',
   forageMeal: 'food', foragePotion: 'flask',
 };
 

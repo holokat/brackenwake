@@ -41,6 +41,7 @@
 
 import {
   ABILITIES, ABILITIES_BY_ID, weaponNeeds, weaponCheck, isSpell,
+  meetsRequirements, requirementSentence,
 } from '../src/mmo/abilities.js';
 import { createAbilities } from '../src/game/abilities_runtime.js';
 import { createAbilityHooks } from '../src/game/ability_hooks.js';
@@ -459,9 +460,18 @@ function run(ability) {
   // the refusal that names it as always on is the correct answer to a press.
   const passiveLive = passive && !!(h.actor.passives && h.actor.passives[ability.id]);
 
+  // A PASSIVE THE CHARACTER HAS NOT EARNED IS REFUSED, NOT SILENT. Riposte
+  // wants Parrying 70 and Elemental Kin Mysticism 90; a Mage has neither, so
+  // `applyPassives` correctly does not switch them on, and the row was being
+  // marked SILENT for behaving exactly as it should. The gate is asked here so
+  // the four rows that failed `--as=mage` for that reason report the same
+  // sentence the card and the bar show. A passive whose gate IS met and which
+  // still did not switch on is the real fault, and stays SILENT.
+  const gate = meetsRequirements(ability, h.character.skills || {}, h.character.stats || {});
+
   let verdict;
   if (unwired) verdict = 'UNWIRED';
-  else if (passive) verdict = passiveLive ? 'passive' : 'SILENT';
+  else if (passive) verdict = passiveLive ? 'passive' : (gate.ok ? 'SILENT' : 'refused');
   else if (effectKeys.length) verdict = 'ok';
   else if (!said.length) verdict = 'SILENT';
   else if (changed.length) verdict = 'cost only';
@@ -471,6 +481,10 @@ function run(ability) {
     id: ability.id, name: ability.name, group: ability.group,
     spell: isSpell(ability),
     verdict, changed, effectKeys, said, neededClick, taught: h.taught.slice(),
+    gateReason: gate.ok ? '' : gate.reason,
+    // The CARD's line for the same character, so the two can be compared at
+    // the bottom of this file rather than taken on trust.
+    gateLine: gate.ok ? '' : requirementSentence(ability, h.character.skills || {}, h.character.stats || {}),
     ok: r && r.ok !== false,
     hands: weaponCheck(ability, h.character.equipment, h.character.pack).ok,
     dmg: r1((before.monsters === after.monsters) ? 0 : monsterDamage(before, after)),
@@ -545,6 +559,29 @@ if (costOnly.length) {
 const untaught = rows.filter((r) => !r.taught.length && !r.passive && r.verdict === 'ok'
   && ABILITIES_BY_ID[r.id] && (ABILITIES_BY_ID[r.id].skill || ABILITIES_BY_ID[r.id].skillAny));
 if (untaught.length) console.log(`  ${untaught.length} landed without offering a lesson: ${untaught.map((r) => r.id).join(', ')}`);
+// THE REFUSAL AND THE CARD SAY THE SAME THING. A row the character does not
+// meet is refused here, in the runtime, and the same row is drawn on the
+// abilities card with its missing clause in red. Those two sentences come out
+// of one function in abilities.js, and this is the line that proves it: for
+// every row whose gate is shut, the words the runtime said have to BE the
+// card's line with the ability's name on the front.
+const gated = rows.filter((r) => r.gateReason);
+const mismatched = gated.filter((r) => {
+  const a = ABILITIES_BY_ID[r.id];
+  const want = `${a.name} n${r.gateLine.slice(1)}`;
+  return r.gateReason !== want || !r.said.some((t) => String(t).includes(want));
+});
+console.log('');
+console.log(`  ${gated.length} row(s) are behind a gate, and each says the card's own line:`);
+for (const r of gated.slice(0, 4)) console.log(`    ${pad(r.id, 20)}${r.gateReason}`);
+if (gated.length > 4) console.log(`    ${pad('', 20)}and ${gated.length - 4} more`);
+if (mismatched.length) {
+  console.log('');
+  for (const r of mismatched) console.log(`  MISMATCH  ${r.id}: runtime "${r.said.join(' | ')}" against card "${r.gateReason}"`);
+  console.log(`  ${mismatched.length} row(s) refuse in words the card does not use.`);
+  process.exit(1);
+}
+
 if (bad.length) {
   console.log('');
   for (const r of bad) {

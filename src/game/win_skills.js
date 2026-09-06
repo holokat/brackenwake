@@ -44,7 +44,7 @@ import {
   SKILLS, SKILL_GROUPS, SKILL_CAP, TOTAL_CAP, LOCKS, BANDS,
   lockOf, setLock, total, gainStep,
 } from '../mmo/skills.js';
-import { ABILITIES, meetsRequirements } from '../mmo/abilities.js';
+import { ABILITIES, meetsRequirements, requirementClauses } from '../mmo/abilities.js';
 import { skillIcon, abilityIcon, iconImg } from './icon_art.js';
 import { attachTip, hideTip } from './windows.js';
 import { theme } from './ui_theme.js';
@@ -111,11 +111,23 @@ export function standingFor(skillId, skills, stats, list = ABILITIES) {
     else locked.push(r);
   }
   const next = locked[0] || null;
+  // WHAT THE NEXT ROW WANTS THAT THIS CARD IS NOT ABOUT. The short line under
+  // a skill card is "Whirlwind at 50", this skill's own threshold, and the
+  // rules' reason goes under it only when the row wants something else as
+  // well. Comparing the two SENTENCES used to be how that was decided, and it
+  // broke the moment the reason started carrying "you are at 30": the two
+  // strings stopped matching and every card printed both halves of the same
+  // fact. So it is decided on the clauses now, which is what it always meant.
+  const otherNeeds = next
+    ? requirementClauses(next.ability, skills, stats).filter((p) => !p.met && p.id !== skillId)
+    : [];
   return {
     unlocked: unlocked.map((r) => r.ability),
     next: next ? next.ability : null,
     nextAt: next ? next.at : null,
     nextReason: next ? meetsRequirements(next.ability, skills, stats).reason : null,
+    /** The clauses of the next row that this card's own skill does not cover. */
+    otherNeeds,
   };
 }
 
@@ -648,8 +660,7 @@ export const panel = {
         const short = s.next
           ? `${s.next.name} at ${s.nextAt}`
           : (rec.chips.length ? 'everything it opens is yours' : '');
-        const plain = s.next ? `${s.next.name} needs ${skill.name} ${s.nextAt}` : '';
-        const why = s.next && s.nextReason && s.nextReason !== plain ? s.nextReason : '';
+        const why = s.next && s.otherNeeds.length ? s.nextReason : '';
         if (rec.next.textContent !== short) rec.next.textContent = short;
         if (rec.why.textContent !== why) rec.why.textContent = why;
         rec.next.style.display = short ? '' : 'none';

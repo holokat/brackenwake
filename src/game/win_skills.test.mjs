@@ -70,7 +70,7 @@ const {
 const {
   SKILLS, SKILL_GROUPS, BANDS, gainStep, lockOf, setLock, LOCKS, TOTAL_CAP, total,
 } = await import('../mmo/skills.js');
-const { ABILITIES_BY_ID } = await import('../mmo/abilities.js');
+const { ABILITIES_BY_ID, skillNumber } = await import('../mmo/abilities.js');
 const { skillIcon } = await import('./icon_art.js');
 
 let pass = 0, fail = 0;
@@ -377,15 +377,17 @@ console.log('skills: the real page');
   // Swordsmanship 45", which is the short line again, so it is not repeated.
   // Tactics 40 is only half of what Whirlwind wants, so the Tactics card would
   // promise an unlock the rules refuse if it stopped at "Whirlwind at 40".
-  check('the rules own reason is not repeated when it is the short line again',
-    standing.nextReason === `${standing.next.name} needs Swordsmanship ${standing.nextAt}`
+  check('the rules own reason is not repeated when this skill is the whole of it',
+    standing.nextReason === `${standing.next.name} needs Swordsmanship ${standing.nextAt}, you are at ${skillNumber(character.skills.swordsmanship)}`
+    && standing.otherNeeds.length === 0
     && partOf(cardOf('swordsmanship'), 'bw-why')[0].textContent === ''
     && partOf(cardOf('swordsmanship'), 'bw-why')[0].style.display === 'none',
     standing.nextReason);
   const tac = standingFor('tactics', character.skills, character.stats);
   check('and it is printed when the rules want something the card does not name',
     tac.next.name === 'Whirlwind' && tac.nextAt === 40
-    && tac.nextReason === 'Whirlwind needs a weapon skill 50'
+    && tac.nextReason === `Whirlwind needs Swordsmanship 50, you are at ${skillNumber(character.skills.swordsmanship)} and Tactics 40`
+    && tac.otherNeeds.map((p) => p.id).join(',') === 'swordsmanship'
     && partOf(cardOf('tactics'), 'bw-next')[0].textContent === 'Whirlwind at 40'
     && partOf(cardOf('tactics'), 'bw-why')[0].textContent === tac.nextReason,
     `${partOf(cardOf('tactics'), 'bw-next')[0].textContent} / ${partOf(cardOf('tactics'), 'bw-why')[0].textContent}`);

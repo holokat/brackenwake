@@ -657,7 +657,20 @@ function a(row) {
     group: row.group,
     skill: row.skill ?? null,
     skillAny: row.skillAny ?? null,
+    /** The mark this row is MEANT for. It is the lesson's difficulty and the
+     * point at which the row stops fumbling. See `practiceChance`. */
     minSkill: row.minSkill ?? 0,
+    /** The mark at which the row APPEARS AT ALL, which is what the gate reads.
+     * Defaults to minSkill, so an untouched row behaves exactly as it did.
+     *
+     * The thirteen rows that carry `openAt: 0` are the first rung of a school
+     * that had no other way in. Without them Mysticism, Necromancy, Chivalry,
+     * Camping, Provocation, Peacemaking, Discordance, Musicianship, Tracking,
+     * Poisoning, Stealing, Spirit Speak and Animal Lore could only be started
+     * by paying a trainer, which is the complaint this field answers. A row
+     * used below its minSkill mostly fumbles and teaches; see practiceChance
+     * and docs/mmo/wiring/SK2-SKILL-PATHS.md. */
+    openAt: row.openAt ?? row.minSkill ?? 0,
     extraReq: row.extraReq ?? null,
     anyOf: row.anyOf ?? null,
     cost: row.cost,
@@ -903,7 +916,7 @@ export const ABILITIES = [
   }),
   a({
     id: 'huntersMark', name: "Hunter's Mark", group: 'ranger',
-    skill: 'tracking', minSkill: 40,
+    skill: 'tracking', minSkill: 40, openAt: 0,
     cost: { stamina: 10 }, cooldown: 20, castTime: 0, moving: true,
     range: 30, target: 'enemy',
     effect: {
@@ -929,7 +942,7 @@ export const ABILITIES = [
   }),
   a({
     id: 'beastCall', name: 'Beast Call', group: 'ranger',
-    skill: 'animalLore', minSkill: 50,
+    skill: 'animalLore', minSkill: 50, openAt: 0,
     cost: { stamina: 30 }, cooldown: 90, castTime: 2, moving: false,
     range: 30, target: 'self',
     effect: {
@@ -1054,7 +1067,7 @@ export const ABILITIES = [
   // --- Sorcerer ------------------------------------------------------------
   a({
     id: 'hex', name: 'Hex', group: 'sorcerer',
-    skill: 'mysticism', minSkill: 20,
+    skill: 'mysticism', minSkill: 20, openAt: 0,
     cost: { mana: 8 }, cooldown: 6, castTime: 0, moving: true,
     range: SPELL_RANGE, target: 'enemy',
     effect: { kind: 'debuff', mods: { hitChance: -0.15, defence: -0.15 }, duration: 12 },
@@ -1147,7 +1160,7 @@ export const ABILITIES = [
   // --- Necromancer ---------------------------------------------------------
   a({
     id: 'lifeDrain', name: 'Life Drain', group: 'necromancer',
-    skill: 'necromancy', minSkill: 20,
+    skill: 'necromancy', minSkill: 20, openAt: 0,
     cost: { mana: 8 }, cooldown: 4, castTime: 0, moving: true,
     range: SPELL_RANGE, target: 'enemy',
     effect: {
@@ -1221,7 +1234,7 @@ export const ABILITIES = [
   }),
   a({
     id: 'curseOfWeakness', name: 'Curse of Weakness', group: 'necromancer',
-    skill: 'spiritSpeak', minSkill: 50,
+    skill: 'spiritSpeak', minSkill: 50, openAt: 0,
     cost: { mana: 15 }, cooldown: 20, castTime: 0, moving: true,
     range: SPELL_RANGE, target: 'enemy',
     effect: { kind: 'debuff', mods: { damage: -0.2, armourRating: -0.2 }, duration: 15 },
@@ -1253,7 +1266,7 @@ export const ABILITIES = [
   // --- Healer --------------------------------------------------------------
   a({
     id: 'heal', name: 'Heal', group: 'healer',
-    skill: 'chivalry', minSkill: 20,
+    skill: 'chivalry', minSkill: 20, openAt: 0,
     cost: { mana: 10 }, cooldown: 3, castTime: 0.8, moving: true,
     range: SPELL_RANGE, target: 'ally',
     effect: { kind: 'heal', base: 20, perSkill: 0.3, skill: 'chivalry' },
@@ -1362,7 +1375,7 @@ export const ABILITIES = [
   }),
   a({
     id: 'poisonBlade', name: 'Poison Blade', group: 'rogue',
-    skill: 'poisoning', minSkill: 30,
+    skill: 'poisoning', minSkill: 30, openAt: 0,
     cost: { item: 'poisonVial', count: 1 }, cooldown: 0, castTime: 0, moving: true,
     range: 0, target: 'self',
     effect: {
@@ -1392,7 +1405,7 @@ export const ABILITIES = [
   }),
   a({
     id: 'pickPocket', name: 'Pick Pocket', group: 'rogue',
-    skill: 'stealing', minSkill: 30,
+    skill: 'stealing', minSkill: 30, openAt: 0,
     cost: { stamina: 10 }, cooldown: 30, castTime: 1, moving: false,
     range: MELEE_RANGE, target: 'enemy',
     effect: { kind: 'utility', action: 'steal', from: 'humanoid', what: ['gold', 'commonItem'] },
@@ -1420,7 +1433,7 @@ export const ABILITIES = [
   // --- Bard ----------------------------------------------------------------
   a({
     id: 'provoke', name: 'Provoke', group: 'bard',
-    skill: 'provocation', minSkill: 20,
+    skill: 'provocation', minSkill: 20, openAt: 0,
     cost: { stamina: 15 }, cooldown: 12, castTime: 1, moving: false,
     range: 15, target: 'enemy',
     effect: { kind: 'control', effect: 'provoke', duration: 20, targets: 2 },
@@ -1428,7 +1441,7 @@ export const ABILITIES = [
   }),
   a({
     id: 'peace', name: 'Peace', group: 'bard',
-    skill: 'peacemaking', minSkill: 20,
+    skill: 'peacemaking', minSkill: 20, openAt: 0,
     cost: { stamina: 15 }, cooldown: 15, castTime: 1, moving: false,
     range: 8, target: 'self',
     effect: {
@@ -1438,7 +1451,7 @@ export const ABILITIES = [
   }),
   a({
     id: 'discord', name: 'Discord', group: 'bard',
-    skill: 'discordance', minSkill: 20,
+    skill: 'discordance', minSkill: 20, openAt: 0,
     cost: { stamina: 15 }, cooldown: 15, castTime: 1, moving: false,
     range: 15, target: 'enemy',
     effect: { kind: 'debuff', mods: { allStats: -0.2, allSkills: -0.2 }, duration: 20 },
@@ -1446,7 +1459,7 @@ export const ABILITIES = [
   }),
   a({
     id: 'marchingSong', name: 'Marching Song', group: 'bard',
-    skill: 'musicianship', minSkill: 40,
+    skill: 'musicianship', minSkill: 40, openAt: 0,
     cost: { stamina: 10 }, cooldown: 30, castTime: 0, moving: true,
     range: 12, target: 'self',
     effect: {
@@ -1522,7 +1535,7 @@ export const ABILITIES = [
   }),
   a({
     id: 'camp', name: 'Camp', group: 'everyone',
-    skill: 'camping', minSkill: 20,
+    skill: 'camping', minSkill: 20, openAt: 0,
     cost: { item: 'wood', count: 1 }, cooldown: 0, castTime: 0, moving: false, stationary: true,
     range: 0, target: 'ground',
     effect: { kind: 'utility', action: 'camp', grants: 'rested', safeLogout: true },
@@ -1569,40 +1582,190 @@ export function gatingSkillValue(ability, skills) {
   return skillValue(skills, ability.skill);
 }
 
-function extraReqFailure(ability, skills, stats) {
-  if (!ability.extraReq) return null;
-  for (const [key, need] of Object.entries(ability.extraReq)) {
-    if (STAT_IDS.includes(key)) {
-      if (statValue(stats, key) < need) return `${STAT_LABELS[key]} ${need}`;
-    } else {
-      if (skillValue(skills, key) < need) return `${KNOWN_SKILLS[key]} ${need}`;
-    }
-  }
-  return null;
-}
-
 function branchMet(branch, skills) {
   return branch.all.every((c) => skillValue(skills, c.skill) >= c.min);
 }
 
-/** `{ ok }` or `{ ok: false, reason }` for the unlock gate alone. */
-export function meetsRequirements(ability, skills = {}, stats = {}) {
+/** A skill or stat number as a player reads it: 33.4, 50, 0. Never 33.40000001. */
+export function skillNumber(v) {
+  const n = typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  const r = Math.round(n * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+}
+
+/**
+ * ONE PLACE THAT SAYS WHAT A ROW COSTS IN SKILL, because until now there were
+ * two: `meetsRequirements` wrote the runtime's refusal ("Hex needs Mysticism
+ * 20") and win_abilities.js wrote the card's line ("unlocks at Mysticism 20,
+ * you are at 0"), and neither carried the other's half. The card knew your
+ * number and the refusal did not; the refusal was what you heard when you
+ * pressed the key. Both now come from here, so the sentence on the card, the
+ * sentence in the bar's tooltip and the sentence the key answers with are the
+ * same sentence.
+ *
+ * Returns `[{ id, label, need, have, met, stat, branch }]`, one entry per
+ * clause, in the order a player should read them: the gate, then every
+ * `extraReq`. `branch` is the index of the `anyOf` route a clause belongs to,
+ * or null for a clause that is required whichever route you take.
+ *
+ * An `anyOf` row (Snare and Resurrect, and only those two) reports EVERY
+ * branch, because "Healing 80 and Anatomy 80, or Chivalry 85" is two doors and
+ * hiding one of them would send a paladin down the physician's road.
+ *
+ * `skillAny` (Power Strike, Whirlwind, Leap Slam) names the ONE weapon skill
+ * the character is best at, which is the number the gate actually reads. A
+ * warrior at Swordsmanship 33.4 is told about Swordsmanship, not about "a
+ * weapon skill", because the first is a sentence and the second is a shrug.
+ */
+export function requirementClauses(ability, skills = {}, stats = {}) {
+  const parts = [];
+  if (!ability) return parts;
+
   if (ability.anyOf) {
-    if (!ability.anyOf.some((b) => branchMet(b, skills))) {
-      const wording = ability.anyOf
-        .map((b) => b.all.map((c) => `${KNOWN_SKILLS[c.skill]} ${c.min}`).join(' and '))
-        .join(', or ');
-      return { ok: false, reason: `${ability.name} needs ${wording}` };
+    ability.anyOf.forEach((branch, i) => {
+      for (const c of branch.all) {
+        const have = skillValue(skills, c.skill);
+        parts.push({
+          id: c.skill, label: KNOWN_SKILLS[c.skill] || c.skill,
+          need: c.min, have, met: have >= c.min, stat: false, branch: i,
+        });
+      }
+    });
+  } else if (ability.skillAny) {
+    const id = ability.skillAny.reduce(
+      (best, s) => (skillValue(skills, s) > skillValue(skills, best) ? s : best),
+      ability.skillAny[0],
+    );
+    const have = skillValue(skills, id);
+    if (ability.openAt > 0) {
+      parts.push({
+        id, label: KNOWN_SKILLS[id] || id,
+        need: ability.openAt, have, met: have >= ability.openAt, stat: false, branch: null,
+      });
     }
-  } else if (gatingSkillValue(ability, skills) < ability.minSkill) {
-    const what = ability.skillAny
-      ? 'a weapon skill'
-      : KNOWN_SKILLS[ability.skill];
-    return { ok: false, reason: `${ability.name} needs ${what} ${ability.minSkill}` };
+  } else if (ability.skill && ability.openAt > 0) {
+    const have = skillValue(skills, ability.skill);
+    parts.push({
+      id: ability.skill, label: KNOWN_SKILLS[ability.skill] || ability.skill,
+      need: ability.openAt, have, met: have >= ability.openAt, stat: false, branch: null,
+    });
   }
-  const missing = extraReqFailure(ability, skills, stats);
-  if (missing) return { ok: false, reason: `${ability.name} needs ${missing}` };
-  return { ok: true };
+
+  for (const [key, need] of Object.entries(ability.extraReq || {})) {
+    if (STAT_IDS.includes(key)) {
+      const have = statValue(stats, key);
+      parts.push({ id: key, label: STAT_LABELS[key] || key, need, have, met: have >= need, stat: true, branch: null });
+    } else {
+      const have = skillValue(skills, key);
+      parts.push({ id: key, label: KNOWN_SKILLS[key] || key, need, have, met: have >= need, stat: false, branch: null });
+    }
+  }
+  return parts;
+}
+
+/** "Mysticism 20, you are at 0" when it is missing, "Mysticism 20" when it is not. */
+export function clauseText(part) {
+  if (!part) return '';
+  const head = `${part.label} ${part.need}`;
+  return part.met ? head : `${head}, you are at ${skillNumber(part.have)}`;
+}
+
+/**
+ * "Needs Mysticism 20, you are at 0". '' for Jump and Sprint, which need
+ * nothing. Branches of an `anyOf` are joined with ", or"; everything else with
+ * " and", so a clause's own comma never has a second one next to it.
+ */
+export function requirementSentence(ability, skills = {}, stats = {}) {
+  const parts = requirementClauses(ability, skills, stats);
+  if (!parts.length) return '';
+  const groups = [];
+  let last = 'x';
+  for (const p of parts) {
+    const key = p.branch == null ? 'all' : `branch${p.branch}`;
+    if (key !== last) { groups.push([]); last = key; }
+    groups[groups.length - 1].push(p);
+  }
+  return `Needs ${groups.map((g) => g.map(clauseText).join(' and ')).join(', or ')}`;
+}
+
+/**
+ * The same sentence with the ability's name on the front, which is what a
+ * refusal has to say: the card is titled and the log line is not.
+ * "Hex needs Mysticism 20, you are at 0".
+ */
+export function requirementRefusal(ability, skills = {}, stats = {}) {
+  const sentence = requirementSentence(ability, skills, stats);
+  if (!sentence) return '';
+  return `${ability.name} n${sentence.slice(1)}`;
+}
+
+/**
+ * `{ ok }` or `{ ok: false, reason }` for the unlock gate alone.
+ *
+ * The yes path allocates nothing: this is asked for all 78 rows on every skill
+ * gain (progression.unlockedIds) and for twelve bar cells on every frame
+ * (abilities_runtime.barView), and building a clause list to answer "yes" 78
+ * times a lesson would be a garbage collector's afternoon. The sentence is
+ * built only when the answer is no, and then it is the card's own sentence.
+ */
+export function meetsRequirements(ability, skills = {}, stats = {}) {
+  let ok = true;
+  if (ability.anyOf) ok = ability.anyOf.some((b) => branchMet(b, skills));
+  else if (gatingSkillValue(ability, skills) < ability.openAt) ok = false;
+  if (ok && ability.extraReq) {
+    for (const [key, need] of Object.entries(ability.extraReq)) {
+      if (STAT_IDS.includes(key)) { if (statValue(stats, key) < need) { ok = false; break; } }
+      else if (skillValue(skills, key) < need) { ok = false; break; }
+    }
+  }
+  if (ok) return { ok: true };
+  return { ok: false, reason: requirementRefusal(ability, skills, stats) };
+}
+
+/**
+ * HOW OFTEN A ROW USED BELOW ITS MARK ACTUALLY WORKS.
+ *
+ * `openAt` lets a character hold the first rung of a school at 0. This is what
+ * stops that from being a free gift: at `openAt` the attempt is a fumble
+ * nineteen times in twenty, at `minSkill` it always works, and in between it
+ * climbs in a straight line. A fumble still teaches, at the reduced chance
+ * skills.js gives a failed lesson, which is the whole point of being allowed
+ * to try.
+ *
+ * 1 for every row a character has actually reached, so nothing that worked
+ * before this field existed rolls a die now.
+ */
+export const PRACTICE_FLOOR = 0.05;
+
+export function practiceChance(ability, skills = {}) {
+  if (!ability) return 1;
+  const mark = ability.minSkill ?? 0;
+  const open = ability.openAt ?? mark;
+  if (mark <= open) return 1;
+  const have = gatingSkillValue(ability, skills);
+  if (!Number.isFinite(have) || have >= mark) return 1;
+  const along = (have - open) / (mark - open);
+  const p = PRACTICE_FLOOR + Math.max(0, Math.min(1, along)) * (1 - PRACTICE_FLOOR);
+  return Math.max(PRACTICE_FLOOR, Math.min(1, p));
+}
+
+/** True while this row is being practised: held, but not yet earned. */
+export function isPractice(ability, skills = {}) {
+  return practiceChance(ability, skills) < 1;
+}
+
+/**
+ * The line the card and the bar's tooltip show for a row being practised, with
+ * the two numbers it is promising so nothing here is a feeling the code does
+ * not keep. '' for a row at or above its mark.
+ */
+export function practiceText(ability, skills = {}) {
+  if (!ability || !isPractice(ability, skills)) return '';
+  const chance = Math.round(practiceChance(ability, skills) * 100);
+  const label = ability.skillAny
+    ? 'a weapon skill'
+    : KNOWN_SKILLS[ability.skill] || 'the skill';
+  return `You are below the mark for this: ${chance} in 100 land, the rest fumble and teach. It comes good at ${label} ${ability.minSkill}.`;
 }
 
 /** Every ability this spread of skills and stats may use. */
@@ -1933,6 +2096,30 @@ export function auditAbilities(list = ABILITIES) {
     if (ability.cooldown < 0) throw new Error(`auditAbilities: ${where} has a negative cooldown`);
     if (ability.rooted !== (ability.castTime > 0 && !ability.moving)) {
       throw new Error(`auditAbilities: ${where} rooted does not match its cast time`);
+    }
+
+    // The two marks. `openAt` is where the row appears and `minSkill` is where
+    // it stops fumbling, so a row that opened ABOVE its own mark would be a
+    // gate nothing can pass and a practice curve that runs backwards.
+    if (typeof ability.openAt !== 'number' || ability.openAt < 0) {
+      throw new Error(`auditAbilities: ${where} has openAt ${ability.openAt}`);
+    }
+    if (ability.openAt > ability.minSkill) {
+      throw new Error(`auditAbilities: ${where} opens at ${ability.openAt} and is meant for ${ability.minSkill}`);
+    }
+    // A row held below its mark has to be attemptable at all: a passive is
+    // never pressed and would sit on the bar as a promise nothing keeps.
+    if (ability.openAt < ability.minSkill && ability.passive) {
+      throw new Error(`auditAbilities: ${where} is passive and cannot be practised below its mark`);
+    }
+    // `requirementSentence` joins branches with ", or" and everything else
+    // with " and", and a row with both would read as a third branch. No row
+    // has both today; this is the line that fails when a fifth appears.
+    if (ability.anyOf && ability.extraReq) {
+      throw new Error(`auditAbilities: ${where} has both anyOf and extraReq, and no sentence can say that yet`);
+    }
+    if (ability.anyOf && ability.openAt !== ability.minSkill) {
+      throw new Error(`auditAbilities: ${where} has anyOf and its own openAt; the branches are the gate`);
     }
 
     // Passives cost nothing and never fire.

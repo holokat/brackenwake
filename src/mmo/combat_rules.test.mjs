@@ -51,7 +51,7 @@ const blankStats = () => ({ str: 0, dex: 0, int: 0, con: 0, wis: 0 });
 const blankSkills = () => ({
   swordsmanship: 0, macefighting: 0, fencing: 0, wrestling: 0, polearms: 0,
   archery: 0, marksmanship: 0, tactics: 0, anatomy: 0, parrying: 0,
-  magery: 0, evalInt: 0, resistingSpells: 0, focus: 0,
+  magery: 0, evaluatingIntelligence: 0, resistingSpells: 0, focus: 0,
 });
 const blankBonuses = () => ({
   hit: 0, defence: 0, dodge: 0, damagePct: 0, critChance: 0, critDamage: 0,
@@ -361,12 +361,12 @@ console.log('\nspells');
 // --- 5. resolveSpell ---------------------------------------------------------
 {
   // The Mage opening: INT 70, Evaluating Intelligence 45. Fireball 18 to 26 fire.
-  const mage = fighter({ stats: { int: 70, dex: 40, wis: 65 }, skills: { magery: 50, evalInt: 45 }, weapon: null });
+  const mage = fighter({ stats: { int: 70, dex: 40, wis: 65 }, skills: { magery: 50, evaluatingIntelligence: 45 }, weapon: null });
   const dummy = fighter({ health: 200, maxHealth: 200, ar: 240 });
   const FIREBALL = { base: [18, 26], damageType: 'fire' };
   const s = resolveSpell({ caster: mage, target: dummy, spell: FIREBALL, rng: seq([0.0, 0.99]) });
   const expected = 18 * (1 + 70 * 0.008 + 45 * 0.006);
-  check('the spell formula is base * (1 + INT*0.008 + evalInt*0.006 + spellDamage%)', near(s.raw, expected, 1e-12), `18 became ${s.raw.toFixed(3)} (x${(s.raw / 18).toFixed(3)})`);
+  check('the spell formula is base * (1 + INT*0.008 + Evaluating Intelligence*0.006 + spellDamage%)', near(s.raw, expected, 1e-12), `18 became ${s.raw.toFixed(3)} (x${(s.raw / 18).toFixed(3)})`);
   check('armour does not stop a spell', s.damage === Math.round(expected), `AR 240 target still took ${s.damage}`);
   const geared = { ...mage, bonuses: { ...mage.bonuses, spellDamage: 20 } };
   check('spellDamage is percent points', near(resolveSpell({ caster: geared, target: dummy, spell: FIREBALL, rng: seq([0.0, 0.99]) }).raw, 18 * (1 + 0.56 + 0.27 + 0.20), 1e-12), `+20% took it to ${resolveSpell({ caster: geared, target: dummy, spell: FIREBALL, rng: seq([0.0, 0.99]) }).raw.toFixed(2)}`);

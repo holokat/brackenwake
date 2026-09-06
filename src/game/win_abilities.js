@@ -13,9 +13,10 @@
 // ladder. So: all seventy eight rows are here, always, grouped by archetype,
 // as cards with art. What you have is bright and can be dragged to the bar.
 // What you have not is dimmed, wears a lock, and says the one sentence that
-// would change that, with your own number in it and live:
+// would change that, with your own number in it, live, and with the clause you
+// are actually short of painted in the theme's red (SK2):
 //
-//     unlocks at Swordsmanship 50, you are at 33.4
+//     Needs Swordsmanship 50, you are at 33.4
 //
 // The art is drawn here, in code, the same way ui_theme.js draws the item
 // glyphs: one mark per effect kind (a blade for a swing, a bolt for a spell
@@ -43,6 +44,8 @@ import {
   ABILITIES, ABILITIES_BY_ID, GROUPS, EFFECT_KINDS, KNOWN_SKILLS, STAT_IDS,
   STAT_LABELS, unlockedFor, meetsRequirements, costKind,
   manaCostFor, weaponNeeds, weaponCheck,
+  requirementClauses, clauseText, skillNumber as skillNumberOf,
+  isPractice, practiceText,
 } from '../mmo/abilities.js';
 import { dragSource, dropTarget, attachTip, hideTip } from './windows.js';
 import { theme } from './ui_theme.js';
@@ -269,84 +272,67 @@ auditArt();
 // What it takes, and what you have
 // ---------------------------------------------------------------------------
 
-/** A skill number as a player reads it: 33.4, 50, 0. */
-export function skillNumber(v) {
-  const n = typeof v === 'number' && Number.isFinite(v) ? v : 0;
-  const r = Math.round(n * 10) / 10;
-  return Number.isInteger(r) ? String(r) : r.toFixed(1);
-}
-
-const skillAt = (skills, id) => (typeof skills?.[id] === 'number' ? skills[id] : 0);
-const statAt = (stats, id) => (typeof stats?.[id] === 'number' ? stats[id] : 0);
+/** A skill number as a player reads it: 33.4, 50, 0. abilities.js owns it now:
+ * the card, the bar's tooltip and the runtime's refusal all print through the
+ * same function, so 33.40000000000001 cannot appear on one of the three. */
+export const skillNumber = skillNumberOf;
 
 /**
  * Pure. Every clause of this ability's unlock, with the character's own number
- * beside it.
+ * beside it. abilities.js owns the derivation; this is the re-export, so the
+ * card cannot drift from the refusal a key press gives.
  *
- * `parts` is `[{ id, label, need, have, met }]`. The gate itself is first, then
- * every `extraReq`. An `anyOf` row (there are two: Snare and Resurrect) reports
- * the branch it is CLOSEST to finishing, because "Tinkering 30, you are at 12"
- * is a thing a player can act on and "one of two lists" is not.
+ * `parts` is `[{ id, label, need, have, met, stat, branch }]`. The gate itself
+ * is first, then every `extraReq`. An `anyOf` row (there are two: Snare and
+ * Resurrect) reports EVERY branch, each tagged with its `branch` index, and
+ * the line below joins them with ", or", because "Healing 80 and Anatomy 80,
+ * or Chivalry 85" is two doors and showing one of them sends a paladin down
+ * the physician's road.
  *
  * `skillAny` (Power Strike, Whirlwind, Leap Slam) names the ONE weapon skill
  * the character is best at, which is the number the gate actually reads. A
  * warrior at Swordsmanship 33.4 is told about Swordsmanship, not about "a
  * weapon skill", because the first is a sentence and the second is a shrug.
  */
-export function requirementParts(ability, skills = {}, stats = {}) {
-  const parts = [];
-  if (!ability) return parts;
-
-  if (ability.anyOf) {
-    // The branch with the least left to do.
-    let best = null, bestGap = Infinity;
-    for (const branch of ability.anyOf) {
-      let gap = 0;
-      for (const c of branch.all) gap += Math.max(0, c.min - skillAt(skills, c.skill));
-      if (gap < bestGap) { bestGap = gap; best = branch; }
-    }
-    for (const c of (best?.all || [])) {
-      const have = skillAt(skills, c.skill);
-      parts.push({ id: c.skill, label: KNOWN_SKILLS[c.skill] || c.skill, need: c.min, have, met: have >= c.min });
-    }
-  } else if (ability.skillAny) {
-    const id = ability.skillAny.reduce((b, s) => (skillAt(skills, s) > skillAt(skills, b) ? s : b), ability.skillAny[0]);
-    const have = skillAt(skills, id);
-    parts.push({ id, label: KNOWN_SKILLS[id] || id, need: ability.minSkill, have, met: have >= ability.minSkill });
-  } else if (ability.skill && ability.minSkill > 0) {
-    const have = skillAt(skills, ability.skill);
-    parts.push({ id: ability.skill, label: KNOWN_SKILLS[ability.skill] || ability.skill, need: ability.minSkill, have, met: have >= ability.minSkill });
-  }
-
-  for (const [key, need] of Object.entries(ability.extraReq || {})) {
-    if (STAT_IDS.includes(key)) {
-      const have = statAt(stats, key);
-      parts.push({ id: key, label: STAT_LABELS[key] || key, need, have, met: have >= need, stat: true });
-    } else {
-      const have = skillAt(skills, key);
-      parts.push({ id: key, label: KNOWN_SKILLS[key] || key, need, have, met: have >= need });
-    }
-  }
-  return parts;
-}
+export const requirementParts = requirementClauses;
 
 /**
- * Pure. The two sentences a card can show.
+ * Pure. What a card says about its gate, in the pieces it is drawn from.
  *
- *   `text`  what it takes, whether or not you have it: "Swordsmanship 50 and
- *           Tactics 40", or "nothing at all" for Jump and Sprint.
- *   `short` what is still missing, with your number in it: "unlocks at
- *           Swordsmanship 50, you are at 33.4". Empty when nothing is missing.
+ *   `text`   what it takes, whether or not you have it: "Swordsmanship 50 and
+ *            Tactics 40", or "nothing at all" for Jump and Sprint.
+ *   `short`  the whole line while something is missing, with your number in
+ *            it: "Needs Swordsmanship 50, you are at 33.4 and Tactics 40".
+ *            Empty when nothing is missing.
+ *   `spans`  that same line cut into pieces so the card can colour it: each is
+ *            `{ text, met }`, and the card paints an unmet piece in the
+ *            theme's red and a met one in the ordinary colour. The player
+ *            asked to see the missing requirement in red, and a whole line in
+ *            red would say the Tactics 40 he already has is missing too.
+ *   `practice` the sentence for a row he is allowed to hold and has not
+ *            earned: how often it lands and where it comes good.
  */
 export function requirementView(ability, skills = {}, stats = {}) {
-  const parts = requirementParts(ability, skills, stats);
+  const parts = requirementClauses(ability, skills, stats);
   const met = !!ability && meetsRequirements(ability, skills, stats).ok;
   const text = parts.length ? parts.map((p) => `${p.label} ${p.need}`).join(' and ') : 'nothing at all';
   const missing = parts.filter((p) => !p.met);
-  const short = missing.length
-    ? `unlocks at ${missing.map((p) => `${p.label} ${p.need}, you are at ${skillNumber(p.have)}`).join(', and ')}`
-    : '';
-  return { met, parts, text, short, missing };
+  const spans = [];
+  if (!met && parts.length) {
+    spans.push({ text: 'Needs ', met: true });
+    let last = null;
+    parts.forEach((p, i) => {
+      const key = p.branch == null ? 'all' : `branch${p.branch}`;
+      if (i > 0) spans.push({ text: key === last ? ' and ' : ', or ', met: true });
+      spans.push({ text: clauseText(p), met: p.met });
+      last = key;
+    });
+  }
+  const short = spans.map((x) => x.text).join('');
+  return {
+    met, parts, text, short, missing, spans,
+    practice: met && ability ? practiceText(ability, skills) : '',
+  };
 }
 
 /**
@@ -494,12 +480,21 @@ const CSS = `
   text-transform: uppercase; padding: 2px 7px; color: ${theme.parchmentDim};
   background: rgba(0,0,0,.4); border: 1px solid ${theme.goldDim}44;
 }
-.bw-card .bw-desc { font-size: 15.5px; line-height: 1.34; color: ${theme.parchmentDim}; }
+.bw-card .bw-desc { font-size: 15.5px; line-height: 1.34; color: ${theme.parchmentDim}; margin-top: 7px; }
 .bw-card .bw-req {
   font-family: ${theme.fonts.display}; font-size: 11.5px; letter-spacing: .06em;
-  color: ${theme.parchmentFaint}; margin-top: 7px;
+  color: ${theme.parchmentFaint};
 }
 .bw-card.locked .bw-req { color: #e0b064; }
+/* the clause you have NOT got, in the theme's red, inside a line whose other
+   clauses stay the ordinary colour. theme.down is the red every panel already
+   uses for a number going the wrong way. */
+.bw-card .bw-req .bw-miss { color: ${theme.down}; }
+.bw-card.locked .bw-req .bw-miss { color: ${theme.down}; }
+.bw-card .bw-practice {
+  font-family: ${theme.fonts.display}; font-size: 11.5px; letter-spacing: .06em;
+  color: #e0b064; margin-top: 4px;
+}
 .bw-card .bw-hand { font-size: 14px; font-style: italic; color: #ff9a80; margin-top: 5px; }
 .bw-card .bw-key {
   position: absolute; right: 9px; top: 9px; font-family: ${theme.fonts.display};
@@ -628,18 +623,25 @@ export const panel = {
           const chips = h('div', 'bw-chips');
           const desc = h('div', 'bw-desc', ability.description);
           const req = h('div', 'bw-req');
+          const practice = h('div', 'bw-practice');
           const hand = h('div', 'bw-hand');
           const key = h('div', 'bw-key');
+          // THE GATE ABOVE THE DESCRIPTION. The player asked for the missing
+          // requirement "on spell description ... and the description under
+          // it", and he is right about the order: what stops you using a card
+          // is the first thing you want off it, and the prose about what it
+          // does is what you read once you can.
           body.appendChild(name);
           body.appendChild(chips);
-          body.appendChild(desc);
           body.appendChild(req);
+          body.appendChild(practice);
+          body.appendChild(desc);
           body.appendChild(hand);
           card.appendChild(body);
           card.appendChild(key);
           grid.appendChild(card);
 
-          const rec = { ability, el: card, tile, lock, chips, req, hand, key, unlocked: false };
+          const rec = { ability, el: card, tile, lock, chips, req, practice, hand, key, unlocked: false };
           cards.push(rec);
 
           attachTip(card, () => ({ lines: abilityLines(ability, character()) }));
@@ -649,7 +651,8 @@ export const panel = {
             const cc = character();
             if (!rec.unlocked) {
               const v = requirementView(ability, cc.skills || {}, cc.stats || {});
-              say(`${ability.name} ${v.short || 'is not yours yet'}`, 'bad');
+              // The same words the runtime answers a key press with.
+              say(v.short ? `${ability.name} n${v.short.slice(1)}` : `${ability.name} is not yours yet`, 'bad');
               return;
             }
             if (ability.passive) { say(`${ability.name} is passive and already working`); return; }
@@ -705,8 +708,22 @@ export const panel = {
           for (const chip of chips) rec.chips.appendChild(h('span', 'bw-chip', chip.text));
         }
 
+        // THE MISSING CLAUSE, IN RED. A met card prints what it took; a locked
+        // one prints the whole gate with your own number against each clause,
+        // and only the clauses you are short of are painted. Rebuilt only when
+        // the words actually change, because this runs twice a second.
         const line = v.met ? (v.text === 'nothing at all' ? 'anyone can do this' : v.text) : v.short;
-        if (rec.req.textContent !== line) rec.req.textContent = line;
+        if (rec.reqText !== line) {
+          rec.reqText = line;
+          rec.req.textContent = '';
+          if (v.met) rec.req.appendChild(h('span', null, line));
+          else for (const span of v.spans) rec.req.appendChild(h('span', span.met ? null : 'bw-miss', span.text));
+        }
+
+        // And the row you may hold and have not earned: how often it lands,
+        // and the mark it comes good at. Empty for everything else.
+        if (rec.practice.textContent !== v.practice) rec.practice.textContent = v.practice;
+        rec.practice.style.display = v.practice ? '' : 'none';
 
         const hand = v.met ? weaponLine(a, c) : '';
         if (rec.hand.textContent !== hand) rec.hand.textContent = hand;

@@ -556,7 +556,7 @@ console.log('win_crafting: the picture is looked up through the base the craft r
   check('and it is tinted by the material the recipe names', /fill="#/.test(tileArt(hatchet, 96)), familyTint(hatchet));
 
   check('every family in the table is labelled and drawn', (() => { try { auditCraftArt(); return true; } catch (e) { console.log(e.message); return false; } })());
-  check('the audit walked every recipe', CRAFT_ART_AUDIT.recipes === RECIPES.length && CRAFT_ART_AUDIT.families === 13,
+  check('the audit walked every recipe', CRAFT_ART_AUDIT.recipes === RECIPES.length && CRAFT_ART_AUDIT.families === 14,
     `${CRAFT_ART_AUDIT.families} families, ${CRAFT_ART_AUDIT.recipes} recipes`);
 }
 

@@ -19,7 +19,7 @@
 //     stats:  { str, dex, int, con, wis },            // 0..100 at the start, 100 cap
 //     skills: { swordsmanship, macefighting, fencing, wrestling, polearms,
 //               archery, marksmanship, tactics, anatomy, parrying,
-//               magery, evalInt, resistingSpells, focus },   // 0.0 .. 100.0
+//               magery, evaluatingIntelligence, resistingSpells, focus },
 //     bonuses: {                                     // summed from gear and buffs
 //       hit,            // SKILL POINTS added to the attack roll
 //       defence,        // SKILL POINTS added to the defence roll
@@ -202,10 +202,20 @@ export function dodgeChance(defender) {
   return clamp(stat(defender, 'dex') * DODGE_PER_DEX + bonus(defender, 'dodge'), 0, DODGE_CAP);
 }
 
+/**
+ * Is this fighter in a position to try a parry at all? A shield on the arm,
+ * and nothing else. Its own function because the LESSON hangs off it and the
+ * CHANCE does not: a shield carried by a Parrying 0 recruit blocks nothing and
+ * still teaches, which is how the skill starts. See the lesson note below.
+ */
+export function canParry(defender) {
+  return !!(defender && defender.shield);
+}
+
 /** Parrying * 0.004 * shield.parryFactor, cap 0.45. No shield, no parry. */
 export function parryChance(defender) {
-  const sh = defender && defender.shield;
-  if (!sh) return 0;
+  if (!canParry(defender)) return 0;
+  const sh = defender.shield;
   const factor = typeof sh.parryFactor === 'number' ? sh.parryFactor : 1;
   return clamp(skill(defender, 'parrying') * PARRY_PER_SKILL * factor, 0, PARRY_CAP);
 }
@@ -338,7 +348,14 @@ export function resolveMelee({ attacker, defender, now = 0, rng, jumpAttack = fa
   lessons.push(lesson('attacker', weaponSkillId(attacker), attackerDifficulty, hit));
   lessons.push(lesson('attacker', 'tactics', attackerDifficulty, connects));
   if (connects) lessons.push(lesson('attacker', 'anatomy', attackerDifficulty, true));
-  if (hit && !dodged && pc > 0) {
+  // PARRYING TEACHES FROM ZERO. This used to read `pc > 0`, and `pc` is
+  // `Parrying * 0.004 * factor`, so at Parrying 0 it was 0 and no lesson was
+  // ever pushed: a recruit with a shield could stand in a blizzard of blows
+  // for an hour and learn nothing, and the only way to start the skill was to
+  // buy the first point from Serla. The shield is the condition, not the
+  // number. The lesson still SUCCEEDS only on a real parry, so it teaches at
+  // the reduced chance skills.js gives a failure until one lands.
+  if (hit && !dodged && canParry(defender)) {
     lessons.push(lesson('defender', 'parrying', defenderDifficulty, parried));
   }
   // Stat lessons, from 01-STATS-SKILLS: a dodge raises DEX, a landed swing has
@@ -395,7 +412,7 @@ export function spellResistance(target) {
 }
 
 /**
- * base * (1 + INT * 0.008 + evalInt * 0.006 + spellDamage%), then crit, then
+ * base * (1 + INT * 0.008 + Evaluating Intelligence * 0.006 + spellDamage%), then crit, then
  * the target's typed resist and Resisting Spells. Armour does not stop a spell.
  *
  * Rolls in order: base damage, crit.
@@ -408,7 +425,12 @@ export function resolveSpell({ caster, target, spell, rng, now = 0 } = {}) {
   const roll = weaponRoll({ minDamage: lo, maxDamage: hi }, rng);
 
   const intBonus = stat(caster, 'int') * SPELL_PER_INT;
-  const evalBonus = skill(caster, 'evalInt') * SPELL_PER_EVAL_INT;
+  // THE SKILL IS `evaluatingIntelligence`. It was read here as `evalInt`,
+  // which is not a skill id in src/mmo/skills.js and never has been, so the
+  // bonus was always zero and the lesson below always went to a skill nothing
+  // owns: a mage could cast for a week and Evaluating Intelligence stayed on
+  // the number the trainer sold him. See docs/mmo/wiring/SK2-SKILL-PATHS.md.
+  const evalBonus = skill(caster, 'evaluatingIntelligence') * SPELL_PER_EVAL_INT;
   const gearBonus = bonus(caster, 'spellDamage') / 100;
   const raw = roll * (1 + intBonus + evalBonus + gearBonus);
 
@@ -426,7 +448,7 @@ export function resolveSpell({ caster, target, spell, rng, now = 0 } = {}) {
   const targetDifficulty = difficultyOf(caster);
   const lessons = [
     lesson('attacker', 'magery', casterDifficulty, true),
-    lesson('attacker', 'evalInt', casterDifficulty, true),
+    lesson('attacker', 'evaluatingIntelligence', casterDifficulty, true),
     statLesson('attacker', 'int', casterDifficulty, true),
     // The target's lesson succeeds when its resistance actually took a point
     // off. Standing in front of a fireball with nothing teaches nothing.
