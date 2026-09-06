@@ -53,6 +53,10 @@ export const FOOTPRINT = {
   flower_box: [1.2, 0.4, 0.4],
   hay_rick: [3, 3, 3],
   flint_wall_4m: [4, 0.7, 3],
+  // the user's Blender corner: an L with two 2.7 m arms, measured from the glb.
+  // Nothing places it yet (Hearthhome's wall is a ring with no right angle);
+  // it is here so a plan with a walled yard can name it and the loader fetches it.
+  flint_wall_corner: [5.4, 3.2, 3],
   lane_slab: [4, 4, 0.06],
   // -- the Mill Run ----------------------------------------------------------
   mill: [12, 8, 9],
@@ -191,6 +195,7 @@ export const STANDIN = {
   flower_box: S('prop', { flowers: true }),
   hay_rick: S('heap', { stone: 'roof' }),
   flint_wall_4m: S('wallSeg', { cap: true }),
+  flint_wall_corner: S('wallSeg', { cap: true }),
   lane_slab: S('slab', { stone: 'earth' }),
 
   mill: S('mill'),
