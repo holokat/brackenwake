@@ -41,7 +41,7 @@ import { spawnsFor as plannedSpawnsFor } from '../mmo/plans/index.js';
 import { rand2 } from '../world/noise.js';
 import {
   MONSTERS, HABITAT, HABITAT_BY_PLACE, spawnRollFor, resolvePlace, respawnDelay,
-  NO_RESPAWN_RADIUS, SPAWN_SPACING_M, NOTE_TAGS,
+  NO_RESPAWN_RADIUS, SPAWN_SPACING_M, NOTE_TAGS, isUniqueRow,
 } from '../mmo/monsters.js';
 import { aggroCheck, leashCheck, fleeCheck, swingSeconds, UNARMED } from '../mmo/combat_rules.js';
 import { buildMonsterModel, DIE_SECONDS } from './monster_models.js';
@@ -59,7 +59,10 @@ import {
 // --------------------------------------------------------------- constants
 
 export const NEAR_RING = 3;          // chunks each way that may hold monsters, as fauna
-export const ALIVE_CAP = 80;         // never more than this many bodies at once; 40 read as an empty world
+// M5: 140. 40 read as an empty world and 80 was already the binding constraint
+// on a night walk out of Hearthhome, which measured 78.8 bodies inside 300 m
+// against a cap of 80: the roll wanted more and the cap was eating it.
+export const ALIVE_CAP = 140;        // never more than this many bodies at once
 export const SPAWN_KEEP = 60;        // metres of quiet around where the player starts
 export const SETTLEMENT_PAD = 12;    // added to a town's flat radius; nothing spawns inside
 export const GROUP_SPREAD = 8;       // metres a group scatters from its anchor
@@ -202,21 +205,40 @@ export const SUMMON_AT = 0.5;           // M2's "the first time it drops below h
 export const SUMMON_COOLDOWN_S = 30;    // INVENTED: M2 says once, this is the guard on "once"
 
 /**
- * The chance a chunk holds a group at all.
+ * How many groups a chunk holds, on average.
  *
- * 05-WORLD-CONTENT gives density as a distance: "one per 150 m of wild land at
- * night, one per 400 m by day". A chunk is CHUNK metres across, so walking over
- * one covers CHUNK metres of wild land, and the chance it holds the group is
- * CHUNK / that distance. At CHUNK = 64 that is 0.427 at night and 0.16 by day,
- * which across the 49 chunks of the near ring is about 21 groups at night and 8
- * by day before the cap has anything to say. THIS IS AN INTERPRETATION of a
- * sentence that does not name a chunk, and it is written down here rather than
- * buried so it can be argued with.
+ * 05-WORLD-CONTENT gives density as a distance: one group per so many metres of
+ * wild land. A chunk is CHUNK metres across, so walking over one covers CHUNK
+ * metres of wild land and the expected number of groups in it is CHUNK divided
+ * by that distance. THIS IS AN INTERPRETATION of a sentence that does not name
+ * a chunk, and it is written down here rather than buried so it can be argued
+ * with.
+ *
+ * It is an EXPECTED COUNT and not a probability, which matters from M5 on: at
+ * the night spacing of 60 m the number is 1.07, and a probability cannot be
+ * 1.07. `groupsForChunk` below takes the whole part as certain and rolls the
+ * remainder, so 1.07 means one group in every chunk and a second in one chunk
+ * in fifteen, which is what "one per 60 m" actually says.
  */
 export const GROUP_CHANCE = {
   night: CHUNK / SPAWN_SPACING_M.wildNight,
   day: CHUNK / SPAWN_SPACING_M.wildDay,
 };
+
+/** The most groups one chunk may hold, whatever the spacing says. */
+export const GROUPS_PER_CHUNK_MAX = 4;
+
+/**
+ * The number of groups one chunk holds, from the expected count and one roll.
+ *
+ * @param chance the expected count, GROUP_CHANCE.day or .night
+ * @param r one number in [0, 1)
+ */
+export function groupsForChunk(chance, r) {
+  const c = clamp(num(chance), 0, GROUPS_PER_CHUNK_MAX);
+  const whole = Math.floor(c);
+  return Math.min(GROUPS_PER_CHUNK_MAX, whole + (num(r) < c - whole ? 1 : 0));
+}
 
 const SALT_GROUP = 0x9e37;
 const SALT_PICK = 0x85eb;
@@ -319,7 +341,8 @@ export function spawnsForChunk(field, cx, cz, opts = {}) {
   const night = !!opts.night;
   const x0 = cx * CHUNK, z0 = cz * CHUNK, mid = CHUNK / 2;
   const chance = opts.chance != null ? opts.chance : (night ? GROUP_CHANCE.night : GROUP_CHANCE.day);
-  if (rand2(cx, cz, seed + SALT_GROUP + (night ? 1 : 0)) >= chance) return [];
+  const groups = groupsForChunk(chance, rand2(cx, cz, seed + SALT_GROUP + (night ? 1 : 0)));
+  if (groups <= 0) return [];
 
   const sitesNear = opts.sitesNear || (() => []);
   const sites = sitesNear(x0 + mid, z0 + mid, CHUNK + 160) || [];
@@ -332,36 +355,44 @@ export function spawnsForChunk(field, cx, cz, opts = {}) {
   // Hangar, the Legion on the Kingsroad), so the realm's band does not cut it;
   // open country between the places keeps the cap.
   const band = HABITAT_BY_PLACE[place] ? null : (field.sampleAt(x0 + mid, z0 + mid).danger || null);
-  let roll = spawnRollFor(place, night, rng);
-  if (band) {
-    for (let k = 0; k < 6 && roll && (MONSTERS[roll.id]?.tier ?? 1) > band[1]; k++) roll = spawnRollFor(place, night, rng);
-    if (roll && (MONSTERS[roll.id]?.tier ?? 1) > band[1]) roll = null;
-  }
-  if (!roll) return [];
 
   const ctx = { sites, spawnPoint: opts.spawnPoint, spawnKeep: opts.spawnKeep };
-  const groupKey = `${cx},${cz}:${roll.id}`;
   const out = [];
-  let anchor = null;
-  for (let i = 0; i < roll.count; i++) {
-    let placed = null;
-    for (let t = 0; t < PLACE_TRIES; t++) {
-      const ra = rand2(cx * 131 + i * 17 + t, cz * 97 + t * 5, seed + SALT_PLACE);
-      const rb = rand2(cx * 89 + t * 11, cz * 149 + i * 23 + t, seed + SALT_PLACE + 1);
-      const x = anchor ? anchor.x + (ra - 0.5) * 2 * GROUP_SPREAD : x0 + 6 + ra * (CHUNK - 12);
-      const z = anchor ? anchor.z + (rb - 0.5) * 2 * GROUP_SPREAD : z0 + 6 + rb * (CHUNK - 12);
-      const s = field.sampleAt(x, z);
-      if (blockedAt(x, z, s, ctx)) continue;
-      placed = { x, z, y: s.h };
-      break;
+  // One PACK per pass, and each pass gets its own anchor, so two groups in one
+  // chunk are two camps and not one crowd. `g` is in the key of every group
+  // after the first, which leaves the first group's keys bit for bit what they
+  // were: a character's `deadUntil` list is keyed by these and a chunk cleared
+  // before M5 has to still be clear after it.
+  for (let g = 0; g < groups; g++) {
+    let roll = spawnRollFor(place, night, rng);
+    if (band) {
+      for (let k = 0; k < 6 && roll && (MONSTERS[roll.id]?.tier ?? 1) > band[1]; k++) roll = spawnRollFor(place, night, rng);
+      if (roll && (MONSTERS[roll.id]?.tier ?? 1) > band[1]) roll = null;
     }
-    if (!placed) continue;
-    if (!anchor) anchor = placed;
-    out.push({
-      id: roll.id, cx, cz, i, groupKey, night,
-      key: `${groupKey}:${i}`,
-      x: placed.x, z: placed.z, y: placed.y,
-    });
+    if (!roll) continue;
+
+    const groupKey = g === 0 ? `${cx},${cz}:${roll.id}` : `${cx},${cz}:${g}:${roll.id}`;
+    let anchor = null;
+    for (let i = 0; i < roll.count; i++) {
+      let placed = null;
+      for (let t = 0; t < PLACE_TRIES; t++) {
+        const ra = rand2(cx * 131 + i * 17 + t + g * 811, cz * 97 + t * 5 + g * 409, seed + SALT_PLACE);
+        const rb = rand2(cx * 89 + t * 11 + g * 277, cz * 149 + i * 23 + t + g * 653, seed + SALT_PLACE + 1);
+        const x = anchor ? anchor.x + (ra - 0.5) * 2 * GROUP_SPREAD : x0 + 6 + ra * (CHUNK - 12);
+        const z = anchor ? anchor.z + (rb - 0.5) * 2 * GROUP_SPREAD : z0 + 6 + rb * (CHUNK - 12);
+        const s = field.sampleAt(x, z);
+        if (blockedAt(x, z, s, ctx)) continue;
+        placed = { x, z, y: s.h };
+        break;
+      }
+      if (!placed) continue;
+      if (!anchor) anchor = placed;
+      out.push({
+        id: roll.id, cx, cz, i, groupKey, night,
+        key: `${groupKey}:${i}`,
+        x: placed.x, z: placed.z, y: placed.y,
+      });
+    }
   }
   return out;
 }
@@ -505,7 +536,13 @@ export function stepMonster(m, dt, ctx = {}) {
     if (ai.target && num(ai.target.health) <= 0) ai.target = null;
     // who it is on: the player, or an ally of theirs standing closer (the
     // dragon, D1); the first that is alive and inside the aggro radius
-    if (!ai.target) {
+    //
+    // `ctx.friendly` is a summon, and a summon has no aggro of its own: a
+    // raised skeleton that picked up the player because he walked within ten
+    // metres of it would turn on the necromancer who paid twenty mana for it.
+    // Its target is set by whoever owns it (ability_hooks.stepSummons) and by
+    // nothing else, and it keeps whatever it was given.
+    if (!ai.target && !ctx.friendly) {
       for (const cand of [player, ...(ctx.allies || [])]) {
         if (cand && num(cand.health) > 0 && aggroCheck(m, cand.pos)) { ai.target = cand; ai.alerted = now; break; }
       }
@@ -816,6 +853,10 @@ export function createMonsters(sc, runtime, opts = {}) {
   let levelL = null;            // the normalised layout of the level standing
   const stats = {
     alive: 0, spawned: 0, despawned: 0, killed: 0, capped: 0, chunks: 0,
+    // M5: records the sweep threw away because they were a SECOND copy of a
+    // boss or a named beast. Counted rather than assumed, so "there is only one
+    // Old Grist" is a number on the overlay and not a claim.
+    doubles: 0,
     shots: 0, casts: 0, interrupted: 0, slams: 0, summoned: 0, phases: 0,
     // wave A. Every one of these is incremented by exactly one branch below and
     // is what monsters.test.mjs counts instead of taking a mechanism on trust.
@@ -894,6 +935,9 @@ export function createMonsters(sc, runtime, opts = {}) {
       cast: null, lastHealth: num(actor.health),
       phase: 0, plan: isBoss(row) ? bossPlanFor(row) : [], plate: null,
       slamAt: 0, retreatUntil: 0, ephemeral: !!rec.ephemeral,
+      // A summon's flag, off by default, so no branch below ever reads
+      // undefined and a body cannot half belong to you. `spawnAlly` turns it on.
+      friendly: false,
       // --- wave A's tags. One record per monster, every clock zeroed, so no
       // branch below ever reads undefined and no tag can half exist.
       tags,
@@ -974,7 +1018,12 @@ export function createMonsters(sc, runtime, opts = {}) {
 
     // the player's own character steers the roll toward what they practise (L1);
     // a kill by the dragon or by another monster is nobody's class and spends no unique
-    const drop = loot?.rollFor ? loot.rollFor(mon.row, { luck: num(killer?.bonuses?.luck), seed: hashKey(mon.key), character: killer?.kind === 'player' ? playerCharacter : null }) : null;
+    // A SUMMON LEAVES NOTHING. It was never in the world's roll and its body is
+    // borrowed, so a sack off it would be a necromancer farming his own mana
+    // into loot twenty seconds at a time.
+    const drop = (!mon.friendly && loot?.rollFor)
+      ? loot.rollFor(mon.row, { luck: num(killer?.bonuses?.luck), seed: hashKey(mon.key), character: killer?.kind === 'player' ? playerCharacter : null })
+      : null;
     const bag = drop && loot?.drop ? loot.drop(mon.actor.pos, drop) : null;
     if (killer && killer.kind === 'player') {
       say(bag
@@ -1253,6 +1302,42 @@ export function createMonsters(sc, runtime, opts = {}) {
     return entry;
   }
 
+  /**
+   * ONE OF EACH ONE OF A KIND.
+   *
+   * A place's roster is rolled per chunk, and the Old Cellars are forty six
+   * chunks wide with Sergeant Oram Blackhand written into their table, so the
+   * roll wanted six of him. Measured on the real field at seed 20260904: six
+   * Orams and four Old Grists across the Greenwold, and at M5's densities more
+   * than one of each inside a single near ring. A second boss with the same
+   * name standing forty metres from the first is not a harder fight, it is a
+   * broken world.
+   *
+   * `wanted` comes in sorted by distance. A body already standing wins, so a
+   * boss is never yanked out from under a player who is walking up to him;
+   * otherwise the nearest wins. Everything that is not one of a kind passes
+   * straight through and nothing about the roll itself changes.
+   */
+  function oneOfEachUnique(wanted) {
+    let any = false;
+    for (const w of wanted) if (isUniqueRow(MONSTERS[w.rec.id])) { any = true; break; }
+    if (!any) return wanted;
+    const taken = new Map();      // monster id -> the one key we are keeping
+    for (const w of wanted) {
+      const id = w.rec.id;
+      if (!isUniqueRow(MONSTERS[id])) continue;
+      if (!taken.has(id) && live.has(w.rec.key)) taken.set(id, w.rec.key);
+    }
+    return wanted.filter((w) => {
+      const id = w.rec.id;
+      if (!isUniqueRow(MONSTERS[id])) return true;
+      const held = taken.get(id);
+      if (held) return held === w.rec.key;
+      taken.set(id, w.rec.key);
+      return true;
+    });
+  }
+
   function rescan(px, pz, night) {
     const [pcx, pcz] = field.chunkOf(px, pz);
     for (const [k, e] of [...chunks]) {
@@ -1270,8 +1355,10 @@ export function createMonsters(sc, runtime, opts = {}) {
     }
     stats.chunks = chunks.size;
     wanted.sort((a, b) => a.d2 - b.d2 || (a.rec.key < b.rec.key ? -1 : 1));
-    const keep = wanted.slice(0, cap);
-    stats.capped = wanted.length - keep.length;
+    const ranked = oneOfEachUnique(wanted);
+    stats.doubles = wanted.length - ranked.length;
+    const keep = ranked.slice(0, cap);
+    stats.capped = ranked.length - keep.length;
     const keepKeys = new Set(keep.map((w) => w.rec.key));
     // anything not in the keep set, and not currently fighting, goes away
     for (const [key, mon] of [...live]) {
@@ -1332,9 +1419,11 @@ export function createMonsters(sc, runtime, opts = {}) {
       wanted.push({ rec, d2: (rec.x - px) ** 2 + (rec.z - pz) ** 2 });
     }
     wanted.sort((a, b) => a.d2 - b.d2 || (a.rec.key < b.rec.key ? -1 : 1));
+    const ranked = oneOfEachUnique(wanted);
+    stats.doubles = wanted.length - ranked.length;
     const room = opts.dungeonCap ?? DUNGEON_CAP;
-    const keep = wanted.slice(0, room);
-    stats.capped = wanted.length - keep.length;
+    const keep = ranked.slice(0, room);
+    stats.capped = ranked.length - keep.length;
     const keepKeys = new Set(keep.map((w) => w.rec.key));
     for (const [key, mon] of [...live]) {
       if (keepKeys.has(key) || mon.ephemeral) continue;
@@ -1445,6 +1534,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       const settled = a.ai && a.ai.target && num(a.ai.target.health) > 0 ? a.ai.target : playerActor;
       const res = stepMonster(a, d, {
         player: playerActor, now: lastNow, heightAt,
+        friendly: !!mon.friendly,
         allies: typeof opts.allies === 'function' ? opts.allies() : undefined,
         clampXZ: under ? clampXZ : undefined,
         // the reach to whoever it settled on, not always the player: a wolf on
@@ -1464,7 +1554,10 @@ export function createMonsters(sc, runtime, opts = {}) {
         dormant,
         rng,
       });
-      if (!before && a.ai.target) alertGroup(mon, a.ai.target);
+      // a summon has no pack to call; alertGroup would pull the roster's other
+      // skeletons onto ITS target, which is a necromancer starting fights he
+      // never chose by raising one body
+      if (!before && a.ai.target && !mon.friendly) alertGroup(mon, a.ai.target);
 
       // Anything still hanging above the floor, and the fall when it lets go.
       stepAloft(mon, d);
@@ -1475,7 +1568,13 @@ export function createMonsters(sc, runtime, opts = {}) {
       const speed = d > 0 ? res.moved / d : 0;
       mon.lastSpeed = speed;
 
-      const onPlayer = combat && playerActor && a.ai.target === playerActor;
+      // A SUMMON NEVER SWINGS AT ITS OWN CASTER, and this is the one line that
+      // guarantees it whatever else goes wrong upstream: `onPlayer` gates the
+      // swing, the cast and everything stepCast does, so a friendly body that
+      // somehow ended up pointed at the player stands there instead of hitting
+      // him. Belt as well as braces, because the cost of the alternative is the
+      // player being killed by the thing he paid for.
+      const onPlayer = combat && playerActor && a.ai.target === playerActor && !mon.friendly;
       stepCast(mon, took, res, playerActor, onPlayer);
 
       if (res.wantSwing && onPlayer) {
@@ -2278,7 +2377,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     const out = [];
     // A hidden one is genuinely not there: an ambusher you could put a cursor on
     // is not an ambush, it is a monster with an invisible skin.
-    for (const mon of live.values()) if (num(mon.actor.health) > 0 && !mon.hidden) out.push(mon.model.group);
+    for (const mon of live.values()) if (num(mon.actor.health) > 0 && !mon.hidden && !mon.friendly) out.push(mon.model.group);
     return out;
   }
 
@@ -2306,7 +2405,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     const fx = Math.sin(num(yaw)), fz = Math.cos(num(yaw));
     for (const mon of live.values()) {
       const a = mon.actor;
-      if (num(a.health) <= 0 || mon.hidden) continue;
+      if (num(a.health) <= 0 || mon.hidden || mon.friendly) continue;
       const dx = num(a.pos.x) - num(pos?.x), dz = num(a.pos.z) - num(pos?.z);
       const d = Math.hypot(dx, dz);
       if (d > bd || d < 1e-6) continue;
@@ -2317,7 +2416,9 @@ export function createMonsters(sc, runtime, opts = {}) {
     return best;
   }
 
-  return {
+  // Named, not returned inline, because `spawnAlly` calls two of its own
+  // siblings and a bare object literal has no name to reach them through.
+  const api = {
     group, stats, update, targets, pick, nearestHostile,
     /** Dead bodies within r of pos, nearest first: { key, id, actor, row, pos, skinned }. */
     corpsesNear(pos, r = 3) {
@@ -2357,8 +2458,51 @@ export function createMonsters(sc, runtime, opts = {}) {
       const key = `dev:${id}:${devSpawnN}`;
       return spawn({ id, x, z, key, groupKey: key, ephemeral: true });
     },
-    /** Every live actor, for area effects and the cone. targets() is the meshes for picking. */
-    actors: () => [...live.values()].filter((m) => num(m.actor.health) > 0 && !m.hidden).map((m) => m.actor),
+    /**
+     * A summon: the same spawner, the same model, the same actor, with the
+     * friendly flag on. `ephemeral` keeps it out of the character's dead list,
+     * `friendly` keeps it out of `actors()`, `nearestHostile()` and `targets()`
+     * and out of the aggro pass in `stepMonster`, and `faction` is what
+     * `targeting.isTargetable` and the abilities runtime's `inArea` read.
+     *
+     * ONE SPAWNER, NOT TWO. A second code path for summoned bodies would have
+     * been a second set of models to load, a second death, a second despawn and
+     * a second thing to forget when the world moves. See ability_hooks.js.
+     */
+    spawnAlly(id, x, z) {
+      const mon = api.spawnAt(id, x, z);
+      if (mon) api.makeAlly(mon);
+      return mon;
+    },
+    /** Turn a body that is already standing. Beast Call, which raises nothing. */
+    makeAlly(mon) {
+      if (!mon) return null;
+      mon.friendly = true;
+      mon.actor.faction = 'player';
+      mon.actor.summoned = true;
+      mon.actor.ai = mon.actor.ai || {};
+      mon.actor.ai.target = null;
+      dropPlate(mon);
+      return mon;
+    },
+    /** Give it back to the world: what Beast Call's half minute ends with. */
+    releaseAlly(mon) {
+      if (!mon) return null;
+      mon.friendly = false;
+      mon.actor.faction = 'hostile';
+      mon.actor.summoned = false;
+      if (mon.actor.ai) { mon.actor.ai.target = null; mon.actor.ai.state = 'idle'; }
+      return mon;
+    },
+    /**
+     * Every live HOSTILE actor, for area effects and the cone. `targets()` is
+     * the meshes for picking. A friendly body is deliberately not in here: this
+     * list is what a Whirlwind cuts and what `nearestHostile` walks, and your
+     * own champion belongs in neither. `friendlies()` is the other half.
+     */
+    actors: () => [...live.values()].filter((m) => num(m.actor.health) > 0 && !m.hidden && !m.friendly).map((m) => m.actor),
+    /** Every live actor standing for the player: summons, and what Beast Call called. */
+    friendlies: () => [...live.values()].filter((m) => num(m.actor.health) > 0 && m.friendly).map((m) => m.actor),
     /** Every live monster record. Debug, the HUD and the tests. */
     all: () => [...live.values()],
     get count() { return live.size; },
@@ -2461,6 +2605,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       scene?.remove?.(group);
     },
   };
+  return api;
 }
 
 
@@ -2481,6 +2626,7 @@ export function createMonsters(sc, runtime, opts = {}) {
 //   'monsters.js'    this file, named function
 //   'monster_ai.js'  the ranged table, the spells, the boss plans
 //   'actor.js'       a resist, a weakness, a natural guard, a regeneration
+//   'loot_drops.js'  what the kill leaves on the ground
 //   'roster'         src/mmo/monsters.js itself: spawn tables and its audits
 //   'descriptive'    a TRUE statement about a number already on the row. There
 //                    is nothing to read and nothing missing.
@@ -2571,7 +2717,7 @@ export const TAG_RULES = {
   manaDrain: ['unwired', 'no monster takes mana'],
   phylactery: ['unwired', 'nothing stands back up'],
   // --- what it leaves
-  coinPurse: ['unwired', 'the gold is the tier band or the row gold; the word adds nothing'],
+  coinPurse: ['loot_drops.js', 'rollFor() multiplies the kill gold by monsters.purseMultiplier(row): the row `purse`, or DEFAULT_PURSE'],
   lootTwice: ['descriptive', 'loot.js rolls twice off the TIER and off boss, not off this word'],
   purpleFloor: ['descriptive', 'loot.js floors a boss at epic off boss, not off this word'],
   champion: ['unwired', 'only isBoss gets a name plate; a champion gets none'],
@@ -2593,7 +2739,7 @@ export function tagRuleCounts() {
  */
 export function auditTagRules() {
   const bad = [];
-  const wheres = new Set(['monsters.js', 'monster_ai.js', 'actor.js', 'events.js', 'roster', 'descriptive', 'unwired']);
+  const wheres = new Set(['monsters.js', 'monster_ai.js', 'actor.js', 'events.js', 'loot_drops.js', 'roster', 'descriptive', 'unwired']);
   for (const tag of NOTE_TAGS) {
     const rule = TAG_RULES[tag];
     if (!rule) { bad.push(`note tag "${tag}" has no row in TAG_RULES: say where it is acted on, or say 'unwired'`); continue; }

@@ -149,7 +149,7 @@ wake across the Caldera Sea and a kraken follows the whales.
 | Raider | 58 | 8 to 15 | 2.5 | 43 | 38 | 14 | 6.4 | 14 | group, sharesAggro, coinPurse, charges |
 | Musk Ox | 80 | 9 to 16 | 3.4 | 30 | 22 | 18 | 6 | 8 | snowOnly, charges, group |
 | Coral Crab | 46 | 7 to 12 | 2.6 | 36 | 30 | 22 | 3.6 | 8 | coastOnly, group, poison1 |
-| Will o' Wisp | 34 | 6 to 12 | 2.0 | 44 | 45 | 0 | 7 | 12 | flying, erratic, fenOnly, casts, incorporeal50 |
+| Will o' Wisp | 34 | 6 to 12 | 2.0 | 44 | 45 | 0 | 7 | 12 | flying, erratic, casts, incorporeal50 (M5 took `fenOnly` off it) |
 
 **Tier 3, wave A** (the same band: 50 to 65 skill, 30 to 80 gold)
 | monster | hp | dmg | spd | hit | def | AR | run | aggro | notes |
@@ -173,6 +173,47 @@ wake across the Caldera Sea and a kraken follows the whales.
 | monster | hp | dmg | spd | hit | def | AR | run | aggro | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Old Grist | 210 | 16 to 28 | 2.6 | 58 | 46 | 20 | 8.5 | 16 | charges, knockback, alpha |
+
+**Wave M5** (the Greenwold, and everywhere else the rows fit)
+
+The first realm had six rows walking its open country by night and seven by
+day, and a player who walked it twice met the same six twice. These are nine
+more things to meet there, all of them inside the realm's own danger band of
+tier 1 to tier 2, and all of them written into the biome tables as well as into
+the named places, so a wild dog is a thing the meadow has and not a thing the
+Greenwold has.
+
+Six of the nine are new rows. Three are rows that already existed and were
+standing nowhere a player walks: the Giant Spider and the Goblin Warrior are
+now in the Beech Hangar after dark, and the Will o' Wisp has lost its `fenOnly`
+tag, which was a placement guard and nothing else, and stands over the Mill
+Run's water meadow and in the flooded nave of the Sunken Chapel.
+
+| monster | tier | hp | dmg | spd | hit | def | AR | run | aggro | group | notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Wild Dog | 1 | 26 | 3 to 7 | 2.4 | 22 | 22 | 3 | 7.5 | 12 | 3 to 5 | group, sharesAggro, howl |
+| Badger | 1 | 34 | 4 to 9 | 3.0 | 20 | 16 | 10 | 5.2 | 6 | 1 to 2 | nightOnly, awakens, thickHide |
+| Bandit Archer | 2 | 46 | 7 to 12 | 2.5 | 41 | 40 | 10 | 6.2 | 14 | 2 to 3 | group, sharesAggro, bow |
+| Highwayman | 2 | 60 | 9 to 15 | 2.6 | 44 | 42 | 16 | 6.5 | 14 | 2 to 3 | group, sharesAggro, coinPurse, ambush |
+| Scarecrow | 2 | 58 | 8 to 14 | 3.4 | 32 | 12 | 6 | 3.6 | 10 | 1 to 2 | undead, holyWeak, fireWeak, nightOnly, awakens |
+
+The Fox is the sixth and it is a tier 0 row that already existed; M5 put it into
+the meadow's night list, so the Greenwold has a fox in it and not only the
+Beech Hangar and the Standing Hedge.
+
+Two numbers on rows that already existed also moved:
+
+- The Wolf's group is 3 to 4 and was 2 to 4. "The first wolves after dark" is a
+  pack, and a pair reads as two dogs having a disagreement. It also carries
+  `sharesAggro` now, which it should always have: pulling one wolf pulls the
+  pack.
+- `coinPurse` is a real number for the first time. It was carried by the
+  Bandit, the Raider, Sergeant Oram Blackhand and Huntmaster Gallow and read by
+  nothing at all, so a bandit's purse was a rat's purse with a better name. A
+  row that carries the tag now has its kill gold multiplied by its own `purse`,
+  or by `DEFAULT_PURSE` (1.5) where it names none, and the Highwayman names
+  2.5. A tier 2 purse at 1.5 is 18 to 45 gold against the band's 12 to 30,
+  which is over the band and still short of tier 3's 30 to 80.
 
 **Tier 4, wave A** (the same band: 70 to 85 skill, 80 to 250 gold)
 | monster | hp | dmg | spd | hit | def | AR | run | aggro | notes |

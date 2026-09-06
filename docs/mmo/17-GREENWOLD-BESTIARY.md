@@ -41,7 +41,7 @@ meat and hide.
 | Rabbit | meadow, ones to threes | small, long ears | sit up, hop cycle instead of walk, bolt in zigzag |
 | Field Mouse | meadow, ones and twos | tiny; will be seen at grass height | scurry, freeze |
 | Frog | wet ground and shore | small | sit, hop, a throat pulse in the idle |
-| Fox | the Beech Hangar and the Standing Hedge, ones and twos | low, brush tail | trot, an erratic approach (its path wanders rather than running straight), pounce is not needed |
+| Fox | the Beech Hangar, the Standing Hedge, and the open meadow after dark, ones and twos | low, brush tail | trot, an erratic approach (its path wanders rather than running straight), pounce is not needed |
 | Goose | the Mill Run, in twos to sixes | upright bird, walks and swims | waddle, wing flap threat, peck idle; the flock moves as one group |
 | Crow | meadow and shore, twos to fives | black bird | perch, take off, flap and glide, land, hop on the ground |
 | Gull | the shore, twos to sixes | white bird | as the crow, plus a stand into the wind |
@@ -59,10 +59,17 @@ hawk (45, rat meat). A tamed animal will need a follow and a sit.
 ## 3. The monsters of the open Greenwold and its places
 
 The realm's danger band is tier 1 to 2, so open country between the named places
-spawns both: giant rats and goblin scouts beside boar, bandits, raiders and the
-Legion by day, and zombies and skeletons beside wolves, bandits and the Legion
-by night. Rolled over the real Greenwold at four thousand chunks a pass, the mix
-comes out about 28 per cent tier 1 and 72 per cent tier 2 by day and by night.
+spawns both: giant rats, goblin scouts and wild dogs beside boar, bandits,
+bandit archers, raiders and the Legion by day, and zombies, skeletons and
+badgers beside wolves, spiders, scarecrows, bandits and the Legion by night.
+
+Rolled over the real Greenwold at seed 20260904, 3,978 open chunks a pass, and
+counted rather than claimed: 14 rows and 366 bodies per square kilometre by day,
+34 per cent of them tier 1; 15 rows and 587 bodies per square kilometre by
+night, 20 per cent tier 1, 74 per cent tier 2, and 6 per cent the fox, which is
+tier 0 and is not a fight. Before M5 it was 10 rows and 164 bodies per square
+kilometre by day and 11 rows and 352 by night.
+
 The named places carry their own tables and are allowed above the band, so the
 Old Cellars keep the goblin warrior and Oram Blackhand. This is the code as of
 today, and the wiki's "who lives where" table is now what actually spawns.
@@ -107,7 +114,7 @@ green and grey from the first morning. See docs/mmo/wiring/C3-CON-KITE.md.
 - **Moves:** swing (a fast rapier thrust and a dagger slash, two variants), run at 6 m/s, flee at a quarter health with a look back.
 
 ### Wolf (tier 2, beast)
-- **Where:** everywhere at night: the Mill Run, the Beech Hangar, the Kingsroad, the Standing Hedge, Highwayman's Hollow. Packs of two to four.
+- **Where:** everywhere at night: the Mill Run, the Beech Hangar, the Kingsroad, the Standing Hedge, Highwayman's Hollow. Packs of three to four, never one and never two.
 - **Body:** 0.8 m at the shoulder, lean.
 - **Moves:** lope (run at 8.5 m/s, the fastest thing in the zone), bite, a circling idle when it is near you, flee low with the tail down, die. **The Fox That Is Not** is a wolf that walks like a fox at dusk; a slightly wrong fox gait on the wolf body would be enough.
 
@@ -147,6 +154,51 @@ green and grey from the first morning. See docs/mmo/wiring/C3-CON-KITE.md.
 - **Moves:** a sideways scuttle for both walk and run, a claw snap swing, hurt, die. The Salt Crab **grabs**: it takes hold and squeezes for two seconds, so a clamp and hold clip on it and a held pose on the player.
 - The rest of the beach table (Coral Crab, Drowned Marine, Reef Eel, Harpy) is tier 2 and 3 and the Greenwold's band cuts it. They belong to the Saltmarch and are not needed for this zone.
 
+## 3a. What M5 added, and why each one is here
+
+The Greenwold had six rows walking its open country after dark and seven by
+day. A player who walked it twice met the same six twice, and the complaint was
+the honest one: not enough of them, and not enough kinds. These are the nine
+that were added, and the last three of them are rows that already existed and
+were standing nowhere anybody walks.
+
+### Wild Dog (tier 1, beast, wolf body, three quarters the size)
+- **Where:** the open meadow by day, the Mill Run, the Chalk Pits yard, the Beech Hangar, and any bandit camp anywhere. In threes to fives.
+- **Body:** somebody's dogs, three farms and two winters ago: a lurcher, a collie and whatever the collie had. Sand and liver, not wolf grey, and three quarters of a wolf's height. Ribs showing, tails down.
+- **Moves:** a working trot, a bite, a run at 7.5 m/s, flee low. They pull each other in: one of them baying brings every wild dog within thirty metres, once. They work a field the way they were taught to work sheep, which is the only thing about them that is still tame.
+
+### Badger (tier 1, beast, wolf body, half the size)
+- **Where:** the Beech Hangar's setts and the Standing Hedge, at night and never by day. Ones and twos. Also the boreal woods, which have setts too.
+- **Body:** a metre of muscle and grey bristle with a striped head, near black on the box rig until it has one of its own. Low, wide, unhurried.
+- **Moves:** it does not aggro. It is visible and it is inert until you are inside four metres of it, and then it fights, and it is armoured for a tier 1 (AR 10) because a badger is. Walk past it and nothing happens; walk over it and something does. Flee at a quarter health.
+
+### Bandit Archer (tier 2, humanoid, biped, hedgerow green)
+- **Where:** the open meadow by day and night, the Kingsroad, Highwayman's Hollow, the mouth of the Old Cellars, any bandit camp. Twos and threes, and they share aggro with the rest of the camp.
+- **Body:** a poacher who took the other work. A hunting bow, a hood, no armour worth the name.
+- **Moves:** he is a **shooter**, same mode as the Legion Archer: he draws and shoots at range and holds his ground when you close, drawing a dagger inside sword reach. So: nock, draw, release; dagger swing; run at 6.2 m/s; flee low. He stands on the lip of the hollow while the rest of them are down in it.
+
+### Highwayman (tier 2, humanoid, biped, a good dark coat)
+- **Where:** the Kingsroad and Highwayman's Hollow, and bandit camps in other realms. Nowhere else in the open Greenwold, because he is a road robber and the Kingsroad is the only road. Twos and threes.
+- **Body:** a bandit who has done well. A good coat off a merchant, a rapier off a guard, boots that fit, a scarf up over the face because there is a bounty board at both ends of the road with his description on it.
+- **Moves:** he **ambushes**. He is not there until you are six metres from him, and the first blow he lands is doubled. Then a rapier thrust, a run at 6.5 m/s, flee low with a look back. He is the richest thing in the realm that is not a boss: his purse pays two and a half times the tier, which is 30 to 75 gold against the tier's 12 to 30.
+
+### Scarecrow (tier 2, undead, biped, straw and sacking)
+- **Where:** the open meadow at night, the Mill Run's fields, and any ruin or graveyard anywhere in the world. Never by day. Ones and twos.
+- **Body:** the one in the far field, on its pole, in Wynn Ashby's old coat. Straw at the wrists and out of the collar, a sack for a head, and it should be built as a thing hanging rather than a thing standing.
+- **Moves:** it hangs on the pole and it does nothing at all until you are four metres away. Then it comes down off the pole, and that is the one clip this body needs that nothing else in the zone has: **the drop off the pole**. After that a slow heavy swing, a shamble at 3.6 m/s, and it **never flees**, because it is not alive and it has nowhere to go. Holy hurts it double and so does fire, and fire on a straw man should look like fire on a straw man.
+
+### Giant Spider (tier 2, the row already existed)
+- Now in the Beech Hangar at night and in the old cuts of the Chalk Pits, as well as the open meadow after dark and the brick of the Old Cellars. Same body, same poison, same web. It was written and it was standing in the Verdant Deep and the desert and nowhere a first character walks.
+
+### Goblin Warrior (tier 2, the row already existed)
+- Now in the Beech Hangar at night as well as in the Old Cellars. They come up out of the cellars after dark and they go back down before light, which is why the wood has them and the daylight does not.
+
+### Will o' Wisp (tier 2, the row already existed)
+- Now over the Mill Run's water meadow and in the flooded nave of the Sunken Chapel, at night. It had a `fenOnly` tag on it, which was a placement guard and nothing else, and it was the one thing keeping a light over standing water out of the only two places in the first realm that have standing water. It flies, its path wanders rather than running straight, it casts at range, and half of all physical damage passes through it, so a first character with a sword is going to want a reason to leave it alone.
+
+### The wolves, and the packs generally
+- A wolf group is three to four and was two to four. The realm sheet says "the first wolves after dark" and a pair reads as two dogs having a disagreement. Wolves also share aggro now, which they always should have: pull one and the pack comes, out to eight metres.
+
 ## 4. The boss: Sergeant Oram Blackhand (the Old Cellars)
 
 - **Body:** a bandit wearing half a Legion uniform he was given last month and has not earned: black coat, brass gorget, a sack of eggshell at his belt he will not put down even to fight. Longsword. 1.9 m. The plate over his head says champion and his name is purple.
@@ -166,7 +218,21 @@ green and grey from the first morning. See docs/mmo/wiring/C3-CON-KITE.md.
 
 ## 6. Counted
 
-30 rows are named for the Greenwold or its shore: 9 animals, 16 monsters,
+35 rows are named for the Greenwold or its shore: 9 animals, 21 monsters,
 1 boss, and 4 beach rows the band cuts. The named encounters (Old Grist, the
 Fox That Is Not, the Tithe Wagon, the Legion convoy) are variants and events
 on these bodies and need no body of their own.
+
+Five of the twenty one monsters are M5's new rows (Wild Dog, Badger, Bandit
+Archer, Highwayman, Scarecrow) and four are rows that already existed and were
+moved somewhere a player walks (Giant Spider, Goblin Warrior, Will o' Wisp, and
+the Fox, which is one of the nine animals).
+
+**What still has no body of its own.** Every one of the five new rows borrows a
+family and is told from its family by a colour and a size, which is enough to
+read at forty metres and is not enough to be finished. In modelling order: the
+Scarecrow, which is the only genuinely new silhouette here and is currently a
+tinted human; the Badger and the Wild Dog, which are both the wolf box at half
+and three quarters scale; then the Highwayman and the Bandit Archer, which are
+the human stand-in and can wait, because a man in a coat with a bow reads as a
+man in a coat with a bow.

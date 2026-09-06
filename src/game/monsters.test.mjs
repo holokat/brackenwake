@@ -29,6 +29,7 @@ import {
   createMonsters, makeMonsterActor, stepMonster, stepToward, stepAway, speedOf,
   spawnsForChunk, placeFor, blockedAt, poisonLevelOf, sharesAggro, naturalWeapon,
   ALIVE_CAP, SPAWN_KEEP, GROUP_AGGRO_M, GROUP_CHANCE, NEAR_RING, WANDER_R, FLEE_BREAK_M,
+  groupsForChunk, GROUPS_PER_CHUNK_MAX, GROUP_SPREAD,
   PROJECTILE_S, DUNGEON_CAP,
   // M3: the twenty one tags of wave A
   TAG_RULES, auditTagRules,
@@ -369,16 +370,31 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   check('and by night it is wolves, skeletons and zombies',
     nightIds.has('wolf') && nightIds.has('skeleton') && nightIds.has('zombie') && !nightIds.has('boar'), [...nightIds].join(', '));
 
-  // the density interpretation, measured rather than asserted
-  let dayChunks = 0, nightChunks = 0, n = 0;
+  // the density interpretation, measured rather than asserted.
+  //
+  // M5 made GROUP_CHANCE an EXPECTED COUNT and not a probability: at the night
+  // spacing of 60 m it is 1.07, and the count is what has to be measured, since
+  // a fraction of chunks can never come to more than 1. Groups, not chunks, so
+  // the second camp in a chunk is counted.
+  let dayGroups = 0, nightGroups = 0, n = 0;
+  const groupsIn = (recs) => new Set(recs.map((r) => r.groupKey)).size;
   for (let cz = -20; cz <= 20; cz++) for (let cx = -20; cx <= 20; cx++) {
     n++;
-    if (spawnsForChunk(field, cx, cz, { night: false, spawnPoint }).length) dayChunks++;
-    if (spawnsForChunk(field, cx, cz, { night: true, spawnPoint }).length) nightChunks++;
+    dayGroups += groupsIn(spawnsForChunk(field, cx, cz, { night: false, spawnPoint }));
+    nightGroups += groupsIn(spawnsForChunk(field, cx, cz, { night: true, spawnPoint }));
   }
-  const dayRate = dayChunks / n, nightRate = nightChunks / n;
-  check('about one chunk in six holds a group by day', Math.abs(dayRate - GROUP_CHANCE.day) < 0.05, `${(dayRate * 100).toFixed(1)}% against ${(GROUP_CHANCE.day * 100).toFixed(1)}%`);
-  check('and better than two in five at night', Math.abs(nightRate - GROUP_CHANCE.night) < 0.05, `${(nightRate * 100).toFixed(1)}% against ${(GROUP_CHANCE.night * 100).toFixed(1)}%`);
+  const dayRate = dayGroups / n, nightRate = nightGroups / n;
+  check('a chunk holds GROUP_CHANCE.day groups by day', Math.abs(dayRate - GROUP_CHANCE.day) < 0.05, `${dayRate.toFixed(3)} against ${GROUP_CHANCE.day.toFixed(3)}`);
+  check('and GROUP_CHANCE.night by night', Math.abs(nightRate - GROUP_CHANCE.night) < 0.05, `${nightRate.toFixed(3)} against ${GROUP_CHANCE.night.toFixed(3)}`);
+  check('the night is denser than the day, and by the ratio of the two spacings',
+    nightRate > dayRate && Math.abs((nightRate / dayRate) - (GROUP_CHANCE.night / GROUP_CHANCE.day)) < 0.15,
+    `${(nightRate / dayRate).toFixed(2)}x against ${(GROUP_CHANCE.night / GROUP_CHANCE.day).toFixed(2)}x`);
+  // and the roll that makes a fraction of a group real, both directions
+  check('a chance of 1.5 is one group always and a second half the time',
+    groupsForChunk(1.5, 0) === 2 && groupsForChunk(1.5, 0.49) === 2 && groupsForChunk(1.5, 0.5) === 1 && groupsForChunk(1.5, 0.99) === 1);
+  check('a chance under 1 is nothing at all some of the time',
+    groupsForChunk(0.58, 0.1) === 1 && groupsForChunk(0.58, 0.9) === 0);
+  check('and nothing rolls more than GROUPS_PER_CHUNK_MAX', groupsForChunk(99, 0.99) === GROUPS_PER_CHUNK_MAX);
 
   // water, and the ocean, which nothing walks on
   check('a hoof in the water is refused', blockedAt(0, 0, { water: true, river: 0 }, {}) === 'water');
@@ -400,7 +416,11 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   const field = stubField();
   const scene = new THREE.Group();
   const runtime = stubRuntime(field);
-  const monsters = createMonsters(scene, runtime, { groupChance: 1, rng: seeded(11), spawnPoint: { x: 1e6, z: 1e6 } });
+  // Three groups a chunk, which is over any spacing the game ships, because the
+  // point of this block is the cap and not the density: at one group a chunk
+  // the 49 chunks of the near ring want about 110 bodies and a cap of 140 would
+  // never be reached, so nothing would be proved.
+  const monsters = createMonsters(scene, runtime, { groupChance: 3, rng: seeded(11), spawnPoint: { x: 1e6, z: 1e6 } });
   const player = fakePlayer(20 * CHUNK, 20 * CHUNK);
   monsters.update(1 / 60, 1000, player, true);
   const wanted = monsters.stats.capped + monsters.count;
@@ -418,9 +438,51 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
     player.pos.x += CHUNK * 3;
     monsters.update(1 / 60, 1000 + i * 1000, player, true);
   }
-  check('and it still holds after walking 18 chunks', monsters.count <= ALIVE_CAP, `${monsters.count}`);
+  // The cap is a SWEEP cap and not a hard ceiling, and it never was: rescan()
+  // refuses to vanish a body that has a target, because a wolf disappearing
+  // out of a fight is worse than a wolf over the cap. So the claim is the cap
+  // plus whatever is mid fight, and both halves are counted here rather than
+  // assumed. Before M5 this passed at a cap of 80 by luck, with nothing in the
+  // ring fighting at the moment it was asked.
+  const fighting = monsters.all().filter((m) => m.actor.ai && m.actor.ai.target).length;
+  check('and it still holds after walking 18 chunks, but for the ones mid fight',
+    monsters.count <= ALIVE_CAP + fighting,
+    `${monsters.count} standing, ${fighting} in a fight, cap ${ALIVE_CAP}`);
   monsters.dispose();
   check('disposing takes every body out of the scene', scene.children.length === 0);
+}
+
+// ============================================== one of each one of a kind (M5)
+//
+// A place's roster is rolled per chunk and a boss is written into his own
+// lair's table, so the roll wants one of him per chunk that lands on him. The
+// Old Cellars are forty six chunks wide. Both directions: the boss is deduped
+// and the giant rat, which is a kind of animal and not an animal, is not.
+{
+  const field = stubField({ zone: () => 'oldcellars' });
+  const scene = new THREE.Group();
+  const monsters = createMonsters(scene, stubRuntime(field), {
+    groupChance: 3, rng: seeded(31), spawnPoint: { x: 1e6, z: 1e6 },
+  });
+  const player = fakePlayer(40 * CHUNK, 40 * CHUNK);
+  monsters.update(1 / 60, 1000, player, false);
+  const count = (id) => monsters.all().filter((m) => m.row.id === id).length;
+  check('the roll wanted more than one Sergeant Oram Blackhand', monsters.stats.doubles > 0,
+    `${monsters.stats.doubles} second copies thrown away`);
+  check('and exactly one of him is standing', count('oramBlackhand') === 1, `${count('oramBlackhand')}`);
+  check('while the giant rats, a kind and not a creature, are not touched', count('giantRat') > 1,
+    `${count('giantRat')} rats`);
+
+  // and he stays the SAME one across a sweep: an already standing boss wins
+  // over a nearer record, so nobody watches him blink out and back in.
+  const was = monsters.all().find((m) => m.row.id === 'oramBlackhand');
+  const key = was && was.key;
+  player.pos.x += CHUNK;
+  monsters.update(1 / 60, 2000, player, false);
+  const now2 = monsters.all().find((m) => m.row.id === 'oramBlackhand');
+  check('and he is still the same body after the player has walked a chunk',
+    !!now2 && now2.key === key, `${key} then ${now2 && now2.key}`);
+  monsters.dispose();
 }
 
 // ======================================================== the group, the aggro
@@ -445,6 +507,87 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   check(`and it is ${GROUP_AGGRO_M} m away from its friend, which is inside the sharing radius`,
     Math.abs(line[1].pos.z - line[0].pos.z) <= GROUP_AGGRO_M);
   monsters.dispose();
+}
+
+// ================================================================ packs (M5)
+//
+// "A wolf pack, a dog pack and a goblin band spawn together." Measured on the
+// roll itself and then on the pull, because a pack that spawns in one place and
+// then fights one at a time is not a pack.
+{
+  const field = stubField({ zone: () => 'beechhangar' });
+  const spawnPoint = { x: 1e6, z: 1e6 };
+  const packs = { wolf: [], wildDog: [], goblinScout: [] };
+  let spread = 0, biggest = 0;
+  for (let cz = -30; cz <= 30; cz++) for (let cx = -30; cx <= 30; cx++) {
+    const recs = spawnsForChunk(field, cx, cz, { night: true, spawnPoint, chance: 1 });
+    const byGroup = new Map();
+    for (const r of recs) {
+      if (!byGroup.has(r.groupKey)) byGroup.set(r.groupKey, []);
+      byGroup.get(r.groupKey).push(r);
+    }
+    for (const members of byGroup.values()) {
+      if (packs[members[0].id]) packs[members[0].id].push(members.length);
+      if (members.length > biggest) biggest = members.length;
+      for (const a of members) for (const b of members) {
+        const d = Math.hypot(a.x - b.x, a.z - b.z);
+        if (d > spread) spread = d;
+      }
+    }
+  }
+  const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  check('a wolf group is three to four bodies, never one and never two',
+    packs.wolf.length > 20 && Math.min(...packs.wolf) >= 3 && Math.max(...packs.wolf) <= 4,
+    `${packs.wolf.length} packs, ${mean(packs.wolf).toFixed(2)} wolves each`);
+  // Each member is the anchor plus or minus GROUP_SPREAD in x AND in z, so the
+  // furthest two members of a group can be that box's diagonal apart and no
+  // more. Measured, because "they spawn together" is worth nothing as a claim.
+  const maxApart = GROUP_SPREAD * 2 * Math.SQRT2;
+  check(`and no two members of any group stand more than ${maxApart.toFixed(1)} m apart`,
+    spread <= maxApart + 0.001, `${spread.toFixed(1)} m at the widest, over groups of up to ${biggest}`);
+  check('the roster says a wolf pack is 3 to 4, a dog pack 3 to 5 and a goblin band 2 to 3',
+    MONSTERS.wolf.group.join() === '3,4' && MONSTERS.wildDog.group.join() === '3,5' && MONSTERS.goblinScout.group.join() === '2,3');
+  check('and all three hunt together, while a boar and a thorn grub do not',
+    sharesAggro(MONSTERS.wolf) && sharesAggro(MONSTERS.wildDog) && sharesAggro(MONSTERS.goblinScout)
+    && !sharesAggro(MONSTERS.boar) && !sharesAggro(MONSTERS.thornGrub));
+
+  // The pull, through the real update loop. The pack stands as it really spawns,
+  // a cluster inside GROUP_SPREAD, and the player is put JUST outside every
+  // member's own aggro but for one, so what is being measured is alertGroup and
+  // not five monsters each noticing him separately.
+  const cluster = [[0, 0], [5, 0], [0, 5], [5, 5], [-5, 0]];
+  const pull = (id, n, standOff) => {
+    const sc2 = new THREE.Group();
+    const pack = createMonsters(sc2, stubRuntime(stubField()), { groupChance: 0, rng: seeded(77) });
+    for (let i = 0; i < n; i++) pack.spawnAt(id, cluster[i][0], cluster[i][1]);
+    const p2 = fakePlayer(0, -standOff);
+    p2.pos.y = 3;
+    pack.update(1 / 60, 1000, p2, true);
+    pack.update(1 / 60, 1016, p2, true);
+    const onIt = pack.all().filter((m) => m.actor.ai && m.actor.ai.target === p2).length;
+    pack.dispose();
+    return onIt;
+  };
+  const alone = (id, n, standOff) => {
+    // the same stand off, with the sharing switched off by distance: every
+    // member moved out past GROUP_AGGRO_M of the one that sees him
+    const sc2 = new THREE.Group();
+    const pack = createMonsters(sc2, stubRuntime(stubField()), { groupChance: 0, rng: seeded(78) });
+    for (let i = 0; i < n; i++) pack.spawnAt(id, i * (GROUP_AGGRO_M + 4), 0);
+    const p2 = fakePlayer(0, -standOff);
+    p2.pos.y = 3;
+    pack.update(1 / 60, 1000, p2, true);
+    pack.update(1 / 60, 1016, p2, true);
+    const onIt = pack.all().filter((m) => m.actor.ai && m.actor.ai.target === p2).length;
+    pack.dispose();
+    return onIt;
+  };
+  for (const [id, n, standOff, word] of [['wolf', 4, 13.5, 'pack'], ['wildDog', 5, 11.5, 'pack'], ['goblinScout', 3, 11, 'band']]) {
+    const came = pull(id, n, standOff);
+    check(`pulling one of a ${word} of ${n} ${MONSTERS[id].name} pulls all of it`, came === n, `${came} of ${n} came`);
+    const solo = alone(id, n, standOff);
+    check(`and spread past ${GROUP_AGGRO_M} m only the one that saw you comes`, solo === 1, `${solo} of ${n} came`);
+  }
 }
 
 // ============================================== the fight, the sack, the list
@@ -1656,8 +1799,10 @@ const GROUND = 3;
     RANGED_TAGS.bow === 'shot' && RANGED_TAGS.powderCharge === 'thrown' && RANGED_TAGS.stormCall === 'cast');
   // The honest half: what is still carried and read by nothing.
   const unwired = Object.entries(TAG_RULES).filter(([, r]) => r[0] === 'unwired').map(([t]) => t);
-  check(`${unwired.length} tags are still carried by rows and read by nothing`, unwired.length === 23,
+  // 23 before M5, which wired `coinPurse` into loot_drops.js.
+  check(`${unwired.length} tags are still carried by rows and read by nothing`, unwired.length === 22,
     unwired.join(', '));
+  check('coinPurse is one of the ones that got wired', TAG_RULES.coinPurse[0] === 'loot_drops.js', TAG_RULES.coinPurse.join(': '));
 }
 
 // ------------------------------------------------------------- the boss plans

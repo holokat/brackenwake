@@ -67,6 +67,19 @@ export const TIERS = {
   6: { band: [90, 100], gold: [800, 3000] },   // bosses
 };
 
+/**
+ * What `coinPurse` is worth.
+ *
+ * The tag was carried by four rows and read by nothing at all: a bandit's purse
+ * was a rat's purse with a better name. A row that carries the tag has its
+ * kill gold multiplied by its own `purse`, or by this where it names none, and
+ * `src/game/loot_drops.js` is where that happens, on the one line that turns a
+ * kill into a sack. 1.5 puts a tier 2 purse at 18 to 45 against the band's 12
+ * to 30, which is "over its tier band" and is still short of tier 3's 30 to 80.
+ */
+export const DEFAULT_PURSE = 1.5;
+export const MAX_PURSE = 4;
+
 // Aggro radius by temperament, from `docs/mmo/02-COMBAT.md`:
 // "critters 0 (they never aggro), vermin 6 m, most monsters 12 m, hunters 18 m,
 // bosses 25 m". Each monster's tabled `aggro` is the tuned number the document
@@ -86,7 +99,13 @@ export const NO_RESPAWN_RADIUS = 30;
 
 // Density, from "about one monster group per 40 m of dungeon corridor, one per
 // 150 m of wild land at night, one per 400 m by day."
-export const SPAWN_SPACING_M = { dungeon: 40, wildNight: 110, wildDay: 220 };   // 150 and 400 left a zone with eight things alive
+// M5 halved the two wild numbers again. 150 and 400 left a zone with eight
+// things alive; 220 and 110 left the Greenwold at 164 bodies per square
+// kilometre by day, which is a body every 78 m and reads as empty country from
+// a horse. 110 and 60 is one group per two chunks by day and better than one
+// per chunk by night, and `GROUP_CHANCE` below carries the part of that which
+// does not fit in a single chunk.
+export const SPAWN_SPACING_M = { dungeon: 40, wildNight: 60, wildDay: 110 };
 
 // Bosses change phase at 66% and 33% health.
 export const BOSS_PHASES = [0.66, 0.33];
@@ -181,7 +200,7 @@ export const NOTE_TAG_MEANING = {
   manaDrain: 'takes mana as well as health',
   phylactery: 'it stands back up unless the phylactery is broken first',
   // --- what it leaves
-  coinPurse: 'carries coin over its tier band',
+  coinPurse: 'carries coin over its tier band: loot_drops multiplies the kill by the row `purse`, or by DEFAULT_PURSE where the row names none',
   lootTwice: 'the loot roll is made twice and the better kept',
   purpleFloor: 'never drops worse than an epic',
   champion: 'a champion or a boss: the plate says so and the colour is the tier',
@@ -245,8 +264,10 @@ M({ id: 'crab', name: 'Crab', tier: 1, hp: 22, damage: [2, 6], speed: 2.6, hit: 
   lootTable: ['meat', 'hide'], authored: true });
 
 // --- Tier 2, the common dangers (skill 30 to 45, 12 to 30 gold)
+// M5: three to four, never two. "The first wolves after dark" in the Beech
+// Hangar is a pack, and a pair read as two dogs having a disagreement.
 M({ id: 'wolf', name: 'Wolf', tier: 2, hp: 40, damage: [6, 11], speed: 2.2, hit: 38, def: 35, ar: 6, run: 8.5, aggro: 14,
-  kind: 'beast', temperament: 'normal', flees: 'low', group: [2, 4], notes: ['night', 'group'],
+  kind: 'beast', temperament: 'normal', flees: 'low', group: [3, 4], notes: ['night', 'group', 'sharesAggro'],
   lootTable: ['meat', 'hide'] });
 M({ id: 'boar', name: 'Boar', tier: 2, hp: 55, damage: [8, 14], speed: 3.0, hit: 32, def: 25, ar: 10, run: 7, aggro: 8,
   kind: 'beast', temperament: 'vermin', flees: 'low', group: [1, 2], notes: ['charges'],
@@ -293,7 +314,7 @@ M({ id: 'harpy', name: 'Harpy', tier: 3, hp: 70, damage: [10, 17], speed: 2.0, h
 // a name, a tier over the common boar's and a body a third again as tall,
 // standing alone in one wood. Not a boss: no arena, no phases, no purple floor.
 M({ id: 'oldGrist', name: 'Old Grist', tier: 3, hp: 210, damage: [16, 28], speed: 2.6, hit: 58, def: 46, ar: 20, run: 8.5, aggro: 16,
-  kind: 'beast', temperament: 'hunter', flees: 'never', group: [1, 1], notes: ['charges', 'knockback', 'alpha'],
+  kind: 'beast', temperament: 'hunter', flees: 'never', group: [1, 1], unique: true, notes: ['charges', 'knockback', 'alpha'],
   lootTable: ['meat', 'thickHide', 'gem'], family: 'wolf', authored: true,
   model: 'A boar the size of a pony, grey down the spine, one tusk broken off short and the other polished, with the leaf litter of the Beech Hangar worn into his shoulders like bark.', wave: 'S2' });
 M({ id: 'stonebackBear', name: 'Stoneback Bear', tier: 3, hp: 160, damage: [18, 30], speed: 3.4, hit: 50, def: 30, ar: 30, run: 7, aggro: 10,
@@ -468,7 +489,11 @@ M({ id: 'coralCrab', name: 'Coral Crab', tier: 2, hp: 46, damage: [7, 12], speed
   model: 'A crab that has grown its shell out of the reef: live coral in pink and white across its back, and it is beautiful right up until it opens.',
   wave: 'M2' });
 M({ id: 'wisp', name: 'Will o\' Wisp', tier: 2, hp: 34, damage: [6, 12], speed: 2.0, hit: 44, def: 45, ar: 0, run: 7.0, aggro: 12,
-  kind: 'elemental', temperament: 'normal', flees: 'never', group: [1, 2], notes: ['flying', 'erratic', 'fenOnly', 'casts', 'incorporeal50'],
+  // M5 took `fenOnly` off it. The tag was a placement guard and nothing else,
+  // and it was the one thing keeping a light over standing water out of the
+  // Greenwold's water meadow and off a chapel with a river over its roof. Where
+  // it lives is the lists below, which is where it always really was.
+  kind: 'elemental', temperament: 'normal', flees: 'never', group: [1, 2], notes: ['flying', 'erratic', 'casts', 'incorporeal50'],
   lootTable: ['reagent', 'gem'], family: 'flyer',
   model: 'A light over the water with nothing holding it up, the size of a lantern, one colour if it means to lead you home and another if it does not.',
   wave: 'M2' });
@@ -624,6 +649,59 @@ M({ id: 'glassWyvern', name: 'Glass Wyvern', tier: 5, hp: 700, damage: [44, 72],
   model: 'A wyvern hatched on the volcano\'s black glass and made of it: obsidian scales that ring, wings you can half see through, and it sheds them at you.',
   tamable: { difficulty: 95, food: 'gem', loyaltyDays: 30 },
   wave: 'M2' });
+
+// ===========================================================================
+// Wave M5: the Greenwold has more in it, and more kinds of it.
+//
+// The complaint was "we dont have much variety of monsters, or enough monsters
+// in the game". The first half of that is the densities above. This is the
+// second half: nine things the first realm's own sentences already promise and
+// that nothing was standing up.
+//
+// Every row here is tier 1 or tier 2, because the Greenwold's danger band in
+// `src/mmo/realms.js` is [1, 2] and `spawnsForChunk` re-rolls anything over it
+// in open country. Every one of them is placed in HABITAT and in at least one
+// named place below, so it is met by walking and not only by reading. Every
+// one borrows a body `src/game/monster_models.js` builds today, and carries
+// the size and the colour that tell it from the rest of its family: see
+// MONSTER_SCALE and MONSTER_TINT in that file.
+//
+// The other three the wave adds are not rows at all, because the rows already
+// existed and nothing had put them anywhere a player walks: the Giant Spider
+// and the Goblin Warrior go into the Beech Hangar at night, and the Will o'
+// Wisp comes off `fenOnly` and onto the Greenwold's wet ground, the water
+// meadow of the Mill Run and the Sunken Chapel.
+
+// --- Tier 1, wave M5 (skill 10 to 25, 4 to 12 gold)
+M({ id: 'wildDog', name: 'Wild Dog', tier: 1, hp: 26, damage: [3, 7], speed: 2.4, hit: 22, def: 22, ar: 3, run: 7.5, aggro: 12,
+  kind: 'beast', temperament: 'normal', flees: 'low', group: [3, 5], notes: ['group', 'sharesAggro', 'howl'],
+  lootTable: ['meat', 'hide'], family: 'wolf',
+  model: 'Somebody\'s dogs, three farms and two winters ago: a lurcher, a collie and whatever the collie had. Ribs showing, tails down, and they work a field the way they were taught to work sheep.',
+  wave: 'M5' });
+M({ id: 'badger', name: 'Badger', tier: 1, hp: 34, damage: [4, 9], speed: 3.0, hit: 20, def: 16, ar: 10, run: 5.2, aggro: 6,
+  kind: 'beast', temperament: 'vermin', flees: 'low', group: [1, 2], notes: ['nightOnly', 'awakens', 'thickHide'],
+  lootTable: ['meat', 'hide'], family: 'wolf',
+  model: 'A metre of muscle and grey bristle with a striped head, out of a sett under the beech roots after dark. It will let you walk past. It will not let you walk over.',
+  tamable: { difficulty: 60, food: 'game_meat', loyaltyDays: 7 },
+  wave: 'M5' });
+
+// --- Tier 2, wave M5 (skill 30 to 45, 12 to 30 gold)
+M({ id: 'banditArcher', name: 'Bandit Archer', tier: 2, hp: 46, damage: [7, 12], speed: 2.5, hit: 41, def: 40, ar: 10, run: 6.2, aggro: 14,
+  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['group', 'sharesAggro', 'bow'],
+  lootTable: ['dagger', 'throwingKnives', 'boots', 'hide'], family: 'biped',
+  model: 'A poacher who took the other work: a hunting bow, a hood, no armour worth the name, up on the lip of the hollow while the rest of them are down in it.',
+  wave: 'M5' });
+M({ id: 'highwayman', name: 'Highwayman', tier: 2, hp: 60, damage: [9, 15], speed: 2.6, hit: 44, def: 42, ar: 16, run: 6.5, aggro: 14,
+  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['group', 'sharesAggro', 'coinPurse', 'ambush'],
+  purse: 2.5,
+  lootTable: ['rapier', 'cloak', 'ring', 'boots'], family: 'biped',
+  model: 'A bandit who has done well: a good coat off a merchant, a rapier off a guard, boots that fit, and a scarf up over the face because the Kingsroad has a bounty board at both ends of it.',
+  wave: 'M5' });
+M({ id: 'scarecrow', name: 'Scarecrow', tier: 2, hp: 58, damage: [8, 14], speed: 3.4, hit: 32, def: 12, ar: 6, run: 3.6, aggro: 10,
+  kind: 'undead', temperament: 'normal', flees: 'never', group: [1, 2], notes: ['undead', 'holyWeak', 'fireWeak', 'nightOnly', 'awakens'],
+  lootTable: ['bone', 'tunic', 'wood'], family: 'biped',
+  model: 'The one in the far field, on its pole, in Wynn Ashby\'s old coat. In daylight it is a scarecrow. After dark it is still a scarecrow until you are four metres from it, and then it comes down off the pole.',
+  wave: 'M5' });
 
 // --- Bosses. "one per dungeon level 3, one per named crater: 2,000 to 4,000
 // health, unique abilities, phase changes at 66% and 33%, always drop a purple
@@ -785,8 +863,8 @@ export const monstersOfTier = (t) => rows.filter((m) => m.tier === t);
 // Sakura and snow are filled by their nearest neighbour, meadow and boreal,
 // plus the document's own "frost giants in snow"; ocean is deliberately empty,
 // because nothing walks on it. All three are marked in the comments below.
-const T1 = ['giantRat', 'caveBat', 'skeleton', 'zombie', 'goblinScout', 'thornGrub'];
-const T2 = ['wolf', 'boar', 'skeletonWarrior', 'goblinWarrior', 'bandit', 'giantSpider'];
+const T1 = ['giantRat', 'caveBat', 'skeleton', 'zombie', 'goblinScout', 'thornGrub', 'wildDog'];
+const T2 = ['wolf', 'boar', 'skeletonWarrior', 'goblinWarrior', 'bandit', 'giantSpider', 'banditArcher', 'highwayman'];
 const T3 = ['direWolf', 'orc', 'ghoul', 'hobgoblin', 'harpy', 'stonebackBear', 'cultist', 'mireTroll'];
 const T4 = ['ogre', 'wraith', 'ironGolem', 'wyvern', 'boneKnight', 'manticore', 'vampireKnight'];
 
@@ -811,12 +889,16 @@ export const HABITAT = {
   // "meadow, day: rats, boars, bandits on roads, goblin scouts near ruins"
   // "meadow, night: wolves, skeletons rising near ruins and shrines, zombies"
   // Wave A: the Kingsroad is the Legion's road, so the Legion walks on it.
+  // M5 widened both lists. Seven rows by day and six by night over four
+  // thousand chunks of the Greenwold meant a walk met the same six things; the
+  // wave adds the dogs and the archers to the day, and the fox, the scarecrow,
+  // the spider and the archers to the night.
   meadow: {
-    day: ['giantRat', 'boar', 'bandit', 'goblinScout', 'legionSoldier', 'legionArcher', 'raider'],
-    night: ['wolf', 'skeleton', 'zombie', 'bandit', 'legionSoldier', 'raider'],
+    day: ['giantRat', 'boar', 'bandit', 'goblinScout', 'legionSoldier', 'legionArcher', 'raider', 'wildDog', 'banditArcher'],
+    night: ['wolf', 'skeleton', 'zombie', 'bandit', 'legionSoldier', 'raider', 'fox', 'scarecrow', 'giantSpider', 'banditArcher', 'badger'],
   },
   // "boreal: wolf packs, dire wolves, bears, werewolves at night"
-  boreal: { day: ['wolf', 'direWolf', 'stonebackBear'], night: ['wolf', 'direWolf', 'stonebackBear', 'werewolf'] },
+  boreal: { day: ['wolf', 'direWolf', 'stonebackBear'], night: ['wolf', 'direWolf', 'stonebackBear', 'werewolf', 'badger'] },
   // "desert: giant spiders, cultists at ruins, manticores, cyclops at the far end"
   desert: {
     day: ['giantSpider', 'cultist', 'manticore', 'cyclops', 'sandworm', 'raider', 'cultistAdept', 'emberDrake', 'legionSoldier', 'legionArcher', 'legionChaplain', 'legionKnight', 'brassSentinel'],
@@ -855,17 +937,17 @@ export const HABITAT = {
   // "ruins: always something: skeletons, cultists, a wraith in the old ones"
   ruin: {
     day: ['skeleton', 'cultist', 'wraith', 'cairnWight', 'cultistAdept'],
-    night: ['skeleton', 'cultist', 'wraith', 'zombie', 'cairnWight', 'cultistAdept', 'marrowGhoul'],
+    night: ['skeleton', 'cultist', 'wraith', 'zombie', 'cairnWight', 'cultistAdept', 'marrowGhoul', 'scarecrow'],
   },
   // "graveyard: nightshade, skeletons and zombies at night". By day it is quiet.
   graveyard: {
     day: [],
-    night: ['skeleton', 'zombie', 'ghoul', 'vampireKnight', 'boneHound', 'marrowGhoul', 'riderWraith', 'cairnWight'],
+    night: ['skeleton', 'zombie', 'ghoul', 'vampireKnight', 'boneHound', 'marrowGhoul', 'riderWraith', 'cairnWight', 'scarecrow'],
   },
   // A3: a bandit camp is men round a fire, and they are there in the dark too.
   bandit_camp: {
-    day: ['bandit', 'raider', 'goblinScout', 'hobgoblin'],
-    night: ['bandit', 'raider', 'goblinScout', 'hobgoblin'],
+    day: ['bandit', 'raider', 'goblinScout', 'hobgoblin', 'banditArcher', 'highwayman', 'wildDog'],
+    night: ['bandit', 'raider', 'goblinScout', 'hobgoblin', 'banditArcher', 'highwayman', 'wildDog'],
   },
   // A3: an arena has a champion in it by day and nothing after dark. The rows
   // are tier 3 and 4, and the count is the row's own group size.
@@ -924,19 +1006,34 @@ const at = (biome, day, night = day) => ({ biome, day, night });
 
 export const HABITAT_BY_PLACE = {
   // --- The Greenwold, ring 0
-  millrun: at('meadow', ['goose', 'giantRat', 'bandit'], ['goose', 'wolf', 'zombie']),
+  // The water meadow. Geese on the road by day, and after dark the wisps come
+  // up off the standing water either side of the mill leat (M5).
+  millrun: at('meadow', ['goose', 'giantRat', 'bandit', 'wildDog'], ['goose', 'wolf', 'zombie', 'wisp', 'scarecrow']),
   // Old Grist once in fourteen night rolls: spawnRollFor picks uniformly, so the
-  // common rows are written down more than once to make him the rare one (S2)
-  beechhangar: at('meadow', ['boar', 'fox', 'giantRat'], ['wolf', 'fox', 'boar', 'wolf', 'boar', 'wolf', 'fox', 'boar', 'wolf', 'boar', 'wolf', 'fox', 'boar', 'oldGrist']),
-  kingsroad: at('meadow', ['legionSoldier', 'legionArcher', 'bandit'], ['legionSoldier', 'legionArcher', 'wolf']),
-  highwaymanshollow: at('meadow', ['bandit', 'raider', 'goblinScout'], ['bandit', 'raider', 'wolf']),
-  greenwoldpits: at('meadow', ['giantRat', 'thornGrub'], ['giantRat', 'thornGrub', 'skeleton']),
+  // common rows are written down more than once to make him the rare one (S2).
+  // M5 added the badger setts the realm sheet already names, a spider in the
+  // beeches and the goblins that come up out of the Old Cellars after dark, and
+  // re-weighted the rest so the list is still fourteen long and Old Grist is
+  // still one roll in fourteen. Counted, not assumed: the night list below is
+  // wolf 4, boar 3, fox 2, badger 2, spider 1, goblin warrior 1, Old Grist 1.
+  beechhangar: at('meadow',
+    ['boar', 'fox', 'giantRat', 'wildDog'],
+    ['wolf', 'wolf', 'wolf', 'wolf', 'boar', 'boar', 'boar', 'fox', 'fox', 'badger', 'badger', 'giantSpider', 'goblinWarrior', 'oldGrist']),
+  // The Legion's road, and the men who work it. M5 put the highwayman here and
+  // nowhere else in the open Greenwold: he is a road robber and the Kingsroad
+  // is the only road.
+  kingsroad: at('meadow', ['legionSoldier', 'legionArcher', 'bandit', 'highwayman', 'banditArcher'], ['legionSoldier', 'legionArcher', 'wolf', 'highwayman']),
+  highwaymanshollow: at('meadow', ['bandit', 'raider', 'goblinScout', 'banditArcher', 'highwayman'], ['bandit', 'raider', 'wolf', 'banditArcher', 'highwayman']),
+  greenwoldpits: at('meadow', ['giantRat', 'thornGrub', 'wildDog'], ['giantRat', 'thornGrub', 'skeleton', 'giantSpider']),
   // Under water, so it reads as 'beach' and not as 'ruin': the drowned are
   // tagged coastOnly by the document and a chapel with the river over its roof
   // is the one inland place they belong. Same for the Drowned Rider Hall.
-  sunkenchapel: at('beach', ['skeleton', 'drowned', 'zombie'], ['skeleton', 'drowned', 'zombie', 'wraith']),
-  oldcellars: at('dungeon1', ['bandit', 'goblinScout', 'goblinWarrior', 'giantRat', 'oramBlackhand']),
-  waystones: at('meadow', ['fox', 'hawk'], ['wolf', 'fox']),
+  // M5: a wisp over the flooded nave, which is what a light under water is.
+  sunkenchapel: at('beach', ['skeleton', 'drowned', 'zombie'], ['skeleton', 'drowned', 'zombie', 'wraith', 'wisp']),
+  // The mouth of the cellars and the brick under it. M5 put an archer on the
+  // stair and a spider in the old brick.
+  oldcellars: at('dungeon1', ['bandit', 'goblinScout', 'goblinWarrior', 'giantRat', 'banditArcher', 'giantSpider', 'oramBlackhand']),
+  waystones: at('meadow', ['fox', 'hawk'], ['wolf', 'fox', 'badger']),
 
   // --- Verdant Deep, ring 1
   blossomfall: at('sakura', ['blossomSpider', 'canopyHarpy', 'giantSpider'], ['blossomSpider', 'giantSpider', 'wolf']),
@@ -1068,6 +1165,25 @@ export function habitatFor(place) {
 export const TAMABLE = Object.fromEntries(rows.filter((m) => m.tamable).map((m) => [m.id, m.tamable]));
 export const tamableRows = () => rows.filter((m) => m.tamable);
 
+/**
+ * Is this row ONE CREATURE, rather than a kind of creature?
+ *
+ * Every boss is, and so is a named beast like Old Grist. It matters because a
+ * place's roster is rolled per chunk: the Old Cellars cover forty six chunks
+ * and Sergeant Oram Blackhand is in their table, so the roll stood six of him
+ * up across the realm and, at M5's densities, several inside one near ring at
+ * the same time. `src/game/monsters.js` reads this in its sweep and keeps the
+ * nearest of them, or the one already standing.
+ *
+ * Nothing about the roll changes: a place that names its boss still names it,
+ * which is what `auditMonsters` insists on. What changes is how many of him
+ * are on their feet at once.
+ */
+export const isUniqueRow = (m) => {
+  const row = typeof m === 'string' ? MONSTERS[m] : m;
+  return !!(row && (row.boss || row.unique));
+};
+
 /** Every boss, keyed by the realms.js place it is found in. */
 export const BOSS_BY_LAIR = Object.fromEntries(rows.filter((m) => m.boss && m.lair).map((m) => [m.lair, m]));
 
@@ -1087,6 +1203,20 @@ export function leashRadius(monster) { return aggroRadius(monster) * LEASH_FACTO
 /** Seconds until a corpse's spot is refilled, 8 to 15 minutes. */
 export function respawnDelay(rng = Math.random) {
   return RESPAWN_MIN_S + rng() * (RESPAWN_MAX_S - RESPAWN_MIN_S);
+}
+
+/**
+ * What a kill's gold is multiplied by. 1 for everything that does not carry a
+ * purse, so the caller can multiply unconditionally.
+ *
+ * READ BY `src/game/loot_drops.js` on the one line that turns a kill into a
+ * sack. Before M5 the `coinPurse` tag was carried by four rows and read by
+ * nothing at all.
+ */
+export function purseMultiplier(monster) {
+  const m = typeof monster === 'string' ? MONSTERS[monster] : monster;
+  if (!m || !Array.isArray(m.notes) || !m.notes.includes('coinPurse')) return 1;
+  return Number.isFinite(m.purse) ? m.purse : DEFAULT_PURSE;
 }
 
 /** Gold for one kill, uniform over the tier's range. Critters give none. */
@@ -1230,6 +1360,21 @@ export function auditMonsters() {
       if (!t.food || typeof t.food !== 'string') bad.push(`${at2}: nothing to feed it`);
       if (!(typeof t.loyaltyDays === 'number' && t.loyaltyDays > 0)) bad.push(`${at2}: loyaltyDays ${t.loyaltyDays}`);
     }
+
+    // One creature is one creature: a row that says it is unique cannot roll a
+    // group of three, or the sweep's rule below would silently drop two of it.
+    if (isUniqueRow(m) && !(m.group[0] === 1 && m.group[1] === 1)) bad.push(`${at2}: one of a kind and a group of ${m.group.join(' to ')}`);
+    if (m.unique != null && m.unique !== true) bad.push(`${at2}: unique is ${m.unique} and the only value it takes is true`);
+
+    // A purse is a number the loot roll multiplies by, and it is only a number
+    // where the tag says there is one. Both directions: a purse with no tag is
+    // a number nothing reads, and a tag with a purse of 1 is a promise the
+    // sack does not keep.
+    if (m.purse != null) {
+      if (!m.notes.includes('coinPurse')) bad.push(`${at2}: a purse of ${m.purse} and no coinPurse tag to read it`);
+      if (!(m.purse > 1 && m.purse <= MAX_PURSE)) bad.push(`${at2}: purse ${m.purse} is not over 1 and up to ${MAX_PURSE}`);
+    }
+    if (m.notes.includes('coinPurse') && !(purseMultiplier(m) > 1)) bad.push(`${at2}: coinPurse and a multiplier of ${purseMultiplier(m)}`);
 
     // A summon has to be a real row, and a lesser one.
     if (m.notes.includes('summons') !== !!m.summons) bad.push(`${at2}: the summons tag and the summons field disagree`);

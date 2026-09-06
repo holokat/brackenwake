@@ -8,7 +8,7 @@
 // much rather than going quietly green.
 
 import * as THREE from 'three';
-import { MONSTERS } from '../mmo/monsters.js';
+import { MONSTERS, purseMultiplier } from '../mmo/monsters.js';
 import { weightsFor, rollKill } from '../mmo/loot.js';
 import { RARITY, RARITY_ORDER, BASES, makeItem, takesRarity, MEAT_BASES, auditItems } from '../mmo/items.js';
 import {
@@ -218,13 +218,43 @@ function spread(id, n, seedBase) {
     t4.counts.common === 0 && t4.counts.uncommon === 0 && t4.counts.rare > N * 0.5,
     RARITY_ORDER.map((r) => `${r} ${t4.counts[r]}`).join(', '));
 
-  // gold in the tier's range, every time
+  // Gold in the tier's range, every time, TIMES THE PURSE.
+  //
+  // M5 wired `coinPurse`, which the bandit carries and which was read by
+  // nothing before it: the band the tier pays is still 12 to 30, and what a
+  // bandit leaves on the ground is that multiplied by purseMultiplier. Both
+  // sides are driven here, because a multiplier that fires on everything is
+  // the same bug as one that fires on nothing.
+  const purse = purseMultiplier(m);
+  check(`a ${m.name} carries a purse and it is worth ${purse}`, m.notes.includes('coinPurse') && purse > 1, `x${purse}`);
   const perKill = gold / N;
   const [lo, hi] = m.gold;
-  check(`gold averages inside the ${lo} to ${hi} the tier pays`, perKill >= lo && perKill <= hi, `${perKill.toFixed(1)} a kill`);
+  const [plo, phi] = [Math.round(lo * purse), Math.round(hi * purse)];
+  check(`gold averages inside the ${plo} to ${phi} a purse of ${purse} pays`, perKill >= plo && perKill <= phi, `${perKill.toFixed(1)} a kill`);
+  check('which is over the tier band, which is the whole word', plo > hi * 0.5 && perKill > (lo + hi) / 2,
+    `${perKill.toFixed(1)} against the band's ${lo} to ${hi}`);
   let outside = 0;
-  for (let i = 0; i < N; i++) { const g = rollFor(m, { seed: 5000 + i }).gold; if (g < lo || g > hi) outside++; }
+  for (let i = 0; i < N; i++) { const g = rollFor(m, { seed: 5000 + i }).gold; if (g < plo || g > phi) outside++; }
   check('and no single kill pays outside it', outside === 0, `${outside} of ${N}`);
+
+  // The other direction: a row with no purse pays the band and nothing over it.
+  const plain2 = MONSTERS.goblinWarrior;
+  check('a goblin warrior carries no purse', purseMultiplier(plain2) === 1);
+  let plainOutside = 0;
+  for (let i = 0; i < N; i++) {
+    const g = rollFor(plain2, { seed: 6000 + i }).gold;
+    if (g < plain2.gold[0] || g > plain2.gold[1]) plainOutside++;
+  }
+  check('and every one of its kills pays inside the tier band', plainOutside === 0, `${plainOutside} of ${N}`);
+
+  // And the highwayman, the row the purse was written for.
+  const rider = MONSTERS.highwayman;
+  check('a highwayman\'s purse is the fattest on the roster', purseMultiplier(rider) === 2.5);
+  let ridergold = 0;
+  for (let i = 0; i < N; i++) ridergold += rollFor(rider, { seed: 7000 + i }).gold;
+  check('and he pays better than a bandit for the same tier',
+    ridergold / N > perKill, `${(ridergold / N).toFixed(1)} against the bandit's ${perKill.toFixed(1)}`);
+
   check('a critter carries no gold and no drop', rollFor('rabbit', { seed: 1 }).gold === 0 && rollFor('rabbit', { seed: 1 }).items.length === 0);
 }
 

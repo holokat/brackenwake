@@ -71,6 +71,48 @@ export const TIER_COLOUR = {
   6: 0x5e1b18,   // a boss: the red gone almost black
 };
 
+/**
+ * A VARIANT'S own paint, where the tier's colour would make it a twin.
+ *
+ * The tier colour is the danger read and it stays the default for every row.
+ * These are the rows that share a silhouette with something else in the same
+ * band and would otherwise be told apart by nothing at all: a wild dog beside a
+ * wolf, a highwayman beside a bandit. Nothing here changes what a row IS, and
+ * the name plate's con colour, which is the thing a player actually reads
+ * danger off, is untouched. See docs/mmo/wiring/M5-MORE-MONSTERS.md.
+ */
+export const MONSTER_TINT = {
+  wildDog: 0x8b6a45,        // farm dog: sand and liver, not wolf grey
+  badger: 0x3f4044,         // near black, and the head stripe is the shape's job
+  banditArcher: 0x55603c,   // hedgerow green over brown
+  highwayman: 0x2f3a4a,     // a good dark coat off a merchant
+  scarecrow: 0xa98a4a,      // straw and sacking
+};
+
+/**
+ * A VARIANT'S own size, as a multiple of what its tier and health work out to.
+ *
+ * 1 for everything not named, so the sizing rule below is unchanged for every
+ * row that had one before. A badger is not a small wolf and a wild dog is not a
+ * young one; the size is most of what tells them apart at forty metres.
+ */
+export const MONSTER_SCALE = {
+  wildDog: 0.78,
+  badger: 0.50,
+  banditArcher: 0.97,
+  scarecrow: 1.06,
+};
+
+/** The colour a body is painted: the row's own where it names one, else its tier's. */
+export function bodyColourFor(id) {
+  const m = MONSTERS[id];
+  if (!m) return TIER_COLOUR[1];
+  return MONSTER_TINT[id] ?? TIER_COLOUR[m.tier] ?? TIER_COLOUR[1];
+}
+
+/** The multiplier on a body's worked out size. 1 unless the row is a variant. */
+export const bodyScaleFor = (id) => MONSTER_SCALE[id] ?? 1;
+
 /** Shoulder height in metres by tier, before a shape stretches or squashes it. */
 export const TIER_HEIGHT = { 0: 0.5, 1: 1.1, 2: 1.5, 3: 1.9, 4: 2.4, 5: 3.2, 6: 4.0 };
 /** Body types with a real height in metres, tier or no tier. */
@@ -170,6 +212,14 @@ export function auditMonsterShapes() {
     else if (!BUILDERS[s]) bad.push(`${m.id} wears "${s}", which nothing builds`);
   }
   for (const id of Object.keys(SHAPE_FOR)) if (!MONSTERS[id]) bad.push(`a silhouette for "${id}", which is not a monster`);
+  // A variant's paint and size are read by id, so a typo in either is a body
+  // that never gets the thing that tells it from its family. Both tables are
+  // checked against the roster, and the size is checked for being a size.
+  for (const id of Object.keys(MONSTER_TINT)) if (!MONSTERS[id]) bad.push(`a tint for "${id}", which is not a monster`);
+  for (const [id, k] of Object.entries(MONSTER_SCALE)) {
+    if (!MONSTERS[id]) bad.push(`a scale for "${id}", which is not a monster`);
+    if (!(k > 0.2 && k <= 3)) bad.push(`${id} is scaled by ${k}, which is not a size`);
+  }
   for (const t of [1, 2, 3, 4, 5, 6]) if (TIER_COLOUR[t] == null) bad.push(`tier ${t} has no colour`);
   if (bad.length) throw new Error(`monster_models: ${bad.join('; ')}`);
   return true;
@@ -409,7 +459,7 @@ export function buildBoxMonster(id) {
   const m = MONSTERS[id];
   const shape = shapeFor(id);
   if (!m || !shape) return null;
-  const colour = TIER_COLOUR[m.tier] ?? TIER_COLOUR[1];
+  const colour = bodyColourFor(id);
   // size rides the tier, nudged by how much health the thing has inside its own
   // tier, so an ogre of 320 is visibly bigger than a wraith of 180
   // A humanoid is human sized whatever its tier: a tier 1 skeleton at 1.0 m
@@ -420,7 +470,7 @@ export function buildBoxMonster(id) {
   const peers = MONSTER_LIST.filter((x) => x.tier === m.tier);
   const hi = Math.max(...peers.map((x) => x.hp)), lo = Math.min(...peers.map((x) => x.hp));
   const k = hi > lo ? (m.hp - lo) / (hi - lo) : 0.5;
-  const s = pinned ? base * (0.95 + 0.1 * k) : base * (0.85 + 0.3 * k);
+  const s = (pinned ? base * (0.95 + 0.1 * k) : base * (0.85 + 0.3 * k)) * bodyScaleFor(id);
 
   const built = BUILDERS[shape](colour, s);
   const { group, parts } = built;
@@ -2073,7 +2123,7 @@ export function buildMonsterModel(id) {
   const glbId = glbModelFor(id);
   let model = box;
   if (glbId) {
-    const colour = TIER_COLOUR[m.tier] ?? TIER_COLOUR[1];
+    const colour = bodyColourFor(id);
     const ready = isLoaded(glbId);
     if (ready) box.dispose();          // it was only ever the measuring stick
     const rig = buildGlbRig(glbId, {

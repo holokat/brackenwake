@@ -56,7 +56,7 @@
 // declared `UNJOINED` ones stops resolving.
 
 import * as THREE from 'three';
-import { MONSTERS } from '../mmo/monsters.js';
+import { MONSTERS, purseMultiplier } from '../mmo/monsters.js';
 import { rollKill } from '../mmo/loot.js';
 import {
   RARITY, RARITY_ORDER, RARITY_WORD, baseFor, BASES, LEATHER_BASE, MEAT_BASES, takesRarity,
@@ -336,11 +336,18 @@ export function rollFor(monster, { luck = 0, seed = 0, character = null, profile
   const m = typeof monster === 'string' ? MONSTERS[monster] : monster;
   if (!m) return { gold: 0, items: [] };
   const table = tableFor(m);
-  const { gold, item, unique, bias } = rollKill({
+  const { gold: banded, item, unique, bias } = rollKill({
     table, tier: m.tier, luck, seed,
     boss: !!m.boss, twice: m.tier === 5,
     character, monster: m, profile,
   });
+  // `coinPurse`. Until M5 the tag was carried by the bandit, the raider and two
+  // bosses and read by NOTHING: a bandit's purse was a rat's purse. The roster
+  // owns the number (the row's own `purse`, or its DEFAULT_PURSE), and this is
+  // the one line that spends it, because this is the one place a kill turns
+  // into a sack. Everything without the tag multiplies by 1 and is bit for bit
+  // the roll it always was.
+  const gold = Math.round(banded * purseMultiplier(m));
   const items = [];
   if (unique) items.push(unique);
   if (item) items.push(item);
