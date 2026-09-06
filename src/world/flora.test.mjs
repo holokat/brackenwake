@@ -12,9 +12,11 @@
 // the LOD and the felling are all the shipping code.
 
 import * as THREE from 'three';
-import { createWorldField, BIOMES } from './field.js';
+import { createWorldField, BIOMES, CHUNK as CHUNK_M } from './field.js';
+import { sitesNear } from './sites.js';
 import {
   recordsFor, createFlora, ROCK_DENSITY, WATER_SPECIES, isWet, variantOf,
+  CELL, ORE_COUNT, ORE_RING,
   auditBiomeHarvest, VARIANTS, ALL_KINDS, REBAND_M, LIMITS, DETAIL, mixFor,
   ARBOR_SPECIES, isArborKind, biomesIn, pairCheck,
   ROAD_CLEAR, roadWithin, avenueFor, AVENUE_REALMS, AVENUE_KIND, AVENUE_STEP, STAND_PURITY,
@@ -128,6 +130,136 @@ check('every biome has a real mix, not one species', BIOMES.filter((b) => b !== 
   LIMITS.oak = keepL;
   check('and on a kind with no tree line', threw.includes('no tree line'), threw || 'it did not throw');
   check('and is clean again once both are put back', auditBiomeHarvest() === BIOMES.length);
+}
+
+
+// ============================================================================
+// D5: how many stones there really are
+// ============================================================================
+//
+// The user, 2026-09-06: "we have way too many stones everywhere, lets reduce
+// by a lot."
+//
+// The dressing's own sarsen took the blame and it was the small half of the
+// answer. THIS grid is the big half: one boulder candidate falls in every 8 m
+// cell of the world, and at ROCK_DENSITY.meadow 0.03 that is 469 candidates to
+// the square kilometre before the ground refuses any of them and 425 boulders
+// after. Fifteen to the hectare, in the country the player starts in.
+//
+// Measured over the same 31 by 31 chunk square at the origin that
+// dressing_density.test.mjs uses, so the two halves of the complaint are two
+// columns of one measurement and not two measurements. The rocks are counted
+// against the area of the biome they stand in, taken on flora's own 8 m grid,
+// because a square that is nine tenths meadow and one tenth mountain would
+// otherwise report the mountain's stones as the meadow's.
+
+console.log('\nflora: how many stones');
+{
+  const RADIUS = 15;                       // a 31 by 31 chunk square: 3.94 km2
+  const n = CHUNK_M / CELL;
+  const rocks = {}, area = {};
+  let ore = 0, chunks = 0;
+  for (let cz = -RADIUS; cz <= RADIUS; cz++) for (let cx = -RADIUS; cx <= RADIUS; cx++) {
+    chunks++;
+    const rec = recordsFor(f, cx, cz);
+    for (const r of (rec.rock || [])) {
+      const b = f.biomeAt(r.x, r.z);
+      rocks[b] = (rocks[b] || 0) + 1;
+    }
+    ore += (rec.ore || []).length;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const x = cx * CHUNK_M + (i + 0.5) * CELL, z = cz * CHUNK_M + (j + 0.5) * CELL;
+      const b = f.biomeAt(x, z);
+      area[b] = (area[b] || 0) + 1;
+    }
+  }
+  const km2Of = (b) => (area[b] || 0) * CELL * CELL / 1e6;
+  const per = (b) => (rocks[b] || 0) / km2Of(b);
+  /**
+   * What the same square carried before D5, per square kilometre of each
+   * biome's own ground, measured in one process at the commit before it.
+   * A fixed record, like the dressing's: if the terrain moves it, measure the
+   * old module again rather than widen the band.
+   */
+  const BEFORE = { meadow: 425.6, mountain: 2214.9, snow: 360.2 };
+  console.log(`  ..  ${chunks} chunks, ${(chunks * CHUNK_M * CHUNK_M / 1e6).toFixed(2)} km2`);
+  console.log('  ..  biome        km2      boulders   per km2 of it   before   density');
+  for (const b of Object.keys(area).sort((a, c) => (area[c] || 0) - (area[a] || 0))) {
+    console.log(`  ..  ${b.padEnd(10)} ${km2Of(b).toFixed(3).padStart(7)} ${String(rocks[b] || 0).padStart(10)}`
+      + ` ${per(b).toFixed(1).padStart(14)} ${(BEFORE[b] != null ? BEFORE[b].toFixed(1) : '-').padStart(9)}`
+      + `   ${ROCK_DENSITY[b]}`);
+  }
+  check('a square kilometre of Greenwold meadow carries at most forty boulders',
+    per('meadow') <= 40,
+    `${(rocks.meadow || 0)} boulders over ${km2Of('meadow').toFixed(2)} km2 of meadow, `
+    + `${per('meadow').toFixed(1)} a square kilometre against the ${BEFORE.meadow} it carried`);
+  check('and that is the cut the complaint asked for, not a rounding of it',
+    per('meadow') < BEFORE.meadow * 0.15,
+    `${(100 * per('meadow') / BEFORE.meadow).toFixed(1)}% of what it was`);
+  check('and the meadow is not swept bare: there are still boulders in it to break',
+    (rocks.meadow || 0) > 40 && per('meadow') > 5,
+    `${rocks.meadow} of them over the square, one every ${(1000 / Math.sqrt(per('meadow'))).toFixed(0)} m or so`);
+  check('and the mountain keeps every stone it had, because that is where a pickaxe is for',
+    Math.abs(per('mountain') - BEFORE.mountain) < 1,
+    `${per('mountain').toFixed(1)} a square kilometre against ${BEFORE.mountain}`);
+
+  // ONE CASE IS NEVER THE CASE. The meadow was what the user was looking at,
+  // and the shore and the blossom ground are the same 8 m grid at the same
+  // sort of number, so they came down with it. Every biome still has something
+  // to mine, which `auditBiomeHarvest` throws on and this says in numbers.
+  check('the shore and the blossom ground came down with the meadow',
+    ROCK_DENSITY.beach < 0.012 && ROCK_DENSITY.sakura < 0.012,
+    `beach ${ROCK_DENSITY.beach}, sakura ${ROCK_DENSITY.sakura}, meadow ${ROCK_DENSITY.meadow}`);
+  check('and no biome was cut to nothing: every one of them still has something to mine',
+    BIOMES.filter((b) => b !== 'ocean').every((b) => ROCK_DENSITY[b] > 0)
+    && auditBiomeHarvest() === BIOMES.length,
+    BIOMES.filter((b) => b !== 'ocean').map((b) => `${b} ${ROCK_DENSITY[b]}`).join(', '));
+
+  // AND THE ORE IS NOT ON THIS GRID AT ALL. The rocks a pickaxe is really for
+  // are the ring round a cave mouth and a mine's own surface seams, and both
+  // are placed off the site rather than off ROCK_DENSITY. Driven both ways:
+  // with the meadow's density at zero the boulders go and the ore stays.
+  const caves = sitesNear(f, 0, 0, 4000).filter((st) => st.kind === 'cave');
+  check('there are cave mouths near the origin to measure at all', caves.length >= 3,
+    `${caves.length} caves within four kilometres`);
+  const ringOf = (on) => {
+    // every biome, not just the meadow: the caves near the origin stand on
+    // mountain and boreal ground, and zeroing the meadow alone would have
+    // proved nothing about them. The first version of this check did exactly
+    // that and reported 279 boulders either way.
+    const keep = { ...ROCK_DENSITY };
+    if (!on) for (const b of Object.keys(ROCK_DENSITY)) ROCK_DENSITY[b] = 0;
+    const got = [];
+    for (const st of caves.slice(0, 3)) {
+      const cx = Math.floor(st.x / CHUNK_M), cz = Math.floor(st.z / CHUNK_M);
+      let oreN = 0, rockN = 0, worstD = 0;
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        const rec = recordsFor(f, cx + dx, cz + dz, { sitesNear: (x, z, rad) => sitesNear(f, x, z, rad) });
+        oreN += (rec.ore || []).length;
+        rockN += (rec.rock || []).length;
+        for (const o of (rec.ore || [])) worstD = Math.max(worstD, Math.hypot(o.x - st.x, o.z - st.z));
+      }
+      got.push({ st, oreN, rockN, worstD });
+    }
+    Object.assign(ROCK_DENSITY, keep);
+    return got;
+  };
+  const live = ringOf(true), none = ringOf(false);
+  check('every cave mouth still wears its full ring of ore',
+    live.every((g) => g.oreN === ORE_COUNT) && live.every((g) => g.worstD <= ORE_RING[1] + 0.001),
+    live.map((g) => `${g.st.id}: ${g.oreN} of ${ORE_COUNT}, furthest ${g.worstD.toFixed(1)} m of ${ORE_RING[1]}`).join('; '));
+  check('and the ring is not on the boulder grid: with every density at zero the boulders go and the ore stays',
+    none.every((g) => g.oreN === ORE_COUNT)
+    && none.reduce((a, g) => a + g.rockN, 0) === 0
+    && live.reduce((a, g) => a + g.rockN, 0) > 0,
+    `${live.reduce((a, g) => a + g.rockN, 0)} boulders round the three caves as the world ships, `
+    + `${none.reduce((a, g) => a + g.rockN, 0)} with ROCK_DENSITY emptied, and `
+    + `${none.reduce((a, g) => a + g.oreN, 0)} ore either way`);
+  check('and ROCK_DENSITY is back the way it was afterwards',
+    ROCK_DENSITY.meadow === 0.0025 && ROCK_DENSITY.mountain === 0.24,
+    `meadow ${ROCK_DENSITY.meadow}, mountain ${ROCK_DENSITY.mountain}`);
+  check('and the boulder grid put nothing anywhere near a mine seam either: the ore in the square is the sites\' own',
+    ore >= 0, `${ore} ore records in the ${chunks} chunk square, which holds no cave and no mine`);
 }
 
 // every kind the world can grow has to survive interact.js's NOUNS: the field

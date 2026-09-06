@@ -4,10 +4,12 @@
 // Greenwold was a meadow with a dozen field gates standing in it, each one
 // leading from grass into grass. The claims this file exists to prove:
 //
-//   1. open country is never empty. In every one of the nine realms, from
-//      twenty points of real open ground, something authored stands inside
-//      60 m. The number is measured per realm and printed, not asserted from
-//      the density and hoped for.
+//   1. open country is never empty. In eight of the nine realms, from twenty
+//      points of real open ground, something authored stands inside 60 m. The
+//      number is measured per realm and printed, not asserted from the density
+//      and hoped for. The ninth is the Greenwold, and D5 changed what its
+//      promise is rather than widening the band it is measured in: see the
+//      section itself.
 //   2. NO GATE STANDS ALONE. Over four hundred chunks, every field gate and
 //      every stile in the world is the gap in a run, with the segment before
 //      it and the segment after it standing, and it is within a metre and a
@@ -42,6 +44,7 @@ import {
   FIELD_KIT, FIELDS_PER, FARM_REALMS, FARM_KINDS, FIELD_REACH, FIELD_GRADE,
   FIELD_MIN, FIELD_MAX, FIELD_SIZES, OPEN_THIN, THIN_REALMS, CROPS, BOUNDS,
   farmFor, fieldGate, roadCrosses, clearFarms, farmsHeld, poolFor, ryAlong,
+  workedAt, farmsNear, WORKED_REACH, onlyOk,
 } from './dressing.js';
 import {
   createDressing, bodyFor, auditBodies, materials, materialFor, variantsOf,
@@ -80,6 +83,13 @@ console.log('\nthe kits');
     ['a kind put down more than always', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'sarsen' ? { ...k, rare: 1.4 } : k)) }), 'rare 1.4'],
     ['a lattice nobody wrote', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'sheep_fold' ? { ...k, spaced: 'grid' } : k)) }), 'which is no lattice'],
     ['a scatter kind asking to be spaced', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'sarsen' ? { ...k, spaced: 'ring' } : k)) }), 'only an anchor can be spaced'],
+    ['a ground nobody works', () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'sheaf' ? { ...k, only: 'ploughed' } : k)) }), 'which is nothing'],
+    ['a thing of farmed ground in a realm that farms nothing',
+      () => ({ ...KITS, boneyard: KITS.boneyard.map((k, i) => (i ? k : { ...k, only: 'worked' })) }), 'farms nothing'],
+    ['an open chance above the worked chance',
+      () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'hedgerow' ? { ...k, openChance: 0.9 } : k)) }), 'an open chance of 0.9'],
+    ['an open chance of never',
+      () => ({ ...KITS, greenwold: gw().map((k) => (k.kind === 'hedgerow' ? { ...k, openChance: 0 } : k)) }), 'an open chance of 0'],
   ];
   for (const [what, make, want] of cases) {
     let threw = '';
@@ -186,49 +196,88 @@ console.log('\nthe seed, and the bits it was losing');
 
   // AND THE MEADOW SHOWS IT. The roll above is the arithmetic; this is what a
   // player walks through. It is not the same number and it is not meant to be,
-  // for two reasons now.
+  // for three reasons now.
   //
   // `openAt` lets a boulder stand on ground a beehive will not (RUGGED against
   // a slope of 0.30), and `stubborn` puts a boulder down in an anchor cell
   // whose four rolls the ground refused, so the boulder comes out over its
   // share of the roll on both counts.
   //
-  // And D4 gave the hive and the boulder a `rare`, which is a veto drawn after
-  // the pick: the roll above still picks two, three and four in nine, and then
-  // one in five of the hives and one in twenty of the boulders is really put
-  // down. So what stands in the ground is the weight TIMES the rarity, and
-  // that, not the weight, is what this measurement is compared against. The
-  // arithmetic of the roll itself is proved above and is untouched by D4.
+  // D4 gave the hive and the boulder a `rare`, which is a veto drawn after the
+  // pick: the roll above still picks two, three and four in nine, and then a
+  // fraction of the hives and of the boulders is really put down. So what
+  // stands in the ground is the weight TIMES the rarity.
   //
-  // What still has to be true is what the old skew broke: all three are there,
-  // and none of them is the whole of it. The skew the user saw was 72%
-  // beehives and 1.5% boundary stones.
+  // AND D5 GAVE THE SHEAF `only: 'worked'`, so the three kinds are no longer
+  // one pool. On farmed ground all three are in it and the model above holds.
+  // Out in the open the sheaf is struck out before the roll and the pool is
+  // the hive and the boulder alone, so the open ground has to be measured
+  // against ITS own two weights. Measuring the two grounds together was the
+  // first thing D5 broke, and it broke it by comparing a mixture against the
+  // model of one of its halves.
+  //
+  // What still has to be true is what the old skew broke: on the ground each
+  // kind can stand on, it is there, and it is not the whole of it. The skew
+  // the user saw was 72% beehives and 1.5% boundary stones.
   const gwKit = kitFor('greenwold');
   const rareOf = (k) => gwKit.find((q) => q.kind === k).rare;
-  const thinned = [2 * rareOf('beehive'), 3 * rareOf('sheaf'), 4 * rareOf('sarsen')];
-  const thinnedTotal = thinned.reduce((a, b) => a + b, 0);
-  const WANT_GROUND = thinned.map((v) => v / thinnedTotal * 100);
-  const kinds = { beehive: 0, sheaf: 0, sarsen: 0 };
-  let props = 0, chunks = 0;
+  const model = (rows) => {
+    const t = rows.reduce((a, r) => a + r[1], 0);
+    return Object.fromEntries(rows.map(([k, w]) => [k, w / t * 100]));
+  };
+  const WORKED_MODEL = model([['beehive', 2 * rareOf('beehive')], ['sheaf', 3 * rareOf('sheaf')],
+    ['sarsen', 4 * rareOf('sarsen')]]);
+  const OPEN_MODEL = model([['beehive', 2 * rareOf('beehive')], ['sarsen', 4 * rareOf('sarsen')]]);
+  const openK = { beehive: 0, sheaf: 0, sarsen: 0 }, workK = { beehive: 0, sheaf: 0, sarsen: 0 };
+  let chunks = 0;
   for (let dz = -16; dz < 16; dz++) for (let dx = -16; dx < 16; dx++) {
+    const cx = -6 + dx, cz = -21 + dz, x0 = cx * CHUNK, z0 = cz * CHUNK;
     chunks++;
-    for (const p of dressingFor(field, -6 + dx, -21 + dz)) {
-      if (kinds[p.kind] === undefined) continue;
-      kinds[p.kind]++; props++;
+    // the fields this chunk can see, through the same two functions the
+    // placement itself used, so "worked" here is the placement's own word
+    const fs = [];
+    for (const n of farmsNear(field, sitesNear(field, x0 + CHUNK / 2, z0 + CHUNK / 2, CHUNK + FIELD_REACH), x0, z0)) {
+      for (const f of n.farm.fields) fs.push(f);
+    }
+    for (const p of dressingFor(field, cx, cz)) {
+      if (openK[p.kind] === undefined) continue;
+      (workedAt(fs, p.x, p.z) || p.near === 'road' ? workK : openK)[p.kind]++;
     }
   }
-  const share = [kinds.beehive, kinds.sheaf, kinds.sarsen].map((v) => v / props * 100);
-  console.log(`    in the ground  ${props} of them over ${chunks} chunks of the Greenwold: `
-    + `beehive ${f2(share[0])}%, sheaf ${f2(share[1])}%, boundary stone ${f2(share[2])}%`);
-  console.log(`    the weight times the rarity wanted  beehive ${f2(WANT_GROUND[0])}%, `
-    + `sheaf ${f2(WANT_GROUND[1])}%, boundary stone ${f2(WANT_GROUND[2])}%`);
-  ck('every kind of the Greenwold\'s scatter is really in the meadow, none vanished and none the whole of it',
-    share.every((v, i) => v > WANT_GROUND[i] * 0.4 && v < WANT_GROUND[i] * 2.6),
-    `${share.map((v, i) => f2(v) + '% against ' + f2(WANT_GROUND[i]) + '%').join(', ')}`);
+  const sumOf = (o) => o.beehive + o.sheaf + o.sarsen;
+  const openN = sumOf(openK), workN = sumOf(workK);
+  const pct = (o, n) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v / n * 100]));
+  const openPct = pct(openK, openN), workPct = pct(workK, workN);
+  const sayMix = (o) => `beehive ${f2(o.beehive)}%, sheaf ${f2(o.sheaf)}%, boundary stone ${f2(o.sarsen)}%`;
+  console.log(`    over ${chunks} chunks of the Greenwold, ${workN} loose props on farmed ground `
+    + `and ${openN} out in the open`);
+  console.log(`    farmed ground  ${sayMix(workPct)}`);
+  console.log(`    its model      ${sayMix({ ...WORKED_MODEL, sheaf: WORKED_MODEL.sheaf })}`);
+  console.log(`    open meadow    ${sayMix(openPct)}`);
+  console.log(`    its model      beehive ${f2(OPEN_MODEL.beehive)}%, sheaf 0.00%, `
+    + `boundary stone ${f2(OPEN_MODEL.sarsen)}%`);
+  const within = (got, want) => Object.entries(want).every(([k, v]) => got[k] > v * 0.4 && got[k] < v * 2.6);
+  ck('on farmed ground all three of the Greenwold\'s loose kinds are there, and none is the whole of it',
+    workN > 40 && within(workPct, WORKED_MODEL),
+    `${workN} props: ${sayMix(workPct)} against ${sayMix(WORKED_MODEL)}`);
+  ck('and out in the open the pool is the hive and the boulder, and both of those are there too',
+    openN > 40 && within(openPct, OPEN_MODEL),
+    `${openN} props: beehive ${f2(openPct.beehive)}% against ${f2(OPEN_MODEL.beehive)}%, `
+    + `boundary stone ${f2(openPct.sarsen)}% against ${f2(OPEN_MODEL.sarsen)}%`);
+  // The sheaf in the open is not zero and cannot be: the pool is decided ONCE
+  // per 32 m anchor cell, at its own centre, and the four scatter cells under
+  // it inherit that answer and stand up to half an anchor cell plus their
+  // jitter away from where the question was asked. So a sheaf can end up a few
+  // tens of metres outside WORKED_REACH. What must not happen is a meadow full
+  // of them, which is what 146 a square kilometre was.
+  ck('and a sheaf is a thing of farmed ground: hardly any of them are out in the open',
+    openK.sheaf < openN * 0.05 && workK.sheaf > workN * 0.5,
+    `${workK.sheaf} of the ${workN} loose props on farmed ground are sheaves, and `
+    + `${openK.sheaf} of the ${openN} out in the open`);
   ck('the Greenwold keeps its boundary stones, which the skew had all but taken away',
-    kinds.sarsen > props * 0.03 && kinds.beehive > props * 0.03,
-    `${kinds.sarsen} boundary stones and ${kinds.beehive} beehives over ${chunks} chunks, `
-    + `${f2(share[2])}% and ${f2(share[0])}% of the loose scatter, against the 1.5% the skew left`);
+    openK.sarsen > openN * 0.03 && openK.beehive > openN * 0.03,
+    `${openK.sarsen} boundary stones and ${openK.beehive} beehives out in the open, `
+    + `${f2(openPct.sarsen)}% and ${f2(openPct.beehive)}% of the loose scatter, against the 1.5% the skew left`);
 }
 
 // ------------------------------------------------------------ the bodies --
@@ -591,8 +640,12 @@ console.log('\nthe farmland');
 console.log('\nopen country, twenty points a realm');
 {
   const POINTS = 20, REACH = 60, RING = 2;
-  let worstAll = 0, over = 0, gwWorst = 0, gwMean = 0;
+  let worstAll = 0, over = 0;
   for (const zn of REALM_ZONES) {
+    // D5: the Greenwold is measured on its own, below, because its promise is
+    // not this one any more. It is still walked here so the number is printed
+    // beside the other eight and nobody has to go looking for it.
+    const own = zn.id === 'greenwold';
     let seed = 20260906;
     const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
     let tested = 0, worst = 0, sum = 0, tries = 0, bad = 0;
@@ -610,30 +663,104 @@ console.log('\nopen country, twenty points a realm');
       sum += best; if (best > worst) worst = best;
       if (best > REACH) bad++;
     }
+    if (own) {
+      console.log(`  ..  greenwold: mean ${f2(sum / tested)} m, worst ${f2(worst)} m over ${tested} open points. `
+        + 'Measured on its own below, in two grounds.');
+      continue;
+    }
     over += bad; if (worst > worstAll) worstAll = worst;
-    if (zn.id === 'greenwold') { gwWorst = worst; gwMean = sum / tested; }
     ck(`${zn.id}: something authored inside ${REACH} m from every one of ${tested} open points`,
       tested === POINTS && bad === 0, `mean ${f2(sum / tested)} m, worst ${f2(worst)} m`);
   }
-  ck('and nowhere in the world is further than that', over === 0, `worst of all nine: ${f2(worstAll)} m`);
-  // Z4 took the road furniture out of the open Greenwold and thinned the
-  // scatter, and kept the 24 m Z3 had measured. D4 has spent that 24 m ON
-  // PURPOSE, and the sum is worth writing down: the user asked for a Greenwold
-  // with 40 boulders, 12 folds and 6 ponds to the square kilometre instead of
-  // 467, 230 and 55, and most of an anchor cell's rolls now put nothing down
-  // at all. The worst nearest prop went from 14.5 m to 37.7 m and the mean
-  // from 8.2 m to 15.8 m with it.
-  //
-  // What still has to hold is the promise this whole section is named for and
-  // the one a player can feel: 60 m from any open point in any realm, checked
-  // above, and a Greenwold that is emptier without being bare. The band below
-  // is the room D4 asked for and no more: at 48 m the worst point would be
-  // inside a hedgeless quarter the size of four anchor cells, which is the
-  // country going bare rather than going quiet.
-  ck('and the Greenwold is quieter than Z4 left it without being bare',
-    gwWorst <= 48 && gwMean <= 22,
-    `worst nearest prop in the Greenwold ${f2(gwWorst)} m against 48, mean ${f2(gwMean)} m against 22, `
-    + `where Z4 measured 14.52 m and 8.24 m`);
+  ck(`and nowhere in the other eight realms is further than ${REACH} m`, over === 0,
+    `worst of the eight: ${f2(worstAll)} m`);
+}
+
+// ------------------------------------- the Greenwold has two grounds now --
+//
+// D5. THE OLD PROMISE WAS BEING KEPT BY THE THING THE USER COMPLAINED ABOUT.
+//
+// "Open country is never empty, 60 m in every realm" was written for the
+// Boneyard, which is a graveyard and has to read as one from anywhere in it.
+// In the Greenwold it was kept almost entirely by hedgerows and drystone
+// walls: 1515 hedge segments and 1142 wall segments to the square kilometre of
+// OPEN meadow, which is sixty four runs of hedge a square kilometre, one every
+// hundred and twenty five metres in every direction, standing in grass and
+// bounding nothing. That is what the user was looking at when they wrote
+// "weird fences and objects all throughout the world, just looks like
+// garbage", and the 60 m number is what had been holding it there.
+//
+// So the promise is split rather than widened, because the Greenwold has two
+// grounds and they owe the player different things.
+//
+//   FARMED GROUND, within WORKED_REACH of a field, is where a hedge, a wall, a
+//   gate, a stile, a sheaf and a rick all belong, and it is FULLER than it was:
+//   the hedge and the wall both took a bigger `chance` there. It keeps the
+//   whole 60 m promise, measured.
+//
+//   OPEN MEADOW between one farm and the next is meant to be grass. It keeps
+//   about six runs of hedge or wall a square kilometre, one every four hundred
+//   metres, which is a boundary seen across a valley, plus the ricks, the
+//   hives, the folds and the ponds. It is measured as a DISTRIBUTION and not
+//   as a worst case, because at these densities the worst of twenty points is
+//   a reading of which twenty points and nothing else: at the same placement,
+//   twenty points said 101 m and two hundred said 145 m.
+//
+// The arithmetic says the second half cannot be a 60 m promise, or a 90 m one,
+// at the counts the user asked for. Six runs and about fifty loose props to
+// the square kilometre cover roughly four fifths of the open meadow inside
+// 90 m, and buying the last fifth costs three times the props, which is the
+// clutter back again. The honest thing is to measure what is there and to say
+// that the open meadow is QUIET, with a floor under it so that quiet cannot
+// drift into bare unnoticed.
+
+console.log('\nthe Greenwold: farmed ground is full, open meadow is quiet');
+{
+  const RING = 3;                                    // 145 m of gap needs more than a 5 by 5
+  const zn = REALM_ZONES.find((z) => z.id === 'greenwold');
+  let seed = 20260906;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const open = [], work = [];
+  let tries = 0;
+  while ((open.length < 120 || work.length < 30) && tries < 40000) {
+    tries++;
+    const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * zn.r * 0.92;
+    const x = zn.x + Math.cos(a) * d, z = zn.z + Math.sin(a) * d;
+    if (!openAt(field, x, z, null).ok) continue;
+    const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK);
+    const x0 = cx * CHUNK, z0 = cz * CHUNK;
+    const fs = [];
+    for (const n of farmsNear(field, sitesNear(field, x0 + CHUNK / 2, z0 + CHUNK / 2, CHUNK + FIELD_REACH), x0, z0)) {
+      for (const f of n.farm.fields) fs.push(f);
+    }
+    const onFarm = workedAt(fs, x, z);
+    const into = onFarm ? work : open;
+    if (into.length >= (onFarm ? 30 : 120)) continue;
+    let best = Infinity;
+    for (let dz = -RING; dz <= RING; dz++) for (let dx = -RING; dx <= RING; dx++) {
+      for (const p of dressingFor(field, cx + dx, cz + dz)) best = Math.min(best, Math.hypot(p.x - x, p.z - z));
+    }
+    into.push(best);
+  }
+  const stat = (l) => {
+    const v = l.slice().sort((a, b) => a - b);
+    return { n: v.length, mean: v.reduce((a, b) => a + b, 0) / v.length, med: v[v.length >> 1],
+      p90: v[Math.floor(v.length * 0.9)], worst: v[v.length - 1] };
+  };
+  const W = stat(work), O = stat(open);
+  const say = (t) => `${t.n} points, mean ${f2(t.mean)} m, median ${f2(t.med)} m, p90 ${f2(t.p90)} m, worst ${f2(t.worst)} m`;
+  console.log(`  ..  farmed ground, within ${WORKED_REACH} m of a field:  ${say(W)}`);
+  console.log(`  ..  open meadow between the farms:              ${say(O)}`);
+  ck(`there was enough of both grounds to measure, out of ${tries} points tried`,
+    W.n >= 30 && O.n >= 120, `${W.n} on farmed ground, ${O.n} in open meadow`);
+  ck('farmed ground keeps the whole 60 m promise: a hedge, a wall or a gate is always in sight',
+    W.worst <= 60, `worst ${f2(W.worst)} m, mean ${f2(W.mean)} m`);
+  ck('and the open meadow is quiet: half of it is inside 60 m and nine tenths inside 110 m',
+    O.med <= 60 && O.p90 <= 110, `median ${f2(O.med)} m, p90 ${f2(O.p90)} m`);
+  ck('and quiet is not bare: nowhere in the open meadow is further than 170 m from something authored',
+    O.worst <= 170 && Number.isFinite(O.worst), `worst ${f2(O.worst)} m over ${O.n} points`);
+  ck('and the farmed country really is fuller than the meadow between the farms',
+    W.mean < O.mean * 0.5, `${f2(W.mean)} m against ${f2(O.mean)} m to the nearest authored thing`);
 }
 
 // ---------------------------------------------- less clutter in the open --
@@ -683,7 +810,14 @@ console.log('\nless clutter in the open');
   console.log(`  ..  all props, both tiers: ${wasAll} before, ${nowAll} after. OPEN_THIN reaches only the `
     + 'scatter tier; what thinned the anchor grid is D4\'s own veto, which is the same in both columns '
     + 'here and is measured in dressing_density.test.mjs.');
-  ck('there was open meadow to measure', chunks > 20 && wasScatter > 100, `${chunks} chunks`);
+  // D5 took the sheaf out of the open pool altogether and cut the boulder from
+  // one cell in twenty to one in a hundred and twenty five and the hive from
+  // one in five to one in ten, so the BEFORE column of this section, which is
+  // the same placement with only the thinning switched off, is now a tenth of
+  // what it was when Z4 wrote the bar at a hundred. The bar comes down with
+  // the thing it counts; what it is here to catch is a run of chunks with
+  // nothing in them at all.
+  ck('there was open meadow to measure', chunks > 20 && wasScatter > 20, `${chunks} chunks, ${wasScatter} loose props before the thinning`);
   ck('the loose clutter of the open Greenwold is down by at least a quarter', drop >= 0.25,
     `${(drop * 100).toFixed(1)}% fewer, ${(wasScatter / ha).toFixed(1)} to ${(nowScatter / ha).toFixed(1)} a hectare`);
   ck('and the props of every kind together are down too', nowAll < wasAll,
@@ -737,6 +871,37 @@ console.log('\nless clutter in the open');
   ck('and poolFor is what does it, both ways',
     poolFor(anchors, 'road', 3, 5, 99).includes(gwCart) && !poolFor(anchors, null, 3, 5, 99).includes(gwCart),
     'a cart is in the pool beside a road and out of it anywhere else');
+
+  // D5's own gate, driven true AND false on the two things it decides.
+  const gwSheaf = kitFor('greenwold').find((k) => k.kind === 'sheaf');
+  const scatters = kitFor('greenwold').filter((k) => k.tier === 'scatter');
+  ck('and a sheaf is in the pool on worked ground and beside a road, and out of it in open meadow',
+    poolFor(scatters, null, 3, 5, 99, true).includes(gwSheaf)
+    && poolFor(scatters, 'road', 3, 5, 99, false).includes(gwSheaf)
+    && !poolFor(scatters, null, 3, 5, 99, false).includes(gwSheaf)
+    && !poolFor(scatters, 'site', 3, 5, 99, false).includes(gwSheaf),
+    'worked yes, roadside yes, open meadow no, a village green no');
+  ck('and onlyOk says the same thing on its own, in all four cases',
+    onlyOk('worked', null, true) && onlyOk('worked', 'road', false)
+    && !onlyOk('worked', null, false) && !onlyOk('worked', 'site', false)
+    && onlyOk('road', 'road', false) && !onlyOk('road', null, true),
+    'a road thing wants a road however farmed the ground is');
+
+  // AND THE OPEN CHANCE, both ways. A hedgerow is not struck out of the open
+  // pool, it is RARER there, so the thing to measure is how many of a run of
+  // cells hold one on each ground, against the two numbers the kit declares.
+  const gwHedge = kitFor('greenwold').find((k) => k.kind === 'hedgerow');
+  let inWorked = 0, inOpen = 0;
+  const N = 6000;
+  for (let i = 0; i < N; i++) {
+    if (poolFor(anchors, null, i, -i * 3 + 11, 99, true).includes(gwHedge)) inWorked++;
+    if (poolFor(anchors, null, i, -i * 3 + 11, 99, false).includes(gwHedge)) inOpen++;
+  }
+  ck('a hedgerow starts on a third of farmed cells and on one open cell in fifty, as the kit asks',
+    Math.abs(inWorked / N - gwHedge.chance) < 0.02 && Math.abs(inOpen / N - gwHedge.openChance) < 0.01
+    && inOpen > 0,
+    `${inWorked} of ${N} worked cells against a chance of ${gwHedge.chance}, `
+    + `${inOpen} open cells against an open chance of ${gwHedge.openChance}`);
 }
 
 // --------------------------------------------- nothing stands where it must not --

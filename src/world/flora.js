@@ -201,12 +201,27 @@ export const WARM_ORDER = [
 
 /**
  * Chance per 8 m cell that a boulder stands there, by biome. Arbor grows no
- * rocks, so boulders keep flora's own per cell roll and their old numbers: a
- * biome with nothing to mine hands the player a pickaxe that does nothing.
+ * rocks, so boulders keep flora's own per cell roll: a biome with nothing to
+ * mine hands the player a pickaxe that does nothing, and `auditBiomeHarvest`
+ * throws on any biome whose number reaches zero.
+ *
+ * D5, and it is the larger half of "way too many stones everywhere". The
+ * dressing's own sarsen was the kind everybody blamed, at 28 to the square
+ * kilometre; the boulders on THIS grid were 425 to the square kilometre of
+ * Greenwold meadow, measured over the same 31 by 31 chunk square, because one
+ * candidate falls in every 8 m cell and 0.03 of them stood. Fifteen boulders
+ * to the hectare is a rockery, not a meadow.
+ *
+ * The three biomes cut are the three the farmed country is made of and shows
+ * its edges in: the meadow itself, the shore it runs down to, and the blossom
+ * ground between. The mountain keeps every stone it had, because a mountain is
+ * made of them and it is where a pickaxe is meant to be swung; so do the
+ * boreal, the desert and the snow, which are other realms' ground and were not
+ * what the user was looking at.
  */
 export const ROCK_DENSITY = {
-  meadow: 0.03, boreal: 0.06, desert: 0.09, beach: 0.03,
-  sakura: 0.05, mountain: 0.24, snow: 0.08, ocean: 0,
+  meadow: 0.0025, boreal: 0.06, desert: 0.09, beach: 0.006,
+  sakura: 0.008, mountain: 0.24, snow: 0.08, ocean: 0,
 };
 
 /**

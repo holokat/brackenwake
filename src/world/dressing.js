@@ -133,6 +133,25 @@ export const FIELD_BANDS = 4;
 export const FIELD_STANDOFF = 24;
 /** Metres a prop keeps out of a field that is not its own. */
 export const FIELD_KEEP = 2.5;
+/**
+ * How far out of a field's own edge the ground still counts as WORKED.
+ *
+ * D5. The user, looking out of the window: "reduce weird fences and objects all
+ * throughout the world, just looks like garbage". A hedgerow and a drystone
+ * wall are the boundary of SOMETHING. Rolled on the anchor grid with nothing
+ * but a `chance` in front of them they were the boundary of nothing at all,
+ * and they were the two biggest kinds in the world by a wide margin: 1609 and
+ * 1200 segments to the square kilometre of open Greenwold, which is a wall or
+ * a hedge every twenty metres of open grass in every direction.
+ *
+ * So they carry `only: 'worked'` now, and worked ground is a farm field's own
+ * ground grown by this much, or a roadside. A hedge in the farmed country
+ * round a village is a hedge between two plots; the same hedge four hundred
+ * metres out in the meadow is the garbage. A hundred and ten metres is a run's
+ * own longest length, so a hedge that starts on worked ground can reach out of
+ * it and still be a line that came from somewhere.
+ */
+export const WORKED_REACH = 110;
 /** Metres between one crop row and the next. */
 export const ROW_GAP = 3.2;
 /** Metres of row one instanced body covers. */
@@ -264,11 +283,30 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 //   near     'road' or 'site' doubles the kind's weight where one is close
 //   only     'road' strikes the kind out of the pool anywhere else. A cart, a
 //            signpost, a milestone and a wayside shrine are things that stand
-//            BESIDE A ROAD, and the meadow was full of them
+//            BESIDE A ROAD, and the meadow was full of them. 'worked' is the
+//            same rule for the things that belong to FARMED GROUND: a
+//            hedgerow, a drystone wall and a sheaf are kept where a field is
+//            within WORKED_REACH or a road is near, and struck out of every
+//            other cell in the world. That is D5, and it is what takes a wall
+//            or a hedge every twenty metres of open meadow down to none
 //   chance   the kind is in a cell's pool only this often. A hedgerow is now
 //            forty to a hundred and twenty metres long, so it has to START in
 //            far fewer cells than it did at eighteen metres, or the country
 //            fills up with hedge
+//   openChance
+//            the same roll, asked instead of `chance` on ground that is
+//            neither worked nor beside a road. This is D5, and it is what a
+//            hedgerow and a drystone wall needed that `only` could not give
+//            them. `only: 'worked'` took them out of the open country
+//            altogether, which is honest about where a hedge belongs and
+//            leaves the meadow with one authored thing every hundred and
+//            eighty metres, measured. A hedgerow is not garbage because it
+//            stands in open grass; it is garbage at sixty four runs to the
+//            square kilometre, which is a run every hundred and twenty five
+//            metres in every direction. At `openChance` it is about six runs
+//            to the square kilometre, one every four hundred metres, which is
+//            a field boundary seen across a valley and is the thing the
+//            hedgerow was put in the world to be
 //   rare     the kind is really put down only this often, and the roll is
 //            drawn AFTER the pick, so the cell stands empty rather than
 //            handing its turn to the next kind along. That is the whole
@@ -302,6 +340,7 @@ const K = (kind, build, size, o = {}) => ({
   near: o.near || null,
   only: o.only || null,
   chance: o.chance ?? 1,
+  openChance: o.openChance ?? null,
   rare: o.rare ?? 1,
   spaced: o.spaced || null,
   along: o.along || null,
@@ -359,9 +398,9 @@ export const KITS = {
     // corner on the way, and it leaves a gap with a gate or a stile in it. It
     // starts in one cell in five, because at eighteen metres it could start in
     // half of them and at a hundred and twenty it cannot.
-    A('hedgerow', 'hedge', 3.4, { weight: 4, slope: 0.5, chance: 0.20, along: 'x',
+    A('hedgerow', 'hedge', 3.4, { weight: 4, slope: 0.5, chance: 0.34, openChance: 0.020, along: 'x',
       run: { n: [14, 40], gap: 3.0, wander: 0.035, corner: true, gate: true } }),
-    A('drystone_wall', 'wall', 3.2, { weight: 4, slope: 0.5, chance: 0.16, along: 'x',
+    A('drystone_wall', 'wall', 3.2, { weight: 4, slope: 0.5, chance: 0.28, openChance: 0.016, along: 'x',
       run: { n: [13, 34], gap: 3.0, wander: 0.03, corner: true, gate: true } }),
     // What the anchor grid puts down in the OPEN Greenwold, now that a cart
     // and a shrine are road furniture and a hedgerow starts in one cell in
@@ -373,7 +412,7 @@ export const KITS = {
     // something. A rick is one in seven of the cells that roll one now, and
     // the fold and the pond are spaced two hundred metres apart, so each one
     // is the fold, on the hill above the village, and not a pattern.
-    A('hay_rick', 'rick', 4.2, { weight: 3, slope: 0.16, rare: 0.14 }),
+    A('hay_rick', 'rick', 4.2, { weight: 3, slope: 0.16, rare: 0.055 }),
     A('sheep_fold', 'fold', 7.0, { weight: 2, slope: 0.22, sink: 0.12, spaced: 'ring' }),
     A('dew_pond', 'pond', 6.0, { weight: 1, slope: 0.09, sink: 0.3, spaced: 'ring' }),
     A('wayside_shrine', 'shrine', 2.6, { weight: 1, slope: 0.2, near: 'road', only: 'road' }),
@@ -392,9 +431,9 @@ export const KITS = {
     // chunk square, 742 of the 1841 sarsens standing there came through
     // `stubborn` and not off the scatter grid, which is why the veto had to be
     // asked in both places.
-    K('beehive', 'hive', 0.9, { weight: 2, slope: 0.3, rare: 0.20 }),
-    K('sheaf', 'sheaf', 1.4, { weight: 3, slope: 0.28 }),
-    K('sarsen', 'boulder', 1.9, { weight: 4, slope: RUGGED, sink: 0.3, rare: 0.05 }),
+    K('beehive', 'hive', 0.9, { weight: 2, slope: 0.3, rare: 0.095 }),
+    K('sheaf', 'sheaf', 1.4, { weight: 3, slope: 0.28, only: 'worked' }),
+    K('sarsen', 'boulder', 1.9, { weight: 4, slope: RUGGED, sink: 0.3, rare: 0.008 }),
   ],
   // A jungle of flowering giants. Nothing straight, everything overgrown.
   verdant: [
@@ -629,6 +668,19 @@ export function openAt(field, x, z, spec, sites = null, fields = null) {
     if (spec.require === 'shore' && s.h > 3.0) return { ok: false, why: 'inland', s, slope };
   }
   return { ok: true, why: null, s, slope };
+}
+
+/**
+ * Is any farm field within WORKED_REACH of this point?
+ *
+ * The one question `only: 'worked'` turns on, and it is asked of the FIELDS a
+ * chunk already laid out, so it costs a rectangle test a field and nothing at
+ * all out in the open country, where the list is empty.
+ */
+export function workedAt(fields, x, z) {
+  if (!fields) return false;
+  for (let i = 0; i < fields.length; i++) if (inField(fields[i], x, z, WORKED_REACH)) return true;
+  return false;
 }
 
 /** Is (x, z) inside this field, grown by `pad` metres on every side? */
@@ -1246,8 +1298,11 @@ export function dressingFor(field, cx, cz, opts = {}) {
     const j0z = (rand2(cellX * 7, cellZ, seed + 12) - 0.5) * 2 * JITTER * ANCHOR;
     const probe0 = probeAt(field, midX + j0x, midZ + j0z, sites);
     const near = nearWhat(probe0, midX, midZ, sites);
-    const anchors = poolFor(tierOf(realm.id, 'anchor'), near, cellX, cellZ, seed);
-    const scatters = poolFor(tierOf(realm.id, 'scatter'), near, cellX, cellZ, seed);
+    // D5: and whether this cell is on FARMED ground, which is the other half of
+    // the pool question now. Free in open country, where `fields` is empty.
+    const worked = workedAt(fields, midX, midZ);
+    const anchors = poolFor(tierOf(realm.id, 'anchor'), near, cellX, cellZ, seed, worked);
+    const scatters = poolFor(tierOf(realm.id, 'scatter'), near, cellX, cellZ, seed, worked);
     // Each try moves the candidate AND rolls a different kind, because the
     // ground refuses a kind, not a place: a cell too steep for a wreck may
     // still take a stack of reeds. When four tries have all been refused the
@@ -1289,7 +1344,7 @@ export function dressingFor(field, cx, cz, opts = {}) {
       if (!wanted(spec, cellX, cellZ, seed, seed + 26)) { refused = true; break; }
       hit = { spec, x, z, gate };
     }
-    if (!hit && !refused) hit = stubborn(field, realm.id, cellX, cellZ, midX, midZ, seed, sites, near, fields);
+    if (!hit && !refused) hit = stubborn(field, realm.id, cellX, cellZ, midX, midZ, seed, sites, near, fields, worked);
     if (hit) emit(out, field, hit.spec, hit.x, hit.z, cellX, cellZ, seed, realm.id, chunk, sites, fields, near);
 
     // the scatter under this anchor cell, thickened where a road or a place is
@@ -1323,10 +1378,22 @@ export function dressingFor(field, cx, cz, opts = {}) {
 }
 
 /**
+ * Does this cell's ground answer this kind's `only`?
+ *
+ * 'road' and 'site' are the scalar `near` the cell was placed under. 'worked'
+ * is the D5 rule and it takes either: a farm field within WORKED_REACH, or a
+ * road. A hedge belongs to a field and it also belongs to a lane, and there is
+ * no third place in the Greenwold where a hundred metres of hedge means
+ * anything.
+ */
+export const onlyOk = (only, near, worked) => (only === 'worked' ? (worked || near === 'road') : only === near);
+
+/**
  * The kinds a cell may roll, out of a tier's list.
  *
  * Two filters, and both are the answer to something the user saw. `only`
- * strikes out the things that belong beside a road wherever there is no road.
+ * strikes out the things that belong beside a road wherever there is no road,
+ * and the things that belong to farmed ground wherever no field is near.
  * `chance` strikes out a kind in most cells, which is how a hedgerow can be a
  * hundred and twenty metres long without the country turning into a maze: it
  * starts in one cell in five instead of every other one.
@@ -1335,17 +1402,21 @@ export function dressingFor(field, cx, cz, opts = {}) {
  * nothing in it would leave the cell to `stubborn`, and the fallback is for
  * ground that refuses, not for a roll that came up short.
  */
-export function poolFor(list, near, cellX, cellZ, seed) {
+export function poolFor(list, near, cellX, cellZ, seed, worked = false) {
   let out = null;
   for (let i = 0; i < list.length; i++) {
     const k = list[i];
-    if (k.only && k.only !== near) continue;
-    if (k.chance < 1 && rand2(cellX * 3 + 1, cellZ * 5 + 2, seed + 61 + i) >= k.chance) continue;
+    if (k.only && !onlyOk(k.only, near, worked)) continue;
+    // the open country gets its own, much smaller chance where the kind names
+    // one: a hedgerow is a field boundary on farmed ground and a landmark out
+    // in the meadow, and it cannot be as common in the second as in the first
+    const ch = (k.openChance != null && !worked && near !== 'road') ? k.openChance : k.chance;
+    if (ch < 1 && rand2(cellX * 3 + 1, cellZ * 5 + 2, seed + 61 + i) >= ch) continue;
     (out ||= []).push(k);
   }
   if (out) return out;
-  // nothing survived: fall back to whatever is not road furniture, so a cell
-  // in the open still has something honest to put down
+  // nothing survived: fall back to whatever belongs nowhere in particular, so
+  // a cell in the open still has something honest to put down
   const bare = list.filter((k) => !k.only);
   return bare.length ? bare : list;
 }
@@ -1458,8 +1529,8 @@ function stubbornList(realm) {
  * The list is cut by the same pool the roll used, so the fallback cannot put
  * down a cart where the roll was not allowed to.
  */
-function stubborn(field, realm, cellX, cellZ, midX, midZ, seed, sites, near = null, fields = null) {
-  const list = poolFor(stubbornList(realm), near, cellX, cellZ, seed);
+function stubborn(field, realm, cellX, cellZ, midX, midZ, seed, sites, near = null, fields = null, worked = false) {
+  const list = poolFor(stubbornList(realm), near, cellX, cellZ, seed, worked);
   const spots = [[0, 0], [ANCHOR * 0.22, -ANCHOR * 0.22], [-ANCHOR * 0.22, ANCHOR * 0.22]];
   // the pool is still in slope order, so nothing behind the first could pass
   // where the first could not
@@ -1622,6 +1693,12 @@ export function auditKits(kits = KITS, bodies = null) {
       if (!(k.slope > 0)) bad.push(`${id}:${k.kind}: no slope limit`);
       if (!(k.scale[0] > 0) || k.scale[1] < k.scale[0]) bad.push(`${id}:${k.kind}: bad scale band`);
       if (!(k.chance > 0) || k.chance > 1) bad.push(`${id}:${k.kind}: a chance of ${k.chance}`);
+      // An open chance ABOVE the worked chance would mean a hedge was rarer on
+      // farmed ground than in the middle of nowhere, which is the world upside
+      // down and would read as a bug long before anybody found the row.
+      if (k.openChance != null && (!(k.openChance > 0) || k.openChance > k.chance)) {
+        bad.push(`${id}:${k.kind}: an open chance of ${k.openChance} against a chance of ${k.chance}`);
+      }
       if (!(k.rare > 0) || k.rare > 1) bad.push(`${id}:${k.kind}: rare ${k.rare}, which is never or more than always`);
       if (k.spaced && k.spaced !== 'ring') bad.push(`${id}:${k.kind}: spaced "${k.spaced}", which is no lattice`);
       // A spaced kind is nominated on the ANCHOR lattice, so a scatter kind
@@ -1629,7 +1706,13 @@ export function auditKits(kits = KITS, bodies = null) {
       // sixteen metre cell in a thirty two metre lattice, and would answer it
       // wrongly and quietly.
       if (k.spaced && k.tier !== 'anchor') bad.push(`${id}:${k.kind}: spaced and tier ${k.tier}, and only an anchor can be spaced`);
-      if (k.only && k.only !== 'road' && k.only !== 'site') bad.push(`${id}:${k.kind}: only "${k.only}", which is nothing`);
+      if (k.only && k.only !== 'road' && k.only !== 'site' && k.only !== 'worked') bad.push(`${id}:${k.kind}: only "${k.only}", which is nothing`);
+      // A kind that belongs to farmed ground in a realm that grows nothing has
+      // no ground to belong to, so it would be struck out of every cell of that
+      // realm and never reach the world at all. D5 puts `only: 'worked'` on
+      // three Greenwold kinds; this is the guard that catches the tenth realm
+      // that copies the row without copying the farm.
+      if (k.only === 'worked' && !FARM_REALMS.has(id)) bad.push(`${id}:${k.kind}: only "worked" in a realm that farms nothing`);
       if (k.along && k.along !== 'x' && k.along !== 'z') bad.push(`${id}:${k.kind}: along "${k.along}", which is no axis`);
       if (bodies && !bodies[k.build]) bad.push(`${id}:${k.kind}: names a body "${k.build}" that does not exist`);
       if (k.tier === 'anchor') anchors++; else if (k.tier === 'scatter') scatters++;
