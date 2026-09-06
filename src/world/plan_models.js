@@ -34,6 +34,7 @@
 
 import * as THREE from 'three';
 import { mergeByMaterial } from './site_models.js';
+import * as arbor from './arbor.js';
 import { PALETTES } from './town_layout.js';
 import {
   FOOTPRINT, RUN_SPAN, isRunKind, AREA_KINDS, STANDIN, hasStandIn, SOLO,
@@ -707,6 +708,30 @@ export async function loadPropsFor(plan) {
 const D2R = Math.PI / 180;
 
 /**
+ * The plan's tree models and the arbor species each is grown as. The plans
+ * name three of a species so a wood has three silhouettes; each model id gets
+ * its own seed, so beech_a and beech_b are two different beeches.
+ */
+export const TREE_SPECIES = {
+  beech_a: 'beech', beech_b: 'beech', beech_c: 'beech',
+  oak_a: 'oak', oak_b: 'oak', oak_c: 'oak',
+  willow: 'willow',
+};
+const treeProtos = new Map();
+/** One grown prototype per tree model, cached for the session. */
+export function treeProto(model) {
+  const species = TREE_SPECIES[model];
+  if (!species) return null;
+  let p = treeProtos.get(model);
+  if (!p) {
+    let seed = 0x51ed; for (const ch of model) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) >>> 0;
+    try { p = arbor.buildPrototype(species, seed, { maturity: 1 }); } catch { p = null; }
+    if (p) treeProtos.set(model, p);
+  }
+  return p;
+}
+
+/**
  * The body of one piece, in its own local space, standing on y = 0 facing +z.
  * The glb when there is one, the stand-in when there is not, and it says which.
  */
@@ -836,6 +861,7 @@ export function buildPlan(plan, site, heightAt) {
   PALETTE_FOR = palette(site.realm || 'greenwold');
   const c = PALETTE_FOR;
   const groups = new Map();      // tag -> { g, piece, waystone, keep }
+  const trees = new Map();       // model -> [{ x, y, z, yaw, k }] laid as real arbor trees, instanced
   const sub = (tag, piece) => {
     let e = groups.get(tag);
     if (!e) { e = { g: new THREE.Group(), piece: piece ?? null }; groups.set(tag, e); }
@@ -858,11 +884,39 @@ export function buildPlan(plan, site, heightAt) {
     return [stop.x + px * c0 + pz * s0, stop.z + pz * c0 - px * s0];
   };
 
-  for (const stop of stops) buildStop(plan, site, heightAt, c, sub, stop, world);
+  for (const stop of stops) buildStop(plan, site, heightAt, c, sub, stop, world, trees);
 
   // ---- merge each tag on its own, so a name survives and the count stays low
   const out = new THREE.Group();
   out.name = `plan:${plan.id}`;
+  // THE TREES ARE REAL TREES. A plan's beech or oak is grown by arbor.js, the
+  // same generator the forests use, never a ball on a post, and every tree of
+  // one model in the plan is one instanced bark mesh and one instanced leaf
+  // mesh, so forty beeches cost two draw calls. The user said no low poly trees.
+  for (const [model, list] of trees) {
+    const proto = treeProto(model);
+    if (!proto) continue;
+    const n = list.length;
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3();
+    const bark = new THREE.InstancedMesh(proto.bark, proto.barkMat, n);
+    const leaf = proto.hasLeaves ? new THREE.InstancedMesh(proto.leaf, proto.leafMat, n) : null;
+    if (leaf && proto.depthMat) leaf.customDepthMaterial = proto.depthMat;
+    list.forEach((t, i) => {
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), t.yaw);
+      pos.set(t.x, t.y, t.z); scl.setScalar(t.k);
+      m4.compose(pos, q, scl);
+      bark.setMatrixAt(i, m4); if (leaf) leaf.setMatrixAt(i, m4);
+    });
+    for (const im of [bark, leaf]) {
+      if (!im) continue;
+      im.instanceMatrix.needsUpdate = true;
+      im.castShadow = true; im.receiveShadow = true;
+      im.name = `plan:${plan.id}:trees:${model}`;
+      im.userData.site = site;
+      im.userData.plan = { id: plan.id, piece: model, source: 'arbor' };
+      out.add(im);
+    }
+  }
   for (const [tag, e] of groups) {
     if (!e.g.children.length) continue;
     const merged = mergeByMaterial(e.g);
@@ -882,11 +936,24 @@ export function buildPlan(plan, site, heightAt) {
 }
 
 /** One laying of a plan's composition, at one stop. */
-function buildStop(plan, site, heightAt, c, sub, stop, world) {
+function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map()) {
   const yawOf = (deg) => (deg || 0) * D2R + stop.rot;
 
   // ---- the pieces
   for (const p of plan.pieces) {
+    if (TREE_SPECIES[p.model]) {
+      // a real tree, batched per model and grown after the stops (see buildPlan)
+      const f = FOOTPRINT[p.model];
+      const proto = treeProto(p.model);
+      if (!f || !proto) continue;
+      const [wx, wz] = world(stop, p.x, p.z);
+      const h = f[2] * (p.scale ?? 1);
+      const k = proto.height > 0 ? h / proto.height : 1;
+      const list = trees.get(p.model) || [];
+      list.push({ x: wx, y: heightAt(wx, wz) - 0.05, z: wz, yaw: yawOf(p.yaw), k });
+      trees.set(p.model, list);
+      continue;
+    }
     const body = pieceBody(p.model, p.scale ?? 1);
     if (!body) continue;
     const yaw = yawOf(p.yaw);
