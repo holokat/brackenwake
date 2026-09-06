@@ -56,6 +56,18 @@ const argv = process.argv.slice(2);
 const VERBOSE = argv.includes('--verbose') || argv.includes('-v');
 const ONLY = (argv.find((a) => a.startsWith('--only=')) || '').slice(7)
   .split(',').map((s) => s.trim()).filter(Boolean);
+// `--as=mage` audits as a character made by the real creation path with that
+// opening's skills and stats (planCharacter), instead of the grandmaster with
+// 100 in everything. That is the player's own question: "why can I not cast
+// this", answered with their numbers. Rows the opening cannot reach are
+// expected to refuse, and the table says which and why.
+const AS = (argv.find((a) => a.startsWith('--as=')) || '').slice(5).trim() || null;
+let AS_PLAN = null;
+if (AS) {
+  const { planCharacter } = await import('../src/game/creation.js');
+  AS_PLAN = planCharacter({ opening: AS, name: 'The Audit', gender: 'male' });
+  if (!AS_PLAN || AS_PLAN.ok === false) { console.error(`--as=${AS}: ${(AS_PLAN && AS_PLAN.errors || ['no such opening']).join('; ')}`); process.exit(2); }
+}
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const r1 = (v) => Math.round(num(v) * 10) / 10;
@@ -117,11 +129,14 @@ function build(ability) {
 
   const skills = {};
   for (const id of SKILL_IDS) skills[id] = 100;
+  const planned = AS_PLAN && (AS_PLAN.character || AS_PLAN.doc || AS_PLAN);
+  const asSkills = planned && planned.skills ? { ...planned.skills } : null;
+  const asStats = planned && planned.stats ? { ...planned.stats } : null;
   const character = {
     name: 'The Audit',
-    skills,
+    skills: asSkills || skills,
     skillLocks: {},
-    stats: { str: 100, dex: 100, int: 100, con: 100, wis: 100 },
+    stats: asStats || { str: 100, dex: 100, int: 100, con: 100, wis: 100 },
     statLocks: {},
     gold: 200,
     bar: new Array(12).fill(null),
