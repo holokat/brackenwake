@@ -41,12 +41,26 @@ globalThis.fetch = async (req, init) => {
   }
   return realFetch(req, init);
 };
+// The studio bodies are textured, and that path in GLTFLoader wants three
+// browser globals. Without them the load rejects and every check that needs
+// one of those bodies quietly does not run.
+const { installTextureStubs } = await import('../../tools/test-glb-env.mjs');
+installTextureStubs();
 
 const {
-  buildGlbRig, preloadRigs, boneMapFor, anchorReport, PART_KEYS, BUILD_MODEL,
-  modelForBuild, hairCap, markDecal, isHumanoid, createGlbPlayer,
+  buildGlbRig, preloadRigs, boneMapFor, boneMapFrom, anchorReport, PART_KEYS, BUILD_MODEL,
+  modelForBuild, modelForAppearance, GENDER_MODEL, hairCap, markDecal, isHumanoid,
+  createGlbPlayer, WRIST_BONES,
 } = await import('./rig_glb.js');
 const { MODEL_IDS, isLoaded, modelTriangles, clipDuration, restFrames } = await import('./models.js');
+
+// The studio bodies are delivered rather than built here. Everything that
+// needs a file on disk runs over the files that are on disk, and says which
+// ones were not.
+const { existsSync } = await import('node:fs');
+const READY = MODEL_IDS.filter((id) => existsSync(join(ROOT, 'public', 'models', 'mmo', id + '.glb')));
+const LATE = MODEL_IDS.filter((id) => !READY.includes(id));
+const STUDIO = ['human-male', 'human-female', 'dragon-hatchling'];
 const { buildCharacter, BODY, HAIR_COLOURS, HAIR_STYLES, MARKS } = await import('./player.js');
 const { dressRig, wornNodes, gearCounts } = await import('./gear_visuals.js');
 const { makeItem, setOf } = await import('../mmo/items.js');
@@ -114,7 +128,11 @@ console.log('rig_glb: the stand-in, and the swap that replaces it');
 }
 
 await preloadRigs();
-check('preloadRigs resolves and every model is in the cache', MODEL_IDS.every((id) => isLoaded(id)), MODEL_IDS.length + ' models');
+check('preloadRigs asks for every model models.js lists, studio bodies included',
+  MODEL_IDS.includes('human-male') && MODEL_IDS.includes('human-female') && MODEL_IDS.includes('dragon-hatchling'),
+  MODEL_IDS.length + ' models, and preloadRigs defaults to all of them');
+check('preloadRigs resolves and every delivered model is in the cache', READY.every((id) => isLoaded(id)),
+  `${READY.length} of ${MODEL_IDS.length} models${LATE.length ? `; not delivered yet: ${LATE.join(', ')}` : ''}`);
 {
   const rig = buildGlbRig('human-medium', {});
   check('with the file cached the rig is a glb from the first frame, no stand-in',
@@ -128,7 +146,7 @@ console.log('\nrig_glb: every anchor, against buildCharacter');
   const ref = buildCharacter();
   ref.group.updateMatrixWorld(true);
   const WATCHED = ['handR', 'handL', 'head', 'back', 'footL', 'footR'];
-  for (const id of MODEL_IDS) {
+  for (const id of READY) {
     const map = boneMapFor(id);
     check(`${id} resolves all ${PART_KEYS.length} anchors to real bones`,
       PART_KEYS.every((k) => map[k] && restFrames(id).has(map[k])),
@@ -373,7 +391,10 @@ console.log('\nrig_glb: gear, on a bone rig, exactly as on the procedural one');
 // ===========================================================================
 console.log('\nrig_glb: appearance');
 {
-  const rig = buildGlbRig(modelForBuild('average'), { appearance: { build: 'average', skin: 'ebony', hairColour: 'silver', hairStyle: 'ponytail', mark: 'scar', height: 1.9 } });
+  // This block is about the three Blender builds and their material slots, so
+  // the appearance it uses has a gender with no studio body behind it, which
+  // is the same path a player takes before human-male.glb has loaded.
+  const rig = buildGlbRig(modelForBuild('average'), { appearance: { gender: 'none', build: 'average', skin: 'ebony', hairColour: 'silver', hairStyle: 'ponytail', mark: 'scar', height: 1.9 } });
   const hairMat = () => { let m = null; rig.group.traverse((o) => { if (o.isMesh && o.material?.name === 'hair') m = o.material; }); return m; };
   const skinMat = () => { let m = null; rig.group.traverse((o) => { if (o.isMesh && o.material?.name === 'skin') m = o.material; }); return m; };
   check('the skin takes the appearance colour', skinMat().color.getHex() === 0x462c1d, `#${skinMat().color.getHexString()}`);
@@ -383,7 +404,7 @@ console.log('\nrig_glb: appearance');
   rig.parts.head.traverse((o) => { if (o.userData.rigHair) hair++; if (o.userData.rigMark) mark++; });
   check('a ponytail and a scar are on the head', hair > 1 && mark === 1, `${hair} hair meshes, ${mark} mark`);
 
-  rig.setAppearance({ build: 'average', hairStyle: 'shaved', mark: 'none' });
+  rig.setAppearance({ gender: 'none', build: 'average', hairStyle: 'shaved', mark: 'none' });
   let shavedHair = 0, bakedVisible = true;
   rig.parts.head.traverse((o) => { if (o.userData.rigHair) shavedHair++; });
   rig.group.traverse((o) => { if (o.isMesh && o.material?.name === 'hair') bakedVisible = o.visible; });
@@ -393,7 +414,7 @@ console.log('\nrig_glb: appearance');
   check('the build picks the body', modelForBuild('slight') === 'human-slim' && modelForBuild('heavy') === 'human-heavy'
     && modelForBuild('nonsense') === BUILD_MODEL.average);
   const g = rig.group;
-  rig.setAppearance({ build: 'heavy', hairStyle: 'short' });
+  rig.setAppearance({ gender: 'none', build: 'heavy', hairStyle: 'short' });
   check('changing the build swaps the body without changing the group',
     rig.modelId === 'human-heavy' && rig.group === g, rig.modelId);
   check('and the body it swapped away from is gone, not left standing inside it',
@@ -413,10 +434,158 @@ console.log('\nrig_glb: appearance');
 }
 
 // ===========================================================================
+console.log('\nrig_glb: the studio bodies, named the Mixamo way');
+{
+  // The 51 joints the studio bodies carry, as a rest frame map of the shape
+  // models.restFrames hands back. Written out rather than read off a file, so
+  // the anchor resolution can be checked before the file has been delivered
+  // and so a rename in the pipeline shows up here rather than on a player.
+  const JOINTS = [
+    ['Root', null], ['Hips', 'Root'],
+    ['LeftUpLeg', 'Hips'], ['LeftLeg', 'LeftUpLeg'], ['LeftFoot', 'LeftLeg'], ['LeftToeBase', 'LeftFoot'], ['Socket_FootVFX_Left', 'LeftFoot'],
+    ['RightUpLeg', 'Hips'], ['RightLeg', 'RightUpLeg'], ['RightFoot', 'RightLeg'], ['RightToeBase', 'RightFoot'], ['Socket_FootVFX_Right', 'RightFoot'],
+    ['Spine', 'Hips'], ['Spine1', 'Spine'], ['Spine2', 'Spine1'],
+    ['LeftShoulder', 'Spine2'], ['LeftArm', 'LeftShoulder'], ['LeftForeArm', 'LeftArm'], ['LeftHand', 'LeftForeArm'],
+    ['LeftHandIndex1', 'LeftHand'], ['LeftHandIndex2', 'LeftHandIndex1'], ['LeftHandMiddle1', 'LeftHand'], ['LeftHandMiddle2', 'LeftHandMiddle1'],
+    ['LeftHandPinky1', 'LeftHand'], ['LeftHandPinky2', 'LeftHandPinky1'], ['LeftHandRing1', 'LeftHand'], ['LeftHandRing2', 'LeftHandRing1'],
+    ['LeftHandThumb1', 'LeftHand'], ['LeftHandThumb2', 'LeftHandThumb1'], ['Socket_HandVFX_Left', 'LeftHand'], ['Socket_Weapon_Left', 'LeftHand'],
+    ['Neck', 'Spine2'], ['Head', 'Neck'], ['Socket_HeadVFX', 'Head'],
+    ['RightShoulder', 'Spine2'], ['RightArm', 'RightShoulder'], ['RightForeArm', 'RightArm'], ['RightHand', 'RightForeArm'],
+    ['RightHandIndex1', 'RightHand'], ['RightHandIndex2', 'RightHandIndex1'], ['RightHandMiddle1', 'RightHand'], ['RightHandMiddle2', 'RightHandMiddle1'],
+    ['RightHandPinky1', 'RightHand'], ['RightHandPinky2', 'RightHandPinky1'], ['RightHandRing1', 'RightHand'], ['RightHandRing2', 'RightHandRing1'],
+    ['RightHandThumb1', 'RightHand'], ['RightHandThumb2', 'RightHandThumb1'], ['Socket_HandVFX_Right', 'RightHand'], ['Socket_Weapon_Right', 'RightHand'],
+    ['Socket_RootVFX', 'Root'],
+  ];
+  const rest = new Map(JOINTS.map(([name, parent]) => [name, {
+    pos: new THREE.Vector3(), quat: new THREE.Quaternion(), parent,
+  }]));
+  check('the fake rest frame is the 51 joints the studio bodies promise', rest.size === 51, `${rest.size} joints`);
+  const map = boneMapFrom(rest);
+  check('every anchor resolves to a joint the body really has',
+    PART_KEYS.every((k) => map[k] && rest.has(map[k])),
+    PART_KEYS.map((k) => `${k}=${map[k]}`).join(' '));
+  check('and not one of them fell through to the root, which is how gear ends up at the feet',
+    PART_KEYS.every((k) => map[k] !== 'Root'),
+    PART_KEYS.filter((k) => map[k] === 'Root').join(', ') || 'none on Root');
+  check('the spine, the hips and the head are the ones named',
+    map.hips === 'Hips' && map.torso === 'Spine1' && map.back === 'Spine2' && map.head === 'Head',
+    `hips=${map.hips} torso=${map.torso} back=${map.back} head=${map.head}`);
+  check('the hands are wrists, so the fist is not dropped a forearm lower',
+    WRIST_BONES.includes(map.handL) && WRIST_BONES.includes(map.handR),
+    `handL=${map.handL} handR=${map.handR}`);
+  check('the mirror holds: the contract left rides the body\'s right',
+    map.armL.startsWith('Right') && map.armR.startsWith('Left')
+    && map.legL.startsWith('Right') && map.legR.startsWith('Left')
+    && map.footL === 'RightFoot' && map.footR === 'LeftFoot',
+    `armL=${map.armL} armR=${map.armR} legL=${map.legL} legR=${map.legR}`);
+  check('the shins are the lower legs and not the upper ones',
+    map.shinL === 'RightLeg' && map.shinR === 'LeftLeg' && map.legL === 'RightUpLeg' && map.legR === 'LeftUpLeg',
+    `shinL=${map.shinL} legL=${map.legL}`);
+  // and the same table still resolves a Blender body: one list, both schemes
+  const blender = boneMapFor('human-medium');
+  check('the same table still puts a Blender body\'s anchors where they were',
+    blender.hips === 'hips' && blender.armL === 'upperarm_R' && blender.handR === 'hand_L' && blender.back === 'chest',
+    PART_KEYS.map((k) => `${k}=${blender[k]}`).join(' '));
+
+  // the gender rule, both directions
+  const loadedMale = isLoaded('human-male'), loadedFemale = isLoaded('human-female');
+  check('a gender with no body falls back to the build',
+    modelForAppearance({ gender: 'none', build: 'slight' }) === 'human-slim'
+    && modelForAppearance({ build: 'heavy' }) === (loadedMale ? 'human-male' : 'human-heavy'),
+    `human-male loaded: ${loadedMale}`);
+  check('GENDER_MODEL covers both of the genders the creation screen offers',
+    GENDER_MODEL.male === 'human-male' && GENDER_MODEL.female === 'human-female',
+    `male -> ${GENDER_MODEL.male}, female -> ${GENDER_MODEL.female}`);
+  if (loadedMale && loadedFemale) {
+    check('with the files loaded the gender picks the body, whatever the build',
+      modelForAppearance({ gender: 'male', build: 'heavy' }) === 'human-male'
+      && modelForAppearance({ gender: 'female', build: 'slight' }) === 'human-female');
+    check('the two studio bodies are humanoid and can be dressed',
+      isHumanoid('human-male') && isHumanoid('human-female'));
+    // Which way a body faces, off the skeleton rather than off a silhouette:
+    // the toes are in front of the ankles, and the anatomical left hand is at
+    // +x, which is where a body facing +z with +y up has it. That second one
+    // is the measurement the mirror rests on.
+    for (const id of ['human-male', 'human-female']) {
+      const rest = restFrames(id);
+      const toe = rest.get('LeftToeBase').pos, foot = rest.get('LeftFoot').pos;
+      const hand = rest.get('LeftHand').pos;
+      check(`${id} faces +z, and its own left is at +x, which is what the mirror assumes`,
+        toe.z - foot.z > 0.05 && hand.x > 0.1,
+        `toes ${(toe.z - foot.z).toFixed(3)} m in front of the ankle, LeftHand at x ${hand.x.toFixed(3)}`);
+    }
+    for (const id of ['human-male', 'human-female']) {
+      const report = anchorReport(id);
+      const worst = PART_KEYS.reduce((a, k) => (report[k].d > a.d ? { k, d: report[k].d } : a), { k: '-', d: 0 });
+      console.log(`       ${id}: ` + PART_KEYS.map((k) => `${k} ${report[k].d.toFixed(3)}`).join('  '));
+      check(`${id}: the six anchors the gear tables care about are within 0.25 m of the procedural rig's`,
+        ['handR', 'handL', 'head', 'back', 'footL', 'footR'].every((k) => report[k].d <= 0.25),
+        `worst of all fourteen is ${worst.k} at ${worst.d.toFixed(3)} m`);
+    }
+
+    // The hair cap and the mark decal belong to a body with a 'hair' slot and
+    // a box for a head. On a studio body they would be a second head of hair
+    // over the first, so they are skipped, and this measures that they are.
+    {
+      const studio = buildGlbRig('human-male', { appearance: { gender: 'male', hairStyle: 'ponytail', mark: 'scar' } });
+      let caps = 0, marks = 0;
+      studio.parts.head.traverse((o) => { if (o.userData.rigHair) caps++; if (o.userData.rigMark) marks++; });
+      check('a studio body wears no procedural hair cap and no decal',
+        caps === 0 && marks === 0, `${caps} cap meshes, ${marks} mark meshes`);
+      studio.dispose();
+      const boxy = buildGlbRig('human-medium', { appearance: { gender: 'none', hairStyle: 'ponytail', mark: 'scar' } });
+      let bCaps = 0, bMarks = 0;
+      boxy.parts.head.traverse((o) => { if (o.userData.rigHair) bCaps++; if (o.userData.rigMark) bMarks++; });
+      check('and a Blender body still wears both, which is the other direction',
+        bCaps > 1 && bMarks === 1, `${bCaps} cap meshes, ${bMarks} mark meshes`);
+      boxy.dispose();
+    }
+
+    // Dressed, because a body nobody can put a sword on is not a player body.
+    // The same armour on the same anchors, and the blade measured against the
+    // procedural rig's, which is what the HOLD table was tuned against.
+    {
+      const eq = {};
+      for (const b of setOf('plate')) eq[b.slot] = makeItem({ base: b.id });
+      for (const s of Object.keys(eq)) eq[s].material = 'iron';
+      eq.mainHand = makeItem({ base: 'greatsword' });
+      eq.mainHand.material = 'iron';
+      const proc = buildCharacter();
+      const procR = dressRig(proc, eq, { light: false });
+      const male = buildGlbRig('human-male', {});
+      const maleR = dressRig(male, eq, { light: false });
+      check('a studio body wears the same 17 pieces as the procedural one',
+        maleR.nodes === procR.nodes, `${maleR.nodes} on human-male, ${procR.nodes} on the procedural rig`);
+      const pc = gearCounts(proc), gc = gearCounts(male);
+      check('and hangs them on the same anchors',
+        Object.keys(pc).sort().join() === Object.keys(gc).sort().join() && Object.keys(pc).every((k) => pc[k] === gc[k]),
+        JSON.stringify(gc));
+      check('the greatsword is in the right hand and both hands close on it',
+        wornNodes(male).some((w) => w.anchor === 'handR' && w.node.name === 'weapon:greatsword') && male.grip === 'two');
+      male.group.updateMatrixWorld(true);
+      proc.group.updateMatrixWorld(true);
+      const ms = wornNodes(male).find((w) => w.node.name === 'weapon:greatsword').node;
+      const ps = wornNodes(proc).find((w) => w.node.name === 'weapon:greatsword').node;
+      // 0.30 m, not the 0.10 m the Blender bodies are held to: the studio rest
+      // pose puts the hands further out, and the number is printed so it is a
+      // measurement and not a shrug.
+      check('and at rest the blade is within 0.30 m of where it hangs on the procedural body',
+        wp(ms).distanceTo(wp(ps)) < 0.30,
+        `${wp(ms).distanceTo(wp(ps)).toFixed(3)} m apart: studio ${f3(wp(ms))}, procedural ${f3(wp(ps))}`);
+      check('and it points the same way, so it is held and not carried sideways',
+        wq(ms).angleTo(wq(ps)) < 0.30, `${(wq(ms).angleTo(wq(ps)) * 180 / Math.PI).toFixed(1)} degrees apart`);
+      male.dispose(); proc.dispose();
+    }
+  } else {
+    console.log('  note  human-male.glb and human-female.glb are not on disk, so the gender swap and the anchor distances were not measured');
+  }
+}
+
+// ===========================================================================
 console.log('\nrig_glb: every model, built and driven');
 {
-  let tris = 0;
-  for (const id of MODEL_IDS) {
+  let tris = 0, studioTris = 0;
+  for (const id of READY) {
     const rig = buildGlbRig(id, {});
     rig.setAnim('walk');
     for (let i = 0; i < 10; i++) rig.update(1 / 60, 3);
@@ -427,19 +596,28 @@ console.log('\nrig_glb: every model, built and driven');
     rig.group.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(rig.group);
     const t = modelTriangles(id);
-    tris += t;
+    if (STUDIO.includes(id)) studioTris += t; else tris += t;
     check(`${id} builds, walks, swings, dies and is done`,
       rig.loaded && rig.dieDone === true && Number.isFinite(box.min.y),
       `${t} triangles, ${PART_KEYS.length} anchors, humanoid ${isHumanoid(id)}, die in ${clipDuration(id, 'die')} s`);
     rig.dispose();
   }
-  check('the whole cast is a small triangle bill', tris < 4000, `${tris} triangles across ${MODEL_IDS.length} models`);
+  const blender = READY.filter((id) => !STUDIO.includes(id));
+  check('the Blender cast is still a small triangle bill', tris < 4000, `${tris} triangles across ${blender.length} models`);
+  // The studio bodies are a different order of magnitude on purpose: one
+  // player and a hatchling, not forty monsters. The budget is the validator's,
+  // and this is the same number counted off the loaded geometry rather than
+  // off the file.
+  const studioBudget = STUDIO.filter((id) => READY.includes(id)).length ? 92000 : 0;
+  check('and the studio bodies are inside their own', studioTris <= studioBudget,
+    `${studioTris} triangles across ${STUDIO.filter((id) => READY.includes(id)).length} studio models, budget ${studioBudget}`);
+  if (LATE.length) console.log(`  note  ${LATE.join(', ')} were not driven: no file on disk`);
 }
 
 // ===========================================================================
 console.log('\nrig_glb: feet on the floor, facing the way the contract says');
 {
-  for (const id of MODEL_IDS) {
+  for (const id of READY) {
     const rig = buildGlbRig(id, {});
     rig.group.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(rig.group);

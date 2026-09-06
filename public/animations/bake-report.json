@@ -1,0 +1,896 @@
+{
+  "generatedAt": "2026-09-06T14:12:19.775Z",
+  "fps": 30,
+  "moveCount": 36,
+  "abilityCount": 77,
+  "translationScale": 1.072689,
+  "rest": {
+    "male": {
+      "hipHeight": 0.88,
+      "ankleHeight": 0.11
+    },
+    "female": {
+      "hipHeight": 0.93,
+      "ankleHeight": 0.115,
+      "legChain": 0.919943,
+      "armChain": 0.536925
+    }
+  },
+  "banks": {
+    "human-male": {
+      "clips": 36,
+      "trackCount": 783,
+      "unknownBones": [],
+      "parseFailures": [],
+      "bytes": 4653056
+    },
+    "human-female": {
+      "clips": 36,
+      "trackCount": 1258,
+      "unknownBones": [],
+      "parseFailures": [],
+      "bytes": 5043129
+    }
+  },
+  "durations": [
+    {
+      "move": "idle",
+      "catalog": 5.6,
+      "baked": 2.5,
+      "exact": 2.5,
+      "source": "authored",
+      "drift": 0.55357,
+      "frames": 76
+    },
+    {
+      "move": "combat-idle",
+      "catalog": 2.8,
+      "baked": 2.5,
+      "exact": 2.5,
+      "source": "authored",
+      "drift": 0.10714,
+      "frames": 76
+    },
+    {
+      "move": "idle-shift",
+      "catalog": 2.4,
+      "baked": 2.4,
+      "exact": 2.4,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 73
+    },
+    {
+      "move": "idle-scan",
+      "catalog": 2.9,
+      "baked": 2.9,
+      "exact": 2.9,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 88
+    },
+    {
+      "move": "walk-start",
+      "catalog": 0.52,
+      "baked": 0.52,
+      "exact": 0.52,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 17
+    },
+    {
+      "move": "walk",
+      "catalog": 1.04,
+      "baked": 1.33333,
+      "exact": 1.3333333730697632,
+      "source": "authored",
+      "drift": 0.28205,
+      "frames": 42
+    },
+    {
+      "move": "walk-stop",
+      "catalog": 0.48,
+      "baked": 0.48,
+      "exact": 0.48,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 16
+    },
+    {
+      "move": "walk-backward",
+      "catalog": 1.18,
+      "baked": 1.18,
+      "exact": 1.18,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 37
+    },
+    {
+      "move": "strafe-left",
+      "catalog": 1.08,
+      "baked": 1.08,
+      "exact": 1.08,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 34
+    },
+    {
+      "move": "strafe-right",
+      "catalog": 1.08,
+      "baked": 1.08,
+      "exact": 1.08,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 34
+    },
+    {
+      "move": "run-start",
+      "catalog": 0.46,
+      "baked": 0.46,
+      "exact": 0.46,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 15
+    },
+    {
+      "move": "run",
+      "catalog": 0.72,
+      "baked": 0.66667,
+      "exact": 0.6666666865348816,
+      "source": "authored",
+      "drift": 0.07407,
+      "frames": 22
+    },
+    {
+      "move": "run-stop",
+      "catalog": 0.64,
+      "baked": 0.64,
+      "exact": 0.64,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 21
+    },
+    {
+      "move": "turn-left",
+      "catalog": 0.68,
+      "baked": 0.68,
+      "exact": 0.68,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 22
+    },
+    {
+      "move": "turn-right",
+      "catalog": 0.68,
+      "baked": 0.68,
+      "exact": 0.68,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 22
+    },
+    {
+      "move": "jump-launch",
+      "catalog": 0.46,
+      "baked": 0.46,
+      "exact": 0.46,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 15
+    },
+    {
+      "move": "jump-air",
+      "catalog": 0.66,
+      "baked": 0.66,
+      "exact": 0.66,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 21
+    },
+    {
+      "move": "running-leap",
+      "catalog": 1.42,
+      "baked": 1.42,
+      "exact": 1.42,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 44
+    },
+    {
+      "move": "airborne",
+      "catalog": 0.86,
+      "baked": 0.86,
+      "exact": 0.86,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 27
+    },
+    {
+      "move": "surface-swim",
+      "catalog": 1.6,
+      "baked": 1.33333,
+      "exact": 1.3333333730697632,
+      "source": "authored",
+      "drift": 0.16667,
+      "frames": 42
+    },
+    {
+      "move": "tread-water",
+      "catalog": 2.4,
+      "baked": 3.33333,
+      "exact": 3.3333332538604736,
+      "source": "authored",
+      "drift": 0.38889,
+      "frames": 101
+    },
+    {
+      "move": "land-soft",
+      "catalog": 0.72,
+      "baked": 0.72,
+      "exact": 0.72,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 23
+    },
+    {
+      "move": "land-hard",
+      "catalog": 0.92,
+      "baked": 0.92,
+      "exact": 0.92,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 29
+    },
+    {
+      "move": "dodge",
+      "catalog": 0.62,
+      "baked": 0.62,
+      "exact": 0.62,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 20
+    },
+    {
+      "move": "light-attack",
+      "catalog": 0.72,
+      "baked": 1.56667,
+      "exact": 1.5666666626930237,
+      "source": "authored",
+      "drift": 1.17593,
+      "frames": 48
+    },
+    {
+      "move": "heavy-attack",
+      "catalog": 1.34,
+      "baked": 1.56667,
+      "exact": 1.5666667222976685,
+      "source": "authored",
+      "drift": 0.16915,
+      "frames": 49
+    },
+    {
+      "move": "two-handed-strike",
+      "catalog": 1.62,
+      "baked": 1.62,
+      "exact": 1.62,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 50
+    },
+    {
+      "move": "cast",
+      "catalog": 1.25,
+      "baked": 1.25,
+      "exact": 1.25,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 39
+    },
+    {
+      "move": "fireball",
+      "catalog": 1.35,
+      "baked": 1.35,
+      "exact": 1.35,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 42
+    },
+    {
+      "move": "lightning",
+      "catalog": 1.65,
+      "baked": 1.65,
+      "exact": 1.65,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 51
+    },
+    {
+      "move": "energy-missiles",
+      "catalog": 1.1,
+      "baked": 1.1,
+      "exact": 1.1,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 34
+    },
+    {
+      "move": "healing",
+      "catalog": 1.8,
+      "baked": 1.8,
+      "exact": 1.8,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 55
+    },
+    {
+      "move": "whirlwind",
+      "catalog": 0.76,
+      "baked": 0.76,
+      "exact": 0.76,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 24
+    },
+    {
+      "move": "jump",
+      "catalog": 1.5,
+      "baked": 1.5,
+      "exact": 1.5,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 46
+    },
+    {
+      "move": "die",
+      "catalog": 1.4,
+      "baked": 1.4,
+      "exact": 1.4,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 43
+    },
+    {
+      "move": "hit",
+      "catalog": 0.5,
+      "baked": 0.5,
+      "exact": 0.5,
+      "source": "procedural",
+      "drift": 0,
+      "frames": 16
+    }
+  ],
+  "femaleGrounding": [
+    {
+      "move": "idle",
+      "maleLowestSole": -0.00106,
+      "retargetedLowestSole": 0.00265,
+      "appliedOffset": -0.00371,
+      "groundedLowestSole": -0.00106
+    },
+    {
+      "move": "combat-idle",
+      "maleLowestSole": -0.00106,
+      "retargetedLowestSole": 0.00265,
+      "appliedOffset": -0.00371,
+      "groundedLowestSole": -0.00106
+    },
+    {
+      "move": "idle-shift",
+      "maleLowestSole": 0.00817,
+      "retargetedLowestSole": -0.00554,
+      "appliedOffset": 0.01371,
+      "groundedLowestSole": 0.00817
+    },
+    {
+      "move": "idle-scan",
+      "maleLowestSole": 0.03235,
+      "retargetedLowestSole": 0.02339,
+      "appliedOffset": 0.00896,
+      "groundedLowestSole": 0.03235
+    },
+    {
+      "move": "walk-start",
+      "maleLowestSole": 0.00951,
+      "retargetedLowestSole": -0.00291,
+      "appliedOffset": 0.01242,
+      "groundedLowestSole": 0.00951
+    },
+    {
+      "move": "walk",
+      "maleLowestSole": 0.00044,
+      "retargetedLowestSole": -0.0068,
+      "appliedOffset": 0.00723,
+      "groundedLowestSole": 0.00044
+    },
+    {
+      "move": "walk-stop",
+      "maleLowestSole": 0.01642,
+      "retargetedLowestSole": 0.00736,
+      "appliedOffset": 0.00906,
+      "groundedLowestSole": 0.01642
+    },
+    {
+      "move": "walk-backward",
+      "maleLowestSole": -0.00581,
+      "retargetedLowestSole": -0.0156,
+      "appliedOffset": 0.00979,
+      "groundedLowestSole": -0.00581
+    },
+    {
+      "move": "strafe-left",
+      "maleLowestSole": -0.00592,
+      "retargetedLowestSole": -0.01339,
+      "appliedOffset": 0.00747,
+      "groundedLowestSole": -0.00592
+    },
+    {
+      "move": "strafe-right",
+      "maleLowestSole": -0.00592,
+      "retargetedLowestSole": -0.01339,
+      "appliedOffset": 0.00747,
+      "groundedLowestSole": -0.00592
+    },
+    {
+      "move": "run-start",
+      "maleLowestSole": -0.04585,
+      "retargetedLowestSole": -0.05893,
+      "appliedOffset": 0.01308,
+      "groundedLowestSole": -0.04585
+    },
+    {
+      "move": "run",
+      "maleLowestSole": 0.00815,
+      "retargetedLowestSole": -0.00157,
+      "appliedOffset": 0.00972,
+      "groundedLowestSole": 0.00815
+    },
+    {
+      "move": "run-stop",
+      "maleLowestSole": -0.01562,
+      "retargetedLowestSole": -0.01862,
+      "appliedOffset": 0.003,
+      "groundedLowestSole": -0.01562
+    },
+    {
+      "move": "turn-left",
+      "maleLowestSole": -0.01749,
+      "retargetedLowestSole": -0.02765,
+      "appliedOffset": 0.01016,
+      "groundedLowestSole": -0.01749
+    },
+    {
+      "move": "turn-right",
+      "maleLowestSole": -0.01365,
+      "retargetedLowestSole": -0.02292,
+      "appliedOffset": 0.00927,
+      "groundedLowestSole": -0.01365
+    },
+    {
+      "move": "jump-launch",
+      "maleLowestSole": 0.0272,
+      "retargetedLowestSole": 0.02037,
+      "appliedOffset": 0.00683,
+      "groundedLowestSole": 0.0272
+    },
+    {
+      "move": "jump-air",
+      "maleLowestSole": 0.23418,
+      "retargetedLowestSole": 0.23697,
+      "appliedOffset": -0.00279,
+      "groundedLowestSole": 0.23418
+    },
+    {
+      "move": "running-leap",
+      "maleLowestSole": 0.02611,
+      "retargetedLowestSole": 0.0151,
+      "appliedOffset": 0.01101,
+      "groundedLowestSole": 0.02611
+    },
+    {
+      "move": "airborne",
+      "maleLowestSole": 0.37671,
+      "retargetedLowestSole": 0.39853,
+      "appliedOffset": -0.02182,
+      "groundedLowestSole": 0.37671
+    },
+    {
+      "move": "surface-swim",
+      "maleLowestSole": 0.76979,
+      "retargetedLowestSole": 0.81164,
+      "appliedOffset": -0.04185,
+      "groundedLowestSole": 0.76979
+    },
+    {
+      "move": "tread-water",
+      "maleLowestSole": -0.05274,
+      "retargetedLowestSole": -0.05244,
+      "appliedOffset": -0.0003,
+      "groundedLowestSole": -0.05274
+    },
+    {
+      "move": "land-soft",
+      "maleLowestSole": 0.02702,
+      "retargetedLowestSole": 0.01945,
+      "appliedOffset": 0.00758,
+      "groundedLowestSole": 0.02702
+    },
+    {
+      "move": "land-hard",
+      "maleLowestSole": -0.02692,
+      "retargetedLowestSole": -0.03524,
+      "appliedOffset": 0.00832,
+      "groundedLowestSole": -0.02692
+    },
+    {
+      "move": "dodge",
+      "maleLowestSole": -0.06417,
+      "retargetedLowestSole": -0.07958,
+      "appliedOffset": 0.01541,
+      "groundedLowestSole": -0.06417
+    },
+    {
+      "move": "light-attack",
+      "maleLowestSole": 0.0003,
+      "retargetedLowestSole": 0.006,
+      "appliedOffset": -0.0057,
+      "groundedLowestSole": 0.0003
+    },
+    {
+      "move": "heavy-attack",
+      "maleLowestSole": 0.01867,
+      "retargetedLowestSole": 0.0238,
+      "appliedOffset": -0.00513,
+      "groundedLowestSole": 0.01867
+    },
+    {
+      "move": "two-handed-strike",
+      "maleLowestSole": -0.07105,
+      "retargetedLowestSole": -0.08462,
+      "appliedOffset": 0.01357,
+      "groundedLowestSole": -0.07105
+    },
+    {
+      "move": "cast",
+      "maleLowestSole": -0.01954,
+      "retargetedLowestSole": -0.03096,
+      "appliedOffset": 0.01142,
+      "groundedLowestSole": -0.01954
+    },
+    {
+      "move": "fireball",
+      "maleLowestSole": -0.02922,
+      "retargetedLowestSole": -0.03623,
+      "appliedOffset": 0.00701,
+      "groundedLowestSole": -0.02922
+    },
+    {
+      "move": "lightning",
+      "maleLowestSole": -0.02111,
+      "retargetedLowestSole": -0.02789,
+      "appliedOffset": 0.00679,
+      "groundedLowestSole": -0.02111
+    },
+    {
+      "move": "energy-missiles",
+      "maleLowestSole": -0.01942,
+      "retargetedLowestSole": -0.02632,
+      "appliedOffset": 0.00691,
+      "groundedLowestSole": -0.01942
+    },
+    {
+      "move": "healing",
+      "maleLowestSole": -0.02091,
+      "retargetedLowestSole": -0.0278,
+      "appliedOffset": 0.00689,
+      "groundedLowestSole": -0.02091
+    },
+    {
+      "move": "whirlwind",
+      "maleLowestSole": -0.02723,
+      "retargetedLowestSole": -0.03269,
+      "appliedOffset": 0.00547,
+      "groundedLowestSole": -0.02723
+    },
+    {
+      "move": "jump",
+      "maleLowestSole": 0.02698,
+      "retargetedLowestSole": 0.0194,
+      "appliedOffset": 0.00757,
+      "groundedLowestSole": 0.02698
+    },
+    {
+      "move": "die",
+      "maleLowestSole": 0.01728,
+      "retargetedLowestSole": 0.01445,
+      "appliedOffset": 0.00283,
+      "groundedLowestSole": 0.01728
+    },
+    {
+      "move": "hit",
+      "maleLowestSole": -0.02348,
+      "retargetedLowestSole": -0.04459,
+      "appliedOffset": 0.02111,
+      "groundedLowestSole": -0.02348
+    }
+  ],
+  "femaleTrackPruneError": 1.501495410172098e-8,
+  "notes": [
+    {
+      "check": "sampler matches AnimationMixer",
+      "worstError": 3.786318347742679e-8
+    }
+  ],
+  "failures": [],
+  "authoredDurationOverrides": [
+    {
+      "move": "idle",
+      "catalog": 5.6,
+      "authored": 2.5,
+      "drift": 0.55357
+    },
+    {
+      "move": "combat-idle",
+      "catalog": 2.8,
+      "authored": 2.5,
+      "drift": 0.10714
+    },
+    {
+      "move": "walk",
+      "catalog": 1.04,
+      "authored": 1.33333,
+      "drift": 0.28205
+    },
+    {
+      "move": "run",
+      "catalog": 0.72,
+      "authored": 0.66667,
+      "drift": 0.07407
+    },
+    {
+      "move": "surface-swim",
+      "catalog": 1.6,
+      "authored": 1.33333,
+      "drift": 0.16667
+    },
+    {
+      "move": "tread-water",
+      "catalog": 2.4,
+      "authored": 3.33333,
+      "drift": 0.38889
+    },
+    {
+      "move": "light-attack",
+      "catalog": 0.72,
+      "authored": 1.56667,
+      "drift": 1.17593
+    },
+    {
+      "move": "heavy-attack",
+      "catalog": 1.34,
+      "authored": 1.56667,
+      "drift": 0.16915
+    }
+  ],
+  "footContact": {
+    "human-male": {
+      "walk": {
+        "soleLowest": 0.00044,
+        "lowerSoleHighest": 0.02372,
+        "leftSolePlant": 0.00069,
+        "rightSolePlant": 0.00044,
+        "flightPeak": 0.02372,
+        "ankleRestHeight": 0.11,
+        "ankleLowest": 0.05031,
+        "ankleHighest": 0.12582,
+        "samples": 42
+      },
+      "run": {
+        "soleLowest": 0.00815,
+        "lowerSoleHighest": 0.26369,
+        "leftSolePlant": 0.01504,
+        "rightSolePlant": 0.00815,
+        "flightPeak": 0.26369,
+        "ankleRestHeight": 0.11,
+        "ankleLowest": 0.10843,
+        "ankleHighest": 0.296,
+        "samples": 22
+      }
+    },
+    "human-female": {
+      "walk": {
+        "soleLowest": 0.00044,
+        "lowerSoleHighest": 0.02714,
+        "leftSolePlant": 0.00044,
+        "rightSolePlant": 0.00082,
+        "flightPeak": 0.02714,
+        "ankleRestHeight": 0.115,
+        "ankleLowest": 0.06736,
+        "ankleHighest": 0.1502,
+        "samples": 42
+      },
+      "run": {
+        "soleLowest": 0.00815,
+        "lowerSoleHighest": 0.29058,
+        "leftSolePlant": 0.00815,
+        "rightSolePlant": 0.01715,
+        "flightPeak": 0.29058,
+        "ankleRestHeight": 0.115,
+        "ankleLowest": 0.13182,
+        "ankleHighest": 0.33,
+        "samples": 22
+      }
+    }
+  },
+  "maleFloorPenetration": [
+    {
+      "move": "two-handed-strike",
+      "lowestFootPoint": -0.07105
+    },
+    {
+      "move": "dodge",
+      "lowestFootPoint": -0.06417
+    },
+    {
+      "move": "tread-water",
+      "lowestFootPoint": -0.05274
+    },
+    {
+      "move": "run-start",
+      "lowestFootPoint": -0.04585
+    },
+    {
+      "move": "fireball",
+      "lowestFootPoint": -0.02922
+    },
+    {
+      "move": "whirlwind",
+      "lowestFootPoint": -0.02723
+    },
+    {
+      "move": "land-hard",
+      "lowestFootPoint": -0.02692
+    },
+    {
+      "move": "hit",
+      "lowestFootPoint": -0.02348
+    },
+    {
+      "move": "lightning",
+      "lowestFootPoint": -0.02111
+    },
+    {
+      "move": "healing",
+      "lowestFootPoint": -0.02091
+    },
+    {
+      "move": "cast",
+      "lowestFootPoint": -0.01954
+    },
+    {
+      "move": "energy-missiles",
+      "lowestFootPoint": -0.01942
+    },
+    {
+      "move": "turn-left",
+      "lowestFootPoint": -0.01749
+    },
+    {
+      "move": "run-stop",
+      "lowestFootPoint": -0.01562
+    },
+    {
+      "move": "turn-right",
+      "lowestFootPoint": -0.01365
+    },
+    {
+      "move": "strafe-left",
+      "lowestFootPoint": -0.00592
+    },
+    {
+      "move": "strafe-right",
+      "lowestFootPoint": -0.00592
+    },
+    {
+      "move": "walk-backward",
+      "lowestFootPoint": -0.00581
+    }
+  ],
+  "travel": {
+    "walk": {
+      "duration": 1.33333,
+      "effectiveSpeed": 0.89,
+      "metresPerLoop": 1.1867,
+      "inClipRootDisplacement": 0
+    },
+    "run": {
+      "duration": 0.66667,
+      "effectiveSpeed": 7.98,
+      "metresPerLoop": 5.32,
+      "inClipRootDisplacement": 0
+    }
+  },
+  "femaleProportions": {
+    "restLegChain": 0.919943,
+    "worstLegChainError": 0.000001,
+    "restArmChain": 0.536925,
+    "worstArmChainError": 0,
+    "restHipHeight": 0.93,
+    "idleHipHeight": {
+      "low": 0.83556,
+      "high": 0.84502
+    }
+  },
+  "femaleIsRetargeted": {
+    "comparedMoves": 36,
+    "identicalToMale": 0
+  },
+  "files": [
+    {
+      "path": "public/models/mmo/human-male.glb",
+      "bytes": 3080164,
+      "from": "/Users/k/Documents/Codex/2026-09-04/using/outputs/warrior-combat-playground/public/models/warrior-base-rigged.glb"
+    },
+    {
+      "path": "public/models/mmo/human-female.glb",
+      "bytes": 3850484,
+      "from": "/Users/k/code/animation-studio/outputs/female-base-rigged/female-base-rigged.glb"
+    },
+    {
+      "path": "public/models/mmo/dragon-hatchling.glb",
+      "bytes": 8100688,
+      "from": "/Users/k/code/animation-studio/outputs/dragon-hatchling/dragon-hatchling.glb"
+    },
+    {
+      "path": "public/models/mmo/dragon-hatchling-manifest.json",
+      "bytes": 31231,
+      "from": "/Users/k/code/animation-studio/outputs/dragon-hatchling/rig-manifest.json"
+    },
+    {
+      "path": "public/animations/human-male.json",
+      "bytes": 4653056,
+      "clips": 36
+    },
+    {
+      "path": "public/animations/human-female.json",
+      "bytes": 5043129,
+      "clips": 36
+    }
+  ],
+  "dragon": {
+    "clips": [
+      "idle",
+      "walk",
+      "fly",
+      "glide",
+      "take_off",
+      "land",
+      "lie_down",
+      "sleep",
+      "wake_up",
+      "shoulder_perch",
+      "wing_spread",
+      "wing_fold",
+      "wing_flex",
+      "look_around",
+      "tail_sway",
+      "cast_spell"
+    ],
+    "skinJoints": 97,
+    "manifestBones": 97,
+    "forwardAxis": "+Z",
+    "upAxis": "+Y",
+    "units": "meters"
+  },
+  "playback": {
+    "human-male": {
+      "clips": 36,
+      "unresolvedTracks": 0,
+      "clipsThatMoveTheRig": 36
+    },
+    "human-female": {
+      "clips": 36,
+      "unresolvedTracks": 0,
+      "clipsThatMoveTheRig": 36
+    }
+  },
+  "passed": true
+}

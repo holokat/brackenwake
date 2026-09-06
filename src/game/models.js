@@ -15,6 +15,12 @@
 //   a.update(dt);                  // every frame
 //   a.dispose();
 //
+// Two of the bodies are not Blender's. human-male and human-female come from
+// the character pipeline with one hold clip in the file and their motion in a
+// JSON bank beside them; loadModel parses the bank and hangs its clips off the
+// gltf, so from `instantiate` down there is no difference between a clip that
+// was in the file and one that was not. See "the studio bodies" below.
+//
 // LOCOMOTION IS A BLEND TREE, not a switch. idle, walk and run all run at once
 // with weights that are continuous in speed, so walking up to a run is a
 // crossfade and never a pop. The walk and run clips also change rate with
@@ -31,8 +37,16 @@ export const MODEL_DIR = '/models/mmo/';
 
 export const MODEL_IDS = [
   'human-slim', 'human-medium', 'human-heavy',
+  'human-male', 'human-female',
   'monster-skeleton', 'monster-goblin', 'monster-rat',
   'monster-zombie', 'monster-spider', 'monster-bat',
+  'dragon-hatchling',
+];
+
+// The player bodies, in the order a preload should want them: the three
+// Blender builds first because they are 2 KB each, the two studio bodies after.
+export const PLAYER_MODEL_IDS = [
+  'human-slim', 'human-medium', 'human-heavy', 'human-male', 'human-female',
 ];
 
 // The clips each family carries. Asking for one that is not here is a
@@ -40,7 +54,95 @@ export const MODEL_IDS = [
 export const CLIPS = {
   human: ['idle', 'walk', 'run', 'swing', 'cast', 'hurt', 'die', 'jump'],
   monster: ['idle', 'walk', 'attack', 'hurt', 'die', 'special'],
+  dragon: [
+    'idle', 'walk', 'fly', 'glide', 'take_off', 'land', 'lie_down', 'sleep',
+    'wake_up', 'shoulder_perch', 'wing_spread', 'wing_fold', 'wing_flex',
+    'look_around', 'tail_sway', 'cast_spell',
+  ],
 };
+
+// --- the studio bodies and their clip bank ---------------------------------
+//
+// human-male and human-female are not built by tools/blender. They arrive as a
+// textured skinned body with ONE clip in the file, a neutral hold, and a bank
+// of motions beside them as JSON:
+//
+//   { version: 1, body, fps, clips: [AnimationClip.toJSON(...)],
+//     moves: { id: { duration, loop, travelSpeed, events: [{type,time}] } },
+//     abilities: { abilityId: { school, moves: [moveId...] } } }
+//
+// loadModel parses every clip in the bank with THREE.AnimationClip.parse and
+// hangs it off the gltf's own animations, so instantiate, play, setSpeed,
+// clipDuration, restFrames and the validator all see one set of clips and none
+// of them has to know where a clip came from.
+//
+// The move ids are the bank's own vocabulary and are NOT the game's. CLIPS.human
+// is still the contract every caller writes against; CLIP_ALIAS is how a
+// contract name reaches a move that exists. Everything else in the bank is
+// reachable by its own id: play('two-handed-strike') works.
+
+/** The moves the bank promises, in the order the contract lists them. */
+export const STUDIO_MOVES = [
+  'idle', 'combat-idle', 'idle-shift', 'idle-scan',
+  'walk-start', 'walk', 'walk-stop', 'walk-backward', 'strafe-left', 'strafe-right',
+  'run-start', 'run', 'run-stop', 'turn-left', 'turn-right',
+  'jump-launch', 'jump-air', 'running-leap', 'airborne',
+  'surface-swim', 'tread-water', 'land-soft', 'land-hard', 'dodge',
+  'light-attack', 'heavy-attack', 'two-handed-strike',
+  'cast', 'fireball', 'lightning', 'energy-missiles', 'healing', 'whirlwind',
+  'hit', 'die', 'jump',
+];
+
+/**
+ * The contract name on the left, the move that plays it on the right. Only the
+ * three that are actually named differently are translations; the rest are
+ * here so the table can be read as the whole contract rather than as the
+ * exceptions to it, and so a test can walk CLIPS.human and find every one.
+ */
+export const STUDIO_ALIAS = {
+  idle: 'idle',
+  walk: 'walk',
+  run: 'run',
+  swing: 'light-attack',
+  cast: 'cast',
+  hurt: 'hit',
+  die: 'die',
+  jump: 'jump',
+  // a monster vocabulary reaching a human body, as clipAlias has always allowed
+  attack: 'light-attack',
+  special: 'heavy-attack',
+};
+
+/** Which models fetch a clip bank, and from where. */
+export const MODEL_BANK = {
+  'human-male': '/animations/human-male.json',
+  'human-female': '/animations/human-female.json',
+};
+
+/** Per model contract-name to clip-name tables. Empty for a Blender model. */
+export const CLIP_ALIAS = {
+  'human-male': STUDIO_ALIAS,
+  'human-female': STUDIO_ALIAS,
+};
+
+/** What a model carries before its file has arrived. */
+export const MODEL_CLIPS = {
+  'human-male': STUDIO_MOVES,
+  'human-female': STUDIO_MOVES,
+};
+
+/**
+ * Teach models.js about a body it does not ship with. The tests use it to put
+ * a two clip bank on a real glb and drive the real loader over it; anything
+ * that adds a body at runtime can use it for the same reason.
+ */
+export function registerModel(id, spec = {}) {
+  if (spec.bank) MODEL_BANK[id] = spec.bank;
+  if (spec.alias) CLIP_ALIAS[id] = spec.alias;
+  if (spec.clips) MODEL_CLIPS[id] = spec.clips;
+  if (spec.rig) RIGS[id] = spec.rig;
+  return id;
+}
 
 // Ground speed in metres a second. walk and run are the speeds the clips were
 // built to cover, and they are player.js's WALK_SPEED and RUN_SPEED, so a
@@ -79,13 +181,32 @@ export function locomotionWeights(mps) {
   return { idle: 0, walk: 0, run: 1 };
 }
 
-// How fast to play each locomotion clip at this ground speed.
-export function locomotionRates(mps) {
+/**
+ * How fast to play each locomotion clip at this ground speed.
+ *
+ * `travel` is how far the clip itself covers the ground, in metres a second,
+ * as it was authored. The Blender clips were authored AT the game's speeds, so
+ * with no travel they divide by SPEEDS.walk and SPEEDS.run and a character
+ * moving at 7 plays the walk at rate 1. The studio bank carries a travelSpeed
+ * per move instead, about 1.18 for the walk and 2.45 for the run, because
+ * those are real human gaits; rate is ground speed over that, so the feet turn
+ * over as fast as the ground goes past.
+ *
+ * rateMin and rateMax still bound it. The game's ground speeds are far above a
+ * real gait, so a studio walk asks for 7/1.18 = 5.9x and is held at rateMax.
+ * That is deliberate: the clamp is what keeps a sprint from being a blur, and
+ * the alternative to the clamp is a walk cycle running six times over.
+ */
+export function locomotionRates(mps, travel = null) {
   const s = Number.isFinite(mps) ? Math.max(0, mps) : 0;
+  const per = (name) => {
+    const t = travel && Number(travel[name]);
+    return Number.isFinite(t) && t > 0 ? t : SPEEDS[name];
+  };
   return {
     idle: 1,
-    walk: clamp(s / SPEEDS.walk, SPEEDS.rateMin, SPEEDS.rateMax),
-    run: clamp(s / SPEEDS.run, SPEEDS.rateMin, SPEEDS.rateMax),
+    walk: clamp(s / per('walk'), SPEEDS.rateMin, SPEEDS.rateMax),
+    run: clamp(s / per('run'), SPEEDS.rateMin, SPEEDS.rateMax),
   };
 }
 
@@ -95,10 +216,16 @@ export function locomotionRates(mps) {
 // genuinely has no counterpart comes back null rather than as something that
 // would move the wrong part.
 const BIPED = { head: 'head', torso: 'chest', armL: 'upperarm_L', armR: 'upperarm_R', legL: 'upperleg_L', legR: 'upperleg_R' };
+// The studio bodies name their joints the Mixamo way. This table is anatomical
+// like the one above it: armL is the body's own left arm. rig_glb.js's
+// BONE_CANDIDATES is the one that mirrors, and says why.
+const MIXAMO = { head: 'Head', torso: 'Spine1', armL: 'LeftArm', armR: 'RightArm', legL: 'LeftUpLeg', legR: 'RightUpLeg' };
 export const RIGS = {
   'human-slim': BIPED,
   'human-medium': BIPED,
   'human-heavy': BIPED,
+  'human-male': MIXAMO,
+  'human-female': MIXAMO,
   'monster-skeleton': BIPED,
   'monster-goblin': BIPED,
   'monster-zombie': BIPED,
@@ -107,8 +234,28 @@ export const RIGS = {
   'monster-bat': { head: 'head', torso: 'body', armL: 'wing_L', armR: 'wing_R', legL: 'tip_L', legR: 'tip_R' },
 };
 
+/**
+ * The names this model answers to. Once the file is in the cache that is what
+ * really arrived, bank and all, so clipAlias can only ever offer a clip that
+ * exists; before then it is what the model promises.
+ */
 export function clipsFor(id) {
-  return id.startsWith('human-') ? CLIPS.human : CLIPS.monster;
+  const entry = cache.get(id);
+  if (entry) return entry.clipNames;
+  if (MODEL_CLIPS[id]) return MODEL_CLIPS[id];
+  return CLIPS[familyOf(id)];
+}
+
+/** Which clip contract a model is held to: what every caller may ask it for. */
+export function familyOf(id) {
+  if (id.startsWith('dragon-')) return 'dragon';
+  if (id.startsWith('human-')) return 'human';
+  return 'monster';
+}
+
+/** The contract names a model must be able to answer, aliases allowed. */
+export function contractFor(id) {
+  return CLIPS[familyOf(id)];
 }
 
 // monster_models.js keys its placeholder rigs by shape family, not by monster
@@ -146,8 +293,45 @@ const ALIAS = {
 export function clipAlias(id, name) {
   const have = clipsFor(id);
   if (have.includes(name)) return name;
+  const own = CLIP_ALIAS[id];
+  if (own && own[name] && have.includes(own[name])) return own[name];
   for (const candidate of ALIAS[name] || []) if (have.includes(candidate)) return candidate;
   return null;
+}
+
+// --- what the bank knows besides the clips ---------------------------------
+
+/** Ability ids are camelCase in abilities.js and kebab in the bank. */
+const canonId = (id) => String(id).replace(/[^a-z0-9]+/gi, '').toLowerCase();
+
+/** The bank's moves table for a model, or null when it has no bank. */
+export function movesFor(id) {
+  const entry = cache.get(id);
+  return (entry && entry.moves) || null;
+}
+
+/** One move's { duration, loop, travelSpeed, events }, or null. */
+export function moveInfo(id, move) {
+  const moves = movesFor(id);
+  return (moves && moves[move]) || null;
+}
+
+/**
+ * The moves an ability plays on this body, [] when the bank has none for it.
+ * `powerStrike` and `power-strike` are the same ability: abilities.js writes
+ * camelCase ids and the bank was authored in kebab, so both are matched.
+ */
+export function abilityMoves(id, abilityId) {
+  const entry = cache.get(id);
+  const table = entry && entry.abilities;
+  if (!table || !abilityId) return [];
+  const direct = table[abilityId];
+  if (direct) return (direct.moves || []).filter((m) => clipsFor(id).includes(m));
+  const want = canonId(abilityId);
+  for (const [key, val] of Object.entries(table)) {
+    if (canonId(key) === want) return (val.moves || []).filter((m) => clipsFor(id).includes(m));
+  }
+  return [];
 }
 
 export function urlFor(id) {
@@ -160,6 +344,13 @@ const cache = new Map();     // id -> { scene, clips: Map<name, AnimationClip> }
 const pending = new Map();   // id -> Promise
 let loader = null;
 
+const warned = new Set();
+function warnOnce(key, message) {
+  if (warned.has(key)) return;
+  warned.add(key);
+  console.warn(message);
+}
+
 function gltfLoader() {
   if (!loader) loader = new GLTFLoader();
   return loader;
@@ -169,25 +360,95 @@ export function isLoaded(id) {
   return cache.has(id);
 }
 
+function loadGltf(id) {
+  return new Promise((resolve, reject) => {
+    gltfLoader().load(urlFor(id), resolve, undefined, reject);
+  });
+}
+
+/**
+ * The clip bank beside a model, through three's own FileLoader so it takes the
+ * same LoadingManager, the same URL modifier and the same cache as the glb. A
+ * bank that will not load is a warning and an empty bank, not a dead body: the
+ * neutral hold in the file still plays.
+ */
+function loadBank(url) {
+  return new Promise((resolve) => {
+    new THREE.FileLoader().setResponseType('json').load(url, (data) => {
+      const json = typeof data === 'string' ? JSON.parse(data) : data;
+      resolve(json);
+    }, undefined, (err) => {
+      console.warn('models: failed to load clip bank', url, err && err.message);
+      resolve(null);
+    });
+  });
+}
+
+/** Every clip in a bank, parsed. A clip that will not parse is skipped loudly. */
+export function parseBankClips(json) {
+  const out = [];
+  for (const raw of (json && json.clips) || []) {
+    try {
+      const clip = THREE.AnimationClip.parse(raw);
+      if (clip && clip.name) out.push(clip);
+    } catch (err) {
+      console.warn('models: a bank clip would not parse', raw && raw.name, err && err.message);
+    }
+  }
+  return out;
+}
+
+/** The metres a second the walk and the run clips cover, as authored. */
+function travelFrom(moves) {
+  const out = {};
+  for (const name of LOCOMOTION) {
+    const t = moves && moves[name] && Number(moves[name].travelSpeed);
+    if (Number.isFinite(t) && t > 0) out[name] = t;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 export function loadModel(id) {
   if (cache.has(id)) return Promise.resolve(cache.get(id));
   if (pending.has(id)) return pending.get(id);
-  const p = new Promise((resolve, reject) => {
-    gltfLoader().load(urlFor(id), (gltf) => {
-      const clips = new Map();
-      for (const c of gltf.animations) clips.set(c.name, c);
-      const want = clipsFor(id);
-      const missing = want.filter((c) => !clips.has(c));
-      if (missing.length) console.warn(`models: ${id} is missing clips ${missing.join(', ')}`);
-      const entry = { id, scene: gltf.scene, clips, animations: gltf.animations };
-      cache.set(id, entry);
-      pending.delete(id);
-      resolve(entry);
-    }, undefined, (err) => {
-      pending.delete(id);
-      console.warn('models: failed to load', id, err);
-      reject(err);
-    });
+  const p = loadGltf(id).then(async (gltf) => {
+    const bankUrl = MODEL_BANK[id];
+    const bank = bankUrl ? await loadBank(bankUrl) : null;
+    const animations = gltf.animations.slice();
+    if (bank) {
+      // the bank is the motion, so where a name collides with the hold clip in
+      // the file the bank's is the one that survives
+      const fromBank = parseBankClips(bank);
+      const names = new Set(fromBank.map((c) => c.name));
+      for (let i = animations.length - 1; i >= 0; i--) if (names.has(animations[i].name)) animations.splice(i, 1);
+      animations.push(...fromBank);
+    }
+    const clips = new Map();
+    for (const c of animations) clips.set(c.name, c);
+    const moves = (bank && bank.moves) || null;
+    const entry = {
+      id,
+      scene: gltf.scene,
+      clips,
+      animations,
+      clipNames: [...clips.keys()],
+      bank: bank || null,
+      moves,
+      abilities: (bank && bank.abilities) || null,
+      travel: travelFrom(moves),
+    };
+    cache.set(id, entry);
+    pending.delete(id);
+    // the contract, checked against what actually arrived and through the
+    // alias table, so a studio body missing 'light-attack' says "swing" and a
+    // Blender model missing 'walk' still says "walk"
+    const missing = contractFor(id).filter((c) => !clipAlias(id, c));
+    if (missing.length) console.warn(`models: ${id} is missing clips ${missing.join(', ')}`);
+    return entry;
+  }).catch((err) => {
+    pending.delete(id);
+    console.warn('models: failed to load', id, err);
+    throw err;
   });
   pending.set(id, p);
   return p;
@@ -284,6 +545,7 @@ export function instantiate(id) {
     _locoTarget: 1,
     _fadeRate: 8,
     _speed: 0,
+    _travel: null,          // metres a second the walk and run clips cover
   };
 
   // A model already in the cache is built RIGHT NOW rather than on a
@@ -332,8 +594,11 @@ export function instantiate(id) {
       return inst;
     }
     const m = inst.materials.get(slot);
-    if (!m) {
-      console.warn(`models: ${id} has no material slot ${slot}; it has ${[...inst.materials.keys()].join(', ')}`);
+    // A studio body is one textured material, so it has no 'skin' or 'hair'
+    // slot to recolour and every appearance tint aimed at one is a no op. It
+    // says so once per model and slot rather than once per rig built.
+    if (!m || !m.color) {
+      warnOnce(`tint:${id}:${slot}`, `models: ${id} has no material slot ${slot}; it has ${[...inst.materials.keys()].join(', ') || 'none'}`);
       return inst;
     }
     if (hex === null || hex === undefined) {
@@ -366,6 +631,15 @@ export function instantiate(id) {
 
   /** How long one clip runs, in seconds, or 0 if this model has no such clip. */
   inst.clipDuration = (name) => clipDuration(id, name);
+
+  /** Every clip name this body answers to, bank included. */
+  inst.clipNames = () => (inst._actions.size ? [...inst._actions.keys()] : clipsFor(id).slice());
+
+  /** One bank move's { duration, loop, travelSpeed, events }, or null. */
+  inst.moveInfo = (move) => moveInfo(id, move);
+
+  /** The moves an ability plays on this body, [] when the bank has none. */
+  inst.abilityMoves = (abilityId) => abilityMoves(id, abilityId);
 
   inst.update = (dt) => {
     if (!inst.loaded || inst.disposed) return inst;
@@ -413,8 +687,11 @@ function build(inst, entry) {
     m.userData = { ...(src.userData || {}), baseColor: src.color ? src.color.clone() : new THREE.Color(0xffffff), baseVertexColors: !!src.vertexColors };
     m.flatShading = false;   // the normals are already per face, baked by Blender
     o.material = m;
-    if (m.name) inst.materials.set(m.name, m);
+    // A studio body ships one material and it may not be named. It is still
+    // reachable, under 'body', so a caller can wash the whole thing.
+    inst.materials.set(m.name || 'body', m);
   });
+  inst._travel = entry.travel || null;
   for (const [name, clip] of entry.clips) {
     const action = inst.mixer.clipAction(clip);
     inst._actions.set(name, action);
@@ -445,7 +722,7 @@ function startLocomotion(inst) {
 
 function applyLocomotion(inst) {
   const w = { ...locomotionWeights(inst._speed) };
-  const r = locomotionRates(inst._speed);
+  const r = locomotionRates(inst._speed, inst._travel);
   // No monster has a run clip. Without this a wolf at 9 m/s would have all its
   // weight on an action that does not exist, every clip at weight zero, and
   // the whole animal frozen mid stride while it slid across the ground. The

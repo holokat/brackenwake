@@ -158,11 +158,13 @@ export const HAIR_STYLES = [
   'braid', 'twin braids', 'ponytail', 'topknot', 'long', 'wild',
 ];
 /**
- * The two the creation screen offers (CR3). Nothing in this file draws a
- * different body for either of them yet: the models are being made, and until
- * they land `setAppearance` records the choice on the rig and changes not one
- * vertex. This list is the hook the swap lands on, and `auditAppearance` fails
- * if openings.js ever offers a gender that is not in it.
+ * The two the creation screen offers (CR3). The procedural body in THIS file
+ * still draws one shape for both of them: it is a pile of boxes and a gendered
+ * box is not a thing worth building. The choice is drawn by the studio bodies
+ * instead, through `GENDER_MODEL` in rig_glb.js, which maps male to
+ * human-male.glb and female to human-female.glb and falls back to the three
+ * builds here when those files are not loaded. `auditAppearance` still fails
+ * if openings.js ever offers a gender that is not in this list.
  */
 export const GENDERS = ['male', 'female'];
 export const APPEARANCE_FALLBACK = Object.freeze({

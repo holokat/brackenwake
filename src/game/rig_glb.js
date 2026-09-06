@@ -81,11 +81,39 @@ export const PART_KEYS = [
   'back',
 ];
 
-/** Which human body an appearance's build wears. */
+/** Which human body an appearance's build wears, when there is no studio body. */
 export const BUILD_MODEL = { slight: 'human-slim', average: 'human-medium', heavy: 'human-heavy' };
 
-export function modelForBuild(build) {
+/**
+ * Which body a gender wears. These are the studio bodies: one male, one
+ * female, both 1.8 m and both on the same 51 joints, and neither of them built
+ * to a build. GENDERS in player.js is the list this is keyed by.
+ */
+export const GENDER_MODEL = { male: 'human-male', female: 'human-female' };
+
+/**
+ * The body an appearance wears. The gender wins when its body is in the cache,
+ * because it is the choice the creation screen actually shows; the build is
+ * the fallback, and is what the three Blender bodies were always chosen by. A
+ * player whose studio body has not loaded gets the body he has always had
+ * rather than an empty group, and setAppearance moves him onto the studio one
+ * the moment it lands.
+ */
+export function modelForBuild(build, gender) {
+  const studio = GENDER_MODEL[gender];
+  if (studio && isLoaded(studio)) return studio;
   return BUILD_MODEL[build] || BUILD_MODEL.average;
+}
+
+/**
+ * The same choice, made from a whole appearance record. A record with no
+ * gender in it takes APPEARANCE_FALLBACK's, exactly as every other reader of
+ * an appearance in this file does, so a half filled record cannot mean one
+ * body here and another one two lines later.
+ */
+export function modelForAppearance(look) {
+  const a = { ...APPEARANCE_FALLBACK, ...(look || {}) };
+  return modelForBuild(a.build, a.gender);
 }
 
 /**
@@ -101,30 +129,41 @@ export const MIRROR = { L: '_R', R: '_L' };
  * its root bone rather than dropping it, because `dressRig` skips a missing
  * anchor silently and a missing anchor is how a helmet stops existing.
  */
+// The studio bodies are named the Mixamo way, and the mirror above is why
+// armL asks for RightArm: the contract's left is the body's own right. Both
+// naming schemes are in one list per anchor because a model carries one or the
+// other and never both, and a single list is one thing to keep in step.
 export const BONE_CANDIDATES = {
-  hips: ['hips', 'body'],
-  torso: ['spine', 'chest', 'abdomen', 'body'],
-  head: ['head', 'body'],
-  armL: ['upperarm_R', 'wing_R', 'legF_R', 'leg1_R'],
-  armR: ['upperarm_L', 'wing_L', 'legF_L', 'leg1_L'],
-  handL: ['hand_R', 'lowerarm_R', 'tip_R', 'legF_R', 'foot1_R'],
-  handR: ['hand_L', 'lowerarm_L', 'tip_L', 'legF_L', 'foot1_L'],
-  legL: ['upperleg_R', 'legB_R', 'leg4_R'],
-  legR: ['upperleg_L', 'legB_L', 'leg4_L'],
-  shinL: ['lowerleg_R', 'legB_R', 'foot4_R'],
-  shinR: ['lowerleg_L', 'legB_L', 'foot4_L'],
-  footL: ['foot_R', 'legB_R', 'foot4_R'],
-  footR: ['foot_L', 'legB_L', 'foot4_L'],
-  back: ['chest', 'spine', 'body'],
+  hips: ['hips', 'body', 'Hips'],
+  torso: ['spine', 'chest', 'abdomen', 'body', 'Spine1', 'Spine', 'Hips'],
+  head: ['head', 'body', 'Head', 'Neck'],
+  armL: ['upperarm_R', 'wing_R', 'legF_R', 'leg1_R', 'RightArm', 'RightShoulder'],
+  armR: ['upperarm_L', 'wing_L', 'legF_L', 'leg1_L', 'LeftArm', 'LeftShoulder'],
+  handL: ['hand_R', 'lowerarm_R', 'tip_R', 'legF_R', 'foot1_R', 'RightHand', 'RightForeArm'],
+  handR: ['hand_L', 'lowerarm_L', 'tip_L', 'legF_L', 'foot1_L', 'LeftHand', 'LeftForeArm'],
+  legL: ['upperleg_R', 'legB_R', 'leg4_R', 'RightUpLeg'],
+  legR: ['upperleg_L', 'legB_L', 'leg4_L', 'LeftUpLeg'],
+  shinL: ['lowerleg_R', 'legB_R', 'foot4_R', 'RightLeg'],
+  shinR: ['lowerleg_L', 'legB_L', 'foot4_L', 'LeftLeg'],
+  footL: ['foot_R', 'legB_R', 'foot4_R', 'RightFoot'],
+  footR: ['foot_L', 'legB_L', 'foot4_L', 'LeftFoot'],
+  back: ['chest', 'spine', 'body', 'Spine2', 'Spine1'],
 };
 
 /**
- * Resolve every anchor to a bone name for one loaded model.
- * @returns {object|null} null when the model is not loaded yet.
+ * The bones that are a wrist, so a hand anchor knows it is on one. Everything
+ * else that a hand can land on is an elbow or a paw, and anchorTarget drops
+ * the anchor a forearm below it to find the fist. A studio body's LeftHand IS
+ * the wrist; without this the sword would hang a forearm below the hand.
  */
-export function boneMapFor(id) {
-  const rest = restFrames(id);
-  if (!rest) return null;
+export const WRIST_BONES = ['hand_L', 'hand_R', 'LeftHand', 'RightHand'];
+
+/**
+ * Resolve every anchor to a bone name from a rest frame map (a Map of bone
+ * name to { pos, quat, parent }, which is what models.restFrames hands back).
+ * Pure, so a rig that has never been loaded can still be checked.
+ */
+export function boneMapFrom(rest) {
   const names = [...rest.keys()];
   const root = names.find((n) => !rest.get(n).parent) || names[0];
   const out = {};
@@ -134,10 +173,25 @@ export function boneMapFor(id) {
   return out;
 }
 
+/**
+ * Resolve every anchor to a bone name for one loaded model.
+ * @returns {object|null} null when the model is not loaded yet.
+ */
+export function boneMapFor(id) {
+  const rest = restFrames(id);
+  if (!rest) return null;
+  return boneMapFrom(rest);
+}
+
+/** An upper arm and an upper leg, under either naming scheme. */
+const ARM_BONES = ['upperarm_L', 'upperarm_R', 'LeftArm', 'RightArm'];
+const LEG_BONES = ['upperleg_L', 'upperleg_R', 'LeftUpLeg', 'RightUpLeg'];
+
 /** True when a model has the arms and legs a humanoid needs to be dressed. */
 export function isHumanoid(id) {
   const rest = restFrames(id);
-  return !!rest && rest.has('upperarm_L') && rest.has('upperleg_L');
+  if (!rest) return false;
+  return ARM_BONES.some((n) => rest.has(n)) && LEG_BONES.some((n) => rest.has(n));
 }
 
 /** Load the glb files behind the rigs. Awaited at boot, the fallback never shows. */
@@ -314,6 +368,7 @@ export function buildGlbRig(modelId, opts = {}) {
     modelId,
     triangles: 0,
     get loaded() { return !!live; },
+    get disposed() { return disposed; },
     get anim() { return st.anim; },
     get dieDone() {
       return st.anim === 'die' && st.dieT >= (dieSeconds || clipDuration(currentId, 'die') || 1.2);
@@ -544,7 +599,7 @@ export function buildGlbRig(modelId, opts = {}) {
       const s = hipsW.y > 0 ? hipsW.y / BODY.STAND_HIP : 1;
       return new THREE.Vector3(hipsW.x, hipsW.y + BODY.BACK_Y * s, hipsW.z + BODY.BACK_Z * s);
     }
-    if ((key === 'handL' || key === 'handR') && !boneName.startsWith('hand_')) {
+    if ((key === 'handL' || key === 'handR') && !WRIST_BONES.includes(boneName)) {
       // no wrist bone: the fist goes one forearm past the elbow
       const armName = map[key === 'handL' ? 'armL' : 'armR'];
       const arm = rest.get(armName);
@@ -582,6 +637,15 @@ export function buildGlbRig(modelId, opts = {}) {
     if (live.materials && live.materials.has('hair')) live.setTint('hair', HAIR_COLOURS[look.hairColour] ?? null);
   }
 
+  /**
+   * True when this body is one the hair cap and the mark decal were built for:
+   * the procedural stand-in, or a glb with a 'hair' material slot. False for a
+   * studio body, whose hair is painted into its one texture.
+   */
+  function wearsHairCap() {
+    return !live || !!(live.materials && live.materials.has('hair'));
+  }
+
   function applyLook() {
     const look = rig.appearance;
     if (!look) return;
@@ -594,10 +658,18 @@ export function buildGlbRig(modelId, opts = {}) {
     hairNode = null; markNode = null;
     const s = rig.body ? rig.body.SKULL_R / BODY.SKULL_R : 1;
     const colour = HAIR_COLOURS[look.hairColour] ?? HAIR_COLOURS.chestnut;
-    hairNode = hairCap(look.hairStyle, colour, s);
-    if (hairNode) head.add(hairNode);
-    markNode = markDecal(look.mark, s);
-    if (markNode) head.add(markNode);
+    // The cap and the decal were built for a body with a 'hair' material slot
+    // and a box for a head: the cap tints the baked hair and the decal stands a
+    // millimetre off a flat face. A studio body has its hair and its face in
+    // one texture and no slot to hide, so a cap there would be a second head of
+    // hair sitting on top of the first. Both are skipped on such a body rather
+    // than laid over it, and H1-STUDIO-BODIES.md says so.
+    if (wearsHairCap()) {
+      hairNode = hairCap(look.hairStyle, colour, s);
+      if (hairNode) head.add(hairNode);
+      markNode = markDecal(look.mark, s);
+      if (markNode) head.add(markNode);
+    }
     // shaved means the baked head of hair goes too
     if (live) {
       live.group.traverse((o) => {
@@ -608,9 +680,10 @@ export function buildGlbRig(modelId, opts = {}) {
   }
 
   function setAppearance(a) {
+    if (disposed) return rig;
     const next = { ...APPEARANCE_FALLBACK, ...(a || {}) };
     rig.appearance = next;
-    const wantId = modelId.startsWith('human-') ? modelForBuild(next.build) : currentId;
+    const wantId = modelId.startsWith('human-') ? modelForAppearance(next) : currentId;
     if (wantId !== currentId) {
       if (isLoaded(wantId)) {
         // mount the new body BEFORE taking the old one down, so a build that
@@ -764,7 +837,15 @@ export function buildGlbRig(modelId, opts = {}) {
  */
 export function createGlbPlayer(scene, appearance, opts = {}) {
   const look = { ...APPEARANCE_FALLBACK, ...(appearance || {}) };
-  const rig = buildGlbRig(modelForBuild(look.build), { ...opts, appearance: look });
+  const rig = buildGlbRig(modelForAppearance(look), { ...opts, appearance: look });
+  // The studio body for this gender is chosen only when it is already in the
+  // cache, so a player built before preloadRigs finished would otherwise keep
+  // the Blender body for the whole session. Ask for the file, and let
+  // setAppearance make the same choice again once it is there.
+  const wanted = GENDER_MODEL[look.gender];
+  if (wanted && rig.modelId !== wanted) {
+    loadModel(wanted).then(() => { if (!rig.disposed) rig.setAppearance(rig.appearance || look); }).catch(() => {});
+  }
   const { group, parts } = rig;
   if (scene && scene.add) scene.add(group);
 

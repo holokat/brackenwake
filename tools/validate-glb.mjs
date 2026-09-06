@@ -28,23 +28,82 @@
 //                        names, so a bone called "upperarm.L" arrives as
 //                        "upperarmL" and every lookup by name misses
 
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const MODEL_DIR = join(HERE, '..', 'public', 'models', 'mmo');
+export const ANIM_DIR = join(HERE, '..', 'public', 'animations');
 
 export const HUMAN_CLIPS = { idle: 2.0, walk: 1.0, run: 0.6, swing: 0.5, cast: 0.8, hurt: 0.3, die: 1.2, jump: 0.7 };
 export const MONSTER_CLIPS = { idle: 2.0, walk: 1.0, attack: 0.6, hurt: 0.3, die: 1.2, special: 0.8 };
 
+// The studio bodies and the hatchling are not built by tools/blender, so their
+// clip lengths are not this repo's to choose. What can be checked is that
+// every move is really there and that none of them is an empty clip, so these
+// numbers are FLOORS rather than targets and `minClips` says to read them that
+// way. A loop that has to read as a cycle gets a bigger floor than a one shot.
+const LOOP_FLOOR = 0.40;
+const SHOT_FLOOR = 0.12;
+const LOOPS = new Set(['idle', 'combat-idle', 'walk', 'run', 'surface-swim', 'tread-water',
+  'fly', 'glide', 'sleep', 'lie_down', 'shoulder_perch', 'tail_sway']);
+const floors = (names) => Object.fromEntries(names.map(
+  (n) => [n, LOOPS.has(n) ? LOOP_FLOOR : (n === 'die' ? 0.5 : SHOT_FLOOR)]));
+
+/** The 36 moves the human clip bank promises. models.js STUDIO_MOVES is this list. */
+export const STUDIO_MOVES = [
+  'idle', 'combat-idle', 'idle-shift', 'idle-scan',
+  'walk-start', 'walk', 'walk-stop', 'walk-backward', 'strafe-left', 'strafe-right',
+  'run-start', 'run', 'run-stop', 'turn-left', 'turn-right',
+  'jump-launch', 'jump-air', 'running-leap', 'airborne',
+  'surface-swim', 'tread-water', 'land-soft', 'land-hard', 'dodge',
+  'light-attack', 'heavy-attack', 'two-handed-strike',
+  'cast', 'fireball', 'lightning', 'energy-missiles', 'healing', 'whirlwind',
+  'hit', 'die', 'jump',
+];
+
+/** The 16 clips baked into the hatchling itself. models.js CLIPS.dragon is this list. */
+export const DRAGON_MOVES = [
+  'idle', 'walk', 'fly', 'glide', 'take_off', 'land', 'lie_down', 'sleep',
+  'wake_up', 'shoulder_perch', 'wing_spread', 'wing_fold', 'wing_flex',
+  'look_around', 'tail_sway', 'cast_spell',
+];
+
+export const STUDIO_CLIPS = floors(STUDIO_MOVES);
+export const DRAGON_CLIPS = floors(DRAGON_MOVES);
+
 // axis is the dimension the stated size describes: the humans and the uprights
 // are measured by height, the rat by how long it is, the spider and the bat by
 // how far across they reach.
+//
+// `bank` names a file in public/animations that carries the clips instead of
+// the glb. When one is set the clip check reads that file, and the glb's own
+// animations are free to be anything, because a studio body ships with one
+// neutral hold in it and its motion beside it.
+//
+// `textured` allows an embedded texture. The Blender models have none and are
+// still held to that; a studio body is one texture and one material.
+//
+// `studio` marks a file this repo does not build. It is checked as hard as any
+// other when it is there, and its absence is reported as pending rather than
+// as a build that broke.
 export const SPECS = {
   'human-slim': { clips: HUMAN_CLIPS, axis: 'y', size: 1.8, tris: 1800, bones: 40 },
   'human-medium': { clips: HUMAN_CLIPS, axis: 'y', size: 1.8, tris: 1800, bones: 40 },
   'human-heavy': { clips: HUMAN_CLIPS, axis: 'y', size: 1.8, tris: 1800, bones: 40 },
+  'human-male': {
+    clips: STUDIO_CLIPS, minClips: true, bank: 'human-male.json', axis: 'y', size: 1.8,
+    tris: 12000, bones: 60, textured: true, studio: true, bytes: 8 * 1024 * 1024,
+  },
+  'human-female': {
+    clips: STUDIO_CLIPS, minClips: true, bank: 'human-female.json', axis: 'y', size: 1.8,
+    tris: 60000, bones: 60, textured: true, studio: true, bytes: 8 * 1024 * 1024,
+  },
+  'dragon-hatchling': {
+    clips: DRAGON_CLIPS, minClips: true, axis: 'x', size: 1.1,
+    tris: 20000, bones: 100, textured: true, studio: true, bytes: 8 * 1024 * 1024,
+  },
   'monster-skeleton': { clips: MONSTER_CLIPS, axis: 'y', size: 1.8, tris: 1500, bones: 40 },
   'monster-goblin': { clips: MONSTER_CLIPS, axis: 'y', size: 1.3, tris: 1500, bones: 40 },
   'monster-rat': { clips: MONSTER_CLIPS, axis: 'z', size: 0.5, tris: 1500, bones: 40 },
@@ -52,6 +111,33 @@ export const SPECS = {
   'monster-spider': { clips: MONSTER_CLIPS, axis: 'x', size: 1.2, tris: 1500, bones: 40 },
   'monster-bat': { clips: MONSTER_CLIPS, axis: 'x', size: 0.4, tris: 1500, bones: 40 },
 };
+
+/**
+ * A clip bank beside a model, or null when the file is not there. `moves` is
+ * what the game reads and `clips` is what it plays, so both are returned and
+ * the check below holds them to each other: a move with no clip behind it is a
+ * promise nothing can keep.
+ */
+export function readBank(name) {
+  const path = join(ANIM_DIR, name);
+  if (!existsSync(path)) return null;
+  try {
+    const json = JSON.parse(readFileSync(path, 'utf8'));
+    const moves = json.moves || {};
+    const durations = {};
+    for (const [id, m] of Object.entries(moves)) durations[id] = Number(m && m.duration) || 0;
+    return {
+      path, broken: null,
+      version: json.version, body: json.body, fps: json.fps,
+      durations, moves,
+      clipNames: (json.clips || []).map((c) => (c && c.name) || ''),
+      abilities: json.abilities || {},
+      bytes: readFileSync(path).length,
+    };
+  } catch (err) {
+    return { path, broken: err.message, durations: {}, moves: {}, clipNames: [], abilities: {}, bytes: 0 };
+  }
+}
 
 export const DURATION_TOLERANCE = 0.10;   // 10 per cent
 export const SIZE_TOLERANCE = 0.15;       // 15 per cent
@@ -198,8 +284,13 @@ export function validateBuffer(buf, spec, name) {
   // joint names have to survive three's node name sanitiser
   const names = joints.map((i) => (json.nodes[i] || {}).name || '');
   const bad = names.filter((n) => !n || RESERVED.test(n));
+  // Say what the name BECOMES, not just that it is wrong. The clips still bind,
+  // because three rewrites the track names the same way; what breaks is every
+  // lookup by name from code, which is silent and returns null.
+  const rewritten = bad.slice(0, 6).map((n) => `${n} becomes ${n.replace(/[\s.[\]:/]/g, '')}`);
   add('joint names survive three', bad.length === 0,
-    bad.length ? `three would rewrite ${bad.join(', ')}` : `${names.length} names clean`);
+    bad.length ? `three rewrites ${bad.length} of ${names.length} names: ${rewritten.join(', ')}${bad.length > 6 ? ' and so on' : ''}`
+      : `${names.length} names clean`);
 
   // triangles, and nothing but triangles
   let tris = 0;
@@ -233,8 +324,18 @@ export function validateBuffer(buf, spec, name) {
     }
   }
   stats.materials = mats.length;
-  add('no textures', images === 0 && textures === 0 && textured === 0,
-    `${images} images, ${textures} textures, ${textured} textured materials`);
+  stats.images = images;
+  if (spec.textured) {
+    // A texture that is not in the binary chunk is a file the game would have
+    // to fetch beside the glb, and nothing fetches one. It renders black.
+    const external = (json.images || []).filter((im) => im.uri !== undefined && !String(im.uri).startsWith('data:'));
+    add('every texture is embedded', external.length === 0,
+      external.length ? `${external.map((im) => im.uri).join(', ')} would have to be fetched`
+        : `${images} images, ${textures} textures, ${mats.length} materials`);
+  } else {
+    add('no textures', images === 0 && textures === 0 && textured === 0,
+      `${images} images, ${textures} textures, ${textured} textured materials`);
+  }
   add('vertex or flat colour on every primitive', colourless.length === 0,
     colourless.length ? colourless.join(', ') : `${mats.length} materials`);
 
@@ -255,19 +356,57 @@ export function validateBuffer(buf, spec, name) {
     durations[a.name] = end;
   }
   stats.clips = durations;
-  const missing = Object.keys(spec.clips).filter((c) => !(c in durations));
-  const extra = Object.keys(durations).filter((c) => !(c in spec.clips));
-  add('every clip present', missing.length === 0 && extra.length === 0,
-    missing.length || extra.length ? `missing ${missing.join(',') || 'none'}; unexpected ${extra.join(',') || 'none'}` : Object.keys(durations).join(', '));
-  const offSpec = [];
-  for (const [clip, want] of Object.entries(spec.clips)) {
-    const got = durations[clip];
-    if (got === undefined || Math.abs(got - want) > want * DURATION_TOLERANCE) {
-      offSpec.push(`${clip} ${got === undefined ? 'absent' : got.toFixed(3) + 's'} want ${want}s`);
+
+  // Where the motion lives outside the file, the clip check reads the bank and
+  // the glb is only asked to carry its hold clip. Everything after this point
+  // works off `source`, which is the bank's durations or the file's.
+  let source = durations;
+  if (spec.bank) {
+    const bank = readBank(spec.bank);
+    stats.bank = spec.bank;
+    if (!bank) {
+      add('the clip bank is on disk', false, `public/animations/${spec.bank} is missing`);
+      source = {};
+    } else if (bank.broken) {
+      add('the clip bank is on disk', false, `${spec.bank} will not parse: ${bank.broken}`);
+      source = {};
+    } else {
+      source = bank.durations;
+      stats.bankBytes = bank.bytes;
+      stats.bankClips = bank.clipNames.length;
+      add('the clip bank is on disk', true,
+        `${spec.bank}, ${bank.clipNames.length} clips, ${Object.keys(bank.moves).length} moves, ${(bank.bytes / 1024).toFixed(0)} KB`);
+      add('the bank is version 1, 30 fps, and says which body it is for',
+        bank.version === 1 && Number(bank.fps) > 0 && bank.body === name,
+        `version ${bank.version}, ${bank.fps} fps, body ${bank.body}`);
+      const clipNames = new Set(bank.clipNames);
+      const unbacked = Object.keys(bank.moves).filter((m) => !clipNames.has(m));
+      add('every move in the bank has a clip behind it', unbacked.length === 0,
+        unbacked.length ? `${unbacked.join(', ')} name no clip` : `${clipNames.size} clips`);
+      const glbClips = Object.keys(durations);
+      add('the glb itself carries a hold clip and nothing that shadows the bank',
+        glbClips.every((c) => !(c in bank.durations)),
+        glbClips.length ? glbClips.join(', ') : 'no clips in the glb');
     }
   }
-  add(`clip durations within ${DURATION_TOLERANCE * 100}%`, offSpec.length === 0,
-    offSpec.length ? offSpec.join('; ') : Object.entries(durations).map(([k, v]) => `${k} ${v.toFixed(2)}s`).join(', '));
+
+  const missing = Object.keys(spec.clips).filter((c) => !(c in source));
+  // A bank may carry more than the contract asks for; a Blender model may not,
+  // because an unexpected clip there means a rename went half way.
+  const extra = spec.minClips ? [] : Object.keys(source).filter((c) => !(c in spec.clips));
+  add('every clip present', missing.length === 0 && extra.length === 0,
+    missing.length || extra.length ? `missing ${missing.join(',') || 'none'}; unexpected ${extra.join(',') || 'none'}` : Object.keys(source).join(', '));
+  const offSpec = [];
+  for (const [clip, want] of Object.entries(spec.clips)) {
+    const got = source[clip];
+    if (got === undefined) { offSpec.push(`${clip} absent`); continue; }
+    if (spec.minClips ? got < want : Math.abs(got - want) > want * DURATION_TOLERANCE) {
+      offSpec.push(`${clip} ${got.toFixed(3)}s want ${spec.minClips ? 'at least ' : ''}${want}s`);
+    }
+  }
+  add(spec.minClips ? 'no clip is shorter than its floor' : `clip durations within ${DURATION_TOLERANCE * 100}%`,
+    offSpec.length === 0,
+    offSpec.length ? offSpec.join('; ') : Object.entries(source).map(([k, v]) => `${k} ${v.toFixed(2)}s`).join(', '));
 
   // the bind pose bounding box, through every node transform on the way
   const world = new Array((json.nodes || []).length).fill(null);
@@ -307,6 +446,8 @@ export function validateBuffer(buf, spec, name) {
     `min y ${lo[1].toFixed(4)}`);
 
   stats.bytes = buf.length;
+  const budget = spec.bytes || 300 * 1024;
+  add(`under ${(budget / 1024).toFixed(0)} KB`, buf.length < budget, `${(buf.length / 1024).toFixed(0)} KB`);
   return { name, ok: checks.every((c) => c.ok), checks, stats };
 }
 
@@ -319,13 +460,18 @@ export function validateAll(dir = MODEL_DIR) {
   const files = readdirSync(dir).filter((f) => f.endsWith('.glb')).sort();
   const results = files.map((f) => validateFile(join(dir, f)));
   const unknown = files.map((f) => basename(f, '.glb')).filter((n) => !SPECS[n]);
-  const expected = Object.keys(SPECS).filter((n) => !files.includes(n + '.glb'));
-  return { results, unknown, expected };
+  const absent = Object.keys(SPECS).filter((n) => !files.includes(n + '.glb'));
+  // A Blender model that is not on disk is a build that broke. A studio body
+  // that is not on disk has not been delivered yet, which is a different thing
+  // and is reported as its own list rather than as a failure.
+  const expected = absent.filter((n) => !SPECS[n].studio);
+  const pending = absent.filter((n) => SPECS[n].studio);
+  return { results, unknown, expected, pending };
 }
 
 export function main(argv = []) {
   const quiet = argv.includes('--quiet');
-  const { results, unknown, expected } = validateAll();
+  const { results, unknown, expected, pending } = validateAll();
   let failed = 0;
   for (const r of results) {
     if (!r.ok) failed++;
@@ -338,6 +484,7 @@ export function main(argv = []) {
     failed++;
     console.log(`FAIL missing files: ${expected.join(', ')}`);
   }
+  if (pending.length) console.log(`note: ${pending.join(', ')} have a spec but have not been delivered yet`);
   if (unknown.length) console.log(`note: no spec for ${unknown.join(', ')}, not checked`);
   // No timestamp. validation.json is committed, and a date in it would make
   // the file dirty on every run; without one, a dirty validation.json means
@@ -346,6 +493,7 @@ export function main(argv = []) {
     tolerances: { duration: DURATION_TOLERANCE, size: SIZE_TOLERANCE, groundMetres: GROUND_TOLERANCE },
     models: results,
     missing: expected,
+    pending,
     unspecified: unknown,
     ok: failed === 0,
   };
