@@ -28,7 +28,11 @@ const heightAt = (x, z) => f.heightAt(x, z);
 /** The site the FIELD has, which is the one the runtime hands the builder. */
 const cellOf = (s) => f.siteInCell(Math.floor(s.x / SITE_CELL), Math.floor(s.z / SITE_CELL));
 
-const ROWS = authoredSites().filter((s) => s.kind === 'megastructure' || s.kind === 'landmark');
+// the two painted landmarks (P1: the Beech Hangar, the Kingsroad) are built from
+// their plans and have no body here, so they are left out of every count below
+// (the Standing Hedge is planned too, but it keeps its body here for the model, so it stays)
+const PLANNED_BODILESS = new Set(['beechhangar', 'kingsroad']);
+const ROWS = authoredSites().filter((s) => (s.kind === 'megastructure' || s.kind === 'landmark') && !PLANNED_BODILESS.has(s.sub));
 const SITES = ROWS.map(cellOf);
 
 const trisOf = (g) => {
@@ -42,9 +46,9 @@ const boxOf = (g) => { g.updateWorldMatrix(true, true); return new THREE.Box3().
 // ---- 1. the sheet and the file agree, both ways ---------------------------
 console.log('megaliths: the sheet and the bodies');
 {
-  const r = auditMegaliths(authoredSites());
+  const r = auditMegaliths(authoredSites());   // the full list: a planned landmark is excused a body, and the Hedge keeps its body for the model
   check('every megastructure and landmark has a body, and no body answers nothing',
-    r.bodies === r.wanted && r.bodies === 27, `${r.bodies} bodies for ${r.wanted} places`);
+    r.bodies === 27 && r.wanted === r.bodies + PLANNED_BODILESS.size, `${r.bodies} bodies for ${r.wanted} places, ${PLANNED_BODILESS.size} of them painted`);
   check('ten of them are mega structures and seventeen are landmarks',
     ROWS.filter((s) => s.kind === 'megastructure').length === 10 && ROWS.filter((s) => s.kind === 'landmark').length === 17,
     ROWS.filter((s) => s.kind === 'megastructure').map((s) => s.name).join(', '));
