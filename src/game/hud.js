@@ -165,6 +165,20 @@ export const BANNER = { fadeIn: 0.4, hold: 2.0, fadeOut: 0.6 };
 export const BANNER_TOTAL = BANNER.fadeIn + BANNER.hold + BANNER.fadeOut;
 
 /**
+ * The unlock banner's shape, in seconds. The same three phases the zone banner
+ * has and the same `bannerAt` reads it, held longer because there is more to
+ * read: a painting, a name, and the line that says how to get at it.
+ *
+ * "about 4 seconds" is the brief, and 0.4 + 3.2 + 0.6 is 4.2 of them. It is a
+ * number here rather than a CSS transition so hud.test.mjs can drive the exact
+ * second at which the second unlock in a queue takes over from the first.
+ */
+export const UNLOCK_BANNER = { fadeIn: 0.4, hold: 3.2, fadeOut: 0.6 };
+export const UNLOCK_TOTAL = UNLOCK_BANNER.fadeIn + UNLOCK_BANNER.hold + UNLOCK_BANNER.fadeOut;
+/** More than this waiting and the oldest are dropped rather than queued for a minute. */
+export const UNLOCK_QUEUE_MAX = 6;
+
+/**
  * The gains ticker, bottom right, in seconds. A line slides in from the right
  * over `fadeIn`, sits still for `hold`, and fades over `fadeOut`. The three add
  * up to GAIN_TOTAL, which is the three seconds the brief asks for, and they are
@@ -452,6 +466,38 @@ const CSS = `
 #bw-zone .zs {
   font-family: ${theme.fonts.display}; font-size: 13px; letter-spacing: .3em;
   text-transform: uppercase; color: ${theme.gold};
+}
+
+/* the unlock banner: a painting the size of a face, and the news under it.
+   It sits ABOVE the zone banner's line so the two can never overlap when you
+   walk into Hearthhome and cross a skill mark in the same second. */
+#bw-unlock {
+  position: absolute; left: 50%; top: 17%; transform: translateX(-50%);
+  display: none; flex-direction: column; align-items: center; gap: 9px;
+  text-align: center; opacity: 0; pointer-events: none; width: min(560px, 82vw);
+}
+#bw-unlock.on { display: flex; }
+#bw-unlock .ul {
+  font-family: ${theme.fonts.display}; font-size: 14px; letter-spacing: .34em;
+  text-transform: uppercase; color: ${theme.gold};
+  text-shadow: 0 2px 14px rgba(0,0,0,.95);
+}
+#bw-unlock .uf {
+  width: 116px; height: 116px; display: flex; align-items: center; justify-content: center;
+  border: 2px solid ${theme.gold}; border-radius: 8px; overflow: hidden;
+  background: rgba(12,10,8,.82);
+  box-shadow: 0 0 34px rgba(201,164,74,.45), 0 6px 26px rgba(0,0,0,.8);
+}
+#bw-unlock .uf img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#bw-unlock .uf .glyph { font-family: ${theme.fonts.display}; font-size: 44px; color: ${theme.gold}; }
+#bw-unlock .un {
+  font-family: ${theme.fonts.display}; font-size: 34px; font-weight: 700;
+  letter-spacing: .06em; color: ${theme.parchment};
+  text-shadow: 0 2px 22px rgba(0,0,0,.95), 0 0 34px rgba(201,164,74,.3);
+}
+#bw-unlock .uk {
+  font-family: ${theme.fonts.display}; font-size: 12.5px; letter-spacing: .16em;
+  color: ${theme.gold}; opacity: .92; text-shadow: 0 2px 10px rgba(0,0,0,.9);
 }
 
 /* #bw-hud #bw-dev, not #bw-dev: the .panel rule above is more specific than an
@@ -766,6 +812,18 @@ export function createHud(root) {
   const zoneName = add(zoneBox, mk('div', null, 'zn'));
   const zoneRule = add(zoneBox, mk('div', null, 'zr'));
   const zoneSub = add(zoneBox, mk('div', null, 'zs'));
+
+  // and the unlock banner over that, built once and refilled: an ability's
+  // painting, "You've unlocked" over it and its name under it
+  const unlockBox = add(el, mk('div', 'bw-unlock'));
+  const unlockLead = add(unlockBox, mk('div', null, 'ul'));
+  unlockLead.textContent = "You've unlocked";
+  const unlockFrame = add(unlockBox, mk('div', null, 'uf'));
+  const unlockArt = add(unlockFrame, mk('img'));
+  unlockArt.alt = ''; unlockArt.draggable = false;
+  const unlockGlyph = add(unlockFrame, mk('span', null, 'glyph'));
+  const unlockName = add(unlockBox, mk('div', null, 'un'));
+  const unlockKey = add(unlockBox, mk('div', null, 'uk'));
 
   (root || document.body).appendChild(el);
 
@@ -1138,7 +1196,14 @@ export function createHud(root) {
       // C1: and what your armour does to it, which changes as you dress, so
       // the burden line is part of the key that decides a rebuild too.
       const burdenLine = e.burdenText || '';
-      const tip = `${ability.name}. ${ability.description || ''}${burdenLine ? `\n${burdenLine}` : ''}${e.unusableReason ? `\n${e.unusableReason}` : ''}`;
+      // AN ITEM COST IS TWO NUMBERS AND THE CELL ONLY SHOWED ONE. `costLabel`
+      // prints what the row COSTS, so Bandage read "1" and the player read it
+      // as the whole story. `held` is what is actually in the pack, and it goes
+      // in the tooltip beside the cost so the "1" has something to mean.
+      const heldLine = ability.cost && ability.cost.item && e.held != null
+        ? `\nYou are carrying ${e.held} ${ability.cost.item}${e.held === 1 ? '' : 's'}.`
+        : '';
+      const tip = `${ability.name}. ${ability.description || ''}${heldLine}${burdenLine ? `\n${burdenLine}` : ''}${e.unusableReason ? `\n${e.unusableReason}` : ''}`;
       if (c.tip !== tip) {
         // no native title: the styled tooltip below carries the words, and a
         // second yellow box from the browser on top of it would be noise
@@ -1237,6 +1302,44 @@ export function createHud(root) {
     if (at.phase === 'done') { banner = null; zoneBox.classList.remove('on'); zoneBox.style.opacity = '0'; return; }
     zoneBox.classList.add('on');
     zoneBox.style.opacity = at.opacity.toFixed(3);
+  }
+
+  // --- the unlock banner -------------------------------------------------------
+  // Raised by hud.unlock and run down by hud.update, on the same clock and with
+  // the same three phases as the zone banner. TWO UNLOCKED AT ONCE QUEUE: a
+  // single skill gain can cross two rows at the same mark, and drawing them on
+  // top of each other would show the player one of them and lose the other.
+  let showing = null;             // { id, name, key, art, t }
+  const unlockWaiting = [];
+
+  function paintUnlock(u) {
+    unlockName.textContent = u.name;
+    unlockKey.textContent = u.key || '';
+    unlockKey.style.display = u.key ? '' : 'none';
+    if (u.art) {
+      setArt(unlockArt, u.art);
+      unlockArt.style.display = '';
+      unlockGlyph.style.display = 'none';
+      unlockGlyph.textContent = '';
+    } else {
+      setArt(unlockArt, null);
+      unlockArt.style.display = 'none';
+      unlockGlyph.style.display = '';
+      unlockGlyph.textContent = (u.name || '?').slice(0, 1).toUpperCase();
+    }
+  }
+
+  function drawUnlock() {
+    if (!showing) { unlockBox.classList.remove('on'); unlockBox.style.opacity = '0'; return; }
+    const at = bannerAt(showing.t, UNLOCK_BANNER);
+    if (at.phase === 'done') {
+      showing = null;
+      if (unlockWaiting.length) { showing = unlockWaiting.shift(); showing.t = 0; paintUnlock(showing); drawUnlock(); return; }
+      unlockBox.classList.remove('on'); unlockBox.style.opacity = '0';
+      return;
+    }
+    unlockBox.classList.add('on');
+    unlockBox.style.opacity = at.opacity.toFixed(3);
   }
 
   return {
@@ -1448,6 +1551,42 @@ export function createHud(root) {
       return { name: banner.name, sub: banner.sub, seconds: BANNER_TOTAL };
     },
 
+    /**
+     * A new ability, across the upper third: its painting large, "You've
+     * unlocked" over it and its name under it, and the line that says how to
+     * reach it. Held UNLOCK_TOTAL seconds.
+     *
+     * `entry` is `{ id, name, key }`. The painting is looked up from the id
+     * through icon_art, so a caller never has to know where the file is, and a
+     * row with no art gets its initial in the frame rather than an empty box.
+     *
+     * Raising one while another is up QUEUES it rather than replacing it: two
+     * abilities can cross their marks on the same lesson and the player is
+     * owed both. Returns what it will say and when.
+     */
+    unlock(entry) {
+      const e = entry || {};
+      const name = String(e.name ?? '').trim();
+      if (!name) return null;
+      const u = { id: e.id || null, name, key: String(e.key ?? '').trim(), art: abilityIcon(e.id), t: 0 };
+      if (showing) {
+        unlockWaiting.push(u);
+        while (unlockWaiting.length > UNLOCK_QUEUE_MAX) unlockWaiting.shift();
+        return { name: u.name, key: u.key, seconds: UNLOCK_TOTAL, queued: unlockWaiting.length };
+      }
+      showing = u;
+      paintUnlock(u);
+      drawUnlock();
+      return { name: u.name, key: u.key, seconds: UNLOCK_TOTAL, queued: 0 };
+    },
+
+    /** What the unlock banner is showing and how many are behind it. */
+    get unlockState() {
+      if (!showing) return { phase: 'done', opacity: 0, name: null, key: null, art: null, t: 0, queued: unlockWaiting.length };
+      const at = bannerAt(showing.t, UNLOCK_BANNER);
+      return { ...at, name: showing.name, key: showing.key, art: showing.art, id: showing.id, t: showing.t, queued: unlockWaiting.length };
+    },
+
     /** Where the banner is right now, for anything that wants to know. */
     get zoneState() {
       if (!banner) return { phase: 'done', opacity: 0, name: null, sub: null, t: 0 };
@@ -1499,6 +1638,7 @@ export function createHud(root) {
       // it is over in FLASH_S of real time whatever the world is doing
       if (flash > 0) { flash = Math.max(0, flash - step / FLASH_S); drawFlash(); }
       if (banner) { banner.t += step; drawBanner(); }
+      if (showing) { showing.t += step; drawUnlock(); }
       if (gains.length) {
         for (const g of gains) g.t += step;
         // Oldest first in the array, so the done ones are always at the front.

@@ -17,7 +17,7 @@ import { panel as craftingPanel } from '../../win_crafting.js';
 import { panel as mapPanel } from '../../win_map.js';
 import { panel as settingsPanel } from '../../win_settings.js';
 import { panel as devPanel } from '../../win_dev.js';
-import { unlockedFor } from '../../../mmo/abilities.js';
+import { unlockedFor, ABILITY_FOR_ITEM } from '../../../mmo/abilities.js';
 import { labelFor as lootLabel } from '../../loot_drops.js';
 import { conOf, conLabel } from '../../con.js';
 
@@ -78,7 +78,25 @@ export const ui = {
       // they are built, exactly as the old boot filled them in: win_dev.js
       // writes to ctx.debug, so none of these may be a getter
       dev: null, debug: null, foraging: null, forage: null,
-      useItem: (item, where) => ctx.get('world_life').foraging.useItem(item, where),
+      /**
+       * "Use" on something in the pack, from the bag window and from the item
+       * bar alike, because both of them come through this one key.
+       *
+       * A BANDAGE IS AN ABILITY, NOT A DRINK. `foraging.useItem` reads the
+       * item's own `use` block, and the bandage base has none, so every press
+       * of it answered "nothing has been written yet that uses bandage" while
+       * the Bandage ability sat on the ability bar with a four second cast and
+       * a real heal in it. Two paths, one of them dead. So an item that IS an
+       * ability is routed to that ability by id and both paths land in the same
+       * `doBandage`: the same cast bar, the same Healing scaling, the same
+       * lesson, the same one bandage out of the pack. ABILITY_FOR_ITEM is the
+       * table and abilities.test.mjs walks it against items.js both ways.
+       */
+      useItem: (item, where) => {
+        const id = ABILITY_FOR_ITEM[item && (item.base || item.id)];
+        if (id) return bars.abilities.useById(id, ctx.frame.nowS);
+        return ctx.get('world_life').foraging.useItem(item, where);
+      },
     };
 
     const windows = createWindows(hudRoot, input, panelCtx);

@@ -8,15 +8,18 @@ import {
   meditationFactor, castBurdenOf, burdenSources, naturalWeaponFor, difficultyOfMonster,
   weaponFrom, shieldFrom,
   auditActor, AFFIX_EFFECT, BONUS_KEYS, MONSTER_STAMINA,
+  ABILITY_MODS, ABILITY_MOD_NOTES, abilityModKeys, auditAbilityMods,
+  unwiredAbilityMods, applyMods,
 } from './actor.js';
 import { blankCharacter, makeStack } from './state.js';
 import { makeItem, ARMOR_PIECES } from '../mmo/items.js';
 import { MONSTER_LIST, MONSTERS } from '../mmo/monsters.js';
 import { AFFIXES } from '../mmo/affixes.js';
+import { ABILITIES, ABILITIES_BY_ID } from '../mmo/abilities.js';
 import { OPENINGS_BY_ID } from '../mmo/openings.js';
 import {
   attackSkill, defenceSkill, swingSeconds, hitChance, UNARMED, aggroCheck, fleeCheck,
-  resolveSpell,
+  resolveSpell, spellCritChance, damage as damageOf, dodgeChance,
 } from '../mmo/combat_rules.js';
 
 let pass = 0, fail = 0;
@@ -385,6 +388,128 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
 {
   check('a stack of logs is not a weapon', weaponFrom(makeStack('log', 5)) === null);
   check('and an axe is', weaponFrom(makeStack('axe', 1)).skill === 'swordsmanship');
+}
+
+// ---- the ability mods, which nothing used to read ---------------------------
+//
+// Every `buff`, `debuff` and `passiveMod` row in the ability table carries a
+// `mods` object, and `applyEffect` read seven other fields and not that one. So
+// Berserk's forty percent, Hex's fifteen points, Stone Skin's thirty armour and
+// nineteen more were drawn on the HUD with a countdown and read by nothing.
+// Both directions, and then the arithmetic, measured on a real actor.
+console.log('\nactor: the ability mods');
+{
+  const keys = abilityModKeys(ABILITIES);
+  check(`the ability table writes ${keys.length} mod keys and every one has a row`,
+    keys.every((k) => !!ABILITY_MODS[k]), keys.filter((k) => !ABILITY_MODS[k]).join(',') || keys.length);
+  check('and every row answers a key the table really writes',
+    Object.keys(ABILITY_MODS).every((k) => keys.includes(k)),
+    Object.keys(ABILITY_MODS).filter((k) => !keys.includes(k)).join(',') || 'none spare');
+  check('every row says WHAT READS IT, in a sentence',
+    Object.keys(ABILITY_MODS).every((k) => ABILITY_MOD_NOTES[k] && ABILITY_MOD_NOTES[k][1]),
+    Object.keys(ABILITY_MODS).filter((k) => !ABILITY_MOD_NOTES[k]).join(','));
+  check('the audit throws when the table grows a key with no row', (() => {
+    try {
+      auditAbilityMods([{ effect: { kind: 'buff', mods: { luckyBoots: 1 } } }]);
+      return false;
+    } catch (e) { return /luckyBoots/.test(e.message); }
+  })());
+  check('and when a row writes a bonus key that does not exist', (() => {
+    try {
+      auditAbilityMods([], { damage: { where: 'bonus', key: 'notAKey', mul: 1 } }, { damage: ['actor.js', 'x'] });
+      return false;
+    } catch (e) { return /notAKey/.test(e.message); }
+  })());
+  const unwired = unwiredAbilityMods();
+  check(`${unwired.length} of the ${Object.keys(ABILITY_MODS).length} are still read by nothing, and are counted rather than assumed`,
+    unwired.length === 0, unwired.join(',') || 'none');
+}
+{
+  // Berserk: +40% damage, +40% swing speed, a third of the armour forgotten.
+  const c = blankCharacter();
+  c.skills.swordsmanship = 60; c.stats.str = 60;
+  const a = playerActor(c);
+  a.equipment.chest = makeItem({ base: 'chain_chest' });
+  recompute(a);
+  const arBefore = a.ar, dmgBefore = a.bonuses.damagePct, speedBefore = swingSeconds(a);
+  a.buffs = [{
+    id: 'b', abilityId: 'berserk', name: 'Berserk', kind: 'buff', until: 999,
+    effect: ABILITIES_BY_ID.berserk.effect,
+  }];
+  recompute(a);
+  check('Berserk really adds forty percent of damage, in the resolver\'s own unit',
+    a.bonuses.damagePct === dmgBefore + 40, `${dmgBefore} to ${a.bonuses.damagePct}`);
+  check('and really takes a third of the armour off, as a share and not a number',
+    Math.abs(a.ar - arBefore * 0.7) < 1e-3, `${arBefore} to ${a.ar}`);
+  check('and the swing really got faster',
+    swingSeconds(a) < speedBefore, `${speedBefore.toFixed(3)} s to ${swingSeconds(a).toFixed(3)} s`);
+  a.buffs = [];
+  recompute(a);
+  check('and all three come back off when it runs out',
+    a.ar === arBefore && a.bonuses.damagePct === dmgBefore, `${a.ar} / ${a.bonuses.damagePct}`);
+}
+{
+  // Stone Skin: +30 armour flat, -20% run speed. Two units in one row.
+  const a = playerActor(blankCharacter());
+  recompute(a);
+  const ar0 = a.ar;
+  a.buffs = [{ abilityId: 'stoneSkin', name: 'Stone Skin', kind: 'buff', until: 999, effect: ABILITIES_BY_ID.stoneSkin.effect }];
+  recompute(a);
+  check('a FLAT armour mod adds its number and not a percentage', a.ar === ar0 + 30, `${ar0} to ${a.ar}`);
+  check('and the run speed lands in the bonus the gear affix already uses',
+    Math.abs(a.bonuses.runSpeed + 0.2) < 1e-9, String(a.bonuses.runSpeed));
+}
+{
+  // Discord: a fifth off everything it knows, stats and skills alike.
+  const c = blankCharacter();
+  c.skills.swordsmanship = 100; c.stats.str = 50;
+  const a = playerActor(c);
+  recompute(a);
+  a.buffs = [{ abilityId: 'discord', name: 'Discord', kind: 'debuff', until: 999, effect: ABILITIES_BY_ID.discord.effect.mods ? ABILITIES_BY_ID.discord.effect : ABILITIES_BY_ID.discord.effect }];
+  recompute(a);
+  check('Discord takes a fifth off every skill', Math.abs(a.skills.swordsmanship - 80) < 1e-3, String(a.skills.swordsmanship));
+  check('and a fifth off every stat', Math.abs(a.stats.str - 40) < 1e-3, String(a.stats.str));
+}
+{
+  // Evasion: nothing lands. Elemental Kin: fifteen points off four resists.
+  const a = playerActor(blankCharacter());
+  recompute(a);
+  const dodge0 = dodgeChance(a);
+  a.buffs = [{ abilityId: 'evasion', name: 'Evasion', kind: 'buff', until: 999, effect: ABILITIES_BY_ID.evasion.effect }];
+  recompute(a);
+  // The row says "four seconds where nothing lands"; combat_rules caps dodge,
+  // so what Evasion really buys is the cap. Measured rather than believed, and
+  // the gap between the row's words and the resolver's cap is named here.
+  check('Evasion drives the dodge to the resolver\'s own cap',
+    a.bonuses.dodge === 1 && dodgeChance(a) > dodge0 && dodgeChance(a) === 0.4,
+    `${dodge0.toFixed(3)} to ${dodgeChance(a).toFixed(3)}, capped by combat_rules`);
+
+  const b = playerActor(blankCharacter());
+  b.passives = { elementalKin: ABILITIES_BY_ID.elementalKin.effect.mods };
+  recompute(b);
+  check('a PASSIVE is read now too: fifteen points off four resists and not the fifth',
+    b.resists.fire === 15 && b.resists.cold === 15 && b.resists.poison === 15
+    && b.resists.energy === 15 && b.resists.physical === 0,
+    JSON.stringify(b.resists));
+  const c2 = playerActor(blankCharacter());
+  c2.passives = { arcaneMastery: ABILITIES_BY_ID.arcaneMastery.effect.mods };
+  recompute(c2);
+  check('and Arcane Mastery\'s spell crit reaches the resolver by its own name',
+    spellCritChance(c2) > spellCritChance(playerActor(blankCharacter())) && c2.bonuses.spellCrit === 0.1,
+    `${c2.bonuses.spellCrit}`);
+  check('Riposte\'s counter lands in the bonus combat.js reads', (() => {
+    const r = playerActor(blankCharacter());
+    r.passives = { riposte: ABILITIES_BY_ID.riposte.effect.mods };
+    recompute(r);
+    return r.bonuses.parryCounter === 0.5;
+  })());
+}
+{
+  // A flag mod is a POWER, and the two that read one really read it.
+  const sum = applyMods({ bonuses: {}, resists: {}, stats: {}, skills: {}, ar: 0, pool: {}, regen: {}, powers: [], arMult: 1, statMult: 1, skillMult: 1 },
+    { untargetable: true, cannotBeHealed: false });
+  check('a true flag becomes a power and a false one becomes nothing',
+    sum.powers.join(',') === 'untargetable', sum.powers.join(','));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

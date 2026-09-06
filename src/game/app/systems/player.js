@@ -72,7 +72,15 @@ export const player = {
         ? hud.gain(text, kind) : floaters.spawn(pos, text, kind, extra),
       get count() { return floaters.count; },
     };
-    const progression = createProgression({ character, actor, floaters: gainFloaters, hud, audio, state });
+    const progression = createProgression({
+      character, actor, floaters: gainFloaters, hud, audio, state,
+      // A newly unlocked ability may be a PASSIVE, and a passive is data on the
+      // actor rather than a key: `applyPassives` is what puts Fleet Foot's
+      // runSpeed and Arcane Mastery's spell crit where recompute can find them.
+      // Asked for by name at call time, because the abilities system is built
+      // after this one and cannot be held by a wire made here.
+      onUnlock: () => { if (ctx.has('abilities')) ctx.get('abilities').abilities.applyPassives(); },
+    });
     // combat.js teaches by actor: (who, skill, difficulty, success). Only the
     // player has a document to learn into; a skeleton is never taught.
     const teach = {
@@ -176,6 +184,9 @@ export const player = {
           sprint: input.down('shift'),
           jump: input.down(' '),
           yaw: camera.forwardYaw,
+          // the one reader of actor.bonuses.runSpeed: every run speed mod and
+          // the Run Speed affix arrive here as a multiplier on the top speed
+          speedMult: 1 + (Number.isFinite(actor.bonuses?.runSpeed) ? actor.bonuses.runSpeed : 0),
         };
         rig.update(dt, move, heightAt);
         // a landing is one frame: fall damage through the resolver, and Leap

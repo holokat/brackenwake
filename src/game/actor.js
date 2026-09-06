@@ -77,6 +77,9 @@ import { SKILLS } from '../mmo/skills.js';
 import { AFFIXES, POWER_BY_ID } from '../mmo/affixes.js';
 import { baseFor, armourOf, ARMOR_PIECES, ARMOR_TIERS, SLOTS, WEAPONS } from '../mmo/items.js';
 import { MONSTERS, TIERS, aggroRadius, leashRadius } from '../mmo/monsters.js';
+// The ability table, for ABILITY_MODS' audit alone. `src/mmo/abilities.js` is
+// pure and imports nothing, so this cannot make a cycle.
+import { ABILITIES } from '../mmo/abilities.js';
 import { UNARMED, RESIST_CAP } from '../mmo/combat_rules.js';
 
 export const DAMAGE_TYPES = ['physical', 'fire', 'cold', 'poison', 'energy'];
@@ -114,6 +117,9 @@ export const CRAFTING_SKILL_IDS = SKILLS.filter((s) => s.group === 'Crafting').m
 export const CONSUMED_BONUSES = [
   'hit', 'defence', 'dodge', 'damagePct', 'critChance', 'critDamage',
   'swingSpeed', 'armourPiercing', 'spellDamage', 'lifeLeech', 'manaLeech',
+  // Three the ability table needs and the affix table has no line for. Each is
+  // read by exactly one place, named in ABILITY_MOD_NOTES below.
+  'spellCrit', 'necromancyDamage', 'parryCounter',
 ];
 export const UNCONSUMED_BONUSES = [
   'parry', 'damageReflect', 'thorns', 'stunResist', 'staminaLeech',
@@ -225,6 +231,11 @@ function emptySum() {
     pool: { maxHealth: 0, maxMana: 0, maxStamina: 0 },
     regen: { healthRegen: 0, manaRegen: 0, staminaRegen: 0 },
     powers: [],
+    // Three MULTIPLIERS, which the affix table has no shape for and the ability
+    // table needs: Berserk takes "a third of your armour", Discord takes "a
+    // fifth off everything it knows". A fraction off a total is not a flat
+    // number and adding one would have made Discord worth 0.2 skill points.
+    arMult: 1, statMult: 1, skillMult: 1,
   };
 }
 
@@ -273,6 +284,7 @@ export function applyAffix(sum, entry) {
  */
 export function applyEffect(sum, effect) {
   if (!effect || typeof effect !== 'object') return;
+  if (effect.mods) applyMods(sum, effect.mods);
   if (Array.isArray(effect.affixes)) for (const a of effect.affixes) applyAffix(sum, a);
   if (effect.stats) for (const k of STATS) if (isNum(effect.stats[k])) sum.stats[k] += effect.stats[k];
   if (effect.skills) for (const k of Object.keys(effect.skills)) if (isNum(effect.skills[k])) addSkill(sum, k, effect.skills[k]);
@@ -281,6 +293,169 @@ export function applyEffect(sum, effect) {
   if (isNum(effect.ar)) sum.ar += effect.ar;
   if (effect.pool) for (const k of Object.keys(sum.pool)) if (isNum(effect.pool[k])) sum.pool[k] += effect.pool[k];
   if (effect.regen) for (const k of Object.keys(sum.regen)) if (isNum(effect.regen[k])) sum.regen[k] += effect.regen[k];
+}
+
+// ------------------------------------------------------------ the mods table
+//
+// WHY THIS EXISTS. Every `buff`, `debuff` and `passiveMod` row in
+// `src/mmo/abilities.js` carries a `mods` object, and until now `applyEffect`
+// above read `stats`, `skills`, `bonuses`, `resists`, `ar`, `pool` and `regen`
+// and NOT `mods`. So Berserk's forty percent, Battle Cry's fifth, Hex's fifteen
+// points, Stone Skin's thirty armour, Curse of Weakness, War Drum, Marching
+// Song, Discord, Evasion, Ward, Elemental Kin, Fleet Foot, Arcane Mastery and
+// Riposte were all written into `actor.buffs` and `actor.passives`, drawn on
+// the HUD with a countdown, and read by nothing at all. Twenty two keys, the
+// twenty-modifier-keys failure of CLAUDE.md with different names.
+//
+// `where` is the accumulator field, `mul` converts the ability table's unit
+// into the accumulator's. The ability table writes FRACTIONS (0.2 is a fifth);
+// `bonuses.damagePct` is in percent points, `bonuses.hit` in skill points at
+// two per percent point of the roll, `bonuses.swingSpeed` and `bonuses.dodge`
+// are already fractions, and the resists are percent points. Get one of those
+// wrong and Berserk is worth four tenths of one percent.
+//
+// ABILITY_MOD_NOTES says, per key, WHAT READS IT. Anything that reads nothing
+// says so in that word, so an unread key is a counted fact and not a surprise.
+// `auditAbilityMods` runs at import and fails the build if the ability table
+// grows a twenty third key with no row, or a row here answers no key.
+
+const M = (where, key, mul = 1) => ({ where, key, mul });
+export const ABILITY_MODS = {
+  // offence
+  damage: M('bonus', 'damagePct', 100),
+  swingSpeed: M('bonus', 'swingSpeed', 1),
+  hitChance: M('bonus', 'hit', 200),
+  defence: M('bonus', 'defence', 200),
+  spellCrit: M('bonus', 'spellCrit', 1),
+  necromancyDamage: M('bonus', 'necromancyDamage', 1),
+  // defence
+  dodgeAll: M('bonus', 'dodge', 1),
+  parryCounterMult: M('bonus', 'parryCounter', 1),
+  armourRatingFlat: M('ar', 'ar', 1),
+  armourRating: M('arMult', null, 1),
+  damageTaken: M('resistAll', null, -100),
+  fireResist: M('resist', 'fire', 100),
+  coldResist: M('resist', 'cold', 100),
+  poisonResist: M('resist', 'poison', 100),
+  energyResist: M('resist', 'energy', 100),
+  // the two that take a share off everything
+  allStats: M('statMult', null, 1),
+  allSkills: M('skillMult', null, 1),
+  // movement
+  runSpeed: M('bonus', 'runSpeed', 1),
+  // flags
+  untargetable: M('power', 'untargetable'),
+  cannotBeHealed: M('power', 'cannotBeHealed'),
+  spellsCostHealth: M('power', 'spellsCostHealth'),
+  sprinting: M('power', 'sprinting'),
+};
+
+/**
+ * One row per key: [where it is read, and how]. Six words are allowed in the
+ * first slot and only four of them mean a player can feel it:
+ *
+ *   'combat_rules.js'   the resolver reads the bonus by name
+ *   'actor.js'          this file's own recompute
+ *   'abilities_runtime.js' / 'targeting.js' / 'combat.js'   named function
+ *   'descriptive'       a TRUE statement about something already honoured
+ *                       somewhere else, under another name
+ *   'unwired'           summed and read by NOTHING today. Counted, so the
+ *                       number is known instead of assumed.
+ */
+export const ABILITY_MOD_NOTES = {
+  damage: ['combat_rules.js', 'bonus(attacker, "damagePct") in damage()'],
+  swingSpeed: ['combat_rules.js', 'swingSeconds() divides by 1 + bonus swingSpeed'],
+  hitChance: ['combat_rules.js', 'attackSkill() adds bonus hit before the roll'],
+  defence: ['combat_rules.js', 'defenceSkill() adds bonus defence'],
+  spellCrit: ['combat_rules.js', 'spellCritChance() adds bonus spellCrit'],
+  necromancyDamage: ['abilities_runtime.js', 'spellFor() raises a necromancy spell\'s base by it'],
+  dodgeAll: ['combat_rules.js', 'dodgeChance() adds bonus dodge; 1 is everything missing'],
+  parryCounterMult: ['combat.js', 'landSwing() answers a parry with a swing at this multiple'],
+  armourRatingFlat: ['actor.js', 'summed into actor.ar with the worn pieces'],
+  armourRating: ['actor.js', 'multiplies the finished actor.ar'],
+  damageTaken: ['actor.js', 'a third less taken is thirty points on all five resists'],
+  fireResist: ['actor.js', 'actor.resists.fire, which combat_rules reads on every blow'],
+  coldResist: ['actor.js', 'actor.resists.cold'],
+  poisonResist: ['actor.js', 'actor.resists.poison'],
+  energyResist: ['actor.js', 'actor.resists.energy'],
+  allStats: ['actor.js', 'multiplies every effective stat, and the pools derived from them'],
+  allSkills: ['actor.js', 'multiplies every effective skill'],
+  runSpeed: ['player.js', 'summed into actor.bonuses.runSpeed; the player system hands 1 plus it to stepPlayer as move.speedMult, which multiplies the top speed, so the Run Speed affix and every run speed mod move the feet'],
+  untargetable: ['targeting.js', 'isTargetable() refuses an actor carrying the power'],
+  cannotBeHealed: ['abilities_runtime.js', 'doHeal and doBandage refuse and say so'],
+  spellsCostHealth: ['descriptive', 'Lich Form also sets actor.form, and abilities.js canUse and the runtime\'s pay() both take health for a spell off that'],
+  sprinting: ['descriptive', 'holding shift is the same thing, and src/game/player.js has always done it off the key rather than off a buff'],
+};
+
+/** Every mod key the ability table uses, gathered by walking every effect. */
+export function abilityModKeys(list) {
+  const keys = new Set();
+  const walk = (e) => {
+    if (!e || typeof e !== 'object') return;
+    if (e.mods) for (const k of Object.keys(e.mods)) keys.add(k);
+    if (Array.isArray(e.tiers)) for (const t of e.tiers) { if (t && t.mods) for (const k of Object.keys(t.mods)) keys.add(k); }
+    if (e.kind === 'combo' && Array.isArray(e.parts)) for (const p of e.parts) walk(p);
+    if (e.applies) walk(e.applies);
+  };
+  for (const a of list || []) walk(a.effect);
+  return [...keys];
+}
+
+/** Both directions, and every offender rather than the first. */
+export function auditAbilityMods(list = ABILITIES, table = ABILITY_MODS, notes = ABILITY_MOD_NOTES) {
+  const wheres = new Set(['combat_rules.js', 'actor.js', 'abilities_runtime.js', 'targeting.js', 'combat.js', 'player.js', 'descriptive', 'unwired']);
+  const bad = [];
+  for (const key of abilityModKeys(list)) {
+    if (!table[key]) bad.push(`the ability table writes "${key}" and ABILITY_MODS has no row for it`);
+  }
+  for (const [key, row] of Object.entries(table)) {
+    const n = notes[key];
+    if (!n) bad.push(`"${key}" has no note saying what reads it`);
+    else if (!wheres.has(n[0])) bad.push(`"${key}": "${n[0]}" is not one of ${[...wheres].join(', ')}`);
+    else if (!n[1]) bad.push(`"${key}": no sentence saying how`);
+    if (row.where === 'bonus' && !BONUS_KEYS.includes(row.key)) {
+      bad.push(`"${key}" writes bonus "${row.key}", which is not a bonus key`);
+    }
+    if (row.where === 'resist' && !DAMAGE_TYPES.includes(row.key)) {
+      bad.push(`"${key}" writes resist "${row.key}", which is not a damage type`);
+    }
+  }
+  if (bad.length) throw new Error(`actor: the ability mods table has drifted:\n  ${bad.join('\n  ')}`);
+  return true;
+}
+
+/** How many of the table's keys nothing reads. Printed by the audits. */
+export const unwiredAbilityMods = () => Object.entries(ABILITY_MOD_NOTES)
+  .filter(([, n]) => n[0] === 'unwired').map(([k]) => k);
+
+/**
+ * A `mods` block into the accumulator. A boolean `true` is one, a boolean
+ * `false` is nothing at all, and a key with no row is skipped rather than
+ * guessed at, because `auditAbilityMods` has already refused to let one exist.
+ */
+export function applyMods(sum, mods) {
+  if (!mods || typeof mods !== 'object') return sum;
+  for (const [key, raw] of Object.entries(mods)) {
+    const row = ABILITY_MODS[key];
+    if (!row) continue;
+    if (row.where === 'power') {
+      if (raw && !sum.powers.includes(key)) sum.powers.push(key);
+      continue;
+    }
+    if (raw === false || raw == null) continue;
+    const v = (raw === true ? 1 : num(raw)) * row.mul;
+    switch (row.where) {
+      case 'bonus': sum.bonuses[row.key] += v; break;
+      case 'ar': sum.ar += v; break;
+      case 'arMult': sum.arMult *= 1 + v; break;
+      case 'statMult': sum.statMult *= 1 + v; break;
+      case 'skillMult': sum.skillMult *= 1 + v; break;
+      case 'resist': sum.resists[row.key] += v; break;
+      case 'resistAll': for (const t of DAMAGE_TYPES) sum.resists[t] += v; break;
+      default: break;
+    }
+  }
+  return sum;
 }
 
 // --------------------------------------------------------------- weapon shape
@@ -433,13 +608,24 @@ export function recompute(actor) {
     applyEffect(sum, b.effect);
   }
 
-  // effective stats and skills
+  // then the passives, which are always on and have no duration at all.
+  // `abilities_runtime.applyPassives` writes them, once on create and again
+  // after every skill gain and every equip change; until this line they were a
+  // map nothing read, which made Riposte, Fleet Foot, Arcane Mastery and
+  // Elemental Kin four rows of decoration.
+  const passives = actor.passives && typeof actor.passives === 'object' ? actor.passives : null;
+  if (passives) for (const mods of Object.values(passives)) applyMods(sum, mods);
+
+  // effective stats and skills. The two MULTIPLIERS come last, over the
+  // finished number, which is what "a fifth off everything it knows" means.
   const stats = {};
-  for (const k of STATS) stats[k] = num(actor.baseStats && actor.baseStats[k]) + sum.stats[k];
+  for (const k of STATS) stats[k] = r4((num(actor.baseStats && actor.baseStats[k]) + sum.stats[k]) * sum.statMult);
   const skills = { ...(actor.baseSkills || {}) };
   for (const id of Object.keys(sum.skills)) skills[id] = num(skills[id]) + sum.skills[id];
+  if (sum.skillMult !== 1) for (const id of Object.keys(skills)) skills[id] = r4(num(skills[id]) * sum.skillMult);
 
-  // armour rating: the pieces themselves, then any +AR line
+  // armour rating: the pieces themselves, then any +AR line, then Berserk's
+  // "a third of your armour forgotten", which is a share and not a number
   let ar = num(actor.naturalAr) + sum.ar;
   for (const { item } of worn) {
     ar += armourOf(item, stats);
@@ -463,7 +649,7 @@ export function recompute(actor) {
   actor.stats = stats;
   actor.skills = skills;
   actor.bonuses = sum.bonuses;
-  actor.ar = r4(ar);
+  actor.ar = r4(Math.max(0, ar * sum.arMult));
   actor.resists = Object.fromEntries(DAMAGE_TYPES.map((k) => [k, clamp(r4(num(actor.naturalResists && actor.naturalResists[k]) + sum.resists[k]), 0, RESIST_CAP)]));
   actor.powers = sum.powers;
   actor.meditationFactor = medFactor;
@@ -796,7 +982,15 @@ export function auditActor() {
     }
   }
   if (bad.length) throw new Error(`auditActor: ${bad.length} problem(s)\n  ${bad.join('\n  ')}`);
-  return { affixes: AFFIXES.length, bonuses: BONUS_KEYS.length };
+  // The same rule for the ability table's mods, which are a second set of keys
+  // written into the same accumulator and were read by nothing until now.
+  auditAbilityMods();
+  return {
+    affixes: AFFIXES.length,
+    bonuses: BONUS_KEYS.length,
+    abilityMods: Object.keys(ABILITY_MODS).length,
+    unwiredAbilityMods: unwiredAbilityMods(),
+  };
 }
 
 auditActor();

@@ -322,6 +322,55 @@ const wordsFor = (skills = []) => skills.map((s) => WEAPON_WORDS[s] || 'a weapon
 const ammoWordsFor = (ammo = []) => ammo.map((id) => AMMO_WORDS[id] || id).join(' or ');
 
 /**
+ * WHAT PAYS AN ITEM COST, by the cost's id.
+ *
+ * Three rows in the table cost an item and TWO OF THEM NAMED SOMETHING THAT IS
+ * NOT AN ITEM. `Camp` costs "wood" and there is no `wood` base; there are
+ * fourteen logs. `Poison Blade` costs "1 poison" and there is no vial; there is
+ * `woodland_poison`, which foraging.js already brews. So an item cost is paid
+ * out of a LIST of bases rather than out of one, the list is written down here,
+ * and abilities.test.mjs walks it against items.js in both directions so a cost
+ * id that pays for nothing cannot ship again.
+ *
+ * Before this the three costs were read off `character.items`, a plain count
+ * map that EXISTS ONLY IN THE TEST FIXTURES: no save has ever carried the
+ * field, so `have` was always zero and Bandage, Camp and Poison Blade were
+ * refused for want of a bandage the player was carrying ten of. See
+ * `itemsHeld` below and `docs/mmo/wiring/AB2-ABILITIES-AUDIT.md`.
+ */
+export const COST_ITEM_BASES = {
+  bandage: ['bandage'],
+  wood: [
+    'oak_log', 'birch_log', 'beech_log', 'fir_log', 'spruce_log', 'pine_log',
+    'sakura_log', 'willow_log', 'palm_log', 'deadwood', 'cactus_wood',
+    'ash_log', 'heartwood_log', 'ironbark_log',
+  ],
+  poisonVial: ['woodland_poison'],
+};
+
+/**
+ * An item whose "use" is an ABILITY, by item base id.
+ *
+ * The bag's Use and the item bar's key both go through one hook
+ * (`app/systems/ui.js` panelCtx.useItem), and that hook read the item's own
+ * `use` block. The bandage base has none, so "use bandage" answered "nothing
+ * has been written yet that uses bandage" for as long as the item has existed,
+ * while the Bandage ABILITY sat on the other bar doing the real thing. One
+ * table, so a bandage means the same four seconds whichever bar you press.
+ *
+ * abilities.test.mjs proves every key here is a real item base and every value
+ * a real ability, so this cannot rot into a route to nowhere.
+ */
+export const ABILITY_FOR_ITEM = { bandage: 'bandage' };
+
+/** Every item cost id the table actually uses, gathered rather than listed. */
+export function costItemIds(list = ABILITIES) {
+  const out = new Set();
+  for (const a of list) if (a.cost && a.cost.item) out.add(a.cost.item);
+  return [...out];
+}
+
+/**
  * How many of a base are in the pack. Takes the character document's
  * `{ slots, items: [...] }`, a bare array of item records, or a plain count
  * map like `{ arrow: 60 }`, because canUse is handed all three by different
@@ -349,6 +398,46 @@ export function countInPack(pack, baseId) {
  * (a spell roll, a buff, a summon, a trap, a shout) happens with what you are
  * holding, not through it.
  */
+/**
+ * How many things this character is carrying that would pay `costId`, counting
+ * BOTH shapes: the pack the game writes and the count map the older fixtures
+ * carry. A real save has only the first and every fixture predating the pack
+ * has only the second, so they are added rather than chosen between; no
+ * character has ever had both, and one that did would be carrying both.
+ */
+export function itemsHeld(character, costId) {
+  if (!character || !costId) return 0;
+  let n = 0;
+  for (const base of payingBases(costId)) {
+    n += countInPack(character.pack, base);
+    n += countInPack(character.items, base);
+  }
+  return n;
+}
+
+/**
+ * The bases that pay a cost, with the COST ID ITSELF on the end.
+ *
+ * The id is there for the count map alone: a fixture that predates the pack
+ * writes `{ wood: 10 }` and means ten wood, and dropping it would have turned
+ * every one of those into "you have 0" the moment `wood` started meaning
+ * fourteen kinds of log. No item base is called `wood` or `poisonVial`, so the
+ * extra entry can never match anything in a real pack.
+ */
+export function payingBases(costId) {
+  const mapped = COST_ITEM_BASES[costId] || [];
+  return mapped.includes(costId) ? mapped : [...mapped, costId];
+}
+
+/** The first base a character is actually carrying that would pay this cost. */
+export function payingBase(character, costId) {
+  for (const base of payingBases(costId)) {
+    if (countInPack(character?.pack, base) > 0) return base;
+    if (countInPack(character?.items, base) > 0) return base;
+  }
+  return null;
+}
+
 export function effectUsesWeapon(effect) {
   let found = false;
   walkEffect(effect, (e) => {
@@ -1594,7 +1683,7 @@ export function canUse(ability, character = {}, now = 0) {
       return { ok: false, reason: `${ability.name} costs ${need} mana and you have ${character.mana ?? 0}` };
     }
   } else if (kind === 'item') {
-    const have = character.items?.[ability.cost.item] ?? 0;
+    const have = itemsHeld(character, ability.cost.item);
     const need = ability.cost.count ?? 1;
     if (have < need) {
       return { ok: false, reason: `${ability.name} needs ${need} ${ability.cost.item} and you have ${have}` };

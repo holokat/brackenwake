@@ -18,8 +18,9 @@ import {
   WEAPON_BASES, SHIELD_BASES, INSTRUMENT_BASES, AMMO_BASES, WEAPON_WORDS,
   FOCUS_BASES, isSpell, isFocusItem, isChivalry, burdensInArmour,
   NEEDS_KINDS, weaponNeeds, weaponCheck, countInPack,
+  COST_ITEM_BASES, costItemIds, itemsHeld, payingBase, ABILITY_FOR_ITEM,
 } from './abilities.js';
-import { BASES as ITEM_BASES, isFocus as itemIsFocus, FOCUS_BASES as ITEM_FOCUS_BASES } from './items.js';
+import { BASES as ITEM_BASES, BASES, isFocus as itemIsFocus, FOCUS_BASES as ITEM_FOCUS_BASES } from './items.js';
 import { SKILL_NAMES as OPENING_SKILL_NAMES, OPENINGS_BY_ID } from './openings.js';
 
 let pass = 0, fail = 0;
@@ -870,6 +871,67 @@ const emptyPack = { slots: 20, items: [] };
   threw = '';
   try { auditAbilities(noSkill); } catch (e) { threw = e.message; }
   check('and on a melee ability whose skill no weapon trains', threw.includes('cooking'), threw);
+}
+
+// --- what pays an item cost, and what an item's use IS ------------------------
+//
+// Three rows cost an item and two of them named something no item table has:
+// Camp wants "wood" and there are fourteen logs, Poison Blade wants "poison"
+// and there is `woodland_poison`. Both directions, so a cost id that pays for
+// nothing cannot ship again and neither can a base list nothing costs.
+console.log('\nabilities: what pays an item cost');
+{
+  const ids = costItemIds();
+  check(`the table has ${ids.length} item costs: ${ids.sort().join(', ')}`, ids.length === 3);
+  check('and every one of them has a row saying what pays it',
+    ids.every((id) => Array.isArray(COST_ITEM_BASES[id])), ids.filter((id) => !COST_ITEM_BASES[id]).join(','));
+  check('and no row pays for a cost nothing charges',
+    Object.keys(COST_ITEM_BASES).every((id) => ids.includes(id)),
+    Object.keys(COST_ITEM_BASES).filter((id) => !ids.includes(id)).join(',') || 'none spare');
+  const bad = [];
+  for (const [id, bases] of Object.entries(COST_ITEM_BASES)) {
+    for (const b of bases) if (!BASES[b]) bad.push(`${id} -> ${b}`);
+  }
+  check('and every base named is a real row in items.js', bad.length === 0, bad.join(', '));
+  check('wood is fourteen logs and not a base called "wood"',
+    COST_ITEM_BASES.wood.length === 14 && !BASES.wood, String(COST_ITEM_BASES.wood.length));
+  check('and the poison is the one foraging really brews',
+    COST_ITEM_BASES.poisonVial.join(',') === 'woodland_poison' && !!BASES.woodland_poison);
+
+  // the count, both shapes, both ways
+  const doc = { pack: { slots: 4, items: [{ base: 'oak_log', count: 3 }, null, { base: 'pine_log', count: 2 }, null] } };
+  check('a cost is counted across every base that would pay it', itemsHeld(doc, 'wood') === 5, String(itemsHeld(doc, 'wood')));
+  check('and something else in the pack does not pay it',
+    itemsHeld({ pack: { items: [{ base: 'longsword' }] } }, 'wood') === 0);
+  check('an older fixture that writes the cost id straight into a count map still counts',
+    itemsHeld({ items: { wood: 7 } }, 'wood') === 7, String(itemsHeld({ items: { wood: 7 } }, 'wood')));
+  check('the paying base is the one actually carried', payingBase(doc, 'wood') === 'oak_log', payingBase(doc, 'wood'));
+  check('and null when nothing pays', payingBase({ pack: { items: [] } }, 'wood') === null);
+
+  // canUse, both ways, against the shape a real save has
+  const healer = {
+    skills: { healing: 50, anatomy: 50 }, stats: {}, stamina: 50, mana: 50, health: 50, maxHealth: 50,
+    equipment: {}, cooldowns: {},
+  };
+  const withOne = { ...healer, pack: { slots: 2, items: [{ base: 'bandage', count: 1 }, null] } };
+  const withNone = { ...healer, pack: { slots: 2, items: [null, null] } };
+  check('Bandage is allowed with one bandage in the PACK and no count map at all',
+    canUse(ABILITIES_BY_ID.bandage, withOne, 0).ok === true, canUse(ABILITIES_BY_ID.bandage, withOne, 0).reason);
+  check('and refused with none, counting what you have',
+    canUse(ABILITIES_BY_ID.bandage, withNone, 0).reason === 'Bandage needs 1 bandage and you have 0',
+    canUse(ABILITIES_BY_ID.bandage, withNone, 0).reason);
+}
+{
+  console.log('\nabilities: an item whose use is an ability');
+  const bad = [];
+  for (const [base, id] of Object.entries(ABILITY_FOR_ITEM)) {
+    if (!BASES[base]) bad.push(`${base} is not an item`);
+    if (!ABILITIES_BY_ID[id]) bad.push(`${id} is not an ability`);
+  }
+  check('every route is from a real item to a real ability', bad.length === 0, bad.join(', '));
+  check('and the bandage is the one that needed it',
+    ABILITY_FOR_ITEM.bandage === 'bandage' && !BASES.bandage.use,
+    `use block: ${JSON.stringify(BASES.bandage.use || null)}`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

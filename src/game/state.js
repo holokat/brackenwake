@@ -250,6 +250,12 @@ export function blankCharacter() {
     pack: { slots: PACK_SLOTS, items: new Array(PACK_SLOTS).fill(null) },
     equipment: emptyEquipment(),
     bar: new Array(BAR_SLOTS).fill(null),
+    // Abilities this character has already been shown the unlock banner for.
+    // `progression.js` seeds it SILENTLY the first time a document is seen, so
+    // a save written before the banner existed does not replay a week of them,
+    // and writes into it on every gain that crosses a mark. Declared here so
+    // the shape of a document is one list and not two.
+    unlockedAbilities: [],
     discovered: [],
     deadUntil: [],
     zones: [],            // zone ids entered, once each (Z1)

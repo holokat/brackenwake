@@ -16,7 +16,7 @@ import { castBurdenOf } from './actor.js';
 import { createTargeting } from './targeting.js';
 import {
   ABILITIES, ABILITIES_BY_ID, EFFECT_KINDS, canUse, unlockedFor, weaponNeeds, weaponCheck,
-  burdensInArmour,
+  burdensInArmour, ABILITY_FOR_ITEM, itemsHeld, COST_ITEM_BASES,
 } from '../mmo/abilities.js';
 import { OPENINGS } from '../mmo/openings.js';
 import { planCharacter } from './creation.js';
@@ -271,11 +271,18 @@ function keyboard() {
   return { press(k) { key = k; }, release() { key = null; }, pressed: (k) => k === key, down: () => false };
 }
 
+// WHAT CHANGED HERE, and why every block below moved its skeleton.
+//
+// A spell now falls back to the nearest hostile ANYWHERE inside its own reach
+// before it holds on the cursor, because a wolf chewing your left elbow is not
+// in the cone in front of you and is certainly what the Fireball was for.
+// Holding a spell is therefore what happens when there is nothing in reach AT
+// ALL, so these blocks put the only skeleton forty metres off, outside
+// Fireball's twenty, and click one that is close when a click is the point.
+// The fallback itself is driven both ways at the end of this section.
 {
-  // The skeleton is BEHIND him, so the cone in front finds nobody: this is the
-  // real "nothing selected and nothing under the cursor" case.
   const behind = mob('Skeleton', 0, -3);
-  const h = harness({ bar: ['fireball'], monsters: [behind] });
+  const h = harness({ bar: ['fireball'], monsters: [mob('Distant Skeleton', 0, 40)] });
   const mana0 = h.actor.mana;
   const r = h.abilities.use(0, 0);
   ck('with nobody in front, Fireball waits instead of refusing',
@@ -304,7 +311,7 @@ function keyboard() {
 }
 {
   const kb = keyboard();
-  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, -3)], extra: { input: kb } });
+  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, 40)], extra: { input: kb } });
   const mana0 = h.actor.mana;
   h.abilities.use(0, 0);
   h.abilities.update(0.1, 0.1);
@@ -318,7 +325,7 @@ function keyboard() {
   kb.release();
 }
 {
-  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, -3)] });
+  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, 40)] });
   h.abilities.use(0, 0);
   h.abilities.update(0.1, PENDING_SECONDS - 0.001);
   ck(`at ${PENDING_SECONDS - 0.001} s it is still waiting`, !!h.abilities.pending, 'held');
@@ -327,7 +334,7 @@ function keyboard() {
   ck('saying how long it waited', /6 seconds/.test(said(h)), said(h).split('|').pop().trim());
 }
 {
-  const h = harness({ bar: ['fireball', 'lightning'], monsters: [mob('Skeleton', 0, -3)] });
+  const h = harness({ bar: ['fireball', 'lightning'], monsters: [mob('Skeleton', 0, 40)] });
   h.abilities.use(0, 0);
   h.abilities.use(1, 0.2);
   ck('reaching for another ability puts the first one down, by name',
@@ -337,7 +344,7 @@ function keyboard() {
     h.abilities.pending?.ability.id || 'none');
 }
 {
-  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, -3)] });
+  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, 40)] });
   h.abilities.use(0, 0);
   const r = h.abilities.use(0, 0.2);
   ck('pressing the same key again puts it down rather than picking it back up',
@@ -346,14 +353,14 @@ function keyboard() {
   ck('and that costs nothing either', h.actor.mana === 200, `${h.actor.mana}`);
 }
 {
-  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, -3)] });
+  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, 40)] });
   h.abilities.use(0, 0);
   const r = h.abilities.onTargetPicked(null, 0.3);
   ck('a click on bare ground puts it down and says so',
     r.ok === false && h.abilities.pending === null && /clicked bare ground/.test(said(h)), r.reason);
 }
 {
-  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, -3)] });
+  const h = harness({ bar: ['fireball'], monsters: [mob('Skeleton', 0, 40)] });
   const mana0 = h.actor.mana;
   h.abilities.use(0, 0);
   const far = mob('Far Skeleton', 0, 40);
@@ -370,6 +377,44 @@ function keyboard() {
   const r = h.abilities.onTargetPicked(dead, 0.3);
   ck('clicking a corpse is not a target for Fireball, and it says which corpse',
     r.ok === false && /Bones is not something Fireball can be aimed at/.test(said(h)), said(h).split('|').pop().trim());
+}
+
+// --- the fallback: anything in reach beats a crosshair ------------------------
+console.log('\nabilities_runtime: a hostile in reach is who you meant, cone or no cone');
+{
+  // Directly BEHIND, three metres: out of the 120 degree cone, well inside
+  // Fireball's twenty. This is the press that used to park a crosshair on the
+  // screen and then let go of it six seconds later having done nothing.
+  const behind = mob('Skeleton', 0, -3);
+  const h = harness({ bar: ['fireball'], monsters: [behind] });
+  const r = h.abilities.use(0, 0);
+  ck('a hostile behind you is cast at rather than held on the cursor',
+    r.ok === true && h.abilities.pending === null, r.reason || 'cast');
+  ck('and the choice is said out loud, by name',
+    /Fireball goes to the Skeleton: it is what is in reach/.test(said(h)),
+    said(h).split('|').filter((x) => /goes to the/.test(x))[0] || 'nothing said');
+  h.abilities.update(0.7, 0.7);
+  ck('and it lands on that one', h.combat.spells.length === 1 && h.combat.spells[0].target === behind,
+    `${h.combat.spells.length} spell(s)`);
+}
+{
+  // The other way: one metre PAST the reach, so the fallback must not take it.
+  const outside = mob('Skeleton', 0, -21);
+  const h = harness({ bar: ['fireball'], monsters: [outside] });
+  const r = h.abilities.use(0, 0);
+  ck('a hostile 21 m off, with a 20 m spell, is NOT taken and the spell waits',
+    r.pending === true && h.abilities.pending?.ability.id === 'fireball', r.reason);
+  ck('and nothing was paid to find that out', h.actor.mana === 200, String(h.actor.mana));
+}
+{
+  // A ground ability lands on what you are fighting, not eight metres ahead.
+  const near = mob('Skeleton', 0, 2);
+  const h = harness({ bar: ['volley'], monsters: [near], equipment: { ranged: { base: 'shortbow' } }, pack: [{ base: 'arrow', count: 20 }] });
+  h.abilities.use(0, 0);
+  h.abilities.update(1.6, 1.6);
+  ck('Volley with nobody chosen falls on the nearest, not on empty grass',
+    h.combat.swings.length > 0 && h.combat.swings.every((x) => x.defender === near),
+    `${h.combat.swings.length} swing(s): ${said(h).split('|').pop().trim()}`);
 }
 
 console.log('abilities_runtime: and the four kinds that never wait');
@@ -605,6 +650,77 @@ console.log('abilities_runtime: damage interrupts, over and under a tenth');
     h.actor.health === 100 + 60, `${h.actor.health - 100} at Healing 100 and Anatomy 100`);
   ck('and it took a bandage out of the pack', h.character.items.bandage === 9, String(h.character.items.bandage));
   ck('and the player saw the number', h.floaters.spawned.some((f) => f.k === 'heal'), JSON.stringify(h.floaters.spawned));
+}
+
+// --- the bandage, down both roads --------------------------------------------
+//
+// The complaint was "bandages say they are not implemented". They said it
+// because the bag's Use and the item bar's key both went to `foraging.useItem`,
+// which reads an item's own `use` block, and the bandage base has none. The
+// ability bar's Bandage did the real thing all along. Both roads now end in
+// `doBandage`, and this is that claim measured: the same heal, the same cast,
+// the same lesson and the same one bandage gone.
+console.log('\nabilities_runtime: a bandage, from the ability bar and from the pack');
+{
+  const bar = harness({ bar: ['bandage'] });
+  bar.actor.health = 100;
+  bar.abilities.use(0, 0);
+  bar.abilities.update(0.1, 4.0);
+  const byBar = bar.actor.health - 100;
+
+  // The item bar and the bag both call `abilities.useById(id)` through
+  // ABILITY_FOR_ITEM. Same runtime, same entry point, no second heal formula.
+  const item = harness({ bar: [] });
+  item.actor.health = 100;
+  item.abilities.useById(ABILITY_FOR_ITEM.bandage, 0);
+  item.abilities.update(0.1, 4.0);
+  const byItem = item.actor.health - 100;
+
+  ck('using a bandage out of the pack heals exactly what the ability bar heals',
+    byBar === byItem && byBar === 60, `${byBar} by the bar, ${byItem} by the item`);
+  ck('and takes exactly one bandage, by either road',
+    bar.character.items.bandage === 9 && item.character.items.bandage === 9,
+    `${bar.character.items.bandage} / ${item.character.items.bandage}`);
+  ck('and it is a four second cast either way, not an instant out of the bag',
+    /casting for 4 seconds/.test(said(item)), said(item).split('|')[0].trim());
+  ck('the item route is a table and not a special case in the UI',
+    ABILITY_FOR_ITEM.bandage === 'bandage' && !!ABILITIES_BY_ID[ABILITY_FOR_ITEM.bandage]);
+}
+{
+  // HEALING MUST BE A SKILL THAT MOVES. It was "just showing 1" because the
+  // ability that teaches it could not be used at all.
+  const taught = [];
+  const h = harness({
+    bar: ['bandage'],
+    extra: { progression: { lesson: (skill, difficulty, success) => taught.push({ skill, difficulty, success }) } },
+  });
+  h.actor.health = 100;
+  h.abilities.use(0, 0);
+  h.abilities.update(0.1, 4.0);
+  ck('a bandage that finishes is a lesson in Healing, at the row\'s own difficulty',
+    taught.length === 1 && taught[0].skill === 'healing' && taught[0].success === true,
+    JSON.stringify(taught));
+}
+{
+  // THE COST COMES OUT OF THE REAL PACK, not out of a count map no save has.
+  const h = harness({
+    bar: ['bandage'],
+    equipment: {},
+    pack: [{ base: 'bandage', count: 3 }],
+  });
+  h.character.items = {};                       // the game's shape: no count map at all
+  h.actor.health = 100;
+  const r = h.abilities.use(0, 0);
+  ck('with three bandages in the PACK and no count map, the ability is allowed',
+    r.ok === true, r.reason || 'used');
+  h.abilities.update(0.1, 4.0);
+  ck('and one of the three really left the pack',
+    h.character.pack[0].count === 2, `${h.character.pack[0].count} left of 3`);
+  const empty = harness({ bar: ['bandage'], equipment: {}, pack: [] });
+  empty.character.items = {};
+  const no = empty.abilities.use(0, 0);
+  ck('with none anywhere it refuses, and counts what you have',
+    no.ok === false && /needs 1 bandage and you have 0/.test(no.reason), no.reason);
 }
 
 // --- the jump attack --------------------------------------------------------------

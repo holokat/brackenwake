@@ -60,6 +60,11 @@ export function isTargetable(a, self = null) {
   if (a.dead === true) return false;
   if (typeof a.health === 'number' && a.health <= 0) return false;
   if (a.faction && a.faction !== 'hostile') return false;
+  // Sanctuary: "five metres where nothing can be attacked". `actor.powers`
+  // carries the word, put there by actor.js's recompute out of the buff's own
+  // `mods.untargetable`, so the cursor and every ability that goes through
+  // pickTarget refuse it with one line rather than eleven.
+  if (Array.isArray(a.powers) && a.powers.includes('untargetable')) return false;
   return true;
 }
 

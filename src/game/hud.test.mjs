@@ -70,7 +70,7 @@ globalThis.setTimeout ||= () => 0;
 const hudMod = await import('./hud.js');
 const {
   TOOLS, MATERIALS, BAR_KEYS, BAR_SLOTS, POOLS, LOG_LINES, KEY_LABELS,
-  poolView, sweep, costLabel, timerLabel, logTrim, createHud,
+  poolView, sweep, costLabel, timerLabel, logTrim, createHud, UNLOCK_TOTAL,
   bannerAt, devLine, BANNER, BANNER_TOTAL,
   gainAt, GAIN, GAIN_TOTAL, GAIN_LINES, BURDEN_MARK, SKULL_MARK,
 } = hudMod;
@@ -384,6 +384,66 @@ const zoneEl = find(root, (n) => n.id === 'bw-zone');
   ck('and a place with no kind still shows its name',
     zoneEl.children[0].textContent === 'The Long Fen' && zoneEl.children[2].style.display === 'none');
   hud.update(4, {});
+}
+
+// --- the unlock banner ------------------------------------------------------
+console.log('hud: the unlock banner');
+{
+  const unlockEl = find(root, (n) => n.id === 'bw-unlock');
+  ck('the banner exists in the skeleton, built once', !!unlockEl && !unlockEl.classList.contains('on'));
+  ck('and it already carries the words that never change',
+    unlockEl.children[0].textContent === "You've unlocked", unlockEl.children[0].textContent);
+
+  const said = hud.unlock({ id: 'fireball', name: 'Fireball', key: 'Press 3' });
+  ck('raising one says what it will show and for how long',
+    said.name === 'Fireball' && said.key === 'Press 3'
+    && Math.abs(said.seconds - UNLOCK_TOTAL) < 1e-9 && said.queued === 0, JSON.stringify(said));
+  ck('it turns on at once', unlockEl.classList.contains('on'));
+  ck('the ability name is under the frame', unlockEl.children[2].textContent === 'Fireball',
+    unlockEl.children[2].textContent);
+  ck('the key line is under that', unlockEl.children[3].textContent === 'Press 3', unlockEl.children[3].textContent);
+  const art = unlockEl.children[1].children[0];
+  ck('and the ability\'s own painting is in the frame, by id',
+    typeof art.src === 'string' && /fireball/.test(art.src), art.src || 'no src');
+  ck('it starts invisible and fades in on the frame clock', unlockEl.style.opacity === '0.000', unlockEl.style.opacity);
+  hud.update(0.2, {});
+  ck('at 0.2 s it is half there', unlockEl.style.opacity === '0.500', unlockEl.style.opacity);
+  ck('and hud.unlockState agrees', hud.unlockState.phase === 'in' && hud.unlockState.name === 'Fireball',
+    `${hud.unlockState.phase} ${hud.unlockState.name}`);
+
+  // TWO AT ONCE QUEUE, they do not stack on each other
+  const second = hud.unlock({ id: 'lightning', name: 'Lightning', key: 'Press 4' });
+  ck('a second raised while the first is up is QUEUED, not drawn over it',
+    second.queued === 1 && hud.unlockState.name === 'Fireball' && hud.unlockState.queued === 1,
+    `showing ${hud.unlockState.name}, ${hud.unlockState.queued} behind`);
+  // it is already 0.2 s in, so this stops 0.3 s short of the end
+  hud.update(UNLOCK_TOTAL - 0.5, {});
+  ck('the first is still the one on screen just before its time is up',
+    hud.unlockState.name === 'Fireball' && hud.unlockState.phase === 'out',
+    `${hud.unlockState.name} ${hud.unlockState.phase} at ${hud.unlockState.t.toFixed(2)}`);
+  hud.update(0.4, {});
+  ck('and the moment it ends the second takes the frame, from the beginning',
+    hud.unlockState.name === 'Lightning' && hud.unlockState.t === 0 && hud.unlockState.queued === 0,
+    `${hud.unlockState.name} at ${hud.unlockState.t}`);
+  ck('with its own name and key drawn',
+    unlockEl.children[2].textContent === 'Lightning' && unlockEl.children[3].textContent === 'Press 4',
+    `${unlockEl.children[2].textContent} / ${unlockEl.children[3].textContent}`);
+  hud.update(UNLOCK_TOTAL + 0.1, {});
+  ck('and when the queue is empty the banner goes off',
+    !unlockEl.classList.contains('on') && hud.unlockState.phase === 'done' && hud.unlockState.queued === 0);
+
+  ck('one with no name raises nothing at all', hud.unlock({ name: '' }) === null && !unlockEl.classList.contains('on'));
+  ck('and neither does nothing at all', hud.unlock(null) === null);
+
+  // a row with no painting still shows something in the frame
+  hud.unlock({ id: 'notARealAbility', name: 'Whatever', key: '' });
+  ck('an ability with no art gets its initial rather than an empty box',
+    unlockEl.children[1].children[1].textContent === 'W'
+    && unlockEl.children[1].children[1].style.display === '',
+    `"${unlockEl.children[1].children[1].textContent}"`);
+  ck('and no key line is drawn when there is nothing to say',
+    unlockEl.children[3].style.display === 'none', unlockEl.children[3].style.display);
+  hud.update(UNLOCK_TOTAL + 1, {});
 }
 
 // --- the dev badge ----------------------------------------------------------

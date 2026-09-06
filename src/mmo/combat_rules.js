@@ -377,7 +377,16 @@ export function resolveMelee({ attacker, defender, now = 0, rng, jumpAttack = fa
 
 /** 0.05 + INT * 0.0005 + critBonus. */
 export function spellCritChance(caster) {
-  return clamp(CRIT_BASE_CHANCE + stat(caster, 'int') * SPELL_CRIT_PER_INT + bonus(caster, 'critChance'), 0, 1);
+  // `spellCrit` is the ability table's own line and only Arcane Mastery has
+  // it ("a tenth more of your spells land twice"). It is a SECOND key rather
+  // than more `critChance` because a mage's spell crit is not a swordsman's,
+  // and folding it into critChance would have handed a wand a melee crit it
+  // was never promised. See ABILITY_MODS in src/game/actor.js.
+  return clamp(
+    CRIT_BASE_CHANCE + stat(caster, 'int') * SPELL_CRIT_PER_INT
+    + bonus(caster, 'critChance') + bonus(caster, 'spellCrit'),
+    0, 1,
+  );
 }
 
 /** The fraction of incoming magic damage Resisting Spells takes off. */

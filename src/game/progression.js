@@ -37,6 +37,8 @@
 import { rollGain, SKILL_BY_ID, lockOf, TOTAL_CAP, total as skillTotal } from '../mmo/skills.js';
 import { rollStatGain, STATS, STAT_GAIN, STAT_CAP, statTotal } from '../mmo/stats.js';
 import { STAT_LABELS, STAT_NAMES } from '../mmo/openings.js';
+import { ABILITIES, ABILITIES_BY_ID, meetsRequirements } from '../mmo/abilities.js';
+import { BAR_KEYS } from './abilities_runtime.js';
 import { recompute } from './actor.js';
 
 /** A skill crossing a round ten: two notes going up. */
@@ -48,6 +50,58 @@ export const GRANDMASTER_CUE = 'grandmaster';
 
 /** A stat milestone is every round ten, the same shape skills.js uses. */
 export const STAT_MILESTONE_STEP = 10;
+
+/** A new ability crossing its mark: three notes and a lift. */
+export const UNLOCK_CUE = 'grandmaster';
+
+// ---------------------------------------------------------------------------
+// The unlock banner
+// ---------------------------------------------------------------------------
+//
+// An ability becomes available the moment `meetsRequirements` starts saying yes
+// for it, and until now NOTHING TOLD THE PLAYER. Magery went from 24 to 25 and
+// Fireball was simply there, on a list, in a window, behind a key, and the only
+// way to find out was to go and look. So every skill gain and every stat gain
+// asks the same question `unlockedFor` answers, and anything new gets the
+// banner and a line saying how to reach it.
+//
+// DRIVEN FROM THE GAIN, NOT FROM A POLL. There is one place in the game where a
+// skill moves and it is `lesson` below, and one where a stat does and it is
+// `statLesson`; a second timer walking the table every few seconds would be a
+// second source of truth and would eventually disagree with this one.
+//
+// ONCE PER ABILITY PER CHARACTER. `character.unlockedAbilities` is the record,
+// written into the document and therefore into the save, so a reload does not
+// play twenty banners for abilities the player has had for a week. The FIRST
+// time a character is seen the list is seeded SILENTLY from whatever it already
+// meets, because an opening that grants Magery 50 has not just unlocked eight
+// spells, it started with them.
+
+/** Every ability id this spread of skills and stats can use right now. */
+export function unlockedIds(character) {
+  const skills = character?.skills || {};
+  const stats = character?.stats || {};
+  const out = [];
+  for (const a of ABILITIES) if (meetsRequirements(a, skills, stats).ok) out.push(a.id);
+  return out;
+}
+
+/**
+ * How to reach a newly unlocked ability, in words a player can act on: the key
+ * it is already bound to, or how to bind it. `bar` is the character's own
+ * twelve slots.
+ */
+export function unlockHint(ability, character) {
+  if (!ability) return '';
+  if (ability.passive) return 'Always on. Nothing to press.';
+  const bar = Array.isArray(character?.bar) ? character.bar : [];
+  const at = bar.indexOf(ability.id);
+  if (at >= 0 && BAR_KEYS[at]) return `Press ${BAR_KEYS[at].toUpperCase()}`;
+  const free = bar.findIndex((x, i) => !x && i < BAR_KEYS.length);
+  return free >= 0
+    ? `Open Abilities (P) and drag it onto slot ${BAR_KEYS[free].toUpperCase()}`
+    : 'Open Abilities (P) to put it on the bar';
+}
 
 /** 0.3 reads "0.3", 0.05 reads "0.05", 1 reads "1". No trailing zeroes. */
 const trim = (v) => String(Math.round(v * 100) / 100);
@@ -65,7 +119,7 @@ export function statText(stat, amount = STAT_GAIN, after) {
   return `+${trim(amount)} ${STAT_LABELS[stat] || String(stat).toUpperCase()}${level}`;
 }
 
-export function createProgression({ character, actor, floaters, hud, audio, state } = {}) {
+export function createProgression({ character, actor, floaters, hud, audio, state, onUnlock } = {}) {
   if (!character || typeof character !== 'object') {
     throw new Error('createProgression: there is no character to teach');
   }
@@ -78,6 +132,21 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
   // repeated every swing. See note 3.
   const lastRefusal = new Map();
 
+  // What this character has already been told about. Seeded silently the first
+  // time, so a save written before the banner existed does not replay its whole
+  // history the moment it loads.
+  // MISSING OR EMPTY BOTH MEAN "NEVER SEEDED", and the second half of that is
+  // not a convenience. `state.blankCharacter` declares the field as `[]`, so a
+  // brand new document arrives with an empty list, and an empty list is never a
+  // TRUE statement about any character: Jump and Sprint gate on no skill at all
+  // (`gatingSkillValue` answers Infinity for a row with no skill), so every
+  // character that has ever existed meets at least two. Treating `[]` as a real
+  // record would have played the whole starting kit as banners on the first
+  // swing of a new character's life. progression.test.mjs drives both.
+  const seeded = Array.isArray(character.unlockedAbilities) && character.unlockedAbilities.length > 0;
+  if (!seeded) character.unlockedAbilities = unlockedIds(character);
+  const known = new Set(character.unlockedAbilities);
+
   const where = () => (actor && actor.pos) || { x: 0, y: 0, z: 0 };
 
   const say = (text, kind) => { hud?.toast?.(text, kind); return text; };
@@ -85,6 +154,36 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
   function float(text, kind) {
     floaters?.spawn?.(where(), text, kind, { anchorKey: 'player' });
     return text;
+  }
+
+  /**
+   * Anything the last gain has just made available: the banner, the sound, a
+   * line in the log naming the key, and the id written into the document so it
+   * never plays twice. Returns the ability records, in table order, so two
+   * crossed at once queue in the order the tables print them.
+   */
+  function announceUnlocks() {
+    const found = [];
+    for (const id of unlockedIds(character)) {
+      if (known.has(id)) continue;
+      known.add(id);
+      character.unlockedAbilities.push(id);
+      const ability = ABILITIES_BY_ID[id];
+      if (ability) found.push(ability);
+    }
+    if (!found.length) return [];
+    for (const a of found) {
+      const hint = unlockHint(a, character);
+      hud?.unlock?.({ id: a.id, name: a.name, key: hint });
+      say(`${a.name} is yours. ${a.description || ''} ${hint}.`.replace(/\s+/g, ' ').trim(), 'good');
+    }
+    audio?.play?.(UNLOCK_CUE);
+    state?.touch?.('skills');
+    // The abilities runtime has to re-read the passives: Fleet Foot and Arcane
+    // Mastery both become real at a skill mark and are data on the actor, not
+    // a key. app/systems/abilities.js hands its `applyPassives` in.
+    try { onUnlock?.(found); } catch (err) { /* a banner is never worth a crash */ }
+    return found;
   }
 
   function refuse(key, reason) {
@@ -135,7 +234,8 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
       audio?.play?.(res.milestone.grandmaster ? GRANDMASTER_CUE : MILESTONE_CUE);
     }
     state?.touch?.('skills');
-    return { ...res, said, floated };
+    const unlocked = announceUnlocks();
+    return { ...res, said, floated, unlocked };
   }
 
   /**
@@ -177,7 +277,12 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
       audio?.play?.(res.value >= STAT_CAP ? GRANDMASTER_CUE : STAT_MILESTONE_CUE);
     }
     state?.touch?.('stats');
-    return { ...res, said, floated };
+    // A stat gain unlocks too: Leap Slam wants STR 50, Berserk CON 60,
+    // Disengage DEX 55 and Evasion DEX 70. Four rows that would have crossed
+    // their mark in silence if only skills were watched. One case is never the
+    // case.
+    const unlocked = announceUnlocks();
+    return { ...res, said, floated, unlocked };
   }
 
   /**
@@ -199,6 +304,11 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
     lesson,
     statLesson,
     applyLessons,
+    /** The ids this character has already been shown a banner for. */
+    get unlocked() { return [...known]; },
+    /** Ask the question outside a gain: a respec, a stat scroll, the dev bench. */
+    announceUnlocks,
+    unlockHint: (ability) => unlockHint(ability, character),
     /** What the character sheet prints under the skill list. */
     get skillTotal() { return skillTotal({ skills: character.skills }); },
     get statTotal() { return statTotal(character.stats); },

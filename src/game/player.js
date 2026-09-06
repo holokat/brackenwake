@@ -1056,7 +1056,11 @@ export function stepPlayer(s, dt, move, heightAt) {
   let vx = s.vx || 0, vz = s.vz || 0;
   const ox = vx, oz = vz;
   if (want > 1e-4) {
-    const top = (m.sprint ? RUN_SPEED : WALK_SPEED) * want;
+    // move.speedMult is 1 plus the actor's runSpeed bonus (Fleet Foot,
+    // Marching Song, the Run Speed affix), handed in by the player system, so
+    // a buff that says faster is faster. Anything unreadable reads as 1.
+    const mult = Number.isFinite(m.speedMult) && m.speedMult > 0 ? m.speedMult : 1;
+    const top = (m.sprint ? RUN_SPEED : WALK_SPEED) * want * mult;
     const dx = (wx / want) * top - vx, dz = (wz / want) * top - vz;
     const dl = Math.hypot(dx, dz), step = ACCEL * dt;
     if (dl > step) { vx += (dx / dl) * step; vz += (dz / dl) * step; } else { vx += dx; vz += dz; }

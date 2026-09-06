@@ -933,6 +933,26 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     // kill below is still this swing's.
     res.after = afterBlow(res, attacker, defender, now);
     if (defender.health <= 0) kill(defender, attacker);
+
+    // RIPOSTE. "Every parry answers back for half a swing. Always on." The
+    // passive puts `parryCounter` on the defender's bonuses (actor.js's
+    // ABILITY_MODS) and this is the only place that reads it: a parry that
+    // really happened is answered with one immediate swing back at that
+    // multiple. `counter: true` on the answer is the whole of the recursion
+    // guard, so two riposting fencers trade one counter each and not a
+    // thousand, and `immediate` means the counter does not also eat the
+    // defender's own next swing.
+    const counter = num(defender.bonuses && defender.bonuses.parryCounter);
+    if (res.parried && counter > 0 && !opts.counter && alive(defender) && alive(attacker)) {
+      const back = queueSwing(defender, attacker, {
+        now, immediate: true, counter: true, multiplier: counter,
+        abilityId: 'riposte', name: 'Riposte',
+      });
+      if (back.queued) {
+        say(`${defender.name || 'You'} turn${isPlayer(defender) ? '' : 's'} the blade and answer${isPlayer(defender) ? '' : 's'} for ${Math.round(counter * 100)}% of a swing.`, 'good');
+        float(defender, 'riposte', 'parry');
+      }
+    }
     return res;
   }
 

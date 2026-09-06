@@ -4,9 +4,10 @@
 // proves the words as well as the numbers. The curve is measured, not asserted:
 // the counts below are printed and any change to skills.js moves them.
 import {
-  createProgression, gainText, statText,
-  MILESTONE_CUE, STAT_MILESTONE_CUE, GRANDMASTER_CUE,
+  createProgression, gainText, statText, unlockedIds, unlockHint,
+  MILESTONE_CUE, STAT_MILESTONE_CUE, GRANDMASTER_CUE, UNLOCK_CUE,
 } from './progression.js';
+import { ABILITIES_BY_ID } from '../mmo/abilities.js';
 import { blankCharacter } from './state.js';
 import { playerActor } from './actor.js';
 import { CUES } from './audio.js';
@@ -29,25 +30,141 @@ function mulberry32(seed) {
 
 function rig(opts = {}) {
   const character = opts.character || blankCharacter();
+  if (opts.skills) Object.assign(character.skills, opts.skills);
+  if (opts.stats) Object.assign(character.stats, opts.stats);
   const actor = playerActor(character);
   const floats = [];
   const toasts = [];
   const cues = [];
   const touched = [];
+  const banners = [];
+  const passiveRuns = [];
   const prog = createProgression({
     character, actor,
     floaters: { spawn: (pos, text, kind) => floats.push({ text, kind, pos }) },
-    hud: { toast: (text, kind) => toasts.push({ text, kind }) },
+    hud: {
+      toast: (text, kind) => toasts.push({ text, kind }),
+      unlock: (entry) => { banners.push(entry); return { name: entry.name, key: entry.key, seconds: 4.2, queued: banners.length - 1 }; },
+    },
     audio: { play: (cue) => cues.push(cue) },
     state: { touch: (what) => touched.push(what) },
+    onUnlock: (list) => passiveRuns.push(list.map((a) => a.id)),
   });
-  return { character, actor, prog, floats, toasts, cues, touched,
+  return { character, actor, prog, floats, toasts, cues, touched, banners, passiveRuns,
     lastFloat: () => floats[floats.length - 1] || null,
     lastToast: () => toasts[toasts.length - 1] || null };
 }
 
 const always = () => 0;      // every roll succeeds
 const never = () => 1;       // no roll ever succeeds
+
+// ---- the unlock banner -----------------------------------------------------
+//
+// "When a new ability is unlocked due to skill unlock, show it in a big you've
+// unlocked banner." The rule is `meetsRequirements`, the moment is a gain, and
+// the record is on the document so a reload does not replay a week of them.
+// Every clause below is driven both ways.
+console.log('\nprogression: the unlock banner');
+{
+  const h = rig({ skills: { magery: 24 } });
+  check('a brand new character is SEEDED silently: no banner for what it woke up with',
+    h.banners.length === 0 && Array.isArray(h.character.unlockedAbilities), String(h.banners.length));
+  check('and Magic Arrow, which needs Magery 0, is already on the seeded list',
+    h.character.unlockedAbilities.includes('magicArrow'));
+  check('while Fireball, which needs 25, is not', !h.character.unlockedAbilities.includes('fireball'));
+
+  h.character.skills.magery = 25;
+  const r = h.prog.lesson('magery', 0, true, always);
+  check('crossing Magery 25 raises exactly one banner',
+    h.banners.length === 1 && h.banners[0].id === 'fireball', h.banners.map((b) => b.id).join(','));
+  check('and the banner carries the ability name, not its id',
+    h.banners[0].name === 'Fireball', h.banners[0].name);
+  check('and a line saying how to get at it', /Abilities \(P\)|Press/.test(h.banners[0].key), h.banners[0].key);
+  check('the gain reports what it unlocked, so a caller can act on it',
+    Array.isArray(r.unlocked) && r.unlocked.length === 1 && r.unlocked[0].id === 'fireball');
+  check('a sound went with it', h.cues.includes(UNLOCK_CUE), h.cues.join(','));
+  check('and a log line named it too', h.toasts.some((t) => /Fireball is yours/.test(t.text)),
+    h.toasts.map((t) => t.text).slice(-1)[0] || 'nothing');
+  check('the passives are re-read, because an unlock may BE a passive',
+    h.passiveRuns.length === 1 && h.passiveRuns[0].join(',') === 'fireball');
+
+  // ONCE PER ABILITY. The same gain again must not play it a second time.
+  h.prog.lesson('magery', 0, true, always);
+  check('a second lesson in the same skill raises nothing further', h.banners.length === 1, String(h.banners.length));
+  check('and the id is written into the document', h.character.unlockedAbilities.includes('fireball'));
+}
+{
+  // TWO AT ONCE QUEUE. Magery 45 crosses Lightning (45) and, with Magery
+  // already past 40, Blink is on the same list the moment 40 is passed. Set the
+  // skill so one gain crosses two marks together.
+  const h = rig({ skills: { magery: 39 } });
+  h.character.skills.magery = 45;
+  h.prog.lesson('magery', 0, true, always);
+  check('one gain that crosses two marks raises two banners, in table order',
+    h.banners.length === 2 && h.banners[0].id === 'lightning' && h.banners[1].id === 'blink',
+    h.banners.map((b) => b.id).join(','));
+  check('and the log named both', h.toasts.filter((t) => /is yours/.test(t.text)).length === 2);
+}
+{
+  // A STAT GAIN UNLOCKS TOO. Leap Slam is a weapon skill 60 and STR 50.
+  const h = rig({ skills: { swordsmanship: 60 }, stats: { str: 49 } });
+  check('with STR 49 Leap Slam is not unlocked', !h.character.unlockedAbilities.includes('leapSlam'));
+  h.character.stats.str = 50;
+  h.prog.statLesson('str', always);
+  check('crossing STR 50 raises the banner for Leap Slam',
+    h.banners.some((b) => b.id === 'leapSlam'), h.banners.map((b) => b.id).join(','));
+}
+{
+  // A RELOAD DOES NOT REPLAY. The document is the record, so a fresh
+  // progression over the same document says nothing at all.
+  const first = rig({ skills: { magery: 25 } });
+  const doc = first.character;
+  check('the seeded list carries Fireball after a run at Magery 25', doc.unlockedAbilities.includes('fireball'));
+  const second = rig({ character: doc });
+  second.prog.lesson('magery', 0, true, always);
+  check('and a second progression built on the same save raises no banner at all',
+    second.banners.length === 0, second.banners.map((b) => b.id).join(','));
+}
+{
+  // An EMPTY list is not a record, it is a document that has not been seeded.
+  const bare = blankCharacter();
+  check('state.blankCharacter declares the field, and it starts empty',
+    Array.isArray(bare.unlockedAbilities) && bare.unlockedAbilities.length === 0);
+  const h = rig({ character: bare });
+  check('and an empty list is seeded rather than believed',
+    h.banners.length === 0 && bare.unlockedAbilities.length > 0, `${bare.unlockedAbilities.length} seeded`);
+  check('because no character has ever met nothing: Jump and Sprint gate on no skill',
+    unlockedIds(blankCharacter()).includes('jump') && unlockedIds(blankCharacter()).includes('sprint'));
+  h.prog.lesson('mining', 0, true, always);
+  check('so the first swing of a new character raises no banner at all',
+    h.banners.length === 0, h.banners.map((b) => b.id).join(','));
+}
+{
+  // A save written before the field existed is seeded, not replayed.
+  const h = rig({ skills: { magery: 45 } });
+  delete h.character.unlockedAbilities;
+  const fresh = createProgression({ character: h.character, actor: h.actor, hud: { toast: () => {}, unlock: () => { throw new Error('a reload must not raise a banner'); } } });
+  check('a save with no record at all is seeded on sight rather than replayed',
+    Array.isArray(h.character.unlockedAbilities) && h.character.unlockedAbilities.includes('lightning')
+    && fresh.unlocked.length === h.character.unlockedAbilities.length,
+    `${h.character.unlockedAbilities.length} seeded`);
+}
+{
+  // the hint, both ways
+  const h = rig({ skills: { magery: 100 } });
+  h.character.bar[2] = 'fireball';
+  check('an ability already on the bar is named by its key',
+    unlockHint(ABILITIES_BY_ID.fireball, h.character) === 'Press 3',
+    unlockHint(ABILITIES_BY_ID.fireball, h.character));
+  check('one that is not says where to put it, and which slot is free',
+    /Open Abilities \(P\) and drag it onto slot 1/.test(unlockHint(ABILITIES_BY_ID.lightning, h.character)),
+    unlockHint(ABILITIES_BY_ID.lightning, h.character));
+  check('and a passive says there is nothing to press',
+    unlockHint(ABILITIES_BY_ID.riposte, h.character) === 'Always on. Nothing to press.',
+    unlockHint(ABILITIES_BY_ID.riposte, h.character));
+  check('unlockedIds is the same rule the window uses, not a copy',
+    unlockedIds(h.character).includes('meteor') && !unlockedIds({ skills: {}, stats: {} }).includes('meteor'));
+}
 
 // ---- the cue really exists -------------------------------------------------
 {

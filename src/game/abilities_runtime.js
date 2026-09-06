@@ -25,6 +25,7 @@
 import {
   ABILITIES_BY_ID, EFFECT_KINDS, canUse, startCast, interruptRule, lessonFor,
   manaCostFor, costKind, MELEE_RANGE, weaponCheck, weaponNeeds, burdensInArmour,
+  itemsHeld, payingBases,
 } from '../mmo/abilities.js';
 import { JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
 import { castBurdenOf, burdenSources } from './actor.js';
@@ -60,6 +61,17 @@ export const LEAP_ARC = 1.6;
  * without hunting for it.
  */
 export const PENDING_SECONDS = 6;
+
+/**
+ * How long a Ward's or a Sanctuary's buff outlives the floor it came from.
+ *
+ * INVENTED. No document gives a number. The buff is refreshed every frame you
+ * stand inside the ring, so this is only ever the tail after you walk out, and
+ * a fifth of a second is short enough that stepping out of a Sanctuary really
+ * does make you attackable again and long enough that a frame's rounding
+ * cannot flicker it off while you are standing still in the middle.
+ */
+export const ZONE_LINGER = 0.2;
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -369,12 +381,58 @@ export function createAbilities(deps = {}) {
       actor.mana = Math.max(0, num(actor.mana) - c.amount);
       return `${Math.round(c.amount)} mana`;
     }
-    if (c.kind === 'item') {
-      const bag = character.items || (character.items = {});
-      bag[c.item] = Math.max(0, num(bag[c.item]) - c.amount);
-      return `${c.amount} ${c.item}${one(c.amount)}`;
-    }
+    if (c.kind === 'item') return spendItem(c.item, c.amount);
     return null;
+  }
+
+  /**
+   * Take `n` of whatever pays this cost out of the PACK, and out of the count
+   * map only when there is no pack to take it from.
+   *
+   * This is the other half of the Bandage bug. `canUse` refused for want of
+   * bandages that were in the pack all along (see `itemsHeld`), and the moment
+   * that was fixed this function was still decrementing `character.items`, a
+   * map no save has ever carried: the ability would have healed you for ever
+   * off ten bandages that never went down. A cost that is not really taken is
+   * as wrong as a cost that cannot be paid.
+   */
+  function spendItem(costId, amount = 1) {
+    const n = Math.max(1, Math.round(num(amount) || 1));
+    const bases = payingBases(costId);
+    // The document's pack is `{ slots, items: [...] }`; some fixtures hand over
+    // the bare array. Both are read, because a cost that is not really taken is
+    // as wrong as a cost that cannot be paid, and finding out which shape it was
+    // is one line.
+    const list = Array.isArray(character.pack) ? character.pack : character.pack?.items;
+    let left = n, took = 0, label = costId;
+    if (Array.isArray(list) && typeof deps.spendFromPack === 'function') {
+      for (let i = 0; i < list.length && left > 0; i++) {
+        const it = list[i];
+        if (!it || !bases.includes(it.base || it.id)) continue;
+        const got = num(deps.spendFromPack({ pack: i }, left));
+        if (got > 0) { took += got; left -= got; label = it.base || it.id; }
+      }
+    } else if (Array.isArray(list)) {
+      for (let i = 0; i < list.length && left > 0; i++) {
+        const it = list[i];
+        if (!it || !bases.includes(it.base || it.id)) continue;
+        const have = num(it.count) || 1;
+        const got = Math.min(have, left);
+        label = it.base || it.id;
+        if (have - got <= 0) list[i] = null; else it.count = have - got;
+        took += got; left -= got;
+      }
+    }
+    if (left > 0 && character.items) {
+      const bag = character.items;
+      for (const base of bases) {
+        if (left <= 0) break;
+        const have = num(bag[base]);
+        const got = Math.min(have, left);
+        if (got > 0) { bag[base] = have - got; took += got; left -= got; label = base; }
+      }
+    }
+    return took > 0 ? `${took} ${label}${one(took)}` : null;
   }
 
   /**
@@ -416,6 +474,32 @@ export function createAbilities(deps = {}) {
 
   /** How far this ability reaches, the one number every range line quotes. */
   const rangeOf = (ability) => num(ability?.range) || MELEE_RANGE;
+
+  /**
+   * The nearest hostile within this ability's reach IN ANY DIRECTION, or null.
+   *
+   * `acquire` looks in a cone, which is right for "who did you mean" and wrong
+   * for "is there anybody at all": a wolf chewing your left elbow is not in
+   * front of you and is certainly what the Fireball was for. Used only after
+   * the cone has already answered nothing, so it can never take a target away
+   * from the cursor or from the frame at the top of the screen.
+   */
+  function anyHostileInRange(ability) {
+    const range = rangeOf(ability);
+    if (typeof monsters?.nearestHostile === 'function') {
+      const found = monsters.nearestHostile(pos(), yaw(), range, Math.PI);
+      const who = found ? (found.actor || found) : null;
+      if (who && isTargetable(who, actor) && flatDistance(pos(), who.pos || who) <= range) return who;
+      return null;
+    }
+    let best = null, bd = range;
+    for (const m of allTargets()) {
+      if (!isTargetable(m, actor)) continue;
+      const d = flatDistance(pos(), m.pos || m);
+      if (d <= bd) { bd = d; best = m; }
+    }
+    return best;
+  }
 
   /**
    * Which abilities can be held on the cursor waiting for a target, counted
@@ -485,26 +569,49 @@ export function createAbilities(deps = {}) {
     return { ok: false, pending: true, reason: `choose a target for ${ability.name}`, ability };
   }
 
-  /** Where a ground ability lands: the cursor, or `range` metres ahead. */
-  function groundPoint(ability) {
-    const g = targeting?.groundPoint?.(num(pos().y));
-    if (g) {
-      const d = flatDistance(pos(), g);
-      const max = num(ability.range) || 10;
-      if (d <= max) return { x: g.x, y: g.y ?? num(pos().y), z: g.z };
+  /**
+   * Where a ground ability lands: the cursor, then whatever you are fighting,
+   * then `range` metres ahead.
+   *
+   * THE MIDDLE CLAUSE IS NEW AND IT IS WHY VOLLEY LOOKED BROKEN. With no cursor
+   * hit the old rule dropped the circle a flat eight metres in front of the
+   * player, so a Volley aimed at a wolf two metres away rained arrows six
+   * metres past it and reported "Volley finds nothing inside 5 m" while a wolf
+   * chewed your leg. A ground ability with a target chosen means THAT ground.
+   * Measured by `scripts/audit-abilities.mjs`, which is where it was found.
+   */
+  function groundPoint(ability, target = null) {
+    const max = num(ability.range) || 10;
+    const clampTo = (p) => {
+      const d = flatDistance(pos(), p);
+      if (d <= max) return { x: num(p.x), y: num(p.y ?? pos().y), z: num(p.z) };
       const k = max / (d || 1);
-      return { x: pos().x + (g.x - pos().x) * k, y: num(pos().y), z: pos().z + (g.z - pos().z) * k };
-    }
-    const r = Math.min(num(ability.range) || 8, 8);
+      return { x: pos().x + (num(p.x) - pos().x) * k, y: num(pos().y), z: pos().z + (num(p.z) - pos().z) * k };
+    };
+    const g = targeting?.groundPoint?.(num(pos().y));
+    if (g) return clampTo(g);
+    const at = target || (targeting?.current && isTargetable(targeting.current, actor) ? targeting.current : null);
+    if (at && (at.pos || at).x != null) return clampTo(at.pos || at);
+    const r = Math.min(max, 8);
     return { x: pos().x + Math.sin(yaw()) * r, y: num(pos().y), z: pos().z + Math.cos(yaw()) * r };
   }
 
-  /** Everything in a circle, or in an arc of one. Nearest first. */
+  /**
+   * Everything in a circle, or in an arc of one. Nearest first.
+   *
+   * A BODY ON YOUR OWN SIDE IS NOT IN THE AREA. `allTargets` is whatever the
+   * world hands over, and since summons exist that list can hold your own
+   * skeleton: a Whirlwind that cut down the champion you had just paid sixty
+   * mana for is the ability looking broken while every line of it ran. The
+   * faction test is `targeting.isTargetable`'s own, so a spell and a cursor can
+   * never disagree about whose side a body is on.
+   */
   function inArea(centre, radius, arcDegrees, fromPos, facing) {
     const half = arcDegrees ? (arcDegrees * Math.PI) / 360 : Math.PI;
     const out = [];
     for (const m of allTargets()) {
       if (m === actor) continue;
+      if (m.faction && m.faction !== 'hostile') continue;
       if (num(m.health) <= 0 || m.dead) continue;
       const p = m.pos || m;
       const d = flatDistance(centre, p);
@@ -691,6 +798,7 @@ export function createAbilities(deps = {}) {
 
     doHeal(e, c) {
       const who = c.ability.target === 'ally' && c.target ? c.target : actor;
+      if (cannotBeHealed(who)) return `${who === actor ? 'Nothing can heal you' : `Nothing can heal ${who.name || 'them'}`} while lich form holds.`;
       const max = Math.max(1, num(who.maxHealth) || num(who.health));
       const before = num(who.health);
       let amount;
@@ -739,9 +847,20 @@ export function createAbilities(deps = {}) {
         const near = inArea(c.target.pos || c.target, num(c.ability.range) || 15, null, pos(), yaw());
         on = [c.target, ...near.filter((m) => m !== c.target)];
       }
+      // WHICH FIELD "affects" MEANS. Fear is the one row that names the kinds
+      // it touches, `['beast', 'humanoid']`, and it read `m.kind` for them.
+      // `actor.js` puts the roster's kind in `family` and writes the literal
+      // string 'monster' into `kind` for every body in the game, so the set
+      // never matched anything and Fear frightened nobody, ever. `family`
+      // first, `kind` behind it for a plain fixture that carries neither.
       const kinds = e.affects ? new Set(e.affects) : null;
-      const list = on.filter((m) => !kinds || kinds.has(m.kind));
-      if (!list.length) return `Nothing to ${e.effect}.`;
+      const familyOf = (m) => m.family ?? m.kind;
+      const list = on.filter((m) => !kinds || kinds.has(familyOf(m)));
+      if (!list.length) {
+        return kinds && on.length
+          ? `${c.ability.name} does not touch ${[...new Set(on.map((m) => familyOf(m) || 'that'))].join(' or ')}, and that is all there is here.`
+          : `Nothing to ${e.effect}.`;
+      }
       const want = e.targets ? Math.min(e.targets, list.length) : list.length;
       if (e.targets && list.length < e.targets) {
         return `${c.ability.name} needs ${e.targets} of them and there ${list.length === 1 ? 'is' : 'are'} ${list.length}.`;
@@ -830,19 +949,26 @@ export function createAbilities(deps = {}) {
           .filter((a) => !e.radius || flatDistance(pos(), a.pos || a) <= e.radius)
         : [actor];
       if (!who.length) return 'Nobody close enough to hear it.';
+      // A CHANNELLED BUFF HAS NO DURATION AND MUST NOT BE GIVEN ONE. Sprint is
+      // `duration: null, channelled: true`, and `now + num(null)` is `now`, so
+      // it expired on the very next frame and the log read "Sprint. +100%
+      // sprinting for 0 seconds. Sprint runs out." Held is held: it runs until
+      // whoever is holding it lets go.
+      const held = e.channelled && e.duration == null;
       for (const a of who) {
         addBuff(a, {
           id: `${c.ability.id}:${c.now.toFixed(3)}`, abilityId: c.ability.id, name: c.ability.name,
-          kind: 'buff', until: c.now + num(e.duration),
+          kind: 'buff', until: held ? Infinity : c.now + num(e.duration),
           effect: e, mods: e.mods || null, stats: e.stats || null, form: e.form || null,
           channelled: !!e.channelled,
         });
         if (e.form) a.form = e.form;
       }
-      const list = e.mods ? Object.entries(e.mods).map(([k, v]) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}% ${k}`).join(', ')
+      const list = e.mods ? Object.entries(e.mods).map(([k, v]) => `${v > 0 ? '+' : ''}${typeof v === 'boolean' ? '' : `${Math.round(v * 100)}% `}${k}`).join(', ')
         : e.stats ? Object.entries(e.stats).map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.toUpperCase()}`).join(', ')
           : c.ability.name;
-      return `${list} for ${saySeconds(e.duration)}${who.length > 1 ? `, on ${who.length} of you` : ''}.`;
+      const how = held ? 'for as long as you hold it' : `for ${saySeconds(e.duration)}`;
+      return `${list} ${how}${who.length > 1 ? `, on ${who.length} of you` : ''}.`;
     },
 
     doDebuff(e, c) {
@@ -871,9 +997,13 @@ export function createAbilities(deps = {}) {
       const it = summonHook(e.creature, where, {
         duration: seconds, owner: actor, abilityId: c.ability.id,
         traits: e.traits || null, scalesWithCaster: !!e.scalesWithCaster,
+        range: num(c.ability.range) || 30, nowS: c.now,
       });
-      if (!it) return `Nothing answered.`;
-      return `${e.creature} for ${saySeconds(seconds)}.`;
+      // The hook already said what stood up, by its real name and for how
+      // long, and said why nothing did when nothing did. Repeating "imp for 60
+      // seconds" over the top of it would put the CREATURE ID on screen, which
+      // is not a word anybody reads.
+      return null;
     },
 
     doAbsorb(e, c) {
@@ -911,7 +1041,12 @@ export function createAbilities(deps = {}) {
       const who = c.target;
       if (!who) return 'Nobody here to raise.';
       if (typeof deps.resurrect !== 'function') return `${who.name || 'They'} would stand, and nothing is wired to raise the fallen yet.`;
-      deps.resurrect(who, actor);
+      // THE HOOK SAYS WHAT HAPPENED, not this file. Raising the player out of
+      // the death count, raising a summon that fell and refusing somebody who
+      // never went down are three different sentences, and only the hook knows
+      // which one it just did. A hook that answers nothing gets the old line.
+      const words = deps.resurrect(who, actor);
+      if (typeof words === 'string' && words) return words;
       return `${who.name || 'They'} stand${who.name ? 's' : ''} again.`;
     },
 
@@ -1040,6 +1175,7 @@ export function createAbilities(deps = {}) {
      */
     doBandage(e, c) {
       const who = c.target && c.target.faction === 'player' ? c.target : actor;
+      if (cannotBeHealed(who)) return `A bandage will not close a wound on ${who === actor ? 'you' : (who.name || 'them')} while lich form holds.`;
       const skills = character.skills || {};
       const amount = Math.round(num(skills.healing) * num(e.perHealing) + num(skills.anatomy) * num(e.perAnatomy));
       const max = Math.max(1, num(who.maxHealth) || num(who.health));
@@ -1067,15 +1203,31 @@ export function createAbilities(deps = {}) {
     return null;
   }
 
-  /** The shape combat_rules.resolveSpell wants, scaled by a chain's falloff. */
+  /**
+   * The shape combat_rules.resolveSpell wants, scaled by a chain's falloff.
+   *
+   * LICH FORM'S THIRTY PERCENT LANDS HERE. `mods.necromancyDamage` is the one
+   * mod in the table that is not "more damage" but "more damage of one school",
+   * so combat_rules has no line for it and actor.js sums it into a bonus of its
+   * own. This is the only reader: a necromancy row's base is raised by it and
+   * every other school is untouched, which is what the row promises.
+   */
   function spellFor(ability, roll, falloff = 1) {
+    const school = ability.skill === 'necromancy' ? 1 + num(actor.bonuses?.necromancyDamage) : 1;
     return {
       id: ability.id, name: ability.name,
-      base: [num(roll.min) * falloff, num(roll.max) * falloff],
+      base: [num(roll.min) * falloff * school, num(roll.max) * falloff * school],
       damageType: roll.type || 'energy',
       line: !!roll.line, vs: roll.vs || null,
     };
   }
+
+  /**
+   * Lich Form says "nobody can help you", and `mods.cannotBeHealed` is how the
+   * row says it. actor.js's recompute puts the word in `actor.powers`; this is
+   * the reader, and it refuses out loud rather than healing zero in silence.
+   */
+  const cannotBeHealed = (who) => Array.isArray(who?.powers) && who.powers.includes('cannotBeHealed');
 
   const targetPoint = (t) => {
     const p = t?.pos || t || {};
@@ -1201,19 +1353,37 @@ export function createAbilities(deps = {}) {
       const found = acquire(ability);
       target = found.target;
       if (!target && ability.target === 'enemy' && !ability.effect?.nextSwing) {
-        // Two different answers wearing one word. A thing you chose and cannot
-        // reach is a distance to walk; nobody at all is a question, and the
-        // spell waits on the cursor for you to answer it.
-        if (found.outOfRange) {
+        // THE FALLBACK, and it is why magery felt dead. `acquire` asks three
+        // questions in order (the target you chose, the thing under the
+        // cursor, the nearest in a 120 degree cone) and used to give up on all
+        // three: a chosen target out of reach ended the press outright, and
+        // nothing in the cone parked the spell on the cursor waiting for a
+        // click most players never learned they had to make. Six seconds later
+        // it said it had let go, and the whole press read as a key that did
+        // nothing. So before either of those, the last question: is there
+        // anything hostile AT ALL within this ability's reach, in any
+        // direction. If there is, that is who you meant, and it is said out
+        // loud so the choice is never made behind your back.
+        const near = anyHostileInRange(ability);
+        if (near) {
+          target = near;
+          targeting?.set?.(near, 'ability');
+          say(`${ability.name} goes to the ${near.name || 'nearest thing'}: it is what is in reach.`, 'ability');
+        } else if (found.outOfRange) {
           say(`${ability.name}: ${found.reason}. Walk closer.`, 'bad'); cue('denied');
           return { ok: false, reason: found.reason, outOfRange: true, dist: found.dist };
+        } else {
+          return holdForTarget(ability, opts.slot, t);
         }
-        return holdForTarget(ability, opts.slot, t);
       }
     } else if (ability.target === 'ally') {
       target = targeting?.current && targeting.current.faction === 'player' ? targeting.current : actor;
     } else if (ability.target === 'ground') {
-      ground = groundPoint(ability);
+      // A ground ability lands ON WHAT YOU ARE FIGHTING when there is no
+      // cursor to say otherwise. See groundPoint.
+      const found = acquire(ability);
+      target = found.target || found.blocked || anyHostileInRange(ability) || null;
+      ground = groundPoint(ability, target);
       const radius = ability.effect?.radius || ability.effect?.parts?.find?.((p) => p.radius)?.radius || 3;
       effects?.showGroundRing?.(ground, radius, effects.colourFor?.(ability.id) ?? 0xffffff);
     } else {
@@ -1435,6 +1605,36 @@ export function createAbilities(deps = {}) {
           say(`${m.name || 'Something'} walked into your ${z.zoneKind}.`, 'good');
           if (z.zoneKind === 'trap') { zones.splice(i, 1); break; }
         }
+      } else if (z.applies && (z.zoneKind === 'ward' || z.zoneKind === 'sanctuary')) {
+        // A WARD AND A SANCTUARY ARE FLOOR YOU STAND ON, and until now their
+        // `applies` was written into the zone record and run by nothing: Ward's
+        // "everything hurts a third less" and Sanctuary's "nothing can be
+        // attacked" were a ring on the ground and no more. A trap fires once on
+        // the first body through it; these two are the opposite, so the buff is
+        // laid on everybody inside on every frame and REFRESHED rather than
+        // stacked (addBuff replaces its own row), and it runs out on its own a
+        // moment after you step out. ZONE_LINGER is that moment.
+        for (const a of allies()) {
+          if (!a || num(a.health) <= 0) continue;
+          if (flatDistance(z, a.pos || a) > z.radius) continue;
+          const inside = z.fired.has(a);
+          if (!inside) {
+            z.fired.add(a);
+            say(a === actor
+              ? `You are inside your ${z.name}.`
+              : `${a.name || 'Someone'} is inside your ${z.name}.`, 'good');
+          }
+          addBuff(a, {
+            id: `${z.abilityId}:zone`, abilityId: z.abilityId, name: z.name, kind: 'buff',
+            until: Math.min(z.until, t + ZONE_LINGER),
+            effect: z.applies, mods: z.applies.mods || null, stats: null, form: null,
+          });
+        }
+        for (const a of [...z.fired]) {
+          if (flatDistance(z, a.pos || a) <= z.radius && num(a.health) > 0) continue;
+          z.fired.delete(a);
+          if (num(a.health) > 0) say(a === actor ? `You step out of your ${z.name}.` : `${a.name || 'Someone'} steps out of your ${z.name}.`, 'ability');
+        }
       }
     }
 
@@ -1522,7 +1722,7 @@ export function createAbilities(deps = {}) {
       const need = manaCostFor(ability, snapshot(0));
       return actor.form === 'lich' ? num(actor.health) > need : num(actor.mana) >= need;
     }
-    if (kind === 'item') return num((character.items || {})[ability.cost.item]) >= (ability.cost.count ?? 1);
+    if (kind === 'item') return itemsHeld(character, ability.cost.item) >= (ability.cost.count ?? 1);
     return true;
   }
 
@@ -1550,6 +1750,11 @@ export function createAbilities(deps = {}) {
         unusable: ability ? !hands.ok : false,
         unusableReason: hands.ok ? '' : hands.reason,
         needs: ability ? weaponNeeds(ability).kind : 'none',
+        // How many of the thing this row is paid in are actually in the pack.
+        // Null for a row paid in stamina or mana. hud.js draws it under the
+        // cost cell, because "1" on the Bandage cell is what it COSTS and the
+        // player wanted to know what he HAS.
+        held: ability ? held(ability) : null,
         burden,
         burdenText: burdenText(burden),
       });
@@ -1587,8 +1792,15 @@ export function createAbilities(deps = {}) {
   }
   applyPassives();
 
+  /**
+   * How many of an ability's item cost this character is carrying. The bar's
+   * cost cell shows the ability's cost (Bandage reads "1"); this is what the
+   * tooltip and `hud.js` use to say how many of them are left.
+   */
+  const held = (ability) => (ability?.cost?.item ? itemsHeld(character, ability.cost.item) : null);
+
   return {
-    use, useById, update, onDamaged, onLanded, applyPassives,
+    use, useById, update, onDamaged, onLanded, applyPassives, held, spendItem,
     barView, buffsView, cooldownLeft, affordable, acquire, groundPoint,
     onTargetPicked, cancelPending, faceTowards,
 

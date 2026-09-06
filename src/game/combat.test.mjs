@@ -381,4 +381,58 @@ const progressionSpy = () => {
   check('and nothing lands from a body that is no longer there', player.health === 100);
 }
 
+// ------------------------------------------------------------------ Riposte
+//
+// "Every parry answers back for half a swing. Always on." The passive puts
+// `parryCounter` on the defender's bonuses (actor.js ABILITY_MODS) and landSwing
+// is the only thing that reads it. Both ways: a parry with the passive answers,
+// a parry without it does not, and a counter never counters a counter.
+{
+  // rng order in resolveMelee: hit, then dodge ONLY if dodgeChance is over zero,
+  // then parry. These fixtures are at DEX 0 and dodge nothing, so the second
+  // roll is the parry. Measured (parryChance is 0.4 here), not assumed.
+  const guard = () => actorOf({
+    id: 'def', name: 'the fencer', skills: { wrestling: 50, parrying: 100, tactics: 0, anatomy: 0 },
+    shield: { id: 'kite', parryFactor: 1 },
+  });
+
+  {
+    const a = actorOf({ id: 'att' });
+    const d = guard();
+    d.bonuses = { parryCounter: 0.5 };
+    const said = [];
+    const c = createCombat({ rng: rolls(0, 0), hud: { log: (t) => said.push(String(t)) } });
+    c.queueSwing(a, d, { now: 0 });
+    c.update(0, 400);
+    check('a parry with Riposte answers back, in the air, at half a swing',
+      c.pendingCount === 1 && /answer/.test(said.join(' | ')), `${c.pendingCount} pending: ${said.join(' | ')}`);
+    const before = a.health;
+    c.update(0, 800);
+    check('and the counter really takes health off the one who swung',
+      a.health < before, `${before} to ${a.health}`);
+  }
+  {
+    const a = actorOf({ id: 'att' });
+    const d = guard();                       // no parryCounter at all
+    const c = createCombat({ rng: rolls(0, 0) });
+    c.queueSwing(a, d, { now: 0 });
+    c.update(0, 400);
+    check('a parry WITHOUT Riposte answers nothing', c.pendingCount === 0, String(c.pendingCount));
+  }
+  {
+    // a counter that is itself parried must not counter again
+    const a = actorOf({ id: 'att', skills: { wrestling: 50, parrying: 100, tactics: 0, anatomy: 0 }, shield: { id: 'kite', parryFactor: 1 } });
+    a.bonuses = { parryCounter: 0.5 };
+    const d = guard();
+    d.bonuses = { parryCounter: 0.5 };
+    const c = createCombat({ rng: rolls(0, 0, 0, 0, 0, 0) });
+    c.queueSwing(a, d, { now: 0 });
+    c.update(0, 400);
+    const afterFirst = c.pendingCount;
+    c.update(0, 800);
+    check('and two riposting fencers trade one counter each, not a thousand',
+      afterFirst === 1 && c.pendingCount === 0, `${afterFirst} then ${c.pendingCount}`);
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
