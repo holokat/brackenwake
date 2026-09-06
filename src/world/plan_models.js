@@ -609,6 +609,41 @@ let gltfLoader = null;
 export const hasProp = (id) => props.has(id);
 /** How many models are loaded, for a report. */
 export const propCount = () => props.size;
+/**
+ * Every copy of one glb model in a plan as instanced meshes: for each mesh in
+ * the registered prototype, one InstancedMesh with a matrix per copy, so the
+ * geometry, the uvs and the material are the prototype's own and the cost is
+ * one draw call per material however many copies stand in the plan.
+ *
+ * `e.g` holds one group per copy (pieceBody's group, positioned by buildStop)
+ * with the clone of the prototype inside it; the clone's world matrix is the
+ * copy's placement, and each prototype mesh's own matrix under its wrapper is
+ * where that mesh sits inside the model.
+ */
+export function instancedGlb(e, proto) {
+  e.g.updateWorldMatrix(true, true);
+  proto.updateMatrixWorld(true);
+  const placements = [];
+  for (const g of e.g.children) {
+    const clone = g.children[0] || g;
+    placements.push(clone.matrixWorld.clone());
+  }
+  const out = new THREE.Group();
+  const m4 = new THREE.Matrix4();
+  proto.traverse((mesh) => {
+    if (!mesh.isMesh) return;
+    const im = new THREE.InstancedMesh(mesh.geometry, mesh.material, placements.length);
+    placements.forEach((pm, i) => { m4.multiplyMatrices(pm, mesh.matrixWorld); im.setMatrixAt(i, m4); });
+    im.instanceMatrix.needsUpdate = true;
+    im.castShadow = true; im.receiveShadow = true;
+    im.name = mesh.name || 'model';
+    out.add(im);
+  });
+  // the clones are never drawn, and their geometry and materials are the
+  // prototype's own, so there is nothing to dispose
+  return out;
+}
+
 /** Put a model in by hand. The loader's own landing point. */
 /**
  * A model's own yaw, in degrees, so a door faces +z the way the plans expect.
@@ -919,6 +954,26 @@ export function buildPlan(plan, site, heightAt) {
   }
   for (const [tag, e] of groups) {
     if (!e.g.children.length) continue;
+    // A glb piece keeps its uvs and its textures. mergeByMaterial buckets by
+    // colour and strips every attribute but position and normal, which is
+    // right for a stand-in painted in flat colour and wrong for a model: the
+    // user's barrel came through it as an untextured blob, or nothing at all
+    // (its mesh was pulled out of the group and the wrapper left empty). So
+    // every copy of one model in a plan becomes one InstancedMesh per mesh of
+    // that model, textures intact, one draw call per material.
+    if (e.source === 'glb' && props.has(e.piece)) {
+      const inst = instancedGlb(e, props.get(e.piece));
+      inst.traverse((o) => {
+        if (!o.isMesh) return;
+        o.userData.site = site;
+        o.userData.plan = { id: plan.id, piece: e.piece, source: 'glb' };
+        if (e.waystone) o.userData.waystone = true;
+        if (e.keep) o.userData.keep = true;
+      });
+      inst.name = `plan:${plan.id}:${tag}`;
+      out.add(inst);
+      continue;
+    }
     const merged = mergeByMaterial(e.g);
     merged.traverse((o) => {
       if (!o.isMesh) return;
