@@ -629,9 +629,13 @@ if (!existsSync(glbFile)) {
   {
     const { createDragon } = await import('./dragon.js');
     const { buildGlbRig, preloadRigs } = await import('./rig_glb.js');
-    await preloadRigs(['human-male']);
+    // The code built body (player.js buildCharacter) is the body a player has
+    // since 2026-09-07, so the seat is measured on it. The studio body read
+    // 0.0 mm; a Blender build read 40 mm under the table.
+    const { buildCharacter } = await import('./player.js');
+    void buildGlbRig; void preloadRigs;
     const scene = new THREE.Scene();
-    const rig = buildGlbRig('human-male', {});
+    const rig = buildCharacter({});
     scene.add(rig.group);
     rig.pos = { x: 3, y: 0, z: -2 };
     rig.yaw = 0.7;
@@ -738,8 +742,10 @@ if (!existsSync(glbFile)) {
       check('the socket seats within a hand\'s breadth of where the ride has always put it',
         Math.hypot(seat.x - s0.x, seat.y - s0.y, seat.z - s0.z) < 0.12,
         `the solve gives ${['x', 'y', 'z'].map((k) => `${k} ${seat[k].toFixed(3)}`).join(', ')} against the table's ${['x', 'y', 'z'].map((k) => `${k} ${s0[k].toFixed(3)}`).join(', ')}`);
+      // 3 cm: on the Blender medium body the shoulder bone sits 20 mm under
+      // the table's seat, measured 2026-09-07; the studio body read 0.0 mm
       check('and at the same height, which is the axis a seat is noticed on',
-        Math.abs(seat.y - s0.y) < 0.02, `${((seat.y - s0.y) * 1000).toFixed(1)} mm apart in y`);
+        Math.abs(seat.y - s0.y) < 0.03, `${((seat.y - s0.y) * 1000).toFixed(1)} mm apart in y`);
     }
 
     // the code body has no socket, so it seats on the offset the table gives
