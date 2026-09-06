@@ -3,9 +3,12 @@ import {
   STATION_KINDS, STATION, stationsForSite, STATION_RING, HAMLET_STATIONS,
   resultBaseFor, unmakeableReason, UNMAKEABLE, BASE_ALIAS, auditCraftBases, CRAFT_AUDIT,
   refusalFor, forecast, benchFor, craft, countMaterial, takeMaterial, giveMaterial, packOf, NEAR_MISS,
+  FAMILY_LABEL, FAMILY_GLYPH, familyTint, tileArt, billFor, chipsFor, lineFor,
+  familiesAt, filtersFor, inFilter, cardView, auditCraftArt, CRAFT_ART_AUDIT, panel, refundBaseFor,
 } from './win_crafting.js';
 import { RECIPES, RECIPE, craftChance, craftQuality, MIN_CRAFT_CHANCE } from '../mmo/recipes.js';
 import { BASES, makeItem } from '../mmo/items.js';
+import { itemIcon } from './icon_art.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -52,8 +55,13 @@ function mkCtx(over = {}) {
   return ctx;
 }
 
+// The pack the tests fill is the pack the game fills: `refundBaseFor` is what
+// `giveMaterial` spends, so a test stack of copper is a copper ingot and not
+// an iron one wearing the word copper. It used to ask for a base called
+// "ingot", which items.js retires to `iron_ingot`, and that stack answered to
+// BOTH copper and iron.
 const stock = (ctx, id, n) => {
-  const it = makeItem({ base: 'ingot', rarity: 'common', count: n });
+  const it = makeItem({ base: refundBaseFor(id), rarity: 'common', count: n });
   it.material = id;
   it.label = id;
   ctx.inventory.add(it);
@@ -239,6 +247,33 @@ console.log('win_crafting: materials in the pack');
   check('giving puts it back with the material stamped on', giveMaterial(ctx, 'iron', 4) === true && countMaterial(ctx, 'iron') === 4);
 }
 
+console.log('win_crafting: a refund comes back as the metal it went in as');
+{
+  // The bug this section exists for: `giveMaterial` asked for a base called
+  // "ingot", items.js resolves that to `iron_ingot`, and the stamp said
+  // copper. One stack then answered to two metals.
+  check('copper comes back as a copper ingot', refundBaseFor('copper') === 'copper_ingot', refundBaseFor('copper'));
+  check('and not as the retired stack base', refundBaseFor('copper') !== 'ingot' && !BASES.ingot);
+  const ctx = mkCtx();
+  giveMaterial(ctx, 'copper', 4);
+  check('four copper counts as four copper', countMaterial(ctx, 'copper') === 4, `${countMaterial(ctx, 'copper')}`);
+  check('and as no iron at all', countMaterial(ctx, 'iron') === 0, `${countMaterial(ctx, 'iron')} iron`);
+  const every = [...new Set(RECIPES.flatMap((r) => Object.keys(r.materials || {})))];
+  const wrong = every.filter((id) => {
+    const b = refundBaseFor(id);
+    const m = BASES[b]?.material ?? null;
+    return !BASES[b] || (m !== null && m !== id);
+  });
+  check('and every material any recipe spends refunds as itself', wrong.length === 0, wrong.join(', ') || `${every.length} materials walked`);
+  check('tin, which has no ingot in the game, comes back as tin ore', refundBaseFor('tin') === 'tin_ore');
+  check('oak comes back as an oak log, not the retired log stack', refundBaseFor('oak') === 'oak_log');
+  check('cloth, which is no item yet, comes back as a stamped reagent', refundBaseFor('cloth') === 'reagent' && BASES.reagent.material == null);
+  const wood = mkCtx();
+  giveMaterial(wood, 'ash', 3);
+  check('an ash refund is ash and not oak', countMaterial(wood, 'ash') === 3 && countMaterial(wood, 'oak') === 0,
+    `${countMaterial(wood, 'ash')} ash, ${countMaterial(wood, 'oak')} oak`);
+}
+
 console.log('win_crafting: where the stations stand');
 {
   check('there are seven', STATION_KINDS.length === 7, STATION_KINDS.map((s) => s.id).join(', '));
@@ -291,6 +326,337 @@ console.log('win_crafting: against the real inventory, not a stand-in for it');
     const full = refusalFor(RECIPE['weapon.dagger.copper'], ctx);
     check('and the panel greys the recipe with the pack reason', full && full.kind === 'pack', full && full.why);
   }
+}
+
+
+// ---------------------------------------------------------------------------
+// The cards.
+//
+// The panel is BUILT against a small fake document and read back, because a
+// test that only checked `cardView` would prove a view model exists and not
+// that a player at a forge sees three hundred and sixty two cards, each with a
+// picture on it. Every station is opened for real.
+
+function makeDom() {
+  const el = (tag) => {
+    const style = {};
+    const classes = new Set();
+    let text = '';
+    const node = {
+      tagName: String(tag).toUpperCase(),
+      id: '', style, dataset: {}, children: [], parent: null,
+      innerHTML: '', title: '', hidden: false, type: '', disabled: false,
+      listeners: {},
+      get textContent() { return node.children.length ? node.children.map((c) => c.textContent).join(' ') : text; },
+      set textContent(v) { for (const c of node.children) c.parent = null; node.children.length = 0; text = v == null ? '' : String(v); },
+      get className() { return [...classes].join(' '); },
+      set className(v) { classes.clear(); for (const c of String(v).split(/\s+/)) if (c) classes.add(c); },
+      classList: {
+        add: (...c) => c.forEach((x) => classes.add(x)),
+        remove: (...c) => c.forEach((x) => classes.delete(x)),
+        contains: (c) => classes.has(c),
+        toggle(c, force) { const on = force === undefined ? !classes.has(c) : !!force; if (on) classes.add(c); else classes.delete(c); return on; },
+      },
+      setAttribute(k, v) { node.dataset[k] = v; },
+      removeAttribute() {},
+      appendChild(c) {
+        if (c.parent) c.parent.children.splice(c.parent.children.indexOf(c), 1);
+        c.parent = node; node.children.push(c); return c;
+      },
+      append(...cs) { for (const c of cs) node.appendChild(c); },
+      remove() { if (node.parent) { node.parent.children.splice(node.parent.children.indexOf(node), 1); node.parent = null; } },
+      addEventListener(name, fn) { (node.listeners[name] ||= []).push(fn); },
+      removeEventListener() {},
+      fire(name, ev) { for (const fn of node.listeners[name] || []) fn(ev || { preventDefault() {}, stopPropagation() {} }); },
+      querySelector() { return null; },
+    };
+    return node;
+  };
+  const byId = new Map();
+  return {
+    createElement: el,
+    getElementById: (id) => byId.get(id) || null,
+    head: { appendChild(c) { if (c.id) byId.set(c.id, c); return c; } },
+    body: el('body'),
+  };
+}
+globalThis.document = makeDom();
+
+/** The four parts of the page, found by class rather than by index. */
+const pick = (node, cls) => node.children.find((c) => c.classList.contains(cls));
+const cardsOf = (root) => pick(root, 'bw-cards').children;
+const chipsOf = (root) => pick(root, 'bw-filters').children;
+const bodyOf = (card) => card.children[1];
+const matsOf = (card) => bodyOf(card).children[2].children;
+const tileOf = (card) => card.children[0];
+const buttonOf = (card) => card.children[2];
+
+/** A character who can make anything, so the bench shows everything it knows. */
+const gm = () => {
+  const skills = {};
+  for (const r of RECIPES) skills[r.skill] = 100;
+  return skills;
+};
+
+function openAt(station, ctx) {
+  const root = document.createElement('div');
+  panel.build(root, ctx);
+  panel.open(ctx, { station });
+  return root;
+}
+
+console.log('win_crafting: the cards, drawn against a real document');
+{
+  const ctx = mkCtx({ character: { skills: gm() } });
+  let total = 0, blank = 0, noName = 0, noChips = 0;
+  const seen = new Set();
+  for (const st of STATION_KINDS) {
+    const root = openAt(st.id, ctx);
+    const cards = cardsOf(root);
+    const want = RECIPES.filter((r) => r.station === st.id).length;
+    check(`the ${st.name} draws a card for every recipe it knows`, cards.length === want, `${cards.length} of ${want}`);
+    for (const c of cards) {
+      total++;
+      const art = tileOf(c).innerHTML;
+      if (!/^<(img|svg)/.test(art)) blank++;
+      if (!bodyOf(c).children[0].textContent.trim()) noName++;
+      if (!bodyOf(c).children[1].children.length) noChips++;
+      seen.add(bodyOf(c).children[0].textContent);
+    }
+  }
+  check('every card in the game has a picture on it', blank === 0, `${total} cards walked, ${blank} blank`);
+  check('and a name', noName === 0, `${noName} nameless`);
+  check('and at least one chip', noChips === 0, `${noChips} bare`);
+  check('the seven stations together draw all 486 recipes', total === RECIPES.length, `${total} cards`);
+  check('eight pairs of recipes really do share a name', seen.size === total - 8, `${seen.size} distinct names for ${total} cards`);
+
+  // Which is why the card says the armour tier: two cards reading "Hide tunic"
+  // side by side at the tanning rack looked like the page had repeated itself.
+  const rack = openAt('tanningRack', ctx);
+  const twins = cardsOf(rack).filter((c) => bodyOf(c).children[0].textContent === 'Hide tunic');
+  check('both Hide tunics are on the tanning rack', twins.length === 2);
+  const said = twins.map((c) => bodyOf(c).children[1].children.map((x) => x.textContent).join(' '));
+  check('and the tier chip tells them apart', said[0] !== said[1] && /leather/.test(said[0]) && /studded/.test(said[1]), said.join(' | '));
+  const lines = twins.map((c) => bodyOf(c).children[3].textContent);
+  check('as does the line saying what comes out', lines[0] !== lines[1], lines.join(' | '));
+  let same = 0;
+  for (const st of STATION_KINDS) {
+    const r = openAt(st.id, ctx);
+    const said2 = cardsOf(r).map((c) => bodyOf(c).children[0].textContent + '|' + bodyOf(c).children[1].children.map((x) => x.textContent).join(' '));
+    same += said2.length - new Set(said2).size;
+  }
+  check('so no two cards at one bench read the same', same === 0, `${same} repeats`);
+}
+
+console.log('win_crafting: the bill of materials counts the pack, both ways');
+{
+  const dagger = RECIPE['weapon.dagger.copper'];   // 2 copper
+  const ctx = mkCtx({ character: { skills: { blacksmithing: 60 } } });
+  let bill = billFor(dagger, ctx);
+  check('with nothing in the pack the line reads 0 of 2', bill[0].text === '0 of 2 copper' && bill[0].met === false, bill[0].text);
+  stock(ctx, 'copper', 1);
+  bill = billFor(dagger, ctx);
+  check('one of two is still short', bill[0].have === 1 && bill[0].met === false, bill[0].text);
+  stock(ctx, 'copper', 2);
+  bill = billFor(dagger, ctx);
+  check('three of two is enough', bill[0].have === 3 && bill[0].met === true, bill[0].text);
+
+  // and the chip really carries the class the css paints red or green
+  const root = openAt('forge', ctx);
+  const card = cardsOf(root).find((c) => bodyOf(c).children[0].textContent === 'Copper Dagger');
+  const chip = matsOf(card)[0];
+  check('the copper chip is drawn as met', chip.textContent === '3 of 2 copper' && !chip.classList.contains('short'), `"${chip.textContent}" class "${chip.className}"`);
+  const iron = cardsOf(root).find((c) => bodyOf(c).children[0].textContent === 'Iron Dagger');
+  const ironChip = matsOf(iron)[0];
+  check('and the iron chip on the next card is drawn short', ironChip.classList.contains('short'), `"${ironChip.textContent}" class "${ironChip.className}"`);
+
+  // a recipe with two materials shows two chips, one of each colour
+  const bow = RECIPE['bow.longbow.oak'];           // 4 oak, 1 hide
+  const two = mkCtx({ character: { skills: { carpentry: 60 } } });
+  stock(two, 'oak', 9);
+  const lines = billFor(bow, two);
+  check('a two material bill shows both lines', lines.length === 2, lines.map((l) => l.text).join(', '));
+  check('the one you have is met and the one you do not is not',
+    lines.find((l) => l.id === 'oak').met === true && lines.find((l) => l.id === 'hide').met === false,
+    lines.map((l) => `${l.text} ${l.met}`).join(', '));
+}
+
+console.log('win_crafting: the filters narrow the bench');
+{
+  const ctx = mkCtx({ character: { skills: gm() } });
+  const root = openAt('forge', ctx);
+  const all = cardsOf(root).length;
+  const chips = chipsOf(root);
+  check('the forge offers a chip per family it takes plus All and Can make',
+    chips.length === familiesAt('forge').length + 2, chips.map((c) => c.textContent).join(', '));
+  check('and offers no chip for a family it does not take',
+    !chips.some((c) => c.textContent === FAMILY_LABEL.scroll), chips.map((c) => c.textContent).join(', '));
+
+  const shields = chips.find((c) => c.textContent === FAMILY_LABEL.shield);
+  shields.fire('click');
+  const narrowed = cardsOf(root).length;
+  check('clicking Shields narrows the list', narrowed < all && narrowed === RECIPES.filter((r) => r.family === 'shield' && r.station === 'forge').length,
+    `${narrowed} of ${all}`);
+  check('and every card left is a shield', cardsOf(root).every((c) => /shield/i.test(bodyOf(c).children[0].textContent)));
+  check('the chip clicked is the one lit', chipsOf(root).find((c) => c.textContent === FAMILY_LABEL.shield).classList.contains('on'));
+
+  chipsOf(root).find((c) => c.textContent === 'All').fire('click');
+  check('and All puts them all back', cardsOf(root).length === all, `${cardsOf(root).length} of ${all}`);
+
+  // Can make, driven both ways: nothing in the pack, then enough for a dagger
+  chipsOf(root).find((c) => c.textContent === 'Can make').fire('click');
+  check('with an empty pack Can make shows nothing', cardsOf(root).length === 0, `${cardsOf(root).length} cards`);
+  stock(ctx, 'copper', 4);
+  panel.render();
+  const ready = cardsOf(root);
+  check('with four copper it shows exactly what four copper buys', ready.length > 0 && ready.every((c) => !c.classList.contains('locked')),
+    ready.map((c) => bodyOf(c).children[0].textContent).join(', '));
+  check('and every one of them really is unrefused', ready.every((c) => buttonOf(c).disabled === false));
+
+  // a family with nothing in reach says so rather than showing an empty grid
+  const bare = openAt('inscriptionDesk', mkCtx());
+  check('a bench you cannot use yet still lists what it makes', cardsOf(bare).length > 0, `${cardsOf(bare).length} scroll cards`);
+  check('and every one of them wears the lock', cardsOf(bare).every((c) => c.classList.contains('locked')));
+}
+
+console.log('win_crafting: the picture is looked up through the base the craft really lands on');
+{
+  const cases = [
+    ['armour.cloth.head.cloth', 'cloth_head', /cloth-hood\.webp$/],
+    ['armour.leather.chest.hide', 'leather_chest', /leather-tunic\.webp$/],
+    ['meal.heartyStew', 'hearty_stew', /hearty-stew\.webp$/],
+    ['potion.heal', 'potion', /potion\.webp$/],
+    ['weapon.dagger.copper', 'dagger', /dagger\.webp$/],
+    ['bow.longbow.oak', 'longbow', /longbow\.webp$/],
+    ['ammo.arrow.oak', 'arrow', /arrow-bundle\.webp$/],
+  ];
+  for (const [id, base, file] of cases) {
+    const r = RECIPE[id];
+    const landed = resultBaseFor(r);
+    const src = itemIcon(landed, { count: r.result.count ?? 1, material: r.result.material });
+    check(`${r.name} lands on ${base} and wears its painting`,
+      landed === base && file.test(src || '') && tileArt(r, 96).includes(src),
+      `${landed} -> ${src}`);
+  }
+  check('the recipe table\'s own spelling would have found nothing for cloth armour',
+    itemIcon(RECIPE['armour.cloth.head.cloth'].result.base) === null,
+    `"${RECIPE['armour.cloth.head.cloth'].result.base}" is not an items.js base`);
+
+  // a base with a real item and no painting falls to ui_theme's drawn glyph
+  const plate = RECIPE['armour.plate.head.iron'];
+  check('a plate helm has no painting yet and draws the helm glyph',
+    itemIcon(resultBaseFor(plate)) === null && /^<svg/.test(tileArt(plate, 96)),
+    tileArt(plate, 96).slice(0, 40));
+
+  // a recipe with no item at all falls to the family glyph
+  const hatchet = RECIPE['tool.hatchet'];
+  check('a hatchet has no item at all and draws the tool glyph',
+    resultBaseFor(hatchet) === null && tileArt(hatchet, 96).includes(FAMILY_GLYPH.tool ? 'svg' : 'never'),
+    tileArt(hatchet, 96).slice(0, 40));
+  check('and it is tinted by the material the recipe names', /fill="#/.test(tileArt(hatchet, 96)), familyTint(hatchet));
+
+  check('every family in the table is labelled and drawn', (() => { try { auditCraftArt(); return true; } catch (e) { console.log(e.message); return false; } })());
+  check('the audit walked every recipe', CRAFT_ART_AUDIT.recipes === RECIPES.length && CRAFT_ART_AUDIT.families === 13,
+    `${CRAFT_ART_AUDIT.families} families, ${CRAFT_ART_AUDIT.recipes} recipes`);
+}
+
+console.log('win_crafting: a card that cannot be made says so on the card');
+{
+  const ctx = mkCtx({ character: { skills: gm() } });
+  const root = openAt('loom', ctx);
+  const bagCard = cardsOf(root).find((c) => /slot bag/.test(bodyOf(c).children[0].textContent));
+  check('a bag is on the bench, not hidden', !!bagCard);
+  check('it is greyed as missing, not merely locked', bagCard.classList.contains('missing') && bagCard.classList.contains('locked'), bagCard.className);
+  check('its make button is dead', buttonOf(bagCard).disabled === true);
+  check('and the line under it is the reason, in words',
+    /bag item/.test(bodyOf(bagCard).children[3].textContent), bodyOf(bagCard).children[3].textContent);
+  check('a missing recipe shows no chance to make it', chipsFor({ recipe: RECIPE['bag.bag4'], forecast: forecast(RECIPE['bag.bag4'], ctx) }).length === 2,
+    chipsFor({ recipe: RECIPE['bag.bag4'], forecast: forecast(RECIPE['bag.bag4'], ctx) }).map((c) => c.text).join(', '));
+  const madeable = chipsFor({ recipe: RECIPE['weapon.dagger.copper'], forecast: forecast(RECIPE['weapon.dagger.copper'], ctx) });
+  check('and one that can be made shows the chance and the quality',
+    madeable.some((c) => c.id === 'chance') && madeable.some((c) => c.id === 'quality'), madeable.map((c) => c.text).join(', '));
+  check('the line on a good card says what comes out', /^Makes /.test(lineFor({ recipe: RECIPE['weapon.dagger.copper'], refusal: null })),
+    lineFor({ recipe: RECIPE['weapon.dagger.copper'], refusal: null }));
+  check('and a stack says how many', /^Makes 20 /.test(lineFor({ recipe: RECIPE['ammo.arrow.oak'], refusal: null })),
+    lineFor({ recipe: RECIPE['ammo.arrow.oak'], refusal: null }));
+}
+
+console.log('win_crafting: the make button is the same craft() the rest of the game calls');
+{
+  const ctx = mkCtx({ character: { skills: { blacksmithing: 100 } } });
+  stock(ctx, 'copper', 6);
+  ctx.rng = () => 0.0001;
+  const root = openAt('forge', ctx);
+  const card = cardsOf(root).find((c) => bodyOf(c).children[0].textContent === 'Copper Dagger');
+  const before = countMaterial(ctx, 'copper');
+  buttonOf(card).fire('click');
+  check('clicking make really makes one', packOf(ctx).some((i) => i.base === 'dagger'));
+  check('and it really spent the copper', countMaterial(ctx, 'copper') === before - 2, `${countMaterial(ctx, 'copper')} of ${before}`);
+  check('and it said so out loud', ctx.toasts.some(([t]) => /You make a copper dagger/.test(t)), ctx.toasts.at(-1)?.[0]);
+  const after = cardsOf(root).find((c) => bodyOf(c).children[0].textContent === 'Copper Dagger');
+  check('and the card redrew with the new count', matsOf(after)[0].textContent === '4 of 2 copper', matsOf(after)[0].textContent);
+}
+
+console.log('win_crafting: the page keeps up with a pack that changes under it');
+{
+  // Both directions: a tick with nothing changed must NOT redraw, and a tick
+  // after a stack lands must. A window that only ever redrew would be correct
+  // and expensive; one that never did would be a lie about your own pack.
+  const ctx = mkCtx({ character: { skills: gm() } });
+  const root = openAt('forge', ctx);
+  let builds = 0;
+  const real = panel.render.bind(panel);
+  panel.render = (...a) => { builds++; return real(...a); };
+  try {
+    panel.tick(0.6);
+    check('a tick with nothing changed redraws nothing', builds === 0, `${builds} redraws`);
+    panel.tick(0.2);
+    check('and a tick under half a second does not even look', builds === 0);
+    stock(ctx, 'copper', 4);
+    panel.tick(0.6);
+    check('a stack landing in the pack redraws the page once', builds === 1, `${builds} redraws`);
+    panel.tick(0.6);
+    check('and it settles again straight after', builds === 1, `${builds} redraws`);
+    const card = cardsOf(root).find((c) => bodyOf(c).children[0].textContent === 'Copper Dagger');
+    check('the copper chip now reads what the pack really holds', matsOf(card)[0].textContent === '4 of 2 copper', matsOf(card)[0].textContent);
+    ctx.character.skills.blacksmithing = 3;
+    panel.tick(0.6);
+    check('a skill that moved redraws too', builds === 2, `${builds} redraws`);
+  } finally { panel.render = real; }
+
+  // and what that costs, measured rather than asserted
+  const t0 = performance.now();
+  for (let i = 0; i < 200; i++) panel.stamp();
+  const per = (performance.now() - t0) / 200;
+  check('the twice a second check costs well under a millisecond', per < 1,
+    `${per.toFixed(3)} ms for ${panel._cards.length} cards, against 16.7 ms of frame`);
+}
+
+console.log('win_crafting: the panel with nowhere to stand');
+{
+  const root = openAt(null, mkCtx());
+  check('no station says so', /not at a station/.test(pick(root, 'bw-where').textContent), pick(root, 'bw-where').textContent);
+  check('and offers no cards', cardsOf(root).length === 0);
+  check('but tells you where to stand', /Stand at a forge/.test(pick(root, 'bw-none').textContent), pick(root, 'bw-none').textContent);
+  check('and no filter chips either', chipsOf(root).length === 0);
+}
+
+console.log('win_crafting: the view model and the page agree');
+{
+  const ctx = mkCtx({ character: { skills: gm() } });
+  stock(ctx, 'copper', 3);
+  const rows = benchFor('forge', ctx, { family: 'weapon' });
+  check('asking for one family gets one family', rows.every((r) => r.recipe.family === 'weapon'), `${rows.length} rows`);
+  check('and it is every weapon the forge knows', rows.length === RECIPES.filter((r) => r.station === 'forge' && r.family === 'weapon').length, `${rows.length}`);
+  const v = cardView(rows.find((r) => r.recipe.id === 'weapon.dagger.copper'), ctx);
+  check('the card view names the base it lands on', v.base === 'dagger' && v.family === 'weapon');
+  check('it is not locked when the copper is there', v.locked === false, JSON.stringify(v.refusal));
+  check('and its art is the painted dagger', /dagger\.webp/.test(v.art), v.art.slice(0, 60));
+  check('inFilter keeps a weapon under Weapons and drops it under Shields',
+    inFilter(rows[0], 'weapon') === true && inFilter(rows[0], 'shield') === false);
+  check('and keeps everything under All', rows.every((r) => inFilter(r, 'all')));
+  check('filtersFor names only the families of the bench asked for',
+    filtersFor('kitchen').map((f) => f.id).join(',') === 'all,ready,meal,forageMeal', filtersFor('kitchen').map((f) => f.id).join(','));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

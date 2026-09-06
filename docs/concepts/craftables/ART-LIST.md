@@ -1,6 +1,6 @@
 # Craftables: the art list
 
-Generated 2026-09-06 by scripts/export-craftables.mjs from src/mmo/recipes.js. 486 recipes, 118 distinct things to draw. Every recipe is in CRAFTABLES.csv beside this file.
+Generated 2026-09-06 by scripts/export-craftables.mjs from src/mmo/recipes.js. 486 recipes, 111 distinct things to draw. Every recipe is in CRAFTABLES.csv beside this file.
 
 One picture per base. A base that comes in ten metals is ONE icon recoloured ten times; the game already tints by material. A scroll is one icon with the spell's ability icon on the seal, so the 35 scrolls are one drawing.
 
@@ -15,7 +15,7 @@ PROMPTS.txt beside this file has one self-contained prompt per base, the style s
 | base | name | comes in | recipes | icon today | subject |
 |---|---|---|---|---|---|
 | `dagger` | Dagger | copper, bronze, iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 10 | dagger.webp | Dagger: a weapon. Shown in warm copper; the same icon is recoloured for dull bronze, grey iron, bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `throwingKnives` | Throwing knives | copper, bronze, iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 10 | none | Throwing knives: a weapon. Shown in warm copper; the same icon is recoloured for dull bronze, grey iron, bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `throwing_knives` | Throwing Knives | copper, bronze, iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 10 | throwing-knives.webp | Throwing Knives: a weapon. Shown in warm copper; the same icon is recoloured for dull bronze, grey iron, bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
 | `rapier` | Rapier | copper, bronze, iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 10 | rapier.webp | Rapier: a weapon. Shown in warm copper; the same icon is recoloured for dull bronze, grey iron, bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
 | `shortsword` | Shortsword | copper, bronze, iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 10 | shortsword.webp | Shortsword: a weapon. Shown in warm copper; the same icon is recoloured for dull bronze, grey iron, bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
 | `mace` | Mace | copper, bronze, iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 10 | mace.webp | Mace: a weapon. Shown in warm copper; the same icon is recoloured for dull bronze, grey iron, bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
@@ -33,54 +33,54 @@ PROMPTS.txt beside this file has one self-contained prompt per base, the style s
 
 | base | name | comes in | recipes | icon today | subject |
 |---|---|---|---|---|---|
-| `cloth_hood` | hood | cloth | 1 | none | hood: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
-| `cloth_robe` | robe | cloth | 1 | none | robe: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
-| `cloth_gloves` | gloves | cloth | 1 | none | gloves: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
-| `cloth_bracers` | bracers | cloth | 1 | none | bracers: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
-| `cloth_sash` | sash | cloth | 1 | none | sash: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
-| `cloth_leggings` | leggings | cloth | 1 | none | leggings: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
-| `cloth_sandals` | sandals | cloth | 1 | none | sandals: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
-| `cloth_cloak` | cloak | cloth | 1 | none | cloak: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
-| `leather_hood` | hood | hide | 1 | none | hood: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `leather_tunic` | tunic | hide | 1 | none | tunic: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `leather_gloves` | gloves | hide | 1 | none | gloves: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `leather_bracers` | bracers | hide | 1 | none | bracers: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `leather_belt` | belt | hide | 1 | none | belt: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `leather_leggings` | leggings | hide | 1 | none | leggings: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `leather_boots` | boots | hide | 1 | none | boots: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `leather_cloak` | cloak | hide | 1 | none | cloak: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `studded_hood` | hood | hide | 1 | none | hood: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `studded_tunic` | tunic | hide | 1 | none | tunic: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `studded_gloves` | gloves | hide | 1 | none | gloves: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `studded_bracers` | bracers | hide | 1 | none | bracers: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `studded_belt` | belt | hide | 1 | none | belt: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `studded_leggings` | leggings | hide | 1 | none | leggings: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `studded_boots` | boots | hide | 1 | none | boots: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `studded_cloak` | cloak | hide | 1 | none | cloak: a piece of armour laid flat as if on a table. Made of tanned leather. |
-| `ring_helm` | Ringmail helm | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail helm: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `ring_tunic` | Ringmail tunic | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail tunic: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `ring_gauntlets` | Ringmail gauntlets | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail gauntlets: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `ring_bracers` | Ringmail bracers | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail bracers: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `ring_belt` | Ringmail belt | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail belt: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `ring_greaves` | Ringmail greaves | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail greaves: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `ring_boots` | Ringmail boots | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail boots: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `ring_cloak` | Ringmail cloak | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail cloak: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `chain_helm` | Chainmail helm | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail helm: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `chain_tunic` | Chainmail tunic | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail tunic: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `chain_gauntlets` | Chainmail gauntlets | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail gauntlets: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `chain_bracers` | Chainmail bracers | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail bracers: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `chain_belt` | Chainmail belt | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail belt: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `chain_greaves` | Chainmail greaves | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail greaves: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `chain_boots` | Chainmail boots | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail boots: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `chain_cloak` | Chainmail cloak | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail cloak: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `plate_helm` | Platemail helm | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail helm: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `plate_breastplate` | Platemail breastplate | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail breastplate: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `plate_gauntlets` | Platemail gauntlets | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail gauntlets: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `plate_bracers` | Platemail bracers | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail bracers: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `plate_belt` | Platemail belt | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail belt: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `plate_greaves` | Platemail greaves | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail greaves: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `plate_boots` | Platemail boots | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail boots: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
-| `plate_cloak` | Platemail cloak | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail cloak: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `cloth_head` | Cloth Hood | cloth | 1 | cloth-hood.webp | Cloth Hood: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
+| `cloth_chest` | Cloth Robe | cloth | 1 | cloth-robe.webp | Cloth Robe: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
+| `cloth_hands` | Cloth Gloves | cloth | 1 | cloth-gloves.webp | Cloth Gloves: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
+| `cloth_wrists` | Cloth Bracers | cloth | 1 | cloth-bracers.webp | Cloth Bracers: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
+| `cloth_waist` | Cloth Sash | cloth | 1 | cloth-sash.webp | Cloth Sash: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
+| `cloth_legs` | Cloth Leggings | cloth | 1 | cloth-leggings.webp | Cloth Leggings: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
+| `cloth_feet` | Cloth Sandals | cloth | 1 | cloth-sandals.webp | Cloth Sandals: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
+| `cloth_back` | Cloth Cloak | cloth | 1 | cloth-cloak.webp | Cloth Cloak: a piece of armour laid flat as if on a table. Made of undyed wool cloth. |
+| `leather_head` | Leather Helm | hide | 1 | leather-helm.webp | Leather Helm: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `leather_chest` | Leather Tunic | hide | 1 | leather-tunic.webp | Leather Tunic: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `leather_hands` | Leather Gloves | hide | 1 | leather-gloves.webp | Leather Gloves: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `leather_wrists` | Leather Bracers | hide | 1 | leather-bracers.webp | Leather Bracers: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `leather_waist` | Leather Belt | hide | 1 | leather-belt.webp | Leather Belt: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `leather_legs` | Leather Leggings | hide | 1 | leather-leggings.webp | Leather Leggings: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `leather_feet` | Leather Boots | hide | 1 | leather-boots.webp | Leather Boots: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `leather_back` | Leather Cloak | hide | 1 | leather-cloak.webp | Leather Cloak: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `studded_head` | Studded leather Helm | hide | 1 | none | Studded leather Helm: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `studded_chest` | Studded leather Tunic | hide | 1 | none | Studded leather Tunic: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `studded_hands` | Studded leather Gloves | hide | 1 | none | Studded leather Gloves: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `studded_wrists` | Studded leather Bracers | hide | 1 | none | Studded leather Bracers: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `studded_waist` | Studded leather Belt | hide | 1 | none | Studded leather Belt: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `studded_legs` | Studded leather Leggings | hide | 1 | none | Studded leather Leggings: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `studded_feet` | Studded leather Boots | hide | 1 | none | Studded leather Boots: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `studded_back` | Studded leather Cloak | hide | 1 | none | Studded leather Cloak: a piece of armour laid flat as if on a table. Made of tanned leather. |
+| `ring_head` | Ringmail Helm | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail Helm: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `ring_chest` | Ringmail Breastplate | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | ringmail-breastplate.webp | Ringmail Breastplate: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `ring_hands` | Ringmail Gauntlets | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail Gauntlets: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `ring_wrists` | Ringmail Bracers | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail Bracers: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `ring_waist` | Ringmail Belt | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail Belt: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `ring_legs` | Ringmail Greaves | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | ringmail-greaves.webp | Ringmail Greaves: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `ring_feet` | Ringmail Boots | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail Boots: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `ring_back` | Ringmail Cloak | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Ringmail Cloak: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `chain_head` | Chainmail Helm | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail Helm: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `chain_chest` | Chainmail Breastplate | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail Breastplate: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `chain_hands` | Chainmail Gauntlets | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail Gauntlets: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `chain_wrists` | Chainmail Bracers | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail Bracers: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `chain_waist` | Chainmail Belt | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail Belt: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `chain_legs` | Chainmail Greaves | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail Greaves: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `chain_feet` | Chainmail Boots | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail Boots: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `chain_back` | Chainmail Cloak | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Chainmail Cloak: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `plate_head` | Platemail Helm | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail Helm: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `plate_chest` | Platemail Breastplate | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail Breastplate: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `plate_hands` | Platemail Gauntlets | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail Gauntlets: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `plate_wrists` | Platemail Bracers | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail Bracers: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `plate_waist` | Platemail Belt | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail Belt: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `plate_legs` | Platemail Greaves | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail Greaves: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `plate_feet` | Platemail Boots | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail Boots: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
+| `plate_back` | Platemail Cloak | iron, silver, coldiron, emberite, rimesteel, verdite, voidrock, starfall | 8 | none | Platemail Cloak: a piece of armour laid flat as if on a table. Shown in grey iron; the same icon is recoloured for bright silver, blue black cold iron, ember red metal with a faint glow, pale frosted steel, green veined metal, black stone metal with violet in it, white gold star metal. |
 
 ## shield (3 to draw, 24 recipes)
 
@@ -111,29 +111,22 @@ PROMPTS.txt beside this file has one self-contained prompt per base, the style s
 | `arrow` | Arrow | oak, ash, heartwood, ironbark | 4 | arrow-bundle.webp | Arrow: a bundle of ammunition tied with cord. Shown in oak; the same icon is recoloured for pale ash wood, red heartwood, dark ironbark. |
 | `bolt` | Bolt | oak, ash, heartwood, ironbark | 4 | none | Bolt: a bundle of ammunition tied with cord. Shown in oak; the same icon is recoloured for pale ash wood, red heartwood, dark ironbark. |
 
-## potion (8 to draw, 8 recipes)
+## potion (1 to draw, 8 recipes)
 
 | base | name | comes in | recipes | icon today | subject |
 |---|---|---|---|---|---|
-| `healPotion` | Potion of healing | reagents | 1 | none | Potion of healing: a stoppered glass potion bottle. Made of glass and cork. |
-| `staminaPotion` | Potion of stamina | reagents | 1 | none | Potion of stamina: a stoppered glass potion bottle. Made of glass and cork. |
-| `manaPotion` | Potion of mana | reagents | 1 | none | Potion of mana: a stoppered glass potion bottle. Made of glass and cork. |
-| `curePotion` | Potion of curing | reagents | 1 | none | Potion of curing: a stoppered glass potion bottle. Made of glass and cork. |
-| `strengthPotion` | Potion of strength | reagents | 1 | none | Potion of strength: a stoppered glass potion bottle. Made of glass and cork. |
-| `agilityPotion` | Potion of agility | reagents | 1 | none | Potion of agility: a stoppered glass potion bottle. Made of glass and cork. |
-| `nightSightPotion` | Potion of night sight | reagents | 1 | none | Potion of night sight: a stoppered glass potion bottle. Made of glass and cork. |
-| `invisibilityPotion` | Potion of invisibility | reagents | 1 | none | Potion of invisibility: a stoppered glass potion bottle. Made of glass and cork. |
+| `potion` | Potion | reagents | 8 | potion.webp | Potion: a stoppered glass potion bottle. Made of glass and cork. |
 
 ## meal (6 to draw, 6 recipes)
 
 | base | name | comes in | recipes | icon today | subject |
 |---|---|---|---|---|---|
-| `heartyStew` | Hearty stew | heartyStew | 1 | none | Hearty stew: a cooked meal on a wooden board or in a bowl. |
-| `roastFowl` | Roast fowl | roastFowl | 1 | none | Roast fowl: a cooked meal on a wooden board or in a bowl. |
-| `fishPie` | Fish pie | fishPie | 1 | none | Fish pie: a cooked meal on a wooden board or in a bowl. |
-| `honeyBread` | Honey bread | honeyBread | 1 | none | Honey bread: a cooked meal on a wooden board or in a bowl. |
-| `spicedWine` | Spiced wine | spicedWine | 1 | none | Spiced wine: a cooked meal on a wooden board or in a bowl. |
-| `travellersRation` | Traveller's ration | travellersRation | 1 | none | Traveller's ration: a cooked meal on a wooden board or in a bowl. |
+| `hearty_stew` | Hearty stew | heartyStew | 1 | hearty-stew.webp | Hearty stew: a cooked meal on a wooden board or in a bowl. |
+| `roast_fowl` | Roast fowl | roastFowl | 1 | roast-fowl.webp | Roast fowl: a cooked meal on a wooden board or in a bowl. |
+| `fish_pie` | Fish pie | fishPie | 1 | fish-pie.webp | Fish pie: a cooked meal on a wooden board or in a bowl. |
+| `honey_bread` | Honey bread | honeyBread | 1 | honey-bread.webp | Honey bread: a cooked meal on a wooden board or in a bowl. |
+| `spiced_wine` | Spiced wine | spicedWine | 1 | spiced-wine.webp | Spiced wine: a cooked meal on a wooden board or in a bowl. |
+| `travellers_ration` | Traveller's ration | travellersRation | 1 | travellers-ration.webp | Traveller's ration: a cooked meal on a wooden board or in a bowl. |
 
 ## tool (6 to draw, 6 recipes)
 
@@ -195,4 +188,48 @@ PROMPTS.txt beside this file has one self-contained prompt per base, the style s
 
 ## Count
 
-118 bases: 44 have an icon today, 74 have none.
+111 bases: 70 have an icon today, 41 have none.
+
+The ones with none, in one list, which is exactly what PROMPTS.txt holds:
+
+- `studded_head` Studded leather Helm
+- `studded_chest` Studded leather Tunic
+- `studded_hands` Studded leather Gloves
+- `studded_wrists` Studded leather Bracers
+- `studded_waist` Studded leather Belt
+- `studded_legs` Studded leather Leggings
+- `studded_feet` Studded leather Boots
+- `studded_back` Studded leather Cloak
+- `ring_head` Ringmail Helm
+- `ring_hands` Ringmail Gauntlets
+- `ring_wrists` Ringmail Bracers
+- `ring_waist` Ringmail Belt
+- `ring_feet` Ringmail Boots
+- `ring_back` Ringmail Cloak
+- `chain_head` Chainmail Helm
+- `chain_chest` Chainmail Breastplate
+- `chain_hands` Chainmail Gauntlets
+- `chain_wrists` Chainmail Bracers
+- `chain_waist` Chainmail Belt
+- `chain_legs` Chainmail Greaves
+- `chain_feet` Chainmail Boots
+- `chain_back` Chainmail Cloak
+- `plate_head` Platemail Helm
+- `plate_chest` Platemail Breastplate
+- `plate_hands` Platemail Gauntlets
+- `plate_wrists` Platemail Bracers
+- `plate_waist` Platemail Belt
+- `plate_legs` Platemail Greaves
+- `plate_feet` Platemail Boots
+- `plate_back` Platemail Cloak
+- `tower` Tower Shield
+- `bolt` Bolt
+- `hatchet` Hatchet (nothing in the game is one yet: the hatchet, sewing kit, saw and tinker's tools have no item shape yet; the axe, pickaxe and tongs do)
+- `sewingKit` Sewing kit (nothing in the game is one yet: the hatchet, sewing kit, saw and tinker's tools have no item shape yet; the axe, pickaxe and tongs do)
+- `saw` Saw (nothing in the game is one yet: the hatchet, sewing kit, saw and tinker's tools have no item shape yet; the axe, pickaxe and tongs do)
+- `tinkersTools` Tinker's tools (nothing in the game is one yet: the hatchet, sewing kit, saw and tinker's tools have no item shape yet; the axe, pickaxe and tongs do)
+- `bag4` 4 slot bag (nothing in the game is one yet: the pack has no bag item yet, so a bag cannot be made or carried)
+- `bag8` 8 slot bag (nothing in the game is one yet: the pack has no bag item yet, so a bag cannot be made or carried)
+- `bag12` 12 slot bag (nothing in the game is one yet: the pack has no bag item yet, so a bag cannot be made or carried)
+- `bag16` 16 slot bag (nothing in the game is one yet: the pack has no bag item yet, so a bag cannot be made or carried)
+- `scroll` Scroll of Magic Arrow (nothing in the game is one yet: nothing in this game is a scroll yet, so there is nothing to write on)

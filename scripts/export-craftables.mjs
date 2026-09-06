@@ -11,9 +11,18 @@
 // WHAT NEEDS A PICTURE. A recipe is a base in a material (Copper Dagger, Iron
 // Dagger); the picture is per BASE, and the material is a recolour of the
 // same icon, which is how the game already draws them (icon_art.itemIcon
-// takes a material). So the art list is 118 bases, not 486 recipes, and each
-// row says which materials it comes in. A scroll is one base and 35 spells:
-// one scroll icon and the spell's own ability icon on it.
+// takes a material). So the art list is a little over a hundred bases, not 486
+// recipes, and each row says which materials it comes in. A scroll is one base
+// and 35 spells: one scroll icon and the spell's own ability icon on it.
+//
+// WHICH BASE THE ICON HANGS ON. `recipe.result.base` is the recipe table's
+// name for the thing, and it is often not the items.js base the craft really
+// produces: an armour recipe says `cloth_hood` and items.js files the picture
+// under `cloth_head`, which the game already has painted. Reading ITEM_ICONS
+// with the recipe's own spelling reported 74 bases with no art when most of
+// them are painted and in the game. So this script resolves through
+// `win_crafting.resultBaseFor`, exactly as the crafting panel does, and the
+// missing list below is the real one.
 
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -21,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import * as R from '../src/mmo/recipes.js';
 import { BASES } from '../src/mmo/items.js';
 import { ITEM_ICONS, ABILITY_ICONS } from '../src/game/icon_art.js';
+import { resultBaseFor, unmakeableReason } from '../src/game/win_crafting.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, '..', 'docs', 'concepts', 'craftables');
@@ -57,13 +67,27 @@ const MATERIAL_WORDS = {
   cloth: 'undyed wool cloth', hide: 'tanned leather', reagents: 'glass and cork',
 };
 
+/**
+ * The items.js base a recipe really lands on, and the picture filed under it.
+ * `resultBaseFor` is the crafting panel's own resolver, so what this script
+ * calls painted is what a player sees painted. A recipe with no item behind it
+ * at all (a bag, a scroll, four of the seven tools) keeps the recipe table's
+ * spelling, because that is still the thing an artist would be asked to draw.
+ */
+const landsOn = (r) => resultBaseFor(r) || r.result.base;
+const iconFor = (r) => ITEM_ICONS[landsOn(r)] || '';
+
 const by = new Map();
 for (const r of recipes) {
-  const base = r.result.base;
+  const base = landsOn(r);
   const mat = r.result.material || '';
   let row = by.get(base);
   if (!row) {
-    row = { base, family: r.family, skill: r.skill, station: r.station, materials: new Set(), spells: new Set(), names: new Set(), count: 0 };
+    row = {
+      base, family: r.family, skill: r.skill, station: r.station,
+      materials: new Set(), spells: new Set(), names: new Set(), count: 0,
+      icon: ITEM_ICONS[base] || '', why: unmakeableReason(r) || '',
+    };
     by.set(base, row);
   }
   row.materials.add(mat);
@@ -98,11 +122,11 @@ function promptFor(row) { return `${STYLE} ${subjectFor(row)}`; }
 
 // ---- the CSV, every recipe
 const esc = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
-const csvRows = [['id', 'name', 'family', 'base', 'material', 'spell', 'skill', 'difficulty', 'station', 'materials', 'existing icon'].map(esc).join(',')];
+const csvRows = [['id', 'name', 'family', 'recipe base', 'lands as', 'material', 'spell', 'skill', 'difficulty', 'station', 'materials', 'existing icon'].map(esc).join(',')];
 for (const r of recipes) {
   const mats = Object.entries(r.materials || {}).map(([k, v]) => `${k} x${v}`).join('; ');
-  const icon = ITEM_ICONS[r.result.base] || (r.spell ? ABILITY_ICONS[r.spell] : '') || '';
-  csvRows.push([r.id, r.name, r.family, r.result.base, r.result.material || '', r.spell || '', r.skill, r.difficulty, r.station, mats, icon].map(esc).join(','));
+  const icon = iconFor(r) || (r.spell ? ABILITY_ICONS[r.spell] : '') || '';
+  csvRows.push([r.id, r.name, r.family, r.result.base, landsOn(r), r.result.material || '', r.spell || '', r.skill, r.difficulty, r.station, mats, icon].map(esc).join(','));
 }
 writeFileSync(join(OUT, 'CRAFTABLES.csv'), csvRows.join('\n') + '\n');
 
@@ -122,6 +146,7 @@ md.push('');
 md.push('PROMPTS.txt beside this file has one self-contained prompt per base, the style sentence followed by the subject, one per line, tab separated from the base id. Deliver as 512 by 512 webp, named `<base>.webp`, into public/icons/items/. Where a row says an icon exists, that is the current one, and a new one replaces it under the same name.');
 md.push('');
 let missing = 0, have = 0;
+const want = [];
 for (const fam of families) {
   const rows = [...by.values()].filter((r) => r.family === fam);
   md.push(`## ${fam} (${rows.length} to draw, ${rows.reduce((s, r) => s + r.count, 0)} recipes)`);
@@ -129,8 +154,8 @@ for (const fam of families) {
   md.push('| base | name | comes in | recipes | icon today | subject |');
   md.push('|---|---|---|---|---|---|');
   for (const r of rows) {
-    const icon = ITEM_ICONS[r.base] || '';
-    if (icon) have++; else missing++;
+    const icon = r.icon;
+    if (icon) have++; else { missing++; want.push(r); }
     const comesIn = r.spells.size ? `${r.spells.size} spells` : [...r.materials].filter(Boolean).join(', ') || 'one';
     md.push(`| \`${r.base}\` | ${nameOf(r)} | ${comesIn} | ${r.count} | ${icon ? icon.replace('icons/items/', '') : 'none'} | ${subjectFor(r)} |`);
   }
@@ -140,10 +165,19 @@ md.push(`## Count`);
 md.push('');
 md.push(`${by.size} bases: ${have} have an icon today, ${missing} have none.`);
 md.push('');
+if (want.length) {
+  md.push('The ones with none, in one list, which is exactly what PROMPTS.txt holds:');
+  md.push('');
+  for (const r of want) md.push(`- \`${r.base}\` ${nameOf(r)}${r.why ? ` (nothing in the game is one yet: ${r.why})` : ''}`);
+  md.push('');
+}
 writeFileSync(join(OUT, 'ART-LIST.md'), md.join('\n'));
 
 // ---- the prompts, one self-contained line per base, for pasting into an image tool
+// only the bases with no picture: a prompt for something already painted is a
+// line the artist has to work out is redundant
 const lines = [];
-for (const fam of families) for (const r of [...by.values()].filter((x) => x.family === fam)) lines.push(`${r.base}\t${promptFor(r)}`);
+for (const fam of families) for (const r of [...by.values()].filter((x) => x.family === fam && !x.icon)) lines.push(`${r.base}\t${promptFor(r)}`);
 writeFileSync(join(OUT, 'PROMPTS.txt'), lines.join('\n') + '\n');
 console.log(`${recipes.length} recipes, ${by.size} bases, ${have} with an icon, ${missing} without. Written to ${OUT}`);
+if (want.length) console.log(`still to draw: ${want.map((r) => r.base).join(', ')}`);

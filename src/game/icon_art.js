@@ -248,6 +248,7 @@ export const ITEM_ICONS = {
   'wild_garlic': 'icons/items/wild-garlic.webp',
   'wild_ginger': 'icons/items/wild-ginger.webp',
   'wild_strawberry': 'icons/items/wild-strawberry.webp',
+  'willow_log': 'icons/items/willow-log.webp',
   'wolf_meat': 'icons/items/wolf-meat.webp',
   'woodland_poison': 'icons/items/woodland-poison.webp',
 };
