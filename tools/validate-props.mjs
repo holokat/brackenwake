@@ -40,7 +40,7 @@
 // No dependencies beyond the glb reader in validate-glb.mjs and the footprint
 // table itself, so what is checked is the FILE against the game's own table.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseGLB } from './validate-glb.mjs';
@@ -215,8 +215,18 @@ export function main(argv = []) {
       for (const c of r.checks) if (!c.ok || argv.includes('--verbose')) console.log(`      ${c.ok ? 'ok  ' : 'FAIL'} ${c.name}: ${c.detail}`);
     }
   }
-  console.log(`${files.length - failed}/${files.length} props pass, ${(bytes / 1048576).toFixed(1)} MB in all`);
+  // The manifest: every glb actually in the folder, whether or not it passed,
+  // so the game's Model Town (src/world/model_town.js) can list what exists
+  // without guessing. Rewritten on every run, including a --file run.
+  writeManifest();
+  console.log(`${files.length - failed}/${files.length} props pass, ${(bytes / 1048576).toFixed(1)} MB in all, manifest.json written`);
   return failed === 0;
+}
+
+export function writeManifest(dir = PROP_DIR) {
+  const ids = readdirSync(dir).filter((f) => f.endsWith('.glb')).map((f) => basename(f, '.glb')).sort();
+  writeFileSync(join(dir, 'manifest.json'), JSON.stringify({ ids }, null, 2) + '\n');
+  return ids;
 }
 
 if (process.argv[1] && process.argv[1].endsWith('validate-props.mjs')) {

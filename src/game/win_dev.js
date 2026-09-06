@@ -54,6 +54,7 @@ import { createFrameMeter } from './dev.js';
 import { itemTipLines } from './inventory.js';
 import { SUB_ZONES, ZONE, authoredSites, BIRTHPLACE } from '../world/zones.js';
 import { PLANS } from '../mmo/plans/index.js';
+import { MODEL_TOWN, MODEL_TOWN_ARRIVAL } from '../world/model_town.js';
 import { stopsOf } from '../mmo/plans/footprints.js';
 import { PLACES, REALMS } from '../mmo/realms.js';
 
@@ -928,6 +929,13 @@ export function createBench(ctx = {}) {
     return { ...res, text: line(`home, ${round(d)} m back the way you came, at ${round(home.x)}, ${round(home.z)}. ${groundWords(home.x, home.z)}`) };
   }
 
+  /** Model Town: every real model on the origin pad, dev mode only. */
+  function goModelTown() {
+    const res = warp(MODEL_TOWN.x + MODEL_TOWN_ARRIVAL.x, MODEL_TOWN.z + MODEL_TOWN_ARRIVAL.z, { label: 'model town', yaw: Math.atan2(-MODEL_TOWN_ARRIVAL.x, -MODEL_TOWN_ARRIVAL.z) });
+    if (!res.ok) return res;
+    return { ...res, text: line('Model Town, on the origin pad: every model the props folder holds, in rows, small things first, each with its name over it. It stands while dev mode is on.') };
+  }
+
   // ------------------------------------------------------------------- tour
 
   /** Where the tour stands: -1 before the first stop. */
@@ -1373,7 +1381,7 @@ export function createBench(ctx = {}) {
     // travel
     places, teleport, enterSite, dungeonGo, goTo, warp,
     tour, goToStop, nextStop, prevStop,
-    zones, goToZone, goHome, biomeAt, groundWords,
+    zones, goToZone, goHome, goModelTown, biomeAt, groundWords,
     recent: () => recent.slice(),
     // the loot lab
     rollLoot, dropSacks, giveAll, inspect, lastRoll,
@@ -1492,6 +1500,7 @@ export const panel = {
     go.appendChild(gx); go.appendChild(gz);
     btn(go, 'take me there', () => { bench.goTo(gx.value, gz.value); drawRecent(); });
     btn(go, 'home', () => { bench.goHome(); drawRecent(); });
+    btn(go, 'model town', () => { bench.goModelTown(); drawRecent(); });
     btn(go, 'deeper', () => { bench.dungeonGo('down'); });
     btn(go, 'out', () => { bench.dungeonGo('up'); });
 

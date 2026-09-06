@@ -2,6 +2,7 @@
 
 import { createDev } from '../../dev.js';
 import { panel as devPanel, benchOf as devBenchOf } from '../../win_dev.js';
+import { buildModelTown, disposeModelTown } from '../../../world/model_town.js';
 
 export const dev = {
   name: 'dev',
@@ -31,6 +32,24 @@ export const dev = {
       if (!windows) return;
       if (on) { if (!windows.isOpen('dev')) windows.open('dev'); }
       else if (windows.isOpen('dev')) windows.close('dev');
+    });
+    // Model Town stands on the origin pad while dev mode is on: every real
+    // model the props folder holds, in rows, each with its name over it. It
+    // comes down with the mode so a player never meets it.
+    let town = null, building = false;
+    runtimeDev.onChange(async (on) => {
+      if (on) {
+        if (town || building) return;
+        building = true;
+        try {
+          const g = await buildModelTown({ heightAt: (x, z) => runtime.heightAt(x, z) });
+          if (g && runtimeDev.on) { town = g; sc.scene.add(g); hud.toast?.(`Model Town is up on the origin pad: ${g.userData.ids.length} models. The bench's "model town" button takes you there.`); }
+          else if (!g) hud.toast?.('Model Town has nothing to show: public/models/props/manifest.json lists no models. Run node tools/validate-props.mjs.', 'bad');
+        } catch (e) { console.warn('model town', e); hud.toast?.('Model Town would not build: ' + (e && e.message), 'bad'); }
+        building = false;
+      } else if (town) {
+        sc.scene.remove(town); disposeModelTown(town); town = null;
+      }
     });
     // the numbers at the top right are a button: a click hides or shows the bench
     ctx.hud.onDev?.(() => { const w = face.windows; if (w && runtimeDev.on) w.toggle('dev'); });
