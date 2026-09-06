@@ -58,11 +58,18 @@ hawk (45, rat meat). A tamed animal will need a follow and a sit.
 
 ## 3. The monsters of the open Greenwold and its places
 
-The realm's danger band is tier 1, so open country between the named places
-spawns only tier 1: giant rats and goblin scouts by day, zombies and skeletons
-by night. The named places carry their own tables and are allowed above the
-band. This is the code as of today, and the wiki's "who lives where" table is
-now what actually spawns.
+The realm's danger band is tier 1 to 2, so open country between the named places
+spawns both: giant rats and goblin scouts beside boar, bandits, raiders and the
+Legion by day, and zombies and skeletons beside wolves, bandits and the Legion
+by night. Rolled over the real Greenwold at four thousand chunks a pass, the mix
+comes out about 28 per cent tier 1 and 72 per cent tier 2 by day and by night.
+The named places carry their own tables and are allowed above the band, so the
+Old Cellars keep the goblin warrior and Oram Blackhand. This is the code as of
+today, and the wiki's "who lives where" table is now what actually spawns.
+
+The band is 1 to 2 and not 1 to 1 because of the con rule: a fresh opening
+starts at skill 50 and reads as tier 2, so a zone of nothing but tier 1 would be
+green and grey from the first morning. See docs/mmo/wiring/C3-CON-KITE.md.
 
 ### Giant Rat (tier 1, vermin)
 - **Where:** everywhere in the open by day, the Mill Run, the Beech Hangar, the Chalk Pits, the Old Cellars.
@@ -72,7 +79,7 @@ now what actually spawns.
 ### Goblin Scout (tier 1, humanoid, goblin body)
 - **Where:** open meadow by day, Highwayman's Hollow, the Old Cellars. In twos and threes; pull one and the group comes.
 - **Body:** small biped, 1.2 m, dagger, a bandolier of throwing knives.
-- **Moves:** it is a **thrower**. It stands off at range and throws knives, steps back if you close, and only draws the dagger when cornered against a wall or when out of room. So: throw (overarm), the backing step, dagger swing, run, flee at a quarter health.
+- **Moves:** it is a **thrower**. It throws knives at anything inside fourteen metres and holds the ground it is standing on; it does not step back when you close, and inside sword reach it draws the dagger and swings that instead. So: throw (overarm), dagger swing, run, flee at a quarter health.
 
 ### Goblin Warrior (tier 2, humanoid, goblin body)
 - **Where:** the Old Cellars, and whistled up by Oram Blackhand.
@@ -117,7 +124,7 @@ now what actually spawns.
 ### Legion Archer (tier 2, humanoid, biped)
 - **Where:** the Kingsroad, open meadow. Twos and threes, with the soldiers.
 - **Body:** the same man in half the armour with a longbow and a quiver at the hip.
-- **Moves:** he is a **shooter**: stands behind the shields, draws and shoots at range, steps back when you close, and draws a dagger only when cornered. So: nock, draw and release; the backing step; dagger swing; run at 6.2 m/s.
+- **Moves:** he is a **shooter**: stands behind the shields, draws and shoots at range, and holds his ground when you close, drawing a dagger once you are inside sword reach. So: nock, draw and release; dagger swing; run at 6.2 m/s.
 
 ### Raider (tier 2, humanoid, biped)
 - **Where:** Highwayman's Hollow, open meadow. Twos to fours. Carries coin.

@@ -4,16 +4,18 @@
 // frame. This file is the arithmetic underneath the four behaviours that were
 // named as "not done" at the end of W2, and it is pure on purpose. No THREE,
 // no scene, no actors of any particular build: every function here takes plain
-// objects and returns plain objects, so `monsters.test.mjs` can drive three
-// hundred frames of a goblin backing away from a player through it without a
-// renderer anywhere.
+// objects and returns plain objects, so `monster_ai.test.mjs` can drive three
+// hundred frames of a goblin standing its ground through it without a renderer
+// anywhere.
 //
 //   1. Underground placement.  A level is rooms on a 2 m grid. This decides
 //      which room holds which group, keyed so a room cleared before you climbed
 //      the stair is still clear when you come back down.
 //   2. Ranged and casting.     Which rows shoot, throw, cast or breathe; what
-//      they throw; how far they like to stand; when they give up standing off
-//      and fight with their hands.
+//      they throw; how far they can reach with it. What is NOT here any more
+//      is a standoff band and a backing step: nothing walks away from the thing
+//      it is fighting, and a row that shoots at fourteen metres puts its hands
+//      up at one rather than giving ground.
 //   3. Bosses.                 BOSS_PHASES read as behaviour, one plan per boss,
 //      with the line each phase says.
 //   4. Flying.                 How high, and when it comes down.
@@ -52,10 +54,12 @@ const has = (row, tag) => notesOf(row).includes(tag);
  * `breath` (the wyvern, the bone dragon). `frostNova` is the frost giant's and
  * is an area effect around itself, not a thing it stands off and throws.
  *
- * There is NO `bow` and NO `crossbow` tag in that set and no row carries one.
- * Both are listed here anyway, so the day a row gains one it shoots instead of
- * silently walking into melee, which is exactly the failure this table exists
- * to prevent. `auditRangedRows()` proves the mapping covers every tag present.
+ * `bow` and `crossbow` are NOT in that closed set. `bow` is nonetheless carried
+ * by two rows since Wave A, the Legion Archer and Huntmaster Gallow, and it is
+ * mapped here so both shoot instead of silently walking into melee, which is
+ * exactly the failure this table exists to prevent. `crossbow` is mapped for
+ * the day a row gains it. `auditRangedRows()` proves the mapping covers every
+ * ranged tag any row actually carries, in both directions.
  */
 export const RANGED_TAGS = {
   throwsKnives: 'thrown',
@@ -91,30 +95,24 @@ export const isFlyer = (row) => has(row, 'flying') || (row && row.kind === 'flyi
 export const isBoss = (row) => !!(row && row.boss);
 
 /**
- * The band a thing that shoots likes to stand in, in metres.
+ * How far a thing that shoots can reach, in metres.
  *
  * 05-WORLD-CONTENT gives no standoff distance for any row, and `actor.js` gives
  * a thrown natural weapon `range: 12`, which is the only number in the tree.
- * The band is written around it: eight metres is outside every melee reach in
- * the game, fourteen is inside the aggro radius of every row that shoots
- * (the smallest is the goblin scout's twelve, and a thing that has already
- * turned does not un-turn at fourteen).
+ * Fourteen is written around it: it is inside the aggro radius of every row
+ * that shoots (the smallest is the goblin scout's twelve, and a thing that has
+ * already turned does not un-turn at fourteen).
+ *
+ * THERE IS NO LONGER A BAND, AND NOTHING BACKS AWAY. There used to be: a near
+ * edge of 8 m, a backoff step that walked a scout backwards every time you
+ * closed, and a `cornered` flag for the day it ran out of room. The result was
+ * that a goblin scout could be pushed across a field and never fought, which is
+ * the complaint this was written to answer. A monster gives ground for one
+ * reason now, `combat_rules.fleeCheck`, and a boss's scripted retreat is the
+ * one exception, since that is a phase with a line of its own. See
+ * docs/mmo/wiring/C3-CON-KITE.md.
  */
-export const RANGED_NEAR = 8;
 export const RANGED_FAR = 14;
-/**
- * Closer than this and it walks backwards rather than throwing over its boots,
- * and it keeps walking until it is back at it. It is the near edge of the band
- * on purpose: a separate, smaller trigger leaves a dead zone between the two
- * where a monster stands closer than it ever meant to and never corrects.
- */
-export const RANGED_BACKOFF = RANGED_NEAR;
-/** Fraction of the step it must actually manage, or it is against a wall. */
-export const CORNER_MOVE_FRACTION = 0.25;
-/** Seconds of failing to back away before it stops trying and uses its hands. */
-export const CORNER_SECONDS = 0.6;
-/** How far a cornered thing must get clear again before it goes back to throwing. */
-export const UNCORNER_M = RANGED_BACKOFF + 2;
 
 /** Metres a row can reach with what it throws, shoots, casts or breathes. */
 export function rangeOf(row) {

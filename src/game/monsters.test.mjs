@@ -45,7 +45,7 @@ import {
   attackModeOf, isFlyer, isBoss, spellFor, coneTargets, castBroken, hoverHeight,
   bossPlanFor, phaseIndexFor, plateText, weaknessMultiplier, rangedWeaponFor,
   dungeonSpawns, normalizeDungeonLayout, dungeonHabitat, groupsForRoom, bossRowsFor,
-  auditRangedRows, RANGED_NEAR, RANGED_FAR, RANGED_BACKOFF, HOVER_MIN, HOVER_MAX,
+  auditRangedRows, RANGED_FAR, HOVER_MIN, HOVER_MAX,
   ENRAGE_SWING, SLAM_WARN_S, SLAM_RADIUS, BREATH_RANGE, BREATH_HALF_ANGLE, SUMMON_COUNT,
   BOSS_PLANS, PHASE_WORDS, RANGED_TAGS,
   STORM_WARN_S, STORM_RADIUS, POWDER_WARN_S, POWDER_RADIUS, POWDER_EVERY_S,
@@ -789,10 +789,15 @@ function seedWith(layout, id, max = 3000) {
   check('so one of five is caught', got.length === 1, `${got.length}`);
 }
 
-// ======================================================== the standoff, measured
+// =============================================== it never gives ground, measured
+//
+// The full drive, at twelve metres, three and one, with the flee rules driven
+// both ways, is `monster_ai.test.mjs`. What is here is the shape of it against
+// the same helpers the rest of this file uses.
 {
-  // A goblin scout: aggro 12 m, throws. Put the player at 11 m, which is inside
-  // its aggro and inside the band, and hold him still for five seconds.
+  // A goblin scout: aggro 12 m, throws. Put the player at 11 m and hold him
+  // still for five seconds. It has no band to keep any more, so it should not
+  // move at all.
   const goblin = makeMonsterActor('goblinScout', { pos: { x: 0, y: 0, z: 0 } });
   goblin.weapon = rangedWeaponFor(goblin, MONSTERS.goblinScout);
   const player = fakePlayer(11, 0);
@@ -806,27 +811,46 @@ function seedWith(layout, id, max = 3000) {
     const g = gap(goblin, player);
     lo = Math.min(lo, g); hi = Math.max(hi, g);
   }
-  check(`it holds the ${RANGED_NEAR} to ${RANGED_FAR} m band for 300 frames`,
-    lo >= RANGED_NEAR - 1e-9 && hi <= RANGED_FAR + 1e-9, `${lo.toFixed(2)} m to ${hi.toFixed(2)} m`);
-  check('and it never walked into melee reach', lo > 3, `closest ${lo.toFixed(2)} m`);
+  check('at 11 m, inside its 14 m reach, it stands still for 300 frames',
+    Math.abs(hi - lo) < 1e-6 && Math.abs(lo - 11) < 1e-6, `${lo.toFixed(3)} m to ${hi.toFixed(3)} m`);
   check('and it wanted to throw the whole time', throws > 290, `${throws} of 300 frames`);
 
-  // now walk him in to 3 m and let go
+  // now walk him in to 3 m and let go. It used to walk backwards here.
   player.pos.x = 3;
   const started = gap(goblin, player);
-  let backing = 0;
+  let moved = 0, wanted = 0, inMelee = 0;
   for (let f = 0; f < 300; f++) {
     const r = stepMonster(goblin, 1 / 60, {
       player, now: 6000 + f * (1000 / 60), heightAt: () => 0, mode: 'thrown', rng: rngA,
     });
-    if (r.moved > 0) backing++;
+    if (r.moved > 0) moved++;
+    if (r.wantSwing) wanted++;
+    if (r.melee) inMelee++;
   }
   const ended = gap(goblin, player);
-  check('closed to 3 m it walks backwards', ended > started, `${started.toFixed(2)} m to ${ended.toFixed(2)} m`);
-  check('and gets back into its band', ended >= RANGED_NEAR - 1e-9, `${ended.toFixed(2)} m`);
-  check('and it did the backing away itself, frame by frame', backing > 30, `${backing} moving frames`);
-  check('and it is still facing him, not running with its back turned',
+  check('closed to 3 m it does not walk backwards', ended <= started + 1e-9,
+    `${started.toFixed(2)} m to ${ended.toFixed(2)} m`);
+  check('and it did not move a step in 300 frames', moved === 0, `${moved} moving frames`);
+  check('and it kept throwing at 3 m', wanted > 290, `${wanted} of 300 frames`);
+  check('and 3 m is not melee reach, so it is still the knife', inMelee === 0, `${inMelee} melee frames`);
+  check('and it is still facing him',
     Math.abs(Math.atan2(player.pos.x - goblin.pos.x, player.pos.z - goblin.pos.z) - goblin.yaw) < 1e-6);
+
+  // walk him all the way in: it fights with its hands rather than giving ground
+  player.pos.x = 1;
+  let handsy = 0, gaveGround = 0;
+  let last = gap(goblin, player);
+  for (let f = 0; f < 300; f++) {
+    const r = stepMonster(goblin, 1 / 60, {
+      player, now: 12000 + f * (1000 / 60), heightAt: () => 0, mode: 'thrown', rng: rngA,
+    });
+    if (r.melee && r.wantSwing) handsy++;
+    const g = gap(goblin, player);
+    if (g > last + 1e-9) gaveGround++;
+    last = g;
+  }
+  check('at 1 m it swings with its hands instead of throwing', handsy > 290, `${handsy} of 300 frames`);
+  check('and it never opened the gap by so much as a millimetre', gaveGround === 0, `${gaveGround} frames`);
 
   // a melee row is untouched by any of it
   const wolf = makeMonsterActor('wolf', { pos: { x: 0, y: 0, z: 0 } });
@@ -835,30 +859,27 @@ function seedWith(layout, id, max = 3000) {
   check('a wolf still walks all the way in', gap(wolf, p2) < 3, `${gap(wolf, p2).toFixed(2)} m`);
 }
 
-// ============================================================== cornered
+// ============================================ a wall is no longer a special case
 {
-  // A wall at x = 9: nothing may stand past it. The goblin starts at 8 with the
-  // player at 5, so backing away is exactly what it cannot do.
+  // The old code had a `cornered` flag: backed against a wall for 0.6 s a
+  // thrower gave up backing away and used its hands. Nothing backs away now, so
+  // the wall changes nothing at all and the flag is gone. Both are measured.
   const wall = (x, z) => [Math.min(9, x), z];
   const goblin = makeMonsterActor('goblinScout', { pos: { x: 8, y: 0, z: 0 } });
   goblin.weapon = rangedWeaponFor(goblin, MONSTERS.goblinScout);
   const player = fakePlayer(5, 0);
-  let cornered = false, atFrame = -1;
+  const at0 = goblin.pos.x;
+  let sawCornered = false;
   for (let f = 0; f < 120; f++) {
     const r = stepMonster(goblin, 1 / 60, {
       player, now: f * (1000 / 60), heightAt: () => 0, clampXZ: wall, mode: 'thrown', rng: seeded(53),
     });
-    if (r.cornered && !cornered) { cornered = true; atFrame = f; }
+    if (r.cornered) sawCornered = true;
   }
-  check('backed into a wall it gives up backing away', cornered, `at frame ${atFrame}`);
-  check('and it took about CORNER_SECONDS to decide, not one frame', atFrame >= 30 && atFrame <= 90, `frame ${atFrame}`);
-  check('and it never got past the wall', goblin.pos.x <= 9 + 1e-9, `x ${goblin.pos.x.toFixed(2)}`);
-  // and it comes back to its senses when the room opens up again
-  player.pos.x = 8 - 12;
-  for (let f = 0; f < 240; f++) {
-    stepMonster(goblin, 1 / 60, { player, now: 3000 + f * 16.7, heightAt: () => 0, clampXZ: wall, mode: 'thrown', rng: seeded(54) });
-  }
-  check('and once there is room again it stands off once more', goblin.ai.cornered === false);
+  check('a thrower with a wall behind it does not move', Math.abs(goblin.pos.x - at0) < 1e-9,
+    `x ${goblin.pos.x.toFixed(3)}`);
+  check('and no step of it reports a cornered flag any more', sawCornered === false);
+  check('and ai.cornered is never written', goblin.ai.cornered === undefined);
 }
 
 // ================================================================== flying
@@ -1238,15 +1259,22 @@ function seedWith(layout, id, max = 3000) {
 
   // A goblin scout swings every 2.4 s, and combat.queueSwing holds it to that,
   // so the first knife cannot leave the hand before frame 144 at 60 Hz.
-  let launched = -1;
+  // Its gap to the player is watched every frame: it may close, and it may not
+  // open, because nothing in the game gives ground except a flee.
+  const gap0 = gap(goblin.actor, player);
+  let launched = -1, opened = 0, widest = gap0, last = gap0;
   for (let f = 0; f < 400 && launched < 0; f++) {
     monsters.update(1 / 60, f * (1000 / 60), player, false);
     combat.update(1 / 60, f * (1000 / 60));
+    const g = gap(goblin.actor, player);
+    if (g > last + 1e-9) opened++;
+    if (g > widest) widest = g;
+    last = g;
     if (monsters.projectiles().length) launched = f;
   }
   check('it throws rather than walking up to you', launched >= 0, `first knife on frame ${launched}`);
-  check('and it stayed in its band the whole while', gap(goblin.actor, player) >= RANGED_NEAR - 1e-9,
-    `${gap(goblin.actor, player).toFixed(1)} m`);
+  check('and it never gave ground on the way, not on one frame', opened === 0,
+    `${opened} frames wider, from ${gap0.toFixed(2)} m to ${last.toFixed(2)} m, widest ${widest.toFixed(2)} m`);
   const start = { ...monsters.projectiles()[0].pos };
 
   // it must not be there before its time, and must be there at its time
@@ -1311,7 +1339,7 @@ function seedWith(layout, id, max = 3000) {
   {
     const { combat, monsters, player, cultist, started } = build();
     check('the cultist is standing in the level, alone', !!cultist && monsters.count === 1, `${monsters.count} alive`);
-    check('and it does not close to melee', gap(cultist.actor, player) >= RANGED_NEAR - 1e-9, `${gap(cultist.actor, player).toFixed(1)} m`);
+    check('and it does not close to melee', gap(cultist.actor, player) >= 10 - 1e-6, `${gap(cultist.actor, player).toFixed(2)} m`);
     check('and it begins a cast rather than swinging', started > 0, `frame ${started}`);
     check('and it said what it was doing', lines.some((l) => l.includes('begins a fireball')));
     const before = player.health;

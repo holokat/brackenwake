@@ -45,12 +45,12 @@ import {
 } from '../mmo/monsters.js';
 import { aggroCheck, leashCheck, fleeCheck, swingSeconds, UNARMED } from '../mmo/combat_rules.js';
 import { buildMonsterModel, DIE_SECONDS } from './monster_models.js';
-import { SWING_LAND_S, actorDistance } from './combat.js';
+import { SWING_LAND_S, actorDistance, BODY_RADIUS } from './combat.js';
 import {
   attackModeOf, isFlyer, isBoss, rangedWeaponFor, spellFor, coneTargets,
   castBroken, hoverHeight, approachHeight, bossPlanFor, phaseIndexFor, plateText,
   weaknessMultiplier, dungeonSpawns, normalizeDungeonLayout, dungeonHabitat,
-  RANGED_FAR, RANGED_BACKOFF, CORNER_MOVE_FRACTION, CORNER_SECONDS, UNCORNER_M,
+  RANGED_FAR, rangeOf,
   SWOOP_SECONDS, HOVER_HZ, ENRAGE_SWING, SUMMON_COUNT, SUMMON_RING_M,
   SLAM_WARN_S, SLAM_RADIUS, RETREAT_HEAL_PS, RETREAT_SECONDS,
   STORM_WARN_S, STORM_RADIUS, POWDER_WARN_S, POWDER_RADIUS, POWDER_EVERY_S,
@@ -225,6 +225,8 @@ const SALT_PLACE = 0xc2b2;
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const dist2D = (a, b) => Math.hypot(num(a?.x) - num(b?.x), num(a?.z) - num(b?.z));
+/** The body radius combat.reachBetween would use for this actor. */
+const bodyR = (a) => (Number.isFinite(a && a.radius) ? a.radius : BODY_RADIUS);
 
 /** A deterministic [0, 1) stream for one chunk, so a re-roll gives the same camp. */
 export function chunkRng(cx, cz, seed) {
@@ -422,7 +424,11 @@ export function stepToward(pos, to, speed, dt, heightAt, clampXZ) {
   return { x, y, z, moved, dist: Math.hypot(num(to.x) - x, num(to.z) - z), arrived: take >= d - 1e-9, want: take };
 }
 
-/** Away from a point instead of toward it. Fleeing, backing off, and nothing else. */
+/**
+ * Away from a point instead of toward it. Fleeing, and nothing else: the one
+ * caller left is the 'flee' state, which `fleeCheck`, the critter spook and a
+ * boss's retreat phase are the only three things that can put a monster into.
+ */
 export function stepAway(pos, from, speed, dt, heightAt, clampXZ) {
   const dx = num(pos.x) - num(from.x), dz = num(pos.z) - num(from.z);
   const d = Math.hypot(dx, dz) || 1;
@@ -439,14 +445,20 @@ export function stepAway(pos, from, speed, dt, heightAt, clampXZ) {
  * seconds past two and a half times its aggro radius; `fleeCheck` breaks it at
  * a quarter health unless it is undead or a construct.
  *
- * A row that shoots, throws, casts or breathes does not walk into reach at all.
- * It keeps the standoff band, backs away when you close on it, and only puts
- * its hands up when it has backed into a wall and cannot go further, which is
- * `cornered`. `ctx.mode` decides which of the two it is, and a melee row with
- * no mode behaves exactly as it did before this was written.
+ * NOTHING IN HERE WALKS AWAY FROM WHAT IT IS FIGHTING. A row that shoots,
+ * throws, casts or breathes closes until the target is inside `ctx.range` and
+ * then holds where it stands and shoots; once the target is inside its own
+ * melee reach it stops throwing over its boots and swings with its hands, which
+ * `out.melee` says so the runtime does not also launch a knife. The only two
+ * things that give ground are `fleeCheck`, which is a monster's own `flees`
+ * rule, and a boss's scripted retreat phase, which sets `ai.state` to 'flee'
+ * itself. See docs/mmo/wiring/C3-CON-KITE.md.
  *
- * @param ctx { player, now, reach, heightAt, clampXZ, rng, mode, flying }
- * @returns { state, moved, wantSwing, wantCast, cornered, altitude, dist } and
+ * `ctx.mode` decides which of the two it is, and a melee row with no mode
+ * behaves exactly as it did before any of this was written.
+ *
+ * @param ctx { player, now, reach, range, heightAt, clampXZ, rng, mode, flying }
+ * @returns { state, moved, wantSwing, wantCast, melee, altitude, dist } and
  *   never throws on a missing player, because between a death and a respawn
  *   there genuinely is not one.
  */
@@ -456,7 +468,11 @@ export function stepMonster(m, dt, ctx = {}) {
   const ai = m.ai || (m.ai = { home: { x: num(m.pos.x), z: num(m.pos.z) }, state: 'idle' });
   const mode = ctx.mode || 'melee';
   const ranged = mode !== 'melee';
-  const out = { state: ai.state, moved: 0, wantSwing: false, wantCast: false, cornered: !!ai.cornered, dist: Infinity, altitude: 0 };
+  // How far it can reach with what it throws. The runtime hands over the row's
+  // own `rangeOf`, which is 6 m for a breath and 14 for everything else; a
+  // caller that gives none gets the 14, which is what the old band used.
+  const range = num(ctx.range) > 0 ? num(ctx.range) : RANGED_FAR;
+  const out = { state: ai.state, moved: 0, wantSwing: false, wantCast: false, melee: false, dist: Infinity, altitude: 0 };
 
   if (num(m.health) <= 0) { ai.state = out.state = 'dead'; return out; }
   const player = ctx.player && num(ctx.player.health) > 0 ? ctx.player : null;
@@ -523,14 +539,6 @@ export function stepMonster(m, dt, ctx = {}) {
     out.moved = s.moved;
     return s;
   };
-  const back = (from, sp) => {
-    const s = stepAway(m.pos, from, sp, d, ctx.heightAt, ctx.clampXZ);
-    if (s.moved > 0) { m.pos.x = s.x; m.pos.z = s.z; m.pos.y = s.y; }
-    out.moved = s.moved;
-    return s;
-  };
-  /** It wanted to go somewhere and the world would not let it. */
-  const stuck = (s) => s.want > 0 && s.moved < s.want * CORNER_MOVE_FRACTION;
   const faceThe = (p) => { m.yaw = Math.atan2(num(p.x) - num(m.pos.x), num(p.z) - num(m.pos.z)); };
   const canAct = () => { const st = m.status || {}; return !(st.stun && num(st.stun.until) > now); };
 
@@ -546,33 +554,32 @@ export function stepMonster(m, dt, ctx = {}) {
       const gap = ctx.flying ? dist2D(m.pos, target.pos) : actorDistance(m, target);
       out.dist = gap;
       const reach = num(ctx.reach) || (num(UNARMED.reach) + 0.9);
+      // What its HANDS reach, which for a thrower is not `ctx.reach` at all:
+      // `combat.reachBetween` answers 14 m for a knife thrower, because a
+      // thrown weapon carries its range as its reach. "Has he closed to melee"
+      // has to mean the arm, so the runtime hands the row's own natural reach
+      // over separately and a bare test falls back to the unarmed one.
+      const meleeReach = num(ctx.meleeReach) > 0 ? num(ctx.meleeReach) : (num(UNARMED.reach) + 0.9);
 
-      if (ranged && !ai.cornered) {
-        // The standoff. Too far and it comes; too close and it walks backwards
-        // still facing you; in the band it stands and throws. It never turns its
-        // back, which is why this is stepAway and not a walk to a point behind.
+      if (ranged) {
+        // It closes until you are inside its range and then it stands where it
+        // is. It does not step back, ever: a scout that gave a metre every time
+        // you took one could be walked the length of a field and never fought,
+        // and that is the whole of what was wrong here. Inside its own melee
+        // reach it stops throwing over its boots and uses its hands, which
+        // `out.melee` says so the runtime does not also launch a knife.
         faceThe(target.pos);
-        if (gap > RANGED_FAR) { move(target.pos, speed); ai.state = 'chase'; faceThe(target.pos); break; }
-        if (gap < RANGED_BACKOFF) {
-          const s = back(target.pos, speed);
-          faceThe(target.pos);
-          // against a wall for CORNER_SECONDS and it gives up backing away
-          if (stuck(s)) {
-            ai.cornerFor = num(ai.cornerFor) + d;
-            if (ai.cornerFor >= CORNER_SECONDS) { ai.cornered = true; ai.cornerFor = 0; }
-          } else ai.cornerFor = 0;
-          ai.state = 'chase';
-          out.cornered = !!ai.cornered;
-          break;
-        }
-        ai.cornerFor = 0;
+        if (gap > range) { move(target.pos, speed); ai.state = 'chase'; faceThe(target.pos); break; }
         ai.state = 'attack';
-        if (canAct()) { if (mode === 'cast' || mode === 'breath') out.wantCast = true; else out.wantSwing = true; }
+        out.melee = gap <= meleeReach;
+        if (canAct()) {
+          if (!out.melee && (mode === 'cast' || mode === 'breath')) out.wantCast = true;
+          else out.wantSwing = true;
+        }
         break;
       }
 
-      // cornered, or a melee row: the old behaviour, unchanged
-      if (ranged && ai.cornered && gap > UNCORNER_M) { ai.cornered = false; ai.cornerFor = 0; }
+      // a melee row: the old behaviour, unchanged
       if (gap <= reach) {
         // stand and swing, facing what it is hitting. A stunned thing may not:
         // combat.queueSwing would refuse it anyway, and asking every frame for
@@ -584,7 +591,6 @@ export function stepMonster(m, dt, ctx = {}) {
         move(target.pos, speed);
         ai.state = 'chase';
       }
-      out.cornered = !!ai.cornered;
       break;
     }
     case 'flee': {
@@ -867,6 +873,11 @@ export function createMonsters(sc, runtime, opts = {}) {
     group.add(model.group);
 
     const mode = attackModeOf(row);
+    // The reach of its own arm, read BEFORE the weapon is swapped below. A
+    // thrower's weapon carries its range as its reach, so from here on
+    // `reachBetween` answers fourteen metres for it and cannot be asked
+    // whether the player has closed to melee.
+    const meleeReach = num(naturalWeapon(row).reach);
     // A thing that throws needs a weapon whose REACH is its range, or
     // `combat.landSwing` bins the blow three hundred milliseconds later for
     // being out of a reach nobody meant it to have. See rangedWeaponFor.
@@ -879,7 +890,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       key: rec.key, rec, row, actor, model, id: rec.id, name: row.name,
       poison: poisonLevelOf(row), shares: sharesAggro(row),
       groupKey: rec.groupKey, lastSpeed: 0,
-      mode, flyer: isFlyer(row), boss: isBoss(row), spell: spellFor(row),
+      mode, meleeReach, flyer: isFlyer(row), boss: isBoss(row), spell: spellFor(row),
       cast: null, lastHealth: num(actor.health),
       phase: 0, plan: isBoss(row) ? bossPlanFor(row) : [], plate: null,
       slamAt: 0, retreatUntil: 0, ephemeral: !!rec.ephemeral,
@@ -1440,13 +1451,19 @@ export function createMonsters(sc, runtime, opts = {}) {
         // the dragon measures its bite against the dragon's body
         reach: combat ? combat.reachBetween(a, settled || a) : undefined,
         mode: mon.diving ? 'melee' : mon.mode,
+        // the row's own reach with what it throws: 6 m for a breath, 14 for a
+        // knife, a bolt or an arrow. A breather used to hold at fourteen and
+        // breathe at air, because the band was one number for every mode.
+        range: rangeOf(mon.row),
+        // the same sum reachBetween makes, with the row's own arm instead of
+        // whatever it throws: reach plus both bodies
+        meleeReach: mon.meleeReach + bodyR(a) + bodyR(settled || a),
         flying: mon.flyer,
         perches: mon.flyer && mon.row.tier === 0,
         hoverBand: mon.flyer && mon.row.tier === 0 ? BIRD_BAND : null,
         dormant,
         rng,
       });
-      mon.cornered = !!res.cornered;
       if (!before && a.ai.target) alertGroup(mon, a.ai.target);
 
       // Anything still hanging above the floor, and the fall when it lets go.
@@ -1463,8 +1480,10 @@ export function createMonsters(sc, runtime, opts = {}) {
 
       if (res.wantSwing && onPlayer) {
         // A stoop is hands and feet whatever the row usually does at range: a
-        // glass wyvern coming down does not also throw a spike on the way.
-        const ranged = !mon.diving && (mon.mode === 'thrown' || mon.mode === 'shot');
+        // glass wyvern coming down does not also throw a spike on the way. So
+        // is a swing taken inside melee reach, which is what a thrower does now
+        // instead of stepping backwards: the dagger, not the knife.
+        const ranged = !mon.diving && !res.melee && (mon.mode === 'thrown' || mon.mode === 'shot');
         // Every fourth swing of a row that sweeps is the arc instead of the
         // blow. It costs the same swing, so it is not a free fifth attack.
         const sweeping = mon.tags.has('tailSweep') && (mon.swings + 1) % SWEEP_EVERY === 0;
@@ -2597,6 +2616,6 @@ export {
   hoverHeight, approachHeight, bossPlanFor, phaseIndexFor, plateText,
   weaknessMultiplier, dungeonSpawns, normalizeDungeonLayout, dungeonHabitat,
   rangedWeaponFor, groupsForRoom, bossRowsFor, auditRangedRows,
-  RANGED_NEAR, RANGED_FAR, RANGED_BACKOFF, SWOOP_SECONDS,
+  RANGED_FAR, rangeOf, SWOOP_SECONDS,
   ENRAGE_SWING, SLAM_WARN_S, SLAM_RADIUS, SUMMON_COUNT,
 } from './monster_ai.js';

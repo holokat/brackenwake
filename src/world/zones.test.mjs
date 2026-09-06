@@ -120,8 +120,11 @@ console.log('zones: the table is realms.js');
     const sub = zoneSub(z);
     return sub && sub.length <= 24 && sub.split(' ').length <= 4;
   }), [...new Set(ZONES.map((z) => zoneSub(z)))].join(' / '));
+  // The banner says the TOP of the band, so the Greenwold at 1 to 2 says the
+  // tier 2 word. Read off the zone, not typed, so the next band that moves
+  // moves this with it.
   check('a realm says its danger and a place says its realm',
-    zoneSub(ZONE.greenwold) === DANGER_WORD[1] && zoneSub(ZONE.hearthhome) === ZONE.greenwold.short
+    zoneSub(ZONE.greenwold) === DANGER_WORD[ZONE.greenwold.danger[1]] && zoneSub(ZONE.hearthhome) === ZONE.greenwold.short
     && zoneSub(ZONE.glassroad) === ZONE.emberwastes.short,
     `${ZONE.hearthhome.name} reads "${zoneSub(ZONE.hearthhome)}", ${ZONE.glassroad.name} reads "${zoneSub(ZONE.glassroad)}"`);
   check('and every tier has a word', [1, 2, 3, 4, 5].every((t) => !!DANGER_WORD[t]) && zoneSub(null) === '');
@@ -321,7 +324,7 @@ console.log('zones: zoneAt, zoneBias and the parent chain');
   {
     const hit = zoneAt(0, 0), bias = zoneBias(0, 0);
     check('a save standing at the origin is in the Greenwold', hit.zone.id === 'greenwold' && hit.weight === 1
-      && bias.biome === 'meadow' && bias.climate === null && bias.danger[1] === 1,
+      && bias.biome === 'meadow' && bias.climate === null && bias.danger[0] === 1 && bias.danger[1] === 2,
       `${hit.zone.name}, weight ${hit.weight}, tier ${bias.danger.join(' to ')}, biome ${bias.biome}`);
     check('and the hub is a walk away, not on top of them', Math.hypot(ZONE.hearthhome.x, ZONE.hearthhome.z) > HEART_SAFE,
       `${ZONE.hearthhome.name} stands ${Math.hypot(ZONE.hearthhome.x, ZONE.hearthhome.z).toFixed(0)} m from the origin`);
@@ -341,7 +344,14 @@ console.log('zones: zoneAt, zoneBias and the parent chain');
   check('unclaimed ground is still given a band', wild.id === null && Array.isArray(wild.danger) && wild.ore === WILD_ORE,
     `at ${WILD_AT.join(', ')}: danger ${wild.danger.join(' to ')}`);
   check('the wild band rises with distance', wildDanger(0, 0)[1] < wildDanger(0, 7000)[1], `${wildDanger(0, 0).join('-')} at home, ${wildDanger(0, 7000).join('-')} at the rim`);
-  check('the heart hands back the safest band', zoneBias(0, 0).danger[1] === 1 && zoneBias(0, 0).id === 'greenwold');
+  // The heart is the softest ground in the world, but not tier 1 alone: a zone
+  // of nothing but tier 1 reads grey to a fresh opening, which starts at 50.
+  // See docs/mmo/wiring/C3-CON-KITE.md.
+  check('the heart hands back the safest band', zoneBias(0, 0).danger[1] === 2 && zoneBias(0, 0).id === 'greenwold',
+    zoneBias(0, 0).danger.join(' to '));
+  check('and it is still the softest band any realm carries',
+    REALM_ZONES.every((r) => r.danger[1] >= ZONE.greenwold.danger[1]),
+    REALM_ZONES.map((r) => `${r.id}:${r.danger.join('-')}`).join(' '));
   check('the rim hands back the worst', zoneBias(ZONE.ashenthrone.x, ZONE.ashenthrone.z).danger[0] === 5);
 
   // THE BIAS IS THE REALM'S. Standing in a subzone must not soften the country.

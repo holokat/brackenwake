@@ -427,7 +427,12 @@ console.log('win_map: the column beside the map');
   check('and so is every place', m.places.every((r, i) => i === 0 || m.places[i - 1].dist <= r.dist));
   check('the header names the region you are standing in', m.here.name === ZONE.greenwold.name && m.here.line === ZONE.greenwold.line, m.here.name);
   check('and says the ground under you in words', !!m.here.ground && Object.values(GROUND_WORD).includes(m.here.ground), m.here.ground);
-  check('and the danger band in the game words, never a bare number', m.here.danger === DANGER_WORD[1] && !/\d/.test(m.here.danger), m.here.danger);
+  // The Greenwold is a two tier realm (1 to 2), so its header says both ends.
+  // Read off the zone rather than typed, so widening a band again changes the
+  // expectation with it.
+  check('and the danger band in the game words, never a bare number',
+    m.here.danger === dangerWords(ZONE.greenwold.danger) && m.here.danger.includes(DANGER_WORD[1]) && !/\d/.test(m.here.danger),
+    m.here.danger);
 }
 
 console.log('win_map: an unwalked region keeps its name, exactly as the map hatches it');

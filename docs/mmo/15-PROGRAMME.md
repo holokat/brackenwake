@@ -32,13 +32,25 @@ the Greenwold before anything else and wants it to carry the pitch.
 **Difficulty and colour.** Yes to both. Monsters already carry a tier (1 to 5,
 bosses 6) and the realms carry a danger band, so difficulty already climbs by
 zone. What is missing is the player being told. The rule: compare the
-monster's tier to the player's own tier, which is the tier band their best
-combat skill falls in (skills.js BANDS and monsters.js TIERS agree on 0 to 100),
-and colour the name on the nameplate, the target frame, the floaters and the
-hover label: grey two tiers below you (no gain, no threat), green one below,
-yellow the same, orange one above, red two or more above (it will kill you),
-purple for a boss. A skull beside a red name. This is the World of Warcraft
-"con" system and every player already reads it.
+monster's tier to the player's CON RUNG, which is one below the tier band their
+best combat skill falls in (skills.js BANDS and monsters.js TIERS agree on 0 to
+100), floored at zero so bands 0 and 1 both read as tier 0. Then colour the name
+on the nameplate, the target frame, the floaters and the hover label: grey two
+tiers below the rung (no gain, no threat), green one below, yellow the same,
+orange one above, red two or more above (it will kill you), purple for a boss. A
+skull beside a red name. This is the World of Warcraft "con" system and every
+player already reads it.
+
+The rung is one below the band because of where a character starts. Every
+opening but Blank begins with 50 in its main skill, which is band 3, and the
+Greenwold is a tier 1 to 2 realm. Read straight off the band, a fresh Warrior
+walked out of Hearthhome and the whole starting zone was grey, which is the game
+telling him on his first morning that there is nothing here worth swinging at.
+Read off the rung, band 3 is tier 2, so a wolf is yellow and a fair fight, a
+goblin scout is green, and a rabbit is grey. A Blank with nothing trained stays
+at rung 0 and finds a tier 1 goblin orange, which he should. At the top, a
+grandmaster is band 5 and reads as 4, so tier 5 is still orange to him and the
+last realm is still a climb.
 
 **Map names.** The map already hatches a zone you have not walked into and
 hides its name; a walked zone is tinted and named. Places found within 70 m

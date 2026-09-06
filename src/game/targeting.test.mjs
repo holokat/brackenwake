@@ -180,17 +180,21 @@ ck('the player is measured by the best skill that fights, not by tailoring',
   `tailoring 100 and swordsmanship 32 reads tier ${playerTier({ skills: { tailoring: 100, swordsmanship: 32 } })}`);
 ck('the skill list has no duplicates', CON_SKILLS.length === new Set(CON_SKILLS).size, CON_SKILLS.join(' '));
 ck('conOf is the same function con.js publishes, six levels deep',
-  CON_LEVELS.length === 6 && conOf({ tier: 2 }, { skills: { swordsmanship: 30 } }).level === 'even');
+  CON_LEVELS.length === 6 && conOf({ tier: 2 }, { skills: { swordsmanship: 50 } }).level === 'even');
+ck('and it reads the rung, one below the band: swordsmanship 30 is band 2 and reads tier 1',
+  playerTier({ skills: { swordsmanship: 30 } }) === 2 && conOf({ tier: 2 }, { skills: { swordsmanship: 30 } }).level === 'hard',
+  conOf({ tier: 2 }, { skills: { swordsmanship: 30 } }).level);
 
 // --- the target frame ----------------------------------------------------------
 console.log('targeting: the frame data');
 ck('no target, no frame', targetFrame(null) === null);
 {
+  // swordsmanship 75 is band 4, which reads as tier 3, one rung above the mob
   const f = targetFrame(mob('Skeleton Warrior', 0, 4, { health: 15, maxHealth: 60, tier: 2 }),
-    { skills: { swordsmanship: 55 } });
+    { skills: { swordsmanship: 75 } });
   ck('it names the thing', f.name === 'Skeleton Warrior');
   ck('a quarter of its health is a quarter of the bar', f.fraction === 0.25, String(f.fraction));
-  ck('a tier 2 seen by a tier 3 player is green and says "easy"',
+  ck('a tier 2 seen by a player who reads as tier 3 is green and says "easy"',
     f.colour === '#7ee07a' && f.level === 'easy' && f.word === 'easy', `${f.level} ${f.colour} "${f.word}"`);
   ck('and it carries no skull', f.skull === false);
 }
@@ -242,7 +246,7 @@ function stubCamera() {
   // 60 frames of a wolf walking from left to right in front of the camera
   const cam = stubCamera();
   const wolf = mob('Wolf', -6, 0, { tier: 2 });
-  const me9 = { skills: { swordsmanship: 30 } };
+  const me9 = { skills: { swordsmanship: 50 } };
   const xs = [], ys = [];
   for (let i = 0; i < 60; i++) {
     wolf.pos.x = -6 + 12 * (i / 59);
@@ -264,7 +268,7 @@ function stubCamera() {
 }
 {
   const cam = stubCamera();
-  const me9 = { skills: { swordsmanship: 30 } };
+  const me9 = { skills: { swordsmanship: 50 } };
   const wolf = mob('Wolf', 0, 0, { tier: 2 });
   const plate = nameplateOf(wolf, me9, cam, W, H, 1.4);
   ck('the plate carries the con colour and the word', plate.colour === '#ffd23f' && plate.word === 'a fair fight',
@@ -346,7 +350,7 @@ console.log('targeting: the plate and the floaters follow the target');
   const t = createTargeting(null, null, { targets: () => [] }, { pos: () => ({ x: 0, z: 0 }), yaw: () => 0 });
   const wolf = mob('Wolf', 0, 1, { tier: 2 });
   t.set(wolf);
-  const f = t.frame({ skills: { swordsmanship: 30 } });
+  const f = t.frame({ skills: { swordsmanship: 50 } });
   ck('with no camera the frame is still drawn and the plate is simply absent',
     f.level === 'even' && t.nameplate === null, `${f.level}, plate ${t.nameplate}`);
   t.dispose();

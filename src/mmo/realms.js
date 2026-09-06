@@ -22,7 +22,7 @@ const p = (id, name, kind, geography, contains, opts = {}) => ({ id, name, kind,
 
 export const REALMS = [
   {
-    id: 'greenwold', name: 'The Greenwold', ring: 0, danger: [1, 1],
+    id: 'greenwold', name: 'The Greenwold', ring: 0, danger: [1, 2],
     biome: 'meadow', x: 0, z: 0, r: 2200,
     line: 'Wheat to the horizon, a slow river, and a village that has never lost anything. Home.',
     geography: 'Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.',

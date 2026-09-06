@@ -407,14 +407,24 @@ check('every one of them is a new id', new Set(MONSTER_LIST.map((m) => m.id)).si
   check('every place on both routes is real',
     wanderers.every((b) => b.route.every((id) => real.includes(id))));
 
-  // A boss's rank is its realm's own danger, and this is where that is proved.
+  // A boss's rank sits inside its realm's own danger band, and this is where
+  // that is proved. It was "equals the top of the band" until the Greenwold
+  // became a 1 to 2 realm: Oram Blackhand is the first boss anybody meets, his
+  // 520 health is a rank 1 number and belongs at rank 1, and a realm whose band
+  // is two tiers wide is allowed a boss at either of them. Every other realm's
+  // band is one tier wide, so for eleven of the twelve this is the same check
+  // it always was.
   const realmOfPlace = Object.fromEntries(PLACES.map((p) => [p.id, p.realm]));
   const realmById = Object.fromEntries(REALMS.map((r) => [r.id, r]));
+  const bandOf = (b) => realmById[realmOfPlace[b.lair]].danger;
   const wrong = BOSSES.filter((b) => b.lair && b.id !== 'malachar')
-    .filter((b) => b.rank !== realmById[realmOfPlace[b.lair]].danger[1]);
-  check('every boss but Malachar is ranked at its realm\'s own danger', wrong.length === 0,
-    wrong.map((b) => `${b.id} rank ${b.rank} in a danger ${realmById[realmOfPlace[b.lair]].danger[1]} realm`).join(', ')
+    .filter((b) => b.rank < bandOf(b)[0] || b.rank > bandOf(b)[1]);
+  check('every boss but Malachar is ranked inside its realm\'s own danger band', wrong.length === 0,
+    wrong.map((b) => `${b.id} rank ${b.rank} in a danger ${bandOf(b).join(' to ')} realm`).join(', ')
     || BOSSES.filter((b) => b.lair).map((b) => `${b.id} r${b.rank}`).join(' '));
+  const narrow = BOSSES.filter((b) => b.lair && b.id !== 'malachar' && bandOf(b)[0] === bandOf(b)[1]);
+  check('and where the band is one tier wide, the rank is that tier exactly',
+    narrow.every((b) => b.rank === bandOf(b)[1]), `${narrow.length} of ${BOSSES.filter((b) => b.lair).length} bosses`);
   check('and Malachar is the one rank above any realm', MONSTERS.malachar.rank === 6);
 
   // Every realm has something to fight in it: its biome's roster plus its own

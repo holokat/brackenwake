@@ -280,7 +280,9 @@ console.log('hud: the con colour on every surface that names a monster');
   const wolf = { name: 'Wolf', tier: 2, health: 40, maxHealth: 40 };
   const three = [
     ['a fresh character', { skills: {} }, '#ff5a4d', 'it will kill you', true],
-    ['a middling one', { skills: { swordsmanship: 30 } }, '#ffd23f', 'a fair fight', false],
+    // swordsmanship 50 is band 3, which reads as tier 2: a fresh opening, and
+    // the wolf it is meant to meet in the Greenwold
+    ['a middling one', { skills: { swordsmanship: 50 } }, '#ffd23f', 'a fair fight', false],
     ['a grandmaster', { skills: { swordsmanship: 100 } }, '#9aa0a6', 'no threat', false],
   ];
   for (const [who, character, colour, word, skull] of three) {
