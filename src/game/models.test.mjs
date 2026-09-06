@@ -16,6 +16,7 @@ import {
   locomotionWeights, locomotionRates, SPEEDS, RIGS, CLIPS, clipsFor, MODEL_IDS, LOCOMOTION,
   FAMILY_MODEL, modelForFamily, clipAlias, STUDIO_MOVES, STUDIO_ALIAS, MODEL_BANK,
   familyOf, contractFor, registerModel, movesFor, moveInfo, abilityMoves, PLAYER_MODEL_IDS,
+  boneKey,
 } from './models.js';
 import { existsSync } from 'node:fs';
 import { instantiate } from './models.js';
@@ -106,6 +107,34 @@ const lifted = broken((j) => {
 check('a model floating 0.4 m off the ground fails the ground check',
   failedNames(lifted).some((n) => n.includes('y = 0')), failedNames(lifted).join('; '));
 
+// The joint name check changed meaning: a name three REWRITES is fine, because
+// every lookup goes through the same sanitiser, and what is not fine is a name
+// that sanitises to nothing or two that sanitise to one string. So both have to
+// be driven, or the check would only ever have been seen to say yes.
+const dotted = broken((j) => {
+  const joints = j.skins[0].joints;
+  j.nodes[joints[1]].name = 'upperarm.L';
+});
+check('a bone renamed the way Blender writes a mirror still passes, because the lookup sanitises too',
+  dotted.ok === true, failedNames(dotted).join('; ') || 'every check still passes');
+
+const collided = broken((j) => {
+  const joints = j.skins[0].joints;
+  const first = j.nodes[joints[1]].name;
+  j.nodes[joints[2]].name = first + '.';
+});
+check('but two bones that sanitise to ONE name fail the file', collided.ok === false,
+  failedNames(collided).join('; '));
+check('and they fail the joint name check and nothing else',
+  failedNames(collided).join() === 'joint names survive three', failedNames(collided).join('; '));
+
+const nameless = broken((j) => {
+  const joints = j.skins[0].joints;
+  j.nodes[joints[3]].name = '...';
+});
+check('a bone whose name sanitises to nothing at all fails it too',
+  failedNames(nameless).includes('joint names survive three'), failedNames(nameless).join('; '));
+
 const slowed = broken((j) => {
   const walk = j.animations.find((a) => a.name === 'walk');
   for (const s of walk.samplers) j.accessors[s.input].max = [5.0];
@@ -140,25 +169,36 @@ check('every model can be driven by the locomotion blend tree',
 // partsLike hands back bone objects by name. If Blender renamed a bone the
 // lookup would quietly return null and poseCharacter style code would move
 // nothing, so check the names against the joints actually in each file.
-// dragon-hatchling has no RIGS entry: its 97 joints are the dragon agent's to
-// map, and a map written without the file in front of you is a map that points
-// at bones that may not exist. This says so out loud rather than leaving the
-// absence to be noticed.
-const NO_POSE_MAP = ['dragon-hatchling'];
-check('every model without a partsLike map is one that is meant not to have one',
+//
+// dragon-hatchling had no RIGS entry while its 97 joints were nobody's to map,
+// because a map written without the file in front of you is a map that points
+// at bones that may not exist. It has one now, and it is checked here like
+// every other. Nothing is meant to be without one any more, so an id that has
+// none is a body somebody forgot rather than a body that was left alone.
+//
+// The names are matched THROUGH boneKey, the same function GLTFLoader put every
+// node name through on the way in. A table naming `wing_upper.L` and a file
+// carrying `wing_upperL` are the same bone; a table naming `wing_upperQ` is
+// not, and neither form would find it.
+const NO_POSE_MAP = [];
+check('every model has a partsLike map now that the hatchling has one',
   MODEL_IDS.filter((id) => !RIGS[id]).join() === NO_POSE_MAP.join(),
-  MODEL_IDS.filter((id) => !RIGS[id]).join(', ') || 'every model has one');
+  MODEL_IDS.filter((id) => !RIGS[id]).join(', ') || `all ${MODEL_IDS.length} have one`);
 for (const id of READY) {
   const { json } = parseGLB(readFileSync(join(MODEL_DIR, id + '.glb')));
-  const joints = new Set(json.skins[0].joints.map((i) => json.nodes[i].name));
+  const joints = new Set(json.skins[0].joints.map((i) => boneKey(json.nodes[i].name)));
   const map = RIGS[id];
   if (!map) {
     check(`${id} is a real skin with joints, even with no partsLike map`, joints.size > 0, `${joints.size} joints`);
     continue;
   }
-  const missing = Object.entries(map).filter(([, bone]) => !joints.has(bone)).map(([k, b]) => `${k}=${b}`);
+  const missing = Object.entries(map).filter(([, bone]) => !joints.has(boneKey(bone))).map(([k, b]) => `${k}=${b}`);
   check(`${id} has every bone partsLike promises`, missing.length === 0, missing.join(', ') || Object.values(map).join(', '));
 }
+check('boneKey is the loader\'s own sanitiser, so a dotted name and a flat one are one bone',
+  boneKey('wing_upper.L') === 'wing_upperL' && boneKey('wing_upperL') === 'wing_upperL'
+  && boneKey('Dragon_eyelids.L') === 'Dragon_eyelidsL' && boneKey('a b') === 'a_b',
+  'wing_upper.L, Dragon_eyelids.L and "a b" all come out the way three has them');
 
 console.log('\nmodels: the locomotion blend tree');
 check('standing still is all idle', locomotionWeights(0).idle === 1);

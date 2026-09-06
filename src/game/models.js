@@ -220,6 +220,15 @@ const BIPED = { head: 'head', torso: 'chest', armL: 'upperarm_L', armR: 'upperar
 // like the one above it: armL is the body's own left arm. rig_glb.js's
 // BONE_CANDIDATES is the one that mirrors, and says why.
 const MIXAMO = { head: 'Head', torso: 'Spine1', armL: 'LeftArm', armR: 'RightArm', legL: 'LeftUpLeg', legR: 'RightUpLeg' };
+// The hatchling is a quadruped, so its arms are its front legs and its legs
+// are its hind ones. Written with the names the FILE carries, which the test
+// checks against the joints in the skin; `boneKey` below is what would still
+// find them if the file were re-exported with Blender's own dots on.
+const DRAGON = {
+  head: 'head', torso: 'spine_02',
+  armL: 'front_upperL', armR: 'front_upperR',
+  legL: 'hind_upperL', legR: 'hind_upperR',
+};
 export const RIGS = {
   'human-slim': BIPED,
   'human-medium': BIPED,
@@ -232,7 +241,36 @@ export const RIGS = {
   'monster-rat': { head: 'head', torso: 'chest', armL: 'legF_L', armR: 'legF_R', legL: 'legB_L', legR: 'legB_R' },
   'monster-spider': { head: 'body', torso: 'abdomen', armL: 'leg1_L', armR: 'leg1_R', legL: 'leg4_L', legR: 'leg4_R' },
   'monster-bat': { head: 'head', torso: 'body', armL: 'wing_L', armR: 'wing_R', legL: 'tip_L', legR: 'tip_R' },
+  'dragon-hatchling': DRAGON,
 };
+
+// --- names with dots in them ----------------------------------------------
+//
+// Blender writes a mirrored bone as `wing_upper.L`, and three does not keep
+// that name. `PropertyBinding.sanitizeNodeName` turns whitespace into an
+// underscore and DROPS `. [ ] : /`, and GLTFLoader runs every node name
+// through it on the way in, so a bone exported as `wing_upper.L` is
+// `wing_upperL` in the scene graph. The clips still bind, because three
+// rewrites the track names the same way. What breaks is every lookup BY NAME
+// from code, silently, returning null.
+//
+// The hatchling shipped that way once and was re-exported with its 97 joints
+// already flattened, so no bone in any model here needs this today. Two of its
+// MESHES still do: `Dragon_eyelids.L` and `Dragon_eyelids.R` arrive as
+// `Dragon_eyelidsL` and `Dragon_eyelidsR`. And a re-export is one Blender
+// setting away from putting the dots back on every mirrored bone in the file,
+// which would break every table in this module in total silence. So every
+// lookup by name goes through the same function the loader used and a table
+// may be written either way round.
+//
+// What is NOT safe is two names that sanitise to the SAME string: the loader
+// would make one of them unique by appending a number and the table would then
+// point at the wrong bone. tools/validate-glb.mjs checks for exactly that.
+
+/** A bone name as three will have it after the loader has sanitised it. */
+export function boneKey(name) {
+  return THREE.PropertyBinding.sanitizeNodeName(String(name == null ? '' : name));
+}
 
 /**
  * The names this model answers to. Once the file is in the cache that is what
@@ -623,11 +661,16 @@ export function instantiate(id) {
   inst.partsLike = () => {
     const map = RIGS[id] || BIPED;
     const out = {};
-    for (const [key, bone] of Object.entries(map)) out[key] = (inst.bones && inst.bones.get(bone)) || null;
+    for (const [key, bone] of Object.entries(map)) out[key] = inst.bone(bone);
     return out;
   };
 
-  inst.bone = (name) => (inst.bones ? inst.bones.get(name) || null : null);
+  // Through boneKey, so a table may name the bone the FILE carries and still
+  // find the one three built. `wing_upper.L` and `wing_upperL` are one bone.
+  inst.bone = (name) => {
+    if (!inst.bones) return null;
+    return inst.bones.get(name) || inst.bones.get(boneKey(name)) || null;
+  };
 
   /** How long one clip runs, in seconds, or 0 if this model has no such clip. */
   inst.clipDuration = (name) => clipDuration(id, name);

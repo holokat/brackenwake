@@ -24,9 +24,14 @@
 //   triangles            the budget is the budget
 //   no textures          the world is flat shaded; a texture reference that
 //                        cannot resolve renders black
-//   joint names          three strips . [ ] : / and whitespace out of node
-//                        names, so a bone called "upperarm.L" arrives as
-//                        "upperarmL" and every lookup by name misses
+//   joint names          three strips . [ ] : / out of node names and turns
+//                        whitespace into an underscore, so "upperarm.L"
+//                        arrives as "upperarmL". That is survivable, and
+//                        models.js `boneKey` is how a lookup survives it. What
+//                        is not is a name that sanitises to nothing, or two
+//                        that sanitise to the SAME string: the loader numbers
+//                        the second one and every table naming it gets the
+//                        first bone or no bone at all.
 
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, basename, dirname } from 'node:path';
@@ -247,7 +252,14 @@ function apply(m, p) {
 
 // --- the checks -----------------------------------------------------------
 
-const RESERVED = /[\s.[\]:/]/;   // what THREE.PropertyBinding.sanitizeNodeName removes
+/**
+ * THREE.PropertyBinding.sanitizeNodeName, written out because this file has no
+ * dependencies. Whitespace becomes an underscore and `. [ ] : /` are dropped.
+ * GLTFLoader runs every node name through it, so this is the name the bone
+ * really has once the file is in the game.
+ */
+export const sanitizeNodeName = (name) => String(name == null ? '' : name)
+  .replace(/\s/g, '_').replace(/[[\].:/]/g, '');
 
 export function validateBuffer(buf, spec, name) {
   const checks = [];
@@ -281,16 +293,36 @@ export function validateBuffer(buf, spec, name) {
   stats.bones = joints.length;
   add(`under ${spec.bones} bones`, joints.length > 0 && joints.length < spec.bones, `${joints.length} bones`);
 
-  // joint names have to survive three's node name sanitiser
+  // Joint names have to survive three's node name sanitiser.
+  //
+  // Surviving does NOT mean coming through unchanged. `wing_upper.L` arrives as
+  // `wing_upperL`, and that is harmless as long as every lookup by name runs
+  // the same function first, which models.js `boneKey` does. Two things are not
+  // harmless, and they are what this check is for:
+  //
+  //   an empty name        nothing can be looked up at all
+  //   a collision          two joints that sanitise to one string. GLTFLoader
+  //                        makes the second unique by appending a number, so a
+  //                        table pointing at that name silently gets the FIRST
+  //                        bone, or a bone called `wing_upperL_1` that no table
+  //                        will ever name.
   const names = joints.map((i) => (json.nodes[i] || {}).name || '');
-  const bad = names.filter((n) => !n || RESERVED.test(n));
-  // Say what the name BECOMES, not just that it is wrong. The clips still bind,
-  // because three rewrites the track names the same way; what breaks is every
-  // lookup by name from code, which is silent and returns null.
-  const rewritten = bad.slice(0, 6).map((n) => `${n} becomes ${n.replace(/[\s.[\]:/]/g, '')}`);
-  add('joint names survive three', bad.length === 0,
-    bad.length ? `three rewrites ${bad.length} of ${names.length} names: ${rewritten.join(', ')}${bad.length > 6 ? ' and so on' : ''}`
-      : `${names.length} names clean`);
+  const clean = names.map(sanitizeNodeName);
+  const empty = names.filter((n, i) => !n || !clean[i]);
+  const seen = new Map();
+  const clash = [];
+  for (let i = 0; i < clean.length; i++) {
+    if (seen.has(clean[i])) clash.push(`${seen.get(clean[i])} and ${names[i]} both become ${clean[i]}`);
+    else seen.set(clean[i], names[i]);
+  }
+  const changed = names.filter((n, i) => n !== clean[i]);
+  stats.renamedJoints = changed.length;
+  const trouble = [...empty.map((n) => `"${n}" has no name left`), ...clash];
+  add('joint names survive three', trouble.length === 0,
+    trouble.length ? `${trouble.slice(0, 4).join('; ')}${trouble.length > 4 ? ' and so on' : ''}`
+      : changed.length
+        ? `${names.length} names, ${changed.length} rewritten (${changed[0]} becomes ${sanitizeNodeName(changed[0])}), all still unique`
+        : `${names.length} names clean`);
 
   // triangles, and nothing but triangles
   let tris = 0;

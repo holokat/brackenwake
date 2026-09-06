@@ -6,6 +6,252 @@
   },
   "models": [
     {
+      "name": "dragon-hatchling",
+      "ok": true,
+      "checks": [
+        {
+          "name": "magic and version",
+          "ok": true,
+          "detail": "glTF v2"
+        },
+        {
+          "name": "no cameras or lights",
+          "ok": true,
+          "detail": "0 cameras, 0 camera nodes, 0 lights"
+        },
+        {
+          "name": "exactly one skin",
+          "ok": true,
+          "detail": "1 skins"
+        },
+        {
+          "name": "under 100 bones",
+          "ok": true,
+          "detail": "97 bones"
+        },
+        {
+          "name": "joint names survive three",
+          "ok": true,
+          "detail": "97 names clean"
+        },
+        {
+          "name": "under 20000 triangles",
+          "ok": true,
+          "detail": "17342 triangles"
+        },
+        {
+          "name": "triangles only",
+          "ok": true,
+          "detail": "0 primitives are not TRIANGLES"
+        },
+        {
+          "name": "every texture is embedded",
+          "ok": true,
+          "detail": "1 images, 1 textures, 2 materials"
+        },
+        {
+          "name": "vertex or flat colour on every primitive",
+          "ok": true,
+          "detail": "2 materials"
+        },
+        {
+          "name": "every clip present",
+          "ok": true,
+          "detail": "idle, walk, fly, glide, take_off, land, lie_down, sleep, wake_up, shoulder_perch, wing_spread, wing_fold, wing_flex, look_around, tail_sway, cast_spell"
+        },
+        {
+          "name": "no clip is shorter than its floor",
+          "ok": true,
+          "detail": "idle 4.00s, walk 1.60s, fly 1.20s, glide 3.00s, take_off 2.40s, land 2.40s, lie_down 2.80s, sleep 5.00s, wake_up 2.80s, shoulder_perch 4.00s, wing_spread 2.80s, wing_fold 2.80s, wing_flex 3.00s, look_around 5.00s, tail_sway 4.00s, cast_spell 3.00s"
+        },
+        {
+          "name": "x extent within 15% of 1.1 m",
+          "ok": true,
+          "detail": "1.088 m (x 1.09 y 0.58 z 0.91)"
+        },
+        {
+          "name": "bind pose stands on y = 0 within 0.05 m",
+          "ok": true,
+          "detail": "min y -0.0000"
+        },
+        {
+          "name": "under 8192 KB",
+          "ok": true,
+          "detail": "7911 KB"
+        }
+      ],
+      "stats": {
+        "bones": 97,
+        "renamedJoints": 0,
+        "triangles": 17342,
+        "materials": 2,
+        "images": 1,
+        "clips": {
+          "idle": 4,
+          "walk": 1.6,
+          "fly": 1.2,
+          "glide": 3,
+          "take_off": 2.4,
+          "land": 2.4,
+          "lie_down": 2.8,
+          "sleep": 5,
+          "wake_up": 2.8,
+          "shoulder_perch": 4,
+          "wing_spread": 2.8,
+          "wing_fold": 2.8,
+          "wing_flex": 3,
+          "look_around": 5,
+          "tail_sway": 4,
+          "cast_spell": 3
+        },
+        "bounds": {
+          "min": [
+            -0.5580319166183472,
+            -2.3040096497339846e-9,
+            -0.4020903706550598
+          ],
+          "max": [
+            0.5299360156059265,
+            0.58251953125,
+            0.5108043551445007
+          ],
+          "size": [
+            1.0879679322242737,
+            0.5825195335540096,
+            0.9128947257995605
+          ]
+        },
+        "bytes": 8100456
+      }
+    },
+    {
+      "name": "human-female",
+      "ok": true,
+      "checks": [
+        {
+          "name": "magic and version",
+          "ok": true,
+          "detail": "glTF v2"
+        },
+        {
+          "name": "no cameras or lights",
+          "ok": true,
+          "detail": "0 cameras, 0 camera nodes, 0 lights"
+        },
+        {
+          "name": "exactly one skin",
+          "ok": true,
+          "detail": "1 skins"
+        },
+        {
+          "name": "under 60 bones",
+          "ok": true,
+          "detail": "51 bones"
+        },
+        {
+          "name": "joint names survive three",
+          "ok": true,
+          "detail": "51 names clean"
+        },
+        {
+          "name": "under 60000 triangles",
+          "ok": true,
+          "detail": "51574 triangles"
+        },
+        {
+          "name": "triangles only",
+          "ok": true,
+          "detail": "0 primitives are not TRIANGLES"
+        },
+        {
+          "name": "every texture is embedded",
+          "ok": true,
+          "detail": "1 images, 1 textures, 1 materials"
+        },
+        {
+          "name": "vertex or flat colour on every primitive",
+          "ok": true,
+          "detail": "1 materials"
+        },
+        {
+          "name": "the clip bank is on disk",
+          "ok": true,
+          "detail": "human-female.json, 36 clips, 36 moves, 4925 KB"
+        },
+        {
+          "name": "the bank is version 1, 30 fps, and says which body it is for",
+          "ok": true,
+          "detail": "version 1, 30 fps, body human-female"
+        },
+        {
+          "name": "every move in the bank has a clip behind it",
+          "ok": true,
+          "detail": "36 clips"
+        },
+        {
+          "name": "the glb itself carries a hold clip and nothing that shadows the bank",
+          "ok": true,
+          "detail": "FemaleNeutral"
+        },
+        {
+          "name": "every clip present",
+          "ok": true,
+          "detail": "idle, combat-idle, idle-shift, idle-scan, walk-start, walk, walk-stop, walk-backward, strafe-left, strafe-right, run-start, run, run-stop, turn-left, turn-right, jump-launch, jump-air, running-leap, airborne, surface-swim, tread-water, land-soft, land-hard, dodge, light-attack, heavy-attack, two-handed-strike, cast, fireball, lightning, energy-missiles, healing, whirlwind, jump, die, hit"
+        },
+        {
+          "name": "no clip is shorter than its floor",
+          "ok": true,
+          "detail": "idle 2.50s, combat-idle 2.50s, idle-shift 2.40s, idle-scan 2.90s, walk-start 0.52s, walk 1.33s, walk-stop 0.48s, walk-backward 1.18s, strafe-left 1.08s, strafe-right 1.08s, run-start 0.46s, run 0.67s, run-stop 0.64s, turn-left 0.68s, turn-right 0.68s, jump-launch 0.46s, jump-air 0.66s, running-leap 1.42s, airborne 0.86s, surface-swim 1.33s, tread-water 3.33s, land-soft 0.72s, land-hard 0.92s, dodge 0.62s, light-attack 1.57s, heavy-attack 1.57s, two-handed-strike 1.62s, cast 1.25s, fireball 1.35s, lightning 1.65s, energy-missiles 1.10s, healing 1.80s, whirlwind 0.76s, jump 1.50s, die 1.40s, hit 0.50s"
+        },
+        {
+          "name": "y extent within 15% of 1.8 m",
+          "ok": true,
+          "detail": "1.800 m (x 0.96 y 1.80 z 0.37)"
+        },
+        {
+          "name": "bind pose stands on y = 0 within 0.05 m",
+          "ok": true,
+          "detail": "min y 0.0000"
+        },
+        {
+          "name": "under 8192 KB",
+          "ok": true,
+          "detail": "3760 KB"
+        }
+      ],
+      "stats": {
+        "bones": 51,
+        "renamedJoints": 0,
+        "triangles": 51574,
+        "materials": 1,
+        "images": 1,
+        "clips": {
+          "FemaleNeutral": 0.06666666666666667
+        },
+        "bank": "human-female.json",
+        "bankBytes": 5043129,
+        "bankClips": 36,
+        "bounds": {
+          "min": [
+            -0.4787982404232025,
+            0,
+            -0.18334147334098816
+          ],
+          "max": [
+            0.4787982404232025,
+            1.8000000715255737,
+            0.18334147334098816
+          ],
+          "size": [
+            0.957596480846405,
+            1.8000000715255737,
+            0.3666829466819763
+          ]
+        },
+        "bytes": 3850484
+      }
+    },
+    {
       "name": "human-heavy",
       "ok": true,
       "checks": [
@@ -73,12 +319,19 @@
           "name": "bind pose stands on y = 0 within 0.05 m",
           "ok": true,
           "detail": "min y 0.0000"
+        },
+        {
+          "name": "under 300 KB",
+          "ok": true,
+          "detail": "163 KB"
         }
       ],
       "stats": {
         "bones": 19,
+        "renamedJoints": 0,
         "triangles": 312,
         "materials": 5,
+        "images": 0,
         "clips": {
           "cast": 0.8,
           "die": 1.2,
@@ -107,6 +360,133 @@
           ]
         },
         "bytes": 166676
+      }
+    },
+    {
+      "name": "human-male",
+      "ok": true,
+      "checks": [
+        {
+          "name": "magic and version",
+          "ok": true,
+          "detail": "glTF v2"
+        },
+        {
+          "name": "no cameras or lights",
+          "ok": true,
+          "detail": "0 cameras, 0 camera nodes, 0 lights"
+        },
+        {
+          "name": "exactly one skin",
+          "ok": true,
+          "detail": "1 skins"
+        },
+        {
+          "name": "under 60 bones",
+          "ok": true,
+          "detail": "51 bones"
+        },
+        {
+          "name": "joint names survive three",
+          "ok": true,
+          "detail": "51 names clean"
+        },
+        {
+          "name": "under 12000 triangles",
+          "ok": true,
+          "detail": "9902 triangles"
+        },
+        {
+          "name": "triangles only",
+          "ok": true,
+          "detail": "0 primitives are not TRIANGLES"
+        },
+        {
+          "name": "every texture is embedded",
+          "ok": true,
+          "detail": "1 images, 1 textures, 1 materials"
+        },
+        {
+          "name": "vertex or flat colour on every primitive",
+          "ok": true,
+          "detail": "1 materials"
+        },
+        {
+          "name": "the clip bank is on disk",
+          "ok": true,
+          "detail": "human-male.json, 36 clips, 36 moves, 4544 KB"
+        },
+        {
+          "name": "the bank is version 1, 30 fps, and says which body it is for",
+          "ok": true,
+          "detail": "version 1, 30 fps, body human-male"
+        },
+        {
+          "name": "every move in the bank has a clip behind it",
+          "ok": true,
+          "detail": "36 clips"
+        },
+        {
+          "name": "the glb itself carries a hold clip and nothing that shadows the bank",
+          "ok": true,
+          "detail": "RigNeutral"
+        },
+        {
+          "name": "every clip present",
+          "ok": true,
+          "detail": "idle, combat-idle, idle-shift, idle-scan, walk-start, walk, walk-stop, walk-backward, strafe-left, strafe-right, run-start, run, run-stop, turn-left, turn-right, jump-launch, jump-air, running-leap, airborne, surface-swim, tread-water, land-soft, land-hard, dodge, light-attack, heavy-attack, two-handed-strike, cast, fireball, lightning, energy-missiles, healing, whirlwind, jump, die, hit"
+        },
+        {
+          "name": "no clip is shorter than its floor",
+          "ok": true,
+          "detail": "idle 2.50s, combat-idle 2.50s, idle-shift 2.40s, idle-scan 2.90s, walk-start 0.52s, walk 1.33s, walk-stop 0.48s, walk-backward 1.18s, strafe-left 1.08s, strafe-right 1.08s, run-start 0.46s, run 0.67s, run-stop 0.64s, turn-left 0.68s, turn-right 0.68s, jump-launch 0.46s, jump-air 0.66s, running-leap 1.42s, airborne 0.86s, surface-swim 1.33s, tread-water 3.33s, land-soft 0.72s, land-hard 0.92s, dodge 0.62s, light-attack 1.57s, heavy-attack 1.57s, two-handed-strike 1.62s, cast 1.25s, fireball 1.35s, lightning 1.65s, energy-missiles 1.10s, healing 1.80s, whirlwind 0.76s, jump 1.50s, die 1.40s, hit 0.50s"
+        },
+        {
+          "name": "y extent within 15% of 1.8 m",
+          "ok": true,
+          "detail": "1.800 m (x 0.93 y 1.80 z 0.34)"
+        },
+        {
+          "name": "bind pose stands on y = 0 within 0.05 m",
+          "ok": true,
+          "detail": "min y 0.0000"
+        },
+        {
+          "name": "under 8192 KB",
+          "ok": true,
+          "detail": "3008 KB"
+        }
+      ],
+      "stats": {
+        "bones": 51,
+        "renamedJoints": 0,
+        "triangles": 9902,
+        "materials": 1,
+        "images": 1,
+        "clips": {
+          "RigNeutral": 0.06666666666666667
+        },
+        "bank": "human-male.json",
+        "bankBytes": 4653056,
+        "bankClips": 36,
+        "bounds": {
+          "min": [
+            -0.4656082093715668,
+            4.4433288159950735e-9,
+            -0.17015160620212555
+          ],
+          "max": [
+            0.4656082093715668,
+            1.8000000715255737,
+            0.1701515018939972
+          ],
+          "size": [
+            0.9312164187431335,
+            1.800000067082245,
+            0.34030310809612274
+          ]
+        },
+        "bytes": 3080164
       }
     },
     {
@@ -177,12 +557,19 @@
           "name": "bind pose stands on y = 0 within 0.05 m",
           "ok": true,
           "detail": "min y 0.0000"
+        },
+        {
+          "name": "under 300 KB",
+          "ok": true,
+          "detail": "164 KB"
         }
       ],
       "stats": {
         "bones": 19,
+        "renamedJoints": 0,
         "triangles": 312,
         "materials": 5,
+        "images": 0,
         "clips": {
           "cast": 0.8,
           "die": 1.2,
@@ -281,12 +668,19 @@
           "name": "bind pose stands on y = 0 within 0.05 m",
           "ok": true,
           "detail": "min y 0.0000"
+        },
+        {
+          "name": "under 300 KB",
+          "ok": true,
+          "detail": "163 KB"
         }
       ],
       "stats": {
         "bones": 19,
+        "renamedJoints": 0,
         "triangles": 312,
         "materials": 5,
+        "images": 0,
         "clips": {
           "cast": 0.8,
           "die": 1.2,
@@ -385,12 +779,19 @@
           "name": "bind pose stands on y = 0 within 0.05 m",
           "ok": true,
           "detail": "min y -0.0008"
+        },
+        {
+          "name": "under 300 KB",
+          "ok": true,
+          "detail": "68 KB"
         }
       ],
       "stats": {
         "bones": 6,
+        "renamedJoints": 0,
         "triangles": 204,
         "materials": 3,
+        "images": 0,
         "clips": {
           "attack": 0.6,
           "die": 1.2,
@@ -487,12 +888,19 @@
           "name": "bind pose stands on y = 0 within 0.05 m",
           "ok": true,
           "detail": "min y 0.0000"
+        },
+        {
+          "name": "under 300 KB",
+          "ok": true,
+          "detail": "118 KB"
         }
       ],
       "stats": {
         "bones": 14,
+        "renamedJoints": 0,
         "triangles": 288,
         "materials": 4,
+        "images": 0,
         "clips": {
           "attack": 0.6,
           "die": 1.2,
@@ -589,12 +997,19 @@
           "name": "bind pose stands on y = 0 within 0.05 m",
           "ok": true,
           "detail": "min y 0.0000"
+        },
+        {
+          "name": "under 300 KB",
+          "ok": true,
+          "detail": "67 KB"
         }
       ],
       "stats": {
         "bones": 8,
+        "renamedJoints": 0,
         "triangles": 204,
         "materials": 3,
+        "images": 0,
         "clips": {
           "attack": 0.6,
           "die": 1.2,
@@ -691,12 +1106,19 @@
           "name": "bind pose stands on y = 0 within 0.05 m",
           "ok": true,
           "detail": "min y 0.0000"
+        },
+        {
+          "name": "under 300 KB",
+          "ok": true,
+          "detail": "127 KB"
         }
       ],
       "stats": {
         "bones": 14,
+        "renamedJoints": 0,
         "triangles": 360,
         "materials": 4,
+        "images": 0,
         "clips": {
           "attack": 0.6,
           "die": 1.2,
@@ -793,12 +1215,19 @@
           "name": "bind pose stands on y = 0 within 0.05 m",
           "ok": true,
           "detail": "min y -0.0064"
+        },
+        {
+          "name": "under 300 KB",
+          "ok": true,
+          "detail": "130 KB"
         }
       ],
       "stats": {
         "bones": 18,
+        "renamedJoints": 0,
         "triangles": 276,
         "materials": 3,
+        "images": 0,
         "clips": {
           "attack": 0.6,
           "die": 1.2,
@@ -895,12 +1324,19 @@
           "name": "bind pose stands on y = 0 within 0.05 m",
           "ok": true,
           "detail": "min y 0.0000"
+        },
+        {
+          "name": "under 300 KB",
+          "ok": true,
+          "detail": "115 KB"
         }
       ],
       "stats": {
         "bones": 14,
+        "renamedJoints": 0,
         "triangles": 276,
         "materials": 4,
+        "images": 0,
         "clips": {
           "attack": 0.6,
           "die": 1.2,
@@ -931,6 +1367,7 @@
     }
   ],
   "missing": [],
+  "pending": [],
   "unspecified": [],
   "ok": true
 }

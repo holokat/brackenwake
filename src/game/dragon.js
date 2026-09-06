@@ -235,6 +235,68 @@ export const STAGE = {
 /** Where the heel point is: 1.5 m behind the player and to the left. */
 export const HEEL = { back: 1.5, left: 0.8 };
 
+/**
+ * The rig anchor that IS the shoulder, for a body that can seat itself.
+ *
+ * `offset` above is a guess at where the shoulder is, measured off the back
+ * anchor, and it is the best a body with no mount point of its own can do. The
+ * studio hatchling has a mount point, `socket_perch`, so it goes on the
+ * shoulder itself instead. rig_glb.js's PART_KEYS calls that anchor `armR`, and
+ * its header says why the contract's right is the glb's left: `armR` is the one
+ * that sits at x = +0.27, which is the side `offset` already reaches for.
+ */
+export const SHOULDER_ANCHOR = 'armR';
+
+/**
+ * What the body says when it enters a state, said once.
+ *
+ * idle and walk are deliberately not here. They flip several times a minute
+ * while it follows you about and a line for each would be noise, and a dragon
+ * walking at your heel is not news. What is here is every state that changes
+ * what it is doing with itself, and every one of them is entered from exactly
+ * one place, so none of them can be said twice for one event.
+ */
+export const ANIM_LINES = {
+  perch: (name) => `${name} settles on your shoulder and folds its wings.`,
+  fly: (name) => `${name} throws its wings out and goes up with you.`,
+  glide: (name) => `${name} stops beating and rides the air.`,
+  // A hatchling comes down onto you and everything older comes down beside
+  // you, because everything older is too big to ride and the line has to be
+  // true of the animal that is actually there.
+  land: (name, at) => (at.riding
+    ? `${name} folds up and comes back down onto your shoulder.`
+    : `${name} folds its wings and comes back down beside you.`),
+  rest: (name) => `${name} lies down, curls its tail over its nose, and sleeps.`,
+};
+
+/** The states that end a flight, so the flight's own lines may be said again. */
+const GROUNDED = ['idle', 'walk', 'perch'];
+
+/** The two that happen over a state rather than instead of one. */
+export const OVERLAY_ANIMS = ['swing', 'hurt'];
+
+/**
+ * The states the WORLD owns rather than this file.
+ *
+ * Following, riding and standing are this file's: `run` writes one of them
+ * every frame. Flying is not, because nothing in these rules can fly; it is
+ * Wyrmsoul's wings, and systems/dragon.js asserts `fly` or `glide` every frame
+ * the player is up. So while one of these is the state, `run` leaves the body
+ * alone rather than putting it back on your shoulder sixty times a second.
+ */
+export const AIR_ANIMS = ['fly', 'glide', 'land'];
+
+/**
+ * How long the landing holds the body before the ride takes it back, in ms.
+ *
+ * This is the length of the studio body's `land` clip, and it is written here
+ * rather than read off the file because these rules must run with no model at
+ * all. `auditGlbDragon` in dragon_models.js measures the clip against it, so a
+ * re-exported file with a longer landing fails out loud instead of leaving the
+ * dragon hanging in the air for the difference.
+ */
+export const LAND_MS = 2400;
+
 /** The body of an age. Unknown ages read as a hatchling rather than throwing. */
 export function stageBody(age) {
   const key = AGES.includes(age) ? age : 'hatchling';
@@ -529,6 +591,30 @@ export function createDragon(deps = {}) {
   }
   model = makeModel();
 
+  /**
+   * Build the body again, keeping the state it is in.
+   *
+   * The studio hatchling arrives over the network some way into the first
+   * second, and `buildModel` hands back the code body until it does. This is
+   * the one door that swaps the built body under a living dragon, and it is
+   * called by systems/dragon.js when the file lands. It is not a change of
+   * state and it says nothing: the animal is the same animal, and the state it
+   * was in is put straight back onto the new body.
+   *
+   * @returns what it is made of now, or null when there is no body at all
+   */
+  function rebuildBody() {
+    if (!buildModel) return null;
+    const was = model ? model.made : null;
+    const wasAnim = st.anim;
+    dropModel();
+    model = makeModel();
+    if (!model) return null;
+    if (wasAnim && wasAnim !== 'idle') model.setAnim(wasAnim);
+    place();
+    return { made: model.made || 'code', from: was };
+  }
+
   // ---- the state that is not the record -----------------------------------
   const st = {
     saidHungry: false,
@@ -539,10 +625,57 @@ export function createDragon(deps = {}) {
     speed: 0,
     riding: false,
     now: 0,
+    anim: null,
+    animAt: 0,
+    seat: null,
   };
+
+  /**
+   * True while the world owns the body's state and `run` must keep its hands
+   * off it: the whole of a Wyrmsoul flight, and the landing at the end of one.
+   */
+  function airborne() {
+    if (!AIR_ANIMS.includes(st.anim)) return false;
+    if (st.anim !== 'land') return true;
+    return st.now - num(st.animAt) < LAND_MS;
+  }
 
   const name = () => record.name || 'the hatchling';
   const stage = () => stageBody(record.age);
+
+  // ---- what the body is doing, and saying it once --------------------------
+  //
+  // Every state the body enters goes through here, from this file and from
+  // systems/dragon.js alike, so there is one place that knows what state it is
+  // in and one place that says so. ANIM_LINES is the table; a state with no
+  // line changes the body and says nothing, which is right for idle and walk
+  // and wrong for everything else.
+  //
+  // A line is said once per stretch. Coming down to the ground clears the set,
+  // so a second flight speaks again and a fly that flickers to a glide and back
+  // inside one flight does not.
+  const saidAnims = new Set();
+  // The hatching line already says it climbed onto your shoulder, so the perch
+  // it enters on the very next frame is not news.
+  if (stage().carry === 'shoulder') saidAnims.add('perch');
+
+  function setAnim(anim) {
+    if (!anim) return false;
+    // A swing and a flinch happen OVER whatever the body is doing rather than
+    // instead of it, on both bodies, so neither becomes the state it is in.
+    if (OVERLAY_ANIMS.includes(anim)) { model?.setAnim(anim); return false; }
+    const changed = anim !== st.anim;
+    st.anim = anim;
+    st.animAt = st.now;
+    model?.setAnim(anim);
+    if (!changed) return false;
+    if (GROUNDED.includes(anim)) for (const k of AIR_ANIMS) saidAnims.delete(k);
+    const line = ANIM_LINES[anim];
+    if (!line || saidAnims.has(anim)) return true;
+    saidAnims.add(anim);
+    say(line(name(), { riding: stage().carry === 'shoulder', age: record.age }));
+    return true;
+  }
 
   // ---- growing ------------------------------------------------------------
   /** Grow into whatever the gifts now buy, and say so. */
@@ -591,7 +724,7 @@ export function createDragon(deps = {}) {
     actor.health = 0;
     actor.status = {};
     actor.ai.target = null;
-    model?.setAnim('fall');
+    setAnim('fall');
     const by = killer?.name ? ` The ${killer.name} put it down.` : '';
     say(`${name()} has fallen. It is not dead, it cannot die, but it is down and the Bond is empty.${by}`, 'bad');
     say(`Fight where it fell and it will come round; walk away and it will not.`);
@@ -606,7 +739,7 @@ export function createDragon(deps = {}) {
     actor.dead = false;                 // combat.kill latches this; a wake clears it
     actor.health = Math.max(1, Math.round(actor.maxHealth * 0.5));
     actor.status = {};
-    model?.setAnim('wake');
+    setAnim('wake');
     say(`${name()} gets its feet under it, with ${actor.health} of ${actor.maxHealth} health and a Bond of ${Math.round(record.bond)}.`, 'good');
     emit('woke', {});
     return true;
@@ -736,7 +869,7 @@ export function createDragon(deps = {}) {
     if (record.fallen) {
       record.bond = clamp(record.bond - bondDrain(dt, gap > APART_M, true)
         + bondRally(dt, playerFighting && gap <= FALL_WATCH_M), 0, 100);
-      model?.setAnim('fall');
+      setAnim('fall');
       st.speed = 0;
       place();
       model?.update(dt, 0);
@@ -760,6 +893,10 @@ export function createDragon(deps = {}) {
     const target = typeof targetActor === 'function' ? targetActor() : null;
     const live = target && num(target.health) > 0 ? target : null;
     st.riding = s.carry === 'shoulder';
+    // Wyrmsoul's wings own the body while the player is up. Without this the
+    // ride would put it back on your shoulder on the very next phase of the
+    // same frame and no flight clip would ever be seen for more than one.
+    const air = airborne();
 
     if (st.riding) {
       // It rides, and it never climbs down: the anchor carries it and it bites
@@ -767,7 +904,7 @@ export function createDragon(deps = {}) {
       pos.x = num(p.x); pos.y = num(p.y) + s.height; pos.z = num(p.z);
       actor.yaw = num(playerRig?.yaw);
       st.speed = 0;
-      model?.setAnim('idle');
+      if (!air) setAnim('perch');
     } else {
       const to = live ? { x: num(live.pos.x), z: num(live.pos.z) } : heelPoint(p);
       const reach = s.reach + s.radius + num(live?.radius ?? 0.4);
@@ -786,14 +923,14 @@ export function createDragon(deps = {}) {
         pos.y = num(heightAt(pos.x, pos.z));
       }
       st.speed = dt > 0 ? moved / dt : 0;
-      model?.setAnim(st.speed > 0.2 ? 'walk' : 'idle');
+      if (!air) setAnim(st.speed > 0.2 ? 'walk' : 'idle');
     }
 
     // -- the swing, through the same call a monster's swing goes through ----
     if (live && typeof swing === 'function' && (!hungry || now >= st.hungrySwingUntil)) {
       const r = swing(actor, live, { now });
       if (r && r.queued) {
-        model?.setAnim('swing');
+        setAnim('swing');
         // A hungry dragon swings on TWICE its own timer, which is what "at half
         // speed" means for an animal whose only act is a bite. It has to be
         // twice and not once: queueSwing's own cooldown already ends one swing
@@ -830,8 +967,17 @@ export function createDragon(deps = {}) {
 
   /**
    * Put the body where the actor is. A hatchling is parented to the player
-   * rig's `back` anchor and offset out to the right shoulder; everything older
-   * stands on the ground on its own.
+   * rig's `back` anchor; everything older stands on the ground on its own.
+   *
+   * WHERE ON THE SHOULDER. The parent is the back anchor either way, because
+   * that anchor rides the chest and holds still while the arms swing, and a
+   * cat sized animal glued to an upper arm would be thrown about by every
+   * stride. What changes is the SEAT. A body with a mount point of its own gets
+   * `mountOn`, which is handed the anchor and the shoulder anchor beside it and
+   * puts its own socket exactly on the shoulder; a body without one falls back
+   * to `stageBody`'s offset, which is the shoulder measured off the chest and
+   * is what the ride has always used. The seat is returned so the caller can
+   * measure it rather than trust it.
    */
   function place() {
     if (!model) return;
@@ -842,8 +988,12 @@ export function createDragon(deps = {}) {
         model.group.parent?.remove(model.group);
         anchor.add(model.group);
       }
-      model.group.position.set(s.offset.x, s.offset.y, s.offset.z);
       model.group.rotation.set(0, 0, 0);
+      const shoulder = playerRig?.parts ? playerRig.parts[SHOULDER_ANCHOR] || null : null;
+      st.seat = typeof model.mountOn === 'function'
+        ? model.mountOn(anchor, shoulder, s.offset)
+        : (model.group.position.set(s.offset.x, s.offset.y, s.offset.z),
+          { x: s.offset.x, y: s.offset.y, z: s.offset.z });
       return;
     }
     if (scene && model.group.parent !== scene) {
@@ -899,6 +1049,11 @@ export function createDragon(deps = {}) {
     say(`The hatchling on your shoulder still has no name. Press N and give it one.`);
   }
   place();
+  // The state it is in from the moment it exists, rather than from the first
+  // frame. `riding` is not settled until `run` has looked at the stage, but
+  // what the BODY is doing is settled by the age alone, and a window that reads
+  // `anim` before the first frame should not read null.
+  setAnim(stage().carry === 'shoulder' ? 'perch' : 'idle');
 
   return {
     record, on, emit,
@@ -914,7 +1069,23 @@ export function createDragon(deps = {}) {
     get hungry() { return record.hunger > HUNGRY_AT; },
     get speed() { return st.speed; },
     get riding() { return st.riding; },
+    /** What the body is doing, and what it is made of. */
+    get anim() { return st.anim; },
+    get made() { return model ? model.made || 'code' : null; },
+    /** Where the ride seated it, in the anchor's own frame. Null on the ground. */
+    get seat() { return st.riding ? st.seat || null : null; },
     stage,
+    /**
+     * Put it in a state. systems/dragon.js calls this for the states only the
+     * world knows about: it flies when you fly and it breathes when you
+     * breathe. Every state goes through one door, so one place says so.
+     */
+    setAnim,
+    /** 0 folded, 1 spread. Wyrmsoul opens them. */
+    flap: (k) => { model?.flap?.(k); return k; },
+    /** 0 shut, 1 wide. */
+    openJaw: (k) => { model?.openJaw?.(k); return k; },
+    rebuildBody,
     run, feed, fall, wake, setAge, rename, grant, checkAge,
     /** The gifts, as the window draws them: nine rows, held or not. */
     gifts: () => GIFTS.map((g) => ({ ...g, held: record.gifts.includes(g.id) })),

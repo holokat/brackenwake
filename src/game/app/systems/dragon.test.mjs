@@ -434,5 +434,89 @@ console.log('\nthe hooks D2 will read');
   check('fall() is there for the harness', w.made.bw.dragon.fall() === true && w.made.entity.awake === false);
 }
 
+// ===========================================================================
+console.log('\nthe body, and the states the world puts it in');
+// ===========================================================================
+{
+  const w = boot();
+  check('the entity says what it is made of', w.made.entity.made === 'code',
+    'the glb is fetched at boot and has not landed in a node test, so this is the fallback');
+  check('and it is perched on your shoulder from the moment it exists, before a frame has run',
+    w.made.entity.anim === 'perch', String(w.made.entity.anim));
+  check('the entity carries the handles the world drives it by',
+    typeof w.made.entity.setAnim === 'function' && typeof w.made.entity.flap === 'function'
+    && typeof w.made.entity.rebuildBody === 'function');
+
+  // rebuildBody is the door the studio hatchling comes through. Here there is
+  // no file, so it builds the same code body again; what is measured is that it
+  // is a NEW body, in the scene, in the state the old one was in.
+  const before = w.made.entity.model;
+  w.made.entity.setAnim('fall');
+  const swap = w.made.entity.rebuildBody();
+  check('rebuildBody builds a new body', w.made.entity.model !== before && !!w.made.entity.model);
+  check('and says what it is made of now', swap && swap.made === 'code', JSON.stringify(swap));
+  check('and the state it was in came with it',
+    w.made.entity.model.anim === 'fall' && w.made.entity.model.down === true, w.made.entity.model.anim);
+  check('and the old body is not left hanging on the rig',
+    w.rig.parts.back.children.filter((c) => /^dragon:/.test(c.name)).length === 1,
+    `${w.rig.parts.back.children.length} children on the anchor`);
+}
+
+// ===========================================================================
+console.log('\nWyrmsoul: what the animal on your shoulder does about it');
+// ===========================================================================
+{
+  const w = boot();
+  // the wings, and nothing that would grow it out of the shoulder. The ladder
+  // in ageFor stops at the first pair it has not got, so a hatchling holding
+  // the Stormpeaks and Ember Wastes is still a hatchling.
+  for (const g of ['greenwold', 'ember', 'stormpeaks']) w.made.bw.dragon.grant(g);
+  check('it is still the hatchling that rides your shoulder', w.made.entity.age === 'hatchling',
+    w.made.entity.age);
+  w.made.entity.record.bond = 100;
+  const said = () => w.logs.map((l) => l.t);
+  const n = w.logs.length;
+
+  const may = w.made.wyrmsoul.call(w.ctx.frame.now);
+  check('Wyrmsoul answers', may.ok === true, may.say || 'called');
+  w.frames(2);
+  check('its wings go out for as long as it lasts', w.made.entity.model.parts.wingL.rotation.y > -0.5,
+    `wingL is at ${w.made.entity.model.parts.wingL.rotation.y.toFixed(2)} rad, against -1.35 folded`);
+
+  // the breath: the state goes on the body through the one door
+  const beforeBreath = w.made.entity.model.anim;
+  w.made.wyrmsoul.breathe(0, w.ctx.frame.now);
+  check('a breath puts the body in its cast state',
+    w.made.entity.model.anim === 'swing' || w.made.entity.model.anim === 'cast',
+    `${beforeBreath} became ${w.made.entity.model.anim}, which on a code body is the lunge with the jaw open`);
+
+  // the flight
+  w.hold('w');
+  w.frames(3);
+  check('holding a key while the wings are up puts it in the air with you',
+    w.made.entity.anim === 'fly', String(w.made.entity.anim));
+  check('and it says so, once',
+    said().filter((t) => /wings out and goes up/.test(t)).length === 1,
+    said().filter((t) => /wings out|rides the air/.test(t)).join(' | '));
+  w.release('w');
+  w.frames(3);
+  check('letting go of everything puts it on the glide', w.made.entity.anim === 'glide', String(w.made.entity.anim));
+  check('which it also says once', said().filter((t) => /rides the air/.test(t)).length === 1);
+  w.hold('w'); w.frames(2); w.release('w'); w.frames(2);
+  check('and beating again inside the same flight does not say it a second time',
+    said().filter((t) => /wings out and goes up/.test(t)).length === 1);
+
+  w.made.wyrmsoul.end(w.ctx.frame.now);
+  w.frames(40);
+  check('when it is over it lands', said().some((t) => /comes back down onto your shoulder/.test(t)),
+    said().slice(n).filter((t) => /shoulder|land/.test(t)).join(' | '));
+  check('and its wings fold again',
+    w.made.entity.model.parts.wingL.rotation.y < -1.0,
+    `wingL back to ${w.made.entity.model.parts.wingL.rotation.y.toFixed(2)} rad`);
+  w.frames(200);
+  check('and after the landing the ride has it back on your shoulder',
+    w.made.entity.anim === 'perch', String(w.made.entity.anim));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

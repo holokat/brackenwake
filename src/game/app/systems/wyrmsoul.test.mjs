@@ -51,7 +51,10 @@ function boot(opts = {}) {
   rig.group.add(rig.parts.back);
   rig.group.add(rig.parts.head);
   const me = playerActor(character, { pos: rig.pos });
-  const combatRules = createCombat({ recompute });
+  // `rng` is the combat resolver's dice. Leave it out and the real
+  // Math.random rolls, as in the game; pass one to a block that is measuring
+  // WHEN a blow lands rather than whether it lands.
+  const combatRules = createCombat({ recompute, ...(opts.rng ? { rng: opts.rng } : {}) });
 
   const live = [];
   const monsters = {
@@ -277,12 +280,20 @@ console.log('\nthe system, booted and driven for 600 frames');
 // `now + SWING_LAND_S`. This block measures where that line falls, rather than
 // claiming "everything lands at the end" and leaving the boundary to be found.
 {
-  const w = boot();
+  // What is being timed here is when a blow LANDS, not whether the dice were
+  // kind: a miss takes no health off and would leave a body's slot empty. So
+  // the dice are pinned. A roll of 0.01 is under every hit chance, and the
+  // same roll would also be under any dodge chance, so the dummies carry no
+  // dex (a wolf has none anyway; this is so a wolf that grows some later does
+  // not bring the dice back) and no shield to parry with. Six swings, six
+  // landings, and the timing checks below keep their meaning.
+  const w = boot({ rng: () => 0.01 });
   w.record.bond = 100;
   const dummies = [];
   for (let i = 0; i < 6; i++) {
     const m = spawnMonster('wolf', { x: i * 0.01, y: 0, z: 2 });
     m.health = 1e6; m.maxHealth = 1e6;
+    m.stats.dex = 0; m.shield = null;
     w.live.push(m);
     dummies.push(m);
   }
@@ -294,14 +305,10 @@ console.log('\nthe system, booted and driven for 600 frames');
   for (let i = 0; i < 480; i++) {
     const elapsed = w.now() - t0;
     if (next < 6 && elapsed >= next * 1000) {
-      // Five swings at the same instant rather than one, because a single swing
-      // can MISS and a miss takes no health off: what is being timed here is
-      // when a blow LANDS, not whether the dice were kind. `immediate` is how
-      // an ability's extra shots go through, so this is a real call shape.
-      for (let k = 0; k < 5; k++) {
-        w.monsters.swingAt(w.me, dummies[next], { now: w.ctx.frame.now, immediate: true });
-        thrown++;
-      }
+      // `immediate` is how an ability's extra shots go through, so this is a
+      // real call shape.
+      w.monsters.swingAt(w.me, dummies[next], { now: w.ctx.frame.now, immediate: true });
+      thrown++;
       next++;
     }
     const before = dummies.map((m) => m.health);
@@ -310,7 +317,7 @@ console.log('\nthe system, booted and driven for 600 frames');
       if (m.health < before[k] && landedAt[k] === undefined) landedAt[k] = (w.now() - t0) / 1000;
     });
   }
-  check(`${thrown} swings went out, five a second for six seconds`, thrown === 30, String(thrown));
+  check(`${thrown} swings went out, one a second for six seconds`, thrown === 6, String(thrown));
   check('and every one of the six bodies lost health',
     landedAt.filter((v) => v !== undefined).length === 6,
     landedAt.map((v) => (v === undefined ? '-' : v.toFixed(2))).join(', '));

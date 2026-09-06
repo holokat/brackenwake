@@ -20,7 +20,7 @@
 // place the world clock is ever slowed. docs/mmo/wiring/D2.md is the map.
 
 import { createDragon } from '../../dragon.js';
-import { buildDragon } from '../../dragon_models.js';
+import { buildDragon, preloadDragonModel, DRAGON_MODEL_ID } from '../../dragon_models.js';
 import { stepToward } from '../../monsters.js';
 import { panel as dragonPanel } from '../../win_dragon.js';
 import { WYRMSOUL_KEY } from '../../hud.js';
@@ -77,6 +77,17 @@ export const dragon = {
     // does. ui.js is built first and cannot hold a wire to this system, so this
     // system holds it: R1.md, "wiring late".
     uiSys.panelCtx.dragon = entity;
+
+    // The studio hatchling. Nothing else in the tree fetches it: the player
+    // system preloads the human bodies and the combat system the monsters, and
+    // dragon-hatchling is on neither list, so without this line `buildDragon`
+    // would find an empty cache every time and the file would be 8 MB nobody
+    // ever asked for. The entity is already built by now, so the body it is
+    // holding is the code one; `rebuildBody` swaps it when the file lands and
+    // puts the state it was in straight back on.
+    preloadDragonModel().then(() => entity.rebuildBody()).catch((err) => {
+      console.warn(`dragon: ${DRAGON_MODEL_ID} would not load, the code body stands in`, err && err.message);
+    });
 
     // It cannot die. combat.js is the one place a thing dies, so this is the
     // one place that is told, and what it does about it is a fall.
@@ -157,6 +168,11 @@ export const dragon = {
       visuals.attach({ senses: soul.gifts.senses });
       audio.play?.('wyrmsoul_call');
       face.wyrmFlash?.(0.35);
+      // Its own wings go out for as long as it lasts. On the studio body this
+      // is the wing_spread clip into the wing_flex beat; on the code body it is
+      // the wings unfolding off the flanks. Either way it is the one thing on
+      // your shoulder that shows Wyrmsoul is running without looking at the HUD.
+      entity.flap(1);
 
       say(`${W.CALL_LINE} ${soul.seconds} seconds of it, and the Bond is spent.`, 'good');
       if (soul.gifts.senses) say('You see what is alive through leaf, wall and dark.');
@@ -206,6 +222,12 @@ export const dragon = {
 
       soul = { ...soul, breathAt: now, breaths: soul.breaths + 1 };
       breathsInSoul++;
+      // The breath is the player's, and the animal on the player's shoulder is
+      // the one it comes out of. `cast` is the file's own cast_spell clip, whose
+      // manifest puts the release at 0.57 of the way through it at socket_mouth;
+      // the code body lunges with its jaw open instead. It says nothing here:
+      // the breath's own lines below are the words for this.
+      entity.setAnim('cast');
 
       const from = { x: rig.pos.x, y: rig.pos.y + 1.35, z: rig.pos.z };
       const found = W.coneTargets(hostiles(), rig.pos, rig.yaw, b.range, b.arcDegrees);
@@ -282,7 +304,12 @@ export const dragon = {
       if (flying) {
         flying = false;
         say('The wings go out and you land where you are.');
+        // and the dragon comes down with you. Its own line, said once, is in
+        // dragon.js ANIM_LINES under `land`.
+        entity.setAnim('land');
       }
+      // and its wings fold again, which is where the wing_fold clip goes
+      entity.flap(0);
       return { owed, routed, stunned: stunnedN, swings: swingsInSoul, breaths: breathsInSoul };
     }
 
@@ -317,7 +344,10 @@ export const dragon = {
      */
     function fly(frame) {
       if (!W.isRunning(soul) || !soul.gifts.wings) {
-        if (flying) { flying = false; }
+        // the flight is over: it lands. endPulse says the same thing when the
+        // effect runs out; whichever gets here first sets the state and the
+        // second finds it already set and says nothing.
+        if (flying) { flying = false; entity.setAnim('land'); entity.flap(0); }
         return false;
       }
       const down = (k) => !!input.down?.(k);
@@ -333,6 +363,12 @@ export const dragon = {
         move, speed, frame.dt, ground, W.FLY_CEILING_M);
       rig.pos.x = p.x; rig.pos.z = p.z; rig.pos.y = p.y;
       flyY = p.y;
+      // What the animal on your shoulder does while you are up: it beats when
+      // you are driving and rides the air when you have let go. The studio body
+      // opens on take_off and holds the fly loop, and glides on the glide loop;
+      // the code body reads both as standing, with its wings out.
+      entity.setAnim(move.f || move.r || move.u ? 'fly' : 'glide');
+      entity.flap(1);
       return true;
     }
 
@@ -530,6 +566,13 @@ export const dragon = {
           get record() { return entity.record; },
           get actor() { return entity.actor; },
           get model() { return entity.model; },
+          // what the body is, and what it is doing, so a reviewer at the
+          // console can read both rather than infer them from the screen
+          get made() { return entity.made; },
+          get anim() { return entity.anim; },
+          get seat() { return entity.seat; },
+          setAnim: (a) => entity.setAnim(a),
+          flap: (k) => entity.flap(k),
           get pos() { return entity.pos; },
           get bond() { return entity.record.bond; },
           get hunger() { return entity.record.hunger; },

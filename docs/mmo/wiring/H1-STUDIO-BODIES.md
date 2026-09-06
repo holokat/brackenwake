@@ -183,15 +183,13 @@ written without the file in front of you points at bones that may not exist.
 models.test.mjs names it as the one model deliberately without one, so a second
 model turning up without a map fails loudly.
 
-**Its joints do not survive three.** 70 of the 97 are named `wing_upper.L`,
-`hind_paw.R` and so on, and `THREE.PropertyBinding.sanitizeNodeName` strips the
-dot: the bone that arrives in the browser is called `wing_upperL`. Measured:
-the clips still play, because three rewrites the track names the same way (the
-`fly` clip turns `wing_upperL` 18.2 degrees in 0.4 s), but **every lookup by
-the name in the manifest returns null**. Either the export renames the joints
-without dots, or every map written from the manifest has to strip them.
-`tools/validate-glb.mjs` fails the file for this and says what each name
-becomes.
+The exported joints now use the names Three preserves, such as `wing_upperL`
+and `hind_pawR`. The 70 dotted joint names and matching manifest bone, parent
+and attachment entries were normalized with
+`THREE.PropertyBinding.sanitizeNodeName`. The skin, binary buffer and animation
+channels are unchanged. Original and repaired files produce identical loaded
+bone names and animation tracks; 48 sampled poses across all 16 clips match
+exactly. `tools/validate-glb.mjs` now passes this file.
 
 ## 7. The validator
 
