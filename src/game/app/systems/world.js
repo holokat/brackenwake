@@ -6,6 +6,7 @@
 // that needs one waits for `ready`.
 
 import * as THREE from 'three';
+import { openAt, insidePoint, GATE_LINE, GATE_SAY_EVERY_MS } from '../../../mmo/release.js';
 import { createWorldRuntime } from '../../world_runtime.js';
 import { createSky } from '../../sky.js';
 import { createWater } from '../../../world/water.js';
@@ -16,6 +17,36 @@ import { cameraClamp } from '../../../world/dungeon.js';
 const CAMERA_EYE = 1.5;
 /** How often the sky is baked into the reflection everything metal reads. */
 const ENV_EVERY_MS = 15000;
+
+// The world beyond the open realms is being built and a player is held out of
+// it (src/mmo/release.js). Checked twice a second on the surface, never in a
+// dungeon, never in dev mode, so the tour and the fly camera go anywhere. A
+// character loaded from a save that stands on closed ground is brought home
+// once, with words, so a Boneyard save does not wake in a realm that is shut.
+let gateAt = -Infinity, gateSaidAt = -Infinity, gateChecked = false;
+function gate(ctx, frame) {
+  if (!ctx.has('player')) return;
+  const world = ctx.get('world');
+  if (world.runtime.inDungeon) return;
+  if (ctx.has('dev') && ctx.get('dev').on) return;
+  const now = frame.now;
+  if (now - gateAt < 500) return;
+  gateAt = now;
+  const player = ctx.get('player');
+  const p = player.pos || player.actor?.pos || frame.centre;
+  if (openAt(p.x, p.z)) { gateChecked = true; return; }
+  if (!gateChecked) {
+    // the first look after a load: a save standing outside comes home
+    gateChecked = true;
+    player.teleport(0, 0);
+    ctx.hud?.toast?.('The road you were on is not open yet, and you wake at the stones of home instead.', 'bad');
+    ctx.hud?.log?.(GATE_LINE, 'bad');
+    return;
+  }
+  const back = insidePoint(p.x, p.z);
+  player.teleport(back.x, back.z);
+  if (now - gateSaidAt > GATE_SAY_EVERY_MS) { gateSaidAt = now; ctx.hud?.toast?.(GATE_LINE, 'bad'); }
+}
 
 export const world = {
   name: 'world',
@@ -228,6 +259,7 @@ export const world = {
     const self = ctx.get('world');
     const now = frame.worldNow ?? frame.now;
     self.runtime.update(frame.worldDt ?? frame.dt, now, frame.centre.x, frame.centre.z, self.dayFactor(now));
+    gate(ctx, frame);
   },
 
   render(ctx, frame) { ctx.get('world').draw(frame); },

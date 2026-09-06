@@ -1,0 +1,15 @@
+import { OPEN_REALMS, openAt, insidePoint, GATE_STEP_BACK, isOpen } from './release.js';
+import { ZONE } from '../world/zones.js';
+let pass = 0, fail = 0;
+const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
+console.log('release: the Greenwold is the world for now');
+check('only the Greenwold is open', JSON.stringify(OPEN_REALMS) === '["greenwold"]' && isOpen('greenwold') && !isOpen('boneyard'));
+const g = ZONE.greenwold; const reach = g.r + g.edge * 0.5;
+check('the origin is open ground', openAt(0, 0));
+check('the line is the realm radius plus half its edge band', openAt(g.x + reach - 1, g.z) && !openAt(g.x + reach + 1, g.z), `${reach} m`);
+check('the Boneyard is closed', !openAt(ZONE.boneyard.x, ZONE.boneyard.z));
+const back = insidePoint(g.x + reach + 300, g.z + 40);
+const d = Math.hypot(back.x - g.x, back.z - g.z);
+check(`a crosser is set back to ${GATE_STEP_BACK} m inside the line, on their own bearing`, Math.abs(d - (reach - GATE_STEP_BACK)) < 1e-6 && openAt(back.x, back.z) && Math.abs(Math.atan2(back.z - g.z, back.x - g.x) - Math.atan2(40, reach + 300)) < 1e-9, `${d.toFixed(2)} m`);
+console.log(`\nrelease: ${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);
