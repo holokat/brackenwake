@@ -27,6 +27,7 @@ import { dayFactorAt as dayClockFactor, DAY_CYCLE_MS } from './dayclock.js';
 import { skyColours, skyLighting, realmMixAt, REALM_SKY, DEFAULT_REALM } from './sky.js';
 import { THEMES } from '../farm/themes.js';
 import { mulberry32, glowTexture } from '../farm/assets.js';
+import { createSpellComposer } from './vfx/bloom_pass.js';
 
 /** One full day to night to day again. Six minutes, per docs/OPEN-WORLD.md. */
 // The length of a day and its curve live in dayclock.js, shared with the sky.
@@ -392,9 +393,33 @@ export function createScene(container) {
     camera.aspect = w2 / h2;
     camera.updateProjectionMatrix();
     renderer.setSize(w2, h2);
+    if (composer) composer.setSize(w2, h2);
   }
   const onResize = () => resize();
   window.addEventListener('resize', onResize);
+
+  // --- the spell pass -------------------------------------------------------
+  //
+  // A composer with a selective bloom in it, and it runs ONLY on the frames a
+  // spell effect is alive. src/game/vfx/bloom_pass.js has the pass; this is
+  // the switch. Nothing here is built until the first spell is cast, so a
+  // session that never casts allocates no render targets at all, and a frame
+  // with no spell on it is the same `renderer.render` it always was.
+  //
+  // `setSpellSource(fn)` is how the abilities system hands over its bridge:
+  // `fn()` answers { active, presentation } every frame. See
+  // docs/mmo/wiring/VFX1-SPELLS.md.
+  let composer = null;
+  let spellSource = null;
+  let spellFrames = 0;
+  let plainFrames = 0;
+
+  function spellComposer() {
+    if (composer) return composer;
+    composer = createSpellComposer(renderer, scene, camera);
+    composer.setSize(container.clientWidth || w, container.clientHeight || h);
+    return composer;
+  }
 
   setDay(1);
 
@@ -412,7 +437,34 @@ export function createScene(container) {
     get realmMix() { return realmMix; },
     get realmTint() { return realmTint; },
     get analyticSky() { return analytic; },
-    render() { renderer.render(scene, camera); },
+    /**
+     * One frame. `dt` is only used by the spell pass, which needs it for the
+     * heat shimmer; a caller with no dt renders exactly as before.
+     *
+     * The branch is measured rather than assumed: `spellFrames` and
+     * `plainFrames` count which path each frame took, and the dev bench prints
+     * both, so "the composer only runs while a spell is alive" is a number and
+     * not a promise.
+     */
+    render(dt = 0) {
+      const state = spellSource ? spellSource() : null;
+      const active = !!(state && state.active);
+      if (!active && !composer) { plainFrames += 1; renderer.render(scene, camera); return false; }
+      if (!active) { plainFrames += 1; composer.render(dt, false); return false; }
+      const pass = spellComposer();
+      pass.setPresentation(state.presentation || null);
+      pass.render(dt, true);
+      spellFrames += 1;
+      return true;
+    },
+    /**
+     * Who to ask whether a spell is alive. `fn` answers
+     * `{ active, presentation }`; null takes the pass out of the frame again.
+     */
+    setSpellSource(fn) { spellSource = typeof fn === 'function' ? fn : null; },
+    get spellPass() { return composer; },
+    get spellFrames() { return spellFrames; },
+    get plainFrames() { return plainFrames; },
     /**
      * The clock the sky and the lights read. The dev bench moves it with
      * setClockOffset(ms) so a tester can see noon at midnight; the sky adds
@@ -435,6 +487,8 @@ export function createScene(container) {
     get fogPinned() { return fogPinned; },
     dispose() {
       window.removeEventListener('resize', onResize);
+      if (composer) { composer.dispose(); composer = null; }
+      spellSource = null;
       renderer.dispose();
       renderer.domElement.remove();
     },

@@ -244,7 +244,11 @@ export const world = {
         sc.follow(centre);
         sc.setDay(day);
         water.beforeRender(sc.renderer, sc.scene, sc.camera);   // the refraction pass, right before the frame
-        sc.render();
+        // The PLAYER'S dt, not the world's, and deliberately: the only thing
+        // that reads it is the spell pass in scene.js, and a spell is the
+        // player's, so its heat shimmer does not hang in dragon time either.
+        // A frame with no spell alive takes the same plain render it always did.
+        sc.render(frame.dt);
       },
     };
   },

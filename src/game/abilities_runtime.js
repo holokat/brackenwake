@@ -243,6 +243,12 @@ export function andList(words) {
  *   allies()                   everything friendly, for buffs with a radius
  *   heightAt(x, z)             the ground, for dashes and blinks
  *   resurrect(actor)           W1's death code
+ *   spellVfx    src/game/spell_vfx.js's bridge. Optional and optional-chained
+ *               everywhere, so the runtime behaves identically without it: it
+ *               is told when a cast STARTS (with the cast time the armour
+ *               really charged), when one LANDS (with the target and, for a
+ *               chain, the actors it hopped along), and when one FAILS. It is
+ *               never asked a question and never changes an outcome.
  *   utility { transmute, steal, meditate, camp }
  *   rng()                      seeded in tests, Math.random in the game
  *   recompute(actor)           else progression.recompute, else actor.recompute
@@ -253,7 +259,7 @@ export function createAbilities(deps = {}) {
   const {
     character = {}, actor = {}, input = null, combat = null, monsters = null,
     effects = null, floaters = null, hud = null, audio = null, player = null,
-    camera = null, progression = null, targeting = null,
+    camera = null, progression = null, targeting = null, spellVfx = null,
   } = deps;
 
   const rng = typeof deps.rng === 'function' ? deps.rng : Math.random;
@@ -1263,6 +1269,14 @@ export function createAbilities(deps = {}) {
       ground: ground || (ability.target === 'ground' ? groundPoint(ability) : { ...pos() }),
     };
     const words = runEffect(ability.effect, ctx);
+    // The visual is told where the spell actually went, not where it was
+    // pointed. A chain resolves its hops in here, and until this call the bolt
+    // has only the first of them; see spell_vfx.js's `retarget`.
+    spellVfx?.retarget?.({
+      target: target || null,
+      ground: ctx.ground,
+      links: ctx.hit && ctx.hit.length ? ctx.hit : null,
+    });
     if (words) say(`${ability.name}. ${words}`, 'ability');
     else say(`${ability.name}.`, 'ability');
     teach(ability);
@@ -1303,6 +1317,9 @@ export function createAbilities(deps = {}) {
     if (rng() >= fizzleChance(burden)) return false;
     const back = refund(rec);
     const armour = armourWords() || 'your armour';
+    // A spell that took the mana and vanished with no picture is
+    // indistinguishable from a dead key. The gather coughs out and stops.
+    spellVfx?.interrupt?.('fizzled');
     say(`${ability.name} fizzles: your ${armour} gets in the way.${back ? ` ${back}.` : ''}`, 'bad');
     float(pos(), `fizzle: ${burdenSources(wornNow())[0] || 'armour'}`, 'miss');
     cue('denied');
@@ -1412,6 +1429,17 @@ export function createAbilities(deps = {}) {
       rec.castTime = burdenedCastTime(ability.castTime, rec.burden);
       rec.endsAt = rec.startedAt + rec.castTime;
     }
+
+    // THE SPELL YOU CAN SEE, started once, for both branches below, and after
+    // the armour has had its say so a cast slowed by plate gathers for exactly
+    // as long as its bar really runs. spell_vfx.js owns everything after this:
+    // which effect, which element, which socket, and when the hand opens.
+    spellVfx?.start?.(ability.id, {
+      ability,
+      castTime: rec.castTime,
+      target,
+      ground: ground || (ability.target === 'ground' ? groundPoint(ability, target) : null),
+    });
 
     if (rec.castTime > 0) {
       cast = rec;
@@ -1526,6 +1554,7 @@ export function createAbilities(deps = {}) {
     if (!cast) return;
     const back = refund(cast);
     effects?.stopCast?.(player);
+    spellVfx?.interrupt?.(reason);
     say(`${reason}.${back ? ` ${back}.` : ''} ${cast.name} is still cooling.`, 'bad');
     cue('denied');
     cast = null;
@@ -1841,6 +1870,15 @@ export function createAbilities(deps = {}) {
 
     get armed() { return nextSwing; },
     get lastLine() { return lastLine; },
+
+    /**
+     * The spell effects bridge, or null when nothing wired one.
+     *
+     * Handed on rather than hidden so the dev bench can print what a spell is
+     * going to draw and fire one for review without a second copy of the
+     * wiring. The runtime never asks it a question.
+     */
+    get spellVfx() { return spellVfx; },
 
     dispose() {
       cast = null; nextSwing = null; landing = null; waiting = null;

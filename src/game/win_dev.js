@@ -51,6 +51,7 @@ import { weightsFor } from '../mmo/loot.js';
 import { describeItem as sackWordsFor, rollFor } from './loot_drops.js';
 import { DAY_CYCLE_MS } from './scene.js';
 import { createFrameMeter } from './dev.js';
+import { planFor, auditSpellVisuals } from './spell_vfx.js';
 import { itemTipLines } from './inventory.js';
 import { SUB_ZONES, ZONE, authoredSites, BIRTHPLACE } from '../world/zones.js';
 import { PLANS } from '../mmo/plans/index.js';
@@ -1008,6 +1009,132 @@ export function createBench(ctx = {}) {
     return { ...res, text: line(`you stand at ${round(gx)}, ${round(gz)}, on ground ${round(heightAt(gx, gz))} m up. ${groundWords(gx, gz)}`) };
   }
 
+  // ------------------------------------------------------------ spell lab
+
+  /**
+   * Every ability and what it will draw, in the order the abilities table
+   * gives them. Pure: it asks spell_vfx.js's planner and nothing else, so the
+   * list is right whether or not a body has loaded.
+   */
+  function spellRows() {
+    return auditSpellVisuals(ABILITIES).rows.map((plan) => ({
+      id: plan.id,
+      abilityId: plan.abilityId,
+      name: plan.name,
+      school: plan.school,
+      family: plan.visual.family,
+      element: plan.element,
+      fireOn: plan.fireOn,
+      release: plan.release,
+      duration: plan.duration,
+      layers: plan.layers,
+      line: `${plan.name}: ${plan.layers.join(' + ')}, ${plan.element || 'no element'}, `
+        + `fires on ${plan.fireOn} at ${plan.release.toFixed(2)} s, over in ${plan.duration.toFixed(2)} s.`,
+    }));
+  }
+
+  /** Where the bench is in its walk through every spell. */
+  let spellAt = -1;
+
+  const spellVfx = () => (ctx.abilities && ctx.abilities.spellVfx) || null;
+
+  /** What a spell should be aimed at: what you are fighting, else what is nearest. */
+  function spellTarget() {
+    const t = ctx.targeting && ctx.targeting.current;
+    if (t && num(t.health) > 0) return t;
+    if (typeof ctx.monsters?.actors !== 'function') return null;
+    let best = null;
+    let bestD = Infinity;
+    for (const a of ctx.monsters.actors()) {
+      if (!a || num(a.health) <= 0 || !a.pos) continue;
+      const d = flat(a.pos, here());
+      if (d < bestD) { bestD = d; best = a; }
+    }
+    return best;
+  }
+
+  /**
+   * Fire one spell for review.
+   *
+   * `how` is 'cast' or 'show'. THE DEFAULT IS 'cast', and it goes through
+   * `abilities.useById`, which is the same call a key press makes: the same
+   * cost, the same range check, the same cast bar and the same visual. A
+   * preview that took a different road would prove nothing, which is the
+   * lesson written into CLAUDE.md.
+   *
+   * 'show' exists for the case the real road refuses (no mana, out of range,
+   * still cooling) and you still want to look at the effect. It starts the
+   * VISUAL only, with exactly the arguments the runtime would have passed, and
+   * says out loud that no ability was used.
+   */
+  function castSpell(id, how = 'cast') {
+    const ability = ABILITIES.find((a) => a.id === id || planFor(a.id)?.id === id);
+    if (!ability) return bad(`nothing is called ${id}.`);
+    const plan = planFor(ability.id, { ability });
+    if (!plan) return bad(`${ability.name} has no visual at all, which is a bug in src/game/vfx/visuals.js.`);
+    const target = spellTarget();
+    if (how !== 'show') {
+      const runtime = ctx.abilities;
+      if (!runtime || typeof runtime.useById !== 'function') {
+        return bad('the ability runtime is not wired here, so nothing was cast.');
+      }
+      const now = num(ctx.nowS ? ctx.nowS() : nowMs() / 1000);
+      const res = runtime.useById(ability.id, now, target ? { target } : {});
+      return {
+        ok: !!res.ok, plan, result: res, target,
+        text: line(res.ok
+          ? `${ability.name} went the real road: ${plan.layers.join(' + ')}${target ? `, at ${target.name || 'your target'} ${round(flat(target.pos || target, here()))} m off` : ', with nothing to aim at'}.`
+          : `${ability.name} was refused: ${res.reason}. Press show to look at the effect anyway.`,
+          res.ok ? undefined : 'bad'),
+      };
+    }
+    const vfx = spellVfx();
+    if (!vfx) return bad('no spell effects are wired here, so there is nothing to show.');
+    const ground = target && target.pos
+      ? { x: num(target.pos.x), y: heightAt(num(target.pos.x), num(target.pos.z)), z: num(target.pos.z) }
+      : null;
+    const started = vfx.start(ability.id, { ability, castTime: ability.castTime, target, ground });
+    return {
+      ok: !!started, plan, shown: true, target,
+      text: line(started
+        ? `${ability.name}, the effect only and no ability used: ${plan.layers.join(' + ')}, ${plan.duration.toFixed(2)} s of it.`
+        : `${ability.name} has a plan and the bridge refused it, which should not happen.`,
+        started ? undefined : 'bad'),
+    };
+  }
+
+  /** The next spell in the list, wrapping. `previous` walks back. */
+  function nextSpell(step = 1, how = 'show') {
+    const rows = spellRows();
+    if (!rows.length) return bad('there are no abilities to show.');
+    spellAt = ((spellAt + step) % rows.length + rows.length) % rows.length;
+    const row = rows[spellAt];
+    const res = castSpell(row.abilityId, how);
+    return { ...res, at: spellAt, of: rows.length, row };
+  }
+
+  /** Where the walk is, for the panel's label. */
+  const spellWalk = () => ({ at: spellAt, rows: spellRows() });
+
+  /**
+   * A body to aim at, six metres ahead. The same spawnAt every other button
+   * here uses, so a lab target is an ordinary monster and not a special case.
+   */
+  function spellDummy(id = 'skeleton') {
+    const res = spawn(id, 'ahead');
+    if (res.ok && ctx.targeting && typeof ctx.targeting.set === 'function') {
+      ctx.targeting.set(res.monster, 'ability');
+    }
+    return res;
+  }
+
+  /** What the spell pass is costing: composed frames against plain ones. */
+  function spellFrames() {
+    const sc = ctx.sc || ctx.scene || null;
+    if (!sc || typeof sc.spellFrames !== 'number') return null;
+    return { composed: sc.spellFrames, plain: sc.plainFrames, pass: !!sc.spellPass };
+  }
+
   // -------------------------------------------------------------- monsters
 
   /** Six metres in front of the feet, along the way the player is facing. */
@@ -1387,6 +1514,8 @@ export function createBench(ctx = {}) {
     rollLoot, dropSacks, giveAll, inspect, lastRoll,
     // monsters
     spawn, spawnMany, clearSpawned, killTarget, killNear, clearAggro,
+    // the spell lab
+    spellRows, castSpell, nextSpell, spellWalk, spellDummy, spellFrames, spellTarget,
     // world
     setTimeOfDay, toggleFly, setDebug, readout, stats, nowClock,
     // what the panel and the tests need to look at
@@ -1809,6 +1938,50 @@ export const panel = {
     };
     mSearch.addEventListener('input', drawMonsters);
     drawMonsters();
+
+    // ---------------------------------------------------------- spell lab --
+    //
+    // Every ability, what it will draw, and two ways to fire it: `cast` is the
+    // real road through abilities.useById, cost and cast bar and all, and
+    // `show` is the effect alone for when the real road refuses.
+    root.appendChild(h('h3', null, 'Spell lab'));
+    const spellRow = row('Spells', `${bench.spellRows().length} abilities, each with what it draws`);
+    const spellSearch = h('input');
+    spellSearch.type = 'text';
+    spellSearch.placeholder = 'fireball, heal, whirlwind';
+    spellRow.appendChild(spellSearch);
+    const spellHere = h('span', 'd', 'nothing fired yet');
+    btn(spellRow, 'target ahead', () => { bench.spellDummy('skeleton'); });
+    btn(spellRow, 'previous', () => { const r = bench.nextSpell(-1, 'show'); spellHere.textContent = `${r.at + 1} of ${r.of}: ${r.row.name}`; drawSpells(); });
+    btn(spellRow, 'next effect', () => { const r = bench.nextSpell(1, 'show'); spellHere.textContent = `${r.at + 1} of ${r.of}: ${r.row.name}`; drawSpells(); });
+    btn(spellRow, 'frames', () => {
+      const f = bench.spellFrames();
+      spellHere.textContent = f
+        ? `${f.composed} frames through the spell pass, ${f.plain} past it${f.pass ? '' : ', and the pass has never been built'}`
+        : 'the scene here cannot count its frames';
+    });
+    spellRow.appendChild(spellHere);
+    const spellList = h('div', 'bw-list tall');
+    root.appendChild(spellList);
+    const drawSpells = () => {
+      spellList.textContent = '';
+      const q = spellSearch.value.trim().toLowerCase();
+      const rows = bench.spellRows().filter((r) => !q || r.id.includes(q) || r.name.toLowerCase().includes(q) || r.family.includes(q) || (r.element || '').includes(q));
+      if (!rows.length) { spellList.appendChild(h('div', 'r', 'no ability by that name, family or element')); return; }
+      const at = bench.spellWalk().at;
+      const all = bench.spellRows();
+      for (const r of rows) {
+        const e = h('div', 'r');
+        if (all[at] && all[at].id === r.id) e.classList.add('here');
+        e.appendChild(h('span', 'nm', r.name));
+        e.appendChild(h('span', 'd', `${r.layers.join(' + ')}, ${r.element || 'no element'}, ${r.release.toFixed(2)} s`));
+        btn(e, 'cast', () => { const res = bench.castSpell(r.abilityId, 'cast'); spellHere.textContent = res.ok ? `${r.name} cast` : `${r.name} refused`; });
+        btn(e, 'show', () => { bench.castSpell(r.abilityId, 'show'); spellHere.textContent = `${r.name} shown`; });
+        spellList.appendChild(e);
+      }
+    };
+    spellSearch.addEventListener('input', drawSpells);
+    drawSpells();
 
     // -------------------------------------------------------------- world --
     root.appendChild(h('h3', null, 'World'));

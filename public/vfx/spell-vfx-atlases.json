@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "origin": {
+    "kind": "original-procedural",
+    "generator": "Blender 5.2.0 LTS",
+    "script": "scripts/bake-spell-fire-atlas.py",
+    "externalAssets": []
+  },
+  "layout": {
+    "columns": 6,
+    "rows": 6,
+    "frameCount": 36,
+    "frameWidth": 256,
+    "frameHeight": 256,
+    "order": "row-major-top-left"
+  },
+  "atlases": [
+    {
+      "id": "fire-explosion",
+      "url": "/vfx/spell-fire-explosion-atlas.png",
+      "fps": 30,
+      "durationSeconds": 1.2,
+      "colorSpace": "srgb",
+      "alphaMode": "straight",
+      "recommendedBlending": "additive",
+      "recommendedWorldDiameterMeters": [0.55, 1.1]
+    },
+    {
+      "id": "smoke",
+      "url": "/vfx/spell-smoke-atlas.png",
+      "fps": 24,
+      "durationSeconds": 1.5,
+      "colorSpace": "srgb",
+      "alphaMode": "straight",
+      "recommendedBlending": "normal",
+      "recommendedWorldDiameterMeters": [0.8, 1.45]
+    }
+  ],
+  "preview": "/vfx/spell-vfx-contact-sheet.png"
+}

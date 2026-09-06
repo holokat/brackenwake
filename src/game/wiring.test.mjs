@@ -520,13 +520,55 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
   has(w, /sc\.useAnalyticSky\(true\)/, 'world.js turns the analytic sky on');
   has(w, /createWater\(sc, runtime\.field, \{ sky \}\)/, 'and the water is built against that same sky');
   const pass = w.indexOf('water.beforeRender(');
-  const render = w.indexOf('sc.render()');
+  const render = w.indexOf('sc.render(');
   check('source: the refraction pass runs before the frame is drawn, not after',
     pass > 0 && render > pass, `beforeRender at ${pass}, render at ${render}`);
+  // The frame's own dt goes to scene.js, which is the only thing the spell
+  // pass has to move its heat shimmer with. The PLAYER's dt, not the world's:
+  // a spell is the player's and does not hang in dragon time.
+  has(w, /sc\.render\(frame\.dt\)/, 'and the frame is drawn with the player own dt, for the spell pass');
   check('source: and the sky is updated before the water that reflects it',
     w.indexOf('sky.update(') < w.indexOf('water.update('), `${w.indexOf('sky.update(')} then ${w.indexOf('water.update(')}`);
   check('source: the world is the only system that draws', 
     SYSTEMS.filter((s) => typeof s.render === 'function').map((s) => s.name).join(',') === 'world');
+
+  // ---- the spells you can see ---------------------------------------------
+  const ab = sysSrc('abilities.js');
+  has(ab, /createSpellVfx\(\{/, 'the abilities system builds the spell effects bridge');
+  has(ab, /body: rig\.group/, 'and hangs it on the player body, where the socket bones are');
+  has(ab, /moveInfo: \(move\) => moveInfo\(rig\.rig\.modelId, move\)/, 'and feeds it the clip bank own events');
+  has(ab, /abilityMoves: \(id\) => abilityMoves\(rig\.rig\.modelId, id\)/, 'and the moves each ability plays');
+  has(ab, /resolveImpact: groundImpact/, 'and a ground test, so a bolt scorches what it lands on');
+  has(ab, /spellVfx,/, 'and hands the bridge to the ability runtime');
+  has(ab, /sc\.setSpellSource\(/, 'and tells the scene when a spell is alive');
+  has(ab, /loadSpellTextures\(\)/, 'and asks for the fire and smoke atlases');
+  {
+    const late = ab.slice(ab.indexOf('late(ctx, frame)'));
+    check('source: the spell effects are stepped in late(), after the gait has posed the rig',
+      /spellVfx\.update\(frame\.dt\)/.test(late), 'stepped late');
+    check('source: and they are not stepped in update(), which would read the hands of the frame before',
+      !/spellVfx\.update/.test(ab.slice(ab.indexOf('update(ctx, frame)'), ab.indexOf('late(ctx, frame)'))));
+  }
+  {
+    const runtime = src('abilities_runtime.js');
+    has(runtime, /spellVfx\?\.start\?\.\(ability\.id, \{/, 'the runtime starts a visual when a cast starts');
+    has(runtime, /castTime: rec\.castTime/, 'with the cast time the armour really charged, not the one in the table');
+    has(runtime, /spellVfx\?\.retarget\?\.\(\{/, 'and corrects it to where the spell actually landed');
+    has(runtime, /spellVfx\?\.interrupt\?\.\('fizzled'\)/, 'a fizzle coughs out rather than vanishing');
+    const broke = runtime.slice(runtime.indexOf('function breakCast'), runtime.indexOf('function breakCast') + 600);
+    check('source: and an interrupted cast does the same', /spellVfx\?\.interrupt\?\.\(reason\)/.test(broke));
+    const startAt = runtime.indexOf("spellVfx?.start?.(ability.id");
+    const burdenAt = runtime.indexOf('rec.burden = burdenFor(ability)');
+    check('source: the visual starts AFTER the armour has lengthened the cast',
+      startAt > burdenAt && burdenAt > 0, `burden at ${burdenAt}, start at ${startAt}`);
+  }
+  {
+    const scene = src('scene.js');
+    has(scene, /createSpellComposer\(renderer, scene, camera\)/, 'scene.js can build the spell composer');
+    has(scene, /if \(!active && !composer\) \{ plainFrames \+= 1; renderer\.render\(scene, camera\); return false; \}/,
+      'and a frame with no spell alive never builds it and never uses it');
+    has(scene, /if \(composer\) composer\.setSize\(w2, h2\)/, 'and the pass is resized with the window');
+  }
 
   // ---- the keys the HUD may not eat ---------------------------------------
   has(u, /hud\.onTool\?\.\(\(id\) => pickTool\(id\)\)/, 'the tool row is wired to the click');
