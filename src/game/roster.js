@@ -11,17 +11,24 @@
 // calls back, so whatever runs next finds a clean HUD and a scene with nothing
 // of ours left in it.
 //
-//   createRoster(hudRoot, { state, onPlay(slotId), onNew(), sc })
+//   createRoster(hudRoot, { state, onPlay(slotId), onNew(), sc, storage, portraits })
 //     -> { el, cards, destroy, select, play, remove, key, refresh }
 //
 // The keyboard is the same handler the window is given, exposed on the return
 // so a test drives the real thing rather than a copy of it.
+//
+// It is a LIST, one full width row per character, because a grid of cards made
+// four characters look like four products and a list looks like a company of
+// people waiting. Each row opens with the person's own face, rendered by
+// roster_preview.js from the body and the gear their save holds, so the row is
+// recognised before it is read.
 
 import { clearRosterAsk } from './state.js';
 import { OPENINGS_BY_ID } from '../mmo/openings.js';
 import {
   injectTheme, theme, icon, ICONS, ruleUrl, cornerUrl, parchmentUrl,
 } from './ui_theme.js';
+import { createPortraits, silhouetteSvg, PORTRAIT } from './roster_preview.js';
 
 /**
  * The three marks a card wears. `icon()` falls back to a cross when it does
@@ -110,6 +117,11 @@ export function createRoster(root, deps = {}) {
     return { el: null, cards: [], rows: rows(), destroy() {}, select() {}, play() {}, remove() {}, key() {}, refresh() {} };
   }
 
+  // One portrait maker for the life of the screen: one WebGL context, one
+  // cache, and both of them gone in destroy(). A caller may hand its own in,
+  // which is how a node test drives the cache without a GPU.
+  const portraits = deps.portraits || createPortraits({ storage: deps.storage });
+
   // The note the settings window left is taken down the moment the screen it
   // asked for is on the glass, so a second reload does not land here again.
   clearRosterAsk();
@@ -153,6 +165,30 @@ export function createRoster(root, deps = {}) {
     foot.textContent = text || '';
   }
 
+  /**
+   * The picture at the head of a row. A character with a saved appearance gets
+   * their own body, rendered once and kept; anybody else, and any browser that
+   * will not give us a canvas, gets the drawn silhouette. Never an <img> with
+   * nothing behind it, which is the one outcome that reads as broken.
+   */
+  function faceOf(row, c) {
+    const port = h('div', 'bw-ro-port');
+    let url = null;
+    try { url = portraits.of(row); } catch (e) { console.warn('[roster] no portrait for this one', e); }
+    if (url) {
+      const img = h('img', 'bw-ro-face');
+      img.src = url;
+      img.width = PORTRAIT.w;
+      img.height = PORTRAIT.h;
+      img.alt = c?.unnamed ? 'a character with no name yet' : `${c?.name || 'a character'}, ${c?.opening || 'no opening'}`;
+      port.appendChild(img);
+      return port;
+    }
+    port.classList.add('bw-ro-nobody');
+    port.innerHTML = silhouetteSvg();
+    return port;
+  }
+
   function build() {
     list.textContent = '';
     cards = [];
@@ -168,25 +204,28 @@ export function createRoster(root, deps = {}) {
       const card = h('div', 'bw-ro-card');
       card.dataset.slot = c.id;
       card.appendChild(h('div', 'bw-ro-band'));
+      card.appendChild(faceOf(row, c));
 
+      const who = h('div', 'bw-ro-who');
       const head = h('div', 'bw-ro-head');
       const nm = h('div', 'bw-ro-name', c.name);
       if (c.unnamed) nm.className = 'bw-ro-name bw-ro-faint';
       head.appendChild(nm);
       head.appendChild(h('div', 'bw-ro-open', c.needsCreation ? 'not yet made' : c.opening));
-      card.appendChild(head);
+      who.appendChild(head);
 
       if (c.needsCreation) {
-        card.appendChild(h('div', 'bw-ro-note', 'This one was begun and never finished. Play takes you back to the making of them.'));
+        who.appendChild(h('div', 'bw-ro-note', 'This one was begun and never finished. Play takes you back to the making of them.'));
       }
+      card.appendChild(who);
 
       const sk = h('div', 'bw-ro-skills');
       if (c.skills.length) {
         for (const s of c.skills) {
-          const r = h('div', 'bw-ro-srow');
-          r.appendChild(h('span', 'bw-ro-sk', s.name));
-          r.appendChild(h('span', 'bw-ro-sv', String(s.value)));
-          sk.appendChild(r);
+          const chip = h('span', 'bw-ro-chip');
+          chip.appendChild(h('span', 'bw-ro-sk', s.name));
+          chip.appendChild(h('span', 'bw-ro-sv', String(s.value)));
+          sk.appendChild(chip);
         }
       } else {
         sk.appendChild(h('div', 'bw-ro-note', c.skillsLine));
@@ -226,8 +265,15 @@ export function createRoster(root, deps = {}) {
     fresh.dataset.slot = '';
     fresh.dataset.new = '1';
     fresh.appendChild(h('div', 'bw-ro-band'));
-    fresh.appendChild(h('div', 'bw-ro-name', 'New character'));
-    fresh.appendChild(h('div', 'bw-ro-note', 'Eleven openings, thirty points of stat and two hundred of skill, and a name of your own.'));
+    // The same empty frame the unmade slots wear, so the last row of the list
+    // lines up with the ones above it instead of starting further left.
+    const freshPort = h('div', 'bw-ro-port bw-ro-nobody');
+    freshPort.innerHTML = silhouetteSvg();
+    fresh.appendChild(freshPort);
+    const freshWho = h('div', 'bw-ro-who');
+    freshWho.appendChild(h('div', 'bw-ro-name', 'New character'));
+    freshWho.appendChild(h('div', 'bw-ro-note', 'Eleven openings, thirty points of stat and two hundred of skill, and a name of your own.'));
+    fresh.appendChild(freshWho);
     const acts = h('div', 'bw-ro-acts');
     const begin = h('button', 'bw-btn bw-ro-begin', 'Begin');
     begin.dataset.begin = '1';
@@ -292,6 +338,10 @@ export function createRoster(root, deps = {}) {
     armed = null;
     const who = cardOf(rows().find((r) => r.id === id) || {}).name;
     const gone = state?.deleteSlot?.(id, { evenIfOpen: true }) === true;
+    // The document is gone, so the picture of it has to go too. Slot ids are
+    // handed back out by state.newSlot, and a kept portrait would put the dead
+    // character's face on the next one to take the number.
+    if (gone) portraits.forget(id);
     build();
     say(gone ? `${who} is gone.` : `${who} could not be removed, so nothing was.`, gone ? '' : 'bad');
     // The last one out leaves nothing to choose between, so the road goes
@@ -351,13 +401,17 @@ export function createRoster(root, deps = {}) {
     stopped = true;
     if (raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
     win?.removeEventListener?.('keydown', key);
+    // The portraits' own WebGL context goes with the screen. A context left
+    // behind on every visit to the roster is how a browser reaches its limit
+    // and starts refusing the game one.
+    if (!deps.portraits) portraits.dispose();
     el.remove();
   }
 
   build();
 
   return {
-    el, key, destroy, select,
+    el, key, destroy, select, portraits,
     refresh: build,
     play: doPlay,
     remove: doDelete,
@@ -416,20 +470,44 @@ const CSS = `
 }
 
 #bw-roster .bw-ro-cards {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 11px;
+  display: flex; flex-direction: column; gap: 9px;
 }
+/* One row: the face, who they are, what they are best at, where they were,
+   and the two buttons. The five columns are fixed in this one place so every
+   row lines up down the page rather than each sizing itself. */
 #bw-roster .bw-ro-card {
-  position: relative; padding: 12px 13px 13px 17px; cursor: pointer;
-  display: flex; flex-direction: column; gap: 8px;
-  background: linear-gradient(150deg, rgba(30,25,18,.9), rgba(10,9,7,.93));
+  position: relative; padding: 10px 12px 10px 16px; cursor: pointer;
+  display: grid; align-items: center; gap: 16px;
+  grid-template-columns: 92px minmax(150px, 1.1fr) minmax(132px, .9fr) minmax(180px, 1.1fr) auto;
+  background: linear-gradient(100deg, rgba(30,25,18,.9), rgba(10,9,7,.93));
   border: 1px solid ${theme.goldDim}55;
-  transition: border-color .12s ease;
+  transition: border-color .12s ease, background-color .12s ease;
 }
+
+/* the portrait: a 160 x 220 render shown at 92 px wide, so the picture is
+   drawn at better than screen resolution and stays sharp on a dense display */
+#bw-roster .bw-ro-port {
+  position: relative; width: 92px; height: 126px; overflow: hidden;
+  background: linear-gradient(180deg, rgba(36,31,24,.9), rgba(8,7,6,.95));
+  border: 1px solid ${theme.goldDim}55;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+#bw-roster .bw-ro-port img, #bw-roster .bw-ro-port svg {
+  display: block; width: 100%; height: 100%; object-fit: contain;
+}
+#bw-roster .bw-ro-port.bw-ro-nobody { opacity: .72; }
+#bw-roster .bw-ro-card.on .bw-ro-port { border-color: ${theme.gold}; }
+#bw-roster .bw-ro-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 #bw-roster .bw-ro-card .bw-ro-band {
   position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: ${theme.goldDim};
 }
 #bw-roster .bw-ro-card:hover { border-color: ${theme.gold}; }
-#bw-roster .bw-ro-card.on { border-color: ${theme.gold}; box-shadow: inset 3px 0 0 ${theme.gold}; }
+/* the row in hand, lit in the one gold ui_theme owns */
+#bw-roster .bw-ro-card.on {
+  border-color: ${theme.gold};
+  box-shadow: inset 4px 0 0 ${theme.gold}, 0 0 18px rgba(201,164,74,.14);
+  background: linear-gradient(100deg, rgba(64,50,26,.92), rgba(18,14,9,.94));
+}
 #bw-roster .bw-ro-card.on .bw-ro-band { width: 0; }
 
 #bw-roster .bw-ro-head { display: flex; flex-direction: column; gap: 2px; }
@@ -445,24 +523,30 @@ const CSS = `
 }
 #bw-roster .bw-ro-note { font-size: 14px; line-height: 1.32; color: ${theme.parchmentDim}; }
 
-#bw-roster .bw-ro-skills { display: grid; gap: 2px; }
-#bw-roster .bw-ro-srow {
-  display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: baseline;
-  padding: 2px 0; border-bottom: 1px solid rgba(201,164,74,.14);
+/* the three best things they can do, as chips rather than a table, because a
+   table of three rows next to a portrait reads as a receipt */
+#bw-roster .bw-ro-skills { display: flex; flex-wrap: wrap; gap: 4px; align-content: center; }
+#bw-roster .bw-ro-chip {
+  display: inline-flex; align-items: baseline; gap: 6px; padding: 2px 7px;
+  border: 1px solid ${theme.goldDim}55; background: rgba(0,0,0,.32);
 }
-#bw-roster .bw-ro-sk { color: ${theme.parchmentDim}; font-size: 14.5px; }
+#bw-roster .bw-ro-sk {
+  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .13em;
+  text-transform: uppercase; color: ${theme.parchmentDim};
+}
 #bw-roster .bw-ro-sv {
-  font-family: ${theme.fonts.display}; font-size: 13.5px; font-weight: 600;
-  font-variant-numeric: tabular-nums; color: ${theme.parchment};
+  font-family: ${theme.fonts.display}; font-size: 12.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: ${theme.goldBright};
 }
+#bw-roster .bw-ro-card.on .bw-ro-chip { border-color: ${theme.goldDim}aa; }
 
 #bw-roster .bw-ro-facts { display: grid; gap: 3px; }
 #bw-roster .bw-ro-frow { display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: center; }
 #bw-roster .bw-ro-fi { display: block; opacity: .85; }
 #bw-roster .bw-ro-fv { font-size: 14px; color: ${theme.parchmentDim}; }
 
-#bw-roster .bw-ro-acts { display: flex; gap: 6px; margin-top: 2px; }
-#bw-roster .bw-ro-play { flex: 1 1 auto; }
+#bw-roster .bw-ro-acts { display: flex; flex-direction: column; gap: 6px; align-items: stretch; min-width: 108px; }
+#bw-roster .bw-ro-play { padding: 7px 16px; }
 #bw-roster .bw-ro-del { color: ${theme.parchmentFaint}; border-color: ${theme.goldDim}66; }
 #bw-roster .bw-ro-del:hover { color: #ff8f7a; border-color: #7a2a20; }
 #bw-roster .bw-ro-del.bw-ro-armed {
@@ -471,10 +555,29 @@ const CSS = `
 }
 
 #bw-roster .bw-ro-new {
-  border-style: dashed; justify-content: center;
-  background: linear-gradient(150deg, rgba(20,17,12,.8), rgba(8,7,6,.9));
+  border-style: dashed;
+  grid-template-columns: 92px 1fr auto;
+  background: linear-gradient(100deg, rgba(20,17,12,.8), rgba(8,7,6,.9));
 }
+#bw-roster .bw-ro-new.on { background: linear-gradient(100deg, rgba(58,45,24,.86), rgba(14,11,8,.92)); }
 #bw-roster .bw-ro-new .bw-ro-band { background: ${theme.gold}; }
+#bw-roster .bw-ro-new .bw-ro-port { border-style: dashed; }
+
+/* Narrow: the facts fall under the name and the row keeps its face. Nothing
+   is dropped, because a roster that hides where a character was standing has
+   stopped being the screen that tells you who you have. */
+@media (max-width: 900px) {
+  #bw-roster .bw-ro-card,
+  #bw-roster .bw-ro-new { grid-template-columns: 74px 1fr auto; gap: 6px 12px; }
+  #bw-roster .bw-ro-port { width: 74px; height: 101px; }
+  /* the new character row has one line of content, so nothing spans in it */
+  #bw-roster .bw-ro-card:not(.bw-ro-new) .bw-ro-port { grid-row: 1 / 4; }
+  #bw-roster .bw-ro-who { grid-column: 2; grid-row: 1; }
+  #bw-roster .bw-ro-skills { grid-column: 2; grid-row: 2; }
+  #bw-roster .bw-ro-facts { grid-column: 2; grid-row: 3; }
+  #bw-roster .bw-ro-acts { grid-column: 3; justify-content: center; }
+  #bw-roster .bw-ro-card:not(.bw-ro-new) .bw-ro-acts { grid-row: 1 / 4; }
+}
 
 #bw-roster .bw-ro-foot {
   min-height: 20px; margin-top: 14px; font-size: 14.5px; color: ${theme.parchmentDim};

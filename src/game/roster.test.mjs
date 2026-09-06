@@ -82,6 +82,7 @@ globalThis.requestAnimationFrame = () => 0;
 globalThis.cancelAnimationFrame = () => {};
 
 const { createRoster, cardOf, agoWords, auditRosterIcons, UNNAMED } = await import('./roster.js');
+const { createPortraits, PORTRAIT } = await import('./roster_preview.js');
 const { createState, slotKeyFor, ROSTER_KEY, ROSTER_FLAG, askForRoster, rosterAsked } = await import('./state.js');
 
 let pass = 0, fail = 0;
@@ -120,6 +121,18 @@ function button(card, key) {
   return out[0] || null;
 }
 const textOf = (n) => n.textContent;
+/** Every node inside a row that wears this class, in document order. */
+function byClass(node, cls) {
+  const out = [];
+  (function walk(n) {
+    if (n.classList && n.classList.contains(cls)) out.push(n);
+    for (const c of n.children) walk(c);
+  })(node);
+  return out;
+}
+const one = (node, cls) => byClass(node, cls)[0] || null;
+/** The name a row is showing, found by its class rather than by its position. */
+const nameOf = (card) => textOf(one(card, 'bw-ro-name') || { textContent: '' });
 
 // ---- the table the cards are painted from -----------------------------------
 console.log('roster: what a card says');
@@ -184,7 +197,7 @@ console.log('roster: the cards on the screen');
   const hud = document.createElement('div');
   const r = createRoster(hud, { state });
   check('the screen is in the hud root', hud.children.includes(r.el) && r.el.id === 'bw-roster');
-  const names = slotCards(r).map((c) => textOf(c.children[1].children[0]));
+  const names = slotCards(r).map(nameOf);
   check('the newest played is first', names[0] === 'Corr' && names[1] === 'Mab', names.join(','));
   const first = slotCards(r)[0];
   check('a card shows the three facts and the two buttons',
@@ -203,6 +216,127 @@ console.log('roster: the cards on the screen');
   check('a slot that was begun and never finished is on the roster', slotCards(r).length === 1);
   check('and says what Play would do with it', textOf(slotCards(r)[0]).includes('begun and never finished'));
   r.destroy();
+}
+
+// ---- one row each, in the order state gives them ---------------------------
+console.log('roster: rows, not a grid');
+{
+  const { state } = withCharacters(3);
+  const r = createRoster(document.createElement('div'), { state });
+  const wanted = state.roster().map((s) => s.id);
+  const shown = slotCards(r).map((c) => c.dataset.slot);
+  check('the rows are in the order the roster gave them',
+    shown.join(',') === wanted.join(','), `${shown.join(',')} wanted ${wanted.join(',')}`);
+  check('and the new character row is last of all',
+    !!r.cards[r.cards.length - 1].dataset.new && r.cards.length === 4);
+  const first = slotCards(r)[0];
+  const cells = first.children.filter((n) => !n.classList.contains('bw-ro-band'));
+  check('a row opens with a face and then says who it is',
+    cells[0].classList.contains('bw-ro-port') && cells[1].classList.contains('bw-ro-who'),
+    cells.map((n) => n.className).join(' | '));
+  check('and runs face, name, skills, facts, buttons across the row',
+    cells.map((n) => n.className.split(' ')[0]).join(',') === 'bw-ro-port,bw-ro-who,bw-ro-skills,bw-ro-facts,bw-ro-acts',
+    cells.map((n) => n.className).join(' | '));
+  // These three learned two things each, so two chips is the count, not three:
+  // the row shows what cardOf found and never a slot for a skill nobody has.
+  const chips = byClass(first, 'bw-ro-chip');
+  check('what they are best at is a chip each, the name and the number',
+    chips.length === cardOf(state.roster()[0]).skills.length
+    && chips.every((c) => c.children.length === 2), `${chips.length} chips`);
+  const newRow = newCard(r).children.filter((n) => !n.classList.contains('bw-ro-band'));
+  check('the new character row keeps the same face, words, button shape',
+    newRow.map((n) => n.className.split(' ')[0]).join(',') === 'bw-ro-port,bw-ro-who,bw-ro-acts',
+    newRow.map((n) => n.className).join(' | '));
+  r.destroy();
+}
+
+// ---- the portraits ---------------------------------------------------------
+console.log('roster: the face on each row');
+{
+  // The seam is the GPU call and nothing else: which look a row has, what its
+  // signature is and what is cached are all the real code below.
+  const { state, store } = withCharacters(2);
+  let drew = 0;
+  const portraits = createPortraits({ storage: store, render: (look) => `data:image/png;base64,${++drew}:${look.appearance.hairStyle}` });
+  const r = createRoster(document.createElement('div'), { state, storage: store, portraits });
+
+  const faces = slotCards(r).map((c) => one(c, 'bw-ro-face'));
+  check('every made character is drawn once', drew === 2 && faces.every((f) => f && /^data:image\/png/.test(f.src)),
+    `${drew} drawn`);
+  check('the picture is the size roster_preview renders',
+    faces[0].width === PORTRAIT.w && faces[0].height === PORTRAIT.h, `${faces[0].width} x ${faces[0].height}`);
+  check('and it is told what it is a picture of', /Mab|Corr/.test(faces[0].alt), faces[0].alt);
+
+  const hits = portraits.hits, misses = portraits.misses;
+  r.refresh();
+  check('a second redraw of the list draws no body again', drew === 2, `${drew} drawn`);
+  check('  because both rows came out of the cache',
+    portraits.hits === hits + 2 && portraits.misses === misses, `${portraits.hits} hits, ${portraits.misses} misses`);
+
+  // The look is part of the key, so a character who changed changes picture.
+  state.openSlot(state.roster()[0].id);
+  state.character.appearance.hairStyle = 'wild';
+  state.save();
+  r.refresh();
+  check('a character who changed their hair is drawn again', drew === 3, `${drew} drawn`);
+  check('and the one who did not is not', portraits.misses === misses + 1, `${portraits.misses} misses`);
+  r.destroy();
+}
+{
+  const { state, store } = withCharacters(2);
+  let drew = 0;
+  const portraits = createPortraits({ storage: store, render: () => `data:image/png;base64,${++drew}` });
+  const r = createRoster(document.createElement('div'), { state, storage: store, portraits });
+  const doomed = state.roster()[0].id;
+  check('the doomed row has a face in the cache', portraits.has(doomed) === true);
+  const del = () => button(slotCards(r).find((c) => c.dataset.slot === doomed), 'del');
+  del().fire('click');
+  del().fire('click');
+  check('deleting them takes the picture with the document',
+    portraits.has(doomed) === false && state.roster().length === 1);
+  const misses = portraits.misses;
+  portraits.of({ id: doomed });
+  check('and asking for that face again is a miss, not a stale hit',
+    portraits.misses === misses + 1, `${portraits.misses} misses, was ${misses}`);
+  r.destroy();
+}
+{
+  // Nobody yet: no appearance to draw, so a drawing rather than a broken image.
+  const store = memStore();
+  const state = createState({ storage: store });
+  state.newSlot();
+  let drew = 0;
+  const portraits = createPortraits({ storage: store, render: () => `data:image/png;base64,${++drew}` });
+  const r = createRoster(document.createElement('div'), { state, storage: store, portraits });
+  const port = one(slotCards(r)[0], 'bw-ro-port');
+  check('a slot that was never finished shows the drawn silhouette',
+    !one(slotCards(r)[0], 'bw-ro-face') && /bw-ro-sil/.test(port.innerHTML), port.innerHTML.slice(0, 40));
+  check('and no body was built for it', drew === 0, `${drew} drawn`);
+  check('the new character row wears the same drawing',
+    /bw-ro-sil/.test(one(newCard(r), 'bw-ro-port').innerHTML));
+  r.destroy();
+}
+{
+  // No WebGL anywhere: the roster still draws, every row falls to the drawing.
+  const { state, store } = withCharacters(2);
+  const portraits = createPortraits({ storage: store, render: () => { throw new Error('no context'); } });
+  const r = createRoster(document.createElement('div'), { state, storage: store, portraits });
+  check('a browser that will not draw still gets a full roster', slotCards(r).length === 2);
+  check('and every row falls back to the silhouette',
+    slotCards(r).every((c) => !one(c, 'bw-ro-face') && /bw-ro-sil/.test(one(c, 'bw-ro-port').innerHTML)));
+  let played = null;
+  button(slotCards(r)[0], 'play').fire('click');
+  check('and Play still works', r.gone === true);
+  played = null; void played;
+}
+{
+  // The screen owns the glass it made: it goes when the screen goes.
+  const { state } = withCharacters(1);
+  const r = createRoster(document.createElement('div'), { state });
+  check('a roster that was handed no portrait maker builds its own', !!r.portraits);
+  check('and never asked a browser for a context it did not need', r.portraits.webgl === undefined);
+  r.destroy();
+  check('destroying the screen disposes it', r.portraits.gone === true);
 }
 
 // ---- Play ------------------------------------------------------------------
@@ -336,6 +470,24 @@ console.log('roster: the keyboard');
   press('Enter');
   check('and calls onNew', news === 1);
   r.destroy();
+}
+{
+  // A vertical list is walked with up and down, and the row that is lit is the
+  // row Enter plays. Both are measured against the id on the row itself.
+  const { state } = withCharacters(4);
+  const played = [];
+  const r = createRoster(document.createElement('div'), { state, onPlay: (id) => played.push(id) });
+  const lit = () => r.cards.filter((c) => c.classList.contains('on'));
+  press('ArrowDown'); press('ArrowDown');
+  check('down walks the list', r.selected === 2, String(r.selected));
+  check('and exactly one row is lit at a time',
+    lit().length === 1 && lit()[0] === r.cards[2], `${lit().length} lit`);
+  press('ArrowUp');
+  check('up walks back', r.selected === 1 && lit()[0] === r.cards[1], String(r.selected));
+  const wanted = r.cards[1].dataset.slot;
+  check('  and it is the second character on the roster', wanted === state.roster()[1].id);
+  press('Enter');
+  check('enter plays the row that was lit', played.join(',') === wanted, `${played.join(',')} wanted ${wanted}`);
 }
 
 // ---- the note the settings window leaves ------------------------------------
