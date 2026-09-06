@@ -92,6 +92,22 @@ const ROCK_LINE = 46;
 /** Bearings tried when a mine's yard is turned to face away from its own cuts. */
 const MINE_AIM_STEPS = 32;
 
+/**
+ * The biome a painted word means, where there is one.
+ *
+ * `dirt` and `mud` are not in here because the world has no dirt biome and no
+ * mud one; they travel on `sample.ground` alone, which grass.js, dressing.js
+ * and terrain_material.js read. The three that ARE here take the biome with
+ * them, so a rock patch is painted, textured, grassless and treeless from one
+ * line rather than from four.
+ */
+export const PAINT_BIOME = { grass: 'meadow', sand: 'beach', rock: 'mountain' };
+/**
+ * The generator cell a hand cut cave's level is keyed off, offset far out of
+ * the lattice the rolled sites use so no cave shares a level with a real place.
+ */
+export const EDIT_CELL = 900000;
+
 // ---------------------------------------------------------------- relief ---
 //
 // Five realms are not the ground the noise made, and `zones.js` says which and
@@ -819,6 +835,91 @@ export function createWorldField(seed = 1, opts = {}) {
     return null;
   }
 
+  // ---- the hand cut ground ------------------------------------------------
+  //
+  // `setTerrainEdits(edits)` hands the field a stroke list out of
+  // terrain_edits.js. Until one is set, `EDITS` is null and every line below
+  // this is a null check that costs nothing: the world is the world the seed
+  // made, and field.test.mjs's heart digest is the proof.
+  //
+  // Two things come out of a list. The HEIGHT, added at the end of `sampleAt`,
+  // which is what puts a hand raised hill in the mesh, in the collision, under
+  // the grass and under the trees, because every one of those reads this field.
+  // And the CAVES: a `cave` stroke is a place, not a shape, so it becomes a
+  // site record here, which is where every other place in the world comes from.
+  let EDITS = null;
+  let editSites = null;          // built lazily, thrown away when the list moves
+  let editSitesAt = -1;
+
+  /**
+   * The ground a cave stroke's mouth is aimed by: the world plus the strokes,
+   * WITHOUT the cave cuts themselves.
+   *
+   * Without the exclusion this is circular: the cut in front of the mouth is
+   * the lowest ground for fifteen metres, so every mouth would face its own
+   * hole. The road and the pad are left out because neither says anything about
+   * which way a hillside falls, and both cost a road lookup a probe.
+   */
+  function aimGround(x, z) {
+    const h = lerp(homeY, raw(x, z).h, homeFactor(x, z));
+    return h + EDITS.heightDelta(x, z, h, 'cave');
+  }
+
+  /** Which of eight bearings the ground falls away on. The same probe siteInCell uses. */
+  function downhillFrom(x, z) {
+    const h0 = aimGround(x, z);
+    let best = -Infinity, bestA = 0;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const drop = h0 - aimGround(x + Math.sin(a) * 15, z + Math.cos(a) * 15);
+      if (drop > best) { best = drop; bestA = a; }
+    }
+    return bestA;
+  }
+
+  /**
+   * Every cave stroke, as a site record the rest of the game already knows how
+   * to use: `site_models.js` builds the mouth from `kind: 'cave'` and `facing`,
+   * `interact.js` opens it with E, and `world_runtime.js` builds the inside.
+   *
+   * It does NOT go through `siteInCell`, and that is deliberate: a cell holds
+   * one site and two thirds of the cells in the world already hold one, so a
+   * hand cut cave in a cell with a hamlet in it would have had to displace the
+   * hamlet. These are a second list, and `world_runtime.js` adds them to what
+   * `discovery.sitesNear` hands out. See docs/mmo/wiring/ED2-TERRAIN.md.
+   */
+  function buildEditSites() {
+    editSites = [];
+    editSitesAt = EDITS.version;
+    for (const s of EDITS.caves()) {
+      const facing = Number.isFinite(s.yaw) ? s.yaw : downhillFrom(s.x, s.z);
+      const size = s.size || (Math.abs(s.amount || 1) <= 1 ? 'small' : Math.abs(s.amount) <= 2 ? 'medium' : 'large');
+      editSites.push({
+        id: `edit:cave:${s.id}`, kind: 'cave', edit: true, authored: true,
+        // A GENERATOR CELL OF ITS OWN. dungeon_gen keys a level off (cx, cz), so
+        // two hand cut caves a metre apart have to differ here or they are one
+        // cave with two mouths. The offset keeps them clear of the real lattice.
+        cx: EDIT_CELL + Math.round(s.x), cz: EDIT_CELL + Math.round(s.z),
+        x: s.x, z: s.z, y: sampleAt(s.x, s.z).h,
+        flatR: s.r, bodyR: s.r, facing, size,
+        name: s.name || 'a hollow in the hillside',
+        article: 'a hollow somebody cut',
+        oreBand: zoneBias(s.x, s.z).ore,
+        zone: null, dish: 0,
+      });
+    }
+    return editSites;
+  }
+
+  /** The hand cut caves within `r` of a point, or an empty array. */
+  function editSitesNear(x, z, r) {
+    if (!EDITS || !EDITS.caves().length) return [];
+    if (!editSites || editSitesAt !== EDITS.version) buildEditSites();
+    const out = [];
+    for (const s of editSites) if (Math.hypot(s.x - x, s.z - z) <= r + (s.bodyR || 0)) out.push(s);
+    return out;
+  }
+
   /**
    * The ground before any road touches it: the raw world, the home disc, and
    * whatever pad stands here.
@@ -911,6 +1012,24 @@ export function createWorldField(seed = 1, opts = {}) {
         }
       }
     }
+    // THE HAND CUT GROUND, and it is the last thing that touches the height.
+    //
+    // After the pad, so a town raised by a stroke keeps the level square it
+    // stands on and rides up with it rather than having a hillside pushed
+    // through the middle of it; after the road, so a road over a raised hill
+    // climbs the hill instead of hanging in the air where the hill used to be.
+    // `groundNoRoads` deliberately does NOT have this in it: roads.js calls that
+    // function while it is laying a road out, and a road that graded itself
+    // toward ground the strokes had already moved would move the ground again
+    // on the next sample.
+    //
+    // With no edits set this is one null check and the field is bit for bit the
+    // field that shipped, which is what the heart digest in field.test.mjs says.
+    // `EDITS.live` and not `EDITS`: the runtime lays an empty list over every
+    // world at boot so the editor has something to draw on, and this line runs
+    // on every vertex of every chunk. Measured over 200,000 samples of the real
+    // field: the boolean costs 1.3% of sampleAt where the two calls cost 5.2%.
+    if (EDITS && EDITS.live) h += EDITS.heightDelta(x, z, h);
     const land = lerp(1, r.land, k);
     const water = h < SEA_LEVEL - 0.05;
 
@@ -945,11 +1064,27 @@ export function createWorldField(seed = 1, opts = {}) {
     else if (temp > 0.58 && moist < 0.47) biome = 'desert';
     else if (moist > 0.62 && temp > 0.42 && temp < 0.66 && N.fbm(x / W_SAKURA + 5000, z / W_SAKURA - 5000, 2) > 0.38) biome = 'sakura';
     else biome = 'meadow';
+    // PAINT. A `ground` stroke says what this patch is made of, and the word
+    // goes out on the sample as `ground` AND takes the biome with it where
+    // there is a biome that means the same thing (PAINT_BIOME).
+    //
+    // Taking the biome is what makes paint visible without a second path: the
+    // vertex colour in chunks.js, the texture mix in terrain_material.js, the
+    // turf in grass.js and the species in flora.js all read `biome` already, so
+    // one line here paints the ground, stops the grass and changes the trees.
+    // `ground` is carried as well because 'dirt' and 'mud' have no biome of
+    // their own, and because grass.js and dressing.js refuse a painted patch by
+    // the word rather than by guessing at the biome.
+    let ground = null;
+    if (EDITS && EDITS.live) {
+      ground = EDITS.groundOverride(x, z);
+      if (ground && PAINT_BIOME[ground] && !water) biome = PAINT_BIOME[ground];
+    }
     // `zone` is the deepest zone's id or null, `realm` the id of the realm of
     // Kaldera it belongs to, and `danger` the monster tier band [lo, hi]: the
     // one number monsters.js should roll a spawn against (docs/mmo/wiring/Z1.md).
     return {
-      h, biome, water, river, land, temp, moist, site, road,
+      h, biome, water, river, land, temp, moist, site, road, ground,
       zone: zb.id, realm: zb.parent ? zb.parent.id : zb.id, danger: zb.danger,
     };
   }
@@ -962,9 +1097,27 @@ export function createWorldField(seed = 1, opts = {}) {
   /** Chunk coordinates of a world point. */
   const chunkOf = (x, z) => [Math.floor(x / CHUNK), Math.floor(z / CHUNK)];
 
+  // A GETTER, DEFINED RATHER THAN ASSIGNED. `Object.assign` reads a getter and
+  // copies the VALUE it had at that instant, so a `get terrainEdits()` written
+  // into the literal below would have handed out `null` for ever, whatever was
+  // set afterwards. Measured: world_runtime.test.mjs went red on the first ask.
+  Object.defineProperty(self, 'terrainEdits', { get: () => EDITS, configurable: true });
+
   return Object.assign(self, {
     seed, heightAt, biomeAt, sampleAt, raw, homeFactor, chunkOf, siteInCell, siteAt,
     groundNoRoads, tablesIn,
+    /**
+     * Lay a stroke list over this field, or take it away with null. Everything
+     * that reads the field, which is everything, sees it from the next sample.
+     */
+    setTerrainEdits(edits) {
+      EDITS = edits || null;
+      editSites = null; editSitesAt = -1;
+      return EDITS;
+    },
+    editSitesNear,
+    /** Which way the hillside falls at a point, for a mouth with no bearing given. */
+    downhillAt(x, z) { return EDITS ? downhillFrom(x, z) : null; },
     seaLevel: SEA_LEVEL, chunk: CHUNK, homeRadius, homeY, biomes: BIOMES,
     roadHalfWidth: ROAD_HALF_WIDTH,
     // the world's own half width, so a caller with a field does not need to

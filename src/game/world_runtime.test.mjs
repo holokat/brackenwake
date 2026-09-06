@@ -565,6 +565,203 @@ for (const kind of ['dungeon', 'cave']) {
 }
 
 // ---------------------------------------------------------------------------
+// 6b. the hand cut ground (ED2)
+//
+// The runtime carries a stroke list, lays it on the field, and can put a built
+// chunk back up when the ground under it moves. Everything below is driven
+// through the runtime's own surface, and the mesh is read out of the geometry
+// the streamer actually built.
+// ---------------------------------------------------------------------------
+{
+  const PX = NEAR_SITE.x, PZ = NEAR_SITE.z;
+  const edits = rt.terrainEdits;
+  ck('the runtime carries a stroke list, and it starts empty',
+    !!edits && edits.count === 0 && rt.field.terrainEdits === edits);
+
+  // ---- a rebuild with nothing changed leaks nothing -----------------------
+  const disposed = new Set();
+  const realDispose = THREE.BufferGeometry.prototype.dispose;
+  THREE.BufferGeometry.prototype.dispose = function patched() { disposed.add(this.uuid); return realDispose.call(this); };
+  const census = () => {
+    const geo = new Set();
+    let nodes = 0;
+    for (const g of [rt.world.group, rt.dressing.group, rt.wayside.group]) {
+      if (!g) continue;
+      g.traverse((o) => { nodes++; if (o.geometry) geo.add(o.geometry.uuid); });
+    }
+    return { geo, nodes, records: rt.flora.stats.records, chunks: rt.flora.stats.chunks, loaded: rt.world.stats.loaded };
+  };
+  const before = census();
+  const nowhere = rt.rebuildAround(PX + 200000, PZ + 200000, 30);
+  ck('a rebuild a long way from anything built rebuilds nothing', nowhere.chunks === 0, `${nowhere.chunks} chunks`);
+  const did = rt.rebuildAround(PX, PZ, 10);
+  const after = census();
+  ck('a rebuild over one point puts back the chunks whose squares it touches',
+    did.chunks >= 1 && did.chunks <= 4, `${did.chunks} chunks of the ${before.loaded} built`);
+  ck('and the same number of chunks is loaded afterwards', after.loaded === before.loaded,
+    `${before.loaded} to ${after.loaded}`);
+  ck('the same number of nodes and geometries stand in the world groups',
+    after.nodes === before.nodes && after.geo.size === before.geo.size,
+    `${before.nodes} nodes / ${before.geo.size} geometries to ${after.nodes} / ${after.geo.size}`);
+  ck('flora holds the same chunks and the same records',
+    after.records === before.records && after.chunks === before.chunks,
+    `${before.records} records in ${before.chunks} chunks to ${after.records} in ${after.chunks}`);
+  const gone = [...before.geo].filter((u) => !after.geo.has(u));
+  ck('and every geometry the rebuild replaced had dispose called on it',
+    gone.length > 0 && gone.every((u) => disposed.has(u)), `${gone.length} replaced, ${gone.filter((u) => !disposed.has(u)).length} leaked`);
+  THREE.BufferGeometry.prototype.dispose = realDispose;
+
+  // ---- a stroke moves the mesh, not just the field ------------------------
+  const meshAt = (x, z) => {
+    const [cx, cz] = rt.field.chunkOf(x, z);
+    return rt.world.group.children.find((m) => m.userData.chunk && m.userData.chunk[0] === cx && m.userData.chunk[1] === cz);
+  };
+  const nearestVert = (mesh, x, z) => {
+    const pos = mesh.geometry.getAttribute('position');
+    let best = -1, bestD = Infinity;
+    for (let i = 0; i < pos.count; i++) {
+      const d = Math.hypot(pos.getX(i) - x, pos.getZ(i) - z);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return { i: best, x: pos.getX(best), y: pos.getY(best), z: pos.getZ(best), d: bestD };
+  };
+  const m0 = meshAt(PX, PZ);
+  ck('there is a terrain mesh under the player to measure', !!m0);
+  const v0 = nearestVert(m0, PX, PZ);
+  const hBefore = rt.heightAt(v0.x, v0.z);
+  // 1e-4 and not 1e-9: a position attribute is a Float32Array and the field
+  // answers in doubles, so agreement here is agreement to a tenth of a millimetre
+  ck('and its vertices carry the height the field gives', Math.abs(v0.y - hBefore) < 1e-4,
+    `vertex ${v0.y.toFixed(3)} m, field ${hBefore.toFixed(3)} m, ${v0.d.toFixed(2)} m from the point`);
+  edits.stroke({ kind: 'raise', x: PX, z: PZ, r: 24, amount: 4 });
+  ck('the field knows about the stroke straight away',
+    Math.abs(rt.heightAt(PX, PZ) - (hBefore + 4)) < 1.0, `${(rt.heightAt(PX, PZ) - hBefore).toFixed(3)} m of rise at the centre`);
+  ck('but the mesh does not, until the world is told to put it back',
+    nearestVert(meshAt(PX, PZ), PX, PZ).y === v0.y);
+  const raised = rt.rebuildAround(PX, PZ, 24);
+  const v1 = nearestVert(meshAt(PX, PZ), PX, PZ);
+  ck('after rebuildAround the ground you stand on is the ground the stroke made',
+    Math.abs(v1.y - rt.heightAt(v1.x, v1.z)) < 1e-4 && v1.y > v0.y + 1,
+    `${v0.y.toFixed(3)} m to ${v1.y.toFixed(3)} m over ${raised.chunks} chunks`);
+  // and a chunk the circle never touched still carries the old ground
+  {
+    // the built chunk furthest from the stroke, whichever that is: the ring is
+    // only as wide as the frames this file has driven
+    const live = rt.world.live().map(([cx, cz]) => [cx * 64 + 32, cz * 64 + 32])
+      .sort((a, b) => Math.hypot(b[0] - PX, b[1] - PZ) - Math.hypot(a[0] - PX, a[1] - PZ));
+    const far = live[0];
+    const mf = meshAt(far[0], far[1]);
+    const vf = mf ? nearestVert(mf, far[0], far[1]) : null;
+    ck('the chunks the circle never touched still carry the ground they were built with',
+      !!vf && Math.abs(vf.y - rt.heightAt(vf.x, vf.z)) < 1e-4,
+      vf ? `${vf.y.toFixed(2)} m, ${Math.hypot(far[0] - PX, far[1] - PZ).toFixed(0)} m away` : 'no mesh out there');
+  }
+  edits.undo();
+  rt.rebuildAround(PX, PZ, 24);
+  ck('undo and one more rebuild puts the hillside back exactly',
+    nearestVert(meshAt(PX, PZ), PX, PZ).y === v0.y);
+
+  // ---- a cave stroke is a place you can walk into -------------------------
+  {
+    const CX = PX + 260, CZ = PZ + 140;
+    ck('nothing stands at the point before the stroke',
+      rt.sitesNear(CX, CZ, 40).length === 0, rt.sitesNear(CX, CZ, 40).map((s) => s.name).join(', '));
+    edits.stroke({ kind: 'cave', x: CX, z: CZ, r: 10, amount: 2, name: 'the Hollow' });
+    const near = rt.sitesNear(CX, CZ, 40);
+    const cave = near.find((s) => s.edit);
+    ck('a cave stroke stands a place up that sitesNear hands out',
+      !!cave && cave.kind === 'cave' && cave.name === 'the Hollow', cave ? cave.id : 'nothing');
+    rt.rebuildAround(CX, CZ, 40);
+    // the marker is built one a frame, like every other place in the world
+    let built = null;
+    for (let i = 0; i < 400 && !built; i++) {
+      clock += 16;
+      rt.update(0.016, clock, CX, CZ, 1);
+      built = rt.siteMarkers.meshes().find((o) => o.userData.site && o.userData.site.id === cave.id) || null;
+    }
+    ck('and the world builds a mouth for it, like any other cave', !!built,
+      built ? `${rt.siteMarkers.count} markers live` : 'no marker was built');
+    sc.scene.updateMatrixWorld(true);
+    if (built) {
+      const box = new THREE.Box3().setFromObject(built);
+      const pos = built.geometry.getAttribute('position');
+      const v = new THREE.Vector3().fromBufferAttribute(pos, 0).applyMatrix4(built.matrixWorld);
+      const ray = new THREE.Raycaster();
+      ray.set(new THREE.Vector3(v.x, box.max.y + 40, v.z), new THREE.Vector3(0, -1, 0));
+      const hit = rt.pick(ray);
+      ck('a ray onto that mouth picks the cave, which is what E asks',
+        hit && hit.kind === 'site' && hit.site.id === cave.id, hit ? `${hit.kind} ${hit.site?.name}` : 'nothing');
+    }
+    const d = rt.enterDungeon(cave);
+    ck('and going in builds a cavern, sized by the stroke',
+      !!d && rt.inDungeon && rt.dungeonLayout().gen === 'cavern' && rt.dungeonTop === 2,
+      d ? `${rt.dungeonLayout().rooms.length} chambers, level ${rt.dungeonLevel} of ${rt.dungeonTop}` : 'it would not open');
+    ck('the floor under you down there is the level and not the hillside',
+      Math.abs(rt.heightAt(0, 0)) < 40 && rt.inDungeon);
+    const down = rt.dungeonGo('down');
+    ck('a medium cave has a second level under it', !!down && down.level === 2, down ? `level ${down.level}` : 'no stair');
+    rt.leaveDungeon();
+    ck('and you come back out into the daylight world', rt.inDungeon === false);
+    // the sizes are not all the same cave with a different word on it
+    const { EDIT_CAVE_SPEC } = await import('./world_runtime.js');
+    ck('small, medium and large are three different depths',
+      EDIT_CAVE_SPEC.small.levels === 1 && EDIT_CAVE_SPEC.medium.levels === 2 && EDIT_CAVE_SPEC.large.levels === 3,
+      Object.entries(EDIT_CAVE_SPEC).map(([k, v]) => `${k} ${v.levels}`).join(', '));
+    edits.undo();
+    ck('undoing the stroke takes the place away again', rt.sitesNear(CX, CZ, 40).length === 0);
+  }
+
+  // ---- the file the editor writes, loaded at boot -------------------------
+  {
+    const file = {
+      v: 1,
+      strokes: [
+        { kind: 'raise', x: PX, z: PZ, r: 20, amount: 3, id: 1 },
+        { kind: 'ground', x: PX, z: PZ, r: 8, word: 'dirt', id: 2 },
+      ],
+    };
+    const realFetch = globalThis.fetch;
+    let asked = null;
+    globalThis.fetch = async (url) => { asked = url; return { ok: true, json: async () => file }; };
+    let said = null;
+    rt.onTerrain((info) => { said = info; });
+    const h0 = rt.heightAt(PX, PZ);
+    const info = await rt.loadTerrainFile('/terrain/greenwold.json');
+    ck('the boot load asks for the file the editor writes', asked === '/terrain/greenwold.json', String(asked));
+    ck('and applies every stroke in it', !!info && info.strokes === 2 && rt.terrainEdits.count === 2,
+      info ? `${info.strokes} strokes` : 'nothing was applied');
+    ck('the ground moved by what the file said', Math.abs(rt.heightAt(PX, PZ) - (h0 + 3)) < 1e-9,
+      `${(rt.heightAt(PX, PZ) - h0).toFixed(3)} m`);
+    ck('the paint in it is on the sample too', rt.field.sampleAt(PX, PZ).ground === 'dirt');
+    ck('everything already built was built again', info.chunks === rt.world.stats.loaded && info.chunks > 0,
+      `${info.chunks} chunks of ${rt.world.stats.loaded}`);
+    ck('and it said so, with numbers, through onTerrain', !!said && said.strokes === 2, said ? JSON.stringify(said) : 'it said nothing');
+    {
+      const v = nearestVert(meshAt(PX, PZ), PX, PZ);
+      ck('the mesh under the player carries the loaded ground',
+        Math.abs(v.y - rt.heightAt(v.x, v.z)) < 1e-4 && v.y > h0,
+        `${v.y.toFixed(3)} m against the field's ${rt.heightAt(v.x, v.z).toFixed(3)} m`);
+    }
+
+    // a file that is not there is not a fault
+    globalThis.fetch = async () => ({ ok: false, status: 404 });
+    ck('a missing file is null and changes nothing',
+      (await rt.loadTerrainFile('/terrain/nothing.json')) === null && rt.terrainEdits.count === 2);
+    globalThis.fetch = async () => { throw new Error('no server'); };
+    ck('and no server at all is null too, not a throw',
+      (await rt.loadTerrainFile('/terrain/greenwold.json')) === null);
+    if (realFetch) globalThis.fetch = realFetch; else delete globalThis.fetch;
+
+    // put the world back the way the rest of this file expects to find it
+    rt.terrainEdits.clear();
+    rt.rebuildAll();
+    ck('clearing the list gives the seed its world back',
+      rt.heightAt(PX, PZ) === h0 && rt.field.sampleAt(PX, PZ).ground === null,
+      `${rt.heightAt(PX, PZ).toFixed(3)} m against ${h0.toFixed(3)} m`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 7. dispose
 // ---------------------------------------------------------------------------
 {

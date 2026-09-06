@@ -637,6 +637,11 @@ export function probeAt(field, x, z, sites = null, fields = null) {
   if (own && inPad(own, x, z)) return { ok: false, why: 'pad', s, slope: 0 };
   if (sites) for (let i = 0; i < sites.length; i++) if (inPad(sites[i], x, z)) return { ok: false, why: 'pad', s, slope: 0 };
   if (s.road > ROAD_KEEP) return { ok: false, why: 'road', s, slope: 0 };
+  // Painted ground is somebody's yard, path or quarry floor, and nothing of the
+  // world's own is laid down on it. `s.ground` is the word a hand `ground`
+  // stroke left here (src/world/terrain_edits.js) and it is null on every
+  // sample of a world nobody has edited, so this costs one property read.
+  if (s.ground && s.ground !== 'grass') return { ok: false, why: 'painted', s, slope: 0 };
   if (fields) for (let i = 0; i < fields.length; i++) if (inField(fields[i], x, z, FIELD_KEEP)) return { ok: false, why: 'field', s, slope: 0 };
   return { ok: true, why: null, s, slope: 0 };
 }

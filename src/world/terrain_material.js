@@ -108,6 +108,25 @@ const BED_MIX = [0.00, 0.00, 0.55, 0.08, 0.37, 0.00];
 const SAND_ONLY = [0.02, 0.04, 0.08, 0.02, 0.84, 0.00];
 const STONY = [0.34, 0.06, 0.36, 0.24, 0.00, 0.00];
 
+/**
+ * What a hand painted word is made of, in LAYERS order.
+ *
+ * A `ground` stroke in terrain_edits.js paints one of five words over a disc,
+ * and `field.sampleAt` carries it out as `sample.ground`. Three of the five also
+ * take the biome with them (field.PAINT_BIOME), which is what changes the vertex
+ * tint; these rows are what changes the TEXTURE, and they are the only way
+ * `dirt` and `mud` can show at all, because the world has no biome for either.
+ */
+export const PAINT_MIX = {
+  grass: [0.90, 0.04, 0.04, 0.02, 0.00, 0.00],
+  dirt:  [0.00, 0.10, 0.84, 0.06, 0.00, 0.00],
+  rock:  [0.00, 0.00, 0.06, 0.94, 0.00, 0.00],
+  sand:  [0.02, 0.04, 0.08, 0.02, 0.84, 0.00],
+  mud:   [0.00, 0.04, 0.72, 0.06, 0.18, 0.00],
+};
+/** How much of the paint takes, so the country still shows faintly through it. */
+export const PAINT_STRENGTH = 0.9;
+
 const mixInto = (w, target, t) => { for (let i = 0; i < 6; i++) w[i] = lerp(w[i], target[i], t); };
 
 /**
@@ -195,6 +214,18 @@ export function layerWeights(s, slope = 0, road = 0, out = new Array(6)) {
   // Snow settles by height, and slides off anything steep.
   const snow = smoothstep(SNOW_START, SNOW_FULL, s.h) * (1 - smoothstep(0.55, 0.88, slope) * 0.85);
   if (snow > 0) mixInto(out, SNOW_ONLY, snow);
+
+  // HAND PAINTED GROUND, over everything the country did and under the road.
+  //
+  // `sample.ground` is the word a `ground` stroke left here and it is null on
+  // every sample of a world nobody has edited, so this is one property read for
+  // the ordinary case. Under the road because a road across a painted yard is
+  // still a road; over the biome, the climate and the slope because a person
+  // saying "this is rock" has looked at it and the noise has not.
+  if (s.ground) {
+    const paint = PAINT_MIX[s.ground];
+    if (paint) mixInto(out, paint, PAINT_STRENGTH);
+  }
 
   // The road last, over whatever the ground had become.
   if (road > 0) mixInto(out, ROAD_MIX, clamp01(road) * 0.92);

@@ -448,6 +448,11 @@ export function createGrass(parent, field, opts = {}) {
         sampled++;
         const turf = TURF[sp.biome];
         const amount = turf ? (turf[L.key] ?? turf.d) : 0;
+        // `sp.ground` is the word a hand `ground` stroke painted over this patch
+        // (terrain_edits.js). Nothing grows out of painted dirt, rock, sand or
+        // mud; 'grass' is the one word that means carry on. It is null on every
+        // sample of a world nobody has edited.
+        if (sp.ground && sp.ground !== 'grass') { L.mesh.setMatrixAt(base + i, ZERO); dropped++; continue; }
         if (!turf || amount <= 0 || sp.water || roll > amount || sp.river > 0.18 || sp.road > 0.20) {
           L.mesh.setMatrixAt(base + i, ZERO); dropped++; continue;
         }

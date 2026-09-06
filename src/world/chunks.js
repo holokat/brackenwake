@@ -365,6 +365,28 @@ export function createWorldStream(scene, field, opts = {}) {
 
   return {
     update,
+    /**
+     * Build every live chunk again, for the ones a predicate names.
+     *
+     * The stream rebuilds a chunk when its RESOLUTION changes and never
+     * otherwise, because until the world could be edited the ground under a
+     * built chunk could not change. It can now: a stroke out of
+     * terrain_edits.js moves the field under ground that is already meshed, and
+     * `world_runtime.rebuildAround` is what puts the new ground on the screen.
+     *
+     * It goes through `build`, which is the same call the streamer makes, so a
+     * rebuilt chunk disposes its old geometry, fires `onDisposed` and then
+     * `onBuilt`: the flora, the dressing and the wayside of that chunk come
+     * back with it and nothing is left behind. Returns how many were rebuilt.
+     */
+    rebuildWhere(pred) {
+      const jobs = [];
+      for (const c of chunks.values()) if (pred(c.cx, c.cz)) jobs.push([c.cx, c.cz, c.verts]);
+      for (const [cx, cz, verts] of jobs) build(cx, cz, verts);
+      return jobs.length;
+    },
+    /** Every chunk the stream is holding right now, as [cx, cz, verts]. */
+    live() { return [...chunks.values()].map((c) => [c.cx, c.cz, c.verts]); },
     heightAt: (x, z) => field.heightAt(x, z),
     sampleAt: (x, z) => field.sampleAt(x, z),
     get pending() { return queue.length; },

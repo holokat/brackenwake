@@ -21,7 +21,8 @@
 //    and hands it back on the way out.
 
 import * as THREE from 'three';
-import { createWorldField } from '../world/field.js';
+import { createWorldField, CHUNK } from '../world/field.js';
+import { createTerrainEdits } from '../world/terrain_edits.js';
 import { createWorldStream, buildPalette } from '../world/chunks.js';
 import { createDiscovery } from '../world/sites.js';
 import { createSiteMarkers } from '../world/site_models.js';
@@ -57,6 +58,35 @@ export const FOG_MARGIN = 40;
 /** Scene children scene.js owns that have no business being lit underground. */
 const SKY_AND_LIGHTS = new Set(['sky', 'water', 'sun-light', 'hemi-light', 'ambient-light', 'fill-light']);
 
+/** Where a hand cut world is kept, and what the editor's save button writes. */
+export const TERRAIN_FILE = '/terrain/greenwold.json';
+
+/**
+ * What a hand cut cave is inside, by the size the stroke asked for.
+ *
+ * A `cave` stroke is a mouth and a size, and this is where a size becomes an
+ * underground. The rows are the shape of a row of `src/mmo/dungeons.js`, which
+ * is what `generateCavern` reads, and the only knobs that generator has are
+ * these: how many levels, how hard the loot is, how many boxes, and whether the
+ * last level ends in a boss hall. So SIZE MEANS DEPTH AND WHAT IS IN IT. The
+ * grid itself is the generator's own (62 to 74 cells a side at 2 m a cell, and
+ * six cells wider for every level down), and nothing here can change that
+ * without changing cavern_gen.js.
+ *
+ * `arena: false` on all three: nobody's boss lairs in a hole somebody dug this
+ * afternoon, and the habitat's own roll fills it instead.
+ */
+export const EDIT_CAVE_SPEC = {
+  small:  { id: 'edit_cave_small',  name: 'a hollow', kind: CAVERN, theme: 'granite', levels: 1, tier: 1, chests: [1, 2], caches: [1, 3], arena: false, boss: null, bossName: null },
+  medium: { id: 'edit_cave_medium', name: 'a cave',   kind: CAVERN, theme: 'granite', levels: 2, tier: 2, chests: [2, 3], caches: [2, 4], arena: false, boss: null, bossName: null },
+  large:  { id: 'edit_cave_large',  name: 'a delve',  kind: CAVERN, theme: 'granite', levels: 3, tier: 3, chests: [3, 4], caches: [3, 5], arena: false, boss: null, bossName: null },
+};
+/** The row for a site, hand cut or not. One place, so the depth and the inside agree. */
+export function specOfSite(site) {
+  if (site && site.edit && site.kind === 'cave') return EDIT_CAVE_SPEC[site.size] || EDIT_CAVE_SPEC.medium;
+  return specFor(site);
+}
+
 /** three does not skip invisible objects, so ask the whole chain. */
 function worldVisible(o) {
   for (let n = o; n; n = n.parent) if (!n.visible) return false;
@@ -74,7 +104,34 @@ export function createWorldRuntime(sc, opts = {}) {
 
   const field = createWorldField(seed, { homeBiome, homeY: opts.homeY ?? -0.3 });
   const terrainY = (x, z) => field.heightAt(x, z);
+
+  // ---- the hand cut ground (ED2) ------------------------------------------
+  //
+  // One stroke list per runtime, laid over the field before anything is built.
+  // Empty it moves nothing and paints nothing (field.test.mjs measures that
+  // over 200 points), so a world nobody has edited is the world the seed made.
+  // `baseHeight` is `field.heightAt` and the field already has the list, which
+  // is what makes a `flatten` flatten the ground as it stands rather than the
+  // hillside three strokes ago.
+  let terrainEdits = opts.terrainEdits || createTerrainEdits({ baseHeight: (x, z) => field.heightAt(x, z) });
+  field.setTerrainEdits(terrainEdits);
+
   const discovery = createDiscovery(field);
+  // A HAND CUT CAVE IS A PLACE, and this is the one line that makes it one.
+  //
+  // `field.editSitesNear` holds the cave strokes as site records. They are not
+  // in `siteInCell`, because a cell holds one site and most cells already hold
+  // one, so they are added here instead: every reader of `sitesNear` (the site
+  // markers that build the mouth, the flora and dressing that keep off it, the
+  // monsters and the people that avoid it, `runtime.sitesNear`) sees them from
+  // this point on. `discovery.check` still does not, so a cave you cut yourself
+  // is not announced to you as a discovery, which is right.
+  const baseSitesNear = discovery.sitesNear;
+  discovery.sitesNear = (x, z, r) => {
+    const out = baseSitesNear(x, z, r);
+    const extra = field.editSitesNear(x, z, r);
+    return extra.length ? out.concat(extra) : out;
+  };
   const flora = createFlora(scene, field, { sitesNear: discovery.sitesNear });
   // The realm's own things on the ground (Z3): rib cages, pillars, hedgerows,
   // wrecks. Streams with the chunks exactly as flora does.
@@ -104,11 +161,16 @@ export function createWorldRuntime(sc, opts = {}) {
   const center = new THREE.Vector3();
   let dungeon = null;      // { site, level, layout, scene, spec, top, said }
   let surface = null;      // what was switched off on the way in
-  let discoverFn = null, stateFn = null, zoneFn = null;
+  let discoverFn = null, stateFn = null, zoneFn = null, terrainFn = null;
   let lastSweep = 0;
 
   world.update(center);
   siteMarkers.update(0, 0, world.viewRadius);
+  // The hand cut world on disk. `fetch` cannot be waited for here without
+  // making the whole runtime asynchronous, so it lands when it lands and
+  // rebuilds what was built in the meantime. `terrainFile: false` turns it off,
+  // which is what a test that owns its own list does.
+  if (opts.terrainFile !== false) loadTerrainFile(typeof opts.terrainFile === 'string' ? opts.terrainFile : TERRAIN_FILE);
 
   // ---------------------------------------------------------------- above --
 
@@ -140,6 +202,88 @@ export function createWorldRuntime(sc, opts = {}) {
     if (zone && zoneFn) { try { zoneFn(zone); } catch (err) { console.warn('onZone threw', err); } }
   }
 
+  // ------------------------------------------------------- the ground moves --
+  //
+  // Until the world could be edited, a built chunk's ground could not change,
+  // so the streamer had no way to build one again. A stroke changes it, and
+  // everything downstream of the field has to be told: the terrain mesh, the
+  // grass and trees on it, the dressing, the wayside, and the site markers,
+  // which stand at a height they read from the field when they were built.
+
+  /** Does the square of chunk (cx, cz) touch the circle at (x, z) of radius r? */
+  function chunkTouches(cx, cz, x, z, r) {
+    const x0 = cx * CHUNK, z0 = cz * CHUNK;
+    const nx = Math.max(x0, Math.min(x, x0 + CHUNK));
+    const nz = Math.max(z0, Math.min(z, z0 + CHUNK));
+    const dx = x - nx, dz = z - nz;
+    return dx * dx + dz * dz <= r * r;
+  }
+
+  /**
+   * Take down and put back every built chunk whose square touches the circle.
+   *
+   * Synchronous on purpose: the editor's whole promise is that the ground moves
+   * under the stroke you just made, and a job queued behind the streamer's
+   * three-a-frame budget would land a second later, half a hill at a time. A
+   * 33 vert chunk is 2.5 ms to mesh (measured in chunks.js's own header), and a
+   * 12 m brush touches one to four of them.
+   *
+   * The site markers are refreshed too, but only when a site is inside the
+   * circle: a marker is built once, at the height the field gave it, and a mine
+   * whose hillside has just moved would otherwise stand in the air. There is no
+   * "rebuild this one marker" in site_models.js, so the whole live set is
+   * dropped and the ring rebuilds it, one marker a frame, which is what it does
+   * when you walk into a valley anyway.
+   *
+   * Returns what it did, in numbers, so the words the HUD says are counted and
+   * not claimed.
+   */
+  function rebuildAround(x, z, r) {
+    const chunks = world.rebuildWhere((cx, cz) => chunkTouches(cx, cz, x, z, r));
+    let sites = 0;
+    for (const s of discovery.sitesNear(x, z, r + 120)) sites++;
+    if (sites) {
+      // the two step nudge: `update` only re-plans when the point has moved
+      // 48 m, so it is walked away and walked back
+      siteMarkers.update(x + 1e6, z + 1e6, world.viewRadius);
+      siteMarkers.update(x, z, world.viewRadius);
+    }
+    return { chunks, sites };
+  }
+
+  /** Every built chunk, whatever it stands under. What a loaded file needs. */
+  function rebuildAll() {
+    const chunks = world.rebuildWhere(() => true);
+    siteMarkers.update(center.x + 1e6, center.z + 1e6, world.viewRadius);
+    siteMarkers.update(center.x, center.z, world.viewRadius);
+    return { chunks, sites: discovery.sitesNear(center.x, center.z, world.viewRadius).length };
+  }
+
+  /**
+   * The hand cut world on disk, if there is one.
+   *
+   * Missing is the ordinary case and is silent: nobody has cut anything yet.
+   * Present, it is applied and everything already built is built again, because
+   * `fetch` is asynchronous and the streamer does not wait for anybody. In
+   * practice the first ring is a few chunks old when the file lands and those
+   * few are rebuilt; `onTerrain` says how many, so the words are counted.
+   */
+  async function loadTerrainFile(url = TERRAIN_FILE) {
+    try {
+      const res = await fetch(url);
+      if (!res || !res.ok) return null;
+      const json = await res.json();
+      const n = terrainEdits.load(json);
+      if (!n) return null;
+      const did = rebuildAll();
+      const info = { url, strokes: n, chunks: did.chunks, caves: terrainEdits.caves().length };
+      if (terrainFn) { try { terrainFn(info); } catch (err) { console.warn('onTerrain threw', err); } }
+      return info;
+    } catch {
+      return null;                 // no file, no server, no network: all the same thing
+    }
+  }
+
   // ---------------------------------------------------------------- below --
 
   function fire(st) {
@@ -156,6 +300,8 @@ export function createWorldRuntime(sc, opts = {}) {
    * keeps the old rule, which is what `maxLevel` has always said.
    */
   function topOf(site) {
+    // a hand cut cave is in nobody's sheet, so its own row says how deep it goes
+    if (site && site.edit) return Math.max(1, specOfSite(site).levels);
     return levelsFor(site, maxLevel(site?.kind === 'cave' ? 'cave' : 'dungeon'));
   }
 
@@ -219,7 +365,7 @@ export function createWorldRuntime(sc, opts = {}) {
       background: scene.background,
       fog: { near: scene.fog.near, far: scene.fog.far, color: scene.fog.color.getHex(), pinned: sc.fogPinned },
     };
-    dungeon = { site, level: 0, scene: null, layout: null, spec: specFor(site), top: topOf(site), said: false };
+    dungeon = { site, level: 0, scene: null, layout: null, spec: specOfSite(site), top: topOf(site), said: false };
     openLevel(site, level, 'entrance');
     return dungeon;
   }
@@ -393,6 +539,23 @@ export function createWorldRuntime(sc, opts = {}) {
 
   return {
     field, world, flora, dressing, wayside, fauna, discovery, siteMarkers,
+
+    // ---- the hand cut ground (docs/mmo/wiring/ED2-TERRAIN.md) -------------
+    /** The stroke list this world is standing on. */
+    get terrainEdits() { return terrainEdits; },
+    /** Hand it a different list: it goes onto the field and the world rebuilds. */
+    setTerrainEdits(edits) {
+      terrainEdits = edits || createTerrainEdits({ baseHeight: (x, z) => field.heightAt(x, z) });
+      field.setTerrainEdits(terrainEdits);
+      return rebuildAll();
+    },
+    /** Ground moved at (x, z): put every chunk the circle touches back up. */
+    rebuildAround,
+    rebuildAll,
+    /** Fetch and apply a saved stroke list. Missing is null and is not a fault. */
+    loadTerrainFile,
+    /** Called when a file has landed and been applied, with what it did. */
+    onTerrain(fn) { terrainFn = fn; },
 
     heightAt(x, z) {
       if (dungeon) return dungeonFloor(x, z);

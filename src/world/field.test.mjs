@@ -984,5 +984,136 @@ for (let i = 0; i < 1089 * 10; i++) f.sampleAt(i % 33 * 2, ((i / 33) | 0) % 33 *
 const perSample = (performance.now() - t0) / (1089 * 10) * 1000;
 check('sampleAt under 12 microseconds', perSample < 12, `${perSample.toFixed(2)} us, chunk of 33x33 = ${(perSample * 1089 / 1000).toFixed(1)} ms`);
 
+// ---------------------------------------------------------------------------
+// 9. the hand cut ground (ED2)
+//
+// The field takes a stroke list from src/world/terrain_edits.js and lays it
+// over the world. Everything here is driven through the field's own surface,
+// which is the surface the mesher, the collision, the grass and the dressing
+// all read, so what passes here is what a player stands on.
+// ---------------------------------------------------------------------------
+{
+  const { createTerrainEdits, deltaOf } = await import('./terrain_edits.js');
+  const { probeAt } = await import('./dressing.js');
+  const { layerWeights, LAYER_INDEX, PAINT_MIX } = await import('./terrain_material.js');
+
+  // a field of its own, so nothing above this line can be touched by it
+  const e = createWorldField(20260904, { homeY: -0.3 });
+  const AT = [1480, -2360];                       // open country, well out of the heart
+
+  check('a field with no edits set says so, and carries no ground word',
+    e.terrainEdits === null && e.sampleAt(AT[0], AT[1]).ground === null);
+
+  const before = [];
+  for (let i = 0; i < 200; i++) {
+    const x = AT[0] + (i * 37) % 400 - 200, z = AT[1] + (i * 53) % 400 - 200;
+    before.push([x, z, e.heightAt(x, z)]);
+  }
+
+  const edits = createTerrainEdits({ baseHeight: (x, z) => e.heightAt(x, z) });
+  e.setTerrainEdits(edits);
+  check('and setting an empty list still moves nothing',
+    before.every(([x, z, h]) => e.heightAt(x, z) === h), `${before.length} points`);
+
+  // a raise, and the ground has to be exactly the old ground plus the profile
+  const s = edits.stroke({ kind: 'raise', x: AT[0], z: AT[1], r: 12, amount: 2 });
+  let worst = 0, at = '';
+  for (const [x, z, h] of before) {
+    const want = h + deltaOf(s, x, z, h);
+    const d = Math.abs(e.heightAt(x, z) - want);
+    if (d > worst) { worst = d; at = `${x}, ${z}`; }
+  }
+  check('a raise stroke moves heightAt by exactly its own profile, and nothing else',
+    worst === 0, `worst difference ${worst} m over ${before.length} points${worst ? ' at ' + at : ''}`);
+  {
+    const clean0 = createWorldField(20260904, { homeY: -0.3 });
+    check('two metres of it at the centre, over the ground that was there',
+      Math.abs(e.heightAt(AT[0], AT[1]) - clean0.heightAt(AT[0], AT[1]) - 2) < 1e-9,
+      `${(e.heightAt(AT[0], AT[1]) - clean0.heightAt(AT[0], AT[1])).toFixed(6)} m of rise`);
+    check('and thirteen metres out, past its rim, the world is the world it always was',
+      e.heightAt(AT[0] + 13, AT[1]) === clean0.heightAt(AT[0] + 13, AT[1]));
+  }
+
+  // the sample every consumer reads carries the same height as heightAt
+  check('sampleAt and heightAt agree about the raised ground',
+    e.sampleAt(AT[0], AT[1]).h === e.heightAt(AT[0], AT[1]));
+
+  // paint: what dressing puts there, and what the ground is made of
+  // a point of open meadow, found rather than assumed: painting rock over
+  // ground that is already rock proves nothing about paint
+  let P = null;
+  for (let d = 40; d < 900 && !P; d += 20) {
+    for (let a = 0; a < 16 && !P; a++) {
+      const x = AT[0] + Math.cos(a / 16 * 6.283) * d, z = AT[1] + Math.sin(a / 16 * 6.283) * d;
+      const sm = e.sampleAt(x, z);
+      if (sm.biome === 'meadow' && probeAt(e, x, z).ok) P = [x, z];
+    }
+  }
+  check('there is open meadow near the stroke to paint over', !!P, P ? `${P[0].toFixed(0)}, ${P[1].toFixed(0)}` : 'none found');
+  const openBefore = probeAt(e, P[0], P[1]).ok;
+  const biomeBefore = e.sampleAt(P[0], P[1]).biome;
+  const wBefore = layerWeights(e.sampleAt(P[0], P[1]), 0, 0);
+  edits.stroke({ kind: 'ground', x: P[0], z: P[1], r: 10, word: 'rock' });
+  const after = e.sampleAt(P[0], P[1]);
+  const wAfter = layerWeights(after, 0, 0);
+  check('a ground stroke puts its word on the sample', after.ground === 'rock', `${after.ground}`);
+  check('and dressing will not put anything down on it any more',
+    probeAt(e, P[0], P[1]).ok === false && probeAt(e, P[0], P[1]).why === 'painted',
+    `open before: ${openBefore}, why after: ${probeAt(e, P[0], P[1]).why}`);
+  check('and it stops being the country it was, so grass and trees keep off',
+    after.biome === 'mountain' && biomeBefore !== 'mountain', `${biomeBefore} to ${after.biome}`);
+  check('and the ground is textured as rock rather than as whatever grew here',
+    wAfter[LAYER_INDEX.rock] > 0.8 && wAfter[LAYER_INDEX.rock] > wBefore[LAYER_INDEX.rock] + 0.5,
+    `rock layer ${wBefore[LAYER_INDEX.rock].toFixed(2)} to ${wAfter[LAYER_INDEX.rock].toFixed(2)}, PAINT_MIX rock ${PAINT_MIX.rock[LAYER_INDEX.rock]}`);
+  check('a metre outside the paint the country is untouched',
+    e.sampleAt(P[0] + 10.5, P[1]).ground === null && e.sampleAt(P[0] + 10.5, P[1]).biome === biomeBefore);
+  check('and dirt, which has no biome of its own, still refuses the dressing',
+    (() => {
+      const d = createTerrainEdits({ baseHeight: (x, z) => e.heightAt(x, z) });
+      const f2 = createWorldField(20260904, { homeY: -0.3 });
+      f2.setTerrainEdits(d);
+      d.stroke({ kind: 'ground', x: P[0], z: P[1], r: 10, word: 'dirt' });
+      const sm = f2.sampleAt(P[0], P[1]);
+      const w = layerWeights(sm, 0, 0);
+      return sm.ground === 'dirt' && sm.biome === biomeBefore && !probeAt(f2, P[0], P[1]).ok
+        && w[LAYER_INDEX.dirt] > 0.7;
+    })(), 'the word travels on the sample, the biome does not move, the dirt layer does');
+
+  // caves: a stroke becomes a place
+  const C = [AT[0] - 300, AT[1] + 220];
+  check('no cave stands here to start with', e.editSitesNear(C[0], C[1], 60).length === 0);
+  edits.stroke({ kind: 'cave', x: C[0], z: C[1], r: 10, amount: 2 });
+  const near = e.editSitesNear(C[0], C[1], 60);
+  const cave = near[0];
+  check('a cave stroke stands a cave site up at the point', near.length === 1 && cave.kind === 'cave',
+    cave ? `${cave.id} "${cave.name}"` : 'nothing');
+  check('and it carries everything a mouth is built from',
+    Number.isFinite(cave.x) && Number.isFinite(cave.z) && Number.isFinite(cave.y)
+    && Number.isFinite(cave.facing) && typeof cave.name === 'string' && cave.size === 'medium',
+    `y ${cave.y.toFixed(2)} m, facing ${cave.facing.toFixed(2)}, size ${cave.size}`);
+  check('the mouth stands on the ground the field reports there',
+    Math.abs(cave.y - e.heightAt(C[0], C[1])) < 1e-9, `${cave.y.toFixed(3)} m against ${e.heightAt(C[0], C[1]).toFixed(3)} m`);
+  check('the mouth faces downhill, out of the slope and not into it',
+    e.heightAt(C[0] + Math.sin(cave.facing) * 15, C[1] + Math.cos(cave.facing) * 15)
+      < e.heightAt(C[0] - Math.sin(cave.facing) * 15, C[1] - Math.cos(cave.facing) * 15),
+    `${e.heightAt(C[0] + Math.sin(cave.facing) * 15, C[1] + Math.cos(cave.facing) * 15).toFixed(2)} m ahead against ${e.heightAt(C[0] - Math.sin(cave.facing) * 15, C[1] - Math.cos(cave.facing) * 15).toFixed(2)} m behind`);
+  check('the cut in front of it really is cut',
+    e.heightAt(C[0] + Math.sin(cave.facing) * 3, C[1] + Math.cos(cave.facing) * 3)
+      < createWorldField(20260904, { homeY: -0.3 }).heightAt(C[0] + Math.sin(cave.facing) * 3, C[1] + Math.cos(cave.facing) * 3) - 1.5);
+  check('a cave 400 m away is not near you', e.editSitesNear(C[0] + 400, C[1], 60).length === 0);
+  check('undoing the stroke takes the place with it',
+    (() => { edits.undo(); return e.editSitesNear(C[0], C[1], 60).length === 0; })());
+  check('and redoing it puts the same place back',
+    (() => { edits.redo(); const n = e.editSitesNear(C[0], C[1], 60); return n.length === 1 && n[0].id === cave.id; })());
+
+  // and taking the list away gives the seed's own world back, exactly
+  e.setTerrainEdits(null);
+  const clean = createWorldField(20260904, { homeY: -0.3 });
+  let same = 0;
+  for (const [x, z] of before) if (e.heightAt(x, z) === clean.heightAt(x, z)) same++;
+  check('taking the list away gives the seed its world back, bit for bit',
+    same === before.length && e.sampleAt(P[0], P[1]).ground === null, `${same}/${before.length} points`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

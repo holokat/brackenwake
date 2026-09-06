@@ -559,6 +559,38 @@ function coverage(x, z, r) {
     `${live().length} against ${full}`);
 }
 
+// ------------------------------------------------------- hand painted ground
+//
+// A `ground` stroke (src/world/terrain_edits.js) paints a word over a disc and
+// field.sampleAt carries it out as `sample.ground`. Nothing grows out of dirt,
+// rock, sand or mud. Driven both ways: the same point, the same seed, the same
+// grass, with and without the paint over it.
+{
+  const { createTerrainEdits } = await import('./terrain_edits.js');
+  const at = home;
+  const bare = new THREE.Group();
+  const clean = createGrass(bare, f, {});
+  clean.update(900000, at[0], at[1]);
+  for (let i = 0; i < 400 && clean.queued; i++) clean.update(900000 + i * 16, at[0], at[1]);
+  const placedClean = clean.stats.placed;
+  clean.dispose();
+
+  const f2 = createWorldField(20260904, { homeY: -0.3 });
+  const edits = createTerrainEdits({ baseHeight: (x, z) => f2.heightAt(x, z) });
+  f2.setTerrainEdits(edits);
+  edits.stroke({ kind: 'ground', x: at[0], z: at[1], r: 220, word: 'dirt' });
+  const yard = new THREE.Group();
+  const painted = createGrass(yard, f2, {});
+  painted.update(900000, at[0], at[1]);
+  for (let i = 0; i < 400 && painted.queued; i++) painted.update(900000 + i * 16, at[0], at[1]);
+  check('grass grows on this meadow when nobody has painted it', placedClean > 0,
+    `${placedClean} blades in the last tile filled at ${at[0].toFixed(0)}, ${at[1].toFixed(0)}`);
+  check('and not one blade grows out of painted dirt',
+    painted.stats.placed === 0 && painted.stats.dropped > 0,
+    `${painted.stats.placed} placed, ${painted.stats.dropped} dropped in the same tile`);
+  painted.dispose();
+}
+
 g.dispose();
 check('dispose takes both meshes out of the scene', parent.children.length === 0, `${parent.children.length}`);
 
