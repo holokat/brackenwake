@@ -462,7 +462,9 @@ const CSS = `
   font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .14em;
   text-transform: uppercase; color: #ffd479; white-space: pre;
   border-color: rgba(255,212,121,.5);
+  pointer-events: auto; cursor: pointer;
 }
+#bw-hud #bw-dev:hover { border-color: rgba(255,212,121,.9); }
 #bw-hud #bw-dev.on { display: block; }
 #bw-hint {
   position: absolute; left: 50%; bottom: 148px; transform: translateX(-50%);
@@ -716,6 +718,9 @@ export function createHud(root) {
 
   const devBadge = add(el, mk('div', 'bw-dev', 'panel'));
   devBadge.textContent = 'fly mode';
+  devBadge.title = 'the dev bench: tour, warps, the lab';
+  let onDevClick = null;
+  devBadge.addEventListener('click', () => { if (onDevClick) onDevClick(); });
   const hint = add(el, mk('div', 'bw-hint'));
   // the nameplate over the current target, moved by targeting.js's projection
   const plate = add(el, mk('div', 'bw-plate'));
@@ -1284,6 +1289,8 @@ export function createHud(root) {
       }
     },
     onTool(fn) { onToolPick = fn; },
+    /** A click on the dev badge. The dev system hides and shows the bench with it. */
+    onDev(fn) { onDevClick = fn; },
     /** A click on a bar cell, for the mouse. The keys go through input.js. */
     onBar(fn) { onBarPick = fn; },
     /** A click on the thirteenth cell. The key goes through the dragon system. */

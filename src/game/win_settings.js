@@ -63,7 +63,7 @@ export const SETTINGS = [
     help: 'The key each slot of the ability bar answers to. Click a slot and press a key.' },
   { key: 'dev', label: 'Dev mode', kind: 'toggle', def: false,
     apply: 'dev.toggle() until dev.on matches',
-    help: 'The dev bench on F2, flying, and the numbers over everything. For testing, not for playing.' },
+    help: 'Flying, the numbers over everything, and the dev bench, which opens with it: the tour of every place, warps and the lab. Click the numbers at the top right to hide or show the bench. For testing, not for playing.' },
 ];
 
 export const SETTING = Object.fromEntries(SETTINGS.map((s) => [s.key, s]));

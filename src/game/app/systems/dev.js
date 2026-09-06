@@ -21,6 +21,19 @@ export const dev = {
     const face = ctx.get('ui');
     face.panelCtx.dev = runtimeDev;
     face.panelCtx.debug = runtimeDev.debug;
+    // Dev mode and the bench are one idea: turning the mode on, by the key,
+    // by the Settings toggle or by a saved setting, opens the bench with the
+    // tour, the warps and the lab; turning it off closes it. Before this the
+    // Settings toggle turned the mode on and opened nothing, and the only way
+    // to the bench was F2, which on a Mac is a brightness key.
+    runtimeDev.onChange((on) => {
+      const windows = face.windows;
+      if (!windows) return;
+      if (on) { if (!windows.isOpen('dev')) windows.open('dev'); }
+      else if (windows.isOpen('dev')) windows.close('dev');
+    });
+    // the numbers at the top right are a button: a click hides or shows the bench
+    ctx.hud.onDev?.(() => { const w = face.windows; if (w && runtimeDev.on) w.toggle('dev'); });
     // The settings window can turn fly mode on, so the saved settings are
     // applied the moment there is a dev to turn on, which is where the old
     // single file applied them too: after createDev and before anything wakes.
@@ -43,14 +56,8 @@ export const dev = {
   hotkeys(ctx, frame) {
     const input = ctx.input;
     if (input.pressed('f1') || input.pressed('`')) {
-      const d = ctx.get('dev');
-      d.toggle();
-      // Dev mode and the bench are one idea to the person pressing the key:
-      // turning it on opens the bench with the tour, the warps and the lab, and
-      // says how to hide it. Turning it off closes the bench with it.
-      const windows = ctx.get('ui').windows;
-      if (d.on) { if (windows && !windows.isOpen('dev')) windows.open('dev'); ctx.hud.toast?.('Dev mode on. The bench is open: Tour warps you place to place. F2 hides and shows the bench, F1 leaves dev mode.'); }
-      else if (windows && windows.isOpen('dev')) windows.close('dev');
+      // the bench follows the mode through runtimeDev.onChange above
+      ctx.get('dev').toggle();
     }
   },
 };

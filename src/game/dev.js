@@ -1,4 +1,4 @@
-// Dev mode. F1 or backquote.
+// Dev mode. F1 or backquote (the key under Escape), or the Settings toggle.
 //
 // Two things at once: the camera flies, and the game stops asking whether you
 // can afford anything. Every tool reports as owned, the market opens anywhere
@@ -97,6 +97,10 @@ const numOf = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
  */
 export function createDev({ sc, camera, player, hud, runtime, state, monsters, floaters, loot }) {
   let on = false;
+  // Who wants to know when the mode flips. The dev system opens and closes the
+  // bench from here, so the Settings toggle, the key and a saved setting all
+  // bring the bench with them: one path, not three.
+  const listeners = [];
   const debug = Object.fromEntries(DEBUG_FLAGS.map((k) => [k, false]));
   const meter = createFrameMeter();
   // One object, rewritten in place every frame, so whoever holds it holds the
@@ -144,7 +148,7 @@ export function createDev({ sc, camera, player, hud, runtime, state, monsters, f
       hud?.setDev(true);
       if (state) state.dev = true;
       persist(true);
-      hud?.toast('dev mode on. WASD flies, Q down, E up, shift for speed. Every tool is in hand and the market is free and opens anywhere. F2 opens the dev bench.');
+      hud?.toast('dev mode on. WASD flies, Q down, E up, shift for speed. Every tool is in hand and the market is free and opens anywhere. The bench is open: Tour warps you place to place. Click the numbers at the top right to hide or show it.');
     } else {
       const p = sc.camera.position;
       const [cx, cz] = runtime ? runtime.clampWalkable(p.x, p.z) : [p.x, p.z];
@@ -157,12 +161,15 @@ export function createDev({ sc, camera, player, hud, runtime, state, monsters, f
       persist(false);
       hud?.toast(`dev mode off. You are on the ground at ${Math.round(cx)}, ${Math.round(cz)}, carrying what you actually own.`);
     }
+    for (const fn of listeners) { try { fn(on); } catch (e) { console.warn('dev listener', e); } }
     return on;
   }
 
   return {
     toggle() { return setOn(!on); },
     set(v) { return setOn(!!v); },
+    /** Called with the new mode every time it flips. Returns a function that stops listening. */
+    onChange(fn) { if (typeof fn === 'function') listeners.push(fn); return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); }; },
     get on() { return on; },
     /** The overlay switches. win_dev.js writes them; docs/mmo/wiring/G1.md says who reads them. */
     debug,
