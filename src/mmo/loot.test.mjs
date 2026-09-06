@@ -556,6 +556,26 @@ const tally = (tier, luck, seed, n) => {
 // line of the bias was written, over 24,000 drops and 3,000 kills. They are the
 // whole of the promise that an existing save, an existing seed and every other
 // suite in this repo still get the sword they always got.
+//
+// THEY MOVED ONCE, ON 2026-09-06, WHEN `noise.hash2` WAS CORRECTED, and the
+// numbers below are what they moved to.
+//
+// `hash2` multiplied all three of its terms in a double, and a double stops
+// holding every integer past 2^53: `x * 374761393` overflows for any x over
+// about 24 million. Nothing here hands it one directly, and every seed in this
+// file is under a thousand. What it hands back is the trouble: `rollDrop` makes
+// its item with `hash2(seed, ..., SALT_ITEM)`, which is a uint32 of up to
+// 4.29e9, and that number goes straight back in as the next `x`. So the low
+// bits of an item's own seed were being rounded away one step downstream of
+// where it was drawn. `Math.imul` keeps every one of them.
+//
+// The rolls this changes are the ones drawn off an intermediate seed, which is
+// every item's rarity, affixes and name. A character standing over a corpse
+// gets a different sword out of the same kill than they would have yesterday.
+// Nothing is saved about a drop that has not been picked up, so nothing on disk
+// cares; what is in a pack stays in the pack.
+//
+// Before: e1a626f4 over the drops and f4fb1156 over the kills.
 {
   console.log('\n  -- the unprofiled roll is the roll it always was --');
   const fnv = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
@@ -565,7 +585,7 @@ const tally = (tier, luck, seed, n) => {
     lines.push(JSON.stringify(rollDrop({ table, tier, luck, seed: s })));
   }
   check(`${lines.length} unprofiled drops hash to what the module said before the bias existed`,
-    fnv(lines.join('|')) === 'e1a626f4', fnv(lines.join('|')));
+    fnv(lines.join('|')) === '2d7e6fdd', fnv(lines.join('|')));
 
   const kills = [];
   for (const [boss, twice] of [[false, false], [false, true], [true, false]]) for (let s = 0; s < 1000; s++) {
@@ -573,7 +593,7 @@ const tally = (tier, luck, seed, n) => {
     kills.push(`${k.gold}:${JSON.stringify(k.item)}`);
   }
   check(`and ${kills.length} unprofiled kills, gold and item together, hash to the same`,
-    fnv(kills.join('|')) === 'f4fb1156', fnv(kills.join('|')));
+    fnv(kills.join('|')) === '5d5daaac', fnv(kills.join('|')));
 
   check('a profile of nothing is the same as no profile at all',
     JSON.stringify(rollDrop({ table: TABLE, tier: 3, seed: 12, profile: new Set() }))

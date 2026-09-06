@@ -31,7 +31,12 @@ export function mulberry32(seed) {
 
 /** Integer hash of two ints and a seed, for per-cell decisions (scatter, sites). */
 export function hash2(x, z, seed = 0) {
-  let h = (x | 0) * 374761393 + (z | 0) * 668265263 + (seed | 0) * 2147483647;
+  // Math.imul, not `*`: with the world seed 20260904 the plain product
+  // seed * 2147483647 passes 2^53 and the low bits are lost, so two salts of
+  // the same cell came out correlated (a kind roll meant to be 22/33/44 was
+  // 72/26/1.5). Wrapping at 32 bits keeps every bit. For seeds under about
+  // four million the result is bit for bit what it was. Found by Z4, 2026-09-06.
+  let h = (Math.imul(x | 0, 374761393) + Math.imul(z | 0, 668265263) + Math.imul(seed | 0, 2147483647)) >>> 0;
   h = (h ^ (h >>> 13)) >>> 0;
   h = Math.imul(h, 1274126177) >>> 0;
   return (h ^ (h >>> 16)) >>> 0;

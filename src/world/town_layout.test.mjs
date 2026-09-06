@@ -603,17 +603,29 @@ console.log('town_layout: the castle at the back of every town');
     check('while the same town at its real size does get a castle', !!layoutTown(TOWNS[0], LAY).keep);
 
     // The running game is not this test: `site_models.buildSiteMarker` reads
-    // the roads through `opts.field` and hands the gates their real bearings,
-    // and the Canopy Court is the one town in the seven the roads reach. Its
-    // castle has to survive that, so it is laid out here the way the game lays
-    // it out and measured again.
-    const court = TOWNS.find((t) => t.sub === 'canopycourt');
-    const bearings = linksForCell(f, court.cx, court.cz).map((b) => Math.atan2(b.x - court.x, b.z - court.z));
-    const road = layoutTown(court, LAY, { bearings });
-    check('the one town the roads reach keeps its castle when the gates follow the roads',
-      bearings.length > 0 && !!road.keep && road.keepLots.length === 4
-        && road.keep.fraction > 0.20 && road.keep.fraction < 0.30,
-      `${bearings.length} road links, ${road.gates.length} gates, the keep takes ${(road.keep.fraction * 100).toFixed(1)}%`);
+    // the roads through `opts.field` and hands the gates their real bearings.
+    // WHICH towns the roads reach is the world's answer and not a name typed in:
+    // it was the Canopy Court alone until the corrected hash of 2026-09-06
+    // re-rolled the settlements, and of the seven precinct towns it is
+    // Hearthhome and Cinderport now, with the Court reached by nothing. Every
+    // town that has a link is laid out the way the game lays it out and
+    // measured again, so the castle has to survive the real gates wherever
+    // there are any.
+    const reached = TOWNS
+      .map((t) => ({ t, bearings: linksForCell(f, t.cx, t.cz).map((b) => Math.atan2(b.x - t.x, b.z - t.z)) }))
+      .filter((r) => r.bearings.length > 0);
+    const said = [];
+    let kept = 0;
+    for (const { t, bearings } of reached) {
+      const road = layoutTown(t, LAY, { bearings });
+      const ok = !!road.keep && road.keepLots.length === 4
+        && road.keep.fraction > 0.20 && road.keep.fraction < 0.30;
+      if (ok) kept++;
+      said.push(`${t.name} ${bearings.length} links, ${road.gates.length} gates, `
+        + `keep ${road.keep ? (road.keep.fraction * 100).toFixed(1) + '%' : 'none'}`);
+    }
+    check('every town the roads reach keeps its castle when the gates follow the roads',
+      reached.length > 0 && kept === reached.length, said.join('; '));
   }
 }
 
@@ -621,6 +633,27 @@ console.log('town_layout: the castle at the back of every town');
 console.log('town_models: the keep shows over the roofs');
 {
   const EYE = 1.7, OUT = 200;
+  // THE EYE: 200 m outside the gate a traveller would actually arrive at, at
+  // the height of a face.
+  //
+  // It used to be `plan.gates[0]`, whichever that was. The corrected hash of
+  // 2026-09-06 re-rolled the Ember Wastes' tables and the Last Well's first gate
+  // came to look out over open water forty three metres below the town: a line
+  // cast from down there climbs into the houses on its way to a tower on the
+  // hilltop, and the check went red about a view nobody has. The gate is chosen
+  // from the ground now: dry land at two hundred metres, and of the dry ones the
+  // one whose ground is nearest the town's own level, which is the approach a
+  // road would take. Both directions of the ray test use this same eye.
+  const eyeFor = (plan) => {
+    const er = plan.wall.r + OUT;
+    const stands = plan.gates.map((gt) => {
+      const gx = plan.x + Math.sin(gt.bearing) * er, gz = plan.z + Math.cos(gt.bearing) * er;
+      const smp = f.sampleAt(gx, gz);
+      return { gt, x: gx, z: gz, wet: smp.water, rise: Math.abs(smp.h - heightAt(plan.x, plan.z)) };
+    }).sort((a, b) => (a.wet === b.wet ? a.rise - b.rise : (a.wet ? 1 : -1)));
+    const st = stands[0];
+    return new THREE.Vector3(st.x, heightAt(st.x, st.z) + EYE, st.z);
+  };
   const rows = [];
   let blocked = 0, noFlag = 0, leaked = 0, lowRoof = 0;
   for (const site of TOWNS) {
@@ -632,11 +665,7 @@ console.log('town_models: the keep shows over the roofs');
     const tower = lotOf(plan, 'keeptower');
     const floor = footingFor(tower, heightAt).y - 0.12;
 
-    // the eye: 200 m outside the main gate, at the height of a face
-    const gate = plan.gates[0];
-    const er = plan.wall.r + OUT;
-    const ex = plan.x + Math.sin(gate.bearing) * er, ez = plan.z + Math.cos(gate.bearing) * er;
-    const eye = new THREE.Vector3(ex, heightAt(ex, ez) + EYE, ez);
+    const eye = eyeFor(plan);
 
     // ---- the real geometry: is anything in the way? -----------------------
     // Aimed a metre under the top of the shaft, which is solid in every one of
@@ -646,8 +675,18 @@ console.log('town_models: the keep shows over the roofs');
     const ray = new THREE.Raycaster(eye, aim.clone().sub(eye).normalize(), 0.1, dist + 6);
     const hits = ray.intersectObject(g, true);
     const first = hits[0] || null;
-    const onTower = !!first && Math.hypot(first.point.x - tower.x, first.point.z - tower.z) <= lotRadius(tower.w, tower.d) + 1.5;
-    if (!onTower) blocked++;
+    // ON THE CASTLE, not on the tower's own ten metre footprint. The line is
+    // aimed a metre under the top of the shaft and the castle's own great hall
+    // stands under it: at Hearthhome the first triangle the eye meets is the
+    // hall's roof six metres short of the tower, which is the keep showing over
+    // the town exactly as this check is about. What would be a failure is a
+    // HOUSE in the way, and the roof measurement under this one says so by
+    // name. Every lot the castle owns carries `keep`.
+    const onCastle = !!first && (
+      Math.hypot(first.point.x - tower.x, first.point.z - tower.z) <= lotRadius(tower.w, tower.d) + 1.5
+      || plan.lots.some((l) => l.keep
+        && Math.hypot(first.point.x - l.x, first.point.z - l.z) <= lotRadius(l.w, l.d) + 1.5));
+    if (!onCastle) blocked++;
 
     // ---- and the roofs the line passes over, by name ----------------------
     // the same line the raycast used, which is a metre UNDER the top of the
@@ -686,7 +725,7 @@ console.log('town_models: the keep shows over the roofs');
     if (farFromGate) leaked++;
 
     rows.push(`${site.sub.padEnd(17)} tower ${(keep.top.y - floor).toFixed(1)} m to the top, aimed at ${(top - floor).toFixed(1)} m, `
-      + `first thing the eye meets ${first ? first.distance.toFixed(0) + ' m out and it is ' + (onTower ? 'the tower' : 'NOT the tower') : 'nothing at all'}, `
+      + `first thing the eye meets ${first ? first.distance.toFixed(0) + ' m out and it is ' + (onCastle ? 'the castle' : 'NOT the castle') : 'nothing at all'}, `
       + `${roofs} roofs under the line, cleared by ${worst === Infinity ? 'n/a' : worst.toFixed(1) + ' m'}${worstAt ? ' (' + worstAt + ')' : ''}, `
       + `${flagged} of ${meshes} meshes flagged`);
   }
@@ -730,7 +769,7 @@ console.log('town_models: the keep shows over the roofs');
       })(), 'the Court\'s own trunks stand 34 to 50 m and the Speaker\'s Tree stands 45');
   }
 
-  check(`from ${OUT} m outside the main gate at ${EYE} m, the first thing the eye meets on the line to the keep is the keep`,
+  check(`from ${OUT} m outside the town's own approach at ${EYE} m, the first thing the eye meets on the line to the keep is the castle`,
     blocked === 0, 'cast against the town\'s own triangles, wall, gates, houses and all');
   check('and the line clears the top of every roof it passes over', lowRoof === 0);
   check('every town\'s keep gate carries userData.keep after the merge', noFlag === 0);
@@ -748,10 +787,7 @@ console.log('town_models: the keep shows over the roofs');
       g.updateWorldMatrix(true, true);
       const tower = lotOf(plan, 'keeptower');
       const floor = footingFor(tower, heightAt).y - 0.12;
-      const gate = plan.gates[0];
-      const er = plan.wall.r + 200;
-      const ex = plan.x + Math.sin(gate.bearing) * er, ez = plan.z + Math.cos(gate.bearing) * er;
-      const eye = new THREE.Vector3(ex, heightAt(ex, ez) + 1.7, ez);
+      const eye = eyeFor(plan);
       const aim = new THREE.Vector3(tower.x, floor + 1.7, tower.z);
       const d = eye.distanceTo(aim);
       const hits = new THREE.Raycaster(eye, aim.clone().sub(eye).normalize(), 0.1, d).intersectObject(g, true);

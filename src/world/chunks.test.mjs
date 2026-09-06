@@ -375,7 +375,16 @@ const maxDelta = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
     for (let z = mesa.z - 1200; z <= mesa.z + 1200; z += 8) {
       const sl = slopeAt(x, z);
       if (!wall && sl > CLIFF_SLOPE && f.sampleAt(x, z).biome === 'desert') wall = [x, z, sl];
-      if (!top && sl < 0.12 && f.heightAt(x, z) > 22 && f.sampleAt(x, z).biome === 'desert') top = [x, z, sl];
+      // and the top has to be UNDER the rock line as well as over 22 m: at 46 m
+      // `layerWeights` reads rock whatever the slope is (`toRock` is a
+      // smoothstep from 26 to 46 on height alone, in terrain_material.js), so a
+      // top up there is stone because it is high and says nothing about the
+      // slope rule this pair of checks is about. The corrected hash of 2026-09-06 moved the first
+      // matching point to exactly 46 m and the check went red on a top that was
+      // right. Driven from the field either way: the wall is found by slope and
+      // the top by flatness, and neither is a coordinate typed in.
+      if (!top && sl < 0.12 && f.heightAt(x, z) > 22 && f.heightAt(x, z) < 40
+        && f.sampleAt(x, z).biome === 'desert') top = [x, z, sl];
       if (wall && top) break;
     }
   }

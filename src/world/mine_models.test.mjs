@@ -20,7 +20,7 @@
 import * as THREE from 'three';
 import { createWorldField } from './field.js';
 import { authoredSites } from './zones.js';
-import { SITE_CELL } from './sitegrid.js';
+import { SITE_CELL, MINE_MOUTHS, MINE_SEAMS } from './sitegrid.js';
 import { ORE, ORES } from '../mmo/ores.js';
 import { ORE_WORD, HOST_ROCK } from '../game/log_piles.js';
 import {
@@ -149,7 +149,15 @@ console.log('mine_models: every cut of every mine, on its own hillside');
       if (le.low > MAX_FLOAT) flatFloat++;
     }
   }
-  check('all twenty seven cuts built', n === 27, `${n} cuts`);
+  // The COUNT is the world's, not a number typed in: `sitegrid.mineParts` rolls
+  // two to four cuts a mine off the seed, and a corrected `hash2` re-rolled all
+  // nine of them on 2026-09-06 (it read 27 before and 23 now). What the suite
+  // owes is that every cut the world made was built, and that the roll stayed
+  // inside the band sitegrid promises.
+  const wantCuts = MINES.reduce((a, m) => a + m.mouths.length, 0);
+  check('every cut of every mine built, and the roll kept to two to four a mine',
+    n === wantCuts && MINES.every((m) => m.mouths.length >= MINE_MOUTHS[0] && m.mouths.length <= MINE_MOUTHS[1]),
+    `${n} cuts over ${MINES.length} mines, ${MINES.map((m) => m.mouths.length).join('/')}, against ${MINE_MOUTHS.join(' to ')} each`);
   check('and not one is over the triangle budget', over === 0, `heaviest ${worstTris} of ${MOUTH_MAX_TRIS}`);
   check('every ground sample a cut took is the field\'s own answer there', wrongFoot === 0,
     `${feet} samples over ${n} cuts, none off by more than a nanometre`);
@@ -333,7 +341,10 @@ console.log('mine_models: a seam is the ore, in the ore\'s own colour');
     if (nearest < core) core = nearest;
     if (nearest >= SEAM_CORE) clear++;
   }
-  check('all forty two seams built', seams.length === 47, `${seams.length} seams`);
+  const wantSeams = MINES.reduce((a, m) => a + m.seams.length, 0);
+  check('every seam of every mine built, and the roll kept to four to seven a mine',
+    seams.length === wantSeams && MINES.every((m) => m.seams.length >= MINE_SEAMS[0] && m.seams.length <= MINE_SEAMS[1]),
+    `${seams.length} seams over ${MINES.length} mines, ${MINES.map((m) => m.seams.length).join('/')}, against ${MINE_SEAMS.join(' to ')} each`);
   check('and none is over its budget', over === 0, `heaviest ${worst} of ${SEAM_MAX_TRIS}`);
   check('every ground sample a seam took is the field\'s own answer there', wrongFoot === 0,
     `${feet} samples over ${seams.length} seams`);

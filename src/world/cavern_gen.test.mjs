@@ -142,9 +142,26 @@ check('and one level takes under 20 ms to make', genMs / built.length < 20,
       areas.push(area);
       const sorted = L.rooms.map((o) => o.w * o.h * CELL * CELL).sort((a, b) => a - b);
       if (area >= 400 && area >= sorted[sorted.length >> 1] * 1.2) big++;
-      // and it is the room at the far end, which is where the stair down was
+      // AND IT IS THE ROOM AT THE FAR END, MEASURED TO ITS FAR CORNER.
+      //
+      // `generateCavern` picks the furthest room and THEN grows it into a hall,
+      // a side at a time, and growing on the -x or -z side pulls the rectangle's
+      // own centre back toward the entry by half of what it grew. Measured by
+      // centres, the Eyrie's Roost arena came out 64.5 cells from the mouth
+      // against another room's 64.6 after the corrected hash of 2026-09-06
+      // re-rolled the layouts, and the check went red over a tenth of a cell
+      // about a room that is the far one. The far CORNER only ever moves away
+      // when a room grows, so it is the honest measure of "at the far end", and
+      // all five caverns are the furthest by it.
       const e = L.rooms[0];
-      const d = L.rooms.map((o) => Math.hypot(o.cx - e.cx, o.cz - e.cz));
+      const farCorner = (o) => {
+        let b = 0;
+        for (const cx of [o.x, o.x + o.w]) for (const cz of [o.z, o.z + o.h]) {
+          b = Math.max(b, Math.hypot(cx - e.cx, cz - e.cz));
+        }
+        return b;
+      };
+      const d = L.rooms.map(farCorner);
       if (d[L.arena] === Math.max(...d)) furthest++;
     } else if (L.arena != null) offLast++;
   }

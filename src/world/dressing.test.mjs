@@ -34,14 +34,14 @@ import { createWorldField, CHUNK, HOME_RADIUS } from './field.js';
 import { REALM_ZONES } from './zones.js';
 import { sitesNear } from './sites.js';
 import { standAt } from './arbor.js';
-import { rand2 } from './noise.js';
+import { rand2, hash2 } from './noise.js';
 import {
   dressingFor, openAt, probeAt, inPad, inField, realmAt, kitFor, auditKits, densityAt,
   KITS, DENSITY, ALL_KINDS, ANCHOR, SCATTER, JITTER, TRIES, RUGGED,
   SCATTER_CHANCE, ROAD_KEEP, PAD_MARGIN, SHORE_LINE,
   FIELD_KIT, FIELDS_PER, FARM_REALMS, FARM_KINDS, FIELD_REACH, FIELD_GRADE,
   FIELD_MIN, FIELD_MAX, FIELD_SIZES, OPEN_THIN, THIN_REALMS, CROPS, BOUNDS,
-  farmFor, fieldGate, roadCrosses, clearFarms, farmsHeld, poolFor, dressSeed, ryAlong,
+  farmFor, fieldGate, roadCrosses, clearFarms, farmsHeld, poolFor, ryAlong,
 } from './dressing.js';
 import {
   createDressing, bodyFor, auditBodies, materials, materialFor, variantsOf,
@@ -52,7 +52,8 @@ import { readFileSync } from 'node:fs';
 let pass = 0, fail = 0;
 const ck = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 const f2 = (v) => Number(v).toFixed(2);
-const field = createWorldField(20260904, { homeY: -0.3 });
+const SEED = 20260904;
+const field = createWorldField(SEED, { homeY: -0.3 });
 const now = () => performance.now();
 
 // ------------------------------------------------------------- the kits --
@@ -114,42 +115,95 @@ console.log('\nthe kits');
 
 // ------------------------------------------------- the seed, and its bits --
 //
-// noise.hash2 mixes its seed in as seed * 2147483647, and the world seed is
-// 20260904, so that product is past 2^53 and the low bits of the seed go with
-// it. Two salts of the same cell then come out nearly the same number, and
-// every roll drawn after another one is correlated with it.
+// `noise.hash2` mixed its seed in as `seed * 2147483647` in a double until
+// 2026-09-06. The world seed is 20260904, so that product is 4.35e16: past the
+// 2^53 where a double stops holding every integer. The low bits of the seed's
+// contribution were rounded away, two salts of the same cell came out
+// correlated, and every roll drawn after another roll was partly a reading of
+// the first one.
+//
+// Z4 measured it here and could not fix it, because `noise.js` was not its
+// file: it cut the seed to twenty bits inside `dressing.js` alone
+// (`dressSeed`), and the mix came back. `hash2` is corrected now, with
+// `Math.imul` on all three terms, and the cut has gone with it. The dressing
+// hashes the world seed like every other file in the world.
+//
+// THE OLD ARITHMETIC IS REBUILT HERE, exactly, so the fix stays measurable
+// after the code that had the bug is gone.
 
 console.log('\nthe seed, and the bits it was losing');
 {
-  const mix = (S) => {
+  /** `noise.hash2` as it stood before 2026-09-06: the seed multiplied in a double. */
+  const oldHash2 = (x, z, sd = 0) => {
+    let h = (x | 0) * 374761393 + (z | 0) * 668265263 + (sd | 0) * 2147483647;
+    h = (h ^ (h >>> 13)) >>> 0;
+    h = Math.imul(h, 1274126177) >>> 0;
+    return (h ^ (h >>> 16)) >>> 0;
+  };
+  const oldRand2 = (x, z, sd = 0) => oldHash2(x, z, sd) / 4294967296;
+
+  // The two rolls `dressingFor` actually draws for a scatter cell, in the order
+  // it draws them: seed + 21 asks whether anything is here at all, seed + 24
+  // picks the kind out of the pool. The Greenwold's open pool is beehive,
+  // sheaf and boundary stone at weights 2, 3 and 4.
+  const WANT = [2 / 9 * 100, 3 / 9 * 100, 4 / 9 * 100];
+  const mix = (r2) => {
     let n = 0; const got = [0, 0, 0];
     for (let x = 0; x < 300; x++) for (let z = -300; z < 0; z++) {
-      if (rand2(x, z, S + 21) > SCATTER_CHANCE) continue;       // the roll dressingFor draws first
-      const u = rand2(x, z, S + 24); n++;                        // and the roll it draws next
+      if (r2(x, z, SEED + 21) > SCATTER_CHANCE) continue;
+      const u = r2(x, z, SEED + 24); n++;
       got[u < 2 / 9 ? 0 : u < 5 / 9 ? 1 : 2]++;
     }
-    return got.map((v) => v / n * 100);
+    return { pct: got.map((v) => v / n * 100), n };
   };
-  const raw = mix(field.seed);
-  const cut = mix(dressSeed(field.seed));
-  ck('the raw world seed skews the roll that follows another roll',
-    Math.abs(raw[2] - 44.4) > 20,
-    `beehive ${f2(raw[0])}%, sheaf ${f2(raw[1])}%, boundary stone ${f2(raw[2])}%, against 22.2 / 33.3 / 44.4 wanted`);
-  ck('and the seed cut to twenty bits does not',
-    Math.abs(cut[0] - 22.2) < 4 && Math.abs(cut[1] - 33.3) < 4 && Math.abs(cut[2] - 44.4) < 4,
-    `beehive ${f2(cut[0])}%, sheaf ${f2(cut[1])}%, boundary stone ${f2(cut[2])}%`);
-  ck('dressSeed is stable and small', dressSeed(20260904) === dressSeed(20260904)
-    && dressSeed(20260904) < 1048576 && dressSeed(20260904) !== dressSeed(20260905),
-    `${dressSeed(20260904)} for this world, ${dressSeed(20260905)} for the next`);
+  const before = mix(oldRand2);
+  const after = mix(rand2);
+  const say = (m) => `beehive ${f2(m.pct[0])}%, sheaf ${f2(m.pct[1])}%, boundary stone ${f2(m.pct[2])}%`;
+  console.log(`    over ${after.n} scatter cells of the Greenwold that rolled anything at all, on the world seed`);
+  console.log(`    wanted  beehive ${f2(WANT[0])}%, sheaf ${f2(WANT[1])}%, boundary stone ${f2(WANT[2])}%`);
+  console.log(`    before  ${say(before)}`);
+  console.log(`    after   ${say(after)}`);
+  ck('the old hash skewed the roll that follows another roll, badly',
+    Math.abs(before.pct[2] - WANT[2]) > 20 && before.pct[0] > 60, say(before));
+  ck('and the corrected hash puts every one of them within 3 points of its own weight',
+    after.pct.every((v, i) => Math.abs(v - WANT[i]) < 3), say(after));
+  ck('and it is the SEED that was the trouble: a small seed was always right',
+    (() => {
+      const small = mix((x, z, sd) => oldRand2(x, z, sd - SEED + 1000));
+      return small.pct.every((v, i) => Math.abs(v - WANT[i]) < 3);
+    })(), 'the same measurement at a seed of 1000, small enough for the old multiply to be exact');
+  ck('and under about four million the two hashes are the same number, bit for bit',
+    (() => {
+      for (let s2 = 0; s2 < 4000000; s2 += 137891) {
+        for (let k = -40; k < 40; k += 7) if (hash2(k, k * 3 - 1, s2) !== oldHash2(k, k * 3 - 1, s2)) return false;
+      }
+      return true;
+    })(), 'which is why every suite that builds its own small world is untouched by the fix');
 
-  // and the world can be seen to have got the mix back
-  const kinds = {};
-  for (let dz = -5; dz <= 5; dz++) for (let dx = -5; dx <= 5; dx++) {
-    for (const p of dressingFor(field, -6 + dx, -21 + dz)) if (!p.farm) kinds[p.kind] = (kinds[p.kind] || 0) + 1;
+  // AND THE MEADOW SHOWS IT. The roll above is the arithmetic; this is what a
+  // player walks through. It is not the same number and it is not meant to be:
+  // `openAt` lets a boulder stand on ground a beehive will not (RUGGED against
+  // a slope of 0.30), so the boulder comes out over its share of the roll. What
+  // matters is that all three are there. The skew the user saw was the other
+  // way round and far worse: 72% beehives and 1.5% boundary stones.
+  const kinds = { beehive: 0, sheaf: 0, sarsen: 0 };
+  let props = 0, chunks = 0;
+  for (let dz = -16; dz < 16; dz++) for (let dx = -16; dx < 16; dx++) {
+    chunks++;
+    for (const p of dressingFor(field, -6 + dx, -21 + dz)) {
+      if (kinds[p.kind] === undefined) continue;
+      kinds[p.kind]++; props++;
+    }
   }
+  const share = [kinds.beehive, kinds.sheaf, kinds.sarsen].map((v) => v / props * 100);
+  console.log(`    in the ground  ${props} of them over ${chunks} chunks of the Greenwold: `
+    + `beehive ${f2(share[0])}%, sheaf ${f2(share[1])}%, boundary stone ${f2(share[2])}%`);
+  ck('every kind of the Greenwold\'s scatter is really in the meadow, none vanished and none the whole of it',
+    share.every((v, i) => v > WANT[i] * 0.5 && v < WANT[i] * 2),
+    `${share.map((v, i) => f2(v) + '% against ' + f2(WANT[i]) + '%').join(', ')}`);
   ck('the Greenwold keeps its boundary stones, which the skew had all but taken away',
-    (kinds.sarsen || 0) > (kinds.beehive || 0),
-    `${kinds.sarsen || 0} boundary stones to ${kinds.beehive || 0} beehives over 121 chunks`);
+    kinds.sarsen > kinds.beehive,
+    `${kinds.sarsen} boundary stones to ${kinds.beehive} beehives over ${chunks} chunks`);
 }
 
 // ------------------------------------------------------------ the bodies --

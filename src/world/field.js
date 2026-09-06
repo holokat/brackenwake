@@ -112,7 +112,10 @@ const MINE_AIM_STEPS = 32;
 //   RELIEF_MAX_STEP   what that becomes at the middle of the face, which is
 //                     1.5 x RELIEF_GRADE, and what `field.test.mjs` measures
 //   RAMP_GRADE        the ONE way up every table, plateau and rim has, so
-//                     relief adds places to stand and not places to look at
+//                     relief adds places to stand and not places to look at.
+//                     Every ramp in the world stands at exactly this: a table
+//                     that cannot fit one inside RAMP_FIT of its own radius is
+//                     SHORTENED, rather than having its ramp steepened to fit
 //
 // `field.test.mjs` drives both: the steepest step anywhere in the world stays
 // under the 8 m per metre the mesher can show, and the way up every named climb
@@ -120,11 +123,16 @@ const MINE_AIM_STEPS = 32;
 export const RELIEF_GRADE = 2.0;
 export const RELIEF_MAX_STEP = 1.5 * RELIEF_GRADE;
 export const RAMP_GRADE = 0.34;
+/** What a ramp becomes at the middle of its own smoothstep, as RELIEF_MAX_STEP. */
+export const RAMP_MAX_STEP = 1.5 * RAMP_GRADE;
 /** Radians of a table's rim that the ramp takes. */
 export const RAMP_ARC = 1.15;
+/** How much of a table's own radius its ramp may take, so the top does not sag. */
+export const RAMP_FIT = 0.82;
 /** Metres past its own pad that a site holds the relief around it level. */
 export const RELIEF_HOLD = 34;
-/** How much of its relief a realm gives up where the ground is already ridge. */
+/** How much of its relief a table, a rim or a shelf gives up where the ground it
+ * stands on is already ridge. Asked once per thing: see `reliefKeep`. */
 export const RELIEF_ON_MOUNTAIN = 0.8;
 /** Metres of lift that leave a river bed with no river in it. */
 export const RIVER_LIFT = 3;
@@ -165,6 +173,7 @@ export function createWorldField(seed = 1, opts = {}) {
   // a step. Without it a mesa wall crossing the Brass City's yard would have
   // put twenty metres of cliff through the middle of it.
   const reliefOn = opts.relief !== false;         // off only so a test can weigh it
+  const ramps = opts.ramps !== false;             // off only so a test can prove the ramp is the way up
   const RELIEF = reliefOn ? RELIEF_ZONES.map((zn) => {
     const rl = zn.relief;
     const row = { zn, rl, kind: rl.kind, reach: zn.r + zn.edge, cache: new Map(), wet: rl.kind === 'karst' };
@@ -172,14 +181,22 @@ export function createWorldField(seed = 1, opts = {}) {
       const at = ZONE[rl.at], gate = ZONE[rl.rampAt];
       row.cx = at.x; row.cz = at.z;
       row.gate = Math.atan2(gate.z - at.z, gate.x - at.x);
-      row.run = rl.h / RELIEF_GRADE;
-      row.ramp = rl.h / RAMP_GRADE;
+      // ONE number for the whole ring, taken at the throne the ring is drawn
+      // about. See reliefKeep: asking the mountain mask at every point made the
+      // rim anything between 17 and 80 m round its own circumference, which is
+      // a fence and not a rim, and gave eighty metres of ground the gradient of
+      // a noise field.
+      row.h = rl.h * reliefKeep(at.x, at.z);
+      row.run = row.h / RELIEF_GRADE;
+      row.ramp = row.h / RAMP_GRADE;
     }
+    if (rl.kind === 'glacier') row.h = rl.h * reliefKeep(zn.x, zn.z);
     if (rl.plateau) {
       const at = ZONE[rl.plateau.place];
+      const h = rl.plateau.h * reliefKeep(at.x, at.z);
       row.plateau = {
-        x: at.x, z: at.z, r: rl.plateau.r, h: rl.plateau.h,
-        run: rl.plateau.h / RELIEF_GRADE, ramp: rl.plateau.h / RAMP_GRADE,
+        x: at.x, z: at.z, r: rl.plateau.r, h,
+        run: h / RELIEF_GRADE, ramp: h / RAMP_GRADE,
         a: rl.plateau.bearing,
       };
     }
@@ -197,26 +214,66 @@ export function createWorldField(seed = 1, opts = {}) {
     const cell = Array.isArray(rl.cell) ? rl.cell[0] : rl.cell;
     if (rand2(i, j, seed + 811) > rl.chance) t = null;
     else {
+      const x = (i + 0.5 + (rand2(i, j, seed + 814) - 0.5) * 0.62) * cell;
+      const z = (j + 0.5 + (rand2(i, j, seed + 815) - 0.5) * 0.62) * cell;
       // A terrace realm stacks its tables: half of them are one step up and
       // half are two, so the ground reads 0, 15 and 30 m without ever needing
       // two walls in the same place.
-      const h = rl.step
+      const asked = rl.step
         ? rl.step * (rand2(i, j, seed + 817) < 0.5 ? 1 : 2)
         : rl.h[0] + rand2(i, j, seed + 812) * (rl.h[1] - rl.h[0]);
+      // the mountain mask, asked ONCE, here, at this table's own centre
+      let h = asked * reliefKeep(x, z);
       const r = rl.r[0] + rand2(i, j, seed + 813) * (rl.r[1] - rl.r[0]);
-      // the run is the height over the grade, so every wall in the world is
-      // exactly as steep as every other one whatever height it stands at
-      let ramp = h / RAMP_GRADE;
-      if (ramp > r * 0.82) ramp = r * 0.82;
+      // A TABLE IS ONLY AS TALL AS ITS OWN RAMP CAN CLIMB.
+      //
+      // The ramp's run is its height over RAMP_GRADE, and it has to fit inside
+      // the table: `RAMP_FIT` of the radius, so the top does not sag. What used
+      // to happen when it did not fit was that the RUN was cut and the ramp got
+      // steeper, quietly, by as much as the roll asked: a 34.5 m table on a
+      // 106 m radius came out at 0.397 a metre against the 0.34 it promised,
+      // and nothing said so. It is the height that gives way now, so every ramp
+      // in the world stands at exactly RAMP_GRADE and the way up a table is a
+      // number in this file rather than a thing the roll happened to allow.
+      // Measured in field.test.mjs over the tables of both lattice realms.
+      const fit = r * RAMP_FIT * RAMP_GRADE;
+      if (h > fit) h = fit;
+      // `ramps: false` takes the ramp away and leaves the cliff: the table is
+      // then walled the whole way round, which is what field.test.mjs drives
+      // the walkability guard false with
       t = {
-        x: (i + 0.5 + (rand2(i, j, seed + 814) - 0.5) * 0.62) * cell,
-        z: (j + 0.5 + (rand2(i, j, seed + 815) - 0.5) * 0.62) * cell,
-        h, r, run: h / RELIEF_GRADE, ramp,
+        x, z, h, r, run: h / RELIEF_GRADE,
+        ramp: ramps ? h / RAMP_GRADE : h / RELIEF_GRADE,
         a: rand2(i, j, seed + 816) * TAU,
       };
     }
     row.cache.set(key, t);
     return t;
+  }
+
+  /**
+   * Every table of one relief realm whose lattice cell falls in a box: where it
+   * stands, how tall and how wide it is, the run of its wall, the run of its
+   * ramp and the bearing that ramp is cut on.
+   *
+   * It exists so `field.test.mjs` can ask the world what its tables are instead
+   * of hunting for them with probes, and so the walk that proves every table
+   * has a way up can be driven false by a field built with `ramps: false`.
+   */
+  function tablesIn(zoneId, x0, z0, x1, z1) {
+    const row = RELIEF.find((r) => r.zn.id === zoneId);
+    // only the two lattice reliefs have tables: the crater is a ring, the shelf
+    // is a slope, and the karst has its own stacks that never go through tableOf
+    if (!row || row.wet || row.kind === 'crater' || row.kind === 'glacier') return [];
+    const cell = Array.isArray(row.rl.cell) ? row.rl.cell[0] : row.rl.cell;
+    const out = [];
+    for (let j = Math.floor(z0 / cell); j <= Math.floor(z1 / cell); j++) {
+      for (let i = Math.floor(x0 / cell); i <= Math.floor(x1 / cell); i++) {
+        const t = tableOf(row, i, j);
+        if (t) out.push(t);
+      }
+    }
+    return out;
   }
 
   /**
@@ -260,7 +317,7 @@ export function createWorldField(seed = 1, opts = {}) {
     const up = smoothstep(inner - row.run, inner, d);
     const down = (run) => 1 - smoothstep(outer, outer + run, d);
     const v = Math.min(up, lerp(down(row.run), down(row.ramp), w));
-    return rl.h * v;
+    return row.h * v;
   }
 
   /** Frostreach's shelf: no wall anywhere, just ground that rises outward. */
@@ -270,7 +327,7 @@ export function createWorldField(seed = 1, opts = {}) {
     // outward means away from the world's centre, so the shelf climbs as you
     // walk out of the kingdom and not as you walk back into it
     const t = clamp01(0.5 + ((x - zn.x) * (zn.x / home) + (z - zn.z) * (zn.z / home)) / (2 * zn.r));
-    return row.rl.h * smoothstep(0, 1, t);
+    return row.h * smoothstep(0, 1, t);
   }
 
   /**
@@ -306,7 +363,7 @@ export function createWorldField(seed = 1, opts = {}) {
   }
 
   /**
-   * How much of its relief a realm keeps here.
+   * How much of its relief a THING keeps where it stands.
    *
    * A fifteen metre terrace laid on the side of a ridge is a wall on a wall,
    * and the Stormpeaks are the one realm that is both a terrace country and a
@@ -314,6 +371,24 @@ export function createWorldField(seed = 1, opts = {}) {
    * is already ridge. The mask is the mountain noise WITHOUT its land factor,
    * because `land` swings by 0.17 in a metre at an islet's edge and sixty
    * metres of relief through that would be a cliff of its own.
+   *
+   * IT IS ASKED ONCE PER THING AND NEVER PER POINT, and that is the whole of
+   * why it is safe. Until 2026-09-06 `shapeOf` multiplied the finished relief
+   * by this mask at every sample, which is the one thing the header of this
+   * section forbids: a smoothstep over a noise field has a gradient nobody can
+   * bound. Measured over the Stormpeaks, the mask itself moves by up to 0.0154
+   * in a metre, so a sixty metre plateau carried 0.92 m of noise-shaped slope
+   * in every metre of it, laid straight on top of whatever the ground was
+   * already doing. It is what made the steepest metre in the world with relief
+   * (7.60 m at 741, -3854, on the flat top of a terrace) steeper than the same
+   * metre without it (7.51 m), and it made the Ashen Throne's rim anything
+   * between 17 and 80 m round its own circumference.
+   *
+   * So a table asks it at the table's centre, the crater at the throne, the
+   * plateau at the Eyrie and the shelf at Frostreach's own middle, once each,
+   * for ever. What comes out is folded into the thing's HEIGHT, which means its
+   * run and its ramp shrink with it and every face in the world still stands at
+   * exactly RELIEF_GRADE.
    */
   function reliefKeep(x, z) {
     const mtnN = smoothstep(0.22, 0.58, N.fbm(x / W_MTN_MASK + 55, z / W_MTN_MASK + 55, 3));
@@ -321,9 +396,8 @@ export function createWorldField(seed = 1, opts = {}) {
   }
 
   function shapeOf(row, x, z) {
-    const keep = reliefKeep(x, z);
-    if (row.kind === 'crater') return craterAt(row, x, z) * keep;
-    if (row.kind === 'glacier') return glacierAt(row, x, z) * keep;
+    if (row.kind === 'crater') return craterAt(row, x, z);
+    if (row.kind === 'glacier') return glacierAt(row, x, z);
     let v = tablesAt(row, x, z);
     if (row.plateau) {
       const p = row.plateau;
@@ -335,7 +409,7 @@ export function createWorldField(seed = 1, opts = {}) {
         if (pv > v) v = pv;
       }
     }
-    return v * keep;
+    return v;
   }
 
   // Every authored site that stands where any relief realm reaches, with the
@@ -367,9 +441,21 @@ export function createWorldField(seed = 1, opts = {}) {
         // level all the way across the pad, then fading over RELIEF_HOLD metres
         // outside it, so the pad's own shoulder has flat relief to blend into
         r0: st.flatR + 4, r: st.flatR + 4 + RELIEF_HOLD,
-        y: reliefRaw(st.x, st.z),
+        // FILLED ON FIRST NEED, not here. `reliefRaw` at a site's centre builds
+        // every table of every lattice within a kilometre of it, and there are
+        // forty four such sites: doing all of them on the first sample the field
+        // ever takes cost 242 ms of stall on one chunk, most of it for tables
+        // nobody was standing anywhere near. A hold's PLACE is known without
+        // asking the ground anything; only its level needs a table built, and
+        // only a sample that falls inside the hold's own disc needs that.
+        y: null,
       });
     }
+  }
+  /** The level one site holds its relief at, worked out the first time it is asked. */
+  function holdY(hd) {
+    if (hd.y === null) hd.y = reliefRaw(hd.x, hd.z);
+    return hd.y;
   }
 
   /** The relief at a point before any site holds it level. */
@@ -413,7 +499,7 @@ export function createWorldField(seed = 1, opts = {}) {
       const hx = x - hd.x, hz = z - hd.z;
       const d2 = hx * hx + hz * hz;
       if (d2 >= hd.r * hd.r) continue;
-      v = lerp(v, hd.y, 1 - smoothstep(hd.r0, hd.r, Math.sqrt(d2)));
+      v = lerp(v, holdY(hd), 1 - smoothstep(hd.r0, hd.r, Math.sqrt(d2)));
     }
     return v;
   }
@@ -863,7 +949,7 @@ export function createWorldField(seed = 1, opts = {}) {
 
   return Object.assign(self, {
     seed, heightAt, biomeAt, sampleAt, raw, homeFactor, chunkOf, siteInCell, siteAt,
-    groundNoRoads,
+    groundNoRoads, tablesIn,
     seaLevel: SEA_LEVEL, chunk: CHUNK, homeRadius, homeY, biomes: BIOMES,
     roadHalfWidth: ROAD_HALF_WIDTH,
     // the world's own half width, so a caller with a field does not need to

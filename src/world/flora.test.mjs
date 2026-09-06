@@ -35,7 +35,8 @@ globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 const N = (v) => Math.round(v).toLocaleString();
-const f = createWorldField(20260904, { homeY: -0.3 });
+const SEED = 20260904;
+const f = createWorldField(SEED, { homeY: -0.3 });
 
 // ============================================================================
 // The tables
@@ -53,6 +54,64 @@ for (const b of BIOMES) {
 check('ocean grows nothing at all', mixFor('ocean').length === 0 && mixFor('ocean', true).length === 0);
 check('every biome has a real mix, not one species', BIOMES.filter((b) => b !== 'ocean').every((b) => mixFor(b).length >= 2),
   BIOMES.filter((b) => b !== 'ocean').map((b) => `${b} ${mixFor(b).length}`).join(', '));
+
+// ---- AND THE MEADOW REALLY GROWS THAT MIX ---------------------------------
+//
+// A stand is a stand OF something: `arbor.standAt` draws one species roll for a
+// whole grove and `flora.js` runs it through `mixFor`, so what a wood is made
+// of is decided once per stand and not once per tree. This counts the STANDS.
+//
+// It is here because `noise.hash2` was corrected on 2026-09-06: it mixed its
+// seed in as `seed * 2147483647` in a double, and with the world seed 20260904
+// that product passes 2^53 and the low bits went, so two salts of the same cell
+// came out correlated and a roll drawn after another roll was partly a reading
+// of it (Z4 measured 22/33/44 per cent coming out 72/26/1.5 on the dressing).
+//
+// A STAND'S SPECIES DOES NOT COME THROUGH THAT HASH AT ALL, and this is the
+// check that says so rather than an argument. `arbor.ahash2` is the reference's
+// own hash with its own constants, and it reads the stand's cover out of the
+// low ten bits of one word and the species roll out of the high eight bits of
+// another. Its own seed term (`seed * 982451653`, 1.99e16 on this world) passes
+// 2^53 as well and loses the same low bits, so the world is not the world the
+// seed literally names; what it does NOT do is correlate the two rolls, because
+// they are read from different ends of a word that has been through a mixer.
+// The mix comes out at its weights either way, and both are printed.
+{
+  const S = arbor.standsFor('meadow');
+  const cell = S.grove * 2.2;
+  const mix = mixFor('meadow');
+  const pick = (u) => { let t = u; for (const m of mix) { t -= m[1]; if (t <= 0) return m[0]; } return mix[mix.length - 1][0]; };
+  /** `arbor.ahash2` with the seed multiplied inside 32 bits instead of in a double. */
+  const imulHash = (x, z, sd) => {
+    let h = (Math.imul(x, 374761393) + Math.imul(z, 668265263) + Math.imul(sd | 0, 982451653)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return (h ^ (h >>> 16)) >>> 0;
+  };
+  const mixOver = (H) => {
+    const got = Object.fromEntries(mix.map(([k]) => [k, 0]));
+    let stands = 0, cells = 0;
+    for (let gz = -120; gz < 120; gz++) for (let gx = -120; gx < 120; gx++) {
+      cells++;
+      if ((H(gx, gz, SEED + 8101) & 1023) / 1024 >= S.cover) continue;   // a clearing
+      got[pick(((H(gx, gz, SEED + 8102) >>> 24) & 255) / 256)]++;
+      stands++;
+    }
+    return { got, stands, cells };
+  };
+  const live = mixOver(arbor.ahash2);
+  const other = mixOver(imulHash);
+  const say = (m) => mix.map(([k, w]) => `${k} ${(100 * m.got[k] / m.stands).toFixed(1)}/${(100 * w).toFixed(1)}`).join(', ');
+  console.log(`    ${live.stands} stands over ${live.cells} grove cells of ${cell.toFixed(0)} m, `
+    + `${(100 * live.stands / live.cells).toFixed(1)}% live against a cover of ${S.cover}`);
+  console.log(`    as the world hashes it   ${say(live)}`);
+  console.log(`    with the seed wrapped    ${say(other)}`);
+  const worst = (m) => Math.max(...mix.map(([k, w]) => Math.abs(100 * m.got[k] / m.stands - 100 * w)));
+  check('a meadow\'s stands are its own mix, within 3 points of every weight',
+    worst(live) < 3, `worst ${worst(live).toFixed(1)} points off over ${live.stands} stands`);
+  check('and the seed\'s lost low bits move which stands stand where, not what they are made of',
+    worst(other) < 3 && live.stands !== other.stands,
+    `${live.stands} stands against ${other.stands}, worst ${worst(other).toFixed(1)} points off`);
+}
 
 // the audit has to catch something, or it is decoration
 {
@@ -409,18 +468,40 @@ console.log('\nflora: roads and avenues');
     // chunks: 3.8 km of road against 3.4 km of trees. When the coast moved on
     // 2026-09-06 the longest Greenwold road became one that leaves the tree
     // block half way along, so six of its seventy five trees were counted and
-    // it read as 0.7 per 100 m. The avenue was never broken. Measured over its
-    // own chunks, every Greenwold road carries between 5.4 and 10.4 trees per
-    // 100 m against a full line of 11.1.
+    // it read as 0.7 per 100 m. The avenue was never broken.
+    //
+    // AND THE ROAD HAS TO BE IN THE REALM ALONG ITS WHOLE LENGTH, not merely at
+    // its middle. The corrected hash of 2026-09-06 re-rolled the settlements and
+    // the longest road whose MIDPOINT reads Greenwold became `4,-2>5,-1`, which
+    // spends its second half in the Sunken Kingdom: of its seventy eight tree
+    // stations, 33 stood in a realm that plants no avenue at all and 8 stood in
+    // water, so it read 4.8 per 100 m and the avenue was not what was wrong.
+    // Eleven points along a road decide it now. Of the 49 roads in the world 4
+    // stay in the Greenwold from end to end, and measured over their own chunks
+    // they carry 9.4, 10.1, 10.1 and 10.3 trees per 100 m against a full line
+    // of 11.1. The detail line below says how many were in the running.
     let best = null;
     const seen = new Map();
     const CELLS = Math.ceil(8000 / 480);
     for (let j = -CELLS; j <= CELLS; j++) for (let i = -CELLS; i <= CELLS; i++) {
       for (const r of roadsForCell(f, i, j)) seen.set(r.id, r);
     }
+    const pointOn = (r, t) => {
+      const along = t * r.total;
+      let seg = r.segs[r.segs.length - 1];
+      for (const sg of r.segs) if (along < sg.cum + sg.len) { seg = sg; break; }
+      const u = Math.max(0, Math.min(1, (along - seg.cum) / seg.len));
+      return [seg.x0 + seg.dx * u, seg.z0 + seg.dz * u];
+    };
+    const wholly = [];
     for (const r of seen.values()) {
-      const m = r.segs[Math.floor(r.segs.length / 2)];
-      if (f.sampleAt(m.x0, m.z0).realm !== 'greenwold') continue;
+      let all = true;
+      for (let i = 0; i <= 10 && all; i++) {
+        const [px, pz] = pointOn(r, i / 10);
+        if (f.sampleAt(px, pz).realm !== 'greenwold') all = false;
+      }
+      if (!all) continue;
+      wholly.push(r);
       if (!best || r.total > best.total) best = r;
     }
     const mine = [];
@@ -447,7 +528,8 @@ console.log('\nflora: roads and avenues');
     check(`the avenue keeps its ${AVENUE_STEP} m step`, steps > 10 && pairs > 5,
       `${steps} steps and ${pairs} pairs over ${mine.length} trees`);
     check('and it is a real avenue rather than a tree here and there',
-      perHundred > 5, `${perHundred.toFixed(1)} trees per 100 m of road`);
+      perHundred > 5, `${perHundred.toFixed(1)} trees per 100 m of road, over ${wholly.length} roads `
+      + `that stay in the Greenwold from end to end out of ${seen.size} in the world`);
   }
   // and the guard that keeps the line of trunks between roads.js's two numbers
   {

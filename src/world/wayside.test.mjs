@@ -23,7 +23,9 @@
 //                  null, and `world_runtime.heightAt` is where that gets to
 //                  the player (docs/mmo/wiring/A2.md)
 
+import * as THREE from 'three';
 import { createWorldField, CHUNK } from './field.js';
+import { buildMegalith } from './megalith_models.js';
 import {
   roadsOverlapping, roadsAtSite, roadPointAt, roadHeightAt, roadSurface, fordFade,
   roadDistanceAt, ROAD_HALF_WIDTH,
@@ -136,20 +138,40 @@ check('every kind the placement knows about is actually placed somewhere',
   // the margin the placement itself keeps, which is a stricter bound than the
   // pad's own edge.
   {
+    //
+    // A BRIDGE IS EXEMPT HERE, as it is from the pad check above it, and for the
+    // same reason: it stands where the road crosses water and the water does not
+    // ask whose pad it runs past. The corrected hash of 2026-09-06 moved the
+    // settlements and three bridges came within a pad's margin, one of them 22 m
+    // inside Crookmoor's 26 m pad. The exemption is earned rather than waived:
+    // the check under this one measures the river under every such bridge.
     let inPad = 0, worst = null, pads = 0;
+    const nearPad = [];
     for (const r of all) {
       for (const s of sitesNear(f, r.x, r.z, MAX_PAD + PAD_MARGIN)) {
         if (!(s.flatR > 0)) continue;
         pads++;
         const d = Math.hypot(r.x - s.x, r.z - s.z);
-        if (d < s.flatR + PAD_MARGIN) {
-          inPad++;
-          if (!worst || d - s.flatR < worst.slack) worst = { slack: d - s.flatR, id: r.id, site: s.name };
-        }
+        if (d >= s.flatR + PAD_MARGIN) continue;
+        if (r.kind === 'bridge') { nearPad.push({ r, s, d }); continue; }
+        inPad++;
+        if (!worst || d - s.flatR < worst.slack) worst = { slack: d - s.flatR, id: r.id, site: s.name };
       }
     }
     check(`nothing stands within ${PAD_MARGIN} m of any site's pad, not only the one under it`,
-      inPad === 0, `${pads} piece and pad pairs looked at over ${all.length} pieces${worst ? `, worst ${worst.id} on ${worst.site}` : ''}`);
+      inPad === 0, `${pads} piece and pad pairs looked at over ${all.length} pieces${worst ? `, worst ${worst.id} on ${worst.site}` : ''}`
+      + `; ${nearPad.length} bridges stand inside a pad's margin and are counted below instead`);
+    // and every bridge that is exempted is a bridge over water, not a bridge
+    // standing in somebody's village green
+    {
+      const dry = nearPad.filter((b) => f.sampleAt(b.r.x, b.r.z).river <= FORD_RIVER);
+      check('and every bridge near a pad is over the river that runs past that place',
+        dry.length === 0,
+        nearPad.length
+          ? nearPad.map((b) => `${b.s.name} ${b.d.toFixed(0)} m from the middle of a ${b.s.flatR} m pad, `
+            + `river ${f.sampleAt(b.r.x, b.r.z).river.toFixed(2)}`).join('; ')
+          : 'no bridge came within a pad\'s margin at all');
+    }
     // the other direction, on the same measurement: the widest pad in the world
     // holds a piece out, so the loop above is looking at something
     const wide = authoredSites().filter((s) => s.flatR > 0).sort((a, b) => b.flatR - a.flatR)[0];
@@ -157,18 +179,74 @@ check('every kind the placement knows about is actually placed somewhere',
     check('and a piece put in the middle of the widest pad in the world would be caught',
       at.some((s) => Math.hypot(wide.x - s.x, wide.z - s.z) < s.flatR + PAD_MARGIN),
       `${wide.name}, ${wide.flatR} m`);
-    // A BODY IS NOT A PAD. Two authored places carry `bodyR` and no pad at all:
-    // the Standing Hedge is a ring of stones 811 m across standing on the
-    // hillside the seed made, and the Obsidian Bridge is a 214 m arch. Refusing
-    // every lamp inside `bodyR` would take the light off eight hundred metres of
-    // the Greenwold for a ring that is empty in the middle, so the placement
-    // does not; this counts what actually stands inside one, and the day a road
-    // reaches a megalith somebody gets to look at it.
+    // A BODY IS NOT A PAD, AND A RING IS NOT A DISC. Two authored places carry
+    // `bodyR` and no pad at all: the Standing Hedge is a ring of stones 811 m
+    // across standing on the hillside the seed made, and the Obsidian Bridge is
+    // a 214 m arch. Refusing every lamp inside `bodyR` would take the light off
+    // eight hundred metres of the Greenwold for a ring that is empty in the
+    // middle, so the placement does not.
+    //
+    // This check used to count everything inside `bodyR` and expect none, and
+    // said in as many words that the day a road reached a megalith somebody
+    // would get to look at it. The corrected hash of 2026-09-06 moved the
+    // Greenwold's roads and that day came: 94 pieces stand inside the hedge's
+    // disc, 280 to 530 m from its middle, which is the empty grass in the
+    // centre of the ring and not the ring.
+    //
+    // So it is asked of the STONES. `megalith_models.buildMegalith` is the same
+    // builder `site_models` calls in the running game; every vertex of every
+    // body is taken into world space, and no piece of furniture may stand
+    // within its own kind's CLEAR of one, plus a metre. Driven the other way
+    // with a lamp put on a stone of the hedge.
     const bodies = authoredSites().filter((s) => s.bodyR > 0);
-    let inBody = 0;
-    for (const s of bodies) for (const r of all) if (Math.hypot(r.x - s.x, r.z - s.z) <= s.bodyR) inBody++;
-    check('and nothing stands inside the body of a megalith', inBody === 0,
-      `${bodies.map((s) => `${s.name} ${s.bodyR} m`).join(', ')}`);
+    const stonesOf = (s) => {
+      const g = buildMegalith(s, (x, z) => f.sampleAt(x, z).h);
+      if (!g) return [];
+      g.updateMatrixWorld(true);
+      const out = [];
+      const v = new THREE.Vector3();
+      g.traverse((o) => {
+        if (!o.isMesh || !o.geometry?.getAttribute('position')) return;
+        const pos = o.geometry.getAttribute('position');
+        for (let i = 0; i < pos.count; i++) {
+          v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+          out.push(v.x, v.z);
+        }
+      });
+      return out;
+    };
+    const nearestStone = (xz, x, z) => {
+      let best = Infinity;
+      for (let i = 0; i < xz.length; i += 2) {
+        const d = Math.hypot(xz[i] - x, xz[i + 1] - z);
+        if (d < best) best = d;
+      }
+      return best;
+    };
+    let touching = 0, worstStone = Infinity, inBody = 0, saidBody = [];
+    for (const s of bodies) {
+      const xz = stonesOf(s);
+      let here = 0;
+      for (const r of all) {
+        if (Math.hypot(r.x - s.x, r.z - s.z) > s.bodyR) continue;
+        here++; inBody++;
+        const d = nearestStone(xz, r.x, r.z);
+        if (d < worstStone) worstStone = d;
+        if (d < (CLEAR[r.kind] ?? 1.6) + 1) touching++;
+      }
+      saidBody.push(`${s.name} ${s.bodyR} m, ${here} inside it`);
+    }
+    check('and nothing stands on a megalith, however much of one a road runs through',
+      touching === 0 && inBody > 0,
+      `${saidBody.join('; ')}; nearest piece to any stone ${worstStone.toFixed(1)} m, against the metre or three each kind keeps about itself`);
+    // the other way: a piece put on a stone of the hedge is caught
+    {
+      const hedge = bodies.find((s) => s.bodyR > 400);
+      const xz = stonesOf(hedge);
+      check('and a lamp put on one of the hedge\'s own stones would be caught',
+        nearestStone(xz, xz[0], xz[1]) < CLEAR.lamp,
+        `${xz.length / 2} vertices of stone, the first at ${xz[0].toFixed(0)}, ${xz[1].toFixed(0)}`);
+    }
   }
 }
 

@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import {
   createWorldField, SEA_LEVEL, HOME_RADIUS, BIOMES,
-  RELIEF_GRADE, RELIEF_MAX_STEP, RAMP_GRADE, RELIEF_HOLD,
+  RELIEF_GRADE, RELIEF_MAX_STEP, RAMP_GRADE, RAMP_MAX_STEP, RAMP_FIT, RELIEF_HOLD,
 } from './field.js';
 import {
   WORLD_HALF, OCEAN_FLOOR, COAST_MIN, HEART_SAFE, ZONE,
@@ -10,6 +10,7 @@ import {
   RELIEF_ZONES, REALM_ZONES, heartFade, authoredSites, realmAt,
 } from './zones.js';
 import { rand2 } from './noise.js';
+import { SITE_CELL, SITE_CHANCE, WILD_CHANCE, KINDS, ALL_KINDS, heartCell } from './sitegrid.js';
 import { roadsForCell, ROAD_GRADE } from './roads.js';
 
 let pass = 0, fail = 0;
@@ -124,7 +125,7 @@ for (let i = 0; i < 4000; i++) {
 }
 check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows this as a cliff, which mountains are allowed to be)', worst < 8, `worst ${worst.toFixed(2)}`);
 
-// 6. THE HEART, AND THE TWO TIMES IT HAS MOVED.
+// 6. THE HEART, AND THE THREE TIMES IT HAS MOVED.
 //
 // A 2 km square about the origin, 101 x 101 samples at 20 m, every field of
 // every sample digested. It exists because saves exist: a character is standing
@@ -134,8 +135,8 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
 // structures and V1's relief, and every one of those was proved harmless by
 // this line staying green.
 //
-// IT MOVED ON 2026-09-06, deliberately, twice in one day, and the number below
-// is what it moved to.
+// IT MOVED ON 2026-09-06, deliberately, three times in one day, and the number
+// below is what it moved to.
 //
 // First the coast. `field.LAND_LO` and `LAND_HI` went from (-0.20, 0.06) to
 // (-0.62, -0.34) because 55% of the world was water: the Greenwold read as a
@@ -154,6 +155,18 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
 // ten metre pad had been. Nothing else R1 did touches this square at all: the
 // road judgement, the mine aiming, the karst hold and the two ports that moved
 // are all measured against that same 47ff5817 and change none of it.
+//
+// Then the hash. `noise.hash2` mixed its seed in as `seed * 2147483647` in a
+// double, and with the world seed 20260904 that product is 4.35e16, past the
+// 2^53 where a double stops holding every integer: the low bits of the seed's
+// contribution were rounded away and two salts of the same cell came out
+// correlated. Z4 measured it on the dressing's kind roll, which wanted
+// 22/33/44 per cent and gave 72/26/1.5. `hash2` uses `Math.imul` on all three
+// terms now, so nothing is lost, and every roll this world draws off a cell has
+// changed: the rolled sites, the tables of the mesa realms, the trees, the
+// roads and the dressing. The authored places did not move. For any seed under
+// about four million the fix changes nothing at all, which is why every test
+// that builds its own small world is untouched by it.
 //
 // The promise stands, with a new number under it. If a later change moves so
 // much as one metre of the heart, this line goes red and names the change that
@@ -179,7 +192,7 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
     const pad = s.site && s.site.flatR > 0 ? s.site.id + ':' + s.site.kind : '-';
     h.update(`${s.h}|${s.biome}|${s.water}|${s.river}|${s.land}|${s.temp}|${s.moist}|${s.road}|${pad}\n`);
   }
-  const HEART = '701b023f02253c6d363e59737d8c0c0bb4cc5dd72329379c5941aacf36c1e151';   // re-pinned 2026-09-06 when the Greenwold became meadow; before that 77a4a1da (the spawn clear) and 6408cb4e (before the coast moved)
+  const HEART = 'fddafa24dc47cf896ec29c512c16e9a2b919ded8e89dc76ecb98c0bfaf1bbf27';   // re-pinned 2026-09-06 when hash2 was corrected; before that 701b023f (the Greenwold became meadow), 77a4a1da (the spawn clear) and 6408cb4e (before the coast moved)
   const got = h.digest('hex');
   if (process.env.PRINT_HEART) console.log('HEART DIGEST', got);
   check('the 2 km square around the origin is bit for bit what the coast and the spawn clear left it', got === HEART,
@@ -219,22 +232,54 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
       moved > 0.05, `${padded.name} lays a ${padded.flatR} m pad and lifts its ground ${moved.toFixed(2)} m`);
   }
   {
-    // and the cell it took away from the roll was empty. sitegrid.js rolls a
-    // cell in with `rand2(cx, cz, seed + 1) > 0.62 -> nothing here`, so this is
-    // the same arithmetic the world would have done, run on the cell the hedge
-    // now owns.
-    const SITE_CELL = 480, SEED = 20260904;
+    // AND THE HEDGE MOVES LESS GROUND THAN THE ROLL IT DISPLACED.
+    //
+    // This used to read "the cell it took would have rolled nothing anyway",
+    // with the hedge's own cell coming in over SITE_CHANCE. That was true of
+    // the rolls the broken hash made and of nothing else: under the corrected
+    // hash of 2026-09-06 cell 0, 1 rolls 0.4734 and would have held a cave with
+    // a twelve metre pad. So the claim is the one that is actually being
+    // made, and it is a function of the current rolls rather than a number
+    // typed in: whatever the cell would have rolled, the hedge lays LESS pad
+    // than it, and the digest above is a square of ground the world moved less
+    // than it would have on its own.
+    //
+    // `rawRoll` is not exported, so the roll is rebuilt here out of the parts
+    // that are, in sitegrid's own order: the chance, then the table, then the
+    // row. It is the same arithmetic and it is checked against the real world
+    // on the cells the hedge does NOT stand in.
+    const SEED = 20260904;
+    const rolledIn = (cx, cz) => {
+      const wild = !heartCell(cx, cz);
+      if (rand2(cx, cz, SEED + 1) > (wild ? WILD_CHANCE : SITE_CHANCE)) return null;
+      const table = wild ? ALL_KINDS : KINDS;
+      const total = table.reduce((a, k) => a + k[0], 0);
+      let roll = rand2(cx, cz, SEED + 4) * total, row = table[0];
+      for (const k of table) { if (roll < k[0]) { row = k; break; } roll -= k[0]; }
+      return row;                                      // [weight, kind, article, flatR]
+    };
     const cx = Math.floor(hedge.x / SITE_CELL), cz = Math.floor(hedge.z / SITE_CELL);
-    const empty = rand2(cx, cz, SEED + 1) > 0.62;
-    check('and the cell it took would have rolled nothing anyway', empty,
-      `cell ${cx}, ${cz} rolls ${rand2(cx, cz, SEED + 1).toFixed(4)} against the 0.62 the roll needs`);
-    // the other way: a cell in the same square that WOULD have rolled a site
-    let full = null;
-    for (let j = -3; j <= 2 && !full; j++) for (let i = -3; i <= 2; i++) {
-      if (rand2(i, j, SEED + 1) <= 0.62 && g.siteInCell(i, j)) { full = [i, j]; break; }
+    const would = rolledIn(cx, cz);
+    check('and it lays less pad than the roll whose cell it took', hedge.flatR <= (would ? would[3] : 0),
+      would ? `cell ${cx}, ${cz} would have rolled a ${would[1]} with a ${would[3]} m pad, against the hedge's ${hedge.flatR}`
+        : `cell ${cx}, ${cz} would have rolled nothing, against the hedge's ${hedge.flatR} m pad`);
+    // and the rebuilt roll is the world's own: every cell of the digest square
+    // that the world put a rolled site in is a cell this arithmetic rolled too
+    let cells = 0, real = 0, wrong = 0;
+    for (let j = -3; j <= 2; j++) for (let i = -3; i <= 2; i++) {
+      const st = g.siteInCell(i, j);
+      if (st && st.authored) continue;
+      cells++;
+      if (!st) continue;                              // the ground may refuse what was rolled
+      real++;
+      const r = rolledIn(i, j);
+      // a castle with no town near it is demoted by `rerollWild`, so that one
+      // row is allowed to come out as something else
+      if (!r || (r[1] !== st.kind && r[1] !== 'castle')) wrong++;
     }
     check('and cells in the same square DO roll sites, so that measurement means something',
-      !!full, full ? `cell ${full.join(', ')} rolls ${rand2(full[0], full[1], SEED + 1).toFixed(4)} and holds ${g.siteInCell(full[0], full[1]).kind}` : 'none found');
+      real > 4 && wrong === 0,
+      `${real} of ${cells} unauthored cells hold a rolled site, and the roll rebuilt here names the kind of every one of them`);
   }
 }
 
@@ -264,14 +309,28 @@ check('height changes < 8 per metre everywhere sampled (a 2 m mesh step shows th
     if (b.river > 0.5 && a.river <= 0.5) dropped++;
     h.update(`${d}|${a.river - b.river}\n`);
   }
-  // Re-pinned on 2026-09-06 with the coast. Relief is laid on top of the ground
-  // the noise made, so a continent function that moves the ground moves what
-  // relief is laid over: 12% of the Ember Wastes was lifted before and 11% is
-  // now, up to 39.9 m against 49.6. Nothing in the relief code changed, and
-  // nothing R1 did moves this number: it read c8738d3e before R1 touched a file
-  // and it reads c8738d3e now.
-  const MESA = 'c8738d3e0ea76e50069ffe317fc0ad9298a4199042f3c48c9029133a00698623';
+  // RE-PINNED ON 2026-09-06 WITH THE CORRECTED HASH, and this one moved for two
+  // reasons rather than one.
+  //
+  // The tables are rolled off `rand2(i, j, seed + 811..817)`, so a hash that
+  // was losing the seed's low bits was rolling every table in the world: where
+  // they stand, how tall they are, how wide, and which way their ramp faces.
+  // Every one of them moved.
+  //
+  // And two things in the relief code changed with it, both of them named in
+  // field.js. `reliefKeep`, the mountain mask that decides how much of its
+  // relief a thing keeps, is asked once per TABLE now and no longer once per
+  // sample: it was the one thing in there built out of a noise value rather
+  // than a distance, which is what the header of that section forbids, and it
+  // laid up to 0.92 m of noise-shaped slope in every metre of a sixty metre
+  // plateau. And a table that cannot fit its own ramp is SHORTENED now rather
+  // than having its ramp steepened, so every ramp in the world stands at
+  // exactly RAMP_GRADE.
+  //
+  // Before: c8738d3e (the coast) and, before that, c6900f56.
+  const MESA = 'd807c78135a47572d0ebcc93609deac2203fd7d509bdc62172a1efa669972494';
   const got = h.digest('hex');
+  if (process.env.PRINT_RELIEF) console.log('RELIEF DIGEST', got);
   check('the relief over the Ember Wastes is what it is on this coast', got === MESA,
     `${n} samples, ${(100 * lifted / n).toFixed(0)}% lifted, up to ${hi.toFixed(1)} m, ${dropped} river cells left dry, ${got.slice(0, 16)}...`);
 }
@@ -405,33 +464,131 @@ console.log('relief: mesas, terraces, a crater rim, a shelf and stacks');
     check('while the rim half a radian round from it is a wall', rim.worst > 2,
       `worst step ${rim.worst.toFixed(3)} m`);
 
-    // and every table in the Ember Wastes has one way up it, for the same
-    // reason and by the same construction: a hundred tables, each walked from
-    // its own rim to its own middle on the bearing its ramp was cut on
-    let tables = 0, walkable = 0, wallSides = 0, worstRamp = 0;
-    for (let x = ZONE.emberwastes.x - 1400; x <= ZONE.emberwastes.x + 1400; x += 100) {
-      for (let z = ZONE.emberwastes.z - 1400; z <= ZONE.emberwastes.z + 1400; z += 100) {
-        if (lift(x, z) < 14) continue;                       // not on a table top
-        tables++;
-        let best = Infinity, worstWay = 0;
-        for (let i = 0; i < 36; i++) {
-          const th2 = (i / 36) * Math.PI * 2;
-          for (const out of [140, 200, 260]) {
-            const w = walk(x + Math.cos(th2) * out, z + Math.sin(th2) * out, x, z);
-            if (w.worst < best) best = w.worst;
-            if (w.worst > worstWay) worstWay = w.worst;
-          }
+    // and every table of the two lattice reliefs has a way up, BY WALKING.
+    //
+    // V1 asked this with straight lines from thirty six bearings in to a probe
+    // on the top, and it passed 56 of 56 by luck. It is not the question. A
+    // mesa is a cliff round most of its rim and one ramp, so a straight line
+    // from the wrong side crosses the cliff whatever the ramp does, and a line
+    // to a probe that is not on the ramp's own radial leaves the ramp halfway
+    // up. Under the corrected hash three of the eighty nine sampled tops had no
+    // straight line under 1.2 m a metre and the check went red for a reason
+    // that was never the promise.
+    //
+    // So this walks. A five metre lattice; a cell is ground you can stand on
+    // when the height under it moves no more than STEP_MAX in a metre in any of
+    // four directions, which is the gradient and not the step along some chosen
+    // path (a 3 m a metre wall can be crossed on a lattice by traversing it
+    // almost sideways, and a player cannot); and one flood from the table's own
+    // top, which succeeds when it reaches ground carrying no more than a third
+    // of this table's LIFT. That is "you got down off it", and it is the same
+    // question as "you can get onto it".
+    //
+    // The lift and not the height: a table stands on the hillside the noise
+    // made and rides it, so a table on a slope falls eighteen metres across its
+    // own top without anybody leaving it. Asking for a drop in HEIGHT let one
+    // table of the Ember Wastes call that an escape while still standing on
+    // itself. The lift is the table and nothing else.
+    //
+    // Both realms that grow tables, not only the Ember Wastes: `RELIEF_ZONES`
+    // is asked which they are rather than one of them being named.
+    //
+    // Driven the other way by `ramps: false`, which builds the same world with
+    // every table walled the whole way round.
+    const LAT = 5;                       // metres between lattice points
+    const REACH = 900;                   // metres of flood before it gives up
+    const walker = (F, liftOf) => {
+      const pass = new Map();
+      const level = (i, j) => {
+        const k = i + ',' + j; let v = pass.get(k);
+        if (v !== undefined) return v;
+        const x = i * LAT, z = j * LAT, y = F.heightAt(x, z);
+        v = Math.abs(F.heightAt(x + 1, z) - y) <= STEP_MAX && Math.abs(F.heightAt(x - 1, z) - y) <= STEP_MAX
+          && Math.abs(F.heightAt(x, z + 1) - y) <= STEP_MAX && Math.abs(F.heightAt(x, z - 1) - y) <= STEP_MAX;
+        pass.set(k, v);
+        return v;
+      };
+      return (t) => {
+        // stand on the table: the level cell nearest its middle that is really
+        // up on the top, which is what `lift >= 0.7 h` says
+        const top = Math.max(LAT, t.r - t.run), n = Math.ceil(top / LAT);
+        let i0 = null, j0 = null, best = Infinity;
+        for (let dj = -n; dj <= n; dj++) for (let di = -n; di <= n; di++) {
+          const d2 = di * di + dj * dj;
+          if (d2 > n * n || d2 >= best) continue;
+          const i = Math.round(t.x / LAT) + di, j = Math.round(t.z / LAT) + dj;
+          if (liftOf(i * LAT, j * LAT) < t.h * 0.7 || !level(i, j)) continue;
+          best = d2; i0 = i; j0 = j;
         }
-        if (best <= STEP_MAX) walkable++;
-        if (worstWay > 2) wallSides++;
-        if (best > worstRamp) worstRamp = best;
+        if (i0 === null) return 'no level ground on its top at all';
+        const down = t.h * 0.35;
+        const lim = Math.ceil(REACH / LAT);
+        const seen = new Set([i0 + ',' + j0]);
+        let q = [[i0, j0]];
+        while (q.length) {
+          const nq = [];
+          for (const [i, j] of q) {
+            if (liftOf(i * LAT, j * LAT) <= down) return true;
+            for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+              const a = i + di, b = j + dj, k = a + ',' + b;
+              if (seen.has(k) || Math.abs(a - i0) > lim || Math.abs(b - j0) > lim) continue;
+              seen.add(k);
+              if (level(a, b)) nq.push([a, b]);
+            }
+          }
+          q = nq;
+        }
+        return false;
+      };
+    };
+    const LATTICE = RELIEF_ZONES.filter((z) => z.relief.kind === 'mesa' || z.relief.kind === 'cliffs');
+    // a table is a table when it is at least 14 m tall, stands inside its own
+    // realm, and really rises: one drowned by the Caldera Sea is not a table
+    const tablesOf = (F, liftOf) => LATTICE.flatMap((zn) =>
+      F.tablesIn(zn.id, zn.x - zn.r, zn.z - zn.r, zn.x + zn.r, zn.z + zn.r)
+        .filter((t) => Math.hypot(t.x - zn.x, t.z - zn.z) < zn.r && t.h >= 14 && liftOf(t.x, t.z) >= t.h * 0.7)
+        .map((t) => ({ ...t, realm: zn.id })));
+
+    {
+      const walkOn = walker(on, lift);
+      const ts = tablesOf(on, lift);
+      let up = 0, wallSides = 0, worstGrade = 0, shortened = 0; const stuck = [];
+      for (const t of ts) {
+        if (walkOn(t) === true) up++; else stuck.push(`${t.realm} ${t.x.toFixed(0)}, ${t.z.toFixed(0)}`);
+        // a table with a ramp still has a side that is a wall, or it is a hill
+        if (t.run < t.ramp) wallSides++;
+        worstGrade = Math.max(worstGrade, Math.abs(t.h / t.ramp - RAMP_GRADE));
+        if (Math.abs(t.h - t.r * RAMP_FIT * RAMP_GRADE) < 1e-9) shortened++;
       }
+      check('every table of the mesa and terrace realms can be walked onto',
+        ts.length > 20 && up === ts.length,
+        `${up} of ${ts.length} tables walked, over ${LATTICE.map((z) => z.id).join(' and ')}`
+        + (stuck.length ? `; stuck: ${stuck.join('; ')}` : ''));
+      check('and every one of them has a side you cannot climb, or it is a hill and not a table',
+        wallSides === ts.length, `${wallSides} of ${ts.length}`);
+      // THE RAMP IS ARITHMETIC AND NOT LUCK. Every table's ramp stands at
+      // exactly RAMP_GRADE, because a table that could not fit one has its
+      // HEIGHT cut rather than its ramp steepened. Before that inversion a
+      // 34.5 m table on a 106 m radius came out at 0.397 a metre and said
+      // nothing about it.
+      check('and every ramp in the world stands at exactly RAMP_GRADE, with none of them steepened to fit',
+        worstGrade < 1e-12 && shortened > 0,
+        `${ts.length} tables, worst ${worstGrade.toExponential(1)} off ${RAMP_GRADE}, `
+        + `${shortened} of them shortened so their ramp would fit; the steepest metre of any of them `
+        + `is ${RAMP_MAX_STEP.toFixed(2)} m against ${STEP_MAX} for a walk`);
     }
-    check('every table top in the Ember Wastes can be walked onto from some bearing',
-      tables > 20 && walkable === tables,
-      `${walkable} of ${tables} table tops, worst easiest way up ${worstRamp.toFixed(2)} m a metre`);
-    check('and every one of them has a side you cannot climb, or it is a hill and not a table',
-      wallSides === tables, `${wallSides} of ${tables}`);
+    {
+      // the other way: the same world with the ramps taken off the tables
+      const flat = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3, ramps: false });
+      const liftF = (x, z) => flat.raw(x, z).h - off.raw(x, z).h;
+      const walkFlat = walker(flat, liftF);
+      const ts = tablesOf(flat, liftF);
+      let up = 0;
+      for (const t of ts) if (walkFlat(t) === true) up++;
+      check('and with the ramps taken away almost none of them can be, which is what the ramp is for',
+        ts.length > 20 && up <= ts.length * 0.25,
+        `${up} of ${ts.length} tables walked with every one of them walled the whole way round`);
+    }
   }
 
   // the stacks stay out of the open sea, where the drowned city is

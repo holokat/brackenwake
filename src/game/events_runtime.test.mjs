@@ -152,6 +152,7 @@ console.log('events_runtime: the escort walks with the wagon');
   const a0 = at('tithewagon', t0, { field });
   ev.update(0.05, t0, { x: a0.x, z: a0.z });
   check('the escort is standing', mon.count === 5, `${mon.count} bodies`);
+  const escort = mon.all().map((m) => m.key);
   const home0 = mon.all().map((m) => ({ ...m.actor.ai.home }));
 
   const t1 = atHour(0, row.toH);
@@ -176,7 +177,17 @@ console.log('events_runtime: the escort walks with the wagon');
 
   // the window closes and the bodies go
   ev.update(0.05, atHour(0, 18), { x: a1.x, z: a1.z });
-  check('when the window shuts the escort is taken away', mon.despawned.length === 5, `${mon.despawned.length} despawned`);
+  // THE ESCORT'S OWN FIVE, by key, and not "five bodies were despawned". The
+  // player stands on the wagon for the whole of this block, and whatever else
+  // the clock has running near the Kingsroad at hour 14 spawns there too: the
+  // corrected hash of 2026-09-06 moved the roads and a Legion march came within
+  // range, so sixteen bodies came and went and the count said the wrong thing
+  // about the right outcome.
+  const gone = escort.filter((k) => mon.despawned.includes(k));
+  check('when the window shuts the escort is taken away',
+    gone.length === escort.length && mon.count === 0,
+    `${gone.length} of the wagon's ${escort.length}, and ${mon.despawned.length - gone.length} other bodies `
+    + 'that came and went with the rest of the day\'s events');
   check('and the log says the event is over', hud.logs.some((l) => /is over/.test(l)), hud.logs[hud.logs.length - 1]);
 }
 

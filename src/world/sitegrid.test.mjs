@@ -30,6 +30,69 @@ check('every candidate stays inside its cell margin', out === 0, `${out} of ${n}
 check('about 93% of cells roll a site now, which is half again as many as before',
   n / 6400 > 0.88 && n / 6400 < 0.96, (100 * n / 6400).toFixed(1) + '%, was 62%');
 for (const [, k] of ALL_KINDS) check(`kind "${k}" occurs`, kinds[k] > 0, String(kinds[k]));
+
+// ---- THE MIX, BEFORE AND AFTER THE HASH WAS CORRECTED ----------------------
+//
+// `noise.hash2` mixed its seed in as `seed * 2147483647` in a double until
+// 2026-09-06. With the world seed 20260904 that product passes 2^53 and the low
+// bits of the seed are lost, so two salts of the same cell come out correlated:
+// `rawRoll` asks `seed + 1` whether a cell holds anything and then `seed + 4`
+// which kind, and the second answer was partly a reading of the first. Z4 found
+// it on the dressing's scatter (22/33/44 per cent came out 72/26/1.5) and
+// `sitegrid.js` draws its rolls exactly the same way.
+//
+// The old arithmetic is rebuilt here so the fix stays measurable. Both tables
+// are driven: KINDS, which is what a heart cell rolls, and ALL_KINDS, which is
+// what the rest of the world rolls.
+{
+  /** `noise.hash2` as it stood before 2026-09-06: the seed multiplied in a double. */
+  const oldHash2 = (x, z, sd = 0) => {
+    let h = (x | 0) * 374761393 + (z | 0) * 668265263 + (sd | 0) * 2147483647;
+    h = (h ^ (h >>> 13)) >>> 0;
+    h = Math.imul(h, 1274126177) >>> 0;
+    return (h ^ (h >>> 16)) >>> 0;
+  };
+  const oldRand2 = (x, z, sd = 0) => oldHash2(x, z, sd) / 4294967296;
+  const mixOf = (table, chance, r2) => {
+    const total = table.reduce((a, k) => a + k[0], 0);
+    const got = new Map(table.map((k) => [k[1], 0]));
+    let cells = 0;
+    for (let cz = -40; cz < 40; cz++) for (let cx = -40; cx < 40; cx++) {
+      if (r2(cx, cz, seed + 1) > chance) continue;
+      let roll = r2(cx, cz, seed + 4) * total, row = table[0];
+      for (const k of table) { if (roll < k[0]) { row = k; break; } roll -= k[0]; }
+      got.set(row[1], got.get(row[1]) + 1);
+      cells++;
+    }
+    return { pct: table.map((k) => got.get(k[1]) / cells * 100), want: table.map((k) => k[0] / total * 100), cells };
+  };
+  const worstOf = (m) => Math.max(...m.pct.map((v, i) => Math.abs(v - m.want[i])));
+  const sayOf = (table, m) => table.map((k, i) => `${k[1]} ${m.pct[i].toFixed(1)}/${m.want[i].toFixed(1)}`).join(', ');
+  const worsts = {};
+  for (const [name, table, chance] of [['ALL_KINDS', ALL_KINDS, WILD_CHANCE], ['KINDS', KINDS, SITE_CHANCE]]) {
+    const before = mixOf(table, chance, oldRand2);
+    const after = mixOf(table, chance, rand2);
+    worsts[name] = [worstOf(before), worstOf(after)];
+    console.log(`  ${name} over ${after.cells} of 6400 cells, at a chance of ${chance}, `
+      + 'as a percentage against the weight asked');
+    console.log(`    before  ${sayOf(table, before)}`);
+    console.log(`    after   ${sayOf(table, after)}`);
+    check(`and the corrected hash keeps every ${name} row within 3 points of its weight`,
+      worstOf(after) < 3, `worst ${worstOf(after).toFixed(1)} points off, over ${after.cells} cells`);
+  }
+  // HOW BADLY the old hash skewed a roll depended on how selective the roll
+  // before it was, and that is worth writing down rather than asserting a size.
+  // The second roll was correlated with the first, so conditioning on the first
+  // one passing selected the second: at a chance of 0.30 (the dressing's
+  // scatter) it turned 22/33/44 into 72/26/1.5, at SITE_CHANCE 0.62 it moved a
+  // row by 5.0 points, and at WILD_CHANCE 0.93, which throws away one cell in
+  // fourteen, by 2.0. The narrower the gate, the worse the lie.
+  check('and the old hash skewed a roll in proportion to how narrow the roll before it was',
+    worsts.KINDS[0] > worsts.ALL_KINDS[0] && worsts.KINDS[0] > 3 && worsts.KINDS[0] > worsts.KINDS[1] * 3,
+    `KINDS at ${SITE_CHANCE} was ${worsts.KINDS[0].toFixed(1)} points off and is ${worsts.KINDS[1].toFixed(1)} now; `
+    + `ALL_KINDS at ${WILD_CHANCE} was ${worsts.ALL_KINDS[0].toFixed(1)} and is ${worsts.ALL_KINDS[1].toFixed(1)}`);
+}
+
 // the terrain's answer: towns on low dry ground, caves on hillsides, nothing on the farm
 const f = createWorldField(seed, { homeY: -0.3 });
 let allowed = 0, caveOnHill = 0, caves = 0, lowTowns = 0, towns = 0, onFarm = 0;

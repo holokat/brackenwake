@@ -8,6 +8,7 @@
 // under every foot of it. A test that built them any other way would be
 // measuring a thing no player will ever see.
 
+import { PLANS } from '../mmo/plans/index.js';
 import * as THREE from 'three';
 import { createWorldField } from './field.js';
 import { authoredSites, STANDS_IN_WATER, ZONE } from './zones.js';
@@ -127,12 +128,15 @@ console.log('megaliths: what a click finds');
     SITES.every((s) => { const g = buildMegalith(s, heightAt); return g.userData.site === s && g.name === `site:${s.id}`; }));
   // and the real dispatch: buildSiteMarker is what the runtime calls
   {
+    // a place with a painting (P1) is built from its plan and never reaches
+    // this file: the Standing Hedge is one, so it is left out of the count
+    const unplanned = SITES.filter((s) => !PLANS[s.sub]);
     let through = 0;
-    for (const site of SITES) {
+    for (const site of unplanned) {
       const g = buildSiteMarker(site, heightAt);
       if (g && g.userData.site === site && drawsOf(g) <= MEGALITH_MAX_DRAWS) through++;
     }
-    check('site_models.buildSiteMarker hands all of them to this file', through === SITES.length,
+    check('site_models.buildSiteMarker hands all of them to this file', through === unplanned.length,
       `${through}/${SITES.length}`);
   }
 }

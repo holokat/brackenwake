@@ -16,7 +16,15 @@ function inPlannedPieceAt(site, x, z) {
   const plan = PLANS[site.sub];
   if (!plan) return false;
   const lx = x - site.x, lz = z - site.z;
-  return (plan.pieces || []).some((pc) => { const f = FOOTPRINT[pc.model]; if (!f) return false; const dx = lx - pc.x, dz = lz - pc.z; const a = (pc.yaw || 0) * Math.PI / 180;   // the plan turns clockwise from north, so the local frame turns with it const rx = dx * Math.cos(a) - dz * Math.sin(a), rz = dx * Math.sin(a) + dz * Math.cos(a); return Math.abs(rx) < f[0] / 2 && Math.abs(rz) < f[1] / 2; });
+  return (plan.pieces || []).some((pc) => {
+    const f = FOOTPRINT[pc.model];
+    if (!f) return false;
+    const dx = lx - pc.x, dz = lz - pc.z;
+    // the plan turns clockwise from north, so the local frame turns with it
+    const a = (pc.yaw || 0) * Math.PI / 180;
+    const rx = dx * Math.cos(a) - dz * Math.sin(a), rz = dx * Math.sin(a) + dz * Math.cos(a);
+    return Math.abs(rx) < f[0] / 2 && Math.abs(rz) < f[1] / 2;
+  });
 }
 import { lotOf, lotsOverlap, SQUARE_R } from '../world/town_layout.js';
 
