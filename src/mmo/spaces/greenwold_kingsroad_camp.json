@@ -1,0 +1,295 @@
+{
+  "id": "greenwold_kingsroad_camp",
+  "name": "The Kingsroad Camp",
+  "note": "The paved road through the Greenwold, kerbed and lamped, with a stone bridge over the stream and a fingerpost where it forks. Captain Serle Vane's camp stands north of the road: two black tents, a brass standard and a fence, and the braziers are lit all night.",
+  "at": {
+    "x": 1638.3,
+    "z": -1817.39
+  },
+  "radius": 74,
+  "pieces": [
+    {
+      "model": "stone_bridge_10m",
+      "x": 0,
+      "z": 0,
+      "yaw": 326.31
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": -52.42,
+      "z": -29.54,
+      "yaw": 0
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": -32.45,
+      "z": -16.23,
+      "yaw": 0
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": -12.48,
+      "z": -2.92,
+      "yaw": 0
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 7.48,
+      "z": 10.4,
+      "yaw": 0
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 27.45,
+      "z": 23.71,
+      "yaw": 0
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 47.42,
+      "z": 37.02,
+      "yaw": 0
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": -7.91,
+      "z": 0.13,
+      "yaw": 0
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 2.91,
+      "z": 7.35,
+      "yaw": 0
+    },
+    {
+      "model": "milestone",
+      "x": -45.46,
+      "z": -35.84,
+      "yaw": 236.31
+    },
+    {
+      "model": "milestone",
+      "x": 50.56,
+      "z": 28.18,
+      "yaw": 236.31
+    },
+    {
+      "model": "fingerpost",
+      "x": 33,
+      "z": 17,
+      "yaw": 236.31
+    },
+    {
+      "model": "legion_tent",
+      "x": -26,
+      "z": 12,
+      "yaw": 150
+    },
+    {
+      "model": "legion_tent",
+      "x": -14,
+      "z": 16,
+      "yaw": 130
+    },
+    {
+      "model": "legion_standard",
+      "x": -20,
+      "z": 6,
+      "yaw": 0
+    },
+    {
+      "model": "spear_rack",
+      "x": -10,
+      "z": 10,
+      "yaw": 200
+    },
+    {
+      "model": "brazier",
+      "x": -24,
+      "z": 4,
+      "yaw": 0
+    },
+    {
+      "model": "brazier",
+      "x": -14,
+      "z": 4,
+      "yaw": 0
+    },
+    {
+      "model": "legion_crate",
+      "x": -8,
+      "z": 14,
+      "yaw": 30
+    },
+    {
+      "model": "legion_crate",
+      "x": -8.5,
+      "z": 15.4,
+      "yaw": 10
+    }
+  ],
+  "runs": [
+    {
+      "model": "road_slab_2m",
+      "from": {
+        "x": -60,
+        "z": -40
+      },
+      "to": {
+        "x": 60,
+        "z": 40
+      }
+    },
+    {
+      "model": "road_slab_2m",
+      "from": {
+        "x": 30,
+        "z": 20
+      },
+      "to": {
+        "x": 58,
+        "z": -8
+      }
+    },
+    {
+      "model": "camp_fence",
+      "from": {
+        "x": -30,
+        "z": 2
+      },
+      "to": {
+        "x": -6,
+        "z": 2
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 3.9,
+        "z": 12.2
+      },
+      "to": {
+        "x": 45.5,
+        "z": 40
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -46,
+        "z": -38
+      },
+      "to": {
+        "x": 28,
+        "z": 10
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "water",
+      "y": -0.6,
+      "points": [
+        [
+          -30,
+          26
+        ],
+        [
+          -26,
+          30
+        ],
+        [
+          26,
+          -22
+        ],
+        [
+          22,
+          -26
+        ]
+      ]
+    },
+    {
+      "kind": "wheat",
+      "points": [
+        [
+          -20,
+          -46
+        ],
+        [
+          16,
+          -20
+        ],
+        [
+          26,
+          -32
+        ],
+        [
+          -10,
+          -56
+        ]
+      ]
+    }
+  ],
+  "people": [
+    {
+      "name": null,
+      "role": "officer",
+      "x": -20,
+      "z": 10,
+      "yaw": 160
+    }
+  ],
+  "spawns": [
+    {
+      "id": "legionSoldier",
+      "x": -18,
+      "z": 7
+    },
+    {
+      "id": "legionSoldier",
+      "x": -11,
+      "z": 8
+    },
+    {
+      "id": "legionArcher",
+      "x": -23,
+      "z": 6
+    },
+    {
+      "id": "highwayman",
+      "x": 40,
+      "z": 30,
+      "night": true
+    },
+    {
+      "id": "wolf",
+      "x": -42,
+      "z": 34,
+      "night": true
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "markers": [
+    {
+      "x": -20,
+      "z": 10,
+      "label": "Captain Serle Vane",
+      "kind": "other",
+      "note": "the plan stands Captain Serle Vane here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
+    },
+    {
+      "x": 46,
+      "z": -52,
+      "label": "the gate of the next realm, shut",
+      "note": "the road runs on out of the zone and the gate at the end of it is closed",
+      "kind": "structure"
+    }
+  ],
+  "arrival": {
+    "x": -60,
+    "z": -40,
+    "yaw": 56.31
+  }
+}

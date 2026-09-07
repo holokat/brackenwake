@@ -195,3 +195,25 @@ generator grows, the monsters the roster spawns, and nothing else.
 4. Spaces 7 to 12.
 5. Every marker placed during 2 to 12 is a row in the model list, in the
    order the walk meets it.
+
+## Where they stand now (2026-09-07)
+
+All twelve are laid, plus the country between them, by
+`scripts/sculpt-greenwold.mjs`, at the coordinates
+`src/mmo/greenwold_guide.js` reads off the user's painting. Forty spaces in
+`src/mmo/spaces/greenwold_*.json` and 4,081 terrain strokes in
+`public/terrain/greenwold.json`. The three this doc still listed as "to
+author", the Long Meadow, the Water Meadows and Coldwake, are authored:
+`greenwold_longmeadow`, `greenwold_watermeadows`, `greenwold_coldwake`.
+
+The Standing Hedge is nine spaces and not one, `greenwold_hedge_1` to
+`greenwold_hedge_9`, because a single space with a `repeat` carries a 22 m body
+at the ring's centre and the streamer would never find a stone from a kilometre
+out.
+
+`docs/mmo/wiring/GW1-SCULPT.md` is what was cut, what was measured, what could
+not be matched to the painting, and the two bugs it turned up.
+
+That is a FIRST DRAFT laid by script. It exists so there is something to walk
+and argue with; the editor is where it gets fixed, and a rerun of the script
+overwrites whatever the editor changed.

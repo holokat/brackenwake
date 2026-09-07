@@ -1012,8 +1012,14 @@ function laneMesh(points, width, at, heightAt, m, lift) {
       const t0 = k / n, t1 = (k + 1) / n;
       const ax = x0 + (x1 - x0) * t0, az = z0 + (z1 - z0) * t0;
       const bx = x0 + (x1 - x0) * t1, bz = z0 + (z1 - z0) * t1;
-      push(ax - nx, az - nz); push(bx - nx, bz - nz); push(bx + nx, bz + nz);
-      push(ax - nx, az - nz); push(bx + nx, bz + nz); push(ax + nx, az + nz);
+      // WOUND SO THE FACE LOOKS AT THE SKY. Three culls back faces on a
+      // FrontSide material and the palette's are FrontSide, so a ground
+      // treatment wound the other way is a lane nobody can see from standing
+      // on it: measured, 19,487 of the flat triangles in the plans and spaces
+      // faced DOWN, and a ray dropped onto the Old Cellars' mud passed through
+      // all thirty of its triangles. Counter clockwise seen from +y is front.
+      push(ax - nx, az - nz); push(bx + nx, bz + nz); push(bx - nx, bz - nz);
+      push(ax - nx, az - nz); push(ax + nx, az + nz); push(bx + nx, bz + nz);
     }
   }
   if (!pos.length) return null;
@@ -1048,8 +1054,10 @@ function areaMesh(points, at, heightAt, m, lift, flatY) {
       if (!inPoly(cx, cz, points)) continue;
       const x1 = x + cell, z1 = z + cell;
       const P = (a, b) => { const [wx, wz] = at(a, b); pos.push(wx, y(wx, wz), wz); };
-      P(x, z); P(x1, z); P(x1, z1);
-      P(x, z); P(x1, z1); P(x, z1);
+      // the same winding as laneMesh, and for the same reason: a quad of
+      // ground has to face the sky or the material culls it away
+      P(x, z); P(x1, z1); P(x1, z);
+      P(x, z); P(x, z1); P(x1, z1);
     }
   }
   if (!pos.length) return null;

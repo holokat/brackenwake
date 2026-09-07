@@ -1,0 +1,178 @@
+{
+  "id": "greenwold_hedge_6",
+  "name": "The Standing Hedge, stone 6",
+  "note": "One of the nine sarsens of the Standing Hedge, a bearded face cut in it and the grass worn to earth in a ring where people have walked round it. The offerings at its foot are left by somebody every week and nobody says who.",
+  "at": {
+    "x": 172.87,
+    "z": -1083.17
+  },
+  "radius": 22,
+  "pieces": [
+    {
+      "model": "waystone_village",
+      "x": 0,
+      "z": 0,
+      "yaw": 20
+    },
+    {
+      "model": "offerings",
+      "x": 0.51,
+      "z": 1.41,
+      "yaw": 200
+    },
+    {
+      "model": "boundary_stone",
+      "x": 2.22,
+      "z": 6.11,
+      "yaw": 20
+    },
+    {
+      "model": "boundary_stone",
+      "x": 5.9,
+      "z": 2.75,
+      "yaw": 65
+    },
+    {
+      "model": "boundary_stone",
+      "x": 6.11,
+      "z": -2.22,
+      "yaw": 110
+    },
+    {
+      "model": "boundary_stone",
+      "x": 2.75,
+      "z": -5.9,
+      "yaw": 155
+    },
+    {
+      "model": "boundary_stone",
+      "x": -2.22,
+      "z": -6.11,
+      "yaw": 200
+    },
+    {
+      "model": "boundary_stone",
+      "x": -5.9,
+      "z": -2.75,
+      "yaw": 245
+    },
+    {
+      "model": "boundary_stone",
+      "x": -6.11,
+      "z": 2.22,
+      "yaw": 290
+    },
+    {
+      "model": "boundary_stone",
+      "x": -2.75,
+      "z": 5.9,
+      "yaw": 335
+    }
+  ],
+  "runs": [
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -18.2,
+        "z": -6.15
+      },
+      "to": {
+        "x": 9.99,
+        "z": -16.41
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "bare",
+      "points": [
+        [
+          1.71,
+          4.7
+        ],
+        [
+          3.37,
+          3.69
+        ],
+        [
+          4.54,
+          2.12
+        ],
+        [
+          4.99,
+          0.21
+        ],
+        [
+          4.7,
+          -1.71
+        ],
+        [
+          3.69,
+          -3.37
+        ],
+        [
+          2.12,
+          -4.54
+        ],
+        [
+          0.21,
+          -4.99
+        ],
+        [
+          -1.71,
+          -4.7
+        ],
+        [
+          -3.37,
+          -3.69
+        ],
+        [
+          -4.54,
+          -2.12
+        ],
+        [
+          -4.99,
+          -0.21
+        ],
+        [
+          -4.7,
+          1.71
+        ],
+        [
+          -3.69,
+          3.37
+        ],
+        [
+          -2.12,
+          4.54
+        ],
+        [
+          -0.21,
+          4.99
+        ]
+      ]
+    }
+  ],
+  "people": [],
+  "spawns": [
+    {
+      "id": "fox",
+      "x": 14,
+      "z": 12
+    },
+    {
+      "id": "wolf",
+      "x": -15,
+      "z": 13,
+      "night": true
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "arrival": {
+    "x": 11.28,
+    "z": -4.1,
+    "yaw": 290
+  }
+}

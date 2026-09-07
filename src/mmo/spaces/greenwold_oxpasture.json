@@ -1,0 +1,177 @@
+{
+  "id": "greenwold_oxpasture",
+  "name": "The Ox Pasture",
+  "note": "Hedged grass with a fold in the corner and a dew pond that never dries, and a stile where the footpath goes over.",
+  "at": {
+    "x": 940,
+    "z": 120
+  },
+  "radius": 122,
+  "pieces": [],
+  "runs": [
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -105.1,
+        "z": -49.01
+      },
+      "to": {
+        "x": 49.01,
+        "z": -105.1
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 49.01,
+        "z": -105.1
+      },
+      "to": {
+        "x": 105.1,
+        "z": 49.01
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 105.1,
+        "z": 49.01
+      },
+      "to": {
+        "x": -49.01,
+        "z": 105.1
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -49.01,
+        "z": 105.1
+      },
+      "to": {
+        "x": -105.1,
+        "z": -49.01
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "bare",
+      "points": [
+        [
+          -105.1,
+          -49.01
+        ],
+        [
+          49.01,
+          -105.1
+        ],
+        [
+          105.1,
+          49.01
+        ],
+        [
+          -49.01,
+          105.1
+        ]
+      ]
+    }
+  ],
+  "people": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": -38.09,
+      "z": 48.28
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -26,
+      "z": -81.42,
+      "yaw": 163.51,
+      "scale": 0.95
+    },
+    {
+      "species": "oak",
+      "x": 25.19,
+      "z": -99.42,
+      "yaw": 46.38,
+      "scale": 1.07
+    },
+    {
+      "species": "oak",
+      "x": 61.17,
+      "z": -80.06,
+      "yaw": 96.66,
+      "scale": 1.18
+    },
+    {
+      "species": "oak",
+      "x": 81.42,
+      "z": -26,
+      "yaw": 60.4,
+      "scale": 0.96
+    },
+    {
+      "species": "oak",
+      "x": 80.06,
+      "z": 61.17,
+      "yaw": 113.38,
+      "scale": 1.11
+    },
+    {
+      "species": "oak",
+      "x": 26,
+      "z": 81.42,
+      "yaw": 184.72,
+      "scale": 1.19
+    },
+    {
+      "species": "oak",
+      "x": -81.42,
+      "z": 26,
+      "yaw": 126.89,
+      "scale": 1
+    },
+    {
+      "species": "oak",
+      "x": -99.42,
+      "z": -25.19,
+      "yaw": 306.17,
+      "scale": 1.09
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "sheep_fold",
+      "x": 61.52,
+      "z": 28.69,
+      "yaw": 20,
+      "scale": 1.2
+    },
+    {
+      "kind": "dew_pond",
+      "x": -34.5,
+      "z": 57.25,
+      "yaw": 0,
+      "scale": 1.2
+    },
+    {
+      "kind": "stile",
+      "x": -28.05,
+      "z": -77.05,
+      "yaw": 20,
+      "scale": 1
+    },
+    {
+      "kind": "field_gate",
+      "x": 77.05,
+      "z": -28.05,
+      "yaw": 110,
+      "scale": 1
+    }
+  ],
+  "markers": []
+}

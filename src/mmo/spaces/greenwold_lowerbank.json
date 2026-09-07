@@ -1,0 +1,242 @@
+{
+  "id": "greenwold_lowerbank",
+  "name": "The Lower Bank",
+  "note": "Willows leaning over the water, and the bank trodden into a path by whoever walks it.",
+  "at": {
+    "x": 1462.58,
+    "z": -296.8
+  },
+  "radius": 72,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "frog",
+      "x": -20.02,
+      "z": -31.9
+    },
+    {
+      "id": "wisp",
+      "x": -4.98,
+      "z": -10.53,
+      "night": true
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": 4.55,
+      "z": -61.8,
+      "yaw": 323.66,
+      "scale": 0.95
+    },
+    {
+      "species": "willow",
+      "x": -34,
+      "z": -43.81,
+      "yaw": 159.67,
+      "scale": 1.11
+    },
+    {
+      "species": "willow",
+      "x": -16.78,
+      "z": -44.2,
+      "yaw": 222.87,
+      "scale": 0.99
+    },
+    {
+      "species": "willow",
+      "x": -0.43,
+      "z": -45.42,
+      "yaw": 238.22,
+      "scale": 1.15
+    },
+    {
+      "species": "willow",
+      "x": 17.22,
+      "z": -47.22,
+      "yaw": 114.37,
+      "scale": 1.15
+    },
+    {
+      "species": "willow",
+      "x": 35.24,
+      "z": -48.48,
+      "yaw": 129.53,
+      "scale": 1.32
+    },
+    {
+      "species": "willow",
+      "x": -42.06,
+      "z": -28.51,
+      "yaw": 296.52,
+      "scale": 1.19
+    },
+    {
+      "species": "willow",
+      "x": -28.4,
+      "z": -25.76,
+      "yaw": 197.09,
+      "scale": 1.32
+    },
+    {
+      "species": "willow",
+      "x": -0.15,
+      "z": -30.5,
+      "yaw": 87.28,
+      "scale": 1.34
+    },
+    {
+      "species": "willow",
+      "x": 19.55,
+      "z": -31.12,
+      "yaw": 85.26,
+      "scale": 1.29
+    },
+    {
+      "species": "willow",
+      "x": 46.18,
+      "z": -26.19,
+      "yaw": 31.79,
+      "scale": 1.32
+    },
+    {
+      "species": "willow",
+      "x": -11.96,
+      "z": -16.33,
+      "yaw": 187.72,
+      "scale": 1.24
+    },
+    {
+      "species": "willow",
+      "x": 1.87,
+      "z": -12.93,
+      "yaw": 324.61,
+      "scale": 1.27
+    },
+    {
+      "species": "willow",
+      "x": 18.68,
+      "z": -18.05,
+      "yaw": 233.64,
+      "scale": 0.94
+    },
+    {
+      "species": "willow",
+      "x": 36.67,
+      "z": -11.74,
+      "yaw": 344.86,
+      "scale": 0.98
+    },
+    {
+      "species": "willow",
+      "x": 53.06,
+      "z": -11.24,
+      "yaw": 94.08,
+      "scale": 1.32
+    },
+    {
+      "species": "willow",
+      "x": -45.64,
+      "z": 4.91,
+      "yaw": 14.04,
+      "scale": 1.36
+    },
+    {
+      "species": "willow",
+      "x": -42.42,
+      "z": 18.16,
+      "yaw": 302.66,
+      "scale": 1.3
+    },
+    {
+      "species": "willow",
+      "x": -17.05,
+      "z": 13.72,
+      "yaw": 190.65,
+      "scale": 1.3
+    },
+    {
+      "species": "willow",
+      "x": 5.52,
+      "z": 19.29,
+      "yaw": 154.03,
+      "scale": 1.23
+    },
+    {
+      "species": "willow",
+      "x": 38.35,
+      "z": 20.99,
+      "yaw": 46.09,
+      "scale": 1.03
+    },
+    {
+      "species": "willow",
+      "x": -43.95,
+      "z": 36.07,
+      "yaw": 309.89,
+      "scale": 1.2
+    },
+    {
+      "species": "willow",
+      "x": -12.12,
+      "z": 29.9,
+      "yaw": 121.7,
+      "scale": 1.23
+    },
+    {
+      "species": "willow",
+      "x": 21.44,
+      "z": 33.37,
+      "yaw": 194.43,
+      "scale": 1.13
+    },
+    {
+      "species": "willow",
+      "x": -32.12,
+      "z": 48.02,
+      "yaw": 120.74,
+      "scale": 1.19
+    },
+    {
+      "species": "willow",
+      "x": -14.84,
+      "z": 50.27,
+      "yaw": 293.8,
+      "scale": 0.92
+    },
+    {
+      "species": "willow",
+      "x": 3.63,
+      "z": 45.79,
+      "yaw": 341.48,
+      "scale": 1.28
+    },
+    {
+      "species": "willow",
+      "x": 20.36,
+      "z": 46.33,
+      "yaw": 96.71,
+      "scale": 0.93
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "reed_bed",
+      "x": -24.64,
+      "z": -1.47,
+      "yaw": 63.71,
+      "scale": 1.2
+    },
+    {
+      "kind": "reed_bed",
+      "x": 8.21,
+      "z": 7.22,
+      "yaw": 295.19,
+      "scale": 1.1
+    }
+  ],
+  "markers": []
+}

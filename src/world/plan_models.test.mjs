@@ -326,5 +326,67 @@ console.log('\nplan_models: a plan is built on the ground it really stands on');
     buildPlan(null, a, heightAt) === null && buildPlan({ id: 'x' }, a, heightAt) === null);
 }
 
+// ============================================================================
+//
+// A GROUND TREATMENT HAS TO FACE THE SKY, and until 2026-09-07 not one of them
+// did. `laneMesh` and `areaMesh` wound their quads the other way round, three
+// culls the back face of a FrontSide material, and every colour in the palette
+// is FrontSide: so every lane, every wheat field, every mud patch and every
+// water decal in all nine plans was invisible from anywhere a player stands.
+// Nothing caught it because nothing had ever asked. A ray dropped straight down
+// onto the Old Cellars' mud passed through all thirty of its triangles.
+//
+// This is the guard. It takes every flat triangle of every ground treatment in
+// every plan and asks which way its face looks, and it drops a ray on each one
+// as well, because a normal pointing the right way and a raycast that finds the
+// surface are two different claims.
+console.log('\nplan_models: every ground treatment faces the sky, and a ray finds it');
+{
+  // ONLY THE GROUND TREATMENTS. A building has a level triangle under it as
+  // well as over it and the one underneath is meant to face down, so the check
+  // is run on a layout that is NOTHING BUT areas: one of each of the five
+  // kinds, laid on the real hillside, with no roof anywhere to confuse it.
+  const only = {
+    id: 'ground_only', place: 'oldcellars', radius: 60,
+    pieces: [], runs: [], people: [], spawns: [],
+    areas: [
+      { kind: 'lane', w: 4, points: [[-40, -20], [-10, 0], [20, 18], [44, 30]] },
+      { kind: 'mud', points: [[6, 6], [26, 6], [26, 26], [6, 26]] },
+      { kind: 'wheat', points: [[-40, 10], [-16, 14], [-20, 38], [-44, 32]] },
+      { kind: 'bare', points: [[-10, -40], [14, -40], [14, -20], [-10, -20]] },
+      { kind: 'water', y: 0, points: [[30, -34], [50, -34], [50, -10], [30, -10]] },
+    ],
+  };
+  const g = buildPlan(only, siteFor('oldcellars'), heightAt);
+  g.updateMatrixWorld(true);
+  const n = new THREE.Vector3(), va = new THREE.Vector3(), vb = new THREE.Vector3(), vc = new THREE.Vector3();
+  let tris = 0, down = 0, aimed = 0, found = 0;
+  g.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh) return;
+    const pos = o.geometry.getAttribute('position');
+    const idx = o.geometry.getIndex();
+    if (!pos) return;
+    const count = idx ? idx.count / 3 : pos.count / 3;
+    for (let t = 0; t < count; t++) {
+      const i0 = idx ? idx.getX(t * 3) : t * 3;
+      const i1 = idx ? idx.getX(t * 3 + 1) : t * 3 + 1;
+      const i2 = idx ? idx.getX(t * 3 + 2) : t * 3 + 2;
+      va.fromBufferAttribute(pos, i0); vb.fromBufferAttribute(pos, i1); vc.fromBufferAttribute(pos, i2);
+      const cx = (va.x + vb.x + vc.x) / 3, cy = (va.y + vb.y + vc.y) / 3, cz = (va.z + vb.z + vc.z) / 3;
+      vb.sub(va); vc.sub(va); n.copy(vb).cross(vc);
+      tris++;
+      if (n.y <= 0) { down++; continue; }
+      if (tris % 20) continue;
+      aimed++;
+      const ray = new THREE.Raycaster();
+      ray.set(new THREE.Vector3(cx, cy + 30, cz), new THREE.Vector3(0, -1, 0));
+      if (ray.intersectObject(o, false).length) found++;
+    }
+  });
+  check('a layout of nothing but ground faces up, every triangle of it', tris > 100 && down === 0,
+    `${tris} triangles of five treatments, ${down} facing down`);
+  check('and a ray dropped on one finds it', aimed > 0 && found === aimed, `${found} of ${aimed} aims hit`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

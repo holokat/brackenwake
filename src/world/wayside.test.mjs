@@ -32,6 +32,7 @@ import {
 } from './roads.js';
 import { SITE_CELL } from './sitegrid.js';
 import { sitesNear } from './sites.js';
+import { SPACES } from '../mmo/spaces/index.js';
 import { REALM_ZONES, authoredSites, MAX_FLAT_R as MAX_PAD } from './zones.js';
 import {
   waysideFor, waysideForRoad, waysideSweep, contextFor, probeAt, onPad,
@@ -348,11 +349,18 @@ check('every kind the placement knows about is actually placed somewhere',
   check('and a settlement with no road has none', lonely > 0 && lonelySigned === 0, `${lonely} settlements with no road, ${lonelySigned} signed anyway`);
 
   // the fingers
+  // THE SITE GRID IS NOT ALL THE PLACES THERE ARE. `wayside.placesNear` asks
+  // `sitesNear`, and `sitesNear` hands back the hand laid spaces as well as the
+  // cells, because a space owns no cell and would otherwise be invisible to
+  // everything. So the oracle here has to be the same list the signpost read,
+  // or a finger pointing at Coldwake reads as a finger pointing at nowhere.
+  // Measured when the Greenwold was sculpted: 3 of 166 fingers named a space.
   const named = new Set();
   for (let cz = C0; cz < C1; cz++) for (let cx = C0; cx < C1; cx++) {
     const s = f.siteInCell(cx, cz);
     if (s && s.name) named.add(s.name);
   }
+  for (const sp of Object.values(SPACES)) if (sp.name) named.add(sp.name);
   let badCount = 0, unknown = 0, worst = 0, legs = 0, offRoad = 0, fingers = 0;
   for (const s of signs) {
     if (s.fingers.length < FINGERS[0] || s.fingers.length > FINGERS[1]) badCount++;

@@ -1,0 +1,252 @@
+{
+  "id": "greenwold_sunkenchapel",
+  "name": "The Sunken Chapel",
+  "note": "A flooded meadow with a chapel standing in it up to its eaves, the bell still in an open belfry over the water. Seven headstones lean out of the surface to the east and a rotting boat is aground on the west side.",
+  "at": {
+    "x": -93.62,
+    "z": -1626.09
+  },
+  "radius": 44,
+  "pieces": [
+    {
+      "model": "chapel_sunken",
+      "x": 0,
+      "z": 0,
+      "yaw": 270
+    },
+    {
+      "model": "headstone_a",
+      "x": 10,
+      "z": -2,
+      "yaw": 20
+    },
+    {
+      "model": "headstone_b",
+      "x": 12,
+      "z": -6,
+      "yaw": 57
+    },
+    {
+      "model": "headstone_c",
+      "x": 8,
+      "z": -10,
+      "yaw": 94
+    },
+    {
+      "model": "headstone_d",
+      "x": 14,
+      "z": 2,
+      "yaw": 131
+    },
+    {
+      "model": "headstone_e",
+      "x": 16,
+      "z": -4,
+      "yaw": 168
+    },
+    {
+      "model": "headstone_a",
+      "x": 6,
+      "z": -14,
+      "yaw": 205
+    },
+    {
+      "model": "headstone_b",
+      "x": 18,
+      "z": -8,
+      "yaw": 242
+    },
+    {
+      "model": "rowing_boat_rotten",
+      "x": -14,
+      "z": -10,
+      "yaw": 60
+    },
+    {
+      "model": "willow",
+      "x": -19,
+      "z": 10,
+      "yaw": 0
+    },
+    {
+      "model": "willow",
+      "x": -8,
+      "z": 17,
+      "yaw": 0
+    },
+    {
+      "model": "willow",
+      "x": 16,
+      "z": 12,
+      "yaw": 0
+    },
+    {
+      "model": "willow",
+      "x": 20,
+      "z": -14,
+      "yaw": 0
+    },
+    {
+      "model": "lily_pad_patch",
+      "x": -6,
+      "z": -6,
+      "yaw": 0
+    },
+    {
+      "model": "lily_pad_patch",
+      "x": 4,
+      "z": 8,
+      "yaw": 0
+    },
+    {
+      "model": "lily_pad_patch",
+      "x": -11,
+      "z": 4,
+      "yaw": 0
+    },
+    {
+      "model": "lily_pad_patch",
+      "x": 8,
+      "z": 4,
+      "yaw": 0
+    }
+  ],
+  "runs": [],
+  "areas": [
+    {
+      "kind": "water",
+      "y": 3.6,
+      "points": [
+        [
+          0,
+          30
+        ],
+        [
+          9.27,
+          28.53
+        ],
+        [
+          17.63,
+          24.27
+        ],
+        [
+          24.27,
+          17.63
+        ],
+        [
+          28.53,
+          9.27
+        ],
+        [
+          30,
+          0
+        ],
+        [
+          28.53,
+          -9.27
+        ],
+        [
+          24.27,
+          -17.63
+        ],
+        [
+          17.63,
+          -24.27
+        ],
+        [
+          9.27,
+          -28.53
+        ],
+        [
+          0,
+          -30
+        ],
+        [
+          -9.27,
+          -28.53
+        ],
+        [
+          -17.63,
+          -24.27
+        ],
+        [
+          -24.27,
+          -17.63
+        ],
+        [
+          -28.53,
+          -9.27
+        ],
+        [
+          -30,
+          0
+        ],
+        [
+          -28.53,
+          9.27
+        ],
+        [
+          -24.27,
+          17.63
+        ],
+        [
+          -17.63,
+          24.27
+        ],
+        [
+          -9.27,
+          28.53
+        ]
+      ]
+    }
+  ],
+  "people": [],
+  "spawns": [
+    {
+      "id": "skeleton",
+      "x": 12,
+      "z": -8,
+      "night": true
+    },
+    {
+      "id": "drowned",
+      "x": 4,
+      "z": -16,
+      "night": true
+    },
+    {
+      "id": "zombie",
+      "x": -8,
+      "z": 12,
+      "night": true
+    },
+    {
+      "id": "wisp",
+      "x": -14,
+      "z": -18,
+      "night": true
+    },
+    {
+      "id": "wraith",
+      "x": 2,
+      "z": 2,
+      "night": true
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "markers": [
+    {
+      "x": 0,
+      "z": -3,
+      "label": "the bell on the beam",
+      "note": "still hung in the open belfry, a foot over the water",
+      "kind": "prop"
+    }
+  ],
+  "arrival": {
+    "x": -30,
+    "z": 0,
+    "yaw": 90
+  }
+}

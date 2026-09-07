@@ -1,0 +1,1101 @@
+{
+  "id": "greenwold_hearthhome",
+  "name": "Hearthhome",
+  "note": "The village on the green, a flint wall round it and one gate at the south east, the road crossing the river outside it. The well is the middle of everything and the manor stands over the roofs at the north.",
+  "at": {
+    "x": 695.89,
+    "z": -409.47
+  },
+  "radius": 76,
+  "pieces": [
+    {
+      "model": "well_pavilion",
+      "x": 0,
+      "z": 0,
+      "yaw": 290.88
+    },
+    {
+      "model": "stall_a",
+      "x": -9.08,
+      "z": 7.85,
+      "yaw": 130.88
+    },
+    {
+      "model": "stall_b",
+      "x": 2.27,
+      "z": 11.79,
+      "yaw": 190.88
+    },
+    {
+      "model": "stall_c",
+      "x": 11.33,
+      "z": 3.93,
+      "yaw": 250.88
+    },
+    {
+      "model": "stall_a",
+      "x": 9.08,
+      "z": -7.85,
+      "yaw": 310.88
+    },
+    {
+      "model": "stall_b",
+      "x": -2.27,
+      "z": -11.79,
+      "yaw": 10.88
+    },
+    {
+      "model": "stall_c",
+      "x": -11.33,
+      "z": -3.93,
+      "yaw": 70.88
+    },
+    {
+      "model": "gate_tower",
+      "x": 39.43,
+      "z": 19.21,
+      "yaw": 65.88
+    },
+    {
+      "model": "stone_bridge_10m",
+      "x": 53.05,
+      "z": 26.86,
+      "yaw": 335.88
+    },
+    {
+      "model": "waystone_village",
+      "x": 24.12,
+      "z": 1.5,
+      "yaw": 40.86
+    },
+    {
+      "model": "offerings",
+      "x": 25.56,
+      "z": 3.17,
+      "yaw": 220.86
+    },
+    {
+      "model": "bench",
+      "x": 22.39,
+      "z": 5.38,
+      "yaw": 40.88
+    },
+    {
+      "model": "inn",
+      "x": -3.22,
+      "z": -30.88,
+      "yaw": 20.88
+    },
+    {
+      "model": "smithy",
+      "x": -22.79,
+      "z": -14.85,
+      "yaw": 50.88
+    },
+    {
+      "model": "cottage_a",
+      "x": -36.41,
+      "z": -22.5,
+      "yaw": 40.88
+    },
+    {
+      "model": "cottage_b",
+      "x": -33.02,
+      "z": -2.39,
+      "yaw": 100.88
+    },
+    {
+      "model": "manor",
+      "x": -34.08,
+      "z": 17.28,
+      "yaw": 110.88
+    },
+    {
+      "model": "cottage_c",
+      "x": -20.63,
+      "z": 35.7,
+      "yaw": 150.88
+    },
+    {
+      "model": "chapel",
+      "x": -1.68,
+      "z": 34.89,
+      "yaw": 180.88
+    },
+    {
+      "model": "stable",
+      "x": 18.44,
+      "z": 31.5,
+      "yaw": 200.88
+    },
+    {
+      "model": "healer",
+      "x": 25.37,
+      "z": 16.01,
+      "yaw": 230.88
+    },
+    {
+      "model": "bank",
+      "x": 2.68,
+      "z": 18.24,
+      "yaw": 200.88
+    },
+    {
+      "model": "stable_pen",
+      "x": 29.65,
+      "z": 27.22,
+      "yaw": 200.88
+    },
+    {
+      "model": "hay_rick",
+      "x": 26.54,
+      "z": 45.9,
+      "yaw": 290.88
+    },
+    {
+      "model": "barrel",
+      "x": 0.86,
+      "z": -24.41,
+      "yaw": 290.88
+    },
+    {
+      "model": "barrel",
+      "x": 2.26,
+      "z": -24.94,
+      "yaw": 290.88
+    },
+    {
+      "model": "flower_box",
+      "x": -3.35,
+      "z": -22.8,
+      "yaw": 20.88
+    },
+    {
+      "model": "oak_b",
+      "x": -21,
+      "z": 11.45,
+      "yaw": 290.88
+    },
+    {
+      "model": "beech_c",
+      "x": 12.44,
+      "z": 17.12,
+      "yaw": 290.88
+    },
+    {
+      "model": "oak_a",
+      "x": 21.92,
+      "z": -6.05,
+      "yaw": 290.88
+    },
+    {
+      "model": "beech_c",
+      "x": 16.84,
+      "z": -16.85,
+      "yaw": 290.88
+    },
+    {
+      "model": "beech_c",
+      "x": -21.1,
+      "z": -1.47,
+      "yaw": 290.88
+    },
+    {
+      "model": "oak_b",
+      "x": -16.69,
+      "z": 22.69,
+      "yaw": 290.88
+    },
+    {
+      "model": "oak_b",
+      "x": 34.48,
+      "z": 3.64,
+      "yaw": 290.88
+    },
+    {
+      "model": "oak_a",
+      "x": 31.21,
+      "z": -16.86,
+      "yaw": 290.88
+    },
+    {
+      "model": "fingerpost",
+      "x": 65.27,
+      "z": 13.13,
+      "yaw": 200
+    }
+  ],
+  "runs": [
+    {
+      "model": "mound_fence",
+      "from": {
+        "x": 20.94,
+        "z": 2.71
+      },
+      "to": {
+        "x": 22.73,
+        "z": 4.6
+      }
+    },
+    {
+      "model": "mound_fence",
+      "from": {
+        "x": 22.73,
+        "z": 4.6
+      },
+      "to": {
+        "x": 25.33,
+        "z": 4.68
+      }
+    },
+    {
+      "model": "mound_fence",
+      "from": {
+        "x": 25.33,
+        "z": 4.68
+      },
+      "to": {
+        "x": 27.22,
+        "z": 2.89
+      }
+    },
+    {
+      "model": "mound_fence",
+      "from": {
+        "x": 27.22,
+        "z": 2.89
+      },
+      "to": {
+        "x": 27.3,
+        "z": 0.29
+      }
+    },
+    {
+      "model": "mound_fence",
+      "from": {
+        "x": 27.3,
+        "z": 0.29
+      },
+      "to": {
+        "x": 25.51,
+        "z": -1.59
+      }
+    },
+    {
+      "model": "mound_fence",
+      "from": {
+        "x": 25.51,
+        "z": -1.59
+      },
+      "to": {
+        "x": 22.91,
+        "z": -1.67
+      }
+    },
+    {
+      "model": "mound_fence",
+      "from": {
+        "x": 22.91,
+        "z": -1.67
+      },
+      "to": {
+        "x": 21.02,
+        "z": 0.12
+      }
+    },
+    {
+      "model": "mound_fence",
+      "from": {
+        "x": 21.02,
+        "z": 0.12
+      },
+      "to": {
+        "x": 20.94,
+        "z": 2.71
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -37.37,
+        "z": 14.26
+      },
+      "to": {
+        "x": -33.96,
+        "z": 21.5
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -33.96,
+        "z": 21.5
+      },
+      "to": {
+        "x": -29.52,
+        "z": 28.09
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -29.52,
+        "z": 28.09
+      },
+      "to": {
+        "x": -24.17,
+        "z": 33.84
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -24.17,
+        "z": 33.84
+      },
+      "to": {
+        "x": -18.09,
+        "z": 38.55
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 39.17,
+        "z": 16.71
+      },
+      "to": {
+        "x": 40.56,
+        "z": 9.14
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 40.56,
+        "z": 9.14
+      },
+      "to": {
+        "x": 40.73,
+        "z": 1.3
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 40.73,
+        "z": 1.3
+      },
+      "to": {
+        "x": 39.65,
+        "z": -6.57
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 39.65,
+        "z": -6.57
+      },
+      "to": {
+        "x": 37.37,
+        "z": -14.26
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 37.37,
+        "z": -14.26
+      },
+      "to": {
+        "x": 33.96,
+        "z": -21.5
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 33.96,
+        "z": -21.5
+      },
+      "to": {
+        "x": 29.52,
+        "z": -28.09
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 29.52,
+        "z": -28.09
+      },
+      "to": {
+        "x": 24.17,
+        "z": -33.84
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 24.17,
+        "z": -33.84
+      },
+      "to": {
+        "x": 18.09,
+        "z": -38.55
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 18.09,
+        "z": -38.55
+      },
+      "to": {
+        "x": 11.46,
+        "z": -42.09
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 11.46,
+        "z": -42.09
+      },
+      "to": {
+        "x": 4.49,
+        "z": -44.35
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 4.49,
+        "z": -44.35
+      },
+      "to": {
+        "x": -2.62,
+        "z": -45.27
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -2.62,
+        "z": -45.27
+      },
+      "to": {
+        "x": -9.65,
+        "z": -44.8
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -9.65,
+        "z": -44.8
+      },
+      "to": {
+        "x": -16.39,
+        "z": -42.98
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -16.39,
+        "z": -42.98
+      },
+      "to": {
+        "x": -22.64,
+        "z": -39.85
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -22.64,
+        "z": -39.85
+      },
+      "to": {
+        "x": -28.19,
+        "z": -35.52
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -28.19,
+        "z": -35.52
+      },
+      "to": {
+        "x": -32.89,
+        "z": -30.1
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -32.89,
+        "z": -30.1
+      },
+      "to": {
+        "x": -36.58,
+        "z": -23.76
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -36.58,
+        "z": -23.76
+      },
+      "to": {
+        "x": -39.17,
+        "z": -16.71
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -39.17,
+        "z": -16.71
+      },
+      "to": {
+        "x": -40.56,
+        "z": -9.14
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -40.56,
+        "z": -9.14
+      },
+      "to": {
+        "x": -40.73,
+        "z": -1.3
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -40.73,
+        "z": -1.3
+      },
+      "to": {
+        "x": -39.65,
+        "z": 6.57
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -39.65,
+        "z": 6.57
+      },
+      "to": {
+        "x": -37.37,
+        "z": 14.26
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -24.41,
+        "z": -52.77
+      },
+      "to": {
+        "x": 7.36,
+        "z": -64.88
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -50.63,
+        "z": 30.01
+      },
+      "to": {
+        "x": -61.15,
+        "z": -8.79
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "lane",
+      "w": 4,
+      "points": [
+        [
+          39.43,
+          19.21
+        ],
+        [
+          21.36,
+          11.12
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 2.6,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -0.53,
+          -11.5
+        ],
+        [
+          -1.19,
+          -25.56
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 2.6,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -8.61,
+          -5.35
+        ],
+        [
+          -19.14,
+          -11.89
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 2.6,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -15.14,
+          -8.69
+        ],
+        [
+          -33.66,
+          -19.32
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 2.6,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -12.78,
+          -1.47
+        ],
+        [
+          -28.4,
+          -3.27
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 2.6,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -12.73,
+          6.78
+        ],
+        [
+          -28.29,
+          15.07
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 2.6,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -8.36,
+          14.42
+        ],
+        [
+          -18.59,
+          32.03
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 2.6,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -0.79,
+          13.58
+        ],
+        [
+          -1.75,
+          30.18
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 2.6,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          7.46,
+          11.99
+        ],
+        [
+          16.58,
+          26.64
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 2.6,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          9.77,
+          5.87
+        ],
+        [
+          21.73,
+          13.04
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 2.6,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0.37,
+          6.02
+        ],
+        [
+          0.82,
+          13.39
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 3,
+      "points": [
+        [
+          -16.82,
+          6.41
+        ],
+        [
+          -13.08,
+          12.36
+        ],
+        [
+          -7.36,
+          16.43
+        ],
+        [
+          -0.51,
+          17.99
+        ],
+        [
+          6.41,
+          16.82
+        ],
+        [
+          12.36,
+          13.08
+        ],
+        [
+          16.43,
+          7.36
+        ],
+        [
+          17.99,
+          0.51
+        ],
+        [
+          16.82,
+          -6.41
+        ],
+        [
+          13.08,
+          -12.36
+        ],
+        [
+          7.36,
+          -16.43
+        ],
+        [
+          0.51,
+          -17.99
+        ],
+        [
+          -6.41,
+          -16.82
+        ],
+        [
+          -12.36,
+          -13.08
+        ],
+        [
+          -16.43,
+          -7.36
+        ],
+        [
+          -17.99,
+          -0.51
+        ],
+        [
+          -16.82,
+          6.41
+        ]
+      ]
+    },
+    {
+      "kind": "wheat",
+      "points": [
+        [
+          -30.01,
+          -50.63
+        ],
+        [
+          -28.76,
+          -36.12
+        ],
+        [
+          -45.14,
+          -34.16
+        ],
+        [
+          -43.81,
+          -47.51
+        ]
+      ]
+    },
+    {
+      "kind": "wheat",
+      "points": [
+        [
+          -28.55,
+          43
+        ],
+        [
+          -20.54,
+          52.78
+        ],
+        [
+          -29.17,
+          58.22
+        ],
+        [
+          -37.18,
+          48.43
+        ]
+      ]
+    }
+  ],
+  "people": [
+    {
+      "name": null,
+      "role": "innkeeper",
+      "x": -1.19,
+      "z": -25.56,
+      "yaw": 200.88
+    },
+    {
+      "name": null,
+      "role": "blacksmith",
+      "x": -19.14,
+      "z": -11.89,
+      "yaw": 230.88
+    },
+    {
+      "name": null,
+      "role": "healer",
+      "x": 21.73,
+      "z": 13.04,
+      "yaw": 50.88
+    },
+    {
+      "name": null,
+      "role": "stablemaster",
+      "x": 16.58,
+      "z": 26.64,
+      "yaw": 20.88
+    },
+    {
+      "name": null,
+      "role": "banker",
+      "x": 0.82,
+      "z": 13.39,
+      "yaw": 20.88
+    },
+    {
+      "name": null,
+      "role": "elder",
+      "x": 23.33,
+      "z": 6.73,
+      "yaw": 171.4
+    },
+    {
+      "name": null,
+      "role": "farmer",
+      "x": 34.27,
+      "z": 16.9,
+      "yaw": 65.88
+    },
+    {
+      "name": null,
+      "role": "child",
+      "x": 2.47,
+      "z": 2.27,
+      "yaw": 227.45
+    },
+    {
+      "name": null,
+      "role": "provisioner",
+      "x": -10.44,
+      "z": 9.03,
+      "yaw": 130.88
+    },
+    {
+      "name": null,
+      "role": "tailor",
+      "x": 2.6,
+      "z": 13.55,
+      "yaw": 190.88
+    },
+    {
+      "name": null,
+      "role": "bowyer",
+      "x": 13.04,
+      "z": 4.52,
+      "yaw": 250.88
+    },
+    {
+      "name": null,
+      "role": "alchemist",
+      "x": 10.44,
+      "z": -9.03,
+      "yaw": 310.88
+    },
+    {
+      "name": null,
+      "role": "weaponsmaster",
+      "x": -2.6,
+      "z": -13.55,
+      "yaw": 10.88
+    },
+    {
+      "name": null,
+      "role": "provisioner",
+      "x": -13.04,
+      "z": -4.52,
+      "yaw": 70.88
+    }
+  ],
+  "spawns": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [
+    {
+      "x": -1.19,
+      "z": -25.56,
+      "label": "Nan Ockley",
+      "kind": "other",
+      "note": "the plan stands Nan Ockley here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
+    },
+    {
+      "x": -19.14,
+      "z": -11.89,
+      "label": "Cobb Ashby",
+      "kind": "other",
+      "note": "the plan stands Cobb Ashby here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
+    },
+    {
+      "x": 21.73,
+      "z": 13.04,
+      "label": "Alys Fenn",
+      "kind": "other",
+      "note": "the plan stands Alys Fenn here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
+    },
+    {
+      "x": 23.33,
+      "z": 6.73,
+      "label": "Old Wynn Ashby",
+      "kind": "other",
+      "note": "the plan stands Old Wynn Ashby here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
+    },
+    {
+      "x": 34.27,
+      "z": 16.9,
+      "label": "Bram Haywood",
+      "kind": "other",
+      "note": "the plan stands Bram Haywood here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
+    },
+    {
+      "x": 2.47,
+      "z": 2.27,
+      "label": "Pip",
+      "kind": "other",
+      "note": "the plan stands Pip here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
+    },
+    {
+      "x": 5,
+      "z": 5,
+      "label": "the green",
+      "note": "nothing hunts here, and the well is the middle of everything",
+      "kind": "other"
+    }
+  ],
+  "arrival": {
+    "x": 57.24,
+    "z": 20.98,
+    "yaw": 264.31
+  }
+}

@@ -1,0 +1,382 @@
+{
+  "id": "greenwold_millrun",
+  "name": "The Mill Run",
+  "note": "Ivy Weir's mill, the wheel on the river side and the pond in front of it with four geese on it. The plank bridge and the ford are the two ways over, and the eel weirs are hers as well.",
+  "at": {
+    "x": -1755.38,
+    "z": -582.52
+  },
+  "radius": 56,
+  "pieces": [
+    {
+      "model": "mill",
+      "x": 0,
+      "z": 0,
+      "yaw": 69.85
+    },
+    {
+      "model": "mill_wheel",
+      "x": 4.88,
+      "z": 1.79,
+      "yaw": 69.85,
+      "on": "mill"
+    },
+    {
+      "model": "eel_weir",
+      "x": 15.33,
+      "z": 16.28,
+      "yaw": 61.85
+    },
+    {
+      "model": "eel_weir",
+      "x": 23.22,
+      "z": 6.39,
+      "yaw": 61.85
+    },
+    {
+      "model": "eel_weir",
+      "x": 29.23,
+      "z": -4.19,
+      "yaw": 79.85
+    },
+    {
+      "model": "footbridge",
+      "x": 2.63,
+      "z": -24.6,
+      "yaw": 69.85
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": -2.06,
+      "z": -26.32,
+      "yaw": 339.85
+    },
+    {
+      "model": "stepping_stones",
+      "x": 27.23,
+      "z": -21.96,
+      "yaw": 79.85
+    },
+    {
+      "model": "millers_house",
+      "x": -22.03,
+      "z": -3.82,
+      "yaw": 69.85
+    },
+    {
+      "model": "granary",
+      "x": -35.36,
+      "z": -2.32,
+      "yaw": 69.85
+    },
+    {
+      "model": "cart_laden",
+      "x": -25.41,
+      "z": -17.84,
+      "yaw": 359.85
+    },
+    {
+      "model": "willow",
+      "x": 21.58,
+      "z": 39.88,
+      "yaw": 339.85
+    },
+    {
+      "model": "willow",
+      "x": 31.35,
+      "z": 30.68,
+      "yaw": 339.85
+    },
+    {
+      "model": "willow",
+      "x": 34.3,
+      "z": 16.85,
+      "yaw": 339.85
+    },
+    {
+      "model": "willow",
+      "x": 37.93,
+      "z": 1.14,
+      "yaw": 339.85
+    },
+    {
+      "model": "willow",
+      "x": 37.12,
+      "z": -14.07,
+      "yaw": 339.85
+    },
+    {
+      "model": "fingerpost",
+      "x": -13.51,
+      "z": 7.24,
+      "yaw": 200
+    },
+    {
+      "model": "fingerpost",
+      "x": 43.74,
+      "z": 1.53,
+      "yaw": 250
+    }
+  ],
+  "runs": [
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 7.07,
+        "z": 6.86
+      },
+      "to": {
+        "x": 11.89,
+        "z": -6.29
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "water",
+      "y": -0.4,
+      "points": [
+        [
+          9.44,
+          43.94
+        ],
+        [
+          13.45,
+          15.59
+        ],
+        [
+          20.15,
+          3.13
+        ],
+        [
+          26.85,
+          -9.32
+        ],
+        [
+          29.11,
+          -21.27
+        ],
+        [
+          36.62,
+          -18.52
+        ],
+        [
+          34.36,
+          -6.56
+        ],
+        [
+          27.66,
+          5.89
+        ],
+        [
+          20.96,
+          18.34
+        ],
+        [
+          16.95,
+          46.7
+        ]
+      ]
+    },
+    {
+      "kind": "water",
+      "y": -0.5,
+      "points": [
+        [
+          -4.16,
+          -8.98
+        ],
+        [
+          8.98,
+          -4.16
+        ],
+        [
+          12.43,
+          -13.55
+        ],
+        [
+          -0.72,
+          -18.37
+        ]
+      ]
+    },
+    {
+      "kind": "water",
+      "y": -0.5,
+      "points": [
+        [
+          1.56,
+          5.9
+        ],
+        [
+          6.26,
+          7.62
+        ],
+        [
+          10.74,
+          -4.58
+        ],
+        [
+          6.04,
+          -6.3
+        ]
+      ]
+    },
+    {
+      "kind": "lane",
+      "w": 4,
+      "points": [
+        [
+          -30.66,
+          -32.56
+        ],
+        [
+          -24.72,
+          -19.72
+        ],
+        [
+          -18.09,
+          -8.77
+        ],
+        [
+          -7.51,
+          -2.76
+        ]
+      ]
+    },
+    {
+      "kind": "wheat",
+      "points": [
+        [
+          -44.44,
+          5
+        ],
+        [
+          -27.04,
+          15.64
+        ],
+        [
+          -36.31,
+          29.28
+        ],
+        [
+          -51.14,
+          17.45
+        ]
+      ]
+    }
+  ],
+  "people": [
+    {
+      "name": null,
+      "role": "miller",
+      "x": -7.51,
+      "z": -2.76,
+      "yaw": 69.85
+    }
+  ],
+  "spawns": [
+    {
+      "id": "goose",
+      "x": 0.63,
+      "z": -10.42
+    },
+    {
+      "id": "goose",
+      "x": 6.36,
+      "z": -11.52
+    },
+    {
+      "id": "goose",
+      "x": 4.23,
+      "z": -14.43
+    },
+    {
+      "id": "goose",
+      "x": 7.54,
+      "z": -8.95
+    },
+    {
+      "id": "giantRat",
+      "x": -22,
+      "z": 22
+    },
+    {
+      "id": "wildDog",
+      "x": -30,
+      "z": 14
+    },
+    {
+      "id": "wisp",
+      "x": 8,
+      "z": -26,
+      "night": true
+    },
+    {
+      "id": "scarecrow",
+      "x": -26,
+      "z": 30,
+      "night": true
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -34.12,
+      "z": -33.6,
+      "yaw": 159.17,
+      "scale": 1.05
+    },
+    {
+      "species": "oak",
+      "x": -13.29,
+      "z": -32.54,
+      "yaw": 97.02,
+      "scale": 1.04
+    },
+    {
+      "species": "oak",
+      "x": 15.27,
+      "z": -34.93,
+      "yaw": 350.4,
+      "scale": 1.01
+    },
+    {
+      "species": "oak",
+      "x": -37.71,
+      "z": 2.33,
+      "yaw": 280.88,
+      "scale": 1.18
+    },
+    {
+      "species": "oak",
+      "x": 2.32,
+      "z": 35.58,
+      "yaw": 51.31,
+      "scale": 0.9
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "scarecrow",
+      "x": -26,
+      "z": 30,
+      "yaw": 8.3,
+      "scale": 1.1
+    }
+  ],
+  "markers": [
+    {
+      "x": -7.51,
+      "z": -2.76,
+      "label": "Ivy Weir",
+      "kind": "other",
+      "note": "the plan stands Ivy Weir here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
+    }
+  ],
+  "arrival": {
+    "x": -30.66,
+    "z": -32.56,
+    "yaw": 43.28
+  }
+}

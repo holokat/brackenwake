@@ -531,31 +531,76 @@ for (const kind of ['dungeon', 'cave']) {
     // stones reach the ring from 837 m away), so the first mesh answered with
     // the hedge and the check went red over a Tanner Cut that was standing
     // there in one piece.
+    // A MARKER POST IS NOT A SITE'S BODY. A hand laid space may carry markers,
+    // which are dev-only posts built invisible and carrying no `userData.site`
+    // at all, and the picker never sees them. The claim is about the meshes
+    // that stand for a place, so those are the ones counted, and the count of
+    // what was left out is said out loud rather than hidden in a `continue`.
     const meshes = rt.siteMarkers.meshes();
+    const bodies = meshes.filter((m) => m.userData.site && m.geometry && m.geometry.getAttribute('position'));
     let proved = 0, wrong = '', aimed = 0;
     const names = new Set();
     const box = new THREE.Box3(), v = new THREE.Vector3();
-    for (const m of meshes) {
+    for (const m of bodies) {
       box.setFromObject(m);
       const pos = m.geometry && m.geometry.getAttribute('position');
       const own = m.userData.site;
       if (box.isEmpty() || !pos || !own) continue;
       let hit = null;
-      const stride = Math.max(1, Math.floor(pos.count / 24));
-      for (let i = 0; i < pos.count && !hit; i += stride) {
-        v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+      const saw = new Set();
+      // AN INSTANCED MESH IS NOT WHERE ITS VERTICES SAY IT IS. A plan's trees
+      // and rocks are InstancedMeshes: `geometry.position` is the PROTOTYPE,
+      // sitting about the origin, and every copy is placed by its own instance
+      // matrix. Aiming at a prototype vertex through `matrixWorld` aims at
+      // nothing, and measured on The Cellar Bank's willows it aimed 413.6 m
+      // away from the nearest real tree. So an instanced mesh is aimed at
+      // through its instance matrices, which is where the wood really stands.
+      const im = new THREE.Matrix4();
+      const points = [];
+      if (m.isInstancedMesh) {
+        const step = Math.max(1, Math.floor(m.count / 8));
+        for (let k = 0; k < m.count; k += step) {
+          m.getMatrixAt(k, im);
+          points.push(new THREE.Vector3().setFromMatrixPosition(im).applyMatrix4(m.matrixWorld));
+        }
+      } else {
+        // AT THE MIDDLE OF A TRIANGLE, AND NOT AT A VERTEX. "A vertex is on the
+        // body by definition" is true and is not enough: a ray straight down
+        // through a vertex passes along the body's own edge, and whether it
+        // counts as a hit is a floating point coin toss. The Old Cellars' arch
+        // came back "nothing" over thirty aims at its own vertices and is hit
+        // every time at the middle of the same triangles. A centroid is inside
+        // the face, which is what the claim is really about.
+        const idx = m.geometry.getIndex();
+        const tris = idx ? idx.count / 3 : pos.count / 3;
+        const stride = Math.max(1, Math.floor(tris / 24));
+        const a = new THREE.Vector3(), b = new THREE.Vector3(), cc = new THREE.Vector3();
+        for (let t = 0; t < tris; t += stride) {
+          const i0 = idx ? idx.getX(t * 3) : t * 3;
+          const i1 = idx ? idx.getX(t * 3 + 1) : t * 3 + 1;
+          const i2 = idx ? idx.getX(t * 3 + 2) : t * 3 + 2;
+          a.fromBufferAttribute(pos, i0); b.fromBufferAttribute(pos, i1); cc.fromBufferAttribute(pos, i2);
+          points.push(a.add(b).add(cc).multiplyScalar(1 / 3).applyMatrix4(m.matrixWorld).clone());
+        }
+      }
+      for (const at of points) {
+        if (hit) break;
+        v.copy(at);
         aimed++;
         const ray = new THREE.Raycaster();
         ray.set(new THREE.Vector3(v.x, box.max.y + 60, v.z), new THREE.Vector3(0, -1, 0));
         const p = rt.pick(ray);
-        if (p && p.kind === 'site') hit = p;
+        if (p && p.kind === 'site') hit = p; else saw.add(p ? p.kind : 'nothing');
       }
       if (hit && hit.site.id === own.id) { proved++; names.add(own.name); }
-      else if (!wrong) wrong = hit ? `${own.name} answered with ${hit.site.name}` : `${own.name} answered with nothing`;
+      else if (!wrong) {
+        wrong = hit ? `${own.name} answered with ${hit.site.name}`
+          : `${own.name} answered with ${[...saw].join(', ') || 'nothing'} over ${points.length} aims at ${m.name || '(unnamed)'}${m.isInstancedMesh ? ` (instanced, ${m.count})` : ` (${pos.count} verts)`}`;
+      }
     }
     ck('a ray onto a streamed marker picks the place that marker belongs to',
-      proved === meshes.length && proved > 0,
-      wrong || `${proved} of ${meshes.length} meshes over ${aimed} aims: ${[...names].join(', ')}`);
+      proved === bodies.length && proved > 0,
+      wrong || `${proved} of ${bodies.length} bodies over ${aimed} aims, ${meshes.length - bodies.length} dev-only marker meshes left out: ${[...names].join(', ')}`);
   }
 
   // a ray into empty sky picks nothing at all

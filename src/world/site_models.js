@@ -361,6 +361,22 @@ export function createSiteMarkers(scene, discovery, heightAt, opts = {}) {
         const s = pending.shift();
         if (!live.has(s.id)) {
           const g = buildSiteMarker(s, heightAt, opts);
+          /**
+           * EVERY MARKER IN THE SCENE IS NAMED FOR ITS SITE, and this is the
+           * one line that makes it true rather than five builders each
+           * remembering to.
+           *
+           * `world_runtime.overworldNodes` gathers the scene children whose
+           * name starts with "site:" and switches them off on the way into a
+           * dungeon. A planned place and a hand laid space both come back from
+           * `plan_models.buildPlan`, whose root is named `plan:<id>`, so until
+           * a named space stood near the player nothing ever noticed: a village
+           * or a wood built by buildPlan would have stayed lit over the
+           * player's head underground. The plan's own name lives on every CHILD
+           * group (`plan:<id>:trees:beech` and the rest), which is what the
+           * picker and `spaces.test.mjs` read, so nothing downstream moves.
+           */
+          if (!g.name.startsWith('site:')) g.name = `site:${s.id}`;
           scene.add(g); live.set(s.id, g); meshCache = null;
           if (typeof g.userData.update === 'function') animated.set(s.id, g.userData.update);
         }

@@ -35,6 +35,7 @@ import * as THREE from 'three';
 import { createWorldField, CHUNK, HOME_RADIUS } from './field.js';
 import { REALM_ZONES } from './zones.js';
 import { sitesNear } from './sites.js';
+import { SPACES } from '../mmo/spaces/index.js';
 import { standAt } from './arbor.js';
 import { rand2, hash2 } from './noise.js';
 import {
@@ -714,6 +715,30 @@ console.log('\nopen country, twenty points a realm');
 // that the open meadow is QUIET, with a floor under it so that quiet cannot
 // drift into bare unnoticed.
 
+/**
+ * Metres to the nearest thing a hand laid space stands, or Infinity.
+ *
+ * Pieces, rocks and trees are points; a run is a line and is walked every two
+ * metres, because a hedge is a hedge along its whole length and the nearest
+ * point of it is almost never one of its two ends.
+ */
+function authoredNear(x, z) {
+  let best = Infinity;
+  for (const sp of Object.values(SPACES)) {
+    if (Math.hypot(x - sp.at.x, z - sp.at.z) > sp.radius + 200) continue;
+    const near = (px, pz) => { const d = Math.hypot(sp.at.x + px - x, sp.at.z + pz - z); if (d < best) best = d; };
+    for (const q of sp.pieces || []) near(q.x, q.z);
+    for (const q of sp.rocks || []) near(q.x, q.z);
+    for (const q of sp.trees || []) near(q.x, q.z);
+    for (const r of sp.runs || []) {
+      const len = Math.hypot(r.to.x - r.from.x, r.to.z - r.from.z);
+      const n = Math.max(1, Math.ceil(len / 2));
+      for (let i = 0; i <= n; i++) near(r.from.x + (r.to.x - r.from.x) * (i / n), r.from.z + (r.to.z - r.from.z) * (i / n));
+    }
+  }
+  return best;
+}
+
 console.log('\nthe Greenwold: farmed ground is full, open meadow is quiet');
 {
   const RING = 3;                                    // 145 m of gap needs more than a 5 by 5
@@ -740,6 +765,16 @@ console.log('\nthe Greenwold: farmed ground is full, open meadow is quiet');
     for (let dz = -RING; dz <= RING; dz++) for (let dx = -RING; dx <= RING; dx++) {
       for (const p of dressingFor(field, cx + dx, cz + dz)) best = Math.min(best, Math.hypot(p.x - x, p.z - z));
     }
+    // AND WHAT AN AUTHORED SPACE STANDS, which `dressingFor` never returns and
+    // never should: `plans.inPlannedPlace` stops the rolled hedgerows at the
+    // edge of anywhere somebody laid out by hand, and docs/mmo/22 says so out
+    // loud ("the space's file is all there is"). Until the Greenwold was
+    // scultped nothing was ever laid out in farmed country, so nothing noticed
+    // that this measurement can only see half the world. The worst reading in
+    // the run that caught it was 78.6 m at 1274, -230, which is 66 m inside a
+    // wheat field with four hedges round it and a hundred and forty six rows
+    // of wheat in it: the promise was kept and the tape measure was short.
+    best = Math.min(best, authoredNear(x, z));
     into.push(best);
   }
   const stat = (l) => {

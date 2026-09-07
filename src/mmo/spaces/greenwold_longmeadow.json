@@ -1,0 +1,476 @@
+{
+  "id": "greenwold_longmeadow",
+  "name": "The Long Meadow",
+  "note": "One great oak on a rise with a hay rick under it and a fold behind, and the mill lane going by. Boars in the grass by day and a fox at dusk.",
+  "at": {
+    "x": -655.32,
+    "z": -765.22
+  },
+  "radius": 190,
+  "pieces": [
+    {
+      "model": "oak_c",
+      "x": 0,
+      "z": 0,
+      "yaw": 0
+    },
+    {
+      "model": "hay_rick",
+      "x": 14,
+      "z": 9,
+      "yaw": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": 96,
+      "z": 44
+    },
+    {
+      "id": "boar",
+      "x": -74,
+      "z": 88
+    },
+    {
+      "id": "fox",
+      "x": 40,
+      "z": -96
+    },
+    {
+      "id": "wolf",
+      "x": -90,
+      "z": 70,
+      "night": true
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -108.99,
+      "z": -138.42,
+      "yaw": 89.62,
+      "scale": 0.86
+    },
+    {
+      "species": "oak",
+      "x": -74.76,
+      "z": -146.92,
+      "yaw": 169.12,
+      "scale": 1.12
+    },
+    {
+      "species": "oak",
+      "x": -43.24,
+      "z": -150.28,
+      "yaw": 169.33,
+      "scale": 1.17
+    },
+    {
+      "species": "oak",
+      "x": -6.98,
+      "z": -138.32,
+      "yaw": 342.71,
+      "scale": 0.91
+    },
+    {
+      "species": "oak",
+      "x": 31.68,
+      "z": -144.71,
+      "yaw": 194.72,
+      "scale": 1.23
+    },
+    {
+      "species": "oak",
+      "x": 88.45,
+      "z": -147.99,
+      "yaw": 262.52,
+      "scale": 0.85
+    },
+    {
+      "species": "oak",
+      "x": -71.92,
+      "z": -109.28,
+      "yaw": 59.56,
+      "scale": 0.9
+    },
+    {
+      "species": "oak",
+      "x": -42.61,
+      "z": -114.21,
+      "yaw": 242.99,
+      "scale": 1.29
+    },
+    {
+      "species": "oak",
+      "x": 28.65,
+      "z": -104.62,
+      "yaw": 110.26,
+      "scale": 1.29
+    },
+    {
+      "species": "oak",
+      "x": 102,
+      "z": -110.57,
+      "yaw": 267.91,
+      "scale": 1.06
+    },
+    {
+      "species": "oak",
+      "x": -139.46,
+      "z": -77.82,
+      "yaw": 282.95,
+      "scale": 1.23
+    },
+    {
+      "species": "oak",
+      "x": -76.16,
+      "z": -72.31,
+      "yaw": 10.79,
+      "scale": 1.18
+    },
+    {
+      "species": "oak",
+      "x": -43.45,
+      "z": -75.63,
+      "yaw": 253.38,
+      "scale": 1.26
+    },
+    {
+      "species": "oak",
+      "x": -3.11,
+      "z": -79.2,
+      "yaw": 61.05,
+      "scale": 1.24
+    },
+    {
+      "species": "oak",
+      "x": 68.43,
+      "z": -83.04,
+      "yaw": 308.42,
+      "scale": 1.13
+    },
+    {
+      "species": "oak",
+      "x": 130.9,
+      "z": -82.39,
+      "yaw": 152.18,
+      "scale": 1.08
+    },
+    {
+      "species": "oak",
+      "x": -40.8,
+      "z": -39.97,
+      "yaw": 87.95,
+      "scale": 0.97
+    },
+    {
+      "species": "oak",
+      "x": 17.54,
+      "z": -45.79,
+      "yaw": 298.04,
+      "scale": 1.2
+    },
+    {
+      "species": "oak",
+      "x": 63.27,
+      "z": -50.07,
+      "yaw": 122.92,
+      "scale": 0.97
+    },
+    {
+      "species": "oak",
+      "x": 92.76,
+      "z": -41.75,
+      "yaw": 301.2,
+      "scale": 0.99
+    },
+    {
+      "species": "oak",
+      "x": 130.48,
+      "z": -41.25,
+      "yaw": 102.24,
+      "scale": 1.23
+    },
+    {
+      "species": "oak",
+      "x": -147.86,
+      "z": -0.18,
+      "yaw": 47.89,
+      "scale": 0.88
+    },
+    {
+      "species": "oak",
+      "x": -116.55,
+      "z": -0.09,
+      "yaw": 43.74,
+      "scale": 0.96
+    },
+    {
+      "species": "oak",
+      "x": -66.68,
+      "z": -13.71,
+      "yaw": 298.95,
+      "scale": 0.91
+    },
+    {
+      "species": "oak",
+      "x": 92.17,
+      "z": -9.6,
+      "yaw": 326.09,
+      "scale": 1.25
+    },
+    {
+      "species": "oak",
+      "x": 131.69,
+      "z": -5.1,
+      "yaw": 87.69,
+      "scale": 0.9
+    },
+    {
+      "species": "oak",
+      "x": 161.67,
+      "z": -10.85,
+      "yaw": 81.74,
+      "scale": 1.16
+    },
+    {
+      "species": "oak",
+      "x": -170.66,
+      "z": 25.11,
+      "yaw": 14.36,
+      "scale": 1.04
+    },
+    {
+      "species": "oak",
+      "x": -103.64,
+      "z": 30.49,
+      "yaw": 95.89,
+      "scale": 1.02
+    },
+    {
+      "species": "oak",
+      "x": -67.24,
+      "z": 29.39,
+      "yaw": 281.59,
+      "scale": 1.15
+    },
+    {
+      "species": "oak",
+      "x": 34.09,
+      "z": 32.47,
+      "yaw": 119.69,
+      "scale": 0.97
+    },
+    {
+      "species": "oak",
+      "x": 163.2,
+      "z": 20.49,
+      "yaw": 288.5,
+      "scale": 1.19
+    },
+    {
+      "species": "oak",
+      "x": -136.15,
+      "z": 66.9,
+      "yaw": 340.19,
+      "scale": 0.97
+    },
+    {
+      "species": "oak",
+      "x": -101.33,
+      "z": 64.93,
+      "yaw": 190.76,
+      "scale": 1.16
+    },
+    {
+      "species": "oak",
+      "x": -44.62,
+      "z": 69.46,
+      "yaw": 22.8,
+      "scale": 0.94
+    },
+    {
+      "species": "oak",
+      "x": -16.24,
+      "z": 62.78,
+      "yaw": 23.84,
+      "scale": 1.15
+    },
+    {
+      "species": "oak",
+      "x": 18.82,
+      "z": 67.67,
+      "yaw": 63.56,
+      "scale": 1.23
+    },
+    {
+      "species": "oak",
+      "x": 65.13,
+      "z": 58.18,
+      "yaw": 288.39,
+      "scale": 1.25
+    },
+    {
+      "species": "oak",
+      "x": 95.85,
+      "z": 64.79,
+      "yaw": 50.53,
+      "scale": 1.02
+    },
+    {
+      "species": "oak",
+      "x": 158.08,
+      "z": 53.85,
+      "yaw": 189.12,
+      "scale": 1.26
+    },
+    {
+      "species": "oak",
+      "x": -114.06,
+      "z": 90.89,
+      "yaw": 75.13,
+      "scale": 1.01
+    },
+    {
+      "species": "oak",
+      "x": -77.26,
+      "z": 91.34,
+      "yaw": 88.81,
+      "scale": 0.99
+    },
+    {
+      "species": "oak",
+      "x": -10.55,
+      "z": 99.3,
+      "yaw": 7.83,
+      "scale": 1.2
+    },
+    {
+      "species": "oak",
+      "x": 31.9,
+      "z": 93.08,
+      "yaw": 317.7,
+      "scale": 0.88
+    },
+    {
+      "species": "oak",
+      "x": 65.62,
+      "z": 98.79,
+      "yaw": 5.13,
+      "scale": 0.92
+    },
+    {
+      "species": "oak",
+      "x": 119.18,
+      "z": 92.75,
+      "yaw": 156.86,
+      "scale": 1.3
+    },
+    {
+      "species": "oak",
+      "x": -116.02,
+      "z": 132.24,
+      "yaw": 134.27,
+      "scale": 0.97
+    },
+    {
+      "species": "oak",
+      "x": -80.22,
+      "z": 121.39,
+      "yaw": 337.26,
+      "scale": 1.08
+    },
+    {
+      "species": "oak",
+      "x": -49.18,
+      "z": 127.02,
+      "yaw": 151.58,
+      "scale": 1.29
+    },
+    {
+      "species": "oak",
+      "x": -6.72,
+      "z": 136.44,
+      "yaw": 172.03,
+      "scale": 1.25
+    },
+    {
+      "species": "oak",
+      "x": 26.62,
+      "z": 128.96,
+      "yaw": 287.38,
+      "scale": 1.26
+    },
+    {
+      "species": "oak",
+      "x": 93.97,
+      "z": 131.79,
+      "yaw": 182.56,
+      "scale": 0.93
+    },
+    {
+      "species": "oak",
+      "x": 123.83,
+      "z": 124.02,
+      "yaw": 258.8,
+      "scale": 0.97
+    },
+    {
+      "species": "oak",
+      "x": -70.11,
+      "z": 157.27,
+      "yaw": 194.77,
+      "scale": 0.95
+    },
+    {
+      "species": "oak",
+      "x": 19.62,
+      "z": 163.1,
+      "yaw": 101.63,
+      "scale": 0.86
+    },
+    {
+      "species": "oak",
+      "x": 67.37,
+      "z": 156.37,
+      "yaw": 111.21,
+      "scale": 1.24
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "sheep_fold",
+      "x": -40,
+      "z": 34,
+      "yaw": 24,
+      "scale": 1.2
+    },
+    {
+      "kind": "dew_pond",
+      "x": 58,
+      "z": 62,
+      "yaw": 0,
+      "scale": 1.3
+    },
+    {
+      "kind": "stile",
+      "x": 30,
+      "z": -26,
+      "yaw": 100,
+      "scale": 1
+    }
+  ],
+  "markers": [
+    {
+      "x": -12,
+      "z": -14,
+      "label": "the view of the mill",
+      "note": "the mill ahead, the village behind, the Hedge on the left",
+      "kind": "other"
+    }
+  ]
+}

@@ -7,14 +7,7 @@
     "z": 1664
   },
   "radius": 182,
-  "pieces": [
-    {
-      "model": "gate_tower",
-      "x": -38.9,
-      "z": -126.94,
-      "yaw": 0
-    }
-  ],
+  "pieces": [],
   "runs": [],
   "areas": [],
   "people": [],
