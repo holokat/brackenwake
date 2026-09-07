@@ -1,0 +1,510 @@
+{
+  "id": "greenwold_southern_reavers",
+  "name": "The southern raider camp",
+  "note": "Raiders shelter stolen wagons behind the southern field bank. Scouts guard the two gaps in the fence while the captain holds the camp stores.",
+  "at": {
+    "x": -253,
+    "z": 703
+  },
+  "radius": 112.15754585272202,
+  "landmark": true,
+  "district": "coldwake",
+  "pieces": [
+    {
+      "model": "tent_ragged",
+      "x": -16.1,
+      "z": -8.4,
+      "yaw": 55,
+      "scale": 1.9599999999999997,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "tent_ragged",
+      "x": 16.8,
+      "z": -6.3,
+      "yaw": 305,
+      "scale": 1.8199999999999998,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "tent_ragged",
+      "x": -14,
+      "z": 9.8,
+      "yaw": 120,
+      "scale": 1.8199999999999998,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "tent_ragged",
+      "x": 16.1,
+      "z": 11.2,
+      "yaw": 235,
+      "scale": 1.9599999999999997,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_stolen_goods",
+      "x": -8.4,
+      "z": -14.7,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "weapons_rack",
+      "x": 7,
+      "z": -13.3,
+      "yaw": 90,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "crate",
+      "x": 9.8,
+      "z": -16.1,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "barrel",
+      "x": 11.9,
+      "z": -14.7,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_woodpile",
+      "x": -18.2,
+      "z": 2.8,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "campfire",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "tarp_cart",
+      "x": 0,
+      "z": -21.7,
+      "yaw": 90,
+      "scale": 1.4,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "cart_laden",
+      "x": -18.9,
+      "z": 20.3,
+      "yaw": 40,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_hay_wain",
+      "x": 16.8,
+      "z": 21,
+      "yaw": 310,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_wanted_poster",
+      "x": -7,
+      "z": 28,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "loot_sack",
+      "x": 0,
+      "z": -14,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    }
+  ],
+  "runs": [
+    {
+      "model": "palisade_stake_3m",
+      "from": {
+        "x": -21,
+        "z": -23.8
+      },
+      "to": {
+        "x": 19.6,
+        "z": -21.7
+      }
+    },
+    {
+      "model": "palisade_stake_3m",
+      "from": {
+        "x": -21,
+        "z": -23.8
+      },
+      "to": {
+        "x": -27.3,
+        "z": -5.6
+      }
+    },
+    {
+      "model": "palisade_stake_3m",
+      "from": {
+        "x": -27.3,
+        "z": 2.8
+      },
+      "to": {
+        "x": -23.8,
+        "z": 18.9
+      }
+    },
+    {
+      "model": "palisade_stake_3m",
+      "from": {
+        "x": 19.6,
+        "z": -21.7
+      },
+      "to": {
+        "x": 27.3,
+        "z": -3.5
+      }
+    },
+    {
+      "model": "palisade_stake_3m",
+      "from": {
+        "x": 27.3,
+        "z": -3.5
+      },
+      "to": {
+        "x": 23.8,
+        "z": 19.6
+      }
+    },
+    {
+      "model": "camp_fence",
+      "from": {
+        "x": -23.8,
+        "z": 18.9
+      },
+      "to": {
+        "x": -6.3,
+        "z": 23.1
+      }
+    },
+    {
+      "model": "camp_fence",
+      "from": {
+        "x": 6.3,
+        "z": 23.1
+      },
+      "to": {
+        "x": 23.8,
+        "z": 19.6
+      }
+    }
+  ],
+  "areas": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -61,
+      "z": -70,
+      "scale": 0.8,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -42,
+      "z": -64,
+      "scale": 1.05,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -20,
+      "z": -71,
+      "scale": 1.2,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 3,
+      "z": -61,
+      "scale": 1.3,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 24,
+      "z": -68,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 47,
+      "z": -57,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 65,
+      "z": -64,
+      "scale": 0.8,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -50,
+      "z": -87,
+      "scale": 0.85,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -29,
+      "z": -93,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -4,
+      "z": -84,
+      "scale": 1.2,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 20,
+      "z": -91,
+      "scale": 1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 44,
+      "z": -81,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -16,
+      "z": -110,
+      "scale": 0.85,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 10,
+      "z": -107,
+      "scale": 1.05,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "people": [],
+  "markers": [],
+  "effects": [
+    {
+      "id": "watch_fire",
+      "x": 0,
+      "z": 0,
+      "y": 0.5,
+      "scale": 1,
+      "gate": "always"
+    }
+  ],
+  "lights": [
+    {
+      "x": 0,
+      "z": 0,
+      "y": 2.5,
+      "color": 16755302,
+      "power": 25,
+      "range": 20
+    }
+  ],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": -5.6,
+      "z": 30.1,
+      "squad": "gate",
+      "encounter": "southern_reavers:gate",
+      "slot": "southern_reavers:0",
+      "rallyRadius": 14
+    },
+    {
+      "id": "goblinScout",
+      "x": 5.6,
+      "z": 30.1,
+      "squad": "gate",
+      "encounter": "southern_reavers:gate",
+      "slot": "southern_reavers:1",
+      "rallyRadius": 14
+    },
+    {
+      "id": "goblinScout",
+      "x": -10.5,
+      "z": 34.3,
+      "squad": "gate",
+      "encounter": "southern_reavers:gate",
+      "slot": "southern_reavers:2",
+      "rallyRadius": 14
+    },
+    {
+      "id": "goblinScout",
+      "x": 10.5,
+      "z": 34.3,
+      "squad": "gate",
+      "encounter": "southern_reavers:gate",
+      "slot": "southern_reavers:3",
+      "rallyRadius": 14
+    },
+    {
+      "id": "raider",
+      "x": -9.1,
+      "z": 0,
+      "squad": "yard",
+      "encounter": "southern_reavers:yard",
+      "slot": "southern_reavers:4",
+      "rallyRadius": 14
+    },
+    {
+      "id": "raider",
+      "x": 9.1,
+      "z": 0,
+      "squad": "yard",
+      "encounter": "southern_reavers:yard",
+      "slot": "southern_reavers:5",
+      "rallyRadius": 14
+    },
+    {
+      "id": "raider",
+      "x": -7.7,
+      "z": -9.1,
+      "squad": "yard",
+      "encounter": "southern_reavers:yard",
+      "slot": "southern_reavers:6",
+      "rallyRadius": 14
+    },
+    {
+      "id": "raider",
+      "x": 7.7,
+      "z": -9.1,
+      "squad": "yard",
+      "encounter": "southern_reavers:yard",
+      "slot": "southern_reavers:7",
+      "rallyRadius": 14
+    },
+    {
+      "id": "banditArcher",
+      "x": -19.6,
+      "z": 11.9,
+      "squad": "flanks",
+      "encounter": "southern_reavers:flanks",
+      "slot": "southern_reavers:8",
+      "rallyRadius": 14
+    },
+    {
+      "id": "banditArcher",
+      "x": 21,
+      "z": 4.9,
+      "squad": "flanks",
+      "encounter": "southern_reavers:flanks",
+      "slot": "southern_reavers:9",
+      "rallyRadius": 14
+    },
+    {
+      "id": "wildDog",
+      "x": -31.5,
+      "z": -4.9,
+      "squad": "dogs",
+      "encounter": "southern_reavers:dogs",
+      "slot": "southern_reavers:10",
+      "rallyRadius": 14
+    },
+    {
+      "id": "wildDog",
+      "x": -31.5,
+      "z": 1.4,
+      "squad": "dogs",
+      "encounter": "southern_reavers:dogs",
+      "slot": "southern_reavers:11",
+      "rallyRadius": 14
+    },
+    {
+      "id": "wildDog",
+      "x": 31.5,
+      "z": -4.9,
+      "squad": "dogs",
+      "encounter": "southern_reavers:dogs",
+      "slot": "southern_reavers:12",
+      "rallyRadius": 14
+    },
+    {
+      "id": "wildDog",
+      "x": 31.5,
+      "z": 2.1,
+      "squad": "dogs",
+      "encounter": "southern_reavers:dogs",
+      "slot": "southern_reavers:13",
+      "rallyRadius": 14
+    },
+    {
+      "id": "bandit",
+      "x": -5.6,
+      "z": -15.4,
+      "squad": "command",
+      "encounter": "southern_reavers:command",
+      "slot": "southern_reavers:14",
+      "rallyRadius": 14
+    },
+    {
+      "id": "bandit",
+      "x": 5.6,
+      "z": -15.4,
+      "squad": "command",
+      "encounter": "southern_reavers:command",
+      "slot": "southern_reavers:15",
+      "rallyRadius": 14
+    },
+    {
+      "id": "highwayman",
+      "x": 0,
+      "z": -6.3,
+      "squad": "command",
+      "elite": true,
+      "title": "Raider captain",
+      "encounter": "southern_reavers:command",
+      "slot": "southern_reavers:16",
+      "rallyRadius": 14
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

@@ -1,0 +1,112 @@
+{
+  "id": "greenwold_grove_towpath_wetwood",
+  "name": "Willow bank",
+  "note": "The towpath wetwood trees frame the nearby route.",
+  "at": {
+    "x": -277,
+    "z": -63
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": 3,
+      "z": 38,
+      "encounter": "towpath-grubs",
+      "slot": "towpath-grubs:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": -4,
+      "z": 32,
+      "encounter": "towpath-grubs",
+      "slot": "towpath-grubs:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": -11,
+      "z": 37,
+      "encounter": "towpath-grubs",
+      "slot": "towpath-grubs:2"
+    },
+    {
+      "id": "thornGrub",
+      "x": -16,
+      "z": 27,
+      "encounter": "towpath-grubs",
+      "slot": "towpath-grubs:3"
+    },
+    {
+      "id": "wisp",
+      "x": -5,
+      "z": 21,
+      "night": true,
+      "encounter": "towpath-grubs",
+      "slot": "towpath-grubs:4"
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": 0.2,
+      "z": 48.17,
+      "scale": 0.9,
+      "yaw": 95,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 4,
+      "z": 22.74,
+      "scale": 1.1,
+      "yaw": 142,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -7.23,
+      "z": -2.38,
+      "scale": 1.2,
+      "yaw": 189,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -1.71,
+      "z": -30.97,
+      "scale": 0.95,
+      "yaw": 236,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -12.59,
+      "z": -52.1,
+      "scale": 0.8,
+      "yaw": 283,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -17.96,
+      "z": 35.7,
+      "scale": 0.8,
+      "yaw": 330,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -24.31,
+      "z": -13.93,
+      "scale": 0.9,
+      "yaw": 17,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

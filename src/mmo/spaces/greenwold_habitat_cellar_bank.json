@@ -1,0 +1,97 @@
+{
+  "id": "greenwold_habitat_cellar_bank",
+  "zone": "oldcellars",
+  "name": "The guarded cutting",
+  "at": {
+    "x": 93,
+    "z": -151
+  },
+  "note": "Cut logs and a lantern mark the guarded side of the cellar cutting.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_log_pile",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_lantern_post",
+      "x": 5,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_ivy_stump",
+      "x": -5,
+      "z": 6,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "lights": [
+    {
+      "x": 5,
+      "z": 3,
+      "y": 2.5,
+      "color": 16759156,
+      "power": 16,
+      "range": 12
+    }
+  ],
+  "approach": [
+    57.9,
+    -139.6
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": -14,
+      "z": 20,
+      "encounter": "cellar-cut-vermin",
+      "slot": "cellar-cut-vermin:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -7,
+      "z": 24,
+      "encounter": "cellar-cut-vermin",
+      "slot": "cellar-cut-vermin:1"
+    },
+    {
+      "id": "giantRat",
+      "x": -18,
+      "z": 17,
+      "encounter": "cellar-cut-vermin",
+      "slot": "cellar-cut-vermin:2"
+    },
+    {
+      "id": "giantRat",
+      "x": -14,
+      "z": 29,
+      "encounter": "cellar-cut-vermin",
+      "slot": "cellar-cut-vermin:3"
+    },
+    {
+      "id": "giantRat",
+      "x": -18,
+      "z": 25,
+      "night": true,
+      "encounter": "cellar-cut-vermin",
+      "slot": "cellar-cut-vermin:4"
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

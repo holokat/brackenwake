@@ -1,0 +1,101 @@
+{
+  "id": "greenwold_habitat_pilgrims_rest",
+  "zone": "standinghedge",
+  "name": "The pilgrims rest",
+  "at": {
+    "x": 90,
+    "z": -733
+  },
+  "note": "A cairn marks the descent from the mere toward the standing stones.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_cairn",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_hawthorn",
+      "x": -7,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_cowslip_patch",
+      "x": 5,
+      "z": 6,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "forage": [
+    {
+      "id": "rosehip",
+      "x": -7,
+      "z": 8,
+      "count": 2
+    }
+  ],
+  "effects": [
+    {
+      "id": "fireflies",
+      "x": 5,
+      "z": 6,
+      "gate": "night",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": -15,
+      "z": 16,
+      "encounter": "pilgrim-grubs",
+      "slot": "pilgrim-grubs:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": -26,
+      "z": 13,
+      "encounter": "pilgrim-grubs",
+      "slot": "pilgrim-grubs:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": -17,
+      "z": -9,
+      "encounter": "pilgrim-grubs",
+      "slot": "pilgrim-grubs:2"
+    },
+    {
+      "id": "skeleton",
+      "x": -35,
+      "z": 8,
+      "night": true,
+      "encounter": "pilgrim-grubs",
+      "slot": "pilgrim-grubs:3"
+    },
+    {
+      "id": "skeleton",
+      "x": -10,
+      "z": -13,
+      "night": true,
+      "encounter": "pilgrim-grubs",
+      "slot": "pilgrim-grubs:4"
+    }
+  ],
+  "stations": []
+}

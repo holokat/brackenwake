@@ -39,7 +39,8 @@ check('and none of it is code', SETTINGS.every((s) => !/[()=\[\]]|\w\.\w/.test(s
 check('nothing carries an em dash', !SETTINGS.some((s) => s.label.includes('—') || s.apply.includes('—')));
 check('the bar has twelve slots, keys 1 to 0 and minus and equals', BAR_KEYS.length === 12 && BAR_KEYS[0] === '1' && BAR_KEYS[9] === '0' && BAR_KEYS[10] === '-' && BAR_KEYS[11] === '=', BAR_KEYS.join(' '));
 check('the draw distance rings are the three 06 names', SETTING.ring.options.join(',') === '6,9,12');
-check('the pixel ratio is 1 or the device', SETTING.pixelRatio.options.join(',') === '1,device');
+check('pixel density offers speed, balanced and device options', SETTING.pixelRatio.options.join(',') === '1,1.5,device');
+check('balanced density is accepted and invalid density falls back', coerce('pixelRatio',1.5)===1.5&&coerce('pixelRatio',4)===1.5);
 
 console.log('win_settings: a saved record that cannot be trusted');
 {

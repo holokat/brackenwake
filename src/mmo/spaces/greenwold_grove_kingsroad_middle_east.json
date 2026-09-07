@@ -1,0 +1,217 @@
+{
+  "id": "greenwold_grove_kingsroad_middle_east",
+  "name": "Oak stand",
+  "note": "The kingsroad middle east trees frame the nearby route.",
+  "at": {
+    "x": 706,
+    "z": -577
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "bandit",
+      "x": -69,
+      "z": 13,
+      "encounter": "kingsroad-middle-outlaws",
+      "slot": "kingsroad-middle-outlaws:0"
+    },
+    {
+      "id": "bandit",
+      "x": -64,
+      "z": 14,
+      "encounter": "kingsroad-middle-outlaws",
+      "slot": "kingsroad-middle-outlaws:1"
+    },
+    {
+      "id": "bandit",
+      "x": -62,
+      "z": 21,
+      "encounter": "kingsroad-middle-outlaws",
+      "slot": "kingsroad-middle-outlaws:2"
+    },
+    {
+      "id": "banditArcher",
+      "x": -57,
+      "z": 17,
+      "night": true,
+      "encounter": "kingsroad-middle-outlaws",
+      "slot": "kingsroad-middle-outlaws:3"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -44,
+      "z": -34,
+      "scale": 1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -26,
+      "z": -42,
+      "scale": 1.2,
+      "yaw": 47,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -4,
+      "z": -36,
+      "scale": 1.3,
+      "yaw": 94,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 20,
+      "z": -43,
+      "scale": 1.1,
+      "yaw": 141,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 43,
+      "z": -30,
+      "scale": 0.95,
+      "yaw": 188,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -51,
+      "z": -10,
+      "scale": 1.15,
+      "yaw": 235,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -30,
+      "z": -15,
+      "scale": 1.05,
+      "yaw": 282,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -10,
+      "z": -10,
+      "scale": 1.25,
+      "yaw": 329,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 15,
+      "z": -19,
+      "scale": 1.3,
+      "yaw": 16,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 37,
+      "z": -9,
+      "scale": 1.1,
+      "yaw": 63,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 53,
+      "z": 11,
+      "scale": 0.85,
+      "yaw": 110,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -47,
+      "z": 16,
+      "scale": 0.95,
+      "yaw": 157,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -24,
+      "z": 10,
+      "scale": 1.2,
+      "yaw": 204,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 2,
+      "z": 16,
+      "scale": 1.15,
+      "yaw": 251,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 27,
+      "z": 14,
+      "scale": 1.05,
+      "yaw": 298,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -34,
+      "z": 36,
+      "scale": 1.1,
+      "yaw": 345,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -12,
+      "z": 41,
+      "scale": 0.85,
+      "yaw": 32,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 14,
+      "z": 37,
+      "scale": 1.15,
+      "yaw": 79,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 39,
+      "z": 33,
+      "scale": 1,
+      "yaw": 126,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 4,
+      "z": 60,
+      "scale": 0.9,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 59,
+      "z": -17,
+      "scale": 0.8,
+      "yaw": 267,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

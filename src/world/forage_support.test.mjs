@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import {createForageField,REGROW_MS} from './forage.js';
+const spaces={grove:{id:'grove',at:{x:20,z:20},trees:[{x:0,z:0,scale:1}],forage:[{id:'oyster_mushroom',x:0,z:0,tree:{x:0,z:0},height:1,count:2}]}};
+const field={seed:1,sculpt:true,sampleAt:()=>({h:5,water:false}),heightAt:()=>5};
+let trees=[{x:20,z:20,radius:.5}],now=0;
+const forage=createForageField(new THREE.Scene(),{field,spaces,season:'Autumn',treesFor:()=>trees,now:()=>now});
+forage.update(20,20);const rec=forage.records()[0];assert.ok(rec.onTrunk);assert.equal(rec.y,6);assert.ok(Math.abs(Math.hypot(rec.x-20,rec.z-20)-.47)<1e-6);
+assert.equal(forage.plants,2);trees=[];forage.update(20,20);assert.equal(forage.count,0);assert.equal(forage.remove(rec),false);assert.equal(forage.stats.drawCalls,0);
+trees=[{x:20,z:20,radius:.5}];forage.update(20,20);assert.equal(forage.count,1);assert.equal(forage.remove(rec),true);
+trees=[];forage.update(20,20);now+=REGROW_MS+1;forage.update(20,20);assert.equal(forage.count,0,'a harvested patch cannot regrow in midair');
+trees=[{x:20,z:20,radius:.5}];forage.update(20,20);assert.equal(forage.count,1);assert.equal(forage.plants,2);
+forage.setSeason('Winter');assert.equal(forage.count,0);forage.dispose();console.log('Trunk placement, felling, harvest, regrowth and winter verified');

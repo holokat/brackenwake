@@ -1,0 +1,100 @@
+{
+  "id": "greenwold_habitat_stone_south",
+  "zone": "standinghedge",
+  "name": "The southern thorn bank",
+  "at": {
+    "x": 470,
+    "z": 193
+  },
+  "note": "Wildflowers follow the sheltered edge of the southern stone lane.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_cowslip_patch",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_hawthorn",
+      "x": 7,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_cow_parsley",
+      "x": -7,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "effects": [
+    {
+      "id": "butterflies",
+      "x": 0,
+      "z": 0,
+      "gate": "fair",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "forage": [
+    {
+      "id": "dandelion",
+      "x": -7,
+      "z": 7,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": -17,
+      "z": -13,
+      "encounter": "south-thorn-grubs",
+      "slot": "south-thorn-grubs:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": -25,
+      "z": -7,
+      "encounter": "south-thorn-grubs",
+      "slot": "south-thorn-grubs:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": -20,
+      "z": 3,
+      "encounter": "south-thorn-grubs",
+      "slot": "south-thorn-grubs:2"
+    },
+    {
+      "id": "thornGrub",
+      "x": -10,
+      "z": 9,
+      "encounter": "south-thorn-grubs",
+      "slot": "south-thorn-grubs:3"
+    },
+    {
+      "id": "wildDog",
+      "x": -31,
+      "z": 1,
+      "night": true,
+      "encounter": "south-thorn-grubs",
+      "slot": "south-thorn-grubs:4"
+    }
+  ],
+  "stations": []
+}

@@ -173,7 +173,7 @@ export const emotes = {
         pose.anim = r.pose;
         pose.emoteT = r.elapsed;
         pose.t = rig.state.t;
-        poseCharacter(rig.parts, pose);
+        if(rig.studio)rig.studio.poseEmote(pose);else poseCharacter(rig.parts, pose);
         posed = true;
         return r;
       },

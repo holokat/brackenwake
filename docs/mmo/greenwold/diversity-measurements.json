@@ -1,0 +1,307 @@
+{
+  "landformsAdded": 62,
+  "grovesAdded": 72,
+  "habitats": 36,
+  "pieces": 118,
+  "effects": 33,
+  "animals": 11,
+  "forage": 16,
+  "spawns": 4,
+  "routes": [
+    {
+      "id": "village-east",
+      "name": "The east lane",
+      "samples": 16,
+      "before": 5.93,
+      "after": 6.17,
+      "upperRelief": 9.45
+    },
+    {
+      "id": "village-west",
+      "name": "The mill lane",
+      "samples": 36,
+      "before": 3.49,
+      "after": 24.92,
+      "upperRelief": 40.78
+    },
+    {
+      "id": "meadow-mill",
+      "name": "The haymakers lane",
+      "samples": 23,
+      "before": 3.54,
+      "after": 37.4,
+      "upperRelief": 60.29
+    },
+    {
+      "id": "mill-wood",
+      "name": "The hollow way",
+      "samples": 30,
+      "before": 12.22,
+      "after": 28.26,
+      "upperRelief": 43.95
+    },
+    {
+      "id": "wood-ridge",
+      "name": "The beech ridge",
+      "samples": 34,
+      "before": 14.49,
+      "after": 30.24,
+      "upperRelief": 57.39
+    },
+    {
+      "id": "mill-quarry",
+      "name": "The quarry approach",
+      "samples": 30,
+      "before": 7.72,
+      "after": 16.75,
+      "upperRelief": 37.47
+    },
+    {
+      "id": "quarry-rim",
+      "name": "The chalk switchback",
+      "samples": 28,
+      "before": 45.38,
+      "after": 61.84,
+      "upperRelief": 119.13
+    },
+    {
+      "id": "quarry-chapel",
+      "name": "The ridge road",
+      "samples": 22,
+      "before": 10.96,
+      "after": 18.65,
+      "upperRelief": 26.49
+    },
+    {
+      "id": "chapel-causeway",
+      "name": "The chapel causeway",
+      "samples": 8,
+      "before": 11.75,
+      "after": 12.72,
+      "upperRelief": 13.96
+    },
+    {
+      "id": "chapel-stones",
+      "name": "The pilgrims descent",
+      "samples": 9,
+      "before": 2.5,
+      "after": 18.19,
+      "upperRelief": 19.76
+    },
+    {
+      "id": "chapel-hollow",
+      "name": "The mere path",
+      "samples": 23,
+      "before": 8.08,
+      "after": 14.39,
+      "upperRelief": 37.08
+    },
+    {
+      "id": "hollow-back",
+      "name": "The concealed approach",
+      "samples": 16,
+      "before": 3.2,
+      "after": 16.76,
+      "upperRelief": 41.43
+    },
+    {
+      "id": "hollow-road",
+      "name": "The lookout track",
+      "samples": 19,
+      "before": 1.94,
+      "after": 26.63,
+      "upperRelief": 41.43
+    },
+    {
+      "id": "kingsroad",
+      "name": "The Kingsroad",
+      "samples": 48,
+      "before": 2.75,
+      "after": 28.92,
+      "upperRelief": 52.86
+    },
+    {
+      "id": "river-west",
+      "name": "The water meadow bank",
+      "samples": 26,
+      "before": 4.91,
+      "after": 18.66,
+      "upperRelief": 40.52
+    },
+    {
+      "id": "river-cellars",
+      "name": "The old towpath",
+      "samples": 24,
+      "before": 6.07,
+      "after": 11.17,
+      "upperRelief": 32.38
+    },
+    {
+      "id": "cellar-lane",
+      "name": "The cellar cutting",
+      "samples": 22,
+      "before": 3.24,
+      "after": 30.58,
+      "upperRelief": 42.18
+    },
+    {
+      "id": "village-river",
+      "name": "The bridge lane",
+      "samples": 25,
+      "before": 9.96,
+      "after": 11.55,
+      "upperRelief": 39.79
+    },
+    {
+      "id": "wood-coldwake",
+      "name": "The southern bridleway",
+      "samples": 28,
+      "before": 19.26,
+      "after": 27.51,
+      "upperRelief": 41.24
+    },
+    {
+      "id": "coldwake-river",
+      "name": "The drovers return",
+      "samples": 31,
+      "before": 2.18,
+      "after": 13.3,
+      "upperRelief": 29.61
+    },
+    {
+      "id": "coldwake-hedge",
+      "name": "The south fields",
+      "samples": 35,
+      "before": 1.73,
+      "after": 4.53,
+      "upperRelief": 12.96
+    },
+    {
+      "id": "hedge-1",
+      "name": "The Standing Hedge lane",
+      "samples": 11,
+      "before": 3.11,
+      "after": 9.1,
+      "upperRelief": 13.85
+    },
+    {
+      "id": "hedge-2",
+      "name": "The Standing Hedge lane",
+      "samples": 11,
+      "before": 3.8,
+      "after": 10.89,
+      "upperRelief": 14.28
+    },
+    {
+      "id": "hedge-3",
+      "name": "The Standing Hedge lane",
+      "samples": 11,
+      "before": 1.4,
+      "after": 19.05,
+      "upperRelief": 23.29
+    },
+    {
+      "id": "hedge-4",
+      "name": "The Standing Hedge lane",
+      "samples": 11,
+      "before": 1.64,
+      "after": 19.07,
+      "upperRelief": 29.96
+    },
+    {
+      "id": "hedge-5",
+      "name": "The Standing Hedge lane",
+      "samples": 11,
+      "before": 1.25,
+      "after": 7.59,
+      "upperRelief": 14.1
+    },
+    {
+      "id": "hedge-6",
+      "name": "The Standing Hedge lane",
+      "samples": 11,
+      "before": 1.7,
+      "after": 9.76,
+      "upperRelief": 39.6
+    },
+    {
+      "id": "hedge-7",
+      "name": "The Standing Hedge lane",
+      "samples": 11,
+      "before": 2.12,
+      "after": 35.28,
+      "upperRelief": 42.1
+    },
+    {
+      "id": "hedge-8",
+      "name": "The Standing Hedge lane",
+      "samples": 11,
+      "before": 2.61,
+      "after": 8.93,
+      "upperRelief": 17.76
+    },
+    {
+      "id": "hedge-9",
+      "name": "The Standing Hedge lane",
+      "samples": 11,
+      "before": 3.82,
+      "after": 8.93,
+      "upperRelief": 11.58
+    }
+  ],
+  "reveals": [
+    {
+      "id": "highwaymanshollow",
+      "route": "hollow-road",
+      "hidden": {
+        "x": 630.43,
+        "z": -977.29,
+        "distance": 138.5,
+        "obstruction": 2.14
+      },
+      "visible": {
+        "x": 517.5,
+        "z": -1034.75,
+        "distance": 26.2,
+        "obstruction": -2.14
+      },
+      "samples": 32
+    },
+    {
+      "id": "kingsroad_camp",
+      "route": "kingsroad",
+      "hidden": null,
+      "visible": {
+        "x": 991.5,
+        "z": -1084.5,
+        "distance": 25.7,
+        "obstruction": -2.01
+      },
+      "samples": 56
+    },
+    {
+      "id": "beechhangar",
+      "route": "mill-wood",
+      "hidden": null,
+      "visible": {
+        "x": -1041.5,
+        "z": 311.25,
+        "distance": 33.2,
+        "obstruction": -1.68
+      },
+      "samples": 27
+    },
+    {
+      "id": "coldwake",
+      "route": "coldwake-river",
+      "hidden": null,
+      "visible": {
+        "x": -491.25,
+        "z": 749.25,
+        "distance": 25.2,
+        "obstruction": -2.01
+      },
+      "samples": 29
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "id": "greenwold_grove_south_fields_gate",
+  "name": "Oak stand",
+  "note": "The south fields gate trees frame the nearby route.",
+  "at": {
+    "x": -314,
+    "z": 744
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -41.54,
+      "z": 45.38,
+      "scale": 0.8,
+      "yaw": 55,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -25.73,
+      "z": 33.26,
+      "scale": 1.05,
+      "yaw": 102,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -18.84,
+      "z": 11.22,
+      "scale": 1.2,
+      "yaw": 149,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 2.54,
+      "z": -1.88,
+      "scale": 1.3,
+      "yaw": 196,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -49.16,
+      "z": 26.62,
+      "scale": 0.85,
+      "yaw": 24,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -42.03,
+      "z": 5.97,
+      "scale": 1.1,
+      "yaw": 71,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -20.32,
+      "z": -9.34,
+      "scale": 1.2,
+      "yaw": 118,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -12.28,
+      "z": -33.02,
+      "scale": 1,
+      "yaw": 165,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -48.5,
+      "z": -14.43,
+      "scale": 0.85,
+      "yaw": 259,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -31.13,
+      "z": -34,
+      "scale": 1.05,
+      "yaw": 306,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

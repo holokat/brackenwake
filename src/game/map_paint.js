@@ -1961,6 +1961,7 @@ export function spaceShape(space) {
   const r = Number.isFinite(space.radius) ? space.radius : SPACE_TILE_R;
   return {
     id: space.id,
+    landmark: space.landmark === true,
     name: space.name || space.id,
     tile: !!m,
     tx: m ? +m[1] : null,

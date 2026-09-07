@@ -67,7 +67,7 @@ const maxDelta = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
     && rec.geo.getAttribute('aRoad').itemSize === 1);
   check('the tiers are still 33, 17, 9', tierFor(0) === 33 && tierFor(3) === 33 && tierFor(4) === 17
     && tierFor(6) === 17 && tierFor(7) === 9 && tierFor(99) === 9);
-  check('the ring and the budget are untouched', RING === 9 && BUILD_PER_FRAME === 3);
+  check('the modest view keeps 121 chunks and three builds per frame', RING === 5 && (RING*2+1)**2===121 && BUILD_PER_FRAME === 3);
   const again = buildChunkGeometry(field, 4, -3, 33, palette);
   check('the same chunk builds the same bytes twice',
     ATTRS.every((n) => rec.geo.getAttribute(n).array.every((v, i) => v === again.geo.getAttribute(n).array[i])));

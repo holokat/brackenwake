@@ -389,7 +389,7 @@ const warriorish = () => ({
   const c = warriorish();
   const rec = startCast(ABILITIES_BY_ID.fireball, c, 12);
   check('startCast records the window and the cost',
-    rec.startedAt === 12 && near(rec.endsAt, 12.6) && rec.rooted === false
+    rec.startedAt === 12 && near(rec.endsAt, 12 + ABILITIES_BY_ID.fireball.castTime) && rec.rooted === false
     && rec.cost.kind === 'mana' && rec.cost.amount === 9,
     `${rec.startedAt} to ${rec.endsAt}, ${rec.cost.amount} ${rec.cost.kind}`);
   c.mana = 0;
@@ -538,7 +538,7 @@ console.log('\nWhat has to be in your hands');
     wrong.length === 0, wrong.join(', ') || `${realWeapons.length} rows compared`);
 
   const realShields = Object.values(ITEM_BASES).filter((b) => b.kind === 'shield').map((b) => b.id);
-  check('the three shields match items.js',
+  check('the shields match items.js',
     realShields.length === SHIELD_BASES.length && realShields.every((id) => SHIELD_BASES.includes(id)),
     SHIELD_BASES.join(', '));
   const realInstruments = Object.values(ITEM_BASES).filter((b) => b.kinds.includes('instrument')).map((b) => b.id);

@@ -1,8 +1,9 @@
+import {createStudioForage} from '../../studio/forage.js';
 // What lives in the world and can be talked to, worked at, picked or sold to:
 // the people in the settlements, the crafting stations, what grows under the
 // trees, the market, and the interactor that owns trees, rock and doorways.
 
-import { buildCharacter } from '../../player.js';
+import {buildStudioNpc as buildCharacter} from '../../studio/npcs.js';
 import { createNpcs } from '../../npcs_runtime.js';
 import { createStations } from '../../stations.js';
 import { createInteract } from '../../interact.js';
@@ -28,6 +29,7 @@ export const world_life = {
 
     const npcs = createNpcs(sc, runtime, { buildCharacter, root: hudRoot, at: state.pos, ctx: panelCtx });
     const stations = createStations(sc, runtime, { hud });
+    panelCtx.stationAccess = id => !runtime.inDungeon && !!stations.nearest(rig.pos, undefined, id);
 
     // The boxes underground (D3): built here because every dependency is in
     // this hand already, and handed to the interactor so E and a click open them.
@@ -61,20 +63,26 @@ export const world_life = {
       return out;
     };
     const forage = createForageField(sc, { field: runtime.field, treesFor, season: seasonAt(Date.now()) });
+    const studioForage = createStudioForage(forage), pickForage = forage.pick.bind(forage);
+    forage.pick = ray => { const near = studioForage.pick(ray), far = pickForage(ray); return near && (!far || near.distance < far.distance) ? near : far; };
     const foraging = createForaging({ field: forage, inventory: pack, progression, hud, audio, floaters, character, actor, combat: fight.combat });
+
+    const unregisterPeople=runtime.physical?.registerActors('people',()=>npcs.list());
+    const unregisterCreatures=runtime.physical?.registerActors('creatures',()=>fight.monsters.all());
 
     // the panels reach these through the one context, as they always did
     panelCtx.foraging = foraging;
     panelCtx.forage = forage;
 
     return {
-      npcs, stations, interact, shop, forage, foraging,
-      bw: { npcs, stations, interact, shop, forage, foraging },
+      npcs, stations, interact, shop, forage, foraging, studioForage,
+      dispose(){unregisterPeople?.();unregisterCreatures?.();studioForage.dispose();forage.dispose();stations.dispose();npcs.dispose();},
+      bw: { npcs, stations, interact, chests, shop, forage, foraging, studioForage },
     };
   },
 
   update(ctx, frame) {
-    const { npcs, stations, forage, interact } = ctx.get('world_life');
+    const { npcs, stations, forage, interact, studioForage } = ctx.get('world_life');
     const pos = ctx.get('player').pos;
     // The people, the workshops and what grows are the world, so all four run
     // on the WORLD clock: in dragon time a smith's hammer hangs with everything
@@ -87,6 +95,7 @@ export const world_life = {
     npcs.update(dt, pos, day);
     stations.update(pos.x, pos.z, now);
     forage.update(pos.x, pos.z, seasonAt(Date.now()), now);   // one clock with harvest
+    studioForage.update(dt,pos);
     interact.update(dt, now);
   },
 };

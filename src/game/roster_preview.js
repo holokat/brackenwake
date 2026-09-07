@@ -26,7 +26,8 @@
 // drawn silhouette instead, which is a picture rather than a broken image.
 
 import * as THREE from 'three';
-import { buildCharacter, BODY, APPEARANCE_FALLBACK } from './player.js';
+import { BODY, APPEARANCE_FALLBACK } from './player.js';
+import { buildStudioCharacter as buildCharacter } from './studio/body.js';
 import { dressRig, undress } from './gear_visuals.js';
 import { lightingAt, DAWN } from './scene.js';
 import { SAVE_KEY, slotKeyFor } from './state.js';
@@ -218,14 +219,16 @@ export function makeKit(opts = {}) {
  * game itself poses it with, framed, rendered and taken apart again: a portrait
  * costs one rig, not a rig that lives on the heap for the session.
  */
-export function paint(kit, look) {
+export async function paint(kit, look) {
   const appearance = { ...APPEARANCE_FALLBACK, ...(look?.appearance || {}) };
   const rig = buildCharacter(appearance);
   try {
-    rig.group.scale.setScalar(spanFor(appearance.height).scale);
+
     if (look?.equipment) {
       try { dressRig(rig, look.equipment, { light: false }); } catch (e) { console.warn('[roster] the portrait could not be dressed', e); }
     }
+    await rig.ready;
+    if(kit.disposed)return null;
     // The rig's own update is the pose: six tenths of a second of standing
     // still settles the grip blend on whatever the hands were given, then the
     // clock is put back to zero so the breath is at the same point in every
@@ -305,8 +308,12 @@ export function createPortraits(opts = {}) {
     if (look) {
       try { url = draw(look); drawn++; } catch (e) { console.warn('[roster] a portrait would not draw', e); url = null; }
     }
-    cache.set(id, { key, url });
-    return url;
+    const entry = { key, url: null }; cache.set(id, entry);
+    if (url?.then) {
+      url.then(result => { if (!dead && cache.get(id) === entry) { entry.url = result; opts.onReady?.(id, result); } }).catch(error => console.warn('[roster] portrait failed', error));
+      return null;
+    }
+    entry.url = url; return url;
   }
 
   /** Throw one slot's picture away. The delete path calls this. */
@@ -318,6 +325,7 @@ export function createPortraits(opts = {}) {
     dead = true;
     cache.clear();
     if (kit) {
+      kit.disposed = true;
       try { kit.renderer.dispose(); } catch { /* a lost context is already gone */ }
       try { kit.renderer.forceContextLoss?.(); } catch { /* not every build has it */ }
       kit = null;

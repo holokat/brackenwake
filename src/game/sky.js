@@ -1,4 +1,4 @@
-// The sky: one analytic dome, driven by the six minute day.
+// The sky: one analytic dome, driven by the shared 25 minute day.
 //
 // Ported from the shaders in docs/reference/aqua-ocean-studio.jsx (the zenith
 // and horizon gradient, the sun disc and its glare, the fbm cloud deck, the
@@ -28,6 +28,7 @@
 import * as THREE from 'three';
 import { DAY_CYCLE_MS, phaseAt } from './dayclock.js';
 import { REALM_ZONES, weightOf, realmAt } from '../world/zones.js';
+import { weatherPalette, weatherLighting } from './weather/atmosphere.js';
 
 /**
  * One full day. This has to equal scene.js's DAY_CYCLE_MS or the sun will
@@ -425,7 +426,7 @@ export function skyColours(dayFactor, opts = {}) {
   // Glare peaks where the sun sits on the horizon and the air is long.
   const gold = 1 - Math.min(1, Math.abs(d - 0.5) / 0.28);
   const cloud = opts.cloud ?? 0.45;
-  return {
+  return weatherPalette({
     zenith, horizon, sun, fog,
     glare: 0.45 + 0.35 * d + 0.5 * gold * gold,
     cloud: haze > 0 ? Math.max(cloud, 0.35 + haze * 0.45) : cloud,
@@ -436,7 +437,7 @@ export function skyColours(dayFactor, opts = {}) {
     elevation: elevationForDay(d),
     day: d,
     haze, fogNear, fogFar,
-  };
+  }, opts.weather);
 }
 
 /**
@@ -472,7 +473,7 @@ export function skyLighting(dayFactor, opts = {}) {
     clamp(ground.g / Math.max(base.g, 1e-4), 0.35, 2.4),
     clamp(ground.b / Math.max(base.b, 1e-4), 0.35, 2.4),
   ];
-  return { sun, sunI, hemi, hemiI, ambient, ground: gr, day: d };
+  return weatherLighting({ sun, sunI, hemi, hemiI, ambient, ground: gr, day: d }, opts.weather);
 }
 
 /** A realm's ground colour at an hour: its night, its day, and the day between. */
@@ -540,6 +541,7 @@ precision highp float;
 
 uniform vec3 uZenith, uHorizon, uSunColor, uMoonColor, uSunDir, uMoonDir, uCamPos;
 uniform float uGlare, uCloud, uTime, uDay, uStars, uMoonUp, uSunUp;
+uniform vec2 uCloudWind;
 
 float hash21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 
@@ -599,7 +601,7 @@ vec3 skyCol(vec3 d, float withClouds){
   c += uSunColor * smoothstep(0.9994, 0.9999, s) * 12.0 * uSunUp;
 
   if (withClouds > 0.5 && d.y > 0.0) {
-    vec2 p = d.xz / (d.y + 0.15) * 1.6 + vec2(uTime * 0.006, uTime * 0.003);
+    vec2 p = d.xz / (d.y + 0.15) * 1.6 + uTime * uCloudWind;
     float n = fbm(p);
     float th = 0.78 - uCloud * 0.5;
     float cov = smoothstep(th, th + 0.22, n) * smoothstep(0.0, 0.12, d.y);
@@ -607,6 +609,7 @@ vec3 skyCol(vec3 d, float withClouds){
     // a cloud is only ever as bright as the day is, and it catches the low sun
     lit = mix(uHorizon * 0.55 + uMoonColor * 0.06 * uMoonUp, lit, 0.25 + 0.75 * uDay);
     lit *= (0.85 + 0.35 * pow(s, 2.0) * uSunUp);
+    lit *= 1.0 - smoothstep(.65,1.0,uCloud)*.35;
     c = mix(c, lit, cov);
   }
   return c;
@@ -642,6 +645,7 @@ export function createSkyUniforms() {
     uCamPos: { value: new THREE.Vector3() },
     uGlare: { value: 0.6 },
     uCloud: { value: 0.45 },
+    uCloudWind: { value: new THREE.Vector2(.006,.003) },
     uTime: { value: 0 },
     uDay: { value: 1 },
     uStars: { value: 0 },
@@ -733,6 +737,8 @@ export function createSky(sc, opts = {}) {
       // the scene's clock offset (the dev bench's time of day) moves the sun too
       const shifted = nowMs + (Number.isFinite(sc?.clockOffset) ? sc.clockOffset : 0);
       setPhase(phaseFromClock(shifted, opts.cycleS ?? DAY_CYCLE_S));
+      // Event darkness moves the visible light source below the horizon too.
+      if(sc?.dayScale < 1) setPhase(d===0?0:phaseFromDay(d,phase<.5));
     } else {
       if (lastDay != null && Math.abs(d - lastDay) > 1e-7) rising = d > lastDay;
       if (d > 1e-6 && d < 1 - 1e-6) setPhase(phaseFromDay(d, rising));
@@ -756,7 +762,7 @@ export function createSky(sc, opts = {}) {
     // The realms under the player. scene.js keeps this up to date as it
     // follows, so the dome and the fog and the lights all read one blend and
     // never disagree by a frame's worth of walking.
-    palette = skyColours(d, { cloud: cloudCover, mix: opts.mix || sc?.realmMix });
+    palette = skyColours(d, { cloud: cloudCover, mix: opts.mix || sc?.realmMix, weather: sc?.weather });
     setSRGB(colours.zenith, palette.zenith);
     setSRGB(colours.horizon, palette.horizon);
     setSRGB(colours.sun, palette.sun);
@@ -770,11 +776,12 @@ export function createSky(sc, opts = {}) {
     uniforms.uMoonDir.value.copy(moonDir);
     uniforms.uGlare.value = palette.glare;
     uniforms.uCloud.value = palette.cloud;
+    if(uniforms.uCloudWind)uniforms.uCloudWind.value.set(.004+(sc?.weather?.windX??.4)*.008,.002+(sc?.weather?.windZ??.2)*.008);
     uniforms.uTime.value = time;
     uniforms.uDay.value = d;
     uniforms.uStars.value = palette.star;
     uniforms.uMoonUp.value = palette.moon * clamp01(moonDir.y * 4 + 0.25);
-    uniforms.uSunUp.value = clamp01(sunDir.y * 6 + 0.28);
+    uniforms.uSunUp.value = clamp01(sunDir.y * 6 + 0.28) * (palette.sunVeil ?? 1);
 
     if (camPos) {
       uniforms.uCamPos.value.set(camPos.x, camPos.y, camPos.z);

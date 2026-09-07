@@ -1,3 +1,4 @@
+import {MONSTER_HEALTH_FACTOR} from './combat_pace.js';
 // The monster tables, driven both ways. Run: node src/mmo/monsters.test.mjs
 //
 // Every number printed here was measured in this file. Where a rule is
@@ -83,10 +84,10 @@ check('every boss changes phase at 66% and 33%', BOSSES.every((b) => b.phases[0]
 // A rank 1 boss stands in a cellar under a mill and is fought by a character an
 // hour old, so its band is its realm's. Both readings are checked.
 check('every boss is inside its rank\'s health band',
-  BOSSES.every((b) => b.hp >= BOSS_HP_BY_RANK[b.rank][0] && b.hp <= BOSS_HP_BY_RANK[b.rank][1]),
+  BOSSES.every((b) => b.hp >= BOSS_HP_BY_RANK[b.rank][0]*MONSTER_HEALTH_FACTOR && b.hp <= BOSS_HP_BY_RANK[b.rank][1]*MONSTER_HEALTH_FACTOR),
   BOSSES.map((b) => `${b.id} r${b.rank} ${b.hp}`).join(', '));
-check('and the four the document wrote are still inside its own 2,000 to 4,000',
-  BOSSES.filter((b) => b.where === 'dungeon3').every((b) => b.hp >= 2000 && b.hp <= 4000),
+check('the original boss health remains recorded before the combat pace multiplier',
+  BOSSES.filter((b) => b.where === 'dungeon3').every((b) => b.baseHp >= 2000 && b.baseHp <= 4000),
   BOSSES.filter((b) => b.where === 'dungeon3').map((b) => `${b.id} ${b.hp}`).join(', '));
 check('a boss of a gentler realm is gentler, in health and in coin',
   MONSTERS.oramBlackhand.hp < MONSTERS.malachar.hp / 5

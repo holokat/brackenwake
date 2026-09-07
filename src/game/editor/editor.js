@@ -31,6 +31,7 @@ import { auditSpaces } from '../../mmo/plans/plan_schema.js';
 import { spaceSiteRow } from '../../world/sites.js';
 import { createSpaceDoc, LISTS, LIST_WORD, TURN_DEG, SCALE_STEP, labelOf, pointOf } from './space_doc.js';
 import { paletteFor, entryFor, search, TAB_IDS, BRUSH_IDS, brushRows, OPPOSITE, ANGLE_NAMES } from './palette.js';
+import { transformPatch } from './transforms.js';
 
 /** Where a space file lives, and where the terrain half writes its own. */
 export const SPACE_PATH = (id) => `src/mmo/spaces/${id}.json`;
@@ -371,6 +372,7 @@ export function createEditor(ctx = {}) {
     if (!made) return bad(`the ${tab} tray does not put anything into a space.`);
     const res = doc.place(made.list, made.entry);
     if (!res.ok) return bad(res.text);
+    if (opts.select === false) doc.select(null);
     if (!opts.bulk) rebuild();
     pushGroup(1);
     changed(opts.now);
@@ -816,9 +818,10 @@ export function createEditor(ctx = {}) {
   }
 
   /** Let go of whatever is selected. Says so, because a silent change is a bug. */
-  function deselect() {
+  function deselect(opts = {}) {
     if (!doc || !doc.selection) return { ok: false, text: '' };
     doc.select(null);
+    if (opts.quiet) return { ok: true, text: '' };
     return good('nothing is selected now.');
   }
 
@@ -844,6 +847,14 @@ export function createEditor(ctx = {}) {
     if (typeof patch.note === 'string' && 'note' in e) want.note = patch.note;
     if (!Object.keys(want).length) return bad(`a ${LIST_WORD[sel.list]} has none of those to change.`);
     return after(doc.patch(sel, want, `${labelOf(sel.list, e)}: ${Object.entries(want).map(([k, v]) => `${k} ${v}`).join(', ')}.`));
+  }
+
+  function transformSelected(next = {}) {
+    const sel = selection(), entry = sel && doc.at(sel);
+    if (!entry) return bad('Nothing is selected.');
+    const patch = transformPatch(sel.list, entry, next);
+    if (!patch) return bad('This selection has no position.');
+    return after(doc.patch(sel, patch, `${labelOf(sel.list, entry)} adjusted. Undo restores the previous transform.`));
   }
 
   // ------------------------------------------------------------- autosave --
@@ -1466,6 +1477,8 @@ export function createEditor(ctx = {}) {
     get space() { return doc ? doc.space : null; },
     get dirty() { return dirty; },
     get spaces() { return Object.keys(SPACES); },
+    // Search reads live drafts first, including tiles not yet written to disk.
+    searchSpaces: () => [...new Map([...Object.values(SPACES).map(s => [s.id, s]), ...[...docs].map(([id, d]) => [id, d.space])]).values()],
     get disk() { return disk.slice(); },
     contents: () => (doc ? doc.contents() : []),
     count: () => (doc ? doc.count() : { total: 0 }),
@@ -1495,7 +1508,7 @@ export function createEditor(ctx = {}) {
     // the automatic spaces, the scatter brush and the autosave
     ensureSpaceFor, useDoc, scatterAt, eraseAt, scatterCount, wipeAt, holdSpacesNear,
     sweepBegin, sweepStroke, sweepEnd, sweepCount,
-    nearestTo, selectAt, setSelected, deselect,
+    nearestTo, selectAt, setSelected, transformSelected, deselect,
     get scatter() { return { r: scatterR, density: scatterDensity }; },
     setScatter(patch = {}) {
       if (Number.isFinite(patch.r)) scatterR = Math.max(1, Math.min(SCATTER_R_MAX, round2(patch.r)));

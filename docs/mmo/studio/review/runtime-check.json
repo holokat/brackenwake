@@ -1,0 +1,247 @@
+{
+  "studio": {
+    "craft": null,
+    "loaded": true,
+    "errors": [],
+    "motion": true,
+    "bodySize": [
+      0.914642752074144,
+      1.788879720156757,
+      1.2101149245600027
+    ],
+    "gear": {
+      "head": {
+        "id": "leather_head-6cio6s",
+        "base": "leather_head",
+        "rarity": "common",
+        "seed": 3538342503,
+        "identified": true,
+        "affixes": [],
+        "quality": 1,
+        "durability": 100,
+        "maker": null
+      },
+      "neck": null,
+      "chest": {
+        "id": "leather_chest-1bnoba9",
+        "base": "leather_chest",
+        "rarity": "common",
+        "seed": 3538350422,
+        "identified": true,
+        "affixes": [],
+        "quality": 1,
+        "durability": 100,
+        "maker": null
+      },
+      "back": {
+        "id": "leather_back-1spy55g",
+        "base": "leather_back",
+        "rarity": "common",
+        "seed": 3538397936,
+        "identified": true,
+        "affixes": [],
+        "quality": 1,
+        "durability": 100,
+        "maker": null
+      },
+      "hands": {
+        "id": "leather_hands-gevgqw",
+        "base": "leather_hands",
+        "rarity": "common",
+        "seed": 3538358341,
+        "identified": true,
+        "affixes": [],
+        "quality": 1,
+        "durability": 100,
+        "maker": null
+      },
+      "wrists": {
+        "id": "leather_wrists-744ls0",
+        "base": "leather_wrists",
+        "rarity": "common",
+        "seed": 3538366260,
+        "identified": true,
+        "affixes": [],
+        "quality": 1,
+        "durability": 100,
+        "maker": null
+      },
+      "waist": {
+        "id": "leather_waist-p36vfh",
+        "base": "leather_waist",
+        "rarity": "common",
+        "seed": 3538374179,
+        "identified": true,
+        "affixes": [],
+        "quality": 1,
+        "durability": 100,
+        "maker": null
+      },
+      "legs": {
+        "id": "leather_legs-1e4jt8h",
+        "base": "leather_legs",
+        "rarity": "common",
+        "seed": 3538382098,
+        "identified": true,
+        "affixes": [],
+        "quality": 1,
+        "durability": 100,
+        "maker": null
+      },
+      "feet": {
+        "id": "leather_feet-12n63oa",
+        "base": "leather_feet",
+        "rarity": "common",
+        "seed": 3538390017,
+        "identified": true,
+        "affixes": [],
+        "quality": 1,
+        "durability": 100,
+        "maker": null
+      },
+      "ring1": null,
+      "ring2": null,
+      "mainHand": {
+        "id": "longsword-12vszcq",
+        "base": "longsword",
+        "rarity": "common",
+        "seed": 3538326665,
+        "identified": true,
+        "affixes": [],
+        "quality": 1,
+        "durability": 100,
+        "maker": null
+      },
+      "offHand": {
+        "id": "kite-cp430q",
+        "base": "kite",
+        "rarity": "common",
+        "seed": 3538334584,
+        "identified": true,
+        "affixes": [],
+        "quality": 1,
+        "durability": 100,
+        "maker": null
+      },
+      "ranged": null
+    },
+    "sourceMeshCount": 91,
+    "swingSeconds": 1.071,
+    "spells": {
+      "sourceReady": false,
+      "active": null,
+      "usesSource": false
+    },
+    "forage": 0,
+    "colliders": 322,
+    "npcs": [
+      {
+        "id": "s:greenwold_hearthhome:nan:0",
+        "loaded": true,
+        "errors": [],
+        "walked": 3.3805199999999984,
+        "mode": "idle"
+      },
+      {
+        "id": "s:greenwold_hearthhome:cobb:1",
+        "loaded": true,
+        "errors": [],
+        "walked": 5.416320000000004,
+        "mode": "idle"
+      },
+      {
+        "id": "s:greenwold_hearthhome:alys:2",
+        "loaded": true,
+        "errors": [],
+        "walked": 2.8163199999999984,
+        "mode": "idle"
+      },
+      {
+        "id": "s:greenwold_hearthhome:stablemaster:3",
+        "loaded": true,
+        "errors": [],
+        "walked": 5.710185000000008,
+        "mode": "idle"
+      },
+      {
+        "id": "s:greenwold_hearthhome:banker:4",
+        "loaded": true,
+        "errors": [],
+        "walked": 9.890725000000025,
+        "mode": "walk"
+      },
+      {
+        "id": "s:greenwold_hearthhome:wynn:5",
+        "loaded": true,
+        "errors": [],
+        "walked": 2.7413750000000014,
+        "mode": "idle"
+      },
+      {
+        "id": "s:greenwold_hearthhome:bram:6",
+        "loaded": true,
+        "errors": [],
+        "walked": 6.369740000000017,
+        "mode": "idle"
+      },
+      {
+        "id": "s:greenwold_hearthhome:pip:7",
+        "loaded": true,
+        "errors": [],
+        "walked": 4.399979999999995,
+        "mode": "walk"
+      },
+      {
+        "id": "s:greenwold_hearthhome:provisioner:8",
+        "loaded": true,
+        "errors": [],
+        "walked": 6.196970000000017,
+        "mode": "walk"
+      },
+      {
+        "id": "s:greenwold_hearthhome:tailor:9",
+        "loaded": true,
+        "errors": [],
+        "walked": 4.474860000000002,
+        "mode": "walk"
+      },
+      {
+        "id": "s:greenwold_hearthhome:bowyer:10",
+        "loaded": true,
+        "errors": [],
+        "walked": 7.73630000000001,
+        "mode": "walk"
+      },
+      {
+        "id": "s:greenwold_hearthhome:alchemist:11",
+        "loaded": true,
+        "errors": [],
+        "walked": 5.179395,
+        "mode": "walk"
+      },
+      {
+        "id": "s:greenwold_hearthhome:weaponsmaster:12",
+        "loaded": true,
+        "errors": [],
+        "walked": 5.514990000000003,
+        "mode": "walk"
+      },
+      {
+        "id": "s:greenwold_hearthhome:provisioner:13",
+        "loaded": true,
+        "errors": [],
+        "walked": 8.818550000000034,
+        "mode": "walk"
+      }
+    ]
+  },
+  "errors": [],
+  "shaderErrors": [],
+  "render": {
+    "frame": 2786,
+    "calls": 98,
+    "triangles": 812615,
+    "points": 0,
+    "lines": 0
+  }
+}

@@ -1,0 +1,429 @@
+{
+  "id": "greenwold_occult_tower",
+  "name": "The occult tower",
+  "note": "A dark tower rises behind the Kingsroad bank. Cultists channel in the forecourt while armed dead hold the walls. The adept commands the inner circle.",
+  "at": {
+    "x": 662,
+    "z": -363
+  },
+  "radius": 94,
+  "landmark": true,
+  "district": "kingsroad",
+  "pieces": [
+    {
+      "model": "occult_tower",
+      "x": 0,
+      "z": -18.9,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "cellar_arch",
+      "x": 0,
+      "z": 23.8,
+      "yaw": 0,
+      "scale": 1.4,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "brazier",
+      "x": -8.4,
+      "z": 4.2,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "brazier",
+      "x": 8.4,
+      "z": 4.2,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "ritual_altar",
+      "x": 0,
+      "z": -2.1,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_drowned_wall",
+      "x": -16.8,
+      "z": 9.1,
+      "yaw": 90,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_drowned_wall",
+      "x": 16.8,
+      "z": 9.1,
+      "yaw": 90,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_dead_oak",
+      "x": -22.4,
+      "z": -2.1,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_dead_oak",
+      "x": 22.4,
+      "z": -4.9,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "headstone_a",
+      "x": -21,
+      "z": 16.8,
+      "yaw": 25,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "headstone_b",
+      "x": -16.8,
+      "z": 21,
+      "yaw": 340,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "headstone_c",
+      "x": 21,
+      "z": 16.1,
+      "yaw": 10,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "headstone_d",
+      "x": 17.5,
+      "z": 21.7,
+      "yaw": 340,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "loot_sack",
+      "x": 7,
+      "z": -8.4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_drowned_wall",
+      "x": -13.3,
+      "z": 15.4,
+      "yaw": 0,
+      "scale": 2,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_drowned_wall",
+      "x": 13.3,
+      "z": 15.4,
+      "yaw": 0,
+      "scale": 2,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "ritual_altar",
+      "x": -16.8,
+      "z": -10.5,
+      "yaw": 30,
+      "scale": 0.65,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "ritual_altar",
+      "x": 16.8,
+      "z": -10.5,
+      "yaw": 330,
+      "scale": 0.65,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_cairn",
+      "x": -20.3,
+      "z": -19.6,
+      "yaw": 0,
+      "scale": 2.2,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_cairn",
+      "x": 20.3,
+      "z": -19.6,
+      "yaw": 0,
+      "scale": 2.2,
+      "tag": "greenwold-action"
+    }
+  ],
+  "runs": [
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -28.7,
+        "z": -30.8
+      },
+      "to": {
+        "x": 28.7,
+        "z": -30.8
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -28.7,
+        "z": -30.8
+      },
+      "to": {
+        "x": -28.7,
+        "z": 21.7
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 28.7,
+        "z": -30.8
+      },
+      "to": {
+        "x": 28.7,
+        "z": 21.7
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -28.7,
+        "z": 27.3
+      },
+      "to": {
+        "x": -8.4,
+        "z": 27.3
+      }
+    },
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": 8.4,
+        "z": 27.3
+      },
+      "to": {
+        "x": 28.7,
+        "z": 27.3
+      }
+    }
+  ],
+  "areas": [],
+  "trees": [],
+  "rocks": [],
+  "people": [],
+  "markers": [],
+  "effects": [
+    {
+      "id": "mist_bank",
+      "x": 0,
+      "z": 9.8,
+      "scale": 2,
+      "gate": "always"
+    },
+    {
+      "id": "mushroom_spores",
+      "x": 0,
+      "z": -2.1,
+      "scale": 1.8,
+      "gate": "always"
+    }
+  ],
+  "lights": [
+    {
+      "x": -8.4,
+      "z": 4.2,
+      "y": 2.5,
+      "color": 9333465,
+      "power": 25,
+      "range": 20
+    },
+    {
+      "x": 8.4,
+      "z": 4.2,
+      "y": 2.5,
+      "color": 7974596,
+      "power": 25,
+      "range": 20
+    }
+  ],
+  "spawns": [
+    {
+      "id": "skeleton",
+      "x": -6.3,
+      "z": 32.2,
+      "squad": "gate",
+      "encounter": "occult_tower:gate",
+      "slot": "occult_tower:0",
+      "rallyRadius": 14
+    },
+    {
+      "id": "skeleton",
+      "x": 6.3,
+      "z": 32.2,
+      "squad": "gate",
+      "encounter": "occult_tower:gate",
+      "slot": "occult_tower:1",
+      "rallyRadius": 14
+    },
+    {
+      "id": "skeleton",
+      "x": -12.6,
+      "z": 35,
+      "squad": "gate",
+      "encounter": "occult_tower:gate",
+      "slot": "occult_tower:2",
+      "rallyRadius": 14
+    },
+    {
+      "id": "skeleton",
+      "x": 12.6,
+      "z": 35,
+      "squad": "gate",
+      "encounter": "occult_tower:gate",
+      "slot": "occult_tower:3",
+      "rallyRadius": 14
+    },
+    {
+      "id": "zombie",
+      "x": -20.3,
+      "z": 9.8,
+      "squad": "graveyard",
+      "encounter": "occult_tower:graveyard",
+      "slot": "occult_tower:4",
+      "rallyRadius": 14
+    },
+    {
+      "id": "zombie",
+      "x": -21,
+      "z": 3.5,
+      "squad": "graveyard",
+      "encounter": "occult_tower:graveyard",
+      "slot": "occult_tower:5",
+      "rallyRadius": 14
+    },
+    {
+      "id": "zombie",
+      "x": 20.3,
+      "z": 11.2,
+      "squad": "graveyard",
+      "encounter": "occult_tower:graveyard",
+      "slot": "occult_tower:6",
+      "rallyRadius": 14
+    },
+    {
+      "id": "zombie",
+      "x": 21,
+      "z": 4.9,
+      "squad": "graveyard",
+      "encounter": "occult_tower:graveyard",
+      "slot": "occult_tower:7",
+      "rallyRadius": 14
+    },
+    {
+      "id": "cultist",
+      "x": -9.8,
+      "z": -2.1,
+      "squad": "circle",
+      "encounter": "occult_tower:circle",
+      "slot": "occult_tower:8",
+      "rallyRadius": 14
+    },
+    {
+      "id": "cultist",
+      "x": 9.8,
+      "z": -2.1,
+      "squad": "circle",
+      "encounter": "occult_tower:circle",
+      "slot": "occult_tower:9",
+      "rallyRadius": 14
+    },
+    {
+      "id": "cultist",
+      "x": -12.6,
+      "z": -11.9,
+      "squad": "circle",
+      "encounter": "occult_tower:circle",
+      "slot": "occult_tower:10",
+      "rallyRadius": 14
+    },
+    {
+      "id": "cultist",
+      "x": 12.6,
+      "z": -11.9,
+      "squad": "circle",
+      "encounter": "occult_tower:circle",
+      "slot": "occult_tower:11",
+      "rallyRadius": 14
+    },
+    {
+      "id": "skeletonWarrior",
+      "x": -6.3,
+      "z": -10.5,
+      "squad": "command",
+      "encounter": "occult_tower:command",
+      "slot": "occult_tower:12",
+      "rallyRadius": 14
+    },
+    {
+      "id": "skeletonWarrior",
+      "x": 6.3,
+      "z": -10.5,
+      "squad": "command",
+      "encounter": "occult_tower:command",
+      "slot": "occult_tower:13",
+      "rallyRadius": 14
+    },
+    {
+      "id": "wisp",
+      "x": -16.1,
+      "z": -4.9,
+      "squad": "spirits",
+      "encounter": "occult_tower:spirits",
+      "slot": "occult_tower:14",
+      "rallyRadius": 14
+    },
+    {
+      "id": "wisp",
+      "x": 16.1,
+      "z": -4.9,
+      "squad": "spirits",
+      "encounter": "occult_tower:spirits",
+      "slot": "occult_tower:15",
+      "rallyRadius": 14
+    },
+    {
+      "id": "cultistAdept",
+      "x": 0,
+      "z": -8.4,
+      "squad": "command",
+      "elite": true,
+      "title": "Tower adept",
+      "encounter": "occult_tower:command",
+      "slot": "occult_tower:16",
+      "rallyRadius": 14
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

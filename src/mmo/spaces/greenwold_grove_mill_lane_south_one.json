@@ -1,0 +1,107 @@
+{
+  "id": "greenwold_grove_mill_lane_south_one",
+  "name": "Birch stand",
+  "note": "The mill lane south one trees frame the nearby route.",
+  "at": {
+    "x": -53,
+    "z": -247
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "birch",
+      "x": -37.43,
+      "z": 48.83,
+      "scale": 0.8,
+      "yaw": 60,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -22.73,
+      "z": 35.37,
+      "scale": 1.05,
+      "yaw": 107,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -17.79,
+      "z": 12.82,
+      "scale": 1.2,
+      "yaw": 154,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 2.37,
+      "z": -2.1,
+      "scale": 1.3,
+      "yaw": 201,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 6.8,
+      "z": -23.78,
+      "scale": 1.1,
+      "yaw": 248,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -46.65,
+      "z": 30.8,
+      "scale": 0.85,
+      "yaw": 29,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -41.35,
+      "z": 9.61,
+      "scale": 1.1,
+      "yaw": 76,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -21.05,
+      "z": -7.54,
+      "scale": 1.2,
+      "yaw": 123,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -15.11,
+      "z": -31.82,
+      "scale": 1,
+      "yaw": 170,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -49.57,
+      "z": -10.14,
+      "scale": 0.85,
+      "yaw": 264,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -33.97,
+      "z": -31.16,
+      "scale": 1.05,
+      "yaw": 311,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

@@ -57,6 +57,7 @@
 // `src/mmo/plans/plans.test.mjs`.
 
 import { ZONE } from '../../world/zones.js';
+import { livingErrors } from '../living_schema.js';
 import { MONSTERS } from '../monsters.js';
 import { NPCS } from '../npcs.js';
 import { STORY_ROLES, PERSON } from '../story.js';
@@ -179,6 +180,7 @@ function auditAll(plans, kind = 'plan') {
     } else if (typeof said !== 'string' || said.length < 12) bad.push(`${at} says nothing about itself`);
     if (/—/.test(JSON.stringify(plan))) bad.push(`${at} has an em dash in it`);
 
+    bad.push(...livingErrors(plan));
     const R = plan.radius || 0;
     for(const [list,ids]of [['stations',STATION_IDS],['forage',FORAGE_MATERIAL_IDS]]){
       for(const p of plan[list]||[]){

@@ -1,0 +1,95 @@
+{
+  "id": "greenwold_habitat_chalk_spur",
+  "zone": "chalkpits",
+  "name": "The white spur",
+  "at": {
+    "x": -788,
+    "z": -846
+  },
+  "note": "A pale outcrop shows where the quarry road turns beneath the ridge.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_chalk_boulder",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_chalk_boulder",
+      "x": 8,
+      "z": -5,
+      "yaw": 45,
+      "scale": 0.8,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_flint_nodules",
+      "x": 3,
+      "z": 7,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_gorse",
+      "x": -7,
+      "z": 6,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "approach": [
+    -769.2,
+    -797.2
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": -18,
+      "z": 16,
+      "encounter": "white-spur-vermin",
+      "slot": "white-spur-vermin:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -22,
+      "z": 9,
+      "encounter": "white-spur-vermin",
+      "slot": "white-spur-vermin:1"
+    },
+    {
+      "id": "giantRat",
+      "x": -26,
+      "z": 17,
+      "encounter": "white-spur-vermin",
+      "slot": "white-spur-vermin:2"
+    },
+    {
+      "id": "giantRat",
+      "x": -36,
+      "z": -3,
+      "encounter": "white-spur-vermin",
+      "slot": "white-spur-vermin:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": -36,
+      "z": 3,
+      "night": true,
+      "encounter": "white-spur-vermin",
+      "slot": "white-spur-vermin:4"
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

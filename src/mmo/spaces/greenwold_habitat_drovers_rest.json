@@ -1,0 +1,102 @@
+{
+  "id": "greenwold_habitat_drovers_rest",
+  "zone": "coldwake",
+  "name": "The drovers halt",
+  "at": {
+    "x": -547,
+    "z": 469
+  },
+  "note": "A trough and hay wagon offer a halt between the river and the southern ridge.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_cattle_trough",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_hay_wain",
+      "x": -7,
+      "z": 2,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_hawthorn",
+      "x": 6,
+      "z": 6,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "animals": [
+    {
+      "id": "cow",
+      "x": -3,
+      "z": 7,
+      "clip": "graze",
+      "yaw": 0
+    }
+  ],
+  "effects": [
+    {
+      "id": "floating_seeds",
+      "x": 5,
+      "z": 5,
+      "gate": "fair",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": -18,
+      "z": -17,
+      "encounter": "drovers-halt-vermin",
+      "slot": "drovers-halt-vermin:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -25,
+      "z": -11,
+      "encounter": "drovers-halt-vermin",
+      "slot": "drovers-halt-vermin:1"
+    },
+    {
+      "id": "giantRat",
+      "x": -26,
+      "z": -1,
+      "encounter": "drovers-halt-vermin",
+      "slot": "drovers-halt-vermin:2"
+    },
+    {
+      "id": "giantRat",
+      "x": -18,
+      "z": 8,
+      "encounter": "drovers-halt-vermin",
+      "slot": "drovers-halt-vermin:3"
+    },
+    {
+      "id": "giantRat",
+      "x": -31,
+      "z": 6,
+      "night": true,
+      "encounter": "drovers-halt-vermin",
+      "slot": "drovers-halt-vermin:4"
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

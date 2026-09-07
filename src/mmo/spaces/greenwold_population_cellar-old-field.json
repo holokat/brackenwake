@@ -1,0 +1,150 @@
+{
+  "id": "greenwold_population_cellar-old-field",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -21,
+    "z": -39
+  },
+  "radius": 78,
+  "district": "oldcellars",
+  "pieces": [
+    {
+      "model": "lw_drowned_wall",
+      "x": 14.76971205648431,
+      "z": -14.657953669204371,
+      "scale": 2,
+      "yaw": 100,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_drowned_wall",
+      "x": 16.977269769261458,
+      "z": 30.41006924000208,
+      "scale": 1.8,
+      "yaw": 190,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_headstone_row",
+      "x": 25.31719077467173,
+      "z": 17.664649763832752,
+      "scale": 1,
+      "yaw": 100,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_headstone_row",
+      "x": 25.433757639349288,
+      "z": 22.762336706560724,
+      "scale": 1,
+      "yaw": 100,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 33.71,
+      "z": -18.43,
+      "scale": 1.1,
+      "yaw": 100,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 37.02,
+      "z": 14.65,
+      "scale": 1.1,
+      "yaw": 100,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 29.43,
+      "z": 34.64,
+      "scale": 1,
+      "yaw": 100,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 11.48,
+      "z": 38.58,
+      "scale": 0.9,
+      "yaw": 100,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -9.03,
+      "z": 33.95,
+      "scale": 0.85,
+      "yaw": 100,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "skeleton",
+      "x": -0.23,
+      "z": -10.2,
+      "encounter": "cellar-old-field:near",
+      "slot": "cellar-old-field:0"
+    },
+    {
+      "id": "skeleton",
+      "x": 3.01,
+      "z": -5.56,
+      "encounter": "cellar-old-field:near",
+      "slot": "cellar-old-field:1"
+    },
+    {
+      "id": "skeleton",
+      "x": -3.42,
+      "z": -3.65,
+      "encounter": "cellar-old-field:near",
+      "slot": "cellar-old-field:2"
+    },
+    {
+      "id": "skeleton",
+      "x": -0.17,
+      "z": -2.02,
+      "encounter": "cellar-old-field:near",
+      "slot": "cellar-old-field:3"
+    },
+    {
+      "id": "zombie",
+      "x": 14.31,
+      "z": 16.74,
+      "encounter": "cellar-old-field:rear",
+      "slot": "cellar-old-field:4"
+    },
+    {
+      "id": "zombie",
+      "x": 15.41,
+      "z": 22.01,
+      "encounter": "cellar-old-field:rear",
+      "slot": "cellar-old-field:5"
+    },
+    {
+      "id": "zombie",
+      "x": 8.98,
+      "z": 23.92,
+      "encounter": "cellar-old-field:rear",
+      "slot": "cellar-old-field:6"
+    },
+    {
+      "id": "zombie",
+      "x": 6.9,
+      "z": 18.48,
+      "encounter": "cellar-old-field:rear",
+      "slot": "cellar-old-field:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

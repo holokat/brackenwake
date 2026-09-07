@@ -1,0 +1,59 @@
+{
+  "id": "greenwold_habitat_hollow_rear",
+  "zone": "highwaymanshollow",
+  "name": "The hidden pack",
+  "at": {
+    "x": 449,
+    "z": -877
+  },
+  "note": "A pack lies in the blackberries beside the rear approach. Its owners watch from the bank.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_bramble_thicket",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "loot_sack",
+      "x": 4,
+      "z": 4,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_ivy_stump",
+      "x": -5,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": -7,
+      "z": 12,
+      "night": true
+    }
+  ],
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": 3,
+      "z": 8,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "stations": []
+}

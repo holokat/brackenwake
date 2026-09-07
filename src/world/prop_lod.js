@@ -25,7 +25,12 @@ export function instancePropMesh(mesh,placements){
   placements.forEach((p,i)=>{matrix.multiplyMatrices(p,mesh.matrixWorld);im.setMatrixAt(i,matrix);});
   im.instanceMatrix.needsUpdate=true;im.castShadow=true;im.receiveShadow=true;im.name=mesh.name||'model';return im;};
  const levels=mesh.geometry.userData.lodGeometries;
- if(!levels)return create(mesh.geometry);
+ if(!levels){
+  const part=create(mesh.geometry),distance=mesh.geometry.userData.maxDistance;
+  if(!distance)return part;
+  const lod=new THREE.LOD();lod.position.copy(center);part.position.copy(center).negate();
+  lod.addLevel(part,0);lod.addLevel(new THREE.Group(),distance,.12);return lod;
+ }
  const size=new THREE.Box3().setFromBufferAttribute(mesh.geometry.attributes.position).getSize(new THREE.Vector3());
  const extent=Math.max(size.x,size.y,size.z),near=Math.max(40,extent*5),far=Math.max(120,extent*12);
  const lod=new THREE.LOD();lod.position.copy(center);

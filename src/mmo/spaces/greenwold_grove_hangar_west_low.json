@@ -127,14 +127,6 @@
     },
     {
       "species": "beech",
-      "x": 30.28,
-      "z": 2.87,
-      "scale": 1.05,
-      "yaw": 320,
-      "harvest": true
-    },
-    {
-      "species": "beech",
       "x": -18.04,
       "z": 46.12,
       "scale": 1.1,

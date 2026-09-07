@@ -1,3 +1,4 @@
+import {meshEnvelopes} from './collision/mesh-envelopes.js';
 // What a site looks like when you get there. Towns and hamlets are built from
 // the game's own houses, barns, silos and workshops around a well; camps from
 // the camp kit; ruins, shrines, dungeon mouths and cave mouths from primitives.
@@ -25,7 +26,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // twelve was 377 meshes. Static markers never move, so every mesh with the same
 // colour is baked into one geometry: a town becomes a dozen draw calls, and the
 // raycast has a dozen objects to test instead of hundreds.
-export function mergeByMaterial(group) {
+export function mergeByMaterial(group, {physical=false}={}) {
+  if(physical&&!group.userData.colliders)group.userData.colliders=meshEnvelopes(group);
   group.updateWorldMatrix(true, true);
   const buckets = new Map();   // colour hex + flags -> { mat, geos }
   const doomed = [];
@@ -247,7 +249,7 @@ export function buildSiteMarker(site, heightAt, opts = {}) {
   if (built) {
     g.add(built.group);
     g.userData.site = site;
-    const dressed = dressStructure(mergeByMaterial(g), built, site, opts);
+    const dressed = dressStructure(mergeByMaterial(g,{physical:true}), built, site, opts);
     dressed.traverse((o) => { if (o.isMesh && !o.userData.site) o.userData.site = site; });
     return dressed;
   }
@@ -320,7 +322,7 @@ export function buildSiteMarker(site, heightAt, opts = {}) {
     const chair = buildCamp('camp_chair'); chair.position.set(site.x - 2.4, ground(-2.4, 1.6), site.z + 1.6); chair.rotation.y = 0.9; g.add(chair);
   }
   g.userData.site = site;
-  const merged = mergeByMaterial(g);
+  const merged = mergeByMaterial(g,{physical:true});
   merged.traverse((o) => { if (o.isMesh) o.userData.site = site; });
   return merged;
 }
@@ -329,7 +331,7 @@ export function buildSiteMarker(site, heightAt, opts = {}) {
 export function createSiteMarkers(scene, discovery, heightAt, opts = {}) {
   const live = new Map();
   let lastX = Infinity, lastZ = Infinity;
-  let meshCache = null;
+  let meshCache = null, collisionVersion = 0;
   const pending = [];
   const animated = new Map();          // id -> update(dt, nightFactor)
 
@@ -377,7 +379,7 @@ export function createSiteMarkers(scene, discovery, heightAt, opts = {}) {
            * picker and `spaces.test.mjs` read, so nothing downstream moves.
            */
           if (!g.name.startsWith('site:')) g.name = `site:${s.id}`;
-          scene.add(g); live.set(s.id, g); meshCache = null;
+          scene.add(g); live.set(s.id, g); meshCache = null; collisionVersion++;
           if (typeof g.userData.update === 'function') animated.set(s.id, g.userData.update);
         }
       }
@@ -391,7 +393,7 @@ export function createSiteMarkers(scene, discovery, heightAt, opts = {}) {
       }
       for (const [id, g] of live) {
         if (keep.has(id)) continue;
-        scene.remove(g); live.delete(id); animated.delete(id); meshCache = null;
+        scene.remove(g); live.delete(id); animated.delete(id); meshCache = null; collisionVersion++;
       }
       for (let i = pending.length - 1; i >= 0; i--) if (!keep.has(pending[i].id)) pending.splice(i, 1);
     },
@@ -404,6 +406,8 @@ export function createSiteMarkers(scene, discovery, heightAt, opts = {}) {
       if (!meshCache) { meshCache = []; for (const g of live.values()) g.traverse((o) => { if (o.isMesh) meshCache.push(o); }); }
       return meshCache;
     },
+    get collisionVersion() { return collisionVersion; },
+    colliders() {const out=[];const collect=g=>{if(!g.visible)return;if(g.userData.colliders)out.push(...g.userData.colliders);else for(const child of g.children)collect(child);};for(const g of live.values())collect(g);return out;},
     get count() { return live.size; },
     dispose() {
       for (const g of live.values()) scene.remove(g);

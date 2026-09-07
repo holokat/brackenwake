@@ -1,0 +1,125 @@
+{
+  "method": "Seeded player-only melee timing against full-health targets; excludes enemy retaliation, movement, stamina depletion and spells.",
+  "rows": [
+    {
+      "monster": "giantRat",
+      "mode": "original",
+      "fights": 1000,
+      "seconds": 1.09,
+      "hits": 1.23,
+      "swings": 1.31
+    },
+    {
+      "monster": "giantRat",
+      "mode": "brisk",
+      "fights": 1000,
+      "seconds": 0.63,
+      "hits": 1.23,
+      "swings": 1.31
+    },
+    {
+      "monster": "giantRat",
+      "mode": "brisk-hp150",
+      "fights": 1000,
+      "seconds": 1.49,
+      "hits": 1.84,
+      "swings": 2.11
+    },
+    {
+      "monster": "skeleton",
+      "mode": "original",
+      "fights": 1000,
+      "seconds": 3.63,
+      "hits": 1.98,
+      "swings": 2.31
+    },
+    {
+      "monster": "skeleton",
+      "mode": "brisk",
+      "fights": 1000,
+      "seconds": 1.7,
+      "hits": 1.98,
+      "swings": 2.31
+    },
+    {
+      "monster": "skeleton",
+      "mode": "brisk-hp150",
+      "fights": 1000,
+      "seconds": 2.77,
+      "hits": 2.69,
+      "swings": 3.31
+    },
+    {
+      "monster": "wolf",
+      "mode": "original",
+      "fights": 1000,
+      "seconds": 5.66,
+      "hits": 2.34,
+      "swings": 3.1
+    },
+    {
+      "monster": "wolf",
+      "mode": "brisk",
+      "fights": 1000,
+      "seconds": 2.55,
+      "hits": 2.34,
+      "swings": 3.1
+    },
+    {
+      "monster": "wolf",
+      "mode": "brisk-hp150",
+      "fights": 1000,
+      "seconds": 4.16,
+      "hits": 3.31,
+      "swings": 4.61
+    },
+    {
+      "monster": "boar",
+      "mode": "original",
+      "fights": 1000,
+      "seconds": 8.23,
+      "hits": 3.13,
+      "swings": 4.11
+    },
+    {
+      "monster": "boar",
+      "mode": "brisk",
+      "fights": 1000,
+      "seconds": 3.63,
+      "hits": 3.13,
+      "swings": 4.11
+    },
+    {
+      "monster": "boar",
+      "mode": "brisk-hp150",
+      "fights": 1000,
+      "seconds": 5.81,
+      "hits": 4.51,
+      "swings": 6.15
+    },
+    {
+      "monster": "bandit",
+      "mode": "original",
+      "fights": 1000,
+      "seconds": 9.34,
+      "hits": 3.21,
+      "swings": 4.55
+    },
+    {
+      "monster": "bandit",
+      "mode": "brisk",
+      "fights": 1000,
+      "seconds": 4.1,
+      "hits": 3.21,
+      "swings": 4.55
+    },
+    {
+      "monster": "bandit",
+      "mode": "brisk-hp150",
+      "fights": 1000,
+      "seconds": 6.56,
+      "hits": 4.66,
+      "swings": 6.84
+    }
+  ]
+}

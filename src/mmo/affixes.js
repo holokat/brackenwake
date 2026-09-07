@@ -1,3 +1,4 @@
+import {playerSwingSeconds} from './combat_pace.js';
 // Affixes: the sixty-odd lines a found item can carry, the ten named powers a
 // legendary can carry instead of nothing, and the deterministic roller that
 // turns a seed into a sword. Pure: no THREE, no DOM, runs in node.
@@ -447,7 +448,7 @@ export function describe(item) {
   if (b.kind === 'weapon') {
     const q = item.quality || 1;
     const lo = Math.round(b.minDamage * q), hi = Math.round(b.maxDamage * q);
-    lines.push(`${lo} to ${hi} ${b.damageType} damage, ${b.speed.toFixed(1)} s`);
+    lines.push(`${lo} to ${hi} ${b.damageType} damage, ${playerSwingSeconds(b.speed).toFixed(2)} s base swing`);
     lines.push(`${skillNameOf(b.skill)}, ${b.hands === 2 ? 'two handed' : b.hands === 1 ? 'one handed' : 'bare handed'}`);
     if (b.range != null) lines.push(`range ${b.range} m`);
     else if (b.reach > 1.5) lines.push(`reach ${b.reach} m`);

@@ -11,7 +11,45 @@
   "runs": [],
   "areas": [],
   "people": [],
-  "spawns": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": 7,
+      "z": 7,
+      "encounter": "pit-approach-dogs",
+      "slot": "pit-approach-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": -2,
+      "z": 12,
+      "encounter": "pit-approach-dogs",
+      "slot": "pit-approach-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": -8,
+      "z": 3,
+      "encounter": "pit-approach-dogs",
+      "slot": "pit-approach-dogs:2"
+    },
+    {
+      "id": "skeleton",
+      "x": -14,
+      "z": 11,
+      "night": true,
+      "encounter": "pit-approach-dogs",
+      "slot": "pit-approach-dogs:3"
+    },
+    {
+      "id": "skeleton",
+      "x": -21,
+      "z": 3,
+      "night": true,
+      "encounter": "pit-approach-dogs",
+      "slot": "pit-approach-dogs:4"
+    }
+  ],
   "trees": [
     {
       "species": "birch",
@@ -51,22 +89,6 @@
       "z": -23.39,
       "scale": 1.1,
       "yaw": 283,
-      "harvest": true
-    },
-    {
-      "species": "birch",
-      "x": 0.88,
-      "z": -47.26,
-      "scale": 0.9,
-      "yaw": 330,
-      "harvest": true
-    },
-    {
-      "species": "birch",
-      "x": -7.66,
-      "z": -64.58,
-      "scale": 0.8,
-      "yaw": 17,
       "harvest": true
     },
     {

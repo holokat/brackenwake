@@ -1,3 +1,4 @@
+import {playerSwingSeconds} from './combat_pace.js';
 // Combat rules. Every fight in Brackenwake is this arithmetic: player on
 // monster, monster on player, and later player on player, all through the same
 // functions. See docs/mmo/02-COMBAT.md, which this file follows line by line,
@@ -168,7 +169,8 @@ export function swingSeconds(fighter) {
   const dexFactor = Math.max(0.1, 1 - stat(fighter, 'dex') * SWING_DEX_PER_POINT);
   const speedFactor = Math.max(0.1, 1 - bonus(fighter, 'swingSpeed'));
   let s = Math.max(0.1, num(w.speed)) * dexFactor * speedFactor;
-  if (s < SWING_FLOOR) s = SWING_FLOOR;
+  if (fighter?.kind === 'player') s = playerSwingSeconds(s);
+  else if (s < SWING_FLOOR) s = SWING_FLOOR;
   if (num(fighter && fighter.stamina) <= 0) s *= ZERO_STAMINA_SWING_MULT;
   return s;
 }

@@ -135,22 +135,6 @@
     },
     {
       "species": "beech",
-      "x": -23.52,
-      "z": 43.57,
-      "scale": 1.1,
-      "yaw": 0,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": -0.98,
-      "z": 42.71,
-      "scale": 0.85,
-      "yaw": 47,
-      "harvest": true
-    },
-    {
-      "species": "beech",
       "x": 23.1,
       "z": 32.12,
       "scale": 1.15,
@@ -171,14 +155,6 @@
       "z": 51.46,
       "scale": 0.8,
       "yaw": 188,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": 19.39,
-      "z": 56.92,
-      "scale": 0.9,
-      "yaw": 235,
       "harvest": true
     },
     {

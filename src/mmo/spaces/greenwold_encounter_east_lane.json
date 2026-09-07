@@ -1,0 +1,48 @@
+{
+  "id": "greenwold_encounter_east_lane",
+  "name": "The east lane",
+  "note": "",
+  "at": {
+    "x": 670,
+    "z": -170
+  },
+  "radius": 50,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "trees": [],
+  "rocks": [],
+  "people": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": -7,
+      "z": 0,
+      "encounter": "east-stone-grubs",
+      "slot": "east-stone-grubs:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": 0,
+      "z": -1,
+      "encounter": "east-stone-grubs",
+      "slot": "east-stone-grubs:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": 9,
+      "z": 2,
+      "encounter": "east-stone-grubs",
+      "slot": "east-stone-grubs:2"
+    },
+    {
+      "id": "thornGrub",
+      "x": -4,
+      "z": -7,
+      "night": true,
+      "encounter": "east-stone-grubs",
+      "slot": "east-stone-grubs:3"
+    }
+  ]
+}

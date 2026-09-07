@@ -1072,12 +1072,14 @@ export function stepPlayer(s, dt, move, heightAt) {
   // the step, refused where the ground stands up like a wall. A refused
   // diagonal is retried one axis at a time so he slides along the mountain
   // instead of gluing himself to it.
-  const y0 = h(s.x, s.z);
+  const groundAt=(x,z)=>Math.max(h(x,z),h.supportAt?.(x,z,s.y+.08)??-Infinity);
+  const y0 = groundAt(s.x, s.z);
   const ok = (nx, nz) => {
     const d = Math.hypot(nx - s.x, nz - s.z);
     if (d < 1e-9) return true;
-    const ground = h(nx, nz);
+    const ground = groundAt(nx, nz);
     if (!Number.isFinite(ground)) return false;
+    if (h.canMove && !h.canMove({x:s.x,y:s.y,z:s.z},{x:nx,y:s.airborne?s.y:ground,z:nz})) return false;
     // in the air the only thing that stops you is a wall above your feet
     if (s.airborne) return ground <= s.y + WALL_STEP;
     return (ground - y0) / d <= MAX_SLOPE;
@@ -1095,10 +1097,12 @@ export function stepPlayer(s, dt, move, heightAt) {
   else { vx = 0; vz = 0; s.blocked = true; }
 
   s.vx = vx; s.vz = vz;
-  const ground = h(s.x, s.z);
+  const ground = groundAt(s.x, s.z);
   if (s.airborne) {
     s.vy -= GRAVITY * dt;
+    const ceiling=h.ceilingAt?.(s.x,s.z,s.y)??Infinity;
     s.y += s.vy * dt;
+    if(s.vy>0&&s.y+1.75>ceiling){s.y=ceiling-1.75;s.vy=0;}
     if (s.y > s.peakY) s.peakY = s.y;
     if (s.y <= ground) {
       s.y = ground; s.airborne = false; s.vy = 0;
@@ -1145,8 +1149,8 @@ export function stepPlayer(s, dt, move, heightAt) {
   return s;
 }
 
-export function createPlayer(scene, appearance) {
-  const rig = buildCharacter(appearance);
+export function createPlayer(scene, appearance, options = {}) {
+  const rig = (options.buildCharacter || buildCharacter)(appearance);
   const { group, parts } = rig;
   if (scene && scene.add) scene.add(group);
 
@@ -1154,7 +1158,8 @@ export function createPlayer(scene, appearance) {
   const pos = group.position;
 
   const api = {
-    group, pos, parts, state: s, rig,
+    group, pos, parts, state: s, rig, studio: rig.studio,
+    get ready() { return rig.ready || Promise.resolve(); },
     /** gear_visuals writes this; the pose reads it every frame. */
     grip: null,
     setAppearance(a) { rig.setAppearance(a); return api; },
@@ -1190,7 +1195,7 @@ export function createPlayer(scene, appearance) {
       const gdt = clamp(Number.isFinite(dt) ? dt : 0, 0, 0.1);
       s.grip = api.grip || null;
       s.gripMix = (s.gripMix || 0) + ((api.grip ? 1 : 0) - (s.gripMix || 0)) * (1 - Math.exp(-9 * gdt));
-      poseCharacter(parts, s);
+      if (rig.pose) rig.pose(s); else poseCharacter(parts, s);
     },
     setVisible(v) { group.visible = !!v; },
     teleport(x, z, heightAt) {

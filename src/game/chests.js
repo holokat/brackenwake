@@ -55,6 +55,7 @@ import { rollDrop, rollGold } from '../mmo/loot.js';
 import { TIERS } from '../mmo/monsters.js';
 import { itemBaseFor, describeItem, listText } from './loot_drops.js';
 import { BASES, baseFor } from '../mmo/items.js';
+import {strongholdChestAccess} from './stronghold_encounters.js';
 
 /** Metres. The same arm's length `loot_drops.BAG_REACH` uses for a sack. */
 export const CHEST_REACH = 3;
@@ -291,6 +292,8 @@ export function createChests({
       }
     }
 
+    const guarded=strongholdChestAccess(chest,character||{});
+    if(guarded){said.push(say(guarded,'bad'));return out(false,'guarded');}
     const difficulty = difficultyOf(chest);
     const result = {
       ok: false, reason: '', said, trap: null, lock: null,

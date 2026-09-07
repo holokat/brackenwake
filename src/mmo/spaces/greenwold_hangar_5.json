@@ -11,7 +11,37 @@
   "runs": [],
   "areas": [],
   "people": [],
-  "spawns": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": -35.34,
+      "z": -91.52,
+      "encounter": "beech-ridge-dogs",
+      "slot": "beech-ridge-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": -36.34,
+      "z": -83.52,
+      "encounter": "beech-ridge-dogs",
+      "slot": "beech-ridge-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": -34.34,
+      "z": -74.52,
+      "encounter": "beech-ridge-dogs",
+      "slot": "beech-ridge-dogs:2"
+    },
+    {
+      "id": "wolf",
+      "x": -35.34,
+      "z": -69.52,
+      "night": true,
+      "encounter": "beech-ridge-dogs",
+      "slot": "beech-ridge-dogs:3"
+    }
+  ],
   "trees": [],
   "rocks": [],
   "markers": [],

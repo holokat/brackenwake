@@ -24,9 +24,10 @@ import { createSystems } from './app/system.js';
 import { SYSTEMS, world } from './app/systems/index.js';
 import { createCreation } from './creation.js';
 import { createRoster } from './roster.js';
-import { buildCharacter } from './player.js';
+import { buildStudioCharacter as buildCharacter } from './studio/body.js';
 import { rosterAsked, clearRosterAsk } from './state.js';
 import { normalise as normaliseSettings } from './win_settings.js';
+import { WORLD_FOG } from './scene.js';
 
 const SAVE_EVERY_MS = 5000;
 
@@ -124,6 +125,7 @@ async function boot() {
   }
 
   function startGame() {
+    sc.setFog(WORLD_FOG.near,WORLD_FOG.far);
     // an old save's settings are filled in and clamped before anything reads them
     ctx.character.settings = normaliseSettings(ctx.character.settings);
     const systems = createSystems(ctx, SYSTEMS);

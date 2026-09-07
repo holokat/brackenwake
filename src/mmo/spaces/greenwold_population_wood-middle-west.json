@@ -1,0 +1,137 @@
+{
+  "id": "greenwold_population_wood-middle-west",
+  "name": "Beech Hangar woodland",
+  "at": {
+    "x": -1229,
+    "z": 59
+  },
+  "radius": 78,
+  "district": "beechhangar",
+  "pieces": [
+    {
+      "model": "lw_mushroom_ring",
+      "x": 28,
+      "z": 14.999999999999998,
+      "scale": 1,
+      "yaw": 90,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": 30,
+      "z": -24,
+      "scale": 1.1,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 37,
+      "z": -8,
+      "scale": 0.9,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 39,
+      "z": 8,
+      "scale": 1.1,
+      "yaw": 90,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": -20,
+      "z": -10,
+      "encounter": "wood-middle-west:near",
+      "slot": "wood-middle-west:0"
+    },
+    {
+      "id": "badger",
+      "x": -22,
+      "z": -6,
+      "encounter": "wood-middle-west:near",
+      "slot": "wood-middle-west:1"
+    },
+    {
+      "id": "badger",
+      "x": -25,
+      "z": -3,
+      "encounter": "wood-middle-west:near",
+      "slot": "wood-middle-west:2"
+    },
+    {
+      "id": "badger",
+      "x": -21,
+      "z": 1,
+      "encounter": "wood-middle-west:near",
+      "slot": "wood-middle-west:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": 19.1,
+      "z": 16.1,
+      "encounter": "wood-middle-west:rear",
+      "slot": "wood-middle-west:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": 22,
+      "z": 19,
+      "encounter": "wood-middle-west:rear",
+      "slot": "wood-middle-west:5"
+    },
+    {
+      "id": "giantSpider",
+      "x": 16,
+      "z": 22,
+      "encounter": "wood-middle-west:rear",
+      "slot": "wood-middle-west:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": 18.4,
+      "z": 25.4,
+      "encounter": "wood-middle-west:rear",
+      "slot": "wood-middle-west:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": 30,
+      "z": -24,
+      "tree": {
+        "x": 30,
+        "z": -24,
+        "scale": 1.1
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    },
+    {
+      "id": "oyster_mushroom",
+      "x": 37,
+      "z": -8,
+      "tree": {
+        "x": 37,
+        "z": -8,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

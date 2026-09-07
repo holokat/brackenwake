@@ -1,0 +1,122 @@
+{
+  "id": "greenwold_population_low-field-east",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 1001,
+    "z": 313
+  },
+  "radius": 78,
+  "district": "eastfields",
+  "pieces": [
+    {
+      "model": "lw_gorse",
+      "x": -2.300871007211126,
+      "z": 19.992648464077373,
+      "scale": 1.5,
+      "yaw": 250,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_thistle_clump",
+      "x": 1.1158793326068386,
+      "z": 17.684875269988787,
+      "scale": 1,
+      "yaw": 250,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_cowslip_patch",
+      "x": 10.84792349691413,
+      "z": -8.205032346377335,
+      "scale": 1.5,
+      "yaw": 250,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_rabbit_warren",
+      "x": -31.956451293598338,
+      "z": -11.780713930822577,
+      "scale": 1,
+      "yaw": 250,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": 5.3,
+      "z": 8.71,
+      "encounter": "low-field-east:near",
+      "slot": "low-field-east:0"
+    },
+    {
+      "id": "giantRat",
+      "x": 0.17,
+      "z": 6.32,
+      "encounter": "low-field-east:near",
+      "slot": "low-field-east:1"
+    },
+    {
+      "id": "giantRat",
+      "x": 4.78,
+      "z": 1.45,
+      "encounter": "low-field-east:near",
+      "slot": "low-field-east:2"
+    },
+    {
+      "id": "giantRat",
+      "x": -0.34,
+      "z": -0.94,
+      "encounter": "low-field-east:near",
+      "slot": "low-field-east:3"
+    },
+    {
+      "id": "thornGrub",
+      "x": -20.76,
+      "z": -7.34,
+      "encounter": "low-field-east:rear",
+      "slot": "low-field-east:4"
+    },
+    {
+      "id": "thornGrub",
+      "x": -24.35,
+      "z": -11.36,
+      "encounter": "low-field-east:rear",
+      "slot": "low-field-east:5"
+    },
+    {
+      "id": "thornGrub",
+      "x": -19.74,
+      "z": -16.23,
+      "encounter": "low-field-east:rear",
+      "slot": "low-field-east:6"
+    },
+    {
+      "id": "thornGrub",
+      "x": -15.21,
+      "z": -12.55,
+      "encounter": "low-field-east:rear",
+      "slot": "low-field-east:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "dandelion",
+      "x": 14.7,
+      "z": 17,
+      "count": 2
+    },
+    {
+      "id": "dandelion",
+      "x": 12.9,
+      "z": -14.27,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

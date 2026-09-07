@@ -1,0 +1,115 @@
+{
+  "id": "greenwold_grove_hedge_one_west",
+  "name": "Oak stand",
+  "note": "The hedge one west trees frame the nearby route.",
+  "at": {
+    "x": 259,
+    "z": 214
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -48.83,
+      "z": -37.43,
+      "scale": 0.8,
+      "yaw": -30,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -35.37,
+      "z": -22.73,
+      "scale": 1.05,
+      "yaw": 17,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -12.82,
+      "z": -17.79,
+      "scale": 1.2,
+      "yaw": 64,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 2.1,
+      "z": 2.37,
+      "scale": 1.3,
+      "yaw": 111,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 23.78,
+      "z": 6.8,
+      "scale": 1.1,
+      "yaw": 158,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -30.8,
+      "z": -46.65,
+      "scale": 0.85,
+      "yaw": 299,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -9.61,
+      "z": -41.35,
+      "scale": 1.1,
+      "yaw": 346,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 7.54,
+      "z": -21.05,
+      "scale": 1.2,
+      "yaw": 33,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 31.82,
+      "z": -15.11,
+      "scale": 1,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 47.61,
+      "z": 5.55,
+      "scale": 0.9,
+      "yaw": 127,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 10.14,
+      "z": -49.57,
+      "scale": 0.85,
+      "yaw": 174,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 31.16,
+      "z": -33.97,
+      "scale": 1.05,
+      "yaw": 221,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

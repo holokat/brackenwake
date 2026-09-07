@@ -1,0 +1,56 @@
+{
+  "id": "greenwold_habitat_mere_shore",
+  "zone": "sunkenchapel",
+  "name": "The drowned boundary",
+  "at": {
+    "x": -145,
+    "z": -840
+  },
+  "note": "A broken boundary wall and rushes follow the shore beside the causeway.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_drowned_wall",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_rushes",
+      "x": 6,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_yellow_iris",
+      "x": -5,
+      "z": 5,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "effects": [
+    {
+      "id": "mist_bank",
+      "x": 0,
+      "z": 4,
+      "gate": "night",
+      "scale": 1.6,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

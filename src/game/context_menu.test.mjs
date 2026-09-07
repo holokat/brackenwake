@@ -73,7 +73,7 @@ function fakeGame(over = {}) {
 const wolfRow = MONSTERS.wolf;
 const wolfMon = (over = {}) => ({
   name: 'Wolf', key: 'w1', row: wolfRow,
-  actor: { name: 'Wolf', health: 40, maxHealth: 40, pos: { x: 1, z: 1 } },
+  actor: { name: 'Wolf', health: wolfRow.hp, maxHealth: wolfRow.hp, pos: { x: 1, z: 1 } },
   ...over,
 });
 

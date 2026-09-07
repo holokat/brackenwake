@@ -1,0 +1,187 @@
+{
+  "id": "greenwold_grove_hangar_upper_east",
+  "name": "Beech stand",
+  "note": "The hangar upper east trees frame the nearby route.",
+  "at": {
+    "x": -997,
+    "z": 229
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -55.54,
+      "z": -2.61,
+      "scale": 1,
+      "yaw": 35,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -45.39,
+      "z": -19.49,
+      "scale": 1.2,
+      "yaw": 82,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -23.93,
+      "z": -27.2,
+      "scale": 1.3,
+      "yaw": 129,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -8.28,
+      "z": -46.7,
+      "scale": 1.1,
+      "yaw": 176,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 18.02,
+      "z": -49.24,
+      "scale": 0.95,
+      "yaw": 223,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -47.51,
+      "z": 21.06,
+      "scale": 1.15,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -33.18,
+      "z": 4.92,
+      "scale": 1.05,
+      "yaw": 317,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -13.93,
+      "z": -2.46,
+      "scale": 1.25,
+      "yaw": 4,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 1.39,
+      "z": -24.17,
+      "scale": 1.3,
+      "yaw": 51,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 25.15,
+      "z": -28.59,
+      "scale": 1.1,
+      "yaw": 98,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 49.72,
+      "z": -21.39,
+      "scale": 0.85,
+      "yaw": 145,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -29.32,
+      "z": 40.06,
+      "scale": 0.95,
+      "yaw": 192,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -13.92,
+      "z": 21.96,
+      "scale": 1.2,
+      "yaw": 239,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 10.82,
+      "z": 11.96,
+      "scale": 1.15,
+      "yaw": 286,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 30.15,
+      "z": -4.02,
+      "scale": 1.05,
+      "yaw": 333,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -7.2,
+      "z": 48.99,
+      "scale": 1.1,
+      "yaw": 20,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 13.69,
+      "z": 40.47,
+      "scale": 0.85,
+      "yaw": 67,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 32.69,
+      "z": 22.28,
+      "scale": 1.15,
+      "yaw": 114,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 50.87,
+      "z": 4.66,
+      "scale": 1,
+      "yaw": 161,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -24.9,
+      "z": 63.82,
+      "scale": 0.8,
+      "yaw": 208,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 37.69,
+      "z": 46.85,
+      "scale": 0.9,
+      "yaw": 255,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

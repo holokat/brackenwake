@@ -14,8 +14,8 @@
 import * as THREE from 'three';
 
 export const SPELL_ATLAS = {
-  fire: '/vfx/spell-fire-explosion-atlas.png',
-  smoke: '/vfx/spell-smoke-atlas.png',
+  fire: '/studio/vfx/spell-fire-explosion-atlas.png',
+  smoke: '/studio/vfx/spell-smoke-atlas.png',
   /** The bake's grid. particles.js validates frames against columns * rows. */
   grid: { columns: 6, rows: 6, frames: 36 },
 };

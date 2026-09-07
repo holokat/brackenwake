@@ -1,0 +1,121 @@
+{
+  "reviewedOn": "2026-09-07",
+  "method": "Isolated real-game review in the existing Brave browser; in-memory save storage. GPU comparison renders the scene at 640 by 308 with the living root visible and hidden, counting pixels whose RGB delta exceeds 6.",
+  "scope": "Pixel differences include active source effects, animals and local lights. They do not separately measure the canopy lighting multiplier or establish frame-rate performance.",
+  "libraryModels": 179,
+  "livingProbes": {
+    "habitat_hollow_fire-night": {
+      "changedPixels": 6029,
+      "totalPixels": 197120,
+      "effects": [
+        "greenwold_habitat_hollow_fire:effects:0"
+      ],
+      "animals": [],
+      "lights": 1,
+      "canopy": 0,
+      "errors": []
+    },
+    "habitat_chapel_wake-night": {
+      "changedPixels": 16295,
+      "totalPixels": 197120,
+      "effects": [
+        "greenwold_habitat_chapel_wake:effects:1",
+        "greenwold_habitat_chapel_wake:effects:0"
+      ],
+      "animals": [],
+      "lights": 1,
+      "canopy": 0,
+      "errors": []
+    },
+    "habitat_fern_hollow-night": {
+      "changedPixels": 385,
+      "totalPixels": 197120,
+      "effects": [
+        "greenwold_habitat_fern_hollow:effects:1"
+      ],
+      "animals": [],
+      "lights": 0,
+      "canopy": 0.9991615273293767,
+      "errors": []
+    },
+    "habitat_legion_fire-night": {
+      "changedPixels": 18280,
+      "totalPixels": 197120,
+      "effects": [
+        "greenwold_habitat_legion_fire:effects:0"
+      ],
+      "animals": [],
+      "lights": 1,
+      "canopy": 0.000872244296009647,
+      "errors": []
+    },
+    "habitat_chalk_beacon-night": {
+      "changedPixels": 19385,
+      "totalPixels": 197120,
+      "effects": [
+        "greenwold_habitat_chalk_beacon:effects:0"
+      ],
+      "animals": [],
+      "lights": 1,
+      "canopy": 4.5320224528743804e-08,
+      "errors": []
+    },
+    "habitat_orchard_yard-night": {
+      "changedPixels": 7283,
+      "totalPixels": 197120,
+      "effects": [],
+      "animals": [
+        "greenwold_habitat_orchard_yard:animals:0"
+      ],
+      "lights": 1,
+      "canopy": 6.670302358239016e-13,
+      "errors": []
+    },
+    "habitat_coldwake_orchard-night": {
+      "changedPixels": 5071,
+      "totalPixels": 197120,
+      "effects": [],
+      "animals": [
+        "greenwold_habitat_coldwake_orchard:animals:0"
+      ],
+      "lights": 1,
+      "canopy": 9.096389790895088e-39,
+      "errors": []
+    },
+    "millrun-day": {
+      "changedPixels": 158,
+      "totalPixels": 197120,
+      "effects": [],
+      "animals": [
+        "greenwold_habitat_mill_store:animals:0"
+      ],
+      "lights": 0,
+      "canopy": 2.732345004404278e-44,
+      "errors": []
+    },
+    "habitat_mill_lane_fold-day": {
+      "changedPixels": 133,
+      "totalPixels": 197120,
+      "effects": [
+        "greenwold_habitat_mill_lane_fold:effects:0"
+      ],
+      "animals": [
+        "greenwold_habitat_mill_lane_fold:animals:1",
+        "greenwold_habitat_mill_lane_fold:animals:0"
+      ],
+      "lights": 0,
+      "canopy": 7.497722794553969e-50,
+      "errors": []
+    }
+  },
+  "runtimeErrors": [],
+  "shaderErrors": [],
+  "captures": [
+    "mill-run.jpg",
+    "shepherds-fold.jpg",
+    "coldwake-night.jpg",
+    "chapel-night.jpg",
+    "fern-hollow-night.jpg",
+    "hollow-watchfire.jpg"
+  ]
+}

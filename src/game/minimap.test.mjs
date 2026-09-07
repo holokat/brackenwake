@@ -513,15 +513,15 @@ console.log('\nthe ground, out of the field and nothing else');
   // 1000 m square inside the Greenwold that the field puts no open water in at
   // all, found by walking the realm on a 500 m lattice
   const dry = recorder();
-  const repDry = paintMinimap(dry, { view: viewOf(-2000, 500, 1000, 220), field, spaces: {}, zone: null, editor: false });
+  const repDry = paintMinimap(dry, { view: viewOf(-2100, 400, 1000, 220), field, spaces: {}, zone: null, editor: false });
   ck('and where the field says there is none, none is painted',
     repDry.wet === 0 && !dry.rects.some((q) => {
       const m = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(q.fill);
       return m && +m[3] - +m[1] > 12;
-    }), `0 of ${repDry.samples} samples at -2000, 500`);
+    }), `0 of ${repDry.samples} samples at -2100, 400`);
   ck('the sea is far wetter than the land, which is what the mask is for',
     repSea.wet > repDry.wet && repSea.wet > rep.wet,
-    `${repSea.wet} at sea, ${rep.wet} at Hearthhome, ${repDry.wet} at -2000, 500`);
+    `${repSea.wet} at sea, ${rep.wet} at Hearthhome, ${repDry.wet} at -2100, 400`);
 }
 
 // ----------------------------------------------- 10. the painted ground ----

@@ -1,0 +1,185 @@
+{
+  "id": "greenwold_population_north-mid-wood",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 221,
+    "z": -1186
+  },
+  "radius": 78,
+  "district": "northwood",
+  "pieces": [
+    {
+      "model": "lw_bracken",
+      "x": -23.999999999999996,
+      "z": 23.000000000000004,
+      "scale": 1.4,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_mushroom_ring",
+      "x": -14.999999999999996,
+      "z": 28.000000000000004,
+      "scale": 1,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_leaf_litter",
+      "x": 11.999999999999998,
+      "z": -10.000000000000002,
+      "scale": 2,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": 31,
+      "z": 15,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 24,
+      "z": 30,
+      "scale": 1.1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 8,
+      "z": 37,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -8,
+      "z": 39,
+      "scale": 1.1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 32,
+      "z": -7,
+      "scale": 1.1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -35,
+      "z": -3,
+      "scale": 0.85,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 20,
+      "z": -20,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": 10,
+      "z": -2,
+      "encounter": "north-mid-wood:near",
+      "slot": "north-mid-wood:0"
+    },
+    {
+      "id": "badger",
+      "x": 6,
+      "z": 2,
+      "encounter": "north-mid-wood:near",
+      "slot": "north-mid-wood:1"
+    },
+    {
+      "id": "badger",
+      "x": 3,
+      "z": -4,
+      "encounter": "north-mid-wood:near",
+      "slot": "north-mid-wood:2"
+    },
+    {
+      "id": "badger",
+      "x": -1,
+      "z": 0,
+      "encounter": "north-mid-wood:near",
+      "slot": "north-mid-wood:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": -14,
+      "z": 17,
+      "encounter": "north-mid-wood:rear",
+      "slot": "north-mid-wood:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": -19,
+      "z": 19,
+      "encounter": "north-mid-wood:rear",
+      "slot": "north-mid-wood:5"
+    },
+    {
+      "id": "giantSpider",
+      "x": -22,
+      "z": 13,
+      "encounter": "north-mid-wood:rear",
+      "slot": "north-mid-wood:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": -17,
+      "z": 10,
+      "encounter": "north-mid-wood:rear",
+      "slot": "north-mid-wood:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": 31,
+      "z": 15,
+      "tree": {
+        "x": 31,
+        "z": 15,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    },
+    {
+      "id": "oyster_mushroom",
+      "x": 24,
+      "z": 30,
+      "tree": {
+        "x": 24,
+        "z": 30,
+        "scale": 1.1
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

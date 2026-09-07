@@ -682,6 +682,7 @@ function heldFor(item, opts) {
  * @returns {{ changed: string[], grip: string|null, nodes: number, triangles: number }}
  */
 export function dressRig(rig, equipment, opts = {}) {
+  if (rig?.studio) return rig.studio.setEquipment(equipment,opts);
   const parts = rig?.parts;
   if (!parts) throw new Error('dressRig: the rig has no parts');
   const eq = (equipment && equipment.equipment) || equipment || {};
@@ -785,6 +786,7 @@ export function dressRig(rig, equipment, opts = {}) {
 /** Take everything gear put on the rig back off it. Leaves the body alone. */
 export function undress(rig) {
   if (!rig) return 0;
+  if(rig.studio){const count=Object.values(rig.studio.equipment).filter(Boolean).length;rig.studio.setEquipment({});return count;}
   let n = 0;
   for (const key of [...wardrobe(rig).keys()]) n += strip(rig, key);
   rig.grip = null;

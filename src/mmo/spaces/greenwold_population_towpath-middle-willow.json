@@ -1,0 +1,117 @@
+{
+  "id": "greenwold_population_towpath-middle-willow",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -352,
+    "z": 51
+  },
+  "radius": 78,
+  "district": "watermeadows",
+  "pieces": [
+    {
+      "model": "lw_rushes",
+      "x": 18,
+      "z": 10.999999999999998,
+      "scale": 1.6,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": -36,
+      "z": 18,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 32,
+      "z": -7,
+      "scale": 1.1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -20,
+      "z": -18,
+      "scale": 0.95,
+      "yaw": 180,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "reedStalker",
+      "x": 10,
+      "z": -2,
+      "encounter": "towpath-middle-willow:near",
+      "slot": "towpath-middle-willow:0"
+    },
+    {
+      "id": "reedStalker",
+      "x": 6,
+      "z": 2,
+      "encounter": "towpath-middle-willow:near",
+      "slot": "towpath-middle-willow:1"
+    },
+    {
+      "id": "reedStalker",
+      "x": 5.1,
+      "z": -1.9,
+      "encounter": "towpath-middle-willow:near",
+      "slot": "towpath-middle-willow:2"
+    },
+    {
+      "id": "reedStalker",
+      "x": -1,
+      "z": 0,
+      "encounter": "towpath-middle-willow:near",
+      "slot": "towpath-middle-willow:3"
+    },
+    {
+      "id": "drowned",
+      "x": -14,
+      "z": 17,
+      "encounter": "towpath-middle-willow:rear",
+      "slot": "towpath-middle-willow:4"
+    },
+    {
+      "id": "drowned",
+      "x": -19,
+      "z": 19,
+      "encounter": "towpath-middle-willow:rear",
+      "slot": "towpath-middle-willow:5"
+    },
+    {
+      "id": "drowned",
+      "x": -22,
+      "z": 13,
+      "encounter": "towpath-middle-willow:rear",
+      "slot": "towpath-middle-willow:6"
+    },
+    {
+      "id": "drowned",
+      "x": -17,
+      "z": 10,
+      "encounter": "towpath-middle-willow:rear",
+      "slot": "towpath-middle-willow:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "nettle",
+      "x": -9,
+      "z": -17,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

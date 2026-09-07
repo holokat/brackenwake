@@ -289,7 +289,7 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
 
 // ------------------------------------------------------------------ shields
 {
-  check('three shields', Object.keys(SHIELDS).length === 3);
+  check('four shields', Object.keys(SHIELDS).length === 4);
   check('buckler, kite and tower match the document',
     SHIELDS.buckler.parryFactor === 0.6 && SHIELDS.buckler.weight === 3 && SHIELDS.buckler.strReq === 0
     && SHIELDS.kite.parryFactor === 0.9 && SHIELDS.kite.weight === 6 && SHIELDS.kite.strReq === 30

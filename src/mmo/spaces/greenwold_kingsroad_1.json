@@ -30,7 +30,73 @@
   "runs": [],
   "areas": [],
   "people": [],
-  "spawns": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": -4.13,
+      "z": 126.22,
+      "encounter": "east-lane-vermin",
+      "slot": "east-lane-vermin:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": 6.87,
+      "z": 124.22,
+      "encounter": "east-lane-vermin",
+      "slot": "east-lane-vermin:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": 13.87,
+      "z": 132.22,
+      "encounter": "east-lane-vermin",
+      "slot": "east-lane-vermin:2"
+    },
+    {
+      "id": "thornGrub",
+      "x": 0.87,
+      "z": 112.22,
+      "encounter": "east-lane-vermin",
+      "slot": "east-lane-vermin:3"
+    },
+    {
+      "id": "thornGrub",
+      "x": 14.87,
+      "z": 116.22,
+      "night": true,
+      "encounter": "east-lane-vermin",
+      "slot": "east-lane-vermin:4"
+    },
+    {
+      "id": "wildDog",
+      "x": -15.13,
+      "z": 58.22,
+      "encounter": "kingsroad-lower-dogs",
+      "slot": "kingsroad-lower-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": -9.13,
+      "z": 61.22,
+      "encounter": "kingsroad-lower-dogs",
+      "slot": "kingsroad-lower-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": -26.13,
+      "z": 19.22,
+      "encounter": "kingsroad-lower-dogs",
+      "slot": "kingsroad-lower-dogs:2"
+    },
+    {
+      "id": "wildDog",
+      "x": 12.87,
+      "z": 27.22,
+      "night": true,
+      "encounter": "kingsroad-lower-dogs",
+      "slot": "kingsroad-lower-dogs:3"
+    }
+  ],
   "trees": [],
   "rocks": [],
   "markers": [],

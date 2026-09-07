@@ -1,0 +1,122 @@
+{
+  "id": "greenwold_habitat_south_wood",
+  "zone": "coldwake",
+  "name": "The bridleway coppice",
+  "at": {
+    "x": -847,
+    "z": 677
+  },
+  "note": "Coppice stools and a saw pit occupy a working clearing beside the bridleway.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_saw_pit",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_log_pile",
+      "x": 8,
+      "z": 2,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_coppice_stool",
+      "x": -7,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "pad": 22,
+  "effects": [
+    {
+      "id": "falling_leaves",
+      "x": -7,
+      "z": 4,
+      "gate": "always",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": 8,
+      "z": 8,
+      "count": 2,
+      "tree": {
+        "x": 8,
+        "z": 8,
+        "scale": 0.9
+      },
+      "height": 0.9,
+      "yaw": 90
+    }
+  ],
+  "approach": [
+    -837.7,
+    666.7
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [
+    {
+      "species": "beech",
+      "x": 8,
+      "z": 8,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": -16,
+      "z": 15,
+      "encounter": "bridle-coppice-boars",
+      "slot": "bridle-coppice-boars:0"
+    },
+    {
+      "id": "boar",
+      "x": -23,
+      "z": 6,
+      "encounter": "bridle-coppice-boars",
+      "slot": "bridle-coppice-boars:1"
+    },
+    {
+      "id": "boar",
+      "x": -14,
+      "z": 23,
+      "encounter": "bridle-coppice-boars",
+      "slot": "bridle-coppice-boars:2"
+    },
+    {
+      "id": "wolf",
+      "x": -25,
+      "z": 20,
+      "night": true,
+      "encounter": "bridle-coppice-boars",
+      "slot": "bridle-coppice-boars:3"
+    },
+    {
+      "id": "wolf",
+      "x": -22,
+      "z": 31,
+      "night": true,
+      "encounter": "bridle-coppice-boars",
+      "slot": "bridle-coppice-boars:4"
+    }
+  ],
+  "stations": []
+}

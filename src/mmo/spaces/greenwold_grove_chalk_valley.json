@@ -15,6 +15,14 @@
   "trees": [
     {
       "species": "beech",
+      "x": -60.99,
+      "z": 8.06,
+      "scale": 0.8,
+      "yaw": 15,
+      "harvest": true
+    },
+    {
+      "species": "beech",
       "x": -41.09,
       "z": 8.94,
       "scale": 1.05,
@@ -59,6 +67,14 @@
       "z": -18.76,
       "scale": 0.8,
       "yaw": 297,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -54.77,
+      "z": -11.21,
+      "scale": 0.85,
+      "yaw": 344,
       "harvest": true
     },
     {

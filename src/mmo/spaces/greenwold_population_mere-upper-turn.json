@@ -1,0 +1,174 @@
+{
+  "id": "greenwold_population_mere-upper-turn",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 243,
+    "z": -933
+  },
+  "radius": 78,
+  "district": "highwaymanshollow",
+  "pieces": [
+    {
+      "model": "tent_ragged",
+      "x": 11.529882232500816,
+      "z": 15.233575276495731,
+      "scale": 1.8,
+      "yaw": 225,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "tent_ragged",
+      "x": -28.844831402300905,
+      "z": 25.376676326359913,
+      "scale": 1.8,
+      "yaw": 490,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "campfire",
+      "x": -10.947047909113039,
+      "z": 10.254859437144122,
+      "scale": 1,
+      "yaw": 190,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_stolen_goods",
+      "x": -14.536578327129202,
+      "z": 24.85332755466031,
+      "scale": 1.2,
+      "yaw": 190,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_tripwire",
+      "x": 17.840702180198495,
+      "z": -9.03932219347561,
+      "scale": 1,
+      "yaw": 280,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 27.92,
+      "z": 20.16,
+      "scale": 0.9,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 18.43,
+      "z": 33.71,
+      "scale": 1.1,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 1.45,
+      "z": 37.83,
+      "scale": 0.9,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -14.65,
+      "z": 37.02,
+      "scale": 1.1,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -34.64,
+      "z": 29.43,
+      "scale": 1,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 32.73,
+      "z": -1.34,
+      "scale": 1.1,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 23.17,
+      "z": -16.22,
+      "scale": 0.9,
+      "yaw": 190,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": 10.2,
+      "z": -0.23,
+      "encounter": "mere-upper-turn:near",
+      "slot": "mere-upper-turn:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": 5.56,
+      "z": 3.01,
+      "encounter": "mere-upper-turn:near",
+      "slot": "mere-upper-turn:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": 3.65,
+      "z": -3.42,
+      "encounter": "mere-upper-turn:near",
+      "slot": "mere-upper-turn:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": -0.98,
+      "z": -0.17,
+      "encounter": "mere-upper-turn:near",
+      "slot": "mere-upper-turn:3"
+    },
+    {
+      "id": "bandit",
+      "x": -16.74,
+      "z": 14.31,
+      "encounter": "mere-upper-turn:rear",
+      "slot": "mere-upper-turn:4"
+    },
+    {
+      "id": "bandit",
+      "x": -22.01,
+      "z": 15.41,
+      "encounter": "mere-upper-turn:rear",
+      "slot": "mere-upper-turn:5"
+    },
+    {
+      "id": "bandit",
+      "x": -23.92,
+      "z": 8.98,
+      "encounter": "mere-upper-turn:rear",
+      "slot": "mere-upper-turn:6"
+    },
+    {
+      "id": "bandit",
+      "x": -18.48,
+      "z": 6.9,
+      "encounter": "mere-upper-turn:rear",
+      "slot": "mere-upper-turn:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

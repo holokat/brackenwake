@@ -177,7 +177,7 @@ ck('a bow ability takes the arrows and a wand does not',
   specialFor('aimed-shot', 'projectile', 'bow') === 'arrows' && specialFor('fireball', 'projectile', null) === null);
 ck('a summon lingers and a slash does not', tailFor('portal', null) === 5.8 && tailFor('slash', null) === 1.7);
 ck('an instant cast releases at the short lead and a slow one at its cast bar',
-  near(planFor('lightning').release, INSTANT_RELEASE) && near(planFor('meteor').release, 2.5),
+  near(planFor('lightning').release, INSTANT_RELEASE) && near(planFor('meteor').release, ABILITIES_BY_ID.meteor.castTime),
   `lightning ${planFor('lightning').release}, meteor ${planFor('meteor').release}`);
 ck('a swing keeps the impact time the clip carries, not the short lead',
   near(planFor('powerStrike').release, 0.3133, 1e-4) && planFor('powerStrike').fireOn === 'swing-impact',
@@ -232,7 +232,7 @@ console.log('spell_vfx: gather, release and impact happen in that order');
     tGather > 0 && tRelease > tGather && tImpact > tRelease,
     `gather ${tGather.toFixed(3)}s, release ${tRelease.toFixed(3)}s, impact ${tImpact.toFixed(3)}s`);
   ck('the release is the cast time the ability charged, not the clip time',
-    Math.abs(tRelease - plan.release) < 0.03 && near(plan.release, 0.6),
+    Math.abs(tRelease - plan.release) < 0.03 && near(plan.release, ABILITIES_BY_ID.fireball.castTime),
     `released at ${tRelease.toFixed(3)}s against a ${plan.release}s cast`);
   ck('the gather begins before the cast is a third gone',
     tGather < plan.release * 0.4, `${tGather.toFixed(3)}s of ${plan.release}s`);

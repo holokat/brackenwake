@@ -1,0 +1,171 @@
+{
+  "id": "greenwold_population_drovers-middle-bank",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -510,
+    "z": 379
+  },
+  "radius": 78,
+  "district": "coldwake",
+  "pieces": [
+    {
+      "model": "lw_boar_wallow",
+      "x": -6.999999999999998,
+      "z": 10.000000000000002,
+      "scale": 1.7,
+      "yaw": 270,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bracken",
+      "x": -10.999999999999996,
+      "z": 22.000000000000004,
+      "scale": 1.5,
+      "yaw": 270,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bramble_thicket",
+      "x": -28.000000000000004,
+      "z": -24.999999999999996,
+      "scale": 1.5,
+      "yaw": 270,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "sheep_skeleton",
+      "x": -25.000000000000004,
+      "z": -19.999999999999996,
+      "scale": 1,
+      "yaw": 270,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -15,
+      "z": 31,
+      "scale": 0.9,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -35,
+      "z": -29,
+      "scale": 1,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -18,
+      "z": -36,
+      "scale": 0.9,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 7,
+      "z": 32,
+      "scale": 1.1,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 3,
+      "z": -35,
+      "scale": 0.85,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 18,
+      "z": -20,
+      "scale": 0.95,
+      "yaw": 270,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": 2,
+      "z": 10,
+      "encounter": "drovers-middle-bank:near",
+      "slot": "drovers-middle-bank:0"
+    },
+    {
+      "id": "boar",
+      "x": -2,
+      "z": 6,
+      "encounter": "drovers-middle-bank:near",
+      "slot": "drovers-middle-bank:1"
+    },
+    {
+      "id": "boar",
+      "x": 4,
+      "z": 3,
+      "encounter": "drovers-middle-bank:near",
+      "slot": "drovers-middle-bank:2"
+    },
+    {
+      "id": "boar",
+      "x": 0,
+      "z": -1,
+      "encounter": "drovers-middle-bank:near",
+      "slot": "drovers-middle-bank:3"
+    },
+    {
+      "id": "wolf",
+      "x": -17,
+      "z": -14,
+      "encounter": "drovers-middle-bank:rear",
+      "slot": "drovers-middle-bank:4"
+    },
+    {
+      "id": "wolf",
+      "x": -19,
+      "z": -19,
+      "encounter": "drovers-middle-bank:rear",
+      "slot": "drovers-middle-bank:5"
+    },
+    {
+      "id": "wolf",
+      "x": -13,
+      "z": -22,
+      "encounter": "drovers-middle-bank:rear",
+      "slot": "drovers-middle-bank:6"
+    },
+    {
+      "id": "wolf",
+      "x": -10,
+      "z": -17,
+      "encounter": "drovers-middle-bank:rear",
+      "slot": "drovers-middle-bank:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": 8,
+      "z": 21,
+      "count": 2
+    },
+    {
+      "id": "blackberry",
+      "x": 17,
+      "z": -9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

@@ -1,0 +1,138 @@
+{
+  "id": "greenwold_habitat_charcoal",
+  "zone": "beechhangar",
+  "name": "The charcoal clearing",
+  "at": {
+    "x": -1135,
+    "z": -20
+  },
+  "note": "A charcoal clamp smoulders in a clearing off the hollow way. Cut poles wait beside the hut.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_charcoal_clamp",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_woodcutters_hut",
+      "x": 12,
+      "z": 0,
+      "yaw": 90,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_log_pile",
+      "x": 0,
+      "z": 10,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_coppice_stool",
+      "x": -10,
+      "z": 10,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_chopping_block",
+      "x": 10,
+      "z": 10,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "pad": 30,
+  "effects": [
+    {
+      "id": "chimney_smoke",
+      "x": 0,
+      "z": 0,
+      "gate": "always",
+      "scale": 0.75,
+      "y": 1.5
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": -12,
+      "z": 15,
+      "count": 2,
+      "tree": {
+        "x": -12,
+        "z": 15,
+        "scale": 0.9
+      },
+      "height": 0.9,
+      "yaw": 90
+    }
+  ],
+  "approach": [
+    -1102.4,
+    -14
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -12,
+      "z": 15,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": -13,
+      "z": 8,
+      "encounter": "charcoal-dogs",
+      "slot": "charcoal-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": -14,
+      "z": 2,
+      "encounter": "charcoal-dogs",
+      "slot": "charcoal-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": -9,
+      "z": 14,
+      "encounter": "charcoal-dogs",
+      "slot": "charcoal-dogs:2"
+    },
+    {
+      "id": "wolf",
+      "x": -38,
+      "z": 15,
+      "night": true,
+      "encounter": "charcoal-dogs",
+      "slot": "charcoal-dogs:3"
+    },
+    {
+      "id": "wolf",
+      "x": -5,
+      "z": 21,
+      "night": true,
+      "encounter": "charcoal-dogs",
+      "slot": "charcoal-dogs:4"
+    }
+  ],
+  "stations": []
+}

@@ -1,0 +1,145 @@
+{
+  "id": "greenwold_grove_bridle_north_bank",
+  "name": "Beech stand",
+  "note": "The bridle north bank trees frame the nearby route.",
+  "at": {
+    "x": -891,
+    "z": 553
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": -17,
+      "z": -16,
+      "encounter": "bridle-bend-dogs",
+      "slot": "bridle-bend-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": -26,
+      "z": -23,
+      "encounter": "bridle-bend-dogs",
+      "slot": "bridle-bend-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": -28,
+      "z": -11,
+      "encounter": "bridle-bend-dogs",
+      "slot": "bridle-bend-dogs:2"
+    },
+    {
+      "id": "wolf",
+      "x": -35,
+      "z": -27,
+      "night": true,
+      "encounter": "bridle-bend-dogs",
+      "slot": "bridle-bend-dogs:3"
+    },
+    {
+      "id": "wolf",
+      "x": -35,
+      "z": -20,
+      "night": true,
+      "encounter": "bridle-bend-dogs",
+      "slot": "bridle-bend-dogs:4"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -41.54,
+      "z": 45.38,
+      "scale": 0.8,
+      "yaw": 55,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -18.84,
+      "z": 11.22,
+      "scale": 1.2,
+      "yaw": 149,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 2.54,
+      "z": -1.88,
+      "scale": 1.3,
+      "yaw": 196,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 8.85,
+      "z": -23.1,
+      "scale": 1.1,
+      "yaw": 243,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 31.05,
+      "z": -35.63,
+      "scale": 0.9,
+      "yaw": 290,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 35.64,
+      "z": -54.39,
+      "scale": 0.8,
+      "yaw": 337,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -49.16,
+      "z": 26.62,
+      "scale": 0.85,
+      "yaw": 24,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -20.32,
+      "z": -9.34,
+      "scale": 1.2,
+      "yaw": 118,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -12.28,
+      "z": -33.02,
+      "scale": 1,
+      "yaw": 165,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 9.67,
+      "z": -46.94,
+      "scale": 0.9,
+      "yaw": 212,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -31.13,
+      "z": -34,
+      "scale": 1.05,
+      "yaw": 306,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

@@ -1,0 +1,76 @@
+{
+  "id": "greenwold_population_coldwake-west-field",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -614,
+    "z": 750
+  },
+  "radius": 78,
+  "district": "coldwake",
+  "pieces": [],
+  "trees": [],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": 4,
+      "z": -10,
+      "encounter": "coldwake-west-field:near",
+      "slot": "coldwake-west-field:0"
+    },
+    {
+      "id": "giantRat",
+      "x": 5,
+      "z": -6,
+      "encounter": "coldwake-west-field:near",
+      "slot": "coldwake-west-field:1"
+    },
+    {
+      "id": "giantRat",
+      "x": -1,
+      "z": -3,
+      "encounter": "coldwake-west-field:near",
+      "slot": "coldwake-west-field:2"
+    },
+    {
+      "id": "giantRat",
+      "x": 2.1,
+      "z": 3.1,
+      "encounter": "coldwake-west-field:near",
+      "slot": "coldwake-west-field:3"
+    },
+    {
+      "id": "thornGrub",
+      "x": 2.3,
+      "z": -0.7,
+      "encounter": "coldwake-west-field:rear",
+      "slot": "coldwake-west-field:4"
+    },
+    {
+      "id": "thornGrub",
+      "x": 28,
+      "z": 19,
+      "encounter": "coldwake-west-field:rear",
+      "slot": "coldwake-west-field:5"
+    },
+    {
+      "id": "thornGrub",
+      "x": 2.5,
+      "z": 11.5,
+      "encounter": "coldwake-west-field:rear",
+      "slot": "coldwake-west-field:6"
+    },
+    {
+      "id": "thornGrub",
+      "x": 34,
+      "z": 17,
+      "encounter": "coldwake-west-field:rear",
+      "slot": "coldwake-west-field:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

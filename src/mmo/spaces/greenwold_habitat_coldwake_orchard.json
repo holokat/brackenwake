@@ -1,0 +1,112 @@
+{
+  "id": "greenwold_habitat_coldwake_orchard",
+  "zone": "coldwake",
+  "name": "The Coldwake orchard",
+  "at": {
+    "x": -431,
+    "z": 802
+  },
+  "note": "An orchard and a small duck pond lie behind the cottages.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_apple_tree",
+      "x": -7,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_apple_tree",
+      "x": 7,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_duck_pond",
+      "x": 0,
+      "z": 10,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_washing_line",
+      "x": -8,
+      "z": 10,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_lantern_post",
+      "x": -1,
+      "z": -7,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "lights": [
+    {
+      "x": -1,
+      "z": -7,
+      "y": 2.5,
+      "color": 16760963,
+      "power": 20,
+      "range": 14
+    }
+  ],
+  "effects": [
+    {
+      "id": "drifting_petals",
+      "x": 7,
+      "z": 3,
+      "gate": "day",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "animals": [
+    {
+      "id": "cat",
+      "x": -4,
+      "z": 10,
+      "clip": "idle",
+      "yaw": 0
+    },
+    {
+      "id": "duck",
+      "x": -1,
+      "z": 12,
+      "clip": "idle",
+      "yaw": 100
+    },
+    {
+      "id": "duck",
+      "x": 2,
+      "z": 11,
+      "clip": "idle",
+      "yaw": 230
+    }
+  ],
+  "forage": [
+    {
+      "id": "wild_strawberry",
+      "x": 8,
+      "z": 9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "stations": []
+}

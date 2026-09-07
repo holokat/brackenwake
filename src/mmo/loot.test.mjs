@@ -384,9 +384,9 @@ const tally = (tier, luck, seed, n) => {
   // FOCI, SHIELDS, INSTRUMENTS, JEWELLERY.
   check('a caster is offered a wand and a staff', ['wand', 'staff', 'bone_staff'].every((id) => classProfile(mage).has(id)));
   check('and a pure swordsman is not', !classProfile({ stats: { str: 60 }, skills: { swordsmanship: 60 } }).has('wand'));
-  check('Parrying in the top three buys shields', wProf.shields.join(',') === 'buckler,kite,tower', wProf.shields.join(','));
+  check('Parrying in the top three buys shields', wProf.shields.join(',') === 'buckler,kite,heater,tower', wProf.shields.join(','));
   check('and a STR 40 parrier is not offered the tower shield it could not lift',
-    classProfileDetail({ stats: { str: 40 }, skills: { parrying: 60 } }).shields.join(',') === 'buckler,kite');
+    classProfileDetail({ stats: { str: 40 }, skills: { parrying: 60 } }).shields.join(',') === 'buckler,kite,heater');
   check('and no Parrying, no shields', classProfileDetail({ stats: { str: 60 }, skills: { swordsmanship: 60 } }).shields.length === 0);
   check('Musicianship in the top three buys a lute', classProfile(OPENINGS_BY_ID.bard).has('lute'));
   check('and nobody else gets one', !classProfile(warrior).has('lute') && !classProfile(mage).has('lute'));

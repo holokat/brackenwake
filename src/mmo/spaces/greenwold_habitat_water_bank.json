@@ -1,0 +1,65 @@
+{
+  "id": "greenwold_habitat_water_bank",
+  "zone": "watermeadows",
+  "name": "The reed margin",
+  "at": {
+    "x": -602,
+    "z": 12
+  },
+  "note": "Reeds follow the inside bend, with open ground left beside the crossing.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_rushes",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_yellow_iris",
+      "x": 6,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_pollard_willow",
+      "x": -7,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "animals": [
+    {
+      "id": "heron",
+      "x": 4,
+      "z": 7,
+      "clip": "idle",
+      "yaw": 240
+    }
+  ],
+  "effects": [
+    {
+      "id": "mist_bank",
+      "x": 0,
+      "z": 3,
+      "gate": "night",
+      "scale": 1.2,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

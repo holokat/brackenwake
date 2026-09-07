@@ -1,3 +1,4 @@
+import {isDestination} from '../mmo/greenwold/navigation.js';
 // The Map panel, the cost of drawing it, and the column of words beside it.
 // Run: node src/game/win_map.test.mjs
 //
@@ -1210,7 +1211,7 @@ console.log('win_map: the spaces the editor has laid out');
     spacesIn({ x: 6000, z: 6000, w: 500, h: 500 }, made).length === 0);
 
   // and the zoom rule, through the real draw over the real spaces on disk
-  const here = spacesIn({ x: 640, z: 1408, w: SPACE_SPAN, h: SPACE_SPAN });
+  const here = spacesIn({ x: 640, z: 1408, w: SPACE_SPAN, h: SPACE_SPAN }).filter(isDestination);
   if (here.length) {
     const gClose = painter();
     const close = drawMap(gClose, { field, cx: here[0].x, cz: here[0].z, span: SPACE_SPAN, size: 640, zonesFound: ['greenwold'] });

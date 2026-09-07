@@ -1,0 +1,126 @@
+{
+  "id": "greenwold_population_water-upper-willow",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -862,
+    "z": -155
+  },
+  "radius": 78,
+  "district": "watermeadows",
+  "pieces": [
+    {
+      "model": "lw_rushes",
+      "x": 6.7181362695896745,
+      "z": 19.996665848666467,
+      "scale": 1.6,
+      "yaw": 220,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": 14.11,
+      "z": 31.42,
+      "scale": 0.9,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -17.65,
+      "z": 33.49,
+      "scale": 0.9,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -31.2,
+      "z": 24.73,
+      "scale": 1.1,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -44.71,
+      "z": 8.17,
+      "scale": 1,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -24.88,
+      "z": -24.8,
+      "scale": 0.85,
+      "yaw": 220,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "reedStalker",
+      "x": 8.95,
+      "z": 4.9,
+      "encounter": "water-upper-willow:near",
+      "slot": "water-upper-willow:0"
+    },
+    {
+      "id": "reedStalker",
+      "x": 3.31,
+      "z": 5.39,
+      "encounter": "water-upper-willow:near",
+      "slot": "water-upper-willow:1"
+    },
+    {
+      "id": "reedStalker",
+      "x": 4.87,
+      "z": -1.14,
+      "encounter": "water-upper-willow:near",
+      "slot": "water-upper-willow:2"
+    },
+    {
+      "id": "reedStalker",
+      "x": -0.77,
+      "z": -0.64,
+      "encounter": "water-upper-willow:near",
+      "slot": "water-upper-willow:3"
+    },
+    {
+      "id": "drowned",
+      "x": -18.65,
+      "z": 4.02,
+      "encounter": "water-upper-willow:rear",
+      "slot": "water-upper-willow:4"
+    },
+    {
+      "id": "drowned",
+      "x": -22.57,
+      "z": -1.86,
+      "encounter": "water-upper-willow:rear",
+      "slot": "water-upper-willow:5"
+    },
+    {
+      "id": "drowned",
+      "x": -25.21,
+      "z": -4.18,
+      "encounter": "water-upper-willow:rear",
+      "slot": "water-upper-willow:6"
+    },
+    {
+      "id": "drowned",
+      "x": -16.45,
+      "z": -3.27,
+      "encounter": "water-upper-willow:rear",
+      "slot": "water-upper-willow:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

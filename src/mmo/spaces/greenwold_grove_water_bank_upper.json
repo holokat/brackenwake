@@ -1,0 +1,75 @@
+{
+  "id": "greenwold_grove_water_bank_upper",
+  "name": "Willow bank",
+  "note": "The water bank upper trees frame the nearby route.",
+  "at": {
+    "x": -899,
+    "z": -267
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "willow",
+      "x": -43.57,
+      "z": 20.54,
+      "scale": 0.9,
+      "yaw": 30,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -18.92,
+      "z": 13.23,
+      "scale": 1.1,
+      "yaw": 77,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -0.9,
+      "z": -7.56,
+      "scale": 1.2,
+      "yaw": 124,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 27.35,
+      "z": -14.63,
+      "scale": 0.95,
+      "yaw": 171,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 41.9,
+      "z": -33.43,
+      "scale": 0.8,
+      "yaw": 218,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -39.94,
+      "z": -1.19,
+      "scale": 0.8,
+      "yaw": 265,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 2.36,
+      "z": -27.92,
+      "scale": 0.9,
+      "yaw": 312,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

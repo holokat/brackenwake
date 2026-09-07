@@ -1,0 +1,64 @@
+{
+  "id": "greenwold_habitat_beech_floor",
+  "zone": "beechhangar",
+  "name": "The bluebell bank",
+  "at": {
+    "x": -1053,
+    "z": 342
+  },
+  "note": "Bluebells grow above the badger setts; the open path stays beneath them.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_bluebell_patch",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_foxglove",
+      "x": 7,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_bracken",
+      "x": -7,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "effects": [
+    {
+      "id": "pollen_motes",
+      "x": 0,
+      "z": 0,
+      "gate": "fair",
+      "scale": 1,
+      "y": 0
+    },
+    {
+      "id": "fireflies",
+      "x": 0,
+      "z": 0,
+      "gate": "night",
+      "scale": 1.7,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

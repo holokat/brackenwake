@@ -147,7 +147,16 @@
       "night": true
     }
   ],
-  "trees": [],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -19,
+      "z": -12,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
   "rocks": [
     {
       "kind": "rock",
@@ -228,7 +237,14 @@
       "id": "oyster_mushroom",
       "x": -14,
       "z": -12,
-      "count": 2
+      "count": 2,
+      "tree": {
+        "x": -19,
+        "z": -12,
+        "scale": 0.9
+      },
+      "height": 0.9,
+      "yaw": 90
     },
     {
       "id": "fiddlehead",

@@ -1,0 +1,195 @@
+{
+  "id": "greenwold_population_towpath-west-willow",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -517,
+    "z": 72
+  },
+  "radius": 78,
+  "district": "watermeadows",
+  "pieces": [
+    {
+      "model": "lw_rushes",
+      "x": 18,
+      "z": 10.999999999999998,
+      "scale": 1.6,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_rushes",
+      "x": -23.999999999999996,
+      "z": 25.000000000000004,
+      "scale": 1.5,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_rowing_boat",
+      "x": -13.999999999999996,
+      "z": 29,
+      "scale": 1,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_mooring_post",
+      "x": -9.999999999999996,
+      "z": 27,
+      "scale": 1,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_eel_trap",
+      "x": -10.999999999999996,
+      "z": 25,
+      "scale": 1,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": 31,
+      "z": 15,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 24,
+      "z": 30,
+      "scale": 1.1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 8,
+      "z": 37,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -8,
+      "z": 39,
+      "scale": 1.1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -29,
+      "z": 35,
+      "scale": 1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -36,
+      "z": 18,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 32,
+      "z": -7,
+      "scale": 1.1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -20,
+      "z": -18,
+      "scale": 0.95,
+      "yaw": 180,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "reedStalker",
+      "x": 10,
+      "z": -2,
+      "encounter": "towpath-west-willow:near",
+      "slot": "towpath-west-willow:0"
+    },
+    {
+      "id": "reedStalker",
+      "x": 6,
+      "z": 2,
+      "encounter": "towpath-west-willow:near",
+      "slot": "towpath-west-willow:1"
+    },
+    {
+      "id": "reedStalker",
+      "x": 3,
+      "z": -4,
+      "encounter": "towpath-west-willow:near",
+      "slot": "towpath-west-willow:2"
+    },
+    {
+      "id": "reedStalker",
+      "x": -1,
+      "z": 0,
+      "encounter": "towpath-west-willow:near",
+      "slot": "towpath-west-willow:3"
+    },
+    {
+      "id": "drowned",
+      "x": -14,
+      "z": 17,
+      "encounter": "towpath-west-willow:rear",
+      "slot": "towpath-west-willow:4"
+    },
+    {
+      "id": "drowned",
+      "x": -19,
+      "z": 19,
+      "encounter": "towpath-west-willow:rear",
+      "slot": "towpath-west-willow:5"
+    },
+    {
+      "id": "drowned",
+      "x": -22,
+      "z": 13,
+      "encounter": "towpath-west-willow:rear",
+      "slot": "towpath-west-willow:6"
+    },
+    {
+      "id": "drowned",
+      "x": -17,
+      "z": 10,
+      "encounter": "towpath-west-willow:rear",
+      "slot": "towpath-west-willow:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "nettle",
+      "x": 21,
+      "z": -8,
+      "count": 2
+    },
+    {
+      "id": "nettle",
+      "x": -9,
+      "z": -17,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

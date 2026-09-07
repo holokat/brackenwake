@@ -8,7 +8,10 @@
 import * as THREE from 'three';
 import { openAt, insidePoint, GATE_LINE, GATE_SAY_EVERY_MS } from '../../../mmo/release.js';
 import { createWorldRuntime, EDIT_CAVE_SPEC, TERRAIN_FILE } from '../../world_runtime.js';
+import { WORLD_FOG } from '../../scene.js';
 import { createSky } from '../../sky.js';
+import { createWeather } from '../../weather/runtime.js';
+import { createLivingWorld } from '../../../world/living/runtime.js';
 import { createWater } from '../../../world/water.js';
 import { zoneSub, clampToWorld, birthplaceFor } from '../../../world/zones.js';
 // SEA_LEVEL, so the words a downward brush reports quote the number the field
@@ -256,10 +259,12 @@ export const world = {
       },
     });
     const runtime = createWorldRuntime(sc, { homeBiome: 'meadow', effects: effectsLater });
+    const living = createLivingWorld(sc,runtime.field,{physical:runtime.physical});
     // the analytic sky and the ocean sheet share one shader block; the water
     // reads the sky's sun and palette, and scene.js takes its fog colour from it
     const sky = createSky(sc);
     const water = createWater(sc, runtime.field, { sky });
+    const weather = createWeather(sc, runtime.field);
     // a coast, not the open ocean: at 0.30 a crest stood 0.7 m over sea level and
     // broke through any meadow that sits half a metre above the water line
     if (water.uniforms?.uWaveH) water.uniforms.uWaveH.value = 0.14;
@@ -278,12 +283,14 @@ export const world = {
       envAt = now;
       const dome = sky.group || sc.scene.children.find((o) => o.name === 'sky' && o !== sc.sky);
       if (!dome) return false;
-      const parent = dome.parent, pos = dome.position.clone();
+      const parent = dome.parent, pos = dome.position.clone(), eye = sky.mesh.position.clone();
       dome.position.set(0, 0, 0);
+      sky.mesh.position.set(0,0,0);
       envScene.add(dome);
-      const rt = pmrem.fromScene(envScene, 0, 0.1, 50);
+      const rt = pmrem.fromScene(envScene, 0, 0.1, 1800);
       parent.add(dome);
       dome.position.copy(pos);
+      sky.mesh.position.copy(eye);
       if (envRT) envRT.dispose();
       envRT = rt;
       sc.scene.environment = rt.texture;
@@ -664,7 +671,8 @@ export const world = {
     });
 
     return {
-      runtime, sky, water, terrain,
+      runtime, sky, water, weather, living, terrain,
+      dispose() { living.dispose(); weather.dispose(); sky.dispose(); water.dispose(); if(envRT)envRT.dispose(); pmrem.dispose(); runtime.dispose(); },
       refreshEnvironment, nearestSettlement, keepInside, clampCamera, listen,
       heightAt: (x, z) => runtime.heightAt(x, z),
       /** The day, at any instant of the WORLD clock. One place, so it agrees. */
@@ -672,7 +680,7 @@ export const world = {
       get lastInside() { return lastInside; },
       get underwater() { return wasUnder; },
 
-      bw: { runtime, sky, water, refreshEnvironment, terrain },
+      bw: { runtime, sky, water, weather, living, refreshEnvironment, terrain },
 
       /**
        * The picture, and only ever last.
@@ -690,18 +698,23 @@ export const world = {
         const nowS = frame.worldNowS ?? frame.nowS;
         const day = sc.dayFactor(now);
         const { centre } = frame;
+        // Sample the current place before the dome, fog and weather consume it.
+        sc.setRealmAt(centre.x,centre.z);
+        weather.update(dt,now,centre,day);
         // sky first, then the water that reflects it; both centre on the eye
         sky.update(day, sc.camera.position, dt, now);
         sc.setSunDir(sky.shadowDir);
-        refreshEnvironment(now);
+        if(!runtime.inDungeon)refreshEnvironment(now);
         water.update(dt, sc.camera.position, sky.sunDir, sky.colours, nowS);
         if (!runtime.inDungeon && water.underwater !== wasUnder) {
           wasUnder = water.underwater;
           if (wasUnder) sc.setFog(0.5, 45, 0x0b3550);
-          else sc.setFog(90, 536);
+          else sc.setFog(WORLD_FOG.near,WORLD_FOG.far);
         }
         sc.follow(centre);
         sc.setDay(day);
+        weather.draw(dt,sc.camera.position,day,runtime.inDungeon||water.underwater);
+        living.update(dt,nowS,centre,day,weather.state,runtime.inDungeon||water.underwater);
         water.beforeRender(sc.renderer, sc.scene, sc.camera);   // the refraction pass, right before the frame
         // The PLAYER'S dt, not the world's, and deliberately: the only thing
         // that reads it is the spell pass in scene.js, and a spell is the

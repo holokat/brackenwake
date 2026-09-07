@@ -80,7 +80,7 @@ check('every armour tier has all eight pieces in every material it takes', (() =
 check('bows and staves come in all four woods', (() => (
   ['shortbow', 'longbow', 'crossbow', 'quarterstaff'].every((b) => WOODS.every((w) => RECIPE[`bow.${b}.${w.id}`]))
 ))());
-check('there are three shields in eight metals', recipesOfFamily('shield').length === 24, `${recipesOfFamily('shield').length}`);
+check('there are four shields in eight metals', recipesOfFamily('shield').length === 32, `${recipesOfFamily('shield').length}`);
 check('there are eight potions', recipesOfFamily('potion').length === 8, recipesOfFamily('potion').map((r) => r.result.base).join(' '));
 check('there are six meals, each with a stat buff', recipesOfFamily('meal').length === 6
   && recipesOfFamily('meal').every((r) => r.buff && Object.keys(r.buff).length > 0),

@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import {actorsAllowMove} from './actors.js';
+import {meshEnvelopes} from './mesh-envelopes.js';
+import {createCollisionIndex} from './shapes.js';
+const from={x:0,y:0,z:-3},to={x:0,y:0,z:3},group=new THREE.Group(),scene=new THREE.Scene();scene.add(group);
+const body={actor:{pos:{x:0,y:0,z:0},health:10},model:{group,radius:.4,height:1.8}};
+assert.equal(actorsAllowMove(from,to,[body]),false,'a fast step cannot cross a creature');
+assert.equal(actorsAllowMove(from,{...to,x:3},[body]),true);
+assert.equal(actorsAllowMove({x:0,y:0,z:0},to,[body]),true,'an overlapping spawn can separate');
+body.actor.health=0;assert.equal(actorsAllowMove(from,to,[body]),true);body.actor.health=10;
+scene.visible=false;assert.equal(actorsAllowMove(from,to,[body]),true);scene.visible=true;
+body.actor.pos.y=3;assert.equal(actorsAllowMove(from,to,[body]),true,'a flying body does not block beneath it');body.actor.pos.y=0;
+body.actor.pos.x=5;assert.equal(actorsAllowMove(from,to,[body]),true,'positions are live');
+const room=new THREE.Group(),mat=new THREE.MeshBasicMaterial();
+for(const x of [-2,2]){const wall=new THREE.Mesh(new THREE.BoxGeometry(2,3,.2),mat);wall.position.set(x,1.5,0);room.add(wall);}
+const lintel=new THREE.Mesh(new THREE.BoxGeometry(2,1,.2),mat);lintel.position.set(0,2.5,0);room.add(lintel);
+const physical=createCollisionIndex(meshEnvelopes(room));
+assert.equal(physical.canMove(from,to),true,'separate meshes preserve the door');
+assert.equal(physical.canMove({...from,x:2},{...to,x:2}),false,'the adjacent wall is solid');
+room.traverse(o=>o.geometry?.dispose());mat.dispose();
+console.log('Live bodies: swept contact, moving position, death, hidden parents, altitude and opening-aware legacy meshes passed.');

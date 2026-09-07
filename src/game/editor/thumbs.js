@@ -67,8 +67,8 @@ import { makeKit } from '../roster_preview.js';
  * touching both walls of its square.
  */
 export const THUMB = Object.freeze({
-  px: 56,
-  size: 112,
+  px: 136,
+  size: 272,
   fov: 30,          // degrees, vertical
   fill: 0.88,       // of the frame the body's widest projection takes
   yawDeg: 35,       // three quarters round from the front
@@ -80,7 +80,7 @@ export const THUMB = Object.freeze({
  * light, a different size. Everything written under an older version is thrown
  * away the moment the maker is built, before a single stale picture is shown.
  */
-export const THUMB_VERSION = 'v1';
+export const THUMB_VERSION = 'v2';
 
 /** Where the pictures are kept between visits, and where the stamp lives. */
 export const CACHE_PREFIX = 'bw.ed.thumb.';

@@ -47,6 +47,10 @@ import { ghostFor, brushRing, BRUSH_COLOUR, radiusRing, selectionBox, disposeGho
 import { TURN_DEG, SCALE_STEP, labelOf, pointOf } from './space_doc.js';
 import { setMarkersVisible } from '../../world/plan_models.js';
 import { MINIMAP_CLEAR } from '../minimap.js';
+import { createGlobalSearch } from './search_panel.js';
+import { locateResult, focusSearchPoint } from './search.js';
+import { createObjectHandles } from './object_handles.js';
+import { pickEditorObject } from './pick_object.js';
 
 /** How far the pointer may move between press and release and still be a click. */
 export const CLICK_SLOP = 5;
@@ -59,7 +63,7 @@ export const MARCH_FINE = 0.05;
 export const PICK_R = 6;
 /** The sidebar's cell, and the tray's tile, in pixels. */
 export const CELL = 48;
-export const TILE = 56;
+export const TILE = 150;
 
 /**
  * How far from the right edge of the screen the top dock stops.
@@ -166,7 +170,7 @@ const CSS = `
 }
 #bw-editor .cell .g { width: ${CELL}px; height: ${CELL}px; display: flex; align-items: center; justify-content: center;
   border: 1px solid ${theme.goldDim}88; background: rgba(255,255,255,.03); }
-#bw-editor .cell .n { font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; }
+#bw-editor .cell .n { font-size: 9.5px; letter-spacing: .06em; text-transform: none; }
 #bw-editor .cell:hover { color: ${theme.goldBright}; }
 #bw-editor .cell:hover .g { border-color: ${theme.gold}; }
 #bw-editor .cell.on { color: ${theme.goldBright}; }
@@ -174,11 +178,11 @@ const CSS = `
 #bw-editor .cell.off { opacity: .35; }
 #bw-editor .cell .k { font-size: 8.5px; color: ${theme.goldDim}; }
 
-#bw-editor .strip { left: 76px; top: 0; bottom: 0; width: 232px; border-top: 0; border-bottom: 0;
+#bw-editor .strip { left: 76px; top: 0; bottom: 0; width: 340px; max-width:calc(100vw - 96px); border-top: 0; border-bottom: 0;
   display: flex; flex-direction: column; }
 #bw-editor .strip .head { padding: 9px 10px 7px; border-bottom: 1px solid ${theme.goldDim}66; }
-#bw-editor .strip .head .t { font-family: ${theme.fonts.display}; font-size: 13px; letter-spacing: .16em;
-  text-transform: uppercase; color: ${theme.gold}; }
+#bw-editor .strip .head .t { font-family: ${theme.fonts.body}; font-size: 14px; letter-spacing: .02em;
+  text-transform: none; color: ${theme.gold}; }
 #bw-editor .strip .head .s { font-size: 11px; color: ${theme.parchmentFaint}; margin-top: 2px; }
 #bw-editor .strip .find { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid ${theme.goldDim}44; }
 #bw-editor input[type=text], #bw-editor input[type=number] {
@@ -186,21 +190,21 @@ const CSS = `
   background: rgba(0,0,0,.45); border: 1px solid ${theme.goldDim}88;
 }
 #bw-editor input[type=text]:focus, #bw-editor input[type=number]:focus { outline: none; border-color: ${theme.gold}; }
-#bw-editor .grid { flex: 1 1 auto; overflow: auto; padding: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+#bw-editor .grid { flex: 1 1 auto; min-height:0; overflow: auto; padding: 12px; display: grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap: 12px; align-content: start; }
 #bw-editor .tile {
-  width: ${TILE}px; padding: 4px 2px 3px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-width:0; padding: 6px 5px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px;
   cursor: pointer; border: 1px solid ${theme.goldDim}66; background: rgba(255,255,255,.03); color: ${theme.parchmentDim};
 }
-#bw-editor .tile .g { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
-#bw-editor .tile .n { font-size: 8.5px; line-height: 1.15; text-align: center; word-break: break-word; }
-#bw-editor .tile .tag { font-size: 7.5px; letter-spacing: .06em; text-transform: uppercase; color: ${theme.goldDim}; }
+#bw-editor .tile .g { width: 100%; height: 132px; display: flex; align-items: center; justify-content: center; }
+#bw-editor .tile .n { font-size: 12px; line-height: 1.3; text-align: center; overflow-wrap:anywhere; }
+#bw-editor .tile .tag { font-size: 10px; letter-spacing: normal; text-transform: none; color: ${theme.goldDim}; }
 #bw-editor .tile.real .tag { color: ${theme.gold}; }
 #bw-editor .tile:hover { border-color: ${theme.gold}; color: ${theme.goldBright}; }
 #bw-editor .tile.on { border-color: ${theme.gold}; background: rgba(201,164,74,.22); color: ${theme.goldBright}; }
 #bw-editor .tile.off { opacity: .38; cursor: default; }
 #bw-editor .knobs { border-top: 1px solid ${theme.goldDim}66; padding: 7px 10px 9px; max-height: 46%; overflow: auto; }
 #bw-editor .knob { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
-#bw-editor .knob .n { flex: 0 0 62px; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: ${theme.parchmentFaint}; }
+#bw-editor .knob .n { flex: 0 0 62px; font-size: 10px; letter-spacing: .05em; text-transform: none; color: ${theme.parchmentFaint}; }
 #bw-editor .knob input[type=range] { flex: 1 1 auto; min-width: 0; accent-color: ${theme.gold}; }
 #bw-editor .knob .v { flex: 0 0 58px; text-align: right; font-variant-numeric: tabular-nums; color: ${theme.parchment}; }
 #bw-editor .knobs .say { font-size: 11px; color: ${theme.parchmentFaint}; line-height: 1.45; margin-top: 4px; }
@@ -224,11 +228,11 @@ const CSS = `
 }
 #bw-editor .top button:hover, #bw-editor .card button:hover { border-color: ${theme.gold}; color: ${theme.goldBright}; }
 
-#bw-editor .card { left: 316px; top: 12px; width: 236px; padding: 9px 10px 10px; }
-#bw-editor .card .t { font-family: ${theme.fonts.display}; font-size: 12px; letter-spacing: .12em;
-  text-transform: uppercase; color: ${theme.gold}; margin-bottom: 5px; }
+#bw-editor .card { left: 424px; top: 46px; width: 236px; padding: 9px 10px 10px; }
+#bw-editor .card .t { font-family: ${theme.fonts.body}; font-size: 13px; letter-spacing: .02em;
+  text-transform: none; color: ${theme.gold}; margin-bottom: 5px; }
 #bw-editor .card .f { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
-#bw-editor .card .f .n { flex: 0 0 46px; font-size: 10px; text-transform: uppercase; color: ${theme.parchmentFaint}; }
+#bw-editor .card .f .n { flex: 0 0 46px; font-size: 10px; text-transform: none; color: ${theme.parchmentFaint}; }
 #bw-editor .card .w { font-size: 11px; color: ${theme.parchmentFaint}; margin: 5px 0; line-height: 1.4; }
 
 #bw-editor .status { left: 76px; right: 0; bottom: 0; padding: 5px 12px; display: flex; align-items: center; gap: 14px;
@@ -301,7 +305,7 @@ export const panel = {
      * character label the cell has no room for, and `onKey` below reads this
      * same function, so the face and the key cannot part company.
      */
-    const modeKey = (i) => (i < 9 ? String(i + 1) : i === 9 ? '0' : '');
+    const modeKey = i => MODES[i]?.select ? 'v' : i <= 9 ? String(i) : i === 10 ? '0' : '';
 
     const cell = (parent, name, icon, key) => {
       const b = h('div', 'cell');
@@ -326,6 +330,31 @@ export const panel = {
     }
 
     // ---- the tray -------------------------------------------------------
+    const globalSearch = createGlobalSearch({
+      parent: strip, editor: ed,
+      options: () => ({ kinds: ed.terrainKinds() || [], has: ctx.hasProp }),
+      swallow: key => ctx.input?.swallow?.(key),
+      choose(row) {
+        if (row.tool) {
+          queries.set(row.tool.mode, '');
+          setMode(row.tool.mode, { quiet: true });
+          if (!applyTool(row.tool)) return false;
+          ed.say(`${row.label} selected in ${modeOf(row.tool.mode).label}.`);
+        } else {
+          const hit = locateResult(row, ed.searchSpaces());
+          if (!hit) { ed.say('That result changed. Search again to find its current position.', 'bad'); return false; }
+          if (!ed.open(hit.space).ok) return false;
+          setMode('select', { quiet: true });
+          if (hit.selection) ed.select(hit.selection); else ed.deselect();
+          focusSearchPoint(ctx, hit.point, row.scope === 'places' ? hit.space.radius * .65 : 16);
+          ed.setLookAt(hit.point);
+          ed.say(`${row.label} found in ${hit.space.name} at ${Math.round(hit.point.x)}, ${Math.round(hit.point.z)}.`);
+        }
+        drawAll();
+        return true;
+      },
+    });
+    this._search = globalSearch;
     const head = h('div', 'head');
     const headT = h('div', 't', '');
     const headS = h('div', 's', '');
@@ -448,7 +477,7 @@ export const panel = {
       if (!t) return 'none';
       if (t.what === 'brush' || t.what === 'word') return 'terrain';
       const m = modeOf(mode);
-      return m && m.scatter ? 'scatter' : 'place';
+      return m && m.scatter && t.tab !== 'structures' ? 'scatter' : 'place';
     }
     /** The ring the ground wears under the cursor, in metres. 0 for none. */
     function ringR() {
@@ -483,6 +512,7 @@ export const panel = {
     function applyTool(t) {
       if (!t) return false;
       if (t.placeable === false) { ed.say(`${t.label} cannot be put down: ${t.hint}.`, 'bad'); return false; }
+      ed.deselect();
       toolIds.set(mode, t.id);
       if (t.what === 'brush') { ed.setTab('terrain'); ed.arm(t.brush); }
       else if (t.what === 'word') { ed.setTab('terrain'); ed.arm(t.brush); ed.setBrushWord(t.brush, t.word); }
@@ -505,6 +535,11 @@ export const panel = {
 
     let gridSig = '';
     const tileCells = new Map();
+    const thumbJobs = new WeakMap();
+    const thumbObserver = typeof IntersectionObserver === 'function' ? new IntersectionObserver(entries => {
+      for (const entry of entries) if (entry.isIntersecting) { thumbObserver.unobserve(entry.target); thumbJobs.get(entry.target)?.(); }
+    }, { root: grid, rootMargin: '150px' }) : null;
+    let activeTileKey = '';
 
     function drawRail() {
       for (const [id, b] of modeCells) b.classList.toggle('on', id === mode);
@@ -515,10 +550,18 @@ export const panel = {
     }
 
     function buildGrid(tiles) {
+      thumbObserver?.disconnect();
       grid.textContent = '';
       tileCells.clear();
       if (!tiles.length) {
         const m = modeOf(mode);
+        if (m?.select) {
+          const help = h('div', 'selection-help'); help.style.gridColumn = '1 / -1'; help.style.lineHeight = '1.6'; help.style.padding = '8px 2px';
+          help.appendChild(h('p', null, 'Click a placed object to select it. Use the arrows to move it across the ground.'));
+          help.appendChild(h('p', null, 'Choose Rotate or Scale beside the object to change the handles. Escape cancels a drag.'));
+          help.appendChild(h('p', null, '⌘Z or Ctrl+Z undoes one adjustment. Search above to find an object anywhere in the world.'));
+          grid.appendChild(help); return;
+        }
         grid.appendChild(h('div', 'n', m && m.brush && !(ed.terrainKinds() || []).length
           ? (ed.terrainReady() ? NO_BRUSHES : 'the terrain tools are not in yet: nothing answers window.__bw.terrain.')
           : 'nothing here matches that'));
@@ -541,8 +584,8 @@ export const panel = {
         // name with it: the frame is the bounding box, so a barrel and a manor
         // come out the same size on purpose and the metres have to be said.
         if (canThumb(t)) {
-          g.style.width = g.style.height = '40px';
-          thumbInfo(t).then((r) => {
+          g.style.minHeight = '132px';
+          const paintThumb = () => thumbInfo(t).then((r) => {
             if (!r || !g.isConnected) return;
             if (r.url) { g.textContent = ''; g.style.background = `center/contain no-repeat url(${r.url})`; }
             if (r.caption) {
@@ -551,6 +594,8 @@ export const panel = {
               b.appendChild(s);
             }
           }).catch(() => { /* a tile with no picture keeps its mark, which is a picture too */ });
+          if (thumbObserver) { thumbJobs.set(b, paintThumb); thumbObserver.observe(b); }
+          else paintThumb();
         }
         b.title = t.hint || t.label;
         b.addEventListener('click', () => { if (applyTool(t)) drawAll(); });
@@ -565,6 +610,8 @@ export const panel = {
       if (sig !== gridSig) { gridSig = sig; buildGrid(tiles); }
       const t = toolNow();
       for (const [id, b] of tileCells) b.classList.toggle('on', !!t && id === t.id);
+      const activeKey = `${mode}:${t?.id}`;
+      if (activeKey !== activeTileKey) { activeTileKey = activeKey; tileCells.get(t?.id)?.scrollIntoView?.({ block: 'nearest' }); }
       const m = modeOf(mode);
       headT.textContent = m.label;
       headS.textContent = m.hint;
@@ -701,9 +748,9 @@ export const panel = {
       const t = toolNow();
       const m = modeOf(mode);
       const words = !t
-        ? 'Nothing in this tray yet.'
-        : (m.place
-          ? 'Click the ground to put one down. It is taken hold of the moment it lands: drag to move it, R to turn, brackets to size, Delete to remove.'
+        ? (m.select ? 'Hand tool: click an object to edit it. Empty ground clears the selection.' : 'Nothing in this tray yet.')
+        : (actOf(t) === 'place'
+          ? 'Preview the model, then click to place it. Keep clicking to place more. R turns the preview, brackets resize it. V switches to the Hand tool.'
           : (m.scatter
             ? 'Hold the left button and sweep. Shift rubs out what the same tile put down.'
             : (t.line
@@ -744,7 +791,7 @@ export const panel = {
       const sel = ed.selection();
       const m = modeOf(mode);
       const e = sel && ed.doc ? ed.doc.at(sel) : null;
-      const show = !!e && !!m && !!m.place;
+      const show = !!e && !!m;
       card.style.display = show ? '' : 'none';
       if (!show) return;
       cardT.textContent = labelOf(sel.list, e);
@@ -811,6 +858,8 @@ export const panel = {
     let spaceRing = null, selBox = null, lineDraw = null;
     let press = null, dragging = null;
     let live = false;
+    const handles = createObjectHandles({ ctx, editor: ed, parent: face, changed: drawAll });
+    this._handles = handles;
 
     function ndcOf(e) {
       const r = canvas.getBoundingClientRect();
@@ -837,12 +886,23 @@ export const panel = {
       if (key === ghostKey) return;
       ghostKey = key;
       if (ghost) { scene.remove(ghost); disposeGhost(ghost); ghost = null; }
-      if (act === 'terrain' || act === 'scatter') {
+      if (act === 'terrain') {
         ghost = brushRing(r, BRUSH_COLOUR, core);
-      } else if (act === 'place' && t) {
+      } else if ((act === 'place' || act === 'scatter') && t) {
         const made = ghostFor(t.tab, t.id, { scale: ed.ghost.scale, kind: ed.ghost.kind, label: ed.ghost.label, r, realm: 'greenwold' });
         ghost = made ? made.group : null;
+        if (ghost && made.set) {
+          const area = act === 'scatter' ? brushRing(r, BRUSH_COLOUR) : null;
+          if (area) ghost.add(area);
+          const dispose = ghost.userData.disposePreview;
+          ghost.userData.disposePreview = () => { if (area) disposeGhost(area); dispose(); };
+          ghost.userData.movePreview = p => {
+            made.set(p.x, p.z, ed.ghost.yaw * Math.PI / 180, heightAt);
+            if (area) area.position.y = p.y - ghost.position.y;
+          };
+        }
       }
+      if (ghost) ghost.name = 'editor-placement-preview';
       if (ghost) { ghost.visible = false; scene.add(ghost); }
     }
     this._rebuildGhost = rebuildGhost;
@@ -868,6 +928,7 @@ export const panel = {
     }
 
     function syncSelectionBox() {
+      handles?.sync();
       syncRing();
       if (!scene) return;
       if (!selBox) { selBox = selectionBox(); scene.add(selBox); }
@@ -902,12 +963,16 @@ export const panel = {
 
     function onMove(e) {
       if (!live || !canvas || !camera) return;
+      if (handles?.onMove(e)) { if (ghost) ghost.visible = false; return; }
       const p = groundUnder(camera, ndcOf(e), heightAt, ray);
       hover = p;
       ed.setLookAt(p);
       if (ghost) {
-        ghost.visible = !!p;
-        if (p) { ghost.position.set(p.x, p.y, p.z); ghost.rotation.y = ed.ghost.yaw * Math.PI / 180; }
+        ghost.visible = !!p && !ed.selection();
+        if (p) {
+          if (ghost.userData.movePreview) ghost.userData.movePreview(p);
+          else { ghost.position.set(p.x, p.y, p.z); ghost.rotation.y = ed.ghost.yaw * Math.PI / 180; }
+        }
       }
       if (dragging && p) { ed.moveTo(p.x, p.z); drawAll(); }
       if (ed.lineAt()) syncLineGhost();
@@ -920,6 +985,7 @@ export const panel = {
           if (res.ok) ed.rebuildGround(p.x, p.z, ed.brush.r + 8);
           else if (res.text) { press.act = 'none'; }
         } else if (press.act === 'scatter') {
+          if (!press.began && Math.hypot(e.clientX - press.x, e.clientY - press.y) <= CLICK_SLOP) return;
           // A CLICK IS ONE THING AND A DRAG IS A SWEEP. The sweep begins on the
           // first movement, not on the press, so a single click in Objects puts
           // down a single rock rather than a ring full of them.
@@ -935,14 +1001,27 @@ export const panel = {
 
     function onDown(e) {
       if (!live || !canvas || e.button !== 0) return;     // the right button still turns the camera
+      if (handles?.onDown(e)) { if (ghost) ghost.visible = false; return; }
       const p = groundUnder(camera, ndcOf(e), heightAt, ray);
       const sel = selectionPoint();
-      const onGizmo = sel && screenDist(sel, e) < 26;
+      const onGizmo = !handles && sel && screenDist(sel, e) < 26;
       // In the editor the left button belongs to the editor, always: there is
       // no swing and no walk to give it back to while the mode is up.
       if (e.preventDefault) e.preventDefault();
       if (e.stopPropagation) e.stopPropagation();
       const t = toolNow();
+      if (modeOf(mode)?.select && !e.shiftKey && !e.altKey) {
+        ray.setFromCamera(ndcOf(e), camera);
+        const hit = pickEditorObject(ray.ray, ed.searchSpaces(), heightAt, p ? ray.ray.origin.distanceTo(p) + .5 : MARCH_MAX);
+        if (hit) {
+          if (ed.space !== hit.space) ed.open(hit.space);
+          ed.select({ list: hit.list, index: hit.index });
+          press = { x: e.clientX, y: e.clientY, act: 'select' };
+          if (ghost) ghost.visible = false;
+          drawAll(); return;
+        }
+      }
+      if (modeOf(mode)?.select) { ed.deselect(); press = null; drawAll(); return; }
       const act = onGizmo ? 'move' : actOf(t);
       press = { x: e.clientX, y: e.clientY, act, shift: !!e.shiftKey, began: false, line: act === 'terrain' && ed.brush.line };
       if (onGizmo) { dragging = true; return; }
@@ -962,10 +1041,12 @@ export const panel = {
     }
 
     function onUp(e) {
+      if (handles?.onUp(e)) return;
       if (!live || !press) return;
       const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
       const act = press.act, wasLine = press.line, began = press.began, shift = press.shift;
       press = null; dragging = null;
+      if (act === 'select') return;
       if (act === 'terrain' && wasLine) {
         if (moved > CLICK_SLOP) return;
         const p = groundUnder(camera, ndcOf(e), heightAt, ray);
@@ -982,12 +1063,12 @@ export const panel = {
       }
       if (act === 'terrain') { const res = ed.dragEnd(); if (res && res.ok) lastGone = res.gone || 0; drawAll(); return; }
       if (act === 'scatter') {
-        if (began) { ed.sweepEnd(); drawAll(); return; }
+        if (began) { ed.sweepEnd(); ed.deselect({ quiet: true }); drawAll(); return; }
         // Never moved: a click. One thing, or with shift one rub of the ring.
         const p = groundUnder(camera, ndcOf(e), heightAt, ray);
         if (!p) { ed.say('the cursor is not on any ground, so nothing was placed.', 'bad'); drawStatus(); return; }
         if (shift) ed.eraseAt(p.x, p.z, { r: ed.scatter.r });
-        else ed.placeAt(p.x, p.z);
+        else ed.placeAt(p.x, p.z, { select: false });
         drawAll();
         return;
       }
@@ -995,11 +1076,8 @@ export const panel = {
       if (moved > CLICK_SLOP) return;
       const p = groundUnder(camera, ndcOf(e), heightAt, ray);
       if (!p) { ed.say('the cursor is not on any ground, so nothing was placed.', 'bad'); drawStatus(); return; }
-      // A click in a placing mode takes hold of what is already standing there
-      // before it adds another. That is how a building is moved rather than
-      // doubled by a second click on its own roof.
-      if (ed.nearestTo(p.x, p.z, PICK_R)) ed.selectAt(p.x, p.z, PICK_R);
-      else ed.placeAt(p.x, p.z);
+      // Placement stays armed. Only the Hand tool selects existing objects.
+      ed.placeAt(p.x, p.z, { select: false });
       drawAll();
     }
 
@@ -1046,6 +1124,8 @@ export const panel = {
 
     function onKey(e) {
       if (!live) return;
+      if (globalSearch.onKey(e)) return;
+      if (handles?.dragging && e.key === 'Escape') { handles.cancel(); ctx.input?.swallow?.('escape'); e.stopImmediatePropagation?.(); drawAll(); return; }
       if (editing(e.target)) return;
       const k = String(e.key || '').toLowerCase();
       const mod = e.ctrlKey || e.metaKey;
@@ -1055,14 +1135,15 @@ export const panel = {
       if (mod && k === 's') { if (e.preventDefault) e.preventDefault(); ed.saveAll().then(() => ed.list()).then(drawAll).catch(() => drawAll()); }
       else if (mod && k === 'z' && !e.shiftKey) { if (onGround) ed.terrainUndo(); else ed.undo(); }
       else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { if (onGround) ed.terrainRedo(); else ed.redo(); }
-      else if (!mod && /^[0-9]$/.test(k) && MODE_IDS.some((id, i) => modeKey(i) === k)) {
+      else if (!mod && MODE_IDS.some((id, i) => modeKey(i) === k)) {
+        ctx.input?.swallow?.(k);
         setMode(MODE_IDS[MODE_IDS.findIndex((id, i) => modeKey(i) === k)]);
       }
       else if (!mod && (k === '+' || k === '=')) { if (onGround) ed.bumpRadius(1); else ed.setScatter({ r: ed.scatter.r * 1.15 }); rebuildGhost(); knobSig = ''; }
       else if (!mod && (k === '-' || k === '_')) { if (onGround) ed.bumpRadius(-1); else ed.setScatter({ r: ed.scatter.r / 1.15 }); rebuildGhost(); knobSig = ''; }
-      else if (!mod && k === 'r') ed.turn(e.shiftKey ? -TURN_DEG : TURN_DEG);
-      else if (!mod && k === ']') ed.grow(SCALE_STEP);
-      else if (!mod && k === '[') ed.grow(1 / SCALE_STEP);
+      else if (!mod && k === 'r') { if (ed.selection()) ed.turn(e.shiftKey ? -TURN_DEG : TURN_DEG); else ed.setGhost({ yaw: ed.ghost.yaw + (e.shiftKey ? -TURN_DEG : TURN_DEG) }); }
+      else if (!mod && k === ']') { if (ed.selection()) ed.grow(SCALE_STEP); else ed.setGhost({ scale: ed.ghost.scale * SCALE_STEP }); }
+      else if (!mod && k === '[') { if (ed.selection()) ed.grow(1 / SCALE_STEP); else ed.setGhost({ scale: ed.ghost.scale / SCALE_STEP }); }
       else if (!mod && (k === 'delete' || k === 'backspace')) ed.del();
       else if (!mod && k === 'escape' && (ed.lineAt() || ed.selection())) {
         // Escape lets go of what is held FIRST. Only a press with nothing held
@@ -1075,12 +1156,17 @@ export const panel = {
       else took = false;
       if (!took) return;
       if (e.stopPropagation) e.stopPropagation();
+      rebuildGhost();
+      if (ghost && hover && !ed.selection()) { ghost.visible = true; ghost.userData.movePreview?.(hover); }
       drawAll();
     }
 
+    const leaveCanvas = () => { if (!press) { hover = null; if (ghost) ghost.visible = false; } };
+
     if (canvas) {
       canvas.addEventListener('pointerdown', onDown, true);
-      canvas.addEventListener('pointermove', onMove);
+      canvas.addEventListener('pointermove', onMove, true);
+      canvas.addEventListener('pointerleave', leaveCanvas);
       canvas.addEventListener('wheel', onWheel, { capture: true, passive: false });
       window.addEventListener('pointerup', onUp);
     }
@@ -1088,6 +1174,8 @@ export const panel = {
 
     this._setLive = (on) => {
       live = !!on;
+      globalSearch.setLive(live);
+      handles?.setLive(live);
       face.style.display = live ? '' : 'none';
       if (!live) {
         press = null; dragging = null;
@@ -1101,9 +1189,13 @@ export const panel = {
     };
 
     this._teardown = () => {
+      globalSearch.dispose();
+      handles?.dispose();
+      thumbObserver?.disconnect();
       if (canvas) {
         canvas.removeEventListener('pointerdown', onDown, true);
-        canvas.removeEventListener('pointermove', onMove);
+        canvas.removeEventListener('pointermove', onMove, true);
+        canvas.removeEventListener('pointerleave', leaveCanvas);
         canvas.removeEventListener('wheel', onWheel, true);
       }
       window.removeEventListener('pointerup', onUp);
@@ -1159,6 +1251,7 @@ export const panel = {
    * so it is driven from here rather than from a timer nobody can measure.
    */
   tick(dt, ctx) {
+    this._handles?.updateScreen();
     const ed = this._ed;
     if (!ed || !ed.autosaveDue(Date.now())) return;
     ed.tickAutosave(Date.now()).then((res) => {

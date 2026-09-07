@@ -1,0 +1,115 @@
+{
+  "id": "greenwold_grove_mill_lane_south_two",
+  "name": "Oak stand",
+  "note": "The mill lane south two trees frame the nearby route.",
+  "at": {
+    "x": -198,
+    "z": -451
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -9.26,
+      "z": 41.01,
+      "scale": 1.05,
+      "yaw": 127,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -12.34,
+      "z": 18.13,
+      "scale": 1.2,
+      "yaw": 174,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 1.51,
+      "z": -2.78,
+      "scale": 1.3,
+      "yaw": 221,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -1.74,
+      "z": -24.68,
+      "scale": 1.1,
+      "yaw": 268,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 13.09,
+      "z": -45.42,
+      "scale": 0.9,
+      "yaw": 315,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 9.32,
+      "z": -64.36,
+      "scale": 0.8,
+      "yaw": 2,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -35.56,
+      "z": 23.18,
+      "scale": 1.1,
+      "yaw": 96,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -22.36,
+      "z": 0.12,
+      "scale": 1.2,
+      "yaw": 143,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -25.09,
+      "z": -24.73,
+      "scale": 1,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -11.07,
+      "z": -46.63,
+      "scale": 0.9,
+      "yaw": 237,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -50.05,
+      "z": 7.42,
+      "scale": 0.85,
+      "yaw": 284,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -42.58,
+      "z": -17.66,
+      "scale": 1.05,
+      "yaw": 331,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

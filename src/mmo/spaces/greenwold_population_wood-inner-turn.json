@@ -1,0 +1,154 @@
+{
+  "id": "greenwold_population_wood-inner-turn",
+  "name": "Beech Hangar woodland",
+  "at": {
+    "x": -1090,
+    "z": 37
+  },
+  "radius": 78,
+  "district": "beechhangar",
+  "pieces": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -30,
+      "z": 24,
+      "scale": 1.1,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -37,
+      "z": 8,
+      "scale": 0.9,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -39,
+      "z": -8,
+      "scale": 1.1,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -35,
+      "z": -29,
+      "scale": 1,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 7,
+      "z": 32,
+      "scale": 1.1,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 3,
+      "z": -35,
+      "scale": 0.85,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 20,
+      "z": 20,
+      "scale": 0.9,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 18,
+      "z": -20,
+      "scale": 0.95,
+      "yaw": 270,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": 2,
+      "z": 10,
+      "encounter": "wood-inner-turn:near",
+      "slot": "wood-inner-turn:0"
+    },
+    {
+      "id": "boar",
+      "x": -2,
+      "z": 6,
+      "encounter": "wood-inner-turn:near",
+      "slot": "wood-inner-turn:1"
+    },
+    {
+      "id": "boar",
+      "x": 4,
+      "z": 3,
+      "encounter": "wood-inner-turn:near",
+      "slot": "wood-inner-turn:2"
+    },
+    {
+      "id": "boar",
+      "x": 0,
+      "z": -1,
+      "encounter": "wood-inner-turn:near",
+      "slot": "wood-inner-turn:3"
+    },
+    {
+      "id": "wolf",
+      "x": -5,
+      "z": -14,
+      "encounter": "wood-inner-turn:rear",
+      "slot": "wood-inner-turn:4"
+    },
+    {
+      "id": "wolf",
+      "x": -28,
+      "z": -19,
+      "encounter": "wood-inner-turn:rear",
+      "slot": "wood-inner-turn:5"
+    },
+    {
+      "id": "wolf",
+      "x": -1,
+      "z": -22,
+      "encounter": "wood-inner-turn:rear",
+      "slot": "wood-inner-turn:6"
+    },
+    {
+      "id": "wolf",
+      "x": -10,
+      "z": -14,
+      "encounter": "wood-inner-turn:rear",
+      "slot": "wood-inner-turn:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": 8,
+      "z": 21,
+      "count": 2
+    },
+    {
+      "id": "blackberry",
+      "x": 17,
+      "z": -9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

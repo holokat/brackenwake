@@ -1,0 +1,109 @@
+{
+  "id": "greenwold_habitat_stone_west",
+  "zone": "standinghedge",
+  "name": "The western fern bank",
+  "at": {
+    "x": -150,
+    "z": -294
+  },
+  "note": "Beeches close around the west lane. Ferns soften the foot of the bank.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_bracken",
+      "x": -2,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_foxglove",
+      "x": 6,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_ivy_stump",
+      "x": 6,
+      "z": -4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "effects": [
+    {
+      "id": "falling_leaves",
+      "x": 0,
+      "z": 0,
+      "gate": "always",
+      "scale": 1,
+      "y": 0
+    },
+    {
+      "id": "fireflies",
+      "x": 0,
+      "z": 0,
+      "gate": "night",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "forage": [
+    {
+      "id": "wild_garlic",
+      "x": 4,
+      "z": 8,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": -22,
+      "z": -28,
+      "encounter": "west-stone-dogs",
+      "slot": "west-stone-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": -31,
+      "z": 12,
+      "encounter": "west-stone-dogs",
+      "slot": "west-stone-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": -25,
+      "z": 12,
+      "encounter": "west-stone-dogs",
+      "slot": "west-stone-dogs:2"
+    },
+    {
+      "id": "wolf",
+      "x": -28,
+      "z": -29,
+      "night": true,
+      "encounter": "west-stone-dogs",
+      "slot": "west-stone-dogs:3"
+    },
+    {
+      "id": "wolf",
+      "x": -36,
+      "z": 11,
+      "night": true,
+      "encounter": "west-stone-dogs",
+      "slot": "west-stone-dogs:4"
+    }
+  ],
+  "stations": []
+}

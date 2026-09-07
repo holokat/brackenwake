@@ -1,0 +1,101 @@
+{
+  "id": "greenwold_habitat_west_gate_work",
+  "zone": "hearthhome",
+  "name": "The wood yard",
+  "at": {
+    "x": 381,
+    "z": -211
+  },
+  "note": "Split logs wait outside the village gate, where carts can turn.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_woodpile",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_chopping_block",
+      "x": 4,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_log_pile",
+      "x": -7,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_cow_parsley",
+      "x": -6,
+      "z": 9,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "effects": [
+    {
+      "id": "floating_seeds",
+      "x": -6,
+      "z": 9,
+      "gate": "day",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": -16,
+      "z": 6,
+      "encounter": "wood-yard-vermin",
+      "slot": "wood-yard-vermin:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -13,
+      "z": 12,
+      "encounter": "wood-yard-vermin",
+      "slot": "wood-yard-vermin:1"
+    },
+    {
+      "id": "giantRat",
+      "x": -25,
+      "z": -15,
+      "encounter": "wood-yard-vermin",
+      "slot": "wood-yard-vermin:2"
+    },
+    {
+      "id": "giantRat",
+      "x": -17,
+      "z": 17,
+      "encounter": "wood-yard-vermin",
+      "slot": "wood-yard-vermin:3"
+    },
+    {
+      "id": "giantRat",
+      "x": -23,
+      "z": 11,
+      "night": true,
+      "encounter": "wood-yard-vermin",
+      "slot": "wood-yard-vermin:4"
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

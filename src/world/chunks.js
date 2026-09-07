@@ -49,7 +49,7 @@ import { hash2, smoothstep } from './noise.js';
 import { roadDistanceAt } from './roads.js';
 import { createTerrainMaterial, layerWeights, ROAD_FADE, CLIFF_SLOPE } from './terrain_material.js';
 
-export const RING = 9;              // chunks kept in each direction: 19 x 19 = 361
+export const RING = 5;              // 320 m: 11 x 11 = 121 nearby chunks
 export const UNLOAD_MARGIN = 2;     // chunks beyond RING before disposal
 export const BUILD_PER_FRAME = 3;
 const TIERS = [[3, 33], [6, 17], [Infinity, 9]];   // [max chunk distance, verts per side]

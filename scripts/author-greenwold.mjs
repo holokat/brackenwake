@@ -10,12 +10,22 @@ import { LANDFORMS, ARRANGEMENTS, GROVES } from './greenwold/landscape.mjs';
 import { CAST, FORAGE, STATIONS, NOTES } from './greenwold/content.mjs';
 import { SIGNS, DETAILS, OUTLOOKS, BOULDERS } from './greenwold/details.mjs';
 import { auditSpaces } from '../src/mmo/plans/plan_schema.js';
+import { buildingsOnRoutes,clearBoundaryRuns,boundariesOnRoutes } from './greenwold/clearance.mjs';
 import { writeSpaceIndex } from '../tools/editor_save.mjs';
+import { enlargeBuildings,settlementClearances } from './greenwold/scale.mjs';
+import {physicalClearances} from './greenwold/physical-clearance.mjs';
+import {gradeHabitats,authorHabitats} from './greenwold/habitats.mjs';
+import {authorEncounters} from '../src/mmo/greenwold/encounters.js';
+import {gradeStrongholds,buildStrongholds} from './greenwold/strongholds.mjs';
+import {authorPopulation,populationIds} from './greenwold/population.mjs';
+import {greenwoldCollision} from './studio/audit-collision.mjs';
+import {FORAGE_BY_ID} from '../src/world/forage.js';
+import {authorTrunkForage} from './greenwold/trunk-forage.mjs';
 const AUTHOR='greenwold-craft';
 const path='public/terrain/greenwold.json';
 const writeChanged=(path,text)=>{try{if(readFileSync(path,'utf8')===text)return;}catch{}writeFileSync(path,text);};
 const terrain=JSON.parse(readFileSync(path));
-terrain.strokes=terrain.strokes.filter(s=>s.author!==AUTHOR);
+terrain.strokes=terrain.strokes.filter(s=>s.author!==AUTHOR&&s.author!=='greenwold-action');
 const f=createWorldField(20260904,{homeBiome:'meadow',homeY:-.3});
 const edits=createTerrainEdits({baseHeight:(x,z)=>f.heightAt(x,z)});
 edits.load(terrain);f.setTerrainEdits(edits);
@@ -61,21 +71,29 @@ for(let pass=0;pass<1000;pass++){
  }
  if(change<.00001)break;
 }
+const settlementCentres=Object.values(SPACES).filter(s=>s.pieces?.some(p=>['inn','cottage_a','mill','foremans_hut'].includes(p.model))).map(s=>s.at);
+const roadShoulder=(x,z)=>settlementCentres.some(at=>Math.hypot(at.x-x,at.z-z)<115)?22:12;
 for(const route of ROUTES){
  const ns=routeNodes.get(route.id);
  for(let i=1;i<ns.length;i++){
   const a=ns[i-1],b=ns[i];
-  if(!a.water&&!b.water)add({kind:'plateau',x:a.x,z:a.z,x2:b.x,z2:b.z,r:route.width/2+22,height:a.h,height2:b.h,skirt:.35,label:route.id});
+  if(!a.water&&!b.water)add({kind:'plateau',x:a.x,z:a.z,x2:b.x,z2:b.z,r:route.width/2+roadShoulder(a.x,a.z),height:a.h,height2:b.h,skirt:.35,label:route.id});
  }
  for(let i=1;i<route.points.length;i++){
   const[x,z]=route.points[i-1],[x2,z2]=route.points[i];
   add({kind:'ground',x,z,x2,z2,r:route.width/2+1.2,word:route.word||'path',hardness:.58,label:route.id});
  }
 }
+// A working terrace carries the mill, miller's house and raised granary. Its flat core
+// contains their enlarged footprints; the shoulder eases back into the bank.
+add({kind:'plateau',x:-1001.19,z:-335.7,x2:-1036.32,z2:-331.01,r:26,height:12,skirt:.45,label:'mill-working-terrace'});
+gradeHabitats(f,add);
 // Grading the approaches must not dam the river. Recut its saved channel
 // through the finished banks, then build the spans over that channel.
 for(const s of terrain.strokes)if(s.kind==='river'){const copy={...s};delete copy.id;add(copy);}
 const spaces=structuredClone(SPACES);
+// The former arrival stood beside the rebuilt bridge, in the river channel.
+spaces.greenwold_hearthhome.arrival={x:6,z:6,yaw:180};
 for(const s of Object.values(spaces)){
   if(!s.id.startsWith('greenwold_'))continue;
   const key=s.id.slice(10);
@@ -84,6 +102,9 @@ for(const s of Object.values(spaces)){
   s.trees=[];
   s.forage=(FORAGE[key]||[]).map(([id,x,z,count])=>({id,x,z,count}));
   s.pieces=s.pieces.filter(p=>p.tag!==AUTHOR);
+  // Water belongs to the sculpted channel. Old flat water and yellow crop
+  // polygons obscured its banks; the placed crop rows still supply the fields.
+  s.areas=s.areas.filter(a=>!['water','wheat'].includes(a.kind));
   s.rocks=s.rocks.filter(r=>/wheat|barley|furrow|reed/.test(r.kind));
   s.stations=(STATIONS[key]||[]).map(([id,x,z])=>({id,x,z,yaw:0}));
   if(NOTES[key])s.note=NOTES[key];
@@ -97,6 +118,14 @@ for(const s of Object.values(spaces)){
 const home=spaces.greenwold_hearthhome;
 home.runs=home.runs.filter(r=>{const x=(r.from.x+r.to.x)/2,z=(r.from.z+r.to.z)/2;return !(z < -29 && x>4 && x<25);});
 for(const [x,z]of[[11,-42],[24,-37]])home.pieces.push({model:'lamp_post_iron',x,z,yaw:0,tag:AUTHOR});
+// The former straight slab road crossed the graded Kingsroad at an angle.
+// The terrain's cobble paint supplies the road; furniture follows its bends.
+const camp=spaces.greenwold_kingsroad_camp;
+camp.runs=camp.runs.filter(r=>!['road_slab_2m','hedge_4m'].includes(r.model));
+camp.pieces=camp.pieces.filter(p=>!['lamp_post_iron','milestone'].includes(p.model));
+for(const [x,z]of[[-43,46],[1,9],[24,-19],[57,-19]])camp.pieces.push({model:'lamp_post_iron',x,z,yaw:0,tag:AUTHOR});
+for(const [x,z]of[[-52,39],[39,-29]])camp.pieces.push({model:'milestone',x,z,yaw:135,tag:AUTHOR});
+camp.arrival={x:0,z:0,yaw:135};
 // Trees protecting a lookout or a sett stay in the core composition. The old
 // procedurally filled ring of beeches is replaced by the surrounding groves.
 spaces.greenwold_beechhangar.areas=[];
@@ -140,7 +169,11 @@ spaces.greenwold_sunkenchapel.arrival={x:0,z:9,yaw:180};
 // The workyard opens to the south. The mine mouths sit in its north bank;
 // terrain supplies the chalk wall, so a stand-in wall does not block the yard.
 const quarry=spaces.greenwold_chalkpits;
+quarry.areas=[];
 quarry.runs=quarry.runs.filter(r=>r.model!=='chalk_face_4m');
+// The hollow is sheltered by its actual escarpment, not enclosed in a second
+// circular cliff model that hides the tents and lookout from every approach.
+spaces.greenwold_highwaymanshollow.runs=spaces.greenwold_highwaymanshollow.runs.filter(r=>r.model!=='chalk_face_4m');
 for(const p of quarry.pieces){if(p.model==='headframe')p.z=-24;if(p.model==='mine_mouth')p.z=-22;}
 for(const r of quarry.runs)if(r.model==='rail_2m'){r.from={x:-12,z:-17};r.to={x:-12,z:-5};}
 // Ore belongs to the worksite, with space to swing and carry it back to Cobb.
@@ -148,6 +181,7 @@ spaces.greenwold_chalkpits.rocks.push(...[[-22,-8,'copper'],[-21,-16,'copper'],[
 spaces.greenwold_chalkpits.arrival={x:0,z:22,yaw:180};
 // Coldwake gives the southern loop an owned return point.
 spaces.greenwold_coldwake.pieces.push({model:'waystone_village',x:12,z:-8,yaw:250,tag:AUTHOR});
+for(const p of spaces.greenwold_coldwake.pieces)if(p.model==='cottage_b'&&p.x>20)p.z=17;
 // The first fight is one badger by the bank. Larger groups are off the path.
 spaces.greenwold_beechhangar.spawns=[{id:'badger',x:-20,z:-6},{id:'boar',x:60,z:26},{id:'wildDog',x:77,z:-20},{id:'wildDog',x:90,z:-12},{id:'oldGrist',x:30,z:-10,night:true},{id:'wolf',x:63,z:55,night:true},{id:'giantSpider',x:-60,z:46,night:true}];
 spaces.greenwold_highwaymanshollow.spawns=[{id:'banditArcher',x:-10,z:-8},{id:'highwayman',x:5,z:-9},{id:'bandit',x:-4,z:4},{id:'bandit',x:6,z:0},{id:'goblinScout',x:16,z:-19,night:true}];
@@ -175,14 +209,27 @@ for(const route of ROUTES){
      heights[k-1]=Math.max(heights[k-1],heights[k]-d*.35);
    }
    const points=heights.map((y,k)=>[pts[start+k].x,y,pts[start+k].z]);
-   bridges.push({id:`${route.id}-${bridges.length}`,name:route.name,width:route.width,points});
+   bridges.push({id:`${route.id}-${bridges.length}`,name:route.name,width:route.id==='chapel-causeway'?route.width:Math.max(6,route.width),points});
  }
 }
+const habitats=authorHabitats(spaces);
+authorEncounters(spaces);
+gradeStrongholds(f,s=>edits.stroke({...s,author:'greenwold-action'}));
+buildStrongholds(spaces,f);
 // Runtime and editor both consume the saved stroke list.
 const result=edits.serialize();result.authoring=AUTHOR;result.version=terrain.version||1;
+enlargeBuildings(spaces);settlementClearances(spaces);physicalClearances(spaces);
+for(const s of Object.values(spaces))if(s.id.startsWith('greenwold_'))s.runs=clearBoundaryRuns(s,ROUTES);
+for(const id of populationIds)delete spaces[id];
+const population=authorPopulation(spaces,f,{physical:greenwoldCollision((x,z)=>f.heightAt(x,z),spaces),forageCatalog:FORAGE_BY_ID});
+authorTrunkForage(spaces);
 auditSpaces(spaces);
+const blocked=buildingsOnRoutes(spaces,ROUTES);
+if(blocked.length)throw Error(`Buildings obstruct authored routes: ${JSON.stringify(blocked)}`);
+const fences=boundariesOnRoutes(spaces,ROUTES);
+if(fences.length)throw Error(`Boundaries obstruct authored routes: ${JSON.stringify(fences)}`);
 writeChanged(path,JSON.stringify(result,null,2)+'\n');
 for(const s of Object.values(spaces))if(s.id.startsWith('greenwold_'))writeChanged(`src/mmo/spaces/${s.id}.json`,JSON.stringify(s,null,2)+'\n');
 writeSpaceIndex(process.cwd());
 writeChanged('src/mmo/greenwold/traversal.json',JSON.stringify({author:AUTHOR,bridges},null,2)+'\n');
-console.log(JSON.stringify({routes:ROUTES.length,groves:GROVES.length,trees:Object.values(spaces).reduce((n,s)=>n+s.trees.length,0),trunksKeptOffRoutes:cleared,bridges:bridges.length,strokes:result.strokes.length}));
+console.log(JSON.stringify({...habitats,population,routes:ROUTES.length,groves:GROVES.length,trees:Object.values(spaces).reduce((n,s)=>n+s.trees.length,0),trunksKeptOffRoutes:cleared,bridges:bridges.length,strokes:result.strokes.length}));

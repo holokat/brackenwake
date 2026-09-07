@@ -1,0 +1,92 @@
+{
+  "id": "greenwold_population_chapel-lower-bank",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -83,
+    "z": -845
+  },
+  "radius": 78,
+  "district": "sunkenchapel",
+  "pieces": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -21.2,
+      "z": 16.57,
+      "scale": 0.95,
+      "yaw": 100,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "skeleton",
+      "x": 1.87,
+      "z": -8.1,
+      "encounter": "chapel-lower-bank:near",
+      "slot": "chapel-lower-bank:0"
+    },
+    {
+      "id": "skeleton",
+      "x": 6.01,
+      "z": -5.56,
+      "encounter": "chapel-lower-bank:near",
+      "slot": "chapel-lower-bank:1"
+    },
+    {
+      "id": "skeleton",
+      "x": -3.42,
+      "z": -3.65,
+      "encounter": "chapel-lower-bank:near",
+      "slot": "chapel-lower-bank:2"
+    },
+    {
+      "id": "skeleton",
+      "x": -0.17,
+      "z": 0.98,
+      "encounter": "chapel-lower-bank:near",
+      "slot": "chapel-lower-bank:3"
+    },
+    {
+      "id": "zombie",
+      "x": 14.31,
+      "z": 16.74,
+      "encounter": "chapel-lower-bank:rear",
+      "slot": "chapel-lower-bank:4"
+    },
+    {
+      "id": "zombie",
+      "x": 15.41,
+      "z": 22.01,
+      "encounter": "chapel-lower-bank:rear",
+      "slot": "chapel-lower-bank:5"
+    },
+    {
+      "id": "zombie",
+      "x": 8.98,
+      "z": 23.92,
+      "encounter": "chapel-lower-bank:rear",
+      "slot": "chapel-lower-bank:6"
+    },
+    {
+      "id": "zombie",
+      "x": 6.9,
+      "z": 18.48,
+      "encounter": "chapel-lower-bank:rear",
+      "slot": "chapel-lower-bank:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "nettle",
+      "x": -18.3,
+      "z": 5.91,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

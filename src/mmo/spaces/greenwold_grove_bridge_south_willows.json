@@ -1,0 +1,97 @@
+{
+  "id": "greenwold_grove_bridge_south_willows",
+  "name": "Willow bank",
+  "note": "The bridge south willows trees frame the nearby route.",
+  "at": {
+    "x": 191,
+    "z": 24
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": 44,
+      "z": -38,
+      "encounter": "bridge-cut-dogs",
+      "slot": "bridge-cut-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": 37,
+      "z": -38,
+      "encounter": "bridge-cut-dogs",
+      "slot": "bridge-cut-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": 52,
+      "z": -36,
+      "encounter": "bridge-cut-dogs",
+      "slot": "bridge-cut-dogs:2"
+    },
+    {
+      "id": "wildDog",
+      "x": 57,
+      "z": -35,
+      "night": true,
+      "encounter": "bridge-cut-dogs",
+      "slot": "bridge-cut-dogs:3"
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": -12.27,
+      "z": 46.58,
+      "scale": 0.9,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -2.02,
+      "z": 23,
+      "scale": 1.1,
+      "yaw": 127,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -6.37,
+      "z": -4.17,
+      "scale": 1.2,
+      "yaw": 174,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 6.37,
+      "z": -30.36,
+      "scale": 0.95,
+      "yaw": 221,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -26.59,
+      "z": 29.84,
+      "scale": 0.8,
+      "yaw": 315,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -19.87,
+      "z": -19.75,
+      "scale": 0.9,
+      "yaw": 2,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

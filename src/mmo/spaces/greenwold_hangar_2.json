@@ -11,7 +11,52 @@
   "runs": [],
   "areas": [],
   "people": [],
-  "spawns": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": -126.67,
+      "z": 38.22,
+      "encounter": "west-wood-dogs",
+      "slot": "west-wood-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": -135.67,
+      "z": 32.22,
+      "encounter": "west-wood-dogs",
+      "slot": "west-wood-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": -129.67,
+      "z": 21.22,
+      "encounter": "west-wood-dogs",
+      "slot": "west-wood-dogs:2"
+    },
+    {
+      "id": "wildDog",
+      "x": -118.67,
+      "z": 23.22,
+      "encounter": "west-wood-dogs",
+      "slot": "west-wood-dogs:3"
+    },
+    {
+      "id": "wolf",
+      "x": -143.67,
+      "z": 24.22,
+      "night": true,
+      "encounter": "west-wood-dogs",
+      "slot": "west-wood-dogs:4"
+    },
+    {
+      "id": "wolf",
+      "x": -140.67,
+      "z": 12.22,
+      "night": true,
+      "encounter": "west-wood-dogs",
+      "slot": "west-wood-dogs:5"
+    }
+  ],
   "trees": [],
   "rocks": [],
   "markers": [],

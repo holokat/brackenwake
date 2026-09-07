@@ -1,0 +1,161 @@
+{
+  "id": "greenwold_grove_chalk_east_fold",
+  "name": "Birch stand",
+  "note": "The chalk east fold trees frame the nearby route.",
+  "at": {
+    "x": -355,
+    "z": -966
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": -31,
+      "z": 0,
+      "encounter": "ridge-road-scouts",
+      "slot": "ridge-road-scouts:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": -20,
+      "z": -4,
+      "encounter": "ridge-road-scouts",
+      "slot": "ridge-road-scouts:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": -9,
+      "z": 1,
+      "encounter": "ridge-road-scouts",
+      "slot": "ridge-road-scouts:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": -22,
+      "z": -15,
+      "night": true,
+      "encounter": "ridge-road-scouts",
+      "slot": "ridge-road-scouts:3"
+    },
+    {
+      "id": "goblinScout",
+      "x": -11,
+      "z": -12,
+      "night": true,
+      "encounter": "ridge-road-scouts",
+      "slot": "ridge-road-scouts:4"
+    }
+  ],
+  "trees": [
+    {
+      "species": "birch",
+      "x": -28.38,
+      "z": 54.59,
+      "scale": 0.8,
+      "yaw": 70,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -15.3,
+      "z": 15.72,
+      "scale": 1.2,
+      "yaw": 164,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 1.97,
+      "z": -2.48,
+      "scale": 1.3,
+      "yaw": 211,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 2.57,
+      "z": -24.6,
+      "scale": 1.1,
+      "yaw": 258,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 20.77,
+      "z": -42.46,
+      "scale": 0.9,
+      "yaw": 305,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 20.35,
+      "z": -61.76,
+      "scale": 0.8,
+      "yaw": 352,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -40.59,
+      "z": 38.43,
+      "scale": 0.85,
+      "yaw": 39,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -39.05,
+      "z": 16.65,
+      "scale": 1.1,
+      "yaw": 86,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -22.04,
+      "z": -3.77,
+      "scale": 1.2,
+      "yaw": 133,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -20.41,
+      "z": -28.71,
+      "scale": 1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -2.81,
+      "z": -47.84,
+      "scale": 0.9,
+      "yaw": 227,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -50.58,
+      "z": -1.38,
+      "scale": 0.85,
+      "yaw": 274,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -38.87,
+      "z": -24.79,
+      "scale": 1.05,
+      "yaw": 321,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

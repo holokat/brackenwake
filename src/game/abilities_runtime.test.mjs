@@ -1386,15 +1386,15 @@ function castRun(mat, opts = {}) {
   const cloth = castRun('cloth', { n: 1 });
   const plate = castRun('plate', { n: 1 });
   const fire = ABILITIES_BY_ID.fireball;
-  ck('Fireball in cloth casts for its own 0.6 s', cloth.barLength === fire.castTime, `${cloth.barLength} s`);
+  ck('Fireball in cloth uses the live cast time', cloth.barLength === fire.castTime, `${cloth.barLength} s`);
   ck('and in full plate it takes twice as long', plate.barLength === fire.castTime * 2, `${plate.barLength} s`);
   ck('the sentence names the armour that is slowing it',
-    /casting for 1.2 seconds, slowed by your platemail/.test(said(plate.h)), said(plate.h).split(' | ')[0]);
+    /casting for 0.7 seconds, slowed by your platemail/.test(said(plate.h)), said(plate.h).split(' | ')[0]);
   ck('and says nothing about armour in cloth',
     !/slowed by/.test(said(cloth.h)), said(cloth.h).split(' | ')[0]);
   const leather = castRun('leather', { n: 1 });
   ck('leather is a tenth longer, not a tenth of a second longer',
-    near(leather.barLength, 0.66), `${leather.barLength} s`);
+    near(leather.barLength, fire.castTime * 1.1), `${leather.barLength} s`);
 }
 
 {

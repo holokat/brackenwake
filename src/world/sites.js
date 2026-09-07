@@ -30,6 +30,7 @@ import { SITE_CELL } from './sitegrid.js';
 import { zoneAt, weightOf, ZONE } from './zones.js';
 import { authoredZoneAt, PLACE_SPACE } from '../mmo/greenwold/places.js';
 import { SPACES } from '../mmo/spaces/index.js';
+import {isDestination} from '../mmo/greenwold/navigation.js';
 
 export { SITE_CELL };
 export const DISCOVER_RADIUS = 70;
@@ -74,6 +75,7 @@ export function spaceSiteRow(space, field) {
     bodyR: space.radius || 0,
     radius: space.radius || 0,
     authored: true,
+    landmark: space.landmark===true,
   };
 }
 
@@ -186,7 +188,7 @@ export function createDiscovery(field, opts = {}) {
       if (nowMs - lastCheck < CHECK_MS) return null;
       lastCheck = nowMs;
       for (const s of sitesNear(field, x, z, DISCOVER_RADIUS)) {
-        if(field?.sculpt && s.space && !Object.values(PLACE_SPACE).includes(s.space) && !s.space.startsWith('greenwold_hedge_'))continue;
+        if(field?.sculpt && s.space && !isDestination(s))continue;
         if (found.has(s.id)) continue;
         found.add(s.id); save(storeKey, found);
         return s;

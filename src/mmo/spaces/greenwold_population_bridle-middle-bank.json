@@ -1,0 +1,177 @@
+{
+  "id": "greenwold_population_bridle-middle-bank",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -850,
+    "z": 627
+  },
+  "radius": 78,
+  "district": "coldwake",
+  "pieces": [
+    {
+      "model": "lw_ivy_stump",
+      "x": 11.529882232500816,
+      "z": 15.233575276495731,
+      "scale": 1.4,
+      "yaw": 190,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bracken",
+      "x": 16.3373541328843,
+      "z": 11.004129222102414,
+      "scale": 1.6,
+      "yaw": 190,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": 27.92,
+      "z": 20.16,
+      "scale": 0.9,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -14.65,
+      "z": 37.02,
+      "scale": 1.1,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -34.64,
+      "z": 29.43,
+      "scale": 1,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -38.58,
+      "z": 11.48,
+      "scale": 0.9,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 32.73,
+      "z": -1.34,
+      "scale": 1.1,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 23.17,
+      "z": -16.22,
+      "scale": 0.9,
+      "yaw": 190,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -16.57,
+      "z": -21.2,
+      "scale": 0.95,
+      "yaw": 190,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": 10.2,
+      "z": -0.23,
+      "encounter": "bridle-middle-bank:near",
+      "slot": "bridle-middle-bank:0"
+    },
+    {
+      "id": "badger",
+      "x": 5.56,
+      "z": 3.01,
+      "encounter": "bridle-middle-bank:near",
+      "slot": "bridle-middle-bank:1"
+    },
+    {
+      "id": "badger",
+      "x": 3.65,
+      "z": -3.42,
+      "encounter": "bridle-middle-bank:near",
+      "slot": "bridle-middle-bank:2"
+    },
+    {
+      "id": "badger",
+      "x": -0.98,
+      "z": -0.17,
+      "encounter": "bridle-middle-bank:near",
+      "slot": "bridle-middle-bank:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": -25.14,
+      "z": 22.71,
+      "encounter": "bridle-middle-bank:rear",
+      "slot": "bridle-middle-bank:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": -22.01,
+      "z": 27.41,
+      "encounter": "bridle-middle-bank:rear",
+      "slot": "bridle-middle-bank:5"
+    },
+    {
+      "id": "giantSpider",
+      "x": -32.32,
+      "z": 17.38,
+      "encounter": "bridle-middle-bank:rear",
+      "slot": "bridle-middle-bank:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": -7.98,
+      "z": -3.6,
+      "encounter": "bridle-middle-bank:rear",
+      "slot": "bridle-middle-bank:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": 27.92,
+      "z": 20.16,
+      "tree": {
+        "x": 27.92,
+        "z": 20.16,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    },
+    {
+      "id": "oyster_mushroom",
+      "x": -14.65,
+      "z": 37.02,
+      "tree": {
+        "x": -14.65,
+        "z": 37.02,
+        "scale": 1.1
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

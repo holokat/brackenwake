@@ -212,7 +212,7 @@ console.log('roster_preview: painting one character');
     equipment: { mainHand: { base: 'longsword', rarity: 'common' }, chest: { base: 'cloth_chest', rarity: 'common' } },
   };
   const before = kit.scene.children.length;
-  const url = paint(kit, look);
+  const url = await paint(kit, look);
   check('it hands back the picture the canvas holds', url === 'data:image/png;base64,painted');
   check('and it drew exactly once', renders === 1, `${renders} renders`);
   const f = frameFor(1.71);

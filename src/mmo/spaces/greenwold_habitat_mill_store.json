@@ -1,0 +1,55 @@
+{
+  "id": "greenwold_habitat_mill_store",
+  "zone": "millrun",
+  "name": "The mill stores",
+  "at": {
+    "x": -1019,
+    "z": -321
+  },
+  "note": "Flour and spare millstones stand beside the granary, above the wet bank.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_flour_sacks",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_millstones",
+      "x": -6,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_woodpile",
+      "x": -6,
+      "z": 5,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "animals": [
+    {
+      "id": "mill_cart_horse",
+      "x": 4,
+      "z": 1,
+      "clip": "idle",
+      "yaw": 90
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

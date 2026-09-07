@@ -1,5 +1,6 @@
 import { SPACES } from '../spaces/index.js';
 import { placeAt } from './places.js';
+import {STRONGHOLDS} from './strongholds.js';
 
 export const READINGS = {
   hearthhome:{text:'The mill lane goes west through the Long Meadow. The east lane reaches the Standing Hedge. Cobb keeps the forge on the north side of the green.',to:'millrun'},
@@ -25,9 +26,12 @@ export function authoredPick(site,piece,point,spaces=SPACES) {
   const p=matches.sort((a,b)=>Math.hypot(s.at.x+a.x-point.x,s.at.z+a.z-point.z)-Math.hypot(s.at.x+b.x-point.x,s.at.z+b.z-point.z))[0];
   if(!p)return null;
   const at={x:s.at.x+p.x,z:s.at.z+p.z};
-  if(piece==='cellar_arch')return {kind:'site',site:{...site,...at,id:`entry:${s.id}`,sub:'oldcellars',kind:'dungeon',realm:'greenwold',levels:1}};
+  if(piece==='cellar_arch'&&s.id==='greenwold_oldcellars')return {kind:'site',site:{...site,...at,id:`entry:${s.id}`,sub:'oldcellars',kind:'dungeon',realm:'greenwold',levels:1}};
   if(piece==='mine_mouth')return {kind:'site',site:{...site,...at,id:`entry:${s.id}:${p.x}`,sub:'greenwoldpits',kind:'cave',realm:'greenwold',levels:1,oreBand:['copper','tin']}};
-  if(piece==='loot_sack')return {kind:'chest',chest:{...at,kind:'cache',siteId:s.id,level:1,i:s.pieces.indexOf(p),tier:1,locked:false}};
+  if(piece==='loot_sack'){
+    const hub=STRONGHOLDS.find(h=>'greenwold_'+h.id===s.id);
+    return {kind:'chest',chest:{...at,kind:hub?'chest':'cache',siteId:s.id,level:1,i:s.pieces.indexOf(p),tier:hub?.tier||1,locked:false,...(hub?{key:'encounter-reward:'+hub.id,encounter:hub.id}:{})}};
+  }
   const key=s.id.slice('greenwold_'.length);
   if(piece==='chapel_sunken')return {kind:'site',site:{...site,...at,inspect:'bell'}};
   if(piece==='fingerpost' && READINGS[key])return {kind:'site',site:{...site,...at,inspect:key}};

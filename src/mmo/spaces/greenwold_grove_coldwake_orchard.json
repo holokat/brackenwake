@@ -23,14 +23,6 @@
     },
     {
       "species": "oak",
-      "x": -11.64,
-      "z": -14.19,
-      "scale": 0.65,
-      "yaw": 57,
-      "harvest": true
-    },
-    {
-      "species": "oak",
       "x": 7.07,
       "z": -17.49,
       "scale": 0.6,

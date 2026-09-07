@@ -1,0 +1,92 @@
+{
+  "id": "greenwold_population_pilgrim-lower-bank",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 46,
+    "z": -729
+  },
+  "radius": 78,
+  "district": "standinghedge",
+  "pieces": [
+    {
+      "model": "lw_cowslip_patch",
+      "x": -12.52972819929287,
+      "z": -5.292061153449101,
+      "scale": 1.5,
+      "yaw": 130,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": 4.9,
+      "z": 0.05,
+      "encounter": "pilgrim-lower-bank:near",
+      "slot": "pilgrim-lower-bank:0"
+    },
+    {
+      "id": "giantRat",
+      "x": 1.19,
+      "z": 0.89,
+      "encounter": "pilgrim-lower-bank:near",
+      "slot": "pilgrim-lower-bank:1"
+    },
+    {
+      "id": "giantRat",
+      "x": 0.96,
+      "z": -2.77,
+      "encounter": "pilgrim-lower-bank:near",
+      "slot": "pilgrim-lower-bank:2"
+    },
+    {
+      "id": "giantRat",
+      "x": -2.74,
+      "z": 2.87,
+      "encounter": "pilgrim-lower-bank:near",
+      "slot": "pilgrim-lower-bank:3"
+    },
+    {
+      "id": "thornGrub",
+      "x": 7.02,
+      "z": 21.65,
+      "encounter": "pilgrim-lower-bank:rear",
+      "slot": "pilgrim-lower-bank:4"
+    },
+    {
+      "id": "thornGrub",
+      "x": 2.34,
+      "z": 26.77,
+      "encounter": "pilgrim-lower-bank:rear",
+      "slot": "pilgrim-lower-bank:5"
+    },
+    {
+      "id": "thornGrub",
+      "x": -4.18,
+      "z": 25.21,
+      "encounter": "pilgrim-lower-bank:rear",
+      "slot": "pilgrim-lower-bank:6"
+    },
+    {
+      "id": "thornGrub",
+      "x": -3.27,
+      "z": 19.45,
+      "encounter": "pilgrim-lower-bank:rear",
+      "slot": "pilgrim-lower-bank:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "dandelion",
+      "x": -18.81,
+      "z": -4.03,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

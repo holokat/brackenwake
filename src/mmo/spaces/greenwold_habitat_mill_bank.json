@@ -1,0 +1,65 @@
+{
+  "id": "greenwold_habitat_mill_bank",
+  "zone": "millrun",
+  "name": "The mill bank",
+  "at": {
+    "x": -987,
+    "z": -283
+  },
+  "note": "A heron watches the shallows below the mill willows.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_yellow_iris",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_rushes",
+      "x": -6,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_mooring_post",
+      "x": 5,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "animals": [
+    {
+      "id": "heron",
+      "x": 2,
+      "z": 3,
+      "clip": "idle",
+      "yaw": 130
+    }
+  ],
+  "effects": [
+    {
+      "id": "fireflies",
+      "x": -6,
+      "z": 3,
+      "gate": "night",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

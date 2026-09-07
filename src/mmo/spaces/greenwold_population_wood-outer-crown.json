@@ -1,0 +1,203 @@
+{
+  "id": "greenwold_population_wood-outer-crown",
+  "name": "Beech Hangar woodland",
+  "at": {
+    "x": -1328,
+    "z": 395
+  },
+  "radius": 78,
+  "district": "beechhangar",
+  "pieces": [
+    {
+      "model": "lw_boar_wallow",
+      "x": 1.0621778264910695,
+      "z": -12.160254037844386,
+      "scale": 1.7,
+      "yaw": 60,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bracken",
+      "x": -1.473720558371177,
+      "z": -24.55255888325765,
+      "scale": 1.5,
+      "yaw": 60,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bramble_thicket",
+      "x": 36.748711305964285,
+      "z": 7.650635094610962,
+      "scale": 1.5,
+      "yaw": 60,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "sheep_skeleton",
+      "x": 31.65063509461097,
+      "z": 4.8205080756887675,
+      "scale": 1,
+      "yaw": 60,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -2.51,
+      "z": -34.35,
+      "scale": 0.9,
+      "yaw": 60,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 13.98,
+      "z": -35.78,
+      "scale": 1.1,
+      "yaw": 60,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 28.04,
+      "z": -25.43,
+      "scale": 0.9,
+      "yaw": 60,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 37.77,
+      "z": -12.57,
+      "scale": 1.1,
+      "yaw": 60,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 44.81,
+      "z": 7.61,
+      "scale": 1,
+      "yaw": 60,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 33.59,
+      "z": 22.18,
+      "scale": 0.9,
+      "yaw": 60,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -22.06,
+      "z": -24.21,
+      "scale": 1.1,
+      "yaw": 60,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 14.9,
+      "z": 31.81,
+      "scale": 0.85,
+      "yaw": 60,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -27.32,
+      "z": -7.32,
+      "scale": 0.9,
+      "yaw": 60,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -5.59,
+      "z": 26.32,
+      "scale": 0.95,
+      "yaw": 60,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": -6.73,
+      "z": -7.66,
+      "encounter": "wood-outer-crown:near",
+      "slot": "wood-outer-crown:0"
+    },
+    {
+      "id": "boar",
+      "x": -1.27,
+      "z": -6.2,
+      "encounter": "wood-outer-crown:near",
+      "slot": "wood-outer-crown:1"
+    },
+    {
+      "id": "boar",
+      "x": -4.96,
+      "z": -0.6,
+      "encounter": "wood-outer-crown:near",
+      "slot": "wood-outer-crown:2"
+    },
+    {
+      "id": "boar",
+      "x": 0.5,
+      "z": 0.87,
+      "encounter": "wood-outer-crown:near",
+      "slot": "wood-outer-crown:3"
+    },
+    {
+      "id": "wolf",
+      "x": 21.72,
+      "z": 3.62,
+      "encounter": "wood-outer-crown:rear",
+      "slot": "wood-outer-crown:4"
+    },
+    {
+      "id": "wolf",
+      "x": 25.95,
+      "z": 6.95,
+      "encounter": "wood-outer-crown:rear",
+      "slot": "wood-outer-crown:5"
+    },
+    {
+      "id": "wolf",
+      "x": 22.26,
+      "z": 12.55,
+      "encounter": "wood-outer-crown:rear",
+      "slot": "wood-outer-crown:6"
+    },
+    {
+      "id": "wolf",
+      "x": 17.16,
+      "z": 9.72,
+      "encounter": "wood-outer-crown:rear",
+      "slot": "wood-outer-crown:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": -17.43,
+      "z": -14.19,
+      "count": 2
+    },
+    {
+      "id": "blackberry",
+      "x": -10.22,
+      "z": 16.29,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

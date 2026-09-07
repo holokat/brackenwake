@@ -1,0 +1,224 @@
+{
+  "id": "greenwold_grove_south_fields_hollow",
+  "name": "Beech stand",
+  "note": "The south fields hollow trees frame the nearby route.",
+  "at": {
+    "x": -164,
+    "z": 501
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": 14,
+      "z": 25,
+      "encounter": "south-fields-grubs",
+      "slot": "south-fields-grubs:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": 6,
+      "z": 30,
+      "encounter": "south-fields-grubs",
+      "slot": "south-fields-grubs:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": 2,
+      "z": 21,
+      "encounter": "south-fields-grubs",
+      "slot": "south-fields-grubs:2"
+    },
+    {
+      "id": "thornGrub",
+      "x": -6,
+      "z": 28,
+      "encounter": "south-fields-grubs",
+      "slot": "south-fields-grubs:3"
+    },
+    {
+      "id": "wildDog",
+      "x": -7,
+      "z": 17,
+      "night": true,
+      "encounter": "south-fields-grubs",
+      "slot": "south-fields-grubs:4"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -55.56,
+      "z": 2.24,
+      "scale": 1,
+      "yaw": 40,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -46.91,
+      "z": -15.46,
+      "scale": 1.2,
+      "yaw": 87,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -26.2,
+      "z": -25.01,
+      "scale": 1.3,
+      "yaw": 134,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -12.32,
+      "z": -45.8,
+      "scale": 1.1,
+      "yaw": 181,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 13.66,
+      "z": -50.62,
+      "scale": 0.95,
+      "yaw": 228,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -45.5,
+      "z": 25.12,
+      "scale": 1.15,
+      "yaw": 275,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -32.62,
+      "z": 7.79,
+      "scale": 1.05,
+      "yaw": 322,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -14.09,
+      "z": -1.23,
+      "scale": 1.25,
+      "yaw": 9,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -0.72,
+      "z": -24.2,
+      "scale": 1.3,
+      "yaw": 56,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 22.56,
+      "z": -30.68,
+      "scale": 1.1,
+      "yaw": 103,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 47.67,
+      "z": -25.64,
+      "scale": 0.85,
+      "yaw": 150,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -25.72,
+      "z": 42.47,
+      "scale": 0.95,
+      "yaw": 197,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -11.96,
+      "z": 23.09,
+      "scale": 1.2,
+      "yaw": 244,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 11.82,
+      "z": 10.97,
+      "scale": 1.15,
+      "yaw": 291,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 29.68,
+      "z": -6.63,
+      "scale": 1.05,
+      "yaw": 338,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -2.91,
+      "z": 49.43,
+      "scale": 1.1,
+      "yaw": 25,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 17.16,
+      "z": 39.12,
+      "scale": 0.85,
+      "yaw": 72,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 34.51,
+      "z": 19.34,
+      "scale": 1.15,
+      "yaw": 119,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 51.09,
+      "z": 0.21,
+      "scale": 1,
+      "yaw": 166,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -19.24,
+      "z": 65.75,
+      "scale": 0.8,
+      "yaw": 213,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 34.27,
+      "z": -50.95,
+      "scale": 0.8,
+      "yaw": 307,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

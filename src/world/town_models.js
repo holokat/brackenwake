@@ -1193,7 +1193,7 @@ export function buildTown(site, heightAt, opts = {}) {
   }
 
   // ---- merge, then hang the waystone on the side --------------------------
-  const merged = mergeByMaterial(body);
+  const merged = mergeByMaterial(body,{physical:true});
   merged.traverse((o) => { if (o.isMesh) o.userData.site = site; });
 
   const wsGroup = new THREE.Group();
@@ -1201,7 +1201,7 @@ export function buildTown(site, heightAt, opts = {}) {
   stone.position.set(plan.waystone.x, probe(plan.waystone.x, plan.waystone.z) - 0.1, plan.waystone.z);
   stone.rotation.y = plan.waystone.yaw;
   wsGroup.add(stone);
-  const wsMerged = mergeByMaterial(wsGroup);
+  const wsMerged = mergeByMaterial(wsGroup,{physical:true});
   wsMerged.traverse((o) => { if (o.isMesh) { o.userData.site = site; o.userData.waystone = true; } });
   wsMerged.userData.waystone = true;
   wsMerged.userData.site = site;
@@ -1215,7 +1215,7 @@ export function buildTown(site, heightAt, opts = {}) {
   if (plan.keep) {
     const kg = new THREE.Group();
     kg.add(keepGateBody(plan, probe));
-    keepMerged = mergeByMaterial(kg);
+    keepMerged = mergeByMaterial(kg,{physical:true});
     keepMerged.traverse((o) => { if (o.isMesh) { o.userData.site = site; o.userData.keep = true; } });
     keepMerged.userData.keep = true;
     keepMerged.userData.site = site;

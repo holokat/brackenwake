@@ -1,0 +1,94 @@
+{
+  "id": "greenwold_population_road-high-ascent",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 1208,
+    "z": -1233
+  },
+  "radius": 78,
+  "district": "kingsroad",
+  "pieces": [
+    {
+      "model": "brazier",
+      "x": 1.2325683343243865,
+      "z": 14.088320528055174,
+      "scale": 1,
+      "yaw": 130,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -26.64,
+      "z": 3.75,
+      "scale": 0.95,
+      "yaw": 130,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "legionSoldier",
+      "x": -3.5,
+      "z": -17.35,
+      "encounter": "road-high-ascent:near",
+      "slot": "road-high-ascent:0"
+    },
+    {
+      "id": "legionSoldier",
+      "x": -5.11,
+      "z": 7.19,
+      "encounter": "road-high-ascent:near",
+      "slot": "road-high-ascent:1"
+    },
+    {
+      "id": "legionSoldier",
+      "x": -9.54,
+      "z": -13.27,
+      "encounter": "road-high-ascent:near",
+      "slot": "road-high-ascent:2"
+    },
+    {
+      "id": "legionSoldier",
+      "x": -0.64,
+      "z": 9.77,
+      "encounter": "road-high-ascent:near",
+      "slot": "road-high-ascent:3"
+    },
+    {
+      "id": "legionArcher",
+      "x": -2.28,
+      "z": 15.35,
+      "encounter": "road-high-ascent:rear",
+      "slot": "road-high-ascent:4"
+    },
+    {
+      "id": "legionArcher",
+      "x": -6.06,
+      "z": 18.37,
+      "encounter": "road-high-ascent:rear",
+      "slot": "road-high-ascent:5"
+    },
+    {
+      "id": "legionArcher",
+      "x": -23.08,
+      "z": 6.31,
+      "encounter": "road-high-ascent:rear",
+      "slot": "road-high-ascent:6"
+    },
+    {
+      "id": "legionArcher",
+      "x": -9.57,
+      "z": 13.15,
+      "encounter": "road-high-ascent:rear",
+      "slot": "road-high-ascent:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

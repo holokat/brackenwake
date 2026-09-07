@@ -26,21 +26,34 @@ export function authoredResources(field, cx, cz, spaces = SPACES) {
   return out;
 }
 
-export function authoredForage(field, cx, cz, season, catalog, spaces = SPACES) {
+export function authoredForage(field, cx, cz, season, catalog, spaces = SPACES, trees = null) {
   const out = [];
   for (const s of Object.values(spaces)) {
     for (const p of s.forage || []) {
       const row = catalog[p.id];
       if (!row || !row.seasons.includes(season)) continue;
-      const x = s.at.x + p.x, z = s.at.z + p.z;
+      let x = s.at.x + p.x, z = s.at.z + p.z;
       if (Math.floor(x / CHUNK) !== cx || Math.floor(z / CHUNK) !== cz) continue;
       const ground = field.sampleAt(x, z);
       if (ground.water) continue;
-      const y = ground.h + 0.03;
+      let y = ground.h + 0.03, yaw=0, tree=null;
+      const onTrunk=row.place==='trunk';
+      if(onTrunk){
+        const candidates=p.tree?[p.tree]:(s.trees||[]);
+        const t=candidates.map(t=>({...t,d:Math.hypot(t.x-p.x,t.z-p.z)})).filter(t=>t.d<20).sort((a,b)=>a.d-b.d)[0];
+        if(!t)continue;
+        const tx=s.at.x+t.x,tz=s.at.z+t.z;
+        const liveTrees=typeof trees==='function'?trees(Math.floor(tx/CHUNK),Math.floor(tz/CHUNK)):trees;
+        const live=liveTrees?.find(q=>Math.hypot(q.x-tx,q.z-tz)<.15);
+        const radius=live?.radius??.35*(t.scale||1),angle=(p.yaw||0)*Math.PI/180;
+        x=tx+Math.sin(angle)*radius*.94;z=tz+Math.cos(angle)*radius*.94;
+        y=field.heightAt(tx,tz)+(p.height||.9);yaw=angle;
+        tree={x:tx,z:tz};
+      }
       const count = p.count || 1;
-      const members = [{ x, y, z, yaw: 0, scale: 1 }];
-      if (count === 2) members.push({ x: x + 0.35, y: field.heightAt(x + 0.35, z + 0.2) + 0.03, z: z + 0.2, yaw: 1.7, scale: 0.85 });
-      out.push({ id: p.id, x, y, z, count, onTrunk: false, members,
+      const members = [{ x, y, z, yaw, scale: 1 }];
+      if (count === 2) members.push(onTrunk?{x,y:y+.2,z,yaw,scale:.85}:{ x: x + 0.35, y: field.heightAt(x + 0.35, z + 0.2) + 0.03, z: z + 0.2, yaw: 1.7, scale: 0.85 });
+      out.push({ id: p.id, x, y, z, count, onTrunk, tree, members,
         authored: `${s.id}:${p.id}:${p.x}:${p.z}` });
     }
   }

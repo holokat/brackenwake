@@ -452,6 +452,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
   const pending = [];              // swings and casts in the air
   const tracked = new Set();       // actors carrying status, or lately hit
   const deathFns = [];
+  const strikeFns = [];
   const hitFns = [];               // W6's particles: see onHit below
   const lastActionAt = new WeakMap();
   let lastNow = 0;
@@ -504,6 +505,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
   function onHit(fn) { if (typeof fn === 'function') hitFns.push(fn); return () => {
     const i = hitFns.indexOf(fn); if (i >= 0) hitFns.splice(i, 1);
   }; }
+  function onStrike(fn){strikeFns.push(fn);return()=>{const i=strikeFns.indexOf(fn);if(i>=0)strikeFns.splice(i,1);};}
   const onHitFire = (info) => { for (const fn of hitFns) fn(info); };
 
   /**
@@ -931,6 +933,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     // owns a poison tick's. A defender the swing itself already emptied is not
     // alive by the time they run, so they take nothing further off it, and the
     // kill below is still this swing's.
+    if(res.damage>0)for(const fn of strikeFns)fn({attacker,defender,kind:'melee',damage:res.damage,now});
     res.after = afterBlow(res, attacker, defender, now);
     if (defender.health <= 0) kill(defender, attacker);
 
@@ -1022,7 +1025,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
   }
 
   const api = {
-    queueSwing, queueSpell, applyFall, update, onDeath, onHit, inCombat,
+    queueSwing, queueSpell, applyFall, update, onDeath, onHit, onStrike, inCombat,
     // the pieces the other runtimes need to reach without re-deriving them
     applyStatus, clearStatus, hurt, heal, kill,
     /**

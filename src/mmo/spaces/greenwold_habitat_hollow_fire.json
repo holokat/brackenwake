@@ -1,0 +1,41 @@
+{
+  "id": "greenwold_habitat_hollow_fire",
+  "zone": "highwaymanshollow",
+  "name": "The hollow fire",
+  "at": {
+    "x": 497.87,
+    "z": -1019.39
+  },
+  "note": "The outlaws keep their fire inside the bowl of the camp.",
+  "radius": 42,
+  "pieces": [],
+  "effects": [
+    {
+      "id": "watch_fire",
+      "x": 0,
+      "z": 0,
+      "gate": "always",
+      "scale": 0.8,
+      "y": 0.3
+    }
+  ],
+  "lights": [
+    {
+      "x": 0,
+      "z": 0,
+      "y": 1.5,
+      "color": 16750154,
+      "power": 24,
+      "range": 17
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

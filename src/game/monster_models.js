@@ -1,3 +1,5 @@
+import {buildStudioCreature} from './studio/creatures.js';
+import {buildStudioCaster} from './studio/hostile-casters.js';
 // The bodies of everything that wants to kill you.
 //
 // Six families now wear a real Blender skeleton out of `rig_glb.js`; the rest
@@ -2098,6 +2100,11 @@ export function monsterModelIds() {
  * as it was.
  */
 export function buildMonsterModel(id) {
+  const studio = buildStudioCreature(id) || buildStudioCaster(id); return studio || buildLegacyMonsterModel(id);
+}
+
+/** Retained bodies for game species not yet present in the studio catalog. */
+export function buildLegacyMonsterModel(id) {
   const m = MONSTERS[id];
 
   // Tier 0 is not a box and never was one: the animals of the world wear the

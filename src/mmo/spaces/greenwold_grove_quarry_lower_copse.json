@@ -1,0 +1,144 @@
+{
+  "id": "greenwold_grove_quarry_lower_copse",
+  "name": "Beech stand",
+  "note": "The quarry lower copse trees frame the nearby route.",
+  "at": {
+    "x": -968,
+    "z": -465
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": -16,
+      "z": -4,
+      "encounter": "quarry-lower-vermin",
+      "slot": "quarry-lower-vermin:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -12,
+      "z": -13,
+      "encounter": "quarry-lower-vermin",
+      "slot": "quarry-lower-vermin:1"
+    },
+    {
+      "id": "giantRat",
+      "x": -33,
+      "z": -18,
+      "encounter": "quarry-lower-vermin",
+      "slot": "quarry-lower-vermin:2"
+    },
+    {
+      "id": "giantRat",
+      "x": -30,
+      "z": -27,
+      "encounter": "quarry-lower-vermin",
+      "slot": "quarry-lower-vermin:3"
+    },
+    {
+      "id": "giantRat",
+      "x": -7,
+      "z": -24,
+      "night": true,
+      "encounter": "quarry-lower-vermin",
+      "slot": "quarry-lower-vermin:4"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -61,
+      "z": -8,
+      "scale": 0.8,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -42,
+      "z": -2,
+      "scale": 1.05,
+      "yaw": 47,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 3,
+      "z": 1,
+      "scale": 1.3,
+      "yaw": 141,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 24,
+      "z": -6,
+      "scale": 1.1,
+      "yaw": 188,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 47,
+      "z": 5,
+      "scale": 0.9,
+      "yaw": 235,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 65,
+      "z": -2,
+      "scale": 0.8,
+      "yaw": 282,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -50,
+      "z": -25,
+      "scale": 0.85,
+      "yaw": 329,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -29,
+      "z": -31,
+      "scale": 1.1,
+      "yaw": 16,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -4,
+      "z": -22,
+      "scale": 1.2,
+      "yaw": 63,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 44,
+      "z": -19,
+      "scale": 0.9,
+      "yaw": 157,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 10,
+      "z": -45,
+      "scale": 1.05,
+      "yaw": 251,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

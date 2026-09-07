@@ -108,7 +108,7 @@ const rt = createWorldRuntime(sc, { homeBiome: 'meadow' });
 
 ck('the runtime hands back every module the contract names',
   !!(rt.field && rt.world && rt.flora && rt.fauna && rt.discovery && rt.siteMarkers));
-ck('fog in the open is 90 to 536', sc.scene.fog.near === 90 && sc.scene.fog.far === 536,
+ck('fog closes at 280 m inside the 320 m streamed ring', Math.abs(sc.scene.fog.near-78.4)<.001 && sc.scene.fog.far === 280,
   `${sc.scene.fog.near}-${sc.scene.fog.far}`);
 ck('the fog colour is not pinned above ground', sc.fogPinned === false);
 // Two, not three. `world-fauna` is gone: fauna draws nothing now, it says where
@@ -914,9 +914,10 @@ for (const kind of ['dungeon', 'cave']) {
 
   // nothing grew, nothing was scattered, nothing was rolled
   {
-    ck('no trees and no boulders stand in it, over every chunk the ring has built',
-      rt2.flora.stats.records === 0 && rt2.flora.stats.chunks > 0,
-      `flora holds ${rt2.flora.stats.records} records over ${rt2.flora.stats.chunks} chunks`);
+    const records=treeFieldsFor().flatMap(f=>f.trees);
+    ck('only authored trees and rocks remain on sculpted ground, with no rolled scatter',
+      records.length===rt2.flora.stats.records && records.every(r=>typeof r.authored==='string') && rt2.flora.stats.chunks>0,
+      `flora holds ${records.length} authored records over ${rt2.flora.stats.chunks} chunks`);
     ck('and nothing is dressed in it',
       rt2.dressing.stats.records === 0 && rt2.dressing.stats.chunks > 0,
       `dressing holds ${rt2.dressing.stats.records} records over ${rt2.dressing.stats.chunks} chunks`);

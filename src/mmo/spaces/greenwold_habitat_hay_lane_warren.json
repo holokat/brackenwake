@@ -1,0 +1,113 @@
+{
+  "id": "greenwold_habitat_hay_lane_warren",
+  "zone": "longmeadow",
+  "name": "The rabbit bank",
+  "at": {
+    "x": -614,
+    "z": -498
+  },
+  "note": "Rabbits have opened the dry bank above the haymakers lane.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_rabbit_warren",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_hawthorn",
+      "x": 8,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_bramble_thicket",
+      "x": -6,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_molehills",
+      "x": 0,
+      "z": 8,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "pad": 21,
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": -7,
+      "z": 8,
+      "count": 2
+    }
+  ],
+  "effects": [
+    {
+      "id": "butterflies",
+      "x": 8,
+      "z": 5,
+      "gate": "fair",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "approach": [
+    -607.4,
+    -465.6
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": -21,
+      "z": -1,
+      "encounter": "warren-grubs",
+      "slot": "warren-grubs:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": -25,
+      "z": 3,
+      "encounter": "warren-grubs",
+      "slot": "warren-grubs:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": -20,
+      "z": -29,
+      "encounter": "warren-grubs",
+      "slot": "warren-grubs:2"
+    },
+    {
+      "id": "thornGrub",
+      "x": -3,
+      "z": -9,
+      "encounter": "warren-grubs",
+      "slot": "warren-grubs:3"
+    },
+    {
+      "id": "thornGrub",
+      "x": -33,
+      "z": -2,
+      "night": true,
+      "encounter": "warren-grubs",
+      "slot": "warren-grubs:4"
+    }
+  ],
+  "stations": []
+}

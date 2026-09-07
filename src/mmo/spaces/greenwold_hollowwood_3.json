@@ -11,7 +11,45 @@
   "runs": [],
   "areas": [],
   "people": [],
-  "spawns": [],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": -55.15,
+      "z": -62.65,
+      "encounter": "mere-path-scouts",
+      "slot": "mere-path-scouts:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": -48.15,
+      "z": -57.65,
+      "encounter": "mere-path-scouts",
+      "slot": "mere-path-scouts:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": -38.15,
+      "z": -62.65,
+      "encounter": "mere-path-scouts",
+      "slot": "mere-path-scouts:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": -45.15,
+      "z": -48.65,
+      "night": true,
+      "encounter": "mere-path-scouts",
+      "slot": "mere-path-scouts:3"
+    },
+    {
+      "id": "goblinScout",
+      "x": -34.15,
+      "z": -52.65,
+      "night": true,
+      "encounter": "mere-path-scouts",
+      "slot": "mere-path-scouts:4"
+    }
+  ],
   "trees": [],
   "rocks": [],
   "markers": [],

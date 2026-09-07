@@ -730,9 +730,9 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   check('an unknown id builds nothing rather than a grey cube', buildMonsterModel('grue') === null);
 
   const rat = buildMonsterModel('giantRat');
-  check('a rat is low and long, and on four legs', rat.height < 0.8 && rat.parts.legs.length === 4, `${rat.height.toFixed(2)} m`);
+  check('a rat is low and long, and on four legs', rat.height < 0.8 && Object.keys(rat.studioActor.rig.joints).filter(k=>/^(front|rear)[LR]$/.test(k)).length === 4, `${rat.height.toFixed(2)} m`);
   const spider = buildMonsterModel('giantSpider');
-  check('a spider has eight', spider.parts.legs.length === 8);
+  check('a spider has eight', Object.keys(spider.studioActor.rig.joints).filter(k=>/^leg[LR][0-3]$/.test(k)).length === 8);
   const skel = buildMonsterModel('skeleton');
   check('a skeleton is thinner than a zombie of the same tier',
     skel.radius < buildMonsterModel('zombie').radius, `${skel.radius.toFixed(2)} against ${buildMonsterModel('zombie').radius.toFixed(2)}`);
@@ -741,18 +741,21 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   const walker = buildMonsterModel('wolf');
   walker.setAnim('walk');
   walker.update(1 / 60, 0);
-  const still = walker.parts.legs[0].rotation.x;
-  for (let f = 0; f < 30; f++) walker.update(1 / 60, 8.5);
-  check('a standing wolf keeps its legs still', still === 0, `${still}`);
-  check('and a running one does not', Math.abs(walker.parts.legs[0].rotation.x) > 0.05, `${walker.parts.legs[0].rotation.x.toFixed(3)}`);
+  const legs = Object.values(walker.studioActor.rig.joints).filter(b=>/^(front|rear)[LR]$/.test(b.name));
+  const rest = legs.map(b=>b.quaternion.clone());
+  walker.update(1/60,0);
+  check('a walking clip freezes when the wolf covers no ground', legs.every((b,i)=>b.quaternion.angleTo(rest[i])<1e-6));
+  let moved=0;for(let f=0;f<30;f++){walker.update(1/60,8.5);legs.forEach((b,i)=>moved=Math.max(moved,b.quaternion.angleTo(rest[i])));}
+  check('covering ground advances the native leg bones', moved>.05, `${moved.toFixed(3)} rad`);
 
   // die is a one way door, and it finishes
   const dying = buildMonsterModel('skeleton');
+  const head=dying.studioActor.rig.joints.head,headUp=head.getWorldPosition(new THREE.Vector3()).y;
   dying.setAnim('die');
   check('the topple has not finished on the first frame', dying.dieDone === false);
   for (let f = 0; f < Math.ceil(DIE_SECONDS * 60) + 2; f++) dying.update(1 / 60, 0);
   check('and it has after DIE_SECONDS', dying.dieDone === true);
-  check('and it is lying down', Math.abs(dying.parts.root.rotation.z - Math.PI / 2) < 0.05, `${dying.parts.root.rotation.z.toFixed(2)} rad`);
+  check('and the native head settles substantially below its standing height', head.getWorldPosition(new THREE.Vector3()).y<headUp*.7);
   dying.setAnim('walk');
   check('a dead thing does not get up', dying.anim === 'die');
 }
@@ -1507,18 +1510,19 @@ function seedWith(layout, id, max = 3000) {
   {
     const { combat, monsters, player, cultist, started } = build();
     check('the cast is running', !!cultist.cast, `started frame ${started}`);
-    // a tenth of 80 is 8, so nine breaks it and seven does not
+    // Drive either side of ten percent using the tuned live health.
+    const under=Math.floor(cultist.actor.maxHealth*.1)-1,over=Math.floor(cultist.actor.maxHealth*.1)+1;
     const t7 = (started + 1) * (1000 / 60);
-    combat.hurt(cultist.actor, 7, { now: t7 });
+    combat.hurt(cultist.actor, under, { now: t7 });
     monsters.update(1 / 60, t7, player, false);
-    check('a blow of 7 on a cultist of 80 does not break the cast',
+    check('a blow below ten percent does not break the cast',
       !!cultist.cast && monsters.stats.interrupted === 0, `${monsters.stats.interrupted}`);
-    check('and 7 really is under a tenth of its health', castBroken(7, cultist.actor.maxHealth) === false);
+    check('and that blow is below a tenth of its health', castBroken(under, cultist.actor.maxHealth) === false);
     const t9 = (started + 2) * (1000 / 60);
-    combat.hurt(cultist.actor, 9, { now: t9 });
+    combat.hurt(cultist.actor, over, { now: t9 });
     monsters.update(1 / 60, t9, player, false);
-    check('and a blow of 9 does break it', monsters.stats.interrupted === 1 && !cultist.cast, `${monsters.stats.interrupted}`);
-    check('and 9 really is over a tenth of it', castBroken(9, cultist.actor.maxHealth) === true);
+    check('and a blow above ten percent does break it', monsters.stats.interrupted === 1 && !cultist.cast, `${monsters.stats.interrupted}`);
+    check('and that blow is above a tenth of its health', castBroken(over, cultist.actor.maxHealth) === true);
     check('and it said so', lines.some((l) => l.includes('loses the words')));
     monsters.dispose();
   }
@@ -1942,15 +1946,16 @@ const GROUND = 3;
   const hurt = b.monsters.spawnAt('legionSoldier', 3, 0);
   const full = b.monsters.spawnAt('legionSoldier', 4, 0);
   const far = b.monsters.spawnAt('legionSoldier', 0, HEAL_ALLIES_M + 12);
-  hurt.actor.health = 20;
-  far.actor.health = 20;
+  const injured=Math.ceil(hurt.actor.maxHealth*.4);
+  hurt.actor.health = injured;
+  far.actor.health = injured;
   const p = benchPlayer(10, 0);
   b.run(400, p);
   check('the chaplain chants at least once', b.monsters.stats.heals >= 1, `${b.monsters.stats.heals}`);
-  check(`a hurt ally inside ${HEAL_ALLIES_M} m is healed`, hurt.actor.health > 20, `20 to ${hurt.actor.health}`);
+  check(`a hurt ally inside ${HEAL_ALLIES_M} m is healed`, hurt.actor.health > injured, `${injured} to ${hurt.actor.health}`);
   check('an ally at full health is not, and is not counted',
     full.actor.health === full.actor.maxHealth, `${full.actor.health}`);
-  check(`a hurt ally past ${HEAL_ALLIES_M} m gets nothing`, far.actor.health === 20, `${far.actor.health}`);
+  check(`a hurt ally past ${HEAL_ALLIES_M} m gets nothing`, far.actor.health === injured, `${far.actor.health}`);
   check('and the chant says what went where',
     b.said(/lifts the cup, and the wall closes up\. \d+ health back across \d+ of them/).length >= 1,
     b.said(/lifts the cup/)[0]);

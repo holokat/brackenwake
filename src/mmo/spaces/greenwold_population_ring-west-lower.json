@@ -1,0 +1,154 @@
+{
+  "id": "greenwold_population_ring-west-lower",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -58,
+    "z": 87
+  },
+  "radius": 78,
+  "district": "standinghedge",
+  "pieces": [],
+  "trees": [
+    {
+      "species": "willow",
+      "x": 9.39,
+      "z": -33.13,
+      "scale": 0.9,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 25.38,
+      "z": -28.84,
+      "scale": 1.1,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 35.05,
+      "z": -14.3,
+      "scale": 0.9,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 39.8,
+      "z": 1.11,
+      "scale": 1.1,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 23.98,
+      "z": 32.33,
+      "scale": 0.9,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 3.12,
+      "z": 34.99,
+      "scale": 0.85,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -23.17,
+      "z": -16.22,
+      "scale": 0.9,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -14.25,
+      "z": 22.82,
+      "scale": 0.95,
+      "yaw": 80,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "reedStalker",
+      "x": -3.71,
+      "z": -9.5,
+      "encounter": "ring-west-lower:near",
+      "slot": "ring-west-lower:0"
+    },
+    {
+      "id": "reedStalker",
+      "x": 0.93,
+      "z": -6.26,
+      "encounter": "ring-west-lower:near",
+      "slot": "ring-west-lower:1"
+    },
+    {
+      "id": "reedStalker",
+      "x": -4.46,
+      "z": -2.26,
+      "encounter": "ring-west-lower:near",
+      "slot": "ring-west-lower:2"
+    },
+    {
+      "id": "reedStalker",
+      "x": 0.17,
+      "z": 0.98,
+      "encounter": "ring-west-lower:near",
+      "slot": "ring-west-lower:3"
+    },
+    {
+      "id": "drowned",
+      "x": 19.17,
+      "z": 13.84,
+      "encounter": "ring-west-lower:rear",
+      "slot": "ring-west-lower:4"
+    },
+    {
+      "id": "drowned",
+      "x": 24.11,
+      "z": 17.51,
+      "encounter": "ring-west-lower:rear",
+      "slot": "ring-west-lower:5"
+    },
+    {
+      "id": "drowned",
+      "x": 16.62,
+      "z": 19.41,
+      "encounter": "ring-west-lower:rear",
+      "slot": "ring-west-lower:6"
+    },
+    {
+      "id": "drowned",
+      "x": 12.8,
+      "z": 15.01,
+      "encounter": "ring-west-lower:rear",
+      "slot": "ring-west-lower:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "nettle",
+      "x": -11.53,
+      "z": -19.29,
+      "count": 2
+    },
+    {
+      "id": "nettle",
+      "x": -15.18,
+      "z": 11.82,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

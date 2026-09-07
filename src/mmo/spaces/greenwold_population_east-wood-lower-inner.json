@@ -1,0 +1,165 @@
+{
+  "id": "greenwold_population_east-wood-lower-inner",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 1256,
+    "z": -78
+  },
+  "radius": 78,
+  "district": "eastwood",
+  "pieces": [
+    {
+      "model": "lw_bramble_thicket",
+      "x": -34.86189696514717,
+      "z": -13.915751506528961,
+      "scale": 1.5,
+      "yaw": 250,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "sheep_skeleton",
+      "x": -30.33271838616109,
+      "z": -10.243348832576428,
+      "scale": 1,
+      "yaw": 250,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -3.49,
+      "z": 34.26,
+      "scale": 0.9,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -19.98,
+      "z": 32.81,
+      "scale": 1.1,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -39.38,
+      "z": 5.82,
+      "scale": 1.1,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -42.81,
+      "z": -15.28,
+      "scale": 1,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -29.23,
+      "z": -27.67,
+      "scale": 0.9,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -9.15,
+      "z": -33.92,
+      "scale": 0.85,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 25.63,
+      "z": 11.95,
+      "scale": 0.9,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 10.07,
+      "z": -24.95,
+      "scale": 0.95,
+      "yaw": 250,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": 5.3,
+      "z": 8.71,
+      "encounter": "east-wood-lower-inner:near",
+      "slot": "east-wood-lower-inner:0"
+    },
+    {
+      "id": "boar",
+      "x": 0.17,
+      "z": 6.32,
+      "encounter": "east-wood-lower-inner:near",
+      "slot": "east-wood-lower-inner:1"
+    },
+    {
+      "id": "boar",
+      "x": 4.78,
+      "z": 1.45,
+      "encounter": "east-wood-lower-inner:near",
+      "slot": "east-wood-lower-inner:2"
+    },
+    {
+      "id": "boar",
+      "x": -0.34,
+      "z": -0.94,
+      "encounter": "east-wood-lower-inner:near",
+      "slot": "east-wood-lower-inner:3"
+    },
+    {
+      "id": "wolf",
+      "x": -20.76,
+      "z": -7.34,
+      "encounter": "east-wood-lower-inner:rear",
+      "slot": "east-wood-lower-inner:4"
+    },
+    {
+      "id": "wolf",
+      "x": -24.35,
+      "z": -11.36,
+      "encounter": "east-wood-lower-inner:rear",
+      "slot": "east-wood-lower-inner:5"
+    },
+    {
+      "id": "wolf",
+      "x": -19.74,
+      "z": -16.23,
+      "encounter": "east-wood-lower-inner:rear",
+      "slot": "east-wood-lower-inner:6"
+    },
+    {
+      "id": "wolf",
+      "x": -12.21,
+      "z": -12.55,
+      "encounter": "east-wood-lower-inner:rear",
+      "slot": "east-wood-lower-inner:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": 12.9,
+      "z": -14.27,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

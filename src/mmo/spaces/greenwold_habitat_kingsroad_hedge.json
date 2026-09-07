@@ -1,0 +1,63 @@
+{
+  "id": "greenwold_habitat_kingsroad_hedge",
+  "zone": "kingsroad",
+  "name": "The road shoulders",
+  "at": {
+    "x": 672,
+    "z": -735
+  },
+  "note": "Thorn and gorse hold the banks beside the paved road.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_hawthorn",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_gorse",
+      "x": -8,
+      "z": -3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_cow_parsley",
+      "x": -7,
+      "z": 5,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "forage": [
+    {
+      "id": "rosehip",
+      "x": -5,
+      "z": 10,
+      "count": 2
+    }
+  ],
+  "effects": [
+    {
+      "id": "floating_seeds",
+      "x": -7,
+      "z": 5,
+      "gate": "fair",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "stations": []
+}

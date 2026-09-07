@@ -1,0 +1,108 @@
+{
+  "id": "greenwold_population_mill-lane-shoulder",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 105,
+    "z": -240
+  },
+  "radius": 78,
+  "district": "longmeadow",
+  "pieces": [
+    {
+      "model": "lw_gorse",
+      "x": 0.5496413719972599,
+      "z": -20.117104522325995,
+      "scale": 1.5,
+      "yaw": 65,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_thistle_clump",
+      "x": -2.652971514408641,
+      "z": -17.520323688326545,
+      "scale": 1,
+      "yaw": 65,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_cowslip_patch",
+      "x": -10.091528184513653,
+      "z": 9.119268550775692,
+      "scale": 1.5,
+      "yaw": 65,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": -6.04,
+      "z": -14.22,
+      "encounter": "mill-lane-shoulder:near",
+      "slot": "mill-lane-shoulder:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -0.72,
+      "z": -12.28,
+      "encounter": "mill-lane-shoulder:near",
+      "slot": "mill-lane-shoulder:1"
+    },
+    {
+      "id": "giantRat",
+      "x": -4.89,
+      "z": 10.97,
+      "encounter": "mill-lane-shoulder:near",
+      "slot": "mill-lane-shoulder:2"
+    },
+    {
+      "id": "giantRat",
+      "x": 0.42,
+      "z": 12.91,
+      "encounter": "mill-lane-shoulder:near",
+      "slot": "mill-lane-shoulder:3"
+    },
+    {
+      "id": "thornGrub",
+      "x": 21.32,
+      "z": -0.5,
+      "encounter": "mill-lane-shoulder:rear",
+      "slot": "mill-lane-shoulder:4"
+    },
+    {
+      "id": "thornGrub",
+      "x": 25.25,
+      "z": 0.19,
+      "encounter": "mill-lane-shoulder:rear",
+      "slot": "mill-lane-shoulder:5"
+    },
+    {
+      "id": "thornGrub",
+      "x": 21.08,
+      "z": 23.44,
+      "encounter": "mill-lane-shoulder:rear",
+      "slot": "mill-lane-shoulder:6"
+    },
+    {
+      "id": "thornGrub",
+      "x": 16.25,
+      "z": 23.18,
+      "encounter": "mill-lane-shoulder:rear",
+      "slot": "mill-lane-shoulder:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "dandelion",
+      "x": -11.6,
+      "z": 15.34,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

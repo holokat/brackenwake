@@ -1,0 +1,133 @@
+{
+  "id": "greenwold_population_bridle-lower-bank",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -745,
+    "z": 742
+  },
+  "radius": 78,
+  "district": "coldwake",
+  "pieces": [
+    {
+      "model": "lw_bramble_thicket",
+      "x": 25,
+      "z": -28,
+      "scale": 1.5,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "sheep_skeleton",
+      "x": 20,
+      "z": -25,
+      "scale": 1,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 8,
+      "z": -39,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 29,
+      "z": -35,
+      "scale": 1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -32,
+      "z": 7,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -20,
+      "z": 20,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": -10,
+      "z": 2,
+      "encounter": "bridle-lower-bank:near",
+      "slot": "bridle-lower-bank:0"
+    },
+    {
+      "id": "boar",
+      "x": -6,
+      "z": 4,
+      "encounter": "bridle-lower-bank:near",
+      "slot": "bridle-lower-bank:1"
+    },
+    {
+      "id": "boar",
+      "x": 0,
+      "z": 4,
+      "encounter": "bridle-lower-bank:near",
+      "slot": "bridle-lower-bank:2"
+    },
+    {
+      "id": "boar",
+      "x": 3.1,
+      "z": 2.1,
+      "encounter": "bridle-lower-bank:near",
+      "slot": "bridle-lower-bank:3"
+    },
+    {
+      "id": "wolf",
+      "x": 14,
+      "z": -14,
+      "encounter": "bridle-lower-bank:rear",
+      "slot": "bridle-lower-bank:4"
+    },
+    {
+      "id": "wolf",
+      "x": 19,
+      "z": -19,
+      "encounter": "bridle-lower-bank:rear",
+      "slot": "bridle-lower-bank:5"
+    },
+    {
+      "id": "wolf",
+      "x": 13.6,
+      "z": -21.4,
+      "encounter": "bridle-lower-bank:rear",
+      "slot": "bridle-lower-bank:6"
+    },
+    {
+      "id": "wolf",
+      "x": 17,
+      "z": -25,
+      "encounter": "bridle-lower-bank:rear",
+      "slot": "bridle-lower-bank:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": -21,
+      "z": 8,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

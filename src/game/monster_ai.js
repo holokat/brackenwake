@@ -581,7 +581,7 @@ export function normalizeDungeonLayout(raw, extra = {}) {
   const bossLair = typeof raw.bossLair === 'string' ? raw.bossLair
     : (typeof extra.bossLair === 'string' ? extra.bossLair : null);
 
-  return { siteId, kind, level, top, bottom, cellSize, gridW, gridH, rooms, entry, deepest, arena, bossLair };
+  return { siteId, kind, level, top, bottom, cellSize, gridW, gridH, rooms, entry, deepest, arena, bossLair, authoredSpawns: raw.authoredSpawns };
 }
 
 /** Grid cell to the metres of its centre, exactly as dungeon_gen.worldOf. */
@@ -639,6 +639,11 @@ function rollMinion(habitat, rng) {
 export function dungeonSpawns(layout, opts = {}) {
   const L = layout && layout.rooms ? layout : normalizeDungeonLayout(layout, opts);
   if (!L) return [];
+  if (L.authoredSpawns) return L.authoredSpawns.map((s,i) => ({
+    id:s.id, key:`${L.siteId}:${L.level}:authored:${s.slot}`, groupKey:`${L.siteId}:${L.level}:${s.group}`,
+    ...cellToWorld(L,s.gx,s.gz), y:0, room:s.room, level:L.level, site:String(L.siteId),
+    boss:!!MONSTERS[s.id]?.boss, underground:true, night:false, cx:0,cz:0,i,
+  }));
   const habitat = dungeonHabitat(L.kind, L.level);
   if (!HABITAT[habitat]) return [];
   const worldSeed = num(opts.seed);

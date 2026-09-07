@@ -343,7 +343,7 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
     return at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1]));
   })());
   check('a weapon tooltip states damage, speed, skill and weight',
-    idLines.some((l) => /9 to 16 physical damage, 3.0 s/.test(l)) && idLines.some((l) => /Swordsmanship/.test(l)) && idLines.some((l) => /4 stones, needs 30 STR/.test(l)),
+    idLines.some((l) => /9 to 16 physical damage, 1.26 s base swing/.test(l)) && idLines.some((l) => /Swordsmanship/.test(l)) && idLines.some((l) => /4 stones, needs 30 STR/.test(l)),
     idLines.join(' | '));
 
   const plate = { ...withAffixes(item('plate_chest', 'epic', 12)), identified: true };

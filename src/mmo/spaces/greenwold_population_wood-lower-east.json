@@ -1,0 +1,153 @@
+{
+  "id": "greenwold_population_wood-lower-east",
+  "name": "Beech Hangar woodland",
+  "at": {
+    "x": -959,
+    "z": -145
+  },
+  "radius": 78,
+  "district": "beechhangar",
+  "pieces": [
+    {
+      "model": "lw_leaf_litter",
+      "x": 13.501167927767113,
+      "z": 7.856110016174206,
+      "scale": 2,
+      "yaw": 250,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -29.23,
+      "z": -27.67,
+      "scale": 0.9,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 17.52,
+      "z": 27.68,
+      "scale": 1.1,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -9.15,
+      "z": -33.92,
+      "scale": 0.85,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 25.63,
+      "z": 11.95,
+      "scale": 0.9,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 10.07,
+      "z": -24.95,
+      "scale": 0.95,
+      "yaw": 250,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": 5.3,
+      "z": 8.71,
+      "encounter": "wood-lower-east:near",
+      "slot": "wood-lower-east:0"
+    },
+    {
+      "id": "badger",
+      "x": 2.27,
+      "z": 4.22,
+      "encounter": "wood-lower-east:near",
+      "slot": "wood-lower-east:1"
+    },
+    {
+      "id": "badger",
+      "x": 4.78,
+      "z": 1.45,
+      "encounter": "wood-lower-east:near",
+      "slot": "wood-lower-east:2"
+    },
+    {
+      "id": "badger",
+      "x": -0.34,
+      "z": -3.94,
+      "encounter": "wood-lower-east:near",
+      "slot": "wood-lower-east:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": -12.36,
+      "z": -15.74,
+      "encounter": "wood-lower-east:rear",
+      "slot": "wood-lower-east:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": -15.95,
+      "z": -19.76,
+      "encounter": "wood-lower-east:rear",
+      "slot": "wood-lower-east:5"
+    },
+    {
+      "id": "giantSpider",
+      "x": -19.74,
+      "z": -22.23,
+      "encounter": "wood-lower-east:rear",
+      "slot": "wood-lower-east:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": -9.21,
+      "z": -12.55,
+      "encounter": "wood-lower-east:rear",
+      "slot": "wood-lower-east:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": -29.23,
+      "z": -27.67,
+      "tree": {
+        "x": -29.23,
+        "z": -27.67,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    },
+    {
+      "id": "oyster_mushroom",
+      "x": 17.52,
+      "z": 27.68,
+      "tree": {
+        "x": 17.52,
+        "z": 27.68,
+        "scale": 1.1
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

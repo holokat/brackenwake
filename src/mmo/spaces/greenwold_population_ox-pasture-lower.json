@@ -1,0 +1,122 @@
+{
+  "id": "greenwold_population_ox-pasture-lower",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 791,
+    "z": 476
+  },
+  "radius": 78,
+  "district": "eastfields",
+  "pieces": [
+    {
+      "model": "lw_gorse",
+      "x": -8.999999999999996,
+      "z": 18,
+      "scale": 1.5,
+      "yaw": 270,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_thistle_clump",
+      "x": -4.9999999999999964,
+      "z": 17,
+      "scale": 1,
+      "yaw": 270,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_cowslip_patch",
+      "x": 13,
+      "z": -4.000000000000003,
+      "scale": 1.5,
+      "yaw": 270,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_rabbit_warren",
+      "x": -26.000000000000004,
+      "z": -21.999999999999996,
+      "scale": 1,
+      "yaw": 270,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": 2,
+      "z": 10,
+      "encounter": "ox-pasture-lower:near",
+      "slot": "ox-pasture-lower:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -2,
+      "z": 6,
+      "encounter": "ox-pasture-lower:near",
+      "slot": "ox-pasture-lower:1"
+    },
+    {
+      "id": "giantRat",
+      "x": 4,
+      "z": 3,
+      "encounter": "ox-pasture-lower:near",
+      "slot": "ox-pasture-lower:2"
+    },
+    {
+      "id": "giantRat",
+      "x": 0,
+      "z": -1,
+      "encounter": "ox-pasture-lower:near",
+      "slot": "ox-pasture-lower:3"
+    },
+    {
+      "id": "thornGrub",
+      "x": -17,
+      "z": -14,
+      "encounter": "ox-pasture-lower:rear",
+      "slot": "ox-pasture-lower:4"
+    },
+    {
+      "id": "thornGrub",
+      "x": -19,
+      "z": -19,
+      "encounter": "ox-pasture-lower:rear",
+      "slot": "ox-pasture-lower:5"
+    },
+    {
+      "id": "thornGrub",
+      "x": -13,
+      "z": -22,
+      "encounter": "ox-pasture-lower:rear",
+      "slot": "ox-pasture-lower:6"
+    },
+    {
+      "id": "thornGrub",
+      "x": -10,
+      "z": -17,
+      "encounter": "ox-pasture-lower:rear",
+      "slot": "ox-pasture-lower:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "dandelion",
+      "x": 8,
+      "z": 21,
+      "count": 2
+    },
+    {
+      "id": "dandelion",
+      "x": 17,
+      "z": -9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

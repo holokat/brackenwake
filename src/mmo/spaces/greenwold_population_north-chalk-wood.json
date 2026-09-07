@@ -1,0 +1,130 @@
+{
+  "id": "greenwold_population_north-chalk-wood",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -403,
+    "z": -1264
+  },
+  "radius": 78,
+  "district": "northwood",
+  "pieces": [
+    {
+      "model": "lw_mushroom_ring",
+      "x": -14.999999999999996,
+      "z": 28.000000000000004,
+      "scale": 1,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": 24,
+      "z": 30,
+      "scale": 1.1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 8,
+      "z": 37,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -29,
+      "z": 35,
+      "scale": 1,
+      "yaw": 180,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": -11,
+      "z": 19,
+      "encounter": "north-chalk-wood:near",
+      "slot": "north-chalk-wood:0"
+    },
+    {
+      "id": "badger",
+      "x": -15,
+      "z": 23,
+      "encounter": "north-chalk-wood:near",
+      "slot": "north-chalk-wood:1"
+    },
+    {
+      "id": "badger",
+      "x": 3,
+      "z": -31,
+      "encounter": "north-chalk-wood:near",
+      "slot": "north-chalk-wood:2"
+    },
+    {
+      "id": "giantSpider",
+      "x": -7.7,
+      "z": 23.3,
+      "encounter": "north-chalk-wood:rear",
+      "slot": "north-chalk-wood:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": -19,
+      "z": 25,
+      "encounter": "north-chalk-wood:rear",
+      "slot": "north-chalk-wood:5"
+    },
+    {
+      "id": "giantSpider",
+      "x": -30.4,
+      "z": 21.4,
+      "encounter": "north-chalk-wood:rear",
+      "slot": "north-chalk-wood:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": -17,
+      "z": 31,
+      "encounter": "north-chalk-wood:rear",
+      "slot": "north-chalk-wood:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": 24,
+      "z": 30,
+      "tree": {
+        "x": 24,
+        "z": 30,
+        "scale": 1.1
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    },
+    {
+      "id": "oyster_mushroom",
+      "x": 8,
+      "z": 37,
+      "tree": {
+        "x": 8,
+        "z": 37,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

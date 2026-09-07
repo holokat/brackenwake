@@ -1,0 +1,106 @@
+{
+  "id": "greenwold_habitat_quarry_track",
+  "zone": "chalkpits",
+  "name": "The quarry layby",
+  "at": {
+    "x": -998,
+    "z": -553
+  },
+  "note": "Pit timber is stacked in the layby below the chalk climb.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_log_pile",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_timber_prop",
+      "x": 7,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_flint_nodules",
+      "x": -6,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_gorse",
+      "x": 5,
+      "z": 9,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "pad": 22,
+  "effects": [
+    {
+      "id": "dust_gust",
+      "x": 0,
+      "z": 3,
+      "gate": "fair",
+      "scale": 0.7,
+      "y": 0
+    }
+  ],
+  "approach": [
+    -964.5,
+    -563.1
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": -14,
+      "z": 12,
+      "encounter": "quarry-layby-dogs",
+      "slot": "quarry-layby-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": -22,
+      "z": 5,
+      "encounter": "quarry-layby-dogs",
+      "slot": "quarry-layby-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": -19,
+      "z": -5,
+      "encounter": "quarry-layby-dogs",
+      "slot": "quarry-layby-dogs:2"
+    },
+    {
+      "id": "wildDog",
+      "x": -12,
+      "z": -10,
+      "encounter": "quarry-layby-dogs",
+      "slot": "quarry-layby-dogs:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": -29,
+      "z": 2,
+      "night": true,
+      "encounter": "quarry-layby-dogs",
+      "slot": "quarry-layby-dogs:4"
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

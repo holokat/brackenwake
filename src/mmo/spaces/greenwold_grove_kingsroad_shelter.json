@@ -108,14 +108,6 @@
       "scale": 0.85,
       "yaw": 170,
       "harvest": true
-    },
-    {
-      "species": "oak",
-      "x": 33.45,
-      "z": -31.71,
-      "scale": 1.05,
-      "yaw": 217,
-      "harvest": true
     }
   ],
   "rocks": [],

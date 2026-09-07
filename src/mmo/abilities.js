@@ -1,3 +1,4 @@
+import {pacedCastTime} from './combat_pace.js';
 // Brackenwake: every ability and spell, as data and rules.
 //
 // Pure. No THREE, no DOM, no imports. Node-testable.
@@ -256,7 +257,7 @@ export const WEAPON_BASES = {
 export const FOCUS_BASES = ['wand', 'staff', 'bone_staff'];
 
 /** The three shields of 03-ITEMS-LOOT.md, by base id. */
-export const SHIELD_BASES = ['buckler', 'kite', 'tower'];
+export const SHIELD_BASES = ['buckler', 'kite', 'heater', 'tower'];
 /** What a bard plays. The lute is the only instrument the item tables have. */
 export const INSTRUMENT_BASES = ['lute'];
 /** The stacking ammunition bases. Thrown knives are their own ammunition. */
@@ -675,7 +676,7 @@ function a(row) {
     anyOf: row.anyOf ?? null,
     cost: row.cost,
     cooldown: row.cooldown,
-    castTime: row.castTime,
+    castTime: pacedCastTime(row.id,row.castTime),
     moving: row.moving,
     /** True when the ability roots the caster for its cast: a cast bar and no. */
     rooted: row.castTime > 0 && !row.moving,

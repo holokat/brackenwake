@@ -677,6 +677,7 @@ export function createEffects(sc, opts = {}) {
   const HAND = new THREE.Vector3(0, -0.62, 0);
   /** Where the right hand is in the world. Used to start a bolt from it. */
   function handPos(rig, out = new THREE.Vector3()) {
+    if (rig?.studio && rig.parts.handR) return rig.parts.handR.getWorldPosition(out);
     const arm = rig?.parts?.armR;
     if (!arm) return out.set(rig?.pos?.x || 0, (rig?.pos?.y || 0) + 1.3, rig?.pos?.z || 0);
     arm.updateWorldMatrix(true, false);
@@ -704,6 +705,7 @@ export function createEffects(sc, opts = {}) {
   function applyClip(c) {
     const p = c.rig.parts;
     const u = c.age / c.life;
+    if (c.rig.studio) { c.rig.studio.poseAction(c.name,u,c.life); return; }
     if (c.name === 'swing') {
       const a = swingPose(u);
       p.armR.rotation.x += a.armR;
@@ -758,12 +760,12 @@ export function createEffects(sc, opts = {}) {
     }
     const posed = new Set();
     for (const c of clips) {
-      if (!posed.has(c.rig)) { resetOwned(c.rig.parts); posed.add(c.rig); }
+      if (!posed.has(c.rig)) { if(!c.rig.studio) resetOwned(c.rig.parts); posed.add(c.rig); }
       applyClip(c);
     }
     // A rig whose last clip ended this frame gets one final zeroing, or the
     // turn the swing put into its shoulders would stay there for good.
-    for (const rig2 of endedThisFrame) if (!posed.has(rig2)) resetOwned(rig2.parts);
+    for (const rig2 of endedThisFrame) if (!posed.has(rig2)&&!rig2.studio) resetOwned(rig2.parts);
     endedThisFrame.clear();
 
     // bolts

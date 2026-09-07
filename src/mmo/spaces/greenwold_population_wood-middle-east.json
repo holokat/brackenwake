@@ -1,0 +1,85 @@
+{
+  "id": "greenwold_population_wood-middle-east",
+  "name": "Beech Hangar woodland",
+  "at": {
+    "x": -960,
+    "z": 85
+  },
+  "radius": 78,
+  "district": "beechhangar",
+  "pieces": [],
+  "trees": [
+    {
+      "species": "beech",
+      "x": 20,
+      "z": 20,
+      "scale": 0.9,
+      "yaw": 270,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": 20,
+      "z": 10,
+      "encounter": "wood-middle-east:near",
+      "slot": "wood-middle-east:0"
+    },
+    {
+      "id": "badger",
+      "x": 19,
+      "z": 6,
+      "encounter": "wood-middle-east:near",
+      "slot": "wood-middle-east:1"
+    },
+    {
+      "id": "badger",
+      "x": 22,
+      "z": 3,
+      "encounter": "wood-middle-east:near",
+      "slot": "wood-middle-east:2"
+    },
+    {
+      "id": "badger",
+      "x": 18,
+      "z": -1,
+      "encounter": "wood-middle-east:near",
+      "slot": "wood-middle-east:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": 17,
+      "z": -22,
+      "encounter": "wood-middle-east:rear",
+      "slot": "wood-middle-east:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": 20,
+      "z": -17,
+      "encounter": "wood-middle-east:rear",
+      "slot": "wood-middle-east:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": 20,
+      "z": 20,
+      "tree": {
+        "x": 20,
+        "z": 20,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

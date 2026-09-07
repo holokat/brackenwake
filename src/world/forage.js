@@ -1,3 +1,4 @@
+import {updateForageSupports} from './forage_support.js';
 // What you can pick up off the forest floor.
 //
 // The table is the FORAGE table of `docs/reference/arbor-forest-optimized.html`,
@@ -1014,14 +1015,14 @@ export function createForageField(sc, opts = {}) {
     const byId = new Map();
     for (const rec of entry.recs) {
       if (!byId.has(rec.id)) byId.set(rec.id, { live: [], picked: [] });
-      byId.get(rec.id)[rec.harvestedUntil ? 'picked' : 'live'].push(rec);
+      byId.get(rec.id)[rec.harvestedUntil || rec.supportMissing ? 'picked' : 'live'].push(rec);
     }
     for (const [id, both] of byId) {
       const owners = [], members = [];
       let live = 0;
       for (const rec of both.live.concat(both.picked)) {
         for (const m of rec.members) { owners.push(rec); members.push(m); }
-        if (!rec.harvestedUntil) live += rec.members.length;
+        if (!rec.harvestedUntil && !rec.supportMissing) live += rec.members.length;
       }
       if (!owners.length) continue;
       const geo = forageGeometry(id, 900);
@@ -1089,7 +1090,7 @@ export function createForageField(sc, opts = {}) {
     const trees = treesFor ? (treesFor(cx, cz) || []) : [];
     if (!trees.length) stats.treeless++;
     // a sculpt world grows nothing to pick on its own (ED3): the blank canvas
-    const placed = field.sculpt ? authoredForage(field, cx, cz, season, Object.fromEntries(FORAGE.map(f => [f.id, f])), opts.spaces) : placeForage(sample, cx, cz, trees, season, seed, {
+    const placed = field.sculpt ? authoredForage(field, cx, cz, season, Object.fromEntries(FORAGE.map(f => [f.id, f])), opts.spaces, treesFor) : placeForage(sample, cx, cz, trees, season, seed, {
       abundance: opts.abundance, scale: opts.scale, heightAt,
     });
     const g = new THREE.Group();
@@ -1139,12 +1140,12 @@ export function createForageField(sc, opts = {}) {
     get season() { return season; },
 
     /** Pickables standing: one per bunch, which is what a click can take. */
-    get count() { return [...chunks.values()].reduce((n, e) => n + e.recs.filter((r) => !r.harvestedUntil).length, 0); },
+    get count() { return [...chunks.values()].reduce((n, e) => n + e.recs.filter((r) => !r.harvestedUntil && !r.supportMissing).length, 0); },
 
     /** Plants standing, which is what the eye sees and the instancing draws. */
     get plants() {
       let n = 0;
-      for (const e of chunks.values()) for (const r of e.recs) if (!r.harvestedUntil) n += r.count;
+      for (const e of chunks.values()) for (const r of e.recs) if (!r.harvestedUntil && !r.supportMissing) n += r.count;
       return n;
     },
     get chunkCount() { return chunks.size; },
@@ -1152,7 +1153,7 @@ export function createForageField(sc, opts = {}) {
     /** Every live pickable, for a test or a minimap. */
     records() {
       const out = [];
-      for (const e of chunks.values()) for (const r of e.recs) if (!r.harvestedUntil) out.push(r);
+      for (const e of chunks.values()) for (const r of e.recs) if (!r.harvestedUntil && !r.supportMissing) out.push(r);
       return out;
     },
 
@@ -1165,7 +1166,7 @@ export function createForageField(sc, opts = {}) {
       const out = {};
       for (const e of chunks.values()) {
         for (const r of e.recs) {
-          if (r.harvestedUntil) continue;
+          if (r.harvestedUntil || r.supportMissing) continue;
           out[r.id] = (out[r.id] || 0) + (o.plants ? r.count : 1);
         }
       }
@@ -1184,6 +1185,7 @@ export function createForageField(sc, opts = {}) {
         changed = true;
       }
       this.regrow(now);
+      updateForageSupports(chunks,treesFor,(entry,rec,missing)=>{if(missing)hideInstance(entry,rec);else showInstance(entry,rec);});
       const cx = Math.floor(px / CHUNK), cz = Math.floor(pz / CHUNK);
       if (!changed && cx === lastCX && cz === lastCZ) { stats.drawCalls = drawCalls(); return false; }
       lastCX = cx; lastCZ = cz;
@@ -1214,7 +1216,7 @@ export function createForageField(sc, opts = {}) {
         const map = h.object.userData.forageMap;
         if (!map || h.instanceId == null) continue;
         const rec = map[h.instanceId];
-        if (!rec || rec.harvestedUntil) continue;
+        if (!rec || rec.harvestedUntil || rec.supportMissing) continue;
         return { rec, id: rec.id, point: h.point, distance: h.distance };
       }
       return null;
@@ -1225,7 +1227,7 @@ export function createForageField(sc, opts = {}) {
       let best = null, bd = r * r;
       for (const e of chunks.values()) {
         for (const rec of e.recs) {
-          if (rec.harvestedUntil) continue;
+          if (rec.harvestedUntil || rec.supportMissing) continue;
           const d = (rec.x - x) ** 2 + (rec.z - z) ** 2;
           if (d < bd) { bd = d; best = rec; }
         }
@@ -1243,7 +1245,7 @@ export function createForageField(sc, opts = {}) {
      * mesh has since been rebuilt without it.
      */
     remove(rec, now = undefined) {
-      if (!rec || rec.harvestedUntil) return false;
+      if (!rec || rec.harvestedUntil || rec.supportMissing) return false;
       const entry = chunks.get(rec.chunk);
       rec.harvestedUntil = at(now) + REGROW_MS;
       stats.harvested++;
@@ -1266,7 +1268,7 @@ export function createForageField(sc, opts = {}) {
           if (!rec.harvestedUntil || t < rec.harvestedUntil) continue;
           rec.harvestedUntil = 0;
           back++;
-          if (!showInstance(e, rec)) rebuild = true;
+          if (!rec.supportMissing && !showInstance(e, rec)) rebuild = true;
         }
         if (rebuild) drawChunk(e);
       }

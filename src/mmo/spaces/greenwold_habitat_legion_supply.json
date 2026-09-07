@@ -1,0 +1,46 @@
+{
+  "id": "greenwold_habitat_legion_supply",
+  "zone": "kingsroad",
+  "name": "The Legion supply stop",
+  "at": {
+    "x": 941,
+    "z": -1032
+  },
+  "note": "The tithe wagon waits behind the road watch, beside stacked provisions.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_tithe_wagon",
+      "x": 0,
+      "z": 0,
+      "yaw": 130,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_legion_barrier",
+      "x": 7,
+      "z": 4,
+      "yaw": 130,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_woodpile",
+      "x": -7,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

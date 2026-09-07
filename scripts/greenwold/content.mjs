@@ -14,8 +14,8 @@ export const FORAGE = {
   hearthhome:[['dandelion',22,-8,2]],
 };
 export const STATIONS = {
-  hearthhome:[['forge',8,-26],['tanningRack',-17,20],['workbench',-20,21],['loom',-17,4],['kitchen',26,-9],['alchemyTable',16,9],['inscriptionDesk',-24,19]],
-  millrun:[['kitchen',-18,-5]], coldwake:[['workbench',-20,0],['kitchen',-13,-20]],
+  hearthhome:[['forge',8,-26],['tanningRack',-17,20],['workbench',-20,21],['loom',-17,4],['kitchen',28,-7],['alchemyTable',16,9],['inscriptionDesk',-22,21]],
+  millrun:[['kitchen',-17,-6]], coldwake:[['workbench',-20,0],['kitchen',-13,-20]],
 };
 export const NOTES = {
   hearthhome:'Hearthhome gathers round its well. Cobb works by the north forge, Nan keeps the inn, and Old Wynn waits beside the standing stone. The east lane reaches the ring. The west lane follows the hay carts to the mill.',

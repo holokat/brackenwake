@@ -1,0 +1,136 @@
+{
+  "id": "greenwold_grove_chalk_shadow",
+  "name": "Beech stand",
+  "note": "The chalk shadow trees frame the nearby route.",
+  "at": {
+    "x": -725,
+    "z": -985
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": 38,
+      "z": -45,
+      "encounter": "chalk-rim-grubs",
+      "slot": "chalk-rim-grubs:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": 31,
+      "z": -57,
+      "encounter": "chalk-rim-grubs",
+      "slot": "chalk-rim-grubs:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": 20,
+      "z": -60,
+      "encounter": "chalk-rim-grubs",
+      "slot": "chalk-rim-grubs:2"
+    },
+    {
+      "id": "thornGrub",
+      "x": 25,
+      "z": -63,
+      "encounter": "chalk-rim-grubs",
+      "slot": "chalk-rim-grubs:3"
+    },
+    {
+      "id": "skeleton",
+      "x": 15,
+      "z": -59,
+      "night": true,
+      "encounter": "chalk-rim-grubs",
+      "slot": "chalk-rim-grubs:4"
+    },
+    {
+      "id": "skeleton",
+      "x": 13,
+      "z": -68,
+      "night": true,
+      "encounter": "chalk-rim-grubs",
+      "slot": "chalk-rim-grubs:5"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -38.8,
+      "z": -30.57,
+      "scale": 1.2,
+      "yaw": 67,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -16.07,
+      "z": -32.46,
+      "scale": 1.3,
+      "yaw": 114,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 4.09,
+      "z": -47.25,
+      "scale": 1.1,
+      "yaw": 161,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 30.15,
+      "z": -42.9,
+      "scale": 0.95,
+      "yaw": 208,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -51.34,
+      "z": 8.05,
+      "scale": 1.15,
+      "yaw": 255,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -33.32,
+      "z": -3.83,
+      "scale": 1.05,
+      "yaw": 302,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -38.69,
+      "z": 31.11,
+      "scale": 0.95,
+      "yaw": 177,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -40.57,
+      "z": 55.2,
+      "scale": 0.8,
+      "yaw": 193,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 49.63,
+      "z": -36.15,
+      "scale": 0.8,
+      "yaw": 287,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

@@ -1,0 +1,101 @@
+{
+  "id": "greenwold_habitat_stone_east",
+  "zone": "standinghedge",
+  "name": "The eastern stone hollow",
+  "at": {
+    "x": 739,
+    "z": -337
+  },
+  "note": "A fern-lined hollow interrupts the walk between the eastern stones.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_bracken",
+      "x": -6,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_foxglove",
+      "x": 6,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_dead_oak",
+      "x": 0,
+      "z": 8,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "effects": [
+    {
+      "id": "fireflies",
+      "x": 0,
+      "z": 0,
+      "gate": "night",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "forage": [
+    {
+      "id": "chanterelle",
+      "x": -7,
+      "z": 6,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": 20,
+      "z": -20,
+      "encounter": "east-hollow-dogs",
+      "slot": "east-hollow-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": 24,
+      "z": -10,
+      "encounter": "east-hollow-dogs",
+      "slot": "east-hollow-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": 9,
+      "z": 7,
+      "encounter": "east-hollow-dogs",
+      "slot": "east-hollow-dogs:2"
+    },
+    {
+      "id": "wolf",
+      "x": 26,
+      "z": -16,
+      "night": true,
+      "encounter": "east-hollow-dogs",
+      "slot": "east-hollow-dogs:3"
+    },
+    {
+      "id": "wolf",
+      "x": 29,
+      "z": 5,
+      "night": true,
+      "encounter": "east-hollow-dogs",
+      "slot": "east-hollow-dogs:4"
+    }
+  ],
+  "stations": []
+}

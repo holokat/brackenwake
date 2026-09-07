@@ -1,0 +1,256 @@
+{
+  "source": "/Users/k/code/animation-studio/fantasy-studio",
+  "copiedBytes": 457969,
+  "files": {
+    "runtime/world-effects/index.js": {
+      "sha256": "52c9063288cbbefd8f865498414f36429b0bd136b498fbc889c05cbd9c9a7856",
+      "bytes": 1734
+    },
+    "runtime/world-effects/shapes.js": {
+      "sha256": "898e41402dcc1e33ad879c6743be0c0d486bf9c4616f9a6f704a68d7f58ceaaa",
+      "bytes": 1447
+    },
+    "runtime/world-effects/environment.js": {
+      "sha256": "4dbe04d88e8311db026d94547b7372a1669b74c83873cf7a5aa3cb94099e28b1",
+      "bytes": 3578
+    },
+    "runtime/world-effects/particles.js": {
+      "sha256": "780ad22d9138bcd8f17b8d19b8f55f9e8487ffd1fccc70d6145179957df9274b",
+      "bytes": 3099
+    },
+    "runtime/world-effects/foliage.js": {
+      "sha256": "9d52a412b7cadac0976d0e7e004101610a69719a2fd304acca459cbe63d8745e",
+      "bytes": 2048
+    },
+    "runtime/world-effects/ambient.js": {
+      "sha256": "24728ad0eb85c00b7e30eecbf882e3e5404752622ba925bb98946c624a6e00cc",
+      "bytes": 2788
+    },
+    "models/creatures/index.js": {
+      "sha256": "7ba6e2b6305ff2d4863650f3e49b3c0d9737579b1756e6093262d192dd92527d",
+      "bytes": 1384
+    },
+    "models/creatures/wisp.js": {
+      "sha256": "020e86dcdeaa700fc934b0480adc8cd0bd3f9c00c6cf4fa5f3b2ca8d24c90e8c",
+      "bytes": 2729
+    },
+    "models/creatures/motions.js": {
+      "sha256": "2a33fdb9af198dac4d39193917bacf36c7924303f98ac55ce3dbcab7a3e7f24f",
+      "bytes": 1643
+    },
+    "models/creatures/shared.js": {
+      "sha256": "6c38d3d27d8cd7bfed269464bb6bc71724d53680ed4a4cb08d39ba42294cc968",
+      "bytes": 9407
+    },
+    "models/geometry.js": {
+      "sha256": "6e07222895f255e43457f63309786d65fc604d854fdf4c5a74b3d7a920466471",
+      "bytes": 5109
+    },
+    "models/creatures/small.js": {
+      "sha256": "e4beac6a0c43fcbaed9ade52ba99a2ca1429528eb8c50103ccad6849fa5cf16d",
+      "bytes": 6986
+    },
+    "models/creatures/birds.js": {
+      "sha256": "833bf98a638e7b7bd332adfb5cb78a2e3d805af766d3e46ee1cd82a0da9ca635",
+      "bytes": 6939
+    },
+    "models/creatures/crawlers.js": {
+      "sha256": "09e8ef2665955b621663986906998e05e7c67f6872bc5a6c2c01e8dd54c2dee1",
+      "bytes": 6307
+    },
+    "models/creatures/quadrupeds.js": {
+      "sha256": "bfae1c49e1b7192207e276793b3ba6f23c9bfea28b3d45b4654dfd229baa0ac8",
+      "bytes": 12480
+    },
+    "models/creatures/goblins.js": {
+      "sha256": "7d043649a16b673e41416818814962ef2f40abc52e7f8de90e69676c03a95ab7",
+      "bytes": 6794
+    },
+    "models/creatures/humans.js": {
+      "sha256": "5e07046c15f17dfebb89f77f699c56ba0f5126bea1e5f697f8413dae047ddc4d",
+      "bytes": 4458
+    },
+    "models/creatures/weapons.js": {
+      "sha256": "c208a28e00c0b97761b5a23ddd0e57a2203cf4980c9011c2f47b066022c3e35b",
+      "bytes": 3887
+    },
+    "models/creatures/human-parts.js": {
+      "sha256": "1793f00a7866aad51968fd9bf1bcbd9b7938a4ea0cc240bc8c65c9ffa1019adb",
+      "bytes": 16113
+    },
+    "models/items/skull.js": {
+      "sha256": "5abe628d688b674dae96c4f108f86de4d0ee26a25cea170af1131984e199aa5e",
+      "bytes": 3432
+    },
+    "models/items/common.js": {
+      "sha256": "b8fefac7c60ab5b6f905569e0701f52d7bf4674f3921bb35f1da8e194fdbb5d6",
+      "bytes": 7761
+    },
+    "models/hairstyles.js": {
+      "sha256": "14fbe104f8b1f283c34a067bb9fb6c7b80c821f7711608e40806c1856dc0a9ad",
+      "bytes": 9165
+    },
+    "data/hairstyles.js": {
+      "sha256": "837f9a601f49651568817856abee5981c362963ddc3ec7fbef523c98244fee67",
+      "bytes": 793
+    },
+    "models/head-spec.js": {
+      "sha256": "82631626af2dc26b8633c65915fd492b283aff2163cade3e8f85450758496f8c",
+      "bytes": 14182
+    },
+    "runtime/animation.js": {
+      "sha256": "b4bf7d375a0dafaecd45e1b433c3595c07fc667d309d2cc201cd63824f7f15d6",
+      "bytes": 5403
+    },
+    "models/shield-motion.js": {
+      "sha256": "89f8c81d9f96e7f66a6390d353053e472aed95280628b19d30abd250657d4e88",
+      "bytes": 3464
+    },
+    "models/shield-grips.js": {
+      "sha256": "59641f88244d11594766683409a3117ffb50fe90d06c20bbc5453e2a8262c827",
+      "bytes": 6530
+    },
+    "models/equipment-grips.js": {
+      "sha256": "6ecf0075eb79f7d0e1f3bc99c56995d5085ef40f204ecf2350b7702ff9a49b94",
+      "bytes": 3761
+    },
+    "data/wiki.js": {
+      "sha256": "91e42192078f705db17245533532e4689a20afce68f9908a3e8092c52cc6193a",
+      "bytes": 63661
+    },
+    "models/two-handed-grips.js": {
+      "sha256": "1d460fa5bae065096f5b3c611d5522dc53358ff7d292257bcbc3773f17e13c8a",
+      "bytes": 4822
+    },
+    "models/caster-ranged-grips.js": {
+      "sha256": "fc94dd72b6622f0b88b97d74a5c269c29f109fd6a3978cfdff7fc5672c7134ad",
+      "bytes": 1529
+    },
+    "models/staff-motion.js": {
+      "sha256": "515f6342fafd64517ba5922fdd3deb67e0cb55d9e2e6e4d574df2cdb60068305",
+      "bytes": 2028
+    },
+    "models/arm-ik.js": {
+      "sha256": "8c646eaee169cca2f1bc34cd54c5352df1917d484f4496065bbd48ada2b478c6",
+      "bytes": 3470
+    },
+    "models/bow-draw.js": {
+      "sha256": "b7077876fd9dff2517653f2c8cefbd4beecdbe2289f968111db2ed036380af4f",
+      "bytes": 2195
+    },
+    "models/two-handed-motion.js": {
+      "sha256": "e5d7ae72d49cae648629ab628273b7ec5d59145bc2acd740a00ec2f8af74b6f7",
+      "bytes": 1816
+    },
+    "models/two-handed-profiles.js": {
+      "sha256": "e415234e6982c9430f9918fc5f91fb5e8de106be8ad1e17af057a81d1b7394e2",
+      "bytes": 1040
+    },
+    "models/rig.js": {
+      "sha256": "13bd4e2ee27a56d310875c65edff2bfdfd732bd4215071927b24788ec011bf7d",
+      "bytes": 4710
+    },
+    "models/skin-weights.js": {
+      "sha256": "7f33047a372b70ddca45eb3178fd7631332de233e31ff8aca1b285a8a5fe12ea",
+      "bytes": 4437
+    },
+    "models/morphology.js": {
+      "sha256": "e3a14bd0d04db0b9bc4792a6e6300b5390bf22361040b7245bcd66d1c5478f88",
+      "bytes": 1266
+    },
+    "data/creature-catalog.js": {
+      "sha256": "a14ae640f570d20ee9715955b7e67b79bf8191f7e39c2400b4105c4e18844fa3",
+      "bytes": 17337
+    },
+    "data/effect-catalog.js": {
+      "sha256": "6e8378add1d22637d7cff9caf02ffb303ba6a26654203f3efa432e8baa39ce33",
+      "bytes": 3462
+    },
+    "models/forage/index.js": {
+      "sha256": "a94d212e158b3ece9cb01a99be7c9dc57f54680f402a91dbb0ce699f65010b39",
+      "bytes": 1095
+    },
+    "models/forage/trunk.js": {
+      "sha256": "65d6f1d3450855aa169bebeea5ff3230d961b0ae2d3ef9797408f5fd7925cbc1",
+      "bytes": 1655
+    },
+    "models/dressing/shared.js": {
+      "sha256": "5aba3eb10c4c4ebdb11cc2343745fca2dbe0b277e61bc2f1ea8209350c83d6fa",
+      "bytes": 9152
+    },
+    "models/structures/primitives.js": {
+      "sha256": "e6e57bdd865cda28da4007e23cd1539706262ddef3e331c11a3572ae125b5bcd",
+      "bytes": 6127
+    },
+    "models/forage/bushes.js": {
+      "sha256": "e2e41700f6f75fea8dd832e74dbdf76801d8dfcb6448e972cb40f7c2ed3ad852",
+      "bytes": 3164
+    },
+    "models/forage/plants.js": {
+      "sha256": "08f3d999ce4ce462e0ee3b36426473963e03805eb0b4d05566296bb0f26ea632",
+      "bytes": 5635
+    },
+    "models/forage/mushrooms.js": {
+      "sha256": "da427e0c48d0dd8ff13d5ac13e608428db13f28328f6d8ac7c0a0dafe21caa88",
+      "bytes": 4045
+    },
+    "data/forage-catalog.js": {
+      "sha256": "e434f568171ade5c24a38d7ac65b08c846f72254ee53031ed8446dd697d6fad7",
+      "bytes": 21629
+    },
+    "models/dressing/index.js": {
+      "sha256": "3590dcab65496ec6231b221d4eb4211b42dd26c25839c4f9fa70f723d0854dad",
+      "bytes": 2282
+    },
+    "models/dressing/ground.js": {
+      "sha256": "c5daff8ce635b31aa518d666684b7ec58d0ad5799b276f8d752aed26870e04f4",
+      "bytes": 7652
+    },
+    "models/dressing/construction.js": {
+      "sha256": "fb87db3460f26d274e8a5766853399ac60c84ce6414dc42708e544425e772e81",
+      "bytes": 7657
+    },
+    "models/dressing/vegetation.js": {
+      "sha256": "1663ba21ea1019c8cb0b5fd599b639846efa1c0b9af09d3124c183b33eda50f8",
+      "bytes": 9306
+    },
+    "models/dressing/animals.js": {
+      "sha256": "c9bfc684d4b131efe43de7cae4e0602e7351b257dd7ae313a331490e0474c703",
+      "bytes": 9098
+    },
+    "models/dressing/story.js": {
+      "sha256": "0a97790440757fecb191bf6f452621325ce85d6b878dd08915eb51c9a707e058",
+      "bytes": 9688
+    },
+    "models/dressing/lettering.js": {
+      "sha256": "f3636f7ab6d0a801a36a9fd8bc63019de4286b2896bde1c627c7589003b518d1",
+      "bytes": 1711
+    },
+    "models/dressing/river.js": {
+      "sha256": "b498a970d3f75014dd88d8d5dbfcb17077b8a85069dc935801c32c4424e109ed",
+      "bytes": 7855
+    },
+    "models/dressing/farming.js": {
+      "sha256": "7da3b226425580f3fd38ef7c9b2fb09839a164fc6cb7e8677abfe052535a2d77",
+      "bytes": 7807
+    },
+    "models/dressing/village.js": {
+      "sha256": "6a0e8b2f3de1fd4ceee5546ab28f3ae5195ec6a24164ba6ea1550e086fac60cf",
+      "bytes": 12233
+    },
+    "data/dressing-catalog.js": {
+      "sha256": "6050021cbd43cb5b1c275b1413e4e9aca7ec0dceb9d23776d96bf3b6f5cd6b66",
+      "bytes": 64984
+    }
+  },
+  "studioVerification": {
+    "previous": {
+      "verifiedAt": "2026-09-07T09:07:04.012557+00:00",
+      "matched": 38,
+      "unlisted": 22,
+      "mismatches": []
+    },
+    "note": "Shared dependencies updated by the later character integration; use the new snapshot hashes."
+  },
+  "updatedBy": "docs/mmo/studio/source-import.json"
+}

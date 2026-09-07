@@ -1,3 +1,4 @@
+import {buildStudioCharacter} from '../../studio/body.js';
 // The player: the body on the ground, the actor the resolver fights over, the
 // lessons it learns, what it is wearing, the light it carries, and dying.
 //
@@ -26,14 +27,12 @@ export const player = {
     const { sc, state, hud, audio, floaters, camera, input, hudRoot, character } = ctx;
     const runtime = ctx.get('world').runtime;
     const heightAt = (x, z) => runtime.heightAt(x, z);
+    heightAt.supportAt=(x,z,y)=>runtime.physical.supportAt(x,z,y);
+    heightAt.ceilingAt=(x,z,y)=>runtime.physical.ceilingAt(x,z,y);
+    heightAt.canMove = (from,to) => runtime.physical.canMove(from,to);
 
     // the body is built from the chosen appearance; an old save without one gets the house default
-    // The player is the code built body (player.js buildCharacter), by the
-    // user's decision on 2026-09-07: the studio mesh bodies were tried and
-    // taken out again, and the code body is the one being refined. The
-    // studio path (rig_glb.createGlbPlayer and the clip banks) stays in the
-    // tree, unused, for the day a mesh body is wanted again.
-    const rig = createPlayer(sc.scene, character.appearance);
+    const rig = createPlayer(sc.scene, character.appearance, {buildCharacter: look => buildStudioCharacter(look,{sourceMotion:true,classId:character.opening})});
     // First boot: a character is born on Hearthhome's green, facing the well,
     // which is where the story starts (story.js: "standing inside Hearthhome
     // for the first time"). Before this a new character woke a short walk

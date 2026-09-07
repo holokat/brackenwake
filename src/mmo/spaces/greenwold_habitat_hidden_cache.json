@@ -1,0 +1,87 @@
+{
+  "id": "greenwold_habitat_hidden_cache",
+  "zone": "beechhangar",
+  "name": "The hunters shelter",
+  "at": {
+    "x": -958,
+    "z": 207
+  },
+  "note": "A hunter left supplies beneath the beech ridge. Dogs prowl the approach after dark.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_hunters_seat",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_deer_rub",
+      "x": -6,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_bracken",
+      "x": 5,
+      "z": 7,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "loot_sack",
+      "x": 3,
+      "z": 2,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "forage": [
+    {
+      "id": "chanterelle",
+      "x": -3,
+      "z": 7,
+      "count": 2
+    }
+  ],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": 11,
+      "z": 13,
+      "night": true
+    },
+    {
+      "id": "wildDog",
+      "x": 17,
+      "z": 9,
+      "night": true
+    }
+  ],
+  "effects": [
+    {
+      "id": "mushroom_spores",
+      "x": -3,
+      "z": 7,
+      "gate": "night",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "approach": [
+    -942.5,
+    197.2
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "stations": []
+}

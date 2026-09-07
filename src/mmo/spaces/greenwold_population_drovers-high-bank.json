@@ -1,0 +1,217 @@
+{
+  "id": "greenwold_population_drovers-high-bank",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -624,
+    "z": 279
+  },
+  "radius": 78,
+  "district": "coldwake",
+  "pieces": [
+    {
+      "model": "lw_ivy_stump",
+      "x": 13,
+      "z": -14,
+      "scale": 1.4,
+      "yaw": 90,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bracken",
+      "x": 7.999999999999999,
+      "z": -18,
+      "scale": 1.6,
+      "yaw": 90,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bracken",
+      "x": 23,
+      "z": 24,
+      "scale": 1.4,
+      "yaw": 90,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_mushroom_ring",
+      "x": 28,
+      "z": 14.999999999999998,
+      "scale": 1,
+      "yaw": 90,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_leaf_litter",
+      "x": -10,
+      "z": -12,
+      "scale": 2,
+      "yaw": 90,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": 15,
+      "z": -31,
+      "scale": 0.9,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 30,
+      "z": -24,
+      "scale": 1.1,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 37,
+      "z": -8,
+      "scale": 0.9,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 39,
+      "z": 8,
+      "scale": 1.1,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 35,
+      "z": 29,
+      "scale": 1,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 18,
+      "z": 36,
+      "scale": 0.9,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -7,
+      "z": -32,
+      "scale": 1.1,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -20,
+      "z": -20,
+      "scale": 0.9,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -18,
+      "z": 20,
+      "scale": 0.95,
+      "yaw": 90,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": -2,
+      "z": -10,
+      "encounter": "drovers-high-bank:near",
+      "slot": "drovers-high-bank:0"
+    },
+    {
+      "id": "badger",
+      "x": 2,
+      "z": -6,
+      "encounter": "drovers-high-bank:near",
+      "slot": "drovers-high-bank:1"
+    },
+    {
+      "id": "badger",
+      "x": -4,
+      "z": -3,
+      "encounter": "drovers-high-bank:near",
+      "slot": "drovers-high-bank:2"
+    },
+    {
+      "id": "badger",
+      "x": 0,
+      "z": 1,
+      "encounter": "drovers-high-bank:near",
+      "slot": "drovers-high-bank:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": 17,
+      "z": 14,
+      "encounter": "drovers-high-bank:rear",
+      "slot": "drovers-high-bank:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": 19,
+      "z": 19,
+      "encounter": "drovers-high-bank:rear",
+      "slot": "drovers-high-bank:5"
+    },
+    {
+      "id": "giantSpider",
+      "x": 13,
+      "z": 22,
+      "encounter": "drovers-high-bank:rear",
+      "slot": "drovers-high-bank:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": 10,
+      "z": 17,
+      "encounter": "drovers-high-bank:rear",
+      "slot": "drovers-high-bank:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": 15,
+      "z": -31,
+      "tree": {
+        "x": 15,
+        "z": -31,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    },
+    {
+      "id": "oyster_mushroom",
+      "x": 30,
+      "z": -24,
+      "tree": {
+        "x": 30,
+        "z": -24,
+        "scale": 1.1
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

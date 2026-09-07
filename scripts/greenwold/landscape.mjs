@@ -1,6 +1,8 @@
+import {JOURNEY_LANDFORMS,JOURNEY_GROVES} from './journeys.mjs';
 // Landforms frame the routes. Absolute heights belong to the quarry benches;
 // broad additive shoulders leave the original watershed intact.
 export const LANDFORMS = [
+  ...JOURNEY_LANDFORMS,
   ['chalk-crown','mountain',-615,-1220,185,87],
   ['chalk-west','mountain',-1070,-1085,170,61],
   ['chalk-east','ridge',-480,-1230,95,58,240,1.30],
@@ -28,6 +30,7 @@ export const ARRANGEMENTS = {
 // Each group has a local job: close the back of a clearing, screen a camp,
 // frame a river bend, or leave the view from a crest open.
 export const GROVES = [
+ ...JOURNEY_GROVES,
  ['hangar-entry','beech',-1135,-214,'edge',14],['hangar-throat','beech',-1020,-190,'edge',184],
  ['hangar-west-low','beech',-1164,-20,'canopy',22],['hangar-east-low','beech',-930,-53,'canopy',-22],
  ['hangar-west-middle','beech',-1180,135,'canopy',5],['hangar-east-middle','beech',-877,128,'canopy',20],

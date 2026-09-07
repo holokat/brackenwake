@@ -217,7 +217,7 @@ const WEAPON_BASE = {
   greatsword: ['Greatsword', 25, false],
 };
 
-const SHIELD_BASE = { buckler: ['Buckler', 8], kite: ['Kite', 14], tower: ['Tower', 20] };
+const SHIELD_BASE = { buckler: ['Buckler', 8], kite: ['Kite', 14], heater: ['Heater', 14], tower: ['Tower', 20] };
 
 // "bows, staves, arrows" are Carpentry and Fletching work in the four woods.
 const WOOD_WEAPON_BASE = {

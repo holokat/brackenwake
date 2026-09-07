@@ -11,10 +11,10 @@ createServer(async(req,res)=>{
  const chunks=[];for await(const c of req)chunks.push(c);const body=Buffer.concat(chunks);
  if(req.method==='POST'&&req.url==='/state'){state=JSON.parse(body);writeFileSync(`${output}/state.json`,JSON.stringify(state,null,2));}
  if(req.method==='POST'&&req.url==='/command'){
-  const c=JSON.parse(body);if(['view','walk','day','capture','check','pause','resume'].includes(c.action))commands.push(c);else{res.writeHead(400);res.end('Unknown command');return;}
+  const c=JSON.parse(body);if(['view','walk','day','weather','capture','check','pause','resume','bell','studio'].includes(c.action))commands.push(c);else{res.writeHead(400);res.end('Unknown command');return;}
  }
  if(req.method==='POST'&&req.url?.startsWith('/capture/')){
-  const name=req.url.slice(9).replace(/[^a-z0-9_-]/g,'');writeFileSync(`${output}/${name}.png`,body);
+  const name=req.url.slice(9).replace(/[^a-z0-9_-]/g,'');writeFileSync(`${output}/${name}.jpg`,body);
  }
  res.setHeader('Content-Type','application/json');res.end(JSON.stringify(req.url==='/command'&&req.method==='GET'?commands.shift()||null:state));
 }).listen(5208,'127.0.0.1',()=>console.log(`Greenwold review bridge on 5208; captures in ${output}`));

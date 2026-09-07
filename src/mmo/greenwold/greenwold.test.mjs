@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {physicalClearances} from '../../../scripts/greenwold/physical-clearance.mjs';
 import {readFileSync} from 'node:fs';
 import * as THREE from 'three';
 import {SPACES} from '../spaces/index.js';
@@ -25,14 +26,36 @@ import {makeItem} from '../items.js';
 import {placeAt,spaceStoneRows} from './places.js';
 import {authoredPick,inspectAuthored,READINGS} from './interactions.js';
 import {ROUTES,routeDistance} from './routes.js';
-import {authoredDeckAt,CROSSINGS} from '../../world/authored_traversal.js';
+import {authoredDeckAt,createAuthoredCrossings,CROSSINGS} from '../../world/authored_traversal.js';
 import {createChapelEncounter,CHAPEL_TRUCE_MS} from './chapel_encounter.js';
 import {createLootDrops} from '../../game/loot_drops.js';
 import {makeMonsterActor} from '../../game/monsters.js';
 import {reviewGreenwold} from '../../../scripts/audit-greenwold.mjs';
+import {buildingsOnRoutes,clearBoundaryRuns,boundariesOnRoutes} from '../../../scripts/greenwold/clearance.mjs';
+import {enlargeBuildings,settlementClearances,BUILDINGS} from '../../../scripts/greenwold/scale.mjs';
+import {FOOTPRINT} from '../plans/footprints.js';
 
 const field=createWorldField(20260904),edits=createTerrainEdits();
 edits.load(JSON.parse(readFileSync(new URL('../../../public/terrain/greenwold.json',import.meta.url))));field.setTerrainEdits(edits);
+const scaled=Object.values(SPACES).filter(s=>s.id.startsWith('greenwold_')).flatMap(s=>s.pieces.filter(p=>BUILDINGS.has(p.model)&&p.tag!=='greenwold-action'));
+assert.equal(scaled.length,22);assert.ok(scaled.every(p=>p.scale===1.25));
+const repeated=structuredClone(SPACES);assert.equal(enlargeBuildings(repeated),0);settlementClearances(repeated);assert.deepEqual(repeated,SPACES);assert.equal(physicalClearances(repeated),0);assert.deepEqual(repeated,SPACES);
+// A clear walking route does not prove that a sloping footprint leaves the
+// building's ground floor visible. Sample the enlarged, rotated footprints.
+for(const s of Object.values(SPACES).filter(s=>s.id.startsWith('greenwold_')))for(const p of s.pieces.filter(p=>BUILDINGS.has(p.model))){
+ const [w,d]=FOOTPRINT[p.model],k=p.scale,a=(p.yaw||0)*Math.PI/180,c=Math.cos(a),sn=Math.sin(a),heights=[];
+ for(const x of[-w*k/2,0,w*k/2])for(const z of[-d*k/2,0,d*k/2])heights.push(field.heightAt(s.at.x+p.x+x*c+z*sn,s.at.z+p.z+z*c-x*sn));
+ assert.ok(Math.max(...heights)-Math.min(...heights)<1,`${s.id}.${p.model}: ground floor buried in slope`);
+ if(s.id==='greenwold_millrun')assert.ok(heights.every(h=>Math.abs(h-12)<.001),'the three mill buildings stand on their working terrace');
+}
+const paddock=SPACES.greenwold_hearthhome.pieces.find(p=>p.model==='stable_pen');
+for(const[x,z]of[[0,0],[-4,-5],[-4,5],[4,-5],[4,5]])assert.equal(field.sampleAt(SPACES.greenwold_hearthhome.at.x+paddock.x+x,SPACES.greenwold_hearthhome.at.z+paddock.z+z).water,false);
+for(const s of Object.values(SPACES)) {
+ if(!s.arrival)continue;
+ const x=s.at.x+s.arrival.x,z=s.at.z+s.arrival.z,p=field.sampleAt(x,z);
+ const floor=authoredDeckAt(field,x,z)??p.h;
+ assert.ok(!p.water||floor>=p.waterLevel,`${s.id}: arrival must stand on a bank or bridge, not the river bed`);
+}
 const site=id=>spaceSiteRow(SPACES[`greenwold_${id}`],field);
 const cc=(x,z)=>[Math.floor(x/CHUNK),Math.floor(z/CHUNK)];
 const messages=[],hud={log:s=>messages.push(s),toast:s=>messages.push(s)};
@@ -50,6 +73,19 @@ Object.assign(pos,placeAt(field,'oldcellars'));assert.equal(story.viewNow().atCe
 assert.equal(zoneChain(site('millrun').x,site('millrun').z,field).at(-1).zone.id,'greenwold_millrun');
 assert.equal(spaceStoneRows().filter(s=>s.place.startsWith('greenwold_hedge_')).length,9);
 assert.equal(new Set(spaceStoneRows().map(s=>s.id)).size,spaceStoneRows().length);
+const blockedVillage=structuredClone(SPACES.greenwold_hearthhome),blockingInn=blockedVillage.pieces.find(p=>p.model==='inn');
+blockingInn.x=ROUTES[0].points[0][0]-blockedVillage.at.x;blockingInn.z=ROUTES[0].points[0][1]-blockedVillage.at.z;
+assert.ok(buildingsOnRoutes({[blockedVillage.id]:blockedVillage},ROUTES).some(row=>row.model==='inn'));
+assert.deepEqual(buildingsOnRoutes(SPACES,ROUTES),[]);
+const gateRoute=[{id:'gate',width:4,points:[[0,-20],[0,20]]}];
+const fenceSpace={id:'greenwold_gate_check',at:{x:0,z:0},runs:[{model:'flint_wall_4m',from:{x:-12,z:0},to:{x:12,z:0}}]};
+assert.equal(boundariesOnRoutes({gate:fenceSpace},gateRoute).length,1);
+fenceSpace.runs=clearBoundaryRuns(fenceSpace,gateRoute);assert.equal(fenceSpace.runs.length,2);
+assert.deepEqual(boundariesOnRoutes({gate:fenceSpace},gateRoute),[]);
+assert.deepEqual(clearBoundaryRuns(fenceSpace,gateRoute),fenceSpace.runs);
+for(const space of Object.values(SPACES).filter(s=>s.id.startsWith('greenwold_'))){
+ assert.deepEqual(clearBoundaryRuns(space,ROUTES),space.runs,`${space.id}: gate cuts are stable on rerun`);
+}
 
 for(const[key]of Object.entries(READINGS)){
  const s=site(key);assert.ok(s,`${key} sign space exists`);
@@ -119,6 +155,34 @@ assert.equal(deltaOf(ramp,60,0,0),26);assert.equal(deltaOf(ramp,121,0,0),32.1);a
 const roundTrip=createTerrainEdits();roundTrip.stroke(ramp);const reload=createTerrainEdits();reload.load(roundTrip.serialize());assert.equal(reload.heightDelta(119,0,0),31.9);
 assert.equal(authoredDeckAt({sculpt:null},0,0),null);assert.equal(authoredDeckAt(field,3000,3000),null);
 assert.ok(CROSSINGS.length>0);
+const crossingScene=new THREE.Scene(),crossingView=createAuthoredCrossings(crossingScene,field);
+assert.equal(crossingView.group.children.length,0); // Wait for the loaded terrain.
+crossingView.update(0,0);assert.equal(crossingView.group.children.length,CROSSINGS.length);
+let wetDecks=0,buriedApproaches=0;
+for(const bridge of CROSSINGS){
+ const deck=crossingView.group.getObjectByName(bridge.id).children[0];deck.updateWorldMatrix(true,false);
+ for(let i=1;i<bridge.points.length;i++){
+  const a=bridge.points[i-1],b=bridge.points[i],x=(a[0]+b[0])/2,z=(a[2]+b[2])/2,y=(a[1]+b[1])/2;
+  const wet=field.sampleAt(x,z).water;
+  const ray=new THREE.Raycaster(new THREE.Vector3(x,y+2,z),new THREE.Vector3(0,-1,0));
+  const hit=ray.intersectObject(deck,false)[0];
+  if(wet){assert.ok(hit,`${bridge.id}: a wet span has visible planks`);assert.ok(Math.abs(hit.point.y-y)<.03);wetDecks++;}
+  else if(y-field.heightAt(x,z)<.08){assert.equal(hit,undefined,`${bridge.id}: buried approach has no planks`);buriedApproaches++;}
+ }
+}
+assert.ok(wetDecks>0&&buriedApproaches>0);
+const beforeGeometry=crossingView.group.children[0].children[0].geometry;
+edits.stroke({kind:'ground',word:'dirt',x:3000,z:3000,r:2});crossingView.update(0,0);
+assert.notEqual(crossingView.group.children[0].children[0].geometry,beforeGeometry);
+crossingView.dispose();assert.equal(crossingScene.children.length,0);
+for(const id of['chalkpits','highwaymanshollow']){
+ const space=SPACES[`greenwold_${id}`];
+ assert.ok(space.runs.every(r=>r.model!=='chalk_face_4m'),`${id}: cliffs come from the sculpted terrain`);
+}
+assert.ok(SPACES.greenwold_kingsroad_camp.runs.every(r=>r.model!=='road_slab_2m'));
+for(const space of Object.values(SPACES).filter(s=>s.id.startsWith('greenwold_'))){
+ assert.ok(space.areas.every(a=>a.kind!=='water'),`${space.id}: water uses the river surface`);
+}
 // The bell's minute and second ring both change actual combat factions and
 // leave ordinary pickable loot. Returning to a spent offering cannot duplicate it.
 const chapelLoot=createLootDrops(new THREE.Scene());
@@ -133,4 +197,4 @@ const again=createChapelEncounter({field,character:chapelCharacter,monsters:cast
 const impatient=createChapelEncounter({field,character:blankCharacter(),monsters:cast,loot:chapelLoot,hud,now:()=>0});
 impatient.ring();assert.equal(impatient.ring().reason,'second_ring');assert.equal(impatient.hostile,true);impatient.dispose();chapelLoot.dispose();
 const routeReport=reviewGreenwold();
-console.log(JSON.stringify({trees,ores,stations:7,routeWalks:routeReport.routes.length*2,frames:routeReport.frames,distance:routeReport.distance,waterSamples:routeReport.samples,feedback:messages.length}));
+console.log(JSON.stringify({trees,ores,stations:7,routeTraversals:routeReport.routes.reduce((n,r)=>n+r.walks.length,0),frames:routeReport.frames,distance:routeReport.distance,routeSamples:routeReport.samples,riverSamples:routeReport.riverSamples,feedback:messages.length}));

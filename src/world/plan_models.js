@@ -1,3 +1,6 @@
+import {STRONGHOLD_ASSETS} from '../mmo/stronghold_assets.js';
+import {propColliders} from './collision/shapes.js';
+import {LIVING_BY_MODEL} from '../mmo/living_catalog.js';
 // A named place, built from a plan drawn off a concept image.
 //
 // The Greenwold's nine places are no longer rolled. Somebody painted each one,
@@ -33,6 +36,8 @@
 // and what the other eight cost.
 
 import * as THREE from 'three';
+import { roofEnvelope } from './weather_shelter.js';
+import { attachmentFor } from '../mmo/plans/attachments.js';
 import { mergeByMaterial } from './site_models.js';
 import * as arbor from './arbor.js';
 import { PALETTES } from './town_layout.js';
@@ -635,7 +640,6 @@ export function instancedGlb(e, proto) {
     placements.push(clone.matrixWorld.clone());
   }
   const out = new THREE.Group();
-  const m4 = new THREE.Matrix4();
   proto.traverse((mesh) => {
     if (!mesh.isMesh) return;
     out.add(instancePropMesh(mesh,placements));
@@ -724,6 +728,8 @@ export async function loadProp(id, url = propUrlFor(id)) {
   try{return await work;}finally{pendingProps.delete(id);}
 }
 async function loadPropFile(id,url){
+  if(STRONGHOLD_ASSETS[id]){const {buildStrongholdProp}=await import('./stronghold_models.js');registerProp(id,buildStrongholdProp(id));return true;}
+  if(LIVING_BY_MODEL[id]){const {buildLivingProp}=await import('./living/models.js');registerProp(id,buildLivingProp(id));return true;}
   let data;
   try { data = await bytesOf(url); } catch { return false; }
   const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
@@ -739,7 +745,7 @@ async function loadPropFile(id,url){
 /** A bounded preload of the actual library, including unplaced builder assets. */
 export async function loadPropLibrary(){
  const response=await fetch(PROP_DIR+'manifest.json');if(!response.ok)throw Error('Structure library manifest unavailable');
- const manifest=await response.json(),queue=[...(manifest.ids||[])],loaded=[];
+ const manifest=await response.json(),queue=[...(manifest.ids||[]),...Object.keys(LIVING_BY_MODEL),...Object.keys(STRONGHOLD_ASSETS)],loaded=[];
  await Promise.all(Array.from({length:4},async()=>{while(queue.length){const id=queue.shift();if(await loadProp(id,propUrlFor(id)+(manifest.revision?'?v='+manifest.revision:'')))loaded.push(id);}}));
  return loaded;
 }
@@ -997,7 +1003,7 @@ export function pieceBody(model, scale = 1) {
 let PALETTE_FOR = palette('greenwold');
 
 /** The lowest ground under a footprint, so nothing floats over a slope. */
-function footAt(heightAt, wx, wz, w, d, yawRad) {
+export function footAt(heightAt, wx, wz, w, d, yawRad) {
   const c = Math.cos(yawRad), s = Math.sin(yawRad);
   let lo = heightAt(wx, wz);
   for (const [ox, oz] of [[-w / 2, -d / 2], [w / 2, -d / 2], [-w / 2, d / 2], [w / 2, d / 2]]) {
@@ -1110,6 +1116,7 @@ export function buildPlan(plan, site, heightAt) {
   const trees = new Map();       // key -> { proto, list } laid as real arbor trees, instanced
   const rocks = new Map();       // kind -> [{ x, y, z, yaw, k }] instanced per kind
   const markers = new THREE.Group();
+  const weatherRoofs = [];
   const sub = (tag, piece) => {
     let e = groups.get(tag);
     if (!e) { e = { g: new THREE.Group(), piece: piece ?? null }; groups.set(tag, e); }
@@ -1125,6 +1132,7 @@ export function buildPlan(plan, site, heightAt) {
   // turned so its own +z looks back at the ring's centre, which is where the
   // carved face is meant to look.
   const stops = stopsOf(plan, site);
+  const physical = [];
 
   /** A plan point in the plan's frame, put into the world at one stop. */
   const world = (stop, px, pz) => {
@@ -1132,11 +1140,12 @@ export function buildPlan(plan, site, heightAt) {
     return [stop.x + px * c0 + pz * s0, stop.z + pz * c0 - px * s0];
   };
 
-  for (const stop of stops) buildStop(plan, site, heightAt, c, sub, stop, world, trees, rocks, markers);
+  for (const stop of stops) buildStop(plan, site, heightAt, c, sub, stop, world, trees, rocks, markers, weatherRoofs, physical);
 
   // ---- merge each tag on its own, so a name survives and the count stays low
   const out = new THREE.Group();
   out.name = `plan:${plan.id}`;
+  const moving=[];
   // THE TREES ARE REAL TREES. A plan's beech or oak is grown by arbor.js, the
   // same generator the forests use, never a ball on a post, and every tree of
   // one model in the plan is one instanced bark mesh and one instanced leaf
@@ -1154,6 +1163,7 @@ export function buildPlan(plan, site, heightAt) {
       q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), t.yaw);
       pos.set(t.x, t.y, t.z); scl.setScalar(t.k);
       m4.compose(pos, q, scl);
+      physical.push({kind:'circle',model,x:t.x,z:t.z,y:t.y,r:Math.max(.18,(proto.baseR||.38)*t.k),h:proto.height*t.k});
       bark.setMatrixAt(i, m4); if (leaf) leaf.setMatrixAt(i, m4);
     });
     for (const im of [bark, leaf]) {
@@ -1182,6 +1192,7 @@ export function buildPlan(plan, site, heightAt) {
       q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r.yaw);
       pos.set(r.x, r.y, r.z); scl.setScalar(r.k);
       m4.compose(pos, q, scl);
+      if(['rock','ore','boulder','stump','log'].includes(kind))physical.push({kind:'circle',model:kind,x:r.x,z:r.z,y:r.y,r:Math.max(.25,r.k*.6),h:Math.max(.4,r.k)});
       im.setMatrixAt(i, m4);
     });
     im.instanceMatrix.needsUpdate = true;
@@ -1211,6 +1222,10 @@ export function buildPlan(plan, site, heightAt) {
     // every copy of one model in a plan becomes one InstancedMesh per mesh of
     // that model, textures intact, one draw call per material.
     if (e.source === 'glb' && props.has(e.piece)) {
+      if(e.piece==='mill_wheel'){
+        e.g.traverse(o=>{if(o.name==='mill_wheel_pivot')moving.push(dt=>{o.rotation.x+=dt*.55;});if(o.isMesh){o.userData.site=site;o.userData.plan={id:plan.id,piece:e.piece,source:'glb'};}});
+        out.add(e.g);continue;
+      }
       const inst = instancedGlb(e, props.get(e.piece));
       inst.traverse((o) => {
         if (!o.isMesh) return;
@@ -1235,6 +1250,9 @@ export function buildPlan(plan, site, heightAt) {
     out.add(merged);
   }
   out.userData.site = site;
+  out.userData.weatherRoofs = weatherRoofs;
+  out.userData.colliders = physical;
+  if(moving.length)out.userData.update=dt=>{for(const update of moving)update(dt);};
   out.userData.plan = {
     id: plan.id, place: plan.place || null, radius: plan.radius,
     arrival: plan.arrival || null, stops: stops.length,
@@ -1249,7 +1267,7 @@ export function buildPlan(plan, site, heightAt) {
 }
 
 /** One laying of a plan's composition, at one stop. */
-function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map(), rocks = new Map(), markers = null) {
+function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map(), rocks = new Map(), markers = null, weatherRoofs = [], physical = []) {
   const yawOf = (deg) => (deg || 0) * D2R + stop.rot;
 
   // ---- the pieces
@@ -1269,11 +1287,20 @@ function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map(),
     }
     const body = pieceBody(p.model, p.scale ?? 1);
     if (!body) continue;
-    const yaw = yawOf(p.yaw);
-    const [wx, wz] = world(stop, p.x, p.z);
+    const attachment=attachmentFor(p,plan);
+    const yaw = yawOf(attachment?.yaw??p.yaw);
+    const [wx, wz] = world(stop, attachment?.x??p.x, attachment?.z??p.z);
     const foot = footAt(heightAt, wx, wz, body.w, body.d, yaw);
-    body.group.position.set(wx, foot - SINK, wz);
+    body.group.position.set(wx, foot - Math.min(SINK,body.h*.05), wz);
+    if(attachment){
+      const a=attachment.parent,f=FOOTPRINT[a.model],k=a.scale??1,[ax,az]=world(stop,a.x,a.z);
+      const base=footAt(heightAt,ax,az,f[0]*k,f[1]*k,yawOf(a.yaw))-Math.min(SINK,f[2]*k*.05);
+      body.group.position.y=base+attachment.y-body.h/2;
+    }
+    const roof=roofEnvelope(p.model,wx,wz,body.group.position.y,body.w,body.d,body.h,yaw);
+    if(roof)weatherRoofs.push(roof);
     body.group.rotation.y = yaw;
+    physical.push(...propColliders(p.model,wx,wz,body.group.position.y,body.w,body.d,body.h,yaw));
     // A piece built from a glb ALWAYS gets its own merge group. It has its own
     // materials, so it could never have shared a bucket with a stand-in
     // anyway, and this is what lets one merged mesh answer honestly for where
@@ -1302,8 +1329,9 @@ function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map(),
       if (!body) break;
       const [wx, wz] = world(stop, r.from.x + dx * t, r.from.z + dz * t);
       const foot = footAt(heightAt, wx, wz, body.w, body.d, yaw);
-      body.group.position.set(wx, foot - SINK, wz);
+      body.group.position.set(wx, foot - Math.min(SINK,body.h*.05), wz);
       body.group.rotation.y = yaw;
+      physical.push(...propColliders(r.model,wx,wz,body.group.position.y,body.w,body.d,body.h,yaw));
       e.source = body.source;
       e.g.add(body.group);
     }

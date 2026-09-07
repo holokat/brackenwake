@@ -20,6 +20,7 @@ function mkCtx(over = {}) {
   };
   const toasts = [];
   const ctx = {
+    stationAccess: over.stationAccess || (() => true),
     character,
     hud: { toast: (t, k) => toasts.push([t, k]) },
     audio: { play() {} },
@@ -178,7 +179,7 @@ console.log('win_crafting: the bench');
   const ctx = mkCtx({ character: { skills: { blacksmithing: 30, tinkering: 30 } } });
   const rows = benchFor('forge', ctx);
   check('the forge lists something', rows.length > 0, `${rows.length} rows`);
-  check('the list is bounded, not all 362', rows.length < RECIPES.filter((r) => r.station === 'forge').length, `${rows.length} of ${RECIPES.filter((r) => r.station === 'forge').length}`);
+  check('every forge recipe is visible, including distant skill requirements', rows.length === RECIPES.filter((r) => r.station === 'forge').length, `${rows.length} of ${RECIPES.filter((r) => r.station === 'forge').length}`);
   check('at most twelve out of reach ones are shown', rows.filter((r) => r.refusal && r.refusal.kind === 'skill').length <= NEAR_MISS);
   check('every row carries a verdict and a forecast', rows.every((r) => r.forecast && (r.refusal === null || !!r.refusal.why)));
   const first = rows[0];
@@ -307,7 +308,7 @@ console.log('win_crafting: against the real inventory, not a stand-in for it');
   } else {
     const character = { name: 'Alred', gold: 100, skills: { blacksmithing: 60 }, stats: { str: 40, int: 10 } };
     const inv = createInventory({ character });
-    const ctx = { character: inv.character, inventory: inv, hud: { toast() {} }, audio: { play() {} }, player: { pos: { x: 0, y: 0, z: 0 } } };
+    const ctx = { stationAccess: () => true, character: inv.character, inventory: inv, hud: { toast() {} }, audio: { play() {} }, player: { pos: { x: 0, y: 0, z: 0 } } };
     check('the real pack reads through the adapter', Array.isArray(packOf(ctx)) && packOf(ctx).length === 0);
     const ingots = makeItem({ base: 'ingot', rarity: 'common', count: 6 });
     ingots.material = 'copper';
@@ -413,7 +414,7 @@ console.log('win_crafting: the cards, drawn against a real document');
   for (const st of STATION_KINDS) {
     const root = openAt(st.id, ctx);
     const cards = cardsOf(root);
-    const want = RECIPES.filter((r) => r.station === st.id).length;
+    const want = RECIPES.length;
     check(`the ${st.name} draws a card for every recipe it knows`, cards.length === want, `${cards.length} of ${want}`);
     for (const c of cards) {
       total++;
@@ -427,8 +428,8 @@ console.log('win_crafting: the cards, drawn against a real document');
   check('every card in the game has a picture on it', blank === 0, `${total} cards walked, ${blank} blank`);
   check('and a name', noName === 0, `${noName} nameless`);
   check('and at least one chip', noChips === 0, `${noChips} bare`);
-  check('the seven stations together draw all 486 recipes', total === RECIPES.length, `${total} cards`);
-  check('eight pairs of recipes really do share a name', seen.size === total - 8, `${seen.size} distinct names for ${total} cards`);
+  check('the seven stations together draw all 486 recipes', total === RECIPES.length * STATION_KINDS.length, `${total} cards`);
+  check('eight pairs of recipes really do share a name', seen.size === RECIPES.length - 8, `${seen.size} distinct names for ${total} cards`);
 
   // Which is why the card says the armour tier: two cards reading "Hide tunic"
   // side by side at the tanning rack looked like the page had repeated itself.
@@ -487,10 +488,10 @@ console.log('win_crafting: the filters narrow the bench');
   const root = openAt('forge', ctx);
   const all = cardsOf(root).length;
   const chips = chipsOf(root);
-  check('the forge offers a chip per family it takes plus All and Can make',
-    chips.length === familiesAt('forge').length + 2, chips.map((c) => c.textContent).join(', '));
-  check('and offers no chip for a family it does not take',
-    !chips.some((c) => c.textContent === FAMILY_LABEL.scroll), chips.map((c) => c.textContent).join(', '));
+  check('the catalogue offers every family plus All and Can make',
+    chips.length === familiesAt(null).length + 2, chips.map((c) => c.textContent).join(', '));
+  check('including families made at other workshops',
+    chips.some((c) => c.textContent === FAMILY_LABEL.scroll), chips.map((c) => c.textContent).join(', '));
 
   const shields = chips.find((c) => c.textContent === FAMILY_LABEL.shield);
   shields.fire('click');
@@ -570,7 +571,7 @@ console.log('win_crafting: a card that cannot be made says so on the card');
   check('its make button is dead', buttonOf(bagCard).disabled === true);
   check('and the line under it is the reason, in words',
     /bag item/.test(bodyOf(bagCard).children[3].textContent), bodyOf(bagCard).children[3].textContent);
-  check('a missing recipe shows no chance to make it', chipsFor({ recipe: RECIPE['bag.bag4'], forecast: forecast(RECIPE['bag.bag4'], ctx) }).length === 2,
+  check('a missing recipe shows no chance to make it', !chipsFor({ recipe: RECIPE['bag.bag4'], forecast: forecast(RECIPE['bag.bag4'], ctx) }).some(c => c.id === 'chance'),
     chipsFor({ recipe: RECIPE['bag.bag4'], forecast: forecast(RECIPE['bag.bag4'], ctx) }).map((c) => c.text).join(', '));
   const madeable = chipsFor({ recipe: RECIPE['weapon.dagger.copper'], forecast: forecast(RECIPE['weapon.dagger.copper'], ctx) });
   check('and one that can be made shows the chance and the quality',
@@ -634,11 +635,11 @@ console.log('win_crafting: the page keeps up with a pack that changes under it')
 
 console.log('win_crafting: the panel with nowhere to stand');
 {
-  const root = openAt(null, mkCtx());
-  check('no station says so', /not at a station/.test(pick(root, 'bw-where').textContent), pick(root, 'bw-where').textContent);
-  check('and offers no cards', cardsOf(root).length === 0);
-  check('but tells you where to stand', /Stand at a forge/.test(pick(root, 'bw-none').textContent), pick(root, 'bw-none').textContent);
-  check('and no filter chips either', chipsOf(root).length === 0);
+  const root = openAt(null, mkCtx({ stationAccess: () => false }));
+  check('no station says so', /Walk up to its workshop/.test(pick(root, 'bw-where').textContent), pick(root, 'bw-where').textContent);
+  check('every recipe is visible away from a workshop', cardsOf(root).length === RECIPES.length);
+  check('every craft action is disabled away from a workshop', panel._cards.every(c => c.view.locked));
+  check('and every recipe family remains browsable', chipsOf(root).length === filtersFor(null).length);
 }
 
 console.log('win_crafting: the view model and the page agree');
@@ -657,6 +658,22 @@ console.log('win_crafting: the view model and the page agree');
   check('and keeps everything under All', rows.every((r) => inFilter(r, 'all')));
   check('filtersFor names only the families of the bench asked for',
     filtersFor('kitchen').map((f) => f.id).join(',') === 'all,ready,meal,forageMeal', filtersFor('kitchen').map((f) => f.id).join(','));
+}
+
+{
+  let nearby = false;
+  const ctx = mkCtx({ character: { skills: { blacksmithing: 100 } }, stationAccess: id => nearby && id === 'forge' });
+  stock(ctx, 'copper', 6);
+  ctx.rng = () => 0.0001;
+  const root = openAt(null, ctx);
+  check('a skilled crafter away from a forge sees a station requirement', refusalFor(RECIPE['weapon.dagger.copper'], ctx)?.kind === 'station');
+  check('craft execution away from a forge spends nothing', !craft('weapon.dagger.copper',ctx).ok && countMaterial(ctx,'copper')===6);
+  nearby = true; panel.tick(.6);
+  check('walking into forge range enables the open recipe', !refusalFor(RECIPE['weapon.dagger.copper'],ctx));
+  check('the enabled action crafts through the real path', craft('weapon.dagger.copper',ctx).ok && countMaterial(ctx,'copper')===4);
+  nearby = false; panel.tick(.6);
+  check('walking away disables an already-open craft tab', panel._cards.find(c=>c.row.recipe.id==='weapon.dagger.copper').view.refusal.kind==='station');
+  check('a stale forge label cannot bypass proximity', !craft('weapon.dagger.copper',{...ctx,station:'forge'}).ok && countMaterial(ctx,'copper')===4);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

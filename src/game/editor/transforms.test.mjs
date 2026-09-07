@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import { createEditor } from './editor.js';
+import { emptySpace } from '../../mmo/spaces/index.js';
+import { transformPatch } from './transforms.js';
+import { createPlacementPreview } from './placement_preview.js';
+import { pickEditorObject } from './pick_object.js';
+import { registerProp, forgetProp, footAt, SINK, FOOTPRINT, speciesProto } from '../../world/plan_models.js';
+
+const ed = createEditor(), space = emptySpace('transform_test', 'Transform test', 100, 200, 60);
+space.pieces.push({ model: 'cottage_a', x: 0, z: 0 });
+ed.open(space); ed.select({ list: 'pieces', index: 0 });
+const before = JSON.stringify(ed.space.pieces[0]);
+assert(ed.transformSelected({ x: 10, z: 8, yaw: 90, scale: 1.5 }).ok);
+assert.deepEqual(ed.space.pieces[0], { model: 'cottage_a', x: 10, z: 8, yaw: 90, scale: 1.5 });
+assert.equal(ed.doc.depth, 1);
+ed.undo(); assert.equal(JSON.stringify(ed.space.pieces[0]), before);
+ed.redo(); assert.equal(ed.space.pieces[0].scale, 1.5);
+ed.setTab('structures'); ed.arm('wattle_fence');
+if (!ed.pick) ed.arm('cottage_a');
+const count = ed.space.pieces.length, held = ed.pick;
+for (let i = 0; i < 3; i++) { assert(ed.placeAt(110 + i * 2, 212, { select: false }).ok); assert.equal(ed.selection(), null); assert.equal(ed.pick, held); }
+assert.equal(ed.space.pieces.length, count + 3, 'repeated placement stays armed without selecting the last object');
+const run = transformPatch('runs', { model: 'field_gate', from: { x: -2, z: 0 }, to: { x: 2, z: 0 } }, { x: 3, z: 4, yaw: 90, scale: 2 });
+assert.deepEqual(run, { from: { x: 3, z: 8 }, to: { x: 3, z: 0 }, scale: 2 });
+assert.equal(transformPatch('pieces', { x: 0, z: 0 }, { scale: 90 }).scale, 6);
+assert.equal(transformPatch('people', { x: 0, z: 0 }, { scale: 2 }).scale, undefined);
+
+const source = new THREE.Group(), geo = new THREE.BoxGeometry(2, 2, 2), mat = new THREE.MeshStandardMaterial({ color: 0x336699 });
+source.add(new THREE.Mesh(geo, mat)); registerProp('cottage_a', source);
+let freed = 0; geo.addEventListener('dispose', () => freed++); mat.addEventListener('dispose', () => freed++);
+const preview = createPlacementPreview('structures', 'cottage_a', { scale: 1.5 }); await preview.ready;
+const height = (x, z) => 10 + x * .1 + z * .04;
+preview.set(4, 9, Math.PI / 3, height);
+const f = FOOTPRINT.cottage_a;
+assert.equal(preview.group.position.y, footAt(height, 4, 9, f[0] * 1.5, f[1] * 1.5, Math.PI / 3) - Math.min(SINK, f[2] * 1.5 * .05));
+assert.equal(preview.group.rotation.y, Math.PI / 3);
+let borrowedGeometry = false, clonedColour = false;
+preview.group.traverse(o => { if(o.isMesh && o.geometry === geo) { borrowedGeometry = true; clonedColour = o.material !== mat && o.material.color.equals(mat.color); } });
+assert(borrowedGeometry && clonedColour, 'real geometry and retained model colour, isolated preview material');
+preview.dispose(); preview.dispose(); assert.equal(freed, 0, 'disposing preview preserves the world model');
+forgetProp('cottage_a'); geo.dispose(); mat.dispose();
+const tree = createPlacementPreview('trees', 'oak'); await tree.ready;
+let bark = false; tree.group.traverse(o => { if (o.geometry === speciesProto('oak').bark) bark = true; });
+assert(bark, 'tree preview uses the forest prototype, not a post'); tree.dispose();
+const creature = createPlacementPreview('monsters', 'wolf'); creature.dispose(); await creature.ready;
+assert.equal(creature.group.children.length, 0, 'late-loaded preview stays disposed');
+
+const target = emptySpace('pick_test', 'Pick test', 0, 0, 40);
+target.pieces.push({ model: 'cottage_a', x: 0, z: 0 });
+const ray = new THREE.Ray(new THREE.Vector3(0, 20, 20), new THREE.Vector3(0, -1, -1).normalize());
+assert.equal(pickEditorObject(ray, [target], () => 0).entry.model, 'cottage_a');
+ray.origin.x = 100;
+assert.equal(pickEditorObject(ray, [target], () => 0), null);
+console.log('Transform commit/undo/redo, bounds, runs, preview parity, ownership, late disposal, real tree and click picking passed.');

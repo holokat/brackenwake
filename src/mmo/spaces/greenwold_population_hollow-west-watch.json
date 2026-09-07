@@ -1,0 +1,126 @@
+{
+  "id": "greenwold_population_hollow-west-watch",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 399,
+    "z": -1100
+  },
+  "radius": 78,
+  "district": "highwaymanshollow",
+  "pieces": [
+    {
+      "model": "campfire",
+      "x": 13.38052663514887,
+      "z": 6.779491645106708,
+      "scale": 1,
+      "yaw": 80,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "weapons_rack",
+      "x": 10.7709954927473,
+      "z": 26.53272801834024,
+      "scale": 1,
+      "yaw": 80,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_tripwire",
+      "x": -14.596063878817382,
+      "z": -13.673145916192164,
+      "scale": 1,
+      "yaw": 170,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 3.12,
+      "z": 34.99,
+      "scale": 0.85,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -23.17,
+      "z": -16.22,
+      "scale": 0.9,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -14.25,
+      "z": 22.82,
+      "scale": 0.95,
+      "yaw": 80,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": -3.71,
+      "z": -9.5,
+      "encounter": "hollow-west-watch:near",
+      "slot": "hollow-west-watch:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": 0.93,
+      "z": -6.26,
+      "encounter": "hollow-west-watch:near",
+      "slot": "hollow-west-watch:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": -4.46,
+      "z": -2.26,
+      "encounter": "hollow-west-watch:near",
+      "slot": "hollow-west-watch:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": 0.17,
+      "z": 0.98,
+      "encounter": "hollow-west-watch:near",
+      "slot": "hollow-west-watch:3"
+    },
+    {
+      "id": "bandit",
+      "x": 16.17,
+      "z": 10.84,
+      "encounter": "hollow-west-watch:rear",
+      "slot": "hollow-west-watch:4"
+    },
+    {
+      "id": "bandit",
+      "x": 13.01,
+      "z": 15.41,
+      "encounter": "hollow-west-watch:rear",
+      "slot": "hollow-west-watch:5"
+    },
+    {
+      "id": "bandit",
+      "x": 13.62,
+      "z": 19.41,
+      "encounter": "hollow-west-watch:rear",
+      "slot": "hollow-west-watch:6"
+    },
+    {
+      "id": "bandit",
+      "x": 8.6,
+      "z": 19.21,
+      "encounter": "hollow-west-watch:rear",
+      "slot": "hollow-west-watch:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

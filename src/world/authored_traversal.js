@@ -39,11 +39,19 @@ export function createAuthoredCrossings(scene,field) {
   const group=new THREE.Group();group.name='site:greenwold-crossings';scene.add(group);
   const deckMat=new THREE.MeshStandardMaterial({color:0x9b8866,roughness:.95,flatShading:true});
   const railMat=new THREE.MeshStandardMaterial({color:0x5d4b35,roughness:1,flatShading:true});
+  let builtVersion=null,builtEdits=null;
+  const rebuild=()=>{
+  group.traverse(o=>o.geometry?.dispose());group.clear();
   for(const b of CROSSINGS){
     const decks=[],rails=[];
     for(let i=1;i<b.points.length;i++){
       const a=new THREE.Vector3(...b.points[i-1]),c=new THREE.Vector3(...b.points[i]);
       const d=c.clone().sub(a),mid=a.clone().add(c).multiplyScalar(.5);
+      // Forty-metre graded approaches make the crossings easy to walk, but
+      // their flush or buried portions are ordinary ground, not visible wood.
+      // Keep the complete height profile for feet and draw the raised span.
+      const bank=field.heightAt(mid.x,mid.z);
+      if(mid.y-bank<.08&&!field.sampleAt(mid.x,mid.z).water)continue;
       const direction=new THREE.Vector3(d.x,0,d.z).normalize();
       const side=new THREE.Vector3(direction.z,0,-direction.x);
       const yaw=Math.atan2(d.x,d.z);
@@ -68,8 +76,11 @@ export function createAuthoredCrossings(scene,field) {
     }
     group.add(part);
   }
+  builtVersion=field.terrainEdits?.version;builtEdits=field.terrainEdits;
+  };
   return {group,update(x,z){
     if(field.sculpt){if(!group.parent)scene.add(group);}else{scene.remove(group);return;}
-    for(const o of group.children){const p=o.userData.crossing.points;const m=p[Math.floor(p.length/2)];o.visible=Math.hypot(m[0]-x,m[2]-z)<700;}
+    if(builtEdits!==field.terrainEdits||builtVersion!==field.terrainEdits?.version||builtVersion===null)rebuild();
+    for(const o of group.children){const p=o.userData.crossing.points;const m=p[Math.floor(p.length/2)];o.visible=Math.hypot(m[0]-x,m[2]-z)<360;}
   },dispose(){group.traverse(o=>o.geometry?.dispose());deckMat.dispose();railMat.dispose();scene.remove(group);}};
 }

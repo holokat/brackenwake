@@ -1,0 +1,191 @@
+{
+  "id": "greenwold_population_quarry-spoil-bank",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -736,
+    "z": -853
+  },
+  "radius": 78,
+  "district": "chalkpits",
+  "pieces": [
+    {
+      "model": "ore_cart",
+      "x": 9,
+      "z": -24,
+      "scale": 1.2,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_timber_prop",
+      "x": 14,
+      "z": -30,
+      "scale": 1.4,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "barrow",
+      "x": 21,
+      "z": -28,
+      "scale": 1,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "birch",
+      "x": -31,
+      "z": -15,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -24,
+      "z": -30,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -8,
+      "z": -37,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 8,
+      "z": -39,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 29,
+      "z": -35,
+      "scale": 1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 36,
+      "z": -18,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 35,
+      "z": 3,
+      "scale": 0.85,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 20,
+      "z": 18,
+      "scale": 0.95,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "ore",
+      "ore": "copper",
+      "x": -22,
+      "z": -19,
+      "scale": 1.1,
+      "harvest": true
+    },
+    {
+      "kind": "ore",
+      "ore": "tin",
+      "x": -26,
+      "z": -17,
+      "scale": 1.1,
+      "harvest": true
+    },
+    {
+      "kind": "ore",
+      "ore": "copper",
+      "x": -27,
+      "z": -22,
+      "scale": 1.1,
+      "harvest": true
+    }
+  ],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": 2,
+      "z": 2,
+      "encounter": "quarry-spoil-bank:near",
+      "slot": "quarry-spoil-bank:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": 3,
+      "z": -2,
+      "encounter": "quarry-spoil-bank:near",
+      "slot": "quarry-spoil-bank:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": 6,
+      "z": 4,
+      "encounter": "quarry-spoil-bank:near",
+      "slot": "quarry-spoil-bank:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": 7,
+      "z": 0,
+      "encounter": "quarry-spoil-bank:near",
+      "slot": "quarry-spoil-bank:3"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 14,
+      "z": -17,
+      "encounter": "quarry-spoil-bank:rear",
+      "slot": "quarry-spoil-bank:4"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 19,
+      "z": -19,
+      "encounter": "quarry-spoil-bank:rear",
+      "slot": "quarry-spoil-bank:5"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 22,
+      "z": -13,
+      "encounter": "quarry-spoil-bank:rear",
+      "slot": "quarry-spoil-bank:6"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 17,
+      "z": -10,
+      "encounter": "quarry-spoil-bank:rear",
+      "slot": "quarry-spoil-bank:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

@@ -1,4 +1,5 @@
-// Monster bodies: which are Blender rigs, which are still boxes, and whether
+// Retained fallback monster bodies. The default studio path is covered by
+// studio/integration.test.mjs and monsters.test.mjs. Which are Blender rigs, which are still boxes, and whether
 // the swap is invisible to monsters.js. Run: node src/game/monster_models.test.mjs
 //
 // monsters.js only ever touches `group`, `parts.hit`, `radius`, `height`,
@@ -34,7 +35,7 @@ globalThis.fetch = async (req, init) => {
 };
 
 const {
-  buildMonsterModel, buildBoxMonster, auditMonsterShapes, shapeFor,
+  buildLegacyMonsterModel: buildMonsterModel, buildBoxMonster, auditMonsterShapes, shapeFor,
   glbModelFor, monsterModelPlan, monsterModelIds,
   GLB_FAMILY, BOX_ONLY_FAMILIES, STANDIN_FAMILIES, STANDIN_MAX_TIER,
   DIE_SECONDS, TIER_COLOUR,

@@ -29,15 +29,15 @@ import { THEMES } from '../farm/themes.js';
 import { mulberry32, glowTexture } from '../farm/assets.js';
 import { createSpellComposer } from './vfx/bloom_pass.js';
 
-/** One full day to night to day again. Six minutes, per docs/OPEN-WORLD.md. */
+/** One full day to night to day again. The shared clock owns its duration. */
 // The length of a day and its curve live in dayclock.js, shared with the sky.
 export { DAY_CYCLE_MS, NIGHT_FRACTION } from './dayclock.js';
 
 /** The one sky. THEMES is a data table; this is the row we live in. */
 export const PALETTE = THEMES.find((t) => t.id === 'meadow');
 
-/** How far the fog reaches in the open. The streamed ring is 576 m. */
-export const WORLD_FOG = { near: 90, far: 536 };
+/** Fog closes at 280 m, inside the 320 m streamed ring. */
+export const WORLD_FOG = { near: 78.4, far: 280 };
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -326,11 +326,12 @@ export function createScene(container) {
   // discs in zones.js. `follow` does it, because following the player is
   // exactly when the answer can have changed.
   let realmMix = realmMixAt(0, 0);
+  let weather = null;
   let realmTint = skyLighting(1, { mix: realmMix });
   const GREEN = REALM_SKY[DEFAULT_REALM];
   function setRealmAt(x, z) {
     realmMix = realmMixAt(x, z, realmMix);
-    realmTint = skyLighting(day, { mix: realmMix });
+    realmTint = skyLighting(day, { mix: realmMix, weather });
     return realmMix;
   }
 
@@ -349,14 +350,14 @@ export function createScene(container) {
   function setDay(dayFactor) {
     const d = clamp01(dayFactor);
     day = d;
-    realmTint = skyLighting(d, { mix: realmMix });
+    realmTint = skyLighting(d, { mix: realmMix, weather });
     applyLighting({ renderer, sun, hemi, ambient, fill }, d, realmTint);
     if (!fogPinned) {
       // the fog meets the dome; the hemisphere keeps applyLighting's calibrated
       // colours tinted by the realm (tinting it by the zenith on top of that
       // darkened every shadowed face to near black in the browser)
       if (analytic) {
-        const p = skyColours(d, { mix: realmMix });
+        const p = skyColours(d, { mix: realmMix, weather });
         scene.fog.color.setRGB(p.fog.r, p.fog.g, p.fog.b, THREE.SRGBColorSpace);
         // The realm's own reach, as a share of the Greenwold's, applied to
         // whatever the caller asked for. The Greenwold's share is 1, so the
@@ -434,6 +435,8 @@ export function createScene(container) {
      * object, so the dome, the fog and the four lights all read one blend.
      */
     setRealmAt,
+    setWeather(value) { weather = value || null; },
+    get weather() { return weather; },
     get realmMix() { return realmMix; },
     get realmTint() { return realmTint; },
     get analyticSky() { return analytic; },

@@ -1,0 +1,134 @@
+{
+  "id": "greenwold_population_quarry-upper-turn",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -838,
+    "z": -758
+  },
+  "radius": 78,
+  "district": "chalkpits",
+  "pieces": [
+    {
+      "model": "barrow",
+      "x": 31.221228815347363,
+      "z": 15.818813838582317,
+      "scale": 1,
+      "yaw": 80,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_chalk_boulder",
+      "x": -12.683529685782341,
+      "z": -20.102936967266203,
+      "scale": 2,
+      "yaw": 80,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "birch",
+      "x": 39.5,
+      "z": 22.48,
+      "scale": 1,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 23.98,
+      "z": 32.33,
+      "scale": 0.9,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -12.45,
+      "z": -30.3,
+      "scale": 1.1,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 3.12,
+      "z": 34.99,
+      "scale": 0.85,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -23.17,
+      "z": -16.22,
+      "scale": 0.9,
+      "yaw": 80,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": -15.71,
+      "z": -9.5,
+      "encounter": "quarry-upper-turn:near",
+      "slot": "quarry-upper-turn:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": 11.43,
+      "z": 4.24,
+      "encounter": "quarry-upper-turn:near",
+      "slot": "quarry-upper-turn:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": -4.46,
+      "z": 12.74,
+      "encounter": "quarry-upper-turn:near",
+      "slot": "quarry-upper-turn:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": 8.57,
+      "z": 9.38,
+      "encounter": "quarry-upper-turn:near",
+      "slot": "quarry-upper-turn:3"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 21.27,
+      "z": 12.94,
+      "encounter": "quarry-upper-turn:rear",
+      "slot": "quarry-upper-turn:4"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 25.01,
+      "z": 15.41,
+      "encounter": "quarry-upper-turn:rear",
+      "slot": "quarry-upper-turn:5"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 16.62,
+      "z": 19.41,
+      "encounter": "quarry-upper-turn:rear",
+      "slot": "quarry-upper-turn:6"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 12.8,
+      "z": 15.01,
+      "encounter": "quarry-upper-turn:rear",
+      "slot": "quarry-upper-turn:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

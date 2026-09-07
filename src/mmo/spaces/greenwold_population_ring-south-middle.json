@@ -1,0 +1,181 @@
+{
+  "id": "greenwold_population_ring-south-middle",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 390,
+    "z": 220
+  },
+  "radius": 78,
+  "district": "standinghedge",
+  "pieces": [
+    {
+      "model": "lw_boar_wallow",
+      "x": -8.632540286453567,
+      "z": -8.630136047754759,
+      "scale": 1.7,
+      "yaw": 10,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bracken",
+      "x": -19.755640611932343,
+      "z": -14.653145191806756,
+      "scale": 1.5,
+      "yaw": 10,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bramble_thicket",
+      "x": 29.48234279997925,
+      "z": -23.233412642668565,
+      "scale": 1.5,
+      "yaw": 10,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "sheep_skeleton",
+      "x": 24.037359501917418,
+      "z": -21.147230271966595,
+      "scale": 1,
+      "yaw": 10,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -27.92,
+      "z": -20.16,
+      "scale": 0.9,
+      "yaw": 10,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -18.43,
+      "z": -33.71,
+      "scale": 1.1,
+      "yaw": 10,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -1.45,
+      "z": -37.83,
+      "scale": 0.9,
+      "yaw": 10,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 14.65,
+      "z": -37.02,
+      "scale": 1.1,
+      "yaw": 10,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 34.64,
+      "z": -29.43,
+      "scale": 1,
+      "yaw": 10,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 38.58,
+      "z": -11.48,
+      "scale": 0.9,
+      "yaw": 10,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -32.73,
+      "z": 1.34,
+      "scale": 1.1,
+      "yaw": 10,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 16.57,
+      "z": 21.2,
+      "scale": 0.95,
+      "yaw": 10,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": -10.2,
+      "z": 0.23,
+      "encounter": "ring-south-middle:near",
+      "slot": "ring-south-middle:0"
+    },
+    {
+      "id": "boar",
+      "x": -5.56,
+      "z": -3.01,
+      "encounter": "ring-south-middle:near",
+      "slot": "ring-south-middle:1"
+    },
+    {
+      "id": "boar",
+      "x": 0.55,
+      "z": -0.78,
+      "encounter": "ring-south-middle:near",
+      "slot": "ring-south-middle:2"
+    },
+    {
+      "id": "boar",
+      "x": 0.98,
+      "z": -5.83,
+      "encounter": "ring-south-middle:near",
+      "slot": "ring-south-middle:3"
+    },
+    {
+      "id": "wolf",
+      "x": 16.74,
+      "z": -14.31,
+      "encounter": "ring-south-middle:rear",
+      "slot": "ring-south-middle:4"
+    },
+    {
+      "id": "wolf",
+      "x": 22.01,
+      "z": -15.41,
+      "encounter": "ring-south-middle:rear",
+      "slot": "ring-south-middle:5"
+    },
+    {
+      "id": "wolf",
+      "x": 23.92,
+      "z": -8.98,
+      "encounter": "ring-south-middle:rear",
+      "slot": "ring-south-middle:6"
+    },
+    {
+      "id": "wolf",
+      "x": 18.48,
+      "z": -6.9,
+      "encounter": "ring-south-middle:rear",
+      "slot": "ring-south-middle:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": 5.91,
+      "z": 18.3,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

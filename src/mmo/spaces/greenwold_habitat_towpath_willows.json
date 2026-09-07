@@ -1,0 +1,72 @@
+{
+  "id": "greenwold_habitat_towpath_willows",
+  "zone": "watermeadows",
+  "name": "The towpath willows",
+  "at": {
+    "x": -322,
+    "z": -10
+  },
+  "note": "Iris and reeds gather beneath the willows along the wet towpath.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_yellow_iris",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_rushes",
+      "x": -6,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_pollard_willow",
+      "x": 6,
+      "z": 5,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "animals": [
+    {
+      "id": "dragonfly",
+      "x": 0,
+      "z": 3,
+      "clip": "hover",
+      "yaw": 0
+    }
+  ],
+  "effects": [
+    {
+      "id": "fireflies",
+      "x": 0,
+      "z": 0,
+      "gate": "night",
+      "scale": 1.3,
+      "y": 0
+    }
+  ],
+  "forage": [
+    {
+      "id": "nettle",
+      "x": -6,
+      "z": 8,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "stations": []
+}

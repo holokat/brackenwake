@@ -1,0 +1,133 @@
+{
+  "id": "greenwold_population_water-mill-willow",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -901,
+    "z": -283
+  },
+  "radius": 78,
+  "district": "millrun",
+  "pieces": [
+    {
+      "model": "lw_rushes",
+      "x": 25,
+      "z": 24,
+      "scale": 1.5,
+      "yaw": 90,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_rowing_boat",
+      "x": 29,
+      "z": 13.999999999999998,
+      "scale": 1,
+      "yaw": 90,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": 35,
+      "z": 29,
+      "scale": 1,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 18,
+      "z": 36,
+      "scale": 0.9,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -3,
+      "z": 35,
+      "scale": 0.85,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -20,
+      "z": -20,
+      "scale": 0.9,
+      "yaw": 90,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "reedStalker",
+      "x": -12.5,
+      "z": 0.5,
+      "encounter": "water-mill-willow:near",
+      "slot": "water-mill-willow:0"
+    },
+    {
+      "id": "reedStalker",
+      "x": 2,
+      "z": 9,
+      "encounter": "water-mill-willow:near",
+      "slot": "water-mill-willow:1"
+    },
+    {
+      "id": "reedStalker",
+      "x": -4,
+      "z": 6,
+      "encounter": "water-mill-willow:near",
+      "slot": "water-mill-willow:2"
+    },
+    {
+      "id": "reedStalker",
+      "x": 0,
+      "z": 13,
+      "encounter": "water-mill-willow:near",
+      "slot": "water-mill-willow:3"
+    },
+    {
+      "id": "drowned",
+      "x": 17,
+      "z": 14,
+      "encounter": "water-mill-willow:rear",
+      "slot": "water-mill-willow:4"
+    },
+    {
+      "id": "drowned",
+      "x": 19,
+      "z": 19,
+      "encounter": "water-mill-willow:rear",
+      "slot": "water-mill-willow:5"
+    },
+    {
+      "id": "drowned",
+      "x": 13,
+      "z": 22,
+      "encounter": "water-mill-willow:rear",
+      "slot": "water-mill-willow:6"
+    },
+    {
+      "id": "drowned",
+      "x": 10,
+      "z": 17,
+      "encounter": "water-mill-willow:rear",
+      "slot": "water-mill-willow:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "nettle",
+      "x": -17,
+      "z": 9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

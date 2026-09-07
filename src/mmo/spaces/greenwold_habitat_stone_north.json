@@ -1,0 +1,86 @@
+{
+  "id": "greenwold_habitat_stone_north",
+  "zone": "standinghedge",
+  "name": "The northern stone bank",
+  "at": {
+    "x": 475,
+    "z": -617
+  },
+  "note": "Thorn and fern frame the northern stone without crowding its face.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_hawthorn",
+      "x": 8,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_bracken",
+      "x": -7,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_ivy_stump",
+      "x": 0,
+      "z": 5,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "effects": [
+    {
+      "id": "fireflies",
+      "x": 0,
+      "z": 3,
+      "gate": "night",
+      "scale": 1.5,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": 13,
+      "z": 17,
+      "encounter": "north-stone-scouts",
+      "slot": "north-stone-scouts:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": 17,
+      "z": 6,
+      "encounter": "north-stone-scouts",
+      "slot": "north-stone-scouts:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": 22,
+      "z": -3,
+      "encounter": "north-stone-scouts",
+      "slot": "north-stone-scouts:2"
+    },
+    {
+      "id": "wolf",
+      "x": 26,
+      "z": -8,
+      "night": true,
+      "encounter": "north-stone-scouts",
+      "slot": "north-stone-scouts:3"
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

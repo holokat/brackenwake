@@ -64,8 +64,8 @@ import { skillNameOf } from '../mmo/items.js';
 import { itemGlyph, GLYPHS, MATERIAL_TINT, theme } from './ui_theme.js';
 import { hash2 } from '../world/noise.js';
 
-/** How many recipes past your reach the panel still shows, so you can see what is coming. */
-export const NEAR_MISS = 12;
+/** Retained for callers that imported the former preview limit. All recipes are now visible. */
+export const NEAR_MISS = Infinity;
 
 // ---------------------------------------------------------------------------
 // Where a station stands, which is what main.js needs from this file.
@@ -372,6 +372,8 @@ export function refusalFor(recipe, ctx) {
       why: `Your ${skillNameOf(recipe.skill)} is ${skill.toFixed(1)} and this wants more than ${need.toFixed(0)} before it is worth striking.`,
     };
   }
+  const atStation = typeof ctx?.stationAccess === 'function' && ctx.stationAccess(recipe.station);
+  if (!atStation) return { kind: 'station', why: `Visit a ${STATION[recipe.station]?.name || recipe.station} to make this.` };
   const short = [];
   for (const [id, n] of Object.entries(recipe.materials || {})) {
     const have = countMaterial(ctx, id);
@@ -409,14 +411,9 @@ export function forecast(recipe, ctx) {
  */
 export function benchFor(station, ctx, opts = {}) {
   const family = opts.family || null;
-  const all = RECIPES.filter((r) => r.station === station && (!family || r.family === family));
-  const rows = all.map((r) => ({ recipe: r, refusal: refusalFor(r, ctx), forecast: forecast(r, ctx) }));
-  const open = rows.filter((r) => !r.refusal || r.refusal.kind !== 'skill');
-  const shut = rows.filter((r) => r.refusal && r.refusal.kind === 'skill')
-    .sort((a, b) => a.recipe.difficulty - b.recipe.difficulty)
-    .slice(0, opts.nearMiss ?? NEAR_MISS);
-  open.sort((a, b) => a.recipe.difficulty - b.recipe.difficulty || a.recipe.id.localeCompare(b.recipe.id));
-  return [...open, ...shut];
+  const all = RECIPES.filter((r) => (!station || r.station === station) && (!family || r.family === family));
+  return all.map((r) => ({ recipe: r, refusal: refusalFor(r, ctx), forecast: forecast(r, ctx) }))
+    .sort((a, b) => Number(!!a.refusal) - Number(!!b.refusal) || a.recipe.difficulty - b.recipe.difficulty || a.recipe.id.localeCompare(b.recipe.id));
 }
 
 // ---------------------------------------------------------------------------
@@ -598,7 +595,7 @@ export function billFor(recipe, ctx) {
 export function chipsFor(row) {
   const r = row?.recipe;
   if (!r) return [];
-  const out = [];
+  const out = [{ id: 'station', text: STATION[r.station]?.name || r.station }];
   // Eight pairs of recipes at the tanning rack share a name to the letter:
   // "Hide tunic" is both the leather one and the studded one, and on a wall of
   // cards two identical names side by side look like the page repeated itself.
@@ -627,7 +624,7 @@ export function lineFor(row) {
 /** Every family this station takes, in the order recipes.js lists them. */
 export function familiesAt(station) {
   const seen = new Map();
-  for (const r of RECIPES) if (r.station === station) seen.set(r.family, (seen.get(r.family) || 0) + 1);
+  for (const r of RECIPES) if (!station || r.station === station) seen.set(r.family, (seen.get(r.family) || 0) + 1);
   return [...seen.entries()].map(([id, count]) => ({ id, label: FAMILY_LABEL[id] || id, count }));
 }
 
@@ -708,20 +705,20 @@ export const CRAFT_ART_AUDIT = auditCraftArt();
 
 const CSS = `
 .bw-win-crafting { width: 100%; font-family: ${theme.fonts.body}; }
-.bw-win-crafting .bw-where { color: ${theme.parchmentDim}; font-style: italic; font-size: 15px; margin: 0 0 10px; }
+.bw-win-crafting .bw-where { color: ${theme.parchmentDim}; font-style: italic; font-size: 15px; margin: 0 0 16px; }
 
-.bw-win-crafting .bw-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.bw-win-crafting .bw-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; }
 .bw-win-crafting .bw-f {
-  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .12em;
-  text-transform: uppercase; padding: 5px 11px; cursor: pointer;
+  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .02em;
+  text-transform: none; padding: 5px 11px; cursor: pointer;
   color: ${theme.parchmentDim}; background: rgba(9,8,6,.7);
   border: 1px solid ${theme.goldDim}66;
 }
 .bw-win-crafting .bw-f:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
 .bw-win-crafting .bw-f.on { color: ${theme.goldBright}; border-color: ${theme.gold}; background: ${theme.plate}; }
 .bw-win-crafting .bw-count {
-  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .12em;
-  text-transform: uppercase; color: ${theme.parchmentFaint}; margin: 0 0 12px;
+  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .02em;
+  text-transform: none; color: ${theme.parchmentFaint}; margin: 0 0 12px;
 }
 
 .bw-win-crafting .bw-cards {
@@ -760,14 +757,14 @@ const CSS = `
 .bw-win-crafting .bw-card:hover .bw-name { color: ${theme.goldBright}; }
 .bw-win-crafting .bw-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
 .bw-win-crafting .bw-chip {
-  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .12em;
-  text-transform: uppercase; padding: 2px 7px; color: ${theme.parchmentDim};
+  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .02em;
+  text-transform: none; padding: 2px 7px; color: ${theme.parchmentDim};
   background: rgba(0,0,0,.4); border: 1px solid ${theme.goldDim}44;
 }
 .bw-win-crafting .bw-mats { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
 .bw-win-crafting .bw-mat {
-  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .1em;
-  text-transform: uppercase; padding: 2px 7px; background: rgba(0,0,0,.4);
+  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .02em;
+  text-transform: none; padding: 2px 7px; background: rgba(0,0,0,.4);
   color: ${theme.up}; border: 1px solid ${theme.up}55;
 }
 .bw-win-crafting .bw-mat.short { color: ${theme.down}; border-color: ${theme.down}55; }
@@ -779,8 +776,8 @@ const CSS = `
 
 .bw-win-crafting .bw-make {
   position: absolute; right: 11px; top: 10px; font: inherit;
-  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .12em;
-  text-transform: uppercase; padding: 4px 11px; cursor: pointer;
+  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .02em;
+  text-transform: none; padding: 4px 11px; cursor: pointer;
   color: ${theme.goldBright}; background: rgba(9,8,6,.85); border: 1px solid ${theme.gold};
 }
 .bw-win-crafting .bw-make:hover { background: ${theme.plate}; }
@@ -831,7 +828,7 @@ export const panel = {
   open(ctx, extra) {
     this._ctx = ctx || this._ctx;
     const was = this._station;
-    this._station = extra?.station || this._ctx?.station || null;
+    this._station = null;
     if (was !== this._station) this._filter = 'all';
     this.render();
   },
@@ -842,21 +839,16 @@ export const panel = {
   render() {
     if (!this._root || typeof document === 'undefined') return;
     const ctx = this._ctx;
-    const st = STATION[this._station];
+    const nearby = STATION_KINDS.filter(st => ctx?.stationAccess?.(st.id));
     this._cards = [];
     this._list.textContent = '';
     this._filterRow.textContent = '';
     this._count.textContent = '';
     this._empty.textContent = '';
-    if (!st) {
-      this._where.textContent = 'You are not at a station.';
-      this._empty.textContent = 'Stand at a forge, a loom, a tanning rack, a workbench, an alchemy table, a kitchen or an inscription desk, and click it.';
-      return;
-    }
-    this._where.textContent = `At the ${st.name}. ${st.skills.map((s) => `${skillNameOf(s)} ${(ctx?.character?.skills?.[s] ?? 0).toFixed(1)}`).join(', ')}.`;
-
-    // the filter row: only the families this station takes
-    const filters = filtersFor(st.id);
+    this._where.textContent = nearby.length
+      ? `Within reach: ${nearby.map(st => st.name).join(', ')}. All recipes are shown.`
+      : 'Browse every recipe. Walk up to its workshop to craft.';
+    const filters = filtersFor(null);
     if (!filters.some((f) => f.id === this._filter)) this._filter = 'all';
     this._filterEls = new Map();
     for (const f of filters) {
@@ -871,11 +863,11 @@ export const panel = {
     }
 
     const family = this._filter === 'all' || this._filter === 'ready' ? null : this._filter;
-    const rows = benchFor(st.id, ctx, { family }).filter((row) => inFilter(row, this._filter));
+    const rows = benchFor(null, ctx, { family }).filter((row) => inFilter(row, this._filter));
     if (!rows.length) {
       this._count.textContent = `nothing here answers to ${(FAMILY_LABEL[this._filter] || this._filter).toLowerCase()}`;
       this._empty.textContent = this._filter === 'ready'
-        ? 'Nothing at this bench is within reach today. Bring the materials, or raise the skill.'
+        ? 'No recipes are ready here. Check the workshop, skill and material requirements.'
         : 'Nothing is made here.';
       return;
     }
@@ -903,7 +895,7 @@ export const panel = {
       body.appendChild(el('div', 'bw-req', v.line));
       card.appendChild(body);
 
-      const make = el('button', 'bw-make', 'make');
+      const make = el('button', 'bw-make', 'Make');
       make.disabled = v.locked;
       make.addEventListener('click', () => {
         // craft() is the one path that makes anything, and it says out loud
@@ -919,8 +911,8 @@ export const panel = {
     }
 
     const ready = rows.filter((r) => !r.refusal).length;
-    const here = RECIPES.filter((r) => r.station === st.id).length;
-    this._count.textContent = `${ready} you can make now, ${rows.length} shown, ${here} known at this bench`;
+    const here = RECIPES.length;
+    this._count.textContent = `${ready} you can make now, ${rows.length} shown, ${here} known recipes`;
     this._stamp = this.stamp();
   },
 
@@ -961,7 +953,8 @@ export const panel = {
     }
     const mats = [...ids].sort().map((id) => `${id}:${countMaterial(ctx, id)}`).join(',');
     const sk = [...skills].sort().map((s) => `${s}:${(ctx?.character?.skills?.[s] ?? 0).toFixed(2)}`).join(',');
-    return `${mats}|${sk}|${ctx?.character?.gold ?? 0}|${packRoom(ctx) ? 'room' : 'full'}`;
+    const access = STATION_KINDS.map(st => Number(!!ctx?.stationAccess?.(st.id))).join('');
+    return `${access}|${mats}|${sk}|${ctx?.character?.gold ?? 0}|${packRoom(ctx) ? 'room' : 'full'}`;
   },
 };
 

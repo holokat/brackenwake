@@ -1,0 +1,92 @@
+{
+  "id": "greenwold_population_mill-lane-furrows",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -109,
+    "z": -382
+  },
+  "radius": 78,
+  "district": "longmeadow",
+  "pieces": [
+    {
+      "model": "lw_cowslip_patch",
+      "x": -10.091528184513653,
+      "z": 9.119268550775692,
+      "scale": 1.5,
+      "yaw": 65,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": -6.04,
+      "z": 6.78,
+      "encounter": "mill-lane-furrows:near",
+      "slot": "mill-lane-furrows:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -0.72,
+      "z": 11.72,
+      "encounter": "mill-lane-furrows:near",
+      "slot": "mill-lane-furrows:1"
+    },
+    {
+      "id": "giantRat",
+      "x": -4.89,
+      "z": 10.97,
+      "encounter": "mill-lane-furrows:near",
+      "slot": "mill-lane-furrows:2"
+    },
+    {
+      "id": "giantRat",
+      "x": 0.42,
+      "z": 15.91,
+      "encounter": "mill-lane-furrows:near",
+      "slot": "mill-lane-furrows:3"
+    },
+    {
+      "id": "thornGrub",
+      "x": 10.82,
+      "z": 16,
+      "encounter": "mill-lane-furrows:rear",
+      "slot": "mill-lane-furrows:4"
+    },
+    {
+      "id": "thornGrub",
+      "x": 14.75,
+      "z": 19.69,
+      "encounter": "mill-lane-furrows:rear",
+      "slot": "mill-lane-furrows:5"
+    },
+    {
+      "id": "thornGrub",
+      "x": 21.08,
+      "z": 23.44,
+      "encounter": "mill-lane-furrows:rear",
+      "slot": "mill-lane-furrows:6"
+    },
+    {
+      "id": "thornGrub",
+      "x": 16.25,
+      "z": 23.18,
+      "encounter": "mill-lane-furrows:rear",
+      "slot": "mill-lane-furrows:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "dandelion",
+      "x": -11.6,
+      "z": 15.34,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

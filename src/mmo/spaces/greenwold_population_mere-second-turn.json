@@ -1,0 +1,158 @@
+{
+  "id": "greenwold_population_mere-second-turn",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 151,
+    "z": -850
+  },
+  "radius": 78,
+  "district": "highwaymanshollow",
+  "pieces": [
+    {
+      "model": "tent_ragged",
+      "x": 2.3683832777406835,
+      "z": 18.957604296158266,
+      "scale": 1.8,
+      "yaw": 255,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "campfire",
+      "x": -14.607851304309275,
+      "z": 3.4074448302488847,
+      "scale": 1,
+      "yaw": 220,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_stolen_goods",
+      "x": -25.015709892726342,
+      "z": 14.255323867347016,
+      "scale": 1.2,
+      "yaw": 220,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_tripwire",
+      "x": 19.970162406142123,
+      "z": 1.0920684375568896,
+      "scale": 1,
+      "yaw": 310,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 14.11,
+      "z": 31.42,
+      "scale": 0.9,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -0.9,
+      "z": 38.41,
+      "scale": 1.1,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -17.65,
+      "z": 33.49,
+      "scale": 0.9,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -31.2,
+      "z": 24.73,
+      "scale": 1.1,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 29.01,
+      "z": 15.21,
+      "scale": 1.1,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 28.18,
+      "z": -2.47,
+      "scale": 0.9,
+      "yaw": 220,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": 8.95,
+      "z": 4.9,
+      "encounter": "mere-second-turn:near",
+      "slot": "mere-second-turn:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": 3.31,
+      "z": 5.39,
+      "encounter": "mere-second-turn:near",
+      "slot": "mere-second-turn:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": 4.87,
+      "z": -1.14,
+      "encounter": "mere-second-turn:near",
+      "slot": "mere-second-turn:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": -0.77,
+      "z": -0.64,
+      "encounter": "mere-second-turn:near",
+      "slot": "mere-second-turn:3"
+    },
+    {
+      "id": "bandit",
+      "x": -21.65,
+      "z": 4.02,
+      "encounter": "mere-second-turn:rear",
+      "slot": "mere-second-turn:4"
+    },
+    {
+      "id": "bandit",
+      "x": -26.77,
+      "z": 2.34,
+      "encounter": "mere-second-turn:rear",
+      "slot": "mere-second-turn:5"
+    },
+    {
+      "id": "bandit",
+      "x": -25.21,
+      "z": -4.18,
+      "encounter": "mere-second-turn:rear",
+      "slot": "mere-second-turn:6"
+    },
+    {
+      "id": "bandit",
+      "x": -19.45,
+      "z": -3.27,
+      "encounter": "mere-second-turn:rear",
+      "slot": "mere-second-turn:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

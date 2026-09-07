@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import {createLootDrops} from '../loot_drops.js';
+import {createInventory} from '../inventory.js';
+import {blankCharacter} from '../state.js';
+import {makeItem} from '../../mmo/items.js';
+const scene=new THREE.Scene(),drops=createLootDrops({scene}),inventory=createInventory({character:blankCharacter()});
+const bag=drops.drop({x:0,y:0,z:0},{items:[makeItem({base:'longsword'})]});
+assert.equal(await bag.node.userData.studioDrop.ready,true);scene.updateMatrixWorld(true);
+const ray=new THREE.Raycaster(new THREE.Vector3(0,5,0),new THREE.Vector3(0,-1,0));assert.equal(drops.pick(ray),bag);
+assert.equal(drops.take(bag,()=>false).left.length,1);assert.ok(bag.node.parent,'a refused pickup remains visible');
+assert.equal(drops.take(bag,items=>({items:items.filter(item=>inventory.add(item).ok),gold:0})).taken.length,1);assert.equal(bag.node.parent,null);assert.equal(inventory.pack.items.filter(Boolean).length,1);
+const pending=drops.drop({x:0,y:0,z:0},{items:[makeItem({base:'heater'})]}),ready=pending.node.userData.studioDrop.ready;
+drops.clear();assert.equal(await ready,false,'a source model resolving after despawn does not revive the drop');
+drops.dispose();assert.equal(scene.children.length,0);
+console.log('Studio loot: real ray pick, refused transaction, real inventory pickup and asynchronous despawn passed.');

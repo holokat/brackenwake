@@ -1,0 +1,203 @@
+{
+  "id": "greenwold_population_ox-pasture-upper",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 704,
+    "z": 339
+  },
+  "radius": 78,
+  "district": "eastfields",
+  "pieces": [
+    {
+      "model": "lw_boar_wallow",
+      "x": -10,
+      "z": -7,
+      "scale": 1.7,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bracken",
+      "x": -22,
+      "z": -11,
+      "scale": 1.5,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bramble_thicket",
+      "x": 25,
+      "z": -28,
+      "scale": 1.5,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "sheep_skeleton",
+      "x": 20,
+      "z": -25,
+      "scale": 1,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -31,
+      "z": -15,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -24,
+      "z": -30,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -8,
+      "z": -37,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 8,
+      "z": -39,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 29,
+      "z": -35,
+      "scale": 1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 36,
+      "z": -18,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -32,
+      "z": 7,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 35,
+      "z": 3,
+      "scale": 0.85,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -20,
+      "z": 20,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 20,
+      "z": 18,
+      "scale": 0.95,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": -10,
+      "z": 2,
+      "encounter": "ox-pasture-upper:near",
+      "slot": "ox-pasture-upper:0"
+    },
+    {
+      "id": "boar",
+      "x": -6,
+      "z": -2,
+      "encounter": "ox-pasture-upper:near",
+      "slot": "ox-pasture-upper:1"
+    },
+    {
+      "id": "boar",
+      "x": -3,
+      "z": 4,
+      "encounter": "ox-pasture-upper:near",
+      "slot": "ox-pasture-upper:2"
+    },
+    {
+      "id": "boar",
+      "x": 1,
+      "z": 0,
+      "encounter": "ox-pasture-upper:near",
+      "slot": "ox-pasture-upper:3"
+    },
+    {
+      "id": "wolf",
+      "x": 14,
+      "z": -17,
+      "encounter": "ox-pasture-upper:rear",
+      "slot": "ox-pasture-upper:4"
+    },
+    {
+      "id": "wolf",
+      "x": 19,
+      "z": -19,
+      "encounter": "ox-pasture-upper:rear",
+      "slot": "ox-pasture-upper:5"
+    },
+    {
+      "id": "wolf",
+      "x": 22,
+      "z": -13,
+      "encounter": "ox-pasture-upper:rear",
+      "slot": "ox-pasture-upper:6"
+    },
+    {
+      "id": "wolf",
+      "x": 17,
+      "z": -10,
+      "encounter": "ox-pasture-upper:rear",
+      "slot": "ox-pasture-upper:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": -21,
+      "z": 8,
+      "count": 2
+    },
+    {
+      "id": "blackberry",
+      "x": 9,
+      "z": 17,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

@@ -1,0 +1,72 @@
+{
+  "id": "greenwold_habitat_south_fields",
+  "zone": "standinghedge",
+  "name": "The high pasture",
+  "at": {
+    "x": -158,
+    "z": 590
+  },
+  "note": "Sheep graze the sheltered side of the southern folds, above the lane to the stones.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_gorse",
+      "x": -7,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_cattle_trough",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_cowslip_patch",
+      "x": 7,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "animals": [
+    {
+      "id": "sheep",
+      "x": -3,
+      "z": 8,
+      "clip": "graze",
+      "yaw": 0
+    },
+    {
+      "id": "sheep",
+      "x": 5,
+      "z": 10,
+      "clip": "graze",
+      "yaw": 170
+    }
+  ],
+  "effects": [
+    {
+      "id": "butterflies",
+      "x": 7,
+      "z": 4,
+      "gate": "fair",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

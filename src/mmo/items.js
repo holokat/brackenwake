@@ -110,6 +110,8 @@ const PIECE_TAGS = {
 export const SHIELDS = {
   buckler: { id: 'buckler', name: 'Buckler', parryFactor: 0.6, weight: 3, strReq: 0 },
   kite: { id: 'kite', name: 'Kite Shield', parryFactor: 0.9, weight: 6, strReq: 30 },
+  // Studio's heater is a medium shield, sharing the kite's gameplay profile.
+  heater: { id: 'heater', name: 'Heater Shield', parryFactor: 0.9, weight: 6, strReq: 30 },
   tower: { id: 'tower', name: 'Tower Shield', parryFactor: 1.2, weight: 10, strReq: 55 },
 };
 
@@ -981,7 +983,7 @@ export function auditItems(items = []) {
   if (!FOCUS_BASES.some((id) => BASES[id].hands === 1)) bad('there is no one handed focus, so a caster can never carry a shield');
   if (!FOCUS_BASES.some((id) => BASES[id].hands === 2)) bad('there is no two handed focus');
 
-  if (Object.keys(SHIELDS).length !== 3) bad('there are three shields');
+  if (Object.keys(SHIELDS).length !== 4) bad('there are four shield designs');
   for (const s of Object.values(SHIELDS)) {
     if (!(s.parryFactor > 0)) bad(`shield ${s.id} has no parryFactor`);
   }

@@ -1,0 +1,120 @@
+{
+  "id": "greenwold_population_mill-lane-oaks",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -12,
+    "z": -287
+  },
+  "radius": 78,
+  "district": "longmeadow",
+  "pieces": [],
+  "trees": [
+    {
+      "species": "beech",
+      "x": 38.73,
+      "z": -9.23,
+      "scale": 1.1,
+      "yaw": 65,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 31.53,
+      "z": 25.02,
+      "scale": 0.9,
+      "yaw": 65,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": -6.04,
+      "z": 3.78,
+      "encounter": "mill-lane-oaks:near",
+      "slot": "mill-lane-oaks:0"
+    },
+    {
+      "id": "badger",
+      "x": -0.72,
+      "z": 5.72,
+      "encounter": "mill-lane-oaks:near",
+      "slot": "mill-lane-oaks:1"
+    },
+    {
+      "id": "badger",
+      "x": -10.89,
+      "z": -1.03,
+      "encounter": "mill-lane-oaks:near",
+      "slot": "mill-lane-oaks:2"
+    },
+    {
+      "id": "badger",
+      "x": 6.72,
+      "z": 7.21,
+      "encounter": "mill-lane-oaks:near",
+      "slot": "mill-lane-oaks:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": 21.32,
+      "z": 14.5,
+      "encounter": "mill-lane-oaks:rear",
+      "slot": "mill-lane-oaks:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": 25.25,
+      "z": 18.19,
+      "encounter": "mill-lane-oaks:rear",
+      "slot": "mill-lane-oaks:5"
+    },
+    {
+      "id": "giantSpider",
+      "x": 21.08,
+      "z": 20.44,
+      "encounter": "mill-lane-oaks:rear",
+      "slot": "mill-lane-oaks:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": 16.25,
+      "z": 14.18,
+      "encounter": "mill-lane-oaks:rear",
+      "slot": "mill-lane-oaks:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": 38.73,
+      "z": -9.23,
+      "tree": {
+        "x": 38.73,
+        "z": -9.23,
+        "scale": 1.1
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    },
+    {
+      "id": "oyster_mushroom",
+      "x": 31.53,
+      "z": 25.02,
+      "tree": {
+        "x": 31.53,
+        "z": 25.02,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

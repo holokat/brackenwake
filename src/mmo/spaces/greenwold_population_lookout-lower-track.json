@@ -1,0 +1,158 @@
+{
+  "id": "greenwold_population_lookout-lower-track",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 693,
+    "z": -991
+  },
+  "radius": 78,
+  "district": "highwaymanshollow",
+  "pieces": [
+    {
+      "model": "tent_ragged",
+      "x": 24,
+      "z": -30,
+      "scale": 1.8,
+      "yaw": 300,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "campfire",
+      "x": 9,
+      "z": -12,
+      "scale": 1,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_stolen_goods",
+      "x": 10,
+      "z": -27,
+      "scale": 1.2,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "weapons_rack",
+      "x": 28,
+      "z": -6,
+      "scale": 1,
+      "yaw": 0,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -8,
+      "z": -37,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 8,
+      "z": -39,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 29,
+      "z": -35,
+      "scale": 1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 36,
+      "z": -18,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 35,
+      "z": 3,
+      "scale": 0.85,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 20,
+      "z": 18,
+      "scale": 0.95,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": -1,
+      "z": 2,
+      "encounter": "lookout-lower-track:near",
+      "slot": "lookout-lower-track:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": -3,
+      "z": -2,
+      "encounter": "lookout-lower-track:near",
+      "slot": "lookout-lower-track:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": -0.9,
+      "z": 6.1,
+      "encounter": "lookout-lower-track:near",
+      "slot": "lookout-lower-track:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": 4,
+      "z": 0,
+      "encounter": "lookout-lower-track:near",
+      "slot": "lookout-lower-track:3"
+    },
+    {
+      "id": "bandit",
+      "x": 14,
+      "z": -17,
+      "encounter": "lookout-lower-track:rear",
+      "slot": "lookout-lower-track:4"
+    },
+    {
+      "id": "bandit",
+      "x": 19,
+      "z": -19,
+      "encounter": "lookout-lower-track:rear",
+      "slot": "lookout-lower-track:5"
+    },
+    {
+      "id": "bandit",
+      "x": 22,
+      "z": -13,
+      "encounter": "lookout-lower-track:rear",
+      "slot": "lookout-lower-track:6"
+    },
+    {
+      "id": "bandit",
+      "x": 17,
+      "z": -10,
+      "encounter": "lookout-lower-track:rear",
+      "slot": "lookout-lower-track:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

@@ -1,0 +1,225 @@
+{
+  "id": "greenwold_grove_kingsroad_upper_east",
+  "name": "Oak stand",
+  "note": "The kingsroad upper east trees frame the nearby route.",
+  "at": {
+    "x": 821,
+    "z": -829
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "legionSoldier",
+      "x": -58,
+      "z": -26,
+      "encounter": "kingsroad-watch",
+      "slot": "kingsroad-watch:0"
+    },
+    {
+      "id": "legionSoldier",
+      "x": -50,
+      "z": -32,
+      "encounter": "kingsroad-watch",
+      "slot": "kingsroad-watch:1"
+    },
+    {
+      "id": "legionSoldier",
+      "x": -44,
+      "z": -23,
+      "encounter": "kingsroad-watch",
+      "slot": "kingsroad-watch:2"
+    },
+    {
+      "id": "legionArcher",
+      "x": -37,
+      "z": -29,
+      "night": true,
+      "encounter": "kingsroad-watch",
+      "slot": "kingsroad-watch:3"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -55.56,
+      "z": 2.24,
+      "scale": 1,
+      "yaw": 40,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -46.91,
+      "z": -15.46,
+      "scale": 1.2,
+      "yaw": 87,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -26.2,
+      "z": -25.01,
+      "scale": 1.3,
+      "yaw": 134,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -12.32,
+      "z": -45.8,
+      "scale": 1.1,
+      "yaw": 181,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 13.66,
+      "z": -50.62,
+      "scale": 0.95,
+      "yaw": 228,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -45.5,
+      "z": 25.12,
+      "scale": 1.15,
+      "yaw": 275,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -32.62,
+      "z": 7.79,
+      "scale": 1.05,
+      "yaw": 322,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -14.09,
+      "z": -1.23,
+      "scale": 1.25,
+      "yaw": 9,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -0.72,
+      "z": -24.2,
+      "scale": 1.3,
+      "yaw": 56,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 22.56,
+      "z": -30.68,
+      "scale": 1.1,
+      "yaw": 103,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 47.67,
+      "z": -25.64,
+      "scale": 0.85,
+      "yaw": 150,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -25.72,
+      "z": 42.47,
+      "scale": 0.95,
+      "yaw": 197,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -11.96,
+      "z": 23.09,
+      "scale": 1.2,
+      "yaw": 244,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 11.82,
+      "z": 10.97,
+      "scale": 1.15,
+      "yaw": 291,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 29.68,
+      "z": -6.63,
+      "scale": 1.05,
+      "yaw": 338,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -2.91,
+      "z": 49.43,
+      "scale": 1.1,
+      "yaw": 25,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 17.16,
+      "z": 39.12,
+      "scale": 0.85,
+      "yaw": 72,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 34.51,
+      "z": 19.34,
+      "scale": 1.15,
+      "yaw": 119,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 51.09,
+      "z": 0.21,
+      "scale": 1,
+      "yaw": 166,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -19.24,
+      "z": 65.75,
+      "scale": 0.8,
+      "yaw": 213,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 41.63,
+      "z": 43.39,
+      "scale": 0.9,
+      "yaw": 260,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 34.27,
+      "z": -50.95,
+      "scale": 0.8,
+      "yaw": 307,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

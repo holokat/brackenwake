@@ -26,7 +26,7 @@ const ck = (n, ok, d = '') => { (ok ? pass++ : bad++); console.log(`  ${ok ? 'ok
 // ---- the cycle is what the docs say it is ----
 ck('one day is 25 minutes, 20 of them light', DAY_CYCLE_MS === 1500000 && NIGHT_FRACTION === 0.2, `${DAY_CYCLE_MS} ms, night ${NIGHT_FRACTION}`);
 ck('the sky is the meadow row of THEMES', PALETTE && PALETTE.id === 'meadow');
-ck('fog in the open closes at 536 m, inside the 576 m ring', WORLD_FOG.near === 90 && WORLD_FOG.far === 536);
+ck('fog in the open closes at 280 m, inside the 320 m ring', WORLD_FOG.near === 78.4 && WORLD_FOG.far === 280);
 
 // ---- sample one whole cycle at one second steps ----
 const N = DAY_CYCLE_MS / 1000;   // one whole cycle at one second steps
@@ -241,13 +241,13 @@ console.log('\n  -- the realms on the lights --');
 // createScene in.
 {
   const G = REALM_SKY[DEFAULT_REALM];
-  for (const [id, wantFar] of [['greenwold', 536], ['boneyard', 400], ['sunkenkingdom', 250], ['emberwastes', 536]]) {
+  for (const [id, wantFar] of [['greenwold', 280], ['boneyard', 208.955], ['sunkenkingdom', 130.597], ['emberwastes', 280]]) {
     const p = { fogNear: REALM_SKY[id].fogNear, fogFar: REALM_SKY[id].fogFar };
     const far = WORLD_FOG.far * (p.fogFar / G.fogFar);
     const near = Math.min(WORLD_FOG.near * (p.fogNear / G.fogNear), far * 0.92);
     ck(`the fog in ${REALM_SKY[id].name} runs ${near.toFixed(0)} to ${far.toFixed(0)} m`,
       Math.abs(far - wantFar) < 0.5 && near > 0 && near < far && far <= WORLD_FOG.far,
-      id === 'greenwold' ? 'the heart is exactly what it was' : '');
+      id === 'greenwold' ? 'the modest Greenwold view range' : '');
   }
 }
 

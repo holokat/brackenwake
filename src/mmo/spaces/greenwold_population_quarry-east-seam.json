@@ -1,0 +1,127 @@
+{
+  "id": "greenwold_population_quarry-east-seam",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -525,
+    "z": -1005
+  },
+  "radius": 78,
+  "district": "chalkpits",
+  "pieces": [
+    {
+      "model": "ore_cart",
+      "x": -24,
+      "z": -8.999999999999996,
+      "scale": 1.2,
+      "yaw": 270,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "birch",
+      "x": -30,
+      "z": 24,
+      "scale": 1.1,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -37,
+      "z": 8,
+      "scale": 0.9,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 3,
+      "z": -35,
+      "scale": 0.85,
+      "yaw": 270,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 20,
+      "z": 20,
+      "scale": 0.9,
+      "yaw": 270,
+      "harvest": true
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "ore",
+      "ore": "copper",
+      "x": -22,
+      "z": 27,
+      "scale": 1.1,
+      "harvest": true
+    }
+  ],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": -2.2,
+      "z": 14.2,
+      "encounter": "quarry-east-seam:near",
+      "slot": "quarry-east-seam:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": -6.2,
+      "z": 10.2,
+      "encounter": "quarry-east-seam:near",
+      "slot": "quarry-east-seam:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": 13,
+      "z": 3,
+      "encounter": "quarry-east-seam:near",
+      "slot": "quarry-east-seam:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": 9,
+      "z": -1,
+      "encounter": "quarry-east-seam:near",
+      "slot": "quarry-east-seam:3"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": -17,
+      "z": -8,
+      "encounter": "quarry-east-seam:rear",
+      "slot": "quarry-east-seam:4"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": -25.3,
+      "z": -12.7,
+      "encounter": "quarry-east-seam:rear",
+      "slot": "quarry-east-seam:5"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": -13,
+      "z": -28,
+      "encounter": "quarry-east-seam:rear",
+      "slot": "quarry-east-seam:6"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": -1,
+      "z": -17,
+      "encounter": "quarry-east-seam:rear",
+      "slot": "quarry-east-seam:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

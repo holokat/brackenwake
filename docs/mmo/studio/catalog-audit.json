@@ -1,0 +1,2633 @@
+{
+  "classes": [
+    {
+      "id": "warrior",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    },
+    {
+      "id": "paladin",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    },
+    {
+      "id": "ranger",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    },
+    {
+      "id": "rogue",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    },
+    {
+      "id": "mage",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    },
+    {
+      "id": "sorcerer",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    },
+    {
+      "id": "necromancer",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    },
+    {
+      "id": "healer",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    },
+    {
+      "id": "bard",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    },
+    {
+      "id": "artisan",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    },
+    {
+      "id": "blank",
+      "bodies": [
+        "male",
+        "female"
+      ],
+      "consumer": "creation, roster, player studio body"
+    }
+  ],
+  "items": [
+    {
+      "id": "dagger",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "dagger"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "rapier",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "rapier"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "spear",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "spear"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "shortsword",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "shortsword"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "longsword",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "longsword"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "greatsword",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "greatsword"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "axe",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "axe"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "battleaxe",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "battleaxe"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "mace",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "mace"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "warhammer",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "warhammer"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "maul",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "maul"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "halberd",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "halberd"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "glaive",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "glaive"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "quarterstaff",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "quarterstaff"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "wand",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "wand"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "staff",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "staff"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "shortbow",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "shortbow"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "longbow",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "longbow"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "crossbow",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "crossbow"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "throwing_knives",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "throwing_knives"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "fists",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "fists"
+      },
+      "consumer": "unarmed character pose; not an equippable item"
+    },
+    {
+      "id": "bone_staff",
+      "kind": "weapon",
+      "gameItem": {
+        "base": "bone_staff"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "buckler",
+      "kind": "shield",
+      "gameItem": {
+        "base": "buckler"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "kite",
+      "kind": "shield",
+      "gameItem": {
+        "base": "kite"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "heater",
+      "kind": "shield",
+      "gameItem": {
+        "base": "heater"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "tower",
+      "kind": "shield",
+      "gameItem": {
+        "base": "tower"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "cloth_head",
+      "kind": "armor",
+      "gameItem": {
+        "base": "cloth_head"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "cloth_chest",
+      "kind": "armor",
+      "gameItem": {
+        "base": "cloth_chest"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "cloth_hands",
+      "kind": "armor",
+      "gameItem": {
+        "base": "cloth_hands"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "cloth_wrists",
+      "kind": "armor",
+      "gameItem": {
+        "base": "cloth_wrists"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "cloth_waist",
+      "kind": "armor",
+      "gameItem": {
+        "base": "cloth_waist"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "cloth_legs",
+      "kind": "armor",
+      "gameItem": {
+        "base": "cloth_legs"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "cloth_feet",
+      "kind": "armor",
+      "gameItem": {
+        "base": "cloth_feet"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "cloth_back",
+      "kind": "armor",
+      "gameItem": {
+        "base": "cloth_back"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "leather_head",
+      "kind": "armor",
+      "gameItem": {
+        "base": "leather_head"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "leather_chest",
+      "kind": "armor",
+      "gameItem": {
+        "base": "leather_chest"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "leather_hands",
+      "kind": "armor",
+      "gameItem": {
+        "base": "leather_hands"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "leather_wrists",
+      "kind": "armor",
+      "gameItem": {
+        "base": "leather_wrists"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "leather_waist",
+      "kind": "armor",
+      "gameItem": {
+        "base": "leather_waist"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "leather_legs",
+      "kind": "armor",
+      "gameItem": {
+        "base": "leather_legs"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "leather_feet",
+      "kind": "armor",
+      "gameItem": {
+        "base": "leather_feet"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "leather_back",
+      "kind": "armor",
+      "gameItem": {
+        "base": "leather_back"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "studded_head",
+      "kind": "armor",
+      "gameItem": {
+        "base": "studded_head"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "studded_chest",
+      "kind": "armor",
+      "gameItem": {
+        "base": "studded_chest"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "studded_hands",
+      "kind": "armor",
+      "gameItem": {
+        "base": "studded_hands"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "studded_wrists",
+      "kind": "armor",
+      "gameItem": {
+        "base": "studded_wrists"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "studded_waist",
+      "kind": "armor",
+      "gameItem": {
+        "base": "studded_waist"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "studded_legs",
+      "kind": "armor",
+      "gameItem": {
+        "base": "studded_legs"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "studded_feet",
+      "kind": "armor",
+      "gameItem": {
+        "base": "studded_feet"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "studded_back",
+      "kind": "armor",
+      "gameItem": {
+        "base": "studded_back"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "ring_head",
+      "kind": "armor",
+      "gameItem": {
+        "base": "ring_head"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "ring_chest",
+      "kind": "armor",
+      "gameItem": {
+        "base": "ring_chest"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "ring_hands",
+      "kind": "armor",
+      "gameItem": {
+        "base": "ring_hands"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "ring_wrists",
+      "kind": "armor",
+      "gameItem": {
+        "base": "ring_wrists"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "ring_waist",
+      "kind": "armor",
+      "gameItem": {
+        "base": "ring_waist"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "ring_legs",
+      "kind": "armor",
+      "gameItem": {
+        "base": "ring_legs"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "ring_feet",
+      "kind": "armor",
+      "gameItem": {
+        "base": "ring_feet"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "ring_back",
+      "kind": "armor",
+      "gameItem": {
+        "base": "ring_back"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "chain_head",
+      "kind": "armor",
+      "gameItem": {
+        "base": "chain_head"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "chain_chest",
+      "kind": "armor",
+      "gameItem": {
+        "base": "chain_chest"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "chain_hands",
+      "kind": "armor",
+      "gameItem": {
+        "base": "chain_hands"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "chain_wrists",
+      "kind": "armor",
+      "gameItem": {
+        "base": "chain_wrists"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "chain_waist",
+      "kind": "armor",
+      "gameItem": {
+        "base": "chain_waist"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "chain_legs",
+      "kind": "armor",
+      "gameItem": {
+        "base": "chain_legs"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "chain_feet",
+      "kind": "armor",
+      "gameItem": {
+        "base": "chain_feet"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "chain_back",
+      "kind": "armor",
+      "gameItem": {
+        "base": "chain_back"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "plate_head",
+      "kind": "armor",
+      "gameItem": {
+        "base": "plate_head"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "plate_chest",
+      "kind": "armor",
+      "gameItem": {
+        "base": "plate_chest"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "plate_hands",
+      "kind": "armor",
+      "gameItem": {
+        "base": "plate_hands"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "plate_wrists",
+      "kind": "armor",
+      "gameItem": {
+        "base": "plate_wrists"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "plate_waist",
+      "kind": "armor",
+      "gameItem": {
+        "base": "plate_waist"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "plate_legs",
+      "kind": "armor",
+      "gameItem": {
+        "base": "plate_legs"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "plate_feet",
+      "kind": "armor",
+      "gameItem": {
+        "base": "plate_feet"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "plate_back",
+      "kind": "armor",
+      "gameItem": {
+        "base": "plate_back"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "dark_robe",
+      "kind": "armor",
+      "gameItem": {
+        "base": "dark_robe"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "leather_apron",
+      "kind": "armor",
+      "gameItem": {
+        "base": "leather_apron"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "tome",
+      "kind": "offhand",
+      "gameItem": {
+        "base": "tome"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "torch",
+      "kind": "offhand",
+      "gameItem": {
+        "base": "torch"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "holy_book",
+      "kind": "offhand",
+      "gameItem": {
+        "base": "holy_book"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "skull",
+      "kind": "offhand",
+      "gameItem": {
+        "base": "skull"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "lute",
+      "kind": "offhand",
+      "gameItem": {
+        "base": "lute"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "pickaxe",
+      "kind": "tool",
+      "gameItem": {
+        "base": "pickaxe"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "tongs",
+      "kind": "tool",
+      "gameItem": {
+        "base": "tongs"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "smith_hammer",
+      "kind": "tool",
+      "gameItem": {
+        "base": "smith_hammer"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "ring",
+      "kind": "jewellery",
+      "gameItem": {
+        "base": "ring"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "amulet",
+      "kind": "jewellery",
+      "gameItem": {
+        "base": "amulet"
+      },
+      "consumer": "visible equipment and single-item ground drop"
+    },
+    {
+      "id": "arrow",
+      "kind": "ammunition",
+      "gameItem": {
+        "base": "arrow"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "bolt",
+      "kind": "ammunition",
+      "gameItem": {
+        "base": "bolt"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:copper",
+      "kind": "material",
+      "gameItem": {
+        "base": "copper_ore"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:tin",
+      "kind": "material",
+      "gameItem": {
+        "base": "tin_ore"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:iron",
+      "kind": "material",
+      "gameItem": {
+        "base": "iron_ore"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:silver",
+      "kind": "material",
+      "gameItem": {
+        "base": "silver_ore"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:coldiron",
+      "kind": "material",
+      "gameItem": {
+        "base": "coldiron_ore"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:emberite",
+      "kind": "material",
+      "gameItem": {
+        "base": "emberite_ore"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:rimesteel",
+      "kind": "material",
+      "gameItem": {
+        "base": "rimesteel_ore"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:verdite",
+      "kind": "material",
+      "gameItem": {
+        "base": "verdite_ore"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:voidrock",
+      "kind": "material",
+      "gameItem": {
+        "base": "voidrock_ore"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:starfall",
+      "kind": "material",
+      "gameItem": {
+        "base": "starfall_ore"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:bronze",
+      "kind": "material",
+      "gameItem": {
+        "base": "bronze_ingot"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:oak",
+      "kind": "material",
+      "gameItem": {
+        "base": "oak_log"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:ash",
+      "kind": "material",
+      "gameItem": {
+        "base": "ash_log"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:heartwood",
+      "kind": "material",
+      "gameItem": {
+        "base": "heartwood_log"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:ironbark",
+      "kind": "material",
+      "gameItem": {
+        "base": "ironbark_log"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:amber",
+      "kind": "material",
+      "gameItem": {
+        "base": "gem",
+        "material": "amber"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:jade",
+      "kind": "material",
+      "gameItem": {
+        "base": "gem",
+        "material": "jade"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:garnet",
+      "kind": "material",
+      "gameItem": {
+        "base": "gem",
+        "material": "garnet"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:sapphire",
+      "kind": "material",
+      "gameItem": {
+        "base": "gem",
+        "material": "sapphire"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:ruby",
+      "kind": "material",
+      "gameItem": {
+        "base": "gem",
+        "material": "ruby"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:diamond",
+      "kind": "material",
+      "gameItem": {
+        "base": "gem",
+        "material": "diamond"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:starstone",
+      "kind": "material",
+      "gameItem": {
+        "base": "gem",
+        "material": "starstone"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:hide",
+      "kind": "material",
+      "gameItem": {
+        "base": "hide"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:thickHide",
+      "kind": "material",
+      "gameItem": {
+        "base": "thick_hide"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    },
+    {
+      "id": "material:scaledHide",
+      "kind": "material",
+      "gameItem": {
+        "base": "scaled_hide"
+      },
+      "consumer": "ground drop; existing gathering, crafting, ammunition or material rules"
+    }
+  ],
+  "creatures": [
+    {
+      "id": "bandit",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "banditArcher",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "highwayman",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "raider",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "legionSoldier",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "legionArcher",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "oramBlackhand",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "scarecrow",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "zombie",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "drowned",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "wraith",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "skeleton",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "goblinScout",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "goblinWarrior",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "wolf",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "wildDog",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "badger",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "fox",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "boar",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "oldGrist",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "giantRat",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "fieldMouse",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "giantSpider",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "thornGrub",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "wisp",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "goose",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "hawk",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "crow",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "deer",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "rabbit",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "squirrel",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    },
+    {
+      "id": "frog",
+      "consumer": "monster body, native locomotion and combat lifecycle"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "powerStrike",
+      "castSeconds": 0,
+      "source": "power-strike",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "whirlwind",
+      "castSeconds": 0.4,
+      "source": "whirlwind",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "leapSlam",
+      "castSeconds": 0,
+      "source": "leap-slam",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "shieldBash",
+      "castSeconds": 0,
+      "source": "shield-bash",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "rend",
+      "castSeconds": 0,
+      "source": "rend",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "crushingBlow",
+      "castSeconds": 0,
+      "source": "crushing-blow",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "lunge",
+      "castSeconds": 0,
+      "source": "lunge",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "sweep",
+      "castSeconds": 0,
+      "source": "sweep",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "battleCry",
+      "castSeconds": 0,
+      "source": "battle-cry",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "berserk",
+      "castSeconds": 0,
+      "source": "berserk",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "disarm",
+      "castSeconds": 0,
+      "source": "disarm",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "riposte",
+      "castSeconds": 0,
+      "source": "riposte",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "aimedShot",
+      "castSeconds": 0.65,
+      "source": "aimed-shot",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "doubleShot",
+      "castSeconds": 0,
+      "source": "double-shot",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "volley",
+      "castSeconds": 0.8,
+      "source": "volley",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "piercingArrow",
+      "castSeconds": 0,
+      "source": "piercing-arrow",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "cripplingShot",
+      "castSeconds": 0,
+      "source": "crippling-shot",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "disengage",
+      "castSeconds": 0,
+      "source": "disengage",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "fleetFoot",
+      "castSeconds": 0,
+      "source": "fleet-foot",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "huntersMark",
+      "castSeconds": 0,
+      "source": "hunters-mark",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "snare",
+      "castSeconds": 0.45,
+      "source": "snare",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "beastCall",
+      "castSeconds": 1,
+      "source": "beast-call",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "magicArrow",
+      "castSeconds": 0,
+      "source": "magic-arrow",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "fireball",
+      "castSeconds": 0.35,
+      "source": "fireball",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "iceShard",
+      "castSeconds": 0.35,
+      "source": "ice-shard",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "lightning",
+      "castSeconds": 0,
+      "source": "lightning",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "blink",
+      "castSeconds": 0,
+      "source": "blink",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "manaShield",
+      "castSeconds": 0,
+      "source": "mana-shield",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "frostNova",
+      "castSeconds": 0.5,
+      "source": "frost-nova",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "chainLightning",
+      "castSeconds": 0.75,
+      "source": "chain-lightning",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "meteor",
+      "castSeconds": 1.35,
+      "source": "meteor",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "arcaneMastery",
+      "castSeconds": 0,
+      "source": "arcane-mastery",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "hex",
+      "castSeconds": 0,
+      "source": "hex",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "stoneSkin",
+      "castSeconds": 0.35,
+      "source": "stone-skin",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "eldritchBolt",
+      "castSeconds": 0,
+      "source": "eldritch-bolt",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "ward",
+      "castSeconds": 0.8,
+      "source": "ward",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "transmute",
+      "castSeconds": 1,
+      "source": "transmute",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "spellPlague",
+      "castSeconds": 0.7,
+      "source": "spell-plague",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "rift",
+      "castSeconds": 1.2,
+      "source": "rift",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "elementalKin",
+      "castSeconds": 0,
+      "source": "elemental-kin",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "lifeDrain",
+      "castSeconds": 0,
+      "source": "life-drain",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "raiseSkeleton",
+      "castSeconds": 0.8,
+      "source": "raise-skeleton",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "summonImp",
+      "castSeconds": 0.8,
+      "source": "summon-imp",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "boneSpear",
+      "castSeconds": 0.35,
+      "source": "bone-spear",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "fear",
+      "castSeconds": 0,
+      "source": "fear",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "corpseExplosion",
+      "castSeconds": 0,
+      "source": "corpse-explosion",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "summonHound",
+      "castSeconds": 0.7,
+      "source": "summon-hound",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "curseOfWeakness",
+      "castSeconds": 0,
+      "source": "curse-of-weakness",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "lichForm",
+      "castSeconds": 1.4,
+      "source": "lich-form",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "raiseChampion",
+      "castSeconds": 1.4,
+      "source": "raise-champion",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "heal",
+      "castSeconds": 0.45,
+      "source": "heal",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "cleanse",
+      "castSeconds": 0,
+      "source": "cleanse",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "greaterHeal",
+      "castSeconds": 0.8,
+      "source": "greater-heal",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "bless",
+      "castSeconds": 0.35,
+      "source": "bless",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "sanctuary",
+      "castSeconds": 0.8,
+      "source": "sanctuary",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "consecrateWeapon",
+      "castSeconds": 0,
+      "source": "consecrate-weapon",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "smite",
+      "castSeconds": 0,
+      "source": "smite",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "resurrect",
+      "castSeconds": 1.8,
+      "source": "resurrect",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "layOnHands",
+      "castSeconds": 0,
+      "source": "lay-on-hands",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "hide",
+      "castSeconds": 1,
+      "source": "hide",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "backstab",
+      "castSeconds": 0,
+      "source": "backstab",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "poisonBlade",
+      "castSeconds": 0,
+      "source": "poison-blade",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "shadowstep",
+      "castSeconds": 0,
+      "source": "shadowstep",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "vanish",
+      "castSeconds": 0,
+      "source": "vanish",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "pickPocket",
+      "castSeconds": 1,
+      "source": "pick-pocket",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "evasion",
+      "castSeconds": 0,
+      "source": "evasion",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "exposeWeakness",
+      "castSeconds": 0,
+      "source": "expose-weakness",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "provoke",
+      "castSeconds": 1,
+      "source": "provoke",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "peace",
+      "castSeconds": 1,
+      "source": "peace",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "discord",
+      "castSeconds": 1,
+      "source": "discord",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "marchingSong",
+      "castSeconds": 0,
+      "source": "marching-song",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "warDrum",
+      "castSeconds": 0,
+      "source": "war-drum",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "lullaby",
+      "castSeconds": 2,
+      "source": "lullaby",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "jump",
+      "castSeconds": 0,
+      "source": "jump",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "sprint",
+      "castSeconds": 0,
+      "source": "sprint",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "bandage",
+      "castSeconds": 4,
+      "source": "bandage",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "meditate",
+      "castSeconds": 0,
+      "source": "meditate",
+      "consumer": "existing ability mechanics, source motion and adapted effects"
+    },
+    {
+      "id": "camp",
+      "castSeconds": 0,
+      "source": null,
+      "consumer": "existing camp effects; no source counterpart"
+    }
+  ],
+  "forage": [
+    {
+      "id": "dandelion",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "nettle",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "nut",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "blackberry",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "raspberry",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "wild_garlic",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "wild_strawberry",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "rosehip",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "fiddlehead",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "hazelnut",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "chanterelle",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "elderberry",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "oyster_mushroom",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "porcini",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "morel",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "honey",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "blueberry",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "fly_agaric",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "fig",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "wild_ginger",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    },
+    {
+      "id": "cacao",
+      "consumer": "nearest eight source patches; shared live harvest records"
+    }
+  ],
+  "dressing": [
+    {
+      "id": "water_trough",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "washing_line",
+      "placements": 2,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "woodpile",
+      "placements": 4,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "chopping_block",
+      "placements": 2,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "herb_bed",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "chicken_coop",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "rain_barrel",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "notice_board",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "inn_sign",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "dovecote",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "pig_sty",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "apple_tree",
+      "placements": 4,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "lychgate",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "headstone_row",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "village_stocks",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "market_produce",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "lantern_post",
+      "placements": 3,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "cat",
+      "placements": 2,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "kissing_gate",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "cattle_trough",
+      "placements": 3,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "plough",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "harrow",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "hay_wain",
+      "placements": 3,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "shepherds_hut",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "sheep",
+      "placements": 4,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "cow",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "horse",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "pollard_willow",
+      "placements": 2,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "dead_oak",
+      "placements": 2,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "ivy_stump",
+      "placements": 6,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "log_pile",
+      "placements": 6,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "poppy_patch",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "cowslip_patch",
+      "placements": 4,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "cow_parsley",
+      "placements": 4,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "thistle_clump",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "gorse",
+      "placements": 5,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "bramble_thicket",
+      "placements": 3,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "molehills",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "puddle",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "cart_ruts",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "rabbit_warren",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "crow_on_post",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "crossroads_gibbet",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "cairn",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "hawthorn",
+      "placements": 6,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "charcoal_clamp",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "saw_pit",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "coppice_stool",
+      "placements": 3,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "leaf_litter",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "bluebell_patch",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "bracken",
+      "placements": 8,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "foxglove",
+      "placements": 4,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "mushroom_ring",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "boar_wallow",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "deer_rub",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "hunters_seat",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "snare",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "fox_earth",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "birds_nest",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "woodcutters_hut",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "rope_swing",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "mooring_post",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "rowing_boat",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "eel_trap",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "millstones",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "sluice_gate",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "duck",
+      "placements": 2,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "heron",
+      "placements": 2,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "rushes",
+      "placements": 5,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "yellow_iris",
+      "placements": 4,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "dragonfly",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "plank_walk",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "flour_sacks",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "mill_cart_horse",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "chalk_figure",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "chalk_boulder",
+      "placements": 3,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "flint_nodules",
+      "placements": 2,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "beacon_brazier",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "timber_prop",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "lantern_hook",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "kestrel",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "sheep_track",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "drowned_wall",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "bell_buoy",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "wanted_poster",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "gibbet_cage",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "tripwire",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "stolen_goods",
+      "placements": 2,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "duck_pond",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "maypole",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "legion_barrier",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "watch_fire",
+      "placements": 3,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "road_sign",
+      "placements": 0,
+      "consumer": "builder library and authored saved props"
+    },
+    {
+      "id": "tithe_wagon",
+      "placements": 1,
+      "consumer": "builder library and authored saved props"
+    }
+  ],
+  "worldEffects": [
+    {
+      "id": "butterflies",
+      "placements": 4,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "fireflies",
+      "placements": 9,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "chimney_smoke",
+      "placements": 1,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "pollen_motes",
+      "placements": 1,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "mist_bank",
+      "placements": 3,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "crow_flock",
+      "placements": 0,
+      "consumer": "available in habitat effect catalog; intentionally unplaced in Greenwold"
+    },
+    {
+      "id": "rain_shower",
+      "placements": 0,
+      "consumer": "available in habitat effect catalog; intentionally unplaced in Greenwold"
+    },
+    {
+      "id": "waterfall_spray",
+      "placements": 0,
+      "consumer": "available in habitat effect catalog; intentionally unplaced in Greenwold"
+    },
+    {
+      "id": "falling_leaves",
+      "placements": 3,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "drifting_petals",
+      "placements": 2,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "floating_seeds",
+      "placements": 4,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "creek_ripples",
+      "placements": 0,
+      "consumer": "available in habitat effect catalog; intentionally unplaced in Greenwold"
+    },
+    {
+      "id": "marsh_bubbles",
+      "placements": 0,
+      "consumer": "available in habitat effect catalog; intentionally unplaced in Greenwold"
+    },
+    {
+      "id": "chimney_embers",
+      "placements": 0,
+      "consumer": "available in habitat effect catalog; intentionally unplaced in Greenwold"
+    },
+    {
+      "id": "dust_gust",
+      "placements": 1,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "mushroom_spores",
+      "placements": 1,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "roof_drips",
+      "placements": 0,
+      "consumer": "available in habitat effect catalog; intentionally unplaced in Greenwold"
+    },
+    {
+      "id": "snow_flurries",
+      "placements": 0,
+      "consumer": "available in habitat effect catalog; intentionally unplaced in Greenwold"
+    },
+    {
+      "id": "watch_fire",
+      "placements": 3,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "woodland_shafts",
+      "placements": 1,
+      "consumer": "authored habitat with time and weather gates"
+    },
+    {
+      "id": "cave_dust",
+      "placements": 0,
+      "consumer": "available in habitat effect catalog; intentionally unplaced in Greenwold"
+    },
+    {
+      "id": "pond_foam",
+      "placements": 0,
+      "consumer": "available in habitat effect catalog; intentionally unplaced in Greenwold"
+    }
+  ],
+  "enchantments": [
+    {
+      "id": "flame",
+      "consumer": "held weapon visual for the corresponding existing affix or active weapon enchantment"
+    },
+    {
+      "id": "frost",
+      "consumer": "held weapon visual for the corresponding existing affix or active weapon enchantment"
+    },
+    {
+      "id": "shock",
+      "consumer": "held weapon visual for the corresponding existing affix or active weapon enchantment"
+    },
+    {
+      "id": "venom",
+      "consumer": "held weapon visual for the corresponding existing affix or active weapon enchantment"
+    },
+    {
+      "id": "vampiric",
+      "consumer": "held weapon visual for the corresponding existing affix or active weapon enchantment"
+    },
+    {
+      "id": "keen",
+      "consumer": "held weapon visual for the corresponding existing affix or active weapon enchantment"
+    },
+    {
+      "id": "force",
+      "consumer": "held weapon visual for the corresponding existing affix or active weapon enchantment"
+    },
+    {
+      "id": "holy",
+      "consumer": "held weapon visual for the corresponding existing affix or active weapon enchantment"
+    }
+  ],
+  "motions": [
+    {
+      "id": "idle",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "combat-idle",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "idle-shift",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "idle-scan",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "walk-start",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "walk",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "walk-stop",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "walk-backward",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "strafe-left",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "strafe-right",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "run-start",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "run",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "run-stop",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "turn-left",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "turn-right",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "jump-launch",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "jump-air",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "running-leap",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "airborne",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "surface-swim",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "tread-water",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "land-soft",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "land-hard",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "dodge",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "light-attack",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "heavy-attack",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "two-handed-strike",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "cast",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "fireball",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "lightning",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "energy-missiles",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "healing",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "whirlwind",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "jump",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "die",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    },
+    {
+      "id": "hit",
+      "consumer": "source motion bank; poseAction and source ability sampler; locomotion transitions remain available to callers"
+    }
+  ],
+  "recipes": {
+    "total": 498,
+    "makeable": 455,
+    "unimplemented": [
+      {
+        "id": "tool.hatchet",
+        "reason": "the hatchet, sewing kit, saw and tinker's tools have no item shape yet; the axe, pickaxe and tongs do"
+      },
+      {
+        "id": "tool.sewingKit",
+        "reason": "the hatchet, sewing kit, saw and tinker's tools have no item shape yet; the axe, pickaxe and tongs do"
+      },
+      {
+        "id": "tool.saw",
+        "reason": "the hatchet, sewing kit, saw and tinker's tools have no item shape yet; the axe, pickaxe and tongs do"
+      },
+      {
+        "id": "tool.tinkersTools",
+        "reason": "the hatchet, sewing kit, saw and tinker's tools have no item shape yet; the axe, pickaxe and tongs do"
+      },
+      {
+        "id": "bag.bag4",
+        "reason": "the pack has no bag item yet, so a bag cannot be made or carried"
+      },
+      {
+        "id": "bag.bag8",
+        "reason": "the pack has no bag item yet, so a bag cannot be made or carried"
+      },
+      {
+        "id": "bag.bag12",
+        "reason": "the pack has no bag item yet, so a bag cannot be made or carried"
+      },
+      {
+        "id": "bag.bag16",
+        "reason": "the pack has no bag item yet, so a bag cannot be made or carried"
+      },
+      {
+        "id": "scroll.magicArrow",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.fireball",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.iceShard",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.blink",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.lightning",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.manaShield",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.frostNova",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.chainLightning",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.meteor",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.hex",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.eldritchBolt",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.stoneSkin",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.ward",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.transmute",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.spellPlague",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.rift",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.lifeDrain",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.raiseSkeleton",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.summonImp",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.boneSpear",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.fear",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.curseOfWeakness",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.corpseExplosion",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.summonHound",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.lichForm",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.raiseChampion",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.heal",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.cleanse",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.bless",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.consecrateWeapon",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.greaterHeal",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.smite",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.sanctuary",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.resurrect",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      },
+      {
+        "id": "scroll.layOnHands",
+        "reason": "nothing in this game is a scroll yet, so there is nothing to write on"
+      }
+    ]
+  }
+}

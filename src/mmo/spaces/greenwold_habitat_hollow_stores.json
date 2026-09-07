@@ -1,0 +1,46 @@
+{
+  "id": "greenwold_habitat_hollow_stores",
+  "zone": "highwaymanshollow",
+  "name": "The stolen stores",
+  "at": {
+    "x": 524,
+    "z": -1010
+  },
+  "note": "Goods taken from the road are stacked behind the tents.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_stolen_goods",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_woodpile",
+      "x": -5,
+      "z": 5,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_wanted_poster",
+      "x": 5,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

@@ -9,66 +9,6 @@
   "radius": 74,
   "pieces": [
     {
-      "model": "lamp_post_iron",
-      "x": -52.42,
-      "z": -29.54,
-      "yaw": 0
-    },
-    {
-      "model": "lamp_post_iron",
-      "x": -32.45,
-      "z": -16.23,
-      "yaw": 0
-    },
-    {
-      "model": "lamp_post_iron",
-      "x": -12.48,
-      "z": -2.92,
-      "yaw": 0
-    },
-    {
-      "model": "lamp_post_iron",
-      "x": 7.48,
-      "z": 10.4,
-      "yaw": 0
-    },
-    {
-      "model": "lamp_post_iron",
-      "x": 27.45,
-      "z": 23.71,
-      "yaw": 0
-    },
-    {
-      "model": "lamp_post_iron",
-      "x": 47.42,
-      "z": 37.02,
-      "yaw": 0
-    },
-    {
-      "model": "lamp_post_iron",
-      "x": -7.91,
-      "z": 0.13,
-      "yaw": 0
-    },
-    {
-      "model": "lamp_post_iron",
-      "x": 2.91,
-      "z": 7.35,
-      "yaw": 0
-    },
-    {
-      "model": "milestone",
-      "x": -45.46,
-      "z": -35.84,
-      "yaw": 236.31
-    },
-    {
-      "model": "milestone",
-      "x": 50.56,
-      "z": 28.18,
-      "yaw": 236.31
-    },
-    {
       "model": "legion_tent",
       "x": -26,
       "z": 12,
@@ -117,6 +57,48 @@
       "yaw": 10
     },
     {
+      "model": "lamp_post_iron",
+      "x": -43,
+      "z": 46,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 1,
+      "z": 9,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 24,
+      "z": -19,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 57,
+      "z": -19,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "milestone",
+      "x": -52,
+      "z": 39,
+      "yaw": 135,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "milestone",
+      "x": 39,
+      "z": -29,
+      "yaw": 135,
+      "tag": "greenwold-craft"
+    },
+    {
       "model": "fingerpost",
       "x": -17,
       "z": 19,
@@ -126,106 +108,18 @@
   ],
   "runs": [
     {
-      "model": "road_slab_2m",
-      "from": {
-        "x": -60,
-        "z": -40
-      },
-      "to": {
-        "x": 60,
-        "z": 40
-      }
-    },
-    {
-      "model": "road_slab_2m",
-      "from": {
-        "x": 30,
-        "z": 20
-      },
-      "to": {
-        "x": 58,
-        "z": -8
-      }
-    },
-    {
       "model": "camp_fence",
       "from": {
         "x": -30,
         "z": 2
       },
       "to": {
-        "x": -6,
+        "x": -10.964,
         "z": 2
       }
-    },
-    {
-      "model": "hedge_4m",
-      "from": {
-        "x": 3.9,
-        "z": 12.2
-      },
-      "to": {
-        "x": 45.5,
-        "z": 40
-      }
-    },
-    {
-      "model": "hedge_4m",
-      "from": {
-        "x": -46,
-        "z": -38
-      },
-      "to": {
-        "x": 28,
-        "z": 10
-      }
     }
   ],
-  "areas": [
-    {
-      "kind": "water",
-      "y": -0.6,
-      "points": [
-        [
-          -30,
-          26
-        ],
-        [
-          -26,
-          30
-        ],
-        [
-          26,
-          -22
-        ],
-        [
-          22,
-          -26
-        ]
-      ]
-    },
-    {
-      "kind": "wheat",
-      "points": [
-        [
-          -20,
-          -46
-        ],
-        [
-          16,
-          -20
-        ],
-        [
-          26,
-          -32
-        ],
-        [
-          -10,
-          -56
-        ]
-      ]
-    }
-  ],
+  "areas": [],
   "people": [
     {
       "name": "vane",
@@ -276,9 +170,9 @@
     }
   ],
   "arrival": {
-    "x": -60,
-    "z": -40,
-    "yaw": 56.31
+    "x": 0,
+    "z": 0,
+    "yaw": 135
   },
   "forage": [],
   "stations": []

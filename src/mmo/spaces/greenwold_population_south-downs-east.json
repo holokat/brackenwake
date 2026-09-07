@@ -1,0 +1,92 @@
+{
+  "id": "greenwold_population_south-downs-east",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 82,
+    "z": 805
+  },
+  "radius": 78,
+  "district": "coldwake",
+  "pieces": [
+    {
+      "model": "lw_cowslip_patch",
+      "x": 12.107908078490983,
+      "z": -6.196657321718926,
+      "scale": 1.5,
+      "yaw": 260,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": 14.21,
+      "z": -1,
+      "encounter": "south-downs-east:near",
+      "slot": "south-downs-east:0"
+    },
+    {
+      "id": "giantRat",
+      "x": 20.07,
+      "z": 6.26,
+      "encounter": "south-downs-east:near",
+      "slot": "south-downs-east:1"
+    },
+    {
+      "id": "giantRat",
+      "x": 16.46,
+      "z": 2.26,
+      "encounter": "south-downs-east:near",
+      "slot": "south-downs-east:2"
+    },
+    {
+      "id": "giantRat",
+      "x": 6.13,
+      "z": -7.28,
+      "encounter": "south-downs-east:near",
+      "slot": "south-downs-east:3"
+    },
+    {
+      "id": "thornGrub",
+      "x": -6.57,
+      "z": -23.44,
+      "encounter": "south-downs-east:rear",
+      "slot": "south-downs-east:4"
+    },
+    {
+      "id": "thornGrub",
+      "x": -9.41,
+      "z": -28.01,
+      "encounter": "south-downs-east:rear",
+      "slot": "south-downs-east:5"
+    },
+    {
+      "id": "thornGrub",
+      "x": -4.62,
+      "z": -19.41,
+      "encounter": "south-downs-east:rear",
+      "slot": "south-downs-east:6"
+    },
+    {
+      "id": "thornGrub",
+      "x": -0.8,
+      "z": -15.01,
+      "encounter": "south-downs-east:rear",
+      "slot": "south-downs-east:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "dandelion",
+      "x": 15.18,
+      "z": -11.82,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

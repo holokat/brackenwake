@@ -1,0 +1,113 @@
+{
+  "id": "greenwold_habitat_orchard_yard",
+  "zone": "hearthhome",
+  "name": "The orchard yard",
+  "at": {
+    "x": 501,
+    "z": -167
+  },
+  "note": "Apple trees shelter the washing line behind the inn.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_apple_tree",
+      "x": -6,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_apple_tree",
+      "x": 7,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_washing_line",
+      "x": 0,
+      "z": 8,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_rain_barrel",
+      "x": -4,
+      "z": 8,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_chicken_coop",
+      "x": 7,
+      "z": 11,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_lantern_post",
+      "x": -3,
+      "z": -5,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "lights": [
+    {
+      "x": -3,
+      "z": -5,
+      "y": 2.5,
+      "color": 16760963,
+      "power": 20,
+      "range": 14
+    }
+  ],
+  "effects": [
+    {
+      "id": "drifting_petals",
+      "x": -6,
+      "z": 0,
+      "gate": "day",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "animals": [
+    {
+      "id": "cat",
+      "x": -3,
+      "z": 11,
+      "clip": "stretch",
+      "yaw": 0
+    },
+    {
+      "id": "chicken",
+      "x": 6,
+      "z": 15,
+      "clip": "peck",
+      "yaw": 0
+    },
+    {
+      "id": "chicken",
+      "x": 10,
+      "z": 14,
+      "clip": "peck",
+      "yaw": 140
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

@@ -1,3 +1,4 @@
+import {studioItemId,attachStudioDrop} from './studio/items.js';
 // What a kill leaves on the ground, and the ninety seconds you have to take it.
 //
 //   const drops = createLootDrops(sc, { floaters, hud, audio });
@@ -489,6 +490,7 @@ export function lookOf(items = [], gold = 0) {
   const shape = shapeOf(items, gold);
   if (shape.startsWith('logs:')) return `${shape}:${logsDrawn(loneMaterial(items, 'wood')?.count || 1)}`;
   if (shape.startsWith('ore:')) return `${shape}:${chunksDrawn(loneMaterial(items, 'ore')?.count || 1)}`;
+  if(items.length===1&&studioItemId(items[0]))return `${shape}:${studioItemId(items[0])}:${items[0].rarity}:${items[0].material||''}`;
   return shape;
 }
 
@@ -596,6 +598,7 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
         if (pile) { pile.position.set(0.26, 0, 0.12); g.add(pile); mats.push(pile.material); }
       }
     }
+    if(sack&&items.length===1&&studioItemId(items[0]))g.userData.studioDrop=attachStudioDrop(g,items[0],sack);
     // the thing the raycaster actually meets, so a sack in long grass is still
     // a target the size of a footstool, and a pile of coins is not a target the
     // size of a coin
@@ -636,6 +639,7 @@ export function createLootDrops(sc, { floaters, hud, audio } = {}) {
   }
 
   function tearDown(node, mats) {
+    node.userData.studioDrop?.dispose();
     node.traverse((o) => {
       if (o.geometry && o.geometry !== sackGeo && o.geometry !== tieGeo && o.geometry !== ringGeo && o.geometry !== beamGeo) o.geometry.dispose();
       if (o.name === 'loot-beam') o.material.dispose();

@@ -1,0 +1,59 @@
+{
+  "id": "greenwold_habitat_mere_path_hide",
+  "zone": "highwaymanshollow",
+  "name": "The bramble turn",
+  "at": {
+    "x": 295,
+    "z": -1008
+  },
+  "note": "Bramble closes around a turn in the path. The clearing beyond holds an outlaw watch.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_bramble_thicket",
+      "x": -5,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_dead_oak",
+      "x": 5,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_stolen_goods",
+      "x": 0,
+      "z": 7,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "spawns": [
+    {
+      "id": "bandit",
+      "x": 6,
+      "z": 12
+    }
+  ],
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": -7,
+      "z": 4,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "stations": []
+}

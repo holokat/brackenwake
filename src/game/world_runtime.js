@@ -1,3 +1,5 @@
+import {createOldCellars} from '../world/old_cellars.js';
+import {createPhysicalWorld} from '../world/collision/runtime.js';
 // The world, streamed, and the way down into it.
 //
 // Ported from farm.js: `_buildWorld`, `_updateWorld` (without the camera
@@ -33,7 +35,6 @@ import { createFlora } from '../world/flora.js';
 import { createDressing } from '../world/dressing_models.js';
 import { createWayside } from '../world/wayside_models.js';
 import { loadPropLibrary } from '../world/plan_models.js';
-import { PLANS } from '../mmo/plans/index.js';
 import { deckAt } from '../world/wayside.js';
 import { createFauna } from '../world/fauna.js';
 import { generateDungeon, clampToWalkable, maxLevel, floorAt, gridOf, walkable, roomAt } from '../world/dungeon_gen.js';
@@ -148,7 +149,7 @@ export function createWorldRuntime(sc, opts = {}) {
   const crossings = createAuthoredCrossings(scene, field);
   // P1: a painted place's models, if the user has made them, load ahead of the
   // build; a model not on disk leaves its stand-in standing
-  const propsReady=typeof window!=='undefined'?loadPropLibrary():Promise.resolve([]);
+  const propsReady=globalThis.location?.protocol?.startsWith('http')?loadPropLibrary():Promise.resolve([]);
   // fauna draws nothing any more. It says where the world's animals belong and
   // the monster layer stands them up, which is what makes a squirrel a thing
   // you can click. See src/world/fauna.js and docs/mmo/wiring/F1.md.
@@ -161,6 +162,7 @@ export function createWorldRuntime(sc, opts = {}) {
   // `effects` is the shared particle pool (a burning wreck puffs smoke into it,
   // A3) and `field` lets a town face its gates at the roads (T1); both optional.
   const siteMarkers = createSiteMarkers(scene, discovery, terrainY, { effects: opts.effects || null, field });
+  const physical = createPhysicalWorld({siteMarkers,heightAt:(x,z)=>terrainY(x,z),get inDungeon(){return !!dungeon;},get dungeonLayout(){return dungeon?.layout;},get dungeonScene(){return dungeon?.scene;}});
 
   const viewFar = world.viewRadius - FOG_MARGIN;
   sc.setFog(Math.min(90, viewFar * 0.28), viewFar);
@@ -208,6 +210,7 @@ export function createWorldRuntime(sc, opts = {}) {
     dressing.update(nowMs);
     // the mines' headframe wheel turns and their lanterns light at dusk (M1)
     siteMarkers.update(x, z, world.viewRadius, dt, 1 - dayFactor);
+    physical.update(dt);
     wayside.update(dt, 1 - dayFactor);
     crossings.update(x,z);
     const found = discovery.check(x, z, nowMs);
@@ -379,7 +382,8 @@ export function createWorldRuntime(sc, opts = {}) {
     dungeon.scene?.dispose();
     const spec = dungeon.spec;
     const cavern = spec?.kind === CAVERN;
-    const layout = cavern
+    const layout = spec?.id === 'oldcellars'
+      ? createOldCellars(seed, site) : cavern
       ? generateCavern(seed, site, level, spec)
       : generateDungeon(seed, site, level, spec);
     const built = cavern
@@ -607,7 +611,7 @@ export function createWorldRuntime(sc, opts = {}) {
   // ------------------------------------------------------------- surfaces --
 
   return {
-    field, world, flora, dressing, wayside, fauna, discovery, siteMarkers,
+    field, world, flora, dressing, wayside, fauna, discovery, siteMarkers, physical,
 
     // ---- the hand cut ground (docs/mmo/wiring/ED2-TERRAIN.md) -------------
     /** The stroke list this world is standing on. */

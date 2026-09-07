@@ -93,6 +93,7 @@ import {
 } from '../world/zones.js';
 import { ZONE_ENTER_W } from '../world/sites.js';
 import { authoredZoneAt } from '../mmo/greenwold/places.js';
+import {isDestination} from '../mmo/greenwold/navigation.js';
 import { ROUTES as GREENWOLD_ROUTES } from '../mmo/greenwold/routes.js';
 import { openAt, isOpen, OPEN_REALMS } from '../mmo/release.js';
 import { authoredSites } from '../world/zones.js';
@@ -802,6 +803,7 @@ export function sideModel(opts = {}) {
   // spaces there are.
   const spaces = span <= SPACE_SPAN
     ? spacesIn({ x: view.cx, z: view.cz, w: span, h: span })
+      .filter(sp=>opts.editor||isDestination(sp))
       .map((sp) => ({ ...sp, ...wayRow(sp.x, sp.z, cx, cz) }))
       .sort(byDist)
     : [];
@@ -1081,6 +1083,7 @@ export function drawMap(g2d, opts) {
   let spaces = 0;
   if (opts.spaces !== false && span <= SPACE_SPAN) {
     for (const sp of spacesIn({ x: cx, z: cz, w: span, h: span })) {
+      if (!opts.editor && !isDestination(sp)) continue;
       const [sx, sy] = at(sp.x, sp.z);
       g2d.setLineDash([3, 3]);
       g2d.strokeStyle = SPACE_INK;
@@ -1881,6 +1884,7 @@ export const panel = {
       events: marksOf(ctx),
       layers: this._layers,
       guideHover: this._guideHover || null,
+      editor: !!ctx?.dev?.on,
     });
     this._last = res;
     // remembered AFTER the draw, so a stroke laid down between the two is
@@ -1933,6 +1937,7 @@ export const panel = {
       events: marksOf(ctx),
       layers: this._layers,
       guideHover: this._guideHover || null,
+      editor: !!ctx?.dev?.on,
     });
     this._model = m;
     const side = this._side;

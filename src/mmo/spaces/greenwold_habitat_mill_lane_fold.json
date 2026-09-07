@@ -1,0 +1,118 @@
+{
+  "id": "greenwold_habitat_mill_lane_fold",
+  "zone": "longmeadow",
+  "name": "The shepherds fold",
+  "at": {
+    "x": 143,
+    "z": -235
+  },
+  "note": "A shepherd keeps the flock in the lee of the long grassy bank.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_shepherds_hut",
+      "x": 0,
+      "z": 0,
+      "yaw": 90,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_cattle_trough",
+      "x": 8,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_hay_wain",
+      "x": -8,
+      "z": 1,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_cowslip_patch",
+      "x": -9,
+      "z": -10,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "pad": 10,
+  "animals": [
+    {
+      "id": "sheep",
+      "x": 6,
+      "z": 10,
+      "clip": "graze",
+      "yaw": 40
+    },
+    {
+      "id": "sheep",
+      "x": 10,
+      "z": 12,
+      "clip": "graze",
+      "yaw": 220
+    }
+  ],
+  "effects": [
+    {
+      "id": "butterflies",
+      "x": -9,
+      "z": -10,
+      "gate": "fair",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": -25,
+      "z": 14,
+      "encounter": "shepherds-vermin",
+      "slot": "shepherds-vermin:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -22,
+      "z": -9,
+      "encounter": "shepherds-vermin",
+      "slot": "shepherds-vermin:1"
+    },
+    {
+      "id": "giantRat",
+      "x": -17,
+      "z": -9,
+      "encounter": "shepherds-vermin",
+      "slot": "shepherds-vermin:2"
+    },
+    {
+      "id": "giantRat",
+      "x": -13,
+      "z": -13,
+      "encounter": "shepherds-vermin",
+      "slot": "shepherds-vermin:3"
+    },
+    {
+      "id": "giantRat",
+      "x": -34,
+      "z": 10,
+      "night": true,
+      "encounter": "shepherds-vermin",
+      "slot": "shepherds-vermin:4"
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

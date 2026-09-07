@@ -1,0 +1,310 @@
+{
+  "id": "tile_1_-1",
+  "name": "Tile 1, -1",
+  "note": "",
+  "at": {
+    "x": 384,
+    "z": -128
+  },
+  "radius": 182,
+  "pieces": [
+    {
+      "model": "campfire",
+      "x": 116.51,
+      "z": 81.51,
+      "yaw": 0
+    },
+    {
+      "model": "barrel",
+      "x": 118.49,
+      "z": 85.64,
+      "yaw": 0
+    },
+    {
+      "model": "cottage_c",
+      "x": 71.1,
+      "z": 78.62,
+      "yaw": 0
+    },
+    {
+      "model": "cottage_b",
+      "x": 52.3,
+      "z": 64.15,
+      "yaw": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "frog",
+      "x": 127.7,
+      "z": 80.85
+    }
+  ],
+  "trees": [
+    {
+      "species": "pine",
+      "x": 112.13,
+      "z": 72,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": 113.44,
+      "z": -70.82,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": 123.11,
+      "z": -111.21,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": 136.46,
+      "z": -101.34,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": 110.55,
+      "z": -103.45,
+      "yaw": 19,
+      "scale": 1.14
+    },
+    {
+      "species": "birch",
+      "x": 116.15,
+      "z": -109.99,
+      "yaw": 177,
+      "scale": 1.03
+    },
+    {
+      "species": "birch",
+      "x": 129.17,
+      "z": -118.76,
+      "yaw": 172,
+      "scale": 0.81
+    },
+    {
+      "species": "birch",
+      "x": 120.94,
+      "z": -99.9,
+      "yaw": 78,
+      "scale": 0.82
+    },
+    {
+      "species": "birch",
+      "x": 123.67,
+      "z": -95.8,
+      "yaw": 119,
+      "scale": 0.88
+    },
+    {
+      "species": "birch",
+      "x": 115.54,
+      "z": -108.82,
+      "yaw": 139,
+      "scale": 1.1
+    },
+    {
+      "species": "birch",
+      "x": 118.43,
+      "z": -106.01,
+      "yaw": 278,
+      "scale": 1.29
+    },
+    {
+      "species": "birch",
+      "x": 131.01,
+      "z": -114.57,
+      "yaw": 268,
+      "scale": 1.25
+    },
+    {
+      "species": "birch",
+      "x": 136.96,
+      "z": -98.57,
+      "yaw": 359,
+      "scale": 1.01
+    },
+    {
+      "species": "birch",
+      "x": 119.36,
+      "z": -93.73,
+      "yaw": 256,
+      "scale": 1.2
+    },
+    {
+      "species": "birch",
+      "x": 129.59,
+      "z": -115.53,
+      "yaw": 25,
+      "scale": 0.93
+    },
+    {
+      "species": "birch",
+      "x": 114.74,
+      "z": -102.31,
+      "yaw": 29,
+      "scale": 1.02
+    },
+    {
+      "species": "birch",
+      "x": 111.09,
+      "z": -114.71,
+      "yaw": 28,
+      "scale": 0.89
+    },
+    {
+      "species": "birch",
+      "x": 120.04,
+      "z": -116.86,
+      "yaw": 48,
+      "scale": 0.86
+    },
+    {
+      "species": "birch",
+      "x": 106.19,
+      "z": -101.22,
+      "yaw": 188,
+      "scale": 1.1
+    },
+    {
+      "species": "birch",
+      "x": 128.86,
+      "z": -96,
+      "yaw": 0,
+      "scale": 1.2
+    },
+    {
+      "species": "birch",
+      "x": 114.01,
+      "z": -113.38,
+      "yaw": 107,
+      "scale": 1.21
+    },
+    {
+      "species": "birch",
+      "x": 135.14,
+      "z": -100.61,
+      "yaw": 138,
+      "scale": 0.91
+    },
+    {
+      "species": "birch",
+      "x": 129.28,
+      "z": -99.5,
+      "yaw": 114,
+      "scale": 0.95
+    },
+    {
+      "species": "birch",
+      "x": 120.64,
+      "z": -103.56,
+      "yaw": 240,
+      "scale": 0.92
+    },
+    {
+      "species": "birch",
+      "x": 119.49,
+      "z": -112.62,
+      "yaw": 187,
+      "scale": 1.22
+    },
+    {
+      "species": "birch",
+      "x": 119.63,
+      "z": -110.3,
+      "yaw": 163,
+      "scale": 1.14
+    },
+    {
+      "species": "birch",
+      "x": 129.26,
+      "z": -106.13,
+      "yaw": 172,
+      "scale": 1.08
+    },
+    {
+      "species": "birch",
+      "x": 125.09,
+      "z": -119.33,
+      "yaw": 3,
+      "scale": 0.84
+    },
+    {
+      "species": "birch",
+      "x": 113.39,
+      "z": -117.16,
+      "yaw": 222,
+      "scale": 0.95
+    },
+    {
+      "species": "birch",
+      "x": 134.13,
+      "z": -97.65,
+      "yaw": 329,
+      "scale": 1.05
+    },
+    {
+      "species": "birch",
+      "x": 119.54,
+      "z": -88.27,
+      "yaw": 199,
+      "scale": 0.98
+    },
+    {
+      "species": "willow",
+      "x": 122.74,
+      "z": 88.52,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": 97.17,
+      "z": 105.43,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": 90.27,
+      "z": 142.4,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": 108.1,
+      "z": 142.25,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": 87.88,
+      "z": 120.86,
+      "yaw": 0,
+      "scale": 1
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "crab_pot",
+      "x": 125.19,
+      "z": 81.6,
+      "yaw": 0,
+      "scale": 1
+    }
+  ],
+  "markers": []
+}

@@ -1,3 +1,4 @@
+import {createWander} from '../world/living/wander.js';
 // The Greenwold's story, running: the named people standing in it, and the
 // first hour happening to a character once.
 //
@@ -164,9 +165,8 @@ export function createStory(deps = {}) {
   }
 
   /**
-   * The bell of the Sunken Chapel, rung. NOTHING CALLS THIS YET: the ruin's
-   * mechanic is not built, and `docs/mmo/wiring/S2.md` carries the one line
-   * whoever builds it has to write. The beat is here, tested, and waiting.
+   * The authored chapel encounter calls this after a successful bell ring.
+   * The story latch and the combat encounter share the player's action.
    */
   function ringChapelBell() { latch.bell = true; return true; }
 
@@ -303,6 +303,7 @@ export function createStory(deps = {}) {
   // ---- the bodies of the six ----------------------------------------------
 
   const live = new Map();       // person id -> record
+  const unregisterBodies=runtime?.physical?.registerActors('story',()=>live.values());
   let layer = null;
   let meshCache = null;
 
@@ -319,7 +320,7 @@ export function createStory(deps = {}) {
   }
 
   function bodyFor(person) {
-    const rig = build();
+    const rig = build(person);
     const seen = new Map();
     const tint = ROLE_TINT[person.role] ?? PALETTE.tunic;
     rig.group.traverse((o) => {
@@ -349,9 +350,9 @@ export function createStory(deps = {}) {
       story: person,
       x: spot.x, z: spot.z, y,
       homeYaw: spot.yaw, yaw: spot.yaw,
-      group: rig?.group || null, parts: rig?.parts || null,
+      rig, group: rig?.group || null, parts: rig?.parts || null,
       posed: !!(rig?.parts && rig.parts.hips && rig.parts.shinL),
-      t: 0, plate: null,
+      t: 0, plate: null, wander:createWander({id:person.id,x:spot.x,y,z:spot.z,range:1.8,pause:7}),
     };
     if (rig) {
       rig.group.position.set(spot.x, y, spot.z);
@@ -368,13 +369,15 @@ export function createStory(deps = {}) {
       layer.appendChild(el);
       rec.plate = el;
     }
+    rig?.ready?.then(()=>{if(!live.has(person.id))return;rig.group.traverse(o=>{if(o.isMesh)o.userData.storyPerson=rec;});meshCache=null;});
     live.set(person.id, rec);
     meshCache = null;
     return rec;
   }
 
   function despawn(rec) {
-    if (rec.group) {
+    rec.rig?.dispose?.();
+    if (rec.group&&!rec.rig?.studio) {
       scene?.remove?.(rec.group);
       rec.group.traverse?.((o) => {
         if (o.isMesh) {
@@ -440,9 +443,11 @@ export function createStory(deps = {}) {
     const h = layer ? (layer.clientHeight || 1) : 1;
     for (const rec of live.values()) {
       rec.t += num(dt);
+      const moved=rec.wander.update(dt,{field:runtime?.field,physical:runtime?.physical,observer:p,others:[...live.values()].filter(n=>n!==rec).map(n=>n.wander.pos)});
+      rec.x=moved.x;rec.y=moved.y;rec.z=moved.z;rec.group?.position.set(rec.x,rec.y,rec.z);
       const dx = p.x - rec.x, dz = p.z - rec.z;
       const d = Math.hypot(dx, dz);
-      const want = d <= NOTICE && d > 1e-3 ? Math.atan2(dx, dz) : rec.homeYaw;
+      const want = d <= NOTICE && d > 1e-3 ? Math.atan2(dx, dz) : rec.wander.mode==='walk'?rec.wander.yaw:rec.homeYaw;
       let diff = want - rec.yaw;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
@@ -450,7 +455,7 @@ export function createStory(deps = {}) {
       rec.yaw += Math.abs(diff) <= step ? diff : Math.sign(diff) * step;
       if (rec.group) rec.group.rotation.y = rec.yaw;
       if (rec.posed) {
-        try { poseCharacter(rec.parts, { anim: 'idle', phase: 0, stride: 1.4, idleMix: 1, t: rec.t }); }
+        try { const pose={anim:rec.wander.mode,phase:rec.wander.phase,stride:1.4,idleMix:1,t:rec.t};if(rec.rig?.pose)rec.rig.pose(pose);else poseCharacter(rec.parts,pose); }
         catch { rec.posed = false; }
       }
       if (rec.plate && camera) {
@@ -518,6 +523,7 @@ export function createStory(deps = {}) {
   }
 
   function dispose() {
+    unregisterBodies?.();
     for (const rec of [...live.values()]) despawn(rec);
     layer?.remove();
   }

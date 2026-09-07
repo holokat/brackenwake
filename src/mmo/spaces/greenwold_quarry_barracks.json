@@ -1,0 +1,463 @@
+{
+  "id": "greenwold_quarry_barracks",
+  "name": "The quarry barricade",
+  "note": "Raiders have seized a quarry bench and its ore carts. The timber barriers divide the workyard into two fighting courts, with a captain guarding the pay chest.",
+  "at": {
+    "x": -704,
+    "z": -957
+  },
+  "radius": 112.15754585272202,
+  "landmark": true,
+  "district": "chalkpits",
+  "pieces": [
+    {
+      "model": "foremans_hut",
+      "x": 0,
+      "z": -16.8,
+      "yaw": 0,
+      "scale": 1.3,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "legion_tent",
+      "x": -15.4,
+      "z": -10.5,
+      "yaw": 60,
+      "scale": 1.8199999999999998,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "legion_tent",
+      "x": 16.1,
+      "z": -9.1,
+      "yaw": 300,
+      "scale": 1.8199999999999998,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "ore_cart",
+      "x": -11.2,
+      "z": 7,
+      "yaw": 90,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "ore_cart",
+      "x": 13.3,
+      "z": 6.3,
+      "yaw": 60,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_timber_prop",
+      "x": -18.2,
+      "z": 17.5,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_timber_prop",
+      "x": 18.2,
+      "z": 17.5,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "spear_rack",
+      "x": 7,
+      "z": -15.4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "lw_log_pile",
+      "x": -18.2,
+      "z": 0.7,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "brazier",
+      "x": 0,
+      "z": 4.9,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    },
+    {
+      "model": "loot_sack",
+      "x": 0,
+      "z": -9.1,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-action"
+    }
+  ],
+  "runs": [
+    {
+      "model": "camp_fence",
+      "from": {
+        "x": -24.5,
+        "z": -23.8
+      },
+      "to": {
+        "x": 24.5,
+        "z": -23.8
+      }
+    },
+    {
+      "model": "camp_fence",
+      "from": {
+        "x": -24.5,
+        "z": -23.8
+      },
+      "to": {
+        "x": -24.5,
+        "z": 21.7
+      }
+    },
+    {
+      "model": "camp_fence",
+      "from": {
+        "x": 24.5,
+        "z": -23.8
+      },
+      "to": {
+        "x": 24.5,
+        "z": 21.7
+      }
+    },
+    {
+      "model": "camp_fence",
+      "from": {
+        "x": -24.5,
+        "z": 21.7
+      },
+      "to": {
+        "x": -7,
+        "z": 21.7
+      }
+    },
+    {
+      "model": "camp_fence",
+      "from": {
+        "x": 7,
+        "z": 21.7
+      },
+      "to": {
+        "x": 24.5,
+        "z": 21.7
+      }
+    }
+  ],
+  "areas": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -61,
+      "z": -70,
+      "scale": 0.8,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -42,
+      "z": -64,
+      "scale": 1.05,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -20,
+      "z": -71,
+      "scale": 1.2,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 3,
+      "z": -61,
+      "scale": 1.3,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 24,
+      "z": -68,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 47,
+      "z": -57,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 65,
+      "z": -64,
+      "scale": 0.8,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -50,
+      "z": -87,
+      "scale": 0.85,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -29,
+      "z": -93,
+      "scale": 1.1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -4,
+      "z": -84,
+      "scale": 1.2,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 20,
+      "z": -91,
+      "scale": 1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 44,
+      "z": -81,
+      "scale": 0.9,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -16,
+      "z": -110,
+      "scale": 0.85,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 10,
+      "z": -107,
+      "scale": 1.05,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "people": [],
+  "markers": [],
+  "effects": [
+    {
+      "id": "watch_fire",
+      "x": 0,
+      "z": 4.9,
+      "y": 0.5,
+      "scale": 1,
+      "gate": "always"
+    },
+    {
+      "id": "dust_gust",
+      "x": -14,
+      "z": 14,
+      "scale": 1,
+      "gate": "fair"
+    }
+  ],
+  "lights": [
+    {
+      "x": 0,
+      "z": 4.9,
+      "y": 2.5,
+      "color": 16755302,
+      "power": 25,
+      "range": 20
+    }
+  ],
+  "spawns": [
+    {
+      "id": "raider",
+      "x": -6.3,
+      "z": 28,
+      "squad": "gate",
+      "encounter": "quarry_barracks:gate",
+      "slot": "quarry_barracks:0",
+      "rallyRadius": 14
+    },
+    {
+      "id": "raider",
+      "x": 6.3,
+      "z": 28,
+      "squad": "gate",
+      "encounter": "quarry_barracks:gate",
+      "slot": "quarry_barracks:1",
+      "rallyRadius": 14
+    },
+    {
+      "id": "raider",
+      "x": -9.8,
+      "z": 32.9,
+      "squad": "gate",
+      "encounter": "quarry_barracks:gate",
+      "slot": "quarry_barracks:2",
+      "rallyRadius": 14
+    },
+    {
+      "id": "raider",
+      "x": 9.8,
+      "z": 32.9,
+      "squad": "gate",
+      "encounter": "quarry_barracks:gate",
+      "slot": "quarry_barracks:3",
+      "rallyRadius": 14
+    },
+    {
+      "id": "banditArcher",
+      "x": -19.6,
+      "z": 9.8,
+      "squad": "flanks",
+      "encounter": "quarry_barracks:flanks",
+      "slot": "quarry_barracks:4",
+      "rallyRadius": 14
+    },
+    {
+      "id": "banditArcher",
+      "x": 19.6,
+      "z": 10.5,
+      "squad": "flanks",
+      "encounter": "quarry_barracks:flanks",
+      "slot": "quarry_barracks:5",
+      "rallyRadius": 14
+    },
+    {
+      "id": "banditArcher",
+      "x": -15.4,
+      "z": -22.4,
+      "squad": "flanks",
+      "encounter": "quarry_barracks:flanks",
+      "slot": "quarry_barracks:6",
+      "rallyRadius": 14
+    },
+    {
+      "id": "banditArcher",
+      "x": 15.4,
+      "z": -22.4,
+      "squad": "flanks",
+      "encounter": "quarry_barracks:flanks",
+      "slot": "quarry_barracks:7",
+      "rallyRadius": 14
+    },
+    {
+      "id": "bandit",
+      "x": -8.4,
+      "z": -3.5,
+      "squad": "yard",
+      "encounter": "quarry_barracks:yard",
+      "slot": "quarry_barracks:8",
+      "rallyRadius": 14
+    },
+    {
+      "id": "bandit",
+      "x": 8.4,
+      "z": -3.5,
+      "squad": "yard",
+      "encounter": "quarry_barracks:yard",
+      "slot": "quarry_barracks:9",
+      "rallyRadius": 14
+    },
+    {
+      "id": "bandit",
+      "x": -5.6,
+      "z": -11.2,
+      "squad": "yard",
+      "encounter": "quarry_barracks:yard",
+      "slot": "quarry_barracks:10",
+      "rallyRadius": 14
+    },
+    {
+      "id": "bandit",
+      "x": 5.6,
+      "z": -11.2,
+      "squad": "yard",
+      "encounter": "quarry_barracks:yard",
+      "slot": "quarry_barracks:11",
+      "rallyRadius": 14
+    },
+    {
+      "id": "wildDog",
+      "x": -29.4,
+      "z": -4.2,
+      "squad": "dogs",
+      "encounter": "quarry_barracks:dogs",
+      "slot": "quarry_barracks:12",
+      "rallyRadius": 14
+    },
+    {
+      "id": "wildDog",
+      "x": -30.1,
+      "z": 2.1,
+      "squad": "dogs",
+      "encounter": "quarry_barracks:dogs",
+      "slot": "quarry_barracks:13",
+      "rallyRadius": 14
+    },
+    {
+      "id": "wildDog",
+      "x": 30.1,
+      "z": -4.9,
+      "squad": "dogs",
+      "encounter": "quarry_barracks:dogs",
+      "slot": "quarry_barracks:14",
+      "rallyRadius": 14
+    },
+    {
+      "id": "wildDog",
+      "x": 31.5,
+      "z": 1.4,
+      "squad": "dogs",
+      "encounter": "quarry_barracks:dogs",
+      "slot": "quarry_barracks:15",
+      "rallyRadius": 14
+    },
+    {
+      "id": "highwayman",
+      "x": 0,
+      "z": -2.8,
+      "squad": "command",
+      "elite": true,
+      "title": "Quarry captain",
+      "encounter": "quarry_barracks:command",
+      "slot": "quarry_barracks:16",
+      "rallyRadius": 14
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

@@ -12,7 +12,8 @@
       "model": "chapel_sunken",
       "x": 0,
       "z": 0,
-      "yaw": 270
+      "yaw": 270,
+      "scale": 1.25
     },
     {
       "model": "headstone_a",

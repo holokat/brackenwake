@@ -48,7 +48,7 @@ the whole warrior-and-wizard split; nothing else forbids anything.
 Wearing armour above your STR is allowed and halves its AR, slows your swing by
 10% per missing 10 STR, and says so when you put it on.
 
-Shields: buckler (parry 0.6, weight 3), kite (0.9, 6, STR 30), tower (1.2, 10,
+Shields: buckler (parry 0.6, weight 3), kite (0.9, 6, STR 30), heater (0.9, 6, STR 30), tower (1.2, 10,
 STR 55). A shield's parryFactor multiplies the Parrying roll.
 
 ## Weapons

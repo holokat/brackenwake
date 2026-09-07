@@ -1,3 +1,5 @@
+import {createGameEnchantments} from '../../studio/enchantments.js';
+import {createStudioSpells} from '../../studio/spells.js';
 // What the bars do: the twelve ability slots, the eight item slots, and every
 // spark, burst and flinch either of them throws.
 
@@ -56,7 +58,7 @@ export const abilities = {
       return false;
     };
 
-    const spellVfx = createSpellVfx({
+    const legacySpellVfx = createSpellVfx({
       body: rig.group,
       scene: sc.scene,
       // the code body has no socket bones: the rig's anchors stand in, so the
@@ -71,6 +73,9 @@ export const abilities = {
       abilityMoves: (id) => abilityMoves(rig.rig.modelId, id),
       resolveImpact: groundImpact,
     });
+    const spellVfx=createStudioSpells(legacySpellVfx,rig);
+    const enchantments=createGameEnchantments(sc.scene,rig,actor);
+    const removeStrike=fight.combat.onStrike?.(info=>enchantments.impact(info));
     // The flipbook atlases arrive after the first frame and are handed to a
     // fresh set of effects when they do. Until then the same effects run on
     // the untextured soft disc, which is why a missing atlas is a look and
@@ -146,8 +151,9 @@ export const abilities = {
     hud.onItemDrop?.((slot, payload) => itemBar.assign(slot, payload));
 
     return {
-      abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx,
-      bw: { abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx, get summons() { return hooks.summons; } },
+      abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx, enchantments,
+      dispose(){removeStrike?.();enchantments.dispose();spellVfx.dispose();effects.dispose?.();hooks.dispose?.();},
+      bw: { abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx, enchantments, get summons() { return hooks.summons; } },
     };
   },
 
@@ -197,5 +203,6 @@ export const abilities = {
     const self = ctx.get('abilities');
     self.effects.update(frame.dt);   // after the player's gait has posed the rig: the clips add to it
     self.spellVfx.update(frame.dt);
+    self.enchantments.update(frame.dt,frame.nowS);
   },
 };

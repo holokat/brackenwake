@@ -1,0 +1,201 @@
+{
+  "id": "greenwold_population_south-stone-approach",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 199,
+    "z": 339
+  },
+  "radius": 78,
+  "district": "standinghedge",
+  "pieces": [
+    {
+      "model": "lw_ivy_stump",
+      "x": 8.709434827769025,
+      "z": 17.00428607677617,
+      "scale": 1.4,
+      "yaw": 200,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bracken",
+      "x": 14.178306027541003,
+      "z": 13.673903546149303,
+      "scale": 1.6,
+      "yaw": 200,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_bracken",
+      "x": -30.419086195352183,
+      "z": 13.404446838259846,
+      "scale": 1.4,
+      "yaw": 200,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_mushroom_ring",
+      "x": -23.67195332490735,
+      "z": 21.181091232120405,
+      "scale": 1,
+      "yaw": 200,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_leaf_litter",
+      "x": 14.696512882687587,
+      "z": -5.292684487951061,
+      "scale": 2,
+      "yaw": 200,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": 24,
+      "z": 24.7,
+      "scale": 0.9,
+      "yaw": 200,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 12.29,
+      "z": 36.4,
+      "scale": 1.1,
+      "yaw": 200,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -5.14,
+      "z": 37.5,
+      "scale": 0.9,
+      "yaw": 200,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -20.86,
+      "z": 33.91,
+      "scale": 1.1,
+      "yaw": 200,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -39.22,
+      "z": 22.97,
+      "scale": 1,
+      "yaw": 200,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 32.46,
+      "z": 4.37,
+      "scale": 1.1,
+      "yaw": 200,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 25.63,
+      "z": -11.95,
+      "scale": 0.9,
+      "yaw": 200,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": 10.08,
+      "z": 1.54,
+      "encounter": "south-stone-approach:near",
+      "slot": "south-stone-approach:0"
+    },
+    {
+      "id": "badger",
+      "x": 4.95,
+      "z": 3.93,
+      "encounter": "south-stone-approach:near",
+      "slot": "south-stone-approach:1"
+    },
+    {
+      "id": "badger",
+      "x": 4.19,
+      "z": -2.73,
+      "encounter": "south-stone-approach:near",
+      "slot": "south-stone-approach:2"
+    },
+    {
+      "id": "badger",
+      "x": -0.94,
+      "z": -0.34,
+      "encounter": "south-stone-approach:near",
+      "slot": "south-stone-approach:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": -18.97,
+      "z": 11.19,
+      "encounter": "south-stone-approach:rear",
+      "slot": "south-stone-approach:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": -24.35,
+      "z": 11.36,
+      "encounter": "south-stone-approach:rear",
+      "slot": "south-stone-approach:5"
+    },
+    {
+      "id": "giantSpider",
+      "x": -25.12,
+      "z": 4.69,
+      "encounter": "south-stone-approach:rear",
+      "slot": "south-stone-approach:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": -19.39,
+      "z": 3.58,
+      "encounter": "south-stone-approach:rear",
+      "slot": "south-stone-approach:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": 24,
+      "z": 24.7,
+      "tree": {
+        "x": 24,
+        "z": 24.7,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    },
+    {
+      "id": "oyster_mushroom",
+      "x": 12.29,
+      "z": 36.4,
+      "tree": {
+        "x": 12.29,
+        "z": 36.4,
+        "scale": 1.1
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

@@ -31,38 +31,6 @@
     },
     {
       "species": "beech",
-      "x": -21.73,
-      "z": 2.97,
-      "scale": 1.2,
-      "yaw": 126,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": 3.07,
-      "z": -0.74,
-      "scale": 1.3,
-      "yaw": 173,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": 17.17,
-      "z": -17.81,
-      "scale": 1.1,
-      "yaw": 220,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": 42.51,
-      "z": -20.67,
-      "scale": 0.9,
-      "yaw": 267,
-      "harvest": true
-    },
-    {
-      "species": "beech",
       "x": 54.06,
       "z": -36.14,
       "scale": 0.8,
@@ -75,54 +43,6 @@
       "z": 5.29,
       "scale": 0.85,
       "yaw": 1,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": -41.02,
-      "z": -10.92,
-      "scale": 1.1,
-      "yaw": 48,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": -15.05,
-      "z": -16.54,
-      "scale": 1.2,
-      "yaw": 95,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": 1.59,
-      "z": -35.19,
-      "scale": 1,
-      "yaw": 142,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": 27.25,
-      "z": -39.43,
-      "scale": 0.9,
-      "yaw": 189,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": -39,
-      "z": -32.23,
-      "scale": 0.85,
-      "yaw": 236,
-      "harvest": true
-    },
-    {
-      "species": "beech",
-      "x": -15.37,
-      "z": -43.46,
-      "scale": 1.05,
-      "yaw": 283,
       "harvest": true
     }
   ],

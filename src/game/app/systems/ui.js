@@ -1,3 +1,5 @@
+import {createHoverHalo} from '../../hover_halo.js';
+import {placeLabel} from '../../../mmo/greenwold/navigation.js';
 // Everything the player reads: the windows and their panels, the paper doll,
 // the compass, the minimap, the plate that names this spot, the cursor and the
 // line under it, and the frame counter behind the dev badge.
@@ -25,7 +27,6 @@ import { labelFor as lootLabel } from '../../loot_drops.js';
 import { conOf, conLabel } from '../../con.js';
 
 /** How close a place has to be before the HUD calls this spot by its name. */
-const PLACE_RADIUS = 90;
 
 const BIOME_NAMES = {
   ocean: 'open water', beach: 'the shore', meadow: 'open meadow',
@@ -72,6 +73,8 @@ export const ui = {
       // player can see the name, the skills and the purse of who is going.
       newCharacter: () => { syncToCharacter(actor); toRoster(state); },
       now: () => ctx.frame.now,
+      worldNow: () => ctx.frame.worldNow ?? ctx.frame.now,
+      weather: world.weather,
       station: null,
       // win_crafting teaches by document: (character, skillId, difficulty, success, rng)
       progression: {
@@ -216,7 +219,7 @@ export const ui = {
         if (sc.lights?.sun) sc.lights.sun.castShadow = s.shadows;
       }
       if (s.pixelRatio !== undefined) {
-        sc.renderer.setPixelRatio(s.pixelRatio === 'device' ? (window.devicePixelRatio || 1) : 1);
+        sc.renderer.setPixelRatio(s.pixelRatio === 'device' ? Math.min(window.devicePixelRatio || 1, 2) : Number(s.pixelRatio) || 1);
         sc.resize?.();
       }
       if (Number.isFinite(s.ring) && typeof runtime.setRing === 'function') runtime.setRing(s.ring);
@@ -229,7 +232,6 @@ export const ui = {
     // biome, because a name is what a player can point at on the way back.
     let placeText = '';
     let placeCheck = -1e9;
-    let placeSub = '';
     // frame timing for the dev badge: a one second rolling average
     let fpsFrames = 0, fpsAt = performance.now(), fps = 0;
     function tickFps(now) {
@@ -250,32 +252,24 @@ export const ui = {
       if (runtime.inDungeon && lastInside) {
         text = lastInside.level > 1 ? `${lastInside.site.name}, level ${lastInside.level}` : lastInside.site.name;
       } else {
-        let best = null, bestD = Infinity;
-        for (const s of runtime.sitesNear(p.x, p.z, PLACE_RADIUS)) {
-          const d = Math.hypot(s.x - p.x, s.z - p.z);
-          if (d < bestD) { bestD = d; best = s; }
-        }
         const sample = runtime.field.sampleAt(p.x, p.z);
         audio.music.setBiome(sample.biome);
-        const zone = runtime.zoneNow?.(p.x, p.z);
-        if (best) text = best.name;
-        else if (zone) text = zone.name;       // a named region beats "meadow"
-        else text = BIOME_NAMES[sample.biome] || sample.biome;
+        text = placeLabel(runtime,p,BIOME_NAMES[sample.biome] || sample.biome);
       }
       if (text !== placeText) {
         placeText = text; hud.setPlace(text);
-        // the banner: a named place gets its kind, the open ground its biome
-        const sample = runtime.field.sampleAt(p.x, p.z);
-        placeSub = runtime.inDungeon ? 'underground' : (BIOME_NAMES[sample.biome] || sample.biome);
-        hud.zone?.(text, placeSub);
+        // First discovery and dungeon entry own banners. Routine compass
+        // updates must not restart an announcement while crossing scenery.
       }
     }
 
     // The cursor says what a click would do: a grab over a sack, a body to
     // skin or a thing to pick, a pointer over a person or a station.
+    const hoverHalo = createHoverHalo(sc.scene,(x,z)=>runtime.heightAt(x,z));
     let cursorAt = -1e9, cursorNow = '', hoverNow = '', hoverColourNow = '';
     function updateCursor(now) {
-      if (now - cursorAt < 100 || ctx.get('dev').on || windows.anyOpen) return;
+      if (ctx.get('dev').on || windows.anyOpen) { hoverHalo.clear(); return; }
+      if (now - cursorAt < 100) return;
       cursorAt = now;
       const life = ctx.get('world_life');
       const skinning = bag.skinning;
@@ -284,17 +278,17 @@ export const ui = {
       // "a patch of dandelions, three of them", "a pile of 46 gold", "wolf, not yet skinned"
       let want = bars.abilities.cursor || '', hover = '', hoverColour = '';
       const sack = fight.loot.pick(ray);
-      const patch = sack ? null : life.forage.pick(ray);
-      const who = sack || patch ? null : life.npcs.pick?.(ray);
+      const who = sack ? null : life.npcs.pick?.(ray);
+      const st = sack || who ? null : life.stations.pick(ray);
+      const patch = sack || who || st ? null : life.forage.pick(ray);
       // S2: the six named people the story raises are not in npcs.pick
       const named = sack || patch || who ? null : (ctx.has('story') ? ctx.get('story').story?.pick?.(ray) : null);
-      const st = sack || patch || who ? null : life.stations.pick(ray);
       const mon = sack || patch || who || st ? null : fight.monsters.pick(ray);
       const corpse = sack || patch || who || st || mon ? null : skinning.pick(ray);
       if (sack) { want = want || 'grab'; hover = lootLabel(sack); }
       else if (patch) { want = want || 'grab'; hover = life.foraging.hoverText(patch.rec); }
       else if (named) { want = want || 'pointer'; hover = `${named.npc?.person?.name || named.name || 'somebody'}, click to talk`; }
-      else if (who) { want = want || 'pointer'; hover = who.name ? `${who.name}, click to talk` : ''; }
+      else if (who) { want = want || 'pointer'; hover = `${who.npc?.personName || who.npc?.name || who.name || 'Somebody'}, click to talk`; }
       else if (st) { want = want || 'pointer'; hover = `the ${st.name}, click to craft`; }
       // a monster says what it is and how dangerous it is, in the con colour:
       // "Wolf, a fair fight" in yellow, "the Ashen King, a boss" in purple.
@@ -306,6 +300,19 @@ export const ui = {
         hoverColour = conOf(who, character).colour;
       }
       else if (corpse && skinning.canSkin(corpse)) { want = want || 'grab'; hover = skinning.labelFor(corpse); }
+      const object = sack || who?.npc || named?.npc || st || patch?.rec || mon?.actor || (corpse && skinning.canSkin(corpse) ? corpse.actor || corpse : null);
+      let point = object?.pos || object, radius = mon?.model?.radius ? mon.model.radius + .3 : .75;
+      if (!object) {
+        const picked = runtime.pick(ray);
+        if (picked?.kind === 'tree') {
+          const t = picked.tree.field.trees[picked.tree.index]; point = t; radius = Math.max(.6,(t?.s || 1)*.45);
+          want = want || 'pointer'; hover = picked.tree.field.kind === 'rock' ? 'Click to mine' : 'Click to chop';
+        } else if (picked?.kind === 'chest') { point = picked.chest; want = want || 'grab'; hover = 'Click to open'; }
+        else if (picked?.kind === 'site' && (picked.site.inspect || picked.waystone || ['dungeon','cave'].includes(picked.site.kind))) {
+          point = picked.site; want = want || 'pointer'; hover = picked.site.inspect ? 'Click to inspect' : picked.waystone ? 'Click to travel' : 'E to enter';
+        }
+      }
+      hoverHalo.show(point,radius,rig.pos);
       if (want !== cursorNow) { cursorNow = want; sc.renderer.domElement.style.cursor = want; }
       // the colour is part of what changed: the same wolf can go from yellow to
       // grey without a letter of the line moving, the first time a character
@@ -319,10 +326,11 @@ export const ui = {
 
     return {
       windows, panelCtx, compass, minimap, applySettings, drawHud,
+      dispose(){hoverHalo.dispose();minimap?.dispose();},
       get fps() { return fps; },
       get placeText() { return placeText; },
       bw: {
-        windows, compass, minimap,
+        windows, compass, minimap, hoverHalo,
         panels: { talk: talkPanel, trade: tradePanel, crafting: craftingPanel, map: mapPanel, settings: settingsPanel },
         get codexTab() { return windows.tab; },
         get fps() { return fps; },

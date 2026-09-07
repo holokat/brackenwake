@@ -1,3 +1,4 @@
+import {createCellarFurnishings} from './old_cellars_scene.js';
 // What a level looks like from inside it.
 //
 // dungeon_gen.js says which cells are floor and which are rock. This turns that
@@ -373,7 +374,7 @@ export function ceilingAt(layout, gx, gz) {
 export function ceilingGrid(layout) {
   const hit = CEIL_CACHE.get(layout);
   if (hit) return hit;
-  const C = CEIL[layout.gen === 'cavern' ? 'cavern' : layout.kind] || CEIL.dungeon;
+  const C = layout.ceilingProfile || CEIL[layout.gen === 'cavern' ? 'cavern' : layout.kind] || CEIL.dungeon;
   const domed = layout.kind === 'cave' || layout.gen === 'cavern';
   const g = new Float32Array(layout.w * layout.h);
   for (let gz = 0; gz < layout.h; gz++) for (let gx = 0; gx < layout.w; gx++) {
@@ -508,7 +509,7 @@ function meshOf(THREE, b, mat, shadow = true) {
  * Returns { group, entrancePos, stairPos, torches, update(dt, pos), dispose() }.
  */
 export function createDungeonScene(THREE, layout, opts = {}) {
-  const P = PALETTE[layout.kind] || PALETTE.dungeon;
+  const P = {...(PALETTE[layout.kind] || PALETTE.dungeon), ...layout.palette};
   const rng = mulberry32(hash2(layout.cx, layout.cz, (layout.seed | 0) + layout.level * 101));
   const group = new THREE.Group();
   group.name = `dungeon:${layout.id}:${layout.level}`;
@@ -596,7 +597,7 @@ export function createDungeonScene(THREE, layout, opts = {}) {
     const c = cellAt(layout, gx, gz);
     return c === 'entrance' || c === 'stair' || c === 'ore' || c === 'chest';
   };
-  for (const r of layout.rooms) {
+  for (const r of layout.authored ? [] : layout.rooms) {
     const hall = r.kind === 'hall' || r.kind === 'boss';
     for (let gz = r.z; gz < r.z + r.h; gz++) for (let gx = r.x; gx < r.x + r.w; gx++) {
       if (!walkable(layout, gx, gz) || busy(gx, gz)) continue;
@@ -698,8 +699,12 @@ export function createDungeonScene(THREE, layout, opts = {}) {
     const r = roomAt(layout, gx, gz);
     const brazier = !wall && !!r && (r.kind === 'hall' || r.kind === 'boss');
     if (!wall && !brazier) continue;
-    if (rng() < (brazier ? 0.86 : 0.5)) continue;
-    if (!far(gx, gz)) continue;
+    if (layout.torchCells) {
+      if (!layout.torchCells.some(([x,z])=>x===gx&&z===gz)) continue;
+    } else {
+      if (rng() < (brazier ? 0.86 : 0.5)) continue;
+      if (!far(gx, gz)) continue;
+    }
     used.push([gx, gz]);
     const p = worldOf(layout, gx, gz);
     if (brazier) {
@@ -830,6 +835,9 @@ export function createDungeonScene(THREE, layout, opts = {}) {
   }
   parts.walls = [parts.wallA, parts.wallB].filter(Boolean);
 
+  const furniture = layout.furnishings ? createCellarFurnishings(THREE, layout) : null;
+  if(furniture) group.add(furniture.group);
+
   // ---- light -------------------------------------------------------------
   const ambient = new THREE.AmbientLight(P.ambient, P.ambientI);
   group.add(ambient);
@@ -855,7 +863,7 @@ export function createDungeonScene(THREE, layout, opts = {}) {
 
   const built = {
     group, entrancePos, stairPos, torches, exits, oreField, pools, parts,
-    chestMeshes, layout, palette: P,
+    chestMeshes, layout, palette: P, physicalBodies: furniture?.bodies || [],
     /** what the level actually cost, so a report never has to guess */
     stats: {
       floorCells, wallFaces, pillars, props, pools: pools.length,

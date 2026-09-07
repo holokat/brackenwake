@@ -65,6 +65,7 @@ import { BIOMES, SEA_LEVEL, PAINT_BIOME } from '../world/field.js';
 import { GROUND_WORDS } from '../world/terrain_edits.js';
 import { ZONE, weightOf } from '../world/zones.js';
 import { SPACES } from '../mmo/spaces/index.js';
+import {isDestination} from '../mmo/greenwold/navigation.js';
 
 /**
  * Every number the minimap is built out of, in one place, because the CSS, the
@@ -104,7 +105,7 @@ export const MINIMAP = {
    * the closest. `minimap.test.mjs` measures it again on every run and fails at
    * 4 ms, so raising this is a measurement and not an opinion.
    */
-  cells: 26, drawScale: 2,
+  cells: 20, drawScale: 2,
   /** how much two composed colours may differ and still merge into one run. */
   colourStep: 5,
 
@@ -379,7 +380,7 @@ export function labelX(px, w, size = MINIMAP.size, pad = 2) {
  * readout can say it. The spaces are never thinned, because a space is a thing
  * somebody put there by hand and is the reason the map is on the screen.
  */
-export function marksIn(v, spaces, places = null, cap = MINIMAP.maxMarks) {
+export function marksIn(v, spaces, places = null, cap = MINIMAP.maxMarks, editor = true) {
   const out = [];
   const seen = new Set();
   let dropped = 0;
@@ -393,6 +394,7 @@ export function marksIn(v, spaces, places = null, cap = MINIMAP.maxMarks) {
   };
   for (const sp of Object.values(spaces || {})) {
     if (!sp || !sp.at) continue;
+    if (!editor && !isDestination(sp)) continue;
     const m = make(sp.id, sp.name, sp.at.x, sp.at.z, sp.radius || 0, true);
     if (m) out.push(m);
   }
@@ -663,7 +665,7 @@ export function paintMinimap(ctx, opts = {}) {
     });
 
   // ---- the marks ----------------------------------------------------------
-  const marks = marksIn(v, opts.spaces, opts.places);
+  const marks = marksIn(v, opts.spaces, opts.places, MINIMAP.maxMarks, !!opts.editor);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.font = face(MINIMAP.nameFont, '600');

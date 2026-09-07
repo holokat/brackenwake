@@ -36,15 +36,18 @@ export function nearestSpaceStone(pos, spaces = SPACES) {
     .sort((a, b) => Math.hypot(a.x - pos.x, a.z - pos.z) - Math.hypot(b.x - pos.x, b.z - pos.z))[0] || null;
 }
 
+const zoneSpaces=spaces=>{
+  const canonical=new Map();
+  for(const [id,space] of Object.entries(PLACE_SPACE))if(!canonical.has(space))canonical.set(space,id);
+  return Object.values(spaces).filter(s=>canonical.has(s.id)||s.landmark||/^greenwold_hedge_\d+$/.test(s.id)).map(s=>({s,canonical:canonical.get(s.id)||s.district||'waystones'}));
+};
+const DEFAULT_ZONE_SPACES=zoneSpaces(SPACES);
 export function authoredZoneAt(x,z,spaces=SPACES) {
-  const ids=new Set(Object.values(PLACE_SPACE));
   let best=null,rank=Infinity;
-  for(const s of Object.values(spaces)){
-    if(!ids.has(s.id)&&!s.id.startsWith('greenwold_hedge_'))continue;
+  for(const {s,canonical} of spaces===SPACES?DEFAULT_ZONE_SPACES:zoneSpaces(spaces)){
     const d=Math.hypot(x-s.at.x,z-s.at.z),r=s.radius+35;
     if(d>r||d/r>=rank)continue;
-    const canonical=Object.keys(PLACE_SPACE).find(k=>PLACE_SPACE[k]===s.id)||'waystones';
-    best={...ZONE[canonical],id:s.id,name:s.name,x:s.at.x,z:s.at.z,r,parent:'greenwold',biome:'meadow'};
+    best={...(ZONE[canonical]||ZONE.greenwold),id:s.id,name:s.name,x:s.at.x,z:s.at.z,r,parent:'greenwold',biome:'meadow'};
     rank=d/r;
   }
   return best||{...ZONE.greenwold};

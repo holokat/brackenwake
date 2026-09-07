@@ -120,7 +120,13 @@ export function createRoster(root, deps = {}) {
   // One portrait maker for the life of the screen: one WebGL context, one
   // cache, and both of them gone in destroy(). A caller may hand its own in,
   // which is how a node test drives the cache without a GPU.
-  const portraits = deps.portraits || createPortraits({ storage: deps.storage });
+  const portraits = deps.portraits || createPortraits({ storage: deps.storage, onReady(id, url) {
+    if (!url || done) return;
+    for (const port of list.querySelectorAll('[data-portrait]')) if (port.dataset.portrait === id) {
+      const img = h('img', 'bw-ro-face'); img.src = url; img.width = PORTRAIT.w; img.height = PORTRAIT.h; img.alt = port.dataset.alt || 'Character portrait';
+      port.classList.remove('bw-ro-nobody'); port.replaceChildren(img);
+    }
+  } });
 
   // The note the settings window left is taken down the moment the screen it
   // asked for is on the glass, so a second reload does not land here again.
@@ -173,6 +179,7 @@ export function createRoster(root, deps = {}) {
    */
   function faceOf(row, c) {
     const port = h('div', 'bw-ro-port');
+    port.dataset.portrait = row.id; port.dataset.alt = c?.name || 'Character portrait';
     let url = null;
     try { url = portraits.of(row); } catch (e) { console.warn('[roster] no portrait for this one', e); }
     if (url) {

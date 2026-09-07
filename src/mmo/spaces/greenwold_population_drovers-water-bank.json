@@ -1,0 +1,155 @@
+{
+  "id": "greenwold_population_drovers-water-bank",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -615,
+    "z": 135
+  },
+  "radius": 78,
+  "district": "watermeadows",
+  "pieces": [
+    {
+      "model": "lw_rushes",
+      "x": 10.999999999999998,
+      "z": -18,
+      "scale": 1.6,
+      "yaw": 90,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_eel_trap",
+      "x": 25,
+      "z": 10.999999999999998,
+      "scale": 1,
+      "yaw": 90,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": 15,
+      "z": -31,
+      "scale": 0.9,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 30,
+      "z": -24,
+      "scale": 1.1,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 18,
+      "z": 36,
+      "scale": 0.9,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -3,
+      "z": 35,
+      "scale": 0.85,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -20,
+      "z": -20,
+      "scale": 0.9,
+      "yaw": 90,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -18,
+      "z": 20,
+      "scale": 0.95,
+      "yaw": 90,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "reedStalker",
+      "x": -2,
+      "z": -10,
+      "encounter": "drovers-water-bank:near",
+      "slot": "drovers-water-bank:0"
+    },
+    {
+      "id": "reedStalker",
+      "x": 2,
+      "z": -6,
+      "encounter": "drovers-water-bank:near",
+      "slot": "drovers-water-bank:1"
+    },
+    {
+      "id": "reedStalker",
+      "x": -4,
+      "z": -3,
+      "encounter": "drovers-water-bank:near",
+      "slot": "drovers-water-bank:2"
+    },
+    {
+      "id": "reedStalker",
+      "x": 0,
+      "z": 1,
+      "encounter": "drovers-water-bank:near",
+      "slot": "drovers-water-bank:3"
+    },
+    {
+      "id": "drowned",
+      "x": 17,
+      "z": 14,
+      "encounter": "drovers-water-bank:rear",
+      "slot": "drovers-water-bank:4"
+    },
+    {
+      "id": "drowned",
+      "x": 19,
+      "z": 19,
+      "encounter": "drovers-water-bank:rear",
+      "slot": "drovers-water-bank:5"
+    },
+    {
+      "id": "drowned",
+      "x": 13,
+      "z": 22,
+      "encounter": "drovers-water-bank:rear",
+      "slot": "drovers-water-bank:6"
+    },
+    {
+      "id": "drowned",
+      "x": 10,
+      "z": 17,
+      "encounter": "drovers-water-bank:rear",
+      "slot": "drovers-water-bank:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "nettle",
+      "x": -8,
+      "z": -21,
+      "count": 2
+    },
+    {
+      "id": "nettle",
+      "x": -17,
+      "z": 9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

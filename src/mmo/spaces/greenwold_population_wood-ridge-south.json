@@ -1,0 +1,177 @@
+{
+  "id": "greenwold_population_wood-ridge-south",
+  "name": "Beech Hangar woodland",
+  "at": {
+    "x": -976,
+    "z": 470
+  },
+  "radius": 78,
+  "district": "beechhangar",
+  "pieces": [
+    {
+      "model": "lw_mushroom_ring",
+      "x": -30.17933974934578,
+      "z": -9.909967320509072,
+      "scale": 1,
+      "yaw": 260,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -9.39,
+      "z": 33.13,
+      "scale": 0.9,
+      "yaw": 260,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -25.38,
+      "z": 28.84,
+      "scale": 1.1,
+      "yaw": 260,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -35.05,
+      "z": 14.3,
+      "scale": 0.9,
+      "yaw": 260,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -39.8,
+      "z": -1.11,
+      "scale": 1.1,
+      "yaw": 260,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -39.5,
+      "z": -22.48,
+      "scale": 1,
+      "yaw": 260,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -3.12,
+      "z": -34.99,
+      "scale": 0.85,
+      "yaw": 260,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 23.17,
+      "z": 16.22,
+      "scale": 0.9,
+      "yaw": 260,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 14.25,
+      "z": -22.82,
+      "scale": 0.95,
+      "yaw": 260,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": 18.71,
+      "z": 9.5,
+      "encounter": "wood-ridge-south:near",
+      "slot": "wood-ridge-south:0"
+    },
+    {
+      "id": "badger",
+      "x": -11.43,
+      "z": 16.76,
+      "encounter": "wood-ridge-south:near",
+      "slot": "wood-ridge-south:1"
+    },
+    {
+      "id": "badger",
+      "x": 13.46,
+      "z": 2.26,
+      "encounter": "wood-ridge-south:near",
+      "slot": "wood-ridge-south:2"
+    },
+    {
+      "id": "badger",
+      "x": 11.83,
+      "z": -0.98,
+      "encounter": "wood-ridge-south:near",
+      "slot": "wood-ridge-south:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": -23.37,
+      "z": -6.64,
+      "encounter": "wood-ridge-south:rear",
+      "slot": "wood-ridge-south:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": -24.11,
+      "z": -13.31,
+      "encounter": "wood-ridge-south:rear",
+      "slot": "wood-ridge-south:5"
+    },
+    {
+      "id": "giantSpider",
+      "x": -28.62,
+      "z": -19.41,
+      "encounter": "wood-ridge-south:rear",
+      "slot": "wood-ridge-south:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": -27.8,
+      "z": -15.01,
+      "encounter": "wood-ridge-south:rear",
+      "slot": "wood-ridge-south:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": -9.39,
+      "z": 33.13,
+      "tree": {
+        "x": -9.39,
+        "z": 33.13,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    },
+    {
+      "id": "oyster_mushroom",
+      "x": -25.38,
+      "z": 28.84,
+      "tree": {
+        "x": -25.38,
+        "z": 28.84,
+        "scale": 1.1
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

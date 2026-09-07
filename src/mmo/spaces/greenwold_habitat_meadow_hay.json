@@ -1,0 +1,116 @@
+{
+  "id": "greenwold_habitat_meadow_hay",
+  "zone": "longmeadow",
+  "name": "The hay cutting",
+  "at": {
+    "x": -309,
+    "z": -410
+  },
+  "note": "The hay cart stands on the headland beside the cut field.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_hay_wain",
+      "x": 0,
+      "z": 0,
+      "yaw": 65,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_plough",
+      "x": 5,
+      "z": 3,
+      "yaw": 40,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_harrow",
+      "x": -5,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_poppy_patch",
+      "x": -9,
+      "z": 9,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_cow_parsley",
+      "x": 7,
+      "z": 9,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "forage": [
+    {
+      "id": "wild_strawberry",
+      "x": -5,
+      "z": 11,
+      "count": 2
+    }
+  ],
+  "effects": [
+    {
+      "id": "floating_seeds",
+      "x": -9,
+      "z": 9,
+      "gate": "fair",
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": -12,
+      "z": 11,
+      "encounter": "hay-cut-vermin",
+      "slot": "hay-cut-vermin:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -17,
+      "z": 3,
+      "encounter": "hay-cut-vermin",
+      "slot": "hay-cut-vermin:1"
+    },
+    {
+      "id": "giantRat",
+      "x": -10,
+      "z": 19,
+      "encounter": "hay-cut-vermin",
+      "slot": "hay-cut-vermin:2"
+    },
+    {
+      "id": "giantRat",
+      "x": -21,
+      "z": 15,
+      "encounter": "hay-cut-vermin",
+      "slot": "hay-cut-vermin:3"
+    },
+    {
+      "id": "giantRat",
+      "x": -26,
+      "z": 8,
+      "night": true,
+      "encounter": "hay-cut-vermin",
+      "slot": "hay-cut-vermin:4"
+    }
+  ],
+  "stations": []
+}

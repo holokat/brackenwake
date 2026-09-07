@@ -1,0 +1,207 @@
+{
+  "id": "greenwold_population_quarry-water-turn",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -945,
+    "z": -721
+  },
+  "radius": 78,
+  "district": "chalkpits",
+  "pieces": [
+    {
+      "model": "spoil_heap",
+      "x": 3.4962159621316156,
+      "z": -22.556073992300526,
+      "scale": 1.3,
+      "yaw": 70,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "ore_cart",
+      "x": 25.63080418879282,
+      "z": 0.2487501472571232,
+      "scale": 1.2,
+      "yaw": 70,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_timber_prop",
+      "x": 32.979060630136615,
+      "z": 2.8950923912326516,
+      "scale": 1.4,
+      "yaw": 70,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "barrow",
+      "x": 33.493816391844476,
+      "z": 10.156981023385349,
+      "scale": 1,
+      "yaw": 70,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_chalk_boulder",
+      "x": -15.981676740237889,
+      "z": -17.595056367358964,
+      "scale": 2,
+      "yaw": 70,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "birch",
+      "x": 3.49,
+      "z": -34.26,
+      "scale": 0.9,
+      "yaw": 70,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 19.98,
+      "z": -32.81,
+      "scale": 1.1,
+      "yaw": 70,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 32.03,
+      "z": -20.17,
+      "scale": 0.9,
+      "yaw": 70,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 39.38,
+      "z": -5.82,
+      "scale": 1.1,
+      "yaw": 70,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -17.52,
+      "z": -27.68,
+      "scale": 1.1,
+      "yaw": 70,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 9.15,
+      "z": 33.92,
+      "scale": 0.85,
+      "yaw": 70,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -25.63,
+      "z": -11.95,
+      "scale": 0.9,
+      "yaw": 70,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -10.07,
+      "z": 24.95,
+      "scale": 0.95,
+      "yaw": 70,
+      "harvest": true
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "ore",
+      "ore": "copper",
+      "x": 10.33,
+      "z": -27.17,
+      "scale": 1.1,
+      "harvest": true
+    },
+    {
+      "kind": "ore",
+      "ore": "tin",
+      "x": 7.08,
+      "z": -30.25,
+      "scale": 1.1,
+      "harvest": true
+    },
+    {
+      "kind": "ore",
+      "ore": "copper",
+      "x": 11.44,
+      "z": -32.9,
+      "scale": 1.1,
+      "harvest": true
+    }
+  ],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": -5.3,
+      "z": -8.71,
+      "encounter": "quarry-water-turn:near",
+      "slot": "quarry-water-turn:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": -0.17,
+      "z": -6.32,
+      "encounter": "quarry-water-turn:near",
+      "slot": "quarry-water-turn:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": -4.78,
+      "z": -1.45,
+      "encounter": "quarry-water-turn:near",
+      "slot": "quarry-water-turn:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": 0.34,
+      "z": 0.94,
+      "encounter": "quarry-water-turn:near",
+      "slot": "quarry-water-turn:3"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 20.76,
+      "z": 7.34,
+      "encounter": "quarry-water-turn:rear",
+      "slot": "quarry-water-turn:4"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 24.35,
+      "z": 11.36,
+      "encounter": "quarry-water-turn:rear",
+      "slot": "quarry-water-turn:5"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 19.74,
+      "z": 16.23,
+      "encounter": "quarry-water-turn:rear",
+      "slot": "quarry-water-turn:6"
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 15.21,
+      "z": 12.55,
+      "encounter": "quarry-water-turn:rear",
+      "slot": "quarry-water-turn:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

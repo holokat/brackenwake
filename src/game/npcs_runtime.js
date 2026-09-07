@@ -1,3 +1,4 @@
+import {createWander} from '../world/living/wander.js';
 // The people in the settlements, and the click that starts a conversation.
 //
 // `npcs.js` decides who stands in a town, a hamlet or a ruin. This module puts
@@ -384,7 +385,7 @@ export function createNpcs(sc, runtime, opts = {}) {
    * value rather than by a name, so a rig that renames its parts still works.
    */
   function bodyFor(npc) {
-    const rig = build();
+    const rig = build(npc);
     const seen = new Map();
     const tint = ROLE_TINT[npc.role.id] ?? PALETTE.tunic;
     const h = hash2(npc.site.cx | 0, npc.site.cz | 0, npc.personName.length * 17 + 5);
@@ -414,6 +415,8 @@ export function createNpcs(sc, runtime, opts = {}) {
     rig.group.rotation.y = rec.homeYaw;
     rig.group.name = `npc:${rec.id}`;
     const npc = Object.assign(rec, {
+      rig,
+      wander: createWander({id:rec.id,x:rec.x,y,z:rec.z,range:rec.at!=='square'?1.8:4,speed:.65}),
       group: rig.group,
       parts: rig.parts,
       y,
@@ -431,14 +434,16 @@ export function createNpcs(sc, runtime, opts = {}) {
       layer.appendChild(el);
       npc.plate = el;
     }
+    rig.ready?.then(()=>{if(!live.has(npc.id))return;rig.group.traverse(o=>{if(o.isMesh)o.userData.npc=npc;});meshCache=null;});
     live.set(npc.id, npc);
     meshCache = null;
     return npc;
   }
 
   function despawn(npc) {
+    npc.rig?.dispose?.();
     scene?.remove(npc.group);
-    npc.group.traverse?.((o) => {
+    if(!npc.rig?.studio) npc.group.traverse?.((o) => {
       if (o.isMesh) {
         o.geometry?.dispose?.();
         if (o.material && !Array.isArray(o.material)) o.material.dispose?.();
@@ -490,11 +495,13 @@ export function createNpcs(sc, runtime, opts = {}) {
       if (hidden) continue;
 
       npc.t += dt;
+      const wp=npc.wander.update(dt,{field,physical:runtime.physical,observer:playerPos,others:[...live.values()].filter(n=>n!==npc).map(n=>n.wander.pos)});
+      npc.x=wp.x;npc.z=wp.z;npc.y=wp.y;npc.group.position.set(npc.x,npc.y,npc.z);
       const dx = playerPos.x - npc.x, dz = playerPos.z - npc.z;
       const d = Math.hypot(dx, dz);
       // a slow turn toward you when you are close, and back to the square when
       // you are not: the body never snaps
-      const want = d <= NOTICE && d > 1e-3 ? Math.atan2(dx, dz) : npc.homeYaw;
+      const want = d <= NOTICE && d > 1e-3 ? Math.atan2(dx, dz) : npc.wander.mode==='walk'?npc.wander.yaw:npc.homeYaw;
       let diff = want - npc.yaw;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
@@ -504,7 +511,8 @@ export function createNpcs(sc, runtime, opts = {}) {
 
       if (npc.posed) {
         try {
-          poseCharacter(npc.parts, { anim: 'idle', phase: 0, stride: 1.4, idleMix: 1, t: npc.t });
+          const pose={anim:npc.wander.mode,phase:npc.wander.phase,stride:1.4,idleMix:npc.wander.mode==='idle'?1:0,t:npc.t};
+          if(npc.rig.pose)npc.rig.pose(pose);else poseCharacter(npc.parts,pose);
         } catch { npc.posed = false; }
       }
 
@@ -520,12 +528,11 @@ export function createNpcs(sc, runtime, opts = {}) {
     }
   }
 
-  /** Every mesh of every visible body, for the raycaster. */
+  /** Cache bodies once; filter current visibility when picking. */
   function meshes() {
     if (!meshCache) {
       meshCache = [];
       for (const npc of live.values()) {
-        if (!npc.group.visible) continue;
         npc.group.traverse((o) => { if (o.isMesh) meshCache.push(o); });
       }
     }
@@ -535,7 +542,7 @@ export function createNpcs(sc, runtime, opts = {}) {
   /** Whoever is under the ray, nearest first, or null. */
   function pick(raycaster) {
     if (!raycaster) return null;
-    const list = meshes().filter((m) => m.visible !== false);
+    const list = meshes().filter((m) => {for(let p=m;p;p=p.parent)if(!p.visible)return false;return true;});
     if (!list.length) return null;
     const hits = raycaster.intersectObjects(list, false);
     for (const hit of hits) {

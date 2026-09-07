@@ -518,6 +518,14 @@ console.log('win_dev: the time of day');
   const none = bare.setTimeOfDay(0.5);
   check('a scene that cannot names the function it needs, and moves nothing', none.ok === false && /setClockOffset\(ms\)/.test(none.text), none.text);
 }
+{
+  const sc={clockOffset:0,setClockOffset(ms){this.clockOffset=ms;}},worldNow=DAY_CYCLE_MS*.3;
+  const bench=createBench(recordingCtx({sc,now:()=>worldNow+200000,worldNow:()=>worldNow}));
+  bench.setTimeOfDay(.5);
+  check('the developer clock reads its offset on the world clock during slow time',near(bench.nowClock(),.5,1e-8));
+  bench.setTimeOfDay(0);
+  check('the same clock can return to midnight',near(bench.nowClock(),0,1e-8));
+}
 
 console.log('win_dev: the overlay switches, and fly');
 {

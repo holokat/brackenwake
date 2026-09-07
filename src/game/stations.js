@@ -1,3 +1,4 @@
+import {propColliders} from '../world/collision/shapes.js';
 // Crafting stations in the settlements: a forge, a workbench, a kitchen and the
 // rest, one marker each at the spots win_crafting.js's stationsForSite gives.
 // Until real models land they are squat blocks with a lid, coloured per
@@ -31,6 +32,7 @@ export function createStations(sc, runtime, { hud } = {}) {
     return mats.get(id);
   };
   let lastScan = -1e9;
+  const unregister=runtime.physical?.register('stations',()=>[...live.values()].flatMap(e=>propColliders('workshop',e.rec.x,e.rec.z,e.mesh.position.y-.45,1.6,1.2,1.1,e.rec.yaw||0)));
 
   function place(rec) {
     const key = `${rec.site.id ?? rec.site.name}:${rec.id}`;
@@ -46,7 +48,7 @@ export function createStations(sc, runtime, { hud } = {}) {
     mesh.userData.station = rec;
     group.add(mesh);
     const e = { rec, mesh, key };
-    live.set(key, e);
+    live.set(key, e);runtime.physical?.changed();
     return e;
   }
 
@@ -59,7 +61,7 @@ export function createStations(sc, runtime, { hud } = {}) {
     }
     for (const [key, e] of live) {
       if (want.has(key)) continue;
-      group.remove(e.mesh); live.delete(key);
+      group.remove(e.mesh); live.delete(key);runtime.physical?.changed();
     }
   }
 
@@ -76,9 +78,10 @@ export function createStations(sc, runtime, { hud } = {}) {
 
   return {
     group, update, pick,
-    nearest(pos, r = STATION_REACH) {
+    nearest(pos, r = STATION_REACH, id = null) {
       let best = null, bestD = Infinity;
       for (const e of live.values()) {
+        if (id && e.rec.id !== id) continue;
         const d = Math.hypot(e.rec.x - pos.x, e.rec.z - pos.z);
         if (d < bestD && d <= r) { bestD = d; best = e.rec; }
       }
@@ -86,6 +89,6 @@ export function createStations(sc, runtime, { hud } = {}) {
     },
     nameOf: (id) => STATION[id]?.name ?? id,
     get count() { return live.size; },
-    dispose() { for (const e of live.values()) group.remove(e.mesh); live.clear(); sc.scene.remove(group); geo.dispose(); lidGeo.dispose(); },
+    dispose() { unregister?.();for (const e of live.values()) group.remove(e.mesh); live.clear(); sc.scene.remove(group); geo.dispose(); lidGeo.dispose();for(const mat of mats.values())mat.dispose();mats.clear(); },
   };
 }

@@ -11,7 +11,45 @@
   "runs": [],
   "areas": [],
   "people": [],
-  "spawns": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": -101.67,
+      "z": 4.48,
+      "encounter": "west-wood-boars",
+      "slot": "west-wood-boars:0"
+    },
+    {
+      "id": "boar",
+      "x": -111.67,
+      "z": 12.48,
+      "encounter": "west-wood-boars",
+      "slot": "west-wood-boars:1"
+    },
+    {
+      "id": "boar",
+      "x": -106.67,
+      "z": 22.48,
+      "encounter": "west-wood-boars",
+      "slot": "west-wood-boars:2"
+    },
+    {
+      "id": "wolf",
+      "x": -118.67,
+      "z": 18.48,
+      "night": true,
+      "encounter": "west-wood-boars",
+      "slot": "west-wood-boars:3"
+    },
+    {
+      "id": "wolf",
+      "x": -120.67,
+      "z": 29.48,
+      "night": true,
+      "encounter": "west-wood-boars",
+      "slot": "west-wood-boars:4"
+    }
+  ],
   "trees": [],
   "rocks": [],
   "markers": [],

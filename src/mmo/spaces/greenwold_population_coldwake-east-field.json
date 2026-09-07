@@ -1,0 +1,122 @@
+{
+  "id": "greenwold_population_coldwake-east-field",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -349,
+    "z": 766
+  },
+  "radius": 78,
+  "district": "coldwake",
+  "pieces": [
+    {
+      "model": "lw_gorse",
+      "x": -5.737602579105126,
+      "z": 19.28937315322212,
+      "scale": 1.5,
+      "yaw": 260,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_thistle_clump",
+      "x": -1.972019744723224,
+      "z": 17.609972689542186,
+      "scale": 1,
+      "yaw": 260,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_cowslip_patch",
+      "x": 12.107908078490983,
+      "z": -6.196657321718926,
+      "scale": 1.5,
+      "yaw": 260,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_rabbit_warren",
+      "x": -29.425261486989875,
+      "z": -17.150917946928388,
+      "scale": 1,
+      "yaw": 260,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": 3.71,
+      "z": 9.5,
+      "encounter": "coldwake-east-field:near",
+      "slot": "coldwake-east-field:0"
+    },
+    {
+      "id": "giantRat",
+      "x": -0.93,
+      "z": 6.26,
+      "encounter": "coldwake-east-field:near",
+      "slot": "coldwake-east-field:1"
+    },
+    {
+      "id": "giantRat",
+      "x": 4.46,
+      "z": 2.26,
+      "encounter": "coldwake-east-field:near",
+      "slot": "coldwake-east-field:2"
+    },
+    {
+      "id": "giantRat",
+      "x": -0.17,
+      "z": -0.98,
+      "encounter": "coldwake-east-field:near",
+      "slot": "coldwake-east-field:3"
+    },
+    {
+      "id": "thornGrub",
+      "x": -19.17,
+      "z": -10.84,
+      "encounter": "coldwake-east-field:rear",
+      "slot": "coldwake-east-field:4"
+    },
+    {
+      "id": "thornGrub",
+      "x": -22.01,
+      "z": -15.41,
+      "encounter": "coldwake-east-field:rear",
+      "slot": "coldwake-east-field:5"
+    },
+    {
+      "id": "thornGrub",
+      "x": -16.62,
+      "z": -19.41,
+      "encounter": "coldwake-east-field:rear",
+      "slot": "coldwake-east-field:6"
+    },
+    {
+      "id": "thornGrub",
+      "x": -12.8,
+      "z": -15.01,
+      "encounter": "coldwake-east-field:rear",
+      "slot": "coldwake-east-field:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "dandelion",
+      "x": 11.53,
+      "z": 19.29,
+      "count": 2
+    },
+    {
+      "id": "dandelion",
+      "x": 15.18,
+      "z": -11.82,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

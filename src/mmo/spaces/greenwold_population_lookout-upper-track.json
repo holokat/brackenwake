@@ -1,0 +1,182 @@
+{
+  "id": "greenwold_population_lookout-upper-track",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 848,
+    "z": -975
+  },
+  "radius": 78,
+  "district": "kingsroad",
+  "pieces": [
+    {
+      "model": "legion_tent",
+      "x": 7.554430661092393,
+      "z": 37.66869492545165,
+      "scale": 1.6,
+      "yaw": 460,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "legion_standard",
+      "x": 29.462216275483428,
+      "z": -3.997225554886729,
+      "scale": 1,
+      "yaw": 130,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_legion_barrier",
+      "x": -4.816276883054399,
+      "z": -14.484594470876836,
+      "scale": 1.3,
+      "yaw": 130,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "legion_crate",
+      "x": 13.859049924525351,
+      "z": 28.599418441456354,
+      "scale": 1,
+      "yaw": 130,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "brazier",
+      "x": 1.2325683343243865,
+      "z": 14.088320528055174,
+      "scale": 1,
+      "yaw": 130,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 38.41,
+      "z": 0.9,
+      "scale": 1.1,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 33.49,
+      "z": 17.65,
+      "scale": 0.9,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 24.73,
+      "z": 31.2,
+      "scale": 1.1,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 8.17,
+      "z": 44.71,
+      "scale": 1,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -9.35,
+      "z": 39.15,
+      "scale": 0.9,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 15.21,
+      "z": -29.01,
+      "scale": 1.1,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -2.47,
+      "z": -28.18,
+      "scale": 0.9,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -26.64,
+      "z": 3.75,
+      "scale": 0.95,
+      "yaw": 130,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "legionSoldier",
+      "x": 0.7,
+      "z": -13.15,
+      "encounter": "lookout-upper-track:near",
+      "slot": "lookout-upper-track:0"
+    },
+    {
+      "id": "legionSoldier",
+      "x": 13.79,
+      "z": 5.09,
+      "encounter": "lookout-upper-track:near",
+      "slot": "lookout-upper-track:1"
+    },
+    {
+      "id": "legionSoldier",
+      "x": -5.34,
+      "z": -9.07,
+      "encounter": "lookout-upper-track:near",
+      "slot": "lookout-upper-track:2"
+    },
+    {
+      "id": "legionSoldier",
+      "x": 7.76,
+      "z": 9.17,
+      "encounter": "lookout-upper-track:near",
+      "slot": "lookout-upper-track:3"
+    },
+    {
+      "id": "legionArcher",
+      "x": 4.02,
+      "z": 21.65,
+      "encounter": "lookout-upper-track:rear",
+      "slot": "lookout-upper-track:4"
+    },
+    {
+      "id": "legionArcher",
+      "x": 2.34,
+      "z": 26.77,
+      "encounter": "lookout-upper-track:rear",
+      "slot": "lookout-upper-track:5"
+    },
+    {
+      "id": "legionArcher",
+      "x": -4.18,
+      "z": 25.21,
+      "encounter": "lookout-upper-track:rear",
+      "slot": "lookout-upper-track:6"
+    },
+    {
+      "id": "legionArcher",
+      "x": -3.27,
+      "z": 19.45,
+      "encounter": "lookout-upper-track:rear",
+      "slot": "lookout-upper-track:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

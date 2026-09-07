@@ -1,0 +1,56 @@
+{
+  "id": "greenwold_encounter_chapel_ridge",
+  "name": "The ridge road",
+  "note": "",
+  "at": {
+    "x": -235,
+    "z": -875
+  },
+  "radius": 50,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "trees": [],
+  "rocks": [],
+  "people": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": -5,
+      "z": 7,
+      "encounter": "chapel-ridge-dogs",
+      "slot": "chapel-ridge-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": 3,
+      "z": 4,
+      "encounter": "chapel-ridge-dogs",
+      "slot": "chapel-ridge-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": 11,
+      "z": 11,
+      "encounter": "chapel-ridge-dogs",
+      "slot": "chapel-ridge-dogs:2"
+    },
+    {
+      "id": "skeleton",
+      "x": -3,
+      "z": -5,
+      "night": true,
+      "encounter": "chapel-ridge-dogs",
+      "slot": "chapel-ridge-dogs:3"
+    },
+    {
+      "id": "skeleton",
+      "x": 7,
+      "z": -3,
+      "night": true,
+      "encounter": "chapel-ridge-dogs",
+      "slot": "chapel-ridge-dogs:4"
+    }
+  ]
+}

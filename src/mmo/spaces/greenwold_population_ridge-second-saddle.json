@@ -1,0 +1,190 @@
+{
+  "id": "greenwold_population_ridge-second-saddle",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -337,
+    "z": -884
+  },
+  "radius": 78,
+  "district": "sunkenchapel",
+  "pieces": [
+    {
+      "model": "tent_ragged",
+      "x": 14.000000000000002,
+      "z": 12.999999999999998,
+      "scale": 1.8,
+      "yaw": 215,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "tent_ragged",
+      "x": -23.999999999999996,
+      "z": 30.000000000000004,
+      "scale": 1.8,
+      "yaw": 480,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "campfire",
+      "x": -8.999999999999998,
+      "z": 12.000000000000002,
+      "scale": 1,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_stolen_goods",
+      "x": -9.999999999999996,
+      "z": 27,
+      "scale": 1.2,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "weapons_rack",
+      "x": -28,
+      "z": 6.0000000000000036,
+      "scale": 1,
+      "yaw": 180,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_tripwire",
+      "x": 15.999999999999998,
+      "z": -12.000000000000002,
+      "scale": 1,
+      "yaw": 270,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 31,
+      "z": 15,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 24,
+      "z": 30,
+      "scale": 1.1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 8,
+      "z": 37,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -8,
+      "z": 39,
+      "scale": 1.1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -29,
+      "z": 35,
+      "scale": 1,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -36,
+      "z": 18,
+      "scale": 0.9,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -35,
+      "z": -3,
+      "scale": 0.85,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -20,
+      "z": -18,
+      "scale": 0.95,
+      "yaw": 180,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "goblinScout",
+      "x": 10,
+      "z": -2,
+      "encounter": "ridge-second-saddle:near",
+      "slot": "ridge-second-saddle:0"
+    },
+    {
+      "id": "goblinScout",
+      "x": 6,
+      "z": 2,
+      "encounter": "ridge-second-saddle:near",
+      "slot": "ridge-second-saddle:1"
+    },
+    {
+      "id": "goblinScout",
+      "x": 3,
+      "z": -4,
+      "encounter": "ridge-second-saddle:near",
+      "slot": "ridge-second-saddle:2"
+    },
+    {
+      "id": "goblinScout",
+      "x": -1,
+      "z": 0,
+      "encounter": "ridge-second-saddle:near",
+      "slot": "ridge-second-saddle:3"
+    },
+    {
+      "id": "bandit",
+      "x": -14,
+      "z": 17,
+      "encounter": "ridge-second-saddle:rear",
+      "slot": "ridge-second-saddle:4"
+    },
+    {
+      "id": "bandit",
+      "x": -19,
+      "z": 19,
+      "encounter": "ridge-second-saddle:rear",
+      "slot": "ridge-second-saddle:5"
+    },
+    {
+      "id": "bandit",
+      "x": -22,
+      "z": 13,
+      "encounter": "ridge-second-saddle:rear",
+      "slot": "ridge-second-saddle:6"
+    },
+    {
+      "id": "bandit",
+      "x": -17,
+      "z": 10,
+      "encounter": "ridge-second-saddle:rear",
+      "slot": "ridge-second-saddle:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

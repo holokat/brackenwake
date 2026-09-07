@@ -1420,7 +1420,7 @@ export function createBench(ctx = {}) {
   // ----------------------------------------------------------------- world
 
   function setTimeOfDay(t) {
-    const offset = clockOffsetFor(t, nowMs());
+    const offset = clockOffsetFor(t, ctx.worldNow?.() ?? nowMs());
     if (typeof ctx.sc?.setClockOffset !== 'function') {
       return {
         ok: false, offset,
@@ -1433,7 +1433,7 @@ export function createBench(ctx = {}) {
 
   /** What the clock reads right now, as a slider position. */
   function nowClock() {
-    const phase = ((num(nowMs()) / DAY_CYCLE_MS) + 0.12) % 1;
+    const phase = ((num(ctx.worldNow?.() ?? nowMs()) + num(ctx.sc?.clockOffset)) / DAY_CYCLE_MS + 0.12) % 1;
     return ((phase - 0.5) % 1 + 1) % 1;
   }
 
@@ -2007,6 +2007,17 @@ export const panel = {
     slider.addEventListener('change', () => bench.setTimeOfDay(Number(slider.value)));
     clock.appendChild(slider);
     clock.appendChild(clockLabel);
+
+    if(ctx.weather) {
+      const weatherRow=row('Weather','Preview a condition, or let the local climate change with time');
+      const select=h('select');select.setAttribute('aria-label','Weather');
+      for(const [value,label] of [['auto','Local climate'],['clear','Clear'],['overcast','Overcast'],['rain','Rain'],['snow','Snow'],['mist','Mist'],['dust','Dust']]) {
+        const option=h('option',null,label);option.value=value;select.appendChild(option);
+      }
+      select.value=ctx.weather.mode;
+      select.addEventListener('change',()=>{ctx.weather.setMode(select.value);say(ctx,select.value==='auto'?'Weather follows the local climate.':`${select.options[select.selectedIndex].text} preview is changing the sky.`);});
+      weatherRow.appendChild(select);
+    }
 
     const view = row('View');
     const flyBtn = btn(view, 'fly (F1)', () => { bench.toggleFly(); flyBtn.classList.toggle('on', !!ctx.dev?.on); });

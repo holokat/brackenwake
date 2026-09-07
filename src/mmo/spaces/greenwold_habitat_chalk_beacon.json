@@ -1,0 +1,71 @@
+{
+  "id": "greenwold_habitat_chalk_beacon",
+  "zone": "chalkpits",
+  "name": "The pit beacon",
+  "at": {
+    "x": -565,
+    "z": -1152
+  },
+  "note": "A brazier marks the rim above the last switchback.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_beacon_brazier",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_chalk_boulder",
+      "x": 5,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_gorse",
+      "x": -6,
+      "z": 4,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "pad": 15,
+  "effects": [
+    {
+      "id": "watch_fire",
+      "x": 0,
+      "z": 0,
+      "gate": "night",
+      "scale": 0.65,
+      "y": 1.3
+    }
+  ],
+  "lights": [
+    {
+      "x": 0,
+      "z": 0,
+      "y": 2.1,
+      "color": 16759153,
+      "power": 18,
+      "range": 14
+    }
+  ],
+  "approach": [
+    -547,
+    -1159
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

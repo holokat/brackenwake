@@ -1,0 +1,113 @@
+{
+  "id": "greenwold_grove_water_bank_lower",
+  "name": "Willow bank",
+  "note": "The water bank lower trees frame the nearby route.",
+  "at": {
+    "x": -487,
+    "z": -15
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": 27,
+      "z": 54,
+      "encounter": "water-bank-dogs",
+      "slot": "water-bank-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": 19,
+      "z": 58,
+      "encounter": "water-bank-dogs",
+      "slot": "water-bank-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": 12,
+      "z": 51,
+      "encounter": "water-bank-dogs",
+      "slot": "water-bank-dogs:2"
+    },
+    {
+      "id": "wolf",
+      "x": 9,
+      "z": 61,
+      "night": true,
+      "encounter": "water-bank-dogs",
+      "slot": "water-bank-dogs:3"
+    },
+    {
+      "id": "wolf",
+      "x": 23,
+      "z": 62,
+      "night": true,
+      "encounter": "water-bank-dogs",
+      "slot": "water-bank-dogs:4"
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": -20.18,
+      "z": 43.74,
+      "scale": 0.9,
+      "yaw": 70,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -5.99,
+      "z": 22.3,
+      "scale": 1.1,
+      "yaw": 117,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -5.55,
+      "z": -5.21,
+      "scale": 1.2,
+      "yaw": 164,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 11.54,
+      "z": -28.79,
+      "scale": 0.95,
+      "yaw": 211,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 10.61,
+      "z": -52.54,
+      "scale": 0.8,
+      "yaw": 258,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -31.36,
+      "z": 24.77,
+      "scale": 0.8,
+      "yaw": 305,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -16.14,
+      "z": -22.9,
+      "scale": 0.9,
+      "yaw": 352,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

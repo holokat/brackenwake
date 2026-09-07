@@ -1,0 +1,174 @@
+{
+  "id": "greenwold_population_chapel-upper-bank",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -181,
+    "z": -809
+  },
+  "radius": 78,
+  "district": "sunkenchapel",
+  "pieces": [
+    {
+      "model": "lw_drowned_wall",
+      "x": 20.07901627326847,
+      "z": 5.461969012894528,
+      "scale": 2,
+      "yaw": 160,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_drowned_wall",
+      "x": -17.84725760805481,
+      "z": 29.907781527083046,
+      "scale": 1.8,
+      "yaw": 250,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_headstone_row",
+      "x": -2.6394400570980796,
+      "z": 30.75765524523913,
+      "scale": 1,
+      "yaw": 160,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_headstone_row",
+      "x": -6.995883017701951,
+      "z": 33.40744858265338,
+      "scale": 1,
+      "yaw": 160,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 32.81,
+      "z": 19.98,
+      "scale": 1.1,
+      "yaw": 160,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 20.17,
+      "z": 32.03,
+      "scale": 0.9,
+      "yaw": 160,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 5.82,
+      "z": 39.38,
+      "scale": 1.1,
+      "yaw": 160,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -15.28,
+      "z": 42.81,
+      "scale": 1,
+      "yaw": 160,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -27.67,
+      "z": 29.23,
+      "scale": 0.9,
+      "yaw": 160,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 27.68,
+      "z": -17.52,
+      "scale": 1.1,
+      "yaw": 160,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -33.92,
+      "z": 9.15,
+      "scale": 0.85,
+      "yaw": 160,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 11.95,
+      "z": -25.63,
+      "scale": 0.9,
+      "yaw": 160,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "skeleton",
+      "x": 8.71,
+      "z": 3.7,
+      "encounter": "chapel-upper-bank:near",
+      "slot": "chapel-upper-bank:0"
+    },
+    {
+      "id": "skeleton",
+      "x": 4.22,
+      "z": 1.93,
+      "encounter": "chapel-upper-bank:near",
+      "slot": "chapel-upper-bank:1"
+    },
+    {
+      "id": "skeleton",
+      "x": -2.75,
+      "z": -0.58,
+      "encounter": "chapel-upper-bank:near",
+      "slot": "chapel-upper-bank:2"
+    },
+    {
+      "id": "skeleton",
+      "x": -0.94,
+      "z": 3.34,
+      "encounter": "chapel-upper-bank:near",
+      "slot": "chapel-upper-bank:3"
+    },
+    {
+      "id": "zombie",
+      "x": -7.34,
+      "z": 20.76,
+      "encounter": "chapel-upper-bank:rear",
+      "slot": "chapel-upper-bank:4"
+    },
+    {
+      "id": "zombie",
+      "x": -11.36,
+      "z": 24.35,
+      "encounter": "chapel-upper-bank:rear",
+      "slot": "chapel-upper-bank:5"
+    },
+    {
+      "id": "zombie",
+      "x": -16.23,
+      "z": 19.74,
+      "encounter": "chapel-upper-bank:rear",
+      "slot": "chapel-upper-bank:6"
+    },
+    {
+      "id": "zombie",
+      "x": -12.55,
+      "z": 15.21,
+      "encounter": "chapel-upper-bank:rear",
+      "slot": "chapel-upper-bank:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

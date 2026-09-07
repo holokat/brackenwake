@@ -30,7 +30,7 @@ import {
   brushModeOf, shiftTwins, groundColour, auditTints, PROP_HEIGHT, heightOf,
 } from './modes.js';
 import { MARKS, editorIcon, hasMark } from './icons.js';
-import { emptySpace } from '../../mmo/spaces/index.js';
+import { emptySpace, SPACES } from '../../mmo/spaces/index.js';
 import { auditSpaces } from '../../mmo/plans/plan_schema.js';
 import { FOOTPRINT } from '../../mmo/plans/footprints.js';
 import { ROCK_KIND_IDS } from '../../world/plan_models.js';
@@ -237,7 +237,7 @@ console.log('\neditor: what it does, through the same calls the buttons make');
   // automatic space for the 256 m tile it fell in, which is made on the spot.
   const spilled = ed.placeAt(300 + 60, -200);
   check('a click outside the open space makes the tile space and lands in it',
-    spilled.ok && spilled.made === true && spilled.space === 'tile_1_-1' && ed.space.id === 'tile_1_-1',
+    spilled.ok && spilled.made === !SPACES['tile_1_-1'] && spilled.space === 'tile_1_-1' && ed.space.id === 'tile_1_-1',
     spilled.text);
   ed.useDoc('the_ford_below');
 
@@ -816,8 +816,8 @@ console.log('\neditor: the nine trays are the palette, split and counted both wa
   const tall = P.structures.filter((r) => heightOf(r.id) >= PROP_HEIGHT);
   const small = P.structures.filter((r) => heightOf(r.id) < PROP_HEIGHT);
 
-  check('there are ten modes and their ids are the ten the sidebar draws',
-    MODE_IDS.join(',') === 'sculpt,paint,foliage,objects,buildings,creatures,people,markers,water,erase', MODE_IDS.join(','));
+  check('the hand tool precedes the ten authoring modes',
+    MODE_IDS.join(',') === 'select,sculpt,paint,foliage,objects,buildings,creatures,people,markers,water,erase', MODE_IDS.join(','));
   check('every mode has a mark drawn for it, and so does every action',
     MODES.every((m) => hasMark(m.icon)) && ACTIONS.every((a) => hasMark(a.icon)),
     MODES.filter((m) => !hasMark(m.icon)).map((m) => m.icon).join(','));
@@ -1201,8 +1201,8 @@ console.log('\neditor: the screen itself, over a document small enough to read')
   check('the five docks are the sidebar, the tray, the top, the card and the status strip',
     face.children.length === 5 && face.children.every((c) => c.className.includes('dock')),
     face.children.map((c) => c.className).join(' | '));
-  check('there is no form on it: five text fields on the whole screen, and none of them first',
-    findAll(face, (n) => n.tagName === 'INPUT' && n.type === 'text').length === 5,
+  check('global search adds one field above the existing tray and space controls',
+    findAll(face, (n) => n.tagName === 'INPUT' && n.type === 'text').length === 6,
     findAll(face, (n) => n.tagName === 'INPUT' && n.type === 'text').map((n) => n.placeholder || 'card').join(', '));
   check('and the space in hand can be named and widened from the corner, without one being needed',
     (() => {
@@ -1226,14 +1226,15 @@ console.log('\neditor: the screen itself, over a document small enough to read')
     && cells.map((c) => c.children[1].textContent).join(',')
       === [...MODES.map((m) => m.label), ...ACTIONS.map((a) => a.label)].join(','),
     cells.map((c) => c.children[1].textContent).join(','));
-  check('the ten modes carry their keys on their faces, 1 to 9 and then 0',
-    cells.slice(0, MODE_IDS.length).map((c) => c.children[2].textContent).join('') === '1234567890',
+  check('V selects the hand, and the authoring modes keep 1 to 9 and 0',
+    cells.slice(0, MODE_IDS.length).map((c) => c.children[2].textContent).join('') === 'v1234567890',
     cells.slice(0, MODE_IDS.length).map((c) => c.children[2].textContent).join(''));
   check('exactly one mode is lit, and it is the one that is up',
     cells.filter((c) => c.classList.contains('on')).length === 1
-    && cells[0].classList.contains('on') && panel._modeNow() === 'sculpt');
+    && cells[0].classList.contains('on') && panel._modeNow() === 'select');
 
   // ---- the tray changes with the mode ----------------------------------
+  panel._setMode('sculpt');
   const sculptTiles = tileIds();
   check('Sculpt shows one tile per sculpting brush the contract named',
     sculptTiles.join(',') === 'raise,a mountain,a ridge,a plateau,terraces,noise,erode',
@@ -1336,7 +1337,7 @@ console.log('\neditor: the screen itself, over a document small enough to read')
     })());
   panel._setMode('buildings');
   check('a placing mode has no sliders at all, only what to do next in words',
-    sliders(knobs).length === 0 && /Click the ground/.test(knobs.textContent));
+    sliders(knobs).length === 0 && /Preview the model/.test(knobs.textContent));
 
   // ---- the keys ---------------------------------------------------------
   check('1 to 9 and then 0 pick the ten modes, in the order the sidebar draws them',
@@ -1402,6 +1403,7 @@ console.log('\neditor: the screen with no terrain contract behind it');
   panel.build(root, ctx);
   const ed = panel._ed;
   panel._setLive(true);
+  panel._setMode('sculpt');
   panel._drawAll();
   check('the three brush trays say which half is missing, and show no tiles',
     panel._grid.children.length === 1 && /window.__bw.terrain/.test(panel._grid.textContent)

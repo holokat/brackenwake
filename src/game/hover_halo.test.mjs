@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import {createHoverHalo} from './hover_halo.js';
+const scene=new THREE.Scene(),halo=createHoverHalo(scene,(x,z)=>x*.1+z*.2);
+halo.show({x:2,z:3},1,{x:0,z:0});assert.equal(halo.mesh.visible,true);
+const p=halo.mesh.geometry.attributes.position;
+for(let i=0;i<p.count;i++)assert.ok(Math.abs(p.getY(i)-(p.getX(i)*.1+p.getZ(i)*.2+.055))<1e-6);
+halo.show(null);assert.equal(halo.mesh.visible,false);assert.equal(halo.target,null);
+halo.show({x:40,z:0},1,{x:0,z:0});assert.equal(halo.mesh.visible,false);
+halo.show({x:2,z:3});halo.clear();assert.equal(halo.mesh.visible,false);
+let freed=0;halo.mesh.geometry.addEventListener('dispose',()=>freed++);halo.mesh.material.addEventListener('dispose',()=>freed++);halo.dispose();assert.equal(scene.children.length,0);assert.equal(freed,2);
+console.log('Hover halo: ground conformance, target loss, distance cutoff and GPU cleanup passed.');

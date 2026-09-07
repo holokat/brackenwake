@@ -1635,7 +1635,7 @@ export function createCreation(root, deps = {}) {
     try {
       rig = buildCharacter();
       rig.group.position.set(0, DAIS.height, 0);
-      rig.group.scale.setScalar(state.appearance.height / 1.8);
+      rig.setAppearance?.(state.appearance);
       sc.scene.add(rig.group);
       dressPreview();
 

@@ -1,0 +1,124 @@
+{
+  "id": "tile_-8_1",
+  "name": "Tile -8, 1",
+  "note": "",
+  "at": {
+    "x": -1920,
+    "z": 384
+  },
+  "radius": 182,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "dead",
+      "x": 32.38,
+      "z": 80.16,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "dead",
+      "x": 18.64,
+      "z": 46.9,
+      "yaw": 54,
+      "scale": 1.14
+    },
+    {
+      "species": "dead",
+      "x": 5.43,
+      "z": 36.99,
+      "yaw": 54,
+      "scale": 1.02
+    },
+    {
+      "species": "dead",
+      "x": 0.97,
+      "z": 32,
+      "yaw": 293,
+      "scale": 0.92
+    },
+    {
+      "species": "dead",
+      "x": 2.86,
+      "z": 37.59,
+      "yaw": 124,
+      "scale": 1.04
+    },
+    {
+      "species": "dead",
+      "x": 17.17,
+      "z": 44.21,
+      "yaw": 354,
+      "scale": 1.29
+    },
+    {
+      "species": "dead",
+      "x": 17.31,
+      "z": 43.98,
+      "yaw": 36,
+      "scale": 1.2
+    },
+    {
+      "species": "dead",
+      "x": -0.47,
+      "z": 41.14,
+      "yaw": 197,
+      "scale": 1.19
+    },
+    {
+      "species": "dead",
+      "x": 16.82,
+      "z": 43.9,
+      "yaw": 51,
+      "scale": 1
+    },
+    {
+      "species": "dead",
+      "x": 14.85,
+      "z": 38.64,
+      "yaw": 283,
+      "scale": 1.06
+    },
+    {
+      "species": "dead",
+      "x": 7.69,
+      "z": 49.05,
+      "yaw": 71,
+      "scale": 1.04
+    },
+    {
+      "species": "dead",
+      "x": 8.24,
+      "z": 49.3,
+      "yaw": 76,
+      "scale": 1.19
+    },
+    {
+      "species": "dead",
+      "x": 13.53,
+      "z": 33.59,
+      "yaw": 85,
+      "scale": 0.88
+    },
+    {
+      "species": "dead",
+      "x": 14.92,
+      "z": 47.74,
+      "yaw": 146,
+      "scale": 1.11
+    },
+    {
+      "species": "dead",
+      "x": 16.34,
+      "z": 43.82,
+      "yaw": 244,
+      "scale": 1.16
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

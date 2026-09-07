@@ -11,7 +11,44 @@
   "runs": [],
   "areas": [],
   "people": [],
-  "spawns": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": -53,
+      "z": 5,
+      "encounter": "quarry-climb-grubs",
+      "slot": "quarry-climb-grubs:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": -48,
+      "z": -4,
+      "encounter": "quarry-climb-grubs",
+      "slot": "quarry-climb-grubs:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": -45,
+      "z": 0,
+      "encounter": "quarry-climb-grubs",
+      "slot": "quarry-climb-grubs:2"
+    },
+    {
+      "id": "thornGrub",
+      "x": -43,
+      "z": -12,
+      "encounter": "quarry-climb-grubs",
+      "slot": "quarry-climb-grubs:3"
+    },
+    {
+      "id": "skeleton",
+      "x": -38,
+      "z": -12,
+      "night": true,
+      "encounter": "quarry-climb-grubs",
+      "slot": "quarry-climb-grubs:4"
+    }
+  ],
   "trees": [
     {
       "species": "beech",

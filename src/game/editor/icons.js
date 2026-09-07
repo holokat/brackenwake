@@ -12,6 +12,7 @@
 
 /** Every mark, as the body of an svg. Stroked, never filled. */
 export const MARKS = {
+  hand: '<path d="M7 12 V5 a1.5 1.5 0 0 1 3 0 v6 -8 a1.5 1.5 0 0 1 3 0 v8 -7 a1.5 1.5 0 0 1 3 0 v7 -5 a1.5 1.5 0 0 1 3 0 v8 c0 4 -2 6 -6 6 h-1 c-2 0 -3 -1 -4 -3 l-4 -5 a1.5 1.5 0 0 1 2 -2 l3 3" />',
   // the ten modes
   sculpt: '<path d="M3 19 L9 9 l4 5 3 -4 5 9 z M12 3 v3 M9 5 l1.5 2 M15 5 l-1.5 2" />',
   paint: '<path d="M6 3 h12 v5 H6 z M12 8 v4 M10 12 h4 v4 h-4 z M12 16 v5" />',

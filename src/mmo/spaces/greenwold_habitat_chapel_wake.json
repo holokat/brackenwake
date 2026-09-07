@@ -1,0 +1,66 @@
+{
+  "id": "greenwold_habitat_chapel_wake",
+  "zone": "sunkenchapel",
+  "name": "The chapel graves",
+  "at": {
+    "x": -40,
+    "z": -962
+  },
+  "note": "Cold motes hang beside the outer graves after sunset.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_ivy_stump",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_rushes",
+      "x": -3,
+      "z": 6,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "effects": [
+    {
+      "id": "mist_bank",
+      "x": -3,
+      "z": 2,
+      "gate": "night",
+      "scale": 1.5,
+      "y": 0
+    },
+    {
+      "id": "fireflies",
+      "x": 0,
+      "z": 0,
+      "gate": "night",
+      "scale": 0.8,
+      "y": 0
+    }
+  ],
+  "lights": [
+    {
+      "x": 0,
+      "z": 0,
+      "y": 0.8,
+      "color": 7973826,
+      "power": 5,
+      "range": 11
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [],
+  "forage": [],
+  "stations": []
+}

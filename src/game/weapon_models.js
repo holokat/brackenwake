@@ -822,7 +822,7 @@ export const LENGTHS = {
   wand: 0.37, staff: 2.00,
   shortbow: 1.20, longbow: 1.70, crossbow: 0.75, throwing_knives: 0.28,
   // shields, measured tall
-  buckler: 0.40, kite: 0.90, tower: 1.20,
+  buckler: 0.40, kite: 0.90, heater: 0.70, tower: 1.20,
   // oddments
   torch: 0.50, tome: 0.30, holy_book: 0.30, skull: 0.17, lute: 0.90,
   pickaxe: 0.90, tongs: 0.50, smith_hammer: 0.40, lockpick: 0.13, skinning_knife: 0.24,
@@ -1246,6 +1246,16 @@ const RECIPES = {
     g.add(mesh(strap, c.wrap));
     c.rune(g, -0.30, 0.34, 0.03, 0.03);
     return g;
+  },
+
+  heater: (c) => {
+    const g = new THREE.Group(), s = new THREE.Shape();
+    s.moveTo(-.24,.30);s.lineTo(.24,.30);s.lineTo(.21,-.08);
+    s.quadraticCurveTo(.14,-.23,0,-.40);s.quadraticCurveTo(-.14,-.23,-.21,-.08);s.closePath();
+    g.add(shieldFace(s,.024,.04,c.metal));
+    const strap = new THREE.TorusGeometry(.055,.010,6,12,Math.PI);
+    strap.rotateY(Math.PI/2);strap.translate(0,.06,-.035);g.add(mesh(strap,c.wrap));
+    c.rune(g,0,.15,.05,.03);return g;
   },
 
   tower: (c) => {

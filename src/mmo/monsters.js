@@ -1,3 +1,4 @@
+import {MONSTER_HEALTH_FACTOR} from './combat_pace.js';
 // Monsters: every row of `docs/mmo/05-WORLD-CONTENT.md`, where they live, and
 // the rules that turn a place and a clock into a spawn. Pure data and pure
 // functions: no THREE, no DOM, no imports. Every roll takes an `rng` so a
@@ -217,7 +218,8 @@ export const NOTE_TAGS = new Set(Object.keys(NOTE_TAG_MEANING));
 // "never flees" (it is undead anyway) and the Vampire Knight "flees to a coffin
 // at 20%" despite being undead.
 const rows = [];
-const M = (r) => { rows.push(r); return r; };
+// More frequent player attacks are balanced with health, preserving enemy telegraphs.
+const M = (r) => { const tuned={...r,baseHp:r.hp,hp:r.tier>0?Math.round(r.hp*MONSTER_HEALTH_FACTOR):r.hp};rows.push(tuned);return tuned; };
 
 // --- Tier 0, critters. "Never attack first. Flee at any damage. No gold.
 // Rabbit, squirrel, deer, gull, frog, crow, field mouse. 1 to 8 health. Drop
@@ -1386,7 +1388,7 @@ export function auditMonsters() {
     }
 
     if (m.boss) {
-      const hpBand = BOSS_HP_BY_RANK[rank];
+      const hpBand = BOSS_HP_BY_RANK[rank]?.map(hp=>Math.round(hp*MONSTER_HEALTH_FACTOR));
       const goldBand = BOSS_GOLD_BY_RANK[rank];
       if (!hpBand) bad.push(`${at2}: no health band for boss rank ${rank}`);
       else if (!(m.hp >= hpBand[0] && m.hp <= hpBand[1])) bad.push(`${at2}: boss hp ${m.hp} outside rank ${rank}'s ${hpBand[0]} to ${hpBand[1]}`);

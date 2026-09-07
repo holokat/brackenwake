@@ -1,0 +1,240 @@
+{
+  "id": "greenwold_grove_mill_west_thicket",
+  "name": "Beech stand",
+  "note": "The mill west thicket trees frame the nearby route.",
+  "at": {
+    "x": -1161,
+    "z": -343
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": 66,
+      "z": 11,
+      "encounter": "mill-thicket-dogs",
+      "slot": "mill-thicket-dogs:0"
+    },
+    {
+      "id": "wildDog",
+      "x": 58,
+      "z": 18,
+      "encounter": "mill-thicket-dogs",
+      "slot": "mill-thicket-dogs:1"
+    },
+    {
+      "id": "wildDog",
+      "x": 49,
+      "z": 13,
+      "encounter": "mill-thicket-dogs",
+      "slot": "mill-thicket-dogs:2"
+    },
+    {
+      "id": "wildDog",
+      "x": 51,
+      "z": 2,
+      "encounter": "mill-thicket-dogs",
+      "slot": "mill-thicket-dogs:3"
+    },
+    {
+      "id": "wolf",
+      "x": 45,
+      "z": 5,
+      "night": true,
+      "encounter": "mill-thicket-dogs",
+      "slot": "mill-thicket-dogs:4"
+    },
+    {
+      "id": "wolf",
+      "x": 46,
+      "z": -2,
+      "night": true,
+      "encounter": "mill-thicket-dogs",
+      "slot": "mill-thicket-dogs:5"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -44,
+      "z": -34,
+      "scale": 1,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -26,
+      "z": -42,
+      "scale": 1.2,
+      "yaw": 47,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -4,
+      "z": -36,
+      "scale": 1.3,
+      "yaw": 94,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 20,
+      "z": -43,
+      "scale": 1.1,
+      "yaw": 141,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 43,
+      "z": -30,
+      "scale": 0.95,
+      "yaw": 188,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -51,
+      "z": -10,
+      "scale": 1.15,
+      "yaw": 235,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -30,
+      "z": -15,
+      "scale": 1.05,
+      "yaw": 282,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -10,
+      "z": -10,
+      "scale": 1.25,
+      "yaw": 329,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 15,
+      "z": -19,
+      "scale": 1.3,
+      "yaw": 16,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 37,
+      "z": -9,
+      "scale": 1.1,
+      "yaw": 63,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 53,
+      "z": 11,
+      "scale": 0.85,
+      "yaw": 110,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -47,
+      "z": 16,
+      "scale": 0.95,
+      "yaw": 157,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -24,
+      "z": 10,
+      "scale": 1.2,
+      "yaw": 204,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 2,
+      "z": 16,
+      "scale": 1.15,
+      "yaw": 251,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 27,
+      "z": 14,
+      "scale": 1.05,
+      "yaw": 298,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -34,
+      "z": 36,
+      "scale": 1.1,
+      "yaw": 345,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -12,
+      "z": 41,
+      "scale": 0.85,
+      "yaw": 32,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 14,
+      "z": 37,
+      "scale": 1.15,
+      "yaw": 79,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 39,
+      "z": 33,
+      "scale": 1,
+      "yaw": 126,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -57,
+      "z": 38,
+      "scale": 0.8,
+      "yaw": 173,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 4,
+      "z": 60,
+      "scale": 0.9,
+      "yaw": 220,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 59,
+      "z": -17,
+      "scale": 0.8,
+      "yaw": 267,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

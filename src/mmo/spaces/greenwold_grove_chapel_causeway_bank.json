@@ -1,0 +1,18 @@
+{
+  "id": "greenwold_grove_chapel_causeway_bank",
+  "name": "Willow bank",
+  "note": "The chapel causeway bank trees frame the nearby route.",
+  "at": {
+    "x": -114,
+    "z": -865
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [],
+  "rocks": [],
+  "markers": []
+}

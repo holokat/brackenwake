@@ -280,7 +280,10 @@ export function plannedSpawnsForChunk(field, cx, cz, sites, night) {
     plannedSpawnsFor(s.sub, night).forEach((sp, i) => {
       const x = s.x + sp.x, z = s.z + sp.z;
       if (x < x0 || x >= x0 + CHUNK || z < z0 || z >= z0 + CHUNK) return;
-      out.push({ id: sp.id, cx, cz, i, groupKey: `${s.id}:plan`, night, key: `${s.id}:plan:${i}`, x, z, y: field.sampleAt(x, z).h });
+      // Authored packs share aggro only with their own encounter, and retain
+      // their slot identity when a night-only neighbour enters or leaves.
+      const groupKey = sp.encounter ? `${s.id}:encounter:${sp.encounter}` : `${s.id}:plan`;
+      out.push({ id: sp.id, cx, cz, i, groupKey, night, key: `${s.id}:plan:${sp.slot ?? i}`, x, z, y: field.sampleAt(x, z).h, elite:!!sp.elite, title:sp.title, rallyRadius:sp.rallyRadius });
     });
   }
   return out;
@@ -453,6 +456,11 @@ export function stepToward(pos, to, speed, dt, heightAt, clampXZ) {
     const c = clampXZ(x, z);
     if (Array.isArray(c)) { x = num(c[0]); z = num(c[1]); }
     else if (c && typeof c === 'object') { x = num(c.x); z = num(c.z); }
+  }
+  if(heightAt?.canMove && !heightAt.canMove(pos,{x,y:heightAt(x,z),z})) {
+    if(heightAt.canMove(pos,{x,y:heightAt(x,pos.z),z:pos.z}))z=pos.z;
+    else if(heightAt.canMove(pos,{x:pos.x,y:heightAt(pos.x,z),z}))x=pos.x;
+    else{x=pos.x;z=pos.z;}
   }
   const moved = Math.hypot(x - num(pos.x), z - num(pos.z));
   const y = typeof heightAt === 'function' ? num(heightAt(x, z)) : num(pos.y);
@@ -821,6 +829,7 @@ export function createMonsters(sc, runtime, opts = {}) {
   const effects = opts.effects || null;
   const actorFactory = typeof opts.actorFactory === 'function' ? opts.actorFactory : makeMonsterActor;
   const heightAt = (x, z) => (typeof runtime?.heightAt === 'function' ? runtime.heightAt(x, z) : 0);
+  heightAt.canMove=(a,b)=>runtime?.physical?.canMove(a,b)??true;
   const sitesNear = (x, z, r) => (typeof runtime?.sitesNear === 'function' ? runtime.sitesNear(x, z, r) : []);
   const cap = opts.cap ?? ALIVE_CAP;
   const ring = opts.ring ?? NEAR_RING;
@@ -896,6 +905,8 @@ export function createMonsters(sc, runtime, opts = {}) {
     const y = heightAt(rec.x, rec.z);
     const actor = actorFactory(rec.id, { pos: { x: rec.x, y, z: rec.z }, key: rec.key, row, rec });
     if (!actor) return null;
+    if(rec.elite){actor.health*=2;actor.maxHealth*=2;}
+    if(rec.title)actor.name=rec.title;
 
     // Defensive filling, and only of things `combat_rules.js` reads by name.
     // W1's spawnMonster owns these; if it already set them nothing here fires.
@@ -932,7 +943,7 @@ export function createMonsters(sc, runtime, opts = {}) {
 
     const tags = new Set(row.notes || []);
     const mon = {
-      key: rec.key, rec, row, actor, model, id: rec.id, name: row.name,
+      key: rec.key, rec, row, actor, model, id: rec.id, name: rec.title||row.name,
       poison: poisonLevelOf(row), shares: sharesAggro(row),
       groupKey: rec.groupKey, lastSpeed: 0,
       mode, meleeReach, flyer: isFlyer(row), boss: isBoss(row), spell: spellFor(row),
@@ -2362,7 +2373,8 @@ export function createMonsters(sc, runtime, opts = {}) {
       // like a monster that flickers rather than one that is waiting.
       if (other.dormant || other.hidden) continue;
       if (!(other.shares || other.groupKey === mon.groupKey)) continue;
-      if (dist2D(other.actor.pos, mon.actor.pos) > GROUP_AGGRO_M) continue;
+      const rally=other.groupKey===mon.groupKey?Math.max(GROUP_AGGRO_M,Math.min(18,mon.rec.rallyRadius||0)):GROUP_AGGRO_M;
+      if (dist2D(other.actor.pos, mon.actor.pos) > rally) continue;
       other.actor.ai.target = target;
       other.actor.ai.state = 'chase';
     }

@@ -1,0 +1,130 @@
+{
+  "id": "greenwold_habitat_fern_hollow",
+  "zone": "beechhangar",
+  "name": "The fern hollow",
+  "at": {
+    "x": -1118,
+    "z": 119
+  },
+  "note": "Ferns crowd the damp side of the hollow way. Edible shoots grow beside the bank.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_bracken",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_bracken",
+      "x": -5,
+      "z": 4,
+      "yaw": 35,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_ivy_stump",
+      "x": 5,
+      "z": 6,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_leaf_litter",
+      "x": 0,
+      "z": 10,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "forage": [
+    {
+      "id": "fiddlehead",
+      "x": 4,
+      "z": 11,
+      "count": 2
+    },
+    {
+      "id": "wild_garlic",
+      "x": -7,
+      "z": 10,
+      "count": 2
+    }
+  ],
+  "effects": [
+    {
+      "id": "woodland_shafts",
+      "x": 0,
+      "z": 5,
+      "gate": "fair",
+      "scale": 1.6,
+      "y": 0
+    },
+    {
+      "id": "fireflies",
+      "x": -5,
+      "z": 4,
+      "gate": "night",
+      "scale": 1.5,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": -10,
+      "z": -16,
+      "encounter": "fern-hollow-grubs",
+      "slot": "fern-hollow-grubs:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": -8,
+      "z": -8,
+      "encounter": "fern-hollow-grubs",
+      "slot": "fern-hollow-grubs:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": -7,
+      "z": 1,
+      "encounter": "fern-hollow-grubs",
+      "slot": "fern-hollow-grubs:2"
+    },
+    {
+      "id": "thornGrub",
+      "x": -6,
+      "z": 9,
+      "encounter": "fern-hollow-grubs",
+      "slot": "fern-hollow-grubs:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": -4,
+      "z": -3,
+      "night": true,
+      "encounter": "fern-hollow-grubs",
+      "slot": "fern-hollow-grubs:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": -4,
+      "z": 16,
+      "night": true,
+      "encounter": "fern-hollow-grubs",
+      "slot": "fern-hollow-grubs:5"
+    }
+  ],
+  "stations": []
+}

@@ -1,0 +1,145 @@
+{
+  "id": "greenwold_population_hay-lane-bend",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -884,
+    "z": -350
+  },
+  "radius": 78,
+  "district": "millrun",
+  "pieces": [
+    {
+      "model": "lw_ivy_stump",
+      "x": -7.427722063657435,
+      "z": 17.60195855423642,
+      "scale": 1.4,
+      "yaw": 250,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_leaf_litter",
+      "x": 13.501167927767113,
+      "z": 7.856110016174206,
+      "scale": 2,
+      "yaw": 250,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -42.81,
+      "z": -15.28,
+      "scale": 1,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 25.63,
+      "z": 11.95,
+      "scale": 0.9,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 10.07,
+      "z": -24.95,
+      "scale": 0.95,
+      "yaw": 250,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "badger",
+      "x": 5.3,
+      "z": 8.71,
+      "encounter": "hay-lane-bend:near",
+      "slot": "hay-lane-bend:0"
+    },
+    {
+      "id": "badger",
+      "x": 0.17,
+      "z": 6.32,
+      "encounter": "hay-lane-bend:near",
+      "slot": "hay-lane-bend:1"
+    },
+    {
+      "id": "badger",
+      "x": 4.78,
+      "z": 1.45,
+      "encounter": "hay-lane-bend:near",
+      "slot": "hay-lane-bend:2"
+    },
+    {
+      "id": "badger",
+      "x": -0.34,
+      "z": -0.94,
+      "encounter": "hay-lane-bend:near",
+      "slot": "hay-lane-bend:3"
+    },
+    {
+      "id": "giantSpider",
+      "x": -11.76,
+      "z": -7.34,
+      "encounter": "hay-lane-bend:rear",
+      "slot": "hay-lane-bend:4"
+    },
+    {
+      "id": "giantSpider",
+      "x": -28.55,
+      "z": -15.56,
+      "encounter": "hay-lane-bend:rear",
+      "slot": "hay-lane-bend:5"
+    },
+    {
+      "id": "giantSpider",
+      "x": -21.84,
+      "z": -18.33,
+      "encounter": "hay-lane-bend:rear",
+      "slot": "hay-lane-bend:6"
+    },
+    {
+      "id": "giantSpider",
+      "x": -15.21,
+      "z": -21.55,
+      "encounter": "hay-lane-bend:rear",
+      "slot": "hay-lane-bend:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "oyster_mushroom",
+      "x": -42.81,
+      "z": -15.28,
+      "tree": {
+        "x": -42.81,
+        "z": -15.28,
+        "scale": 1
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    },
+    {
+      "id": "oyster_mushroom",
+      "x": 25.63,
+      "z": 11.95,
+      "tree": {
+        "x": 25.63,
+        "z": 11.95,
+        "scale": 0.9
+      },
+      "yaw": 90,
+      "height": 0.9,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

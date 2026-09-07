@@ -1,0 +1,105 @@
+{
+  "id": "greenwold_grove_water_bank_middle",
+  "name": "Willow bank",
+  "note": "The water bank middle trees frame the nearby route.",
+  "at": {
+    "x": -784,
+    "z": -148
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "thornGrub",
+      "x": 12,
+      "z": 39,
+      "encounter": "water-lane-grubs",
+      "slot": "water-lane-grubs:0"
+    },
+    {
+      "id": "thornGrub",
+      "x": 3,
+      "z": 32,
+      "encounter": "water-lane-grubs",
+      "slot": "water-lane-grubs:1"
+    },
+    {
+      "id": "thornGrub",
+      "x": 7,
+      "z": 36,
+      "encounter": "water-lane-grubs",
+      "slot": "water-lane-grubs:2"
+    },
+    {
+      "id": "wisp",
+      "x": -7,
+      "z": 27,
+      "night": true,
+      "encounter": "water-lane-grubs",
+      "slot": "water-lane-grubs:3"
+    },
+    {
+      "id": "wisp",
+      "x": -5,
+      "z": 53,
+      "night": true,
+      "encounter": "water-lane-grubs",
+      "slot": "water-lane-grubs:4"
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": -30.81,
+      "z": 37.02,
+      "scale": 0.9,
+      "yaw": 55,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -11.55,
+      "z": 19.99,
+      "scale": 1.1,
+      "yaw": 102,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -4.01,
+      "z": -6.47,
+      "scale": 1.2,
+      "yaw": 149,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 18.6,
+      "z": -24.82,
+      "scale": 0.95,
+      "yaw": 196,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 23.85,
+      "z": -48,
+      "scale": 0.8,
+      "yaw": 243,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -9.66,
+      "z": -26.3,
+      "scale": 0.9,
+      "yaw": 337,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

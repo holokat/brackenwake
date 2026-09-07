@@ -1,0 +1,114 @@
+{
+  "id": "greenwold_population_coldwake-upper-down",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": -242,
+    "z": 897
+  },
+  "radius": 78,
+  "district": "coldwake",
+  "pieces": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 1.34,
+      "z": 32.73,
+      "scale": 1.1,
+      "yaw": 280,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 16.22,
+      "z": 23.17,
+      "scale": 0.9,
+      "yaw": 280,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 21.2,
+      "z": -16.57,
+      "scale": 0.95,
+      "yaw": 280,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": 3.23,
+      "z": 10.2,
+      "encounter": "coldwake-upper-down:near",
+      "slot": "coldwake-upper-down:0"
+    },
+    {
+      "id": "boar",
+      "x": 5.99,
+      "z": 5.56,
+      "encounter": "coldwake-upper-down:near",
+      "slot": "coldwake-upper-down:1"
+    },
+    {
+      "id": "boar",
+      "x": 5.52,
+      "z": 1.55,
+      "encounter": "coldwake-upper-down:near",
+      "slot": "coldwake-upper-down:2"
+    },
+    {
+      "id": "boar",
+      "x": 4.37,
+      "z": -5.18,
+      "encounter": "coldwake-upper-down:near",
+      "slot": "coldwake-upper-down:3"
+    },
+    {
+      "id": "wolf",
+      "x": 3.69,
+      "z": -16.74,
+      "encounter": "coldwake-upper-down:rear",
+      "slot": "coldwake-upper-down:4"
+    },
+    {
+      "id": "wolf",
+      "x": -12.41,
+      "z": -22.01,
+      "encounter": "coldwake-upper-down:rear",
+      "slot": "coldwake-upper-down:5"
+    },
+    {
+      "id": "wolf",
+      "x": -13.18,
+      "z": -28.12,
+      "encounter": "coldwake-upper-down:rear",
+      "slot": "coldwake-upper-down:6"
+    },
+    {
+      "id": "wolf",
+      "x": -0.9,
+      "z": -18.48,
+      "encounter": "coldwake-upper-down:rear",
+      "slot": "coldwake-upper-down:7"
+    }
+  ],
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": 4.23,
+      "z": 22.07,
+      "count": 2
+    },
+    {
+      "id": "blackberry",
+      "x": 18.3,
+      "z": -5.91,
+      "count": 2
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

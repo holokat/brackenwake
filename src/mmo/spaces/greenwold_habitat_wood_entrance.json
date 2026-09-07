@@ -1,0 +1,94 @@
+{
+  "id": "greenwold_habitat_wood_entrance",
+  "zone": "beechhangar",
+  "name": "The wood entrance",
+  "at": {
+    "x": -1111,
+    "z": -177
+  },
+  "note": "Coppiced stools and stacked timber mark the change from mill lane to working wood.",
+  "radius": 42,
+  "pieces": [
+    {
+      "model": "lw_coppice_stool",
+      "x": -7,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_log_pile",
+      "x": 0,
+      "z": 0,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_bracken",
+      "x": 0,
+      "z": 8,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lw_foxglove",
+      "x": 7,
+      "z": 8,
+      "yaw": 0,
+      "scale": 1,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "effects": [
+    {
+      "id": "falling_leaves",
+      "x": 0,
+      "z": 5,
+      "gate": "always",
+      "scale": 1.5,
+      "y": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": -16,
+      "z": 13,
+      "encounter": "wood-entrance-boars",
+      "slot": "wood-entrance-boars:0"
+    },
+    {
+      "id": "boar",
+      "x": -24,
+      "z": 6,
+      "encounter": "wood-entrance-boars",
+      "slot": "wood-entrance-boars:1"
+    },
+    {
+      "id": "boar",
+      "x": -17,
+      "z": 23,
+      "encounter": "wood-entrance-boars",
+      "slot": "wood-entrance-boars:2"
+    },
+    {
+      "id": "giantSpider",
+      "x": -26,
+      "z": 17,
+      "night": true,
+      "encounter": "wood-entrance-boars",
+      "slot": "wood-entrance-boars:3"
+    }
+  ],
+  "forage": [],
+  "stations": []
+}

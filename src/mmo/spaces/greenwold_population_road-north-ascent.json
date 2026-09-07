@@ -1,0 +1,158 @@
+{
+  "id": "greenwold_population_road-north-ascent",
+  "name": "Greenwold countryside",
+  "at": {
+    "x": 1076,
+    "z": -1169
+  },
+  "radius": 78,
+  "district": "kingsroad",
+  "pieces": [
+    {
+      "model": "legion_tent",
+      "x": 21.009223958650324,
+      "z": -3.257684554292098,
+      "scale": 1.6,
+      "yaw": 160,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "legion_standard",
+      "x": 29.462216275483428,
+      "z": -3.997225554886729,
+      "scale": 1,
+      "yaw": 130,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "lw_legion_barrier",
+      "x": -4.816276883054399,
+      "z": -14.484594470876836,
+      "scale": 1.3,
+      "yaw": 130,
+      "tag": "greenwold-population"
+    },
+    {
+      "model": "brazier",
+      "x": 1.2325683343243865,
+      "z": 14.088320528055174,
+      "scale": 1,
+      "yaw": 130,
+      "tag": "greenwold-population"
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 31.42,
+      "z": -14.11,
+      "scale": 0.9,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 38.41,
+      "z": 0.9,
+      "scale": 1.1,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 15.21,
+      "z": -29.01,
+      "scale": 1.1,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -24.8,
+      "z": 24.88,
+      "scale": 0.85,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -2.47,
+      "z": -28.18,
+      "scale": 0.9,
+      "yaw": 130,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -26.64,
+      "z": 3.75,
+      "scale": 0.95,
+      "yaw": 130,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "spawns": [
+    {
+      "id": "legionSoldier",
+      "x": 4.9,
+      "z": -8.95,
+      "encounter": "road-north-ascent:near",
+      "slot": "road-north-ascent:0"
+    },
+    {
+      "id": "legionSoldier",
+      "x": 5.39,
+      "z": -3.31,
+      "encounter": "road-north-ascent:near",
+      "slot": "road-north-ascent:1"
+    },
+    {
+      "id": "legionSoldier",
+      "x": -1.14,
+      "z": -4.87,
+      "encounter": "road-north-ascent:near",
+      "slot": "road-north-ascent:2"
+    },
+    {
+      "id": "legionSoldier",
+      "x": -0.64,
+      "z": 0.77,
+      "encounter": "road-north-ascent:near",
+      "slot": "road-north-ascent:3"
+    },
+    {
+      "id": "legionArcher",
+      "x": 4.02,
+      "z": 21.65,
+      "encounter": "road-north-ascent:rear",
+      "slot": "road-north-ascent:4"
+    },
+    {
+      "id": "legionArcher",
+      "x": 2.34,
+      "z": 26.77,
+      "encounter": "road-north-ascent:rear",
+      "slot": "road-north-ascent:5"
+    },
+    {
+      "id": "legionArcher",
+      "x": -4.18,
+      "z": 25.21,
+      "encounter": "road-north-ascent:rear",
+      "slot": "road-north-ascent:6"
+    },
+    {
+      "id": "legionArcher",
+      "x": -3.27,
+      "z": 19.45,
+      "encounter": "road-north-ascent:rear",
+      "slot": "road-north-ascent:7"
+    }
+  ],
+  "forage": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "markers": []
+}

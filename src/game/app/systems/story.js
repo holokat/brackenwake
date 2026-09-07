@@ -25,7 +25,8 @@ import { createWaystones, waystonesFrom, panel as waystonePanel } from '../../wa
 import { authoredSites } from '../../../world/zones.js';
 import { spaceStoneRows } from '../../../mmo/greenwold/places.js';
 import { createChapelEncounter } from '../../../mmo/greenwold/chapel_encounter.js';
-import { buildCharacter } from '../../player.js';
+import {buildStudioNpc as buildCharacter} from '../../studio/npcs.js';
+import {createStrongholdEncounters} from '../../stronghold_encounters.js';
 
 export const story = {
   name: 'story',
@@ -58,7 +59,7 @@ export const story = {
       player.teleport(x, z);
       camera?.snap?.(player.pos);
       state?.setPos?.(x, z);
-      fight.monsters?.rescan?.(x, z, world.dayFactor(ctx.frame.now) < 0.4);
+      fight.monsters?.rescan?.(x, z, world.dayFactor(ctx.frame.worldNow ?? ctx.frame.now) < 0.4);
       fight.combat?.forget?.(player.actor);
       life.forage?.update?.(x, z);
       return true;
@@ -84,7 +85,7 @@ export const story = {
         ? (world.lastInside?.site?.realm || null)
         : (runtime.field.sampleAt(player.pos.x, player.pos.z).realm || null)),
       pos: () => player.pos,
-      dayFactor: () => world.dayFactor(ctx.frame.now),
+      dayFactor: () => world.dayFactor(ctx.frame.worldNow ?? ctx.frame.now),
       root: hudRoot,
       buildCharacter,
     });
@@ -127,8 +128,10 @@ export const story = {
 
     const chapel=createChapelEncounter({field:runtime.field,character,monsters:fight.monsters,loot:fight.loot,hud,now:()=>ctx.frame.worldNow??ctx.frame.now});
     this._chapel=chapel;
+    const strongholds=createStrongholdEncounters({character,combat:fight.combat,monsters:fight.monsters,hud,root:hudRoot,state});
+    this._strongholds=strongholds;
     const ringChapelBell=()=>{const r=chapel.ring();if(r.ok)story.ringChapelBell();return r;};
-    return { story, chapel, ringChapelBell, waystones, get stones() { return stones(); }, teleport, touchStone, bw: { story, chapel, ringChapelBell, waystones, get stones() { return stones(); }, touchStone } };
+    return { story, chapel, strongholds, ringChapelBell, waystones, get stones() { return stones(); }, teleport, touchStone, bw: { story, chapel, strongholds, ringChapelBell, waystones, get stones() { return stones(); }, touchStone } };
   },
 
   /**
@@ -155,6 +158,7 @@ export const story = {
     const self = ctx.get('story');
     self.story.update(frame.worldDt ?? frame.dt, frame.worldNow ?? frame.now);
     self.chapel.update(frame.worldNow ?? frame.now);
+    self.strongholds.update(frame.dt,ctx.get('player').pos,{hidden:ctx.get('ui').windows.anyOpen||ctx.get('dev').on,inDungeon:ctx.get('world').runtime.inDungeon,sculpt:ctx.get('world').runtime.field.sculpt});
   },
 
   save(ctx) {
@@ -164,7 +168,7 @@ export const story = {
     ctx.state?.touch?.('story');
   },
 
-  dispose() { this._offDeath?.(); this._offDeath = null; this._chapel?.dispose(); this._chapel=null; },
+  dispose() { this._offDeath?.(); this._offDeath = null; this._chapel?.dispose(); this._chapel=null; this._strongholds?.dispose(); this._strongholds=null; },
 };
 
 export default story;
