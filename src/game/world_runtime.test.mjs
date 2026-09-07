@@ -914,6 +914,142 @@ for (const kind of ['dungeon', 'cave']) {
     rt2.rebuildAll();
   }
 
+  // 8d. ED4: the seam the water hangs on, and what one lake really touches
+  //
+  // `src/game/app/systems/world.js` is the one caller of `onRebuild`, and what
+  // it hangs there is `syncWater`. That WIRING is checked by name in
+  // wiring.test.mjs; what is checked here is the seam itself, because a hook
+  // that never fires is a lake that never appears however right the renderer
+  // is. What the renderer then does with the list is driven in water.test.mjs.
+  {
+    const { createWater } = await import('../world/water.js');
+    const { reachOf } = await import('../world/terrain_edits.js');
+    const fired = [];
+    rt2.onRebuild((what) => fired.push(what));
+
+    let clk = 0;
+    for (let i = 0; i < 60; i++) rt2.update(0.016, clk += 16, 0, 0, 1);
+    const loaded = rt2.world.stats.loaded;
+
+    const edits = rt2.terrainEdits;
+    const lake = edits.stroke({ kind: 'lake', x: 400, z: 0, r: 24, level: 6, depth: 4 });
+    const did = rt2.rebuildAround(lake.x, lake.z, reachOf(lake) + 8);
+    ck('a rebuild fires onRebuild once, with the numbers it counted',
+      fired.length === 1 && fired[0].chunks === did.chunks && fired[0].all === false && fired[0].x === 400,
+      fired.length ? JSON.stringify(fired[0]) : 'it did not fire');
+    // A 24 m lake with an 8 m margin is a 64 m circle: at CHUNK 64 that is a
+    // handful of chunks, and it has to be far fewer than the ring holds or the
+    // claim that a lake puts back its own ground and nobody else's is empty.
+    ck('and one lake puts back only the chunks it stands on, not the ring',
+      did.chunks > 0 && did.chunks <= 6 && did.chunks < loaded / 4,
+      `${did.chunks} chunks of the ${loaded} loaded`);
+
+    ck('the ground under it is the bed, and the field says there is water on it',
+      Math.abs(rt2.heightAt(400, 0) - 2) < 1e-9 && rt2.field.sampleAt(400, 0).water
+      && rt2.field.sampleAt(400, 0).waterLevel === 6,
+      `bed ${rt2.heightAt(400, 0).toFixed(2)} m, surface ${rt2.field.sampleAt(400, 0).waterLevel} m`);
+
+    // the same list, through the same two calls the system makes, into a real water
+    const water = createWater(sc2, rt2.field);
+    const sculpt = rt2.field.sculpt;
+    water.setGlobalPlane(!sculpt || !!sculpt.sea);
+    const built = water.setBodies(edits.waterBodies());
+    ck('and a sculpt world takes the endless sheet away and draws the one lake instead',
+      water.globalPlane === false && built.built === 1 && water.bodyCount === 1
+      && water.bodyMesh(lake.id).material.uniforms.uSeaY.value === 6,
+      `${built.built} surfaces at ${water.bodyMesh(lake.id).material.uniforms.uSeaY.value} m, sheet ${water.globalPlane ? 'on' : 'off'}`);
+
+    // a valley 20 m deep beside it, and no water anywhere in it
+    const v = edits.stroke({ kind: 'valley', x: 1200, z: 0, r: 40, amount: 20, length: 200, yaw: 0 });
+    rt2.rebuildAround(v.x, v.z, reachOf(v) + 8);
+    let wet = 0, deepest = 99, n = 0;
+    for (let z = -40; z <= 240; z += 8) for (let x = 1160; x <= 1240; x += 8) {
+      const p = rt2.field.sampleAt(x, z); n++;
+      deepest = Math.min(deepest, p.h);
+      if (p.water) wet++;
+    }
+    ck('a valley beside it goes 20 m under and stays dry ground, which is the whole of ED4',
+      wet === 0 && deepest < -10, `deepest ${deepest.toFixed(2)} m, ${wet} of ${n} samples wet`);
+    ck('and no surface was drawn for it either',
+      water.setBodies(edits.waterBodies()).bodies === 1, `${water.bodyCount} surfaces`);
+
+    edits.undo();                                    // the valley
+    edits.undo();                                    // the lake
+    rt2.rebuildAll();
+    ck('an undo of the lake takes its surface out of the scene as well as its bed',
+      water.setBodies(edits.waterBodies()).dropped === 1 && water.bodyCount === 0
+      && rt2.heightAt(400, 0) === 6 && !rt2.field.sampleAt(400, 0).water,
+      `${water.bodyCount} surfaces, ground back to ${rt2.heightAt(400, 0)} m`);
+    ck('and the hook fired once for each of the three rebuilds and not once more',
+      fired.length === 3 && fired.filter((f) => f.all).length === 1 && fired[2].all === true,
+      `${fired.length} rebuilds: ${fired.map((f) => (f.all ? 'the whole ring' : `${f.chunks} chunks at ${f.x}, ${f.z}`)).join('; ')}`);
+    water.dispose();
+    rt2.onRebuild(null);
+  }
+
+  // 8e. ED4: what a stroke SAYS, which is the half a player actually meets
+  //
+  // A silent real effect is indistinguishable from a broken button, and both
+  // halves of ED4 have one: a sea laid on high ground is a real stroke that
+  // makes no water, and a valley cut to -14 m is a real hole that no longer
+  // fills. Both owe words. The two are pure functions so they can be measured
+  // here rather than asserted; `strokeWords` is the sentence they hang off.
+  {
+    const { strokeWords, dryFloorWords, placedWaterWords, OLD_WATER_LINE } = await import('./app/systems/world.js');
+    const dry = { sea: false }, coast = { sea: true };
+    // 13.2 and not 14: the line the world flooded at was `SEA_LEVEL - 0.05`,
+    // which is -0.85 m, so a floor at -14 stands 13.15 m under it. The words
+    // quote the real line rather than rounding to a friendlier zero.
+    ck('a valley cut under the old water line says so, and says water is its own brush',
+      /13\.2 m under the old sea level/.test(dryFloorWords('valley', -14, dry))
+      && /water is its own brush/.test(dryFloorWords('valley', -14, dry)),
+      dryFloorWords('valley', -14, dry).trim());
+    ck('and the number it quotes is the line the field really used',
+      dryFloorWords('valley', OLD_WATER_LINE - 1, dry).includes('1.0 m under')
+      && dryFloorWords('valley', OLD_WATER_LINE + 0.01, dry) === '',
+      `the old line is ${OLD_WATER_LINE} m`);
+    ck('driven the other way: a valley in a generated world, and in a sculpt world with the sea back, says nothing',
+      dryFloorWords('valley', -14, null) === '' && dryFloorWords('valley', -14, coast) === '',
+      'both empty, because both of those really do flood');
+    ck('and no other brush says it', ['raise', 'mountain', 'flatten', 'lake'].every((k) => dryFloorWords(k, -14, dry) === ''));
+
+    ck('a lake that made water says how deep it is',
+      placedWaterWords({ kind: 'lake', level: 6 }, { water: true, h: 2, waterLevel: 6 }) === ', and the water there stands 4.0 m deep');
+    ck('and a sea laid on ground above its own surface says NO water stands there, with both numbers',
+      /no water stands at that point: the ground there is 6\.0 m and the surface you asked for is 0\.0 m/
+        .test(placedWaterWords({ kind: 'sea', level: 0 }, { water: false, h: 6, waterLevel: null })),
+      placedWaterWords({ kind: 'sea', level: 0 }, { water: false, h: 6, waterLevel: null }).trim());
+    ck('and a drain says whether the water really went',
+      placedWaterWords({ kind: 'drain' }, { water: false }) === ', and there is no water there now'
+      && /still water at that point/.test(placedWaterWords({ kind: 'drain' }, { water: true })));
+
+    const said = (s) => strokeWords(s, 4, '');
+    ck('every water brush names itself, where it is, and the level it put the surface at',
+      said({ kind: 'lake', x: 0, z: 0, r: 24, level: 6, depth: 4 }).includes('its surface at 6.0 m and its bed at 2.0 m')
+      && said({ kind: 'pond', x: 0, z: 0, r: 8, level: 6, depth: 2 }).startsWith('sank a pond 16 m across')
+      && said({ kind: 'sea', x: 0, z: 0, r: 400, level: 3 }).includes('cutting no bed')
+      && said({ kind: 'drain', x: 0, z: 0, r: 24 }).includes('moved no ground'),
+      said({ kind: 'lake', x: 0, z: 0, r: 24, level: 6, depth: 4 }));
+    ck('and a river says which way its water runs, in metres, both ends',
+      said({ kind: 'river', x: 0, z: 0, x2: 0, z2: 200, width: 12, level: 6, levelEnd: 2, depth: 2, r: 8 })
+        .includes('falling from 6.0 m to 2.0 m'),
+      said({ kind: 'river', x: 0, z: 0, x2: 0, z2: 200, width: 12, level: 6, levelEnd: 2, depth: 2, r: 8 }));
+    ck('and a river drawn uphill says THAT, rather than letting somebody find out later',
+      said({ kind: 'river', x: 0, z: 0, x2: 0, z2: 200, width: 12, level: 2, levelEnd: 6, depth: 2, r: 8 })
+        .includes('which is uphill: swap the ends or drop the far level'),
+      said({ kind: 'river', x: 0, z: 0, x2: 0, z2: 200, width: 12, level: 2, levelEnd: 6, depth: 2, r: 8 }));
+    ck('and a chained river says where it took its level from',
+      said({ kind: 'river', x: 0, z: 0, x2: 0, z2: 200, width: 12, level: 6, levelEnd: 2, depth: 2, r: 8, chained: 3 })
+        .includes('running on from the river before it'));
+    // The character itself is built rather than typed, so a sweep of the repo
+    // for em dashes does not trip over the guard that forbids them.
+    const EM_DASH = String.fromCharCode(0x2014);
+    ck('and none of them uses an em dash, which this project does not write',
+      ['lake', 'pond', 'sea', 'drain', 'river'].every((k) => !said({
+        kind: k, x: 0, z: 0, r: 24, level: 6, depth: 4, width: 12, levelEnd: 2, x2: 0, z2: 200,
+      }).includes(EM_DASH)));
+  }
+
   rt2.dispose();
 }
 

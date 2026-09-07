@@ -16,9 +16,12 @@ import {
   gerstnerAt, waveHeightAt, gridWarp, spacingAt,
   WAVE_GLSL, OCEAN_VERT, PLANE_VERT, WATER_FRAG,
   createWaterUniforms, buildOceanGeometry, createWater,
+  bodyGeometryData, buildBodyGeometry, bodySignature, inAnyDrain,
+  WATER_STEP, WATER_MAX_RINGS, WATER_MAX_SEG, WATER_MAX_STATIONS,
 } from './water.js';
 import { createSkyUniforms, SKY_GLSL } from '../game/sky.js';
 import { createWorldField, SEA_LEVEL } from './field.js';
+import { createTerrainEdits } from './terrain_edits.js';
 
 let pass = 0, fail = 0;
 const ck = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -354,5 +357,206 @@ ck('buildOceanGeometry lies flat and spans the unit square', (() => {
   return flat && minx === -1 && maxx === 1 && p.count === 16;
 })());
 
+// ---------------------------------------------------------------------------
+// ED4: one surface per body of water somebody placed
+// ---------------------------------------------------------------------------
+
+/** Every triangle of a geometry as [A, B, C] in world coordinates. */
+function trisOf(d) {
+  const out = [];
+  for (let i = 0; i < d.index.length; i += 3) {
+    const p = [];
+    for (let k = 0; k < 3; k++) {
+      const v = d.index[i + k] * 3;
+      p.push([d.positions[v], d.positions[v + 1], d.positions[v + 2]]);
+    }
+    out.push(p);
+  }
+  return out;
+}
+/** The y of a triangle's normal. Positive is a surface facing the sky. */
+const upness = ([A, B, C]) => {
+  const ux = B[0] - A[0], uz = B[2] - A[2], vx = C[0] - A[0], vz = C[2] - A[2];
+  return uz * vx - ux * vz;
+};
+
+// a disc: at its own level, inside its own radius, wound up
+{
+  const b = { id: 1, kind: 'lake', x: 100, z: -50, r: 24, level: 6, drains: [] };
+  const d = bodyGeometryData(b);
+  const tris = trisOf(d);
+  let offLevel = 0, outside = 0, down = 0;
+  for (const t of tris) {
+    for (const v of t) {
+      offLevel = Math.max(offLevel, Math.abs(v[1] - 6));
+      outside = Math.max(outside, Math.hypot(v[0] - 100, v[2] + 50) - 24);
+    }
+    if (upness(t) <= 0) down++;
+  }
+  ck('a lake is a disc of triangles at its own level and nowhere else',
+    offLevel === 0 && outside < 1e-9 && tris.length > 100,
+    `${tris.length} triangles, worst ${offLevel} m off 6 m, worst ${outside.toExponential(1)} m outside r`);
+  ck('and every one of them faces the sky, so the shader takes its above-water branch',
+    down === 0, `${down} of ${tris.length} wound the other way`);
+  // The trade, stated rather than hidden: at a 4 m step the four longest waves
+  // (42, 27, 17 and 9.5 m, which carry 2.22 of the 2.41 amplitude between them)
+  // are sampled at least twice a wavelength and show as displacement; the two
+  // shortest are under that and show as the shader's own ripple detail instead.
+  const spacing = 2 * Math.PI * 24 / Math.round(2 * Math.PI * 24 / WATER_STEP);
+  const carried = WAVES.filter((w) => w[1] * WAVE_DEFAULTS.scale >= spacing * 2);
+  ck('its vertices stand about WATER_STEP apart, which carries the waves that hold the amplitude',
+    Math.abs(spacing - WATER_STEP) < 0.2 && carried.reduce((a, w) => a + w[2], 0) / AMPLITUDE_SUM > 0.9,
+    `${spacing.toFixed(2)} m between rim vertices, ${carried.length} of 6 waves resolved, `
+    + `${(carried.reduce((a, w) => a + w[2], 0) / AMPLITUDE_SUM * 100).toFixed(0)}% of the amplitude`);
+  // and the caps hold, so a 1.5 km sea is thousands of triangles and not millions
+  const big = bodyGeometryData({ id: 2, kind: 'sea', x: 0, z: 0, r: 1500, level: 0, drains: [] });
+  ck('a 1.5 km sea is capped at rings by segments and stays a few thousand triangles',
+    big.tris <= WATER_MAX_RINGS * WATER_MAX_SEG * 2 && big.tris < 20000,
+    `${big.tris} triangles at r 1500`);
+}
+
+// a river: two vertices a station, the level falling from head to mouth
+{
+  const b = { id: 3, kind: 'river', x: 0, z: 0, x2: 0, z2: 200, width: 12, level: 6, levelEnd: 2, drains: [] };
+  const d = bodyGeometryData(b);
+  const n = d.positions.length / 3;
+  ck('a river is a ribbon of two vertices a station', n % 2 === 0 && n / 2 === Math.round(200 / WATER_STEP) + 1,
+    `${n} vertices, ${n / 2} stations over 200 m`);
+  let worstLevel = 0, worstWidth = 0, down = 0;
+  for (let i = 0; i < n; i += 2) {
+    const L = [d.positions[i * 3], d.positions[i * 3 + 1], d.positions[i * 3 + 2]];
+    const R = [d.positions[(i + 1) * 3], d.positions[(i + 1) * 3 + 1], d.positions[(i + 1) * 3 + 2]];
+    const u = (i / 2) / (n / 2 - 1);
+    worstLevel = Math.max(worstLevel, Math.abs(L[1] - (6 + (2 - 6) * u)), Math.abs(R[1] - (6 + (2 - 6) * u)));
+    worstWidth = Math.max(worstWidth, Math.abs(Math.hypot(L[0] - R[0], L[2] - R[2]) - 12));
+  }
+  for (const t of trisOf(d)) if (upness(t) <= 0) down++;
+  ck('its surface falls from 6 m at the head to 2 m at the mouth, in a straight line',
+    worstLevel < 1e-9, `worst ${worstLevel.toExponential(1)} m off the interpolated level`);
+  ck('and it is 12 m bank to bank the whole way',
+    worstWidth < 1e-9, `worst ${worstWidth.toExponential(1)} m off 12 m`);
+  ck('and its triangles face the sky too', down === 0, `${down} wound the other way`);
+  const one = bodyGeometryData({ ...b, x2: 0, z2: 0 });
+  ck('a river drawn as one click is a crossbar and not a divide by zero',
+    Number.isFinite(one.positions[0]) && one.positions.every(Number.isFinite) && one.positions.length / 3 === 4,
+    `${one.positions.length / 3} vertices`);
+}
+
+// a drain really cuts triangles out
+{
+  const clean = bodyGeometryData({ id: 4, kind: 'lake', x: 0, z: 0, r: 40, level: 6, drains: [] });
+  const holed = bodyGeometryData({ id: 4, kind: 'lake', x: 0, z: 0, r: 40, level: 6, drains: [{ x: 0, z: 0, r: 20 }] });
+  ck('a drain takes triangles out of the surface it covers',
+    holed.tris < clean.tris && holed.tris > 0 && holed.dropped === clean.tris - holed.tris,
+    `${clean.tris} triangles became ${holed.tris}, ${holed.dropped} dropped`);
+  let inside = 0;
+  for (const t of trisOf(holed)) {
+    const cx = (t[0][0] + t[1][0] + t[2][0]) / 3, cz = (t[0][2] + t[1][2] + t[2][2]) / 3;
+    if (inAnyDrain([{ x: 0, z: 0, r: 20 }], cx, cz)) inside++;
+  }
+  ck('and no triangle is left standing inside the hole', inside === 0, `${inside} left inside the drain`);
+  const gone = bodyGeometryData({ id: 5, kind: 'pond', x: 0, z: 0, r: 8, level: 6, drains: [{ x: 0, z: 0, r: 40 }] });
+  ck('a body a drain covers entirely has no geometry at all, and no mesh is made for it',
+    gone.tris === 0 && buildBodyGeometry({ id: 5, kind: 'pond', x: 0, z: 0, r: 8, level: 6, drains: [{ x: 0, z: 0, r: 40 }] }) === null,
+    `${gone.tris} triangles`);
+}
+
+// setBodies: one mesh a body, rebuilt only where it moved
+{
+  const scene = new THREE.Scene();
+  const field = createWorldField(20260904, { homeY: -0.3 });
+  const water = createWater({ scene }, field);
+  const edits = createTerrainEdits({ baseHeight: () => 6, mode: 'sculpt' });
+  edits.stroke({ kind: 'lake', x: 0, z: 0, r: 24, level: 6, depth: 4 });
+  edits.stroke({ kind: 'river', x: 400, z: 0, x2: 400, z2: 300, width: 10, level: 6, levelEnd: 1 });
+  edits.stroke({ kind: 'sea', x: -900, z: 0, r: 300, level: 2 });
+
+  const first = water.setBodies(edits.waterBodies());
+  ck('one mesh per body of water, built where there were none',
+    first.built === 3 && first.kept === 0 && water.bodyCount === 3 && water.group.children.length === 4,
+    `${first.built} built, ${water.group.children.length} children counting the ocean sheet`);
+  ck('a body wears the same shader as the ocean and shares its scene texture slot',
+    water.bodyMesh(1).material.fragmentShader === water.material.fragmentShader
+    && water.bodyMesh(1).material.uniforms.uScene === water.uniforms.uScene
+    && water.bodyMesh(1).material.uniforms.uSeaY.value === 6,
+    `uSeaY ${water.bodyMesh(1).material.uniforms.uSeaY.value} m`);
+
+  const again = water.setBodies(edits.waterBodies());
+  ck('asking again with the same list rebuilds nothing at all',
+    again.built === 0 && again.kept === 3 && again.dropped === 0, JSON.stringify(again));
+
+  const lakeMesh = water.bodyMesh(1), riverMesh = water.bodyMesh(2);
+  edits.stroke({ kind: 'drain', x: 400, z: 150, r: 30 });
+  const cut = water.setBodies(edits.waterBodies());
+  ck('a drain over the river rebuilds the ONE body it reaches and keeps the other two',
+    cut.built === 1 && cut.kept === 2 && water.bodyMesh(1) === lakeMesh, JSON.stringify(cut));
+  ck('and the drain really cut the ribbon, which is why it was rebuilt',
+    water.bodyMesh(2) !== riverMesh
+    && water.bodyMesh(2).geometry.index.count < riverMesh.geometry.index.count,
+    `${riverMesh.geometry.index.count / 3} triangles became ${water.bodyMesh(2).geometry.index.count / 3}`);
+
+  // a stroke far from the water: the signatures do not move, so no mesh does
+  const held = water.bodyMesh(1);
+  edits.stroke({ kind: 'raise', x: 5000, z: 5000, r: 20, amount: 4 });
+  const far = water.setBodies(edits.waterBodies());
+  ck('a stroke on the far side of the world rebuilds no water at all',
+    far.built === 0 && far.kept === 3 && water.bodyMesh(1) === held, JSON.stringify(far));
+
+  edits.undo(); edits.undo();          // the raise, then the drain
+  const back = water.setBodies(edits.waterBodies());
+  ck('an undo of the drain puts that one ribbon back whole, and rebuilds nothing else',
+    back.built === 1 && back.kept === 2 && water.bodyMesh(2).geometry.index.count === riverMesh.geometry.index.count,
+    `${back.built} rebuilt, ${water.bodyMesh(2).geometry.index.count / 3} triangles again`);
+
+  edits.reset();
+  const none = water.setBodies(edits.waterBodies());
+  ck('a reset takes every surface out of the scene and leaves the ocean sheet',
+    none.dropped === 3 && water.bodyCount === 0 && water.group.children.length === 1,
+    `${water.group.children.length} children left`);
+  water.dispose();
+}
+
+// the global plane, and the pass that does not run for water nobody can see
+{
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x8899aa, 90, 536);
+  const field = createWorldField(20260904, { homeY: -0.3 });
+  const water = createWater({ scene }, field);
+  const cam = new THREE.PerspectiveCamera(55, 16 / 9, 0.1, 1800);
+  cam.position.set(0, 20, 0);
+  const r = fakeRenderer(1600, 900, () => water.group.visible);
+
+  ck('a generated world keeps the endless sheet, which is the whole of its water',
+    water.globalPlane === true && water.bodyCount === 0);
+  ck('and its refraction pass runs', water.beforeRender(r, scene, cam) === true);
+
+  water.setGlobalPlane(false);
+  ck('a sculpt world with no sea in its header can take the sheet away',
+    water.globalPlane === false && water.mesh.visible === false);
+  const was = water.stats.passes;
+  ck('and with no bodies either, the second scene render does not happen',
+    water.beforeRender(r, scene, cam) === false && water.stats.passes === was);
+
+  water.setBodies([{ id: 1, kind: 'lake', x: 0, z: 0, r: 24, level: 6, drains: [] }]);
+  ck('one lake brings the pass back, because now there is a surface to refract through',
+    water.beforeRender(r, scene, cam) === true && water.stats.passes === was + 1);
+  water.setGlobalPlane(true);
+  ck('and the sheet comes back when the header asks for the sea',
+    water.globalPlane === true && water.mesh.visible === true);
+  water.dispose();
+}
+
+// the signature is what decides a rebuild, so it has to move with the numbers
+{
+  const b = { id: 1, kind: 'lake', x: 0, z: 0, r: 24, level: 6, drains: [] };
+  const moves = [
+    ['x', { ...b, x: 1 }], ['r', { ...b, r: 25 }], ['level', { ...b, level: 7 }],
+    ['a drain', { ...b, drains: [{ x: 0, z: 0, r: 5 }] }],
+  ];
+  const same = moves.filter(([, m]) => bodySignature(m) === bodySignature(b)).map(([n]) => n);
+  ck('every number that changes the mesh changes the signature',
+    same.length === 0, same.length ? `these did not: ${same.join(', ')}` : bodySignature(b));
+  ck('and the same body twice is the same signature', bodySignature({ ...b }) === bodySignature(b));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);

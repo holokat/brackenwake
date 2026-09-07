@@ -11,6 +11,9 @@ import {
   CAVE_CUT, CAVE_CUT_AHEAD, SMOOTH_PULL, ERODE_PULL, LAKE_FLOOR,
   MOUNTAIN_MAX_R, MOUNTAIN_MAX_AMOUNT, MOUNTAIN_RIDGE, MOUNTAIN_WAVE, MOUNTAIN_OCTAVES,
   TERRACE_STEP, PLATEAU_SKIRT, MIN_R,
+  WATER_KINDS, SURFACE_KINDS, isWaterKind, LAKE_DEPTH, POND_DEPTH, POND_R,
+  RIVER_WIDTH, RIVER_DEPTH, RIVER_CHAIN, SEA_R, SEA_SURFACE, WATER_LEVEL,
+  levelOf, levelEndOf, depthOf, riverHalf, riverAt, riverLevelAt, waterOf,
 } from './terrain_edits.js';
 
 let pass = 0, fail = 0;
@@ -577,53 +580,222 @@ function wired(hf) {
     e.strokes[0].h0 != null, `h0 ${e.strokes[0].h0.toFixed(4)} m`);
 }
 
-// 12g. lake: one click, and there is water in it
+// ---------------------------------------------------------------------------
+// 12g. ED4: the five brushes that place water, and the ground that does not
+// ---------------------------------------------------------------------------
+//
+// The rule the whole of ED4 turns on: a height NEVER makes water, and a water
+// stroke ALWAYS does. Every check below is driven both ways, because half of a
+// rule proved is a rule that is going to break on the half nobody looked at.
+
+// 12g-i. a lake on the flat: a surface where you asked, a bed under it, a bank
+{
+  const e = wired(() => 6);
+  const l = e.stroke({ kind: 'lake', x: 0, z: 0, r: 24, level: 6 });
+  const g = ground(e, () => 6);
+  const wet = (x, z) => e.waterAt(x, z, g(x, z));
+  check('a lake carries its surface and its bed as two numbers, not one floor',
+    l.level === 6 && l.depth === LAKE_DEPTH && l.floor === undefined,
+    `level ${l.level} m, depth ${l.depth} m, and no floor property at all`);
+  check('and on flat ground at 6 m it digs its own bed 4 m under the surface',
+    Math.abs(g(0, 0) - 2) < 1e-9, `${g(0, 0).toFixed(4)} m at the centre, 4.0000 m under the 6 m surface`);
+  check('there is water at the centre, and the sample carries the level',
+    wet(0, 0).water === true && wet(0, 0).level === 6, JSON.stringify(wet(0, 0)));
+  // Where the water stops IS where the bank rises through the surface, which is
+  // what makes a lake a lake and not a disc of blue laid over a hillside.
+  let lastWet = 0, firstDry = null;
+  for (let d = 0; d <= 24; d += 0.25) {
+    if (wet(d, 0).water) lastWet = d; else if (firstDry === null && d > 0) firstDry = d;
+  }
+  check('and the water reaches out to the bank and stops where the bank rises through it',
+    lastWet > 24 * wallStart(LAKE_DEPTH, 24) && lastWet < 24 && !wet(24, 0).water,
+    `wet out to ${lastWet.toFixed(2)} m of 24, dry from ${firstDry === null ? 'nowhere' : firstDry.toFixed(2)} m, the rim at 24 m is ${g(24, 0).toFixed(2)} m`);
+  check('the rim meets the world outside it with no step in it',
+    Math.abs(g(24, 0) - 6) < 1e-9, `${(g(24, 0) - 6).toExponential(1)} m at the rim`);
+  check('and maxGrade knows how steep the bank is, because the depth is in the stroke',
+    maxGrade(l) > 0 && Number.isFinite(maxGrade(l)), `${maxGrade(l).toFixed(3)} m per m`);
+}
+
+// 12g-ii. the bed is an ABSOLUTE height, not a relative cut, on a hillside
 {
   const e = wired(base);
-  const l = e.stroke({ kind: 'lake', x: 0, z: 0, r: 24 });
+  e.stroke({ kind: 'lake', x: 0, z: 0, r: 24, level: base(0, 0), depth: 8 });
   const g = ground(e, base);
-  check('a lake floor is an absolute height, and the default is under the water line',
-    Math.abs(g(0, 0) - LAKE_FLOOR) < 1e-9 && LAKE_FLOOR < -0.85,
-    `floor ${g(0, 0).toFixed(4)} m, the game floods anything under -0.85 m`);
-  // The floor is measured across a WRINKLED hillside (`base` runs 3.7 m up and
-  // down inside this radius), because a floor that is level on level ground
-  // proves nothing about the kind. A `pit` on the same ground leaves a floor
-  // that slopes exactly as the hillside did, and the check below drives that.
+  const want = base(0, 0) - 8;
   let flatFloor = 0, rawSpread = 0;
   for (let a = 0; a < 32; a++) {
     const th = a / 32 * Math.PI * 2;
     for (let d = 0; d <= 24 * 0.6; d += 1) {
       const x = Math.cos(th) * d, z = Math.sin(th) * d;
-      flatFloor = Math.max(flatFloor, Math.abs(g(x, z) - LAKE_FLOOR));
+      flatFloor = Math.max(flatFloor, Math.abs(g(x, z) - want));
       rawSpread = Math.max(rawSpread, Math.abs(base(x, z) - base(0, 0)));
     }
   }
-  check('and the floor is level across a hillside that was not',
-    flatFloor < 0.01, `worst ${(flatFloor * 100).toFixed(2)} cm off the floor, on ground that ran ${rawSpread.toFixed(2)} m up and down under it`);
-  {
-    const rel = wired(base);
-    rel.stroke({ kind: 'pit', x: 0, z: 0, r: 24, amount: 3 });
-    const gp = ground(rel, base);
-    let pitSpread = 0;
-    for (let a = 0; a < 32; a++) {
-      const th = a / 32 * Math.PI * 2;
-      for (let d = 0; d <= 24 * 0.6; d += 1) pitSpread = Math.max(pitSpread, Math.abs(gp(Math.cos(th) * d, Math.sin(th) * d) - gp(0, 0)));
-    }
-    check('driven the other way: a pit on the same ground leaves a floor that is not level, which is why lake is its own kind',
-      pitSpread > 1, `the pit's floor ran ${pitSpread.toFixed(2)} m where the lake's ran ${flatFloor.toFixed(2)} m`);
+  check('a lake bed is level across a hillside that was not',
+    flatFloor < 0.01, `worst ${(flatFloor * 100).toFixed(2)} cm off the bed, on ground that ran ${rawSpread.toFixed(2)} m up and down under it`);
+  const rel = wired(base);
+  rel.stroke({ kind: 'pit', x: 0, z: 0, r: 24, amount: 8 });
+  const gp = ground(rel, base);
+  let pitSpread = 0;
+  for (let a = 0; a < 32; a++) {
+    const th = a / 32 * Math.PI * 2;
+    for (let d = 0; d <= 24 * 0.6; d += 1) pitSpread = Math.max(pitSpread, Math.abs(gp(Math.cos(th) * d, Math.sin(th) * d) - gp(0, 0)));
   }
-  check('it captures the depth once, so the floor does not follow the hillside',
-    Math.abs(l.h0 - base(0, 0)) < 1e-9, `h0 ${l.h0.toFixed(4)} m against the ground's ${base(0, 0).toFixed(4)} m`);
-  check('and it meets the bank with no step in it',
-    Math.abs(g(24, 0) - base(24, 0)) < 1e-9, `${(g(24, 0) - base(24, 0)).toExponential(1)} m at the rim`);
-  // driven the other way: a floor above the water line leaves dry ground
-  const dry = wired(base);
-  dry.stroke({ kind: 'lake', x: 200, z: 200, r: 20, floor: 4 });
-  const gd = ground(dry, base);
-  check('a lake asked for above the water line is a dry hollow and not water',
-    Math.abs(gd(200, 200) - 4) < 1e-9 && 4 > -0.85, `floor ${gd(200, 200).toFixed(3)} m, which is dry`);
-  check('and maxGrade knows how steep a lake wall is, because the depth is in the stroke',
-    maxGrade(l) > 0 && Number.isFinite(maxGrade(l)), `${maxGrade(l).toFixed(3)} m per m`);
+  check('driven the other way: a pit on the same ground leaves a floor that is not level, which is why lake is its own kind',
+    pitSpread > 1, `the pit's floor ran ${pitSpread.toFixed(2)} m where the lake's ran ${flatFloor.toFixed(2)} m`);
+}
+
+// 12g-iii. it only ever DIGS: a lake laid over a gorge leaves the gorge
+{
+  const e = wired(() => 6);
+  e.stroke({ kind: 'pit', x: 0, z: 0, r: 40, amount: 30 });
+  const before = ground(e, () => 6)(0, 0);
+  e.stroke({ kind: 'lake', x: 0, z: 0, r: 40, level: 6, depth: 4 });
+  const after = ground(e, () => 6)(0, 0);
+  check('a lake over ground already deeper than its own bed adds nothing back',
+    Math.abs(after - before) < 1e-9, `the gorge floor was ${before.toFixed(3)} m and is ${after.toFixed(3)} m`);
+  check('and it is still water, because water is decided against the surface and not the bed',
+    e.waterAt(0, 0, after).water === true && e.waterAt(0, 0, after).level === 6, JSON.stringify(e.waterAt(0, 0, after)));
+}
+
+// 12g-iv. a pond is the same brush with a smaller default
+{
+  const e = wired(() => 6);
+  const p = e.stroke({ kind: 'pond', x: 0, z: 0, r: POND_R });
+  check('a pond takes its own shallower bed and the ground it was clicked on as its surface',
+    p.r === POND_R && p.depth === POND_DEPTH && p.level === 6,
+    `r ${p.r} m, depth ${p.depth} m, level ${p.level} m`);
+  const g = ground(e, () => 6);
+  check('and it is wet in the middle and dry at its rim',
+    e.waterAt(0, 0, g(0, 0)).water && !e.waterAt(POND_R, 0, g(POND_R, 0)).water,
+    `centre ${g(0, 0).toFixed(2)} m, rim ${g(POND_R, 0).toFixed(2)} m`);
+}
+
+// 12g-v. a river: a level that falls from head to mouth, and a bed under it
+{
+  const e = wired(() => 6);
+  const r = e.stroke({ kind: 'river', x: 0, z: 0, x2: 0, z2: 200, width: 12, level: 6, levelEnd: 2 });
+  const g = ground(e, () => 6);
+  const wet = (x, z) => e.waterAt(x, z, g(x, z));
+  check('a river carries two levels and a width', r.level === 6 && r.levelEnd === 2 && r.width === 12,
+    `${r.level} m at the head, ${r.levelEnd} m at the mouth, ${r.width} m across`);
+  const head = wet(0, 0), mouth = wet(0, 200), mid = wet(0, 100);
+  check('its water is 6 m at the head, 4 m halfway and 2 m at the mouth',
+    head.level === 6 && Math.abs(mid.level - 4) < 1e-9 && mouth.level === 2,
+    `${head.level}, ${mid.level}, ${mouth.level}`);
+  check('and its bed follows the surface down, 2 m under it the whole way',
+    [0, 50, 100, 150, 200].every((z) => Math.abs(g(0, z) - (6 + (2 - 6) * z / 200 - 2)) < 1e-9),
+    [0, 50, 100, 150, 200].map((z) => `${z} m: ${g(0, z).toFixed(2)}`).join(', '));
+  check('it is wet on the line and dry past its own bank',
+    wet(0, 100).water && !wet(20, 100).water,
+    `on the line ${g(0, 100).toFixed(2)} m, 20 m off it ${g(20, 100).toFixed(2)} m`);
+  check('and nothing at all past the far end of it',
+    e.heightDelta(0, 240, 6) === 0 && !wet(0, 240).water, `${e.heightDelta(0, 240, 6)} m at 40 m past the mouth`);
+
+  // 12g-vi. a chain: the next stroke takes the level the last one left
+  const r2 = e.stroke({ kind: 'river', x: 2, z: 201, x2: 0, z2: 400, levelEnd: -4 });
+  check('a river whose head lands in another river\'s mouth chains, taking its level',
+    r2.level === 2 && r2.chained === r.id, `level ${r2.level} m, chained to stroke ${r2.chained}`);
+  check('and its head is snapped onto the joint, so the two ribbons meet',
+    r2.x === r.x2 && r2.z === r.z2, `${r2.x}, ${r2.z} against the mouth at ${r.x2}, ${r.z2}`);
+  const far = wired(() => 6);
+  far.stroke({ kind: 'river', x: 0, z: 0, x2: 0, z2: 200, level: 6, levelEnd: 2 });
+  const lone = far.stroke({ kind: 'river', x: 0, z: 260, x2: 0, z2: 400 });
+  check('driven the other way: a river that starts well past the mouth does not chain',
+    lone.chained === undefined && lone.level === 6 && lone.z === 260,
+    `level ${lone.level} m, taken off the ground, and no chain`);
+}
+
+// 12g-vii. a sea: a surface and NO bed, over whatever coast was sculpted
+{
+  const e = wired(() => 6);
+  const s = e.stroke({ kind: 'sea', x: 0, z: 0, r: 400, level: 3 });
+  const g = ground(e, () => 6);
+  let moved = 0;
+  for (let i = 0; i < 400; i++) {
+    const th = i / 400 * Math.PI * 2, d = (i % 20) / 20 * 399;
+    moved = Math.max(moved, Math.abs(g(Math.cos(th) * d, Math.sin(th) * d) - 6));
+  }
+  check('a sea moves no ground at all', moved === 0 && maxGrade(s) === 0, `worst ${moved} m over 400 points`);
+  check('and on ground that stands above it there is no water, which the words have to say',
+    !e.waterAt(0, 0, 6).water, `ground 6 m, surface ${s.level} m`);
+  // the coast, sculpted first, then flooded: the order somebody really works in
+  const c = wired(() => 6);
+  c.stroke({ kind: 'pit', x: 0, z: 0, r: 400, amount: 12 });
+  c.stroke({ kind: 'sea', x: 0, z: 0, r: 400, level: 3 });
+  const gc = ground(c, () => 6);
+  let wetN = 0, n = 0;
+  for (let i = 0; i < 400; i++) {
+    const th = i / 400 * Math.PI * 2, d = (i % 20) / 20 * 399;
+    const x = Math.cos(th) * d, z = Math.sin(th) * d;
+    n++;
+    if (c.waterAt(x, z, gc(x, z)).water) wetN++;
+  }
+  check('and over a coast somebody sank first, it floods the 400 m disc',
+    wetN > n * 0.6 && c.waterAt(0, 0, gc(0, 0)).level === 3,
+    `${wetN} of ${n} points inside 400 m are wet, at a surface of 3 m`);
+}
+
+// 12g-viii. a drain: water gone, ground untouched, and order decides
+{
+  const e = wired(() => 6);
+  e.stroke({ kind: 'lake', x: 0, z: 0, r: 40, level: 6, depth: 4 });
+  const g = () => ground(e, () => 6);
+  check('there is water before the drain', e.waterAt(0, 0, g()(0, 0)).water === true);
+  const before = g()(0, 0);
+  const d = e.stroke({ kind: 'drain', x: 0, z: 0, r: 20 });
+  check('a drain takes the water away and moves no ground',
+    e.waterAt(0, 0, g()(0, 0)).water === false && g()(0, 0) === before && maxGrade(d) === 0,
+    `ground still ${g()(0, 0).toFixed(3)} m`);
+  check('and only inside its own radius: the lake outside it is still wet',
+    e.waterAt(30, 0, g()(30, 0)).water === true, `30 m out, ground ${g()(30, 0).toFixed(2)} m`);
+  e.stroke({ kind: 'pond', x: 0, z: 0, r: 10, level: 6, depth: 1 });
+  check('a body drawn over a drain is water again, because the walk is in stroke order',
+    e.waterAt(0, 0, g()(0, 0)).water === true, JSON.stringify(e.waterAt(0, 0, g()(0, 0))));
+  check('and the bodies the renderer is handed carry the drains that came after them, and not the ones before',
+    (() => {
+      const b = e.waterBodies();
+      return b.length === 2 && b[0].kind === 'lake' && b[0].drains.length === 1 && b[1].kind === 'pond' && b[1].drains.length === 0;
+    })(), e.waterBodies().map((b) => `${b.kind} with ${b.drains.length}`).join(', '));
+}
+
+// 12g-ix. no other brush makes water, and `wet` is a property and not a walk
+{
+  const e = wired(() => 6);
+  check('a list with nothing in it is not wet', e.wet === false);
+  for (const kind of ['lower', 'pit', 'valley']) {
+    const d = wired(() => 6);
+    d.stroke({ kind, x: 0, z: 0, r: 40, amount: 20, length: 200, yaw: 0 });
+    const gd = ground(d, () => 6);
+    let deepest = 99, anyWet = 0;
+    for (let z = -60; z <= 260; z += 4) for (let x = -60; x <= 60; x += 4) {
+      const h = gd(x, z);
+      deepest = Math.min(deepest, h);
+      if (d.waterAt(x, z, h).water) anyWet++;
+    }
+    check(`a ${kind} 20 m deep is dry at every sample, however far under 0 m it goes`,
+      anyWet === 0 && deepest < -10, `deepest ${deepest.toFixed(2)} m, ${anyWet} wet samples, and wet is ${d.wet}`);
+  }
+  e.stroke({ kind: 'lake', x: 0, z: 0, r: 10, level: 6 });
+  check('and one lake makes the whole list wet, which is the one boolean the field reads',
+    e.wet === true, `wet ${e.wet}`);
+  e.undo();
+  check('an undo takes it back off', e.wet === false, `wet ${e.wet}`);
+  e.redo();
+  check('and a redo puts it back on', e.wet === true, `wet ${e.wet}`);
+}
+
+// 12g-x. a lake written before ED4 still loads, as the water it used to be
+{
+  const e = createTerrainEdits({ baseHeight: flat });
+  const n = e.load({ v: 1, mode: 'sculpt', strokes: [{ kind: 'lake', x: 0, z: 0, r: 24, floor: LAKE_FLOOR, id: 1 }] });
+  const s = e.strokes[0];
+  check('an old lake\'s absolute floor is read as a surface at the old sea level with the same bed',
+    n === 1 && s.level === 0 && s.depth === -LAKE_FLOOR && s.floor === undefined,
+    `floor ${LAKE_FLOOR} m became level ${s.level} m, depth ${s.depth} m`);
+  const g = ground(e, flat);
+  check('and it puts the bed back exactly where the old one was',
+    Math.abs(g(0, 0) - LAKE_FLOOR) < 1e-9, `${g(0, 0).toFixed(4)} m against ${LAKE_FLOOR} m`);
 }
 
 // ---------------------------------------------------------------------------
@@ -656,18 +828,31 @@ function wired(hf) {
   // the class of bug this table exists to prevent, and it cannot be caught by
   // reading the table: it has to be driven.
   //
-  // Two of the sixteen brushes cannot be judged on the height they move and
-  // both are named here rather than skipped quietly:
+  // Three of the twenty brushes cannot be judged on the height they move and
+  // all three are named here rather than skipped quietly:
   //
   //   ground   moves no height at all. It is judged on the WORD it leaves.
   //   cave     `amount` is the size of the cavern under the mouth and not the
   //            shape of the mouth, so it changes the stroke and not the ground.
   //            What it changes it into is measured in world_runtime.test.mjs,
   //            where small, medium and large come out at 1, 2 and 3 levels.
+  //   drain    takes water away and moves nothing, so it is driven with water
+  //            under it: a sea 700 m across, and the drain cut into it.
   const dead = [];
+  // `x2` and `z2` for the same reason `length` is here: a river given neither
+  // is a river with both ends in one place, and every knob that only shows up
+  // ALONG a line would read as decoration on a line with no length.
   const probe = (row, p, val) => {
     const e = createTerrainEdits({ baseHeight: base });
-    return e.stroke({ kind: row.kind, x: 0, z: 0, r: 30, amount: 4, length: 100, word: 'dirt', [p.name]: val });
+    return e.stroke({ kind: row.kind, x: 0, z: 0, r: 30, amount: 4, length: 100, word: 'dirt', x2: 0, z2: 120, [p.name]: val });
+  };
+  /** The strip's own points, so the drain branch walks the same ground the rest does. */
+  const stripPoints = (wide, span) => {
+    const out = [];
+    for (let i = 0; i < 31 * 31; i++) {
+      out.push([((i % 31) / 30 * 2 - 1) * Math.min(wide, 90), (Math.floor(i / 31) / 30 * 2 - 1) * span]);
+    }
+    return out;
   };
   for (const row of list) {
     for (const p of row.params) {
@@ -684,21 +869,48 @@ function wired(hf) {
         if (A.amount === B.amount) dead.push(`${row.kind}.${p.name}`);
         continue;
       }
+      if (row.kind === 'drain') {
+        const sunk = (s) => {
+          const e = createTerrainEdits({ baseHeight: base });
+          e.stroke({ kind: 'sea', x: 0, z: 0, r: 700, level: 200 });
+          e.stroke({ ...s, id: null });
+          return e;
+        };
+        const one = sunk(A), two = sunk(B);
+        let drained = false;
+        for (const [x, z] of stripPoints(Math.max(reachOf(A), reachOf(B), 60), Math.max(reachOf(A), reachOf(B)) + 20)) {
+          const h = base(x, z);
+          if (one.waterAt(x, z, h).water !== two.waterAt(x, z, h).water) { drained = true; break; }
+        }
+        if (!drained) dead.push(`${row.kind}.${p.name}`);
+        continue;
+      }
       // The probe is a STRIP ALONG THE STROKE'S OWN BEARING, 31 by 31 with the
       // centre line exactly on it, reaching past the furthest either setting
       // can. A square grid over the bounding box misses a capsule: a ridge with
       // no yaw is a 60 m wide strip up the z axis, and a 30 column grid over
       // 4 km never puts a sample inside it, so `length` read as a dead slider
       // when it was not.
+      //
+      // ED4: a water brush is judged on the HEIGHT OR THE WATER, either one. A
+      // sea and a drain move no ground on purpose, so a height only probe would
+      // have called every knob on both of them decoration; a lake's `level`
+      // moves both, and this catches it in whichever it moved.
       const span = Math.max(reachOf(A), reachOf(B)) + 20;
       const wide = Math.max(reachOf(A), reachOf(B), 60);
       const one = createTerrainEdits({ baseHeight: base }); one.stroke({ ...A, id: null });
       const two = createTerrainEdits({ baseHeight: base }); two.stroke({ ...B, id: null });
+      const water = isWaterKind(row.kind);
       let moved = false;
       for (let i = 0; i < 31 * 31 && !moved; i++) {
         const x = ((i % 31) / 30 * 2 - 1) * Math.min(wide, 90), z = (Math.floor(i / 31) / 30 * 2 - 1) * span;
         const h = base(x, z);
         if (Math.abs(one.heightDelta(x, z, h) - two.heightDelta(x, z, h)) > 1e-9) moved = true;
+        if (!moved && water) {
+          const a = one.waterAt(x, z, h + one.heightDelta(x, z, h));
+          const b = two.waterAt(x, z, h + two.heightDelta(x, z, h));
+          if (a.water !== b.water || a.level !== b.level) moved = true;
+        }
       }
       if (!moved) dead.push(`${row.kind}.${p.name}`);
     }
@@ -901,6 +1113,55 @@ function wired(hf) {
   e.undo(); e.heightDelta(0, 0, 6);
   check('and the index of a world that big is rebuilt in under 30 ms',
     performance.now() - t0 < 30, `${(performance.now() - t0).toFixed(2)} ms`);
+}
+
+// ---------------------------------------------------------------------------
+// 18. ED4: what a world of water costs
+// ---------------------------------------------------------------------------
+//
+// `waterAt` is asked on every vertex of every chunk, right beside `heightDelta`,
+// so it has to be as cheap as one. It walks the SAME cell list, so the shape of
+// the number is the same shape: what it costs is what the strokes covering a
+// point cost, and nothing else.
+{
+  const e = createTerrainEdits({ baseHeight: flat });
+  const KINDS = ['lake', 'pond', 'river', 'sea', 'drain'];
+  for (let i = 0; i < 200; i++) {
+    const k = KINDS[i % KINDS.length];
+    const x = (i * 233.7) % 2000 - 1000, z = (i * 149.3) % 2000 - 1000;
+    e.stroke({
+      kind: k, x, z, r: k === 'sea' ? 200 : 20 + (i % 30),
+      width: 10 + (i % 10), x2: x + 120, z2: z + 60,
+      level: -2 + (i % 9), levelEnd: -6 + (i % 5), depth: 2 + (i % 4),
+    });
+  }
+  check('two hundred bodies of water, and the list knows it is wet without walking',
+    e.wet === true && e.count === 200 && e.waterBodies().length === 160,
+    `${e.count} strokes, ${e.waterBodies().length} of them surfaces to draw`);
+  const pts = [];
+  for (let i = 0; i < 10000; i++) pts.push([(i * 97.3) % 2000 - 1000, (i * 61.7) % 2000 - 1000]);
+  for (const [x, z] of pts) e.waterAt(x, z, 0);
+  let best = Infinity;
+  for (let r = 0; r < 5; r++) {
+    const t = performance.now();
+    let acc = 0;
+    for (const [x, z] of pts) acc += e.waterAt(x, z, 0).water ? 1 : 0;
+    best = Math.min(best, performance.now() - t);
+  }
+  const us = best * 1000 / pts.length;
+  let cover = 0, wetPts = 0;
+  for (const [x, z] of pts.slice(0, 500)) {
+    if (e.waterAt(x, z, 0).water) wetPts++;
+    for (const s of e.strokes) { const rr = reachOf(s); if ((x - s.x) ** 2 + (z - s.z) ** 2 < rr * rr) cover++; }
+  }
+  check('200 water bodies cost under 4 us a sample',
+    us < 4, `${us.toFixed(3)} us a sample, ${(cover / 500).toFixed(1)} bodies covering an average point, ${wetPts} of 500 points wet`);
+  // and the cost of a world with NO water in it is one property read
+  const drySoil = createTerrainEdits({ baseHeight: flat });
+  for (let i = 0; i < 200; i++) drySoil.stroke({ kind: 'raise', x: (i * 233.7) % 2000 - 1000, z: (i * 149.3) % 2000 - 1000, r: 24, amount: 3 });
+  check('driven the other way: a world with no water in it is not wet, and never asks',
+    drySoil.wet === false && drySoil.waterBodies().length === 0 && drySoil.waterAt(0, 0, 0).water === false,
+    `${drySoil.count} strokes, none of them water`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

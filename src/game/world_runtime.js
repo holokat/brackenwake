@@ -165,7 +165,7 @@ export function createWorldRuntime(sc, opts = {}) {
   const center = new THREE.Vector3();
   let dungeon = null;      // { site, level, layout, scene, spec, top, said }
   let surface = null;      // what was switched off on the way in
-  let discoverFn = null, stateFn = null, zoneFn = null, terrainFn = null;
+  let discoverFn = null, stateFn = null, zoneFn = null, terrainFn = null, rebuildFn = null;
   let lastSweep = 0;
 
   world.update(center);
@@ -242,6 +242,22 @@ export function createWorldRuntime(sc, opts = {}) {
    * Returns what it did, in numbers, so the words the HUD says are counted and
    * not claimed.
    */
+  /**
+   * THE ONE PLACE ANYTHING ELSE HEARS THAT THE GROUND MOVED (ED4).
+   *
+   * The water is built in `src/game/app/systems/world.js`, not here, because it
+   * belongs to the frame and to the sky. But water somebody PLACED is a
+   * function of the stroke list, so it has to be rebuilt on exactly the events
+   * that rebuild the ground: a stroke, an undo, a redo, a reset, a header
+   * change and a file landing. Every one of those goes through `rebuildAround`
+   * or `rebuildAll`, so this is the seam, and it is one seam rather than six
+   * call sites that a seventh event would be forgotten out of.
+   */
+  function fireRebuild(what) {
+    if (!rebuildFn) return;
+    try { rebuildFn(what); } catch (err) { console.warn('onRebuild threw', err); }
+  }
+
   function rebuildAround(x, z, r) {
     const chunks = world.rebuildWhere((cx, cz) => chunkTouches(cx, cz, x, z, r));
     let sites = 0;
@@ -252,7 +268,9 @@ export function createWorldRuntime(sc, opts = {}) {
       siteMarkers.update(x + 1e6, z + 1e6, world.viewRadius);
       siteMarkers.update(x, z, world.viewRadius);
     }
-    return { chunks, sites };
+    const did = { chunks, sites, x, z, r, all: false };
+    fireRebuild(did);
+    return did;
   }
 
   /** Every built chunk, whatever it stands under. What a loaded file needs. */
@@ -260,7 +278,12 @@ export function createWorldRuntime(sc, opts = {}) {
     const chunks = world.rebuildWhere(() => true);
     siteMarkers.update(center.x + 1e6, center.z + 1e6, world.viewRadius);
     siteMarkers.update(center.x, center.z, world.viewRadius);
-    return { chunks, sites: discovery.sitesNear(center.x, center.z, world.viewRadius).length };
+    const did = {
+      chunks, sites: discovery.sitesNear(center.x, center.z, world.viewRadius).length,
+      x: center.x, z: center.z, r: Infinity, all: true,
+    };
+    fireRebuild(did);
+    return did;
   }
 
   /**
@@ -605,6 +628,12 @@ export function createWorldRuntime(sc, opts = {}) {
     loadTerrainFile,
     /** Called when a file has landed and been applied, with what it did. */
     onTerrain(fn) { terrainFn = fn; },
+    /**
+     * Called every time the ground was put back up, with what the rebuild did:
+     * `{ chunks, sites, x, z, r, all }`. ED4's water listens on this, so a lake
+     * a stroke made appears in the same breath as the bed under it.
+     */
+    onRebuild(fn) { rebuildFn = fn; },
 
     heightAt(x, z) {
       if (dungeon) return dungeonFloor(x, z);

@@ -17,10 +17,26 @@
 //
 // Where the water is
 // ------------------
-// field.js carves every river core down to y = -1.8 and the sea floor to -14,
-// while SEA_LEVEL is -0.8. So one plane at sea level floods the ocean, every
-// river and every hollow the field cuts below it, and there is no lake in this
-// world that sits above sea level. `addPool` exists for the day there is one.
+// In a GENERATED world, field.js carves every river core down to y = -1.8 and
+// the sea floor to -14, while SEA_LEVEL is -0.8. So one plane at sea level
+// floods the ocean, every river and every hollow the field cuts below it, and
+// there is no lake in that world that sits above sea level.
+//
+// In a SCULPT world (ED4) none of that is true and the one plane is wrong. No
+// height makes water there; water is five brushes in terrain_edits.js, each
+// stroke a body with its own surface level, and `edits.waterBodies()` is the
+// list of them. `setBodies(list)` builds one mesh per body at that body's own
+// level, clipped to the body's own shape: a disc for a lake, a pond and a sea,
+// a ribbon for a river whose surface falls from its head to its mouth. They
+// wear the same shader as the ocean, so the sky, the refraction, the depth
+// shading and the foam are one piece of code and not two.
+//
+// `setGlobalPlane(false)` takes the endless sheet away, which is what a sculpt
+// world with no sea in its header wants: without it, a pit dug to -10 m would
+// show the ocean at the bottom of it and the whole point of ED4 would be lost.
+// A generated world keeps the plane and never calls any of this.
+//
+// `addPool` is the older, simpler thing and is left alone.
 //
 // The sky
 // -------
@@ -388,6 +404,146 @@ export function buildOceanGeometry(grid) {
   return g;
 }
 
+// ------------------------------------------------- ED4: a placed body of water --
+//
+// One mesh per body, built in WORLD coordinates with the mesh left at the
+// origin, because `PLANE_VERT` reads `modelMatrix * position` and a river's
+// surface is not flat: it falls from its head to its mouth, and the only place
+// that fall can live is in the geometry's own y. Doing the same for the discs
+// keeps one code path instead of two.
+//
+// The vertex spacing matters and is not a shrug: the shortest Gerstner wave in
+// WAVES is 3.2 m long, so a surface meshed coarser than that has waves the
+// vertex shader cannot show. WATER_STEP is 4 m, which is a wave every wavelength
+// at the small end and better at the large. The caps are there so a 1.5 km sea
+// is a few thousand triangles and not a few million.
+
+/** Metres between one vertex of a placed water surface and the next. */
+export const WATER_STEP = 4;
+/** The caps: rings and segments of a disc, and stations along a river. */
+export const WATER_MAX_RINGS = 48;
+export const WATER_MIN_SEG = 24;
+export const WATER_MAX_SEG = 192;
+export const WATER_MAX_STATIONS = 400;
+
+const clampi = (v, a, b) => (v < a ? a : v > b ? b : Math.round(v));
+
+/** Whether a point stands inside any of the drains that came after a body. */
+export function inAnyDrain(drains, x, z) {
+  if (!drains || !drains.length) return false;
+  for (let i = 0; i < drains.length; i++) {
+    const d = drains[i];
+    const dx = x - d.x, dz = z - d.z;
+    if (dx * dx + dz * dz < d.r * d.r) return true;
+  }
+  return false;
+}
+
+/**
+ * One body of water as plain arrays: `{ positions, index, tris, dropped }`.
+ *
+ * Pure, no THREE, so water.test.mjs can measure the ribbon's geometry and the
+ * levels along it without a GPU or a scene.
+ *
+ * A DRAIN CUTS TRIANGLES OUT, by centroid, and that is stated as a limit rather
+ * than dressed up: the hole a drain leaves is accurate to one triangle, which
+ * at WATER_STEP is about four metres. It is not a clean circle and it is not
+ * meant to be; what it is is a real hole in the real surface, so a drain that
+ * says water is gone is water that is gone in the picture as well as in the
+ * sample.
+ */
+export function bodyGeometryData(body) {
+  const drains = body.drains || [];
+  const positions = [];
+  const index = [];
+  let dropped = 0;
+  const push = (x, y, z) => { positions.push(x, y, z); return positions.length / 3 - 1; };
+  // Wound so the surface faces UP: `gl_FrontFacing` is what picks the shader's
+  // above-water branch from its underwater one, so a body wound the other way
+  // would read as seen from below from every angle.
+  const tri = (a, b, c) => {
+    const cx = (positions[a * 3] + positions[b * 3] + positions[c * 3]) / 3;
+    const cz = (positions[a * 3 + 2] + positions[b * 3 + 2] + positions[c * 3 + 2]) / 3;
+    if (inAnyDrain(drains, cx, cz)) { dropped++; return; }
+    index.push(a, c, b);
+  };
+
+  if (body.kind === 'river') {
+    const ax = body.x, az = body.z, bx = body.x2, bz = body.z2;
+    const dx = bx - ax, dz = bz - az;
+    const len = Math.hypot(dx, dz);
+    const half = Math.max(0.25, (body.width || 1) / 2);
+    const n = clampi(len / WATER_STEP + 1, 2, WATER_MAX_STATIONS);
+    // a river drawn as one click has no line, so it gets one plain crossbar
+    const ux = len > 1e-6 ? dx / len : 0, uz = len > 1e-6 ? dz / len : 1;
+    const px = uz, pz = -ux;                     // the bank side, ninety degrees off
+    const lv = body.level, lvEnd = body.levelEnd == null ? body.level : body.levelEnd;
+    for (let i = 0; i < n; i++) {
+      const u = i / (n - 1);
+      const cx = ax + dx * u, cz = az + dz * u, y = lv + (lvEnd - lv) * u;
+      push(cx + px * half, y, cz + pz * half);
+      push(cx - px * half, y, cz - pz * half);
+    }
+    for (let i = 0; i < n - 1; i++) {
+      const l0 = i * 2, r0 = i * 2 + 1, l1 = (i + 1) * 2, r1 = (i + 1) * 2 + 1;
+      tri(l0, r1, r0);
+      tri(l0, l1, r1);
+    }
+    return { positions, index, tris: index.length / 3, dropped };
+  }
+
+  const r = Math.max(0.5, body.r || 1);
+  const rings = clampi(r / WATER_STEP, 2, WATER_MAX_RINGS);
+  const seg = clampi(2 * Math.PI * r / WATER_STEP, WATER_MIN_SEG, WATER_MAX_SEG);
+  const y = body.level;
+  push(body.x, y, body.z);
+  for (let k = 1; k <= rings; k++) {
+    const rr = r * k / rings;
+    for (let i = 0; i < seg; i++) {
+      const a = (i / seg) * Math.PI * 2;
+      push(body.x + Math.cos(a) * rr, y, body.z + Math.sin(a) * rr);
+    }
+  }
+  const at = (k, i) => (k === 0 ? 0 : 1 + (k - 1) * seg + (i % seg));
+  for (let k = 1; k <= rings; k++) {
+    for (let i = 0; i < seg; i++) {
+      if (k === 1) tri(0, at(1, i), at(1, i + 1));
+      else {
+        tri(at(k - 1, i), at(k, i), at(k, i + 1));
+        tri(at(k - 1, i), at(k, i + 1), at(k - 1, i + 1));
+      }
+    }
+  }
+  return { positions, index, tris: index.length / 3, dropped };
+}
+
+/** The same, as a BufferGeometry. Null when a drain took every triangle. */
+export function buildBodyGeometry(body) {
+  const d = bodyGeometryData(body);
+  if (!d.index.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(d.positions, 3));
+  g.setIndex(d.index);
+  g.computeBoundingSphere();
+  return g;
+}
+
+/**
+ * The numbers that decide whether a body's mesh has to be built again.
+ *
+ * Every one of them is something that changes the geometry: move a lake, widen
+ * it, raise its surface or drain a hole in it and the mesh is rebuilt; leave it
+ * alone and it is kept, whatever else the world did. This is what makes
+ * "a rebuild of one lake touches only its own mesh" a measurement rather than
+ * a hope.
+ */
+export function bodySignature(b) {
+  const dr = (b.drains || []).map((d) => `${d.x},${d.z},${d.r}`).join(';');
+  return b.kind === 'river'
+    ? `river|${b.x},${b.z}|${b.x2},${b.z2}|${b.width}|${b.level}|${b.levelEnd}|${dr}`
+    : `${b.kind}|${b.x},${b.z}|${b.r}|${b.level}|${dr}`;
+}
+
 // ------------------------------------------------------------------ build --
 
 /**
@@ -449,6 +605,11 @@ export function createWater(sc, field, opts = {}) {
     extras.push(m);
     return m;
   }
+  function dropMaterial(m) {
+    const i = extras.indexOf(m);
+    if (i >= 0) extras.splice(i, 1);
+    m.dispose();
+  }
 
   // ---------------------------------------------------------- the passes --
 
@@ -456,7 +617,7 @@ export function createWater(sc, field, opts = {}) {
   const manageShadows = opts.manageShadows !== false;
   let shadowsHeld = false;
   const sizeTmp = new THREE.Vector2();
-  const stats = { passes: 0, skipped: 0, rtPixels: 0, mainPixels: 0, verts: preset.grid * preset.grid };
+  const stats = { passes: 0, skipped: 0, rtPixels: 0, mainPixels: 0, verts: preset.grid * preset.grid, bodies: 0 };
 
   function makeTarget() {
     if (!preset.refraction) return null;
@@ -485,7 +646,12 @@ export function createWater(sc, field, opts = {}) {
    */
   function beforeRender(renderer, sceneArg, camera) {
     const sc2 = sceneArg || scene;
-    if (!preset.refraction || !rt || !group.visible) {
+    // NOTHING DRAWN, NOTHING TO REFRACT. A sculpt world with the global plane
+    // off and no lake in it yet has no water anywhere, and a whole second scene
+    // render a frame for a surface that does not exist is a real cost for
+    // nothing. Measured by the pass counter in water.test.mjs, both ways.
+    const drawing = mesh.visible || bodies.size > 0;
+    if (!preset.refraction || !rt || !group.visible || !drawing) {
       uniforms.uHasDepth.value = 0;
       stats.skipped++;
       // whatever the last pass borrowed has to go back, or the shadows on a
@@ -639,6 +805,89 @@ export function createWater(sc, field, opts = {}) {
     return pool;
   }
 
+  // ---- ED4: the bodies somebody placed --------------------------------------
+  //
+  // One entry per body, keyed by the stroke's own id, so an undo that takes one
+  // lake away takes one mesh away and a stroke on the far side of the world
+  // rebuilds nothing at all. `setBodies` is the whole of the join and it is
+  // called from `world_runtime.onRebuild`, which fires on every stroke, undo,
+  // redo, reset, header change and file load.
+  const bodies = new Map();
+
+  /** How a body of water is dressed: a sea swells, a lake laps, a river runs. */
+  function bodyMaterial(b) {
+    if (b.kind === 'river') {
+      const dx = b.x2 - b.x, dz = b.z2 - b.z;
+      const len = Math.hypot(dx, dz) || 1;
+      // the detail noise is dragged the way the water goes, so a river reads as
+      // moving and not as a long thin lake
+      return riverMaterial({ x: dx / len, z: dz / len }, { seaLevel: (b.level + b.levelEnd) / 2 });
+    }
+    if (b.kind === 'sea') return planeMaterial({ uSeaY: { value: b.level } });
+    // a lake and a pond are sheltered water: the same shader with the swell
+    // most of the way down, so the surface still moves and still catches light
+    return planeMaterial({
+      uSeaY: { value: b.level },
+      uWaveH: { value: uniforms.uWaveH.value * 0.35 },
+      uWaveScale: { value: uniforms.uWaveScale.value * 0.5 },
+      uFoam: { value: 0.35 },
+    });
+  }
+
+  function removeBody(id) {
+    const cur = bodies.get(id);
+    if (!cur) return false;
+    group.remove(cur.mesh);
+    cur.mesh.geometry.dispose();
+    dropMaterial(cur.material);
+    bodies.delete(id);
+    return true;
+  }
+
+  /**
+   * Take the whole list of placed water and make the scene match it.
+   *
+   * Returns what it did, counted: `{ bodies, built, kept, dropped, empty }`, so
+   * the claim that one stroke rebuilt one lake is a number somebody measured
+   * and not a sentence somebody wrote. `empty` counts bodies a drain removed
+   * every triangle of, which are real bodies with nothing left to draw.
+   */
+  function setBodies(list = []) {
+    const seen = new Set();
+    let built = 0, kept = 0, dropped = 0, empty = 0;
+    for (const b of list) {
+      seen.add(b.id);
+      const sig = bodySignature(b);
+      const cur = bodies.get(b.id);
+      if (cur && cur.sig === sig) { kept++; continue; }
+      if (cur) removeBody(b.id);
+      const geo = buildBodyGeometry(b);
+      if (!geo) { empty++; continue; }
+      const material = bodyMaterial(b);
+      const mesh = new THREE.Mesh(geo, material);
+      mesh.name = `water:${b.kind}:${b.id}`;
+      mesh.renderOrder = 5;
+      group.add(mesh);
+      bodies.set(b.id, { sig, mesh, material });
+      built++;
+    }
+    for (const id of [...bodies.keys()]) if (!seen.has(id)) { removeBody(id); dropped++; }
+    stats.bodies = bodies.size;
+    return { bodies: bodies.size, built, kept, dropped, empty };
+  }
+
+  /**
+   * The endless sheet at sea level, on or off.
+   *
+   * Off is what a sculpt world with no sea in its header needs: with it on, a
+   * pit dug to -10 m fills with ocean and every downward brush is a flood
+   * again, which is the whole bug ED4 was opened for.
+   */
+  function setGlobalPlane(on) {
+    mesh.visible = !!on;
+    return mesh.visible;
+  }
+
   /**
    * The same water with the waves down to a ripple and a flow direction, for
    * whoever draws river ribbons. `flow` is { x, z } in world units per second;
@@ -659,6 +908,11 @@ export function createWater(sc, field, opts = {}) {
   const api = {
     group, mesh, material, uniforms, stats, field,
     update, beforeRender, setQuality, addPool, riverMaterial,
+    setBodies, setGlobalPlane,
+    /** How many placed bodies there are, and their meshes by id. Only tests ask. */
+    get bodyCount() { return bodies.size; },
+    bodyMesh(id) { const b = bodies.get(id); return b ? b.mesh : null; },
+    get globalPlane() { return mesh.visible; },
     surfaceAt, isUnderwater, waveHeightAt: (x, z, t) => waveHeightAt(x, z, t ?? time, waveParams()),
     get quality() { return quality; },
     get shadowsHeld() { return shadowsHeld; },
@@ -685,6 +939,7 @@ export function createWater(sc, field, opts = {}) {
     get waves() { return waveParams(); },
     setVisible(v) { group.visible = !!v; return group.visible; },
     dispose() {
+      bodies.clear();
       for (const child of [...group.children]) {
         group.remove(child);
         if (child.geometry) child.geometry.dispose();

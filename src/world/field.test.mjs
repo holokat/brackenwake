@@ -1262,10 +1262,15 @@ check('sampleAt under 12 microseconds', perSample < 12, `${perSample.toFixed(2)}
   edits.setBase({ snowLine: 180, sea: false, places: false });
   s.setTerrainEdits(edits);
 
-  const lake = edits.stroke({ kind: 'lake', x: 1500, z: 0, r: 40 });
-  check('a lake fills, because water is decided after the strokes are laid',
-    s.sampleAt(1500, 0).water && s.sampleAt(1500, 0).biome === 'ocean',
-    `floor ${s.sampleAt(1500, 0).h.toFixed(2)} m, sea level ${SEA_LEVEL} m`);
+  // A lake cut to a surface at 0 m in a world whose ground stands at 6: the bed
+  // goes to -4, the water fills to 0, and the bank between 0 and the beach line
+  // comes out as sand. Written with an explicit `level` because that is what
+  // makes the band exist to be looked for; a lake clicked on the flat takes the
+  // ground as its surface, which is driven in terrain_edits.test.mjs.
+  const lake = edits.stroke({ kind: 'lake', x: 1500, z: 0, r: 40, level: 0, depth: 4 });
+  check('a lake fills to the surface it was given, because water is decided after the strokes are laid',
+    s.sampleAt(1500, 0).water && s.sampleAt(1500, 0).biome === 'ocean' && s.sampleAt(1500, 0).waterLevel === 0,
+    `bed ${s.sampleAt(1500, 0).h.toFixed(2)} m, surface ${s.sampleAt(1500, 0).waterLevel} m`);
   check('and there is a beach round its edge, from the other line in the header',
     (() => { for (let d = 30; d <= 44; d += 0.5) { const p = s.sampleAt(1500 + d, 0);
       if (!p.water && p.h < s.sculpt.beachLine && p.biome === 'beach') return true; } return false; })(),
@@ -1296,6 +1301,108 @@ check('sampleAt under 12 microseconds', perSample < 12, `${perSample.toFixed(2)}
   }
   check('putting the header back to generate gives the seed its world back, bit for bit',
     same === n, `${same}/${n} points, height and biome both`);
+
+  // ---- 10j. ED4: WATER IS PLACED, NEVER FALLEN INTO ----------------------
+  //
+  // The complaint, in the user's words: "why does Valley create an ocean floor?
+  // we should have separate controls for water, river, lakes etc". Everything
+  // below is driven through `sampleAt`, which is the field every chunk, every
+  // blade of grass and every footfall reads, and not through the stroke list on
+  // its own: the stroke list agreeing with itself proves nothing about what a
+  // player would see.
+  {
+    const w = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
+    const we = createTerrainEdits({ baseHeight: (x, z) => w.heightAt(x, z), mode: 'sculpt' });
+    w.setTerrainEdits(we);
+
+    // 10j-a. every downward brush, driven to well under the old water line
+    for (const [kind, extra] of [['valley', { length: 300, yaw: 0 }], ['lower', {}], ['pit', {}]]) {
+      const at = { valley: 0, lower: 3000, pit: 6000 }[kind];
+      we.stroke({ kind, x: at, z: 0, r: 40, amount: 20, ...extra });
+      let wet = 0, n = 0, deepest = 99, ocean = 0;
+      for (let z = -60; z <= 360; z += 6) for (let x = -60; x <= 60; x += 6) {
+        const p = w.sampleAt(at + x, z); n++;
+        deepest = Math.min(deepest, p.h);
+        if (p.water) wet++;
+        if (p.biome === 'ocean') ocean++;
+      }
+      check(`a ${kind} 20 m deep is dry ground at every one of ${n} samples`,
+        wet === 0 && ocean === 0 && deepest < -10,
+        `deepest ${deepest.toFixed(2)} m, ${wet} wet, ${ocean} called ocean`);
+    }
+    // and the foot of a mountain at -50 m, which is the same rule from above
+    we.stroke({ kind: 'plateau', x: -3000, z: 0, r: 300, height: -50 });
+    check('and ground plateaued to -50 m is dry too, and is not called ocean',
+      !w.sampleAt(-3000, 0).water && w.sampleAt(-3000, 0).biome !== 'ocean',
+      `${w.sampleAt(-3000, 0).h.toFixed(1)} m, biome ${w.sampleAt(-3000, 0).biome}`);
+
+    // 10j-b. driven the other way: the SAME depth in a generated world floods,
+    // because that is the generator's rule and ED4 did not touch it
+    {
+      const g2 = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
+      const ge = createTerrainEdits({ baseHeight: (x, z) => g2.heightAt(x, z) });
+      g2.setTerrainEdits(ge);
+      const flatIsh = [1480, -2360];
+      ge.stroke({ kind: 'pit', x: flatIsh[0], z: flatIsh[1], r: 40, amount: 60 });
+      const p = g2.sampleAt(flatIsh[0], flatIsh[1]);
+      check('and the same pit in a GENERATED world still fills, because that is the generator\'s rule',
+        p.water && p.biome === 'ocean', `${p.h.toFixed(2)} m, water ${p.water}, biome ${p.biome}`);
+    }
+    // and so does a sculpt world that asked for the generator's coast back
+    {
+      const sea = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
+      const se = createTerrainEdits({ baseHeight: (x, z) => sea.heightAt(x, z), mode: 'sculpt' });
+      se.setBase({ sea: true });
+      sea.setTerrainEdits(se);
+      se.stroke({ kind: 'pit', x: 0, z: 0, r: 40, amount: 30 });
+      check('and a sculpt world whose header asks for the sea back floods by height again',
+        sea.sampleAt(0, 0).water, `${sea.sampleAt(0, 0).h.toFixed(2)} m, water ${sea.sampleAt(0, 0).water}`);
+    }
+
+    // 10j-c. the five brushes, through the field
+    we.stroke({ kind: 'lake', x: 1000, z: 1000, r: 24, level: 6, depth: 4 });
+    const lk = w.sampleAt(1000, 1000);
+    check('a lake at level 6 on flat ground at 6 m is water 4 m deep with a bed at 2 m',
+      lk.water && lk.waterLevel === 6 && Math.abs(lk.h - 2) < 1e-9 && lk.biome === 'ocean',
+      `bed ${lk.h.toFixed(2)} m, surface ${lk.waterLevel} m, biome ${lk.biome}`);
+    check('and its bank, where the ground rises back through the surface, is dry',
+      !w.sampleAt(1024, 1000).water && w.sampleAt(1024, 1000).h === 6,
+      `the rim at 24 m is ${w.sampleAt(1024, 1000).h} m, water ${w.sampleAt(1024, 1000).water}`);
+
+    we.stroke({ kind: 'river', x: 2000, z: 0, x2: 2000, z2: 400, width: 14, level: 6, levelEnd: 2 });
+    const rHead = w.sampleAt(2000, 0), rMouth = w.sampleAt(2000, 400), rBank = w.sampleAt(2020, 200);
+    check('a river carries 6 m at its head and 2 m at its mouth, and its bed follows',
+      rHead.water && rMouth.water && rHead.waterLevel === 6 && rMouth.waterLevel === 2
+      && Math.abs(rHead.h - 4) < 1e-9 && Math.abs(rMouth.h - 0) < 1e-9,
+      `head ${rHead.waterLevel} m over a bed at ${rHead.h.toFixed(2)} m, mouth ${rMouth.waterLevel} m over ${rMouth.h.toFixed(2)} m`);
+    check('and twenty metres off it, past its own bank, the ground is dry and untouched',
+      !rBank.water && rBank.h === 6, `${rBank.h} m, water ${rBank.water}`);
+
+    we.stroke({ kind: 'pit', x: -6000, z: 0, r: 400, amount: 12 });
+    we.stroke({ kind: 'sea', x: -6000, z: 0, r: 400, level: 3 });
+    let seaWet = 0, seaN = 0;
+    for (let i = 0; i < 400; i++) {
+      const th = i / 400 * Math.PI * 2, d = (i % 20) / 20 * 399;
+      const p = w.sampleAt(-6000 + Math.cos(th) * d, Math.sin(th) * d);
+      seaN++;
+      if (p.water && p.waterLevel === 3) seaWet++;
+    }
+    check('a sea at level 3 floods a 400 m disc of coast somebody sank first',
+      seaWet > seaN * 0.6, `${seaWet} of ${seaN} points inside 400 m are water at 3 m`);
+
+    we.stroke({ kind: 'drain', x: 1000, z: 1000, r: 30 });
+    check('and a drain takes the lake away and leaves the bed where it was',
+      !w.sampleAt(1000, 1000).water && Math.abs(w.sampleAt(1000, 1000).h - 2) < 1e-9,
+      `bed still ${w.sampleAt(1000, 1000).h.toFixed(2)} m, water ${w.sampleAt(1000, 1000).water}`);
+
+    // 10j-d. painted ground under placed water stays painted
+    we.stroke({ kind: 'lake', x: 4000, z: 4000, r: 30, level: 6, depth: 4 });
+    we.stroke({ kind: 'ground', x: 4000, z: 4000, r: 20, word: 'sand' });
+    const painted = w.sampleAt(4000, 4000);
+    check('painted ground under water somebody placed stays painted',
+      painted.water && painted.ground === 'sand' && painted.biome === 'beach',
+      `water ${painted.water}, ground ${painted.ground}, biome ${painted.biome}`);
+  }
 
   // ---- 10i. THE DIGEST OF THE BLANK WORLD -------------------------------
   //

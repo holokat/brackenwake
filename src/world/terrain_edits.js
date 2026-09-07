@@ -24,7 +24,7 @@
 // outside it is C1 and not a ridge. `(1 - t^2)^2` and `smoothstep` are the only
 // two shapes used, for exactly that reason.
 //
-// ---- the sixteen kinds ------------------------------------------------------
+// ---- the fifteen that move ground -------------------------------------------
 //
 //   raise     a dome, `amount` metres at the centre, 0 at r
 //   lower     the same, down
@@ -56,16 +56,43 @@
 //             smoothed over `sharp` of a tread so it is a stair and not a tear
 //   noise     `amount` metres of fbm over the disc, for roughening flat ground
 //   erode     a smooth that may only take ground away, never add it
-//   lake      a pit whose floor is an ABSOLUTE height, below sea level by
-//             default, so one click fills with water
+//
+// ---- ED4: water is placed, never fallen into --------------------------------
+//
+// Until ED4 a sculpt world got its water the way the generator does: the ground
+// was flooded wherever it fell under sea level. That is the generator's rule and
+// it is wrong for a person sculpting by hand ("why does Valley create an ocean
+// floor? we should have separate controls for water, river, lakes etc"). A
+// valley, a pit, a lower stroke and the foot of a mountain are all GROUND now,
+// however deep they go, and water is five brushes of its own:
+//
+//   lake      a disc of water at `level` metres, which digs its own bed
+//             `depth` below that level where the ground stands higher
+//   pond      the same, with a small radius and a shallow bed
+//   river     a ribbon from the stroke to (`x2`, `z2`), `width` across, its
+//             surface `level` at the head and `levelEnd` at the mouth so it can
+//             run downhill, its bed cut `depth` under the surface with banks of
+//             the same profile a pit's wall has. A river whose head lands on
+//             another river's mouth CHAINS: it takes that river's `levelEnd` as
+//             its own `level` and snaps to the joint, so a valley can be drawn
+//             in a chain of strokes and the water still runs one way
+//   sea       a large disc at a level, 0 by default, that cuts NO bed: it is
+//             for a coast somebody has already sculpted
+//   drain     water gone inside r. It moves no ground at all
+//
+// Every one of them only ever takes ground AWAY: a bed is never filled in, so a
+// lake laid over a gorge leaves the gorge. `waterAt(x, z, h)` walks the same
+// index the heights walk, in the order the strokes were made, so a drain over a
+// lake is dry and a lake over a drain is wet.
 //
 // ---- what a stroke has to carry --------------------------------------------
 //
-// Five kinds cannot be worked out from (x, z) alone. `flatten` and `plateau`
-// need the height they are pulling to, and `smooth`, `erode` and `lake` need
-// the ring average or the ground at the centre, so `stroke()` asks the
-// `baseHeight` sampler for them ONCE, at the moment the stroke is made, and
-// writes the answer into the stroke as `h0`. `cliff`, `cave`, `ridge` and
+// Several kinds cannot be worked out from (x, z) alone. `flatten` and `plateau`
+// need the height they are pulling to, and `smooth` and `erode` need the ring
+// average, so `stroke()` asks the `baseHeight` sampler for them ONCE, at the
+// moment the stroke is made, and writes the answer into the stroke as `h0`.
+// `lake`, `pond` and `river` do the same for the level they take when nobody
+// gives one, which is the ground you clicked on. `cliff`, `cave`, `ridge` and
 // `valley` need a bearing, which the caller supplies as `yaw` (world bearing:
 // +x is sin, +z is cos, the same convention `site.facing` uses in field.js). A
 // stroke with no yaw is treated as yaw 0, which is a step facing +z.
@@ -87,11 +114,30 @@
 
 import { createNoise } from './noise.js';
 
-/** The sixteen things a stroke can be. */
+/** The twenty things a stroke can be. */
 export const STROKE_KINDS = [
   'raise', 'lower', 'flatten', 'smooth', 'pit', 'cliff', 'cave', 'ground',
-  'mountain', 'ridge', 'plateau', 'valley', 'terrace', 'noise', 'erode', 'lake',
+  'mountain', 'ridge', 'plateau', 'valley', 'terrace', 'noise', 'erode',
+  // ED4: the five that place water. They are last, and together, because the
+  // editor's Water tray is `kinds()` filtered by this list and shows them in
+  // this order.
+  'lake', 'pond', 'river', 'sea', 'drain',
 ];
+/**
+ * The five kinds that place water, and the only things in this file that do.
+ *
+ * `src/game/editor/modes.js` reads it to fill the Water tray, `field.js` reads
+ * `waterAt` which is built out of it, and `water.js` draws one surface per body
+ * `waterBodies()` hands over. A sixth kind added here appears in all three
+ * without a second list to keep up to date.
+ */
+export const WATER_KINDS = ['lake', 'pond', 'river', 'sea', 'drain'];
+/** The four that draw a surface. `drain` takes one away and draws nothing. */
+export const SURFACE_KINDS = ['lake', 'pond', 'river', 'sea'];
+const WATER_SET = new Set(WATER_KINDS);
+const SURFACE_SET = new Set(SURFACE_KINDS);
+/** Whether a kind places or removes water. */
+export const isWaterKind = (kind) => WATER_SET.has(kind);
 /** The words `ground` may paint. Anything else is refused. */
 export const GROUND_WORDS = ['dirt', 'rock', 'sand', 'grass', 'mud', 'snow', 'gravel', 'ash', 'cobble', 'path'];
 /**
@@ -208,8 +254,53 @@ export const TERRACE_STEP = 4;
 export const TERRACE_SHARP = 0.5;
 /** How much of a `plateau`'s radius is its flat top. The rest is skirt. */
 export const PLATEAU_SKIRT = 0.75;
-/** Where a `lake`'s floor sits when nobody says, in metres. Sea level is 0. */
+/**
+ * Where a `lake`'s floor sat before ED4, in metres.
+ *
+ * Kept, and exported, for one job: a file written before water had brushes of
+ * its own carries `floor` on its lakes and no `level`, and `makeStroke` reads
+ * that as a surface at the old sea level with the same bed under it. Nothing
+ * new is measured from it.
+ */
 export const LAKE_FLOOR = -3;
+
+// ---- ED4: what water is, in numbers ----------------------------------------
+//
+// THE LEVEL A LAKE TAKES WHEN NOBODY SAYS IS THE GROUND YOU CLICKED ON, which
+// is what makes one click on the flat a lake with its own bed rather than a
+// crater with a puddle six metres down it. The SLIDER's default cannot be "the
+// ground", because a slider is a number, so it is `DEFAULT_BASE.height`: the
+// height a blank sculpt world stands at. Those two agree on the world people
+// actually build in, and the words every stroke returns quote the level it got.
+/** The surface a lake, a pond or a river takes on the palette's slider, in metres. */
+export const WATER_LEVEL = DEFAULT_BASE.height;
+/** How far a lake cuts its bed below its own surface, in metres. */
+export const LAKE_DEPTH = 4;
+/** The same for a pond, which is the small one. */
+export const POND_DEPTH = 2;
+/** The same for a river's channel. */
+export const RIVER_DEPTH = 2;
+/** How wide a river is, bank to bank, when nobody says. */
+export const RIVER_WIDTH = 12;
+/** How wide a lake and a pond are when nobody says, as a radius in metres. */
+export const LAKE_R = 24;
+export const POND_R = 8;
+/** How big a `sea` is when nobody says, and the widest one anybody may draw. */
+export const SEA_R = 400;
+export const SEA_MAX_R = 1500;
+/** Where a `sea`'s surface sits when nobody says. Sea level is 0 and always was. */
+export const SEA_SURFACE = 0;
+/**
+ * How close a river's head has to land to another river's mouth to chain, in
+ * metres.
+ *
+ * A chain is what makes a river that bends into more than one stroke still one
+ * river: the second takes the first's `levelEnd` as its own `level` and its
+ * head is SNAPPED onto the joint, so the two ribbons meet with no step and the
+ * water keeps running the same way downhill. Six metres is half a default
+ * river's width, so a second click anywhere in the mouth chains.
+ */
+export const RIVER_CHAIN = 6;
 /** How much of the way an `erode` pulls, when it is not told. */
 export const ERODE_PULL = 0.6;
 /** How many stroke seeds keep a noise table alive before the cache is dropped. */
@@ -304,6 +395,83 @@ export function lineDist(s, x, z) {
   return Math.sqrt(ex * ex + ez * ez);
 }
 
+// ---- ED4: the shape of a body of water --------------------------------------
+//
+// Four small functions, exported, because three files read them and none of
+// them should be reading a stroke's raw properties and guessing at the
+// defaults: `field.js` asks whether a point is wet, `water.js` builds the
+// surface it draws out of exactly the same numbers, and `world.js` says them
+// out loud. One answer, three readers.
+
+/** How wide a river is on either side of its own line, in metres. */
+export const riverHalf = (s) => Math.max(MIN_R, (Number.isFinite(s.width) ? s.width : RIVER_WIDTH) / 2);
+/** How deep a water stroke cuts its bed, in metres. 0 for a sea and a drain. */
+export function depthOf(s) {
+  if (s.kind === 'sea' || s.kind === 'drain') return 0;
+  if (Number.isFinite(s.depth)) return Math.max(0, s.depth);
+  return s.kind === 'pond' ? POND_DEPTH : s.kind === 'river' ? RIVER_DEPTH : LAKE_DEPTH;
+}
+/** Where a water stroke's surface stands, in metres. Null for a drain. */
+export function levelOf(s) {
+  if (s.kind === 'drain') return null;
+  if (Number.isFinite(s.level)) return s.level;
+  if (s.kind === 'sea') return SEA_SURFACE;
+  return Number.isFinite(s.h0) ? s.h0 : WATER_LEVEL;
+}
+/** Where a river's surface stands at its mouth. The head's level, if it has none. */
+export const levelEndOf = (s) => (Number.isFinite(s.levelEnd) ? s.levelEnd : levelOf(s));
+
+/**
+ * How far along a river (0 at the head, 1 at the mouth) a point stands, and how
+ * far off the line it is.
+ *
+ * The same projection `lineDist` does, but onto the segment between two POINTS
+ * rather than a bearing and a length, because a river is drawn between two
+ * clicks and its far end is a place, not an angle. A river with both ends in
+ * the same spot has no line at all: `u` is 0 and the distance is the plain
+ * radial one, so a degenerate river is a small round pool and not a divide by
+ * zero.
+ */
+export function riverAt(s, x, z) {
+  const ax = s.x, az = s.z;
+  const bx = Number.isFinite(s.x2) ? s.x2 : s.x;
+  const bz = Number.isFinite(s.z2) ? s.z2 : s.z;
+  const dx = bx - ax, dz = bz - az;
+  const len2 = dx * dx + dz * dz;
+  let u = 0;
+  if (len2 > 1e-12) {
+    u = ((x - ax) * dx + (z - az) * dz) / len2;
+    u = u < 0 ? 0 : u > 1 ? 1 : u;
+  }
+  const ex = ax + dx * u - x, ez = az + dz * u - z;
+  return { u, d: Math.sqrt(ex * ex + ez * ez) };
+}
+/** A river's surface at `u` along its own line: the head's level, falling to the mouth's. */
+export const riverLevelAt = (s, u) => levelOf(s) + (levelEndOf(s) - levelOf(s)) * u;
+
+/**
+ * The surface one stroke puts over (x, z).
+ *
+ *   undefined   this stroke does not reach here, or is not a water stroke
+ *   null        a `drain` reaches here, so whatever was here is gone
+ *   a number    the metres the surface stands at
+ *
+ * Three answers and not two, because a drain has to be able to say "no water"
+ * as loudly as a lake says "water at 6 m": a walk that could only add would let
+ * a drain do nothing at all.
+ */
+export function waterOf(s, x, z) {
+  if (!WATER_SET.has(s.kind)) return undefined;
+  if (s.kind === 'river') {
+    const seg = riverAt(s, x, z);
+    return seg.d >= riverHalf(s) ? undefined : riverLevelAt(s, seg.u);
+  }
+  const r = Math.max(MIN_R, s.r || 0);
+  const dx = x - s.x, dz = z - s.z;
+  if (dx * dx + dz * dz >= r * r) return undefined;
+  return s.kind === 'drain' ? null : levelOf(s);
+}
+
 /**
  * The ground rounded onto steps, with the riser smoothed.
  *
@@ -368,12 +536,24 @@ export function maxGrade(s) {
       const wave = Math.max(2, s.wave || NOISE_WAVE);
       return a * FBM_SLOPE / wave + 8 * a / (3 * Math.sqrt(3) * r);
     }
-    case 'lake': {
-      // the depth is whatever the ground was, which is captured in h0
-      if (s.h0 == null) return null;
-      const depth = Math.abs(s.h0 - (s.floor == null ? LAKE_FLOOR : s.floor));
+    /**
+     * A lake's and a pond's bed is a pit of a KNOWN depth, so unlike the pre
+     * ED4 lake this needs nothing captured off the ground: `depth` is the
+     * stroke's own number and the bank is the pit's own profile.
+     */
+    case 'lake': case 'pond': {
+      const depth = depthOf(s);
+      if (depth <= 0) return 0;
       return 1.5 * depth / ((1 - wallStart(depth, r)) * r);
     }
+    /** The same wall, cut across a river's half width instead of a radius. */
+    case 'river': {
+      const depth = depthOf(s), half = riverHalf(s);
+      if (depth <= 0) return 0;
+      return 1.5 * depth / ((1 - wallStart(depth, half)) * half);
+    }
+    /** Neither of these moves so much as a millimetre of ground. */
+    case 'sea': case 'drain': return 0;
     // Every one of these cuts whatever the ground was already doing, and this
     // function is not given the ground. Null, rather than a number taken from
     // the wrong variable.
@@ -389,6 +569,12 @@ export function reachOf(s) {
   // A capsule reaches r past the far end of its own line, and the index boxes a
   // stroke about its own point, so this is the whole of it in every direction.
   if (s.kind === 'ridge' || s.kind === 'valley') return r + Math.max(0, s.length || 0);
+  // A river is the same capsule, drawn to a POINT rather than along a bearing,
+  // so its reach is half its width plus the whole distance to that point.
+  if (s.kind === 'river') {
+    const bx = Number.isFinite(s.x2) ? s.x2 : s.x, bz = Number.isFinite(s.z2) ? s.z2 : s.z;
+    return riverHalf(s) + Math.hypot(bx - s.x, bz - s.z);
+  }
   return r;
 }
 
@@ -419,6 +605,26 @@ export function deltaOf(s, x, z, h) {
     const d = lineDist(s, x, z);
     if (d >= r) return 0;
     return (s.kind === 'ridge' ? a : -a) * dome(d / r);
+  }
+  /**
+   * A river's channel: a pit's wall, cut along a line, to a floor that FALLS
+   * with the surface.
+   *
+   * `(floor - h)` and never the other way round, and clamped so it can only
+   * take ground away: a river drawn across a gorge does not fill the gorge in
+   * to make itself a bed, it just runs through it. That clamp is what makes
+   * the join with the ground outside the banks C1 as well: where the ground is
+   * already at or under the floor the cut is exactly 0 and stays 0.
+   */
+  if (s.kind === 'river') {
+    const half = riverHalf(s);
+    const seg = riverAt(s, x, z);
+    if (seg.d >= half) return 0;
+    const depth = depthOf(s);
+    if (depth <= 0) return 0;
+    const floor = riverLevelAt(s, seg.u) - depth;
+    const cut = (floor - h) * pitProfile(seg.d / half, depth, half);
+    return cut < 0 ? cut : 0;
   }
   const dx = x - s.x, dz = z - s.z;
   const d2 = dx * dx + dz * dz;
@@ -508,8 +714,7 @@ export function deltaOf(s, x, z, h) {
       return d < 0 ? d : 0;
     }
     /**
-     * A lake: a pit whose floor is an absolute height, below sea level by
-     * default, so one click makes water.
+     * A lake and a pond: a bed cut `depth` under the surface, and NOTHING ELSE.
      *
      * `(floor - h)` AND NOT `-depth`, and the difference is the whole point of
      * the kind. A `pit` takes a fixed number of metres off whatever it finds,
@@ -519,16 +724,27 @@ export function deltaOf(s, x, z, h) {
      * however the ground ran before. Measured on the test's own wrinkled
      * hillside: relative, the floor came out 3.82 m off level; absolute, 0.
      *
-     * `h0`, the ground at the centre when the stroke was made, is still carried
-     * and is still used, for the one thing it is needed for: how wide the wall
-     * has to be so it is not steeper than the mesher can draw.
+     * IT ONLY EVER DIGS. `cut < 0 ? cut : 0` is what "only if the ground is
+     * above the level" means in code: ground already under the bed is left
+     * alone, a lake laid over a gorge leaves the gorge, and the rim is C1 with
+     * the world outside it because the cut is exactly 0 there either way.
      */
-    case 'lake': {
-      const floor = s.floor == null ? LAKE_FLOOR : s.floor;
-      const depth = (s.h0 == null ? h : s.h0) - floor;
+    case 'lake': case 'pond': {
+      const depth = depthOf(s);
       if (depth <= 0) return 0;
-      return (floor - h) * pitProfile(t, depth, r);
+      const floor = levelOf(s) - depth;
+      const cut = (floor - h) * pitProfile(t, depth, r);
+      return cut < 0 ? cut : 0;
     }
+    /**
+     * A sea and a drain move no ground at all, on purpose.
+     *
+     * A sea is for a coast somebody has ALREADY sculpted: it lays a surface at
+     * a level over whatever shape is there, so a bay with headlands stays a bay
+     * with headlands. A drain is the eraser, and an eraser that dug a hole
+     * would be a strange eraser.
+     */
+    case 'sea': case 'drain': return 0;
     default: return 0;
   }
 }
@@ -547,6 +763,8 @@ export function deltaOf(s, x, z, h) {
 const P = (name, min, max, step, def) => ({ name, min, max, step, default: def });
 const R_PARAM = P('r', MIN_R, 600, 0.5, 12);
 const YAW_PARAM = P('yaw', 0, Math.PI * 2, 0.01, 0);
+/** Where a surface stands, in metres. `kinds()` copies every row, so one is enough. */
+const LEVEL_PARAM = P('level', -200, MOUNTAIN_MAX_AMOUNT, 0.5, WATER_LEVEL);
 export const KIND_PARAMS = {
   raise:    { label: 'raise',    params: [R_PARAM, P('amount', 0, 400, 0.1, 2)] },
   lower:    { label: 'lower',    params: [R_PARAM, P('amount', 0, 400, 0.1, 2)] },
@@ -563,7 +781,19 @@ export const KIND_PARAMS = {
   terrace:  { label: 'terrace',  params: [P('r', MIN_R, 600, 0.5, 40), P('step', 0.5, 40, 0.5, TERRACE_STEP), P('sharp', 0.02, 1, 0.02, TERRACE_SHARP)] },
   noise:    { label: 'roughen',  params: [P('r', MIN_R, 600, 0.5, 60), P('amount', 0, 60, 0.1, 2), P('wave', 2, 400, 1, NOISE_WAVE)] },
   erode:    { label: 'erode',    params: [P('r', MIN_R, 600, 0.5, 30), P('amount', 0, 1, 0.05, ERODE_PULL)] },
-  lake:     { label: 'lake',     params: [P('r', MIN_R, MOUNTAIN_MAX_R, 0.5, 24), P('floor', -200, 0, 0.5, LAKE_FLOOR)] },
+  // ED4's five. `level` is the surface in metres and `depth` is how far the bed
+  // is cut under it, so the two knobs read as "where the water is" and "how
+  // deep it is" rather than as one absolute floor a person has to do the
+  // arithmetic for.
+  lake:     { label: 'lake',     params: [P('r', MIN_R, MOUNTAIN_MAX_R, 0.5, LAKE_R), LEVEL_PARAM, P('depth', 0, 200, 0.5, LAKE_DEPTH)] },
+  pond:     { label: 'pond',     params: [P('r', MIN_R, 120, 0.5, POND_R), LEVEL_PARAM, P('depth', 0, 60, 0.5, POND_DEPTH)] },
+  // `x2` and `z2` are what make a river a two click brush: palette.js reads the
+  // pair and marks the row `line`, and the editor fills them in from the second
+  // click. Their range is well past the world's own 8 km half width, because a
+  // knob that clamps is a river that ends somewhere the user did not click.
+  river:    { label: 'river',    params: [P('width', 1, 200, 0.5, RIVER_WIDTH), P('depth', 0, 60, 0.5, RIVER_DEPTH), LEVEL_PARAM, P('levelEnd', -200, MOUNTAIN_MAX_AMOUNT, 0.5, WATER_LEVEL), P('x2', -20000, 20000, 1, 0), P('z2', -20000, 20000, 1, 60)] },
+  sea:      { label: 'sea',      params: [P('r', MIN_R, SEA_MAX_R, 5, SEA_R), P('level', -200, MOUNTAIN_MAX_AMOUNT, 0.5, SEA_SURFACE)] },
+  drain:    { label: 'drain',    params: [P('r', MIN_R, MOUNTAIN_MAX_R, 0.5, LAKE_R)] },
 };
 
 /**
@@ -673,8 +903,18 @@ export function createTerrainEdits(opts = {}) {
     if (!index) reindex();
     return index.get(cellKey(Math.floor(x / GRID), Math.floor(z / GRID))) || null;
   }
-  const mark = () => { api.live = strokes.length > 0; };
-  const touch = () => { version++; index = null; mark(); };
+  /**
+   * How many water strokes are on the ground, kept rather than counted.
+   *
+   * `api.wet` is asked on every vertex of every chunk exactly as `api.live` is,
+   * and for the same reason it has to be a property read: a world with no water
+   * in it must not pay for a walk of the list to find that out. `stroke()`
+   * bumps it, and every path that rewrites the list wholesale recounts.
+   */
+  let waterCount = 0;
+  const recount = () => { waterCount = 0; for (const s of strokes) if (WATER_SET.has(s.kind)) waterCount++; };
+  const mark = () => { api.live = strokes.length > 0; api.wet = waterCount > 0; };
+  const touch = () => { version++; index = null; recount(); mark(); };
 
   /** A stroke, cleaned up, with its captured samples taken. Throws on nonsense. */
   function makeStroke(input) {
@@ -706,10 +946,11 @@ export function createTerrainEdits(opts = {}) {
       s.word = s.word || s.ground || 'dirt';
       if (!GROUND_WORDS.includes(s.word)) throw new Error(`no such ground: ${s.word}, try ${GROUND_WORDS.join(', ')}`);
     }
-    // The five kinds that are a function of the ground take their sample once,
-    // now, and carry it, which is what makes the file portable.
+    if (WATER_SET.has(s.kind)) fillWater(s);
+    // The kinds that are a function of the ground take their sample once, now,
+    // and carry it, which is what makes the file portable.
     const wantsH0 = s.kind === 'flatten' || s.kind === 'smooth' || s.kind === 'erode'
-      || s.kind === 'lake' || (s.kind === 'plateau' && s.height == null);
+      || (s.kind === 'plateau' && s.height == null);
     if (wantsH0 && s.h0 == null) {
       if (!baseHeight) throw new Error(`a ${s.kind} stroke needs a baseHeight sampler or its own h0`);
       s.h0 = (s.kind === 'smooth' || s.kind === 'erode') ? ringAverage(s) : baseHeight(s.x, s.z);
@@ -717,6 +958,85 @@ export function createTerrainEdits(opts = {}) {
     if (s.id == null) s.id = nextId++;
     else nextId = Math.max(nextId, (s.id | 0) + 1);
     return s;
+  }
+
+  // ---- ED4: a water stroke, filled in ---------------------------------------
+
+  /**
+   * The last river whose mouth this stroke's head lands in, or null.
+   *
+   * Walked backwards, so the newest wins, and only over strokes ALREADY on the
+   * ground: `load()` builds the list in file order, so a saved chain rebuilds
+   * itself the same way it was drawn. It never fires on a loaded file anyway,
+   * because a loaded river carries its own `level`.
+   */
+  function riverBefore(s) {
+    for (let i = strokes.length - 1; i >= 0; i--) {
+      const p = strokes[i];
+      if (p.kind !== 'river') continue;
+      if (Math.hypot(p.x2 - s.x, p.z2 - s.z) <= RIVER_CHAIN) return p;
+    }
+    return null;
+  }
+
+  /** The ground here, for a level nobody gave. Refuses by name when it cannot ask. */
+  function groundFor(s, x, z) {
+    if (!baseHeight) {
+      throw new Error(`a ${s.kind} stroke needs a level in metres, or a baseHeight sampler to take one off the ground`);
+    }
+    return baseHeight(x, z);
+  }
+
+  /**
+   * Every knob a water stroke needs, defaulted, clamped and WRITTEN INTO THE
+   * STROKE, so the file carries the whole answer and a machine that never took
+   * the sample lays the same water back down.
+   *
+   * A `lake` written before ED4 carried an absolute `floor` and got its water
+   * from the world's sea level. It is read here as a surface at that old sea
+   * level with the same bed under it, and `floor` is dropped so nothing
+   * downstream can read two truths.
+   */
+  function fillWater(s) {
+    if (s.kind === 'lake' && !Number.isFinite(s.level) && Number.isFinite(s.floor)) {
+      s.level = 0;
+      if (!Number.isFinite(s.depth)) s.depth = Math.max(0, 0 - s.floor);
+    }
+    delete s.floor;
+    if (s.kind === 'drain') { delete s.level; delete s.depth; return; }
+    if (s.kind === 'sea') {
+      s.r = Math.min(s.r, SEA_MAX_R);
+      if (!Number.isFinite(s.level)) s.level = SEA_SURFACE;
+      delete s.depth;
+      return;
+    }
+    if (s.kind === 'river') {
+      if (!Number.isFinite(s.x2)) s.x2 = s.x;
+      if (!Number.isFinite(s.z2)) s.z2 = s.z;
+      s.width = Math.max(MIN_R * 2, Number.isFinite(s.width) ? s.width : RIVER_WIDTH);
+      // A CHAIN IS TAKEN BEFORE THE LEVEL IS DEFAULTED, so a river that runs on
+      // from another takes the water where the other left it rather than the
+      // ground it happens to be standing on.
+      if (!Number.isFinite(s.level)) {
+        const prev = riverBefore(s);
+        if (prev) {
+          s.level = levelEndOf(prev);
+          s.chained = prev.id;
+          // snapped onto the joint, so the two ribbons meet with no step
+          s.x = prev.x2; s.z = prev.z2;
+        } else s.level = groundFor(s, s.x, s.z);
+      }
+      if (!Number.isFinite(s.levelEnd)) s.levelEnd = groundFor(s, s.x2, s.z2);
+      if (!Number.isFinite(s.depth)) s.depth = RIVER_DEPTH;
+      s.depth = Math.max(0, s.depth);
+      if (s.h0 == null && baseHeight) s.h0 = baseHeight(s.x, s.z);
+      return;
+    }
+    // lake and pond
+    if (!Number.isFinite(s.level)) s.level = groundFor(s, s.x, s.z);
+    if (!Number.isFinite(s.depth)) s.depth = s.kind === 'pond' ? POND_DEPTH : LAKE_DEPTH;
+    s.depth = Math.max(0, s.depth);
+    if (s.h0 == null && baseHeight) s.h0 = baseHeight(s.x, s.z);
   }
 
   /** The average height of a ring at SMOOTH_RING radii out, taken once. */
@@ -742,6 +1062,12 @@ export function createTerrainEdits(opts = {}) {
      * Kept true by `mark()` on every path that can change the list.
      */
     live: false,
+    /**
+     * Whether there is any water on the ground at all, the same kind of plain
+     * boolean and for the same reason: `field.sampleAt` asks it on every vertex
+     * and a world with no lake in it pays one property read to find out.
+     */
+    wet: false,
     get strokes() { return strokes; },
     get version() { return version; },
     /** How many strokes are on the ground, and how many are waiting to come back. */
@@ -812,6 +1138,7 @@ export function createTerrainEdits(opts = {}) {
     stroke(input) {
       const s = makeStroke(input);
       strokes.push(s);
+      if (WATER_SET.has(s.kind)) waterCount++;
       done.push({ add: [s] });
       undone.length = 0;                 // a new stroke is a new future
       if (index) put(s);                 // one stroke into a live index, not a rebuild
@@ -909,6 +1236,80 @@ export function createTerrainEdits(opts = {}) {
         if (dx * dx + dz * dz < s.r * s.r) word = s.word;
       }
       return word;
+    },
+
+    /**
+     * Whether there is water over (x, z), and what its surface stands at.
+     *
+     * `h` is the finished ground there, strokes and all, because a body of
+     * water only covers the ground it is HIGHER THAN: that is what makes the
+     * bank of a lake a bank and the shore of a sea a shore, without anybody
+     * having to draw the outline. `was` is what the world said before the
+     * strokes had their say, so a `drain` can take the generator's own ocean
+     * away as readily as it takes a lake away.
+     *
+     * The walk is the cell's list in the order the strokes were made, exactly
+     * as `heightDelta`'s is, so the last thing somebody drew wins: a drain over
+     * a lake is dry, and a lake drawn over that drain is wet again.
+     *
+     * `level` is null wherever the water is not one of these strokes', because
+     * this file has no opinion about where the generator's sea level is.
+     */
+    waterAt(x, z, h = 0, was = false) {
+      let water = !!was, level = null;
+      if (!waterCount) return { water, level };
+      const list = at(x, z);
+      if (!list) return { water, level };
+      for (let i = 0; i < list.length; i++) {
+        const w = waterOf(list[i], x, z);
+        if (w === undefined) continue;
+        if (w === null) { water = false; level = null; continue; }
+        if (h < w) { water = true; level = w; }
+      }
+      return { water, level };
+    },
+
+    /**
+     * Every body of water there is to DRAW, in the order it was laid.
+     *
+     * `water.js` builds one surface per row and nothing else, so this is the
+     * whole of what the renderer knows about water: a disc for a lake, a pond
+     * and a sea, a ribbon for a river, and the drains that came AFTER each of
+     * them, which is how a surface gets a hole cut in it. A drain laid before a
+     * lake is not in that lake's list, because a lake drawn over a drain is
+     * water again and the two halves have to agree about that.
+     */
+    waterBodies() {
+      const out = [];
+      // ONLY THE BODIES A DRAIN ACTUALLY REACHES get it in their list, and that
+      // is not tidiness: `water.js` rebuilds a mesh when its body's numbers
+      // move, so handing every lake in the world a drain that is nowhere near
+      // it would rebuild every surface in the world for one click.
+      const reaches = (b, d) => {
+        if (b.kind === 'river') {
+          const seg = riverAt({ x: b.x, z: b.z, x2: b.x2, z2: b.z2 }, d.x, d.z);
+          return seg.d < b.width / 2 + d.r;
+        }
+        return Math.hypot(b.x - d.x, b.z - d.z) < b.r + d.r;
+      };
+      for (const s of strokes) {
+        if (s.kind === 'drain') {
+          const d = { x: s.x, z: s.z, r: Math.max(MIN_R, s.r || 0) };
+          for (const b of out) if (reaches(b, d)) b.drains.push(d);
+          continue;
+        }
+        if (!SURFACE_SET.has(s.kind)) continue;
+        out.push(s.kind === 'river'
+          ? {
+            id: s.id, kind: 'river', x: s.x, z: s.z, x2: s.x2, z2: s.z2,
+            width: riverHalf(s) * 2, level: levelOf(s), levelEnd: levelEndOf(s), drains: [],
+          }
+          : {
+            id: s.id, kind: s.kind, x: s.x, z: s.z,
+            r: Math.max(MIN_R, s.r || 0), level: levelOf(s), drains: [],
+          });
+      }
+      return out;
     },
 
     /** Every cave mouth asked for, in the order they were cut. */

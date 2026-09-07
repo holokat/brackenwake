@@ -3,7 +3,8 @@
 //
 //   const field = createWorldField(seed);
 //   field.heightAt(x, z)      metres above sea level (sea level is 0)
-//   field.sampleAt(x, z)      { h, biome, water, river, land, temp, moist, slopeHint }
+//   field.sampleAt(x, z)      { h, biome, water, waterLevel, river, land, temp,
+//                               moist, slopeHint }
 //
 // Composition, outermost first:
 //   continents   very low frequency, warped: where land is, where ocean is
@@ -591,6 +592,12 @@ export function createWorldField(seed = 1, opts = {}) {
   // The climate is neutral, 0.5 and 0.5, so the biome chain in `sampleAt` falls
   // through to the base ground's own biome and the world is one country until
   // somebody paints another one.
+  //
+  // ED4 changed what `base.sea` MEANS, and only that: it is now the one switch
+  // that says "flood this world by height, the way the generator does". Left
+  // false, which is the default, no depth in a sculpt world is water and the
+  // five water brushes are the only thing that puts any down. See
+  // docs/mmo/wiring/ED4-WATER.md.
   function rawSculpt(x, z) {
     const [wx, wz] = N.warp(x / W_CONT, z / W_CONT, 0.35, 1.7);
     const cont = N.fbm(wx, wz, 4);
@@ -1118,7 +1125,32 @@ export function createWorldField(seed = 1, opts = {}) {
     // field: the boolean costs 1.3% of sampleAt where the two calls cost 5.2%.
     if (EDITS && EDITS.live) h += EDITS.heightDelta(x, z, h);
     const land = lerp(1, r.land, k);
-    const water = h < SEA_LEVEL - 0.05;
+
+    // ---- ED4: WATER IS PLACED, NEVER FALLEN INTO ------------------------
+    //
+    // The generator floods whatever falls under sea level, and it has to: it
+    // digs its own ocean, its own caldera and its own river beds and nothing
+    // else knows where they are. A person sculpting by hand is in the opposite
+    // position, and the old rule made a liar of every downward brush they had:
+    // a 20 m valley, a pit, a lower stroke and the foot of a mountain at -50 m
+    // all filled with sea the moment they crossed 0 ("why does Valley create an
+    // ocean floor?"). So in a sculpt world NO HEIGHT MAKES WATER, and the five
+    // water brushes in terrain_edits.js are the only thing that does.
+    //
+    // The one exception is the header asking for the generator's coast back
+    // (`base.sea`), which is a request for the generated ocean and gets it: the
+    // continent mask, the shore and the water that goes with them.
+    //
+    // `waterAt` runs last either way, so a `drain` can take the generator's own
+    // ocean away and a lake can stand on top of a mountain. `EDITS.wet` is a
+    // property read on a world with no water in it, exactly as `EDITS.live` is.
+    let water = (!SCULPT || SCULPT.sea) ? h < SEA_LEVEL - 0.05 : false;
+    let waterLevel = null;
+    if (EDITS && EDITS.wet) {
+      const w = EDITS.waterAt(x, z, h, water);
+      water = w.water;
+      waterLevel = w.level;
+    }
 
     // The zone this point belongs to, filled into one scratch object so a
     // terrain vertex costs no allocation. `zb.climate` nudges the climate the
@@ -1153,6 +1185,10 @@ export function createWorldField(seed = 1, opts = {}) {
       // painting one; then the beach line, so the rim of that lake is sand.
       // Everything else is the base ground's own biome, which is meadow until
       // somebody says otherwise. Paint still wins over all four, below.
+      //
+      // ED4: `water` here is water somebody PLACED, not ground that fell below
+      // a line, so the beach line is now a band of sand and nothing more and a
+      // valley cut to -20 m comes out as ground the material draws as ground.
       if (water) biome = 'ocean';
       else if (h >= SCULPT.snowLine) biome = 'snow';
       else if (h < SCULPT.beachLine) biome = 'beach';
@@ -1179,16 +1215,29 @@ export function createWorldField(seed = 1, opts = {}) {
     // `ground` is carried as well because 'dirt' and 'mud' have no biome of
     // their own, and because grass.js and dressing.js refuse a painted patch by
     // the word rather than by guessing at the biome.
+    //
+    // PAINTED GROUND UNDER PLACED WATER STAYS PAINTED (ED4). The `!water` guard
+    // is still there for the generator's own ocean, where an override would be
+    // painting the open sea a colour; it is lifted for water somebody put down,
+    // because a sand bed under a lake somebody dug is exactly the thing a
+    // person paints and then floods, and having the flooding silently undo the
+    // paint is the same class of bug as the gift that did not fit in the barn.
     let ground = null;
     if (EDITS && EDITS.live) {
       ground = EDITS.groundOverride(x, z);
-      if (ground && PAINT_BIOME[ground] && !water) biome = PAINT_BIOME[ground];
+      if (ground && PAINT_BIOME[ground] && (!water || waterLevel != null)) biome = PAINT_BIOME[ground];
     }
     // `zone` is the deepest zone's id or null, `realm` the id of the realm of
     // Kaldera it belongs to, and `danger` the monster tier band [lo, hi]: the
     // one number monsters.js should roll a spawn against (docs/mmo/wiring/Z1.md).
+    // `waterLevel` is the surface of the body of water somebody PLACED here, in
+    // metres, and null everywhere else, including in the generator's own ocean
+    // where the one number is `field.seaLevel`. water.js draws its surfaces off
+    // `edits.waterBodies()` rather than off this, so nothing has to sample the
+    // field to know where a lake is; this is here for anything that needs to
+    // know how deep the water it is standing in is.
     return {
-      h, biome, water, river, land, temp, moist, site, road, ground,
+      h, biome, water, waterLevel, river, land, temp, moist, site, road, ground,
       zone: zb.id, realm: zb.parent ? zb.parent.id : zb.id, danger: zb.danger,
     };
   }

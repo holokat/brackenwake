@@ -902,6 +902,25 @@ console.log('\neditor: the nine trays are the palette, split and counted both wa
         return got.kinds === real.length && real.length > 0;
       } catch { return false; }
     })(), `${brushRows(realKinds()).length} kinds in terrain_edits.js`);
+  // ED4: the Water tray is the terrain half's own WATER_KINDS, in its own
+  // order, and not one of them leaks into Sculpt. Read off the REAL contract,
+  // because the fake above is a lake and nothing else.
+  check('and the real contract puts all five water brushes in the Water tray and none in Sculpt',
+    (() => {
+      const real = brushRows(realKinds());
+      const wet = toolsFor('water', { kinds: real }).map((t) => t.id);
+      const dry = toolsFor('sculpt', { kinds: real }).map((t) => t.id);
+      return wet.join(',') === 'lake,pond,river,sea,drain' && !wet.some((id) => dry.includes(id));
+    })(), toolsFor('water', { kinds: brushRows(realKinds()) }).map((t) => t.id).join(','));
+  check('a river is drawn between two points, because it carries a second one, where a lake is not',
+    (() => {
+      const wet = toolsFor('water', { kinds: brushRows(realKinds()) });
+      const river = wet.find((t) => t.id === 'river'), lake = wet.find((t) => t.id === 'lake');
+      return river.line === true && lake.line === false
+        && river.params.some((p) => p.name === 'levelEnd') && lake.params.some((p) => p.name === 'level');
+    })(),
+    toolsFor('water', { kinds: brushRows(realKinds()) })
+      .map((t) => `${t.id}${t.line ? ' drawn as a line' : ''}: ${t.params.map((p) => p.name).join(' ')}`).join(', '));
 
   check('the filter box narrows a tray without changing what is in it',
     filterTools(tray.buildings, 'inn').length > 0

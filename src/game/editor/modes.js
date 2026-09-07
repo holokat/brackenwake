@@ -11,6 +11,7 @@
 // off the brush's own row, in this order:
 //
 //   a brush that paints a word           is the Paint tray
+//   a brush the terrain half calls water  is the Water tray (ED4)
 //   a brush with a `floor` knob          is the Water tray
 //   a brush named in BRUSH_MODE          is whatever that says
 //   every other brush                    is the Sculpt tray
@@ -28,7 +29,17 @@
 
 import { FOOTPRINT } from '../../mmo/plans/footprints.js';
 import { LAYERS, PAINT_MIX } from '../../world/terrain_material.js';
+import { WATER_KINDS } from '../../world/terrain_edits.js';
 import { paletteFor, search, OPPOSITE } from './palette.js';
+
+/**
+ * The kinds that go in the Water tray, READ OFF THE TERRAIN HALF (ED4).
+ *
+ * Not a list typed out here: `terrain_edits.WATER_KINDS` is the same array
+ * `field.js` builds `waterAt` out of and `water.js` draws bodies for, so a
+ * sixth water brush lands in this tray with nothing in this file to change.
+ */
+const WATER = new Set(WATER_KINDS);
 
 /**
  * The sidebar, top to bottom. `brush` means the ground under the cursor wears a
@@ -44,7 +55,7 @@ export const MODES = [
   { id: 'creatures', label: 'Creatures', icon: 'creatures', brush: true, scatter: true, hint: 'where the living things come up' },
   { id: 'people', label: 'People', icon: 'people', place: true, hint: 'who keeps this place' },
   { id: 'markers', label: 'Markers', icon: 'markers', place: true, hint: 'a note to ourselves, standing in the world' },
-  { id: 'water', label: 'Water', icon: 'water', brush: true, hint: 'a lake, sunk to its own floor' },
+  { id: 'water', label: 'Water', icon: 'water', brush: true, hint: 'lakes, rivers and the sea, each at its own level' },
 ];
 export const MODE_IDS = MODES.map((m) => m.id);
 export const modeOf = (id) => MODES.find((m) => m.id === id) || null;
@@ -67,11 +78,14 @@ export const PROP_HEIGHT = 3;
 export const heightOf = (id) => (FOOTPRINT[id] ? FOOTPRINT[id][2] : 0);
 
 /**
- * The last resort, for a brush the two questions above cannot place.
+ * The last resort, for a brush the questions above cannot place.
  *
  * `lake` is here because a terrain half that calls its knob `depth` rather than
- * `floor` still means water. Anything not named here and not answering either
- * question is Sculpt, so a kind added tomorrow appears rather than vanishing.
+ * `floor` still means water, and it is kept even though ED4's WATER_KINDS names
+ * it too: this file has to keep working against a terrain half that answers
+ * `kinds` and nothing else. Anything not named here and not answering any of
+ * the questions is Sculpt, so a kind added tomorrow appears rather than
+ * vanishing.
  */
 export const BRUSH_MODE = { lake: 'water' };
 
@@ -79,6 +93,7 @@ export const BRUSH_MODE = { lake: 'water' };
 export function brushModeOf(row) {
   if (!row) return null;
   if (Array.isArray(row.words) && row.words.length) return 'paint';
+  if (WATER.has(row.id)) return 'water';
   if ((row.params || []).some((p) => p.name.toLowerCase() === 'floor')) return 'water';
   return BRUSH_MODE[row.id] || 'sculpt';
 }

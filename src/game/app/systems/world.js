@@ -11,11 +11,14 @@ import { createWorldRuntime, EDIT_CAVE_SPEC, TERRAIN_FILE } from '../../world_ru
 import { createSky } from '../../sky.js';
 import { createWater } from '../../../world/water.js';
 import { zoneSub, clampToWorld, BIRTHPLACE } from '../../../world/zones.js';
-// SEA_LEVEL, so the words a lake reports quote the number the field floods at
-// rather than a second copy of it that could drift.
+// SEA_LEVEL, so the words a downward brush reports quote the number the field
+// used to flood at rather than a second copy of it that could drift.
 import { SEA_LEVEL } from '../../../world/field.js';
 import { cameraClamp } from '../../../world/dungeon.js';
-import { reachOf, maxGrade, kinds as strokeKinds, NEEDS_YAW, GROUND_WORDS, BASE_GROUNDS } from '../../../world/terrain_edits.js';
+import {
+  reachOf, maxGrade, kinds as strokeKinds, NEEDS_YAW, GROUND_WORDS, BASE_GROUNDS,
+  WATER_KINDS, isWaterKind, levelOf, levelEndOf, depthOf,
+} from '../../../world/terrain_edits.js';
 
 /** Where the follow camera looks on the body, matching camera.js. */
 const CAMERA_EYE = 1.5;
@@ -65,20 +68,88 @@ export function strokeWords(s, chunks, extra = '') {
     case 'terrace': body = `stepped ${r} m of ground into ${m1(s.step == null ? 4 : s.step)} m terraces at ${at}`; break;
     case 'noise': body = `roughened ${r} m of ground by ${m1(s.amount)} m at ${at}`; break;
     case 'erode': body = `eroded ${r} m of ground toward ${m1(s.h0)} m at ${at}, taking away only`; break;
-    case 'lake': {
-      const floor = s.floor == null ? -3 : s.floor;
-      // the field calls a point water at `h < SEA_LEVEL - 0.05`, and this is
-      // that same test rather than a number typed out again
-      const wet = floor < SEA_LEVEL - 0.05;
-      body = `sank a lake ${r * 2} m across at ${at}, its floor at ${m1(floor)} m, `
-        + (wet ? 'which is under the water line, so it fills' : `which is over the ${m1(SEA_LEVEL - 0.05)} m water line, so it stays dry`);
+    // ED4's five. Every number is read off the stored stroke through the same
+    // three functions the field and the renderer read it through, so the words,
+    // the sample and the surface cannot say three different things.
+    case 'lake': case 'pond': {
+      const level = levelOf(s), depth = depthOf(s);
+      body = `sank a ${s.kind} ${r * 2} m across at ${at}, its surface at ${m1(level)} m`
+        + (depth > 0 ? ` and its bed at ${m1(level - depth)} m, ${m1(depth)} m under it` : ' and no bed cut at all');
       break;
     }
+    case 'river': {
+      const len = Math.round(Math.hypot((s.x2 ?? s.x) - s.x, (s.z2 ?? s.z) - s.z));
+      const a = levelOf(s), b = levelEndOf(s);
+      const run = a > b ? `falling from ${m1(a)} m to ${m1(b)} m`
+        : a < b ? `climbing from ${m1(a)} m to ${m1(b)} m, which is uphill: swap the ends or drop the far level`
+          : `level the whole way at ${m1(a)} m`;
+      body = `cut a river ${m1(s.width)} m wide and ${len} m long from ${at} to ${Math.round(s.x2 ?? s.x)}, ${Math.round(s.z2 ?? s.z)}, `
+        + `its surface ${run}, its bed ${m1(depthOf(s))} m under it`
+        + (s.chained ? ', running on from the river before it, which is where it took its level' : '');
+      break;
+    }
+    case 'sea': body = `laid a sea ${r * 2} m across at ${at}, its surface at ${m1(levelOf(s))} m, cutting no bed: it floods the coast you sculpted and nothing else`; break;
+    case 'drain': body = `drained the water inside ${r} m of ${at}, and moved no ground doing it`; break;
     default: body = `${s.kind} at ${at}`;
   }
   const built = chunks == null ? '' : `, ${chunks} ${chunks === 1 ? 'chunk' : 'chunks'} of ground rebuilt`;
   return `${body}${extra}${built}${steep}`;
 }
+/**
+ * The height a sculpt world USED to flood at, before ED4.
+ *
+ * `field.sampleAt` called a point water at `h < SEA_LEVEL - 0.05` and still
+ * does in a generated world, so this is that same line rather than a round
+ * number typed out again. It is only a reference now: nothing in a sculpt
+ * world floods by height any more, and the words below quote it so a person
+ * who dug a canyon expecting a lake is told where the lake would have been.
+ */
+export const OLD_WATER_LINE = SEA_LEVEL - 0.05;
+
+/**
+ * What a downward brush owes a person in a sculpt world, in words.
+ *
+ * PURE AND EXPORTED, so it can be measured. `lower`, `pit` and `valley` used to
+ * flood the moment they crossed the water line and do not any more; saying
+ * nothing about that would be the same bug in the other direction, where
+ * somebody digs a canyon, expects a lake, and gets neither the lake nor a
+ * reason. `floor` is read off the field AFTER the stroke, so it is the ground a
+ * player would stand on.
+ *
+ * Empty for every other kind, for a generated world, and for a sculpt world
+ * whose header asked the generator's coast back, because in that last one the
+ * canyon really does fill.
+ */
+export function dryFloorWords(kind, floor, sculpt) {
+  if (kind !== 'lower' && kind !== 'pit' && kind !== 'valley') return '';
+  if (!sculpt || sculpt.sea) return '';
+  if (!Number.isFinite(floor) || floor >= OLD_WATER_LINE) return '';
+  return `, and the floor is ${m1(OLD_WATER_LINE - floor)} m under the old sea level, `
+    + 'and stays dry: water is its own brush';
+}
+
+/**
+ * What a water brush actually did to the water, in words, off a real sample.
+ *
+ * PURE AND EXPORTED for the same reason. `p` is `field.sampleAt` at the point
+ * the stroke was made, taken after it was made, which is the same path a
+ * player's feet take: a sea laid on ground that stands above its own surface is
+ * a real stroke that puts no water anywhere, and a person who is not told that
+ * has a brush that looks broken.
+ */
+export function placedWaterWords(s, p) {
+  if (s.kind === 'drain') {
+    return p.water
+      ? ', though there is still water at that point: something else reaches it'
+      : ', and there is no water there now';
+  }
+  if (!p.water) {
+    return `, but no water stands at that point: the ground there is ${m1(p.h)} m `
+      + `and the surface you asked for is ${m1(levelOf(s))} m`;
+  }
+  return `, and the water there stands ${m1(p.waterLevel - p.h)} m deep`;
+}
+
 /** How often the sky is baked into the reflection everything metal reads. */
 const ENV_EVERY_MS = 15000;
 
@@ -306,6 +377,33 @@ export const world = {
       return Number.isFinite(yaw) ? yaw : 0;
     }
 
+    // ---- ED4: the water somebody placed, and the water nobody did ---------
+    //
+    // Two jobs, both of them second order effects of "no height makes water any
+    // more", and both of them things a player would otherwise find out the hard
+    // way.
+
+    /**
+     * The scene's water made to match the stroke list, and what it cost.
+     *
+     * THE GLOBAL PLANE GOES AWAY in a sculpt world with no sea in its header,
+     * and that is not a tidy up: leave it on and the first pit anybody digs to
+     * -10 m has the ocean at the bottom of it, which is the whole complaint ED4
+     * was opened for, still there in the picture after the field stopped saying
+     * it. Measured by `water.globalPlane` in world_runtime.test.mjs.
+     */
+    function syncWater() {
+      const sculpt = runtime.field.sculpt;
+      water.setGlobalPlane(!sculpt || !!sculpt.sea);
+      return water.setBodies(runtime.terrainEdits.waterBodies());
+    }
+    runtime.onRebuild(syncWater);
+    syncWater();
+
+    /** The two above, asked of the real field at the point the stroke was made. */
+    const waterWords = (s) => placedWaterWords(s, runtime.field.sampleAt(s.x, s.z));
+    const dryWords = (s) => dryFloorWords(s.kind, runtime.field.heightAt(s.x, s.z), runtime.field.sculpt);
+
     const terrain = {
       /**
        * Lay one stroke down, put the ground back up around it, and say what it
@@ -319,7 +417,7 @@ export const world = {
         if (NEEDS_YAW.has(kind) && !Number.isFinite(req.yaw)) req.yaw = yawFor(kind, req.x, req.z);
         const s = edits.stroke(req);
         const did = runtime.rebuildAround(s.x, s.z, reachOf(s) + REBUILD_MARGIN);
-        let extra = '';
+        let extra = isWaterKind(s.kind) ? waterWords(s) : dryWords(s);
         if (s.kind === 'cave') {
           const site = runtime.sitesNear(s.x, s.z, 4).find((p) => p.id === `edit:cave:${s.id}`);
           const spec = EDIT_CAVE_SPEC[site ? site.size : 'medium'];
@@ -403,6 +501,17 @@ export const world = {
 
       /** Every stroke on the ground right now, as plain rows. */
       list() { return runtime.terrainEdits.serialize().strokes; },
+      /** The five brushes that place water, so a caller need not hold its own list. */
+      waterKinds: WATER_KINDS.slice(),
+      /** Every body of water somebody placed, exactly as water.js draws them. */
+      water() { return runtime.terrainEdits.waterBodies(); },
+      /** Whether there is water at a point, and what its surface stands at. */
+      waterAt(x, z) {
+        const p = runtime.field.sampleAt(x, z);
+        return { water: p.water, level: p.waterLevel, ground: p.h };
+      },
+      /** Make the scene's water match the list again. Returns what it built. */
+      syncWater,
       /** How many strokes, and how many caves among them. */
       count() {
         const e = runtime.terrainEdits;

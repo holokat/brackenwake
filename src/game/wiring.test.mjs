@@ -545,7 +545,41 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
   has(w, /sc\.render\(frame\.dt\)/, 'and the frame is drawn with the player own dt, for the spell pass');
   check('source: and the sky is updated before the water that reflects it',
     w.indexOf('sky.update(') < w.indexOf('water.update('), `${w.indexOf('sky.update(')} then ${w.indexOf('water.update(')}`);
-  check('source: the world is the only system that draws', 
+
+  // ---- ED4: the water somebody placed -------------------------------------
+  //
+  // THE WHOLE JOIN IS FOUR LINES and every one of them is checked by name here,
+  // because each of the three halves is green on its own and the bug this is
+  // guarding against lives in the seam between them: terrain_edits knows what
+  // the bodies are, water.js can draw them, world_runtime knows when the ground
+  // moved, and with nothing hanging those together a lake is real in the field
+  // and invisible in the picture. See docs/mmo/wiring/ED4-WATER.md.
+  has(w, /function syncWater\(\)/, 'world.js has one function that makes the water match the strokes');
+  has(w, /water\.setGlobalPlane\(!sculpt \|\| !!sculpt\.sea\)/,
+    'and it takes the endless sheet away in a sculpt world that did not ask for the sea');
+  has(w, /water\.setBodies\(runtime\.terrainEdits\.waterBodies\(\)\)/,
+    'and draws one surface per body the stroke list holds');
+  has(w, /runtime\.onRebuild\(syncWater\)/,
+    'and hangs it on the runtime rebuild, so it runs on every stroke, undo, redo, reset and file');
+  check('source: and it is called once at boot too, so a world that loads with water in it has it',
+    /runtime\.onRebuild\(syncWater\);\s*\n\s*syncWater\(\);/.test(w), 'onRebuild, then a first call');
+  has(w, /isWaterKind\(s\.kind\) \? waterWords\(s\) : dryWords\(s\)/,
+    'every stroke says either what water it made or that its floor stays dry');
+  has(w, /placedWaterWords\(s, runtime\.field\.sampleAt\(s\.x, s\.z\)\)/,
+    'and the water words are measured off the field, not worked out from the stroke');
+  has(w, /dryFloorWords\(s\.kind, runtime\.field\.heightAt\(s\.x, s\.z\), runtime\.field\.sculpt\)/,
+    'and so is the floor a downward brush reports');
+  has(w, /stays dry: water is its own brush/,
+    'and a lower, a pit or a valley cut under the old water line says so in as many words');
+  {
+    const rtSrc = src('world_runtime.js');
+    has(rtSrc, /function fireRebuild\(what\)/, 'world_runtime has one place that says the ground moved');
+    check('source: and both rebuild paths go through it, so no event is forgotten',
+      (rtSrc.match(/fireRebuild\(did\)/g) || []).length === 2,
+      `${(rtSrc.match(/fireRebuild\(did\)/g) || []).length} calls, one in rebuildAround and one in rebuildAll`);
+  }
+
+  check('source: the world is the only system that draws',
     SYSTEMS.filter((s) => typeof s.render === 'function').map((s) => s.name).join(',') === 'world');
 
   // ---- the spells you can see ---------------------------------------------
@@ -601,6 +635,40 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
   has(u, /1 to = use the ability bar/, 'the opening line gives the ability bar the number row');
   has(u, /works from your pack/, 'and says a tool works from the pack, with no cell to click');
   has(u, /P abilities/, 'and P for the abilities window');
+
+  // ---- ED4: the world editor is a MODE, not a window -----------------------
+  //
+  // Everything below is a wire that has to exist for L to take the screen and
+  // give it back. The editor's own suite drives the screen; these say that the
+  // boot really reaches it.
+  {
+    const d = sysSrc('dev.js');
+    const ep = src('editor/panel.js');
+    const hudSrc = src('hud.js');
+    has(u, /windows\.register\(editorPanel\)/, 'ui.js registers the editor on its own line, so L opens it');
+    has(u, /^\s+input,$/m, 'and hands the panel context the input, which is how the editor gives Escape back');
+    has(d, /if \(!on && windows && windows\.isOpen\('editor'\)\) windows\.close\('editor'\)/,
+      'dev.js closes the editor when dev mode goes off, which is what puts the HUD back');
+    check('source: the editor takes the whole screen through hud.setMode and nothing else',
+      /ctx\?\.hud\?\.setMode\?\.\('editor'\)/.test(ep) && /ctx\?\.hud\?\.setMode\?\.\('play'\)/.test(ep),
+      'setMode is the one switch');
+    check('source: and hud.js is the only place that hides the gameplay HUD, by remembering what it hid',
+      /function setMode\(mode\)/.test(hudSrc) && /modeHidden\.set\(child, child\.style\.display/.test(hudSrc)
+      && /for \(const \[node, was\] of modeHidden\) node\.style\.display = was/.test(hudSrc));
+    check('source: the dev badge is the one thing that stays up in editor mode',
+      /if \(child === devBadge\) continue;/.test(hudSrc));
+    check('source: the editor panel keeps the id, the title and the L key the window manager binds',
+      /id: 'editor',/.test(ep) && /key: 'l',/.test(ep));
+    check('source: it builds nothing into the window body and mounts its own screen on the page',
+      /document\.body\.appendChild\(face\)/.test(ep) && /#bw-windows \.bw-win-editor \{ display: none/.test(ep));
+    check('source: the autosave is driven from the panel tick, which windows.js runs for open panels',
+      /tick\(dt, ctx\) \{/.test(ep) && /tickAutosave\(Date\.now\(\)\)/.test(ep)
+      && /p\.tick\(dt, ctx\)/.test(src('windows.js')));
+    check('source: the wheel is taken off the canvas before input.js reads it',
+      /stopImmediatePropagation/.test(ep), 'stopPropagation alone leaves input.js listening on the same node');
+    check('source: no part of the editor screen is a settings window: no title bar, no close button',
+      !/bw-win-title/.test(ep) && !/bw-win-x/.test(ep));
+  }
 
   // ---- the frame, in the order the contract gives it -----------------------
   const at = (s) => m.indexOf(s);
