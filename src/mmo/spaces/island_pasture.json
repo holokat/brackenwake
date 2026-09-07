@@ -1,0 +1,163 @@
+{
+  "id": "island_pasture",
+  "name": "The Pasture",
+  "note": "Hedged grass with a fold in the corner and a dew pond, and a stile where the footpath goes over.",
+  "at": {
+    "x": 230,
+    "z": 100
+  },
+  "radius": 87,
+  "pieces": [],
+  "runs": [
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -60,
+        "z": -55
+      },
+      "to": {
+        "x": 60,
+        "z": -55
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 60,
+        "z": -55
+      },
+      "to": {
+        "x": 60,
+        "z": 55
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 60,
+        "z": 55
+      },
+      "to": {
+        "x": -60,
+        "z": 55
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -60,
+        "z": 55
+      },
+      "to": {
+        "x": -60,
+        "z": -55
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "bare",
+      "points": [
+        [
+          -60,
+          -55
+        ],
+        [
+          60,
+          -55
+        ],
+        [
+          60,
+          55
+        ],
+        [
+          -60,
+          55
+        ]
+      ]
+    }
+  ],
+  "people": [],
+  "spawns": [
+    {
+      "id": "boar",
+      "x": -20,
+      "z": 10
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 6.37,
+      "z": -58.38,
+      "yaw": 17.62,
+      "scale": 1.06
+    },
+    {
+      "species": "oak",
+      "x": 63.39,
+      "z": 5.81,
+      "yaw": 24.99,
+      "scale": 0.89
+    },
+    {
+      "species": "oak",
+      "x": 37.86,
+      "z": 62.84,
+      "yaw": 114.63,
+      "scale": 0.99
+    },
+    {
+      "species": "oak",
+      "x": -6.37,
+      "z": 58.38,
+      "yaw": 27.63,
+      "scale": 1.09
+    },
+    {
+      "species": "oak",
+      "x": -44.06,
+      "z": 57.7,
+      "yaw": 277.34,
+      "scale": 1.11
+    },
+    {
+      "species": "oak",
+      "x": -62.98,
+      "z": 34.64,
+      "yaw": 287.73,
+      "scale": 1.16
+    },
+    {
+      "species": "oak",
+      "x": -62.86,
+      "z": -40.34,
+      "yaw": 16.96,
+      "scale": 1.18
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "sheep_fold",
+      "x": 30,
+      "z": 25,
+      "yaw": 0,
+      "scale": 1.2
+    },
+    {
+      "kind": "stile",
+      "x": 0,
+      "z": -55,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "field_gate",
+      "x": 60,
+      "z": 0,
+      "yaw": 90,
+      "scale": 1
+    }
+  ],
+  "markers": []
+}

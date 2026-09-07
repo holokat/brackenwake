@@ -1,0 +1,125 @@
+{
+  "id": "island_cellars",
+  "name": "The Old Cellars",
+  "note": "A brick arch half sunk in the hill's foot with a Legion banner planted crooked over it and a stair going down. The arch is the door to Oram Blackhand's cellars, and the island's whole dungeon is under it.",
+  "at": {
+    "x": 120,
+    "z": -110
+  },
+  "radius": 26,
+  "pieces": [
+    {
+      "model": "cellar_arch",
+      "x": 0,
+      "z": 0,
+      "yaw": 200
+    },
+    {
+      "model": "chain_lantern",
+      "x": 0.34,
+      "z": 0.94,
+      "yaw": 20,
+      "on": "cellar_arch"
+    },
+    {
+      "model": "legion_banner",
+      "x": 5.3,
+      "z": -2.99,
+      "yaw": 220
+    },
+    {
+      "model": "cart_broken",
+      "x": -6.66,
+      "z": -0.77,
+      "yaw": 60
+    }
+  ],
+  "runs": [
+    {
+      "model": "flint_wall_4m",
+      "from": {
+        "x": -6.66,
+        "z": 10.94
+      },
+      "to": {
+        "x": 12.13,
+        "z": 4.1
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "mud",
+      "points": [
+        [
+          -4.44,
+          -0.51
+        ],
+        [
+          3.07,
+          -3.25
+        ],
+        [
+          1.36,
+          -7.95
+        ],
+        [
+          -6.15,
+          -5.21
+        ]
+      ]
+    }
+  ],
+  "people": [],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": 0.51,
+      "z": -4.44
+    },
+    {
+      "id": "giantRat",
+      "x": -4.53,
+      "z": -3.67
+    },
+    {
+      "id": "giantRat",
+      "x": 2.65,
+      "z": -7.35
+    },
+    {
+      "id": "banditArcher",
+      "x": -10,
+      "z": -6
+    },
+    {
+      "id": "goblinWarrior",
+      "x": 9,
+      "z": 8
+    },
+    {
+      "id": "giantSpider",
+      "x": 10,
+      "z": -7,
+      "night": true
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "markers": [
+    {
+      "x": 0,
+      "z": 2,
+      "label": "the stair down",
+      "note": "the arch is enterable and Oram Blackhand is below it",
+      "kind": "structure"
+    }
+  ],
+  "kind": "dungeon",
+  "dungeon": "oldcellars",
+  "arrival": {
+    "x": -4.1,
+    "z": -11.28,
+    "yaw": 20
+  }
+}

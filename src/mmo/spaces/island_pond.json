@@ -1,0 +1,86 @@
+{
+  "id": "island_pond",
+  "name": "The Pasture Pond",
+  "note": "A round pond in the pasture with willows over it and geese on it.",
+  "at": {
+    "x": 250,
+    "z": 150
+  },
+  "radius": 40,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "goose",
+      "x": 10,
+      "z": -12
+    },
+    {
+      "id": "frog",
+      "x": -16,
+      "z": 12
+    },
+    {
+      "id": "wisp",
+      "x": 0,
+      "z": -20,
+      "night": true
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": 0,
+      "z": 30,
+      "yaw": 171.53,
+      "scale": 1.24
+    },
+    {
+      "species": "willow",
+      "x": 25.98,
+      "z": 15,
+      "yaw": 112.38,
+      "scale": 1.1
+    },
+    {
+      "species": "willow",
+      "x": 25.98,
+      "z": -15,
+      "yaw": 41.82,
+      "scale": 1.17
+    },
+    {
+      "species": "willow",
+      "x": 0,
+      "z": -30,
+      "yaw": 81.44,
+      "scale": 1.02
+    },
+    {
+      "species": "willow",
+      "x": -25.98,
+      "z": -15,
+      "yaw": 103.27,
+      "scale": 1.3
+    },
+    {
+      "species": "willow",
+      "x": -25.98,
+      "z": 15,
+      "yaw": 323.08,
+      "scale": 1.29
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "reed_bed",
+      "x": -24,
+      "z": 6,
+      "yaw": 0,
+      "scale": 1.2
+    }
+  ],
+  "markers": []
+}

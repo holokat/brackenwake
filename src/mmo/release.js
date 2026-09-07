@@ -30,7 +30,18 @@ export const isOpen = (realmId) => OPEN_REALMS.includes(realmId);
  * edge band, so a player can stand on the border and look out, and not in a
  * realm that is closed. Pure.
  */
+/**
+ * A sculpt world's own gate: the terrain header may carry `base.open`, a
+ * circle, and then THAT is the open ground and the realm circles are not.
+ * The island is 1.2 km across in a sea; the Greenwold's 2.2 km circle would
+ * let a character walk the seabed. world_runtime sets it when the file lands.
+ */
+export const SCULPT_OPEN = { at: null };
+export function setSculptOpen(o) {
+  SCULPT_OPEN.at = o && Number.isFinite(o.x) && Number.isFinite(o.z) && o.r > 0 ? { x: o.x, z: o.z, r: o.r } : null;
+}
 export function openAt(x, z) {
+  if (SCULPT_OPEN.at) return Math.hypot(x - SCULPT_OPEN.at.x, z - SCULPT_OPEN.at.z) <= SCULPT_OPEN.at.r;
   for (const id of OPEN_REALMS) {
     const zn = ZONE[id];
     if (!zn) continue;

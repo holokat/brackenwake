@@ -1,0 +1,84 @@
+{
+  "id": "island_quay",
+  "name": "The Quay",
+  "note": "The jetty the island lives by: two boats, nets, barrels, and the water under the planks. The boats do not sail; the sea is the edge of the world for now.",
+  "at": {
+    "x": 40,
+    "z": 445
+  },
+  "radius": 56,
+  "pieces": [
+    {
+      "model": "footbridge",
+      "x": 0,
+      "z": 7,
+      "yaw": 90,
+      "scale": 3.5
+    },
+    {
+      "model": "rowing_boat_rotten",
+      "x": 18,
+      "z": 23,
+      "yaw": 20
+    },
+    {
+      "model": "barrel",
+      "x": -6,
+      "z": -17,
+      "yaw": 0
+    },
+    {
+      "model": "barrel",
+      "x": -7.5,
+      "z": -15.5,
+      "yaw": 30
+    },
+    {
+      "model": "crate",
+      "x": 6,
+      "z": -15,
+      "yaw": 10
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "goose",
+      "x": -20,
+      "z": -11
+    },
+    {
+      "id": "goose",
+      "x": -24,
+      "z": -15
+    }
+  ],
+  "trees": [],
+  "rocks": [
+    {
+      "kind": "reed_bed",
+      "x": -30,
+      "z": 3,
+      "yaw": 0,
+      "scale": 1.2
+    },
+    {
+      "kind": "reed_bed",
+      "x": 34,
+      "z": 1,
+      "yaw": 40,
+      "scale": 1.1
+    }
+  ],
+  "markers": [
+    {
+      "x": 4,
+      "z": 21,
+      "label": "the fishing spot",
+      "note": "the slack water off the end of the jetty",
+      "kind": "other"
+    }
+  ]
+}

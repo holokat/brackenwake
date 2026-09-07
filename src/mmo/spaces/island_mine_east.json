@@ -1,0 +1,100 @@
+{
+  "id": "island_mine_east",
+  "name": "The Shoulder Working",
+  "note": "A second, smaller cut on the hill's east shoulder: one mouth, a cart, a spoil heap and a hut. The foreman moved his men here when the rats took the lower yard.",
+  "at": {
+    "x": 190,
+    "z": -320
+  },
+  "radius": 40,
+  "pieces": [
+    {
+      "model": "mine_mouth",
+      "x": 0,
+      "z": -14,
+      "yaw": 0
+    },
+    {
+      "model": "ore_cart",
+      "x": 8,
+      "z": -4,
+      "yaw": 20
+    },
+    {
+      "model": "spoil_heap",
+      "x": 16,
+      "z": 8,
+      "yaw": 0
+    },
+    {
+      "model": "foremans_hut",
+      "x": -16,
+      "z": 8,
+      "yaw": 160
+    },
+    {
+      "model": "barrow",
+      "x": -6,
+      "z": 4,
+      "yaw": 70
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 4,
+      "z": -8,
+      "yaw": 0
+    }
+  ],
+  "runs": [
+    {
+      "model": "rail_2m",
+      "from": {
+        "x": 0,
+        "z": -12
+      },
+      "to": {
+        "x": 8,
+        "z": -2
+      }
+    }
+  ],
+  "areas": [],
+  "people": [
+    {
+      "name": null,
+      "role": "provisioner",
+      "x": -10,
+      "z": 2,
+      "yaw": 20
+    }
+  ],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": 14,
+      "z": 18
+    },
+    {
+      "id": "thornGrub",
+      "x": -14,
+      "z": -6
+    },
+    {
+      "id": "skeleton",
+      "x": 8,
+      "z": 20,
+      "night": true
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "markers": [
+    {
+      "x": 2,
+      "z": -18,
+      "label": "the copper seam",
+      "note": "copper in the shoulder, and the pick to get it",
+      "kind": "other"
+    }
+  ]
+}

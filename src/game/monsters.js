@@ -343,7 +343,9 @@ export function spawnsForChunk(field, cx, cz, opts = {}) {
   // A sculpt world (terrain_edits.js, ED3) is a blank slate: nothing wild
   // rolls in it. What stands is what a space or a plan places, which comes
   // through plannedSpawnsForChunk and not through here.
-  if (field.sculpt) return [];
+  // ...unless the header asks for the wild back (`base.wild`): the island is
+  // a sculpt world that wants packs in its open country
+  if (field.sculpt && !field.sculpt.wild) return [];
   const seed = num(field.seed);
   const night = !!opts.night;
   const x0 = cx * CHUNK, z0 = cz * CHUNK, mid = CHUNK / 2;

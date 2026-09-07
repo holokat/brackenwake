@@ -1,0 +1,358 @@
+{
+  "id": "island_downs",
+  "name": "The Open Downs",
+  "note": "The open grass between everything, where the packs walk.",
+  "at": {
+    "x": 0,
+    "z": -20
+  },
+  "radius": 260,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "wildDog",
+      "x": -120,
+      "z": 50
+    },
+    {
+      "id": "wildDog",
+      "x": -116,
+      "z": 54
+    },
+    {
+      "id": "wildDog",
+      "x": -124,
+      "z": 56
+    },
+    {
+      "id": "boar",
+      "x": 140,
+      "z": -40
+    },
+    {
+      "id": "wolf",
+      "x": 40,
+      "z": -180,
+      "night": true
+    },
+    {
+      "id": "wolf",
+      "x": 44,
+      "z": -184,
+      "night": true
+    },
+    {
+      "id": "wolf",
+      "x": 36,
+      "z": -188,
+      "night": true
+    },
+    {
+      "id": "hawk",
+      "x": 0,
+      "z": -20
+    }
+  ],
+  "trees": [
+    {
+      "species": "birch",
+      "x": -218.46,
+      "z": -16.66,
+      "yaw": 234.98,
+      "scale": 0.99
+    },
+    {
+      "species": "oak",
+      "x": 92.91,
+      "z": -200.5,
+      "yaw": 43.81,
+      "scale": 0.94
+    },
+    {
+      "species": "oak",
+      "x": -143.14,
+      "z": 75.09,
+      "yaw": 30.5,
+      "scale": 1.12
+    },
+    {
+      "species": "oak",
+      "x": 133.44,
+      "z": 23.45,
+      "yaw": 155.09,
+      "scale": 1.34
+    },
+    {
+      "species": "oak",
+      "x": 210.69,
+      "z": -10.37,
+      "yaw": 154.04,
+      "scale": 1.33
+    },
+    {
+      "species": "birch",
+      "x": -211.03,
+      "z": -45.63,
+      "yaw": 240.62,
+      "scale": 1.06
+    },
+    {
+      "species": "oak",
+      "x": -73.25,
+      "z": 159.22,
+      "yaw": 148.66,
+      "scale": 0.93
+    },
+    {
+      "species": "birch",
+      "x": -142.11,
+      "z": 42.69,
+      "yaw": 44.41,
+      "scale": 1.02
+    },
+    {
+      "species": "oak",
+      "x": 14.08,
+      "z": -25.57,
+      "yaw": 82.92,
+      "scale": 1.01
+    },
+    {
+      "species": "birch",
+      "x": 139.07,
+      "z": -174.67,
+      "yaw": 68.07,
+      "scale": 0.98
+    },
+    {
+      "species": "oak",
+      "x": -245.52,
+      "z": 34.67,
+      "yaw": 197.21,
+      "scale": 1.3
+    },
+    {
+      "species": "birch",
+      "x": -139.6,
+      "z": 114.23,
+      "yaw": 346.52,
+      "scale": 1.05
+    },
+    {
+      "species": "oak",
+      "x": -171.18,
+      "z": 124.21,
+      "yaw": 93.01,
+      "scale": 1.29
+    },
+    {
+      "species": "oak",
+      "x": -238.57,
+      "z": -58.34,
+      "yaw": 303.04,
+      "scale": 1.11
+    },
+    {
+      "species": "birch",
+      "x": -100.52,
+      "z": 98.66,
+      "yaw": 76.29,
+      "scale": 1.35
+    },
+    {
+      "species": "oak",
+      "x": 139.97,
+      "z": -204.73,
+      "yaw": 229.19,
+      "scale": 1.34
+    },
+    {
+      "species": "birch",
+      "x": -81.11,
+      "z": -82.36,
+      "yaw": 183.09,
+      "scale": 1
+    },
+    {
+      "species": "oak",
+      "x": 53.19,
+      "z": -124.95,
+      "yaw": 108.82,
+      "scale": 1.37
+    },
+    {
+      "species": "oak",
+      "x": -78.81,
+      "z": 135.82,
+      "yaw": 294.41,
+      "scale": 0.94
+    },
+    {
+      "species": "birch",
+      "x": 18.96,
+      "z": 47.07,
+      "yaw": 221.36,
+      "scale": 0.97
+    },
+    {
+      "species": "oak",
+      "x": 190.34,
+      "z": -66.04,
+      "yaw": 98.52,
+      "scale": 1.33
+    },
+    {
+      "species": "birch",
+      "x": 92.51,
+      "z": -132.47,
+      "yaw": 89.74,
+      "scale": 1.38
+    },
+    {
+      "species": "birch",
+      "x": -95.29,
+      "z": 11.04,
+      "yaw": 49.39,
+      "scale": 1.06
+    },
+    {
+      "species": "birch",
+      "x": -177.73,
+      "z": 170.42,
+      "yaw": 350.79,
+      "scale": 1.29
+    },
+    {
+      "species": "birch",
+      "x": 80.75,
+      "z": 15.04,
+      "yaw": 113.08,
+      "scale": 1.22
+    },
+    {
+      "species": "oak",
+      "x": 59.12,
+      "z": -168.59,
+      "yaw": 333.27,
+      "scale": 1.22
+    },
+    {
+      "species": "oak",
+      "x": -145.73,
+      "z": -176.41,
+      "yaw": 182.68,
+      "scale": 0.91
+    },
+    {
+      "species": "oak",
+      "x": 26.94,
+      "z": -109.49,
+      "yaw": 4.51,
+      "scale": 0.93
+    },
+    {
+      "species": "oak",
+      "x": -218.31,
+      "z": 94.09,
+      "yaw": 47.55,
+      "scale": 1.25
+    },
+    {
+      "species": "oak",
+      "x": -114.21,
+      "z": -67.26,
+      "yaw": 89.31,
+      "scale": 1.33
+    },
+    {
+      "species": "birch",
+      "x": -142.29,
+      "z": 154.15,
+      "yaw": 56.14,
+      "scale": 1.24
+    },
+    {
+      "species": "oak",
+      "x": 135.59,
+      "z": 146.5,
+      "yaw": 138.86,
+      "scale": 1.06
+    },
+    {
+      "species": "oak",
+      "x": -197.79,
+      "z": -99.08,
+      "yaw": 99.37,
+      "scale": 0.9
+    },
+    {
+      "species": "oak",
+      "x": 138.42,
+      "z": -14.66,
+      "yaw": 336.99,
+      "scale": 1.04
+    },
+    {
+      "species": "oak",
+      "x": 86.67,
+      "z": -75.94,
+      "yaw": 20.53,
+      "scale": 1.29
+    },
+    {
+      "species": "oak",
+      "x": -61.1,
+      "z": 15.89,
+      "yaw": 109.03,
+      "scale": 1.29
+    },
+    {
+      "species": "birch",
+      "x": -59.89,
+      "z": 104.26,
+      "yaw": 96.13,
+      "scale": 1.39
+    },
+    {
+      "species": "birch",
+      "x": -139.68,
+      "z": -46.52,
+      "yaw": 317.16,
+      "scale": 1.18
+    },
+    {
+      "species": "oak",
+      "x": -12.2,
+      "z": -52.59,
+      "yaw": 301.77,
+      "scale": 1.08
+    },
+    {
+      "species": "oak",
+      "x": -165.41,
+      "z": -4.14,
+      "yaw": 292.83,
+      "scale": 0.97
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "moss_boulder",
+      "x": -80,
+      "z": -40,
+      "yaw": 20,
+      "scale": 1.2
+    },
+    {
+      "kind": "moss_boulder",
+      "x": 150,
+      "z": -160,
+      "yaw": 90,
+      "scale": 1.1
+    }
+  ],
+  "markers": []
+}

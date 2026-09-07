@@ -28,7 +28,13 @@
 import { buildPlan, setMarkersVisible } from '../../world/plan_models.js';
 import { SPACES, emptySpace } from '../../mmo/spaces/index.js';
 import { auditSpaces } from '../../mmo/plans/plan_schema.js';
-import { spaceSiteRow } from '../../world/sites.js';
+import { spaceSiteRow, spaceInWorld } from '../../world/sites.js';
+/**
+ * The editor only ever runs in a sculpt world, so a space is "here" when it
+ * stands in the runtime's world; without a runtime (the tests) it is the
+ * default sculpt world, the Greenwold, and not "every world at once".
+ */
+const EDITOR_DEFAULT_FIELD = { sculpt: {} };
 import { createSpaceDoc, LISTS, LIST_WORD, TURN_DEG, SCALE_STEP, labelOf, pointOf } from './space_doc.js';
 import { paletteFor, entryFor, search, TAB_IDS, BRUSH_IDS, brushRows, OPPOSITE, ANGLE_NAMES } from './palette.js';
 import { transformPatch } from './transforms.js';
@@ -246,7 +252,12 @@ export function createEditor(ctx = {}) {
     if (SPACES[id]) { open(id); return { doc, made: false, switched: true }; }
     const c = tileCentre(x, z);
     const t = tileOf(x, z);
-    doc = createSpaceDoc(emptySpace(id, `Tile ${t.tx}, ${t.tz}`, c.x, c.z, TILE_R));
+    const tileSpace = emptySpace(id, `Tile ${t.tx}, ${t.tz}`, c.x, c.z, TILE_R);
+    // the tile remembers which sculpt world it was painted in, so the island's
+    // tiles do not stand in the Greenwold's sea and the Greenwold's not on the island
+    const world = ctx.runtime?.field?.sculpt?.world;
+    if (typeof world === 'string' && world && world !== 'greenwold') tileSpace.world = world;
+    doc = createSpaceDoc(tileSpace);
     docs.set(id, doc);
     setMarkersVisible(true, scene());
     rebuild();
@@ -693,6 +704,8 @@ export function createEditor(ctx = {}) {
     const want = new Set();
     for (let tz = t0.tz; tz <= t1.tz; tz++) for (let tx = t0.tx; tx <= t1.tx; tx++) want.add(`tile_${tx}_${tz}`);
     for (const [id, s] of Object.entries(SPACES)) {
+      // only this world's: the island and the Greenwold share coordinates
+      if (!spaceInWorld(s, ctx.runtime?.field || EDITOR_DEFAULT_FIELD)) continue;
       if (Math.hypot(s.at.x - x, s.at.z - z) <= (s.radius || 0) + r) want.add(id);
     }
     for (const id of want) {
@@ -1478,7 +1491,7 @@ export function createEditor(ctx = {}) {
     get dirty() { return dirty; },
     get spaces() { return Object.keys(SPACES); },
     // Search reads live drafts first, including tiles not yet written to disk.
-    searchSpaces: () => [...new Map([...Object.values(SPACES).map(s => [s.id, s]), ...[...docs].map(([id, d]) => [id, d.space])]).values()],
+    searchSpaces: () => [...new Map([...Object.values(SPACES).filter((s) => spaceInWorld(s, ctx.runtime?.field || EDITOR_DEFAULT_FIELD)).map(s => [s.id, s]), ...[...docs].map(([id, d]) => [id, d.space])]).values()],
     get disk() { return disk.slice(); },
     contents: () => (doc ? doc.contents() : []),
     count: () => (doc ? doc.count() : { total: 0 }),

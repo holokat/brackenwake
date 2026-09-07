@@ -61,6 +61,9 @@ export function spaceSiteRow(space, field) {
     id: `s:${space.id}`,
     zone: null, realm: space.id.startsWith('greenwold_') ? 'greenwold' : null, sub: space.id, space: space.id,
     kind: space.kind || 'space',
+    // a space that is a door: `dungeon` names the sheet the levels below are
+    // built from (dungeons.js), and `kind: 'dungeon'` is what enterDungeon asks
+    dungeon: space.dungeon || null,
     name: space.name || space.id,
     x, z,
     y: typeof field?.heightAt === 'function' ? field.heightAt(x, z) : 0,
@@ -90,20 +93,71 @@ export const isTileSpace = (id) => /^tile_-?\d+_-?\d+$/.test(String(id || ''));
  * seventy six of them they covered the generated farmland and swept its
  * hedges and furrows away (dressing_density.test caught it).
  */
-export const isSculptSpace = (id) => isTileSpace(id) || /^greenwold_/.test(String(id || ''));
+export const isSculptSpace = (id) => isTileSpace(id) || /^(greenwold|island)_/.test(String(id || ''));   // keep in step with SCULPT_WORLDS
+/**
+ * Which sculpt world a space belongs to: the word before its first underscore
+ * (`greenwold_hearthhome` is the Greenwold's, `island_town` the island's), and
+ * `null` for a tile, which is whatever world it was painted in. The terrain
+ * header names the world (`base.world`, the Greenwold when it does not say),
+ * so two sculpted worlds can share the spaces folder without standing in
+ * each other's sea.
+ */
+export const SCULPT_WORLDS = ['greenwold', 'island'];
+export const spaceWorld = (id) => {
+  const s = String(id || '');
+  if (isTileSpace(s)) return null;
+  const m = s.match(/^([a-z]+)_/);
+  // only a KNOWN world's prefix claims a space; a space somebody named in the
+  // editor (`haven_orchard`, `test_ring`) belongs to whatever world it is in
+  return m && SCULPT_WORLDS.includes(m[1]) ? m[1] : null;
+};
+export const worldOf = (field) => (field && field.sculpt && typeof field.sculpt.world === 'string' && field.sculpt.world) || 'greenwold';
 
+/**
+ * What kind of space an id is, worked out once: four hundred spaces asked
+ * three regular expressions each on every call put the wayside's first chunk
+ * over its 2 ms budget. Keyed by id; an id never changes its kind.
+ */
+const SPACE_META = new Map();
+function metaOf(space) {
+  let m = SPACE_META.get(space.id);
+  if (!m) {
+    const tile = isTileSpace(space.id);
+    m = { tile, sculptOnly: tile || isSculptSpace(space.id), world: tile ? null : spaceWorld(space.id) };
+    SPACE_META.set(space.id, m);
+  }
+  return m;
+}
+/**
+ * Whether a space stands in this field's world at all.
+ *
+ * A tile space is the sculpt canvas's own: the editor makes one wherever the
+ * user paints, at the tile's centre, in the blank world. In the generated world
+ * it would stand on ground the sheet laid (three of them sat on Hearthhome's
+ * roads and took the roadside with them), so it is the sculpt world's alone,
+ * and so are the Greenwold's and the island's. In a sculpt world only that
+ * world's own spaces stand; a tile carries the world it was painted in, and one
+ * made before worlds had names is the Greenwold's. The editor asks this too, so
+ * an eraser on the island cannot rub out a Greenwold field under the same
+ * coordinates (editor.test caught exactly that).
+ */
+export function spaceInWorld(space, field) {
+  if (!space || !space.at) return false;
+  const m = metaOf(space);
+  const sculpt = !!(field && field.sculpt);
+  if (!sculpt) return !m.sculptOnly;
+  const world = worldOf(field);
+  if (m.world && m.world !== world) return false;
+  if (m.tile && (space.world || 'greenwold') !== world) return false;
+  return true;
+}
 export function spaceSitesNear(x, z, radius, field, spaces = SPACES) {
   const out = [];
-  const sculpt = !!(field && field.sculpt);
   for (const space of Object.values(spaces)) {
     if (!space || !space.at) continue;
-    // A tile space is the sculpt canvas's own: the editor makes one wherever
-    // the user paints, at the tile's centre, in the blank world. In the
-    // generated world it would stand on ground the sheet laid (three of them
-    // sat on Hearthhome's roads and took the roadside with them), so it is
-    // the sculpt world's alone. A NAMED space is authored for either.
-    if (!sculpt && isSculptSpace(space.id)) continue;
+    // the cheap test first: most spaces are nowhere near
     if (Math.hypot(space.at.x - x, space.at.z - z) > radius + (space.radius || 0)) continue;
+    if (!spaceInWorld(space, field)) continue;
     out.push(spaceSiteRow(space, field));
   }
   return out;

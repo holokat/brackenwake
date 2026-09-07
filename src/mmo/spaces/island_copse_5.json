@@ -1,0 +1,158 @@
+{
+  "id": "island_copse_5",
+  "name": "A copse",
+  "note": "A stand of oak and birch on the open ground, the kind a fox lives in.",
+  "at": {
+    "x": 120,
+    "z": -260
+  },
+  "radius": 40,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "fox",
+      "x": 10,
+      "z": 8
+    }
+  ],
+  "trees": [
+    {
+      "species": "birch",
+      "x": -11.42,
+      "z": -22.89,
+      "yaw": 12.67,
+      "scale": 0.98
+    },
+    {
+      "species": "birch",
+      "x": -3.74,
+      "z": -25.66,
+      "yaw": 228.05,
+      "scale": 1.12
+    },
+    {
+      "species": "oak",
+      "x": 7.27,
+      "z": -23.17,
+      "yaw": 68.16,
+      "scale": 1.12
+    },
+    {
+      "species": "birch",
+      "x": -9.04,
+      "z": -12.32,
+      "yaw": 183.42,
+      "scale": 0.87
+    },
+    {
+      "species": "oak",
+      "x": 1.03,
+      "z": -11.35,
+      "yaw": 279.02,
+      "scale": 1.27
+    },
+    {
+      "species": "oak",
+      "x": 9.47,
+      "z": -11.09,
+      "yaw": 88.23,
+      "scale": 0.94
+    },
+    {
+      "species": "birch",
+      "x": 23.03,
+      "z": -12.03,
+      "yaw": 27.54,
+      "scale": 0.89
+    },
+    {
+      "species": "oak",
+      "x": -23.95,
+      "z": -1.66,
+      "yaw": 277.97,
+      "scale": 0.82
+    },
+    {
+      "species": "oak",
+      "x": -12.98,
+      "z": 0.96,
+      "yaw": 152.05,
+      "scale": 0.93
+    },
+    {
+      "species": "oak",
+      "x": 0.57,
+      "z": -2.18,
+      "yaw": 197.15,
+      "scale": 1.16
+    },
+    {
+      "species": "oak",
+      "x": 12.78,
+      "z": 1.22,
+      "yaw": 324.79,
+      "scale": 1.22
+    },
+    {
+      "species": "oak",
+      "x": 23.73,
+      "z": -2.26,
+      "yaw": 197.7,
+      "scale": 0.99
+    },
+    {
+      "species": "birch",
+      "x": -22.45,
+      "z": 9.8,
+      "yaw": 209.02,
+      "scale": 1.27
+    },
+    {
+      "species": "birch",
+      "x": -10.01,
+      "z": 11.35,
+      "yaw": 246.75,
+      "scale": 1.02
+    },
+    {
+      "species": "birch",
+      "x": -1.13,
+      "z": 10.5,
+      "yaw": 54.54,
+      "scale": 0.95
+    },
+    {
+      "species": "oak",
+      "x": 10.24,
+      "z": 11.42,
+      "yaw": 346.19,
+      "scale": 1
+    },
+    {
+      "species": "oak",
+      "x": 22.48,
+      "z": 8.48,
+      "yaw": 60.74,
+      "scale": 1.11
+    },
+    {
+      "species": "birch",
+      "x": -0.03,
+      "z": 23.67,
+      "yaw": 157.13,
+      "scale": 1.27
+    },
+    {
+      "species": "oak",
+      "x": 11.24,
+      "z": 22.98,
+      "yaw": 100.89,
+      "scale": 0.96
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

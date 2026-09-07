@@ -61,6 +61,7 @@ import {
   paintGuideArt, paintGuideZones, GUIDE_MINIMAP_ALPHA,
 } from './map_paint.js';
 import { GUIDE_ZONES, guideArt, loadGuideArt, onGuideArt } from '../mmo/greenwold_guide.js';
+import { worldOf as sculptWorldOf } from '../world/sites.js';
 import { BIOMES, SEA_LEVEL, PAINT_BIOME } from '../world/field.js';
 import { GROUND_WORDS } from '../world/terrain_edits.js';
 import { ZONE, weightOf } from '../world/zones.js';
@@ -597,7 +598,9 @@ export function paintMinimap(ctx, opts = {}) {
   // there under it. With no picture the alpha is 1 and this is the square as it
   // was. `src/mmo/greenwold_guide.js` and docs/mmo/wiring/MAP3-GUIDE.md.
   const at = (x, z) => pxOf(v, x, z);
-  const art = opts.art !== undefined ? opts.art : guideArt();
+  // the painting and the twelve are the Greenwold's; the island draws its own ground
+  const guideWorld = sculptWorldOf(field) === 'greenwold';
+  const art = !guideWorld ? null : opts.art !== undefined ? opts.art : guideArt();
   const wantArt = !!(art && art.state === 'ready' && typeof ctx.drawImage === 'function');
   if (wantArt) {
     // An opaque backdrop under the sheet, because the sheet does not cover the
@@ -656,7 +659,7 @@ export function paintMinimap(ctx, opts = {}) {
   // The traced roads and the river are NOT drawn here: 220 pixels of small type
   // and hairlines has room for the boundaries or for the lines, and the
   // boundaries are what the square is for.
-  const guide = opts.guide === false
+  const guide = (opts.guide === false || !guideWorld)
     ? { drawn: 0, named: 0, rings: 0 }
     : paintGuideZones(ctx, {
       at, mpp: v.mpp, w: v.size, h: v.size, centresOnly: true,

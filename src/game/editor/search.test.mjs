@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { buildSearchIndex, searchIndex, locateResult, modeForResult, focusSearchPoint, SEARCH_LIMIT } from './search.js';
 import { SPACES, emptySpace } from '../../mmo/spaces/index.js';
 import { createEditor } from './editor.js';
+import { spaceInWorld } from '../../world/sites.js';
 import { MODES, toolsFor } from './modes.js';
 
 const t = performance.now();
@@ -13,7 +14,9 @@ const buildMs = performance.now() - t;
 for (const mode of MODES) for (const tool of toolsFor(mode.id)) {
   assert(index.some(r => r.scope === 'library' && r.tool.tab === tool.tab && r.tool.id === tool.id));
 }
-assert.equal(index.filter(r => r.scope === 'places').length, Object.keys(SPACES).length);
+// the places are the ones standing in the editor's world (the Greenwold and
+// its tiles when there is no runtime), not every world's on disk at once
+assert.equal(index.filter(r => r.scope === 'places').length, Object.values(SPACES).filter((s) => spaceInWorld(s, { sculpt: {} })).length);
 assert(searchIndex(index, 'Hearthhome', 'places').rows.some(r => r.spaceId === 'greenwold_hearthhome'));
 assert(searchIndex(index, 'Nan Ockley', 'placed').rows.some(r => r.entry.name === 'nan'));
 assert(searchIndex(index, 'oak', 'library').rows.some(r => r.tool.tab === 'trees'));

@@ -30,6 +30,7 @@ import { createTerrainEdits } from '../world/terrain_edits.js';
 import { setSnowBand } from '../world/terrain_material.js';
 import { createWorldStream, buildPalette } from '../world/chunks.js';
 import { createDiscovery } from '../world/sites.js';
+import { setSculptOpen } from '../mmo/release.js';
 import { createSiteMarkers } from '../world/site_models.js';
 import { createFlora } from '../world/flora.js';
 import { createDressing } from '../world/dressing_models.js';
@@ -63,7 +64,14 @@ export const FOG_MARGIN = 40;
 const SKY_AND_LIGHTS = new Set(['sky', 'water', 'sun-light', 'hemi-light', 'ambient-light', 'fill-light']);
 
 /** Where a hand cut world is kept, and what the editor's save button writes. */
-export const TERRAIN_FILE = '/terrain/greenwold.json';
+/**
+ * THE ACTIVE WORLD. One file boots; the others sit in public/terrain unloaded.
+ * The Starting Island since 2026-09-08 ("a smaller island with a dungeon
+ * entrance... leave the other area unavailable"); the Greenwold is
+ * /terrain/greenwold.json and comes back by changing this one line. The
+ * editor saves to the same file it loaded (world.js derives its path here).
+ */
+export const TERRAIN_FILE = '/terrain/island.json';
 
 /**
  * What a hand cut cave is inside, by the size the stroke asked for.
@@ -343,6 +351,8 @@ export function createWorldRuntime(sc, opts = {}) {
       const json = await res.json();
       const n = terrainEdits.load(json);
       const moved = applyTerrainHeader();
+      // a sculpt world's own gate (`base.open`), or none, so the realm circles rule
+      setSculptOpen(field.sculpt && field.sculpt.open ? field.sculpt.open : null);
       if (!n && !moved) return null;
       const did = rebuildAll();
       const info = {

@@ -235,11 +235,18 @@ console.log('\nspaces: the five seams into the running game');
     tiles.every((id) => !sitesNear(field, SPACES[id].at.x, SPACES[id].at.z, 10).some((r) => r.sub === id)),
     tiles.length ? tiles.join(', ') : 'there are none on disk, so this passes vacuously');
   {
-    const sculptField = Object.create(field);
-    Object.defineProperty(sculptField, 'sculpt', { value: { height: 6, ground: 'grass' } });
-    check('but every tile space does in a sculpt field',
-      tiles.every((id) => spaceSitesNear(SPACES[id].at.x, SPACES[id].at.z, 10, sculptField).some((r) => r.sub === id)),
-      tiles.length ? tiles.join(', ') : 'none on disk');
+    // a sculpt space turns up in ITS world's field: the Greenwold's (and the
+    // tiles painted there, which carry no world) under the default header, the
+    // island's under a header that names the island, and never the other way
+    const worldField = (world) => { const f = Object.create(field); Object.defineProperty(f, 'sculpt', { value: { height: 6, ground: 'grass', world } }); return f; };
+    const ofWorld = (id, world) => (isTileSpace(id) ? (SPACES[id].world || 'greenwold') === world : id.startsWith(world + '_'));
+    const worlds = ['greenwold', 'island'];
+    check('but every sculpt space does in its own world\'s sculpt field',
+      worlds.every((w) => tiles.filter((id) => ofWorld(id, w)).every((id) => spaceSitesNear(SPACES[id].at.x, SPACES[id].at.z, 10, worldField(w)).some((r) => r.sub === id))),
+      tiles.length ? `${tiles.length} sculpt spaces over ${worlds.join(' and ')}` : 'none on disk');
+    check('and none of them in the OTHER world\'s field',
+      worlds.every((w) => tiles.filter((id) => !ofWorld(id, w)).every((id) => !spaceSitesNear(SPACES[id].at.x, SPACES[id].at.z, 10, worldField(w)).some((r) => r.sub === id))));
+    const sculptField = worldField('greenwold');
   }
 }
 

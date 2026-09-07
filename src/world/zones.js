@@ -459,8 +459,15 @@ export function birthplaceFor(field) {
   // A sculpt world with Hearthhome laid in it births on the green, at the
   // village's own arrival point, which is what the first hour's walk starts
   // from; a blank canvas with no village yet births at tile 0 0.
-  const home = SCULPT_BIRTH.at;
+  const world = (typeof field.sculpt === 'object' && typeof field.sculpt.world === 'string' && field.sculpt.world) || 'greenwold';
+  const home = SCULPT_BIRTHS[world] || (world === 'greenwold' ? SCULPT_BIRTH.at : null);
   return home ? { x: home.x, z: home.z } : { x: 0, z: 0 };
+}
+/** One birth per sculpt world, by the world's name in the terrain header. */
+export const SCULPT_BIRTHS = {};
+export function setSculptBirthFor(world, at) {
+  SCULPT_BIRTHS[world] = at && Number.isFinite(at.x) && Number.isFinite(at.z) ? { x: at.x, z: at.z, yaw: at.yaw } : null;
+  if (world === 'greenwold') setSculptBirth(at);
 }
 /**
  * Where a sculpt world births, set by whoever knows the spaces (the space

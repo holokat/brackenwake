@@ -1,0 +1,640 @@
+{
+  "id": "island_westfield",
+  "name": "The West Field",
+  "note": "Wheat inside a thorn hedge, the rows running with the slope, a gate on the lane side and a scarecrow that is only a scarecrow by day.",
+  "at": {
+    "x": -130,
+    "z": 270
+  },
+  "radius": 99,
+  "pieces": [],
+  "runs": [
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -66.62,
+        "z": -64.9
+      },
+      "to": {
+        "x": 81.92,
+        "z": -44.03
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 81.92,
+        "z": -44.03
+      },
+      "to": {
+        "x": 66.62,
+        "z": 64.9
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 66.62,
+        "z": 64.9
+      },
+      "to": {
+        "x": -81.92,
+        "z": 44.03
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -81.92,
+        "z": 44.03
+      },
+      "to": {
+        "x": -66.62,
+        "z": -64.9
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "wheat",
+      "points": [
+        [
+          -66.62,
+          -64.9
+        ],
+        [
+          81.92,
+          -44.03
+        ],
+        [
+          66.62,
+          64.9
+        ],
+        [
+          -81.92,
+          44.03
+        ]
+      ]
+    }
+  ],
+  "people": [],
+  "spawns": [
+    {
+      "id": "scarecrow",
+      "x": 0.2,
+      "z": 9.19,
+      "night": true
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 16,
+      "z": -56.69,
+      "yaw": 70.14,
+      "scale": 1.11
+    },
+    {
+      "species": "oak",
+      "x": 71.69,
+      "z": 50.52,
+      "yaw": 41.74,
+      "scale": 1
+    },
+    {
+      "species": "oak",
+      "x": -16,
+      "z": 56.69,
+      "yaw": 116,
+      "scale": 1.19
+    },
+    {
+      "species": "oak",
+      "x": -62.31,
+      "z": 49.27,
+      "yaw": 317.24,
+      "scale": 1.04
+    },
+    {
+      "species": "oak",
+      "x": -82.13,
+      "z": 23.17,
+      "yaw": 298.21,
+      "scale": 1.1
+    },
+    {
+      "species": "oak",
+      "x": -71.69,
+      "z": -50.52,
+      "yaw": 20.31,
+      "scale": 1.1
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "furrow",
+      "x": -55.35,
+      "z": -51.53,
+      "yaw": 352,
+      "scale": 1
+    },
+    {
+      "kind": "furrow",
+      "x": -43.59,
+      "z": -49.93,
+      "yaw": 352,
+      "scale": 0.94
+    },
+    {
+      "kind": "furrow",
+      "x": -29.23,
+      "z": -46.17,
+      "yaw": 352,
+      "scale": 1.06
+    },
+    {
+      "kind": "furrow",
+      "x": -14.47,
+      "z": -44.28,
+      "yaw": 352,
+      "scale": 0.93
+    },
+    {
+      "kind": "furrow",
+      "x": -0.08,
+      "z": -44.12,
+      "yaw": 352,
+      "scale": 1.06
+    },
+    {
+      "kind": "furrow",
+      "x": 13.23,
+      "z": -42.18,
+      "yaw": 352,
+      "scale": 0.97
+    },
+    {
+      "kind": "furrow",
+      "x": 27.09,
+      "z": -40.56,
+      "yaw": 352,
+      "scale": 0.94
+    },
+    {
+      "kind": "furrow",
+      "x": 41.82,
+      "z": -36.64,
+      "yaw": 352,
+      "scale": 1
+    },
+    {
+      "kind": "furrow",
+      "x": 54.35,
+      "z": -35.71,
+      "yaw": 352,
+      "scale": 0.99
+    },
+    {
+      "kind": "furrow",
+      "x": 68.81,
+      "z": -34.4,
+      "yaw": 352,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": -59.11,
+      "z": -38.64,
+      "yaw": 352,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": -44.09,
+      "z": -33.63,
+      "yaw": 352,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": -30.7,
+      "z": -32.79,
+      "yaw": 352,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": -16.36,
+      "z": -30.65,
+      "yaw": 352,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": -3.82,
+      "z": -29.99,
+      "yaw": 352,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 12.28,
+      "z": -27.94,
+      "yaw": 352,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 26.28,
+      "z": -26.66,
+      "yaw": 352,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 38.8,
+      "z": -24.72,
+      "yaw": 352,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 52.25,
+      "z": -23.02,
+      "yaw": 352,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": 65.77,
+      "z": -19,
+      "yaw": 352,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": -60.7,
+      "z": -22.06,
+      "yaw": 352,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": -45.64,
+      "z": -21.83,
+      "yaw": 352,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -34.06,
+      "z": -18.07,
+      "yaw": 352,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": -18.42,
+      "z": -17.07,
+      "yaw": 352,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": -3.87,
+      "z": -15.88,
+      "yaw": 352,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": 10.17,
+      "z": -14.1,
+      "yaw": 352,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": 23.73,
+      "z": -12.33,
+      "yaw": 352,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 36.63,
+      "z": -10.68,
+      "yaw": 352,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 49.87,
+      "z": -8.71,
+      "yaw": 352,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": 64.2,
+      "z": -6.37,
+      "yaw": 352,
+      "scale": 1.08
+    },
+    {
+      "kind": "wheat_row",
+      "x": -60.99,
+      "z": -8.12,
+      "yaw": 352,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": -47.59,
+      "z": -7.94,
+      "yaw": 352,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": -35.76,
+      "z": -6.48,
+      "yaw": 352,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": -19.68,
+      "z": -2.99,
+      "yaw": 352,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": -7.44,
+      "z": -0.1,
+      "yaw": 352,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": 7.82,
+      "z": 0.84,
+      "yaw": 352,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 21.89,
+      "z": 4.38,
+      "yaw": 352,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": 33.37,
+      "z": 4.3,
+      "yaw": 352,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 49.69,
+      "z": 5.98,
+      "yaw": 352,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": 63.79,
+      "z": 8.58,
+      "yaw": 352,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": -65.02,
+      "z": 4.01,
+      "yaw": 352,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": -50.06,
+      "z": 6.78,
+      "yaw": 352,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": -35.58,
+      "z": 9.53,
+      "yaw": 352,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": -22.87,
+      "z": 12.29,
+      "yaw": 352,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": -9.41,
+      "z": 14.16,
+      "yaw": 352,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 3.45,
+      "z": 15.34,
+      "yaw": 352,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": 19.44,
+      "z": 16.53,
+      "yaw": 352,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 33.71,
+      "z": 19.01,
+      "yaw": 352,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 46.17,
+      "z": 22.15,
+      "yaw": 352,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": 60.13,
+      "z": 21.58,
+      "yaw": 352,
+      "scale": 1.03
+    },
+    {
+      "kind": "furrow",
+      "x": -65.56,
+      "z": 19.9,
+      "yaw": 352,
+      "scale": 0.96
+    },
+    {
+      "kind": "furrow",
+      "x": -51.46,
+      "z": 22.06,
+      "yaw": 352,
+      "scale": 0.94
+    },
+    {
+      "kind": "furrow",
+      "x": -39.34,
+      "z": 22.35,
+      "yaw": 352,
+      "scale": 1.02
+    },
+    {
+      "kind": "furrow",
+      "x": -24.14,
+      "z": 25.67,
+      "yaw": 352,
+      "scale": 0.94
+    },
+    {
+      "kind": "furrow",
+      "x": -10.4,
+      "z": 26.16,
+      "yaw": 352,
+      "scale": 0.94
+    },
+    {
+      "kind": "furrow",
+      "x": 2.01,
+      "z": 28.03,
+      "yaw": 352,
+      "scale": 1
+    },
+    {
+      "kind": "furrow",
+      "x": 17.47,
+      "z": 32.66,
+      "yaw": 352,
+      "scale": 1.05
+    },
+    {
+      "kind": "furrow",
+      "x": 31.62,
+      "z": 33.29,
+      "yaw": 352,
+      "scale": 1.02
+    },
+    {
+      "kind": "furrow",
+      "x": 44.15,
+      "z": 35.25,
+      "yaw": 352,
+      "scale": 0.99
+    },
+    {
+      "kind": "furrow",
+      "x": 57.46,
+      "z": 35.6,
+      "yaw": 352,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": -66.95,
+      "z": 33.64,
+      "yaw": 352,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": -55.33,
+      "z": 36.07,
+      "yaw": 352,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -39.95,
+      "z": 38.3,
+      "yaw": 352,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": -25.76,
+      "z": 38.3,
+      "yaw": 352,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -13.72,
+      "z": 41.3,
+      "yaw": 352,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": 0.58,
+      "z": 43.69,
+      "yaw": 352,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": 13.94,
+      "z": 45.76,
+      "yaw": 352,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 27.65,
+      "z": 46.2,
+      "yaw": 352,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": 42.69,
+      "z": 50.36,
+      "yaw": 352,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": 57.78,
+      "z": 50.25,
+      "yaw": 352,
+      "scale": 1.01
+    },
+    {
+      "kind": "scarecrow",
+      "x": 0.2,
+      "z": 9.19,
+      "yaw": 121.05,
+      "scale": 1.1
+    },
+    {
+      "kind": "field_gate",
+      "x": 74.27,
+      "z": 10.44,
+      "yaw": 82,
+      "scale": 1
+    }
+  ],
+  "markers": []
+}

@@ -50,7 +50,7 @@ globalThis.navigator ||= { userAgent: 'node' };
 
 const warn = console.warn; console.warn = () => {};
 const THREE = await import('three');
-const { createWorldRuntime, WORLD_SEED, DUNGEON_FLOOR_Y } = await import('./world_runtime.js');
+const { createWorldRuntime, WORLD_SEED, DUNGEON_FLOOR_Y, TERRAIN_FILE } = await import('./world_runtime.js');
 const { PALETTE, WORLD_FOG, dayFactorAt , DAY_CYCLE_MS } = await import('./scene.js');
 const { maxLevel, walkable, gridOf } = await import('../world/dungeon_gen.js');
 const { createWorldField } = await import('../world/field.js');
@@ -802,8 +802,8 @@ for (const kind of ['dungeon', 'cave']) {
     let said = null;
     rt.onTerrain((info) => { said = info; });
     const h0 = rt.heightAt(PX, PZ);
-    const info = await rt.loadTerrainFile('/terrain/greenwold.json');
-    ck('the boot load asks for the file the editor writes', asked === '/terrain/greenwold.json', String(asked));
+    const info = await rt.loadTerrainFile(TERRAIN_FILE);
+    ck('the boot load asks for the file the editor writes', asked === TERRAIN_FILE, String(asked));
     ck('and applies every stroke in it', !!info && info.strokes === 2 && rt.terrainEdits.count === 2,
       info ? `${info.strokes} strokes` : 'nothing was applied');
     ck('the ground moved by what the file said', Math.abs(rt.heightAt(PX, PZ) - (h0 + 3)) < 1e-9,

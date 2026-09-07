@@ -9,6 +9,7 @@ import {buildStudioCharacter} from '../../studio/body.js';
 import { placeAt } from '../../../mmo/greenwold/places.js';
 import * as THREE from 'three';
 import { birthplaceFor, ZONE } from '../../../world/zones.js';
+import { openAt } from '../../../mmo/release.js';
 import { createPlayer } from '../../player.js';
 import { playerActor as buildPlayerActor, recompute, tickPools, syncToCharacter } from '../../actor.js';
 import { createProgression } from '../../progression.js';
@@ -39,12 +40,20 @@ export const player = {
     // outside the NEAREST ROLLED TOWN to the origin, a generated village with
     // generated people, 1.7 km from the one every quest assumes.
     let faceTo = null;
-    if (!state.pos.x && !state.pos.z) {
+    // A saved spot on CLOSED ground is a spot in another world: a character
+    // last seen in the Greenwold, loaded on the island, would wake in the sea
+    // outside the gate. Such a character is born again where this world births.
+    const carried = (state.pos.x || state.pos.z) && !openAt(state.pos.x, state.pos.z);
+    if ((!state.pos.x && !state.pos.z) || carried) {
       const birth = birthplaceFor(runtime.field);
       state.setPos(birth.x, birth.z);
       if (runtime.field && runtime.field.sculpt) {
-        faceTo = placeAt(runtime.field, 'hearthhome') || { x: 0, z: 100 };
-        hud.toast(placeAt(runtime.field, 'hearthhome') ? 'You wake on the green at Hearthhome. Old Wynn waits beside the standing stone.' : 'You wake on the open ground.');
+        const world = runtime.field.sculpt.world || 'greenwold';
+        const home = placeAt(runtime.field, 'hearthhome');
+        faceTo = home || { x: birth.x, z: birth.z + 100 };
+        hud.toast(world === 'island'
+          ? (carried ? 'The road you were on is not open any more. You wake on the green at Haven, the quay below you and the whole island round it.' : 'You wake on the green at Haven, the quay below you and the whole island round it.')
+          : home ? 'You wake on the green at Hearthhome. Old Wynn waits beside the standing stone.' : 'You wake on the open ground.');
       } else {
         faceTo = { x: ZONE.hearthhome.x, z: ZONE.hearthhome.z };
         hud.toast('You wake on the green at Hearthhome, the well in front of you and the whole village round it.');

@@ -134,6 +134,7 @@ export const DUNGEON_IDS = Object.freeze(Object.keys(DUNGEONS));
 export function specFor(site) {
   if (!site) return null;
   if (typeof site === 'string') return DUNGEONS[site] || null;
+  if (site.dungeon && DUNGEONS[site.dungeon]) return DUNGEONS[site.dungeon];
   if (site.sub && DUNGEONS[site.sub]) return DUNGEONS[site.sub];
   if (site.id && DUNGEONS[site.id]) return DUNGEONS[site.id];
   // an authored site's id is `z:<place>`

@@ -1,0 +1,180 @@
+{
+  "id": "island_mine",
+  "name": "The Chalk Cut",
+  "note": "A white chalk cut with a green seam of copper in it and a grey one of tin under that. Two mouths go into the face, the left one under a headframe with a winding wheel, and the cart comes out of it on rails.",
+  "at": {
+    "x": -40,
+    "z": -140
+  },
+  "radius": 44,
+  "pieces": [
+    {
+      "model": "headframe",
+      "x": -12,
+      "z": 8,
+      "yaw": 0
+    },
+    {
+      "model": "mine_mouth",
+      "x": -12,
+      "z": 10,
+      "yaw": 180,
+      "on": "headframe"
+    },
+    {
+      "model": "mine_mouth",
+      "x": 8,
+      "z": 10,
+      "yaw": 180
+    },
+    {
+      "model": "ore_cart",
+      "x": -10,
+      "z": -6,
+      "yaw": 0
+    },
+    {
+      "model": "spoil_heap",
+      "x": 6,
+      "z": -8,
+      "yaw": 0
+    },
+    {
+      "model": "foremans_hut",
+      "x": 18,
+      "z": 2,
+      "yaw": 240
+    },
+    {
+      "model": "pick",
+      "x": -3.2,
+      "z": 0,
+      "yaw": 20
+    },
+    {
+      "model": "barrow",
+      "x": -0.8,
+      "z": 0.4,
+      "yaw": 70
+    }
+  ],
+  "runs": [
+    {
+      "model": "chalk_face_4m",
+      "from": {
+        "x": -24,
+        "z": 10
+      },
+      "to": {
+        "x": 24,
+        "z": 10
+      }
+    },
+    {
+      "model": "rail_2m",
+      "from": {
+        "x": -12,
+        "z": 5
+      },
+      "to": {
+        "x": -12,
+        "z": -16
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "bare",
+      "points": [
+        [
+          -20,
+          10
+        ],
+        [
+          20,
+          10
+        ],
+        [
+          20,
+          -10
+        ],
+        [
+          -20,
+          -10
+        ]
+      ]
+    }
+  ],
+  "people": [
+    {
+      "name": null,
+      "role": "provisioner",
+      "x": 14.5,
+      "z": 0,
+      "yaw": 60
+    }
+  ],
+  "spawns": [
+    {
+      "id": "giantRat",
+      "x": -16,
+      "z": 6
+    },
+    {
+      "id": "giantRat",
+      "x": -20,
+      "z": 10
+    },
+    {
+      "id": "thornGrub",
+      "x": 18,
+      "z": 4
+    },
+    {
+      "id": "wildDog",
+      "x": 2,
+      "z": 22
+    },
+    {
+      "id": "skeleton",
+      "x": 12,
+      "z": 22,
+      "night": true
+    },
+    {
+      "id": "skeleton",
+      "x": 16,
+      "z": 26,
+      "night": true
+    },
+    {
+      "id": "giantSpider",
+      "x": -14,
+      "z": 18,
+      "night": true
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "markers": [
+    {
+      "x": -18,
+      "z": -14,
+      "label": "the copper seam",
+      "note": "the green seam in the chalk, and the first ore",
+      "kind": "other"
+    },
+    {
+      "x": 14,
+      "z": -14,
+      "label": "the tin seam",
+      "note": "the grey seam under the copper",
+      "kind": "other"
+    }
+  ],
+  "arrival": {
+    "x": 0,
+    "z": -20,
+    "yaw": 0
+  }
+}

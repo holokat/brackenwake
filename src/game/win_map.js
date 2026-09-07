@@ -91,7 +91,7 @@ import { BIOMES } from '../world/field.js';
 import {
   ZONES, ZONE, WORLD_HALF, zoneAt, wildDanger, DANGER_WORD, ARTICLE,
 } from '../world/zones.js';
-import { ZONE_ENTER_W } from '../world/sites.js';
+import { ZONE_ENTER_W, worldOf } from '../world/sites.js';
 import { authoredZoneAt } from '../mmo/greenwold/places.js';
 import {isDestination} from '../mmo/greenwold/navigation.js';
 import { ROUTES as GREENWOLD_ROUTES } from '../mmo/greenwold/routes.js';
@@ -890,7 +890,11 @@ export function drawMap(g2d, opts) {
   // painted village when the player stands in the village. It goes UNDER
   // everything, and when it is not there `layerFor` falls back to the terrain
   // and the footer says where to put the file.
-  const art = opts.guideArt !== undefined ? opts.guideArt : guideArt();
+  // The painting and the twelve are the GREENWOLD's. Another sculpt world (the
+  // island) draws its own terrain and none of the guide, or the village would
+  // be painted over the sea.
+  const guideWorld = worldOf(opts.field) === 'greenwold';
+  const art = !guideWorld ? null : opts.guideArt !== undefined ? opts.guideArt : guideArt();
   const layer = layerFor(opts.layers, art && art.state);
   const guide = { layer, art: art ? art.state : 'idle', drawn: 0, zones: 0, named: 0, rings: 0, ways: 0 };
   if (layer !== 'terrain') {
@@ -1067,7 +1071,7 @@ export function drawMap(g2d, opts) {
   // It is drawn whether or not the painting loaded, because the boundaries and
   // the names are the point and the picture is the backing for them. The ways
   // go under the outlines: a lane is where to paint a lane, not a road.
-  if (opts.guide !== false) {
+  if (opts.guide !== false && guideWorld) {
     const ways = paintGuideWays(g2d, { at, scale: Math.max(0.6, size / 640) });
     guide.ways = ways.roads + ways.river;
     const zn = paintGuideZones(g2d, {

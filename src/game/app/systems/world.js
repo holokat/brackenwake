@@ -27,7 +27,7 @@ import {
 /** Where the follow camera looks on the body, matching camera.js. */
 const CAMERA_EYE = 1.5;
 /** Where the editor's save button writes, and where the runtime reads at boot. */
-export const TERRAIN_SAVE_PATH = 'public/terrain/greenwold.json';
+export const TERRAIN_SAVE_PATH = `public${TERRAIN_FILE}`;   // the editor saves the file it loaded
 /** The dev server's own writer. vite.config.js answers it; a built game does not. */
 export const EDITOR_SAVE_URL = '/__editor/save';
 /** Metres of margin past a stroke's own reach that the ground is put back over. */

@@ -1,0 +1,224 @@
+{
+  "id": "island_barrow",
+  "name": "The Drowned Kings' Barrow",
+  "note": "A barrow on the headland ringed with leaning stones and old graves, the sea on three sides. The dead here do not stay down after dark, and by day two of them never went down at all.",
+  "at": {
+    "x": 400,
+    "z": -60
+  },
+  "radius": 52,
+  "pieces": [
+    {
+      "model": "waystone_village",
+      "x": 0,
+      "z": -2,
+      "yaw": 180
+    },
+    {
+      "model": "boundary_stone",
+      "x": 0,
+      "z": 30,
+      "yaw": 0
+    },
+    {
+      "model": "boundary_stone",
+      "x": 19.28,
+      "z": 22.98,
+      "yaw": 40
+    },
+    {
+      "model": "boundary_stone",
+      "x": 29.54,
+      "z": 5.21,
+      "yaw": 80
+    },
+    {
+      "model": "boundary_stone",
+      "x": 25.98,
+      "z": -15,
+      "yaw": 120
+    },
+    {
+      "model": "boundary_stone",
+      "x": 10.26,
+      "z": -28.19,
+      "yaw": 160
+    },
+    {
+      "model": "boundary_stone",
+      "x": -10.26,
+      "z": -28.19,
+      "yaw": 200
+    },
+    {
+      "model": "boundary_stone",
+      "x": -25.98,
+      "z": -15,
+      "yaw": 240
+    },
+    {
+      "model": "boundary_stone",
+      "x": -29.54,
+      "z": 5.21,
+      "yaw": 280
+    },
+    {
+      "model": "boundary_stone",
+      "x": -19.28,
+      "z": 22.98,
+      "yaw": 320
+    },
+    {
+      "model": "headstone_a",
+      "x": -15.82,
+      "z": 13.9,
+      "yaw": 27.41
+    },
+    {
+      "model": "headstone_b",
+      "x": 2.05,
+      "z": -10.31,
+      "yaw": 217.86
+    },
+    {
+      "model": "headstone_c",
+      "x": 20.56,
+      "z": 5.62,
+      "yaw": 128.5
+    },
+    {
+      "model": "headstone_d",
+      "x": -9.1,
+      "z": -13.37,
+      "yaw": 339.24
+    },
+    {
+      "model": "headstone_e",
+      "x": 4.29,
+      "z": -20.61,
+      "yaw": 109.67
+    },
+    {
+      "model": "headstone_a",
+      "x": 21.54,
+      "z": 8.86,
+      "yaw": 64.16
+    },
+    {
+      "model": "headstone_b",
+      "x": 22.33,
+      "z": -4.53,
+      "yaw": 13.22
+    },
+    {
+      "model": "headstone_c",
+      "x": -9.13,
+      "z": 4.62,
+      "yaw": 31.87
+    },
+    {
+      "model": "headstone_d",
+      "x": -8.87,
+      "z": -12.9,
+      "yaw": 160.2
+    },
+    {
+      "model": "headstone_e",
+      "x": -7.4,
+      "z": -3.34,
+      "yaw": 283.84
+    },
+    {
+      "model": "headstone_a",
+      "x": 16.13,
+      "z": -4.42,
+      "yaw": 80.44
+    },
+    {
+      "model": "headstone_b",
+      "x": 21.29,
+      "z": 4.42,
+      "yaw": 277.5
+    },
+    {
+      "model": "headstone_c",
+      "x": 7.81,
+      "z": 9.08,
+      "yaw": 308.02
+    },
+    {
+      "model": "headstone_d",
+      "x": 11.84,
+      "z": -0.86,
+      "yaw": 186.18
+    },
+    {
+      "model": "legion_banner",
+      "x": 20,
+      "z": 30,
+      "yaw": 200
+    },
+    {
+      "model": "cart_broken",
+      "x": -26,
+      "z": 26,
+      "yaw": 300
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "skeleton",
+      "x": -14,
+      "z": 10
+    },
+    {
+      "id": "skeleton",
+      "x": -18,
+      "z": 6
+    },
+    {
+      "id": "zombie",
+      "x": 16,
+      "z": -12
+    },
+    {
+      "id": "skeleton",
+      "x": 10,
+      "z": 18,
+      "night": true
+    },
+    {
+      "id": "skeleton",
+      "x": 14,
+      "z": 22,
+      "night": true
+    },
+    {
+      "id": "drowned",
+      "x": 30,
+      "z": -20,
+      "night": true
+    },
+    {
+      "id": "wraith",
+      "x": 0,
+      "z": 4,
+      "night": true
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "markers": [
+    {
+      "x": 3,
+      "z": 6,
+      "label": "the kings under the barrow",
+      "note": "nine stones, fourteen graves, and something that hums under all of it",
+      "kind": "other"
+    }
+  ],
+  "landmark": true
+}

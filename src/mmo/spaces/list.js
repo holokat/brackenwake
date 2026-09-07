@@ -395,6 +395,29 @@ import sp_greenwold_stonecopse from './greenwold_stonecopse.json' with { type: '
 import sp_greenwold_sunkenchapel from './greenwold_sunkenchapel.json' with { type: 'json' };
 import sp_greenwold_upperbank from './greenwold_upperbank.json' with { type: 'json' };
 import sp_greenwold_watermeadows from './greenwold_watermeadows.json' with { type: 'json' };
+import sp_island_bandit_camp from './island_bandit_camp.json' with { type: 'json' };
+import sp_island_barrow from './island_barrow.json' with { type: 'json' };
+import sp_island_cellars from './island_cellars.json' with { type: 'json' };
+import sp_island_copse_1 from './island_copse_1.json' with { type: 'json' };
+import sp_island_copse_2 from './island_copse_2.json' with { type: 'json' };
+import sp_island_copse_3 from './island_copse_3.json' with { type: 'json' };
+import sp_island_copse_4 from './island_copse_4.json' with { type: 'json' };
+import sp_island_copse_5 from './island_copse_5.json' with { type: 'json' };
+import sp_island_downs from './island_downs.json' with { type: 'json' };
+import sp_island_eastfield from './island_eastfield.json' with { type: 'json' };
+import sp_island_hillfield from './island_hillfield.json' with { type: 'json' };
+import sp_island_mine from './island_mine.json' with { type: 'json' };
+import sp_island_mine_east from './island_mine_east.json' with { type: 'json' };
+import sp_island_pasture from './island_pasture.json' with { type: 'json' };
+import sp_island_pond from './island_pond.json' with { type: 'json' };
+import sp_island_quay from './island_quay.json' with { type: 'json' };
+import sp_island_tarn from './island_tarn.json' with { type: 'json' };
+import sp_island_town from './island_town.json' with { type: 'json' };
+import sp_island_westfield from './island_westfield.json' with { type: 'json' };
+import sp_island_wood_1 from './island_wood_1.json' with { type: 'json' };
+import sp_island_wood_2 from './island_wood_2.json' with { type: 'json' };
+import sp_island_wood_3 from './island_wood_3.json' with { type: 'json' };
+import sp_island_wood_4 from './island_wood_4.json' with { type: 'json' };
 import sp_tile__8_1 from './tile_-8_1.json' with { type: 'json' };
 import sp_tile_1__1 from './tile_1_-1.json' with { type: 'json' };
 import sp_tile_2__1 from './tile_2_-1.json' with { type: 'json' };
@@ -788,6 +811,29 @@ export const FILES = {
   'greenwold_sunkenchapel': sp_greenwold_sunkenchapel,
   'greenwold_upperbank': sp_greenwold_upperbank,
   'greenwold_watermeadows': sp_greenwold_watermeadows,
+  'island_bandit_camp': sp_island_bandit_camp,
+  'island_barrow': sp_island_barrow,
+  'island_cellars': sp_island_cellars,
+  'island_copse_1': sp_island_copse_1,
+  'island_copse_2': sp_island_copse_2,
+  'island_copse_3': sp_island_copse_3,
+  'island_copse_4': sp_island_copse_4,
+  'island_copse_5': sp_island_copse_5,
+  'island_downs': sp_island_downs,
+  'island_eastfield': sp_island_eastfield,
+  'island_hillfield': sp_island_hillfield,
+  'island_mine': sp_island_mine,
+  'island_mine_east': sp_island_mine_east,
+  'island_pasture': sp_island_pasture,
+  'island_pond': sp_island_pond,
+  'island_quay': sp_island_quay,
+  'island_tarn': sp_island_tarn,
+  'island_town': sp_island_town,
+  'island_westfield': sp_island_westfield,
+  'island_wood_1': sp_island_wood_1,
+  'island_wood_2': sp_island_wood_2,
+  'island_wood_3': sp_island_wood_3,
+  'island_wood_4': sp_island_wood_4,
   'tile_-8_1': sp_tile__8_1,
   'tile_1_-1': sp_tile_1__1,
   'tile_2_-1': sp_tile_2__1,

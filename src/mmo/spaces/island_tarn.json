@@ -1,0 +1,75 @@
+{
+  "id": "island_tarn",
+  "name": "The Hill Tarn",
+  "note": "A cold tarn under the chalk hill, reeds at its edge, and the mine's spoil coming down to it.",
+  "at": {
+    "x": -200,
+    "z": -160
+  },
+  "radius": 60,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "giantSpider",
+      "x": -30,
+      "z": 30,
+      "night": true
+    },
+    {
+      "id": "wisp",
+      "x": 0,
+      "z": 0,
+      "night": true
+    }
+  ],
+  "trees": [
+    {
+      "species": "willow",
+      "x": 13,
+      "z": 42.03,
+      "yaw": 350.16,
+      "scale": 1.03
+    },
+    {
+      "species": "willow",
+      "x": 44,
+      "z": 0.62,
+      "yaw": 271.49,
+      "scale": 1.06
+    },
+    {
+      "species": "willow",
+      "x": 14.19,
+      "z": -41.65,
+      "yaw": 283.33,
+      "scale": 1.02
+    },
+    {
+      "species": "willow",
+      "x": -35.23,
+      "z": -26.36,
+      "yaw": 174.79,
+      "scale": 1.01
+    },
+    {
+      "species": "willow",
+      "x": -35.96,
+      "z": 25.36,
+      "yaw": 201.42,
+      "scale": 1.16
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "reed_bed",
+      "x": 30,
+      "z": -20,
+      "yaw": 0,
+      "scale": 1.3
+    }
+  ],
+  "markers": []
+}
