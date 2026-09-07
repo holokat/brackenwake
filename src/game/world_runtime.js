@@ -20,6 +20,8 @@
 //  - Fog goes through sc.setFog, which pins the colour while a level owns it
 //    and hands it back on the way out.
 
+import { authoredPick } from '../mmo/greenwold/interactions.js';
+import { authoredDeckAt, createAuthoredCrossings } from '../world/authored_traversal.js';
 import * as THREE from 'three';
 import { createWorldField, CHUNK } from '../world/field.js';
 import { createTerrainEdits } from '../world/terrain_edits.js';
@@ -30,7 +32,7 @@ import { createSiteMarkers } from '../world/site_models.js';
 import { createFlora } from '../world/flora.js';
 import { createDressing } from '../world/dressing_models.js';
 import { createWayside } from '../world/wayside_models.js';
-import { loadPropsFor } from '../world/plan_models.js';
+import { loadPropLibrary } from '../world/plan_models.js';
 import { PLANS } from '../mmo/plans/index.js';
 import { deckAt } from '../world/wayside.js';
 import { createFauna } from '../world/fauna.js';
@@ -143,9 +145,10 @@ export function createWorldRuntime(sc, opts = {}) {
   // The roads' own furniture (A2): lamps lit at dusk, signs at the forks,
   // bridges over the rivers, gates at the realm lines.
   const wayside = createWayside(scene, field);
+  const crossings = createAuthoredCrossings(scene, field);
   // P1: a painted place's models, if the user has made them, load ahead of the
   // build; a model not on disk leaves its stand-in standing
-  for (const plan of Object.values(PLANS)) loadPropsFor(plan);
+  const propsReady=typeof window!=='undefined'?loadPropLibrary():Promise.resolve([]);
   // fauna draws nothing any more. It says where the world's animals belong and
   // the monster layer stands them up, which is what makes a squirrel a thing
   // you can click. See src/world/fauna.js and docs/mmo/wiring/F1.md.
@@ -174,7 +177,14 @@ export function createWorldRuntime(sc, opts = {}) {
   // making the whole runtime asynchronous, so it lands when it lands and
   // rebuilds what was built in the meantime. `terrainFile: false` turns it off,
   // which is what a test that owns its own list does.
-  if (opts.terrainFile !== false) loadTerrainFile(typeof opts.terrainFile === 'string' ? opts.terrainFile : TERRAIN_FILE);
+  const terrainReady = opts.terrainFile !== false
+    ? loadTerrainFile(typeof opts.terrainFile === 'string' ? opts.terrainFile : TERRAIN_FILE)
+    : Promise.resolve(null);
+  const ready=Promise.all([terrainReady,propsReady]).then(([terrain])=>{
+    siteMarkers.update(center.x+1e6,center.z+1e6,world.viewRadius);
+    siteMarkers.update(center.x,center.z,world.viewRadius);
+    return terrain;
+  });
 
   // ---------------------------------------------------------------- above --
 
@@ -199,6 +209,7 @@ export function createWorldRuntime(sc, opts = {}) {
     // the mines' headframe wheel turns and their lanterns light at dusk (M1)
     siteMarkers.update(x, z, world.viewRadius, dt, 1 - dayFactor);
     wayside.update(dt, 1 - dayFactor);
+    crossings.update(x,z);
     const found = discovery.check(x, z, nowMs);
     if (found && discoverFn) { try { discoverFn(found); } catch (err) { console.warn('onDiscover threw', err); } }
     // a named region, entered for the first time: once per zone, ever
@@ -582,7 +593,7 @@ export function createWorldRuntime(sc, opts = {}) {
         const hits = raycaster.intersectObjects(meshes, false);
         for (const h of hits) {
           const site = h.object.userData.site;
-          if (site) { cands.push({ d: h.distance, out: { kind: 'site', site, waystone: !!h.object.userData.waystone } }); break; }
+          if (site) { cands.push({ d: h.distance, out: authoredPick(site,h.object.userData.plan?.piece,h.point) || { kind: 'site', site, waystone: !!h.object.userData.waystone } }); break; }
         }
       }
     }
@@ -626,6 +637,7 @@ export function createWorldRuntime(sc, opts = {}) {
     rebuildAll,
     /** Fetch and apply a saved stroke list. Missing is null and is not a fault. */
     loadTerrainFile,
+    ready,
     /** Called when a file has landed and been applied, with what it did. */
     onTerrain(fn) { terrainFn = fn; },
     /**
@@ -639,7 +651,7 @@ export function createWorldRuntime(sc, opts = {}) {
       if (dungeon) return dungeonFloor(x, z);
       // a bridge deck is the ground where there is one (A2), or the player
       // swims under his own bridge
-      const deck = deckAt(field, x, z);
+      const deck = authoredDeckAt(field,x,z) ?? deckAt(field, x, z);
       return deck === null ? terrainY(x, z) : deck;
     },
 
@@ -715,7 +727,8 @@ export function createWorldRuntime(sc, opts = {}) {
 
     dispose() {
       if (dungeon) { try { dungeon.scene?.dispose(); } catch { /* already gone */ } dungeon = null; surface = null; }
-      siteMarkers.dispose(); flora.dispose(); dressing.dispose(); wayside.dispose(); fauna.dispose(); world.dispose();
+      siteMarkers.dispose(); flora.dispose(); dressing.dispose(); wayside.dispose();
+      crossings.dispose(); fauna.dispose(); world.dispose();
       clearTreeFields();
     },
   };

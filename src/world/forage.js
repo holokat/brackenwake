@@ -129,6 +129,7 @@
 
 import * as THREE from 'three';
 import { CHUNK } from './field.js';
+import { authoredForage } from './authored_resources.js';
 import { hash2, mulberry32 } from './noise.js';
 
 // ---------------------------------------------------------------------------
@@ -1088,7 +1089,7 @@ export function createForageField(sc, opts = {}) {
     const trees = treesFor ? (treesFor(cx, cz) || []) : [];
     if (!trees.length) stats.treeless++;
     // a sculpt world grows nothing to pick on its own (ED3): the blank canvas
-    const placed = field.sculpt ? [] : placeForage(sample, cx, cz, trees, season, seed, {
+    const placed = field.sculpt ? authoredForage(field, cx, cz, season, Object.fromEntries(FORAGE.map(f => [f.id, f])), opts.spaces) : placeForage(sample, cx, cz, trees, season, seed, {
       abundance: opts.abundance, scale: opts.scale, heightAt,
     });
     const g = new THREE.Group();

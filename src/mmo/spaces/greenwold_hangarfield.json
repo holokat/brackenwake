@@ -78,49 +78,8 @@
     }
   ],
   "people": [],
-  "spawns": [
-    {
-      "id": "scarecrow",
-      "x": 8.87,
-      "z": -15.11,
-      "night": true
-    },
-    {
-      "id": "giantRat",
-      "x": 56.97,
-      "z": -56.38
-    }
-  ],
-  "trees": [
-    {
-      "species": "oak",
-      "x": -59.68,
-      "z": -73.3,
-      "yaw": 62.48,
-      "scale": 0.99
-    },
-    {
-      "species": "oak",
-      "x": 63.36,
-      "z": -73.23,
-      "yaw": 241.44,
-      "scale": 1.11
-    },
-    {
-      "species": "oak",
-      "x": 59.68,
-      "z": 73.3,
-      "yaw": 201.98,
-      "scale": 1.11
-    },
-    {
-      "species": "oak",
-      "x": -92.9,
-      "z": -49.65,
-      "yaw": 305.89,
-      "scale": 0.94
-    }
-  ],
+  "spawns": [],
+  "trees": [],
   "rocks": [
     {
       "kind": "furrow",
@@ -737,21 +696,9 @@
       "z": 59.03,
       "yaw": 0,
       "scale": 1.08
-    },
-    {
-      "kind": "scarecrow",
-      "x": 8.87,
-      "z": -15.11,
-      "yaw": 219.81,
-      "scale": 1.1
-    },
-    {
-      "kind": "field_gate",
-      "x": 89.9,
-      "z": 0,
-      "yaw": 90,
-      "scale": 1
     }
   ],
-  "markers": []
+  "markers": [],
+  "forage": [],
+  "stations": []
 }

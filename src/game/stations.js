@@ -14,8 +14,8 @@ import { stationsForSite, STATION } from './win_crafting.js';
 export const STATION_REACH = 4;
 export const SCAN_R = 700;
 export const COLOURS = {
-  forge: 0x7a3b2e, anvil: 0x4a4d55, workbench: 0x8a6a3c, loom: 0xb8a58c,
-  kitchen: 0x9a7a4a, alchemy: 0x4f6d5a, scriptorium: 0x6e5a8a,
+  forge: 0x7a3b2e, tanningRack: 0x705137, workbench: 0x8a6a3c, loom: 0xb8a58c,
+  kitchen: 0x9a7a4a, alchemyTable: 0x4f6d5a, inscriptionDesk: 0x6e5a8a,
 };
 
 export function createStations(sc, runtime, { hud } = {}) {

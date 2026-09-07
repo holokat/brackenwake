@@ -54,6 +54,7 @@
 //      have no iron while you are standing on twenty ingots. That is a wiring
 //      note, and it is in docs/mmo/wiring/W5.md.
 
+import { layoutFor } from '../mmo/plans/index.js';
 import {
   RECIPES, RECIPE, STATIONS, craftChance, craftQuality, craftedRarity, exceptional,
   MIN_CRAFT_CHANCE, MATERIALS as CRAFT_MATERIALS,
@@ -93,7 +94,10 @@ export const STATION = Object.fromEntries(STATION_KINDS.map((s) => [s.id, s]));
  * set `ctx.station` when the player clicks one. Deterministic from the site.
  */
 export function stationsForSite(site) {
-  if (!site || (site.kind !== 'town' && site.kind !== 'hamlet')) return [];
+  if (!site) return [];
+  const authored = layoutFor(site.sub)?.stations;
+  if (authored) return authored.map(p => ({ ...p, name: STATION[p.id].name, site, x: site.x + p.x, z: site.z + p.z, yaw: (p.yaw || 0) * Math.PI / 180 }));
+  if (site.kind !== 'town' && site.kind !== 'hamlet') return [];
   const list = site.kind === 'town' ? STATION_KINDS : STATION_KINDS.filter((s) => s.inHamlet);
   const r = STATION_RING[site.kind];
   return list.map((s, i) => {

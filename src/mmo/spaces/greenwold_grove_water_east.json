@@ -1,0 +1,75 @@
+{
+  "id": "greenwold_grove_water_east",
+  "name": "Willow bank",
+  "note": "The water east trees frame the nearby route.",
+  "at": {
+    "x": -338,
+    "z": -17
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "willow",
+      "x": -46.47,
+      "z": 12.66,
+      "scale": 0.9,
+      "yaw": 20,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -20.93,
+      "z": 9.75,
+      "scale": 1.1,
+      "yaw": 67,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 0.42,
+      "z": -7.6,
+      "scale": 1.2,
+      "yaw": 114,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 29.47,
+      "z": -9.66,
+      "scale": 0.95,
+      "yaw": 161,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 47.07,
+      "z": -25.64,
+      "scale": 0.8,
+      "yaw": 208,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -39.13,
+      "z": -8.1,
+      "scale": 0.8,
+      "yaw": 255,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 7.17,
+      "z": -27.09,
+      "scale": 0.9,
+      "yaw": 302,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

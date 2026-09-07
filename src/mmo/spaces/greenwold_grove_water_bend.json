@@ -1,0 +1,67 @@
+{
+  "id": "greenwold_grove_water_bend",
+  "name": "Willow bank",
+  "note": "The water bend trees frame the nearby route.",
+  "at": {
+    "x": -646,
+    "z": 1
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "willow",
+      "x": -43.74,
+      "z": -20.18,
+      "scale": 0.9,
+      "yaw": -20,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -22.3,
+      "z": -5.99,
+      "scale": 1.1,
+      "yaw": 27,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 5.21,
+      "z": -5.55,
+      "scale": 1.2,
+      "yaw": 74,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 28.79,
+      "z": 11.54,
+      "scale": 0.95,
+      "yaw": 121,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 52.54,
+      "z": 10.61,
+      "scale": 0.8,
+      "yaw": 168,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 22.9,
+      "z": -16.14,
+      "scale": 0.9,
+      "yaw": 262,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

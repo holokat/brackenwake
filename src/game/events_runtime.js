@@ -298,7 +298,8 @@ export function createEvents(runtime, monsters, hud, clock, opts = {}) {
     setDay(wantDay);
 
     // ------------------------------------------------------------ wanderers
-    for (const w of wanderers()) {
+    // Authored spaces own the Greenwold boss roster and night conditions.
+    for (const w of field?.sculpt ? [] : wanderers()) {
       const point = wanderPointAt(w.id, t);
       const rec = roaming.get(w.id);
       if (!point) {
@@ -361,7 +362,7 @@ export function createEvents(runtime, monsters, hud, clock, opts = {}) {
       kind: 'event', id: e.id, key: e.key, name: e.name, x: e.x, z: e.z, r: e.r,
       realm: e.realm, event: e.kind,
     }));
-    for (const w of wanderers()) {
+    for (const w of field?.sculpt ? [] : wanderers()) {
       if (!found.has(w.id)) continue;
       const p = wanderPointAt(w.id, t);
       if (!p) continue;

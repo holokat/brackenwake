@@ -1,0 +1,131 @@
+{
+  "id": "greenwold_grove_pasture_boundary",
+  "name": "Oak stand",
+  "note": "The pasture boundary trees frame the nearby route.",
+  "at": {
+    "x": -643,
+    "z": 546
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -61.52,
+      "z": 0.57,
+      "scale": 0.8,
+      "yaw": 8,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -41.87,
+      "z": 3.86,
+      "scale": 1.05,
+      "yaw": 55,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -21.06,
+      "z": -6.13,
+      "scale": 1.2,
+      "yaw": 102,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 3.11,
+      "z": 0.57,
+      "scale": 1.3,
+      "yaw": 149,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 22.93,
+      "z": -9.28,
+      "scale": 1.1,
+      "yaw": 196,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 47.24,
+      "z": -1.59,
+      "scale": 0.9,
+      "yaw": 243,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 64.09,
+      "z": -11.03,
+      "scale": 0.8,
+      "yaw": 290,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -52.99,
+      "z": -17.8,
+      "scale": 0.85,
+      "yaw": 337,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -33.03,
+      "z": -26.66,
+      "scale": 1.1,
+      "yaw": 24,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -7.02,
+      "z": -21.23,
+      "scale": 1.2,
+      "yaw": 71,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 15.77,
+      "z": -31.5,
+      "scale": 1,
+      "yaw": 118,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 40.93,
+      "z": -24.94,
+      "scale": 0.9,
+      "yaw": 165,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -22.52,
+      "z": -45.31,
+      "scale": 0.85,
+      "yaw": 212,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 3.64,
+      "z": -45.95,
+      "scale": 1.05,
+      "yaw": 259,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

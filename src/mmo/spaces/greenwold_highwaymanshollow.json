@@ -1,7 +1,7 @@
 {
   "id": "greenwold_highwaymanshollow",
   "name": "Highwayman's Hollow",
-  "note": "A hollow under a chalk overhang with a stake palisade across the open side and a gap in the middle of it. The fire is in the centre and there are five seats round it, a lookout in the oak on the west, and a straw dummy outside the wall with arrows still in it.",
+  "note": "Highwayman's Hollow has a lookout over the Kingsroad. The direct track passes beneath it. A blackberry-lined path comes in behind the tents from the Standing Hedge.",
   "at": {
     "x": 497.87,
     "z": -1017.39
@@ -116,6 +116,13 @@
       "x": -2.47,
       "z": -1.2,
       "yaw": 288
+    },
+    {
+      "model": "fingerpost",
+      "x": -17,
+      "z": -12,
+      "yaw": 0,
+      "tag": "greenwold-craft"
     }
   ],
   "runs": [
@@ -380,7 +387,7 @@
   ],
   "people": [
     {
-      "name": null,
+      "name": "millersson",
       "role": "outlaw",
       "x": 6.3,
       "z": 5,
@@ -388,42 +395,6 @@
     }
   ],
   "spawns": [
-    {
-      "id": "bandit",
-      "x": -4,
-      "z": 4,
-      "night": true
-    },
-    {
-      "id": "bandit",
-      "x": 3,
-      "z": 4,
-      "night": true
-    },
-    {
-      "id": "bandit",
-      "x": 6,
-      "z": 0,
-      "night": true
-    },
-    {
-      "id": "bandit",
-      "x": -7,
-      "z": 0,
-      "night": true
-    },
-    {
-      "id": "raider",
-      "x": 4,
-      "z": -9,
-      "night": true
-    },
-    {
-      "id": "raider",
-      "x": -3,
-      "z": -8,
-      "night": true
-    },
     {
       "id": "banditArcher",
       "x": -10,
@@ -435,13 +406,49 @@
       "z": -9
     },
     {
+      "id": "bandit",
+      "x": -4,
+      "z": 4
+    },
+    {
+      "id": "bandit",
+      "x": 6,
+      "z": 0
+    },
+    {
       "id": "goblinScout",
-      "x": -2,
-      "z": 8
+      "x": 16,
+      "z": -19,
+      "night": true
     }
   ],
   "trees": [],
-  "rocks": [],
+  "rocks": [
+    {
+      "kind": "rock",
+      "x": -29,
+      "z": -6,
+      "scale": 2.5,
+      "yaw": 80,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": -31,
+      "z": -11,
+      "scale": 1.9,
+      "yaw": 35,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": -26,
+      "z": -13,
+      "scale": 1.2,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
   "markers": [
     {
       "x": 6.3,
@@ -462,5 +469,20 @@
     "x": 0,
     "z": -30,
     "yaw": 0
-  }
+  },
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": -29,
+      "z": 15,
+      "count": 2
+    },
+    {
+      "id": "fiddlehead",
+      "x": -25,
+      "z": 20,
+      "count": 2
+    }
+  ],
+  "stations": []
 }

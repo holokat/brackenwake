@@ -1,0 +1,67 @@
+{
+  "id": "greenwold_grove_quarry_river_bank",
+  "name": "Willow bank",
+  "note": "The quarry river bank trees frame the nearby route.",
+  "at": {
+    "x": -986,
+    "z": -578
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "willow",
+      "x": -14.27,
+      "z": -46,
+      "scale": 0.9,
+      "yaw": -68,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -10.47,
+      "z": -20.58,
+      "scale": 1.1,
+      "yaw": -21,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 7.61,
+      "z": 0.16,
+      "scale": 1.2,
+      "yaw": 26,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 10.69,
+      "z": 29.12,
+      "scale": 0.95,
+      "yaw": 73,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 27.27,
+      "z": 46.14,
+      "scale": 0.8,
+      "yaw": 120,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 6.73,
+      "z": -39.39,
+      "scale": 0.8,
+      "yaw": 167,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

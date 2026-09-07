@@ -31,6 +31,7 @@ import * as THREE from 'three';
 import { REALM, PEOPLE, PERSON, BEATS, BEAT, blankView, roleOf, CELLAR_MOUTH_M, WAGON_SEEN_M, HEARTHHOME_M } from '../mmo/story.js';
 import { ZONE } from '../world/zones.js';
 import { SPACES } from '../mmo/spaces/index.js';
+import { placeAt, nearestSpaceStone, PLACE_SPACE } from '../mmo/greenwold/places.js';
 import { layoutTown, lotOf, doorOf } from '../world/town_layout.js';
 import { buildCharacter as defaultBuildCharacter, poseCharacter, PALETTE } from './player.js';
 
@@ -183,8 +184,8 @@ export function createStory(deps = {}) {
       ? (realmAt() || null)
       : (field?.sampleAt ? (field.sampleAt(p.x, p.z).realm || null) : null);
     const under = !!runtime?.inDungeon;
-    const home = ZONE.hearthhome;
-    const cellars = ZONE.oldcellars;
+    const home = placeAt(runtime?.field, 'hearthhome', deps.spaces);
+    const cellars = placeAt(runtime?.field, 'oldcellars', deps.spaces);
     if (!under && home) v.inHearthhome = dist(home, p) <= HEARTHHOME_M;
     if (!under && cellars) v.atCellarMouth = dist(cellars, p) <= CELLAR_MOUTH_M;
     v.stonesOwned = waystones ? waystones.count : 0;
@@ -209,7 +210,8 @@ export function createStory(deps = {}) {
     const e = beat.effect;
     if (!e) return null;
     if (e.kind === 'waypoint') {
-      const z = ZONE[e.place];
+      const z = runtime?.field?.sculpt && e.place === 'waystones'
+        ? nearestSpaceStone(at(), deps.spaces) : placeAt(runtime?.field, e.place, deps.spaces);
       if (!z) return log('The ring is not on any map this build has.', 'bad');
       if (character.waypoint && Number.isFinite(character.waypoint.x)) {
         return log(`Your compass is already set on ${character.waypoint.name || 'a mark of your own'}, so the ring is not marked over it. The Standing Hedge is out there whether or not the needle says so.`);
@@ -286,7 +288,8 @@ export function createStory(deps = {}) {
     let n = 0;
     for (const rec of npcs.list()) {
       if (rec.story) { n++; continue; }
-      const person = overs.find((p) => p.over === rec.role?.id && rec.site?.sub === p.place);
+      const person = PEOPLE.find((p) => rec.at === p.id) || overs.find((p) =>
+        p.over === rec.role?.id && (rec.site?.sub === p.place || rec.site?.sub === PLACE_SPACE[p.place]));
       if (!person) continue;
       rec.story = person;
       rec.personName = person.name;
@@ -398,7 +401,7 @@ export function createStory(deps = {}) {
       const at = space && space.at;
       if (!at) continue;
       for (const q of space.people || []) {
-        if (String(q.name || '').toLowerCase() !== want) continue;
+        if (q.name !== person.id && String(q.name || '').toLowerCase() !== want) continue;
         const x = at.x + num(q.x), z = at.z + num(q.z);
         return { x, z, yaw: Number.isFinite(q.yaw) ? q.yaw * Math.PI / 180 : 0, at: space.id };
       }
@@ -412,6 +415,8 @@ export function createStory(deps = {}) {
     const keep = new Set();
     for (const person of PEOPLE) {
       if (!person.body) continue;
+      // Planned NPCs already carry the cast. Do not place a second body.
+      if (sculptWorld() && npcs?.list?.().some(n => n.at === person.id)) continue;
       const spot = sculptWorld() ? spotInSpaces(person) : spotFor(person);
       if (!spot) continue;
       if (dist(spot, p) > NEAR_RING) continue;

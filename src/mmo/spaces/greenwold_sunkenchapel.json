@@ -1,7 +1,7 @@
 {
   "id": "greenwold_sunkenchapel",
   "name": "The Sunken Chapel",
-  "note": "A flooded meadow with a chapel standing in it up to its eaves, the bell still in an open belfry over the water. Seven headstones lean out of the surface to the east and a rotting boat is aground on the west side.",
+  "note": "The Sunken Chapel stands in the mere. A narrow causeway reaches the broken nave. The bell can still be rung. After dark, the dead stand where the congregation stood.",
   "at": {
     "x": -55.32,
     "z": -960.87
@@ -88,118 +88,28 @@
     },
     {
       "model": "lily_pad_patch",
-      "x": -6,
-      "z": -6,
-      "yaw": 0
+      "x": -24,
+      "z": 23,
+      "yaw": 0,
+      "tag": "greenwold-craft"
     },
     {
       "model": "lily_pad_patch",
-      "x": 4,
-      "z": 8,
-      "yaw": 0
+      "x": 27,
+      "z": 20,
+      "yaw": 0,
+      "tag": "greenwold-craft"
     },
     {
-      "model": "lily_pad_patch",
-      "x": -11,
-      "z": 4,
-      "yaw": 0
-    },
-    {
-      "model": "lily_pad_patch",
-      "x": 8,
-      "z": 4,
-      "yaw": 0
+      "model": "fingerpost",
+      "x": 2,
+      "z": 9,
+      "yaw": 0,
+      "tag": "greenwold-craft"
     }
   ],
   "runs": [],
-  "areas": [
-    {
-      "kind": "water",
-      "y": 3.6,
-      "points": [
-        [
-          0,
-          30
-        ],
-        [
-          9.27,
-          28.53
-        ],
-        [
-          17.63,
-          24.27
-        ],
-        [
-          24.27,
-          17.63
-        ],
-        [
-          28.53,
-          9.27
-        ],
-        [
-          30,
-          0
-        ],
-        [
-          28.53,
-          -9.27
-        ],
-        [
-          24.27,
-          -17.63
-        ],
-        [
-          17.63,
-          -24.27
-        ],
-        [
-          9.27,
-          -28.53
-        ],
-        [
-          0,
-          -30
-        ],
-        [
-          -9.27,
-          -28.53
-        ],
-        [
-          -17.63,
-          -24.27
-        ],
-        [
-          -24.27,
-          -17.63
-        ],
-        [
-          -28.53,
-          -9.27
-        ],
-        [
-          -30,
-          0
-        ],
-        [
-          -28.53,
-          9.27
-        ],
-        [
-          -24.27,
-          17.63
-        ],
-        [
-          -17.63,
-          24.27
-        ],
-        [
-          -9.27,
-          28.53
-        ]
-      ]
-    }
-  ],
+  "areas": [],
   "people": [],
   "spawns": [
     {
@@ -245,8 +155,10 @@
     }
   ],
   "arrival": {
-    "x": -30,
-    "z": 0,
-    "yaw": 90
-  }
+    "x": 0,
+    "z": 9,
+    "yaw": 180
+  },
+  "forage": [],
+  "stations": []
 }

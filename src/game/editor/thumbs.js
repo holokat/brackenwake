@@ -477,14 +477,15 @@ export function createThumbs(opts = {}) {
     const f = typeof fetchFn === 'function' ? fetchFn
       : (typeof opts.fetch === 'function' ? opts.fetch : (typeof fetch === 'function' ? fetch : null));
     if (!f || dead) return null;
-    let ids = null;
+    let ids = null, revision='';
     try {
       const res = await f(MANIFEST_URL);
       const doc = await res.json();
       ids = Array.isArray(doc?.ids) ? doc.ids.slice().sort() : null;
+      revision=doc?.revision||'';
     } catch { return null; }
     if (!ids || dead) return null;
-    const want = `${THUMB_VERSION}|${ids.join(',')}`;
+    const want = `${THUMB_VERSION}|${ids.join(',')}${revision?'|'+revision:''}`;
     if (want === stamp) return { stamp, dropped: 0 };
     const before = stamp;
     stamp = want;

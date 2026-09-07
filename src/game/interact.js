@@ -23,6 +23,7 @@
 // Sound is optional here on purpose. Every cue is `audio?.play?.(...)`, so the
 // module runs headless in its test with no audio passed at all.
 
+import { inspectAuthored } from '../mmo/greenwold/interactions.js';
 import * as THREE from 'three';
 import { chopTree } from '../farm/tree_edit.js';
 import { pickTarget, resolveSwing, swingText, nameFor, LOOT } from './combat.js';
@@ -247,6 +248,10 @@ export function decide(pick, character, playerPos, now, lastSwingAt, opts = {}) 
     const site = pick.site;
     if (!site) return { action: 'none', reason: 'nothing' };
     if (pick.waystone) return { action: 'waystone', reason: 'stone', site };
+    if (site.inspect) {
+      const d = horiz(playerPos, site);
+      return d > SITE_REACH ? { action:'blocked', reason:'too_far', site, dist:d } : { action:'inspect', site };
+    }
     if (site.kind === 'dungeon' || site.kind === 'cave') {
       const d = horiz(playerPos, site);
       if (d > SITE_REACH) return { action: 'blocked', reason: 'too_far', site, dist: d };
@@ -366,6 +371,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
       if (pick.waystone) return `${pick.site?.name || 'a stone'}, a waystone, E to put your hand on it`;
       const s = pick.site;
       if (!s) return '';
+      if (s.inspect) return s.inspect === 'bell' ? 'The chapel bell, E to ring' : 'A fingerpost, E to read';
       if (s.kind === 'dungeon' || s.kind === 'cave') {
         const d = horiz(player?.pos, s);
         return d > SITE_REACH ? `${s.name}, too far, ${Math.round(d)} m` : `${s.name}, E to enter`;
@@ -542,6 +548,10 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
           : `the ${noun} takes the blow, ${res.remaining} more`);
         return d;
       }
+      case 'inspect': {
+        inspectAuthored(d.site,{character:who(),hud,story:typeof story === 'function' ? story() : story,field:runtime.field});
+        return d;
+      }
       case 'waystone': {
         const s = typeof story === 'function' ? story() : story;
         if (!s?.touchStone) { say('the stone is warm and nothing in this build knows what to do about it'); return d; }
@@ -614,7 +624,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
     enter() {
       const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
       const d = decide(pickNow(), who(), player?.pos, now, lastSwingAt, { dev: !!state.dev });
-      if (d.action === 'enter' || d.action === 'exit' || d.action === 'open' || d.action === 'waystone'
+      if (d.action === 'enter' || d.action === 'exit' || d.action === 'open' || d.action === 'waystone' || d.action === 'inspect'
         || (d.action === 'blocked' && (d.site || d.chest))) return act(d);
       // E never moves you on its own. Underground a stray press would otherwise
       // climb a level, which is a real change nobody asked for.

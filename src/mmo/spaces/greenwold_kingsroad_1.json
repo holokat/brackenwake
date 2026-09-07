@@ -33,5 +33,7 @@
   "spawns": [],
   "trees": [],
   "rocks": [],
-  "markers": []
+  "markers": [],
+  "forage": [],
+  "stations": []
 }

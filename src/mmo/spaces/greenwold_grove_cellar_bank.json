@@ -1,0 +1,67 @@
+{
+  "id": "greenwold_grove_cellar_bank",
+  "name": "Willow bank",
+  "note": "The cellar bank trees frame the nearby route.",
+  "at": {
+    "x": -110,
+    "z": -90
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "willow",
+      "x": -48.16,
+      "z": -0.64,
+      "scale": 0.9,
+      "yaw": 4,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -22.8,
+      "z": 3.6,
+      "scale": 1.1,
+      "yaw": 51,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 2.5,
+      "z": -7.19,
+      "scale": 1.2,
+      "yaw": 98,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 30.99,
+      "z": -1.16,
+      "scale": 0.95,
+      "yaw": 145,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 52.31,
+      "z": -11.68,
+      "scale": 0.8,
+      "yaw": 192,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 14.36,
+      "z": -24.06,
+      "scale": 0.9,
+      "yaw": 286,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

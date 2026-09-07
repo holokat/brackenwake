@@ -40,6 +40,7 @@ import { growBoulder } from './tree_gen.js';
 import { KITS } from './dressing.js';
 import { bodyFor as dressBody, materialFor as dressMaterial, BODIES as DRESS_BODIES } from './dressing_models.js';
 import { SPACES } from '../mmo/spaces/index.js';
+import { preparePropLods, instancePropMesh } from './prop_lod.js';
 import {
   FOOTPRINT, RUN_SPAN, isRunKind, AREA_KINDS, STANDIN, hasStandIn, SOLO,
   WAYSTONE_MODEL, KEEP_MODEL, PLAN_MARGIN, footprintOf, stopsOf, insidePlan,
@@ -607,6 +608,7 @@ const BODY = {
 // the test path is the real path.
 
 const props = new Map();        // model id -> THREE.Object3D, ready to clone
+const pendingProps = new Map();
 let gltfLoader = null;
 
 /** Whether a piece has a real model behind it yet. */
@@ -636,12 +638,7 @@ export function instancedGlb(e, proto) {
   const m4 = new THREE.Matrix4();
   proto.traverse((mesh) => {
     if (!mesh.isMesh) return;
-    const im = new THREE.InstancedMesh(mesh.geometry, mesh.material, placements.length);
-    placements.forEach((pm, i) => { m4.multiplyMatrices(pm, mesh.matrixWorld); im.setMatrixAt(i, m4); });
-    im.instanceMatrix.needsUpdate = true;
-    im.castShadow = true; im.receiveShadow = true;
-    im.name = mesh.name || 'model';
-    out.add(im);
+    out.add(instancePropMesh(mesh,placements));
   });
   // the clones are never drawn, and their geometry and materials are the
   // prototype's own, so there is nothing to dispose
@@ -722,6 +719,11 @@ async function bytesOf(url) {
  */
 export async function loadProp(id, url = propUrlFor(id)) {
   if (props.has(id)) return true;
+  if (pendingProps.has(id)) return pendingProps.get(id);
+  const work=loadPropFile(id,url);pendingProps.set(id,work);
+  try{return await work;}finally{pendingProps.delete(id);}
+}
+async function loadPropFile(id,url){
   let data;
   try { data = await bytesOf(url); } catch { return false; }
   const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
@@ -729,8 +731,17 @@ export async function loadProp(id, url = propUrlFor(id)) {
   const gltf = await new Promise((res, rej) => {
     try { gltfLoader.parse(data, '', res, rej); } catch (err) { rej(err); }
   });
+  await preparePropLods(gltf);
   registerProp(id, gltf.scene);
   return true;
+}
+
+/** A bounded preload of the actual library, including unplaced builder assets. */
+export async function loadPropLibrary(){
+ const response=await fetch(PROP_DIR+'manifest.json');if(!response.ok)throw Error('Structure library manifest unavailable');
+ const manifest=await response.json(),queue=[...(manifest.ids||[])],loaded=[];
+ await Promise.all(Array.from({length:4},async()=>{while(queue.length){const id=queue.shift();if(await loadProp(id,propUrlFor(id)+(manifest.revision?'?v='+manifest.revision:'')))loaded.push(id);}}));
+ return loaded;
 }
 
 /** Load every model a plan asks for. Missing ones simply stay stand-ins. */
@@ -1313,6 +1324,7 @@ function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map(),
 
   // ---- a space's trees, by arbor species, grown and instanced with the rest
   for (const t of plan.trees || []) {
+    if (t.harvest) continue;
     const proto = speciesProto(t.species);
     if (!proto) continue;
     const [wx, wz] = world(stop, t.x, t.z);
@@ -1323,6 +1335,7 @@ function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map(),
 
   // ---- a space's rocks. `SINK` beds a rock the way it beds a piece.
   for (const r of plan.rocks || []) {
+    if (r.harvest) continue;
     if (!ROCK_KINDS[r.kind]) continue;
     const [wx, wz] = world(stop, r.x, r.z);
     const list = rocks.get(r.kind) || [];

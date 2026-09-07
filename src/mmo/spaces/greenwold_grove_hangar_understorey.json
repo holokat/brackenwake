@@ -1,0 +1,131 @@
+{
+  "id": "greenwold_grove_hangar_understorey",
+  "name": "Birch stand",
+  "note": "The hangar understorey trees frame the nearby route.",
+  "at": {
+    "x": -1178,
+    "z": 508
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "birch",
+      "x": -61,
+      "z": -8,
+      "scale": 0.8,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -42,
+      "z": -2,
+      "scale": 1.05,
+      "yaw": 47,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -20,
+      "z": -9,
+      "scale": 1.2,
+      "yaw": 94,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 3,
+      "z": 1,
+      "scale": 1.3,
+      "yaw": 141,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 24,
+      "z": -6,
+      "scale": 1.1,
+      "yaw": 188,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 47,
+      "z": 5,
+      "scale": 0.9,
+      "yaw": 235,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 65,
+      "z": -2,
+      "scale": 0.8,
+      "yaw": 282,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -50,
+      "z": -25,
+      "scale": 0.85,
+      "yaw": 329,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -29,
+      "z": -31,
+      "scale": 1.1,
+      "yaw": 16,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -4,
+      "z": -22,
+      "scale": 1.2,
+      "yaw": 63,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 20,
+      "z": -29,
+      "scale": 1,
+      "yaw": 110,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 44,
+      "z": -19,
+      "scale": 0.9,
+      "yaw": 157,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": -16,
+      "z": -48,
+      "scale": 0.85,
+      "yaw": 204,
+      "harvest": true
+    },
+    {
+      "species": "birch",
+      "x": 10,
+      "z": -45,
+      "scale": 1.05,
+      "yaw": 251,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

@@ -36,14 +36,10 @@
   "runs": [],
   "areas": [],
   "people": [],
-  "spawns": [
-    {
-      "id": "legionSoldier",
-      "x": 30,
-      "z": 24
-    }
-  ],
+  "spawns": [],
   "trees": [],
   "rocks": [],
-  "markers": []
+  "markers": [],
+  "forage": [],
+  "stations": []
 }

@@ -455,7 +455,7 @@ export function createNpcs(sc, runtime, opts = {}) {
     lastX = x; lastZ = z;
     const keep = new Set();
     for (const site of (runtime.sitesNear(x, z, ring) || [])) {
-      if (!PEOPLED.includes(site.kind)) continue;
+      if (!PEOPLED.includes(site.kind) && !peopleFor(site.sub).length) continue;
       for (const rec of streetFor(site, field)) {
         keep.add(rec.id);
         if (!live.has(rec.id)) spawn(rec);

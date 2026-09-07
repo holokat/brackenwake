@@ -35,6 +35,7 @@
 //   and rebuilds any dirty species field.
 //   foraging calls flora.treesFor(cx, cz) for the trunks in one chunk.
 
+import { authoredResources } from './authored_resources.js';
 import * as THREE from 'three';
 import { createTreeField } from '../farm/tree_edit.js';
 import { CHUNK, BIOMES } from './field.js';
@@ -827,7 +828,11 @@ export function recordsFor(field, cx, cz, opts = {}) {
   // a `cave` stroke, so their ore ring is part of what that stroke placed. With
   // no cave strokes cut there are none, which is what world_runtime.test.mjs
   // measures at boot.
-  if (field.sculpt) return out;
+  if (field.sculpt) {
+    const authored = authoredResources(field, cx, cz, opts.spaces);
+    for (const [kind, rows] of Object.entries(authored)) (out[kind] ||= []).push(...rows);
+    return out;
+  }
 
   const slopeAt = (x, z) => Math.max(
     Math.abs(field.heightAt(x + 1, z) - field.heightAt(x - 1, z)),

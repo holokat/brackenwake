@@ -11,80 +11,10 @@
   "runs": [],
   "areas": [],
   "people": [],
-  "spawns": [
-    {
-      "id": "wolf",
-      "x": 0.18,
-      "z": -14.9,
-      "night": true
-    }
-  ],
-  "trees": [
-    {
-      "species": "oak",
-      "x": -8.51,
-      "z": -11.96,
-      "yaw": 138.03,
-      "scale": 1.1
-    },
-    {
-      "species": "oak",
-      "x": 4.45,
-      "z": -5.56,
-      "yaw": 183.84,
-      "scale": 1.03
-    },
-    {
-      "species": "oak",
-      "x": 17.88,
-      "z": -6.23,
-      "yaw": 249.41,
-      "scale": 0.89
-    },
-    {
-      "species": "birch",
-      "x": -20.98,
-      "z": 2.66,
-      "yaw": 57.99,
-      "scale": 1.21
-    },
-    {
-      "species": "oak",
-      "x": -9.12,
-      "z": 3.6,
-      "yaw": 127.31,
-      "scale": 1.21
-    },
-    {
-      "species": "oak",
-      "x": 14.56,
-      "z": 6.4,
-      "yaw": 105.46,
-      "scale": 1.24
-    },
-    {
-      "species": "oak",
-      "x": -6.1,
-      "z": 13.49,
-      "yaw": 226.47,
-      "scale": 0.9
-    },
-    {
-      "species": "oak",
-      "x": 6.71,
-      "z": 19.24,
-      "yaw": 115.9,
-      "scale": 1.35
-    }
-  ],
-  "rocks": [
-    {
-      "kind": "moss_boulder",
-      "x": 11.32,
-      "z": 17.89,
-      "yaw": 55.74,
-      "scale": 1.1
-    }
-  ],
-  "markers": []
+  "spawns": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "forage": [],
+  "stations": []
 }

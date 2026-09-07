@@ -1,0 +1,77 @@
+{
+  "id": "greenwold_drovers_rest",
+  "name": "The drovers rest",
+  "at": {
+    "x": -529,
+    "z": 470
+  },
+  "radius": 35,
+  "note": "A cart and a cold fire stand beside the return path. Coldwake is south; the water meadow bridge is north.",
+  "pieces": [
+    {
+      "model": "cart_empty",
+      "x": 9,
+      "z": -4,
+      "yaw": 150,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "campfire",
+      "x": 10,
+      "z": 4,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "bench",
+      "x": 14,
+      "z": 4,
+      "yaw": 270,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "barrel",
+      "x": 12,
+      "z": -1,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "fingerpost",
+      "x": -4,
+      "z": 0,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "rock",
+      "x": -9,
+      "z": 7,
+      "scale": 1.5,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": -10,
+      "z": 4,
+      "scale": 0.8,
+      "yaw": 10,
+      "harvest": true
+    }
+  ],
+  "arrival": {
+    "x": 2,
+    "z": 0
+  },
+  "runs": [],
+  "areas": [],
+  "trees": [],
+  "people": [],
+  "spawns": [],
+  "markers": [],
+  "forage": [],
+  "stations": []
+}

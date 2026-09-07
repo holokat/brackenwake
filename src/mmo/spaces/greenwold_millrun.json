@@ -1,7 +1,7 @@
 {
   "id": "greenwold_millrun",
   "name": "The Mill Run",
-  "note": "Ivy Weir's mill, the wheel on the river side and the pond in front of it with four geese on it. The plank bridge and the ford are the two ways over, and the eel weirs are hers as well.",
+  "note": "The Mill Run turns grain from the fields into bread for Hearthhome. The hollow way enters the beeches behind the mill. Upstream, the quarry track climbs beside the river.",
   "at": {
     "x": -1001.19,
     "z": -335.7
@@ -40,22 +40,10 @@
       "yaw": 91.22
     },
     {
-      "model": "footbridge",
-      "x": -2.27,
-      "z": -24.63,
-      "yaw": 81.22
-    },
-    {
       "model": "lamp_post_iron",
       "x": -7.21,
       "z": -25.4,
       "yaw": 351.22
-    },
-    {
-      "model": "stepping_stones",
-      "x": 22.37,
-      "z": -26.9,
-      "yaw": 91.22
     },
     {
       "model": "millers_house",
@@ -107,15 +95,10 @@
     },
     {
       "model": "fingerpost",
-      "x": -13.91,
-      "z": 8.78,
-      "yaw": 200
-    },
-    {
-      "model": "fingerpost",
-      "x": 43.77,
-      "z": -3.11,
-      "yaw": 250
+      "x": -14,
+      "z": -18,
+      "yaw": 0,
+      "tag": "greenwold-craft"
     }
   ],
   "runs": [
@@ -268,7 +251,7 @@
   ],
   "people": [
     {
-      "name": null,
+      "name": "ivy",
       "role": "miller",
       "x": -7.91,
       "z": -1.22,
@@ -319,85 +302,34 @@
       "night": true
     }
   ],
-  "trees": [
-    {
-      "species": "oak",
-      "x": 6.63,
-      "z": -50.78,
-      "yaw": 48.12,
-      "scale": 1.17
-    },
-    {
-      "species": "oak",
-      "x": -35.42,
-      "z": -36.65,
-      "yaw": 279.46,
-      "scale": 1.14
-    },
-    {
-      "species": "oak",
-      "x": -19.98,
-      "z": -33.3,
-      "yaw": 93.88,
-      "scale": 1.15
-    },
-    {
-      "species": "oak",
-      "x": -47.78,
-      "z": -19.07,
-      "yaw": 91.92,
-      "scale": 1.04
-    },
-    {
-      "species": "oak",
-      "x": -47.59,
-      "z": -2.87,
-      "yaw": 25.44,
-      "scale": 1.09
-    },
-    {
-      "species": "oak",
-      "x": -37.27,
-      "z": 24.81,
-      "yaw": 142.49,
-      "scale": 1.05
-    },
-    {
-      "species": "oak",
-      "x": 42.58,
-      "z": 23.91,
-      "yaw": 79.55,
-      "scale": 0.89
-    },
-    {
-      "species": "oak",
-      "x": -15.82,
-      "z": 36.61,
-      "yaw": 263.45,
-      "scale": 1.18
-    }
-  ],
-  "rocks": [
-    {
-      "kind": "scarecrow",
-      "x": -26,
-      "z": 30,
-      "yaw": 18.47,
-      "scale": 1.1
-    }
-  ],
-  "markers": [
-    {
-      "x": -7.91,
-      "z": -1.22,
-      "label": "Ivy Weir",
-      "kind": "other",
-      "note": "the plan stands Ivy Weir here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
-    }
-  ],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
   "arrival": {
     "x": -36.48,
     "z": -25.87,
     "yaw": 54.65
-  }
+  },
+  "forage": [
+    {
+      "id": "blackberry",
+      "x": -26,
+      "z": 19,
+      "count": 2
+    },
+    {
+      "id": "nettle",
+      "x": -31,
+      "z": 16,
+      "count": 2
+    }
+  ],
+  "stations": [
+    {
+      "id": "kitchen",
+      "x": -18,
+      "z": -5,
+      "yaw": 0
+    }
+  ]
 }

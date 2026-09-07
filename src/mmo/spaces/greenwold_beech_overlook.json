@@ -1,0 +1,63 @@
+{
+  "id": "greenwold_beech_overlook",
+  "name": "The beech overlook",
+  "at": {
+    "x": -983,
+    "z": 88
+  },
+  "radius": 30,
+  "note": "The ridge path opens onto a view down the Mill Run. Two beeches shelter the bench; the valley side is left open.",
+  "pieces": [
+    {
+      "model": "bench",
+      "x": 5,
+      "z": -2,
+      "yaw": 130,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "boundary_stone",
+      "x": 7,
+      "z": 2,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "loot_sack",
+      "x": -7,
+      "z": -5,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "rock",
+      "x": -12,
+      "z": -7,
+      "scale": 2,
+      "yaw": 25,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": -10,
+      "z": -10,
+      "scale": 1.1,
+      "yaw": 90,
+      "harvest": true
+    }
+  ],
+  "arrival": {
+    "x": 3,
+    "z": 0
+  },
+  "runs": [],
+  "areas": [],
+  "trees": [],
+  "people": [],
+  "spawns": [],
+  "markers": [],
+  "forage": [],
+  "stations": []
+}

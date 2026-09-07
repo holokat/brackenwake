@@ -1,0 +1,83 @@
+{
+  "id": "greenwold_grove_coldwake_orchard",
+  "name": "Oak stand",
+  "note": "The coldwake orchard trees frame the nearby route.",
+  "at": {
+    "x": -418,
+    "z": 831
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -30.35,
+      "z": -10.89,
+      "scale": 0.6,
+      "yaw": 10,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -11.64,
+      "z": -14.19,
+      "scale": 0.65,
+      "yaw": 57,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 7.07,
+      "z": -17.49,
+      "scale": 0.6,
+      "yaw": 104,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 25.78,
+      "z": -20.79,
+      "scale": 0.65,
+      "yaw": 151,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -26.71,
+      "z": 9.79,
+      "scale": 0.65,
+      "yaw": 198,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -8,
+      "z": 6.49,
+      "scale": 0.6,
+      "yaw": 245,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 10.72,
+      "z": 3.19,
+      "scale": 0.65,
+      "yaw": 292,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 29.43,
+      "z": -0.11,
+      "scale": 0.6,
+      "yaw": 339,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

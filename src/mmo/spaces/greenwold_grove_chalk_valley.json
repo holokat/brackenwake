@@ -1,0 +1,115 @@
+{
+  "id": "greenwold_grove_chalk_valley",
+  "name": "Beech stand",
+  "note": "The chalk valley trees frame the nearby route.",
+  "at": {
+    "x": -759,
+    "z": -1180
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "beech",
+      "x": -41.09,
+      "z": 8.94,
+      "scale": 1.05,
+      "yaw": 62,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -21.65,
+      "z": -3.52,
+      "scale": 1.2,
+      "yaw": 109,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 3.16,
+      "z": 0.19,
+      "scale": 1.3,
+      "yaw": 156,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 21.63,
+      "z": -12.01,
+      "scale": 1.1,
+      "yaw": 203,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 46.69,
+      "z": -7.33,
+      "scale": 0.9,
+      "yaw": 250,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 62.27,
+      "z": -18.76,
+      "scale": 0.8,
+      "yaw": 297,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -36.04,
+      "z": -22.44,
+      "scale": 1.1,
+      "yaw": 31,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -9.56,
+      "z": -20.22,
+      "scale": 1.2,
+      "yaw": 78,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 11.81,
+      "z": -33.19,
+      "scale": 1,
+      "yaw": 125,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 37.58,
+      "z": -29.74,
+      "scale": 0.9,
+      "yaw": 172,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -27.88,
+      "z": -42.22,
+      "scale": 0.85,
+      "yaw": 219,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -1.99,
+      "z": -46.05,
+      "scale": 1.05,
+      "yaw": 266,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

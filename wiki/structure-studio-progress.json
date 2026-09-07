@@ -1,0 +1,1365 @@
+{
+  "source": "Kaldera animation studio",
+  "entries": {
+    "stable_pen": {
+      "status": "complete",
+      "triangles": 10744,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "4c302fd92999802cab9c1100818f5cbdd921eff57a76017b6e2db2424d0f4277",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/stable_pen.png"
+    },
+    "mound_fence": {
+      "status": "complete",
+      "triangles": 1204,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "f54359d2263530ae13508e6f30f59e7123b1f317a5aeec870c4a3c0ab2c30225",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/mound_fence.png"
+    },
+    "lane_slab": {
+      "status": "complete",
+      "triangles": 1844,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "613a855c5d23164d783e6e3e0bb40c19a295bf4a1f51732cd6f5cb3eee4fb777",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/lane_slab.png"
+    },
+    "eel_weir": {
+      "status": "complete",
+      "triangles": 22362,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "b3876fc5f447ed874cecb4f34933c36e57b8361703e3a40b918c9ed3f3111f90",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/eel_weir.png"
+    },
+    "footbridge": {
+      "status": "complete",
+      "triangles": 23360,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "b443fe61f3cf758e0a05e7812e6c7bea9fa2e91f2880958f1ceb71f3bd9d59b6",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/footbridge.png"
+    },
+    "stepping_stones": {
+      "status": "complete",
+      "triangles": 1760,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "6eb2e6c7eff63c4dea49698a405e1df8907afbc85f842081d01ad94b16f3d524",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/stepping_stones.png"
+    },
+    "rooting_patch": {
+      "status": "complete",
+      "triangles": 2760,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "fe5bb718dd9c8275cf84fd32d59716de7f2a0e49e23a43fc9cf25f6ca9c0c417",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/rooting_patch.png"
+    },
+    "chalk_face_4m": {
+      "status": "complete",
+      "triangles": 7940,
+      "runtimeTriangleBudget": 15000,
+      "drawCalls": 1,
+      "glbSha256": "42b9de7abd2e8bd4d3383e0e49a8ed52b18374ed730c55a6f595cd06fe8b0cd7",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/chalk_face_4m.png"
+    },
+    "headframe": {
+      "status": "complete",
+      "triangles": 7156,
+      "runtimeTriangleBudget": 15000,
+      "drawCalls": 1,
+      "glbSha256": "28d49ab17ac4895971d7391a9fc2868b5a9ea7958706a714ecfd88e5d9f8b814",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/headframe.png"
+    },
+    "rail_2m": {
+      "status": "complete",
+      "triangles": 1824,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "dfd0d40b3019f3b89ce1ef4f34cc13aea6878d8eaf0bd07d615c71a2fa367ce3",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/rail_2m.png"
+    },
+    "camp_fence": {
+      "status": "complete",
+      "triangles": 1512,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "792f43978010d8f73a1af24d23c020cc063b493fecb15aee6bcf44a47bcdb56f",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/camp_fence.png"
+    },
+    "road_kerb": {
+      "status": "complete",
+      "triangles": 912,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "acb7cfc54d50c65d0b515031ef4f444af7326059c880867e17b417f8963fae0c",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/road_kerb.png"
+    },
+    "road_slab_2m": {
+      "status": "complete",
+      "triangles": 7788,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "58535b16288d7cdf1b501df8e5a44836b8840a6e24820ebaff48081e8a597e0f",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/road_slab_2m.png"
+    },
+    "palisade_stake_3m": {
+      "status": "complete",
+      "triangles": 8056,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "56d625e1e7dbe0e357161a573a340439de17317f444ce4e844c11482aa8b49e3",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/palisade_stake_3m.png"
+    },
+    "lily_pad_patch": {
+      "status": "complete",
+      "triangles": 6280,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "e91556aa71f8a03e12abafbe0f91af72a052ab3aa6709662264600dfbc0e67e8",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/lily_pad_patch.png"
+    },
+    "fence_rail_3m": {
+      "status": "complete",
+      "triangles": 1204,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "691eee2ad35466aa7eb32298091304cc0d921fcfbdf56bb48ad9ca962ccd525e",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/fence_rail_3m.png"
+    },
+    "chapel": {
+      "status": "complete",
+      "triangles": 48048,
+      "runtimeTriangleBudget": 15000,
+      "drawCalls": 1,
+      "glbSha256": "3b0aa348bfb4d7d6345c2d34cf21f9a9a3beafc85263e8311c9da76153b674a2",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/chapel.png"
+    },
+    "manor": {
+      "status": "complete",
+      "triangles": 75944,
+      "runtimeTriangleBudget": 15000,
+      "drawCalls": 1,
+      "glbSha256": "f32f6799383248119bc47f127e652e999bb35c7b0b2071dadca65523822dc3d9",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/manor.png"
+    },
+    "gate_tower": {
+      "status": "complete",
+      "triangles": 19764,
+      "runtimeTriangleBudget": 15000,
+      "drawCalls": 1,
+      "glbSha256": "a1fd71482819ff8b40b2302ff495fcd42ef442e4771ed4a3fe96dd8f60e4463e",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/gate_tower.png"
+    },
+    "inn": {
+      "status": "complete",
+      "triangles": 52772,
+      "runtimeTriangleBudget": 15000,
+      "drawCalls": 1,
+      "glbSha256": "bc862bab97576ff675fb931147f3fc4e88a2eb053ad8dbf6aa1bc132aa9f3fa2",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/inn.png"
+    },
+    "bank": {
+      "status": "complete",
+      "triangles": 17088,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "d10a0a4a59a042c9dfa750959fe22463d28aa5de6361f0abf85c964d3c04082d",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/bank.png"
+    },
+    "stable": {
+      "status": "complete",
+      "triangles": 41708,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "c508b4f0f8cc3f0ea1008b270f05e1147e082574ef3ead4c6a743c715ea5ccac",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/stable.png"
+    },
+    "smithy": {
+      "status": "complete",
+      "triangles": 21216,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "5e7a01f14c6c2d78926cef8fab2e95c723d0255059eeca8f03fd330dfacbf84d",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/smithy.png"
+    },
+    "cottage_a": {
+      "status": "complete",
+      "triangles": 24768,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "27192be240950439ff2a843fbc0b3716814588e39490f91bdb1335663dc873e0",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/cottage_a.png"
+    },
+    "cottage_b": {
+      "status": "complete",
+      "triangles": 24540,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "72837438481fb95afd855060239c48b35954cd37d268ee67d80358b3fa80aa63",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/cottage_b.png"
+    },
+    "cottage_c": {
+      "status": "complete",
+      "triangles": 33196,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "1a3c7992bed2247575f0205643a6ec790d469e3794f5287f1e2d15001249f68a",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/cottage_c.png"
+    },
+    "healer": {
+      "status": "complete",
+      "triangles": 43312,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "5ede2eeeb253386bccdfb20696ac4ed32a88e04b4208496d06adb8c71503f5d6",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/healer.png"
+    },
+    "waystone_village": {
+      "status": "complete",
+      "triangles": 5904,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "ef4c925aa93221b4fe63c5044bd03a7164cdeeb17164fbd5c3586c00a020bc95",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/waystone_village.png"
+    },
+    "well_pavilion": {
+      "status": "complete",
+      "triangles": 13784,
+      "runtimeTriangleBudget": 2500,
+      "drawCalls": 1,
+      "glbSha256": "1cac16962fdeebd712d42aefbf49785ef48498d611cf2fb0a6392f1377c6edd9",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/well_pavilion.png"
+    },
+    "fingerpost": {
+      "status": "complete",
+      "triangles": 416,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "fd2e71bec490cb5c2b454ea62168c3a7151af4def7a9bb54455dedf6c7eec129",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/fingerpost.png"
+    },
+    "flint_wall_4m": {
+      "status": "complete",
+      "triangles": 8736,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "3b5ad5a53831296e88778b2fc2a0c4000d7622eec420d79ad97bd7d6844d1dae",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/flint_wall_4m.png"
+    },
+    "flint_wall_corner": {
+      "status": "complete",
+      "triangles": 18996,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "e554b345c29a0f5dd030a08a1168a53474343f18853b7745065f6b87a4cda2f2",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/flint_wall_corner.png"
+    },
+    "hay_rick": {
+      "status": "complete",
+      "triangles": 14016,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "8ea29e1afb782929bb26e8ac1cd4d1a8aeb01538aba64485e9bbd0ca23647b4a",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/hay_rick.png"
+    },
+    "stall_a": {
+      "status": "complete",
+      "triangles": 12868,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "0d984c8133857a118b4d1efecf47a61841ec6f61f7c5b263c363f9c86ec7067d",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/stall_a.png"
+    },
+    "stall_c": {
+      "status": "complete",
+      "triangles": 7736,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "db672d371d194eb2db4fc4d604b570baf255e403db664455d7505c2aeff2b375",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/stall_c.png"
+    },
+    "hedge_4m": {
+      "status": "complete",
+      "triangles": 4792,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "126c0a554955b221c9d233b9c9bc2ce0dfdcf53d5637316599a1f40c65d686da",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/hedge_4m.png"
+    },
+    "stone_bridge_10m": {
+      "status": "complete",
+      "triangles": 33012,
+      "runtimeTriangleBudget": 2500,
+      "drawCalls": 1,
+      "glbSha256": "e58a0669a7f7758381c9069ae52ae3bc5603cb1b6f3e2b885f256311ab06d325",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/stone_bridge_10m.png"
+    },
+    "bench": {
+      "status": "complete",
+      "triangles": 916,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "62a87996255ddb9e708e346fd06d621c4c0a4fbd1147e96413d7593564c27bf5",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/bench.png"
+    },
+    "crate": {
+      "status": "complete",
+      "triangles": 1844,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "3495c3ae3da7db9435f88e565ce3fd6f372a6dbf9a9cdf11ea28b9384d3d578f",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/crate.png"
+    },
+    "offerings": {
+      "status": "complete",
+      "triangles": 5096,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "40f3d85d1b1c53aae397a5fc61a6ac9c6c7bcf1896ef026be3c58d5a1363ef20",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/offerings.png"
+    },
+    "flower_box": {
+      "status": "complete",
+      "triangles": 3384,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "990d7f076e9c19263f6366688299d14262f9b51f25a0cf9db7843f9d1fec48e1",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/flower_box.png"
+    },
+    "boundary_stone": {
+      "status": "complete",
+      "triangles": 1300,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "6f923bdeffec32978afef7e6d0d4a0e2990448133960c83fe73f5ef2bc617c5c",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/boundary_stone.png"
+    },
+    "mill": {
+      "status": "complete",
+      "triangles": 36504,
+      "runtimeTriangleBudget": 15000,
+      "drawCalls": 1,
+      "glbSha256": "14dca6393785419219cbd52ec7e241c20d4d0c73672edba84e6f0cf56d8d77a9",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/mill.png"
+    },
+    "mill_wheel": {
+      "status": "complete",
+      "triangles": 11904,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "0cd1a819c18a71c4ca0b2596c4b8b0a76317e1c7d976ce085831d10dbe593f51",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/mill_wheel.png"
+    },
+    "millers_house": {
+      "status": "complete",
+      "triangles": 38192,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "e85888f5e653c3fb6659db57d5ae96b788cfcdd78f104170b404339427b3942e",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/millers_house.png"
+    },
+    "granary": {
+      "status": "complete",
+      "triangles": 13116,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "dcf4497bdd8b859b7e9c001858e7a94463bc866eb29f58d044c0a3bf2f77f5e6",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/granary.png"
+    },
+    "lamp_post_iron": {
+      "status": "complete",
+      "triangles": 1048,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "4bc907b16943f26e376d5640335a63bae948f89a1a91c14a572e44e2e07a755a",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/lamp_post_iron.png"
+    },
+    "cart_laden": {
+      "status": "complete",
+      "triangles": 11216,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "1e98452762d8960ee29a906a0a8a43839833a07939d41c1ed9863a8b78cade01",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/cart_laden.png"
+    },
+    "cart_empty": {
+      "status": "complete",
+      "triangles": 5144,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "4d29e440c331ee13613196c094a50515147081f81de444eab71a5d29ee94234c",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/cart_empty.png"
+    },
+    "fallen_beech": {
+      "status": "complete",
+      "triangles": 22288,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "a9382a896c476949c88201820b68d99b58fb1105e958c66eb9b88e701e0b7eed",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/fallen_beech.png"
+    },
+    "foremans_hut": {
+      "status": "complete",
+      "triangles": 10000,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "ab4bfd33fa9ad3eb3e9cc7256b68c81ecd1d7767459e90457e5f34fd719fe51e",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/foremans_hut.png"
+    },
+    "mine_mouth": {
+      "status": "complete",
+      "triangles": 3468,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "4a1f0bf58411a9523054ab356015308118977d7cafea56ad3e4e412c130a7d7e",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/mine_mouth.png"
+    },
+    "spoil_heap": {
+      "status": "complete",
+      "triangles": 1112,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "63b73f42601fe366b06ace0a1e9be05dbee33aa1fd5a871497fb68971990aace",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/spoil_heap.png"
+    },
+    "ore_cart": {
+      "status": "complete",
+      "triangles": 5108,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "0f451f32daf03321c723238c7777fd98693466588ed492a615e04485f68aead8",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/ore_cart.png"
+    },
+    "barrow": {
+      "status": "complete",
+      "triangles": 2848,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "ad78a90527d85c801200c8e7d427c85286f9d673439bedcce3444662d8b3180c",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/barrow.png"
+    },
+    "pick": {
+      "status": "complete",
+      "triangles": 632,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "a95cd5a056f60ce2c7dd28dacb08642bd38d4dd83e5809ce746f74c894dd2e88",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/pick.png"
+    },
+    "legion_banner": {
+      "status": "complete",
+      "triangles": 1288,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "b5f270e4a796f9b0e698af9d84b452c4229cb93bec7048824e1b8ece05d7f19e",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/legion_banner.png"
+    },
+    "cart_broken": {
+      "status": "complete",
+      "triangles": 5276,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "59a576592f0a8a7f78387b739f828b21d6fde8a82a66c655c9cfa5058c651ff9",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/cart_broken.png"
+    },
+    "chain_lantern": {
+      "status": "complete",
+      "triangles": 1228,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "de399bed8b1fe171c7499dd8590cb918f828bc89a888df4753da9fe063ad4f82",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/chain_lantern.png"
+    },
+    "legion_standard": {
+      "status": "complete",
+      "triangles": 1068,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "9750ed9be29341798ef6dc17c2a2563a4cfdc4f4f21513102601b6113ff7425b",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/legion_standard.png"
+    },
+    "legion_tent": {
+      "status": "complete",
+      "triangles": 2368,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "7625a0af3c99ffd4863dad872f9742770f7242f6ae19263b258e0899e2977512",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/legion_tent.png"
+    },
+    "spear_rack": {
+      "status": "complete",
+      "triangles": 4688,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "d5d44cc03528cf13531f4dffeedeb4aeeacbdc040ddbc542276360064b93035a",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/spear_rack.png"
+    },
+    "brazier": {
+      "status": "complete",
+      "triangles": 4160,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "a7eacafa601d7a7b8d8a3112218b14d10b7cf63e3787a40ea840532ff32262df",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/brazier.png"
+    },
+    "milestone": {
+      "status": "complete",
+      "triangles": 1084,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "eebe498a2f50a16db7d8733e7f58d882e0c76327f6942136bbf25851ca81eb40",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/milestone.png"
+    },
+    "legion_crate": {
+      "status": "complete",
+      "triangles": 2228,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "a8fc4526bb8ad19327b6ce5d6ce76963c0c83923904c95c2c504a9ecec26c188",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/legion_crate.png"
+    },
+    "lookout_platform": {
+      "status": "complete",
+      "triangles": 6328,
+      "runtimeTriangleBudget": 8000,
+      "drawCalls": 1,
+      "glbSha256": "c8bc3d3eeb288c14882e10699b8b0a671361a8a0cfd9b6a111b1d2e0eca8cc10",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/lookout_platform.png"
+    },
+    "tarp_cart": {
+      "status": "complete",
+      "triangles": 8536,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "b61349ae61a71774f324b197fe40e2cc619612850760bba639d493457aef832b",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/tarp_cart.png"
+    },
+    "tent_ragged": {
+      "status": "complete",
+      "triangles": 3784,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "225153fa03bc43a809be11b493fb790bb4767812fbea102e33dd333483e9a6ec",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/tent_ragged.png"
+    },
+    "target_dummy": {
+      "status": "complete",
+      "triangles": 4028,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "b00fbe4b05e99550a8bb4ba0e531b220d1ac820fcc3f3a4f5c451975996a4358",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/target_dummy.png"
+    },
+    "weapons_rack": {
+      "status": "complete",
+      "triangles": 4188,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "c785010fc710977e09ee0eebd625095b791471c71fbd75a984a41c3f39660938",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/weapons_rack.png"
+    },
+    "loot_sack": {
+      "status": "complete",
+      "triangles": 996,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "3cf7f0d1f77447d39d54544b6e1070455c968c5f27f133209e4609a71a985209",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/loot_sack.png"
+    },
+    "campfire": {
+      "status": "complete",
+      "triangles": 4320,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "2508349dd832e8154fe8a3bee60f842abb3fe181d788eff34322d30b1d2665e9",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/campfire.png"
+    },
+    "sheep_skeleton": {
+      "status": "complete",
+      "triangles": 14232,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "0caa523f806125aa0c5b82322d02224aff518ecde54f1ca7840d0ce01f5bc183",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/sheep_skeleton.png"
+    },
+    "chapel_sunken": {
+      "status": "complete",
+      "triangles": 37636,
+      "runtimeTriangleBudget": 15000,
+      "drawCalls": 1,
+      "glbSha256": "2d0df5a1bcfe605a42ab695feabd77970f8116ebae100df8a8daddf3ee9aed81",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/chapel_sunken.png"
+    },
+    "headstone_d": {
+      "status": "complete",
+      "triangles": 1928,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "6d54c4fa5b541d65d1739d3eba28429b1800d45c9a2353a9686835e5f96c90a7",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/headstone_d.png"
+    },
+    "headstone_b": {
+      "status": "complete",
+      "triangles": 2012,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "b3a6bfd136639b5e533ac475940824ddf13fb948a28e33de0c93a0c2d05fd593",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/headstone_b.png"
+    },
+    "headstone_a": {
+      "status": "complete",
+      "triangles": 2176,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "a8b01c115dff87295f01ce66763609337fffd6b2d276aeb8a66adb9da2d72647",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/headstone_a.png"
+    },
+    "headstone_e": {
+      "status": "complete",
+      "triangles": 2112,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "87205c2734ae61d2b3056f60bb2b84da00be4333e7d538c30399554806be112b",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/headstone_e.png"
+    },
+    "headstone_c": {
+      "status": "complete",
+      "triangles": 2200,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "1b8df303d71306d85f2878a640300a2c208a5dbf880e4e63c57db62efc308138",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/headstone_c.png"
+    },
+    "rowing_boat_rotten": {
+      "status": "complete",
+      "triangles": 11088,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "9d7db3adb7f574e2e0e9ef05cfa8f67aa552cdd22d070592e8bb8339bdc18172",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/rowing_boat_rotten.png"
+    },
+    "stone_wall_4m": {
+      "status": "complete",
+      "triangles": 9524,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "949b649cc033902c5115879a091f46543aa9492c440df950d03a2ad73f441cb3",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/stone_wall_4m.png"
+    },
+    "badger_sett": {
+      "status": "complete",
+      "triangles": 3196,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "673cfe625bbe8dcba97430aeb30a8db5126e91c4f30c33218f1b23b0eec3a1f6",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/badger_sett.png"
+    },
+    "cellar_arch": {
+      "status": "complete",
+      "triangles": 17988,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "dfae3336d28a28fa1ae72f4901b3de898cd096ef7cb608699305995ee3c9b346",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/cellar_arch.png"
+    },
+    "barrel": {
+      "status": "complete",
+      "triangles": 1888,
+      "runtimeTriangleBudget": 800,
+      "drawCalls": 1,
+      "glbSha256": "b1fcc367fbd153cd9c40d63ee98d317670be11613644847a5250938ed8aa591a",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/barrel.png"
+    },
+    "stall_b": {
+      "status": "complete",
+      "triangles": 11912,
+      "runtimeTriangleBudget": 1500,
+      "drawCalls": 1,
+      "glbSha256": "6684fb818fe9181d9c7d836fbc4e763f3957fdce432d7fc731a8651c72dcc264",
+      "reviewViews": [
+        "three",
+        "front",
+        "side",
+        "back",
+        "top"
+      ],
+      "reviewed": "2026-09-07",
+      "preview": "structure-previews/stall_b.png"
+    }
+  }
+}

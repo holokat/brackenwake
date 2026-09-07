@@ -1,0 +1,85 @@
+{
+  "id": "greenwold_chalk_rim",
+  "name": "The chalk rim",
+  "at": {
+    "x": -547,
+    "z": -1159
+  },
+  "radius": 35,
+  "note": "The switchback ends above the quarry. A bench faces the river valley. A supply sack lies beside the survey stones.",
+  "pieces": [
+    {
+      "model": "fingerpost",
+      "x": -3,
+      "z": 6,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "bench",
+      "x": 4,
+      "z": 2,
+      "yaw": 200,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "boundary_stone",
+      "x": -5,
+      "z": -6,
+      "yaw": 10,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "boundary_stone",
+      "x": -3,
+      "z": -8,
+      "yaw": 35,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "loot_sack",
+      "x": 8,
+      "z": -8,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "rock",
+      "x": -10,
+      "z": -10,
+      "scale": 2.8,
+      "yaw": 20,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": -8,
+      "z": -16,
+      "scale": 1.6,
+      "yaw": 70,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": 13,
+      "z": -12,
+      "scale": 2.2,
+      "yaw": 35,
+      "harvest": true
+    }
+  ],
+  "arrival": {
+    "x": 0,
+    "z": 1
+  },
+  "runs": [],
+  "areas": [],
+  "trees": [],
+  "people": [],
+  "spawns": [],
+  "markers": [],
+  "forage": [],
+  "stations": []
+}

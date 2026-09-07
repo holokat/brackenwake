@@ -1,7 +1,7 @@
 {
   "id": "greenwold_hearthhome",
   "name": "Hearthhome",
-  "note": "The village on the green, a flint wall round it and one gate at the south east, the road crossing the river outside it. The well is the middle of everything and the manor stands over the roofs at the north.",
+  "note": "Hearthhome gathers round its well. Cobb works by the north forge, Nan keeps the inn, and Old Wynn waits beside the standing stone. The east lane reaches the ring. The west lane follows the hay carts to the mill.",
   "at": {
     "x": 449.55,
     "z": -144.61
@@ -55,12 +55,6 @@
       "x": 0.83,
       "z": 43.86,
       "yaw": 2.93
-    },
-    {
-      "model": "stone_bridge_10m",
-      "x": 0.21,
-      "z": 59.46,
-      "yaw": 272.93
     },
     {
       "model": "waystone_village",
@@ -219,10 +213,25 @@
       "yaw": 227.93
     },
     {
+      "model": "lamp_post_iron",
+      "x": 11,
+      "z": -42,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 24,
+      "z": -37,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
       "model": "fingerpost",
-      "x": 6.95,
-      "z": 45.9,
-      "yaw": 200
+      "x": 15,
+      "z": 0,
+      "yaw": 0,
+      "tag": "greenwold-craft"
     }
   ],
   "runs": [
@@ -609,39 +618,6 @@
       "to": {
         "x": 25.2,
         "z": -38.28
-      }
-    },
-    {
-      "model": "flint_wall_4m",
-      "from": {
-        "x": 25.2,
-        "z": -38.28
-      },
-      "to": {
-        "x": 18.81,
-        "z": -41.26
-      }
-    },
-    {
-      "model": "flint_wall_4m",
-      "from": {
-        "x": 18.81,
-        "z": -41.26
-      },
-      "to": {
-        "x": 11.85,
-        "z": -42.97
-      }
-    },
-    {
-      "model": "flint_wall_4m",
-      "from": {
-        "x": 11.85,
-        "z": -42.97
-      },
-      "to": {
-        "x": 4.53,
-        "z": -43.39
       }
     },
     {
@@ -1040,21 +1016,21 @@
   ],
   "people": [
     {
-      "name": null,
+      "name": "nan",
       "role": "innkeeper",
       "x": 22.22,
       "z": -12.68,
       "yaw": 137.93
     },
     {
-      "name": null,
+      "name": "cobb",
       "role": "blacksmith",
       "x": 1.88,
       "z": -22.46,
       "yaw": 167.93
     },
     {
-      "name": null,
+      "name": "alys",
       "role": "healer",
       "x": -1.74,
       "z": 25.28,
@@ -1075,21 +1051,21 @@
       "yaw": 317.93
     },
     {
-      "name": null,
+      "name": "wynn",
       "role": "elder",
       "x": 4.62,
       "z": 23.84,
       "yaw": 108.45
     },
     {
-      "name": null,
+      "name": "bram",
       "role": "farmer",
       "x": 0.54,
       "z": 38.21,
       "yaw": 2.93
     },
     {
-      "name": null,
+      "name": "pip",
       "role": "child",
       "x": -0.9,
       "z": 3.23,
@@ -1143,48 +1119,6 @@
   "rocks": [],
   "markers": [
     {
-      "x": 22.22,
-      "z": -12.68,
-      "label": "Nan Ockley",
-      "kind": "other",
-      "note": "the plan stands Nan Ockley here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
-    },
-    {
-      "x": 1.88,
-      "z": -22.46,
-      "label": "Cobb Ashby",
-      "kind": "other",
-      "note": "the plan stands Cobb Ashby here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
-    },
-    {
-      "x": -1.74,
-      "z": 25.28,
-      "label": "Alys Fenn",
-      "kind": "other",
-      "note": "the plan stands Alys Fenn here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
-    },
-    {
-      "x": 4.62,
-      "z": 23.84,
-      "label": "Old Wynn Ashby",
-      "kind": "other",
-      "note": "the plan stands Old Wynn Ashby here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
-    },
-    {
-      "x": 0.54,
-      "z": 38.21,
-      "label": "Bram Haywood",
-      "kind": "other",
-      "note": "the plan stands Bram Haywood here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
-    },
-    {
-      "x": -0.9,
-      "z": 3.23,
-      "label": "Pip",
-      "kind": "other",
-      "note": "the plan stands Pip here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
-    },
-    {
       "x": 5,
       "z": 5,
       "label": "the green",
@@ -1196,5 +1130,59 @@
     "x": 7.34,
     "z": 60.52,
     "yaw": 201.36
-  }
+  },
+  "forage": [
+    {
+      "id": "dandelion",
+      "x": 22,
+      "z": -8,
+      "count": 2
+    }
+  ],
+  "stations": [
+    {
+      "id": "forge",
+      "x": 8,
+      "z": -26,
+      "yaw": 0
+    },
+    {
+      "id": "tanningRack",
+      "x": -17,
+      "z": 20,
+      "yaw": 0
+    },
+    {
+      "id": "workbench",
+      "x": -20,
+      "z": 21,
+      "yaw": 0
+    },
+    {
+      "id": "loom",
+      "x": -17,
+      "z": 4,
+      "yaw": 0
+    },
+    {
+      "id": "kitchen",
+      "x": 26,
+      "z": -9,
+      "yaw": 0
+    },
+    {
+      "id": "alchemyTable",
+      "x": 16,
+      "z": 9,
+      "yaw": 0
+    },
+    {
+      "id": "inscriptionDesk",
+      "x": -24,
+      "z": 19,
+      "yaw": 0
+    }
+  ],
+  "kind": "town",
+  "safeRadius": 76
 }

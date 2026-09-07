@@ -1,0 +1,83 @@
+{
+  "id": "greenwold_grove_chapel_shore",
+  "name": "Willow bank",
+  "note": "The chapel shore trees frame the nearby route.",
+  "at": {
+    "x": -113,
+    "z": -831
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "willow",
+      "x": 42,
+      "z": 2,
+      "scale": 1.05,
+      "yaw": 227,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 20,
+      "z": 9,
+      "scale": 1.2,
+      "yaw": 274,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -3,
+      "z": -1,
+      "scale": 1.3,
+      "yaw": 321,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -24,
+      "z": 6,
+      "scale": 1.1,
+      "yaw": 8,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -47,
+      "z": -5,
+      "scale": 0.9,
+      "yaw": 55,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -65,
+      "z": 2,
+      "scale": 0.8,
+      "yaw": 102,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": 16,
+      "z": 48,
+      "scale": 0.85,
+      "yaw": 24,
+      "harvest": true
+    },
+    {
+      "species": "willow",
+      "x": -10,
+      "z": 45,
+      "scale": 1.05,
+      "yaw": 71,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

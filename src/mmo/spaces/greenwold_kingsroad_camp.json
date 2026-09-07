@@ -1,19 +1,13 @@
 {
   "id": "greenwold_kingsroad_camp",
   "name": "The Kingsroad Camp",
-  "note": "The paved road through the Greenwold, kerbed and lamped, with a stone bridge over the stream and a fingerpost where it forks. Captain Serle Vane's camp stands north of the road: two black tents, a brass standard and a fence, and the braziers are lit all night.",
+  "note": "The Kingsroad crosses the northeast saddle. Captain Serle Vane waits beside the Legion standard. The road returns to Hearthhome; a narrow westward track climbs to the outlaws' lookout.",
   "at": {
     "x": 968.09,
     "z": -1073.91
   },
   "radius": 74,
   "pieces": [
-    {
-      "model": "stone_bridge_10m",
-      "x": 0,
-      "z": 0,
-      "yaw": 326.31
-    },
     {
       "model": "lamp_post_iron",
       "x": -52.42,
@@ -75,12 +69,6 @@
       "yaw": 236.31
     },
     {
-      "model": "fingerpost",
-      "x": 33,
-      "z": 17,
-      "yaw": 236.31
-    },
-    {
       "model": "legion_tent",
       "x": -26,
       "z": 12,
@@ -127,6 +115,13 @@
       "x": -8.5,
       "z": 15.4,
       "yaw": 10
+    },
+    {
+      "model": "fingerpost",
+      "x": -17,
+      "z": 19,
+      "yaw": 0,
+      "tag": "greenwold-craft"
     }
   ],
   "runs": [
@@ -233,7 +228,7 @@
   ],
   "people": [
     {
-      "name": null,
+      "name": "vane",
       "role": "officer",
       "x": -20,
       "z": 10,
@@ -273,13 +268,6 @@
   "rocks": [],
   "markers": [
     {
-      "x": -20,
-      "z": 10,
-      "label": "Captain Serle Vane",
-      "kind": "other",
-      "note": "the plan stands Captain Serle Vane here. A space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
-    },
-    {
       "x": 46,
       "z": -52,
       "label": "the gate of the next realm, shut",
@@ -291,5 +279,7 @@
     "x": -60,
     "z": -40,
     "yaw": 56.31
-  }
+  },
+  "forage": [],
+  "stations": []
 }

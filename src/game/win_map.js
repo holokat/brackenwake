@@ -92,6 +92,8 @@ import {
   ZONES, ZONE, WORLD_HALF, zoneAt, wildDanger, DANGER_WORD, ARTICLE,
 } from '../world/zones.js';
 import { ZONE_ENTER_W } from '../world/sites.js';
+import { authoredZoneAt } from '../mmo/greenwold/places.js';
+import { ROUTES as GREENWOLD_ROUTES } from '../mmo/greenwold/routes.js';
 import { openAt, isOpen, OPEN_REALMS } from '../mmo/release.js';
 import { authoredSites } from '../world/zones.js';
 import { bearingOf, distanceText, POINTS } from './compass.js';
@@ -726,7 +728,7 @@ export function sideModel(opts = {}) {
 
   // where you stand. Half inside is what discovery calls being in a zone, so
   // the header and the arrival banner agree about which country this is.
-  const hit = zoneAt(cx, cz);
+  const hit = field?.sculpt ? {zone:authoredZoneAt(cx,cz),weight:1} : zoneAt(cx, cz);
   const zone = hit && hit.weight >= ZONE_ENTER_W ? hit.zone : null;
   let ground = null;
   if (field && typeof field.sampleAt === 'function') {
@@ -933,7 +935,10 @@ export function drawMap(g2d, opts) {
   if (opts.roads !== false) {
     g2d.strokeStyle = ROAD_COLOUR;
     g2d.lineWidth = Math.max(1, size / 500);
-    for (const [ccx, ccz] of cellsIn(cx, cz, span)) {
+    if(field?.sculpt)for(const road of GREENWOLD_ROUTES){
+      g2d.beginPath();road.points.forEach(([x,z],i)=>{const[px,py]=at(x,z);if(i===0)g2d.moveTo(px,py);else g2d.lineTo(px,py);});g2d.stroke();roads++;
+    }
+    for (const [ccx, ccz] of field?.sculpt ? [] : cellsIn(cx, cz, span)) {
       let list;
       try { list = roadsForCell(field, ccx, ccz); } catch { list = []; }
       for (const road of list) {

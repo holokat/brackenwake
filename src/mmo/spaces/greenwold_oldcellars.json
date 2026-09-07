@@ -1,7 +1,7 @@
 {
   "id": "greenwold_oldcellars",
   "name": "The Old Cellars",
-  "note": "A stone arch half sunk in a grass slope with a brick vault behind it and a stair going down. Somebody planted a Legion banner beside the door and did not straighten it, and there are footprints in the mud that go in and do not come out.",
+  "note": "The Old Cellars open into the north riverbank. A Legion banner hangs over the arch and bowmen watch the cutting. The towpath offers a way past, or a way in when you are ready.",
   "at": {
     "x": 58.8,
     "z": -85.36
@@ -32,6 +32,27 @@
       "x": -6,
       "z": -3,
       "yaw": 40
+    },
+    {
+      "model": "fingerpost",
+      "x": 4,
+      "z": -14,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "crate",
+      "x": 16,
+      "z": -7,
+      "yaw": 15,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "legion_standard",
+      "x": 18,
+      "z": -5,
+      "yaw": 0,
+      "tag": "greenwold-craft"
     }
   ],
   "runs": [
@@ -114,5 +135,7 @@
     "x": 0,
     "z": -12,
     "yaw": 0
-  }
+  },
+  "forage": [],
+  "stations": []
 }

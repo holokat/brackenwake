@@ -223,6 +223,8 @@ td.num{text-align:right;white-space:nowrap}
   <a class="xlink" href="bestiary.html">Greenwold bestiary<small>every body the first zone needs</small></a>
   <a class="xlink" href="craftables.html">Craftables<small>every item the recipes make</small></a>
   <a class="xlink" href="structures.html">Greenwold structures<small>every building and kit piece the first zone needs</small></a>
+  <a class="xlink" href="monsters.html">Greenwold monsters<small>every body, by the skeleton it rides</small></a>
+  <a class="xlink" href="dressing.html">Greenwold forage and dressing<small>what you can pick, and what should stand about</small></a>
 </nav>
 <main id="main"></main>
 </div>

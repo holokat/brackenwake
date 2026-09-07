@@ -85,6 +85,9 @@ import { auditSpaces, rectOf, rectsOverlap } from '../src/mmo/plans/plan_schema.
 import { saveEditorFile, writeSpaceIndex, spaceIdsOnDisk } from '../tools/editor_save.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+if(JSON.parse(readFileSync(join(ROOT,'public/terrain/greenwold.json'),'utf8')).authoring==='greenwold-craft'){
+  throw new Error('Greenwold is hand-authored. This legacy scatter generator cannot overwrite it. Edit the saved spaces or scripts/greenwold and run scripts/author-greenwold.mjs.');
+}
 const PLAN_DIR = join(ROOT, 'src/mmo/plans');
 const SPACE_DIR = join(ROOT, 'src/mmo/spaces');
 

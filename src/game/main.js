@@ -55,7 +55,7 @@ export function bootStage(state, flags = {}) {
   return state?.needsCreation ? 'creation' : 'game';
 }
 
-function boot() {
+async function boot() {
   const ctx = createContext({
     container: document.getElementById('game') || document.body,
     hudRoot: document.getElementById('hud') || document.body,
@@ -66,6 +66,15 @@ function boot() {
   // rig over real terrain, and the world is expensive enough to want the head
   // start. The second call below finds it standing and keeps it.
   createSystems(ctx, [world]);
+  // Birth, people, forage and combat must all start on the saved landscape.
+  // Starting them before the fetch finished cached the generated world's
+  // village and resources, even after the terrain switched to Greenwold.
+  const loaded = await ctx.get('world').runtime.ready;
+  if(!loaded){
+    ctx.hud.toast('Greenwold could not be loaded. Reload to try again.');
+    window.__bw={sc,state,hud:ctx.hud,loadingError:true};
+    return window.__bw;
+  }
 
   const stage = bootStage(state, { roster: rosterAsked() });
   // The roster takes the note down itself the moment it is on screen. When the

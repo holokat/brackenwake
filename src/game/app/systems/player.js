@@ -5,6 +5,7 @@
 // two places. Health, mana and stamina live on the actor during play and are
 // copied back to the document before every save (syncToCharacter).
 
+import { placeAt } from '../../../mmo/greenwold/places.js';
 import * as THREE from 'three';
 import { birthplaceFor, ZONE } from '../../../world/zones.js';
 import { createPlayer } from '../../player.js';
@@ -43,8 +44,8 @@ export const player = {
       const birth = birthplaceFor(runtime.field);
       state.setPos(birth.x, birth.z);
       if (runtime.field && runtime.field.sculpt) {
-        faceTo = { x: 0, z: 100 };
-        hud.toast('You wake at the origin of a blank world, tile 0 0. Everything from here is yours to make.');
+        faceTo = placeAt(runtime.field, 'hearthhome') || { x: 0, z: 100 };
+        hud.toast(placeAt(runtime.field, 'hearthhome') ? 'You wake on the green at Hearthhome. Old Wynn waits beside the standing stone.' : 'You wake on the open ground.');
       } else {
         faceTo = { x: ZONE.hearthhome.x, z: ZONE.hearthhome.z };
         hud.toast('You wake on the green at Hearthhome, the well in front of you and the whole village round it.');

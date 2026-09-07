@@ -49,6 +49,7 @@ import { MONSTER_LIST } from './monsters.js';
 import { ZONE, REALM_ZONES } from '../world/zones.js';
 import { roadsForCell, roadDistanceAt, ROAD_REACH } from '../world/roads.js';
 import { SITE_CELL } from '../world/sitegrid.js';
+import { ROUTES as GREENWOLD_ROUTES } from './greenwold/routes.js';
 
 // ------------------------------------------------------------------ the clock
 
@@ -326,6 +327,7 @@ const routeCache = (field) => {
  * marker to the Mill Run, which is where the sheet says the wagon crosses.
  */
 export function kingsroadRoute(field) {
+  if(field?.sculpt)return makeRoute(GREENWOLD_ROUTES.find(r=>r.id==='kingsroad').points.map(([x,z])=>({x,z})),{onRoad:true,realm:'greenwold'});
   const cache = routeCache(field);
   if (cache && cache.has('kingsroad')) return cache.get('kingsroad');
   const chains = roadChainsIn(field, 'greenwold');
@@ -626,6 +628,7 @@ export function scheduleAt(t, opts = {}) {
   const today = dayNumberAt(now);
   const out = [];
   for (const row of ALL_EVENTS) {
+    if(field?.sculpt && row.id!=='tithewagon')continue;
     for (const day of [today - 2, today - 1, today]) {
       if (!runsOnDay(row, day)) continue;
       const from = atHour(day, row.fromH);

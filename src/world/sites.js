@@ -28,6 +28,7 @@
 
 import { SITE_CELL } from './sitegrid.js';
 import { zoneAt, weightOf, ZONE } from './zones.js';
+import { authoredZoneAt, PLACE_SPACE } from '../mmo/greenwold/places.js';
 import { SPACES } from '../mmo/spaces/index.js';
 
 export { SITE_CELL };
@@ -57,8 +58,8 @@ export function spaceSiteRow(space, field) {
   const x = space.at.x, z = space.at.z;
   return {
     id: `s:${space.id}`,
-    zone: null, realm: null, sub: space.id, space: space.id,
-    kind: 'space',
+    zone: null, realm: space.id.startsWith('greenwold_') ? 'greenwold' : null, sub: space.id, space: space.id,
+    kind: space.kind || 'space',
     name: space.name || space.id,
     x, z,
     y: typeof field?.heightAt === 'function' ? field.heightAt(x, z) : 0,
@@ -68,7 +69,7 @@ export function spaceSiteRow(space, field) {
     // Nothing here asks the terrain for a pad. A space is authored ON the
     // ground it is authored on, and the terrain half of the editor is what
     // raises or carves that ground; a flatR here would fight it.
-    flatR: 0, dish: 0, oreBand: [], levels: null,
+    flatR: space.safeRadius || 0, dish: 0, oreBand: [], levels: null,
     line: space.note || null,
     bodyR: space.radius || 0,
     radius: space.radius || 0,
@@ -148,7 +149,11 @@ export function mouthsNear(field, x, z, radius) {
  * ever being told which country it runs through. So both are offered, the realm
  * first, because that is the order they are walked into.
  */
-export function zoneChain(x, z) {
+export function zoneChain(x, z, field = null) {
+  if(field?.sculpt){
+    const zone=authoredZoneAt(x,z);
+    return zone.id==='greenwold' ? [{zone,weight:1}] : [{zone:ZONE.greenwold,weight:1},{zone,weight:1}];
+  }
   const hit = zoneAt(x, z);
   if (!hit || !hit.zone) return [];
   if (!hit.zone.parent) return [hit];
@@ -181,6 +186,7 @@ export function createDiscovery(field, opts = {}) {
       if (nowMs - lastCheck < CHECK_MS) return null;
       lastCheck = nowMs;
       for (const s of sitesNear(field, x, z, DISCOVER_RADIUS)) {
+        if(field?.sculpt && s.space && !Object.values(PLACE_SPACE).includes(s.space) && !s.space.startsWith('greenwold_hedge_'))continue;
         if (found.has(s.id)) continue;
         found.add(s.id); save(storeKey, found);
         return s;
@@ -196,7 +202,7 @@ export function createDiscovery(field, opts = {}) {
     checkZone(x, z, nowMs) {
       if (nowMs - lastZone < CHECK_MS) return null;
       lastZone = nowMs;
-      const chain = zoneChain(x, z);
+      const chain = zoneChain(x, z, field);
       for (const c of chain) {
         if (c.weight < ZONE_ENTER_W || zones.has(c.zone.id)) continue;
         zones.add(c.zone.id); save(zoneKey, zones);
@@ -212,7 +218,7 @@ export function createDiscovery(field, opts = {}) {
      * Wastes.
      */
     zoneNow(x, z) {
-      const chain = zoneChain(x, z);
+      const chain = zoneChain(x, z, field);
       for (let i = chain.length - 1; i >= 0; i--) if (chain[i].weight >= ZONE_ENTER_W) return chain[i].zone;
       return null;
     },
@@ -237,7 +243,7 @@ export function createDiscovery(field, opts = {}) {
     /** The set of zone ids found, which win_map and the character document read. */
     get zonesFound() { return zones; },
     /** Every zone found, as rows. */
-    zonesList: () => [...zones].map((id) => ZONE[id]).filter(Boolean),
+    zonesList: () => [...zones].map((id) => SPACES[id]?.at ? authoredZoneAt(SPACES[id].at.x,SPACES[id].at.z) : ZONE[id]).filter(Boolean),
     sitesNear: (x, z, r) => sitesNear(field, x, z, r),
     mouthsNear: (x, z, r) => mouthsNear(field, x, z, r),
   };

@@ -78,86 +78,10 @@
     }
   ],
   "people": [],
-  "spawns": [
-    {
-      "id": "boar",
-      "x": -35.98,
-      "z": -21.44
-    }
-  ],
-  "trees": [
-    {
-      "species": "oak",
-      "x": -90.61,
-      "z": -115.72,
-      "yaw": 33.49,
-      "scale": 0.97
-    },
-    {
-      "species": "oak",
-      "x": 5.7,
-      "z": -116.44,
-      "yaw": 36,
-      "scale": 1.24
-    },
-    {
-      "species": "oak",
-      "x": -5.7,
-      "z": 116.44,
-      "yaw": 58.63,
-      "scale": 1.16
-    },
-    {
-      "species": "oak",
-      "x": -96.22,
-      "z": 115.65,
-      "yaw": 202.7,
-      "scale": 0.95
-    },
-    {
-      "species": "oak",
-      "x": -141.31,
-      "z": 73.92,
-      "yaw": 35.99,
-      "scale": 0.85
-    },
-    {
-      "species": "oak",
-      "x": -141.27,
-      "z": -78.52,
-      "yaw": 106.45,
-      "scale": 1.06
-    }
-  ],
-  "rocks": [
-    {
-      "kind": "sheep_fold",
-      "x": 104.3,
-      "z": 79.04,
-      "yaw": 0,
-      "scale": 1.2
-    },
-    {
-      "kind": "dew_pond",
-      "x": -108.3,
-      "z": 73.04,
-      "yaw": 0,
-      "scale": 1.2
-    },
-    {
-      "kind": "stile",
-      "x": 0,
-      "z": -113.04,
-      "yaw": 0,
-      "scale": 1
-    },
-    {
-      "kind": "field_gate",
-      "x": 138.3,
-      "z": 0,
-      "yaw": 90,
-      "scale": 1
-    }
-  ],
-  "markers": []
+  "spawns": [],
+  "trees": [],
+  "rocks": [],
+  "markers": [],
+  "forage": [],
+  "stations": []
 }

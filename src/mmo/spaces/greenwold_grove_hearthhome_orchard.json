@@ -1,0 +1,75 @@
+{
+  "id": "greenwold_grove_hearthhome_orchard",
+  "name": "Oak stand",
+  "note": "The hearthhome orchard trees frame the nearby route.",
+  "at": {
+    "x": 542,
+    "z": -299
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -12.13,
+      "z": -13.78,
+      "scale": 0.65,
+      "yaw": 59,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 6.45,
+      "z": -17.73,
+      "scale": 0.6,
+      "yaw": 106,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 25.04,
+      "z": -21.68,
+      "scale": 0.65,
+      "yaw": 153,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -26.35,
+      "z": 10.71,
+      "scale": 0.65,
+      "yaw": 200,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -7.76,
+      "z": 6.76,
+      "scale": 0.6,
+      "yaw": 247,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 10.82,
+      "z": 2.81,
+      "scale": 0.65,
+      "yaw": 294,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 29.41,
+      "z": -1.14,
+      "scale": 0.6,
+      "yaw": 341,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

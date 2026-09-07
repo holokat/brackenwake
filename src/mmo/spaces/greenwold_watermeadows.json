@@ -1,7 +1,7 @@
 {
   "id": "greenwold_watermeadows",
   "name": "The Water Meadows",
-  "note": "Flat wet ground either side of the river with reed beds standing in it, and a footbridge on the path down to the Cellars. A heron works the shallows and the wisps come out after dark.",
+  "note": "The Water Meadows follow the inside bend of the river. Willows frame the crossing to Coldwake. The north bank leads east to the Cellars, and west to the mill.",
   "at": {
     "x": -553.19,
     "z": 28.26
@@ -9,11 +9,32 @@
   "radius": 220,
   "pieces": [
     {
-      "model": "footbridge",
-      "x": -1.51,
-      "z": 11.1,
-      "yaw": 352.24,
-      "scale": 1.8
+      "model": "fingerpost",
+      "x": -5,
+      "z": -14,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "rowing_boat_rotten",
+      "x": -17,
+      "z": -9,
+      "yaw": 65,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "bench",
+      "x": -9,
+      "z": -20,
+      "yaw": 180,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "barrel",
+      "x": -13,
+      "z": -20,
+      "yaw": 0,
+      "tag": "greenwold-craft"
     }
   ],
   "runs": [],
@@ -48,680 +69,7 @@
       "night": true
     }
   ],
-  "trees": [
-    {
-      "species": "willow",
-      "x": -29.46,
-      "z": -200.35,
-      "yaw": 297.06,
-      "scale": 1.18
-    },
-    {
-      "species": "willow",
-      "x": 8.77,
-      "z": -203.9,
-      "yaw": 37.27,
-      "scale": 1.12
-    },
-    {
-      "species": "willow",
-      "x": -98.94,
-      "z": -174.14,
-      "yaw": 6.31,
-      "scale": 1.28
-    },
-    {
-      "species": "willow",
-      "x": -73.17,
-      "z": -181.99,
-      "yaw": 45.51,
-      "scale": 1.24
-    },
-    {
-      "species": "willow",
-      "x": -44.91,
-      "z": -180.84,
-      "yaw": 225.58,
-      "scale": 0.96
-    },
-    {
-      "species": "willow",
-      "x": -17.89,
-      "z": -174.24,
-      "yaw": 132.21,
-      "scale": 1.18
-    },
-    {
-      "species": "willow",
-      "x": 28.1,
-      "z": -180.66,
-      "yaw": 69.96,
-      "scale": 1.07
-    },
-    {
-      "species": "willow",
-      "x": 53.67,
-      "z": -180.83,
-      "yaw": 252.92,
-      "scale": 1.3
-    },
-    {
-      "species": "willow",
-      "x": 86.82,
-      "z": -182.94,
-      "yaw": 206.02,
-      "scale": 0.93
-    },
-    {
-      "species": "willow",
-      "x": -127.87,
-      "z": -155.13,
-      "yaw": 203.37,
-      "scale": 0.96
-    },
-    {
-      "species": "willow",
-      "x": -96.01,
-      "z": -151.74,
-      "yaw": 15.38,
-      "scale": 1.05
-    },
-    {
-      "species": "willow",
-      "x": -70.93,
-      "z": -150.97,
-      "yaw": 204.2,
-      "scale": 1.33
-    },
-    {
-      "species": "willow",
-      "x": -45.42,
-      "z": -146.11,
-      "yaw": 27.49,
-      "scale": 1.07
-    },
-    {
-      "species": "willow",
-      "x": -0.61,
-      "z": -155.1,
-      "yaw": 354.87,
-      "scale": 1.16
-    },
-    {
-      "species": "willow",
-      "x": 23.16,
-      "z": -153.9,
-      "yaw": 176.45,
-      "scale": 1.33
-    },
-    {
-      "species": "willow",
-      "x": 60.46,
-      "z": -146.63,
-      "yaw": 216.39,
-      "scale": 1.33
-    },
-    {
-      "species": "willow",
-      "x": 82.32,
-      "z": -155.93,
-      "yaw": 247.03,
-      "scale": 1.01
-    },
-    {
-      "species": "willow",
-      "x": 131.27,
-      "z": -150.47,
-      "yaw": 21.49,
-      "scale": 0.92
-    },
-    {
-      "species": "willow",
-      "x": -147.67,
-      "z": -131.86,
-      "yaw": 138.51,
-      "scale": 1.04
-    },
-    {
-      "species": "willow",
-      "x": -123.45,
-      "z": -126.9,
-      "yaw": 329.39,
-      "scale": 1.34
-    },
-    {
-      "species": "willow",
-      "x": -75.67,
-      "z": -121.88,
-      "yaw": 48.67,
-      "scale": 1.21
-    },
-    {
-      "species": "willow",
-      "x": -18.83,
-      "z": -127.25,
-      "yaw": 304.78,
-      "scale": 0.92
-    },
-    {
-      "species": "willow",
-      "x": 9.85,
-      "z": -122.76,
-      "yaw": 319.36,
-      "scale": 1.07
-    },
-    {
-      "species": "willow",
-      "x": 30.53,
-      "z": -131.57,
-      "yaw": 166,
-      "scale": 1.16
-    },
-    {
-      "species": "willow",
-      "x": 85.85,
-      "z": -127.21,
-      "yaw": 202.39,
-      "scale": 1.05
-    },
-    {
-      "species": "willow",
-      "x": -177.18,
-      "z": -95.33,
-      "yaw": 27.73,
-      "scale": 1.14
-    },
-    {
-      "species": "willow",
-      "x": -156.91,
-      "z": -106.55,
-      "yaw": 142.53,
-      "scale": 1.23
-    },
-    {
-      "species": "willow",
-      "x": -127.7,
-      "z": -102.55,
-      "yaw": 10.24,
-      "scale": 1.01
-    },
-    {
-      "species": "willow",
-      "x": -101.79,
-      "z": -96.97,
-      "yaw": 274.22,
-      "scale": 0.92
-    },
-    {
-      "species": "willow",
-      "x": -51.49,
-      "z": -94.05,
-      "yaw": 235.41,
-      "scale": 1.13
-    },
-    {
-      "species": "willow",
-      "x": -24.53,
-      "z": -98.13,
-      "yaw": 179.91,
-      "scale": 1.23
-    },
-    {
-      "species": "willow",
-      "x": 34.24,
-      "z": -103.15,
-      "yaw": 51.53,
-      "scale": 1.24
-    },
-    {
-      "species": "willow",
-      "x": 86.18,
-      "z": -104.26,
-      "yaw": 131.11,
-      "scale": 0.93
-    },
-    {
-      "species": "willow",
-      "x": 129.55,
-      "z": -100.33,
-      "yaw": 108.72,
-      "scale": 1
-    },
-    {
-      "species": "willow",
-      "x": 160.12,
-      "z": -100.33,
-      "yaw": 342.87,
-      "scale": 0.99
-    },
-    {
-      "species": "willow",
-      "x": -147.35,
-      "z": -71.71,
-      "yaw": 269.77,
-      "scale": 1.23
-    },
-    {
-      "species": "willow",
-      "x": -100.73,
-      "z": -69.72,
-      "yaw": 31.54,
-      "scale": 1.14
-    },
-    {
-      "species": "willow",
-      "x": -78.82,
-      "z": -79.57,
-      "yaw": 76.39,
-      "scale": 1.28
-    },
-    {
-      "species": "willow",
-      "x": -27.85,
-      "z": -75.46,
-      "yaw": 60.49,
-      "scale": 1.25
-    },
-    {
-      "species": "willow",
-      "x": 1.19,
-      "z": -69.7,
-      "yaw": 354.56,
-      "scale": 1.07
-    },
-    {
-      "species": "willow",
-      "x": 32.97,
-      "z": -75.42,
-      "yaw": 288.05,
-      "scale": 1.09
-    },
-    {
-      "species": "willow",
-      "x": 75.33,
-      "z": -78.19,
-      "yaw": 325.48,
-      "scale": 0.91
-    },
-    {
-      "species": "willow",
-      "x": 103.7,
-      "z": -68.8,
-      "yaw": 23.53,
-      "scale": 1.3
-    },
-    {
-      "species": "willow",
-      "x": 127.14,
-      "z": -76.8,
-      "yaw": 281.03,
-      "scale": 1.15
-    },
-    {
-      "species": "willow",
-      "x": 178.32,
-      "z": -70.84,
-      "yaw": 155.72,
-      "scale": 1.2
-    },
-    {
-      "species": "willow",
-      "x": 51.99,
-      "z": -42.21,
-      "yaw": 81.55,
-      "scale": 1.12
-    },
-    {
-      "species": "willow",
-      "x": 131.94,
-      "z": -50.36,
-      "yaw": 3.7,
-      "scale": 1.07
-    },
-    {
-      "species": "willow",
-      "x": -179.95,
-      "z": -21.16,
-      "yaw": 281.86,
-      "scale": 0.9
-    },
-    {
-      "species": "willow",
-      "x": -77.57,
-      "z": -30.1,
-      "yaw": 134.45,
-      "scale": 1.33
-    },
-    {
-      "species": "willow",
-      "x": 127.31,
-      "z": -18.92,
-      "yaw": 224.69,
-      "scale": 1.3
-    },
-    {
-      "species": "willow",
-      "x": 151.75,
-      "z": -24.76,
-      "yaw": 102.99,
-      "scale": 1.16
-    },
-    {
-      "species": "willow",
-      "x": 191.44,
-      "z": -21.16,
-      "yaw": 175.06,
-      "scale": 0.98
-    },
-    {
-      "species": "willow",
-      "x": -202.23,
-      "z": -0.91,
-      "yaw": 70.03,
-      "scale": 1.17
-    },
-    {
-      "species": "willow",
-      "x": -173.44,
-      "z": 1.15,
-      "yaw": 216.55,
-      "scale": 1.28
-    },
-    {
-      "species": "willow",
-      "x": -120.89,
-      "z": 1.81,
-      "yaw": 178.08,
-      "scale": 1.1
-    },
-    {
-      "species": "willow",
-      "x": 82.46,
-      "z": -0.76,
-      "yaw": 232.66,
-      "scale": 1.16
-    },
-    {
-      "species": "willow",
-      "x": 104.71,
-      "z": 3.4,
-      "yaw": 31.97,
-      "scale": 1.26
-    },
-    {
-      "species": "willow",
-      "x": 128.14,
-      "z": 4.69,
-      "yaw": 267.34,
-      "scale": 1.22
-    },
-    {
-      "species": "willow",
-      "x": 153.1,
-      "z": 5.07,
-      "yaw": 109.15,
-      "scale": 1.22
-    },
-    {
-      "species": "willow",
-      "x": -202.57,
-      "z": 31.47,
-      "yaw": 230.86,
-      "scale": 1.25
-    },
-    {
-      "species": "willow",
-      "x": -146.73,
-      "z": 23.42,
-      "yaw": 79.03,
-      "scale": 1.23
-    },
-    {
-      "species": "willow",
-      "x": -103.82,
-      "z": 31.62,
-      "yaw": 29.7,
-      "scale": 1.17
-    },
-    {
-      "species": "willow",
-      "x": -76.13,
-      "z": 26.85,
-      "yaw": 350.63,
-      "scale": 1.12
-    },
-    {
-      "species": "willow",
-      "x": -49.08,
-      "z": 34.81,
-      "yaw": 311.95,
-      "scale": 1.14
-    },
-    {
-      "species": "willow",
-      "x": -184.46,
-      "z": 54.6,
-      "yaw": 274.81,
-      "scale": 1.25
-    },
-    {
-      "species": "willow",
-      "x": -154.62,
-      "z": 49.82,
-      "yaw": 197.23,
-      "scale": 1
-    },
-    {
-      "species": "willow",
-      "x": -129.45,
-      "z": 60.25,
-      "yaw": 229.03,
-      "scale": 1.24
-    },
-    {
-      "species": "willow",
-      "x": -24.68,
-      "z": 59.45,
-      "yaw": 121.64,
-      "scale": 1.23
-    },
-    {
-      "species": "willow",
-      "x": 29.13,
-      "z": 61.91,
-      "yaw": 209.6,
-      "scale": 1.31
-    },
-    {
-      "species": "willow",
-      "x": 58.68,
-      "z": 53.98,
-      "yaw": 141.98,
-      "scale": 1.07
-    },
-    {
-      "species": "willow",
-      "x": 84.29,
-      "z": 59.61,
-      "yaw": 110.47,
-      "scale": 1.1
-    },
-    {
-      "species": "willow",
-      "x": 109.99,
-      "z": 61.74,
-      "yaw": 162.37,
-      "scale": 1.15
-    },
-    {
-      "species": "willow",
-      "x": 155.4,
-      "z": 56.57,
-      "yaw": 325.57,
-      "scale": 1.1
-    },
-    {
-      "species": "willow",
-      "x": 191.99,
-      "z": 52.96,
-      "yaw": 232.43,
-      "scale": 1.03
-    },
-    {
-      "species": "willow",
-      "x": -184.25,
-      "z": 80.44,
-      "yaw": 138.11,
-      "scale": 1.23
-    },
-    {
-      "species": "willow",
-      "x": -156.7,
-      "z": 74.86,
-      "yaw": 93.89,
-      "scale": 1.02
-    },
-    {
-      "species": "willow",
-      "x": -97.23,
-      "z": 75.87,
-      "yaw": 304.43,
-      "scale": 1.33
-    },
-    {
-      "species": "willow",
-      "x": -46.04,
-      "z": 86.67,
-      "yaw": 47.61,
-      "scale": 1.28
-    },
-    {
-      "species": "willow",
-      "x": 1.44,
-      "z": 83.58,
-      "yaw": 9.15,
-      "scale": 1.07
-    },
-    {
-      "species": "willow",
-      "x": 54.77,
-      "z": 78.92,
-      "yaw": 48.92,
-      "scale": 1.24
-    },
-    {
-      "species": "willow",
-      "x": 100.65,
-      "z": 87.6,
-      "yaw": 169.16,
-      "scale": 1.32
-    },
-    {
-      "species": "willow",
-      "x": 136.15,
-      "z": 76.66,
-      "yaw": 63.27,
-      "scale": 0.98
-    },
-    {
-      "species": "willow",
-      "x": 164.82,
-      "z": 82.23,
-      "yaw": 60.36,
-      "scale": 1.22
-    },
-    {
-      "species": "willow",
-      "x": -148.42,
-      "z": 102.93,
-      "yaw": 164.21,
-      "scale": 1.2
-    },
-    {
-      "species": "willow",
-      "x": -102.75,
-      "z": 102.62,
-      "yaw": 102.63,
-      "scale": 0.91
-    },
-    {
-      "species": "willow",
-      "x": -78.71,
-      "z": 107.28,
-      "yaw": 210.25,
-      "scale": 1.27
-    },
-    {
-      "species": "willow",
-      "x": -21.76,
-      "z": 102.54,
-      "yaw": 102.78,
-      "scale": 1.27
-    },
-    {
-      "species": "willow",
-      "x": 31.17,
-      "z": 110.43,
-      "yaw": 25.34,
-      "scale": 1.13
-    },
-    {
-      "species": "willow",
-      "x": 56.61,
-      "z": 112,
-      "yaw": 61.39,
-      "scale": 1.31
-    },
-    {
-      "species": "willow",
-      "x": 130.93,
-      "z": 107.17,
-      "yaw": 215.46,
-      "scale": 1.32
-    },
-    {
-      "species": "willow",
-      "x": -153.3,
-      "z": 125.83,
-      "yaw": 122.59,
-      "scale": 1.1
-    },
-    {
-      "species": "willow",
-      "x": -133.08,
-      "z": 136.9,
-      "yaw": 168.4,
-      "scale": 1.2
-    },
-    {
-      "species": "willow",
-      "x": 84.8,
-      "z": 129.22,
-      "yaw": 323.56,
-      "scale": 1.18
-    },
-    {
-      "species": "willow",
-      "x": 110.19,
-      "z": 126.26,
-      "yaw": 100.46,
-      "scale": 1.12
-    },
-    {
-      "species": "willow",
-      "x": 138.05,
-      "z": 138.49,
-      "yaw": 328.92,
-      "scale": 1.25
-    },
-    {
-      "species": "willow",
-      "x": 88.11,
-      "z": 159.46,
-      "yaw": 350.84,
-      "scale": 0.95
-    }
-  ],
+  "trees": [],
   "rocks": [
     {
       "kind": "reed_bed",
@@ -743,6 +91,30 @@
       "z": -51.27,
       "yaw": 201.67,
       "scale": 0.99
+    },
+    {
+      "kind": "rock",
+      "x": -25,
+      "z": -10,
+      "scale": 1.2,
+      "yaw": 45,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": -27,
+      "z": -12,
+      "scale": 0.9,
+      "yaw": 15,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": 33,
+      "z": -12,
+      "scale": 1.4,
+      "yaw": 80,
+      "harvest": true
     }
   ],
   "markers": [
@@ -760,5 +132,20 @@
       "note": "the slack water under the far bank",
       "kind": "other"
     }
-  ]
+  ],
+  "forage": [
+    {
+      "id": "nettle",
+      "x": -22,
+      "z": -14,
+      "count": 2
+    },
+    {
+      "id": "fiddlehead",
+      "x": 28,
+      "z": -18,
+      "count": 2
+    }
+  ],
+  "stations": []
 }

@@ -23,6 +23,8 @@
 import { createStory } from '../../story_runtime.js';
 import { createWaystones, waystonesFrom, panel as waystonePanel } from '../../waystones.js';
 import { authoredSites } from '../../../world/zones.js';
+import { spaceStoneRows } from '../../../mmo/greenwold/places.js';
+import { createChapelEncounter } from '../../../mmo/greenwold/chapel_encounter.js';
 import { buildCharacter } from '../../player.js';
 
 export const story = {
@@ -40,7 +42,9 @@ export const story = {
     const dragonOf = () => ctx.get('dragon')?.dragon || null;
 
     // The sixteen stones, worked out once off the site rows. They do not move.
-    const stones = waystonesFrom(authoredSites());
+    const generatedStones = waystonesFrom(authoredSites());
+    const sculptStones = spaceStoneRows();
+    const stones = () => runtime.field.sculpt ? sculptStones : generatedStones;
 
     /**
      * The five things a warp is, in the order `win_dev.warp` does them, so a
@@ -62,7 +66,7 @@ export const story = {
 
     const waystones = createWaystones({
       character,
-      stones: () => stones,
+      stones,
       hud, audio,
       dragon: dragonOf,
       teleport,
@@ -121,7 +125,10 @@ export const story = {
       return res;
     }
 
-    return { story, waystones, stones, teleport, touchStone, bw: { story, waystones, stones, touchStone } };
+    const chapel=createChapelEncounter({field:runtime.field,character,monsters:fight.monsters,loot:fight.loot,hud,now:()=>ctx.frame.worldNow??ctx.frame.now});
+    this._chapel=chapel;
+    const ringChapelBell=()=>{const r=chapel.ring();if(r.ok)story.ringChapelBell();return r;};
+    return { story, chapel, ringChapelBell, waystones, get stones() { return stones(); }, teleport, touchStone, bw: { story, chapel, ringChapelBell, waystones, get stones() { return stones(); }, touchStone } };
   },
 
   /**
@@ -147,6 +154,7 @@ export const story = {
   update(ctx, frame) {
     const self = ctx.get('story');
     self.story.update(frame.worldDt ?? frame.dt, frame.worldNow ?? frame.now);
+    self.chapel.update(frame.worldNow ?? frame.now);
   },
 
   save(ctx) {
@@ -156,7 +164,7 @@ export const story = {
     ctx.state?.touch?.('story');
   },
 
-  dispose() { this._offDeath?.(); this._offDeath = null; },
+  dispose() { this._offDeath?.(); this._offDeath = null; this._chapel?.dispose(); this._chapel=null; },
 };
 
 export default story;

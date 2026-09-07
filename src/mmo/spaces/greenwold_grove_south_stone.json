@@ -1,0 +1,163 @@
+{
+  "id": "greenwold_grove_south_stone",
+  "name": "Oak stand",
+  "note": "The south stone trees frame the nearby route.",
+  "at": {
+    "x": 219,
+    "z": 376
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 13.47,
+      "z": 45.34,
+      "scale": 0.95,
+      "yaw": 120,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 0.72,
+      "z": 49.24,
+      "scale": 1.1,
+      "yaw": 167,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -15.91,
+      "z": 48.44,
+      "scale": 1.2,
+      "yaw": 214,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -30.34,
+      "z": 39.45,
+      "scale": 1.05,
+      "yaw": 261,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -42.3,
+      "z": 26.73,
+      "scale": 1.3,
+      "yaw": 308,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -47.47,
+      "z": 7.78,
+      "scale": 1.2,
+      "yaw": 355,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -48.18,
+      "z": -11.44,
+      "scale": 1.1,
+      "yaw": 42,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -41.55,
+      "z": -27.97,
+      "scale": 0.9,
+      "yaw": 89,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -28.83,
+      "z": -39.94,
+      "scale": 1.15,
+      "yaw": 136,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 0.06,
+      "z": 68.1,
+      "scale": 0.8,
+      "yaw": 183,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -25.77,
+      "z": 63.37,
+      "scale": 0.9,
+      "yaw": 230,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -46.79,
+      "z": 48.95,
+      "scale": 1.1,
+      "yaw": 277,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -60.16,
+      "z": 27.8,
+      "scale": 0.95,
+      "yaw": 324,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -65,
+      "z": -0.58,
+      "scale": 0.85,
+      "yaw": 11,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 33.83,
+      "z": 48.6,
+      "scale": 1,
+      "yaw": 105,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -19.24,
+      "z": -59.33,
+      "scale": 1,
+      "yaw": 199,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 24.47,
+      "z": 64.39,
+      "scale": 0.8,
+      "yaw": 246,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -1.35,
+      "z": -52.34,
+      "scale": 0.9,
+      "yaw": 293,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

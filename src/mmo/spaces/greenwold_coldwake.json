@@ -1,7 +1,7 @@
 {
   "id": "greenwold_coldwake",
   "name": "Coldwake",
-  "note": "Six houses round a well on a green, a hedge the whole way round and one gap in the hedge where the lane comes in. The second village, so the first is not the only one.",
+  "note": "Coldwake shelters beneath the southern ridge. Its cottages face a small green, with an orchard behind them. The drovers path returns to the river; the east lane crosses the fields to the stones.",
   "at": {
     "x": -470.21,
     "z": 763.04
@@ -49,6 +49,34 @@
       "x": -20.07,
       "z": 18.07,
       "yaw": 132
+    },
+    {
+      "model": "fingerpost",
+      "x": -5,
+      "z": 5,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "cart_laden",
+      "x": -10,
+      "z": 15,
+      "yaw": 75,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "barrel",
+      "x": -12,
+      "z": 19,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "waystone_village",
+      "x": 12,
+      "z": -8,
+      "yaw": 250,
+      "tag": "greenwold-craft"
     }
   ],
   "runs": [
@@ -204,204 +232,23 @@
       "night": true
     }
   ],
-  "trees": [
-    {
-      "species": "birch",
-      "x": 49.43,
-      "z": -80.18,
-      "yaw": 341.82,
-      "scale": 0.84
-    },
-    {
-      "species": "oak",
-      "x": 24.76,
-      "z": -68.49,
-      "yaw": 279.62,
-      "scale": 0.9
-    },
-    {
-      "species": "birch",
-      "x": 35.17,
-      "z": -73.25,
-      "yaw": 275.13,
-      "scale": 0.97
-    },
-    {
-      "species": "birch",
-      "x": 57.87,
-      "z": -68.83,
-      "yaw": 115.19,
-      "scale": 0.83
-    },
-    {
-      "species": "birch",
-      "x": 68,
-      "z": -69.16,
-      "yaw": 41.36,
-      "scale": 0.86
-    },
-    {
-      "species": "birch",
-      "x": 39.02,
-      "z": -61.09,
-      "yaw": 123.04,
-      "scale": 0.72
-    },
-    {
-      "species": "birch",
-      "x": 60.31,
-      "z": -58.3,
-      "yaw": 94.3,
-      "scale": 0.78
-    },
-    {
-      "species": "birch",
-      "x": 78.29,
-      "z": -61.44,
-      "yaw": 121.3,
-      "scale": 0.98
-    },
-    {
-      "species": "oak",
-      "x": 15.16,
-      "z": -51.35,
-      "yaw": 21.21,
-      "scale": 0.82
-    },
-    {
-      "species": "oak",
-      "x": 25.59,
-      "z": -50.34,
-      "yaw": 210.4,
-      "scale": 0.76
-    },
-    {
-      "species": "oak",
-      "x": 37.56,
-      "z": -47.16,
-      "yaw": 183.28,
-      "scale": 0.95
-    },
-    {
-      "species": "oak",
-      "x": 47,
-      "z": -48.83,
-      "yaw": 351.86,
-      "scale": 0.91
-    },
-    {
-      "species": "birch",
-      "x": 66.87,
-      "z": -47.4,
-      "yaw": 22.33,
-      "scale": 0.92
-    },
-    {
-      "species": "oak",
-      "x": 82.72,
-      "z": -51.06,
-      "yaw": 225.88,
-      "scale": 0.99
-    },
-    {
-      "species": "birch",
-      "x": 24.61,
-      "z": -36.77,
-      "yaw": 259.76,
-      "scale": 0.73
-    },
-    {
-      "species": "birch",
-      "x": 34.61,
-      "z": -36.87,
-      "yaw": 328.38,
-      "scale": 0.85
-    },
-    {
-      "species": "oak",
-      "x": 44.52,
-      "z": -37.49,
-      "yaw": 163.13,
-      "scale": 0.8
-    },
-    {
-      "species": "birch",
-      "x": 58.39,
-      "z": -35,
-      "yaw": 267.39,
-      "scale": 0.83
-    },
-    {
-      "species": "birch",
-      "x": 78.98,
-      "z": -36.51,
-      "yaw": 307.92,
-      "scale": 0.96
-    },
-    {
-      "species": "birch",
-      "x": 24.91,
-      "z": -24.35,
-      "yaw": 128.66,
-      "scale": 0.85
-    },
-    {
-      "species": "oak",
-      "x": 49.08,
-      "z": -26.57,
-      "yaw": 1.62,
-      "scale": 0.97
-    },
-    {
-      "species": "oak",
-      "x": 71.77,
-      "z": -26.13,
-      "yaw": 281.13,
-      "scale": 0.95
-    },
-    {
-      "species": "oak",
-      "x": 33.26,
-      "z": -13.78,
-      "yaw": 267.15,
-      "scale": 0.85
-    },
-    {
-      "species": "oak",
-      "x": 45.18,
-      "z": -14.57,
-      "yaw": 124.17,
-      "scale": 0.85
-    },
-    {
-      "species": "birch",
-      "x": 60.62,
-      "z": -16.38,
-      "yaw": 352.68,
-      "scale": 0.72
-    },
-    {
-      "species": "oak",
-      "x": 70.41,
-      "z": -14.93,
-      "yaw": 213.68,
-      "scale": 0.89
-    },
-    {
-      "species": "oak",
-      "x": 79.93,
-      "z": -18.96,
-      "yaw": 58.41,
-      "scale": 0.81
-    }
-  ],
+  "trees": [],
   "rocks": [
     {
-      "kind": "field_gate",
-      "x": 30,
-      "z": 54,
+      "kind": "rock",
+      "x": -22,
+      "z": 33,
+      "scale": 1.6,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": -25,
+      "z": 32,
+      "scale": 1,
       "yaw": 20,
-      "scale": 1
+      "harvest": true
     }
   ],
   "markers": [
@@ -412,5 +259,35 @@
       "note": "what Hearthhome lacks, and a second waystone of your own for having walked here",
       "kind": "structure"
     }
-  ]
+  ],
+  "forage": [
+    {
+      "id": "wild_strawberry",
+      "x": -12,
+      "z": 36,
+      "count": 2
+    },
+    {
+      "id": "rosehip",
+      "x": -18,
+      "z": 38,
+      "count": 2
+    }
+  ],
+  "stations": [
+    {
+      "id": "workbench",
+      "x": -20,
+      "z": 0,
+      "yaw": 0
+    },
+    {
+      "id": "kitchen",
+      "x": -13,
+      "z": -20,
+      "yaw": 0
+    }
+  ],
+  "kind": "hamlet",
+  "safeRadius": 48
 }

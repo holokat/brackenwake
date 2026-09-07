@@ -10,8 +10,10 @@
 // A new space appears here the moment it is saved. Vite reloads the module and
 // the world rebuilds around it.
 
+import sp_greenwold_beech_overlook from './greenwold_beech_overlook.json' with { type: 'json' };
 import sp_greenwold_beechhangar from './greenwold_beechhangar.json' with { type: 'json' };
 import sp_greenwold_cellarbank from './greenwold_cellarbank.json' with { type: 'json' };
+import sp_greenwold_chalk_rim from './greenwold_chalk_rim.json' with { type: 'json' };
 import sp_greenwold_chalkfield from './greenwold_chalkfield.json' with { type: 'json' };
 import sp_greenwold_chalkpits from './greenwold_chalkpits.json' with { type: 'json' };
 import sp_greenwold_chapelcopse from './greenwold_chapelcopse.json' with { type: 'json' };
@@ -19,6 +21,7 @@ import sp_greenwold_coldwake from './greenwold_coldwake.json' with { type: 'json
 import sp_greenwold_coldwakefield from './greenwold_coldwakefield.json' with { type: 'json' };
 import sp_greenwold_coldwakepasture from './greenwold_coldwakepasture.json' with { type: 'json' };
 import sp_greenwold_downscopse from './greenwold_downscopse.json' with { type: 'json' };
+import sp_greenwold_drovers_rest from './greenwold_drovers_rest.json' with { type: 'json' };
 import sp_greenwold_eastcopse from './greenwold_eastcopse.json' with { type: 'json' };
 import sp_greenwold_eastfield from './greenwold_eastfield.json' with { type: 'json' };
 import sp_greenwold_eastwood_1 from './greenwold_eastwood_1.json' with { type: 'json' };
@@ -29,6 +32,58 @@ import sp_greenwold_eastwood_5 from './greenwold_eastwood_5.json' with { type: '
 import sp_greenwold_eastwood_6 from './greenwold_eastwood_6.json' with { type: 'json' };
 import sp_greenwold_eastwood_7 from './greenwold_eastwood_7.json' with { type: 'json' };
 import sp_greenwold_farfield from './greenwold_farfield.json' with { type: 'json' };
+import sp_greenwold_grove_cellar_bank from './greenwold_grove_cellar_bank.json' with { type: 'json' };
+import sp_greenwold_grove_cellar_hollow from './greenwold_grove_cellar_hollow.json' with { type: 'json' };
+import sp_greenwold_grove_chalk_valley from './greenwold_grove_chalk_valley.json' with { type: 'json' };
+import sp_greenwold_grove_chapel_shore from './greenwold_grove_chapel_shore.json' with { type: 'json' };
+import sp_greenwold_grove_chapel_west from './greenwold_grove_chapel_west.json' with { type: 'json' };
+import sp_greenwold_grove_coldwake_east from './greenwold_grove_coldwake_east.json' with { type: 'json' };
+import sp_greenwold_grove_coldwake_orchard from './greenwold_grove_coldwake_orchard.json' with { type: 'json' };
+import sp_greenwold_grove_coldwake_west from './greenwold_grove_coldwake_west.json' with { type: 'json' };
+import sp_greenwold_grove_drovers_rest from './greenwold_grove_drovers_rest.json' with { type: 'json' };
+import sp_greenwold_grove_eastwood_middle from './greenwold_grove_eastwood_middle.json' with { type: 'json' };
+import sp_greenwold_grove_eastwood_north from './greenwold_grove_eastwood_north.json' with { type: 'json' };
+import sp_greenwold_grove_eastwood_south from './greenwold_grove_eastwood_south.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_back from './greenwold_grove_hangar_back.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_deep from './greenwold_grove_hangar_deep.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_east_low from './greenwold_grove_hangar_east_low.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_east_middle from './greenwold_grove_hangar_east_middle.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_entry from './greenwold_grove_hangar_entry.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_northern_skirt from './greenwold_grove_hangar_northern_skirt.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_ridge from './greenwold_grove_hangar_ridge.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_setts from './greenwold_grove_hangar_setts.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_south from './greenwold_grove_hangar_south.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_throat from './greenwold_grove_hangar_throat.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_understorey from './greenwold_grove_hangar_understorey.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_west_high from './greenwold_grove_hangar_west_high.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_west_low from './greenwold_grove_hangar_west_low.json' with { type: 'json' };
+import sp_greenwold_grove_hangar_west_middle from './greenwold_grove_hangar_west_middle.json' with { type: 'json' };
+import sp_greenwold_grove_hearthhome_orchard from './greenwold_grove_hearthhome_orchard.json' with { type: 'json' };
+import sp_greenwold_grove_hedge_east from './greenwold_grove_hedge_east.json' with { type: 'json' };
+import sp_greenwold_grove_hedge_north from './greenwold_grove_hedge_north.json' with { type: 'json' };
+import sp_greenwold_grove_hedge_west from './greenwold_grove_hedge_west.json' with { type: 'json' };
+import sp_greenwold_grove_hollow_back from './greenwold_grove_hollow_back.json' with { type: 'json' };
+import sp_greenwold_grove_hollow_east from './greenwold_grove_hollow_east.json' with { type: 'json' };
+import sp_greenwold_grove_hollow_hidden_entry from './greenwold_grove_hollow_hidden_entry.json' with { type: 'json' };
+import sp_greenwold_grove_hollow_screen from './greenwold_grove_hollow_screen.json' with { type: 'json' };
+import sp_greenwold_grove_hollow_south from './greenwold_grove_hollow_south.json' with { type: 'json' };
+import sp_greenwold_grove_kingsroad_shelter from './greenwold_grove_kingsroad_shelter.json' with { type: 'json' };
+import sp_greenwold_grove_meadow_oaks from './greenwold_grove_meadow_oaks.json' with { type: 'json' };
+import sp_greenwold_grove_meadow_road from './greenwold_grove_meadow_road.json' with { type: 'json' };
+import sp_greenwold_grove_mill_copse from './greenwold_grove_mill_copse.json' with { type: 'json' };
+import sp_greenwold_grove_mill_orchard from './greenwold_grove_mill_orchard.json' with { type: 'json' };
+import sp_greenwold_grove_north_wood_east from './greenwold_grove_north_wood_east.json' with { type: 'json' };
+import sp_greenwold_grove_north_wood_middle from './greenwold_grove_north_wood_middle.json' with { type: 'json' };
+import sp_greenwold_grove_north_wood_west from './greenwold_grove_north_wood_west.json' with { type: 'json' };
+import sp_greenwold_grove_pasture_boundary from './greenwold_grove_pasture_boundary.json' with { type: 'json' };
+import sp_greenwold_grove_quarry_approach from './greenwold_grove_quarry_approach.json' with { type: 'json' };
+import sp_greenwold_grove_quarry_river_bank from './greenwold_grove_quarry_river_bank.json' with { type: 'json' };
+import sp_greenwold_grove_quarry_road_bank from './greenwold_grove_quarry_road_bank.json' with { type: 'json' };
+import sp_greenwold_grove_south_lane from './greenwold_grove_south_lane.json' with { type: 'json' };
+import sp_greenwold_grove_south_stone from './greenwold_grove_south_stone.json' with { type: 'json' };
+import sp_greenwold_grove_water_bend from './greenwold_grove_water_bend.json' with { type: 'json' };
+import sp_greenwold_grove_water_east from './greenwold_grove_water_east.json' with { type: 'json' };
+import sp_greenwold_grove_water_west from './greenwold_grove_water_west.json' with { type: 'json' };
 import sp_greenwold_hangar_1 from './greenwold_hangar_1.json' with { type: 'json' };
 import sp_greenwold_hangar_10 from './greenwold_hangar_10.json' with { type: 'json' };
 import sp_greenwold_hangar_11 from './greenwold_hangar_11.json' with { type: 'json' };
@@ -92,8 +147,10 @@ import sp_tile_2_6 from './tile_2_6.json' with { type: 'json' };
 import sp_tile_3_5 from './tile_3_5.json' with { type: 'json' };
 
 export const FILES = {
+  'greenwold_beech_overlook': sp_greenwold_beech_overlook,
   'greenwold_beechhangar': sp_greenwold_beechhangar,
   'greenwold_cellarbank': sp_greenwold_cellarbank,
+  'greenwold_chalk_rim': sp_greenwold_chalk_rim,
   'greenwold_chalkfield': sp_greenwold_chalkfield,
   'greenwold_chalkpits': sp_greenwold_chalkpits,
   'greenwold_chapelcopse': sp_greenwold_chapelcopse,
@@ -101,6 +158,7 @@ export const FILES = {
   'greenwold_coldwakefield': sp_greenwold_coldwakefield,
   'greenwold_coldwakepasture': sp_greenwold_coldwakepasture,
   'greenwold_downscopse': sp_greenwold_downscopse,
+  'greenwold_drovers_rest': sp_greenwold_drovers_rest,
   'greenwold_eastcopse': sp_greenwold_eastcopse,
   'greenwold_eastfield': sp_greenwold_eastfield,
   'greenwold_eastwood_1': sp_greenwold_eastwood_1,
@@ -111,6 +169,58 @@ export const FILES = {
   'greenwold_eastwood_6': sp_greenwold_eastwood_6,
   'greenwold_eastwood_7': sp_greenwold_eastwood_7,
   'greenwold_farfield': sp_greenwold_farfield,
+  'greenwold_grove_cellar_bank': sp_greenwold_grove_cellar_bank,
+  'greenwold_grove_cellar_hollow': sp_greenwold_grove_cellar_hollow,
+  'greenwold_grove_chalk_valley': sp_greenwold_grove_chalk_valley,
+  'greenwold_grove_chapel_shore': sp_greenwold_grove_chapel_shore,
+  'greenwold_grove_chapel_west': sp_greenwold_grove_chapel_west,
+  'greenwold_grove_coldwake_east': sp_greenwold_grove_coldwake_east,
+  'greenwold_grove_coldwake_orchard': sp_greenwold_grove_coldwake_orchard,
+  'greenwold_grove_coldwake_west': sp_greenwold_grove_coldwake_west,
+  'greenwold_grove_drovers_rest': sp_greenwold_grove_drovers_rest,
+  'greenwold_grove_eastwood_middle': sp_greenwold_grove_eastwood_middle,
+  'greenwold_grove_eastwood_north': sp_greenwold_grove_eastwood_north,
+  'greenwold_grove_eastwood_south': sp_greenwold_grove_eastwood_south,
+  'greenwold_grove_hangar_back': sp_greenwold_grove_hangar_back,
+  'greenwold_grove_hangar_deep': sp_greenwold_grove_hangar_deep,
+  'greenwold_grove_hangar_east_low': sp_greenwold_grove_hangar_east_low,
+  'greenwold_grove_hangar_east_middle': sp_greenwold_grove_hangar_east_middle,
+  'greenwold_grove_hangar_entry': sp_greenwold_grove_hangar_entry,
+  'greenwold_grove_hangar_northern_skirt': sp_greenwold_grove_hangar_northern_skirt,
+  'greenwold_grove_hangar_ridge': sp_greenwold_grove_hangar_ridge,
+  'greenwold_grove_hangar_setts': sp_greenwold_grove_hangar_setts,
+  'greenwold_grove_hangar_south': sp_greenwold_grove_hangar_south,
+  'greenwold_grove_hangar_throat': sp_greenwold_grove_hangar_throat,
+  'greenwold_grove_hangar_understorey': sp_greenwold_grove_hangar_understorey,
+  'greenwold_grove_hangar_west_high': sp_greenwold_grove_hangar_west_high,
+  'greenwold_grove_hangar_west_low': sp_greenwold_grove_hangar_west_low,
+  'greenwold_grove_hangar_west_middle': sp_greenwold_grove_hangar_west_middle,
+  'greenwold_grove_hearthhome_orchard': sp_greenwold_grove_hearthhome_orchard,
+  'greenwold_grove_hedge_east': sp_greenwold_grove_hedge_east,
+  'greenwold_grove_hedge_north': sp_greenwold_grove_hedge_north,
+  'greenwold_grove_hedge_west': sp_greenwold_grove_hedge_west,
+  'greenwold_grove_hollow_back': sp_greenwold_grove_hollow_back,
+  'greenwold_grove_hollow_east': sp_greenwold_grove_hollow_east,
+  'greenwold_grove_hollow_hidden_entry': sp_greenwold_grove_hollow_hidden_entry,
+  'greenwold_grove_hollow_screen': sp_greenwold_grove_hollow_screen,
+  'greenwold_grove_hollow_south': sp_greenwold_grove_hollow_south,
+  'greenwold_grove_kingsroad_shelter': sp_greenwold_grove_kingsroad_shelter,
+  'greenwold_grove_meadow_oaks': sp_greenwold_grove_meadow_oaks,
+  'greenwold_grove_meadow_road': sp_greenwold_grove_meadow_road,
+  'greenwold_grove_mill_copse': sp_greenwold_grove_mill_copse,
+  'greenwold_grove_mill_orchard': sp_greenwold_grove_mill_orchard,
+  'greenwold_grove_north_wood_east': sp_greenwold_grove_north_wood_east,
+  'greenwold_grove_north_wood_middle': sp_greenwold_grove_north_wood_middle,
+  'greenwold_grove_north_wood_west': sp_greenwold_grove_north_wood_west,
+  'greenwold_grove_pasture_boundary': sp_greenwold_grove_pasture_boundary,
+  'greenwold_grove_quarry_approach': sp_greenwold_grove_quarry_approach,
+  'greenwold_grove_quarry_river_bank': sp_greenwold_grove_quarry_river_bank,
+  'greenwold_grove_quarry_road_bank': sp_greenwold_grove_quarry_road_bank,
+  'greenwold_grove_south_lane': sp_greenwold_grove_south_lane,
+  'greenwold_grove_south_stone': sp_greenwold_grove_south_stone,
+  'greenwold_grove_water_bend': sp_greenwold_grove_water_bend,
+  'greenwold_grove_water_east': sp_greenwold_grove_water_east,
+  'greenwold_grove_water_west': sp_greenwold_grove_water_west,
   'greenwold_hangar_1': sp_greenwold_hangar_1,
   'greenwold_hangar_10': sp_greenwold_hangar_10,
   'greenwold_hangar_11': sp_greenwold_hangar_11,

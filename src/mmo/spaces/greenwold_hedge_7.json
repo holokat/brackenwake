@@ -154,24 +154,7 @@
     }
   ],
   "people": [],
-  "spawns": [
-    {
-      "id": "fox",
-      "x": 14,
-      "z": 12
-    },
-    {
-      "id": "hawk",
-      "x": -12,
-      "z": -12
-    },
-    {
-      "id": "wolf",
-      "x": -15,
-      "z": 13,
-      "night": true
-    }
-  ],
+  "spawns": [],
   "trees": [],
   "rocks": [],
   "markers": [],
@@ -179,5 +162,7 @@
     "x": 6,
     "z": -10.39,
     "yaw": 330
-  }
+  },
+  "forage": [],
+  "stations": []
 }

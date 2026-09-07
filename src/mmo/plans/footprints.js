@@ -291,6 +291,7 @@ export const SOLO = new Set([
   'well_pavilion', 'gate_tower', 'waystone_village',
   'mill', 'millers_house', 'granary', 'foremans_hut',
   'headframe', 'cellar_arch', 'chapel_sunken', 'lookout_platform',
+  'mine_mouth', 'fingerpost', 'loot_sack',
 ]);
 // The three cottages are NOT here on purpose. Every name in SOLO costs a draw
 // call for every colour it is built out of, and Hearthhome measured 59 of a

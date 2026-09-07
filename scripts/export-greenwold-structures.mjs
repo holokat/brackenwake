@@ -40,6 +40,10 @@ const OUT_MD = join(ROOT, 'docs', 'concepts', 'greenwold', 'STRUCTURES.md');
 const OUT_HTML = join(ROOT, 'wiki', 'site', 'structures.html');
 
 const made = new Set(existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')).ids || [] : []);
+// Studio production is tracked independently from files imported into the game.
+const STUDIO_FILE = join(ROOT, 'wiki', 'structure-studio-progress.json');
+const studioEntries = existsSync(STUDIO_FILE) ? JSON.parse(readFileSync(STUDIO_FILE, 'utf8')).entries || {} : {};
+const studioComplete = (id) => studioEntries[id]?.status === 'complete';
 
 // ---- the words, from MODELS.md ---------------------------------------------
 const WORDS = new Map();
@@ -128,6 +132,7 @@ const distinct = [...all.values()];
 const nMade = distinct.filter((r) => r.made).length;
 const nNoFoot = distinct.filter((r) => !r.size).length;
 const nToMake = distinct.length - nMade;
+const nStudio = distinct.filter(r => studioComplete(r.id)).length;
 const date = new Date().toISOString().slice(0, 10);
 const heightWord = (id) => { const f = FOOTPRINT[id]; if (!f) return ''; const [w, , h] = f; return h >= 7 ? 'large building' : (h >= 4 && w >= 4) ? 'building' : h >= 2 || w >= 4 ? 'structure' : 'prop'; };
 
@@ -148,11 +153,11 @@ for (const sec of sections) {
   md.push('');
   if (sec.wanted.length) { md.push(`The guide also wants, with no id yet: ${sec.wanted.join('; ')}.`); md.push(''); }
   if (need.length) {
-    md.push('| id | what | size | kind | in this zone | status |');
-    md.push('|---|---|---|---|---|---|');
+    md.push('| id | what | size | kind | in this zone | Game import | Studio production |');
+    md.push('|---|---|---|---|---|---|---|');
     for (const r of need) {
       const status = r.made ? 'MADE' : !r.size ? 'NO FOOTPRINT: add a row to footprints.js or it never loads' : 'to make';
-      md.push(`| \`${r.id}\` | ${r.words ? r.words.what : (r.n ? '' : 'listed by the guide, not placed yet')} | ${r.size || ''} | ${heightWord(r.id)} | ${r.n ? `${r.n} (${r.how}) in ${r.where}` : r.where} | ${status} |`);
+      md.push(`| \`${r.id}\` | ${r.words ? r.words.what : (r.n ? '' : 'listed by the guide, not placed yet')} | ${r.size || ''} | ${heightWord(r.id)} | ${r.n ? `${r.n} (${r.how}) in ${r.where}` : r.where} | ${status} | ${studioComplete(r.id) ? 'Studio complete, five views reviewed' : 'In production'} |`);
     }
     md.push('');
   }
@@ -200,21 +205,22 @@ h1{font-size:34px;margin:0 0 6px}h2{font-size:22px;margin:44px 0 10px;padding-bo
 p{max-width:76ch}
 .tbl{overflow-x:auto;margin:10px 0 18px}
 table{border-collapse:collapse;width:100%;font-size:16px}
-th{font-family:Cinzel,Georgia,serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule)}
+th{font-family:Cinzel,Georgia,serif;font-size:11px;letter-spacing:.08em;text-transform:none;color:var(--gold);text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule)}
 td{padding:7px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
 tbody tr:hover{background:var(--sel)}
 li{max-width:90ch;margin:3px 0}
 code{font-family:ui-monospace,Menlo,monospace;font-size:14px;background:var(--panel);padding:1px 5px;border-radius:3px}
-.no{color:var(--red);font-family:Cinzel,Georgia,serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
-.yes{color:var(--green);font-family:Cinzel,Georgia,serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
-.todo{color:var(--gold);font-family:Cinzel,Georgia,serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.no{color:var(--red);font-family:Cinzel,Georgia,serif;font-size:11px;letter-spacing:.08em;text-transform:none}
+.yes{color:var(--green);font-family:Cinzel,Georgia,serif;font-size:11px;letter-spacing:.08em;text-transform:none}
+.todo{color:var(--gold);font-family:Cinzel,Georgia,serif;font-size:11px;letter-spacing:.08em;text-transform:none}
 .note{color:var(--mute);font-size:16px}
 .count{color:var(--mute);font-size:15px;margin:2px 0 14px}
 .back{display:inline-block;margin-bottom:18px;color:var(--gold)}
 strong{color:var(--ink)}
 </style><div class="wrap"><a class="back" href="index.html">The codex</a><h1>The Greenwold: every structure to make</h1><p class="lede">Read off the spaces that stand them, the guide's zone lists, the footprint table and the folder of finished models, so the list is what the world asks for and not a memory of it.</p>`);
 h.push(`<p class="count">${distinct.length} distinct structures across ${spaces.length} spaces: <span class="yes">${nMade} made</span>, <span class="todo">${nToMake} to make</span>${nNoFoot ? `, <span class="no">${nNoFoot} with no footprint</span>` : ''}. Generated ${date}. Sizes are width by depth by height in metres, the footprint the game scales a model to. A structure not made yet stands in the game as a stand-in body of its footprint.</p>`);
+h.push(`<p class="count" id="studio-progress"><strong>Studio production: ${nStudio} of ${distinct.length} complete.</strong> Detailed Three.js models in Kaldera studio, with front, side, back, top and perspective review and metre-scale GLB export. Game import is tracked separately. Studio models may exceed the MMO's runtime triangle budgets and need optimization before game import.</p>`);
 h.push(`<p class="note">Each section is one zone in the order the first hour meets them. A structure is listed under the first zone that needs it and named again where it recurs. The spec every model is built to (glb, metres, Y up, budgets by height, the validator) is in <code>docs/concepts/greenwold/MODELS.md</code>.</p>`);
 for (const sec of sections) {
   const need = sec.rows.filter((r) => r.firstHere);
@@ -223,10 +229,10 @@ for (const sec of sections) {
   h.push(`<p class="count">${sec.spaces.map((s) => `<code>${esc(s)}</code>`).join(', ') || 'no space yet'}. ${need.length} new here${again.length ? `, ${again.length} listed above: ${again.map((r) => `<code>${esc(r.id)}</code>`).join(', ')}` : ''}.</p>`);
   if (sec.wanted.length) h.push(`<p class="note">The guide also wants, with no id yet: ${esc(sec.wanted.join('; '))}.</p>`);
   if (!need.length) continue;
-  h.push('<div class="tbl"><table><thead><tr><th>id</th><th>what</th><th>size</th><th>kind</th><th>in this zone</th><th>status</th></tr></thead><tbody>');
+  h.push('<div class="tbl"><table><thead><tr><th>id</th><th>what</th><th>size</th><th>kind</th><th>in this zone</th><th>Game import</th><th>Studio production</th></tr></thead><tbody>');
   for (const r of need) {
     const status = r.made ? '<span class="yes">made</span>' : !r.size ? '<span class="no">no footprint</span>' : '<span class="todo">to make</span>';
-    h.push(`<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.words ? r.words.what : (r.n ? '' : 'listed by the guide, not placed yet'))}</td><td>${esc(r.size || '')}</td><td>${esc(heightWord(r.id))}</td><td>${r.n ? `${r.n} (${esc(r.how)}) in ${esc(r.where)}` : esc(r.where)}</td><td>${status}</td></tr>`);
+    h.push(`<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.words ? r.words.what : (r.n ? '' : 'listed by the guide, not placed yet'))}</td><td>${esc(r.size || '')}</td><td>${esc(heightWord(r.id))}</td><td>${r.n ? `${r.n} (${esc(r.how)}) in ${esc(r.where)}` : esc(r.where)}</td><td>${status}</td><td>${studioComplete(r.id) ? `<a class="yes" href="${esc(studioEntries[r.id].preview)}">Studio complete</a><br><span class="note">${Number(studioEntries[r.id].triangles).toLocaleString('en-US')} triangles · ${studioEntries[r.id].drawCalls} draw call<br>Five views reviewed ${esc(studioEntries[r.id].reviewed)}</span>` : '<span class="todo">In production</span>'}</td></tr>`);
   }
   h.push('</tbody></table></div>');
 }

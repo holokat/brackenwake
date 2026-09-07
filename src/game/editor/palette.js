@@ -52,7 +52,7 @@ export function structures(has = hasProp) {
     // put down. A stand-in is NOT real and IS placeable, which is the whole
     // point of stand-ins: the place is walkable before the models exist.
     return {
-      id, label: id, real, placeable: true,
+      id, label: id.charAt(0).toUpperCase()+id.slice(1).replaceAll('_',' '), real, placeable: true,
       hint: `${w} by ${d} by ${h} m, ${real ? 'modelled' : `stand-in (${STANDIN[id] ? STANDIN[id].body : 'none'})`}`,
     };
   }).sort((a, b) => (a.real === b.real ? a.id.localeCompare(b.id) : (a.real ? -1 : 1)));

@@ -1,7 +1,7 @@
 {
   "id": "greenwold_chalkpits",
   "name": "The Chalk Pits",
-  "note": "A white chalk cut with a green seam of copper in it and a grey one of tin under that. Two mouths go into the face, the left one under a headframe with a winding wheel, and the cart comes out of it on rails.",
+  "note": "The Chalk Pits cut three white benches into the escarpment. Copper and tin lie beside the rails. The switchback climbs round the east buttress to the rim; the low road leads to the chapel.",
   "at": {
     "x": -580.85,
     "z": -932.61
@@ -11,20 +11,20 @@
     {
       "model": "headframe",
       "x": -12,
-      "z": 8,
+      "z": -24,
       "yaw": 0
     },
     {
       "model": "mine_mouth",
       "x": -12,
-      "z": 10,
+      "z": -22,
       "yaw": 180,
       "on": "headframe"
     },
     {
       "model": "mine_mouth",
       "x": 8,
-      "z": 10,
+      "z": -22,
       "yaw": 180
     },
     {
@@ -56,29 +56,46 @@
       "x": -0.8,
       "z": 0.4,
       "yaw": 70
+    },
+    {
+      "model": "fingerpost",
+      "x": -5,
+      "z": 22,
+      "yaw": 0,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "crate",
+      "x": -24,
+      "z": -18,
+      "yaw": 10,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "sack",
+      "x": -26,
+      "z": -18,
+      "yaw": 40,
+      "tag": "greenwold-craft"
+    },
+    {
+      "model": "barrel",
+      "x": 21,
+      "z": -20,
+      "yaw": 0,
+      "tag": "greenwold-craft"
     }
   ],
   "runs": [
     {
-      "model": "chalk_face_4m",
-      "from": {
-        "x": -24,
-        "z": 10
-      },
-      "to": {
-        "x": 24,
-        "z": 10
-      }
-    },
-    {
       "model": "rail_2m",
       "from": {
         "x": -12,
-        "z": 5
+        "z": -17
       },
       "to": {
         "x": -12,
-        "z": -16
+        "z": -5
       }
     }
   ],
@@ -144,7 +161,76 @@
     }
   ],
   "trees": [],
-  "rocks": [],
+  "rocks": [
+    {
+      "kind": "rock",
+      "x": -31,
+      "z": -12,
+      "scale": 2,
+      "yaw": 45,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": -28,
+      "z": -15,
+      "scale": 1.1,
+      "yaw": 65,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": 31,
+      "z": -3,
+      "scale": 2.6,
+      "yaw": 10,
+      "harvest": true
+    },
+    {
+      "kind": "rock",
+      "x": 33,
+      "z": -7,
+      "scale": 1.7,
+      "yaw": 40,
+      "harvest": true
+    },
+    {
+      "kind": "ore",
+      "x": -22,
+      "z": -8,
+      "ore": "copper",
+      "scale": 0.8,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "kind": "ore",
+      "x": -21,
+      "z": -16,
+      "ore": "copper",
+      "scale": 0.8,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "kind": "ore",
+      "x": 25,
+      "z": -12,
+      "ore": "tin",
+      "scale": 0.8,
+      "yaw": 0,
+      "harvest": true
+    },
+    {
+      "kind": "ore",
+      "x": 27,
+      "z": -20,
+      "ore": "tin",
+      "scale": 0.8,
+      "yaw": 0,
+      "harvest": true
+    }
+  ],
   "markers": [
     {
       "x": -18,
@@ -163,7 +249,16 @@
   ],
   "arrival": {
     "x": 0,
-    "z": -20,
-    "yaw": 0
-  }
+    "z": 22,
+    "yaw": 180
+  },
+  "forage": [
+    {
+      "id": "nettle",
+      "x": 31,
+      "z": -16,
+      "count": 1
+    }
+  ],
+  "stations": []
 }

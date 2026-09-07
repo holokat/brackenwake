@@ -1,0 +1,115 @@
+{
+  "id": "greenwold_grove_quarry_road_bank",
+  "name": "Beech stand",
+  "note": "The quarry road bank trees frame the nearby route.",
+  "at": {
+    "x": -879,
+    "z": -637
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "beech",
+      "x": 45.38,
+      "z": 41.54,
+      "scale": 0.8,
+      "yaw": 145,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 33.26,
+      "z": 25.73,
+      "scale": 1.05,
+      "yaw": 192,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 11.22,
+      "z": 18.84,
+      "scale": 1.2,
+      "yaw": 239,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -1.88,
+      "z": -2.54,
+      "scale": 1.3,
+      "yaw": 286,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -35.63,
+      "z": -31.05,
+      "scale": 0.9,
+      "yaw": 20,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -54.39,
+      "z": -35.64,
+      "scale": 0.8,
+      "yaw": 67,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 26.62,
+      "z": 49.16,
+      "scale": 0.85,
+      "yaw": 114,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": 5.97,
+      "z": 42.03,
+      "scale": 1.1,
+      "yaw": 161,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -9.34,
+      "z": 20.32,
+      "scale": 1.2,
+      "yaw": 208,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -46.94,
+      "z": -9.67,
+      "scale": 0.9,
+      "yaw": 302,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -14.43,
+      "z": 48.5,
+      "scale": 0.85,
+      "yaw": 349,
+      "harvest": true
+    },
+    {
+      "species": "beech",
+      "x": -34,
+      "z": 31.13,
+      "scale": 1.05,
+      "yaw": 36,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

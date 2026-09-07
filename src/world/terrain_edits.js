@@ -869,7 +869,7 @@ export function reachOf(s) {
     return riverHalf(s) + Math.hypot(bx - s.x, bz - s.z);
   }
   // a dragged paint stroke reaches r past the far end of its own line
-  if (s.kind === 'ground' && Number.isFinite(s.x2) && Number.isFinite(s.z2)) return r + Math.hypot(s.x2 - s.x, s.z2 - s.z);
+  if ((s.kind === 'ground' || s.kind === 'plateau') && Number.isFinite(s.x2) && Number.isFinite(s.z2)) return r + Math.hypot(s.x2 - s.x, s.z2 - s.z);
   return r;
 }
 
@@ -894,6 +894,20 @@ export function deltaOf(s, x, z, h) {
    * eraser. This returning 0 is the whole truth about an erase in isolation.
    */
   if (s.kind === ERASE_KIND) return 0;
+  // A graded path is a plateau pulled along a segment. Its two end heights
+  // give a continuous ramp, including the capsule caps at a junction.
+  if (s.kind === 'plateau' && Number.isFinite(s.x2) && Number.isFinite(s.z2)) {
+    const d = paintDist(s,x,z);
+    if (d >= r) return 0;
+    const dx=s.x2-s.x,dz=s.z2-s.z,l2=dx*dx+dz*dz;
+    // Extend the grade through the rounded caps. Clamping it makes every
+    // successive segment lay a flat stair across the previous segment.
+    const u=l2 ? ((x-s.x)*dx+(z-s.z)*dz)/l2 : 0;
+    const start=s.height ?? s.h0;
+    if (!Number.isFinite(start)) return 0;
+    const top=start+((s.height2 ?? start)-start)*u;
+    return (top-h)*plateau(hardT(s,d/r),s.skirt == null ? PLATEAU_SKIRT : clamp01(s.skirt));
+  }
   if (s.kind === 'cave') {
     // the cut stands in front of the mouth, on the mouth's own bearing
     const yaw = s.yaw || 0;
@@ -1101,7 +1115,7 @@ export function overlapsDisc(s, x, z, r) {
   const sr = Math.max(MIN_R, s.r || 0);
   if (s.kind === 'ridge' || s.kind === 'valley') return lineDist(s, x, z) < sr + r;
   if (s.kind === 'river') return riverAt(s, x, z).d < riverHalf(s) + r;
-  if (s.kind === 'ground') return paintDist(s, x, z) < sr + r;
+  if (s.kind === 'ground' || (s.kind === 'plateau' && Number.isFinite(s.x2) && Number.isFinite(s.z2))) return paintDist(s, x, z) < sr + r;
   if (s.kind === 'cave') {
     const yaw = s.yaw || 0;
     const cx = s.x + Math.sin(yaw) * sr * CAVE_CUT_AHEAD;
@@ -1414,6 +1428,10 @@ export function createTerrainEdits(opts = {}) {
     // derived by whatever code read it, and two readers is two mountains.
     if ((s.kind === 'mountain' || s.kind === 'noise') && !Number.isFinite(s.seed)) {
       s.seed = (Math.round(s.x) * 73856093 ^ Math.round(s.z) * 19349663 ^ (s.id || nextId) * 83492791) >>> 0;
+    }
+    if (s.kind === 'plateau') {
+      if (!(Number.isFinite(s.x2) && Number.isFinite(s.z2))) { delete s.x2; delete s.z2; delete s.height2; }
+      if (!Number.isFinite(s.height2)) delete s.height2;
     }
     if (s.kind === 'ground') {
       s.word = s.word || s.ground || 'dirt';

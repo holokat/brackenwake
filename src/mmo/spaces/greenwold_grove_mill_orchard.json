@@ -1,0 +1,83 @@
+{
+  "id": "greenwold_grove_mill_orchard",
+  "name": "Oak stand",
+  "note": "The mill orchard trees frame the nearby route.",
+  "at": {
+    "x": -1060,
+    "z": -445
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -25.5,
+      "z": -19.74,
+      "scale": 0.6,
+      "yaw": -8,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -6.69,
+      "z": -17.1,
+      "scale": 0.65,
+      "yaw": 39,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 12.13,
+      "z": -14.45,
+      "scale": 0.6,
+      "yaw": 86,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 30.94,
+      "z": -11.81,
+      "scale": 0.65,
+      "yaw": 133,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -28.42,
+      "z": 1.05,
+      "scale": 0.65,
+      "yaw": 180,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -9.61,
+      "z": 3.7,
+      "scale": 0.6,
+      "yaw": 227,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 9.21,
+      "z": 6.34,
+      "scale": 0.65,
+      "yaw": 274,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 28.02,
+      "z": 8.99,
+      "scale": 0.6,
+      "yaw": 321,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

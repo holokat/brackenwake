@@ -12,71 +12,9 @@
   "areas": [],
   "people": [],
   "spawns": [],
-  "trees": [
-    {
-      "species": "beech",
-      "x": -97.73,
-      "z": -105.44,
-      "yaw": 273.34,
-      "scale": 1.05
-    },
-    {
-      "species": "oak",
-      "x": -70.11,
-      "z": -109.88,
-      "yaw": 81.7,
-      "scale": 1.01
-    },
-    {
-      "species": "beech",
-      "x": -101.27,
-      "z": -97.02,
-      "yaw": 279.33,
-      "scale": 0.94
-    },
-    {
-      "species": "beech",
-      "x": -88.08,
-      "z": -93.7,
-      "yaw": 292.87,
-      "scale": 1.29
-    },
-    {
-      "species": "beech",
-      "x": -77.54,
-      "z": -95.74,
-      "yaw": 295.73,
-      "scale": 1.08
-    },
-    {
-      "species": "beech",
-      "x": -99.39,
-      "z": -78.38,
-      "yaw": 300.93,
-      "scale": 0.95
-    },
-    {
-      "species": "beech",
-      "x": -84.37,
-      "z": -78.13,
-      "yaw": 57.52,
-      "scale": 1.36
-    },
-    {
-      "species": "beech",
-      "x": -100.41,
-      "z": -66.79,
-      "yaw": 96.35,
-      "scale": 1.08
-    },
-    {
-      "species": "beech",
-      "x": -101.49,
-      "z": -52.35,
-      "yaw": 238.6,
-      "scale": 1.38
-    }
-  ],
+  "trees": [],
   "rocks": [],
-  "markers": []
+  "markers": [],
+  "forage": [],
+  "stations": []
 }

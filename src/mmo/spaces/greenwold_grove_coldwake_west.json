@@ -1,0 +1,171 @@
+{
+  "id": "greenwold_grove_coldwake_west",
+  "name": "Oak stand",
+  "note": "The coldwake west trees frame the nearby route.",
+  "at": {
+    "x": -576,
+    "z": 838
+  },
+  "radius": 100,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -38.53,
+      "z": -27.43,
+      "scale": 0.95,
+      "yaw": -22,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -30.88,
+      "z": -38.36,
+      "scale": 1.1,
+      "yaw": 25,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -17.29,
+      "z": -47.97,
+      "scale": 1.2,
+      "yaw": 72,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -0.38,
+      "z": -49.77,
+      "scale": 1.05,
+      "yaw": 119,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 16.88,
+      "z": -47.11,
+      "scale": 1.3,
+      "yaw": 166,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 32.62,
+      "z": -35.35,
+      "scale": 1.2,
+      "yaw": 213,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 45.01,
+      "z": -20.64,
+      "scale": 1.1,
+      "yaw": 260,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 49.96,
+      "z": -3.54,
+      "scale": 0.9,
+      "yaw": 307,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 47.31,
+      "z": 13.72,
+      "scale": 1.15,
+      "yaw": 354,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -41.97,
+      "z": -53.63,
+      "scale": 0.8,
+      "yaw": 41,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -18.71,
+      "z": -65.8,
+      "scale": 0.9,
+      "yaw": 88,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 6.73,
+      "z": -67.38,
+      "scale": 1.1,
+      "yaw": 135,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 51.58,
+      "z": -39.56,
+      "scale": 0.85,
+      "yaw": 229,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 67.26,
+      "z": -11.65,
+      "scale": 1.1,
+      "yaw": 276,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -56.58,
+      "z": -17.47,
+      "scale": 1,
+      "yaw": 323,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 64.76,
+      "z": 13.22,
+      "scale": 0.85,
+      "yaw": 10,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 51.69,
+      "z": 34.9,
+      "scale": 1,
+      "yaw": 57,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": -58.93,
+      "z": -35.67,
+      "scale": 0.8,
+      "yaw": 104,
+      "harvest": true
+    },
+    {
+      "species": "oak",
+      "x": 33.29,
+      "z": 40.41,
+      "scale": 0.9,
+      "yaw": 151,
+      "harvest": true
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

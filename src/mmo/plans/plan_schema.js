@@ -60,6 +60,8 @@ import { ZONE } from '../../world/zones.js';
 import { MONSTERS } from '../monsters.js';
 import { NPCS } from '../npcs.js';
 import { STORY_ROLES, PERSON } from '../story.js';
+import { STATION_IDS } from '../recipes.js';
+import { FORAGE_MATERIAL_IDS } from '../recipes.js';
 import { FOOTPRINT, footprintOf, isRunKind, hasStandIn, AREA_KINDS } from './footprints.js';
 
 /** How close two footprints may come before it counts as an overlap, metres. */
@@ -178,6 +180,13 @@ function auditAll(plans, kind = 'plan') {
     if (/—/.test(JSON.stringify(plan))) bad.push(`${at} has an em dash in it`);
 
     const R = plan.radius || 0;
+    for(const [list,ids]of [['stations',STATION_IDS],['forage',FORAGE_MATERIAL_IDS]]){
+      for(const p of plan[list]||[]){
+        if(!ids.includes(p.id))bad.push(`${at}: ${list} names unknown id "${p.id}"`);
+        if(!Number.isFinite(p.x)||!Number.isFinite(p.z)||Math.hypot(p.x,p.z)>R)bad.push(`${at}: ${list} has an invalid position`);
+        if(list==='forage' && ![1,2].includes(p.count))bad.push(`${at}: forage count must match one or two visible plants`);
+      }
+    }
     const rects = [];
     for (const p of plan.pieces || []) {
       pieces++;
@@ -239,7 +248,7 @@ function auditAll(plans, kind = 'plan') {
       const who = p.name || p.role;
       if (!isRole(p.role)) bad.push(`${at}: "${who}" keeps the role "${p.role}", which is not one`);
       if (p.name && !PERSON[p.name]) bad.push(`${at}: "${p.name}" is not one of the story's people`);
-      if (p.name && PERSON[p.name] && PERSON[p.name].place !== plan.place) {
+      if (!isSpace && p.name && PERSON[p.name] && PERSON[p.name].place !== plan.place) {
         bad.push(`${at}: ${PERSON[p.name].name} belongs to ${PERSON[p.name].place} and is standing in ${plan.place}`);
       }
       if (Math.hypot(p.x, p.z) > R + 0.001) bad.push(`${at}: "${who}" stands ${Math.hypot(p.x, p.z).toFixed(1)} m out, outside the plan's ${R} m`);
