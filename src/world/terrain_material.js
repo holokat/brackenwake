@@ -172,6 +172,15 @@ export const PAINT_MIX = {
 export const PAINT_STRENGTH = 0.9;
 
 const mixInto = (w, target, t) => { for (let i = 0; i < 6; i++) w[i] = lerp(w[i], target[i], t); };
+/**
+ * One scratch row for the painted mix, so a terrain vertex allocates nothing.
+ *
+ * `layerWeights` is called once per vertex of every chunk in the ring, so the
+ * six weights the paint sums into cannot be a fresh array. It is left at zero
+ * by whoever fills it, which is the only rule about it and the reason the loop
+ * that uses it zeroes it again on the way out.
+ */
+const PAINT_ROW = [0, 0, 0, 0, 0, 0];
 
 /**
  * What the ground would be if nobody had drawn a biome map: cold ground thin
@@ -261,12 +270,37 @@ export function layerWeights(s, slope = 0, road = 0, out = new Array(6)) {
 
   // HAND PAINTED GROUND, over everything the country did and under the road.
   //
-  // `sample.ground` is the word a `ground` stroke left here and it is null on
-  // every sample of a world nobody has edited, so this is one property read for
-  // the ordinary case. Under the road because a road across a painted yard is
-  // still a road; over the biome, the climate and the slope because a person
-  // saying "this is rock" has looked at it and the noise has not.
-  if (s.ground) {
+  // `sample.groundMix` is the weight of every word a `ground` stroke left here
+  // and it is null on every sample of a world nobody has painted, so this is
+  // one property read for the ordinary case. Under the road because a road
+  // across a painted yard is still a road; over the biome, the climate and the
+  // slope because a person saying "this is rock" has looked at it and the noise
+  // has not.
+  //
+  // ED5: A MIX AND NOT A WORD, and this is where a feathered rim becomes a
+  // picture. The rows are summed by weight into one row and laid on at
+  // `PAINT_STRENGTH * total`, which is linear and so does not care what order
+  // the words came in, and which reduces EXACTLY to the old line when one word
+  // covers the point at full weight: `row` is then that word's own row and
+  // `total` is 1. That is what makes a file written before ED5 draw the ground
+  // it always drew, to the bit.
+  //
+  // `s.ground` is still read when there is no mix, so anything that builds a
+  // sample by hand (the minimap's own, a test's) goes on working.
+  if (s.groundMix) {
+    let total = 0;
+    for (const word in s.groundMix) {
+      const w = s.groundMix[word], paint = PAINT_MIX[word];
+      if (!paint || !(w > 0)) continue;
+      total += w;
+      for (let i = 0; i < 6; i++) PAINT_ROW[i] += paint[i] * w;
+    }
+    if (total > 0) {
+      for (let i = 0; i < 6; i++) PAINT_ROW[i] /= total;
+      mixInto(out, PAINT_ROW, PAINT_STRENGTH * Math.min(1, total));
+      for (let i = 0; i < 6; i++) PAINT_ROW[i] = 0;
+    }
+  } else if (s.ground) {
     const paint = PAINT_MIX[s.ground];
     if (paint) mixInto(out, paint, PAINT_STRENGTH);
   }

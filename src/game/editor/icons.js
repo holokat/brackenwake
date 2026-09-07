@@ -12,7 +12,7 @@
 
 /** Every mark, as the body of an svg. Stroked, never filled. */
 export const MARKS = {
-  // the nine modes
+  // the ten modes
   sculpt: '<path d="M3 19 L9 9 l4 5 3 -4 5 9 z M12 3 v3 M9 5 l1.5 2 M15 5 l-1.5 2" />',
   paint: '<path d="M6 3 h12 v5 H6 z M12 8 v4 M10 12 h4 v4 h-4 z M12 16 v5" />',
   foliage: '<path d="M12 21 v-7 M12 14 L7 9 M12 14 l5 -5 M12 9 L9 5 M12 9 l3 -4 M4 21 c1 -3 2 -3 3 0 M17 21 c1 -3 2 -3 3 0" />',
@@ -22,6 +22,10 @@ export const MARKS = {
   people: '<circle cx="12" cy="7" r="3" /><path d="M5 21 c0 -5 3 -7 7 -7 s7 2 7 7" />',
   markers: '<path d="M7 21 V3 M7 4 h11 l-3 4 3 4 H7" />',
   water: '<path d="M3 9 c3 -3 6 3 9 0 s6 -3 9 0 M3 15 c3 -3 6 3 9 0 s6 -3 9 0" />',
+  // ED5. An eraser held at an angle, with the ground ruled off under it. One
+  // mark, drawn once: the rail cell, the tile in the tray and the brush in hand
+  // are all the same thing, so they are all the same drawing.
+  erase: '<path d="M9.5 19.5 L3.5 13.5 12 5 18 11 z M8 10 l6 6 M4 21 h16" />',
 
   // the trays' own marks, for tiles that are not brushes
   tree: '<path d="M12 21 v-6 M12 15 L6 9 h3 L6 5 h4 L12 2 l2 3 h4 l-3 4 h3 z" />',

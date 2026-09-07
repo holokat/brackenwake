@@ -4,9 +4,16 @@
 // the module is pure and takes its ground from a sampler, so this file hands it
 // a hillside it knows the shape of and then asks what the ground became.
 
+import { readFileSync } from 'node:fs';
 import {
   createTerrainEdits, deltaOf, maxGrade, dome, wallStart, kinds, KIND_PARAMS,
   terraceOf, lineDist, reachOf, noiseFor, noiseTablesHeld,
+  // ED5
+  ERASE_KIND, HARD_KINDS, OPACITY_KINDS, SOFT_RIM, MIX_DOMINANT,
+  PAINT_HARDNESS, PAINT_OPACITY, SCULPT_HARDNESS, ERASE_HARDNESS,
+  hardnessOf, opacityOf, coreFrac, coreRadius, hardT, edgeFall, eraseMaskOf,
+  eraseHalfR, paintWeightOf, dominantOf, stackDelta, stackGround, overlapsDisc,
+  auditFeather,
   STROKE_KINDS, GROUND_WORDS, BASE_GROUNDS, MODES, DEFAULT_BASE, GRID, NEEDS_YAW,
   CAVE_CUT, CAVE_CUT_AHEAD, SMOOTH_PULL, ERODE_PULL, LAKE_FLOOR,
   MOUNTAIN_MAX_R, MOUNTAIN_MAX_AMOUNT, MOUNTAIN_RIDGE, MOUNTAIN_WAVE, MOUNTAIN_OCTAVES,
@@ -828,16 +835,22 @@ function wired(hf) {
   // the class of bug this table exists to prevent, and it cannot be caught by
   // reading the table: it has to be driven.
   //
-  // Three of the twenty brushes cannot be judged on the height they move and
-  // all three are named here rather than skipped quietly:
+  // Four of the twenty one brushes cannot be judged on the height they move and
+  // all four are named here rather than skipped quietly:
   //
-  //   ground   moves no height at all. It is judged on the WORD it leaves.
+  //   ground   moves no height at all. It is judged on the MIX it leaves, which
+  //            is what the material blends by, so `hardness` and `opacity` are
+  //            driven on the weights and not only on the word: a rim that goes
+  //            from 0.7 of a word to 0.6 of it is a slider doing its job, and
+  //            the word at the centre never moved.
   //   cave     `amount` is the size of the cavern under the mouth and not the
   //            shape of the mouth, so it changes the stroke and not the ground.
   //            What it changes it into is measured in world_runtime.test.mjs,
   //            where small, medium and large come out at 1, 2 and 3 levels.
   //   drain    takes water away and moves nothing, so it is driven with water
   //            under it: a sea 700 m across, and the drain cut into it.
+  //   erase    takes ground away and lays none, so it is driven with ground
+  //            under it: a 60 m mountain, and the eraser cut into that.
   const dead = [];
   // `x2` and `z2` for the same reason `length` is here: a river given neither
   // is a river with both ends in one place, and every knob that only shows up
@@ -860,9 +873,39 @@ function wired(hf) {
       const other = p.default === mid ? p.max : mid;
       const A = probe(row, p, p.default), B = probe(row, p, other);
       if (row.kind === 'ground') {
-        // the paint brush: the word and the reach are all it has
-        const a2 = createTerrainEdits({ baseHeight: base }); a2.stroke({ ...A, id: null });
-        if (a2.groundOverride(0, 0) !== 'dirt' || A.r === B.r) dead.push(`${row.kind}.${p.name}`);
+        // The paint brush: it is judged on the weights it leaves, walked over
+        // the whole of the wider of the two discs, so a knob that only shows up
+        // on the rim is still a knob that showed up.
+        const laid = (s) => { const e = createTerrainEdits({ baseHeight: base }); e.stroke({ ...s, id: null }); return e; };
+        const one = laid(A), two = laid(B);
+        const at = (e, x, z) => { const m = e.groundMixAt(x, z); return m ? (m.dirt || 0) : 0; };
+        if (one.groundOverride(0, 0) !== 'dirt') { dead.push(`${row.kind}.${p.name}`); continue; }
+        let moved = false;
+        const span = Math.max(A.r, B.r) + 6;
+        for (let i = 0; i < 31 * 31 && !moved; i++) {
+          const x = ((i % 31) / 30 * 2 - 1) * span, z = (Math.floor(i / 31) / 30 * 2 - 1) * span;
+          if (Math.abs(at(one, x, z) - at(two, x, z)) > 1e-9) moved = true;
+        }
+        if (!moved) dead.push(`${row.kind}.${p.name}`);
+        continue;
+      }
+      if (row.kind === 'erase') {
+        // The eraser: nothing to erase, nothing to measure. A mountain goes
+        // under it, and the knob is judged on how much of that mountain is
+        // left, which is the whole of what an eraser does.
+        const over = (s) => {
+          const e = createTerrainEdits({ baseHeight: base });
+          e.stroke({ kind: 'mountain', x: 0, z: 0, r: 200, amount: 60, roughness: 0, seed: 7 });
+          e.stroke({ ...s, id: null });
+          return e;
+        };
+        const one = over(A), two = over(B);
+        let rubbed = false;
+        for (const [x, z] of stripPoints(Math.max(reachOf(A), reachOf(B), 60), Math.max(reachOf(A), reachOf(B)) + 20)) {
+          const h = base(x, z);
+          if (Math.abs(one.heightDelta(x, z, h) - two.heightDelta(x, z, h)) > 1e-9) { rubbed = true; break; }
+        }
+        if (!rubbed) dead.push(`${row.kind}.${p.name}`);
         continue;
       }
       if (row.kind === 'cave' && p.name === 'amount') {
@@ -1162,6 +1205,316 @@ function wired(hf) {
   check('driven the other way: a world with no water in it is not wet, and never asks',
     drySoil.wet === false && drySoil.waterBodies().length === 0 && drySoil.waterAt(0, 0, 0).water === false,
     `${drySoil.count} strokes, none of them water`);
+}
+
+
+// ---------------------------------------------------------------------------
+// 18. ED5: the eraser
+//
+// Everything here is driven through the list's own surface, which is the
+// surface field.js reads, and both ways: what an erase takes AND what it leaves
+// standing, inside the ring and outside it, before it and after it.
+// ---------------------------------------------------------------------------
+console.log('\nED5: the eraser');
+{
+  // ---- height ------------------------------------------------------------
+  {
+    const e = createTerrainEdits({ baseHeight: flat });
+    e.stroke({ kind: 'raise', x: 0, z: 0, r: 30, amount: 10 });
+    const before = { c: e.heightDelta(0, 0, 0), out: e.heightDelta(26, 0, 0) };
+    e.stroke({ kind: ERASE_KIND, x: 0, z: 0, r: 12, hardness: 1, opacity: 1 });
+    check('an erase takes the height under it back to the flat',
+      before.c === 10 && Math.abs(e.heightDelta(0, 0, 0)) < 1e-12,
+      `${before.c} m before, ${e.heightDelta(0, 0, 0).toExponential(1)} m after`);
+    check('and leaves the same stroke untouched outside its own ring',
+      e.heightDelta(26, 0, 0) === before.out, `${e.heightDelta(26, 0, 0).toFixed(4)} m, still`);
+    // and a stroke laid on top of it applies, exactly as one laid over a drain does
+    e.stroke({ kind: 'raise', x: 0, z: 0, r: 8, amount: 3 });
+    check('a stroke laid AFTER an erase applies in full: order is the picture',
+      Math.abs(e.heightDelta(0, 0, 0) - 3) < 1e-9, `${e.heightDelta(0, 0, 0).toFixed(4)} m`);
+    // ...and one laid before it does not come back
+    check('and the one under it is still gone: an erase is not a toggle',
+      Math.abs(e.heightDelta(9, 0, 0)) < 0.2, `${e.heightDelta(9, 0, 0).toFixed(4)} m at 9 m out`);
+  }
+  // an erase with nothing under it moves nothing, and says so by moving nothing
+  {
+    const e = createTerrainEdits({ baseHeight: base });
+    e.stroke({ kind: ERASE_KIND, x: 50, z: 50, r: 20 });
+    let worst = 0;
+    for (let i = 0; i < 400; i++) {
+      const x = 50 + (i % 20) * 2 - 20, z = 50 + Math.floor(i / 20) * 2 - 20;
+      worst = Math.max(worst, Math.abs(e.heightDelta(x, z, base(x, z))));
+    }
+    check('an erase over ground nobody has touched moves nothing at all', worst === 0, `${worst} m over 400 points`);
+  }
+  // ---- paint -------------------------------------------------------------
+  {
+    const e = createTerrainEdits({ baseHeight: flat });
+    e.stroke({ kind: 'ground', x: 0, z: 0, r: 30, word: 'rock' });
+    check('the paint is there to begin with', e.groundOverride(0, 0) === 'rock' && e.groundOverride(20, 0) === 'rock');
+    e.stroke({ kind: ERASE_KIND, x: 0, z: 0, r: 12, hardness: 1, opacity: 1 });
+    check('an erase takes the paint with the ground',
+      e.groundOverride(0, 0) === null && e.groundMixAt(0, 0) === null, `${e.groundOverride(0, 0)}`);
+    check('and not one metre outside its own ring',
+      e.groundOverride(20, 0) === 'rock', `${e.groundOverride(20, 0)}`);
+    e.stroke({ kind: 'ground', x: 0, z: 0, r: 6, word: 'sand' });
+    check('and paint laid over an erase paints', e.groundOverride(0, 0) === 'sand', `${e.groundOverride(0, 0)}`);
+  }
+  // ---- water -------------------------------------------------------------
+  {
+    const e = createTerrainEdits({ baseHeight: flat });
+    e.stroke({ kind: 'lake', x: 0, z: 0, r: 40, level: 4, depth: 3 });
+    const wet = (x) => e.waterAt(x, 0, flat(x, 0) + e.heightDelta(x, 0, flat(x, 0))).water;
+    check('the lake is wet to begin with', wet(0) && wet(30));
+    e.stroke({ kind: ERASE_KIND, x: 0, z: 0, r: 15, hardness: 1, opacity: 1 });
+    check('an erase takes the water inside its ring and leaves the rest of the lake',
+      wet(0) === false && wet(30) === true, `${wet(0)} at the middle, ${wet(30)} at 30 m`);
+    check('and the bed it cut is filled back in with it',
+      Math.abs(e.heightDelta(0, 0, 0)) < 1e-12, `${e.heightDelta(0, 0, 0).toExponential(1)} m`);
+    const body = e.waterBodies();
+    check('the surface the renderer draws has the same hole cut in it',
+      body.length === 1 && body[0].drains.length === 1
+      && Math.abs(body[0].drains[0].r - eraseHalfR({ kind: ERASE_KIND, x: 0, z: 0, r: 15, hardness: 1, opacity: 1 })) < 1e-9,
+      `${body.length} bodies, ${body[0].drains.length} holes of ${body[0].drains[0].r.toFixed(2)} m`);
+    // a lake laid AFTER the erase is water again
+    e.stroke({ kind: 'lake', x: 0, z: 0, r: 8, level: 4, depth: 2 });
+    check('and a lake laid after it is wet again', wet(0) === true);
+  }
+  // an erase over the generator's own ocean puts the ocean back, not dry ground
+  {
+    const e = createTerrainEdits({ baseHeight: flat });
+    e.stroke({ kind: 'drain', x: 0, z: 0, r: 40 });
+    check('a drain takes the world\'s own water away', e.waterAt(0, 0, -3, true).water === false);
+    e.stroke({ kind: ERASE_KIND, x: 0, z: 0, r: 20, hardness: 1, opacity: 1 });
+    check('and an erase over that drain puts the world\'s own water back, because that is the blank canvas',
+      e.waterAt(0, 0, -3, true).water === true && e.waterAt(0, 0, -3, false).water === false,
+      'the ocean where there was one, dry ground where there was not');
+  }
+  // ---- the mouth of a cave goes with the hillside it was cut into ---------
+  {
+    const e = createTerrainEdits({ baseHeight: flat });
+    e.stroke({ kind: 'cave', x: 0, z: 0, r: 8, amount: 2, yaw: 0 });
+    e.stroke({ kind: 'cave', x: 200, z: 0, r: 8, amount: 2, yaw: 0 });
+    check('two mouths to start with', e.caves().length === 2);
+    e.stroke({ kind: ERASE_KIND, x: 0, z: 0, r: 20, hardness: 1, opacity: 1 });
+    check('an erase over a cave mouth takes the mouth with the hillside',
+      e.caves().length === 1 && e.caves()[0].x === 200, `${e.caves().length} left`);
+  }
+  // ---- the soft edge -----------------------------------------------------
+  {
+    const e = createTerrainEdits({ baseHeight: flat });
+    e.stroke({ kind: 'raise', x: 0, z: 0, r: 40, amount: 10 });
+    const full = (x) => 10 * dome(Math.abs(x) / 40);
+    e.stroke({ kind: ERASE_KIND, x: 0, z: 0, r: 20, hardness: 0, opacity: 1 });
+    const at = (x) => e.heightDelta(x, 0, 0);
+    check('at hardness 0 an eraser takes everything at its centre',
+      Math.abs(at(0)) < 1e-12, `${at(0).toExponential(1)} m`);
+    check('and less and less of it the further out you go, and nothing at its rim',
+      at(5) < at(10) && at(10) < at(15) && Math.abs(at(20) - full(20)) < 1e-9,
+      `${at(5).toFixed(2)}, ${at(10).toFixed(2)}, ${at(15).toFixed(2)} m against ${full(20).toFixed(2)} at the rim`);
+    // and the same eraser at hardness 1 takes the lot, out to two metres of rim
+    const h = createTerrainEdits({ baseHeight: flat });
+    h.stroke({ kind: 'raise', x: 0, z: 0, r: 40, amount: 10 });
+    h.stroke({ kind: ERASE_KIND, x: 0, z: 0, r: 20, hardness: 1, opacity: 1 });
+    const hard = (x) => h.heightDelta(x, 0, 0);
+    check('at hardness 1 it takes the whole ring but the last two metres of rim',
+      Math.abs(hard(0)) < 1e-12 && Math.abs(hard(17.9)) < 1e-12 && hard(19.5) > 0 && Math.abs(hard(20) - full(20)) < 1e-9,
+      `nothing left at 17.9 m, ${hard(19.5).toFixed(3)} m at 19.5, ${full(20).toFixed(3)} at the rim`);
+    check('and the rim it keeps is SOFT_RIM metres, off the constant and not off a guess',
+      Math.abs(coreRadius({ kind: ERASE_KIND, r: 20, hardness: 1 }) - (20 - SOFT_RIM)) < 1e-9,
+      `${coreRadius({ kind: ERASE_KIND, r: 20, hardness: 1 })} m of core in a 20 m ring`);
+  }
+  // opacity: half an eraser leaves half the ground
+  {
+    const e = createTerrainEdits({ baseHeight: flat });
+    e.stroke({ kind: 'raise', x: 0, z: 0, r: 40, amount: 10 });
+    e.stroke({ kind: ERASE_KIND, x: 0, z: 0, r: 20, hardness: 1, opacity: 0.5 });
+    check('an eraser at half opacity leaves half the ground it found',
+      Math.abs(e.heightDelta(0, 0, 0) - 5) < 1e-9, `${e.heightDelta(0, 0, 0).toFixed(4)} m of the 10`);
+    e.stroke({ kind: ERASE_KIND, x: 0, z: 0, r: 20, hardness: 1, opacity: 0.5 });
+    check('and a second pass leaves half of that', Math.abs(e.heightDelta(0, 0, 0) - 2.5) < 1e-9,
+      `${e.heightDelta(0, 0, 0).toFixed(4)} m`);
+  }
+  // ---- how many strokes it reaches, counted ------------------------------
+  {
+    const e = createTerrainEdits({ baseHeight: flat });
+    e.stroke({ kind: 'raise', x: 0, z: 0, r: 20, amount: 4 });
+    e.stroke({ kind: 'ground', x: 10, z: 0, r: 8, word: 'dirt' });
+    e.stroke({ kind: 'raise', x: 900, z: 900, r: 20, amount: 4 });
+    // a ridge whose HEAD is far away but whose body runs past the point
+    e.stroke({ kind: 'ridge', x: -300, z: 0, r: 20, amount: 10, length: 320, yaw: Math.PI / 2 });
+    const s = e.stroke({ kind: ERASE_KIND, x: 0, z: 0, r: 10 });
+    check('an erase counts the strokes it really reaches, and not the ones it does not',
+      e.maskedBefore(s) === 3, `${e.maskedBefore(s)} of the 4 laid before it`);
+    check('and the count is the stroke\'s own shape and not its bounding radius',
+      overlapsDisc({ kind: 'ridge', x: -300, z: 0, r: 20, length: 320, yaw: Math.PI / 2 }, 0, 0, 10) === true
+      && overlapsDisc({ kind: 'ridge', x: -300, z: 0, r: 20, length: 320, yaw: Math.PI / 2 }, 0, 300, 10) === false,
+      'a range is a capsule, and the ground beside it is not in it');
+    const after = e.stroke({ kind: 'raise', x: 0, z: 0, r: 5, amount: 1 });
+    check('and a stroke laid after an erase is not one of the strokes it masks',
+      e.maskedBefore(s) === 3 && after.kind === 'raise');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 19. ED5: feathering, and the promise that nothing already saved moved
+// ---------------------------------------------------------------------------
+console.log('\nED5: hardness, opacity, and the old files');
+{
+  // ---- what absence means -------------------------------------------------
+  check('a stroke with no hardness in it reads as the behaviour its kind already had',
+    hardnessOf({ kind: 'ground' }) === 1 && hardnessOf({ kind: 'raise' }) === SCULPT_HARDNESS
+    && hardnessOf({ kind: ERASE_KIND }) === ERASE_HARDNESS && opacityOf({ kind: 'ground' }) === 1,
+    `paint ${hardnessOf({ kind: 'ground' })}, sculpt ${hardnessOf({ kind: 'raise' })}, erase ${hardnessOf({ kind: ERASE_KIND })}`);
+  check('and the knobs a kind does not take are dropped off the stroke rather than kept and ignored',
+    (() => {
+      const e = createTerrainEdits({ baseHeight: flat });
+      const lake = e.stroke({ kind: 'lake', x: 0, z: 0, r: 20, level: 2, depth: 2, hardness: 0.5, opacity: 0.5 });
+      const raise = e.stroke({ kind: 'raise', x: 0, z: 0, r: 20, amount: 2, hardness: 0.5, opacity: 0.5 });
+      return lake.hardness === undefined && lake.opacity === undefined
+        && raise.hardness === 0.5 && raise.opacity === undefined;
+    })(), 'water takes neither, a sculpt brush takes hardness and not opacity');
+  check('every kind that reads a knob offers a slider for it, and no kind offers one nothing reads',
+    (() => { const a = auditFeather(); return a.hard === HARD_KINDS.length && a.opacity === OPACITY_KINDS.length; })(),
+    `${HARD_KINDS.length} brushes with a soft edge, ${OPACITY_KINDS.length} with an opacity`);
+
+  // ---- the sculpt profile at both ends ------------------------------------
+  {
+    const dome0 = createTerrainEdits({ baseHeight: flat });
+    dome0.stroke({ kind: 'raise', x: 0, z: 0, r: 40, amount: 10, hardness: 0 });
+    const plain = createTerrainEdits({ baseHeight: flat });
+    plain.stroke({ kind: 'raise', x: 0, z: 0, r: 40, amount: 10 });
+    let worst = 0;
+    for (let d = 0; d <= 44; d += 0.25) worst = Math.max(worst, Math.abs(dome0.heightDelta(d, 0, 0) - plain.heightDelta(d, 0, 0)));
+    check('a raise at hardness 0 is the dome it always was, to the bit', worst === 0,
+      `worst difference ${worst} m over 177 points`);
+    check('and hardT at hardness 0 is the identity, which is why', hardT({ kind: 'raise', r: 40 }, 0.37) === 0.37);
+
+    const flatTop = createTerrainEdits({ baseHeight: flat });
+    flatTop.stroke({ kind: 'raise', x: 0, z: 0, r: 40, amount: 10, hardness: 1 });
+    const at = (d) => flatTop.heightDelta(d, 0, 0);
+    check('and at hardness 1 it is a flat topped mound: full height across the whole ring',
+      Math.abs(at(0) - 10) < 1e-9 && Math.abs(at(20) - 10) < 1e-9 && Math.abs(at(37.9) - 10) < 1e-9,
+      `${at(0).toFixed(3)}, ${at(20).toFixed(3)}, ${at(37.9).toFixed(3)} m`);
+    check('with SOFT_RIM metres of rim under it, so no chunk can crack on its edge',
+      at(39) > 0 && at(39) < 10 && at(40) === 0 && at(41) === 0,
+      `${at(39).toFixed(3)} m at 39, ${at(40)} at the rim`);
+    // and the rim really is smooth: the biggest one centimetre step anywhere
+    let step = 0;
+    for (let d = 36; d <= 41; d += 0.01) step = Math.max(step, Math.abs(at(d) - at(d - 0.01)));
+    check('and the steepest metre of that rim is the one maxGrade claims',
+      step / 0.01 <= maxGrade({ kind: 'raise', r: 40, amount: 10, hardness: 1 }) + 1e-6,
+      `measured ${(step / 0.01).toFixed(2)}, claimed ${maxGrade({ kind: 'raise', r: 40, amount: 10, hardness: 1 }).toFixed(2)} m per m`);
+    check('and hardness is what made it steeper than the plain dome',
+      maxGrade({ kind: 'raise', r: 40, amount: 10, hardness: 1 }) > maxGrade({ kind: 'raise', r: 40, amount: 10 }) * 5,
+      `${maxGrade({ kind: 'raise', r: 40, amount: 10 }).toFixed(3)} soft against ${maxGrade({ kind: 'raise', r: 40, amount: 10, hardness: 1 }).toFixed(3)} hard`);
+  }
+
+  // ---- paint: the mix, and the numbers it was asked for --------------------
+  {
+    const e = createTerrainEdits({ baseHeight: flat });
+    e.stroke({ kind: 'ground', x: 0, z: 0, r: 20, word: 'grass', hardness: 1, opacity: 1 });
+    e.stroke({ kind: 'ground', x: 0, z: 0, r: 20, word: 'snow', hardness: 1, opacity: 0.3 });
+    const mix = e.groundMixAt(0, 0);
+    check('snow at 0.3 over grass is 0.3 snow and 0.7 grass',
+      Math.abs(mix.snow - 0.3) < 1e-9 && Math.abs(mix.grass - 0.7) < 1e-9,
+      `snow ${mix.snow.toFixed(3)}, grass ${mix.grass.toFixed(3)}`);
+    check('and the word the rest of the game reads is the one over half of it',
+      e.groundOverride(0, 0) === 'grass' && MIX_DOMINANT === 0.5, `${e.groundOverride(0, 0)}`);
+
+    const t = createTerrainEdits({ baseHeight: flat });
+    const climb = [];
+    for (let i = 0; i < 3; i++) {
+      t.stroke({ kind: 'ground', x: 0, z: 0, r: 20, word: 'snow', hardness: 1, opacity: 0.3 });
+      climb.push(t.groundMixAt(0, 0).snow);
+    }
+    check('three passes at 0.3 climb 0.3, 0.51, 0.657 and never reach 1',
+      Math.abs(climb[0] - 0.3) < 1e-9 && Math.abs(climb[1] - 0.51) < 1e-9 && Math.abs(climb[2] - 0.657) < 1e-9,
+      climb.map((v) => v.toFixed(3)).join(', '));
+    check('and the third pass is the one that makes it the word the ground answers',
+      t.groundOverride(0, 0) === 'snow', `${climb[2].toFixed(3)} of snow`);
+    check('a mix never adds up to more than the whole of the ground',
+      (() => {
+        const m = createTerrainEdits({ baseHeight: flat });
+        for (let i = 0; i < 40; i++) m.stroke({ kind: 'ground', x: 0, z: 0, r: 20, word: GROUND_WORDS[i % GROUND_WORDS.length], hardness: 1, opacity: 0.7 });
+        const w = m.groundMixAt(0, 0);
+        const total = Object.values(w).reduce((a, b) => a + b, 0);
+        return total <= 1 + 1e-9 && Object.values(w).every((v) => v >= 0 && v <= 1);
+      })(), 'forty passes of ten words, and the total is still one ground');
+  }
+
+  // paint's own falloff, driven at both ends
+  {
+    const hardDisc = createTerrainEdits({ baseHeight: flat });
+    hardDisc.stroke({ kind: 'ground', x: 0, z: 0, r: 20, word: 'dirt', hardness: 1, opacity: 1 });
+    check('paint at hardness 1 is the hard disc it has always been: the word to the last centimetre',
+      hardDisc.groundMixAt(19.99, 0).dirt === 1 && hardDisc.groundMixAt(20.01, 0) === null,
+      'full at 19.99 m, nothing at 20.01');
+    const soft = createTerrainEdits({ baseHeight: flat });
+    soft.stroke({ kind: 'ground', x: 0, z: 0, r: 20, word: 'dirt', hardness: PAINT_HARDNESS, opacity: PAINT_OPACITY });
+    const w = (d) => { const m = soft.groundMixAt(d, 0); return m ? m.dirt : 0; };
+    check('and at the editor\'s own defaults it is full across the core and falls away to nothing',
+      Math.abs(w(0) - PAINT_OPACITY) < 1e-9 && Math.abs(w(6.9) - PAINT_OPACITY) < 1e-9
+      && w(12) < w(6.9) && w(18) < w(12) && w(20.01) === 0,
+      `${w(0).toFixed(3)} at the middle, ${w(12).toFixed(3)} at 12 m, ${w(18).toFixed(3)} at 18, nothing at 20`);
+    check('and the core the ring ghost draws is where the falloff really starts',
+      Math.abs(coreRadius({ kind: 'ground', r: 20, hardness: PAINT_HARDNESS }) - 7) < 1e-9
+      && Math.abs(w(coreRadius({ kind: 'ground', r: 20, hardness: PAINT_HARDNESS })) - PAINT_OPACITY) < 1e-9,
+      `${coreRadius({ kind: 'ground', r: 20, hardness: PAINT_HARDNESS })} m of core in a 20 m brush`);
+  }
+
+  // ---- the promise: a file with no ED5 knob in it lays the same ground -----
+  {
+    // Absence has to BE the old behaviour, and this is the invariant that says
+    // so without a copy of the old module to compare against: for every kind,
+    // a stroke with no knob and a stroke with the knob set to what absence
+    // means have to lay identical ground. If a default is ever changed under
+    // this, this fails.
+    const bad = [];
+    for (const kind of STROKE_KINDS) {
+      if (kind === ERASE_KIND) continue;              // new in ED5: no old file has one
+      const same = (a, b) => {
+        const one = createTerrainEdits({ baseHeight: base }); one.stroke(a);
+        const two = createTerrainEdits({ baseHeight: base }); two.stroke(b);
+        for (let i = 0; i < 41 * 41; i++) {
+          const x = ((i % 41) / 40 * 2 - 1) * 90, z = (Math.floor(i / 41) / 40 * 2 - 1) * 200;
+          const h = base(x, z);
+          if (one.heightDelta(x, z, h) !== two.heightDelta(x, z, h)) return false;
+          if (one.groundOverride(x, z) !== two.groundOverride(x, z)) return false;
+        }
+        return true;
+      };
+      const at = { kind, x: 0, z: 0, r: 30, amount: 4, length: 120, word: 'dirt', x2: 0, z2: 120, yaw: 0.4, level: 3, depth: 2 };
+      const meant = kind === 'ground' ? { hardness: 1, opacity: 1 } : HARD_KINDS.includes(kind) ? { hardness: 0 } : {};
+      if (!same(at, { ...at, ...meant })) bad.push(kind);
+    }
+    check('for every kind, a stroke with no ED5 knob lays exactly the ground the knob\'s own meaning lays',
+      bad.length === 0, bad.length ? `these moved: ${bad.join(', ')}` : `${STROKE_KINDS.length - 1} kinds over 1,681 points each`);
+  }
+
+  // and the user's own sculpt, read off the disk, loads and is asked for both
+  {
+    const file = JSON.parse(readFileSync(new URL('../../public/terrain/greenwold.json', import.meta.url), 'utf8'));
+    const e = createTerrainEdits({ baseHeight: base });
+    const n = e.load(file);
+    let moved = 0, painted = 0;
+    for (let i = 0; i < 5000; i++) {
+      const u = (i * 2654435761 % 100000) / 100000, v = (i * 40503 % 100000) / 100000;
+      const x = (u * 2 - 1) * 600, z = (v * 2 - 1) * 600;
+      if (e.heightDelta(x, z, base(x, z)) !== 0) moved++;
+      if (e.groundOverride(x, z) !== null) painted++;
+    }
+    check('the world file on disk loads, and every stroke in it comes back',
+      n === (file.strokes || []).length && e.count === n, `${n} strokes`);
+    // The claim is only ever what the file actually holds. It holds no strokes
+    // today, so what is proved here is that a strokeless file moves nothing at
+    // all, over 5,000 points; the day it holds strokes, the same 5,000 points
+    // have to find some of them, and this fails if they find none.
+    check(n ? 'and 5,000 points of it stand on ground the strokes moved'
+      : 'and it holds no strokes yet, so not one of 5,000 points is moved or painted',
+      n ? (moved > 0 || painted > 0) : (moved === 0 && painted === 0),
+      `${moved} of 5,000 points moved, ${painted} painted`);
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -579,6 +579,37 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
       `${(rtSrc.match(/fireRebuild\(did\)/g) || []).length} calls, one in rebuildAround and one in rebuildAll`);
   }
 
+  // ---- ED5: the eraser and the soft edge ----------------------------------
+  //
+  // Two seams, and both of them are between halves that are green on their own.
+  // The PAINT seam: terrain_edits knows the weights, the material can blend
+  // them, and with nothing carrying them across, a feathered rim is a mix in
+  // the list and a hard line in the picture. The ERASE seam: the ground goes
+  // down the terrain contract and the things come out of the spaces, and with
+  // nothing holding them together one press takes two undos.
+  // See docs/mmo/wiring/ED5-ERASE-FEATHER.md.
+  {
+    const fieldSrc = readFileSync(join(HERE, '../world/field.js'), 'utf8');
+    const matSrc = readFileSync(join(HERE, '../world/terrain_material.js'), 'utf8');
+    const edSrc = readFileSync(join(HERE, 'editor/editor.js'), 'utf8');
+    has(fieldSrc, /const paint = EDITS\.groundAt\(x, z\);/,
+      'field.js asks the stroke list for the paint once, and gets the word and the mix from that one walk');
+    has(fieldSrc, /site, road, ground, groundMix,/,
+      'and both of them go out on the sample, so nothing downstream has to ask again');
+    has(matSrc, /if \(s\.groundMix\) \{/,
+      'terrain_material blends its layers by the mix, which is what makes a feathered rim a blend');
+    has(matSrc, /\} else if \(s\.ground\) \{/,
+      'and still reads the single word when there is no mix, so a sample built by hand still paints');
+    has(w, /if \(s\.kind === ERASE_KIND\) extra = eraseWords\(was, runtime\.field\.heightAt\(s\.x, s\.z\), edits\.maskedBefore\(s\)\)/,
+      'an erase reports metres measured off the field before and after it, and a count off the list');
+    has(edSrc, /const wiped = row && row\.erases \? wipeAt\(call\.x, call\.z, call\.r\) : null;/,
+      'the editor takes the things out of the ring for any brush the contract says erases, and names none');
+    has(edSrc, /strokeGroups\.push\(\{ kind: res\.call\.kind, n: 1, places: placesOf\(res\.wiped\) \}\)/,
+      'and the terrain group carries the space half with it, which is what makes one press one undo');
+    has(edSrc, /const back = undoPlaces\(g\.places, -1\);/,
+      'so one terrain undo takes both halves back');
+  }
+
   check('source: the world is the only system that draws',
     SYSTEMS.filter((s) => typeof s.render === 'function').map((s) => s.name).join(',') === 'world');
 

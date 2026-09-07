@@ -10,6 +10,7 @@ import {
   LAYERS, LAYER_INDEX, TILE_A, TILE_B, ROAD_FADE, TEX_SIZE, SNOW_START, SNOW_FULL,
   layerWeights, packWeights, heightBlend, buildLayer, layerTextures, buildTextureArrays,
   createTerrainMaterial, SHADER_HOOKS, QUALITY, worley, fbm2, climate, biomeStepBudget, CLIFF_SLOPE,
+  PAINT_MIX, PAINT_STRENGTH,
 } from './terrain_material.js';
 
 let pass = 0, fail = 0;
@@ -364,6 +365,67 @@ console.log('terrain_material: the cliff line');
     check('a face in Frostreach is stone and the shelf beside it is snow',
       top(w) === 'rock' && t2[5] > w[5], `face rock ${w[3].toFixed(2)}, shelf snow ${t2[5].toFixed(2)}`);
   }
+}
+
+
+// ---- ED5: a painted MIX, and a rim that reads as a blend -------------------
+//
+// `sample.groundMix` is the weight of every word a `ground` stroke left at a
+// point (src/world/terrain_edits.js). A feathered rim is part one word and part
+// the country under it, and the whole point of it is that it LOOKS like that,
+// so this drives the weights at 0, 0.3 and 1 and asks for a monotone blend.
+{
+  const plain = { h: 20, biome: 'meadow', moist: 0.5, temp: 0.5, river: 0, land: 1 };
+  const bare = layerWeights({ ...plain }, 0, 0).slice();
+  const full = layerWeights({ ...plain, groundMix: { snow: 1 } }, 0, 0).slice();
+  const some = layerWeights({ ...plain, groundMix: { snow: 0.3 } }, 0, 0).slice();
+  const i = LAYER_INDEX.snow;
+  check('a point washed with 0.3 of snow is snowier than bare meadow and less snowy than snow',
+    some[i] > bare[i] + 0.05 && some[i] < full[i] - 0.05,
+    `bare ${bare[i].toFixed(3)}, 0.3 ${some[i].toFixed(3)}, full ${full[i].toFixed(3)}`);
+  check('and the grass under it is still there in proportion, which is what a blend is',
+    some[LAYER_INDEX.grass] > full[LAYER_INDEX.grass] + 0.1 && some[LAYER_INDEX.grass] < bare[LAYER_INDEX.grass],
+    `grass ${bare[LAYER_INDEX.grass].toFixed(3)} bare, ${some[LAYER_INDEX.grass].toFixed(3)} washed, ${full[LAYER_INDEX.grass].toFixed(3)} under full snow`);
+  check('the weights still sum to one, whatever the wash',
+    Math.abs(sum(some) - 1) < 1e-9 && Math.abs(sum(full) - 1) < 1e-9, `${sum(some).toFixed(9)}`);
+  // and it is monotone all the way up, which is what "blended" has to mean
+  let last = -1, monotone = true;
+  for (let w = 0; w <= 1.0001; w += 0.1) {
+    const v = layerWeights({ ...plain, groundMix: { snow: w } }, 0, 0)[i];
+    if (v < last - 1e-12) monotone = false;
+    last = v;
+  }
+  check('and every step from no snow to all snow is a step up, with no jump in it', monotone,
+    `eleven steps, ending at ${last.toFixed(3)}`);
+  // two words at once, which is what a rim painted over paint really is
+  const both = layerWeights({ ...plain, groundMix: { snow: 0.3, rock: 0.7 } }, 0, 0);
+  check('two words in one mix land between the two of them, by weight',
+    both[LAYER_INDEX.rock] > both[i] && both[i] > 0.02,
+    `rock ${both[LAYER_INDEX.rock].toFixed(3)}, snow ${both[i].toFixed(3)}`);
+  // THE OLD PATH IS THE SAME PATH. One word at full weight has to be bit for
+  // bit the single word line this replaced, or every file written before ED5
+  // would draw differently.
+  const wasWay = layerWeights({ ...plain, ground: 'snow' }, 0, 0);
+  check('one word at full weight is exactly the single word the material always drew',
+    full.every((v, k) => v === wasWay[k]),
+    `${full.map((v) => v.toFixed(4)).join(' ')} against ${wasWay.map((v) => v.toFixed(4)).join(' ')}`);
+  check('and the mix is read in preference to the word, so nothing reads two truths',
+    layerWeights({ ...plain, ground: 'snow', groundMix: { rock: 1 } }, 0, 0)[LAYER_INDEX.rock]
+      === layerWeights({ ...plain, groundMix: { rock: 1 } }, 0, 0)[LAYER_INDEX.rock]);
+  check('a word the material has never heard of is ignored rather than drawn as nothing',
+    (() => {
+      const odd = layerWeights({ ...plain, groundMix: { tarmac: 1 } }, 0, 0);
+      return odd.every((v, k) => Math.abs(v - bare[k]) < 1e-12);
+    })(), 'the ground is the country it was');
+  check('and the scratch row it sums into is left clean, so the next sample is not the last one twice',
+    (() => {
+      layerWeights({ ...plain, groundMix: { rock: 1 } }, 0, 0);
+      const again = layerWeights({ ...plain, groundMix: { snow: 1 } }, 0, 0);
+      return again.every((v, k) => v === full[k]);
+    })(), 'a snow point after a rock point is still a snow point');
+  check('PAINT_STRENGTH is what holds the country faintly through it, at any weight',
+    PAINT_STRENGTH < 1 && full[LAYER_INDEX.grass] > 0 && !!PAINT_MIX.snow,
+    `${PAINT_STRENGTH} of the way to the word`);
 }
 
 console.log(`\n  terrain_material: ${pass} passed, ${fail} failed   (default texture size ${TEX_SIZE} px)`);

@@ -352,7 +352,10 @@ const KINDS = [
   { kind: 'noise', label: 'noise', params: [{ name: 'r', min: 5, max: 400, step: 5, default: 60 }, { name: 'amount', min: -20, max: 20, step: 0.5, default: 3 }] },
   { kind: 'erode', label: 'erode', params: [{ name: 'r', min: 5, max: 400, step: 5, default: 60 }, { name: 'strength', min: 0, max: 1, step: 0.05, default: 0.5 }] },
   { kind: 'lake', label: 'a lake', params: [{ name: 'r', min: 5, max: 400, step: 5, default: 90 }, { name: 'depth', min: 1, max: 80, step: 1, default: 12 }] },
-  { kind: 'ground', label: 'the ground itself', params: [{ name: 'r', min: 1, max: 400, step: 1, default: 30 }], words: ['dirt', 'rock', 'sand', 'grass', 'mud', 'snow', 'gravel', 'ash', 'cobble', 'path'] },
+  { kind: 'ground', label: 'the ground itself', params: [{ name: 'r', min: 1, max: 400, step: 1, default: 30 }, { name: 'hardness', min: 0, max: 1, step: 0.05, default: 0.35 }, { name: 'opacity', min: 0.05, max: 1, step: 0.05, default: 0.7 }], words: ['dirt', 'rock', 'sand', 'grass', 'mud', 'snow', 'gravel', 'ash', 'cobble', 'path'] },
+  // ED5. `erases` is the terrain half's own flag and the only thing that makes
+  // this an eraser rather than another sculpt brush: its knobs say nothing.
+  { kind: 'erase', label: 'erase', erases: true, params: [{ name: 'r', min: 1, max: 400, step: 0.5, default: 24 }, { name: 'hardness', min: 0, max: 1, step: 0.05, default: 0.5 }, { name: 'opacity', min: 0.05, max: 1, step: 0.05, default: 1 }] },
 ];
 
 function fakeTerrain(kinds = KINDS) {
@@ -813,8 +816,8 @@ console.log('\neditor: the nine trays are the palette, split and counted both wa
   const tall = P.structures.filter((r) => heightOf(r.id) >= PROP_HEIGHT);
   const small = P.structures.filter((r) => heightOf(r.id) < PROP_HEIGHT);
 
-  check('there are nine modes and their ids are the nine the sidebar draws',
-    MODE_IDS.join(',') === 'sculpt,paint,foliage,objects,buildings,creatures,people,markers,water', MODE_IDS.join(','));
+  check('there are ten modes and their ids are the ten the sidebar draws',
+    MODE_IDS.join(',') === 'sculpt,paint,foliage,objects,buildings,creatures,people,markers,water,erase', MODE_IDS.join(','));
   check('every mode has a mark drawn for it, and so does every action',
     MODES.every((m) => hasMark(m.icon)) && ACTIONS.every((a) => hasMark(a.icon)),
     MODES.filter((m) => !hasMark(m.icon)).map((m) => m.icon).join(','));
@@ -891,9 +894,14 @@ console.log('\neditor: the nine trays are the palette, split and counted both wa
     && brushModeOf(brushRow({ kind: 'anything', params: [{ name: 'r', min: 1, max: 9 }] })) === 'sculpt');
   check('every kind kinds() named is on a tile or reachable by shift from one',
     (() => { try { auditTools(rows); return true; } catch { return false; } })());
-  check('and the count adds up: the tiles, the words brush and the twin are the whole contract',
-    tray.sculpt.length + tray.water.length + 1 + shiftTwins(rows).size === KINDS.length,   // 7 + 1 + ground + 2 twins
-    `${tray.sculpt.length} + ${tray.water.length} + 1 + ${shiftTwins(rows).size} vs ${KINDS.length}`);
+  check('and the count adds up: the tiles, the words brush, the eraser and the twins are the whole contract',
+    tray.sculpt.length + tray.water.length + tray.erase.length + 1 + shiftTwins(rows).size === KINDS.length,
+    `${tray.sculpt.length} sculpt + ${tray.water.length} water + ${tray.erase.length} erase + 1 paint + ${shiftTwins(rows).size} twins vs ${KINDS.length} kinds`);
+  check('the eraser is in its own tray, on the strength of its own flag and not its name',
+    tray.erase.length === 1 && tray.erase[0].brush === 'erase'
+    && brushModeOf(brushRow({ kind: 'anything', erases: true })) === 'erase'
+    && brushModeOf(brushRow({ kind: 'erase', params: [{ name: 'r', min: 1, max: 9 }] })) === 'erase',
+    `${tray.erase.map((t) => t.id).join(',')}`);
   check('and the real terrain contract lands in trays too, with nothing lost',
     (() => {
       try {
@@ -1218,8 +1226,9 @@ console.log('\neditor: the screen itself, over a document small enough to read')
     && cells.map((c) => c.children[1].textContent).join(',')
       === [...MODES.map((m) => m.label), ...ACTIONS.map((a) => a.label)].join(','),
     cells.map((c) => c.children[1].textContent).join(','));
-  check('the nine modes carry their keys on their faces, 1 to 9',
-    cells.slice(0, 9).map((c) => c.children[2].textContent).join('') === '123456789');
+  check('the ten modes carry their keys on their faces, 1 to 9 and then 0',
+    cells.slice(0, MODE_IDS.length).map((c) => c.children[2].textContent).join('') === '1234567890',
+    cells.slice(0, MODE_IDS.length).map((c) => c.children[2].textContent).join(''));
   check('exactly one mode is lit, and it is the one that is up',
     cells.filter((c) => c.classList.contains('on')).length === 1
     && cells[0].classList.contains('on') && panel._modeNow() === 'sculpt');
@@ -1330,8 +1339,9 @@ console.log('\neditor: the screen itself, over a document small enough to read')
     sliders(knobs).length === 0 && /Click the ground/.test(knobs.textContent));
 
   // ---- the keys ---------------------------------------------------------
-  check('1 to 9 pick the nine modes, in the order the sidebar draws them',
+  check('1 to 9 and then 0 pick the ten modes, in the order the sidebar draws them',
     key('3') && panel._modeNow() === 'foliage' && key('9') && panel._modeNow() === 'water'
+    && key('0') && panel._modeNow() === 'erase'
     && key('1') && panel._modeNow() === 'sculpt', panel._modeNow());
   check('a key the editor has no use for is left for the game', key('j') === false);
   check('ctrl Z on a ground brush takes back ground',
@@ -1417,20 +1427,52 @@ console.log('\neditor: the screen with no terrain contract behind it');
 // ============================================================================
 console.log('\neditor: the ring under the brush is the ground the brush will take');
 {
-  const { ghostFor, brushRing, lineGhost, LINE_SAMPLES } = await import('./ghost.js');
-  const outerOf = (group) => {
-    let r = null;
+  const { ghostFor, brushRing, lineGhost, LINE_SAMPLES, ringRadii, CORE_MIN } = await import('./ghost.js');
+  const ringsOf = (group) => {
+    const out = [];
     group.traverse((o) => {
-      if (o.isMesh && o.geometry && o.geometry.type === 'RingGeometry') r = o.geometry.parameters.outerRadius;
+      if (o.isMesh && o.geometry && o.geometry.type === 'RingGeometry') out.push(o.geometry.parameters.outerRadius);
     });
-    return r;
+    return out.sort((a, b) => a - b);
   };
+  const outerOf = (group) => { const r = ringsOf(group); return r.length ? r[r.length - 1] : null; };
   check('a 20 m brush draws a ring of 20 m, not of 28 m corner to corner',
     outerOf(brushRing(20)) === 20, `${outerOf(brushRing(20))}`);
   check('and a 600 m one draws 600', outerOf(brushRing(600)) === 600, `${outerOf(brushRing(600))}`);
   const g = ghostFor('terrain', 'mountain', { r: 300 });
   check('the terrain ghost is that ring, at the radius the brush is set to',
     outerOf(g.group) === 300 && /300 m across the radius/.test(g.words), g.words);
+  // ---- ED5: the falloff, on the ground, before the press -----------------
+  //
+  // A feathered brush does most of nothing at its rim. Shown one circle, a
+  // person aims the whole effect at that circle and wonders why so little
+  // happened, so a brush with a core draws TWO: the radius, and where the full
+  // strength ends. Both ways: a hard brush still wears exactly one.
+  check('a brush with a soft edge wears two rings: the ground it takes, and the ground it takes in full',
+    ringsOf(brushRing(20, undefined, 7)).join(',') === '7,20', ringsOf(brushRing(20, undefined, 7)).join(','));
+  check('and a hard one wears the one ring it always did',
+    ringsOf(brushRing(20, undefined, 20)).join(',') === '20' && ringsOf(brushRing(20)).join(',') === '20',
+    ringsOf(brushRing(20, undefined, 20)).join(','));
+  check('a core too small to see is not drawn as a dot',
+    ringRadii(20, CORE_MIN / 2).length === 1 && ringRadii(20, CORE_MIN).length === 2,
+    `${CORE_MIN} m is the smallest core worth a circle`);
+  check('and the ghost passes the core through, and says the falloff in words',
+    (() => {
+      const soft = ghostFor('terrain', 'ground', { r: 20, core: 7 });
+      return ringsOf(soft.group).join(',') === '7,20' && /full out to 7.0 m/.test(soft.words);
+    })(), ghostFor('terrain', 'ground', { r: 20, core: 7 }).words);
+  check('the core the editor hands it is the brush\'s own hardness times its radius',
+    (() => {
+      const e = createEditor({ terrain: fakeTerrain() });
+      e.setTab('terrain'); e.arm('ground');
+      e.setBrushParam('ground', 'r', 20); e.setBrushParam('ground', 'hardness', 0.35);
+      const soft = e.brushCore('ground');
+      e.setBrushParam('ground', 'hardness', 1);
+      const hard = e.brushCore('ground');
+      e.arm('raise');
+      return soft === 7 && hard === 20 && e.brushCore('raise') === 0;
+    })(), 'a brush with no hardness knob at all answers 0, and wears one ring');
+
   const ln = lineGhost();
   ln.set({ x: 0, z: 0 }, { x: 100, z: 0 }, (x) => x / 10);
   const pos = ln.geometry.attributes.position;
@@ -1449,6 +1491,120 @@ console.log('\neditor: the ring under the brush is the ground the brush will tak
     })());
 }
 
+
+
+// ============================================================================
+// ED5: the eraser, which is the one brush with a half in each side of the editor
+//
+// The ground goes back down the terrain contract, and everything standing on
+// that ground comes out of the spaces. What matters here is that they are ONE
+// press and ONE undo: two stacks would mean two presses of ctrl Z to take one
+// press of the brush back, and the second half would look like a bug.
+console.log('\neditor: the eraser takes the ground and everything standing on it, in one');
+{
+  const t = fakeTerrain();
+  const ed = createEditor({ terrain: t });
+  // Two tiles, on purpose: the ring is going to straddle the edge between them,
+  // which is where a stack that only knows the open space falls over.
+  // A space takes anything inside its own radius, whichever tile that is in, so
+  // the order below is what really puts these in two different spaces: the oak
+  // opens the first tile, the pine is far enough out to open the second, and
+  // the two after it are inside the second's radius even though they stand a
+  // few metres over the line.
+  const edge = TILE_M;                       // the line between tile 0 and tile 1
+  ed.setTab('trees'); ed.arm('oak');
+  ed.placeAt(edge - 6, 128);
+  ed.setTab('trees'); ed.arm('pine');
+  ed.placeAt(edge + 244, 128);               // far out: this is what opens the second space
+  ed.setTab('rocks'); ed.arm('sarsen');
+  ed.placeAt(edge + 14, 128);
+  ed.setTab('markers'); ed.arm('other');
+  ed.placeAt(edge + 16, 128);
+  const spaces = ed.openSpaces;
+  check('the things stand in two different spaces to start with',
+    spaces.length === 2, spaces.join(' and '));
+  const [left, right] = spaces;
+  const countIn = (id) => { ed.useDoc(id); return ed.count().total; };
+  const was = { left: countIn(left), right: countIn(right) };
+  check('one in the first and three in the second', was.left === 1 && was.right === 3,
+    `${was.left} and ${was.right}`);
+
+  ed.setTab('terrain'); ed.arm('erase');
+  ed.setBrushParam('erase', 'r', 20);
+  const depth = ed.terrainDepth.done;
+  const one = ed.strokeOnce(edge + 4, 128);
+  check('one press of the eraser lays a stroke and takes everything inside the ring out of BOTH spaces',
+    one.ok && one.gone === 3 && countIn(left) === 0 && countIn(right) === 1,
+    one.text);
+  check('and the one outside the ring is left standing where it was',
+    (() => { ed.useDoc(right); return ed.doc.space.trees.length === 1 && ed.doc.space.trees[0].species === 'pine'; })());
+  check('the words say what went, counted off the lists it emptied',
+    /3 things removed/.test(one.text) && /1 tree/.test(one.text) && /1 rock/.test(one.text) && /1 marker/.test(one.text),
+    one.text);
+  check('and the ground went down the terrain contract in the same press',
+    t.calls[t.calls.length - 1].kind === 'erase' && t.calls[t.calls.length - 1].r === 20,
+    JSON.stringify(t.calls[t.calls.length - 1]));
+
+  // ONE UNDO, BOTH HALVES.
+  const undone = t.undone.length;
+  const res = ed.terrainUndo();
+  check('ONE undo takes the stroke back and puts all three things back with it',
+    res.ok && t.undone.length === undone + 1 && countIn(left) === 1 && countIn(right) === 3,
+    `${res.text} (${countIn(left)} and ${countIn(right)})`);
+  check('and it says both halves happened rather than only the ground',
+    /3 things back on the ground with it/.test(res.text), res.text);
+  check('the editor is back to the depth it was at, so nothing is left half on the stack',
+    ed.terrainDepth.done === depth && ed.terrainDepth.undone === 1, JSON.stringify(ed.terrainDepth));
+  const back = ed.terrainRedo();
+  check('and one redo takes them away again, both halves together',
+    back.ok && countIn(left) === 0 && countIn(right) === 1 && /3 things gone again/.test(back.text), back.text);
+
+  // a drag is one press too, however many strokes it lays
+  {
+    const t2 = fakeTerrain();
+    const e2 = createEditor({ terrain: t2 });
+    e2.setTab('rocks'); e2.arm('sarsen');
+    for (let i = 0; i < 6; i++) e2.placeAt(500 + i * 8, 500);
+    e2.setTab('terrain'); e2.arm('erase');
+    e2.setBrushParam('erase', 'r', 10);
+    // The six run from x 500 to x 540 and the tile edge is at 512, so they are
+    // in two spaces without anybody arranging it, and the count has to be taken
+    // over both: `count()` is the open space's own.
+    const all = () => e2.openSpaces.reduce((n, id) => { e2.useDoc(id); return n + e2.count().total; }, 0);
+    check('the six stand across the tile edge, in two spaces', all() === 6 && e2.openSpaces.length === 2,
+      e2.openSpaces.join(' and '));
+    e2.dragBegin(500, 500, { now: 1000 });
+    e2.dragStroke(520, 500, { now: 1100 });
+    e2.dragStroke(540, 500, { now: 1200 });
+    const end = e2.dragEnd();
+    check('a held eraser is one drag: three strokes, and everything under all three gone',
+      end.ok && end.strokes === 3 && end.gone === 6 && all() === 0, end.text);
+    check('and ONE ctrl Z takes the whole drag and all six back, out of both spaces',
+      (() => {
+        const u = e2.terrainUndo();
+        return u.ok && t2.undone.length === 3 && all() === 6;
+      })(), e2.lastLine);
+  }
+
+  // an erase over empty ground says so rather than looking busy
+  {
+    const e3 = createEditor({ terrain: fakeTerrain() });
+    e3.setTab('terrain'); e3.arm('erase');
+    const empty = e3.strokeOnce(-9000, -9000);
+    check('an erase over ground with nothing on it says nothing was standing there',
+      empty.ok && empty.gone === 0 && /nothing was standing on it/.test(empty.text), empty.text);
+  }
+
+  // and it reaches a space this session never opened, off the module
+  {
+    const e4 = createEditor({ terrain: fakeTerrain() });
+    const known = e4.spaces[0];
+    check('there is a space on disk to reach for', !!known, String(known));
+    const held = e4.holdSpacesNear(0, 0, 10);
+    check('holding the ground near a point adopts every space that could hold something in it',
+      Array.isArray(held), `${held.length} adopted`);
+  }
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

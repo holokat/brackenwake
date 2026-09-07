@@ -236,6 +236,10 @@ export function brushRow(k) {
   const pairNames = SECOND_POINT.find(([a, b]) => named(a) && named(b)) || null;
   const pair = pairNames ? [named(pairNames[0]), named(pairNames[1])] : null;
   const words = Array.isArray(k && k.words) ? k.words.map((w) => String(w)).filter(Boolean) : [];
+  // ED5: a row that says it erases. The terrain half's own flag, carried
+  // through unchanged, because an eraser cannot be told from a sculpt brush by
+  // its knobs and the editor is not in the business of knowing brushes by name.
+  const erases = !!(k && k.erases);
   const said = typeof (k && k.words) === 'string' ? k.words : (typeof (k && k.hint) === 'string' ? k.hint : '');
   const byYaw = !!(yaw && length);
   return {
@@ -246,7 +250,7 @@ export function brushRow(k) {
     params,
     radius: by(RADIUS_NAMES),
     amount: by(AMOUNT_NAMES),
-    words,
+    words, erases,
     yaw, length, pair,
     line: byYaw || !!pair,
     hint: said || brushHint(params, words),

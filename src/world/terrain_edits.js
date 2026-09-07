@@ -85,6 +85,65 @@
 // index the heights walk, in the order the strokes were made, so a drain over a
 // lake is dry and a lake over a drain is wet.
 //
+// ---- ED5: the eraser, and the soft edge -------------------------------------
+//
+// TWENTY ONE: `erase`, which is the blank canvas back inside a ring.
+//
+// A drain takes water away and nothing else, and `reset` takes the whole world
+// away and nothing less, so until ED5 there was no way to say "not here" about
+// one hillside ("I need a way to erase all changes like a brush"). An `erase`
+// stroke MASKS every stroke laid before it, inside its own radius: the height
+// they moved is multiplied by `1 - mask`, the paint they left is multiplied by
+// the same, and the water they placed is gone where the mask passes a half.
+// Strokes laid AFTER it apply normally, exactly as a drain works, so the order
+// of the list is the order of the picture, and an erase is undone by being a
+// stroke like any other.
+//
+// It never moves ground on its own: with nothing under it an erase changes not
+// one millimetre, and `world.js` says so out loud rather than looking busy.
+//
+// FEATHERING. Every brush that is not a body of water carries two more knobs:
+//
+//   hardness  where the full effect ends, as a share of the radius. From there
+//             out to r the effect is let go on a smoothstep.
+//   opacity   how much of the effect ONE stroke lays down. Paint and erase have
+//             it; a sculpt brush's opacity is the `amount` it already carried,
+//             and a second knob for the same thing would be a knob that lies.
+//
+// The two halves read hardness differently, and the difference is the ground:
+//
+//   paint    the weight is `opacity * (1 - smoothstep(hardness, 1, t))`. At
+//            hardness 1 that is the hard disc paint has always been.
+//   height   `t` is REMAPPED to `(t - core) / (1 - core)` and the kind's own
+//            profile is evaluated at that, so the whole shape is squeezed into
+//            the band outside the core: at hardness 0 the remap is the identity
+//            and a raise is the dome it always was, at 1 it is a flat topped
+//            mound. `core` is capped at `1 - SOFT_RIM / r`, so a brush that
+//            moves height always keeps two metres of rim. A profile with a wall
+//            at its own edge is a crack between two chunks, which is the one
+//            thing this file exists to avoid.
+//
+// A stroke with NO hardness and NO opacity in it reads as hardness 1, opacity 1
+// for paint, which is what "the last stroke over a point wins" meant, and as
+// hardness 0 for everything else, which is the dome. So a file written before
+// ED5 lays down the ground it always laid down, to the bit.
+//
+// ---- ED5: paint is a MIX, not a word ----------------------------------------
+//
+// One word per point was the whole of paint until ED5, and a feathered rim
+// cannot be said in one word: half a metre of snow laid over grass is neither
+// snow nor grass. So a point carries a WEIGHT PER WORD, composited the way a
+// brush composites anywhere: every weight already there is multiplied by
+// `1 - w` and the new word takes `w`. Snow at 0.3 over grass gives 0.3 snow and
+// 0.7 grass, and three passes of 0.3 over bare ground reach 0.657.
+//
+// `groundOverride(x, z)` still answers ONE WORD, and it is the dominant one, or
+// null where nothing painted stands over a half. That is what `sample.ground`
+// has always meant to `grass.js` and `dressing.js` (is this patch somebody's
+// yard) and it goes on meaning it. `groundMixAt(x, z)` is the weights, which is
+// what `terrain_material.js` blends its layers by, and it is why a feathered
+// rim reads as a blend and not as a line. See docs/mmo/wiring/ED5-ERASE-FEATHER.md.
+//
 // ---- what a stroke has to carry --------------------------------------------
 //
 // Several kinds cannot be worked out from (x, z) alone. `flatten` and `plateau`
@@ -114,14 +173,16 @@
 
 import { createNoise } from './noise.js';
 
-/** The twenty things a stroke can be. */
+/** The twenty one things a stroke can be. */
 export const STROKE_KINDS = [
   'raise', 'lower', 'flatten', 'smooth', 'pit', 'cliff', 'cave', 'ground',
   'mountain', 'ridge', 'plateau', 'valley', 'terrace', 'noise', 'erode',
-  // ED4: the five that place water. They are last, and together, because the
-  // editor's Water tray is `kinds()` filtered by this list and shows them in
-  // this order.
+  // ED4: the five that place water. They are together, because the editor's
+  // Water tray is `kinds()` filtered by this list and shows them in this order.
   'lake', 'pond', 'river', 'sea', 'drain',
+  // ED5: the eraser, last, because the editor's Erase tray is the tail of the
+  // same list and its rail cell is the last one down the side.
+  'erase',
 ];
 /**
  * The five kinds that place water, and the only things in this file that do.
@@ -138,6 +199,28 @@ const WATER_SET = new Set(WATER_KINDS);
 const SURFACE_SET = new Set(SURFACE_KINDS);
 /** Whether a kind places or removes water. */
 export const isWaterKind = (kind) => WATER_SET.has(kind);
+/**
+ * ED5: the one kind that takes everything under it away.
+ *
+ * Its own constant rather than a string typed out in six places: `deltaOf`,
+ * `heightDelta`, `groundAt`, `waterAt`, `waterBodies` and `caves` all have to
+ * agree about what an eraser is, and the editor asks for it by this name.
+ */
+export const ERASE_KIND = 'erase';
+/**
+ * The kinds that take a `hardness` knob: every one that is not a body of water.
+ *
+ * DERIVED, so a kind added to STROKE_KINDS that is not water gets a soft edge
+ * with nothing here to keep up to date, and `auditFeather()` below fails loudly
+ * the moment the table and this list disagree. Water is left out on purpose: a
+ * lake's edge is where its own surface meets the ground it stands on, which is
+ * a shape the ground decides and not a falloff anybody feathers.
+ */
+export const HARD_KINDS = STROKE_KINDS.filter((k) => !WATER_SET.has(k));
+/** The kinds that take an `opacity` knob: the two that lay something over the ground. */
+export const OPACITY_KINDS = ['ground', ERASE_KIND];
+const HARD_SET = new Set(HARD_KINDS);
+const OPACITY_SET = new Set(OPACITY_KINDS);
 /** The words `ground` may paint. Anything else is refused. */
 export const GROUND_WORDS = ['dirt', 'rock', 'sand', 'grass', 'mud', 'snow', 'gravel', 'ash', 'cobble', 'path'];
 /**
@@ -303,6 +386,7 @@ export const SEA_SURFACE = 0;
 export const RIVER_CHAIN = 6;
 /** How much of the way an `erode` pulls, when it is not told. */
 export const ERODE_PULL = 0.6;
+
 /** How many stroke seeds keep a noise table alive before the cache is dropped. */
 export const NOISE_CACHE = 512;
 
@@ -337,6 +421,184 @@ export function wallStart(amount, r) {
 export function pitProfile(t, amount, r) {
   const t0 = wallStart(amount, r);
   return 1 - smoothstep(t0, 1, t);
+}
+
+// ---- ED5: feathering, in numbers -------------------------------------------
+
+/**
+ * Metres of rim a height brush keeps however hard it is set.
+ *
+ * TWO METRES AND NOT NONE, and it is the mesher's number and not a taste. The
+ * ground is meshed at three resolutions and the coarsest puts a vertex every
+ * 2 m, so a profile that went from its full height to nothing in less than one
+ * cell would be sampled on one side of the step and not the other, and two
+ * chunks that share the vertex would disagree about it. Every profile in this
+ * file has zero slope at its own rim for the same reason; hardness is allowed
+ * to squeeze a profile, never to abolish its rim.
+ *
+ * Paint is NOT capped by it: a word is a colour, a colour cannot crack a chunk,
+ * and hardness 1 on the paint brush is the hard disc paint has always been,
+ * which is what makes a file written before ED5 load unchanged.
+ */
+export const SOFT_RIM = 2;
+/** Where the paint brush's knobs stand before anybody moves them. */
+export const PAINT_HARDNESS = 0.35;
+export const PAINT_OPACITY = 0.7;
+/** Where a height brush's hardness stands: 0, which is the profile it always had. */
+export const SCULPT_HARDNESS = 0;
+/** And the eraser's, which is a soft ring with a solid middle. */
+export const ERASE_HARDNESS = 0.5;
+export const ERASE_OPACITY = 1;
+/** Under this share of a word, a point is not painted that word at all. */
+export const MIX_FLOOR = 1e-4;
+/** Over this share, a word is the word `sample.ground` answers. */
+export const MIX_DOMINANT = 0.5;
+
+/**
+ * How hard a stroke's edge is, 0 to 1, DEFAULTED BY WHAT THE STROKE IS.
+ *
+ * A stroke with no `hardness` in it was written before ED5 (or by hand), and
+ * the answer has to be the behaviour that file already had: for paint that is
+ * 1, the hard disc, and for everything else 0, the profile's own dome. The
+ * eraser is new, so there are no old erasers to keep faith with and its own
+ * default is the one its slider shows.
+ */
+export function hardnessOf(s) {
+  if (Number.isFinite(s.hardness)) return clamp01(s.hardness);
+  if (s.kind === 'ground') return 1;
+  if (s.kind === ERASE_KIND) return ERASE_HARDNESS;
+  return SCULPT_HARDNESS;
+}
+/** How much of itself one stroke lays down, 0 to 1. Absent is the whole of it. */
+export const opacityOf = (s) => (Number.isFinite(s.opacity) ? clamp01(s.opacity) : 1);
+
+/**
+ * Where the full effect ends, as a share of the radius.
+ *
+ * `cap` is what keeps SOFT_RIM metres of rim on anything that moves height. It
+ * is off for paint, which is the only kind whose hard edge is harmless and the
+ * only kind with an old behaviour to match.
+ */
+export function coreFrac(s) {
+  const h = hardnessOf(s);
+  if (s.kind === 'ground') return h;
+  const r = Math.max(MIN_R, s.r || 0);
+  return Math.min(h, Math.max(0, 1 - SOFT_RIM / r));
+}
+/** The same, in metres, which is what the editor's ring ghost draws. */
+export const coreRadius = (s) => coreFrac(s) * Math.max(MIN_R, s.r || 0);
+
+/**
+ * 1 out to `core`, 0 at the rim, smooth between: how much of itself a stroke
+ * lays at `t` of its own radius.
+ *
+ * `plateau` is this same shape and this is written in terms of it rather than
+ * beside it, so there is one curve in the file and not two that could drift.
+ */
+export const edgeFall = (t, core) => plateau(t, core);
+
+/**
+ * The distance a height brush's own profile is evaluated at.
+ *
+ * The identity at hardness 0, which is why every stroke ever saved lays down
+ * exactly the ground it laid down before: `core` is 0, `(t - 0) / (1 - 0)` is
+ * `t`, and not one profile in this file sees a different number. Harder than
+ * that and the whole profile is pushed out into the band between the core and
+ * the rim, so its flat middle grows and its wall steepens, and because the
+ * profile still has zero slope at both of its own ends the joins stay smooth.
+ */
+export function hardT(s, t) {
+  const core = coreFrac(s);
+  if (core <= 0) return t;
+  if (t <= core) return 0;
+  return (t - core) / (1 - core);
+}
+/** How much steeper hardness makes a profile: the run it squeezed it into. */
+export const hardSteepen = (s) => 1 / Math.max(1e-6, 1 - coreFrac(s));
+
+/**
+ * How much of the ground under it one erase stroke takes away at (x, z).
+ *
+ * 0 outside its own radius, `opacity` across its core, and let go over the rim
+ * on the same curve paint uses. The core is capped like every other height
+ * brush's, because an erase that went from all to nothing in one vertex is the
+ * same crack a wall at a rim would be.
+ */
+export function eraseMaskOf(s, x, z) {
+  const r = Math.max(MIN_R, s.r || 0);
+  const dx = x - s.x, dz = z - s.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 >= r * r) return 0;
+  return opacityOf(s) * edgeFall(Math.sqrt(d2) / r, coreFrac(s));
+}
+/**
+ * How far out an erase takes MORE than half of what it finds, in metres.
+ *
+ * Water is a yes or a no and cannot be half taken away, so this is the one
+ * radius `waterAt` treats as the edge of the erasure and the one radius
+ * `waterBodies` cuts out of a surface. Both read this, so the water a player
+ * swims in and the water they can see end in the same place.
+ */
+export function eraseHalfR(s) {
+  const r = Math.max(MIN_R, s.r || 0);
+  const a = opacityOf(s);
+  if (a <= 0.5) return 0;                       // it never takes half of anything
+  const core = coreFrac(s);
+  // edgeFall is 1 - smoothstep(core, 1, t) and smoothstep(0.5) is at u = 0.5
+  return r * (core + (1 - core) * halfOf(0.5 / a));
+}
+/** Where `smoothstep(0, 1, u)` reaches `v`, solved by bisection to a micron. */
+function halfOf(v) {
+  if (v <= 0) return 0;
+  if (v >= 1) return 1;
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (mid * mid * (3 - 2 * mid) < v) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/**
+ * The weight one `ground` stroke lays over (x, z), 0 to 1.
+ *
+ * `opacity` across the core and feathered to nothing at the rim. At the ED5
+ * defaults, hardness 1 and opacity 1, it is 1 inside the disc and 0 outside it,
+ * which is the hard disc the file used to paint.
+ */
+export function paintWeightOf(s, x, z) {
+  const r = Math.max(MIN_R, s.r || 0);
+  const dx = x - s.x, dz = z - s.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 >= r * r) return 0;
+  return opacityOf(s) * edgeFall(Math.sqrt(d2) / r, coreFrac(s));
+}
+
+/**
+ * One stroke composited into a mix of words, in place. Returns the mix.
+ *
+ * THE COMPOSITE IS THE ONE RULE, and it is the rule a brush follows anywhere:
+ * what is already there is multiplied by `1 - w` and the new word takes `w`.
+ * That is what makes the total never exceed 1, what makes snow at 0.3 over
+ * grass read 0.3 snow and 0.7 grass, and what makes three passes at 0.3 climb
+ * 0.3, 0.51, 0.657 rather than jumping to 0.9.
+ */
+export function mixIn(mix, word, w) {
+  if (!(w > 0)) return mix;
+  const keep = 1 - w;
+  for (const k in mix) {
+    const v = mix[k] * keep;
+    if (v < MIX_FLOOR) delete mix[k]; else mix[k] = v;
+  }
+  mix[word] = (mix[word] || 0) + w;
+  return mix;
+}
+/** The word a mix is mostly made of, or null when nothing in it stands over a half. */
+export function dominantOf(mix) {
+  if (!mix) return null;
+  let word = null, best = 0;
+  for (const k in mix) if (mix[k] > best) { best = mix[k]; word = k; }
+  return best > MIX_DOMINANT ? word : null;
 }
 
 // ---- the noise a mountain and a `noise` stroke are made of ------------------
@@ -504,6 +766,15 @@ export function terraceOf(h, step, sharp) {
  *   smoothstep  steepest in the middle of its own run: 1.5 * rise / run
  */
 export function maxGrade(s) {
+  const g = gradeOf(s);
+  // ED5: hardness squeezes the whole profile into the band outside the core, so
+  // whatever a profile did over `r` it now does over `r * (1 - core)` and every
+  // gradient below scales by exactly that. At hardness 0 the factor is 1 and
+  // every number here is the number it always was.
+  if (g && HARD_SET.has(s.kind)) return g * hardSteepen(s);
+  return g;
+}
+function gradeOf(s) {
   const r = Math.max(MIN_R, s.r || 0), a = Math.abs(s.amount || 0);
   switch (s.kind) {
     case 'raise': case 'lower': return 8 * a / (3 * Math.sqrt(3) * r);
@@ -556,8 +827,9 @@ export function maxGrade(s) {
     case 'sea': case 'drain': return 0;
     // Every one of these cuts whatever the ground was already doing, and this
     // function is not given the ground. Null, rather than a number taken from
-    // the wrong variable.
-    case 'plateau': case 'terrace': case 'erode': return null;
+    // the wrong variable. ED5's eraser is the same case twice over: what it
+    // takes away is every stroke under it, and it is handed none of them.
+    case 'plateau': case 'terrace': case 'erode': case ERASE_KIND: return null;
     default: return 0;
   }
 }
@@ -589,6 +861,16 @@ export function deltaOf(s, x, z, h) {
   const r = Math.max(MIN_R, s.r || 0);
   const a = s.amount || 0;
   if (s.kind === 'ground') return 0;
+  /**
+   * ED5: an eraser has NO PROFILE OF ITS OWN, on purpose.
+   *
+   * What it does is take away what is under it, and what is under it is the
+   * running total of every stroke before it, which one stroke evaluated on its
+   * own cannot see. `stackDelta` is where it happens, and it is the only walk
+   * of the list there is, so nothing can read the height without reading the
+   * eraser. This returning 0 is the whole truth about an erase in isolation.
+   */
+  if (s.kind === ERASE_KIND) return 0;
   if (s.kind === 'cave') {
     // the cut stands in front of the mouth, on the mouth's own bearing
     const yaw = s.yaw || 0;
@@ -597,14 +879,14 @@ export function deltaOf(s, x, z, h) {
     const d = Math.hypot(x - cx, z - cz);
     if (d >= r) return 0;
     const cut = s.cut == null ? CAVE_CUT : s.cut;
-    return -cut * pitProfile(d / r, cut, r);
+    return -cut * pitProfile(hardT(s, d / r), cut, r);
   }
   // The two kinds that are a LINE and not a disc, so the plain radius check
   // below would throw away everything past the first cap.
   if (s.kind === 'ridge' || s.kind === 'valley') {
     const d = lineDist(s, x, z);
     if (d >= r) return 0;
-    return (s.kind === 'ridge' ? a : -a) * dome(d / r);
+    return (s.kind === 'ridge' ? a : -a) * dome(hardT(s, d / r));
   }
   /**
    * A river's channel: a pit's wall, cut along a line, to a floor that FALLS
@@ -629,7 +911,10 @@ export function deltaOf(s, x, z, h) {
   const dx = x - s.x, dz = z - s.z;
   const d2 = dx * dx + dz * dz;
   if (d2 >= r * r) return 0;
-  const t = Math.sqrt(d2) / r;
+  // ED5: hardness, and the ONE line it takes to apply it to every disc profile
+  // below. `hardT` is the identity at hardness 0, which is what every stroke
+  // written before ED5 reads as, so nothing under this line moved.
+  const t = hardT(s, Math.sqrt(d2) / r);
   switch (s.kind) {
     case 'raise': return a * dome(t);
     case 'lower': return -a * dome(t);
@@ -741,12 +1026,104 @@ export function deltaOf(s, x, z, h) {
      *
      * A sea is for a coast somebody has ALREADY sculpted: it lays a surface at
      * a level over whatever shape is there, so a bay with headlands stays a bay
-     * with headlands. A drain is the eraser, and an eraser that dug a hole
-     * would be a strange eraser.
+     * with headlands. A drain takes water away, and water that dug a hole
+     * would be strange water.
      */
     case 'sea': case 'drain': return 0;
     default: return 0;
   }
+}
+
+/**
+ * A LIST of strokes applied to the ground at (x, z), in the order they were
+ * made. Returns the metres to add to `h`.
+ *
+ * THE ONE WALK, AND EVERY READER USES IT. `heightDelta` hands it the cell's own
+ * list off the index and the test hands it every stroke there is, so the fast
+ * answer and the slow answer are the same code and cannot drift. That matters
+ * more since ED5 than it did before: an eraser is not a profile, it is a thing
+ * that happens BETWEEN two strokes, and a walk written anywhere else would be a
+ * walk that quietly ignored it.
+ *
+ * The eraser's rule, in one line: `cur = h + (cur - h) * (1 - mask)`. `cur - h`
+ * is everything the strokes before it did, `h` is the world without them, so a
+ * full mask is the blank canvas back and a half mask is half way there.
+ */
+export function stackDelta(list, x, z, h = 0, skipKind = null) {
+  let cur = h;
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i];
+    if (skipKind && s.kind === skipKind) continue;
+    if (s.kind === ERASE_KIND) {
+      const m = eraseMaskOf(s, x, z);
+      if (m > 0) cur = h + (cur - h) * (1 - m);
+      continue;
+    }
+    cur += deltaOf(s, x, z, cur);
+  }
+  return cur - h;
+}
+
+/**
+ * Whether a stroke's own ground overlaps a disc, EXACTLY, kind by kind.
+ *
+ * `reachOf` is a bounding radius about a stroke's own point and is the right
+ * thing for an index; it is the wrong thing for a count somebody reads, because
+ * a 300 m ridge reaches 340 m from its head in every direction including the
+ * three quarters of the compass it does not go. This is the real shape: a disc
+ * for a disc, the distance to a segment for the two capsules, the cut's own
+ * centre for a cave mouth. `world.js` counts what an erase masks with it.
+ */
+export function overlapsDisc(s, x, z, r) {
+  const sr = Math.max(MIN_R, s.r || 0);
+  if (s.kind === 'ridge' || s.kind === 'valley') return lineDist(s, x, z) < sr + r;
+  if (s.kind === 'river') return riverAt(s, x, z).d < riverHalf(s) + r;
+  if (s.kind === 'cave') {
+    const yaw = s.yaw || 0;
+    const cx = s.x + Math.sin(yaw) * sr * CAVE_CUT_AHEAD;
+    const cz = s.z + Math.cos(yaw) * sr * CAVE_CUT_AHEAD;
+    return Math.hypot(x - cx, z - cz) < sr + r;
+  }
+  return Math.hypot(x - s.x, z - s.z) < sr + r;
+}
+
+/**
+ * A LIST of strokes composited into the words the ground is painted, at (x, z).
+ *
+ * Null when nothing painted reaches the point, which is every sample of a world
+ * nobody has painted and is why this costs one property read there. Otherwise
+ * `{ word, mix }`: the dominant word, or null where nothing stands over a half,
+ * and the weights themselves.
+ *
+ * The eraser walks in the same order it walks in the heights, and it takes the
+ * paint down by the same mask, so a rubbed out yard fades rather than blinking.
+ */
+export function stackGround(list, x, z) {
+  let mix = null;
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i];
+    if (s.kind === ERASE_KIND) {
+      if (!mix) continue;
+      const m = eraseMaskOf(s, x, z);
+      if (m <= 0) continue;
+      const keep = 1 - m;
+      for (const k in mix) {
+        const v = mix[k] * keep;
+        if (v < MIX_FLOOR) delete mix[k]; else mix[k] = v;
+      }
+      continue;
+    }
+    if (s.kind !== 'ground') continue;
+    const w = paintWeightOf(s, x, z);
+    if (w <= 0) continue;
+    if (!mix) mix = {};
+    mixIn(mix, s.word, w);
+  }
+  // A mix an eraser has taken every word out of is not a painted point at all,
+  // and it has to answer the same null an unpainted point answers, or a rubbed
+  // out yard would still be a yard as far as grass.js is concerned.
+  if (!mix || !Object.keys(mix).length) return null;
+  return { word: dominantOf(mix), mix };
 }
 
 // ---- the brush list the editor builds itself out of -------------------------
@@ -794,7 +1171,69 @@ export const KIND_PARAMS = {
   river:    { label: 'river',    params: [P('width', 1, 200, 0.5, RIVER_WIDTH), P('depth', 0, 60, 0.5, RIVER_DEPTH), LEVEL_PARAM, P('levelEnd', -200, MOUNTAIN_MAX_AMOUNT, 0.5, WATER_LEVEL), P('x2', -20000, 20000, 1, 0), P('z2', -20000, 20000, 1, 60)] },
   sea:      { label: 'sea',      params: [P('r', MIN_R, SEA_MAX_R, 5, SEA_R), P('level', -200, MOUNTAIN_MAX_AMOUNT, 0.5, SEA_SURFACE)] },
   drain:    { label: 'drain',    params: [P('r', MIN_R, MOUNTAIN_MAX_R, 0.5, LAKE_R)] },
+  // ED5's one. A radius and the two feathering knobs below, and nothing else:
+  // an eraser has nothing to say about how much ground to move, only about how
+  // much of what is there to take away.
+  erase:    { label: 'erase',    params: [P('r', MIN_R, MOUNTAIN_MAX_R, 0.5, 24)] },
 };
+
+// ---- ED5: the two knobs every brush but a body of water carries -------------
+//
+// ADDED OFF THE DERIVED LIST AND NOT TYPED ONTO SIXTEEN ROWS. A kind added to
+// STROKE_KINDS that is not water is in HARD_KINDS the moment it is added, so it
+// gets a soft edge and a slider for it with nothing here to keep up to date,
+// and `auditFeather()` fails loudly if a knob and the code that reads it ever
+// part company.
+//
+// The defaults differ by what the brush is FOR, and each one is the behaviour
+// that brush had before ED5 or the one the user asked for:
+//
+//   paint   0.35 hard and 0.7 opaque, which is the blended rim this was opened
+//           for. A stroke with no hardness at all still reads as the old hard
+//           disc, so this is the new brush's default and not a change to any
+//           file already written.
+//   erase   0.5 hard, fully opaque: a solid middle with a soft ring round it.
+//   sculpt  0 hard, which is exactly the dome, the pit and the mesa this file
+//           has always cut.
+const HARD_PARAM = P('hardness', 0, 1, 0.05, SCULPT_HARDNESS);
+const PAINT_HARD_PARAM = P('hardness', 0, 1, 0.05, PAINT_HARDNESS);
+const ERASE_HARD_PARAM = P('hardness', 0, 1, 0.05, ERASE_HARDNESS);
+const PAINT_OPACITY_PARAM = P('opacity', 0.05, 1, 0.05, PAINT_OPACITY);
+const ERASE_OPACITY_PARAM = P('opacity', 0.05, 1, 0.05, ERASE_OPACITY);
+for (const kind of HARD_KINDS) {
+  const row = KIND_PARAMS[kind];
+  row.params = row.params.concat(
+    kind === 'ground' ? PAINT_HARD_PARAM : kind === ERASE_KIND ? ERASE_HARD_PARAM : HARD_PARAM,
+  );
+  if (OPACITY_SET.has(kind)) {
+    row.params = row.params.concat(kind === ERASE_KIND ? ERASE_OPACITY_PARAM : PAINT_OPACITY_PARAM);
+  }
+}
+
+/**
+ * Throws when a brush offers a knob nothing reads, or reads one it never offers.
+ *
+ * The class of bug this is here for is the one that has cost this project the
+ * most: a slider written into a table with no consumer at the other end. It
+ * runs at import, so a kind added without a soft edge fails the first test that
+ * loads the module rather than shipping as a slider that moves nothing.
+ */
+export function auditFeather() {
+  const bad = [];
+  for (const kind of STROKE_KINDS) {
+    const names = KIND_PARAMS[kind].params.map((p) => p.name);
+    const hasHard = names.includes('hardness'), hasOpacity = names.includes('opacity');
+    if (HARD_SET.has(kind) !== hasHard) {
+      bad.push(`${kind} ${hasHard ? 'offers a hardness knob nothing reads' : 'reads hardness and offers no knob for it'}`);
+    }
+    if (OPACITY_SET.has(kind) !== hasOpacity) {
+      bad.push(`${kind} ${hasOpacity ? 'offers an opacity knob nothing reads' : 'reads opacity and offers no knob for it'}`);
+    }
+  }
+  if (bad.length) throw new Error(`the feathering knobs and the code have drifted: ${bad.join('; ')}`);
+  return { hard: HARD_KINDS.length, opacity: OPACITY_KINDS.length };
+}
+auditFeather();
 
 /**
  * The kinds that carry a bearing, DERIVED FROM THE TABLE ABOVE.
@@ -823,6 +1262,16 @@ export function kinds() {
     const row = KIND_PARAMS[kind];
     const out = { kind, label: row.label, params: row.params.map((p) => ({ ...p })) };
     if (row.words) out.words = row.words.slice();
+    /**
+     * ED5: THE ROW SAYS IT ERASES, so nothing downstream has to know its name.
+     *
+     * An eraser's knobs are a radius and a falloff, which is exactly what a
+     * sculpt brush's are, so no question asked of the row could tell them
+     * apart. This flag is the answer: `modes.js` puts a row that says it into
+     * the Erase tray and `editor.js` takes the placed things out of the ring
+     * for it, and neither of them has the word 'erase' in a condition.
+     */
+    if (kind === ERASE_KIND) out.erases = true;
     return out;
   });
 }
@@ -947,6 +1396,20 @@ export function createTerrainEdits(opts = {}) {
       if (!GROUND_WORDS.includes(s.word)) throw new Error(`no such ground: ${s.word}, try ${GROUND_WORDS.join(', ')}`);
     }
     if (WATER_SET.has(s.kind)) fillWater(s);
+    /**
+     * ED5: the two feathering knobs, clamped here and DROPPED where the kind
+     * does not take them.
+     *
+     * Dropped, and not left on the stroke to be ignored, because a `hardness`
+     * sitting on a saved lake is a number a reader might one day believe. A
+     * knob left OFF is not defaulted into the stroke either: absence is what a
+     * file written before ED5 looks like, and `hardnessOf` is the one place
+     * that says what absence means.
+     */
+    if (Number.isFinite(s.hardness) && HARD_SET.has(s.kind)) s.hardness = clamp01(s.hardness);
+    else delete s.hardness;
+    if (Number.isFinite(s.opacity) && OPACITY_SET.has(s.kind)) s.opacity = clamp01(s.opacity);
+    else delete s.opacity;
     // The kinds that are a function of the ground take their sample once, now,
     // and carry it, which is what makes the file portable.
     const wantsH0 = s.kind === 'flatten' || s.kind === 'smooth' || s.kind === 'erode'
@@ -1214,28 +1677,38 @@ export function createTerrainEdits(opts = {}) {
       if (!strokes.length) return 0;
       const list = at(x, z);
       if (!list) return 0;
-      let cur = h;
-      for (let i = 0; i < list.length; i++) {
-        const s = list[i];
-        if (skipKind && s.kind === skipKind) continue;
-        cur += deltaOf(s, x, z, cur);
-      }
-      return cur - h;
+      return stackDelta(list, x, z, h, skipKind);
     },
 
-    /** The word painted here, or null. The last stroke over a point wins. */
-    groundOverride(x, z) {
+    /**
+     * The paint at (x, z): `{ word, mix }`, or null where none reaches.
+     *
+     * ONE WALK FOR BOTH ANSWERS, because `field.sampleAt` wants both on every
+     * vertex of every chunk and asking twice would walk the cell's list twice.
+     * `word` is the dominant word or null, `mix` is the weights.
+     */
+    groundAt(x, z) {
       if (!strokes.length) return null;
       const list = at(x, z);
       if (!list) return null;
-      let word = null;
-      for (let i = 0; i < list.length; i++) {
-        const s = list[i];
-        if (s.kind !== 'ground') continue;
-        const dx = x - s.x, dz = z - s.z;
-        if (dx * dx + dz * dz < s.r * s.r) word = s.word;
-      }
-      return word;
+      return stackGround(list, x, z);
+    },
+    /**
+     * The word painted here, or null.
+     *
+     * Since ED5 that is the DOMINANT word of the mix rather than the last
+     * stroke to cover the point, and where nothing painted stands over a half
+     * it is null. With one full strength stroke over a point, which is what
+     * every stroke written before ED5 is, the two rules give the same word.
+     */
+    groundOverride(x, z) {
+      const g = api.groundAt(x, z);
+      return g ? g.word : null;
+    },
+    /** The weight of every word painted here, or null. What the material blends by. */
+    groundMixAt(x, z) {
+      const g = api.groundAt(x, z);
+      return g ? g.mix : null;
     },
 
     /**
@@ -1261,7 +1734,25 @@ export function createTerrainEdits(opts = {}) {
       const list = at(x, z);
       if (!list) return { water, level };
       for (let i = 0; i < list.length; i++) {
-        const w = waterOf(list[i], x, z);
+        const s = list[i];
+        /**
+         * ED5: an erase takes the water with everything else, and it takes it
+         * back to `was` rather than to nothing.
+         *
+         * `was` is the world before any stroke had its say, so an erase over a
+         * lake somebody dug leaves dry ground, and an erase over the
+         * generator's own ocean leaves the ocean, because there the ocean IS
+         * the blank canvas and the blank canvas back is the whole promise.
+         * Water is a yes or a no and cannot be half taken away, so it goes
+         * where the mask passes a half, which is exactly the disc
+         * `waterBodies` cuts out of the surface it draws.
+         */
+        if (s.kind === ERASE_KIND) {
+          const half = eraseHalfR(s);
+          if (half > 0 && Math.hypot(x - s.x, z - s.z) < half) { water = !!was; level = null; }
+          continue;
+        }
+        const w = waterOf(s, x, z);
         if (w === undefined) continue;
         if (w === null) { water = false; level = null; continue; }
         if (h < w) { water = true; level = w; }
@@ -1298,6 +1789,20 @@ export function createTerrainEdits(opts = {}) {
           for (const b of out) if (reaches(b, d)) b.drains.push(d);
           continue;
         }
+        /**
+         * ED5: an erase is a drain as far as the picture is concerned.
+         *
+         * It has to be. `waterAt` says there is no water inside the erasure and
+         * this is what the renderer draws, so if the surface were left whole a
+         * player would see a lake, walk into it and find dry ground. The disc
+         * is `eraseHalfR`, the same one `waterAt` uses, so the water you can
+         * see and the water you can swim in end in the same place.
+         */
+        if (s.kind === ERASE_KIND) {
+          const r = eraseHalfR(s);
+          if (r > 0) { const d = { x: s.x, z: s.z, r }; for (const b of out) if (reaches(b, d)) b.drains.push(d); }
+          continue;
+        }
         if (!SURFACE_SET.has(s.kind)) continue;
         out.push(s.kind === 'river'
           ? {
@@ -1312,8 +1817,54 @@ export function createTerrainEdits(opts = {}) {
       return out;
     },
 
-    /** Every cave mouth asked for, in the order they were cut. */
-    caves() { return strokes.filter((s) => s.kind === 'cave'); },
+    /**
+     * Every cave mouth still standing, in the order they were cut.
+     *
+     * ED5: a mouth an erase has since gone over is NOT in this list. The cut in
+     * front of it is masked out of the ground by the same eraser, so leaving
+     * the site here would give the world a cave entrance standing in flat
+     * ground with no hollow behind it, which `field.js` would build, the
+     * streamer would light, and E would open. The mouth is a point, so the test
+     * is the point, and it is the same half mask disc the water uses.
+     */
+    caves() {
+      const out = [];
+      for (const s of strokes) {
+        if (s.kind === ERASE_KIND) {
+          const r = eraseHalfR(s);
+          if (r > 0) {
+            for (let i = out.length - 1; i >= 0; i--) {
+              if (Math.hypot(out[i].x - s.x, out[i].z - s.z) < r) out.splice(i, 1);
+            }
+          }
+          continue;
+        }
+        if (s.kind === 'cave') out.push(s);
+      }
+      return out;
+    },
+
+    /**
+     * How many strokes laid BEFORE this one its ring actually reaches.
+     *
+     * The number the words quote after an erase, and it is counted off the list
+     * rather than estimated: `overlapsDisc` is the stroke's real shape and not
+     * its bounding radius, and only the strokes before it are asked, because a
+     * stroke laid after an erase is not masked by it. A stroke handed in that
+     * is not in the list is counted against the whole list, which is what a
+     * caller asking "what would this erase reach" wants.
+     */
+    maskedBefore(s) {
+      if (!s || !Number.isFinite(s.x)) return 0;
+      const r = Math.max(MIN_R, s.r || 0);
+      let n = 0;
+      for (const p of strokes) {
+        if (p === s) break;
+        if (p.kind === ERASE_KIND) continue;
+        if (overlapsDisc(p, s.x, s.z, r)) n++;
+      }
+      return n;
+    },
 
     /** The box every stroke fits inside, or null if there are none. */
     bounds() {

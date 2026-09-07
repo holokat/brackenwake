@@ -1,7 +1,7 @@
 // The world field, driven both ways. Run: node src/world/field.test.mjs
 import { createHash } from 'node:crypto';
 import {
-  createWorldField, SEA_LEVEL, HOME_RADIUS, BIOMES,
+  createWorldField, SEA_LEVEL, HOME_RADIUS, BIOMES, PAINT_BIOME,
   RELIEF_GRADE, RELIEF_MAX_STEP, RAMP_GRADE, RAMP_MAX_STEP, RAMP_FIT, RELIEF_HOLD,
 } from './field.js';
 import {
@@ -1105,6 +1105,49 @@ check('sampleAt under 12 microseconds', perSample < 12, `${perSample.toFixed(2)}
     (() => { edits.undo(); return e.editSitesNear(C[0], C[1], 60).length === 0; })());
   check('and redoing it puts the same place back',
     (() => { edits.redo(); const n = e.editSitesNear(C[0], C[1], 60); return n.length === 1 && n[0].id === cave.id; })());
+
+  // ---- ED5: the mix on the sample, and the eraser through the field -------
+  //
+  // Everything here goes through `field.sampleAt`, which is what the mesher,
+  // the grass, the dressing and the material all read, so what passes is what a
+  // player would stand on.
+  {
+    const f5 = createWorldField(20260904, { homeY: -0.3 });
+    const d5 = createTerrainEdits({ baseHeight: (x, z) => f5.heightAt(x, z) });
+    f5.setTerrainEdits(d5);
+    const Q = [P[0] + 300, P[1] + 300];
+    const wasH = f5.heightAt(Q[0], Q[1]);
+    d5.stroke({ kind: 'ground', x: Q[0], z: Q[1], r: 30, word: 'grass', hardness: 1, opacity: 1 });
+    d5.stroke({ kind: 'ground', x: Q[0], z: Q[1], r: 30, word: 'snow', hardness: 1, opacity: 0.3 });
+    const sm = f5.sampleAt(Q[0], Q[1]);
+    check('a feathered wash of paint comes out on the sample as a MIX of words',
+      !!sm.groundMix && Math.abs(sm.groundMix.snow - 0.3) < 1e-9 && Math.abs(sm.groundMix.grass - 0.7) < 1e-9,
+      JSON.stringify(sm.groundMix));
+    check('and `sample.ground` is still one word, the one over half of it',
+      sm.ground === 'grass', `${sm.ground}`);
+    check('and the country under it is the country the paint says, not the wash',
+      sm.biome === PAINT_BIOME.grass, `${sm.biome}`);
+    check('a point nobody painted carries no mix at all, so the ordinary sample allocates nothing',
+      f5.sampleAt(Q[0] + 200, Q[1]).groundMix === null && f5.sampleAt(Q[0] + 200, Q[1]).ground === null);
+    // the eraser, through the field
+    d5.stroke({ kind: 'raise', x: Q[0], z: Q[1], r: 40, amount: 12 });
+    const raised = f5.heightAt(Q[0], Q[1]);
+    d5.stroke({ kind: 'erase', x: Q[0], z: Q[1], r: 20, hardness: 1, opacity: 1 });
+    const rubbed = f5.sampleAt(Q[0], Q[1]);
+    check('an erase, through the field, takes the ground back to the world underneath it',
+      Math.abs(raised - wasH - 12) < 1e-9 && Math.abs(rubbed.h - wasH) < 1e-9,
+      `${(raised - wasH).toFixed(3)} m raised, ${(rubbed.h - wasH).toFixed(6)} m left`);
+    check('and takes the paint with it, biome and all',
+      rubbed.ground === null && rubbed.groundMix === null && rubbed.biome === biomeBefore,
+      `${rubbed.ground}, ${rubbed.biome}`);
+    // 39 m out is inside the raise and outside the eraser, so the ground there
+    // has to be the world the seed made plus the whole of the dome, exactly.
+    const clean5 = createWorldField(20260904, { homeY: -0.3 });
+    const want39 = clean5.heightAt(Q[0] + 39, Q[1]) + 12 * (1 - (39 / 40) ** 2) ** 2;
+    check('and leaves the ground outside its own ring exactly where the strokes put it',
+      Math.abs(f5.heightAt(Q[0] + 39, Q[1]) - want39) < 1e-9,
+      `${f5.heightAt(Q[0] + 39, Q[1]).toFixed(6)} m against ${want39.toFixed(6)}, the dome untouched 39 m out`);
+  }
 
   // and taking the list away gives the seed's own world back, exactly
   e.setTerrainEdits(null);

@@ -1,4 +1,4 @@
-// The nine modes down the side of the editor, and what is in each one's tray.
+// The ten modes down the side of the editor, and what is in each one's tray.
 //
 // PURE. No DOM, no THREE, no fetch. `panel.js` draws what this answers and
 // `editor.test.mjs` counts it against `palette.js` both ways, so a species
@@ -11,9 +11,10 @@
 // off the brush's own row, in this order:
 //
 //   a brush that paints a word           is the Paint tray
+//   a brush that says it erases          is the Erase tray (ED5)
 //   a brush the terrain half calls water  is the Water tray (ED4)
 //   a brush with a `floor` knob          is the Water tray
-//   a brush named in BRUSH_MODE          is whatever that says
+//   a brush named in BRUSH_MODE          is whatever that says (ED5: erase)
 //   every other brush                    is the Sculpt tray
 //
 // The fall through is deliberate: a kind nobody here has heard of turns up in
@@ -56,6 +57,11 @@ export const MODES = [
   { id: 'people', label: 'People', icon: 'people', place: true, hint: 'who keeps this place' },
   { id: 'markers', label: 'Markers', icon: 'markers', place: true, hint: 'a note to ourselves, standing in the world' },
   { id: 'water', label: 'Water', icon: 'water', brush: true, hint: 'lakes, rivers and the sea, each at its own level' },
+  // ED5. LAST, and it is the one mode that reaches into both halves of this
+  // editor: the ring takes the ground back to the blank canvas AND takes away
+  // everything standing on it. Last down the rail because it is where you go
+  // when something is wrong, and because the nine before it keep their keys.
+  { id: 'erase', label: 'Erase', icon: 'erase', brush: true, hint: 'the blank canvas back: ground, paint, water and everything standing on it' },
 ];
 export const MODE_IDS = MODES.map((m) => m.id);
 export const modeOf = (id) => MODES.find((m) => m.id === id) || null;
@@ -86,13 +92,20 @@ export const heightOf = (id) => (FOOTPRINT[id] ? FOOTPRINT[id][2] : 0);
  * `kinds` and nothing else. Anything not named here and not answering any of
  * the questions is Sculpt, so a kind added tomorrow appears rather than
  * vanishing.
+ *
+ * ED5's `erase` is here BY NAME and not by a question, and the reason is that
+ * there is no question to ask: an eraser's row looks exactly like a sculpt
+ * brush's, a radius and the two feathering knobs, and it is only what the
+ * terrain half DOES with it that makes it an eraser. So it is named, and
+ * `auditTools` fails loudly if it ever stops landing in a tray of its own.
  */
-export const BRUSH_MODE = { lake: 'water' };
+export const BRUSH_MODE = { lake: 'water', erase: 'erase' };
 
 /** Which tray a brush belongs in, decided off the brush's own row. */
 export function brushModeOf(row) {
   if (!row) return null;
   if (Array.isArray(row.words) && row.words.length) return 'paint';
+  if (row.erases) return 'erase';
   if (WATER.has(row.id)) return 'water';
   if ((row.params || []).some((p) => p.name.toLowerCase() === 'floor')) return 'water';
   return BRUSH_MODE[row.id] || 'sculpt';
@@ -206,6 +219,10 @@ export function toolsFor(mode, opts = {}) {
       return rows.filter((r) => brushModeOf(r) === 'sculpt' && !twins.has(r.id)).map((r) => brushTile(r, 'sculpt'));
     case 'water':
       return rows.filter((r) => brushModeOf(r) === 'water' && !twins.has(r.id)).map((r) => brushTile(r, 'water'));
+    // ED5: one brush, and it is the terrain half's own. If that half ever
+    // offers a second eraser this tray shows it, with nothing here to change.
+    case 'erase':
+      return rows.filter((r) => brushModeOf(r) === 'erase' && !twins.has(r.id)).map((r) => brushTile(r, 'erase'));
     case 'paint':
       return rows.filter((r) => brushModeOf(r) === 'paint').flatMap((r) => wordTiles(r, 'paint'));
     case 'foliage': {

@@ -589,6 +589,38 @@ function coverage(x, z, r) {
     painted.stats.placed === 0 && painted.stats.dropped > 0,
     `${painted.stats.placed} placed, ${painted.stats.dropped} dropped in the same tile`);
   painted.dispose();
+
+  // ---- ED5: a wash of paint is not a yard ---------------------------------
+  //
+  // Paint carries a weight per word now, and `sample.ground` is the word over
+  // half of it. That is the whole reason it is the DOMINANT word and not any
+  // word at all: a light wash of snow over a meadow has to leave the meadow a
+  // meadow, blades and all, and a heavy one has to bury it. Driven both ways,
+  // on the same seed and the same tile, so the only thing that differs is how
+  // much snow was laid.
+  const wash = (opacity) => {
+    const fw = createWorldField(20260904, { homeY: -0.3 });
+    const ed = createTerrainEdits({ baseHeight: (x, z) => fw.heightAt(x, z) });
+    fw.setTerrainEdits(ed);
+    ed.stroke({ kind: 'ground', x: at[0], z: at[1], r: 220, word: 'snow', hardness: 1, opacity });
+    const g = new THREE.Group();
+    const grass = createGrass(g, fw, {});
+    grass.update(900000, at[0], at[1]);
+    for (let i = 0; i < 400 && grass.queued; i++) grass.update(900000 + i * 16, at[0], at[1]);
+    const out = { placed: grass.stats.placed, ground: fw.sampleAt(at[0], at[1]).ground, mix: fw.sampleAt(at[0], at[1]).groundMix };
+    grass.dispose();
+    return out;
+  };
+  const light = wash(0.3), heavy = wash(0.8);
+  check('a 0.3 wash of snow leaves the meadow a meadow, and the blades still grow',
+    light.ground === null && Math.abs(light.mix.snow - 0.3) < 1e-9 && light.placed > 0,
+    `${light.placed} blades under ${light.mix.snow.toFixed(2)} of snow, ground ${light.ground}`);
+  check('and a 0.8 wash buries it: not one blade in the same tile',
+    heavy.ground === 'snow' && heavy.placed === 0,
+    `${heavy.placed} blades under ${heavy.mix.snow.toFixed(2)} of snow, ground ${heavy.ground}`);
+  check('and it is the same tile and the same seed both times, so the snow is the only difference',
+    light.placed > 0 && Math.abs(light.placed - placedClean) / placedClean < 0.05,
+    `${light.placed} against ${placedClean} with no paint at all`);
 }
 
 g.dispose();

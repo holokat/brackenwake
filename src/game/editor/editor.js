@@ -302,7 +302,10 @@ export function createEditor(ctx = {}) {
       brush = id;
       lineFrom = null;
       const w = brushWord(id);
-      return good(`${row.label} is in hand, ${radiusOf(id)} m across the radius${row.amount ? ` at ${amountOf(id)} m` : ''}${w ? `, laying ${w}` : ''}. ${row.line ? 'Click where it starts, then click where it ends.' : 'Hold the left button and drag it over the ground.'}`);
+      // ED5: an eraser takes the things as well as the ground, and a person who
+      // is not told that finds out by losing a village.
+      const both = row.erases ? ' Everything standing inside the ring comes away with the ground, in the same press and the same undo.' : '';
+      return good(`${row.label} is in hand, ${radiusOf(id)} m across the radius${row.amount ? ` at ${amountOf(id)} m` : ''}${w ? `, laying ${w}` : ''}. ${row.line ? 'Click where it starts, then click where it ends.' : 'Hold the left button and drag it over the ground.'}${both}`);
     }
     // `real` and `placeable` are not the same question. A stand-in is not
     // real and is perfectly placeable; a critter with no monster row is
@@ -660,6 +663,86 @@ export function createEditor(ctx = {}) {
     return good(`${gone} ${pick} ${gone === 1 ? 'is' : 'are'} rubbed out of ${r} m of ground. One undo puts ${gone === 1 ? 'it' : 'them'} back.`, { gone });
   }
 
+  // ------------------------------------------------- ED5: the whole ring out --
+  //
+  // The Erase brush is one press with two halves. The terrain half is a stroke
+  // like any other and goes down the same contract; this is the other half, and
+  // it takes EVERYTHING out of the ring: pieces, trees, rocks, spawns, people
+  // and markers, in every space the ring touches and not only in the open one.
+  //
+  // The two halves are ONE UNDO, and that is done by the terrain half carrying
+  // the space half's counts on its own group (`terrainUndo` below). Two stacks
+  // would mean two presses of ctrl Z to take one press of the brush back, which
+  // is the same class of thing as a button that looks broken.
+
+  /**
+   * Every space that could be holding something inside the ring, in `docs`.
+   *
+   * A space edited an hour ago is already there; a space on disk that this
+   * session has never opened is NOT, and rubbing out a hillside without it
+   * would leave that tile's trees standing in the middle of the erased ground
+   * with nothing to show why. So the tiles the ring covers and every named
+   * space whose own radius it reaches are adopted first, from the module, which
+   * is what the game itself builds from.
+   */
+  function holdSpacesNear(x, z, r) {
+    const held = [];
+    const t0 = tileOf(x - r, z - r), t1 = tileOf(x + r, z + r);
+    const want = new Set();
+    for (let tz = t0.tz; tz <= t1.tz; tz++) for (let tx = t0.tx; tx <= t1.tx; tx++) want.add(`tile_${tx}_${tz}`);
+    for (const [id, s] of Object.entries(SPACES)) {
+      if (Math.hypot(s.at.x - x, s.at.z - z) <= (s.radius || 0) + r) want.add(id);
+    }
+    for (const id of want) {
+      if (docs.has(id)) continue;
+      const s = SPACES[id];
+      if (!s) continue;
+      docs.set(id, createSpaceDoc(JSON.parse(JSON.stringify(s))));
+      held.push(id);
+    }
+    return held;
+  }
+
+  /**
+   * Everything standing inside the ring, gone, in every space the ring touches.
+   *
+   * Returns `{ gone, per, kinds, opened }`: how many things went, how many out
+   * of each space, how many of each list (which is what the words quote), and
+   * which spaces had to be read off disk to find them. It pushes NOTHING onto
+   * the undo stack of its own: the caller hands `per` to the terrain group so
+   * both halves of one press come back together.
+   */
+  function wipeAt(x, z, r) {
+    const reach = Math.max(0.5, num(r));
+    const opened = holdSpacesNear(x, z, reach);
+    const per = new Map();
+    const kinds = {};
+    let gone = 0;
+    for (const [id, d] of docs) {
+      const rows = d.contents().filter((c) => c.x != null
+        && Math.hypot(d.space.at.x + c.x - x, d.space.at.z + c.z - z) <= reach);
+      if (!rows.length) continue;
+      // Backwards, because a remove moves everything after it down one.
+      for (const row of rows.sort((a, b) => b.index - a.index)) {
+        if (!d.remove({ list: row.list, index: row.index }).ok) continue;
+        gone++;
+        per.set(id, (per.get(id) || 0) + 1);
+        kinds[row.list] = (kinds[row.list] || 0) + 1;
+      }
+    }
+    for (const id of per.keys()) { useDoc(id); unsaved.add(id); rebuild(); }
+    if (gone) { dirty = true; changed(); }
+    return { gone, per, kinds, opened };
+  }
+
+  /** What a wipe took, in words, counted off the lists it emptied. */
+  function wipeWords(w) {
+    if (!w || !w.gone) return '';
+    const parts = LISTS.filter((l) => w.kinds[l])
+      .map((l) => `${w.kinds[l]} ${w.kinds[l] === 1 ? LIST_WORD[l] : l}`);
+    return `, ${w.gone} ${w.gone === 1 ? 'thing' : 'things'} removed (${parts.join(', ')})`;
+  }
+
   /**
    * The held sweep, batched by the SAME rule a terrain drag is batched by.
    *
@@ -897,6 +980,26 @@ export function createEditor(ctx = {}) {
     return w && row.words.includes(w) ? w : row.words[0];
   };
 
+  /**
+   * ED5: how much of the brush is at FULL strength, in metres.
+   *
+   * Read off the row's own `hardness` knob and nothing else, so a terrain half
+   * with no such knob answers 0 and the ring is the one circle it always was.
+   * `hardness * r` is what the contract means by it: the effect is full out to
+   * there and let go from there to the rim. A height brush keeps a couple of
+   * metres of rim whatever the slider says, so the circle drawn at hardness 1
+   * is within two metres of the truth and the brush's own edge is exact.
+   */
+  function brushCore(id = brush) {
+    const row = brushRowOf(id);
+    if (!row) return 0;
+    const p = row.params.find((q) => q.name.toLowerCase() === 'hardness');
+    if (!p) return 0;
+    const r = radiusOf(id);
+    const h = brushValue(id, p.name);
+    return h >= 1 ? r : round2(Math.max(0, h) * r);
+  }
+
   /** The knob that means "how wide", and the one that means "how much". */
   function radiusOf(id = brush) {
     const row = brushRowOf(id);
@@ -1073,18 +1176,32 @@ export function createEditor(ctx = {}) {
     let out;
     try { out = t.stroke(call); } catch (err) { return bad(`the ${call.kind} brush threw: ${err && err.message}`); }
     groundChanged(opts.now);
+    // ED5: THE OTHER HALF OF AN ERASE. The ground went back through the
+    // contract above; everything standing on it comes out here, in the same
+    // press, and its per space counts ride home on the result so the group the
+    // caller pushes carries both halves. `row.erases` is the terrain half's own
+    // flag: no brush is named in this file and none is named here either.
+    const wiped = row && row.erases ? wipeAt(call.x, call.z, call.r) : null;
     // The strokes of one drag are not each worth a line; the drag's end is.
-    return { ok: true, call, row, line, result: out, cut, words: typeof out === 'string' ? out : '', flip };
+    return { ok: true, call, row, line, result: out, cut, words: typeof out === 'string' ? out : '', flip, wiped };
   }
+
+  /** The `places` a stroke group carries: how many commands each space owes it. */
+  const placesOf = (wiped) => (wiped && wiped.gone ? [...wiped.per].map(([id, n]) => ({ id, n })) : null);
 
   /** One stroke that stands on its own: a click, or the far end of a line. */
   function strokeOnce(x, z, opts = {}) {
     const res = stroke(x, z, opts);
     if (!res.ok) return res;
-    strokeGroups.push({ kind: res.call.kind, n: 1 });
+    strokeGroups.push({ kind: res.call.kind, n: 1, places: placesOf(res.wiped) });
     strokeUndone.length = 0;
     const none = res.flip && res.flip.none ? `. ${labelOfKind(res.call.kind)} has no other way round, so shift changed nothing` : '';
-    return good(`${describe(res.call, res.row, res.line)}${res.cut}${none}. ${res.words || 'Ctrl Z takes it back.'}`, { call: res.call, line: res.line });
+    // The wipe's own count, said even when it is nothing: an erase over empty
+    // ground that said only what it did to the height would leave a person
+    // wondering whether the other half of the brush had worked.
+    const took = res.wiped ? (wipeWords(res.wiped) || ', and nothing was standing on it') : '';
+    return good(`${describe(res.call, res.row, res.line)}${res.cut}${none}. ${res.words || 'Ctrl Z takes it back.'}${took}`,
+      { call: res.call, line: res.line, gone: res.wiped ? res.wiped.gone : 0 });
   }
 
   /**
@@ -1095,7 +1212,12 @@ export function createEditor(ctx = {}) {
   function dragBegin(x, z, opts = {}) {
     const row = brushRowOf(brush);
     if (row && row.line) return bad(`${row.label} is drawn between two points: click where it starts, then click where it ends.`);
-    drag = { kind: brush, r: radiusOf(brush), n: 0, at: -Infinity, x: NaN, z: NaN, shift: !!opts.shift, words: '' };
+    drag = {
+      kind: brush, r: radiusOf(brush), n: 0, at: -Infinity, x: NaN, z: NaN, shift: !!opts.shift, words: '',
+      // ED5: what the drag has taken out of the spaces so far, per space and
+      // per list, so the words at the end are a count and not an estimate.
+      gone: 0, places: new Map(), kinds: {},
+    };
     const first = dragStroke(x, z, opts);
     // A drag whose very first stroke was refused is no drag at all, so it is
     // dropped here rather than left lying for the next pointer move to feed.
@@ -1113,18 +1235,33 @@ export function createEditor(ctx = {}) {
     if (!res.ok) { drag.dead = true; return res; }
     drag.n++; drag.at = now; drag.x = x; drag.z = z; drag.words = res.words || '';
     drag.laid = res.call;
+    // ED5: the whole drag's wipe, gathered per space as it goes, so the group
+    // pushed when the button comes up owes each space one number and undo takes
+    // the sweep and everything it removed back in one press.
+    if (res.wiped && res.wiped.gone) {
+      drag.gone += res.wiped.gone;
+      for (const [id, n] of res.wiped.per) drag.places.set(id, (drag.places.get(id) || 0) + n);
+      for (const l of Object.keys(res.wiped.kinds)) drag.kinds[l] = (drag.kinds[l] || 0) + res.wiped.kinds[l];
+    }
     return res;
   }
   function dragEnd() {
     const d = drag;
     drag = null;
     if (!d || !d.n) return { ok: false, text: '' };
-    strokeGroups.push({ kind: d.laid.kind, n: d.n });
+    const places = d.places.size ? [...d.places].map(([id, n]) => ({ id, n })) : null;
+    strokeGroups.push({ kind: d.laid.kind, n: d.n, places });
     strokeUndone.length = 0;
     const turned = d.shift ? (d.laid.kind === d.kind ? ', turned over' : `, turned over into ${d.laid.kind}`) : '';
     const row = brushRowOf(d.laid.kind);
     const much = !row || row.amount ? ` at ${amountOf(d.laid.kind)} m` : '';
-    return good(`${d.n} ${d.n === 1 ? 'stroke' : 'strokes'} of ${labelOfKind(d.laid.kind)}, ${d.r} m across${much}${turned}. One ctrl Z takes the whole drag back.`, { strokes: d.n });
+    const took = row && row.erases
+      ? (d.gone
+        ? `${wipeWords({ gone: d.gone, kinds: d.kinds })}, out of ${d.places.size} ${d.places.size === 1 ? 'space' : 'spaces'}`
+        : ', and nothing was standing on it')
+      : '';
+    return good(`${d.n} ${d.n === 1 ? 'stroke' : 'strokes'} of ${labelOfKind(d.laid.kind)}, ${d.r} m across${much}${turned}${took}. One ctrl Z takes the whole drag back.`,
+      { strokes: d.n, gone: d.gone });
   }
   /** How much ground one drag has covered so far, for the panel's readout. */
   const dragCount = () => (drag ? drag.n : 0);
@@ -1155,6 +1292,37 @@ export function createEditor(ctx = {}) {
    * The contract undoes one stroke a call, so a drag of thirty is thirty calls.
    * If the contract runs out part way the count is said rather than assumed.
    */
+  /**
+   * ED5: the space half of one terrain group, taken back or put back with it.
+   *
+   * An erase is ONE press with two halves, so it has to be one undo. The
+   * terrain half is the contract's own stack and the space half is each space's
+   * own command stack, and this is what keeps them level: the group carries how
+   * many commands each space owes it, and this walks them. Returns how many
+   * commands really moved, counted, so the words cannot claim more than
+   * happened.
+   */
+  function undoPlaces(places, dir) {
+    if (!places || !places.length) return 0;
+    const was = doc;
+    let n = 0;
+    for (const p of places) {
+      if (!useDoc(p.id)) continue;
+      for (let i = 0; i < p.n; i++) {
+        const res = dir < 0 ? doc.undo() : doc.redo();
+        if (!res.ok) break;
+        n++;
+      }
+      unsaved.add(p.id);
+      rebuild();
+    }
+    if (was) { doc = was; dirty = unsaved.has(was.space.id); rebuild(); }
+    if (n) changed();
+    return n;
+  }
+  /** What the space half of an undo did, in words. Empty when there was none. */
+  const placeWords = (n, back) => (n ? `, and ${n} ${n === 1 ? 'thing' : 'things'} ${back ? 'back on the ground with it' : 'gone again'}` : '');
+
   function terrainUndo() {
     const t = terrain();
     if (!t || typeof t.undo !== 'function') return bad(NO_TERRAIN);
@@ -1165,12 +1333,13 @@ export function createEditor(ctx = {}) {
     }
     let n = 0;
     for (let i = 0; i < g.n; i++) { if (t.undo() === false) break; n++; }
+    const back = undoPlaces(g.places, -1);
     strokeUndone.push({ ...g, n });
     groundChanged();
-    if (!n) return bad(`the ${g.kind} the editor was holding was already gone from the ground, so nothing came back.`);
-    return good(n === g.n
-      ? `${n} ${n === 1 ? 'stroke' : 'strokes'} of ${g.kind} undone, the whole ${g.n === 1 ? 'stroke' : 'drag'} in one.`
-      : `${n} of the ${g.n} strokes of ${g.kind} came back; the ground had no more to give.`);
+    if (!n && !back) return bad(`the ${g.kind} the editor was holding was already gone from the ground, so nothing came back.`);
+    return good((n === g.n
+      ? `${n} ${n === 1 ? 'stroke' : 'strokes'} of ${g.kind} undone, the whole ${g.n === 1 ? 'stroke' : 'drag'} in one`
+      : `${n} of the ${g.n} strokes of ${g.kind} came back; the ground had no more to give`) + placeWords(back, true) + '.');
   }
   function terrainRedo() {
     const t = terrain();
@@ -1182,10 +1351,11 @@ export function createEditor(ctx = {}) {
     }
     let n = 0;
     for (let i = 0; i < g.n; i++) { if (t.redo() === false) break; n++; }
+    const gone = undoPlaces(g.places, 1);
     strokeGroups.push({ ...g, n });
     groundChanged();
-    if (!n) return bad(`there was nothing of that ${g.kind} left to put back.`);
-    return good(`${n} ${n === 1 ? 'stroke' : 'strokes'} of ${g.kind} back on the ground.`);
+    if (!n && !gone) return bad(`there was nothing of that ${g.kind} left to put back.`);
+    return good(`${n} ${n === 1 ? 'stroke' : 'strokes'} of ${g.kind} back on the ground${placeWords(gone, false)}.`);
   }
   async function terrainSave() {
     const t = terrain();
@@ -1323,7 +1493,7 @@ export function createEditor(ctx = {}) {
     get canUndo() { return placeGroups.length > 0 || (!!doc && doc.canUndo); },
     get canRedo() { return placeUndone.length > 0 || (!!doc && doc.canRedo); },
     // the automatic spaces, the scatter brush and the autosave
-    ensureSpaceFor, useDoc, scatterAt, eraseAt, scatterCount,
+    ensureSpaceFor, useDoc, scatterAt, eraseAt, scatterCount, wipeAt, holdSpacesNear,
     sweepBegin, sweepStroke, sweepEnd, sweepCount,
     nearestTo, selectAt, setSelected, deselect,
     get scatter() { return { r: scatterR, density: scatterDensity }; },
@@ -1338,7 +1508,7 @@ export function createEditor(ctx = {}) {
     get depth() { return { done: placeGroups.length, undone: placeUndone.length }; },
     // terrain: the brushes
     terrainKinds, refreshKinds, brushRow: brushRowOf, brushValues, brushValue, brushWord,
-    setBrush, setBrushParam, setBrushWord, brushTouched, bumpRadius, invert,
+    setBrush, setBrushParam, setBrushWord, brushTouched, bumpRadius, invert, brushCore,
     // terrain: laying ground down
     stroke, strokeOnce, dragBegin, dragStroke, dragEnd, dragCount,
     lineStart, lineEnd, lineCancel, lineAt,
@@ -1346,7 +1516,13 @@ export function createEditor(ctx = {}) {
     // terrain: the world under the strokes
     terrainMode, terrainBase, setTerrainBase, terrainReset, resetAsked,
     get brush() {
-      return { kind: brush, r: radiusOf(brush), amount: amountOf(brush), word: brushWord(brush), params: brushValues(brush), line: !!(brushRowOf(brush) && brushRowOf(brush).line) };
+      const row = brushRowOf(brush);
+      return {
+        kind: brush, r: radiusOf(brush), amount: amountOf(brush), word: brushWord(brush),
+        params: brushValues(brush), line: !!(row && row.line),
+        // ED5: what the ring has to draw, and what the strip has to say.
+        core: brushCore(brush), erases: !!(row && row.erases),
+      };
     },
     get terrainDepth() { return { done: strokeGroups.length, undone: strokeUndone.length }; },
     // words

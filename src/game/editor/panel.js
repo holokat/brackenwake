@@ -43,7 +43,7 @@ import { MODES, MODE_IDS, ACTIONS, modeOf, toolsFor, filterTools, auditTools } f
 import { editorIcon, swatch } from './icons.js';
 import { thumbInfo, canThumb } from './thumbs.js';
 import { theme } from '../ui_theme.js';
-import { ghostFor, brushRing, radiusRing, selectionBox, disposeGhost, lineGhost } from './ghost.js';
+import { ghostFor, brushRing, BRUSH_COLOUR, radiusRing, selectionBox, disposeGhost, lineGhost } from './ghost.js';
 import { TURN_DEG, SCALE_STEP, labelOf, pointOf } from './space_doc.js';
 import { setMarkersVisible } from '../../world/plan_models.js';
 import { MINIMAP_CLEAR } from '../minimap.js';
@@ -291,6 +291,18 @@ export const panel = {
     const modeCells = new Map();
     const actionCells = new Map();
 
+    /**
+     * The key that picks the mode in the i'th cell, or '' for one with none.
+     *
+     * ONE DIGIT AND NEVER TWO. The rail had nine modes and 1 to 9 said them
+     * all; ED5's tenth takes 0, which is the key next to the 9 on every
+     * keyboard and reads as "the tenth" the way it does in every other program
+     * with ten slots. An eleventh mode would get no key rather than a two
+     * character label the cell has no room for, and `onKey` below reads this
+     * same function, so the face and the key cannot part company.
+     */
+    const modeKey = (i) => (i < 9 ? String(i + 1) : i === 9 ? '0' : '');
+
     const cell = (parent, name, icon, key) => {
       const b = h('div', 'cell');
       b.appendChild(mark(h('div', 'g'), icon, theme.gold, CELL - 16));
@@ -301,7 +313,7 @@ export const panel = {
     };
 
     MODES.forEach((m, i) => {
-      const b = cell(rail, m.label, m.icon, String(i + 1));
+      const b = cell(rail, m.label, m.icon, modeKey(i));
       b.title = m.hint;
       b.addEventListener('click', () => setMode(m.id));
       modeCells.set(m.id, b);
@@ -758,7 +770,11 @@ export const panel = {
       sTool.textContent = t ? t.label : 'nothing in the tray';
       if (act === 'terrain') {
         const b = ed.brush;
-        sSize.textContent = `${b.r} m${b.amount ? `, ${b.amount} m of it` : ''}${b.word ? `, ${b.word}` : ''}`;
+        // ED5: the falloff and the eraser's own count, in the strip, because
+        // both are things a person needs before the press and not after it.
+        const soft = b.core > 0 && b.core < b.r ? `, full to ${b.core} m` : '';
+        const took = b.erases && lastGone ? `, ${lastGone} ${lastGone === 1 ? 'thing' : 'things'} taken` : '';
+        sSize.textContent = `${b.r} m${b.amount ? `, ${b.amount} m of it` : ''}${b.word ? `, ${b.word}` : ''}${soft}${took}`;
       } else if (act === 'scatter') {
         const s = ed.scatter;
         sSize.textContent = `${s.r} m, ${s.density} per 100 sq m, about ${ed.scatterCount(s.r, s.density)} a sweep`;
@@ -789,6 +805,9 @@ export const panel = {
     const ray = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
     let ghost = null, hover = null, ghostKey = '';
+    // ED5: how many things the last press of the eraser took away, for the
+    // strip. A number, read off what the editor counted, and 0 until a press.
+    let lastGone = 0;
     let spaceRing = null, selBox = null, lineDraw = null;
     let press = null, dragging = null;
     let live = false;
@@ -811,12 +830,15 @@ export const panel = {
       const t = toolNow();
       const act = actOf(t);
       const r = ringR();
-      const key = `${mode}:${t ? t.id : ''}:${act}:${r}:${ed.ghost.scale}:${ed.ghost.kind}`;
+      // ED5: how much of the brush is at full strength, in metres. A scatter
+      // has no falloff, so it is 0 there and wears the one ring it always did.
+      const core = act === 'terrain' ? ed.brush.core : 0;
+      const key = `${mode}:${t ? t.id : ''}:${act}:${r}:${core}:${ed.ghost.scale}:${ed.ghost.kind}`;
       if (key === ghostKey) return;
       ghostKey = key;
       if (ghost) { scene.remove(ghost); disposeGhost(ghost); ghost = null; }
       if (act === 'terrain' || act === 'scatter') {
-        ghost = brushRing(r);
+        ghost = brushRing(r, BRUSH_COLOUR, core);
       } else if (act === 'place' && t) {
         const made = ghostFor(t.tab, t.id, { scale: ed.ghost.scale, kind: ed.ghost.kind, label: ed.ghost.label, r, realm: 'greenwold' });
         ghost = made ? made.group : null;
@@ -950,6 +972,7 @@ export const panel = {
         if (!p) { ed.say('the cursor is not on any ground, so the line has no end there.', 'bad'); drawStatus(); return; }
         const from = ed.lineAt();
         const res = from ? ed.lineEnd(p.x, p.z, { shift: e.shiftKey }) : ed.lineStart(p.x, p.z);
+        if (from && res.ok) lastGone = res.gone || 0;
         if (from && res.ok) {
           const mid = { x: (from.x + p.x) / 2, z: (from.z + p.z) / 2 };
           ed.rebuildGround(mid.x, mid.z, Math.hypot(p.x - from.x, p.z - from.z) / 2 + ed.brush.r + 8);
@@ -957,7 +980,7 @@ export const panel = {
         drawAll();
         return;
       }
-      if (act === 'terrain') { ed.dragEnd(); drawAll(); return; }
+      if (act === 'terrain') { const res = ed.dragEnd(); if (res && res.ok) lastGone = res.gone || 0; drawAll(); return; }
       if (act === 'scatter') {
         if (began) { ed.sweepEnd(); drawAll(); return; }
         // Never moved: a click. One thing, or with shift one rub of the ring.
@@ -1032,7 +1055,9 @@ export const panel = {
       if (mod && k === 's') { if (e.preventDefault) e.preventDefault(); ed.saveAll().then(() => ed.list()).then(drawAll).catch(() => drawAll()); }
       else if (mod && k === 'z' && !e.shiftKey) { if (onGround) ed.terrainUndo(); else ed.undo(); }
       else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { if (onGround) ed.terrainRedo(); else ed.redo(); }
-      else if (!mod && /^[1-9]$/.test(k)) { setMode(MODE_IDS[Number(k) - 1]); }
+      else if (!mod && /^[0-9]$/.test(k) && MODE_IDS.some((id, i) => modeKey(i) === k)) {
+        setMode(MODE_IDS[MODE_IDS.findIndex((id, i) => modeKey(i) === k)]);
+      }
       else if (!mod && (k === '+' || k === '=')) { if (onGround) ed.bumpRadius(1); else ed.setScatter({ r: ed.scatter.r * 1.15 }); rebuildGhost(); knobSig = ''; }
       else if (!mod && (k === '-' || k === '_')) { if (onGround) ed.bumpRadius(-1); else ed.setScatter({ r: ed.scatter.r / 1.15 }); rebuildGhost(); knobSig = ''; }
       else if (!mod && k === 'r') ed.turn(e.shiftKey ? -TURN_DEG : TURN_DEG);
@@ -1113,8 +1138,9 @@ export const panel = {
     // The gameplay HUD goes off the screen for as long as the editor is up.
     const put = ctx?.hud?.setMode?.('editor');
     if (this._setLive) this._setLive(true);
-    ctx?.hud?.toast?.('the editor is open. The sidebar is the mode, 1 to 9 pick one, the tray beside it is what goes down. '
+    ctx?.hud?.toast?.('the editor is open. The sidebar is the mode, 1 to 9 and then 0 pick one, the tray beside it is what goes down. '
       + 'Hold the left button to paint, shift turns a brush over or rubs a scatter out, the wheel widens it. '
+      + 'The last cell is Erase, which takes the ground and everything standing on it back to the blank canvas. '
       + 'Right drag still turns the camera. Everything writes itself a second after you stop. L or Escape leaves.');
     if (this._ed && put) this._ed.say(`the gameplay HUD is put away, ${put.hidden} ${put.hidden === 1 ? 'piece' : 'pieces'} of it, and it comes back when you leave.`);
     if (this._drawAll) this._drawAll();

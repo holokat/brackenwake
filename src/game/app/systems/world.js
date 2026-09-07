@@ -18,6 +18,7 @@ import { cameraClamp } from '../../../world/dungeon.js';
 import {
   reachOf, maxGrade, kinds as strokeKinds, NEEDS_YAW, GROUND_WORDS, BASE_GROUNDS,
   WATER_KINDS, isWaterKind, levelOf, levelEndOf, depthOf,
+  ERASE_KIND, hardnessOf, opacityOf, coreRadius,
 } from '../../../world/terrain_edits.js';
 
 /** Where the follow camera looks on the body, matching camera.js. */
@@ -43,6 +44,26 @@ const place = (s) => `${Math.round(s.x)}, ${Math.round(s.z)}`;
  * defaulted is the number the words say. Nothing here is a plan; it is a
  * report. `chunks` is what the rebuild counted.
  */
+/**
+ * How soft a brush's edge was, in words, off the stroke that was stored.
+ *
+ * Said for the two brushes whose whole point is the edge, and said in metres
+ * rather than as the 0 to 1 the slider carries, because a person looking at the
+ * ground is looking at metres. A brush at hardness 1 has no falloff to report
+ * and says nothing, which is what every stroke made before ED5 does.
+ */
+export function featherWords(s) {
+  const bits = [];
+  const core = coreRadius(s), r = Math.max(0, s.r || 0);
+  // Said only when there is a falloff to say. A brush with no core is the
+  // profile it always was (a dome is not "feathered", it is a dome) and a brush
+  // whose core IS its radius is the hard edge paint always had, so both of them
+  // say nothing, which is what every stroke made before ED5 does.
+  if (core > 0 && core < r) bits.push(`full to ${m1(core)} m and feathered over the last ${m1(r - core)}`);
+  if (opacityOf(s) < 1) bits.push(`${Math.round(opacityOf(s) * 100)}% of it in one pass`);
+  return bits.length ? `, ${bits.join(', ')}` : '';
+}
+
 export function strokeWords(s, chunks, extra = '') {
   const at = place(s), r = Math.round(s.r);
   const grade = maxGrade(s);
@@ -90,10 +111,23 @@ export function strokeWords(s, chunks, extra = '') {
     }
     case 'sea': body = `laid a sea ${r * 2} m across at ${at}, its surface at ${m1(levelOf(s))} m, cutting no bed: it floods the coast you sculpted and nothing else`; break;
     case 'drain': body = `drained the water inside ${r} m of ${at}, and moved no ground doing it`; break;
+    /**
+     * ED5. The metres and the count are NOT in this function, because this
+     * function is handed a stroke and an eraser is a thing that happens to the
+     * strokes under it: how much ground went back is the field before against
+     * the field after, and how many strokes it masks is a walk of the list.
+     * Both are measured by the caller and arrive as `extra`. What is said here
+     * is only what the stroke itself says: where, how wide, and how soft.
+     */
+    case ERASE_KIND: body = `erased ${r} m of ground back to the flat at ${at}`; break;
     default: body = `${s.kind} at ${at}`;
   }
   const built = chunks == null ? '' : `, ${chunks} ${chunks === 1 ? 'chunk' : 'chunks'} of ground rebuilt`;
-  return `${body}${extra}${built}${steep}`;
+  // ED5: the falloff, said for EVERY brush that has one and not for the two it
+  // was first written for. One case is never the case: a hardness slider that
+  // reported itself on the paint brush and changed a mountain in silence is the
+  // same silent state change twice.
+  return `${body}${featherWords(s)}${extra}${built}${steep}`;
 }
 /**
  * The height a sculpt world USED to flood at, before ED4.
@@ -148,6 +182,27 @@ export function placedWaterWords(s, p) {
       + `and the surface you asked for is ${m1(levelOf(s))} m`;
   }
   return `, and the water there stands ${m1(p.waterLevel - p.h)} m deep`;
+}
+
+/**
+ * What an eraser actually did, in words, off two samples and a count.
+ *
+ * PURE AND EXPORTED, and it takes the numbers rather than taking them, because
+ * every one of them has to be MEASURED by the caller at the right moment: the
+ * height at the point before the stroke and after it, and how many earlier
+ * strokes the ring really reaches. An eraser that says "erased" and nothing
+ * else is indistinguishable from an eraser that found nothing to erase, and
+ * over flat ground that is exactly what it usually did.
+ */
+export function eraseWords(before, after, masked) {
+  const moved = Math.abs(before - after);
+  const ground = moved > 0.005
+    ? `, the ground under it back ${m1(moved)} m`
+    : ', and the ground under it did not move';
+  const strokes = masked > 0
+    ? `, ${masked} ${masked === 1 ? 'stroke' : 'strokes'} masked`
+    : ', with no stroke of yours under it';
+  return `${ground}${strokes}`;
 }
 
 /** How often the sky is baked into the reflection everything metal reads. */
@@ -416,9 +471,14 @@ export const world = {
         const kind = input && input.kind;
         const req = { ...input };
         if (NEEDS_YAW.has(kind) && !Number.isFinite(req.yaw)) req.yaw = yawFor(kind, req.x, req.z);
+        // ED5: the ground BEFORE the eraser, taken through the same field a
+        // player's feet take, so the metres the words quote are metres of the
+        // world and not of a profile somebody worked out on paper.
+        const was = kind === ERASE_KIND && Number.isFinite(req.x) ? runtime.field.heightAt(req.x, req.z) : 0;
         const s = edits.stroke(req);
         const did = runtime.rebuildAround(s.x, s.z, reachOf(s) + REBUILD_MARGIN);
         let extra = isWaterKind(s.kind) ? waterWords(s) : dryWords(s);
+        if (s.kind === ERASE_KIND) extra = eraseWords(was, runtime.field.heightAt(s.x, s.z), edits.maskedBefore(s));
         if (s.kind === 'cave') {
           const site = runtime.sitesNear(s.x, s.z, 4).find((p) => p.id === `edit:cave:${s.id}`);
           const spec = EDIT_CAVE_SPEC[site ? site.size : 'medium'];

@@ -106,6 +106,13 @@ const MINE_AIM_STEPS = 32;
  * patch takes the snow biome, which is the snow texture row, no turf worth the
  * name and no broadleaf trees. It is also the word a whole sculpt world may be
  * made of (`terrain_edits.BASE_GROUNDS`), which is why it had to have a biome.
+ *
+ * ED5: the word this is asked about is the DOMINANT word of the paint mix, so a
+ * biome flips only where a word is more than half of what the ground is made
+ * of. Under that, the rim is a blend of textures and the country underneath is
+ * still the country: a 30% wash of snow over a meadow does not turn the meadow
+ * into a snowfield, kill its grass and change its trees, which is what taking
+ * the biome at any weight at all would do.
  */
 export const PAINT_BIOME = { grass: 'meadow', sand: 'beach', rock: 'mountain', snow: 'snow' };
 /**
@@ -1222,9 +1229,21 @@ export function createWorldField(seed = 1, opts = {}) {
     // because a sand bed under a lake somebody dug is exactly the thing a
     // person paints and then floods, and having the flooding silently undo the
     // paint is the same class of bug as the gift that did not fit in the barn.
-    let ground = null;
+    //
+    // ED5: PAINT IS A MIX, AND `ground` IS THE DOMINANT WORD OF IT.
+    //
+    // A feathered rim is part one word and part another, and `sample.ground` is
+    // a question with one answer ("is this patch somebody's yard"), so the two
+    // are carried separately: `ground` is the word over half the mix, or null,
+    // which is the same word a full strength stroke has always put here, and
+    // `groundMix` is the weights. `terrain_material.js` blends its layers by
+    // the mix, which is what makes a feathered edge read as a blend; grass.js
+    // and dressing.js go on reading `ground` and go on meaning by it exactly
+    // what they meant before. Both come off ONE walk of the stroke list.
+    let ground = null, groundMix = null;
     if (EDITS && EDITS.live) {
-      ground = EDITS.groundOverride(x, z);
+      const paint = EDITS.groundAt(x, z);
+      if (paint) { ground = paint.word; groundMix = paint.mix; }
       if (ground && PAINT_BIOME[ground] && (!water || waterLevel != null)) biome = PAINT_BIOME[ground];
     }
     // `zone` is the deepest zone's id or null, `realm` the id of the realm of
@@ -1237,7 +1256,7 @@ export function createWorldField(seed = 1, opts = {}) {
     // field to know where a lake is; this is here for anything that needs to
     // know how deep the water it is standing in is.
     return {
-      h, biome, water, waterLevel, river, land, temp, moist, site, road, ground,
+      h, biome, water, waterLevel, river, land, temp, moist, site, road, ground, groundMix,
       zone: zb.id, realm: zb.parent ? zb.parent.id : zb.id, danger: zb.danger,
     };
   }
