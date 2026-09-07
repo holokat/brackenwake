@@ -781,7 +781,7 @@ console.log('\nabilities_runtime: a bandage, from the ability bar and from the p
   empty.character.items = {};
   const no = empty.abilities.use(0, 0);
   ck('with none anywhere it refuses, and counts what you have',
-    no.ok === false && /needs 1 bandage and you have 0/.test(no.reason), no.reason);
+    no.ok === false && /needs 1 bandage in your pack and you have 0/.test(no.reason), no.reason);
 }
 
 // --- the jump attack --------------------------------------------------------------
@@ -880,6 +880,48 @@ console.log('abilities_runtime: buffs expire and the pools follow');
   ck('one press, three things, and all three were said',
     /90%/.test(said(h)) && /stun/.test(said(h)) && /armourRatingFlat/.test(said(h)),
     said(h).split('|').pop().trim());
+  // The word is English. `${effect}ed` read "1 stuned for 3 seconds" in the
+  // in-game sweep of 2026-09-08, and "silenceed", "pacifyed", "provokeed".
+  ck('and the stun is said as "stunned"',
+    /1 stunned for 3 seconds/.test(said(h)) && !/stuned/.test(said(h)), said(h).split('|').pop().trim());
+}
+{
+  const a = mob('a', 0, 4), b = mob('b', 1, 4);
+  const h = harness({ bar: ['peace', 'provoke', 'eldritchBolt'], monsters: [a, b], equipment: { mainHand: { base: 'lute' } }, pack: [] });
+  h.abilities.use(0, 0); h.abilities.update(1.1, 1.1);
+  ck('Peace says "pacified"', /pacified for/.test(said(h)) && !/pacifyed/.test(said(h)), said(h).split('|').pop().trim());
+  h.abilities.use(1, 5); h.abilities.update(1.1, 6.1);
+  ck('Provoke says "provoked"', /provoked for/.test(said(h)) && !/provokeed/.test(said(h)), said(h).split('|').pop().trim());
+}
+
+// --- damage over time actually ticks ---------------------------------------------------
+console.log('abilities_runtime: a dot is damage, not a line');
+{
+  // Fireball: 18 to 26 on the bolt, then "2 a second for 4 seconds". The bolt
+  // is combat's job (queued, not landed, in this harness); the burn is ours,
+  // and until the in-game sweep of 2026-09-08 nothing ticked it.
+  const target = mob('Skeleton', 0, 5);
+  const h = harness({ bar: ['fireball'], monsters: [target] });
+  h.abilities.use(0, 0);
+  h.abilities.update(0.7, 0.7);                       // the cast releases at 0.6
+  ck('the burn is written on the target', Array.isArray(target.dots) && target.dots.length === 1, JSON.stringify(target.dots));
+  ck('and nothing has ticked before its first second', target.health === 100, String(target.health));
+  h.abilities.update(1.0, 1.7);
+  ck('one second in, one tick of two', target.health === 98, String(target.health));
+  h.abilities.update(1.0, 2.7); h.abilities.update(1.0, 3.7); h.abilities.update(1.0, 4.7);
+  ck('four seconds in, four ticks and the burn is gone', target.health === 92 && target.dots.length === 0, `hp ${target.health}, ${target.dots.length} dots`);
+  h.abilities.update(1.0, 9);
+  ck('and it does not keep burning after', target.health === 92, String(target.health));
+  ck('each tick was a floater the player could see', h.floaters.spawned.filter((f) => f.t === '2').length === 4, JSON.stringify(h.floaters.spawned.map((f) => f.t)));
+}
+{
+  // a tick that kills ends the dot rather than hitting a corpse
+  const target = mob('Skeleton', 0, 5, { health: 3, maxHealth: 3 });
+  const h = harness({ bar: ['fireball'], monsters: [target] });
+  h.abilities.use(0, 0);
+  h.abilities.update(0.7, 0.7);
+  h.abilities.update(1.0, 1.7); h.abilities.update(1.0, 2.7);
+  ck('a dot kills and stops', target.health === 0 && target.dots.length === 0, `hp ${target.health}, ${target.dots.length} dots`);
 }
 
 // --- summons, zones, marks, enchants ---------------------------------------------------

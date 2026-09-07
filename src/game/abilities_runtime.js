@@ -630,6 +630,25 @@ export function createAbilities(deps = {}) {
    * faction test is `targeting.isTargetable`'s own, so a spell and a cursor can
    * never disagree about whose side a body is on.
    */
+  /**
+   * The past participle of a control effect, for the line that reports it.
+   * `${effect}ed` gave the player "1 stuned", "1 silenceed", "1 pacifyed" and
+   * "2 provokeed"; the table covers every effect abilities.js's control rows
+   * use, and the fallback handles a regular verb so a new row reads right too.
+   */
+  const CONTROL_WORDS = {
+    stun: 'stunned', silence: 'silenced', pacify: 'pacified', provoke: 'provoked',
+    sleep: 'put to sleep', fear: 'feared', root: 'rooted', slow: 'slowed', pull: 'pulled',
+    disarm: 'disarmed', knockdown: 'knocked down', blind: 'blinded', taunt: 'taunted',
+  };
+  function controlWord(effect) {
+    const w = String(effect || '');
+    if (CONTROL_WORDS[w]) return CONTROL_WORDS[w];
+    if (w.endsWith('e')) return `${w}d`;
+    if (/[^aeiou]y$/.test(w)) return `${w.slice(0, -1)}ied`;
+    return `${w}ed`;
+  }
+
   function inArea(centre, radius, arcDegrees, fromPos, facing) {
     const half = arcDegrees ? (arcDegrees * Math.PI) / 360 : Math.PI;
     const out = [];
@@ -916,7 +935,7 @@ export function createAbilities(deps = {}) {
       }
       const missed = dodged ? `, ${dodged} shook it off` : '';
       return done
-        ? `${done} ${e.effect}${done === 1 ? 'ed' : 'ed'} for ${saySeconds(e.duration)}${missed}.`
+        ? `${done} ${controlWord(e.effect)} for ${saySeconds(e.duration)}${missed}.`
         : `None of them took the ${e.effect}.`;
     },
 
@@ -1642,6 +1661,19 @@ export function createAbilities(deps = {}) {
     return found;
   }
 
+  function tickDots(m, t) {
+    for (let i = m.dots.length - 1; i >= 0; i--) {
+      const d = m.dots[i];
+      while (num(m.health) > 0 && t >= d.nextTickAt && d.nextTickAt <= d.until + 1e-6) {
+        const n = Math.max(1, Math.round(num(d.perSecond)));
+        if (typeof combat?.hurt === 'function') combat.hurt(m, n, { now: t * 1000, kind: d.type || 'damage', killer: actor });
+        else { m.health = Math.max(0, num(m.health) - n); float(m.pos || m, String(n), 'damage'); }
+        d.nextTickAt += 1;
+      }
+      if (t >= d.until || num(m.health) <= 0) m.dots.splice(i, 1);
+    }
+  }
+
   function breakCast(reason, now) {
     if (!cast) return;
     const back = refund(cast);
@@ -1708,6 +1740,17 @@ export function createAbilities(deps = {}) {
     // 4. buffs and debuffs run out, and the pools have to follow
     expire(actor, t);
     for (const m of allTargets()) if (Array.isArray(m.buffs) && m.buffs.length) expire(m, t);
+
+    // 4b. damage over time ticks. doDot wrote `m.dots` and, until the in-game
+    // sweep of 2026-09-08, nothing read it: Fireball's "2 a second for 4
+    // seconds", Rend's bleed and Rift's 10 a second were a line and no more.
+    // One tick a second from the second after it was laid, the last one on the
+    // duration, through combat's hurt so a kill is credited and a floater shows
+    // each tick; the harness fallback takes the health off directly.
+    for (const m of allTargets()) {
+      if (!Array.isArray(m.dots) || !m.dots.length) continue;
+      tickDots(m, t);
+    }
 
     // 5. zones: a trap fires once on the first thing to step in it
     for (let i = zones.length - 1; i >= 0; i--) {

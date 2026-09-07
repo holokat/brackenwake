@@ -1012,6 +1012,10 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     lastNow = Number.isFinite(now) ? now : lastNow + Math.max(0, num(dt)) * 1000;
     const t = lastNow;
     for (let i = pending.length - 1; i >= 0; i--) {
+      // A landing can kill, and kill() cancels every job the dead body was in,
+      // so the queue may be shorter than it was a moment ago. Meteor's fall on
+      // a bandit read `undefined.at` here and took the frame down with it.
+      if (i >= pending.length) { i = pending.length; continue; }
       const job = pending[i];
       if (job.at > t) continue;
       pending.splice(i, 1);

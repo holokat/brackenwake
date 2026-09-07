@@ -18,7 +18,7 @@ import {
   WEAPON_BASES, SHIELD_BASES, INSTRUMENT_BASES, AMMO_BASES, WEAPON_WORDS,
   FOCUS_BASES, isSpell, isFocusItem, isChivalry, burdensInArmour,
   NEEDS_KINDS, weaponNeeds, weaponCheck, countInPack,
-  COST_ITEM_BASES, costItemIds, itemsHeld, payingBase, ABILITY_FOR_ITEM,
+  COST_ITEM_BASES, COST_ITEM_WORDS, costItemWords, costItemIds, itemsHeld, payingBase, ABILITY_FOR_ITEM,
   practiceChance, isPractice, practiceText, requirementSentence, requirementClauses,
 } from './abilities.js';
 import { BASES as ITEM_BASES, BASES, isFocus as itemIsFocus, FOCUS_BASES as ITEM_FOCUS_BASES } from './items.js';
@@ -909,6 +909,20 @@ console.log('\nabilities: what pays an item cost');
     COST_ITEM_BASES.wood.length === 14 && !BASES.wood, String(COST_ITEM_BASES.wood.length));
   check('and the poison is the one foraging really brews',
     COST_ITEM_BASES.poisonVial.join(',') === 'woodland_poison' && !!BASES.woodland_poison);
+  // The refusal names the item, not the cost key. An in-game sweep on
+  // 2026-09-08 read "Poison Blade needs 1 poisonVial and you have 0" to a
+  // player who has never seen the word.
+  check('every cost id has words a player would recognise',
+    Object.keys(COST_ITEM_BASES).every((id) => COST_ITEM_WORDS[id]),
+    Object.keys(COST_ITEM_BASES).filter((id) => !COST_ITEM_WORDS[id]).join(',') || 'all named');
+  check('and the poison cost is called what the potion is called',
+    costItemWords('poisonVial') === BASES.woodland_poison.name, costItemWords('poisonVial'));
+  {
+    const rogue = { skills: { fencing: 80, poisoning: 80 }, stats: {}, stamina: 50, mana: 50, health: 50, maxHealth: 50, equipment: { mainHand: { base: 'dagger' } }, cooldowns: {}, pack: { slots: 1, items: [null] } };
+    const r = canUse(ABILITIES_BY_ID.poisonBlade, rogue, 0);
+    check('Poison Blade without a poison says Woodland poison, not poisonVial',
+      r.ok === false && /needs 1 Woodland poison in your pack/.test(r.reason) && !/poisonVial/.test(r.reason), r.reason);
+  }
 
   // the count, both shapes, both ways
   const doc = { pack: { slots: 4, items: [{ base: 'oak_log', count: 3 }, null, { base: 'pine_log', count: 2 }, null] } };
@@ -930,7 +944,7 @@ console.log('\nabilities: what pays an item cost');
   check('Bandage is allowed with one bandage in the PACK and no count map at all',
     canUse(ABILITIES_BY_ID.bandage, withOne, 0).ok === true, canUse(ABILITIES_BY_ID.bandage, withOne, 0).reason);
   check('and refused with none, counting what you have',
-    canUse(ABILITIES_BY_ID.bandage, withNone, 0).reason === 'Bandage needs 1 bandage and you have 0',
+    canUse(ABILITIES_BY_ID.bandage, withNone, 0).reason === 'Bandage needs 1 bandage in your pack and you have 0',
     canUse(ABILITIES_BY_ID.bandage, withNone, 0).reason);
 }
 {

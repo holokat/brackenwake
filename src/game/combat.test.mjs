@@ -293,6 +293,23 @@ const progressionSpy = () => {
   check('a spell at a corpse is refused', c.queueSpell(caster, { base: [1, 1] }, actorOf({ health: 0 }), { now: 0 }).reason === 'dead');
 }
 
+// A landing that kills cancels every other job the dead body was in, from
+// inside the landing loop. Two spells due on the same frame, the first fatal:
+// the loop used to read the second slot after kill() had emptied it and threw
+// "Cannot read properties of undefined (reading 'at')". Meteor found it.
+{
+  const c = createCombat({ floaters: floatersSpy(), rng: rolls(0.5, 0.99, 0.5, 0.99) });
+  const caster = actorOf({ kind: 'player', stats: { int: 50 } });
+  const target = actorOf({ health: 5, maxHealth: 5 });
+  c.queueSpell(caster, { base: [18, 26], damageType: 'fire' }, target, { now: 0 });
+  c.queueSpell(caster, { base: [18, 26], damageType: 'fire' }, target, { now: 0 });
+  check('two spells are waiting', c.pendingCount === 2, String(c.pendingCount));
+  let threw = null;
+  try { c.update(0, 400); } catch (e) { threw = e; }
+  check('a fatal landing beside a second job does not take the frame down', threw === null, threw ? String(threw.message) : '');
+  check('the body is dead and nothing is left waiting on it', target.health === 0 && c.pendingCount === 0, `hp ${target.health}, ${c.pendingCount} pending`);
+}
+
 // ---------------------------------------------- the arithmetic is not ours
 {
   // A grandmaster against a rat, and a rat against a grandmaster, so the hit

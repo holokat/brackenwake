@@ -350,6 +350,21 @@ export const COST_ITEM_BASES = {
 };
 
 /**
+ * What a refusal calls each cost, in the player's words. The cost id is a key
+ * (`poisonVial`), and "Poison Blade needs 1 poisonVial" is a key shown to a
+ * player who has never seen one; the item foraging brews is a Woodland poison.
+ * auditAbilities insists every cost id has an entry.
+ */
+export const COST_ITEM_WORDS = {
+  bandage: 'bandage',
+  wood: 'wood',
+  poisonVial: 'Woodland poison',
+};
+export function costItemWords(costId) {
+  return COST_ITEM_WORDS[costId] || String(costId);
+}
+
+/**
  * An item whose "use" is an ABILITY, by item base id.
  *
  * The bag's Use and the item bar's key both go through one hook
@@ -1851,7 +1866,7 @@ export function canUse(ability, character = {}, now = 0) {
     const have = itemsHeld(character, ability.cost.item);
     const need = ability.cost.count ?? 1;
     if (have < need) {
-      return { ok: false, reason: `${ability.name} needs ${need} ${ability.cost.item} and you have ${have}` };
+      return { ok: false, reason: `${ability.name} needs ${need} ${costItemWords(ability.cost.item)} in your pack and you have ${have}` };
     }
   }
 
@@ -2083,6 +2098,9 @@ export function auditAbilities(list = ABILITIES) {
     }
     if (kinds[0] === 'item' && typeof ability.cost.item !== 'string') {
       throw new Error(`auditAbilities: ${where} has an item cost with no item`);
+    }
+    if (kinds[0] === 'item' && !COST_ITEM_WORDS[ability.cost.item]) {
+      throw new Error(`auditAbilities: ${where} pays with ${ability.cost.item}, which COST_ITEM_WORDS has no player-facing name for`);
     }
     if (kinds[0] !== 'item' && typeof ability.cost[kinds[0]] !== 'number') {
       throw new Error(`auditAbilities: ${where} has a non numeric ${kinds[0]} cost`);

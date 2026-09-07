@@ -1194,8 +1194,9 @@ potion('nightsight_draught', 'Draught of nightsight', {
   buff: { name: 'Nightsight', seconds: 600, effect: { bonuses: { nightSight: 1 } } },
   line: 'the dark thins out',
 });
-// A poison is a poison. 03 has no blade coating and nothing in this game applies
-// one, so this does what a poison does to whoever opens it: see G6.md.
+// A poison is a poison. Opened, it does what a poison does to whoever opens it
+// (see G6.md); it is also what Poison Blade pays with, through abilities.js's
+// COST_ITEM_BASES, so a rogue coats a blade with the thing foraging brews.
 potion('woodland_poison', 'Woodland poison', { poison: 2 });
 potion('mana_tonic', 'Mana tonic', { restore: 'mana', amount: [30, 50] });
 potion('dandelion_tonic', 'Dandelion tonic', { restore: 'stamina', amount: [30, 50] });
