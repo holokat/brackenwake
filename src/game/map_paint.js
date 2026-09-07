@@ -64,6 +64,7 @@ import {
 } from '../world/zones.js';
 import { roadsForCell } from '../world/roads.js';
 import { SITE_CELL, ALL_KINDS } from '../world/sitegrid.js';
+import { SPACES } from '../mmo/spaces/index.js';
 import { theme } from './ui_theme.js';
 
 // ------------------------------------------------------------- the numbers --
@@ -100,6 +101,33 @@ export const CANOPY_SPACING = 8.5;
 export const HATCH_SPACING = 7.5;
 /** The colour step the compose quantises to. Invisible, and it merges runs. */
 export const COLOUR_STEP = 9;
+
+// ------------------------------------------------------------- the relief --
+//
+// A chart says what the ground DOES, and until MAP2 this one only said what the
+// ground was made of: eight biome washes, a hachure where it was steep and a
+// drawn mountain where it was high. On a sculpted world that is nearly nothing,
+// because a hand cut world is one biome and one climate, and the whole of what
+// the user has made is in the HEIGHTS. So the compose reads the heights twice
+// more: once for how high the ground stands, and once for which way it leans.
+//
+// The light comes from the north west, which is where a chart's light has come
+// from since the first hachured survey, and it is a CONSTANT, so a ridge read at
+// one zoom leans the same way at the next.
+
+/** Where the sun stands, as a unit vector in world metres: north west. */
+export const SUN_DIR = [-Math.SQRT1_2, -Math.SQRT1_2];
+/** How far the sun lightens a lit face and darkens a shaded one. */
+export const HILLSHADE = 0.34;
+/** Metres of fall per metre of run that reads as a fully lit or fully dark face. */
+export const SHADE_SLOPE = 0.35;
+/** The sun on the paper, and the shadow under it. Both warm: a hill is not water. */
+export const SUN_INK = [255, 248, 228];
+export const SHADE_INK = [56, 40, 22];
+/** Metres above the sea at which the ground takes all of RELIEF_LIGHT. */
+export const RELIEF_REF = 260;
+/** How much the highest ground is lightened, so a raised hill reads as raised. */
+export const RELIEF_LIGHT = 0.30;
 
 // --------------------------------------------------------------- the paper --
 
@@ -612,8 +640,17 @@ export function sampleGround(field, view, opts = {}) {
     }
   }
 
-  // slope, in metres per metre, from the heights either side of each node
+  // slope, in metres per metre, from the heights either side of each node, and
+  // the hillshade off the same two gradients: how much of the north west sun a
+  // face takes, +1 full on, -1 in its own shadow.
+  //
+  // The sign, worked out rather than guessed. The gradient points UPHILL, so a
+  // node where the ground rises toward +x has its downhill toward -x and faces
+  // WEST; one where it rises toward +z faces NORTH, because -z is north on this
+  // map. The sun stands north west, so both of those are lit and the dot of the
+  // gradient with -SUN_DIR is gx + gz over root two.
   const slope = new Float32Array(N);
+  const shade = new Float32Array(N);
   for (let j = 0; j < gh; j++) {
     for (let i = 0; i < gw; i++) {
       const o = j * gw + i;
@@ -622,6 +659,8 @@ export function sampleGround(field, view, opts = {}) {
       const gx = (xb - xa) / (dx * ((i > 0 ? 1 : 0) + (i < gw - 1 ? 1 : 0)) || dx);
       const gz = (zb - za) / (dz * ((j > 0 ? 1 : 0) + (j < gh - 1 ? 1 : 0)) || dz);
       slope[o] = Math.hypot(gx, gz);
+      const lit = -(gx * SUN_DIR[0] + gz * SUN_DIR[1]) / SHADE_SLOPE;
+      shade[o] = lit > 1 ? 1 : lit < -1 ? -1 : lit;
     }
   }
 
@@ -648,6 +687,7 @@ export function sampleGround(field, view, opts = {}) {
   const ka = Float32Array.from(known); blur(ka, gw, gh, 1, 2);
   const cn = Float32Array.from(canopy); blur(cn, gw, gh, 1, 1);
   const sl = Float32Array.from(slope); blur(sl, gw, gh, 1, 1);
+  const sd = Float32Array.from(shade); blur(sd, gw, gh, 1, 1);
   const hb = Float32Array.from(h); blur(hb, gw, gh, 1, 2);
   blur(tr, gw, gh, TINT_BLUR, 2); blur(tg, gw, gh, TINT_BLUR, 2); blur(tb, gw, gh, TINT_BLUR, 2);
 
@@ -672,7 +712,8 @@ export function sampleGround(field, view, opts = {}) {
 
   return {
     gw, gh, dx, dz, x0: view.x0, z0: view.z0,
-    h, hb, water, depth, river, road, slope: sl, rawSlope: slope, canopy, known,
+    h, hb, water, depth, river, road, slope: sl, rawSlope: slope,
+    shade: sd, rawShade: shade, canopy, known,
     biome, realmIdx, realmW, tr, tg, tb, wa, waFar, da, ka, cn, wash, mottle,
     at: (i, j) => [((i * dx) / view.w) * view.px, ((j * dz) / view.h) * view.py],
     world: (i, j) => [view.x0 + i * dx, view.z0 + j * dz],
@@ -784,6 +825,14 @@ function composeGround(g, view, grid, opts) {
         const t = [bilin(grid.tr, gw, gh, u, v), bilin(grid.tg, gw, gh, u, v), bilin(grid.tb, gw, gh, u, v)];
         c = mix(c, t, landA * 0.84);
         if (slp > 0.02) c = mix(c, [80, 62, 38], landA * 0.26 * clamp01(slp / 0.50));
+        // how high it stands: the raised ground of a sculpted world is the only
+        // thing on it that has changed, so it is the thing the eye is given
+        const hh = bilin(grid.hb, gw, gh, u, v);
+        if (hh > 0) c = mix(c, SUN_INK, landA * RELIEF_LIGHT * clamp01(hh / RELIEF_REF));
+        // and which way it leans, under a north west sun
+        const sd = bilin(grid.shade, gw, gh, u, v);
+        if (sd > 0.004) c = mix(c, SUN_INK, landA * HILLSHADE * sd);
+        else if (sd < -0.004) c = mix(c, SHADE_INK, landA * HILLSHADE * -sd);
       }
       // the water
       if (wA > 0.002) c = mix(c, mix(WATER_SHALLOW, WATER_DEEP, clamp01(dA)), wA * kA * (0.80 + 0.18 * clamp01(dA)));
@@ -1878,6 +1927,96 @@ export const GLYPH = {
   },
 };
 
+// ------------------------------------------------------------ the spaces --
+//
+// What the user has authored with the editor, on the map they authored it from.
+//
+// A SPACE is one of two things (`src/mmo/spaces/index.js`). A NAMED space
+// stands where it says it stands and reaches `radius` metres. An AUTOMATIC one
+// is a TILE: the editor cuts the world into 256 m squares and the first thing
+// put down in a square makes `tile_3_-2`, centred on that square. So a tile is
+// drawn as the square it is and a named space as the circle it is, because
+// drawing a tile as a circle would say the ground it owns is round and it is
+// not: the next tile begins at its edge.
+//
+// The centre and the reach come off the space's own record, never off the
+// constant below, so a space written by a different editor still lands where it
+// says it lands. `auditSpaceTiles` is the guard: it measures every tile on disk
+// against the constant and names the ones that disagree, and the test fails on
+// it rather than the game throwing at import while somebody is mid stroke.
+
+/** How wide an automatic tile is, in metres. `editor.js` TILE_M is the source. */
+export const SPACE_TILE_M = 256;
+/** How far a tile space reaches: the half diagonal. `editor.js` TILE_R. */
+export const SPACE_TILE_R = Math.ceil((SPACE_TILE_M / 2) * Math.SQRT2);
+const TILE_ID = /^tile_(-?\d+)_(-?\d+)$/;
+
+/** What a space looks like on a map: a square for a tile, a circle otherwise. */
+export function spaceShape(space) {
+  if (!space || !space.at) return null;
+  const m = TILE_ID.exec(String(space.id || ''));
+  const r = Number.isFinite(space.radius) ? space.radius : SPACE_TILE_R;
+  return {
+    id: space.id,
+    name: space.name || space.id,
+    tile: !!m,
+    tx: m ? +m[1] : null,
+    tz: m ? +m[2] : null,
+    x: space.at.x, z: space.at.z,
+    r,
+    // a tile's side comes back out of its own reach, so a tile written by an
+    // editor with a different TILE_M is still drawn the size it really is
+    w: m ? Math.round(r * Math.SQRT2) : 2 * r,
+  };
+}
+
+/**
+ * Every space whose footprint touches this rectangle of world, nearest last so
+ * the smallest name is written over the largest.
+ *
+ * @param rect { x, z, w, h } world metres, the centre and the extent
+ */
+export function spacesIn(rect, spaces = SPACES) {
+  const { x = 0, z = 0, w = 0, h = w } = rect || {};
+  const x0 = x - w / 2, x1 = x + w / 2, z0 = z - h / 2, z1 = z + h / 2;
+  const out = [];
+  for (const id of Object.keys(spaces)) {
+    const sh = spaceShape(spaces[id]);
+    if (!sh) continue;
+    const half = sh.tile ? sh.w / 2 : sh.r;
+    if (sh.x + half < x0 || sh.x - half > x1 || sh.z + half < z0 || sh.z - half > z1) continue;
+    out.push(sh);
+  }
+  out.sort((a, b) => b.r - a.r);
+  return out;
+}
+
+/**
+ * Every tile space on disk whose own record disagrees with the constant above,
+ * as a list of sentences. Empty is green. The test calls this and fails the
+ * build on it; nothing throws at import, because a user mid sculpt should not
+ * lose the game over a space file that is one metre out.
+ */
+export function auditSpaceTiles(spaces = SPACES) {
+  const bad = [];
+  let tiles = 0;
+  for (const id of Object.keys(spaces)) {
+    const sp = spaces[id];
+    const m = TILE_ID.exec(String(sp?.id || ''));
+    if (!m) continue;
+    tiles++;
+    const wantX = +m[1] * SPACE_TILE_M + SPACE_TILE_M / 2;
+    const wantZ = +m[2] * SPACE_TILE_M + SPACE_TILE_M / 2;
+    if (sp.at.x !== wantX || sp.at.z !== wantZ) {
+      bad.push(`${id} stands at ${sp.at.x},${sp.at.z} and its own name says ${wantX},${wantZ}: editor.js TILE_M has moved off SPACE_TILE_M ${SPACE_TILE_M}`);
+    }
+    if (sp.radius !== SPACE_TILE_R) {
+      bad.push(`${id} reaches ${sp.radius} m and a ${SPACE_TILE_M} m tile reaches ${SPACE_TILE_R} m`);
+    }
+  }
+  return { tiles, named: Object.keys(spaces).length - tiles, bad };
+}
+
 /** Every place on this map, in the order it is drawn. */
 export function placesIn(field, view, opts = {}) {
   const knownPlace = asKnown(opts.known?.places);
@@ -2118,7 +2257,28 @@ const now = () => (typeof performance !== 'undefined' ? performance.now() : Date
 /** A cache for the ground. Hand the same one back on every repaint. */
 export function makeCache() { return { key: null, grid: null, rivers: null, roads: null }; }
 
-/** What the ground depends on. A place being found is not on this list. */
+/**
+ * What the ground the field gives back depends on. A place being found is not
+ * on this list; THE HAND CUT GROUND IS.
+ *
+ * `terrain_edits.js` moves `version` on every stroke, every undo, every redo,
+ * every load and every change of base, and `field.terrainEdits` is that list.
+ * Without it in the key, a map painted once while the user is sculpting is the
+ * map they get for the rest of the session: the cache is keyed on the view, and
+ * the view does not move when a hill does. `sculpt` goes in beside it because a
+ * change of base height or ground word is a different world under the same
+ * strokes and does not always touch a stroke to say so.
+ *
+ * Read off the FIELD and not off the options, so every caller of paintGround
+ * gets this and not just the one that remembered to pass it.
+ */
+export function terrainKey(field) {
+  const ed = field && field.terrainEdits;
+  const sc = field && field.sculpt;
+  return `${ed && Number.isFinite(ed.version) ? ed.version : -1}/`
+    + (sc ? `${sc.height},${sc.ground},${sc.snowLine},${sc.beachLine}` : '-');
+}
+
 function groundKey(field, view, opts) {
   const kz = opts.known?.zones;
   let zk = '';
@@ -2128,6 +2288,7 @@ function groundKey(field, view, opts) {
   return [
     field.seed, view.x, view.z, view.w, view.h, view.px, view.py,
     opts.samples ?? MAP_SAMPLES, opts.drawScale ?? DRAW_SCALE, opts.seed ?? 1, zk,
+    terrainKey(field),
   ].join(':');
 }
 

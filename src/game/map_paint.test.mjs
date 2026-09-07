@@ -468,5 +468,145 @@ console.log('\nthe audit at import, driven the other way');
   ck('and passes again once it is put back', (() => { try { auditMapPaint(); return true; } catch { return false; } })());
 }
 
+
+// ------------------------------------------- 12. the relief and the sun ----
+//
+// MAP2. A sculpted world is one biome, one climate and one flat sheet, and the
+// whole of what the user has made in it is HEIGHT. So the compose reads the
+// heights twice: how high the ground stands, and which way it leans under a
+// north west sun. Measured on a cone with no noise in it at all, so the numbers
+// below are the shading and nothing else.
+
+console.log('\nthe relief: a hill is lighter at the top and dark on its far side');
+{
+  const H = 200, R = 400;
+  /** A cone 200 m high and 400 m across, on a sheet 4 m above the sea. */
+  const cone = {
+    seed: 7,
+    sampleAt(x, z) {
+      const d = Math.hypot(x, z);
+      return {
+        h: 4 + (d < R ? H * (1 - d / R) : 0),
+        biome: 'meadow', water: false, river: 0, road: 0, land: 1,
+        temp: 0.5, moist: 0.5, realm: null, zone: null,
+      };
+    },
+  };
+  const view = viewFor({ px: 600, py: 600, x: 0, z: 0, w: 1200, h: 1200 });
+  const g = recorder();
+  const res = paintGround(g, { field: cone, view, samples: 120, known: { zones: true, places: [] }, rivers: false, roads: false });
+  const lum = (css) => { const c = rgbOf(css); return c ? c[0] + c[1] + c[2] : null; };
+  const at = (x, z) => { const [px, py] = toPx(view, x, z); return g.groundAt(px, py); };
+
+  const top = at(0, 0);
+  const flat = at(520, 0);
+  ck('the top of the hill is painted lighter than the flat around it',
+    lum(top) > lum(flat) + 20, `top ${top} (${lum(top)}), flat ${flat} (${lum(flat)})`);
+  // and the other direction: dig the same shape down and it does not lighten
+  const pit = { seed: 7, sampleAt: (x, z) => ({ ...cone.sampleAt(x, z), h: 4 - (cone.sampleAt(x, z).h - 4) * 0.02 }) };
+  const gp = recorder();
+  paintGround(gp, { field: pit, view, samples: 120, known: { zones: true, places: [] }, rivers: false, roads: false });
+  const [cx0, cy0] = toPx(view, 0, 0);
+  ck('and ground that was never raised is not lightened', lum(gp.groundAt(cx0, cy0)) < lum(top),
+    `${gp.groundAt(cx0, cy0)} against ${top}`);
+
+  // the sun: two points on the same contour, one facing the light and one away
+  const nw = at(-200 * Math.SQRT1_2, -200 * Math.SQRT1_2);
+  const se = at(200 * Math.SQRT1_2, 200 * Math.SQRT1_2);
+  ck('the north west flank is lit and the south east one is in shadow',
+    lum(nw) > lum(se) + 40, `north west ${nw} (${lum(nw)}), south east ${se} (${lum(se)})`);
+  ck('and both of them are at the same height, so it is the SUN doing it',
+    Math.abs(cone.sampleAt(-141, -141).h - cone.sampleAt(141, 141).h) < 1e-9,
+    `${cone.sampleAt(-141, -141).h.toFixed(1)} m either side`);
+  ck('the light comes from where SUN_DIR says it does',
+    paint.SUN_DIR[0] < 0 && paint.SUN_DIR[1] < 0
+    && Math.abs(Math.hypot(paint.SUN_DIR[0], paint.SUN_DIR[1]) - 1) < 1e-9,
+    `(${paint.SUN_DIR.map((v) => v.toFixed(3)).join(', ')})`);
+  ck('and the shading is on the grid the compose reads', res.samples > 0 && !!paint.HILLSHADE && !!paint.RELIEF_LIGHT,
+    `hillshade ${paint.HILLSHADE}, relief ${paint.RELIEF_LIGHT}`);
+
+  // flat ground takes no sun at all, which is the third direction
+  const flatField = { seed: 7, sampleAt: () => ({ h: 4, biome: 'meadow', water: false, river: 0, road: 0, land: 1, temp: 0.5, moist: 0.5, realm: null, zone: null }) };
+  const gf = recorder();
+  paintGround(gf, { field: flatField, view, samples: 120, known: { zones: true, places: [] }, rivers: false, roads: false });
+  const a = gf.groundAt(...toPx(view, -141, -141));
+  const b = gf.groundAt(...toPx(view, 141, 141));
+  ck('and on ground with no slope in it the two sides are painted the same', a === b, `${a} against ${b}`);
+}
+
+// ------------------------------------------- 13. the terrain in the key ----
+
+console.log('\nthe cache key carries the hand cut ground');
+{
+  ck('a field with no strokes has one key', paint.terrainKey({}) === paint.terrainKey({}), paint.terrainKey({}));
+  ck('and a stroke moves it',
+    paint.terrainKey({ terrainEdits: { version: 1 } }) !== paint.terrainKey({ terrainEdits: { version: 2 } }),
+    `${paint.terrainKey({ terrainEdits: { version: 1 } })} then ${paint.terrainKey({ terrainEdits: { version: 2 } })}`);
+  ck('and so does a change of base height, which moves no stroke at all',
+    paint.terrainKey({ terrainEdits: { version: 9 }, sculpt: { height: 6, ground: 'grass', snowLine: 180, beachLine: 1 } })
+    !== paint.terrainKey({ terrainEdits: { version: 9 }, sculpt: { height: 40, ground: 'grass', snowLine: 180, beachLine: 1 } }));
+
+  // and the whole way through: the same view, the same options, a moved version
+  const moving = { version: 1 };
+  const hill = { r: 300, h: 0 };
+  const walking = {
+    seed: 11,
+    get terrainEdits() { return moving; },
+    sampleAt(x, z) {
+      const d = Math.hypot(x, z);
+      return {
+        h: 4 + (d < hill.r ? hill.h * (1 - d / hill.r) : 0),
+        biome: 'meadow', water: false, river: 0, road: 0, land: 1,
+        temp: 0.5, moist: 0.5, realm: null, zone: null,
+      };
+    },
+  };
+  const view = viewFor({ px: 400, py: 400, x: 0, z: 0, w: 1000, h: 1000 });
+  const cache = makeCache();
+  const opts = () => ({ field: walking, view, samples: 80, known: { zones: true, places: [] }, rivers: false, roads: false, cache });
+  const cold = paintGround(recorder(), opts());
+  const warm = paintGround(recorder(), opts());
+  ck('the same ground twice is painted from the cache', cold.cached === false && warm.cached === true);
+  hill.h = 180; moving.version = 2;
+  const g = recorder();
+  const hot = paintGround(g, opts());
+  ck('and a stroke sends it back to the field', hot.cached === false);
+  const lum = (css) => { const c = rgbOf(css); return c ? c[0] + c[1] + c[2] : null; };
+  ck('so the hill that was raised is on the map', lum(g.groundAt(200, 200)) > lum(g.groundAt(380, 200)),
+    `middle ${g.groundAt(200, 200)}, edge ${g.groundAt(380, 200)}`);
+  ck('and the paint after it is cached again', paintGround(recorder(), opts()).cached === true);
+}
+
+// --------------------------------------------- 14. the editor's spaces ----
+
+console.log('\nthe spaces the editor lays out');
+{
+  const audit = paint.auditSpaceTiles();
+  ck('every automatic tile on disk agrees with the tile size this file draws',
+    audit.bad.length === 0, audit.bad.join('; ') || `${audit.tiles} tiles, ${audit.named} named spaces`);
+  ck('the tile reach is the half diagonal of the tile, so its corners are inside it',
+    paint.SPACE_TILE_R === Math.ceil((paint.SPACE_TILE_M / 2) * Math.SQRT2), `${paint.SPACE_TILE_M} m square, ${paint.SPACE_TILE_R} m reach`);
+  // driven the other way: a tile that does NOT agree is named, not swallowed
+  const wrong = paint.auditSpaceTiles({ tile_1_1: { id: 'tile_1_1', name: 'wrong', at: { x: 0, z: 0 }, radius: 182 } });
+  ck('and a tile standing somewhere its own name does not say is named by the audit',
+    wrong.bad.length === 1 && /tile_1_1/.test(wrong.bad[0]), wrong.bad[0]);
+
+  const made = {
+    tile: { id: 'tile_2_5', name: 'Tile 2, 5', at: { x: 640, z: 1408 }, radius: paint.SPACE_TILE_R },
+    named: { id: 'the_long_meadow', name: 'The Long Meadow', at: { x: 700, z: 1500 }, radius: 90 },
+    far: { id: 'tile_30_30', name: 'far away', at: { x: 7808, z: 7808 }, radius: paint.SPACE_TILE_R },
+  };
+  const near = paint.spacesIn({ x: 640, z: 1408, w: 1000, h: 1000 }, made);
+  ck('the spaces inside a rectangle come back and the ones outside it do not',
+    near.length === 2 && !near.some((s) => s.id === 'tile_30_30'), near.map((s) => s.id).join(', '));
+  ck('a tile knows it is a tile and carries its own square',
+    near.find((s) => s.tile).tx === 2 && near.find((s) => s.tile).tz === 5, JSON.stringify(near.find((s) => s.tile)));
+  ck('a named space is not a tile and is a circle', near.find((s) => !s.tile).r === 90);
+  ck('and the biggest is drawn first, so the smallest name lands on top',
+    near[0].r >= near[near.length - 1].r, near.map((s) => s.r).join(' >= '));
+  ck('a space with no place at all is dropped rather than drawn at the origin',
+    paint.spaceShape({ id: 'x', name: 'x' }) === null && paint.spaceShape(null) === null);
+}
+
 console.log(`\n${pass} ok, ${bad} failed\n`);
 process.exit(bad ? 1 : 0);
