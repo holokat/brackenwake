@@ -1,0 +1,25 @@
+{
+  "id": "tile_2_6",
+  "name": "Tile 2, 6",
+  "note": "",
+  "at": {
+    "x": 640,
+    "z": 1664
+  },
+  "radius": 182,
+  "pieces": [
+    {
+      "model": "gate_tower",
+      "x": -38.9,
+      "z": -126.94,
+      "yaw": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [],
+  "rocks": [],
+  "markers": []
+}

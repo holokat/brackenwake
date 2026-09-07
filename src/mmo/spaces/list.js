@@ -10,4 +10,12 @@
 // A new space appears here the moment it is saved. Vite reloads the module and
 // the world rebuilds around it.
 
-export const FILES = {};
+import sp_tile_2_5 from './tile_2_5.json' with { type: 'json' };
+import sp_tile_2_6 from './tile_2_6.json' with { type: 'json' };
+import sp_tile_3_5 from './tile_3_5.json' with { type: 'json' };
+
+export const FILES = {
+  'tile_2_5': sp_tile_2_5,
+  'tile_2_6': sp_tile_2_6,
+  'tile_3_5': sp_tile_3_5,
+};

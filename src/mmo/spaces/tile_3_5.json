@@ -1,0 +1,31 @@
+{
+  "id": "tile_3_5",
+  "name": "Tile 3, 5",
+  "note": "",
+  "at": {
+    "x": 896,
+    "z": 1408
+  },
+  "radius": 182,
+  "pieces": [
+    {
+      "model": "chapel_sunken",
+      "x": 80.26,
+      "z": 11.61,
+      "yaw": 0
+    },
+    {
+      "model": "chapel_sunken",
+      "x": 108.42,
+      "z": 5.73,
+      "yaw": 0
+    }
+  ],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [],
+  "rocks": [],
+  "markers": []
+}
