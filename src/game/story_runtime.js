@@ -30,6 +30,7 @@
 import * as THREE from 'three';
 import { REALM, PEOPLE, PERSON, BEATS, BEAT, blankView, roleOf, CELLAR_MOUTH_M, WAGON_SEEN_M, HEARTHHOME_M } from '../mmo/story.js';
 import { ZONE } from '../world/zones.js';
+import { SPACES } from '../mmo/spaces/index.js';
 import { layoutTown, lotOf, doorOf } from '../world/town_layout.js';
 import { buildCharacter as defaultBuildCharacter, poseCharacter, PALETTE } from './player.js';
 
@@ -384,12 +385,34 @@ export function createStory(deps = {}) {
     meshCache = null;
   }
 
+  /**
+   * In a sculpt world (terrain_edits.js, ED3) a story person stands ONLY where
+   * the user placed them: a space whose people list carries their name. The
+   * sheet's own spot at Hearthhome is not consulted, because the user said
+   * "I want to be able to place these myself". Matched by name, case blind.
+   */
+  const spaces = deps.spaces || SPACES;
+  function spotInSpaces(person) {
+    const want = String(person.name || '').toLowerCase();
+    for (const space of Object.values(spaces)) {
+      const at = space && space.at;
+      if (!at) continue;
+      for (const q of space.people || []) {
+        if (String(q.name || '').toLowerCase() !== want) continue;
+        const x = at.x + num(q.x), z = at.z + num(q.z);
+        return { x, z, yaw: Number.isFinite(q.yaw) ? q.yaw * Math.PI / 180 : 0, at: space.id };
+      }
+    }
+    return null;
+  }
+  const sculptWorld = () => !!(runtime && runtime.field && runtime.field.sculpt);
+
   /** Who is near enough to be standing there. */
   function restream(p) {
     const keep = new Set();
     for (const person of PEOPLE) {
       if (!person.body) continue;
-      const spot = spotFor(person);
+      const spot = sculptWorld() ? spotInSpaces(person) : spotFor(person);
       if (!spot) continue;
       if (dist(spot, p) > NEAR_RING) continue;
       keep.add(person.id);

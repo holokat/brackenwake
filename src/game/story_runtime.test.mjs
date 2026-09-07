@@ -1,4 +1,5 @@
 // The Greenwold's first hour, running. Run: node src/game/story_runtime.test.mjs
+import * as THREE from 'three';
 import { createStory, spotFor, plateText, NEAR_RING, CHECK_MS } from './story_runtime.js';
 import { PEOPLE, PERSON, BEATS, BEAT_IDS, REALM, HEARTHHOME_M, CELLAR_MOUTH_M, WAGON_SEEN_M } from '../mmo/story.js';
 import { ZONE, authoredSites } from '../world/zones.js';
@@ -372,6 +373,25 @@ console.log('\nA click with nothing under it');
     h.story.nearest({ x: 9000, z: 9000 }) === null);
   check('and the one you are standing on is somebody',
     h.story.nearest(spotFor(PERSON.bram))?.npc?.id === 'bram');
+}
+
+console.log('story: in a sculpt world the cast stands only where a space places them');
+{
+  // the harness's runtime field, with the sculpt header on
+  const sculptWorld = { field: { sampleAt: () => ({ realm: REALM }), sculpt: { height: 6, ground: 'grass' } }, heightAt: () => 0, get inDungeon() { return false; } };
+  const mk = (spaces) => createStory({
+    character: { name: 'You' }, runtime: sculptWorld, hud: { log() {}, toast() {} },
+    scene: null, npcs: null, dragon: () => null, events: () => [], waystones: { count: 0 },
+    realmAt: () => REALM, pos: () => ({ x: HOME.x, z: HOME.z }), dayFactor: () => 1, root: null, buildCharacter: () => ({ group: new THREE.Group(), parts: {}, setAppearance() {}, update() {}, dispose() {} }),
+    spaces,
+  });
+  const none = mk({});
+  none.update(0.016, 1000);
+  check('with no space naming them, nobody from the cast stands', (none.count ?? none.live ?? 0) === 0 || !none.nearest || none.nearest({ x: HOME.x, z: HOME.z }) === null, 'no bodies');
+  const placed = mk({ mine: { id: 'mine', at: { x: HOME.x, z: HOME.z }, people: [{ name: PERSON.bram.name, role: 'farmer', x: 3, z: 4, yaw: 90 }] } });
+  placed.update(0.016, 1000);
+  const near = placed.nearest ? placed.nearest({ x: HOME.x + 3, z: HOME.z + 4 }) : null;
+  check('and a space that places Bram by name stands him at that spot', !!near && near.npc && near.npc.id === 'bram', near && near.npc ? near.npc.id : 'nobody');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
