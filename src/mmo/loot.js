@@ -258,11 +258,14 @@ export function classProfileDetail(character) {
     }
   }
   if (casting.length) for (const id of FOCUS_BASES) if (fits(BASES[id])) foci.push(id);
+  // AMMUNITION. An archer's kit is a bow and a quiver, and a quiver empties.
+  const ammo = [];
+  for (const [skill, base] of Object.entries(AMMO_FOR)) if (ids.includes(skill) && BASES[base]) ammo.push(base);
 
-  const bases = new Set([...weapons, ...armour, ...shields, ...foci, ...instruments, ...jewellery]);
+  const bases = new Set([...weapons, ...armour, ...shields, ...foci, ...instruments, ...jewellery, ...ammo]);
   return {
     str, top, skills: ids, casting, robed: !!ids[0] && ROBE_SKILLS.includes(ids[0]),
-    tiers, weapons, armour, shields, foci, instruments, jewellery, bases,
+    tiers, weapons, armour, shields, foci, instruments, jewellery, ammo, bases,
   };
 }
 
@@ -285,6 +288,62 @@ export function asProfile(profile) {
 }
 
 /** Six rolls in ten come off the class's own shelf. */
+/** The ammunition a ranged skill empties, by skill. */
+export const AMMO_FOR = { archery: 'arrow', marksmanship: 'bolt' };
+/** A quiver's worth, when a kill hands one over. */
+export const AMMO_STACK = [12, 30];
+
+/**
+ * L2: WHAT IT CARRIED, IT COULD HAVE CARRIED FOR YOU.
+ *
+ * L1 drew the six in ten from the intersection of the monster's table and the
+ * character's profile, and never invented a base the monster did not carry.
+ * Measured on the island (2026-09-08), that gave a ranger a pack of fifteen
+ * pairs of boots, rings, daggers and rapiers and never a bow, an arrow, a helm
+ * or an amulet: the bandit's table is `dagger, rapier, boots, ring`, and the
+ * only two of those an archer's profile holds are the boots and the ring.
+ *
+ * So the six in ten now draw from the character's OWN kit whenever the body
+ * carried gear at all (a bandit with a rapier on him could as well have had a
+ * bow); a wolf, which carries nothing, still hands over nothing but meat and
+ * hide. The kit is weighted by category, and armour is drawn by SLOT first
+ * and material second, so a pair of boots is one piece in eight and not the
+ * whole wardrobe. The open four in ten are the table, as before.
+ */
+export const KIT_SHARES = { weapon: 35, armour: 35, jewellery: 10, ammo: 10, hand: 10 };
+
+/**
+ * One draw from a `classProfileDetail`. `r` is a unit random source. Returns
+ * `{ base, count }` or null for a profile that holds nothing at all.
+ */
+export function kitDraw(detail, r) {
+  if (!detail) return null;
+  const hand = [...(detail.shields || []), ...(detail.foci || []), ...(detail.instruments || [])];
+  const cats = [];
+  if (detail.weapons?.length) cats.push(['weapon', KIT_SHARES.weapon]);
+  if (detail.armour?.length) cats.push(['armour', KIT_SHARES.armour]);
+  if (detail.jewellery?.length) cats.push(['jewellery', KIT_SHARES.jewellery]);
+  if (detail.ammo?.length) cats.push(['ammo', KIT_SHARES.ammo]);
+  if (hand.length) cats.push(['hand', KIT_SHARES.hand]);
+  if (!cats.length) return null;
+  const total = cats.reduce((n, [, w]) => n + w, 0);
+  let x = r() * total;
+  let cat = cats[cats.length - 1][0];
+  for (const [name, w] of cats) { if (x < w) { cat = name; break; } x -= w; }
+  const pick = (list) => list[Math.min(list.length - 1, Math.floor(r() * list.length))];
+  if (cat === 'weapon') return { base: pick(detail.weapons), count: 1 };
+  if (cat === 'jewellery') return { base: pick(detail.jewellery), count: 1 };
+  if (cat === 'hand') return { base: pick(hand), count: 1 };
+  if (cat === 'ammo') return { base: pick(detail.ammo), count: AMMO_STACK[0] + Math.floor(r() * (AMMO_STACK[1] - AMMO_STACK[0] + 1)) };
+  // armour: a slot first, then whichever material the profile allows for it
+  const bySlot = new Map();
+  for (const id of detail.armour) { const slot = BASES[id]?.slot; if (!slot) continue; if (!bySlot.has(slot)) bySlot.set(slot, []); bySlot.get(slot).push(id); }
+  const slots = [...bySlot.keys()];
+  if (!slots.length) return { base: pick(detail.armour), count: 1 };
+  const slot = pick(slots);
+  return { base: pick(bySlot.get(slot)), count: 1 };
+}
+
 export const CLASS_BIAS = 0.6;
 /** Eight in ten from a boss: the fight was long and the drop should land. */
 export const BOSS_BIAS = 0.8;
@@ -307,6 +366,7 @@ export const BOSS_BIAS = 0.8;
  */
 export function rollDrop({
   table, tier = 1, luck = 0, seed = 0, profile = null, bias = CLASS_BIAS, record = null,
+  kit = null, carries = false,
 } = {}) {
   if (!table) return null;
   const bases = Array.isArray(table) ? table : table.bases;
@@ -320,6 +380,7 @@ export function rollDrop({
   let base = bases[pick];
   if (!baseFor(base)) throw new Error(`rollDrop: the table names ${base}, which is not a base`);
   let index = pick;
+  let count = 1;
 
   // THE CLASS COIN, and it is thrown AFTER the ordinary draw on purpose.
   //
@@ -347,7 +408,14 @@ export function rollDrop({
     for (const b of bases) if (b !== undefined && takesRarity(b) && want.has(b)) favoured.push(b);
     const coin = rand2(seed, 0, SALT_BIAS);
     const biased = coin < bias;
-    if (biased && favoured.length) {
+    // L2: the body carried gear, so it could have carried yours (see kitDraw)
+    let k = 2;
+    const drawn = biased && kit && carries ? kitDraw(kit, () => rand2(seed, k++, SALT_BIAS)) : null;
+    if (drawn) {
+      base = drawn.base;
+      count = drawn.count;
+      index = bases.indexOf(base);
+    } else if (biased && favoured.length) {
       const j = Math.min(favoured.length - 1, Math.floor(rand2(seed, 1, SALT_BIAS) * favoured.length));
       base = favoured[j];
       index = bases.indexOf(base);
@@ -357,12 +425,14 @@ export function rollDrop({
       record.bias = bias;
       record.biased = biased;
       record.favoured = favoured;
-      record.fellBack = biased && favoured.length === 0;
-      record.from = (biased && favoured.length) ? 'profile' : 'table';
+      record.fellBack = biased && !drawn && favoured.length === 0;
+      record.from = drawn ? 'kit' : (biased && favoured.length) ? 'profile' : 'table';
       record.reason = biased
-        ? (favoured.length
-          ? `drawn from the ${favoured.length} thing(s) here your skills use`
-          : 'nothing this one carries suits you, so the whole table decided')
+        ? (drawn
+          ? 'it carried gear, so it carried yours: drawn from your own kit'
+          : favoured.length
+            ? `drawn from the ${favoured.length} thing(s) here your skills use`
+            : 'nothing this one carries suits you, so the whole table decided')
         : 'the open four in ten';
     }
   }
@@ -373,7 +443,7 @@ export function rollDrop({
   // `makeItem` would coerce it anyway. Doing it here as well keeps the seed the
   // item is built from honest about what the item actually is.
   const rarity = takesRarity(base) ? rolled : 'common';
-  return makeItem({ base, rarity, seed: hash2(seed, RARITY_ORDER.indexOf(rarity) * 31 + index, SALT_ITEM) });
+  return makeItem({ base, rarity, count, seed: hash2(seed, RARITY_ORDER.indexOf(rarity) * 31 + index, SALT_ITEM) });
 }
 
 /** The better of two items by rarity. Either may be null. */
@@ -400,12 +470,12 @@ export function better(a, b) {
  */
 export function bossRoll({
   table, tier = 5, luck = 0, seed = 0, floor = 'rare',
-  profile = null, bias = BOSS_BIAS, record = null,
+  profile = null, bias = BOSS_BIAS, record = null, kit = null, carries = false,
 } = {}) {
   const recA = record ? {} : null;
   const recB = record ? {} : null;
-  const first = rollDrop({ table, tier, luck, seed, profile, bias, record: recA });
-  const second = rollDrop({ table, tier, luck, seed: hash2(seed, 1, SALT_SECOND), profile, bias, record: recB });
+  const first = rollDrop({ table, tier, luck, seed, profile, bias, record: recA, kit, carries });
+  const second = rollDrop({ table, tier, luck, seed: hash2(seed, 1, SALT_SECOND), profile, bias, record: recB, kit, carries });
   let best = better(first, second);
   // The record belongs to the roll that was kept, not to the first one thrown.
   if (record) Object.assign(record, (best && best === second ? recB : recA) || {});
@@ -598,10 +668,14 @@ export function rollKill({
 } = {}) {
   const gold = rollGold(boss ? 'boss' : tier, seededRng(hash2(seed, 77, SALT_SECOND)));
   const want = profile === undefined ? (character ? classProfile(character) : null) : asProfile(profile);
+  // L2: the character's whole kit, and whether this body carried any gear at all
+  const kit = character && character.skills ? classProfileDetail(character) : null;
+  const bases = Array.isArray(table) ? table : (table && table.bases) || [];
+  const carries = bases.some((b) => takesRarity(b));
   const rec = record || {};
   const item = (boss || twice)
-    ? bossRoll({ table, tier, luck, seed, floor: boss ? 'epic' : 'rare', profile: want, bias: BOSS_BIAS, record: rec })
-    : rollDrop({ table, tier, luck, seed, profile: want, bias: CLASS_BIAS, record: rec });
+    ? bossRoll({ table, tier, luck, seed, floor: boss ? 'epic' : 'rare', profile: want, bias: BOSS_BIAS, record: rec, kit, carries })
+    : rollDrop({ table, tier, luck, seed, profile: want, bias: CLASS_BIAS, record: rec, kit, carries });
   const unique = boss ? rollUnique({ monster, character, seed }) : null;
   return { gold, item, unique, bias: rec };
 }

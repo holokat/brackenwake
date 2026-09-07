@@ -179,8 +179,22 @@ ck('the player is measured by the best skill that fights, not by tailoring',
   playerTier({ skills: { tailoring: 100, swordsmanship: 32 } }) === 2,
   `tailoring 100 and swordsmanship 32 reads tier ${playerTier({ skills: { tailoring: 100, swordsmanship: 32 } })}`);
 ck('the skill list has no duplicates', CON_SKILLS.length === new Set(CON_SKILLS).size, CON_SKILLS.join(' '));
-ck('conOf is the same function con.js publishes, six levels deep',
-  CON_LEVELS.length === 6 && conOf({ tier: 2 }, { skills: { swordsmanship: 50 } }).level === 'even');
+ck('conOf is the same function con.js publishes, six fighting levels and the friend',
+  CON_LEVELS.length === 7 && conOf({ tier: 2 }, { skills: { swordsmanship: 50 } }).level === 'even');
+{
+  // MP1: a fellow player can be chosen, and stays chosen frame after frame
+  const mate = { id: 'tour', name: 'tour', faction: 'player', remote: true, health: 100, maxHealth: 100, pos: { x: 3, y: 0, z: 0 } };
+  const t = createTargeting(null, null, { targets: () => [] }, { self: null, pos: () => ({ x: 0, y: 0, z: 0 }), yaw: () => 0 });
+  ck('a friend can be set as the target', t.set(mate) === mate && t.current === mate);
+  t.update?.(0.016, 1);
+  t.frame?.({ skills: {} }, 1);
+  ck('and is still the target after a frame', t.current === mate, String(t.current && t.current.name));
+  mate.health = 0;
+  t.update(0.016);
+  ck('a friend who has fallen is let go', t.current !== mate);
+}
+ck('another player reads as a friend, not as no threat (MP1)',
+  conOf({ tier: 2, faction: 'player' }, { skills: { swordsmanship: 50 } }).level === 'friend' && conOf({ faction: 'ally' }).word === 'a fellow traveller');
 ck('and it reads the rung, one below the band: swordsmanship 30 is band 2 and reads tier 1',
   playerTier({ skills: { swordsmanship: 30 } }) === 2 && conOf({ tier: 2 }, { skills: { swordsmanship: 30 } }).level === 'hard',
   conOf({ tier: 2 }, { skills: { swordsmanship: 30 } }).level);

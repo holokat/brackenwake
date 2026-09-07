@@ -13,5 +13,11 @@ import { editorSavePlugin } from './tools/editor_save.mjs';
 
 export default defineConfig({
   plugins: [editorSavePlugin(process.cwd())],
-  server: { port: 5198, strictPort: false },
+  server: {
+    port: 5198,
+    strictPort: false,
+    proxy: {
+      '/ws': { target: 'ws://localhost:8787', ws: true, changeOrigin: true },
+    },
+  },
 });

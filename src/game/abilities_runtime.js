@@ -722,6 +722,56 @@ export function createAbilities(deps = {}) {
     who.status[key] = { ...(who.status[key] || {}), ...out };
   }
 
+  /** MP1: an effect of ours landed on another player's mirror; the net system carries it to them. */
+  function allyEffect(who, payload) {
+    if (typeof deps.onAllyEffect === 'function') { try { deps.onAllyEffect(who, payload); } catch { /* the net is not this file's problem */ } }
+  }
+
+  /**
+   * MP1: an effect ANOTHER player cast on us, off the wire. The words name the
+   * caster, because a green number with no name is indistinguishable from
+   * regen. Returns what happened, for the net system's log and the tests.
+   */
+  function takeRemoteEffect(fromName, payload, now) {
+    const t = num(now);
+    const who = String(fromName || 'Someone');
+    if (!payload || typeof payload !== 'object') return null;
+    const ability = ABILITIES_BY_ID[payload.ability];
+    const aName = ability ? ability.name : 'a spell';
+    if (payload.kind === 'heal') {
+      const max = Math.max(1, num(actor.maxHealth) || num(actor.health));
+      const before = num(actor.health);
+      if (cannotBeHealed(actor)) { say(`${who} tries ${aName} on you, and nothing can heal you while lich form holds.`, 'bad'); return { kind: 'heal', got: 0 }; }
+      actor.health = Math.min(max, before + Math.max(0, Math.round(num(payload.amount))));
+      const got = actor.health - before;
+      if (got > 0) float(pos(), `+${got}`, 'heal');
+      say(got > 0 ? `${who} heals you with ${aName}: ${got} health back.` : `${who} casts ${aName} on you, and you were already whole.`, 'good');
+      return { kind: 'heal', got };
+    }
+    if (payload.kind === 'buff') {
+      const e = payload.effect || {};
+      const held = payload.duration == null;
+      addBuff(actor, {
+        id: `${payload.ability}:${who}:${t.toFixed(3)}`, abilityId: payload.ability, name: payload.name || aName,
+        kind: 'buff', until: held ? Infinity : t + num(payload.duration),
+        effect: e, mods: e.mods || null, stats: e.stats || null, form: e.form || null, from: who,
+      });
+      say(`${who} puts ${payload.name || aName} on you${held ? '' : ` for ${saySeconds(num(payload.duration))}`}.`, 'good');
+      return { kind: 'buff' };
+    }
+    if (payload.kind === 'cure') {
+      const removed = [];
+      for (const key of payload.removes || []) if (actor.status?.[key]) { delete actor.status[key]; removed.push(key); }
+      if (payload.curses && Array.isArray(actor.buffs)) {
+        const at = actor.buffs.findIndex((b) => b.kind === 'debuff');
+        if (at >= 0) { removed.push(actor.buffs[at].name); actor.buffs.splice(at, 1); recompute(actor); }
+      }
+      say(removed.length ? `${who} lifts ${removed.join(' and ')} off you.` : `${who} casts ${aName} on you; there was nothing to lift.`, 'good');
+      return { kind: 'cure', removed };
+    }
+    return null;
+  }
+
   function addBuff(who, entry) {
     if (!who) return null;
     who.buffs = Array.isArray(who.buffs) ? who.buffs : [];
@@ -805,7 +855,7 @@ export function createAbilities(deps = {}) {
       const centre = ground ? c.ground : pos();
       const radius = num(e.radius) || 3;
       if (e.delay > 0 && !c.delayed) {
-        delayed.push({ at: c.now + e.delay, effect: { ...e }, ctx: { ...c, delayed: true, ground: { ...centre } } });
+        delayed.push({ at: c.now + e.delay, effect: { ...e }, ctx: { ...c, delayed: true, ground: { ...centre } }, follow: c.follow || null });
         if (e.telegraph) effects?.column?.(centre, radius, effects.colourFor?.(c.ability.id) ?? 0xff7a2a, e.delay);
         else effects?.ring?.(centre, radius, effects?.colourFor?.(c.ability.id) ?? 0xffffff, e.delay);
         return `It falls in ${saySeconds(e.delay)}. Stand clear.`;
@@ -863,6 +913,9 @@ export function createAbilities(deps = {}) {
       who.health = Math.min(max, before + amount);
       const got = who.health - before;
       if (got > 0) float(who.pos || pos(), `+${got}`, 'heal');
+      // MP1: another player's body here is a mirror; the heal has to reach their
+      // client, which applies it to the real one and says who did it
+      if (who.remote && got > 0) allyEffect(who, { kind: 'heal', ability: c.ability.id, amount: got });
       if (e.once) { actor.usedOnce = actor.usedOnce || {}; actor.usedOnce[c.ability.id] = true; }
       return got > 0
         ? `${got} health back${who === actor ? '' : ` to ${who.name || 'them'}`}.`
@@ -996,10 +1049,15 @@ export function createAbilities(deps = {}) {
     },
 
     doBuff(e, c) {
+      // `targets: 'ally'` is ONE friend, the chosen one, or yourself with none
+      // chosen. It fell into the `[actor]` arm below, so a Bless cast at a
+      // friend blessed the caster every time (found in the MP1 two tab test).
+      const friend = (t) => t && t !== actor && (t.faction === 'player' || t.faction === 'ally') && num(t.health) > 0;
       const who = e.targets === 'allies' || e.targets === 'selfAndAllies'
         ? allies().filter((a) => e.targets === 'selfAndAllies' || a !== actor)
           .filter((a) => !e.radius || flatDistance(pos(), a.pos || a) <= e.radius)
-        : [actor];
+        : e.targets === 'ally' && friend(c.target) ? [c.target]
+          : [actor];
       if (!who.length) return 'Nobody close enough to hear it.';
       // A CHANNELLED BUFF HAS NO DURATION AND MUST NOT BE GIVEN ONE. Sprint is
       // `duration: null, channelled: true`, and `now + num(null)` is `now`, so
@@ -1008,6 +1066,8 @@ export function createAbilities(deps = {}) {
       // whoever is holding it lets go.
       const held = e.channelled && e.duration == null;
       for (const a of who) {
+        // MP1: a group buff on another player's mirror goes to their client as a duration
+        if (a.remote) { allyEffect(a, { kind: 'buff', ability: c.ability.id, name: c.ability.name, duration: held ? null : num(e.duration), effect: e }); continue; }
         addBuff(a, {
           id: `${c.ability.id}:${c.now.toFixed(3)}`, abilityId: c.ability.id, name: c.ability.name,
           kind: 'buff', until: held ? Infinity : c.now + num(e.duration),
@@ -1020,7 +1080,8 @@ export function createAbilities(deps = {}) {
         : e.stats ? Object.entries(e.stats).map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.toUpperCase()}`).join(', ')
           : c.ability.name;
       const how = held ? 'for as long as you hold it' : `for ${saySeconds(e.duration)}`;
-      return `${list} ${how}${who.length > 1 ? `, on ${who.length} of you` : ''}.`;
+      const onWhom = who.length > 1 ? `, on ${who.length} of you` : (who.length === 1 && who[0] !== actor ? `, on ${who[0].name || 'them'}` : '');
+      return `${list} ${how}${onWhom}.`;
     },
 
     doDebuff(e, c) {
@@ -1086,6 +1147,7 @@ export function createAbilities(deps = {}) {
         const at = who.buffs.findIndex((b) => b.kind === 'debuff');
         if (at >= 0) { removed.push(who.buffs[at].name); who.buffs.splice(at, 1); recompute(who); }
       }
+      if (who.remote) allyEffect(who, { kind: 'cure', ability: c.ability.id, removes: e.removes || [], curses: !!e.curses });
       return removed.length ? `${removed.join(' and ')} gone.` : 'There was nothing on them to lift.';
     },
 
@@ -1311,9 +1373,9 @@ export function createAbilities(deps = {}) {
   }
 
   /** The moment the ability actually happens. */
-  function fire(ability, target, now, ground) {
+  function fire(ability, target, now, ground, follow = null) {
     const ctx = {
-      ability, target, now, api, hit: [],
+      ability, target, now, api, hit: [], follow,
       ground: ground || (ability.target === 'ground' ? groundPoint(ability) : { ...pos() }),
     };
     const words = runEffect(ability.effect, ctx);
@@ -1420,10 +1482,17 @@ export function createAbilities(deps = {}) {
    * the story in: the armour first, because it was in the way from the start,
    * and then the hand, because that is the part practice fixes.
    */
-  function land(ability, rec, target, now, ground) {
+  function land(ability, rec, target, now, ground, follow = null) {
     if (fizzled(ability, rec, now)) return null;
     if (fumbled(ability, rec, target)) return null;
-    return fire(ability, target, now, ground);
+    return fire(ability, target, now, ground, follow);
+  }
+
+  /** Where a ground ability lands now: under the body it was aimed at while that body is up, else where it was pointed. */
+  function followPoint(rec) {
+    const f = rec && rec.follow;
+    if (f && num(f.health) > 0 && !f.dead && (f.pos || f).x != null) return { ...targetPoint(f) };
+    return rec ? rec.ground : null;
   }
 
   // ------------------------------------------------------------------ use --
@@ -1456,7 +1525,7 @@ export function createAbilities(deps = {}) {
     if (!check.ok) { say(check.reason, 'bad'); cue('denied'); return { ok: false, reason: check.reason }; }
 
     // A target, where one is needed, before a coin of the cost is spent.
-    let target = null, ground = null;
+    let target = null, ground = null, follow = null;   // follow: the body a ground ability was aimed at
     if (opts.target !== undefined) {
       target = opts.target;
     } else if (ability.target === 'enemy' || ability.target === 'corpse') {
@@ -1493,7 +1562,15 @@ export function createAbilities(deps = {}) {
       // cursor to say otherwise. See groundPoint.
       const found = acquire(ability);
       target = found.target || found.blocked || anyHostileInRange(ability) || null;
-      ground = groundPoint(ability, target);
+      // A GROUND ABILITY AIMED AT A BODY FOLLOWS THE BODY. The point was fixed at
+      // the press, and a bandit charging at 6 m a second was five metres past it
+      // by the time a 0.8 s Volley and its rain came down: "Volley finds nothing
+      // inside 5 m", pressed with the cursor square on the bandit (2026-09-08).
+      // So a hostile under the cursor, or the chosen target, is what the ability
+      // is for, and the centre is read off it again at the release and again at
+      // the fall. Bare ground with nothing hostile in reach is still the cursor.
+      follow = target && isTargetable(target, actor) ? target : null;
+      ground = follow ? { ...targetPoint(follow) } : groundPoint(ability, target);
       const radius = ability.effect?.radius || ability.effect?.parts?.find?.((p) => p.radius)?.radius || 3;
       effects?.showGroundRing?.(ground, radius, effects.colourFor?.(ability.id) ?? 0xffffff);
     } else {
@@ -1511,6 +1588,7 @@ export function createAbilities(deps = {}) {
     const paid = pay(rec);
     cooldowns[ability.id] = rec.cooldownUntil;
     rec.ground = ground;
+    rec.follow = follow;
     rec.startedMoving = moving();
 
     // The armour, before the bar is drawn and before the clock is set: a cast
@@ -1556,7 +1634,7 @@ export function createAbilities(deps = {}) {
       effects?.swing?.(player);
       if (ability.skill === 'archery' || ability.skill === 'marksmanship') cue('bowShot');
     }
-    fire(ability, target, t, ground);
+    fire(ability, target, t, ground, follow);
     return { ok: true, casting: false, paid, record: rec };
   }
 
@@ -1724,14 +1802,17 @@ export function createAbilities(deps = {}) {
       const rec = cast;
       cast = null;
       effects?.stopCast?.(player);
-      land(ability, rec, rec.target, t, rec.ground);
+      land(ability, rec, rec.target, t, followPoint(rec), rec.follow);
     }
 
     // 3. delayed effects: Meteor's fall, Volley's rain
     for (let i = delayed.length - 1; i >= 0; i--) {
       if (t >= delayed[i].at) {
         const p = delayed.splice(i, 1)[0];
-        const ctx = { ...p.ctx, now: t, api, hit: [] };
+        // the rain and the meteor come down on the body they were aimed at, where it is now
+        const f = p.follow;
+        const ground = f && num(f.health) > 0 && !f.dead ? { ...targetPoint(f) } : p.ctx.ground;
+        const ctx = { ...p.ctx, now: t, api, hit: [], ground };
         const words = runEffect(p.effect, ctx);
         say(`${p.ctx.ability.name} lands. ${words || ''}`.trim(), 'ability');
       }
@@ -2006,7 +2087,7 @@ export function createAbilities(deps = {}) {
 
   return {
     use, useById, update, onDamaged, onLanded, applyPassives, held, spendItem,
-    barView, buffsView, cooldownLeft, affordable, acquire, groundPoint,
+    barView, buffsView, cooldownLeft, affordable, acquire, groundPoint, takeRemoteEffect,
     onTargetPicked, cancelPending, faceTowards,
 
     /** W2's combat consumes this on a plain player swing, or it lapses. */

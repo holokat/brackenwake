@@ -286,13 +286,15 @@ export const ui = {
       const patch = sack || who || st ? null : life.forage.pick(ray);
       // S2: the six named people the story raises are not in npcs.pick
       const named = sack || patch || who ? null : (ctx.has('story') ? ctx.get('story').story?.pick?.(ray) : null);
-      const mon = sack || patch || who || st ? null : fight.monsters.pick(ray);
+      const mate = sack || patch || who || st ? null : (ctx.has('net') ? ctx.get('net').pick(ray) : null);
+      const mon = sack || patch || who || st || mate ? null : fight.monsters.pick(ray);
       const corpse = sack || patch || who || st || mon ? null : skinning.pick(ray);
       if (sack) { want = want || 'grab'; hover = lootLabel(sack); }
       else if (patch) { want = want || 'grab'; hover = life.foraging.hoverText(patch.rec); }
       else if (named) { want = want || 'pointer'; hover = `${named.npc?.person?.name || named.name || 'somebody'}, click to talk`; }
       else if (who) { want = want || 'pointer'; hover = `${who.npc?.personName || who.npc?.name || who.name || 'Somebody'}, click to talk`; }
       else if (st) { want = want || 'pointer'; hover = `the ${st.name}, click to craft`; }
+      else if (mate) { want = want || 'pointer'; hover = `${mate.name}, a fellow traveller, click to choose`; hoverColour = conOf(mate.actor, character).colour; }
       // a monster says what it is and how dangerous it is, in the con colour:
       // "Wolf, a fair fight" in yellow, "the Ashen King, a boss" in purple.
       // The rule is con.js's and moves as the character trains (C2.md).

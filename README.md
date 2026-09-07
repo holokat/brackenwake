@@ -49,6 +49,22 @@ npm install
 npm run dev
 ```
 
+## Multiplayer
+
+One room per world on a Cloudflare Durable Object, deployed with the same
+Worker that serves the game (`server/`). In development run the room beside
+Vite:
+
+```
+npm run server     # wrangler dev on 8787: the room, and the built assets
+npm run dev        # Vite on 5198, which proxies /ws to 8787
+```
+
+Every client says where it is ten times a second and draws everyone else's
+body; a heal, a blessing or a cure on another player's body reaches that
+player's client. `?solo` on the URL leaves the wire off. Monsters are still
+each client's own. See `docs/mmo/wiring/MP1-THE-OTHERS.md`.
+
 ## Module map
 
 - `src/farm/catalog.js` — unlockables + requirements + growth curves (single source of truth)

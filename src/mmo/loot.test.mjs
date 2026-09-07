@@ -10,7 +10,7 @@ import {
   BASE_WEIGHTS, GOLD, shiftFor, weightsFor, rollRarity, rollGold, rollDrop, bossRoll,
   rollKill, better, seededRng, auditLoot,
   classProfile, classProfileDetail, topSkills, strengthOf, armourTiersFor, asProfile,
-  PROFILE_SKILLS, PROFILE_TOP, MAGIC_SKILLS, ROBE_SKILLS, CLASS_BIAS, BOSS_BIAS,
+  PROFILE_SKILLS, PROFILE_TOP, MAGIC_SKILLS, ROBE_SKILLS, CLASS_BIAS, BOSS_BIAS, AMMO_FOR, kitDraw, KIT_SHARES,
   SIGNATURES, SIGNATURE_BY_ID, UNIQUE_CHANCE, signatureFor, makeUnique, rollUnique,
   auditSignatures,
 } from './loot.js';
@@ -397,7 +397,7 @@ const tally = (tier, luck, seed, n) => {
   for (const o of OPENINGS) {
     const d = classProfileDetail(o);
     check(`${o.name}: ${d.bases.size} bases, all real gear their STR allows`,
-      d.bases.size > 0 && [...d.bases].every((id) => BASES[id] && takesRarity(id) && BASES[id].strReq <= d.str),
+      d.bases.size > 0 && [...d.bases].every((id) => BASES[id] && (takesRarity(id) || Object.values(AMMO_FOR).includes(id)) && (BASES[id].strReq || 0) <= d.str),
       `top ${d.top.map((e) => e.id).join(', ') || 'nothing trained yet'} | ${d.tiers.join(',')}`);
   }
   check('a character who has trained nothing still has jewellery and armour and no weapon',
@@ -601,17 +601,35 @@ const tally = (tier, luck, seed, n) => {
   check('and a profiled roll is still deterministic from its seed',
     JSON.stringify(rollDrop({ table: TABLE, tier: 3, seed: 12, profile: classProfile(OPENINGS_BY_ID.warrior) }))
     === JSON.stringify(rollDrop({ table: TABLE, tier: 3, seed: 12, profile: classProfile(OPENINGS_BY_ID.warrior) })));
-  check('rollKill takes the character and works the profile out of it, so no caller has to',
+  // L2: a character handed to rollKill is worked into a whole kit, and the six
+  // in ten draw from it whenever the table carried gear. A bare profile Set has
+  // no kit and takes the L1 intersection path, which is what the tests above
+  // drive; the two are the same coin and differ only in what the six draw.
+  check('rollKill takes the character and works the kit out of it, so no caller has to',
     (() => {
       const c = { stats: { ...OPENINGS_BY_ID.warrior.stats }, skills: { ...OPENINGS_BY_ID.warrior.skills } };
-      let same = 0;
+      const profile = classProfile(c);
+      let kit = 0, biased = 0, offProfile = 0;
       for (let s = 0; s < 500; s++) {
-        const viaCharacter = rollKill({ table: TABLE, tier: 3, seed: s, character: c });
-        const viaProfile = rollKill({ table: TABLE, tier: 3, seed: s, profile: classProfile(c) });
-        if (JSON.stringify(viaCharacter.item) === JSON.stringify(viaProfile.item)) same++;
+        const r = rollKill({ table: TABLE, tier: 3, seed: s, character: c });
+        if (r.bias?.biased) { biased++; if (r.bias.from === 'kit') kit++; if (r.item && !profile.has(r.item.base)) offProfile++; }
       }
-      return same === 500;
+      return biased > 250 && kit === biased && offProfile === 0;
     })());
+  check('and a kit draw spreads armour over the slots, weapon and ammunition included', (() => {
+    const d = classProfileDetail({ skills: { archery: 60, tracking: 40 }, stats: { str: 45, dex: 70 } });
+    const rng = seededRng(9);
+    const slots = new Set(); let bows = 0, arrows = 0;
+    for (let i = 0; i < 4000; i++) {
+      const got = kitDraw(d, rng);
+      if (!got) return false;
+      const b = BASES[got.base];
+      if (b.kind === 'armour') slots.add(b.slot);
+      if (got.base === 'shortbow' || got.base === 'longbow') bows++;
+      if (got.base === 'arrow') { arrows++; if (got.count < 12 || got.count > 30) return false; }
+    }
+    return slots.size === 8 && bows > 400 && arrows > 200;
+  })());
 }
 
 // ===========================================================================

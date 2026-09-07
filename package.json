@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node run-tests.mjs",
     "dev": "vite",
+    "server": "wrangler dev --port 8787",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "vite build && wrangler deploy",

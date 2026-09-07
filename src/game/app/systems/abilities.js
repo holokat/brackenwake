@@ -106,6 +106,8 @@ export const abilities = {
       ownerTarget: () => fight.attacking?.actor || fight.targeting.current || null,
       // the dragon is an ally for a buff with a radius, and only while it is awake
       dragon: () => (ctx.has('dragon') && ctx.get('dragon').entity?.awake ? ctx.get('dragon').actor : null),
+      // MP1: the other players in the room; the net system is built after this one, so it is asked for at call time
+      others: () => (ctx.has('net') ? ctx.get('net').others() : []),
       inCombat: (who) => fight.combat.inCombat(who, ctx.frame?.now ?? 0),
       isDying: () => !!player.dying,
       wake: () => player.wake(),
@@ -132,6 +134,7 @@ export const abilities = {
       },
       summon: hooks.summon,
       allies: hooks.allies,
+      onAllyEffect: (who, payload) => { if (ctx.has('net')) ctx.get('net').sendEffect(who, payload); },
       resurrect: hooks.resurrect,
       utility: hooks.utility,
       // an armed shot with a chosen target starts the auto attack on it

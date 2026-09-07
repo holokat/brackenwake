@@ -132,22 +132,29 @@ your strength at half AR, so armour is steered by band rather than refused.
 
 **The 60/40.** `rollDrop` rolls the rarity and draws a base from the monster's
 table exactly as it always did. Only if that base is gear is the class coin
-thrown. Six times in ten it redraws from the intersection of the monster's
-table and the profile; four times in ten it keeps what the table gave. So:
+thrown. Six times in ten it redraws for the character; four times in ten it
+keeps what the table gave. So:
 
 * Gold, meat, ore, wood, ingots, reagents and gems are untouched, at exactly
   the rate they always dropped. `takesRarity` is the gate.
-* A base the monster does not carry is never invented. The bias is an
-  intersection and nothing else.
-* When the intersection is empty, a cyclops with one maul against a swordsman,
-  the roll falls back to the whole table and says so in the record it fills in,
-  rather than failing silently.
-* Given no character, the roll is the roll it was before any of this existed,
-  bit for bit.
+* **What it carried, it could have carried for you (L2, 2026-09-08).** When the
+  body's table holds any gear at all, the six in ten draw from the character's
+  OWN kit (`kitDraw` over `classProfileDetail`): weapons 35, armour 35,
+  jewellery 10, ammunition 10, shields, foci and instruments 10, by weight.
+  Armour is drawn by slot first and material second, so boots are one piece in
+  eight. An archer's kit carries arrows, a marksman's bolts, a quiver of 12 to
+  30 at a time. This replaced the L1 intersection rule, under which a ranger
+  on the island took fifteen pairs of boots, rings, daggers and rapiers off
+  bandits and never a bow, an arrow, a helm or an amulet, because the bandit's
+  table holds none of those.
+* A body that carried no gear, a wolf, a rat, a grub, still hands over only
+  what its table names. Meat is meat whoever skins it.
+* Given a bare profile Set and no character (the tests), the L1 intersection
+  still runs; given no character at all, the roll is the roll it was before
+  any of this existed, bit for bit.
 
-The share of gear that ends up in the profile is therefore `0.6 + 0.4 * p`,
-where `p` is the profile's share of that monster's gear, and not a flat 0.6:
-the open forty draws from the whole table, including the part the class wants.
+Every biased drop is therefore in the character's kit, and the open forty
+draws from the whole table, including the part the class wants.
 
 **A boss steers harder.** `bossRoll` uses 80/20, floors its keep at rare, and a
 real boss still floors at epic on top of that.

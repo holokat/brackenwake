@@ -670,8 +670,15 @@ function spread(id, n, seedBase) {
   console.log(`     without one      ${JSON.stringify(none.bases)}`);
   check('a character handed to rollFor biases the gear six times in ten',
     Math.abs(w.biased / w.gear - CLASS_BIAS) < 0.02, `${(w.biased / w.gear * 100).toFixed(2)}% of ${w.gear} gear rolls`);
-  check('and the warrior walks off with far more rings than he did without one',
-    w.bases.ring > none.bases.ring * 2, `${w.bases.ring} against ${none.bases.ring}`);
+  // L2 (2026-09-08): the six in ten draw from the warrior's own kit, since a
+  // bandit with a rapier on him could as well have carried a sword. Before, the
+  // draw was the table's intersection with the profile, and a ranger on the
+  // island filled a pack with boots and rings and never saw a bow.
+  const slotsOf = (bases) => new Set(Object.keys(bases).filter((b) => BASES[b]?.kind === 'armour').map((b) => BASES[b].slot));
+  check('and the warrior walks off with a longsword the bandit never carried, and armour for most of his slots',
+    w.bases.longsword > 0 && slotsOf(w.bases).size >= 6, `longswords ${w.bases.longsword || 0}, armour slots ${[...slotsOf(w.bases)].join(',')}`);
+  check('every biased drop is in his profile', w.inProfile / w.gear >= CLASS_BIAS - 0.02, `${(w.inProfile / w.gear * 100).toFixed(1)}% of gear`);
+  check('and the bandit\'s own table is still the open four in ten', w.bases.rapier > 0 && w.bases.dagger > 0, `rapiers ${w.bases.rapier}, daggers ${w.bases.dagger}`);
   check('no character, and rollFor is the roll it always was',
     JSON.stringify(none.bases) === JSON.stringify(sweep('bandit', null).bases));
 
@@ -683,8 +690,9 @@ function spread(id, n, seedBase) {
   check('the bias moves no reagent, no ingot and no haunch of meat',
     sk.bases.reagent === skNone.bases.reagent && sk.plain === skNone.plain,
     `${sk.plain} materials either way`);
-  check('while the gear underneath it did move', sk.bases.longsword > skNone.bases.longsword,
-    `${sk.bases.longsword} longswords against ${skNone.bases.longsword}`);
+  check('while the gear underneath it did move: more kinds of it, all of them his',
+    Object.keys(sk.bases).length > Object.keys(skNone.bases).length && sk.inProfile / sk.gear >= CLASS_BIAS - 0.02,
+    `${Object.keys(sk.bases).length} kinds against ${Object.keys(skNone.bases).length}, ${(sk.inProfile / sk.gear * 100).toFixed(1)}% in profile`);
 
   // The mage, on the same monster, gets the other half of the table.
   const m = sweep('skeletonWarrior', mage);
@@ -697,11 +705,13 @@ function spread(id, n, seedBase) {
 
   // The empty intersection, through the join.
   const ogre = sweep('ogre', warrior);
-  check('an ogre carries two mauls and nothing a swordsman wants, so every biased roll falls back',
-    ogre.fellBack > 0 && Math.abs(ogre.fellBack / ogre.gear - CLASS_BIAS) < 0.03,
-    `${ogre.fellBack} of ${ogre.gear} gear rolls fell back`);
-  check('and falls back to exactly the spread it had without a profile',
-    JSON.stringify(ogre.bases) === JSON.stringify(sweep('ogre', null).bases), JSON.stringify(ogre.bases));
+  check('an ogre carries mauls, so under L2 it carried the swordsman\'s kit too: nothing falls back',
+    ogre.fellBack === 0 && ogre.bases.longsword > 0, `${ogre.fellBack} fell back, ${ogre.bases.longsword || 0} longswords`);
+  check('and without a character the ogre drops only what its table names',
+    Object.keys(sweep('ogre', null).bases).every((b) => tableFor(MONSTERS.ogre).includes(b)), Object.keys(sweep('ogre', null).bases).join(','));
+  const wolf = sweep('wolf', warrior);
+  check('a wolf carries no gear, so it hands over none, whoever kills it',
+    wolf.gear === 0 && Object.keys(wolf.bases).every((b) => !takesRarity(b)), JSON.stringify(wolf.bases));
 }
 
 // ============================================ L1: the signature unique in a sack

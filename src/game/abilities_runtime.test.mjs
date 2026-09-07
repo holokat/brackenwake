@@ -419,6 +419,34 @@ console.log('\nabilities_runtime: a hostile in reach is who you meant, cone or n
     h.combat.swings.length > 0 && h.combat.swings.every((x) => x.defender === near),
     `${h.combat.swings.length} swing(s): ${said(h).split('|').pop().trim()}`);
 }
+{
+  // A ground ability aimed at a body follows the body. Pressed with the cursor
+  // on a bandit 8 m off, Volley used to rain where the bandit HAD been; at 6 m
+  // a second it was five metres past the ring by the time the arrows fell, and
+  // the player read "Volley finds nothing inside 5 m" (2026-09-08).
+  const runner = mob('Bandit', 0, 8);
+  const h = harness({ bar: ['volley'], monsters: [runner], equipment: { ranged: { base: 'shortbow' } }, pack: [{ base: 'arrow', count: 20 }] });
+  const r = h.abilities.use(0, 0);
+  ck('Volley at a bandit in reach starts its cast', r.ok === true && r.casting === true, r.reason || 'cast');
+  // he charges: 0.4 s in he is at 5.6 m, at the release 3.2 m, and at the fall 1 m
+  h.abilities.update(0.4, 0.4); runner.pos.z = 5.6;
+  h.abilities.update(0.4, 0.8); runner.pos.z = 3.2;
+  h.abilities.update(0.4, 1.2); runner.pos.z = 1.0;
+  h.abilities.update(0.6, 1.8);
+  ck('the rain comes down on the bandit where he is now, not where he was',
+    h.combat.swings.length > 0 && h.combat.swings.every((x) => x.defender === runner),
+    `${h.combat.swings.length} swing(s): ${said(h).split('|').pop().trim()}`);
+  ck('and the line says so', /caught within/.test(said(h)) && !/finds nothing/.test(said(h)), said(h).split('|').pop().trim());
+}
+{
+  // and a Meteor follows through its fall
+  const runner = mob('Bandit', 0, 6);
+  const h = harness({ bar: ['meteor'], monsters: [runner] });
+  h.abilities.use(0, 0);
+  h.abilities.update(1.6, 1.6); runner.pos.z = 1.5; runner.pos.x = 4;   // moved 5 m during the cast
+  h.abilities.update(1.6, 3.2);                                         // the 1.5 s fall
+  ck('Meteor lands on the bandit who walked out of the ring', /caught within/.test(said(h)) && !/caught nobody|finds nothing/.test(said(h)), said(h).split('|').filter((x) => /Meteor lands/.test(x)).pop() || said(h).split('|').pop().trim());
+}
 
 console.log('abilities_runtime: and the four kinds that never wait');
 {
@@ -922,6 +950,35 @@ console.log('abilities_runtime: a dot is damage, not a line');
   h.abilities.update(0.7, 0.7);
   h.abilities.update(1.0, 1.7); h.abilities.update(1.0, 2.7);
   ck('a dot kills and stops', target.health === 0 && target.dots.length === 0, `hp ${target.health}, ${target.dots.length} dots`);
+}
+
+// --- MP1: a hand on another player's shoulder -------------------------------------------
+console.log('abilities_runtime: a heal or a blessing on a fellow player reaches the wire');
+{
+  const mate = { id: 'tour', name: 'tour', faction: 'player', remote: true, health: 50, maxHealth: 100, pos: { x: 2, y: 0, z: 0 }, buffs: [], status: {}, stats: {}, skills: {} };
+  const targeting = createTargeting(null, null, { targets: () => [] }, { self: null, pos: () => ({ x: 0, y: 0, z: 0 }), yaw: () => 0 });
+  targeting.set(mate);
+  const sent = [];
+  const h = harness({ bar: ['heal', 'bless'], allies: [mate], extra: { targeting, onAllyEffect: (who, payload) => sent.push({ who, payload }) } });
+  h.abilities.use(0, 0);
+  h.abilities.update(0.6, 0.6);
+  ck('Heal on a chosen friend heals the mirror and sends the amount to their client',
+    mate.health > 50 && sent.length === 1 && sent[0].who === mate && sent[0].payload.kind === 'heal' && sent[0].payload.amount === mate.health - 50 && sent[0].payload.ability === 'heal',
+    JSON.stringify(sent.map((x) => x.payload)));
+  h.abilities.use(1, 5);
+  h.abilities.update(0.6, 5.6);
+  const bless = sent.find((x) => x.payload.kind === 'buff');
+  ck('Bless on a chosen friend goes to the friend, not to the caster',
+    !!bless && bless.who === mate && bless.payload.name === 'Bless' && bless.payload.duration === 30 && !h.actor.buffs.some((b) => b.abilityId === 'bless'),
+    JSON.stringify({ sent: sent.map((x) => x.payload.kind), selfBuffs: h.actor.buffs.map((b) => b.abilityId) }));
+  // and the other side: what arrives is applied to the real actor and named
+  h.actor.health = 150;
+  const r = h.abilities.takeRemoteEffect('rangertest', { kind: 'heal', ability: 'heal', amount: 30 }, 6);
+  ck('a heal off the wire lands on this actor and says who did it', r.got === 30 && h.actor.health === 180, JSON.stringify(r));
+  ck('and the line names the healer', /rangertest heals you with Heal/.test(said(h)), said(h).split('|').pop().trim());
+  const b2 = h.abilities.takeRemoteEffect('rangertest', { kind: 'buff', ability: 'bless', name: 'Bless', duration: 30, effect: ABILITIES_BY_ID.bless.effect }, 7);
+  ck('a blessing off the wire is a buff on this actor for its duration',
+    b2 && b2.kind === 'buff' && h.actor.buffs.some((b) => b.abilityId === 'bless' && b.until === 37), JSON.stringify(h.actor.buffs.map((b) => [b.abilityId, b.until])));
 }
 
 // --- summons, zones, marks, enchants ---------------------------------------------------

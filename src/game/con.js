@@ -108,6 +108,7 @@ export const CON_LEVELS = [
   { level: 'hard', colour: '#ff9a3c', word: 'dangerous', skull: false },
   { level: 'deadly', colour: '#ff5a4d', word: 'it will kill you', skull: true },
   { level: 'boss', colour: '#c07bf0', word: 'a boss', skull: true },
+  { level: 'friend', colour: '#7ad0ff', word: 'a fellow traveller', skull: false },
 ];
 
 /** The ladder by name, for anything that has a level and wants its colour. */
@@ -177,6 +178,11 @@ export function bestCombatSkill(character = {}) {
  */
 export function conOf(monster, character = {}) {
   const m = (monster && monster.actor) || monster || {};
+  // MP1: another player, or anything on the player's side, is read as a friend
+  if (m.faction === 'player' || m.faction === 'ally') {
+    const step = CON_BY_LEVEL.friend;
+    return { tier: num(m.tier), mine: 0, band: 0, delta: 0, level: 'friend', colour: step.colour, word: step.word, skull: false };
+  }
   const tier = num(m.tier);
   const boss = m.boss === true || tier >= BOSS_TIER;
   const band = playerTier(character);
@@ -206,7 +212,8 @@ export function conLabel(monster, character = {}) {
  * colour.
  */
 export function auditCon() {
-  const want = ['trivial', 'easy', 'even', 'hard', 'deadly', 'boss'];
+  // `friend` is MP1's: another player, a summon, the dragon. It sits after the fight ladder and is never a con.
+  const want = ['trivial', 'easy', 'even', 'hard', 'deadly', 'boss', 'friend'];
   const have = CON_LEVELS.map((c) => c.level);
   if (have.join(',') !== want.join(',')) throw new Error(`con: the ladder reads ${have.join(', ')}`);
   const colours = new Set();

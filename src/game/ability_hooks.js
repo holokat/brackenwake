@@ -362,6 +362,10 @@ export function createAbilityHooks(deps = {}) {
     }
     const drake = typeof deps.dragon === 'function' ? deps.dragon() : null;
     if (alive(drake) && !out.includes(drake)) out.push(drake);
+    // MP1: the other players in the room, as their mirrors here
+    for (const a of (typeof deps.others === 'function' ? deps.others() || [] : [])) {
+      if (alive(a) && !out.includes(a)) out.push(a);
+    }
     return out;
   }
 

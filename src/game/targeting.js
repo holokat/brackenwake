@@ -266,9 +266,14 @@ export function createTargeting(sc, input, monsters, opts = {}) {
 
   const say = (text, kind) => { hud?.log ? hud.log(text, kind) : hud?.toast?.(text, kind); };
 
+  /** MP1: another player, a summon or the dragon may be chosen, for a heal or a blessing. */
+  function isFriendly(a) {
+    return !!a && a !== self && (a.faction === 'player' || a.faction === 'ally') && num(a.health) > 0 && a.dead !== true;
+  }
+
   function set(actor, how = 'set') {
     const was = current;
-    current = isTargetable(actor, self) ? actor : null;
+    current = isTargetable(actor, self) || isFriendly(actor) ? actor : null;
     if (current === was) return current;
     if (current) say(`Target: ${current.name || 'something'}.`, 'target');
     else if (was) say('Target cleared.', 'target');
@@ -330,7 +335,8 @@ export function createTargeting(sc, input, monsters, opts = {}) {
   function update(dt) {
     hover = castCursor();
     // a target that died or walked out of the world stops being one, quietly
-    if (current && !isTargetable(current, self)) set(null, 'gone');
+    // a friend stays chosen for as long as they stand (MP1); a hostile that stopped being one is let go
+    if (current && !isTargetable(current, self) && !isFriendly(current)) set(null, 'gone');
 
     // click to target. A click on a monster takes it; a click on bare ground
     // lets it go, so there is always a way to stop looking at something.

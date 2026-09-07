@@ -1,13 +1,20 @@
 {
-  // Nostrux Homestead as a static Worker: the whole game runs in the browser
-  // and talks to Nostr relays directly, so there is no server code here, only
-  // the built assets. Deploy with `npm run deploy`.
+  // Nostrux Homestead is a static Worker plus one Durable Object room per
+  // world for the multiplayer relay. The browser gets the built game assets,
+  // and `/ws/*` wakes the room that carries presence, state, chat, and effects.
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "brackenwake",
+  "main": "server/worker.mjs",
   "compatibility_date": "2026-09-01",
   "assets": {
+    "binding": "ASSETS",
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/ws/*"]
   },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOM", "class_name": "Room" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
   "observability": { "enabled": true }
 }

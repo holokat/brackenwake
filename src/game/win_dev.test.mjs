@@ -868,8 +868,10 @@ console.log('win_dev: the loot lab rolls the real join');
     r.table.sum === 1000, `${r.table.sum} accounted for`);
   check('the items and the empty kills add up too', r.items.length + r.empty === 1000, `${r.items.length} items, ${r.empty} empty`);
   const table = tableFor(tier1[0]);
-  check('every item came off that monster\'s own table, so there is no second roller',
-    r.items.every((it) => table.includes(it.base)), table.join(', '));
+  // L2 (2026-09-08): a body that carried gear may also hand over the killer's
+  // own kit, so a drop is either the table's or gear the roll gave the class
+  check('every item came off that monster\'s own table or the character\'s kit, so there is no second roller',
+    r.items.every((it) => table.includes(it.base) || takesRarity(it) || it.base === 'arrow' || it.base === 'bolt'), [...new Set(r.items.map((it) => it.base))].join(', '));
   const [lo, hi] = GOLD[tier1[0].tier];
   check('and the gold stayed inside loot.js\'s own range for the tier',
     r.gold.low >= lo && r.gold.high <= hi, `${r.gold.low} to ${r.gold.high}, the table says ${lo} to ${hi}`);
@@ -937,8 +939,8 @@ console.log('win_dev: ten real sacks on the ground');
   check('and gold in the tier\'s range', dropped.every((b) => b.gold >= GOLD[tier.tier][0] && b.gold <= GOLD[tier.tier][1]),
     `${Math.min(...dropped.map((b) => b.gold))} to ${Math.max(...dropped.map((b) => b.gold))}`);
   const table = tableFor(tier);
-  check('every item in every sack came off the monster\'s own table',
-    dropped.every((b) => b.items.every((it) => table.includes(it.base))));
+  check('every item in every sack came off the monster\'s own table or the character\'s kit (L2)',
+    dropped.every((b) => b.items.every((it) => table.includes(it.base) || takesRarity(it) || it.base === 'arrow' || it.base === 'bolt')));
   check('they were put down on the ground the runtime reports', dropped.every((b) => b.pos.y === 11));
   const bare = createBench(realCtx()).dropSacks({ tier: 1 });
   check('with no loot runtime it refuses and names what is missing', bare.ok === false && /loot.drop/.test(bare.text), bare.text);

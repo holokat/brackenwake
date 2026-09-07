@@ -27,8 +27,8 @@ check('and so is a target nothing has set a level for', tintFor(null) === TARGET
 check('every other level moves the ring off gold',
   CON_LEVELS.filter((c) => c.level !== 'even').every((c) => tintFor(c.level) !== TARGET_COLOUR),
   CON_LEVELS.map((c) => `${c.level} ${hex(tintFor(c.level))}`).join(', '));
-check('all six levels are six different rings',
-  new Set(CON_LEVELS.map((c) => tintFor(c.level))).size === 6);
+check('all seven levels are seven different rings, the friend (MP1) among them',
+  new Set(CON_LEVELS.map((c) => tintFor(c.level))).size === 7 && tintFor('friend') !== TARGET_COLOUR);
 check('a deadly ring is redder and less blue than gold',
   ch(tintFor('deadly'), 2) > ch(TARGET_COLOUR, 2) && ch(tintFor('deadly'), 1) < ch(TARGET_COLOUR, 1),
   `${hex(tintFor('deadly'))} against ${hex(TARGET_COLOUR)}`);
