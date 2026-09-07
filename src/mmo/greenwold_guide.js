@@ -77,8 +77,27 @@ export const GUIDE_REALM = 'greenwold';
  */
 const FRAME = Object.freeze({
   u0: 0.03, u1: 0.97, v0: 0.04, v1: 0.96,
-  x0: -2200, x1: 2200, z0: -2200, z1: 2200,
+  x0: -1300, x1: 1300, z0: -1300, z1: 1300,
 });
+export const GUIDE_FRAME = FRAME;
+
+/**
+ * HOW BIG THE REALM IS, in one number.
+ *
+ * The tables in this file were first measured at a 4400 m frame, and at that
+ * size a player ran a minute and a half of flat grass between one space and
+ * the next: the user said the zone felt too huge, and it was. The frame is now
+ * 2600 m across, which puts the village a 20 second run from the nearest
+ * stone and the mill 80 seconds off at RUN_SPEED, and every radius written in
+ * metres below is multiplied by this so the rough boundaries shrink with the
+ * ground. The painting's own scale bar (three miles across a quarter of the
+ * sheet) is fantasy and is ignored on purpose; the buildings in it are the
+ * size of fields.
+ *
+ * Plans (a house, a bridge, a stall) are NOT scaled: a cottage is 7 m wide in
+ * any realm. What scales is the country between them.
+ */
+export const FRAME_SCALE = (FRAME.x1 - FRAME.x0) / 4400;
 
 /** The painting's own size, as the user measured it. Only the ratio is used. */
 const SHEET = Object.freeze({ w: 1676, h: 942 });
@@ -167,10 +186,10 @@ const SPACES = [
     wanted: [],
   },
   {
-    id: 'standinghedge', name: 'The Standing Hedge', u: 0.61, v: 0.47, r: 1000,
+    id: 'standinghedge', name: 'The Standing Hedge', u: 0.61, v: 0.42, r: 800,
     annulus: true, band: 140,
     landmark: 'the carved sarsen, four metres, its face to the ring centre, offerings at its foot',
-    line: 'The first wonder and the first quiet. The ring is a mile across, and one stone is the whole space.',
+    line: 'The first wonder and the first quiet. The ring is half a mile across, and one stone is the whole space.',
     models: ['waystone_village', 'boundary_stone', 'offerings', 'hedge_4m'],
     wanted: [],
   },
@@ -252,8 +271,10 @@ export const GUIDE_ZONES = Object.freeze(SPACES.map((s) => {
   return Object.freeze({
     ...s,
     x, z,
+    // the tables say metres at the 4400 m frame; the frame decides the rest
+    r: Math.round(s.r * FRAME_SCALE),
     annulus: !!s.annulus,
-    band: s.band || 0,
+    band: Math.round((s.band || 0) * FRAME_SCALE),
     models: Object.freeze(s.models.slice()),
     wanted: Object.freeze((s.wanted || []).slice()),
   });

@@ -1,0 +1,2031 @@
+{
+  "id": "greenwold_coldwakefield",
+  "name": "Coldwake Field",
+  "note": "Wheat inside a thorn hedge, the rows running with the slope, a gate on the lane side and a scarecrow that is only a scarecrow by day.",
+  "at": {
+    "x": 221.28,
+    "z": 717.83
+  },
+  "radius": 198,
+  "pieces": [],
+  "runs": [
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -116.17,
+        "z": -152.6
+      },
+      "to": {
+        "x": 116.17,
+        "z": -152.6
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 116.17,
+        "z": -152.6
+      },
+      "to": {
+        "x": 116.17,
+        "z": 152.6
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": 116.17,
+        "z": 152.6
+      },
+      "to": {
+        "x": -116.17,
+        "z": 152.6
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -116.17,
+        "z": 152.6
+      },
+      "to": {
+        "x": -116.17,
+        "z": -152.6
+      }
+    }
+  ],
+  "areas": [
+    {
+      "kind": "wheat",
+      "points": [
+        [
+          -116.17,
+          -152.6
+        ],
+        [
+          116.17,
+          -152.6
+        ],
+        [
+          116.17,
+          152.6
+        ],
+        [
+          -116.17,
+          152.6
+        ]
+      ]
+    }
+  ],
+  "people": [],
+  "spawns": [
+    {
+      "id": "scarecrow",
+      "x": -4.51,
+      "z": -12.15,
+      "night": true
+    },
+    {
+      "id": "giantRat",
+      "x": 8.05,
+      "z": -29.96
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -75.84,
+      "z": -155.66,
+      "yaw": 47.06,
+      "scale": 0.93
+    },
+    {
+      "species": "oak",
+      "x": 4.75,
+      "z": -156,
+      "yaw": 298.98,
+      "scale": 1.07
+    },
+    {
+      "species": "oak",
+      "x": 118.77,
+      "z": -99.85,
+      "yaw": 99.74,
+      "scale": 1.21
+    },
+    {
+      "species": "oak",
+      "x": 119.57,
+      "z": 6.28,
+      "yaw": 120.51,
+      "scale": 1.24
+    },
+    {
+      "species": "oak",
+      "x": 118.71,
+      "z": 106.03,
+      "yaw": 93.35,
+      "scale": 0.9
+    },
+    {
+      "species": "oak",
+      "x": -80.56,
+      "z": 155.62,
+      "yaw": 321.06,
+      "scale": 0.89
+    },
+    {
+      "species": "oak",
+      "x": -118.77,
+      "z": 99.85,
+      "yaw": 183.87,
+      "scale": 0.95
+    },
+    {
+      "species": "oak",
+      "x": -119.57,
+      "z": -6.28,
+      "yaw": 33.39,
+      "scale": 1.2
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "furrow",
+      "x": -102.91,
+      "z": -140.13,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "furrow",
+      "x": -87.64,
+      "z": -139.13,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "furrow",
+      "x": -71.45,
+      "z": -140.55,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "furrow",
+      "x": -55.3,
+      "z": -139.6,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "furrow",
+      "x": -39.17,
+      "z": -139.45,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "furrow",
+      "x": -22.9,
+      "z": -140.28,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "furrow",
+      "x": -7.36,
+      "z": -139.27,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "furrow",
+      "x": 6.68,
+      "z": -139.14,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "furrow",
+      "x": 22.48,
+      "z": -140.52,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "furrow",
+      "x": 41.48,
+      "z": -140.11,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "furrow",
+      "x": 55.08,
+      "z": -139.35,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "furrow",
+      "x": 72.39,
+      "z": -139.34,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "furrow",
+      "x": 88.84,
+      "z": -139.52,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "furrow",
+      "x": 104.5,
+      "z": -139.31,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": -104.92,
+      "z": -123.47,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": -89.32,
+      "z": -126.42,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": -72.59,
+      "z": -126.14,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": -55.05,
+      "z": -123.91,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": -39.87,
+      "z": -124.97,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": -24.49,
+      "z": -124.59,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": -8.99,
+      "z": -124.32,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": 7.49,
+      "z": -124.94,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": 23.35,
+      "z": -124.18,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": 38.63,
+      "z": -124.04,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": 56.13,
+      "z": -125.03,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": 72.73,
+      "z": -125.67,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": 88.26,
+      "z": -126.09,
+      "yaw": 0,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": 104.41,
+      "z": -123.93,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": -105.18,
+      "z": -109.51,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": -89.24,
+      "z": -110.94,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": -73.2,
+      "z": -109.35,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": -57.58,
+      "z": -108.85,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -39.51,
+      "z": -109.72,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": -25.09,
+      "z": -110.92,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": -6.57,
+      "z": -110.13,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": 7.96,
+      "z": -107.79,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": 24.21,
+      "z": -107.96,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": 40.82,
+      "z": -110.06,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": 54.51,
+      "z": -110.65,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 73.16,
+      "z": -110.64,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 86.9,
+      "z": -107.99,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": 104.88,
+      "z": -110.26,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": -103.82,
+      "z": -95.1,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": -87.16,
+      "z": -95.07,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": -71.03,
+      "z": -94.75,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -54.67,
+      "z": -94.62,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": -40.28,
+      "z": -92.24,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": -24.72,
+      "z": -93.65,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": -8.03,
+      "z": -92.87,
+      "yaw": 0,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": 8.56,
+      "z": -94.08,
+      "yaw": 0,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": 24.3,
+      "z": -92.28,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": 39.16,
+      "z": -92.69,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "wheat_row",
+      "x": 56.29,
+      "z": -94.78,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 72.76,
+      "z": -93.48,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": 87.64,
+      "z": -94.41,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 102.59,
+      "z": -94.66,
+      "yaw": 0,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": -104.76,
+      "z": -78.32,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "wheat_row",
+      "x": -87.23,
+      "z": -78.65,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": -73.4,
+      "z": -77.62,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": -55.77,
+      "z": -76.96,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": -39.64,
+      "z": -79.15,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "wheat_row",
+      "x": -24.09,
+      "z": -77.57,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": -6.58,
+      "z": -76.55,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 9.27,
+      "z": -76.56,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": 24,
+      "z": -78.19,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 39.86,
+      "z": -76.59,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": 56.02,
+      "z": -77.12,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": 71.74,
+      "z": -79.2,
+      "yaw": 0,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": 87.72,
+      "z": -76.84,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 104.93,
+      "z": -78.68,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "furrow",
+      "x": -103.5,
+      "z": -63.59,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "furrow",
+      "x": -88.5,
+      "z": -62.28,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "furrow",
+      "x": -73.06,
+      "z": -63.26,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "furrow",
+      "x": -54.5,
+      "z": -60.9,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "furrow",
+      "x": -39.51,
+      "z": -61.65,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "furrow",
+      "x": -25.33,
+      "z": -63.99,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "furrow",
+      "x": -9.07,
+      "z": -63.83,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "furrow",
+      "x": 6.99,
+      "z": -62.36,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "furrow",
+      "x": 24.76,
+      "z": -61.89,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "furrow",
+      "x": 39.05,
+      "z": -63.41,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "furrow",
+      "x": 56.57,
+      "z": -62.93,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "furrow",
+      "x": 72.47,
+      "z": -61.07,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "furrow",
+      "x": 87.66,
+      "z": -60.94,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "furrow",
+      "x": 105.05,
+      "z": -63.64,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": -105.09,
+      "z": -46.63,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "wheat_row",
+      "x": -86.79,
+      "z": -47.21,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": -72.04,
+      "z": -48.05,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -56.28,
+      "z": -47.29,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -40.06,
+      "z": -48.07,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": -22.84,
+      "z": -48.32,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": -8.68,
+      "z": -45.59,
+      "yaw": 0,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": 8.25,
+      "z": -47.91,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 25.39,
+      "z": -47.23,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 41.29,
+      "z": -46.83,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": 55.05,
+      "z": -46.26,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": 71.29,
+      "z": -47.54,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": 86.64,
+      "z": -47.21,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 105.29,
+      "z": -47.15,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": -104.1,
+      "z": -32.8,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": -86.81,
+      "z": -31.92,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": -72.45,
+      "z": -31.11,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": -54.59,
+      "z": -32.17,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": -40.04,
+      "z": -30.41,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -24.39,
+      "z": -32.74,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": -9.1,
+      "z": -30.47,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": 8.66,
+      "z": -32.5,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": 25.15,
+      "z": -32.62,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": 39.33,
+      "z": -29.84,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 54.8,
+      "z": -30.67,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 71.83,
+      "z": -30.23,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 88.46,
+      "z": -32.12,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 105.41,
+      "z": -32.18,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": -104.53,
+      "z": -14.73,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": -87.96,
+      "z": -16.39,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": -72.57,
+      "z": -17.02,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -56.53,
+      "z": -15.27,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": -40.41,
+      "z": -14.88,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": -22.7,
+      "z": -16.03,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": -9.08,
+      "z": -16.99,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": 8.11,
+      "z": -15.17,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "wheat_row",
+      "x": 23.8,
+      "z": -15.96,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": 39.76,
+      "z": -16.76,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 54.97,
+      "z": -14.3,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": 73.12,
+      "z": -14.19,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 87.36,
+      "z": -16.42,
+      "yaw": 0,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": 105.11,
+      "z": -16.22,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": -104.38,
+      "z": 0.5,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": -89.58,
+      "z": -0.66,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -70.72,
+      "z": -0.64,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": -56.93,
+      "z": -0.39,
+      "yaw": 0,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": -39.92,
+      "z": 1.21,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": -24.59,
+      "z": -0.72,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -8.45,
+      "z": -0.8,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": 9.58,
+      "z": -0.42,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 22.55,
+      "z": 1.46,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 40.1,
+      "z": 1.55,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 55.22,
+      "z": 1,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 72.7,
+      "z": 0.9,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": 88.3,
+      "z": -1.51,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": 104.19,
+      "z": -0.49,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "furrow",
+      "x": -104.41,
+      "z": 15.33,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "furrow",
+      "x": -87.67,
+      "z": 17.08,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "furrow",
+      "x": -71.47,
+      "z": 16.31,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "furrow",
+      "x": -55.56,
+      "z": 16.32,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "furrow",
+      "x": -39.33,
+      "z": 15.05,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "furrow",
+      "x": -25.49,
+      "z": 17.17,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "furrow",
+      "x": -9.48,
+      "z": 17.19,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "furrow",
+      "x": 6.46,
+      "z": 14.43,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "furrow",
+      "x": 25.41,
+      "z": 16.09,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "furrow",
+      "x": 40.05,
+      "z": 14.82,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "furrow",
+      "x": 56.57,
+      "z": 16.03,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "furrow",
+      "x": 71.98,
+      "z": 15.94,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "furrow",
+      "x": 89.2,
+      "z": 14.17,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "furrow",
+      "x": 103.99,
+      "z": 16.03,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -103.92,
+      "z": 31.1,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": -88.11,
+      "z": 31.15,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": -72.79,
+      "z": 31.84,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": -56.74,
+      "z": 31.98,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": -38.9,
+      "z": 30.66,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": -23.2,
+      "z": 30.67,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": -7.54,
+      "z": 32.23,
+      "yaw": 0,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": 9.27,
+      "z": 32.4,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 24.43,
+      "z": 31.8,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": 39.12,
+      "z": 31.51,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": 55.54,
+      "z": 32.11,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "wheat_row",
+      "x": 72.46,
+      "z": 31.56,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": 89.32,
+      "z": 30.29,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 103.27,
+      "z": 31.88,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": -104.96,
+      "z": 45.43,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -88.11,
+      "z": 45.41,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": -73.29,
+      "z": 48.04,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": -57.33,
+      "z": 46.87,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": -41.42,
+      "z": 48.23,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": -25.33,
+      "z": 46.99,
+      "yaw": 0,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": -8.19,
+      "z": 48.17,
+      "yaw": 0,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": 9.01,
+      "z": 45.7,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": 22.72,
+      "z": 46.81,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": 39.75,
+      "z": 47.04,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": 57.12,
+      "z": 46.35,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": 73.55,
+      "z": 45.4,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": 88.24,
+      "z": 45.44,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": 102.65,
+      "z": 46.4,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -104.34,
+      "z": 61.27,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -89.34,
+      "z": 61.28,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -71.35,
+      "z": 61.55,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": -55.91,
+      "z": 61.59,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": -40.62,
+      "z": 62.88,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": -23.45,
+      "z": 62.95,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": -9.15,
+      "z": 63.47,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": 8.31,
+      "z": 60.95,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": 23.26,
+      "z": 62.13,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 40.72,
+      "z": 62.38,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": 57.69,
+      "z": 63.53,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "wheat_row",
+      "x": 72.06,
+      "z": 62.84,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 87.01,
+      "z": 61.36,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 104.48,
+      "z": 63.22,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": -103.22,
+      "z": 78.33,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": -87.11,
+      "z": 79.3,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": -73.4,
+      "z": 78.63,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": -55.01,
+      "z": 78.76,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": -40.02,
+      "z": 79.46,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": -24.22,
+      "z": 77.56,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": -9.58,
+      "z": 78.68,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 9.26,
+      "z": 78.89,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "wheat_row",
+      "x": 25.47,
+      "z": 78.61,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": 40.95,
+      "z": 78.61,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": 54.98,
+      "z": 79.26,
+      "yaw": 0,
+      "scale": 1.05
+    },
+    {
+      "kind": "wheat_row",
+      "x": 71.92,
+      "z": 79.47,
+      "yaw": 0,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": 87.31,
+      "z": 78.65,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 103.02,
+      "z": 78.15,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "furrow",
+      "x": -104.09,
+      "z": 94.54,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "furrow",
+      "x": -86.61,
+      "z": 93.19,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "furrow",
+      "x": -70.76,
+      "z": 92.54,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "furrow",
+      "x": -56.9,
+      "z": 92.77,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "furrow",
+      "x": -41.45,
+      "z": 93.98,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "furrow",
+      "x": -25.51,
+      "z": 95.01,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "furrow",
+      "x": -8.65,
+      "z": 93.71,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "furrow",
+      "x": 6.74,
+      "z": 92.44,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "furrow",
+      "x": 23.14,
+      "z": 93.68,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "furrow",
+      "x": 38.66,
+      "z": 95.04,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "furrow",
+      "x": 55.22,
+      "z": 92.65,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "furrow",
+      "x": 72.91,
+      "z": 95.08,
+      "yaw": 0,
+      "scale": 1.05
+    },
+    {
+      "kind": "furrow",
+      "x": 89.69,
+      "z": 93.29,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "furrow",
+      "x": 105.21,
+      "z": 92.17,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": -104.19,
+      "z": 107.77,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -89.47,
+      "z": 108.17,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": -72.76,
+      "z": 109.04,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -57.06,
+      "z": 108.27,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": -40.06,
+      "z": 109.51,
+      "yaw": 0,
+      "scale": 1.08
+    },
+    {
+      "kind": "wheat_row",
+      "x": -24.17,
+      "z": 109.82,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": -7.51,
+      "z": 110.6,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": 7.35,
+      "z": 109.42,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": 24.59,
+      "z": 108.31,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": 41.62,
+      "z": 109.51,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 57.1,
+      "z": 109.57,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": 70.8,
+      "z": 107.87,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": 89.18,
+      "z": 110.62,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 104.4,
+      "z": 108.37,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -103.22,
+      "z": 124.1,
+      "yaw": 0,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": -87.68,
+      "z": 125.16,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": -72.18,
+      "z": 125.35,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -56.3,
+      "z": 123.77,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -39.4,
+      "z": 124.14,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": -24.5,
+      "z": 125.94,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": -9.26,
+      "z": 125.69,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 8.86,
+      "z": 124.87,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "wheat_row",
+      "x": 25.63,
+      "z": 126.17,
+      "yaw": 0,
+      "scale": 0.94
+    },
+    {
+      "kind": "wheat_row",
+      "x": 41.47,
+      "z": 124.92,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": 57.67,
+      "z": 124,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 71.1,
+      "z": 125.11,
+      "yaw": 0,
+      "scale": 0.93
+    },
+    {
+      "kind": "wheat_row",
+      "x": 88.18,
+      "z": 125.83,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 103.37,
+      "z": 126.39,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": -105.15,
+      "z": 140.54,
+      "yaw": 0,
+      "scale": 1.03
+    },
+    {
+      "kind": "wheat_row",
+      "x": -89.53,
+      "z": 139.85,
+      "yaw": 0,
+      "scale": 0.98
+    },
+    {
+      "kind": "wheat_row",
+      "x": -70.86,
+      "z": 140.84,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "kind": "wheat_row",
+      "x": -56.01,
+      "z": 139.67,
+      "yaw": 0,
+      "scale": 1.01
+    },
+    {
+      "kind": "wheat_row",
+      "x": -41.49,
+      "z": 139.05,
+      "yaw": 0,
+      "scale": 0.92
+    },
+    {
+      "kind": "wheat_row",
+      "x": -24.96,
+      "z": 141.45,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": -8.95,
+      "z": 140.83,
+      "yaw": 0,
+      "scale": 0.99
+    },
+    {
+      "kind": "wheat_row",
+      "x": 8.73,
+      "z": 139.31,
+      "yaw": 0,
+      "scale": 1.02
+    },
+    {
+      "kind": "wheat_row",
+      "x": 25.53,
+      "z": 141.21,
+      "yaw": 0,
+      "scale": 0.97
+    },
+    {
+      "kind": "wheat_row",
+      "x": 38.7,
+      "z": 140.09,
+      "yaw": 0,
+      "scale": 0.96
+    },
+    {
+      "kind": "wheat_row",
+      "x": 57.1,
+      "z": 141.22,
+      "yaw": 0,
+      "scale": 1.04
+    },
+    {
+      "kind": "wheat_row",
+      "x": 71.68,
+      "z": 142.13,
+      "yaw": 0,
+      "scale": 1.06
+    },
+    {
+      "kind": "wheat_row",
+      "x": 88.56,
+      "z": 140.44,
+      "yaw": 0,
+      "scale": 1.07
+    },
+    {
+      "kind": "wheat_row",
+      "x": 105.75,
+      "z": 139.18,
+      "yaw": 0,
+      "scale": 0.95
+    },
+    {
+      "kind": "scarecrow",
+      "x": -4.51,
+      "z": -12.15,
+      "yaw": 232.89,
+      "scale": 1.1
+    },
+    {
+      "kind": "field_gate",
+      "x": 116.17,
+      "z": 0,
+      "yaw": 90,
+      "scale": 1
+    }
+  ],
+  "markers": []
+}

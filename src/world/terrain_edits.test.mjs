@@ -1517,5 +1517,28 @@ console.log('\nED5: hardness, opacity, and the old files');
   }
 }
 
+console.log('\nGW2: a paint stroke dragged along a line');
+{
+  const e = createTerrainEdits({ baseHeight: () => 0 });
+  e.stroke({ kind: 'ground', word: 'cobble', x: 0, z: 0, x2: 200, z2: 0, r: 4 });
+  const words = (x, z) => e.groundOverride(x, z);
+  check('the middle of the line is painted, and so are both ends', words(100, 0) === 'cobble' && words(0, 0) === 'cobble' && words(200, 0) === 'cobble',
+    `${words(0, 0)}, ${words(100, 0)}, ${words(200, 0)}`);
+  check('a metre off the line at its middle is painted', words(100, 1) === 'cobble');
+  check('six metres off the line is not', words(100, 6) === null && words(100, -6) === null);
+  check('and nor is six metres past its far end', words(206, 0) === null);
+  check('a ground stroke with only half a far end is a disc', (() => {
+    const f = createTerrainEdits({ baseHeight: () => 0 });
+    const s = f.stroke({ kind: 'ground', word: 'dirt', x: 0, z: 0, x2: 50, r: 4 });
+    const row = f.serialize().strokes.find((q) => q.kind === 'ground');
+    return !('x2' in row) && !('z2' in row) && (f.groundOverride(25, 0) === null);
+  })());
+  check('the file round trip keeps the far end', (() => {
+    const f = createTerrainEdits({ baseHeight: () => 0 });
+    f.load(e.serialize());
+    return f.groundOverride(150, 0) === 'cobble' && f.groundOverride(150, 7) === null;
+  })());
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

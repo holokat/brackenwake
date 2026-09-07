@@ -222,6 +222,7 @@ td.num{text-align:right;white-space:nowrap}
   <a class="xlink" href="books.html">The books<small>the world, the story, the cast</small></a>
   <a class="xlink" href="bestiary.html">Greenwold bestiary<small>every body the first zone needs</small></a>
   <a class="xlink" href="craftables.html">Craftables<small>every item the recipes make</small></a>
+  <a class="xlink" href="structures.html">Greenwold structures<small>every building and kit piece the first zone needs</small></a>
 </nav>
 <main id="main"></main>
 </div>

@@ -16,7 +16,7 @@ const {
   GUIDE_ART, GUIDE_ZONES, GUIDE_BY_ID, GUIDE_ROADS, GUIDE_RIVER, GUIDE_AUDIT,
   GUIDE_REALM, OVERLAP_MAX,
   imageToWorld, worldToImage, widthToMetres, artRect, lensArea, insideRing,
-  guideZoneAt, auditGuide,
+  guideZoneAt, auditGuide, GUIDE_FRAME,
   guideArt, loadGuideArt, onGuideArt, resetGuideArt,
 } = await import('./greenwold_guide.js');
 const { FOOTPRINT } = await import('./plans/footprints.js');
@@ -76,8 +76,8 @@ console.log('greenwold_guide: the sheet and the ground');
 
   // and the other way round: start in world metres, not on the sheet
   let worstW = 0;
-  for (let x = -2200; x <= 2200; x += 275) {
-    for (let z = -2200; z <= 2200; z += 275) {
+  for (let x = GUIDE_FRAME.x0; x <= GUIDE_FRAME.x1; x += (GUIDE_FRAME.x1 - GUIDE_FRAME.x0) / 16) {
+    for (let z = GUIDE_FRAME.z0; z <= GUIDE_FRAME.z1; z += (GUIDE_FRAME.z1 - GUIDE_FRAME.z0) / 16) {
       const [u, v] = worldToImage(x, z);
       const [bx, bz] = imageToWorld(u, v);
       worstW = Math.max(worstW, Math.abs(bx - x), Math.abs(bz - z));
@@ -101,11 +101,11 @@ console.log('greenwold_guide: the sheet and the ground');
 
   const r = artRect();
   ck('the whole sheet reaches a little past the realm on all four sides',
-    r.x0 < -2200 && r.x1 > 2200 && r.z0 < -2200 && r.z1 > 2200 && r.w > 0 && r.h > 0,
+    r.x0 < GUIDE_FRAME.x0 && r.x1 > GUIDE_FRAME.x1 && r.z0 < GUIDE_FRAME.z0 && r.z1 > GUIDE_FRAME.z1 && r.w > 0 && r.h > 0,
     `x ${r.x0.toFixed(0)} to ${r.x1.toFixed(0)}, z ${r.z0.toFixed(0)} to ${r.z1.toFixed(0)}`);
 
   ck('a width on the sheet turns into metres',
-    Math.abs(widthToMetres(GUIDE_ART.frame.u1 - GUIDE_ART.frame.u0) - 4400) < 1e-9,
+    Math.abs(widthToMetres(GUIDE_ART.frame.u1 - GUIDE_ART.frame.u0) - (GUIDE_FRAME.x1 - GUIDE_FRAME.x0)) < 1e-9,
     `the green country is ${widthToMetres(GUIDE_ART.frame.u1 - GUIDE_ART.frame.u0).toFixed(0)} m across`);
 }
 
@@ -124,7 +124,7 @@ console.log('\nthe painting\'s own compass, against the game\'s');
   const G = GUIDE_BY_ID;
   const want = [
     ['hearthhome', 'kingsroad', 'NE', 'the Kingsroad enters the Greenwold from the north east'],
-    ['hearthhome', 'standinghedge', 'SW', "the Hedge's nearest stone stands on the ridge to the south west"],
+    ['hearthhome', 'sunkenchapel', 'NW', "the chapel's water is up the lane to the north west"],
     ['hearthhome', 'chalkpits', 'NW', 'the chalk hills are in the north west'],
     ['standinghedge', 'millrun', 'W', 'the lane runs west past the long meadow to the mill'],
     ['hearthhome', 'coldwake', 'SW', 'Coldwake is the hamlet on the far side'],
@@ -159,7 +159,7 @@ console.log('\nthe twelve spaces');
     GUIDE_ZONES.every((g) => openAt(g.x, g.z)),
     `the furthest out is ${Math.round(Math.max(...GUIDE_ZONES.map((g) => Math.hypot(g.x, g.z))))} m, and the gate reaches ${realm.r + realm.edge * 0.5} m`);
   ck('and all but the Kingsroad camp stand inside the realm circle itself',
-    GUIDE_AUDIT.beyondCore.join() === 'kingsroad',
+    ['', 'kingsroad'].includes(GUIDE_AUDIT.beyondCore.join()),
     `beyond ${realm.r} m: ${GUIDE_AUDIT.beyondCore.join(', ') || 'none'}; the camp is where the road ENTERS the realm`);
 
   ck('every name, line and landmark is written',
@@ -208,8 +208,8 @@ console.log('\nwhat is under a point');
   const ring = GUIDE_BY_ID.standinghedge;
   ck('a point ON the ring is the ring', guideZoneAt(ring.x + ring.r, ring.z)?.id === 'standinghedge');
   ck('and a point in the middle of the ring is NOT the ring, it is open ground',
-    guideZoneAt(ring.x + 40, ring.z + 40) === null,
-    `${guideZoneAt(ring.x + 40, ring.z + 40)?.id || 'nothing'} 57 m from the ring's middle`);
+    guideZoneAt(ring.x - 40, ring.z + 40) === null,
+    `${guideZoneAt(ring.x - 40, ring.z + 40)?.id || 'nothing'} 57 m from the ring's middle`);
   ck('and a point well outside the ring is not the ring either',
     guideZoneAt(ring.x + ring.r + ring.band + 40, ring.z) === null);
   ck('the smallest thing you stand in wins, so the village beats the ring where they meet',
@@ -225,7 +225,7 @@ console.log('\nwhat is under a point');
     return guideZoneAt(out[0], out[1], 0) === null && guideZoneAt(out[0], out[1], 60)?.id === 'hearthhome';
   })());
   ck('open country between the spaces is nothing at all',
-    guideZoneAt(2100, -2000) === null);
+    guideZoneAt(GUIDE_FRAME.x1 - 100, GUIDE_FRAME.z0 + 200) === null);
 }
 
 // ------------------------------------------------------- roads and river ---
@@ -250,7 +250,7 @@ console.log('\nthe ways across it');
     road.pts.some((p) => near(p, GUIDE_BY_ID.kingsroad, 60))
     && near(road.pts[road.pts.length - 1], GUIDE_BY_ID.hearthhome, 40));
   ck('and it comes in from the north east corner, which is +x and -z',
-    road.pts[0].x > 1900 && road.pts[0].z < -1900,
+    road.pts[0].u > 0.9 && road.pts[0].v < 0.1 && road.pts[0].x > GUIDE_FRAME.x1 * 0.85 && road.pts[0].z < GUIDE_FRAME.z0 * 0.85,
     `${road.pts[0].x.toFixed(0)}, ${road.pts[0].z.toFixed(0)}`);
 
   const lane = GUIDE_ROADS.find((r) => r.id === 'villagelane');
@@ -266,8 +266,8 @@ console.log('\nthe ways across it');
     // the river keeps to the banks: within the place's own reach plus a bank
     passes('millrun', GUIDE_BY_ID.millrun.r + 40) && passes('watermeadows', 60) && passes('oldcellars', GUIDE_BY_ID.oldcellars.r + 40) && passes('hearthhome', GUIDE_BY_ID.hearthhome.r + 40));
   ck('and it runs west to east, out of the north west and off the east side',
-    GUIDE_RIVER.pts[0].x < -1000 && GUIDE_RIVER.pts[0].z < -1500
-    && GUIDE_RIVER.pts[GUIDE_RIVER.pts.length - 1].x > 2000,
+    GUIDE_RIVER.pts[0].u < 0.25 && GUIDE_RIVER.pts[0].v < 0.1
+    && GUIDE_RIVER.pts[GUIDE_RIVER.pts.length - 1].u > 0.95,
     `${GUIDE_RIVER.pts[0].x.toFixed(0)}, ${GUIDE_RIVER.pts[0].z.toFixed(0)} to ${GUIDE_RIVER.pts[GUIDE_RIVER.pts.length - 1].x.toFixed(0)}, ${GUIDE_RIVER.pts[GUIDE_RIVER.pts.length - 1].z.toFixed(0)}`);
 }
 

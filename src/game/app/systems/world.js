@@ -640,12 +640,25 @@ export const world = {
 
     // a file on disk says so once, when it lands, with the numbers it moved
     runtime.onTerrain((info) => {
+      // what the strokes hold, counted, and not "no hills, no rivers, no roads"
+      // typed once for a blank canvas and read out over a sculpted realm
+      const rows = runtime.terrainEdits && runtime.terrainEdits.list ? runtime.terrainEdits.list() : [];
+      const n = (pred) => rows.reduce((c, s) => c + (pred(s) ? 1 : 0), 0);
+      const hills = n((s) => s.kind === 'mountain' || s.kind === 'ridge' || s.kind === 'raise' || s.kind === 'cliff');
+      const rivers = n((s) => s.kind === 'river');
+      const lakes = n((s) => s.kind === 'lake' || s.kind === 'pond' || s.kind === 'sea');
+      const roads = n((s) => s.kind === 'ground' && (s.word === 'path' || s.word === 'cobble'));
+      const paints = n((s) => s.kind === 'ground');
+      const held = rows.length
+        ? `${hills ? `${hills} hill strokes` : 'no hills'}, ${rivers ? `${rivers} river ribbons` : 'no rivers'}, `
+          + `${lakes ? `${lakes} still waters` : 'no lakes'}, ${roads ? `${roads} road strokes in ${paints} paints` : 'no roads'}`
+        : 'no hills, no rivers, no roads';
       say(`the hand cut ground loaded: ${info.strokes} ${info.strokes === 1 ? 'stroke' : 'strokes'}`
         + (info.caves ? `, ${info.caves} of them ${info.caves === 1 ? 'a cave' : 'caves'}` : '')
         + (info.base
-          ? `, and the file says sculpt: a flat world at ${info.base.height} m of ${info.base.ground}, `
+          ? `, and the file says sculpt: a base of ${info.base.height} m of ${info.base.ground}, `
             + `snow above ${info.base.snowLine} m, beach under ${info.base.beachLine} m, `
-            + 'no hills, no rivers, no roads, nothing rolled and nothing scattered'
+            + `${held}, nothing rolled and nothing scattered`
           : '')
         + `, ${info.chunks} ${info.chunks === 1 ? 'chunk' : 'chunks'} of ground rebuilt`);
     });

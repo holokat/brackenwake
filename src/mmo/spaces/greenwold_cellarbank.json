@@ -3,10 +3,10 @@
   "name": "The Cellar Bank",
   "note": "Willows leaning over the water, and the bank trodden into a path by whoever walks it.",
   "at": {
-    "x": -415.57,
-    "z": 23.95
+    "x": -245.56,
+    "z": 14.15
   },
-  "radius": 40,
+  "radius": 82,
   "pieces": [],
   "runs": [],
   "areas": [],
@@ -14,60 +14,319 @@
   "spawns": [
     {
       "id": "frog",
-      "x": -7,
-      "z": -24.93
+      "x": -4.87,
+      "z": 38.3
     },
     {
       "id": "wisp",
-      "x": 32.32,
-      "z": -13.86,
+      "x": 25.41,
+      "z": -35.42,
       "night": true
     }
   ],
   "trees": [
     {
       "species": "willow",
-      "x": -1.5,
-      "z": -26.79,
-      "yaw": 325.75,
-      "scale": 1.38
+      "x": -11.78,
+      "z": -70.3,
+      "yaw": 79.79,
+      "scale": 1.22
     },
     {
       "species": "willow",
-      "x": -13.44,
-      "z": -10.98,
-      "yaw": 182.86,
+      "x": 11.36,
+      "z": -54.67,
+      "yaw": 336.06,
+      "scale": 1.32
+    },
+    {
+      "species": "willow",
+      "x": 37.1,
+      "z": -56.67,
+      "yaw": 157.08,
+      "scale": 1.16
+    },
+    {
+      "species": "willow",
+      "x": -55.96,
+      "z": -36.12,
+      "yaw": 357.21,
+      "scale": 1.39
+    },
+    {
+      "species": "willow",
+      "x": -42.06,
+      "z": -36.59,
+      "yaw": 307.91,
+      "scale": 1.1
+    },
+    {
+      "species": "willow",
+      "x": -19.8,
+      "z": -43.44,
+      "yaw": 25.11,
+      "scale": 0.93
+    },
+    {
+      "species": "willow",
+      "x": -5.13,
+      "z": -37.34,
+      "yaw": 67.67,
+      "scale": 1.11
+    },
+    {
+      "species": "willow",
+      "x": 8.29,
+      "z": -38.19,
+      "yaw": 125.11,
+      "scale": 1
+    },
+    {
+      "species": "willow",
+      "x": 36.25,
+      "z": -36.37,
+      "yaw": 222.46,
+      "scale": 1.36
+    },
+    {
+      "species": "willow",
+      "x": 57.31,
+      "z": -42.57,
+      "yaw": 62.36,
+      "scale": 1.26
+    },
+    {
+      "species": "willow",
+      "x": -59.7,
+      "z": -20.09,
+      "yaw": 172.35,
+      "scale": 1.08
+    },
+    {
+      "species": "willow",
+      "x": -22.07,
+      "z": -24.36,
+      "yaw": 64.51,
+      "scale": 0.95
+    },
+    {
+      "species": "willow",
+      "x": 4.87,
+      "z": -24.26,
+      "yaw": 109.66,
+      "scale": 1
+    },
+    {
+      "species": "willow",
+      "x": 28.12,
+      "z": -20.96,
+      "yaw": 23.95,
+      "scale": 1.28
+    },
+    {
+      "species": "willow",
+      "x": 54.53,
+      "z": -25.96,
+      "yaw": 320.67,
+      "scale": 1.06
+    },
+    {
+      "species": "willow",
+      "x": -42.67,
+      "z": -10.35,
+      "yaw": 318.23,
+      "scale": 1.23
+    },
+    {
+      "species": "willow",
+      "x": 69.49,
+      "z": -7.59,
+      "yaw": 252.38,
       "scale": 1.21
     },
     {
       "species": "willow",
-      "x": 19.54,
-      "z": -17.04,
-      "yaw": 327.52,
+      "x": -59.91,
+      "z": 4.29,
+      "yaw": 332.15,
+      "scale": 1.3
+    },
+    {
+      "species": "willow",
+      "x": 4.11,
+      "z": 10.75,
+      "yaw": 100.18,
+      "scale": 1.21
+    },
+    {
+      "species": "willow",
+      "x": 20.03,
+      "z": 10.63,
+      "yaw": 75.78,
+      "scale": 1.24
+    },
+    {
+      "species": "willow",
+      "x": 39.77,
+      "z": 7.49,
+      "yaw": 99.94,
+      "scale": 1.05
+    },
+    {
+      "species": "willow",
+      "x": 55.23,
+      "z": 8.34,
+      "yaw": 14.04,
+      "scale": 1.3
+    },
+    {
+      "species": "willow",
+      "x": 71.17,
+      "z": 9.86,
+      "yaw": 279.58,
+      "scale": 1.04
+    },
+    {
+      "species": "willow",
+      "x": -54.05,
+      "z": 27.95,
+      "yaw": 138.82,
+      "scale": 1.17
+    },
+    {
+      "species": "willow",
+      "x": -21.34,
+      "z": 25.26,
+      "yaw": 332.04,
+      "scale": 1.32
+    },
+    {
+      "species": "willow",
+      "x": 6.81,
+      "z": 24.01,
+      "yaw": 84.37,
+      "scale": 1.05
+    },
+    {
+      "species": "willow",
+      "x": 27.49,
+      "z": 24.95,
+      "yaw": 330.24,
+      "scale": 0.96
+    },
+    {
+      "species": "willow",
+      "x": 42.05,
+      "z": 26.74,
+      "yaw": 226.53,
+      "scale": 1.38
+    },
+    {
+      "species": "willow",
+      "x": 67.64,
+      "z": 23.09,
+      "yaw": 271.01,
+      "scale": 0.91
+    },
+    {
+      "species": "willow",
+      "x": -57.6,
+      "z": 41.94,
+      "yaw": 152,
+      "scale": 1.04
+    },
+    {
+      "species": "willow",
+      "x": -41.18,
+      "z": 39.38,
+      "yaw": 134.51,
+      "scale": 1.23
+    },
+    {
+      "species": "willow",
+      "x": -23.02,
+      "z": 40.71,
+      "yaw": 28.06,
+      "scale": 1.27
+    },
+    {
+      "species": "willow",
+      "x": 4.33,
+      "z": 41.12,
+      "yaw": 181.84,
+      "scale": 0.94
+    },
+    {
+      "species": "willow",
+      "x": 25.27,
+      "z": 40.73,
+      "yaw": 291.7,
       "scale": 1.28
     },
     {
       "species": "willow",
-      "x": -11.37,
-      "z": 21.71,
-      "yaw": 269.7,
-      "scale": 0.97
+      "x": 43.18,
+      "z": 43.94,
+      "yaw": 161.35,
+      "scale": 1.11
     },
     {
       "species": "willow",
-      "x": 22.38,
-      "z": 17.33,
-      "yaw": 168.51,
-      "scale": 1.28
+      "x": 57.43,
+      "z": 38.31,
+      "yaw": 266.22,
+      "scale": 1.02
+    },
+    {
+      "species": "willow",
+      "x": -27.61,
+      "z": 60.47,
+      "yaw": 12.22,
+      "scale": 1.29
+    },
+    {
+      "species": "willow",
+      "x": -10.96,
+      "z": 54.14,
+      "yaw": 336.11,
+      "scale": 1.34
+    },
+    {
+      "species": "willow",
+      "x": 11.85,
+      "z": 54.69,
+      "yaw": 262.54,
+      "scale": 0.99
+    },
+    {
+      "species": "willow",
+      "x": 26.38,
+      "z": 57.02,
+      "yaw": 257.55,
+      "scale": 1.14
+    },
+    {
+      "species": "willow",
+      "x": 40.89,
+      "z": 57.4,
+      "yaw": 305.87,
+      "scale": 1.24
     }
   ],
   "rocks": [
     {
       "kind": "reed_bed",
-      "x": 26.05,
-      "z": -10.26,
-      "yaw": 252.47,
+      "x": -23.74,
+      "z": 7.34,
+      "yaw": 154.22,
       "scale": 1.2
+    },
+    {
+      "kind": "reed_bed",
+      "x": 34.34,
+      "z": 39.32,
+      "yaw": 220.33,
+      "scale": 1.1
     }
   ],
   "markers": []

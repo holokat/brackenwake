@@ -36,9 +36,20 @@
 
 import { FILES } from './list.js';
 import { auditSpaces } from '../plans/plan_schema.js';
+import { setSculptBirth } from '../../world/zones.js';
 
 /** Every space on disk, by id. Frozen, like PLANS. */
 export const SPACES = Object.freeze({ ...FILES });
+
+// A sculpt world with Hearthhome in it births on the green: the village's own
+// arrival point, in world metres. zones.js cannot import this file (this file
+// imports it, through the schema), so the birth is handed over here.
+{
+  const H = SPACES.greenwold_hearthhome;
+  // on the green itself, beside the well, and not at the plan's arrival point,
+  // which is the bridge: a character born over the river is born in it
+  setSculptBirth(H && H.at ? { x: H.at.x + 6, z: H.at.z + 6, yaw: H.arrival ? H.arrival.yaw : 0 } : null);
+}
 
 /** The ids, in the order the generated list carries them. */
 export const SPACE_IDS = Object.freeze(Object.keys(SPACES));

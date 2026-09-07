@@ -1,0 +1,75 @@
+{
+  "id": "greenwold_hangar_8",
+  "name": "The Beech Hangar, part 8",
+  "note": "The hangar itself: old beech on the west ridge from the mill down to Coldwake, the floor bare under the crowns and light only where a tree has come down.",
+  "at": {
+    "x": -1002.66,
+    "z": 353.26
+  },
+  "radius": 163,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": 107.65,
+      "z": -113.09,
+      "yaw": 54.46,
+      "scale": 0.94
+    },
+    {
+      "species": "birch",
+      "x": 106.73,
+      "z": -96.96,
+      "yaw": 16.01,
+      "scale": 0.96
+    },
+    {
+      "species": "birch",
+      "x": 106.08,
+      "z": 87.37,
+      "yaw": 197.56,
+      "scale": 1.34
+    },
+    {
+      "species": "beech",
+      "x": 87.83,
+      "z": 100.2,
+      "yaw": 354.56,
+      "scale": 1.13
+    },
+    {
+      "species": "beech",
+      "x": 63.5,
+      "z": 112.9,
+      "yaw": 42.36,
+      "scale": 1.39
+    },
+    {
+      "species": "oak",
+      "x": 77.73,
+      "z": 106.35,
+      "yaw": 346.75,
+      "scale": 0.91
+    },
+    {
+      "species": "beech",
+      "x": 93.23,
+      "z": 107.69,
+      "yaw": 193.29,
+      "scale": 1.28
+    },
+    {
+      "species": "oak",
+      "x": 105.07,
+      "z": 106.7,
+      "yaw": 172.71,
+      "scale": 1.25
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}

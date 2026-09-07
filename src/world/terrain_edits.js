@@ -566,12 +566,33 @@ function halfOf(v) {
  * defaults, hardness 1 and opacity 1, it is 1 inside the disc and 0 outside it,
  * which is the hard disc the file used to paint.
  */
+/**
+ * A paint stroke with `x2`, `z2` is a CAPSULE, the brush dragged in a straight
+ * line from one point to the other. A road is one stroke every forty metres
+ * instead of one every three, and the index holds a tenth of the rows for the
+ * same paint; the editor's own drag still lays discs, because a hand does not
+ * move in straight lines.
+ */
+export function paintDist(s, x, z) {
+  if (!Number.isFinite(s.x2) || !Number.isFinite(s.z2)) return Math.hypot(x - s.x, z - s.z);
+  const dx = s.x2 - s.x, dz = s.z2 - s.z;
+  const len2 = dx * dx + dz * dz;
+  let t = 0;
+  if (len2 > 1e-12) t = Math.max(0, Math.min(1, ((x - s.x) * dx + (z - s.z) * dz) / len2));
+  return Math.hypot(s.x + dx * t - x, s.z + dz * t - z);
+}
 export function paintWeightOf(s, x, z) {
   const r = Math.max(MIN_R, s.r || 0);
-  const dx = x - s.x, dz = z - s.z;
-  const d2 = dx * dx + dz * dz;
-  if (d2 >= r * r) return 0;
-  return opacityOf(s) * edgeFall(Math.sqrt(d2) / r, coreFrac(s));
+  if (!Number.isFinite(s.x2)) {
+    // the disc, squared first: this is the hot path of every painted point
+    const dx = x - s.x, dz = z - s.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 >= r * r) return 0;
+    return opacityOf(s) * edgeFall(Math.sqrt(d2) / r, coreFrac(s));
+  }
+  const d = paintDist(s, x, z);
+  if (d >= r) return 0;
+  return opacityOf(s) * edgeFall(d / r, coreFrac(s));
 }
 
 /**
@@ -847,6 +868,8 @@ export function reachOf(s) {
     const bx = Number.isFinite(s.x2) ? s.x2 : s.x, bz = Number.isFinite(s.z2) ? s.z2 : s.z;
     return riverHalf(s) + Math.hypot(bx - s.x, bz - s.z);
   }
+  // a dragged paint stroke reaches r past the far end of its own line
+  if (s.kind === 'ground' && Number.isFinite(s.x2) && Number.isFinite(s.z2)) return r + Math.hypot(s.x2 - s.x, s.z2 - s.z);
   return r;
 }
 
@@ -1078,6 +1101,7 @@ export function overlapsDisc(s, x, z, r) {
   const sr = Math.max(MIN_R, s.r || 0);
   if (s.kind === 'ridge' || s.kind === 'valley') return lineDist(s, x, z) < sr + r;
   if (s.kind === 'river') return riverAt(s, x, z).d < riverHalf(s) + r;
+  if (s.kind === 'ground') return paintDist(s, x, z) < sr + r;
   if (s.kind === 'cave') {
     const yaw = s.yaw || 0;
     const cx = s.x + Math.sin(yaw) * sr * CAVE_CUT_AHEAD;
@@ -1394,6 +1418,8 @@ export function createTerrainEdits(opts = {}) {
     if (s.kind === 'ground') {
       s.word = s.word || s.ground || 'dirt';
       if (!GROUND_WORDS.includes(s.word)) throw new Error(`no such ground: ${s.word}, try ${GROUND_WORDS.join(', ')}`);
+      // a far end only when it is a whole one; half a point is no line
+      if (!(Number.isFinite(s.x2) && Number.isFinite(s.z2))) { delete s.x2; delete s.z2; }
     }
     if (WATER_SET.has(s.kind)) fillWater(s);
     /**

@@ -79,6 +79,15 @@ export function spaceSiteRow(space, field) {
 /** Every space whose ground reaches within `radius` of (x, z). */
 /** A space the editor made on its own, one per 256 m tile of a sculpt world. */
 export const isTileSpace = (id) => /^tile_-?\d+_-?\d+$/.test(String(id || ''));
+/**
+ * A space that belongs to the sculpt world alone: a tile, or one of the
+ * Greenwold spaces `scripts/sculpt-greenwold.mjs` traces off the painting.
+ * Those stand where the painting's frame puts them, which means nothing in
+ * the generated world, whose Greenwold is laid by zones.js and the sheet; at
+ * seventy six of them they covered the generated farmland and swept its
+ * hedges and furrows away (dressing_density.test caught it).
+ */
+export const isSculptSpace = (id) => isTileSpace(id) || /^greenwold_/.test(String(id || ''));
 
 export function spaceSitesNear(x, z, radius, field, spaces = SPACES) {
   const out = [];
@@ -90,7 +99,7 @@ export function spaceSitesNear(x, z, radius, field, spaces = SPACES) {
     // generated world it would stand on ground the sheet laid (three of them
     // sat on Hearthhome's roads and took the roadside with them), so it is
     // the sculpt world's alone. A NAMED space is authored for either.
-    if (!sculpt && isTileSpace(space.id)) continue;
+    if (!sculpt && isSculptSpace(space.id)) continue;
     if (Math.hypot(space.at.x - x, space.at.z - z) > radius + (space.radius || 0)) continue;
     out.push(spaceSiteRow(space, field));
   }

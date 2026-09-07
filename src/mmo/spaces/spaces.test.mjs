@@ -19,7 +19,7 @@ import { auditSpaces, auditPlans, MARKER_KINDS } from '../plans/plan_schema.js';
 import { PLANS, peopleFor, spawnsFor, inPlannedPlace, layoutFor } from '../plans/index.js';
 import { PLAN_MARGIN } from '../plans/footprints.js';
 import { buildPlan, auditSpaceKinds, ROCK_KINDS, ROCK_KIND_IDS, setMarkersVisible, markersAreVisible, MARKER_COLOUR, SPACE_KIND_STATS } from '../../world/plan_models.js';
-import { spaceSiteRow, spaceSitesNear, isTileSpace, sitesNear } from '../../world/sites.js';
+import { spaceSiteRow, spaceSitesNear, isTileSpace, isSculptSpace, sitesNear } from '../../world/sites.js';
 import { createWorldField } from '../../world/field.js';
 import { SPECIES } from '../../world/arbor.js';
 import { MONSTERS } from '../monsters.js';
@@ -224,8 +224,10 @@ console.log('\nspaces: the five seams into the running game');
   // A tile space (tile_x_z, the editor's own) belongs to the sculpt canvas
   // and is left out of a generated field; a named space turns up in either.
   // Driven both ways on a field with and without the sculpt header.
-  const named = SPACE_IDS.filter((id) => !isTileSpace(id));
-  const tiles = SPACE_IDS.filter((id) => isTileSpace(id));
+  // the Greenwold's own spaces are the sculpt world's too: traced off the
+  // painting, they mean nothing on the generated sheet
+  const named = SPACE_IDS.filter((id) => !isSculptSpace(id));
+  const tiles = SPACE_IDS.filter((id) => isSculptSpace(id));
   check('and every named space really on disk turns up in sitesNear at its own centre',
     named.every((id) => sitesNear(field, SPACES[id].at.x, SPACES[id].at.z, 10).some((r) => r.sub === id)),
     named.length ? named.join(', ') : 'there are none yet, so this passes vacuously');

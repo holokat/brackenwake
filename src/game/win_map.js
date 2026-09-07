@@ -111,7 +111,7 @@ export const MAP_SPAN = 2 * WORLD_HALF;
 export const MAP_MIN_SPAN = 1000;
 export const MAP_MAX_SPAN = MAP_SPAN;
 /** Where the map opens: the Greenwold, this many metres across. */
-export const HOME_SPAN = 5000;
+export const HOME_SPAN = 3000;
 /** What one notch of the wheel, or one press of plus, multiplies the span by. */
 export const ZOOM_RATE = 1.25;
 /** Pixels a press may move and still count as a click and not a pan. */

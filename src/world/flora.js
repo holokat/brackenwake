@@ -963,6 +963,12 @@ function createStumps(parent) {
     mesh.count = n;
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    // Three caches an InstancedMesh's bounding sphere the first time a ray
+    // asks, and never looks again. A refill moves every instance, so a click on
+    // any tree in a refilled chunk was rejected at the sphere and never
+    // reached a triangle: the streamer's second pass over a chunk made its
+    // trees unclickable. Dropping the cache makes the next ray recompute it.
+    mesh.boundingSphere = null;
     return n;
   }
   return {

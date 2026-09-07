@@ -483,14 +483,44 @@ for (const kind of ['dungeon', 'cave']) {
 {
   // a ray straight down onto a tree the world actually streamed in
   let found = null;
-  for (const f of treeFieldsFor()) {
-    const t = f.trees.find((x) => !x.felledUntil);
-    if (f.meshes.length && t) { found = t; break; }
+  // a tree the field DREW: a tree inside an authored space is in the list
+  // and not in any mesh, and with seventy six spaces in the Greenwold the first
+  // tree in the list is quite often one of those
+  // and one drawn in the NEAR band: flora.js switches raycast off on the far
+  // bands' meshes on purpose (a card a kilometre off is not a thing to click).
+  // The focus is walked onto the first tree there is, for as many frames as
+  // it takes the streamer to redraw it in the near band, and that is the tree.
+  const nearTree = () => {
+    for (const f of treeFieldsFor()) {
+      const m = f.meshes.find((mm) => mm.userData.treeMap && mm.userData.treeMap.length && mm.raycast === Object.getPrototypeOf(mm).raycast);
+      const t = m ? f.trees[m.userData.treeMap[0]] : null;
+      if (t && !t.felledUntil) return t;
+    }
+    return null;
+  };
+  const anyTree = treeFieldsFor().flatMap((f) => f.trees).find((t) => !t.felledUntil) || null;
+  for (let i = 0; i < 120 && anyTree && !(found = nearTree()); i++) {
+    clock += 16;
+    rt.update(0.016, clock, anyTree.x, anyTree.z, 1);
   }
   if (found) {
     const ray = new THREE.Raycaster();
-    ray.set(new THREE.Vector3(found.x, found.gy + 40, found.z), new THREE.Vector3(0, -1, 0));
-    const hit = rt.pick(ray);
+    // from above and to one side, at the trunk's middle: a ray exactly down the
+    // axis threads a capless trunk, and a vertical ray misses a far tree's
+    // upright card altogether, which is what the streamer draws past 60 m
+    sc.scene.updateMatrixWorld(true);       // the mesh was built this frame and never rendered
+    // Twelve rays from round the tree at its trunk and its crown, and the first
+    // that lands is the pick: one ray exactly down the axis threads a capless
+    // trunk, one vertical ray misses an upright leaf card, and which tree is
+    // first in the list changes with every space added to the world.
+    let hit = null;
+    for (let k = 0; k < 12 && !hit; k++) {
+      const a = (k / 12) * Math.PI * 2, up = k % 2 ? 9 : 3;
+      const from = new THREE.Vector3(found.x + Math.cos(a) * 10, found.gy + 30, found.z + Math.sin(a) * 10);
+      const to = new THREE.Vector3(found.x, found.gy + up, found.z);
+      ray.set(from, to.clone().sub(from).normalize());
+      hit = rt.pick(ray);
+    }
     ck('a ray down onto a streamed tree picks that tree',
       hit && hit.kind === 'tree' && hit.tree && hit.tree.field.trees[hit.tree.index] != null,
       hit ? hit.kind : 'nothing');
@@ -729,8 +759,9 @@ for (const kind of ['dungeon', 'cave']) {
     sc.scene.updateMatrixWorld(true);
     if (built) {
       const box = new THREE.Box3().setFromObject(built);
-      const pos = built.geometry.getAttribute('position');
-      const v = new THREE.Vector3().fromBufferAttribute(pos, 0).applyMatrix4(built.matrixWorld);
+      // straight down onto the middle of the mouth: a ray onto the mesh's first
+      // vertex was an edge case, in the literal sense, and missed by rounding
+      const v = box.getCenter(new THREE.Vector3());
       const ray = new THREE.Raycaster();
       ray.set(new THREE.Vector3(v.x, box.max.y + 40, v.z), new THREE.Vector3(0, -1, 0));
       const hit = rt.pick(ray);

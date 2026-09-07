@@ -10,7 +10,7 @@ import {
   SEA, seaWithin, REEFS, reefAt, ARCHIPELAGO, archipelagoWithin,
   discOverlap, SIBLING_OVERLAP, CELL_PAD_MAX, TOWN_PRECINCT_R, MAX_FLAT_R,
   STANDS_IN_WATER, RELIEF_ZONES, EXTRA_ARTICLE, ARTICLE, articleFor, FLAT_R, heartAllows,
-  SITE_DISH, BIRTHPLACE, birthplaceFor,
+  SITE_DISH, BIRTHPLACE, birthplaceFor, SCULPT_BIRTH, setSculptBirth,
 } from './zones.js';
 import { PLANS } from '../mmo/plans/index.js';
 import { stopsOf } from '../mmo/plans/footprints.js';
@@ -945,8 +945,17 @@ console.log('zones: where a character is born');
 console.log('zones: where a character is born in this world');
 {
   check('a generated world is born on Hearthhome\'s green', birthplaceFor({ sculpt: null }).x === BIRTHPLACE.x && birthplaceFor(null).z === BIRTHPLACE.z);
-  const b = birthplaceFor({ sculpt: { height: 6 } });
-  check('and a sculpt world at the origin, tile 0 0', b.x === 0 && b.z === 0, `${b.x}, ${b.z}`);
+  // a sculpt world births on Hearthhome's green when the spaces have laid one
+  // (spaces/index.js registers it), and at tile 0 0 on a blank canvas
+  const laid = birthplaceFor({ sculpt: { height: 6 } });
+  check('and a sculpt world with Hearthhome laid in it is born on its green',
+    SCULPT_BIRTH.at ? (laid.x === SCULPT_BIRTH.at.x && laid.z === SCULPT_BIRTH.at.z && Math.hypot(laid.x, laid.z) > 100) : (laid.x === 0 && laid.z === 0),
+    `${laid.x}, ${laid.z}; registered ${JSON.stringify(SCULPT_BIRTH.at)}`);
+  const was = SCULPT_BIRTH.at;
+  setSculptBirth(null);
+  const blank = birthplaceFor({ sculpt: { height: 6 } });
+  check('and a blank canvas at the origin, tile 0 0', blank.x === 0 && blank.z === 0, `${blank.x}, ${blank.z}`);
+  setSculptBirth(was);
 }
 
 console.log('zones: what the lookup costs now there are a hundred and four');

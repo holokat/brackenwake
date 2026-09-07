@@ -455,8 +455,20 @@ export const BIRTHPLACE = { x: 789, z: 1533 };
  * not the constant, so the two cannot disagree.
  */
 export function birthplaceFor(field) {
-  return field && field.sculpt ? { x: 0, z: 0 } : { x: BIRTHPLACE.x, z: BIRTHPLACE.z };
+  if (!(field && field.sculpt)) return { x: BIRTHPLACE.x, z: BIRTHPLACE.z };
+  // A sculpt world with Hearthhome laid in it births on the green, at the
+  // village's own arrival point, which is what the first hour's walk starts
+  // from; a blank canvas with no village yet births at tile 0 0.
+  const home = SCULPT_BIRTH.at;
+  return home ? { x: home.x, z: home.z } : { x: 0, z: 0 };
 }
+/**
+ * Where a sculpt world births, set by whoever knows the spaces (the space
+ * index registers Hearthhome's arrival at load), so this file does not import
+ * the spaces and the spaces can keep importing this file.
+ */
+export const SCULPT_BIRTH = { at: null };
+export function setSculptBirth(at) { SCULPT_BIRTH.at = at && Number.isFinite(at.x) && Number.isFinite(at.z) ? { x: at.x, z: at.z, yaw: at.yaw } : null; }
 
 const LAYOUT = {
   // The Greenwold

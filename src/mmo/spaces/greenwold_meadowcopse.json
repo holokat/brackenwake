@@ -1,0 +1,95 @@
+{
+  "id": "greenwold_meadowcopse",
+  "name": "The Meadow Copse",
+  "note": "A stand of oak on the open downland, the kind a shepherd sits under and a fox lives in.",
+  "at": {
+    "x": -525.53,
+    "z": -226.09
+  },
+  "radius": 30,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "fox",
+      "x": 26.35,
+      "z": -1.33
+    },
+    {
+      "id": "wolf",
+      "x": 0.73,
+      "z": 14.4,
+      "night": true
+    }
+  ],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -6.55,
+      "z": -18.52,
+      "yaw": 17.4,
+      "scale": 1.07
+    },
+    {
+      "species": "oak",
+      "x": 3.33,
+      "z": -21.54,
+      "yaw": 0.45,
+      "scale": 1.1
+    },
+    {
+      "species": "oak",
+      "x": -20.61,
+      "z": -6.2,
+      "yaw": 329,
+      "scale": 1.32
+    },
+    {
+      "species": "birch",
+      "x": 15.97,
+      "z": -10.78,
+      "yaw": 310.63,
+      "scale": 1.33
+    },
+    {
+      "species": "oak",
+      "x": -8.78,
+      "z": 5.07,
+      "yaw": 78.76,
+      "scale": 0.83
+    },
+    {
+      "species": "oak",
+      "x": 5.33,
+      "z": 6.4,
+      "yaw": 316.36,
+      "scale": 0.87
+    },
+    {
+      "species": "oak",
+      "x": 20.31,
+      "z": 0.99,
+      "yaw": 146.36,
+      "scale": 1.18
+    },
+    {
+      "species": "oak",
+      "x": -5.48,
+      "z": 15.55,
+      "yaw": 333.57,
+      "scale": 1.06
+    }
+  ],
+  "rocks": [
+    {
+      "kind": "moss_boulder",
+      "x": 2.88,
+      "z": -2.57,
+      "yaw": 233.2,
+      "scale": 1.1
+    }
+  ],
+  "markers": []
+}

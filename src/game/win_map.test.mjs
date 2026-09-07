@@ -487,7 +487,9 @@ console.log('win_map: the panel redraws while it is open');
 
 console.log('win_map: the panel writes the waypoint and says so');
 {
-  const site = openSites[0];
+  // a found place that is ON the panel when it opens: the home view is
+  // HOME_SPAN across, and a site beyond its edge has no pixel to click
+  const site = openSites.find((s) => Math.abs(s.x) < HOME_SPAN * 0.45 && Math.abs(s.z) < HOME_SPAN * 0.45) || openSites[0];
   const character = { discovered: [site.id], zones: [], waypoint: null };
   const said = [];
   const stub = Object.create(panel);
@@ -526,9 +528,11 @@ const rowsOf = (root, cls) => walk(root).filter((n) => n.className.split(' ').in
 const textOf = (root) => walk(root).map((n) => (n.children.length ? '' : n.textContent)).join(' | ');
 
 /** Three sites the world really has on OPEN ground, and three open zones. */
-const someSites = openSites.filter((s) => !s.authored).slice(0, 3);
+/** Inside the view the panel opens on: a place past its edge has no pixel and no row to click. */
+const inHome = (s) => Math.abs(s.x) < HOME_SPAN * 0.45 && Math.abs(s.z) < HOME_SPAN * 0.45;
+const someSites = openSites.filter((s) => !s.authored && inHome(s)).slice(0, 3);
 /** A place with a roof, so the "nearest town" line can be measured and not skipped. */
-const someTown = openSites.find((s) => s.kind === 'town') || null;
+const someTown = openSites.find((s) => s.kind === 'town' && inHome(s)) || openSites.find((s) => s.kind === 'town') || null;
 /**
  * Three regions to walk into, taken off the open realms rather than typed: the
  * realm itself and two of its subzones. The map has no row for a closed one, so
@@ -1521,8 +1525,9 @@ console.log('\nwin_map MAP3: the painting is the ground');
   // the picture follows the zoom, because it is drawn through the view
   const g3 = painter();
   drawMap(g3, { field, cx: 0, cz: 0, span: MAP_MIN_SPAN, size: 640, discovered: [], zonesFound: [], guideArt: READY_ART });
-  check('and at the closest zoom it is drawn five times bigger, not pinned to the frame',
-    g3.images[0].w > im.w * 4.9 && g3.images[0].w < im.w * 5.1,
+  const zoomIn = HOME_SPAN / MAP_MIN_SPAN;   // the two spans' own ratio, not a number typed here
+  check(`and at the closest zoom it is drawn ${zoomIn.toFixed(1)} times bigger, not pinned to the frame`,
+    g3.images[0].w > im.w * (zoomIn - 0.1) && g3.images[0].w < im.w * (zoomIn + 0.1),
     `${im.w.toFixed(0)} px wide at ${HOME_SPAN} m, ${g3.images[0].w.toFixed(0)} px at ${MAP_MIN_SPAN} m`);
 }
 

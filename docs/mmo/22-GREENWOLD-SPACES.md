@@ -43,8 +43,8 @@ behind it.
 Do: talk to Bram, Old Wynn and Pip; the egg hatches; buy an axe; find the
 smith, the healer and the inn by their signs.
 Reward: the compass turns to the Hedge; the hatchling.
-Sightline: from the green the Hedge's nearest stone stands on the ridge
-to the south west, 380 m off, with the lane running to it.
+Sightline: from the green the Hedge's nearest stone stands across the
+fields to the east, 330 m off, with the ring lane running past it.
 Models: cottage_b (made), flint wall and corner (made), barrel, crate,
 bench, fence (made); smithy, manor, inn, chapel, stable, bank, healer,
 cottage_a, cottage_c, well pavilion, stalls, gate tower, bridge (to make).
@@ -52,7 +52,7 @@ Authored already: src/mmo/plans/hearthhome.json.
 
 ### 2. The Standing Hedge, the ridge
 
-For: the first wonder, and the first quiet. The ring is a mile across;
+For: the first wonder, and the first quiet. The ring is half a mile across;
 one stone is the whole space.
 Landmark: the carved sarsen, four metres, its face to the ring's centre,
 the worn path round it, offerings at its foot.
@@ -196,24 +196,20 @@ generator grows, the monsters the roster spawns, and nothing else.
 5. Every marker placed during 2 to 12 is a row in the model list, in the
    order the walk meets it.
 
-## Where they stand now (2026-09-07)
+## Where they stand now (2026-09-07, evening)
 
 All twelve are laid, plus the country between them, by
-`scripts/sculpt-greenwold.mjs`, at the coordinates
-`src/mmo/greenwold_guide.js` reads off the user's painting. Forty spaces in
-`src/mmo/spaces/greenwold_*.json` and 4,081 terrain strokes in
-`public/terrain/greenwold.json`. The three this doc still listed as "to
-author", the Long Meadow, the Water Meadows and Coldwake, are authored:
-`greenwold_longmeadow`, `greenwold_watermeadows`, `greenwold_coldwake`.
+`scripts/sculpt-greenwold.mjs`, traced in sheet fractions off the user's
+painting (`public/maps/greenwold.png`) and turned into metres through the
+guide's frame, which is 2.6 km across (it was 4.4, and the zone felt too
+huge). Seventy six spaces in `src/mmo/spaces/greenwold_*.json`: the twelve,
+nine stones, eleven fields, eight copses, three willow banks, two Kingsroad
+stretches and four woods cut into 260 m parts, with 1,712 terrain strokes in
+`public/terrain/greenwold.json`.
 
-The Standing Hedge is nine spaces and not one, `greenwold_hedge_1` to
-`greenwold_hedge_9`, because a single space with a `repeat` carries a 22 m body
-at the ring's centre and the streamer would never find a stone from a kilometre
-out.
+`docs/mmo/wiring/GW2-SCULPT-TO-THE-PAINTING.md` is what was traced, what was
+measured, what was found broken and what is still stand-in.
 
-`docs/mmo/wiring/GW1-SCULPT.md` is what was cut, what was measured, what could
-not be matched to the painting, and the two bugs it turned up.
-
-That is a FIRST DRAFT laid by script. It exists so there is something to walk
-and argue with; the editor is where it gets fixed, and a rerun of the script
-overwrites whatever the editor changed.
+That is a draft laid by script so there is something to walk and argue with;
+the editor is where it gets fixed, and a rerun of the script overwrites
+whatever the editor changed.

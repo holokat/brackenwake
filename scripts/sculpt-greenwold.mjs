@@ -214,6 +214,18 @@ const AT = {
   kingsroad: G('kingsroad'), millrun: G('millrun'), beechhangar: G('beechhangar'),
   longmeadow: G('longmeadow'), watermeadows: G('watermeadows'), coldwake: G('coldwake'),
 };
+/**
+ * SHEET FRACTIONS. Everything this file traces off the painting is written as
+ * (u across, v down) and turned into metres through the guide's frame, so the
+ * realm is made bigger or smaller with the one number in greenwold_guide.js
+ * and every hill, field, wood and lane keeps its place on the picture. `K` is
+ * the frame against the 4400 m the tables were first measured at, for the few
+ * radii that are metres of country rather than metres of building.
+ */
+const K = guide.FRAME_SCALE;
+const UV = (u, v) => { const [x, z] = guide.imageToWorld(u, v); return { x: r2(x), z: r2(z) }; };
+const uvOf = (x, z) => { const [u, v] = guide.worldToImage(x, z); return { u, v }; };
+const uvPts = (list) => list.map(([u, v]) => { const p = UV(u, v); return [p.x, p.z]; });
 const RIVER_PTS = guide.GUIDE_RIVER.pts.map((p) => [r2(p.x), r2(p.z)]);
 const RIVER_LEN = polyLength(RIVER_PTS);
 const riverNear = (x, z) => polyDist(RIVER_PTS, x, z);
@@ -247,6 +259,7 @@ const planOf = (id) => JSON.parse(readFileSync(join(PLAN_DIR, id + '.json'), 'ut
  * reaches the gate without fording anything.
  */
 const BRIDGE_LOCAL = { x: 44, z: -40 };       // stone_bridge_10m in hearthhome.json
+const BRIDGE_YAW = 45;                        // and its own turn: the deck runs along ITS x, not the plan's
 const GATE_LOCAL = { x: 32, z: -30 };         // its gate_tower
 const VILLAGE = (() => {
   const on = riverNear(AT.hearthhome.x, AT.hearthhome.z);
@@ -257,7 +270,9 @@ const VILLAGE = (() => {
   const side = (dx, dz) => dx * p.tz - dz * p.tx;       // which bank a point is on
   const want = side(approach.x - p.x, approach.z - p.z);
   let best = null;
-  for (const deg of [base, norm360(base + 180)]) {
+  // The first run ignored the piece's 45 degree yaw, laid the river across the
+  // deck at an angle and cut eight runs of wall and a hay rick into the water.
+  for (const deg of [norm360(base - BRIDGE_YAW), norm360(base - BRIDGE_YAW + 180)]) {
     const R = rotBy(deg);
     const g = R(GATE_LOCAL.x, GATE_LOCAL.z);
     const b = R(BRIDGE_LOCAL.x, BRIDGE_LOCAL.z);
@@ -343,28 +358,55 @@ const LANE_MILL = stepAside(
 );
 /** The lane south: over the bridge, out through the ring, down to Coldwake. */
 const LANE_COLDWAKE = [
-  [VILLAGE_BRIDGE.x, VILLAGE_BRIDGE.z], [770, -240], [760, -120], [700, 150], [560, 420],
-  [330, 680], [60, 880], [-250, 1050], [-550, 1200], [AT.coldwake.x, AT.coldwake.z],
+  [VILLAGE_BRIDGE.x, VILLAGE_BRIDGE.z],
+  ...uvPts([[0.655, 0.52], [0.64, 0.56], [0.61, 0.61], [0.55, 0.66], [0.48, 0.71], [0.42, 0.75], [0.375, 0.78]]),
+  [AT.coldwake.x, AT.coldwake.z],
 ];
 LANE_COLDWAKE.splice(0, LANE_COLDWAKE.length, ...stopShort(LANE_COLDWAKE, 62));
 /** The bank path: the water meadows down to the Cellars, on the north bank. */
 const PATH_BANK = [
-  [AT.watermeadows.x, AT.watermeadows.z], [-720, 50], [-460, -40], [-190, -180],
+  ...uvPts([[0.20, 0.44], [0.26, 0.49], [0.33, 0.505], [0.40, 0.485], [0.46, 0.472]]),
   [CELLARS_AT.x, CELLARS_AT.z],
 ];
 PATH_BANK.splice(0, PATH_BANK.length, ...stopShort(PATH_BANK, 24));
 /** The ridge path: the mill yard south along the west ridge into the beech wood. */
 const PATH_RIDGE = [
-  [MILL_YARD.x, MILL_YARD.z], [-1800, -400], [-1820, -120], [-1820, 180],
-  [-1790, 400], [AT.beechhangar.x, AT.beechhangar.z],
+  [MILL_YARD.x, MILL_YARD.z],
+  ...uvPts([[0.10, 0.45], [0.09, 0.55], [0.10, 0.66], [0.13, 0.74], [0.20, 0.79], [0.27, 0.81]]),
+  [AT.coldwake.x, AT.coldwake.z],
 ];
 PATH_RIDGE.splice(0, PATH_RIDGE.length, ...stopShort(PATH_RIDGE, 70));
+/** The lane north out of the village to the chapel's water. */
+const LANE_CHAPEL = stopShort([
+  ...uvPts([[0.66, 0.375], [0.64, 0.34], [0.60, 0.28], [0.56, 0.23], [0.52, 0.20]]),
+  [AT.sunkenchapel.x, AT.sunkenchapel.z],
+], 60);
+/** The lane up to the Chalk Pits, off the mill lane at the Long Meadow. */
+const LANE_PITS = stopShort([
+  ...uvPts([[0.36, 0.32], [0.33, 0.27], [0.30, 0.23]]),
+  [AT.chalkpits.x, AT.chalkpits.z],
+], 60);
+/** The track off the Kingsroad into Highwayman's Hollow. */
+const LANE_HOLLOW = stopShort([
+  ...uvPts([[0.752, 0.226], [0.72, 0.19], [0.70, 0.165]]),
+  [AT.highwaymanshollow.x, AT.highwaymanshollow.z],
+], 50);
+/** The ring lane the painting draws through the nine stones. */
+const RING_LANE = [];
+for (let i = 0; i <= 48; i++) {
+  const a = (i / 48) * Math.PI * 2;
+  RING_LANE.push([r2(AT.hedge.x + Math.sin(a) * AT.hedge.r), r2(AT.hedge.z + Math.cos(a) * AT.hedge.r)]);
+}
 const ROADS = [
   { id: 'kingsroad', pts: KINGSROAD, word: 'cobble', width: 6 },
   { id: 'lane_mill', pts: LANE_MILL, word: 'path', width: 4 },
   { id: 'lane_coldwake', pts: LANE_COLDWAKE, word: 'path', width: 4 },
   { id: 'path_bank', pts: PATH_BANK, word: 'path', width: 3 },
   { id: 'path_ridge', pts: PATH_RIDGE, word: 'path', width: 3 },
+  { id: 'lane_chapel', pts: LANE_CHAPEL, word: 'path', width: 4 },
+  { id: 'lane_pits', pts: LANE_PITS, word: 'path', width: 3 },
+  { id: 'lane_hollow', pts: LANE_HOLLOW, word: 'path', width: 3 },
+  { id: 'ring_lane', pts: RING_LANE, word: 'path', width: 3 },
 ];
 function roadNear(x, z) {
   let best = Infinity, which = null;
@@ -379,21 +421,34 @@ function roadNear(x, z) {
 // fold in it. Every one is placed clear of the roads, the river and the other
 // spaces, and the report measures the clearance rather than claiming it.
 
-const FIELDS = [
-  { id: 'eastfield', name: 'The East Field', x: 1150, z: -560, half: 88, deg: 14, wheat: true },
-  { id: 'lowfield', name: 'The Low Field', x: 1300, z: -180, half: 82, deg: 26, wheat: true },
-  { id: 'greenfield', name: 'The Green Field', x: 330, z: -620, half: 86, deg: 350, wheat: true },
-  { id: 'cellarfield', name: 'The Cellar Field', x: -150, z: -640, half: 80, deg: 8, wheat: true },
-  { id: 'meadowfield', name: 'The Meadow Field', x: -900, z: -1080, half: 84, deg: 336, wheat: true },
-  { id: 'oxpasture', name: 'The Ox Pasture', x: 940, z: 120, half: 82, deg: 20, wheat: false },
-  { id: 'coldwakepasture', name: 'Coldwake Pasture', x: -140, z: 1160, half: 78, deg: 344, wheat: false },
-  { id: 'hangarpasture', name: 'The Hangar Pasture', x: -1440, z: 900, half: 76, deg: 12, wheat: false },
+/**
+ * The fields are RECTANGLES READ OFF THE PAINTING, corner fractions of the
+ * sheet, so their size and where they stand is the picture's and not a guess.
+ * `deg` turns the rows a little off the sheet's grid the way the painter did.
+ */
+const FIELD_RECTS = [
+  { id: 'eastfield', name: 'The East Field', u0: 0.786, u1: 0.885, v0: 0.335, v1: 0.414, deg: 8, wheat: true },
+  { id: 'farfield', name: 'The Far Field', u0: 0.861, u1: 0.945, v0: 0.404, v1: 0.483, deg: 8, wheat: true },
+  { id: 'lowfield', name: 'The Low Field', u0: 0.777, u1: 0.879, v0: 0.547, v1: 0.627, deg: 0, wheat: true },
+  { id: 'southfield', name: 'The South Field', u0: 0.404, u1: 0.538, v0: 0.648, v1: 0.808, deg: 0, wheat: true },
+  { id: 'coldwakefield', name: 'Coldwake Field', u0: 0.538, u1: 0.622, v0: 0.70, v1: 0.808, deg: 0, wheat: true },
+  { id: 'hangarfield', name: 'The Hangar Field', u0: 0.30, u1: 0.365, v0: 0.64, v1: 0.69, deg: 0, wheat: true },
+  { id: 'meadowfield', name: 'The Meadow Field', u0: 0.35, u1: 0.43, v0: 0.26, v1: 0.32, deg: 0, wheat: true },
+  { id: 'chalkfield', name: 'The Chalk Field', u0: 0.215, u1: 0.33, v0: 0.21, v1: 0.31, deg: 0, wheat: true },
+  { id: 'oxpasture', name: 'The Ox Pasture', u0: 0.72, u1: 0.80, v0: 0.60, v1: 0.68, deg: 0, wheat: false },
+  { id: 'coldwakepasture', name: 'Coldwake Pasture', u0: 0.40, u1: 0.50, v0: 0.82, v1: 0.90, deg: 0, wheat: false },
+  { id: 'hangarpasture', name: 'The Hangar Pasture', u0: 0.26, u1: 0.33, v0: 0.55, v1: 0.62, deg: 0, wheat: false },
 ];
+const FIELDS = FIELD_RECTS.map((f) => {
+  const a = UV(f.u0, f.v0), b = UV(f.u1, f.v1);
+  return { ...f, x: r2((a.x + b.x) / 2), z: r2((a.z + b.z) / 2), halfW: r2(Math.abs(b.x - a.x) / 2), halfD: r2(Math.abs(b.z - a.z) / 2) };
+});
 for (const f of FIELDS) {
   const rot = rotBy(f.deg);
-  f.quad = [[-f.half, -f.half], [f.half, -f.half], [f.half, f.half], [-f.half, f.half]]
+  f.half = Math.min(f.halfW, f.halfD);
+  f.quad = [[-f.halfW, -f.halfD], [f.halfW, -f.halfD], [f.halfW, f.halfD], [-f.halfW, f.halfD]]
     .map(([x, z]) => { const q = rot(x, z); return [r2(f.x + q.x), r2(f.z + q.z)]; });
-  f.radius = Math.round(f.half * Math.SQRT2 + 6);
+  f.radius = Math.round(Math.hypot(f.halfW, f.halfD) + 6);
 }
 const inAnyField = (x, z) => FIELDS.some((f) => inQuad(x, z, f.quad));
 
@@ -411,14 +466,17 @@ const heightAt = (x, z) => field.heightAt(x, z);
 const sampleAt = (x, z) => field.sampleAt(x, z);
 
 // ---- 1. the downland skeleton ---------------------------------------------
-const GRID_STEP = 200, GRID_R = 215, GRID_REACH = 2950;
+const GRID_STEP = Math.round(200 * K), GRID_R = Math.round(215 * K), GRID_REACH = Math.round(2950 * K);
 function downlandH(x, z) {
-  // NORTH IS MINUS Z. The chalk is at the top of the sheet, which is -2200.
-  const north = Math.pow(clamp01((-z + 800) / 2600), 1.5);
-  const west = Math.pow(clamp01((-x - 200) / 2000), 1.5);
-  const roll = (vnoise(x, z, 760, 11) - 0.5) * 5 + (vnoise(x, z, 320, 23) - 0.5) * 2.4;
-  const fade = 1 - smoothstep(2300, 2850, Math.hypot(x, z));
-  return 6 + (14 * north + 8 * west + roll) * fade;
+  // NORTH IS MINUS Z. The chalk is at the top of the sheet; the west is the
+  // beech ridge; the south is the bare downs the painting fades out on.
+  const { u, v } = uvOf(x, z);
+  const north = Math.pow(clamp01((0.62 - v) / 0.58), 1.5);
+  const west = Math.pow(clamp01((0.45 - u) / 0.42), 1.5);
+  const south = Math.pow(clamp01((v - 0.80) / 0.18), 1.6);
+  const roll = (vnoise(x, z, 760 * K, 11) - 0.5) * 5 + (vnoise(x, z, 320 * K, 23) - 0.5) * 2.4;
+  const fade = 1 - smoothstep(2300 * K, 2850 * K, Math.hypot(x, z));
+  return 6 + (14 * north + 8 * west + 10 * south + roll) * fade;
 }
 let nSkeleton = 0;
 for (let gz = -GRID_REACH; gz <= GRID_REACH; gz += GRID_STEP) {
@@ -429,43 +487,68 @@ for (let gz = -GRID_REACH; gz <= GRID_REACH; gz += GRID_STEP) {
   }
 }
 
-// ---- 2. the chalk hills ----------------------------------------------------
-const HILLS = [
-  { x: -1950, z: -1450, r: 480, amount: 54, roughness: 0.55 },
-  { x: -1600, z: -1850, r: 460, amount: 62, roughness: 0.62 },
-  { x: -1150, z: -2000, r: 440, amount: 64, roughness: 0.74 },
-  { x: -1050, z: -1720, r: 420, amount: 56, roughness: 0.85 },   // the Chalk Pits' own hill
-  { x: -600, z: -2050, r: 430, amount: 62, roughness: 0.68 },
-  { x: -120, z: -1950, r: 420, amount: 52, roughness: 0.6 },     // over the Sunken Chapel
-  { x: 380, z: -2050, r: 440, amount: 58, roughness: 0.55 },
-  { x: 860, z: -1980, r: 430, amount: 48, roughness: 0.5 },      // over the Hollow
-  { x: 1350, z: -1900, r: 430, amount: 44, roughness: 0.45 },
-  { x: 1800, z: -1650, r: 420, amount: 40, roughness: 0.42 },
-  { x: 2050, z: -1250, r: 400, amount: 34, roughness: 0.4 },
-  { x: -2050, z: -950, r: 420, amount: 40, roughness: 0.5 },     // the river's own head
-  { x: -2100, z: -400, r: 380, amount: 26, roughness: 0.45 },
-  { x: -2150, z: 200, r: 380, amount: 22, roughness: 0.4 },
-  { x: -2100, z: 800, r: 360, amount: 18, roughness: 0.38 },
+// ---- 2. the hills, traced off the painting --------------------------------
+// The chalk escarpment runs from the west edge up to the top of the sheet
+// with the Chalk Pits cut into its face; the north downs carry on east over
+// the mere, the Hollow and the Kingsroad's ridge; the east and south rims are
+// the lower brown downs the picture fades into; the west is the ridge the
+// beech wood stands on. `r` and `amount` are reference metres; `r` scales with
+// the frame and the height does not, because a hill is as tall as it is.
+const HILL_ROWS = [
+  { u: 0.06, v: 0.26, r: 420, amount: 40, roughness: 0.55 },
+  { u: 0.12, v: 0.17, r: 440, amount: 54, roughness: 0.62 },
+  { u: 0.20, v: 0.11, r: 460, amount: 62, roughness: 0.72 },
+  { u: 0.29, v: 0.11, r: 460, amount: 60, roughness: 0.85 },   // the Chalk Pits' own hill, its face to the south
+  { u: 0.38, v: 0.06, r: 440, amount: 56, roughness: 0.68 },
+  { u: 0.47, v: 0.05, r: 420, amount: 46, roughness: 0.6 },    // over the Sunken Chapel's bowl
+  { u: 0.57, v: 0.04, r: 430, amount: 44, roughness: 0.55 },
+  { u: 0.66, v: 0.04, r: 430, amount: 40, roughness: 0.5 },    // over the Hollow
+  { u: 0.76, v: 0.05, r: 420, amount: 38, roughness: 0.48 },
+  { u: 0.86, v: 0.04, r: 400, amount: 34, roughness: 0.45 },   // the Kingsroad's ridge
+  { u: 0.95, v: 0.10, r: 400, amount: 32, roughness: 0.42 },
+  { u: 0.985, v: 0.25, r: 380, amount: 28, roughness: 0.4 },
+  { u: 0.985, v: 0.42, r: 380, amount: 24, roughness: 0.4 },
+  { u: 0.985, v: 0.60, r: 380, amount: 22, roughness: 0.4 },
+  { u: 0.93, v: 0.78, r: 420, amount: 30, roughness: 0.5 },    // the brown downs in the south east
+  { u: 0.80, v: 0.90, r: 440, amount: 32, roughness: 0.5 },
+  { u: 0.66, v: 0.95, r: 440, amount: 28, roughness: 0.48 },
+  { u: 0.50, v: 0.96, r: 420, amount: 26, roughness: 0.45 },
+  { u: 0.36, v: 0.95, r: 400, amount: 24, roughness: 0.45 },
+  { u: 0.22, v: 0.92, r: 400, amount: 26, roughness: 0.48 },
+  { u: 0.03, v: 0.40, r: 400, amount: 36, roughness: 0.5 },    // the river's own head, west of the mill
+  { u: 0.02, v: 0.55, r: 380, amount: 26, roughness: 0.45 },
+  { u: 0.03, v: 0.72, r: 380, amount: 22, roughness: 0.4 },    // the beech ridge
 ];
+const HILLS = HILL_ROWS.map((h) => ({ ...UV(h.u, h.v), r: Math.round(h.r * K), amount: h.amount, roughness: h.roughness }));
 // 0.85 of what the table says, because the first run stacked two hills and a
 // spine into a 113 m peak and the brief asks for 40 to 90. The table keeps the
 // shape and this one number keeps the promise; the report measures the peak.
 const HILL_SCALE = 0.85;
 for (const h of HILLS) stroke({ kind: 'mountain', ...h, amount: r2(h.amount * HILL_SCALE) });
-// the lower ridge along the west, which is what the beech wood stands on. yaw
-// is a world bearing in radians: 0 is +z, so this runs from -150 south to 950.
-stroke({ kind: 'ridge', x: -1800, z: -150, r: 320, amount: 18, yaw: 0, length: 1100 });
+/** A ridge stroke along a line on the sheet: centre, bearing and length from its two ends. */
+function ridgeAlong(a, b, r, amount) {
+  const A = UV(a[0], a[1]), B = UV(b[0], b[1]);
+  stroke({
+    kind: 'ridge', x: r2((A.x + B.x) / 2), z: r2((A.z + B.z) / 2), r: Math.round(r * K), amount,
+    yaw: Math.atan2(B.x - A.x, B.z - A.z), length: Math.round(Math.hypot(B.x - A.x, B.z - A.z)),
+  });
+}
+// the lower ridge along the west, which is what the beech wood stands on
+ridgeAlong([0.06, 0.45], [0.10, 0.82], 320, 18);
 // the spine that ties the north hills into one range
-stroke({ kind: 'ridge', x: -1700, z: -1900, r: 300, amount: 10, yaw: Math.PI / 2, length: 2400 });
+ridgeAlong([0.10, 0.11], [0.92, 0.05], 300, 10);
 
 // ---- 3. roughening ---------------------------------------------------------
-for (const [x, z] of [[1400, 400], [700, 900], [-200, 1200], [-1100, 1400], [1700, -300], [200, 300], [-900, 600], [1200, -1100]]) {
-  stroke({ kind: 'noise', x, z, r: 520, amount: 2.2, wave: 90 });
+for (const [u, v] of [[0.82, 0.60], [0.66, 0.72], [0.46, 0.78], [0.26, 0.82], [0.88, 0.44], [0.55, 0.57], [0.30, 0.64], [0.78, 0.24]]) {
+  stroke({ kind: 'noise', ...UV(u, v), r: Math.round(520 * K), amount: 2.2, wave: 90 });
 }
 
 // ---- 4. the rises ----------------------------------------------------------
-stroke({ kind: 'raise', x: AT.hedge.x, z: AT.hedge.z, r: 1100, amount: 5, hardness: 0.2 });
-stroke({ kind: 'raise', x: AT.longmeadow.x, z: AT.longmeadow.z, r: 230, amount: 5 });
+stroke({ kind: 'raise', x: AT.hedge.x, z: AT.hedge.z, r: Math.round(AT.hedge.r * 1.15), amount: 5, hardness: 0.2 });
+stroke({ kind: 'raise', x: AT.longmeadow.x, z: AT.longmeadow.z, r: Math.round(230 * K), amount: 5 });
+// the pits' yard sits up the flank of its hill and the Hollow is a wooded rise
+stroke({ kind: 'raise', x: AT.chalkpits.x, z: AT.chalkpits.z + 20, r: Math.round(200 * K), amount: 10, hardness: 0.3 });
+stroke({ kind: 'raise', x: AT.highwaymanshollow.x, z: AT.highwaymanshollow.z, r: Math.round(170 * K), amount: 8, hardness: 0.3 });
 
 // ---- 5. the river's corridor, and the water level, measured ----------------
 //
@@ -581,6 +664,7 @@ for (let i = 0; i + 1 < RIVER_SAMPLES.length; i++) {
     x: r2(a.x), z: r2(a.z), x2: r2(b.x), z2: r2(b.z),
     level: a.level, levelEnd: b.level,
     width: r2(riverWidth((a.s + b.s) / 2)), depth: 2,
+    r: 14,                                  // the bank: a slope you can walk down, not a canal wall
   });
   nRiverStrokes++;
 }
@@ -590,16 +674,33 @@ const STILL_WATER = [];
 const MILL_POND = (() => { const o = rotBy(MILL.deg)(0, -12); return { x: r2(MILL.centre.x + o.x), z: r2(MILL.centre.z + o.z) }; })();
 stroke({ kind: 'pond', x: MILL_POND.x, z: MILL_POND.z, r: 13, level: r2(riverLevelAt(MILL_ARC) - 0.2), depth: 2 });
 STILL_WATER.push({ x: MILL_POND.x, z: MILL_POND.z, r: 13, what: 'the mill pond' });
-// The mere at the Sunken Chapel: a basin first, then water in it at a level
-// taken off the basin's own floor, so it is a mere and not a puddle on a hill.
-stroke({ kind: 'pit', x: AT.sunkenchapel.x, z: AT.sunkenchapel.z, r: 150, amount: 7 });
-const MERE_LEVEL = r2(heightAt(AT.sunkenchapel.x, AT.sunkenchapel.z) + 1.6);
-// EIGHT and not four: chapel_sunken is 10 m tall and the doc wants its roof a
-// foot under with the bell still showing. A `lake`'s bank is the pit profile,
-// whose floor is capped at 0.7 of the radius, so eight metres of water still
-// comes ashore over 34 m of bed and not over a wall.
-stroke({ kind: 'lake', x: AT.sunkenchapel.x, z: AT.sunkenchapel.z, r: 115, level: MERE_LEVEL, depth: 8 });
-STILL_WATER.push({ x: AT.sunkenchapel.x, z: AT.sunkenchapel.z, r: 115, what: 'the mere' });
+// The mere at the Sunken Chapel. Its level is a hand under the ground it
+// lies in, read BEFORE the basin is cut, so the water comes up to the turf
+// and not five metres down a crater the way the first walk found it. The
+// basin is cut afterwards, deep enough for eight metres of water over the
+// chapel's roof, and the mere is four lakes laid over each other, not one,
+// because a disc reads as a pool and the painting's mere has bays.
+const MERE_LEVEL = r2(heightAt(AT.sunkenchapel.x, AT.sunkenchapel.z) - 0.5);
+stroke({ kind: 'pit', x: AT.sunkenchapel.x, z: AT.sunkenchapel.z, r: 150, amount: 8 });
+const MERE_LOBES = [
+  { dx: 0, dz: 0, r: 110 }, { dx: 76, dz: 34, r: 62 }, { dx: -70, dz: 48, r: 58 }, { dx: 18, dz: -84, r: 54 }, { dx: -60, dz: -60, r: 44 },
+];
+for (const l of MERE_LOBES) {
+  const x = r2(AT.sunkenchapel.x + l.dx), z = r2(AT.sunkenchapel.z + l.dz);
+  if (l.dx || l.dz) stroke({ kind: 'pit', x, z, r: l.r + 24, amount: 4 });
+  stroke({ kind: 'lake', x, z, r: l.r, level: MERE_LEVEL, depth: l.dx || l.dz ? 3 : 8 });
+  STILL_WATER.push({ x, z, r: l.r, what: 'the mere' });
+}
+// A tarn in the chalk valley the river comes down: the head of the water,
+// under the escarpment, so the river has somewhere to come FROM. Its level is
+// the river's own head plus a hand, and the river's first ribbon drains it.
+const TARN = (() => {
+  const p = UV(0.185, 0.075);
+  return { x: p.x, z: p.z, r: Math.round(70 * K + 30), level: r2(RIVER_SAMPLES[0].level + 0.4) };
+})();
+stroke({ kind: 'pit', x: TARN.x, z: TARN.z, r: TARN.r + 30, amount: 4 });
+stroke({ kind: 'lake', x: TARN.x, z: TARN.z, r: TARN.r, level: TARN.level, depth: 3 });
+STILL_WATER.push({ x: TARN.x, z: TARN.z, r: TARN.r, what: 'the tarn at the head' });
 // two ponds in the water meadows, off the channel, a hand under the flat
 const PONDS = [{ x: AT.watermeadows.x - 74, z: AT.watermeadows.z + 62 }, { x: AT.watermeadows.x + 81, z: AT.watermeadows.z - 40 }];
 for (const p of PONDS) {
@@ -623,15 +724,17 @@ const paint = (word, x, z, r, opts = {}) => {
 for (const f of FIELDS) {
   if (!f.wheat) continue;
   const rot = rotBy(f.deg);
-  const inset = f.half - 10;
+  const insetW = f.halfW - 10, insetD = f.halfD - 10;
   // A CENTRED grid and not `for (l = -inset; l <= inset; l += 30)`, which is the
   // bug the first run measured: with inset 74 that walk stops at 46 and leaves a
   // 28 m strip of every field unpainted, which the report caught as 19 of 25.
-  const n = Math.max(1, Math.round((inset * 2) / 30));
-  for (let iz = 0; iz <= n; iz++) {
-    for (let ix = 0; ix <= n; ix++) {
-      const q = rot(-inset + (ix / n) * 2 * inset, -inset + (iz / n) * 2 * inset);
-      paint('dirt', f.x + q.x, f.z + q.z, 24, { hardness: 0.75, opacity: 0.9 });
+  // 42 m apart with a 32 m brush: eleven fields of the painting's size at 30
+  // and 24 were two thousand strokes, and the minimap's repaint budget felt it
+  const nx = Math.max(1, Math.round((insetW * 2) / 42)), nz = Math.max(1, Math.round((insetD * 2) / 42));
+  for (let iz = 0; iz <= nz; iz++) {
+    for (let ix = 0; ix <= nx; ix++) {
+      const q = rot(-insetW + (ix / nx) * 2 * insetW, -insetD + (iz / nz) * 2 * insetD);
+      paint('dirt', f.x + q.x, f.z + q.z, 32, { hardness: 0.75, opacity: 0.9 });
     }
   }
 }
@@ -644,6 +747,12 @@ for (let i = 0; i < 8; i++) {
   paint('sand', AT.chalkpits.x + Math.sin(a) * 30, AT.chalkpits.z + 10 + Math.cos(a) * 18, 22, { hardness: 0.5, opacity: 0.85 });
 }
 paint('gravel', AT.chalkpits.x, AT.chalkpits.z + 34, 26, { hardness: 0.5, opacity: 0.8 });
+// the white face of the escarpment, the chalk showing through the turf along
+// the line the painting draws it on, sand under rock so it reads pale
+for (const p of polySamples(uvPts([[0.05, 0.27], [0.10, 0.20], [0.16, 0.15], [0.23, 0.13], [0.30, 0.135], [0.36, 0.11], [0.42, 0.09]]), 30)) {
+  paint('sand', p.x + rand(-8, 8), p.z + rand(-8, 8), 26, { hardness: 0.35, opacity: 0.55 });
+  if (rng() < 0.5) paint('rock', p.x + rand(-14, 14), p.z + rand(-14, 14), 14, { hardness: 0.5, opacity: 0.7 });
+}
 paint('dirt', AT.highwaymanshollow.x, AT.highwaymanshollow.z, 30, { hardness: 0.5, opacity: 0.9 });
 for (const p of polySamples(RIVER_PTS, 44)) {
   if (Math.hypot(p.x - AT.watermeadows.x, p.z - AT.watermeadows.z) > 260) continue;
@@ -661,9 +770,20 @@ for (let i = 0; i < 10; i++) {
 // four of the bank path's forty four samples came back "mud": a road under a
 // bog is a road nobody can see. Paint is the last stroke over a point, so the
 // road goes on top.
-for (const r of ROADS) {
+// and the paved road over the lanes: the ring lane crosses the Kingsroad, and
+// cobble is what a crossing should read
+// A road is DRAGGED strokes, one straight capsule per forty metres of its own
+// line, corners included: the first runs laid a disc every three metres and
+// the roads alone were three thousand rows in the index, which the minimap's
+// repaint budget felt.
+for (const r of [...ROADS].sort((a, b) => (a.word === 'cobble') - (b.word === 'cobble'))) {
   const brushR = r2(r.width / 2 + 0.4);
-  for (const p of polySamples(r.pts, r2(brushR * 1.4))) paint(r.word, p.x, p.z, brushR);
+  const pts = riverSamples(r.pts, 40);
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1];
+    stroke({ kind: 'ground', word: r.word, x: r2(a.x), z: r2(a.z), x2: r2(b.x), z2: r2(b.z), r: brushR, hardness: 1, opacity: 1 });
+    nPaint++;
+  }
 }
 
 const TERRAIN = EDITS.serialize();
@@ -999,12 +1119,16 @@ for (const f of FIELDS) {
   const rot = rotBy(f.deg);
   const world = (lx, lz) => { const p = rot(lx, lz); return { x: f.x + p.x, z: f.z + p.z }; };
   if (f.wheat) {
-    const inset = f.half - 12;
-    let row = 0;
-    for (let lz = -inset; lz <= inset; lz += 12, row++) {
-      for (let lx = -inset; lx <= inset; lx += 12) {
+    // rows every 16 m over the whole rectangle, and not every 12 over a square
+    // cut out of it: eight fields of the painting's size at 12 m were four
+    // thousand rows, and a row is a body the streamer has to stand
+    const insetW = f.halfW - 12, insetD = f.halfD - 12;
+    const nx = Math.max(1, Math.round(insetW * 2 / 16)), nz = Math.max(1, Math.round(insetD * 2 / 16));
+    for (let iz = 0; iz <= nz; iz++) {
+      for (let ix = 0; ix <= nx; ix++) {
+        const lx = -insetW + (ix / nx) * 2 * insetW, lz = -insetD + (iz / nz) * 2 * insetD;
         const p = world(lx + rand(-1.6, 1.6), lz + rand(-1.6, 1.6));
-        addRock(s, row % 5 === 0 ? 'furrow' : 'wheat_row', p.x, p.z, f.deg, rand(0.92, 1.08));
+        addRock(s, iz % 5 === 0 ? 'furrow' : 'wheat_row', p.x, p.z, f.deg, rand(0.92, 1.08));
       }
     }
     const sc = world(rand(-30, 30), rand(-30, 30));
@@ -1012,15 +1136,15 @@ for (const f of FIELDS) {
     addSpawn(s, 'scarecrow', sc.x, sc.z, true);
     addSpawn(s, 'giantRat', world(rand(-60, 60), rand(-60, 60)).x, world(0, 0).z + rand(-60, 60));
   } else {
-    const fold = world(f.half - 34, f.half - 34);
+    const fold = world(f.halfW - 34, f.halfD - 34);
     addRock(s, 'sheep_fold', fold.x, fold.z, f.deg, 1.2);
-    const pond = world(-f.half + 30, f.half - 40);
+    const pond = world(-f.halfW + 30, f.halfD - 40);
     addRock(s, 'dew_pond', pond.x, pond.z, 0, 1.2);
-    const stile = world(0, -f.half);
+    const stile = world(0, -f.halfD);
     addRock(s, 'stile', stile.x, stile.z, f.deg, 1);
     addSpawn(s, 'boar', world(rand(-50, 50), rand(-50, 50)).x, world(0, 0).z + rand(-50, 50));
   }
-  const gate = world(f.half, 0);
+  const gate = world(f.halfW, 0);
   addRock(s, 'field_gate', gate.x, gate.z, norm360(f.deg + 90), 1);
   for (let i = 0; i < 4; i++) {
     for (const t of [0.18, 0.52, 0.84]) {
@@ -1148,12 +1272,15 @@ const BEECH_GRID = 9, BEECH_GAP = 7;
 const nBeech = scatter(HANGAR, 'beech', AT.beechhangar.x, AT.beechhangar.z, 68, 148, BEECH_GRID, BEECH_GAP, { lo: 0.8, hi: 1.45 });
 
 const COPSES = [
-  { id: 'kingscopse', name: 'The Kingsroad Copse', x: 1440, z: -820, r: 62 },
-  { id: 'ringcopse', name: 'The Ring Copse', x: -40, z: 240, r: 58 },
-  { id: 'southcopse', name: 'The South Copse', x: 420, z: 1010, r: 60 },
-  { id: 'downscopse', name: 'The Downs Copse', x: -1180, z: 1120, r: 58 },
-  { id: 'chapelcopse', name: 'The Chapel Copse', x: -560, z: -1400, r: 60 },
-];
+  { id: 'kingscopse', name: 'The Kingsroad Copse', u: 0.79, v: 0.29, r: 62 },
+  { id: 'ringcopse', name: 'The Ring Copse', u: 0.50, v: 0.56, r: 58 },
+  { id: 'southcopse', name: 'The South Copse', u: 0.60, v: 0.66, r: 60 },
+  { id: 'downscopse', name: 'The Downs Copse', u: 0.25, v: 0.88, r: 58 },
+  { id: 'chapelcopse', name: 'The Chapel Copse', u: 0.42, v: 0.15, r: 60 },
+  { id: 'meadowcopse', name: 'The Meadow Copse', u: 0.31, v: 0.42, r: 55 },
+  { id: 'eastcopse', name: 'The East Copse', u: 0.90, v: 0.60, r: 55 },
+  { id: 'stonecopse', name: 'The Stone Copse', u: 0.55, v: 0.30, r: 58 },
+].map((c) => ({ ...c, ...UV(c.u, c.v) }));
 for (const c of COPSES) {
   c.r = fitRadius(c.x, c.z, c.r, 30);
   const s = space(`greenwold_${c.id}`, c.name, { x: c.x, z: c.z }, c.r,
@@ -1162,6 +1289,96 @@ for (const c of COPSES) {
   addRock(s, 'moss_boulder', c.x + rand(-20, 20), c.z + rand(-20, 20), rand(0, 360), 1.1);
   addSpawn(s, 'fox', c.x + rand(-30, 30), c.z + rand(-30, 30));
   addSpawn(s, 'wolf', c.x + rand(-30, 30), c.z + rand(-30, 30), true);
+}
+
+// THE WOODS, as the painting draws them: the Beech Hangar is not a copse round
+// the plan but the whole south west of the sheet, a belt of trees runs along
+// the north rim behind the mere and the Hollow, and another down the east
+// side. Each is a polygon traced in sheet fractions, filled on a jittered grid
+// and cut into spaces of about 260 m so the streamer can stand one at a time.
+function inPoly(x, z, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, zi] = poly[i], [xj, zj] = poly[j];
+    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
+const WOODS = [
+  {
+    id: 'hangar', name: 'The Beech Hangar', step: 13, gap: 9, lo: 0.85, hi: 1.45,
+    pick: () => (rng() < 0.62 ? 'beech' : rng() < 0.7 ? 'oak' : 'birch'),
+    note: 'The hangar itself: old beech on the west ridge from the mill down to Coldwake, the floor bare under the crowns and light only where a tree has come down.',
+    poly: [[0.03, 0.43], [0.12, 0.42], [0.20, 0.45], [0.255, 0.50], [0.245, 0.58], [0.225, 0.66], [0.20, 0.74], [0.16, 0.80], [0.09, 0.83], [0.035, 0.78], [0.02, 0.65], [0.02, 0.52]],
+    keepOut: () => [{ x: AT.beechhangar.x, z: AT.beechhangar.z, r: 152 }, { x: AT.coldwake.x, z: AT.coldwake.z, r: 110 }],
+  },
+  {
+    id: 'northwood', name: 'The North Wood', step: 16, gap: 11, lo: 0.8, hi: 1.35,
+    pick: () => (rng() < 0.5 ? 'oak' : rng() < 0.6 ? 'beech' : 'birch'),
+    note: 'The tree belt along the north rim, on the downs above the mere and the Hollow, where the realm stops being fields.',
+    poly: [[0.30, 0.02], [0.42, 0.02], [0.52, 0.04], [0.62, 0.02], [0.80, 0.02], [0.80, 0.09], [0.62, 0.11], [0.52, 0.09], [0.42, 0.10], [0.30, 0.10]],
+    keepOut: () => [{ x: AT.sunkenchapel.x, z: AT.sunkenchapel.z, r: 160 }],
+  },
+  {
+    id: 'hollowwood', name: 'The Hollow Wood', step: 14, gap: 10, lo: 0.85, hi: 1.4,
+    pick: () => (rng() < 0.7 ? 'oak' : 'beech'),
+    note: 'The wooded rise the highwaymen chose, thick enough to hide a camp and a lookout in an oak.',
+    poly: [[0.62, 0.10], [0.75, 0.09], [0.77, 0.17], [0.72, 0.21], [0.63, 0.20], [0.60, 0.15]],
+    keepOut: () => [{ x: AT.highwaymanshollow.x, z: AT.highwaymanshollow.z, r: 78 }],
+  },
+  {
+    id: 'eastwood', name: 'The East Wood', step: 17, gap: 12, lo: 0.8, hi: 1.3,
+    pick: () => (rng() < 0.6 ? 'oak' : 'birch'),
+    note: 'The thin wood down the east side, between the last fields and the downs the Kingsroad climbs out over.',
+    poly: [[0.93, 0.12], [0.99, 0.10], [0.99, 0.70], [0.94, 0.66], [0.93, 0.50], [0.95, 0.30]],
+    keepOut: () => [{ x: AT.kingsroad.x, z: AT.kingsroad.z, r: 100 }],
+  },
+];
+const WOOD_CELL = 260;
+const WOOD_STATS = [];
+for (const w of WOODS) {
+  const poly = uvPts(w.poly);
+  const xs = poly.map((p) => p[0]), zs = poly.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+  const keep = w.keepOut();
+  const cells = new Map();
+  let placed = 0, cellN = 0;
+  const cols = Math.max(1, Math.ceil((x1 - x0) / WOOD_CELL)), rows = Math.max(1, Math.ceil((z1 - z0) / WOOD_CELL));
+  const cellW = (x1 - x0) / cols, cellD = (z1 - z0) / rows;
+  for (let gz = z0; gz <= z1; gz += w.step) {
+    for (let gx = x0; gx <= x1; gx += w.step) {
+      const x = gx + rand(-w.step * 0.3, w.step * 0.3), z = gz + rand(-w.step * 0.3, w.step * 0.3);
+      if (!inPoly(x, z, poly)) continue;
+      if (keep.some((k) => Math.hypot(x - k.x, z - k.z) < k.r)) continue;
+      if (!plantable(x, z, 7, 9)) continue;
+      const ci = Math.min(cols - 1, Math.floor((x - x0) / cellW)), cj = Math.min(rows - 1, Math.floor((z - z0) / cellD));
+      const key = `${ci}_${cj}`;
+      let cell = cells.get(key);
+      if (!cell) {
+        cellN++;
+        const cx = r2(x0 + (ci + 0.5) * cellW), cz = r2(z0 + (cj + 0.5) * cellD);
+        cell = { s: space(`greenwold_${w.id}_${cellN}`, `${w.name}, part ${cellN}`, { x: cx, z: cz }, Math.round(Math.hypot(cellW, cellD) / 2 + 4), w.note), list: [] };
+        cells.set(key, cell);
+      }
+      // the gap floor is checked in the cell, which is where a pair could be
+      let tooClose = false;
+      for (const p of cell.list) if (Math.hypot(p[0] - x, p[1] - z) < w.gap) { tooClose = true; break; }
+      if (tooClose) continue;
+      cell.list.push([x, z]);
+      addTree(cell.s, w.pick(), x, z, rand(0, 360), rand(w.lo, w.hi));
+      placed++;
+    }
+  }
+  // a wood is somewhere to meet things: a night pack in every fourth cell
+  let k = 0;
+  for (const cell of cells.values()) {
+    if (cell.list.length < 12) continue;
+    if (k++ % 4 === 0) {
+      const t = cell.list[Math.floor(cell.list.length / 2)];
+      addSpawn(cell.s, w.id === 'hangar' ? 'wolf' : 'goblinScout', t[0] + 6, t[1] + 6, true);
+    }
+  }
+  WOOD_STATS.push({ id: w.id, trees: placed, cells: cellN, km2: r2((x1 - x0) * (z1 - z0) / 1e6) });
 }
 
 const BANKS = [
@@ -1358,6 +1575,7 @@ for (const [id, s] of Object.entries(SPACES)) {
 }
 say(`  ${Object.keys(SPACES).length} spaces: ${totPieces} pieces, ${totRuns} runs, ${totTrees} trees, ${totRocks} rocks, ${totMarkers} markers, ${AUDIT.people} people, ${AUDIT.spawns} spawns`);
 say(`  the closest two trees anywhere stand ${worstPair.d.toFixed(2)} m apart, in ${worstPair.id}`);
+for (const w of WOOD_STATS) say(`  the ${w.id} wood is ${w.trees} trees in ${w.cells} spaces over a ${w.km2} km2 box`);
 say(`  the beech wood is ${nBeech} beeches on a ${BEECH_GRID} m jittered grid with a ${BEECH_GAP} m floor, over the plan's own ${planOf('beechhangar').pieces.filter((p) => p.model.startsWith('beech')).length} beech pieces`);
 
 say('\nNOTHING STANDS IN THE WATER: every piece, tree and rock, asked');

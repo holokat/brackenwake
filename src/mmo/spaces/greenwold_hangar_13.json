@@ -1,0 +1,1062 @@
+{
+  "id": "greenwold_hangar_13",
+  "name": "The Beech Hangar, part 13",
+  "note": "The hangar itself: old beech on the west ridge from the mill down to Coldwake, the floor bare under the crowns and light only where a tree has come down.",
+  "at": {
+    "x": -1219.33,
+    "z": 816.74
+  },
+  "radius": 163,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "oak",
+      "x": -68.98,
+      "z": -104.48,
+      "yaw": 353.23,
+      "scale": 1.37
+    },
+    {
+      "species": "beech",
+      "x": -54.69,
+      "z": -106.49,
+      "yaw": 39.84,
+      "scale": 1.42
+    },
+    {
+      "species": "beech",
+      "x": -30.23,
+      "z": -108.49,
+      "yaw": 108.92,
+      "scale": 1.21
+    },
+    {
+      "species": "oak",
+      "x": -20.05,
+      "z": -104.04,
+      "yaw": 156.09,
+      "scale": 1.29
+    },
+    {
+      "species": "beech",
+      "x": -4.39,
+      "z": -106.38,
+      "yaw": 295.97,
+      "scale": 1.05
+    },
+    {
+      "species": "beech",
+      "x": 6.72,
+      "z": -105.24,
+      "yaw": 69.19,
+      "scale": 0.91
+    },
+    {
+      "species": "beech",
+      "x": 21.05,
+      "z": -109.34,
+      "yaw": 206.2,
+      "scale": 1.04
+    },
+    {
+      "species": "beech",
+      "x": 33.73,
+      "z": -106.11,
+      "yaw": 48.12,
+      "scale": 1.24
+    },
+    {
+      "species": "oak",
+      "x": 48.53,
+      "z": -104.52,
+      "yaw": 149.69,
+      "scale": 0.98
+    },
+    {
+      "species": "oak",
+      "x": 61.2,
+      "z": -109.36,
+      "yaw": 77.14,
+      "scale": 0.86
+    },
+    {
+      "species": "beech",
+      "x": 83.92,
+      "z": -103.54,
+      "yaw": 50.91,
+      "scale": 1.29
+    },
+    {
+      "species": "oak",
+      "x": 95.94,
+      "z": -106.88,
+      "yaw": 256.5,
+      "scale": 1.01
+    },
+    {
+      "species": "beech",
+      "x": -72.74,
+      "z": -90.14,
+      "yaw": 306,
+      "scale": 1.33
+    },
+    {
+      "species": "beech",
+      "x": -59.15,
+      "z": -92.77,
+      "yaw": 4.42,
+      "scale": 0.96
+    },
+    {
+      "species": "beech",
+      "x": -44.18,
+      "z": -93.11,
+      "yaw": 154.82,
+      "scale": 1.44
+    },
+    {
+      "species": "beech",
+      "x": -33.39,
+      "z": -94.48,
+      "yaw": 142.82,
+      "scale": 1.33
+    },
+    {
+      "species": "oak",
+      "x": -13.61,
+      "z": -97.16,
+      "yaw": 276.64,
+      "scale": 1.15
+    },
+    {
+      "species": "beech",
+      "x": 4.88,
+      "z": -91.09,
+      "yaw": 208.16,
+      "scale": 1.41
+    },
+    {
+      "species": "birch",
+      "x": 19.38,
+      "z": -96.27,
+      "yaw": 46.51,
+      "scale": 1.02
+    },
+    {
+      "species": "birch",
+      "x": 33.4,
+      "z": -94.65,
+      "yaw": 107.47,
+      "scale": 1.35
+    },
+    {
+      "species": "oak",
+      "x": 46.89,
+      "z": -91.47,
+      "yaw": 104.31,
+      "scale": 1.12
+    },
+    {
+      "species": "beech",
+      "x": 59.81,
+      "z": -97.42,
+      "yaw": 88.95,
+      "scale": 0.9
+    },
+    {
+      "species": "oak",
+      "x": 71.88,
+      "z": -93.15,
+      "yaw": 240.54,
+      "scale": 0.87
+    },
+    {
+      "species": "oak",
+      "x": 101.52,
+      "z": -90.68,
+      "yaw": 54.85,
+      "scale": 0.91
+    },
+    {
+      "species": "beech",
+      "x": -65.52,
+      "z": -84.28,
+      "yaw": 168.23,
+      "scale": 1.15
+    },
+    {
+      "species": "beech",
+      "x": -56.77,
+      "z": -79.97,
+      "yaw": 41,
+      "scale": 1.37
+    },
+    {
+      "species": "beech",
+      "x": -41.23,
+      "z": -84.59,
+      "yaw": 149.89,
+      "scale": 1.08
+    },
+    {
+      "species": "beech",
+      "x": -30.31,
+      "z": -78.14,
+      "yaw": 283.7,
+      "scale": 1.26
+    },
+    {
+      "species": "birch",
+      "x": -19.99,
+      "z": -83.51,
+      "yaw": 210.1,
+      "scale": 1.25
+    },
+    {
+      "species": "beech",
+      "x": -4.83,
+      "z": -79.95,
+      "yaw": 299.28,
+      "scale": 0.95
+    },
+    {
+      "species": "oak",
+      "x": 10.36,
+      "z": -83.35,
+      "yaw": 160.17,
+      "scale": 0.97
+    },
+    {
+      "species": "beech",
+      "x": 34.66,
+      "z": -83.09,
+      "yaw": 166.16,
+      "scale": 1.04
+    },
+    {
+      "species": "birch",
+      "x": 45.39,
+      "z": -80.18,
+      "yaw": 243.43,
+      "scale": 1.16
+    },
+    {
+      "species": "beech",
+      "x": 59.83,
+      "z": -77.67,
+      "yaw": 41.93,
+      "scale": 1.24
+    },
+    {
+      "species": "birch",
+      "x": 76.56,
+      "z": -78.4,
+      "yaw": 167.11,
+      "scale": 1.31
+    },
+    {
+      "species": "beech",
+      "x": 86.51,
+      "z": -78.46,
+      "yaw": 92.42,
+      "scale": 1.06
+    },
+    {
+      "species": "oak",
+      "x": 103.48,
+      "z": -77.12,
+      "yaw": 77.5,
+      "scale": 1.35
+    },
+    {
+      "species": "beech",
+      "x": -69.46,
+      "z": -69.11,
+      "yaw": 250.54,
+      "scale": 0.99
+    },
+    {
+      "species": "beech",
+      "x": -52.76,
+      "z": -70.76,
+      "yaw": 255.79,
+      "scale": 1.34
+    },
+    {
+      "species": "beech",
+      "x": -31.27,
+      "z": -68.51,
+      "yaw": 9.35,
+      "scale": 1.16
+    },
+    {
+      "species": "beech",
+      "x": -18.36,
+      "z": -64.29,
+      "yaw": 40.06,
+      "scale": 1.23
+    },
+    {
+      "species": "beech",
+      "x": -2.11,
+      "z": -67.71,
+      "yaw": 290.1,
+      "scale": 0.98
+    },
+    {
+      "species": "beech",
+      "x": 9.83,
+      "z": -64.92,
+      "yaw": 128.93,
+      "scale": 0.92
+    },
+    {
+      "species": "oak",
+      "x": 24.68,
+      "z": -67.17,
+      "yaw": 67.79,
+      "scale": 1.06
+    },
+    {
+      "species": "oak",
+      "x": 38.08,
+      "z": -69.74,
+      "yaw": 180.07,
+      "scale": 0.93
+    },
+    {
+      "species": "beech",
+      "x": 50.89,
+      "z": -69.28,
+      "yaw": 134.5,
+      "scale": 1.16
+    },
+    {
+      "species": "beech",
+      "x": 59.31,
+      "z": -64.13,
+      "yaw": 341.56,
+      "scale": 1.41
+    },
+    {
+      "species": "beech",
+      "x": 70.88,
+      "z": -66.43,
+      "yaw": 26.86,
+      "scale": 1.24
+    },
+    {
+      "species": "beech",
+      "x": 86.62,
+      "z": -66.83,
+      "yaw": 269.77,
+      "scale": 1.42
+    },
+    {
+      "species": "oak",
+      "x": -68.83,
+      "z": -58.37,
+      "yaw": 183.4,
+      "scale": 1.22
+    },
+    {
+      "species": "beech",
+      "x": -57.79,
+      "z": -53.31,
+      "yaw": 270.22,
+      "scale": 1.44
+    },
+    {
+      "species": "beech",
+      "x": -46.69,
+      "z": -54.21,
+      "yaw": 244.23,
+      "scale": 1.34
+    },
+    {
+      "species": "beech",
+      "x": -33.55,
+      "z": -56.91,
+      "yaw": 22.33,
+      "scale": 0.97
+    },
+    {
+      "species": "beech",
+      "x": -3.52,
+      "z": -55.74,
+      "yaw": 29.61,
+      "scale": 0.91
+    },
+    {
+      "species": "beech",
+      "x": 20.23,
+      "z": -58.17,
+      "yaw": 32.24,
+      "scale": 1.09
+    },
+    {
+      "species": "beech",
+      "x": 35.3,
+      "z": -51.91,
+      "yaw": 349.08,
+      "scale": 0.99
+    },
+    {
+      "species": "beech",
+      "x": 44.69,
+      "z": -52.03,
+      "yaw": 107.83,
+      "scale": 0.91
+    },
+    {
+      "species": "oak",
+      "x": 73.86,
+      "z": -55.21,
+      "yaw": 314.38,
+      "scale": 1.15
+    },
+    {
+      "species": "oak",
+      "x": 89.84,
+      "z": -55.73,
+      "yaw": 105.97,
+      "scale": 1.17
+    },
+    {
+      "species": "birch",
+      "x": 99.31,
+      "z": -57.11,
+      "yaw": 247.41,
+      "scale": 1.29
+    },
+    {
+      "species": "beech",
+      "x": -65.64,
+      "z": -40.76,
+      "yaw": 287.6,
+      "scale": 1
+    },
+    {
+      "species": "beech",
+      "x": -54.93,
+      "z": -42.38,
+      "yaw": 28.24,
+      "scale": 1.03
+    },
+    {
+      "species": "beech",
+      "x": -29.44,
+      "z": -40.02,
+      "yaw": 252.53,
+      "scale": 0.85
+    },
+    {
+      "species": "beech",
+      "x": -20.33,
+      "z": -40.55,
+      "yaw": 174.07,
+      "scale": 1.04
+    },
+    {
+      "species": "beech",
+      "x": -7.24,
+      "z": -43.49,
+      "yaw": 285.25,
+      "scale": 1.09
+    },
+    {
+      "species": "oak",
+      "x": 8.75,
+      "z": -44.16,
+      "yaw": 230.88,
+      "scale": 1.23
+    },
+    {
+      "species": "beech",
+      "x": 18.45,
+      "z": -45.52,
+      "yaw": 219.27,
+      "scale": 1.28
+    },
+    {
+      "species": "oak",
+      "x": 33.08,
+      "z": -40.7,
+      "yaw": 83.52,
+      "scale": 1.11
+    },
+    {
+      "species": "beech",
+      "x": 57.59,
+      "z": -41.1,
+      "yaw": 342.09,
+      "scale": 0.93
+    },
+    {
+      "species": "oak",
+      "x": 76.69,
+      "z": -38.8,
+      "yaw": 338.94,
+      "scale": 1.28
+    },
+    {
+      "species": "beech",
+      "x": 90.47,
+      "z": -41.64,
+      "yaw": 285.33,
+      "scale": 1.31
+    },
+    {
+      "species": "oak",
+      "x": -56.84,
+      "z": -26.54,
+      "yaw": 332.18,
+      "scale": 0.96
+    },
+    {
+      "species": "beech",
+      "x": -42.55,
+      "z": -29.64,
+      "yaw": 66.74,
+      "scale": 1.28
+    },
+    {
+      "species": "oak",
+      "x": -27.89,
+      "z": -28.19,
+      "yaw": 192.93,
+      "scale": 1.32
+    },
+    {
+      "species": "oak",
+      "x": -14.07,
+      "z": -25.67,
+      "yaw": 165.15,
+      "scale": 1.16
+    },
+    {
+      "species": "beech",
+      "x": -7.38,
+      "z": -31.91,
+      "yaw": 18.35,
+      "scale": 1.42
+    },
+    {
+      "species": "beech",
+      "x": 12.46,
+      "z": -32.71,
+      "yaw": 60.27,
+      "scale": 1.28
+    },
+    {
+      "species": "oak",
+      "x": 20.5,
+      "z": -27.35,
+      "yaw": 357.99,
+      "scale": 1.18
+    },
+    {
+      "species": "beech",
+      "x": 37.82,
+      "z": -31.4,
+      "yaw": 124.91,
+      "scale": 1.44
+    },
+    {
+      "species": "oak",
+      "x": 47.89,
+      "z": -28.7,
+      "yaw": 190.89,
+      "scale": 1.27
+    },
+    {
+      "species": "beech",
+      "x": 59.58,
+      "z": -26.08,
+      "yaw": 230.54,
+      "scale": 0.96
+    },
+    {
+      "species": "beech",
+      "x": 83.57,
+      "z": -26.8,
+      "yaw": 329.96,
+      "scale": 1.02
+    },
+    {
+      "species": "oak",
+      "x": 102.36,
+      "z": -28.33,
+      "yaw": 340.31,
+      "scale": 0.89
+    },
+    {
+      "species": "beech",
+      "x": -44.26,
+      "z": -17.18,
+      "yaw": 94.06,
+      "scale": 1.19
+    },
+    {
+      "species": "beech",
+      "x": -33.19,
+      "z": -17.61,
+      "yaw": 288.95,
+      "scale": 0.96
+    },
+    {
+      "species": "beech",
+      "x": -20.65,
+      "z": -14.73,
+      "yaw": 354.14,
+      "scale": 0.99
+    },
+    {
+      "species": "beech",
+      "x": -7.01,
+      "z": -13.77,
+      "yaw": 293.1,
+      "scale": 1.42
+    },
+    {
+      "species": "beech",
+      "x": 5.21,
+      "z": -15.58,
+      "yaw": 331.43,
+      "scale": 0.9
+    },
+    {
+      "species": "oak",
+      "x": 18.1,
+      "z": -14.76,
+      "yaw": 339.82,
+      "scale": 1.09
+    },
+    {
+      "species": "beech",
+      "x": 35.64,
+      "z": -17.77,
+      "yaw": 154.36,
+      "scale": 1.33
+    },
+    {
+      "species": "oak",
+      "x": 50.57,
+      "z": -12.59,
+      "yaw": 183.89,
+      "scale": 1.37
+    },
+    {
+      "species": "oak",
+      "x": 71.05,
+      "z": -14.45,
+      "yaw": 249.24,
+      "scale": 0.94
+    },
+    {
+      "species": "birch",
+      "x": 88.78,
+      "z": -18.09,
+      "yaw": 297.44,
+      "scale": 1.14
+    },
+    {
+      "species": "oak",
+      "x": 100.15,
+      "z": -15.2,
+      "yaw": 214.65,
+      "scale": 1.23
+    },
+    {
+      "species": "beech",
+      "x": -40.2,
+      "z": -3.86,
+      "yaw": 351.02,
+      "scale": 1.04
+    },
+    {
+      "species": "birch",
+      "x": -31.46,
+      "z": -0.66,
+      "yaw": 217.29,
+      "scale": 1.25
+    },
+    {
+      "species": "beech",
+      "x": -13.68,
+      "z": -4.02,
+      "yaw": 196.09,
+      "scale": 1.34
+    },
+    {
+      "species": "beech",
+      "x": 6.5,
+      "z": -0.47,
+      "yaw": 107.6,
+      "scale": 1.22
+    },
+    {
+      "species": "beech",
+      "x": 21.98,
+      "z": -4.16,
+      "yaw": 250.91,
+      "scale": 0.92
+    },
+    {
+      "species": "beech",
+      "x": 62.41,
+      "z": -0.91,
+      "yaw": 56.59,
+      "scale": 0.88
+    },
+    {
+      "species": "oak",
+      "x": 73.33,
+      "z": 0.28,
+      "yaw": 185.47,
+      "scale": 1.2
+    },
+    {
+      "species": "oak",
+      "x": 83.76,
+      "z": 0.59,
+      "yaw": 74.08,
+      "scale": 1.3
+    },
+    {
+      "species": "oak",
+      "x": 97.58,
+      "z": -3.23,
+      "yaw": 70.72,
+      "scale": 0.86
+    },
+    {
+      "species": "beech",
+      "x": -15.38,
+      "z": 9.79,
+      "yaw": 343.31,
+      "scale": 1.12
+    },
+    {
+      "species": "beech",
+      "x": -4.21,
+      "z": 7.52,
+      "yaw": 205.87,
+      "scale": 0.99
+    },
+    {
+      "species": "birch",
+      "x": 11.28,
+      "z": 8.62,
+      "yaw": 141.28,
+      "scale": 1.11
+    },
+    {
+      "species": "oak",
+      "x": 32.01,
+      "z": 9.91,
+      "yaw": 97.66,
+      "scale": 1.24
+    },
+    {
+      "species": "oak",
+      "x": 45.56,
+      "z": 8.88,
+      "yaw": 299.06,
+      "scale": 1.18
+    },
+    {
+      "species": "birch",
+      "x": 60.8,
+      "z": 13.98,
+      "yaw": 340.25,
+      "scale": 1.4
+    },
+    {
+      "species": "beech",
+      "x": 72.16,
+      "z": 12.39,
+      "yaw": 310.73,
+      "scale": 0.88
+    },
+    {
+      "species": "beech",
+      "x": 85.24,
+      "z": 9.85,
+      "yaw": 209.5,
+      "scale": 1.03
+    },
+    {
+      "species": "beech",
+      "x": 100.2,
+      "z": 8.31,
+      "yaw": 169.98,
+      "scale": 0.88
+    },
+    {
+      "species": "beech",
+      "x": -7.44,
+      "z": 22.88,
+      "yaw": 230.12,
+      "scale": 1.38
+    },
+    {
+      "species": "beech",
+      "x": 10.32,
+      "z": 26,
+      "yaw": 302.82,
+      "scale": 1.09
+    },
+    {
+      "species": "beech",
+      "x": 25.23,
+      "z": 23.9,
+      "yaw": 280.33,
+      "scale": 1.26
+    },
+    {
+      "species": "beech",
+      "x": 46.91,
+      "z": 21.72,
+      "yaw": 351.65,
+      "scale": 1.28
+    },
+    {
+      "species": "beech",
+      "x": 63.77,
+      "z": 25.82,
+      "yaw": 204.85,
+      "scale": 0.87
+    },
+    {
+      "species": "beech",
+      "x": 74.57,
+      "z": 22.68,
+      "yaw": 97.72,
+      "scale": 0.96
+    },
+    {
+      "species": "beech",
+      "x": 89.12,
+      "z": 22.58,
+      "yaw": 357.56,
+      "scale": 1.16
+    },
+    {
+      "species": "beech",
+      "x": 100.97,
+      "z": 24.15,
+      "yaw": 44.13,
+      "scale": 1.4
+    },
+    {
+      "species": "beech",
+      "x": 22.56,
+      "z": 38.98,
+      "yaw": 77.41,
+      "scale": 1.07
+    },
+    {
+      "species": "beech",
+      "x": 36.87,
+      "z": 32.85,
+      "yaw": 12.5,
+      "scale": 1.14
+    },
+    {
+      "species": "oak",
+      "x": 48.06,
+      "z": 36.43,
+      "yaw": 140.97,
+      "scale": 1.43
+    },
+    {
+      "species": "birch",
+      "x": 58.42,
+      "z": 38.35,
+      "yaw": 307.91,
+      "scale": 1.33
+    },
+    {
+      "species": "oak",
+      "x": 76.49,
+      "z": 35.61,
+      "yaw": 261.43,
+      "scale": 1.04
+    },
+    {
+      "species": "beech",
+      "x": 85.82,
+      "z": 37.93,
+      "yaw": 339.57,
+      "scale": 1.1
+    },
+    {
+      "species": "beech",
+      "x": 22.83,
+      "z": 49.17,
+      "yaw": 68.43,
+      "scale": 0.91
+    },
+    {
+      "species": "birch",
+      "x": 32.62,
+      "z": 45.69,
+      "yaw": 244.02,
+      "scale": 1.44
+    },
+    {
+      "species": "beech",
+      "x": 50.74,
+      "z": 48.75,
+      "yaw": 118.78,
+      "scale": 1.44
+    },
+    {
+      "species": "oak",
+      "x": 62.36,
+      "z": 47.29,
+      "yaw": 207.05,
+      "scale": 1.2
+    },
+    {
+      "species": "beech",
+      "x": 87.85,
+      "z": 48.73,
+      "yaw": 132.1,
+      "scale": 1.27
+    },
+    {
+      "species": "beech",
+      "x": 97.9,
+      "z": 51.49,
+      "yaw": 82.5,
+      "scale": 0.95
+    },
+    {
+      "species": "oak",
+      "x": 36.38,
+      "z": 63.94,
+      "yaw": 192.92,
+      "scale": 1.03
+    },
+    {
+      "species": "birch",
+      "x": 58.56,
+      "z": 63.42,
+      "yaw": 103.77,
+      "scale": 1.08
+    },
+    {
+      "species": "beech",
+      "x": 71.47,
+      "z": 61.09,
+      "yaw": 20.39,
+      "scale": 0.88
+    },
+    {
+      "species": "beech",
+      "x": 85.08,
+      "z": 64.23,
+      "yaw": 343.16,
+      "scale": 1.14
+    },
+    {
+      "species": "beech",
+      "x": 98.77,
+      "z": 64.76,
+      "yaw": 308.34,
+      "scale": 0.88
+    },
+    {
+      "species": "beech",
+      "x": 46.14,
+      "z": 78.66,
+      "yaw": 235.79,
+      "scale": 1.44
+    },
+    {
+      "species": "beech",
+      "x": 62.59,
+      "z": 75.43,
+      "yaw": 275.09,
+      "scale": 1.42
+    },
+    {
+      "species": "birch",
+      "x": 74.51,
+      "z": 71.27,
+      "yaw": 283.02,
+      "scale": 1.02
+    },
+    {
+      "species": "beech",
+      "x": 89.27,
+      "z": 77.2,
+      "yaw": 345.45,
+      "scale": 1.25
+    },
+    {
+      "species": "beech",
+      "x": 101.27,
+      "z": 74.66,
+      "yaw": 87.3,
+      "scale": 0.88
+    },
+    {
+      "species": "beech",
+      "x": 63.15,
+      "z": 86.5,
+      "yaw": 182.9,
+      "scale": 1.31
+    },
+    {
+      "species": "oak",
+      "x": 75.44,
+      "z": 87.18,
+      "yaw": 311.31,
+      "scale": 1.06
+    },
+    {
+      "species": "oak",
+      "x": 99.51,
+      "z": 89.76,
+      "yaw": 129.32,
+      "scale": 1.01
+    },
+    {
+      "species": "beech",
+      "x": 74.58,
+      "z": 102.6,
+      "yaw": 168.27,
+      "scale": 1.33
+    },
+    {
+      "species": "beech",
+      "x": 88.28,
+      "z": 101.58,
+      "yaw": 83.66,
+      "scale": 1.19
+    },
+    {
+      "species": "beech",
+      "x": 98.96,
+      "z": 103.59,
+      "yaw": 232.66,
+      "scale": 1.42
+    },
+    {
+      "species": "oak",
+      "x": 83.53,
+      "z": 112.81,
+      "yaw": 111.37,
+      "scale": 1.07
+    }
+  ],
+  "rocks": [],
+  "markers": []
+}
