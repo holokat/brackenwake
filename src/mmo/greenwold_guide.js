@@ -292,11 +292,15 @@ export const GUIDE_ROADS = Object.freeze([
  * the water meadows, past the cellars, under the village bridge and out east.
  */
 export const GUIDE_RIVER = way('greenwoldriver', 'The river', [
+  // The river keeps to the BANKS of the places it passes: the mill stands
+  // beside it, the Cellars' arch is in a hollow by it, the village bridge
+  // crosses it at the village's south east edge. The first trace ran through
+  // all three centres and put the well four metres under water.
   [0.180, 0.070], [0.220, 0.140], [0.200, 0.220], [0.160, 0.300],
-  [0.130, 0.380], [0.170, 0.440], [0.220, 0.480], [0.270, 0.508],
-  [0.300, 0.510], [0.345, 0.518], [0.400, 0.500], [0.460, 0.470],
-  [0.520, 0.460], [0.585, 0.448], [0.660, 0.420], [0.740, 0.422],
-  [0.840, 0.444], [0.960, 0.466],
+  [0.145, 0.395], [0.180, 0.450], [0.225, 0.485], [0.270, 0.510],
+  [0.300, 0.514], [0.345, 0.522], [0.400, 0.508], [0.460, 0.492],
+  [0.520, 0.486], [0.585, 0.478], [0.660, 0.470], [0.740, 0.466],
+  [0.840, 0.470], [0.960, 0.480],
 ]);
 
 /** How much two discs may share before the guide is lying about which is which. */

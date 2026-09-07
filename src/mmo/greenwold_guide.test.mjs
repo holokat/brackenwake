@@ -263,7 +263,8 @@ console.log('\nthe ways across it');
 
   const passes = (id, m) => GUIDE_RIVER.pts.some((p) => near(p, GUIDE_BY_ID[id], m));
   ck('the river runs past the mill, the water meadows, the cellars and the village',
-    passes('millrun', 60) && passes('watermeadows', 60) && passes('oldcellars', 60) && passes('hearthhome', 60));
+    // the river keeps to the banks: within the place's own reach plus a bank
+    passes('millrun', GUIDE_BY_ID.millrun.r + 40) && passes('watermeadows', 60) && passes('oldcellars', GUIDE_BY_ID.oldcellars.r + 40) && passes('hearthhome', GUIDE_BY_ID.hearthhome.r + 40));
   ck('and it runs west to east, out of the north west and off the east side',
     GUIDE_RIVER.pts[0].x < -1000 && GUIDE_RIVER.pts[0].z < -1500
     && GUIDE_RIVER.pts[GUIDE_RIVER.pts.length - 1].x > 2000,

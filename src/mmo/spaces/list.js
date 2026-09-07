@@ -37,6 +37,7 @@ import sp_greenwold_kingsroad_1 from './greenwold_kingsroad_1.json' with { type:
 import sp_greenwold_kingsroad_2 from './greenwold_kingsroad_2.json' with { type: 'json' };
 import sp_greenwold_kingsroad_3 from './greenwold_kingsroad_3.json' with { type: 'json' };
 import sp_greenwold_kingsroad_4 from './greenwold_kingsroad_4.json' with { type: 'json' };
+import sp_greenwold_kingsroad_5 from './greenwold_kingsroad_5.json' with { type: 'json' };
 import sp_greenwold_kingsroad_camp from './greenwold_kingsroad_camp.json' with { type: 'json' };
 import sp_greenwold_longmeadow from './greenwold_longmeadow.json' with { type: 'json' };
 import sp_greenwold_lowerbank from './greenwold_lowerbank.json' with { type: 'json' };
@@ -82,6 +83,7 @@ export const FILES = {
   'greenwold_kingsroad_2': sp_greenwold_kingsroad_2,
   'greenwold_kingsroad_3': sp_greenwold_kingsroad_3,
   'greenwold_kingsroad_4': sp_greenwold_kingsroad_4,
+  'greenwold_kingsroad_5': sp_greenwold_kingsroad_5,
   'greenwold_kingsroad_camp': sp_greenwold_kingsroad_camp,
   'greenwold_longmeadow': sp_greenwold_longmeadow,
   'greenwold_lowerbank': sp_greenwold_lowerbank,

@@ -1,48 +1,42 @@
 {
-  "id": "greenwold_kingsroad_2",
-  "name": "The Kingsroad, stretch 2",
+  "id": "greenwold_kingsroad_5",
+  "name": "The Kingsroad, stretch 5",
   "note": "Paved, kerbed and lamped, and the lamps are lit whether anybody is on it or not.",
   "at": {
-    "x": 988.06,
-    "z": -828.53
+    "x": 2120.62,
+    "z": -2078.82
   },
-  "radius": 178,
+  "radius": 158,
   "pieces": [
     {
       "model": "lamp_post_iron",
-      "x": -56.18,
-      "z": 147.74,
+      "x": -118.28,
+      "z": 70.28,
       "yaw": 0
     },
     {
       "model": "lamp_post_iron",
-      "x": -14.69,
-      "z": 56.29,
+      "x": -29.35,
+      "z": 24.57,
       "yaw": 0
     },
     {
       "model": "lamp_post_iron",
-      "x": 9.43,
-      "z": -41.19,
+      "x": 49.47,
+      "z": -37.66,
       "yaw": 0
     },
     {
-      "model": "lamp_post_iron",
-      "x": 50.93,
-      "z": -132.64,
-      "yaw": 0
+      "model": "milestone",
+      "x": 4.03,
+      "z": 6.2,
+      "yaw": 213.03
     }
   ],
   "runs": [],
   "areas": [],
   "people": [],
-  "spawns": [
-    {
-      "id": "legionSoldier",
-      "x": 30,
-      "z": 24
-    }
-  ],
+  "spawns": [],
   "trees": [],
   "rocks": [],
   "markers": []

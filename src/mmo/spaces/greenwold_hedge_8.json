@@ -49,24 +49,6 @@
       "x": -6.4,
       "z": 1.13,
       "yaw": 280
-    },
-    {
-      "model": "boundary_stone",
-      "x": -3.73,
-      "z": 5.33,
-      "yaw": 325
-    },
-    {
-      "model": "boundary_stone",
-      "x": 1.13,
-      "z": 6.4,
-      "yaw": 10
-    },
-    {
-      "model": "boundary_stone",
-      "x": 5.33,
-      "z": 3.73,
-      "yaw": 55
     }
   ],
   "runs": [

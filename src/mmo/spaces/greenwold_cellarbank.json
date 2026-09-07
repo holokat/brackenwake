@@ -3,10 +3,10 @@
   "name": "The Cellar Bank",
   "note": "Willows leaning over the water, and the bank trodden into a path by whoever walks it.",
   "at": {
-    "x": -403.11,
-    "z": -33.2
+    "x": -415.57,
+    "z": 23.95
   },
-  "radius": 64,
+  "radius": 40,
   "pieces": [],
   "runs": [],
   "areas": [],
@@ -14,151 +14,60 @@
   "spawns": [
     {
       "id": "frog",
-      "x": 13.63,
-      "z": -38.06
+      "x": -7,
+      "z": -24.93
     },
     {
       "id": "wisp",
-      "x": -13.71,
-      "z": 32.54,
+      "x": 32.32,
+      "z": -13.86,
       "night": true
     }
   ],
   "trees": [
     {
       "species": "willow",
-      "x": -2.37,
-      "z": -49.93,
-      "yaw": 115.06,
-      "scale": 1.22
+      "x": -1.5,
+      "z": -26.79,
+      "yaw": 325.75,
+      "scale": 1.38
     },
     {
       "species": "willow",
-      "x": -18.33,
-      "z": -35.69,
-      "yaw": 335.97,
-      "scale": 0.9
+      "x": -13.44,
+      "z": -10.98,
+      "yaw": 182.86,
+      "scale": 1.21
     },
     {
       "species": "willow",
-      "x": 23.37,
-      "z": -36.96,
-      "yaw": 72.92,
-      "scale": 1.26
+      "x": 19.54,
+      "z": -17.04,
+      "yaw": 327.52,
+      "scale": 1.28
     },
     {
       "species": "willow",
-      "x": -6.29,
-      "z": -19.58,
-      "yaw": 336.28,
-      "scale": 1.06
+      "x": -11.37,
+      "z": 21.71,
+      "yaw": 269.7,
+      "scale": 0.97
     },
     {
       "species": "willow",
-      "x": 11.8,
-      "z": -18.11,
-      "yaw": 74.9,
-      "scale": 1.32
-    },
-    {
-      "species": "willow",
-      "x": -33.71,
-      "z": -7.24,
-      "yaw": 78.22,
-      "scale": 1.27
-    },
-    {
-      "species": "willow",
-      "x": -50.66,
-      "z": 9.3,
-      "yaw": 185.77,
-      "scale": 1.32
-    },
-    {
-      "species": "willow",
-      "x": 13.32,
-      "z": 7.71,
-      "yaw": 308.66,
-      "scale": 1.35
-    },
-    {
-      "species": "willow",
-      "x": 30.13,
-      "z": 10.85,
-      "yaw": 36.32,
-      "scale": 0.96
-    },
-    {
-      "species": "willow",
-      "x": 44.89,
-      "z": 5.85,
-      "yaw": 119.7,
-      "scale": 1.31
-    },
-    {
-      "species": "willow",
-      "x": -18.8,
-      "z": 23.59,
-      "yaw": 138.02,
-      "scale": 1.33
-    },
-    {
-      "species": "willow",
-      "x": 12.39,
-      "z": 23.43,
-      "yaw": 108.17,
-      "scale": 1.39
-    },
-    {
-      "species": "willow",
-      "x": 38.7,
-      "z": 22.82,
-      "yaw": 59.52,
-      "scale": 1.04
-    },
-    {
-      "species": "willow",
-      "x": -20.68,
-      "z": 45.25,
-      "yaw": 280.11,
-      "scale": 1.39
-    },
-    {
-      "species": "willow",
-      "x": -7.1,
-      "z": 39.79,
-      "yaw": 81.7,
-      "scale": 1.12
-    },
-    {
-      "species": "willow",
-      "x": 7.59,
-      "z": 42.76,
-      "yaw": 195.48,
-      "scale": 0.95
-    },
-    {
-      "species": "willow",
-      "x": 25.83,
-      "z": 39.95,
-      "yaw": 242.79,
-      "scale": 1.18
+      "x": 22.38,
+      "z": 17.33,
+      "yaw": 168.51,
+      "scale": 1.28
     }
   ],
   "rocks": [
     {
       "kind": "reed_bed",
-      "x": -19.28,
-      "z": -8.95,
-      "yaw": 291.77,
+      "x": 26.05,
+      "z": -10.26,
+      "yaw": 252.47,
       "scale": 1.2
-    },
-    {
-      "kind": "reed_bed",
-      "x": -9.62,
-      "z": 7.24,
-      "yaw": 347.7,
-      "scale": 1.1
     }
   ],
   "markers": []

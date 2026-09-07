@@ -3,21 +3,33 @@
   "name": "The Kingsroad, stretch 1",
   "note": "Paved, kerbed and lamped, and the lamps are lit whether anybody is on it or not.",
   "at": {
-    "x": 905.65,
-    "z": -616.76
+    "x": 826.68,
+    "z": -420.82
   },
-  "radius": 115,
+  "radius": 176,
   "pieces": [
     {
       "model": "lamp_post_iron",
-      "x": -45.89,
-      "z": 83.3,
+      "x": -31.49,
+      "z": 152.86,
       "yaw": 0
     },
     {
       "model": "lamp_post_iron",
-      "x": 6.33,
-      "z": -2.47,
+      "x": -17.39,
+      "z": 53.43,
+      "yaw": 0
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 14.61,
+      "z": -41.76,
+      "yaw": 0
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 44.77,
+      "z": -136.52,
       "yaw": 0
     }
   ],

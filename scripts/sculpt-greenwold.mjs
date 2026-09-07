@@ -805,9 +805,19 @@ function dryOff(s) {
     gone.push(q.model || q.kind);
     return false;
   };
-  s.pieces = s.pieces.filter((q) => walk(q, WET_ON_PURPOSE));
+  // A piece has a footprint, and a walked piece lands in its neighbour's (the
+  // hay rick walked into the stable): a wet piece is dropped and said, never
+  // walked. Rocks and trees have no footprint and still walk.
+  s.pieces = s.pieces.filter((q) => { if (WET_ON_PURPOSE.has(q.model) || !wet(q.x, q.z)) return true; gone.push(q.model); return false; });
   s.rocks = s.rocks.filter((q) => walk(q, WET_ROCKS));
   s.trees = s.trees.filter((q) => walk(q, new Set(['willow'])));
+  // and nothing a space places may stand beyond its own reach: the schema
+  // refuses it, so it is dropped here and counted, not left for the audit
+  for (const list of ['pieces', 'rocks', 'trees', 'spawns', 'people', 'markers']) {
+    const before = (s[list] || []).length;
+    s[list] = (s[list] || []).filter((q) => Math.hypot(q.x, q.z) <= s.radius - 1);
+    for (let i = before; i > s[list].length; i--) gone.push(`${list.slice(0, -1)} beyond ${s.radius} m`);
+  }
   return { moved, gone };
 }
 
