@@ -625,5 +625,18 @@ console.log('\nfauna: a bird, driven through the real stepMonster');
   console.log('       "lands when idle, takes off when approached" is the second patch in F1.md.');
 }
 
+console.log('fauna: a sculpt world grows no animals of its own');
+{
+  const F = await import('./field.js');
+  const plain = F.createWorldField(7);
+  let any = 0;
+  for (let cx = -6; cx <= 6 && !any; cx++) for (let cz = -6; cz <= 6 && !any; cz++) any = spawnsFor(plain, cx, cz, {}).length;
+  const sculpt = Object.create(plain); Object.defineProperty(sculpt, 'sculpt', { value: { height: 6, ground: 'grass' } });
+  let none = 0;
+  for (let cx = -6; cx <= 6; cx++) for (let cz = -6; cz <= 6; cz++) none += spawnsFor(sculpt, cx, cz, {}).length;
+  check('the generating world puts animals somewhere in a 13 by 13 chunk square', any > 0, `${any} in the first chunk that had any`);
+  check('and the sculpt world puts none anywhere in it', none === 0, `${none}`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

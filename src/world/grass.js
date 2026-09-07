@@ -453,6 +453,10 @@ export function createGrass(parent, field, opts = {}) {
         // mud; 'grass' is the one word that means carry on. It is null on every
         // sample of a world nobody has edited.
         if (sp.ground && sp.ground !== 'grass') { L.mesh.setMatrixAt(base + i, ZERO); dropped++; continue; }
+        // In a sculpt world blades grow only where a hand painted 'grass'. The
+        // flat base wears the grass texture, and a blank slate has no vegetation
+        // until the user says where it grows.
+        if (field.sculpt && sp.ground !== 'grass') { L.mesh.setMatrixAt(base + i, ZERO); dropped++; continue; }
         if (!turf || amount <= 0 || sp.water || roll > amount || sp.river > 0.18 || sp.road > 0.20) {
           L.mesh.setMatrixAt(base + i, ZERO); dropped++; continue;
         }

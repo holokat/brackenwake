@@ -2418,4 +2418,15 @@ const GROUND = 3;
     missing.length === 0, missing.join(', ') || `${WAVE.length} tags, ${carriers.length} rows`);
 }
 
+console.log('monsters: a sculpt world rolls nothing wild');
+{
+  const F = await import('../world/field.js');
+  const plain = F.createWorldField(7);
+  const before = spawnsForChunk(plain, 3, -2, { night: true, chance: 1 });
+  const sculpt = Object.create(plain); Object.defineProperty(sculpt, 'sculpt', { value: { height: 6, ground: 'grass' } });
+  const after = spawnsForChunk(sculpt, 3, -2, { night: true, chance: 1 });
+  check('the generating world rolls a group at chance 1', before.length > 0, `${before.length} bodies`);
+  check('and the same chunk in a sculpt world rolls none', after.length === 0, `${after.length} bodies`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

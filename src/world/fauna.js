@@ -236,6 +236,8 @@ auditSpawnTable();
  * @param opts { night, sitesNear, homeKeep }
  */
 export function spawnsFor(field, cx, cz, opts = {}) {
+  // a sculpt world grows no animals of its own (ED3): the editor places them
+  if (field.sculpt) return [];
   const seed = field.seed;
   const night = !!opts.night;
   const homeKeep = opts.homeKeep ?? HOME_KEEP;

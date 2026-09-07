@@ -337,6 +337,10 @@ export function blockedAt(x, z, sample, ctx = {}) {
  *   { id, key, cx, cz, i, x, z, y, groupKey, night }
  */
 export function spawnsForChunk(field, cx, cz, opts = {}) {
+  // A sculpt world (terrain_edits.js, ED3) is a blank slate: nothing wild
+  // rolls in it. What stands is what a space or a plan places, which comes
+  // through plannedSpawnsForChunk and not through here.
+  if (field.sculpt) return [];
   const seed = num(field.seed);
   const night = !!opts.night;
   const x0 = cx * CHUNK, z0 = cz * CHUNK, mid = CHUNK / 2;
