@@ -1,6 +1,6 @@
 // Everything the player reads: the windows and their panels, the paper doll,
-// the compass, the plate that names this spot, the cursor and the line under
-// it, and the frame counter behind the dev badge.
+// the compass, the minimap, the plate that names this spot, the cursor and the
+// line under it, and the frame counter behind the dev badge.
 
 import { createWindows } from '../../windows.js';
 import { createPaperdoll } from '../../paperdoll.js';
@@ -16,8 +16,10 @@ import { panel as tradePanel } from '../../win_trade.js';
 import { panel as craftingPanel } from '../../win_crafting.js';
 import { panel as mapPanel } from '../../win_map.js';
 import { panel as settingsPanel } from '../../win_settings.js';
-import { panel as devPanel } from '../../win_dev.js';
+import { panel as devPanel, benchOf as devBenchOf } from '../../win_dev.js';
 import { panel as editorPanel } from '../../editor/panel.js';
+import { SPACES } from '../../../mmo/spaces/index.js';
+import { ZONE } from '../../../world/zones.js';
 import { unlockedFor, ABILITY_FOR_ITEM } from '../../../mmo/abilities.js';
 import { labelFor as lootLabel } from '../../loot_drops.js';
 import { conOf, conLabel } from '../../con.js';
@@ -154,6 +156,51 @@ export const ui = {
       player: rig, camera, character, flow: !!hud.compassSlot,
     });
 
+    // The minimap: a square of the country you are standing in, top right,
+    // under the dev badge. docs/mmo/wiring/HUD4-MINIMAP.md has the lines.
+    //
+    // It is mounted through hud.mountMinimap and not dropped on hudRoot,
+    // because the HUD's own setMode is what keeps it up in editor mode, and
+    // setMode only reaches the children of the HUD root. The compass strip is
+    // mounted the same way and for the same kind of reason.
+    //
+    // FIVE HOOKS, and every one of them is a live read rather than a value
+    // captured now: `runtime.field` is replaced outright when a sculpt world is
+    // laid over the generated one, `terrainEdits.version` counts every stroke
+    // the editor lays, `SPACES` is rewritten by the editor's save endpoint and
+    // reloaded by vite, the waypoint is win_map.js's, and the places are the
+    // world's own site rows so Hearthhome and the Hedge have names on the map
+    // before a single space has been authored around them.
+    const minimap = hud.mountMinimap?.({
+      player: rig,
+      camera,
+      field: () => runtime.field,
+      spaces: () => SPACES,
+      zone: () => ZONE.greenwold,
+      dirty: () => runtime.terrainEdits?.version ?? 0,
+      isDev: () => !!panelCtx.dev?.on,
+      waypoint: () => character.waypoint || null,
+      places: (x, z, r) => (typeof runtime.sitesNear === 'function' ? runtime.sitesNear(x, z, r) : null),
+      /**
+       * A click on the map in dev mode. It goes through the dev bench's own
+       * `warp`, which is the five step arrival main.js already does (feet,
+       * camera, document, monsters, forage) and NOT a second teleport of this
+       * file's own: a warp that only moved the feet is exactly the half arrived
+       * jump the bench exists to stop. The bench is built when dev mode opens
+       * the bench window, so it is asked for at the moment of the click.
+       */
+      onWarp: (x, z) => {
+        const bench = devBenchOf();
+        if (!bench || typeof bench.warp !== 'function') {
+          return { ok: false, text: 'the dev bench is not open, so there is nowhere to warp from' };
+        }
+        const res = bench.warp(x, z, { label: `the map at ${Math.round(x)}, ${Math.round(z)}` });
+        if (res && res.ok) hud.toast(`Warped to ${Math.round(x)}, ${Math.round(z)} off the minimap. The ground is ${res.biome || 'unnamed here'}.`);
+        else hud.toast(res && res.text ? res.text : 'that warp did not happen', 'bad');
+        return res;
+      },
+    });
+
     // docs/mmo/wiring/W5.md section 6: every key and what it does here.
     function applySettings(s) {
       if (!s) return;
@@ -271,11 +318,11 @@ export const ui = {
     }
 
     return {
-      windows, panelCtx, compass, applySettings, drawHud,
+      windows, panelCtx, compass, minimap, applySettings, drawHud,
       get fps() { return fps; },
       get placeText() { return placeText; },
       bw: {
-        windows, compass,
+        windows, compass, minimap,
         panels: { talk: talkPanel, trade: tradePanel, crafting: craftingPanel, map: mapPanel, settings: settingsPanel },
         get codexTab() { return windows.tab; },
         get fps() { return fps; },
@@ -311,12 +358,17 @@ export const ui = {
         windows.update(dt);
         panelCtx.paperdoll?.update?.(dt);
         compass.update();
+        // The minimap takes the frame's own dt in seconds and keeps its own
+        // clock out of it, which is what puts its half second leash and its 8 m
+        // step under a test's control instead of a wall clock's. The expensive
+        // half of it is behind that leash; this call is the cheap half.
+        minimap?.update(dt);
       },
     };
   },
 
   ready(ctx) {
-    ctx.hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the ability bar, F5 to F12 the things you carry. An axe or a pickaxe works from your pack, with nothing to pick up first. C character, B bag, K skills, P abilities, V crafting, M map, X emotes, Escape settings, the key under Escape for dev mode and its bench, E goes in.');
+    ctx.hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the ability bar, F5 to F12 the things you carry. An axe or a pickaxe works from your pack, with nothing to pick up first. C character, B bag, K skills, P abilities, V crafting, M map, X emotes, Escape settings, the key under Escape for dev mode and its bench, E goes in. The square in the top right is the minimap: north is up, you are the gold arrow, and the wheel over it zooms.');
   },
 
   late(ctx, frame) { ctx.get('ui').draw(frame); },

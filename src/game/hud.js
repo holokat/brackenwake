@@ -35,6 +35,10 @@
 //   hud.zone(name, sub), the place name across the upper third when you arrive
 //   hud.setDev(on, stats), the dev badge with fps, frame time, draws, triangles
 //     and monsters, every one of which main.js already measures
+//   hud.mountMinimap(opts), the square of country in the top right under the
+//     badge, which minimap.js draws and ui.js ticks. It is mounted here so that
+//     setMode can keep it up in editor mode, which is the one place a player
+//     cannot ask the map window where they are
 //   hud.update(dt, view)
 //
 // Everything else that was here before is here still and behaves the same way:
@@ -51,6 +55,7 @@ import { dropTarget } from './windows.js';
 import { ITEM_SLOTS, ITEM_KEYS, keyCap as itemKeyCap } from './item_bar.js';
 import { baseFor } from '../mmo/items.js';
 import { ABILITIES_BY_ID } from '../mmo/abilities.js';
+import { createMinimap, MINIMAP } from './minimap.js';
 
 export const MATERIALS = ['wood', 'stone', 'ore'];
 
@@ -573,6 +578,43 @@ export function boxesOverlap(a, b) {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 }
 
+// ------------------------------------------------------------- the badge ----
+//
+// The dev badge is the only thing in the top right corner, and the minimap goes
+// UNDER it. Both of those are pixel offsets in a corner, which is exactly the
+// guess that put the compass strip through the place name twice, so the badge's
+// own box is counted here and `minimap.js` starts below the number rather than
+// beside a comment about it.
+
+export const DEV_BADGE = {
+  top: 14, right: 14,
+  font: 10.5, line: 1.35, padY: 7, padX: 12, border: 1,
+  /**
+   * A deliberate over-estimate of one uppercase Cinzel character at 10.5px with
+   * .14em of tracking. Over-estimating makes the badge WIDER in every
+   * calculation, so a "these two boxes do not touch" claim proved with this
+   * number is still true at the real width.
+   */
+  charW: 10,
+};
+
+/** The badge's height in px: one line of 10.5px Cinzel in a 7px panel. 30.175. */
+export const DEV_BADGE_H = DEV_BADGE.font * DEV_BADGE.line + DEV_BADGE.padY * 2 + DEV_BADGE.border * 2;
+
+/**
+ * Pure. The dev badge's box on a screen `screenW` wide, px from the top left of
+ * the HUD. It is pinned to the right and grows leftward as the line gets longer.
+ */
+export function devBadgeBox(text, screenW = 1280) {
+  const w = String(text || '').length * DEV_BADGE.charW + DEV_BADGE.padX * 2 + DEV_BADGE.border * 2;
+  const right = screenW - DEV_BADGE.right;
+  return {
+    left: right - w, right,
+    top: DEV_BADGE.top, bottom: DEV_BADGE.top + DEV_BADGE_H,
+    width: w, height: DEV_BADGE_H,
+  };
+}
+
 const CSS = `
 #bw-hud, #bw-hud * { box-sizing: border-box; }
 #bw-hud {
@@ -820,8 +862,8 @@ const CSS = `
    id alone and was winning position: relative, which put the badge in flow across
    the top of the HUD over the purse and the counters */
 #bw-hud #bw-dev {
-  position: absolute; top: 14px; right: 14px; display: none;
-  font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .14em;
+  position: absolute; top: ${DEV_BADGE.top}px; right: ${DEV_BADGE.right}px; display: none;
+  font-family: ${theme.fonts.display}; font-size: ${DEV_BADGE.font}px; letter-spacing: .14em;
   text-transform: uppercase; color: #ffd479; white-space: pre;
   border-color: rgba(255,212,121,.5);
   pointer-events: auto; cursor: pointer;
@@ -1086,6 +1128,12 @@ export function createHud(root) {
   devBadge.title = 'the dev bench: tour, warps, the lab';
   let onDevClick = null;
   devBadge.addEventListener('click', () => { if (onDevClick) onDevClick(); });
+  // The minimap is NOT built here. It needs the world field, the player and the
+  // camera, none of which exist when the HUD is built (app/context.js builds
+  // this before the world), so `mountMinimap` below is what ui.js calls once
+  // those are standing. Until then there is no node, which is why hud.test.mjs
+  // still counts exactly the children it always counted.
+  let minimap = null;
   const hint = add(el, mk('div', 'bw-hint'));
   // the nameplate over the current target, moved by targeting.js's projection
   const plate = add(el, mk('div', 'bw-plate'));
@@ -1773,6 +1821,12 @@ export function createHud(root) {
     if (want === 'editor') {
       for (const child of [...el.children]) {
         if (child === devBadge) continue;
+        // THE MINIMAP STAYS TOO, and for the same reason the badge does. The
+        // editor is a full screen instrument with no place plate, no compass
+        // and no map window in it, so the square in the corner is the only
+        // answer left to "which part of the zone am I in", which is the
+        // question a person sculpting a flat world asks most often.
+        if (minimap && child === minimap.el) continue;
         modeHidden.set(child, child.style.display || '');
         child.style.display = 'none';
       }
@@ -1802,6 +1856,31 @@ export function createHud(root) {
      * strip anywhere else is back to floating it over the place name.
      */
     compassSlot,
+
+    /**
+     * Build the minimap into the HUD root and hand it back. `ui.js` is the one
+     * caller, once the world, the player and the camera are standing.
+     *
+     * It is mounted HERE rather than by ui.js so that `setMode` can keep it up
+     * in editor mode the way it keeps the dev badge up: setMode works on the
+     * children of this root, and a square dropped on `hudRoot` instead would be
+     * outside it, unhidden in play mode and unpositioned against the badge.
+     *
+     * Calling it twice hands back the one already standing, because a second
+     * square would sit exactly on top of the first and eat its clicks. That is
+     * the tool row bug from the farm HUD, and it is refused rather than drawn.
+     */
+    mountMinimap(opts = {}) {
+      if (minimap) return minimap;
+      minimap = createMinimap(el, { ...opts, isEditor: () => hudMode === 'editor' });
+      return minimap;
+    },
+
+    /** The minimap, or null until ui.js has mounted it. */
+    get minimap() { return minimap; },
+
+    /** Where the minimap's own box is, for anything that must keep clear of it. */
+    get minimapBox() { return MINIMAP; },
 
     /** A line of feedback. kind: 'good' | 'bad' | undefined. */
     toast(html, kind) {
@@ -2103,6 +2182,6 @@ export function createHud(root) {
       }
     },
 
-    dispose() { el.remove(); },
+    dispose() { minimap?.dispose?.(); minimap = null; el.remove(); },
   };
 }

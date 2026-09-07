@@ -183,6 +183,62 @@ over it: `a footbridge goes here`, `one span, no rails`, kind `structure`. It is
 saved in the space file with everything else, and it is **dev only**: the post
 is built with `visible = false` and comes up only while dev mode is on, so a
 player who walks into a half authored space sees the space and not the notes.
+
+### The picture on the tile
+
+"can you add small model previews for categories in left sidebar so i dont have
+to read everything". A tray of a hundred and fifty nine squares that differ only
+in an eight and a half pixel word is a list to be read, not a palette to be
+picked from, so every tile that stands for a body in the world now carries a
+render of that body. `src/game/editor/thumbs.js` builds the thing the way the
+game builds it and nothing else: `pieceBody` for a structure, arbor's own
+`speciesProto` for a tree, `rockGeometry` with `rockMaterialFor` for a rock,
+`buildMonsterModel` for a monster or a critter, `buildCharacter` wearing
+`npcs_runtime.ROLE_TINT` for a person, `markerBody` for a marker. The glass is
+`roster_preview.makeKit`, which is the same renderer, the same four lights at
+DAWN and the same cache pattern the roster portraits are made with, at 112 by
+112 for a picture shown at 40. Ground words keep their swatches and brushes keep
+their glyphs, because a colour and a verb are not bodies. All 351 rows across
+the seven tabs resolve to a body, none is null and none throws, counted against
+`palette.js` in `thumbs.test.mjs` so a tab that grows is a tab that is covered.
+
+THE FRAME IS THE BOUNDING BOX AND NOT THE METRES. A barrel and a manor both
+fill their tile, because a manor drawn to scale beside a barrel is a picture of
+nothing; `frameBox` is pure arithmetic over the eight corners, turned 35 degrees
+round and 26 up, pushed back until the corner that reaches furthest lands on 88%
+of the frame, and the test proves all eight corners land inside and one of them
+lands exactly on the line for a barrel, a manor, a drystone wall and a spruce.
+The scale that framing throws away is given back in words: the caption under the
+name is the body's MEASURED box, `1 by 1.4 m` for a barrel and `14 by 11 m` for
+a manor, so nothing is lost by making them the same size on screen.
+
+Rendering is lazy and budgeted. A tile asks, keeps its glyph, and swaps the
+picture in when it lands; the queue draws two a frame and stops early if the
+frame has already spent 9 ms, in the order the tiles are laid out, which is the
+order they come into view in an unscrolled tray. Measured in node with the
+graphics call stubbed and everything above it real: the whole palette is 344 ms
+of body building for 351 bodies, 0.98 ms each. Per kind: a structure 0.09 ms, a
+marker 0.05, a monster 0.32 (worst caveBat 11.5), a rock 0.33 (worst rib_cage
+1.7), a person 2.6, and a tree 19, because a tree is grown and not assembled.
+The first open of Objects, the worst tray at 159 tiles, therefore costs 1.1 to
+1.4 ms in its first frame and 38 ms of building spread over 80 frames. Foliage
+is the one tray that will be felt: eleven species at 19 ms each, one to a frame
+under the millisecond guard, so a frame or two goes by at 30 fps rather than 60
+while it fills in. What is NOT measured anywhere is the WebGL call itself and
+the size of the data URL it returns, because node has no context to take one
+from; both are unverified until the editor is opened in a browser.
+
+Pictures are kept in `localStorage` under `bw.ed.thumb.`, so a reload paints the
+tray from what is already made. Two things throw the store away and both are
+driven in the test: a change to `THUMB_VERSION`, which is checked before a
+single stale picture can be shown, and a change to the props manifest, which is
+fetched once in the background and compared against the stamp the store was
+written under. Two more things are never written down at all. A monster from one
+of the seven families that wear a Blender rig stands its box up first and swaps
+the glb in when the file lands, so a picture taken in that gap is marked
+provisional: it is shown, it is not stored, and it is forgotten the moment the
+model arrives. And a structure's key carries whether it had a glb when it was
+drawn, so the day a stand-in becomes a model the tile draws the model.
 ---
 
 ## What a space is
@@ -237,6 +293,8 @@ field of the plan shape a space treats differently.
 | `src/game/editor/palette.js` | new, pure. Every tray's rows, derived from the game's own tables; the brushes derived from `terrain.kinds()` through `brushRow` and `brushRows`. |
 | `src/game/editor/modes.js` | ED4, pure. The nine modes, and which tray a palette row or a brush goes in. Nothing in it is a list of things to place. |
 | `src/game/editor/icons.js` | ED4, pure. One drawn mark per mode, per brush and per tray, as inline svg. |
+| `src/game/editor/thumbs.js` | new. One render of the thing itself per tile: the game's own builders, `roster_preview`'s glass, a bounding box frame, a measured size caption, two a frame and cached to `localStorage` under a version and the props manifest. |
+| `src/game/editor/thumbs.test.mjs` | new. 69 checks. Every palette row through the body builder, the frame against the box, the cache, the version, the manifest and the frame budget, with the graphics call stubbed. |
 | `src/game/editor/editor.js` | new. `createEditor(ctx)`: every action, with no DOM. |
 | `src/game/editor/ghost.js` | new. The thing under the cursor and the ring under that, plus `brushRing` at exactly the brush's radius and `lineGhost` sampled onto the ground. |
 | `src/game/editor/panel.js` | ED4 rewrote it. The screen, the canvas listeners and the keys. It still registers as the window `editor`, because that is what owns the L key and the close-with-dev-mode wiring, and its frame is styled out of existence. |

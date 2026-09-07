@@ -41,10 +41,12 @@ import * as THREE from 'three';
 import { createEditor } from './editor.js';
 import { MODES, MODE_IDS, ACTIONS, modeOf, toolsFor, filterTools, auditTools } from './modes.js';
 import { editorIcon, swatch } from './icons.js';
+import { thumbInfo, canThumb } from './thumbs.js';
 import { theme } from '../ui_theme.js';
 import { ghostFor, brushRing, radiusRing, selectionBox, disposeGhost, lineGhost } from './ghost.js';
 import { TURN_DEG, SCALE_STEP, labelOf, pointOf } from './space_doc.js';
 import { setMarkersVisible } from '../../world/plan_models.js';
+import { MINIMAP_CLEAR } from '../minimap.js';
 
 /** How far the pointer may move between press and release and still be a click. */
 export const CLICK_SLOP = 5;
@@ -58,6 +60,32 @@ export const PICK_R = 6;
 /** The sidebar's cell, and the tray's tile, in pixels. */
 export const CELL = 48;
 export const TILE = 56;
+
+/**
+ * How far from the right edge of the screen the top dock stops.
+ *
+ * THE TOP RIGHT CORNER IS NOT THE EDITOR'S. The minimap stands there, under the
+ * dev badge, and it stays up in editor mode because it is the only thing left
+ * on the screen that answers "which part of the zone am I in" while the whole
+ * gameplay HUD is put away. The dock used to run to `right: 0`, straight
+ * through that column, and it draws at z 60 over the HUD's 40, so it would have
+ * covered the square rather than been covered by it.
+ *
+ * The number is the minimap's own, and never a second copy of it.
+ */
+export const TOP_DOCK_RIGHT = MINIMAP_CLEAR;
+/** How tall the top dock is: one row of 11px buttons in a 6px dock. 34. */
+export const TOP_DOCK_H = 34;
+
+/**
+ * Pure. The top dock's box on a screen `screenW` wide, for a dock `w` px of
+ * content wide. It is pinned to `TOP_DOCK_RIGHT` and grows leftward, so a claim
+ * proved at `w = screenW` holds at every real width it could ever have.
+ */
+export function topDockBox(screenW = 1280, w = 520) {
+  const right = screenW - TOP_DOCK_RIGHT;
+  return { left: right - w, right, top: 0, bottom: TOP_DOCK_H, width: w, height: TOP_DOCK_H };
+}
 /**
  * How far the world floor's two sliders reach.
  *
@@ -186,7 +214,9 @@ const CSS = `
 #bw-editor .knobs button:hover { border-color: ${theme.gold}; color: ${theme.goldBright}; }
 #bw-editor .knobs button.armed { border-color: ${theme.gold}; color: ${theme.goldBright}; background: rgba(122,42,32,.55); }
 
-#bw-editor .top { right: 0; top: 0; padding: 6px 8px; display: flex; align-items: center; gap: 6px; border-right: 0; border-top: 0; }
+/* right: TOP_DOCK_RIGHT and not 0. The minimap owns the top right corner and
+   stays up in editor mode; a dock in that column would sit on top of it. */
+#bw-editor .top { right: ${TOP_DOCK_RIGHT}px; top: 0; padding: 6px 8px; display: flex; align-items: center; gap: 6px; border-top: 0; }
 #bw-editor select { font: inherit; padding: 3px 6px; color: ${theme.parchment}; background: rgba(0,0,0,.55); border: 1px solid ${theme.goldDim}88; }
 #bw-editor .top button, #bw-editor .card button {
   font: inherit; font-size: 11px; padding: 3px 9px; cursor: pointer; color: ${theme.parchment};
@@ -492,6 +522,24 @@ export const panel = {
         b.appendChild(g);
         b.appendChild(h('div', 'n', t.label));
         if (t.tag) b.appendChild(h('div', 'tag', t.tag));
+        // THE PICTURE. A tile that stands for a body in the world asks for a
+        // render of that body and wears its mark until the render lands, which
+        // is a couple of tiles a frame, so a tray of a hundred and fifty nine
+        // opens at once and fills in behind itself. The size goes under the
+        // name with it: the frame is the bounding box, so a barrel and a manor
+        // come out the same size on purpose and the metres have to be said.
+        if (canThumb(t)) {
+          g.style.width = g.style.height = '40px';
+          thumbInfo(t).then((r) => {
+            if (!r || !g.isConnected) return;
+            if (r.url) { g.textContent = ''; g.style.background = `center/contain no-repeat url(${r.url})`; }
+            if (r.caption) {
+              const s = h('div', 'tag', r.caption);
+              s.style.color = theme.parchmentFaint;
+              b.appendChild(s);
+            }
+          }).catch(() => { /* a tile with no picture keeps its mark, which is a picture too */ });
+        }
         b.title = t.hint || t.label;
         b.addEventListener('click', () => { if (applyTool(t)) drawAll(); });
         grid.appendChild(b);
