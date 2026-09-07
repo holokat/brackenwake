@@ -22,7 +22,8 @@ import { panel as devPanel, benchOf as devBenchOf } from '../../win_dev.js';
 import { panel as editorPanel } from '../../editor/panel.js';
 import { SPACES } from '../../../mmo/spaces/index.js';
 import { ZONE } from '../../../world/zones.js';
-import { unlockedFor, ABILITY_FOR_ITEM } from '../../../mmo/abilities.js';
+import { ABILITIES_BY_ID, ABILITY_FOR_ITEM } from '../../../mmo/abilities.js';
+import { starterBar } from '../../progression.js';
 import { labelFor as lootLabel } from '../../loot_drops.js';
 import { conOf, conLabel } from '../../con.js';
 
@@ -119,8 +120,10 @@ export const ui = {
     windows.register(editorPanel);
     // A fresh character's bar is not left empty: what the opening already
     // unlocked goes on it in order, so the first fight has something on key 1.
+    // Only the opening's own rows that the starting kit can use, and Bandage:
+    // progression.starterBar. The rest is the player's to drag on once unlocked.
     if (barOf(character).every((x) => !x)) {
-      const ready = unlockedFor(character.skills, character.stats).filter((a) => !a.passive);
+      const ready = starterBar(character).map((id) => ABILITIES_BY_ID[id]).filter(Boolean);
       ready.slice(0, 12).forEach((a, i) => setBarSlot(character, i, a.id));
       if (ready.length) hud.log(`${Math.min(12, ready.length)} abilities go on the bar: ${ready.slice(0, 12).map((a) => a.name).join(', ')}`);
     }

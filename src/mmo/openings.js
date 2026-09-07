@@ -34,6 +34,20 @@ import { BASES as ITEM_BASES_JS } from './items.js';
  */
 export const STAT_IDS = ['str', 'dex', 'int', 'con', 'wis'];
 
+/**
+ * The ability group each opening belongs to: which rows a fresh character's
+ * bar is seeded from (progression.starterBar) and the colour creation.js bands
+ * its card in. The paladin's one chivalry ability in abilities.js is filed
+ * under `healer`, so that is the group honestly owed him. The artisan and
+ * Blank take `everyone`, because neither is an archetype and a red or a blue
+ * would be a promise about abilities they do not have.
+ */
+export const OPENING_GROUP = {
+  warrior: 'warrior', paladin: 'healer', ranger: 'ranger', rogue: 'rogue',
+  mage: 'mage', sorcerer: 'sorcerer', necromancer: 'necromancer',
+  healer: 'healer', bard: 'bard', artisan: 'everyone', blank: 'everyone',
+};
+
 export const STAT_LABELS = {
   str: 'STR', dex: 'DEX', int: 'INT', con: 'CON', wis: 'WIS',
 };

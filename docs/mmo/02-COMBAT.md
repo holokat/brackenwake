@@ -16,7 +16,7 @@ stones; at zero stamina every swing is slowed by half and misses more.
 
 ```
 attackerSkill = weaponSkill + Tactics * 0.25 + attackerHitBonus
-defenderSkill = defender.weaponSkill * 0.5 + defender.Parrying * 0.5 + DEX * 0.4 + defenceBonus
+defenderSkill = defender.weaponSkill * 0.5 + defender.Parrying * 0.5 + DEX * 0.2 + defenceBonus
 hitChance = clamp(0.50 + (attackerSkill - defenderSkill) * 0.005, 0.10, 0.95)
 ```
 

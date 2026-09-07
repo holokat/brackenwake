@@ -33,6 +33,7 @@ import {
   OPENINGS, OPENINGS_BY_ID, STAT_IDS, STAT_LABELS, STAT_NAMES, SKILL_NAMES, SKILL_IDS,
   APPEARANCE, APPEARANCE_DEFAULT, validateAppearance, applyCustomisation,
   CUSTOM_STAT_POINTS, CUSTOM_SKILL_POINTS, BLANK_STAT_POINTS, ITEM_BASES,
+  OPENING_GROUP,
 } from '../mmo/openings.js';
 import { derived, validateSpread } from '../mmo/stats.js';
 import { SKILLS, SKILL_GROUPS } from '../mmo/skills.js';
@@ -385,11 +386,7 @@ export function shortfallLine(plan) {
  * the parchment neutral, because neither is an archetype and a red or a blue
  * would be a promise about abilities they do not have.
  */
-export const OPENING_GROUP = {
-  warrior: 'warrior', paladin: 'healer', ranger: 'ranger', rogue: 'rogue',
-  mage: 'mage', sorcerer: 'sorcerer', necromancer: 'necromancer',
-  healer: 'healer', bard: 'bard', artisan: 'everyone', blank: 'everyone',
-};
+export { OPENING_GROUP };
 
 /** The colour a card is banded and barred in. win_abilities.js's, never a copy. */
 export function openingColour(id) {

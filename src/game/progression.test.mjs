@@ -4,7 +4,7 @@
 // proves the words as well as the numbers. The curve is measured, not asserted:
 // the counts below are printed and any change to skills.js moves them.
 import {
-  createProgression, gainText, statText, unlockedIds, unlockHint,
+  createProgression, gainText, statText, unlockedIds, unlockHint, starterBar,
   MILESTONE_CUE, STAT_MILESTONE_CUE, GRANDMASTER_CUE, UNLOCK_CUE,
 } from './progression.js';
 import { ABILITIES_BY_ID } from '../mmo/abilities.js';
@@ -413,6 +413,28 @@ console.log('\nprogression: the unlock banner');
   const res = r.prog.lesson('swimmming', 10, true, always);
   check('a misspelled skill is refused, not invented', res.refused === true && !('swimmming' in r.character.skills), res.reason);
   check('and says which word was wrong', r.lastToast().text.includes('swimmming'), JSON.stringify(r.lastToast().text));
+}
+
+
+// --- the starter bar ------------------------------------------------------------
+console.log('\nprogression: a fresh bar carries only what the opening can use');
+{
+  const ranger = { opening: 'ranger', skills: { archery: 50, tracking: 40, animalLore: 30, healing: 30 }, stats: { str: 45, dex: 70, int: 30, con: 50, wis: 40 },
+    equipment: { mainHand: { base: 'shortbow' } }, pack: { slots: 4, items: [{ base: 'arrow', count: 30 }, { base: 'bandage', count: 5 }, null, null] } };
+  const bar = starterBar(ranger);
+  check('an archer with a bow gets archer rows', bar.includes('aimedShot'), bar.join(','));
+  check('and Bandage', bar.includes('bandage'));
+  check('and nothing from another class, even where the skill floor is 0',
+    !bar.some((id) => ['magicArrow', 'hex', 'lifeDrain', 'curseOfWeakness', 'heal', 'hide', 'poisonBlade', 'powerStrike'].includes(id)), bar.join(','));
+  check('and no passive', !bar.includes('fleetFoot'));
+  const unarmed = { ...ranger, equipment: {} };
+  check('with empty hands the shots stay off the bar, since they could not fire', !starterBar(unarmed).includes('aimedShot'), starterBar(unarmed).join(','));
+  const warrior = { opening: 'warrior', skills: { swordsmanship: 50, tactics: 50, parrying: 40 }, stats: { str: 65, dex: 50, int: 25, con: 65, wis: 45 },
+    equipment: { mainHand: { base: 'longsword' } }, pack: { slots: 2, items: [null, null] } };
+  const wbar = starterBar(warrior);
+  check('a warrior with a sword gets Power Strike and none of the archer\'s', wbar.includes('powerStrike') && !wbar.includes('aimedShot'), wbar.join(','));
+  const blank = { opening: 'blank', skills: {}, stats: {}, equipment: {}, pack: { slots: 1, items: [null] } };
+  check('the Blank opening starts with nothing but Bandage, if that: jump, sprint, meditate and camp are keys, not a class', starterBar(blank).every((id) => id === 'bandage'), starterBar(blank).join(','));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -1,4 +1,4 @@
-import {MONSTER_HEALTH_FACTOR} from './combat_pace.js';
+import {MONSTER_HEALTH_FACTOR, MONSTER_DAMAGE_FACTOR} from './combat_pace.js';
 // Monsters: every row of `docs/mmo/05-WORLD-CONTENT.md`, where they live, and
 // the rules that turn a place and a clock into a spawn. Pure data and pure
 // functions: no THREE, no DOM, no imports. Every roll takes an `rng` so a
@@ -122,6 +122,7 @@ export const NOTE_TAG_MEANING = {
   flying: 'stays in the air; monster_ai.isFlyer holds it at hoverHeight and it comes down to swing',
   erratic: 'does not fly a straight line at you; the approach wanders',
   night: 'commoner after dusk, still present by day',
+  dummy: 'a training body: it stands still, strikes nobody, rights itself when knocked down, and teaches a weapon only up to TRAINING_CAP (game/monsters.js spawn and standBackUp, combat.js teach, monster_models.js still shapes)',
   nightOnly: 'never spawns in daylight above ground',
   snowOnly: 'only in snow, mountain or crater habitats',
   fenOnly: 'only in the fen',
@@ -219,7 +220,13 @@ export const NOTE_TAGS = new Set(Object.keys(NOTE_TAG_MEANING));
 // at 20%" despite being undead.
 const rows = [];
 // More frequent player attacks are balanced with health, preserving enemy telegraphs.
-const M = (r) => { const tuned={...r,baseHp:r.hp,hp:r.tier>0?Math.round(r.hp*MONSTER_HEALTH_FACTOR):r.hp};rows.push(tuned);return tuned; };
+const M = (r) => {
+  const tuned = { ...r, baseHp: r.hp, hp: r.tier > 0 ? Math.round(r.hp * MONSTER_HEALTH_FACTOR) : r.hp };
+  // and the blow, the same way: the row keeps its written numbers in baseDamage
+  tuned.baseDamage = r.damage;
+  tuned.damage = r.tier > 0 && Array.isArray(r.damage) ? r.damage.map((v) => Math.round(v * MONSTER_DAMAGE_FACTOR)) : r.damage;
+  rows.push(tuned); return tuned;
+};
 
 // --- Tier 0, critters. "Never attack first. Flee at any damage. No gold.
 // Rabbit, squirrel, deer, gull, frog, crow, field mouse. 1 to 8 health. Drop
@@ -280,6 +287,14 @@ M({ id: 'skeletonWarrior', name: 'Skeleton Warrior', tier: 2, hp: 60, damage: [8
 M({ id: 'goblinWarrior', name: 'Goblin Warrior', tier: 2, hp: 48, damage: [7, 12], speed: 2.6, hit: 38, def: 30, ar: 12, run: 6, aggro: 12,
   kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['group', 'sharesAggro'],
   lootTable: ['shortsword', 'buckler', 'hide'] });
+// --- the training yard on the Starting Island. Bodies, not monsters: they
+// never move, never swing, never die and never drop a thing. Tier 1 so they
+// have a shape, a plate and a def to roll against; temperament critter for the
+// aggro band of 0 (game/monsters.js skips the critter bolt for a `dummy`).
+M({ id: 'trainingDummy', name: 'Training Dummy', tier: 1, hp: 40, damage: [0, 0], speed: 2.0, hit: 10, def: 20, ar: 0, run: 0, aggro: 0,
+  kind: 'construct', temperament: 'critter', flees: 'never', group: [1, 1], notes: ['dummy', 'immunePoison'], lootTable: ['reagent'] });
+M({ id: 'archeryTarget', name: 'Archery Target', tier: 1, hp: 40, damage: [0, 0], speed: 2.0, hit: 10, def: 20, ar: 0, run: 0, aggro: 0,
+  kind: 'construct', temperament: 'critter', flees: 'never', group: [1, 1], notes: ['dummy', 'immunePoison'], lootTable: ['reagent'] });
 M({ id: 'bandit', name: 'Bandit', tier: 2, hp: 55, damage: [8, 14], speed: 2.7, hit: 42, def: 38, ar: 14, run: 6, aggro: 14,
   kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['coinPurse', 'group', 'sharesAggro'],
   lootTable: ['dagger', 'rapier', 'boots', 'ring'] });
@@ -844,7 +859,8 @@ for (const r of rows) if (!r.gold) r.gold = TIERS[r.tier].gold.slice();
 
 export const MONSTER_LIST = rows;
 export const MONSTERS = Object.fromEntries(rows.map((m) => [m.id, m]));
-for (const m of rows) DOC_REFS.monsters[m.id] = m.name.replace(/^the /, '');
+// the training yard's two bodies are in no document: they are furniture that takes a hit
+for (const m of rows) if (!m.notes.includes('dummy')) DOC_REFS.monsters[m.id] = m.name.replace(/^the /, '');
 
 export const BOSSES = rows.filter((m) => m.boss);
 /**
@@ -1264,7 +1280,7 @@ export function spawnRollFor(place, isNight, rng = Math.random) {
 // and every row in the table has to sit inside its tier's band. The rows the
 // document wrote are the ones without a `wave`, so this cannot drift as more
 // waves are added: wave A's rows are measured against the document for ever.
-const documented = rows.filter((m) => !m.wave && !m.boss);
+const documented = rows.filter((m) => !m.wave && !m.boss && !m.notes.includes('dummy'));
 const bandOf = (pick) => {
   const out = {};
   for (const m of documented) {
@@ -1327,9 +1343,10 @@ export function auditMonsters() {
       const dLo = TIER_DAMAGE_MIN_BAND[m.tier];
       const dHi = TIER_DAMAGE_MAX_BAND[m.tier];
       const exempt = m.notes.includes('huge');
+      const still = m.notes.includes('dummy');   // a training body hits for nothing, by design
       if (hpBand && !exempt && (m.hp < Math.max(1, hpBand[0]) || m.hp > hpBand[1])) bad.push(`${at2}: hp ${m.hp} outside the tier ${m.tier} band [${Math.max(1, hpBand[0])}, ${hpBand[1]}]`);
-      if (dLo && (m.damage[0] < dLo[0] || m.damage[0] > dLo[1])) bad.push(`${at2}: low damage ${m.damage[0]} outside the tier ${m.tier} band [${dLo[0]}, ${dLo[1]}]`);
-      if (dHi && (m.damage[1] < dHi[0] || m.damage[1] > dHi[1])) bad.push(`${at2}: high damage ${m.damage[1]} outside the tier ${m.tier} band [${dHi[0]}, ${dHi[1]}]`);
+      if (dLo && !still && (m.damage[0] < dLo[0] || m.damage[0] > dLo[1])) bad.push(`${at2}: low damage ${m.damage[0]} outside the tier ${m.tier} band [${dLo[0]}, ${dLo[1]}]`);
+      if (dHi && !still && (m.damage[1] < dHi[0] || m.damage[1] > dHi[1])) bad.push(`${at2}: high damage ${m.damage[1]} outside the tier ${m.tier} band [${dHi[0]}, ${dHi[1]}]`);
       if (exempt && m.tier !== 0) bad.push(`${at2}: only a tier 0 row may be huge`);
     }
 
@@ -1441,6 +1458,7 @@ export function auditMonsters() {
   ]);
   for (const m of MONSTER_LIST) {
     if (m.tier === 0 && !placed.has(m.id)) continue;   // critters are placed by src/world/fauna.js as well
+    if (m.notes.includes('dummy')) continue;             // a training body stands where a space file puts it (island_training)
     if (!placed.has(m.id)) bad.push(`monster ${m.id} lives nowhere`);
   }
   // No em dash anywhere in the prose of this table.

@@ -75,6 +75,11 @@ export const HIT_MIN = 0.10;
 export const HIT_MAX = 0.95;
 export const TACTICS_TO_HIT = 0.25;
 
+// DEX in the defence roll. It was 0.4, and 73 DEX alone was worth more defence
+// than 50 points of Parrying, so a tier 2 bandit (hit 42) landed on a mid
+// character about one swing in four; measured 2026-09-08, a wolf took 13
+// health in twenty seconds off 157. DEX still dodges below.
+export const DEFENCE_PER_DEX = 0.2;
 export const DODGE_PER_DEX = 0.002;
 export const DODGE_CAP = 0.40;
 export const PARRY_PER_SKILL = 0.004;
@@ -192,9 +197,9 @@ export function attackSkill(f) {
   return weaponSkillOf(f) + skill(f, 'tactics') * TACTICS_TO_HIT + bonus(f, 'hit') - exhausted;
 }
 
-/** weaponSkill * 0.5 + Parrying * 0.5 + DEX * 0.4 + defenceBonus. */
+/** weaponSkill * 0.5 + Parrying * 0.5 + DEX * 0.2 + defenceBonus. */
 export function defenceSkill(f) {
-  return weaponSkillOf(f) * 0.5 + skill(f, 'parrying') * 0.5 + stat(f, 'dex') * 0.4 + bonus(f, 'defence');
+  return weaponSkillOf(f) * 0.5 + skill(f, 'parrying') * 0.5 + stat(f, 'dex') * DEFENCE_PER_DEX + bonus(f, 'defence');
 }
 
 /** clamp(0.50 + (attack - defence) * 0.005, 0.10, 0.95). Two equals hit half. */

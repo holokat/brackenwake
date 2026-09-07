@@ -75,8 +75,8 @@ function fighter(over = {}) {
   };
 }
 // Two fighters with identical arithmetic on both sides of the hit formula:
-// attack 60 + 40*0.25 = 70, defence 60*0.5 + 40*0.5 + 50*0.4 = 70.
-const equal = () => fighter({ stats: { str: 50, dex: 50, con: 50 }, skills: { swordsmanship: 60, tactics: 40, parrying: 40 } });
+// attack 60 + 40*0.25 = 70, defence 60*0.5 + 40*0.5 + 100*0.2 = 70.
+const equal = () => fighter({ stats: { str: 50, dex: 100, con: 50 }, skills: { swordsmanship: 60, tactics: 40, parrying: 40 } });
 
 // The Warrior opening of 04-CLASSES-ABILITIES, in the leather set of 03, at the
 // 140 health the requirement names.
@@ -131,8 +131,8 @@ console.log('\nhit, dodge, parry');
   check('two equals compute 0.500 on paper', near(hitChance(a, d), 0.5), `attack ${attackSkill(a)}, defence ${defenceSkill(d)}, hit ${hitChance(a, d)}`);
 
   // 50 skill points of difference move the chance by 25 points, both ways.
-  const stronger = fighter({ stats: { dex: 50 }, skills: { swordsmanship: 60, tactics: 40, parrying: 40 }, bonuses: { hit: 50 } });
-  const tougher = fighter({ stats: { dex: 50 }, skills: { swordsmanship: 60, tactics: 40, parrying: 40 }, bonuses: { defence: 50 } });
+  const stronger = fighter({ stats: { dex: 100 }, skills: { swordsmanship: 60, tactics: 40, parrying: 40 }, bonuses: { hit: 50 } });
+  const tougher = fighter({ stats: { dex: 100 }, skills: { swordsmanship: 60, tactics: 40, parrying: 40 }, bonuses: { defence: 50 } });
   check('+50 skill points moves 0.50 to 0.75', near(hitChance(stronger, d), 0.75), `${hitChance(stronger, d)}`);
   check('-50 skill points moves 0.50 to 0.25', near(hitChance(a, tougher), 0.25), `${hitChance(a, tougher)}`);
 
@@ -175,15 +175,15 @@ console.log('\ntwenty thousand swings between equals');
   const rate = hits / N;
   console.log(`  ..   ${N} swings: ${hits} hits, ${dodges} dodges, ${parries} parries, ${landed} landed, ${crits} crits, ${dmg} damage`);
   check('two equal fighters hit 50% within 1 point', Math.abs(rate - 0.5) < 0.01, `measured ${(rate * 100).toFixed(2)}%, off by ${((rate - 0.5) * 100).toFixed(2)} points`);
-  check('the dodge rate matches DEX 50 (0.10) within 1 point', Math.abs(dodges / hits - 0.10) < 0.01, `measured ${(dodges / hits * 100).toFixed(2)}% of hits`);
+  check('the dodge rate matches DEX 100 (0.20) within 1 point', Math.abs(dodges / hits - 0.20) < 0.01, `measured ${(dodges / hits * 100).toFixed(2)}% of hits`);
   check('no parries without a shield', parries === 0, `${parries} in ${N} swings`);
   check('the crit rate matches the 5% base within 1 point', Math.abs(crits / landed - 0.05) < 0.01, `measured ${(crits / landed * 100).toFixed(2)}% of landed hits`);
 }
 console.log('\ntwenty thousand swings, fifty points apart');
 {
   const a = equal();
-  const weak = fighter({ stats: { dex: 50 }, skills: { swordsmanship: 60, tactics: 40, parrying: 40 }, bonuses: { defence: 50 } });
-  const strong = fighter({ stats: { dex: 50 }, skills: { swordsmanship: 60, tactics: 40, parrying: 40 }, bonuses: { defence: -50 } });
+  const weak = fighter({ stats: { dex: 100 }, skills: { swordsmanship: 60, tactics: 40, parrying: 40 }, bonuses: { defence: 50 } });
+  const strong = fighter({ stats: { dex: 100 }, skills: { swordsmanship: 60, tactics: 40, parrying: 40 }, bonuses: { defence: -50 } });
   const run = (att, def) => {
     const rng = mulberry32(77);
     let h = 0; for (let i = 0; i < 20000; i++) if (resolveMelee({ attacker: att, defender: def, now: 0, rng }).hit) h++;

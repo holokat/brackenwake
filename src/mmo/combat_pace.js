@@ -13,3 +13,14 @@ const CASTS = Object.freeze({
 });
 export function pacedCastTime(id,seconds){return CASTS[id]===undefined?seconds:Math.min(seconds,CASTS[id]);}
 export const PACED_CASTS=CASTS;
+
+/**
+ * Monster damage over the written rows, tier 1 and up. The rows were written
+ * against a 100 health character with no armour factor; measured 2026-09-08,
+ * a bandit landed about 7 a hit on a 157 health character in leather and a
+ * wolf took 13 health in twenty seconds, less than the character's own
+ * regeneration. Health already carries MONSTER_HEALTH_FACTOR so a fight lasts;
+ * this is the other half, so it also costs something. Tier 0 critters keep
+ * their zeros.
+ */
+export const MONSTER_DAMAGE_FACTOR = 1.6;

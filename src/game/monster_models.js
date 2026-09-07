@@ -57,6 +57,7 @@ import {buildStudioCaster} from './studio/hostile-casters.js';
 import * as THREE from 'three';
 import { MONSTERS, MONSTER_LIST } from '../mmo/monsters.js';
 import { buildGlbRig } from './rig_glb.js';
+import { buildTrainingDummy, buildArcheryTarget } from './training_models.js';
 import { isLoaded, MODEL_IDS } from './models.js';
 import { countTriangles as countTris, disposeModel as freeModel } from './weapon_models.js';
 
@@ -118,7 +119,7 @@ export const bodyScaleFor = (id) => MONSTER_SCALE[id] ?? 1;
 /** Shoulder height in metres by tier, before a shape stretches or squashes it. */
 export const TIER_HEIGHT = { 0: 0.5, 1: 1.1, 2: 1.5, 3: 1.9, 4: 2.4, 5: 3.2, 6: 4.0 };
 /** Body types with a real height in metres, tier or no tier. */
-export const FAMILY_HEIGHT = { skeleton: 1.8, zombie: 1.8, goblin: 1.35, biped: 1.85, rat: 0.5, spider: 0.8 };
+export const FAMILY_HEIGHT = { dummy: 1.75, target: 1.6, skeleton: 1.8, zombie: 1.8, goblin: 1.35, biped: 1.85, rat: 0.5, spider: 0.8 };
 
 /** Seconds each one-shot animation runs for. `die` is what monsters.js waits on. */
 export const SWING_SECONDS = 0.45;
@@ -172,6 +173,8 @@ export const SHAPE_FOR = {
   // tier 5
   cyclops: 'biped', elderTreant: 'biped', lich: 'skeleton', frostGiant: 'biped',
   hydra: 'wolf', boneDragon: 'flyer',
+  // the training yard: still bodies from training_models.js
+  trainingDummy: 'dummy', archeryTarget: 'target',
   // bosses
   ashenKing: 'skeleton', motherOfSpiders: 'spider', wardenOfTheCut: 'biped', drownedKnight: 'zombie',
 };
@@ -440,7 +443,29 @@ function buildFlyer(colour, s) {
   return { group, parts: { root, torso, head, arms: wings, wings, legs, flying: true }, radius: s * 0.3, height: s * 0.95 };
 }
 
+/**
+ * A body that does not walk: the training yard's dummy and target, built by
+ * training_models.js at their own real size (the tier scale `s` is ignored,
+ * a dummy is dummy sized). `parts.still` tells the poser to leave it alone
+ * except for the knock a hit gives it.
+ */
+function stillBody(build) {
+  return (colour, s) => {
+    const group = new THREE.Group();
+    const root = build({ seed: 7 });
+    group.add(root);
+    const u = root.userData || {};
+    // effects.js's flinch and swing clips write a biped's channels; the torso
+    // is the whole body here (a hit knocks the post) and the rest are groups
+    // in no scene, so a clip has somewhere harmless to write.
+    const inert = () => new THREE.Group();
+    const parts = { root, torso: root, head: inert(), hips: inert(), armL: inert(), armR: inert(), legL: inert(), legR: inert(), legs: [], arms: [], still: true };
+    return { group, parts, radius: u.radius || 0.6, height: u.height || 1.7 };
+  };
+}
+
 const BUILDERS = {
+  dummy: stillBody(buildTrainingDummy), target: stillBody(buildArcheryTarget),
   biped: buildBiped, skeleton: buildSkeleton, goblin: buildGoblin, zombie: buildZombie,
   rat: buildRat, wolf: buildWolf, spider: buildSpider, grub: buildGrub, flyer: buildFlyer,
 };
@@ -448,7 +473,7 @@ const BUILDERS = {
 // --------------------------------------------------------------- the poser
 
 /** Metres of ground per full gait cycle, per shape. Short legs, short stride. */
-const STRIDE = { rat: 0.9, grub: 0.8, spider: 1.1, wolf: 2.0, goblin: 1.0, zombie: 1.1, skeleton: 1.4, biped: 1.6, flyer: 2.0 };
+const STRIDE = { dummy: 1, target: 1, rat: 0.9, grub: 0.8, spider: 1.1, wolf: 2.0, goblin: 1.0, zombie: 1.1, skeleton: 1.4, biped: 1.6, flyer: 2.0 };
 
 /**
  * One monster's body, and everything that moves it.
@@ -499,6 +524,13 @@ export function buildBoxMonster(id) {
 
   function pose() {
     const { root, legs, arms, torso, head } = parts;
+    if (parts.still) {
+      // a hit knocks it and it settles; nothing else moves it, ever
+      const hurt = state.oneShot === 'hurt' ? 1 - clamp(state.oneShotT / HURT_SECONDS, 0, 1) : 0;
+      root.rotation.x = Math.sin(state.t * 28) * 0.06 * hurt;
+      root.rotation.z = Math.cos(state.t * 23) * 0.04 * hurt;
+      return;
+    }
     const dead = state.anim === 'die';
     if (dead) {
       const p = clamp(state.dieT / DIE_SECONDS, 0, 1);

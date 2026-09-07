@@ -1089,10 +1089,17 @@ export function createForageField(sc, opts = {}) {
     const sample = field.sampleAt(cx * CHUNK + CHUNK / 2, cz * CHUNK + CHUNK / 2);
     const trees = treesFor ? (treesFor(cx, cz) || []) : [];
     if (!trees.length) stats.treeless++;
-    // a sculpt world grows nothing to pick on its own (ED3): the blank canvas
-    const placed = field.sculpt ? authoredForage(field, cx, cz, season, Object.fromEntries(FORAGE.map(f => [f.id, f])), opts.spaces, treesFor) : placeForage(sample, cx, cz, trees, season, seed, {
+    // A sculpt world grows nothing to pick on its own (ED3): the blank canvas
+    // shows only what its space files place by hand. Unless its header says
+    // `wild`, the same word that lets monsters and fauna roll on it: then the
+    // ground grows its own as well, on top of anything authored. The Starting
+    // Island shipped with `wild: true`, 23 spaces and no forage rows, and a
+    // player walked nine chunks of it and found nothing to pick (2026-09-08).
+    const authored = field.sculpt ? authoredForage(field, cx, cz, season, Object.fromEntries(FORAGE.map(f => [f.id, f])), opts.spaces, treesFor) : [];
+    const wild = !field.sculpt || field.sculpt.wild ? placeForage(sample, cx, cz, trees, season, seed, {
       abundance: opts.abundance, scale: opts.scale, heightAt,
-    });
+    }) : [];
+    const placed = authored.concat(wild);
     const g = new THREE.Group();
     g.name = `forage:${key}`;
     const entry = { key, cx, cz, group: g, meshes: new Map(), recs: [] };

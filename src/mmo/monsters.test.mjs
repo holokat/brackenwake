@@ -140,7 +140,8 @@ check('every monster above tier 0 lives somewhere', (() => {
     ...Object.values(HABITAT).flatMap((h) => [...h.day, ...h.night]),
     ...Object.values(HABITAT_BY_PLACE).flatMap((h) => [...h.day, ...h.night]),
   ]);
-  return MONSTER_LIST.filter((m) => m.tier > 0).every((m) => placed.has(m.id));
+  // the two training bodies stand where island_training.json puts them, and in no habitat
+  return MONSTER_LIST.filter((m) => m.tier > 0 && !m.notes.includes('dummy')).every((m) => placed.has(m.id));
 })());
 
 // --- spawnRollFor ---------------------------------------------------------
@@ -221,7 +222,7 @@ check('no em dash anywhere in this table', !JSON.stringify(MONSTER_LIST).include
 console.log('\nmonsters.js: wave A, the roster of the nine realms');
 
 const waveA = MONSTER_LIST.filter((m) => m.wave === 'M2');
-const doc48 = MONSTER_LIST.filter((m) => !m.wave);
+const doc48 = MONSTER_LIST.filter((m) => !m.wave && !m.notes.includes('dummy'));
 check('the document\'s rows are all still here, and untouched in number', doc48.length === 48,
   `${doc48.length} documented rows, ${waveA.length} added by wave A, ${MONSTER_LIST.length} in all`);
 check('wave A is forty rows and twelve bosses',
@@ -512,6 +513,18 @@ check('every one of them is a new id', new Set(MONSTER_LIST.map((m) => m.id)).si
   check('every tag added this wave has its rule written into docs/mmo/wiring/M2.md',
     unwired.length === 0, unwired.join(', ') || `${newTags.length} tags`);
 }
+
+
+// --- the training yard's two bodies ----------------------------------------
+console.log('\nmonsters: the training dummy and the archery target are bodies, not monsters');
+for (const id of ['trainingDummy', 'archeryTarget']) {
+  const m = MONSTERS[id];
+  check(`${id} is a tier 1 row that hits for nothing`, !!m && m.tier === 1 && m.damage[0] === 0 && m.damage[1] === 0, JSON.stringify(m && m.damage));
+  check(`${id} never aggroes, never runs and never flees`, m.aggro === 0 && m.run === 0 && m.flees === 'never' && m.temperament === 'critter');
+  check(`${id} carries the dummy tag the game reads`, m.notes.includes('dummy'));
+  check(`${id} has a def to roll against, inside the tier band`, m.def === 20 && m.def <= TIERS[1].band[1]);
+}
+check('the training bodies do not stretch the tier 1 damage band', TIER_DAMAGE_MIN_BAND[1][0] > 0, JSON.stringify(TIER_DAMAGE_MIN_BAND[1]));
 
 console.log(`\n  ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

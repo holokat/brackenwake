@@ -689,12 +689,19 @@ export function recompute(actor) {
  * rules' job and not this one's. Returns what was actually gained, so a caller
  * can show it.
  */
+/** Health regeneration in a fight, as a fraction of the base rate (out of one it is 2). */
+export const IN_COMBAT_REGEN = 0.25;
+
 export function tickPools(actor, dt, inCombat = false) {
   const none = { health: 0, mana: 0, stamina: 0 };
   if (!actor || !isNum(dt) || dt <= 0) return none;
   if (num(actor.health) <= 0) return none;
   const before = { health: num(actor.health), mana: num(actor.mana), stamina: num(actor.stamina) };
-  const hMul = inCombat ? 1 : 2;
+  // In a fight the body barely knits: a quarter of the base rate. Out of one it
+  // heals at double. Before 2026-09-08 the fight rate was the base rate, and a
+  // CON 52 character regrew 1.4 a second while a wolf landed about 0.7 a
+  // second on him, so nothing on the island could wear him down.
+  const hMul = inCombat ? IN_COMBAT_REGEN : 2;
   actor.health = Math.min(num(actor.maxHealth), before.health + num(actor.healthRegen) * hMul * dt);
   actor.mana = Math.min(num(actor.maxMana), before.mana + num(actor.manaRegen) * dt);
   actor.stamina = Math.min(num(actor.maxStamina), before.stamina + num(actor.staminaRegen) * dt);

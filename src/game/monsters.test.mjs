@@ -764,7 +764,8 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
 // ================================================== the natural weapon and reach
 {
   const w = naturalWeapon(MONSTERS.giantRat);
-  check('a giant rat swings 2 to 5 every 2.0 s, which is its own row', w.minDamage === 2 && w.maxDamage === 5 && w.speed === 2.0);
+  // the row is written 2 to 5 and carries MONSTER_DAMAGE_FACTOR (combat_pace.js) on the way in
+  check('a giant rat swings its own row, 2 to 5 scaled by the damage factor, every 2.0 s', w.minDamage === MONSTERS.giantRat.damage[0] && w.maxDamage === MONSTERS.giantRat.damage[1] && MONSTERS.giantRat.baseDamage[0] === 2 && MONSTERS.giantRat.baseDamage[1] === 5 && w.speed === 2.0, JSON.stringify(MONSTERS.giantRat.damage));
   const ogre = naturalWeapon(MONSTERS.ogre);
   check('and an ogre reaches further than a rat', ogre.reach > w.reach, `${ogre.reach} against ${w.reach}`);
 }
@@ -900,11 +901,11 @@ function seedWith(layout, id, max = 3000) {
   check('every row that attacks at range does it through a mode the table knows', ranged.length >= 8 && ranged.every((id) => ['thrown', 'shot', 'cast', 'breath'].includes(attackModeOf(MONSTERS[id]))), `${ranged.length} rows: ${ranged.join(', ')}`);
 
   const cultist = spellFor(MONSTERS.cultist);
-  check('a cultist throws a fireball for its own 8 to 14',
-    cultist.damageType === 'fire' && cultist.base[0] === 8 && cultist.base[1] === 14, JSON.stringify(cultist.base));
+  check('a cultist throws a fireball for its own 8 to 14, scaled by the damage factor',
+    cultist.damageType === 'fire' && cultist.base[0] === MONSTERS.cultist.damage[0] && cultist.base[1] === MONSTERS.cultist.damage[1] && MONSTERS.cultist.baseDamage.join() === '8,14', JSON.stringify(cultist.base));
   const lich = spellFor(MONSTERS.lich);
-  check('a lich throws a bolt of energy for its own 30 to 50',
-    lich.damageType === 'energy' && lich.base[0] === 30 && lich.base[1] === 50, lich.damageType);
+  check('a lich throws a bolt of energy for its own 30 to 50, scaled by the damage factor',
+    lich.damageType === 'energy' && lich.base[0] === MONSTERS.lich.damage[0] && lich.base[1] === MONSTERS.lich.damage[1] && MONSTERS.lich.baseDamage.join() === '30,50', `${lich.damageType} ${JSON.stringify(lich.base)}`);
   const wyvern = spellFor(MONSTERS.wyvern);
   check('a wyvern breathes poison in a 6 m cone',
     wyvern.damageType === 'poison' && wyvern.cone.range === 6, `${wyvern.damageType} ${wyvern.cone?.range} m`);
@@ -916,7 +917,7 @@ function seedWith(layout, id, max = 3000) {
   check('a thrown weapon carries its range as its reach, or the blow is binned in the air',
     w.ranged === true && w.reach === RANGED_FAR, `reach ${w.reach}`);
   check('and keeps the row\'s own skill, damage and speed',
-    w.skill === 'wrestling' && w.minDamage === 3 && w.maxDamage === 7 && w.speed === 2.4);
+    w.skill === 'wrestling' && w.minDamage === MONSTERS.goblinScout.damage[0] && w.maxDamage === MONSTERS.goblinScout.damage[1] && MONSTERS.goblinScout.baseDamage.join() === '3,7' && w.speed === 2.4, JSON.stringify(MONSTERS.goblinScout.damage));
 }
 
 // ================================================================ the cone

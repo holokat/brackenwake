@@ -572,6 +572,31 @@ console.log('\nforage: the live field streams, picks, is harvested and grows bac
 //
 // The bug this measures: a harvested mushroom stayed standing. Two separate
 // causes, both driven here, and both driven the other way as well.
+console.log('\nforage: a sculpt world grows nothing unless its header says wild');
+{
+  // ED3 made a sculpted world a blank canvas: only the space files' forage
+  // rows show. The Starting Island carries `wild: true`, the word monsters and
+  // fauna already roll on, and shipped with no forage rows at all, so a player
+  // found nothing to pick. Wild ground grows its own, on top of the authored.
+  const T = trees(30, 21);
+  const spaces = { s1: { id: 's1', at: { x: 10, z: 10 }, forage: [{ id: 'dandelion', x: 1, z: 1 }, { id: 'nettle', x: 3, z: 2 }] } };
+  const make = (sculpt) => {
+    const world = { seed: 4, sculpt, sampleAt: () => ({ biome: 'meadow', moist: 0.3, h: 0, water: false }), heightAt: () => 0 };
+    const ff = createForageField(new THREE.Scene(), { field: world, season: 'Summer', treesFor: () => T, now: () => 0, spaces });
+    ff.update(0, 0, 'Summer', 0);
+    return ff;
+  };
+  const blank = make({});
+  check('a sculpt world without wild shows only the authored rows', blank.count === 2, `${blank.count} pickables: ${JSON.stringify(blank.tally())}`);
+  const wild = make({ wild: true });
+  check('a wild sculpt world grows its own as well', wild.count > 2, `${wild.count} pickables`);
+  const kinds = Object.keys(wild.tally());
+  check('and the authored rows are still standing among them',
+    wild.records().some((r) => r.authored) && kinds.length > 2, `${kinds.length} kinds: ${kinds.join(', ')}`);
+  const seeded = make(null);
+  check('a seeded world is unchanged by the rule', seeded.count > 2 && !seeded.records().some((r) => r.authored), `${seeded.count} pickables`);
+}
+
 console.log('\nforage: a harvest takes the mushroom out of the world the same frame');
 {
   const scene = new THREE.Scene();

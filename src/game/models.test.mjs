@@ -317,7 +317,8 @@ check('every family maps to a model that exists',
     const uncovered = [...used].filter((f) => !FAMILY_MODEL[f]).sort();
     check('no family in FAMILY_MODEL has stopped being used', dead.length === 0,
       dead.length ? `${dead.join(', ')} is no longer in SHAPE_FOR, retarget or drop it` : `${used.size} families in use`);
-    check('the families with no Blender model yet are known', uncovered.join() === 'grub,wolf',
+    // dummy and target are the training yard's still bodies (training_models.js), never meant for a glb
+    check('the families with no Blender model yet are known', uncovered.join() === 'dummy,grub,target,wolf',
       `${uncovered.join(', ')} still wear the placeholder rig`);
   }
 }

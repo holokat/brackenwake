@@ -73,7 +73,9 @@ export const SCAN_MS = 400;          // between spawn sweeps
 export const RIVER_MAX = 0.15;       // river strength nothing will stand in
 export const FLEE_BREAK_M = 14;      // a fleeing thing that gets this far away calms down (25 until 2026-09-08, see combat_rules FLEE_THRESHOLD)
 export const RETURN_HEAL_S = 6;      // "flee below 25% health and return healed": full in six seconds
-export const IDLE_SPEED = 0.35;      // fraction of run speed while wandering
+export const IDLE_SPEED = 0.35;
+/** A training body teaches a weapon skill up to this and no further (combat.js teach reads it off the actor). */
+export const TRAINING_CAP = 35;      // fraction of run speed while wandering
 export const FLEE_SPEED = 1.1;       // a bolting thing is quicker than a charging one
 /**
  * A world animal (temperament `critter`, aggro 0) bolts when you come this
@@ -520,6 +522,8 @@ export function stepMonster(m, dt, ctx = {}) {
   const out = { state: ai.state, moved: 0, wantSwing: false, wantCast: false, melee: false, dist: Infinity, altitude: 0 };
 
   if (num(m.health) <= 0) { ai.state = out.state = 'dead'; return out; }
+  // a training body does nothing at all, whoever is standing where
+  if (m.still) { ai.state = out.state = 'idle'; ai.target = null; return out; }
   const player = ctx.player && num(ctx.player.health) > 0 ? ctx.player : null;
   const home = ai.home || (ai.home = { x: num(m.pos.x), z: num(m.pos.z) });
   const speed = speedOf(m, now);
@@ -924,6 +928,8 @@ export function createMonsters(sc, runtime, opts = {}) {
     if (actor.ai.leash == null) actor.ai.leash = row.aggro * 2.5;
     actor.ai.state = 'idle';
     actor.ai.target = null;
+    // a training body: still, harmless, and a teacher only up to the cap
+    if (row.notes.includes('dummy')) { actor.still = true; actor.trainsTo = TRAINING_CAP; }
     actor.radius = model.radius;
     actor.model = model.group;
 
@@ -1537,7 +1543,7 @@ export function createMonsters(sc, runtime, opts = {}) {
 
       // A critter bolts from you before you have touched it, and from the
       // dragon too, since a hawk on your shoulder is still a hawk to a rabbit.
-      if (mon.row.temperament === 'critter' && a.ai.state !== 'flee' && a.ai.state !== 'dead' && num(a.health) > 0) {
+      if (mon.row.temperament === 'critter' && !a.still && a.ai.state !== 'flee' && a.ai.state !== 'dead' && num(a.health) > 0) {
         const threats = [playerActor, ...(typeof opts.allies === 'function' ? (opts.allies() || []) : [])];
         const near = threats.find((t) => t && num(t.health) > 0 && dist2D(a.pos, t.pos) <= SPOOK_M);
         if (near) { a.ai.state = 'flee'; a.ai.fleeFrom = near; a.ai.target = null; }
@@ -2385,8 +2391,25 @@ export function createMonsters(sc, runtime, opts = {}) {
   // combat is the only thing that decides a monster is dead; this is how we
   // hear about it, so there is exactly one death rule in the game
   const offDeath = combat?.onDeath ? combat.onDeath((actor, killer) => {
-    for (const mon of live.values()) if (mon.actor === actor) { died(mon, killer); return; }
+    for (const mon of live.values()) if (mon.actor === actor) { if (actor.still) standBackUp(mon); else died(mon, killer); return; }
   }) : null;
+
+  /**
+   * A training body knocked flat rights itself: no corpse, no loot, no kill,
+   * no respawn timer. combat.kill has already zeroed it and flagged it dead,
+   * and the model was never told to die, so this is the whole of coming back.
+   */
+  function standBackUp(mon) {
+    const a = mon.actor;
+    a.dead = false;
+    a.health = num(a.maxHealth) || 1;
+    a.anim = 'idle';
+    a.status = {};
+    if (a.ai) { a.ai.state = 'idle'; a.ai.target = null; }
+    mon.model.setAnim?.('idle');
+    stats.righted = (stats.righted || 0) + 1;
+    say(`The ${mon.name.toLowerCase()} rocks on its post and rights itself.`);
+  }
 
   // -- what the cursor and the abilities ask ---------------------------------
 
@@ -2654,6 +2677,7 @@ export function createMonsters(sc, runtime, opts = {}) {
 export const TAG_RULES = {
   // --- where and when it lives
   flying: ['monsters.js', 'isFlyer puts it at hoverHeight and stepMonster brings it down to swing'],
+  dummy: ['monsters.js', 'spawn sets still and trainsTo; stepMonster does nothing for a still body; the critter bolt skips it; standBackUp rights it instead of died; combat.teach refuses lessons past trainsTo; monster_models builds it still'],
   erratic: ['unwired', 'the approach is a straight line for everything; nothing wanders it'],
   night: ['roster', 'spawnRollFor reads the day and the night list'],
   nightOnly: ['roster', 'it is only written into night lists'],

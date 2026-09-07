@@ -696,6 +696,9 @@ export function createEffects(sc, opts = {}) {
    * this function exists at all.
    */
   function resetOwned(parts) {
+    // A rig that is not a biped (a still training body, a shape with no head)
+    // owns none of these channels; the clip does its own guarding below.
+    if (!parts || !parts.hips || !parts.torso || !parts.head) return;
     parts.hips.rotation.x = 0;
     parts.hips.rotation.y = 0;
     parts.torso.rotation.y = 0;

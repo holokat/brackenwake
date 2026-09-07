@@ -413,6 +413,7 @@ import sp_island_pond from './island_pond.json' with { type: 'json' };
 import sp_island_quay from './island_quay.json' with { type: 'json' };
 import sp_island_tarn from './island_tarn.json' with { type: 'json' };
 import sp_island_town from './island_town.json' with { type: 'json' };
+import sp_island_training from './island_training.json' with { type: 'json' };
 import sp_island_westfield from './island_westfield.json' with { type: 'json' };
 import sp_island_wood_1 from './island_wood_1.json' with { type: 'json' };
 import sp_island_wood_2 from './island_wood_2.json' with { type: 'json' };
@@ -829,6 +830,7 @@ export const FILES = {
   'island_quay': sp_island_quay,
   'island_tarn': sp_island_tarn,
   'island_town': sp_island_town,
+  'island_training': sp_island_training,
   'island_westfield': sp_island_westfield,
   'island_wood_1': sp_island_wood_1,
   'island_wood_2': sp_island_wood_2,

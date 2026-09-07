@@ -1,0 +1,149 @@
+{
+  "id": "island_training",
+  "name": "The Training Yard",
+  "note": "A fenced yard on the lane east out of Haven where a newcomer learns a weapon on straw before trying it on a bandit. Three dummies along the north rail, two straw targets against the hay ricks at the south end, racks of blunt iron either side.",
+  "at": {
+    "x": 118,
+    "z": 240
+  },
+  "radius": 24,
+  "pieces": [
+    {
+      "model": "weapons_rack",
+      "x": -12,
+      "z": 8,
+      "yaw": 90
+    },
+    {
+      "model": "spear_rack",
+      "x": 12,
+      "z": 8,
+      "yaw": -90
+    },
+    {
+      "model": "hay_rick",
+      "x": -4,
+      "z": -15,
+      "yaw": 0
+    },
+    {
+      "model": "hay_rick",
+      "x": 4,
+      "z": -15,
+      "yaw": 0
+    },
+    {
+      "model": "barrel",
+      "x": 12.5,
+      "z": -10,
+      "yaw": 20
+    },
+    {
+      "model": "crate",
+      "x": 12.5,
+      "z": -7.5,
+      "yaw": 0
+    },
+    {
+      "model": "lamp_post_iron",
+      "x": 0,
+      "z": 15,
+      "yaw": 0
+    },
+    {
+      "model": "fingerpost",
+      "x": -15,
+      "z": 0,
+      "yaw": 90
+    }
+  ],
+  "runs": [
+    {
+      "model": "fence_rail_3m",
+      "from": {
+        "x": -14,
+        "z": -17
+      },
+      "to": {
+        "x": -14,
+        "z": 14
+      }
+    },
+    {
+      "model": "fence_rail_3m",
+      "from": {
+        "x": -14,
+        "z": 14
+      },
+      "to": {
+        "x": 14,
+        "z": 14
+      }
+    },
+    {
+      "model": "fence_rail_3m",
+      "from": {
+        "x": 14,
+        "z": 14
+      },
+      "to": {
+        "x": 14,
+        "z": -17
+      }
+    },
+    {
+      "model": "fence_rail_3m",
+      "from": {
+        "x": 14,
+        "z": -17
+      },
+      "to": {
+        "x": 6,
+        "z": -17
+      }
+    },
+    {
+      "model": "fence_rail_3m",
+      "from": {
+        "x": -6,
+        "z": -17
+      },
+      "to": {
+        "x": -14,
+        "z": -17
+      }
+    }
+  ],
+  "areas": [],
+  "people": [],
+  "spawns": [
+    {
+      "id": "trainingDummy",
+      "x": -5,
+      "z": 8
+    },
+    {
+      "id": "trainingDummy",
+      "x": 0,
+      "z": 8
+    },
+    {
+      "id": "trainingDummy",
+      "x": 5,
+      "z": 8
+    },
+    {
+      "id": "archeryTarget",
+      "x": -3,
+      "z": -12
+    },
+    {
+      "id": "archeryTarget",
+      "x": 3,
+      "z": -12
+    }
+  ],
+  "trees": [],
+  "rocks": [],
+  "markers": []
+}

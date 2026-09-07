@@ -21,6 +21,7 @@
 // because they clicked the sky.
 
 import { GOODS } from '../farm/catalog.js';
+import { SKILL_BY_ID } from '../mmo/skills.js';
 
 /**
  * What each tool does to something alive.
@@ -675,12 +676,24 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
    * that produced it, so a monster's swing teaches the player's Parrying and
    * raises the player's CON without either side needing to know which is which.
    */
+  const capSaid = new Set();
   function teach(lessons, attacker, defender) {
     if (!progression || !Array.isArray(lessons)) return 0;
     let taught = 0;
     for (const l of lessons) {
       const who = l.who === 'defender' ? defender : attacker;
       if (!isPlayer(who)) continue;
+      // A training body (monsters.js sets `trainsTo`) teaches a weapon only
+      // so far. Past the cap the swing still lands and the lesson is refused,
+      // said once per skill so the player knows to find a real fight.
+      if (l.skill && who === attacker && defender && defender.trainsTo != null && num(who.skills?.[l.skill]) >= num(defender.trainsTo)) {
+        const k = `${defender.id ?? 'dummy'}:${l.skill}`;
+        if (!capSaid.has(k)) {
+          capSaid.add(k);
+          say(`The ${String(defender.name || 'dummy').toLowerCase()} has taught you what it can of ${SKILL_BY_ID.get(l.skill)?.name || l.skill}. Past ${defender.trainsTo} it takes a real fight.`, 'ability');
+        }
+        continue;
+      }
       if (l.kind === 'stat' && l.stat) { progression.statLesson?.(who, l.stat, l.difficulty, l.success); taught++; }
       else if (l.skill) { progression.lesson?.(who, l.skill, l.difficulty, l.success); taught++; }
     }
