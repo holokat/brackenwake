@@ -53,6 +53,11 @@ export const ui = {
       character, actor, inventory: bag.inventory, state, hud, audio, floaters, runtime, player: rig,
       sc, camera, combat: fight.combat, monsters: fight.monsters, loot: fight.loot,
       windows: null,
+      // The editor reads keys off the document in the capture phase and has to
+      // be able to take a press back out of the frame: an Escape that let go of
+      // a half drawn ridge must not ALSO be read by windows.js as "close the
+      // editor". `input.swallow` is the one call it makes.
+      input,
       recompute: (who) => recompute(who || actor),
       onBarChange: () => { /* hud.update reads character.bar through barView every frame */ },
       onSkillLock: () => state.touch('skills'),

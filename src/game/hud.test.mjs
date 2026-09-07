@@ -1114,5 +1114,41 @@ console.log('hud: the top centre column');
     hud.compassSlot?.parent?.children.map((c) => c.id).join(','));
 }
 
+// --- the two things the HUD can be (ED4) -------------------------------------
+//
+// The world editor takes the whole screen, so entering it puts the gameplay HUD
+// away and leaving it puts the HUD back. "Back" has to mean back: this snapshots
+// the display of every child of the HUD root, switches both ways, and compares
+// the snapshots. A restore that is nearly right is the kind of bug a player
+// finds three sessions later with a missing health bar.
+console.log('hud: editor mode puts the HUD away and gives it back');
+{
+  const shot = () => [...root.children].map((c) => `${c.id}:${c.style.display || ''}`).join('|');
+  const before = shot();
+  // one widget hidden for its own reasons, so the restore is not just "show
+  // all". It has to be a CHILD of the root, which is the level setMode works at.
+  const target = find(root, (n) => n.id === 'bw-hint');
+  target.style.display = 'none';
+  const withHidden = shot();
+  ck('the HUD starts in play mode', hud.mode === 'play');
+  const put = hud.setMode('editor');
+  ck('entering the editor puts every child of the HUD root away but the dev badge',
+    [...root.children].every((c) => c.id === 'bw-dev' || c.style.display === 'none')
+    && find(root, (n) => n.id === 'bw-dev').style.display !== 'none'
+    && hud.mode === 'editor',
+    `${put.hidden} put away of ${root.children.length}`);
+  ck('and it says how many it put away, which is every child but the badge',
+    put.hidden === root.children.length - 1, `${put.hidden} of ${root.children.length - 1}`);
+  ck('asking for editor mode twice changes nothing more',
+    hud.setMode('editor').hidden === put.hidden);
+  hud.setMode('play');
+  ck('leaving puts the tree back exactly as it was, hidden widgets included',
+    shot() === withHidden && hud.mode === 'play', `${shot()}\n   want ${withHidden}`);
+  target.style.display = '';
+  ck('and that snapshot really would have caught a difference',
+    shot() === before && before !== withHidden);
+  ck('a second leave is harmless', hud.setMode('play').mode === 'play' && shot() === before);
+}
+
 console.log(`\n${pass} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

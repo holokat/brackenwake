@@ -19,8 +19,17 @@
 // Nothing here needs a renderer, a canvas or a running server.
 
 import { createSpaceDoc, LISTS, TURN_DEG, SCALE_STEP, labelOf, pointOf } from './space_doc.js';
-import { createEditor, SPACE_PATH, SAVE_URL } from './editor.js';
+import {
+  createEditor, SPACE_PATH, SAVE_URL, DRAG_MS, AUTOSAVE_MS,
+  TILE_M, TILE_R, tileIdFor, tileCentre,
+} from './editor.js';
+import { kinds as realKinds } from '../../world/terrain_edits.js';
 import { paletteFor, entryFor, search, TABS, TAB_IDS, BRUSH_IDS, MARKER_KINDS, brushRow, brushRows, brushParam } from './palette.js';
+import {
+  MODES, MODE_IDS, ACTIONS, modeOf, toolsFor, filterTools, auditTools,
+  brushModeOf, shiftTwins, groundColour, auditTints, PROP_HEIGHT, heightOf,
+} from './modes.js';
+import { MARKS, editorIcon, hasMark } from './icons.js';
 import { emptySpace } from '../../mmo/spaces/index.js';
 import { auditSpaces } from '../../mmo/plans/plan_schema.js';
 import { FOOTPRINT } from '../../mmo/plans/footprints.js';
@@ -208,8 +217,10 @@ console.log('\neditor: what it does, through the same calls the buttons make');
   const said = [];
   const ed = createEditor({ hud: { log: (t, k) => said.push([t, k]) } });
 
-  check('placing with nothing open is refused in words',
-    ed.placeAt(0, 0).ok === false && /no space open/.test(ed.lastLine));
+  // ED4: a click no longer needs a space to have been named first. What it
+  // still needs is something on the cursor.
+  check('placing with nothing on the cursor is refused in words, space or no space',
+    ed.placeAt(0, 0).ok === false && /nothing is on the cursor/i.test(ed.lastLine), ed.lastLine);
   const made = ed.newSpace('The Ford Below', 40, { x: 300, z: -200 });
   check('a new space is begun where you are looking, and says it is not saved yet',
     made.ok && ed.space.id === 'the_ford_below' && /not on disk|Nothing is on disk/i.test(made.text), made.text);
@@ -222,8 +233,13 @@ console.log('\neditor: what it does, through the same calls the buttons make');
   const put = ed.placeAt(305, -196);
   check('and a click on the ground puts it down, in the space\'s own frame and the world\'s',
     put.ok && ed.space.pieces[0].x === 5 && ed.space.pieces[0].z === 4 && /305, -196/.test(put.text), put.text);
-  check('placing outside the radius is refused, with how far outside it was',
-    ed.placeAt(300 + 60, -200).ok === false && /m outside/.test(ed.lastLine), ed.lastLine);
+  // ED4: a click outside the open space is NOT refused. It lands in the
+  // automatic space for the 256 m tile it fell in, which is made on the spot.
+  const spilled = ed.placeAt(300 + 60, -200);
+  check('a click outside the open space makes the tile space and lands in it',
+    spilled.ok && spilled.made === true && spilled.space === 'tile_1_-1' && ed.space.id === 'tile_1_-1',
+    spilled.text);
+  ed.useDoc('the_ford_below');
 
   ed.setTab('markers');
   ed.setGhost({ label: 'a mill goes here', note: 'two floors, an undershot wheel', kind: 'structure' });
@@ -777,6 +793,265 @@ console.log('\neditor: the save endpoint refuses everything but its two folders'
 
 
 // ============================================================================
+// ED4: the nine trays, counted against the tables that own the things.
+//
+// `modes.js` decides WHICH tray a row goes in and nothing else: every tile is
+// a `palette.js` row, and palette.js is a view of arbor, FOOTPRINT, the monster
+// roster, fauna, npcs and the story. So the count below is a count of the game
+// and not of the editor, and it is driven both ways: every row lands in a tray,
+// and every tile in a tray came out of a row.
+console.log('\neditor: the nine trays are the palette, split and counted both ways');
+{
+  const rows = brushRows(KINDS);
+  const tray = Object.fromEntries(MODE_IDS.map((m) => [m, toolsFor(m, { kinds: rows })]));
+  const entriesOf = (m) => tray[m].filter((t) => t.what === 'entry');
+  const P = {
+    structures: paletteFor('structures'), trees: paletteFor('trees'), rocks: paletteFor('rocks'),
+    monsters: paletteFor('monsters'), creatures: paletteFor('creatures'),
+    people: paletteFor('people'), markers: paletteFor('markers'),
+  };
+  const tall = P.structures.filter((r) => heightOf(r.id) >= PROP_HEIGHT);
+  const small = P.structures.filter((r) => heightOf(r.id) < PROP_HEIGHT);
+
+  check('there are nine modes and their ids are the nine the sidebar draws',
+    MODE_IDS.join(',') === 'sculpt,paint,foliage,objects,buildings,creatures,people,markers,water', MODE_IDS.join(','));
+  check('every mode has a mark drawn for it, and so does every action',
+    MODES.every((m) => hasMark(m.icon)) && ACTIONS.every((a) => hasMark(a.icon)),
+    MODES.filter((m) => !hasMark(m.icon)).map((m) => m.icon).join(','));
+
+  check('Foliage holds grass and every species arbor grows, and nothing else',
+    entriesOf('foliage').length === P.trees.length
+    && entriesOf('foliage').every((t) => t.tab === 'trees')
+    && tray.foliage.length === P.trees.length + 1 && tray.foliage[0].id === 'grass',
+    `${tray.foliage.length} tiles for ${P.trees.length} species`);
+  check('Objects holds every rock kind and every model under three metres',
+    entriesOf('objects').length === P.rocks.length + small.length,
+    `${entriesOf('objects').length} for ${P.rocks.length} rocks and ${small.length} props`);
+  check('Buildings holds every model three metres and over, and nothing shorter',
+    entriesOf('buildings').length === tall.length
+    && entriesOf('buildings').every((t) => heightOf(t.id) >= PROP_HEIGHT),
+    `${entriesOf('buildings').length} of ${tall.length}`);
+  check('and the two of them are every model in FOOTPRINT, once each, with none lost between them',
+    entriesOf('objects').filter((t) => t.tab === 'structures').length + entriesOf('buildings').length === Object.keys(FOOTPRINT).length
+    && new Set([...entriesOf('objects'), ...entriesOf('buildings')].filter((t) => t.tab === 'structures').map((t) => t.id)).size === Object.keys(FOOTPRINT).length,
+    `${small.length} + ${tall.length} vs ${Object.keys(FOOTPRINT).length} in FOOTPRINT`);
+  check('Creatures holds every monster row and every critter fauna grows',
+    entriesOf('creatures').length === P.monsters.length + P.creatures.length,
+    `${entriesOf('creatures').length} for ${P.monsters.length} monsters and ${P.creatures.length} critters`);
+  check('People holds every role and Markers every kind',
+    entriesOf('people').length === P.people.length && entriesOf('markers').length === P.markers.length,
+    `${entriesOf('people').length} people, ${entriesOf('markers').length} markers`);
+  check('and the other way: every palette row in the game is in exactly one tray',
+    MODE_IDS.reduce((n, m) => n + entriesOf(m).length, 0)
+      === P.structures.length + P.trees.length + P.rocks.length + P.monsters.length + P.creatures.length + P.people.length + P.markers.length,
+    `${MODE_IDS.reduce((n, m) => n + entriesOf(m).length, 0)} tiles`);
+  check('a critter with no monster row is drawn but refused, not quietly dropped',
+    entriesOf('creatures').filter((t) => t.placeable === false).length === P.creatures.filter((r) => !r.placeable).length);
+
+  // ---- the brushes ------------------------------------------------------
+  check('Paint holds one swatch per word the paint brush lays, and each has a colour',
+    tray.paint.length === 10 && tray.paint.every((t) => /^#[0-9a-f]{6}$/.test(t.colour)),
+    tray.paint.map((t) => `${t.id} ${t.colour}`).join(' '));
+  check('the swatch colours come out of the terrain material, so grass is green and snow is pale',
+    (() => {
+      const g = groundColour('grass'), s = groundColour('snow');
+      const green = parseInt(g.slice(3, 5), 16) > parseInt(g.slice(1, 3), 16);
+      const pale = parseInt(s.slice(1, 3), 16) > 190;
+      return green && pale;
+    })(), `${groundColour('grass')} and ${groundColour('snow')}`);
+  check('and the swatch table is checked against the material own layers, both ways',
+    auditTints() === 6);
+  check('Water holds the lake brush and Sculpt does not',
+    tray.water.map((t) => t.id).join(',') === 'lake' && !tray.sculpt.some((t) => t.id === 'lake'));
+  check('Sculpt holds every other kind the contract named',
+    tray.sculpt.map((t) => t.id).join(',') === 'raise,mountain,ridge,plateau,terrace,noise,erode',
+    tray.sculpt.map((t) => t.id).join(','));
+  check('and against the real contract that is the twelve the ground is really cut with, and a pit',
+    toolsFor('sculpt', { kinds: brushRows(realKinds()) }).map((t) => t.id).join(',')
+      === 'raise,flatten,smooth,pit,cliff,cave,mountain,ridge,plateau,valley,terrace,noise,erode',
+    toolsFor('sculpt', { kinds: brushRows(realKinds()) }).map((t) => t.id).join(','));
+  // BOTH DIRECTIONS, on two contracts. In the fake above, a valley takes knob
+  // for knob what a ridge takes, defaults and all, so a valley IS the ridge
+  // square with shift held and gets none of its own. In the real
+  // `terrain_edits.js` a valley's defaults are not a ridge's, so it gets one.
+  check('a brush whose knobs are another brush own, turned over, gets no square: shift is its square',
+    [...shiftTwins(rows)].sort().join(',') === 'lower,valley'
+    && !tray.sculpt.some((t) => t.id === 'lower') && !tray.sculpt.some((t) => t.id === 'valley'),
+    [...shiftTwins(rows)].join(','));
+  check('and one whose knobs differ keeps its own, which is what the real contract valley does',
+    (() => {
+      const real = brushRows(realKinds());
+      const twins = shiftTwins(real);
+      return twins.has('lower') && !twins.has('valley')
+        && toolsFor('sculpt', { kinds: real }).some((t) => t.id === 'valley');
+    })(), [...shiftTwins(brushRows(realKinds()))].join(','));
+  check('the tray a brush lands in is read off the brush, not off its name',
+    brushModeOf(brushRow({ kind: 'anything', words: ['mud'] })) === 'paint'
+    && brushModeOf(brushRow({ kind: 'anything', params: [{ name: 'floor', min: -9, max: 0 }] })) === 'water'
+    && brushModeOf(brushRow({ kind: 'anything', params: [{ name: 'r', min: 1, max: 9 }] })) === 'sculpt');
+  check('every kind kinds() named is on a tile or reachable by shift from one',
+    (() => { try { auditTools(rows); return true; } catch { return false; } })());
+  check('and the count adds up: the tiles, the words brush and the twin are the whole contract',
+    tray.sculpt.length + tray.water.length + 1 + shiftTwins(rows).size === KINDS.length,   // 7 + 1 + ground + 2 twins
+    `${tray.sculpt.length} + ${tray.water.length} + 1 + ${shiftTwins(rows).size} vs ${KINDS.length}`);
+  check('and the real terrain contract lands in trays too, with nothing lost',
+    (() => {
+      try {
+        const real = brushRows(realKinds());
+        const got = auditTools(real);
+        return got.kinds === real.length && real.length > 0;
+      } catch { return false; }
+    })(), `${brushRows(realKinds()).length} kinds in terrain_edits.js`);
+
+  check('the filter box narrows a tray without changing what is in it',
+    filterTools(tray.buildings, 'inn').length > 0
+    && filterTools(tray.buildings, 'inn').length < tray.buildings.length
+    && filterTools(tray.buildings, '').length === tray.buildings.length);
+}
+
+// ============================================================================
+console.log('\neditor: the space a click falls into is worked out, never typed');
+{
+  const ed = createEditor({});
+  ed.setTab('trees');
+  ed.arm('oak');
+  check('the tile arithmetic is the 256 m grid, floored, and the centre is the middle of it',
+    tileIdFor(800, -400) === 'tile_3_-2' && tileCentre(800, -400).x === 896 && tileCentre(800, -400).z === -384
+    && tileIdFor(0, 0) === 'tile_0_0' && tileIdFor(-1, -1) === 'tile_-1_-1',
+    `${tileIdFor(800, -400)} at ${JSON.stringify(tileCentre(800, -400))}`);
+  check('and the radius covers the corners of the tile, which the half diagonal is',
+    TILE_R >= Math.hypot(TILE_M / 2, TILE_M / 2) && TILE_R === 182, String(TILE_R));
+  const first = ed.placeAt(800, -400);
+  check('the first thing put down makes the tile space, at the tile centre, and says so',
+    first.ok && first.made === true && ed.space.id === 'tile_3_-2'
+    && ed.space.at.x === 896 && ed.space.at.z === -384 && ed.space.radius === TILE_R
+    && /begins here/.test(first.text), first.text);
+  check('the thing is written in that space own frame, so it is where the click was',
+    ed.space.trees[0].x === -96 && ed.space.trees[0].z === -16,
+    `${ed.space.trees[0].x}, ${ed.space.trees[0].z}`);
+  const second = ed.placeAt(810, -390);
+  check('a second click in the same tile goes into the same space, and makes nothing',
+    second.ok && second.made === false && ed.openSpaces.join(',') === 'tile_3_-2');
+  const far = ed.placeAt(1400, -400);
+  check('a click in the next tile along makes that one instead',
+    far.ok && far.made === true && ed.space.id === 'tile_5_-2' && ed.openSpaces.length === 2,
+    ed.openSpaces.join(','));
+  check('and the first tile is not thrown away: it still holds its two trees',
+    (() => { ed.useDoc('tile_3_-2'); return ed.space.trees.length === 2; })(), `${ed.count().total}`);
+  check('a named space still takes everything inside its own radius',
+    (() => {
+      const e2 = createEditor({});
+      e2.newSpace('The Ford', 40, { x: 300, z: -200 });
+      e2.setTab('trees'); e2.arm('oak');
+      const r = e2.placeAt(320, -200);
+      return r.ok && r.made === false && e2.space.id === 'the_ford';
+    })());
+}
+
+// ============================================================================
+console.log('\neditor: a scatter lays what the density asks, and shift rubs it out');
+{
+  const ed = createEditor({});
+  ed.setTab('trees');
+  ed.arm('pine');
+  let seed = 20260907;
+  const rng = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  ed.setScatter({ r: 20, density: 5 });
+  check('the count is the density over the area of the ring, and the editor says which',
+    ed.scatterCount(20, 5) === Math.round(5 * Math.PI * 400 / 100) && ed.scatterCount(20, 5) === 63,
+    String(ed.scatterCount(20, 5)));
+  check('a density of 0 lays nothing at all, and says so rather than laying one',
+    ed.scatterCount(20, 0) === 0 && ed.scatterAt(0, 0, { density: 0 }).ok === false);
+  const laid = ed.scatterAt(600, 600, { rng });
+  check('one sweep lays exactly that many, and every one of them is in the space',
+    laid.ok && laid.laid === 63 && ed.space.trees.length === 63, `${laid.laid} laid`);
+  check('each is turned and sized differently, so a wood is not a row of clones',
+    new Set(ed.space.trees.map((t) => t.yaw)).size > 20 && new Set(ed.space.trees.map((t) => t.scale)).size > 20,
+    `${new Set(ed.space.trees.map((t) => t.yaw)).size} turns`);
+  check('and all of them are inside the ring that laid them',
+    ed.space.trees.every((t) => Math.hypot(ed.space.at.x + t.x - 600, ed.space.at.z + t.z - 600) <= 20.01));
+  check('one undo takes the whole sweep back, not one tree of it',
+    ed.undo().ok && ed.space.trees.length === 0, `${ed.space.trees.length} left`);
+  check('and one redo puts the whole sweep on again',
+    ed.redo().ok && ed.space.trees.length === 63);
+  const rubbed = ed.eraseAt(600, 600, { r: 20 });
+  check('shift rubs out what the same tile put down, all of it, and counts what went',
+    rubbed.ok && rubbed.gone === 63 && ed.space.trees.length === 0, rubbed.text);
+  check('and rubbing at empty ground says there was nothing there rather than nothing at all',
+    ed.eraseAt(600, 600, { r: 20 }).ok === false && /no pine inside/.test(ed.lastLine), ed.lastLine);
+  check('a rub takes only its own kind: an oak beside a pine is left standing',
+    (() => {
+      const e2 = createEditor({});
+      e2.setTab('trees'); e2.arm('oak'); e2.placeAt(100, 100);
+      e2.arm('pine'); e2.placeAt(101, 100);
+      const got = e2.eraseAt(100, 100, { r: 10 });
+      return got.ok && got.gone === 1 && e2.space.trees.length === 1 && e2.space.trees[0].species === 'oak';
+    })());
+
+  // the held sweep, batched by the same rule a terrain drag is batched by
+  const e3 = createEditor({});
+  e3.setTab('rocks'); e3.arm('sarsen');
+  e3.setScatter({ r: 10, density: 1 });
+  let s2 = 7;
+  const rng2 = () => { s2 = (s2 * 1664525 + 1013904223) >>> 0; return s2 / 4294967296; };
+  const t0 = 1000;
+  check('a held sweep lays on the press', e3.sweepBegin(100, 100, { now: t0, rng: rng2 }).ok);
+  check('and refuses a second pass that is too soon, by the millisecond',
+    e3.sweepStroke(140, 100, { now: t0 + DRAG_MS - 1, rng: rng2 }).early === true
+    && e3.sweepStroke(140, 100, { now: t0 + DRAG_MS, rng: rng2 }).ok === true);
+  check('and one that is too near, by the metre',
+    e3.sweepStroke(141, 100, { now: t0 + 400, rng: rng2 }).near === true
+    && e3.sweepStroke(140 + 10 * 0.5, 100, { now: t0 + 400, rng: rng2 }).ok === true);
+  const ended = e3.sweepEnd();
+  check('the end of the sweep says how many passes and how many things',
+    ended.ok && ended.passes === 3 && ended.laid === e3.space.rocks.length, ended.text);
+  check('and the whole held sweep is ONE undo, however many passes it took',
+    e3.depth.done === 1 && e3.undo().ok && e3.space.rocks.length === 0, JSON.stringify(e3.depth));
+}
+
+// ============================================================================
+console.log('\neditor: the autosave writes a second after the last change, and not before');
+{
+  const sent = [];
+  const fakeFetch = async (url, opts) => {
+    sent.push(JSON.parse(opts.body).path);
+    return { ok: true, status: 200, json: async () => ({ ok: true, bytes: (opts.body || '').length }) };
+  };
+  const ed = createEditor({});
+  ed.setTab('trees');
+  ed.arm('oak');
+  check('with nothing changed there is nothing due, at any hour',
+    ed.autosaveDue(0) === false && ed.autosaveDue(1e12) === false);
+  ed.placeAt(400, 400, { now: 1000 });
+  check('a change sets the clock running, and nothing is due while it runs',
+    ed.autosaveDue(1000) === false && ed.autosaveDue(1999) === false && ed.autosaveAt() === 1000 + AUTOSAVE_MS,
+    String(ed.autosaveAt()));
+  check('a second later it is due', ed.autosaveDue(2000) === true);
+  ed.placeAt(410, 400, { now: 1500 });
+  check('and another change pushes it out a full second again, so a sweep is one write',
+    ed.autosaveDue(2000) === false && ed.autosaveDue(2499) === false && ed.autosaveDue(2500) === true);
+  const wrote = await ed.tickAutosave(2500, fakeFetch);
+  check('when it fires it writes the touched space, once, at the path its id makes',
+    wrote.ok && sent.length === 1 && sent[0] === SPACE_PATH('tile_1_1'), sent.join(', '));
+  check('and then there is nothing waiting, so it does not fire again',
+    ed.autosaveDue(1e12) === false && ed.autosaveWaiting().length === 0 && ed.dirty === false);
+  ed.placeAt(1400, 400, { now: 3000 });
+  ed.placeAt(410, 401, { now: 3000 });
+  check('two spaces touched are two writes in one firing',
+    (await ed.tickAutosave(4000, fakeFetch)).ok && sent.length === 3
+    && sent.slice(1).sort().join(',') === [SPACE_PATH('tile_1_1'), SPACE_PATH('tile_5_1')].sort().join(','),
+    sent.join(', '));
+  check('and the ground is written with them when the ground has moved',
+    (() => {
+      const t = fakeTerrain();
+      const e2 = createEditor({ terrain: t });
+      e2.arm && e2.setTab('terrain');
+      e2.strokeOnce(0, 0, { kind: 'raise' });
+      return e2.groundDirty === true && e2.autosaveDue(Date.now() + AUTOSAVE_MS + 1) === true;
+    })());
+}
+
+// ============================================================================
 // THE PANEL ITSELF, against a document small enough to read.
 //
 // Everything above drives `createEditor`, which is what the buttons press. That
@@ -870,150 +1145,254 @@ const key = (k, extra = {}) => {
   return stopped;
 };
 
-console.log('\neditor: the Terrain tab is built out of kinds(), slider for slider');
+console.log('\neditor: the screen itself, over a document small enough to read');
 {
   const t = fakeTerrain();
   const root = document.createElement('div');
   const ctx = { terrain: t, hud: { log() {} } };
   panel.build(root, ctx);
   const ed = panel._ed;
-  ed.setTab('terrain');
   panel._setLive(true);
   panel._drawAll();
 
-  const rows = panel._brushList.children;
-  check('the tab shows one row per kind the contract named, and no more',
-    rows.length === KINDS.length, `${rows.length} rows for ${KINDS.length} kinds`);
-  check('each row is numbered for its key and carries the contract\'s own label',
-    rows[0].textContent.startsWith('1. raise') && rows[2].textContent.startsWith('3. a mountain'),
-    rows[2].textContent.slice(0, 24));
-  check('and a two click brush says so on its face',
-    /two clicks/.test(rows[3].textContent) && !/two clicks/.test(rows[0].textContent));
+  const face = panel._face;
+  const rail = panel._rail;
+  const grid = panel._grid;
+  const knobs = panel._knobs;
+  const cells = rail.children.filter((c) => c.className.includes('cell'));
+  const top = () => face.children.find((c) => c.className.includes('top'));
+  const tiles = () => grid.children.filter((c) => c.className.includes('tile'));
+  const tileIds = () => tiles().map((c) => c.children[1].textContent);
+  const sliders = (node) => findAll(node, (n) => n.tagName === 'INPUT' && n.type === 'range');
 
-  const mtn = rows[2];
-  const sl = slidersOf(mtn);
-  check('the mountain row has a slider for each of its three knobs', sl.length === 3, `${sl.length} sliders`);
-  check('and the radius slider runs to the 600 m the contract allows, not to 120',
-    sl[0].min === '20' && sl[0].max === '600' && sl[0].step === '5' && sl[0].value === '300',
-    `${sl[0].min}..${sl[0].max} step ${sl[0].step} at ${sl[0].value}`);
-  check('the lift slider runs to 400 m',
-    sl[1].min === '5' && sl[1].max === '400' && sl[1].value === '120');
-  check('and a knob that is not a distance keeps its own fine step',
-    sl[2].min === '0' && sl[2].max === '1' && sl[2].step === '0.05' && sl[2].value === '0.4');
-  check('a smaller brush gets a smaller slider, off its own row and not a shared one',
-    (() => { const s = slidersOf(rows[0]); return s[0].max === '200' && s[1].max === '60'; })());
-  check('every slider on the tab came from a knob in kinds(), one for one',
-    slidersOf(panel._brushList).length === KINDS.reduce((n, k) => n + (k.params || []).length, 0),
-    `${slidersOf(panel._brushList).length} sliders`);
+  // ---- it is not a window ----------------------------------------------
+  check('nothing is built into the window body: the editor is its own screen on the page',
+    root.children.length === 0 && face.id === 'bw-editor' && face.parent === document.body,
+    `${root.children.length} nodes in the window body`);
+  check('and the window frame it is registered under is styled away, not drawn',
+    /\.bw-win-editor \{ display: none/.test(document.getElementById('bw-editor-css').textContent));
+  check('the five docks are the sidebar, the tray, the top, the card and the status strip',
+    face.children.length === 5 && face.children.every((c) => c.className.includes('dock')),
+    face.children.map((c) => c.className).join(' | '));
+  check('there is no form on it: five text fields on the whole screen, and none of them first',
+    findAll(face, (n) => n.tagName === 'INPUT' && n.type === 'text').length === 5,
+    findAll(face, (n) => n.tagName === 'INPUT' && n.type === 'text').map((n) => n.placeholder || 'card').join(', '));
+  check('and the space in hand can be named and widened from the corner, without one being needed',
+    (() => {
+      const name = findOne(top(), (n) => n.tagName === 'INPUT' && n.type === 'text');
+      const rad = findOne(top(), (n) => n.tagName === 'INPUT' && n.type === 'number');
+      ed.newSpace('Nameless', 40, { x: 0, z: 0 });
+      panel._drawAll();
+      if (name.value !== 'Nameless') return false;
+      name.value = 'Cold Spring';
+      name.fire('change');
+      rad.value = '90';
+      rad.fire('change');
+      return ed.space.name === 'Cold Spring' && ed.space.radius === 90;
+    })(), `${ed.space && ed.space.name}`);
 
-  const ground = rows[10];
-  const picker = findOne(ground, (n) => n.tagName === 'SELECT');
-  check('the ground brush gets a word picker holding all ten words',
-    !!picker && picker.children.length === 10 && picker.children.map((o) => o.value).join(',') === 'dirt,rock,sand,grass,mud,snow,gravel,ash,cobble,path');
-  check('and it is the only picker on the tab, because it is the only kind with words',
-    findAll(panel._brushList, (n) => n.tagName === 'SELECT').length === 1);
-  picker.value = 'snow';
-  picker.fire('change');
-  check('choosing snow in it really reaches the editor',
-    ed.brushWord('ground') === 'snow', `${ed.brushWord('ground')}`);
+  // ---- the sidebar ------------------------------------------------------
+  check('the sidebar has one cell per mode, then undo, redo, save and leave',
+    cells.length === MODE_IDS.length + ACTIONS.length, `${cells.length} cells`);
+  check('every cell is a drawn mark with a name under it, and not a line of text',
+    cells.every((c) => /<svg/.test(c.children[0].innerHTML))
+    && cells.map((c) => c.children[1].textContent).join(',')
+      === [...MODES.map((m) => m.label), ...ACTIONS.map((a) => a.label)].join(','),
+    cells.map((c) => c.children[1].textContent).join(','));
+  check('the nine modes carry their keys on their faces, 1 to 9',
+    cells.slice(0, 9).map((c) => c.children[2].textContent).join('') === '123456789');
+  check('exactly one mode is lit, and it is the one that is up',
+    cells.filter((c) => c.classList.contains('on')).length === 1
+    && cells[0].classList.contains('on') && panel._modeNow() === 'sculpt');
 
-  // a slider really moves the brush, and the readout says the new number
-  const rad = slidersOf(mtn)[0];
-  rad.value = '455';
-  rad.fire('input');
-  check('dragging the radius slider sets the brush and shows the number beside it',
-    ed.brushValue('mountain', 'radius') === 455 && /455 m/.test(mtn.textContent), mtn.textContent.slice(0, 60));
-  rad.value = '9999';
-  rad.fire('input');
-  check('and a slider dragged past the end is pulled back to the contract\'s own maximum',
-    ed.brushValue('mountain', 'radius') === 600 && rad.value === '600' && /600 m/.test(mtn.textContent));
+  // ---- the tray changes with the mode ----------------------------------
+  const sculptTiles = tileIds();
+  check('Sculpt shows one tile per sculpting brush the contract named',
+    sculptTiles.join(',') === 'raise,a mountain,a ridge,a plateau,terraces,noise,erode',
+    sculptTiles.join(','));
+  panel._setMode('paint');
+  check('Paint shows a swatch per ground word, each one a filled square of that colour',
+    tileIds().join(',') === 'dirt,rock,sand,grass,mud,snow,gravel,ash,cobble,path'
+    && tiles().every((c) => /<rect/.test(c.children[0].innerHTML)),
+    tileIds().join(','));
+  panel._setMode('water');
+  check('Water shows the lake brush alone', tileIds().join(',') === 'a lake', tileIds().join(','));
+  panel._setMode('foliage');
+  check('Foliage shows grass first and then every species',
+    tileIds()[0] === 'grass' && tileIds().length === paletteFor('trees').length + 1, `${tileIds().length} tiles`);
+  panel._setMode('buildings');
+  const built = tileIds().length;
+  check('Buildings shows every model three metres and over, with modelled or stand-in on its corner',
+    built === paletteFor('structures').filter((r) => heightOf(r.id) >= PROP_HEIGHT).length
+    && tiles()[0].children[2].textContent === 'stand-in', `${built} tiles`);
+  panel._setMode('markers');
+  check('Markers shows the seven kinds', tileIds().length === MARKER_KINDS.length, tileIds().join(','));
+  check('and the tray really changed size between modes rather than being redrawn the same',
+    built !== MARKER_KINDS.length && built > 20);
+  panel._setMode('sculpt');
+  check('going back to a mode brings its own tray back', tileIds().join(',') === sculptTiles.join(','));
 
-  // clicking a row arms it
-  rows[5].fire('click');
-  check('clicking a row puts that brush in hand and marks the row', ed.brush.kind === 'plateau'
-    && rows[5].classList.contains('here') && !rows[0].classList.contains('here'));
-
-  // the keys
-  check('1 to 9 pick the first nine brushes',
-    key('3') && ed.brush.kind === 'mountain' && key('1') && ed.brush.kind === 'raise' && key('9') && ed.brush.kind === 'erode',
-    ed.brush.kind);
-  ed.setBrushParam('raise', 'r', 20);
-  key('1');
-  const before = ed.brush.r;
-  check('plus widens the brush and minus narrows it, by a share of itself',
-    key('+') && ed.brush.r === 23 && key('-') && ed.brush.r === 19.55, `${before} then ${ed.brush.r}`);
-  check('and the panel says those keys on its face',
-    /1 to 9 pick a brush/.test(root.textContent) && /\+ and - widen/.test(root.textContent));
-  check('a key the editor has no use for is left for the game',
-    key('q') === false);
-  check('ctrl Z on the Terrain tab takes back ground, not a placement',
-    (() => { ed.arm('raise'); ed.strokeOnce(0, 0); const n = t.undone.length; key('z', { ctrlKey: true }); return t.undone.length === n + 1; })());
-
-  // the World row
-  const world = panel._worldRow;
-  check('the World row says which mode the terrain half is in',
-    /sculpt mode/.test(world.textContent), world.textContent.slice(0, 40));
-  const [hIn, gIn, sIn] = findAll(world, (n) => n.tagName === 'INPUT');
-  check('and shows the floor the contract reports, so the fields are not blank',
-    hIn.value === '0' && gIn.value === 'grass' && sIn.value === '220',
-    `${hIn.value} / ${gIn.value} / ${sIn.value}`);
-  hIn.value = '40'; gIn.value = 'snow'; sIn.value = '35';
-  buttonWith(world, /set the floor/).fire('click');
-  check('Set sends all three fields down the contract',
-    t.based.length === 1 && t.based[0].height === 40 && t.based[0].ground === 'snow' && t.based[0].snowLine === 35,
-    JSON.stringify(t.based[0]));
-
-  const reset = buttonWith(world, /reset terrain/);
-  reset.fire('click');
-  check('the reset button asks before it drops anything, on the button itself',
-    t.resets === 0 && /press again/.test(reset.textContent) && reset.classList.contains('armed'), reset.textContent);
-  reset.fire('click');
-  check('and a second press drops every stroke, once',
-    t.resets === 1 && !/press again/.test(reset.textContent), `${t.resets} resets`);
-
-  // the tab hides itself when another tab is up
-  ed.setTab('trees');
+  // ---- the sliders ------------------------------------------------------
+  check('a sculpt brush gets one slider per knob, at the range the contract gave it',
+    (() => {
+      tiles()[1].fire('click');                       // a mountain
+      const s = sliders(knobs);
+      return ed.brush.kind === 'mountain' && s.length === 5
+        && s[0].min === '20' && s[0].max === '600' && s[0].step === '5' && s[0].value === '300'
+        && s[1].max === '400' && s[2].max === '1';
+    })(), sliders(knobs).map((s) => `${s.min}..${s.max}`).join(' '));
+  check('and under them the world floor, on two sliders and no fields at all',
+    (() => {
+      const s = sliders(knobs);
+      const floor = s[3], snow = s[4];
+      // the floor's range is read off the contract's own height knob, 0 to 300
+      if (!(floor.min === '0' && floor.max === '300' && floor.value === '0')) return false;
+      if (!(snow.min === '0' && snow.max === '500' && snow.value === '220')) return false;
+      snow.value = '35';
+      snow.fire('change');
+      return t.based.length === 1 && t.based[0].snowLine === 35;
+    })(), JSON.stringify(t.based));
+  check('the ground the whole world is made of is set from the swatch in hand, not from a field',
+    (() => {
+      panel._setMode('paint');
+      panel._applyTool(panel._tilesNow().find((x) => x.id === 'snow'));
+      panel._drawAll();
+      const b = findOne(knobs, (n) => n.tagName === 'BUTTON' && /make the whole world snow/.test(n.textContent));
+      if (!b) return false;
+      b.fire('click');
+      return t.based.some((p) => p.ground === 'snow');
+    })(), t.based.map((p) => JSON.stringify(p)).join(' '));
+  check('and the reset asks before it drops every stroke, then does it on a second press',
+    (() => {
+      const reset = () => findOne(knobs, (n) => n.tagName === 'BUTTON' && /drop every stroke/.test(n.textContent));
+      reset().fire('click');
+      const asked = t.resets === 0 && /press again/.test(reset().textContent);
+      reset().fire('click');
+      return asked && t.resets === 1;
+    })(), `${t.resets} resets`);
+  panel._setMode('sculpt');
   panel._drawAll();
-  check('the terrain rows are put away on any other tab',
-    panel._brushList.style.display === 'none' && world.style.display === 'none');
-  ed.setTab('terrain');
+  check('the value is printed beside the slider and moves with it',
+    (() => {
+      const s = sliders(knobs)[0];
+      s.value = '455';
+      s.fire('input');
+      return ed.brushValue('mountain', 'radius') === 455 && /455 m/.test(knobs.textContent);
+    })(), knobs.textContent.slice(0, 60));
+  check('and a slider dragged past the end is pulled back to the contract own maximum',
+    (() => {
+      const s = sliders(knobs)[0];
+      s.value = '9999';
+      s.fire('input');
+      return ed.brushValue('mountain', 'radius') === 600 && s.value === '600';
+    })());
+  panel._setMode('foliage');
+  panel._applyTool(panel._tilesNow().find((x) => x.id === 'beech'));
   panel._drawAll();
-  check('and come back on this one', panel._brushList.style.display === '' && world.style.display === '');
+  check('a scattering tile gets size and density instead, and the numbers are printed',
+    (() => {
+      const s = sliders(knobs);
+      return s.length === 2 && /size/.test(knobs.textContent) && /density/.test(knobs.textContent)
+        && /per 100 sq m/.test(knobs.textContent);
+    })(), knobs.textContent.slice(0, 80));
+  check('and dragging density really reaches the editor',
+    (() => { const s = sliders(knobs)[1]; s.value = '7'; s.fire('input'); return ed.scatter.density === 7; })(),
+    String(ed.scatter.density));
+  panel._setMode('creatures');
+  check('Creatures alone carries the night toggle, and it reaches the editor',
+    (() => {
+      const tog = findOne(knobs, (n) => n.className.includes('toggle'));
+      if (!tog) return false;
+      tog.fire('click');
+      return ed.ghost.night === true;
+    })());
+  panel._setMode('buildings');
+  check('a placing mode has no sliders at all, only what to do next in words',
+    sliders(knobs).length === 0 && /Click the ground/.test(knobs.textContent));
+
+  // ---- the keys ---------------------------------------------------------
+  check('1 to 9 pick the nine modes, in the order the sidebar draws them',
+    key('3') && panel._modeNow() === 'foliage' && key('9') && panel._modeNow() === 'water'
+    && key('1') && panel._modeNow() === 'sculpt', panel._modeNow());
+  check('a key the editor has no use for is left for the game', key('j') === false);
+  check('ctrl Z on a ground brush takes back ground',
+    (() => { const n = t.undone.length; ed.strokeOnce(0, 0); key('z', { ctrlKey: true }); return t.undone.length === n + 1; })());
+
+  // ---- a click in Buildings places and takes hold -----------------------
+  panel._setMode('buildings');
+  const want = panel._toolNow();
+  const put = ed.placeAt(500, 500);
+  panel._drawAll();
+  const sel = ed.selection();
+  check('a click in Buildings puts one down and takes hold of it in the same act',
+    put.ok && !!sel && sel.list === 'pieces' && ed.space.pieces[0].model === want.id, put.text);
+  check('and the card comes up beside the sidebar with its turn, its size and where it is',
+    panel._card.style.display === '' && panel._card.children[0].textContent === want.id
+    && findAll(panel._card, (n) => n.tagName === 'INPUT').length === 4
+    && /Tile 1, 1/.test(panel._card.textContent), panel._card.textContent.slice(0, 60));
+  check('the card turns the thing it names, through the same call R does',
+    (() => {
+      const yaw = findAll(panel._card, (n) => n.tagName === 'INPUT')[0];
+      yaw.value = '90';
+      yaw.fire('change');
+      return ed.space.pieces[0].yaw === 90;
+    })(), String(ed.space.pieces[0].yaw));
+  check('and remove takes it out, with nothing selected after it',
+    (() => {
+      findOne(panel._card, (n) => n.tagName === 'BUTTON' && /remove/.test(n.textContent)).fire('click');
+      return ed.space.pieces.length === 0 && !ed.selection() && panel._card.style.display === 'none';
+    })());
+  check('a second click near a thing already down takes hold of it rather than doubling it',
+    (() => {
+      ed.placeAt(500, 500);
+      const before = ed.count().total;
+      const hit = ed.nearestTo(501, 500, 6);
+      return !!hit && ed.selectAt(501, 500, 6).ok && ed.count().total === before;
+    })());
+  check('and a click well clear of it puts a second one down',
+    (() => { const before = ed.count().total; const r = ed.placeAt(520, 500); return r.ok && ed.count().total === before + 1; })());
+
+  // ---- the status strip -------------------------------------------------
+  panel._setMode('sculpt');
+  panel._drawAll();
+  const strip = panel._status.textContent;
+  check('the status strip names the mode, the tool, the size and what was last said',
+    /Sculpt/.test(strip) && /m/.test(strip) && strip.length > 20 && /the cursor is off the ground/.test(strip),
+    strip.slice(0, 90));
+  check('and it says which space is open and whether it is written yet',
+    /unsaved|saved/.test(panel._status.textContent));
+
+  panel._setLive(false);
+  panel.dispose();
 }
 
-console.log('\neditor: the Terrain tab with no contract behind it');
+console.log('\neditor: the screen with no terrain contract behind it');
 {
   const root = document.createElement('div');
   const ctx = { hud: { log() {} } };
   panel.build(root, ctx);
   const ed = panel._ed;
-  ed.setTab('terrain');
   panel._setLive(true);
   panel._drawAll();
-  check('with nothing on window.__bw.terrain the tab shows one line of words and no brushes',
-    panel._brushList.children.length === 1
-    && /window.__bw.terrain/.test(panel._brushList.textContent)
-    && slidersOf(panel._brushList).length === 0,
-    panel._brushList.textContent);
-  check('and the keys do nothing but say why',
-    key('3') && /name no brushes/.test(ed.lastLine) && ed.brush.kind === 'raise', ed.lastLine);
-
+  check('the three brush trays say which half is missing, and show no tiles',
+    panel._grid.children.length === 1 && /window.__bw.terrain/.test(panel._grid.textContent)
+    && findAll(panel._grid, (n) => n.tagName === 'INPUT').length === 0,
+    panel._grid.textContent);
+  check('and the trays that do not need it are full anyway',
+    (() => { panel._setMode('people'); return panel._grid.children.length === paletteFor('people').length; })(),
+    String(panel._grid.children.length));
   ctx.terrain = { stroke: () => 'cut' };
-  panel._drawAll();
-  check('with a half a contract it names the half that is missing',
-    panel._brushList.children.length === 1 && /no kinds\(\)/.test(panel._brushList.textContent),
-    panel._brushList.textContent);
-  check('and the World row says there is no mode to read',
-    /no mode/.test(panel._worldRow.textContent));
-
+  panel._setMode('sculpt');
+  check('with half a contract it names the half that is missing',
+    /name no brushes/.test(panel._grid.textContent), panel._grid.textContent);
   ctx.terrain = fakeTerrain();
-  panel._drawAll();
-  check('and the moment the contract answers, the brushes are there with no reload',
-    panel._brushList.children.length === KINDS.length && slidersOf(panel._brushList).length > 20,
-    `${panel._brushList.children.length} rows`);
+  panel._setMode('paint');
+  panel._setMode('sculpt');
+  check('and the moment the contract answers, the tiles are there with no reload',
+    panel._grid.children.length === 7, `${panel._grid.children.length} tiles`);
   panel._setLive(false);
+  panel.dispose();
 }
-
 
 
 // ============================================================================

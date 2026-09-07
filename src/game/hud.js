@@ -1749,8 +1749,52 @@ export function createHud(root) {
     unlockBox.style.opacity = at.opacity.toFixed(3);
   }
 
+  // ---- the two things the HUD can be ---------------------------------------
+  //
+  // In editor mode the whole gameplay HUD goes: the portrait, the purse, the
+  // pools, the compass, the target frame, both bars, the log, the banners. The
+  // world editor is a full screen instrument and a health bar over the top of
+  // it is somebody else's screen showing through.
+  //
+  // THE DEV BADGE STAYS, because the editor only exists in dev mode and the
+  // badge is how you know you are in it. Everything else is put away by REMEM-
+  // BERING the display it had and writing that exact value back, so a widget
+  // that was hidden for its own reasons (an empty target frame, a bar with
+  // nothing on it) is still hidden when the editor closes, and one that was
+  // showing is showing again. `hud.test.mjs` compares the whole tree before and
+  // after and fails on any difference.
+
+  let hudMode = 'play';
+  const modeHidden = new Map();
+
+  function setMode(mode) {
+    const want = mode === 'editor' ? 'editor' : 'play';
+    if (want === hudMode) return { mode: hudMode, hidden: modeHidden.size };
+    if (want === 'editor') {
+      for (const child of [...el.children]) {
+        if (child === devBadge) continue;
+        modeHidden.set(child, child.style.display || '');
+        child.style.display = 'none';
+      }
+      if (abTip) abTip.hidden = true;
+    } else {
+      for (const [node, was] of modeHidden) node.style.display = was;
+      modeHidden.clear();
+    }
+    hudMode = want;
+    return { mode: hudMode, hidden: modeHidden.size };
+  }
+
   return {
     el,
+
+    /**
+     * Which of the two the HUD is showing, and the switch between them.
+     * `src/game/editor/panel.js` is the only caller: entering the editor puts
+     * the gameplay HUD away and leaving puts back exactly what was there.
+     */
+    setMode,
+    get mode() { return hudMode; },
 
     /**
      * The row in the top centre column that compass.js mounts its strip into.

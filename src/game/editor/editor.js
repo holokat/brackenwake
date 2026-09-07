@@ -53,6 +53,39 @@ export const RESET_ASK_MS = 8000;
 /** How far one press of plus or minus moves the radius, as a share of it. */
 export const RADIUS_STEP = 0.15;
 
+// ---- the automatic spaces ---------------------------------------------------
+//
+// NOBODY NAMES A SPACE TO START. The editor used to refuse every click until a
+// name had been typed into a form, which is the settings window habit this
+// rebuild is here to end. So the world is cut into 256 m tiles and anything put
+// down lands in the tile it stands in: `tile_3_-2`, centred on that tile, wide
+// enough to hold the whole of it. A tile space is made by the first thing that
+// goes into it and written by the autosave. The named spaces already on disk
+// still open, and still take everything put down inside their own radius.
+
+/** How wide an automatic tile is, in metres. */
+export const TILE_M = 256;
+/** How far a tile space reaches: the half diagonal, so its corners are inside. */
+export const TILE_R = Math.ceil((TILE_M / 2) * Math.SQRT2);
+/** How long after the last change the editor writes what it has, in ms. */
+export const AUTOSAVE_MS = 1000;
+/** The scatter brush, until it is moved: metres, and things per 100 square metres. */
+export const SCATTER_R = 12;
+export const SCATTER_DENSITY = 3;
+/** The widest and the thickest a scatter may be set to. */
+export const SCATTER_R_MAX = 120;
+export const SCATTER_DENSITY_MAX = 20;
+
+/** Which tile a world point is in. */
+export const tileOf = (x, z) => ({ tx: Math.floor(x / TILE_M), tz: Math.floor(z / TILE_M) });
+/** The id of the automatic space for a world point. */
+export const tileIdFor = (x, z) => { const t = tileOf(x, z); return `tile_${t.tx}_${t.tz}`; };
+/** Where that space stands: the middle of its own tile. */
+export const tileCentre = (x, z) => {
+  const t = tileOf(x, z);
+  return { x: t.tx * TILE_M + TILE_M / 2, z: t.tz * TILE_M + TILE_M / 2 };
+};
+
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const round2 = (v) => Math.round(num(v) * 100) / 100;
 const idFrom = (name) => String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 48);
@@ -81,6 +114,20 @@ export function createEditor(ctx = {}) {
   let brushAmount = BRUSH_AMOUNT;
   let group = null;           // the group standing in the scene for the open space
   let dirty = false;
+  // Every space this session has touched, open or not, so a drag that crosses
+  // a tile edge does not throw away the tile it came out of.
+  const docs = new Map();     // space id -> its doc
+  const unsaved = new Set();  // space ids with changes not yet written
+  let autoAt = 0;             // when the autosave is due, or 0 for never
+  let autoRunning = false;
+  let terrainDirty = false;   // the ground has moved since it was last written
+  let scatterR = SCATTER_R;
+  let scatterDensity = SCATTER_DENSITY;
+  // One entry per thing done to a space, so a scatter of forty trees is one
+  // undo and not forty. `{ id, n }`: the space it was done to, and how many
+  // commands of that space's own stack it took.
+  const placeGroups = [];
+  const placeUndone = [];
 
   const hud = () => ctx.hud || null;
   const scene = () => (ctx.sc && ctx.sc.scene) || null;
@@ -138,11 +185,17 @@ export function createEditor(ctx = {}) {
   }
 
   /** Open a space for editing: the one in SPACES, or one handed straight in. */
-  function open(space) {
+  function open(space, opts = {}) {
     const s = typeof space === 'string' ? SPACES[space] : space;
     if (!s) return bad(`there is no space called "${space}".`);
-    doc = createSpaceDoc(JSON.parse(JSON.stringify(s)));
-    dirty = false;
+    // A space edited earlier this session is picked up where it was left. A
+    // fresh copy would throw that work away the first time a drag crossed a
+    // tile edge and came back. `fresh` is reload, which wants the file.
+    const held = opts.fresh ? null : docs.get(s.id);
+    if (opts.fresh) unsaved.delete(s.id);
+    doc = held || createSpaceDoc(JSON.parse(JSON.stringify(s)));
+    docs.set(doc.space.id, doc);
+    dirty = unsaved.has(doc.space.id);
     setMarkersVisible(true, scene());
     rebuild();
     const c = doc.count();
@@ -164,10 +217,39 @@ export function createEditor(ctx = {}) {
     const p = at || lookPoint() || here();
     const r = Math.max(8, num(radius) || NEW_RADIUS);
     doc = createSpaceDoc(emptySpace(id, label, p.x, p.z, r));
+    docs.set(id, doc);
     dirty = true;
     setMarkersVisible(true, scene());
     rebuild();
     return good(`${label} begins at ${Math.round(p.x)}, ${Math.round(p.z)}, ${r} m across. Nothing is on disk until you save it.`, { space: doc.space });
+  }
+
+  // ---- the space a point belongs to, without anybody naming one -----------
+
+  /**
+   * The space that takes a thing put down at a world point.
+   *
+   * The open one, when the point is inside its radius, so a named village goes
+   * on taking everything laid inside it. Otherwise the automatic space for the
+   * 256 m tile the point stands in: the one already open, the one edited
+   * earlier this session, the one on disk, or a new one made here and now.
+   *
+   * It NEVER refuses. A click on the ground has to put something on the ground.
+   */
+  function ensureSpaceFor(x, z) {
+    if (doc && outsideBy(localOf(x, z)) <= 0) return { doc, made: false, switched: false };
+    const id = tileIdFor(x, z);
+    if (doc && doc.space.id === id) return { doc, made: false, switched: false };
+    const held = docs.get(id);
+    if (held) { doc = held; dirty = unsaved.has(id); rebuild(); return { doc, made: false, switched: true }; }
+    if (SPACES[id]) { open(id); return { doc, made: false, switched: true }; }
+    const c = tileCentre(x, z);
+    const t = tileOf(x, z);
+    doc = createSpaceDoc(emptySpace(id, `Tile ${t.tx}, ${t.tz}`, c.x, c.z, TILE_R));
+    docs.set(id, doc);
+    setMarkersVisible(true, scene());
+    rebuild();
+    return { doc, made: true, switched: true };
   }
 
   /** Where the camera is pointing at the ground, when the panel has told us. */
@@ -240,26 +322,58 @@ export function createEditor(ctx = {}) {
 
   // ---------------------------------------------------------- placement --
 
+  /** The autosave is due a second from now, whatever it was due before. */
+  function schedule(now) {
+    autoAt = num(Number.isFinite(now) ? now : Date.now()) + AUTOSAVE_MS;
+    return autoAt;
+  }
+  /** Mark the open space changed, and set the autosave running behind it. */
+  function changed(now) {
+    dirty = true;
+    if (doc) unsaved.add(doc.space.id);
+    return schedule(now);
+  }
+  /** The same, for the ground, which is not a space and is saved beside them. */
+  function groundChanged(now) {
+    terrainDirty = true;
+    return schedule(now);
+  }
+
+  /**
+   * Remember that one act took `n` commands off one space's own stack.
+   *
+   * A scatter of forty trees is forty commands and ONE act, and undo works in
+   * acts, because forty presses of ctrl Z to take back one sweep of the brush
+   * is not an undo anybody would use.
+   */
+  function pushGroup(n = 1, id = doc && doc.space.id, words = '') {
+    if (!id || n <= 0) return null;
+    const g = { id, n, words };
+    placeGroups.push(g);
+    placeUndone.length = 0;
+    return g;
+  }
+
   /** Put the armed thing down at a world point. */
-  function placeAt(x, z) {
-    if (!doc) return bad('there is no space open, so there is nowhere to put it. Make one first.');
-    if (!pick) return bad('nothing is on the cursor. Pick something out of the palette first.');
+  function placeAt(x, z, opts = {}) {
+    if (!pick) return bad('nothing is on the cursor. Pick something out of the tray first.');
+    // NO FORM COMES FIRST. The space is worked out from where the click landed:
+    // the open one when the point is inside it, and the tile's own otherwise.
+    const got = ensureSpaceFor(x, z);
     const local = localOf(x, z);
-    const out = outsideBy(local);
-    if (out > 0) {
-      return bad(`that is ${out.toFixed(1)} m outside ${doc.space.name}, which reaches ${doc.space.radius} m. Widen the space or stand closer in.`);
-    }
     const made = entryFor(tab, pick, local.x, local.z, {
       yaw: ghostYaw, scale: ghostScale, night,
       name: personName || null, label: markerLabel || pick, note: markerNote, kind: markerKind,
     });
-    if (!made) return bad(`the ${tab} tab does not put anything into a space.`);
+    if (!made) return bad(`the ${tab} tray does not put anything into a space.`);
     const res = doc.place(made.list, made.entry);
     if (!res.ok) return bad(res.text);
-    rebuild();
-    dirty = true;
+    if (!opts.bulk) rebuild();
+    pushGroup(1);
+    changed(opts.now);
     const w = worldOf(local.x, local.z);
-    return good(`${labelOf(made.list, made.entry)} is down at ${local.x}, ${local.z} in ${doc.space.name}, which is ${w.x}, ${w.z} in the world. ${doc.count().total} ${doc.count().total === 1 ? 'thing stands' : 'things stand'} here now.`, { sel: res.sel });
+    const began = got.made ? ` ${doc.space.name} begins here, ${doc.space.radius} m across, and the autosave writes it.` : '';
+    return good(`${labelOf(made.list, made.entry)} is down at ${local.x}, ${local.z} in ${doc.space.name}, which is ${w.x}, ${w.z} in the world. ${doc.count().total} ${doc.count().total === 1 ? 'thing stands' : 'things stand'} here now.${began}`, { sel: res.sel, space: doc.space.id, made: got.made });
   }
 
   const selection = () => (doc ? doc.selection : null);
@@ -273,7 +387,7 @@ export function createEditor(ctx = {}) {
   }
 
   const after = (res) => {
-    if (res.ok) { rebuild(); dirty = true; return good(res.text); }
+    if (res.ok) { rebuild(); pushGroup(1); changed(); return good(res.text); }
     return bad(res.text);
   };
 
@@ -288,19 +402,64 @@ export function createEditor(ctx = {}) {
   const grow = (mul = SCALE_STEP) => (doc ? after(doc.scale(doc.selection, mul)) : bad('there is no space open.'));
   const del = () => (doc ? after(doc.remove(doc.selection)) : bad('there is no space open.'));
 
+  /**
+   * Stand on the space an act was done to, whatever is open now.
+   *
+   * Undo has to reach across spaces: a sweep of trees that crossed a tile edge
+   * made two spaces, and one ctrl Z afterwards has to take back the last act
+   * wherever it landed rather than the last act of whatever happens to be open.
+   */
+  function useDoc(id) {
+    if (!id) return false;
+    const held = docs.get(id);
+    if (!held) return false;
+    if (doc !== held) { doc = held; dirty = unsaved.has(id); }
+    return true;
+  }
+
   function undo() {
-    if (!doc) return bad('there is no space open.');
-    const res = doc.undo();
-    if (!res.ok) return bad(res.text);
-    rebuild(); dirty = true;
-    return good(res.text);
+    if (!doc && !placeGroups.length) return bad('there is no space open.');
+    const g = placeGroups.pop();
+    if (!g) {
+      const res = doc.undo();
+      if (!res.ok) return bad(res.text);
+      rebuild(); changed();
+      return good(res.text);
+    }
+    useDoc(g.id);
+    let n = 0, last = '';
+    for (let i = 0; i < g.n; i++) {
+      const res = doc.undo();
+      if (!res.ok) break;
+      n++; last = res.text;
+    }
+    placeUndone.push({ ...g, n });
+    rebuild(); changed();
+    if (!n) return bad(`there was nothing left of that in ${doc.space.name}, so nothing came back.`);
+    if (g.n === 1) return good(last);
+    return good(`${g.words || `${g.n} changes`} in ${doc.space.name} ${n === g.n ? 'is taken back' : `is taken back as far as it went, ${n} of ${g.n}`}, the whole sweep in one.`);
   }
   function redo() {
-    if (!doc) return bad('there is no space open.');
-    const res = doc.redo();
-    if (!res.ok) return bad(res.text);
-    rebuild(); dirty = true;
-    return good(res.text);
+    if (!doc && !placeUndone.length) return bad('there is no space open.');
+    const g = placeUndone.pop();
+    if (!g) {
+      const res = doc.redo();
+      if (!res.ok) return bad(res.text);
+      rebuild(); changed();
+      return good(res.text);
+    }
+    useDoc(g.id);
+    let n = 0, last = '';
+    for (let i = 0; i < g.n; i++) {
+      const res = doc.redo();
+      if (!res.ok) break;
+      n++; last = res.text;
+    }
+    placeGroups.push({ ...g, n });
+    rebuild(); changed();
+    if (!n) return bad(`there was nothing of that to put back in ${doc.space.name}.`);
+    if (g.n === 1) return good(last);
+    return good(`${g.words || `${g.n} changes`} in ${doc.space.name} ${n === g.n ? 'is back' : `is back as far as it went, ${n} of ${g.n}`}.`);
   }
 
   /** Change the space itself: its name, its note, its radius, where it stands. */
@@ -316,7 +475,7 @@ export function createEditor(ctx = {}) {
       s.radius = patch.radius; words.push(`it reaches ${s.radius} m`);
     }
     if (!words.length) return bad('nothing about the space changed.');
-    dirty = true; rebuild();
+    changed(); rebuild();
     return good(`${s.name}: ${words.join(', ')}.`);
   }
 
@@ -361,6 +520,7 @@ export function createEditor(ctx = {}) {
       return bad(`${path} was refused: ${(body && body.text) || res.status}`);
     }
     dirty = false;
+    unsaved.delete(v.json.id);
     const c = doc.count();
     const parts = LISTS.filter((l) => c[l]).map((l) => `${c[l]} ${c[l] === 1 ? LIST_WORD[l] : l}`);
     return good(`${path} written, ${body.bytes} bytes: ${parts.length ? parts.join(', ') : 'nothing in it yet'}.`, { path, bytes: body.bytes });
@@ -390,8 +550,264 @@ export function createEditor(ctx = {}) {
     if (!doc) return bad('there is no space open to reload.');
     const id = doc.space.id;
     if (!SPACES[id]) return bad(`${id} has never been saved, so there is nothing on disk to go back to.`);
-    const res = open(id);
+    const res = open(id, { fresh: true });
     return res.ok ? good(`${id} is back to what is on disk.`) : res;
+  }
+
+  // -------------------------------------------------- painting many at once --
+  //
+  // A brush that lays ONE tree is a brush nobody would use for a wood. Foliage,
+  // Objects and Creatures all scatter: a held button lays things through the
+  // ring at a density, each turned and sized differently, and shift takes back
+  // out of the ring whatever the same tile put in.
+  //
+  // The random is seedable so a test can count what a sweep laid rather than
+  // asserting it. `Math.random` is what the editor really uses.
+
+  /** How many things a disc of this radius holds at this density. */
+  function scatterCount(r, density) {
+    const area = Math.PI * r * r;
+    const n = Math.round((num(density) * area) / 100);
+    return num(density) > 0 ? Math.max(1, n) : 0;
+  }
+
+  /** The identifying field of one list, so a scatter can find its own again. */
+  function sameThing(list, id, entry) {
+    switch (list) {
+      case 'pieces': return entry.model === id;
+      case 'trees': return entry.species === id;
+      case 'rocks': return entry.kind === id;
+      case 'spawns': return entry.id === id;
+      case 'people': return entry.role === id;
+      case 'markers': return entry.kind === id;
+      default: return false;
+    }
+  }
+
+  /**
+   * Lay a ring full of the armed thing, at the density the slider is set to.
+   *
+   * Every point is worked out in WORLD metres first and only then handed to
+   * the space that owns it, because a ring on a tile edge fills two spaces and
+   * both halves have to land somewhere. One act per space, so undo takes the
+   * sweep back and not one tree of it.
+   */
+  function scatterAt(x, z, opts = {}) {
+    if (!pick) return bad('nothing is on the cursor. Pick something out of the tray first.');
+    const made = entryFor(tab, pick, 0, 0, {});
+    if (!made) return bad(`the ${tab} tray does not put anything into a space.`);
+    const r = Number.isFinite(opts.r) ? Math.max(1, opts.r) : scatterR;
+    const density = Number.isFinite(opts.density) ? opts.density : scatterDensity;
+    const n = scatterCount(r, density);
+    if (!n) return bad(`the density is 0, so a sweep of ${r} m lays nothing. Push the density slider up.`);
+    const rng = typeof opts.rng === 'function' ? opts.rng : Math.random;
+    const per = new Map();
+    let laid = 0;
+    for (let i = 0; i < n; i++) {
+      const rad = r * Math.sqrt(rng());
+      const ang = rng() * Math.PI * 2;
+      const px = x + Math.sin(ang) * rad, pz = z + Math.cos(ang) * rad;
+      ensureSpaceFor(px, pz);
+      const local = localOf(px, pz);
+      const one = entryFor(tab, pick, local.x, local.z, {
+        yaw: Math.round(rng() * 360),
+        scale: round2(0.8 + rng() * 0.5),
+        night, name: personName || null, label: markerLabel || pick, note: markerNote, kind: markerKind,
+      });
+      const res = doc.place(one.list, one.entry);
+      if (!res.ok) continue;
+      per.set(doc.space.id, (per.get(doc.space.id) || 0) + 1);
+      laid++;
+    }
+    for (const [id, count] of per) pushGroup(count, id, `the sweep of ${count} ${pick}`);
+    for (const id of per.keys()) { useDoc(id); unsaved.add(id); rebuild(); }
+    if (!laid) return bad(`nothing of that ${pick} would go down there.`);
+    dirty = true;
+    changed(opts.now);
+    const where = per.size === 1 ? [...per.keys()][0] : `${per.size} spaces`;
+    return good(`${laid} ${pick} through ${r} m of ground, into ${where}. One undo takes the sweep back.`, { laid, spaces: [...per.keys()] });
+  }
+
+  /**
+   * Take back out of the ring whatever the armed tile puts in.
+   *
+   * Shift, while a scatter brush is held. It walks every space this session
+   * knows, not only the open one, because a ring that straddles a tile edge has
+   * to rub out both halves of what it laid.
+   */
+  function eraseAt(x, z, opts = {}) {
+    if (!pick) return bad('nothing is on the cursor, so there is nothing to rub out.');
+    const made = entryFor(tab, pick, 0, 0, {});
+    if (!made) return bad(`the ${tab} tray puts nothing into a space, so there is nothing of it to rub out.`);
+    const r = Number.isFinite(opts.r) ? Math.max(1, opts.r) : scatterR;
+    let gone = 0;
+    const per = new Map();
+    for (const [id, d] of docs) {
+      const rows = d.contents().filter((c) => c.list === made.list && c.x != null
+        && sameThing(made.list, pick, c.entry)
+        && Math.hypot(d.space.at.x + c.x - x, d.space.at.z + c.z - z) <= r);
+      if (!rows.length) continue;
+      // Backwards, because a remove moves everything after it down one.
+      for (const row of rows.sort((a, b) => b.index - a.index)) {
+        if (d.remove({ list: row.list, index: row.index }).ok) { gone++; per.set(id, (per.get(id) || 0) + 1); }
+      }
+    }
+    for (const [id, count] of per) pushGroup(count, id, `rubbing out ${count} ${pick}`);
+    for (const id of per.keys()) { useDoc(id); unsaved.add(id); rebuild(); }
+    if (!gone) return bad(`there is no ${pick} inside ${r} m of there to rub out.`);
+    dirty = true;
+    changed(opts.now);
+    return good(`${gone} ${pick} ${gone === 1 ? 'is' : 'are'} rubbed out of ${r} m of ground. One undo puts ${gone === 1 ? 'it' : 'them'} back.`, { gone });
+  }
+
+  /**
+   * The held sweep, batched by the SAME rule a terrain drag is batched by.
+   *
+   * `DRAG_MS` and `DRAG_SPACING` are the one rule and they live up at the top
+   * of this file, so what the mouse does and what the test drives are the same
+   * two numbers. The groups every scatter pushed while the button was down are
+   * folded into one per space when it comes up, so a swept wood is one undo.
+   */
+  let sweep = null;
+  function collapse(from, words) {
+    const tail = placeGroups.splice(from);
+    const per = new Map();
+    for (const g of tail) per.set(g.id, (per.get(g.id) || 0) + g.n);
+    for (const [id, n] of per) placeGroups.push({ id, n, words });
+    return per;
+  }
+  function sweepBegin(x, z, opts = {}) {
+    const r = Number.isFinite(opts.r) ? opts.r : scatterR;
+    sweep = { r, n: 0, at: -Infinity, x: NaN, z: NaN, erase: !!opts.shift, laid: 0, gone: 0, from: placeGroups.length };
+    const first = sweepStroke(x, z, opts);
+    if (!first.ok) sweep = null;
+    return first;
+  }
+  function sweepStroke(x, z, opts = {}) {
+    if (!sweep) return { ok: false, text: '' };
+    const now = Number.isFinite(opts.now) ? opts.now : Date.now();
+    if (sweep.n) {
+      if (now - sweep.at < DRAG_MS) return { ok: false, text: '', early: true };
+      if (Math.hypot(x - sweep.x, z - sweep.z) < Math.max(0.25, sweep.r * DRAG_SPACING)) return { ok: false, text: '', near: true };
+    }
+    const res = sweep.erase
+      ? eraseAt(x, z, { r: sweep.r, now })
+      : scatterAt(x, z, { r: sweep.r, now, rng: opts.rng });
+    sweep.n++; sweep.at = now; sweep.x = x; sweep.z = z;
+    if (res.ok) { sweep.laid += res.laid || 0; sweep.gone += res.gone || 0; }
+    return res;
+  }
+  function sweepEnd() {
+    const s = sweep;
+    sweep = null;
+    if (!s || !s.n) return { ok: false, text: '' };
+    const what = s.erase ? `rubbing out ${s.gone} ${pick}` : `the sweep of ${s.laid} ${pick}`;
+    const per = collapse(s.from, what);
+    if (!s.laid && !s.gone) return { ok: false, text: '' };
+    const where = per.size === 1 ? [...per.keys()][0] : `${per.size} spaces`;
+    return good(s.erase
+      ? `${s.gone} ${pick} rubbed out over ${s.n} ${s.n === 1 ? 'pass' : 'passes'} of the brush, in ${where}. One undo puts them back.`
+      : `${s.laid} ${pick} laid over ${s.n} ${s.n === 1 ? 'pass' : 'passes'} of the brush, in ${where}. One undo takes the whole sweep back.`,
+    { laid: s.laid, gone: s.gone, passes: s.n });
+  }
+  /** How many passes the held sweep has made so far, for the status strip. */
+  const sweepCount = () => (sweep ? sweep.n : 0);
+
+  /**
+   * What stands nearest a world point, in any space this session holds.
+   *
+   * This is what a click in Buildings, People or Markers selects, so a thing
+   * put down an hour ago in another tile is still clickable.
+   */
+  function nearestTo(x, z, within = 6) {
+    let best = null;
+    for (const [id, d] of docs) {
+      for (const c of d.contents()) {
+        if (c.x == null) continue;
+        const dist = Math.hypot(d.space.at.x + c.x - x, d.space.at.z + c.z - z);
+        if (dist > within) continue;
+        if (!best || dist < best.dist) best = { space: id, list: c.list, index: c.index, dist: round2(dist), label: c.label };
+      }
+    }
+    return best;
+  }
+
+  /** Let go of whatever is selected. Says so, because a silent change is a bug. */
+  function deselect() {
+    if (!doc || !doc.selection) return { ok: false, text: '' };
+    doc.select(null);
+    return good('nothing is selected now.');
+  }
+
+  /** Select what is nearest a world point, switching space if it is in another. */
+  function selectAt(x, z, within = 6) {
+    const hit = nearestTo(x, z, within);
+    if (!hit) return bad('there is nothing within reach of there to select.');
+    if (doc && doc.space.id !== hit.space) { useDoc(hit.space); rebuild(); }
+    return select({ list: hit.list, index: hit.index });
+  }
+
+  /** Write fields onto what is selected: its turn, its size, its words. */
+  function setSelected(patch = {}) {
+    if (!doc || !doc.selection) return bad('nothing is selected, so nothing changed.');
+    const sel = doc.selection;
+    const e = doc.at(sel);
+    if (!e) return bad('what was selected is not there any more.');
+    const want = {};
+    if (Number.isFinite(patch.yaw) && 'yaw' in e) want.yaw = round2(((patch.yaw % 360) + 360) % 360);
+    if (Number.isFinite(patch.scale) && 'scale' in e) want.scale = Math.max(0.2, Math.min(6, round2(patch.scale)));
+    if (typeof patch.name === 'string' && 'name' in e) want.name = patch.name || null;
+    if (typeof patch.label === 'string' && 'label' in e) want.label = patch.label;
+    if (typeof patch.note === 'string' && 'note' in e) want.note = patch.note;
+    if (!Object.keys(want).length) return bad(`a ${LIST_WORD[sel.list]} has none of those to change.`);
+    return after(doc.patch(sel, want, `${labelOf(sel.list, e)}: ${Object.entries(want).map(([k, v]) => `${k} ${v}`).join(', ')}.`));
+  }
+
+  // ------------------------------------------------------------- autosave --
+  //
+  // NOTHING IS TYPED TO SAVE. A second after the last change every space that
+  // has changed is written and, when the ground has moved, the stroke list with
+  // them. `autosaveDue` is a question about a clock and `tickAutosave` is what
+  // the panel calls every frame, so the rule is measurable without a timer.
+
+  const autosaveAt = () => autoAt;
+  const autosaveWaiting = () => [...unsaved];
+  function autosaveDue(now = Date.now()) {
+    if (!autoAt || autoRunning) return false;
+    if (!unsaved.size && !terrainDirty) return false;
+    return num(now) >= autoAt;
+  }
+
+  /** Write everything that has changed, now. The Save button, and the autosave. */
+  async function saveAll(fetchFn = (typeof fetch === 'function' ? fetch : null), opts = {}) {
+    const was = doc;
+    const ids = [...unsaved];
+    const written = [];
+    const refused = [];
+    for (const id of ids) {
+      if (!useDoc(id)) { unsaved.delete(id); continue; }
+      const res = await save(fetchFn);
+      if (res.ok) written.push(id); else refused.push(`${id}: ${res.text}`);
+    }
+    if (was) { doc = was; dirty = unsaved.has(was.space.id); }
+    let ground = '';
+    if (terrainDirty && terrainReady()) {
+      const res = await terrainSave();
+      if (res.ok) { terrainDirty = false; ground = ' The ground is written too.'; }
+      else refused.push(`the ground: ${res.text}`);
+    }
+    autoAt = 0;
+    if (!written.length && !ground && !refused.length) return { ok: false, text: opts.quiet ? '' : say('nothing has changed, so nothing was written.') };
+    if (refused.length && !written.length) return bad(`nothing was written: ${refused.join('; ')}`);
+    return good(`${written.length} ${written.length === 1 ? 'space' : 'spaces'} written: ${written.join(', ') || 'none'}.${ground}${refused.length ? ` ${refused.length} refused: ${refused.join('; ')}` : ''}`, { written, refused });
+  }
+
+  /** Called every frame by the panel. Writes when the second is up, once. */
+  async function tickAutosave(now = Date.now(), fetchFn = (typeof fetch === 'function' ? fetch : null)) {
+    if (!autosaveDue(now)) return { ok: false, text: '' };
+    autoRunning = true;
+    try { return await saveAll(fetchFn, { quiet: true }); }
+    finally { autoRunning = false; }
   }
 
   // ------------------------------------------------------------- terrain --
@@ -656,6 +1072,7 @@ export function createEditor(ctx = {}) {
     }
     let out;
     try { out = t.stroke(call); } catch (err) { return bad(`the ${call.kind} brush threw: ${err && err.message}`); }
+    groundChanged(opts.now);
     // The strokes of one drag are not each worth a line; the drag's end is.
     return { ok: true, call, row, line, result: out, cut, words: typeof out === 'string' ? out : '', flip };
   }
@@ -749,6 +1166,7 @@ export function createEditor(ctx = {}) {
     let n = 0;
     for (let i = 0; i < g.n; i++) { if (t.undo() === false) break; n++; }
     strokeUndone.push({ ...g, n });
+    groundChanged();
     if (!n) return bad(`the ${g.kind} the editor was holding was already gone from the ground, so nothing came back.`);
     return good(n === g.n
       ? `${n} ${n === 1 ? 'stroke' : 'strokes'} of ${g.kind} undone, the whole ${g.n === 1 ? 'stroke' : 'drag'} in one.`
@@ -765,6 +1183,7 @@ export function createEditor(ctx = {}) {
     let n = 0;
     for (let i = 0; i < g.n; i++) { if (t.redo() === false) break; n++; }
     strokeGroups.push({ ...g, n });
+    groundChanged();
     if (!n) return bad(`there was nothing of that ${g.kind} left to put back.`);
     return good(`${n} ${n === 1 ? 'stroke' : 'strokes'} of ${g.kind} back on the ground.`);
   }
@@ -773,6 +1192,7 @@ export function createEditor(ctx = {}) {
     if (!t || typeof t.save !== 'function') return bad(NO_TERRAIN);
     try {
       const out = await t.save();
+      terrainDirty = false;
       return good(typeof out === 'string' ? out : 'the terrain edits are saved.');
     } catch (err) { return bad(`the terrain save threw: ${err && err.message}`); }
   }
@@ -829,6 +1249,7 @@ export function createEditor(ctx = {}) {
     strokeUndone.length = 0;
     lineFrom = null;
     drag = null;
+    groundChanged(now);
     return good(typeof out === 'string' && out ? out : 'every stroke is gone and the world is the flat one it started as.');
   }
   /** Whether the reset button is standing with its question still open. */
@@ -899,8 +1320,22 @@ export function createEditor(ctx = {}) {
     },
     // editing
     placeAt, select, selection, moveTo, turn, grow, del, undo, redo,
-    get canUndo() { return !!doc && doc.canUndo; },
-    get canRedo() { return !!doc && doc.canRedo; },
+    get canUndo() { return placeGroups.length > 0 || (!!doc && doc.canUndo); },
+    get canRedo() { return placeUndone.length > 0 || (!!doc && doc.canRedo); },
+    // the automatic spaces, the scatter brush and the autosave
+    ensureSpaceFor, useDoc, scatterAt, eraseAt, scatterCount,
+    sweepBegin, sweepStroke, sweepEnd, sweepCount,
+    nearestTo, selectAt, setSelected, deselect,
+    get scatter() { return { r: scatterR, density: scatterDensity }; },
+    setScatter(patch = {}) {
+      if (Number.isFinite(patch.r)) scatterR = Math.max(1, Math.min(SCATTER_R_MAX, round2(patch.r)));
+      if (Number.isFinite(patch.density)) scatterDensity = Math.max(0, Math.min(SCATTER_DENSITY_MAX, round2(patch.density)));
+      return { r: scatterR, density: scatterDensity };
+    },
+    saveAll, tickAutosave, autosaveDue, autosaveAt, autosaveWaiting,
+    get openSpaces() { return [...docs.keys()]; },
+    get groundDirty() { return terrainDirty; },
+    get depth() { return { done: placeGroups.length, undone: placeUndone.length }; },
     // terrain: the brushes
     terrainKinds, refreshKinds, brushRow: brushRowOf, brushValues, brushValue, brushWord,
     setBrush, setBrushParam, setBrushWord, brushTouched, bumpRadius, invert,
