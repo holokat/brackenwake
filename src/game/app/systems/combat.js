@@ -113,6 +113,8 @@ export const combat = {
       get attacking() { return attacking; },
       bw: {
         combat: combatRules, loot, monsters, targeting, targetRing, spawnMonster, stopAttack,
+        // the same auto attack a double click starts, for the bench and the tests
+        startAttack: (mon) => (mon && mon.actor ? startAttack(mon) : undefined),
         get attacking() { return attacking; },
       },
 

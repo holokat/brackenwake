@@ -53,7 +53,7 @@ import { buildBag } from './win_bag.js';
  */
 export const DOLL = {
   left: ['head', 'neck', 'back', 'chest', 'wrists', 'hands', 'waist'],
-  right: ['legs', 'feet', 'ring1', 'ring2', 'mainHand', 'offHand', 'ranged'],
+  right: ['legs', 'feet', 'ring1', 'ring2', 'mainHand', 'offHand'],   // bows are main hand weapons; the old `ranged` cell is gone
 };
 
 /** What the label under an empty cell says. */
@@ -139,13 +139,17 @@ export const DEFAULT_MOTTO = 'What you carry, you earned';
  * The doll shows every slot, once. Runs at load: a fifteenth slot added to
  * items.js and forgotten here fails here instead of vanishing from the screen.
  */
+/** The one slot nothing files under any more: bows went to the main hand, and the save loader empties it. */
+export const RETIRED_SLOTS = ['ranged'];
 export function auditDoll() {
   const cells = [...DOLL.left, ...DOLL.right];
-  if (cells.length !== SLOTS.length) {
-    throw new Error(`auditDoll: the doll has ${cells.length} cells and the game has ${SLOTS.length} slots`);
+  const live = SLOTS.filter((s) => !RETIRED_SLOTS.includes(s));
+  if (cells.length !== live.length) {
+    throw new Error(`auditDoll: the doll has ${cells.length} cells and the game has ${live.length} live slots`);
   }
   if (new Set(cells).size !== cells.length) throw new Error('auditDoll: a slot appears in two cells');
-  for (const s of SLOTS) if (!cells.includes(s)) throw new Error(`auditDoll: no cell for the ${s} slot`);
+  for (const s of live) if (!cells.includes(s)) throw new Error(`auditDoll: no cell for the ${s} slot`);
+  for (const s of RETIRED_SLOTS) if (cells.includes(s)) throw new Error(`auditDoll: the ${s} slot is retired and still has a cell`);
   for (const s of cells) {
     if (!SLOTS.includes(s)) throw new Error(`auditDoll: ${s} is a cell and not a slot`);
     if (!SLOT_LABELS[s]) throw new Error(`auditDoll: the ${s} cell has no label`);

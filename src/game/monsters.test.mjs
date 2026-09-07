@@ -239,12 +239,13 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   const player = fakePlayer(5, 0);
   stepMonster(wolf, 1 / 60, { player, now: 0, heightAt: () => 3, rng: seeded(6) });
   check('a wolf at full health comes at you', wolf.ai.state === 'chase' || wolf.ai.state === 'attack', wolf.ai.state);
-  wolf.health = wolf.maxHealth * 0.26;
+  // 15% since 2026-09-08 (combat_rules FLEE_THRESHOLD): a quarter was most of a fight run away from
+  wolf.health = wolf.maxHealth * 0.16;
   stepMonster(wolf, 1 / 60, { player, now: 100, heightAt: () => 3, rng: seeded(6) });
-  check('at 26% health it is still coming', wolf.ai.state !== 'flee', wolf.ai.state);
-  wolf.health = wolf.maxHealth * 0.24;
+  check('at 16% health it is still coming', wolf.ai.state !== 'flee', wolf.ai.state);
+  wolf.health = wolf.maxHealth * 0.14;
   stepMonster(wolf, 1 / 60, { player, now: 200, heightAt: () => 3, rng: seeded(6) });
-  check('at 24% it breaks', wolf.ai.state === 'flee', wolf.ai.state);
+  check('at 14% it breaks', wolf.ai.state === 'flee', wolf.ai.state);
 
   const startGap = gap(wolf, player);
   for (let f = 0; f < 600 && wolf.ai.state === 'flee'; f++) {

@@ -900,6 +900,11 @@ const CSS = `
   text-transform: uppercase; opacity: .85;
   text-shadow: 0 1px 0 #000, 0 0 4px #000;
 }
+#bw-plate .tg {
+  font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .08em;
+  color: #ff6a5a; text-shadow: 0 1px 0 #000, 0 0 4px #000;
+}
+#bw-plate .tg:empty { display: none; }
 /* the two bars sit side by side on one centred rail: the twelve you know on
    the left, the eight you carry on the right, with a gold rule between them */
 #bw-bars {
@@ -1141,6 +1146,7 @@ export function createHud(root) {
   plateSkull.innerHTML = SKULL_MARK;
   const plateName = add(plate, mk('div', null, 'nm'));
   const plateWord = add(plate, mk('div', null, 'wd'));
+  const plateTags = add(plate, mk('div', null, 'tg'));   // the debuffs you put on it, "Hunter's Mark 57 s"
   // one rail, two bars: what you know, then what you carry
   const barRail = add(el, mk('div', 'bw-bars'));
   const barRow = add(barRail, mk('div', 'bw-bar'));
@@ -1556,7 +1562,8 @@ export function createHud(root) {
       return null;
     }
     const colour = p.colour || theme.parchment;
-    const stamp = `${p.name}|${colour}|${p.word || ''}|${p.skull ? 1 : 0}`;
+    const tags = Array.isArray(p.tags) ? p.tags.join(' · ') : '';
+    const stamp = `${p.name}|${colour}|${p.word || ''}|${p.skull ? 1 : 0}|${tags}`;
     if (stamp !== plateStamp) {
       plateStamp = stamp;
       plateName.textContent = p.name;
@@ -1564,6 +1571,7 @@ export function createHud(root) {
       plateWord.textContent = p.word || '';
       plateWord.style.color = colour;
       plateSkull.style.color = colour;
+      plateTags.textContent = tags;
       plate.classList.toggle('skull', !!p.skull);
     }
     plate.style.transform = `translate(${Math.round(num(p.x))}px,${Math.round(num(p.y))}px) translate(-50%,-100%)`;

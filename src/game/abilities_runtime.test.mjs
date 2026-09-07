@@ -1131,7 +1131,7 @@ const item = (base, count) => (count == null ? { base } : { base, count });
   const before = h.actor.stamina;
   const dry = h.abilities.use(0, 0);
   ck('Double Shot with a bow and no arrows is refused',
-    dry.ok === false && /wants a bow drawn and arrows in the pack/.test(dry.reason), dry.reason);
+    dry.ok === false && /wants a bow in your hand and arrows in the pack/.test(dry.reason), dry.reason);
   ck('and it cost nothing', h.actor.stamina === before && h.combat.swings.length === 0);
   h.character.pack.items.push(item('arrow', 20));
   const wet = h.abilities.use(0, 0);
@@ -1149,7 +1149,7 @@ const item = (base, count) => (count == null ? { base } : { base, count });
     v[1].unusable === true && /wand or a staff/.test(v[1].unusableReason) && v[1].needs === 'focus',
     v[1].unusableReason);
   ck('and marks the shot, which has no bow behind it',
-    v[2].unusable === true && /bow drawn/.test(v[2].unusableReason), v[2].unusableReason);
+    v[2].unusable === true && /bow in your hand/.test(v[2].unusableReason), v[2].unusableReason);
   h.character.equipment = gear({ mainHand: item('longsword') });
   const after = h.abilities.barView(0);
   ck('swapping to a longsword clears the mark on the same frame',
@@ -1298,20 +1298,23 @@ const item = (base, count) => (count == null ? { base } : { base, count });
   });
   ck('and all four casting openings start with the focus already in the hand',
     armed.length === casters.length, armed.join(', ') || 'none');
-  ck('the ranger draws the bow and keeps the dagger in the pack',
+  // bows are main hand weapons (2026-09-08): the ranger is born with the bow IN
+  // HAND and the dagger in the pack, and swapping them is one move
+  ck('the ranger is born with the bow in hand and the dagger in the pack',
     (() => {
       const c = planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character;
       const r = weaponCheck(ABILITIES_BY_ID.aimedShot, c.equipment, c.pack);
       const daggerPacked = c.pack.items.some((it) => it && it.base === 'dagger');
-      return r.ok && !c.equipment.mainHand && !!c.equipment.ranged && daggerPacked;
+      return r.ok && c.equipment.mainHand?.base === 'shortbow' && !c.equipment.ranged && daggerPacked;
     })(),
-    'aimed shot allowed with an empty main hand, the bow drawn and the dagger packed');
-  ck('and with the dagger off, the shortbow and its sixty arrows answer',
+    'aimed shot allowed with the shortbow in the main hand and the dagger packed');
+  ck('and a dagger drawn over it is named as the thing in the way',
     (() => {
       const c = planCharacter({ opening: 'ranger', name: 'Testing', seed: 3 }).character;
-      c.equipment.mainHand = null;
-      return weaponCheck(ABILITIES_BY_ID.aimedShot, c.equipment, c.pack).ok === true;
-    })(), '60 arrows in the pack');
+      c.equipment.mainHand = c.pack.items.find((it) => it && it.base === 'dagger');
+      const r = weaponCheck(ABILITIES_BY_ID.aimedShot, c.equipment, c.pack);
+      return r.ok === false && /holding a Dagger/.test(r.reason);
+    })(), 'the dagger is what you are holding');
   ck('the bard plays on the lute the kit equips',
     (() => {
       const c = planCharacter({ opening: 'bard', name: 'Testing', seed: 3 }).character;

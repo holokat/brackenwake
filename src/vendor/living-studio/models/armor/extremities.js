@@ -1,4 +1,5 @@
 import {constructionAccent} from './shapes.js';
+import {blockHandDetails} from '../hand-shape.js';
 
 export function buildHands(h){
  const p=h.profile,b=p.bulk;
@@ -6,7 +7,9 @@ export function buildHands(h){
   const side=s<0?'L':'R',x=s*1.61,y=-.22,z=4.03,binding=`hand${side}`;
   h.with(binding,p.role,()=>{
    const glove=h.rootPart(h.shell(`Block hand armor ${s}`,[[x,y,z+.05,.155+b*.28,.15+b*.28],[x+s*.015,y-.045,z-.12,.214+b*.35,.18+b*.35],[x+s*.005,y-.105,z-.40,.20+b*.35,.19+b*.35],[x,y-.09,z-.47,.16+b*.28,.16+b*.28]],p.material,{n:8,thickness:.034,closedEnd:true}));
-   h.attached(h.cube(`Block thumb armor ${s}`,[x-s*.155,y-.139,z-.19],[.17+b*.35,.20+b*.30,.25],p.material,{bevel:.025}),glove);
+   const details=blockHandDetails(x,y,z,s,{armored:true,bulk:b});
+   h.attached(h.cube(`Block hand curl armor ${s}`,details.curl.center,details.curl.size,p.material,{bevel:.025}),glove);
+   h.attached(h.cube(`Block thumb armor ${s}`,details.thumb.center,details.thumb.size,p.material,{bevel:.025}),glove);
    h.with(binding,p.edgeRole,()=>h.mountedStrip(`Glove turned wrist seam ${s}`,[[x-.11,4.01],[x+.11,4.01]],.054,glove,p.edge));
    if(p.tier==='plate')h.mountedPanel(`Gauntlet knuckle plate ${s}`,[[x-.14,3.88],[x+.14,3.88],[x+.14,3.64],[x-.14,3.64]],glove,p.edge,{thickness:.042});
    else if(p.tier==='cloth'||p.tier==='leather')h.with(binding,p.role==='cloth'?'trim':'leather',()=>h.mountedStrip(`Glove back seam ${s}`,[[x,3.64],[x,3.87]],.04,glove,p.edge));

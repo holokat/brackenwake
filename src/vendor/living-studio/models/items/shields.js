@@ -1,5 +1,6 @@
 import {loop,role} from './common.js';
 import {shieldBoards,shieldPanel,shieldRim,shieldRivet,shieldSteel,applyShieldConstruction} from './shield-surfaces.js';
+import {buildShieldFittings} from './shield-fittings.js';
 
 const profiles={
  buckler:{shape:'round',width:.62,outline:Array.from({length:20},(_,i)=>{const a=i*Math.PI/10;return[Math.cos(a)*.62,Math.sin(a)*.62];})},
@@ -22,20 +23,6 @@ function boss(h,shape,front){
  }
 }
 
-function rearFittings(h,id){
- // Preserve the proven palm origin, handle axis and forearm opening.
- h.tube('Rear shield hand grip',[[-.34,.045,0],[-.27,.50,.01],[.27,.50,.01],[.34,.045,0]],.057,'leather_dark',{sides:6,variation:0});
- for(const x of[-.34,.34]){
-  h.cube('Rear grip mounting plate',[x,.064,0],[.14,.045,.16],'steel_dark',{bevel:.014});
-  h.ico('Rear grip mounting rivet',[x,.092,0],[.035,.026,.035],'steel_edge',{sub:1,variation:0});
- }
- if(id!=='buckler'){
-  h.tube('Rear forearm strap',[[-.35,.045,-.31],[-.36,.97,-.35],[.36,.97,-.35],[.35,.045,-.31]],.067,'leather',{sides:6,variation:0});
-  for(const x of[-.35,.35])h.cube('Rear strap mounting plate',[x,.066,-.31],[.14,.045,.16],'steel_dark',{bevel:.012});
- }
- h.root.traverse(mesh=>{if(mesh.isMesh&&/^Rear/.test(mesh.name))mesh.geometry.rotateY(Math.PI/2);});
-}
-
 export function buildShield(h,id){
  const profile=profiles[id];if(!profile)throw new RangeError('Unknown shield shape: '+id);
  const {outline,width,shape}=profile;h.root.userData.shieldShape=shape;
@@ -53,7 +40,7 @@ export function buildShield(h,id){
   for(const x of[-.60,0,.60])shieldRivet(h,'Cross brace rivet',x,z,band,{radius:.030,construction:'wood'});
   for(const x of[-.60,0,.60])shieldRivet(h,'Metal field rivet',x,z,metal,{radius:.024,construction:'metal'});
  }
- rearFittings(h,id);
- h.root.traverse(mesh=>{if(mesh.isMesh)mesh.geometry.translate(-.01,-.50,0);});
+ const offset=buildShieldFittings(h,id);
+ h.root.traverse(mesh=>{if(mesh.isMesh)mesh.geometry.translate(...offset);});
  applyShieldConstruction(h.root);
 }

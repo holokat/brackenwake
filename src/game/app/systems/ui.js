@@ -355,7 +355,7 @@ export const ui = {
         // gathers all five, and hud.js says what each one costs to draw.
         hud.update(dt, {
           actor,
-          target: fight.targeting.frame(character),
+          target: fight.targeting.frame(character, nowS),
           bar: bars.abilities.barView(nowS),
           items: bars.itemBar.view(),
           buffs: bars.abilities.buffsView(nowS),

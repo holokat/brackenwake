@@ -227,7 +227,8 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('and buying one writes nothing to the old held field', s.tool === 'hand' && s.character.heldTool === 'hand');
   check('a tool that is not in the game is refused', s.giveTool('sword') === false && s.tools.size === 1);
   s.giveTool('bow');
-  check('the bow goes to the ranged slot', s.character.equipment.ranged.base === 'shortbow');
+  check('the bow goes to the pack, the axe already holding the hand (bows are main hand weapons)',
+    s.character.pack.items.some((i) => i && i.base === 'shortbow') && !s.character.equipment.ranged);
   s.giveTool('pickaxe');
   check('the pickaxe goes in the pack, as 07 says', s.character.pack.items.some((i) => i && i.base === 'pickaxe'));
   check('all three read as owned', s.tools.size === 3 && TOOLS.every((t) => s.hasTool(t)));
@@ -367,7 +368,10 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('6 venison and 2 game meat come with them', s.goods.venison === 6 && s.goods.game_meat === 2, JSON.stringify(s.goods));
   check('245 coins become 245 gold', s.character.gold === 245 && s.coins === 245, String(s.coins));
   check('the axe is in the main hand', s.character.equipment.mainHand.base === 'axe');
-  check('the bow is in the ranged slot', s.character.equipment.ranged.base === 'shortbow');
+  // bows are main hand weapons now: the axe took the hand first, so the bow
+  // walked into the pack and the old back slot is empty (migrateRangedSlot)
+  check('the bow is in the pack, the hand being the axe\'s, and the old back slot is empty',
+    s.character.pack.items.some((i) => i && i.base === 'shortbow') && !s.character.equipment.ranged);
   check('the pickaxe is in the pack', s.character.pack.items.some((i) => i && i.base === 'pickaxe'));
   check('and all three still read as tools', s.tools.size === 3, [...s.tools].join(','));
   check('the held tool carries over', s.tool === 'pickaxe');
@@ -376,7 +380,7 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('with the 200 skill points unplaced', SKILL_IDS.every((id) => s.character.skills[id] === 0));
   check('and it asks to be made', s.needsCreation === true);
   check('the pools are full for the new character', s.character.health === 155 && s.character.mana === 135 && s.character.stamina === 120, `${s.character.health}/${s.character.mana}/${s.character.stamina}`);
-  check('six slots of the pack are used and fourteen are free', s.character.pack.items.filter(Boolean).length === 6, String(s.character.pack.items.filter(Boolean).length));
+  check('seven slots of the pack are used (the bow walked in from the old back slot) and thirteen are free', s.character.pack.items.filter(Boolean).length === 7, String(s.character.pack.items.filter(Boolean).length));
 
   // The v1 key goes at load now rather than at the first save, because the
   // migration writes the slot, reads it back and only then removes the old

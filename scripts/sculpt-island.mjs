@@ -240,8 +240,21 @@ for (const p of samples([[HILL.x - 120, HILL.z + 20], [HILL.x - 40, HILL.z - 40]
 }
 paint('dirt', CAMP.x, CAMP.z, 26, { hardness: 0.5, opacity: 0.9 });
 for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; paint('rock', BARROW.x + Math.sin(a) * 26, BARROW.z + Math.cos(a) * 26, 10, { hardness: 0.6, opacity: 0.6 }); }
+// The town's lanes are the terrain's, not flat brown meshes: the plan's `lane`
+// areas are painted into the ground as dragged path strokes and taken off the
+// space, so Haven's lanes read like every other lane on the island ("no idea
+// what these are in the center of the city").
+const townLanes = [];
+{
+  const p = JSON.parse(readFileSync(join(PLAN_DIR, 'hearthhome.json'), 'utf8'));
+  const R = rotBy(TOWN.deg);
+  for (const a of p.areas || []) {
+    if (a.kind !== 'lane') continue;
+    townLanes.push({ id: 'town_lane', word: 'path', width: Math.min(3, a.w || 3), pts: a.points.map(([x, z]) => { const q = R(x, z); return [r2(TOWN.x + q.x), r2(TOWN.z + q.z)]; }) });
+  }
+}
 // the lanes, dragged
-for (const l of LANES) {
+for (const l of [...LANES, ...townLanes]) {
   const brushR = r2(l.width / 2 + 0.4);
   const pts = samples(l.pts, 40);
   for (let i = 0; i + 1 < pts.length; i++) { stroke({ kind: 'ground', word: l.word, x: r2(pts[i].x), z: r2(pts[i].z), x2: r2(pts[i + 1].x), z2: r2(pts[i + 1].z), r: brushR, hardness: 1, opacity: 1 }); nPaint++; }
@@ -326,6 +339,7 @@ function dryOff(s) {
 
 // ---- the town: Hearthhome's plan, its gate to the bay
 const TOWNSPACE = fromPlan('hearthhome', 'island_town', 'Haven', TOWN, TOWN.deg, 76);
+TOWNSPACE.areas = TOWNSPACE.areas.filter((a) => a.kind !== 'lane');   // the lanes are paint now, see above
 castMarkers(TOWNSPACE, 'hearthhome', TOWN.deg);
 TOWNSPACE.note = 'The one town on the island: a flint wall, a green with a well, the inn, the smith, the healer, the chapel and the manor, and the quay at the gate where the boats come in. Nothing hunts here.';
 addMarker(TOWNSPACE, 'the green', 'nothing hunts here, and the well is the middle of everything', 'other', TOWN.x + 5, TOWN.z + 5);

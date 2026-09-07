@@ -201,7 +201,7 @@ export const GOOD_BASE = { venison: 'venison', game_meat: 'game_meat' };
 export const TOOL_ITEM = {
   axe: { base: 'axe', slot: 'mainHand' },
   pickaxe: { base: 'pickaxe', slot: null },
-  bow: { base: 'shortbow', slot: 'ranged' },
+  bow: { base: 'shortbow', slot: 'mainHand' },   // a bow is a main hand weapon; the axe, listed first, keeps the hand and the bow goes to the pack
 };
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -987,6 +987,23 @@ function hydrateItem(raw) {
  * keys are ignored, missing keys fall back to the blank, and anything the item
  * tables no longer know is dropped rather than carried as a hole.
  */
+/**
+ * Bows are main hand weapons since 2026-09-08 (items.js). A save from before
+ * carries one in `equipment.ranged`: it goes into the hand when the hand is
+ * empty, else into the first free pack slot, and the back slot is emptied.
+ * With no room anywhere it stays where it was, which actor.js still fires
+ * when the hand is empty. Returns what it did, for the tests and the words.
+ */
+export function migrateRangedSlot(doc) {
+  const bow = doc && doc.equipment ? doc.equipment.ranged : null;
+  if (!bow) return null;
+  if (!doc.equipment.mainHand) { doc.equipment.mainHand = bow; doc.equipment.ranged = null; return 'hand'; }
+  const items = doc.pack && Array.isArray(doc.pack.items) ? doc.pack.items : null;
+  const free = items ? items.findIndex((it) => !it) : -1;
+  if (free >= 0) { items[free] = bow; doc.equipment.ranged = null; return 'pack'; }
+  return 'kept';
+}
+
 export function hydrate(raw) {
   const doc = blankCharacter();
   if (!raw || typeof raw !== 'object') return fillPools(doc);
@@ -1046,6 +1063,7 @@ export function hydrate(raw) {
       e && typeof e === 'object' && e.base ? { base: String(e.base), name: String(e.name || '') } : null
     ));
   }
+  migrateRangedSlot(doc);
   doc.itemBarSlot = Number.isInteger(raw.itemBarSlot) && raw.itemBarSlot >= 0 ? raw.itemBarSlot : null;
   if (Array.isArray(raw.discovered)) doc.discovered = raw.discovered.filter((d) => typeof d === 'string');
   if (Array.isArray(raw.zones)) doc.zones = raw.zones.filter((d) => typeof d === 'string');

@@ -174,13 +174,15 @@ console.log('monster_ai: what a monster IS allowed to run from');
   // undead and constructs never. None of that was touched, and none of it may
   // drift, so it is measured through the same stepMonster the game runs.
   const wolf = makeMonsterActor('wolf', { pos: { x: 0, y: 0, z: 0 } });
-  wolf.health = Math.round(wolf.maxHealth * 0.20);
-  ck('a wolf at 20% of its health wants to flee by the rule', fleeCheck(wolf) === true,
+  wolf.health = Math.round(wolf.maxHealth * 0.10);
+  ck('a wolf at 10% of its health wants to flee by the rule', fleeCheck(wolf) === true,
     `${wolf.health} of ${wolf.maxHealth}`);
   const p = player(4);
-  const d = drive(wolf, p, MONSTERS.wolf, 3);
+  // one second, not three: the flight breaks at FLEE_BREAK_M (14 m since
+  // 2026-09-08) and the walk home would close the gap again inside three
+  const d = drive(wolf, p, MONSTERS.wolf, 1);
   ck('and it really does run: the gap grows every frame it can',
-    d.opened > 100 && d.end > d.start + 5 && d.fled > 100,
+    d.opened > 40 && d.end > d.start + 5 && d.fled > 40,
     `${d.start.toFixed(1)} m to ${d.end.toFixed(1)} m, ${d.opened} frames wider, ${d.fled} flee frames`);
 
   const healthy = makeMonsterActor('wolf', { pos: { x: 0, y: 0, z: 0 } });

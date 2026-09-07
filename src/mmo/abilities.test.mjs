@@ -663,20 +663,24 @@ const emptyPack = { slots: 20, items: [] };
 }
 {
   const ds = ABILITIES_BY_ID.doubleShot;    // ranged, archery, arrows
-  const good = weaponCheck(ds, doll({ ranged: it('shortbow') }), arrows);
-  const noAmmo = weaponCheck(ds, doll({ ranged: it('longbow') }), emptyPack);
+  // the bow is a MAIN HAND weapon (items.js, 2026-09-08); a save that still
+  // slings one in the old ranged slot with an empty hand is honoured
+  const good = weaponCheck(ds, doll({ mainHand: it('shortbow') }), arrows);
+  const legacy = weaponCheck(ds, doll({ ranged: it('shortbow') }), arrows);
+  const noAmmo = weaponCheck(ds, doll({ mainHand: it('longbow') }), emptyPack);
   const noBow = weaponCheck(ds, doll(), arrows);
-  const wrongBow = weaponCheck(ds, doll({ ranged: it('crossbow') }), arrows);
+  const wrongBow = weaponCheck(ds, doll({ mainHand: it('crossbow') }), arrows);
   const blocked = weaponCheck(ds, doll({ mainHand: it('longsword'), ranged: it('shortbow') }), arrows);
-  check('a bow allows Double Shot only with arrows', good.ok === true, good.reason || 'allowed');
+  check('a bow in the hand allows Double Shot with arrows', good.ok === true, good.reason || 'allowed');
+  check('and so does a bow still slung in an old save with an empty hand', legacy.ok === true, legacy.reason || 'allowed');
   check('the same bow with an empty pack refuses it',
-    noAmmo.ok === false && /wants a bow drawn and arrows in the pack/.test(noAmmo.reason), noAmmo.reason);
+    noAmmo.ok === false && /wants a bow in your hand and arrows in the pack/.test(noAmmo.reason) && /you have none/.test(noAmmo.reason), noAmmo.reason);
   check('arrows with no bow refuse it too',
-    noBow.ok === false && /ranged slot is empty/.test(noBow.reason), noBow.reason);
+    noBow.ok === false && /your hands are empty/.test(noBow.reason), noBow.reason);
   check('and a crossbow is the wrong thing to draw for an archery ability',
-    wrongBow.ok === false && /wrong thing to shoot with/.test(wrongBow.reason), wrongBow.reason);
-  check('a sword in the main hand keeps the bow on your back, so the shot is refused',
-    blocked.ok === false && /is in your hand instead/.test(blocked.reason), blocked.reason);
+    wrongBow.ok === false && /holding a Crossbow/.test(wrongBow.reason), wrongBow.reason);
+  check('a sword in the hand is what you are holding, so the shot is refused and the sword is named',
+    blocked.ok === false && /holding a Longsword/.test(blocked.reason), blocked.reason);
 }
 {
   const cs = ABILITIES_BY_ID.cripplingShot; // ranged, marksmanship, bolts

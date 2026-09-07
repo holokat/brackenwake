@@ -381,8 +381,10 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   check('a longsword goes to the main hand', equipSlotFor('longsword') === 'mainHand');
   check('a greatsword goes to the main hand and is two handed', equipSlotFor('greatsword') === 'mainHand' && twoHanded('greatsword') === true);
   check('a longsword is not two handed', twoHanded('longsword') === false);
-  check('a bow goes to the ranged slot', equipSlotFor('shortbow') === 'ranged' && equipSlotFor('longbow') === 'ranged');
-  check('a crossbow and thrown knives go to the ranged slot', equipSlotFor('crossbow') === 'ranged' && equipSlotFor('throwing_knives') === 'ranged');
+  // bows are main hand weapons since 2026-09-08: a dagger and a bow swap in one move
+  check('a bow goes to the main hand like any other weapon, and is two handed', equipSlotFor('shortbow') === 'mainHand' && equipSlotFor('longbow') === 'mainHand' && twoHanded('longbow') === true);
+  check('a crossbow and thrown knives go to the main hand too', equipSlotFor('crossbow') === 'mainHand' && equipSlotFor('throwing_knives') === 'mainHand');
+  check('and nothing in the table is filed under the old ranged slot', !Object.values(BASES).some((b) => b.slot === 'ranged'));
   check('a shield goes to the off hand', equipSlotFor('buckler') === 'offHand');
   check('a tome and a torch go to the off hand', equipSlotFor('tome') === 'offHand' && equipSlotFor('torch') === 'offHand');
   check('an amulet goes to the neck', equipSlotFor('amulet') === 'neck');

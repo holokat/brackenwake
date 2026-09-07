@@ -72,7 +72,19 @@ export const SUMMON_CREATURES = {
   boneKnight: { monster: 'boneKnight' },
   // Beast Call raises nothing. It takes what is already standing there.
   nearestWildBeast: { monster: null, wild: true },
+  // Beast Call as of 2026-09-08: an animal comes to the call, and which one
+  // is the caller's Animal Lore. `monster` is the floor; `bySkill` climbs.
+  calledBeast: { monster: 'wolf', skill: 'animalLore', bySkill: [{ min: 0, monster: 'wolf' }, { min: 70, monster: 'boar' }, { min: 90, monster: 'direWolf' }] },
 };
+/** The monster a summon row stands up for this caller: the row's own, or the best its skill reaches. */
+export function summonMonsterFor(row, skills = {}) {
+  if (!row) return null;
+  if (!Array.isArray(row.bySkill) || !row.skill) return row.monster;
+  const have = Number(skills && skills[row.skill]) || 0;
+  let pick = row.monster;
+  for (const step of row.bySkill) if (have >= Number(step.min)) pick = step.monster;
+  return pick;
+}
 
 /** Every `summon` effect in the table, creature id and all. */
 export function summonCreaturesInTable(list = ABILITIES) {
@@ -97,6 +109,9 @@ export function auditSummonCreatures(list = ABILITIES, table = SUMMON_CREATURES,
     if (row.wild) continue;
     if (!row.monster) bad.push(`"${creature}" names no monster and is not marked wild`);
     else if (!roster[row.monster]) bad.push(`"${creature}" points at monster "${row.monster}", which the roster does not have`);
+    for (const step of row.bySkill || []) {
+      if (!roster[step.monster]) bad.push(`"${creature}" climbs to "${step.monster}" at ${row.skill} ${step.min}, which the roster does not have`);
+    }
   }
   if (bad.length) {
     throw new Error(`ability_hooks: the summon table has drifted:\n  ${bad.join('\n  ')}`);
@@ -264,10 +279,11 @@ export function createAbilityHooks(deps = {}) {
     }
     while (summons.length >= MAX_SUMMONS) retire(summons[0], 'you called another and could not hold them all');
 
+    const monsterId = summonMonsterFor(row, actor.skills || character.skills);
     const mon = typeof monsters.spawnAlly === 'function'
-      ? monsters.spawnAlly(row.monster, num(where.x), num(where.z))
-      : monsters.spawnAt(row.monster, num(where.x), num(where.z));
-    if (!mon) { say(`The ground here would not give up a ${row.monster}.`, 'bad'); return null; }
+      ? monsters.spawnAlly(monsterId, num(where.x), num(where.z))
+      : monsters.spawnAt(monsterId, num(where.x), num(where.z));
+    if (!mon) { say(`The ground here would not give up a ${monsterId}.`, 'bad'); return null; }
     if (typeof monsters.spawnAlly !== 'function') markFriendly(mon);
 
     // "as strong as you are": Raise Champion's own line, and the only row that

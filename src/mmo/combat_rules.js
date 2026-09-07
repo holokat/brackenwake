@@ -105,7 +105,11 @@ export const AGGRO_RADIUS = { critter: 0, vermin: 6, normal: 12, hunter: 18, bos
 export const AGGRO_DEFAULT = AGGRO_RADIUS.normal;
 export const LEASH_FACTOR = 2.5;
 export const LEASH_MS = 6000;
-export const FLEE_THRESHOLD = 0.25;
+// 0.25 until 2026-09-08. "Monsters run away too much, I cannot even catch them
+// as melee": a thing at a quarter of its health that bolts twenty five metres
+// and walks home healing is most of a fight thrown away. Now it runs at 15%,
+// and monsters.js breaks the flight at 14 m rather than 25.
+export const FLEE_THRESHOLD = 0.15;
 export const NEVER_FLEE = ['undead', 'construct'];
 
 // What a monster with nothing in its hands swings with.

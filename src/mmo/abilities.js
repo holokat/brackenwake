@@ -610,14 +610,15 @@ export function weaponCheck(ability, equipment = null, pack = null) {
 
   if (needs.kind === 'ranged') {
     const skills = needs.skills || [];
-    const head = `${name} wants ${wordsFor(skills)} drawn and ${ammoWordsFor(needs.ammo)} in the pack`;
-    if (!shot || !shot.ranged || !skills.includes(shot.skill)) {
-      return { ok: false, reason: `${head}, and ${shot ? `${aName(shot)} is the wrong thing to shoot with` : 'your ranged slot is empty'}.` };
+    const head = `${name} wants ${wordsFor(skills)} in your hand and ${ammoWordsFor(needs.ammo)} in the pack`;
+    // The bow is a main hand weapon now. A save that still slings one in the
+    // old `ranged` slot with an empty hand is honoured, since actor.js fires it.
+    const drawn = main || (!main ? shot : null);
+    if (!drawn) return { ok: false, reason: `${head}, and your hands are empty.` };
+    if (!drawn.ranged || !skills.includes(drawn.skill)) {
+      return { ok: false, reason: `${head}, and you are holding ${aName(drawn)}.` };
     }
-    if (main) {
-      return { ok: false, reason: `${head}, and ${aName(main)} is in your hand instead. Put it away to free your hands.` };
-    }
-    if ((needs.selfAmmo || []).includes(shot.id)) return { ok: true };
+    if ((needs.selfAmmo || []).includes(drawn.id)) return { ok: true };
     let have = 0;
     for (const id of needs.ammo || []) have += countInPack(pack, id);
     if (have <= 0) return { ok: false, reason: `${head}, and you have none.` };
@@ -921,10 +922,10 @@ export const ABILITIES = [
     cost: { stamina: 10 }, cooldown: 20, castTime: 0, moving: true,
     range: 30, target: 'enemy',
     effect: {
-      kind: 'mark', damageTakenMult: 1.15, duration: 30, fromCasterOnly: true,
+      kind: 'mark', damageTakenMult: 1.15, duration: 60, fromCasterOnly: true,
       preventsHide: true,
     },
-    description: 'You have its scent. Fifteen percent more from you, and nowhere to hide.',
+    description: 'You have its scent. Fifteen percent more from you for a minute, and nowhere to hide.',
   }),
   a({
     id: 'snare', name: 'Snare', group: 'ranger',
@@ -947,10 +948,10 @@ export const ABILITIES = [
     cost: { stamina: 30 }, cooldown: 90, castTime: 2, moving: false,
     range: 30, target: 'self',
     effect: {
-      kind: 'summon', creature: 'nearestWildBeast', source: 'nearestWild',
+      kind: 'summon', creature: 'calledBeast',
       duration: 30,
     },
-    description: 'Whatever is closest and wild takes your side for half a minute.',
+    description: 'A wolf answers and fights beside you for half a minute. At Animal Lore 70 a boar comes instead, and at 90 a dire wolf.',
   }),
 
   // --- Mage ----------------------------------------------------------------

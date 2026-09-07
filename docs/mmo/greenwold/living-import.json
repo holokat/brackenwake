@@ -1,6 +1,6 @@
 {
   "source": "/Users/k/code/animation-studio/fantasy-studio",
-  "copiedBytes": 457969,
+  "copiedBytes": 457762,
   "files": {
     "runtime/world-effects/index.js": {
       "sha256": "52c9063288cbbefd8f865498414f36429b0bd136b498fbc889c05cbd9c9a7856",
@@ -99,16 +99,16 @@
       "bytes": 14182
     },
     "runtime/animation.js": {
-      "sha256": "b4bf7d375a0dafaecd45e1b433c3595c07fc667d309d2cc201cd63824f7f15d6",
-      "bytes": 5403
+      "sha256": "9e887b548eb2b9430e38947a0c77d90b2fb11aa05e8b1afbb54f4686ae2d5ac3",
+      "bytes": 5029
     },
     "models/shield-motion.js": {
       "sha256": "89f8c81d9f96e7f66a6390d353053e472aed95280628b19d30abd250657d4e88",
       "bytes": 3464
     },
     "models/shield-grips.js": {
-      "sha256": "59641f88244d11594766683409a3117ffb50fe90d06c20bbc5453e2a8262c827",
-      "bytes": 6530
+      "sha256": "247989569f181077c6d39333e49c0e5d821622a83ef8191b18fa004cd0c553f1",
+      "bytes": 6697
     },
     "models/equipment-grips.js": {
       "sha256": "6ecf0075eb79f7d0e1f3bc99c56995d5085ef40f204ecf2350b7702ff9a49b94",
@@ -245,10 +245,13 @@
   },
   "studioVerification": {
     "previous": {
-      "verifiedAt": "2026-09-07T09:07:04.012557+00:00",
-      "matched": 38,
-      "unlisted": 22,
-      "mismatches": []
+      "previous": {
+        "verifiedAt": "2026-09-07T09:07:04.012557+00:00",
+        "matched": 38,
+        "unlisted": 22,
+        "mismatches": []
+      },
+      "note": "Shared dependencies updated by the later character integration; use the new snapshot hashes."
     },
     "note": "Shared dependencies updated by the later character integration; use the new snapshot hashes."
   },

@@ -442,5 +442,18 @@ console.log('\nability_hooks: a hand in a pocket');
   ck('and nobody at all is refused too', /nobody in reach/.test(h.hooks.utility.steal({}, {})));
 }
 
+// --- Beast Call answers with an animal by Animal Lore (2026-09-08) ------------
+{
+  const { summonMonsterFor, SUMMON_CREATURES } = await import('./ability_hooks.js');
+  const row = SUMMON_CREATURES.calledBeast;
+  ck('Beast Call is a real summon now, a wolf at the floor', row && !row.wild && row.monster === 'wolf');
+  ck('at Animal Lore 0 a wolf comes', summonMonsterFor(row, { animalLore: 0 }) === 'wolf');
+  ck('at 69 still a wolf', summonMonsterFor(row, { animalLore: 69 }) === 'wolf');
+  ck('at 70 a boar', summonMonsterFor(row, { animalLore: 70 }) === 'boar');
+  ck('at 90 a dire wolf', summonMonsterFor(row, { animalLore: 90 }) === 'direWolf');
+  ck('a row without a ladder is its own monster', summonMonsterFor({ monster: 'skeleton' }, { animalLore: 100 }) === 'skeleton');
+  ck('and the ranger opening at Animal Lore 35 calls a wolf, which is what the description promises first', summonMonsterFor(row, { animalLore: 35 }) === 'wolf');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

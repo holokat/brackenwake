@@ -1,5 +1,6 @@
 import {constructionAccent} from './shapes.js';
 import {buildRobeSkirt,buildDrapedBack} from './drape.js';
+import {buildSleeve,buildApronUndershirt} from './sleeves.js';
 
 export function buildChest(h){
  const p=h.profile,b=p.bulk,robe=p.id==='dark_robe',robed=p.tier==='cloth';
@@ -29,7 +30,7 @@ export function buildChest(h){
  if(robed)h.with('torso','trim',()=>{
   for(const s of[-1,1])h.mountedStrip(`Robe front facing ${s}`,[[s*.17,4.12],[s*.17,4.68],[s*.23,5.28],[s*.30,5.93],[s*.27,6.37]],.12,torso,robe?'violet':p.edge);
  });
- for(const side of[-1,1])buildSleeve(h,side,robe,torso);
+ for(const side of[-1,1])buildSleeve(h,side,torso,{robe});
  constructionAccent(h,{support:torso,z:5.59,width:1.10,height:.55});
  if(robe)h.with('chest','cloth',()=>{
   const vertices=[],faces=[],steps=10;
@@ -40,24 +41,9 @@ export function buildChest(h){
   h.attached(h.thicken('Standing robe collar',vertices,faces,([x,y,z])=>[x*.92,.01+(y-.01)*.90,z], 'violet_dark'),torso);
  });
 }
-function buildSleeve(h,s,robe,torso){
- const p=h.profile,b=p.bulk,side=s<0?'L':'R',long=['cloth','chain'].includes(p.tier)||robe;
- h.with('arm',p.role,()=>{
-  const points=[[s*.96,0,6.18],[s*1.10,0,5.98],[s*1.31,-.008,5.55]],radii=[[.32+b,.34+b],[.40+b,.40+b],[.34+b,.33+b]];
-  if(long){points.push([s*1.45,-.015,5.05],[s*1.54,-.14,4.43],[s*1.60,-.21,4.12]);radii.push([.30,.295],[robe?.36:.285,robe?.33:.27],[robe?.38:.25,robe?.35:.235]);}
-  const rings=points.map((point,i)=>[...point,...radii[i]]);
-  const sleeve=h.attached(h.shell(`${p.tier} ${long?'long':'upper'} sleeve ${s}`,rings,robe?'violet_dark':p.material,{n:p.sides,closedStart:true}),torso);
-  const end=rings.at(-1),previous=rings.at(-2),t=.12;
-  const start=end.map((value,i)=>value+(previous[i]-value)*t);
-  h.with('arm',p.edgeRole,()=>h.attached(h.shell(`Sleeve cuff binding ${s}`,[[start[0],start[1],start[2],start[3]+.016,start[4]+.016],[end[0],end[1],end[2],end[3]+.016,end[4]+.016]],p.edge,{thickness:.050}),sleeve),side);
-  if(p.tier==='plate')h.with(`upperArm${side}`,'metal',()=>{
-   const shoulder=h.attached(h.ico(`Plate pauldron ${s}`,[s*1.12,0,6.10],[.65,.61,.44],p.material,{sub:1}),sleeve);
-   h.mountedStrip(`Pauldron bound front edge ${s}`,[[s*1.04,6.17],[s*1.15,6.24]],.25,shoulder,p.edge);
-  });
- },side);
-}
 function buildApron(h){
  const p=h.profile;
+ buildApronUndershirt(h);
  const apron=h.rootPart(h.panel('Leather apron bib and skirt',[[-.41,-.38,6.25],[.41,-.38,6.25],[.66,-.57,5.66],[.69,-.54,4.59],[.96,-.60,2.71],[.80,-.64,2.48],[-.80,-.64,2.48],[-.96,-.60,2.71],[-.69,-.54,4.59],[-.66,-.57,5.66]],.10+p.bulk,p.material));
  h.with('torso','leather',()=>{
   h.attached(h.shell('Apron continuous neck loop',[[0,0,6.24,.35,.35],[0,.02,6.42,.44,.37]],'leather_light',{thickness:.055}),apron);

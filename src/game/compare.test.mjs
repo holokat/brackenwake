@@ -246,7 +246,7 @@ console.log('compare: equippedFor, across every kind of slot');
     ['back', 'plate_back'], ['hands', 'plate_hands'], ['wrists', 'plate_wrists'],
     ['waist', 'plate_waist'], ['legs', 'plate_legs'], ['feet', 'plate_feet'],
     ['ring1', 'ring'], ['mainHand', 'longsword'], ['offHand', 'kite'],
-    ['ranged', 'longbow'],
+    // a longbow is a main hand weapon too (2026-09-08); the retired ranged slot has no kind of thing
   ];
   const seen = new Set();
   let allRight = true;
@@ -258,9 +258,10 @@ console.log('compare: equippedFor, across every kind of slot');
     if (found.items[0] !== null) { allRight = false; wrong.push(`${base} found something in an empty ${slot}`); }
   }
   check('every kind of thing finds its own empty slot', allRight, wrong.join('; ') || `${cases.length} kinds`);
-  check('and between them they cover thirteen of the fourteen',
-    seen.size === 13 && SLOTS.filter((s) => !seen.has(s)).join(',') === 'ring2',
+  check('and between them they cover twelve of the fourteen: the second ring hand and the retired ranged slot are the two without a kind',
+    seen.size === 12 && SLOTS.filter((s) => !seen.has(s)).join(',') === 'ring2,ranged',
     SLOTS.filter((s) => !seen.has(s)).join(','));
+  check('a longbow finds the main hand, like every weapon', equippedFor(c, gear('longbow')).slot === 'mainHand');
   check('a material has no slot to find', equippedFor(c, gear('ingot')).slot === null);
 }
 {

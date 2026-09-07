@@ -187,7 +187,17 @@ export function screenOf(camera, point, width, height) {
  *
  * `bodyHeight` is the model's own height when the monster runtime knows it.
  */
-export function nameplateOf(target, character, camera, width, height, bodyHeight) {
+/**
+ * The marks on a target that are still running at `now` (seconds on the
+ * abilities' clock), as the words the plate prints: "Hunter's Mark 57 s".
+ */
+export function marksOn(target, now) {
+  const list = target && Array.isArray(target.marks) ? target.marks : [];
+  const t = num(now);
+  return list.filter((m) => m && (!Number.isFinite(t) || !Number.isFinite(m.until) || m.until > t))
+    .map((m) => ({ id: m.abilityId, name: m.name || m.abilityId || 'marked', left: Number.isFinite(m.until) && Number.isFinite(t) ? Math.max(0, Math.ceil(m.until - t)) : null }));
+}
+export function nameplateOf(target, character, camera, width, height, bodyHeight, now = NaN) {
   if (!target) return null;
   if (num(target.health) <= 0 || target.dead === true) return null;
   const c = conOf(target, character);
@@ -200,6 +210,9 @@ export function nameplateOf(target, character, camera, width, height, bodyHeight
     name: target.name || 'something',
     colour: c.colour, word: c.word, level: c.level, skull: c.skull,
     x: at.x, y: at.y,
+    // what you have done to it that is still running: a mark is a debuff the
+    // plate should show, or the player cannot tell it landed
+    tags: marksOn(target, now).map((m) => (m.left != null ? `${m.name} ${m.left} s` : m.name)),
   };
 }
 
@@ -351,10 +364,10 @@ export function createTargeting(sc, input, monsters, opts = {}) {
    *
    * All three are cleared when there is no target, so none can be left over.
    */
-  function frame(character) {
+  function frame(character, now = NaN) {
     const f = targetFrame(current, character);
     const { width, height } = viewport();
-    plate = current ? nameplateOf(current, character, sc?.camera, width, height, bodyHeight(current)) : null;
+    plate = current ? nameplateOf(current, character, sc?.camera, width, height, bodyHeight(current), now) : null;
     hud?.setNameplate?.(plate);
     setAnger(f ? f.level : null);
     setRingCon(f ? f.level : null);

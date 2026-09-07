@@ -420,7 +420,7 @@ R.weapons = () => {
     ['reach / range', (w, s) => s ? (w.range || w.reach || 0) : (w.range != null ? w.range + ' m range' : (w.reach || '') + ' m'), { num: true }], ['type', 'damageType'],
     ['special', (w) => Object.entries(w).filter(([k]) => ['cleave', 'stun', 'armourPiercing', 'fellsTrees', 'casts', 'bleed', 'knockback'].includes(k)).map(([k, v]) => words(k) + (v === true ? '' : ' ' + v)).join(', ')],
   ], rows, { sort: 2 }));
-  f.appendChild(el('<h2>The two hand rule</h2><div class="note">A one handed weapon may be joined by anything the off hand takes. Drawing a two hander sends the off hand item to your pack; raising a shield with a two hander in hand sends the two hander to your pack. Bows and crossbows ride the ranged slot. Wands and staves are foci: every spell needs one in the main hand, and neither is a weapon you swing for a warrior ability.</div>'));
+  f.appendChild(el('<h2>The two hand rule</h2><div class="note">A one handed weapon may be joined by anything the off hand takes. Drawing a two hander sends the off hand item to your pack; raising a shield with a two hander in hand sends the two hander to your pack. A bow or a crossbow is a two handed weapon in the main hand like any other, so a dagger and a bow swap in one move. Wands and staves are foci: every spell needs one in the main hand, and neither is a weapon you swing for a warrior ability.</div>'));
   return f;
 };
 

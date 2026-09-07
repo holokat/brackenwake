@@ -274,6 +274,9 @@ export function createAbilities(deps = {}) {
     character = {}, actor = {}, input = null, combat = null, monsters = null,
     effects = null, floaters = null, hud = null, audio = null, player = null,
     camera = null, progression = null, targeting = null, spellVfx = null,
+    // `attack(who)` starts the auto attack on an actor (the app's combat system);
+    // `onMark(target, mark)` is told when a mark lands, so a badge can follow it
+    attack = null, onMark = null,
   } = deps;
 
   const rng = typeof deps.rng === 'function' ? deps.rng : Math.random;
@@ -757,6 +760,15 @@ export function createAbilities(deps = {}) {
           // longsword is not a Power Strike with a bow, and takeNextSwing
           // drops it rather than multiplying a swing it was never for.
           nextSwing = { ...opts, until: c.now + NEXT_SWING_WINDOW, weaponId: weaponIdNow() };
+          // An armed shot with a chosen target and no auto attack running fired
+          // nothing until the player attacked by hand, which read as "Double
+          // Shot only works sometimes". The target you have chosen is the
+          // thing to shoot: the auto attack starts on it and the armed swing
+          // is the first one out.
+          const chosen = targeting?.current;
+          if (chosen && typeof attack === 'function' && attack(chosen)) {
+            return `${c.ability.name} is set up for your next shot, and you take aim at ${chosen.name || 'it'}.`;
+          }
           return `Nothing in reach, so it waits on your next swing for ${saySeconds(NEXT_SWING_WINDOW)}.`;
         }
         return 'Nothing in reach.';
@@ -1177,11 +1189,13 @@ export function createAbilities(deps = {}) {
       if (!c.target) return 'Nothing to mark.';
       c.target.marks = Array.isArray(c.target.marks) ? c.target.marks : [];
       c.target.marks = c.target.marks.filter((m) => m.abilityId !== c.ability.id);
-      c.target.marks.push({
-        abilityId: c.ability.id, damageTakenMult: num(e.damageTakenMult) || 1,
+      const mark = {
+        abilityId: c.ability.id, name: c.ability.name, damageTakenMult: num(e.damageTakenMult) || 1,
         until: c.now + num(e.duration), from: e.fromCasterOnly ? (actor.id ?? 'player') : null,
         preventsHide: !!e.preventsHide,
-      });
+      };
+      c.target.marks.push(mark);
+      if (typeof onMark === 'function') { try { onMark(c.target, mark); } catch (err) { console.warn('onMark threw', err); } }
       const pct = Math.round((num(e.damageTakenMult) - 1) * 100);
       return `${c.target.name || 'It'} takes ${pct}% more ${e.fromCasterOnly ? 'from you' : 'from everyone'} for ${saySeconds(e.duration)}.`;
     },
@@ -1497,7 +1511,9 @@ export function createAbilities(deps = {}) {
     spellVfx?.start?.(ability.id, {
       ability,
       castTime: rec.castTime,
-      target,
+      // an armed shot has no target of its own; the arrows should still fly at
+      // the thing you have chosen and not at the camera
+      target: target || (ability.effect?.nextSwing ? (targeting?.current || null) : null),
       ground: ground || (ability.target === 'ground' ? groundPoint(ability, target) : null),
     });
 

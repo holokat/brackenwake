@@ -80,7 +80,17 @@ export function buildStudioCharacter(appearance={},options={}){
   setEquipment(eq,opts={}){const sig=equipmentSignature(eq,opts);if(sig===lastSignature)return[];lastSignature=sig;equipment=eq||{};equipOpts=opts;void rebuild();return Object.keys(eq||{});},
   pose(s){state=s;const move=s.airborne?'airborne':s.anim==='run'?'run':s.anim==='walk'?'walk':'idle';sample(move,move==='idle'?(s.t%5.6)/5.6:((s.phase||0)/(Math.PI*2))%1);},
   poseAction(name,phase,seconds=.45){
-   const fit=studioEquipment(equipment,equipOpts),move=name==='swing'&&['greatsword','battleaxe','warhammer','quarterstaff','halberd','spear'].includes(fit.weapon)?'two-handed-strike':({swing:'light-attack',cast:'cast',flinch:'hit',death:'die'})[name]||name;
+   const fit=studioEquipment(equipment,equipOpts);
+   // A swing with a bow in hand is a shot: the studio's archer pose (the aimed
+   // shot's own, `visual.pose: 'bow'`) draws the string over the action phase
+   // and lets it go, where the sword slash used to play and the arrow left a
+   // still hand. The auto attack only ever asks for 'swing', so this is the
+   // one place the bow learns to be drawn.
+   if(name==='swing'&&['shortbow','longbow','crossbow'].includes(fit.weapon)){
+    const shot=sourceAbility('aimedShot');
+    if(shot){sample(shot.visual?.motion||'idle',Math.max(0,Math.min(1,phase)),shot);return;}
+   }
+   const move=name==='swing'&&['greatsword','battleaxe','warhammer','quarterstaff','halberd','spear'].includes(fit.weapon)?'two-handed-strike':({swing:'light-attack',cast:'cast',flinch:'hit',death:'die'})[name]||name;
    let p=phase;if(name==='swing'){const m=MOVE_BY_ID.get(move),event=m?.events.find(e=>e.type==='swing-impact'),contact=event?event.at/m.duration:.5,release=Math.min(.95,.3/seconds);p=phase<release?phase/release*contact:contact+(phase-release)/(1-release)*(1-contact);}
    sample(move,p,currentAbility);
   },

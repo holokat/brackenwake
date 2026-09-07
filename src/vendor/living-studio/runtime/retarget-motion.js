@@ -98,8 +98,9 @@ export function createMotionRetargeter(sourceRoot, rig) {
     },
     groundOffset: 0,
     sourceSoleHeight: null,
+    sourceTargetSoleHeight: null,
     targetSoleHeight: null,
-    apply(travel, ground = true) {
+    apply(travel, ground = true, runHipHeight = null) {
       rig.reset();
       sourceRoot.updateWorldMatrix(true, true);
       rig.group.updateWorldMatrix(true, true);
@@ -123,6 +124,7 @@ export function createMotionRetargeter(sourceRoot, rig) {
       rig.group.updateWorldMatrix(true, true);
       this.groundOffset = 0;
       this.sourceSoleHeight = null;
+      this.sourceTargetSoleHeight = null;
       this.targetSoleHeight = null;
       if (ground && sourceSoles.length && nativeSoles.length) {
         let sourceFloor = Infinity, nativeFloor = Infinity;
@@ -138,6 +140,9 @@ export function createMotionRetargeter(sourceRoot, rig) {
         rig.skeleton.update();
         for (const mesh of nativeSoles) {
           if (!mesh.visible) continue;
+          // Object3D.updateWorldMatrix does not invoke SkinnedMesh's attached
+          // bind-matrix refresh. Match the rendered skin after actor transforms.
+          mesh.updateMatrixWorld(true);
           const positions = mesh.geometry.attributes.position;
           for (let index = 0; index < positions.count; index++) {
             samplePoint.fromBufferAttribute(positions, index);
@@ -149,8 +154,17 @@ export function createMotionRetargeter(sourceRoot, rig) {
           this.sourceSoleHeight = Math.max(0, sourceFloor);
           // Preserve the original source's flight height, plus explicit ability
           // travel. Only the discrepancy caused by the native soles is removed.
-          this.targetSoleHeight = (this.sourceSoleHeight + (travel?.y ?? 0)) * scale;
+          this.sourceTargetSoleHeight = (this.sourceSoleHeight + (travel?.y ?? 0)) * scale;
+          this.targetSoleHeight = this.sourceTargetSoleHeight;
           this.groundOffset = this.targetSoleHeight - nativeFloor;
+          if (runHipHeight !== null) {
+            // The run calibration deliberately smooths the pelvis, including
+            // the imported linear hip keys. Keep its original source flight
+            // target separate from the calibrated target, and enforce the real
+            // current sole floor even between the calibration samples.
+            this.groundOffset = Math.max(runHipHeight - rig.joints.hips.position.z, -nativeFloor);
+            this.targetSoleHeight = nativeFloor + this.groundOffset;
+          }
           rig.joints.hips.position.z += this.groundOffset;
           rig.group.updateWorldMatrix(true, true);
         }
@@ -158,7 +172,7 @@ export function createMotionRetargeter(sourceRoot, rig) {
     },
     reset() {
       rig.reset(); rig.group.updateWorldMatrix(true, true);
-      this.groundOffset = 0; this.sourceSoleHeight = null; this.targetSoleHeight = null;
+      this.groundOffset = 0; this.sourceSoleHeight = null; this.sourceTargetSoleHeight = null; this.targetSoleHeight = null;
     },
   };
 }

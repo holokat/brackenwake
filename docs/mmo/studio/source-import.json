@@ -1,6 +1,6 @@
 {
   "source": "/Users/k/code/animation-studio/fantasy-studio",
-  "snapshotAt": "2026-09-07T11:57:00.295Z",
+  "snapshotAt": "2026-09-07T16:10:58.949Z",
   "entries": [
     "models/character.js",
     "models/item-model.js",
@@ -72,8 +72,8 @@
       "bytes": 3530
     },
     "models/shield-grips.js": {
-      "sha256": "59641f88244d11594766683409a3117ffb50fe90d06c20bbc5453e2a8262c827",
-      "bytes": 6530
+      "sha256": "247989569f181077c6d39333e49c0e5d821622a83ef8191b18fa004cd0c553f1",
+      "bytes": 6697
     },
     "models/shield-motion.js": {
       "sha256": "89f8c81d9f96e7f66a6390d353053e472aed95280628b19d30abd250657d4e88",
@@ -136,8 +136,12 @@
       "bytes": 5825
     },
     "models/items/shields.js": {
-      "sha256": "abb693a884df4f5b71b992c9adcc958aa99b628d2ec9cf21c2b140913a230a81",
-      "bytes": 3695
+      "sha256": "f435eb6154e8da0cd6653e6ce34b48b973c5bd2c3dfc0c59a4064e38e1c4b57b",
+      "bytes": 2937
+    },
+    "models/items/shield-fittings.js": {
+      "sha256": "5617e6767b9c24115b2ec88a98cd37b655e8bfc2093c86d248c83803fb851549",
+      "bytes": 1932
     },
     "models/items/shield-surfaces.js": {
       "sha256": "793308e107c189fb40322d24771232c13ed2e22ec4cb2b3c8f55d71ace1ae9d9",
@@ -168,32 +172,76 @@
       "bytes": 2503
     },
     "runtime/source-effects.js": {
-      "sha256": "3cdaa45c64c883dd98583862ba5ab0ec575a2f9250114c0af7cde60bdaaace72",
-      "bytes": 20794
+      "sha256": "47ad56b0f2b90d2288ebda60bd01b31074345f8730669bfc920f9d9c6b8ed6cc",
+      "bytes": 21913
     },
-    "runtime/staff-focus.js": {
-      "sha256": "f03acc161d36f8e692e77a6b246f2705497d8a585a07aa1eaea1de01a3fd7198",
-      "bytes": 997
+    "runtime/healer/healer-vfx.js": {
+      "sha256": "f59791b328fb5f48cf5ad102c79fd920d92e4e469478729f03ff7f40b0635a0d",
+      "bytes": 5058
+    },
+    "runtime/healer/signature-effects.js": {
+      "sha256": "06cee3098eb87a1fb47737089e50dcf45ebba81e84e5ad8eb244f8a65509064c",
+      "bytes": 5818
+    },
+    "runtime/healer/soul.js": {
+      "sha256": "9afaecdd0051fb78420e34c92028ad10689fe8b433691ac9498204f85e0a6fd9",
+      "bytes": 2794
+    },
+    "runtime/healer/resources.js": {
+      "sha256": "fa98786c61ad7acb145d86100c12b96af3b569ac1263ab6d2a6ff5f451059091",
+      "bytes": 2611
+    },
+    "runtime/healer/lightning.js": {
+      "sha256": "0fdb2474dc9d3ea17934a1db9294618ae696ab3d64567d63c3dbfacd759ed2ba",
+      "bytes": 2515
+    },
+    "runtime/healer/fragments.js": {
+      "sha256": "627bf3a0e8dea4e0f1cff11e0e9dbec2662ca9e41887ec7f2a6a522e20d00b2f",
+      "bytes": 2118
+    },
+    "runtime/healer/motes.js": {
+      "sha256": "e3f518cd86a0164f30ea3e4fb8275b9f3e0d20cec45b126782941f953648c6f6",
+      "bytes": 3346
+    },
+    "runtime/healer/primitives.js": {
+      "sha256": "4ccf3309e4ae6396607048618fc500b86113fa635749de9c048696c54dec3922",
+      "bytes": 7154
+    },
+    "runtime/healer/healing-effects.js": {
+      "sha256": "55cc7c74c1388bdb66e6888925ec8340dc30ad7bc1f042a5ad6294e2ab8509a1",
+      "bytes": 5383
     },
     "vendor/source-library.js": {
       "sha256": "b0d4a8281ff54ddef1b9912f08737c810073ee20744d7320c286c1ff1b72be6a",
       "bytes": 427187
+    },
+    "runtime/staff-focus.js": {
+      "sha256": "f03acc161d36f8e692e77a6b246f2705497d8a585a07aa1eaea1de01a3fd7198",
+      "bytes": 997
     },
     "runtime/shield-contact.js": {
       "sha256": "944283d0eb608438e6b9051d650c83940ac73ab4304c34e02eacc6b2b61cec05",
       "bytes": 1313
     },
     "runtime/source-motion.js": {
-      "sha256": "e86c972ad01aeb84f3a2cf11bdda3cf5168b7dc2bd00087a07ca9368f02d94f5",
-      "bytes": 14307
+      "sha256": "5220b11b49c227b3aa5a0c9250ed1504b2f57a60e419860259ad2d4fd7b12f08",
+      "bytes": 15392
+    },
+    "runtime/run-grounding.js": {
+      "sha256": "2a89bbe9169095f5df417a7b5c7c0293475f67b624e21189d247faea07c81658",
+      "bytes": 2296
     },
     "runtime/retarget-motion.js": {
-      "sha256": "1a5dc96dfbbf30b5f0f02a38aab5076458cabd46a9cc5ffc9e15408f51b02d87",
-      "bytes": 8819
+      "sha256": "9898ac303b02c54861e66e27d110913d7caecf6289bb697efa4634c0009e4579",
+      "bytes": 9748
     },
     "runtime/animation.js": {
-      "sha256": "b4bf7d375a0dafaecd45e1b433c3595c07fc667d309d2cc201cd63824f7f15d6",
-      "bytes": 5403
+      "sha256": "9e887b548eb2b9430e38947a0c77d90b2fb11aa05e8b1afbb54f4686ae2d5ac3",
+      "bytes": 5029
+    },
+    "runtime/locomotion.js": {
+      "sha256": "6a0015829dd82101289c533fa10f6ef9526b72459e2d03fb8c57a8171306e36b",
+      "bytes": 1365
     },
     "models/forage/index.js": {
       "sha256": "a94d212e158b3ece9cb01a99be7c9dc57f54680f402a91dbb0ce699f65010b39",
@@ -328,8 +376,12 @@
       "bytes": 1306
     },
     "models/armor/extremities.js": {
-      "sha256": "fc85cf326b6f29220347ea78f1008a96bfbb2e3f878c52871abf4fde7ba1d05e",
-      "bytes": 10247
+      "sha256": "5a4e62e0d5c825560434ae7ec439ab98d94511f271ef4f92bc0f71e3ea4f802f",
+      "bytes": 10475
+    },
+    "models/hand-shape.js": {
+      "sha256": "7e5c4f7e389947bc251305ccc3d84403f8c8ba2cc0ea90a812251f8b3561b747",
+      "bytes": 694
     },
     "models/armor/shapes.js": {
       "sha256": "0dbe3e767234a417a1fd83ca25aafa6403db396c4af1594af570582830f09bd9",
@@ -348,8 +400,12 @@
       "bytes": 2533
     },
     "models/armor/torso.js": {
-      "sha256": "cf0e811046473a244a912b438993e7dcf8c7849ce8855a71c43a777410d87523",
-      "bytes": 5955
+      "sha256": "551962de848cb0700d12b936ba296a14ccdf2003435c93cd1ce9dee00858bf9b",
+      "bytes": 4752
+    },
+    "models/armor/sleeves.js": {
+      "sha256": "19f113c91baa1c75bf41a482b0a43ba6b0b58cdc7f2cf8779bd5c1e11dbbb972",
+      "bytes": 2103
     },
     "models/armor/drape.js": {
       "sha256": "813f6b4131361d2b2c52c5a8e3935d55a25761efd2afffe466d93e2dcda353af",
@@ -392,8 +448,8 @@
       "bytes": 1516
     },
     "models/hands.js": {
-      "sha256": "d75af593054f0e444e152157007b634c4da40d2b9a5b5328172be5b9d7dfebd8",
-      "bytes": 1080
+      "sha256": "d3ea29aeb60af765785db13c022c3ca25aca4db965071f25a91d883eb85075c0",
+      "bytes": 1304
     },
     "models/armor/legacy-wardrobe.js": {
       "sha256": "b490f6d6941e0fef8a43c8561fdf1cfd164f679df8dfabedce3391515288f0f1",
@@ -446,5 +502,5 @@
       "bytes": 700628
     }
   },
-  "copiedBytes": 10920150
+  "copiedBytes": 10966754
 }

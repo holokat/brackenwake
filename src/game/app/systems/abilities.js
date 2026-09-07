@@ -134,7 +134,70 @@ export const abilities = {
       allies: hooks.allies,
       resurrect: hooks.resurrect,
       utility: hooks.utility,
+      // an armed shot with a chosen target starts the auto attack on it
+      attack: (who) => {
+        const mon = fight.monsters.forActor?.(who);
+        if (!mon) return false;
+        if (fight.attacking && fight.attacking.actor === who) return true;
+        fight.startAttack(mon);
+        return true;
+      },
+      onMark: (target, mark) => markBadges.on(target, mark),
     });
+
+    // ---- the mark badge -----------------------------------------------------
+    //
+    // A red chevron over a marked body, parented to the body's own group so it
+    // walks where the body walks: the cast's accent icon stood where the target
+    // WAS at the cast and the creature walked out from under it. Taken down
+    // when the mark runs out, or the body dies, or the body is gone.
+    const markBadges = (() => {
+      const live = new Map();          // actor -> { sprite, until, mon }
+      let texture = null;
+      const textureOnce = () => {
+        if (texture || typeof document === 'undefined') return texture;
+        const canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 64;
+        const g = canvas.getContext('2d');
+        if (!g) return null;
+        g.lineWidth = 6; g.lineJoin = 'round';
+        g.strokeStyle = '#fff2e6'; g.fillStyle = '#e8322a';
+        g.beginPath(); g.moveTo(10, 10); g.lineTo(54, 10); g.lineTo(32, 56); g.closePath();
+        g.stroke(); g.fill();
+        texture = new THREE.CanvasTexture(canvas);
+        if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+        return texture;
+      };
+      return {
+        on(target, mark) {
+          const mon = fight.monsters.forActor?.(target);
+          const group = mon && mon.model && mon.model.group;
+          if (!group) return false;
+          const have = live.get(target);
+          if (have) { have.until = mark.until; return true; }
+          const tex = textureOnce();
+          if (!tex) return false;
+          const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+          sprite.name = 'mark-badge';
+          sprite.scale.set(0.42, 0.42, 1);
+          sprite.position.set(0, (mon.model.height || 1.8) + 0.45, 0);
+          sprite.renderOrder = 998;
+          group.add(sprite);
+          live.set(target, { sprite, until: mark.until, mon });
+          return true;
+        },
+        update(nowS) {
+          for (const [target, b] of live) {
+            const gone = target.health <= 0 || target.dead === true || (Number.isFinite(b.until) && nowS >= b.until) || !b.sprite.parent;
+            if (!gone) { b.sprite.position.y = (b.mon.model?.height || 1.8) + 0.45 + Math.sin(nowS * 3) * 0.04; continue; }
+            b.sprite.removeFromParent();
+            b.sprite.material.dispose();
+            live.delete(target);
+          }
+        },
+        get count() { return live.size; },
+      };
+    })();
 
     // the item bar: eight slots on F5 to F12 for potions, food, weapons and
     // tools, kept apart from the ability bar so a sword and a spell never share
@@ -151,9 +214,9 @@ export const abilities = {
     hud.onItemDrop?.((slot, payload) => itemBar.assign(slot, payload));
 
     return {
-      abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx, enchantments,
+      abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx, enchantments, markBadges,
       dispose(){removeStrike?.();enchantments.dispose();spellVfx.dispose();effects.dispose?.();hooks.dispose?.();},
-      bw: { abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx, enchantments, get summons() { return hooks.summons; } },
+      bw: { abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx, enchantments, markBadges, get summons() { return hooks.summons; } },
     };
   },
 
@@ -192,6 +255,7 @@ export const abilities = {
     // same call because they are worlds' seconds too: sitting still through a
     // slowed minute is a slowed minute of mana.
     hooks.update(frame.worldDt ?? frame.dt, frame.worldNow ?? frame.now, frame.nowS);
+    ctx.get('abilities').markBadges.update(frame.nowS);
   },
 
   // `late` and not `update`, and that is the whole reason this line is here

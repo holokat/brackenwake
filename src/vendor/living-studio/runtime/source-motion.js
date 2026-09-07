@@ -5,6 +5,7 @@ import {
   createTwoHandedWeaponController, createTrainingSword, createTrainingShield, sampleActionTravel,
 } from '../vendor/source-library.js';
 import {createMotionRetargeter, sourceQuaternionToNative} from './retarget-motion.js';
+import {createRunGrounding} from './run-grounding.js';
 import {isOneHandedWeapon} from '../models/equipment-grips.js';
 import {applyShieldBashBody} from '../models/shield-motion.js';
 
@@ -134,6 +135,17 @@ function createClipSampler(root, clips) {
       if (!node || !['quaternion', 'position', 'scale'].includes(path.propertyName)) {
         throw new Error(`Unsupported original animation track ${track.name}.`);
       }
+      if (id === 'run' && path.propertyName === 'quaternion') {
+        // A few authored arm tracks have different first/last rotations. Close
+        // the sampled loop locally, keeping the shared source assets intact.
+        const end = track.values.length - 4;
+        if (track.values.subarray(0, 4).some((value, index) => value !== track.values[end + index])) {
+          track = track.clone();
+          const rotation = new THREE.Quaternion().fromArray(track.values).slerp(
+            new THREE.Quaternion().fromArray(track.values, end), .5).normalize();
+          rotation.toArray(track.values, 0); rotation.toArray(track.values, end);
+        }
+      }
       return {target: node[path.propertyName], interpolate: track.createInterpolant()};
     }));
   }
@@ -189,6 +201,13 @@ export async function createSourceMotion(actor, options = {}) {
     for (const {node, p, q, s} of rest) { node.position.copy(p); node.quaternion.copy(q); node.scale.copy(s); }
     sourceActor.updateMatrixWorld(true);
   }
+  const runGrounding = createRunGrounding(phase => {
+    restoreSource();
+    sampleClip('run', phase * clips.get('run').duration);
+    mapping.apply(null);
+    return {height: actor.rig.joints.hips.position.z, soleHeight: mapping.targetSoleHeight};
+  });
+  restoreSource(); mapping.reset();
   return {
     clips, catalog, authoredLibrary, sourceRoot, sourceActor, mapping, scale: mapping.scale,
     get currentSample() { return currentSample; },
@@ -236,7 +255,8 @@ export async function createSourceMotion(actor, options = {}) {
       equipment.update(moveId, normalized, undefined, authoredLibrary.authoredMoves.has(moveId), !!ability);
       sourceActor.updateMatrixWorld(true);
       if (ability) sampleActionTravel(ability.id, action, travel); else travel.set(0, 0, 0);
-      mapping.apply(travel, !['die', 'surface-swim', 'tread-water'].includes(moveId));
+      mapping.apply(travel, !['die', 'surface-swim', 'tread-water'].includes(moveId),
+        moveId === 'run' && !ability ? runGrounding(normalized) : null);
       if (ability?.id === 'shield-bash' && loadout.some(item => item.userData.gripSocket?.kind === 'shield')) {
         // The source ability snaps from its sword clip into a thrust overlay.
         // A physical shield uses the shared continuous bash body instead.

@@ -7,7 +7,7 @@
 // print a number the fight would not.
 
 import {
-  auditDoll, auditTitles, DOLL, SLOT_LABELS, TITLES, TITLE_AT, QUOTES, MOTTOES,
+  auditDoll, auditTitles, DOLL, SLOT_LABELS, TITLES, TITLE_AT, QUOTES, MOTTOES, RETIRED_SLOTS,
   DEFAULT_QUOTE, DEFAULT_MOTTO, sheetOf, tipFor, titleOf, noteOf, fighterFor,
 } from './win_character.js';
 import { normalise, PACK_SLOTS } from './inventory.js';
@@ -22,17 +22,17 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
 
 // ---- the doll counts its own cells -----------------------------------------
 console.log('character: the doll');
-check('the doll has a cell for every slot', auditDoll() === SLOTS.length, `${auditDoll()} of ${SLOTS.length}`);
+check('the doll has a cell for every live slot (the retired ranged slot has none)', auditDoll() === SLOTS.length - RETIRED_SLOTS.length, `${auditDoll()} of ${SLOTS.length - RETIRED_SLOTS.length}`);
 check('and fourteen is what that is', SLOTS.length === 14);
 const cells = [...DOLL.left, ...DOLL.right];
 check('no slot is drawn twice', new Set(cells).size === cells.length);
 check('every cell has a word under it', cells.every((c) => !!SLOT_LABELS[c]));
 check('the two rings read as rings, not as ring1 and ring2', SLOT_LABELS.ring1 === 'ring' && SLOT_LABELS.ring2 === 'ring');
-check('the arch is flanked seven and seven', DOLL.left.length === 7 && DOLL.right.length === 7,
+check('the arch is flanked seven and six, the bow having gone to the hand', DOLL.left.length === 7 && DOLL.right.length === 6,
   `${DOLL.left.length} and ${DOLL.right.length}`);
 check('the head is at the top of the left flank', DOLL.left[0] === 'head');
 check('the hands are held down the right flank',
-  DOLL.right.slice(-3).join(',') === 'mainHand,offHand,ranged', DOLL.right.join(','));
+  DOLL.right.slice(-2).join(',') === 'mainHand,offHand', DOLL.right.join(','));
 
 // ---- titles ----------------------------------------------------------------
 console.log('character: the title line');

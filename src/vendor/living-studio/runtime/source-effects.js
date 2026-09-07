@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {shieldContactWorld} from './shield-contact.js';
 import {createAbilityVfx, createElementalSpellVfx, createSpellOrb, createCombatVfx, ATTACK_SAMPLES, MOVE_BY_ID, SPELL_MOTIONS} from '../vendor/source-library.js';
 import {staffFocusWorld} from './staff-focus.js';
+import {createHealerVfx} from './healer/healer-vfx.js';
 
 const SOURCE_HIPS_HEIGHT = .8799999952316284;
 const TEXTURE_FILES = ['spell-fire-explosion-atlas.png', 'spell-smoke-atlas.png'];
@@ -272,7 +273,8 @@ export async function createSourceEffects(stage, actor, options = {}) {
   spellSockets.set('Socket_HandVFX_Left', spellSocket('L', true));
   spellSockets.set('Socket_HandVFX_Right', spellSocket('R'));
   spellSockets.set('Socket_Weapon_Right', spellSocket('R'));
-  let abilityEffects, elemental, orb, combat;
+  let abilityEffects, elemental, orb, combat, healer;
+  let healerActive = false;
   try {
     syncFrame();
     abilityEffects = createAbilityVfx(sourceActor, {
@@ -295,6 +297,16 @@ export async function createSourceEffects(stage, actor, options = {}) {
       },
       strikeTip, nativeElementals: () => true,
     }, textures);
+    healer = createHealerVfx(sourceActor, {
+      actor,
+      hand: out => ability?.id === 'lay-on-hands' ? handPosition('L', out)
+        : staffFocusWorld(castingStaff(), out) ? sourceActor.worldToLocal(out) : handPosition('R', out),
+      weaponBase: out => {
+        const weapon = mountedWeapon();
+        return weapon ? sourceActor.worldToLocal(weapon.getWorldPosition(out)) : handPosition('R', out);
+      },
+      weaponTip: strikeTip,
+    });
     trainingTarget = sourceActor.getObjectByName('TrainingTarget1');
     trainingTargetRest = trainingTarget.position.clone();
     elemental = createElementalSpellVfx(sourceActor, spellSockets, {textures});
@@ -306,7 +318,7 @@ export async function createSourceEffects(stage, actor, options = {}) {
       pose(move, phase) { options.sampleMotion?.(move, phase); syncFrame(); },
     });
   } catch (error) {
-    abilityEffects?.dispose(); elemental?.dispose(); orb?.dispose(); combat?.dispose();
+    abilityEffects?.dispose(); elemental?.dispose(); orb?.dispose(); combat?.dispose(); healer?.dispose();
     root.removeFromParent();
     if (ownsTextures) textures.dispose();
     throw error;
@@ -316,31 +328,36 @@ export async function createSourceEffects(stage, actor, options = {}) {
   function reset() {
     if (disposed) return;
     ability = null; previousMove = ''; previousPhase = -1; orbReleased = false; previousAbilityTime = -1;
-    hasRangedAim = false; trainingTarget.position.copy(trainingTargetRest);
-    sampleInSourceUnits(() => { abilityEffects.reset(); elemental.reset(); orb.update('idle', 0); });
+    hasRangedAim = false; healerActive = false; trainingTarget.position.copy(trainingTargetRest);
+    sampleInSourceUnits(() => { abilityEffects.reset(); healer.reset(); elemental.reset(); orb.update('idle', 0); });
     combat.reset();
     root.visible = false;
   }
   reset();
   return {
-    root, sourceActor, scale,
+    root, sourceActor, scale, healer,
     begin(nextAbility) {
       if (disposed) return;
       reset(); ability = nextAbility; syncFrame(); root.visible = true;
       rangedFrameInverse.copy(sourceActor.matrixWorld).invert(); captureRangedAim(); captureShieldImpact();
-      sampleInSourceUnits(() => { abilityEffects.begin(nextAbility); abilityEffects.sample(0); });
+      sampleInSourceUnits(() => {
+        healerActive = healer.begin(nextAbility);
+        if (healerActive) healer.sample(0);
+        else { abilityEffects.begin(nextAbility); abilityEffects.sample(0); }
+      });
       previousAbilityTime = 0;
     },
     captureRelease() {
       if (disposed || !ability) return;
-      syncFrame(); captureRangedAim(); captureShieldImpact(); abilityEffects.captureRelease();
+      syncFrame(); captureRangedAim(); captureShieldImpact();
+      if (healerActive) healer.captureRelease(); else abilityEffects.captureRelease();
     },
     captureMotionSample(index) {
       if (disposed || !ability) return;
       if (!Number.isInteger(index) || index < 0 || index >= ATTACK_SAMPLES) {
         throw new RangeError(`Motion sample must be between 0 and ${ATTACK_SAMPLES - 1}.`);
       }
-      syncFrame(); abilityEffects.captureMotionSample(index);
+      syncFrame(); if (!healerActive) abilityEffects.captureMotionSample(index);
     },
     sample(seconds) {
       if (disposed || !ability) return;
@@ -350,8 +367,11 @@ export async function createSourceEffects(stage, actor, options = {}) {
       // Prime original stateful signature effects on a backward seek while keeping
       // their measured release and strike anchors in the original cast frame.
       sampleInSourceUnits(() => {
-        if (time < previousAbilityTime) abilityEffects.sample(0);
-        abilityEffects.sample(time);
+        if (healerActive) healer.sample(time);
+        else {
+          if (time < previousAbilityTime) abilityEffects.sample(0);
+          abilityEffects.sample(time);
+        }
       });
       previousAbilityTime = time;
     },
@@ -371,7 +391,7 @@ export async function createSourceEffects(stage, actor, options = {}) {
         options.sampleMotion(move, progress); syncFrame();
       }
       sampleInSourceUnits(() => {
-        if (ability) { ability = null; abilityEffects.reset(); }
+        if (ability) { ability = null; abilityEffects.reset(); healer.reset(); healerActive = false; }
         if (progress < previousPhase && move === previousMove) elemental.reset();
         orb.update(move, progress);
         // A seek reconstructs the original sequence. Live deltas preserve residuals.
@@ -396,6 +416,11 @@ export async function createSourceEffects(stage, actor, options = {}) {
       }
       previousMove = move; previousPhase = progress;
     },
+    refreshFrame() {
+      if (disposed || !ability || !healerActive) return;
+      syncFrame();
+      sampleInSourceUnits(() => healer.sample(Math.max(0, previousAbilityTime)));
+    },
     samplePresentation(worldPosition) {
       return disposed ? 0 : elemental.samplePresentation(worldPosition);
     },
@@ -403,7 +428,7 @@ export async function createSourceEffects(stage, actor, options = {}) {
     dispose() {
       if (disposed) return;
       reset(); disposed = true;
-      abilityEffects.dispose(); elemental.dispose(); orb.dispose(); combat.dispose();
+      abilityEffects.dispose(); elemental.dispose(); orb.dispose(); combat.dispose(); healer.dispose();
       root.removeFromParent(); root.clear();
       if (ownsTextures) textures.dispose();
     },

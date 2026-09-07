@@ -71,7 +71,7 @@ export const WANDER_R = 6;           // how far an idle monster drifts from home
 export const WANDER_MIN_MS = 3000, WANDER_MAX_MS = 7000;
 export const SCAN_MS = 400;          // between spawn sweeps
 export const RIVER_MAX = 0.15;       // river strength nothing will stand in
-export const FLEE_BREAK_M = 25;      // a fleeing thing that gets this far away calms down
+export const FLEE_BREAK_M = 14;      // a fleeing thing that gets this far away calms down (25 until 2026-09-08, see combat_rules FLEE_THRESHOLD)
 export const RETURN_HEAL_S = 6;      // "flee below 25% health and return healed": full in six seconds
 export const IDLE_SPEED = 0.35;      // fraction of run speed while wandering
 export const FLEE_SPEED = 1.1;       // a bolting thing is quicker than a charging one

@@ -8,14 +8,16 @@ function aim(joint,child,target){
  joint.quaternion.copy(joint.parent.getWorldQuaternion(new THREE.Quaternion()).invert()).multiply(q).normalize();joint.updateWorldMatrix(true,true);
 }
 
-function fitWeaponArm(rig,weapon){
+function fitWeaponArm(rig,weapon,shield){
  const upper=rig.joints.upperArmR,fore=rig.joints.forearmR,hand=rig.joints.handR;
  const rotation=weapon.getWorldQuaternion(new THREE.Quaternion()),socket=new THREE.Quaternion().fromArray(weapon.userData.gripSocket.quaternion);
  const handRotation=rotation.clone().multiply(socket.invert()),axis=new THREE.Vector3(0,0,-1).applyQuaternion(handRotation);
  const shoulder=upper.getWorldPosition(new THREE.Vector3()),palm=weapon.getWorldPosition(new THREE.Vector3());
  // Keep the attacking fist on its side of the shield while preserving the
  // authored blade direction. Reach projection retains the original bone lengths.
- palm.add(new THREE.Vector3(.45,0,0).applyQuaternion(rig.group.getWorldQuaternion(new THREE.Quaternion())));
+ // The tower's broad field needs a little more room at the lunge guard.
+ const clearance=shield.userData.itemId==='tower'?.70:.45;
+ palm.add(new THREE.Vector3(clearance,0,0).applyQuaternion(rig.group.getWorldQuaternion(new THREE.Quaternion())));
  const elbow=palm.sub(gripPoint(rig,'R').applyQuaternion(handRotation)).addScaledVector(axis,-hand.position.length());
  elbow.sub(shoulder).setLength(fore.position.length()).add(shoulder);aim(upper,fore,elbow);
  const foreRotation=handRotation.clone().multiply(new THREE.Quaternion().setFromUnitVectors(hand.position.clone().normalize(),new THREE.Vector3(0,0,-1)));
@@ -51,7 +53,7 @@ export function poseShieldGrip(rig,item,options={}){
  const shoulder=upper.getWorldPosition(new THREE.Vector3()),axis=new THREE.Vector3(1,0,0).applyQuaternion(rotation);
  const wrist=palm.clone().sub(gripPoint(rig,'L').applyQuaternion(handRotation));
  const elbow=wrist.clone().addScaledVector(axis,-hand.position.length());
- // Keep the wrist straight and the forearm inside its strap. Bring the desired
+ // Keep the wrist straight behind the compact handhold. Bring the desired
  // elbow onto the upper-arm reach sphere instead of stretching either bone.
  const direction=elbow.sub(shoulder).normalize(),forward=rear.clone().negate(),advance=direction.dot(forward);
  if(advance<pose.advance){
@@ -68,7 +70,7 @@ export function poseShieldGrip(rig,item,options={}){
 
 export function applyShieldEquipmentPose(rig,options={}){
  const items=rig.group.userData.loadout||[];
- if(!items.some(item=>item.userData.gripSocket?.kind==='shield'))return;
+ const shield=items.find(item=>item.userData.gripSocket?.kind==='shield');if(!shield)return;
  const carry=options.source&&(/^(walk|run|jump|strafe|dodge|sidestep)(-|$)/.test(options.move||'')|| (options.abilityId?
   !['slash','impact'].includes(options.abilityFamily)&&options.abilityPose!=='thrust':
   /walk|run|strafe|dodge|sidestep|cast|fireball|healing|lightning|missile/.test(options.move||'')));
@@ -82,7 +84,7 @@ export function applyShieldEquipmentPose(rig,options={}){
  rig.group.updateMatrixWorld(true);
  if(options.source){
   const weapon=items.find(item=>item.userData.slot==='weapon'&&isOneHandedWeapon(item.userData.itemId));
-  if(weapon)fitWeaponArm(rig,weapon);
+  if(weapon)fitWeaponArm(rig,weapon,shield);
  }
  for(const item of items)poseShieldGrip(rig,item,options);
 }

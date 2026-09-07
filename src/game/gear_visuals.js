@@ -690,10 +690,15 @@ export function dressRig(rig, equipment, opts = {}) {
   const w = wardrobe(rig);
   const changed = [];
 
-  const mainItem = eq.mainHand || null;
-  const rangedItem = eq.ranged || null;
+  // A bow lives in the main hand now (items.js). It is drawn the way the old
+  // ranged slot was when `opts.ranged` said so: in the left hand, string out,
+  // nothing in the right. A save that still slings one on the back keeps the
+  // old reading until state.js walks it into the hand.
+  const mainRanged = !!eq.mainHand && baseFor(eq.mainHand)?.range != null;
+  const mainItem = mainRanged ? null : (eq.mainHand || null);
+  const rangedItem = mainRanged ? eq.mainHand : (eq.ranged || null);
   const offItem = eq.offHand || null;
-  const rangedUp = !!opts.ranged && !!rangedItem;
+  const rangedUp = mainRanged || (!!opts.ranged && !!rangedItem);
   const two = twoHanded(mainItem);
 
   // where each held thing goes this frame

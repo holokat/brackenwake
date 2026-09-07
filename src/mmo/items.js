@@ -278,9 +278,13 @@ for (const w of Object.values(WEAPONS)) {
   addBase({
     ...w, kind: 'weapon', kinds,
     // Fists are not an item you equip; they are what you have when nothing is held.
-    // Bows, crossbows and thrown knives ride the ranged slot; everything else
-    // goes to the main hand.
-    slot: w.hands === 0 ? null : (ranged ? 'ranged' : 'mainHand'),
+    // EVERY weapon goes to the main hand, a bow like a dagger, so swapping the
+    // two is one move and no shot is ever fired with the wrong thing (bows used
+    // to ride a `ranged` slot on the back, and a dagger drawn over one left the
+    // bow slung and every archery ability refusing: "why does it need a
+    // dagger?"). The `ranged` slot stays in SLOTS for saves that still carry
+    // one; state.js walks it into the hand or the pack on load.
+    slot: w.hands === 0 ? null : 'mainHand',
     durability: w.hands === 0 ? null : GEAR_DURABILITY, stack: false,
   });
 }
