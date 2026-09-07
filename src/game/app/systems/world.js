@@ -10,7 +10,7 @@ import { openAt, insidePoint, GATE_LINE, GATE_SAY_EVERY_MS } from '../../../mmo/
 import { createWorldRuntime, EDIT_CAVE_SPEC, TERRAIN_FILE } from '../../world_runtime.js';
 import { createSky } from '../../sky.js';
 import { createWater } from '../../../world/water.js';
-import { zoneSub, clampToWorld, BIRTHPLACE } from '../../../world/zones.js';
+import { zoneSub, clampToWorld, birthplaceFor } from '../../../world/zones.js';
 // SEA_LEVEL, so the words a downward brush reports quote the number the field
 // used to flood at rather than a second copy of it that could drift.
 import { SEA_LEVEL } from '../../../world/field.js';
@@ -173,7 +173,8 @@ function gate(ctx, frame) {
   if (!gateChecked) {
     // the first look after a load: a save standing outside comes home
     gateChecked = true;
-    player.teleport(BIRTHPLACE.x, BIRTHPLACE.z);
+    const birth = birthplaceFor(world.runtime.field);
+    player.teleport(birth.x, birth.z);
     ctx.hud?.toast?.('The road you were on is not open yet, and you wake on the green at Hearthhome instead.', 'bad');
     ctx.hud?.log?.(GATE_LINE, 'bad');
     return;

@@ -447,6 +447,17 @@ const REALM_STYLE = {
  */
 export const BIRTHPLACE = { x: 789, z: 1533 };
 
+/**
+ * Where a character is born in THIS world: Hearthhome's green in the world
+ * the sheet made, and the origin, tile 0 0, on a blank canvas being sculpted
+ * by hand (the terrain header says `sculpt`; there is no village to be born
+ * in until the user builds one). Every reader of a birthplace asks this and
+ * not the constant, so the two cannot disagree.
+ */
+export function birthplaceFor(field) {
+  return field && field.sculpt ? { x: 0, z: 0 } : { x: BIRTHPLACE.x, z: BIRTHPLACE.z };
+}
+
 const LAYOUT = {
   // The Greenwold
   hearthhome: [749, 1579, 330],       // hub

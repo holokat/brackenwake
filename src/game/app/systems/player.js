@@ -6,7 +6,7 @@
 // copied back to the document before every save (syncToCharacter).
 
 import * as THREE from 'three';
-import { BIRTHPLACE, ZONE } from '../../../world/zones.js';
+import { birthplaceFor, ZONE } from '../../../world/zones.js';
 import { createPlayer } from '../../player.js';
 import { playerActor as buildPlayerActor, recompute, tickPools, syncToCharacter } from '../../actor.js';
 import { createProgression } from '../../progression.js';
@@ -40,9 +40,15 @@ export const player = {
     // generated people, 1.7 km from the one every quest assumes.
     let faceTo = null;
     if (!state.pos.x && !state.pos.z) {
-      state.setPos(BIRTHPLACE.x, BIRTHPLACE.z);
-      faceTo = { x: ZONE.hearthhome.x, z: ZONE.hearthhome.z };
-      hud.toast('You wake on the green at Hearthhome, the well in front of you and the whole village round it.');
+      const birth = birthplaceFor(runtime.field);
+      state.setPos(birth.x, birth.z);
+      if (runtime.field && runtime.field.sculpt) {
+        faceTo = { x: 0, z: 100 };
+        hud.toast('You wake at the origin of a blank world, tile 0 0. Everything from here is yours to make.');
+      } else {
+        faceTo = { x: ZONE.hearthhome.x, z: ZONE.hearthhome.z };
+        hud.toast('You wake on the green at Hearthhome, the well in front of you and the whole village round it.');
+      }
     }
     rig.teleport(state.pos.x || 0, state.pos.z || 0, heightAt);
     const spawnPoint = { x: rig.pos.x, z: rig.pos.z };

@@ -10,7 +10,7 @@ import {
   SEA, seaWithin, REEFS, reefAt, ARCHIPELAGO, archipelagoWithin,
   discOverlap, SIBLING_OVERLAP, CELL_PAD_MAX, TOWN_PRECINCT_R, MAX_FLAT_R,
   STANDS_IN_WATER, RELIEF_ZONES, EXTRA_ARTICLE, ARTICLE, articleFor, FLAT_R, heartAllows,
-  SITE_DISH, BIRTHPLACE,
+  SITE_DISH, BIRTHPLACE, birthplaceFor,
 } from './zones.js';
 import { PLANS } from '../mmo/plans/index.js';
 import { stopsOf } from '../mmo/plans/footprints.js';
@@ -940,6 +940,13 @@ console.log('zones: where a character is born');
   check('the plan puts nine stones on the ring', stones.length === 9);
   const wet = stones.filter(([x, z]) => { const t = g.sampleAt(x, z); return t.water || (t.river || 0) >= 0.2 || t.h <= SEA_LEVEL; });
   check('and not one of the nine stones stands in water', wet.length === 0, wet.map(([x, z]) => `${x.toFixed(0)}, ${z.toFixed(0)}`).join('; ') || 'nine dry');
+}
+
+console.log('zones: where a character is born in this world');
+{
+  check('a generated world is born on Hearthhome\'s green', birthplaceFor({ sculpt: null }).x === BIRTHPLACE.x && birthplaceFor(null).z === BIRTHPLACE.z);
+  const b = birthplaceFor({ sculpt: { height: 6 } });
+  check('and a sculpt world at the origin, tile 0 0', b.x === 0 && b.z === 0, `${b.x}, ${b.z}`);
 }
 
 console.log('zones: what the lookup costs now there are a hundred and four');

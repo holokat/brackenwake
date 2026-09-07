@@ -53,7 +53,7 @@ import { DAY_CYCLE_MS } from './scene.js';
 import { createFrameMeter } from './dev.js';
 import { planFor, auditSpellVisuals } from './spell_vfx.js';
 import { itemTipLines } from './inventory.js';
-import { SUB_ZONES, ZONE, authoredSites, BIRTHPLACE } from '../world/zones.js';
+import { SUB_ZONES, ZONE, authoredSites, BIRTHPLACE, birthplaceFor } from '../world/zones.js';
 import { PLANS } from '../mmo/plans/index.js';
 import { MODEL_TOWN, MODEL_TOWN_ARRIVAL } from '../world/model_town.js';
 import { stopsOf } from '../mmo/plans/footprints.js';
@@ -923,7 +923,8 @@ export function createBench(ctx = {}) {
 
   /** Back to the pad the world field keeps flat around the origin. */
   function goHome() {
-    const home = ctx.home && Number.isFinite(ctx.home.x) ? ctx.home : HOME;
+    // on a blank canvas home is the origin, tile 0 0, where a character is born
+    const home = ctx.home && Number.isFinite(ctx.home.x) ? ctx.home : birthplaceFor(ctx.runtime && ctx.runtime.field);
     const d = flat(home, here());
     const res = warp(home.x, home.z, { label: 'home' });
     if (!res.ok) return res;
