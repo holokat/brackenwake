@@ -96,7 +96,14 @@ import { openAt, isOpen, OPEN_REALMS } from '../mmo/release.js';
 import { authoredSites } from '../world/zones.js';
 import { bearingOf, distanceText, POINTS } from './compass.js';
 import { theme } from './ui_theme.js';
-import { paintGround, makeCache, spacesIn, terrainKey } from './map_paint.js';
+import {
+  paintGround, makeCache, spacesIn, terrainKey,
+  paintGuideArt, paintGuideWays, paintGuideZones,
+  GUIDE_INK, GUIDE_ROAD_INK, GUIDE_RIVER_INK, GUIDE_TERRAIN_ALPHA, PAPER,
+} from './map_paint.js';
+import {
+  GUIDE_ZONES, GUIDE_ART, guideArt, loadGuideArt, onGuideArt, guideZoneAt,
+} from '../mmo/greenwold_guide.js';
 
 /** The whole world, plus its ocean rim: the furthest out the map will go. */
 export const MAP_SPAN = 2 * WORLD_HALF;
@@ -128,6 +135,40 @@ export const FADE_ALPHA = 0.15;
 export const VEIL_COLOUR = `rgba(224,212,184,${1 - FADE_ALPHA})`;
 /** The line round the open realm, where the gate turns a player back. */
 export const OPEN_LINE = '#e6c76a';
+
+/**
+ * What the ground of this map is made of. See docs/mmo/wiring/MAP3-GUIDE.md.
+ *
+ *   painting   the user's hand painted sheet and nothing else
+ *   both       the painting with the live terrain over it at GUIDE_TERRAIN_ALPHA,
+ *              so a mountain sculpted with the brush shows on the painting
+ *   terrain    the map as it was before the painting existed
+ *
+ * `both` is where the button opens, and `terrain` is what every one of them
+ * comes to when the painting is not in yet, because there is nothing else to
+ * show. `layerFor` is the one place that decides, so the button, the draw and
+ * the footer cannot disagree about which of the three is really on the screen.
+ */
+export const LAYERS = ['painting', 'both', 'terrain'];
+export const LAYER_WORD = {
+  painting: 'the painting',
+  both: 'the painting under the terrain',
+  terrain: 'the terrain',
+};
+export const LAYER_TITLE = {
+  painting: 'The hand painted sheet on its own, with nothing of the sculpted ground over it.',
+  terrain: 'The ground as the field really is, with the painting taken off. This is the map as it was before the painting.',
+};
+LAYER_TITLE.both = `The painting with the live terrain over it at ${Math.round(GUIDE_TERRAIN_ALPHA * 100)} percent, so a hill raised with the brush shows through onto the painting.`;
+
+/** Which of the three is really drawn, given what the picture is doing. */
+export function layerFor(want, artState) {
+  const w = LAYERS.includes(want) ? want : 'both';
+  return artState === 'ready' ? w : 'terrain';
+}
+
+/** A hover within this many pixels of a guide boundary still counts as on it. */
+export const GUIDE_PICK_PX = 6;
 
 /**
  * Samples per side, at the closest zoom and at the whole world.
@@ -256,6 +297,9 @@ export const LEGEND = [
   { id: 'openline', label: 'as far as the road goes', swatch: 'line', colour: OPEN_LINE },
   { id: 'closed', label: 'not open yet', swatch: 'veil', colour: VEIL_COLOUR },
   { id: 'space', label: 'a space you have laid out', swatch: 'dash', colour: SPACE_INK },
+  { id: 'guide', label: 'a space of the painted guide', swatch: 'dash', colour: GUIDE_INK },
+  { id: 'guideway', label: 'the painted road and lane', swatch: 'line', colour: GUIDE_ROAD_INK },
+  { id: 'guideriver', label: 'the painted river', swatch: 'line', colour: GUIDE_RIVER_INK },
   { id: 'event', label: 'happening now', swatch: 'ring', colour: EVENT_COLOUR },
   { id: 'wanderer', label: 'a boss on its round', swatch: 'arrow', colour: BOSS_COLOUR },
   { id: 'waypoint', label: 'your mark', swatch: 'ring', colour: WAYPOINT_COLOUR },
@@ -569,6 +613,22 @@ export function pickAt(px, py, opts) {
 }
 
 /**
+ * The guide space under a pixel, or null.
+ *
+ * Pure, and the same arithmetic the draw uses, so what the cursor picks is what
+ * the outline under it says. The slack is GUIDE_PICK_PX of SCREEN, turned into
+ * metres by the view's own scale, so a space that is eight pixels across at 16
+ * km is still hoverable and a space that is half the picture at 1 km does not
+ * grow a fifty metre skirt.
+ */
+export function pickGuideAt(px, py, opts = {}) {
+  const { cx = 0, cz = 0, size = 640 } = opts;
+  const span = opts.span ?? MAP_SPAN;
+  const [wx, wz] = toWorld(px, py, cx, cz, size, span);
+  return guideZoneAt(wx, wz, GUIDE_PICK_PX * (span / size));
+}
+
+/**
  * Every site on this map the character has found, in cell order.
  *
  * The draw calls this and so does the list beside it, which is the whole point
@@ -744,12 +804,34 @@ export function sideModel(opts = {}) {
       .sort(byDist)
     : [];
 
+  // The guide: the twelve painted spaces, nearest first, and whichever one the
+  // cursor is over. The hovered one carries its line and its models, which is
+  // the whole reason the guide is on the map: it is the answer to "what do I
+  // put here". `art` is what the picture is doing, so the column can say the
+  // painting is missing and where it goes rather than looking simply empty.
+  const art = opts.guideArt !== undefined ? opts.guideArt : guideArt();
+  const hoverId = opts.guideHover || null;
+  const guide = {
+    art: { state: art ? art.state : 'idle', url: GUIDE_ART.url, file: GUIDE_ART.file, missing: GUIDE_ART.missing },
+    layer: layerFor(opts.layers, art && art.state),
+    want: LAYERS.includes(opts.layers) ? opts.layers : 'both',
+    zones: GUIDE_ZONES.map((g) => ({
+      id: g.id, name: g.name, line: g.line, landmark: g.landmark,
+      r: g.r, annulus: g.annulus,
+      models: g.models.slice(), wanted: g.wanted.slice(),
+      hover: g.id === hoverId,
+      ...wayRow(g.x, g.z, cx, cz),
+    })).sort(byDist),
+  };
+  guide.hover = guide.zones.find((g) => g.hover) || null;
+
   return {
     here,
     town,
     waypoint,
     view,
     span,
+    guide,
     spanText: spanText(span),
     regions,
     walked: regions.filter((r) => r.known).length,
@@ -799,6 +881,26 @@ export function drawMap(g2d, opts) {
 
   g2d.save();
 
+  // 0. THE PAINTING. The user's own sheet, laid down through the guide's frame
+  // so the picture and the world agree at every zoom: the arrow stands on the
+  // painted village when the player stands in the village. It goes UNDER
+  // everything, and when it is not there `layerFor` falls back to the terrain
+  // and the footer says where to put the file.
+  const art = opts.guideArt !== undefined ? opts.guideArt : guideArt();
+  const layer = layerFor(opts.layers, art && art.state);
+  const guide = { layer, art: art ? art.state : 'idle', drawn: 0, zones: 0, named: 0, rings: 0, ways: 0 };
+  if (layer !== 'terrain') {
+    // AN OPAQUE BACKDROP FIRST, always. The sheet does not cover the whole
+    // canvas at every zoom, and neither `painting` (which paints no ground at
+    // all) nor `both` (which paints it at a third) lays down anything opaque
+    // outside it. Without this, the country beyond the painting's edge is the
+    // LAST frame with a third of this one over it, and it darkens on every
+    // repaint until it is black.
+    g2d.fillStyle = `rgb(${PAPER[0]},${PAPER[1]},${PAPER[2]})`;
+    g2d.fillRect(0, 0, size, size);
+    guide.drawn = paintGuideArt(g2d, { art, at, w: size, h: size }).drawn;
+  }
+
   // 1. the ground, painted. map_paint.js reads the same field on the same grid
   // and lays it down as a chart: parchment, coast, rivers, relief, forest,
   // roads, and a soft border round each realm. It reads the same discovery this
@@ -809,11 +911,21 @@ export function drawMap(g2d, opts) {
   // the terrain stroke list's version, so a repaint costs the marks and nothing
   // else UNTIL the ground itself moves under the brush, and then it costs the
   // field again, which is the point.
-  const ground = paintGround(g2d, {
-    field, x: cx, z: cz, w: span, h: span, px: size, py: size,
-    known: { zones: opts.zonesFound, places: opts.discovered },
-    cache: opts.paintCache, samples: n, names: false, rolled: false,
-  });
+  //
+  // At `both` the whole of it is laid down at GUIDE_TERRAIN_ALPHA, so the
+  // sculpted ground reads as relief over the painting rather than replacing it.
+  // At `painting` the field is not read at all, which is also the cheapest the
+  // map ever is.
+  let ground = { cached: true, msField: 0, samples: 0, rivers: 0, roads: 0, peaks: 0 };
+  if (layer !== 'painting') {
+    if (layer === 'both') g2d.globalAlpha = GUIDE_TERRAIN_ALPHA;
+    ground = paintGround(g2d, {
+      field, x: cx, z: cz, w: span, h: span, px: size, py: size,
+      known: { zones: opts.zonesFound, places: opts.discovered },
+      cache: opts.paintCache, samples: n, names: false, rolled: false,
+    });
+    if (layer === 'both') g2d.globalAlpha = 1;
+  }
 
   // 2. roads, from the polylines roads.js already holds. Under the veil, so a
   // road running out into country the gate has shut fades away with the country.
@@ -937,6 +1049,25 @@ export function drawMap(g2d, opts) {
       g2d.arc(dx, dy, (d.r / span) * size, 0, Math.PI * 2);
       g2d.stroke();
     }
+  }
+
+  // 6b. THE GUIDE: the twelve spaces of the painting, their names, and the
+  // traced river and roads. This is the half of the map that says WHERE THINGS
+  // GO: nothing in the world is built from it, and it is drawn over the ground
+  // and under the editor's own spaces so that what has been laid out already
+  // sits on top of the plan for it.
+  //
+  // It is drawn whether or not the painting loaded, because the boundaries and
+  // the names are the point and the picture is the backing for them. The ways
+  // go under the outlines: a lane is where to paint a lane, not a road.
+  if (opts.guide !== false) {
+    const ways = paintGuideWays(g2d, { at, scale: Math.max(0.6, size / 640) });
+    guide.ways = ways.roads + ways.river;
+    const zn = paintGuideZones(g2d, {
+      at, mpp: span / size, w: size, h: size, hover: opts.guideHover || null,
+      nameSize: 10.5,
+    });
+    guide.zones = zn.drawn; guide.named = zn.named; guide.rings = zn.rings;
   }
 
   // 7. what the editor has authored: a dashed square for every automatic tile
@@ -1126,12 +1257,16 @@ export function drawMap(g2d, opts) {
 
   const ms = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
   return {
-    ms, span, samples: n * n, perSide: n, stride,
+    // At `painting` the field is not read at all, so the count is nought and
+    // says so: a stat that reported the samples it WOULD have taken would hide
+    // the one thing that layer is for.
+    ms, span, samples: layer === 'painting' ? 0 : n * n, perSide: n, stride,
     // straight off the painter, so a test asking whether the ground was
     // re-sampled is reading the painter's own answer and not a second guess
     cached: ground.cached, msField: ground.msField,
     sites: sites.length, roads, zones: zonesDrawn, named, faded, veiled, spaces,
     marks: marks.length, scale: bar, player: { x: you.x, z: you.z },
+    guide,
   };
 }
 
@@ -1234,6 +1369,27 @@ const CSS = `
   font-size:13.5px;font-style:italic;line-height:1.45;color:${theme.parchmentDim};padding:3px 0;
 }
 
+.bw-win-map .bw-map-guide{
+  border-left:2px solid ${theme.gold}88;padding:4px 0 4px 9px;margin:4px 0 8px;
+}
+.bw-win-map .bw-map-guide .gn{
+  font-family:${theme.fonts.display};font-size:15px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:${theme.goldBright};
+}
+.bw-win-map .bw-map-guide .gl{
+  font-size:13.5px;font-style:italic;line-height:1.45;color:${theme.parchmentDim};margin-top:3px;
+}
+.bw-win-map .bw-map-guide .gk{
+  font-family:${theme.fonts.display};font-size:10px;letter-spacing:.2em;
+  text-transform:uppercase;color:${theme.parchmentFaint};margin-top:7px;
+}
+.bw-win-map .bw-map-guide .gm{
+  font-size:12.5px;line-height:1.5;color:${theme.parchment};
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word;
+}
+.bw-win-map .bw-map-guide .gw{font-size:12.5px;font-style:italic;color:${theme.parchmentFaint};}
+.bw-win-map .bw-map-row.guide.hot{background:rgba(201,164,74,.16);}
+
 .bw-win-map .bw-map-key{display:flex;flex-wrap:wrap;gap:5px 14px;padding-top:2px;}
 .bw-win-map .bw-map-key .k{
   display:flex;align-items:center;gap:6px;font-size:12.5px;color:${theme.parchmentDim};
@@ -1328,6 +1484,12 @@ export const panel = {
     this._canvas.addEventListener('pointerup', (e) => this.dragEnd(e));
     this._canvas.addEventListener('pointercancel', (e) => this.dragEnd(e));
     this._canvas.addEventListener('pointerleave', (e) => this.dragEnd(e));
+    // The hover is what tells the user what goes in a space, so it is a real
+    // listener and not a tooltip: it lands in `_guideHover`, and the map and
+    // the column are redrawn ONLY when the space under the cursor CHANGES. A
+    // repaint on every pointermove would be a whole map behind every pixel.
+    this._canvas.addEventListener('pointermove', (e) => this.hoverAt(e));
+    this._canvas.addEventListener('pointerleave', () => this.setHover(null));
     wrap.appendChild(this._canvas);
 
     // The controls, and every one of them says on hover what it will do and
@@ -1346,6 +1508,12 @@ export const panel = {
     tool('+', 'Zoom in one step, about the middle of the map. The plus key does the same.', () => this.zoomBy(1 / ZOOM_RATE));
     tool('the Greenwold', `Back to where the map opens: the Greenwold, ${spanText(HOME_SPAN)}. The 0 key does the same.`, () => this.goHome());
     tool('the whole world', `The whole of Kaldera at once, ${spanText(MAP_MAX_SPAN)}, ocean and all.`, () => this.setView({ ...this._view, span: MAP_MAX_SPAN }, 'The whole world.'));
+    // The ground under the guide: the painting, the terrain, or both. One
+    // button that cycles, and it says on hover what all three of them are and
+    // what it will do next, because a button whose label is its current state
+    // is a button nobody knows the effect of.
+    this._layers = 'both';
+    this._layerBtn = tool('ground', '', () => this.cycleLayers());
     this._zoomNow = el('span', 'zoomnow');
     this._zoomNow.title = 'How much of the world the picture above is showing. The bar in its corner is the same measure.';
     this._tools.appendChild(this._zoomNow);
@@ -1368,6 +1536,14 @@ export const panel = {
   open(ctx) {
     this._ctx = ctx || this._ctx;
     this._since = 0;
+    this._guideHover = null;
+    // Ask for the painting once. When it lands, or when it is found not to be
+    // there, the map is drawn again, so a picture that arrives after the panel
+    // is open still becomes the ground without the user touching anything.
+    if (!this._artWatch) {
+      this._artWatch = onGuideArt(() => { this.redraw(); });
+      loadGuideArt();
+    }
     // Opening the map puts it back over the player. A view left where a drag
     // left it three windows ago is a map of somewhere the player has walked
     // away from, and the first thing anybody wants of a map is where they are.
@@ -1460,6 +1636,62 @@ export const panel = {
       return this._view;
     }
     return this.setView(v, `${spanText(v.span)}.`);
+  },
+
+  // -------------------------------------------------------- the guide ----
+
+  /**
+   * The space under the pointer. Nothing is redrawn unless the answer has
+   * CHANGED, so moving across one space costs one repaint and not sixty.
+   */
+  hoverAt(ev) {
+    if (!this._canvas || this._drag) return this._guideHover || null;
+    const [px, py] = this.pixelOf(ev);
+    const v = this.viewNow();
+    const hit = pickGuideAt(px, py, { cx: v.cx, cz: v.cz, span: v.span, size: this._canvas.width });
+    return this.setHover(hit ? hit.id : null);
+  },
+
+  /** The one way the hover is ever written, and it says what it found. */
+  setHover(id) {
+    const was = this._guideHover || null;
+    const now = id || null;
+    if (was === now) return now;
+    this._guideHover = now;
+    if (now) {
+      const g = GUIDE_ZONES.find((z) => z.id === now);
+      if (g) this.setSay(`${g.name}. ${g.line} What goes here is listed on the right.`);
+    }
+    this.redraw();
+    return now;
+  },
+
+  /**
+   * The ground: the painting, both, or the terrain, round and round. Says which
+   * one it landed on, and says so plainly when the painting is not in yet and
+   * the answer is the terrain whatever the button was pressed for.
+   */
+  cycleLayers() {
+    const art = guideArt();
+    const i = LAYERS.indexOf(this._layers);
+    const want = LAYERS[(i + 1) % LAYERS.length];
+    this._layers = want;
+    const got = layerFor(want, art.state);
+    if (got !== want) this.setSay(`${GUIDE_ART.missing}`);
+    else this.setSay(`The ground is ${LAYER_WORD[got]}.`);
+    this.redraw();
+    return got;
+  },
+
+  /** What the ground button says and what it promises. Both, in one place. */
+  layerLabel() {
+    const got = layerFor(this._layers, guideArt().state);
+    const next = LAYERS[(LAYERS.indexOf(this._layers) + 1) % LAYERS.length];
+    return {
+      label: `ground: ${LAYER_WORD[got]}`,
+      title: `${LAYER_TITLE[got]} Press to show ${LAYER_WORD[next]}.`
+        + (guideArt().state === 'ready' ? '' : ` ${GUIDE_ART.missing}`),
+    };
   },
 
   /** Put the map back over the player without changing how much it shows. */
@@ -1642,6 +1874,8 @@ export const panel = {
       zonesFound: zonesFoundOf(ctx),
       waypoint: ctx?.character?.waypoint || null,
       events: marksOf(ctx),
+      layers: this._layers,
+      guideHover: this._guideHover || null,
     });
     this._last = res;
     // remembered AFTER the draw, so a stroke laid down between the two is
@@ -1649,12 +1883,25 @@ export const panel = {
     this._terrain = this.terrainVersion();
     const model = this.render();
     if (this._zoomNow) this._zoomNow.textContent = spanText(v.span);
+    if (this._layerBtn) {
+      const lab = this.layerLabel();
+      this._layerBtn.textContent = lab.label;
+      this._layerBtn.title = lab.title;
+    }
     if (this._foot) {
       this._foot.textContent = '';
       const rows = model ? model.regions.length : 0;
+      // The painting is either the ground or it is not there, and a footer that
+      // said nothing about it would leave the user guessing whether the file
+      // was in the wrong place or the map was ignoring it.
+      const art = res.guide ? res.guide.art : 'idle';
+      const zones = res.guide ? res.guide.zones : 0;
       const left = el('span', null,
-        `${spanText(v.span)}, ${Math.round(res.stride)} m a sample, ${res.sites} place${res.sites === 1 ? '' : 's'} found, ${res.named} of ${rows} regions walked`);
-      left.title = `The picture above covers ${Math.round(v.span)} m of world and reads the ground every ${Math.round(res.stride)} m. ${res.faded} region${res.faded === 1 ? '' : 's'} behind the release gate are faded out.`;
+        `${spanText(v.span)}, ${Math.round(res.stride)} m a sample, ${zones} guide space${zones === 1 ? '' : 's'}, ${res.sites} place${res.sites === 1 ? '' : 's'} found, ${res.named} of ${rows} regions walked`
+        + (art === 'ready' ? '' : `. ${GUIDE_ART.missing}`));
+      left.title = art === 'ready'
+        ? `The picture above covers ${Math.round(v.span)} m of world and reads the ground every ${Math.round(res.stride)} m. ${res.faded} region${res.faded === 1 ? '' : 's'} behind the release gate are faded out.`
+        : `The map is drawing the terrain and the guide outlines over it. Put the painting at ${GUIDE_ART.file} and it becomes the ground at every zoom.`;
       const right = el('span', null, `${Math.round(p.x)}, ${Math.round(p.z)}`);
       right.title = 'Where you are standing, in world metres east and south of the origin.';
       this._foot.appendChild(left);
@@ -1679,6 +1926,8 @@ export const panel = {
       zonesFound: zonesFoundOf(ctx),
       waypoint: ctx?.character?.waypoint || null,
       events: marksOf(ctx),
+      layers: this._layers,
+      guideHover: this._guideHover || null,
     });
     this._model = m;
     const side = this._side;
@@ -1746,6 +1995,52 @@ export const panel = {
       row.appendChild(el('span', 'wy', s.bearing));
       row.dataset.site = s.id;
       row.addEventListener('click', () => this.setWaypoint({ x: s.x, z: s.z, name: s.name }));
+      side.appendChild(row);
+    }
+
+    // ---- the painted guide ------------------------------------------------
+    //
+    // THE POINT OF THE WHOLE FEATURE. The map draws twelve boundaries; this is
+    // what is inside them. Rest on a space on the picture, or on a row here,
+    // and this block says what the space is for, what you walk toward in it,
+    // and every model that goes in it, so the user can put objects down
+    // without reading the doc in another window.
+    const gHdr = el('div', 'bw-hdr', `The painted Greenwold, ${m.guide.zones.length} spaces`);
+    gHdr.title = 'The user\'s hand painted map, turned into world metres. These are a GUIDE: nothing in the world is built from them. Rest on one to see what goes in it.';
+    side.appendChild(gHdr);
+    if (m.guide.art.state !== 'ready') {
+      const miss = el('div', 'bw-map-none', m.guide.art.missing);
+      miss.title = `The map is drawing the outlines over the terrain until the picture is there. It is loaded from ${m.guide.art.url}.`;
+      side.appendChild(miss);
+    }
+    const gb = el('div', 'bw-map-guide');
+    if (m.guide.hover) {
+      const h = m.guide.hover;
+      gb.appendChild(el('div', 'gn', h.name));
+      gb.appendChild(el('div', 'gl', h.line));
+      if (h.landmark) gb.appendChild(el('div', 'gl', `You walk toward ${h.landmark}.`));
+      gb.appendChild(el('div', 'gl', `${h.way}, ${h.annulus ? `a ring ${Math.round(h.r)} m out from its middle` : `about ${Math.round(h.r)} m across from the middle`}.`));
+      gb.appendChild(el('div', 'gk', `What goes here, ${h.models.length} model${h.models.length === 1 ? '' : 's'}`));
+      gb.appendChild(el('div', 'gm', h.models.join('  ')));
+      if (h.wanted.length) {
+        gb.appendChild(el('div', 'gk', 'and these are not models yet'));
+        gb.appendChild(el('div', 'gw', h.wanted.join(', ')));
+      }
+    } else {
+      gb.appendChild(el('div', 'gl', 'Rest on a space, on the map or in the list below, and what goes in it is written here.'));
+    }
+    gb.title = 'What the doc says stands in the space under the cursor.';
+    side.appendChild(gb);
+    for (const g of m.guide.zones) {
+      const row = el('div', `bw-map-row guide pick${g.hover ? ' hot' : ''}`);
+      row.title = `${g.line} ${g.models.length} model${g.models.length === 1 ? '' : 's'} go here. Click to set your mark on it.`;
+      row.appendChild(el('span', 'nm', g.name));
+      row.appendChild(el('span', 'ds', distanceText(g.dist)));
+      row.appendChild(el('span', 'sub', g.annulus ? `a ring ${Math.round(g.r)} m out` : `${Math.round(g.r)} m across`));
+      row.appendChild(el('span', 'wy', g.bearing));
+      row.dataset.guide = g.id;
+      row.addEventListener('mouseenter', () => this.setHover(g.id));
+      row.addEventListener('click', () => this.setWaypoint({ x: g.x, z: g.z, name: g.name }));
       side.appendChild(row);
     }
 

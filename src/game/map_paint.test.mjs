@@ -24,6 +24,7 @@ const { SITE_CELL } = await import('../world/sitegrid.js');
 const { roadsForCell } = await import('../world/roads.js');
 const { REALM_ZONES, authoredSites, ZONE } = await import('../world/zones.js');
 const paint = await import('./map_paint.js');
+const guide = await import('../mmo/greenwold_guide.js');
 
 const {
   paintMap, paintGround, paintMarks, viewFor, toPx, labelFor, makeCache,
@@ -46,6 +47,7 @@ function recorder() {
   const rects = [];        // every fillRect, in order, with the colour it took
   const texts = [];        // every fillText and strokeText
   const strokes = [];      // every stroke, with its dash and the path it drew
+  const images = [];       // every drawImage, with the rectangle it landed in
   const st = {
     fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, globalAlpha: 1,
     font: '10px serif', textAlign: 'start', textBaseline: 'alphabetic',
@@ -101,8 +103,11 @@ function recorder() {
     createRadialGradient: forbid('a radial gradient'),
     createPattern: forbid('a pattern'),
     clip: forbid('a clip'),
+    // MAP3: the hand painted sheet, kept with the rectangle it landed in. It is
+    // the ONE image this file draws, and everything else here still refuses.
+    drawImage(img, x, y, w, h) { images.push({ img, x, y, w, h }); say('drawImage', r(x), r(y), r(w), r(h)); },
   };
-  g.log = log; g.rects = rects; g.texts = texts; g.strokes = strokes;
+  g.log = log; g.rects = rects; g.texts = texts; g.strokes = strokes; g.images = images;
   g.drawOps = () => log.filter((l) => /^(fill |stroke |fillRect|fillText|strokeText)/.test(l)).length;
   /** The colour of the ground under a pixel: the first composed cell over it. */
   g.groundAt = (px, py) => {
@@ -606,6 +611,151 @@ console.log('\nthe spaces the editor lays out');
     near[0].r >= near[near.length - 1].r, near.map((s) => s.r).join(' >= '));
   ck('a space with no place at all is dropped rather than drawn at the origin',
     paint.spaceShape({ id: 'x', name: 'x' }) === null && paint.spaceShape(null) === null);
+}
+
+
+// ------------------------------------------------------ MAP3: the guide ----
+//
+// The three painters the zone map and the minimap share. They are here and not
+// in either of those files because there must be exactly ONE piece of code that
+// decides what a guide boundary looks like, and this is it.
+//
+// Every one of them takes an `at(x, z)` rather than a view, so the checks below
+// hand over a plain linear mapping and read the pixels straight back out.
+
+console.log('\nMAP3: the guide painters');
+{
+  const {
+    paintGuideArt, paintGuideZones, paintGuideWays,
+    GUIDE_INK, GUIDE_INK_HOT, GUIDE_ROAD_INK, GUIDE_RIVER_INK,
+    GUIDE_MIN_PX, GUIDE_NAME_PX, GUIDE_DASH, GUIDE_RING_DASH,
+  } = paint;
+  const { GUIDE_ZONES, GUIDE_BY_ID, GUIDE_ROADS, GUIDE_RIVER, artRect, worldToImage } = guide;
+
+  // 800 px over 6 km, centred on the realm: 7.5 m to the pixel
+  const MPP = 7.5, SIZE = 800;
+  const at = (x, z) => [x / MPP + SIZE / 2, z / MPP + SIZE / 2];
+  const ART = { state: 'ready', img: { width: 1676, height: 942 }, w: 1676, h: 942 };
+
+  // ---- the picture --------------------------------------------------------
+  {
+    const g = recorder();
+    const res = paintGuideArt(g, { art: ART, at, w: SIZE, h: SIZE });
+    ck('the sheet is drawn once, into the rectangle its own frame says',
+      res.drawn === 1 && g.images.length === 1, `${g.images.length} images`);
+    const r = artRect();
+    const [ax, ay] = at(r.x0, r.z0);
+    ck('and that rectangle is the whole sheet, corner to corner',
+      Math.abs(g.images[0].x - ax) < 1e-9 && Math.abs(g.images[0].y - ay) < 1e-9
+      && Math.abs(g.images[0].w - r.w / MPP) < 1e-9 && Math.abs(g.images[0].h - r.h / MPP) < 1e-9,
+      `${g.images[0].w.toFixed(1)} by ${g.images[0].h.toFixed(1)} px for ${r.w.toFixed(0)} by ${r.h.toFixed(0)} m`);
+    ck('a place on the sheet lands on the same pixel as the place in the world',
+      GUIDE_ZONES.every((zn) => {
+        const [u, v] = worldToImage(zn.x, zn.z);
+        const [px, py] = at(zn.x, zn.z);
+        return Math.abs(g.images[0].x + u * g.images[0].w - px) < 1e-9
+          && Math.abs(g.images[0].y + v * g.images[0].h - py) < 1e-9;
+      }), `${GUIDE_ZONES.length} spaces`);
+
+    // and every way it can refuse, each of which says why rather than throwing
+    ck('a picture that has not loaded is not drawn, and says which state it is in',
+      paintGuideArt(recorder(), { art: { state: 'missing' }, at }).why === 'missing');
+    ck('a context that cannot draw an image is not asked to',
+      paintGuideArt({}, { art: ART, at }).why === 'this context cannot draw an image');
+    ck('no mapping at all is refused rather than drawn at the origin',
+      paintGuideArt(recorder(), { art: ART }).why === 'no mapping was handed over');
+    const far = (x, z) => [x / MPP + 90000, z / MPP];
+    ck('and a picture that falls off this map is not drawn',
+      paintGuideArt(recorder(), { art: ART, at: far, w: SIZE, h: SIZE }).why === 'the picture is off this map');
+  }
+
+  // ---- the boundaries -----------------------------------------------------
+  {
+    const g = recorder();
+    const res = paintGuideZones(g, { at, mpp: MPP, w: SIZE, h: SIZE });
+    ck('all twelve are outlined and all twelve are named at this scale',
+      res.drawn === 12 && res.named === 12 && res.off === 0 && res.small === 0, JSON.stringify(res));
+    ck('the Standing Hedge alone is drawn twice, as a ring',
+      res.rings === 1 && g.log.filter((l) => /^arc /.test(l)).length === 13,
+      `${g.log.filter((l) => /^arc /.test(l)).length} arcs for 12 spaces`);
+    ck('a space is dashed and a ring is dotted, so the two never read alike',
+      g.strokes.some((st) => st.style === GUIDE_INK && st.dash.join() === GUIDE_DASH.join())
+      && g.strokes.some((st) => st.style === GUIDE_INK && st.dash.join() === GUIDE_RING_DASH.join()));
+    ck('every name is written at the middle of its own space',
+      GUIDE_ZONES.every((zn) => {
+        const [px, py] = at(zn.x, zn.z);
+        const t = g.texts.find((q) => q.op === 'fill' && q.text === zn.name.toUpperCase());
+        return t && Math.abs(t.x - px) < 1e-9 && Math.abs(t.y - py) < 1e-9;
+      }));
+
+    // the two thresholds, driven on BOTH sides of the line: a space smaller
+    // than GUIDE_MIN_PX is dropped, one between the two is drawn and not named
+    const tiny = [{ id: 't', name: 'Tiny', x: 0, z: 0, r: (GUIDE_MIN_PX - 0.5) * MPP, annulus: false, band: 0, models: [], wanted: [] }];
+    ck('a boundary too small to read is not drawn at all',
+      paintGuideZones(recorder(), { at, mpp: MPP, w: SIZE, h: SIZE, zones: tiny }).drawn === 0);
+    const mid = [{ ...tiny[0], r: ((GUIDE_MIN_PX + GUIDE_NAME_PX) / 2) * MPP }];
+    const midRes = paintGuideZones(recorder(), { at, mpp: MPP, w: SIZE, h: SIZE, zones: mid });
+    ck('and one too small to hold its own name is drawn without it',
+      midRes.drawn === 1 && midRes.named === 0, JSON.stringify(midRes));
+    const big = [{ ...tiny[0], r: (GUIDE_NAME_PX + 1) * MPP }];
+    ck('and one just big enough gets its name, so the threshold is a threshold',
+      paintGuideZones(recorder(), { at, mpp: MPP, w: SIZE, h: SIZE, zones: big }).named === 1);
+
+    // the hover
+    const hot = recorder();
+    paintGuideZones(hot, { at, mpp: MPP, w: SIZE, h: SIZE, hover: 'chalkpits' });
+    ck('exactly one space is picked out when one is hovered, and none when none is',
+      hot.strokes.filter((st) => st.style === GUIDE_INK_HOT).length === 1
+      && g.strokes.filter((st) => st.style === GUIDE_INK_HOT).length === 0,
+      `${hot.strokes.filter((st) => st.style === GUIDE_INK_HOT).length} of ${hot.strokes.length} strokes`);
+    ck('and its name is written in the same bright gold, so the picture and the word agree',
+      hot.texts.some((t) => t.op === 'fill' && t.text === 'THE CHALK PITS' && t.colour === GUIDE_INK_HOT));
+
+    // `centresOnly`, which is the minimap's rule. The view is over the Long
+    // Meadow, where the Standing Hedge's circle crosses the square and its
+    // middle is 156 px off the right hand edge: the loose rule draws it, the
+    // minimap's rule does not, because a name pinned to the rim is a lie.
+    const near = (x, z) => [(x - GUIDE_BY_ID.longmeadow.x) / MPP + 110, (z - GUIDE_BY_ID.longmeadow.z) / MPP + 110];
+    const loose = paintGuideZones(recorder(), { at: near, mpp: MPP, w: 220, h: 220 });
+    const strict = paintGuideZones(recorder(), { at: near, mpp: MPP, w: 220, h: 220, centresOnly: true });
+    ck('centresOnly drops a space whose middle is off the square, and the loose rule keeps it',
+      strict.drawn < loose.drawn && strict.drawn > 0,
+      `${loose.drawn} where the circle touches, ${strict.drawn} where the middle is on`);
+
+    // and the name clamp, which is the other minimap rule
+    const clamped = recorder();
+    paintGuideZones(clamped, {
+      at: near, mpp: MPP, w: 220, h: 220, centresOnly: true, nameSize: 8.5,
+      clampX: (px, w) => Math.max(2 + w / 2, Math.min(220 - 2 - w / 2, px)),
+    });
+    ck('and with a clamp handed over, no letter of a name leaves the square',
+      clamped.texts.filter((t) => t.op === 'fill').every((t) => {
+        const w = String(t.text).length * 8.5 * 0.56;
+        return t.x - w / 2 >= 0 && t.x + w / 2 <= 220;
+      }), clamped.texts.filter((t) => t.op === 'fill').map((t) => t.text).join(', '));
+  }
+
+  // ---- the traced ways ----------------------------------------------------
+  {
+    const g = recorder();
+    const res = paintGuideWays(g, { at });
+    ck('the two roads and the river are three lines, and no more',
+      res.roads === 2 && res.river === 1 && g.strokes.length === 3, JSON.stringify(res));
+    ck('and the river is drawn in its own ink, not the roads\'',
+      g.strokes.filter((st) => st.style === GUIDE_RIVER_INK).length === 1
+      && g.strokes.filter((st) => st.style === GUIDE_ROAD_INK).length === 2);
+    ck('every point of every one of them is its own world point through the mapping',
+      [...GUIDE_ROADS, GUIDE_RIVER].every((way) => {
+        const st = g.strokes.find((q) => q.pts.length === way.pts.length
+          && Math.abs(q.pts[0][0] - at(way.pts[0].x, way.pts[0].z)[0]) < 1e-9);
+        return st && st.pts.every((pt, i) => {
+          const [px, py] = at(way.pts[i].x, way.pts[i].z);
+          return Math.abs(pt[0] - px) < 1e-9 && Math.abs(pt[1] - py) < 1e-9;
+        });
+      }), `${res.points} points`);
+    ck('and none of them is dashed, because a traced line is not a road',
+      g.strokes.every((st) => st.dash.length === 0));
+  }
 }
 
 console.log(`\n${pass} ok, ${bad} failed\n`);

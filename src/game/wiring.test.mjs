@@ -22,7 +22,7 @@ globalThis.requestAnimationFrame ||= () => 0;
 globalThis.window ||= { addEventListener() {}, removeEventListener() {} };
 globalThis.localStorage ||= { getItem: () => null, setItem() {}, removeItem() {} };
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -852,6 +852,71 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
   check('interact.js source: every cue is optional, so it runs headless', !/[^?]\baudio\.play\(/.test(i));
   const s = src('shop.js');
   check('shop.js source: the cues are inside buy and sell, not on the returned methods', /audio\?\.play\?\.\('buy'\)/.test(s) && /audio\?\.play\?\.\('sell'\)/.test(s));
+}
+
+// ---- MAP3: the painted guide is a guide and nothing else -------------------
+//
+// The whole promise of `src/mmo/greenwold_guide.js` is that NOTHING IN THE
+// WORLD IS BUILT FROM IT. It is drawn on the two maps and read by nobody else:
+// no terrain is cut from it, no plan is placed from it, no site is registered
+// from it and no save is touched by it.
+//
+// A promise like that decays the moment somebody finds it convenient, so it is
+// measured here over the real tree rather than left in a comment. The reach is
+// walked with readdir, so a new importer is caught the day it is written.
+{
+  const SRC = join(HERE, '..');
+  const files = [];
+  (function walkDir(d) {
+    for (const f of readdirSync(d)) {
+      const full = join(d, f);
+      if (statSync(full).isDirectory()) walkDir(full);
+      else if (f.endsWith('.js') || f.endsWith('.mjs')) files.push(full);
+    }
+  })(SRC);
+  const importers = files
+    .filter((f) => /greenwold_guide\.js'/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(SRC.length + 1).replace(/\\/g, '/'))
+    .sort();
+  const ALLOWED = [
+    'game/map_paint.js', 'game/map_paint.test.mjs',
+    'game/minimap.js', 'game/minimap.test.mjs',
+    'game/win_map.js', 'game/win_map.test.mjs',
+    'game/wiring.test.mjs',
+    'mmo/greenwold_guide.test.mjs',
+  ];
+  check(`the guide is read by the two maps and their tests, and by nothing else`,
+    importers.join('|') === ALLOWED.join('|'),
+    importers.join(', '));
+  check('nothing under src/world, src/mmo/plans or the editor reads it, so no ground is cut from it',
+    !importers.some((f) => /^world\/|^mmo\/plans\/|^game\/editor\//.test(f)));
+
+  // and the other way: the two maps really do read it, so the guard above is
+  // guarding something that is wired rather than something that was deleted
+  const wm = src('win_map.js');
+  const mm = src('minimap.js');
+  check('win_map.js draws the picture, the boundaries and the traced ways',
+    /paintGuideArt/.test(wm) && /paintGuideZones/.test(wm) && /paintGuideWays/.test(wm));
+  check('and it asks for the picture when the panel opens, and repaints when it lands',
+    /loadGuideArt\(\)/.test(wm) && /onGuideArt\(/.test(wm));
+  check('minimap.js draws the picture and the boundaries, and drops the ways',
+    /paintGuideArt/.test(mm) && /paintGuideZones/.test(mm) && !/paintGuideWays/.test(mm));
+  check('and it asks for the picture too, and lets go of the listener when it is disposed',
+    /loadGuideArt\(\)/.test(mm) && /onGuideArt\(/.test(mm) && /artOff\(\); artOff = null;/.test(mm));
+
+  // the doc's own promise, in the file that would break it
+  check('and zones.js LAYOUT, the OLD generated layout, is untouched by any of it',
+    !/greenwold_guide/.test(readFileSync(join(SRC, 'world/zones.js'), 'utf8')));
+
+  const EM = String.fromCharCode(0x2014);
+  const mineFiles = [
+    join(SRC, 'mmo/greenwold_guide.js'), join(SRC, 'mmo/greenwold_guide.test.mjs'),
+    join(SRC, 'game/win_map.js'), join(SRC, 'game/map_paint.js'), join(SRC, 'game/minimap.js'),
+    join(HERE, '../../docs/mmo/wiring/MAP3-GUIDE.md'),
+  ];
+  check('no em dash in any file this work owns, the note included',
+    !mineFiles.some((f) => readFileSync(f, 'utf8').includes(EM)), `${mineFiles.length} files`);
+  check('and the check would find one if there were', ('a' + EM + 'b').includes(EM));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

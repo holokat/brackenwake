@@ -58,7 +58,9 @@ import { headingOf, coordsText, markerName } from './compass.js';
 import {
   BIOME_PAINT, REALM_PAINT, WATER_SHALLOW, WATER_DEEP, WATER_FLOOR,
   labelFor, blur,
+  paintGuideArt, paintGuideZones, GUIDE_MINIMAP_ALPHA,
 } from './map_paint.js';
+import { GUIDE_ZONES, guideArt, loadGuideArt, onGuideArt } from '../mmo/greenwold_guide.js';
 import { BIOMES, SEA_LEVEL, PAINT_BIOME } from '../world/field.js';
 import { GROUND_WORDS } from '../world/terrain_edits.js';
 import { ZONE, weightOf } from '../world/zones.js';
@@ -583,7 +585,30 @@ export function paintMinimap(ctx, opts = {}) {
   if (opts.dpr && opts.dpr !== 1) ctx.scale(opts.dpr, opts.dpr);
   const grid = opts.grid || sampleMinimap(field, v, opts.cells ?? MINIMAP.cells);
   const tSampled = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+  // ---- the painting, under everything -------------------------------------
+  //
+  // The user's hand painted Greenwold, laid down through the guide's own frame
+  // so this square and the zone map agree about where the painted village is.
+  // The composed ground then goes over it at GUIDE_MINIMAP_ALPHA, so the ground
+  // somebody sculpted an hour ago is still readable and the picture is still
+  // there under it. With no picture the alpha is 1 and this is the square as it
+  // was. `src/mmo/greenwold_guide.js` and docs/mmo/wiring/MAP3-GUIDE.md.
+  const at = (x, z) => pxOf(v, x, z);
+  const art = opts.art !== undefined ? opts.art : guideArt();
+  const wantArt = !!(art && art.state === 'ready' && typeof ctx.drawImage === 'function');
+  if (wantArt) {
+    // An opaque backdrop under the sheet, because the sheet does not cover the
+    // whole square at every zoom and the ground over it is only half there.
+    // Without it the country beyond the painting's edge is the last frame with
+    // half of this one over it, and it darkens on every repaint.
+    ctx.fillStyle = `rgb(${GROUND_PAPER[0]},${GROUND_PAPER[1]},${GROUND_PAPER[2]})`;
+    ctx.fillRect(0, 0, v.size, v.size);
+  }
+  const painting = paintGuideArt(ctx, { art, at, w: v.size, h: v.size });
+  if (painting.drawn) ctx.globalAlpha = GUIDE_MINIMAP_ALPHA;
   const rects = composeMinimap(ctx, v, grid, opts.drawScale ?? MINIMAP.drawScale);
+  if (painting.drawn) ctx.globalAlpha = 1;
 
   // ---- the editor's lattice, in editor mode only -------------------------
   let gridLinesDrawn = 0;
@@ -617,6 +642,25 @@ export function paintMinimap(ctx, opts = {}) {
       ctx.setLineDash([]);
     }
   }
+
+  // ---- the guide ----------------------------------------------------------
+  //
+  // The same twelve boundaries and the same twelve names the zone map draws,
+  // out of the same function, so the two can never disagree about where a
+  // space is. `centresOnly` is this square's own rule: a space whose middle is
+  // off the square is not drawn, because a name pinned to the rim is a lie
+  // about where the place is, which is `marksIn`'s rule as well.
+  //
+  // The traced roads and the river are NOT drawn here: 220 pixels of small type
+  // and hairlines has room for the boundaries or for the lines, and the
+  // boundaries are what the square is for.
+  const guide = opts.guide === false
+    ? { drawn: 0, named: 0, rings: 0 }
+    : paintGuideZones(ctx, {
+      at, mpp: v.mpp, w: v.size, h: v.size, centresOnly: true,
+      nameSize: MINIMAP.nameFont, zones: opts.guideZones || GUIDE_ZONES,
+      clampX: (px, w) => labelX(px, w, v.size),
+    });
 
   // ---- the marks ----------------------------------------------------------
   const marks = marksIn(v, opts.spaces, opts.places);
@@ -684,6 +728,8 @@ export function paintMinimap(ctx, opts = {}) {
     ms: t1 - t0, msField: tSampled - t0,
     rects, marks: marks.length, dropped: marks.dropped || 0, named, rings, realmRuns,
     gridLines: gridLinesDrawn,
+    art: art ? art.state : 'idle', painting: painting.drawn,
+    guide: guide.drawn, guideNamed: guide.named, guideRings: guide.rings,
     samples: grid.samples, painted: grid.painted, wet: grid.wet,
     scale: bar, view: v,
   };
@@ -784,7 +830,9 @@ const CSS = `
 /** What the frame says when you rest on it. Every control, in one breath. */
 export const MINIMAP_TITLE = 'the minimap: north is up, you are the gold arrow. '
   + 'Wheel to zoom between 500 m and 4 km across. In dev mode, click to warp there. '
-  + 'The dotted line is the edge of the realm; in the editor the faint lattice is the 256 m tiles.';
+  + 'The dotted line is the edge of the realm; in the editor the faint lattice is the 256 m tiles. '
+  + 'The dashed gold circles are the twelve spaces of the painted guide, and the painting itself is '
+  + 'the ground under the terrain once it is at public/maps/greenwold.png.';
 
 /**
  * Build the square and hand back an `update(dt)` to call once a frame.
@@ -869,6 +917,10 @@ export function createMinimap(root, opts = {}) {
   // the whole life of the widget. minimap.test.mjs caught it by counting the
   // redraws rather than by looking at the square.
   let liveDirty = true;
+  // The picture is loaded once for the whole game, and this square repaints
+  // when it lands. Without this the minimap would show the painting only after
+  // the next time the player walked eight metres.
+  let artOff = null;
   let liveYaw = 0, liveX = 0, liveZ = 0, liveWp = '';
   let said = '', saidFor = 0, hoverAt = null;
   let shown = true;
@@ -907,6 +959,8 @@ export function createMinimap(root, opts = {}) {
   }
 
   if (el) {
+    artOff = onGuideArt(() => { force = true; });
+    loadGuideArt();
     el.addEventListener('wheel', (ev) => {
       if (ev.preventDefault) ev.preventDefault();
       if (ev.stopPropagation) ev.stopPropagation();
@@ -1053,7 +1107,10 @@ export function createMinimap(root, opts = {}) {
     },
     get shown() { return shown; },
 
-    dispose() { if (el && el.parentNode) el.parentNode.removeChild(el); },
+    dispose() {
+      if (artOff) { artOff(); artOff = null; }
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    },
   };
 }
 

@@ -112,6 +112,7 @@ function recorder() {
   const arcs = [];
   const clears = [];
   const scales = [];
+  const images = [];
   const st = {
     fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, globalAlpha: 1,
     font: '10px serif', textAlign: 'start', textBaseline: 'alphabetic',
@@ -154,7 +155,7 @@ function recorder() {
     fill() { if (arcs.length) arcs[arcs.length - 1].filled = st.fillStyle; },
     stroke() { strokes.push({ dash: dash.slice(), style: st.strokeStyle, width: st.lineWidth, pts: path.slice() }); },
 
-    fillRect(x, y, w, h) { rects.push({ x: x + tx, y: y + ty, w, h, fill: st.fillStyle }); },
+    fillRect(x, y, w, h) { rects.push({ x: x + tx, y: y + ty, w, h, fill: st.fillStyle, alpha: st.globalAlpha }); },
     strokeRect() {},
     clearRect(x, y, w, h) { clears.push({ x, y, w, h }); },
 
@@ -174,10 +175,15 @@ function recorder() {
     createRadialGradient: forbid('a radial gradient'),
     createPattern: forbid('a pattern'),
     clip: forbid('a clip'),
-    drawImage: forbid('an image'),
+    // MAP3: the hand painted Greenwold goes under the ground, so an image is
+    // something this square really does ask for now. Kept with the rectangle it
+    // landed in and the alpha that was set, because "the ground is at half over
+    // the painting" is a claim about the alpha and nothing else.
+    drawImage(img, x, y, w, h) { images.push({ img, x, y, w, h, alpha: st.globalAlpha }); },
   };
   g.rects = rects; g.texts = texts; g.strokes = strokes; g.arcs = arcs; g.clears = clears; g.scales = scales;
-  g.reset = () => { rects.length = 0; texts.length = 0; strokes.length = 0; arcs.length = 0; clears.length = 0; scales.length = 0; };
+  g.images = images;
+  g.reset = () => { rects.length = 0; texts.length = 0; strokes.length = 0; arcs.length = 0; clears.length = 0; scales.length = 0; images.length = 0; };
   return g;
 }
 
@@ -198,6 +204,10 @@ const { createWorldField } = await import('../world/field.js');
 const { GROUND_WORDS } = await import('../world/terrain_edits.js');
 const { PAINT_BIOME } = await import('../world/field.js');
 const { ZONE } = await import('../world/zones.js');
+const {
+  GUIDE_ZONES, GUIDE_BY_ID, GUIDE_ART, worldToImage,
+} = await import('../mmo/greenwold_guide.js');
+const { GUIDE_INK, GUIDE_MINIMAP_ALPHA } = await import('./map_paint.js');
 const { headingOf } = await import('./compass.js');
 const { sitesNear } = await import('../world/sites.js');
 const { theme } = await import('./ui_theme.js');
@@ -937,6 +947,111 @@ console.log('\nthe wires, read from the source');
   ck('and the check would find one if there were', ('a' + EM + 'b').includes(EM));
   ck('the minimap asks the context for nothing exotic',
     !/createLinearGradient|createRadialGradient|createPattern|\.clip\(|filter =/.test(mapSrc));
+}
+
+
+// ------------------------------------------------------ MAP3: the guide ----
+//
+// The square carries the same twelve boundaries the zone map does, out of the
+// same function, and the painting under its ground. What is checked is the two
+// rules that are this square's own and not the zone map's:
+//
+//   * a space whose middle is off the square is NOT drawn. A name pinned to the
+//     rim is a lie about where the place is, and that is already `marksIn`'s
+//     rule for the editor's spaces.
+//   * no letter of a name leaves the square, at any zoom.
+//
+// The painting is never really loaded in node, so a fake one is handed to
+// `paintMinimap` through the same `art` the real thing reads.
+
+const READY_ART = { state: 'ready', img: { width: 1676, height: 942 }, w: 1676, h: 942, why: null };
+
+console.log('\nMAP3: the guide on the square');
+{
+  // over the village, close in: the village, the ring and the cellars are in
+  // reach and Coldwake, 1.7 km away, is not
+  const home = GUIDE_BY_ID.hearthhome;
+  const v = viewOf(home.x, home.z, 1400, 220);
+  const g = recorder();
+  const rep = paintMinimap(g, { view: v, field, spaces: {}, zone: ZONE.greenwold, editor: false });
+
+  const inside = GUIDE_ZONES.filter((z) => inSquare(v, ...pxOf(v, z.x, z.z)));
+  ck('every space whose middle is on the square is outlined, and no other',
+    rep.guide === inside.length && inside.length > 0 && inside.length < GUIDE_ZONES.length,
+    `${rep.guide} drawn of ${GUIDE_ZONES.length}, ${inside.length} have their middle on the square`);
+  ck('and Coldwake, which is off the square, is neither outlined nor named',
+    !inside.some((z) => z.id === 'coldwake')
+    && !g.texts.some((t) => t.text === 'COLDWAKE'),
+    `Coldwake is ${Math.round(Math.hypot(GUIDE_BY_ID.coldwake.x - home.x, GUIDE_BY_ID.coldwake.z - home.z))} m off and the square is ${v.span} m across`);
+
+  const guideNames = new Set(GUIDE_ZONES.map((z) => z.name.toUpperCase()));
+  const written = g.texts.filter((t) => guideNames.has(t.text));
+  ck('the ones that are on it are named, in small capitals',
+    written.length === rep.guideNamed && rep.guideNamed > 0,
+    written.map((t) => t.text).join(', '));
+  ck('and every letter of every one of those names is inside the square',
+    written.every((t) => {
+      const half = t.align === 'center' ? t.w / 2 : 0;
+      return t.x - half >= 0 && t.x + half <= 220 && t.y >= 0 && t.y <= 220;
+    }),
+    written.map((t) => `${t.text}@${t.x.toFixed(0)}`).join(' '));
+
+  ck('the Standing Hedge is drawn as a ring and not as a disc',
+    rep.guideRings === 1, `${rep.guideRings} of ${rep.guide} outlined spaces is a ring`);
+
+  // and the whole of it can be turned off, which is what proves it is really on
+  const off = paintMinimap(recorder(), { view: v, field, spaces: {}, zone: null, editor: false, guide: false });
+  ck('and none of it is drawn when the square is asked not to',
+    off.guide === 0 && off.guideNamed === 0 && rep.guide > 0);
+}
+
+console.log('\nMAP3: the painting under the ground');
+{
+  const home = GUIDE_BY_ID.hearthhome;
+  const v = viewOf(home.x, home.z, 1400, 220);
+
+  // with no painting the square is exactly what it was: no image, and the
+  // ground at full strength
+  const dry = recorder();
+  const repDry = paintMinimap(dry, { view: v, field, spaces: {}, zone: null, editor: false, art: { state: 'missing' } });
+  ck('with no painting there is no image and the ground is at full strength',
+    dry.images.length === 0 && repDry.painting === 0
+    && dry.rects.every((r) => r.alpha === 1), `art "${repDry.art}"`);
+
+  const wet = recorder();
+  const rep = paintMinimap(wet, { view: v, field, spaces: {}, zone: null, editor: false, art: READY_ART });
+  ck('with a painting it is laid down once, before anything else, at full strength',
+    wet.images.length === 1 && rep.painting === 1 && wet.images[0].alpha === 1);
+  // one opaque backdrop the size of the square, then the sheet, then every
+  // composed cell of the ground at half. The backdrop is what stops the country
+  // beyond the painting's edge darkening on every repaint.
+  const back = wet.rects.filter((r) => r.alpha === 1);
+  ck('an opaque backdrop is laid down first, the whole square, and nothing else is opaque',
+    back.length === 1 && back[0].w === 220 && back[0].h === 220 && wet.rects[0] === back[0]);
+  ck('and the ground goes over the sheet at fifty percent, every cell of it',
+    wet.rects.length > 1 && wet.rects.slice(1).every((r) => r.alpha === GUIDE_MINIMAP_ALPHA),
+    `${wet.rects.length - 1} ground cells at ${GUIDE_MINIMAP_ALPHA}`);
+  ck('and the same square with no painting lays down no backdrop at all, so nothing is drawn twice',
+    dry.rects.every((r) => !(r.w === 220 && r.h === 220)),
+    `${dry.rects.length} cells, none of them the whole square`);
+  ck('and the alpha is put back, so the names and the lines over it are not half there',
+    wet.texts.length > 0 && wet.strokes.length > 0);
+
+  // the picture lands where the world says it does, which is the same claim the
+  // zone map makes and is measured the same way
+  const im = wet.images[0];
+  let worst = 0;
+  for (const zn of GUIDE_ZONES) {
+    const [u, uv] = worldToImage(zn.x, zn.z);
+    const [px, py] = pxOf(v, zn.x, zn.z);
+    worst = Math.max(worst, Math.abs(im.x + u * im.w - px), Math.abs(im.y + uv * im.h - py));
+  }
+  ck('the painted place and the world place are the same pixel of this square too',
+    worst < 1e-9, `worst ${worst.toExponential(1)} px over ${GUIDE_ZONES.length} spaces`);
+  ck('and the picture is drawn the right way up, north at the top',
+    im.h > 0 && im.w > 0
+    && pxOf(v, 0, -2000)[1] < pxOf(v, 0, 2000)[1],
+    `${im.w.toFixed(0)} by ${im.h.toFixed(0)} px`);
 }
 
 console.log(`\n${pass} passed, ${bad} failed`);

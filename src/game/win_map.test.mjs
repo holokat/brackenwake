@@ -76,6 +76,7 @@ const {
   FADE_ALPHA, VEIL_COLOUR, MAP_SAMPLES_NEAR, MAP_SAMPLES_FAR, NEAR_BUDGET_MS,
   clampSpan, clampView, homeView, zoomView, zoomCentre, panView, samplesFor,
   spanText, scaleBarFor, realmOf, zoneOpen, openDiscs, auditOpenDiscs, onOpenGround,
+  pickGuideAt, layerFor, LAYERS, LAYER_WORD, GUIDE_PICK_PX,
 } = await import('./win_map.js');
 const { createWorldField, BIOMES } = await import('../world/field.js');
 const { createTerrainEdits } = await import('../world/terrain_edits.js');
@@ -84,6 +85,14 @@ const { ZONES, ZONE, WORLD_HALF, authoredSites, DANGER_WORD } = await import('..
 const { OPEN_REALMS, openAt } = await import('../mmo/release.js');
 const { spacesIn, auditSpaceTiles, SPACE_TILE_M, makeCache, terrainKey } = await import('./map_paint.js');
 const { distanceText, POINTS } = await import('./compass.js');
+const {
+  GUIDE_ZONES, GUIDE_BY_ID, GUIDE_ART, GUIDE_AUDIT, GUIDE_RIVER,
+  imageToWorld, worldToImage, guideZoneAt, guideArt, loadGuideArt, resetGuideArt,
+} = await import('../mmo/greenwold_guide.js');
+const { FOOTPRINT } = await import('../mmo/plans/footprints.js');
+const {
+  GUIDE_INK, GUIDE_INK_HOT, GUIDE_ROAD_INK, GUIDE_RIVER_INK, GUIDE_TERRAIN_ALPHA,
+} = await import('./map_paint.js');
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -158,7 +167,7 @@ function painter() {
   const rects = [];
   const texts = [];
   const strokes = [];
-  const st = { fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, font: '10px', textAlign: 'start' };
+  const st = { fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, font: '10px', textAlign: 'start', globalAlpha: 1 };
   let path = [];
   let dash = [];
   const g = {
@@ -167,7 +176,12 @@ function painter() {
     get lineWidth() { return st.lineWidth; }, set lineWidth(v) { st.lineWidth = v; },
     get font() { return st.font; }, set font(v) { st.font = v; },
     get textAlign() { return st.textAlign; }, set textAlign(v) { st.textAlign = v; },
-    set textBaseline(v) {}, set lineCap(v) {}, set lineJoin(v) {}, set letterSpacing(v) {}, set globalAlpha(v) {},
+    set textBaseline(v) {}, set lineCap(v) {}, set lineJoin(v) {}, set letterSpacing(v) {},
+    get globalAlpha() { return st.globalAlpha; }, set globalAlpha(v) { st.globalAlpha = v; alphas.push(v); },
+    // MAP3: the hand painted sheet. Kept with the rectangle it was laid into,
+    // because "is the arrow on the painted village" is a question about where
+    // the picture landed and not about whether it was drawn at all.
+    drawImage(img, x, y, w, h) { images.push({ img, x, y, w, h }); },
     save() {}, restore() {}, translate(x, y) { moves.push([x, y]); }, rotate(a) { turns.push(a); }, scale() {}, clip() {},
     setLineDash(d) { dash = Array.isArray(d) ? d.slice() : []; }, getLineDash() { return dash.slice(); },
     beginPath() { path = []; }, closePath() {},
@@ -186,9 +200,9 @@ function painter() {
     fillText(t, x, y) { texts.push({ text: String(t), x, y, colour: st.fillStyle }); },
     strokeText(t, x, y) { texts.push({ text: String(t), x, y, colour: null }); },
   };
-  const fills = [], arcs = [], rectsPath = [], moves = [], turns = [];
+  const fills = [], arcs = [], rectsPath = [], moves = [], turns = [], images = [], alphas = [];
   g.rects = rects; g.texts = texts; g.strokes = strokes; g.fills = fills; g.arcs = arcs;
-  g.rectsPath = rectsPath; g.moves = moves; g.turns = turns;
+  g.rectsPath = rectsPath; g.moves = moves; g.turns = turns; g.images = images; g.alphas = alphas;
   g.words = () => texts.map((t) => t.text);
   /** The composed ground under a pixel: the FIRST rect over it, which is the
    *  compose's own cell, because the compose runs before anything else. */
@@ -261,10 +275,17 @@ console.log('win_map: what it draws');
   // the paper was laid down at all and the field was read once per sample
   check('the painted ground lays down paper and marks', g.calls.fillRect >= 1 && res.samples > 0, `${g.calls.fillRect} fills, ${res.samples} samples`);
   check('the player arrow is drawn', g.calls.moveTo >= 1 && g.calls.restore >= 2);
-  // the scale bar writes its own label, so what is checked is that no PLACE and
-  // no REGION is named, which is the rule that matters
-  const named = g.texts.filter((t) => t !== res.scale.label);
+  // the scale bar writes its own label, and MAP3 writes the guide's twelve
+  // names, which are not discovery: the painted guide is a plan for building
+  // and says the same thing whether or not a character has walked anywhere. So
+  // what is checked is that no PLACE and no REGION is named, which is the rule
+  // that matters, and separately that the guide names really are there.
+  const guideNames = new Set(GUIDE_ZONES.map((z) => z.name.toUpperCase()));
+  const named = g.texts.filter((t) => t !== res.scale.label && !guideNames.has(t));
   check('no site and no region is named when none is found', named.length === 0, named.join(', '));
+  check('and the guide names ARE written, because a guide is not a discovery',
+    g.texts.filter((t) => guideNames.has(t)).length === res.guide.named && res.guide.named > 0,
+    `${res.guide.named} of ${GUIDE_ZONES.length} named at ${MAP_SPAN} m across`);
   check('and the count of found places is nothing', res.sites === 0);
   check('every zone that fits on the map is drawn', res.zones === ZONES.length, `${res.zones} of ${ZONES.length}`);
   check('and none of them is named, because none has been walked into', res.named === 0);
@@ -1297,7 +1318,9 @@ console.log('win_map: the panel zooms, pans and comes back to you');
   p._ctx.player.pos = { x: 900, z: -400 };
   const buttons = walk(p._tools).filter((n) => n.tagName === 'BUTTON');
   check('there is a control for every thing the map can be told to do',
-    buttons.length === 5 && buttons.map((b) => b.textContent).join('|') === 'you|-|+|the Greenwold|the whole world',
+    buttons.length === 6
+    && buttons.slice(0, 5).map((b) => b.textContent).join('|') === 'you|-|+|the Greenwold|the whole world'
+    && /^ground: /.test(buttons[5].textContent),
     buttons.map((b) => b.textContent).join(', '));
   check('and every one of them says on hover what it will do',
     buttons.every((b) => typeof b.title === 'string' && b.title.length > 25),
@@ -1423,6 +1446,326 @@ console.log('win_map: the map follows the brush, and no faster');
     terrainKey({ terrainEdits: { version: 3 } }) !== terrainKey({ terrainEdits: { version: 4 } })
     && terrainKey({}) === terrainKey({}),
     `${terrainKey({ terrainEdits: { version: 3 } })} against ${terrainKey({ terrainEdits: { version: 4 } })}`);
+}
+
+// ------------------------------------------------------ MAP3: the guide ----
+//
+// The painting is the ground and the twelve boundaries are drawn over it. What
+// can go wrong with that, and is checked below:
+//
+//   * the picture landing somewhere other than where the world says it is, so
+//     the arrow stands beside the painted village instead of on it. THIS IS THE
+//     ONE THAT MATTERS: it is the whole claim of the feature and it cannot be
+//     seen by eye on a picture of a countryside.
+//   * an outline drawn twice, or none, or the ring drawn as a disc
+//   * a hover that highlights one space and lists another's models
+//   * a missing picture throwing instead of saying so
+//   * the layer button lying about which of the three is on the screen
+//
+// The painting is never really loaded here: node has no `Image`, so the module
+// settles on 'missing', which is the state the user is in until they drop the
+// file in. Every check that needs it laid down hands a fake one straight to
+// `drawMap`, through the SAME `opts.guideArt` the panel uses.
+
+const READY_ART = { state: 'ready', img: { width: 1676, height: 942 }, w: 1676, h: 942, why: null };
+
+console.log('\nwin_map MAP3: the painting is the ground');
+{
+  const g = painter();
+  const view = { cx: 0, cz: 0, span: HOME_SPAN };
+  const res = drawMap(g, { field, ...view, size: 640, discovered: [], zonesFound: [], guideArt: READY_ART });
+  check('the picture is laid down, once', g.images.length === 1 && res.guide.drawn === 1,
+    `${g.images.length} images, layer "${res.guide.layer}"`);
+  const im = g.images[0];
+
+  // THE CLAIM, MEASURED. Where the arrow lands comes out of `toPixel`. Where
+  // the painted village lands comes out of `worldToImage` and the rectangle the
+  // picture was really drawn into. If those two agree at the village's own
+  // world point then the arrow stands on the painted village, and the same
+  // arithmetic holds for every other spot on the sheet.
+  const village = GUIDE_ZONES.find((z) => z.id === 'hearthhome');
+  const onSheet = (x, z) => {
+    const [u, v] = worldToImage(x, z);
+    return [im.x + u * im.w, im.y + v * im.h];
+  };
+  let worst = 0, worstAt = '';
+  for (const zn of GUIDE_ZONES) {
+    const [ax, ay] = toPixel(zn.x, zn.z, view.cx, view.cz, 640, view.span);
+    const [bx, by] = onSheet(zn.x, zn.z);
+    const e = Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+    if (e > worst) { worst = e; worstAt = zn.name; }
+  }
+  check('the painted place and the world place are the same pixel, at all twelve spaces',
+    worst < 1e-9, `worst ${worst.toExponential(1)} px, at ${worstAt}`);
+
+  // and the arrow itself, drawn through the real draw at the village's own
+  // world point: the painter keeps every translate, and the arrow is the last
+  // one, because it is the last thing drawn before the scale bar
+  const g2 = painter();
+  drawMap(g2, {
+    field, ...view, size: 640, discovered: [], zonesFound: [], guideArt: READY_ART,
+    player: { x: village.x, z: village.z }, yaw: 0,
+  });
+  const arrow = g2.moves[g2.moves.length - 1];
+  const [vx, vy] = onSheet(village.x, village.z);
+  check('so the player arrow stands ON the painted village when the player is in the village',
+    Math.hypot(arrow[0] - vx, arrow[1] - vy) < 1e-9,
+    `the arrow at ${arrow[0].toFixed(3)}, ${arrow[1].toFixed(3)} and the painted village at ${vx.toFixed(3)}, ${vy.toFixed(3)}`);
+
+  // the mapping the OTHER way: the pixel the village was painted at, picked
+  check('and picking that same pixel picks the village back out',
+    pickGuideAt(vx, vy, { ...view, size: 640 })?.id === 'hearthhome');
+  check('and a pixel out in the empty north east picks nothing',
+    pickGuideAt(600, 40, { ...view, size: 640 }) === null);
+
+  // the picture follows the zoom, because it is drawn through the view
+  const g3 = painter();
+  drawMap(g3, { field, cx: 0, cz: 0, span: MAP_MIN_SPAN, size: 640, discovered: [], zonesFound: [], guideArt: READY_ART });
+  check('and at the closest zoom it is drawn five times bigger, not pinned to the frame',
+    g3.images[0].w > im.w * 4.9 && g3.images[0].w < im.w * 5.1,
+    `${im.w.toFixed(0)} px wide at ${HOME_SPAN} m, ${g3.images[0].w.toFixed(0)} px at ${MAP_MIN_SPAN} m`);
+}
+
+console.log('\nwin_map MAP3: the twelve boundaries');
+{
+  const g = painter();
+  const view = { cx: 0, cz: 0, span: HOME_SPAN };
+  const res = drawMap(g, { field, ...view, size: 640, discovered: [], zonesFound: [], guideArt: READY_ART });
+  check('every one of the twelve is outlined, and every one exactly once',
+    res.guide.zones === GUIDE_ZONES.length, `${res.guide.zones} of ${GUIDE_ZONES.length}`);
+
+  // one arc per space at its own pixel, and TWO at the ring, because the ring
+  // is an annulus and is drawn as its own boundary and not as a disc
+  const guideArcs = g.arcs.filter((a) => a.style === GUIDE_INK || a.style === GUIDE_INK_HOT);
+  const atOf = (zn) => toPixel(zn.x, zn.z, view.cx, view.cz, 640, view.span);
+  let ones = 0;
+  for (const zn of GUIDE_ZONES) {
+    const [px, py] = atOf(zn);
+    const mine = guideArcs.filter((a) => Math.hypot(a.x - px, a.y - py) < 0.01);
+    if (zn.annulus ? mine.length === 2 : mine.length === 1) ones++;
+  }
+  check('one circle each, and TWO at the Standing Hedge, so the ring reads as a ring',
+    ones === GUIDE_ZONES.length && res.guide.rings === 1,
+    `${guideArcs.length} guide circles for ${GUIDE_ZONES.length} spaces, ${res.guide.rings} of them a ring`);
+  const ring = GUIDE_ZONES.find((z) => z.annulus);
+  const [rx, ry] = atOf(ring);
+  const radii = guideArcs.filter((a) => Math.hypot(a.x - rx, a.y - ry) < 0.01).map((a) => a.r).sort((a, b) => a - b);
+  check('and the two circles of the ring are its radius and its radius less the band',
+    Math.abs(radii[1] - (ring.r / (view.span / 640))) < 0.01
+    && Math.abs(radii[0] - ((ring.r - ring.band) / (view.span / 640))) < 0.01,
+    `${radii.map((r) => r.toFixed(1)).join(' and ')} px, for ${ring.r} m and ${ring.r - ring.band} m`);
+
+  const names = new Set(GUIDE_ZONES.map((z) => z.name.toUpperCase()));
+  // the fill only: every name is drawn as a halo STROKE and then a fill, so
+  // counting both would count each name twice
+  const written = g.texts.filter((t) => names.has(t.text) && t.colour !== null);
+  check('every space wide enough to hold its own name has it written at its middle, in small capitals',
+    written.length === res.guide.named && res.guide.named === GUIDE_ZONES.length,
+    `${res.guide.named} names at ${HOME_SPAN} m across`);
+  check('and each name is at its own space and nowhere else',
+    GUIDE_ZONES.every((zn) => {
+      const [px, py] = atOf(zn);
+      const t = written.find((w) => w.text === zn.name.toUpperCase());
+      return t && Math.abs(t.x - px) < 0.01 && Math.abs(t.y - py) < 0.01;
+    }));
+
+  // the roads and the river, drawn under the outlines
+  const ways = g.strokes.filter((st) => st.style === GUIDE_ROAD_INK || st.style === GUIDE_RIVER_INK);
+  check('the two traced roads and the river are drawn, faint, as lines',
+    res.guide.ways === 3 && ways.length === 3
+    && ways.filter((w) => w.style === GUIDE_RIVER_INK).length === 1,
+    `${ways.map((w) => w.pts.length).join('+')} points`);
+  check('and the river really runs through the pixels the guide says it does',
+    (() => {
+      const river = ways.find((w) => w.style === GUIDE_RIVER_INK);
+      return river.pts.every((pt, i) => {
+        const [px, py] = toPixel(GUIDE_RIVER.pts[i].x, GUIDE_RIVER.pts[i].z, view.cx, view.cz, 640, view.span);
+        return Math.abs(pt[0] - px) < 1e-9 && Math.abs(pt[1] - py) < 1e-9;
+      });
+    })());
+
+  // the guide is drawn with no painting at all, because the BOUNDARIES are the
+  // point and the picture is only the backing for them
+  const g4 = painter();
+  const r4 = drawMap(g4, { field, ...view, size: 640, discovered: [], zonesFound: [] });
+  check('and all of it is drawn over the plain terrain too, when there is no painting',
+    r4.guide.zones === GUIDE_ZONES.length && r4.guide.named === GUIDE_ZONES.length
+    && r4.guide.ways === 3 && r4.guide.drawn === 0 && g4.images.length === 0,
+    `layer "${r4.guide.layer}", art "${r4.guide.art}"`);
+
+  // the hover, on the picture: one space in gold bright, and only one
+  const g5 = painter();
+  const r5 = drawMap(g5, { field, ...view, size: 640, discovered: [], zonesFound: [], guideHover: 'chalkpits' });
+  const hot = g5.arcs.filter((a) => a.style === GUIDE_INK_HOT);
+  const [cx5, cy5] = toPixel(GUIDE_BY_ID.chalkpits.x, GUIDE_BY_ID.chalkpits.z, view.cx, view.cz, 640, view.span);
+  check('resting on a space picks that one out of the twelve and leaves the rest alone',
+    hot.length === 1 && Math.hypot(hot[0].x - cx5, hot[0].y - cy5) < 0.01
+    && r5.guide.zones === GUIDE_ZONES.length,
+    `${hot.length} highlighted of ${r5.guide.zones}`);
+
+  // and at the whole world the smallest of them are dropped rather than drawn
+  // as a smudge with a name under it
+  const g6 = painter();
+  const r6 = drawMap(g6, { field, cx: 0, cz: 0, span: MAP_MAX_SPAN, size: 640, discovered: [], zonesFound: [] });
+  check('at the whole world the names come off the smallest spaces, and the ring keeps its',
+    r6.guide.named < r6.guide.zones && r6.guide.named > 0,
+    `${r6.guide.zones} outlined and ${r6.guide.named} named at ${spanText(MAP_MAX_SPAN)}`);
+}
+
+console.log('\nwin_map MAP3: the three grounds');
+{
+  const view = { cx: 0, cz: 0, span: HOME_SPAN };
+  const run = (layers, art) => {
+    const g = painter();
+    const res = drawMap(g, { field, ...view, size: 640, discovered: [], zonesFound: [], layers, guideArt: art });
+    return { g, res };
+  };
+  const both = run('both', READY_ART);
+  check('"both" lays the picture down and then the terrain over it, at 35 percent',
+    both.res.guide.layer === 'both' && both.g.images.length === 1
+    && both.g.alphas.includes(GUIDE_TERRAIN_ALPHA) && both.res.samples > 0,
+    `alphas ${[...new Set(both.g.alphas)].join(', ')}, ${both.res.samples} field samples`);
+
+  const only = run('painting', READY_ART);
+  check('"painting" is the sheet alone, and the field is not read at all',
+    only.res.guide.layer === 'painting' && only.g.images.length === 1 && only.res.samples === 0,
+    `${only.res.samples} field samples against ${both.res.samples}`);
+
+  const terr = run('terrain', READY_ART);
+  check('"terrain" is the map as it was, with no picture and no half tone',
+    terr.res.guide.layer === 'terrain' && terr.g.images.length === 0
+    && terr.res.samples === both.res.samples && !terr.g.alphas.includes(GUIDE_TERRAIN_ALPHA));
+
+  // and all three come to the terrain when the picture is not there, whatever
+  // the button was last pressed for
+  for (const want of ['painting', 'both', 'terrain']) {
+    check(`asking for "${want}" with no painting gives the terrain and does not throw`,
+      run(want, { state: 'missing' }).res.guide.layer === 'terrain');
+  }
+  check('layerFor is the one place that decides, and it is driven both ways',
+    layerFor('painting', 'ready') === 'painting' && layerFor('painting', 'missing') === 'terrain'
+    && layerFor('nonsense', 'ready') === 'both');
+}
+
+console.log('\nwin_map MAP3: the column says what goes where');
+{
+  const m = sideModel({ field, cx: 0, cz: 0, view: { cx: 0, cz: 0, span: HOME_SPAN }, discovered: [], zonesFound: [] });
+  check('the column lists all twelve spaces, nearest first',
+    m.guide.zones.length === 12 && m.guide.zones.every((g, i, a) => i === 0 || a[i - 1].dist <= g.dist),
+    m.guide.zones.slice(0, 3).map((g) => `${g.name} ${Math.round(g.dist)} m`).join(', '));
+  check('and every row carries a way to walk it and a boundary to look for',
+    m.guide.zones.every((g) => g.way && g.bearing && g.r > 0));
+  check('with nothing under the cursor there is no hover, and that is not an error',
+    m.guide.hover === null);
+
+  const hov = sideModel({ field, cx: 0, cz: 0, view: { cx: 0, cz: 0, span: HOME_SPAN }, discovered: [], zonesFound: [], guideHover: 'millrun' });
+  const mill = GUIDE_BY_ID.millrun;
+  check('resting on a space gives the column that space, with its line and its models',
+    hov.guide.hover && hov.guide.hover.id === 'millrun'
+    && hov.guide.hover.line === mill.line
+    && hov.guide.hover.models.join() === mill.models.join()
+    && hov.guide.hover.models.includes('mill_wheel'),
+    `${hov.guide.hover.models.length} models: ${hov.guide.hover.models.slice(0, 4).join(', ')}...`);
+  check('and what the doc names and nobody has modelled is on the same card, kept apart',
+    hov.guide.hover.wanted.length === 1, hov.guide.hover.wanted.join(', '));
+  check('exactly one row is marked as the hovered one',
+    hov.guide.zones.filter((g) => g.hover).length === 1);
+  check('and the model list is the FOOTPRINT table, so a hover never promises a prop that does not exist',
+    m.guide.zones.every((g) => g.models.every((id) => !!FOOTPRINT[id])),
+    `${m.guide.zones.reduce((n, g) => n + g.models.length, 0)} model ids`);
+  check('the column says what the picture is doing and where the file goes',
+    m.guide.art.state !== 'ready' && m.guide.art.file === 'public/maps/greenwold.png'
+    && m.guide.art.missing.includes('public/maps/greenwold.png'),
+    m.guide.art.missing);
+}
+
+console.log('\nwin_map MAP3: the panel, driven for real');
+{
+  const character = { discovered: [], zones: [], waypoint: null };
+  const ctx = {
+    runtime: { field },
+    character,
+    player: { pos: { x: 0, z: 0 }, yaw: 0 },
+    state: { touch() {} },
+    hud: { toast() {} },
+  };
+  const p = Object.create(panel);
+  const root = document.createElement('div');
+  p.build(root, ctx);
+  p.open(ctx);
+  const rows = walk(p._side).filter((n) => n.className.includes('bw-map-row') && n.className.includes('guide'));
+  check('the column really builds a row for every space', rows.length === 12, `${rows.length} rows`);
+  check('and every one of them says on hover what it is for and how much goes in it',
+    rows.every((r) => typeof r.title === 'string' && r.title.length > 25 && /model/.test(r.title)),
+    rows[0].title);
+
+  // a missing painting is SAID, in the footer, with the path to fix it, and
+  // nothing about the draw throws on the way there
+  check('with no painting the footer says so and names the file',
+    p._foot.textContent.includes('public/maps/greenwold.png'), p._foot.textContent);
+  check('and the map still drew, with all twelve outlines over the terrain',
+    p.lastDraw && p.lastDraw.guide.zones === 12 && p.lastDraw.guide.drawn === 0,
+    `layer "${p.lastDraw.guide.layer}"`);
+
+  // the button. It says which of the three it is on and what it will do next.
+  const buttons = walk(p._tools).filter((n) => n.tagName === 'BUTTON');
+  const ground = buttons[buttons.length - 1];
+  check('the ground button names the layer it is on', /^ground: /.test(ground.textContent), ground.textContent);
+  check('and says on hover what that layer is and what pressing it will do',
+    /Press to show /.test(ground.title) && ground.title.length > 60, ground.title);
+  const before = ground.textContent;
+  ground.fire('click');
+  check('pressing it moves the want on and the map stays on the terrain, because that is all there is',
+    p._layers === 'terrain' && p.lastDraw.guide.layer === 'terrain' && ground.textContent === before,
+    `${p._layers}: "${p._say.textContent}"`);
+  ground.fire('click');
+  check('and pressing it round to the painting, with no painting, says where the file goes rather than changing nothing in silence',
+    p._layers === 'painting' && p.lastDraw.guide.layer === 'terrain'
+    && p._say.textContent.includes('public/maps/greenwold.png'),
+    p._say.textContent);
+  ground.fire('click');
+  check('and round again to both, which is where it started',
+    p._layers === 'both', p._layers);
+
+  // the hover: one repaint per CHANGE of space and not one per pointer move
+  let drew = 0;
+  const realRedraw = p.redraw.bind(p);
+  p.redraw = () => { drew++; return realRedraw(); };
+  const [hx, hy] = toPixel(GUIDE_BY_ID.hearthhome.x, GUIDE_BY_ID.hearthhome.z, p._view.cx, p._view.cz, 640, p._view.span);
+  p.hoverAt({ clientX: hx, clientY: hy });
+  check('resting on the painted village names it in the map\'s own line',
+    p._guideHover === 'hearthhome' && /Hearthhome/.test(p._say.textContent), p._say.textContent);
+  check('and the column now lists what goes in it',
+    p.lastSide.guide.hover && p.lastSide.guide.hover.id === 'hearthhome'
+    && p.lastSide.guide.hover.models.includes('well_pavilion'));
+  const after = drew;
+  for (let i = 0; i < 20; i++) p.hoverAt({ clientX: hx + (i % 3), clientY: hy + (i % 2) });
+  check('twenty more moves inside the same space cost NOT ONE repaint',
+    drew === after, `${drew - after} repaints for 20 pointer moves`);
+  p.hoverAt({ clientX: 5, clientY: 5 });
+  check('and moving off it costs exactly one, and clears the hover',
+    drew === after + 1 && p._guideHover === null, `${drew - after} repaints`);
+
+  // a row of the column is a hover too, for a space that is off the picture
+  const cold = rows.find((r) => r.dataset.guide === 'coldwake');
+  cold.fire('mouseenter');
+  check('resting on a ROW does the same as resting on the map', p._guideHover === 'coldwake');
+  cold.fire('click');
+  check('and clicking one sets the waypoint on it, and says so',
+    character.waypoint && character.waypoint.name === 'Coldwake'
+    && /Coldwake/.test(p._say.textContent), p._say.textContent);
+  check('at the world point the guide says, and not at the old generated one',
+    Math.abs(character.waypoint.x - GUIDE_BY_ID.coldwake.x) < 1e-9
+    && Math.abs(character.waypoint.z - GUIDE_BY_ID.coldwake.z) < 1e-9,
+    `${Math.round(character.waypoint.x)}, ${Math.round(character.waypoint.z)}`);
+}
+
+console.log('\nwin_map MAP3: the key names every new mark');
+{
+  check('the outlines, the traced ways and the river all have a row in the key',
+    ['guide', 'guideway', 'guideriver'].every((id) => LEGEND.some((r) => r.id === id)),
+    LEGEND.filter((r) => /^guide/.test(r.id)).map((r) => r.label).join('; '));
+  check('and the audit that keeps the key honest still passes', !!auditMapWords());
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

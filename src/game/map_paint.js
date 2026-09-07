@@ -65,6 +65,9 @@ import {
 import { roadsForCell } from '../world/roads.js';
 import { SITE_CELL, ALL_KINDS } from '../world/sitegrid.js';
 import { SPACES } from '../mmo/spaces/index.js';
+import {
+  GUIDE_ZONES, GUIDE_ROADS, GUIDE_RIVER, GUIDE_ART, artRect, guideArt,
+} from '../mmo/greenwold_guide.js';
 import { theme } from './ui_theme.js';
 
 // ------------------------------------------------------------- the numbers --
@@ -2248,6 +2251,179 @@ export function paintFrame(g, opts = {}) {
 
   g.restore();
   return { frame: true };
+}
+
+// --------------------------------------------------------------- the guide --
+//
+// The Greenwold's hand painted map, laid under the chart, and the twelve spaces
+// of `src/mmo/greenwold_guide.js` outlined over it.
+//
+// This is a GUIDE and not a layer of the world. Nothing here reads the field
+// and nothing here changes it: it is the picture the user painted, drawn where
+// the picture says it is, with the boundaries they need in order to know where
+// an object goes. See docs/mmo/wiring/MAP3-GUIDE.md.
+//
+// All three take an `at(x, z) -> [px, py]` rather than a view, because the zone
+// map and the minimap hold their views in two different shapes and there must
+// be exactly ONE piece of code that decides what a guide zone looks like. Give
+// them the mapping and they draw the same outline on both.
+
+/** The gold a guide outline is dashed in, and the gold under the cursor. */
+export const GUIDE_INK = 'rgba(201,164,74,.72)';
+export const GUIDE_INK_HOT = theme.goldBright;
+/** The name at a space's middle, in small capitals. */
+export const GUIDE_NAME_INK = theme.goldBright;
+/** The traced lane and the traced river, faint, because they are not the road. */
+export const GUIDE_ROAD_INK = 'rgba(120,94,52,.55)';
+export const GUIDE_RIVER_INK = 'rgba(96,142,178,.55)';
+/** A space is dashed; the ring is dotted, so the two never read as one thing. */
+export const GUIDE_DASH = [5, 4];
+export const GUIDE_RING_DASH = [3, 5];
+/** Under this many pixels of radius an outline is a smudge, so it is not drawn. */
+export const GUIDE_MIN_PX = 3;
+/** And under this many, its name would not fit inside it. */
+export const GUIDE_NAME_PX = 9;
+/** How much of the live terrain shows through on the zone map's "both". */
+export const GUIDE_TERRAIN_ALPHA = 0.35;
+/** And how much of the ground shows over the painting on the minimap. */
+export const GUIDE_MINIMAP_ALPHA = 0.5;
+
+/**
+ * The painting, drawn through the guide's own frame so the picture and the
+ * world agree: the sheet's top left corner lands on the world point
+ * `imageToWorld(0, 0)` and its bottom right on `imageToWorld(1, 1)`.
+ *
+ * The sheet is 16:9 and the realm is square, so this STRETCHES the picture.
+ * That is the mapping the user gave and it is what makes the player arrow
+ * stand on the painted village when the player is at the village.
+ *
+ * @param opts { art, at, w, h }  the loaded picture, the mapping, the canvas
+ */
+export function paintGuideArt(g, opts = {}) {
+  const art = opts.art || guideArt();
+  const at = opts.at;
+  if (typeof at !== 'function') return { drawn: 0, why: 'no mapping was handed over' };
+  if (!art || art.state !== 'ready' || !art.img) return { drawn: 0, why: art ? art.state : 'no picture' };
+  // A context that cannot draw an image says so and the caller carries on with
+  // the terrain, rather than throwing in a node test or an SVG writer.
+  if (typeof g.drawImage !== 'function') return { drawn: 0, why: 'this context cannot draw an image' };
+  const r = artRect();
+  const [x0, y0] = at(r.x0, r.z0);
+  const [x1, y1] = at(r.x1, r.z1);
+  const w = x1 - x0, h = y1 - y0;
+  if (!(w > 0) || !(h > 0)) return { drawn: 0, why: 'the picture has no room on this map' };
+  const cw = Number.isFinite(opts.w) ? opts.w : Infinity;
+  const ch = Number.isFinite(opts.h) ? opts.h : Infinity;
+  if (x1 < 0 || y1 < 0 || x0 > cw || y0 > ch) return { drawn: 0, why: 'the picture is off this map' };
+  g.drawImage(art.img, x0, y0, w, h);
+  return { drawn: 1, x: x0, y: y0, w, h, url: GUIDE_ART.url };
+}
+
+/** One traced polyline, clipped to nothing and drawn in whatever ink is asked. */
+function guideWay(g, at, pts, colour, width) {
+  if (!pts || pts.length < 2) return 0;
+  g.setLineDash([]);
+  g.strokeStyle = colour;
+  g.lineWidth = width;
+  g.beginPath();
+  for (let i = 0; i < pts.length; i++) {
+    const [px, py] = at(pts[i].x, pts[i].z);
+    if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+  }
+  g.stroke();
+  return pts.length;
+}
+
+/**
+ * The lane, the Kingsroad and the river, as the painting has them. Faint, and
+ * under the outlines, because they are where to paint a road and not a road.
+ */
+export function paintGuideWays(g, opts = {}) {
+  const at = opts.at;
+  if (typeof at !== 'function') return { roads: 0, river: 0, points: 0 };
+  const scale = Number.isFinite(opts.scale) ? opts.scale : 1;
+  let roads = 0, points = 0;
+  for (const road of opts.roads || GUIDE_ROADS) {
+    const n = guideWay(g, at, road.pts, GUIDE_ROAD_INK, 2.2 * scale);
+    if (n) { roads++; points += n; }
+  }
+  const river = opts.river === null ? null : (opts.river || GUIDE_RIVER);
+  let rivers = 0;
+  if (river) {
+    const n = guideWay(g, at, river.pts, GUIDE_RIVER_INK, 2.6 * scale);
+    if (n) { rivers++; points += n; }
+  }
+  return { roads, river: rivers, points };
+}
+
+/**
+ * The twelve boundaries, dashed, with their names in small capitals at their
+ * middles.
+ *
+ * The Standing Hedge is an ANNULUS and is drawn as two circles, `r` and
+ * `r - band`, because the ring itself is its boundary: the stones stand on the
+ * circle and the village stands inside it, so a filled disc would say the whole
+ * middle of the realm is one space.
+ *
+ * `centresOnly` is the minimap's rule: a space whose middle is off the square
+ * is not drawn at all, because half an outline with no name on it is furniture.
+ * The zone map's rule is the looser one: draw anything whose circle touches
+ * the picture.
+ */
+export function paintGuideZones(g, opts = {}) {
+  const at = opts.at;
+  const mpp = opts.mpp;
+  if (typeof at !== 'function' || !(mpp > 0)) return { drawn: 0, named: 0, rings: 0, off: 0, small: 0 };
+  const zones = opts.zones || GUIDE_ZONES;
+  const cw = Number.isFinite(opts.w) ? opts.w : Infinity;
+  const ch = Number.isFinite(opts.h) ? opts.h : Infinity;
+  const centresOnly = !!opts.centresOnly;
+  const wantNames = opts.names !== false;
+  const nameSize = Number.isFinite(opts.nameSize) ? opts.nameSize : 10;
+  const hover = opts.hover || null;
+  let drawn = 0, named = 0, rings = 0, off = 0, small = 0;
+  for (const zn of zones) {
+    const [px, py] = at(zn.x, zn.z);
+    const rpx = zn.r / mpp;
+    if (centresOnly) {
+      if (px < 0 || py < 0 || px > cw || py > ch) { off++; continue; }
+    } else if (px + rpx < 0 || py + rpx < 0 || px - rpx > cw || py - rpx > ch) { off++; continue; }
+    if (rpx < GUIDE_MIN_PX) { small++; continue; }
+    const hot = hover === zn.id;
+    g.setLineDash(zn.annulus ? GUIDE_RING_DASH : GUIDE_DASH);
+    g.strokeStyle = hot ? GUIDE_INK_HOT : GUIDE_INK;
+    g.lineWidth = hot ? 2 : 1.2;
+    g.beginPath();
+    g.arc(px, py, rpx, 0, Math.PI * 2);
+    g.stroke();
+    drawn++;
+    if (zn.annulus && zn.band > 0) {
+      const inner = (zn.r - zn.band) / mpp;
+      if (inner >= GUIDE_MIN_PX) {
+        g.beginPath();
+        g.arc(px, py, inner, 0, Math.PI * 2);
+        g.stroke();
+        rings++;
+      }
+    }
+    g.setLineDash([]);
+    if (!wantNames || rpx < GUIDE_NAME_PX) continue;
+    g.font = `600 ${nameSize.toFixed(1)}px ${theme.fonts.display}`;
+    g.textAlign = 'center';
+    tracking(g, nameSize * 0.09);
+    const text = labelFor(zn.name);
+    // `clampX` is the minimap's rule: no letter of a name may leave the square.
+    // The zone map hands none over, because its picture is 640 px and a name
+    // running a little past the edge of a scrolling map is what a map does.
+    let tx = px;
+    if (typeof opts.clampX === 'function' && typeof g.measureText === 'function') {
+      tx = opts.clampX(px, g.measureText(text).width);
+    }
+    haloText(g, text, tx, py, hot ? GUIDE_INK_HOT : GUIDE_NAME_INK, 'rgba(18,14,8,.80)', 3);
+    tracking(g, 0);
+    named++;
+  }
+  return { drawn, named, rings, off, small };
 }
 
 // ---------------------------------------------------------------- the pass --
