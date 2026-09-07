@@ -119,7 +119,12 @@ export function trianglesOf(obj) {
  * model is the same clone a plan would place, so what is seen here is what a
  * plan shows, scale and all.
  */
-export async function buildModelTown({ heightAt = () => 0, ids = null, fetchIds = manifestIds } = {}) {
+export async function buildModelTown({ heightAt = () => 0, ids = null, fetchIds = manifestIds, sculpt = null } = {}) {
+  // Not on a blank canvas: a sculpt world shows nothing the user did not put
+  // there, and Model Town is a gallery, not the user's. `sculpt` is handed in
+  // by the caller; in the game it is read off the terrain contract.
+  const blank = sculpt != null ? !!sculpt : (typeof window !== 'undefined' && window.__bw?.terrain?.mode?.() === 'sculpt');
+  if (blank) return null;
   const list = ids || await fetchIds();
   await Promise.all(list.map((id) => loadProp(id).catch(() => false)));
   const have = list.filter((id) => hasProp(id));

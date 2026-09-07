@@ -594,6 +594,9 @@ export function createWorldField(seed = 1, opts = {}) {
   function rawSculpt(x, z) {
     const [wx, wz] = N.warp(x / W_CONT, z / W_CONT, 0.35, 1.7);
     const cont = N.fbm(wx, wz, 4);
+    // A blank canvas is grass to the world's edge: no continent, no seas and
+    // no lakes, unless the header asks for the sea back (`base.sea`).
+    if (!SCULPT.sea) return { h: SCULPT.height, land: 1, river: 0, temp: 0.5, moist: 0.5, cont };
     let land = smoothstep(LAND_LO, LAND_HI, cont);
     let h = lerp(-14, SCULPT.height, land);
     const lake = seaWithin(x, z);
@@ -771,6 +774,9 @@ export function createWorldField(seed = 1, opts = {}) {
     // sheet names still stands, on the flat, because a person sculpting a world
     // is sculpting the ground under the places and not deleting them.
     if (site && SCULPT && !site.authored) site = null;
+    // and the sheet's own places go too unless the header keeps them
+    // (`base.places`): the user sculpts the towns, they are not handed down
+    if (site && SCULPT && site.authored && !SCULPT.places) site = null;
     if (site) {
       const r = raw(site.x, site.z);
       if (!siteAllowed(site, r, homeFactor(site.x, site.z))) site = null;

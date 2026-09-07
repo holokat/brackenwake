@@ -1174,12 +1174,24 @@ check('sampleAt under 12 microseconds', perSample < 12, `${perSample.toFixed(2)}
   check('no rivers anywhere in it', rivers === 0, `${rivers} of ${Object.values(biomes).reduce((a, b) => a + b, 0)} samples`);
   check('no roads anywhere in it', roads === 0, `${roads} samples on a road`);
   check('no hills anywhere inland', hills === 0, `${hills} samples off the base height`);
-  check('and nothing the seed rolled for itself stands in it',
-    rolled === 0 && authored > 0,
+  // A blank canvas by default: nothing stands in it, not even the sheet's
+  // places, and there is no sea. The header's `places` and `sea` bring them
+  // back, driven below.
+  check('and nothing at all stands in it, rolled or authored',
+    rolled === 0 && authored === 0,
     `${rolled} samples name a rolled site, ${authored} name an authored one`);
-  check('the country is one biome, plus the water at its edges and the shore between',
-    Object.keys(biomes).sort().join(' ') === 'beach meadow ocean',
+  check('the country is one biome, grass to the edge, no sea and no shore',
+    Object.keys(biomes).sort().join(' ') === 'meadow',
     Object.entries(biomes).map(([k, v]) => `${k} ${v}`).join(', '));
+  {
+    edits.setBase({ sea: true, places: true });
+    s.setTerrainEdits(edits);
+    const withSea = {}; let withPlaces = 0;
+    for (let z = -6000; z <= 6000; z += 97) for (let x = -6000; x <= 6000; x += 97) { const p = s.sampleAt(x, z); withSea[p.biome] = (withSea[p.biome] || 0) + 1; if (p.site && p.site.authored) withPlaces++; }
+    check('and with sea and places asked for in the header, the coast, the shore and the sheet\'s places are back',
+      Object.keys(withSea).sort().join(' ') === 'beach meadow ocean' && withPlaces > 0,
+      `${Object.keys(withSea).sort().join(' ')}, ${withPlaces} samples name an authored place`);
+  }
 
   // driven the other way: the SAME field, generating, has all of it
   const gen = createWorldField(20260904, { homeBiome: 'meadow', homeY: -0.3 });
@@ -1194,7 +1206,7 @@ check('sampleAt under 12 microseconds', perSample < 12, `${perSample.toFixed(2)}
     genRivers > 0 && genRolled > 0 && genBiomes.size > 3,
     `${genRivers} river samples, ${genRolled} rolled sites, ${genBiomes.size} biomes: ${[...genBiomes].sort().join(' ')}`);
 
-  // 10c. the authored places still stand, on the flat, with no pad under them
+  // 10c. with `places` on, the authored places stand on the flat with no pad under them
   const town = s.siteAt(789, 1533);
   check('an authored town still stands where the sheet puts it',
     !!town && town.authored && town.id === gen.siteAt(789, 1533).id, town ? town.id : 'nothing there');
@@ -1247,7 +1259,7 @@ check('sampleAt under 12 microseconds', perSample < 12, `${perSample.toFixed(2)}
   check('moving the line moves the snow, which is what putting it in the header is for',
     s.sampleAt(300, 0).biome === 'snow',
     `the same flank at ${s.sampleAt(300, 0).h.toFixed(1)} m was meadow under a 180 m line and is ${s.sampleAt(300, 0).biome} under a 40 m one`);
-  edits.setBase({ snowLine: 180 });
+  edits.setBase({ snowLine: 180, sea: false, places: false });
   s.setTerrainEdits(edits);
 
   const lake = edits.stroke({ kind: 'lake', x: 1500, z: 0, r: 40 });
@@ -1302,7 +1314,7 @@ check('sampleAt under 12 microseconds', perSample < 12, `${perSample.toFixed(2)}
       if (p.site) named++;
       h.update(`${p.h}|${p.biome}|${p.water}|${p.river}|${p.land}|${p.temp}|${p.moist}|${p.road}|${p.site ? p.site.id : '-'}\n`);
     }
-    const SCULPT = '19a62f5b918b21edf3eb8c937096b91e8f0d4eb369511dd0990a9376a4b38e64';   // pinned 2026-09-07, ED3
+    const SCULPT = '6796f794c4a2cbda01473724064cdd69a10034b7cd8e2c78ea275375e174a598';   // re-pinned 2026-09-07 when the blank canvas lost its sea and its places; before that 19a62f5b (ED3)
     const got = h.digest('hex');
     if (process.env.PRINT_SCULPT) console.log('SCULPT DIGEST', got);
     check('the 6 km square of the blank world is what ED3 laid down', got === SCULPT,

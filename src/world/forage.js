@@ -1087,7 +1087,8 @@ export function createForageField(sc, opts = {}) {
     const sample = field.sampleAt(cx * CHUNK + CHUNK / 2, cz * CHUNK + CHUNK / 2);
     const trees = treesFor ? (treesFor(cx, cz) || []) : [];
     if (!trees.length) stats.treeless++;
-    const placed = placeForage(sample, cx, cz, trees, season, seed, {
+    // a sculpt world grows nothing to pick on its own (ED3): the blank canvas
+    const placed = field.sculpt ? [] : placeForage(sample, cx, cz, trees, season, seed, {
       abundance: opts.abundance, scale: opts.scale, heightAt,
     });
     const g = new THREE.Group();

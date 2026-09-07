@@ -108,7 +108,11 @@ export const BASE_GROUNDS = ['grass', 'sand', 'rock', 'snow'];
 /** The header a world with no header at all is treated as. */
 export const DEFAULT_MODE = 'generate';
 /** What a sculpt world is, before anybody says otherwise. */
-export const DEFAULT_BASE = { height: 6, ground: 'grass', snowLine: 180, beachLine: 1 };
+// `sea` and `places` are false by default: a sculpt world is a blank canvas,
+// grass to the world's edge with no coast, no seas and none of the sheet's
+// places, until the header says otherwise ("i need to start with a blank
+// canvas, just grass, no lakes no nothing").
+export const DEFAULT_BASE = { height: 6, ground: 'grass', snowLine: 180, beachLine: 1, sea: false, places: false };
 /** The two things a `mode` may be. */
 export const MODES = ['generate', 'sculpt'];
 /** Metres of a stroke's radius under which nothing is worth drawing. */
@@ -787,6 +791,8 @@ export function createTerrainEdits(opts = {}) {
         if (patch.snowLine !== next.snowLine) changed.push(`snow line ${next.snowLine} to ${patch.snowLine} m`);
         next.snowLine = patch.snowLine;
       }
+      if (patch.sea != null) { const v = !!patch.sea; if (v !== !!next.sea) changed.push(`the sea ${v ? 'back' : 'gone'}`); next.sea = v; }
+      if (patch.places != null) { const v = !!patch.places; if (v !== !!next.places) changed.push(`the sheet's places ${v ? 'back' : 'gone'}`); next.places = v; }
       if (patch.beachLine != null) {
         if (!Number.isFinite(patch.beachLine)) throw new Error('a beach line has to be a number of metres');
         if (patch.beachLine !== next.beachLine) changed.push(`beach line ${next.beachLine} to ${patch.beachLine} m`);
