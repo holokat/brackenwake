@@ -77,10 +77,20 @@ export function spaceSiteRow(space, field) {
 }
 
 /** Every space whose ground reaches within `radius` of (x, z). */
+/** A space the editor made on its own, one per 256 m tile of a sculpt world. */
+export const isTileSpace = (id) => /^tile_-?\d+_-?\d+$/.test(String(id || ''));
+
 export function spaceSitesNear(x, z, radius, field, spaces = SPACES) {
   const out = [];
+  const sculpt = !!(field && field.sculpt);
   for (const space of Object.values(spaces)) {
     if (!space || !space.at) continue;
+    // A tile space is the sculpt canvas's own: the editor makes one wherever
+    // the user paints, at the tile's centre, in the blank world. In the
+    // generated world it would stand on ground the sheet laid (three of them
+    // sat on Hearthhome's roads and took the roadside with them), so it is
+    // the sculpt world's alone. A NAMED space is authored for either.
+    if (!sculpt && isTileSpace(space.id)) continue;
     if (Math.hypot(space.at.x - x, space.at.z - z) > radius + (space.radius || 0)) continue;
     out.push(spaceSiteRow(space, field));
   }
