@@ -169,7 +169,7 @@ export function abilityLines(ability, character) {
 
 /** The word on the heading, and on the filter chip. abilities.js has ids. */
 export const GROUP_LABEL = {
-  warrior: 'Warrior', ranger: 'Ranger', mage: 'Mage', sorcerer: 'Sorcerer',
+  warrior: 'Warrior', ranger: 'Ranger', mage: 'Wizard',
   necromancer: 'Necromancer', healer: 'Healer', rogue: 'Rogue', bard: 'Bard',
   everyone: 'Everyone',
 };
@@ -180,7 +180,7 @@ export const GROUP_LABEL = {
  * other file reads them.
  */
 export const GROUP_COLOUR = {
-  warrior: '#e08a5a', ranger: '#8fc46a', mage: '#6fa8f0', sorcerer: '#b98ef0',
+  warrior: '#e08a5a', ranger: '#8fc46a', mage: '#6fa8f0',
   necromancer: '#7fc79a', healer: '#f2dc9c', rogue: '#9fb0c0', bard: '#f09ab8',
   everyone: '#cbb894',
 };

@@ -766,7 +766,7 @@ const emptyPack = { slots: 20, items: [] };
   check('and a wand in the hand still blocks a bow shot', shotWand.ok === false, shotWand.reason);
 
   // Which rows are spells, counted from the table rather than asserted.
-  const casters = ABILITIES.filter((x) => ['mage', 'sorcerer', 'necromancer', 'healer'].includes(x.group));
+  const casters = ABILITIES.filter((x) => ['mage', 'necromancer', 'healer'].includes(x.group));
   const spells = ABILITIES.filter((x) => isSpell(x));
   const wrongGroup = spells.filter((x) => !casters.includes(x)).map((x) => x.id);
   check('every ability that costs mana sits in one of the four casting groups',

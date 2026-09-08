@@ -1083,7 +1083,7 @@ export const ABILITIES = [
 
   // --- Sorcerer ------------------------------------------------------------
   a({
-    id: 'hex', name: 'Hex', group: 'sorcerer',
+    id: 'hex', name: 'Hex', group: 'mage',
     skill: 'mysticism', minSkill: 20, openAt: 0,
     cost: { mana: 8 }, cooldown: 6, castTime: 0, moving: true,
     range: SPELL_RANGE, target: 'enemy',
@@ -1091,7 +1091,7 @@ export const ABILITIES = [
     description: 'It misses more and blocks less for twelve seconds, and does not know why.',
   }),
   a({
-    id: 'stoneSkin', name: 'Stone Skin', group: 'sorcerer',
+    id: 'stoneSkin', name: 'Stone Skin', group: 'mage',
     skill: 'mysticism', minSkill: 35,
     cost: { mana: 15 }, cooldown: 20, castTime: 0.5, moving: true,
     range: 0, target: 'self',
@@ -1102,7 +1102,7 @@ export const ABILITIES = [
     description: 'Thirty armour for twelve seconds, and you walk like the stone you are wearing.',
   }),
   a({
-    id: 'eldritchBolt', name: 'Eldritch Bolt', group: 'sorcerer',
+    id: 'eldritchBolt', name: 'Eldritch Bolt', group: 'mage',
     skill: 'mysticism', minSkill: 30,
     cost: { mana: 10 }, cooldown: 2, castTime: 0, moving: true,
     range: SPELL_RANGE, target: 'enemy',
@@ -1116,7 +1116,7 @@ export const ABILITIES = [
     description: 'Cheap, quick, and one time in five it stops them casting for two seconds.',
   }),
   a({
-    id: 'ward', name: 'Ward', group: 'sorcerer',
+    id: 'ward', name: 'Ward', group: 'mage',
     skill: 'mysticism', minSkill: 50,
     cost: { mana: 25 }, cooldown: 30, castTime: 1.5, moving: false,
     range: 15, target: 'ground',
@@ -1127,7 +1127,7 @@ export const ABILITIES = [
     description: 'Four metres of floor where everything hurts a third less, for ten seconds.',
   }),
   a({
-    id: 'transmute', name: 'Transmute', group: 'sorcerer',
+    id: 'transmute', name: 'Transmute', group: 'mage',
     skill: 'mysticism', minSkill: 55, extraReq: { alchemy: 40 },
     cost: { mana: 20 }, cooldown: 20, castTime: 1, moving: false,
     range: 0, target: 'self',
@@ -1135,7 +1135,7 @@ export const ABILITIES = [
     description: 'One stack of ore becomes the tier above it, and you lose three tenths in the change.',
   }),
   a({
-    id: 'spellPlague', name: 'Spell Plague', group: 'sorcerer',
+    id: 'spellPlague', name: 'Spell Plague', group: 'mage',
     skill: 'mysticism', minSkill: 65,
     cost: { mana: 30 }, cooldown: 18, castTime: 1.2, moving: false,
     range: SPELL_RANGE, target: 'enemy',
@@ -1146,7 +1146,7 @@ export const ABILITIES = [
     description: 'Twenty five poison, and after it every spell you land there bursts on its neighbours.',
   }),
   a({
-    id: 'rift', name: 'Rift', group: 'sorcerer',
+    id: 'rift', name: 'Rift', group: 'mage',
     skill: 'mysticism', minSkill: 80,
     cost: { mana: 40 }, cooldown: 40, castTime: 2, moving: false,
     range: SPELL_RANGE, target: 'ground',
@@ -1163,7 +1163,7 @@ export const ABILITIES = [
     description: 'A three metre tear that drags monsters in and holds them there for four seconds.',
   }),
   a({
-    id: 'elementalKin', name: 'Elemental Kin', group: 'sorcerer',
+    id: 'elementalKin', name: 'Elemental Kin', group: 'mage',
     skill: 'mysticism', minSkill: 90,
     cost: { mana: 0 }, cooldown: 0, castTime: 0, moving: true,
     range: 0, target: 'self', passive: true,
@@ -1582,8 +1582,12 @@ export const ABILITIES_BY_ID = Object.fromEntries(ABILITIES.map((x) => [x.id, x]
 export const ABILITY_COUNT = 79;   // 78, and Recall (2026-09-08)
 export const ABILITY_DOC_ROWS = 80;
 
+// The sorcerer's list (the Mysticism tree) folded into the Wizard's on
+// 2026-09-08: "combine the abilities of mystics, sorcerers and mages, they'll
+// all be one class now". The rows keep their Mysticism requirements; the
+// Wizard opening starts with the skill so the whole list is reachable.
 export const GROUPS = [
-  'warrior', 'ranger', 'mage', 'sorcerer', 'necromancer', 'healer', 'rogue',
+  'warrior', 'ranger', 'mage', 'necromancer', 'healer', 'rogue',
   'bard', 'everyone',
 ];
 

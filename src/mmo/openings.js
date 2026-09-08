@@ -353,7 +353,9 @@ export const OPENINGS = [
   opening({
     id: 'mage', name: 'Wizard',
     STR: 30, DEX: 40, INT: 70, CON: 45, WIS: 65,
-    skills: { magery: 50, evaluatingIntelligence: 45, meditation: 45, resistingSpells: 30, inscription: 30 },
+    // Mysticism in the sheet since 2026-09-08: the Wizard is the mage, the
+    // sorcerer and the mystic in one, and its whole spell list has to open.
+    skills: { magery: 50, mysticism: 30, evaluatingIntelligence: 45, meditation: 45, resistingSpells: 30 },
     kit: [
       // was a quarterstaff, which is a Macefighting stick: under W7's casting
       // rule the mage would have started unable to cast a single one of the
