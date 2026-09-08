@@ -75,9 +75,6 @@ export function agoWords(then, now = Date.now()) {
   try { return new Date(then).toLocaleDateString(); } catch { return `${Math.floor(d / DAY)} days ago`; }
 }
 
-/** What a card calls a character who never got as far as a name. */
-export const UNNAMED = 'Nobody yet';
-
 /**
  * Everything one card says, worked out from the roster row alone. Pure, so the
  * wording can be measured without a document.
@@ -85,14 +82,16 @@ export const UNNAMED = 'Nobody yet';
 export function cardOf(row, now = Date.now()) {
   const s = row?.summary || null;
   const name = (s?.name || row?.name || '').trim();
+  const needsCreation = !!(row?.needsCreation || s?.needsCreation);
+  if (!name || needsCreation) return null;
   const openingId = s?.opening || row?.opening || 'ranger';
   const opening = OPENINGS_BY_ID[openingId] || OPENINGS_BY_ID.ranger;
   const skills = Array.isArray(s?.skills) ? s.skills : [];
   return {
     id: row?.id,
-    name: name || UNNAMED,
-    unnamed: !name,
-    needsCreation: !!(row?.needsCreation ?? s?.needsCreation),
+    name,
+    unnamed: false,
+    needsCreation: false,
     // the live table's word first: a save made when the Mage was still called that
     // carries 'Mage' in its snapshot, and the roster says Wizard (2026-09-08)
     opening: opening?.name || s?.openingName || '',
@@ -158,12 +157,21 @@ export function createRoster(root, deps = {}) {
   hero.appendChild(heroImg);
   const heroName = h('div', 'bw-ro-hero-name');
   const heroClass = h('div', 'bw-ro-hero-class');
+  const heroPlay = h('button', 'bw-ro-hero-play', 'Play');
+  heroPlay.dataset.heroPlay = '1';
+  heroPlay.addEventListener('click', (ev) => {
+    ev?.stopPropagation?.();
+    const row = shownRows[sel] || null;
+    doPlay(row?.id);
+  });
   hero.appendChild(heroName);
   hero.appendChild(heroClass);
+  hero.appendChild(heroPlay);
   right.appendChild(hero);
 
   /** The cards, in order, with the "new character" card last and always there. */
   let cards = [];
+  let shownRows = [];
   let sel = 0;
   let armed = null;          // the slot a second click on Delete would remove
   let done = false;
@@ -177,8 +185,7 @@ export function createRoster(root, deps = {}) {
     const port = h('div', 'bw-ro-port');
     const img = h('img', 'bw-ro-face');
     img.src = c.portrait;
-    img.alt = c.needsCreation ? `${c.opening} unfinished` : c.opening;
-    port.classList.toggle('bw-ro-unfinished', !!c.needsCreation);
+    img.alt = c.opening;
     port.appendChild(img);
     return port;
   }
@@ -186,19 +193,20 @@ export function createRoster(root, deps = {}) {
   function build() {
     list.textContent = '';
     cards = [];
+    shownRows = [];
     const list_ = rows();
     const now = Date.now();
     for (const row of list_) {
       const c = cardOf(row, now);
+      if (!c) continue;
       const card = h('div', 'bw-ro-card');
       card.dataset.slot = c.id;
       card.appendChild(faceOf(row, c));
 
       const who = h('div', 'bw-ro-who');
       const nm = h('div', 'bw-ro-name', c.name);
-      if (c.unnamed) nm.className = 'bw-ro-name bw-ro-faint';
       who.appendChild(nm);
-      who.appendChild(h('div', 'bw-ro-open', c.needsCreation ? 'unfinished' : c.opening));
+      who.appendChild(h('div', 'bw-ro-open', c.opening));
       card.appendChild(who);
 
       const acts = h('div', 'bw-ro-acts');
@@ -217,6 +225,7 @@ export function createRoster(root, deps = {}) {
       card.addEventListener('click', () => { select(cards.indexOf(card)); });
       list.appendChild(card);
       cards.push(card);
+      shownRows.push(row);
     }
 
     if (sel >= cards.length) sel = cards.length - 1;
@@ -226,12 +235,15 @@ export function createRoster(root, deps = {}) {
 
   function paint() {
     for (let i = 0; i < cards.length; i++) cards[i].classList.toggle('on', i === sel);
-    const row = rows()[sel] || null;
+    const row = shownRows[sel] || null;
     const c = row ? cardOf(row) : null;
-    heroImg.src = c ? c.portrait : classPortraitUrl('ranger');
-    heroImg.classList.toggle('bw-ro-unfinished', !!c?.needsCreation);
-    heroName.textContent = c ? c.name : UNNAMED;
-    heroClass.textContent = c ? (c.needsCreation ? 'unfinished' : c.opening) : 'Begin a new character';
+    hero.classList.toggle('bw-ro-empty', !c);
+    heroImg.src = c ? c.portrait : '';
+    heroName.textContent = c ? c.name : '';
+    heroClass.textContent = c ? c.opening : '';
+    heroPlay.hidden = !c;
+    heroPlay.disabled = !c;
+    if (c) heroPlay.dataset.play = c.id; else delete heroPlay.dataset.play;
   }
 
   function select(i) {
@@ -271,13 +283,13 @@ export function createRoster(root, deps = {}) {
       const i = cards.findIndex((c) => c.dataset.slot === id);
       if (i >= 0) sel = i;
       armed = id;
-      const who = cardOf(rows().find((r) => r.id === id) || {}).name;
+      const who = cardOf(rows().find((r) => r.id === id) || {})?.name || 'That character';
       build();
       say(`${who} goes for good, with everything they carry. Press it again.`, 'bad');
       return false;
     }
     armed = null;
-    const who = cardOf(rows().find((r) => r.id === id) || {}).name;
+    const who = cardOf(rows().find((r) => r.id === id) || {})?.name || 'That character';
     const gone = state?.deleteSlot?.(id, { evenIfOpen: true }) === true;
     // The document is gone, so the picture of it has to go too. Slot ids are
     // handed back out by state.newSlot, and a kept portrait would put the dead
@@ -326,7 +338,8 @@ export function createRoster(root, deps = {}) {
     remove: doDelete,
     newCharacter: doNew,
     get cards() { return cards; },
-    get rows() { return cards; },
+    get rows() { return shownRows; },
+    get heroPlay() { return heroPlay; },
     get selected() { return sel; },
     get armed() { return armed; },
     get foot() { return foot.textContent; },
@@ -401,7 +414,6 @@ const CSS = `
   display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom center;
   filter: drop-shadow(0 2px 2px rgba(0,0,0,.5));
 }
-#bw-roster .bw-ro-port.bw-ro-unfinished img, #bw-roster .bw-ro-hero-img.bw-ro-unfinished { opacity: .38; filter: grayscale(.25) drop-shadow(0 2px 2px rgba(0,0,0,.5)); }
 #bw-roster .bw-ro-who { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 #bw-roster .bw-ro-card:hover { border-color: ${theme.goldDim}aa; background: rgba(74, 30, 22, .24); }
 #bw-roster .bw-ro-card.on {
@@ -421,7 +433,7 @@ const CSS = `
   letter-spacing: 0; color: ${theme.gold};
 }
 #bw-roster .bw-ro-acts { display: flex; align-items: center; gap: 6px; }
-#bw-roster .bw-ro-play, #bw-roster .bw-ro-begin {
+#bw-roster .bw-ro-play, #bw-roster .bw-ro-begin, #bw-roster .bw-ro-hero-play {
   min-height: 40px; cursor: pointer;
   font-family: ${theme.fonts.display}; font-size: clamp(10px, .76vw, 12px); font-weight: 700;
   letter-spacing: 0; color: ${theme.goldBright};
@@ -432,8 +444,13 @@ const CSS = `
   transition-duration: .12s;
 }
 #bw-roster .bw-ro-play { min-width: 52px; padding: 0 10px; }
-#bw-roster .bw-ro-play:hover, #bw-roster .bw-ro-begin:hover { filter: brightness(1.08); border-color: ${theme.gold}; }
-#bw-roster .bw-ro-play:active, #bw-roster .bw-ro-begin:active, #bw-roster .bw-ro-del:active { transform: scale(.96); }
+#bw-roster .bw-ro-play:hover, #bw-roster .bw-ro-begin:hover, #bw-roster .bw-ro-hero-play:hover:not(:disabled) { filter: brightness(1.08); border-color: ${theme.gold}; }
+#bw-roster .bw-ro-play:active, #bw-roster .bw-ro-begin:active, #bw-roster .bw-ro-hero-play:active:not(:disabled), #bw-roster .bw-ro-del:active { transform: scale(.96); }
+#bw-roster .bw-ro-hero-play {
+  min-width: 156px; min-height: 60px; margin-top: 11px; padding: 0 24px;
+  font-size: clamp(16px, 1.35vw, 20px); border-radius: 7px;
+}
+#bw-roster .bw-ro-hero-play[hidden] { display: none; }
 #bw-roster .bw-ro-del {
   position: relative; width: 40px; height: 40px; flex: 0 0 40px; padding: 0;
   display: flex; align-items: center; justify-content: center;
@@ -459,7 +476,7 @@ const CSS = `
 #bw-roster .bw-ro-foot.bw-ro-bad { color: #ff8f7a; }
 #bw-roster .bw-ro-hero {
   width: 100%; height: 100%; padding: clamp(8px, 1vw, 14px);
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center; overflow: hidden;
 }
 #bw-roster .bw-ro-hero-img {
@@ -479,6 +496,7 @@ const CSS = `
   font-family: ${theme.fonts.display}; font-size: clamp(12px, 1vw, 16px);
   letter-spacing: 0; color: ${theme.gold};
 }
+#bw-roster .bw-ro-hero.bw-ro-empty .bw-ro-hero-img { display: none; }
 #bw-roster ::-webkit-scrollbar { width: 8px; }
 #bw-roster ::-webkit-scrollbar-track { background: rgba(0,0,0,.25); }
 #bw-roster ::-webkit-scrollbar-thumb { background: rgba(201,164,74,.45); border: 1px solid rgba(0,0,0,.45); border-radius: 6px; }

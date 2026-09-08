@@ -70,6 +70,13 @@ export const net = {
     // stale the moment a real frame jumped the clock forward.
     const wall = () => performance.now() / 1000;
 
+    function equipmentFromLook(look) {
+      const gear = look?.gear || {};
+      const out = {};
+      for (const slot of ['mainHand', 'offHand', 'outfit', 'neck', 'ring1', 'ring2']) out[slot] = gear[slot] ? { base: gear[slot] } : null;
+      return out;
+    }
+
     // ---------------------------------------------------------- the bodies --
 
     function makePlate(name) {
@@ -106,6 +113,7 @@ export const net = {
       const rig = createPlayer(group, look.appearance || character.appearance, {
         buildCharacter: (a) => buildStudioCharacter(a, { sourceMotion: true, classId: look.opening || 'blank' }),
       });
+      rig.studio?.setEquipment?.(equipmentFromLook(look));
       rig.group.name = `player:${rec.pid}`;
       rig.group.userData.remote = rec.pid;
       const actor = {
@@ -133,6 +141,8 @@ export const net = {
     function mirror(body) {
       const r = body.rec;
       const a = body.actor;
+      a.hidden = r.hidden ? { remote: true } : null;
+      body.rig.studio?.setHidden?.(!!a.hidden);
       // before their first state frame the pools are unknown, not empty: a
       // player who has only just said hello is standing, not a corpse
       if (!(num(r.mhp) > 0)) { a.health = 1; a.maxHealth = 1; a.dead = false; drawPlate(body.plate, 1, 1); return; }
@@ -237,6 +247,7 @@ export const net = {
       for (const body of bodies.values()) {
         const want = remotes.poseAt(body.rec.pid, w);
         if (!want) continue;
+        body.rig.studio?.setHidden?.(!!want.hidden);
         const rig = body.rig;
         const dx = want.x - rig.pos.x, dz = want.z - rig.pos.z;
         const d = Math.hypot(dx, dz);

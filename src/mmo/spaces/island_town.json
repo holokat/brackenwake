@@ -125,9 +125,9 @@
     },
     {
       "model": "healer",
-      "x": -24,
-      "z": 18,
-      "yaw": 120
+      "x": 32,
+      "z": -6,
+      "yaw": 280.62
     },
     {
       "model": "bank",
@@ -785,9 +785,9 @@
     {
       "name": null,
       "role": "healer",
-      "x": -19.93,
-      "z": 15.65,
-      "yaw": 300
+      "x": 27.38,
+      "z": -5.13,
+      "yaw": 100.62
     },
     {
       "name": null,
@@ -806,16 +806,16 @@
     {
       "name": null,
       "role": "elder",
-      "x": -14.6,
-      "z": 19.4,
-      "yaw": 60.52
+      "x": 23.6,
+      "z": -10.44,
+      "yaw": 221.14
     },
     {
       "name": null,
       "role": "farmer",
-      "x": -28,
-      "z": 26,
-      "yaw": 315
+      "x": 38.43,
+      "z": -12.22,
+      "yaw": 115.62
     },
     {
       "name": null,
@@ -886,22 +886,22 @@
       "note": "the plan stands Cobb Ashby here; a space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
     },
     {
-      "x": -19.93,
-      "z": 15.65,
+      "x": 27.38,
+      "z": -5.13,
       "label": "Alys Fenn",
       "kind": "other",
       "note": "the plan stands Alys Fenn here; a space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
     },
     {
-      "x": -14.6,
-      "z": 19.4,
+      "x": 23.6,
+      "z": -10.44,
       "label": "Old Wynn Ashby",
       "kind": "other",
       "note": "the plan stands Old Wynn Ashby here; a space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."
     },
     {
-      "x": -28,
-      "z": 26,
+      "x": 38.43,
+      "z": -12.22,
       "label": "Bram Haywood",
       "kind": "other",
       "note": "the plan stands Bram Haywood here; a space may not name one of the story's cast, so the role alone is stood and this says who it is meant to be."

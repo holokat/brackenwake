@@ -19,18 +19,18 @@ console.log('net: the room and the hello');
   check('the url is on the page origin, ws for http and wss for https',
     wsUrlFor({ protocol: 'http:', host: 'localhost:5198' }, 'island') === 'ws://localhost:5198/ws/island'
     && wsUrlFor({ protocol: 'https:', host: 'kaldera.example' }, 'seed') === 'wss://kaldera.example/ws/seed');
-  const c = { id: 'ranger-x1', name: 'Bob', opening: 'ranger', appearance: { skin: 2 }, equipment: { mainHand: { base: 'shortbow' }, outfit: { base: 'leather_outfit' } } };
+  const c = { id: 'ranger-x1', name: 'Bob', opening: 'ranger', appearance: { skin: 2 }, equipment: { mainHand: { base: 'shortbow' }, offHand: { base: 'dagger' }, outfit: { base: 'leather_outfit' } } };
   const h = helloFor(c);
-  check('the hello carries id, name and the look another client needs', h.t === 'hello' && h.id === 'ranger-x1' && h.name === 'Bob' && h.look.opening === 'ranger' && h.look.gear.mainHand === 'shortbow' && h.look.gear.outfit === 'leather_outfit' && h.look.gear.neck === null, JSON.stringify(h.look.gear));
+  check('the hello carries id, name and the look another client needs', h.t === 'hello' && h.id === 'ranger-x1' && h.name === 'Bob' && h.look.opening === 'ranger' && h.look.gear.mainHand === 'shortbow' && h.look.gear.offHand === 'dagger' && h.look.gear.outfit === 'leather_outfit' && h.look.gear.neck === null, JSON.stringify(h.look.gear));
   check('a look carries no item records, only bases', !JSON.stringify(lookFor(c)).includes('"rarity"'));
 }
 
 console.log('\nnet: the state frame');
 {
-  const s = encodeState({ pos: { x: 1.234, y: 8.005, z: -3.999 }, yaw: 3.14159, speed: 6.5, anim: 'run', actor: { health: 80.4, maxHealth: 157.5, mana: 10, maxMana: 100, stamina: 5, maxStamina: 90 }, target: { pid: 'tour' } });
-  check('positions to the centimetre, pools to the point', s.p.join() === '1.23,8.01,-4' && s.hp === 80 && s.mhp === 158 && s.sp === 6.5 && s.an === 'run' && s.tg === 'tour', JSON.stringify(s));
+  const s = encodeState({ pos: { x: 1.234, y: 8.005, z: -3.999 }, yaw: 3.14159, speed: 6.5, anim: 'run', actor: { health: 80.4, maxHealth: 157.5, mana: 10, maxMana: 100, stamina: 5, maxStamina: 90, hidden: { since: 1 } }, target: { pid: 'tour' } });
+  check('positions to the centimetre, pools to the point and hidden as a boolean', s.p.join() === '1.23,8.01,-4' && s.hp === 80 && s.mhp === 158 && s.sp === 6.5 && s.an === 'run' && s.tg === 'tour' && s.hd === true, JSON.stringify(s));
   const bare = encodeState({});
-  check('an empty frame is still a well formed frame', bare.t === 'state' && bare.p.join() === '0,0,0' && bare.an === 'idle' && bare.tg === '');
+  check('an empty frame is still a well formed frame', bare.t === 'state' && bare.p.join() === '0,0,0' && bare.an === 'idle' && bare.tg === '' && bare.hd === false);
   check('the server accepts what the client sends', (() => {
     const room = createRoomLogic();
     room.join('c1', helloFor({ id: 'a', name: 'A' }));
@@ -43,12 +43,14 @@ console.log('\nnet: the others, interpolated');
 {
   check('lerpAngle takes the short way round', near(lerpAngle(3.0, -3.0, 0.5), Math.PI, 1e-6) || near(lerpAngle(3.0, -3.0, 0.5), -Math.PI, 1e-6), String(lerpAngle(3.0, -3.0, 0.5)));
   const R = createRemotes();
-  const w = R.apply({ t: 'welcome', pid: 'me', players: [{ pid: 'tour', id: 'tour', name: 'Tour', look: {}, state: { p: [0, 0, 0], yaw: 0, sp: 0, an: 'idle', hp: 50, mhp: 100 } }] }, 10);
-  check('welcome seats the others', w.type === 'welcome' && R.size === 1 && R.get('tour').hp === 50);
+  const w = R.apply({ t: 'welcome', pid: 'me', players: [{ pid: 'tour', id: 'tour', name: 'Tour', look: {}, state: { p: [0, 0, 0], yaw: 0, sp: 0, an: 'idle', hp: 50, mhp: 100, hd: true } }] }, 10);
+  check('welcome seats the others and keeps hidden state', w.type === 'welcome' && R.size === 1 && R.get('tour').hp === 50 && R.get('tour').hidden === true);
   check('a state for a stranger is ignored', R.apply({ t: 'state', pid: 'nobody', p: [1, 1, 1] }, 10) === null && R.size === 1);
-  R.apply({ t: 'state', pid: 'tour', p: [10, 0, 0], yaw: 1, sp: 7, an: 'walk', hp: 40, mhp: 100 }, 11);
+  R.apply({ t: 'state', pid: 'tour', p: [10, 0, 0], yaw: 1, sp: 7, an: 'walk', hp: 40, mhp: 100, hd: true }, 11);
   const mid = R.poseAt('tour', 10.5 + INTERP_DELAY_S);
-  check('between two samples the body is between the two points', mid && near(mid.x, 5, 1e-6) && near(mid.yaw, 0.5, 1e-6) && mid.speed > 0, JSON.stringify(mid));
+  check('between two samples the body is between the two points and still hidden', mid && near(mid.x, 5, 1e-6) && near(mid.yaw, 0.5, 1e-6) && mid.speed > 0 && mid.hidden === true, JSON.stringify(mid));
+  R.apply({ t: 'state', pid: 'tour', p: [10, 0, 0], yaw: 1, sp: 0, an: 'idle', hp: 40, mhp: 100, hd: false }, 11.5);
+  check('a later visible frame clears hidden on the remote record and pose', R.get('tour').hidden === false && R.poseAt('tour', 30).hidden === false);
   const late = R.poseAt('tour', 30);
   check('past the newest sample it holds at the newest and stops walking', late && late.x === 10 && late.speed === 0, JSON.stringify(late));
   check('the pools follow the newest state', R.get('tour').hp === 40);

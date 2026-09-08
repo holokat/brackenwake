@@ -36,9 +36,8 @@ const SAVE_EVERY_MS = 5000;
  * Three answers, and every one of them is somebody's real situation:
  *
  *   roster     somebody has been made, so there is a choice to offer. The note
- *              the settings window leaves forces this screen even for a slot
- *              that was begun and never finished, because that is the screen
- *              it asked for and the player is standing in front of it.
+ *              the settings window leaves can force this screen only when a
+ *              completed row exists for the roster to list.
  *   creation   nobody has been made and the document in hand asks to be, which
  *              is a brand new install, and a v1 save that has just moved in.
  *   game       nothing to choose between and nothing to make: a whole
@@ -92,14 +91,22 @@ async function boot() {
    * loop over the world that is already standing and removes itself before it
    * calls back, exactly as creation.js does.
    */
+  // The game HUD is built with the context, before anyone has chosen a
+  // character, and it showed through the roster for a moment (the user,
+  // 2026-09-08: "i temporarily see the resource bar"). It stays hidden until
+  // the world starts; the roster and creation draw on the same root beside it.
+  function hudHidden(on) { if (ctx.hud && ctx.hud.el) ctx.hud.el.hidden = on; }
+
   function showRoster() {
+    hudHidden(true);
+    audio.music.setContext({ screen: 'roster' });
     createRoster(ctx.hudRoot, {
       state,
       onPlay: (id) => {
-        state.openSlot(id);
-        // A slot that was begun and never finished goes back to the making of
-        // them rather than into a world with a blank standing in it.
-        if (state.needsCreation) showCreation(); else startGame();
+        const opened = state.openSlot(id);
+        // A stale row that still points at a draft is cleaned by the roster,
+        // then shown again. It never reaches the world as a blank character.
+        if (!opened || state.needsCreation) showRoster(); else startGame();
       },
       onNew: () => { state.newSlot(); showCreation(); },
     });
@@ -111,19 +118,26 @@ async function boot() {
   // picks an opening first. creation.js runs its own render loop over the
   // scene and removes itself before onDone, so the game loop waits for it.
   function showCreation() {
+    hudHidden(true);
+    // The making of a character has its own theme; BEGIN was the gesture that
+    // lets the browser play it.
+    audio.music.setContext({ screen: 'creation' });
+    audio.music.start();
     createCreation(ctx.hudRoot, {
       onDone: (character) => {
         state.setCharacter(character);
         state.save();
         startGame();
       },
-      onCancel: () => showRoster(),
+      onCancel: () => { state.discardDraft?.(); showRoster(); },
     });
     window.__bw = { sc, state, hud: ctx.hud, audio, input, camera: ctx.camera, THREE: ctx.THREE, creating: true };
     return window.__bw;
   }
 
   function startGame() {
+    hudHidden(false);
+    audio.music.setContext({ screen: null });
     sc.setFog(WORLD_FOG.near,WORLD_FOG.far);
     // an old save's settings are filled in and clamped before anything reads them
     ctx.character.settings = normaliseSettings(ctx.character.settings);

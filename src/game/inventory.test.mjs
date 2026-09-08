@@ -10,7 +10,7 @@ import {
   armourOfCharacter, resistsOfCharacter, itemTipLines, PACK_SLOTS,
   sortOrder, sortRank, sortName,
 } from './inventory.js';
-import { makeItem, baseFor, SLOTS, canEquip } from '../mmo/items.js';
+import { makeItem, baseFor, SLOTS, canEquip, slotsFor, isOffHandDagger, OFFHAND_DAGGER_BASES } from '../mmo/items.js';
 import { rollAffixes, identify } from '../mmo/affixes.js';
 import { derived } from '../mmo/stats.js';
 
@@ -53,6 +53,13 @@ check('a slot name is a slot', parseWhere('outfit')?.slot === 'outfit');
 check('{ pack: 2 } is a pack slot', parseWhere({ pack: 2 })?.index === 2);
 check('a word that is not a slot is nowhere', parseWhere('pocket') === null);
 check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
+check('a dagger can choose the main hand first and the off hand second',
+  slotsFor(item('dagger')).join(' ') === 'mainHand offHand'
+  && isOffHandDagger(item('dagger')) && OFFHAND_DAGGER_BASES.join(',') === 'dagger',
+  slotsFor(item('dagger')).join(' '));
+check('and no other fencing weapon advertises the off hand',
+  slotsFor(item('rapier')).join(' ') === 'mainHand' && !isOffHandDagger(item('rapier')),
+  slotsFor(item('rapier')).join(' '));
 
 // ---- the pack fills, and says so ------------------------------------------
 {
@@ -155,6 +162,45 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
   inv.equip(character.pack.items.findIndex((x) => x && x.base === 'kite'));
   check('a longsword and a shield are held together, one hand each',
     character.equipment.mainHand?.base === 'longsword' && character.equipment.offHand?.base === 'kite');
+}
+{
+  const { inv, character, said } = rig({ str: 80, dex: 50, int: 50, con: 50, wis: 50 });
+  const right = item('dagger', { seed: 1 }), left = item('dagger', { seed: 2 });
+  inv.add(right); inv.add(left);
+  const first = inv.equip(character.pack.items.indexOf(right));
+  const second = inv.equip(character.pack.items.indexOf(left));
+  check('double clicking two daggers equips one in each hand',
+    first.ok && second.ok && character.equipment.mainHand === right && character.equipment.offHand === left,
+    JSON.stringify({ main: character.equipment.mainHand?.base, off: character.equipment.offHand?.base }));
+  check('and both equips were said out loud',
+    said.filter((line) => /dagger/.test(line)).length >= 2, said.join(' | '));
+}
+{
+  const { inv, character } = rig({ str: 80, dex: 50, int: 50, con: 50, wis: 50 });
+  const dagger = item('dagger');
+  inv.add(dagger);
+  const emptyMain = inv.equip(character.pack.items.indexOf(dagger), 'offHand');
+  check('dropping a dagger straight onto the off hand with no main hand is refused',
+    emptyMain.ok === false && /one hand weapon in your main hand/.test(emptyMain.reason), emptyMain.reason);
+  check('and the dagger is still in the pack', character.pack.items.includes(dagger) && !character.equipment.offHand);
+
+  const sword = item('longsword');
+  inv.add(sword); inv.equip(character.pack.items.indexOf(sword), 'mainHand');
+  const withSword = inv.equip(character.pack.items.indexOf(dagger), 'offHand');
+  check('the same off hand drop works once a one hand weapon is in the main hand',
+    withSword.ok === true && character.equipment.mainHand === sword && character.equipment.offHand === dagger,
+    withSword.reason || 'allowed');
+}
+{
+  const { inv, character } = rig({ str: 80, dex: 50, int: 50, con: 50, wis: 50 });
+  const great = item('greatsword'), dagger = item('dagger');
+  inv.add(great); inv.equip(character.pack.items.indexOf(great), 'mainHand');
+  inv.add(dagger);
+  const r = inv.equip(character.pack.items.indexOf(dagger), 'offHand');
+  check('a dagger cannot be put in the off hand while a two hander is held',
+    r.ok === false && /one hand weapon in your main hand/.test(r.reason), r.reason);
+  check('and the two hander was not moved by the refusal',
+    character.equipment.mainHand === great && character.pack.items.includes(dagger), JSON.stringify({ main: character.equipment.mainHand?.base }));
 }
 
 // ---- two hands unseat the shield ------------------------------------------

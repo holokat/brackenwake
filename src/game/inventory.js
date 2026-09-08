@@ -20,7 +20,7 @@
 
 import {
   SLOTS, baseFor, slotsFor, equipSlotFor, twoHanded, weightOf, stackable,
-  canEquip, armourOf, RARITY, RARITY_WORD,
+  canEquip, armourOf, RARITY, RARITY_WORD, isOffHandDagger,
 } from '../mmo/items.js';
 import { identify as identifyItem, describe, nameFor, lineFor, ranked } from '../mmo/affixes.js';
 import { derived } from '../mmo/stats.js';
@@ -499,12 +499,25 @@ export function createInventory(o = {}) {
 
   // ----------------------------------------------------------------- equip
 
-  /** The slot this item wants: an empty ring hand first, else its one home. */
+  function offHandDaggerBlock(item, slot) {
+    if (slot !== 'offHand' || !isOffHandDagger(item)) return '';
+    const main = character.equipment?.mainHand || null;
+    const b = baseFor(item);
+    const held = main ? baseFor(main) : null;
+    if (!held) return `${b.name} needs a one hand weapon in your main hand before it goes in your off hand`;
+    if (held.kind !== 'weapon' || held.hands !== 1) {
+      return `${b.name} needs a one hand weapon in your main hand, and you are holding ${amountOf(main)}`;
+    }
+    return '';
+  }
+
+  /** The slot this item wants: an empty ring hand first, else its legal home. */
   function chooseSlot(item, hint) {
     const options = slotsFor(item);
     if (!options.length) return null;
     if (hint && options.includes(hint)) return hint;
-    for (const s of options) if (!character.equipment[s]) return s;
+    for (const s of options) if (!character.equipment[s] && !offHandDaggerBlock(item, s)) return s;
+    for (const s of options) if (!offHandDaggerBlock(item, s)) return s;
     return options[0];
   }
 
@@ -529,6 +542,12 @@ export function createInventory(o = {}) {
     }
     if (slotHint && !slotsFor(it).includes(slotHint)) {
       const text = say(`${b.name} does not go on your ${slotHint}`, 'bad');
+      sound('denied');
+      return { ok: false, reason: text };
+    }
+    const daggerBlocked = offHandDaggerBlock(it, slot);
+    if (daggerBlocked) {
+      const text = say(daggerBlocked, 'bad');
       sound('denied');
       return { ok: false, reason: text };
     }

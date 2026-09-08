@@ -1,67 +1,86 @@
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { CHARACTERS, mountCharacters, nextTabIndex } from './characters.js';
-import { scrollProgress } from './motion.js';
-import { OPENINGS_BY_ID, SKILL_NAMES } from '../mmo/openings.js';
+import { mountMotion } from './motion.js';
 
-// Marketing must describe actual available openings, with actual starting
-// skills. In particular, animal lore must never become a promise of taming.
-for (const [id, character] of Object.entries(CHARACTERS)) {
-  const opening = OPENINGS_BY_ID[id === 'wizard' ? 'mage' : id];
-  assert.equal(character.name, opening.name);
-  assert.equal(character.description, opening.blurb);
-  assert.equal(character.traits, character.skills.map((skill) => SKILL_NAMES[skill]).join(' · '));
-  for (const skill of character.skills) assert.ok(opening.skills[skill] > 0, `${id} does not start with ${skill}`);
-  assert.ok(existsSync(new URL(`../../public/ui/classes/${id}.webp`, import.meta.url)));
-}
 const html = readFileSync(new URL('../../welcome/index.html', import.meta.url), 'utf8');
-assert.ok(html.includes(CHARACTERS.ranger.description));
-assert.ok(html.includes(CHARACTERS.ranger.traits));
-
-assert.equal(nextTabIndex(0, 'ArrowLeft', 4), 3);
-assert.equal(nextTabIndex(3, 'ArrowRight', 4), 0);
-assert.equal(nextTabIndex(2, 'Home', 4), 0);
-assert.equal(nextTabIndex(1, 'End', 4), 3);
-assert.equal(nextTabIndex(2, 'Tab', 4), 2);
-assert.equal(scrollProgress(-100, 0, 200), 0);
-assert.equal(scrollProgress(100, 0, 200), .5);
-assert.equal(scrollProgress(500, 0, 200), 1);
-assert.ok(Number.isFinite(scrollProgress(0, 0, 0)));
-
-// Exercise the mounted controller: clicks and keyboard navigation must update
-// its visible art, copy, accessible label, roving tab stop and focus together.
-function element(dataset = {}) {
-  return {
-    dataset, attrs: {}, handlers: {}, textContent: '', tabIndex: -1, focused: false,
-    classList: { selected: false, toggle(name, value) { this.selected = value; } },
-    setAttribute(key, value) { this.attrs[key] = value; },
-    addEventListener(type, callback) { this.handlers[type] = callback; },
-    focus() { this.focused = true; },
-  };
+for (const [, path] of html.matchAll(/(?:src|href)="(\/[^"#]+)"/g)) {
+  assert.ok(
+    existsSync(new URL(`../../public${path}`, import.meta.url)) ||
+    existsSync(new URL(`../..${path}`, import.meta.url)), path,
+  );
 }
-const ids = ['ranger', 'warrior', 'wizard', 'rogue'];
-const tabs = ids.map((id) => Object.assign(element({ character: id }), { id: `tab-${id}` }));
-const portraits = ids.map((id) => element({ portrait: id }));
-const nodes = Object.fromEntries(['[role="tabpanel"]', '#character-name', '#character-description', '#character-traits', '.character-echo'].map((key) => [key, element()]));
-const section = {
-  dataset: {},
-  querySelectorAll(selector) { return selector === '[role="tab"]' ? tabs : portraits; },
-  querySelector(selector) { return nodes[selector]; },
-};
-mountCharacters(section, new AbortController().signal);
-for (let index = 0; index < tabs.length; index++) {
-  tabs[index].handlers.click();
-  assert.equal(section.dataset.character, ids[index]);
-  assert.equal(nodes['#character-name'].textContent, CHARACTERS[ids[index]].name);
-  assert.equal(nodes['#character-description'].textContent, CHARACTERS[ids[index]].description);
-  assert.equal(nodes['[role="tabpanel"]'].attrs['aria-labelledby'], tabs[index].id);
-  assert.equal(tabs.filter((tab) => tab.tabIndex === 0).length, 1);
-  assert.equal(portraits.filter((portrait) => portrait.classList.selected).length, 1);
-  assert.equal(portraits[index].classList.selected, true);
+
+// Mount the actual motion controller against a hero-only document. Any access
+// to a removed section or control fails, instead of hiding a runtime crash.
+const saved = new Map(['window', 'document', 'requestAnimationFrame', 'cancelAnimationFrame'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+const preference = Object.assign(new EventTarget(), { matches: false });
+const coarsePointer = Object.assign(new EventTarget(), { matches: false });
+const properties = new Map();
+const classes = new Set();
+const world = { style: { setProperty(key, value) { properties.set(key, value); } } };
+const canvas = { getContext() { return null; } };
+const page = Object.assign(new EventTarget(), {
+  hidden: false,
+  body: { classList: { toggle(name, active) { active ? classes.add(name) : classes.delete(name); } } },
+  querySelector(selector) {
+    if (selector === '.world') return world;
+    if (selector === '.atmosphere') return canvas;
+    throw new Error(`Unexpected DOM dependency: ${selector}`);
+  },
+});
+const viewport = Object.assign(new EventTarget(), {
+  innerWidth: 1440, innerHeight: 900, devicePixelRatio: 1,
+  matchMedia(query) { return query.includes('prefers-reduced-motion') ? preference : coarsePointer; },
+});
+const frames = new Map();
+let nextFrame = 0;
+let time = 0;
+function step() {
+  const callbacks = [...frames.values()];
+  frames.clear();
+  for (const callback of callbacks) callback(time += 16);
 }
-let prevented = false;
-tabs[3].handlers.keydown({ key: 'ArrowRight', preventDefault() { prevented = true; } });
-assert.ok(prevented);
-assert.ok(tabs[0].focused);
-assert.equal(section.dataset.character, 'ranger');
-console.log('Welcome: four source-backed character previews, keyboard navigation, asset paths and bounded parallax passed.');
+function pointer(type, x, y) {
+  viewport.dispatchEvent(Object.assign(new Event('pointermove'), { pointerType: type, clientX: x, clientY: y }));
+}
+try {
+  Object.assign(globalThis, {
+    window: viewport, document: page,
+    requestAnimationFrame(callback) { frames.set(++nextFrame, callback); return nextFrame; },
+    cancelAnimationFrame(id) { frames.delete(id); },
+  });
+  const lifecycle = new AbortController();
+  mountMotion(lifecycle.signal);
+  assert.equal(frames.size, 1);
+  pointer('touch', 1440, 900);
+  step();
+  assert.equal(parseFloat(properties.get('--vista-x')), 0);
+  pointer('mouse', 1440, 900);
+  step();
+  assert.ok(parseFloat(properties.get('--vista-x')) < 0);
+  assert.ok(parseFloat(properties.get('--figure-x')) > 0);
+  preference.matches = true;
+  preference.dispatchEvent(new Event('change'));
+  assert.equal(frames.size, 0);
+  assert.ok(classes.has('motion-off'));
+  assert.equal(parseFloat(properties.get('--vista-x')), 0);
+  preference.matches = false;
+  preference.dispatchEvent(new Event('change'));
+  assert.equal(frames.size, 1);
+  page.hidden = true;
+  page.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(frames.size, 0);
+  page.hidden = false;
+  page.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(frames.size, 1);
+  lifecycle.abort();
+  assert.equal(frames.size, 0);
+  preference.dispatchEvent(new Event('change'));
+  assert.equal(frames.size, 0);
+} finally {
+  for (const [key, descriptor] of saved) {
+    if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+    else delete globalThis[key];
+  }
+}
+console.log('Welcome: hero-only boot, real assets, pointer depth, reduced motion, background suspension and cleanup passed.');

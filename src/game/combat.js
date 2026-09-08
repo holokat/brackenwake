@@ -728,7 +728,8 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     const free = !!(opts.immediate || opts.ignoreCooldown);
     const wait = num(attacker.lastSwingAt) + swingSeconds(attacker) * 1000 - now;
     if (!free && Number.isFinite(attacker.lastSwingAt) && wait > 0) return { queued: false, reason: 'cooldown', wait };
-    const reach = reachBetween(attacker, defender) + Math.max(0, num(opts.reachBonus));
+    const reachActor = opts.weapon ? { ...attacker, weapon: opts.weapon } : attacker;
+    const reach = reachBetween(reachActor, defender) + Math.max(0, num(opts.reachBonus));
     const d = actorDistance(attacker, defender);
     if (d > reach) return { queued: false, reason: 'out_of_reach', dist: d, reach };
 
@@ -772,11 +773,12 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
    * and the real actor never carries a bonus that belonged to one swing.
    */
   function swinger(attacker, opts) {
+    const base = opts?.weapon ? { ...attacker, weapon: opts.weapon } : attacker;
     const hit = num(opts.hitBonus);
     const pierce = num(opts.ignoreARFraction) * 100;
-    if (!hit && !pierce) return attacker;
-    const b = attacker.bonuses || {};
-    return { ...attacker, bonuses: { ...b, hit: num(b.hit) + hit, armourPiercing: num(b.armourPiercing) + pierce } };
+    if (!hit && !pierce) return base;
+    const b = base.bonuses || {};
+    return { ...base, bonuses: { ...b, hit: num(b.hit) + hit, armourPiercing: num(b.armourPiercing) + pierce } };
   }
 
   /**
@@ -894,7 +896,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     const { attacker, defender, opts } = job;
     if (!alive(attacker) || !alive(defender)) return null;
     // it may have walked out of the way while the arm was coming round
-    if (actorDistance(attacker, defender) > reachBetween(attacker, defender) * REACH_SLACK) {
+    if (actorDistance(attacker, defender) > reachBetween(swinger(attacker, opts), defender) * REACH_SLACK) {
       float(defender, 'out of reach', 'miss');
       cue('beastMiss', posOf(defender));
       return null;

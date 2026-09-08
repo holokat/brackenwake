@@ -18,7 +18,7 @@ function makeDom() {
     const node = {
       tagName: String(tag).toUpperCase(),
       id: '', style, dataset: {}, children: [], parent: null,
-      innerHTML: '', title: '', hidden: false,
+      innerHTML: '', title: '', hidden: false, disabled: false,
       get textContent() { return node.children.length ? node.children.map((c) => c.textContent).join('') : text; },
       // Faithful to the real thing: setting textContent EMPTIES the node, which
       // is how the roster rebuilds its list without growing four copies of it.
@@ -81,8 +81,8 @@ const press = (key) => {
 globalThis.requestAnimationFrame = () => 0;
 globalThis.cancelAnimationFrame = () => {};
 
-const { createRoster, cardOf, agoWords, auditRosterIcons, UNNAMED } = await import('./roster.js');
-const { createState, slotKeyFor, ROSTER_KEY, ROSTER_FLAG, askForRoster, rosterAsked } = await import('./state.js');
+const { createRoster, cardOf, agoWords, auditRosterIcons } = await import('./roster.js');
+const { createState, slotKeyFor, ROSTER_KEY, ROSTER_FLAG, askForRoster, rosterAsked, readRoster } = await import('./state.js');
 const {
   ROSTER_FRAME, ROSTER_FRAME_FIT, ROSTER_PANEL_ART,
   containBox, rosterBgUrl, rosterPanelsUrl,
@@ -112,6 +112,13 @@ function withCharacters(n) {
     s.save();
   }
   return { store, state: s };
+}
+
+function storedRow(id, name, opening = 'ranger', playedAt = 1_700_000_000_000 + Number(id || 0)) {
+  return {
+    id: String(id), name, opening, createdAt: playedAt - 1000, playedAt, needsCreation: false,
+    summary: { name, opening, openingName: opening === 'mage' ? 'Wizard' : 'Ranger', skills: [], gold: 0, place: null, pos: { x: 0, z: 0 }, needsCreation: false },
+  };
 }
 
 /** The rows a roster is showing. The Begin plate is outside this list now. */
@@ -156,8 +163,10 @@ check('every mark on a card is an icon ui_theme actually has', auditRosterIcons(
 }
 {
   const c = cardOf({ id: '2', name: '', opening: 'blank', needsCreation: true, playedAt: 0, summary: null });
-  check('a character with no name is called something rather than nothing', c.name === UNNAMED && c.unnamed === true);
-  check('one that was never finished says so', c.needsCreation === true);
+  check('a character with no name is not a card', c === null);
+}
+{
+  const c = cardOf({ id: '2', name: 'Fen', opening: 'ranger', needsCreation: false, playedAt: 0, summary: null });
   check('one with no summary at all still draws', c.gold === null && c.skills.length === 0 && c.known === false);
   check('and says the purse was never counted rather than showing a zero', c.gold === null);
   check('a row that was never played says so', c.played === 'not yet played', c.played);
@@ -195,6 +204,9 @@ console.log('roster: the cards on the screen');
   const state = createState({ storage: store });
   const r = createRoster(document.createElement('div'), { state });
   check('an empty roster still offers the one road out of it', r.cards.length === 0 && !!beginPlate(r));
+  check('and the right panel Play plate has nobody to play',
+    r.heroPlay.hidden === true && r.heroPlay.disabled === true && !r.heroPlay.dataset.play,
+    `${r.heroPlay.hidden}/${r.heroPlay.disabled}/${r.heroPlay.dataset.play || ''}`);
   r.destroy();
 }
 {
@@ -227,6 +239,10 @@ console.log('roster: the cards on the screen');
       ROSTER_PANEL_ART.maxPortraitFrac === 0.58
       && css.includes(`max-height: ${ROSTER_PANEL_ART.maxPortraitFrac * 100}%`),
       `${Math.round(panelHeight(a) * ROSTER_PANEL_ART.maxPortraitFrac * 10) / 10}px of ${Math.round(panelHeight(a) * 10) / 10}px`);
+    check('the portrait, name, class and Play plate are centred as one right-panel group',
+      /#bw-roster \.bw-ro-hero \{[^}]*justify-content: center/.test(css)
+      && /#bw-roster \.bw-ro-hero-play \{[^}]*min-width: 156px; min-height: 60px/.test(css),
+      'hero group or large plate rule missing');
   }
   const names = slotCards(r).map(nameOf);
   check('the newest played is first', names[0] === 'Corr' && names[1] === 'Mab', names.join(','));
@@ -239,13 +255,34 @@ console.log('roster: the cards on the screen');
   check('and it takes itself off the screen', !hud.children.includes(r.el));
 }
 {
-  // A slot begun and abandoned: the row exists, the document asks to be made.
   const store = memStore();
+  const real = ['sdf', 'Bob', 'sdfsd', 'oopp', 'fabletest', 'fablewar'];
+  const bad = [
+    { id: 'bad1', name: '', opening: 'ranger', needsCreation: true, createdAt: 10, playedAt: 10, summary: null },
+    { id: 'bad2', name: '   ', opening: 'ranger', needsCreation: false, createdAt: 11, playedAt: 11, summary: null },
+    { id: 'bad3', name: 'Draft', opening: 'mage', needsCreation: true, createdAt: 12, playedAt: 12, summary: { name: 'Draft', opening: 'mage', needsCreation: true } },
+    { id: 'bad4', name: '   ', opening: 'ranger', needsCreation: true, createdAt: 13, playedAt: 13, summary: { name: '', opening: 'ranger', needsCreation: true } },
+    { id: 'bad5', name: '', opening: 'mage', needsCreation: false, createdAt: 14, playedAt: 14, summary: { name: '', opening: 'mage', needsCreation: false } },
+  ];
+  store.setItem(ROSTER_KEY, JSON.stringify({
+    v: 1,
+    slots: [...real.map((name, i) => storedRow(i + 1, name, i === 5 ? 'mage' : 'ranger', 1000 + i)), ...bad],
+    lastPlayed: 'bad5',
+  }));
+  const report = readRoster(store);
+  const kept = report.slots.map((s) => s.name);
+  check('the purge drops the five abandoned nameless rows',
+    report.dropped === 5 && report.droppedNeedsCreation === 3 && report.droppedNameless === 4,
+    `${report.dropped} dropped, ${report.droppedNeedsCreation} unfinished, ${report.droppedNameless} nameless`);
+  check('and it leaves the six real character names untouched',
+    kept.join('|') === real.join('|'), kept.join('|'));
+  check('and the roster store is rewritten without the bad rows',
+    JSON.parse(store.m.get(ROSTER_KEY)).slots.length === real.length);
   const state = createState({ storage: store });
-  state.newSlot();
   const r = createRoster(document.createElement('div'), { state });
-  check('a slot that was begun and never finished is on the roster', slotCards(r).length === 1);
-  check('and says it is unfinished without extra row copy', textOf(slotCards(r)[0]).includes('unfinished'));
+  check('the roster screen lists only the real rows after the purge',
+    slotCards(r).length === real.length && slotCards(r).map(nameOf).every((name) => real.includes(name)),
+    slotCards(r).map(nameOf).join(','));
   r.destroy();
 }
 
@@ -278,7 +315,7 @@ console.log('roster: rows, not a grid');
     check('and the class thumb fills that row at sixty four pixels',
       /#bw-roster \.bw-ro-port \{[^}]*width: 64px; height: 64px/.test(css), 'thumb rule missing');
     check('while Play and delete keep their forty pixel plates',
-      /#bw-roster \.bw-ro-play, #bw-roster \.bw-ro-begin \{[^}]*min-height: 40px/.test(css)
+      /#bw-roster \.bw-ro-play, #bw-roster \.bw-ro-begin, #bw-roster \.bw-ro-hero-play \{[^}]*min-height: 40px/.test(css)
       && /#bw-roster \.bw-ro-del \{[^}]*width: 40px; height: 40px/.test(css),
       'button plate changed');
   }
@@ -303,13 +340,20 @@ console.log('roster: the class portrait on each row');
 }
 {
   const store = memStore();
+  store.setItem(ROSTER_KEY, JSON.stringify({
+    v: 1,
+    slots: [
+      storedRow('1', 'Mab'),
+      { id: 'draft', name: '', opening: 'mage', needsCreation: true, createdAt: 1, playedAt: 1, summary: null },
+    ],
+    lastPlayed: 'draft',
+  }));
   const state = createState({ storage: store });
-  state.newSlot();
   const r = createRoster(document.createElement('div'), { state, storage: store });
-  const port = one(slotCards(r)[0], 'bw-ro-port');
-  check('a slot that was never finished shows a faint class portrait',
-    !!one(slotCards(r)[0], 'bw-ro-face') && port.classList.contains('bw-ro-unfinished'),
-    port.className);
+  check('a slot that was never finished draws no row portrait',
+    slotCards(r).length === 1 && nameOf(slotCards(r)[0]) === 'Mab'
+    && byClass(r.el, 'bw-ro-port').every((p) => p.className === 'bw-ro-port'),
+    slotCards(r).map(nameOf).join(','));
   r.destroy();
 }
 {
@@ -348,6 +392,19 @@ console.log('roster: Play');
   button(slotCards(r)[1], 'play').fire('click');
   check('the id on the card is the id that is played', got === wanted, `${got} wanted ${wanted}`);
   check('and it is a slot state can open', state.openSlot(got) === true);
+}
+{
+  const { state } = withCharacters(3);
+  const played = [];
+  const hud = document.createElement('div');
+  const r = createRoster(hud, { state, onPlay: (id) => played.push(id) });
+  r.select(2);
+  const wanted = slotCards(r)[2].dataset.slot;
+  r.heroPlay.fire('click');
+  check('the big right-panel Play plate plays the selected row',
+    played.join(',') === wanted, `${played.join(',')} wanted ${wanted}`);
+  check('and it uses the same leaving path as row Play',
+    !hud.children.includes(r.el) && r.gone === true);
 }
 
 // ---- New -------------------------------------------------------------------

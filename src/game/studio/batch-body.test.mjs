@@ -6,7 +6,7 @@
 // sided, and a body of closed pieces stays front side, which is the cheap case.
 
 import * as THREE from 'three';
-import { batchBody } from './batch-body.js';
+import { batchBody, setStudioOpacity, HIDDEN_BODY_OPACITY } from './batch-body.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -32,6 +32,15 @@ function actorOf(sides) {
 }
 
 const batched = (actor) => actor.group.children.find((o) => o.isSkinnedMesh && o.name === 'Studio body and worn armour');
+const materials = (root) => {
+  const out = [];
+  root.traverse((o) => {
+    if (!o.isMesh && !o.isSkinnedMesh) return;
+    if (Array.isArray(o.material)) out.push(...o.material);
+    else if (o.material) out.push(o.material);
+  });
+  return out;
+};
 
 console.log('batch-body: sidedness');
 {
@@ -49,6 +58,31 @@ console.log('batch-body: sidedness');
   check('the batch names the items it holds', b && b.userData.studioItems.sort().join(' ') === 'hood tunic', b && b.userData.studioItems.join(' '));
   check('the sources are gone from the group', hooded.group.children.filter((o) => o.isSkinnedMesh).length === 1);
   check('and the batch carries the pieces\' triangles', b && b.geometry.attributes.position.count === 3 * 36, b && String(b.geometry.attributes.position.count));
+}
+
+console.log('batch-body: hidden opacity');
+{
+  const actor = actorOf([THREE.FrontSide]);
+  const shared = new THREE.MeshStandardMaterial({ color: 0x223344 });
+  const prop = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), shared);
+  actor.group.add(prop);
+  batchBody(actor);
+  const touched = setStudioOpacity(actor.group, true);
+  const mats = materials(actor.group);
+  check('hidden touches the batched body and the prop',
+    touched === mats.length && mats.length === 2, `${touched} touched of ${mats.length}`);
+  check('hidden opacity is twenty five percent on every material',
+    mats.every((m) => m.opacity === HIDDEN_BODY_OPACITY && m.transparent === true),
+    mats.map((m) => `${m.opacity}/${m.transparent}`).join(', '));
+  check('and depthWrite stays on, so the body does not go hollow',
+    mats.every((m) => m.depthWrite === true), mats.map((m) => String(m.depthWrite)).join(', '));
+  check('the prop material was owned before opacity was changed',
+    prop.material !== shared && prop.material.userData.opacityOwnedByCharacter === true,
+    String(prop.material === shared));
+  setStudioOpacity(actor.group, false);
+  check('showing again restores opacity one and opaque materials',
+    materials(actor.group).every((m) => m.opacity === 1 && m.transparent === false && m.depthWrite === true),
+    materials(actor.group).map((m) => `${m.opacity}/${m.transparent}/${m.depthWrite}`).join(', '));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

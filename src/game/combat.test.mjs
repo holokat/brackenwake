@@ -385,6 +385,36 @@ const progressionSpy = () => {
   let ordinary = 0;
   for (let i = 0; i < 3; i++) if (c4.queueSwing(a4, b4, { now: 0 }).queued) ordinary++;
   check('and without it three clicks in one frame are one swing', ordinary === 1, `${ordinary} of 3`);
+
+  const offHandWeapon = {
+    skill: 'fencing', minDamage: 4, maxDamage: 4, speed: 2, weight: 1,
+    damageType: 'physical', reach: 3.5,
+  };
+  const offHandHit = (opts = {}) => {
+    const a = actorOf({
+      id: 'p', kind: 'player',
+      skills: { wrestling: 100, fencing: 100, tactics: 0, anatomy: 0, parrying: 0 },
+      weapon: {
+        skill: 'wrestling', minDamage: 30, maxDamage: 30, speed: 2, weight: 3,
+        damageType: 'physical', reach: 1.5,
+      },
+    });
+    const b = actorOf({ id: 'd', health: 1e6, maxHealth: 1e6, ar: 0 });
+    b.pos.z = opts.far ? 3 : 0;
+    const c = createCombat({ rng: rolls(0, 0, 0.99) });
+    const queued = c.queueSwing(a, b, { now: 0, immediate: true, ...opts.queue });
+    c.update(0, 400);
+    return { queued, damage: 1e6 - b.health };
+  };
+  const mainHand = offHandHit();
+  const leftHand = offHandHit({ queue: { weapon: offHandWeapon } });
+  check('an ability swing can land with the weapon it supplied',
+    mainHand.damage === 30 && leftHand.damage === 4, `${mainHand.damage} main, ${leftHand.damage} supplied`);
+  const farMain = offHandHit({ far: true });
+  const farLeft = offHandHit({ far: true, queue: { weapon: offHandWeapon } });
+  check('and the supplied weapon owns the reach for that queued swing',
+    farMain.queued.queued === false && farMain.queued.reason === 'out_of_reach' && farLeft.queued.queued === true && farLeft.damage === 4,
+    `${farMain.queued.reason || 'queued'} main, ${farLeft.queued.reason || 'queued'} supplied`);
 }
 
 // ------------------------------------------------- a swing whose owner left

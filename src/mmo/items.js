@@ -237,6 +237,7 @@ for (const w of Object.values(WEAPONS)) {
   if (w.skill === 'macefighting') kinds.push('mace');
   if (w.skill === 'fencing') kinds.push('blade');
   if (w.skill === 'polearms') kinds.push('polearm');
+  if (w.backstab) kinds.push('dagger', 'offhandDagger');
   // A focus is what a spell goes through. The `casts` flag is the only thing
   // that puts the tag on, and abilities.js refuses every spell without one.
   //
@@ -745,10 +746,21 @@ export function baseForQuiet(id) {
   return BASES[id] || BASES[BASE_ALIASES[id]] || null;
 }
 
+/** Dagger bases light enough to carry in the off hand. */
+export const OFFHAND_DAGGER_BASES = Object.values(BASES)
+  .filter((b) => b.kind === 'weapon' && (b.backstab || (Array.isArray(b.kinds) && b.kinds.includes('offhandDagger'))))
+  .map((b) => b.id);
+
+/** True for the dagger family, and false for every other one hand weapon. */
+export function isOffHandDagger(item) {
+  return OFFHAND_DAGGER_BASES.includes(baseFor(item)?.id);
+}
+
 /** Every slot this base could sit in, best first. Empty when it is not wearable. */
 export function slotsFor(item) {
   const b = baseFor(item);
   if (!b || !b.slot) return [];
+  if (isOffHandDagger(item)) return ['mainHand', 'offHand'];
   return SLOT_ALTERNATES[b.slot] || [b.slot];
 }
 

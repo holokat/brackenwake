@@ -150,8 +150,13 @@ Anatomy * 0.2`, cure poison at Healing 60, resurrect at Healing 80 and Anatomy
 | ability | unlocks | cost | cd | cast | moving | effect |
 | --- | --- | --- | --- | --- | --- | --- |
 | Hide | Hiding 0 | 10 stam | 8 s | 1 s | no | invisible while still; Stealth lets you move |
-| Backstab | Fencing 40, Hiding 30 | 20 stam | 10 s | 0 | yes | from behind or from hiding: x3 damage |
+| Dual Strike | Fencing 30 | 15 stam | 5 s | 0 | yes | two dagger cuts, one from each hand |
+| Backstab | Fencing 40, Hiding 30 | 20 stam | 6 s | 0 | yes | from behind or from hiding: x3 damage |
+| Deep Cut | Fencing 45 | 18 stam | 8 s | 0 | yes | x0.75 damage, then 3 physical a second for 6 s |
+| Throwing Knife | Fencing 35 | 12 stam | 6 s | 0 | yes | 8 to 14 physical at short range |
 | Poison Blade | Poisoning 30 | 1 poison | 0 | 0 | yes | next 5 hits poison at your Poisoning level / 20 |
+| Kidney Shot | Fencing 55, Hiding 40 | 25 stam | 18 s | 0 | yes | x0.5 damage and a 2 s stun from behind or hiding |
+| Finishing Strike | Fencing 60 | 22 stam | 10 s | 0 | yes | x2 damage against a target under half health |
 | Shadowstep | Stealth 60 | 20 stam | 15 s | 0 | yes | appear behind the target within 10 m |
 | Vanish | Hiding 70 | 30 stam | 60 s | 0 | yes | drop aggro, hide instantly, even in a fight |
 | Pick Pocket | Stealing 30 | 10 stam | 30 s | 1 s | no | take gold or a common item from a humanoid monster |

@@ -29,7 +29,7 @@ import {
   requirementSentence, meetsRequirements,
 } from '../mmo/abilities.js';
 import { JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
-import { castBurdenOf, burdenSources } from './actor.js';
+import { castBurdenOf, burdenSources, offHandWeaponFrom } from './actor.js';
 import { GRAVITY, JUMP_V0 } from './player.js';
 import { pickTarget, DEFAULT_HALF_ANGLE, flatDistance, isTargetable } from './targeting.js';
 
@@ -526,22 +526,10 @@ export function createAbilities(deps = {}) {
   }
 
   /**
-   * Which abilities can be held on the cursor waiting for a target, counted
-   * rather than guessed. Of the 78 rows:
-   *
-   *   enemy   29, and 24 of them wait. The five that do not are the armed
-   *           swings (`effect.nextSwing`), which arm the NEXT swing and want
-   *           nobody in particular at the moment you press them.
-   *   ground  11, aoe and ground both. They never wait: the ground ring under
-   *           the cursor already says where they will land, and asking a
-   *           player to click twice for a Meteor is worse, not better.
-   *   corpse   2, Raise Skeleton and Corpse Explosion. Both find their own
-   *           corpse and both say so when there is none, so there is nothing
-   *           for a cursor to choose.
-   *   ally     7. They fall back to you when nothing friendly is selected, so
-   *           they never reach "no target" at all; a heal with nobody chosen
-   *           is a heal on yourself, which is what it was before this.
-   *   self    29. Nothing to choose.
+   * Which abilities can be held on the cursor waiting for a target. Enemy
+   * abilities that are not armed next swings can wait. Ground, corpse, ally
+   * and self rows each have their own fallback path, so they never reach a
+   * second click unless the row says it targets an enemy.
    */
   const waitsForTarget = (ability) => ability?.target === 'enemy' && !ability?.effect?.nextSwing;
 
@@ -813,6 +801,11 @@ export function createAbilities(deps = {}) {
     },
 
     doDamageMult(e, c) {
+      const hand = e.hand === 'offHand' ? 'offHand' : 'mainHand';
+      const weapon = hand === 'offHand'
+        ? (actor.offHandWeapon || offHandWeaponFrom(wornNow()?.offHand, actor.weapon))
+        : null;
+      if (hand === 'offHand' && !weapon) return `${c.ability.name} needs the dagger in your off hand, and it is not ready.`;
       const opts = {
         abilityId: c.ability.id, name: c.ability.name,
         multiplier: num(e.value) || 1,
@@ -822,7 +815,9 @@ export function createAbilities(deps = {}) {
         shots: num(e.shots) || 1,
         jumpAttack: airborne(),
         immediate: true,
+        hand,
       };
+      if (weapon) opts.weapon = weapon;
       if (!c.target) {
         if (e.nextSwing) {
           // The weapon is part of the arming. Power Strike set up for a
@@ -846,7 +841,8 @@ export function createAbilities(deps = {}) {
       for (let i = 0; i < opts.shots; i++) combat.queueSwing(actor, c.target, opts);
       c.hit.push(c.target);
       const airWords = opts.jumpAttack ? ` from the air, for a quarter more` : '';
-      const shotWords = opts.shots > 1 ? `${opts.shots} shots at ` : '';
+      const activeWeapon = opts.weapon || actor.weapon || {};
+      const shotWords = opts.shots > 1 ? `${opts.shots} ${activeWeapon.ranged ? 'shots' : 'strikes'} at ` : '';
       return `${shotWords}${Math.round(opts.multiplier * 100)}% on ${c.target.name || 'it'}${airWords}.`;
     },
 
@@ -1350,6 +1346,61 @@ export function createAbilities(deps = {}) {
     return { x: num(p.x), y: num(p.y) + 1.1, z: num(p.z) };
   };
 
+  function walkRuntimeEffect(effect, visit) {
+    if (!effect) return;
+    visit(effect);
+    if (effect.kind === 'combo') for (const p of effect.parts || []) walkRuntimeEffect(p, visit);
+    if (effect.applies) walkRuntimeEffect(effect.applies, visit);
+  }
+
+  function requirementFlags(ability) {
+    const out = new Set();
+    walkRuntimeEffect(ability?.effect, (e) => { if (e.requires) out.add(e.requires); });
+    return out;
+  }
+
+  function behindTarget(target) {
+    if (!target) return false;
+    const p = target.pos || target;
+    const dx = num(pos().x) - num(p.x), dz = num(pos().z) - num(p.z);
+    const d = Math.hypot(dx, dz);
+    if (d < 1e-6) return false;
+    const ty = num(target.yaw);
+    const facingDot = (Math.sin(ty) * dx + Math.cos(ty) * dz) / d;
+    return facingDot < -0.35;
+  }
+
+  function effectRequirements(ability, target) {
+    const flags = requirementFlags(ability);
+    if (flags.has('behindOrHidden') && !actor.hidden && !behindTarget(target)) {
+      return { ok: false, reason: `${ability.name} needs the target's back, or your hiding.` };
+    }
+    if (flags.has('targetBelowHalf')) {
+      const max = Math.max(1, num(target?.maxHealth) || num(target?.health));
+      if (!target || num(target.health) >= max / 2) {
+        return { ok: false, reason: `${ability.name} needs a target under half health.` };
+      }
+    }
+    return { ok: true };
+  }
+
+  function revealHidden(reason) {
+    if (!actor.hidden) return false;
+    actor.hidden = null;
+    stealthAt = 0;
+    say(reason, 'bad');
+    return true;
+  }
+
+  function breaksHidden(ability) {
+    if (!ability || ability.id === 'hide') return false;
+    let hostile = ability.target === 'enemy' || ability.target === 'corpse';
+    walkRuntimeEffect(ability.effect, (e) => {
+      if (['damageMult', 'aoe', 'spellDamage', 'dot', 'control', 'debuff', 'corpseBurst', 'plague', 'mark'].includes(e.kind)) hostile = true;
+    });
+    return hostile;
+  }
+
   function nearestCorpse(at, range) {
     if (typeof monsters?.corpsesNear === 'function') return monsters.corpsesNear(at, range)?.[0] || null;
     let best = null, bd = range;
@@ -1594,6 +1645,9 @@ export function createAbilities(deps = {}) {
       target = found.target;            // self and ground abilities still like to know
     }
 
+    const req = effectRequirements(ability, target);
+    if (!req.ok) { say(req.reason, 'bad'); cue('denied'); return { ok: false, reason: req.reason }; }
+
     const rec = startCast(ability, snapshot(t), t, target);
     if (rec.error) { say(rec.error, 'bad'); cue('denied'); return { ok: false, reason: rec.error }; }
 
@@ -1606,6 +1660,7 @@ export function createAbilities(deps = {}) {
     rec.ground = ground;
     rec.follow = follow;
     rec.startedMoving = moving();
+    if (breaksHidden(ability)) revealHidden('You are seen.');
 
     // The armour, before the bar is drawn and before the clock is set: a cast
     // in plate is twice as long, and the record carries the number so the bar,
@@ -1708,7 +1763,7 @@ export function createAbilities(deps = {}) {
    */
   function onDamaged(amount, now) {
     const t = num(now);
-    if (actor.hidden) { actor.hidden = null; say('You are seen.', 'bad'); }
+    revealHidden('You are seen.');
     if (!cast) return { interrupted: false, reason: 'nothing casting' };
 
     // The bandage is the exception the document writes out in words:
@@ -1938,9 +1993,7 @@ export function createAbilities(deps = {}) {
     const held = rng() < stealthHoldChance(skill);
     try { progression?.lesson?.('stealth', STEALTH_DIFFICULTY, held, rng); } catch (err) { /* a lesson is never worth a crash */ }
     if (held) return;
-    actor.hidden = null;
-    stealthAt = 0;
-    say('Moving gave you away.', 'bad');
+    revealHidden('Moving gave you away.');
   }
 
   function expire(who, t) {

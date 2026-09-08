@@ -13,6 +13,7 @@ import {chibiMonsterLooks} from '../../vendor/living-studio/data/chibi-monsters.
 import {chibiCreatureLooks} from '../../vendor/living-studio/data/chibi-creatures.js';
 import {canonicalSlots,classProfiles} from '../../vendor/living-studio/models/class-profiles.js';
 import {buildStudioCharacter,sourceAbility,studioClassForOpening,auditStudioOpeningClasses} from './body.js';
+import {HIDDEN_BODY_OPACITY} from './batch-body.js';
 import {buildStudioNpc,auditStudioNpcLooks,NPC_STUDIO_LOOK} from './npcs.js';
 import {STUDIO_MONSTER_LOOK,auditStudioCreatureLooks} from './creatures.js';
 import {buildMonsterModel} from '../monster_models.js';
@@ -31,6 +32,7 @@ if(!globalThis.ProgressEvent)globalThis.ProgressEvent=class{};
 const binary=readFileSync('public/studio/models/warrior-base-rigged.glb'),bank=JSON.parse(readFileSync('public/studio/animations/quaternius-retargeted.json'));
 const loadMotionAssets=async()=>[binary.buffer.slice(binary.byteOffset,binary.byteOffset+binary.byteLength),bank];
 const finite=group=>{group.updateMatrixWorld(true);group.traverse(o=>assert.ok(o.matrixWorld.elements.every(Number.isFinite),o.name));};
+const materials=root=>{const out=[];root.traverse(o=>{if(!o.isMesh&&!o.isSkinnedMesh)return;if(Array.isArray(o.material))out.push(...o.material);else if(o.material)out.push(o.material);});return out;};
 const studioClassById=Object.fromEntries(studioClasses.map(c=>[c.id,c]));
 auditStudioOpeningClasses(OPENINGS);
 auditStudioNpcLooks([...NPC_LIST,...Object.values(STORY_ROLES)]);
@@ -45,6 +47,21 @@ for(const opening of OPENINGS)for(const gender of ['male']){
  const studioEq=studioEquipment(c.equipment);
  for(const slot of canonicalSlots)assert.equal(body.actor.equipment[slot],studioEq.armor[slot]||'none',opening.id+' '+slot);
  body.update(.2,2);finite(body.group);body.dispose();assert.equal(body.group.children.length,1);bodies++;
+}
+{
+ const plan=planCharacter({opening:'rogue',name:'Two knives',appearance:{gender:'male'}});assert.equal(plan.ok,true,plan.reason||'');
+ const c=plan.character;assert.equal(c.equipment.mainHand?.base,'dagger');assert.equal(c.equipment.offHand?.base,'dagger');
+ const body=buildStudioCharacter({...c.appearance,gender:'male'},{classId:'rogue'});body.setEquipment(c.equipment);await body.ready;
+ const daggers=(body.actor.group.userData.loadout||[]).filter(p=>p.userData.itemId==='dagger');
+ assert.equal(daggers.length,2,'rogue has two dagger props');
+ assert.ok(daggers.some(p=>p.userData.slot==='weapon'&&p.userData.mountedHand==='R'),'main dagger in right hand');
+ assert.ok(daggers.some(p=>p.userData.slot==='offhand'&&p.userData.mountedHand==='L'),'off hand dagger in left hand');
+ const hiddenTouched=body.setHidden(true),hiddenMats=materials(body.actor.group);
+ assert.ok(hiddenTouched>0,'hidden touched body materials');
+ assert.ok(hiddenMats.every(m=>m.opacity===HIDDEN_BODY_OPACITY&&m.transparent===true&&m.depthWrite===true),'hidden opacity on body and loadout');
+ body.setHidden(false);
+ assert.ok(materials(body.actor.group).every(m=>m.opacity===1&&m.transparent===false&&m.depthWrite===true),'visible opacity restored');
+ finite(body.group);body.dispose();bodies++;
 }
 for(const opening of OPENINGS){
  const studioId=studioClassForOpening(opening.id),profile=studioClassById[studioId],body=buildStudioCharacter({gender:'male'},{classId:opening.id});await body.ready;
@@ -118,6 +135,7 @@ const gear={mainHand:{base:'greatsword'},offHand:{base:'kite'}};assert.equal(stu
 assert.equal(studioMaterial({base:'heater',material:'iron'}).construction,'metal');
 for(const [id,affix]of Object.entries({flame:'hitFireball',frost:'hitFrost',shock:'hitLightning',vampiric:'lifeLeech',keen:'critChance',force:'damage'}))assert.equal(enchantmentFor({}, {identified:true,affixes:[{id:affix,value:5}]}).id,id);
 assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'poison'}},{base:'dagger'},9).id,'venom');assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'holy'}},{base:'dagger'},9).id,'holy');assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'holy'}},{base:'dagger'},10).id,'none');
-assert.deepEqual(ABILITIES.filter(a=>!sourceAbility(a.id)).map(a=>a.id),['camp','recall']);   // Recall (2026-09-08) casts with the studio's plain gather until it has a motion of its own
+const missingSource=ABILITIES.filter(a=>!sourceAbility(a.id)).map(a=>a.id);
+assert.deepEqual(missingSource,['dualStrike','deepCut','throwingKnife','kidneyShot','finishingStrike','camp','recall']);
 assert.equal(swaps,14);   // four class tier changes, plus the six outfits worn and taken off once each
-console.log(JSON.stringify({bodies,swaps,heldSwaps,npcs,creatures,drops,casts,sourceAbilities:ABILITIES.length-1}));
+console.log(JSON.stringify({bodies,swaps,heldSwaps,npcs,creatures,drops,casts,sourceAbilities:ABILITIES.length-missingSource.length}));

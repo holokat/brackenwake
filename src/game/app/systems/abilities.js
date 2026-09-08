@@ -286,6 +286,7 @@ export const abilities = {
     // the ring so three blessings read as three colours and not a cloud.
     const { effects } = ctx.get('abilities');
     const { rig, actor: me } = ctx.get('player');
+    rig.studio?.setHidden?.(!!me?.hidden);
     const live = (Array.isArray(me?.buffs) ? me.buffs : []).filter((b) => b.kind === 'buff' && b.until > frame.nowS && !b.channelled);
     if (live.length && rig?.pos && frame.nowS - (clock.aura || 0) >= AURA_EVERY_S) {
       clock.aura = frame.nowS;

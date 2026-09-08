@@ -1,8 +1,8 @@
 // The book, the bar, and what goes on it. Run: node src/game/win_abilities.test.mjs
 //
 // The page used to list only what you had already bought, so there was nothing
-// to count: whatever it drew was right by definition. Now it draws all seventy
-// eight rows whatever your skills are, which is a claim with a number in it,
+// to count: whatever it drew was right by definition. Now it draws every row
+// whatever your skills are, which is a claim with a number in it,
 // and the last section builds the REAL panel against a small fake document and
 // reads what a player would see.
 
@@ -139,7 +139,7 @@ check('which are 1 to 0 and minus and equals', BAR_KEYS.join('') === '1234567890
     none.filter((a) => a.openAt < a.minSkill).map((a) => a.name).join(','));
   const all = Object.fromEntries(SKILLS.map((s) => [s.id, 100]));
   const master = unlockedFor(all, { str: 100, dex: 100, int: 100, con: 100, wis: 100 });
-  check('a grandmaster of everything has all seventy eight', master.length === ABILITIES.length, `${master.length} of ${ABILITIES.length}`);
+  check('a grandmaster of everything has every ability', master.length === ABILITIES.length, `${master.length} of ${ABILITIES.length}`);
   const bar = master.filter((a) => !a.passive);
   check('and more of them than the bar can hold, which is the point of choosing', bar.length > BAR_SLOTS, `${bar.length} for ${BAR_SLOTS} slots`);
 }
@@ -226,7 +226,7 @@ console.log('abilities: the requirement line');
   const allSkills = Object.fromEntries(SKILLS.map((s) => [s.id, 100]));
   const allStats = { str: 100, dex: 100, int: 100, con: 100, wis: 100 };
   const free = new Set(unlockedFor({}, {}).map((a) => a.id));
-  check('requirementView agrees with meetsRequirements on all seventy eight, driven both ways',
+  check('requirementView agrees with meetsRequirements on every ability, driven both ways',
     ABILITIES.every((a) => requirementView(a, allSkills, allStats).met === true
       && requirementView(a, {}, {}).met === free.has(a.id)),
     `${ABILITIES.filter((a) => requirementView(a, {}, {}).met !== free.has(a.id)).map((a) => a.id).join(',') || 'all agree'}`);
@@ -293,13 +293,13 @@ console.log('abilities: the book');
   const open = unlockedFor(warrior.skills, warrior.stats);
   const book = bookFor(warrior.skills, warrior.stats, 'all');
   const rows = book.flatMap((s) => s.rows);
-  check('the book shows all seventy eight rows whatever your skills are',
+  check('the book shows every row whatever your skills are',
     rows.length === ABILITIES.length, `${rows.length} of ${ABILITIES.length}`);
   check('and every archetype has a section', book.length === GROUPS.length, book.map((s) => s.label).join(','));
   check('a fresh warrior has twenty four of them (Recall among them), thirteen of which are first rungs held open',
     open.length === 24 && open.filter((a) => a.openAt < a.minSkill).length === 13,
     `${open.length}: ${open.map((a) => a.name).join(', ')}`);
-  check('so the locked count is exactly seventy eight minus what unlockedFor says',
+  check('so the locked count is exactly all rows minus what unlockedFor says',
     rows.filter((r) => !r.unlocked).length === ABILITIES.length - open.length,
     `${rows.filter((r) => !r.unlocked).length} locked, ${ABILITIES.length - open.length} expected`);
   const onlyOpen = bookFor(warrior.skills, warrior.stats, 'unlocked').flatMap((s) => s.rows);
@@ -343,7 +343,7 @@ console.log('abilities: the real panel');
   };
   const cards = () => find(host, (n) => n.classList.contains('bw-card'));
 
-  check('the page draws one card per ability, all seventy eight',
+  check('the page draws one card per ability',
     cards().length === ABILITIES.length, String(cards().length));
   check('the page draws no bar strip of its own any more; the real bar is the drop target',
     find(host, (n) => n.classList.contains('bw-bar-strip')).length === 0);

@@ -224,7 +224,7 @@ export const DOC_GAPS = {
 /** id -> { name, skill, hands, ranged }. Mirrors items.js WEAPONS and the kit
  * weapons built from them (bone_staff is a quarterstaff wearing a new name). */
 export const WEAPON_BASES = {
-  dagger: { name: 'Dagger', skill: 'fencing', hands: 1, ranged: false },
+  dagger: { name: 'Dagger', skill: 'fencing', hands: 1, ranged: false, backstab: true },
   rapier: { name: 'Rapier', skill: 'fencing', hands: 1, ranged: false },
   spear: { name: 'Spear', skill: 'fencing', hands: 2, ranged: false },
   shortsword: { name: 'Shortsword', skill: 'swordsmanship', hands: 1, ranged: false },
@@ -262,12 +262,14 @@ export const SHIELD_BASES = ['buckler', 'kite', 'heater', 'tower'];
 export const INSTRUMENT_BASES = ['lute'];
 /** The stacking ammunition bases. Thrown knives are their own ammunition. */
 export const AMMO_BASES = ['arrow', 'bolt'];
+/** Blades small enough for the Rogue's left hand. */
+export const DAGGER_BASES = ['dagger'];
 
 /** The bard's four skills. Every one of them is played on an instrument. */
 export const BARD_SKILLS = ['musicianship', 'provocation', 'peacemaking', 'discordance'];
 
-/** The eight answers weaponNeeds can give. */
-export const NEEDS_KINDS = ['melee', 'anyMelee', 'unarmed', 'ranged', 'focus', 'shield', 'instrument', 'none'];
+/** The nine answers weaponNeeds can give. */
+export const NEEDS_KINDS = ['melee', 'anyMelee', 'unarmed', 'ranged', 'focus', 'shield', 'instrument', 'dualDaggers', 'none'];
 
 /**
  * How a refusal names what it wants. One phrase per weapon skill, and
@@ -309,6 +311,7 @@ export function heldWeapon(item) {
 
 const isShieldItem = (item) => SHIELD_BASES.includes(baseIdOf(item));
 const isInstrumentItem = (item) => INSTRUMENT_BASES.includes(baseIdOf(item));
+export const isDaggerItem = (item) => DAGGER_BASES.includes(baseIdOf(item));
 /** A wand, a staff or a bone staff, and nothing else. */
 export const isFocusItem = (item) => FOCUS_BASES.includes(baseIdOf(item));
 
@@ -602,6 +605,18 @@ export function weaponCheck(ability, equipment = null, pack = null) {
     const held = main || off;
     if (!held) return { ok: true };
     return { ok: false, reason: `${name} wants empty hands, and you are holding ${aName(held)}.` };
+  }
+
+  if (needs.kind === 'dualDaggers') {
+    const mainDagger = isDaggerItem(eq.mainHand);
+    const offDagger = isDaggerItem(eq.offHand);
+    if (mainDagger && main && main.hands === 1 && offDagger) return { ok: true };
+    if (!mainDagger) {
+      const held = main ? `you are holding ${aName(main)}` : 'your hands are empty';
+      return { ok: false, reason: `${name} wants a dagger in your main hand, and ${held}.` };
+    }
+    const held = offDagger ? 'your main hand is not free enough for it' : (off ? `you are holding ${aName(off)} in it` : eq.offHand ? 'that hand is holding something else' : 'your off hand is empty');
+    return { ok: false, reason: `${name} wants a dagger in your off hand, and ${held}.` };
   }
 
   // "Any weapon you swing" is any weapon you SWING. A focus is held in the same
@@ -1380,15 +1395,53 @@ export const ABILITIES = [
     description: 'Stand still for a second and you are not there. Stealth is what lets you walk.',
   }),
   a({
+    id: 'dualStrike', name: 'Dual Strike', group: 'rogue',
+    skill: 'fencing', minSkill: 30,
+    cost: { stamina: 15 }, cooldown: 5, castTime: 0, moving: true,
+    range: MELEE_RANGE, target: 'enemy',
+    needs: { kind: 'dualDaggers', skills: ['fencing'], bases: ['dagger'] },
+    effect: {
+      kind: 'combo',
+      parts: [
+        { kind: 'damageMult', value: 0.75 },
+        { kind: 'damageMult', value: 1, hand: 'offHand' },
+      ],
+    },
+    description: 'Two short cuts, one from each hand. It needs a dagger in both hands.',
+  }),
+  a({
     id: 'backstab', name: 'Backstab', group: 'rogue',
     skill: 'fencing', minSkill: 40, extraReq: { hiding: 30 },
-    cost: { stamina: 20 }, cooldown: 10, castTime: 0, moving: true,
+    cost: { stamina: 20 }, cooldown: 6, castTime: 0, moving: true,
     range: MELEE_RANGE, target: 'enemy',
     effect: {
       kind: 'damageMult', value: 3, nextSwing: true,
       requires: 'behindOrHidden',
     },
     description: 'From behind, or out of hiding, three times the damage. From the front, nothing.',
+  }),
+  a({
+    id: 'deepCut', name: 'Deep Cut', group: 'rogue',
+    skill: 'fencing', minSkill: 45,
+    cost: { stamina: 18 }, cooldown: 8, castTime: 0, moving: true,
+    range: MELEE_RANGE, target: 'enemy',
+    effect: {
+      kind: 'combo',
+      parts: [
+        { kind: 'damageMult', value: 0.75 },
+        { kind: 'dot', perSecond: 3, duration: 6, type: 'physical' },
+      ],
+    },
+    description: 'A small cut in the right place, and it keeps opening for six seconds.',
+  }),
+  a({
+    id: 'throwingKnife', name: 'Throwing Knife', group: 'rogue',
+    skill: 'fencing', minSkill: 35,
+    cost: { stamina: 12 }, cooldown: 6, castTime: 0, moving: true,
+    range: 8, target: 'enemy',
+    needs: { kind: 'melee', skills: ['fencing'] },
+    effect: { kind: 'spellDamage', min: 8, max: 14, type: 'physical', line: true },
+    description: 'A knife leaves the hand at short range. Not much weight, but it arrives.',
   }),
   a({
     id: 'poisonBlade', name: 'Poison Blade', group: 'rogue',
@@ -1400,6 +1453,28 @@ export const ABILITIES = [
       levelPerSkill: 0.05, skill: 'poisoning',
     },
     description: 'Five hits carry poison at your Poisoning divided by twenty.',
+  }),
+  a({
+    id: 'kidneyShot', name: 'Kidney Shot', group: 'rogue',
+    skill: 'fencing', minSkill: 55, extraReq: { hiding: 40 },
+    cost: { stamina: 25 }, cooldown: 18, castTime: 0, moving: true,
+    range: MELEE_RANGE, target: 'enemy',
+    effect: {
+      kind: 'combo',
+      parts: [
+        { kind: 'damageMult', value: 0.5, requires: 'behindOrHidden' },
+        { kind: 'control', effect: 'stun', duration: 2, requires: 'behindOrHidden' },
+      ],
+    },
+    description: 'A short stun from behind, or from hiding. Expensive, and worth the breath.',
+  }),
+  a({
+    id: 'finishingStrike', name: 'Finishing Strike', group: 'rogue',
+    skill: 'fencing', minSkill: 60,
+    cost: { stamina: 22 }, cooldown: 10, castTime: 0, moving: true,
+    range: MELEE_RANGE, target: 'enemy',
+    effect: { kind: 'damageMult', value: 2, requires: 'targetBelowHalf' },
+    description: 'When the wound is winning, this makes it final.',
   }),
   a({
     id: 'shadowstep', name: 'Shadowstep', group: 'rogue',
@@ -1574,13 +1649,13 @@ export const ABILITIES = [
 export const ABILITIES_BY_ID = Object.fromEntries(ABILITIES.map((x) => [x.id, x]));
 
 /**
- * The ability tables in docs/mmo/04-CLASSES-ABILITIES.md hold 79 rows. Bandage
+ * The ability tables in docs/mmo/04-CLASSES-ABILITIES.md hold 85 rows. Bandage
  * is written twice, once under Healer and once under Everyone, and is one
- * ability, so the table above holds 78. abilities.test.mjs parses the document
+ * ability, so the table above holds 84. abilities.test.mjs parses the document
  * and asserts both numbers rather than taking this comment on trust.
  */
-export const ABILITY_COUNT = 79;   // 78, and Recall (2026-09-08)
-export const ABILITY_DOC_ROWS = 80;
+export const ABILITY_COUNT = 84;   // 83, and Recall (2026-09-08)
+export const ABILITY_DOC_ROWS = 85;
 
 // The sorcerer's list (the Mysticism tree) folded into the Wizard's on
 // 2026-09-08: "combine the abilities of mystics, sorcerers and mages, they'll
@@ -1734,9 +1809,9 @@ export function requirementRefusal(ability, skills = {}, stats = {}) {
 /**
  * `{ ok }` or `{ ok: false, reason }` for the unlock gate alone.
  *
- * The yes path allocates nothing: this is asked for all 78 rows on every skill
+ * The yes path allocates nothing: this is asked for every row on every skill
  * gain (progression.unlockedIds) and for twelve bar cells on every frame
- * (abilities_runtime.barView), and building a clause list to answer "yes" 78
+ * (abilities_runtime.barView), and building a clause list to answer "yes"
  * times a lesson would be a garbage collector's afternoon. The sentence is
  * built only when the answer is no, and then it is the card's own sentence.
  */
@@ -2184,7 +2259,7 @@ export function auditAbilities(list = ABILITIES) {
       throw new Error(`auditAbilities: ${where} needs ${needs && needs.kind}, which is not one of ${NEEDS_KINDS.join(', ')}`);
     }
     usedNeeds.add(needs.kind);
-    if (needs.kind === 'melee' || needs.kind === 'anyMelee' || needs.kind === 'ranged') {
+    if (needs.kind === 'melee' || needs.kind === 'anyMelee' || needs.kind === 'ranged' || needs.kind === 'dualDaggers') {
       if (!Array.isArray(needs.skills) || !needs.skills.length) {
         throw new Error(`auditAbilities: ${where} needs a ${needs.kind} weapon and names no skill`);
       }
@@ -2194,6 +2269,14 @@ export function auditAbilities(list = ABILITIES) {
           throw new Error(`auditAbilities: ${where} needs ${id}, and no weapon in the table trains it`);
         }
         if (!WEAPON_WORDS[id]) throw new Error(`auditAbilities: ${where} needs ${id}, which has no words to refuse in`);
+      }
+    }
+    if (needs.kind === 'dualDaggers') {
+      if (!Array.isArray(needs.bases) || !needs.bases.length) {
+        throw new Error(`auditAbilities: ${where} needs dual daggers and names no dagger bases`);
+      }
+      for (const id of needs.bases) {
+        if (!DAGGER_BASES.includes(id)) throw new Error(`auditAbilities: ${where} wants ${id}, which is not an off hand dagger base`);
       }
     }
     if (needs.kind === 'ranged') {

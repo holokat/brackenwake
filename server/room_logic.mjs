@@ -36,6 +36,7 @@ const normalizeState = (msg) => {
     st: 0,
     mst: 0,
     tg: asString(msg.tg),
+    hd: !!msg.hd,
   };
 
   for (const field of STATE_NUMBER_FIELDS) state[field] = Number(msg[field]);

@@ -747,16 +747,15 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
     check('three of them likewise', bootStage(two.st) === 'roster', bootStage(two.st));
   }
   {
-    // A slot begun and abandoned: nothing to play, so the road goes on to the
-    // making of them. The note from the settings window overrules that, because
-    // the player pressed a button that says roster.
+    // A slot begun and abandoned is only a draft now. It is not a roster row,
+    // so even a note cannot send the player to a roster of nobody.
     const store = memStore();
     const st = createState({ storage: store });
     st.newSlot();
     check('a slot begun and never finished asks to be finished',
       bootStage(st) === 'creation', bootStage(st));
-    check('and the note sends it to the roster instead',
-      bootStage(st, { roster: true }) === 'roster', bootStage(st, { roster: true }));
+    check('and the note still cannot send it to a roster of nobody',
+      bootStage(st, { roster: true }) === 'creation', bootStage(st, { roster: true }));
   }
   {
     // The last case, and it is somebody real: a private window where nothing
@@ -799,10 +798,12 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
     /bootStage\(state, \{ roster: rosterAsked\(\) \}\)/.test(m));
   check('source: the roster hands a slot back and main.js opens it',
     /onPlay: \(id\) => \{[\s\S]{0,120}?state\.openSlot\(id\);/.test(m));
-  check('source: a slot that was never finished goes back to the making of them',
-    /if \(state\.needsCreation\) showCreation\(\); else startGame\(\);/.test(m));
+  check('source: a slot that is still unfinished goes back to the roster',
+    /if \(!opened \|\| state\.needsCreation\) showRoster\(\); else startGame\(\);/.test(m));
   check('source: New makes a slot and then makes the character in it',
     /onNew: \(\) => \{ state\.newSlot\(\); showCreation\(\); \}/.test(m));
+  check('source: Cancel throws away the draft before showing the roster',
+    /onCancel: \(\) => \{ state\.discardDraft\?\.\(\); showRoster\(\); \}/.test(m));
   const roster__bw = m.slice(m.indexOf('function showRoster'), m.indexOf('function showCreation'));
   check('source: the console gets the scene, the state and a word for where it is',
     /window\.__bw = \{[^}]*\bsc\b[^}]*\bstate\b[^}]*roster: true/.test(roster__bw));

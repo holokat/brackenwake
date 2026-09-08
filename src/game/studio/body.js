@@ -10,7 +10,7 @@ import {createSourceMotion} from '../../vendor/living-studio/runtime/source-moti
 import {posePreviewEquipment,previewEquipmentMode} from '../../vendor/living-studio/runtime/preview-equipment.js';
 import {MOVE_BY_ID,ABILITY_BY_ID} from '../../vendor/living-studio/vendor/source-library.js';
 import {studioEquipment,studioMaterial,equipmentSignature} from './equipment.js';
-import {batchBody} from './batch-body.js';
+import {batchBody,setStudioOpacity} from './batch-body.js';
 import {APPEARANCE_FALLBACK,BUILD_GIRTH,SKIN_COLOURS,HAIR_COLOURS} from '../player.js';
 const PARTS={hips:'hips',torso:'chest',head:'head',armL:'upperArmL',armR:'upperArmR',handL:'handL',handR:'handR',legL:'thighL',legR:'thighR',shinL:'shinL',shinR:'shinR',footL:'footL',footR:'footR',bootL:'footL',bootR:'footR',back:'chest'};
 const SKINS={pale:'porcelain',fair:'warm-beige',sand:'golden-beige',olive:'olive-beige',tan:'warm-tan',copper:'warm-brown',umber:'deep-brown',ebony:'deep-ebony'};
@@ -37,7 +37,7 @@ export const sourceAbility=id=>ABILITY_BY_ID.get(String(id).replace(/[A-Z]/g,c=>
 export function buildStudioCharacter(appearance={},options={}){
  const group=new THREE.Group();group.name='Kaldera studio character';const parts={},sockets=new THREE.Group();sockets.name='Interaction sockets';group.add(sockets);
  for(const key of Object.keys(PARTS)){parts[key]=new THREE.Object3D();parts[key].name='studio:'+key;sockets.add(parts[key]);}
- let look={...APPEARANCE_FALLBACK,...appearance},equipment={},equipOpts={},revision=0,closed=false,actor=null,motion=null,animator=null,ready=Promise.resolve(),lastSignature='',state={t:0,phase:0,anim:'idle',speed:0},currentAbility=null;
+ let look={...APPEARANCE_FALLBACK,...appearance},equipment={},equipOpts={},revision=0,closed=false,actor=null,motion=null,animator=null,ready=Promise.resolve(),lastSignature='',state={t:0,phase:0,anim:'idle',speed:0},currentAbility=null,hiddenLook=false;
  const temp=new THREE.Vector3(),quat=new THREE.Quaternion(),nativeRotation=new THREE.Quaternion(),nativeScale=new THREE.Vector3(),emote=createStudioEmotes();
  const sync=()=>{if(!actor)return;actor.group.updateWorldMatrix(true,true);group.updateWorldMatrix(true,false);for(const[key,bone]of Object.entries(PARTS)){actor.rig.joints[bone].getWorldPosition(temp);parts[key].position.copy(group.worldToLocal(temp));actor.rig.joints[bone].getWorldQuaternion(quat);group.getWorldQuaternion(parts[key].quaternion).invert().multiply(quat);}sockets.updateMatrixWorld(true);};
  const cleanup=(a,m)=>{m?.dispose();if(a)disposeCharacter(a);};
@@ -122,7 +122,7 @@ export function buildStudioCharacter(appearance={},options={}){
     next.group.userData.gameClassId=options.classId||kind;
     next.group.userData.studioPalette={...classProfiles[kind].colors};
     attachFaceMark(next,snapshot.mark);
-    batchBody(next);
+    batchBody(next);setStudioOpacity(next.group,hiddenLook);
     const unit=(snapshot.height||1.8)/7.9;next.group.rotation.x=-Math.PI/2;next.group.scale.set(-unit*(BUILD_GIRTH[snapshot.build]||1),unit*(BUILD_GIRTH[snapshot.build]||1),unit);
     cleanup(actor,motion);actor=next;motion=source;animator=new Animator(next.rig);group.add(next.group);api.pose(state);
    }catch(error){cleanup(next,source);throw error;}
@@ -150,6 +150,7 @@ export function buildStudioCharacter(appearance={},options={}){
   setEquipment(eq,opts={}){const sig=equipmentSignature(eq,opts);if(sig===lastSignature)return[];lastSignature=sig;equipment=eq||{};equipOpts=opts;void rebuild();return Object.keys(eq||{});},
   /** The class the studio dresses for: its cloth, leather and trim colours. The creation stage changes it with every opening picked (2026-09-08). */
   setClass(id){const kind=Object.hasOwn(classProfiles,studioClassForOpening(id))?id:'blank';if(options.classId===kind)return false;options.classId=kind;void rebuild();return true;},
+  setHidden(hidden){hiddenLook=!!hidden;return actor?setStudioOpacity(actor.group,hiddenLook):0;},
   get classId(){const kind=studioClassForOpening(options.classId);return Object.hasOwn(classProfiles,kind)?kind:'blank';},
   pose(s){state=s;const move=s.airborne?'airborne':s.anim==='run'?'run':s.anim==='walk'?'walk':'idle';sample(move,move==='idle'?(s.t%5.6)/5.6:((s.phase||0)/(Math.PI*2))%1);},
   poseAction(name,phase,seconds=.45){

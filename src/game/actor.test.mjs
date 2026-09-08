@@ -6,7 +6,7 @@
 import {
   playerActor, spawnMonster, recompute, tickPools, syncToCharacter,
   meditationFactor, castBurdenOf, burdenSources, naturalWeaponFor, difficultyOfMonster,
-  weaponFrom, shieldFrom,
+  weaponFrom, shieldFrom, offHandWeaponFrom, OFF_HAND_DAMAGE_FACTOR,
   auditActor, AFFIX_EFFECT, BONUS_KEYS, MONSTER_STAMINA,
   ABILITY_MODS, ABILITY_MOD_NOTES, abilityModKeys, auditAbilityMods,
   unwiredAbilityMods, applyMods,
@@ -96,6 +96,37 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
   recompute(a);
   check('taking it off puts every one of them back', a.stats.str === base.str && a.bonuses.damagePct === 0 && a.bonuses.hit === 0 && a.skills.swordsmanship === base.sword && a.maxHealth === base.health, `${a.stats.str}/${a.bonuses.damagePct}/${a.maxHealth}`);
   check('and the hand is bare again', a.weapon.skill === UNARMED.skill);
+}
+{
+  const c = blankCharacter();
+  const a = playerActor(c);
+  c.equipment.mainHand = gear('dagger');
+  c.equipment.offHand = gear('dagger');
+  recompute(a);
+  check('a second dagger becomes a lighter off hand weapon',
+    a.offHandWeapon?.id === 'dagger'
+    && a.offHandWeapon.minDamage === weaponFrom(c.equipment.offHand).minDamage * OFF_HAND_DAMAGE_FACTOR
+    && a.offHandWeapon.maxDamage === weaponFrom(c.equipment.offHand).maxDamage * OFF_HAND_DAMAGE_FACTOR,
+    `${a.offHandWeapon?.minDamage} to ${a.offHandWeapon?.maxDamage}`);
+  check('and that dagger is not a shield or a parry factor',
+    a.shield === null && !('parryFactor' in a.offHandWeapon), JSON.stringify(a.shield));
+  c.equipment.mainHand = gear('greatsword');
+  recompute(a);
+  check('a two hander blocks the off hand dagger stat',
+    a.offHandWeapon === null && a.weapon.id === 'greatsword', String(a.offHandWeapon));
+  c.equipment.mainHand = gear('longsword');
+  c.equipment.offHand = gear('rapier');
+  recompute(a);
+  check('a non dagger one hand weapon in the off hand is ignored',
+    a.offHandWeapon === null, String(a.offHandWeapon));
+  c.equipment.offHand = gear('buckler');
+  recompute(a);
+  check('a shield still becomes the shield stat instead',
+    a.shield?.id === 'buckler' && a.offHandWeapon === null, JSON.stringify(a.shield));
+  check('offHandWeaponFrom is driven both ways',
+    offHandWeaponFrom(gear('dagger'), weaponFrom(gear('dagger')))?.id === 'dagger'
+    && offHandWeaponFrom(gear('rapier'), weaponFrom(gear('dagger'))) === null,
+    'dagger yes, rapier no');
 }
 
 // ---- an unidentified item gives no affix bonus, which is the doc's rule ----

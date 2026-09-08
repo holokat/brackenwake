@@ -17,11 +17,14 @@ import {
   auditAbilities,
   WEAPON_BASES, SHIELD_BASES, INSTRUMENT_BASES, AMMO_BASES, WEAPON_WORDS,
   FOCUS_BASES, isSpell, isFocusItem, isChivalry, burdensInArmour,
-  NEEDS_KINDS, weaponNeeds, weaponCheck, countInPack,
+  NEEDS_KINDS, weaponNeeds, weaponCheck, countInPack, DAGGER_BASES, isDaggerItem,
   COST_ITEM_BASES, COST_ITEM_WORDS, costItemWords, costItemIds, itemsHeld, payingBase, ABILITY_FOR_ITEM,
   practiceChance, isPractice, practiceText, requirementSentence, requirementClauses,
 } from './abilities.js';
-import { BASES as ITEM_BASES, BASES, isFocus as itemIsFocus, FOCUS_BASES as ITEM_FOCUS_BASES } from './items.js';
+import {
+  BASES as ITEM_BASES, BASES, isFocus as itemIsFocus, FOCUS_BASES as ITEM_FOCUS_BASES,
+  OFFHAND_DAGGER_BASES as ITEM_OFFHAND_DAGGER_BASES, isOffHandDagger,
+} from './items.js';
 import { SKILL_NAMES as OPENING_SKILL_NAMES, OPENINGS_BY_ID } from './openings.js';
 
 let pass = 0, fail = 0;
@@ -167,7 +170,7 @@ check('auditAbilities passes the real table', auditAbilities() === true);
   let threw = '';
   try { auditAbilities(planted); } catch (e) { threw = e.message; }
   check('and fails when the count no longer matches the document',
-    threw.includes('78 abilities'), threw);   // 79 less the planted Jump
+    threw.includes(`${ABILITY_COUNT - 1} abilities`), threw);
 }
 check('the real table still audits after every broken copy', auditAbilities() === true);
 
@@ -232,6 +235,24 @@ const ids = (list) => new Set(list.map((x) => x.id));
     'Magic Arrow is Magery 0, so everyone has it');
 }
 {
+  const r = OPENINGS_BY_ID.rogue;
+  const has = ids(unlockedFor(r.skills, r.stats));
+  check('the Rogue opening as written unlocks the new starter attacks',
+    has.has('dualStrike') && has.has('throwingKnife') && has.has('deepCut'),
+    [...has].filter((id) => ABILITIES_BY_ID[id]?.group === 'rogue').join(', '));
+  check('and Kidney Shot and Finishing Strike wait for later Fencing',
+    !has.has('kidneyShot') && !has.has('finishingStrike'),
+    `Fencing ${r.skills.fencing}, Hiding ${r.skills.hiding}`);
+}
+{
+  const warriorBy60 = ['powerStrike', 'whirlwind', 'leapSlam', 'shieldBash', 'rend', 'crushingBlow', 'lunge', 'sweep', 'disarm'];
+  const rogueBy60 = ['dualStrike', 'backstab', 'deepCut', 'throwingKnife', 'poisonBlade', 'kidneyShot', 'finishingStrike', 'shadowstep', 'exposeWeakness'];
+  const valid = (group, list) => list.every((id) => ABILITIES_BY_ID[id]?.group === group && ABILITIES_BY_ID[id].minSkill <= 60);
+  check('Rogue now has as many hostile or attack setup buttons by 60 as Warrior',
+    valid('warrior', warriorBy60) && valid('rogue', rogueBy60) && rogueBy60.length === warriorBy60.length,
+    `warrior ${warriorBy60.length}: ${warriorBy60.join(', ')} | rogue ${rogueBy60.length}: ${rogueBy60.join(', ')}`);
+}
+{
   // Extra requirements that are stats, not skills.
   const skilled = { swordsmanship: 60 };
   check('Leap Slam needs STR 50: 49 refuses',
@@ -278,7 +299,7 @@ const ids = (list) => new Set(list.map((x) => x.id));
   const all = {};
   for (const id of SKILL_IDS) all[id] = 100;
   const stats = { str: 100, dex: 100, int: 100, con: 100, wis: 100 };
-  check('a grandmaster of everything unlocks all 78',
+  check(`a grandmaster of everything unlocks all ${ABILITY_COUNT}`,
     unlockedFor(all, stats).length === ABILITY_COUNT, `${unlockedFor(all, stats).length} of ${ABILITY_COUNT}`);
 }
 
@@ -568,6 +589,11 @@ console.log('\nWhat has to be in your hands');
     isFocusItem({ base: 'wand' }) === true && isFocusItem(ITEM_BASES.staff) === true
     && isFocusItem('bone_staff') === true && isFocusItem('longsword') === false
     && isFocusItem(null) === false);
+  check('abilities and items agree on the dagger base used by off hand rules',
+    DAGGER_BASES.join(',') === ITEM_OFFHAND_DAGGER_BASES.join(',')
+    && isDaggerItem({ base: 'dagger' }) && isOffHandDagger({ base: 'dagger' })
+    && !isDaggerItem({ base: 'rapier' }) && !isOffHandDagger({ base: 'rapier' }),
+    `abilities ${DAGGER_BASES.join(',')} items ${ITEM_OFFHAND_DAGGER_BASES.join(',')}`);
 
   // A refusal must name the thing it wants. Every weapon is named by its own
   // skill's phrase, so adding a weapon nobody mentions fails here.
@@ -594,7 +620,7 @@ console.log('\nWhat has to be in your hands');
     const shown = list.length > 8 ? `${list.slice(0, 8).join(' ')} and ${list.length - 8} more` : list.join(' ');
     console.log(`  ${kind.padEnd(11)}${String(list.length).padStart(2)}  ${shown}`);
   }
-  check(`the eight kinds account for all ${ABILITY_COUNT} abilities`, total === ABILITY_COUNT, `${total} counted`);
+  check(`the ${NEEDS_KINDS.length} kinds account for all ${ABILITY_COUNT} abilities`, total === ABILITY_COUNT, `${total} counted`);
   check('and every kind is used by at least one of them',
     NEEDS_KINDS.every((k) => (by[k] || []).length > 0),
     NEEDS_KINDS.map((k) => `${k} ${(by[k] || []).length}`).join(', '));
@@ -660,6 +686,24 @@ const emptyPack = { slots: 20, items: [] };
   check('and so do fists, which are what empty hands swing with', fists.ok === true, fists.reason || 'allowed');
   check('a longsword refuses it', armed.ok === false && /wants empty hands/.test(armed.reason), armed.reason);
   check('and a shield is not a weapon, so it does not stop a wrestler', shielded.ok === true, shielded.reason || 'allowed');
+}
+{
+  const ds = ABILITIES_BY_ID.dualStrike;
+  const good = weaponCheck(ds, doll({ mainHand: it('dagger'), offHand: it('dagger') }), emptyPack);
+  const noOff = weaponCheck(ds, doll({ mainHand: it('dagger') }), emptyPack);
+  const noMain = weaponCheck(ds, doll({ offHand: it('dagger') }), emptyPack);
+  const swordMain = weaponCheck(ds, doll({ mainHand: it('longsword'), offHand: it('dagger') }), emptyPack);
+  const torch = weaponCheck(ds, doll({ mainHand: it('dagger'), offHand: it('torch') }), emptyPack);
+  check('Dual Strike wants a dagger in each hand and allows that exact kit',
+    weaponNeeds(ds).kind === 'dualDaggers' && good.ok === true, good.reason || 'allowed');
+  check('without the off hand dagger it says that hand is the problem',
+    noOff.ok === false && /dagger in your off hand/.test(noOff.reason) && /empty/.test(noOff.reason), noOff.reason);
+  check('without the main hand dagger it says the main hand is the problem',
+    noMain.ok === false && /dagger in your main hand/.test(noMain.reason), noMain.reason);
+  check('a sword with an off hand dagger is still not Dual Strike',
+    swordMain.ok === false && /dagger in your main hand/.test(swordMain.reason), swordMain.reason);
+  check('and a torch in the off hand is named as the wrong hand',
+    torch.ok === false && /dagger in your off hand/.test(torch.reason), torch.reason);
 }
 {
   const ds = ABILITIES_BY_ID.doubleShot;    // ranged, archery, arrows
@@ -869,7 +913,7 @@ const emptyPack = { slots: 20, items: [] };
   planted[0] = { ...planted[0], needs: { kind: 'trebuchet' } };
   let threw = '';
   try { auditAbilities(planted); } catch (e) { threw = e.message; }
-  check('and fails on a needs kind that is not one of the seven',
+  check(`and fails on a needs kind that is not one of the ${NEEDS_KINDS.length}`,
     threw.includes('trebuchet'), threw);
 
   const noAmmo = copy();

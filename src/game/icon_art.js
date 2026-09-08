@@ -6,7 +6,7 @@
 // Coverage is measured, not assumed: icon_art.test.mjs proves every path here
 // is a real file under public/, and prints the bases that still have no art.
 
-/** ability id -> path under public/. 78 of 78 abilities. */
+/** ability id -> path under public/. 84 of 84 abilities. */
 export const ABILITY_ICONS = {
   'aimedShot': 'icons/abilities/aimedShot.webp',
   'arcaneMastery': 'icons/abilities/arcaneMastery.webp',
@@ -29,8 +29,10 @@ export const ABILITY_ICONS = {
   'curseOfWeakness': 'icons/abilities/curseOfWeakness.webp',
   'disarm': 'icons/abilities/disarm.webp',
   'discord': 'icons/abilities/discord.webp',
+  'deepCut': 'icons/items/dagger.webp',
   'disengage': 'icons/abilities/disengage.webp',
   'doubleShot': 'icons/abilities/doubleShot.webp',
+  'dualStrike': 'icons/items/dagger.webp',
   'eldritchBolt': 'icons/abilities/eldritchBolt.webp',
   'elementalKin': 'icons/abilities/elementalKin.webp',
   'evasion': 'icons/abilities/evasion.webp',
@@ -38,6 +40,7 @@ export const ABILITY_ICONS = {
   'fear': 'icons/abilities/fear.webp',
   'fireball': 'icons/abilities/fireball.webp',
   'fleetFoot': 'icons/abilities/fleetFoot.webp',
+  'finishingStrike': 'icons/items/dagger.webp',
   'frostNova': 'icons/abilities/frostNova.webp',
   'greaterHeal': 'icons/abilities/greaterHeal.webp',
   'heal': 'icons/abilities/heal.webp',
@@ -46,6 +49,7 @@ export const ABILITY_ICONS = {
   'huntersMark': 'icons/abilities/huntersMark.webp',
   'iceShard': 'icons/abilities/iceShard.webp',
   'jump': 'icons/abilities/jump.webp',
+  'kidneyShot': 'icons/items/dagger.webp',
   'layOnHands': 'icons/abilities/layOnHands.webp',
   'leapSlam': 'icons/abilities/leapSlam.webp',
   'lichForm': 'icons/abilities/lichForm.webp',
@@ -82,6 +86,7 @@ export const ABILITY_ICONS = {
   'summonImp': 'icons/abilities/summonImp.webp',
   'sweep': 'icons/abilities/sweep.webp',
   'transmute': 'icons/abilities/transmute.webp',
+  'throwingKnife': 'icons/items/dagger.webp',
   'vanish': 'icons/abilities/vanish.webp',
   'volley': 'icons/abilities/volley.webp',
   'warDrum': 'icons/abilities/warDrum.webp',

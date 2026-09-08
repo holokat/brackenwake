@@ -566,13 +566,13 @@ check('and the shared theme went in with it',
     && /#bw-creation::before \{[^}]*pointer-events: none/.test(css));
   check('the C3 sheet has no stage or turn-control rules',
     !/bw-cr-stage|bw-cr-turn|bw-cr-arrow/.test(css));
-  check('while the reading half of the right column is the one that scrolls, so the button never leaves the glass',
-    /\.bw-cr-scroll \{\s*flex: 1 1 auto; min-height: 0; overflow-y: auto/.test(css)
-    && /\.bw-cr-act \{\s*flex: 0 0 auto;/.test(css));
-  check('the name block is outside the scroll, so rows cannot draw over the field',
+  check('the right interior scrolls, with its whole content centred when it is short',
+    /\.bw-cr-right \{[^}]*display: block; overflow-y: auto; overflow-x: hidden/.test(css)
+    && /\.bw-cr-scroll \{\s*min-height: 100%; overflow: visible;[^}]*justify-content: center/.test(css));
+  check('the name block follows the spreads inside that centred column',
     one(s1.cr.el, 'bw-cr-scroll').parent === one(s1.cr.el, 'bw-cr-right')
-    && one(s1.cr.el, 'bw-cr-act').parent === one(s1.cr.el, 'bw-cr-right')
-    && one(s1.cr.el, 'bw-cr-scroll') !== one(s1.cr.el, 'bw-cr-act'));
+    && one(s1.cr.el, 'bw-cr-act').parent === one(s1.cr.el, 'bw-cr-scroll')
+    && one(s1.cr.el, 'bw-cr-scroll').children.indexOf(one(s1.cr.el, 'bw-cr-act')) > one(s1.cr.el, 'bw-cr-scroll').children.indexOf(one(s1.cr.el, 'bw-cr-bars')));
 }
 
 // --- REWRITTEN. Seven headers became five: THE KIT is now the icon row under
@@ -904,9 +904,8 @@ check('there is a card for every opening, in the openings order',
   const nameBox = findInput(s1.cr.el);
   nameBox.value = 'a'; nameBox.fire('input');
   check('and once a letter is typed the refusal is written out', /at least 2 letters/.test(errLine.textContent), errLine.textContent);
-  // REWRITTEN only in where it looks: the name, the button and the red line
-  // are pinned in their own block at the foot of the right column now, so the
-  // order is measured inside that block rather than in the column.
+  // The name, the button and the red line travel together inside one block, so
+  // the order is measured there rather than across the whole right column.
   const act = one(s1.cr.el, 'bw-cr-act');
   check('the error line sits under the button, not over it',
     act.children.indexOf(errLine) === act.children.indexOf(go) + 1,
@@ -914,6 +913,16 @@ check('there is a card for every opening, in the openings order',
   check('and the name field sits over the button, with its header over that',
     act.children.map((c) => c.className || c.tagName).join(',') === 'bw-hdr,INPUT,bw-cr-go,bw-cr-err,bw-cr-short',
     act.children.map((c) => c.className || c.tagName).join(','));
+
+  let blankHanded = 0;
+  const blankRoot = document.createElement('div');
+  const blankCr = createCreation(blankRoot, { onDone: () => { blankHanded++; } });
+  one(blankCr.el, 'bw-cr-go').fire('click');
+  check('clicking Create character with a blank name hands nothing over and says why',
+    blankHanded === 0 && /at least 2 letters/.test(one(blankCr.el, 'bw-cr-err').textContent)
+    && blankRoot.children.length === 1,
+    `${blankHanded} handed, "${one(blankCr.el, 'bw-cr-err').textContent}"`);
+  blankCr.destroy();
 
   const input = textInput(s1.cr.el);
   input.value = 'Ashe';

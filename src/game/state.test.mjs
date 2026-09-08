@@ -12,7 +12,7 @@
 import {
   createState, migrateV1, hydrate, blankCharacter, auditState, baseOf, weightOf, makeStack,
   CAP, SAVE_KEY, SAVE_KEY_V1, SAVE_VERSION, SAVE_VERSION_V1, START_COINS,
-  ROSTER_KEY, ROSTER_FLAG, ROSTER_VERSION, slotKeyFor, summarise, readRoster, migrateLegacy,
+  ROSTER_KEY, ROSTER_FLAG, ROSTER_VERSION, CREATION_DRAFT_KEY, slotKeyFor, summarise, readRoster, migrateLegacy,
   askForRoster, rosterAsked, clearRosterAsk, toRoster,
   CARRIED, GOOD_CAP, TOOLS, PACK_SLOTS, BAR_SLOTS,
   MATERIAL_BASE, MATERIAL_STACKS, MATERIAL_OF, materialFamilyOf, MATERIALS, LOCAL_BASES, SKILL_IDS,
@@ -391,14 +391,17 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('seven slots of the pack are used (the bow walked in from the old back slot) and thirteen are free', s.character.pack.items.filter(Boolean).length === 7, String(s.character.pack.items.filter(Boolean).length));
 
   // The v1 key goes at load now rather than at the first save, because the
-  // migration writes the slot, reads it back and only then removes the old
-  // one. Nothing is dropped in between; the check below is that order.
-  check('the migrated character is in slot 1', s.slot === '1' && store.m.has(slotKeyFor('1')), String(s.slot));
-  check('the roster lists them', readRoster(store).slots.length === 1);
+  // migration writes a draft, reads it back and only then removes the old one.
+  // It is not a roster row until creation gives it a valid name.
+  check('the migrated character is draft 1, not a roster row',
+    s.slot === '1' && store.m.has(CREATION_DRAFT_KEY) && !store.m.has(slotKeyFor('1')),
+    String(s.slot));
+  check('the roster does not list a nameless migrated draft', readRoster(store).slots.length === 0);
   check('and the v1 key is gone, because the new one was written and read back first', !store.m.has(SAVE_KEY_V1));
   check('the bare v2 key was never written', !store.m.has(SAVE_KEY));
   s.save();
-  check('a save after the migration still writes the one slot', store.m.has(slotKeyFor('1')) && !store.m.has(SAVE_KEY));
+  check('a save before creation updates only the draft',
+    store.m.has(CREATION_DRAFT_KEY) && !store.m.has(slotKeyFor('1')) && !store.m.has(SAVE_KEY));
 }
 {
   // The shape before `v` existed: materials at the top level, tools as a map.
@@ -443,11 +446,11 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   a.load(); a.coins = 999; a.save();
   const b = createState({ storage: store });
   b.load();
-  check('once a v2 save exists it is the one that loads', b.coins === 999, String(b.coins));
+  check('once a creation draft exists it is the one that loads', b.coins === 999, String(b.coins));
   store.setItem(SAVE_KEY_V1, v1Save({ coins: 11 }));
   const c = createState({ storage: store });
   c.load();
-  check('and a v1 save that reappears beside it is ignored', c.coins === 999, String(c.coins));
+  check('and a v1 save that reappears beside that draft is ignored', c.coins === 999, String(c.coins));
 }
 
 // ---- a load that has to tolerate something --------------------------------
@@ -703,7 +706,7 @@ console.log('state: a write that does not read back leaves the old save alone');
   // The roster itself refuses the write: the document is listed nowhere, so it
   // is removed and the old key stays for the next boot to try again.
   const store = memStore();
-  store.setItem(SAVE_KEY, JSON.stringify({ v: 2, gold: 9 }));
+  store.setItem(SAVE_KEY, JSON.stringify({ v: 2, gold: 9, name: 'Nell', needsCreation: false }));
   const stubborn = {
     getItem: (k) => store.getItem(k),
     setItem: (k, v) => { if (k === ROSTER_KEY) throw new Error('full'); return store.setItem(k, v); },
@@ -724,12 +727,21 @@ console.log('state: two characters, two documents, one storage');
   const id1 = a.newSlot();
   check('a new slot is number one', id1 === '1' && a.slot === '1');
   check('and it is blank and asks to be made', a.needsCreation === true && a.coins === START_COINS);
+  check('and it is only a draft until creation succeeds',
+    readRoster(store).slots.length === 0 && !store.m.has(slotKeyFor('1')) && store.m.has(CREATION_DRAFT_KEY),
+    [...store.m.keys()].join(','));
   a.character.name = 'Mab'; a.character.needsCreation = false;
   a.character.skills.mining = 20; a.character.gold = 50; a.setPos(0, 0);
   a.save();
+  check('saving the named character writes the row and clears the draft',
+    readRoster(store).slots.length === 1 && store.m.has(slotKeyFor('1')) && !store.m.has(CREATION_DRAFT_KEY),
+    [...store.m.keys()].join(','));
 
   const id2 = a.newSlot();
   check('the second is number two', id2 === '2');
+  check('and the second is also only a draft before it is named',
+    readRoster(store).slots.length === 1 && !store.m.has(slotKeyFor('2')) && store.m.has(CREATION_DRAFT_KEY),
+    [...store.m.keys()].join(','));
   a.character.name = 'Corr'; a.character.needsCreation = false;
   a.character.skills.swordsmanship = 44; a.character.gold = 900; a.setPos(0, -3000);
   a.save();
@@ -798,6 +810,40 @@ console.log('state: the summary follows the document on every save');
     s.roster()[0].summary.place === null, String(s.roster()[0].summary.place));
 }
 
+console.log('state: drafts are not roster rows');
+{
+  const store = memStore();
+  const s = createState({ storage: store });
+  const id = s.newSlot();
+  check('BEGIN makes a draft and no roster row',
+    id === '1' && s.slot === '1' && store.m.has(CREATION_DRAFT_KEY)
+    && readRoster(store).slots.length === 0 && !store.m.has(slotKeyFor('1')),
+    [...store.m.keys()].join(','));
+  check('Cancel clears that draft without leaving a row',
+    s.discardDraft() === true && s.slot === null && !store.m.has(CREATION_DRAFT_KEY)
+    && readRoster(store).slots.length === 0,
+    [...store.m.keys()].join(','));
+}
+{
+  const store = memStore();
+  const s = createState({ storage: store });
+  s.newSlot();
+  const reloaded = createState({ storage: store });
+  check('reloading mid-creation opens the draft but still has no roster row',
+    reloaded.load() === true && reloaded.needsCreation === true && readRoster(store).slots.length === 0,
+    `${reloaded.slot} / ${readRoster(store).slots.length}`);
+}
+{
+  const store = memStore();
+  const s = createState({ storage: store });
+  s.newSlot();
+  s.character.name = '   ';
+  s.character.needsCreation = false;
+  check('a blank name cannot be saved into the roster even if a caller bypasses creation',
+    s.save() === false && readRoster(store).slots.length === 0 && !store.m.has(slotKeyFor('1')),
+    [...store.m.keys()].join(','));
+}
+
 console.log('state: deleting somebody');
 {
   const store = memStore();
@@ -834,7 +880,7 @@ console.log('state: a roster nobody can read');
 {
   const store = memStore();
   store.setItem(ROSTER_KEY, '{not json');
-  store.setItem(SAVE_KEY, JSON.stringify({ v: 2, gold: 42 }));
+  store.setItem(SAVE_KEY, JSON.stringify({ v: 2, gold: 42, name: 'Nell', needsCreation: false }));
   const s = createState({ storage: store });
   check('a corrupt roster is no roster, so the old save still moves in', s.load() === true && s.coins === 42, String(s.coins));
   check('and the roster is written out whole', readRoster(store).slots.length === 1);
@@ -843,9 +889,9 @@ console.log('state: a roster nobody can read');
   const r = readRoster(memStore());
   check('an empty storage reads as an empty roster', r.slots.length === 0 && r.lastPlayed === null);
   const store = memStore();
-  store.setItem(ROSTER_KEY, JSON.stringify({ v: 1, slots: [{ id: 'a' }, { id: 'a' }, null, { name: 'no id' }, 7], lastPlayed: 'gone' }));
+  store.setItem(ROSTER_KEY, JSON.stringify({ v: 1, slots: [{ id: 'a', name: 'Ari' }, { id: 'a', name: 'Repeat' }, null, { name: 'no id' }, 7], lastPlayed: 'gone' }));
   const two = readRoster(store);
-  check('a row with no id, a repeat and a number are all dropped', two.slots.length === 1 && two.slots[0].id === 'a', JSON.stringify(two.slots.map((s) => s.id)));
+  check('a row with no id, a repeat, null and a number are all dropped', two.slots.length === 1 && two.slots[0].id === 'a' && two.droppedUnreadable === 4, JSON.stringify(two.slots.map((s) => s.id)));
   check('and a lastPlayed nobody answers to is nobody', two.lastPlayed === null);
 }
 

@@ -75,7 +75,7 @@
 import { derived, STATS } from '../mmo/stats.js';
 import { SKILLS } from '../mmo/skills.js';
 import { AFFIXES, POWER_BY_ID } from '../mmo/affixes.js';
-import { baseFor, armourOf, ARMOR_TIERS, SLOTS, WEAPONS } from '../mmo/items.js';
+import { baseFor, armourOf, ARMOR_TIERS, SLOTS, WEAPONS, isOffHandDagger } from '../mmo/items.js';
 import { MONSTERS, TIERS, aggroRadius, leashRadius } from '../mmo/monsters.js';
 // The ability table, for ABILITY_MODS' audit alone. `src/mmo/abilities.js` is
 // pure and imports nothing, so this cannot make a cycle.
@@ -475,6 +475,21 @@ export function weaponFrom(item) {
   };
 }
 
+export const OFF_HAND_DAMAGE_FACTOR = 0.45;
+
+/** A light left hand weapon, never a shield and never a parry source. */
+export function offHandWeaponFrom(item, mainWeapon = null) {
+  if (!mainWeapon || mainWeapon.hands !== 1 || !isOffHandDagger(item)) return null;
+  const w = weaponFrom(item);
+  if (!w) return null;
+  return {
+    ...w,
+    minDamage: r4(w.minDamage * OFF_HAND_DAMAGE_FACTOR),
+    maxDamage: r4(w.maxDamage * OFF_HAND_DAMAGE_FACTOR),
+    offHand: true,
+  };
+}
+
 /** The shield combat_rules.js wants, out of an item record. Null if it is not one. */
 export function shieldFrom(item) {
   const b = baseFor(item);
@@ -658,6 +673,7 @@ export function recompute(actor) {
   const main = weaponFrom(equipment.mainHand);
   actor.weapon = main || actor.naturalWeapon || UNARMED;
   actor.shield = shieldFrom(equipment.offHand) || actor.naturalShield || null;
+  actor.offHandWeapon = offHandWeaponFrom(equipment.offHand, main);
 
   // The invariant. Clamped down, never up: a recompute is not a heal.
   actor.health = isNum(actor.health) ? Math.min(actor.health, maxHealth) : maxHealth;

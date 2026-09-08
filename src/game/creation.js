@@ -631,19 +631,20 @@ const CSS = `
   box-shadow: 10px 0 34px rgba(0,0,0,.55);
 }
 #bw-creation .bw-cr-right {
-  grid-column: 3; padding: 0; overflow: hidden;
+  grid-column: 3; padding: 0; display: block; overflow-y: auto; overflow-x: hidden;
   border-left: 1px solid ${theme.goldDim}88;
   box-shadow: -10px 0 34px rgba(0,0,0,.55);
 }
 #bw-creation .bw-cr-scroll {
-  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  display: flex; flex-direction: column; padding: 14px 17px 12px;
+  min-height: 100%; overflow: visible;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 14px 17px 12px;
 }
-/* the name and the button, always on the glass whatever the column holds */
+/* the name and button follow the spreads inside the same centred column */
 #bw-creation .bw-cr-act {
-  flex: 0 0 auto; padding: 8px 17px 14px;
+  flex: 0 0 auto; margin-top: 8px; padding: 8px 0 2px;
   border-top: 1px solid ${theme.goldDim}66;
-  background: linear-gradient(180deg, rgba(6,5,4,.55), rgba(6,5,4,.92));
+  background: transparent;
 }
 
 /* --- the plaque ---------------------------------------------------------- */
@@ -1017,7 +1018,7 @@ const CSS = `
   top: calc(var(--bw-scene-y) + ${ROSTER_FRAME.rightPanel.y1} * var(--bw-scene-h));
   width: calc((${ROSTER_FRAME.rightPanel.x2} - ${ROSTER_FRAME.rightPanel.x1}) * var(--bw-scene-w));
   height: calc((${ROSTER_FRAME.rightPanel.y2} - ${ROSTER_FRAME.rightPanel.y1}) * var(--bw-scene-h));
-  display: flex; flex-direction: column; overflow: hidden;
+  display: block; overflow-y: auto; overflow-x: hidden;
 }
 #bw-creation .bw-cr-cards {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
@@ -1054,12 +1055,12 @@ const CSS = `
 #bw-creation .bw-cr-cancel:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
 #bw-creation .bw-cr-cancel:active { transform: scale(.96); }
 #bw-creation .bw-cr-scroll {
-  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  padding: clamp(8px, 1vw, 12px); display: flex; flex-direction: column;
+  min-height: 100%; overflow: visible;
+  padding: clamp(8px, 1vw, 12px); display: flex; flex-direction: column; justify-content: center;
 }
 #bw-creation .bw-cr-act {
-  flex: 0 0 auto; padding: 6px clamp(8px, 1vw, 12px) clamp(7px, 1vw, 12px);
-  border-top: 1px solid rgba(201,164,74,.18); background: rgba(0,0,0,.12);
+  flex: 0 0 auto; margin-top: 8px; padding: 6px 0 0;
+  border-top: 1px solid rgba(201,164,74,.18); background: transparent;
 }
 #bw-creation .bw-cr-art {
   order: -3;
@@ -1181,9 +1182,8 @@ export function createCreation(root, deps = {}) {
   // --- the right column: this class, and everything you may change about it
   const right = h('div', 'bw-cr-right');
   panel.appendChild(right);
-  // The class, the points and the gear scroll. The name and the button do NOT:
-  // at 900 px of window the button was below the fold, which is a screen whose
-  // whole purpose is a button you cannot see.
+  // The class, the points, the name and the button are one column. The right
+  // interior scrolls when it has to, and otherwise centres that column.
   const reading = h('div', 'bw-cr-scroll');
   right.appendChild(reading);
 
@@ -1230,7 +1230,7 @@ export function createCreation(root, deps = {}) {
   reading.appendChild(kitRow);
 
   const act = h('div', 'bw-cr-act');
-  right.appendChild(act);
+  reading.appendChild(act);
   act.appendChild(h('div', 'bw-hdr', 'Name'));
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
@@ -1502,7 +1502,7 @@ export function createCreation(root, deps = {}) {
   // not honoured everywhere.
   try { nameInput.focus?.({ preventScroll: true }); } catch { nameInput.focus?.(); }
   left.scrollTop = 0;
-  reading.scrollTop = 0;
+  right.scrollTop = 0;
 
   return {
     el, state,

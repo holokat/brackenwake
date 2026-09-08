@@ -13,7 +13,7 @@ import {
   stealthHoldChance, STEALTH_STEP_S,
   fizzleChance, andList,
 } from './abilities_runtime.js';
-import { castBurdenOf } from './actor.js';
+import { castBurdenOf, weaponFrom, offHandWeaponFrom } from './actor.js';
 import { createTargeting } from './targeting.js';
 import {
   ABILITIES, ABILITIES_BY_ID, EFFECT_KINDS, canUse, unlockedFor, weaponNeeds, weaponCheck,
@@ -504,7 +504,7 @@ console.log('abilities_runtime: and the four kinds that never wait');
     r.ok === true && h.abilities.pending === null, r.reason || 'used');
 }
 {
-  // counted, not guessed: which of the 78 can be held on the cursor
+  // counted, not guessed: which abilities can be held on the cursor
   const waits = ABILITIES.filter((a) => a.target === 'enemy' && !a.effect?.nextSwing);
   const byTarget = {};
   for (const a of ABILITIES) byTarget[a.target] = (byTarget[a.target] || 0) + 1;
@@ -1116,7 +1116,7 @@ console.log('abilities_runtime: the rest of the kinds do something you can point
 }
 
 // --- every ability, every kind, driven for real -------------------------------------
-console.log('abilities_runtime: all 78 abilities pressed, nothing silent, nothing thrown');
+console.log(`abilities_runtime: all ${ABILITIES.length} abilities pressed, nothing silent, nothing thrown`);
 {
   const kindsSeen = new Set();
   const walk = (e) => { if (!e) return; kindsSeen.add(e.kind); if (e.kind === 'combo') e.parts.forEach(walk); if (e.applies) walk(e.applies); };
@@ -1126,7 +1126,7 @@ console.log('abilities_runtime: all 78 abilities pressed, nothing silent, nothin
   for (const ability of ABILITIES) {
     const h = harness({
       bar: [ability.id],
-      monsters: [mob('near', 0, 1.2), mob('mid', 0, 4), mob('far', 2, 6), mob('corpse', 0, 2, { health: 0 })],
+      monsters: [mob('near', 0, 1.2, { health: 40 }), mob('mid', 0, 4), mob('far', 2, 6), mob('corpse', 0, 2, { health: 0 })],
       allies: [{ id: 'friend', name: 'Friend', faction: 'player', pos: { x: 1, y: 0, z: 1 }, buffs: [], health: 10, maxHealth: 20 }],
     });
     try {
@@ -1146,7 +1146,7 @@ console.log('abilities_runtime: all 78 abilities pressed, nothing silent, nothin
     }
   }
   ck(`no ability threw (${used} used, ${refused} refused)`, errors.length === 0, errors.slice(0, 4).join(' / '));
-  ck('and not one of the 78 was silent about what it did or did not do',
+  ck(`and not one of the ${ABILITIES.length} was silent about what it did or did not do`,
     silent.length === 0, silent.join(','));
   ck('only the passives were refused, since a passive is never pressed',
     refused === ABILITIES.filter((a) => a.passive).length, `${refused} refused, ${ABILITIES.filter((a) => a.passive).length} passives`);
@@ -1218,7 +1218,132 @@ ck('seconds are said the way a person says them',
 console.log('abilities_runtime: what has to be in your hands');
 const gear = (o = {}) => ({ mainHand: null, offHand: null, ranged: null, ...o });
 const item = (base, count) => (count == null ? { base } : { base, count });
+const daggerActor = (h, off = false) => {
+  h.character.equipment = gear({ mainHand: item('dagger'), offHand: off ? item('dagger') : null });
+  h.actor.weapon = weaponFrom(item('dagger'));
+  h.actor.offHandWeapon = off ? offHandWeaponFrom(item('dagger'), h.actor.weapon) : null;
+  h.actor.shield = null;
+};
 
+{
+  const behind = mob('Skeleton', 0, 1.2, { yaw: 0 });
+  const front = mob('Skeleton', 0, 1.2, { yaw: Math.PI });
+  const denied = harness({ monsters: [front] });
+  daggerActor(denied);
+  const stamina0 = denied.actor.stamina;
+  const noBack = denied.abilities.useById('backstab', 0, { target: front });
+  ck('Backstab from the front is refused before stamina or cooldown',
+    noBack.ok === false && /target's back/.test(noBack.reason)
+    && denied.actor.stamina === stamina0 && denied.abilities.cooldownLeft('backstab', 0) === 0,
+    noBack.reason);
+
+  const allowed = harness({ monsters: [behind] });
+  daggerActor(allowed);
+  const fromBack = allowed.abilities.useById('backstab', 0, { target: behind });
+  ck('Backstab from behind queues one three times swing and now cools down for 6 s',
+    fromBack.ok === true && allowed.combat.swings.length === 1
+    && allowed.combat.swings[0].opts.multiplier === 3
+    && allowed.abilities.cooldownLeft('backstab', 0) === 6,
+    `${allowed.combat.swings.length} swings, cooldown ${allowed.abilities.cooldownLeft('backstab', 0)}`);
+
+  const hidden = harness({ monsters: [front] });
+  daggerActor(hidden);
+  hidden.actor.hidden = { requiresStill: true };
+  const fromHide = hidden.abilities.useById('backstab', 0, { target: front });
+  ck('Backstab from hiding works even from the front, and the attack breaks hiding',
+    fromHide.ok === true && hidden.combat.swings.length === 1 && hidden.actor.hidden === null
+    && /You are seen/.test(said(hidden)),
+    said(hidden));
+}
+{
+  const target = mob('Skeleton', 0, 1.2);
+  const denied = harness({ monsters: [target] });
+  daggerActor(denied, false);
+  const stamina0 = denied.actor.stamina;
+  const noLeft = denied.abilities.useById('dualStrike', 0, { target });
+  ck('Dual Strike without an off hand dagger says why and spends nothing',
+    noLeft.ok === false && /dagger in your off hand/.test(noLeft.reason)
+    && denied.actor.stamina === stamina0 && denied.combat.swings.length === 0,
+    noLeft.reason);
+
+  const h = harness({ monsters: [target] });
+  daggerActor(h, true);
+  const r = h.abilities.useById('dualStrike', 0, { target });
+  ck('Dual Strike with two daggers queues one main strike and one off hand strike',
+    r.ok === true && h.combat.swings.length === 2
+    && h.combat.swings[0].opts.hand === 'mainHand'
+    && h.combat.swings[1].opts.hand === 'offHand'
+    && h.combat.swings[1].opts.weapon?.offHand === true,
+    h.combat.swings.map((s) => `${s.opts.hand}:${s.opts.weapon?.maxDamage || 'main'}`).join(', '));
+  ck('and its second hit is the lighter dagger stat',
+    h.combat.swings[1].opts.weapon.maxDamage === 3.6 && h.actor.stamina === 185,
+    `${h.combat.swings[1].opts.weapon.minDamage} to ${h.combat.swings[1].opts.weapon.maxDamage}, stamina ${h.actor.stamina}`);
+}
+{
+  const target = mob('Skeleton', 0, 1.2);
+  const h = harness({ monsters: [target] });
+  daggerActor(h);
+  const r = h.abilities.useById('deepCut', 0, { target });
+  ck('Deep Cut lands a swing and opens a six second bleed',
+    r.ok === true && h.combat.swings.length === 1 && target.dots?.length === 1
+    && target.dots[0].perSecond === 3 && target.dots[0].until === 6,
+    JSON.stringify(target.dots?.[0]));
+}
+{
+  const target = mob('Knife target', 0, 7);
+  const h = harness({ bar: ['throwingKnife'], monsters: [target] });
+  daggerActor(h);
+  const r = h.abilities.use(0, 0);
+  ck('Throwing Knife reaches eight metres and queues physical damage',
+    r.ok === true && h.combat.spells.length === 1
+    && h.combat.spells[0].spell.damageType === 'physical'
+    && h.combat.spells[0].spell.base[0] === 8 && h.combat.spells[0].spell.base[1] === 14,
+    JSON.stringify(h.combat.spells[0]?.spell));
+}
+{
+  const front = mob('Guard', 0, 1.2, { yaw: Math.PI });
+  const behind = mob('Guard', 0, 1.2, { yaw: 0 });
+  const denied = harness({ monsters: [front] });
+  daggerActor(denied);
+  const stamina0 = denied.actor.stamina;
+  const noAngle = denied.abilities.useById('kidneyShot', 0, { target: front });
+  ck('Kidney Shot from the front without hiding is refused before it spends',
+    noAngle.ok === false && /target's back/.test(noAngle.reason) && denied.actor.stamina === stamina0,
+    noAngle.reason);
+
+  const back = harness({ monsters: [behind] });
+  daggerActor(back);
+  const landed = back.abilities.useById('kidneyShot', 0, { target: behind });
+  ck('Kidney Shot from behind applies a two second stun',
+    landed.ok === true && behind.status?.stun?.until === 2000,
+    JSON.stringify(behind.status?.stun));
+
+  const hidden = harness({ monsters: [front] });
+  daggerActor(hidden);
+  hidden.actor.hidden = { requiresStill: true };
+  const fromHide = hidden.abilities.useById('kidneyShot', 0, { target: front });
+  ck('Kidney Shot from hiding works from the front and reveals the rogue',
+    fromHide.ok === true && front.status?.stun && hidden.actor.hidden === null,
+    said(hidden));
+}
+{
+  const half = mob('Half', 0, 1.2, { health: 50, maxHealth: 100 });
+  const low = mob('Low', 0, 1.2, { health: 49, maxHealth: 100 });
+  const denied = harness({ monsters: [half] });
+  daggerActor(denied);
+  const stamina0 = denied.actor.stamina;
+  const noFinish = denied.abilities.useById('finishingStrike', 0, { target: half });
+  ck('Finishing Strike refuses a target at half health exactly',
+    noFinish.ok === false && /under half health/.test(noFinish.reason)
+    && denied.actor.stamina === stamina0 && denied.combat.swings.length === 0,
+    noFinish.reason);
+  const h = harness({ monsters: [low] });
+  daggerActor(h);
+  const yes = h.abilities.useById('finishingStrike', 0, { target: low });
+  ck('and it lands at forty nine of one hundred',
+    yes.ok === true && h.combat.swings.length === 1 && h.combat.swings[0].opts.multiplier === 2,
+    `${h.combat.swings.length} swing at ${h.combat.swings[0]?.opts.multiplier}`);
+}
 {
   const h = harness({ bar: ['rend'], monsters: [mob('Skeleton', 0, 1.5)] });
   h.character.equipment = gear({ mainHand: item('mace') });
@@ -1328,7 +1453,7 @@ const item = (base, count) => (count == null ? { base } : { base, count });
 {
   // `focus` is in this list on purpose: W7 made every spell want a wand or a
   // staff, so a casting opening whose kit hands it the wrong stick fails here.
-  const weaponKinds = ['melee', 'anyMelee', 'unarmed', 'ranged', 'focus', 'shield', 'instrument'];
+  const weaponKinds = ['melee', 'anyMelee', 'unarmed', 'ranged', 'focus', 'shield', 'instrument', 'dualDaggers'];
   /**
    * Answerable out of what this character is carrying: allowed as they stand,
    * or allowed once one carried item is moved into a hand, or once the hand is

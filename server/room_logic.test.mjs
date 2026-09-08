@@ -22,11 +22,11 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   const room = createRoomLogic();
   room.join('c1', { t: 'hello', id: 'ada', name: 'Ada', look: null });
   room.join('c2', { t: 'hello', id: 'bea', name: 'Bea', look: null });
-  const msg = { t: 'state', p: ['1', 2, 3], yaw: '4', sp: '5', an: 6, hp: '7', mhp: 8, mp: 9, mmp: 10, st: 11, mst: 12, tg: 13, extra: 'drop me' };
+  const msg = { t: 'state', p: ['1', 2, 3], yaw: '4', sp: '5', an: 6, hp: '7', mhp: 8, mp: 9, mmp: 10, st: 11, mst: 12, tg: 13, hd: true, extra: 'drop me' };
   const out = room.handle('c1', msg);
   const relayed = out.toOthers[0];
   check('state relays with the player pid',
-    relayed.pid === 'ada' && relayed.p.join(',') === '1,2,3' && relayed.yaw === 4 && relayed.an === '6' && relayed.tg === '13' && !('extra' in relayed),
+    relayed.pid === 'ada' && relayed.p.join(',') === '1,2,3' && relayed.yaw === 4 && relayed.an === '6' && relayed.tg === '13' && relayed.hd === true && !('extra' in relayed),
     JSON.stringify(relayed));
   const bad = room.handle('c1', { ...msg, p: [1, Infinity, 3] });
   check('state drops a bad position', bad.toOthers.length === 0 && room.players()[0].state.p.join(',') === '1,2,3');
@@ -110,9 +110,9 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   const player = { pid: 'ada', id: 'ada', name: 'Ada', look: { coat: 'blue' }, state: null, connId: 'old' };
   room.restore('c1', player);
   room.join('c2', { t: 'hello', id: 'bea', name: 'Bea', look: null });
-  const out = room.handle('c1', { t: 'state', p: [2, 4, 6], yaw: 8, sp: 10, an: 'idle', hp: 12, mhp: 14, mp: 16, mmp: 18, st: 20, mst: 22, tg: 'bea' });
+  const out = room.handle('c1', { t: 'state', p: [2, 4, 6], yaw: 8, sp: 10, an: 'idle', hp: 12, mhp: 14, mp: 16, mmp: 18, st: 20, mst: 22, tg: 'bea', hd: true });
   check('restore after hibernation lets state relay again',
-    room.size === 2 && out.toOthers.length === 1 && out.toOthers[0].pid === 'ada' && out.toOthers[0].p.join(',') === '2,4,6',
+    room.size === 2 && out.toOthers.length === 1 && out.toOthers[0].pid === 'ada' && out.toOthers[0].p.join(',') === '2,4,6' && out.toOthers[0].hd === true,
     JSON.stringify(out.toOthers));
 }
 

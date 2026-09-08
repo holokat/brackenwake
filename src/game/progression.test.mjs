@@ -9,6 +9,7 @@ import {
 } from './progression.js';
 import { ABILITIES_BY_ID } from '../mmo/abilities.js';
 import { blankCharacter } from './state.js';
+import { planCharacter } from './creation.js';
 import { playerActor } from './actor.js';
 import { CUES } from './audio.js';
 import { SKILL_CAP, TOTAL_CAP, gainChance, BANDS } from '../mmo/skills.js';
@@ -436,6 +437,15 @@ console.log('\nprogression: a fresh bar carries only what the opening can use');
     equipment: { mainHand: { base: 'longsword' } }, pack: { slots: 2, items: [null, null] } };
   const wbar = starterBar(warrior);
   check('a warrior with a sword gets Power Strike and none of the archer\'s', wbar.includes('powerStrike') && !wbar.includes('aimedShot'), wbar.join(','));
+  const roguePlan = planCharacter({ opening: 'rogue', name: 'Testing', seed: 13 });
+  const rogue = roguePlan.character;
+  const rbar = starterBar(rogue);
+  check('a fresh Rogue equips two daggers before the starter bar is chosen',
+    roguePlan.ok && rogue.equipment.mainHand?.base === 'dagger' && rogue.equipment.offHand?.base === 'dagger',
+    JSON.stringify(rogue.equipment));
+  check('and that bar places the new starter attacks',
+    rbar.includes('dualStrike') && rbar.includes('throwingKnife') && rbar.includes('deepCut'),
+    rbar.join(','));
   const blank = { opening: 'blank', skills: {}, stats: {}, equipment: {}, pack: { slots: 1, items: [null] } };
   check('the Blank opening starts with Bandage and Recall and no more: jump, sprint, meditate and camp are keys, not a class', starterBar(blank).every((id) => id === 'bandage' || id === 'recall') && starterBar(blank).includes('recall'), starterBar(blank).join(','));
 }

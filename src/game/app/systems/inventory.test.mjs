@@ -98,7 +98,7 @@ console.log('settler kit: the pack after boot, counted');
   const WANT = {
     warrior: ['axe', 'bandage x6', 'pickaxe', 'skinning_knife'],
     ranger: ['arrow x60', 'axe', 'dagger', 'pickaxe', 'skinning_knife'],
-    rogue: ['axe', 'dagger', 'lockpick x3', 'pickaxe', 'skinning_knife'],
+    rogue: ['axe', 'lockpick x3', 'pickaxe', 'skinning_knife'],
     mage: ['axe', 'pickaxe', 'potion x4', 'skinning_knife'],
   };
   for (const [id, want] of Object.entries(WANT)) {
@@ -128,6 +128,12 @@ console.log('settler kit: the pack after boot, counted');
   check('the ranger holds the shortbow and keeps the dagger its own kit packed, and no wand',
     ranger.equipment.mainHand.base === 'shortbow' && countOf(ranger, 'wand') === 0
     && countOf(ranger, 'dagger') === 1);
+  const rogue = planCharacter({ opening: 'rogue', name: 'Ashe', seed: 7 }).character;
+  boot(rogue);
+  check('the rogue wears both starting daggers and keeps none spare in the pack',
+    rogue.equipment.mainHand.base === 'dagger' && rogue.equipment.offHand.base === 'dagger'
+    && countOf(rogue, 'dagger') === 0,
+    `${rogue.equipment.mainHand?.base || 'none'} / ${rogue.equipment.offHand?.base || 'none'} / ${countOf(rogue, 'dagger')} spare`);
 }
 
 // ---------------------------------------------------------------------------

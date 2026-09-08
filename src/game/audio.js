@@ -505,9 +505,13 @@ export const MUSIC_KITS = {
   settlementDay: [`${LIBRARY_DIR}Hearthhome_Midday-music-track.mp3`],
   settlementNight: [`${LIBRARY_DIR}Hearthhome-night-soundtrack.mp3`],
   openCountry: [`${LIBRARY_DIR}The-Standing-Hedge.mp3`],
+  // The making of a character has its own theme (the user, 2026-09-08). It
+  // plays once BEGIN is pressed, which is the gesture that unlocks audio.
+  creation: [`${LIBRARY_DIR}Hearthhome_Midday-music-track.mp3`],
 };
 
 export function musicFor(context = {}) {
+  if (context.screen === 'creation') return 'creation';
   if (context.settlement) return context.night ? 'settlementNight' : 'settlementDay';
   return 'openCountry';
 }

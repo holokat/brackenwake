@@ -9,7 +9,7 @@
 // `pid`, which is the character's id or `id#2` when two of the same are in.
 //
 //   client -> server   { t:'hello', id, name, look }
-//                      { t:'state', p:[x,y,z], yaw, sp, an, hp, mhp, mp, mmp, st, mst, tg }
+//                      { t:'state', p:[x,y,z], yaw, sp, an, hp, mhp, mp, mmp, st, mst, tg, hd }
 //                      { t:'cast', to: pid, ability, payload }
 //                      { t:'say', text }     { t:'ping', n }
 //   server -> client   { t:'welcome', pid, players:[{pid,id,name,look,state}] }
@@ -71,6 +71,7 @@ export function encodeState({ pos, yaw, speed, anim, actor, target } = {}) {
     mp: Math.round(num(a.mana)), mmp: Math.round(num(a.maxMana)),
     st: Math.round(num(a.stamina)), mst: Math.round(num(a.maxStamina)),
     tg: target && target.pid ? String(target.pid) : '',
+    hd: !!a.hidden,
   };
 }
 
@@ -105,6 +106,7 @@ export function createRemotes() {
     while (rec.samples.length > 12) rec.samples.shift();
     rec.hp = num(st.hp); rec.mhp = num(st.mhp); rec.mp = num(st.mp); rec.mmp = num(st.mmp); rec.st = num(st.st); rec.mst = num(st.mst);
     rec.tg = st.tg || '';
+    rec.hidden = !!st.hd;
     rec.seenAt = nowS;
   }
 
@@ -142,13 +144,13 @@ export function createRemotes() {
       if (!rec || !rec.samples.length) return null;
       const s = rec.samples;
       const t = nowS - INTERP_DELAY_S;
-      if (t >= s[s.length - 1].t || s.length === 1) { const l = s[s.length - 1]; return { x: l.x, y: l.y, z: l.z, yaw: l.yaw, speed: t > l.t + 0.5 ? 0 : l.sp, anim: l.an }; }
+      if (t >= s[s.length - 1].t || s.length === 1) { const l = s[s.length - 1]; return { x: l.x, y: l.y, z: l.z, yaw: l.yaw, speed: t > l.t + 0.5 ? 0 : l.sp, anim: l.an, hidden: !!rec.hidden }; }
       let i = s.length - 2;
       while (i > 0 && s[i].t > t) i--;
       const a = s[i], b = s[i + 1];
       const span = b.t - a.t;
       const u = span > 1e-6 ? Math.max(0, Math.min(1, (t - a.t) / span)) : 1;
-      return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, z: a.z + (b.z - a.z) * u, yaw: lerpAngle(a.yaw, b.yaw, u), speed: a.sp + (b.sp - a.sp) * u, anim: u < 0.5 ? a.an : b.an };
+      return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, z: a.z + (b.z - a.z) * u, yaw: lerpAngle(a.yaw, b.yaw, u), speed: a.sp + (b.sp - a.sp) * u, anim: u < 0.5 ? a.an : b.an, hidden: !!rec.hidden };
     },
   };
 }

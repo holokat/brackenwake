@@ -99,6 +99,8 @@ export const ROSTER_KEY = 'brackenwake-roster';
 export const ROSTER_VERSION = 1;
 /** The sessionStorage flag the settings window raises to ask for the roster. */
 export const ROSTER_FLAG = 'brackenwake-show-roster';
+/** A creation draft is not a roster row and is never listed as a character. */
+export const CREATION_DRAFT_KEY = 'brackenwake-creation-draft-v1';
 /** Where one character's document lives. */
 export const slotKeyFor = (id, key = SAVE_KEY) => `${key}:${id}`;
 
@@ -354,28 +356,93 @@ function hydrateRow(s) {
   };
 }
 
+const emptyRoster = () => ({
+  v: ROSTER_VERSION, slots: [], lastPlayed: null,
+  dropped: 0, droppedNeedsCreation: 0, droppedNameless: 0, droppedUnreadable: 0,
+});
+
+function rosterName(row) {
+  const fromSummary = typeof row?.summary?.name === 'string' ? row.summary.name.trim() : '';
+  const fromRow = typeof row?.name === 'string' ? row.name.trim() : '';
+  return fromSummary || fromRow;
+}
+
+function rosterDropReason(row) {
+  const needsCreation = !!(row?.needsCreation || row?.summary?.needsCreation);
+  const nameless = !rosterName(row);
+  return needsCreation || nameless ? { needsCreation, nameless } : null;
+}
+
+function completeCharacter(doc) {
+  return !!doc && typeof doc === 'object' && !doc.needsCreation
+    && typeof doc.name === 'string' && doc.name.trim().length > 0;
+}
+
+function rosterForDisk(roster) {
+  return {
+    v: ROSTER_VERSION,
+    slots: Array.isArray(roster?.slots) ? roster.slots : [],
+    lastPlayed: typeof roster?.lastPlayed === 'string' ? roster.lastPlayed : null,
+  };
+}
+
 /** The roster as it is on disk, tolerant of every shape but its own. */
 export function readRoster(storage, rosterKey = ROSTER_KEY) {
-  const out = { v: ROSTER_VERSION, slots: [], lastPlayed: null };
+  const out = emptyRoster();
   if (!storage) return out;
   const raw = read(storage, rosterKey);
   if (!raw || typeof raw !== 'object') return out;
+  let dirty = false;
+  const seen = new Set();
   if (Array.isArray(raw.slots)) {
     for (const s of raw.slots) {
       const row = hydrateRow(s);
-      if (row && !out.slots.some((r) => r.id === row.id)) out.slots.push(row);
+      if (!row || seen.has(row.id)) {
+        out.droppedUnreadable++;
+        dirty = true;
+        continue;
+      }
+      const reason = rosterDropReason(row);
+      if (reason) {
+        out.dropped++;
+        if (reason.needsCreation) out.droppedNeedsCreation++;
+        if (reason.nameless) out.droppedNameless++;
+        dirty = true;
+        continue;
+      }
+      seen.add(row.id);
+      out.slots.push(row);
     }
   }
   if (typeof raw.lastPlayed === 'string' && out.slots.some((s) => s.id === raw.lastPlayed)) {
     out.lastPlayed = raw.lastPlayed;
+  } else if (typeof raw.lastPlayed === 'string') {
+    dirty = true;
   }
+  if (dirty) writeRoster(storage, rosterKey, out);
   return out;
 }
 
 function writeRoster(storage, rosterKey, roster) {
   if (!storage) return false;
-  roster.v = ROSTER_VERSION;
-  return put(storage, rosterKey, JSON.stringify(roster));
+  return put(storage, rosterKey, JSON.stringify(rosterForDisk(roster)));
+}
+
+function readDraft(storage, draftKey = CREATION_DRAFT_KEY) {
+  const raw = read(storage, draftKey);
+  if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !raw.id) return null;
+  const doc = raw.doc && typeof raw.doc === 'object' ? raw.doc : null;
+  return doc ? { id: raw.id, doc } : null;
+}
+
+function writeDraft(storage, draftKey, id, doc) {
+  if (!storage || typeof id !== 'string' || !id || !doc || typeof doc !== 'object') return false;
+  const text = JSON.stringify({ v: 1, id, doc });
+  if (!put(storage, draftKey, text)) return false;
+  let back = null;
+  try { back = storage.getItem(draftKey); } catch { back = null; }
+  if (back !== text) { drop(storage, draftKey); return false; }
+  return true;
 }
 
 /** The lowest number nobody is using, so a deleted slot's name comes back. */
@@ -414,8 +481,10 @@ export function migrateLegacy(storage, opts = {}) {
   const key = opts.key || SAVE_KEY;
   const keyV1 = opts.keyV1 || SAVE_KEY_V1;
   const rosterKey = opts.rosterKey || ROSTER_KEY;
+  const draftKey = opts.draftKey || CREATION_DRAFT_KEY;
   const roster = readRoster(storage, rosterKey);
   if (!storage || roster.slots.length) return roster;
+  if (readDraft(storage, draftKey)) return roster;
 
   let text = null, parsed = null, from = null;
   let raw = null;
@@ -435,6 +504,15 @@ export function migrateLegacy(storage, opts = {}) {
   if (!text) return roster;
 
   const id = '1';
+  const doc = hydrate(parsed);
+  if (!completeCharacter(doc)) {
+    if (!writeDraft(storage, draftKey, id, doc)) return roster;
+    drop(storage, from);
+    drop(storage, keyV1);          // a v1 save beside a v2 one is a stale copy
+    roster.draft = id;
+    return roster;
+  }
+
   const sk = slotKeyFor(id, key);
   if (!put(storage, sk, text)) return roster;
   let back = null;
@@ -442,7 +520,6 @@ export function migrateLegacy(storage, opts = {}) {
   if (back !== text) { drop(storage, sk); return roster; }
 
   const now = Date.now();
-  const doc = hydrate(parsed);
   roster.slots.push(rowFor(doc, id, now, now));
   roster.lastPlayed = id;
   if (!writeRoster(storage, rosterKey, roster)) {
@@ -511,6 +588,7 @@ export function createState(opts = {}) {
   const key = opts.key || SAVE_KEY;
   const keyV1 = opts.keyV1 || SAVE_KEY_V1;
   const rosterKey = opts.rosterKey || ROSTER_KEY;
+  const draftKey = opts.draftKey || CREATION_DRAFT_KEY;
   const storage = opts.storage === undefined ? defaultStorage() : opts.storage;
   const listeners = new Set();
   /** Which character is open. Null until one is, and again after a delete. */
@@ -831,28 +909,43 @@ export function createState(opts = {}) {
       slot = id;
       r.lastPlayed = id;
       writeRoster(storage, rosterKey, r);
+      drop(storage, draftKey);
       notify('load');
       return true;
     },
 
     /**
-     * A slot with nobody in it yet: a blank document, `needsCreation`, and a
-     * row so the roster can show it if the boot is interrupted. Returns the
-     * new id, or null when there is no storage to hold one.
+     * A character being made is a draft, not a row. The id is reserved in
+     * memory and, when storage allows it, in the draft record only.
      */
     newSlot() {
       doc = fillPools(blankCharacter());
       if (!storage) { slot = null; notify('character'); return null; }
       const r = readRoster(storage, rosterKey);
       const id = nextSlotId(r);
-      const now = Date.now();
-      r.slots.push(rowFor(doc, id, now, now));
-      r.lastPlayed = id;
-      if (!writeRoster(storage, rosterKey, r)) { slot = null; notify('character'); return null; }
-      put(storage, slotKeyFor(id, key), JSON.stringify(doc));
       slot = id;
+      if (!writeDraft(storage, draftKey, id, doc)) { slot = null; notify('character'); return null; }
       notify('character');
       return id;
+    },
+
+    /** Throw away the unfinished character the creation screen was holding. */
+    discardDraft() {
+      if (!storage) {
+        if (!doc.needsCreation) return false;
+        doc = fillPools(blankCharacter());
+        slot = null;
+        notify('character');
+        return true;
+      }
+      const draft = readDraft(storage, draftKey);
+      const gone = drop(storage, draftKey);
+      if (draft || doc.needsCreation) {
+        doc = fillPools(blankCharacter());
+        slot = null;
+        notify('character');
+      }
+      return !!draft || gone;
     },
 
     /**
@@ -870,6 +963,7 @@ export function createState(opts = {}) {
       if (r.lastPlayed === id) r.lastPlayed = r.slots.length ? r.slots[r.slots.length - 1].id : null;
       if (!writeRoster(storage, rosterKey, r)) return false;
       drop(storage, slotKeyFor(id, key));
+      if (id === slot) drop(storage, draftKey);
       if (id === slot) slot = null;
       notify('roster');
       return true;
@@ -886,6 +980,11 @@ export function createState(opts = {}) {
     save() {
       if (!storage) return false;
       doc.v = SAVE_VERSION;
+      if (!completeCharacter(doc)) {
+        if (!slot) slot = nextSlotId(readRoster(storage, rosterKey));
+        if (slot) writeDraft(storage, draftKey, slot, doc);
+        return false;
+      }
       const now = Date.now();
       const r = readRoster(storage, rosterKey);
       if (!slot) slot = nextSlotId(r);
@@ -894,7 +993,8 @@ export function createState(opts = {}) {
       if (i < 0) r.slots.push(row); else r.slots[i] = row;
       r.lastPlayed = slot;
       if (!put(storage, slotKeyFor(slot, key), JSON.stringify(doc))) return false;
-      writeRoster(storage, rosterKey, r);
+      if (!writeRoster(storage, rosterKey, r)) return false;
+      drop(storage, draftKey);
       // A v1 save left beside a v2 one is a stale copy of a document that has
       // moved on, and the migration has already taken what it wanted.
       drop(storage, keyV1);
@@ -913,8 +1013,13 @@ export function createState(opts = {}) {
       const r = migrateLegacy(storage, { key, keyV1, rosterKey });
       const has = (id) => !!id && r.slots.some((s) => s.id === id);
       const want = has(slot) ? slot : has(r.lastPlayed) ? r.lastPlayed : (r.slots[0]?.id || null);
-      if (!want) return false;
-      return state.openSlot(want);
+      if (want) return state.openSlot(want);
+      const draft = readDraft(storage, draftKey);
+      if (!draft) return false;
+      doc = fillPools(hydrate(draft.doc));
+      slot = draft.id;
+      notify('load');
+      return true;
     },
 
     /**
@@ -927,6 +1032,8 @@ export function createState(opts = {}) {
       if (slot) state.deleteSlot(slot, { evenIfOpen: true });
       drop(storage, key);
       drop(storage, keyV1);
+      drop(storage, draftKey);
+      slot = null;
     },
 
     onChange(fn) { if (typeof fn === 'function') listeners.add(fn); return () => listeners.delete(fn); },
