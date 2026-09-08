@@ -58,12 +58,6 @@
       "yaw": 315
     },
     {
-      "model": "stone_bridge_10m",
-      "x": -44,
-      "z": 40,
-      "yaw": 225
-    },
-    {
       "model": "waystone_village",
       "x": -10,
       "z": 22,

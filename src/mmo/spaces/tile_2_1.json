@@ -1,0 +1,55 @@
+{
+  "id": "tile_2_1",
+  "name": "Tile 2, 1",
+  "note": "",
+  "at": {
+    "x": 640,
+    "z": 384
+  },
+  "radius": 182,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "palm",
+      "x": -80.78,
+      "z": -88.89,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "palm",
+      "x": -65.61,
+      "z": -102.98,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "palm",
+      "x": -38.35,
+      "z": -129.2,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "palm",
+      "x": -30.06,
+      "z": -156.62,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "palm",
+      "x": -106.85,
+      "z": -78.33,
+      "yaw": 0,
+      "scale": 1
+    }
+  ],
+  "rocks": [],
+  "markers": [],
+  "world": "island"
+}

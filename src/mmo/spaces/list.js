@@ -423,7 +423,11 @@ import sp_tile__8_1 from './tile_-8_1.json' with { type: 'json' };
 import sp_tile_0__1 from './tile_0_-1.json' with { type: 'json' };
 import sp_tile_0__2 from './tile_0_-2.json' with { type: 'json' };
 import sp_tile_1__1 from './tile_1_-1.json' with { type: 'json' };
+import sp_tile_1_0 from './tile_1_0.json' with { type: 'json' };
+import sp_tile_1_1 from './tile_1_1.json' with { type: 'json' };
 import sp_tile_2__1 from './tile_2_-1.json' with { type: 'json' };
+import sp_tile_2_0 from './tile_2_0.json' with { type: 'json' };
+import sp_tile_2_1 from './tile_2_1.json' with { type: 'json' };
 import sp_tile_2_5 from './tile_2_5.json' with { type: 'json' };
 import sp_tile_2_6 from './tile_2_6.json' with { type: 'json' };
 import sp_tile_3_5 from './tile_3_5.json' with { type: 'json' };
@@ -842,7 +846,11 @@ export const FILES = {
   'tile_0_-1': sp_tile_0__1,
   'tile_0_-2': sp_tile_0__2,
   'tile_1_-1': sp_tile_1__1,
+  'tile_1_0': sp_tile_1_0,
+  'tile_1_1': sp_tile_1_1,
   'tile_2_-1': sp_tile_2__1,
+  'tile_2_0': sp_tile_2_0,
+  'tile_2_1': sp_tile_2_1,
   'tile_2_5': sp_tile_2_5,
   'tile_2_6': sp_tile_2_6,
   'tile_3_5': sp_tile_3_5,

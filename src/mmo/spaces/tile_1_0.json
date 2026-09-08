@@ -1,0 +1,160 @@
+{
+  "id": "tile_1_0",
+  "name": "Tile 1, 0",
+  "note": "",
+  "at": {
+    "x": 384,
+    "z": 128
+  },
+  "radius": 182,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "birch",
+      "x": -55.7,
+      "z": 82.12,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": -35.13,
+      "z": 12.74,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": 15.17,
+      "z": 3.84,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": -88.36,
+      "z": 19.08,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": -59.28,
+      "z": 48.53,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "dead",
+      "x": -52.91,
+      "z": -8.35,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "dead",
+      "x": -87.16,
+      "z": 40.94,
+      "yaw": 105,
+      "scale": 1.19
+    },
+    {
+      "species": "dead",
+      "x": -85.09,
+      "z": 39.46,
+      "yaw": 240,
+      "scale": 1.23
+    },
+    {
+      "species": "dead",
+      "x": -83.82,
+      "z": 33.68,
+      "yaw": 247,
+      "scale": 0.87
+    },
+    {
+      "species": "dead",
+      "x": -73.3,
+      "z": 62.45,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "dead",
+      "x": -30.67,
+      "z": 51.78,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "dead",
+      "x": 6.58,
+      "z": 18.79,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "dead",
+      "x": -10.98,
+      "z": -29.96,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "dead",
+      "x": 37.73,
+      "z": 18.49,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "dead",
+      "x": 4.85,
+      "z": -18.19,
+      "yaw": 337,
+      "scale": 0.99
+    },
+    {
+      "species": "dead",
+      "x": 1.97,
+      "z": -16.21,
+      "yaw": 256,
+      "scale": 0.95
+    },
+    {
+      "species": "dead",
+      "x": 8.42,
+      "z": -10.5,
+      "yaw": 330,
+      "scale": 1.1
+    },
+    {
+      "species": "dead",
+      "x": 18.62,
+      "z": -69.17,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "dead",
+      "x": 51.81,
+      "z": 30.43,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "fig",
+      "x": -47.29,
+      "z": 52.08,
+      "yaw": 0,
+      "scale": 1
+    }
+  ],
+  "rocks": [],
+  "markers": [],
+  "world": "island"
+}

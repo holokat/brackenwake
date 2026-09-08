@@ -1,0 +1,167 @@
+{
+  "id": "tile_1_1",
+  "name": "Tile 1, 1",
+  "note": "",
+  "at": {
+    "x": 384,
+    "z": 384
+  },
+  "radius": 182,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "birch",
+      "x": -64.96,
+      "z": -103.29,
+      "yaw": 261,
+      "scale": 1.13
+    },
+    {
+      "species": "birch",
+      "x": -59.15,
+      "z": -101.66,
+      "yaw": 79,
+      "scale": 0.82
+    },
+    {
+      "species": "birch",
+      "x": -64.73,
+      "z": -99.73,
+      "yaw": 290,
+      "scale": 0.82
+    },
+    {
+      "species": "birch",
+      "x": -13.17,
+      "z": -114.84,
+      "yaw": 244,
+      "scale": 1.16
+    },
+    {
+      "species": "birch",
+      "x": -8.66,
+      "z": -108.4,
+      "yaw": 116,
+      "scale": 1.08
+    },
+    {
+      "species": "birch",
+      "x": -10.01,
+      "z": -117.03,
+      "yaw": 55,
+      "scale": 1.12
+    },
+    {
+      "species": "birch",
+      "x": -16.37,
+      "z": -68.18,
+      "yaw": 262,
+      "scale": 0.82
+    },
+    {
+      "species": "birch",
+      "x": -18.82,
+      "z": -61.7,
+      "yaw": 67,
+      "scale": 1.24
+    },
+    {
+      "species": "birch",
+      "x": -17.51,
+      "z": -70.94,
+      "yaw": 13,
+      "scale": 1.14
+    },
+    {
+      "species": "birch",
+      "x": -60.98,
+      "z": -50.51,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": -61.24,
+      "z": -86.38,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": -36.01,
+      "z": -84.92,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": -44.63,
+      "z": -36.16,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "birch",
+      "x": 9.01,
+      "z": -54.35,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "palm",
+      "x": -60.64,
+      "z": 27.97,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "palm",
+      "x": 54.05,
+      "z": -11.08,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "palm",
+      "x": 74.58,
+      "z": -8,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "palm",
+      "x": 124.82,
+      "z": -52.97,
+      "yaw": 0,
+      "scale": 1
+    },
+    {
+      "species": "palm",
+      "x": 48.23,
+      "z": -26.23,
+      "yaw": 337,
+      "scale": 1.26
+    },
+    {
+      "species": "palm",
+      "x": 47.32,
+      "z": -26.3,
+      "yaw": 52,
+      "scale": 0.91
+    },
+    {
+      "species": "palm",
+      "x": 66.63,
+      "z": -44.97,
+      "yaw": 0,
+      "scale": 1
+    }
+  ],
+  "rocks": [],
+  "markers": [],
+  "world": "island"
+}

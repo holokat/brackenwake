@@ -1,0 +1,27 @@
+{
+  "id": "tile_2_0",
+  "name": "Tile 2, 0",
+  "note": "",
+  "at": {
+    "x": 640,
+    "z": 128
+  },
+  "radius": 182,
+  "pieces": [],
+  "runs": [],
+  "areas": [],
+  "people": [],
+  "spawns": [],
+  "trees": [
+    {
+      "species": "palm",
+      "x": 3.48,
+      "z": 55.63,
+      "yaw": 0,
+      "scale": 1
+    }
+  ],
+  "rocks": [],
+  "markers": [],
+  "world": "island"
+}
