@@ -52,24 +52,21 @@ import { buildBag } from './win_bag.js';
  * down on the left, the lower body and everything held on the right.
  */
 export const DOLL = {
-  left: ['head', 'neck', 'back', 'chest', 'wrists', 'hands', 'waist'],
-  right: ['legs', 'feet', 'ring1', 'ring2', 'mainHand', 'offHand'],   // bows are main hand weapons; the old `ranged` cell is gone
+  left: ['mainHand', 'ring1', 'ring2'],
+  right: ['neck', 'outfit', 'offHand'],
 };
 
 /** What the label under an empty cell says. */
 export const SLOT_LABELS = {
-  head: 'head', neck: 'neck', chest: 'chest', back: 'cloak', hands: 'hands',
-  wrists: 'wrists', waist: 'waist', legs: 'legs', feet: 'feet',
-  ring1: 'ring', ring2: 'ring', mainHand: 'main', offHand: 'off', ranged: 'bow',
+  outfit: 'outfit', neck: 'amulet',
+  ring1: 'ring', ring2: 'ring', mainHand: 'weapon', offHand: 'off hand',
 };
 
 /** The longer word the tooltip's second card uses: "on your first ring hand". */
 export const SLOT_WORDS = {
-  head: 'on your head', neck: 'around your neck', chest: 'on your chest',
-  back: 'over your shoulders', hands: 'on your hands', wrists: 'on your wrists',
-  waist: 'at your waist', legs: 'on your legs', feet: 'on your feet',
+  outfit: 'as your outfit', neck: 'around your neck',
   ring1: 'on your first ring hand', ring2: 'on your second ring hand',
-  mainHand: 'in your main hand', offHand: 'in your off hand', ranged: 'slung on your back',
+  mainHand: 'in your main hand', offHand: 'in your off hand',
 };
 
 export const STAT_LABELS = { str: 'STR', dex: 'DEX', int: 'INT', con: 'CON', wis: 'WIS' };
@@ -93,7 +90,7 @@ export const TITLES = {
   wrestling: 'Brawler', polearms: 'Pikeman', tactics: 'Tactician',
   anatomy: 'Anatomist', parrying: 'Shieldbearer',
   archery: 'Archer', marksmanship: 'Marksman', tracking: 'Tracker',
-  magery: 'Mage', evaluatingIntelligence: 'Scholar', meditation: 'Adept',
+  magery: 'Wizard', evaluatingIntelligence: 'Scholar', meditation: 'Adept',
   resistingSpells: 'Warded', necromancy: 'Necromancer', spiritSpeak: 'Spirit Speaker',
   chivalry: 'Knight', mysticism: 'Mystic', inscription: 'Scribe',
   healing: 'Healer', veterinary: 'Beast Healer', poisoning: 'Poisoner',
@@ -139,17 +136,14 @@ export const DEFAULT_MOTTO = 'What you carry, you earned';
  * The doll shows every slot, once. Runs at load: a fifteenth slot added to
  * items.js and forgotten here fails here instead of vanishing from the screen.
  */
-/** The one slot nothing files under any more: bows went to the main hand, and the save loader empties it. */
-export const RETIRED_SLOTS = ['ranged'];
 export function auditDoll() {
   const cells = [...DOLL.left, ...DOLL.right];
-  const live = SLOTS.filter((s) => !RETIRED_SLOTS.includes(s));
+  const live = SLOTS;
   if (cells.length !== live.length) {
     throw new Error(`auditDoll: the doll has ${cells.length} cells and the game has ${live.length} live slots`);
   }
   if (new Set(cells).size !== cells.length) throw new Error('auditDoll: a slot appears in two cells');
   for (const s of live) if (!cells.includes(s)) throw new Error(`auditDoll: no cell for the ${s} slot`);
-  for (const s of RETIRED_SLOTS) if (cells.includes(s)) throw new Error(`auditDoll: the ${s} slot is retired and still has a cell`);
   for (const s of cells) {
     if (!SLOTS.includes(s)) throw new Error(`auditDoll: ${s} is a cell and not a slot`);
     if (!SLOT_LABELS[s]) throw new Error(`auditDoll: the ${s} cell has no label`);
@@ -191,7 +185,8 @@ export function titleOf(character) {
   if (bestId && best >= TITLE_AT) return { text: TITLES[bestId], from: bestId, at: best };
   const op = character?.opening;
   if (op && typeof op === 'string') {
-    return { text: op.charAt(0).toUpperCase() + op.slice(1), from: 'opening', at: best };
+    const known = op === 'mage' ? 'Wizard' : (['warrior', 'ranger', 'rogue'].includes(op) ? op.charAt(0).toUpperCase() + op.slice(1) : 'Ranger');
+    return { text: known, from: 'opening', at: best };
   }
   return { text: 'Wanderer', from: null, at: best };
 }

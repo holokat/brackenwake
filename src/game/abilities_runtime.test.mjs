@@ -1375,7 +1375,10 @@ const item = (base, count) => (count == null ? { base } : { base, count });
     // those four still say what they want rather than failing in silence.
     const wanted = unlockedFor(c.skills, c.stats)
       .filter((x) => !x.passive && weaponKinds.includes(weaponNeeds(x).kind))
-      .filter((x) => x.openAt >= x.minSkill || c.skills[x.skill] >= x.minSkill);
+      // a school starter (openAt 0) is not something the kit owes a character
+      // whose skill in it is 0: the settler's kit stopped handing out a wand on
+      // 2026-09-08, so a warrior's Magic Arrow waits for a focus he finds or makes
+      .filter((x) => (c.skills[x.skill] || 0) > 0 && c.skills[x.skill] >= x.minSkill);
     const refused = wanted.filter((x) => !weaponCheck(x, c.equipment, c.pack).ok);
     const stranded = wanted.filter((x) => !answerable(x, c));
     rows.push({ id: op.id, wanted: wanted.length, refused: refused.map((x) => x.id), stranded: stranded.map((x) => x.id) });
@@ -1406,12 +1409,12 @@ const item = (base, count) => (count == null ? { base } : { base, count });
   }
   // And every caster starts with the focus already in the hand, not one swap
   // away: a mage whose first click is refused has been handed a broken game.
-  const casters = ['mage', 'sorcerer', 'necromancer', 'healer'];
+  const casters = ['mage'];
   const armed = casters.filter((id) => {
     const c = planCharacter({ opening: id, name: 'Testing', seed: 3 }).character;
     return weaponCheck(ABILITIES_BY_ID.magicArrow, c.equipment, c.pack).ok;
   });
-  ck('and all four casting openings start with the focus already in the hand',
+  ck('and the casting opening starts with the focus already in the hand',
     armed.length === casters.length, armed.join(', ') || 'none');
   // bows are main hand weapons (2026-09-08): the ranger is born with the bow IN
   // HAND and the dagger in the pack, and swapping them is one move
@@ -1430,11 +1433,11 @@ const item = (base, count) => (count == null ? { base } : { base, count });
       const r = weaponCheck(ABILITIES_BY_ID.aimedShot, c.equipment, c.pack);
       return r.ok === false && /holding a Dagger/.test(r.reason);
     })(), 'the dagger is what you are holding');
-  ck('the bard plays on the lute the kit equips',
+  ck('a retired bard opening is refused before a lute can be checked',
     (() => {
       const c = planCharacter({ opening: 'bard', name: 'Testing', seed: 3 }).character;
-      return weaponCheck(ABILITIES_BY_ID.provoke, c.equipment, c.pack).ok === true;
-    })(), 'rapier in hand, lute in the off hand');
+      return !c;
+    })(), 'bard is no longer a creation opening');
 }
 
 // --- C1: the armour rule, measured ---------------------------------------------
@@ -1544,20 +1547,19 @@ function castRun(mat, opts = {}) {
 }
 
 {
-  // A mixed suit, and the instant spell a plated mage would otherwise abuse.
+  // A single outfit, and the instant spell a plated mage would otherwise abuse.
   const eq = worn(null);
-  eq.chest = makeItem({ base: 'plate_chest', seed: 2 });
-  eq.legs = makeItem({ base: 'chain_legs', seed: 2 });
+  eq.outfit = makeItem({ base: 'plate_outfit', seed: 2 });
   const h = harness({ monsters: [mob('Skeleton', 0, 3)], equipment: eq });
-  ck('a plate chest and chain legs burden a cast by (1 + 0.75) / 8',
-    h.actor.castBurden === 0.2188, String(h.actor.castBurden));
+  ck('a plate outfit burdens a cast by the full suit value',
+    h.actor.castBurden === 1, String(h.actor.castBurden));
   const view = h.abilities.barView(0);
   h.character.bar[0] = 'lightning';
   h.character.bar[1] = 'bless';
   h.character.bar[2] = 'powerStrike';
   const v = h.abilities.barView(0);
   ck('the bar tells the player before he presses anything',
-    v[0].burden === 0.2188 && /gets in the way a little/.test(v[0].burdenText), v[0].burdenText);
+    v[0].burden === 1 && /mostly stops a spell/.test(v[0].burdenText), v[0].burdenText);
   ck('a Chivalry row on the same bar shows nothing at all',
     v[1].burden === 0 && v[1].burdenText === '', `"${v[1].burdenText}"`);
   ck('and neither does a warrior ability', v[2].burden === 0 && v[2].burdenText === '');
@@ -1608,15 +1610,13 @@ function castRun(mat, opts = {}) {
     const c = planCharacter({ opening: o.id, name: 'Testing', seed: 3 }).character;
     return { id: o.id, burden: castBurdenOf(c.equipment) };
   });
-  const casters = rows.filter((r) => ['mage', 'sorcerer', 'necromancer', 'healer'].includes(r.id));
-  ck('the four casting openings start in cloth and cast free',
+  const casters = rows.filter((r) => ['mage'].includes(r.id));
+  ck('the casting opening starts in cloth and casts free',
     casters.every((r) => r.burden === 0), casters.map((r) => `${r.id} ${r.burden}`).join(', '));
   ck('and no opening starts above the amber mark, so nobody is handed a broken kit',
     rows.every((r) => r.burden <= BURDEN_MARK), rows.map((r) => `${r.id} ${r.burden}`).join(', '));
-  const paladin = rows.find((r) => r.id === 'paladin');
-  ck('the paladin starts in ringmail, and it costs his Chivalry nothing',
-    paladin.burden === 0.1375 && burdensInArmour(ABILITIES_BY_ID.bless) === false,
-    `burden ${paladin.burden}, Bless exempt`);
+  ck('Bless remains exempt from armour burden for any future Chivalry caster',
+    burdensInArmour(ABILITIES_BY_ID.bless) === false);
 }
 
 {

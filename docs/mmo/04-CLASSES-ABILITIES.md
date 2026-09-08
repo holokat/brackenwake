@@ -1,10 +1,8 @@
 # Openings and abilities
 
-There are no classes, only openings: ten ways to start, each a spread of the
-250 stat points, a handful of skills already at 30 to 50, a kit, and the
-abilities those skills unlock. Nothing is locked after the first minute. There
-is an eleventh opening, **Blank**, that hands you the points and the skill
-budget raw.
+There are four openings: Warrior, Ranger, Rogue and Wizard. Each is a spread
+of the 250 stat points, a handful of skills already at 30 to 50, a kit, and
+the abilities those skills unlock. Nothing is locked after the first minute.
 
 ## The openings
 
@@ -13,21 +11,14 @@ few coins and a kit. Skills listed at 0 are not restricted, just not begun.
 
 | opening | STR | DEX | INT | CON | WIS | skills at start | kit |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Warrior | 65 | 50 | 25 | 65 | 45 | Swordsmanship 50, Tactics 50, Parrying 40, Anatomy 30, Healing 30 | longsword, kite shield, leather set, 6 bandages |
-| Paladin | 60 | 40 | 35 | 60 | 55 | Swordsmanship 45, Chivalry 45, Tactics 40, Parrying 35, Healing 35 | longsword, buckler, ringmail chest and legs, holy book |
-| Ranger | 45 | 70 | 35 | 50 | 50 | Archery 50, Tracking 45, Tactics 35, Foraging 35, Animal Lore 35 | shortbow, 60 arrows, dagger, leather set |
-| Rogue | 40 | 75 | 40 | 45 | 50 | Fencing 50, Stealth 45, Hiding 40, Lockpicking 35, Poisoning 30 | two daggers, cloth hood, leather, 3 lockpicks |
-| Mage | 30 | 40 | 70 | 45 | 65 | Magery 50, Evaluating Intelligence 45, Meditation 45, Resisting Spells 30, Inscription 30 | staff, robe set, 4 mana potions |
-| Sorcerer | 30 | 45 | 75 | 40 | 60 | Mysticism 50, Evaluating Intelligence 45, Meditation 40, Magery 35, Alchemy 30 | staff, robe, 6 reagent pouches |
-| Necromancer | 35 | 40 | 65 | 50 | 60 | Necromancy 50, Spirit Speak 45, Meditation 40, Evaluating Intelligence 35, Anatomy 30 | bone staff, dark robe, skull |
-| Healer | 40 | 45 | 50 | 55 | 60 | Healing 50, Anatomy 45, Chivalry 35, Meditation 35, Veterinary 35 | wand, mace, cloth set, 20 bandages |
-| Bard | 40 | 55 | 50 | 50 | 55 | Musicianship 50, Provocation 40, Peacemaking 40, Discordance 35, Fencing 35 | lute, rapier, leather |
-| Artisan | 55 | 50 | 50 | 50 | 45 | Blacksmithing 45, Mining 45, Tailoring 40, Carpentry 35, Tinkering 35 | pickaxe, axe, hammer, tongs, leather apron, 20 iron ingots |
-| Blank | 50 | 50 | 50 | 50 | 50 | 200 points to place, no skill above 50 | dagger, wand, cloth, 100 coins |
+| Warrior | 65 | 50 | 25 | 65 | 45 | Swordsmanship 50, Tactics 50, Parrying 40, Anatomy 30, Healing 30 | longsword, kite shield, leather outfit, 6 bandages |
+| Ranger | 45 | 70 | 35 | 50 | 50 | Archery 50, Tracking 45, Tactics 35, Foraging 35, Animal Lore 35 | shortbow, 60 arrows, dagger, leather outfit |
+| Rogue | 40 | 75 | 40 | 45 | 50 | Fencing 50, Stealth 45, Hiding 40, Lockpicking 35, Poisoning 30 | two daggers, leather outfit, 3 lockpicks |
+| Wizard | 30 | 40 | 70 | 45 | 65 | Magery 50, Evaluating Intelligence 45, Meditation 45, Resisting Spells 30, Inscription 30 | staff, cloth outfit, 4 mana potions |
 
 **Customising:** after picking an opening you may move up to 30 stat points and
 30 skill points around before you set foot in the world, so a Warrior can be
-built quick rather than strong. Blank moves all of them.
+built quick rather than strong.
 
 **Appearance:** body (three builds), skin (eight), hair (twelve styles, ten
 colours), face marks, height 1.6 to 2.0 m. Cosmetic. Saved with the character.
@@ -192,8 +183,8 @@ Anatomy * 0.2`, cure poison at Healing 60, resurrect at Healing 80 and Anatomy
 ## Balance intent
 
 Every opening kills the same rat at the same speed and the same skeleton at
-roughly the same speed; the difference is how. Warriors take hits, mages
-avoid them, rangers keep distance, necromancers spend the corpse. The check
+roughly the same speed; the difference is how. Warriors take hits, Wizards
+avoid them, rangers keep distance, and rogues choose the angle. The check
 that pins it: `docs/mmo/balance.test.mjs` runs each opening against the tier 2
 skeleton with a fixed seed and asserts kill times within 25% of each other and
 no opening dying to it more than one time in twenty.

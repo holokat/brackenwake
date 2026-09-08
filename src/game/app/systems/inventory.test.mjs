@@ -64,17 +64,12 @@ const countOf = (c, base) => c.pack.items.filter(Boolean)
 // ---------------------------------------------------------------------------
 console.log('settler kit: the table itself');
 {
-  check('the kit is seven lines: five tools and the two that decide how you train',
-    SETTLER_KIT.length === 7, SETTLER_KIT.map((e) => e.base).join(', '));
+  check('the kit is three tools and nothing that fights (2026-09-08: the sorcerer with a bow he never chose)',
+    SETTLER_KIT.length === 3 && SETTLER_KIT.map((e) => e.base).join() === 'axe,pickaxe,skinning_knife', SETTLER_KIT.map((e) => e.base).join(', '));
   check('every base in it is a real item base',
     SETTLER_KIT.every((e) => !!BASES[e.base]), SETTLER_KIT.map((e) => e.base).join(', '));
-  check('the three ways to train are all in it: a melee weapon, a bow with arrows, and a wand',
-    SETTLER_KIT.some((e) => e.base === 'dagger') && SETTLER_KIT.some((e) => e.base === 'shortbow')
-    && SETTLER_KIT.some((e) => e.base === 'arrow' && e.count === 40)
-    && SETTLER_KIT.some((e) => e.base === 'wand'));
-  check('the wand is the only line held back by a focus, and the dagger the only one held back by a blade',
-    SETTLER_KIT.filter((e) => e.unless === 'focus').map((e) => e.base).join() === 'wand'
-    && SETTLER_KIT.filter((e) => e.unless === 'melee').map((e) => e.base).join() === 'dagger');
+  check('no line in it is a weapon, a bow, arrows or a focus: what you fight with is your opening\'s',
+    SETTLER_KIT.every((e) => !['dagger', 'shortbow', 'arrow', 'wand'].includes(e.base) && !e.unless));
 
   // The two predicates, driven both ways over real records.
   const empty = { pack: { items: [] }, equipment: {} };
@@ -99,11 +94,12 @@ console.log('settler kit: the table itself');
 // ---------------------------------------------------------------------------
 console.log('settler kit: the pack after boot, counted');
 {
-  // Exactly what is in the pack, for the three openings the brief names.
+  // Exactly what is in the pack, for the four openings.
   const WANT = {
-    warrior: ['arrow x40', 'axe', 'bandage x6', 'pickaxe', 'shortbow', 'skinning_knife', 'wand'],
-    mage: ['arrow x40', 'axe', 'dagger', 'pickaxe', 'potion x4', 'shortbow', 'skinning_knife'],
-    blank: ['arrow x40', 'axe', 'pickaxe', 'shortbow', 'skinning_knife', 'wand'],
+    warrior: ['axe', 'bandage x6', 'pickaxe', 'skinning_knife'],
+    ranger: ['arrow x60', 'axe', 'dagger', 'pickaxe', 'skinning_knife'],
+    rogue: ['axe', 'dagger', 'lockpick x3', 'pickaxe', 'skinning_knife'],
+    mage: ['axe', 'pickaxe', 'potion x4', 'skinning_knife'],
   };
   for (const [id, want] of Object.entries(WANT)) {
     const c = planCharacter({ opening: id, name: 'Ashe', seed: 7 }).character;
@@ -119,19 +115,19 @@ console.log('settler kit: the pack after boot, counted');
   // And the hands, which is the other half of "what is there".
   const warrior = planCharacter({ opening: 'warrior', name: 'Ashe', seed: 7 }).character;
   boot(warrior);
-  check('the warrior still holds the longsword and the kite shield, and the wand waits in the pack',
+  check('the warrior still holds the longsword and the kite shield, and no wand was slipped into the pack',
     warrior.equipment.mainHand.base === 'longsword' && warrior.equipment.offHand.base === 'kite'
-    && countOf(warrior, 'wand') === 1);
+    && countOf(warrior, 'wand') === 0);
   const mage = planCharacter({ opening: 'mage', name: 'Ashe', seed: 7 }).character;
   boot(mage);
-  check('the mage holds the staff, is given no second focus, and gets the dagger it had nothing to swing without',
+  check('the wizard holds the staff and is given neither a wand, a dagger nor a bow',
     mage.equipment.mainHand.base === 'staff' && countOf(mage, 'wand') === 0
-    && countOf(mage, 'dagger') === 1);
-  const blank = planCharacter({ opening: 'blank', name: 'Ashe', seed: 7 }).character;
-  boot(blank);
-  check('Blank holds the dagger, keeps its own wand and is given no second one',
-    blank.equipment.mainHand.base === 'dagger' && countOf(blank, 'wand') === 1
-    && countOf(blank, 'dagger') === 0);
+    && countOf(mage, 'dagger') === 0 && countOf(mage, 'shortbow') === 0 && countOf(mage, 'arrow') === 0);
+  const ranger = planCharacter({ opening: 'ranger', name: 'Ashe', seed: 7 }).character;
+  boot(ranger);
+  check('the ranger holds the shortbow and keeps the dagger its own kit packed, and no wand',
+    ranger.equipment.mainHand.base === 'shortbow' && countOf(ranger, 'wand') === 0
+    && countOf(ranger, 'dagger') === 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +137,7 @@ console.log('settler kit: once, and only once');
   const first = boot(c);
   const afterOne = packBases(c);
   check('the first boot grants the kit and says so',
-    afterOne.length === 7 && first.logs.some((l) => /settler's tools/.test(l.text)), afterOne.join(', '));
+    afterOne.length === 4 && first.logs.some((l) => /settler's tools/.test(l.text)), afterOne.join(', '));
   check('and hadSettlerKit went from false to true across it', hadSettlerKit(c) === true);
 
   const second = boot(c);
@@ -158,7 +154,7 @@ console.log('settler kit: once, and only once');
 }
 
 // ---------------------------------------------------------------------------
-console.log('settler kit: all eleven openings, and the three ways to train');
+console.log('settler kit: all four openings, and the three ways to train');
 {
   const rows = [];
   let allThree = 0, doubledFocus = 0, doubledMelee = 0;
@@ -188,20 +184,18 @@ console.log('settler kit: all eleven openings, and the three ways to train');
     rows.push(`${op.id} ${melee.length}m/${bows.length}b/${arrows}a/${foci.length}f`);
   }
   console.log(`  ${rows.join('  ')}`);
-  check('every one of the eleven openings can train melee, bow and magic after boot',
-    allThree === OPENINGS.length, `${allThree} of ${OPENINGS.length}`);
+  // Since 2026-09-08 the kit hands out tools and nothing that fights, so the
+  // three ways to train are the opening's own business: what every one of the
+  // four CAN do after boot is chop, mine and skin.
+  check('no opening is handed every way to train any more; the kit is tools',
+    allThree < OPENINGS.length, `${allThree} of ${OPENINGS.length} had melee, bow and focus`);
+  check('but every one of the four can chop, mine and skin after boot',
+    OPENINGS.every((op) => { const c = planCharacter({ opening: op.id, name: 'Ashe', seed: 7 }).character; boot(c); return ['axe', 'pickaxe', 'skinning_knife'].every((b) => countOf(c, b) === 1); }));
   check('and nobody is handed a second focus they did not need', doubledFocus === 0);
   check('nor a spare dagger on top of a kit that already had a blade', doubledMelee === 0,
-    'only the three pure casters, whose whole kit is a staff, are given one');
-  check('the artisan, whose own kit is an axe and a pickaxe, is not skipped any more',
-    (() => {
-      const c = planCharacter({ opening: 'artisan', name: 'Ashe', seed: 7 }).character;
-      boot(c);
-      return countOf(c, 'shortbow') === 1 && countOf(c, 'arrow') === 40
-        && countOf(c, 'skinning_knife') === 1 && countOf(c, 'wand') === 1
-        && countOf(c, 'axe') === 0 && countOf(c, 'pickaxe') === 1;
-    })(),
-    'it used to own an axe and a pickaxe already, so the old guard read it as already kitted');
+    'only a kit with no blade should be given one');
+  check('a retired opening is refused before the kit path runs',
+    planCharacter({ opening: 'artisan', name: 'Ashe', seed: 7 }).ok === false);
 }
 
 // ---------------------------------------------------------------------------

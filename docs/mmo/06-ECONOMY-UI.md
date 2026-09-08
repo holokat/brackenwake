@@ -19,7 +19,7 @@ month. The sinks and their sizes:
 | a mount, later | 800 |
 | a house deed, later | 5,000 and up |
 
-**Durability.** Every weapon and armour piece has 40 to 120 durability, loses 1
+**Durability.** Every weapon and armour outfit has 40 to 120 durability, loses 1
 on a 5% chance per hit taken or given, and at 0 does nothing until repaired. A
 repair costs gold and, without a smith, a small durability cap loss. This is
 the steady sink.
@@ -31,8 +31,8 @@ These two rules stop farming a town.
 
 **Catalog prices** (buy, base town): iron ingot 4, copper ore 1, oak wood 2,
 hide 3, bandage 2, arrows 1 per 5, heal potion 25, mana potion 30, longsword
-90, kite shield 70, leather set 120, chainmail set 600, plate set 2,400,
-longbow 140, quarterstaff 30, robe set 60, 8 slot bag 120.
+90, kite shield 70, leather outfit 120, chainmail outfit 600, plate outfit
+2,400, longbow 140, quarterstaff 30, cloth outfit 60, 8 slot bag 120.
 
 ## Trading between players
 
@@ -79,7 +79,7 @@ the fonts and colours already in `hud.js`.
   brightest thing in the scene when they happen.
 
 **Windows** (one key each, Escape closes)
-- **Character (C):** the paper doll with fourteen slots and the model wearing
+- **Character (C):** the paper doll with six slots and the model wearing
   what is equipped; stats with their derived numbers; resistances; weight.
   Hover an item for its tooltip with every affix in its rarity colour.
 - **Bag (B):** grid of slots, stacks with counts, unidentified items shown as
@@ -88,7 +88,7 @@ the fonts and colours already in `hud.js`.
 - **Skills (K):** all 52, grouped, each with its bar, number, lock arrow, and
   the abilities it has unlocked and will unlock next.
 - **Abilities (A):** everything learned, dragged onto the bar.
-- **Crafting (V):** at a station: recipes you can make, greyed ones you cannot
+- **Crafting (V):** at the Workshop: recipes you can make, greyed ones you cannot
   and why, the chance and expected quality shown before you commit.
 - **Map (M):** the world map from the field at 8 km, discovered sites named.
 - **Talk:** the NPC panel; buy, sell, train, heal tabs.

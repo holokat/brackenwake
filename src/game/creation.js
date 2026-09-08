@@ -1,4 +1,4 @@
-// Character creation: the eleven openings, the points, the face, the name, and
+// Character creation: the four openings, the points, the face, the name, and
 // the document the whole game is then played out of.
 //
 // The rules are openings.js's. This file moves points around, asks
@@ -14,8 +14,8 @@
 //    card, greyed, and said out loud when you begin, because a kit that
 //    silently hands over five of six items is the jam-and-bread failure again.
 //
-// 2. THE FACE IS ONE CHOICE NOW (CR3). The screen offers male or female and
-//    nothing else, because the character models are still being made and six
+// 2. THE BODY IS ONE CHOICE NOW. The screen offers no gender row, because the
+//    character models are still being made and six
 //    controls over a body that cannot change any of them is six lies. The other
 //    five fields (build, skin, hair, hair colour, marks, height) keep their
 //    defaults in openings.js and are still written into every save, so a
@@ -31,8 +31,8 @@
 import * as THREE from 'three';
 import {
   OPENINGS, OPENINGS_BY_ID, STAT_IDS, STAT_LABELS, STAT_NAMES, SKILL_NAMES, SKILL_IDS,
-  APPEARANCE, APPEARANCE_DEFAULT, validateAppearance, applyCustomisation,
-  CUSTOM_STAT_POINTS, CUSTOM_SKILL_POINTS, BLANK_STAT_POINTS, ITEM_BASES,
+  APPEARANCE_DEFAULT, validateAppearance, applyCustomisation,
+  CUSTOM_STAT_POINTS, CUSTOM_SKILL_POINTS, ITEM_BASES,
   OPENING_GROUP,
 } from '../mmo/openings.js';
 import { derived, validateSpread } from '../mmo/stats.js';
@@ -53,7 +53,6 @@ const MATERIAL_MAP = {
   cloth: 'cloth', leather: 'leather', studdedLeather: 'studded',
   ringmail: 'ring', chainmail: 'chain', platemail: 'plate',
 };
-const PIECES = ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back'];
 
 /**
  * The item base each kit base is preferred to be made from. Any of these that
@@ -69,12 +68,11 @@ export const PREFERRED = {
   // thing that says so.
   wand: 'wand', staff: 'staff',
   buckler: 'buckler', kiteShield: 'kite', towerShield: 'tower',
-  clothRobe: 'cloth_chest',
   arrow: 'arrow', ironIngot: 'iron_ingot', potionMana: 'potion', bandage: 'bandage',
   reagentPouch: 'reagent_pouch',
   pickaxe: 'pickaxe', tongs: 'tongs', smithHammer: 'smith_hammer', lockpick: 'lockpick',
   holyBook: 'holy_book', skull: 'skull', lute: 'lute',
-  boneStaff: 'bone_staff', darkRobe: 'dark_robe', leatherApron: 'leather_apron',
+  boneStaff: 'bone_staff',
 };
 
 /**
@@ -86,8 +84,6 @@ export const FALLBACK = {
   reagentPouch: 'reagent',
   holyBook: 'tome',
   boneStaff: 'quarterstaff',
-  darkRobe: 'cloth_chest',
-  leatherApron: 'leather_chest',
 };
 
 /** What each kit base actually resolves to, and whether that took a stand in. */
@@ -105,10 +101,7 @@ for (const id of Object.keys(ITEM_BASES)) {
   KIT_BASES[id] = null;
 }
 for (const [from, to] of Object.entries(MATERIAL_MAP)) {
-  for (const p of PIECES) {
-    const id = `${from}${p[0].toUpperCase()}${p.slice(1)}`;
-    KIT_BASES[id] = `${to}_${p}`;
-  }
+  KIT_BASES[`${from}Outfit`] = `${to}_outfit`;
 }
 
 /** Kit bases the item tables still cannot make. Counted, not guessed. */
@@ -252,13 +245,12 @@ export function planCharacter(choice = {}) {
   const look = validateAppearance({ ...APPEARANCE_DEFAULT, ...(choice.appearance || {}) });
   if (!look.ok) errors.push(look.error);
 
-  const isBlank = op.id === 'blank';
   const wantStats = { ...op.stats, ...(choice.stats || {}) };
   const wantSkills = { ...op.skills, ...(choice.skills || {}) };
 
   const sm = movesFrom(op.stats, wantStats, STAT_IDS, false);
   if (sm.error) errors.push(`stats: ${sm.error}`);
-  const km = movesFrom(op.skills, wantSkills, SKILL_IDS, isBlank);
+  const km = movesFrom(op.skills, wantSkills, SKILL_IDS, false);
   if (km.error) errors.push(`skills: ${km.error}`);
 
   let applied = null;
@@ -309,10 +301,8 @@ export function planCharacter(choice = {}) {
     if (!r.ok) refused.push(item);
   }
   // Wear what can be worn: armour, then the weapon, then the shield, then the
-  // oddments. Nothing displaces anything, so a paladin's holy book cannot
-  // shoulder his buckler into the pack the moment he is made; a second dagger
-  // and a tome that arrive after both hands are full stay in the pack and are
-  // named out loud.
+  // oddments. Nothing displaces anything, so a second dagger that arrives after
+  // both hands are full stays in the pack and is named out loud.
   const order = (it) => {
     const b = baseFor(it);
     return b.kind === 'armour' ? 0 : b.kind === 'weapon' ? 1 : b.kind === 'shield' ? 2 : 3;
@@ -322,10 +312,6 @@ export function planCharacter(choice = {}) {
     .filter((it) => it && baseFor(it).slot)
     .sort((a, b) => order(a) - order(b));
   const notWorn = [];
-  // A kit with a bow draws the bow: a ranged ability needs the main hand empty
-  // (abilities.weaponCheck), so the ranger's dagger rides in the pack and is
-  // named among what stayed behind rather than blocking every shot.
-  const drawsBow = wearable.some((it) => baseFor(it).slot === 'ranged');
   for (const it of wearable) {
     const i = character.pack.items.indexOf(it);
     if (i < 0) continue;
@@ -333,14 +319,10 @@ export function planCharacter(choice = {}) {
     const twoHandBusy = slot === 'mainHand' && character.equipment.offHand && baseFor(it).hands === 2;
     // And the same rule the other way round. inventory.equip now sends a two
     // hander to the pack when something is raised in the off hand, which is
-    // right for a player who chooses it and wrong here: the necromancer's kit
-    // is a bone staff and a skull, and the skull was quietly taking the staff
-    // out of his hands the moment he was made, leaving the only caster in the
-    // game who could not cast. The skull stays in the pack and is named among
-    // what stayed behind, exactly as the paladin's holy book is.
+    // right for a player who chooses it and wrong here: starter kits should not
+    // let a later off-hand item quietly put the main weapon away.
     const twoHanderUp = slot === 'offHand' && baseFor(character.equipment.mainHand)?.hands === 2;
-    const handBusyForBow = drawsBow && slot === 'mainHand';
-    if (!slot || character.equipment[slot] || twoHandBusy || twoHanderUp || handBusyForBow) { notWorn.push(it); continue; }
+    if (!slot || character.equipment[slot] || twoHandBusy || twoHanderUp) { notWorn.push(it); continue; }
     const r = inv.equip(i, slot);
     if (!r.ok) notWorn.push(it);
   }
@@ -380,11 +362,8 @@ export function shortfallLine(plan) {
  * card wears the colour the codex already uses for that archetype rather than
  * a second palette invented here.
  *
- * Two are not archetypes at all. The paladin has no group of his own: every
- * chivalry ability in abilities.js is filed under `healer`, so that is the
- * colour honestly owed him. The artisan and Blank take `everyone`, which is
- * the parchment neutral, because neither is an archetype and a red or a blue
- * would be a promise about abilities they do not have.
+ * Retired openings take `everyone`, the parchment neutral, because no card
+ * should promise abilities the player cannot choose.
  */
 export { OPENING_GROUP };
 
@@ -402,10 +381,9 @@ export function openingColour(id) {
  */
 /**
  * The open palm four of these are built on, so the mage's hand and the
- * healer's are the same hand and only what is done to it differs. Four
- * fingers, a thumb, and a palm that ends in a round heel; the fingers stop on
- * the palm's top edge rather than overlapping it, which is what lets the
- * healer punch the wrapping through the whole shape with one fill rule.
+ * Wizard spellwork is built from the same open palm as the shared glyph set.
+ * Four fingers, a thumb, and a palm that ends in a round heel; the fingers stop
+ * on the palm's top edge rather than overlapping it.
  */
 const PALM = `M7.6 10.6 a1.1 1.1 0 0 1 2.2 0 V14.2 h-2.2 Z
   M10.4 8.4 a1.1 1.1 0 0 1 2.2 0 V14.2 h-2.2 Z
@@ -430,13 +408,6 @@ export const EMBLEMS = {
       <path d="M16.1 15.4 H17.9 V19.9 H16.1 Z"/>
       <path d="M15.4 19.9 H18.6 V21.4 H15.4 Z"/>
     </g>`,
-  // an armoured fist, knuckles up, under a light
-  paladin: `<path d="M12 .8 l.9 2.3 2.3 .9 -2.3 .9 -.9 2.3 -.9 -2.3 -2.3 -.9 2.3 -.9 Z"/>
-    <path d="M4.8 4 l.6 1.5 1.5 .6 -1.5 .6 -.6 1.5 -.6 -1.5 -1.5 -.6 1.5 -.6 Z"/>
-    <path d="M19.4 4.6 l.5 1.3 1.3 .5 -1.3 .5 -.5 1.3 -.5 -1.3 -1.3 -.5 1.3 -.5 Z"/>
-    <path d="M6.8 13.4 a1.5 1.5 0 0 1 3 0 a1.5 1.5 0 0 1 3 0 a1.5 1.5 0 0 1 3 0
-      a1.5 1.5 0 0 1 3 0 V17.4 a4.3 4.3 0 0 1 -4.3 4.3 H11.1 a4.3 4.3 0 0 1 -4.3 -4.3 Z
-      M7.6 16.7 L17.6 16.7 L17.6 17.7 L7.6 17.7 Z" fill-rule="evenodd"/>`,
   // a bow, drawn, with the arrow on the string
   ranger: `<path d="M15.2 2 C8 6.2 8 17.8 15.2 22 L13.2 22 C6 17.8 6 6.2 13.2 2 Z"/>
     <path d="M14.6 2.2 h.9 V21.8 h-.9 Z"/>
@@ -459,32 +430,6 @@ export const EMBLEMS = {
   // an open hand under a rune
   mage: `<path d="M12 .6 L15.4 4.4 L12 8.2 L8.6 4.4 Z M12 2.8 L10.4 4.4 L12 6 L13.6 4.4 Z" fill-rule="evenodd"/>
     <path d="${PALM}"/>`,
-  // an eye inside a ring
-  sorcerer: `<path d="M12 1.6 a10.4 10.4 0 1 0 .1 0 Z m0 2.4 a8 8 0 1 1 -.1 0 Z"/>
-    <path d="M6 12 C8.6 8.6 15.4 8.6 18 12 C15.4 15.4 8.6 15.4 6 12 Z M8.2 12 C10.1 9.9 13.9 9.9 15.8 12 C13.9 14.1 10.1 14.1 8.2 12 Z" fill-rule="evenodd"/>
-    <path d="M12 10.1 a1.9 1.9 0 1 0 .1 0 Z"/>`,
-  // a skull, the same one the pack draws
-  necromancer: `<path d="M12 2 a8 8 0 0 1 8 8 v4 l-3 2 v3 H7 v-3 l-3 -2 v-4 a8 8 0 0 1 8 -8 Z
-    M9 10 a2 2 0 1 0 .1 0 Z M15 10 a2 2 0 1 0 .1 0 Z
-    M12 12.6 L10.6 15.4 L13.4 15.4 Z
-    M10.4 16.9 L10.4 18.9 L11.4 18.9 L11.4 16.9 Z
-    M12.6 16.9 L12.6 18.9 L13.6 18.9 L13.6 16.9 Z"/>`,
-  // the same hand, with the wrapping cut through it
-  healer: `<path d="${PALM}
-    M8.6 18.4 L17.2 15 L17.2 16.4 L8.6 19.8 Z
-    M9.4 20.6 L17.2 17.6 L17.2 19 L10.2 21.7 Z" fill-rule="evenodd"/>`,
-  // a lute: a round body with its hole, a neck, and the head bent back
-  bard: `<path d="M8.4 11.2 a5.2 5.2 0 1 0 .1 0 Z M6.8 13.4 a1.5 1.5 0 1 1 -.1 0 Z"/>
-    <path d="M10.6 13.6 L18.2 4.6 L19.8 5.9 L12.2 14.9 Z"/>
-    <path d="M17 1.6 L21.8 5.6 L20 7.8 L15.2 3.8 Z"/>`,
-  // a hammer raised over an anvil
-  artisan: `<g transform="rotate(-26 11 6)">
-      <path d="M6.6 2.2 H15.4 V5.4 H6.6 Z"/>
-      <path d="M10.2 5.4 H12.2 V11.4 H10.2 Z"/>
-    </g>
-    <path d="M2.6 14.8 L5.2 13.4 H20.2 V16.8 h-4 l1.2 2.6 h2 V22 H6.6 v-2.6 h2 l1.2 -2.6 H5.2 Z"/>`,
-  // a rune stone with nothing cut into it
-  blank: `<path d="M12 1.6 L18.6 5 v14 L12 22.4 L5.4 19 V5 Z M12 4 L7.6 6.3 v11.4 L12 20 l4.4 -2.3 V6.3 Z" fill-rule="evenodd"/>`,
 };
 
 /** One opening's emblem as an inline svg string, at `size` px. */
@@ -548,35 +493,21 @@ export const YAW_STEP = 30;
  */
 export const QUOTES = {
   warrior: 'Stand where it is worst. The rest is arithmetic.',
-  paladin: 'I do not have to be certain. I have to be there.',
   ranger: 'The wood told me an hour ago. You were not listening.',
   rogue: 'You will remember the door being locked.',
   mage: 'Every fire was a word first.',
-  sorcerer: 'I did not learn it. It was in the blood before I asked.',
-  necromancer: 'The dead keep better accounts than the living.',
-  healer: 'Bleed if you must. I will be under you when you drop.',
-  bard: 'Give me two enemies and one evening.',
-  artisan: 'Somebody made the sword you are so proud of.',
-  blank: 'Ask me again at the end of the road.',
 };
 
 /**
  * The sentence after the blurb: not what the class is, which the blurb says,
- * but what it is FOR, which is the thing a player choosing between eleven of
- * them actually wants.
+ * but what it is for, which is the thing a player choosing between four of
+ * them wants.
  */
 export const CLASS_NOTE = {
   warrior: 'The straightest road into the game, and the one that forgives most.',
-  paladin: 'For holding a line and mending it after, at the price of speed.',
   ranger: 'For fighting at the range where nothing has reached you yet.',
   rogue: 'For the way in, the way out, and the purse on the way past.',
   mage: 'The most damage in the game, and the least skin to lose it with.',
-  sorcerer: 'For wards, curses and the weather, which is to say the odd answers.',
-  necromancer: 'For making the dead pay off the trouble they caused.',
-  healer: 'For keeping a party on its feet long past where it should have ended.',
-  bard: "For turning a fight into somebody else's fight.",
-  artisan: 'For arming everyone, yourself last, and owning the forge that did it.',
-  blank: 'For a player who already knows the character they mean to play.',
 };
 
 /**
@@ -788,14 +719,13 @@ const CSS = `
   background: radial-gradient(circle at 50% 38%, rgba(255,255,255,.09), rgba(0,0,0,.5));
   border: 1px solid ${theme.goldDim}77;
 }
-/* 14px and not 15: NECROMANCER is the longest of the eleven and at 15 it ran
-   off the end of a 300 pixel column's card. Measured on the rendered page. */
+/* 15px fits the longest current opening in a 300 pixel column's card. */
 #bw-creation .bw-cr-name {
   font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
   letter-spacing: .02em; color: ${theme.parchment}; line-height: 1.1;
 }
 #bw-creation .bw-cr-card.on .bw-cr-name, #bw-creation .bw-cr-card:hover .bw-cr-name { color: ${theme.goldBright}; }
-/* one line of blurb, and never a third: eleven cards of a ragged height read
+/* one line of blurb, and never a third: cards of a ragged height read
    as a list of paragraphs rather than a rack of heroes */
 #bw-creation .bw-cr-blurb {
   font-size: 12.5px; line-height: 1.26; color: ${theme.parchmentDim};
@@ -1160,7 +1090,7 @@ export function createCreation(root, deps = {}) {
   plaque.appendChild(h('div', 'bw-cr-ask', 'Who walks out of the trees?'));
   panel.appendChild(plaque);
 
-  // --- the left column: the eleven, small
+  // --- the left column: the four openings, small
   const left = h('div', 'bw-cr-left');
   panel.appendChild(left);
   left.appendChild(h('div', 'bw-hdr', 'Choose your opening'));
@@ -1181,8 +1111,6 @@ export function createCreation(root, deps = {}) {
     turn.appendChild(b);
   }
   stage.appendChild(turn);
-  const lookEl = h('div', 'bw-cr-look');
-  stage.appendChild(lookEl);
 
   // --- the right column: this class, and everything you may change about it
   const right = h('div', 'bw-cr-right');
@@ -1255,11 +1183,11 @@ export function createCreation(root, deps = {}) {
 
   // --- the footer, both ends
   const foot = h('div', 'bw-cr-foot');
-  foot.appendChild(h('span', null, 'Eleven openings, thirty points to move, a name of your own'));
+  foot.appendChild(h('span', null, 'Four openings, thirty points to move, a name of your own'));
   foot.appendChild(h('span', null, `${GAME_TITLE} : the making of somebody`));
   panel.appendChild(foot);
 
-  // --- the eleven cards. Built once: nothing on a card changes with the
+  // --- the opening cards. Built once: nothing on a card changes with the
   // points, so only the lit border moves when the choice does.
   for (const op of OPENINGS) {
     const colour = openingColour(op.id);
@@ -1330,7 +1258,6 @@ export function createCreation(root, deps = {}) {
   // the budgets and the wording do
   let statInputs = new Map();
   let skillRows = new Map();
-  let genderPills = new Map();
 
   function build() {
     const op = OPENINGS_BY_ID[state.opening];
@@ -1403,41 +1330,8 @@ export function createCreation(root, deps = {}) {
     // CR3: ONE CHOICE, AND THE REST OF THE RECORD IS NOT GONE.
     //
     // The screen used to offer six: build, skin, hair, hair colour, marks and
-    // height. Five of the six drew a body the models cannot make yet, so they
-    // are off the screen and their defaults are still written into the save by
-    // `planCharacter` through APPEARANCE_DEFAULT. What is left is the one
-    // choice that will change a whole model when the models arrive.
-    //
-    // The pills are rebuilt with the rest of `build()` on every change of
-    // class, so `paintGender` is what a click calls: `refresh()` does not
-    // rebuild this row and a pill that lit only on a class change would be a
-    // button that looks broken.
-    lookEl.textContent = '';
-    genderPills = new Map();
-    for (const g of APPEARANCE.genders) {
-      const b = h('button', 'bw-cr-pill', g.toUpperCase());
-      b.dataset.look = 'gender';
-      b.dataset.gender = g;
-      b.title = `make them ${g}`;
-      b.addEventListener('click', () => {
-        if (state.appearance.gender === g) return;
-        state.appearance.gender = g;
-        // The rig is told, through the same call the game uses. It changes
-        // nothing you can see yet and says so in player.js; this is the wire,
-        // laid now so the model swap is one function and not a search.
-        if (rig && typeof rig.setAppearance === 'function') rig.setAppearance({ ...state.appearance });
-        paintGender();
-        refresh();
-      });
-      genderPills.set(g, b);
-      lookEl.appendChild(b);
-    }
-    paintGender();
-  }
-
-  /** Which of the two is lit. Called by build() and by a click, and nothing else. */
-  function paintGender() {
-    for (const [g, b] of genderPills) b.classList.toggle('on', state.appearance.gender === g);
+    // Appearance controls are absent in Phase A. `planCharacter` still writes
+    // the one authored body through APPEARANCE_DEFAULT.
   }
 
   /** Move a skill, clamped to what the rules would take. */
@@ -1456,10 +1350,9 @@ export function createCreation(root, deps = {}) {
   /** Just the points half, so a slider can be refused before the name is typed. */
   function planPoints() {
     const op = OPENINGS_BY_ID[state.opening];
-    const isBlank = op.id === 'blank';
     const sm = movesFrom(op.stats, state.stats, STAT_IDS, false);
     if (sm.error) return { error: `stats: ${sm.error}` };
-    const km = movesFrom(op.skills, state.skills, SKILL_IDS, isBlank);
+    const km = movesFrom(op.skills, state.skills, SKILL_IDS, false);
     if (km.error) return { error: `skills: ${km.error}` };
     const applied = applyCustomisation(op, sm.moves, km.moves);
     if (applied.error) return { error: applied.error };
@@ -1468,7 +1361,6 @@ export function createCreation(root, deps = {}) {
 
   function refresh() {
     const op = OPENINGS_BY_ID[state.opening];
-    const isBlank = op.id === 'blank';
     for (const card of cards.children) card.classList.toggle('on', card.dataset.opening === state.opening);
 
     // What the kit hands over, in pictures. `itemGlyph` prefers the painting
@@ -1498,13 +1390,11 @@ export function createCreation(root, deps = {}) {
     const points = planPoints();
     const statMoved = points.applied ? points.applied.spent.stat : null;
     const skillMoved = points.applied ? points.applied.spent.skill : null;
-    const statCap = isBlank ? BLANK_STAT_POINTS : CUSTOM_STAT_POINTS;
-    const skillCap = isBlank ? op.freeSkillPoints : CUSTOM_SKILL_POINTS;
+    const statCap = CUSTOM_STAT_POINTS;
+    const skillCap = CUSTOM_SKILL_POINTS;
     statBudget.textContent = `${statMoved == null ? '?' : statCap - statMoved} of ${statCap} stat points left to move`;
     statBudget.classList.toggle('spent', statMoved === statCap);
-    skillBudget.textContent = isBlank
-      ? `${skillMoved == null ? '?' : skillCap - skillMoved} of ${skillCap} skill points left to place, none above ${op.maxSkillAtStart}`
-      : `${skillMoved == null ? '?' : skillCap - skillMoved} of ${skillCap} skill points left to move`;
+    skillBudget.textContent = `${skillMoved == null ? '?' : skillCap - skillMoved} of ${skillCap} skill points left to move`;
     skillBudget.classList.toggle('spent', skillMoved === skillCap);
 
     for (const [id, ref] of statInputs) {

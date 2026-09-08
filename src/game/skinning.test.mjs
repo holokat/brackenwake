@@ -328,8 +328,8 @@ console.log('skinning: the real pack and the real tanning rack');
     countMaterial(ctx, 'thickHide') === 2 && countMaterial(ctx, 'hide') === 3,
     `thick ${countMaterial(ctx, 'thickHide')}, plain ${countMaterial(ctx, 'hide')}`);
 
-  const tunic = RECIPE['leather_chest_hide'] || Object.values(RECIPE).find((x) => x.materials && x.materials.hide && x.station === 'tanningRack');
-  check('there is a tanning rack recipe that asks for hide', !!tunic, tunic?.id);
+  const tunic = RECIPE['armour.leather.outfit.hide'] || Object.values(RECIPE).find((x) => x.materials && x.materials.hide && x.station === 'workshop');
+  check('there is a Workshop recipe that asks for hide', !!tunic, tunic?.id);
   if (tunic) {
     const need = tunic.materials.hide;
     check(`it wants ${need} hide and the pack has 3`, countMaterial(ctx, 'hide') === 3);

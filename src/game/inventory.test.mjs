@@ -49,7 +49,7 @@ const item = (base, o = {}) => makeItem({ base, seed: 1234, ...o });
 
 // ---- addresses ------------------------------------------------------------
 check('a number is a pack slot', parseWhere(3)?.index === 3);
-check('a slot name is a slot', parseWhere('head')?.slot === 'head');
+check('a slot name is a slot', parseWhere('outfit')?.slot === 'outfit');
 check('{ pack: 2 } is a pack slot', parseWhere({ pack: 2 })?.index === 2);
 check('a word that is not a slot is nowhere', parseWhere('pocket') === null);
 check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
@@ -91,24 +91,24 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
 // ---- equipping, and the STR penalty ---------------------------------------
 {
   const { inv, character, said, last } = rig({ str: 60, dex: 50, int: 50, con: 50, wis: 50 });
-  const plate = item('plate_chest');
+  const plate = item('plate_outfit');
   const verdict = canEquip(plate, character.stats);
   check('the rules allow plate under its STR', verdict.ok === true);
   inv.add(plate);
   const r = inv.equip(0);
-  check('and it goes on', r.ok === true && character.equipment.chest === plate);
+  check('and it goes on', r.ok === true && character.equipment.outfit === plate);
   check('the penalty comes back with it', r.penalty.arMul === 0.5 && Math.abs(r.penalty.swingMul - 1.15) < 1e-9, JSON.stringify(r.penalty));
   check('and the player is told the number', /wants 75 STR and you have 60/.test(said.join(' | ')), last());
   check('and told what it costs', /guards half as well/.test(said.join(' | ')) && /15% slower/.test(said.join(' | ')), last());
   const bare = armourOfCharacter(character);
-  check('a halved breastplate is AR 12, not 24', bare === 12, String(bare));
+  check('a halved outfit is AR 54, not 108', bare === 54, String(bare));
 }
 {
   const { inv, character, last } = rig({ str: 80, dex: 50, int: 50, con: 50, wis: 50 });
-  inv.add(item('plate_chest'));
+  inv.add(item('plate_outfit'));
   const r = inv.equip(0);
   check('at 80 STR the same plate reports no penalty', r.ok && !r.warning, r.warning || '');
-  check('and gives its whole 24 AR', armourOfCharacter(character) === 24, String(armourOfCharacter(character)));
+  check('and gives its whole 108 AR', armourOfCharacter(character) === 108, String(armourOfCharacter(character)));
 }
 {
   const { inv, last } = rig({ str: 20, dex: 50, int: 50, con: 50, wis: 50 });
@@ -224,20 +224,20 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
 // ---- taking it off --------------------------------------------------------
 {
   const { inv, character, last } = rig();
-  inv.add(item('cloth_head'));
+  inv.add(item('cloth_outfit'));
   inv.equip(0);
-  check('the hood is on', character.equipment.head?.base === 'cloth_head');
-  const r = inv.unequip('head');
-  check('and comes off into the pack', r.ok && character.equipment.head === null && character.pack.items[r.index]?.base === 'cloth_head');
+  check('the outfit is on', character.equipment.outfit?.base === 'cloth_outfit');
+  const r = inv.unequip('outfit');
+  check('and comes off into the pack', r.ok && character.equipment.outfit === null && character.pack.items[r.index]?.base === 'cloth_outfit');
   check('and says so', /take off/.test(last()), last());
 }
 {
   const { inv, character, last } = rig();
-  inv.add(item('cloth_head'));
+  inv.add(item('cloth_outfit'));
   inv.equip(0);
   for (let i = 0; i < PACK_SLOTS; i++) character.pack.items[i] = item('iron_ingot', { count: 1, seed: i });
-  const r = inv.unequip('head');
-  check('with a full pack it stays on', r.ok === false && character.equipment.head !== null);
+  const r = inv.unequip('outfit');
+  check('with a full pack it stays on', r.ok === false && character.equipment.outfit !== null);
   check('and says why', /pack is full/.test(r.reason), r.reason);
 }
 
@@ -281,8 +281,8 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
   const dim = rig({ str: 50, dex: 50, int: 10, con: 50, wis: 50 });
   const bright = rig({ str: 50, dex: 50, int: 95, con: 50, wis: 50 });
   const seed = 777;
-  dim.inv.add(makeItem({ base: 'plate_chest', rarity: 'epic', seed }));
-  bright.inv.add(makeItem({ base: 'plate_chest', rarity: 'epic', seed }));
+  dim.inv.add(makeItem({ base: 'plate_outfit', rarity: 'epic', seed }));
+  bright.inv.add(makeItem({ base: 'plate_outfit', rarity: 'epic', seed }));
   const a = dim.inv.identify(0);
   const b = bright.inv.identify(0);
   check('at 10 INT some numbers are a range', a.vague > 0, `${a.vague} vague`);
@@ -296,35 +296,33 @@ check('nonsense is nowhere', parseWhere({ elbow: 1 }) === null);
   check('an empty pack weighs nothing', inv.weight() === 0);
   check('carry is 40 + STR * 2', inv.carry() === derived(character.stats, {}).carry && inv.carry() === 160, String(inv.carry()));
   check('and nothing is overweight yet', inv.overweight() === false);
-  for (let i = 0; i < 18; i++) inv.add(makeItem({ base: 'plate_chest', seed: i }));
-  check('eighteen breastplates weigh 162', inv.weight() === 162, String(inv.weight()));
+  for (let i = 0; i < 3; i++) inv.add(makeItem({ base: 'plate_outfit', seed: i }));
+  check('three plate outfits weigh 216', inv.weight() === 216, String(inv.weight()));
   check('and that is over the limit', inv.overweight() === true);
   check('and the crossing was announced', inv.lastSaid.includes('over your limit'), inv.lastSaid);
 }
 {
   // The Carry affix raises the limit, so the sheet has to read it off the gear.
   const { inv, character } = rig({ str: 60, dex: 50, int: 50, con: 50, wis: 50 });
-  const belt = makeItem({ base: 'leather_waist', rarity: 'rare', seed: 3 });
-  belt.affixes = [{ id: 'carry', stat: 'carry', group: 'utility', label: 'Carry', unit: 'stones', value: 30, range: [10, 60], tier: 'rare' }];
-  belt.identified = true;
-  inv.add(belt);
+  const charm = makeItem({ base: 'amulet', rarity: 'rare', seed: 3 });
+  charm.affixes = [{ id: 'carry', stat: 'carry', group: 'utility', label: 'Carry', unit: 'stones', value: 30, range: [10, 60], tier: 'rare' }];
+  charm.identified = true;
+  inv.add(charm);
   inv.equip(0);
-  check('a belt of Burden raises the limit', inv.carry() === 190, String(inv.carry()));
+  check('an amulet of Burden raises the limit', inv.carry() === 190, String(inv.carry()));
 }
 
 // ---- AR and resists add up --------------------------------------------------
 {
   const { inv, character } = rig({ str: 100, dex: 50, int: 50, con: 50, wis: 50 });
-  for (const piece of ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back']) {
-    inv.add(makeItem({ base: `plate_${piece}`, seed: 5 }));
-  }
-  for (let i = 0; i < 8; i++) inv.equip(character.pack.items.findIndex((x) => x));
-  check('a full plate set is AR 108, the number the document states', armourOfCharacter(character) === 108, String(armourOfCharacter(character)));
+  inv.add(makeItem({ base: 'plate_outfit', seed: 5 }));
+  inv.equip(character.pack.items.findIndex((x) => x));
+  check('a plate outfit is AR 108, the number the document states', armourOfCharacter(character) === 108, String(armourOfCharacter(character)));
   const res = resistsOfCharacter(character);
-  check('and physical resist is eight pieces of 3', res.physical === 24, JSON.stringify(res));
-  check('and fire resist eight of 2', res.fire === 16, JSON.stringify(res));
+  check('and physical resist is the old eight piece total', res.physical === 24, JSON.stringify(res));
+  check('and fire resist is the old eight piece total', res.fire === 16, JSON.stringify(res));
   check('the pack is empty and it is all worn', character.pack.items.filter(Boolean).length === 0);
-  check('and the whole set weighs 72 stones', weightOfCharacter(character) === 72, String(weightOfCharacter(character)));
+  check('and the outfit weighs 72 stones', weightOfCharacter(character) === 72, String(weightOfCharacter(character)));
 }
 
 // ---- recompute and onChange fire on every change ---------------------------
@@ -436,7 +434,7 @@ console.log('inventory: the quick sort');
   p[2] = lump('longsword', 1);
   p[5] = lump('iron_ingot', 2, 'iron', 'Iron ingot');
   p[7] = lump('potion', 4);
-  p[9] = lump('cloth_head', 1);
+  p[9] = lump('cloth_outfit', 1);
   p[11] = lump('pickaxe', 1);
   p[13] = lump('apple', 2);
   p[17] = lump('buckler', 1);
@@ -450,7 +448,7 @@ console.log('inventory: the quick sort');
   check('and the one stack holds all five', p.find((x) => x && x.base === 'iron_ingot').count === 5,
     String(p.find((x) => x && x.base === 'iron_ingot').count));
   check('the order comes out byte for byte',
-    stamp(p) === 'longswordx1 bucklerx1 cloth_headx1 potionx4 applex2 iron_ingot:ironx5 pickaxex1', stamp(p));
+    stamp(p) === 'longswordx1 bucklerx1 cloth_outfitx1 potionx4 applex2 iron_ingot:ironx5 pickaxex1', stamp(p));
   check('nothing is lost: the same bases and the same counts', same(before, tally(p)), `${JSON.stringify(before)} -> ${JSON.stringify(tally(p))}`);
   check('everything is compacted to the front, holes all at the back',
     p.slice(0, 7).every(Boolean) && p.slice(7).every((x) => !x), stamp(p));
@@ -508,10 +506,9 @@ console.log('inventory: the quick sort');
   // the shelf order itself, named rather than inferred from one example
   const rank = (id) => sortRank({ base: id });
   check('weapons first, then shields, then armour',
-    rank('longsword') < rank('buckler') && rank('buckler') < rank('cloth_head'), `${rank('longsword')} ${rank('buckler')} ${rank('cloth_head')}`);
-  check('armour runs down the body in the paper doll s own slot order',
-    rank('cloth_head') < rank('cloth_chest') && rank('cloth_chest') < rank('cloth_feet'),
-    `${rank('cloth_head')} ${rank('cloth_chest')} ${rank('cloth_feet')}`);
+    rank('longsword') < rank('buckler') && rank('buckler') < rank('cloth_outfit'), `${rank('longsword')} ${rank('buckler')} ${rank('cloth_outfit')}`);
+  check('the one outfit has one armour shelf rank',
+    rank('cloth_outfit') === rank('plate_outfit'), `${rank('cloth_outfit')} ${rank('plate_outfit')}`);
   check('then jewellery, then what you drink, what you eat, what you build with, and tools last',
     rank('ring') < rank('potion') && rank('potion') < rank('apple') && rank('apple') < rank('iron_ingot') && rank('iron_ingot') < rank('pickaxe'),
     [rank('ring'), rank('potion'), rank('apple'), rank('iron_ingot'), rank('pickaxe')].join(' '));

@@ -65,7 +65,7 @@ const progression=createProgression({character,actor,hud});
 
 // Positions pass through the actual site, street, workshop and story consumers.
 assert.equal(streetFor(site('hearthhome'),field).filter(p=>['bram','wynn','pip','nan','cobb','alys'].includes(p.at)).length,6);
-assert.equal(stationsForSite(site('hearthhome')).length,7);
+assert.equal(stationsForSite(site('hearthhome')).length,1);
 assert.equal(stationsForSite(site('oldcellars')).length,0);
 const story=createStory({character,runtime:{field,heightAt:(x,z)=>field.heightAt(x,z),inDungeon:false},pos:()=>pos,realmAt:()=> 'greenwold',hud});
 assert.equal(story.viewNow().inHearthhome,true);pos.x+=300;assert.equal(story.viewNow().inHearthhome,false);

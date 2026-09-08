@@ -149,6 +149,15 @@ companion; B's "wyrm cell" below is already gone by then.
   hello) changes shape. A save with `female` loads and is drawn with the one
   body; state.test.mjs proves it.
 
+### A4. One crafting station
+
+Added by the user after the plan: "lets replace the various crafting stations
+with just one crafting station in the middle of the town, you can craft
+everything there." One station, `workshop`, "Workshop", takes every recipe
+family; every recipe's station is `workshop`; each settlement stands one;
+Haven's stands on the green about 6 m south of the sign that names it. The
+placeholder block stays until a model is made.
+
 ### Phase A acceptance
 
 - `npm test` green except the four suites already failing on main before

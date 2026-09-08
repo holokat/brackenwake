@@ -64,7 +64,7 @@
 //                     not cap anything.
 
 import {
-  makeItem, baseFor, BASES, SLOTS, weightOf as itemWeight,
+  makeItem, baseFor, BASES, SLOTS, ARMOR_TIERS, weightOf as itemWeight,
   LOG_BASES, ORE_BASES,
 } from '../mmo/items.js';
 import { STATS } from '../mmo/stats.js';
@@ -241,14 +241,14 @@ export const DEFAULT_SETTINGS = Object.freeze({
  * the creation screen up before the world.
  */
 export function blankCharacter() {
-  const blank = OPENINGS_BY_ID.blank;
+  const fallback = OPENINGS_BY_ID.ranger;
   return {
     v: SAVE_VERSION,
     name: '',
     appearance: { ...APPEARANCE_DEFAULT },
-    opening: 'blank',
+    opening: 'ranger',
     needsCreation: true,
-    stats: { ...blank.stats },
+    stats: { ...fallback.stats },
     statLocks: upStatLocks(),
     skills: zeroSkills(),
     skillLocks: upSkillLocks(),
@@ -981,6 +981,48 @@ function hydrateItem(raw) {
   return item;
 }
 
+const OLD_ARMOUR_SLOTS = ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back'];
+const OLD_ARMOUR_RE = /^(cloth|leather|studded|ring|chain|plate)_(head|chest|hands|wrists|waist|legs|feet|back)$/;
+const OLD_TIER_RANK = Object.fromEntries(ARMOR_TIERS.map((t) => [t.id, t.tier]));
+
+function oldArmour(raw) {
+  if (!raw || typeof raw !== 'object' || typeof raw.base !== 'string') return null;
+  const m = raw.base.match(OLD_ARMOUR_RE);
+  return m ? { tier: m[1], slot: m[2], raw } : null;
+}
+
+function outfitFromOld(raw, tier) {
+  const item = hydrateItem({ ...raw, base: `${tier}_outfit` });
+  return item;
+}
+
+function migrateWornArmour(rawEquipment) {
+  const pieces = [];
+  for (const slot of OLD_ARMOUR_SLOTS) {
+    const p = oldArmour(rawEquipment?.[slot]);
+    if (p) pieces.push(p);
+  }
+  if (!pieces.length) return null;
+  pieces.sort((a, b) => OLD_TIER_RANK[b.tier] - OLD_TIER_RANK[a.tier]);
+  const tier = pieces[0].tier;
+  const source = pieces.find((p) => p.slot === 'chest' && p.tier === tier) || pieces[0];
+  return outfitFromOld(source.raw, tier);
+}
+
+function migratePackArmour(items) {
+  const kept = new Set();
+  for (let i = 0; i < items.length; i++) {
+    const p = oldArmour(items[i]);
+    if (!p) {
+      items[i] = hydrateItem(items[i]);
+      continue;
+    }
+    if (kept.has(p.tier)) { items[i] = null; continue; }
+    kept.add(p.tier);
+    items[i] = outfitFromOld(p.raw, p.tier);
+  }
+}
+
 /**
  * Take whatever a v2 save holds and make a whole document out of it. Unknown
  * keys are ignored, missing keys fall back to the blank, and anything the item
@@ -1010,9 +1052,9 @@ export function hydrate(raw) {
   doc.needsCreation = !!raw.needsCreation;
   if (typeof raw.name === 'string') doc.name = raw.name;
   if (raw.appearance && typeof raw.appearance === 'object') {
-    doc.appearance = { ...APPEARANCE_DEFAULT, ...raw.appearance };
+    doc.appearance = { ...APPEARANCE_DEFAULT, ...raw.appearance, gender: 'male' };
   }
-  if (typeof raw.opening === 'string' && OPENINGS_BY_ID[raw.opening]) doc.opening = raw.opening;
+  if (typeof raw.opening === 'string') doc.opening = raw.opening;
 
   if (raw.stats && typeof raw.stats === 'object') {
     for (const k of STATS) if (isNum(raw.stats[k])) doc.stats[k] = clamp(Math.round(raw.stats[k]), 0, 100);
@@ -1040,12 +1082,14 @@ export function hydrate(raw) {
     // A save with more slots than PACK_SLOTS keeps every one of them.
     const slots = isNum(raw.pack.slots) ? clamp(Math.floor(raw.pack.slots), PACK_SLOTS, 200) : PACK_SLOTS;
     doc.pack = { slots, items: new Array(slots).fill(null) };
-    for (let i = 0; i < Math.min(slots, raw.pack.items.length); i++) {
-      doc.pack.items[i] = hydrateItem(raw.pack.items[i]);
-    }
+    for (let i = 0; i < Math.min(slots, raw.pack.items.length); i++) doc.pack.items[i] = raw.pack.items[i] || null;
+    migratePackArmour(doc.pack.items);
   }
   if (raw.equipment && typeof raw.equipment === 'object') {
     for (const s of SLOTS) doc.equipment[s] = hydrateItem(raw.equipment[s]);
+    const outfit = migrateWornArmour(raw.equipment);
+    if (outfit) doc.equipment.outfit = outfit;
+    doc.equipment.ranged = hydrateItem(raw.equipment.ranged);
   }
   if (Array.isArray(raw.bar)) {
     for (let i = 0; i < BAR_SLOTS; i++) {
@@ -1063,6 +1107,7 @@ export function hydrate(raw) {
     ));
   }
   migrateRangedSlot(doc);
+  delete doc.equipment.ranged;
   doc.itemBarSlot = Number.isInteger(raw.itemBarSlot) && raw.itemBarSlot >= 0 ? raw.itemBarSlot : null;
   if (Array.isArray(raw.discovered)) doc.discovered = raw.discovered.filter((d) => typeof d === 'string');
   if (Array.isArray(raw.zones)) doc.zones = raw.zones.filter((d) => typeof d === 'string');

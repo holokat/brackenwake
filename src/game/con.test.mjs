@@ -251,13 +251,14 @@ console.log('con: a fresh Warrior reading the starting zone');
 
 console.log('con: the other end of it, both ways');
 {
-  // A Blank starts with nothing, and a tier 1 goblin ought to worry him.
-  const blank = OPENINGS.find((o) => o.id === 'blank');
-  ck('the Blank opening hands over the budget raw, with every combat skill at 0',
-    CON_SKILLS.every((id) => !((blank.skills || {})[id] > 0)),
-    CON_SKILLS.map((id) => (blank.skills || {})[id] ?? 0).join(','));
-  const nothing = { skills: { ...(blank.skills || {}) } };
-  ck('so a Blank is band 0 and reads as tier 0', playerTier(nothing) === 0 && conTier(nothing) === 0);
+  // Nobody starts with nothing since the Blank opening went (2026-09-08, four
+  // classes only), but a character with every combat skill at 0 is still the
+  // other end of the ladder, and a tier 1 goblin ought to worry them.
+  ck('no opening left starts with every combat skill at 0',
+    OPENINGS.every((o) => CON_SKILLS.some((id) => (o.skills || {})[id] > 0)),
+    OPENINGS.map((o) => o.id).join(','));
+  const nothing = { skills: {} };
+  ck('so an empty sheet is band 0 and reads as tier 0', playerTier(nothing) === 0 && conTier(nothing) === 0);
   ck('and a goblin scout is orange to him, not green',
     conOf(MONSTERS.goblinScout, nothing).level === 'hard', conOf(MONSTERS.goblinScout, nothing).level);
 

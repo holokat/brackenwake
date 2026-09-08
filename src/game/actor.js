@@ -75,7 +75,7 @@
 import { derived, STATS } from '../mmo/stats.js';
 import { SKILLS } from '../mmo/skills.js';
 import { AFFIXES, POWER_BY_ID } from '../mmo/affixes.js';
-import { baseFor, armourOf, ARMOR_PIECES, ARMOR_TIERS, SLOTS, WEAPONS } from '../mmo/items.js';
+import { baseFor, armourOf, ARMOR_TIERS, SLOTS, WEAPONS } from '../mmo/items.js';
 import { MONSTERS, TIERS, aggroRadius, leashRadius } from '../mmo/monsters.js';
 // The ability table, for ABILITY_MODS' audit alone. `src/mmo/abilities.js` is
 // pure and imports nothing, so this cannot make a cycle.
@@ -482,8 +482,6 @@ export function shieldFrom(item) {
   return { id: b.id, name: b.name, parryFactor: b.parryFactor, weight: b.weight };
 }
 
-const ARMOUR_SLOTS = ARMOR_PIECES.map((p) => p.slot);
-
 /**
  * Does this piece carry the Mage Armour line? Then it does not block
  * Meditation, and it does not burden a cast either: the affix is the one way
@@ -501,14 +499,10 @@ export const hasMageArmour = (item) =>
  */
 export function meditationFactor(equipment) {
   if (!equipment) return 1;
-  let total = 0;
-  for (const slot of ARMOUR_SLOTS) {
-    const item = equipment[slot];
-    const b = baseFor(item);
-    if (!item || !b || b.meditation == null || hasMageArmour(item)) { total += 1; continue; }
-    total += b.meditation;
-  }
-  return r4(total / ARMOUR_SLOTS.length);
+  const item = equipment.outfit;
+  const b = baseFor(item);
+  if (!item || !b || b.meditation == null || hasMageArmour(item)) return 1;
+  return r4(b.meditation);
 }
 
 /**
@@ -529,14 +523,10 @@ export function meditationFactor(equipment) {
  */
 export function castBurdenOf(equipment) {
   if (!equipment) return 0;
-  let total = 0;
-  for (const slot of ARMOUR_SLOTS) {
-    const item = equipment[slot];
-    const b = baseFor(item);
-    if (!item || !b || b.castBurden == null || hasMageArmour(item)) continue;
-    total += b.castBurden;
-  }
-  return r4(total / ARMOUR_SLOTS.length);
+  const item = equipment.outfit;
+  const b = baseFor(item);
+  if (!item || !b || b.castBurden == null || hasMageArmour(item)) return 0;
+  return r4(b.castBurden);
 }
 
 /**
@@ -552,13 +542,11 @@ export function castBurdenOf(equipment) {
 export function burdenSources(equipment) {
   if (!equipment) return [];
   const seen = new Map();
-  for (const slot of ARMOUR_SLOTS) {
-    const item = equipment[slot];
-    const b = baseFor(item);
-    if (!item || !b || !b.castBurden || hasMageArmour(item)) continue;
+  const item = equipment.outfit;
+  const b = baseFor(item);
+  if (item && b && b.castBurden && !hasMageArmour(item)) {
     const tier = ARMOR_TIERS.find((t) => t.id === b.material);
-    if (!tier) continue;
-    if (!seen.has(tier.id)) seen.set(tier.id, tier);
+    if (tier && !seen.has(tier.id)) seen.set(tier.id, tier);
   }
   return [...seen.values()]
     .sort((a, b) => b.castBurden - a.castBurden)
@@ -666,10 +654,9 @@ export function recompute(actor) {
   actor.manaRegen = r4(d.manaRegen + sum.regen.manaRegen);
   actor.staminaRegen = r4(d.staminaRegen + sum.regen.staminaRegen);
 
-  // the weapon in the hand. A bow in ranged is used when the main hand is empty.
+  // the weapon in the hand.
   const main = weaponFrom(equipment.mainHand);
-  const ranged = weaponFrom(equipment.ranged);
-  actor.weapon = main || ranged || actor.naturalWeapon || UNARMED;
+  actor.weapon = main || actor.naturalWeapon || UNARMED;
   actor.shield = shieldFrom(equipment.offHand) || actor.naturalShield || null;
 
   // The invariant. Clamped down, never up: a recompute is not a heal.

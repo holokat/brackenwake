@@ -89,7 +89,7 @@ check('a bandage is applied', planFor(makeItem({ base: 'bandage', count: 1 })).k
 check('an apple is eaten', planFor(makeItem({ base: 'apple', count: 1 })).kind === 'use');
 check('a sword is held', planFor(makeItem({ base: 'longsword' })).kind === 'equip');
 check('a shield is held', planFor(makeItem({ base: 'buckler' })).kind === 'equip');
-check('a helm is worn', planFor(makeItem({ base: 'cloth_head' })).kind === 'equip');
+check('a helm is worn', planFor(makeItem({ base: 'cloth_outfit' })).kind === 'equip');
 check('a pickaxe is a tool, which is its own answer', planFor(makeItem({ base: 'pickaxe' })).kind === 'tool');
 check('an ingot is none of the three, and says why',
   planFor(makeItem({ base: 'iron_ingot', count: 1 })).kind === 'none'
@@ -426,8 +426,8 @@ console.log('item bar: F5 does not reload the page');
     fields.every((f) => f in v[7]), JSON.stringify(v[7]));
   check('labelOf prefers a crafted label over the base word',
     labelOf({ base: 'iron_ingot', label: 'Iron ingot' }) === 'Iron ingot' && labelOf('iron_ingot') === 'Iron Ingot');
-  check('the doll it searches is items.js s fourteen, not a second list',
-    SLOTS.length === 14, String(SLOTS.length));
+  check('the doll it searches is items.js s six, not a second list',
+    SLOTS.length === 6, String(SLOTS.length));
 }
 
 // ---- the prose -------------------------------------------------------------------------------

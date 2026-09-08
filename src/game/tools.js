@@ -14,7 +14,7 @@
 // gathering is decided here, by the same kind of rule:
 //
 //   1. the item bar's SELECTED slot, when what is on it can do this work;
-//   2. what is equipped, main hand, off hand, ranged, then the rest of the doll;
+//   2. what is equipped, main hand, off hand, then the rest of the doll;
 //   3. what is in the pack;
 //   4. dev mode, which carries one of everything;
 //   5. bare hands, for the work that wants no tool.
@@ -41,7 +41,7 @@
 import { BASES, SLOTS } from '../mmo/items.js';
 
 /** The doll slots asked first, in the order a hand reaches. Then the others. */
-const HAND_FIRST = ['mainHand', 'offHand', 'ranged'];
+const HAND_FIRST = ['mainHand', 'offHand'];
 
 const capitalise = (s) => String(s || '').replace(/^./, (c) => c.toUpperCase());
 /** "an oak", "a boulder". */

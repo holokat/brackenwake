@@ -12,7 +12,7 @@ import {
   unwiredAbilityMods, applyMods,
 } from './actor.js';
 import { blankCharacter, makeStack } from './state.js';
-import { makeItem, ARMOR_PIECES } from '../mmo/items.js';
+import { makeItem } from '../mmo/items.js';
 import { MONSTER_LIST, MONSTERS } from '../mmo/monsters.js';
 import { AFFIXES } from '../mmo/affixes.js';
 import { ABILITIES, ABILITIES_BY_ID } from '../mmo/abilities.js';
@@ -39,16 +39,15 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
 {
   const c = blankCharacter();
   const a = playerActor(c);
-  // 30 + CON 50 * 2 + STR 50 * 0.5
-  check('a blank character has 155 health', a.maxHealth === 155, String(a.maxHealth));
-  check('and 135 mana', a.maxMana === 135, String(a.maxMana));
-  check('and 120 stamina', a.maxStamina === 120, String(a.maxStamina));
-  check('and starts full', a.health === 155 && a.mana === 135 && a.stamina === 120);
+  check('a new character uses ranger fallback health', a.maxHealth === 152.5, String(a.maxHealth));
+  check('and ranger fallback mana', a.maxMana === 127.5, String(a.maxMana));
+  check('and ranger fallback stamina', a.maxStamina === 150, String(a.maxStamina));
+  check('and starts full', a.health === 152.5 && a.mana === 127.5 && a.stamina === 150);
   check('with bare fists, which are items.js Fists at 1 to 4', a.weapon.skill === UNARMED.skill && a.weapon.minDamage === 1 && a.weapon.maxDamage === 4, `${a.weapon.minDamage} to ${a.weapon.maxDamage}, and combat_rules.UNARMED is ${UNARMED.minDamage} to ${UNARMED.maxDamage}`);
   check('no shield', a.shield === null);
   check('the model is left for W2', a.model === null);
   check('the faction is player', a.faction === 'player' && a.ai === null);
-  check('carry is 40 + STR * 2', a.carry === 140, String(a.carry));
+  check('carry is 40 + STR * 2', a.carry === 130, String(a.carry));
 }
 {
   // The document's own warrior, so the numbers are the ones a player meets.
@@ -105,9 +104,9 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
   const a = playerActor(c);
   const ar0 = a.ar;
   c.stats.str = 75;                     // enough to wear it without the penalty
-  c.equipment.chest = { ...makeItem({ base: 'plate_chest', rarity: 'rare', seed: 3 }), affixes: [] };
+  c.equipment.outfit = { ...makeItem({ base: 'plate_outfit', rarity: 'rare', seed: 3 }), affixes: [] };
   recompute(a);
-  check('an unidentified breastplate still gives its base armour', a.ar === ar0 + 24, `${ar0} then ${a.ar}`);
+  check('an unidentified plate outfit still gives its base armour', a.ar === ar0 + 108, `${ar0} then ${a.ar}`);
   check('and no affix bonus at all, because its affixes are not rolled yet', a.bonuses.damagePct === 0 && a.stats.str === 75, String(a.stats.str));
 }
 
@@ -115,30 +114,28 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
 {
   const c = blankCharacter();          // STR 50, under platemail's 75
   const a = playerActor(c);
-  c.equipment.chest = gear('plate_chest');
+  c.equipment.outfit = gear('plate_outfit');
   recompute(a);
-  check('a breastplate you cannot lift gives half its 24 AR', a.ar === 12, String(a.ar));
+  check('an outfit you cannot lift gives half its 108 AR', a.ar === 54, String(a.ar));
   c.stats.str = 75;
   recompute(a);
-  check('and all of it once STR reaches 75', a.ar === 24, String(a.ar));
+  check('and all of it once STR reaches 75', a.ar === 108, String(a.ar));
 }
 
 // ---- the Meditation blocker ------------------------------------------------
 {
-  const full = (mat) => Object.fromEntries(ARMOR_PIECES.map((p) => [p.slot, gear(`${mat}_${p.id}`)]));
+  const worn = (mat, affixes = []) => ({ outfit: gear(`${mat}_outfit`, affixes) });
   check('naked casts freely', meditationFactor({}) === 1);
-  check('full cloth casts freely', meditationFactor(full('cloth')) === 1);
-  check('full plate blocks Meditation entirely', meditationFactor(full('plate')) === 0);
-  const oneChest = { chest: gear('plate_chest') };
-  check('one plate chest leaves 7 of 8 free', meditationFactor(oneChest) === 0.875, String(meditationFactor(oneChest)));
-  const mage = { chest: gear('plate_chest', [{ id: 'mageArmour', stat: 'mageArmour', value: 1, unit: 'flag' }]) };
-  check('Mage Armour on that chest makes it free again', meditationFactor(mage) === 1, String(meditationFactor(mage)));
+  check('a cloth outfit casts freely', meditationFactor(worn('cloth')) === 1);
+  check('a plate outfit blocks Meditation entirely', meditationFactor(worn('plate')) === 0);
+  const mage = worn('plate', [{ id: 'mageArmour', stat: 'mageArmour', value: 1, unit: 'flag' }]);
+  check('Mage Armour on that outfit makes it free again', meditationFactor(mage) === 1, String(meditationFactor(mage)));
 
   const c = blankCharacter();
   c.skills.meditation = 100;
   const a = playerActor(c);
   const open = a.manaRegen;                     // 0.3 + WIS 50 * 0.025 + 100 * 0.010
-  c.equipment = { ...c.equipment, ...full('plate') };
+  c.equipment = { ...c.equipment, ...worn('plate') };
   recompute(a);
   check('100 Meditation is worth 1.0 mana a second in the open', open === 2.55, String(open));
   check('and none of it in full plate', a.manaRegen === 1.55, String(a.manaRegen));
@@ -146,47 +143,35 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
 
 // ---- the casting burden, the same eight slots from the other end -----------
 {
-  const full = (mat) => Object.fromEntries(ARMOR_PIECES.map((p) => [p.slot, gear(`${mat}_${p.id}`)]));
+  const worn = (mat, affixes = []) => ({ outfit: gear(`${mat}_outfit`, affixes) });
   check('naked casts freely', castBurdenOf({}) === 0, String(castBurdenOf({})));
   check('and so does nothing at all', castBurdenOf(null) === 0);
-  check('full cloth burdens a cast by nothing', castBurdenOf(full('cloth')) === 0, String(castBurdenOf(full('cloth'))));
-  check('full leather burdens it by a tenth', castBurdenOf(full('leather')) === 0.1, String(castBurdenOf(full('leather'))));
-  check('full studded by three tenths', castBurdenOf(full('studded')) === 0.3, String(castBurdenOf(full('studded'))));
-  check('full ringmail by 0.55', castBurdenOf(full('ring')) === 0.55, String(castBurdenOf(full('ring'))));
-  check('full chainmail by 0.75', castBurdenOf(full('chain')) === 0.75, String(castBurdenOf(full('chain'))));
-  check('full plate by all of it', castBurdenOf(full('plate')) === 1, String(castBurdenOf(full('plate'))));
+  check('a cloth outfit burdens a cast by nothing', castBurdenOf(worn('cloth')) === 0, String(castBurdenOf(worn('cloth'))));
+  check('a leather outfit burdens it by a tenth', castBurdenOf(worn('leather')) === 0.1, String(castBurdenOf(worn('leather'))));
+  check('a studded outfit by three tenths', castBurdenOf(worn('studded')) === 0.3, String(castBurdenOf(worn('studded'))));
+  check('a ringmail outfit by 0.55', castBurdenOf(worn('ring')) === 0.55, String(castBurdenOf(worn('ring'))));
+  check('a chainmail outfit by 0.75', castBurdenOf(worn('chain')) === 0.75, String(castBurdenOf(worn('chain'))));
+  check('a plate outfit by all of it', castBurdenOf(worn('plate')) === 1, String(castBurdenOf(worn('plate'))));
 
-  const oneChest = { chest: gear('plate_chest') };
-  check('a plate chest and nothing else is 1 of 8', castBurdenOf(oneChest) === 0.125, String(castBurdenOf(oneChest)));
   const mageArm = [{ id: 'mageArmour', stat: 'mageArmour', value: 1, unit: 'flag' }];
-  const mage = Object.fromEntries(ARMOR_PIECES.map((p) => [p.slot, gear(`plate_${p.id}`, mageArm)]));
-  check('full plate with Mage Armour on every piece burdens nothing', castBurdenOf(mage) === 0, String(castBurdenOf(mage)));
-  check('and one Mage Armour breastplate alone is free too',
-    castBurdenOf({ chest: gear('plate_chest', mageArm) }) === 0, String(castBurdenOf({ chest: gear('plate_chest', mageArm) })));
+  check('a plate outfit with Mage Armour burdens nothing', castBurdenOf(worn('plate', mageArm)) === 0, String(castBurdenOf(worn('plate', mageArm))));
+  check('and it is not blamed for a fizzle it did not cause',
+    burdenSources(worn('plate', mageArm)).join(', ') === '', burdenSources(worn('plate', mageArm)).join(', '));
 
-  // a mixed set: plate chest, chain legs, ring helm, the other five empty
-  const mixed = { chest: gear('plate_chest'), legs: gear('chain_legs'), head: gear('ring_head') };
-  check('a mixed set is the mean of what is worn over eight slots',
-    castBurdenOf(mixed) === 0.2875, `${castBurdenOf(mixed)}, want (1 + 0.75 + 0.55) / 8`);
-  check('and it names the materials heaviest first',
-    burdenSources(mixed).join(', ') === 'platemail, chainmail, ringmail', burdenSources(mixed).join(', '));
   check('cloth is never named, because cloth is never to blame',
-    burdenSources(full('cloth')).length === 0, burdenSources(full('cloth')).join(', '));
-  check('a full plate suit is named once, not eight times',
-    burdenSources(full('plate')).join(', ') === 'platemail', burdenSources(full('plate')).join(', '));
-  check('and a Mage Armour piece is not blamed for a fizzle it did not cause',
-    burdenSources({ chest: gear('plate_chest', mageArm), legs: gear('chain_legs') }).join(', ') === 'chainmail',
-    burdenSources({ chest: gear('plate_chest', mageArm), legs: gear('chain_legs') }).join(', '));
+    burdenSources(worn('cloth')).length === 0, burdenSources(worn('cloth')).join(', '));
+  check('a plate outfit is named once',
+    burdenSources(worn('plate')).join(', ') === 'platemail', burdenSources(worn('plate')).join(', '));
 
   // and the field recompute writes, which is what the runtime actually reads
   const c = blankCharacter();
   c.stats.str = 100;
   const a = playerActor(c);
   check('a fresh actor carries no burden', a.castBurden === 0, String(a.castBurden));
-  c.equipment = { ...c.equipment, ...full('plate') };
+  c.equipment = { ...c.equipment, ...worn('plate') };
   recompute(a);
   check('recompute writes the burden onto the actor', a.castBurden === 1, String(a.castBurden));
-  c.equipment = { ...c.equipment, ...full('cloth') };
+  c.equipment = { ...c.equipment, ...worn('cloth') };
   recompute(a);
   check('and takes it off again when the plate comes off', a.castBurden === 0, String(a.castBurden));
 }
@@ -195,9 +180,9 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
 {
   const c = blankCharacter();
   const a = playerActor(c);
-  c.equipment.ranged = gear('shortbow');
+  c.equipment.mainHand = gear('shortbow');
   recompute(a);
-  check('a bow is used when the main hand is empty', a.weapon.skill === 'archery', a.weapon.name);
+  check('a bow is used from the main hand', a.weapon.skill === 'archery', a.weapon.name);
   c.equipment.mainHand = gear('mace');
   recompute(a);
   check('and not when it is not', a.weapon.skill === 'macefighting', a.weapon.name);
@@ -230,13 +215,13 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
   a.health = 40;
   recompute(a);
   check('a recompute in the middle of a fight is not a heal', a.health === 40, String(a.health));
-  c.equipment.chest = gear('cloth_chest', [{ id: 'health', stat: 'health', value: 40, unit: 'flat' }]);
+  c.equipment.outfit = gear('cloth_outfit', [{ id: 'health', stat: 'health', value: 40, unit: 'flat' }]);
   recompute(a);
-  check('and gaining +40 max health does not fill the bar either', a.health === 40 && a.maxHealth === 195, `${a.health} of ${a.maxHealth}`);
+  check('and gaining +40 max health does not fill the bar either', a.health === 40 && a.maxHealth === 192.5, `${a.health} of ${a.maxHealth}`);
   a.health = a.maxHealth;
-  c.equipment.chest = null;
+  c.equipment.outfit = null;
   recompute(a);
-  check('taking the health off clamps a full bar down to the new max', a.health === 155 && a.maxHealth === 155, `${a.health} of ${a.maxHealth}`);
+  check('taking the health off clamps a full bar down to the new max', a.health === 152.5 && a.maxHealth === 152.5, `${a.health} of ${a.maxHealth}`);
 }
 
 // ---- regeneration, measured ------------------------------------------------
@@ -252,8 +237,8 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
   check('mana does not double out of combat', near(tickPools({ ...a, mana: 0, maxMana: 100, manaRegen: 2, health: 10, maxHealth: 10 }, 1, false).mana, 2), 'W1 reads 01: mana runs at one rate');
   check('stamina runs at the base rate in a fight and doubles out of one (2026-09-08)',
     near(outOfFight.stamina, inFight.stamina * 2) && inFight.stamina > 0, `${inFight.stamina} in a fight, ${outOfFight.stamina} out of one`);
-  check('DEX 50 gives 4.0 stamina a second in a fight, which refills a warrior in about 32 s',
-    near(inFight.stamina, 4.0), String(inFight.stamina));
+  check('DEX 70 gives 4.6 stamina a second in a fight',
+    near(inFight.stamina, 4.6), String(inFight.stamina));
 
   a.health = a.maxHealth;
   check('a full bar gains nothing', tickPools(a, 1, false).health === 0);
@@ -433,7 +418,7 @@ console.log('\nactor: the ability mods');
   const c = blankCharacter();
   c.skills.swordsmanship = 60; c.stats.str = 60;
   const a = playerActor(c);
-  a.equipment.chest = makeItem({ base: 'chain_chest' });
+  a.equipment.outfit = makeItem({ base: 'chain_outfit' });
   recompute(a);
   const arBefore = a.ar, dmgBefore = a.bonuses.damagePct, speedBefore = swingSeconds(a);
   a.buffs = [{

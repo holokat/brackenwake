@@ -19,9 +19,9 @@ console.log('net: the room and the hello');
   check('the url is on the page origin, ws for http and wss for https',
     wsUrlFor({ protocol: 'http:', host: 'localhost:5198' }, 'island') === 'ws://localhost:5198/ws/island'
     && wsUrlFor({ protocol: 'https:', host: 'kaldera.example' }, 'seed') === 'wss://kaldera.example/ws/seed');
-  const c = { id: 'ranger-x1', name: 'Bob', opening: 'ranger', appearance: { skin: 2 }, equipment: { mainHand: { base: 'shortbow' }, chest: { base: 'leather_chest' } } };
+  const c = { id: 'ranger-x1', name: 'Bob', opening: 'ranger', appearance: { skin: 2 }, equipment: { mainHand: { base: 'shortbow' }, outfit: { base: 'leather_outfit' } } };
   const h = helloFor(c);
-  check('the hello carries id, name and the look another client needs', h.t === 'hello' && h.id === 'ranger-x1' && h.name === 'Bob' && h.look.opening === 'ranger' && h.look.gear.mainHand === 'shortbow' && h.look.gear.chest === 'leather_chest' && h.look.gear.head === null, JSON.stringify(h.look.gear));
+  check('the hello carries id, name and the look another client needs', h.t === 'hello' && h.id === 'ranger-x1' && h.name === 'Bob' && h.look.opening === 'ranger' && h.look.gear.mainHand === 'shortbow' && h.look.gear.outfit === 'leather_outfit' && h.look.gear.neck === null, JSON.stringify(h.look.gear));
   check('a look carries no item records, only bases', !JSON.stringify(lookFor(c)).includes('"rarity"'));
 }
 

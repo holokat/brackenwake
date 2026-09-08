@@ -52,13 +52,15 @@
 // gear_visuals.test.mjs fires rays at a dressed, posed rig for all three.
 
 import * as THREE from 'three';
-import { baseFor, ARMOR_TIERS, ARMOR_PIECES, SLOTS, RARITY, RARITY_ORDER, twoHanded } from '../mmo/items.js';
+import { baseFor, ARMOR_TIERS, SLOTS, RARITY, RARITY_ORDER, twoHanded } from '../mmo/items.js';
 import {
   buildWeaponModel, hasWeaponModel, disposeModel, countTriangles,
   pbr, loft, roundRect, colourOfMaterial,
   METAL_METALNESS, METAL_BASE_ROUGH, METAL_EMISSIVE,
 } from './weapon_models.js';
 import { BODY } from './player.js';
+
+const VISUAL_ARMOUR_PIECES = ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back'];
 
 const EPIC = RARITY_ORDER.indexOf('epic');
 const LEGENDARY = RARITY_ORDER.indexOf('legendary');
@@ -91,8 +93,7 @@ const TIER_PBR = {
 // A set in one colour is a silhouette, not a kit. Boots and gloves are the
 // oldest and darkest leather on a person, the hood the newest and lightest,
 // and the shade lands on the tier colour so the pieces read as separate
-// pieces from two and a half metres. One number per piece, and every piece
-// has one: ARMOR_PIECES is checked against this table by the test.
+// pieces from two and a half metres. One number per visible piece.
 export const PIECE_SHADE = {
   head: 1.26, chest: 1.00, back: 1.12, hands: 0.74,
   wrists: 0.86, waist: 0.80, legs: 0.92, feet: 0.66,
@@ -629,7 +630,6 @@ export function gearCounts(rig) {
 
 // ---------------------------------------------------------------------------
 
-const PIECE_SLOT = Object.fromEntries(ARMOR_PIECES.map((p) => [p.slot, p.id]));
 const TIER_IDS = new Set(ARMOR_TIERS.map((t) => t.id));
 
 function contextFor(item, base, body, piece) {
@@ -749,14 +749,13 @@ export function dressRig(rig, equipment, opts = {}) {
     return [{ anchor: rangedAnchor, node }];
   });
 
-  // ---- worn: the eight armour pieces, plus the neck and the two rings
-  for (const slot of SLOTS) {
-    const piece = PIECE_SLOT[slot];
-    if (!piece) continue;
-    const item = eq[slot] || null;
-    const base = baseFor(item);
-    const sig = base && base.kind === 'armour' ? signature(slot, item, piece) : null;
-    fit(slot, sig, () => PIECES[piece](contextFor(item, base, body, piece)));
+  // ---- worn: one outfit that still dresses the eight visible body pieces
+  const outfit = eq.outfit || null;
+  const outfitBase = baseFor(outfit);
+  for (const piece of VISUAL_ARMOUR_PIECES) {
+    const key = `outfit:${piece}`;
+    const sig = outfitBase && outfitBase.kind === 'armour' ? signature('outfit', outfit, piece) : null;
+    fit(key, sig, () => PIECES[piece](contextFor(outfit, outfitBase, body, piece)));
   }
 
   fit('neck', signature('neck', eq.neck, 'torso'), () => amuletNode(contextFor(eq.neck, baseFor(eq.neck), body)));

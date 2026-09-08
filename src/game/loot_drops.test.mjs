@@ -45,8 +45,8 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
     !!BASES[itemBaseFor('ingot', 0)] && !!BASES[itemBaseFor('ingot', 99)] && !!BASES[itemBaseFor('wood', 99)]);
   check('meat on its own is nothing, because there is no item called meat', itemBaseFor('meat', 1) === null);
   check('a helm on a tier 1 is cloth, on a tier 4 is ringmail, on a boss is plate',
-    itemBaseFor('helm', 1) === 'cloth_head' && itemBaseFor('helm', 4) === 'ring_head' && itemBaseFor('helm', 6) === 'plate_head');
-  check('a robe is cloth whoever wears it', itemBaseFor('robe', 5) === 'cloth_chest');
+    itemBaseFor('helm', 1) === 'cloth_outfit' && itemBaseFor('helm', 4) === 'ring_outfit' && itemBaseFor('helm', 6) === 'plate_outfit');
+  check('a robe is cloth whoever wears it', itemBaseFor('robe', 5) === 'cloth_outfit');
   check('a hide joins to the hide base, so a knife can hand one over', itemBaseFor('hide', 2) === 'hide');
   check('and thickHide and scaledHide join to theirs',
     itemBaseFor('thickHide', 3) === 'thick_hide' && itemBaseFor('scaledHide', 4) === 'scaled_hide');
@@ -54,7 +54,7 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
     !tableFor('wolf').includes('hide') && !tableFor('direWolf').includes('thick_hide'));
   check('and neither does a scroll', itemBaseFor('scroll', 5) === null);
   check('every material in the map is a real armour tier',
-    Object.values(ARMOUR_MATERIAL).every((m) => !!BASES[`${m}_head`]), Object.values(ARMOUR_MATERIAL).join(', '));
+    Object.values(ARMOUR_MATERIAL).every((m) => !!BASES[`${m}_outfit`]), Object.values(ARMOUR_MATERIAL).join(', '));
 
   const skel = tableFor('skeletonWarrior');
   check('a skeleton warrior drops swords and shields, as the document says',
@@ -265,7 +265,7 @@ function spread(id, n, seedBase) {
   const drops = createLootDrops(scene, { hud: { log: (t) => said.push(t) } });
 
   const sword = makeItem({ base: 'longsword', rarity: 'rare', seed: 3 });
-  const helm = makeItem({ base: 'leather_head', rarity: 'uncommon', seed: 4 });
+  const helm = makeItem({ base: 'leather_outfit', rarity: 'uncommon', seed: 4 });
   const bag = drops.drop({ x: 5, y: 2, z: 7 }, { items: [sword, helm], gold: 14 });
   check('a sack goes down where the body fell', bag && bag.pos.x === 5 && bag.pos.y === 2 && bag.pos.z === 7);
   // note: scene.children holds the loot LAYER, not the sacks. The sacks are the
@@ -509,7 +509,7 @@ function spread(id, n, seedBase) {
   check('the cursor says so too', labelFor(mixed) === 'a pile of 200 gold', labelFor(mixed));
 
   // and the other direction: take the gold and the coins beside the sack go
-  const helm = makeItem({ base: 'leather_head', rarity: 'uncommon', seed: 6 });
+  const helm = makeItem({ base: 'leather_outfit', rarity: 'uncommon', seed: 6 });
   const other = drops.drop({ x: 5, y: 0, z: 0 }, { items: [helm], gold: 40 });
   check('a mixed sack has coins beside it', named(other, 'gold:').length === 1);
   drops.take(other, () => ({ items: [], gold: 40 }));
@@ -675,8 +675,9 @@ function spread(id, n, seedBase) {
   // draw was the table's intersection with the profile, and a ranger on the
   // island filled a pack with boots and rings and never saw a bow.
   const slotsOf = (bases) => new Set(Object.keys(bases).filter((b) => BASES[b]?.kind === 'armour').map((b) => BASES[b].slot));
-  check('and the warrior walks off with a longsword the bandit never carried, and armour for most of his slots',
-    w.bases.longsword > 0 && slotsOf(w.bases).size >= 6, `longswords ${w.bases.longsword || 0}, armour slots ${[...slotsOf(w.bases)].join(',')}`);
+  check('and the warrior walks off with a longsword the bandit never carried, and outfit armour',
+    w.bases.longsword > 0 && slotsOf(w.bases).size === 1 && slotsOf(w.bases).has('outfit'),
+    `longswords ${w.bases.longsword || 0}, armour slots ${[...slotsOf(w.bases)].join(',')}`);
   check('every biased drop is in his profile', w.inProfile / w.gear >= CLASS_BIAS - 0.02, `${(w.inProfile / w.gear * 100).toFixed(1)}% of gear`);
   check('and the bandit\'s own table is still the open four in ten', w.bases.rapier > 0 && w.bases.dagger > 0, `rapiers ${w.bases.rapier}, daggers ${w.bases.dagger}`);
   check('no character, and rollFor is the roll it always was',
@@ -698,8 +699,8 @@ function spread(id, n, seedBase) {
   const m = sweep('skeletonWarrior', mage);
   console.log(`     the same monster, a mage: ${JSON.stringify(m.bases)}`);
   check('a mage on the same monster is pushed toward the leather helm and away from the longsword',
-    m.bases.leather_head > sk.bases.leather_head && m.bases.longsword < sk.bases.longsword,
-    `helms ${m.bases.leather_head} against ${sk.bases.leather_head}, swords ${m.bases.longsword} against ${sk.bases.longsword}`);
+    m.bases.leather_outfit > sk.bases.leather_outfit && m.bases.longsword < sk.bases.longsword,
+    `helms ${m.bases.leather_outfit} against ${sk.bases.leather_outfit}, swords ${m.bases.longsword} against ${sk.bases.longsword}`);
   check('and never toward the kite shield, which no mage of any strength would raise',
     !classProfile(mage).has('kite'));
 

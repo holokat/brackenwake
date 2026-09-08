@@ -123,9 +123,7 @@ for (const id of INGOT_BASES) PRICES[id] = Math.max(2, (BASES[id].tier || 1) + 1
 for (const id of LOG_BASES) PRICES[id] = 2 + Math.max(0, (WOOD_TIER_OF[BASES[id].material] || 1) - 1);
 
 for (const tier of Object.keys(ARMOUR_SET_PRICE)) {
-  for (const piece of ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back']) {
-    PRICES[`${tier}_${piece}`] = armourPiecePrice(tier, piece);
-  }
+  PRICES[`${tier}_outfit`] = ARMOUR_SET_PRICE[tier];
 }
 
 /**
@@ -167,11 +165,10 @@ const row = (key, base, name, price, opts = {}) => ({
   line: opts.line || '',
 });
 
-const armourRows = (tier, category, materialTier) =>
-  ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back'].map((p) => row(
-    `${tier}_${p}`, `${tier}_${p}`, BASES[`${tier}_${p}`].name,
-    armourPiecePrice(tier, p), { category, materialTier, stock: 2 },
-  ));
+const armourRows = (tier, category, materialTier) => {
+  const id = `${tier}_outfit`;
+  return [row(id, id, BASES[id].name, ARMOUR_SET_PRICE[tier], { category, materialTier, stock: 2 })];
+};
 
 export const CATALOG = [
   // weapons: what a shop keeps in the rack, not the whole table
@@ -192,7 +189,7 @@ export const CATALOG = [
   ...armourRows('ring', 'armour', 3),
   ...armourRows('chain', 'armour', 3),
   // the mage's corner
-  row('robe', 'cloth_chest', 'Cloth Robe', armourPiecePrice('cloth', 'chest'), { category: 'robes', materialTier: 1, line: 'it leaves your mana alone' }),
+  row('robe', 'cloth_outfit', 'Cloth Outfit', ARMOUR_SET_PRICE.cloth, { category: 'robes', materialTier: 1, line: 'it leaves your mana alone' }),
   row('quarterstaff', 'quarterstaff', 'Quarterstaff', 30, { category: 'staves', materialTier: 1, line: 'it casts' }),
   row('tome', 'tome', 'Tome', 90, { category: 'staves', materialTier: 1, line: 'for the off hand' }),
   // bows and what they eat

@@ -13,6 +13,7 @@ import { playerActor } from './actor.js';
 import { CUES } from './audio.js';
 import { SKILL_CAP, TOTAL_CAP, gainChance, BANDS } from '../mmo/skills.js';
 import { STAT_TOTAL_CAP } from '../mmo/stats.js';
+import { OPENINGS_BY_ID } from '../mmo/openings.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -357,15 +358,16 @@ console.log('\nprogression: the unlock banner');
 }
 {
   const r = rig();
+  const start = r.character.stats.str;
   r.character.statLocks.str = 'locked';
   const res = r.prog.statLesson('str', always);
-  check('a locked stat does not rise', res.gained === false && res.refused === true && r.character.stats.str === 50);
+  check('a locked stat does not rise', res.gained === false && res.refused === true && r.character.stats.str === start);
   check('and says so', r.lastToast().text === 'STR is locked and will not rise.', JSON.stringify(r.lastToast().text));
   r.character.statLocks.str = 'down';
   r.prog.statLesson('str', always);
-  check('a stat marked to fall does not rise either', r.character.stats.str === 50 && r.lastToast().text.includes('marked to fall'));
+  check('a stat marked to fall does not rise either', r.character.stats.str === start && r.lastToast().text.includes('marked to fall'));
   r.character.statLocks.str = 'up';
-  check('and up, it does', r.prog.statLesson('str', always).gained === true && r.character.stats.str === 51);
+  check('and up, it does', r.prog.statLesson('str', always).gained === true && r.character.stats.str === start + 1);
 }
 {
   const r = rig();
@@ -390,7 +392,7 @@ console.log('\nprogression: the unlock banner');
   const out = r.prog.applyLessons(lessons, 'attacker', always);
   check('a batch applies only the side you asked for', out.length === 2, `${out.length} of ${lessons.length}`);
   check('the skill went up', r.character.skills.swordsmanship === 0.3, String(r.character.skills.swordsmanship));
-  check('the stat went up', r.character.stats.str === 51, String(r.character.stats.str));
+  check('the stat went up', r.character.stats.str === OPENINGS_BY_ID.ranger.stats.str + 1, String(r.character.stats.str));
   check('and Parrying, which was the defender\'s, did not', r.character.skills.parrying === 0);
 }
 
@@ -400,7 +402,7 @@ console.log('\nprogression: the unlock banner');
   const prog = createProgression({ character });
   const res = prog.lesson('mining', 10, true, always);
   check('with no floaters, no hud, no audio and no actor it still teaches', res.gained === true && character.skills.mining === 0.3, String(character.skills.mining));
-  check('and a stat lesson still lands', prog.statLesson('str', always).gained === true && character.stats.str === 51);
+  check('and a stat lesson still lands', prog.statLesson('str', always).gained === true && character.stats.str === OPENINGS_BY_ID.ranger.stats.str + 1);
   check('the totals are readable for a character sheet', prog.skillTotal === 0.3 && prog.statTotal === 251, `${prog.skillTotal} skill, ${prog.statTotal} stat`);
   let threw = null;
   try { createProgression({}); } catch (e) { threw = e; }

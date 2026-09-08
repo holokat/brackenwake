@@ -1,4 +1,4 @@
-// The eleven openings, customisation and appearance, driven both ways.
+// The four openings, customisation and appearance, driven both ways.
 // Run: node src/mmo/openings.test.mjs
 //
 // Every number printed here was measured in this file. Where a rule is
@@ -41,8 +41,8 @@ const docRows = openingsBlock
   .map((l) => l.trim().slice(1, -1).split('|').map((c) => c.trim()))
   .filter((c) => c[0] && c[0] !== 'opening' && !c[0].startsWith('---'));
 
-check('the document lists eleven openings', docRows.length === 11, `${docRows.length} rows`);
-check('the module holds the same eleven', OPENINGS.length === OPENING_COUNT && OPENING_COUNT === 11,
+check('the document lists four openings', docRows.length === 4, `${docRows.length} rows`);
+check('the module holds the same four', OPENINGS.length === OPENING_COUNT && OPENING_COUNT === 4,
   `${OPENINGS.length} openings`);
 
 // Doc skill names -> ids, so the comparison runs on the document's own words.
@@ -59,7 +59,6 @@ for (const cells of docRows) {
   for (const id of STAT_IDS) if (op.stats[id] !== docStats[id]) statMismatch++;
   docTotals.push(sum(docStats));
 
-  if (name === 'Blank') continue; // "200 points to place", not a skill list
   const parsed = {};
   for (const piece of skillCell.split(',')) {
     const m = piece.trim().match(/^(.+?)\s+(\d+)$/);
@@ -105,17 +104,17 @@ const badBases = Object.values(ITEM_BASES)
   .map((b) => `${b.id} (${b.docName})`);
 check('every doc-sourced item base is named in 03-ITEMS-LOOT.md', badBases.length === 0,
   badBases.length ? badBases.join(', ') : `${Object.keys(ITEM_BASES).length} bases`);
-// Eleven since W7 added the wand: 03-ITEMS-LOOT.md has no wand row, and this
+// Nine since W7 added the wand: 03-ITEMS-LOOT.md has no wand row, and this
 // list is where a base the item document does not define is counted out loud
 // rather than pretending to be sourced.
-check('and the invented ones are declared, not hidden', INVENTED_ITEM_BASES.length === 11,
+check('and the invented ones are declared, not hidden', INVENTED_ITEM_BASES.length === 9,
   INVENTED_ITEM_BASES.join(', '));
 check('the wand is among them and the staff is not, because 03 names a staff',
   INVENTED_ITEM_BASES.includes('wand') && !INVENTED_ITEM_BASES.includes('staff'));
 check('every casting opening carries a focus in its kit',
-  ['mage', 'sorcerer', 'necromancer', 'healer', 'blank'].every((id) => kitItems(OPENINGS_BY_ID[id])
+  ['mage'].every((id) => kitItems(OPENINGS_BY_ID[id])
     .some((e) => ['wand', 'staff', 'bone_staff'].includes(e.base))),
-  ['mage', 'sorcerer', 'necromancer', 'healer', 'blank']
+  ['mage']
     .map((id) => `${id}: ${kitItems(OPENINGS_BY_ID[id]).map((e) => e.base).find((b) => ['wand', 'staff', 'bone_staff'].includes(b))}`)
     .join(', '));
 check('and no kit still hands a caster a quarterstaff to cast with',
@@ -139,18 +138,12 @@ check('every opening spreads exactly 250 stat points', statSumBad === 0, lines.j
 check('no opening puts a stat above 100', statCapBad === 0,
   `highest is ${Math.max(...OPENINGS.flatMap((o) => STAT_IDS.map((i) => o.stats[i])))}`);
 check('every opening accounts for exactly 200 skill points', skillSumBad === 0);
-check('Blank places none of them and holds all 200 free',
-  sum(OPENINGS_BY_ID.blank.skills) === 0 && OPENINGS_BY_ID.blank.freeSkillPoints === 200,
-  `${sum(OPENINGS_BY_ID.blank.skills)} placed, ${OPENINGS_BY_ID.blank.freeSkillPoints} free`);
-check('the ten kitted openings place all 200 and hold none free',
-  OPENINGS.filter((o) => o.id !== 'blank').every((o) => sum(o.skills) === 200 && o.freeSkillPoints === 0));
-check('Blank alone caps a skill at 50',
-  OPENINGS_BY_ID.blank.maxSkillAtStart === BLANK_MAX_SKILL
-  && OPENINGS.filter((o) => o.id !== 'blank').every((o) => o.maxSkillAtStart === 100));
-check('Blank carries the 100 coins the document gives it',
-  OPENINGS_BY_ID.blank.coins === BLANK_COINS && BLANK_COINS === 100);
-check('and the rest carry the invented "few coins"',
-  OPENINGS.filter((o) => o.id !== 'blank').every((o) => o.coins === STARTING_COINS),
+check('every kitted opening places all 200 and holds none free',
+  OPENINGS.every((o) => sum(o.skills) === 200 && o.freeSkillPoints === 0));
+check('every opening caps a starting skill at 100',
+  OPENINGS.every((o) => o.maxSkillAtStart === 100));
+check('every opening carries the invented "few coins"',
+  OPENINGS.every((o) => o.coins === STARTING_COINS),
   `${STARTING_COINS} each`);
 check('every kit has items and every base is known',
   OPENINGS.every((o) => o.kit.length > 0 && o.kit.every((e) => e.base in ITEM_BASES)),
@@ -246,36 +239,6 @@ const warrior = OPENINGS_BY_ID.warrior;
   check('an unknown opening is refused', !!r.error && r.error.includes('unknown opening'), r.error);
 }
 
-// Blank
-{
-  const r = applyCustomisation('blank', [], [{ from: 'pool', to: 'magery', amount: 50 }]);
-  check('Blank may put 50 into a skill from the pool',
-    !r.error && r.skills.magery === 50, r.error || `Magery ${r?.skills?.magery}`);
-  const over = applyCustomisation('blank', [], [{ from: 'pool', to: 'magery', amount: 51 }]);
-  check('Blank refuses a skill above 50', !!over.error && over.error.includes('above the cap of 50'), over.error);
-}
-{
-  const moves = [];
-  for (const id of ['magery', 'evaluatingIntelligence', 'meditation', 'healing'])
-    moves.push({ from: 'pool', to: id, amount: 50 });
-  const r = applyCustomisation('blank', [], moves);
-  check('Blank may place all 200 of its free points',
-    !r.error && sum(r.skills) === 200 && r.remaining.skill === 0,
-    r.error || `${sum(r.skills)} placed, ${r.remaining.skill} left`);
-  const over = applyCustomisation('blank', [], [...moves, { from: 'pool', to: 'tactics', amount: 1 }]);
-  check('and refuses the two hundred and first', !!over.error && over.error.includes('201 of 200'), over.error);
-}
-{
-  const r = applyCustomisation('blank', [{ from: 'str', to: 'int', amount: 40 }], []);
-  check(`Blank may move more than ${CUSTOM_STAT_POINTS} stat points (budget ${BLANK_STAT_POINTS})`,
-    !r.error && r.stats.int === 90 && r.stats.str === 10, r.error || `STR ${r.stats.str}, INT ${r.stats.int}`);
-  const overFloor = applyCustomisation('blank', [{ from: 'str', to: 'int', amount: 41 }], []);
-  check('and is still stopped by the floor at 41', !!overFloor.error && overFloor.error.includes('below the floor'),
-    overFloor.error);
-  const warriorSame = applyCustomisation('warrior', [{ from: 'str', to: 'int', amount: 40 }], []);
-  check('while a Warrior cannot move 40 at all', !!warriorSame.error && warriorSame.error.includes('40 of 30'),
-    warriorSame.error);
-}
 check(`the skill budget for a kitted opening is ${CUSTOM_SKILL_POINTS}`,
   applyCustomisation('warrior', [], [{ from: 'anatomy', to: 'tactics', amount: 30 }]).error === undefined
   && !!applyCustomisation('warrior', [], [{ from: 'anatomy', to: 'tactics', amount: 31 }]).error);
@@ -284,21 +247,17 @@ check(`the skill budget for a kitted opening is ${CUSTOM_SKILL_POINTS}`,
 console.log('\nAppearance');
 // ---------------------------------------------------------------------------
 
-// CR3: gender is the one choice the creation screen offers today. The other
-// five stay in the table and in every save, so a character made before CR3
-// loads without an error and the day the models land nothing has to be
-// invented back. Both halves are checked: the new field, and the old ones.
-check('two genders, male and female, in that order',
-  APPEARANCE.genders.length === 2 && APPEARANCE.genders.join(',') === 'male,female',
+check('one gender is offered, so creation shows one body',
+  APPEARANCE.genders.length === 1 && APPEARANCE.genders.join(',') === 'male',
   APPEARANCE.genders.join(', '));
 check('and the default is male', APPEARANCE_DEFAULT.gender === 'male', String(APPEARANCE_DEFAULT.gender));
-check('both genders validate',
+check('the one offered gender validates',
   APPEARANCE.genders.every((g) => validateAppearance({ ...APPEARANCE_DEFAULT, gender: g }).ok),
   APPEARANCE.genders.join(', '));
 {
-  const bad = validateAppearance({ ...APPEARANCE_DEFAULT, gender: 'other' });
-  check('and a gender that is not one of the two is refused, by name and by count',
-    bad.ok === false && bad.error.includes('gender') && bad.error.includes('2 choices'), bad.error);
+  const bad = validateAppearance({ ...APPEARANCE_DEFAULT, gender: 'female' });
+  check('and a gender outside that one is refused, by name and by count',
+    bad.ok === false && bad.error.includes('gender') && bad.error.includes('1 choices'), bad.error);
 }
 {
   const { gender, ...noGender } = APPEARANCE_DEFAULT;
@@ -350,12 +309,12 @@ check('an empty appearance is refused', validateAppearance(null).ok === false);
   const unresolved = all.filter((e) => !BASES[e.base]).map((e) => e.kitId);
   check('every kit entry of every opening resolves to a real items.js base', unresolved.length === 0 && auditKitBases() === true,
     unresolved.length ? unresolved.join(', ') : `${all.length} entries across ${OPENINGS.length} openings`);
-  check('armour pieces map material_piece and the robe is the cloth chest',
-    itemBaseFor('leatherHead') === 'leather_head' && itemBaseFor('ringmailChest') === 'ring_chest' && itemBaseFor('clothRobe') === 'cloth_chest' && itemBaseFor('kiteShield') === 'kite');
+  check('outfit kit ids map to the six armour bases',
+    itemBaseFor('leatherOutfit') === 'leather_outfit' && itemBaseFor('ringmailOutfit') === 'ring_outfit' && itemBaseFor('clothOutfit') === 'cloth_outfit' && itemBaseFor('kiteShield') === 'kite');
   check('ids items.js already knows pass through unchanged', itemBaseFor('longsword') === 'longsword' && itemBaseFor('bandage') === 'bandage');
   const warrior = kitItems(OPENINGS_BY_ID.warrior);
-  check('the warrior kit is a longsword, a kite shield, eight leather pieces and six bandages',
-    warrior.length === 11 && warrior[0].base === 'longsword' && warrior[1].base === 'kite' && warrior.filter((e) => e.base.startsWith('leather_')).length === 8 && warrior.at(-1).count === 6,
+  check('the warrior kit is a longsword, a kite shield, one leather outfit and six bandages',
+    warrior.length === 4 && warrior[0].base === 'longsword' && warrior[1].base === 'kite' && warrior.filter((e) => e.base === 'leather_outfit').length === 1 && warrior.at(-1).count === 6,
     warrior.map((e) => e.base).join(', '));
 }
 

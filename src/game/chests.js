@@ -137,8 +137,9 @@ export function auditChestTables() {
     for (const kind of ['chest', 'cache']) {
       const table = tableFor(tier, kind);
       const words = kind === 'cache' ? CACHE_WORDS : CHEST_WORDS;
-      if (table.length < words.length - 1) {
-        bad.push(`a tier ${tier} ${kind} resolves ${table.length} of ${words.length} words`);
+      const unique = new Set(words.map((word) => itemBaseFor(word, tier)).filter(Boolean));
+      if (table.length !== unique.size) {
+        bad.push(`a tier ${tier} ${kind} resolves ${table.length} of ${unique.size} unique bases`);
       }
       for (const base of table) if (!baseFor(base)) bad.push(`tier ${tier} ${kind}: "${base}" is not a base`);
     }

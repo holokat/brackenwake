@@ -48,10 +48,10 @@ export function wsUrlFor(loc, room) {
 export function lookFor(character) {
   const eq = (character && character.equipment) || {};
   const gear = {};
-  for (const slot of ['mainHand', 'offHand', 'head', 'chest', 'legs', 'feet', 'hands', 'back']) {
+  for (const slot of ['mainHand', 'offHand', 'outfit', 'neck', 'ring1', 'ring2']) {
     gear[slot] = eq[slot] && eq[slot].base ? eq[slot].base : null;
   }
-  return { appearance: (character && character.appearance) || null, opening: (character && character.opening) || 'blank', gear };
+  return { appearance: (character && character.appearance) || null, opening: (character && character.opening) || 'ranger', gear };
 }
 
 /** The hello, from the character. */

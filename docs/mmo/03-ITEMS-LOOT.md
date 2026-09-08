@@ -6,40 +6,32 @@ record and the tables here, deterministically, so a server and a client agree.
 
 ## Slots
 
-Fourteen. The paper doll shows all of them.
+Six. The paper doll shows all of them.
 
 | slot | takes |
 | --- | --- |
-| head | helm, hood, hat, circlet |
+| outfit | one armour outfit, visually dressing head, chest, hands, wrists, waist, legs, feet and back |
 | neck | amulet |
-| chest | tunic, robe, breastplate |
-| back | cloak |
-| hands | gloves, gauntlets |
-| wrists | bracers |
-| waist | belt, sash |
-| legs | leggings, greaves |
-| feet | boots, sandals |
 | ring1, ring2 | rings |
-| mainHand | any one-handed or two-handed weapon; a staff |
+| mainHand | any one-handed or two-handed weapon; a staff; bows and crossbows |
 | offHand | shield, second one-handed weapon (Fencing and Swordsmanship only), tome, torch |
-| ranged | bow, crossbow; quiver rides with it |
 
-A two-handed weapon empties offHand. A bow in `ranged` is used when the mainHand
-is empty or when the ranged ability is fired.
+A two-handed weapon empties offHand. Bows and crossbows are main hand weapons.
 
 ## Armour tiers
 
-Six materials, each a full set of eight pieces (head, chest, hands, wrists,
-waist, legs, feet, back). AR is per piece; a full set is the sum.
+Six materials, each one outfit item. One outfit visually dresses the old eight
+armour areas: head, chest, hands, wrists, waist, legs, feet and back. AR,
+weight and resist values are the old full-set totals.
 
-| tier | material | AR per piece (chest x2) | weight per piece | STR needed | Meditation | typed resist per piece |
+| tier | material | AR | weight | STR needed | Meditation | typed resist |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Cloth | 1 (2) | 1 | 0 | full | energy 1 |
-| 2 | Leather | 3 (6) | 2 | 15 | full | cold 1, poison 1 |
-| 3 | Studded leather | 5 (10) | 3 | 25 | 75% | poison 2 |
-| 4 | Ringmail | 7 (14) | 5 | 40 | 40% | physical 1, fire 1 |
-| 5 | Chainmail | 9 (18) | 6 | 55 | 20% | physical 2 |
-| 6 | Platemail | 12 (24) | 9 | 75 | 0% | physical 3, fire 2 |
+| 1 | Cloth | 9 | 8 | 0 | full | energy 8 |
+| 2 | Leather | 27 | 16 | 15 | full | cold 8, poison 8 |
+| 3 | Studded leather | 45 | 24 | 25 | 75% | poison 16 |
+| 4 | Ringmail | 63 | 40 | 40 | 40% | physical 8, fire 8 |
+| 5 | Chainmail | 81 | 48 | 55 | 20% | physical 16 |
+| 6 | Platemail | 108 | 72 | 75 | 0% | physical 24, fire 16 |
 
 Full plate: AR 108 before affixes, 72 stones, needs 75 STR, no mana
 regeneration from Meditation. Full cloth: AR 9, 8 stones, casts freely. This is
@@ -141,8 +133,9 @@ keeps what the table gave. So:
   body's table holds any gear at all, the six in ten draw from the character's
   OWN kit (`kitDraw` over `classProfileDetail`): weapons 35, armour 35,
   jewellery 10, ammunition 10, shields, foci and instruments 10, by weight.
-  Armour is drawn by slot first and material second, so boots are one piece in
-  eight. An archer's kit carries arrows, a marksman's bolts, a quiver of 12 to
+  Armour words such as helm, tunic, greaves, boots, cloak, breastplate and robe
+  now resolve to one outfit for the character's tier. An archer's kit carries
+  arrows, a marksman's bolts, a quiver of 12 to
   30 at a time. This replaced the L1 intersection rule, under which a ranger
   on the island took fifteen pairs of boots, rings, daggers and rapiers off
   bandits and never a bow, an arrow, a helm or an amulet, because the bandit's
@@ -171,12 +164,12 @@ recorded on `character.uniques`.
 | realm | boss | the item | base | power |
 | --- | --- | --- | --- | --- |
 | The Greenwold | Sergeant Oram Blackhand | Blackhand's Answer | Longsword | Sunder |
-| Verdant Deep | The Keeper of Faces | The Hood of a Hundred Faces | Cloth Hood | Archmage |
+| Verdant Deep | The Keeper of Faces | The Robes of a Hundred Faces | Cloth Outfit | Archmage |
 | The Saltmarch | Thalassa the Sea-Wyrm | Thalassa's Tooth | Spear | Everfrost |
-| Ember Wastes | The Brass Heart | Heartplate of the Brass City | Platemail Breastplate | Phoenix |
+| Ember Wastes | The Brass Heart | Heartplate of the Brass City | Platemail Outfit | Phoenix |
 | The Stormpeaks | Warden Hask | Hask's Long Reckoning | Longbow | Stormcaller |
 | The Boneyard | Huntmaster Gallow | Gallow's Whistle | Amulet | Shepherd |
-| Frostreach | Legate Ossory | The Legate's Cold Crown | Platemail Helm | Kingsguard |
+| Frostreach | Legate Ossory | The Legate's Cold Harness | Platemail Outfit | Kingsguard |
 | The Sunken Kingdom | King Caradoc the Drowned | Caradoc's Drowned Ring | Ring | Undying |
 | The Ashen Throne | Malachar, the Wyrmking | The Wyrmking's Due | Greatsword | Vampiric |
 
@@ -250,7 +243,7 @@ Longsword of the Stormcaller". Common items are just their base.
 ## Ore
 
 Ten tiers. Each vein needs a Mining skill to work at all, yields ingots the
-smith needs, and lends its property to everything forged from it.
+smith needs, and lends its property to everything Workshopd from it.
 
 | tier | ore | Mining to work | Mining to work well | colour | lends to gear |
 | --- | --- | --- | --- | --- | --- |
@@ -287,7 +280,8 @@ diamond, starstone. Set into rings and amulets by Tinkering for a fixed affix.
 
 ## Crafting
 
-A recipe: `{ result, skill, difficulty, materials: {...}, station }`.
+A recipe: `{ result, skill, difficulty, materials: {...}, station }`. Every
+recipe is made at the Workshop.
 
 **Success:** `chance = clamp(0.5 + (skill - difficulty) * 0.01, 0.05, 0.98)`.
 Failure eats half the materials and still teaches.
@@ -302,12 +296,12 @@ scaled by `skill / 100`, and an exceptional roll adds one tier. A grandmaster
 smith making a starfall greatsword has real odds of a purple and a small chance
 of gold; a legendary needs starfall, exceptional, and luck.
 
-Stations: **forge** (metal), **loom** (cloth), **tanning rack** (leather),
-**workbench** (wood), **alchemy table**, **kitchen**, **inscription desk**.
+Stations: **Workshop** (metal), **Workshop** (cloth), **Workshop** (leather),
+**Workshop** (wood), **Workshop**, **Workshop**, **inscription desk**.
 Towns have them near the well; houses will later.
 
 **Recipe families to author** (the data module holds the full list): every
-weapon above in every metal it can take; every armour piece in every tier;
+weapon above in every metal it can take; one outfit in every armour tier;
 shields; bows, staves, arrows; potions (heal, mana, stamina, cure, strength,
 agility, night sight, invisibility); food (six meals with stat buffs); tools
 (axe, pickaxe, hatchet, sewing kit, tongs, saw, tinker's tools); bags (4, 8,

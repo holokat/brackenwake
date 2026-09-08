@@ -1008,45 +1008,9 @@
   ],
   "stations": [
     {
-      "id": "forge",
+      "id": "workshop",
       "x": 8,
       "z": -26,
-      "yaw": 0
-    },
-    {
-      "id": "tanningRack",
-      "x": -17,
-      "z": 20,
-      "yaw": 0
-    },
-    {
-      "id": "workbench",
-      "x": -20,
-      "z": 21,
-      "yaw": 0
-    },
-    {
-      "id": "loom",
-      "x": -17,
-      "z": 4,
-      "yaw": 0
-    },
-    {
-      "id": "kitchen",
-      "x": 28,
-      "z": -7,
-      "yaw": 0
-    },
-    {
-      "id": "alchemyTable",
-      "x": 16,
-      "z": 9,
-      "yaw": 0
-    },
-    {
-      "id": "inscriptionDesk",
-      "x": -22,
-      "z": 21,
       "yaw": 0
     }
   ],

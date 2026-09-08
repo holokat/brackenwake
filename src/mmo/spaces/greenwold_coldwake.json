@@ -315,15 +315,9 @@
   ],
   "stations": [
     {
-      "id": "workbench",
+      "id": "workshop",
       "x": -20,
       "z": 0,
-      "yaw": 0
-    },
-    {
-      "id": "kitchen",
-      "x": -13,
-      "z": -20,
       "yaw": 0
     }
   ],

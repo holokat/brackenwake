@@ -1,5 +1,5 @@
 import { BASES as ITEM_BASES_JS } from './items.js';
-// Brackenwake: the eleven openings, customisation, and appearance.
+// Brackenwake: the four openings, customisation, and appearance.
 //
 // Pure data and rules. No THREE, no DOM, no imports. Node-testable.
 // Source of truth: docs/mmo/04-CLASSES-ABILITIES.md (the openings table),
@@ -43,9 +43,7 @@ export const STAT_IDS = ['str', 'dex', 'int', 'con', 'wis'];
  * would be a promise about abilities they do not have.
  */
 export const OPENING_GROUP = {
-  warrior: 'warrior', paladin: 'healer', ranger: 'ranger', rogue: 'rogue',
-  mage: 'mage', sorcerer: 'sorcerer', necromancer: 'necromancer',
-  healer: 'healer', bard: 'bard', artisan: 'everyone', blank: 'everyone',
+  warrior: 'warrior', ranger: 'ranger', rogue: 'rogue', mage: 'mage',
 };
 
 export const STAT_LABELS = {
@@ -174,19 +172,10 @@ export const CUSTOM_SKILL_POINTS = 30;
  * true` marks a base the openings table names but the item document does not
  * define; those need rows adding to 03 before they can be spawned.
  */
-const ARMOUR_PIECES = ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back'];
 const ARMOUR_MATERIALS = {
-  cloth: 'Cloth',
-  leather: 'Leather',
-  studdedLeather: 'Studded leather',
-  ringmail: 'Ringmail',
-  chainmail: 'Chainmail',
-  platemail: 'Platemail',
+  cloth: 'Cloth', leather: 'Leather', studdedLeather: 'Studded leather',
+  ringmail: 'Ringmail', chainmail: 'Chainmail', platemail: 'Platemail',
 };
-
-function pieceId(material, piece) {
-  return material + piece[0].toUpperCase() + piece.slice(1);
-}
 
 const ITEM_BASES = {};
 function base(id, docName, kind) {
@@ -196,11 +185,8 @@ function base(id, docName, kind) {
   return id;
 }
 
-// Armour: six materials x eight pieces. Every piece inherits its material's
-// document row, so the whole grid is doc-sourced.
-for (const [material, docName] of Object.entries(ARMOUR_MATERIALS)) {
-  for (const piece of ARMOUR_PIECES) base(pieceId(material, piece), docName, 'armour');
-}
+// Armour: six outfits. Each inherits its material's document row.
+for (const [material, docName] of Object.entries(ARMOUR_MATERIALS)) base(`${material}Outfit`, docName, 'armour');
 
 // Weapons named by the kits.
 base('longsword', 'Longsword', 'weapon');
@@ -221,7 +207,6 @@ base('kiteShield', 'kite', 'shield');
 base('towerShield', 'tower', 'shield');
 
 // Doc-sourced consumables, tools and oddments.
-base('clothRobe', 'robe', 'armour');
 base('arrow', 'arrows', 'ammunition');
 base('ironIngot', 'ingots', 'material');
 base('potionMana', 'potions', 'consumable');
@@ -237,8 +222,6 @@ base('skull', null, 'offHand');
 base('boneStaff', null, 'weapon');
 base('lute', null, 'instrument');
 base('smithHammer', null, 'tool');
-base('leatherApron', null, 'armour');
-base('darkRobe', null, 'armour');
 base('wand', null, 'weapon'); // 03 has no wand row; W7 added the base to items.js
 
 export { ITEM_BASES };
@@ -256,15 +239,15 @@ const KIT_SPECIAL = {
   // artisan's kit says which one it is. `iron_ingot` is what "ironIngot" always
   // meant. `auditKitBases` reads items.js BASES directly, not `baseFor`, so the
   // alias would not have saved this file: it threw at import.
-  clothRobe: 'cloth_chest', kiteShield: 'kite', towerShield: 'tower', ironIngot: 'iron_ingot', potionMana: 'potion',
-  holyBook: 'holy_book', boneStaff: 'bone_staff', darkRobe: 'dark_robe', leatherApron: 'leather_apron',
+  kiteShield: 'kite', towerShield: 'tower', ironIngot: 'iron_ingot', potionMana: 'potion',
+  holyBook: 'holy_book', boneStaff: 'bone_staff',
   smithHammer: 'smith_hammer', reagentPouch: 'reagent_pouch',
 };
 /** The items.js base id a kit entry's base becomes. */
 export function itemBaseFor(kitId) {
   if (KIT_SPECIAL[kitId]) return KIT_SPECIAL[kitId];
   for (const [mat, matId] of Object.entries(KIT_MATERIAL)) {
-    for (const piece of ARMOUR_PIECES) if (kitId === pieceId(mat, piece)) return `${matId}_${piece}`;
+    if (kitId === `${mat}Outfit`) return `${matId}_outfit`;
   }
   return kitId;
 }
@@ -288,20 +271,7 @@ export const INVENTED_ITEM_BASES = Object.values(ITEM_BASES)
   .map((b) => b.id)
   .sort();
 
-function setOf(material, skip = []) {
-  return ARMOUR_PIECES
-    .filter((p) => !skip.includes(p))
-    .map((p) => ({ base: pieceId(material, p), count: 1 }));
-}
-
-function robeSet() {
-  // A robe is the cloth chest piece, so the "robe set" is cloth with the robe
-  // standing in for the tunic.
-  return [
-    ...setOf('cloth', ['chest']),
-    { base: 'clothRobe', count: 1 },
-  ];
-}
+const outfit = (material) => [{ base: `${material}Outfit`, count: 1 }];
 
 // ---------------------------------------------------------------------------
 // Coins
@@ -352,23 +322,10 @@ export const OPENINGS = [
     kit: [
       { base: 'longsword', count: 1 },
       { base: 'kiteShield', count: 1 },
-      ...setOf('leather'),
+      ...outfit('leather'),
       { base: 'bandage', count: 6 },
     ],
     blurb: 'Takes the hits. A sword, a shield, and enough anatomy to close a wound.',
-  }),
-  opening({
-    id: 'paladin', name: 'Paladin',
-    STR: 60, DEX: 40, INT: 35, CON: 60, WIS: 55,
-    skills: { swordsmanship: 45, chivalry: 45, tactics: 40, parrying: 35, healing: 35 },
-    kit: [
-      { base: 'longsword', count: 1 },
-      { base: 'buckler', count: 1 },
-      { base: 'ringmailChest', count: 1 },
-      { base: 'ringmailLegs', count: 1 },
-      { base: 'holyBook', count: 1 },
-    ],
-    blurb: 'Holy magic that works in plate. Slower than a warrior, harder to put down.',
   }),
   opening({
     id: 'ranger', name: 'Ranger',
@@ -378,7 +335,7 @@ export const OPENINGS = [
       { base: 'shortbow', count: 1 },
       { base: 'arrow', count: 60 },
       { base: 'dagger', count: 1 },
-      ...setOf('leather'),
+      ...outfit('leather'),
     ],
     blurb: 'Keeps the distance and knows what is in the trees before it moves.',
   }),
@@ -388,14 +345,13 @@ export const OPENINGS = [
     skills: { fencing: 50, stealth: 45, hiding: 40, lockpicking: 35, poisoning: 30 },
     kit: [
       { base: 'dagger', count: 2 },
-      { base: 'clothHead', count: 1 }, // the cloth hood; it takes the head slot
-      ...setOf('leather', ['head']),
+      ...outfit('leather'),
       { base: 'lockpick', count: 3 },
     ],
     blurb: 'Opens what is shut and is behind you when it matters.',
   }),
   opening({
-    id: 'mage', name: 'Mage',
+    id: 'mage', name: 'Wizard',
     STR: 30, DEX: 40, INT: 70, CON: 45, WIS: 65,
     skills: { magery: 50, evaluatingIntelligence: 45, meditation: 45, resistingSpells: 30, inscription: 30 },
     kit: [
@@ -403,97 +359,17 @@ export const OPENINGS = [
       // rule the mage would have started unable to cast a single one of the
       // nine spells the kit's Magery 50 unlocks.
       { base: 'staff', count: 1 },
-      ...robeSet(),
+      ...outfit('cloth'),
       { base: 'potionMana', count: 4 },
     ],
     blurb: 'Fire, cold and lightning at range, and nothing at all to take a hit with.',
-  }),
-  opening({
-    id: 'sorcerer', name: 'Sorcerer',
-    STR: 30, DEX: 45, INT: 75, CON: 40, WIS: 60,
-    skills: { mysticism: 50, evaluatingIntelligence: 45, meditation: 40, magery: 35, alchemy: 30 },
-    kit: [
-      { base: 'staff', count: 1 }, // the kit says "staff", and now there is one
-      { base: 'clothRobe', count: 1 },
-      { base: 'reagentPouch', count: 6 },
-    ],
-    blurb: 'Wards, curses and the odd corner of the elements.',
-  }),
-  opening({
-    id: 'necromancer', name: 'Necromancer',
-    STR: 35, DEX: 40, INT: 65, CON: 50, WIS: 60,
-    skills: { necromancy: 50, spiritSpeak: 45, meditation: 40, evaluatingIntelligence: 35, anatomy: 30 },
-    kit: [
-      { base: 'boneStaff', count: 1 },
-      { base: 'darkRobe', count: 1 },
-      { base: 'skull', count: 1 },
-    ],
-    blurb: 'Spends the corpse. What you kill fights the next thing for you.',
-  }),
-  opening({
-    id: 'healer', name: 'Healer',
-    STR: 40, DEX: 45, INT: 50, CON: 55, WIS: 60,
-    skills: { healing: 50, anatomy: 45, chivalry: 35, meditation: 35, veterinary: 35 },
-    kit: [
-      // the wand FIRST, and that ordering is load bearing: creation.js wears the
-      // kit in the order it arrives, so the wand takes the main hand and the
-      // mace waits in the pack. A healer whose first two abilities (Heal at
-      // Chivalry 20, Cleanse at 35) are spells has to start holding a focus.
-      { base: 'wand', count: 1 },
-      { base: 'mace', count: 1 },
-      ...setOf('cloth'),
-      { base: 'bandage', count: 20 },
-    ],
-    blurb: 'Binds wounds faster than they open, and eventually raises the dead.',
-  }),
-  opening({
-    id: 'bard', name: 'Bard',
-    STR: 40, DEX: 55, INT: 50, CON: 50, WIS: 55,
-    skills: { musicianship: 50, provocation: 40, peacemaking: 40, discordance: 35, fencing: 35 },
-    kit: [
-      { base: 'lute', count: 1 },
-      { base: 'rapier', count: 1 },
-      ...setOf('leather'),
-    ],
-    blurb: 'Sets two monsters on each other and lets them settle it.',
-  }),
-  opening({
-    id: 'artisan', name: 'Artisan',
-    STR: 55, DEX: 50, INT: 50, CON: 50, WIS: 45,
-    skills: { blacksmithing: 45, mining: 45, tailoring: 40, carpentry: 35, tinkering: 35 },
-    kit: [
-      { base: 'pickaxe', count: 1 },
-      { base: 'axe', count: 1 },
-      { base: 'smithHammer', count: 1 },
-      { base: 'tongs', count: 1 },
-      { base: 'leatherApron', count: 1 },
-      { base: 'ironIngot', count: 20 },
-    ],
-    blurb: 'Makes the sword the warrior wishes he had found.',
-  }),
-  opening({
-    id: 'blank', name: 'Blank',
-    STR: 50, DEX: 50, INT: 50, CON: 50, WIS: 50,
-    skills: {},
-    kit: [
-      // Blank decides nothing for you, so it hands over both halves: a dagger
-      // to swing and a wand to cast with. The dagger is listed first and takes
-      // the hand; the wand is one swap away in the pack.
-      { base: 'dagger', count: 1 },
-      { base: 'wand', count: 1 },
-      ...setOf('cloth'),
-    ],
-    coins: BLANK_COINS,
-    freeSkillPoints: STARTING_SKILL_TOTAL,
-    maxSkillAtStart: BLANK_MAX_SKILL,
-    blurb: 'The points and the budget, raw. Nothing decided for you.',
   }),
 ];
 
 export const OPENINGS_BY_ID = Object.fromEntries(OPENINGS.map((o) => [o.id, o]));
 
-/** Ten openings plus Blank. */
-export const OPENING_COUNT = 11;
+/** Four openings. */
+export const OPENING_COUNT = 4;
 
 // ---------------------------------------------------------------------------
 // Customisation
@@ -634,7 +510,7 @@ export const APPEARANCE = {
   // because a character made before CR3 carries all six fields and has to load
   // without an error. What changed is the screen: two pills, and the models
   // that would make a build or a hair style mean anything are not drawn yet.
-  genders: ['male', 'female'],
+  genders: ['male'],
   builds: ['slight', 'average', 'heavy'],
   skins: ['pale', 'fair', 'sand', 'olive', 'tan', 'copper', 'umber', 'ebony'],
   hairStyles: [
@@ -753,9 +629,9 @@ export function auditOpenings(list = OPENINGS) {
     throw new Error(`auditOpenings: ${list.length} openings, the document has ${OPENING_COUNT}`);
   }
 
-  // Appearance counts, exactly as the document writes them.
+  // Appearance counts, exactly as the current model writes them.
   const counts = [
-    ['genders', 2], ['builds', 3], ['skins', 8], ['hairStyles', 12], ['hairColours', 10],
+    ['genders', 1], ['builds', 3], ['skins', 8], ['hairStyles', 12], ['hairColours', 10],
   ];
   for (const [name, n] of counts) {
     if (APPEARANCE[name].length !== n) {

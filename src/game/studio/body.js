@@ -28,7 +28,7 @@ export function buildStudioCharacter(appearance={},options={}){
  const sync=()=>{if(!actor)return;actor.group.updateWorldMatrix(true,true);group.updateWorldMatrix(true,false);for(const[key,bone]of Object.entries(PARTS)){actor.rig.joints[bone].getWorldPosition(temp);parts[key].position.copy(group.worldToLocal(temp));actor.rig.joints[bone].getWorldQuaternion(quat);group.getWorldQuaternion(parts[key].quaternion).invert().multiply(quat);}sockets.updateMatrixWorld(true);};
  const cleanup=(a,m)=>{m?.dispose();if(a)disposeCharacter(a);};
  async function rebuild(){
-  const version=++revision,snapshot={...look},eq=structuredClone(equipment),fit=studioEquipment(eq,equipOpts),kind=Object.hasOwn(classProfiles,options.classId)?options.classId:'blank';
+  const version=++revision,snapshot={...look,gender:'male'},eq=structuredClone(equipment),fit=studioEquipment(eq,equipOpts),kind=Object.hasOwn(classProfiles,options.classId)?options.classId:'ranger';
   ready=Promise.resolve().then(async()=>{
    if(closed||version!==revision)return;
    const bodyType=snapshot.gender==='female'?'female':'male';

@@ -111,10 +111,10 @@ check('it builds, opens and ticks', typeof panel.build === 'function' && typeof 
 
 console.log('win_dev: the item search');
 {
-  const plate = searchBases('breastplate');
-  check('a partial name finds the breastplates', plate.length >= 1 && plate.every((b) => /breastplate/i.test(b.name)), plate.map((b) => b.id).join(', '));
-  const byId = searchBases('plate_chest');
-  check('an id finds its own base', byId.length === 1 && byId[0].id === 'plate_chest');
+  const plate = searchBases('outfit');
+  check('a partial name finds the outfits', plate.length >= 6 && plate.every((b) => /outfit/i.test(b.name)), plate.map((b) => b.id).join(', '));
+  const byId = searchBases('plate_outfit');
+  check('an id finds its own base', byId.length === 1 && byId[0].id === 'plate_outfit');
   check('a name nobody has finds nothing', searchBases('zzzz').length === 0);
   check('an empty box shows a list, capped', searchBases('', { limit: 5 }).length === 5);
   check('the whole catalogue is reachable', searchBases('', { limit: 0 }).length === Object.keys(BASES).length, `${Object.keys(BASES).length} bases`);
@@ -243,16 +243,16 @@ console.log('win_dev: an item into the pack');
 {
   const ctx = realCtx();
   const bench = createBench(ctx);
-  const r = bench.giveItem({ base: 'plate_chest', rarity: 'rare', identified: true, material: 'iron' });
+  const r = bench.giveItem({ base: 'plate_outfit', rarity: 'rare', identified: true, material: 'iron' });
   const slot = ctx.character.pack.items[r.index];
   check('it went in', r.ok === true && !!slot, r.text);
-  check('it is a plate breastplate', slot && slot.base === 'plate_chest', slot && BASES[slot.base].name);
+  check('it is a plate outfit', slot && slot.base === 'plate_outfit', slot && BASES[slot.base].name);
   check('of the rarity that was asked for', slot && slot.rarity === 'rare');
   check('and it is identified', slot && slot.identified === true);
   check('with the two affixes rare rolls', slot && slot.affixes.length === RARITY.rare.affixes, `${slot ? slot.affixes.length : 0} affixes`);
   check('every line is readable, none of it vague', r.vague === 0);
   check('the metal is on the record for gear_visuals', slot && slot.material === 'iron');
-  check('and the line names the thing and its slot', /Breastplate/.test(r.text) && /slot \d/.test(r.text), r.text);
+  check('and the line names the thing and its slot', /Platemail Outfit/.test(r.text) && /slot \d/.test(r.text), r.text);
 }
 
 console.log('win_dev: an item left unidentified is left unidentified');
@@ -288,10 +288,10 @@ console.log('win_dev: a full pack takes nothing and says so');
   const items = ctx.character.pack.items;
   for (let i = 0; i < items.length; i++) items[i] = makeItem({ base: 'longsword', seed: i + 1 });
   const before = items.map((it) => it.id).join(',');
-  const r = bench.giveItem({ base: 'plate_chest', rarity: 'rare' });
+  const r = bench.giveItem({ base: 'plate_outfit', rarity: 'rare' });
   check('it refuses', r.ok === false, r.text);
   check('the pack is exactly what it was', items.map((it) => it.id).join(',') === before);
-  check('no slot became a breastplate', !items.some((it) => it.base === 'plate_chest'));
+  check('no slot became a breastplate', !items.some((it) => it.base === 'plate_outfit'));
   check('and the refusal says the pack is full', /full/.test(r.text), r.text);
 }
 
@@ -301,8 +301,8 @@ console.log('win_dev: the full sets');
   const bench = createBench(ctx);
   const r = bench.giveSet('plate', { rarity: 'common', identified: true });
   const worn = ctx.character.pack.items.filter((it) => it && it.base.startsWith('plate_'));
-  check('all eight pieces went in', r.ok === true && r.added === 8 && worn.length === 8, r.text);
-  check('and they are the eight setOf("plate") names', new Set(worn.map((it) => it.base)).size === setOf('plate').length);
+  check('the one outfit went in', r.ok === true && r.added === 1 && worn.length === 1, r.text);
+  check('and it is the setOf("plate") name', new Set(worn.map((it) => it.base)).size === setOf('plate').length);
 }
 {
   const ctx = realCtx();
@@ -317,14 +317,14 @@ console.log('win_dev: the full sets');
   check('a set nobody has is refused', none.ok === false && /no set called mithril/.test(none.text), none.text);
 }
 {
-  // The other direction: a pack with three slots left takes three of the set.
+  // The other direction: a full pack takes none of the set.
   const ctx = realCtx();
   const bench = createBench(ctx);
   const items = ctx.character.pack.items;
-  for (let i = 0; i < items.length - 3; i++) items[i] = makeItem({ base: 'longsword', seed: i + 1 });
+  for (let i = 0; i < items.length; i++) items[i] = makeItem({ base: 'longsword', seed: i + 1 });
   const r = bench.giveSet('plate', { rarity: 'common' });
-  check('three of the eight go in and five do not', r.ok === false && r.added === 3 && r.refused === 5, r.text);
-  check('and it counts both halves out loud', /3 of 8/.test(r.text) && /No room for 5/.test(r.text), r.text);
+  check('none of the one outfit goes in', r.ok === false && r.added === 0 && r.refused === 1, r.text);
+  check('and it counts both halves out loud', /0 of 1/.test(r.text) && /No room for 1/.test(r.text), r.text);
   check('the pack really is full', items.every(Boolean));
 }
 
@@ -655,7 +655,7 @@ console.log('win_dev: a twenty slot save grows to eighty and keeps every item wh
     pack: { slots: 20, items: new Array(20).fill(null) },
     settings: {},
   };
-  const bases = ['longsword', 'plate_chest', 'iron_ingot', 'copper_ore', 'kite'];
+  const bases = ['longsword', 'plate_outfit', 'iron_ingot', 'copper_ore', 'kite'];
   bases.forEach((b, i) => { old.pack.items[i * 4] = makeItem({ base: b, seed: i + 1 }); });
   const doc = hydrate(JSON.parse(JSON.stringify(old)));
   check('the pack now has eighty slots', doc.pack.slots === 80 && doc.pack.items.length === 80, `${doc.pack.slots} slots, ${doc.pack.items.length} entries`);
@@ -692,7 +692,7 @@ console.log('win_dev: a twenty slot save grows to eighty and keeps every item wh
 console.log('win_dev: which bases take a rarity');
 {
   check('a longsword can be blue', takesRarity('longsword') === true);
-  check('a breastplate can be blue', takesRarity('plate_chest') === true);
+  check('a breastplate can be blue', takesRarity('plate_outfit') === true);
   check('an ingot cannot', takesRarity('iron_ingot') === false);
   check('and a base nobody has cannot', takesRarity('lightsabre') === false);
   if (typeof itemRules.takesRarity === 'function') {

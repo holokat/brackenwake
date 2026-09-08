@@ -87,15 +87,17 @@ export const UNNAMED = 'Nobody yet';
 export function cardOf(row, now = Date.now()) {
   const s = row?.summary || null;
   const name = (s?.name || row?.name || '').trim();
-  const openingId = s?.opening || row?.opening || 'blank';
-  const opening = OPENINGS_BY_ID[openingId];
+  const openingId = s?.opening || row?.opening || 'ranger';
+  const opening = OPENINGS_BY_ID[openingId] || OPENINGS_BY_ID.ranger;
   const skills = Array.isArray(s?.skills) ? s.skills : [];
   return {
     id: row?.id,
     name: name || UNNAMED,
     unnamed: !name,
     needsCreation: !!(row?.needsCreation ?? s?.needsCreation),
-    opening: s?.openingName || opening?.name || '',
+    // the live table's word first: a save made when the Mage was still called that
+    // carries 'Mage' in its snapshot, and the roster says Wizard (2026-09-08)
+    opening: opening?.name || s?.openingName || '',
     blurb: opening?.blurb || '',
     skills,
     skillsLine: skills.length ? '' : 'Nothing learned yet.',
@@ -279,7 +281,7 @@ export function createRoster(root, deps = {}) {
     fresh.appendChild(freshPort);
     const freshWho = h('div', 'bw-ro-who');
     freshWho.appendChild(h('div', 'bw-ro-name', 'New character'));
-    freshWho.appendChild(h('div', 'bw-ro-note', 'Eleven openings, thirty points of stat and two hundred of skill, and a name of your own.'));
+    freshWho.appendChild(h('div', 'bw-ro-note', 'Four openings, thirty points of stat and thirty points of skill, and a name of your own.'));
     fresh.appendChild(freshWho);
     const acts = h('div', 'bw-ro-acts');
     const begin = h('button', 'bw-btn bw-ro-begin', 'Begin');

@@ -27,7 +27,7 @@ check('auditRecipes passes on the real table', true, `${shape.recipes} recipes: 
 const plants = [
   ['a duplicate id', { ...RECIPE['weapon.longsword.iron'] }],
   ['a skill that is not a skill', { ...RECIPE['weapon.longsword.iron'], id: 'p1', skill: 'blacksmithery' }],
-  ['a station that is not one of the seven', { ...RECIPE['weapon.longsword.iron'], id: 'p2', station: 'anvilShed' }],
+  ['a station that is not the Workshop', { ...RECIPE['weapon.longsword.iron'], id: 'p2', station: 'anvilShed' }],
   ['a material that does not exist', { ...RECIPE['weapon.longsword.iron'], id: 'p3', materials: { adamantium: 2 } }],
   ['a difficulty off the scale', { ...RECIPE['weapon.longsword.iron'], id: 'p4', difficulty: 400 }],
   ['a difficulty that does not follow the one rule', { ...RECIPE['weapon.longsword.iron'], id: 'p5', difficulty: 27 }],
@@ -68,13 +68,13 @@ check('iron and above each get their own weapon', (() => (
 check('mail and plate take ingots of iron and above, and nothing softer',
   SMITH_METALS.length === 8 && !SMITH_METALS.includes('copper') && !SMITH_METALS.includes('bronze'),
   SMITH_METALS.join(' '));
-check('every armour tier has all eight pieces in every material it takes', (() => {
+check('every armour tier has one outfit in every material it takes', (() => {
   const byTier = {};
   for (const r of recipesOfFamily('armour')) {
     byTier[r.armourTier] = byTier[r.armourTier] || new Set();
     byTier[r.armourTier].add(`${r.slot}:${r.result.material}`);
   }
-  const want = { cloth: 8, leather: 8, studded: 8, ring: 64, chain: 64, plate: 64 };
+  const want = { cloth: 1, leather: 1, studded: 1, ring: 8, chain: 8, plate: 8 };
   return Object.entries(want).every(([t, n]) => byTier[t] && byTier[t].size === n);
 })(), recipesOfFamily('armour').length + ' armour recipes');
 check('bows and staves come in all four woods', (() => (
@@ -99,7 +99,8 @@ check('a harder spell writes a harder scroll',
   RECIPE['scroll.magicArrow'].difficulty < RECIPE['scroll.fireball'].difficulty
   && RECIPE['scroll.fireball'].difficulty < RECIPE['scroll.meteor'].difficulty,
   `magic arrow ${RECIPE['scroll.magicArrow'].difficulty}, fireball ${RECIPE['scroll.fireball'].difficulty}, meteor ${RECIPE['scroll.meteor'].difficulty}`);
-check('all seven stations make something', STATIONS.every((s) => RECIPES.some((r) => r.station === s.id)),
+check('the one Workshop makes every recipe', STATIONS.length === 1 && STATIONS[0].id === 'workshop' && STATIONS.every((s) => RECIPES.some((r) => r.station === s.id))
+  && RECIPES.every((r) => r.station === 'workshop'),
   STATIONS.map((s) => `${s.id}:${RECIPES.filter((r) => r.station === s.id).length}`).join(' '));
 
 // --- difficulty -----------------------------------------------------------

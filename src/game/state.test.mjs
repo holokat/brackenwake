@@ -58,12 +58,15 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
 {
   const c = blankCharacter();
   check('a new document is version 2', c.v === SAVE_VERSION && SAVE_VERSION === 2);
-  check('it is a Blank', c.opening === 'blank');
-  check('with fifty of each stat, which is 250', STATS.every((k) => c.stats[k] === 50) && STATS.reduce((t, k) => t + c.stats[k], 0) === 250);
+  check('it uses the ranger fallback until creation writes a class', c.opening === 'ranger');
+  check('with the ranger fallback stats, which still total 250',
+    JSON.stringify(c.stats) === '{"str":45,"dex":70,"int":35,"con":50,"wis":50}'
+    && STATS.reduce((t, k) => t + c.stats[k], 0) === 250,
+    JSON.stringify(c.stats));
   check('and none of the 200 skill points placed', SKILL_IDS.every((id) => c.skills[id] === 0), `${SKILL_IDS.length} skills, all zero`);
   check('every skill and stat starts marked up', SKILL_IDS.every((id) => c.skillLocks[id] === 'up') && STATS.every((k) => c.statLocks[k] === 'up'));
   check(`the pack has ${PACK_SLOTS} slots and they are empty`, c.pack.slots === PACK_SLOTS && c.pack.items.length === PACK_SLOTS && c.pack.items.every((i) => i === null));
-  check('the paper doll has all fourteen slots, empty', SLOTS.every((s) => c.equipment[s] === null) && Object.keys(c.equipment).length === 14);
+  check('the paper doll has all six slots, empty', SLOTS.every((s) => c.equipment[s] === null) && Object.keys(c.equipment).length === 6);
   check(`the bar has ${BAR_SLOTS} slots`, c.bar.length === BAR_SLOTS && c.bar.every((b) => b === null));
   check('nothing is discovered and nothing is dead', c.discovered.length === 0 && c.deadUntil.length === 0);
   check('the settings are the nine 07 names', Object.keys(c.settings).sort().join(',') === 'grass,invertDrag,music,pixelRatio,ring,sensitivity,sfx,shadows,textScale', Object.keys(c.settings).join(','));
@@ -71,8 +74,8 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
 }
 {
   const s = createState({ storage: null });
-  check('no save at all gives needsCreation and a Blank', s.needsCreation === true && s.character.opening === 'blank');
-  check('and the pools start full: 155 health from CON 50 and STR 50', s.character.health === 155, String(s.character.health));
+  check('no save at all gives needsCreation and the ranger fallback', s.needsCreation === true && s.character.opening === 'ranger');
+  check('and the pools start full from the ranger fallback stats', s.character.health === 152.5, String(s.character.health));
 }
 
 // ---- the start of a game, as the old views see it --------------------------
@@ -379,10 +382,12 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('and all three still read as tools', s.tools.size === 3, [...s.tools].join(','));
   check('the held tool carries over', s.tool === 'pickaxe');
   check('the position carries over', s.pos.x === -212.5 && s.pos.z === 44, `${s.pos.x},${s.pos.z}`);
-  check('the character is a Blank with its fifties', s.character.opening === 'blank' && STATS.every((k) => s.character.stats[k] === 50));
+  check('the character uses the ranger fallback stats', s.character.opening === 'ranger'
+    && JSON.stringify(s.character.stats) === '{"str":45,"dex":70,"int":35,"con":50,"wis":50}',
+    JSON.stringify(s.character.stats));
   check('with the 200 skill points unplaced', SKILL_IDS.every((id) => s.character.skills[id] === 0));
   check('and it asks to be made', s.needsCreation === true);
-  check('the pools are full for the new character', s.character.health === 155 && s.character.mana === 135 && s.character.stamina === 120, `${s.character.health}/${s.character.mana}/${s.character.stamina}`);
+  check('the pools are full for the new character', s.character.health === 152.5 && s.character.mana === 127.5 && s.character.stamina === 150, `${s.character.health}/${s.character.mana}/${s.character.stamina}`);
   check('seven slots of the pack are used (the bow walked in from the old back slot) and thirteen are free', s.character.pack.items.filter(Boolean).length === 7, String(s.character.pack.items.filter(Boolean).length));
 
   // The v1 key goes at load now rather than at the first save, because the
@@ -508,8 +513,50 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('a stat this version does not have is ignored', s.character.stats.str === 70 && !('luck' in s.character.stats));
   check('a skill this version does not have is ignored', s.character.skills.mining === 5 && !('swimmming' in s.character.skills));
   check('an item base this version does not know is dropped, not carried as a hole', s.character.pack.items.filter(Boolean).length === 1, JSON.stringify(s.character.pack.items.filter(Boolean).map((i) => i.base)));
-  check('an equipment slot this version does not have is ignored', !('tail' in s.character.equipment) && Object.keys(s.character.equipment).length === 14);
+  check('an equipment slot this version does not have is ignored', !('tail' in s.character.equipment) && Object.keys(s.character.equipment).length === 6);
   check('and a hand holding a tool it does not own falls back to the hand', s.tool === 'hand');
+}
+{
+  const old = hydrate({
+    opening: 'sorcerer',
+    appearance: { gender: 'female' },
+    equipment: {
+      head: { base: 'chain_head', rarity: 'rare', seed: 1 },
+      chest: { base: 'plate_chest', rarity: 'epic', seed: 2, quality: 1.2 },
+      ranged: { base: 'shortbow', seed: 3 },
+    },
+    pack: { slots: 6, items: [
+      { base: 'cloth_head', seed: 4 },
+      { base: 'cloth_chest', seed: 5 },
+      { base: 'plate_feet', seed: 6 },
+      null,
+      null,
+      null,
+    ] },
+  });
+  check('a sorcerer save keeps its opening id but gets the one body',
+    old.opening === 'sorcerer' && old.appearance.gender === 'male', `${old.opening}/${old.appearance.gender}`);
+  check('old worn armour pieces become one highest tier outfit',
+    Object.keys(old.equipment).join(',') === SLOTS.join(',') && old.equipment.outfit?.base === 'plate_outfit'
+    && old.equipment.outfit.rarity === 'epic' && old.equipment.outfit.quality === 1.2,
+    JSON.stringify(old.equipment));
+  check('old pack armour pieces collapse by tier', old.pack.items.filter(Boolean).map((i) => i.base).join(',') === 'cloth_outfit,plate_outfit',
+    old.pack.items.filter(Boolean).map((i) => i.base).join(','));
+  check('the old ranged slot moves to the main hand', old.equipment.mainHand?.base === 'shortbow', JSON.stringify(old.equipment.mainHand));
+
+  const fresh = {
+    base: 'leather_outfit',
+    rarity: 'rare',
+    seed: 44,
+    identified: true,
+    affixes: [{ id: 'dex', stat: 'dex', value: 3, unit: 'flat' }],
+  };
+  const next = hydrate({ equipment: { outfit: fresh } });
+  check('a save already on the outfit model is left as that outfit',
+    next.equipment.outfit?.base === 'leather_outfit'
+    && next.equipment.outfit.seed === 44
+    && next.equipment.outfit.affixes[0]?.id === 'dex',
+    JSON.stringify(next.equipment.outfit));
 }
 // ---- a save from before T3, when there was a tool row ----------------------
 //

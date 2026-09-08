@@ -531,13 +531,18 @@ export function auditAffixes() {
   for (const id of RARITY_ORDER) {
     const r = RARITY[id];
     if (!r.affixes) continue;
-    for (const baseId of ['plate_chest', 'longsword', 'ring', 'torch', 'buckler']) {
+    for (const baseId of ['plate_outfit', 'longsword', 'ring', 'torch', 'buckler']) {
       const n = candidatesFor(baseId).length;
       if (n < r.affixes) bad(`${baseId} offers ${n} affixes and ${id} needs ${r.affixes}`);
     }
   }
-  for (const baseId of ['plate_chest', 'longsword', 'ring', 'torch', 'buckler', 'cloth_chest']) {
+  for (const baseId of ['plate_outfit', 'longsword', 'ring', 'torch', 'buckler', 'cloth_outfit']) {
     if (!POWERS.some((p) => allowedOn(p, baseId))) bad(`${baseId} can be legendary and no named power fits it`);
+  }
+  for (const a of AFFIXES) {
+    if (!Object.values(BASES).some((b) => takesRarity(b) && allowedOn(a, b))) {
+      bad(`${a.id} is unreachable on every base`);
+    }
   }
 
   // And the other direction, which is the one that would ship quietly: a base

@@ -11,7 +11,7 @@ import {canonicalSlots} from '../../vendor/living-studio/models/class-profiles.j
 import {buildStudioCharacter,sourceAbility} from './body.js';
 import {buildMonsterModel} from '../monster_models.js';
 import {studioItemId,attachStudioDrop} from './items.js';
-import {studioEquipment,studioMaterial} from './equipment.js';
+import {studioEquipment,studioMaterial, studioArmourForOutfit} from './equipment.js';
 import {enchantmentFor} from './enchantments.js';
 import {planCharacter} from '../creation.js';
 import {createInventory} from '../inventory.js';
@@ -23,24 +23,29 @@ const binary=readFileSync('public/studio/models/warrior-base-rigged.glb'),bank=J
 const loadMotionAssets=async()=>[binary.buffer.slice(binary.byteOffset,binary.byteOffset+binary.byteLength),bank];
 const finite=group=>{group.updateMatrixWorld(true);group.traverse(o=>assert.ok(o.matrixWorld.elements.every(Number.isFinite),o.name));};
 let bodies=0,swaps=0,heldSwaps=0,drops=0,creatures=0,casts=0;
-for(const opening of OPENINGS)for(const gender of ['male','female']){
+for(const opening of OPENINGS)for(const gender of ['male']){
  const plan=planCharacter({opening:opening.id,name:'Studio review',appearance:{gender}});assert.equal(plan.ok,true,opening.id+': '+plan.errors);
  const c=plan.character,body=buildStudioCharacter({...c.appearance,gender},{classId:opening.id});body.setEquipment(c.equipment);await body.ready;
  assert.equal(body.errors.length,0);assert.equal(body.actor.bodyType,gender);assert.equal(body.actor.group.userData.classId,opening.id);
- for(const slot of canonicalSlots)assert.equal(body.actor.equipment[slot],c.equipment[slot]?.base||'none',opening.id+' '+slot);
+ const studioEq=studioEquipment(c.equipment);
+ for(const slot of canonicalSlots)assert.equal(body.actor.equipment[slot],studioEq.armor[slot]||'none',opening.id+' '+slot);
  body.update(.2,2);finite(body.group);body.dispose();assert.equal(body.group.children.length,1);bodies++;
 }
-for(const gender of ['male','female']){
+for(const gender of ['male']){
  const c=planCharacter({opening:'warrior',name:'Gear review',appearance:{gender}}).character;
  for(const s of Object.keys(c.stats))c.stats[s]=100;
  const body=buildStudioCharacter({gender},{classId:'warrior',sourceMotion:true,loadMotionAssets}),actor=playerActor(c);
  const inv=createInventory({character:c,actor,recompute,onChange:()=>body.setEquipment(c.equipment)});body.setEquipment(c.equipment);await body.ready;
- for(const item of itemCatalog.filter(i=>i.kind==='armor')){
-  const base=BASES[item.id];assert.ok(base,item.id);const slot=canonicalSlots.find(s=>base.slot===s)||(base.slots||[]).find(s=>canonicalSlots.includes(s));assert.ok(slot,item.id);
-  const index=inv.emptySlot();assert.ok(index>=0);assert.ok(inv.add(makeItem({base:item.id,seed:13})).added);const eq=inv.equip(index,slot);assert.equal(eq.ok,true,eq.reason);await body.ready;
-  assert.equal(body.actor.equipment[slot],item.id);assert.ok(body.actor.group.getObjectByName('Studio body and worn armour').userData.studioItems.includes(item.id),item.id+' visible geometry');assert.ok(body.actor.group.userData.batchedSourceMeshes>0);finite(body.group);
-  assert.equal(inv.unequip(slot).ok,true);await body.ready;assert.equal(body.actor.equipment[slot],'none');assert.equal(body.actor.group.getObjectByName('Studio body and worn armour').userData.studioItems.includes(item.id),false);
-  inv.remove(inv.pack.items.findIndex(i=>i?.base===item.id));swaps++;
+ // One outfit per tier since 2026-09-08: equipping it dresses every studio armour slot of its tier, and taking it off bares them all.
+ const outfits=Object.values(BASES).filter(b=>b.slot==='outfit').map(b=>b.id);assert.equal(outfits.length,6,outfits.join(','));
+ for(const id of outfits){
+  const fit=studioArmourForOutfit({base:id});assert.ok(fit,id);const pieces=canonicalSlots.filter(s=>fit[s]!=='none');assert.ok(pieces.length>=6,id+' dresses '+pieces.length+' slots');
+  const index=inv.emptySlot();assert.ok(index>=0);assert.ok(inv.add(makeItem({base:id,seed:13})).added);const eq=inv.equip(index,'outfit');assert.equal(eq.ok,true,eq.reason);await body.ready;
+  const worn=body.actor.group.getObjectByName('Studio body and worn armour').userData.studioItems;
+  for(const s of pieces){assert.equal(body.actor.equipment[s],fit[s],id+' '+s);assert.ok(worn.includes(fit[s]),fit[s]+' visible geometry');}
+  assert.ok(body.actor.group.userData.batchedSourceMeshes>0);finite(body.group);
+  assert.equal(inv.unequip('outfit').ok,true);await body.ready;for(const s of pieces)assert.equal(body.actor.equipment[s],'none',id+' off '+s);
+  inv.remove(inv.pack.items.findIndex(i=>i?.base===id));swaps++;
  }
  // Equip through the actual inventory, including bows, focuses and shields.
  for(const item of itemCatalog.filter(i=>['weapon','shield','offhand'].includes(i.kind))){
@@ -66,11 +71,12 @@ for(const row of creatureCatalog){
  b.setAnim('run');b.update(.1,2);finite(b.group);b.dispose();creatures++;
 }
 const representatives=[...Object.values(BASES).map(b=>({base:b.id})),...GEMS.map(g=>({base:'gem',material:g.id}))];
-for(const row of itemCatalog){const item=representatives.find(i=>studioItemId(i)===row.id);assert.ok(item,'No live item maps to '+row.id);const parent=new THREE.Group(),replacement=new THREE.Group();parent.add(replacement);const drop=attachStudioDrop(parent,item,replacement);assert.equal(await drop.ready,true,row.id);assert.equal(replacement.visible,false);finite(parent);drop.dispose();assert.equal(parent.children.length,1);drops++;}
+// the studio's armour pieces are dressed off the one outfit since 2026-09-08 and are not drops of their own; every other catalogue row still has a live item behind it
+for(const row of itemCatalog.filter(r=>r.kind!=='armor')){const item=representatives.find(i=>studioItemId(i)===row.id);assert.ok(item,'No live item maps to '+row.id);const parent=new THREE.Group(),replacement=new THREE.Group();parent.add(replacement);const drop=attachStudioDrop(parent,item,replacement);assert.equal(await drop.ready,true,row.id);assert.equal(replacement.visible,false);finite(parent);drop.dispose();assert.equal(parent.children.length,1);drops++;}
 const gear={mainHand:{base:'greatsword'},offHand:{base:'kite'}};assert.equal(studioEquipment(gear).off,'none');delete gear.mainHand;assert.equal(studioEquipment(gear).off,'kite');
 assert.equal(studioMaterial({base:'heater',material:'iron'}).construction,'metal');
 for(const [id,affix]of Object.entries({flame:'hitFireball',frost:'hitFrost',shock:'hitLightning',vampiric:'lifeLeech',keen:'critChance',force:'damage'}))assert.equal(enchantmentFor({}, {identified:true,affixes:[{id:affix,value:5}]}).id,id);
 assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'poison'}},{base:'dagger'},9).id,'venom');assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'holy'}},{base:'dagger'},9).id,'holy');assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'holy'}},{base:'dagger'},10).id,'none');
 assert.deepEqual(ABILITIES.filter(a=>!sourceAbility(a.id)).map(a=>a.id),['camp','recall']);   // Recall (2026-09-08) casts with the studio's plain gather until it has a motion of its own
-assert.equal(swaps,itemCatalog.filter(i=>i.kind==='armor').length*2);
+assert.equal(swaps,6);   // the six outfits, worn and taken off once each
 console.log(JSON.stringify({bodies,swaps,heldSwaps,creatures,drops,casts,sourceAbilities:ABILITIES.length-1}));

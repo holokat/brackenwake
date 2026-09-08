@@ -18,10 +18,9 @@ import { SKILLS } from './skills.js';
 import { ORES, ALLOYS, METALS, WOODS } from './ores.js';
 
 // ------------------------------------------------------------------- slots
-// Fourteen. The paper doll shows all of them.
+// Six. The paper doll shows all of them.
 export const SLOTS = [
-  'head', 'neck', 'chest', 'back', 'hands', 'wrists', 'waist', 'legs', 'feet',
-  'ring1', 'ring2', 'mainHand', 'offHand', 'ranged',
+  'outfit', 'neck', 'ring1', 'ring2', 'mainHand', 'offHand',
 ];
 
 // A ring fits either ring slot; everything else has exactly one home.
@@ -76,35 +75,10 @@ export const ARMOR_TIERS = [
 
 export const TIER_COLUMNS = ['tier', 'id', 'material', 'ar', 'weight', 'strReq', 'meditation', 'castBurden', 'resist'];
 
-// The eight pieces. Only the chest doubles its AR; weight is flat per piece,
-// which is what makes a full plate set 8 x 9 = 72 stones and AR 7 x 12 + 24 = 108.
-export const ARMOR_PIECES = [
-  { id: 'head', slot: 'head', arMul: 1 },
-  { id: 'chest', slot: 'chest', arMul: 2 },
-  { id: 'hands', slot: 'hands', arMul: 1 },
-  { id: 'wrists', slot: 'wrists', arMul: 1 },
-  { id: 'waist', slot: 'waist', arMul: 1 },
-  { id: 'legs', slot: 'legs', arMul: 1 },
-  { id: 'feet', slot: 'feet', arMul: 1 },
-  { id: 'back', slot: 'back', arMul: 1 },
-];
-
-// The nouns come from the slot table: helm/hood, tunic/robe/breastplate,
-// gloves/gauntlets, bracers, belt/sash, leggings/greaves, boots/sandals, cloak.
-// Cloth wears the soft words, mail and plate the hard ones.
-const PIECE_NOUNS = {
-  cloth: { head: 'Hood', chest: 'Robe', hands: 'Gloves', wrists: 'Bracers', waist: 'Sash', legs: 'Leggings', feet: 'Sandals', back: 'Cloak' },
-  hide: { head: 'Helm', chest: 'Tunic', hands: 'Gloves', wrists: 'Bracers', waist: 'Belt', legs: 'Leggings', feet: 'Boots', back: 'Cloak' },
-  metal: { head: 'Helm', chest: 'Breastplate', hands: 'Gauntlets', wrists: 'Bracers', waist: 'Belt', legs: 'Greaves', feet: 'Boots', back: 'Cloak' },
-};
-const NOUN_BAND = { cloth: 'cloth', leather: 'hide', studded: 'hide', ring: 'metal', chain: 'metal', plate: 'metal' };
-
-// Extra tags a piece answers to, so an affix restricted to "boots, cloaks,
-// belts" can find them without knowing about materials.
-const PIECE_TAGS = {
-  head: ['helm'], chest: ['chestpiece'], hands: ['gloves'], wrists: ['bracers'],
-  waist: ['belt'], legs: ['legs'], feet: ['boots'], back: ['cloak'],
-};
+// The old eight piece suit is one outfit now. These tags keep old affix
+// restrictions reachable until the affix language is rewritten around outfits.
+export const ARMOR_PIECES = [{ id: 'outfit', slot: 'outfit', arMul: 9 }];
+const OUTFIT_TAGS = ['outfit', 'helm', 'chestpiece', 'gloves', 'bracers', 'belt', 'legs', 'boots', 'cloak', 'robe'];
 
 // ----------------------------------------------------------------- shields
 export const SHIELDS = {
@@ -242,19 +216,15 @@ function addBase(b) {
 }
 
 for (const t of ARMOR_TIERS) {
-  for (const p of ARMOR_PIECES) {
-    const noun = PIECE_NOUNS[NOUN_BAND[t.id]][p.id];
-    const kinds = ['equipment', 'armour', `armour_${t.id}`, ...PIECE_TAGS[p.id]];
-    // A cloth chest is the robe every magic affix is looking for.
-    if (t.id === 'cloth' && p.id === 'chest') kinds.push('robe');
-    addBase({
-      id: `${t.id}_${p.id}`, name: `${t.material} ${noun}`, kind: 'armour', kinds,
-      slot: p.slot, piece: p.id, tier: t.tier, material: t.id,
-      ar: t.ar * p.arMul, weight: t.weight, strReq: t.strReq,
-      meditation: t.meditation, castBurden: t.castBurden, resist: { ...t.resist },
-      durability: GEAR_DURABILITY, stack: false,
-    });
-  }
+  const resist = Object.fromEntries(Object.entries(t.resist).map(([k, v]) => [k, v * 8]));
+  addBase({
+    id: `${t.id}_outfit`, name: `${t.material} Outfit`, kind: 'armour',
+    kinds: ['equipment', 'armour', `armour_${t.id}`, ...OUTFIT_TAGS],
+    slot: 'outfit', piece: 'outfit', tier: t.tier, material: t.id,
+    ar: t.ar * 9, weight: t.weight * 8, strReq: t.strReq,
+    meditation: t.meditation, castBurden: t.castBurden, resist,
+    durability: GEAR_DURABILITY, stack: false,
+  });
 }
 
 for (const w of Object.values(WEAPONS)) {
@@ -537,8 +507,6 @@ kitBase({ id: 'lute', name: 'Lute', kind: 'instrument', kinds: ['equipment', 'in
 // the opening would have started unable to cast a single one of the ten
 // necromancy spells it unlocks. It is a focus, and it always should have been.
 kitBase({ ...BASES.staff, id: 'bone_staff', name: 'Bone Staff', kinds: [...BASES.staff.kinds, 'bone'] });
-kitBase({ ...BASES.cloth_chest, id: 'dark_robe', name: 'Dark Robe', kinds: [...BASES.cloth_chest.kinds, 'dark'] });
-kitBase({ ...BASES.leather_chest, id: 'leather_apron', name: 'Leather Apron', kinds: [...BASES.leather_chest.kinds, 'apron'] });
 for (const [id, name, weight] of [['reagent_pouch', 'Reagent Pouch', 0.5], ['stone', 'Stone', 1]]) {
   kitBase({ id, name, weight, kind: 'material', kinds: ['material'], slot: null, strReq: 0, durability: null, stack: true });
 }
@@ -903,7 +871,7 @@ export function makeItem({ base, rarity = 'common', seed = 0, quality = 1, maker
 export const totalWeight = (items) => items.reduce((s, i) => s + weightOf(i), 0);
 
 /** Every base of one armour tier, in piece order. */
-export const setOf = (material) => ARMOR_PIECES.map((p) => BASES[`${material}_${p.id}`]);
+export const setOf = (material) => [BASES[`${material}_outfit`]];
 
 // ------------------------------------------------------------------- audit
 
@@ -921,7 +889,7 @@ export const setOf = (material) => ARMOR_PIECES.map((p) => BASES[`${material}_${
 export function auditItems(items = []) {
   const bad = (m) => { throw new Error(`auditItems: ${m}`); };
 
-  if (SLOTS.length !== 14) bad(`there are ${SLOTS.length} slots, the paper doll has 14`);
+  if (SLOTS.length !== 6) bad(`there are ${SLOTS.length} slots, the paper doll has 6`);
   if (new Set(SLOTS).size !== SLOTS.length) bad('two slots share a name');
 
   if (ARMOR_TIERS.length !== 6) bad(`there are ${ARMOR_TIERS.length} armour tiers, the table has 6`);
@@ -949,10 +917,10 @@ export function auditItems(items = []) {
   if (ARMOR_TIERS[0].castBurden !== 0) bad('cloth burdens a cast, and cloth is what a mage wears');
   if (ARMOR_TIERS[ARMOR_TIERS.length - 1].castBurden !== 1) bad('the heaviest tier does not carry a full burden');
 
-  if (ARMOR_PIECES.length !== 8) bad(`there are ${ARMOR_PIECES.length} armour pieces, a set has 8`);
-  const doubled = ARMOR_PIECES.filter((p) => p.arMul === 2);
-  if (doubled.length !== 1 || doubled[0].id !== 'chest') bad('the chest, and only the chest, doubles its AR');
+  if (ARMOR_PIECES.length !== 1 || ARMOR_PIECES[0].id !== 'outfit') bad(`there are ${ARMOR_PIECES.length} armour pieces, and the only one should be outfit`);
   for (const p of ARMOR_PIECES) if (!SLOTS.includes(p.slot)) bad(`armour piece ${p.id} wants slot ${p.slot}, which is not a slot`);
+  const outfitBases = Object.values(BASES).filter((b) => b.kind === 'armour' && b.slot === 'outfit');
+  if (outfitBases.length !== 6) bad(`there are ${outfitBases.length} outfit bases, the table has 6`);
 
   if (COMBAT_SKILLS.length !== 11) bad(`the skill table now has ${COMBAT_SKILLS.length} combat skills, the document lists 11`);
   for (const id of CASTING_SKILLS) {
@@ -1036,10 +1004,9 @@ export function auditItems(items = []) {
 
   // The two totals the document states out loud, counted from the tier table
   // AND from the bases built out of it, so a change to either is caught.
-  const arMuls = ARMOR_PIECES.reduce((s, p) => s + p.arMul, 0);
   const total = (tierId, field) => {
     const t = ARMOR_TIERS.find((x) => x.id === tierId);
-    const fromTable = field === 'ar' ? t.ar * arMuls : t.weight * ARMOR_PIECES.length;
+    const fromTable = field === 'ar' ? t.ar * 9 : t.weight * 8;
     const fromBases = setOf(tierId).reduce((s, b) => s + b[field], 0);
     if (fromTable !== fromBases) bad(`the ${tierId} table says ${field} ${fromTable} and its bases say ${fromBases}`);
     return fromTable;

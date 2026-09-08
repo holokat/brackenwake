@@ -54,7 +54,7 @@ console.log(`       (items.js makes ${Object.values(KIT_BASES).filter(Boolean).l
     const p = planCharacter({ opening: op.id, name: 'Ashe' });
     if (!p.ok) bad.push(`${op.id}: ${p.errors.join('; ')}`);
   }
-  check('all eleven openings plan', bad.length === 0 && OPENINGS.length === 11, bad.join(' | '));
+  check('all four openings plan', bad.length === 0 && OPENINGS.length === 4, bad.join(' | '));
 }
 {
   // Counted, not assumed: what each opening actually walks out with.
@@ -67,7 +67,7 @@ console.log(`       (items.js makes ${Object.values(KIT_BASES).filter(Boolean).l
   check('nobody starts empty handed', rows.every((r) => r.worn + r.packed > 0), rows.map((r) => `${r.id}:${r.worn}+${r.packed}`).join(' '));
   check('everyone has something in hand', OPENINGS.every((op) => {
     const p = planCharacter({ opening: op.id, name: 'Ashe' });
-    return !!(p.character.equipment.mainHand || p.character.equipment.ranged);
+    return !!p.character.equipment.mainHand;
   }));
   const withMissing = rows.filter((r) => r.missing > 0).map((r) => r.id);
   const expected = OPENINGS.filter((op) => op.kit.some((e) => !KIT_BASES[e.base])).map((op) => op.id);
@@ -86,23 +86,10 @@ console.log(`       (items.js makes ${Object.values(KIT_BASES).filter(Boolean).l
     }));
 }
 {
-  // Whatever the tables hold today, an artisan's kit is either in his hands or
-  // named out loud. Nothing may simply not arrive.
-  const p = planCharacter({ opening: 'artisan', name: 'Ashe' });
-  const carried = p.character.pack.items.concat(Object.values(p.character.equipment)).filter(Boolean).map((i) => i.base);
-  const artisan = OPENINGS_BY_ID.artisan;
-  const unaccounted = artisan.kit.filter((e) => {
-    const to = KIT_BASES[e.base];
-    if (!to) return !new RegExp(e.base.replace(/([A-Z])/g, ' $1').toLowerCase()).test(shortfallLine(p));
-    return !carried.includes(to);
-  });
-  check('every line of the artisan kit is either carried or named as missing', unaccounted.length === 0, unaccounted.map((e) => e.base).join(','));
-}
-{
-  const p = planCharacter({ opening: 'paladin', name: 'Ashe' });
-  check('the paladin keeps his shield', p.character.equipment.offHand?.base === 'buckler', String(p.character.equipment.offHand?.base));
-  check('and the book he cannot also hold is in the pack, and said so', /stayed in the pack/.test(shortfallLine(p)), shortfallLine(p));
-  check('with the book itself in the pack', p.character.pack.items.some((i) => i && /book|tome/.test(i.base)), p.character.pack.items.filter(Boolean).map((i) => i.base).join(','));
+  const p = planCharacter({ opening: 'mage', name: 'Ashe' });
+  check('the Wizard starts with a staff and cloth outfit',
+    p.character.equipment.mainHand?.base === 'staff' && p.character.equipment.outfit?.base === 'cloth_outfit',
+    Object.values(p.character.equipment).filter(Boolean).map((i) => i.base).join(','));
 }
 
 // ---- the document is whole ---------------------------------------------------
@@ -119,7 +106,7 @@ console.log(`       (items.js makes ${Object.values(KIT_BASES).filter(Boolean).l
   check('all fifty two skills are written, not only the five that started', Object.keys(c.skills).length === SKILLS.length, String(Object.keys(c.skills).length));
   check('and they total 200', skillTotal(c.skills) === 200, String(skillTotal(c.skills)));
   check(`the pack has ${PACK_SLOTS} slots`, c.pack.slots === PACK_SLOTS && c.pack.items.length === PACK_SLOTS, `${c.pack.slots} slots, ${c.pack.items.length} entries`);
-  check('the doll has all fourteen', SLOTS.every((s) => s in c.equipment));
+  check('the doll has all six', SLOTS.every((s) => s in c.equipment) && Object.keys(c.equipment).length === 6);
   check('the bar has twelve empty slots', c.bar.length === BAR_SLOTS && c.bar.every((x) => x === null));
   check('the pools start full', c.health === Math.floor(derived(c.stats, c.skills).maxHealth), `${c.health}`);
   // 10 + WIS 65 * 2 + INT 70 * 0.5 = 175. The stats document's worked example
@@ -211,26 +198,13 @@ check('a nameless character cannot begin', planCharacter({ opening: 'warrior', n
   check('and the refusal counts them', /40 of 30/.test(tooMany.errors.join(' ')), tooMany.errors.join('; '));
 }
 
-// ---- Blank: the raw budgets ---------------------------------------------------
+// ---- removed openings ---------------------------------------------------------
 {
-  const blank = OPENINGS_BY_ID.blank;
-  check('Blank has 200 stat points to shift, being 250 less the five floors', BLANK_STAT_POINTS === 200);
-  check('and 200 skill points to place', blank.freeSkillPoints === 200);
-  const p = planCharacter({
-    opening: 'blank', name: 'Nobody',
-    skills: { magery: 50, meditation: 50, swordsmanship: 50, mining: 50 },
-  });
-  check('four skills at fifty spends the whole pool', p.ok === true, (p.errors || []).join('; '));
-  check('and the sheet totals 200', skillTotal(p.character.skills) === 200, String(skillTotal(p.character.skills)));
-  const over = planCharacter({ opening: 'blank', name: 'Nobody', skills: { magery: 50, meditation: 50, swordsmanship: 50, mining: 50, hiding: 10 } });
-  check('a two hundred and tenth point is refused', over.ok === false, (over.errors || []).join('; '));
-  const tooHigh = planCharacter({ opening: 'blank', name: 'Nobody', skills: { magery: 60 } });
-  check('and no skill above fifty at the start', tooHigh.ok === false, (tooHigh.errors || []).join('; '));
-  check('and it says the cap', /above the cap of 50/.test(tooHigh.errors.join(' ')), tooHigh.errors.join('; '));
-  const spread = planCharacter({ opening: 'blank', name: 'Nobody', stats: { str: 10, dex: 10, int: 10, con: 10, wis: 210 } });
-  check('a stat over 100 is refused even for Blank', spread.ok === false, (spread.errors || []).join('; '));
-  const legal = planCharacter({ opening: 'blank', name: 'Nobody', stats: { str: 100, dex: 10, int: 10, con: 100, wis: 30 } });
-  check('but the whole 200 may be shifted inside the caps', legal.ok === true, (legal.errors || []).join('; '));
+  check('Blank still has a legacy budget constant, but is not an opening',
+    BLANK_STAT_POINTS === 200 && !OPENINGS_BY_ID.blank);
+  const p = planCharacter({ opening: 'blank', name: 'Nobody' });
+  check('and a Blank creation request is refused like any retired opening',
+    p.ok === false && /not one of the openings/.test(p.errors.join(' ')), p.errors.join('; '));
 }
 
 // ---- appearance ----------------------------------------------------------------
@@ -292,13 +266,10 @@ check('every opening sits in an ability group that has a colour',
   OPENINGS.filter((o) => !GROUP_COLOUR[OPENING_GROUP[o.id]]).map((o) => o.id).join(','));
 check('the warrior wears the warrior colour', openingColour('warrior') === GROUP_COLOUR.warrior, openingColour('warrior'));
 check('the mage wears the mage colour', openingColour('mage') === GROUP_COLOUR.mage, openingColour('mage'));
-check('the paladin wears the colour of the group his chivalry is filed under',
-  openingColour('paladin') === GROUP_COLOUR.healer, openingColour('paladin'));
-check('and the artisan and Blank take the parchment neutral, being no archetype',
-  openingColour('artisan') === GROUP_COLOUR.everyone && openingColour('blank') === GROUP_COLOUR.everyone,
-  `${openingColour('artisan')} ${openingColour('blank')}`);
-check('the eleven openings wear nine colours, the paladin sharing the healer s and the artisan sharing Blank s',
-  new Set(OPENINGS.map((o) => openingColour(o.id))).size === 9,
+check('a retired opening takes the parchment neutral, being no archetype',
+  openingColour('blank') === GROUP_COLOUR.everyone, openingColour('blank'));
+check('the four openings wear four colours',
+  new Set(OPENINGS.map((o) => openingColour(o.id))).size === 4,
   [...new Set(OPENINGS.map((o) => openingColour(o.id)))].join(' '));
 
 // A path a browser will not paint is a blank square, and a blank square is
@@ -379,7 +350,7 @@ check('an opening nobody offers draws nothing rather than a broken tag', emblemS
 // measure the words that took its place.
 console.log('creation: what a class says of itself');
 check('every opening is written as well as drawn', auditClassText() === OPENINGS.length, `${OPENINGS.length} openings`);
-check('all eleven carry a quote', OPENINGS.every((o) => typeof QUOTES[o.id] === 'string' && QUOTES[o.id].length > 12),
+check('all four carry a quote', OPENINGS.every((o) => typeof QUOTES[o.id] === 'string' && QUOTES[o.id].length > 12),
   OPENINGS.filter((o) => !(QUOTES[o.id] || '').length).map((o) => o.id).join(','));
 check('and no two of them are the same line',
   new Set(OPENINGS.map((o) => QUOTES[o.id])).size === OPENINGS.length,
@@ -387,13 +358,13 @@ check('and no two of them are the same line',
 check('and every one is short enough for the line it sits on',
   OPENINGS.every((o) => QUOTES[o.id].length <= 72),
   OPENINGS.map((o) => `${o.id}:${QUOTES[o.id].length}`).join(' '));
-check('and none of the eleven is written with a dash the house style forbids',
+check('and none of the four is written with a dash the house style forbids',
   OPENINGS.every((o) => !/[\u2014\u2013]/.test(QUOTES[o.id] + CLASS_NOTE[o.id])),
   OPENINGS.filter((o) => /[\u2014\u2013]/.test(QUOTES[o.id] + CLASS_NOTE[o.id])).map((o) => o.id).join(','));
 check('nothing is quoted that is not an opening',
   Object.keys(QUOTES).every((id) => !!OPENINGS_BY_ID[id]),
   Object.keys(QUOTES).filter((id) => !OPENINGS_BY_ID[id]).join(','));
-check('all eleven carry the sentence that says what the class is for',
+check('all four carry the sentence that says what the class is for',
   OPENINGS.every((o) => typeof CLASS_NOTE[o.id] === 'string' && CLASS_NOTE[o.id].length > 20),
   OPENINGS.filter((o) => !(CLASS_NOTE[o.id] || '').length).map((o) => o.id).join(','));
 check('and that sentence is not the blurb said twice',
@@ -418,11 +389,11 @@ check('they are the full words and not the table s three letters',
 check('a warrior leads on strength and a mage on intellect',
   statWords('warrior')[0] === 'STRENGTH' && statWords('mage')[0] === 'INTELLECT',
   `${statWords('warrior')[0]} / ${statWords('mage')[0]}`);
-check('and a class whose five stats are all fifty still names three of them',
-  statWords('blank').length === 3, statWords('blank').join(' '));
+check('and a retired opening has no words at all',
+  statWords('blank').length === 0, statWords('blank').join(' '));
 check('an opening nobody offers has no words at all', statWords('druid').length === 0);
 check('the title on the plaque comes from one constant', GAME_TITLE === 'Kaldera', GAME_TITLE);
-check('the art slot wears an id of its own per class, and the eleven are distinct',
+check('the art slot wears an id of its own per class, and the four are distinct',
   new Set(OPENINGS.map((o) => artId(o.id))).size === OPENINGS.length
   && artId('warrior') === 'bw-cr-art-warrior',
   artId('warrior'));
@@ -533,7 +504,7 @@ check('and it wears the shared look, so the fonts and the tokens reach it',
     walk(one(s1.cr.el, 'bw-cr-plaque')).some((n) => n.tagName === 'H1' && n.textContent === GAME_TITLE)
     && /Who walks out of the trees/.test(one(s1.cr.el, 'bw-cr-ask').textContent),
     one(s1.cr.el, 'bw-cr-plaque').textContent);
-  check('the eleven cards are in the left column and nowhere else',
+  check('the four cards are in the left column and nowhere else',
     withClass(one(s1.cr.el, 'bw-cr-left'), 'bw-cr-card').length === OPENINGS.length
     && withClass(one(s1.cr.el, 'bw-cr-right'), 'bw-cr-card').length === 0,
     String(withClass(one(s1.cr.el, 'bw-cr-left'), 'bw-cr-card').length));
@@ -544,11 +515,10 @@ check('and it wears the shared look, so the fonts and the tokens reach it',
     ['bw-cr-cname', 'bw-cr-art', 'bw-cr-quote', 'bw-cr-about', 'bw-cr-bars', 'bw-cr-kitrow', 'bw-cr-derived', 'bw-cr-go']
       .filter((c) => withClass(one(s1.cr.el, 'bw-cr-right'), c).length !== 1).join(','));
   const stage = one(s1.cr.el, 'bw-cr-stage');
-  check('the middle column paints nothing over the rig but the arrows and the two pills',
-    stage.children.length === 3
+  check('the middle column paints nothing over the rig but the arrows',
+    stage.children.length === 2
     && stage.children[0].classList.contains('bw-cr-void')
-    && stage.children[1].classList.contains('bw-cr-turn')
-    && stage.children[2].classList.contains('bw-cr-look'),
+    && stage.children[1].classList.contains('bw-cr-turn'),
     stage.children.map((c) => c.className).join(' | '));
   check('and the footer says a line at each end',
     one(s1.cr.el, 'bw-cr-foot').children.length === 2
@@ -591,8 +561,7 @@ check('and the shared theme went in with it',
 }
 
 // --- REWRITTEN. Seven headers became five: THE KIT is now the icon row under
-// STARTING GEAR, and APPEARANCE is the two pills under the preview, which name
-// themselves and want no header over them.
+// STARTING GEAR, and appearance has no visible choice in Phase A.
 {
   const want = ['choose your opening', 'base stats', 'what that comes to', 'starting gear', 'name'];
   const got = withClass(s1.cr.el, 'bw-hdr').map((n) => n.textContent.toLowerCase());
@@ -629,7 +598,7 @@ check('there is a card for every opening, in the openings order',
     if (bl.length !== 1 || bl[0].textContent !== op.blurb) bad.push(`${op.id}: the blurb is not the opening s`);
   }
   check('every card carries an emblem in its class colour, the name, the band and the blurb', bad.length === 0, bad.join(' | '));
-  check('and nothing else, so eleven of them fit a 300 pixel column',
+  check('and nothing else, so four of them fit a 300 pixel column',
     s1.cards.every((c) => c.children.length === 4),
     s1.cards.map((c) => c.children.length).join(','));
 }
@@ -678,7 +647,7 @@ check('there is a card for every opening, in the openings order',
   s.cr.destroy();
 }
 
-// --- REWRITTEN. The kit's icons were a row on every one of the eleven cards.
+// --- REWRITTEN. The kit's icons were a row on every one of the cards.
 // They are one row, STARTING GEAR, in the right hand panel, for the class in
 // hand. The cap and the tail are counted exactly as they were.
 {
@@ -711,9 +680,9 @@ check('there is a card for every opening, in the openings order',
   check('the gear row shows the chosen kit whole, and would count a remainder past the guard', bad.length === 0, bad.join(' | '));
   console.log(`       (${rows.join(' ')})`);
   const over = OPENINGS.filter((o) => kitFor(o, 1).items.length > KIT_ICONS_SHOWN).length;
-  check('and no kit is cut short: every one of the eleven shows whole, four to a row', over === 0, `${over} of ${OPENINGS.length} openings overflow ${KIT_ICONS_SHOWN}`);
+  check('and no kit is cut short: every one of the four shows whole, four to a row', over === 0, `${over} of ${OPENINGS.length} openings overflow ${KIT_ICONS_SHOWN}`);
   const unmade = OPENINGS.filter((o) => kitFor(o, 1).missing.length).length;
-  check('nothing is greyed today, because every kit base the eleven name now resolves', unmade === 0, `${unmade} openings come up short`);
+  check('nothing is greyed today, because every kit base the four name now resolves', unmade === 0, `${unmade} openings come up short`);
   s.cr.destroy();
 }
 
@@ -745,13 +714,13 @@ check('there is a card for every opening, in the openings order',
 {
   const lit = () => s1.cards.filter((c) => c.classList.contains('on')).map((c) => c.dataset.opening);
   check('the opening you are on is the only card lit', lit().join(',') === 'warrior', lit().join(','));
-  s1.cr.pick('necromancer');
-  check('and choosing another moves the light, rather than adding one', lit().join(',') === 'necromancer', lit().join(','));
-  const card = s1.cards.find((c) => c.dataset.opening === 'bard');
+  s1.cr.pick('ranger');
+  check('and choosing another moves the light, rather than adding one', lit().join(',') === 'ranger', lit().join(','));
+  const card = s1.cards.find((c) => c.dataset.opening === 'mage');
   card.fire('click');
-  check('a click on a card picks it', s1.cr.state.opening === 'bard' && lit().join(',') === 'bard', `${s1.cr.state.opening} / ${lit().join(',')}`);
-  check('and the stats came with it', JSON.stringify(s1.cr.state.stats) === JSON.stringify(OPENINGS_BY_ID.bard.stats), JSON.stringify(s1.cr.state.stats));
-  check('and so did the right hand panel', one(s1.cr.el, 'bw-cr-cname').textContent === 'Bard', one(s1.cr.el, 'bw-cr-cname').textContent);
+  check('a click on a card picks it', s1.cr.state.opening === 'mage' && lit().join(',') === 'mage', `${s1.cr.state.opening} / ${lit().join(',')}`);
+  check('and the stats came with it', JSON.stringify(s1.cr.state.stats) === JSON.stringify(OPENINGS_BY_ID.mage.stats), JSON.stringify(s1.cr.state.stats));
+  check('and so did the right hand panel', one(s1.cr.el, 'bw-cr-cname').textContent === 'Wizard', one(s1.cr.el, 'bw-cr-cname').textContent);
   s1.cr.pick('warrior');
 }
 
@@ -801,14 +770,10 @@ check('there is a card for every opening, in the openings order',
   s.cr.destroy();
 }
 
-// --- the two pills under the preview
+// --- appearance under the preview
 //
-// REWRITTEN (CR3). The face was six pills: build, skin, hair, hair colour,
-// marks and height, each a labelled select. It is two buttons now, MALE and
-// FEMALE, because the models that would make the other five mean anything are
-// not drawn yet and a control over a body that cannot change is a lie. The
-// other five fields are still in the document, at their defaults, and that is
-// checked here too: what left the screen did not leave the save.
+// Phase A removes the male/female choice. The body stays on the one authored
+// appearance, and retired saves hydrate to it through state.js.
 {
   const s = screen();
   const named = textInput(s.cr.el);
@@ -816,27 +781,12 @@ check('there is a card for every opening, in the openings order',
   named.fire('input');
   const pills = withClass(s.cr.el, 'bw-cr-pill');
   const selects = walk(s.cr.el).filter((n) => n.tagName === 'SELECT');
-  check('the face is two pills under the preview, male and female',
-    pills.length === 2
-    && pills.every((p) => p.tagName === 'BUTTON' && p.dataset.look === 'gender')
-    && pills.map((p) => p.dataset.gender).join(',') === 'male,female'
-    && pills.map((p) => p.textContent).join(',') === 'MALE,FEMALE',
-    pills.map((p) => `${p.tagName}:${p.dataset.gender}:${p.textContent}`).join(' | '));
+  check('the face has no gender pills under the preview',
+    pills.length === 0, pills.map((p) => `${p.tagName}:${p.dataset.gender}:${p.textContent}`).join(' | '));
   check('and the six selects the old face wore are gone from the document',
     selects.length === 0, `${selects.length} selects left`);
-  check('male is lit on open, because that is the default',
-    pills[0].classList.contains('on') && !pills[1].classList.contains('on'),
-    pills.map((p) => `${p.dataset.gender}=${p.classList.contains('on')}`).join(' '));
-  pills[1].fire('click');
-  check('clicking female lights female and puts male out',
-    pills[1].classList.contains('on') && !pills[0].classList.contains('on'),
-    pills.map((p) => `${p.dataset.gender}=${p.classList.contains('on')}`).join(' '));
-  check('and the character that is planned carries the gender',
-    s.cr.state.appearance.gender === 'female' && s.cr.plan().character.appearance.gender === 'female',
-    String(s.cr.plan().character?.appearance?.gender));
-  pills[0].fire('click');
-  check('and clicking back is male again, on the screen and in the plan',
-    pills[0].classList.contains('on') && s.cr.plan().character.appearance.gender === 'male',
+  check('the character that is planned carries the one body',
+    s.cr.state.appearance.gender === 'male' && s.cr.plan().character.appearance.gender === 'male',
     String(s.cr.plan().character?.appearance?.gender));
   const look = s.cr.plan().character.appearance;
   check('the five fields the screen no longer offers are still written, at their defaults',
@@ -844,16 +794,13 @@ check('there is a card for every opening, in the openings order',
     && look.hairStyle === APPEARANCE_DEFAULT.hairStyle && look.hairColour === APPEARANCE_DEFAULT.hairColour
     && look.mark === APPEARANCE_DEFAULT.mark && look.height === APPEARANCE_DEFAULT.height,
     JSON.stringify(look));
-  // A change of class rebuilds the middle column. The pill that was lit has to
-  // still be lit afterwards, or the choice is quietly thrown away.
-  pills[1].fire('click');
+  // A change of class rebuilds the middle column. The one body must survive it.
   const mageCard = withClass(s.cr.el, 'bw-cr-card').find((c) => c.dataset.opening === 'mage');
   mageCard.fire('click');
   const after = withClass(s.cr.el, 'bw-cr-pill');
-  check('and a change of class keeps the gender, and keeps it lit',
-    s.cr.state.appearance.gender === 'female'
-    && after.length === 2 && after[1].classList.contains('on') && !after[0].classList.contains('on'),
-    `${s.cr.state.appearance.gender}, ${after.map((p) => p.classList.contains('on')).join(',')}`);
+  check('and a change of class keeps the one body with no pills rebuilt',
+    s.cr.state.appearance.gender === 'male' && after.length === 0,
+    `${s.cr.state.appearance.gender}, ${after.length} pills`);
   s.cr.destroy();
 }
 

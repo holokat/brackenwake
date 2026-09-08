@@ -126,11 +126,11 @@ console.log('roster_preview: the signature of a look');
     lookKey(armed) !== lookKey(better));
   const order = {
     appearance: { ...APPEARANCE_FALLBACK },
-    equipment: { chest: { base: 'cloth_chest', rarity: 'common' }, mainHand: { base: 'longsword', rarity: 'common' } },
+    equipment: { chest: { base: 'cloth_outfit', rarity: 'common' }, mainHand: { base: 'longsword', rarity: 'common' } },
   };
   const reordered = {
     appearance: { ...APPEARANCE_FALLBACK },
-    equipment: { mainHand: { base: 'longsword', rarity: 'common' }, chest: { base: 'cloth_chest', rarity: 'common' } },
+    equipment: { mainHand: { base: 'longsword', rarity: 'common' }, chest: { base: 'cloth_outfit', rarity: 'common' } },
   };
   check('the same gear written in another order is still the same picture',
     lookKey(order) === lookKey(reordered), lookKey(order));
@@ -209,7 +209,7 @@ console.log('roster_preview: painting one character');
   };
   const look = {
     appearance: { ...APPEARANCE_FALLBACK, height: 1.71, hairStyle: 'braid' },
-    equipment: { mainHand: { base: 'longsword', rarity: 'common' }, chest: { base: 'cloth_chest', rarity: 'common' } },
+    equipment: { mainHand: { base: 'longsword', rarity: 'common' }, chest: { base: 'cloth_outfit', rarity: 'common' } },
   };
   const before = kit.scene.children.length;
   const url = await paint(kit, look);
@@ -233,8 +233,10 @@ console.log('roster_preview: painting one character');
   const worn = dressRig(wornRig, look.equipment, { light: false });
   const dressedNodes = count(wornRig);
   wornRig.dispose();
-  check('the sword and the shirt really go on the body',
-    dressedNodes > bare && worn.nodes >= 2, `${dressedNodes} nodes dressed, ${bare} bare, ${worn.nodes} pieces`);
+  // one outfit and a sword since 2026-09-08: the studio still dresses eight
+  // slots off the one outfit, so the node count is what proves the shirt went on
+  check('the sword and the outfit really go on the body',
+    dressedNodes > bare && worn.nodes >= 1, `${dressedNodes} nodes dressed, ${bare} bare, ${worn.nodes} pieces`);
   check('and the hands take a grip on what they were given', worn.grip !== null, String(worn.grip));
 }
 

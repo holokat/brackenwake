@@ -71,7 +71,7 @@ const stock = (ctx, id, n) => {
 
 console.log('win_crafting: no craft button can throw');
 check('the audit passes at load', (() => { try { auditCraftBases(); return true; } catch (e) { console.log(e.message); return false; } })());
-check('most recipes really can be made', CRAFT_AUDIT.made > 400, `${CRAFT_AUDIT.made} of ${RECIPES.length}`);
+check('most recipes really can be made', CRAFT_AUDIT.made > 250, `${CRAFT_AUDIT.made} of ${RECIPES.length}`);
 check('the ones that cannot are counted and named', CRAFT_AUDIT.unmakeable === RECIPES.length - CRAFT_AUDIT.made, JSON.stringify(CRAFT_AUDIT.byFamily));
 {
   let bad = 0;
@@ -83,11 +83,11 @@ check('the ones that cannot are counted and named', CRAFT_AUDIT.unmakeable === R
   check('every recipe either makes a real item or gives a reason', bad === 0, `${RECIPES.length} recipes walked`);
 }
 
-console.log('win_crafting: the two spelling gaps between recipes.js and items.js');
+console.log('win_crafting: the recipe bases between recipes.js and items.js');
 {
-  const armour = RECIPE['armour.cloth.head.cloth'];
-  check('an armour recipe names the piece', armour.result.base === 'cloth_hood' && !BASES.cloth_hood, `recipe says "${armour.result.base}", items.js has no such base`);
-  check('and it is resolved by tier and slot', resultBaseFor(armour) === 'cloth_head', `to "${resultBaseFor(armour)}"`);
+  const armour = RECIPE['armour.cloth.outfit.cloth'];
+  check('an armour recipe names the outfit base', armour.result.base === 'cloth_outfit' && !!BASES.cloth_outfit, `recipe says "${armour.result.base}"`);
+  check('and it resolves to the same outfit base', resultBaseFor(armour) === 'cloth_outfit', `to "${resultBaseFor(armour)}"`);
   const every = RECIPES.filter((r) => r.family === 'armour');
   check('every armour recipe resolves', every.every((r) => !!resultBaseFor(r)), `${every.length} armour recipes`);
   const knives = RECIPES.find((r) => r.result.base === 'throwingKnives');
@@ -125,11 +125,11 @@ console.log('win_crafting: what cannot be made says why');
 console.log('win_crafting: the refusals, in order');
 {
   const dagger = RECIPE['weapon.dagger.copper'];
-  const hard = RECIPES.filter((r) => r.station === 'forge' && r.difficulty >= 90)[0];
+  const hard = RECIPES.filter((r) => r.station === 'workshop' && r.difficulty >= 90)[0];
 
   const green = mkCtx();
   check('a beginner is refused a difficulty 95 recipe on skill', refusalFor(hard, green).kind === 'skill', refusalFor(hard, green).why);
-  check('and the reason names the skill and the number', /Blacksmithing/.test(refusalFor(hard, green).why), refusalFor(hard, green).why);
+  check('and the reason names the skill and the number', /Tailoring/.test(refusalFor(hard, green).why), refusalFor(hard, green).why);
 
   const able = mkCtx({ character: { skills: { blacksmithing: 20 } } });
   const noMats = refusalFor(dagger, able);
@@ -177,15 +177,15 @@ console.log('win_crafting: the numbers shown before you commit');
 console.log('win_crafting: the bench');
 {
   const ctx = mkCtx({ character: { skills: { blacksmithing: 30, tinkering: 30 } } });
-  const rows = benchFor('forge', ctx);
-  check('the forge lists something', rows.length > 0, `${rows.length} rows`);
-  check('every forge recipe is visible, including distant skill requirements', rows.length === RECIPES.filter((r) => r.station === 'forge').length, `${rows.length} of ${RECIPES.filter((r) => r.station === 'forge').length}`);
+  const rows = benchFor('workshop', ctx);
+  check('the workshop lists something', rows.length > 0, `${rows.length} rows`);
+  check('every workshop recipe is visible, including distant skill requirements', rows.length === RECIPES.filter((r) => r.station === 'workshop').length, `${rows.length} of ${RECIPES.filter((r) => r.station === 'workshop').length}`);
   check('at most twelve out of reach ones are shown', rows.filter((r) => r.refusal && r.refusal.kind === 'skill').length <= NEAR_MISS);
   check('every row carries a verdict and a forecast', rows.every((r) => r.forecast && (r.refusal === null || !!r.refusal.why)));
   const first = rows[0];
   check('the easiest thing is first', rows.every((r) => r.recipe.difficulty >= first.recipe.difficulty || (r.refusal && r.refusal.kind === 'skill')));
-  const bare = benchFor('kitchen', mkCtx());
-  check('a kitchen lists cooking, not smithing', bare.every((r) => r.recipe.station === 'kitchen'));
+  const bare = benchFor('workshop', mkCtx());
+  check('a workshop lists every family', new Set(bare.map((r) => r.recipe.family)).size === 14);
 }
 
 console.log('win_crafting: making it');
@@ -277,23 +277,20 @@ console.log('win_crafting: a refund comes back as the metal it went in as');
 
 console.log('win_crafting: where the stations stand');
 {
-  check('there are seven', STATION_KINDS.length === 7, STATION_KINDS.map((s) => s.id).join(', '));
+  check('there is one', STATION_KINDS.length === 1 && STATION_KINDS[0].id === 'workshop', STATION_KINDS.map((s) => s.id).join(', '));
   check('every one makes something', STATION_KINDS.every((s) => s.recipes > 0));
   check('every one names its skills', STATION_KINDS.every((s) => s.skills.length > 0), STATION_KINDS.map((s) => `${s.id}:${s.skills.join('/')}`).join(' '));
   const town = { x: 500, z: -200, kind: 'town', facing: 1.1, flatR: 46 };
   const ts = stationsForSite(town);
-  check('a town gets all seven', ts.length === 7);
-  check('all seven stand on the ring', ts.every((s) => Math.abs(Math.hypot(s.x - town.x, s.z - town.z) - STATION_RING.town) < 1e-9), `${STATION_RING.town} m`);
+  check('a town gets one workshop', ts.length === 1 && ts[0].id === 'workshop', ts.map((s) => s.id).join(', '));
+  check('the workshop stands on the ring', ts.every((s) => Math.abs(Math.hypot(s.x - town.x, s.z - town.z) - STATION_RING.town) < 1e-9), `${STATION_RING.town} m`);
   check('and inside the flattened pad', ts.every((s) => Math.hypot(s.x - town.x, s.z - town.z) < town.flatR));
-  const gaps = [];
-  for (let i = 0; i < ts.length; i++) for (let j = i + 1; j < ts.length; j++) gaps.push(Math.hypot(ts[i].x - ts[j].x, ts[i].z - ts[j].z));
-  check('no two stations are on top of each other', Math.min(...gaps) > 2, `closest pair ${Math.min(...gaps).toFixed(2)} m`);
   const hs = stationsForSite({ x: 0, z: 0, kind: 'hamlet', facing: 0, flatR: 26 });
-  check('a hamlet gets three', hs.length === 3 && hs.every((s) => HAMLET_STATIONS.includes(s.id)), hs.map((s) => s.id).join(', '));
+  check('a hamlet gets one workshop', hs.length === 1 && hs.every((s) => HAMLET_STATIONS.includes(s.id)), hs.map((s) => s.id).join(', '));
   check('a ruin gets none', stationsForSite({ kind: 'ruin' }).length === 0);
   check('a cave gets none', stationsForSite({ kind: 'cave' }).length === 0);
   // stations sit outside the people, who stand at 8 m in a town and 5 in a hamlet
-  check('stations stand outside the street', STATION_RING.town > 8 && STATION_RING.hamlet > 5, `${STATION_RING.town} m and ${STATION_RING.hamlet} m against the 8 m and 5 m the people take`);
+  check('the station stands outside the street', STATION_RING.town > 8 && STATION_RING.hamlet > 5, `${STATION_RING.town} m and ${STATION_RING.hamlet} m against the 8 m and 5 m the people take`);
 }
 
 console.log('win_crafting: against the real inventory, not a stand-in for it');
@@ -335,7 +332,7 @@ console.log('win_crafting: against the real inventory, not a stand-in for it');
 //
 // The panel is BUILT against a small fake document and read back, because a
 // test that only checked `cardView` would prove a view model exists and not
-// that a player at a forge sees three hundred and sixty two cards, each with a
+// that a player at a workshop sees every card, each with a
 // picture on it. Every station is opened for real.
 
 function makeDom() {
@@ -428,14 +425,14 @@ console.log('win_crafting: the cards, drawn against a real document');
   check('every card in the game has a picture on it', blank === 0, `${total} cards walked, ${blank} blank`);
   check('and a name', noName === 0, `${noName} nameless`);
   check('and at least one chip', noChips === 0, `${noChips} bare`);
-  check('the seven stations together draw all 486 recipes', total === RECIPES.length * STATION_KINDS.length, `${total} cards`);
-  check('eight pairs of recipes really do share a name', seen.size === RECIPES.length - 8, `${seen.size} distinct names for ${total} cards`);
+  check('the workshop draws all recipes', total === RECIPES.length * STATION_KINDS.length, `${total} cards`);
+  check('every recipe has a distinct name at the one workshop', seen.size === RECIPES.length, `${seen.size} distinct names for ${total} cards`);
 
-  // Which is why the card says the armour tier: two cards reading "Hide tunic"
-  // side by side at the tanning rack looked like the page had repeated itself.
-  const rack = openAt('tanningRack', ctx);
-  const twins = cardsOf(rack).filter((c) => bodyOf(c).children[0].textContent === 'Hide tunic');
-  check('both Hide tunics are on the tanning rack', twins.length === 2);
+  // Which is why the card says the armour tier: two hide outfits side by side
+  // at the workshop must not read as if the page repeated itself.
+  const rack = openAt('workshop', ctx);
+  const twins = cardsOf(rack).filter((c) => /Hide .* Outfit/.test(bodyOf(c).children[0].textContent));
+  check('both hide outfits are on the workshop', twins.length === 2);
   const said = twins.map((c) => bodyOf(c).children[1].children.map((x) => x.textContent).join(' '));
   check('and the tier chip tells them apart', said[0] !== said[1] && /leather/.test(said[0]) && /studded/.test(said[1]), said.join(' | '));
   const lines = twins.map((c) => bodyOf(c).children[3].textContent);
@@ -463,7 +460,7 @@ console.log('win_crafting: the bill of materials counts the pack, both ways');
   check('three of two is enough', bill[0].have === 3 && bill[0].met === true, bill[0].text);
 
   // and the chip really carries the class the css paints red or green
-  const root = openAt('forge', ctx);
+  const root = openAt('workshop', ctx);
   const card = cardsOf(root).find((c) => bodyOf(c).children[0].textContent === 'Copper Dagger');
   const chip = matsOf(card)[0];
   check('the copper chip is drawn as met', chip.textContent === '3 of 2 copper' && !chip.classList.contains('short'), `"${chip.textContent}" class "${chip.className}"`);
@@ -485,7 +482,7 @@ console.log('win_crafting: the bill of materials counts the pack, both ways');
 console.log('win_crafting: the filters narrow the bench');
 {
   const ctx = mkCtx({ character: { skills: gm() } });
-  const root = openAt('forge', ctx);
+  const root = openAt('workshop', ctx);
   const all = cardsOf(root).length;
   const chips = chipsOf(root);
   check('the catalogue offers every family plus All and Can make',
@@ -496,7 +493,7 @@ console.log('win_crafting: the filters narrow the bench');
   const shields = chips.find((c) => c.textContent === FAMILY_LABEL.shield);
   shields.fire('click');
   const narrowed = cardsOf(root).length;
-  check('clicking Shields narrows the list', narrowed < all && narrowed === RECIPES.filter((r) => r.family === 'shield' && r.station === 'forge').length,
+  check('clicking Shields narrows the list', narrowed < all && narrowed === RECIPES.filter((r) => r.family === 'shield' && r.station === 'workshop').length,
     `${narrowed} of ${all}`);
   check('and every card left is a shield', cardsOf(root).every((c) => /shield/i.test(bodyOf(c).children[0].textContent)));
   check('the chip clicked is the one lit', chipsOf(root).find((c) => c.textContent === FAMILY_LABEL.shield).classList.contains('on'));
@@ -515,16 +512,16 @@ console.log('win_crafting: the filters narrow the bench');
   check('and every one of them really is unrefused', ready.every((c) => buttonOf(c).disabled === false));
 
   // a family with nothing in reach says so rather than showing an empty grid
-  const bare = openAt('inscriptionDesk', mkCtx());
-  check('a bench you cannot use yet still lists what it makes', cardsOf(bare).length > 0, `${cardsOf(bare).length} scroll cards`);
+  const bare = openAt('workshop', mkCtx());
+  check('a bench you cannot use yet still lists what it makes', cardsOf(bare).length > 0, `${cardsOf(bare).length} cards`);
   check('and every one of them wears the lock', cardsOf(bare).every((c) => c.classList.contains('locked')));
 }
 
 console.log('win_crafting: the picture is looked up through the base the craft really lands on');
 {
   const cases = [
-    ['armour.cloth.head.cloth', 'cloth_head', /cloth-hood\.webp$/],
-    ['armour.leather.chest.hide', 'leather_chest', /leather-tunic\.webp$/],
+    ['armour.cloth.outfit.cloth', 'cloth_outfit', /cloth-robe\.webp$/],
+    ['armour.leather.outfit.hide', 'leather_outfit', /leather-tunic\.webp$/],
     ['meal.heartyStew', 'hearty_stew', /hearty-stew\.webp$/],
     ['potion.heal', 'potion', /potion\.webp$/],
     ['weapon.dagger.copper', 'dagger', /dagger\.webp$/],
@@ -539,14 +536,14 @@ console.log('win_crafting: the picture is looked up through the base the craft r
       landed === base && file.test(src || '') && tileArt(r, 96).includes(src),
       `${landed} -> ${src}`);
   }
-  check('the recipe table\'s own spelling would have found nothing for cloth armour',
-    itemIcon(RECIPE['armour.cloth.head.cloth'].result.base) === null,
-    `"${RECIPE['armour.cloth.head.cloth'].result.base}" is not an items.js base`);
+  check('the recipe table points cloth armour at a painted outfit',
+    itemIcon(RECIPE['armour.cloth.outfit.cloth'].result.base) !== null,
+    `"${RECIPE['armour.cloth.outfit.cloth'].result.base}"`);
 
   // a base with a real item and no painting falls to ui_theme's drawn glyph
-  const plate = RECIPE['armour.plate.head.iron'];
-  check('a plate helm has no painting yet and draws the helm glyph',
-    itemIcon(resultBaseFor(plate)) === null && /^<svg/.test(tileArt(plate, 96)),
+  const plate = RECIPE['armour.plate.outfit.iron'];
+  check('a plate outfit has a shared armour painting',
+    /ringmail-breastplate\.webp/.test(itemIcon(resultBaseFor(plate)) || '') && /^<img/.test(tileArt(plate, 96)),
     tileArt(plate, 96).slice(0, 40));
 
   // a recipe with no item at all falls to the family glyph
@@ -564,7 +561,7 @@ console.log('win_crafting: the picture is looked up through the base the craft r
 console.log('win_crafting: a card that cannot be made says so on the card');
 {
   const ctx = mkCtx({ character: { skills: gm() } });
-  const root = openAt('loom', ctx);
+  const root = openAt('workshop', ctx);
   const bagCard = cardsOf(root).find((c) => /slot bag/.test(bodyOf(c).children[0].textContent));
   check('a bag is on the bench, not hidden', !!bagCard);
   check('it is greyed as missing, not merely locked', bagCard.classList.contains('missing') && bagCard.classList.contains('locked'), bagCard.className);
@@ -587,7 +584,7 @@ console.log('win_crafting: the make button is the same craft() the rest of the g
   const ctx = mkCtx({ character: { skills: { blacksmithing: 100 } } });
   stock(ctx, 'copper', 6);
   ctx.rng = () => 0.0001;
-  const root = openAt('forge', ctx);
+  const root = openAt('workshop', ctx);
   const card = cardsOf(root).find((c) => bodyOf(c).children[0].textContent === 'Copper Dagger');
   const before = countMaterial(ctx, 'copper');
   buttonOf(card).fire('click');
@@ -604,7 +601,7 @@ console.log('win_crafting: the page keeps up with a pack that changes under it')
   // after a stack lands must. A window that only ever redrew would be correct
   // and expensive; one that never did would be a lie about your own pack.
   const ctx = mkCtx({ character: { skills: gm() } });
-  const root = openAt('forge', ctx);
+  const root = openAt('workshop', ctx);
   let builds = 0;
   const real = panel.render.bind(panel);
   panel.render = (...a) => { builds++; return real(...a); };
@@ -646,9 +643,9 @@ console.log('win_crafting: the view model and the page agree');
 {
   const ctx = mkCtx({ character: { skills: gm() } });
   stock(ctx, 'copper', 3);
-  const rows = benchFor('forge', ctx, { family: 'weapon' });
+  const rows = benchFor('workshop', ctx, { family: 'weapon' });
   check('asking for one family gets one family', rows.every((r) => r.recipe.family === 'weapon'), `${rows.length} rows`);
-  check('and it is every weapon the forge knows', rows.length === RECIPES.filter((r) => r.station === 'forge' && r.family === 'weapon').length, `${rows.length}`);
+  check('and it is every weapon the workshop knows', rows.length === RECIPES.filter((r) => r.station === 'workshop' && r.family === 'weapon').length, `${rows.length}`);
   const v = cardView(rows.find((r) => r.recipe.id === 'weapon.dagger.copper'), ctx);
   check('the card view names the base it lands on', v.base === 'dagger' && v.family === 'weapon');
   check('it is not locked when the copper is there', v.locked === false, JSON.stringify(v.refusal));
@@ -657,19 +654,20 @@ console.log('win_crafting: the view model and the page agree');
     inFilter(rows[0], 'weapon') === true && inFilter(rows[0], 'shield') === false);
   check('and keeps everything under All', rows.every((r) => inFilter(r, 'all')));
   check('filtersFor names only the families of the bench asked for',
-    filtersFor('kitchen').map((f) => f.id).join(',') === 'all,ready,meal,forageMeal', filtersFor('kitchen').map((f) => f.id).join(','));
+    filtersFor('workshop').map((f) => f.id).join(',') === 'all,ready,weapon,armour,shield,staff,bow,instrument,ammo,potion,meal,tool,bag,scroll,forageMeal,foragePotion',
+    filtersFor('workshop').map((f) => f.id).join(','));
 }
 
 {
   let nearby = false;
-  const ctx = mkCtx({ character: { skills: { blacksmithing: 100 } }, stationAccess: id => nearby && id === 'forge' });
+  const ctx = mkCtx({ character: { skills: { blacksmithing: 100 } }, stationAccess: id => nearby && id === 'workshop' });
   stock(ctx, 'copper', 6);
   ctx.rng = () => 0.0001;
   const root = openAt(null, ctx);
-  check('a skilled crafter away from a forge sees a station requirement', refusalFor(RECIPE['weapon.dagger.copper'], ctx)?.kind === 'station');
-  check('craft execution away from a forge spends nothing', !craft('weapon.dagger.copper',ctx).ok && countMaterial(ctx,'copper')===6);
+  check('a skilled crafter away from a workshop sees a station requirement', refusalFor(RECIPE['weapon.dagger.copper'], ctx)?.kind === 'station');
+  check('craft execution away from a workshop spends nothing', !craft('weapon.dagger.copper',ctx).ok && countMaterial(ctx,'copper')===6);
   nearby = true; panel.tick(.6);
-  check('walking into forge range enables the open recipe', !refusalFor(RECIPE['weapon.dagger.copper'],ctx));
+  check('walking into workshop range enables the open recipe', !refusalFor(RECIPE['weapon.dagger.copper'],ctx));
   check('the enabled action crafts through the real path', craft('weapon.dagger.copper',ctx).ok && countMaterial(ctx,'copper')===4);
   nearby = false; panel.tick(.6);
   check('walking away disables an already-open craft tab', panel._cards.find(c=>c.row.recipe.id==='weapon.dagger.copper').view.refusal.kind==='station');

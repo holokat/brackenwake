@@ -25,7 +25,7 @@ import { REALMS } from './realms.js';
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
 const threw = (fn) => { try { fn(); return false; } catch { return true; } };
-const TABLE = ['longsword', 'shortsword', 'buckler', 'chain_chest', 'ring'];
+const TABLE = ['longsword', 'shortsword', 'buckler', 'chain_outfit', 'ring'];
 
 const tally = (tier, luck, seed, n) => {
   const rng = seededRng(seed);
@@ -263,7 +263,7 @@ const tally = (tier, luck, seed, n) => {
 // floor driven against both. Measured, not asserted.
 {
   const FOOD = ['carrot', 'bread', 'venison', 'wolf_meat', 'fish'];
-  const MIXED = ['longsword', 'carrot', 'reagent', 'plate_chest', 'venison', 'ingot'];
+  const MIXED = ['longsword', 'carrot', 'reagent', 'plate_outfit', 'venison', 'ingot'];
   const N = 10000;
 
   let above = 0, affixed = 0, unidentified = 0;
@@ -358,7 +358,7 @@ const tally = (tier, luck, seed, n) => {
   const plated = { stats: { str: 75 }, skills: { swordsmanship: 50 } };
   check('and a plate wearer favours ring, chain and plate, which is the document\'s own line',
     classProfileDetail(plated).tiers.join(',') === 'ring,chain,plate');
-  check('a mage profile never favours plate', !classProfile(mage).has('plate_chest') && !classProfile(mage).has('plate_head'));
+  check('a mage profile never favours plate', !classProfile(mage).has('plate_outfit') && !classProfile(mage).has('plate_outfit'));
   check('nor ring, chain or studded: a caster is in cloth and leather',
     classProfileDetail(mage).tiers.join(',') === 'cloth,leather', classProfileDetail(mage).tiers.join(','));
   check('a caster with 100 STR is still in cloth and leather, because it is Meditation that decides',
@@ -388,7 +388,8 @@ const tally = (tier, luck, seed, n) => {
   check('and a STR 40 parrier is not offered the tower shield it could not lift',
     classProfileDetail({ stats: { str: 40 }, skills: { parrying: 60 } }).shields.join(',') === 'buckler,kite,heater');
   check('and no Parrying, no shields', classProfileDetail({ stats: { str: 60 }, skills: { swordsmanship: 60 } }).shields.length === 0);
-  check('Musicianship in the top three buys a lute', classProfile(OPENINGS_BY_ID.bard).has('lute'));
+  // the Bard opening went with the four class cut (2026-09-08); the rule is the skill's, not the class's
+  check('Musicianship in the top three buys a lute', classProfile({ stats: { str: 40 }, skills: { musicianship: 60, provocation: 40 } }).has('lute'));
   check('and nobody else gets one', !classProfile(warrior).has('lute') && !classProfile(mage).has('lute'));
   check('a ring and an amulet fit everybody',
     OPENINGS.every((o) => classProfile(o).has('ring') && classProfile(o).has('amulet')));
@@ -425,7 +426,7 @@ const tally = (tier, luck, seed, n) => {
   // A swordsman against a bandit. The bandit's table is dagger, rapier, a pair
   // of leather boots and a ring, and the only one of those a STR 65 swordsman
   // in studded, ring or chain has any use for is the ring.
-  const BANDIT = ['dagger', 'rapier', 'leather_feet', 'ring'];
+  const BANDIT = ['dagger', 'rapier', 'leather_outfit', 'ring'];
   const run = (table, tier, profile, bias = undefined) => {
     let gear = 0, plain = 0, inProfile = 0, biased = 0, fellBack = 0;
     const bases = {};
@@ -465,7 +466,7 @@ const tally = (tier, luck, seed, n) => {
   // breastplate and a bar of iron, and the warrior wants all three pieces of
   // gear, which is the hardest case for the claim: the coin comes up biased
   // 60% of the time and the iron still has to come out at the same rate.
-  const ORC = ['axe', 'battleaxe', 'studded_chest', 'iron_ingot'];
+  const ORC = ['axe', 'battleaxe', 'studded_outfit', 'iron_ingot'];
   const withP = run(ORC, 3, wp);
   const without = run(ORC, 3, null);
   console.log(`  ${N} rolls against an orc (${ORC.join(', ')}): iron ingots ${without.bases.iron_ingot} without a profile, ${withP.bases.iron_ingot} with one`);
@@ -530,11 +531,11 @@ const tally = (tier, luck, seed, n) => {
   check('a mage against an orc favours nothing it carries and falls back every biased roll',
     mageOrc.inProfile === 0 && Math.abs(mageOrc.fellBack / mageOrc.gear - CLASS_BIAS) < 0.02,
     `${mageOrc.inProfile} in profile, ${mageOrc.fellBack} of ${mageOrc.gear} fell back`);
-  const CULTIST = ['cloth_chest', 'quarterstaff', 'reagent'];
+  const CULTIST = ['cloth_outfit', 'quarterstaff', 'reagent'];
   const mageCultist = run(CULTIST, 3, mp);
   const cultistFav = CULTIST.filter((x) => takesRarity(x) && mp.has(x));
   const cultistGear = CULTIST.filter(takesRarity).length;
-  console.log(`  ${N} rolls, mage against a cultist: robes ${mageCultist.bases.cloth_chest}, quarterstaves ${mageCultist.bases.quarterstaff}, reagents ${mageCultist.bases.reagent}`);
+  console.log(`  ${N} rolls, mage against a cultist: robes ${mageCultist.bases.cloth_outfit}, quarterstaves ${mageCultist.bases.quarterstaff}, reagents ${mageCultist.bases.reagent}`);
   check('and against a cultist takes the robe over the quarterstaff at the rate the coin says',
     Math.abs(mageCultist.inProfile / mageCultist.gear - (CLASS_BIAS + (1 - CLASS_BIAS) * cultistFav.length / cultistGear)) < 0.015,
     `${(mageCultist.inProfile / mageCultist.gear * 100).toFixed(2)}%`);
@@ -579,13 +580,14 @@ const tally = (tier, luck, seed, n) => {
 {
   console.log('\n  -- the unprofiled roll is the roll it always was --');
   const fnv = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
-  const MIXED = ['longsword', 'carrot', 'reagent', 'plate_chest', 'venison', 'copper_ingot'];
+  const MIXED = ['longsword', 'carrot', 'reagent', 'plate_outfit', 'venison', 'copper_ingot'];
   const lines = [];
   for (const table of [TABLE, MIXED]) for (const tier of [1, 2, 3, 4, 5, 6]) for (const luck of [0, 40]) for (let s = 0; s < 1000; s++) {
     lines.push(JSON.stringify(rollDrop({ table, tier, luck, seed: s })));
   }
   check(`${lines.length} unprofiled drops hash to what the module said before the bias existed`,
-    fnv(lines.join('|')) === '2d7e6fdd', fnv(lines.join('|')));
+    // '2d7e6fdd' until 2026-09-08: the eight armour pieces became one outfit per tier, so every seeded roll over a table that names armour lands differently
+    fnv(lines.join('|')) === 'bd118b31', fnv(lines.join('|')));
 
   const kills = [];
   for (const [boss, twice] of [[false, false], [false, true], [true, false]]) for (let s = 0; s < 1000; s++) {
@@ -593,7 +595,7 @@ const tally = (tier, luck, seed, n) => {
     kills.push(`${k.gold}:${JSON.stringify(k.item)}`);
   }
   check(`and ${kills.length} unprofiled kills, gold and item together, hash to the same`,
-    fnv(kills.join('|')) === '5d5daaac', fnv(kills.join('|')));
+    fnv(kills.join('|')) === '71d0fb80', fnv(kills.join('|')));   // '5d5daaac' before the outfit, see above
 
   check('a profile of nothing is the same as no profile at all',
     JSON.stringify(rollDrop({ table: TABLE, tier: 3, seed: 12, profile: new Set() }))
@@ -616,19 +618,19 @@ const tally = (tier, luck, seed, n) => {
       }
       return biased > 250 && kit === biased && offProfile === 0;
     })());
-  check('and a kit draw spreads armour over the slots, weapon and ammunition included', (() => {
+  check('and a kit draw hands out outfits, weapons and ammunition alike (one armour slot since 2026-09-08)', (() => {
     const d = classProfileDetail({ skills: { archery: 60, tracking: 40 }, stats: { str: 45, dex: 70 } });
     const rng = seededRng(9);
-    const slots = new Set(); let bows = 0, arrows = 0;
+    const outfits = new Set(); let armour = 0, bows = 0, arrows = 0;
     for (let i = 0; i < 4000; i++) {
       const got = kitDraw(d, rng);
       if (!got) return false;
       const b = BASES[got.base];
-      if (b.kind === 'armour') slots.add(b.slot);
+      if (b.kind === 'armour') { armour++; if (b.slot !== 'outfit') return false; outfits.add(got.base); }
       if (got.base === 'shortbow' || got.base === 'longbow') bows++;
       if (got.base === 'arrow') { arrows++; if (got.count < 12 || got.count > 30) return false; }
     }
-    return slots.size === 8 && bows > 400 && arrows > 200;
+    return armour > 800 && outfits.size >= 2 && bows > 400 && arrows > 200;
   })());
 }
 
@@ -674,7 +676,7 @@ const tally = (tier, luck, seed, n) => {
     let biased = 0, gear = 0;
     for (let s = 0; s < 10000; s++) {
       const rec = {};
-      rollKill({ table: ['longsword', 'kite', 'plate_chest', 'gem'], tier: 6, seed: s, boss: true, profile: wp, record: rec });
+      rollKill({ table: ['longsword', 'kite', 'plate_outfit', 'gem'], tier: 6, seed: s, boss: true, profile: wp, record: rec });
       if (rec.gear) { gear++; if (rec.biased) biased++; }
     }
     return Math.abs(biased / gear - BOSS_BIAS) < 0.02;
@@ -683,7 +685,7 @@ const tally = (tier, luck, seed, n) => {
     let biased = 0, gear = 0;
     for (let s = 0; s < 10000; s++) {
       const rec = {};
-      rollKill({ table: ['longsword', 'kite', 'plate_chest', 'gem'], tier: 6, seed: s, boss: true, profile: wp, record: rec });
+      rollKill({ table: ['longsword', 'kite', 'plate_outfit', 'gem'], tier: 6, seed: s, boss: true, profile: wp, record: rec });
       if (rec.gear) { gear++; if (rec.biased) biased++; }
     }
     return `${(biased / gear * 100).toFixed(2)}% of ${gear} gear rolls`;

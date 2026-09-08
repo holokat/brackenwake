@@ -123,7 +123,7 @@ check('five filters, all first', CATEGORIES.length === 5 && CATEGORIES[0].id ===
 check('and every one has a mark to draw', CATEGORIES.every((c) => typeof c.mark === 'string' && c.mark.length));
 check('a sword is a weapon', categoryOf(makeItem({ base: 'longsword', seed: 1 })) === 'weapons');
 check('so is a shield, since it is held in a fight', categoryOf(makeItem({ base: 'kite', seed: 1 })) === 'weapons');
-check('a breastplate is armour', categoryOf(makeItem({ base: 'plate_chest', seed: 1 })) === 'armour');
+check('a breastplate is armour', categoryOf(makeItem({ base: 'plate_outfit', seed: 1 })) === 'armour');
 check('and so is a ring', categoryOf(makeItem({ base: 'ring', seed: 1 })) === 'armour');
 check('a potion is a consumable', categoryOf(makeItem({ base: 'potion', seed: 1 })) === 'consumables');
 check('an ingot is a material', categoryOf(makeItem({ base: 'iron_ingot', seed: 1 })) === 'materials');

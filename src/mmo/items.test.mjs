@@ -170,12 +170,15 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
 
 // -------------------------------------------------------------------- slots
 {
-  check('there are fourteen slots', SLOTS.length === 14, SLOTS.join(' '));
-  check('no slot is named twice', new Set(SLOTS).size === 14);
-  for (const s of ['head', 'neck', 'chest', 'back', 'hands', 'wrists', 'waist', 'legs', 'feet', 'ring1', 'ring2', 'mainHand', 'offHand', 'ranged']) {
+  check('there are six slots', SLOTS.length === 6, SLOTS.join(' '));
+  check('no slot is named twice', new Set(SLOTS).size === 6);
+  for (const s of ['outfit', 'neck', 'ring1', 'ring2', 'mainHand', 'offHand']) {
     if (!SLOTS.includes(s)) check(`slot ${s} exists`, false);
   }
-  check('every documented slot is present', SLOTS.length === 14);
+  check('no retired armour or ranged slot remains',
+    !['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back', 'ranged'].some((s) => SLOTS.includes(s)),
+    SLOTS.join(' '));
+  check('every documented slot is present', SLOTS.length === 6);
 }
 
 // ------------------------------------------------------------- armour tiers
@@ -193,9 +196,9 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   check('every tier matches the document row for row', same === 6, `${same} of 6`);
   check('every tier carries a typed resist', ARMOR_TIERS.every((t) => Object.keys(t.resist).length > 0));
 
-  check('eight pieces in a set', ARMOR_PIECES.length === 8, ARMOR_PIECES.map((p) => p.id).join(' '));
-  const dbl = ARMOR_PIECES.filter((p) => p.arMul === 2);
-  check('only the chest doubles its AR', dbl.length === 1 && dbl[0].id === 'chest');
+  check('one outfit stands for the old eight piece set', ARMOR_PIECES.length === 1 && ARMOR_PIECES[0].id === 'outfit',
+    ARMOR_PIECES.map((p) => p.id).join(' '));
+  check('the outfit carries the old nine shares of AR', ARMOR_PIECES[0].arMul === 9, String(ARMOR_PIECES[0].arMul));
 
   // The two totals the document prints.
   const plate = setOf('plate');
@@ -204,23 +207,23 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   const cloth = setOf('cloth');
   check('full cloth is AR 9', cloth.reduce((s, b) => s + b.ar, 0) === 9);
   check('full cloth is 8 stones', totalWeight(cloth) === 8, String(totalWeight(cloth)));
-  check('the plate chest alone is AR 24', baseFor('plate_chest').ar === 24);
-  check('plate blocks Meditation entirely', baseFor('plate_chest').meditation === 0);
-  check('cloth casts freely', baseFor('cloth_chest').meditation === 1);
+  check('the plate outfit is AR 108', baseFor('plate_outfit').ar === 108);
+  check('plate blocks Meditation entirely', baseFor('plate_outfit').meditation === 0);
+  check('cloth casts freely', baseFor('cloth_outfit').meditation === 1);
 
   // C1: the casting burden, the same eight rows read from the other end.
   const burdens = [0, 0.1, 0.3, 0.55, 0.75, 1];
   check('every tier carries the documented cast burden',
     ARMOR_TIERS.every((t, i) => t.castBurden === burdens[i]),
     ARMOR_TIERS.map((t) => `${t.id} ${t.castBurden}`).join(', '));
-  check('cloth does not burden a cast at all', baseFor('cloth_chest').castBurden === 0);
-  check('leather burdens it a tenth', baseFor('leather_legs').castBurden === 0.1);
-  check('platemail burdens it entirely', baseFor('plate_chest').castBurden === 1);
+  check('cloth does not burden a cast at all', baseFor('cloth_outfit').castBurden === 0);
+  check('leather burdens it a tenth', baseFor('leather_outfit').castBurden === 0.1);
+  check('platemail burdens it entirely', baseFor('plate_outfit').castBurden === 1);
   check('the burden rises with every tier and Meditation falls with it',
     ARMOR_TIERS.every((t, i) => i === 0 || (t.castBurden > ARMOR_TIERS[i - 1].castBurden && t.meditation <= ARMOR_TIERS[i - 1].meditation)));
-  check('all 48 pieces carry the burden of their tier, not just the chest',
-    ARMOR_TIERS.every((t) => setOf(t.id).every((b) => b.castBurden === t.castBurden)), '48 bases');
-  check('all six materials give all eight pieces', ARMOR_TIERS.every((t) => setOf(t.id).every(Boolean)), '48 bases');
+  check('all six outfits carry the burden of their tier',
+    ARMOR_TIERS.every((t) => setOf(t.id).every((b) => b.castBurden === t.castBurden)), '6 bases');
+  check('all six materials give one outfit', ARMOR_TIERS.every((t) => setOf(t.id).length === 1 && setOf(t.id).every(Boolean)), '6 bases');
 }
 
 // ------------------------------------------------------------------ weapons
@@ -269,7 +272,7 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   check('isFocus is driven both ways',
     isFocus('wand') === true && isFocus('staff') === true && isFocus('bone_staff') === true
     && isFocus('quarterstaff') === false && isFocus('longsword') === false
-    && isFocus('cloth_chest') === false && isFocus(null) === false);
+    && isFocus('cloth_outfit') === false && isFocus(null) === false);
   check('FOCUS_BASES is exactly the bases tagged focus',
     FOCUS_BASES.join(',') === Object.values(BASES).filter((b) => b.kinds.includes('focus')).map((b) => b.id).join(','),
     FOCUS_BASES.join(', '));
@@ -320,7 +323,7 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
     if (makeItem({ base: 'longsword', rarity: r, seed: 1 }).identified === false) unidentified++;
   }
   check('every rarity above common arrives unidentified', unidentified === 5, `${unidentified} of 5`);
-  const it = makeItem({ base: 'plate_chest', rarity: 'epic', seed: 99, quality: 1.2, maker: 'Tam' });
+  const it = makeItem({ base: 'plate_outfit', rarity: 'epic', seed: 99, quality: 1.2, maker: 'Tam' });
   const shape = ['id', 'base', 'rarity', 'seed', 'identified', 'affixes', 'quality', 'durability', 'maker'];
   check('the record has exactly the documented shape', shape.every((k) => k in it) && Object.keys(it).length === shape.length, Object.keys(it).join(','));
   check('the same seed and base build the same id',
@@ -343,25 +346,25 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
 // -------------------------------------------------------------- can you wear it
 {
   // Armour above your STR is worn anyway, at half AR and a slower swing.
-  const at60 = canEquip('plate_chest', { STR: 60 });
+  const at60 = canEquip('plate_outfit', { STR: 60 });
   check('plate at 60 STR is allowed', at60.ok === true);
   check('plate at 60 STR halves the AR', at60.penalty.arMul === 0.5, `arMul ${at60.penalty.arMul}`);
   check('plate at 60 STR slows the swing 15%', Math.abs(at60.penalty.swingMul - 1.15) < 1e-9, `swingMul ${at60.penalty.swingMul}`);
   check('and it says so', /75 STR/.test(at60.reason) && /half/.test(at60.reason), at60.reason);
 
-  const at75 = canEquip('plate_chest', { STR: 75 });
+  const at75 = canEquip('plate_outfit', { STR: 75 });
   check('plate at 75 STR does not halve the AR', at75.penalty.arMul === 1, `arMul ${at75.penalty.arMul}`);
   check('plate at 75 STR does not slow the swing', at75.penalty.swingMul === 1);
   check('and it says nothing', at75.reason === '');
 
-  const at65 = canEquip('plate_chest', { STR: 65 });
+  const at65 = canEquip('plate_outfit', { STR: 65 });
   check('ten STR short is ten percent slower', Math.abs(at65.penalty.swingMul - 1.10) < 1e-9, `swingMul ${at65.penalty.swingMul}`);
-  const at55 = canEquip('plate_chest', { STR: 55 });
+  const at55 = canEquip('plate_outfit', { STR: 55 });
   check('twenty STR short is twenty percent slower', Math.abs(at55.penalty.swingMul - 1.20) < 1e-9, `swingMul ${at55.penalty.swingMul}`);
 
-  check('AR through the penalty is 12 at 60 STR', armourOf(makeItem({ base: 'plate_chest' }), { STR: 60 }) === 12);
-  check('AR through the penalty is 24 at 75 STR', armourOf(makeItem({ base: 'plate_chest' }), { STR: 75 }) === 24);
-  check('cloth needs nothing', canEquip('cloth_chest', { STR: 0 }).ok === true && canEquip('cloth_chest', { STR: 0 }).penalty.arMul === 1);
+  check('AR through the penalty is 54 at 60 STR', armourOf(makeItem({ base: 'plate_outfit' }), { STR: 60 }) === 54);
+  check('AR through the penalty is 108 at 75 STR', armourOf(makeItem({ base: 'plate_outfit' }), { STR: 75 }) === 108);
+  check('cloth needs nothing', canEquip('cloth_outfit', { STR: 0 }).ok === true && canEquip('cloth_outfit', { STR: 0 }).penalty.arMul === 1);
 
   // A weapon or a shield you cannot lift is refused outright.
   check('a warhammer at 60 STR is refused', canEquip('warhammer', { STR: 60 }).ok === false);
@@ -373,7 +376,7 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   check('an ingot is not equipment', canEquip('ingot', { STR: 100 }).ok === false);
   check('fists are not equipment', canEquip('fists', { STR: 100 }).ok === false);
   check('a thing that does not exist is refused', canEquip('moonsword', { STR: 100 }).ok === false);
-  check('lowercase str is understood too', canEquip('plate_chest', { str: 75 }).penalty.arMul === 1);
+  check('lowercase str is understood too', canEquip('plate_outfit', { str: 75 }).penalty.arMul === 1);
 }
 
 // -------------------------------------------------------------------- slots
@@ -389,8 +392,7 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   check('a tome and a torch go to the off hand', equipSlotFor('tome') === 'offHand' && equipSlotFor('torch') === 'offHand');
   check('an amulet goes to the neck', equipSlotFor('amulet') === 'neck');
   check('a ring goes to the first ring slot and fits either', equipSlotFor('ring') === 'ring1' && slotsFor('ring').join(' ') === 'ring1 ring2');
-  check('a cloak goes to the back', equipSlotFor('plate_back') === 'back');
-  check('greaves go on the legs', equipSlotFor('plate_legs') === 'legs');
+  check('an outfit goes to the outfit slot', equipSlotFor('plate_outfit') === 'outfit');
   check('fists and materials have no slot', equipSlotFor('fists') === null && equipSlotFor('ingot') === null);
   check('every base points at a real slot or none', Object.values(BASES).every((b) => b.slot === null || SLOTS.includes(b.slot)));
 }
@@ -426,7 +428,7 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
     [...new Set(no.map((b) => b.kind))].join(', '));
 
   check('a longsword, a plate chest, a buckler, a ring, a torch and a lute take rarity',
-    ['longsword', 'plate_chest', 'buckler', 'ring', 'torch', 'lute'].every(takesRarity));
+    ['longsword', 'plate_outfit', 'buckler', 'ring', 'torch', 'lute'].every(takesRarity));
   check('a carrot, a loaf, venison, an ingot, an arrow, a pickaxe and a healing draught do not',
     !['carrot', 'bread', 'venison', 'ingot', 'arrow', 'pickaxe', 'healing_draught'].some(takesRarity));
   check('and a thing that is not a base at all does not', takesRarity('moonsword') === false && takesRarity(null) === false);

@@ -74,7 +74,7 @@ export const NEAR_MISS = Infinity;
 // keeps all seven; a hamlet keeps the three a working village needs. Authored,
 // because neither document says which stations a hamlet gets.
 
-export const HAMLET_STATIONS = ['forge', 'workbench', 'kitchen'];
+export const HAMLET_STATIONS = ['workshop'];
 /** The ring stations stand on, outside the people and inside the buildings. */
 export const STATION_RING = { town: 10.5, hamlet: 6.8 };
 
@@ -96,9 +96,11 @@ export const STATION = Object.fromEntries(STATION_KINDS.map((s) => [s.id, s]));
 export function stationsForSite(site) {
   if (!site) return [];
   const authored = layoutFor(site.sub)?.stations;
-  if (authored) return authored.map(p => ({ ...p, name: STATION[p.id].name, site, x: site.x + p.x, z: site.z + p.z, yaw: (p.yaw || 0) * Math.PI / 180 }));
+  if (authored) return authored
+    .filter((p) => p.id === 'workshop')
+    .map(p => ({ ...p, name: STATION[p.id].name, site, x: site.x + p.x, z: site.z + p.z, yaw: (p.yaw || 0) * Math.PI / 180 }));
   if (site.kind !== 'town' && site.kind !== 'hamlet') return [];
-  const list = site.kind === 'town' ? STATION_KINDS : STATION_KINDS.filter((s) => s.inHamlet);
+  const list = STATION_KINDS;
   const r = STATION_RING[site.kind];
   return list.map((s, i) => {
     const a = (i / list.length) * Math.PI * 2 + (site.facing || 0) + Math.PI / list.length;
@@ -152,8 +154,8 @@ export const UNMAKEABLE = {
 /** The items.js base a recipe would really produce, or null when there is none. */
 export function resultBaseFor(recipe) {
   if (!recipe) return null;
-  if (recipe.family === 'armour' && recipe.armourTier && recipe.slot) {
-    const id = `${recipe.armourTier}_${recipe.slot}`;
+  if (recipe.family === 'armour' && recipe.armourTier) {
+    const id = `${recipe.armourTier}_outfit`;
     if (BASES[id]) return id;
   }
   const want = recipe.result?.base;

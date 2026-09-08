@@ -33,14 +33,15 @@ import { makeItem, baseFor, isFocus } from '../../../mmo/items.js';
 // second of each.
 
 /** What every settler is handed once, in the order it is granted. */
+// Three tools and nothing that fights. The kit carried a bow with forty
+// arrows, a wand and a dagger "so every way to train could be tried", and the
+// user's sorcerer stood on the green with a bow he never chose (2026-09-08:
+// "we should really rethink what each class starts with"). What you fight
+// with is your opening's kit; what you work with is this.
 export const SETTLER_KIT = [
   { base: 'axe', count: 1 },
   { base: 'pickaxe', count: 1 },
-  { base: 'shortbow', count: 1 },
-  { base: 'arrow', count: 40 },
   { base: 'skinning_knife', count: 1 },
-  { base: 'wand', count: 1, unless: 'focus' },
-  { base: 'dagger', count: 1, unless: 'melee' },
 ];
 
 /**

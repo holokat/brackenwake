@@ -90,10 +90,10 @@ console.log('win_talk: who sells what');
   check('only the Stablemaster sells nothing, and says why', empty.join(',') === 'stablemaster', `empty shelves: ${empty.join(', ') || 'none'}`);
   check('the Stablemaster still has a panel worth opening', tabsFor(NPCS.stablemaster).length >= 2, tabsFor(NPCS.stablemaster).join(', '));
   check('the Stablemaster says what he would sell', missingFor(NPCS.stablemaster).some((m) => m.category === 'feed'));
-  check('the Blacksmith keeps weapons, shields and mail', stockFor(NPCS.blacksmith).length > 20, `${stockFor(NPCS.blacksmith).length} rows`);
+  check('the Blacksmith keeps weapons, shields and mail outfits', stockFor(NPCS.blacksmith).length === 11, `${stockFor(NPCS.blacksmith).length} rows`);
   check('the Healer keeps bandages', stockFor(NPCS.healer).some((r) => r.base === 'bandage'));
   check('the Provisioner buys anything', buysFrom(NPCS.provisioner, 'longsword') && buysFrom(NPCS.provisioner, 'potion'));
-  check('the Bowyer will not buy your armour', !buysFrom(NPCS.bowyer, 'plate_chest'));
+  check('the Bowyer will not buy your armour', !buysFrom(NPCS.bowyer, 'plate_outfit'));
   check('the Bowyer will buy your arrows', buysFrom(NPCS.bowyer, 'arrow'), `arrows are "${categoryOf('arrow')}"`);
 }
 

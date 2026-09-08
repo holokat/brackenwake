@@ -1,6 +1,6 @@
 import {propColliders} from '../world/collision/shapes.js';
-// Crafting stations in the settlements: a forge, a workbench, a kitchen and the
-// rest, one marker each at the spots win_crafting.js's stationsForSite gives.
+// Crafting stations in the settlements: one workshop at the spot
+// win_crafting.js's stationsForSite gives.
 // Until real models land they are squat blocks with a lid, coloured per
 // station, and a name plate the HUD can read on hover. Click within reach and
 // main.js opens the Crafting window at that station.
@@ -15,8 +15,7 @@ import { stationsForSite, STATION } from './win_crafting.js';
 export const STATION_REACH = 4;
 export const SCAN_R = 700;
 export const COLOURS = {
-  forge: 0x7a3b2e, tanningRack: 0x705137, workbench: 0x8a6a3c, loom: 0xb8a58c,
-  kitchen: 0x9a7a4a, alchemyTable: 0x4f6d5a, inscriptionDesk: 0x6e5a8a,
+  workshop: 0x8a6a3c,
 };
 
 export function createStations(sc, runtime, { hud } = {}) {

@@ -72,8 +72,8 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
   // what lets a server and a client hold the same sword.
   let agree = 0;
   for (let s = 0; s < 1000; s++) {
-    const a = withAffixes(makeItem({ base: 'plate_chest', rarity: 'mythic', seed: s }));
-    const b = withAffixes(makeItem({ base: 'plate_chest', rarity: 'mythic', seed: s }));
+    const a = withAffixes(makeItem({ base: 'plate_outfit', rarity: 'mythic', seed: s }));
+    const b = withAffixes(makeItem({ base: 'plate_outfit', rarity: 'mythic', seed: s }));
     if (JSON.stringify(a) === JSON.stringify(b)) agree++;
   }
   check('two independently built records of one seed are identical', agree === 1000, `${agree} of 1000`);
@@ -89,7 +89,7 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
 // ------------------------------------------------------- distinct, always
 {
   let dupes = 0, rolls = 0;
-  for (const base of ['longsword', 'plate_chest', 'ring', 'cloth_chest', 'buckler']) {
+  for (const base of ['longsword', 'plate_outfit', 'ring', 'cloth_outfit', 'buckler']) {
     for (const rarity of ['rare', 'epic', 'mythic', 'legendary']) {
       for (let s = 0; s < 250; s++) {
         const list = rollAffixes(item(base, rarity, s));
@@ -109,11 +109,10 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
     for (let i = 0; i < n; i++) for (const e of rollAffixes(item(base, rarity, i))) if (!e.power) s.add(e.id);
     return s;
   };
-  const robe = seen('cloth_chest', 'legendary', N);
-  check('a robe never rolls Damage %', !robe.has('damage'), `${N} legendary robes, ${robe.size} distinct affixes seen`);
-  check('a robe never rolls any offence or hit line',
-    ![...robe].some((id) => AFFIX_BY_ID[id] && (AFFIX_BY_ID[id].group === 'offence' || AFFIX_BY_ID[id].group === 'hit')));
-  check('a robe does roll Spell Damage', robe.has('spellDamage'));
+  const robe = seen('cloth_outfit', 'legendary', N);
+  check('an outfit keeps robe magic affixes reachable', robe.has('spellDamage'), `${N} legendary outfits, ${robe.size} distinct affixes seen`);
+  check('an outfit keeps glove offence affixes reachable', robe.has('damage'));
+  check('an outfit keeps boot utility affixes reachable', robe.has('runSpeed'));
 
   const hammer = seen('warhammer', 'legendary', N);
   check('a warhammer never rolls Spell Damage', !hammer.has('spellDamage'), `${N} legendary warhammers, ${hammer.size} distinct affixes seen`);
@@ -123,11 +122,11 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
 
   const staff = seen('quarterstaff', 'legendary', N);
   check('a quarterstaff does roll Spell Damage, being a mage stick', staff.has('spellDamage'));
-  const gloves = seen('plate_hands', 'legendary', N);
+  const gloves = seen('plate_outfit', 'legendary', N);
   check('gauntlets do roll Damage %, being gloves', gloves.has('damage'));
-  const boots = seen('leather_feet', 'legendary', N);
+  const boots = seen('leather_outfit', 'legendary', N);
   check('boots do roll Run Speed', boots.has('runSpeed'));
-  check('a breastplate never rolls Run Speed', !seen('plate_chest', 'legendary', N).has('runSpeed'));
+  check('a plate outfit can roll Run Speed through the old boot tag', seen('plate_outfit', 'legendary', N).has('runSpeed'));
   const ring = seen('ring', 'legendary', N);
   const ringGroups = new Set([...ring].map((id) => AFFIX_BY_ID[id].group));
   check('a ring rolls from every group but the weapon only hit effects',
@@ -135,7 +134,7 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
 
   // And the predicate itself, both ways.
   check('allowedOn says yes to a legal pairing', allowedOn(AFFIX_BY_ID.damage, 'longsword') === true);
-  check('allowedOn says no to an illegal one', allowedOn(AFFIX_BY_ID.damage, 'cloth_chest') === false);
+  check('allowedOn says no to an illegal one', allowedOn(AFFIX_BY_ID.spellDamage, 'longsword') === false);
   check('allowedOn says no for a base that is not there', allowedOn(AFFIX_BY_ID.damage, 'moonsword') === false);
 }
 
@@ -145,7 +144,7 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
   let legendaryWithOne = 0, legendaryOther = 0;
   const powerIds = new Set();
   for (let s = 0; s < N; s++) {
-    const list = rollAffixes(item(s % 2 ? 'longsword' : 'plate_chest', 'legendary', s));
+    const list = rollAffixes(item(s % 2 ? 'longsword' : 'plate_outfit', 'legendary', s));
     const powers = list.filter((e) => e.power);
     if (powers.length === 1) legendaryWithOne++; else legendaryOther++;
     for (const p of powers) powerIds.add(p.id);
@@ -157,14 +156,14 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
   for (const rarity of ['uncommon', 'rare', 'epic', 'mythic']) {
     for (let s = 0; s < 1250; s++) {
       belowRolls++;
-      if (rollAffixes(item(s % 2 ? 'longsword' : 'plate_chest', rarity, s)).some((e) => e.power)) below++;
+      if (rollAffixes(item(s % 2 ? 'longsword' : 'plate_outfit', rarity, s)).some((e) => e.power)) below++;
     }
   }
   check('nothing below legendary ever carries one', below === 0, `${belowRolls} rolls below legendary, ${below} powers`);
 
   // Weapon only powers stay on weapons.
   const onArmour = new Set();
-  for (let s = 0; s < 2000; s++) for (const e of rollAffixes(item('plate_chest', 'legendary', s))) if (e.power) onArmour.add(e.id);
+  for (let s = 0; s < 2000; s++) for (const e of rollAffixes(item('plate_outfit', 'legendary', s))) if (e.power) onArmour.add(e.id);
   check('a breastplate never gets Vampiric, Stormcaller, Everfrost or Sunder',
     !['vampiric', 'stormcaller', 'everfrost', 'sunder'].some((id) => onArmour.has(id)), `saw ${[...onArmour].join(', ')}`);
   const onWeapon = new Set();
@@ -181,13 +180,13 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
     for (const k of Object.keys(g)) out[k] = g[k] / total;
     return out;
   };
-  const p = share('plate_chest');
+  const p = share('plate_outfit');
   const l = share('longsword');
-  const gl = share('plate_hands');
+  const gl = share('plate_outfit');
   const defensiveOnArmour = (p.defence || 0) + (p.pool || 0);
   const offensiveOnWeapon = (l.offence || 0) + (l.hit || 0);
-  check('defensive lines dominate armour', defensiveOnArmour > 0.75,
-    `plate chest: defence ${(p.defence * 100).toFixed(1)}%, pool ${(p.pool * 100).toFixed(1)}%, stat ${(p.stat * 100).toFixed(1)}%, skill ${(p.skill * 100).toFixed(1)}%`);
+  check('defensive and pool lines are still the largest share on armour', defensiveOnArmour > 0.6,
+    `plate outfit: defence ${(p.defence * 100).toFixed(1)}%, pool ${(p.pool * 100).toFixed(1)}%, stat ${(p.stat * 100).toFixed(1)}%, skill ${(p.skill * 100).toFixed(1)}%`);
   check('offensive lines dominate weapons', offensiveOnWeapon > 0.75,
     `longsword: offence ${(l.offence * 100).toFixed(1)}%, hit ${(l.hit * 100).toFixed(1)}%, stat ${(l.stat * 100).toFixed(1)}%, pool ${(l.pool * 100).toFixed(1)}%`);
   check('a weapon almost never rolls a pool line', (l.pool || 0) < 0.08, `${((l.pool || 0) * 100).toFixed(1)}%`);
@@ -196,13 +195,13 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
 
   // The multiplier itself, both ways.
   check('a defence line weighs three on armour and a third on a weapon',
-    weightFor(AFFIX_BY_ID.ar, 'plate_chest') === 3 && Math.abs(weightFor(AFFIX_BY_ID.health, 'longsword') - 1 / 3) < 1e-9);
+    weightFor(AFFIX_BY_ID.ar, 'plate_outfit') === 3 && Math.abs(weightFor(AFFIX_BY_ID.health, 'longsword') - 1 / 3) < 1e-9);
   check('an offence line weighs three on a weapon and a third on armour',
-    weightFor(AFFIX_BY_ID.damage, 'longsword') === 3 && Math.abs(weightFor(AFFIX_BY_ID.damage, 'plate_hands') - 1 / 3) < 1e-9);
+    weightFor(AFFIX_BY_ID.damage, 'longsword') === 3 && Math.abs(weightFor(AFFIX_BY_ID.damage, 'plate_outfit') - 1 / 3) < 1e-9);
   check('a ring nudges nothing', weightFor(AFFIX_BY_ID.damage, 'ring') === 1 && weightFor(AFFIX_BY_ID.ar, 'ring') === 1);
-  check('a stat line is never nudged', weightFor(AFFIX_BY_ID.str, 'plate_chest') === 1 && weightFor(AFFIX_BY_ID.str, 'longsword') === 1);
+  check('a stat line is never nudged', weightFor(AFFIX_BY_ID.str, 'plate_outfit') === 1 && weightFor(AFFIX_BY_ID.str, 'longsword') === 1);
   check('familyOf sorts bases the way the rule needs',
-    familyOf('longsword') === 'weapon' && familyOf('plate_chest') === 'armour' && familyOf('buckler') === 'armour' && familyOf('ring') === 'other');
+    familyOf('longsword') === 'weapon' && familyOf('plate_outfit') === 'armour' && familyOf('buckler') === 'armour' && familyOf('ring') === 'other');
 }
 
 // -------------------------------------------------------------- the values
@@ -243,7 +242,7 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
   let prefixOk = 0, suffixOk = 0, twoParts = 0;
   const samples = [];
   for (let s = 0; s < 500; s++) {
-    const it = withAffixes(item(s % 2 ? 'longsword' : 'plate_chest', 'legendary', s));
+    const it = withAffixes(item(s % 2 ? 'longsword' : 'plate_outfit', 'legendary', s));
     const order = ranked(it.affixes);
     const name = nameFor(it);
     if (name.startsWith(order[0].prefix)) prefixOk++;
@@ -346,10 +345,10 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
     idLines.some((l) => /9 to 16 physical damage, 1.26 s base swing/.test(l)) && idLines.some((l) => /Swordsmanship/.test(l)) && idLines.some((l) => /4 stones, needs 30 STR/.test(l)),
     idLines.join(' | '));
 
-  const plate = { ...withAffixes(item('plate_chest', 'epic', 12)), identified: true };
+  const plate = { ...withAffixes(item('plate_outfit', 'epic', 12)), identified: true };
   const pl = describe(plate);
   check('an armour tooltip states AR, resists and the Meditation cost',
-    pl.some((l) => /Armour 24/.test(l)) && pl.some((l) => /Resist physical 3, fire 2/.test(l)) && pl.some((l) => /Blocks Meditation entirely/.test(l)), pl.join(' | '));
+    pl.some((l) => /Armour 108/.test(l)) && pl.some((l) => /Resist physical 24, fire 16/.test(l)) && pl.some((l) => /Blocks Meditation entirely/.test(l)), pl.join(' | '));
 
   const shield = { ...withAffixes(item('tower', 'rare', 2)), identified: true };
   check('a shield tooltip states its parry factor', describe(shield).some((l) => /Parry x1.2/.test(l)));

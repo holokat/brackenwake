@@ -335,13 +335,7 @@ export function kitDraw(detail, r) {
   if (cat === 'jewellery') return { base: pick(detail.jewellery), count: 1 };
   if (cat === 'hand') return { base: pick(hand), count: 1 };
   if (cat === 'ammo') return { base: pick(detail.ammo), count: AMMO_STACK[0] + Math.floor(r() * (AMMO_STACK[1] - AMMO_STACK[0] + 1)) };
-  // armour: a slot first, then whichever material the profile allows for it
-  const bySlot = new Map();
-  for (const id of detail.armour) { const slot = BASES[id]?.slot; if (!slot) continue; if (!bySlot.has(slot)) bySlot.set(slot, []); bySlot.get(slot).push(id); }
-  const slots = [...bySlot.keys()];
-  if (!slots.length) return { base: pick(detail.armour), count: 1 };
-  const slot = pick(slots);
-  return { base: pick(bySlot.get(slot)), count: 1 };
+  return { base: pick(detail.armour), count: 1 };
 }
 
 export const CLASS_BIAS = 0.6;
@@ -531,8 +525,8 @@ export const SIGNATURES = [
   },
   {
     id: 'hundred_faces', realm: 'verdant', boss: 'The Keeper of Faces',
-    monsters: ['keeperOfFaces'], base: 'cloth_head', power: 'archmage', name: 'The Hood of a Hundred Faces',
-    flavour: 'Every face cut into the cliff looked out of this hood first. Wearing it, a spell does not care whether you are standing still.',
+    monsters: ['keeperOfFaces'], base: 'cloth_outfit', power: 'archmage', name: 'The Robes of a Hundred Faces',
+    flavour: 'Every face cut into the cliff looked out of these robes first. Wearing them, a spell does not care whether you are standing still.',
   },
   {
     id: 'thalassas_tooth', realm: 'saltmarch', boss: 'Thalassa the Sea-Wyrm',
@@ -541,7 +535,7 @@ export const SIGNATURES = [
   },
   {
     id: 'furnace_heart', realm: 'emberwastes', boss: 'The Brass Heart',
-    monsters: ['brassHeart'], base: 'plate_chest', power: 'phoenix', name: 'Heartplate of the Brass City',
+    monsters: ['brassHeart'], base: 'plate_outfit', power: 'phoenix', name: 'Heartplate of the Brass City',
     flavour: 'The city kept its heart behind eight inches of brass and the heart kept beating anyway. It beats hardest the moment you go down.',
   },
   {
@@ -556,7 +550,7 @@ export const SIGNATURES = [
   },
   {
     id: 'cold_crown', realm: 'frostreach', boss: 'Legate Ossory',
-    monsters: ['legateOssory'], base: 'plate_head', power: 'kingsguard', name: "The Legate's Cold Crown",
+    monsters: ['legateOssory'], base: 'plate_outfit', power: 'kingsguard', name: "The Legate's Cold Harness",
     flavour: 'Ossory wore this under the glacier for a winter and never shivered. Neither does anyone standing behind you.',
   },
   {
