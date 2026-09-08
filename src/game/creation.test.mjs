@@ -396,7 +396,7 @@ check('a warrior leads on strength and a mage on intellect',
 check('and a retired opening has no words at all',
   statWords('blank').length === 0, statWords('blank').join(' '));
 check('an opening nobody offers has no words at all', statWords('druid').length === 0);
-check('the title on the plaque comes from one constant', GAME_TITLE === 'Kaldera', GAME_TITLE);
+check('the title on the plaque comes from one constant', GAME_TITLE === 'Brackenwake', GAME_TITLE);
 check('the art slot wears an id of its own per class, and the four are distinct',
   new Set(OPENINGS.map((o) => artId(o.id))).size === OPENINGS.length
   && artId('warrior') === 'bw-cr-art-warrior',

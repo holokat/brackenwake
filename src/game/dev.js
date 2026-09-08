@@ -147,7 +147,12 @@ export function createDev({ sc, camera, player, hud, runtime, state, monsters, f
   // A guard may refuse the turn OFF: the editor asks about unsaved work. A
   // guard answering false keeps dev mode on; anything else lets it go.
   const guards = [];
+  // Dev mode is for the machine the game is built on. On the deployed site
+  // the key, the Settings toggle and a saved setting all leave it off (the
+  // user, 2026-09-08: "disable dev mode in prod, only keep it in local").
+  const devAllowed = typeof location === 'undefined' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   function setOn(next) {
+    if (next && !devAllowed) return false;
     if (next === on) return on;
     if (!next) for (const g of guards) { let v = true; try { v = g(); } catch (e) { console.warn('dev guard', e); } if (v === false) return on; }
     on = next;

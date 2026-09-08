@@ -313,8 +313,8 @@ check('an empty appearance is refused', validateAppearance(null).ok === false);
     itemBaseFor('leatherOutfit') === 'leather_outfit' && itemBaseFor('ringmailOutfit') === 'ring_outfit' && itemBaseFor('clothOutfit') === 'cloth_outfit' && itemBaseFor('kiteShield') === 'kite');
   check('ids items.js already knows pass through unchanged', itemBaseFor('longsword') === 'longsword' && itemBaseFor('bandage') === 'bandage');
   const warrior = kitItems(OPENINGS_BY_ID.warrior);
-  check('the warrior kit is a longsword, a kite shield, one leather outfit and six bandages',
-    warrior.length === 4 && warrior[0].base === 'longsword' && warrior[1].base === 'kite' && warrior.filter((e) => e.base === 'leather_outfit').length === 1 && warrior.at(-1).count === 6,
+  check('the warrior kit is a longsword, a kite shield, one leather outfit and twenty bandages',
+    warrior.length === 4 && warrior[0].base === 'longsword' && warrior[1].base === 'kite' && warrior.filter((e) => e.base === 'leather_outfit').length === 1 && warrior.at(-1).count === 20,
     warrior.map((e) => e.base).join(', '));
 }
 

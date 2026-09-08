@@ -661,7 +661,7 @@ export function createWorldField(seed = 1, opts = {}) {
     }
 
     // relief: the tables, terraces, plateau and crater rim that five realms of
-    // Kaldera carry, laid on top of the ground the noise made.
+    // Brackenwake carry, laid on top of the ground the noise made.
     //
     // AFTER the rivers, and that is not a detail. The river block carves toward
     // a fixed bed at -1.8 and fades itself out between 12 and 24 m of height,
@@ -1247,7 +1247,7 @@ export function createWorldField(seed = 1, opts = {}) {
       if (ground && PAINT_BIOME[ground] && (!water || waterLevel != null)) biome = PAINT_BIOME[ground];
     }
     // `zone` is the deepest zone's id or null, `realm` the id of the realm of
-    // Kaldera it belongs to, and `danger` the monster tier band [lo, hi]: the
+    // Brackenwake it belongs to, and `danger` the monster tier band [lo, hi]: the
     // one number monsters.js should roll a spawn against (docs/mmo/wiring/Z1.md).
     // `waterLevel` is the surface of the body of water somebody PLACED here, in
     // metres, and null everywhere else, including in the generator's own ocean

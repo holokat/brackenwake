@@ -9,7 +9,7 @@
 //
 // THE ELEMENTS ARE THE GAME'S ADDITION, and are the answer to a real gap: the
 // studio authored fire, blue lightning, violet missiles and a green blessing,
-// and Kaldera has seventy eight abilities across seven schools. Every one of
+// and Brackenwake has seventy eight abilities across seven schools. Every one of
 // the four takes a palette (see the setPalette seams in fireball.js,
 // lightning.js and missiles.js), so an Ice Shard is the fireball chain in
 // frost, a Smite is the strike in holy, and a Bone Spear is the volley in

@@ -97,7 +97,23 @@ async function boot() {
   // the world starts; the roster and creation draw on the same root beside it.
   function hudHidden(on) { if (ctx.hud && ctx.hud.el) ctx.hud.el.hidden = on; }
 
+  // The welcome page (welcome/index.html) stands before the roster: a first
+  // visit to / goes there, and its one button comes back with ?play, which is
+  // remembered for the session so a reload lands on the roster (the user,
+  // 2026-09-08: "put that up before the character creation step").
+  function welcomeFirst() {
+    try {
+      const params = new URLSearchParams(location.search);
+      if (params.has('play') || params.has('solo') || params.has('dev') || params.has('editor')) { sessionStorage.setItem('bw-entered', '1'); return false; }
+      if (sessionStorage.getItem('bw-entered')) return false;
+      if (location.pathname !== '/' && location.pathname !== '/index.html') return false;
+      location.replace('/welcome/');
+      return true;
+    } catch { return false; }
+  }
+
   function showRoster() {
+    if (welcomeFirst()) return null;
     hudHidden(true);
     audio.music.setContext({ screen: 'roster' });
     createRoster(ctx.hudRoot, {

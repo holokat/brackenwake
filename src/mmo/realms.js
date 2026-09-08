@@ -1,4 +1,4 @@
-// The realms of Kaldera and every place inside them, as data.
+// The realms of Brackenwake and every place inside them, as data.
 //
 // This is the sheet the painted map, the zone table and the codex are all
 // read from, so a place exists in one file and nowhere else. 14-KALDERA.md is

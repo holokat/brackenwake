@@ -71,7 +71,7 @@ weather there does not.
 
 ## Day, night and rendering
 
-Kaldera's current clock is a 25-minute cycle, with the sun above the horizon
+Brackenwake's current clock is a 25-minute cycle, with the sun above the horizon
 for 20 minutes and below for five. Weather, the visible sun, nocturnal story
 checks and developer time controls now use the same world clock, including
 dragon time changes. Storms dim the lighting without falsely activating

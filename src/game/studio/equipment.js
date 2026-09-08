@@ -11,8 +11,11 @@ export function studioArmourForOutfit(outfit){
 }
 
 export function studioEquipment(equipment={},opts={}){
- const outfitArmor=studioArmourForOutfit(equipment.outfit);
- const armor=outfitArmor||{};
+ // The body keeps its class look whatever outfit is worn: a Wizard stays in
+ // the Wizard's robes in plate. The tier is stats only (the user, 2026-09-08).
+ // studioArmourForOutfit stays for the codex's material readout and its test.
+ const outfitArmor=null;
+ const armor={};
  const main=equipment.mainHand,base=baseFor(main);
  const weapon=itemById.has(main?.base)?main.base:'none';
  const off=base?.hands===2?'none':(itemById.has(equipment.offHand?.base)?equipment.offHand.base:'none');

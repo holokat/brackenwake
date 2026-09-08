@@ -45,7 +45,9 @@ for(const opening of OPENINGS)for(const gender of ['male']){
  assert.equal(body.errors.length,0);assert.equal(body.actor.bodyType,gender);assert.equal(body.actor.group.userData.classId,studioId);
  assert.deepEqual(body.actor.group.userData.studioPalette,profile.colors,opening.id+' studio palette');
  const studioEq=studioEquipment(c.equipment);
- for(const slot of canonicalSlots)assert.equal(body.actor.equipment[slot],studioEq.armor[slot]||'none',opening.id+' '+slot);
+ // The body keeps the class look whatever outfit is worn (2026-09-08): every slot is the studio class's own piece, never the outfit's tier.
+ for(const slot of canonicalSlots)assert.equal(body.actor.equipment[slot],(profile.equipment&&profile.equipment[slot])||'none',opening.id+' '+slot);
+ assert.equal(Object.keys(studioEq.armor).length,0,opening.id+': the outfit tier dresses nothing');
  body.update(.2,2);finite(body.group);body.dispose();assert.equal(body.group.children.length,1);bodies++;
 }
 {
@@ -69,10 +71,10 @@ for(const opening of OPENINGS){
  assert.deepEqual(body.actor.equipment,profile.equipment,opening.id+' default outfit');
  body.setEquipment({outfit:makeItem({base:'leather_outfit',seed:31})});await body.ready;
  assert.deepEqual(body.actor.group.userData.studioPalette,profile.colors,opening.id+' leather palette held');
- assert.equal(body.actor.equipment.chest,'leather_chest',opening.id+' leather chest');
+ assert.deepEqual(body.actor.equipment,profile.equipment,opening.id+' leather: the class look is kept (2026-09-08)');
  body.setEquipment({outfit:makeItem({base:'plate_outfit',seed:32})});await body.ready;
  assert.deepEqual(body.actor.group.userData.studioPalette,profile.colors,opening.id+' plate palette held');
- assert.equal(body.actor.equipment.chest,'plate_chest',opening.id+' plate chest');
+ assert.deepEqual(body.actor.equipment,profile.equipment,opening.id+' plate: the class look is kept');
  body.dispose();swaps+=2;
 }
 for(const role of [...NPC_LIST,...Object.values(STORY_ROLES)]){
@@ -86,13 +88,15 @@ for(const gender of ['male']){
  for(const s of Object.keys(c.stats))c.stats[s]=100;
  const body=buildStudioCharacter({gender},{classId:'warrior',sourceMotion:true,loadMotionAssets}),actor=playerActor(c);
  const inv=createInventory({character:c,actor,recompute,onChange:()=>body.setEquipment(c.equipment)});body.setEquipment(c.equipment);await body.ready;
- // One outfit per tier since 2026-09-08: equipping it dresses every studio armour slot of its tier, and taking it off bares them all.
+ // One outfit per tier since 2026-09-08; studioArmourForOutfit still names its tier's pieces for the codex readout, but the body keeps the class look.
  const outfits=Object.values(BASES).filter(b=>b.slot==='outfit').map(b=>b.id);assert.equal(outfits.length,6,outfits.join(','));
  for(const id of outfits){
   const fit=studioArmourForOutfit({base:id});assert.ok(fit,id);const pieces=canonicalSlots.filter(s=>fit[s]!=='none');assert.ok(pieces.length>=6,id+' dresses '+pieces.length+' slots');
   const index=inv.emptySlot();assert.ok(index>=0);assert.ok(inv.add(makeItem({base:id,seed:13})).added);const eq=inv.equip(index,'outfit');assert.equal(eq.ok,true,eq.reason);await body.ready;
   const worn=body.actor.group.getObjectByName('Studio body and worn armour').userData.studioItems;
-  for(const s of pieces){assert.equal(body.actor.equipment[s],fit[s],id+' '+s);assert.ok(worn.includes(fit[s]),fit[s]+' visible geometry');}
+  // Since 2026-09-08 the outfit's tier dresses nothing: the class look stays on whatever is worn, and the batch still carries the class pieces.
+  for(const s of canonicalSlots)assert.equal(body.actor.equipment[s],classProfiles.warrior.equipment[s],id+' '+s+' keeps the class look');
+  assert.ok(worn.length>0,id+' worn geometry');void pieces;
   assert.ok(body.actor.group.userData.batchedSourceMeshes>0);finite(body.group);
   assert.equal(inv.unequip('outfit').ok,true);await body.ready;for(const s of pieces)assert.equal(body.actor.equipment[s],classProfiles.warrior.equipment[s],id+' off '+s);
   inv.remove(inv.pack.items.findIndex(i=>i?.base===id));swaps++;

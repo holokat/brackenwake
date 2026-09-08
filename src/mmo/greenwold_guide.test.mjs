@@ -42,7 +42,7 @@ console.log('greenwold_guide: the sheet and the ground');
       && Math.abs(bx - F.x1) < 1e-9 && Math.abs(bz - F.z1) < 1e-9;
   })(), `${F.u0},${F.v0} -> ${F.x0},${F.z0} and ${F.u1},${F.v1} -> ${F.x1},${F.z1}`);
 
-  // NORTH IS MINUS Z in Kaldera (compass.js takes atan2(dx, -dz)), so the top of
+  // NORTH IS MINUS Z in Brackenwake (compass.js takes atan2(dx, -dz)), so the top of
   // the sheet, which is north on any painted map, is the LESSER z. Written the
   // other way the picture is drawn upside down on a north up map and every
   // bearing in the column beside it is reversed, which is the check below.

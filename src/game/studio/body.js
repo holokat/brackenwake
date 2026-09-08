@@ -35,7 +35,7 @@ export const sourceAbility=id=>ABILITY_BY_ID.get(String(id).replace(/[A-Z]/g,c=>
 
 /** Stable game body. Source actors may be replaced; position and socket objects never are. */
 export function buildStudioCharacter(appearance={},options={}){
- const group=new THREE.Group();group.name='Kaldera studio character';const parts={},sockets=new THREE.Group();sockets.name='Interaction sockets';group.add(sockets);
+ const group=new THREE.Group();group.name='Brackenwake studio character';const parts={},sockets=new THREE.Group();sockets.name='Interaction sockets';group.add(sockets);
  for(const key of Object.keys(PARTS)){parts[key]=new THREE.Object3D();parts[key].name='studio:'+key;sockets.add(parts[key]);}
  let look={...APPEARANCE_FALLBACK,...appearance},equipment={},equipOpts={},revision=0,closed=false,actor=null,motion=null,animator=null,ready=Promise.resolve(),lastSignature='',state={t:0,phase:0,anim:'idle',speed:0},currentAbility=null,hiddenLook=false;
  const temp=new THREE.Vector3(),quat=new THREE.Quaternion(),nativeRotation=new THREE.Quaternion(),nativeScale=new THREE.Vector3(),emote=createStudioEmotes();
@@ -45,7 +45,9 @@ export function buildStudioCharacter(appearance={},options={}){
  // blade out sideways. The user wants the elbow out and the blade forward,
  // turned in a little (2026-09-08). Added after the sampled pose on the
  // locomotion moves only, so a swing keeps the studio's own arm.
- let gripOne=false;
+ let gripOne=false,heldDagger=false;
+ // A dagger sits reverse in the fist, point up and out, the palm to the body (the user, 2026-09-08).
+ const GRIP_DAGGER=globalThis.__bwGripDagger||(globalThis.__bwGripDagger={armX:-.25,armY:0,armZ:-.4,foreX:-1.1,foreZ:0,handX:1.5,handY:-.6,handZ:-.3});
  // Radians added to the studio's own arm on a one hand hold: the elbow out, the
  // forearm forward, the palm turned toward the body and the blade up and out a
  // little (the user, 2026-09-08). Reachable as globalThis.__bwGrip so the
@@ -61,7 +63,7 @@ export function buildStudioCharacter(appearance={},options={}){
  const restoreGrip=()=>{if(!actor||!gripBase.size)return;for(const [n,q] of gripBase){const j=actor.rig.joints[n];if(j)j.quaternion.copy(q);}gripBase.clear();};
  const holdWeapon=(move)=>{
   if(!actor||!GRIP_MOVES.has(move))return;
-  if(gripOne){const j=actor.rig.joints,g=GRIP_ONE;if(j.upperArmR&&j.forearmR&&j.handR){for(const n of GRIP_JOINTS)gripBase.set(n,j[n].quaternion.clone());j.upperArmR.rotation.x+=g.armX;j.upperArmR.rotation.y+=g.armY;j.upperArmR.rotation.z+=g.armZ;j.forearmR.rotation.x+=g.foreX;j.forearmR.rotation.z+=g.foreZ;j.handR.rotation.x+=g.handX;j.handR.rotation.y+=g.handY;j.handR.rotation.z+=g.handZ;}}
+  if(gripOne){const j=actor.rig.joints,g=heldDagger?GRIP_DAGGER:GRIP_ONE;if(j.upperArmR&&j.forearmR&&j.handR){for(const n of GRIP_JOINTS)gripBase.set(n,j[n].quaternion.clone());j.upperArmR.rotation.x+=g.armX;j.upperArmR.rotation.y+=g.armY;j.upperArmR.rotation.z+=g.armZ;j.forearmR.rotation.x+=g.foreX;j.forearmR.rotation.z+=g.foreZ;j.handR.rotation.x+=g.handX;j.handR.rotation.y+=g.handY;j.handR.rotation.z+=g.handZ;}}
   if(heldStaff)for(const prop of actor.group.userData.loadout||[])if(prop.userData.twoHandedGrip)uprightStaff(prop);
  };
  // The studio carries a staff along the forearm, tilted, and the user wants it
@@ -89,7 +91,7 @@ export function buildStudioCharacter(appearance={},options={}){
  }
  async function rebuild(){
   const version=++revision,snapshot={...look,gender:'male'},eq=structuredClone(equipment),fit=studioEquipment(eq,equipOpts),kind=Object.hasOwn(classProfiles,studioClassForOpening(options.classId))?studioClassForOpening(options.classId):'ranger';
-  gripOne=fit.weapon!=='none'&&!TWO_HANDED.has(fit.weapon);heldStaff=/staff/.test(fit.weapon);   // the studio's ids are 'staff' and 'quarterstaff'
+  gripOne=fit.weapon!=='none'&&!TWO_HANDED.has(fit.weapon);heldDagger=/dagger|knife|knives/.test(fit.weapon);heldStaff=/staff/.test(fit.weapon);   // the studio's ids are 'staff' and 'quarterstaff'
   ready=Promise.resolve().then(async()=>{
    if(closed||version!==revision)return;
    const bodyType=snapshot.gender==='female'?'female':'male';

@@ -161,10 +161,19 @@ export function createRemotes() {
  * (onopen, onmessage, onclose, onerror, send, close, readyState); the test
  * hands in a fake, the game hands in `new WebSocket(url)`.
  */
-export function createNetClient({ url, hello, socketFactory, onMessage, onStatus, now = () => Date.now(), setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+/** The room beside this one: /ws/seed to /ws/seed-2, /ws/seed-2 to /ws/seed-3. */
+export function nextRoomUrl(url) {
+  const m = String(url).match(/^(.*\/ws\/[a-z0-9_]+(?:-[a-z0-9_]+)*?)(?:-(\d+))?$/);
+  if (!m) return url;
+  const n = m[2] ? Number(m[2]) + 1 : 2;
+  return `${m[1]}-${n}`;
+}
+
+export function createNetClient({ url: firstUrl, hello, socketFactory, onMessage, onStatus, now = () => Date.now(), setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+  let url = firstUrl;
   if (!url) throw new Error('createNetClient: no url');
   if (typeof socketFactory !== 'function') throw new Error('createNetClient: no socketFactory');
-  let ws = null, pid = null, status = 'idle', attempts = 0, timer = null, closedByUs = false, sent = 0, received = 0;
+  let ws = null, pid = null, status = 'idle', attempts = 0, timer = null, closedByUs = false, sent = 0, received = 0, rooms = 0;
   const say = (s) => { status = s; if (typeof onStatus === 'function') onStatus(s, { attempts, pid }); };
 
   function connect() {
@@ -184,6 +193,17 @@ export function createNetClient({ url, hello, socketFactory, onMessage, onStatus
       try { msg = JSON.parse(typeof ev === 'string' ? ev : ev.data); } catch { return; }
       received++;
       if (msg && msg.t === 'welcome') pid = msg.pid;
+      if (msg && msg.t === 'full') {
+        // Twenty already in: the next room of this world, at once, not after a
+        // backoff. The server keeps the socket open; we are the ones leaving.
+        url = nextRoomUrl(url);
+        rooms++;
+        say('full');
+        ws = null;
+        try { sock.close(); } catch { /* closing anyway */ }
+        connect();
+        return;
+      }
       if (typeof onMessage === 'function') onMessage(msg);
     };
     sock.onclose = () => { if (ws === sock) { ws = null; if (!closedByUs) { say('closed'); scheduleRetry(); } } };
@@ -208,6 +228,8 @@ export function createNetClient({ url, hello, socketFactory, onMessage, onStatus
     get connected() { return !!ws && ws.readyState === 1; },
     get pid() { return pid; },
     get status() { return status; },
+    get url() { return url; },
+    get rooms() { return rooms; },
     get attempts() { return attempts; },
     get counts() { return { sent, received }; },
   };

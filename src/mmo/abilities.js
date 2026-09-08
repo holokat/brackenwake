@@ -1611,7 +1611,7 @@ export const ABILITIES = [
     cost: { item: 'bandage', count: 1 }, cooldown: 0, castTime: 4, moving: false,
     range: MELEE_RANGE, target: 'ally',
     effect: {
-      kind: 'bandage', seconds: 4, perHealing: 0.4, perAnatomy: 0.2,
+      kind: 'bandage', seconds: 4, base: 6, perHealing: 0.4, perAnatomy: 0.2,
       curePoisonAt: 60, resurrectAt: { healing: 80, anatomy: 80 },
       interruptedByDamage: true,
     },
@@ -1933,7 +1933,7 @@ export function canUse(ability, character = {}, now = 0) {
   const readyAt = character.cooldowns?.[ability.id];
   if (typeof readyAt === 'number' && now < readyAt) {
     const left = readyAt - now;
-    return { ok: false, reason: `${ability.name} is on cooldown for ${left.toFixed(1)} s` };
+    return { ok: false, code: 'cooldown', reason: `${ability.name} is on cooldown for ${left.toFixed(1)} s` };
   }
 
   const kind = costKind(ability);

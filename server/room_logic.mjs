@@ -43,6 +43,9 @@ const normalizeState = (msg) => {
   return state;
 };
 
+/** Players a room seats before it sends the next one to the room beside it. */
+export const ROOM_CAP = 20;
+
 export function createRoomLogic() {
   const byConn = new Map();
   const connByPid = new Map();
@@ -87,6 +90,12 @@ export function createRoomLogic() {
         const old = removeConn(oldConn);
         evict.push(oldConn);
         if (old) toOthers.push({ t: 'leave', pid: old.pid });
+      }
+      // Twenty to a room (the user, 2026-09-08). The next arrival is told
+      // 'full' and takes no seat; the client moves to the next room of the
+      // same world (`seed-2`, then `seed-3`) until one has a place.
+      if (byConn.size >= ROOM_CAP) {
+        return { toSelf: [{ t: 'full', cap: ROOM_CAP }], toOthers, toAll: [], to: [], evict };
       }
       const pid = claimPid(id);
       const player = {

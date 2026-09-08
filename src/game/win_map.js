@@ -1521,7 +1521,7 @@ export const panel = {
     tool('-', 'Zoom out one step, about the middle of the map. The minus key does the same.', () => this.zoomBy(ZOOM_RATE));
     tool('+', 'Zoom in one step, about the middle of the map. The plus key does the same.', () => this.zoomBy(1 / ZOOM_RATE));
     tool('the Greenwold', `Back to where the map opens: the Greenwold, ${spanText(HOME_SPAN)}. The 0 key does the same.`, () => this.goHome());
-    tool('the whole world', `The whole of Kaldera at once, ${spanText(MAP_MAX_SPAN)}, ocean and all.`, () => this.setView({ ...this._view, span: MAP_MAX_SPAN }, 'The whole world.'));
+    tool('the whole world', `The whole of Brackenwake at once, ${spanText(MAP_MAX_SPAN)}, ocean and all.`, () => this.setView({ ...this._view, span: MAP_MAX_SPAN }, 'The whole world.'));
     // The ground under the guide: the painting, the terrain, or both. One
     // button that cycles, and it says on hover what all three of them are and
     // what it will do next, because a button whose label is its current state
@@ -1981,7 +1981,7 @@ export const panel = {
 
     // ---- the regions ----------------------------------------------------
     const rHdr = el('div', 'bw-hdr', `Regions, ${m.walked} of ${m.regions.length} walked`);
-    rHdr.title = `The regions of the realms that are open. The rest of Kaldera is on the map at ${Math.round(FADE_ALPHA * 100)} percent and has no rows here until it opens.`;
+    rHdr.title = `The regions of the realms that are open. The rest of Brackenwake is on the map at ${Math.round(FADE_ALPHA * 100)} percent and has no rows here until it opens.`;
     side.appendChild(rHdr);
     for (const r of m.regions) {
       const row = el('div', `bw-map-row bw-map-region${r.known ? ' pick' : ' off'}${r.here ? ' here' : ''}`);

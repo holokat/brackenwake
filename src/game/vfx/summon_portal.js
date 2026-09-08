@@ -3,7 +3,7 @@
 //
 // PORTED from the studio's src/vfx/abilities/summoning/createGroundSummon.ts,
 // MINUS its two articulated figures. Over there the skeleton and the imp were
-// code-authored bodies because the playground had nothing to summon; Kaldera
+// code-authored bodies because the playground had nothing to summon; Brackenwake
 // spawns a real monster through ability_hooks.js, so porting the studio's
 // figures would put a second, worse skeleton beside the real one. The aperture
 // is the half the game needed and the whole of what is here.

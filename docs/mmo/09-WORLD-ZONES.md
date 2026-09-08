@@ -1,4 +1,4 @@
-# The world has an edge, and Kaldera is laid over it
+# The world has an edge, and Brackenwake is laid over it
 
 The user's words, still: "I want a vast explorable world but not infinite, and
 we need to author cool and interesting zones and have a world map which we can
@@ -204,7 +204,7 @@ Measured: `(-3400, -1800)` is dry, unclaimed, and reports tier 2 to 3.
 
 The world's biome mix moved with all this, measured over a 12 km square: ocean
 48.1%, meadow 19.1%, desert 12.1%, mountain 6.5%, sakura 4.3%, snow 4.2%, boreal
-3.3%, beach 2.3%. Boreal fell from 9.0% and mountain from 10.1%, because Kaldera
+3.3%, beach 2.3%. Boreal fell from 9.0% and mountain from 10.1%, because Brackenwake
 has no conifer realm and only two mountain overrides where the old table had
 three plus five cold nudges; desert rose from 6.9% because two realms wear it and
 sakura rose from 0.8% because one realm is made of it.
@@ -258,7 +258,7 @@ cells that cover the digest's 2 km square holds one.
 `field.test.mjs` proves the rest: a 2 km square about the origin, 101 by 101
 samples at 20 m, every field of every sample fed to sha256. The digest is
 `6408cb4e...`, taken from the commit before `zones.js` existed. **It is bit for
-bit identical after Kaldera landed.**
+bit identical after Brackenwake landed.**
 
 ## 3. Discovery, which is now per realm and per place
 

@@ -1,5 +1,5 @@
 {
-  // The Kaldera codex and the story books as a static Worker: two generated
+  // The Brackenwake codex and the story books as a static Worker: two generated
   // pages and nothing else. Rebuild with `node scripts/build-wiki.mjs
   // wiki/site/index.html`, then `npm run wiki:deploy`.
   "name": "kaldera-codex",

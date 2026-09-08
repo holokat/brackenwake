@@ -323,7 +323,7 @@ export const OPENINGS = [
       { base: 'longsword', count: 1 },
       { base: 'kiteShield', count: 1 },
       ...outfit('leather'),
-      { base: 'bandage', count: 6 },
+      { base: 'bandage', count: 20 },
     ],
     blurb: 'Takes the hits. A sword, a shield, and enough anatomy to close a wound.',
   }),

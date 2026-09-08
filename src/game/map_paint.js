@@ -190,7 +190,7 @@ export const BIOME_PAINT = {
 };
 
 /**
- * The paint each realm of Kaldera lays over the biome under it, and how much.
+ * The paint each realm of Brackenwake lays over the biome under it, and how much.
  *
  * The sheet in `realms.js` names three kinds of country the engine has no biome
  * for (`fen`, `graveyard`, `crater`), and `zones.js` says so out loud: the fen
@@ -371,7 +371,7 @@ export function viewFor(opts = {}) {
   return {
     x, z, w, h, px, py,
     x0: x - w / 2, z0: z - h / 2,
-    title: title || 'Kaldera',
+    title: title || 'Brackenwake',
     subtitle: subtitle === null ? undefined : subtitle,
     fs: fontScale(Math.min(px, py)),
     // the border's own width plus a little: no word may be written under it

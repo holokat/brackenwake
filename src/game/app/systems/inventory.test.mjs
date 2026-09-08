@@ -96,7 +96,7 @@ console.log('settler kit: the pack after boot, counted');
 {
   // Exactly what is in the pack, for the four openings.
   const WANT = {
-    warrior: ['axe', 'bandage x6', 'pickaxe', 'skinning_knife'],
+    warrior: ['axe', 'bandage x20', 'pickaxe', 'skinning_knife'],
     ranger: ['arrow x60', 'axe', 'dagger', 'pickaxe', 'skinning_knife'],
     rogue: ['axe', 'lockpick x3', 'pickaxe', 'skinning_knife'],
     mage: ['axe', 'pickaxe', 'potion x4', 'skinning_knife'],

@@ -473,11 +473,11 @@ auditEmblems();
 // ------------------------------------------------- what a class says of itself
 
 /**
- * The land is Kaldera now (docs/mmo/10-STORY.md and the map), and this is the
+ * The land is Brackenwake now (docs/mmo/10-STORY.md and the map), and this is the
  * ONE place the creation screen says the name out loud. The plaque reads it
  * off this constant; nothing else in this file types a title.
  */
-export const GAME_TITLE = 'Kaldera';
+export const GAME_TITLE = 'Brackenwake';
 
 /**
  * One line each, in the voice of somebody who took that opening. Short, so it
@@ -592,6 +592,11 @@ const CSS = `
 #bw-creation, #bw-creation * { box-sizing: border-box; }
 /* The whole viewport: the user's background is behind the contained joined
    panel frame, and the controls live inside that frame's dark interiors. */
+#bw-roster, #bw-creation { isolation: isolate; }
+#bw-roster > .bw-ro-video, #bw-creation > .bw-ro-video {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  z-index: -1; pointer-events: none;
+}
 #bw-creation {
   position: fixed; inset: 0; z-index: 90;
   font-family: ${theme.fonts.body}; font-size: 15px; line-height: 1.4;
@@ -1161,6 +1166,15 @@ export function createCreation(root, deps = {}) {
   el.id = 'bw-creation';
   el.className = 'bw-ui';
   el.style.backgroundImage = `url("${rosterBgUrl()}")`;
+  // The ambient loop the user painted for this screen (public/ui/brackenwake-
+  // ambient-loop.mp4); the still stays underneath until it plays.
+  const video = document.createElement('video');
+  video.className = 'bw-ro-video';
+  video.src = '/ui/brackenwake-ambient-loop.mp4';
+  video.muted = true; video.loop = true; video.autoplay = true; video.playsInline = true;
+  video.setAttribute('aria-hidden', 'true');
+  el.appendChild(video);
+  try { const p = video.play(); if (p && p.catch) p.catch(() => {}); } catch { /* the still is enough */ }
   const panel = h('div', 'bw-cr-panel');
   el.appendChild(panel);
   (root || document.body).appendChild(el);

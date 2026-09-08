@@ -5,10 +5,10 @@ with interstitial landforms, groves, habitats and local lighting. Its counts
 and measurements supersede the original-pass totals below.
 
 The playable landscape follows the geography of the painted map and the
-current Kaldera canon. The source brief is [The Greenwold, space by
+current Brackenwake canon. The source brief is [The Greenwold, space by
 space](../22-GREENWOLD-SPACES.md); the story source is
-[Kaldera](../14-KALDERA.md), also published in the
-[Kaldera Codex](https://kaldera-codex.cogentgene.workers.dev/).
+[Brackenwake](../14-KALDERA.md), also published in the
+[Brackenwake Codex](https://kaldera-codex.cogentgene.workers.dev/).
 
 This pass builds the twelve subareas as connected places. It preserves the
 original 1,712 terrain strokes and the user's tile spaces, then adds authored

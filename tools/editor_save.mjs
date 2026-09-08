@@ -165,7 +165,7 @@ const body = (req) => new Promise((res, rej) => {
 
 /**
  * The Vite plugin. Dev only: `apply: 'serve'` means it is not in the build, so
- * a deployed Kaldera has no write endpoint at all.
+ * a deployed Brackenwake has no write endpoint at all.
  */
 export function editorSavePlugin(root = process.cwd()) {
   return {

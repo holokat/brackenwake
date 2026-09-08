@@ -1,4 +1,4 @@
-// The bounded world, the Caldera Sea, and Kaldera's nine realms with the ninety
+// The bounded world, the Caldera Sea, and Brackenwake's nine realms with the ninety
 // five places inside them, driven both ways.
 // Run: node src/world/zones.test.mjs
 import {

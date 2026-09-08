@@ -24,7 +24,7 @@
 // origin, `ZONE.greenwold`.
 //
 // WHICH WAY IS NORTH, AND WHY THE Z RUNS THE WAY IT DOES. The top of a painted
-// map is north, and in Kaldera NORTH IS MINUS Z: `src/game/compass.js` takes
+// map is north, and in Brackenwake NORTH IS MINUS Z: `src/game/compass.js` takes
 // its bearings as `atan2(dx, -dz)`, and both the zone map and the minimap draw
 // +z DOWN the picture so that -z is up. So the top edge of the sheet is
 // z = -2200 and the bottom edge is z = +2200.

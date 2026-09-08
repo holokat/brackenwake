@@ -6,7 +6,7 @@
 // and src/vfx/createCombatVfx.ts (the ring and burst shapes).
 //
 // ONE DELIBERATE CHANGE. The studio allocated a fresh geometry and material per
-// ring and per burst and disposed them when the effect ended. Kaldera fires
+// ring and per burst and disposed them when the effect ended. Brackenwake fires
 // these from a whirlwind at two pulses a swing, so they are POOLED here: a
 // fixed eight rings and four bursts, reused, and a ninth request takes the
 // oldest instead of allocating. Counting the slots before adding to a container

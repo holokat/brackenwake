@@ -1,5 +1,5 @@
 // Room relay logic. Run: node server/room_logic.test.mjs
-import { createRoomLogic } from './room_logic.mjs';
+import { createRoomLogic, ROOM_CAP } from './room_logic.mjs';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -139,6 +139,21 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
   });
   check('garbage input never throws', results.every((r) => !r.threw), JSON.stringify(results));
   check('garbage returns message lists', results.every((r) => ['toSelf', 'toOthers', 'toAll', 'to'].every((k) => Array.isArray(r.out[k]))));
+}
+
+console.log('\nroom: twenty to a room');
+{
+  const room = createRoomLogic();
+  const outs = [];
+  for (let i = 0; i < ROOM_CAP; i++) outs.push(room.join(`c${i}`, { t: 'hello', id: `p${i}`, name: `P${i}`, look: null }));
+  check(`${ROOM_CAP} join and every one is welcomed`, outs.every((o) => o.toSelf[0]?.t === 'welcome'), `${outs.filter((o) => o.toSelf[0]?.t === 'welcome').length}`);
+  const late = room.join('c99', { t: 'hello', id: 'late', name: 'Late', look: null });
+  check('the twenty first is told full and takes no seat', late.toSelf[0]?.t === 'full' && late.toSelf[0].cap === ROOM_CAP && late.evict.length === 0 && !late.toOthers.some((m) => m.t === 'join'), JSON.stringify(late.toSelf));
+  const again = room.join('c100', { t: 'hello', id: 'p3', name: 'P3', look: null });
+  check('a seated player arriving again on a new line is welcomed, not refused: the old seat is emptied first', again.toSelf[0]?.t === 'welcome' && again.evict.includes('c3'), JSON.stringify(again.toSelf));
+  const leave = room.leave ? room.leave('c5') : null;
+  const after = leave ? room.join('c101', { t: 'hello', id: 'fresh', name: 'Fresh', look: null }) : null;
+  check('a seat given up is a seat for the next arrival', !leave || after.toSelf[0]?.t === 'welcome', after ? JSON.stringify(after.toSelf) : 'no leave on this room');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

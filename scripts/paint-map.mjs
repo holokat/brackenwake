@@ -311,14 +311,14 @@ const field = createWorldField(WORLD_SEED ?? 20260904);
 // Everything is known: this is the sheet the user paints over, not a save.
 const known = { zones: true, places: new Set(authoredSites().map((s) => s.id)) };
 
-console.log(`\nThe painted map of Kaldera. Seed ${field.seed}. Writing to docs/maps/.`);
+console.log(`\nThe painted map of Brackenwake. Seed ${field.seed}. Writing to docs/maps/.`);
 console.log(Canvas ? '  canvas is installed: writing PNG.' : '  the canvas package is not installed: writing SVG with the same drawing.');
 console.log('');
 
 const jobs = [];
 if (arg === 'all' || arg === 'world') {
   jobs.push(() => render('world', {
-    field, x: 0, z: 0, known, title: 'Kaldera', subtitle: 'the whole of it',
+    field, x: 0, z: 0, known, title: 'Brackenwake', subtitle: 'the whole of it',
     samples: 208, rolled: false,
   }, size || 2048));
 }

@@ -133,6 +133,15 @@ export function createRoster(root, deps = {}) {
   el.id = 'bw-roster';
   el.className = 'bw-ui';
   el.style.backgroundImage = `url("${rosterBgUrl()}")`;
+  // The ambient loop the user painted for this screen (public/ui/brackenwake-
+  // ambient-loop.mp4); the still stays underneath until it plays.
+  const video = document.createElement('video');
+  video.className = 'bw-ro-video';
+  video.src = '/ui/brackenwake-ambient-loop.mp4';
+  video.muted = true; video.loop = true; video.autoplay = true; video.playsInline = true;
+  video.setAttribute('aria-hidden', 'true');
+  el.appendChild(video);
+  try { const p = video.play(); if (p && p.catch) p.catch(() => {}); } catch { /* the still is enough */ }
   const left = h('section', 'bw-ro-left');
   const right = h('section', 'bw-ro-right');
   el.appendChild(left);
@@ -353,6 +362,11 @@ export function createRoster(root, deps = {}) {
 
 const CSS = `
 #bw-roster, #bw-roster * { box-sizing: border-box; }
+#bw-roster, #bw-creation { isolation: isolate; }
+#bw-roster > .bw-ro-video, #bw-creation > .bw-ro-video {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  z-index: -1; pointer-events: none;
+}
 #bw-roster {
   position: fixed; inset: 0; z-index: 92;
   background-size: cover; background-position: center; background-repeat: no-repeat;

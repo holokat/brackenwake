@@ -192,7 +192,7 @@ console.log('abilities_runtime: cooldowns, to the tenth of a second');
     /cooldown for 0\.1 s/.test(at59.reason), at59.reason);
   ck('and it queued no second swing', h.combat.swings.length === 1, `${h.combat.swings.length} swings`);
   ck('and nothing more was spent', h.actor.stamina === 185, String(h.actor.stamina));
-  ck('and the player was told, out loud', /cooldown/.test(said(h)));
+  ck('and the player was NOT told out loud: the bar shows the sweep and the line was spam (2026-09-08)', !/cooldown/.test(said(h)), said(h));
   ck('and a refusal makes the denied sound', h.audio.played.includes('denied'), h.audio.played.join(','));
 
   const at60 = h.abilities.use(0, 6.0);
@@ -735,8 +735,8 @@ console.log('abilities_runtime: damage interrupts, over and under a tenth');
   h.abilities.update(0.1, 3.9);
   ck('at 3.9 s it is still binding', !!h.abilities.casting && h.actor.health === 100);
   h.abilities.update(0.1, 4.0);
-  ck('at 4.0 s a bandage heals Healing * 0.4 + Anatomy * 0.2',
-    h.actor.health === 100 + 60, `${h.actor.health - 100} at Healing 100 and Anatomy 100`);
+  ck('at 4.0 s a bandage heals 6 + Healing * 0.4 + Anatomy * 0.2',
+    h.actor.health === 100 + 66, `${h.actor.health - 100} at Healing 100 and Anatomy 100`);
   ck('and it took a bandage out of the pack', h.character.items.bandage === 9, String(h.character.items.bandage));
   ck('and the player saw the number', h.floaters.spawned.some((f) => f.k === 'heal'), JSON.stringify(h.floaters.spawned));
 }
@@ -766,7 +766,7 @@ console.log('\nabilities_runtime: a bandage, from the ability bar and from the p
   const byItem = item.actor.health - 100;
 
   ck('using a bandage out of the pack heals exactly what the ability bar heals',
-    byBar === byItem && byBar === 60, `${byBar} by the bar, ${byItem} by the item`);
+    byBar === byItem && byBar === 66, `${byBar} by the bar, ${byItem} by the item`);
   ck('and takes exactly one bandage, by either road',
     bar.character.items.bandage === 9 && item.character.items.bandage === 9,
     `${bar.character.items.bandage} / ${item.character.items.bandage}`);

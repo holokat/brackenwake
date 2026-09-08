@@ -1,4 +1,4 @@
-// The shape of the world, and Kaldera laid over it: nine realms, ninety five
+// The shape of the world, and Brackenwake laid over it: nine realms, ninety five
 // places inside them, and the Caldera Sea in the east. Pure data and pure
 // functions: no THREE, no DOM.
 //
@@ -287,7 +287,7 @@ export function wildDanger(x, z) {
 
 // ------------------------------------------------------------- the realms --
 
-// One row per realm of Kaldera, keyed by the id in realms.js. The realm's
+// One row per realm of Brackenwake, keyed by the id in realms.js. The realm's
 // centre, radius, name, danger band and places all come from that sheet; what
 // lives here is only what the ENGINE needs and the sheet does not carry: how
 // soft the edge is, which of the engine's eight biomes the realm's own biome

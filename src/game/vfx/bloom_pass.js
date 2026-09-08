@@ -5,7 +5,7 @@
 // src/scene/createSpellPostprocessing.ts.
 //
 // WHY IT IS OPTIONAL HERE AND WAS NOT THERE. The studio was a single character
-// on a plinth and could afford a composer every frame. Kaldera renders a
+// on a plinth and could afford a composer every frame. Brackenwake renders a
 // streamed world, so `render(delta, active)` takes the plain
 // `renderer.render(scene, camera)` path whenever nothing is glowing, and the
 // composer costs exactly nothing on those frames. `active` is what

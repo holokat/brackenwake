@@ -376,7 +376,7 @@ for (const [b, row] of Object.entries(perBiome)) {
     trees('meadow').length >= 3 && (perBiome.meadow.oak || 0) > 20 && (perBiome.meadow.beech || 0) > 15,
     JSON.stringify(perBiome.meadow));
   check('boreal grows two conifers and a birch through them',
-    (perBiome.boreal.fir || 0) > 40 && (perBiome.boreal.spruce || 0) > 40 && (perBiome.boreal.pine || 0) > 20 /* Kaldera has no conifer realm; boreal is 3.3% of the world now (Z2) */,
+    (perBiome.boreal.fir || 0) > 40 && (perBiome.boreal.spruce || 0) > 40 && (perBiome.boreal.pine || 0) > 20 /* Brackenwake has no conifer realm; boreal is 3.3% of the world now (Z2) */,
     JSON.stringify(perBiome.boreal));
   check('mountain thins out, and is mostly rock',
     (perBiome.mountain.rock || 0) > trees('mountain').reduce((a, k) => a + perBiome.mountain[k], 0),

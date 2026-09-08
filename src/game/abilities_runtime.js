@@ -1289,7 +1289,8 @@ export function createAbilities(deps = {}) {
       const who = c.target && c.target.faction === 'player' ? c.target : actor;
       if (cannotBeHealed(who)) return `A bandage will not close a wound on ${who === actor ? 'you' : (who.name || 'them')} while lich form holds.`;
       const skills = character.skills || {};
-      const amount = Math.round(num(skills.healing) * num(e.perHealing) + num(skills.anatomy) * num(e.perAnatomy));
+      // A base so a bandage closes something at no skill at all; the rest is Healing and Anatomy (the user, 2026-09-08).
+      const amount = Math.round(num(e.base) + num(skills.healing) * num(e.perHealing) + num(skills.anatomy) * num(e.perAnatomy));
       const max = Math.max(1, num(who.maxHealth) || num(who.health));
       const before = num(who.health);
       who.health = Math.min(max, before + amount);
@@ -1589,7 +1590,14 @@ export function createAbilities(deps = {}) {
     if (cast) { say(`You are already casting ${cast.name}.`, 'bad'); cue('denied'); return { ok: false, reason: 'casting' }; }
 
     const check = canUse(ability, snapshot(t), t);
-    if (!check.ok) { say(check.reason, 'bad'); cue('denied'); return { ok: false, reason: check.reason }; }
+    if (!check.ok) {
+      // A press on a cooling cell says nothing: the bar's sweep already shows
+      // it, and the line was spam (the user, 2026-09-08). Every other refusal
+      // still says why.
+      if (check.code !== 'cooldown') say(check.reason, 'bad');
+      cue('denied');
+      return { ok: false, reason: check.reason };
+    }
 
     // A target, where one is needed, before a coin of the cost is spent.
     let target = null, ground = null, follow = null;   // follow: the body a ground ability was aimed at

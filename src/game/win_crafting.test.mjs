@@ -521,7 +521,7 @@ console.log('win_crafting: the picture is looked up through the base the craft r
 {
   const cases = [
     ['armour.cloth.outfit.cloth', 'cloth_outfit', /cloth-robe\.webp$/],
-    ['armour.leather.outfit.hide', 'leather_outfit', /leather-tunic\.webp$/],
+    ['armour.leather.outfit.hide', 'leather_outfit', /cloth-robe\.webp$/],   // every outfit wears the robe painting until the user paints its own (2026-09-08)
     ['meal.heartyStew', 'hearty_stew', /hearty-stew\.webp$/],
     ['potion.heal', 'potion', /potion\.webp$/],
     ['weapon.dagger.copper', 'dagger', /dagger\.webp$/],
@@ -542,8 +542,8 @@ console.log('win_crafting: the picture is looked up through the base the craft r
 
   // a base with a real item and no painting falls to ui_theme's drawn glyph
   const plate = RECIPE['armour.plate.outfit.iron'];
-  check('a plate outfit has a shared armour painting',
-    /ringmail-breastplate\.webp/.test(itemIcon(resultBaseFor(plate)) || '') && /^<img/.test(tileArt(plate, 96)),
+  check('a plate outfit wears the same robe painting as every outfit, for now',
+    /cloth-robe\.webp/.test(itemIcon(resultBaseFor(plate)) || '') && /^<img/.test(tileArt(plate, 96)),
     tileArt(plate, 96).slice(0, 40));
 
   // a recipe with no item at all falls to the family glyph

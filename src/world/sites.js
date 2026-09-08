@@ -16,7 +16,7 @@
 //            rule, and half in is also where the realm's own bias reaches half
 //            strength, which is the first place the country looks changed.
 //
-//            Zones NEST: a realm of Kaldera and the places inside it. Both are
+//            Zones NEST: a realm of Brackenwake and the places inside it. Both are
 //            offered, realm first, because a subzone's weight is not its
 //            realm's and announcing only the deepest one would tell a player
 //            about the Glass Road without ever telling them they had walked

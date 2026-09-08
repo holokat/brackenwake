@@ -2,8 +2,7 @@
 // frame, the interpolation and the socket's reconnect, against a fake socket.
 import {
   roomNameFor, wsUrlFor, lookFor, helloFor, encodeState, lerpAngle, createRemotes, createNetClient,
-  INTERP_DELAY_S, REMOTE_TIMEOUT_S, BACKOFF_MS,
-} from './net.js';
+  INTERP_DELAY_S, REMOTE_TIMEOUT_S, BACKOFF_MS, nextRoomUrl } from './net.js';
 import { createRoomLogic } from '../../server/room_logic.mjs';
 
 let pass = 0, fail = 0;
@@ -92,6 +91,24 @@ console.log('\nnet: the socket, against a fake');
   client.close();
   timers[1].fn();
   check('closed by us, it does not come back', made.length === 2 && client.status === 'closed');
+}
+
+console.log('\nnet: a full room sends the client next door');
+{
+  check('the next room of seed is seed-2, then seed-3, and a dashed world keeps its name', nextRoomUrl('ws://x/ws/seed') === 'ws://x/ws/seed-2' && nextRoomUrl('ws://x/ws/seed-2') === 'ws://x/ws/seed-3' && nextRoomUrl('ws://x/ws/green_wold-9') === 'ws://x/ws/green_wold-10', [nextRoomUrl('ws://x/ws/seed'), nextRoomUrl('ws://x/ws/seed-2')].join(' '));
+  const made = [];
+  const fake = (url) => { const s = { url, readyState: 0, sent: [], send(x) { s.sent.push(JSON.parse(x)); }, close() { s.readyState = 3; if (s.onclose) s.onclose(); } }; made.push(s); return s; };
+  const timers = [];
+  const client = createNetClient({ url: 'ws://x/ws/island', hello: { t: 'hello', id: 'me', name: 'Me' }, socketFactory: fake, setTimer: (fn, ms) => { timers.push({ fn, ms }); return timers.length; }, clearTimer: () => {} });
+  client.connect();
+  made[0].onopen();
+  made[0].onmessage({ data: JSON.stringify({ t: 'full', cap: 20 }) });
+  check('told full, the client opens the next room at once, without a backoff timer', made.length === 2 && made[1].url === 'ws://x/ws/island-2' && timers.length === 0, `${made.length} sockets, ${made[1]?.url}, ${timers.length} timers`);
+  made[1].onopen();
+  check('and says hello there too', made[1].sent[0]?.t === 'hello' && client.url === 'ws://x/ws/island-2' && client.rooms === 1, JSON.stringify(made[1].sent[0]));
+  made[1].onmessage({ data: JSON.stringify({ t: 'welcome', pid: 'me', players: [] }) });
+  check('and is seated', client.pid === 'me' && client.status === 'open', client.status);
+  client.close?.();
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#12251d" />
+    <meta name="description" content="Step into Brackenwake. Choose your calling and find your own way in a fantasy world, right in your browser." />
+    <meta property="og:title" content="Brackenwake | The world is waiting" />
+    <meta property="og:description" content="A little courage. A whole new world. Enter Brackenwake in your browser." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Brackenwake" />
+    <meta property="og:url" content="https://brackenwake-marketing.cogentgene.workers.dev/" />
+    <meta property="og:image" content="https://brackenwake-marketing.cogentgene.workers.dev/ui/brackenwake-og-v1.png" />
+    <meta property="og:image:width" content="1734" />
+    <meta property="og:image:height" content="907" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="Brackenwake: a ranger and rogue overlooking a sunlit castle and forest village." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Brackenwake | The world is waiting" />
+    <meta name="twitter:description" content="A little courage. A whole new world. Enter Brackenwake in your browser." />
+    <meta name="twitter:image" content="https://brackenwake-marketing.cogentgene.workers.dev/ui/brackenwake-og-v1.png" />
+    <meta name="twitter:image:alt" content="Brackenwake: a ranger and rogue overlooking a sunlit castle and forest village." />
+    <link rel="canonical" href="https://brackenwake-marketing.cogentgene.workers.dev/" />
+    <title>Brackenwake | The world is waiting</title>
+    <link rel="icon" type="image/svg+xml" href="/welcome-sigil.svg" />
+    <link rel="preload" as="image" href="/ui/roster-bg.webp" fetchpriority="high" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand">
+        <img src="/welcome-sigil.svg" width="32" height="40" alt="" />
+        <span>Brackenwake</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="world" id="world" aria-labelledby="world-title">
+        <div class="world-stage">
+          <div class="vista" aria-hidden="true">
+            <img class="vista-image" src="/ui/roster-bg.webp" width="1671" height="941" alt="" fetchpriority="high" />
+            <video class="vista-image vista-video" data-src="/ui/brackenwake-ambient-loop.mp4" muted loop playsinline preload="none" tabindex="-1"></video>
+          </div>
+          <div class="world-shade" aria-hidden="true"></div>
+          <div class="sunlight" aria-hidden="true"></div>
+          <div class="hero-content" data-reveal>
+            <p class="eyebrow" style="--reveal-order:0"><span></span>The world is waiting<span></span></p>
+            <h1 id="world-title" style="--reveal-order:1">Brackenwake</h1>
+            <div class="title-ornament" aria-hidden="true" style="--reveal-order:2"><i></i><b>✦</b><i></i></div>
+            <p class="hero-line" style="--reveal-order:3">A little courage. A whole new world.</p>
+            <div class="hero-action" style="--reveal-order:4">
+              <a class="game-button" href="/?play"><span class="button-sigil" aria-hidden="true">✧</span><span>Enter the game</span><span class="button-arrow" aria-hidden="true">→</span></a>
+              <span class="browser-note">An adventure in your browser</span>
+            </div>
+          </div>
+          <div class="hero-figure hero-figure-ranger" aria-hidden="true"><img src="/ui/classes/ranger.webp" alt="" width="684" height="1024" /></div>
+          <div class="hero-figure hero-figure-rogue" aria-hidden="true"><img src="/ui/classes/rogue.webp" alt="" width="684" height="1024" /></div>
+          <div class="ground-mist" aria-hidden="true"></div>
+        </div>
+      </section>
+
+    </main>
+    <canvas class="atmosphere" aria-hidden="true"></canvas>
+    <script type="module" src="/src/welcome/main.js"></script>
+  </body>
+</html>

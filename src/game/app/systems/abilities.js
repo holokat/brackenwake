@@ -38,7 +38,7 @@ export const abilities = {
     // The studio's spell effects, bridged onto this character's sockets and
     // this ability's clip events. `spell_vfx.js` is the only thing that knows
     // both halves; everything under `src/game/vfx/` is the studio's port and
-    // knows nothing about Kaldera. docs/mmo/wiring/VFX1-SPELLS.md.
+    // knows nothing about Brackenwake. docs/mmo/wiring/VFX1-SPELLS.md.
     //
     // A bolt should burn the ground it lands on, so the resolver below walks
     // the ray against the height field. It is called ONCE per release, not per

@@ -13,6 +13,11 @@ import { editorSavePlugin } from './tools/editor_save.mjs';
 
 export default defineConfig({
   plugins: [editorSavePlugin(process.cwd())],
+  build: {
+    rolldownOptions: {
+      input: { game: 'index.html', welcome: 'welcome/index.html' },
+    },
+  },
   server: {
     port: 5198,
     strictPort: false,

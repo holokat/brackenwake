@@ -48,7 +48,7 @@ panels span rows 1 and 2; the plaque and the stage take column 2; the footer
 runs the whole width along row 3. **The middle is painted with nothing at all**
 and carries `pointer-events: none`, so what fills it is the scene itself.
 
-`GAME_TITLE` is exported from `creation.js` and set to `'Kaldera'`, with the
+`GAME_TITLE` is exported from `creation.js` and set to `'Brackenwake'`, with the
 comment that the land was renamed and this is the one place the creation screen
 says it. The plaque reads it off that constant.
 
@@ -271,7 +271,7 @@ under the ground in the stacked layout.
 ## 9. What is not verified
 
 - **The real world behind it.** The headless harness stands the rig on a plain
-  ground with a ring of trunks, not on Kaldera's terrain. Nothing in the framing
+  ground with a ring of trunks, not on Brackenwake's terrain. Nothing in the framing
   depends on the world, but how the screen reads over real ground at
   `setDay(0.34)` and `setFog(26, 74)` has not been looked at.
 - **Hover, focus and the drag itself.** The `:hover` borders, the gold focus

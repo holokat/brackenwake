@@ -127,7 +127,7 @@ const DATA = { realms, livesAt, habitatByPlace, tagMeaning, lairName, abilities,
 
 const json = JSON.stringify(DATA).replace(/<\/script/g, '<\\/script');
 
-const html = String.raw`<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>The Kaldera Codex</title>
+const html = String.raw`<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>The Brackenwake Codex</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <style>
 :root{--ground:#f3ecdc;--panel:#eae1cb;--panel2:#e2d7bd;--ink:#23201a;--ink2:#4f4838;--mute:#7d735f;--gold:#8a6d2a;--gold2:#b59a5e;--rule:#cdbf9c;--sel:#e0d2ad;--red:#9b3b2a;--green:#3f6b3a;--blue:#2b5f9e;--amber:#9a6b12;
@@ -216,7 +216,7 @@ td.num{text-align:right;white-space:nowrap}
 </style>
 <div class="wrap">
 <nav>
-  <div class="brand">Kaldera<small>The codex of rules, from the rules themselves</small></div>
+  <div class="brand">Brackenwake<small>The codex of rules, from the rules themselves</small></div>
   <div class="search"><input id="q" type="search" placeholder="Search everything" aria-label="Search"></div>
   <div class="secs" id="secs" role="tablist"></div>
   <a class="xlink" href="books.html">The books<small>the world, the story, the cast</small></a>
@@ -326,7 +326,7 @@ function abilityCard(a) {
 // --- renderers
 const R = {};
 R.overview = () => {
-  const f = el('<h1>The Kaldera Codex</h1><p class="lede">Every rule the game runs on, read straight from the rules modules on ' + esc(D.built) + ', so this page cannot say something the code does not. Search at the left works on every section. Click any ability or monster for its full record. Column headers sort.</p>');
+  const f = el('<h1>The Brackenwake Codex</h1><p class="lede">Every rule the game runs on, read straight from the rules modules on ' + esc(D.built) + ', so this page cannot say something the code does not. Search at the left works on every section. Click any ability or monster for its full record. Column headers sort.</p>');
   const tiles = [['classes', D.openings.length, 'openings, each a kit, stats and skills'], ['skills', D.skills.length, 'skills in ' + D.skillGroups.length + ' groups, 0 to 100, ' + D.rules.stats.caps.skillTotalCap + ' in all'], ['abilities', D.abilities.length, 'abilities, ' + D.abilities.filter((a) => a.spell).length + ' of them spells'], ['weapons', D.weapons.length, 'weapons across ' + new Set(D.weapons.map((w) => w.skill)).size + ' skills'], ['armour', D.tiers.length, 'armour tiers by eight pieces, ' + D.shields.length + ' shields'], ['materials', D.materials.ores.length, 'ores, ' + D.materials.woods.length + ' woods, ' + D.materials.gems.length + ' gems, ' + D.materials.leathers.length + ' hides'], ['rarity', D.affixes.length, 'affixes over ' + D.rarity.length + ' rarities, ' + D.powers.length + ' named powers'], ['monsters', D.monsters.length, 'monsters and ' + D.bosses.length + ' bosses'], ['crafting', D.recipes.length + D.forageRecipes.length, 'recipes'], ['people', D.npcs.length, 'kinds of townsfolk']];
   const grid = document.createElement('div'); grid.className = 'cards';
   for (const [id, n, t] of tiles) { const c = document.createElement('div'); c.className = 'card'; c.style.gridTemplateColumns = '1fr'; c.innerHTML = '<div><div class="nm" style="font-size:26px">' + n + '</div><div class="ds">' + esc(t) + '</div></div>'; c.addEventListener('click', () => show(id)); grid.appendChild(c); }
@@ -340,7 +340,7 @@ const KIND_COLOUR = { megastructure: 'var(--gold)', dungeon: 'var(--red)', hub: 
 let worldKind = 'all';
 R.world = () => {
   const total = D.realms.reduce((n, r) => n + r.places.length, 0);
-  const f = el('<h1>The World of Kaldera</h1><p class="lede">' + D.realms.length + ' realms in a ring around the Caldera Sea, ' + total + ' named places inside them. Every realm has a hub, a mega structure you can see from its edge, a dungeon with a boss, a mine, open country and its own encounters. A place with a <b>mechanic</b> is a place with a rule of its own, not a backdrop. This is the sheet the painted map and the zone table are drawn from.</p>');
+  const f = el('<h1>The World of Brackenwake</h1><p class="lede">' + D.realms.length + ' realms in a ring around the Caldera Sea, ' + total + ' named places inside them. Every realm has a hub, a mega structure you can see from its edge, a dungeon with a boss, a mine, open country and its own encounters. A place with a <b>mechanic</b> is a place with a rule of its own, not a backdrop. This is the sheet the painted map and the zone table are drawn from.</p>');
   const kinds = ['all', ...Array.from(new Set(D.realms.flatMap((r) => r.places.map((p) => p.kind))))];
   const chips = document.createElement('div'); chips.className = 'chips';
   for (const k of kinds) { const b = document.createElement('button'); b.className = 'chip'; b.textContent = k === 'all' ? 'all places' : (KIND_WORD[k] || k); b.setAttribute('aria-pressed', worldKind === k); b.onclick = () => { worldKind = k; render(); }; chips.appendChild(b); }
