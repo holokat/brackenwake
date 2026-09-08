@@ -1095,6 +1095,9 @@ export function stepPlayer(s, dt, move, heightAt) {
   else if (ok(nx, s.z)) { moved = Math.abs(nx - s.x); s.x = nx; vz = 0; s.blocked = true; }
   else if (ok(s.x, nz)) { moved = Math.abs(nz - s.z); s.z = nz; vx = 0; s.blocked = true; }
   else { vx = 0; vz = 0; s.blocked = true; }
+  // where the refused step wanted to go, so the sound system can ask the
+  // collision index what stood there (a hedge pushes back with a sound)
+  if (s.blocked) { s.blockedAt = { x: nx, z: nz }; } else s.blockedAt = null;
 
   s.vx = vx; s.vz = vz;
   const ground = groundAt(s.x, s.z);

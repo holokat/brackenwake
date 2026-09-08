@@ -5,7 +5,7 @@ globalThis.localStorage ||= { getItem: () => null, setItem() {}, removeItem() {}
 Object.defineProperty(globalThis, 'performance', { value: { now: () => 1000 }, writable: true, configurable: true });
 
 import { createAudio, bedFor, LIBRARY_DIR, SOURCE_MAX_DIST } from '../../audio.js';
-import { sound, createShotScheduler, soundContext, sourcePositions, nearRoad } from './sound.js';
+import { sound, createShotScheduler, soundContext, sourcePositions, nearRoad, hedgeBlocked } from './sound.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -104,6 +104,18 @@ function ctxRig(over = {}) {
   s.step({ x: 4, z: 0, now: 4000, night: false, biome: 'meadow', treeCover: false, rainValue: 0, inDungeon: false, wading: true });
   check('a wading stride fires splash through the scheduler', k.built.some((e) => /os-splash-wade/.test(e.url)));
   k.reset();
+  // a hedge pushes back with a sound, once a second while you keep walking into it
+  const hedgeBefore = k.built.filter((e) => /os-hedge-push/.test(e.url)).length;
+  s.step({ x: 4, z: 0, now: 4500, night: false, biome: 'meadow', treeCover: false, rainValue: 0, inDungeon: false, hedgeBlocked: true });
+  s.step({ x: 4, z: 0, now: 4516, night: false, biome: 'meadow', treeCover: false, rainValue: 0, inDungeon: false, hedgeBlocked: true });
+  check('walking into a hedge fires the push', k.built.filter((e) => /os-hedge-push/.test(e.url)).length === hedgeBefore + 1);
+  s.step({ x: 4, z: 0, now: 4700, night: false, biome: 'meadow', treeCover: false, rainValue: 0, inDungeon: false, hedgeBlocked: true });
+  check('and not again within the second', k.built.filter((e) => /os-hedge-push/.test(e.url)).length === hedgeBefore + 1);
+  const fakeCtx = { get: (id) => (id === 'world' ? { runtime: { physical: { at: (x) => (x > 100 ? { model: 'hedge_4m' } : { model: 'wall_stone' }) } } } : null) };
+  const rigAt = (x) => ({ rig: { state: { blocked: true, blockedAt: { x, z: 0 }, y: 0 } } });
+  check('hedgeBlocked reads the collider the refused step wanted to enter, hedge yes, wall no',
+    hedgeBlocked(fakeCtx, rigAt(120), { y: 0 }) === true && hedgeBlocked(fakeCtx, rigAt(50), { y: 0 }) === false
+    && hedgeBlocked(fakeCtx, { rig: { state: { blocked: false, blockedAt: null } } }, { y: 0 }) === false);
   s.step({ x: 4, z: 0, now: 5000, night: false, biome: 'meadow', treeCover: false, rainValue: 0, inDungeon: false, gateNear: true });
   s.step({ x: 4, z: 0, now: 5016, night: false, biome: 'meadow', treeCover: false, rainValue: 0, inDungeon: false, gateNear: true });
   check('passing into gate range fires one swing, not one per frame', k.built.filter((e) => /os-gate-swing/.test(e.url)).length === 1);

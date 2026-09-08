@@ -38,6 +38,10 @@ import { buildCharacter as defaultBuildCharacter, poseCharacter, PALETTE } from 
 export const NEAR_RING = 320;
 /** You have to walk up to somebody to talk to them. */
 export const TALK_REACH = 4;
+/** The roles whose talk begins with a door: they are indoors. */
+export const DOOR_ROLES = new Set(['innkeeper', 'blacksmith', 'healer', 'alchemist', 'tailor', 'banker']);
+/** A person's role id, whether the record carries the role row or its id. */
+export const roleIdOf = (npc) => (npc && npc.role && typeof npc.role === 'object' ? npc.role.id : npc?.role);
 /** They notice you at this range and turn. */
 export const NOTICE = 6;
 /** Name plates stop drawing past this, so a town does not become a wall of text. */
@@ -587,6 +591,9 @@ export function createNpcs(sc, runtime, opts = {}) {
       return { npc, opened: false, text };
     }
     const opened = !!ctx.windows?.open?.('talk', { npc });
+    // a door at the people who live and work behind one (the library's
+    // os-door-cottage, 2026-09-08); the stall keepers and wanderers are outdoors
+    if (opened && DOOR_ROLES.has(roleIdOf(npc))) ctx.audio?.playLibrary?.('doorCottage', { at: { x: npc.x, z: npc.z } });
     if (!opened) {
       const text = `${plateText(npc)} has nothing to say yet.`;
       ctx.hud?.toast?.(text);

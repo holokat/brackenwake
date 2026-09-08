@@ -150,10 +150,24 @@ export function sourcePositions(ctx, pos) {
   return out;
 }
 
+/**
+ * True when the player's last step was refused and what refused it was a
+ * hedge: the rig records where the step wanted to go (player.js), and the
+ * collision index says what stands there. Pure enough to drive with fakes.
+ */
+export function hedgeBlocked(ctx, player, pos) {
+  const st = player?.rig?.state;
+  if (!st || !st.blocked || !st.blockedAt) return false;
+  const phys = ctx.get?.('world')?.runtime?.physical;
+  if (!phys || typeof phys.at !== 'function') return false;
+  const body = phys.at(st.blockedAt.x, (pos.y ?? st.y ?? 0) + 0.5, st.blockedAt.z);
+  return !!(body && /hedge/i.test(String(body.model || body.kindId || '')));
+}
+
 export function createShotScheduler(audio, opts = {}) {
   const random = opts.random || Math.random;
   const next = {};
-  let lastRain = 0, bellDay = null, mistDay = null, stride = 0, last = null, wasGateNear = false;
+  let lastRain = 0, bellDay = null, mistDay = null, stride = 0, last = null, wasGateNear = false, lastHedge = -Infinity;
   const rnd = (a, b) => a + random() * (b - a);
   const due = (name, now, a, b) => {
     if (!(name in next)) { next[name] = now + rnd(a, b); return false; }
@@ -175,6 +189,9 @@ export function createShotScheduler(audio, opts = {}) {
       }
       last = { x: ctx.x, z: ctx.z };
       if (ctx.gateNear && !wasGateNear) fire('gateSwing', ctx);
+      // pushing through a hedge: the player's step was refused by a hedge
+      // collider while he kept walking into it; at most one push a second
+      if (ctx.hedgeBlocked && now - lastHedge >= 900) { lastHedge = now; fire('hedgePush', ctx); }
       wasGateNear = !!ctx.gateNear;
       if (!ctx.inDungeon && due('windGust', now, 25_000, 70_000)) fire('windGust', ctx);
       if (ctx.night && (ctx.biome === 'meadow' || ctx.treeCover)) {
@@ -188,6 +205,8 @@ export function createShotScheduler(audio, opts = {}) {
       if (lastRain <= 0.18 && ctx.rainValue > 0.18) fire('distantThunder', ctx);
       lastRain = ctx.rainValue;
       if (ctx.settlement && ctx.nearRoad && !ctx.night && due('cartPass', now, 150_000, 260_000)) fire('cartPass', ctx);
+      // a heron lifts off the water by day: the plan's water meadow flavour, given a trigger (2026-09-08)
+      if ((ctx.nearRiver || ctx.nearWaterMeadow) && !ctx.night && due('heron', now, 60_000, 150_000)) fire('heron', ctx);
       const day = Math.floor(now / 1_500_000);
       if (ctx.dusk && ctx.chapelNear && bellDay !== day) { bellDay = day; fire('churchBell', ctx); }
       if (ctx.midnight && ctx.sunkenChapelNear && bellDay !== `sunken:${day}`) { bellDay = `sunken:${day}`; fire('churchBell', ctx, { rate: 0.8, gain: 0.5 }); }
@@ -223,6 +242,7 @@ export const sound = {
         if (now - sampleAt < 1000 && context) return;
         sampleAt = now;
         context = soundContext(ctx, frame, pos);
+        context.hedgeBlocked = hedgeBlocked(ctx, player, pos);
         ctx.audio.music.setContext({ settlement: !!context.settlement, night: context.night });
         ctx.audio.music.setAmbience(bedFor(context));
         scheduler.step(context);

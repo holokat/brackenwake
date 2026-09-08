@@ -2,8 +2,7 @@
 import {
   npcSpotsFor, streetFor, nameFor, forestEdgeAt, plateText, auditNpcSpots,
   NPC_RING, PLAZA, WELL_CLEAR, ROLE_TINT, GIVEN_NAMES, PEOPLED,
-  TALK_REACH, NOTICE, createNpcs, TOWN_ANCHOR, townPlanFor, DOOR_STAND,
-} from './npcs_runtime.js';
+  TALK_REACH, NOTICE, createNpcs, TOWN_ANCHOR, townPlanFor, DOOR_STAND, DOOR_ROLES, roleIdOf } from './npcs_runtime.js';
 import { NPCS, npcsFor } from '../mmo/npcs.js';
 import { PERSON } from '../mmo/story.js';
 import { peopleFor } from '../mmo/plans/index.js';
@@ -267,13 +266,14 @@ console.log('npcs_runtime: the runtime, headless');
   const runtime = { field, sitesNear: (x, z, r) => [town] };
   const toasts = [];
   const opened = [];
+  const library = [];
   const npcs = createNpcs({ scene, camera: null }, runtime, {
     buildCharacter: fakeBuild,
     root: null,
     at: { x: town.x, z: town.z },
     ctx: {
       hud: { toast: (t) => toasts.push(t) },
-      audio: { play() {} },
+      audio: { play() {}, playLibrary: (id) => { library.push(id); } },
       windows: { open: (id, extra) => { opened.push([id, extra]); return true; } },
     },
   });
@@ -295,6 +295,15 @@ console.log('npcs_runtime: the runtime, headless');
   check('a click from a metre opens Talk with that person', close.opened === true && opened.length === 1 && opened[0][0] === 'talk' && opened[0][1].npc === target);
   const nothing = npcs.click({ intersectObjects: () => [] }, { x: target.x, z: target.z });
   check('a click on empty air opens nothing and says nothing', nothing.npc === null && nothing.text === null);
+  // the door: the people indoors open with one, the stall keepers do not
+  const indoors = list.find((n) => DOOR_ROLES.has(roleIdOf(n))), outdoors = list.find((n) => !DOOR_ROLES.has(roleIdOf(n)));
+  const rayTo = (who) => ({ intersectObjects: (objs) => objs.filter((o) => o.userData.npc === who).map((o) => ({ object: o, distance: 2, point: { x: 0, y: 0, z: 0 } })) });
+  library.length = 0;
+  if (indoors) npcs.click(rayTo(indoors), { x: indoors.x + 1, z: indoors.z });
+  check('talking to somebody indoors starts with a cottage door', !!indoors && library.join() === 'doorCottage', `${roleIdOf(indoors)}: ${library.join() || 'silence'}`);
+  library.length = 0;
+  if (outdoors) npcs.click(rayTo(outdoors), { x: outdoors.x + 1, z: outdoors.z });
+  check('and a stall keeper outdoors has no door to open', !!outdoors && library.length === 0, `${roleIdOf(outdoors)}: ${library.join() || 'silence'}`);
 
   // the turn
   const before = target.group.rotation.y;

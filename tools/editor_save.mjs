@@ -188,8 +188,23 @@ export function editorSavePlugin(root = process.cwd()) {
         try { payload = JSON.parse(await body(req)); }
         catch (err) { return send(res, 400, { ok: false, text: 'the request was not JSON: ' + (err && err.message) }); }
         const out = saveEditorFile(root, payload && payload.path, payload && payload.json);
-        if (out.ok) server.config.logger.info(`[editor] ${out.text}`);
-        else server.config.logger.warn(`[editor] refused: ${out.text}`);
+        if (out.ok) {
+          server.config.logger.info(`[editor] ${out.text}`);
+          // vite.config.js keeps the watcher off the space folders so a save
+          // does not reload every tab, which also meant Vite's module graph
+          // never heard about the write and served the OLD JSON on the next
+          // load until the server was restarted (2026-09-08, twice in a day).
+          // The written file and the index are dropped from the graph here, so
+          // the next request re-reads them and nothing is reloaded now.
+          let dropped = 0;
+          try {
+            for (const [file, mods] of server.moduleGraph.fileToModulesMap) {
+              if (!file.includes(`/${SPACE_DIR}/`) && !file.includes('/public/terrain/')) continue;
+              for (const m of mods) { server.moduleGraph.invalidateModule(m); dropped++; }
+            }
+          } catch (err) { server.config.logger.warn(`[editor] could not refresh the module graph: ${err && err.message}`); }
+          out.refreshed = dropped;
+        } else server.config.logger.warn(`[editor] refused: ${out.text}`);
         send(res, out.status, out);
       });
       // The index is rewritten at boot too, so a space file dropped in by hand
