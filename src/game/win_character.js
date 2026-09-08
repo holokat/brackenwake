@@ -8,9 +8,9 @@
 //
 //   left    the name in a serif, a title taken from the skill you are best at,
 //           a line of your own, then ATTRIBUTES, COMBAT STATS and RESISTANCES
-//           as icon rows, and a parchment note written out of those numbers
-//   centre  an arched frame with the LIVE rig standing in it, wearing exactly
-//           what is equipped, with seven slots down each side of the arch
+//           as icon rows
+//   centre  the painted arch with the LIVE rig standing in it, wearing exactly
+//           what is equipped, with three slots down each side of the arch
 //   right   the pack: the filter row, the grid of gilded squares, and the
 //           purse and the load underneath it
 //
@@ -27,8 +27,8 @@
 // actor.js's own `recompute`, so the preview cannot promise a number the game
 // would not give. This file only paints what it is handed.
 //
-// The doll has fourteen cells because the game has fourteen slots, and
-// auditDoll() counts them at load rather than trusting the layout.
+// The doll has six cells because the game has six slots, and auditDoll()
+// counts them at load rather than trusting the layout.
 //
 // There is no level anywhere, because the game has none.
 
@@ -42,8 +42,8 @@ import {
   previewEquip, equippedCard, readNumbers, actorFor, formatValue, deltaText,
   RESIST_ID,
 } from './compare.js';
-import { attachTip, dropTarget, dragSource, hideTip } from './windows.js';
-import { theme, icon, itemGlyph, archUrl, parchmentUrl, STAT_ICONS, STAT_WORDS } from './ui_theme.js';
+import { attachTip, CODEX_FRAME, dropTarget, dragSource, hideTip } from './windows.js';
+import { theme, icon, itemGlyph, parchmentUrl, ruleUrl, STAT_ICONS, STAT_WORDS } from './ui_theme.js';
 import { createPaperdoll } from './paperdoll.js';
 import { buildBag } from './win_bag.js';
 
@@ -52,8 +52,8 @@ import { buildBag } from './win_bag.js';
  * down on the left, the lower body and everything held on the right.
  */
 export const DOLL = {
-  left: ['mainHand', 'ring1', 'ring2'],
-  right: ['neck', 'outfit', 'offHand'],
+  left: ['mainHand', 'offHand', 'ring1'],
+  right: ['neck', 'outfit', 'ring2'],
 };
 
 /** What the label under an empty cell says. */
@@ -131,6 +131,13 @@ export const MOTTOES = {
 
 export const DEFAULT_QUOTE = 'What is behind me is walked. What is ahead is not.';
 export const DEFAULT_MOTTO = 'What you carry, you earned';
+export const CLASS_WORDS = {
+  warrior: 'Warrior',
+  ranger: 'Ranger',
+  rogue: 'Rogue',
+  mage: 'Wizard',
+};
+export const DEFAULT_CLASS_WORD = 'Ranger';
 
 /**
  * The doll shows every slot, once. Runs at load: a fifteenth slot added to
@@ -193,6 +200,7 @@ export function titleOf(character) {
 
 export const quoteOf = (character) => QUOTES[character?.opening] || DEFAULT_QUOTE;
 export const mottoOf = (character) => MOTTOES[character?.opening] || DEFAULT_MOTTO;
+export const classWordOf = (character) => CLASS_WORDS[character?.opening] || DEFAULT_CLASS_WORD;
 
 /**
  * The fighter combat_rules wants. The live actor when there is one, so the
@@ -224,6 +232,7 @@ export function sheetOf(character, actor) {
   return {
     name: character?.name || 'unnamed',
     title: titleOf(character),
+    classWord: classWordOf(character),
     quote: quoteOf(character),
     motto: mottoOf(character),
     nums: n,
@@ -304,24 +313,50 @@ export function compareCardFor(character, item, hint, preview) {
 
 const CSS = `
 .bw-sheet {
-  display: grid; gap: 16px; align-items: start;
-  grid-template-columns: minmax(226px, 280px) auto minmax(300px, 400px);
+  position: absolute; inset: 0; min-height: 0; overflow: hidden;
 }
-@media (max-width: 1120px) { .bw-sheet { grid-template-columns: 1fr; } }
-.bw-sheet .bw-who { margin-bottom: 10px; }
+.bw-sheet > .bw-panel { min-height: 0; position: absolute; background: transparent; border: 0; box-shadow: none; }
+.bw-sheet .bw-who { margin-bottom: 12px; }
 .bw-sheet .bw-quote { border-left: 2px solid ${theme.goldDim}88; padding-left: 10px; }
-
-.bw-doll-wrap { display: grid; grid-template-columns: 54px 300px 54px; gap: 8px; justify-content: center; }
-.bw-doll-col { display: flex; flex-direction: column; gap: 6px; padding-top: 96px; }
-.bw-arch { position: relative; width: 300px; height: 460px; }
-.bw-arch-art { position: absolute; inset: 0; background: ${archUrl()} center / 100% 100% no-repeat; }
-.bw-arch-inner { position: absolute; left: 28px; right: 28px; top: 30px; bottom: 30px; overflow: hidden; }
-.bw-arch-none {
-  position: absolute; inset: auto 0 42% 0; text-align: center;
-  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .16em;
-  text-transform: uppercase; color: ${theme.goldDim};
+.bw-sheet .bw-panel {
+  display: flex; flex-direction: column; padding: clamp(10px, 1.1vw, 17px);
+  background-image: none;
 }
-.bw-doll-motto { margin: 10px auto 0; width: 300px; }
+.bw-sheet .bw-left-panel {
+  left: ${CODEX_FRAME.panels.left.x * 100}%; top: ${CODEX_FRAME.panels.left.y * 100}%;
+  width: ${CODEX_FRAME.panels.left.w * 100}%; height: ${CODEX_FRAME.panels.left.h * 100}%;
+  overflow-y: auto; overflow-x: hidden;
+}
+.bw-sheet .bw-pack-panel {
+  left: ${CODEX_FRAME.panels.right.x * 100}%; top: ${CODEX_FRAME.panels.right.y * 100}%;
+  width: ${CODEX_FRAME.panels.right.w * 100}%; height: ${CODEX_FRAME.panels.right.h * 100}%;
+  overflow: hidden;
+}
+
+.bw-doll-stage {
+  position: absolute; inset: 0; pointer-events: none;
+}
+.bw-arch { position: absolute; inset: 0; pointer-events: none; }
+.bw-arch-inner {
+  position: absolute;
+  left: ${(CODEX_FRAME.dais.topX - CODEX_FRAME.arch.w * 0.37) * 100}%;
+  top: ${CODEX_FRAME.arch.y * 100}%;
+  width: ${CODEX_FRAME.arch.w * 0.74 * 100}%;
+  height: ${(CODEX_FRAME.dais.topY - CODEX_FRAME.arch.y) * 100}%;
+  overflow: visible; pointer-events: auto;
+}
+.bw-arch-inner .bw-doll-canvas {
+  width: 100%; height: 100%; display: block;
+}
+.bw-arch-none {
+  position: absolute; left: 39%; right: 39%; top: 44%; text-align: center;
+  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .16em;
+  font-variant-caps: small-caps; color: ${theme.goldDim};
+}
+.bw-doll-motto {
+  position: absolute; left: 38%; top: 87.5%; width: 24%; margin: 0;
+  pointer-events: auto;
+}
 
 .bw-note {
   margin-top: 12px; padding: 11px 13px; font-style: italic; line-height: 1.5;
@@ -335,6 +370,30 @@ const CSS = `
    the plain number back; equipping makes the new one plain. */
 .bw-row .bw-v .bw-vnum { font-family: ${theme.fonts.display}; font-variant-numeric: tabular-nums; }
 .bw-vd { font-family: ${theme.fonts.body}; font-size: 12.5px; }
+.bw-inv-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 9px; padding-bottom: 9px;
+  background: ${ruleUrl()} bottom center / 100% 9px no-repeat;
+}
+.bw-inv-head .bw-hdr { margin: 0; padding: 0; background: none; }
+.bw-inv-count {
+  font-family: ${theme.fonts.display}; font-size: 12px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: ${theme.gold};
+}
+.bw-sheet .bw-doll-slot {
+  position: absolute;
+  width: var(--slot-w); height: var(--slot-h);
+  background: transparent; border-color: transparent; border-radius: 6px;
+  pointer-events: auto;
+}
+.bw-sheet .bw-doll-slot:hover { border-color: ${theme.goldBright}; background: rgba(17,16,19,.18); }
+.bw-sheet .bw-doll-slot::after { display: none; }
+.bw-sheet .bw-doll-slot:not(.bw-empty) {
+  background: rgba(20,19,22,.74);
+  border-color: ${theme.slot.borderLit};
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 5px 12px rgba(0,0,0,.35);
+}
+.bw-sheet .bw-doll-slot .bw-tag { display: none; }
 `;
 
 const h = (tag, cls, text) => {
@@ -342,6 +401,19 @@ const h = (tag, cls, text) => {
   if (cls) e.className = cls;
   if (text != null) e.textContent = text;
   return e;
+};
+
+const pct = (v) => `${v * 100}%`;
+const place = (el, r) => {
+  el.style.left = pct(r.x);
+  el.style.top = pct(r.y);
+  if (el.style.setProperty) {
+    el.style.setProperty('--slot-w', pct(r.w));
+    el.style.setProperty('--slot-h', pct(r.h));
+  } else {
+    el.style['--slot-w'] = pct(r.w);
+    el.style['--slot-h'] = pct(r.h);
+  }
 };
 
 function css() {
@@ -398,10 +470,10 @@ export const panel = {
     }
 
     // ---- left: who you are, and what you are made of --------------------
-    const left = h('div', 'bw-panel');
+    const left = h('div', 'bw-panel bw-left-panel');
     const who = h('div', 'bw-who');
     const name = h('div', 'bw-title');
-    const sub = h('div', 'bw-subtitle');
+    const sub = h('div', 'bw-class-word');
     const quote = h('div', 'bw-quote');
     who.appendChild(name); who.appendChild(sub); who.appendChild(quote);
     left.appendChild(who);
@@ -430,22 +502,16 @@ export const panel = {
     for (const t of RESIST_TYPES) left.appendChild(numRow(RESIST_ICONS[t], `${t} resist`, RESIST_ID[t]));
 
     const note = h('div', 'bw-note');
-    left.appendChild(note);
     root.appendChild(left);
 
-    // ---- centre: the arch, the rig, and the fourteen slots ---------------
-    const mid = h('div');
-    const wrap = h('div', 'bw-doll-wrap');
-    const colL = h('div', 'bw-doll-col');
+    // ---- centre: the rig and the six painted slots -----------------------
+    const mid = h('div', 'bw-doll-stage');
     const arch = h('div', 'bw-arch');
-    const colR = h('div', 'bw-doll-col');
-    wrap.appendChild(colL); wrap.appendChild(arch); wrap.appendChild(colR);
-    mid.appendChild(wrap);
+    mid.appendChild(arch);
     const motto = h('div', 'bw-motto bw-doll-motto');
     mid.appendChild(motto);
     root.appendChild(mid);
 
-    arch.appendChild(h('div', 'bw-arch-art'));
     const inner = h('div', 'bw-arch-inner');
     arch.appendChild(inner);
 
@@ -470,8 +536,12 @@ export const panel = {
     this._ownDoll = ownDoll;
 
     // ---- right: the pack -------------------------------------------------
-    const right = h('div', 'bw-panel');
-    right.appendChild(h('div', 'bw-hdr', 'The pack'));
+    const right = h('div', 'bw-panel bw-pack-panel');
+    const invHead = h('div', 'bw-inv-head');
+    invHead.appendChild(h('div', 'bw-hdr', 'Inventory'));
+    const invCount = h('div', 'bw-inv-count');
+    invHead.appendChild(invCount);
+    right.appendChild(invHead);
     root.appendChild(right);
 
     // ---- the preview -----------------------------------------------------
@@ -544,10 +614,11 @@ export const panel = {
 
     // ---- the slots -------------------------------------------------------
     const cells = new Map();
-    const addCell = (col, slot) => {
-      const cell = h('div', 'bw-slot');
+    const addCell = (slot) => {
+      const cell = h('div', 'bw-slot bw-doll-slot');
       cell.dataset.slot = slot;
-      col.appendChild(cell);
+      place(cell, CODEX_FRAME.slots[slot]);
+      mid.appendChild(cell);
       cells.set(slot, cell);
       attachTip(cell, () => {
         const item = character().equipment?.[slot];
@@ -581,8 +652,7 @@ export const panel = {
         draw();
       });
     };
-    for (const slot of DOLL.left) addCell(colL, slot);
-    for (const slot of DOLL.right) addCell(colR, slot);
+    for (const slot of [...DOLL.left, ...DOLL.right]) addCell(slot);
 
     function drawCells(c) {
       for (const [slot, cell] of cells) {
@@ -591,7 +661,6 @@ export const panel = {
         cell.classList.toggle('bw-empty', !item);
         if (!item) {
           cell.removeAttribute('data-rarity');
-          cell.appendChild(h('span', 'bw-tag', SLOT_LABELS[slot]));
           continue;
         }
         cell.dataset.rarity = item.rarity || 'common';
@@ -605,7 +674,6 @@ export const panel = {
           g.innerHTML = itemGlyph(base, 30);
           cell.appendChild(g);
         }
-        cell.appendChild(h('span', 'bw-tag', SLOT_LABELS[slot]));
         cell.title = labelOf(item);
       }
     }
@@ -615,9 +683,10 @@ export const panel = {
       const s = sheetOf(c, ctx.actor);
 
       name.textContent = s.name;
-      sub.textContent = s.title.text;
+      sub.textContent = s.classWord;
       quote.textContent = s.quote;
-      motto.textContent = s.motto;
+      motto.textContent = s.title.text;
+      invCount.textContent = `${s.packUsed} / ${s.packSlots}`;
 
       plain = s.nums;
       // The three pools print what is left in front of the maximum, and only

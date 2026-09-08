@@ -31,8 +31,9 @@ check('the two rings read as rings, not as ring1 and ring2', SLOT_LABELS.ring1 =
 check('the arch is flanked three and three', DOLL.left.length === 3 && DOLL.right.length === 3,
   `${DOLL.left.length} and ${DOLL.right.length}`);
 check('the weapon is at the top of the left flank', DOLL.left[0] === 'mainHand');
-check('the outfit and off hand are held down the right flank',
-  DOLL.right.slice(-2).join(',') === 'outfit,offHand', DOLL.right.join(','));
+check('the shield is painted under the weapon on the left flank', DOLL.left[1] === 'offHand', DOLL.left.join(','));
+check('the amulet, outfit and second ring are down the right flank',
+  DOLL.right.join(',') === 'neck,outfit,ring2', DOLL.right.join(','));
 
 // ---- titles ----------------------------------------------------------------
 console.log('character: the title line');

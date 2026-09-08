@@ -98,21 +98,30 @@ export function actionFor(item) {
 }
 
 const CSS = `
-.bw-bag { display: flex; flex-direction: column; gap: 10px; }
+.bw-bag { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 9px; }
 .bw-bag.bw-focus { outline: 1px solid ${theme.gold}; outline-offset: 6px; }
 .bw-bag-filters { display: flex; gap: 4px; flex-wrap: wrap; }
 .bw-bag-filters .bw-btn { display: inline-flex; align-items: center; gap: 6px; }
-.bw-bag-purse { display: flex; gap: 18px; align-items: center; }
+.bw-bag-purse {
+  display: flex; gap: 18px; align-items: center; justify-content: space-between;
+  padding-top: 2px;
+}
 .bw-bag-purse .bw-cell-line { display: inline-flex; align-items: center; gap: 7px; }
 .bw-bag-purse .bw-v { font-family: ${theme.fonts.display}; font-variant-numeric: tabular-nums; font-size: 15px; }
 .bw-bag-purse .bw-v.bw-heavy { color: #ff8f7a; }
 /* the carry limit under the grid is the sheet's own number, so it takes the
    sheet's preview colours and the difference beside it reads at body size */
 .bw-bag-purse .bw-vd { font-family: ${theme.fonts.body}; font-size: 12.5px; }
-.bw-bag-grid { display: grid; grid-template-columns: repeat(auto-fill, 52px); gap: 7px; justify-content: space-between; }
-.bw-bag-grid .bw-slot { width: 52px; height: 52px; }
+.bw-bag-grid {
+  --bw-pack-cell: clamp(40px, 3.4vw, 52px);
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  display: grid; grid-template-columns: repeat(auto-fill, var(--bw-pack-cell)); grid-auto-rows: var(--bw-pack-cell);
+  gap: clamp(5px, .6vw, 7px); align-content: start; justify-content: space-between;
+  padding: 2px 4px 2px 1px;
+}
+.bw-bag-grid .bw-slot { width: var(--bw-pack-cell); height: var(--bw-pack-cell); }
 .bw-bag-grid .bw-slot.bw-filtered { opacity: .22; }
-.bw-bag-foot { font-style: italic; color: ${theme.parchmentDim}; }
+.bw-bag-foot { flex: 0 0 auto; font-style: italic; color: ${theme.parchmentDim}; font-size: 13.5px; line-height: 1.3; }
 .bw-menu {
   position: fixed; z-index: 80; min-width: 140px; padding: 5px;
   background: linear-gradient(180deg, ${theme.stoneUp}, ${theme.stone});
@@ -125,7 +134,7 @@ const CSS = `
 .bw-menu .bw-menu-item:hover { background: rgba(201,164,74,.16); color: ${theme.goldBright}; }
 .bw-menu .bw-menu-head {
   font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .16em;
-  text-transform: uppercase; color: ${theme.gold};
+  font-variant-caps: small-caps; color: ${theme.gold};
   padding: 4px 10px 7px; border-bottom: 1px solid ${theme.goldDim}66; margin-bottom: 5px;
 }
 `;

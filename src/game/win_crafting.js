@@ -61,7 +61,7 @@ import {
 } from '../mmo/recipes.js';
 import { BASES, baseFor, makeItem, RARITY } from '../mmo/items.js';
 import { skillNameOf } from '../mmo/items.js';
-import { itemGlyph, GLYPHS, MATERIAL_TINT, theme } from './ui_theme.js';
+import { itemGlyph, GLYPHS, MATERIAL_TINT, theme, cornerUrl } from './ui_theme.js';
 import { hash2 } from '../world/noise.js';
 
 /** Retained for callers that imported the former preview limit. All recipes are now visible. */
@@ -711,16 +711,18 @@ const CSS = `
 
 .bw-win-crafting .bw-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; }
 .bw-win-crafting .bw-f {
-  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .02em;
-  text-transform: none; padding: 5px 11px; cursor: pointer;
+  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .08em;
+  font-variant-caps: small-caps; padding: 5px 11px; cursor: pointer;
   color: ${theme.parchmentDim}; background: rgba(9,8,6,.7);
   border: 1px solid ${theme.goldDim}66;
+  border-radius: 7px;
 }
 .bw-win-crafting .bw-f:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
 .bw-win-crafting .bw-f.on { color: ${theme.goldBright}; border-color: ${theme.gold}; background: ${theme.plate}; }
 .bw-win-crafting .bw-count {
-  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .02em;
-  text-transform: none; color: ${theme.parchmentFaint}; margin: 0 0 12px;
+  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .08em;
+  font-variant-caps: small-caps; color: ${theme.gold}; margin: 0 0 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .bw-win-crafting .bw-cards {
@@ -731,8 +733,14 @@ const CSS = `
 .bw-win-crafting .bw-card {
   position: relative; display: grid; grid-template-columns: 96px 1fr; gap: 13px;
   padding: 11px 13px; align-items: start;
-  background: linear-gradient(150deg, rgba(30,25,18,.86), rgba(10,9,7,.9));
+  background:
+    ${cornerUrl(theme.goldDim)}, ${cornerUrl(theme.goldDim)},
+    linear-gradient(150deg, rgba(36,35,39,.88), rgba(12,11,14,.94));
+  background-repeat: no-repeat;
+  background-position: left 2px top 2px, right 2px bottom 2px, 0 0;
+  background-size: 14px 14px, 14px 14px, auto;
   border: 1px solid ${theme.goldDim}55;
+  border-radius: 7px;
 }
 .bw-win-crafting .bw-card:hover { border-color: ${theme.gold}; }
 .bw-win-crafting .bw-card.locked { opacity: .62; }
@@ -741,8 +749,10 @@ const CSS = `
 .bw-win-crafting .bw-tile {
   position: relative; width: 96px; height: 96px; display: flex; overflow: hidden;
   align-items: center; justify-content: center;
-  background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.07), rgba(0,0,0,.45));
-  border: 1px solid ${theme.goldDim}77;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.2)), ${theme.slot.face};
+  border: 1px solid ${theme.slot.border};
+  border-radius: 7px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.45);
 }
 .bw-win-crafting .bw-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .bw-win-crafting .bw-tile svg { width: 58px; height: 58px; }
@@ -759,15 +769,17 @@ const CSS = `
 .bw-win-crafting .bw-card:hover .bw-name { color: ${theme.goldBright}; }
 .bw-win-crafting .bw-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
 .bw-win-crafting .bw-chip {
-  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .02em;
-  text-transform: none; padding: 2px 7px; color: ${theme.parchmentDim};
+  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .06em;
+  font-variant-caps: small-caps; padding: 2px 7px; color: ${theme.parchmentDim};
   background: rgba(0,0,0,.4); border: 1px solid ${theme.goldDim}44;
+  border-radius: 5px;
 }
 .bw-win-crafting .bw-mats { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
 .bw-win-crafting .bw-mat {
-  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .02em;
-  text-transform: none; padding: 2px 7px; background: rgba(0,0,0,.4);
+  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .06em;
+  font-variant-caps: small-caps; padding: 2px 7px; background: rgba(0,0,0,.4);
   color: ${theme.up}; border: 1px solid ${theme.up}55;
+  border-radius: 5px;
 }
 .bw-win-crafting .bw-mat.short { color: ${theme.down}; border-color: ${theme.down}55; }
 .bw-win-crafting .bw-req {
@@ -778,9 +790,10 @@ const CSS = `
 
 .bw-win-crafting .bw-make {
   position: absolute; right: 11px; top: 10px; font: inherit;
-  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .02em;
-  text-transform: none; padding: 4px 11px; cursor: pointer;
+  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .08em;
+  font-variant-caps: small-caps; padding: 4px 11px; cursor: pointer;
   color: ${theme.goldBright}; background: rgba(9,8,6,.85); border: 1px solid ${theme.gold};
+  border-radius: 7px;
 }
 .bw-win-crafting .bw-make:hover { background: ${theme.plate}; }
 .bw-win-crafting .bw-make:disabled { color: ${theme.parchmentFaint}; border-color: ${theme.goldDim}55; cursor: default; background: rgba(9,8,6,.6); }

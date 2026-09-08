@@ -33,7 +33,7 @@
 // registers, opens, closes, switches tabs and reads keys with no DOM at all,
 // which is what windows.test.mjs drives: the test path is the real path.
 
-import { injectTheme, theme, itemGlyph } from './ui_theme.js';
+import { injectTheme, theme, itemGlyph, cornerUrl } from './ui_theme.js';
 import { tabIcon } from './icon_art.js';
 
 /** The one frame the six everyday panels live in. */
@@ -53,6 +53,37 @@ export const CODEX_TABS = [
 ];
 
 export const CODEX_IDS = CODEX_TABS.map((t) => t.id);
+
+/**
+ * Pixel measurements from public/ui/codex-frame.webp, 1536 x 1024. Fractions
+ * are kept here so the tab hit areas and page layout cannot drift apart.
+ */
+export const CODEX_FRAME = {
+  image: { src: '/ui/codex-frame.webp', width: 1536, height: 1024, aspect: 1.5 },
+  tabs: {
+    character: { x: 151 / 1536, y: 39 / 1024, w: 220 / 1536, h: 139 / 1024 },
+    skills: { x: 390 / 1536, y: 73 / 1024, w: 168 / 1536, h: 79 / 1024 },
+    abilities: { x: 570 / 1536, y: 73 / 1024, w: 178 / 1536, h: 79 / 1024 },
+    crafting: { x: 760 / 1536, y: 73 / 1024, w: 178 / 1536, h: 79 / 1024 },
+    map: { x: 950 / 1536, y: 73 / 1024, w: 176 / 1536, h: 79 / 1024 },
+  },
+  close: { x: 1333 / 1536, y: 43 / 1024, w: 121 / 1536, h: 143 / 1024 },
+  panels: {
+    left: { x: 145 / 1536, y: 186 / 1024, w: 344 / 1536, h: 698 / 1024 },
+    right: { x: 1046 / 1536, y: 186 / 1024, w: 418 / 1536, h: 698 / 1024 },
+    middle: { x: 145 / 1536, y: 186 / 1024, w: 1319 / 1536, h: 698 / 1024 },
+  },
+  arch: { x: 600 / 1536, y: 173 / 1024, w: 340 / 1536, h: 547 / 1024 },
+  dais: { x: 494 / 1536, y: 697 / 1024, w: 548 / 1536, h: 226 / 1024, topX: 768 / 1536, topY: 763 / 1024 },
+  slots: {
+    mainHand: { x: 500 / 1536, y: 281 / 1024, w: 88 / 1536, h: 119 / 1024 },
+    offHand: { x: 500 / 1536, y: 429 / 1024, w: 88 / 1536, h: 117 / 1024 },
+    ring1: { x: 500 / 1536, y: 579 / 1024, w: 88 / 1536, h: 112 / 1024 },
+    neck: { x: 949 / 1536, y: 281 / 1024, w: 88 / 1536, h: 119 / 1024 },
+    outfit: { x: 949 / 1536, y: 429 / 1024, w: 88 / 1536, h: 117 / 1024 },
+    ring2: { x: 949 / 1536, y: 579 / 1024, w: 88 / 1536, h: 112 / 1024 },
+  },
+};
 
 /**
  * Ids that are not pages of their own any more and land on the page that
@@ -94,11 +125,10 @@ const CSS = `
 #bw-windows .bw-win { position: absolute; pointer-events: auto; }
 #bw-windows .bw-win[hidden] { display: none; }
 #bw-windows .bw-win-plain { min-width: 300px; max-width: min(820px, 94vw); }
-/* Wide enough for the Character page's three columns: 280 for the sheet, 424
-   for the arch and its two flanks, 400 for the pack, and the gaps. Under that
-   the pack's grid drops to four squares a row and the page has to be scrolled
-   to see the bottom of it. */
-#bw-windows .bw-win-codex { width: min(1320px, 96vw); }
+#bw-windows .bw-win-codex {
+  width: min(1536px, 96vw, calc((100vh - 120px) * 1.5));
+  aspect-ratio: 3 / 2;
+}
 
 #bw-windows .bw-win-title {
   display: flex; align-items: stretch; justify-content: space-between; gap: 14px;
@@ -130,24 +160,61 @@ const CSS = `
   border: 1px solid ${theme.goldDim}44;
   border-radius: 7px;
 }
-/* The codex stops short of the ability bar: an Abilities card is dragged onto
-   the real bar now, so the bar has to stay in reach under an open page. The
-   frame sits 69px down and its chrome is about 106px; the bar starts 76px up. */
-#bw-windows .bw-codex-body { overflow: auto; height: min(calc(100vh - 270px), 760px); padding: 8px; }
-#bw-windows .bw-codex-body[hidden] { display: none; }
-#bw-windows .bw-codex-tabs { display: flex; align-items: flex-end; gap: 4px; flex-wrap: wrap; min-height: 40px; }
+#bw-windows .bw-codex-frame {
+  position: relative; width: 100%; height: 100%;
+  background: url("${CODEX_FRAME.image.src}") 0 0 / 100% 100% no-repeat;
+  filter: drop-shadow(0 24px 50px rgba(0,0,0,.74));
+}
+#bw-windows .bw-codex-title {
+  position: absolute; inset: 0; margin: 0; padding: 0;
+  display: block; background: transparent; border: 0; box-shadow: none;
+  cursor: move; min-height: 0; z-index: 4;
+}
+#bw-windows .bw-codex-tabs { display: contents; }
 #bw-windows .bw-codex-tabs .bw-tab {
-  min-height: 40px; display: inline-flex; align-items: center; gap: 7px;
-  padding: 7px 13px 8px;
-  border-radius: 6px 6px 0 0;
+  position: absolute; min-width: 40px; min-height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; border: 0; border-radius: 0; color: transparent;
+  background: transparent; box-shadow: none; opacity: 1;
 }
-#bw-windows .bw-codex-tabs .bw-tab .bw-tab-i { flex: 0 0 auto; filter: drop-shadow(0 1px 1px #000); }
-#bw-windows .bw-codex-tabs .bw-tab .bw-tab-word { line-height: 1; }
-#bw-windows .bw-codex-tabs .bw-tab.on {
-  transform: translateY(8px);
-  padding-bottom: 12px;
-  border-radius: 0 0 7px 7px;
+#bw-windows .bw-codex-tabs .bw-tab .bw-tab-word { display: none; }
+#bw-windows .bw-codex-tabs .bw-tab .bw-tab-i { display: none; filter: drop-shadow(0 2px 1px rgba(0,0,0,.65)); }
+#bw-windows .bw-codex-tabs .bw-tab.on:not([data-tab="character"]) {
+  color: ${theme.parchment};
+  background: linear-gradient(180deg, ${theme.plateUp}, ${theme.plate});
+  border: 1px solid ${theme.gold};
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 7px 16px rgba(0,0,0,.36);
 }
+#bw-windows .bw-codex-tabs .bw-tab.on:not([data-tab="character"]) .bw-tab-i { display: block; }
+#bw-windows .bw-codex-tabs .bw-tab:hover { outline: 1px solid rgba(242,220,156,.36); outline-offset: -2px; }
+#bw-windows .bw-codex-tabs .bw-tab.on { transform: none; padding-bottom: 0; border-radius: 0 0 7px 7px; }
+#bw-windows .bw-codex-close {
+  position: absolute; min-width: 40px; min-height: 40px; padding: 0;
+  border: 0; background: transparent; box-shadow: none; color: transparent;
+}
+#bw-windows .bw-codex-close:hover { outline: 1px solid rgba(242,220,156,.4); outline-offset: -2px; }
+#bw-windows .bw-codex-bodies { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+#bw-windows .bw-codex-body {
+  position: absolute; inset: 0; overflow: visible; max-height: none; padding: 0;
+  background: transparent; border: 0; border-radius: 0; pointer-events: auto;
+}
+#bw-windows .bw-codex-body:not([data-tab="character"]) {
+  left: ${CODEX_FRAME.panels.middle.x * 100}%;
+  top: ${CODEX_FRAME.panels.middle.y * 100}%;
+  width: ${CODEX_FRAME.panels.middle.w * 100}%;
+  height: ${CODEX_FRAME.panels.middle.h * 100}%;
+  right: auto; bottom: auto; overflow: auto;
+  padding: 16px 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18)), ${theme.stoneDeep};
+  border: 1px solid ${theme.goldDim}66; border-radius: 7px;
+  background-image:
+    ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()},
+    linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18));
+  background-repeat: no-repeat;
+  background-position: left 2px top 2px, right 2px top 2px, left 2px bottom 2px, right 2px bottom 2px, 0 0;
+  background-size: 18px 18px, 18px 18px, 18px 18px, 18px 18px, auto;
+}
+#bw-windows .bw-codex-body[hidden] { display: none; }
 
 #bw-windows h3 {
   font-family: ${theme.fonts.display};
@@ -402,6 +469,15 @@ export function dropTarget(el, onDrop) {
 
 const isFn = (f) => typeof f === 'function';
 const lower = (k) => String(k == null ? '' : k).toLowerCase();
+const pct = (v) => `${v * 100}%`;
+
+function placeByFraction(el, r) {
+  if (!el || !r) return;
+  el.style.left = pct(r.x);
+  el.style.top = pct(r.y);
+  el.style.width = pct(r.w);
+  el.style.height = pct(r.h);
+}
 
 /** True when the two ids are allowed on screen together. */
 export function sharesScreen(a, b) {
@@ -505,25 +581,26 @@ export function createWindows(root, input, ctx = {}) {
     win.style.transform = 'translate(-50%, -50%)';
 
     const frame = document.createElement('div');
-    frame.className = 'bw-frame';
+    frame.className = 'bw-codex-frame';
     win.appendChild(frame);
 
     const top = document.createElement('div');
-    top.className = 'bw-win-title';
+    top.className = 'bw-win-title bw-codex-title';
     const tabs = document.createElement('div');
     tabs.className = 'bw-codex-tabs';
     const x = document.createElement('button');
-    x.className = 'bw-win-x';
+    x.className = 'bw-win-x bw-codex-close';
     x.type = 'button';
     x.textContent = '×';
     x.title = 'close';
+    placeByFraction(x, CODEX_FRAME.close);
     x.addEventListener('click', (e) => { e.stopPropagation(); const t = openTab(); if (t) close(t); });
     top.appendChild(tabs);
     top.appendChild(x);
-    frame.appendChild(top);
-
     const bodies = document.createElement('div');
+    bodies.className = 'bw-codex-bodies';
     frame.appendChild(bodies);
+    frame.appendChild(top);
 
     el.appendChild(win);
     makeDraggable(win, top, CODEX_ID);
@@ -544,6 +621,7 @@ export function createWindows(root, input, ctx = {}) {
       b.type = 'button';
       b.className = 'bw-tab' + (here === t.id ? ' on' : '');
       b.dataset.tab = t.id;
+      placeByFraction(b, CODEX_FRAME.tabs[t.id]);
       b.innerHTML = `${tabIcon(t.id, 'currentColor', 17)}<span class="bw-tab-word">${t.label}</span>`;
       // Every key that lands on this page, not just the page's own: B is an
       // alias of Character now and the cap has to say so.

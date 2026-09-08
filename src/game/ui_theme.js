@@ -472,6 +472,11 @@ const CSS = () => `
   font-family: ${theme.fonts.display};
   font-size: 12px; letter-spacing: .18em; font-variant-caps: small-caps; color: ${theme.gold};
 }
+.bw-class-word {
+  font-family: ${theme.fonts.display};
+  font-size: 14px; letter-spacing: .08em; font-variant-caps: small-caps; color: ${theme.gold};
+  margin-top: 1px;
+}
 .bw-quote {
   font-style: italic; font-size: 14.5px; line-height: 1.5; color: ${theme.parchmentDim};
   margin: 8px 0 2px;
@@ -506,22 +511,22 @@ const CSS = () => `
   border: 1px solid ${theme.slot.border};
   border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
+  overflow: visible;
 }
 .bw-slot::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
+  content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.45);
 }
 .bw-slot:hover { border-color: ${theme.goldBright}; }
 .bw-slot.bw-empty { cursor: default; }
 .bw-slot .bw-tag {
-  position: absolute; left: 0; right: 0; bottom: 0; text-align: center;
-  font-family: ${theme.fonts.display}; font-size: 7.5px; letter-spacing: .09em;
-  font-variant-caps: small-caps; color: ${theme.gold}; background: rgba(0,0,0,.55);
-  padding: 1px 0;
+  position: absolute; left: -8px; right: -8px; top: calc(100% + 3px); text-align: center;
+  font-family: ${theme.fonts.display}; font-size: 8px; letter-spacing: .08em;
+  font-variant-caps: small-caps; color: ${theme.gold};
+  line-height: 1.05; white-space: normal; pointer-events: none;
 }
 .bw-slot .bw-count {
-  position: absolute; right: 2px; bottom: 1px;
+  position: absolute; right: 2px; bottom: 1px; z-index: 2;
   font-family: ${theme.fonts.display}; font-size: 11px; font-weight: 700;
   font-variant-numeric: tabular-nums; color: ${theme.gold};
   text-shadow: 0 1px 3px #000;

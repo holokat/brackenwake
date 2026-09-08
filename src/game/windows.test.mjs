@@ -8,7 +8,7 @@
 import {
   createWindows, sharesScreen, PAIRS, ESCAPE_KEY,
   CODEX_ID, CODEX_TABS, CODEX_IDS, isCodexTab, RESERVED_KEYS, keyCap,
-  TAB_ALIAS, resolveTab,
+  TAB_ALIAS, resolveTab, CODEX_FRAME,
 } from './windows.js';
 import { panel as characterPanel } from './win_character.js';
 import { panel as bagPanel } from './win_bag.js';
@@ -76,6 +76,14 @@ check('and nothing else shares with them', !sharesScreen('bag', 'settings') && !
 check('a window shares the screen with itself', sharesScreen('settings', 'settings'));
 check('PAIRS is that one group, the aliases in it',
   PAIRS.length === 1 && PAIRS[0].length === 7, JSON.stringify(PAIRS));
+check('the painted codex frame is measured as a 1536 by 1024 image',
+  CODEX_FRAME.image.width === 1536 && CODEX_FRAME.image.height === 1024 && CODEX_FRAME.image.aspect === 1.5,
+  JSON.stringify(CODEX_FRAME.image));
+check('the painted frame carries five measured tab hit areas',
+  CODEX_IDS.every((id) => CODEX_FRAME.tabs[id] && CODEX_FRAME.tabs[id].w > 0.07),
+  Object.keys(CODEX_FRAME.tabs).join(','));
+check('and six measured doll slot boxes',
+  Object.keys(CODEX_FRAME.slots).length === 6, Object.keys(CODEX_FRAME.slots).join(','));
 
 // ---- the two names for the one page ----------------------------------------
 console.log('windows: bag and inventory are Character');
@@ -401,8 +409,9 @@ console.log('windows: the codex, built');
   const codexEl = w.codexEl;
   check('there is a codex element', !!codexEl);
   const frame = codexEl.children[0];
-  check('it wears the gilded frame', frame.classList.contains('bw-frame'), frame.className);
-  const tabs = frame.children[0].children[0];
+  check('it uses the painted codex frame, not the CSS gilded frame', frame.classList.contains('bw-codex-frame') && !frame.classList.contains('bw-frame'), frame.className);
+  const bodies = frame.children[0];
+  const tabs = frame.children[1].children[0];
   check('the strip holds one tab per registered PAGE, and the pack is not one',
     tabs.children.length === 3, tabs.children.map((t) => t.textContent).join(','));
   check('in the order CODEX_TABS gives',
@@ -414,9 +423,12 @@ console.log('windows: the codex, built');
     /C or B|B or C/.test(String(tabs.children[0].title || '')), String(tabs.children[0].title));
   check('the page that is up is the one on the red plate',
     tabs.children[0].classList.contains('on') && !tabs.children[1].classList.contains('on'));
+  check('the tab hit areas are placed from the painted-frame fractions',
+    tabs.children[0].style.left === `${CODEX_FRAME.tabs.character.x * 100}%`
+    && tabs.children[0].style.width === `${CODEX_FRAME.tabs.character.w * 100}%`,
+    `${tabs.children[0].style.left}, ${tabs.children[0].style.width}`);
   check('and the codex is showing', codexEl.hidden === false);
 
-  const bodies = frame.children[1];
   check('only the pages that have been opened are built', bodies.children.length === 1);
   check('and the built one is not hidden', bodies.children[0].hidden === false);
   check('bodyOf hands back that page', w.bodyOf('character') === bodies.children[0]);
@@ -444,7 +456,7 @@ console.log('windows: the codex, built');
     bagThrew === null && w.tab === 'character' && bodies.children.length === 3,
     bagThrew ? bagThrew.stack.split('\n')[0] : `${w.tab}, ${bodies.children.length} pages`);
 
-  const closeBtn = frame.children[0].children[1];
+  const closeBtn = frame.children[1].children[1];
   closeBtn.fire('click', { stopPropagation() {} });
   check('the close button shuts the codex', w.anyOpen === false && codexEl.hidden === true);
   check('and nothing is left showing', bodies.children.every((b) => b.hidden === true));

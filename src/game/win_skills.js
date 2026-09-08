@@ -47,7 +47,7 @@ import {
 import { ABILITIES, meetsRequirements, requirementClauses } from '../mmo/abilities.js';
 import { skillIcon, abilityIcon, iconImg } from './icon_art.js';
 import { attachTip, hideTip } from './windows.js';
-import { theme } from './ui_theme.js';
+import { theme, cornerUrl, ruleUrl } from './ui_theme.js';
 
 /** up, then locked, then down, then round again. */
 export const LOCK_CYCLE = ['up', 'locked', 'down'];
@@ -305,15 +305,16 @@ export function barView(value, lock = 'up') {
 // ---------------------------------------------------------------------------
 
 const CSS = `
-.bw-skills { width: 100%; font-family: ${theme.fonts.body}; }
+.bw-skills { width: 100%; min-height: 100%; font-family: ${theme.fonts.body}; }
 .bw-skills .bw-hint { color: ${theme.parchmentDim}; font-style: italic; font-size: 15px; margin-bottom: 10px; }
 
 .bw-skills .bw-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .bw-skills .bw-f {
   font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .12em;
-  text-transform: uppercase; padding: 5px 11px; cursor: pointer;
+  font-variant-caps: small-caps; padding: 5px 11px; cursor: pointer;
   color: ${theme.parchmentDim}; background: rgba(9,8,6,.7);
   border: 1px solid ${theme.goldDim}66;
+  border-radius: 7px;
 }
 .bw-skills .bw-f:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
 .bw-skills .bw-f:focus-visible { outline: 1px solid ${theme.goldBright}; outline-offset: 2px; }
@@ -322,15 +323,16 @@ const CSS = `
 .bw-skills .bw-count {
   display: flex; flex-wrap: wrap; gap: 6px;
   font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .12em;
-  text-transform: uppercase; color: ${theme.parchmentFaint}; margin: 0 0 12px;
+  font-variant-caps: small-caps; color: ${theme.gold}; margin: 0 0 12px;
   font-variant-numeric: tabular-nums;
 }
 .bw-skills .bw-count.full { color: ${theme.goldBright}; }
 
 .bw-skills h3 {
-  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
-  letter-spacing: .2em; text-transform: uppercase; color: ${theme.gold};
-  margin: 20px 0 9px; padding-bottom: 5px; border-bottom: 1px solid ${theme.goldDim}55;
+  font-family: ${theme.fonts.display}; font-size: 11.5px; font-weight: 600;
+  letter-spacing: .22em; font-variant-caps: small-caps; color: ${theme.gold};
+  margin: 20px 0 9px; padding-bottom: 9px;
+  background: ${ruleUrl()} bottom center / 100% 9px no-repeat;
 }
 .bw-skills h3:first-child { margin-top: 0; }
 
@@ -343,8 +345,14 @@ const CSS = `
 .bw-skills .bw-card {
   position: relative; display: grid; grid-template-columns: 112px 1fr; gap: 14px;
   padding: 11px 13px; align-items: start;
-  background: linear-gradient(150deg, rgba(30,25,18,.86), rgba(10,9,7,.9));
+  background:
+    ${cornerUrl(theme.goldDim)}, ${cornerUrl(theme.goldDim)},
+    linear-gradient(150deg, rgba(36,35,39,.88), rgba(12,11,14,.94));
+  background-repeat: no-repeat;
+  background-position: left 2px top 2px, right 2px bottom 2px, 0 0;
+  background-size: 14px 14px, 14px 14px, auto;
   border: 1px solid ${theme.goldDim}55;
+  border-radius: 7px;
 }
 .bw-skills .bw-card:hover { border-color: ${theme.gold}; }
 .bw-skills .bw-card.gm { border-color: ${theme.gold}; box-shadow: inset 3px 0 0 ${theme.gold}; }
@@ -353,8 +361,10 @@ const CSS = `
 .bw-skills .bw-tile {
   position: relative; width: 112px; height: 112px; display: flex; overflow: hidden;
   align-items: center; justify-content: center;
-  background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.07), rgba(0,0,0,.45));
-  border: 1px solid ${theme.goldDim}77;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.2)), ${theme.slot.face};
+  border: 1px solid ${theme.slot.border};
+  border-radius: 7px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.45);
 }
 .bw-skills .bw-tile img.bw-s-art { width: 100%; height: 100%; object-fit: cover; display: block; }
 .bw-skills .bw-tile svg.bw-s-art { width: 64px; height: 64px; }
@@ -368,7 +378,7 @@ const CSS = `
 .bw-skills .bw-card:hover .bw-name, .bw-skills .bw-card.gm .bw-name { color: ${theme.goldBright}; }
 .bw-skills .bw-val {
   font-family: ${theme.fonts.display}; font-size: 23px; line-height: 1;
-  font-variant-numeric: tabular-nums; color: ${theme.parchment};
+  font-variant-numeric: tabular-nums; color: ${theme.gold};
 }
 .bw-skills .bw-card.gm .bw-val { color: ${theme.goldBright}; }
 .bw-skills .bw-card.held .bw-val { color: ${theme.parchmentFaint}; }
@@ -417,12 +427,13 @@ const CSS = `
 .bw-skills .bw-desc { font-size: 15.5px; line-height: 1.34; color: ${theme.parchmentDim}; }
 .bw-skills .bw-opens {
   font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .14em;
-  text-transform: uppercase; color: ${theme.parchmentFaint}; margin: 8px 0 4px;
+  font-variant-caps: small-caps; color: ${theme.gold}; margin: 8px 0 4px;
 }
 .bw-skills .bw-unlocks { display: flex; flex-wrap: wrap; gap: 5px; }
 .bw-skills .bw-u {
   width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
   overflow: hidden; background: rgba(0,0,0,.45); border: 1px solid ${theme.goldDim}44;
+  border-radius: 6px;
   filter: grayscale(1) brightness(.62); opacity: .82;
 }
 .bw-skills .bw-u img.bw-u-art, .bw-skills .bw-u svg.bw-u-art { width: 24px; height: 24px; object-fit: cover; display: block; }

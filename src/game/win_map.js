@@ -1313,12 +1313,14 @@ const CSS = `
 .bw-win-map .bw-map-tools .bw-btn{padding:3px 9px;font-size:12px;}
 .bw-win-map .bw-map-tools .zoomnow{
   font-family:${theme.fonts.display};font-size:11px;letter-spacing:.1em;
-  text-transform:uppercase;color:${theme.gold};margin-left:2px;
+  font-variant-caps:small-caps;color:${theme.gold};margin-left:2px;
+  font-variant-numeric:tabular-nums;
 }
 .bw-win-map .bw-map-foot{
   display:flex;justify-content:space-between;gap:10px;margin-top:8px;
   font-family:${theme.fonts.display};font-size:11px;letter-spacing:.1em;
-  text-transform:uppercase;color:${theme.parchmentFaint};
+  font-variant-caps:small-caps;color:${theme.gold};
+  font-variant-numeric:tabular-nums;
 }
 .bw-win-map .bw-map-say{
   color:${theme.gold};font-size:13.5px;font-style:italic;margin-top:5px;min-height:19px;
@@ -1335,7 +1337,7 @@ const CSS = `
 }
 .bw-win-map .bw-map-here .dg{
   font-family:${theme.fonts.display};font-size:10.5px;letter-spacing:.2em;
-  text-transform:uppercase;color:${theme.gold};margin-top:1px;
+  font-variant-caps:small-caps;color:${theme.gold};margin-top:1px;
 }
 .bw-win-map .bw-map-here .ln{
   font-size:14px;font-style:italic;line-height:1.45;color:${theme.parchmentDim};
@@ -1367,7 +1369,7 @@ const CSS = `
 }
 .bw-win-map .bw-map-row.off .nm{
   font-family:${theme.fonts.display};font-size:10.5px;letter-spacing:.2em;
-  text-transform:uppercase;color:${theme.parchmentFaint};
+  font-variant-caps:small-caps;color:${theme.parchmentFaint};
 }
 .bw-win-map .bw-map-row .ds{
   font-family:${theme.fonts.display};font-size:12.5px;font-variant-numeric:tabular-nums;
@@ -1386,14 +1388,14 @@ const CSS = `
 }
 .bw-win-map .bw-map-guide .gn{
   font-family:${theme.fonts.display};font-size:15px;font-weight:700;letter-spacing:.06em;
-  text-transform:uppercase;color:${theme.goldBright};
+  color:${theme.goldBright};
 }
 .bw-win-map .bw-map-guide .gl{
   font-size:13.5px;font-style:italic;line-height:1.45;color:${theme.parchmentDim};margin-top:3px;
 }
 .bw-win-map .bw-map-guide .gk{
   font-family:${theme.fonts.display};font-size:10px;letter-spacing:.2em;
-  text-transform:uppercase;color:${theme.parchmentFaint};margin-top:7px;
+  font-variant-caps:small-caps;color:${theme.gold};margin-top:7px;
 }
 .bw-win-map .bw-map-guide .gm{
   font-size:12.5px;line-height:1.5;color:${theme.parchment};
