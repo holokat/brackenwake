@@ -21,14 +21,9 @@
 //    defaults in openings.js and are still written into every save, so a
 //    character made before this loads unchanged and the day the models land the
 //    controls come back rather than the records being invented again.
-//    `setAppearance` takes the gender and records it on the rig; it moves not
-//    one vertex today, and player.js says so where it does it.
+//    `setAppearance` records the chosen appearance. Player drawing owns what
+//    that looks like once the world starts.
 
-// The dais the character stands on is a real mesh in the real scene, so this
-// file needs the library that makes one. main.js hands over the scene and the
-// rig builder and no THREE, and a dynamic import inside the render loop would
-// be a second module instance, which is the trap CLAUDE.md names.
-import * as THREE from 'three';
 import {
   OPENINGS, OPENINGS_BY_ID, STAT_IDS, STAT_LABELS, STAT_NAMES, SKILL_NAMES, SKILL_IDS,
   APPEARANCE_DEFAULT, validateAppearance, applyCustomisation,
@@ -37,14 +32,13 @@ import {
 } from '../mmo/openings.js';
 import { derived, validateSpread } from '../mmo/stats.js';
 import { SKILLS, SKILL_GROUPS } from '../mmo/skills.js';
-import { BASES, makeItem, baseFor, equipSlotFor, twoHanded } from '../mmo/items.js';
-import { dressRig } from './gear_visuals.js';
+import { BASES, makeItem, baseFor } from '../mmo/items.js';
 import { createInventory, PACK_SLOTS } from './inventory.js';
 import { BAR_SLOTS, GROUP_COLOUR } from './win_abilities.js';
 import { defaultSettings } from './win_settings.js';
 import {
   injectTheme, theme, icon, itemGlyph, ruleUrl, cornerUrl, parchmentUrl,
-  archUrl,
+  ROSTER_FRAME, ROSTER_PANEL_ART, classPortraitUrl, rosterBgUrl, rosterPanelsUrl, installRosterFrameBox,
 } from './ui_theme.js';
 
 // ---------------------------------------------------------------- the kits
@@ -485,9 +479,6 @@ auditEmblems();
  */
 export const GAME_TITLE = 'Kaldera';
 
-/** How far one arrow under the preview turns the rig, in degrees. */
-export const YAW_STEP = 30;
-
 /**
  * One line each, in the voice of somebody who took that opening. Short, so it
  * sits on a single line under the art at 360 px, and no two alike.
@@ -524,7 +515,7 @@ export function statWords(opening) {
     .map((id, i) => ({ id, v: op.stats[id], i }))
     .sort((a, b) => (b.v - a.v) || (a.i - b.i))
     .slice(0, 3)
-    .map((r) => STAT_NAMES[r.id].toUpperCase());
+    .map((r) => STAT_NAMES[r.id]);
 }
 
 /**
@@ -597,16 +588,10 @@ const CARET = enc(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" wi
   <path d="M1.4 1.8 L6 6.2 L10.6 1.8" fill="none" stroke="${theme.gold}" stroke-width="1.6"
     stroke-linecap="round" stroke-linejoin="round"/></svg>`);
 
-/** The chevron on a turn arrow. `d` is 1 for the right hand one. */
-const chevron = (dir) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-  stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="${dir > 0 ? 'M9 4 L17 12 L9 20' : 'M15 4 L7 12 L15 20'}"/></svg>`;
-
 const CSS = `
 #bw-creation, #bw-creation * { box-sizing: border-box; }
-/* The whole viewport, and TRANSPARENT down the middle: the rig is a real
-   thing standing in the real scene behind this, not a picture in a box. Only
-   the two side panels and a vignette at the edges are painted. */
+/* The whole viewport: the user's background is behind the contained joined
+   panel frame, and the controls live inside that frame's dark interiors. */
 #bw-creation {
   position: fixed; inset: 0; z-index: 90;
   font-family: ${theme.fonts.body}; font-size: 15px; line-height: 1.4;
@@ -747,44 +732,8 @@ const CSS = `
   overflow: hidden;
 }
 
-/* --- the stage: nothing painted, the scene shows through ----------------- */
-#bw-creation .bw-cr-stage {
-  grid-column: 2; grid-row: 2; min-height: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-  padding: 0 18px 16px; pointer-events: none;
-  position: relative;
-}
-#bw-creation .bw-cr-stage > * { pointer-events: auto; }
-#bw-creation .bw-cr-stage::before {
-  content: ''; position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%);
-  width: min(330px, 48vw); height: min(500px, calc(100vh - 190px));
-  background: ${archUrl()} center / 100% 100% no-repeat;
-  opacity: .95; pointer-events: none;
-}
-#bw-creation .bw-cr-stage::after {
-  content: ''; position: absolute; left: 50%; bottom: 58px; transform: translateX(-50%);
-  width: min(260px, 38vw); height: 34px; border-radius: 50%;
-  background:
-    radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.12), rgba(255,255,255,0) 44%),
-    linear-gradient(180deg, #4a474b, #211f23 55%, #0f0e11);
-  border: 1px solid ${theme.goldDim}66;
-  box-shadow: 0 10px 22px rgba(0,0,0,.65), inset 0 -8px 16px rgba(0,0,0,.55);
-  pointer-events: none;
-}
-/* The open air the rig is framed into. The render loop measures THIS box. */
-#bw-creation .bw-cr-void { flex: 1 1 auto; width: 100%; min-height: 0; pointer-events: none; }
-
-#bw-creation .bw-cr-turn { display: flex; gap: 190px; margin-bottom: 12px; position: relative; z-index: 1; }
-#bw-creation .bw-cr-arrow {
-  width: 40px; height: 32px; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: ${theme.parchmentDim};
-  border: 1px solid ${theme.goldDim}88;
-  background: linear-gradient(180deg, rgba(20,16,11,.85), rgba(6,5,4,.9));
-}
-#bw-creation .bw-cr-arrow:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
-
-/* CR3: six pills became two. The row is a pair of buttons rather than a grid
-   of labelled selects, so it centres under the rig at any width. */
+/* CR3 kept the old appearance controls out of the document. These legacy
+   selectors are inert unless a future screen adds those controls back. */
 #bw-creation .bw-cr-look {
   display: flex; justify-content: center; gap: 10px;
   width: 100%; max-width: 540px;
@@ -1010,7 +959,6 @@ const CSS = `
   #bw-creation .bw-cr-drow .bw-cr-dk { font-size: 9px; letter-spacing: .07em; }
   #bw-creation .bw-cr-drow { gap: 6px; }
   #bw-creation .bw-cr-art { height: min(174px, 19vh); }
-  #bw-creation .bw-cr-turn { gap: 150px; }
 }
 /* Below 1100 there is not room for three, so they stack and the preview is on
    top, which is the thing a player is choosing between. */
@@ -1022,20 +970,133 @@ const CSS = `
     grid-template-rows: auto auto auto auto auto;
   }
   #bw-creation .bw-cr-plaque { grid-column: 1; grid-row: 1; }
-  #bw-creation .bw-cr-stage { grid-column: 1; grid-row: 2; height: 52vh; padding-top: 10px; }
-  #bw-creation .bw-cr-stage::before { width: min(320px, 76vw); height: min(470px, 48vh); }
-  #bw-creation .bw-cr-stage::after { width: min(250px, 62vw); }
-  #bw-creation .bw-cr-left { grid-column: 1; grid-row: 3; border-right: 0; box-shadow: none; overflow: visible; }
-  #bw-creation .bw-cr-right { grid-column: 1; grid-row: 4; border-left: 0; box-shadow: none; overflow: visible; }
+  #bw-creation .bw-cr-left { grid-column: 1; grid-row: 2; border-right: 0; box-shadow: none; overflow: visible; }
+  #bw-creation .bw-cr-right { grid-column: 1; grid-row: 3; border-left: 0; box-shadow: none; overflow: visible; }
   /* stacked, the page itself scrolls, so the right column is not a viewport
      of its own and the button rides down the page with everything else */
   #bw-creation .bw-cr-scroll { overflow: visible; padding-bottom: 4px; }
   #bw-creation .bw-cr-act { border-top: 0; background: none; }
   #bw-creation .bw-cr-left, #bw-creation .bw-cr-right { border-top: 1px solid ${theme.goldDim}88; }
-  #bw-creation .bw-cr-foot { grid-column: 1; grid-row: 5; }
+  #bw-creation .bw-cr-foot { grid-column: 1; grid-row: 4; }
   #bw-creation .bw-cr-cards { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
   #bw-creation .bw-cr-art { height: 200px; }
 }
+
+/* C3: the user's painting is the screen. The DOM is laid into the two dark
+   painted panels in the transparent frame. */
+#bw-creation {
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  overflow: hidden;
+}
+#bw-creation::before {
+  content: ""; position: absolute;
+  left: var(--bw-scene-x); top: var(--bw-scene-y);
+  width: var(--bw-scene-w); height: var(--bw-scene-h);
+  background-image: url("${rosterPanelsUrl()}");
+  background-size: 100% 100%; background-position: center; background-repeat: no-repeat;
+  pointer-events: none;
+}
+#bw-creation .bw-cr-panel {
+  position: absolute; inset: 0; display: block; min-height: 100%;
+}
+#bw-creation .bw-cr-plaque, #bw-creation .bw-cr-foot { display: none; }
+#bw-creation .bw-cr-left, #bw-creation .bw-cr-right {
+  position: absolute; min-height: 0; border: 0; box-shadow: none;
+  background: transparent; background-image: none;
+}
+#bw-creation .bw-cr-left {
+  left: calc(var(--bw-scene-x) + ${ROSTER_FRAME.leftPanel.x1} * var(--bw-scene-w));
+  top: calc(var(--bw-scene-y) + ${ROSTER_FRAME.leftPanel.y1} * var(--bw-scene-h));
+  width: calc((${ROSTER_FRAME.leftPanel.x2} - ${ROSTER_FRAME.leftPanel.x1}) * var(--bw-scene-w));
+  height: calc((${ROSTER_FRAME.leftPanel.y2} - ${ROSTER_FRAME.leftPanel.y1}) * var(--bw-scene-h));
+  padding: clamp(8px, 1vw, 14px);
+  display: flex; flex-direction: column; gap: 10px; overflow: hidden;
+}
+#bw-creation .bw-cr-right {
+  left: calc(var(--bw-scene-x) + ${ROSTER_FRAME.rightPanel.x1} * var(--bw-scene-w));
+  top: calc(var(--bw-scene-y) + ${ROSTER_FRAME.rightPanel.y1} * var(--bw-scene-h));
+  width: calc((${ROSTER_FRAME.rightPanel.x2} - ${ROSTER_FRAME.rightPanel.x1}) * var(--bw-scene-w));
+  height: calc((${ROSTER_FRAME.rightPanel.y2} - ${ROSTER_FRAME.rightPanel.y1}) * var(--bw-scene-h));
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#bw-creation .bw-cr-cards {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column; gap: 8px; padding-right: 4px;
+}
+#bw-creation .bw-cr-card {
+  min-height: 76px; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto auto;
+  padding: 7px; background: rgba(9, 10, 12, .28);
+  border-color: rgba(201,164,74,.16); border-radius: 6px;
+  transition-property: background-color, border-color, box-shadow, transform;
+}
+#bw-creation .bw-cr-card.on {
+  background: linear-gradient(180deg, rgba(122,42,32,.58), rgba(91,29,22,.5));
+  border-color: ${theme.gold};
+}
+#bw-creation .bw-cr-card-img {
+  grid-row: 1 / span 2; width: 56px; height: 62px; object-fit: contain;
+  object-position: bottom center; align-self: stretch;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.5));
+}
+#bw-creation .bw-cr-card .bw-cr-band, #bw-creation .bw-cr-emblem { display: none; }
+#bw-creation .bw-cr-name {
+  font-size: clamp(14px, 1.05vw, 18px); letter-spacing: 0; text-wrap: balance;
+}
+#bw-creation .bw-cr-blurb {
+  font-size: clamp(12px, .82vw, 14px); -webkit-line-clamp: 1; text-wrap: pretty;
+}
+#bw-creation .bw-cr-cancel {
+  flex: 0 0 auto; min-height: 40px; cursor: pointer;
+  font-family: ${theme.fonts.display}; font-size: 12px; font-weight: 700; letter-spacing: 0;
+  color: ${theme.parchmentDim}; border: 1px solid ${theme.goldDim}88; border-radius: 6px;
+  background: rgba(0,0,0,.18);
+}
+#bw-creation .bw-cr-cancel:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
+#bw-creation .bw-cr-cancel:active { transform: scale(.96); }
+#bw-creation .bw-cr-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  padding: clamp(8px, 1vw, 12px); display: flex; flex-direction: column;
+}
+#bw-creation .bw-cr-act {
+  flex: 0 0 auto; padding: 6px clamp(8px, 1vw, 12px) clamp(7px, 1vw, 12px);
+  border-top: 1px solid rgba(201,164,74,.18); background: rgba(0,0,0,.12);
+}
+#bw-creation .bw-cr-art {
+  order: -3;
+  height: min(190px, calc((${ROSTER_FRAME.rightPanel.y2} - ${ROSTER_FRAME.rightPanel.y1}) * var(--bw-scene-h) * ${ROSTER_PANEL_ART.creationPortraitFrac}));
+  max-height: calc((${ROSTER_FRAME.rightPanel.y2} - ${ROSTER_FRAME.rightPanel.y1}) * var(--bw-scene-h) * ${ROSTER_PANEL_ART.maxPortraitFrac});
+  margin: 0 0 5px; border: 0;
+  box-shadow: none; background: transparent;
+  display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
+}
+#bw-creation .bw-cr-art::after { display: none; }
+#bw-creation .bw-cr-art-img {
+  display: block; max-width: 100%; height: 100%; object-fit: contain; object-position: bottom center;
+  filter: drop-shadow(0 12px 10px rgba(0,0,0,.5));
+}
+#bw-creation .bw-cr-cname {
+  font-size: clamp(18px, 1.65vw, 26px); letter-spacing: 0; text-wrap: balance;
+}
+#bw-creation .bw-cr-words { letter-spacing: 0; }
+#bw-creation .bw-cr-quote, #bw-creation .bw-cr-about { display: none; }
+#bw-creation .bw-hdr {
+  font-size: 11px; letter-spacing: 0; font-variant-caps: normal; color: ${theme.gold};
+  margin: 8px 0 5px;
+}
+#bw-creation .bw-cr-words,
+#bw-creation .bw-cr-budget,
+#bw-creation .bw-cr-bk,
+#bw-creation .bw-cr-disc,
+#bw-creation .bw-cr-skills .bw-cr-grp,
+#bw-creation .bw-cr-drow .bw-cr-dk,
+#bw-creation .bw-cr-kit-more,
+#bw-creation .bw-cr-go,
+#bw-creation .bw-cr-foot {
+  letter-spacing: 0; font-variant-caps: normal;
+}
+#bw-creation .bw-cr-derived, #bw-creation .bw-cr-kit-head, #bw-creation .bw-cr-kitrow { display: none; }
+#bw-creation .bw-cr-disc { margin-top: 7px; letter-spacing: 0; font-variant-caps: normal; }
+#bw-creation .bw-cr-go { letter-spacing: 0; font-variant-caps: normal; }
 
 #bw-creation ::-webkit-scrollbar { width: 9px; height: 9px; }
 #bw-creation ::-webkit-scrollbar-track { background: rgba(0,0,0,.45); }
@@ -1065,29 +1126,15 @@ const DERIVED_ICON = {
   carry: 'scale', 'mana a second': 'drop', 'stamina a second': 'bolt',
 };
 
-/** The dais, in metres: how thick it is, and how wide at the foot and the top. */
-export const DAIS = { height: 0.16, top: 0.62, foot: 0.74 };
-
 /**
- * How the framing camera is placed. `fill` is the share of the open air in the
- * middle column the rig and its dais are asked to take up, top to bottom.
- * Nothing else is a number chosen here: how tall the rig actually is comes off
- * its own bounding box, and the rest off the window and the fov, so the same
- * one number frames it at 1280, at 1920, in the stacked layout under 1100, and
- * at every height the pill offers.
- */
-export const FRAME = { fill: 0.82, fallbackDist: 2.7, fallbackAim: 1.0 };
-
-/**
- * The screen. Over the scene the rig is standing in, if a scene was handed in;
- * without one it is still a working creation screen, which is what lets it be
- * opened from settings later and driven in node by the suite.
+ * The screen. The preview is the user's class portrait, so creation does not
+ * build a scene rig here.
  *
  * @param {HTMLElement} root
- * @param {{ sc?, buildCharacter?, onDone?, THREE? }} deps
+ * @param {{ onDone?, onCancel? }} deps
  */
 export function createCreation(root, deps = {}) {
-  const { sc, buildCharacter, onDone } = deps;
+  const { onDone, onCancel } = deps;
   const state = {
     opening: 'warrior',
     stats: { ...OPENINGS_BY_ID.warrior.stats },
@@ -1095,11 +1142,6 @@ export function createCreation(root, deps = {}) {
     appearance: { ...APPEARANCE_DEFAULT },
     name: '',
   };
-  // Degrees, unbounded, changed only by the two arrows. The rig eases towards
-  // it in the render loop rather than snapping, and nothing else turns it: a
-  // figure that drifts on its own cannot be aimed by an arrow.
-  let yaw = 0;
-
   if (typeof document === 'undefined') {
     return { el: null, state, plan: () => planCharacter(state), destroy() {} };
   }
@@ -1117,37 +1159,24 @@ export function createCreation(root, deps = {}) {
   const el = h('div');
   el.id = 'bw-creation';
   el.className = 'bw-ui';
+  el.style.backgroundImage = `url("${rosterBgUrl()}")`;
   const panel = h('div', 'bw-cr-panel');
   el.appendChild(panel);
   (root || document.body).appendChild(el);
+  const unboxFrame = installRosterFrameBox(el);
 
   // --- the plaque, top centre
-  const plaque = h('div', 'bw-cr-plaque');
-  plaque.appendChild(h('h1', null, GAME_TITLE));
-  plaque.appendChild(h('div', 'bw-cr-ask', 'Who walks out of the trees?'));
-  panel.appendChild(plaque);
-
   // --- the left column: the four openings, small
   const left = h('div', 'bw-cr-left');
   panel.appendChild(left);
-  left.appendChild(h('div', 'bw-hdr', 'Choose your opening'));
   const cards = h('div', 'bw-cr-cards');
   left.appendChild(cards);
-
-  // --- the middle: nothing painted, the rig stands here
-  const stage = h('div', 'bw-cr-stage');
-  panel.appendChild(stage);
-  const openAir = h('div', 'bw-cr-void');
-  stage.appendChild(openAir);
-  const turn = h('div', 'bw-cr-turn');
-  for (const dir of [-1, 1]) {
-    const b = hs('button', 'bw-cr-arrow', chevron(dir));
-    b.dataset.turn = String(dir);
-    b.title = dir > 0 ? 'turn them to the right' : 'turn them to the left';
-    b.addEventListener('click', () => turnBy(dir * YAW_STEP));
-    turn.appendChild(b);
-  }
-  stage.appendChild(turn);
+  const cancel = h('button', 'bw-cr-cancel', 'Cancel');
+  cancel.addEventListener('click', () => {
+    destroy();
+    if (typeof onCancel === 'function') onCancel();
+  });
+  left.appendChild(cancel);
 
   // --- the right column: this class, and everything you may change about it
   const right = h('div', 'bw-cr-right');
@@ -1158,12 +1187,15 @@ export function createCreation(root, deps = {}) {
   const reading = h('div', 'bw-cr-scroll');
   right.appendChild(reading);
 
+  const art = h('div', 'bw-cr-art');
+  const artImg = h('img', 'bw-cr-art-img');
+  artImg.alt = '';
+  art.appendChild(artImg);
+  reading.appendChild(art);
   const cname = h('div', 'bw-cr-cname');
   reading.appendChild(cname);
   const words = h('div', 'bw-cr-words');
   reading.appendChild(words);
-  const art = h('div', 'bw-cr-art');
-  reading.appendChild(art);
   const quote = h('div', 'bw-cr-quote');
   reading.appendChild(quote);
   const about = h('div', 'bw-cr-about');
@@ -1193,7 +1225,7 @@ export function createCreation(root, deps = {}) {
   const derivedEl = h('div', 'bw-cr-derived');
   reading.appendChild(derivedEl);
 
-  reading.appendChild(h('div', 'bw-hdr', 'Starting gear'));
+  reading.appendChild(h('div', 'bw-hdr bw-cr-kit-head', 'Starting gear'));
   const kitRow = h('div', 'bw-cr-kitrow');
   reading.appendChild(kitRow);
 
@@ -1230,45 +1262,15 @@ export function createCreation(root, deps = {}) {
     const colour = openingColour(op.id);
     const card = h('div', 'bw-cr-card');
     card.dataset.opening = op.id;
-
-    const band = h('div', 'bw-cr-band');
-    band.style.background = colour;
-    card.appendChild(band);
-
-    const emblem = hs('div', 'bw-cr-emblem', emblemSvg(op.id, 20, colour));
-    emblem.dataset.emblem = op.id;
-    card.appendChild(emblem);
+    const portrait = h('img', 'bw-cr-card-img');
+    portrait.src = classPortraitUrl(op.id);
+    portrait.alt = op.name;
+    card.appendChild(portrait);
     card.appendChild(h('div', 'bw-cr-name', op.name));
     card.appendChild(h('div', 'bw-cr-blurb', op.blurb));
 
     card.addEventListener('click', () => pick(op.id));
     cards.appendChild(card);
-  }
-
-  /**
-   * What the kit would put on, one item per slot in kit order, the same order
-   * the real inventory wears it at Begin. Used to dress the preview so the
-   * figure on the dais wears the sword, shield and leathers the panel lists,
-   * instead of standing in its underclothes beside a picture of them.
-   */
-  function kitEquipment(op) {
-    const eq = {};
-    const { items } = kitFor(op, 1);
-    for (const row of items) {
-      const it = row && row.item ? row.item : row;   // kitFor wraps each made item with where it came from
-      const slot = equipSlotFor(it);
-      if (!slot || eq[slot]) continue;
-      if (slot === 'offHand' && eq.mainHand && twoHanded(eq.mainHand)) continue;
-      if (slot === 'mainHand' && twoHanded(it) && eq.offHand) continue;
-      eq[slot] = it;
-    }
-    return eq;
-  }
-
-  function dressPreview() {
-    if (!rig) return;
-    const op = OPENINGS_BY_ID[state.opening];
-    try { dressRig(rig, kitEquipment(op)); } catch (err) { console.warn('creation: the preview could not be dressed', err); }
   }
 
   function pick(id) {
@@ -1279,16 +1281,6 @@ export function createCreation(root, deps = {}) {
     state.skills = { ...op.skills };
     build();
     refresh();
-    // the studio dresses for a class: the Mage's blue, the Sorcerer's mauve.
-    // The stage used to build once as the Blank and keep its grey (2026-09-08).
-    if (rig && rig.studio && typeof rig.studio.setClass === 'function') rig.studio.setClass(id);
-    dressPreview();
-  }
-
-  /** One arrow. Unbounded, so two lefts are sixty degrees and not three hundred. */
-  function turnBy(deg) {
-    yaw += deg;
-    return yaw;
   }
 
   // --- stats, skills and the face, rebuilt when the opening changes because
@@ -1301,12 +1293,13 @@ export function createCreation(root, deps = {}) {
 
     cname.textContent = op.name;
     words.textContent = statWords(op).join(' · ');
-    // The stable hook a painting is dropped on later. One id per class, and
-    // the drawing under it until there is one.
+    // The stable hook a painting is dropped on later. One id per class.
     art.id = artId(op.id);
     art.dataset.art = op.id;
-    art.style.backgroundImage = artUrl(op.id);
-    art.title = `${op.name}: the art is not painted yet`;
+    art.style.backgroundImage = '';
+    artImg.src = classPortraitUrl(op.id);
+    artImg.alt = op.name;
+    art.title = `${op.name} portrait`;
     quote.textContent = QUOTES[op.id];
     about.textContent = `${op.blurb} ${CLASS_NOTE[op.id]}`;
 
@@ -1496,161 +1489,8 @@ export function createCreation(root, deps = {}) {
     if (typeof onDone === 'function') onDone(plan.character, plan);
   });
 
-  // --- the rig, on its dais, framed by the middle column --------------------
-  let rig = null;
-  let dais = null;
-  let raf = 0;
-  let stopped = false;
-  let shownYaw = 0;                       // radians actually on the rig
-  let lastBox = '';                       // the open air, last time it was measured
-
-  /**
-   * Put the camera where the rig fills `FRAME.fill` of the open air in the
-   * middle column, and lands in the middle of THAT box rather than in the
-   * middle of the window. The two side panels are not the same width, and
-   * under 1100 the stage is at the top of a scrolling page, so a camera aimed
-   * at the centre of the screen would be aimed at a panel.
-   */
-  const span = new THREE.Box3();
-  /**
-   * How tall the thing on the dais actually is, in metres, measured off the rig
-   * rather than taken from BODY.HEIGHT: hair, boots and the appearance scale
-   * all move it, and a framing worked out from a number nobody checked is the
-   * failure this file is full of warnings about.
-   */
-  function rigSpan() {
-    if (!rig) return { lo: 0, hi: 1.8 * (state.appearance.height / 1.8) + DAIS.height };
-    rig.group.updateWorldMatrix(true, true);
-    span.setFromObject(rig.group);
-    return { lo: 0, hi: Number.isFinite(span.max.y) ? span.max.y : 1.94 };
-  }
-
-  function frameCamera() {
-    const cam = sc?.camera;
-    if (!cam) return;
-    const { lo, hi } = rigSpan();
-    const tall = Math.max(0.4, hi - lo);
-    const aim = (lo + hi) / 2;
-    const fov = ((cam.fov || 55) * Math.PI) / 180;
-    const win = typeof window !== 'undefined' ? window : null;
-    const box = openAir.getBoundingClientRect ? openAir.getBoundingClientRect() : null;
-
-    if (!box || !box.width || !box.height || !win?.innerWidth) {
-      cam.position.set(0, FRAME.fallbackAim, FRAME.fallbackDist);
-      cam.lookAt(0, FRAME.fallbackAim, 0);
-      cam.updateProjectionMatrix?.();
-      return;
-    }
-    // The box the rig has to land in is NOT the middle of the window: the two
-    // side panels are different widths, and stacked under 1100 the preview is
-    // at the top of the page. Sliding the camera sideways and down to make up
-    // the difference was the first attempt and it put the camera under the
-    // ground in the stacked layout, looking up at the dais from below.
-    //
-    // So the camera stays level with the middle of the rig, looking straight
-    // at it, and the LENS is offset instead: setViewOffset renders the window
-    // as a crop of a larger frame that has the rig at its own centre. Same
-    // frontal view, no camera acrobatics, and it holds at any window and any
-    // arrangement of the columns.
-    const W = win.innerWidth, H = win.innerHeight;
-    const bx = box.left + box.width / 2;
-    const by = box.top + box.height / 2;
-    const perPx = tall / (FRAME.fill * box.height);
-    // the smallest frame that both centres the rig and still contains the window
-    const fullW = 2 * Math.max(bx, W - bx);
-    const fullH = 2 * Math.max(by, H - by);
-    const dist = (fullH * perPx) / (2 * Math.tan(fov / 2));
-    cam.aspect = fullW / fullH;
-    cam.setViewOffset(fullW, fullH, fullW / 2 - bx, fullH / 2 - by, W, H);
-    cam.position.set(0, aim, dist);
-    cam.lookAt(0, aim, 0);
-    cam.updateProjectionMatrix();
-  }
-
-  if (sc && typeof buildCharacter === 'function') {
-    try {
-      rig = buildCharacter(state.appearance, { classId: state.opening });
-      rig.group.position.set(0, DAIS.height, 0);
-      rig.setAppearance?.(state.appearance);
-      sc.scene.add(rig.group);
-      dressPreview();
-
-      // The dais is a real mesh in the real scene, so the light and the fog of
-      // the world fall on it, and it goes when the screen goes.
-      dais = new THREE.Group();
-      dais.name = 'creation-dais';
-      // A neutral studio light on the stage. The world's sun is warm and low
-      // and painted every robe brown next to the studio's own render
-      // (2026-09-08): a white key from the front left, a soft fill from the
-      // right, and a cool sky over a warm ground, parented to the dais so they
-      // leave with it.
-      const key = new THREE.DirectionalLight(0xffffff, 1.6);
-      key.position.set(-2.2, 4.5, 3.5);
-      key.target.position.set(0, 1.1, 0);
-      dais.add(key); dais.add(key.target);
-      const fill = new THREE.DirectionalLight(0xdfe8ff, 0.7);
-      fill.position.set(3, 2.5, 2);
-      fill.target.position.set(0, 1.1, 0);
-      dais.add(fill); dais.add(fill.target);
-      const sky = new THREE.HemisphereLight(0xe8eefc, 0x8a7a66, 0.55);
-      dais.add(sky);
-      const body = new THREE.Mesh(
-        new THREE.CylinderGeometry(DAIS.top, DAIS.foot, DAIS.height, 40, 1),
-        new THREE.MeshStandardMaterial({ color: 0x46413a, roughness: 0.97, metalness: 0 }),
-      );
-      body.position.y = DAIS.height / 2;
-      body.receiveShadow = true;
-      dais.add(body);
-      const lip = new THREE.Mesh(
-        new THREE.CylinderGeometry(DAIS.top * 0.94, DAIS.top * 0.94, 0.02, 40, 1),
-        new THREE.MeshStandardMaterial({ color: 0x585045, roughness: 0.92, metalness: 0 }),
-      );
-      lip.position.y = DAIS.height;
-      lip.receiveShadow = true;
-      dais.add(lip);
-      sc.scene.add(dais);
-
-      sc.setDay?.(0.34);
-      sc.setFog?.(26, 74);
-      frameCamera();
-      const spin = () => {
-        if (stopped) return;
-        // the arrows, eased. Nothing turns it but them.
-        const want = (yaw * Math.PI) / 180;
-        shownYaw += (want - shownYaw) * 0.16;
-        rig.group.rotation.y = shownYaw;
-        // the window, the side panels and the scroll all move the box the rig
-        // has to sit in, so it is measured rather than assumed, and the camera
-        // is only rebuilt when it actually moved
-        const box = openAir.getBoundingClientRect ? openAir.getBoundingClientRect() : null;
-        const key = box ? `${Math.round(box.left)}:${Math.round(box.top)}:${Math.round(box.width)}:${Math.round(box.height)}:${state.appearance.height}` : '';
-        if (key !== lastBox) { lastBox = key; frameCamera(); }
-        try { sc.render(); } catch { /* a lost context is not worth a crash here */ }
-        raf = requestAnimationFrame(spin);
-      };
-      raf = requestAnimationFrame(spin);
-    } catch (e) {
-      console.warn('[creation] no turning model', e);
-      rig = null;
-    }
-  }
-
   function destroy() {
-    stopped = true;
-    if (raf) cancelAnimationFrame(raf);
-    // The lens goes back the way it was found. A view offset left on the shared
-    // camera would frame the whole game off centre for the rest of the session.
-    if (sc?.camera?.clearViewOffset) {
-      sc.camera.clearViewOffset();
-      if (typeof sc.resize === 'function') sc.resize();
-      else sc.camera.updateProjectionMatrix();
-    }
-    if (rig && sc) sc.scene.remove(rig.group);
-    if (dais && sc) {
-      sc.scene.remove(dais);
-      for (const m of dais.children) { m.geometry?.dispose?.(); m.material?.dispose?.(); }
-      dais = null;
-    }
+    unboxFrame();
     el.remove();
   }
 
@@ -1668,12 +1508,8 @@ export function createCreation(root, deps = {}) {
     el, state,
     plan: () => planCharacter(state),
     pick,
-    turnBy,
     destroy,
-    get yaw() { return yaw; },
     get skillsOpen() { return !skillWrap.hidden; },
-    get rig() { return rig; },
-    get dais() { return dais; },
   };
 }
 

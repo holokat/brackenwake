@@ -37,6 +37,31 @@ const trisOf = (g) => (g ? g.index.count / 3 : 0);
 const BUDGET = [1400, 420, 90];
 
 // ---------------------------------------------------------------------------
+// The trunk faces outward. Its side quads were wound inward once, so a front
+// side material culled the near half of every trunk (the user, 2026-09-08:
+// "open geometry like its missing half of the trunk"). A triangle low on the
+// trunk and close to the axis is a trunk triangle; its normal must point away
+// from the axis.
+console.log('lowpoly: the trunk faces outward');
+{
+  for (const id of A.SPECIES_IDS) {
+    const p = buildLowPolyPrototype(id, 4242, { maturity: 1 });
+    const pos = p.bark.attributes.position.array, nrm = p.bark.attributes.normal.array;
+    let trunk = 0, outward = 0;
+    for (let i = 0; i + 8 < pos.length; i += 9) {
+      const cx = (pos[i] + pos[i + 3] + pos[i + 6]) / 3, cy = (pos[i + 1] + pos[i + 4] + pos[i + 7]) / 3, cz = (pos[i + 2] + pos[i + 5] + pos[i + 8]) / 3;
+      const r = Math.hypot(cx, cz);
+      if (cy < 0.05 || cy > p.height * 0.3 || r > p.radius * 1.6 || r < 1e-4) continue;
+      const ny = nrm[i + 1];
+      if (Math.abs(ny) > 0.7) continue;   // a cap or a lean, not a side
+      trunk++;
+      if ((nrm[i] * cx + nrm[i + 2] * cz) / r > 0) outward++;
+    }
+    check(`${id}: the trunk's side faces point away from the axis`, trunk > 0 && outward === trunk, `${outward} of ${trunk}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 console.log('lowpoly: every species at every band');
 {
   let worst = 0;

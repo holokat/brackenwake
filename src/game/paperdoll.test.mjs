@@ -10,7 +10,7 @@
 
 import {
   framing, turnFromDrag, dueAt, createPaperdoll,
-  DOLL_FOV, FILL, WIDTH_RATIO, EYE_FRACTION, TURN_PER_PX, PAPERDOLL_FPS,
+  DOLL_FOV, FILL, WIDTH_RATIO, EYE_FRACTION, TURN_PER_PX, PAPERDOLL_FPS, TO_SRGB,
 } from './paperdoll.js';
 import { BODY } from './player.js';
 
@@ -122,6 +122,18 @@ console.log('paperdoll: with nothing to draw into');
   doll.yaw = 3;
   check('the turn can be set from outside', near(doll.yaw, 3, 1e-9), String(doll.yaw));
   doll.dispose();
+}
+
+
+// ---- the readback colour space ---------------------------------------------
+// The render target is linear and three only converts for the screen, so the
+// doll converts on readback. A middle grey in linear (0.216) is 128 in sRGB.
+console.log('paperdoll: the readback is converted to sRGB');
+{
+  check('black stays black and white stays white', TO_SRGB[0] === 0 && TO_SRGB[255] === 255, `${TO_SRGB[0]} ${TO_SRGB[255]}`);
+  check('linear 55 (0.216) reads as sRGB 128', near(TO_SRGB[55], 128, 2), String(TO_SRGB[55]));
+  check('the table only ever brightens a midtone', [...TO_SRGB].every((v, i) => v >= i), '');
+  check('and it is monotonic', [...TO_SRGB].every((v, i) => i === 0 || v >= TO_SRGB[i - 1]), '');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

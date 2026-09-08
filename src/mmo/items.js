@@ -136,13 +136,16 @@ export const WEAPON_COLUMNS = ['skill', 'hands', 'minDamage', 'maxDamage', 'spee
 // ------------------------------------------------------------------ rarity
 // Colour is the whole language, so the hex is part of the rule, not a theme.
 // `affixes` is how many roll; legendary's fifth is joined by a named power.
+// The drop ladder, retuned 2026-09-08 at the user's word: white stays where
+// it was, green a touch lower, blue a bit less, purple much less, orange rare.
+// Gold is coins, which take no rarity and are not in this table.
 export const RARITY = {
-  common: { id: 'common', label: 'Common', colour: '#ffffff', affixes: 0, weight: 70, crafted: 0.60 },
-  uncommon: { id: 'uncommon', label: 'Uncommon', colour: '#1eff00', affixes: 1, weight: 20, crafted: 0.25 },
-  rare: { id: 'rare', label: 'Rare', colour: '#0070dd', affixes: 2, weight: 7, crafted: 0.10 },
-  epic: { id: 'epic', label: 'Epic', colour: '#a335ee', affixes: 3, weight: 2.4, crafted: 0.04 },
-  mythic: { id: 'mythic', label: 'Mythic', colour: '#ffd100', affixes: 4, weight: 0.5, crafted: 0.009 },
-  legendary: { id: 'legendary', label: 'Legendary', colour: '#ff8000', affixes: 5, weight: 0.1, crafted: 0.001, namedPower: true },
+  common: { id: 'common', label: 'Common', colour: '#ffffff', affixes: 0, weight: 76.75, crafted: 0.60 },
+  uncommon: { id: 'uncommon', label: 'Uncommon', colour: '#1eff00', affixes: 1, weight: 17, crafted: 0.25 },
+  rare: { id: 'rare', label: 'Rare', colour: '#0070dd', affixes: 2, weight: 5, crafted: 0.10 },
+  epic: { id: 'epic', label: 'Epic', colour: '#a335ee', affixes: 3, weight: 0.8, crafted: 0.04 },
+  mythic: { id: 'mythic', label: 'Mythic', colour: '#ffd100', affixes: 4, weight: 0.4, crafted: 0.009 },
+  legendary: { id: 'legendary', label: 'Legendary', colour: '#ff8000', affixes: 5, weight: 0.05, crafted: 0.001, namedPower: true },
 };
 export const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'mythic', 'legendary'];
 export const RARITY_COLUMNS = ['colour', 'affixes', 'weight', 'crafted'];

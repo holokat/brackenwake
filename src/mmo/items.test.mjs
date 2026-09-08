@@ -302,7 +302,7 @@ const threw = (fn) => { try { fn(); return false; } catch { return true; } };
 // ------------------------------------------------------------------- rarity
 {
   check('six rarities', RARITY_ORDER.length === 6, RARITY_ORDER.join(' '));
-  const doc = { common: [0, 70, 0.60], uncommon: [1, 20, 0.25], rare: [2, 7, 0.10], epic: [3, 2.4, 0.04], mythic: [4, 0.5, 0.009], legendary: [5, 0.1, 0.001] };
+  const doc = { common: [0, 76.75, 0.60], uncommon: [1, 17, 0.25], rare: [2, 5, 0.10], epic: [3, 0.8, 0.04], mythic: [4, 0.4, 0.009], legendary: [5, 0.05, 0.001] };
   let same = 0;
   for (const [id, [affixes, weight, crafted]] of Object.entries(doc)) {
     const r = RARITY[id];

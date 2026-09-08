@@ -216,8 +216,10 @@ console.log('\nforage: what a meadow chunk gets, by season, as pickables and as 
   const nowAll = counts.Spring.records + counts.Summer.records + counts.Autumn.records;
   const wasAll = WAS.Spring + WAS.Summer + WAS.Autumn;
   console.log(`     over the three growing seasons: ${wasAll} pickables became ${nowAll}, which is ${Math.round(nowAll / wasAll * 100)}%`);
-  check('an Autumn meadow chunk holds about a quarter of the pickables it did',
-    counts.Autumn.records / WAS.Autumn > 0.18 && counts.Autumn.records / WAS.Autumn < 0.30,
+  // The quarter became about an eighth on 2026-09-08, when FORAGE_DENSITY
+  // halved every plentiful kind at the user's word.
+  check('an Autumn meadow chunk holds about an eighth of the pickables it did',
+    counts.Autumn.records / WAS.Autumn > 0.09 && counts.Autumn.records / WAS.Autumn < 0.20,
     `${counts.Autumn.records} against ${WAS.Autumn}, ${Math.round(counts.Autumn.records / WAS.Autumn * 100)}%`);
   check('and no season holds even a third of what it did',
     SEASONS.every((s) => !WAS[s] || counts[s].records / WAS[s] < 0.33),
@@ -231,8 +233,8 @@ console.log('\nforage: what a meadow chunk gets, by season, as pickables and as 
   check('and the caps took the PLANTS down by more than a third, in every growing season',
     ['Spring', 'Summer', 'Autumn'].every((s) => counts[s].plants < BEFORE_CAP[s].plants * 0.67),
     ['Spring', 'Summer', 'Autumn'].map((s) => `${s[0]} ${counts[s].plants}/${BEFORE_CAP[s].plants}`).join('  '));
-  check('while the pickables stayed within a fifth of what they were',
-    ['Spring', 'Summer', 'Autumn'].every((s) => Math.abs(counts[s].records - BEFORE_CAP[s].records) <= BEFORE_CAP[s].records * 0.2),
+  check('while the pickables came down to about half of what they were (FORAGE_DENSITY)',
+    ['Spring', 'Summer', 'Autumn'].every((s) => counts[s].records >= BEFORE_CAP[s].records * 0.35 && counts[s].records <= BEFORE_CAP[s].records * 0.75),
     ['Spring', 'Summer', 'Autumn'].map((s) => `${s[0]} ${counts[s].records}/${BEFORE_CAP[s].records}`).join('  '));
   check('Summer is full', counts.Summer.records > 0 && counts.Summer.kinds >= 5, JSON.stringify(counts.Summer));
   check('Autumn is full', counts.Autumn.records > 0, JSON.stringify(counts.Autumn));

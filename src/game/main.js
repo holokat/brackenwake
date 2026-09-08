@@ -24,7 +24,6 @@ import { createSystems } from './app/system.js';
 import { SYSTEMS, world } from './app/systems/index.js';
 import { createCreation } from './creation.js';
 import { createRoster } from './roster.js';
-import { buildStudioCharacter as buildCharacter } from './studio/body.js';
 import { rosterAsked, clearRosterAsk } from './state.js';
 import { normalise as normaliseSettings } from './win_settings.js';
 import { WORLD_FOG } from './scene.js';
@@ -63,9 +62,9 @@ async function boot() {
   });
   const { sc, state, input, audio } = ctx;
 
-  // The ground is raised before the character is chosen: creation.js turns its
-  // rig over real terrain, and the world is expensive enough to want the head
-  // start. The second call below finds it standing and keeps it.
+  // The ground is raised before the character is chosen, and the world is
+  // expensive enough to want the head start. The second call below finds it
+  // standing and keeps it.
   createSystems(ctx, [world]);
   // Birth, people, forage and combat must all start on the saved landscape.
   // Starting them before the fetch finished cached the generated world's
@@ -95,7 +94,7 @@ async function boot() {
    */
   function showRoster() {
     createRoster(ctx.hudRoot, {
-      sc, state,
+      state,
       onPlay: (id) => {
         state.openSlot(id);
         // A slot that was begun and never finished goes back to the making of
@@ -113,12 +112,12 @@ async function boot() {
   // scene and removes itself before onDone, so the game loop waits for it.
   function showCreation() {
     createCreation(ctx.hudRoot, {
-      sc, buildCharacter,
       onDone: (character) => {
         state.setCharacter(character);
         state.save();
         startGame();
       },
+      onCancel: () => showRoster(),
     });
     window.__bw = { sc, state, hud: ctx.hud, audio, input, camera: ctx.camera, THREE: ctx.THREE, creating: true };
     return window.__bw;

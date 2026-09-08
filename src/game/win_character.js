@@ -85,12 +85,16 @@ export const TITLE_AT = 30;
  * auditTitles() proves it, so a fifty third skill fails here rather than
  * leaving somebody with no title and no explanation.
  */
+// The plate under the dais names the skill in use, not the class. Magery's
+// word was 'Wizard' for a day and a Warrior holding a wand read "Wizard"
+// under "Warrior" (the user, 2026-09-08: "wth is going on?"). No title may
+// be a class word: auditTitles checks it.
 export const TITLES = {
   swordsmanship: 'Swordsman', macefighting: 'Hammerhand', fencing: 'Duellist',
   wrestling: 'Brawler', polearms: 'Pikeman', tactics: 'Tactician',
   anatomy: 'Anatomist', parrying: 'Shieldbearer',
   archery: 'Archer', marksmanship: 'Marksman', tracking: 'Tracker',
-  magery: 'Wizard', evaluatingIntelligence: 'Scholar', meditation: 'Adept',
+  magery: 'Conjurer', evaluatingIntelligence: 'Scholar', meditation: 'Adept',
   resistingSpells: 'Warded', necromancy: 'Necromancer', spiritSpeak: 'Spirit Speaker',
   chivalry: 'Knight', mysticism: 'Mystic', inscription: 'Scribe',
   healing: 'Healer', veterinary: 'Beast Healer', poisoning: 'Poisoner',
@@ -165,6 +169,7 @@ export function auditDoll() {
 /** Every skill names a person, and no title names a skill that is not there. */
 export function auditTitles() {
   for (const s of SKILLS) if (!TITLES[s.id]) throw new Error(`auditTitles: ${s.name} makes nobody`);
+  for (const [id, word] of Object.entries(TITLES)) if (['Warrior', 'Ranger', 'Rogue', 'Wizard', 'Mage'].includes(word)) throw new Error(`auditTitles: ${id} is titled ${word}, which is a class word`);
   for (const id of Object.keys(TITLES)) {
     if (!SKILL_BY_ID.has(id)) throw new Error(`auditTitles: "${id}" is a title for a skill that does not exist`);
   }
@@ -394,6 +399,24 @@ const CSS = `
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 5px 12px rgba(0,0,0,.35);
 }
 .bw-sheet .bw-doll-slot .bw-tag { display: none; }
+
+/* Bigger on the sheet, at the user's word (2026-09-08): the name, the headers,
+   the stat rows and the art in every slot. The glyph is an inline SVG drawn at
+   30 px, or a webp image at 30 px; the span it sits in is sized to the cell and the SVG fills the span. */
+.bw-sheet .bw-left-panel .bw-title { font-size: 31px; }
+.bw-sheet .bw-left-panel .bw-class-word { font-size: 17px; }
+.bw-sheet .bw-left-panel .bw-quote { font-size: 16px; }
+.bw-sheet .bw-hdr { font-size: 15px; margin-top: 16px; }
+.bw-sheet .bw-inv-head .bw-hdr { font-size: 15px; margin-top: 0; }
+.bw-sheet .bw-inv-count { font-size: 15px; }
+.bw-sheet .bw-left-panel .bw-row { font-size: 18px; grid-template-columns: 24px 1fr auto; padding: 4px 0; }
+.bw-sheet .bw-left-panel .bw-row .bw-v { font-size: 17px; }
+.bw-sheet .bw-left-panel .bw-row .bw-i svg { width: 22px; height: 22px; }
+.bw-sheet .bw-doll-slot > span:not(.bw-q) { display: flex; width: 84%; height: 84%; align-items: center; justify-content: center; }
+.bw-sheet .bw-doll-slot > span:not(.bw-q) > svg, .bw-sheet .bw-doll-slot > span:not(.bw-q) > img { width: 100%; height: 100%; object-fit: contain; }
+.bw-sheet .bw-doll-slot .bw-q { font-size: 34px; }
+.bw-sheet .bw-bag-grid .bw-slot > span:not(.bw-q) { display: flex; width: 86%; height: 86%; align-items: center; justify-content: center; }
+.bw-sheet .bw-bag-grid .bw-slot > span:not(.bw-q) > svg, .bw-sheet .bw-bag-grid .bw-slot > span:not(.bw-q) > img { width: 100%; height: 100%; object-fit: contain; }
 `;
 
 const h = (tag, cls, text) => {

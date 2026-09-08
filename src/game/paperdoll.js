@@ -100,6 +100,13 @@ export const dueAt = (last, now, fps = PAPERDOLL_FPS) => now - last >= 1000 / Ma
  * @param {object} opts    { width, height, fps, background }
  * @returns {{ canvas, el, update, setVisible, dispose, framing, get yaw, set yaw }}
  */
+/** Linear byte to sRGB byte, once, for the readback below. */
+export const TO_SRGB = new Uint8ClampedArray(256);
+for (let i = 0; i < 256; i++) {
+  const c = i / 255;
+  TO_SRGB[i] = Math.round((c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055) * 255);
+}
+
 export function createPaperdoll(sc, rigGetter, opts = {}) {
   const width = Math.max(32, Math.round(opts.width || 240));
   const height = Math.max(32, Math.round(opts.height || 340));
@@ -250,7 +257,17 @@ export function createPaperdoll(sc, rigGetter, opts = {}) {
     const row = width * 4;
     for (let y = 0; y < height; y++) {
       const from = (height - 1 - y) * row;
-      flipped.data.set(pixels.subarray(from, from + row), y * row);
+      // The render target is linear: three applies the output colour space
+      // only when drawing to the screen, so the pixels come back with every
+      // midtone crushed (the figure read as a black silhouette in the codex,
+      // the user, 2026-09-08). Convert on the way across, alpha untouched.
+      const dst = y * row;
+      for (let i = 0; i < row; i += 4) {
+        flipped.data[dst + i] = TO_SRGB[pixels[from + i]];
+        flipped.data[dst + i + 1] = TO_SRGB[pixels[from + i + 1]];
+        flipped.data[dst + i + 2] = TO_SRGB[pixels[from + i + 2]];
+        flipped.data[dst + i + 3] = pixels[from + i + 3];
+      }
     }
     ctx2d.clearRect(0, 0, width, height);
     ctx2d.putImageData(flipped, 0, 0);

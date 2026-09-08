@@ -12,8 +12,7 @@ import {
   classProfile, classProfileDetail, topSkills, strengthOf, armourTiersFor, asProfile,
   PROFILE_SKILLS, PROFILE_TOP, MAGIC_SKILLS, ROBE_SKILLS, CLASS_BIAS, BOSS_BIAS, AMMO_FOR, kitDraw, KIT_SHARES,
   SIGNATURES, SIGNATURE_BY_ID, UNIQUE_CHANCE, signatureFor, makeUnique, rollUnique,
-  auditSignatures,
-} from './loot.js';
+  auditSignatures, GEAR_DROP_SCALE } from './loot.js';
 import {
   RARITY, RARITY_ORDER, baseFor, takesRarity, auditItems, MEAT_BASES, BASES, ARMOR_TIERS,
 } from './items.js';
@@ -36,15 +35,15 @@ const tally = (tier, luck, seed, n) => {
 
 // ------------------------------------------------------------- the weights
 {
-  check('the base weights are the printed column', BASE_WEIGHTS.join(' ') === '70 20 7 2.4 0.5 0.1', BASE_WEIGHTS.join(' '));
+  check('the base weights are the printed column', BASE_WEIGHTS.join(' ') === '76.75 17 5 0.8 0.4 0.05', BASE_WEIGHTS.join(' '));
   check('the shift is one row per two tiers',
     [0, 1, 2, 3, 4, 5].map(shiftFor).join('') === '001122', [0, 1, 2, 3, 4, 5].map((t) => `t${t}:${shiftFor(t)}`).join(' '));
-  check('tier 1 is the printed table exactly', weightsFor(1, 0).join(' ') === '70 20 7 2.4 0.5 0.1');
+  check('tier 1 is the printed table exactly', weightsFor(1, 0).join(' ') === '76.75 17 5 0.8 0.4 0.05');
   check('no probability is lost at any tier',
     [0, 1, 2, 3, 4, 5].every((t) => Math.abs(weightsFor(t, 0).reduce((s, x) => s + x, 0) - 100) < 1e-9),
     [0, 1, 2, 3, 4, 5].map((t) => weightsFor(t, 0).reduce((s, x) => s + x, 0).toFixed(1)).join(' '));
-  check('tier 3 drops no whites and hands the 70 to green', weightsFor(3, 0)[0] === 0 && weightsFor(3, 0)[1] === 70, weightsFor(3, 0).join(' '));
-  check('tier 5 starts at blue', weightsFor(5, 0)[0] === 0 && weightsFor(5, 0)[1] === 0 && weightsFor(5, 0)[2] === 70, weightsFor(5, 0).join(' '));
+  check('tier 3 drops no whites and hands the white share to green', weightsFor(3, 0)[0] === 0 && weightsFor(3, 0)[1] === 76.75, weightsFor(3, 0).join(' '));
+  check('tier 5 starts at blue', weightsFor(5, 0)[0] === 0 && weightsFor(5, 0)[1] === 0 && weightsFor(5, 0)[2] === 76.75, weightsFor(5, 0).join(' '));
   check('Luck lifts every row above common and leaves common alone', (() => {
     const w0 = weightsFor(1, 0), w40 = weightsFor(1, 40);
     return w0[0] === w40[0] && w40.slice(1).every((x, i) => Math.abs(x - w0[i + 1] * 1.2) < 1e-9);
@@ -55,7 +54,7 @@ const tally = (tier, luck, seed, n) => {
 {
   const N = 100000;
   const c = tally(1, 0, 20260904, N);
-  const expect = { common: 0.70, uncommon: 0.20, rare: 0.07, epic: 0.024, mythic: 0.005, legendary: 0.001 };
+  const expect = { common: 0.7675, uncommon: 0.17, rare: 0.05, epic: 0.008, mythic: 0.004, legendary: 0.0005 };
   const dev = {};
   for (const r of RARITY_ORDER) dev[r] = (c[r] / (N * expect[r]) - 1) * 100;
   const report = RARITY_ORDER.map((r) => `${r} ${c[r]} (${dev[r] >= 0 ? '+' : ''}${dev[r].toFixed(1)}%)`).join(', ');
@@ -85,9 +84,9 @@ const tally = (tier, luck, seed, n) => {
   const aboveRare = (c2) => (c2.rare + c2.epic + c2.mythic + c2.legendary) / N2;
   console.log(`  blue or better: tier 1 ${(aboveRare(t1) * 100).toFixed(2)}%, tier 3 ${(aboveRare(t3) * 100).toFixed(2)}%, tier 5 ${(aboveRare(t5) * 100).toFixed(2)}%`);
   check('a tier 3 monster never drops a white', t3.common === 0, `${t3.common} whites in ${N2}`);
-  check('a tier 3 monster drops green about 70% of the time', Math.abs(t3.uncommon / N2 - 0.70) < 0.01, `${(t3.uncommon / N2 * 100).toFixed(2)}%`);
+  check('a tier 3 monster drops green about 77% of the time', Math.abs(t3.uncommon / N2 - 0.7675) < 0.01, `${(t3.uncommon / N2 * 100).toFixed(2)}%`);
   check('a tier 5 monster never drops a white or a green', t5.common === 0 && t5.uncommon === 0, `${t5.common} whites, ${t5.uncommon} greens`);
-  check('a tier 5 monster drops blue about 70% of the time', Math.abs(t5.rare / N2 - 0.70) < 0.01, `${(t5.rare / N2 * 100).toFixed(2)}%`);
+  check('a tier 5 monster drops blue about 77% of the time', Math.abs(t5.rare / N2 - 0.7675) < 0.01, `${(t5.rare / N2 * 100).toFixed(2)}%`);
   check('blue or better climbs with tier', aboveRare(t1) < aboveRare(t3) && aboveRare(t3) < aboveRare(t5));
   check('tier 2 and tier 3 share a shift, tier 4 and tier 5 share a shift',
     weightsFor(2, 0).join() === weightsFor(3, 0).join() && weightsFor(4, 0).join() === weightsFor(5, 0).join());
@@ -98,7 +97,7 @@ const tally = (tier, luck, seed, n) => {
   const N = 200000;
   const none = tally(1, 0, 31, N), lucky = tally(1, 40, 31, N);
   const above = (c) => (N - c.common) / N;
-  const predicted = (30 * 1.2) / (70 + 30 * 1.2);
+  const predicted = (23.25 * 1.2) / (76.75 + 23.25 * 1.2);
   console.log(`  above common: luck 0 ${(above(none) * 100).toFixed(2)}%, luck 40 ${(above(lucky) * 100).toFixed(2)}%, predicted ${(predicted * 100).toFixed(2)}%`);
   check('Luck raises the chance of anything above common', above(lucky) > above(none));
   check('and by the amount the weights predict', Math.abs(above(lucky) - predicted) < 0.005,
@@ -238,9 +237,26 @@ const tally = (tier, luck, seed, n) => {
   for (let s = 0; s < 1000; s++) {
     const once = rollKill({ table: TABLE, tier: 5, seed: s });
     const champion = rollKill({ table: TABLE, tier: 5, seed: s, twice: true });
+    // An ordinary kill may lose the gear coin (GEAR_DROP_SCALE); a champion never does.
+    if (!once.item) { if (champion.item) twiceBetter++; continue; }
     if (RARITY_ORDER.indexOf(champion.item.rarity) >= RARITY_ORDER.indexOf(once.item.rarity)) twiceBetter++;
   }
   check('a champion rolling twice is never worse off', twiceBetter === 1000, `${twiceBetter} of 1000`);
+  // The gear coin, measured: about a quarter of ordinary kills leave gold only.
+  {
+    let dropped = 0, coined = 0;
+    for (let s = 0; s < 4000; s++) {
+      const k = rollKill({ table: TABLE, tier: 3, seed: s });
+      if (k.item) dropped++;
+      if (k.bias.gearCoin === 'none') coined++;
+    }
+    check(`about ${Math.round(GEAR_DROP_SCALE * 100)}% of ordinary kills drop gear (GEAR_DROP_SCALE)`,
+      Math.abs(dropped / 4000 - GEAR_DROP_SCALE) < 0.03, `${dropped} of 4000, ${coined} lost the coin`);
+    check('every kill that lost the coin says so in the record', coined === 4000 - dropped, `${coined} against ${4000 - dropped}`);
+    let bossDrops = 0;
+    for (let s = 0; s < 400; s++) if (rollKill({ table: TABLE, tier: 3, seed: s, boss: true }).item) bossDrops++;
+    check('a boss never loses the coin', bossDrops === 400, `${bossDrops} of 400`);
+  }
 }
 
 // ------------------------------------------------------------------- audit
@@ -587,7 +603,8 @@ const tally = (tier, luck, seed, n) => {
   }
   check(`${lines.length} unprofiled drops hash to what the module said before the bias existed`,
     // '2d7e6fdd' until 2026-09-08: the eight armour pieces became one outfit per tier, so every seeded roll over a table that names armour lands differently
-    fnv(lines.join('|')) === 'bd118b31', fnv(lines.join('|')));
+    // 'bd118b31' until the rarity retune of 2026-09-08 (white 76.75, green 17, blue 5, purple 0.8, gold 0.4, orange 0.05)
+    fnv(lines.join('|')) === 'bd654cf7', fnv(lines.join('|')));
 
   const kills = [];
   for (const [boss, twice] of [[false, false], [false, true], [true, false]]) for (let s = 0; s < 1000; s++) {
@@ -595,7 +612,7 @@ const tally = (tier, luck, seed, n) => {
     kills.push(`${k.gold}:${JSON.stringify(k.item)}`);
   }
   check(`and ${kills.length} unprofiled kills, gold and item together, hash to the same`,
-    fnv(kills.join('|')) === '71d0fb80', fnv(kills.join('|')));   // '5d5daaac' before the outfit, see above
+    fnv(kills.join('|')) === '60692b31', fnv(kills.join('|')));   // '71d0fb80' before the rarity retune and the gear coin of 2026-09-08
 
   check('a profile of nothing is the same as no profile at all',
     JSON.stringify(rollDrop({ table: TABLE, tier: 3, seed: 12, profile: new Set() }))
@@ -616,7 +633,8 @@ const tally = (tier, luck, seed, n) => {
         const r = rollKill({ table: TABLE, tier: 3, seed: s, character: c });
         if (r.bias?.biased) { biased++; if (r.bias.from === 'kit') kit++; if (r.item && !profile.has(r.item.base)) offProfile++; }
       }
-      return biased > 250 && kit === biased && offProfile === 0;
+      // 500 kills, three in four roll for gear (GEAR_DROP_SCALE), six in ten of those are biased
+      return biased > 180 && kit === biased && offProfile === 0;
     })());
   check('and a kit draw hands out outfits, weapons and ammunition alike (one armour slot since 2026-09-08)', (() => {
     const d = classProfileDetail({ skills: { archery: 60, tracking: 40 }, stats: { str: 45, dex: 70 } });

@@ -981,9 +981,10 @@ console.log('win_dev: give all, and inspect');
   const before = items.map((it) => it.id).join(',');
   bench.rollLoot({ tier: 2, count: 9, seed: 5 });
   const r = bench.giveAll();
-  check('a full pack takes none of them and counts every refusal', r.ok === false && r.added === 0 && r.refused === 9, r.text);
+  const rolled = bench.lastRoll().items.length;   // the gear coin may leave a kill empty
+  check('a full pack takes none of them and counts every refusal', r.ok === false && r.added === 0 && r.refused === rolled && rolled > 0, r.text);
   check('the pack is byte for byte what it was', items.map((it) => it.id).join(',') === before);
-  check('and it says how many did not fit and that they were kept', /9 did not fit and are still in the lab/.test(r.text), r.text);
+  check('and it says how many did not fit and that they were kept', new RegExp(`${rolled} did not fit and are still in the lab`).test(r.text), r.text);
   const nothing = createBench(realCtx()).giveAll();
   check('nothing rolled is nothing to give, and it says so', nothing.ok === false && /nothing has been rolled/.test(nothing.text), nothing.text);
 }

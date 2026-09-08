@@ -105,6 +105,7 @@ const {
   RESOURCES, RESOURCE_ART, COIN_MARK, LOG_MARK, effectsView, initialsOf,
   STATUS_EFFECTS, EFFECT_COUNTDOWN_AT, statusRemaining,
   TOP_CENTRE, PLACE_H, COMPASS_SLOT_TOP, placeBox, boxesOverlap,
+  LOG_POS_KEY, PURSE_POS_KEY, POOLS_POS_KEY, MINIMAP_POS_KEY, DRAG_THRESHOLD,
 } = hudMod;
 const { targetFrame } = await import('./targeting.js');
 const { theme } = await import('./ui_theme.js');
@@ -122,9 +123,33 @@ const runtime = await import('./abilities_runtime.js');
 const { readFileSync: readSrc } = await import('node:fs');
 const { fileURLToPath: toPath } = await import('node:url');
 const hudSrc = readSrc(toPath(new URL('./hud.js', import.meta.url)), 'utf8');
+const minimapSrc = readSrc(toPath(new URL('./minimap.js', import.meta.url)), 'utf8');
+const windowsSrc = readSrc(toPath(new URL('./windows.js', import.meta.url)), 'utf8');
 
 let bad = 0, pass = 0;
 const ck = (n, ok, d = '') => { (ok ? pass++ : bad++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
+
+const store = new Map();
+const writes = [];
+globalThis.localStorage = {
+  getItem: (k) => store.has(k) ? store.get(k) : null,
+  setItem: (k, v) => { store.set(k, String(v)); writes.push({ k, v: String(v) }); },
+  removeItem: (k) => { store.delete(k); },
+};
+globalThis.window = { innerWidth: 1280, innerHeight: 720 };
+const styleOf = (n) => `left ${n.style.left || ''}, top ${n.style.top || ''}, right ${n.style.right || ''}, bottom ${n.style.bottom || ''}`;
+const drag = (handle, x, y, dx, dy) => {
+  handle.fire('pointerdown', { button: 0, pointerId: 1, clientX: x, clientY: y, stopPropagation() {} });
+  handle.fire('pointermove', { pointerId: 1, clientX: x + dx / 3, clientY: y + dy / 3, preventDefault() {}, stopPropagation() {} });
+  handle.fire('pointermove', { pointerId: 1, clientX: x + dx * 2 / 3, clientY: y + dy * 2 / 3, preventDefault() {}, stopPropagation() {} });
+  handle.fire('pointermove', { pointerId: 1, clientX: x + dx, clientY: y + dy, preventDefault() {}, stopPropagation() {} });
+  handle.fire('pointerup', { pointerId: 1, clientX: x + dx, clientY: y + dy, preventDefault() {}, stopPropagation() {} });
+};
+const press = (handle, x, y, dx, dy) => {
+  handle.fire('pointerdown', { button: 0, pointerId: 1, clientX: x, clientY: y, stopPropagation() {} });
+  handle.fire('pointermove', { pointerId: 1, clientX: x + dx, clientY: y + dy, preventDefault() {}, stopPropagation() {} });
+  handle.fire('pointerup', { pointerId: 1, clientX: x + dx, clientY: y + dy, preventDefault() {}, stopPropagation() {} });
+};
 
 // --- the row that is gone (T3) ----------------------------------------------
 console.log('hud: there is no tool row');
@@ -218,6 +243,10 @@ const auraEl = find(root, (n) => n.id === 'bw-auras');
 ck('the bar has exactly twelve cells and not thirteen', barRow.children.length === 12, String(barRow.children.length));
 ck('and the built HUD has no tool row node in it at all',
   find(root, (n) => n.id === 'bw-tools') === null);
+ck('the portrait plate is gone from the DOM',
+  find(root, (n) => n.id === 'bw-portrait') === null);
+ck('and the source no longer builds or writes that plate',
+  !/id = 'bw-portrait'|mk\('div', 'bw-portrait'|appendChild\(node\)/.test(hudSrc));
 ck('each cell wears its own key cap',
   barRow.children.map((c) => c.children[0].textContent).join(',')
   === BAR_KEYS.map((k) => KEY_LABELS[k] || k).join(','),
@@ -242,6 +271,12 @@ ck('setHint still shows the hint', find(root, (n) => n.id === 'bw-hint').classLi
 hud.toast('you found something', 'good');
 ck('toast still lands in the toast column',
   find(root, (n) => n.id === 'bw-toasts').children.length === 1);
+ck('the purse and place panels no longer get HUD pseudo corner brackets',
+  !/#bw-hud \.panel::before/.test(hudSrc) && !/#bw-hud \.panel::after/.test(hudSrc));
+ck('the minimap frame no longer draws corner images or pseudo brackets',
+  !/cornerUrl/.test(minimapSrc) && !/#bw-hud #bw-minimap::before/.test(minimapSrc));
+ck('the standalone window frame no longer uses the global ornate border image',
+  /#bw-windows \.bw-win-plain \.bw-frame[\s\S]*border-image: none/.test(windowsSrc));
 
 // the log
 for (let i = 1; i <= 12; i++) hud.log(`line ${i}`, i % 2 ? 'good' : 'bad');
@@ -250,6 +285,84 @@ ck('the log keeps the last eight and drops the rest',
 ck('the log has eight rows in the DOM, not twelve', logEl.children.length === 8, String(logEl.children.length));
 ck('a log line is text, not markup', logEl.children[0].textContent === 'line 5' && logEl.children[0].innerHTML === '');
 ck('an empty line is refused rather than drawn blank', hud.log('') === null && logEl.children.length === 8);
+
+// draggable HUD panels --------------------------------------------------------
+console.log('hud: draggable HUD panels');
+{
+  const bottomLeft = find(root, (n) => n.id === 'bw-bl');
+  const purseEl = find(root, (n) => n.id === 'bw-purse');
+  bottomLeft.offsetWidth = 360; bottomLeft.offsetHeight = 180;
+  purseEl.offsetWidth = 220; purseEl.offsetHeight = 34;
+  poolsEl.offsetWidth = 236; poolsEl.offsetHeight = 60;
+  const cases = [
+    { name: 'log', handle: logEl, box: bottomLeft, key: LOG_POS_KEY, x: 60, y: 620, dx: 72, dy: -33 },
+    { name: 'resource bar', handle: purseEl, box: purseEl, key: PURSE_POS_KEY, x: 30, y: 25, dx: 88, dy: 31 },
+    { name: 'stats', handle: poolsEl, box: poolsEl, key: POOLS_POS_KEY, x: 40, y: 70, dx: 102, dy: 44 },
+  ];
+  for (const c of cases) {
+    const beforeStyle = styleOf(c.box);
+    const beforeWrites = writes.length;
+    press(c.handle, c.x, c.y, DRAG_THRESHOLD - 1, 0);
+    ck(`${c.name} small press stays put`,
+      styleOf(c.box) === beforeStyle && writes.length === beforeWrites && !store.has(c.key),
+      `${beforeStyle} -> ${styleOf(c.box)}, writes ${writes.length - beforeWrites}`);
+    drag(c.handle, c.x, c.y, c.dx, c.dy);
+    const afterStyle = styleOf(c.box);
+    const saved = store.get(c.key) || '';
+    ck(`${c.name} drag writes style and ${c.key}`,
+      afterStyle !== beforeStyle && !!saved,
+      `${beforeStyle} -> ${afterStyle}; ${c.key} ${saved}`);
+    console.log(`       ${c.name}: ${beforeStyle} -> ${afterStyle}; ${c.key} ${saved}`);
+  }
+
+  let warped = 0;
+  const map = hud.mountMinimap({
+    field: null, player: { pos: { x: 0, z: 0 } }, camera: {},
+    isDev: () => true, onWarp: () => { warped++; return { ok: true }; },
+  });
+  map.el.offsetWidth = 232; map.el.offsetHeight = 245;
+  const beforeStyle = styleOf(map.el);
+  const beforeWrites = writes.length;
+  const map2 = hud.mountMinimap();
+  ck('mounting the minimap twice still returns the same square', map2 === map);
+  press(map.el, 300, 70, DRAG_THRESHOLD - 1, 0);
+  ck('minimap small press on the frame stays put',
+    styleOf(map.el) === beforeStyle && writes.length === beforeWrites && !store.has(MINIMAP_POS_KEY),
+    `${beforeStyle} -> ${styleOf(map.el)}, writes ${writes.length - beforeWrites}`);
+  drag(map.el, 300, 70, -70, 42);
+  const afterStyle = styleOf(map.el);
+  const saved = store.get(MINIMAP_POS_KEY) || '';
+  ck('minimap frame drag writes style and bw_minimap_pos',
+    afterStyle !== beforeStyle && !!saved,
+    `${beforeStyle} -> ${afterStyle}; ${MINIMAP_POS_KEY} ${saved}`);
+  ck('the minimap box reports the moved element',
+    hud.minimapBox.left === JSON.parse(saved).x && hud.minimapBox.top === JSON.parse(saved).y,
+    JSON.stringify(hud.minimapBox));
+  map.el.fire('pointerdown', { target: map.el, clientX: 300, clientY: 70, stopPropagation() {} });
+  ck('a frame press is not a map warp click', warped === 0, String(warped));
+  map.canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 220, height: 220 });
+  const canvasStyle = styleOf(map.el);
+  map.el.fire('pointerdown', { target: map.canvas, clientX: 55, clientY: 55, stopPropagation() {} });
+  map.el.fire('pointermove', { target: map.canvas, clientX: 95, clientY: 95, preventDefault() {}, stopPropagation() {} });
+  map.el.fire('pointerup', { target: map.canvas, clientX: 95, clientY: 95, preventDefault() {}, stopPropagation() {} });
+  ck('a map press still goes to the map instead of the frame drag',
+    warped === 1 && styleOf(map.el) === canvasStyle,
+    `warps ${warped}, ${canvasStyle} -> ${styleOf(map.el)}`);
+  console.log(`       minimap: ${beforeStyle} -> ${afterStyle}; ${MINIMAP_POS_KEY} ${saved}`);
+
+  const hudReload = createHud(document.body);
+  const reloadPurse = find(hudReload.el, (n) => n.id === 'bw-purse');
+  const reloadPools = find(hudReload.el, (n) => n.id === 'bw-pools');
+  const reloadLog = find(hudReload.el, (n) => n.id === 'bw-bl');
+  const reloadMap = hudReload.mountMinimap({ field: null, player: { pos: { x: 0, z: 0 } }, camera: {} });
+  ck('saved purse, stats, log and minimap positions are read on a fresh HUD',
+    reloadPurse.style.left === purseEl.style.left
+    && reloadPools.style.left === poolsEl.style.left
+    && reloadLog.style.left === bottomLeft.style.left
+    && reloadMap.el.style.right === map.el.style.right,
+    `${styleOf(reloadPurse)} | ${styleOf(reloadPools)} | ${styleOf(reloadLog)} | ${styleOf(reloadMap.el)}`);
+  hudReload.dispose();
+}
 
 // update: pools, target, bar
 const bar = BAR_KEYS.map(() => ({ ability: null, cooldownLeft: 0, affordable: true }));
@@ -505,12 +618,9 @@ ck('an unmeasured number is left out rather than printed as a zero',
 
 // --- the portrait plate ------------------------------------------------------
 {
-  const plate = find(root, (n) => n.id === 'bw-portrait');
-  ck('the portrait plate starts with a drawn helm in it', /<svg/.test(plate.innerHTML), plate.innerHTML.slice(0, 20));
   const canvas = document.createElement('canvas');
-  ck('and takes the paper doll s canvas when there is one', hud.setPortrait(canvas) === true);
-  ck('which is then the only thing in it', plate.children.length === 1 && plate.children[0] === canvas);
-  ck('handing it nothing changes nothing', hud.setPortrait(null) === false && plate.children.length === 1);
+  ck('setPortrait remains a no op for old callers',
+    hud.setPortrait(canvas) === false && find(root, (n) => n.id === 'bw-portrait') === null);
 }
 
 
@@ -1158,13 +1268,15 @@ console.log('hud: editor mode puts the HUD away and gives it back');
   const withHidden = shot();
   ck('the HUD starts in play mode', hud.mode === 'play');
   const put = hud.setMode('editor');
-  ck('entering the editor puts every child of the HUD root away but the dev badge',
-    [...root.children].every((c) => c.id === 'bw-dev' || c.style.display === 'none')
+  const kept = new Set(['bw-dev', 'bw-minimap']);
+  ck('entering the editor puts every child of the HUD root away but the dev badge and minimap',
+    [...root.children].every((c) => kept.has(c.id) || c.style.display === 'none')
     && find(root, (n) => n.id === 'bw-dev').style.display !== 'none'
+    && find(root, (n) => n.id === 'bw-minimap').style.display !== 'none'
     && hud.mode === 'editor',
     `${put.hidden} put away of ${root.children.length}`);
-  ck('and it says how many it put away, which is every child but the badge',
-    put.hidden === root.children.length - 1, `${put.hidden} of ${root.children.length - 1}`);
+  ck('and it says how many it put away, which is every child but those two',
+    put.hidden === root.children.length - kept.size, `${put.hidden} of ${root.children.length - kept.size}`);
   ck('asking for editor mode twice changes nothing more',
     hud.setMode('editor').hidden === put.hidden);
   hud.setMode('play');

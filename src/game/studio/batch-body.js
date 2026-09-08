@@ -13,7 +13,13 @@ export function batchBody(actor){
  }
  if(!geometries.length)return;
  const geometry=mergeGeometries(geometries);for(const g of geometries)g.dispose();if(!geometry)throw new Error('Studio body attributes cannot be batched');
- const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.72,metalness:.08,flatShading:true});material.userData.ownedByCharacter=true;
+ // A hood or a cloak is a shell the studio draws from both sides; batched
+ // under a front-side material its near faces were culled and the face showed
+ // through the helmet (the user, 2026-09-08: "I can see through his helmet").
+ // One double-sided piece makes the whole batch double-sided: cheaper than a
+ // second mesh and invisible on the closed pieces.
+ const twoSided=source.some(m=>m.material.side===THREE.DoubleSide);
+ const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.72,metalness:.08,flatShading:true,side:twoSided?THREE.DoubleSide:THREE.FrontSide});material.userData.ownedByCharacter=true;
  const mesh=new THREE.SkinnedMesh(geometry,material);mesh.name='Studio body and worn armour';mesh.userData.studioItems=[...new Set(source.map(m=>m.userData.itemId).filter(Boolean))];mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=false;
  actor.group.add(mesh);mesh.bind(actor.rig.skeleton);
  for(const old of source){old.removeFromParent();old.geometry.dispose();if(old.material.userData.ownedByCharacter||old.material.userData.itemOwned)old.material.dispose();}

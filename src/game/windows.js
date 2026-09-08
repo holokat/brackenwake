@@ -33,7 +33,7 @@
 // registers, opens, closes, switches tabs and reads keys with no DOM at all,
 // which is what windows.test.mjs drives: the test path is the real path.
 
-import { injectTheme, theme, itemGlyph, cornerUrl } from './ui_theme.js';
+import { injectTheme, theme, itemGlyph, cornerUrl, ruleUrl } from './ui_theme.js';
 import { tabIcon } from './icon_art.js';
 
 /** The one frame the six everyday panels live in. */
@@ -125,6 +125,14 @@ const CSS = `
 #bw-windows .bw-win { position: absolute; pointer-events: auto; }
 #bw-windows .bw-win[hidden] { display: none; }
 #bw-windows .bw-win-plain { min-width: 300px; max-width: min(820px, 94vw); }
+#bw-windows .bw-win-plain .bw-frame {
+  padding: 18px 14px 14px;
+  background: linear-gradient(180deg, ${theme.stoneUp}, ${theme.stone} 42%, ${theme.stoneDeep});
+  border: 1px solid ${theme.goldDim}66;
+  border-image: none;
+  border-radius: 7px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.72), inset 0 0 42px rgba(0,0,0,.52);
+}
 #bw-windows .bw-win-codex {
   width: min(1536px, 96vw, calc((100vh - 120px) * 1.5));
   aspect-ratio: 3 / 2;
@@ -145,15 +153,15 @@ const CSS = `
 }
 #bw-windows .bw-win-key { font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .16em; color: ${theme.goldDim}; }
 #bw-windows .bw-win-x {
-  min-width: 42px; min-height: 40px;
-  font-family: ${theme.fonts.display}; font-size: 20px; line-height: 1; letter-spacing: 0;
-  padding: 6px 10px 9px; cursor: pointer; color: ${theme.parchment};
-  background: linear-gradient(180deg, ${theme.plateUp}, ${theme.plate});
-  border: 1px solid ${theme.gold};
-  border-radius: 0 0 6px 6px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 12px rgba(0,0,0,.35);
+  min-width: 24px; min-height: 24px;
+  font-family: ${theme.fonts.display}; font-size: 17px; line-height: 1; letter-spacing: 0;
+  padding: 0 4px; cursor: pointer; color: ${theme.gold};
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
-#bw-windows .bw-win-x:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
+#bw-windows .bw-win-x:hover { color: ${theme.goldBright}; }
 #bw-windows .bw-win-body {
   overflow: auto; max-height: min(74vh, 820px);
   background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(0,0,0,.18)), ${theme.stoneDeep};
@@ -168,8 +176,14 @@ const CSS = `
 #bw-windows .bw-codex-title {
   position: absolute; inset: 0; margin: 0; padding: 0;
   display: block; background: transparent; border: 0; box-shadow: none;
-  cursor: move; min-height: 0; z-index: 4;
+  min-height: 0; z-index: 4;
+  /* The title is the whole painting so its tab cells can sit by fraction, but
+     it must not take the pointer: with it solid, nothing under it (a page's
+     filter chips, the left panel's wheel) ever got a click (2026-09-08). Only
+     the cells and the x are hit areas. */
+  pointer-events: none;
 }
+#bw-windows .bw-codex-title .bw-tab, #bw-windows .bw-codex-title .bw-win-x { pointer-events: auto; }
 #bw-windows .bw-codex-tabs { display: contents; }
 #bw-windows .bw-codex-tabs .bw-tab {
   position: absolute; min-width: 40px; min-height: 40px;
@@ -207,12 +221,15 @@ const CSS = `
   padding: 16px 18px;
   background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18)), ${theme.stoneDeep};
   border: 1px solid ${theme.goldDim}66; border-radius: 7px;
-  background-image:
-    ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()},
-    linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18));
-  background-repeat: no-repeat;
-  background-position: left 2px top 2px, right 2px top 2px, left 2px bottom 2px, right 2px bottom 2px, 0 0;
-  background-size: 18px 18px, 18px 18px, 18px 18px, 18px 18px, auto;
+}
+/* the page's title, from data-title: Skills, Abilities, Crafting, Map */
+#bw-windows .bw-codex-body:not([data-tab="character"])::before {
+  content: attr(data-title); display: block;
+  font-family: ${theme.fonts.display}; font-size: 30px; font-weight: 700;
+  letter-spacing: .06em; color: ${theme.parchment};
+  text-shadow: 0 2px 10px rgba(0,0,0,.8);
+  margin: 2px 0 12px; padding-bottom: 10px;
+  background: ${ruleUrl()} bottom left / 60% 9px no-repeat;
 }
 #bw-windows .bw-codex-body[hidden] { display: none; }
 
@@ -643,6 +660,11 @@ export function createWindows(root, input, ctx = {}) {
     body = document.createElement('div');
     body.className = 'bw-win-body bw-codex-body';
     body.dataset.tab = id;
+    // The page's own big title, drawn by CSS from this attribute so a page that
+    // clears its body cannot lose it (the user, 2026-09-08: "add big titles to
+    // these tabs, for example Abilities, Craft").
+    const tab = CODEX_TABS.find((t) => t.id === id);
+    body.dataset.title = tab ? tab.label : id;
     body.hidden = true;
     codex.bodies.appendChild(body);
     tabBodies.set(id, body);
@@ -678,7 +700,7 @@ export function createWindows(root, input, ctx = {}) {
     const x = document.createElement('button');
     x.className = 'bw-win-x';
     x.type = 'button';
-    x.textContent = 'close';
+    x.textContent = '×';
     x.addEventListener('click', (e) => { e.stopPropagation(); close(panel.id); });
     right.appendChild(x);
     title.appendChild(name);

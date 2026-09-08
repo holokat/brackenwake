@@ -472,6 +472,21 @@ console.log('windows: the codex, built');
     && bodies.children.length === 3, String(bodies.children.length));
   check('refreshing a page nobody registered is refused', w.refresh('dragons') === false);
 
+  w.register({ id: 'talk', title: 'Talk', build(body) { body.textContent = 'hello'; } });
+  w.open('talk');
+  const plain = w.frameOf('talk');
+  const plainFrame = plain.children[0];
+  const plainClose = plainFrame.children[0].children[1].children[0];
+  check('a standalone window uses the plain frame override',
+    plainFrame.classList.contains('bw-frame') && plain.classList.contains('bw-win-plain'),
+    `${plain.className} / ${plainFrame.className}`);
+  check('the standalone close control is a small x glyph',
+    plainClose.classList.contains('bw-win-x') && plainClose.textContent === '×',
+    plainClose.textContent);
+  plainClose.fire('click', { stopPropagation() {} });
+  check('and that x still closes the standalone window',
+    w.isOpen('talk') === false && plain.hidden === true);
+
   delete globalThis.document;
   delete globalThis.window;
 }

@@ -10,8 +10,12 @@ import {
   KIT_BASES, MISSING_BASES, STAND_INS, PREFERRED, FALLBACK, DEFAULT_SETTINGS, NAME_MAX,
   OPENING_GROUP, EMBLEMS, emblemSvg, openingColour, auditEmblems,
   statPct, STAT_FLOOR, STAT_CEIL, KIT_ICONS_SHOWN,
-  GAME_TITLE, QUOTES, CLASS_NOTE, statWords, artId, artUrl, auditClassText, YAW_STEP,
+  GAME_TITLE, QUOTES, CLASS_NOTE, statWords, artId, artUrl, auditClassText,
 } from './creation.js';
+import {
+  ROSTER_FRAME, ROSTER_FRAME_FIT, ROSTER_PANEL_ART,
+  containBox, classPortraitUrl, rosterBgUrl, rosterPanelsUrl,
+} from './ui_theme.js';
 import { GROUP_COLOUR } from './win_abilities.js';
 import { STAT_IDS as STAT_ORDER, STAT_LABELS, STAT_NAMES, SKILL_NAMES } from '../mmo/openings.js';
 import {
@@ -378,16 +382,16 @@ check('and that sentence is not the blurb said twice',
     const want = Object.entries(op.stats)
       .sort((a, b) => (b[1] - a[1]) || (STAT_ORDER.indexOf(a[0]) - STAT_ORDER.indexOf(b[0])))
       .slice(0, 3)
-      .map(([id]) => STAT_NAMES[id].toUpperCase());
+      .map(([id]) => STAT_NAMES[id]);
     const got = statWords(op);
     if (got.join('|') !== want.join('|')) bad.push(`${op.id}: ${got.join(' ')} and not ${want.join(' ')}`);
   }
   check('the three words under a class name are its three highest stats, in order', bad.length === 0, bad.join(' | '));
 }
-check('they are the full words and not the table s three letters',
-  statWords('warrior')[0] === 'STRENGTH', statWords('warrior').join(' '));
+check('they are the full words in sentence case, not the table s three letters',
+  statWords('warrior')[0] === 'Strength', statWords('warrior').join(' '));
 check('a warrior leads on strength and a mage on intellect',
-  statWords('warrior')[0] === 'STRENGTH' && statWords('mage')[0] === 'INTELLECT',
+  statWords('warrior')[0] === 'Strength' && statWords('mage')[0] === 'Intellect',
   `${statWords('warrior')[0]} / ${statWords('mage')[0]}`);
 check('and a retired opening has no words at all',
   statWords('blank').length === 0, statWords('blank').join(' '));
@@ -401,7 +405,7 @@ check('and every placeholder is a data uri drawn in that class s colour',
   OPENINGS.every((o) => /^url\("data:image\/svg\+xml,/.test(artUrl(o.id))
     && artUrl(o.id).includes(encodeURIComponent(openingColour(o.id)))),
   OPENINGS.filter((o) => !artUrl(o.id).includes(encodeURIComponent(openingColour(o.id)))).map((o) => o.id).join(','));
-check('an arrow turns a hero thirty degrees', YAW_STEP === 30, String(YAW_STEP));
+check('the creation preview is the class portrait now, not a turnable rig', true);
 
 console.log('creation: the stat bars');
 check(`the floor of ${STAT_FLOOR} is an empty bar`, statPct(STAT_FLOOR) === 0, String(statPct(STAT_FLOOR)));
@@ -477,6 +481,8 @@ const kids = (n, cls) => n.children.filter((x) => x.classList.contains(cls));
 const one = (n, cls) => withClass(n, cls)[0];
 const ranges = (n) => walk(n).filter((x) => x.tagName === 'INPUT' && x.type === 'range');
 const textInput = (n) => walk(n).find((x) => x.tagName === 'INPUT' && x.type === 'text');
+const panelHeight = (box, panel = ROSTER_FRAME.rightPanel) => (panel.y2 - panel.y1) * box.h;
+const px = (n) => `${Math.round(n * 10) / 10}px`;
 
 function screen() {
   const root = document.createElement('div');
@@ -490,40 +496,29 @@ check('the screen is built', !!s1.cr.el && s1.cr.el.id === 'bw-creation', String
 check('and it wears the shared look, so the fonts and the tokens reach it',
   s1.cr.el.classList.contains('bw-ui'), s1.cr.el.className);
 
-// --- REWRITTEN. The sheet used to be one column beside the rig. It is the
-// whole window now, in three columns with the rig standing in the middle of
-// them, so what "one panel" means had to be measured again.
+// C3: the painting is the sheet. The two painted side panels hold controls.
 {
   const panel = one(s1.cr.el, 'bw-cr-panel');
   check('the panel is the whole window and there is one of it', withClass(s1.cr.el, 'bw-cr-panel').length === 1);
-  const want = ['bw-cr-plaque', 'bw-cr-left', 'bw-cr-stage', 'bw-cr-right', 'bw-cr-foot'];
+  const want = ['bw-cr-left', 'bw-cr-right', 'bw-cr-foot'];
   const got = panel.children.map((c) => want.find((w) => c.classList.contains(w)) || c.className);
-  check('and it holds the plaque, the three columns and the footer, in that order',
+  check('and it holds the left panel, right panel and hidden footer, in that order',
     got.join(',') === want.join(','), got.join(','));
-  check('the plaque carries the title and the question under it',
-    walk(one(s1.cr.el, 'bw-cr-plaque')).some((n) => n.tagName === 'H1' && n.textContent === GAME_TITLE)
-    && /Who walks out of the trees/.test(one(s1.cr.el, 'bw-cr-ask').textContent),
-    one(s1.cr.el, 'bw-cr-plaque').textContent);
   check('the four cards are in the left column and nowhere else',
     withClass(one(s1.cr.el, 'bw-cr-left'), 'bw-cr-card').length === OPENINGS.length
     && withClass(one(s1.cr.el, 'bw-cr-right'), 'bw-cr-card').length === 0,
     String(withClass(one(s1.cr.el, 'bw-cr-left'), 'bw-cr-card').length));
-  check('the class name, the art, the quote, the bars, the gear, the name and the button are in the right column',
-    ['bw-cr-cname', 'bw-cr-art', 'bw-cr-quote', 'bw-cr-about', 'bw-cr-bars', 'bw-cr-kitrow', 'bw-cr-derived', 'bw-cr-go']
+  check('the class portrait, name, spreads, name field and button are in the right panel',
+    ['bw-cr-art', 'bw-cr-art-img', 'bw-cr-cname', 'bw-cr-bars', 'bw-cr-derived', 'bw-cr-go']
       .every((c) => withClass(one(s1.cr.el, 'bw-cr-right'), c).length === 1)
     && !!textInput(one(s1.cr.el, 'bw-cr-right')),
-    ['bw-cr-cname', 'bw-cr-art', 'bw-cr-quote', 'bw-cr-about', 'bw-cr-bars', 'bw-cr-kitrow', 'bw-cr-derived', 'bw-cr-go']
+    ['bw-cr-art', 'bw-cr-art-img', 'bw-cr-cname', 'bw-cr-bars', 'bw-cr-derived', 'bw-cr-go']
       .filter((c) => withClass(one(s1.cr.el, 'bw-cr-right'), c).length !== 1).join(','));
-  const stage = one(s1.cr.el, 'bw-cr-stage');
-  check('the middle column paints nothing over the rig but the arrows',
-    stage.children.length === 2
-    && stage.children[0].classList.contains('bw-cr-void')
-    && stage.children[1].classList.contains('bw-cr-turn'),
-    stage.children.map((c) => c.className).join(' | '));
-  check('and the footer says a line at each end',
-    one(s1.cr.el, 'bw-cr-foot').children.length === 2
-    && one(s1.cr.el, 'bw-cr-foot').children.every((c) => c.textContent.length > 10),
-    one(s1.cr.el, 'bw-cr-foot').children.map((c) => c.textContent).join(' / '));
+  check('the old middle stage is not mounted',
+    withClass(s1.cr.el, 'bw-cr-stage').length === 0 && withClass(s1.cr.el, 'bw-cr-arrow').length === 0);
+  check('the screen uses the roster background as its background',
+    s1.cr.el.style.backgroundImage === `url("${rosterBgUrl()}")`,
+    s1.cr.el.style.backgroundImage);
 }
 
 // --- the css, once
@@ -542,30 +537,52 @@ check('and the shared theme went in with it',
 {
   // The layout is CSS, and node cannot lay anything out, so what CAN be
   // measured here is that the rules the layout depends on are in the sheet
-  // that goes to the browser. The three columns at their three widths, the
-  // stacking under 1100, and the one line that fixed CR1's squeezed list.
+  // that goes to the browser: positions from the one measured constants block,
+  // the transparent panel frame, and side panels that cannot collide.
   const css = document.getElementById('bw-creation-css').textContent;
-  check('the sheet declares three columns at 300 and 400',
-    /grid-template-columns:\s*300px minmax\(0, 1fr\) 400px/.test(css));
-  check('and narrows them to 260 and 360 rather than dropping one, which is what makes 1280 fit',
-    /max-width:\s*1400px/.test(css) && /grid-template-columns:\s*260px minmax\(0, 1fr\) 360px/.test(css));
-  check('and stacks them under 1100 with the preview on the top row',
-    /max-width:\s*1099px/.test(css) && /\.bw-cr-stage \{ grid-column: 1; grid-row: 2;/.test(css));
-  check('the middle column is left transparent, so the scene shows through it',
-    /#bw-creation \.bw-cr-stage \{[^}]*pointer-events: none/.test(css) && !/\.bw-cr-stage \{[^}]*background:/.test(css));
-  check('and the columns still refuse to squeeze a child with a max-height, which is the CR1 bug',
-    /#bw-creation \.bw-cr-left > \*, #bw-creation \.bw-cr-scroll > \* \{ flex: 0 0 auto; \}/.test(css));
+  check('the left and right panels are placed from ROSTER_FRAME fractions',
+    css.includes(`${ROSTER_FRAME.leftPanel.x1} * var(--bw-scene-w)`)
+    && css.includes(`${ROSTER_FRAME.rightPanel.x1} * var(--bw-scene-w)`));
+  check('the creation frame uses the same C4 smaller contain box as roster',
+    ROSTER_FRAME_FIT.maxWidth === 1400 && ROSTER_FRAME_FIT.viewportW === 0.82 && ROSTER_FRAME_FIT.viewportH === 0.82,
+    JSON.stringify(ROSTER_FRAME_FIT));
+  {
+    const a = containBox(1568, 721);
+    const b = containBox(1280, 720);
+    check('at 1568 by 721 the creation frame is height bound and centred at the C4 scale',
+      px(a.w) === '1049.9px' && px(a.h) === '591.2px' && px(a.x) === '259.1px' && px(a.y) === '64.9px',
+      `${px(a.w)} by ${px(a.h)} at ${px(a.x)}, ${px(a.y)}`);
+    check('at 1280 by 720 the creation frame is height bound and centred at the C4 scale',
+      px(b.w) === '1048.4px' && px(b.h) === '590.4px' && px(b.x) === '115.8px' && px(b.y) === '64.8px',
+      `${px(b.w)} by ${px(b.h)} at ${px(b.x)}, ${px(b.y)}`);
+    check('the creation portrait is below the fifty eight percent cap and leaves room for spreads',
+      ROSTER_PANEL_ART.creationPortraitFrac < ROSTER_PANEL_ART.maxPortraitFrac
+      && css.includes(`* ${ROSTER_PANEL_ART.creationPortraitFrac})`)
+      && css.includes(`* ${ROSTER_PANEL_ART.maxPortraitFrac}`),
+      `${Math.round(panelHeight(a) * ROSTER_PANEL_ART.creationPortraitFrac * 10) / 10}px of ${Math.round(panelHeight(a) * 10) / 10}px`);
+  }
+  check('the transparent joined panels are painted over the background',
+    css.includes(`background-image: url("${rosterPanelsUrl()}")`)
+    && /#bw-creation::before \{[^}]*pointer-events: none/.test(css));
+  check('the C3 sheet has no stage or turn-control rules',
+    !/bw-cr-stage|bw-cr-turn|bw-cr-arrow/.test(css));
   check('while the reading half of the right column is the one that scrolls, so the button never leaves the glass',
     /\.bw-cr-scroll \{\s*flex: 1 1 auto; min-height: 0; overflow-y: auto/.test(css)
     && /\.bw-cr-act \{\s*flex: 0 0 auto;/.test(css));
+  check('the name block is outside the scroll, so rows cannot draw over the field',
+    one(s1.cr.el, 'bw-cr-scroll').parent === one(s1.cr.el, 'bw-cr-right')
+    && one(s1.cr.el, 'bw-cr-act').parent === one(s1.cr.el, 'bw-cr-right')
+    && one(s1.cr.el, 'bw-cr-scroll') !== one(s1.cr.el, 'bw-cr-act'));
 }
 
 // --- REWRITTEN. Seven headers became five: THE KIT is now the icon row under
 // STARTING GEAR, and appearance has no visible choice in Phase A.
 {
-  const want = ['choose your opening', 'base stats', 'what that comes to', 'starting gear', 'name'];
-  const got = withClass(s1.cr.el, 'bw-hdr').map((n) => n.textContent.toLowerCase());
-  check('the five section headers are the codex s, in order', got.join('|') === want.join('|'), got.join(' | '));
+  const want = ['base stats', 'what that comes to', 'name'];
+  const got = withClass(s1.cr.el, 'bw-hdr')
+    .filter((n) => !n.classList.contains('bw-cr-kit-head'))
+    .map((n) => n.textContent.toLowerCase());
+  check('the visible section headers are the right panel ones, in order', got.join('|') === want.join('|'), got.join(' | '));
 }
 
 // --- the cards
@@ -574,32 +591,24 @@ check('there is a card for every opening, in the openings order',
   && s1.cards.map((c) => c.dataset.opening).join(',') === OPENINGS.map((o) => o.id).join(','),
   s1.cards.map((c) => c.dataset.opening).join(','));
 {
-  // REWRITTEN: a card carried an emblem, a name, a band, a blurb, a lead skill
-  // line, five stat bars and eight kit icons. It carries the first four now,
-  // and the rest moved to the right hand panel where they are about the one
-  // class you have chosen. Those four are still measured exactly as before.
+  // C3: each class card carries only the user supplied portrait, class name
+  // and one line blurb. The selected card is the one red plate.
   const bad = [];
   for (const card of s1.cards) {
     const op = OPENINGS_BY_ID[card.dataset.opening];
-    const colour = openingColour(op.id);
-
-    const em = withClass(card, 'bw-cr-emblem');
-    if (em.length !== 1) bad.push(`${op.id}: ${em.length} emblems`);
-    else if (!/<svg /.test(em[0].innerHTML)) bad.push(`${op.id}: the emblem is not a drawing`);
-    else if (!em[0].innerHTML.includes(colour)) bad.push(`${op.id}: the emblem is not in the class colour`);
-    else if (em[0].dataset.emblem !== op.id) bad.push(`${op.id}: the emblem is not marked with its opening`);
+    const img = withClass(card, 'bw-cr-card-img');
+    if (img.length !== 1) bad.push(`${op.id}: ${img.length} portraits`);
+    else if (img[0].src !== classPortraitUrl(op.id)) bad.push(`${op.id}: portrait is ${img[0].src}`);
 
     const nm = withClass(card, 'bw-cr-name');
     if (nm.length !== 1 || nm[0].textContent !== op.name) bad.push(`${op.id}: the name reads "${nm[0] && nm[0].textContent}"`);
-    const band = withClass(card, 'bw-cr-band');
-    if (band.length !== 1 || band[0].style.background !== colour) bad.push(`${op.id}: the band is "${band[0] && band[0].style.background}" and not ${colour}`);
 
     const bl = withClass(card, 'bw-cr-blurb');
     if (bl.length !== 1 || bl[0].textContent !== op.blurb) bad.push(`${op.id}: the blurb is not the opening s`);
   }
-  check('every card carries an emblem in its class colour, the name, the band and the blurb', bad.length === 0, bad.join(' | '));
-  check('and nothing else, so four of them fit a 300 pixel column',
-    s1.cards.every((c) => c.children.length === 4),
+  check('every card carries the class portrait, the name and the blurb', bad.length === 0, bad.join(' | '));
+  check('and nothing else, so four of them fit the painted left panel',
+    s1.cards.every((c) => c.children.length === 3),
     s1.cards.map((c) => c.children.length).join(','));
 }
 
@@ -699,13 +708,10 @@ check('there is a card for every opening, in the openings order',
     const art = one(s.cr.el, 'bw-cr-art');
     if (art.id !== artId(op.id)) bad.push(`${op.id}: the art slot is "${art.id}"`);
     if (art.dataset.art !== op.id) bad.push(`${op.id}: the art slot is not marked with its class`);
-    if (art.style.backgroundImage !== artUrl(op.id)) bad.push(`${op.id}: the art slot holds no placeholder`);
-    const q = one(s.cr.el, 'bw-cr-quote');
-    if (q.textContent !== QUOTES[op.id]) bad.push(`${op.id}: the quote reads "${q.textContent}"`);
-    const ab = one(s.cr.el, 'bw-cr-about');
-    if (ab.textContent !== `${op.blurb} ${CLASS_NOTE[op.id]}`) bad.push(`${op.id}: the blurb is missing its sentence`);
+    const img = one(art, 'bw-cr-art-img');
+    if (!img || img.src !== classPortraitUrl(op.id) || img.alt !== op.name) bad.push(`${op.id}: the class portrait is wrong`);
   }
-  check('the panel says the class name, the three words, the art, the quote and the blurb of whichever card is lit',
+  check('the panel says the class name, the three words and the class portrait of whichever card is lit',
     bad.length === 0, bad.join(' | '));
   s.cr.destroy();
 }
@@ -742,31 +748,17 @@ check('there is a card for every opening, in the openings order',
     `${rows[0].children[2].textContent} vs ${Math.floor(d.maxHealth)}`);
 }
 
-// --- the two arrows, and the yaw they turn
+// --- the preview is a portrait, not a rig
 {
   const s = screen();
-  const arrows = withClass(s.cr.el, 'bw-cr-arrow');
-  check('there are two arrows under the preview, one each way',
-    arrows.length === 2 && arrows.map((a) => a.dataset.turn).join(',') === '-1,1',
-    arrows.map((a) => a.dataset.turn).join(','));
-  check('and each is a drawing rather than a character somebody typed',
-    arrows.every((a) => /<svg /.test(a.innerHTML) && /<path /.test(a.innerHTML)));
-  check('the rig starts facing the camera', s.cr.yaw === 0, String(s.cr.yaw));
-  arrows[0].fire('click');
-  check(`one click of the left arrow turns it ${YAW_STEP} degrees`, s.cr.yaw === -YAW_STEP, String(s.cr.yaw));
-  arrows[0].fire('click');
-  check('and a second click is sixty and not three hundred', s.cr.yaw === -2 * YAW_STEP, String(s.cr.yaw));
-  arrows[1].fire('click');
-  arrows[1].fire('click');
-  check('and the other arrow brings it back the same way', s.cr.yaw === 0, String(s.cr.yaw));
-  // The other direction: nothing else moves the rig, so a player who has aimed
-  // it keeps their aim through a choice and through the points.
-  arrows[1].fire('click');
+  check('there are no turn arrows under the preview',
+    withClass(s.cr.el, 'bw-cr-arrow').length === 0 && !('yaw' in s.cr),
+    `${withClass(s.cr.el, 'bw-cr-arrow').length} arrows`);
   s.cr.pick('mage');
-  const slider = ranges(s.cr.el)[0];
-  slider.value = '40';
-  slider.fire('input');
-  check('and nothing but an arrow turns it', s.cr.yaw === YAW_STEP, String(s.cr.yaw));
+  const img = one(one(s.cr.el, 'bw-cr-art'), 'bw-cr-art-img');
+  check('picking Wizard changes the portrait preview',
+    img.src === classPortraitUrl('mage') && img.alt === 'Wizard',
+    `${img.src} / ${img.alt}`);
   s.cr.destroy();
 }
 
@@ -878,6 +870,12 @@ check('there is a card for every opening, in the openings order',
     withClass(wrap, 'bw-cr-budget')[0].textContent);
   check('the rows are a name, the steppers and a value',
     withClass(wrap, 'bw-row').every((r) => r.children.length === 3));
+  check('every stat row and skill row is boxed inside the right interior scroll, never the name block',
+    withClass(one(s.cr.el, 'bw-cr-scroll'), 'bw-cr-bar').length === STAT_ORDER.length
+    && withClass(one(s.cr.el, 'bw-cr-scroll'), 'bw-row').length === SKILLS.length
+    && withClass(one(s.cr.el, 'bw-cr-act'), 'bw-cr-bar').length === 0
+    && withClass(one(s.cr.el, 'bw-cr-act'), 'bw-row').length === 0,
+    `${withClass(one(s.cr.el, 'bw-cr-scroll'), 'bw-cr-bar').length} stat rows, ${withClass(one(s.cr.el, 'bw-cr-scroll'), 'bw-row').length} skill rows`);
   disc.fire('click');
   check('and a second click shuts it again', wrap.hidden === true && s.cr.skillsOpen === false);
   // and the choice survives a change of class, because the list is refilled
@@ -947,12 +945,8 @@ check('there is a card for every opening, in the openings order',
   check('and the screen takes itself off the page', root2.children.length === 0, String(root2.children.length));
 }
 
-// --- the shared camera is handed back
+// --- no creation rig touches the shared scene
 {
-  // The screen frames the rig by offsetting the lens rather than by moving the
-  // camera, and the camera belongs to the game. A view offset left behind would
-  // frame the whole world off centre for the rest of the session, so the screen
-  // is driven with a camera that records what was done to it.
   const done = [];
   const cam = {
     fov: 55, aspect: 1.7, position: { set() {} }, lookAt() {},
@@ -963,8 +957,8 @@ check('there is a card for every opening, in the openings order',
   const sc = { camera: cam, scene: { add() {}, remove() {} }, render() {}, resize() { done.push('resize'); } };
   const cr = createCreation(document.createElement('div'), { sc });
   cr.destroy();
-  check('the lens is put back the way it was found when the screen goes',
-    done.includes('clear') && done.indexOf('resize') === done.indexOf('clear') + 1,
+  check('creation does not offset the camera or add a rig now',
+    done.length === 0,
     done.join(','));
 }
 

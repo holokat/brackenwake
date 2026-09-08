@@ -53,7 +53,7 @@
 // Every one of those says something in the readout line, because a control
 // that does its work in silence is indistinguishable from a broken one.
 
-import { theme, cornerUrl } from './ui_theme.js';
+import { theme } from './ui_theme.js';
 import { headingOf, coordsText, markerName } from './compass.js';
 import {
   BIOME_PAINT, REALM_PAINT, WATER_SHALLOW, WATER_DEEP, WATER_FLOOR,
@@ -811,11 +811,10 @@ const CSS = `
   width: ${MINIMAP.outerW}px; height: ${MINIMAP.outerH}px;
   padding: ${MINIMAP.padTop}px ${MINIMAP.padX}px ${MINIMAP.padBottom}px;
   background:
-    ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()},
     linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18)), ${theme.stone};
   background-repeat: no-repeat;
-  background-position: left 2px top 2px, right 2px top 2px, left 2px bottom 2px, right 2px bottom 2px, 0 0, 0 0;
-  background-size: 18px 18px, 18px 18px, 18px 18px, 18px 18px, auto, auto;
+  background-position: 0 0, 0 0;
+  background-size: auto, auto;
   border: ${MINIMAP.border}px solid ${theme.goldDim}aa;
   border-radius: 7px;
   box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06), inset 0 -12px 20px rgba(0,0,0,.22);
@@ -828,12 +827,6 @@ const CSS = `
    boxes are measured in minimap.test.mjs rather than hoped for. The editor's
    root takes no pointer events and only its docks do, so with the docks out of
    this column the wheel and the click reach the square in editor mode. */
-#bw-hud #bw-minimap::before, #bw-hud #bw-minimap::after {
-  content: ''; position: absolute; width: 9px; height: 9px; pointer-events: none;
-  border: 1px solid ${theme.gold};
-}
-#bw-hud #bw-minimap::before { left: -1px; top: -1px; border-right: 0; border-bottom: 0; }
-#bw-hud #bw-minimap::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
 #bw-minimap .face { position: relative; width: ${MINIMAP.size}px; height: ${MINIMAP.size}px; }
 #bw-minimap canvas { position: absolute; left: 0; top: 0; width: ${MINIMAP.size}px; height: ${MINIMAP.size}px; display: block; border-radius: 4px; }
 #bw-minimap .rd {
@@ -907,6 +900,8 @@ export function createMinimap(root, opts = {}) {
     el = doc.createElement('div');
     el.id = 'bw-minimap';
     el.title = MINIMAP_TITLE;
+    el.style.width = `${MINIMAP.outerW}px`;
+    el.style.height = `${MINIMAP.outerH}px`;
     faceEl = doc.createElement('div');
     faceEl.className = 'face';
     el.appendChild(faceEl);
@@ -994,6 +989,7 @@ export function createMinimap(root, opts = {}) {
       say(`${span < 1000 ? `${span} m` : `${(span / 1000).toFixed(1)} km`} across`);
     }, { passive: false });
     el.addEventListener('pointermove', (ev) => {
+      if (ev.target === el || ev.target === rd) return;
       const p = pixelOf(ev);
       if (!p) return;
       hoverAt = worldOf(view, p[0], p[1]);
@@ -1001,6 +997,7 @@ export function createMinimap(root, opts = {}) {
     });
     el.addEventListener('pointerleave', () => { hoverAt = null; if (!said) writeReadout(); });
     el.addEventListener('pointerdown', (ev) => {
+      if (ev.target === el || ev.target === rd) return;
       if (ev.stopPropagation) ev.stopPropagation();
       const p = pixelOf(ev);
       if (!p) return;
@@ -1041,6 +1038,24 @@ export function createMinimap(root, opts = {}) {
 
   return {
     el, canvas: groundCv, liveCanvas: liveCv,
+    get box() {
+      const vw = (typeof window !== 'undefined' && window.innerWidth) || 1280;
+      const vh = (typeof window !== 'undefined' && window.innerHeight) || 720;
+      const w = MINIMAP.outerW, h = MINIMAP.outerH;
+      if (el && el.style && (el.style.left !== '' || el.style.right !== '' || el.style.top !== '' || el.style.bottom !== '')) {
+        const cssNum = (v) => (v !== '' && v !== 'auto' && Number.isFinite(parseFloat(v)) ? parseFloat(v) : null);
+        const sx = cssNum(el.style.left), sr = cssNum(el.style.right);
+        const sy = cssNum(el.style.top), sb = cssNum(el.style.bottom);
+        const left = sx !== null ? sx : sr !== null ? vw - sr - w : minimapBox(vw).left;
+        const top = sy !== null ? sy : sb !== null ? vh - sb - h : MINIMAP.top;
+        return { left, right: left + w, top, bottom: top + h, width: w, height: h };
+      }
+      if (el && el.getBoundingClientRect) {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+      }
+      return minimapBox(vw);
+    },
 
     /** The view the ground was last painted with. Pixels map through this. */
     get view() { return view; },

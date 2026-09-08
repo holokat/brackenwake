@@ -16,8 +16,6 @@
 //     each with its number beside it and its word on the title, and each
 //     preferring public/icons/hud/<id>.webp the moment that file exists
 //   pools with numbers under them, red health, blue mana, yellow stamina
-//   a portrait plate beside them, which takes the paper doll's canvas if one
-//     is handed over and otherwise wears a drawn helm
 //   the effects row under the pools: one square per buff, debuff, status,
 //     stance and binding running on the player, gold edged or red edged, the
 //     ability's own painting in it, a bar draining with the time and the
@@ -569,25 +567,19 @@ const CSS = `
   border-radius: 7px;
   box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06), inset 0 -12px 20px rgba(0,0,0,.22);
 }
-#bw-hud .panel::before, #bw-hud .panel::after {
-  content: ''; position: absolute; width: 9px; height: 9px; pointer-events: none;
-  border: 1px solid ${theme.gold};
-}
-#bw-hud .panel::before { left: -1px; top: -1px; border-right: 0; border-bottom: 0; }
-#bw-hud .panel::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
-
-#bw-tl { position: absolute; top: 14px; left: 14px; display: flex; gap: 9px; align-items: flex-start; }
-#bw-portrait {
-  width: 62px; height: 62px; flex: 0 0 auto; overflow: hidden; padding: 0;
-  display: flex; align-items: center; justify-content: center;
-}
-#bw-portrait canvas { width: 100%; height: 100%; display: block; }
-#bw-tl-col { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+#bw-tl { position: absolute; inset: 0; pointer-events: none; }
+#bw-tl-col { position: absolute; inset: 0; pointer-events: none; }
+.bw-draggable { touch-action: none; }
+.bw-draggable.dragging { cursor: grabbing !important; }
 
 /* the purse: a picture and a number, and the word only on hover. The cells
    take pointer events so the title has something to land on; #bw-hud itself
    is pointer-events none and a title on a node nothing can reach never shows. */
-#bw-purse { display: flex; gap: 12px; align-items: center; }
+#bw-purse { width: max-content;
+  position: absolute; top: 14px; left: 14px;
+  display: flex; gap: 12px; align-items: center;
+  pointer-events: auto; cursor: grab;
+}
 #bw-purse .stat { display: inline-flex; gap: 5px; align-items: center; pointer-events: auto; }
 #bw-purse .stat .ic {
   width: 19px; height: 19px; flex: none; display: flex; align-items: center; justify-content: center;
@@ -602,7 +594,11 @@ const CSS = `
 }
 #bw-purse .stat.full b { color: #ffb37a; }
 
-#bw-pools { display: none; flex-direction: column; gap: 4px; width: 236px; }
+#bw-pools {
+  position: absolute; top: 58px; left: 14px;
+  display: none; flex-direction: column; gap: 4px; width: 236px;
+  pointer-events: auto; cursor: grab;
+}
 #bw-pools.on { display: flex; }
 #bw-pools .pool {
   position: relative; height: 17px; overflow: hidden; border-radius: 5px;
@@ -626,7 +622,7 @@ const CSS = `
    The squares take pointer events because the name and the ability's line
    are on the title. */
 /* the squares are the bar cell's size since 2026-09-08 (the user: "make buff icons bigger, same size as the action icons"); five to a row */
-#bw-auras { display: none; gap: 4px; flex-wrap: wrap; width: 260px; }
+#bw-auras { position: absolute; top: 124px; left: 14px; display: none; gap: 4px; flex-wrap: wrap; width: 260px; }
 #bw-auras.on { display: flex; }
 #bw-auras .aura {
   position: relative; width: 48px; height: 48px; pointer-events: auto;
@@ -968,32 +964,128 @@ export const SKULL_MARK = `<svg class="bw-skull" viewBox="0 0 24 24" width="13" 
 
 /** Where the log corner sits, from the left and from the bottom; null means the sheet's own place. */
 export const LOG_POS_KEY = 'bw_log_pos';
-function attachLogDrag(handle, corner, storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
-  if (!handle || !handle.addEventListener || !corner || !corner.style) return;
-  const place = (p) => { corner.style.left = `${Math.max(0, p.x)}px`; corner.style.bottom = `${Math.max(0, p.y)}px`; corner.style.right = 'auto'; corner.style.top = 'auto'; };
-  try { const raw = storage && storage.getItem(LOG_POS_KEY); if (raw) { const p = JSON.parse(raw); if (Number.isFinite(p.x) && Number.isFinite(p.y)) place(p); } } catch { /* a fresh corner */ }
+export const PURSE_POS_KEY = 'bw_purse_pos';
+export const POOLS_POS_KEY = 'bw_pools_pos';
+export const MINIMAP_POS_KEY = 'bw_minimap_pos';
+export const DRAG_THRESHOLD = 4;
+
+const dragAnchorOf = (key) => {
+  if (key === LOG_POS_KEY) return { x: 'left', y: 'bottom' };
+  if (key === MINIMAP_POS_KEY) return { x: 'right', y: 'top' };
+  return { x: 'left', y: 'top' };
+};
+
+const viewportSize = () => ({
+  w: (typeof window !== 'undefined' && window.innerWidth) || 1280,
+  h: (typeof window !== 'undefined' && window.innerHeight) || 720,
+});
+
+const boxSize = (box) => {
+  const r = box && box.getBoundingClientRect ? box.getBoundingClientRect() : null;
+  return {
+    w: Math.max(1, (r && r.width) || box.offsetWidth || parseFloat(box.style.width) || 1),
+    h: Math.max(1, (r && r.height) || box.offsetHeight || parseFloat(box.style.height) || 1),
+  };
+};
+
+const boxRect = (box) => {
+  const { w, h } = boxSize(box);
+  const vw = (typeof window !== 'undefined' && window.innerWidth) || 1280;
+  const vh = (typeof window !== 'undefined' && window.innerHeight) || 720;
+  const cssNum = (v) => (v !== '' && v !== 'auto' && Number.isFinite(parseFloat(v)) ? parseFloat(v) : null);
+  const sx = cssNum(box.style.left), sr = cssNum(box.style.right);
+  const sy = cssNum(box.style.top), sb = cssNum(box.style.bottom);
+  const hasInlineX = sx !== null || sr !== null;
+  const hasInlineY = sy !== null || sb !== null;
+  if ((!hasInlineX || !hasInlineY) && box && box.getBoundingClientRect) {
+    const r = box.getBoundingClientRect();
+    if (Number.isFinite(r.left) && Number.isFinite(r.top)) return r;
+  }
+  const left = sx !== null ? sx
+    : sr !== null ? vw - sr - w
+      : box.offsetLeft || 0;
+  const top = sy !== null ? sy
+    : sb !== null ? vh - sb - h
+      : box.offsetTop || 0;
+  return { left, top, right: left + w, bottom: top + h, width: w, height: h };
+};
+
+export function dragBoxOf(box) {
+  const r = boxRect(box);
+  return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+}
+
+export function attachDrag(handle, box, key, storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
+  if (!handle || !handle.addEventListener || !box || !box.style) return null;
+  handle.classList?.add?.('bw-draggable');
+  const anchor = dragAnchorOf(key);
+  const place = (p) => {
+    const { w, h } = boxSize(box);
+    const vp = viewportSize();
+    const x = clamp(num(p.x), 0, Math.max(0, vp.w - w));
+    const y = clamp(num(p.y), 0, Math.max(0, vp.h - h));
+    if (anchor.x === 'right') { box.style.right = `${Math.round(vp.w - x - w)}px`; box.style.left = 'auto'; }
+    else { box.style.left = `${Math.round(x)}px`; box.style.right = 'auto'; }
+    if (anchor.y === 'bottom') { box.style.bottom = `${Math.round(vp.h - y - h)}px`; box.style.top = 'auto'; }
+    else { box.style.top = `${Math.round(y)}px`; box.style.bottom = 'auto'; }
+  };
+  const save = () => {
+    const r = boxRect(box);
+    const vp = viewportSize();
+    const y = anchor.y === 'bottom' ? vp.h - r.bottom : r.top;
+    try { storage && storage.setItem(key, JSON.stringify({ x: Math.round(r.left), y: Math.round(y) })); } catch { /* nothing to keep it in */ }
+  };
+  try {
+    const raw = storage && storage.getItem(key);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (Number.isFinite(p.x) && Number.isFinite(p.y)) {
+        if (anchor.y === 'bottom') {
+          const { h } = boxSize(box);
+          const vp = viewportSize();
+          place({ x: p.x, y: vp.h - h - p.y });
+        } else place(p);
+      }
+    }
+  } catch { /* a fresh corner */ }
   let drag = null;
   handle.addEventListener('pointerdown', (e) => {
     if (e.button != null && e.button !== 0) return;
-    const r = corner.getBoundingClientRect ? corner.getBoundingClientRect() : { left: 0, bottom: 0 };
-    const vh = (typeof window !== 'undefined' && window.innerHeight) || 720;
-    drag = { x: e.clientX, y: e.clientY, at: { x: r.left, y: vh - r.bottom } };
-    handle.classList.add('dragging');
+    if (key === MINIMAP_POS_KEY && e.target && e.target !== handle && !e.target.classList?.contains?.('rd')) return;
+    const r = boxRect(box);
+    drag = { x: e.clientX, y: e.clientY, at: { x: r.left, y: r.top }, moved: false };
     handle.setPointerCapture?.(e.pointerId);
-    e.preventDefault?.(); e.stopPropagation?.();
+    e.stopPropagation?.();
   });
   handle.addEventListener('pointermove', (e) => {
     if (!drag) return;
-    place({ x: drag.at.x + (e.clientX - drag.x), y: drag.at.y - (e.clientY - drag.y) });
+    if (key === MINIMAP_POS_KEY && e.target && e.target !== handle && !e.target.classList?.contains?.('rd')) return;
+    const dx = e.clientX - drag.x;
+    const dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) <= DRAG_THRESHOLD) return;
+    drag.moved = true;
+    handle.classList.add('dragging');
+    place({ x: drag.at.x + dx, y: drag.at.y + dy });
+    e.preventDefault?.();
     e.stopPropagation?.();
   });
-  const end = () => {
+  const end = (e) => {
     if (!drag) return;
+    const moved = drag.moved;
     drag = null; handle.classList.remove('dragging');
-    try { storage && storage.setItem(LOG_POS_KEY, JSON.stringify({ x: parseFloat(corner.style.left) || 0, y: parseFloat(corner.style.bottom) || 0 })); } catch { /* nothing to keep it in */ }
+    if (moved) {
+      save();
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+    }
   };
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
+  return { box, key, save, get rect() { return dragBoxOf(box); } };
+}
+
+function attachLogDrag(handle, corner, storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
+  return attachDrag(handle, corner, LOG_POS_KEY, storage);
 }
 
 export function createHud(root) {
@@ -1015,14 +1107,14 @@ export function createHud(root) {
 
   const el = mk('div', 'bw-hud', 'bw-ui');
 
-  // top left: the portrait plate, then the purse, pools and auras beside it
+  // top left: the purse, pools and auras
   const topLeft = add(el, mk('div', 'bw-tl'));
-  const portrait = add(topLeft, mk('div', 'bw-portrait', 'panel'));
-  portrait.innerHTML = icon('helm', theme.goldDim, 34);
   const leftCol = add(topLeft, mk('div', 'bw-tl-col'));
   const purse = add(leftCol, mk('div', 'bw-purse', 'panel'));
   const poolBox = add(leftCol, mk('div', 'bw-pools'));
   const auraBox = add(leftCol, mk('div', 'bw-auras'));
+  attachDrag(purse, purse, PURSE_POS_KEY);
+  attachDrag(poolBox, poolBox, POOLS_POS_KEY);
 
   // top centre: the place, then the compass strip, then the target frame.
   //
@@ -1733,6 +1825,7 @@ export function createHud(root) {
     mountMinimap(opts = {}) {
       if (minimap) return minimap;
       minimap = createMinimap(el, { ...opts, isEditor: () => hudMode === 'editor' });
+      attachDrag(minimap.el, minimap.el, MINIMAP_POS_KEY);
       return minimap;
     },
 
@@ -1740,7 +1833,7 @@ export function createHud(root) {
     get minimap() { return minimap; },
 
     /** Where the minimap's own box is, for anything that must keep clear of it. */
-    get minimapBox() { return MINIMAP; },
+    get minimapBox() { return minimap?.box || MINIMAP; },
 
     /** A line of feedback. kind: 'good' | 'bad' | undefined. */
     toast(html, kind) {
@@ -1928,10 +2021,6 @@ export function createHud(root) {
     },
 
     /**
-     * Take the paper doll's canvas, or any node, into the portrait plate. With
-     * nothing handed over the plate keeps the drawn helm.
-     */
-    /**
      * The bars' size. 'small' is the size they shipped at; 'medium' 1.25x;
      * 'large' 1.5x. The gains ticker scales with them. The user called the
      * shipped size small, so medium is the default in win_settings.
@@ -1944,12 +2033,7 @@ export function createHud(root) {
       if (g) { g.style.setProperty('--gs', String(k)); g.style.bottom = `${Math.round(96 * k)}px`; }
       return k;
     },
-    setPortrait(node) {
-      if (!node) return false;
-      portrait.textContent = '';
-      portrait.appendChild(node);
-      return true;
-    },
+    setPortrait() { return false; },
 
     /** The effects the row is drawing right now, so a test can read them. */
     get effects() { return lastEffects; },

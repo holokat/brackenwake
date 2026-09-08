@@ -68,6 +68,80 @@ export const theme = {
   glowing: RARITY_ORDER.slice(RARITY_ORDER.indexOf('epic')),
 };
 
+// The user's roster panels, measured from public/ui/roster-panels.webp at
+// 1671 by 941. The two interiors are the large near-black connected regions
+// inside the gold-studded frame, found with a dark pixel pass.
+export const ROSTER_FRAME = Object.freeze({
+  bgPath: 'ui/roster-bg.webp',
+  panelsPath: 'ui/roster-panels.webp',
+  width: 1671,
+  height: 941,
+  leftPanel: { x1: 0.218432, y1: 0.150904, x2: 0.479354, y2: 0.844846 },
+  rightPanel: { x1: 0.518851, y1: 0.150904, x2: 0.779773, y2: 0.844846 },
+});
+
+export const ROSTER_FRAME_FIT = Object.freeze({
+  maxWidth: 1400,
+  viewportW: 0.82,
+  viewportH: 0.82,
+});
+
+export const ROSTER_PANEL_ART = Object.freeze({
+  maxPortraitFrac: 0.58,
+  creationPortraitFrac: 0.34,
+});
+
+export const CLASS_PORTRAITS = Object.freeze({
+  warrior: 'ui/classes/warrior.webp',
+  ranger: 'ui/classes/ranger.webp',
+  rogue: 'ui/classes/rogue.webp',
+  mage: 'ui/classes/wizard.webp',
+  wizard: 'ui/classes/wizard.webp',
+});
+
+const ASSET_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || '/';
+
+export const assetUrl = (path) => (path ? `${ASSET_BASE}${path}` : null);
+export const rosterBgUrl = () => assetUrl(ROSTER_FRAME.bgPath);
+export const rosterPanelsUrl = () => assetUrl(ROSTER_FRAME.panelsPath);
+export const classPortraitUrl = (id) => assetUrl(CLASS_PORTRAITS[id] || CLASS_PORTRAITS.ranger);
+
+export function coverBox(viewW, viewH, imgW = ROSTER_FRAME.width, imgH = ROSTER_FRAME.height) {
+  const scale = Math.max(viewW / imgW, viewH / imgH);
+  const w = imgW * scale;
+  const h = imgH * scale;
+  return { x: (viewW - w) / 2, y: (viewH - h) / 2, w, h, scale };
+}
+
+export function containBox(viewW, viewH, imgW = ROSTER_FRAME.width, imgH = ROSTER_FRAME.height) {
+  const capW = Math.min(
+    ROSTER_FRAME_FIT.maxWidth,
+    viewW * ROSTER_FRAME_FIT.viewportW,
+    viewH * ROSTER_FRAME_FIT.viewportH * (imgW / imgH),
+  );
+  const w = capW;
+  const h = w * (imgH / imgW);
+  return { x: (viewW - w) / 2, y: (viewH - h) / 2, w, h, scale: w / imgW };
+}
+
+export function installRosterFrameBox(el, win = (typeof window !== 'undefined' ? window : null)) {
+  if (!el || !win) return () => {};
+  const apply = () => {
+    const box = containBox(win.innerWidth || ROSTER_FRAME.width, win.innerHeight || ROSTER_FRAME.height);
+    const put = (k, v) => {
+      if (typeof el.style.setProperty === 'function') el.style.setProperty(k, v);
+      else el.style[k] = v;
+    };
+    put('--bw-scene-x', `${box.x}px`);
+    put('--bw-scene-y', `${box.y}px`);
+    put('--bw-scene-w', `${box.w}px`);
+    put('--bw-scene-h', `${box.h}px`);
+  };
+  apply();
+  win.addEventListener?.('resize', apply);
+  return () => win.removeEventListener?.('resize', apply);
+}
+
 /**
  * The tint an item's art takes in a slot. Armour goes by its material band,
  * everything else by what it is made of. These are presentation values chosen

@@ -336,6 +336,13 @@ export function tabIcon(id, colour = 'currentColor', size = 17) {
   return `<svg class="bw-tab-i" viewBox="0 0 24 24" width="${size}" height="${size}" fill="${colour}" aria-hidden="true">${body}</svg>`;
 }
 
+export function binIcon(colour = 'currentColor', size = 16) {
+  return `<svg class="bw-bin-i" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"
+    stroke="${colour}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M8 7 V5 h8 v2 M5 7 h14 M8 10 v8 M12 10 v8 M16 10 v8 M7 7 l1 14 h8 l1 -14"/>
+  </svg>`;
+}
+
 /** How many of a thing make the stacked picture. Five ingots is a stack; two is two ingots. */
 export const STACK_AT = 5;
 

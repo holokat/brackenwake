@@ -140,12 +140,9 @@ export const ui = {
       if (ready.length) hud.log(`${Math.min(12, ready.length)} abilities go on the bar: ${ready.slice(0, 12).map((a) => a.name).join(', ')}`);
     }
 
-    // one likeness shared by the character sheet and the HUD portrait plate
+    // one likeness for the character sheet
     try {
       panelCtx.paperdoll = createPaperdoll(sc, () => rig, { width: 244, height: 400 });
-      // the portrait is the doll's second canvas: the first hangs in the
-      // character sheet's arch, and a node can only be in one place
-      hud.setPortrait?.(panelCtx.paperdoll.portrait || panelCtx.paperdoll.canvas);
     } catch (err) { console.warn('paperdoll not available', err); }
 
     // ------------------------------------------------------------- the HUD --

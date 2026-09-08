@@ -9,7 +9,7 @@
 
 import * as THREE from 'three';
 import { MONSTERS, purseMultiplier } from '../mmo/monsters.js';
-import { weightsFor, rollKill } from '../mmo/loot.js';
+import { weightsFor, rollKill, GEAR_DROP_SCALE } from '../mmo/loot.js';
 import { RARITY, RARITY_ORDER, BASES, makeItem, takesRarity, MEAT_BASES, auditItems } from '../mmo/items.js';
 import {
   createLootDrops, auditLootTables, auditLootWords, tableFor, itemBaseFor, rollFor,
@@ -187,16 +187,17 @@ function spread(id, n, seedBase) {
   check(`a ${m.name}'s whole table is gear, so nothing falls out of the count`, plain === 0, `${plain} plain`);
   const w = weightsFor(m.tier, 0);
   const total = w.reduce((a, b) => a + b, 0);
-  check(`${N} kills of a ${m.name} leave ${N} drops`, items === N, `${items}`);
+  // GEAR_DROP_SCALE (2026-09-08): three kills in four roll for gear at all.
+  check(`${N} kills of a ${m.name} leave about ${Math.round(N * GEAR_DROP_SCALE)} drops`, items >= N * (GEAR_DROP_SCALE - 0.08) && items <= N * (GEAR_DROP_SCALE + 0.08), `${items}`);
 
   const line = RARITY_ORDER.map((r, i) => `${r} ${counts[r]} (want ${(N * w[i] / total).toFixed(1)})`).join(', ');
   console.log(`     ${line}`);
   let inBand = true, worst = '';
   for (let i = 0; i < RARITY_ORDER.length; i++) {
     const p = w[i] / total;
-    const want = N * p;
+    const want = items * p;   // of the drops that landed, not of the kills
     // three standard deviations of a binomial, and never a band tighter than 5
-    const sd = Math.sqrt(N * p * (1 - p));
+    const sd = Math.sqrt(items * p * (1 - p));
     const band = Math.max(5, 3 * sd);
     if (Math.abs(counts[RARITY_ORDER[i]] - want) > band) { inBand = false; worst = `${RARITY_ORDER[i]} ${counts[RARITY_ORDER[i]]} against ${want.toFixed(1)} +- ${band.toFixed(1)}`; }
   }

@@ -148,6 +148,16 @@ export const SEASON_MS = 3 * 24 * 60 * 60 * 1000;      // 259,200,000
 export const YEAR_MS = SEASON_MS * SEASONS.length;     // 1,036,800,000
 
 /** Where in the year a moment falls, 0 at the first instant of Spring. */
+/**
+ * Every kind's `per` is scaled by this before placing. The user found the
+ * ground too busy with pickables (2026-09-08, "too many forageable materials
+ * around, lets cut spawns in half"); halving here keeps the table's relative
+ * abundances and the chunk budget notes above true.
+ */
+export const FORAGE_DENSITY = 0.5;
+/** Kinds whose `per` is under this are left alone; they were scarce already. */
+export const FORAGE_THIN_FROM = 2.5;
+
 export function seasonIndexAt(nowMs, epoch = 0) {
   const t = Number.isFinite(nowMs) ? nowMs : 0;
   const e = Number.isFinite(epoch) ? epoch : 0;
@@ -815,7 +825,11 @@ export function placeForage(sample, cx, cz, trees, season, seed = 1, opts = {}) 
     if (!f.seasons.includes(season)) continue;
     const bf = weightFor(f, biome, moist);
     if (bf <= 0) continue;
-    const base = f.per * abundance * bf;
+    // Only the plentiful kinds are thinned: a kind that placed under two a
+    // chunk already is the rare find of its ring, and halving it would empty
+    // some rings of it altogether (forage.test's ring check).
+    const per = f.per >= FORAGE_THIN_FROM ? f.per * FORAGE_DENSITY : f.per;
+    const base = per * abundance * bf;
     let nCl = Math.floor(base) + (r() < base - Math.floor(base) ? 1 : 0);
     const wantsTree = f.place === 'nearTree' || f.place === 'trunk';
     // ONE BUNCH OF A KIND PER TREE. Every cluster used to pick a tree out of

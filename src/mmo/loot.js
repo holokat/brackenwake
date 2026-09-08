@@ -338,6 +338,13 @@ export function kitDraw(detail, r) {
   return { base: pick(detail.armour), count: 1 };
 }
 
+/**
+ * The share of ordinary kills that roll for gear at all; 1 is the tables as
+ * written. The user wanted fewer drops and more coins (2026-09-08), so
+ * rollKill throws this coin before rollDrop. Bosses and the twice roll keep
+ * their drop: the fight was long. Gold is rolled regardless.
+ */
+export const GEAR_DROP_SCALE = 0.75;
 export const CLASS_BIAS = 0.6;
 /** Eight in ten from a boss: the fight was long and the drop should land. */
 export const BOSS_BIAS = 0.8;
@@ -667,9 +674,15 @@ export function rollKill({
   const bases = Array.isArray(table) ? table : (table && table.bases) || [];
   const carries = bases.some((b) => takesRarity(b));
   const rec = record || {};
+  // The gear coin is thrown only over a table that carries gear: a rat's meat
+  // and a critter's hide are not what the user wanted fewer of.
+  const gearCoin = carries && !boss && !twice ? seededRng(hash2(seed, 91, SALT_SECOND))() : 0;
+  const lost = gearCoin >= GEAR_DROP_SCALE;
   const item = (boss || twice)
     ? bossRoll({ table, tier, luck, seed, floor: boss ? 'epic' : 'rare', profile: want, bias: BOSS_BIAS, record: rec, kit, carries })
-    : rollDrop({ table, tier, luck, seed, profile: want, bias: CLASS_BIAS, record: rec, kit, carries });
+    : lost ? null
+      : rollDrop({ table, tier, luck, seed, profile: want, bias: CLASS_BIAS, record: rec, kit, carries });
+  if (lost) rec.gearCoin = 'none';
   const unique = boss ? rollUnique({ monster, character, seed }) : null;
   return { gold, item, unique, bias: rec };
 }

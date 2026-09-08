@@ -113,8 +113,12 @@ function tube(s, pts, radii, sides, base, rng, order = 0, cap = true) {
     for (let k = 0; k < sides; k++) {
       const k2 = (k + 1) % sides;
       const c1 = barkColour(base, rng()).clone(), c2 = barkColour(base, rng()).clone();
-      tri(s, rings[i][k], rings[i + 1][k], rings[i + 1][k2], c1, order);
-      tri(s, rings[i][k], rings[i + 1][k2], rings[i][k2], c2, order);
+      // Rings run counterclockwise seen from the tip, so the outward face is
+      // a, then the next point around, then up: the other order faced inward
+      // and every trunk was culled from the near side (the user, 2026-09-08:
+      // "open geometry like its missing half of the trunk").
+      tri(s, rings[i][k], rings[i + 1][k2], rings[i + 1][k], c1, order);
+      tri(s, rings[i][k], rings[i][k2], rings[i + 1][k2], c2, order);
     }
   }
   if (cap) {
