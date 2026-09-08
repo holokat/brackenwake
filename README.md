@@ -28,6 +28,18 @@ npm run dev
 
 Vite proxies `/ws` to the local Cloudflare Worker on port 8787. The Worker uses a Durable Object for each room. See [the multiplayer implementation notes](docs/mmo/wiring/MP1-THE-OTHERS.md) for the current authority and synchronization model.
 
+## Wishlist and planned features
+
+- A better authored starting zone
+- More assets, including monsters and infrastructure
+- Better ability animations
+- More abilities
+- Better encounter balance
+- A storyline
+- Housing
+
+Contributions are welcome, whether you want to work on code, art, animations, world design, writing or playtesting. Pick something from this list or bring your own idea. Open an issue to discuss it, or submit a pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started.
+
 ## Build on the game
 
 Fork this repository to change the game, create a world or reuse its components. The companion [game-assets repository](https://github.com/holokat/game-assets) contains the asset studio and reusable collections. Follow that repository's setup instructions and preserve its asset-specific license notices when importing files.
