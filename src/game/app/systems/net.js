@@ -37,6 +37,21 @@ function slotIdOf(ctx) {
   return null;
 }
 
+/**
+ * The id a room knows this character by. It was the roster slot number, and
+ * everyone's first character is slot 1, so two players in the same world were
+ * one player to the room and evicted each other on every join (the user and a
+ * friend, 2026-09-08: "we dont see each other"). It is now a random id minted
+ * once and kept on the character document, so it survives a reload and never
+ * collides with anyone else's.
+ */
+export function netIdOf(ctx, character, random = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36))) {
+  if (character && typeof character.netId === 'string' && character.netId) return character.netId;
+  const id = `${(character && character.name ? String(character.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 16) : 'someone')}-${String(random()).replace(/[^a-z0-9]/gi, '').slice(0, 12)}`;
+  if (character) { character.netId = id; try { ctx.state?.save?.(); } catch { /* it is minted again next time, which is the same id if the save held */ } }
+  return id;
+}
+
 export const net = {
   name: 'net',
   deps: ['world', 'player', 'combat', 'abilities', 'ui'],
@@ -191,7 +206,7 @@ export const net = {
       client = createNetClient({
         url: wsUrlFor(location, room),
         // the character document carries no id of its own; the roster slot is the stable name for this save
-        hello: () => helloFor(Object.assign({}, character, { id: slotIdOf(ctx) || character.name })),
+        hello: () => helloFor(Object.assign({}, character, { id: netIdOf(ctx, character) })),
         socketFactory: (u) => new WebSocket(u),
         onMessage,
         onStatus: (s) => { if (s === 'open') say('You are on the road with the others; anyone else here will show as they arrive.', 'ability'); },
