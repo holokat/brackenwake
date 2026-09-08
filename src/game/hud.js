@@ -49,7 +49,7 @@
 // so hud.test.mjs can run the real createHud against a small fake document.
 // A HUD that could only be checked by eye is a HUD nobody checks.
 
-import { injectTheme, theme, icon, itemGlyph, cornerUrl } from './ui_theme.js';
+import { injectTheme, theme, icon, itemGlyph } from './ui_theme.js';
 import { abilityIcon, itemIcon, iconUrl } from './icon_art.js';
 import { dropTarget, dragSource } from './windows.js';
 import { ITEM_SLOTS, ITEM_KEYS, keyCap as itemKeyCap } from './item_bar.js';
@@ -802,13 +802,7 @@ const CSS = `
   border-radius: 7px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 14px rgba(0,0,0,.5);
 }
-#bw-bar .cell::before, #bw-items .icell::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
-  background-image: ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()};
-  background-repeat: no-repeat;
-  background-position: left 1px top 1px, right 1px top 1px, left 1px bottom 1px, right 1px bottom 1px;
-  background-size: 14px 14px;
-}
+/* no corner brackets on the cells: at 48 px they read as clutter over the art (the user, 2026-09-08) */
 #bw-bar .cell.empty { opacity: .4; cursor: default; }
 #bw-bar .cell.casting { border-color: #cbb6ff; box-shadow: 0 0 0 1px #cbb6ff inset, 0 0 16px rgba(203,182,255,.5); }
 /* G2: the weapon rule. A cell you cannot fire because of what is in your hands
