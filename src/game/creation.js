@@ -1314,6 +1314,9 @@ export function createCreation(root, deps = {}) {
     state.skills = { ...op.skills };
     build();
     refresh();
+    // the studio dresses for a class: the Mage's blue, the Sorcerer's mauve.
+    // The stage used to build once as the Blank and keep its grey (2026-09-08).
+    if (rig && rig.studio && typeof rig.studio.setClass === 'function') rig.studio.setClass(id);
     dressPreview();
   }
 
@@ -1649,6 +1652,21 @@ export function createCreation(root, deps = {}) {
       // the world fall on it, and it goes when the screen goes.
       dais = new THREE.Group();
       dais.name = 'creation-dais';
+      // A neutral studio light on the stage. The world's sun is warm and low
+      // and painted every robe brown next to the studio's own render
+      // (2026-09-08): a white key from the front left, a soft fill from the
+      // right, and a cool sky over a warm ground, parented to the dais so they
+      // leave with it.
+      const key = new THREE.DirectionalLight(0xffffff, 1.6);
+      key.position.set(-2.2, 4.5, 3.5);
+      key.target.position.set(0, 1.1, 0);
+      dais.add(key); dais.add(key.target);
+      const fill = new THREE.DirectionalLight(0xdfe8ff, 0.7);
+      fill.position.set(3, 2.5, 2);
+      fill.target.position.set(0, 1.1, 0);
+      dais.add(fill); dais.add(fill.target);
+      const sky = new THREE.HemisphereLight(0xe8eefc, 0x8a7a66, 0.55);
+      dais.add(sky);
       const body = new THREE.Mesh(
         new THREE.CylinderGeometry(DAIS.top, DAIS.foot, DAIS.height, 40, 1),
         new THREE.MeshStandardMaterial({ color: 0x46413a, roughness: 0.97, metalness: 0 }),

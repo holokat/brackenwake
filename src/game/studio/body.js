@@ -78,6 +78,9 @@ export function buildStudioCharacter(appearance={},options={}){
   get ready(){return ready;},get actor(){return actor;},get sourceMotion(){return motion;},get loaded(){return!!actor;},get appearance(){return look;},get equipment(){return equipment;},
   setAppearance(a){const next={...look,...a};if(JSON.stringify(next)!==JSON.stringify(look)){look=next;void rebuild();}return api;},
   setEquipment(eq,opts={}){const sig=equipmentSignature(eq,opts);if(sig===lastSignature)return[];lastSignature=sig;equipment=eq||{};equipOpts=opts;void rebuild();return Object.keys(eq||{});},
+  /** The class the studio dresses for: its cloth, leather and trim colours. The creation stage changes it with every opening picked (2026-09-08). */
+  setClass(id){const kind=Object.hasOwn(classProfiles,id)?id:'blank';if(options.classId===kind)return false;options.classId=kind;void rebuild();return true;},
+  get classId(){return Object.hasOwn(classProfiles,options.classId)?options.classId:'blank';},
   pose(s){state=s;const move=s.airborne?'airborne':s.anim==='run'?'run':s.anim==='walk'?'walk':'idle';sample(move,move==='idle'?(s.t%5.6)/5.6:((s.phase||0)/(Math.PI*2))%1);},
   poseAction(name,phase,seconds=.45){
    const fit=studioEquipment(equipment,equipOpts);
