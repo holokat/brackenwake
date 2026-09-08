@@ -788,7 +788,7 @@ export function treeProto(model) {
   if (!species) return null;
   let p = treeProtos.get(model);
   if (!p) {
-    try { p = arbor.buildPrototype(species, seedOf(model), { maturity: 1 }); } catch { p = null; }
+    try { p = arbor.prototypeFor(species, seedOf(model), { maturity: 1 }); } catch { p = null; }
     if (p) treeProtos.set(model, p);
   }
   return p;
@@ -808,7 +808,7 @@ export function speciesProto(species) {
   const key = `sp:${species}`;
   let p = treeProtos.get(key);
   if (!p) {
-    try { p = arbor.buildPrototype(species, seedOf(key), { maturity: 1 }); } catch { p = null; }
+    try { p = arbor.prototypeFor(species, seedOf(key), { maturity: 1 }); } catch { p = null; }
     if (p) treeProtos.set(key, p);
   }
   return p;
@@ -1153,7 +1153,8 @@ export function buildPlan(plan, site, heightAt) {
   // THE TREES ARE REAL TREES. A plan's beech or oak is grown by arbor.js, the
   // same generator the forests use, never a ball on a post, and every tree of
   // one model in the plan is one instanced bark mesh and one instanced leaf
-  // mesh, so forty beeches cost two draw calls. The user said no low poly trees.
+  // mesh, so forty beeches cost two draw calls. The style (low poly since
+  // 2026-09-08, or grown) is arbor's to choose; prototypeFor follows it.
   for (const [key, entry] of trees) {
     const { proto, list } = entry;
     const model = entry.name || key;

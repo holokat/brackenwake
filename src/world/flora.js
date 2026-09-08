@@ -499,10 +499,9 @@ function arborField(parent, kind, seed, centre) {
     const maturity = Math.min(1, arbor.PROTO_DEFAULTS.maturity * (0.55 + t * 0.7));
     const proto = arbor.prototypeFor(species, s, { detail: DETAIL[kind], maturity });
     mats ||= { bark: proto.barkMat, leaf: proto.leafMat, depth: proto.depthMat };
-    const bands = arbor.LOD_BANDS.map((B) => ({
-      bark: arbor.barkLod(proto, B.barkDepth),
-      leaf: proto.hasLeaves ? arbor.leafForBand(proto.leaf, B) : null,
-    }));
+    // a low poly prototype built its three bands itself; a grown one is cut
+    // down here by branch order and leaf stride. Either way, three pairs.
+    const bands = arbor.bandsFor(proto);
     f.variants.push({
       proto, bands,
       baseR: proto.radius, height: proto.height, crownRadius: proto.crownRadius,

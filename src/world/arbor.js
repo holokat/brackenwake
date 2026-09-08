@@ -36,6 +36,7 @@
 import * as THREE from 'three';
 import { mulberry32 } from './noise.js';
 import { makeBark, makeLeafTex, makeGrassTex, makeGroundTex, LEAF_KINDS, BARK_STYLES } from './arbor_textures.js';
+import { buildLowPolyPrototype, disposeLowPolyPrototype } from './lowpoly_trees.js';
 
 const V = THREE.Vector3, Q = THREE.Quaternion;
 const YUP = new THREE.Vector3(0, 1, 0);
@@ -807,6 +808,44 @@ export function barkLod(proto, maxOrder) {
 
 // ------------------------------------------------------------ prototypes ----
 
+// ----------------------------------------------------------------- style ---
+//
+// Two ways to make a tree out of the same species table: 'grown' is
+// buildPrototype below, tubes and textured leaf quads; 'lowpoly' is
+// lowpoly_trees.js, facets and per face colour. The style is a boot time
+// choice: it is read off `?trees=grown` on the URL, and setTreeStyle drops the
+// prototype cache, so fields built before the switch keep the trees they have.
+// Low poly is the default since 2026-09-08 (the user: "can we change trees to
+// low poly style").
+
+export const TREE_STYLES = ['lowpoly', 'grown'];
+let treeStyle = 'lowpoly';
+if (typeof location !== 'undefined' && location.search) {
+  const m = /[?&]trees=(\w+)/.exec(location.search);
+  if (m && TREE_STYLES.includes(m[1])) treeStyle = m[1];
+}
+export const getTreeStyle = () => treeStyle;
+export function setTreeStyle(style) {
+  if (!TREE_STYLES.includes(style)) throw new Error(`arbor: no tree style '${style}'`);
+  if (style === treeStyle) return false;
+  treeStyle = style;
+  clearPrototypeCache();
+  return true;
+}
+
+/**
+ * The three LOD bands of a prototype as `{ bark, leaf }` pairs. A low poly
+ * prototype built its bands itself; a grown one derives them here from the
+ * bark orders and the leaf quads. flora.js draws whichever it is given.
+ */
+export function bandsFor(proto) {
+  if (proto.bands) return proto.bands;
+  return LOD_BANDS.map((B) => ({
+    bark: barkLod(proto, B.barkDepth),
+    leaf: proto.hasLeaves ? leafForBand(proto.leaf, B) : null,
+  }));
+}
+
 const protoCache = new Map();
 const optKey = (o) => {
   const p = { ...PROTO_DEFAULTS, ...o };
@@ -815,9 +854,12 @@ const optKey = (o) => {
 
 /** buildPrototype, memoised on (species, seed, options). Build trees through this. */
 export function prototypeFor(speciesId, seed, opts = {}) {
-  const key = speciesId + '|' + (seed >>> 0) + '|' + optKey(opts);
+  const key = treeStyle + '|' + speciesId + '|' + (seed >>> 0) + '|' + optKey(opts);
   let p = protoCache.get(key);
-  if (!p) { p = buildPrototype(speciesId, seed, opts); protoCache.set(key, p); }
+  if (!p) {
+    p = treeStyle === 'lowpoly' ? buildLowPolyPrototype(speciesId, seed, opts) : buildPrototype(speciesId, seed, opts);
+    protoCache.set(key, p);
+  }
   return p;
 }
 
@@ -850,6 +892,7 @@ export function forestPrototypes(typeId, seed, opts = {}) {
 /** Drop the prototype cache and free its GPU resources. */
 export function clearPrototypeCache() {
   for (const p of protoCache.values()) {
+    if (p.style === 'lowpoly') { disposeLowPolyPrototype(p); continue; }   // its materials are shared per species
     p.bark.dispose(); p.leaf.dispose();
     p.barkMat.dispose(); p.leafMat.dispose(); p.depthMat.dispose();
   }

@@ -17,6 +17,8 @@ import { setCanvasFactory, stubCanvasFactory, makeBark, makeLeafTex, LEAF_KINDS,
 import * as A from './arbor.js';
 
 setCanvasFactory(stubCanvasFactory);
+// this is the GROWN generator's suite; the low poly one is lowpoly_trees.test.mjs
+A.setTreeStyle('grown');
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };

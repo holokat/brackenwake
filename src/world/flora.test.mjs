@@ -27,6 +27,10 @@ import * as arbor from './arbor.js';
 import { chopTree, regrowTrees, clearTreeFields, treeFieldsFor } from '../farm/tree_edit.js';
 import { nounFor } from '../game/interact.js';
 
+// This suite is the GROWN forest's baseline; the game boots low poly since
+// 2026-09-08, and the last section builds the same worst case in that style.
+arbor.setTreeStyle('grown');
+
 // chopTree animates the topple with requestAnimationFrame. In node there is
 // none, and a felling that silently did nothing would be exactly the kind of
 // bug this file exists to catch, so shim it rather than skip the test.
@@ -1235,6 +1239,7 @@ check('dispose leaves nothing in the scene', scene.children.length === 0, `${sce
 // better, and boreal is the densest forest type there is, so this is the frame
 // the budget has to survive.
 // ============================================================================
+let grownTris = 0, grownCalls = 0;
 {
   const scene2 = new THREE.Scene();
   const flora2 = createFlora(scene2, f, {});
@@ -1271,6 +1276,7 @@ check('dispose leaves nothing in the scene', scene.children.length === 0, `${sce
     }
   }
   console.log(`  ${flora2.stats.drawCalls} draw calls, ${(flora2.stats.tris / 1e6).toFixed(2)} M triangles a frame`);
+  grownTris = flora2.stats.tris; grownCalls = flora2.stats.drawCalls;
   console.log(`  by band: near ${N(trisBy[0])}, mid ${N(trisBy[1])}, far ${N(trisBy[2])} triangles`);
   check('the far band carries most of the trees for a fraction of the triangles',
     trisBy[2] < trisBy[0] + trisBy[1], `far ${N(trisBy[2])} against near+mid ${N(trisBy[0] + trisBy[1])}`);
@@ -1305,6 +1311,46 @@ check('dispose leaves nothing in the scene', scene.children.length === 0, `${sce
     flora3.stats.drawCalls < 120, `${flora3.stats.drawCalls}`);
   flora3.dispose();
   clearTreeFields();
+}
+
+// ============================================================================
+// THE LOW POLY FOREST (2026-09-08). Everything above holds the grown generator
+// to its baseline. The game boots in the low poly style, so the same worst
+// case is built again in it, through the same streamer, and measured against
+// what the grown forest cost.
+// ============================================================================
+{
+  arbor.setTreeStyle('lowpoly');
+  const scene4 = new THREE.Scene();
+  const flora4 = createFlora(scene4, f, {});
+  const [bcx, bcz] = byBiome.boreal;
+  const BX = (bcx + 0.5) * 64, BZ = (bcz + 0.5) * 64;
+  let c4 = 1000;
+  for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) flora4.onChunk(bcx + dx, bcz + dz, Math.max(Math.abs(dx), Math.abs(dz)) <= 3 ? 33 : 17);
+  for (let i = 0; i < 4000 && (flora4.pending || !flora4.warm || i < 3); i++) { c4 += 250; flora4.update(c4, BX, BZ); }
+  const stands = Object.values(flora4.kinds).filter((fld) => (fld.kind || 'tree') === 'tree' && fld.generator === 'arbor');
+  const trees = stands.reduce((a, fld) => a + fld.trees.length, 0);
+  console.log(`\n  THE SAME WORST CASE, LOW POLY: ${trees} trees, ${flora4.stats.drawCalls} draw calls, ${(flora4.stats.tris / 1e6).toFixed(2)} M triangles a frame`);
+  check('every stand is built of low poly prototypes',
+    stands.length > 0 && stands.every((fld) => fld.variants.every((v) => v.proto.style === 'lowpoly')),
+    stands.map((fld) => `${fld.kindId} ${fld.variants.length}`).join(', '));
+  check('every prototype has three bands, cheaper with distance',
+    stands.every((fld) => fld.variants.every((v) => v.bandTris.length === 3 && v.bandTris[0] > v.bandTris[1] && v.bandTris[1] > v.bandTris[2])),
+    stands.map((fld) => `${fld.kindId} ${fld.variants[0].bandTris.join('/')}`).join('  '));
+  check('every prototype measured its own trunk radius', stands.every((fld) => fld.variants.every((v) => v.baseR > 0.01 && v.baseR < 4)));
+  check('the low poly forest costs a fraction of the grown one', flora4.stats.tris < grownTris * 0.5,
+    `${(flora4.stats.tris / 1e6).toFixed(2)} M against ${(grownTris / 1e6).toFixed(2)} M`);
+  check('and no more draw calls', flora4.stats.drawCalls <= grownCalls, `${flora4.stats.drawCalls} against ${grownCalls}`);
+  // the axe does not care which generator grew the tree
+  const oak4 = Object.values(flora4.kinds).find((fld) => fld.kindId === 'oak' && fld.trees.length);
+  const idx4 = oak4 ? oak4.trees.findIndex((t) => !t.felledUntil) : -1;
+  const swings = oak4 && idx4 >= 0 ? [chopTree(oak4, idx4), chopTree(oak4, idx4), chopTree(oak4, idx4)] : [];
+  check('a low poly oak falls to three swings like any other',
+    swings.length === 3 && swings.every(Boolean) && !!oak4.trees[idx4].felledUntil && chopTree(oak4, idx4) === null,
+    oak4 ? `${oak4.trees.length} oaks, index ${idx4}` : 'no oak stand');
+  flora4.dispose();
+  clearTreeFields();
+  arbor.setTreeStyle('grown');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
