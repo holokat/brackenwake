@@ -1227,13 +1227,27 @@ export const panel = {
       return;
     }
     setMarkersVisible(true, ctx.sc && ctx.sc.scene);
+    // Leaving build mode with unsaved work asks first (2026-09-08). OK writes
+    // everything and lets dev mode go; Cancel keeps you in the editor.
+    if (ctx?.dev?.guard && !this._unguard) {
+      this._unguard = ctx.dev.guard(() => {
+        const ed = this._ed;
+        const n = ed && typeof ed.unsavedCount === 'function' ? ed.unsavedCount() : 0;
+        if (!n) return true;
+        const ask = (typeof window !== 'undefined' && typeof window.confirm === 'function') ? window.confirm : null;
+        const ok = ask ? ask(`${n} unsaved ${n === 1 ? 'change is' : 'changes are'} in the editor. OK saves and leaves build mode. Cancel stays.`) : true;
+        if (!ok) return false;
+        ed.saveAll().then(() => { if (this._drawAll) this._drawAll(); }).catch(() => {});
+        return true;
+      });
+    }
     // The gameplay HUD goes off the screen for as long as the editor is up.
     const put = ctx?.hud?.setMode?.('editor');
     if (this._setLive) this._setLive(true);
     ctx?.hud?.toast?.('the editor is open. The sidebar is the mode, 1 to 9 and then 0 pick one, the tray beside it is what goes down. '
       + 'Hold the left button to paint, shift turns a brush over or rubs a scatter out, the wheel widens it. '
       + 'The last cell is Erase, which takes the ground and everything standing on it back to the blank canvas. '
-      + 'Right drag still turns the camera. Everything writes itself a second after you stop. L or Escape leaves.');
+      + 'Right drag still turns the camera. Nothing is written until you press Save, and leaving build mode with unsaved work asks first. L or Escape leaves.');
     if (this._ed && put) this._ed.say(`the gameplay HUD is put away, ${put.hidden} ${put.hidden === 1 ? 'piece' : 'pieces'} of it, and it comes back when you leave.`);
     if (this._drawAll) this._drawAll();
   },
@@ -1259,7 +1273,7 @@ export const panel = {
     }).catch(() => {});
   },
 
-  dispose() { if (this._teardown) this._teardown(); },
+  dispose() { if (this._unguard) { this._unguard(); this._unguard = null; } if (this._teardown) this._teardown(); },
 };
 
 export default panel;

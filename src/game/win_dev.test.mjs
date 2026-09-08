@@ -608,6 +608,18 @@ console.log('dev.js: F1 fly, and the mode that is remembered');
   check('and the document remembers that too', state.character.settings.dev === false);
   check('the save carries it', JSON.parse(JSON.stringify(state.character)).settings.dev === false);
   check('every switch said something', events.filter((e) => e.startsWith('say:')).length === 2);
+  // a guard (the editor, with unsaved work) may keep dev mode on; a vetoed switch is no switch and says nothing
+  {
+    const before = dev.on;
+    let asked = 0;
+    const unguard = dev.guard(() => { asked++; return asked === 1 ? false : true; });
+    dev.set(true); dev.set(false);
+    check('a guard answering false keeps dev mode on', dev.on === true && asked === 1);
+    dev.set(false);
+    check('and answering true lets it go', dev.on === false && asked === 2);
+    unguard();
+    dev.set(before);
+  }
   check('the debug switches start false and are the two the bench flips', DEBUG_FLAGS.join(',') === 'chunks,colliders' && DEBUG_FLAGS.every((k) => dev.debug[k] === false));
   check('an unknown switch is refused', dev.setDebug('wireframe', true) === null);
   check('a known one is written', dev.setDebug('colliders', true) === true && dev.debug.colliders === true);

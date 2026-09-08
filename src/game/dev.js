@@ -144,8 +144,12 @@ export function createDev({ sc, camera, player, hud, runtime, state, monsters, f
     return true;
   }
 
+  // A guard may refuse the turn OFF: the editor asks about unsaved work. A
+  // guard answering false keeps dev mode on; anything else lets it go.
+  const guards = [];
   function setOn(next) {
     if (next === on) return on;
+    if (!next) for (const g of guards) { let v = true; try { v = g(); } catch (e) { console.warn('dev guard', e); } if (v === false) return on; }
     on = next;
     if (on) {
       camera.setMode('fly');
@@ -176,6 +180,8 @@ export function createDev({ sc, camera, player, hud, runtime, state, monsters, f
   return {
     toggle() { return setOn(!on); },
     set(v) { return setOn(!!v); },
+    /** Ask before dev mode goes off. `fn()` returning false keeps it on. Returns a function that removes the guard. */
+    guard(fn) { if (typeof fn === 'function') guards.push(fn); return () => { const i = guards.indexOf(fn); if (i >= 0) guards.splice(i, 1); }; },
     /** Called with the new mode every time it flips. Returns a function that stops listening. */
     onChange(fn) { if (typeof fn === 'function') listeners.push(fn); return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); }; },
     get on() { return on; },

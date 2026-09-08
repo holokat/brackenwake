@@ -1037,14 +1037,23 @@ console.log('\neditor: a scatter lays what the density asks, and shift rubs it o
 }
 
 // ============================================================================
-console.log('\neditor: the autosave writes a second after the last change, and not before');
+console.log('\neditor: with the autosave off, nothing is ever due, and the count says what Save would write');
+{
+  const ed = createEditor({});
+  ed.setTab('trees');
+  ed.arm('oak');
+  ed.placeAt(400, 400, { now: 1000 });
+  check('a placement is unsaved and never due on its own', ed.unsavedCount() >= 1 && ed.autosaveDue(1e12) === false && ed.autosaveAt() === 0, `${ed.unsavedCount()} unsaved, due at ${ed.autosaveAt()}`);
+}
+
+console.log('\neditor: the autosave, when asked for, writes a second after the last change, and not before');
 {
   const sent = [];
   const fakeFetch = async (url, opts) => {
     sent.push(JSON.parse(opts.body).path);
     return { ok: true, status: 200, json: async () => ({ ok: true, bytes: (opts.body || '').length }) };
   };
-  const ed = createEditor({});
+  const ed = createEditor({ autosave: true });
   ed.setTab('trees');
   ed.arm('oak');
   check('with nothing changed there is nothing due, at any hour',
@@ -1071,7 +1080,7 @@ console.log('\neditor: the autosave writes a second after the last change, and n
   check('and the ground is written with them when the ground has moved',
     (() => {
       const t = fakeTerrain();
-      const e2 = createEditor({ terrain: t });
+      const e2 = createEditor({ terrain: t, autosave: true });
       e2.arm && e2.setTab('terrain');
       e2.strokeOnce(0, 0, { kind: 'raise' });
       return e2.groundDirty === true && e2.autosaveDue(Date.now() + AUTOSAVE_MS + 1) === true;

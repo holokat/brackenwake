@@ -337,11 +337,20 @@ export function createEditor(ctx = {}) {
 
   // ---------------------------------------------------------- placement --
 
-  /** The autosave is due a second from now, whatever it was due before. */
+  // The autosave is OFF unless asked for (`ctx.autosave: true`, the tests).
+  // Writing a second after every placement threw the builder back to the
+  // roster each time (the dev server reloaded on the file), and a builder
+  // wants to lay out a whole yard and then press Save (2026-09-08). Leaving
+  // build mode with unsaved work asks first: panel.js's guard on dev.
+  const autosave = ctx.autosave === true;
+  /** The autosave is due a second from now, whatever it was due before; or never, with the autosave off. */
   function schedule(now) {
+    if (!autosave) { autoAt = 0; return 0; }
     autoAt = num(Number.isFinite(now) ? now : Date.now()) + AUTOSAVE_MS;
     return autoAt;
   }
+  /** How many things would be lost by walking away: the unsaved spaces, and the ground if it is dirty. */
+  const unsavedCount = () => unsaved.size + (terrainDirty ? 1 : 0);
   /** Mark the open space changed, and set the autosave running behind it. */
   function changed(now) {
     dirty = true;
@@ -1528,7 +1537,7 @@ export function createEditor(ctx = {}) {
       if (Number.isFinite(patch.density)) scatterDensity = Math.max(0, Math.min(SCATTER_DENSITY_MAX, round2(patch.density)));
       return { r: scatterR, density: scatterDensity };
     },
-    saveAll, tickAutosave, autosaveDue, autosaveAt, autosaveWaiting,
+    saveAll, tickAutosave, autosaveDue, autosaveAt, autosaveWaiting, unsavedCount,
     get openSpaces() { return [...docs.keys()]; },
     get groundDirty() { return terrainDirty; },
     get depth() { return { done: placeGroups.length, undone: placeUndone.length }; },

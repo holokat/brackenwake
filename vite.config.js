@@ -16,6 +16,11 @@ export default defineConfig({
   server: {
     port: 5198,
     strictPort: false,
+    // The editor's saves land in these folders. Vite used to see every one
+    // as a source change and reload the page, which threw the builder back to
+    // the roster after each placement (2026-09-08). The running game already
+    // holds what it placed; the files are for the next load.
+    watch: { ignored: ['**/src/mmo/spaces/**', '**/public/terrain/**'] },
     proxy: {
       '/ws': { target: 'ws://localhost:8787', ws: true, changeOrigin: true },
     },
