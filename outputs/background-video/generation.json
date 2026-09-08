@@ -1,0 +1,13 @@
+{
+  "output_url": "https://codex-video-upload-receiver.cogentgene.workers.dev/brackenwake/development/8ed5eb672e6e48efa47ef361d05f1257/ambient-source.mp4",
+  "status": "downloaded",
+  "model": "xai/grok-imagine-video-1.5-preview",
+  "source": "/Users/k/brackenwake/public/ui/roster-bg.webp",
+  "source_sha256": "997769bcf6007c58cbff2b55a3f7bfdd4b1715c44d37ce72b8ba9a47d98e5d3b",
+  "account_id": "0b55a6c39a979a58efbf40875ac376d6",
+  "endpoint": "https://api.cloudflare.com/client/v4/accounts/0b55a6c39a979a58efbf40875ac376d6/ai/run",
+  "duration_requested": 12,
+  "resolution_requested": "720p",
+  "started_at": "2026-09-08T07:39:33.586095+00:00",
+  "bytes": 6482456
+}

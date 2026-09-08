@@ -1,0 +1,14 @@
+{
+  "result": {
+    "state": "Completed",
+    "result": {
+      "video": "https://codex-video-upload-receiver.cogentgene.workers.dev/brackenwake/development/8ed5eb672e6e48efa47ef361d05f1257/ambient-source.mp4"
+    },
+    "gatewayMetadata": {
+      "keySource": "Unified"
+    }
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}

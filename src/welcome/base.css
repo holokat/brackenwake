@@ -69,3 +69,15 @@ body.motion-off *, body.motion-off *::before, body.motion-off *::after,
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .js [data-reveal] > * { opacity: 1; transform: none; }
 }
+
+.developer-links {
+  position: fixed; z-index: 20; bottom: max(12px, env(safe-area-inset-bottom));
+  left: 50%; transform: translateX(-50%); display: flex; align-items: center;
+  gap: 18px; white-space: nowrap; color: #e7ddc7;
+  font-size: 12px; text-shadow: 0 2px 9px #05140d;
+}
+.developer-links a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; transition: color .2s; }
+.developer-links a:hover { color: #ffe0a0; }
+.developer-links a span { opacity: .65; }
+.developer-divider { width: 1px; height: 12px; background: #e7ddc74d; }
+@media (max-height: 600px) { .developer-links { bottom: max(2px, env(safe-area-inset-bottom)); } }

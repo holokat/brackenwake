@@ -1,0 +1,21 @@
+{
+  "site": "https://brackenwake-marketing.cogentgene.workers.dev/",
+  "version": "0257bb06-937c-4839-aae1-960978aeecf0",
+  "og_image": "https://brackenwake-marketing.cogentgene.workers.dev/ui/brackenwake-og-v1.png",
+  "image_dimensions": [
+    1734,
+    907
+  ],
+  "image_bytes": 2385056,
+  "image_sha256": "20dbe20e15c6486a7178385958eee3e0daac08928fed2c15602c61dffb309cc2",
+  "verified": [
+    "Public HTML has absolute OG and X large-image metadata",
+    "Facebook and Twitter crawler image requests returned HTTP 200",
+    "Public image SHA256 matches local image",
+    "All root-relative HTML assets returned HTTP 200",
+    "Video endpoint returns HTTP 200 with video/mp4",
+    "Welcome path redirects to marketing root",
+    "Production CTA targets live game with ?play"
+  ],
+  "video_range_behavior": "Server returned full HTTP 200 response to a range request"
+}

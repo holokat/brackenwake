@@ -1,0 +1,14 @@
+{
+  "frames": 630,
+  "fps": 30,
+  "duration": 21.0,
+  "width": 1264,
+  "height": 720,
+  "bytes": 7216443,
+  "boundary_mean_absolute_difference_255": 1.4164381153305203,
+  "frame_difference_mean_255": 0.26619889621564974,
+  "frame_difference_p95_255": 0.6567803563056729,
+  "audio_tracks": 0,
+  "zoom_cycle_percent": 1,
+  "loop_method": "cyclic crossfade, 2x slowdown, smooth zoom and final easing into the opening frame"
+}

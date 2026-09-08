@@ -17,3 +17,7 @@ public/audio/library/
 .wrangler/
 .shot/
 wiki/site/index.html
+dist-marketing/
+
+# Intermediate generated media; final loop lives in public/ui.
+outputs/background-video/ambient-source.mp4
