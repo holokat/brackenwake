@@ -21,9 +21,10 @@ import { panel as settingsPanel } from '../../win_settings.js';
 import { panel as devPanel, benchOf as devBenchOf } from '../../win_dev.js';
 import { panel as editorPanel } from '../../editor/panel.js';
 import { SPACES } from '../../../mmo/spaces/index.js';
+import { spaceInWorld } from '../../../world/sites.js';
 import { ZONE } from '../../../world/zones.js';
 import { ABILITIES_BY_ID, ABILITY_FOR_ITEM } from '../../../mmo/abilities.js';
-import { starterBar } from '../../progression.js';
+import { starterBar, pruneBar } from '../../progression.js';
 import { labelFor as lootLabel } from '../../loot_drops.js';
 import { conOf, conLabel } from '../../con.js';
 
@@ -43,6 +44,14 @@ export const ui = {
     const { sc, state, hud, audio, floaters, input, camera, hudRoot, character } = ctx;
     const world = ctx.get('world');
     const runtime = world.runtime;
+    let spacesHereCache = null;
+    const spacesHere = () => {
+      if (spacesHereCache) return spacesHereCache;
+      const out = {};
+      for (const [id, sp] of Object.entries(SPACES)) if (spaceInWorld(sp, runtime.field)) out[id] = sp;
+      spacesHereCache = out;
+      return out;
+    };
     const player = ctx.get('player');
     const { rig, actor, progression } = player;
     const fight = ctx.get('combat');
@@ -122,6 +131,9 @@ export const ui = {
     // unlocked goes on it in order, so the first fight has something on key 1.
     // Only the opening's own rows that the starting kit can use, and Bandage:
     // progression.starterBar. The rest is the player's to drag on once unlocked.
+    // and a bar that already has rows on it loses the ones the character cannot press yet
+    const pruned = pruneBar(character);
+    if (pruned.length) hud.log(`${pruned.length} ${pruned.length === 1 ? 'ability' : 'abilities'} left the bar until you unlock ${pruned.length === 1 ? 'it' : 'them'}: ${pruned.join(', ')}.`);
     if (barOf(character).every((x) => !x)) {
       const ready = starterBar(character).map((id) => ABILITIES_BY_ID[id]).filter(Boolean);
       ready.slice(0, 12).forEach((a, i) => setBarSlot(character, i, a.id));
@@ -181,7 +193,8 @@ export const ui = {
       player: rig,
       camera,
       field: () => runtime.field,
-      spaces: () => SPACES,
+      // only this world's spaces: the Greenwold's names were all over the island's map (2026-09-08)
+      spaces: () => spacesHere(),
       zone: () => ZONE.greenwold,
       dirty: () => runtime.terrainEdits?.version ?? 0,
       isDev: () => !!panelCtx.dev?.on,

@@ -1,8 +1,10 @@
+import {vaultHeightOf} from '../../mmo/plans/footprints.js';
 // Static physical envelopes in metres. Foliage bends; trunks, masonry and furniture do not.
 const SOFT=/^(lane_slab|road_slab_2m|road_kerb|rail_2m|stone_bridge_10m|footbridge|stepping_stones|rooting_patch|lily_pad_patch|offerings|chain_lantern|legion_banner|sheep_skeleton)$/;
 const SOFT_LIVING=/^(cowslip_patch|cow_parsley|yellow_iris|bracken|leaf_litter|mushroom_ring|bluebells|nettles|puddle|duck_pond|sheep_track|deer_rub|rabbit_warren|fox_earth|molehills|butterfly|dragonfly|kestrel|crow_flock|ivy|reed|water_weed|lily|rush|flower|fung|moss|lichen|grass|fern|seed|petal|fallen_leav)/;
 const TREE=/^(oak_[abc]|beech_[abc]|willow|lw_(apple_tree|dead_oak|coppice_stool|ivy_stump))$/;
 export function propColliders(model,x,z,y,w,d,h,yaw=0){
+ h=vaultHeightOf(model,h);   // a hedge holds the feet at waist height, whatever it shows the eye
  if(SOFT.test(model)||(model.startsWith('lw_')&&SOFT_LIVING.test(model.slice(3)))||h<.28)return[];
  const c=Math.cos(yaw),s=Math.sin(yaw),out=[];
  const box=(dx,dz,bw,bd,bh=h,by=0)=>out.push({kind:'box',model,x:x+dx*c+dz*s,z:z+dz*c-dx*s,y:y+by,w:bw,d:bd,h:bh,c,s});

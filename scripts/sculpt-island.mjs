@@ -432,7 +432,18 @@ for (const f of FIELDS) {
     ? 'Wheat inside a thorn hedge, the rows running with the slope, a gate on the lane side and a scarecrow that is only a scarecrow by day.'
     : 'Hedged grass with a fold in the corner and a dew pond, and a stile where the footpath goes over.');
   const q = f.quad;
-  for (let i = 0; i < 4; i++) s.runs.push({ model: 'hedge_4m', from: rel(s, q[i][0], q[i][1]), to: rel(s, q[(i + 1) % 4][0], q[(i + 1) % 4][1]) });
+  // four hedges, and a 6 m gap in the one that faces Haven: a field with no
+  // way out was a cell (2026-09-08), and the note had promised a gate
+  const hedges = [];
+  for (let i = 0; i < 4; i++) hedges.push([q[i], q[(i + 1) % 4]]);
+  let gate = 0, gd = Infinity;
+  hedges.forEach(([a, b], i) => { const d = Math.hypot((a[0] + b[0]) / 2 - TOWN.x, (a[1] + b[1]) / 2 - TOWN.z); if (d < gd) { gd = d; gate = i; } });
+  hedges.forEach(([a, b], i) => {
+    if (i !== gate) { s.runs.push({ model: 'hedge_4m', from: rel(s, a[0], a[1]), to: rel(s, b[0], b[1]) }); return; }
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
+    s.runs.push({ model: 'hedge_4m', from: rel(s, a[0], a[1]), to: rel(s, mx - ux * 3, mz - uz * 3) });
+    s.runs.push({ model: 'hedge_4m', from: rel(s, mx + ux * 3, mz + uz * 3), to: rel(s, b[0], b[1]) });
+  });
   s.areas.push({ kind: f.wheat ? 'wheat' : 'bare', points: q.map(([x, z]) => { const p = rel(s, x, z); return [p.x, p.z]; }) });
   const rot = rotBy(f.deg);
   const world = (lx, lz) => { const p = rot(lx, lz); return { x: f.x + p.x, z: f.z + p.z }; };

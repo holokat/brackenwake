@@ -420,6 +420,7 @@ import sp_island_wood_2 from './island_wood_2.json' with { type: 'json' };
 import sp_island_wood_3 from './island_wood_3.json' with { type: 'json' };
 import sp_island_wood_4 from './island_wood_4.json' with { type: 'json' };
 import sp_tile__8_1 from './tile_-8_1.json' with { type: 'json' };
+import sp_tile_0__1 from './tile_0_-1.json' with { type: 'json' };
 import sp_tile_1__1 from './tile_1_-1.json' with { type: 'json' };
 import sp_tile_2__1 from './tile_2_-1.json' with { type: 'json' };
 import sp_tile_2_5 from './tile_2_5.json' with { type: 'json' };
@@ -837,6 +838,7 @@ export const FILES = {
   'island_wood_3': sp_island_wood_3,
   'island_wood_4': sp_island_wood_4,
   'tile_-8_1': sp_tile__8_1,
+  'tile_0_-1': sp_tile_0__1,
   'tile_1_-1': sp_tile_1__1,
   'tile_2_-1': sp_tile_2__1,
   'tile_2_5': sp_tile_2_5,

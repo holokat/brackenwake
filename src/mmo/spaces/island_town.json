@@ -2,6 +2,7 @@
   "id": "island_town",
   "name": "Haven",
   "note": "The one town on the island: a flint wall, a green with a well, the inn, the smith, the healer, the chapel and the manor, and the quay at the gate where the boats come in. Nothing hunts here.",
+  "kind": "town",
   "at": {
     "x": 40,
     "z": 300
@@ -930,5 +931,49 @@
     "x": -40,
     "z": 46,
     "yaw": 153.43
-  }
+  },
+  "stations": [
+    {
+      "id": "forge",
+      "x": -8,
+      "z": 26,
+      "yaw": 180
+    },
+    {
+      "id": "tanningRack",
+      "x": 17,
+      "z": -20,
+      "yaw": 180
+    },
+    {
+      "id": "workbench",
+      "x": 20,
+      "z": -21,
+      "yaw": 180
+    },
+    {
+      "id": "loom",
+      "x": 17,
+      "z": -4,
+      "yaw": 180
+    },
+    {
+      "id": "kitchen",
+      "x": -28,
+      "z": 7,
+      "yaw": 180
+    },
+    {
+      "id": "alchemyTable",
+      "x": -16,
+      "z": -9,
+      "yaw": 180
+    },
+    {
+      "id": "inscriptionDesk",
+      "x": 22,
+      "z": -21,
+      "yaw": 180
+    }
+  ]
 }

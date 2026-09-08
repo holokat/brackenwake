@@ -167,7 +167,7 @@ check('auditAbilities passes the real table', auditAbilities() === true);
   let threw = '';
   try { auditAbilities(planted); } catch (e) { threw = e.message; }
   check('and fails when the count no longer matches the document',
-    threw.includes('77 abilities'), threw);
+    threw.includes('78 abilities'), threw);   // 79 less the planted Jump
 }
 check('the real table still audits after every broken copy', auditAbilities() === true);
 

@@ -71,6 +71,6 @@ const gear={mainHand:{base:'greatsword'},offHand:{base:'kite'}};assert.equal(stu
 assert.equal(studioMaterial({base:'heater',material:'iron'}).construction,'metal');
 for(const [id,affix]of Object.entries({flame:'hitFireball',frost:'hitFrost',shock:'hitLightning',vampiric:'lifeLeech',keen:'critChance',force:'damage'}))assert.equal(enchantmentFor({}, {identified:true,affixes:[{id:affix,value:5}]}).id,id);
 assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'poison'}},{base:'dagger'},9).id,'venom');assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'holy'}},{base:'dagger'},9).id,'holy');assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'holy'}},{base:'dagger'},10).id,'none');
-assert.deepEqual(ABILITIES.filter(a=>!sourceAbility(a.id)).map(a=>a.id),['camp']);
+assert.deepEqual(ABILITIES.filter(a=>!sourceAbility(a.id)).map(a=>a.id),['camp','recall']);   // Recall (2026-09-08) casts with the studio's plain gather until it has a motion of its own
 assert.equal(swaps,itemCatalog.filter(i=>i.kind==='armor').length*2);
 console.log(JSON.stringify({bodies,swaps,heldSwaps,creatures,drops,casts,sourceAbilities:ABILITIES.length-1}));

@@ -187,6 +187,7 @@ Anatomy * 0.2`, cure poison at Healing 60, resurrect at Healing 80 and Anatomy
 | Bandage | Healing 0 | a bandage | 0 | anyone can bind a wound |
 | Meditate | Meditation 0 | 0 | 0 | sit still, mana regen x3, broken by anything |
 | Camp | Camping 20 | wood | 0 | a fire: rested bonus, safe log out |
+| Recall | always | 10 stam | 120 | 3 s standing still, then home on the green at Haven (2026-09-08) |
 
 ## Balance intent
 

@@ -1062,7 +1062,11 @@ function areaMesh(points, at, heightAt, m, lift, flatY) {
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
   for (const [x, z] of points) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
   const span = Math.max(maxX - minX, maxZ - minZ);
-  const cell = Math.max(1.5, span / 26);
+  // A 150 m field at span / 26 sampled the ground every 5.8 m, and the
+  // terrain's noise rose through the flat quads between samples: the wheat
+  // showed as yellow with grass blotches ("field loading glitch", 2026-09-08).
+  // Cells are capped at 2.5 m so the decal follows the ground it lies on.
+  const cell = Math.max(1.5, Math.min(2.5, span / 26));
   const pos = [];
   const y = (wx, wz) => (flatY === null ? heightAt(wx, wz) + lift : flatY);
   for (let z = minZ; z < maxZ; z += cell) {

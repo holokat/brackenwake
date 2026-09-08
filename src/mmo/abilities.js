@@ -1558,6 +1558,17 @@ export const ABILITIES = [
     effect: { kind: 'utility', action: 'camp', grants: 'rested', safeLogout: true },
     description: 'A fire, a rested bonus, and the only place it is safe to log out.',
   }),
+  a({
+    // Everyone's way home (asked 2026-09-08): three seconds of standing still
+    // with the spell gathering, and you are on the green at Haven. Two minutes
+    // between one and the next, so it is a way home and not a way out of a fight.
+    id: 'recall', name: 'Recall', group: 'everyone',
+    skill: null, minSkill: 0,
+    cost: { stamina: 10 }, cooldown: 120, castTime: 3, moving: false, rooted: true,
+    range: 0, target: 'self',
+    effect: { kind: 'utility', action: 'recall' },
+    description: 'The road folds up under you. Three seconds standing still, and you are home on the green.',
+  }),
 ];
 
 export const ABILITIES_BY_ID = Object.fromEntries(ABILITIES.map((x) => [x.id, x]));
@@ -1568,8 +1579,8 @@ export const ABILITIES_BY_ID = Object.fromEntries(ABILITIES.map((x) => [x.id, x]
  * ability, so the table above holds 78. abilities.test.mjs parses the document
  * and asserts both numbers rather than taking this comment on trust.
  */
-export const ABILITY_COUNT = 78;
-export const ABILITY_DOC_ROWS = 79;
+export const ABILITY_COUNT = 79;   // 78, and Recall (2026-09-08)
+export const ABILITY_DOC_ROWS = 80;
 
 export const GROUPS = [
   'warrior', 'ranger', 'mage', 'sorcerer', 'necromancer', 'healer', 'rogue',

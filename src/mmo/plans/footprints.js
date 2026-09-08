@@ -316,6 +316,18 @@ export const KEEP_MODEL = 'manor';
 export const PLAN_MARGIN = 8;
 
 /** The footprint a piece really takes, its own scale applied. */
+/**
+ * What a body can get over. A hedge stands 2.2 m to the eye but a jump clears
+ * it: the support it offers the feet is capped here, so a field with four
+ * hedges and no gate is not a cell (2026-09-08). Everything else supports at
+ * its full height.
+ */
+export const VAULT_HEIGHT = { hedge_4m: 1.0 };
+export function vaultHeightOf(model, height) {
+  const v = VAULT_HEIGHT[model];
+  return Number.isFinite(v) ? Math.min(v, height) : height;
+}
+
 export function footprintOf(piece) {
   const f = FOOTPRINT[piece.model];
   if (!f) return null;

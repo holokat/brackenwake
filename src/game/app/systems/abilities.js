@@ -5,6 +5,7 @@ import {createStudioSpells} from '../../studio/spells.js';
 
 import * as THREE from 'three';
 import { createEffects } from '../../effects.js';
+import { birthplaceFor } from '../../../world/zones.js';
 import { createAbilities } from '../../abilities_runtime.js';
 import { createSpellVfx } from '../../spell_vfx.js';
 import { loadSpellTextures } from '../../vfx/textures.js';
@@ -136,7 +137,15 @@ export const abilities = {
       allies: hooks.allies,
       onAllyEffect: (who, payload) => { if (ctx.has('net')) ctx.get('net').sendEffect(who, payload); },
       resurrect: hooks.resurrect,
-      utility: hooks.utility,
+      utility: {
+        ...hooks.utility,
+        // Recall: the world's birth, which on the island is Haven's green
+        recall: () => {
+          const birth = birthplaceFor(runtime.field);
+          player.teleport(birth.x, birth.z);
+          return 'The road folds up under you, and you are on the green at Haven.';
+        },
+      },
       // an armed shot with a chosen target starts the auto attack on it
       attack: (who) => {
         const mon = fight.monsters.forActor?.(who);

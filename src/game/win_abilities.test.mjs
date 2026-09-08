@@ -295,8 +295,8 @@ console.log('abilities: the book');
   check('the book shows all seventy eight rows whatever your skills are',
     rows.length === ABILITIES.length, `${rows.length} of ${ABILITIES.length}`);
   check('and every archetype has a section', book.length === GROUPS.length, book.map((s) => s.label).join(','));
-  check('a fresh warrior has twenty three of them, thirteen of which are first rungs held open',
-    open.length === 23 && open.filter((a) => a.openAt < a.minSkill).length === 13,
+  check('a fresh warrior has twenty four of them (Recall among them), thirteen of which are first rungs held open',
+    open.length === 24 && open.filter((a) => a.openAt < a.minSkill).length === 13,
     `${open.length}: ${open.map((a) => a.name).join(', ')}`);
   check('so the locked count is exactly seventy eight minus what unlockedFor says',
     rows.filter((r) => !r.unlocked).length === ABILITIES.length - open.length,
@@ -349,7 +349,7 @@ console.log('abilities: the real panel');
 
   const locked = cards().filter((c) => c.classList.contains('locked'));
   check('fifty five of the cards are dimmed and locked',
-    locked.length === ABILITIES.length - 23, `${locked.length} locked`);
+    locked.length === ABILITIES.length - 24, `${locked.length} locked`);   // 24 since Recall (everyone, no floor)
   check('a locked card carries the sentence with your own number in it',
     locked.some((c) => /Needs .+you are at /.test(c.textContent)),
     locked[0].textContent.slice(0, 100));

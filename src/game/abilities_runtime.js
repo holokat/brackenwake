@@ -1504,7 +1504,23 @@ export function createAbilities(deps = {}) {
    * the search entirely, which is what makes the click that chooses a target
    * and a press with a target already chosen the same code path and not two.
    */
+  /**
+   * A refusal is said over the player's head as well as in the log. "It works
+   * at times and not at others" (2026-09-08) was mana, a practice fumble, no
+   * target or armour in turn, each one a line in the small log nobody reads in
+   * a fight. The float is the first clause of the reason, so "Ward costs 25
+   * mana and you have 3" floats as "Ward costs 25 mana".
+   */
   function useById(id, now, opts = {}) {
+    const r = useByIdQuietly(id, now, opts);
+    if (r && r.ok === false && r.reason && !r.pending) {
+      const brief = String(r.reason).split(/[,.:;]| and you /)[0].trim().slice(0, 44);
+      if (brief) float(pos(), brief, 'miss');
+    }
+    return r;
+  }
+
+  function useByIdQuietly(id, now, opts = {}) {
     const ability = ABILITIES_BY_ID[id];
     if (!ability) { say(`There is no ability called ${id}.`, 'bad'); return { ok: false, reason: 'unknown' }; }
     const t = num(now);

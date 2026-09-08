@@ -1,7 +1,7 @@
 {
   "id": "island_pasture",
   "name": "The Pasture",
-  "note": "Hedged grass with a fold in the corner and a dew pond, and a stile where the footpath goes over.",
+  "note": "Hedged grass with a fold in the corner and a dew pond, and a stile where the footpath goes over The gap in the hedge is on the side that faces Haven.",
   "at": {
     "x": 230,
     "z": 100
@@ -47,6 +47,17 @@
       "from": {
         "x": -60,
         "z": 55
+      },
+      "to": {
+        "x": -60,
+        "z": 3
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -60,
+        "z": -3
       },
       "to": {
         "x": -60,

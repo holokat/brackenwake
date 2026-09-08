@@ -952,6 +952,22 @@ console.log('abilities_runtime: a dot is damage, not a line');
   ck('a dot kills and stops', target.health === 0 && target.dots.length === 0, `hp ${target.health}, ${target.dots.length} dots`);
 }
 
+// --- Recall: everyone's way home ----------------------------------------------------------
+console.log('abilities_runtime: Recall stands you still for three seconds and takes you home');
+{
+  const went = [];
+  const h = harness({ bar: ['recall'], extra: { utility: { recall: () => { went.push(1); return 'home'; } } } });
+  const r = h.abilities.use(0, 0);
+  ck('Recall starts a three second cast that moving breaks', r.ok === true && r.casting === true && r.record.castTime === 3 && ABILITIES_BY_ID.recall.rooted === true, JSON.stringify({ ok: r.ok, cast: r.record && r.record.castTime }));
+  h.abilities.update(1, 1);
+  ck('nothing happens at one second', went.length === 0);
+  h.abilities.update(2.1, 3.1);
+  ck('at three the hook fires once', went.length === 1, String(went.length));
+  ck('and the player is told', /Recall\. home/.test(said(h)) || /home/.test(said(h)), said(h).split('|').pop().trim());
+  const again = h.abilities.use(0, 4);
+  ck('and it is two minutes before the next', again.ok === false && /cooldown/.test(again.reason) && ABILITIES_BY_ID.recall.cooldown === 120, again.reason);
+}
+
 // --- MP1: a hand on another player's shoulder -------------------------------------------
 console.log('abilities_runtime: a heal or a blessing on a fellow player reaches the wire');
 {

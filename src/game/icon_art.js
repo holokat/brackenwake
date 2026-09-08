@@ -19,6 +19,7 @@ export const ABILITY_ICONS = {
   'blink': 'icons/abilities/blink.webp',
   'boneSpear': 'icons/abilities/boneSpear.webp',
   'camp': 'icons/abilities/camp.webp',
+  'recall': 'icons/abilities/recall.webp',   // a stand in: Sanctuary's ring until Recall has its own painting
   'chainLightning': 'icons/abilities/chainLightning.webp',
   'cleanse': 'icons/abilities/cleanse.webp',
   'consecrateWeapon': 'icons/abilities/consecrateWeapon.webp',

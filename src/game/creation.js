@@ -505,7 +505,8 @@ export function statPct(v) {
 }
 
 /** How many kit icons a card shows before it starts counting the rest. */
-export const KIT_ICONS_SHOWN = 8;
+/** Every kit shows whole, four to a row (asked 2026-09-08); the cap is a guard against a kit nobody wrote. */
+export const KIT_ICONS_SHOWN = 16;
 
 /**
  * Every opening has a colour, an emblem, and an emblem made of drawings that
@@ -763,11 +764,13 @@ const CSS = `
 /* minmax(0, 1fr) and not 1fr: a plain 1fr track will not go below the widest
    unbreakable word in it, and NECROMANCER pushed the right hand column of
    cards clean off a 260 pixel panel at 1280. */
-#bw-creation .bw-cr-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+/* one row per opening (asked 2026-09-08): the art slot on the left is the
+   size the class paintings will be, the words beside it */
+#bw-creation .bw-cr-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 #bw-creation .bw-cr-card {
-  position: relative; min-height: 124px; padding: 9px 9px 10px 13px; cursor: pointer;
+  position: relative; min-height: 74px; padding: 8px 10px 8px 13px; cursor: pointer;
   overflow: hidden;
-  display: flex; flex-direction: column; gap: 4px;
+  display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; row-gap: 3px; align-items: center;
   background: linear-gradient(150deg, rgba(30,25,18,.9), rgba(10,9,7,.94));
   border: 1px solid ${theme.goldDim}55;
   transition: border-color .12s ease;
@@ -780,14 +783,15 @@ const CSS = `
 }
 #bw-creation .bw-cr-card.on .bw-cr-band { width: 0; }
 #bw-creation .bw-cr-emblem {
-  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  grid-row: 1 / span 2;
+  width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;
   background: radial-gradient(circle at 50% 38%, rgba(255,255,255,.09), rgba(0,0,0,.5));
   border: 1px solid ${theme.goldDim}77;
 }
 /* 14px and not 15: NECROMANCER is the longest of the eleven and at 15 it ran
    off the end of a 300 pixel column's card. Measured on the rendered page. */
 #bw-creation .bw-cr-name {
-  font-family: ${theme.fonts.display}; font-size: 14px; font-weight: 600;
+  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
   letter-spacing: .02em; color: ${theme.parchment}; line-height: 1.1;
 }
 #bw-creation .bw-cr-card.on .bw-cr-name, #bw-creation .bw-cr-card:hover .bw-cr-name { color: ${theme.goldBright}; }
@@ -968,9 +972,9 @@ const CSS = `
 }
 
 /* --- the gear row -------------------------------------------------------- */
-#bw-creation .bw-cr-kitrow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+#bw-creation .bw-cr-kitrow { display: grid; grid-template-columns: repeat(4, 64px); gap: 8px; align-items: center; }
 #bw-creation .bw-cr-kit-i, #bw-creation .bw-cr-kit-gone {
-  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  width: 64px; height: 64px; display: flex; align-items: center; justify-content: center;
   background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(0,0,0,.42));
   border: 1px solid ${theme.goldDim}55;
 }
@@ -1235,7 +1239,11 @@ export function createCreation(root, deps = {}) {
   nameInput.type = 'text';
   nameInput.maxLength = NAME_MAX;
   nameInput.placeholder = 'a name';
-  nameInput.addEventListener('input', () => { state.name = nameInput.value; refresh(); });
+  // the name's own complaint waits until a name has been tried: a red line
+  // over an empty box the player has not reached yet reads as a broken form
+  let nameTried = false;
+  nameInput.addEventListener('input', () => { state.name = nameInput.value; nameTried = true; refresh(); });
+  nameInput.addEventListener('blur', () => { if (nameInput.value) nameTried = true; refresh(); });
   act.appendChild(nameInput);
 
   const go = h('button', 'bw-cr-go', 'Create character');
@@ -1468,7 +1476,7 @@ export function createCreation(root, deps = {}) {
     kitRow.dataset.kit = String(items.length);
     for (const { item } of items.slice(0, KIT_ICONS_SHOWN)) {
       const b = baseFor(item);
-      const cell = hs('span', 'bw-cr-kit-i', itemGlyph(b, 22, null, { count: item.count, material: item.material }));
+      const cell = hs('span', 'bw-cr-kit-i', itemGlyph(b, 48, null, { count: item.count, material: item.material }));
       cell.title = item.count && item.count > 1 ? `${item.count} ${b.name.toLowerCase()}` : b.name;
       kitRow.appendChild(cell);
     }
@@ -1545,7 +1553,8 @@ export function createCreation(root, deps = {}) {
       : '';
 
     const plan = planCharacter(state);
-    err.textContent = [loose, plan.ok ? '' : plan.errors.join('. ')].filter(Boolean).join(' ');
+    const shown = plan.ok ? [] : plan.errors.filter((e) => nameTried || !/^a name /.test(e));
+    err.textContent = [loose, shown.join('. ')].filter(Boolean).join(' ');
     go.disabled = !plan.ok || !!loose;
     shortfall.textContent = plan.ok && !loose ? shortfallLine(plan) : '';
   }

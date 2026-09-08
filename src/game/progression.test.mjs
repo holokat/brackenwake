@@ -4,7 +4,7 @@
 // proves the words as well as the numbers. The curve is measured, not asserted:
 // the counts below are printed and any change to skills.js moves them.
 import {
-  createProgression, gainText, statText, unlockedIds, unlockHint, starterBar,
+  createProgression, gainText, statText, unlockedIds, unlockHint, starterBar, pruneBar,
   MILESTONE_CUE, STAT_MILESTONE_CUE, GRANDMASTER_CUE, UNLOCK_CUE,
 } from './progression.js';
 import { ABILITIES_BY_ID } from '../mmo/abilities.js';
@@ -424,6 +424,7 @@ console.log('\nprogression: a fresh bar carries only what the opening can use');
   const bar = starterBar(ranger);
   check('an archer with a bow gets archer rows', bar.includes('aimedShot'), bar.join(','));
   check('and Bandage', bar.includes('bandage'));
+  check('and Recall, everyone\'s way home', bar.includes('recall'));
   check('and nothing from another class, even where the skill floor is 0',
     !bar.some((id) => ['magicArrow', 'hex', 'lifeDrain', 'curseOfWeakness', 'heal', 'hide', 'poisonBlade', 'powerStrike'].includes(id)), bar.join(','));
   check('and no passive', !bar.includes('fleetFoot'));
@@ -434,7 +435,18 @@ console.log('\nprogression: a fresh bar carries only what the opening can use');
   const wbar = starterBar(warrior);
   check('a warrior with a sword gets Power Strike and none of the archer\'s', wbar.includes('powerStrike') && !wbar.includes('aimedShot'), wbar.join(','));
   const blank = { opening: 'blank', skills: {}, stats: {}, equipment: {}, pack: { slots: 1, items: [null] } };
-  check('the Blank opening starts with nothing but Bandage, if that: jump, sprint, meditate and camp are keys, not a class', starterBar(blank).every((id) => id === 'bandage'), starterBar(blank).join(','));
+  check('the Blank opening starts with Bandage and Recall and no more: jump, sprint, meditate and camp are keys, not a class', starterBar(blank).every((id) => id === 'bandage' || id === 'recall') && starterBar(blank).includes('recall'), starterBar(blank).join(','));
+}
+
+
+console.log('\nprogression: a bar seeded by the old rule loses what cannot be pressed');
+{
+  const archer = { opening: 'ranger', skills: { archery: 50, tracking: 40 }, stats: { str: 45, dex: 70, int: 30, con: 50, wis: 40 },
+    bar: ['aimedShot', 'doubleShot', 'chainLightning', 'frostNova', 'greaterHeal', null, 'bandage', null, null, null, null, null] };
+  const gone = pruneBar(archer);
+  check('the locked rows come off and are named', gone.join(',') === 'Chain Lightning,Frost Nova,Greater Heal', gone.join(','));
+  check('the unlocked rows stay where they were', archer.bar[0] === 'aimedShot' && archer.bar[1] === 'doubleShot' && archer.bar[6] === 'bandage' && archer.bar[2] === null, archer.bar.join(','));
+  check('a second pass takes nothing more', pruneBar(archer).length === 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

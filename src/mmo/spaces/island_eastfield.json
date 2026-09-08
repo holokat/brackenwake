@@ -1,7 +1,7 @@
 {
   "id": "island_eastfield",
   "name": "The East Field",
-  "note": "Wheat inside a thorn hedge, the rows running with the slope, a gate on the lane side and a scarecrow that is only a scarecrow by day.",
+  "note": "Wheat inside a thorn hedge, the rows running with the slope, a gate on the lane side and a scarecrow that is only a scarecrow by day The gap in the hedge is on the side that faces Haven.",
   "at": {
     "x": 210,
     "z": 300
@@ -47,6 +47,17 @@
       "from": {
         "x": -61.66,
         "z": 64.21
+      },
+      "to": {
+        "x": -68.9,
+        "z": 12.72
+      }
+    },
+    {
+      "model": "hedge_4m",
+      "from": {
+        "x": -69.73,
+        "z": 6.77
       },
       "to": {
         "x": -76.97,

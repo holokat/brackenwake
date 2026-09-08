@@ -673,7 +673,13 @@ export function paintMinimap(ctx, opts = {}) {
   ctx.textBaseline = 'alphabetic';
   ctx.font = face(MINIMAP.nameFont, '600');
   tracking(ctx, 0.6);
-  let named = 0, rings = 0;
+  let named = 0, rings = 0, crowded = 0;
+  // A label is written once and nothing is written over it: the island's map
+  // had "THE KNOLL WOOD" three deep over "THE OPEN DOWNS" (2026-09-08). The
+  // marks come spaces first, so a place gives way to a space, and later marks
+  // give way to earlier ones. The dot is still drawn; only the word is held.
+  const written = [];
+  const overlaps = (x, y, w, h) => written.some((r) => x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y);
   for (const m of marks) {
     // a space says how far it reaches, because that is the ground the editor
     // has taken hold of and nothing random stands inside it
@@ -699,8 +705,11 @@ export function paintMinimap(ctx, opts = {}) {
     const w = ctx.measureText(text).width;
     // under the dot, unless there is no room under it, and then over it
     const below = m.py + 9 <= v.size - 3;
-    haloText(ctx, text, labelX(m.px, w, v.size), below ? m.py + 9 : m.py - 5,
-      m.isSpace ? theme.goldBright : theme.parchment);
+    const lx = labelX(m.px, w, v.size), ly = below ? m.py + 9 : m.py - 5;
+    const box = { x: lx - w / 2 - 2, y: ly - MINIMAP.nameFont, w: w + 4, h: MINIMAP.nameFont + 2 };
+    if (overlaps(box.x, box.y, box.w, box.h)) { crowded++; continue; }
+    written.push(box);
+    haloText(ctx, text, lx, ly, m.isSpace ? theme.goldBright : theme.parchment);
     named++;
   }
 
@@ -731,7 +740,7 @@ export function paintMinimap(ctx, opts = {}) {
   const t1 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
   return {
     ms: t1 - t0, msField: tSampled - t0,
-    rects, marks: marks.length, dropped: marks.dropped || 0, named, rings, realmRuns,
+    rects, marks: marks.length, dropped: marks.dropped || 0, named, crowded, rings, realmRuns,
     gridLines: gridLinesDrawn,
     art: art ? art.state : 'idle', painting: painting.drawn,
     guide: guide.drawn, guideNamed: guide.named, guideRings: guide.rings,

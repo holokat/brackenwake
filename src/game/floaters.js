@@ -22,7 +22,8 @@ export const MAX_LIVE = 60;        // hard cap on elements in the DOM
 // are "larger and more fun", so a hit is never smaller than the body text.
 export const KINDS = {
   damage: { color: '#fff3d6', size: 1.5, pop: true, drift: true },
-  crit:   { color: '#ffd23f', size: 2.3, shake: true, pop: true, drift: true },
+  // a crit is the number the fight is about: four times the body text, gold, and it shakes (asked for 2026-09-08)
+  crit:   { color: '#ffd23f', size: 4.2, shake: true, pop: true, drift: true },
   taken:  { color: '#ff5a4d', size: 1.7, pop: true, drift: true },
   heal:   { color: '#7ee07a', size: 1.4, pop: true },
   miss:   { color: '#c0c4c8', size: 1.0 },

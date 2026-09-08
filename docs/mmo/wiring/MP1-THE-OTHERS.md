@@ -68,7 +68,10 @@ The deployed game reaches the room on its own origin at `wss://host/ws/<world>`.
 
 - Monsters are per client. Two players see two different bandits. A shared
   fight needs the room to own the spawns, which is the next thing.
-- Chat has no box; `__bw.net.say(text)` sends and the log shows it.
+- Chat: `chat_box.js`, a draggable parchment box on the HUD (Enter focuses it,
+  Escape gives the keys back, it remembers where it was dragged). The room
+  relays `say` to everyone. Nostr relays (kind 42 channel messages) would be
+  a second transport for the same box, and are not wired.
 - The other player's swings and casts are not animated on their body yet;
   only walking, running and standing.
 - A player who dies is a plate at 0; resurrection across the wire is not wired.

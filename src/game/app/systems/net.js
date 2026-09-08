@@ -20,6 +20,7 @@ import { buildStudioCharacter } from '../../studio/body.js';
 import {
   createNetClient, createRemotes, encodeState, helloFor, roomNameFor, wsUrlFor, STATE_HZ,
 } from '../../net.js';
+import { createChatBox } from '../../chat_box.js';
 
 export const PLATE_LIFT = 0.35;
 /** Past this the body is put down where it belongs rather than walked. */
@@ -59,6 +60,11 @@ export const net = {
     let lastSentAt = -Infinity;
 
     const say = (text, kind) => { if (hud?.log) hud.log(text, kind); else hud?.toast?.(text, kind); };
+    // the chat box: what the room says, and a line to say back (asked 2026-09-08)
+    const chat = createChatBox(ctx.hudRoot || (typeof document !== 'undefined' ? document.body : null), {
+      name: character.name,
+      onSend: (text) => !!(client && client.send({ t: 'say', text })),
+    });
     // Network time is wall time. The frame clock stops in a hidden tab and is
     // driven by hand in the harness, and a body timed on it was dropped as
     // stale the moment a real frame jumped the clock forward.
@@ -147,7 +153,7 @@ export const net = {
         bars.abilities.takeRemoteEffect?.(msg.name, msg.payload, ctx.frame.nowS);
         return;
       }
-      if (msg.t === 'say') { say(`${msg.name || 'Someone'}: ${msg.text}`, 'say'); return; }
+      if (msg.t === 'say') { chat.add({ name: msg.name || 'Someone', text: String(msg.text || '') }); return; }
       const ev = remotes.apply(msg, nowS);
       if (!ev) return;
       if (ev.type === 'welcome') {
@@ -155,9 +161,9 @@ export const net = {
         say(ev.pids.length ? `You are not alone: ${ev.pids.map((p) => remotes.get(p)?.name || p).join(', ')} ${ev.pids.length === 1 ? 'is' : 'are'} here.` : 'The road is yours alone for now.', 'good');
       } else if (ev.type === 'join') {
         const b = build(ev.rec); mirror(b);
-        say(`${ev.rec.name || 'Someone'} arrives.`, 'good');
+        say(`${ev.rec.name || 'Someone'} arrives.`, 'good'); chat.system(`${ev.rec.name || 'Someone'} arrives.`);
       } else if (ev.type === 'leave') {
-        say(`${ev.rec?.name || 'Someone'} leaves.`, 'ability');
+        say(`${ev.rec?.name || 'Someone'} leaves.`, 'ability'); chat.system(`${ev.rec?.name || 'Someone'} leaves.`);
         drop(ev.pid);
       } else if (ev.type === 'state') {
         const b = bodies.get(ev.pid) || build(ev.rec);
@@ -259,7 +265,8 @@ export const net = {
       bodies,
       stats,
       actorOf(pid) { const b = bodies.get(String(pid)); return b ? b.actor : null; },
-      dispose() { if (heartbeat) clearInterval(heartbeat); if (client) client.close(); for (const pid of [...bodies.keys()]) drop(pid); if (group.parent) group.parent.remove(group); },
+      chat,
+      dispose() { chat.dispose(); if (heartbeat) clearInterval(heartbeat); if (client) client.close(); for (const pid of [...bodies.keys()]) drop(pid); if (group.parent) group.parent.remove(group); },
       bw: {
         get net() {
           return {

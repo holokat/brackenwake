@@ -708,10 +708,10 @@ check('there is a card for every opening, in the openings order',
     if (gone.length !== kitFor(op, 1).missing.length) bad.push(`${op.id}: ${gone.length} greyed for ${kitFor(op, 1).missing.length} unmade`);
     rows.push(`${op.id}:${icons.length}/${made}`);
   }
-  check('the gear row shows the chosen kit, capped at eight, and counts the rest', bad.length === 0, bad.join(' | '));
+  check('the gear row shows the chosen kit whole, and would count a remainder past the guard', bad.length === 0, bad.join(' | '));
   console.log(`       (${rows.join(' ')})`);
   const over = OPENINGS.filter((o) => kitFor(o, 1).items.length > KIT_ICONS_SHOWN).length;
-  check('and the cap is doing work rather than never being reached', over > 0, `${over} of ${OPENINGS.length} openings overflow eight`);
+  check('and no kit is cut short: every one of the eleven shows whole, four to a row', over === 0, `${over} of ${OPENINGS.length} openings overflow ${KIT_ICONS_SHOWN}`);
   const unmade = OPENINGS.filter((o) => kitFor(o, 1).missing.length).length;
   check('nothing is greyed today, because every kit base the eleven name now resolves', unmade === 0, `${unmade} openings come up short`);
   s.cr.destroy();
@@ -952,7 +952,13 @@ check('there is a card for every opening, in the openings order',
   // at the foot of the right hand column, with the same red line under it.
   check('the button is there and says what it does', !!go && go.textContent === 'Create character', go.textContent);
   check('with nothing typed it is disabled', go.disabled === true);
-  check('and the refusal is written out', /at least 2 letters/.test(errLine.textContent), errLine.textContent);
+  // the red line waits until a name has been tried (asked 2026-09-08): an
+  // empty box the player has not reached yet is not a mistake
+  check('and nothing red is written before a name has been tried', !/at least 2 letters/.test(errLine.textContent), errLine.textContent);
+  const findInput = (n) => (n.tagName === 'INPUT' && n.type === 'text' ? n : (n.children || []).map(findInput).find(Boolean));
+  const nameBox = findInput(s1.cr.el);
+  nameBox.value = 'a'; nameBox.fire('input');
+  check('and once a letter is typed the refusal is written out', /at least 2 letters/.test(errLine.textContent), errLine.textContent);
   // REWRITTEN only in where it looks: the name, the button and the red line
   // are pinned in their own block at the foot of the right column now, so the
   // order is measured inside that block rather than in the column.

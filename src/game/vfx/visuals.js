@@ -98,6 +98,8 @@ export const ABILITY_VISUALS = {
   sprint: v('aura', '#d4cfb3', 0.55, 2, 'feathers'),
   bandage: v('heal', '#e3e0c4', 0.45, 2, 'feathers', 'kneel'),
   meditate: v('aura', '#98bddd', 0.8, 4, 'wisps', 'kneel'),
+  // Recall (2026-09-08): three seconds of runes gathering underfoot, then home
+  recall: v('stealth', '#b9c6ff', 1.6, 8, 'runes'),
   // Kaldera's own: a fire you sit beside, laid at your feet.
   camp: v('aura', '#ff9a4a', 1.1, 6, 'embers', 'kneel', '#ffd9a0'),
 };

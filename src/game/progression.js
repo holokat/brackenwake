@@ -104,9 +104,30 @@ export function starterBar(character) {
   const eq = character?.equipment || {};
   const pack = character?.pack || null;
   return unlockedFor(character?.skills || {}, character?.stats || {})
-    .filter((a) => !a.passive && ((a.group === group && group !== 'everyone') || a.id === 'bandage'))
+    .filter((a) => !a.passive && ((a.group === group && group !== 'everyone') || a.id === 'bandage' || a.id === 'recall'))
     .filter((a) => weaponCheck(a, eq, pack).ok)
     .map((a) => a.id);
+}
+
+/**
+ * Take off a bar the rows the character cannot press: locked ones, whose
+ * requirements are not met. The old seed put every class's low rows on every
+ * bar, so an archer's keys 6 to 12 read Magic Arrow, Hex, Life Drain, Heal,
+ * and each press answered "needs Magery 70, you are at 0" (2026-09-08). Rows
+ * the character has unlocked stay, whatever is in the hands. Returns the names
+ * taken off, for the line that says so.
+ */
+export function pruneBar(character) {
+  const bar = Array.isArray(character?.bar) ? character.bar : [];
+  const removed = [];
+  for (let i = 0; i < bar.length; i++) {
+    const a = bar[i] ? ABILITIES_BY_ID[bar[i]] : null;
+    if (!a) continue;
+    if (meetsRequirements(a, character.skills || {}, character.stats || {}).ok) continue;
+    removed.push(a.name);
+    bar[i] = null;
+  }
+  return removed;
 }
 
 export function unlockHint(ability, character) {
