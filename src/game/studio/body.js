@@ -68,7 +68,7 @@ export function buildStudioCharacter(appearance={},options={}){
  };
  // The studio carries a staff along the forearm, tilted, and the user wants it
  // stood straight up at rest and on the move (2026-09-08). The shaft is the
- // prop's longest local extent, measured once; the tip is the end further from
+ // prop's longest local extent, measured once; the crystal is the end nearer
  // the grip, which is the prop's origin. The hand stays where the studio's
  // solver put it; only the staff turns.
  let heldStaff=false;
@@ -78,7 +78,10 @@ export function buildStudioCharacter(appearance={},options={}){
   const box=new THREE.Box3(),m=new THREE.Matrix4();
   prop.traverse(o=>{if(!o.isMesh||!o.geometry)return;if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();m.identity();let n=o;while(n&&n!==prop){m.premultiply(n.matrix);n=n.parent;}box.union(o.geometry.boundingBox.clone().applyMatrix4(m));});
   const size=box.getSize(new THREE.Vector3()),axis=size.x>=size.y&&size.x>=size.z?'x':size.y>=size.z?'y':'z';
-  const sign=Math.abs(box.max[axis])>=Math.abs(box.min[axis])?1:-1;
+  // The hand holds a staff just under its crystal, so the crystal is the end
+  // NEARER the grip and the long end is the butt; the near end goes up (the
+  // user, 2026-09-08: "staff is upside down").
+  const sign=Math.abs(box.max[axis])>=Math.abs(box.min[axis])?-1:1;
   const shaft=new THREE.Vector3();shaft[axis]=sign;
   prop.userData.shaft=shaft;return shaft;
  }
