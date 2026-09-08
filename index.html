@@ -21,26 +21,38 @@
   <div id="boot-error"></div>
 
   <!--
-    Boot watchdog. main.js sets window.__bw as the last thing it does, so if six
-    seconds go by without it, the game did not start. A blank black page tells
-    you nothing; the first error the page threw tells you everything.
+    Boot watchdog. main.js sets window.__bw as the last thing it does. A slow
+    line or an old phone can take longer than six seconds to pull the world
+    down, and on 2026-09-08 a player got the "did not boot" screen over a game
+    that was still loading, so: a quiet "still loading" line after six
+    seconds, the first error only after forty five, and either goes away the
+    moment __bw appears. A blank black page tells you nothing; the first error
+    the page threw tells you everything.
   -->
   <script>
     (function () {
       var first = null;
+      var el = document.getElementById('boot-error');
       window.addEventListener('error', function (e) {
         if (!first) first = (e.error && (e.error.stack || e.error.message)) || e.message || String(e);
       });
       window.addEventListener('unhandledrejection', function (e) {
         if (!first) first = 'unhandled rejection: ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason);
       });
-      setTimeout(function () {
-        if (window.__bw) return;
-        var el = document.getElementById('boot-error');
-        el.style.display = 'block';
-        el.textContent = 'Brackenwake did not boot within 6 s.\n\n'
-          + (first || 'No uncaught error was reported. Check the console and the network tab: a module that never finished loading throws nothing.');
-      }, 6000);
+      var started = Date.now();
+      var poll = setInterval(function () {
+        if (window.__bw) { el.style.display = 'none'; clearInterval(poll); return; }
+        var s = Math.round((Date.now() - started) / 1000);
+        if (s >= 45) {
+          el.style.display = 'block';
+          el.textContent = 'Brackenwake did not boot within ' + s + ' s.\n\n'
+            + (first || 'No uncaught error was reported. Check the console and the network tab: a module that never finished loading throws nothing.');
+        } else if (s >= 6) {
+          el.style.display = 'block';
+          el.textContent = 'Still loading Brackenwake, ' + s + ' s. The world is a few megabytes; a slow line takes a moment.'
+            + (first ? '\n\nSomething went wrong on the way, though:\n' + first : '');
+        }
+      }, 500);
     }());
   </script>
 
