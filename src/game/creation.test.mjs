@@ -809,6 +809,24 @@ check('there is a card for every opening, in the openings order',
   const drag = (stat, to) => { const r = slider(stat); r.value = String(to); r.fire('input'); };
 
   check('five stat sliders and no more, the bar being the slider', ranges(s.cr.el).length === 5, String(ranges(s.cr.el).length));
+  // The step buttons (2026-09-08, "arrows next to stat adjustments"): one down,
+  // one up, beside every number, through the same path as a drag.
+  {
+    const steps = (stat) => walk(withClass(s.cr.el, 'bw-cr-bar').find((b) => b.dataset.stat === stat)).filter((n) => n.tagName === 'BUTTON');
+    check('every bar has a down and an up step', withClass(s.cr.el, 'bw-cr-bar').every((b) => walk(b).filter((n) => n.tagName === 'BUTTON').length === 2));
+    const before = s.cr.state.stats.dex;
+    steps('dex')[1].fire('click');
+    check('the up step raises the stat by one and the slider follows', s.cr.state.stats.dex === before + 1 && Number(slider('dex').value) === before + 1, `${before} -> ${s.cr.state.stats.dex}, slider ${slider('dex').value}`);
+    steps('dex')[0].fire('click');
+    check('the down step takes it back', s.cr.state.stats.dex === before, String(s.cr.state.stats.dex));
+    drag('dex', STAT_CEIL);
+    steps('dex')[1].fire('click');
+    check('at the cap the up step does nothing', s.cr.state.stats.dex === STAT_CEIL, String(s.cr.state.stats.dex));
+    drag('dex', STAT_FLOOR);
+    steps('dex')[0].fire('click');
+    check('at the floor the down step does nothing', s.cr.state.stats.dex === STAT_FLOOR, String(s.cr.state.stats.dex));
+    drag('dex', before);
+  }
   check('every one runs the floor to the cap',
     ranges(s.cr.el).every((r) => r.min === String(STAT_FLOOR) && r.max === String(STAT_CEIL)),
     ranges(s.cr.el).map((r) => `${r.min}-${r.max}`).join(' '));

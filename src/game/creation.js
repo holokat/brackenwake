@@ -796,7 +796,15 @@ const CSS = `
 
 /* --- the stat bars, which are also the sliders --------------------------- */
 #bw-creation .bw-cr-bars { display: grid; gap: 3px; }
-#bw-creation .bw-cr-bar { display: grid; grid-template-columns: 30px 1fr 32px; gap: 9px; align-items: center; }
+#bw-creation .bw-cr-bar { display: grid; grid-template-columns: 30px 1fr 32px 24px 24px; gap: 7px; align-items: center; }
+#bw-creation .bw-cr-step {
+  width: 24px; height: 22px; padding: 0; line-height: 1; cursor: pointer;
+  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 700; color: ${theme.gold};
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.25)), ${theme.stone};
+  border: 1px solid ${theme.goldDim}aa; border-radius: 5px;
+}
+#bw-creation .bw-cr-step:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
+#bw-creation .bw-cr-step:active { transform: translateY(1px); }
 #bw-creation .bw-cr-bk {
   font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .12em;
   color: ${theme.parchmentFaint};
@@ -1342,9 +1350,28 @@ export function createCreation(root, deps = {}) {
       });
       track.appendChild(slider);
       bar.appendChild(track);
-      bar.appendChild(h('span', 'bw-cr-bv', String(state.stats[id])));
+      const v = h('span', 'bw-cr-bv', String(state.stats[id]));
+      bar.appendChild(v);
+      // A step either way beside the number: a slider on a phone is a fat
+      // finger's guess, and players asked for arrows (2026-09-08). The step
+      // goes through the same path as a drag, so the pool rules are the same.
+      for (const [glyph, delta, word] of [['\u2212', -1, 'down'], ['+', 1, 'up']]) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `bw-cr-step bw-cr-step-${word}`;
+        btn.textContent = glyph;
+        btn.title = `${STAT_NAMES[id]} ${word} one`;
+        btn.addEventListener('click', () => {
+          const next = Math.max(STAT_FLOOR, Math.min(STAT_CEIL, Number(state.stats[id]) + delta));
+          if (next === state.stats[id]) return;
+          state.stats[id] = next;
+          slider.value = String(next);
+          refresh();
+        });
+        bar.appendChild(btn);
+      }
       statBars.appendChild(bar);
-      statInputs.set(id, { slider, fill, v: bar.children[2] });
+      statInputs.set(id, { slider, fill, v });
     }
 
     skillScroll.textContent = '';
