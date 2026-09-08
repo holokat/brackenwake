@@ -58,6 +58,27 @@ export const BAR_SLOTS = 12;
 export const BAR_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
 
 /**
+ * Two bar slots change places, or one ability moves to an empty slot. The
+ * HUD's own cells are drag sources now (the user, 2026-09-08: "i should be
+ * able to drag abilities around, and if i drag it onto another, they swap").
+ * Same words as setBarSlot: what moved, where, and what it displaced.
+ */
+export function swapBarSlots(character, from, to) {
+  const bar = barOf(character);
+  const bad = (n) => !Number.isInteger(n) || n < 0 || n >= BAR_SLOTS;
+  if (bad(from) || bad(to)) return { ok: false, reason: `the bar has ${BAR_SLOTS} slots and that is not one of them` };
+  if (from === to) return { ok: false, reason: 'that is the slot it is already in' };
+  const a = bar[from], b = bar[to];
+  if (!a) return { ok: false, reason: `slot ${from + 1} is empty, there is nothing to move` };
+  bar[to] = a; bar[from] = b;
+  const nameOf = (id) => ABILITIES_BY_ID[id]?.name || id;
+  const reason = b
+    ? `${nameOf(a)} and ${nameOf(b)} swap places: ${nameOf(a)} on slot ${to + 1}, key ${keyFor(character, to)}, ${nameOf(b)} on slot ${from + 1}, key ${keyFor(character, from)}`
+    : `${nameOf(a)} moves to slot ${to + 1}, key ${keyFor(character, to)}`;
+  return { ok: true, from, to, swapped: !!b, reason };
+}
+
+/**
  * The card in hand. Clicking an unlocked card on the page picks it up; the
  * next click on a real bar cell puts it there. hud.js knows nothing of this
  * page, so the abilities system reads `barHand.id` on a bar click and calls

@@ -190,6 +190,15 @@ fx.clear();
 
 const hipY = rig.parts.hips.position.y;
 fx.die(rig);
+{
+  const before = fx.clipCount;
+  fx.update(30);
+  ck('a death clip is held past its life, a corpse does not get up on its own', fx.clipCount === before && before > 0, `${fx.clipCount} clips after 30 s`);
+  const released = fx.stand(rig);
+  ck('stand releases the held clip so a woken player is posed alive again', released === 1 && fx.clipCount === before - 1, `${released} released, ${fx.clipCount} left`);
+  ck('and a second stand has nothing to release', fx.stand(rig) === 0);
+  fx.die(rig);
+}
 run(DEATH_S);
 frame(0);
 ck('a death drops the hips and tips the body over',

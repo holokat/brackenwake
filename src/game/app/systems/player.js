@@ -10,6 +10,7 @@ import { placeAt } from '../../../mmo/greenwold/places.js';
 import * as THREE from 'three';
 import { birthplaceFor, ZONE } from '../../../world/zones.js';
 import { openAt } from '../../../mmo/release.js';
+import { baseFor } from '../../../mmo/items.js';
 import { createPlayer } from '../../player.js';
 import { playerActor as buildPlayerActor, recompute, tickPools, syncToCharacter } from '../../actor.js';
 import { createProgression } from '../../progression.js';
@@ -103,9 +104,7 @@ export const player = {
 
     // what is worn is on the body: the weapon in the right hand, the shield on
     // the left, every armour piece on its slot. The bow is drawn when the main
-    // hand is empty and a bow is in the ranged slot, which is the same rule the
-    // ranged abilities use.
-    const dress = () => dressRig(rig, character.equipment, { ranged: !character.equipment.mainHand && !!character.equipment.ranged });
+    const dress = () => dressRig(rig, character.equipment, { ranged: baseFor(character.equipment.mainHand)?.range != null });
 
     // docs/mmo/wiring/W5.md section 6. Drag inversion and sensitivity are
     // applied to input.drag before the camera reads it, each frame, from
@@ -158,6 +157,9 @@ export const player = {
         z = town.z + ((p.z - town.z) / d) * off;
       }
       if (runtime.inDungeon) runtime.leaveDungeon();
+      // the held death clip goes, or you wake lying flat on the green
+      ctx.get('abilities').effects.stand(rig);
+      rig.setAnim?.('idle');
       teleport(x, z);
       state.setPos(x, z);
       actor.health = Math.max(1, Math.round(actor.maxHealth * WAKE_HEALTH));

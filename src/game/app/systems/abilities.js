@@ -12,7 +12,7 @@ import { loadSpellTextures } from '../../vfx/textures.js';
 import { moveInfo, abilityMoves } from '../../models.js';
 import { createAbilityHooks } from '../../ability_hooks.js';
 import { createItemBar } from '../../item_bar.js';
-import { setBarSlot, barHand } from '../../win_abilities.js';
+import { setBarSlot, swapBarSlots, barHand } from '../../win_abilities.js';
 import { recompute } from '../../actor.js';
 
 export const abilities = {
@@ -231,7 +231,11 @@ export const abilities = {
     // on a filled cell with nothing in hand uses the ability, as its key would.
     const clock = { now: 0 };
     const sayBar = (res) => { if (res && res.reason) hud.log?.(res.reason, res.ok ? undefined : 'bad'); };
-    hud.onAbilityDrop?.((slot, payload) => { if (payload && payload.ability) sayBar(setBarSlot(character, slot, payload.ability)); });
+    hud.onAbilityDrop?.((slot, payload) => {
+      if (!payload) return;
+      if (Number.isInteger(payload.barSlot)) sayBar(swapBarSlots(character, payload.barSlot, slot));
+      else if (payload.ability) sayBar(setBarSlot(character, slot, payload.ability));
+    });
     hud.onBarClear?.((slot) => sayBar(setBarSlot(character, slot, null)));
     hud.onBar?.((slot, empty) => {
       if (barHand.id) { barHand.place(slot); return; }

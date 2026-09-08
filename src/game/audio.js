@@ -34,7 +34,7 @@ export const STORE_KEY = 'brackenwake-audio';
 
 export const SFX_VOLUME = 0.7;        // one-shots sit on top
 export const MUSIC_VOLUME = 0.3;      // music sits under everything
-export const AMBIENCE_VOLUME = 0.15;  // the bed under the music
+export const AMBIENCE_VOLUME = 0.35;  // the bed under the music (0.15 until 2026-09-08, when the user could not hear it at all)
 
 /**
  * Distance model, in metres.
@@ -400,13 +400,23 @@ const kit = (dir) => ({
  */
 /** The two theme songs, walked in turn so the same one is never heard twice running. */
 export const THEMES = [`${MUSIC_DIR}themes/theme1.mp3`, `${MUSIC_DIR}themes/theme2.mp3`];
-const themeKit = (ambienceDir) => ({ theme: THEMES, calm: null, lively: null, ambience: `${MUSIC_DIR}${ambienceDir}/ambience.mp3` });
+// Commit 168dce0 made every biome play only the two themes, calm and lively
+// set to null, and the user heard "1 theme song" out of a library of twenty
+// tracks. The biome kits are back (2026-09-08): the biome's own theme and the
+// two shared themes walk the theme slot, calm and lively answer the player's
+// activity, and the biome's ambience runs under it all.
+const biomeKit = (dir, { lively = true, ambienceDir = dir } = {}) => ({
+  theme: [`${MUSIC_DIR}${dir}/theme.mp3`, ...THEMES],
+  calm: `${MUSIC_DIR}${dir}/calm.mp3`,
+  lively: lively ? `${MUSIC_DIR}${dir}/lively.mp3` : null,
+  ambience: `${MUSIC_DIR}${ambienceDir}/ambience.mp3`,
+});
 export const MUSIC_KITS = {
-  meadow: themeKit('meadow'),
-  oceanside: themeKit('oceanside'),
-  desert: themeKit('desert'),
-  boreal: themeKit('boreal'),
-  sakura: themeKit('meadow'),
+  meadow: biomeKit('meadow'),
+  oceanside: biomeKit('oceanside'),
+  desert: biomeKit('desert'),
+  boreal: biomeKit('boreal', { lively: false }),
+  sakura: { theme: [`${MUSIC_DIR}sakura/theme.mp3`, `${MUSIC_DIR}sakura/theme2.mp3`, ...THEMES], calm: null, lively: null, ambience: `${MUSIC_DIR}meadow/ambience.mp3` },
 };
 
 /**

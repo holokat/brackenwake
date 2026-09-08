@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import {
   createAudio, auditAudio, attenuation, createRotation,
   CUES, SFX_FILES, SYNTH_FILES, ALL_SFX_FILES, DEAD_FILES, NO_FILE_FOR, STAND_INS,
-  takesOf, fileFor, urlFor, kitFor, MUSIC_KITS,
+  takesOf, fileFor, urlFor, kitFor, MUSIC_KITS, AMBIENCE_VOLUME,
   MAX_DIST, REF_DIST, SFX_VOLUME, MUSIC_VOLUME, STORE_KEY, SLOT_MS,
 } from './audio.js';
 import {
@@ -450,24 +450,30 @@ function memStore() {
   check('setBiome before anything starts reports the change', a.music.setBiome('meadow') === true);
   a.music.start();
   a.unlock();
-  check('it opens on the first theme song', a.music.kind === 'theme' && /themes\/theme1/.test(a.music.track), String(a.music.track));
+  check('it opens on the biome\'s own theme', a.music.kind === 'theme' && /meadow\/theme\.mp3/.test(a.music.track), String(a.music.track));
   check('and lays the ambience bed under it', /meadow\/ambience/.test(a.music.ambience.url));
   check('the bed loops', a.music.ambience.loop === true && a.music.el.loop === true);
   check('the track is at music volume, not sfx volume', a.music.el.volume === MUSIC_VOLUME, String(a.music.el.volume));
+  check('and the bed is loud enough to be heard under it (0.15 was not, 2026-09-08)', AMBIENCE_VOLUME >= 0.3, String(AMBIENCE_VOLUME));
 
   check('mid-slot nothing rotates', a.music.tick() === null);
   t += SLOT_MS.theme + 1;
   a.music.tick();
-  // The kits hold the two theme songs and nothing else, so the rotation walks
-  // them in turn: the same song is never heard twice running.
-  check('the second theme song follows the first', a.music.kind === 'theme' && /themes\/theme2/.test(a.music.track), String(a.music.track));
-  a.play('chop');                                  // working changes nothing: there is no lively track
-  t += SLOT_MS.theme + 1;
+  // The biome kits are whole again (2026-09-08): the theme opens, then calm
+  // when the player has been idle, lively when they have been working, and
+  // the theme comes back every third slot, walking the biome's own and the
+  // two shared themes in turn.
+  check('an idle player gets the calm track next', a.music.kind === 'calm' && /meadow\/calm/.test(a.music.track), String(a.music.track));
+  t += SLOT_MS.calm + 1;
   a.music.tick();
-  check('and the first comes back after it', /themes\/theme1/.test(a.music.track), String(a.music.track));
-  t += SLOT_MS.theme + 1;
+  check('then the lively one', a.music.kind === 'lively' && /meadow\/lively/.test(a.music.track), String(a.music.track));
+  t += SLOT_MS.lively + 1;
   a.music.tick();
-  check('and so on, never the same one twice running', /themes\/theme2/.test(a.music.track), String(a.music.track));
+  check('and the theme slot comes back on the first shared theme song', a.music.kind === 'theme' && /themes\/theme1/.test(a.music.track), String(a.music.track));
+  t += SLOT_MS.theme + 1;
+  a.play('chop');                                  // working just now leans the next slot lively
+  a.music.tick();
+  check('a working player gets the lively track straight after the theme', a.music.kind === 'lively', String(a.music.track));
 
   check('crossing into a biome with the same kit changes nothing', a.music.setBiome('meadow') === false);
   check('beach and ocean share the shore kit', a.music.setBiome('beach') === true && a.music.setBiome('ocean') === false);
@@ -477,8 +483,8 @@ function memStore() {
   const first = a.music.track;
   t += 400_000;
   a.music.tick();
-  check('sakura walks the two theme songs like everywhere else',
-    a.music.track !== first && /themes\/theme/.test(a.music.track), `${first} -> ${a.music.track}`);
+  check('sakura walks its own two themes and then the shared ones, never the same twice running',
+    a.music.track !== first && /sakura\/theme2|themes\/theme/.test(a.music.track), `${first} -> ${a.music.track}`);
   check('and borrows the meadow ambience, because it has none of its own',
     /meadow\/ambience/.test(a.music.ambience.url));
 

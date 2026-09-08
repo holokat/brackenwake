@@ -625,6 +625,23 @@ export function createEffects(sc, opts = {}) {
   // game congratulating itself.
   const die = (rig) => play(rig, 'death', DEATH_S, { hold: true });
   /**
+   * The body that was laid down stands again. `die` holds its clip for ever,
+   * which is right for a corpse and wrong for a player who wakes: nothing
+   * released it, so every wake stood a flat dead figure on the green (the
+   * user, 2026-09-08: "im still respawning as a flat dead person"). The held
+   * clips go; the player's own update poses the rig idle on the next frame.
+   * Returns how many were released.
+   */
+  function stand(rig) {
+    let n = 0;
+    for (let i = clips.length - 1; i >= 0; i--) {
+      if (clips[i].rig !== rig || !clips[i].hold) continue;
+      endClip(clips[i]); clips.splice(i, 1); n++;
+    }
+    if (n && rig?.parts && !rig.studio) resetOwned(rig.parts);
+    return n;
+  }
+  /**
    * A cast. `cast_start` is the hand going up, once; `cast_loop` is a one
    * second bed set to loop and held until `stopCast` or until the clip runs
    * out, whichever comes first. Both end in `endClip`, so a cast broken by
@@ -844,7 +861,7 @@ export function createEffects(sc, opts = {}) {
     // the world burning
     fire,
     // bodies
-    swing, cast, stopCast, flinch, die, handPos, play,
+    swing, cast, stopCast, flinch, die, stand, handPos, play,
     get particleCount() { return pool.length; },
     get clipCount() { return clips.length; },
     get boltCount() { return bolts.length; },

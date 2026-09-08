@@ -419,6 +419,16 @@ console.log('abilities: the real panel');
   panel.close();
   check('closing the page drops what was in hand', barHand.id === null);
 
+  // dragging a cell onto another on the HUD's own bar
+  setBarSlot(character, 0, 'powerStrike'); setBarSlot(character, 1, 'rend'); setBarSlot(character, 5, null);
+  const sw = mod.swapBarSlots(character, 0, 1);
+  check('two filled slots swap places and say so', sw.ok && sw.swapped && character.bar[0] === 'rend' && character.bar[1] === 'powerStrike' && /Power Strike and Rend swap places/.test(sw.reason), sw.reason);
+  const mv = mod.swapBarSlots(character, 1, 5);
+  check('a filled slot dragged onto an empty one moves', mv.ok && !mv.swapped && character.bar[5] === 'powerStrike' && character.bar[1] === null && /moves to slot 6/.test(mv.reason), mv.reason);
+  check('an empty slot dragged anywhere is refused with words', mod.swapBarSlots(character, 1, 0).ok === false && /nothing to move/.test(mod.swapBarSlots(character, 1, 0).reason));
+  check('a slot dragged onto itself is refused', mod.swapBarSlots(character, 0, 0).ok === false);
+  check('and a slot off the bar is refused', mod.swapBarSlots(character, 0, 12).ok === false);
+
   // a locked card clicked says the requirement rather than nothing
   said.length = 0;
   fireball.fire('click');
