@@ -34,6 +34,7 @@ export const KINDS = {
   loot:   { color: '#f4f1ea', size: 1.4 },     // colour overridden by rarity
 };
 export const BASE_PX = 22;
+const STONE_STROKE = '#111013';
 
 // --- the colour of a number you take -----------------------------------------
 //
@@ -72,7 +73,7 @@ export function colourFor(kind, level = anger) {
 const CSS = `
 .bw-float{position:absolute;left:0;top:0;pointer-events:none;white-space:nowrap;
   font:700 22px/1 "Cinzel","Trajan Pro",Georgia,serif;letter-spacing:.02em;
-  -webkit-text-stroke:1px #1a1008;paint-order:stroke fill;
+  -webkit-text-stroke:1px ${STONE_STROKE};paint-order:stroke fill;
   text-shadow:0 2px 0 #000,0 0 4px #000,0 0 10px #0009;will-change:transform,opacity;
   transform:translate(-50%,-100%)}
 .bw-float .in{display:inline-block}

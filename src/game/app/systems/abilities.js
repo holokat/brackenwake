@@ -4,7 +4,7 @@ import {createStudioSpells} from '../../studio/spells.js';
 // spark, burst and flinch either of them throws.
 
 import * as THREE from 'three';
-import { createEffects } from '../../effects.js';
+import { createEffects, colourFor } from '../../effects.js';
 import { birthplaceFor } from '../../../world/zones.js';
 import { createAbilities } from '../../abilities_runtime.js';
 import { createSpellVfx } from '../../spell_vfx.js';
@@ -14,6 +14,10 @@ import { createAbilityHooks } from '../../ability_hooks.js';
 import { createItemBar } from '../../item_bar.js';
 import { setBarSlot, swapBarSlots, barHand } from '../../win_abilities.js';
 import { recompute } from '../../actor.js';
+
+/** How often a mote leaves a buffed body, and how far out it circles. */
+export const AURA_EVERY_S = 0.09;
+export const AURA_R = 0.55;
 
 export const abilities = {
   name: 'abilities',
@@ -274,6 +278,23 @@ export const abilities = {
     runtimeAbilities.update(frame.dt, frame.nowS);
     if (hadPending && !runtimeAbilities.pending && input.pressed('escape')) input.swallow('escape');
     itemBar.update(frame.dt);
+
+    // THE BUFF STAYS ON THE BODY (2026-09-08, the user: "keep the effect on the
+    // person for as long as the buff remains"). The cast's own visual is over
+    // in two seconds; from then until the buff runs out, a slow ring of motes
+    // in the ability's colour circles the player, one buff at a time round
+    // the ring so three blessings read as three colours and not a cloud.
+    const { effects } = ctx.get('abilities');
+    const { rig, actor: me } = ctx.get('player');
+    const live = (Array.isArray(me?.buffs) ? me.buffs : []).filter((b) => b.kind === 'buff' && b.until > frame.nowS && !b.channelled);
+    if (live.length && rig?.pos && frame.nowS - (clock.aura || 0) >= AURA_EVERY_S) {
+      clock.aura = frame.nowS;
+      clock.auraTurn = ((clock.auraTurn || 0) + 1) % live.length;
+      const b = live[clock.auraTurn];
+      const a = frame.nowS * 2.2 + clock.auraTurn * 2.1;
+      effects.emit(rig.pos.x + Math.cos(a) * AURA_R, rig.pos.y + 0.35 + Math.random() * 1.2, rig.pos.z + Math.sin(a) * AURA_R,
+        colourFor(b.abilityId), 1, 0.12, 0.25, 1.1, 0.7, 0.3);
+    }
 
     // THE SUMMONS ARE ON THE WORLD'S CLOCK, and that is the one thing in this
     // system that is not on the player's. Everything above is the player's on

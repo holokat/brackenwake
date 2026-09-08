@@ -22,10 +22,10 @@ import { RARITY, RARITY_ORDER, ARMOR_TIERS, BASES } from '../mmo/items.js';
 
 export const theme = {
   // stone, from the deepest shadow to the lit face of the frame
-  stone: '#0d0b09',
-  stoneUp: '#17130f',
-  stoneDeep: '#060504',
-  stoneEdge: '#231c14',
+  stone: '#1b1a1c',
+  stoneUp: '#25242a',
+  stoneDeep: '#111013',
+  stoneEdge: '#38363c',
 
   // parchment, for anything written down
   parchment: '#e8d9b5',
@@ -45,6 +45,12 @@ export const theme = {
   health: '#e04b3a',
   mana: '#4a8ff0',
   stamina: '#e0bb3a',
+
+  slot: {
+    face: '#141316',
+    border: '#c9a44a55',
+    borderLit: '#c9a44a',
+  },
 
   // better and worse, for a number a piece of gear would move
   up: '#79df6d',
@@ -113,11 +119,20 @@ export function frameUrl(g = theme.gold, gd = theme.goldDim) {
   return enc(svg(120, 120, `${rules}${turns}`));
 }
 
-/** A lighter corner mark, for the panels inside a frame. */
-export function cornerUrl(g = theme.goldDim) {
+/** A small L bracket, for slots and inset stone panels. */
+export function cornerUrl(g = theme.gold) {
   return enc(svg(18, 18, `
-    <path d="M1 17 L1 1 L17 1" fill="none" stroke="${g}" stroke-width="1.2"/>
-    <circle cx="4.5" cy="4.5" r="1.6" fill="${g}"/>`));
+    <path d="M2 16 L2 2 L16 2" fill="none" stroke="${g}" stroke-width="1.45" stroke-linecap="square"/>
+    <path d="M6 16 L6 6 L16 6" fill="none" stroke="${g}" stroke-width=".85" opacity=".72"/>`));
+}
+
+/** Four corner brackets as a single layer. */
+export function cornersUrl(g = theme.gold) {
+  const mark = `
+    <path d="M2 16 L2 2 L16 2" fill="none" stroke="${g}" stroke-width="1.45" stroke-linecap="square"/>
+    <path d="M6 16 L6 6 L16 6" fill="none" stroke="${g}" stroke-width=".85" opacity=".72"/>`;
+  const turns = [0, 90, 180, 270].map((a) => `<g transform="rotate(${a} 18 18)">${mark}</g>`).join('');
+  return enc(svg(36, 36, turns));
 }
 
 /** A thin gold rule with a diamond at its middle, for under a header. */
@@ -386,44 +401,63 @@ const CSS = () => `
 .bw-ui {
   font-family: ${theme.fonts.body};
   color: ${theme.parchment};
+  -webkit-font-smoothing: antialiased;
   --bw-stone: ${theme.stone};
   --bw-stone-up: ${theme.stoneUp};
+  --bw-stone-deep: ${theme.stoneDeep};
+  --bw-stone-edge: ${theme.stoneEdge};
   --bw-parchment: ${theme.parchment};
   --bw-parchment-dim: ${theme.parchmentDim};
   --bw-gold: ${theme.gold};
   --bw-gold-dim: ${theme.goldDim};
   --bw-gold-bright: ${theme.goldBright};
   --bw-plate: ${theme.plate};
+  --bw-slot-face: ${theme.slot.face};
+  --bw-slot-border: ${theme.slot.border};
+  --bw-slot-border-lit: ${theme.slot.borderLit};
 }
 
 /* the frame: near black stone under gold filigree */
 .bw-frame {
   position: relative;
   background:
-    radial-gradient(120% 90% at 50% 0%, ${theme.stoneUp} 0%, ${theme.stone} 58%, ${theme.stoneDeep} 100%);
+    linear-gradient(180deg, ${theme.stoneUp}, ${theme.stone} 42%, ${theme.stoneDeep});
   border: 30px solid transparent;
   border-image: ${frameUrl()} 30 stretch;
-  box-shadow: 0 24px 80px rgba(0,0,0,.72), inset 0 0 60px rgba(0,0,0,.55);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.72), inset 0 0 42px rgba(0,0,0,.52);
 }
 
 .bw-panel {
   position: relative;
   padding: 12px 14px;
-  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.22));
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18)), ${theme.stone};
   border: 1px solid ${theme.goldDim}66;
+  border-radius: 7px;
   background-image:
     ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()},
-    linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.22));
+    linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18));
   background-repeat: no-repeat;
   background-position: left 2px top 2px, right 2px top 2px, left 2px bottom 2px, right 2px bottom 2px, 0 0;
   background-size: 18px 18px, 18px 18px, 18px 18px, 18px 18px, auto;
+}
+
+.bw-corners {
+  position: relative;
+}
+.bw-corners::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+  background-image: ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()};
+  background-repeat: no-repeat;
+  background-position: left 2px top 2px, right 2px top 2px, left 2px bottom 2px, right 2px bottom 2px;
+  background-size: 18px 18px;
 }
 
 /* headers: small caps in Cinzel over a thin gold rule */
 .bw-hdr {
   font-family: ${theme.fonts.display};
   font-size: 11.5px; font-weight: 600; letter-spacing: .22em;
-  text-transform: uppercase; color: ${theme.gold};
+  font-variant-caps: small-caps; color: ${theme.gold};
   margin: 14px 0 8px; padding-bottom: 9px;
   background: ${ruleUrl()} bottom center / 100% 9px no-repeat;
 }
@@ -436,7 +470,7 @@ const CSS = () => `
 }
 .bw-subtitle {
   font-family: ${theme.fonts.display};
-  font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: ${theme.gold};
+  font-size: 12px; letter-spacing: .18em; font-variant-caps: small-caps; color: ${theme.gold};
 }
 .bw-quote {
   font-style: italic; font-size: 14.5px; line-height: 1.5; color: ${theme.parchmentDim};
@@ -444,7 +478,7 @@ const CSS = () => `
 }
 .bw-motto {
   font-family: ${theme.fonts.display};
-  font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase;
+  font-size: 10.5px; letter-spacing: .22em; font-variant-caps: small-caps;
   color: ${theme.gold}; text-align: center;
   padding: 5px 10px; border: 1px solid ${theme.goldDim}88;
   background: linear-gradient(180deg, rgba(0,0,0,.5), rgba(0,0,0,.2));
@@ -461,15 +495,16 @@ const CSS = () => `
 .bw-row .bw-k { color: ${theme.parchmentDim}; }
 .bw-row .bw-v {
   font-family: ${theme.fonts.display}; font-size: 13.5px; font-weight: 600;
-  font-variant-numeric: tabular-nums; color: ${theme.parchment};
+  font-variant-numeric: tabular-nums; color: ${theme.gold}; text-align: right; min-width: 3.4ch;
 }
 .bw-row.bw-over .bw-v { color: #ff8f7a; }
 
 /* slots: a square, a rarity border, the art inside */
 .bw-slot {
   position: relative; width: 46px; height: 46px; cursor: pointer;
-  background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(0,0,0,.42));
-  border: 1px solid ${theme.goldDim}77;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.2)), ${theme.slot.face};
+  border: 1px solid ${theme.slot.border};
+  border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
   overflow: hidden;
 }
@@ -482,13 +517,13 @@ const CSS = () => `
 .bw-slot .bw-tag {
   position: absolute; left: 0; right: 0; bottom: 0; text-align: center;
   font-family: ${theme.fonts.display}; font-size: 7.5px; letter-spacing: .09em;
-  text-transform: uppercase; color: ${theme.goldDim}; background: rgba(0,0,0,.55);
+  font-variant-caps: small-caps; color: ${theme.gold}; background: rgba(0,0,0,.55);
   padding: 1px 0;
 }
 .bw-slot .bw-count {
   position: absolute; right: 2px; bottom: 1px;
   font-family: ${theme.fonts.display}; font-size: 11px; font-weight: 700;
-  font-variant-numeric: tabular-nums; color: ${theme.parchment};
+  font-variant-numeric: tabular-nums; color: ${theme.gold};
   text-shadow: 0 1px 3px #000;
 }
 .bw-slot .bw-q { font-family: ${theme.fonts.display}; font-size: 22px; font-weight: 700; }
@@ -498,10 +533,11 @@ ${rarityRules()}
 .bw-tabs { display: flex; gap: 2px; align-items: flex-end; }
 .bw-tab {
   font-family: ${theme.fonts.display};
-  font-size: 11px; letter-spacing: .17em; text-transform: uppercase;
+  font-size: 11px; letter-spacing: .15em; font-variant-caps: small-caps;
   padding: 7px 15px 6px; cursor: pointer; color: ${theme.goldDim};
-  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.35));
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.25)), ${theme.stone};
   border: 1px solid ${theme.goldDim}55; border-bottom: 0;
+  border-radius: 6px 6px 0 0;
 }
 .bw-tab:hover { color: ${theme.goldBright}; }
 .bw-tab.on {
@@ -514,7 +550,7 @@ ${rarityRules()}
 /* buttons */
 .bw-btn {
   font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .14em;
-  text-transform: uppercase; color: ${theme.parchment}; cursor: pointer;
+  font-variant-caps: small-caps; color: ${theme.parchment}; cursor: pointer;
   padding: 5px 12px; border: 1px solid ${theme.goldDim};
   background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.4));
 }

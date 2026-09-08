@@ -117,14 +117,7 @@ export const ITEM_ICONS = {
   'carrot': 'icons/items/carrot.webp',
   'chanterelle': 'icons/items/chanterelle.webp',
   'cheese': 'icons/items/cheese.webp',
-  'cloth_back': 'icons/items/cloth-cloak.webp',
-  'cloth_chest': 'icons/items/cloth-robe.webp',
-  'cloth_feet': 'icons/items/cloth-sandals.webp',
-  'cloth_hands': 'icons/items/cloth-gloves.webp',
-  'cloth_head': 'icons/items/cloth-hood.webp',
-  'cloth_legs': 'icons/items/cloth-leggings.webp',
-  'cloth_waist': 'icons/items/cloth-sash.webp',
-  'cloth_wrists': 'icons/items/cloth-bracers.webp',
+  'cloth_outfit': 'icons/items/cloth-robe.webp',
   'coldiron_ingot': 'icons/items/coldiron-ingot.webp',
   'coldiron_ore': 'icons/items/coldiron-ore.webp',
   'copper_ingot': 'icons/items/copper-ingot.webp',
@@ -134,7 +127,6 @@ export const ITEM_ICONS = {
   'dagger': 'icons/items/dagger.webp',
   'dandelion': 'icons/items/dandelion.webp',
   'dandelion_tonic': 'icons/items/dandelion-tonic.webp',
-  'dark_robe': 'icons/items/dark-robe.webp',
   'deadwood': 'icons/items/deadwood-log.webp',
   'draught_of_vigour': 'icons/items/draught-of-vigour.webp',
   'egg': 'icons/items/egg.webp',
@@ -170,15 +162,7 @@ export const ITEM_ICONS = {
   'iron_ore': 'icons/items/iron-ore.webp',
   'ironbark_log': 'icons/items/ironbark-log.webp',
   'kite': 'icons/items/kite-shield.webp',
-  'leather_apron': 'icons/items/leather-apron.webp',
-  'leather_back': 'icons/items/leather-cloak.webp',
-  'leather_chest': 'icons/items/leather-tunic.webp',
-  'leather_feet': 'icons/items/leather-boots.webp',
-  'leather_hands': 'icons/items/leather-gloves.webp',
-  'leather_head': 'icons/items/leather-helm.webp',
-  'leather_legs': 'icons/items/leather-leggings.webp',
-  'leather_waist': 'icons/items/leather-belt.webp',
-  'leather_wrists': 'icons/items/leather-bracers.webp',
+  'leather_outfit': 'icons/items/leather-tunic.webp',
   'lingon_relish': 'icons/items/lingonberry-relish.webp',
   'lingonberry': 'icons/items/lingonberry.webp',
   'lockpick': 'icons/items/lockpick.webp',
@@ -212,8 +196,7 @@ export const ITEM_ICONS = {
   'reagent_pouch': 'icons/items/reagent-pouch.webp',
   'rimesteel_ingot': 'icons/items/rimesteel-ingot.webp',
   'rimesteel_ore': 'icons/items/rimesteel-ore.webp',
-  'ring_chest': 'icons/items/ringmail-breastplate.webp',
-  'ring_legs': 'icons/items/ringmail-greaves.webp',
+  'ring_outfit': 'icons/items/ringmail-breastplate.webp',
   'roast_chestnuts': 'icons/items/roast-chestnuts.webp',
   'roast_fowl': 'icons/items/roast-fowl.webp',
   'rosehip': 'icons/items/rosehip.webp',
@@ -233,6 +216,7 @@ export const ITEM_ICONS = {
   'starfall_ingot': 'icons/items/starfall-ingot.webp',
   'starfall_ore': 'icons/items/starfall-ore.webp',
   'strawberry_tart': 'icons/items/strawberry-tart.webp',
+  'studded_outfit': 'icons/items/leather-tunic.webp',
   'thick_hide': 'icons/items/thick-hide.webp',
   'throwing_knives': 'icons/items/throwing-knives.webp',
   'tin_ore': 'icons/items/tin-ore.webp',
@@ -246,6 +230,8 @@ export const ITEM_ICONS = {
   'voidrock_ore': 'icons/items/voidrock-ore.webp',
   'wand': 'icons/items/wand.webp',
   'warhammer': 'icons/items/warhammer.webp',
+  'chain_outfit': 'icons/items/ringmail-breastplate.webp',
+  'plate_outfit': 'icons/items/ringmail-breastplate.webp',
   'wild_garlic': 'icons/items/wild-garlic.webp',
   'wild_ginger': 'icons/items/wild-ginger.webp',
   'wild_strawberry': 'icons/items/wild-strawberry.webp',
@@ -334,6 +320,21 @@ export const SKILL_ICONS = {
   'veterinary': 'icons/skills/veterinary.webp',
   'wrestling': 'icons/skills/wrestling.webp'
 };
+
+/** Codex tab id -> small flat SVG, drawn in code like the rest of the HUD chrome. */
+export const TAB_ICONS = {
+  character: '<path d="M12 4 a4 4 0 1 1 0 8 a4 4 0 0 1 0 -8 z M5 21 c.8 -4.7 3.2 -7 7 -7 s6.2 2.3 7 7 z"/>',
+  skills: '<path d="M4 5 h7 c1.1 0 2 .9 2 2 v13 c-.6 -.8 -1.3 -1 -2 -1 H4 z M20 5 h-7 c-1.1 0 -2 .9 -2 2 v13 c.6 -.8 1.3 -1 2 -1 h7 z M12 7 v13"/>',
+  abilities: '<path d="M12 2 l2.2 7.8 L22 12 l-7.8 2.2 L12 22 l-2.2 -7.8 L2 12 l7.8 -2.2 z"/>',
+  crafting: '<path d="M14.5 3 l6.5 6.5 -2.4 2.4 -2 -2 -8.9 8.9 -3.5 .9 .9 -3.5 8.9 -8.9 -2 -2 z M3 21 h18"/>',
+  map: '<path d="M3 5 l5 -2 8 3 5 -2 v15 l-5 2 -8 -3 -5 2 z M8 3 v15 M16 6 v15"/>',
+};
+
+/** One codex tab icon, as an inline SVG string. */
+export function tabIcon(id, colour = 'currentColor', size = 17) {
+  const body = TAB_ICONS[id] || TAB_ICONS.map;
+  return `<svg class="bw-tab-i" viewBox="0 0 24 24" width="${size}" height="${size}" fill="${colour}" aria-hidden="true">${body}</svg>`;
+}
 
 /** How many of a thing make the stacked picture. Five ingots is a stack; two is two ingots. */
 export const STACK_AT = 5;

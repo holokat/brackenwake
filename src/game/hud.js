@@ -49,9 +49,9 @@
 // so hud.test.mjs can run the real createHud against a small fake document.
 // A HUD that could only be checked by eye is a HUD nobody checks.
 
-import { injectTheme, theme, icon, itemGlyph } from './ui_theme.js';
+import { injectTheme, theme, icon, itemGlyph, cornerUrl } from './ui_theme.js';
 import { abilityIcon, itemIcon, iconUrl } from './icon_art.js';
-import { dropTarget } from './windows.js';
+import { dropTarget, dragSource } from './windows.js';
 import { ITEM_SLOTS, ITEM_KEYS, keyCap as itemKeyCap } from './item_bar.js';
 import { baseFor } from '../mmo/items.js';
 import { ABILITIES_BY_ID } from '../mmo/abilities.js';
@@ -564,9 +564,10 @@ const CSS = `
 #bw-hud .panel {
   position: relative;
   padding: 7px 12px;
-  background: linear-gradient(180deg, rgba(23,19,15,.82), rgba(9,8,6,.86));
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18)), ${theme.stone};
   border: 1px solid ${theme.goldDim}aa;
-  box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+  border-radius: 7px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06), inset 0 -12px 20px rgba(0,0,0,.22);
 }
 #bw-hud .panel::before, #bw-hud .panel::after {
   content: ''; position: absolute; width: 9px; height: 9px; pointer-events: none;
@@ -597,15 +598,15 @@ const CSS = `
 }
 #bw-purse .stat b {
   font-family: ${theme.fonts.display}; font-weight: 600; font-size: 14px;
-  font-variant-numeric: tabular-nums; color: ${theme.parchment};
+  font-variant-numeric: tabular-nums; color: ${theme.gold}; text-align: right; min-width: 3ch;
 }
 #bw-purse .stat.full b { color: #ffb37a; }
 
 #bw-pools { display: none; flex-direction: column; gap: 4px; width: 236px; }
 #bw-pools.on { display: flex; }
 #bw-pools .pool {
-  position: relative; height: 17px; overflow: hidden;
-  background: rgba(0,0,0,.62); border: 1px solid ${theme.goldDim}aa;
+  position: relative; height: 17px; overflow: hidden; border-radius: 5px;
+  background: ${theme.slot.face}; border: 1px solid ${theme.slot.border};
   box-shadow: inset 0 0 10px rgba(0,0,0,.7);
 }
 #bw-pools .pool .fill {
@@ -624,11 +625,13 @@ const CSS = `
    draining with the time and the seconds printed over it in the last ten.
    The squares take pointer events because the name and the ability's line
    are on the title. */
-#bw-auras { display: none; gap: 4px; flex-wrap: wrap; width: 236px; }
+/* the squares are the bar cell's size since 2026-09-08 (the user: "make buff icons bigger, same size as the action icons"); five to a row */
+#bw-auras { display: none; gap: 4px; flex-wrap: wrap; width: 260px; }
 #bw-auras.on { display: flex; }
 #bw-auras .aura {
-  position: relative; width: 27px; height: 27px; pointer-events: auto;
-  background: rgba(18,20,24,.8); border: 1px solid ${theme.gold};
+  position: relative; width: 48px; height: 48px; pointer-events: auto;
+  background: ${theme.slot.face}; border: 1px solid ${theme.gold};
+  border-radius: 5px;
   box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.5);
   font-family: ${theme.fonts.display}; font-size: 9px; line-height: 1.05; overflow: hidden;
 }
@@ -639,18 +642,18 @@ const CSS = `
 #bw-auras .aura .art.mark img, #bw-auras .aura .art.mark svg { object-fit: contain; }
 #bw-auras .aura .nm {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 9px; font-weight: 700; letter-spacing: .04em; color: ${theme.parchment};
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; color: ${theme.parchment};
   text-shadow: 0 1px 2px #000;
 }
 /* the sweep: a thin bar along the bottom that shortens with the time left */
 #bw-auras .aura .dr {
-  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+  position: absolute; left: 0; bottom: 0; height: 4px; width: 100%;
   background: ${theme.gold}; box-shadow: 0 0 4px rgba(0,0,0,.8);
 }
 #bw-auras .aura.debuff .dr { background: #e0483a; }
 #bw-auras .aura.held .dr { width: 100% !important; opacity: .55; }
 #bw-auras .aura .t {
-  position: absolute; right: 1px; bottom: 2px; font-size: 9px; font-weight: 700;
+  position: absolute; right: 3px; bottom: 5px; font-size: 12px; font-weight: 700;
   font-variant-numeric: tabular-nums; color: #fff2cf; text-shadow: 0 1px 3px #000, 0 0 4px #000;
 }
 
@@ -658,7 +661,7 @@ const CSS = `
   display: flex; flex-direction: column; align-items: center; gap: ${TOP_CENTRE.gap}px; max-width: 60vw; }
 #bw-place {
   font-family: ${theme.fonts.display}; font-size: ${TOP_CENTRE.font}px; font-weight: 600;
-  letter-spacing: .22em; text-transform: uppercase; color: ${theme.gold}; text-align: center;
+  letter-spacing: .22em; font-variant-caps: small-caps; color: ${theme.gold}; text-align: center;
 }
 /* where compass.js hangs its strip, so the strip is a row in this column
    rather than a rectangle floated over the plate above it */
@@ -668,10 +671,10 @@ const CSS = `
 #bw-target.on { display: block; }
 #bw-target .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 #bw-target .nm { font-family: ${theme.fonts.display}; font-size: 13px; font-weight: 600; letter-spacing: .04em; }
-#bw-target .tr { font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .16em; text-transform: uppercase; opacity: .9; }
+#bw-target .tr { font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .16em; font-variant-caps: small-caps; opacity: .9; }
 #bw-target .bar {
-  position: relative; margin-top: 5px; height: 13px; overflow: hidden;
-  background: rgba(0,0,0,.6); border: 1px solid ${theme.goldDim}aa;
+  position: relative; margin-top: 5px; height: 13px; overflow: hidden; border-radius: 4px;
+  background: ${theme.slot.face}; border: 1px solid ${theme.slot.border};
 }
 #bw-target .bar .fill { position: absolute; inset: 0 auto 0 0; width: 100%; background: ${theme.health}; }
 #bw-target .bar .n {
@@ -697,7 +700,7 @@ const CSS = `
 }
 #bw-zone .zs {
   font-family: ${theme.fonts.display}; font-size: 13px; letter-spacing: .3em;
-  text-transform: uppercase; color: ${theme.gold};
+  font-variant-caps: small-caps; color: ${theme.gold};
 }
 
 /* the unlock banner: a painting the size of a face, and the news under it.
@@ -711,7 +714,7 @@ const CSS = `
 #bw-unlock.on { display: flex; }
 #bw-unlock .ul {
   font-family: ${theme.fonts.display}; font-size: 14px; letter-spacing: .34em;
-  text-transform: uppercase; color: ${theme.gold};
+  font-variant-caps: small-caps; color: ${theme.gold};
   text-shadow: 0 2px 14px rgba(0,0,0,.95);
 }
 #bw-unlock .uf {
@@ -738,7 +741,7 @@ const CSS = `
 #bw-hud #bw-dev {
   position: absolute; top: ${DEV_BADGE.top}px; right: ${DEV_BADGE.right}px; display: none;
   font-family: ${theme.fonts.display}; font-size: ${DEV_BADGE.font}px; letter-spacing: .14em;
-  text-transform: uppercase; color: #ffd479; white-space: pre;
+  font-variant-caps: small-caps; color: #ffd479; white-space: pre;
   border-color: rgba(255,212,121,.5);
   pointer-events: auto; cursor: pointer;
 }
@@ -771,7 +774,7 @@ const CSS = `
 }
 #bw-plate .wd {
   font-family: ${theme.fonts.display}; font-size: 8.5px; letter-spacing: .16em;
-  text-transform: uppercase; opacity: .85;
+  font-variant-caps: small-caps; opacity: .85;
   text-shadow: 0 1px 0 #000, 0 0 4px #000;
 }
 #bw-plate .tg {
@@ -783,7 +786,8 @@ const CSS = `
    the left, the eight you carry on the right, with a gold rule between them */
 #bw-bars {
   position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
-  display: flex; align-items: flex-end; gap: 12px; pointer-events: none;
+  display: flex; align-items: flex-end; justify-content: center; gap: 12px; pointer-events: none;
+  max-width: calc(100vw - 28px);
 }
 #bw-bars .rail { width: 1px; align-self: stretch; margin-bottom: 2px;
   background: linear-gradient(180deg, transparent, ${theme.gold}, transparent); }
@@ -793,9 +797,17 @@ const CSS = `
 }
 #bw-bar .cell {
   position: relative; width: 48px; height: 48px; overflow: hidden; cursor: pointer;
-  background: linear-gradient(160deg, rgba(40,33,24,.9), rgba(9,8,6,.92));
-  border: 1px solid ${theme.goldDim}aa;
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.2)), ${theme.slot.face};
+  border: 1px solid ${theme.slot.border};
+  border-radius: 7px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 14px rgba(0,0,0,.5);
+}
+#bw-bar .cell::before, #bw-items .icell::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background-image: ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()};
+  background-repeat: no-repeat;
+  background-position: left 1px top 1px, right 1px top 1px, left 1px bottom 1px, right 1px bottom 1px;
+  background-size: 14px 14px;
 }
 #bw-bar .cell.empty { opacity: .4; cursor: default; }
 #bw-bar .cell.casting { border-color: #cbb6ff; box-shadow: 0 0 0 1px #cbb6ff inset, 0 0 16px rgba(203,182,255,.5); }
@@ -817,8 +829,9 @@ const CSS = `
 #bw-abtip {
   position: fixed; z-index: 60; pointer-events: none; display: flex; gap: 12px; align-items: flex-start;
   width: max-content; max-width: min(340px, calc(100vw - 16px)); padding: 11px 13px 12px;
-  background: linear-gradient(180deg, rgba(38,31,22,.97), rgba(12,10,7,.98));
+  background: linear-gradient(180deg, ${theme.stoneUp}, ${theme.stoneDeep});
   border: 1px solid ${theme.gold}; outline: 1px solid rgba(0,0,0,.6);
+  border-radius: 7px;
   box-shadow: 0 16px 48px rgba(0,0,0,.75), inset 0 0 28px rgba(0,0,0,.55);
   font-family: ${theme.fonts.body}; color: ${theme.parchment};
 }
@@ -828,10 +841,10 @@ const CSS = `
 #bw-abtip .body { min-width: 0; }
 #bw-abtip .head { display: flex; align-items: baseline; gap: 10px; justify-content: space-between; }
 #bw-abtip .nm { font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600; letter-spacing: .04em; color: ${theme.goldBright}; }
-#bw-abtip .key { font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: ${theme.goldDim}; white-space: nowrap; }
+#bw-abtip .key { font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .16em; font-variant-caps: small-caps; color: ${theme.goldDim}; white-space: nowrap; }
 #bw-abtip .chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 7px; }
 #bw-abtip .chips:empty { display: none; }
-#bw-abtip .chip { font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+#bw-abtip .chip { font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .1em; font-variant-caps: small-caps;
   padding: 2px 6px; color: ${theme.parchmentDim}; background: rgba(0,0,0,.45); border: 1px solid ${theme.goldDim}55; }
 #bw-abtip .desc { font-size: 15px; line-height: 1.35; color: ${theme.parchment}; }
 #bw-abtip .burden { font-size: 14px; line-height: 1.3; color: ${BURDEN_AMBER}; margin-top: 6px; }
@@ -846,7 +859,7 @@ const CSS = `
 }
 #bw-bar .cell .c {
   position: absolute; right: 3px; bottom: 1px; font-family: ${theme.fonts.display};
-  font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; color: #cfe3ff;
+  font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; color: ${theme.gold};
 }
 #bw-bar .cell .c.poor { color: #ff6a58; }
 #bw-bar .cell .sweep { position: absolute; left: 0; right: 0; bottom: 0; height: 0%;
@@ -860,8 +873,9 @@ const CSS = `
 #bw-items .icell {
   position: relative; width: 44px; height: 44px; overflow: hidden; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(160deg, rgba(34,29,21,.9), rgba(9,8,6,.92));
-  border: 1px solid ${theme.goldDim}aa;
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.2)), ${theme.slot.face};
+  border: 1px solid ${theme.slot.border};
+  border-radius: 7px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 14px rgba(0,0,0,.5);
 }
 #bw-items .icell.empty { opacity: .34; cursor: default; }
@@ -885,12 +899,12 @@ const CSS = `
 #bw-items .icell .n {
   position: absolute; right: 2px; bottom: 0; font-family: ${theme.fonts.display};
   font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
-  color: ${theme.parchment}; text-shadow: 0 1px 3px #000;
+  color: ${theme.gold}; text-shadow: 0 1px 3px #000;
 }
 #bw-items .icell .w {
   position: absolute; left: 0; right: 0; bottom: 0; text-align: center;
   font-family: ${theme.fonts.display}; font-size: 7.5px; letter-spacing: .14em;
-  text-transform: uppercase; color: ${theme.goldBright}; background: rgba(0,0,0,.6);
+  font-variant-caps: small-caps; color: ${theme.goldBright}; background: rgba(0,0,0,.6);
 }
 
 /* the gains ticker: skills and stats going up, bottom RIGHT, because the world
@@ -913,8 +927,9 @@ const CSS = `
 #bw-toasts { display: flex; flex-direction: column-reverse; gap: 6px; }
 #bw-toasts .t {
   padding: 8px 11px; font-size: 15px; line-height: 1.35;
-  background: linear-gradient(180deg, rgba(23,19,15,.85), rgba(9,8,6,.88));
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18)), ${theme.stone};
   border: 1px solid ${theme.goldDim}aa;
+  border-radius: 7px;
   animation: bw-in .16s ease-out; transition: opacity .35s ease, transform .35s ease;
 }
 #bw-toasts .t.good { border-color: rgba(140,220,140,.6); }
@@ -923,10 +938,15 @@ const CSS = `
 #bw-log {
   display: flex; flex-direction: column; gap: 1px; font-size: 14px; line-height: 1.35;
   padding: 7px 10px;
-  background: linear-gradient(180deg, rgba(26,22,16,.55), rgba(10,8,6,.62));
-  border-left: 2px solid ${theme.goldDim}88;
+  background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(0,0,0,.16)), ${theme.stone};
+  border: 1px solid ${theme.goldDim}66;
+  border-radius: 7px;
 }
 #bw-log .l { opacity: .95; }
+@media (max-width: 1359px) {
+  #bw-bars { flex-direction: column; align-items: center; gap: 6px; bottom: 10px; }
+  #bw-bars .rail { display: none; }
+}
 @keyframes bw-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 `;
 
@@ -1165,8 +1185,10 @@ export function createHud(root) {
       if (e && typeof e.preventDefault === 'function') e.preventDefault();
       if (onBarCleared) onBarCleared(i);
     });
-    // the Abilities page hands over `{ ability: id }` under windows.js's mime
+    // the Abilities page hands over `{ ability: id }` under windows.js's mime;
+    // a filled cell hands over `{ barSlot: i }` so two cells can swap
     dropTarget(c, (payload) => { if (onAbilityDropped) onAbilityDropped(i, payload); });
+    dragSource(c, () => (c.classList.contains('empty') ? null : { barSlot: i }));
     barRow.appendChild(c);
     const rec = { el: c, art, name: n, cost, sweep: sw, cd, key, last: null, tip: null, ability: null, reason: '', burden: '' };
     hoverTip(rec);

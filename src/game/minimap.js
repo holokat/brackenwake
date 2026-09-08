@@ -53,7 +53,7 @@
 // Every one of those says something in the readout line, because a control
 // that does its work in silence is indistinguishable from a broken one.
 
-import { theme } from './ui_theme.js';
+import { theme, cornerUrl } from './ui_theme.js';
 import { headingOf, coordsText, markerName } from './compass.js';
 import {
   BIOME_PAINT, REALM_PAINT, WATER_SHALLOW, WATER_DEEP, WATER_FLOOR,
@@ -810,9 +810,15 @@ const CSS = `
   position: absolute; top: ${MINIMAP.top}px; right: ${MINIMAP.right}px;
   width: ${MINIMAP.outerW}px; height: ${MINIMAP.outerH}px;
   padding: ${MINIMAP.padTop}px ${MINIMAP.padX}px ${MINIMAP.padBottom}px;
-  background: linear-gradient(180deg, rgba(23,19,15,.88), rgba(9,8,6,.92));
+  background:
+    ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()},
+    linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18)), ${theme.stone};
+  background-repeat: no-repeat;
+  background-position: left 2px top 2px, right 2px top 2px, left 2px bottom 2px, right 2px bottom 2px, 0 0, 0 0;
+  background-size: 18px 18px, 18px 18px, 18px 18px, 18px 18px, auto, auto;
   border: ${MINIMAP.border}px solid ${theme.goldDim}aa;
-  box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+  border-radius: 7px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06), inset 0 -12px 20px rgba(0,0,0,.22);
   pointer-events: auto; cursor: crosshair; z-index: 4;
 }
 /* z-index 4 is WITHIN THE HUD and does nothing about the editor. The HUD root
@@ -829,11 +835,11 @@ const CSS = `
 #bw-hud #bw-minimap::before { left: -1px; top: -1px; border-right: 0; border-bottom: 0; }
 #bw-hud #bw-minimap::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
 #bw-minimap .face { position: relative; width: ${MINIMAP.size}px; height: ${MINIMAP.size}px; }
-#bw-minimap canvas { position: absolute; left: 0; top: 0; width: ${MINIMAP.size}px; height: ${MINIMAP.size}px; display: block; }
+#bw-minimap canvas { position: absolute; left: 0; top: 0; width: ${MINIMAP.size}px; height: ${MINIMAP.size}px; display: block; border-radius: 4px; }
 #bw-minimap .rd {
   height: ${MINIMAP.footer}px; line-height: ${MINIMAP.footer}px;
   font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .10em;
-  text-transform: uppercase; color: ${theme.parchmentFaint};
+  font-variant-caps: small-caps; color: ${theme.parchmentFaint};
   font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,.9);
 }

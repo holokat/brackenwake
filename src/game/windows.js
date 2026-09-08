@@ -34,6 +34,7 @@
 // which is what windows.test.mjs drives: the test path is the real path.
 
 import { injectTheme, theme, itemGlyph } from './ui_theme.js';
+import { tabIcon } from './icon_art.js';
 
 /** The one frame the six everyday panels live in. */
 export const CODEX_ID = 'codex';
@@ -100,35 +101,58 @@ const CSS = `
 #bw-windows .bw-win-codex { width: min(1320px, 96vw); }
 
 #bw-windows .bw-win-title {
-  display: flex; align-items: flex-end; justify-content: space-between; gap: 14px;
+  display: flex; align-items: stretch; justify-content: space-between; gap: 14px;
   cursor: move; user-select: none; -webkit-user-select: none;
-  padding-bottom: 8px; margin-bottom: 10px;
-  background: linear-gradient(90deg, transparent, rgba(201,164,74,.5), transparent) bottom / 100% 1px no-repeat;
+  padding: 4px 4px 0; margin: -18px -14px 14px;
+  background: linear-gradient(180deg, ${theme.stoneUp}, ${theme.stone});
+  border: 1px solid ${theme.goldDim}66;
+  border-radius: 7px 7px 4px 4px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -12px 18px rgba(0,0,0,.22);
 }
 #bw-windows .bw-win-name {
   font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
-  letter-spacing: .2em; text-transform: uppercase; color: ${theme.gold};
+  letter-spacing: .2em; font-variant-caps: small-caps; color: ${theme.gold};
 }
 #bw-windows .bw-win-key { font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .16em; color: ${theme.goldDim}; }
 #bw-windows .bw-win-x {
-  font-family: ${theme.fonts.display}; font-size: 11px; line-height: 1; letter-spacing: .14em;
-  text-transform: uppercase; padding: 6px 10px; cursor: pointer; color: ${theme.parchmentDim};
-  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.4));
-  border: 1px solid ${theme.goldDim}88;
+  min-width: 42px; min-height: 40px;
+  font-family: ${theme.fonts.display}; font-size: 20px; line-height: 1; letter-spacing: 0;
+  padding: 6px 10px 9px; cursor: pointer; color: ${theme.parchment};
+  background: linear-gradient(180deg, ${theme.plateUp}, ${theme.plate});
+  border: 1px solid ${theme.gold};
+  border-radius: 0 0 6px 6px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 12px rgba(0,0,0,.35);
 }
 #bw-windows .bw-win-x:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
-#bw-windows .bw-win-body { overflow: auto; max-height: min(74vh, 820px); }
+#bw-windows .bw-win-body {
+  overflow: auto; max-height: min(74vh, 820px);
+  background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(0,0,0,.18)), ${theme.stoneDeep};
+  border: 1px solid ${theme.goldDim}44;
+  border-radius: 7px;
+}
 /* The codex stops short of the ability bar: an Abilities card is dragged onto
    the real bar now, so the bar has to stay in reach under an open page. The
    frame sits 69px down and its chrome is about 106px; the bar starts 76px up. */
-#bw-windows .bw-codex-body { overflow: auto; height: min(calc(100vh - 270px), 760px); }
+#bw-windows .bw-codex-body { overflow: auto; height: min(calc(100vh - 270px), 760px); padding: 8px; }
 #bw-windows .bw-codex-body[hidden] { display: none; }
-#bw-windows .bw-codex-tabs { display: flex; align-items: flex-end; gap: 2px; flex-wrap: wrap; }
+#bw-windows .bw-codex-tabs { display: flex; align-items: flex-end; gap: 4px; flex-wrap: wrap; min-height: 40px; }
+#bw-windows .bw-codex-tabs .bw-tab {
+  min-height: 40px; display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px 8px;
+  border-radius: 6px 6px 0 0;
+}
+#bw-windows .bw-codex-tabs .bw-tab .bw-tab-i { flex: 0 0 auto; filter: drop-shadow(0 1px 1px #000); }
+#bw-windows .bw-codex-tabs .bw-tab .bw-tab-word { line-height: 1; }
+#bw-windows .bw-codex-tabs .bw-tab.on {
+  transform: translateY(8px);
+  padding-bottom: 12px;
+  border-radius: 0 0 7px 7px;
+}
 
 #bw-windows h3 {
   font-family: ${theme.fonts.display};
   margin: 14px 0 8px; font-size: 11px; letter-spacing: .2em;
-  text-transform: uppercase; color: ${theme.gold}; font-weight: 600;
+  font-variant-caps: small-caps; color: ${theme.gold}; font-weight: 600;
 }
 #bw-windows h3:first-child { margin-top: 0; }
 /* Every panel's buttons take the frame's colours. They are NOT put in small
@@ -167,14 +191,14 @@ const CSS = `
 }
 #bw-tip .bw-tip-cmp-head {
   font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .2em;
-  text-transform: uppercase; color: ${theme.gold}; margin-bottom: 6px;
+  font-variant-caps: small-caps; color: ${theme.gold}; margin-bottom: 6px;
 }
 #bw-tip .bw-tip-blk { margin-bottom: 8px; }
 #bw-tip .bw-tip-blk:last-child { margin-bottom: 0; }
 #bw-tip .bw-tip-blk-top { display: flex; align-items: center; gap: 7px; }
 #bw-tip .bw-tip-slot {
   font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .16em;
-  text-transform: uppercase; color: ${theme.goldDim}; margin: 1px 0 3px;
+  font-variant-caps: small-caps; color: ${theme.goldDim}; margin: 1px 0 3px;
 }
 #bw-tip .bw-tip-empty { color: ${theme.parchmentFaint}; font-style: italic; }
 #bw-tip .bw-tip-warn { color: #ff8f7a; margin-top: 5px; }
@@ -491,7 +515,8 @@ export function createWindows(root, input, ctx = {}) {
     const x = document.createElement('button');
     x.className = 'bw-win-x';
     x.type = 'button';
-    x.textContent = 'close';
+    x.textContent = '×';
+    x.title = 'close';
     x.addEventListener('click', (e) => { e.stopPropagation(); const t = openTab(); if (t) close(t); });
     top.appendChild(tabs);
     top.appendChild(x);
@@ -519,7 +544,7 @@ export function createWindows(root, input, ctx = {}) {
       b.type = 'button';
       b.className = 'bw-tab' + (here === t.id ? ' on' : '');
       b.dataset.tab = t.id;
-      b.textContent = t.label;
+      b.innerHTML = `${tabIcon(t.id, 'currentColor', 17)}<span class="bw-tab-word">${t.label}</span>`;
       // Every key that lands on this page, not just the page's own: B is an
       // alias of Character now and the cap has to say so.
       const keys = [p.key, ...Object.keys(TAB_ALIAS)

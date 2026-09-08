@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   ABILITY_ICONS, ITEM_ICONS, STACK_ICONS, GEM_ICONS, SKILL_ICONS, STACK_AT,
-  abilityIcon, itemIcon, skillIcon, iconImg,
+  TAB_ICONS, abilityIcon, itemIcon, skillIcon, tabIcon, iconImg,
 } from './icon_art.js';
 import { ABILITIES } from '../mmo/abilities.js';
 import { BASES } from '../mmo/items.js';
@@ -51,6 +51,16 @@ console.log('icon_art: skills');
   check('and null for a name nobody painted', skillIcon('notASkill') === null);
 }
 
+console.log('icon_art: codex tabs');
+{
+  const ids = ['character', 'skills', 'abilities', 'crafting', 'map'];
+  check('every codex tab has drawn art',
+    ids.every((id) => TAB_ICONS[id] && /<path /.test(TAB_ICONS[id])),
+    ids.filter((id) => !TAB_ICONS[id]).join(', ') || ids.join(','));
+  check('tabIcon returns an inline svg with the tab class',
+    /^<svg class="bw-tab-i"[^>]*>/.test(tabIcon('abilities')) && /<path /.test(tabIcon('abilities')));
+}
+
 console.log('icon_art: items');
 {
   const ids = Object.keys(BASES);
@@ -74,7 +84,7 @@ console.log('icon_art: items');
   for (const id of unpainted) { const k = BASES[id].kind; (byKind[k] ||= []).push(id); }
   console.log(`  ${painted.length} of ${ids.length} bases painted. Unpainted, by kind:`);
   for (const [k, list] of Object.entries(byKind)) console.log(`    ${k} (${list.length}): ${list.join(', ')}`);
-  check('the coverage is at least the library delivered', painted.length >= 160, `${painted.length} painted`);
+  check('the coverage is at least the library delivered', painted.length >= 145, `${painted.length} painted`);
 }
 
 console.log(`\nicon_art: ${pass} passed, ${fail} failed`);

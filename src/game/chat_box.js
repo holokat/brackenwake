@@ -6,7 +6,7 @@
 //
 // The pure parts (`pushLine`, `clampPos`, `lineText`) are measured in
 // chat_box.test.mjs; the DOM half is thin and reads them.
-import { theme } from './ui_theme.js';
+import { theme, cornerUrl } from './ui_theme.js';
 
 export const MAX_LINES = 80;
 export const MAX_SAY = 240;
@@ -37,10 +37,16 @@ export function clampPos(pos, box, view) {
 const CSS = `
 #bw-chat { position: absolute; width: 340px; z-index: 30; pointer-events: auto;
   font-family: ${theme.fonts.body}; font-size: 13px; color: ${theme.parchment};
-  background: linear-gradient(180deg, rgba(20,16,10,.88), rgba(8,7,5,.92));
-  border: 1px solid ${theme.goldDim}88; box-shadow: 0 2px 14px rgba(0,0,0,.5); }
+  background:
+    ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()}, ${cornerUrl()},
+    linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18)), ${theme.stone};
+  background-repeat: no-repeat;
+  background-position: left 2px top 2px, right 2px top 2px, left 2px bottom 2px, right 2px bottom 2px, 0 0, 0 0;
+  background-size: 18px 18px, 18px 18px, 18px 18px, 18px 18px, auto, auto;
+  border: 1px solid ${theme.goldDim}88; border-radius: 7px;
+  box-shadow: 0 8px 26px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05), inset 0 -12px 20px rgba(0,0,0,.22); }
 #bw-chat .hd { cursor: move; user-select: none; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center;
-  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: ${theme.gold};
+  font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .14em; font-variant-caps: small-caps; color: ${theme.gold};
   border-bottom: 1px solid ${theme.goldDim}55; }
 #bw-chat .hd button { background: none; border: 0; color: ${theme.goldDim}; cursor: pointer; font: inherit; padding: 0 2px; }
 #bw-chat .ls { height: 120px; overflow-y: auto; padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; }
@@ -49,7 +55,7 @@ const CSS = `
 #bw-chat .ls .l.me .n { color: #7ad0ff; }
 #bw-chat .ls .l.sys { color: ${theme.parchmentDim}; font-style: italic; }
 #bw-chat input { width: 100%; box-sizing: border-box; font: inherit; color: ${theme.parchment}; padding: 5px 8px;
-  background: rgba(0,0,0,.45); border: 0; border-top: 1px solid ${theme.goldDim}55; outline: none; }
+  background: ${theme.slot.face}; border: 0; border-top: 1px solid ${theme.goldDim}55; outline: none; }
 #bw-chat input::placeholder { color: ${theme.parchmentFaint}; }
 #bw-chat.folded .ls, #bw-chat.folded input { display: none; }
 `;

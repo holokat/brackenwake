@@ -616,6 +616,16 @@ console.log('hud: the item bar');
   barRow.children[4].fire('click');
   ck('a click on a bar cell reaches the handler and says whether the cell was empty',
     picked && picked.slot === 4 && typeof picked.empty === 'boolean', JSON.stringify(picked));
+  // a filled cell is a drag source carrying its own slot; an empty one hands over nothing
+  const dragCell = (cell) => {
+    let payload = null, prevented = false;
+    cell.fire('dragstart', { dataTransfer: { setData: (mime, s) => { payload = s; }, effectAllowed: '' }, preventDefault: () => { prevented = true; } });
+    return { payload, prevented };
+  };
+  hud.update(0.016, { bar: [{ ability: { id: 'powerStrike', name: 'Power Strike', cost: { stamina: 15 } }, ready: true }] });
+  const filled = dragCell(barRow.children[0]), empty = dragCell(barRow.children[11]);
+  ck('a filled bar cell hands over its slot for a swap', filled.payload === JSON.stringify({ barSlot: 0 }), String(filled.payload));
+  ck('and an empty one hands over nothing', empty.payload === null && empty.prevented === true, `${empty.payload} / ${empty.prevented}`);
 
   hud.update(0.016, { items: null });
   ck('and no item bar in the view empties the row rather than freezing it',
