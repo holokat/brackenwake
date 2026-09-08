@@ -85,10 +85,8 @@ export const world_life = {
     const { npcs, stations, forage, interact, studioForage } = ctx.get('world_life');
     const pos = ctx.get('player').pos;
     // The people, the workshops and what grows are the world, so all four run
-    // on the WORLD clock: in dragon time a smith's hammer hangs with everything
-    // else. `frame.worldDt` and `frame.worldNow` are the same numbers as `dt`
-    // and `now` in ordinary time (app/context.js, app/system.js), so this is
-    // one word each and no change at all outside Wyrmsoul.
+    // on the WORLD clock. `frame.worldDt` and `frame.worldNow` are the same
+    // numbers as `dt` and `now` in ordinary time (app/context.js, app/system.js).
     const dt = frame.worldDt ?? frame.dt;
     const now = frame.worldNow ?? frame.now;
     const day = frame.worldNow != null ? ctx.get('world').dayFactor(now) : frame.day;

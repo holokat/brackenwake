@@ -8,10 +8,9 @@
 // targets is a failure and not a coincidence.
 
 import {
-  menuFor, monsterLines, pet, createContextMenu, auditContextMenu,
-  TARGET_KINDS, PET_BOND, PET_COOLDOWN_MS, PET_CUE, MENU_SIZE, MENU_MARGIN,
+  menuFor, monsterLines, createContextMenu, auditContextMenu,
+  TARGET_KINDS, MENU_SIZE, MENU_MARGIN,
 } from './context_menu.js';
-import { CUES } from './audio.js';
 import { BAG_REACH } from './loot_drops.js';
 import { TALK_REACH, plateText } from './npcs_runtime.js';
 import { SKIN_REACH } from './skinning.js';
@@ -36,7 +35,7 @@ function fakeGame(over = {}) {
     hud: { log: (t, k) => log.push(`hud.log:${t}`), toast: (t) => log.push(`hud.toast:${t}`) },
     audio: { play: (c) => log.push(`audio:${c}`) },
     state: { touch: (k) => log.push(`touch:${k}`) },
-    character: { name: 'Ashe', waypoint: null, dragon: null },
+    character: { name: 'Ashe', waypoint: null },
     player: { pos: { x: 0, y: 0, z: 0 }, dying: null },
     emotes: { walking: () => false, start: (id) => { log.push(`emote:${id}`); return { id }; } },
     combat: {
@@ -65,7 +64,6 @@ function fakeGame(over = {}) {
       setWaypoint: (w) => { log.push(`setWaypoint:${w.name}`); return w; },
       clearWaypoint: () => { log.push('clearWaypoint'); return true; },
     },
-    dragon: () => null,
   };
   return { ...g, ...over };
 }
@@ -77,10 +75,10 @@ const wolfMon = (over = {}) => ({
   ...over,
 });
 
-console.log('context menu: the seven kinds');
+console.log('context menu: the six kinds');
 check('the audit counts the kinds and the lists it has for them', auditContextMenu() === TARGET_KINDS.length, `${TARGET_KINDS.length} kinds`);
-check('the seven are named in a fixed order',
-  TARGET_KINDS.join(',') === 'player,monster,npc,corpse,ground,item,dragon', TARGET_KINDS.join(','));
+check('the six are named in a fixed order',
+  TARGET_KINDS.join(',') === 'player,monster,npc,corpse,ground,item', TARGET_KINDS.join(','));
 {
   const empty = menuFor({ kind: 'weather' }, fakeGame());
   check('a kind nothing knows about is an empty list, not a throw', Array.isArray(empty) && empty.length === 0, String(empty.length));
@@ -328,64 +326,10 @@ console.log('\ncontext menu: a sack');
 }
 
 // ---------------------------------------------------------------------------
-console.log('\ncontext menu: the dragon');
+console.log('\ncontext menu: removed dragon target');
 {
-  const record = { bond: 40, hunger: 20, pettedAt: 0 };
-  const entity = {
-    record, name: 'Ash', awake: true,
-    foods: () => ['raw_meat'],
-    feed: () => { calls.push('feed'); return { ok: true }; },
-  };
-  const calls = [];
-  const g = fakeGame({ dragon: () => entity });
-  const rows = menuFor({ kind: 'dragon' }, g);
-  check('three rows: feed, pet and the window', ids(rows) === 'feed,pet,dragon', ids(rows));
-  check('and they name it', labels(rows) === 'Feed Ash | Pet Ash | The dragon', labels(rows));
-  byId(rows, 'feed').run();
-  check('Feed goes through the entity own feed, which is where the food and the Bond are said',
-    calls.join(',') === 'feed', calls.join(','));
-  byId(rows, 'dragon').run();
-  check('and the third row opens the dragon window', g.log.at(-1) === 'open:dragon', g.log.at(-1));
-
-  const before = record.bond;
-  const r = byId(rows, 'pet').run();
-  check(`Pet pays ${PET_BOND} of the Bond and says the new number out loud`,
-    r.gained === PET_BOND && record.bond === before + PET_BOND
-    && g.log.some((l) => l === `hud.log:You scratch Ash under the jaw. The Bond is ${record.bond}.`),
-    g.log.filter((l) => l.startsWith('hud.log')).join(' | '));
-  check('and marks the save dirty, because the Bond is in the document',
-    g.log.includes('touch:dragon'));
-  check('and plays no chirp, because audio.js has no dragon voice yet',
-    !CUES[PET_CUE] && !g.log.some((l) => l.startsWith('audio:')), PET_CUE);
-
-  // the other direction: a second fuss inside the cooldown pays nothing and
-  // still says something, so a click that changed nothing is not silent
-  const g2 = fakeGame({ dragon: () => entity });
-  const again = pet(g2, entity);
-  check(`a second fuss inside ${PET_COOLDOWN_MS / 1000} s pays nothing`,
-    again.gained === 0 && again.cooled === true && record.bond === before + PET_BOND, JSON.stringify(again));
-  check('and says so rather than going quiet',
-    g2.log.some((l) => l.includes('had its fuss lately')), g2.log.join(' | '));
-  // and past the cooldown it pays again
-  const g3 = fakeGame({ dragon: () => entity, now: () => 100000 + PET_COOLDOWN_MS + 1 });
-  const third = pet(g3, entity);
-  check('past the cooldown it pays again', third.gained === PET_BOND && record.bond === before + 2 * PET_BOND, JSON.stringify(third));
-  // and it cannot be farmed past 100
-  record.bond = 100;
-  record.pettedAt = 0;
-  const capped = pet(fakeGame({ dragon: () => entity }), entity);
-  check('and the Bond cannot be petted past 100', record.bond === 100 && capped.gained === 0, String(record.bond));
-}
-{
-  const fallen = { record: { bond: 0 }, name: 'Ash', awake: false, foods: () => [], feed: () => { throw new Error('fed a fallen dragon'); } };
-  const rows = menuFor({ kind: 'dragon' }, fakeGame({ dragon: () => fallen }));
-  check('a fallen dragon dims Feed and Pet and says so, and leaves the window open to you',
-    rows[0].disabled && rows[1].disabled && !rows[2].disabled && rows[0].why === 'Ash is down and will not eat',
-    rows.map((r) => `${r.id}:${r.why}`).join(' | '));
-  const none = menuFor({ kind: 'dragon' }, fakeGame({ dragon: () => null }));
-  check('and with no dragon at all every row that needs one is dimmed',
-    none[0].disabled && none[1].disabled && none[0].why === 'there is no dragon', none[0].why);
-  check('and petting nothing answers rather than throwing', pet(fakeGame({ dragon: () => null }), null).ok === false);
+  const rows = menuFor({ kind: 'dragon' }, fakeGame());
+  check('a dragon target has no menu rows after the companion removal', rows.length === 0, ids(rows));
 }
 
 // ===========================================================================

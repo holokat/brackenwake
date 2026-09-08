@@ -105,7 +105,6 @@ const CSS = `
  *   hud,            log and toast
  *   scene,          THREE scene, or null to run headless
  *   npcs,           createNpcs, so the three names can go on the three doors
- *   dragon,         () => the dragon entity, for the gift and for the stones
  *   events,         () => createEvents, for the Tithe Wagon
  *   waystones,      createWaystones, for how many stones are held
  *   realmAt,        () => the realm id the player is standing in
@@ -119,7 +118,7 @@ const CSS = `
 export function createStory(deps = {}) {
   const {
     character = {}, runtime = null, hud = null, scene = null, npcs = null,
-    dragon = null, events = null, waystones = null, realmAt = null,
+    events = null, waystones = null, realmAt = null,
     pos = null, dayFactor = null, camera = null, root = null,
   } = deps;
   const build = deps.buildCharacter || defaultBuildCharacter;
@@ -127,7 +126,6 @@ export function createStory(deps = {}) {
   const field = runtime?.field || null;
 
   const at = () => (typeof pos === 'function' ? pos() : pos) || { x: 0, y: 0, z: 0 };
-  const beast = () => (typeof dragon === 'function' ? dragon() : dragon);
   const eventsNow = () => (typeof events === 'function' ? events() : events);
   const dayNow = () => (typeof dayFactor === 'function' ? num(dayFactor()) : 1);
 
@@ -203,8 +201,8 @@ export function createStory(deps = {}) {
 
   // ---- the effects --------------------------------------------------------
   //
-  // Two kinds, and both of them say what they did. An effect that changed
-  // nothing says that too, because a silent no is indistinguishable from a bug.
+  // The waypoint effect says what it did. An effect that changed nothing says
+  // that too, because a silent no is indistinguishable from a bug.
 
   function applyEffect(beat) {
     const e = beat.effect;
@@ -218,16 +216,6 @@ export function createStory(deps = {}) {
       }
       character.waypoint = { x: z.x, z: z.z, name: e.name || z.name };
       return log(`Your compass turns to ${e.name || z.name}.`, 'good');
-    }
-    if (e.kind === 'gift') {
-      const dr = beast();
-      if (!dr || typeof dr.grant !== 'function') {
-        return log('Something passes between the two of you and there is no dragon here to take it.', 'bad');
-      }
-      const got = dr.grant(e.gift);
-      const name = dr.name || 'the hatchling';
-      if (!got) return log(`${name} already holds what the Greenwold had to give.`);
-      return log(`Wyrmsoul is yours. Fill the Bond and the last cell of the bar lights, and for six seconds the world moves at a fifth of your speed while you do not.`, 'good');
     }
     return null;
   }
@@ -473,10 +461,10 @@ export function createStory(deps = {}) {
   // ---- the click ----------------------------------------------------------
 
   function meshes() {
-    if (!meshCache) {
-      meshCache = [];
-      for (const rec of live.values()) rec.group?.traverse?.((o) => { if (o.isMesh) meshCache.push(o); });
-    }
+    // gathered fresh every pick: a studio body rebuilds after `ready`, and a
+    // cache emptied only then held disposed meshes (see npcs_runtime.meshes)
+    meshCache = [];
+    for (const rec of live.values()) rec.group?.traverse?.((o) => { if (o.isMesh) meshCache.push(o); });
     return meshCache;
   }
 

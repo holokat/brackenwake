@@ -29,8 +29,8 @@
 // into the game leads to. Everything else calls a function that already speaks:
 // `combat.startAttack` logs the fight, `emotes.start` writes the emote's line,
 // `loot.take` says what went in the pack AND what stayed on the ground,
-// `skinning.skin` says every one of its outcomes, `map.setWaypoint` toasts the
-// mark and the distance to it, and `dragon.feed` names the food and the Bond.
+// `skinning.skin` says every one of its outcomes, and `map.setWaypoint` toasts
+// the mark and the distance to it.
 //
 // THE BAR'S RIGHT CLICK IS STILL THE BAR'S. The ability bar, the item row and
 // the pack each listen for `contextmenu` on their own cells to clear a slot.
@@ -38,32 +38,13 @@
 // reaches the canvas and the hook in `app/systems/input.js` never sees it. This
 // menu only ever opens on a click that landed on the world.
 
-import { CUES } from './audio.js';
 import { BAG_REACH } from './loot_drops.js';
 import { plateText, TALK_REACH } from './npcs_runtime.js';
 import { SKIN_REACH } from './skinning.js';
 import { injectTheme, theme } from './ui_theme.js';
 
 /** The kinds a target may be. A `menuFor` of anything else is an empty list. */
-export const TARGET_KINDS = ['player', 'monster', 'npc', 'corpse', 'ground', 'item', 'dragon'];
-
-/**
- * The Bond one fuss is worth, and how often it may be paid.
- *
- * `dragon.js` owns the Bond and has no petting event, so this is the one number
- * this file invents. It is deliberately the smallest gain in `BOND_GAIN`
- * (hitTogether is 1), and it is on a minute's cooldown for the reason feeding
- * is: without one, a menu row is a Bond of 100 in twenty seconds of clicking,
- * and a companion you can top up by mashing a button is not a companion.
- */
-export const PET_BOND = 1;
-export const PET_COOLDOWN_MS = 60000;
-/**
- * The cue a fuss would play. There is no dragon voice in `audio.js` today, so
- * nothing plays; the row is named here rather than being guessed at the call
- * site, so the day a chirp is recorded this is the only line to change.
- */
-export const PET_CUE = 'dragonChirp';
+export const TARGET_KINDS = ['player', 'monster', 'npc', 'corpse', 'ground', 'item'];
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const flat = (a, b) => Math.hypot(num(a?.x) - num(b?.x), num(a?.z) - num(b?.z));
@@ -302,56 +283,6 @@ function itemRows(game, target) {
   ];
 }
 
-function dragonRows(game) {
-  const d = game.dragon ? game.dragon() : null;
-  const name = d?.name || 'the hatchling';
-  const petCooled = d ? num(d.record?.pettedAt) > 0 && game.now() - num(d.record.pettedAt) < PET_COOLDOWN_MS : false;
-  return [
-    row('feed', `Feed ${name}`, () => d.feed(), {
-      hint: d ? `it eats ${(d.foods?.() || []).join(', ').replace(/_/g, ' ')}` : '',
-      why: !d ? 'there is no dragon' : d.awake ? '' : `${name} is down and will not eat`,
-    }),
-    row('pet', `Pet ${name}`, () => pet(game, d), {
-      hint: petCooled ? 'it has had its fuss lately' : `worth ${PET_BOND} of the Bond`,
-      why: !d ? 'there is no dragon' : d.awake ? '' : `${name} is down`,
-    }),
-    row('dragon', 'The dragon', () => game.windows?.open('dragon'), {
-      hint: 'the Bond, the hunger, the gifts and the name',
-      why: game.windows ? '' : 'there is no window layer',
-    }),
-  ];
-}
-
-/**
- * A fuss. The one thing in this file that changes state with no other door into
- * it, so it is the one thing here that says its own line.
- *
- * The Bond is `character.dragon`, which the entity holds by reference, so the
- * point written here is in the save the moment the save tick comes round.
- */
-export function pet(game, entity) {
-  const d = entity || (game.dragon ? game.dragon() : null);
-  if (!d) return { ok: false, reason: 'no_dragon' };
-  const rec = d.record || {};
-  const name = d.name || 'the hatchling';
-  const now = game.now();
-  const cooled = num(rec.pettedAt) > 0 && now - num(rec.pettedAt) < PET_COOLDOWN_MS;
-  if (cooled) {
-    game.hud?.log?.(`${name} pushes its head into your hand. It has had its fuss lately, and the Bond does not move.`);
-    return { ok: true, gained: 0, bond: num(rec.bond), cooled: true };
-  }
-  const before = num(rec.bond);
-  rec.bond = Math.max(0, Math.min(100, before + PET_BOND));
-  rec.pettedAt = Math.max(1, now);
-  game.state?.touch?.('dragon');
-  // A chirp, the day there is one. `CUES` is audio.js's own table, so this is
-  // a fact about the game rather than a guess: today it has no dragon voice and
-  // nothing plays.
-  if (CUES[PET_CUE]) game.audio?.play?.(PET_CUE);
-  game.hud?.log?.(`You scratch ${name} under the jaw. The Bond is ${Math.round(rec.bond)}.`, 'good');
-  return { ok: true, gained: rec.bond - before, bond: rec.bond, cooled: false };
-}
-
 const BUILDERS = {
   player: playerRows,
   monster: monsterRows,
@@ -359,15 +290,14 @@ const BUILDERS = {
   corpse: corpseRows,
   ground: groundRows,
   item: itemRows,
-  dragon: dragonRows,
 };
 
 /**
  * The rows for a target, in their fixed order.
  *
  * @param target { kind, ... }: `player`, `monster` (with monsters.pick's record
- *   as `actor`), `npc` (`npc`), `corpse` (`corpse`), `ground` (`point`), `item`
- *   (`bag`) or `dragon`.
+ *   as `actor`), `npc` (`npc`), `corpse` (`corpse`), `ground` (`point`) or
+ *   `item` (`bag`).
  * @param game   the handles listed at the top of `app/systems/context_menu.js`.
  */
 export function menuFor(target, game = {}) {

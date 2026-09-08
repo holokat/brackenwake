@@ -213,11 +213,7 @@ export const NOTE_TAGS = new Set(Object.keys(NOTE_TAG_MEANING));
 // ---------------------------------------------------------------------------
 // The roster.
 //
-// `flees` follows 02-COMBAT: "critters flee at any damage. Vermin and beasts
-// flee below 25% health and return healed. Undead and constructs never flee."
-// Two rows overrule their kind and the document says so in words: the Skeleton
-// "never flees" (it is undead anyway) and the Vampire Knight "flees to a coffin
-// at 20%" despite being undead.
+// `flees` follows 02-COMBAT after 2026-09-08: monsters never flee.
 const rows = [];
 // More frequent player attacks are balanced with health, preserving enemy telegraphs.
 const M = (r) => {
@@ -228,14 +224,14 @@ const M = (r) => {
   rows.push(tuned); return tuned;
 };
 
-// --- Tier 0, critters. "Never attack first. Flee at any damage. No gold.
+// --- Tier 0, critters. Never attack first. No gold.
 // Rabbit, squirrel, deer, gull, frog, crow, field mouse. 1 to 8 health. Drop
 // meat and hide by Skinning." Health is spread across the document's own 1 to 8;
 // run speeds match the fauna already in `src/world/fauna.js` where one exists.
 const critter = (id, name, hp, run, group, extra = {}) => M({
   id, name, tier: 0, hp, damage: [0, 0], speed: 2.0, hit: 0, def: 10, ar: 0,
   run, aggro: 0, gold: [0, 0], kind: 'critter', temperament: 'critter',
-  flees: 'always', group, notes: [], lootTable: ['meat', 'hide'], ...extra,
+  flees: 'never', group, notes: [], lootTable: ['meat', 'hide'], ...extra,
 });
 critter('rabbit', 'Rabbit', 2, 4.2, [1, 3]);
 critter('squirrel', 'Squirrel', 2, 4.6, [1, 2]);
@@ -247,10 +243,10 @@ critter('fieldMouse', 'Field Mouse', 1, 4.0, [1, 2]);
 
 // --- Tier 1, vermin and the newly dead (skill 10 to 25, 4 to 12 gold)
 M({ id: 'giantRat', name: 'Giant Rat', tier: 1, hp: 18, damage: [2, 5], speed: 2.0, hit: 15, def: 10, ar: 2, run: 5.5, aggro: 6,
-  kind: 'vermin', temperament: 'vermin', flees: 'low', group: [1, 3], notes: ['disease10'],
+  kind: 'vermin', temperament: 'vermin', flees: 'never', group: [1, 3], notes: ['disease10'],
   lootTable: ['meat', 'hide'] });
 M({ id: 'caveBat', name: 'Cave Bat', tier: 1, hp: 12, damage: [1, 4], speed: 1.6, hit: 20, def: 25, ar: 0, run: 8, aggro: 6,
-  kind: 'flying', temperament: 'vermin', flees: 'low', group: [1, 4], notes: ['flying', 'erratic'],
+  kind: 'flying', temperament: 'vermin', flees: 'never', group: [1, 4], notes: ['flying', 'erratic'],
   lootTable: ['meat', 'hide'] });
 M({ id: 'skeleton', name: 'Skeleton', tier: 1, hp: 30, damage: [4, 8], speed: 2.8, hit: 20, def: 15, ar: 8, run: 4.5, aggro: 10,
   kind: 'undead', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['undead', 'holyWeak', 'group', 'sharesAggro'],
@@ -259,33 +255,33 @@ M({ id: 'zombie', name: 'Zombie', tier: 1, hp: 45, damage: [5, 10], speed: 3.6, 
   kind: 'undead', temperament: 'vermin', flees: 'never', group: [1, 2], notes: ['undead', 'slow', 'poisonTouch'],
   lootTable: ['bone', 'tunic', 'ring'] });
 M({ id: 'goblinScout', name: 'Goblin Scout', tier: 1, hp: 26, damage: [3, 7], speed: 2.4, hit: 22, def: 20, ar: 5, run: 6, aggro: 12,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['group', 'sharesAggro', 'throwsKnives'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['group', 'sharesAggro', 'throwsKnives'],
   lootTable: ['dagger', 'throwingKnives', 'hide'] });
 M({ id: 'thornGrub', name: 'Thorn Grub', tier: 1, hp: 20, damage: [2, 6], speed: 3.0, hit: 10, def: 10, ar: 10, run: 2, aggro: 4,
-  kind: 'vermin', temperament: 'vermin', flees: 'low', group: [1, 3], notes: ['poison1'],
+  kind: 'vermin', temperament: 'vermin', flees: 'never', group: [1, 3], notes: ['poison1'],
   lootTable: ['reagent', 'hide'] });
 // Authored, not tabled. "beach and coast: crabs, harpies on cliffs, the drowned"
 // names two creatures the tier tables never list. A habitat entry that points at
 // nothing is the bug this module exists to prevent, so the two are written here
 // inside their tiers' bands and flagged `authored: true`.
 M({ id: 'crab', name: 'Crab', tier: 1, hp: 22, damage: [2, 6], speed: 2.6, hit: 18, def: 12, ar: 12, run: 3, aggro: 5,
-  kind: 'vermin', temperament: 'vermin', flees: 'low', group: [1, 3], notes: ['coastOnly'],
+  kind: 'vermin', temperament: 'vermin', flees: 'never', group: [1, 3], notes: ['coastOnly'],
   lootTable: ['meat', 'hide'], authored: true });
 
 // --- Tier 2, the common dangers (skill 30 to 45, 12 to 30 gold)
 // M5: three to four, never two. "The first wolves after dark" in the Beech
 // Hangar is a pack, and a pair read as two dogs having a disagreement.
 M({ id: 'wolf', name: 'Wolf', tier: 2, hp: 40, damage: [6, 11], speed: 2.2, hit: 38, def: 35, ar: 6, run: 8.5, aggro: 14,
-  kind: 'beast', temperament: 'normal', flees: 'low', group: [3, 4], notes: ['night', 'group', 'sharesAggro'],
+  kind: 'beast', temperament: 'normal', flees: 'never', group: [3, 4], notes: ['night', 'group', 'sharesAggro'],
   lootTable: ['meat', 'hide'] });
 M({ id: 'boar', name: 'Boar', tier: 2, hp: 55, damage: [8, 14], speed: 3.0, hit: 32, def: 25, ar: 10, run: 7, aggro: 8,
-  kind: 'beast', temperament: 'vermin', flees: 'low', group: [1, 2], notes: ['charges'],
+  kind: 'beast', temperament: 'vermin', flees: 'never', group: [1, 2], notes: ['charges'],
   lootTable: ['meat', 'hide'] });
 M({ id: 'skeletonWarrior', name: 'Skeleton Warrior', tier: 2, hp: 60, damage: [8, 14], speed: 2.8, hit: 40, def: 35, ar: 18, run: 4.5, aggro: 12,
   kind: 'undead', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['undead', 'swordAndShield', 'parries', 'holyWeak', 'group', 'sharesAggro'],
   lootTable: ['bone', 'longsword', 'kite', 'helm'] });
 M({ id: 'goblinWarrior', name: 'Goblin Warrior', tier: 2, hp: 48, damage: [7, 12], speed: 2.6, hit: 38, def: 30, ar: 12, run: 6, aggro: 12,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['group', 'sharesAggro'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['group', 'sharesAggro'],
   lootTable: ['shortsword', 'buckler', 'hide'] });
 // --- the training yard on the Starting Island. Bodies, not monsters: they
 // never move, never swing, never die and never drop a thing. Tier 1 so they
@@ -296,13 +292,13 @@ M({ id: 'trainingDummy', name: 'Training Dummy', tier: 1, hp: 40, damage: [0, 0]
 M({ id: 'archeryTarget', name: 'Archery Target', tier: 1, hp: 40, damage: [0, 0], speed: 2.0, hit: 10, def: 20, ar: 0, run: 0, aggro: 0,
   kind: 'construct', temperament: 'critter', flees: 'never', group: [1, 1], notes: ['dummy', 'immunePoison'], lootTable: ['reagent'] });
 M({ id: 'bandit', name: 'Bandit', tier: 2, hp: 55, damage: [8, 14], speed: 2.7, hit: 42, def: 38, ar: 14, run: 6, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['coinPurse', 'group', 'sharesAggro'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['coinPurse', 'group', 'sharesAggro'],
   lootTable: ['dagger', 'rapier', 'boots', 'ring'] });
 M({ id: 'giantSpider', name: 'Giant Spider', tier: 2, hp: 45, damage: [5, 9], speed: 2.0, hit: 40, def: 40, ar: 8, run: 7, aggro: 10,
-  kind: 'vermin', temperament: 'normal', flees: 'low', group: [1, 3], notes: ['poison2', 'webRoot2'],
+  kind: 'vermin', temperament: 'normal', flees: 'never', group: [1, 3], notes: ['poison2', 'webRoot2'],
   lootTable: ['reagent', 'hide'] });
 M({ id: 'bogCrawler', name: 'Bog Crawler', tier: 2, hp: 70, damage: [9, 15], speed: 3.2, hit: 30, def: 20, ar: 16, run: 4, aggro: 8,
-  kind: 'vermin', temperament: 'vermin', flees: 'low', group: [1, 2], notes: ['fenOnly', 'poison2'],
+  kind: 'vermin', temperament: 'vermin', flees: 'never', group: [1, 2], notes: ['fenOnly', 'poison2'],
   lootTable: ['reagent', 'hide', 'gem'] });
 M({ id: 'drowned', name: 'Drowned', tier: 2, hp: 58, damage: [7, 13], speed: 3.0, hit: 36, def: 28, ar: 12, run: 3.5, aggro: 10,
   kind: 'undead', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['undead', 'holyWeak', 'coastOnly', 'slow'],
@@ -310,19 +306,19 @@ M({ id: 'drowned', name: 'Drowned', tier: 2, hp: 58, damage: [7, 13], speed: 3.0
 
 // --- Tier 3, veterans (skill 50 to 65, 30 to 80 gold)
 M({ id: 'direWolf', name: 'Dire Wolf', tier: 3, hp: 90, damage: [12, 20], speed: 2.1, hit: 58, def: 50, ar: 12, run: 9.5, aggro: 16,
-  kind: 'beast', temperament: 'hunter', flees: 'low', group: [1, 2], notes: ['alpha', 'group'],
+  kind: 'beast', temperament: 'hunter', flees: 'never', group: [1, 2], notes: ['alpha', 'group'],
   lootTable: ['meat', 'thickHide'] });
 M({ id: 'orc', name: 'Orc', tier: 3, hp: 110, damage: [14, 24], speed: 3.0, hit: 55, def: 40, ar: 22, run: 5.5, aggro: 12,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['group', 'sharesAggro', 'warCry'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['group', 'sharesAggro', 'warCry'],
   lootTable: ['axe', 'battleaxe', 'breastplate', 'ingot'] });
 M({ id: 'ghoul', name: 'Ghoul', tier: 3, hp: 85, damage: [10, 18], speed: 2.4, hit: 52, def: 45, ar: 10, run: 6, aggro: 12,
   kind: 'undead', temperament: 'normal', flees: 'never', group: [1, 3], notes: ['undead', 'holyWeak', 'paralyse15', 'stun'],
   lootTable: ['bone', 'reagent', 'ring'] });
 M({ id: 'hobgoblin', name: 'Hobgoblin', tier: 3, hp: 120, damage: [15, 25], speed: 3.1, hit: 56, def: 45, ar: 26, run: 5, aggro: 12,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [1, 2], notes: ['leadsGoblins', 'sharesAggro'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [1, 2], notes: ['leadsGoblins', 'sharesAggro'],
   lootTable: ['warhammer', 'maul', 'greaves', 'ingot'] });
 M({ id: 'harpy', name: 'Harpy', tier: 3, hp: 70, damage: [10, 17], speed: 2.0, hit: 60, def: 60, ar: 6, run: 10, aggro: 18,
-  kind: 'flying', temperament: 'hunter', flees: 'low', group: [1, 3], notes: ['flying', 'silence3'],
+  kind: 'flying', temperament: 'hunter', flees: 'never', group: [1, 3], notes: ['flying', 'silence3'],
   lootTable: ['meat', 'reagent', 'amulet'] });
 // --- Wave C, S2: the Greenwold's one named beast.
 //
@@ -335,18 +331,18 @@ M({ id: 'oldGrist', name: 'Old Grist', tier: 3, hp: 210, damage: [16, 28], speed
   lootTable: ['meat', 'thickHide', 'gem'], family: 'wolf', authored: true,
   model: 'A boar the size of a pony, grey down the spine, one tusk broken off short and the other polished, with the leaf litter of the Beech Hangar worn into his shoulders like bark.', wave: 'S2' });
 M({ id: 'stonebackBear', name: 'Stoneback Bear', tier: 3, hp: 160, damage: [18, 30], speed: 3.4, hit: 50, def: 30, ar: 30, run: 7, aggro: 10,
-  kind: 'beast', temperament: 'normal', flees: 'low', group: [1, 1], notes: ['thickHide'],
+  kind: 'beast', temperament: 'normal', flees: 'never', group: [1, 1], notes: ['thickHide'],
   lootTable: ['meat', 'thickHide'] });
 M({ id: 'cultist', name: 'Cultist', tier: 3, hp: 80, damage: [8, 14], speed: 2.6, hit: 55, def: 45, ar: 8, run: 5.5, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['casts', 'group'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['casts', 'group'],
   lootTable: ['robe', 'quarterstaff', 'scroll', 'reagent'] });
 M({ id: 'mireTroll', name: 'Mire Troll', tier: 3, hp: 200, damage: [20, 34], speed: 3.8, hit: 48, def: 30, ar: 28, run: 4.5, aggro: 12,
-  kind: 'beast', temperament: 'normal', flees: 'low', group: [1, 1], notes: ['regen3', 'burnStopsRegen', 'fireWeak'],
+  kind: 'beast', temperament: 'normal', flees: 'never', group: [1, 1], notes: ['regen3', 'burnStopsRegen', 'fireWeak'],
   lootTable: ['thickHide', 'reagent', 'gem'] });
 
 // --- Tier 4, elites (skill 70 to 85, 80 to 250 gold)
 M({ id: 'ogre', name: 'Ogre', tier: 4, hp: 320, damage: [28, 45], speed: 4.2, hit: 70, def: 40, ar: 34, run: 5, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [1, 1], notes: ['knockback', 'groundSlam', 'stun'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [1, 1], notes: ['knockback', 'groundSlam', 'stun'],
   lootTable: ['maul', 'warhammer', 'thickHide'] });
 M({ id: 'wraith', name: 'Wraith', tier: 4, hp: 180, damage: [18, 30], speed: 2.4, hit: 78, def: 75, ar: 10, run: 7, aggro: 16,
   kind: 'undead', temperament: 'hunter', flees: 'never', group: [1, 1], notes: ['undead', 'holyWeak', 'incorporeal50', 'manaDrain'],
@@ -355,24 +351,24 @@ M({ id: 'ironGolem', name: 'Iron Golem', tier: 4, hp: 400, damage: [30, 48], spe
   kind: 'construct', temperament: 'normal', flees: 'never', group: [1, 1], notes: ['immunePoison', 'energyWeak', 'slow'],
   lootTable: ['ingot', 'ore', 'gem'] });
 M({ id: 'wyvern', name: 'Wyvern', tier: 4, hp: 260, damage: [24, 40], speed: 3.0, hit: 76, def: 65, ar: 24, run: 11, aggro: 20,
-  kind: 'flying', temperament: 'hunter', flees: 'low', group: [1, 1], notes: ['flying', 'poisonBreath', 'breath'],
+  kind: 'flying', temperament: 'hunter', flees: 'never', group: [1, 1], notes: ['flying', 'poisonBreath', 'breath'],
   lootTable: ['scaledHide', 'reagent', 'gem'] });
 M({ id: 'werewolf', name: 'Werewolf', tier: 4, hp: 220, damage: [22, 36], speed: 2.0, hit: 80, def: 70, ar: 16, run: 10, aggro: 18,
-  kind: 'beast', temperament: 'hunter', flees: 'low', group: [1, 2], notes: ['nightOnly', 'night', 'silverWeak'],
+  kind: 'beast', temperament: 'hunter', flees: 'never', group: [1, 2], notes: ['nightOnly', 'night', 'silverWeak'],
   lootTable: ['thickHide', 'meat', 'ring'] });
 M({ id: 'boneKnight', name: 'Bone Knight', tier: 4, hp: 280, damage: [26, 42], speed: 3.2, hit: 78, def: 70, ar: 44, run: 5, aggro: 14,
   kind: 'undead', temperament: 'normal', flees: 'never', group: [1, 2], notes: ['undead', 'holyWeak', 'plate', 'parries'],
   lootTable: ['bone', 'greatsword', 'breastplate', 'tower'] });
 M({ id: 'manticore', name: 'Manticore', tier: 4, hp: 300, damage: [26, 44], speed: 2.8, hit: 75, def: 60, ar: 22, run: 9, aggro: 18,
-  kind: 'beast', temperament: 'hunter', flees: 'low', group: [1, 1], notes: ['rangedSpikes'],
+  kind: 'beast', temperament: 'hunter', flees: 'never', group: [1, 1], notes: ['rangedSpikes'],
   lootTable: ['scaledHide', 'reagent', 'amulet'] });
 M({ id: 'vampireKnight', name: 'Vampire Knight', tier: 4, hp: 260, damage: [24, 40], speed: 2.6, hit: 82, def: 75, ar: 30, run: 7.5, aggro: 16,
-  kind: 'undead', temperament: 'hunter', flees: 'low', group: [1, 1], notes: ['undead', 'holyWeak', 'lifeLeech30'],
+  kind: 'undead', temperament: 'hunter', flees: 'never', group: [1, 1], notes: ['undead', 'holyWeak', 'lifeLeech30'],
   lootTable: ['longsword', 'cloak', 'ring', 'amulet'] });
 
 // --- Tier 5, champions (skill 90 to 100, 250 to 800 gold, always roll loot twice)
 M({ id: 'cyclops', name: 'Cyclops', tier: 5, hp: 700, damage: [45, 70], speed: 4.6, hit: 88, def: 45, ar: 40, run: 5.5, aggro: 16,
-  kind: 'humanoid', temperament: 'hunter', flees: 'low', group: [1, 1], notes: ['boulder', 'lootTwice', 'champion'],
+  kind: 'humanoid', temperament: 'hunter', flees: 'never', group: [1, 1], notes: ['boulder', 'lootTwice', 'champion'],
   lootTable: ['maul', 'thickHide', 'gem'] });
 M({ id: 'elderTreant', name: 'Elder Treant', tier: 5, hp: 900, damage: [40, 60], speed: 4.8, hit: 85, def: 50, ar: 50, run: 3, aggro: 12,
   kind: 'elemental', temperament: 'normal', flees: 'never', group: [1, 1], notes: ['roots', 'healsInDaylight', 'fireWeak', 'lootTwice', 'champion'],
@@ -381,7 +377,7 @@ M({ id: 'lich', name: 'Lich', tier: 5, hp: 520, damage: [30, 50], speed: 2.4, hi
   kind: 'undead', temperament: 'hunter', flees: 'never', group: [1, 1], notes: ['undead', 'holyWeak', 'casts', 'phylactery', 'lootTwice', 'champion'],
   lootTable: ['scroll', 'reagent', 'amulet', 'gem'] });
 M({ id: 'frostGiant', name: 'Frost Giant', tier: 5, hp: 800, damage: [48, 76], speed: 4.4, hit: 90, def: 50, ar: 48, run: 6, aggro: 16,
-  kind: 'humanoid', temperament: 'hunter', flees: 'low', group: [1, 1], notes: ['snowOnly', 'frostNova', 'coldImmune', 'stun', 'lootTwice', 'champion'],
+  kind: 'humanoid', temperament: 'hunter', flees: 'never', group: [1, 1], notes: ['snowOnly', 'frostNova', 'coldImmune', 'stun', 'lootTwice', 'champion'],
   lootTable: ['ingot', 'thickHide', 'gem', 'warhammer'] });
 M({ id: 'hydra', name: 'Hydra', tier: 5, hp: 950, damage: [36, 56], speed: 2.2, hit: 88, def: 55, ar: 36, run: 6, aggro: 14,
   kind: 'beast', temperament: 'normal', flees: 'never', group: [1, 1], notes: ['threeHeads', 'regrows', 'lootTwice', 'champion'],
@@ -467,12 +463,12 @@ critter('whale', 'Whale', 900, 5.0, [1, 2], {
 
 // --- Tier 1, the shallow end of two realms (skill 10 to 25, 4 to 12 gold)
 M({ id: 'saltCrab', name: 'Salt Crab', tier: 1, hp: 26, damage: [3, 7], speed: 2.8, hit: 18, def: 12, ar: 14, run: 3.2, aggro: 6,
-  kind: 'vermin', temperament: 'vermin', flees: 'low', group: [2, 4], notes: ['coastOnly', 'group', 'sharesAggro', 'grab'],
+  kind: 'vermin', temperament: 'vermin', flees: 'never', group: [2, 4], notes: ['coastOnly', 'group', 'sharesAggro', 'grab'],
   lootTable: ['meat', 'hide'], family: 'grub',
   model: 'A crab the size of a dog, white with dried salt, one claw twice the other. It walks sideways and it never walks alone.',
   wave: 'M2' });
 M({ id: 'reedStalker', name: 'Reed Stalker', tier: 1, hp: 22, damage: [4, 9], speed: 3.0, hit: 24, def: 20, ar: 4, run: 6.5, aggro: 6,
-  kind: 'beast', temperament: 'vermin', flees: 'low', group: [1, 2], notes: ['fenOnly', 'ambush', 'poison1'],
+  kind: 'beast', temperament: 'vermin', flees: 'never', group: [1, 2], notes: ['fenOnly', 'ambush', 'poison1'],
   lootTable: ['meat', 'hide', 'reagent'], family: 'flyer',
   model: 'A heron gone wrong: five feet of grey bird standing in the sedge on one leg, a beak like a spear, and it does not move until you are inside its reach.',
   tamable: { difficulty: 40, food: 'fish', loyaltyDays: 5 },
@@ -480,28 +476,28 @@ M({ id: 'reedStalker', name: 'Reed Stalker', tier: 1, hp: 22, damage: [4, 9], sp
 
 // --- Tier 2, the Legion's rank and file and the shore (skill 30 to 45)
 M({ id: 'legionSoldier', name: 'Legion Soldier', tier: 2, hp: 62, damage: [8, 14], speed: 2.6, hit: 42, def: 36, ar: 20, run: 5.8, aggro: 12,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 4], notes: ['group', 'sharesAggro', 'shield', 'shieldWall', 'warCry'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 4], notes: ['group', 'sharesAggro', 'shield', 'shieldWall', 'warCry'],
   lootTable: ['shortsword', 'kite', 'helm', 'boots'], family: 'biped',
   model: 'A man in the Legion\'s black and brass: mail, a square shield with the nine skulls on it, a short sword. He is not a monster and he does not fight like one.',
   wave: 'M2' });
 M({ id: 'legionArcher', name: 'Legion Archer', tier: 2, hp: 50, damage: [7, 13], speed: 2.4, hit: 44, def: 40, ar: 12, run: 6.2, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['group', 'sharesAggro', 'bow'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['group', 'sharesAggro', 'bow'],
   lootTable: ['dagger', 'tunic', 'boots'], family: 'biped',
   model: 'The same man in half the armour with a longbow and a quiver at the hip, standing behind the shields and stepping back when you close.',
   wave: 'M2' });
 M({ id: 'raider', name: 'Raider', tier: 2, hp: 58, damage: [8, 15], speed: 2.5, hit: 43, def: 38, ar: 14, run: 6.4, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 4], notes: ['group', 'sharesAggro', 'coinPurse', 'charges'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 4], notes: ['group', 'sharesAggro', 'coinPurse', 'charges'],
   lootTable: ['axe', 'rapier', 'boots', 'ring'], family: 'biped',
   model: 'A Ridge Rider: desert cloth over stolen Legion mail, a scarf across the face, an axe taken off a convoy guard. They come at a run and they come from three sides.',
   wave: 'M2' });
 M({ id: 'muskOx', name: 'Musk Ox', tier: 2, hp: 80, damage: [9, 16], speed: 3.4, hit: 30, def: 22, ar: 18, run: 6.0, aggro: 8,
-  kind: 'beast', temperament: 'vermin', flees: 'low', group: [3, 6], notes: ['snowOnly', 'charges', 'group'],
+  kind: 'beast', temperament: 'vermin', flees: 'never', group: [3, 6], notes: ['snowOnly', 'charges', 'group'],
   lootTable: ['meat', 'thickHide'], family: 'wolf',
   model: 'A wall of hair on four short legs, horns that meet in a helmet across the brow, and it stands its ground in a ring around its young.',
   tamable: { difficulty: 50, food: 'nettle', loyaltyDays: 14 },
   wave: 'M2' });
 M({ id: 'coralCrab', name: 'Coral Crab', tier: 2, hp: 46, damage: [7, 12], speed: 2.6, hit: 36, def: 30, ar: 22, run: 3.6, aggro: 8,
-  kind: 'vermin', temperament: 'vermin', flees: 'low', group: [2, 4], notes: ['coastOnly', 'group', 'poison1'],
+  kind: 'vermin', temperament: 'vermin', flees: 'never', group: [2, 4], notes: ['coastOnly', 'group', 'poison1'],
   lootTable: ['meat', 'hide', 'gem'], family: 'grub',
   model: 'A crab that has grown its shell out of the reef: live coral in pink and white across its back, and it is beautiful right up until it opens.',
   wave: 'M2' });
@@ -517,39 +513,39 @@ M({ id: 'wisp', name: 'Will o\' Wisp', tier: 2, hp: 34, damage: [6, 12], speed: 
 
 // --- Tier 3, the middle of the world (skill 50 to 65, 30 to 80 gold)
 M({ id: 'blossomSpider', name: 'Blossom Spider', tier: 3, hp: 95, damage: [11, 19], speed: 2.0, hit: 58, def: 55, ar: 10, run: 7.5, aggro: 12,
-  kind: 'vermin', temperament: 'normal', flees: 'low', group: [2, 4], notes: ['poison2', 'webRoot2', 'dropsFromAbove', 'group'],
+  kind: 'vermin', temperament: 'normal', flees: 'never', group: [2, 4], notes: ['poison2', 'webRoot2', 'dropsFromAbove', 'group'],
   lootTable: ['reagent', 'hide', 'gem'], family: 'spider',
   model: 'A spider that has taken the canopy\'s colours: pink and cream across the back like fallen blossom, which is exactly what it looks like on the branch above the path.',
   wave: 'M2' });
 M({ id: 'canopyHarpy', name: 'Canopy Harpy', tier: 3, hp: 78, damage: [10, 18], speed: 2.0, hit: 62, def: 60, ar: 8, run: 10.5, aggro: 18,
-  kind: 'flying', temperament: 'hunter', flees: 'low', group: [2, 3], notes: ['flying', 'dives', 'silence3', 'group'],
+  kind: 'flying', temperament: 'hunter', flees: 'never', group: [2, 3], notes: ['flying', 'dives', 'silence3', 'group'],
   lootTable: ['meat', 'reagent', 'amulet'], family: 'flyer',
   model: 'The cliff harpy grown for the canopy: longer wings, feet made for branches, feathers in the greens of the Deep, and it comes down the gap between two trunks like a thrown knife.',
   wave: 'M2' });
 M({ id: 'cultistAdept', name: 'Cultist Adept', tier: 3, hp: 92, damage: [10, 17], speed: 2.5, hit: 60, def: 50, ar: 10, run: 5.5, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [1, 3], notes: ['casts', 'hex', 'group', 'sharesAggro'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [1, 3], notes: ['casts', 'hex', 'group', 'sharesAggro'],
   lootTable: ['robe', 'quarterstaff', 'scroll', 'reagent'], family: 'biped',
   model: 'A cultist who has been at it long enough to be given the good robe: brass at the collar, the mark burned rather than inked, and a staff he uses as a staff.',
   wave: 'M2' });
 M({ id: 'fenWitch', name: 'Fen Witch', tier: 3, hp: 86, damage: [9, 16], speed: 2.4, hit: 62, def: 58, ar: 6, run: 5.0, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [1, 1], notes: ['fenOnly', 'casts', 'hex', 'poison2', 'summons'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [1, 1], notes: ['fenOnly', 'casts', 'hex', 'poison2', 'summons'],
   summons: { id: 'wisp', count: 2 },
   lootTable: ['robe', 'reagent', 'scroll', 'ring'], family: 'biped',
   model: 'An old woman standing in water to the knee who has not been cold in forty years. Sedge in her hair on purpose. Two lights come when she calls them.',
   wave: 'M2' });
 M({ id: 'emberDrake', name: 'Ember Drake', tier: 3, hp: 130, damage: [14, 24], speed: 2.8, hit: 60, def: 55, ar: 20, run: 10.0, aggro: 18,
-  kind: 'flying', temperament: 'hunter', flees: 'low', group: [1, 2], notes: ['flying', 'breath', 'fireImmune'],
+  kind: 'flying', temperament: 'hunter', flees: 'never', group: [1, 2], notes: ['flying', 'breath', 'fireImmune'],
   lootTable: ['scaledHide', 'reagent', 'gem'], family: 'flyer',
   model: 'A drake the size of a hound with wings, scales the colour of a coal that has been on the fire an hour, and it lands on hot rock because hot rock is comfortable.',
   tamable: { difficulty: 90, food: 'emberite_ore', loyaltyDays: 30 },
   wave: 'M2' });
 M({ id: 'legionChaplain', name: 'Legion Chaplain', tier: 3, hp: 88, damage: [9, 16], speed: 2.6, hit: 58, def: 52, ar: 14, run: 5.4, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [1, 2], notes: ['casts', 'healsAllies', 'group'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [1, 2], notes: ['casts', 'healsAllies', 'group'],
   lootTable: ['robe', 'quarterstaff', 'scroll', 'amulet'], family: 'biped',
   model: 'Clean robes in a filthy country, a brass cup on a chain, and a voice that carries over a shield wall. Kill her last and the wall never falls; kill her first and it does.',
   wave: 'M2' });
 M({ id: 'legionSapper', name: 'Legion Sapper', tier: 3, hp: 105, damage: [12, 20], speed: 3.0, hit: 55, def: 45, ar: 18, run: 5.6, aggro: 12,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['group', 'sharesAggro', 'powderCharge', 'knockback'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['group', 'sharesAggro', 'powderCharge', 'knockback'],
   lootTable: ['warhammer', 'ingot', 'helm', 'boots'], family: 'biped',
   model: 'The men who cut the Legion\'s way through a glacier: leather aprons, goggles pushed up, a sledge in both hands and a satchel of charges nobody sane stands beside.',
   wave: 'M2' });
@@ -569,7 +565,7 @@ M({ id: 'marrowGhoul', name: 'Marrow Ghoul', tier: 3, hp: 110, damage: [13, 22],
   model: 'A ghoul that has been living inside a dragon\'s thighbone eating what grows in marrow. Grey, swollen, and it leaves prints of the stuff.',
   wave: 'M2' });
 M({ id: 'frostWolf', name: 'Frost Wolf', tier: 3, hp: 105, damage: [13, 22], speed: 2.1, hit: 60, def: 55, ar: 14, run: 9.8, aggro: 16,
-  kind: 'beast', temperament: 'hunter', flees: 'low', group: [3, 5], notes: ['snowOnly', 'group', 'alpha', 'frostNova'],
+  kind: 'beast', temperament: 'hunter', flees: 'never', group: [3, 5], notes: ['snowOnly', 'group', 'alpha', 'frostNova'],
   lootTable: ['meat', 'thickHide'], family: 'wolf',
   model: 'A white wolf a head taller than a dire wolf with rime in the guard hairs, and the air in front of its mouth goes to fog and stays there.',
   tamable: { difficulty: 70, food: 'venison', loyaltyDays: 21 },
@@ -580,12 +576,12 @@ M({ id: 'drownedMarine', name: 'Drowned Marine', tier: 3, hp: 115, damage: [12, 
   model: 'A soldier of the Sunken Kingdom still in his rank: white marble scale gone green, a tower shield, and three thousand years of standing in a line together.',
   wave: 'M2' });
 M({ id: 'reefEel', name: 'Reef Eel', tier: 3, hp: 70, damage: [12, 20], speed: 2.0, hit: 62, def: 60, ar: 8, run: 8.0, aggro: 6,
-  kind: 'vermin', temperament: 'vermin', flees: 'low', group: [1, 3], notes: ['coastOnly', 'ambush', 'stormCall'],
+  kind: 'vermin', temperament: 'vermin', flees: 'never', group: [1, 3], notes: ['coastOnly', 'ambush', 'stormCall'],
   lootTable: ['meat', 'hide', 'reagent'], family: 'grub',
   model: 'Two metres of eel in a hole in the coral with its head out and its mouth open, and the water around it prickles before it strikes.',
   wave: 'M2' });
 M({ id: 'cinderImp', name: 'Cinder Imp', tier: 3, hp: 68, damage: [10, 18], speed: 2.0, hit: 58, def: 58, ar: 6, run: 8.5, aggro: 12,
-  kind: 'flying', temperament: 'normal', flees: 'low', group: [3, 6], notes: ['flying', 'erratic', 'casts', 'fireImmune', 'group'],
+  kind: 'flying', temperament: 'normal', flees: 'never', group: [3, 6], notes: ['flying', 'erratic', 'casts', 'fireImmune', 'group'],
   lootTable: ['reagent', 'ore', 'gem'], family: 'flyer',
   model: 'A hand span of glowing grit in the shape of a small angry man with bat wings, trailing sparks, and there are never fewer than three.',
   wave: 'M2' });
@@ -602,7 +598,7 @@ M({ id: 'brassSentinel', name: 'Brass Sentinel', tier: 4, hp: 340, damage: [26, 
   model: 'The Brass City\'s own guard: a furnace with legs, riveted brass over a red glow, a grille for a face, and it vents what it is full of when you get in front of it.',
   wave: 'M2' });
 M({ id: 'legionKnight', name: 'Legion Knight', tier: 4, hp: 300, damage: [26, 42], speed: 3.0, hit: 80, def: 70, ar: 46, run: 5.2, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [1, 3], notes: ['plate', 'parries', 'swordAndShield', 'shieldWall', 'group', 'sharesAggro', 'warCry'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [1, 3], notes: ['plate', 'parries', 'swordAndShield', 'shieldWall', 'group', 'sharesAggro', 'warCry'],
   lootTable: ['longsword', 'kite', 'breastplate', 'helm'], family: 'biped',
   model: 'Full Legion plate, black and brass, the nine skulls raised on the breast, visor down. He fights the way the Eyrie taught the Legion to fight, which is the joke.',
   wave: 'M2' });
@@ -612,18 +608,18 @@ M({ id: 'riderWraith', name: 'Rider Wraith', tier: 4, hp: 200, damage: [20, 34],
   model: 'A dragonrider in the shape the ash keeps: a rider\'s coat and harness with nothing in them, the buckles still done up, and it counts under its breath.',
   wave: 'M2' });
 M({ id: 'iceTroll', name: 'Ice Troll', tier: 4, hp: 420, damage: [30, 50], speed: 4.0, hit: 70, def: 38, ar: 34, run: 4.8, aggro: 12,
-  kind: 'beast', temperament: 'normal', flees: 'low', group: [1, 1], notes: ['snowOnly', 'regen3', 'burnStopsRegen', 'fireWeak', 'coldImmune', 'knockback'],
+  kind: 'beast', temperament: 'normal', flees: 'never', group: [1, 1], notes: ['snowOnly', 'regen3', 'burnStopsRegen', 'fireWeak', 'coldImmune', 'knockback'],
   lootTable: ['thickHide', 'reagent', 'gem'], family: 'biped',
   model: 'The mire troll\'s northern cousin: blue-white, gaunt rather than fat, ice grown into the hide in plates, and it knits itself back together unless something is burning it.',
   wave: 'M2' });
 M({ id: 'mammoth', name: 'Mammoth', tier: 4, hp: 480, damage: [30, 52], speed: 4.4, hit: 66, def: 30, ar: 36, run: 7.5, aggro: 10,
-  kind: 'beast', temperament: 'normal', flees: 'low', group: [2, 4], notes: ['snowOnly', 'charges', 'knockback', 'group', 'thickHide'],
+  kind: 'beast', temperament: 'normal', flees: 'never', group: [2, 4], notes: ['snowOnly', 'charges', 'knockback', 'group', 'thickHide'],
   lootTable: ['meat', 'thickHide', 'bone'], family: 'wolf',
   model: 'Four metres at the shoulder under a coat that reaches the snow, tusks that cross at the tips, and a herd of them turning together is the loudest thing in Frostreach.',
   tamable: { difficulty: 85, food: 'nettle', loyaltyDays: 30 },
   wave: 'M2' });
 M({ id: 'lavaHound', name: 'Lava Hound', tier: 4, hp: 260, damage: [24, 40], speed: 2.2, hit: 78, def: 66, ar: 24, run: 10.5, aggro: 18,
-  kind: 'beast', temperament: 'hunter', flees: 'low', group: [2, 4], notes: ['fireImmune', 'breath', 'charges', 'group'],
+  kind: 'beast', temperament: 'hunter', flees: 'never', group: [2, 4], notes: ['fireImmune', 'breath', 'charges', 'group'],
   lootTable: ['scaledHide', 'reagent', 'gem'], family: 'wolf',
   model: 'A hound of cooled crust with the red still showing in the cracks, and where it has been standing the rock stays soft.',
   tamable: { difficulty: 88, food: 'voidrock_ore', loyaltyDays: 21 },
@@ -651,7 +647,7 @@ M({ id: 'seaWyrm', name: 'Sea Wyrm', tier: 5, hp: 1150, damage: [46, 76], speed:
   model: 'Thalassa\'s kin: a serpent long enough to lie around a sea cave twice, three heads on one neck that splits, and the light in the Sunken Kingdom is what their eggs left behind.',
   wave: 'M2' });
 M({ id: 'stormWyvern', name: 'Storm Wyvern', tier: 5, hp: 760, damage: [48, 78], speed: 2.8, hit: 94, def: 78, ar: 30, run: 12.0, aggro: 24,
-  kind: 'flying', temperament: 'hunter', flees: 'low', group: [1, 1], notes: ['flying', 'stormCall', 'dives', 'knockback', 'lootTwice', 'champion'],
+  kind: 'flying', temperament: 'hunter', flees: 'never', group: [1, 1], notes: ['flying', 'stormCall', 'dives', 'knockback', 'lootTwice', 'champion'],
   lootTable: ['scaledHide', 'reagent', 'gem', 'amulet'], family: 'flyer',
   model: 'A wyvern that has lived on the lightning peak long enough to be scarred by it: black, with the old strikes across the wings in white, and it rides the front of the storm rather than sheltering from it.',
   wave: 'M2' });
@@ -661,7 +657,7 @@ M({ id: 'glacierGolem', name: 'Glacier Golem', tier: 5, hp: 900, damage: [50, 80
   model: 'Glacier ice with a thousand years of grit and gravel in it, walking. Blue where it is thick, and you can see the shapes of things it has closed over.',
   wave: 'M2' });
 M({ id: 'glassWyvern', name: 'Glass Wyvern', tier: 5, hp: 700, damage: [44, 72], speed: 2.6, hit: 92, def: 80, ar: 34, run: 11.5, aggro: 22,
-  kind: 'flying', temperament: 'hunter', flees: 'low', group: [1, 2], notes: ['flying', 'rangedSpikes', 'dives', 'fireImmune', 'lootTwice', 'champion'],
+  kind: 'flying', temperament: 'hunter', flees: 'never', group: [1, 2], notes: ['flying', 'rangedSpikes', 'dives', 'fireImmune', 'lootTwice', 'champion'],
   lootTable: ['scaledHide', 'reagent', 'gem'], family: 'flyer',
   model: 'A wyvern hatched on the volcano\'s black glass and made of it: obsidian scales that ring, wings you can half see through, and it sheds them at you.',
   tamable: { difficulty: 95, food: 'gem', loyaltyDays: 30 },
@@ -691,12 +687,12 @@ M({ id: 'glassWyvern', name: 'Glass Wyvern', tier: 5, hp: 700, damage: [44, 72],
 
 // --- Tier 1, wave M5 (skill 10 to 25, 4 to 12 gold)
 M({ id: 'wildDog', name: 'Wild Dog', tier: 1, hp: 26, damage: [3, 7], speed: 2.4, hit: 22, def: 22, ar: 3, run: 7.5, aggro: 12,
-  kind: 'beast', temperament: 'normal', flees: 'low', group: [3, 5], notes: ['group', 'sharesAggro', 'howl'],
+  kind: 'beast', temperament: 'normal', flees: 'never', group: [3, 5], notes: ['group', 'sharesAggro', 'howl'],
   lootTable: ['meat', 'hide'], family: 'wolf',
   model: 'Somebody\'s dogs, three farms and two winters ago: a lurcher, a collie and whatever the collie had. Ribs showing, tails down, and they work a field the way they were taught to work sheep.',
   wave: 'M5' });
 M({ id: 'badger', name: 'Badger', tier: 1, hp: 34, damage: [4, 9], speed: 3.0, hit: 20, def: 16, ar: 10, run: 5.2, aggro: 6,
-  kind: 'beast', temperament: 'vermin', flees: 'low', group: [1, 2], notes: ['nightOnly', 'awakens', 'thickHide'],
+  kind: 'beast', temperament: 'vermin', flees: 'never', group: [1, 2], notes: ['nightOnly', 'awakens', 'thickHide'],
   lootTable: ['meat', 'hide'], family: 'wolf',
   model: 'A metre of muscle and grey bristle with a striped head, out of a sett under the beech roots after dark. It will let you walk past. It will not let you walk over.',
   tamable: { difficulty: 60, food: 'game_meat', loyaltyDays: 7 },
@@ -704,12 +700,12 @@ M({ id: 'badger', name: 'Badger', tier: 1, hp: 34, damage: [4, 9], speed: 3.0, h
 
 // --- Tier 2, wave M5 (skill 30 to 45, 12 to 30 gold)
 M({ id: 'banditArcher', name: 'Bandit Archer', tier: 2, hp: 46, damage: [7, 12], speed: 2.5, hit: 41, def: 40, ar: 10, run: 6.2, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['group', 'sharesAggro', 'bow'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['group', 'sharesAggro', 'bow'],
   lootTable: ['dagger', 'throwingKnives', 'boots', 'hide'], family: 'biped',
   model: 'A poacher who took the other work: a hunting bow, a hood, no armour worth the name, up on the lip of the hollow while the rest of them are down in it.',
   wave: 'M5' });
 M({ id: 'highwayman', name: 'Highwayman', tier: 2, hp: 60, damage: [9, 15], speed: 2.6, hit: 44, def: 42, ar: 16, run: 6.5, aggro: 14,
-  kind: 'humanoid', temperament: 'normal', flees: 'low', group: [2, 3], notes: ['group', 'sharesAggro', 'coinPurse', 'ambush'],
+  kind: 'humanoid', temperament: 'normal', flees: 'never', group: [2, 3], notes: ['group', 'sharesAggro', 'coinPurse', 'ambush'],
   purse: 2.5,
   lootTable: ['rapier', 'cloak', 'ring', 'boots'], family: 'biped',
   model: 'A bandit who has done well: a good coat off a merchant, a rapier off a guard, boots that fit, and a scarf up over the face because the Kingsroad has a bounty board at both ends of it.',
@@ -1305,7 +1301,7 @@ export function auditMonsters() {
   const bad = [];
   const seen = new Set();
   const kinds = new Set(['critter', 'vermin', 'undead', 'beast', 'humanoid', 'construct', 'elemental', 'flying']);
-  const flees = new Set(['always', 'low', 'never']);
+  const flees = new Set(['never']);
   const loot = new Set(LOOT_KINDS);
   const families = new Set(BODY_FAMILIES);
   const tamableKinds = new Set(TAMABLE_KINDS);
@@ -1332,6 +1328,7 @@ export function auditMonsters() {
     if (!(m.run >= 0)) bad.push(`${at2}: run ${m.run}`);
     if (!kinds.has(m.kind)) bad.push(`${at2}: kind ${m.kind}`);
     if (!flees.has(m.flees)) bad.push(`${at2}: flees ${m.flees}`);
+    if (m.flees !== 'never') bad.push(`${at2}: every monster row must carry flees never`);
     if (!Array.isArray(m.group) || m.group.length !== 2 || m.group[0] < 1 || m.group[0] > m.group[1]) bad.push(`${at2}: group ${JSON.stringify(m.group)}`);
     if (!Array.isArray(m.gold) || m.gold[0] > m.gold[1]) bad.push(`${at2}: gold ${JSON.stringify(m.gold)}`);
     if (!m.boss && m.tier > 0 && (m.gold[0] !== TIERS[m.tier].gold[0] || m.gold[1] !== TIERS[m.tier].gold[1])) bad.push(`${at2}: gold does not match tier ${m.tier}`);
@@ -1353,7 +1350,7 @@ export function auditMonsters() {
     const band = TEMPERAMENT_BANDS[m.temperament];
     if (!band) bad.push(`${at2}: temperament ${m.temperament}`);
     else if (m.aggro < band[0] || m.aggro > band[1]) bad.push(`${at2}: aggro ${m.aggro} outside temperament ${m.temperament} band [${band[0]}, ${band[1]}]`);
-    if (m.tier === 0 && (m.aggro !== 0 || m.flees !== 'always')) bad.push(`${at2}: a tier 0 row never attacks first and always flees`);
+    if (m.tier === 0 && m.aggro !== 0) bad.push(`${at2}: a tier 0 row never attacks first`);
 
     for (const n of m.notes) if (!NOTE_TAGS.has(n)) bad.push(`${at2}: unknown note tag "${n}"`);
     // Kind 'flying' must carry the tag; the tag may also sit on something whose

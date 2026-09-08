@@ -60,7 +60,7 @@ const { MODEL_IDS, isLoaded, modelTriangles, clipDuration, restFrames } = await 
 const { existsSync } = await import('node:fs');
 const READY = MODEL_IDS.filter((id) => existsSync(join(ROOT, 'public', 'models', 'mmo', id + '.glb')));
 const LATE = MODEL_IDS.filter((id) => !READY.includes(id));
-const STUDIO = ['human-male', 'human-female', 'dragon-hatchling'];
+const STUDIO = ['human-male', 'human-female'];
 const { buildCharacter, BODY, HAIR_COLOURS, HAIR_STYLES, MARKS } = await import('./player.js');
 const { dressRig, wornNodes, gearCounts } = await import('./gear_visuals.js');
 const { makeItem, setOf } = await import('../mmo/items.js');
@@ -129,7 +129,7 @@ console.log('rig_glb: the stand-in, and the swap that replaces it');
 
 await preloadRigs();
 check('preloadRigs asks for every model models.js lists, studio bodies included',
-  MODEL_IDS.includes('human-male') && MODEL_IDS.includes('human-female') && MODEL_IDS.includes('dragon-hatchling'),
+  MODEL_IDS.includes('human-male') && MODEL_IDS.includes('human-female'),
   MODEL_IDS.length + ' models, and preloadRigs defaults to all of them');
 check('preloadRigs resolves and every delivered model is in the cache', READY.every((id) => isLoaded(id)),
   `${READY.length} of ${MODEL_IDS.length} models${LATE.length ? `; not delivered yet: ${LATE.join(', ')}` : ''}`);
@@ -604,11 +604,10 @@ console.log('\nrig_glb: every model, built and driven');
   }
   const blender = READY.filter((id) => !STUDIO.includes(id));
   check('the Blender cast is still a small triangle bill', tris < 4000, `${tris} triangles across ${blender.length} models`);
-  // The studio bodies are a different order of magnitude on purpose: one
-  // player and a hatchling, not forty monsters. The budget is the validator's,
-  // and this is the same number counted off the loaded geometry rather than
-  // off the file.
-  const studioBudget = STUDIO.filter((id) => READY.includes(id)).length ? 92000 : 0;
+  // The studio bodies are a different order of magnitude on purpose: player
+  // bodies, not forty monsters. The budget is the validator's, and this is the
+  // same number counted off the loaded geometry rather than off the file.
+  const studioBudget = STUDIO.filter((id) => READY.includes(id)).length ? 90000 : 0;
   check('and the studio bodies are inside their own', studioTris <= studioBudget,
     `${studioTris} triangles across ${STUDIO.filter((id) => READY.includes(id)).length} studio models, budget ${studioBudget}`);
   if (LATE.length) console.log(`  note  ${LATE.join(', ')} were not driven: no file on disk`);

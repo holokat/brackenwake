@@ -689,7 +689,7 @@ export const world = {
        * every one of them reads `worldDt / worldNow / worldNowS` and the day
        * factor is taken from `worldNow` rather than from the frame's own `day`,
        * which main.js computes off the player's clock. In ordinary time the two
-       * are the same number; in dragon time the sun and the swell hang with
+       * are the same number; in slow time the sun and the swell hang with
        * everything else. docs/mmo/wiring/D2.md lists every call by name.
        */
       draw(frame) {
@@ -718,7 +718,7 @@ export const world = {
         water.beforeRender(sc.renderer, sc.scene, sc.camera);   // the refraction pass, right before the frame
         // The PLAYER'S dt, not the world's, and deliberately: the only thing
         // that reads it is the spell pass in scene.js, and a spell is the
-        // player's, so its heat shimmer does not hang in dragon time either.
+        // player's, so its heat shimmer does not hang in slow time either.
         // A frame with no spell alive takes the same plain render it always did.
         sc.render(frame.dt);
       },
@@ -728,7 +728,7 @@ export const world = {
   ready(ctx) { ctx.get('world').listen(); },
 
   // The world streams on the WORLD clock: chunks, fauna, weather and the
-  // dungeon's own timers all belong to the world and hang with it in dragon
+  // dungeon's own timers all belong to the world and hang with it in slow
   // time. `frame.centre` is still the eye's real position, because the eye is
   // the player's and the player never slows.
   update(ctx, frame) {

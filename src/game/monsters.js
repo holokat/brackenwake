@@ -43,7 +43,7 @@ import {
   MONSTERS, HABITAT, HABITAT_BY_PLACE, spawnRollFor, resolvePlace, respawnDelay,
   NO_RESPAWN_RADIUS, SPAWN_SPACING_M, NOTE_TAGS, isUniqueRow,
 } from '../mmo/monsters.js';
-import { aggroCheck, leashCheck, fleeCheck, swingSeconds, UNARMED } from '../mmo/combat_rules.js';
+import { aggroCheck, leashCheck, swingSeconds, UNARMED } from '../mmo/combat_rules.js';
 import { buildMonsterModel, DIE_SECONDS } from './monster_models.js';
 import { SWING_LAND_S, actorDistance, BODY_RADIUS } from './combat.js';
 import {
@@ -71,18 +71,14 @@ export const WANDER_R = 6;           // how far an idle monster drifts from home
 export const WANDER_MIN_MS = 3000, WANDER_MAX_MS = 7000;
 export const SCAN_MS = 400;          // between spawn sweeps
 export const RIVER_MAX = 0.15;       // river strength nothing will stand in
-export const FLEE_BREAK_M = 14;      // a fleeing thing that gets this far away calms down (25 until 2026-09-08, see combat_rules FLEE_THRESHOLD)
-export const RETURN_HEAL_S = 6;      // "flee below 25% health and return healed": full in six seconds
+export const FLEE_BREAK_M = 14;      // scripted boss retreats use this much room before walking home
+export const RETURN_HEAL_S = 6;      // legacy return healing window, kept for old return states
 export const IDLE_SPEED = 0.35;
 /** A training body teaches a weapon skill up to this and no further (combat.js teach reads it off the actor). */
 export const TRAINING_CAP = 35;      // fraction of run speed while wandering
 export const FLEE_SPEED = 1.1;       // a bolting thing is quicker than a charging one
 /**
- * A world animal (temperament `critter`, aggro 0) bolts when you come this
- * close, before you touch it: a deer that stands while you walk up and swing
- * is a target dummy, not a deer. The flee is the same `flee` state a hurt
- * thing takes, so it breaks at FLEE_BREAK_M and walks home the same way, and a
- * bird in it is in the air (see BIRD_BAND). Measured in monsters.test.mjs.
+ * Kept for old fixture names. Critters no longer bolt from the player.
  */
 export const SPOOK_M = 7;
 export const SLOW_DEFAULT = 0.3;     // fraction of speed a `slow` with no factor takes off
@@ -195,8 +191,8 @@ export const SWEEP_HALF_ANGLE = Math.PI / 4;    // 45 degrees each side is a 90 
  * Above the last threshold his swing timer runs at half its seconds and his
  * approach at one and a half times, which are both his own actor's numbers and
  * are applied here. Below it the world slows instead, and THIS FILE DOES NOT DO
- * THAT: the world clock is `app/context.js`'s and the wyrmsoul system owns it.
- * `monsters.wantsPlayerSlow()` is the hook it reads. See M3.md.
+ * THAT: the world clock is `app/context.js`'s. `monsters.wantsPlayerSlow()` is
+ * the hook the clock owner reads. See M3.md.
  */
 export const DRAGON_SWING = 0.5;        // fraction off his swing timer
 export const DRAGON_RUN = 1.5;          // multiplier on his approach
@@ -472,9 +468,8 @@ export function stepToward(pos, to, speed, dt, heightAt, clampXZ) {
 }
 
 /**
- * Away from a point instead of toward it. Fleeing, and nothing else: the one
- * caller left is the 'flee' state, which `fleeCheck`, the critter spook and a
- * boss's retreat phase are the only three things that can put a monster into.
+ * Away from a point instead of toward it. Scripted boss retreats use the
+ * 'flee' state, and ordinary monsters never enter it.
  */
 export function stepAway(pos, from, speed, dt, heightAt, clampXZ) {
   const dx = num(pos.x) - num(from.x), dz = num(pos.z) - num(from.z);
@@ -489,17 +484,15 @@ export function stepAway(pos, from, speed, dt, heightAt, clampXZ) {
  *
  * Every decision in it is `combat_rules.js`'s: `aggroCheck` turns it, and it
  * cannot turn on a critter or a corpse; `leashCheck` sends it home after six
- * seconds past two and a half times its aggro radius; `fleeCheck` breaks it at
- * a quarter health unless it is undead or a construct.
+ * seconds past two and a half times its aggro radius.
  *
  * NOTHING IN HERE WALKS AWAY FROM WHAT IT IS FIGHTING. A row that shoots,
  * throws, casts or breathes closes until the target is inside `ctx.range` and
  * then holds where it stands and shoots; once the target is inside its own
  * melee reach it stops throwing over its boots and swings with its hands, which
- * `out.melee` says so the runtime does not also launch a knife. The only two
- * things that give ground are `fleeCheck`, which is a monster's own `flees`
- * rule, and a boss's scripted retreat phase, which sets `ai.state` to 'flee'
- * itself. See docs/mmo/wiring/C3-CON-KITE.md.
+ * `out.melee` says so the runtime does not also launch a knife. The only thing
+ * that gives ground is a boss's scripted retreat phase, which sets `ai.state`
+ * to 'flee' itself. See docs/mmo/wiring/C3-CON-KITE.md.
  *
  * `ctx.mode` decides which of the two it is, and a melee row with no mode
  * behaves exactly as it did before any of this was written.
@@ -552,8 +545,8 @@ export function stepMonster(m, dt, ctx = {}) {
   // -- who it is on ---------------------------------------------------------
   if (ai.state !== 'flee' && ai.state !== 'return') {
     if (ai.target && num(ai.target.health) <= 0) ai.target = null;
-    // who it is on: the player, or an ally of theirs standing closer (the
-    // dragon, D1); the first that is alive and inside the aggro radius
+    // who it is on: the player, or an ally of theirs standing closer; the
+    // first that is alive and inside the aggro radius
     //
     // `ctx.friendly` is a summon, and a summon has no aggro of its own: a
     // raised skeleton that picked up the player because he walked within ten
@@ -565,13 +558,6 @@ export function stepMonster(m, dt, ctx = {}) {
         if (cand && num(cand.health) > 0 && aggroCheck(m, cand.pos)) { ai.target = cand; ai.alerted = now; break; }
       }
     }
-  }
-
-  // -- has it had enough ----------------------------------------------------
-  if (ai.target && ai.state !== 'flee' && fleeCheck(m)) {
-    ai.state = 'flee';
-    ai.fleeFrom = ai.target;
-    ai.target = null;
   }
 
   // -- has it been pulled too far from home ---------------------------------
@@ -667,7 +653,7 @@ export function stepMonster(m, dt, ctx = {}) {
     case 'return': {
       const s = move(home, speed);
       out.dist = s.dist;
-      // "flee below 25% health and return healed": the walk home is the healing
+      // Scripted retreats heal on the walk home.
       if (num(m.maxHealth) > 0) m.health = Math.min(num(m.maxHealth), num(m.health) + num(m.maxHealth) * d / RETURN_HEAL_S);
       if (s.dist < 0.6) { ai.state = 'idle'; m.health = num(m.maxHealth) || m.health; ai.wanderAt = 0; }
       break;
@@ -1541,14 +1527,6 @@ export function createMonsters(sc, runtime, opts = {}) {
       // sand. `stepDormant` owns the trigger and stepMonster is handed the flag.
       const dormant = stepDormant(mon, d, playerActor);
 
-      // A critter bolts from you before you have touched it, and from the
-      // dragon too, since a hawk on your shoulder is still a hawk to a rabbit.
-      if (mon.row.temperament === 'critter' && !a.still && a.ai.state !== 'flee' && a.ai.state !== 'dead' && num(a.health) > 0) {
-        const threats = [playerActor, ...(typeof opts.allies === 'function' ? (opts.allies() || []) : [])];
-        const near = threats.find((t) => t && num(t.health) > 0 && dist2D(a.pos, t.pos) <= SPOOK_M);
-        if (near) { a.ai.state = 'flee'; a.ai.fleeFrom = near; a.ai.target = null; }
-      }
-
       // A stoop overrides the standoff: a harpy that shoots does not shoot on
       // the way down, and the swoop is forced so the altitude actually reaches
       // the floor rather than waiting for `state === 'attack'` to get there.
@@ -2187,8 +2165,8 @@ export function createMonsters(sc, runtime, opts = {}) {
   // approach at DRAGON_RUN, both of them on HIS OWN actor and both tracked so
   // they come off exactly. Below it they come off and the world is supposed to
   // slow instead, which this file does not do and must not: the world clock is
-  // `app/context.js`'s and the wyrmsoul system owns it. `wantsPlayerSlow()` on
-  // the returned api is the hook that system reads. See M3.md section 4.
+  // `app/context.js`'s. `wantsPlayerSlow()` on the returned api is the hook
+  // that clock owner reads. See M3.md section 4.
   function dragonTime(mon, on) {
     if (!!on === !!mon.dragonOn) return;
     const a = mon.actor;
@@ -2340,8 +2318,7 @@ export function createMonsters(sc, runtime, opts = {}) {
 
     // `summons` on a row that is not a boss: the first time it drops below half
     // health it calls what its row names, and it may not call again for
-    // SUMMON_COOLDOWN_S even if it heals back over the line and falls again,
-    // which a row that flees and returns healed genuinely can do.
+    // SUMMON_COOLDOWN_S even if something heals it back over the line.
     if (mon.tags.has('summons') && !mon.boss && mon.row.summons) {
       const half = num(a.maxHealth) * SUMMON_AT;
       if (num(a.health) > half) mon.summonReady = true;
@@ -2602,9 +2579,8 @@ export function createMonsters(sc, runtime, opts = {}) {
      * This is the one ability in the game that is allowed to touch the player's
      * own time, and it is Malachar's last third and nothing else, ever. THIS
      * FILE DOES NOT APPLY IT. The world clock lives in `app/context.js` as
-     * `ctx.clock`, the wyrmsoul system is the only thing that sets its scale,
-     * and two systems writing one clock is how a dragon call and a boss phase
-     * end up fighting over the same number and neither of them looks broken.
+     * `ctx.clock`. One system should own its scale, or two clock writers can
+     * fight over the same number and neither of them looks broken.
      *
      * So this is a QUESTION, asked every frame by whoever owns that clock, and
      * it is a hook with NO CONSUMER YET: nothing in the tree reads it today.

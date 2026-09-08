@@ -106,8 +106,6 @@ export const abilities = {
       // who the summons pile onto: what you are swinging at, else what the
       // frame at the top of the screen is showing
       ownerTarget: () => fight.attacking?.actor || fight.targeting.current || null,
-      // the dragon is an ally for a buff with a radius, and only while it is awake
-      dragon: () => (ctx.has('dragon') && ctx.get('dragon').entity?.awake ? ctx.get('dragon').actor : null),
       // MP1: the other players in the room; the net system is built after this one, so it is asked for at call time
       others: () => (ctx.has('net') ? ctx.get('net').others() : []),
       inCombat: (who) => fight.combat.inCombat(who, ctx.frame?.now ?? 0),
@@ -278,7 +276,7 @@ export const abilities = {
     // purpose (see the note over this function); a raised skeleton is a BODY IN
     // THE WORLD, walked by `monsters.update` and swinging through
     // `combat.queueSwing`, both of which are stamped off the world clock. Put
-    // it on the player's and a summon in dragon time would take ten swings
+    // it on the player's and a summon in slow time would take ten swings
     // while the wolf beside it took one, out of a queue the resolver would land
     // all at once when time came back. Meditate and Camp ride along on the
     // same call because they are worlds' seconds too: sitting still through a

@@ -1,5 +1,7 @@
 # DR2: the studio hatchling on the player's shoulder
 
+Note, 2026-09-08: the dragon companion was removed because it was not earning its place in play. This document is kept as history; do not implement its companion, Bond, Wyrmsoul, window, HUD cell, save fields, or model work.
+
 H1 delivered `public/models/mmo/dragon-hatchling.glb` and registered it in
 models.js. Nothing built it into a body, nothing fetched it, and nothing played
 a single one of its sixteen clips. This is that wiring.

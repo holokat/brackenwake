@@ -7,9 +7,8 @@
 // and never fought.
 //
 // The rule now: a monster moves away from what it is fighting for exactly one
-// reason, `combat_rules.fleeCheck`, which is its own family's `flees` rule. A
-// boss's scripted retreat phase is the one exception and it goes through the
-// same 'flee' state.
+// reason. A boss's scripted retreat phase is the one exception and it goes
+// through the same 'flee' state.
 //
 // So every check here is a MEASUREMENT of the gap frame by frame, both ways:
 // a thrower at twelve, three and one metre never opens the gap and attacks at
@@ -166,24 +165,19 @@ console.log('monster_ai: a caster holds its ground too, and bites when you are o
 }
 
 // ===========================================================================
-// 3. The flee rules, unchanged, driven both ways
+// 3. The no-flee rule, and the scripted retreat exception
 // ===========================================================================
 console.log('monster_ai: what a monster IS allowed to run from');
 {
-  // 02-COMBAT: critters flee at any damage, vermin and beasts below a quarter,
-  // undead and constructs never. None of that was touched, and none of it may
-  // drift, so it is measured through the same stepMonster the game runs.
   const wolf = makeMonsterActor('wolf', { pos: { x: 0, y: 0, z: 0 } });
-  wolf.health = Math.round(wolf.maxHealth * 0.10);
-  ck('a wolf at 10% of its health wants to flee by the rule', fleeCheck(wolf) === true,
+  wolf.health = Math.max(1, Math.round(wolf.maxHealth * 0.05));
+  ck('a wolf at 5% of its health does not want to flee by the rule', fleeCheck(wolf) === false,
     `${wolf.health} of ${wolf.maxHealth}`);
   const p = player(4);
-  // one second, not three: the flight breaks at FLEE_BREAK_M (14 m since
-  // 2026-09-08) and the walk home would close the gap again inside three
-  const d = drive(wolf, p, MONSTERS.wolf, 1);
-  ck('and it really does run: the gap grows every frame it can',
-    d.opened > 40 && d.end > d.start + 5 && d.fled > 40,
-    `${d.start.toFixed(1)} m to ${d.end.toFixed(1)} m, ${d.opened} frames wider, ${d.fled} flee frames`);
+  const d = drive(wolf, p, MONSTERS.wolf, 3);
+  ck('and it closes and bites instead of running',
+    d.opened === 0 && d.fled === 0 && d.swings > 0,
+    `${d.start.toFixed(1)} m to ${d.end.toFixed(1)} m, ${d.swings} swings, ${d.fled} flee frames`);
 
   const healthy = makeMonsterActor('wolf', { pos: { x: 0, y: 0, z: 0 } });
   ck('the same wolf at full health does not', fleeCheck(healthy) === false);
@@ -193,22 +187,21 @@ console.log('monster_ai: what a monster IS allowed to run from');
 
   const skel = makeMonsterActor('skeleton', { pos: { x: 0, y: 0, z: 0 } });
   skel.health = Math.max(1, Math.round(skel.maxHealth * 0.05));
-  ck('a skeleton at 5% of its health is undead, so it never flees', fleeCheck(skel) === false,
+  ck('a skeleton at 5% of its health does not flee either', fleeCheck(skel) === false,
     `${skel.health} of ${skel.maxHealth}`);
   const d3 = drive(skel, player(4), MONSTERS.skeleton, 3);
   ck('and it walks in and swings on one twentieth of its health',
     d3.opened === 0 && d3.fled === 0 && d3.swings > 0,
     `${d3.start.toFixed(1)} m to ${d3.end.toFixed(1)} m, ${d3.swings} swings, ${d3.fled} flee frames`);
 
-  // and a thrower is not exempt from its own rule either
   const scout = makeMonsterActor('goblinScout', { pos: { x: 0, y: 0, z: 0 } });
   scout.weapon = rangedWeaponFor(scout, MONSTERS.goblinScout);
-  scout.health = Math.max(1, Math.round(scout.maxHealth * 0.10));
-  ck('a goblin scout at 10% health flees by the rule', fleeCheck(scout) === true,
+  scout.health = Math.max(1, Math.round(scout.maxHealth * 0.05));
+  ck('a goblin scout at 5% health does not flee by the rule', fleeCheck(scout) === false,
     `${scout.health} of ${scout.maxHealth}`);
   const d4 = drive(scout, player(3), MONSTERS.goblinScout, 3);
-  ck('and that is the one case where a thrower does open the gap',
-    d4.opened > 100 && d4.end > d4.start + 3,
+  ck('and a thrower holds range rather than bolting',
+    d4.fled === 0 && d4.end <= d4.start + 0.5,
     `${d4.start.toFixed(1)} m to ${d4.end.toFixed(1)} m, ${d4.opened} frames wider`);
 }
 

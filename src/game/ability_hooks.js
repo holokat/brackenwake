@@ -23,7 +23,7 @@
 //   nowMs   the WORLD clock, in milliseconds. `combat.queueSwing` stamps its
 //           blows off this and `monsters.update` walks bodies on it. A summon
 //           is a body in the world, so its life, its swings and its expiry are
-//           all on it. Dragon time slows a skeleton exactly as it slows a wolf.
+//           all on it. Slow time slows a skeleton exactly as it slows a wolf.
 //   nowS    the PLAYER's clock, in seconds, which is what `abilities_runtime`
 //           writes into `actor.buffs[].until` and reads back in `expire`. The
 //           only thing here on it is Camp's Rested buff, which has to expire
@@ -198,7 +198,6 @@ export function nextOre(material) {
  * @param deps.inventory   the pack, for Transmute's ore and Pick Pocket's loot
  * @param deps.player      the rig, for `speed` and where the caster is standing
  * @param deps.ownerTarget () => the actor the player is fighting, or null
- * @param deps.dragon      () => the dragon's actor when it is awake, or null
  * @param deps.isDying     () => true while the death screen is up
  * @param deps.wake        () => the player system's own waking
  * @param deps.inCombat    (actor) => true while a fight is running
@@ -360,8 +359,6 @@ export function createAbilityHooks(deps = {}) {
     for (const a of (typeof monsters?.friendlies === 'function' ? monsters.friendlies() : [])) {
       if (alive(a) && !out.includes(a)) out.push(a);
     }
-    const drake = typeof deps.dragon === 'function' ? deps.dragon() : null;
-    if (alive(drake) && !out.includes(drake)) out.push(drake);
     // MP1: the other players in the room, as their mirrors here
     for (const a of (typeof deps.others === 'function' ? deps.others() || [] : [])) {
       if (alive(a) && !out.includes(a)) out.push(a);
@@ -376,8 +373,8 @@ export function createAbilityHooks(deps = {}) {
    *
    * WHAT THIS CAN AND CANNOT DO, said plainly. There is one player, so the
    * only bodies Resurrect can reach are the caster's own (while the death
-   * screen is counting) and a fallen ally: a summon, a called beast, the
-   * dragon. A dead monster is a corpse and belongs to Raise Skeleton.
+   * screen is counting) and a fallen ally: a summon or a called beast. A dead
+   * monster is a corpse and belongs to Raise Skeleton.
    */
   function resurrect(who, caster = actor) {
     if (!who) return 'There is nobody here to raise.';

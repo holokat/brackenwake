@@ -40,7 +40,6 @@ export const MODEL_IDS = [
   'human-male', 'human-female',
   'monster-skeleton', 'monster-goblin', 'monster-rat',
   'monster-zombie', 'monster-spider', 'monster-bat',
-  'dragon-hatchling',
 ];
 
 // The player bodies, in the order a preload should want them: the three
@@ -54,11 +53,6 @@ export const PLAYER_MODEL_IDS = [
 export const CLIPS = {
   human: ['idle', 'walk', 'run', 'swing', 'cast', 'hurt', 'die', 'jump'],
   monster: ['idle', 'walk', 'attack', 'hurt', 'die', 'special'],
-  dragon: [
-    'idle', 'walk', 'fly', 'glide', 'take_off', 'land', 'lie_down', 'sleep',
-    'wake_up', 'shoulder_perch', 'wing_spread', 'wing_fold', 'wing_flex',
-    'look_around', 'tail_sway', 'cast_spell',
-  ],
 };
 
 // --- the studio bodies and their clip bank ---------------------------------
@@ -220,15 +214,6 @@ const BIPED = { head: 'head', torso: 'chest', armL: 'upperarm_L', armR: 'upperar
 // like the one above it: armL is the body's own left arm. rig_glb.js's
 // BONE_CANDIDATES is the one that mirrors, and says why.
 const MIXAMO = { head: 'Head', torso: 'Spine1', armL: 'LeftArm', armR: 'RightArm', legL: 'LeftUpLeg', legR: 'RightUpLeg' };
-// The hatchling is a quadruped, so its arms are its front legs and its legs
-// are its hind ones. Written with the names the FILE carries, which the test
-// checks against the joints in the skin; `boneKey` below is what would still
-// find them if the file were re-exported with Blender's own dots on.
-const DRAGON = {
-  head: 'head', torso: 'spine_02',
-  armL: 'front_upperL', armR: 'front_upperR',
-  legL: 'hind_upperL', legR: 'hind_upperR',
-};
 export const RIGS = {
   'human-slim': BIPED,
   'human-medium': BIPED,
@@ -241,7 +226,6 @@ export const RIGS = {
   'monster-rat': { head: 'head', torso: 'chest', armL: 'legF_L', armR: 'legF_R', legL: 'legB_L', legR: 'legB_R' },
   'monster-spider': { head: 'body', torso: 'abdomen', armL: 'leg1_L', armR: 'leg1_R', legL: 'leg4_L', legR: 'leg4_R' },
   'monster-bat': { head: 'head', torso: 'body', armL: 'wing_L', armR: 'wing_R', legL: 'tip_L', legR: 'tip_R' },
-  'dragon-hatchling': DRAGON,
 };
 
 // --- names with dots in them ----------------------------------------------
@@ -254,14 +238,11 @@ export const RIGS = {
 // rewrites the track names the same way. What breaks is every lookup BY NAME
 // from code, silently, returning null.
 //
-// The hatchling shipped that way once and was re-exported with its 97 joints
-// already flattened, so no bone in any model here needs this today. Two of its
-// MESHES still do: `Dragon_eyelids.L` and `Dragon_eyelids.R` arrive as
-// `Dragon_eyelidsL` and `Dragon_eyelidsR`. And a re-export is one Blender
-// setting away from putting the dots back on every mirrored bone in the file,
-// which would break every table in this module in total silence. So every
-// lookup by name goes through the same function the loader used and a table
-// may be written either way round.
+// No bone in any model here needs this today, but a Blender export is one
+// setting away from putting dots back on every mirrored bone in a file, which
+// would break every table in this module in total silence. So every lookup by
+// name goes through the same function the loader used and a table may be
+// written either way round.
 //
 // What is NOT safe is two names that sanitise to the SAME string: the loader
 // would make one of them unique by appending a number and the table would then
@@ -286,7 +267,6 @@ export function clipsFor(id) {
 
 /** Which clip contract a model is held to: what every caller may ask it for. */
 export function familyOf(id) {
-  if (id.startsWith('dragon-')) return 'dragon';
   if (id.startsWith('human-')) return 'human';
   return 'monster';
 }

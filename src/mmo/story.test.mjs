@@ -193,11 +193,10 @@ console.log('\nThe first hour');
 // --- the effects -------------------------------------------------------------
 {
   const withEffect = BEATS.filter((b) => b.effect);
-  check('two beats change something', withEffect.length === 2, withEffect.map((b) => `${b.id}:${b.effect.kind}`).join(' '));
+  check('one beat changes something', withEffect.length === 1, withEffect.map((b) => `${b.id}:${b.effect.kind}`).join(' '));
   check('the arrival turns the compass to the Standing Hedge',
     BEAT.arrival.effect.kind === 'waypoint' && BEAT.arrival.effect.place === 'waystones');
-  check('and killing Oram hands over the Greenwold\'s gift',
-    BEAT.oram.effect.kind === 'gift' && BEAT.oram.effect.gift === 'greenwold');
+  check('and killing Oram carries no companion gift now', BEAT.oram.effect === null);
 }
 
 // --- the ranges the runtime measures against ---------------------------------

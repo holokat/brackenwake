@@ -10,7 +10,7 @@ import {
   hitChance, dodgeChance, parryChance, weaponRoll, critChance,
   damage, resistOf, resolveMelee, resolveSpell, spellResistance, spellCritChance,
   fallDamage, poisonTick, applyLeech,
-  aggroCheck, aggroRadius, leashCheck, leashRadius, fleeCheck, FLEE_THRESHOLD,
+  aggroCheck, aggroRadius, leashCheck, leashRadius, fleeCheck,
   NUMBER_KINDS, UNARMED, DODGE_CAP, PARRY_CAP, HIT_MIN, HIT_MAX, RESIST_CAP,
 } from './combat_rules.js';
 
@@ -456,16 +456,15 @@ console.log('\nmonsters: aggro, leash, flee');
 
   const rabbit = { family: 'critter', health: 8, maxHealth: 8 };
   check('a critter at full health stands', fleeCheck(rabbit) === false);
-  check('a critter flees at 1 damage', fleeCheck({ ...rabbit, health: 7 }) === true, '7 of 8');
+  check('a critter at 1 health still does not flee', fleeCheck({ ...rabbit, health: 1 }) === false, '1 of 8');
   const rat = { family: 'vermin', health: 100, maxHealth: 100 };
   check('vermin at 16% stands', fleeCheck({ ...rat, health: 16 }) === false, '16 of 100');
-  check('vermin at 14% flees', fleeCheck({ ...rat, health: 14 }) === true, '14 of 100');
-  check('and the threshold is 15%, so a wounded thing fights on longer than it used to', FLEE_THRESHOLD === 0.15);
-  check('a beast at 14% flees', fleeCheck({ family: 'beast', health: 14, maxHealth: 100 }) === true);
+  check('vermin at 5% still stands', fleeCheck({ ...rat, health: 5 }) === false, '5 of 100');
+  check('a beast at 5% does not flee', fleeCheck({ family: 'beast', health: 5, maxHealth: 100 }) === false);
   check('undead never flees, not at 1 health', fleeCheck({ family: 'undead', health: 1, maxHealth: 100 }) === false, '1 of 100');
   check('a construct never flees either', fleeCheck({ family: 'construct', health: 1, maxHealth: 100 }) === false);
   check('a dead thing does not flee', fleeCheck({ family: 'vermin', health: 0, maxHealth: 100 }) === false);
-  check('an unlisted family uses the same rule', fleeCheck({ family: 'humanoid', health: 10, maxHealth: 100 }) === true && fleeCheck({ family: 'humanoid', health: 20, maxHealth: 100 }) === false, '10 of 100 flees, 20 does not');
+  check('an unlisted family does not flee either', fleeCheck({ family: 'humanoid', health: 1, maxHealth: 100 }) === false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

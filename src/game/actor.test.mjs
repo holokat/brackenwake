@@ -359,7 +359,7 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
   const deer = spawnMonster('deer', { x: 0, y: 0, z: 0 }, () => 0.5);
   check('a deer is a critter and never aggros', deer.faction === 'critter' && aggroCheck(deer, { x: 0, y: 0, z: 0 }) === false);
   deer.health = deer.maxHealth - 1;
-  check('but flees the moment it is hurt', fleeCheck(deer) === true);
+  check('and it does not flee when hurt', fleeCheck(deer) === false);
   const skel = spawnMonster('skeleton', { x: 0, y: 0, z: 0 }, () => 0.5);
   skel.health = 1;
   check('and the undead never flee at all', fleeCheck(skel) === false, `${skel.health} of ${skel.maxHealth}`);

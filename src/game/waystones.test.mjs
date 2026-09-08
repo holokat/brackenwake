@@ -61,7 +61,6 @@ function harness(over = {}) {
   const character = { name: 'You', ...over.character };
   const at = { x: HOME.x, z: HOME.z, ...over.at };
   const state = {
-    dragon: { awake: true, name: 'Ash', grant: () => true },
     legion: false,
     now: 5_000_000,
     ...over.state,
@@ -70,7 +69,6 @@ function harness(over = {}) {
     character,
     stones: () => STONES,
     hud: { log: (t, k) => said.push([t, k]), toast: () => {} },
-    dragon: () => state.dragon,
     legion: () => state.legion,
     pos: () => at,
     now: () => state.now,
@@ -81,18 +79,6 @@ function harness(over = {}) {
 
 console.log('\nTouching one');
 
-{
-  const h = harness({ state: { dragon: { awake: false, name: 'Ash', grant: () => true } } });
-  const r = h.ways.touch();
-  check('the dragon down: the stone refuses', r.ok === false && r.reason === 'asleep');
-  check('and it says so, and says why', /Ash is down/.test(r.text) && /will not know you/.test(r.text), r.text);
-  check('and nothing was taken', h.ways.count === 0 && h.character.waystones.owned.length === 0);
-}
-{
-  const h = harness({ state: { dragon: null } });
-  const r = h.ways.touch();
-  check('no dragon at all: refused, in different words', r.ok === false && r.reason === 'no_dragon', r.text);
-}
 {
   const h = harness({ state: { legion: true } });
   const r = h.ways.touch();
@@ -111,7 +97,7 @@ console.log('\nTouching one');
 {
   const h = harness();
   const r = h.ways.touch();
-  check('the dragon awake: the stone is yours', r.ok === true && h.ways.owns(HOME.id));
+  check('touching the stone makes it yours', r.ok === true && h.ways.owns(HOME.id));
   check('and it says which stone and what happens next', /Hearthhome knows you/.test(r.text) && /first stone/.test(r.text), r.text);
   check('and the character is carrying it', h.character.waystones.owned.includes('way:hearthhome'));
   const again = h.ways.touch();
@@ -209,7 +195,6 @@ console.log('\nThe save');
     character: doc,
     stones: () => STONES,
     hud: { log: () => {} },
-    dragon: () => ({ awake: true, name: 'Ash' }),
     pos: () => ({ x: HOME.x, z: HOME.z }),
     now: () => h.state.now,
     teleport: (x, z) => { moved.push({ x, z }); return true; },
@@ -223,7 +208,7 @@ console.log('\nThe save');
   doc.waystones.used[HOME.id] = h.state.now + 10 * COOLDOWN_MS;
   const third = createWaystones({
     character: doc, stones: () => STONES, hud: { log: () => {} },
-    dragon: () => ({ awake: true }), pos: () => ({ x: HOME.x, z: HOME.z }),
+    pos: () => ({ x: HOME.x, z: HOME.z }),
     now: () => h.state.now, teleport: () => true,
   });
   check('and a clock that has gone backwards does not freeze a stone', third.cooldownLeft(HOME.id) === 0);
@@ -238,8 +223,9 @@ console.log('\nThe save');
 console.log('\nEvery refusal said something');
 
 {
-  const h = harness({ state: { dragon: null } });
+  const h = harness();
   const before = h.said.length;
+  h.at.x = HOME.x + 200;
   h.ways.touch();
   h.ways.travel(FAR.id);
   h.ways.travel('way:nowhere');

@@ -13,7 +13,7 @@
 // A left click resolves a held spell first, because it is choosing a victim.
 // A right click never is, so it starts with what is actually under the cursor:
 //
-//   a sack, a person, the dragon, a body, a live monster, yourself, the ground
+//   a sack, a person, a body, a live monster, yourself, the ground
 //
 // A body comes before a live monster because `monsters.pick` only ever answers
 // with something whose health is above zero and `pickCorpse` only ever answers
@@ -33,7 +33,6 @@
 //   skinning { canSkin, skin, knifeOf }
 //   windows                        the window layer
 //   map                            the registered map panel, for the waypoint
-//   dragon() -> the entity or null
 //   now()    -> the frame clock
 //
 // Every one of those is the object the rest of the game uses. Nothing here
@@ -49,7 +48,7 @@ let live = null;
 
 export const context_menu = {
   name: 'context_menu',
-  deps: ['world', 'player', 'combat', 'inventory', 'world_life', 'ui', 'emotes', 'dragon'],
+  deps: ['world', 'player', 'combat', 'inventory', 'world_life', 'ui', 'emotes'],
 
   create(ctx) {
     // a kind with no rows, or rows for a kind nothing can resolve to, stops the
@@ -63,7 +62,6 @@ export const context_menu = {
     const life = ctx.get('world_life');
     const face = ctx.get('ui');
     const mime = ctx.get('emotes');
-    const wyrm = ctx.get('dragon');
 
     const menu = createContextMenu(hudRoot, {});
     live = menu;
@@ -92,7 +90,6 @@ export const context_menu = {
       npcs: life.npcs,
       windows: face.windows,
       get map() { return mapPanel(); },
-      dragon: () => (wyrm && wyrm.entity ? wyrm.entity : null),
       now: () => ctx.frame.now,
     };
 
@@ -103,15 +100,8 @@ export const context_menu = {
       return ray.intersectObject(g, true).length > 0;
     }
 
-    /** Is the ray on the dragon? */
-    function pickDragon(ray) {
-      const g = wyrm?.entity?.model?.group;
-      if (!ray || !g || g.visible === false) return false;
-      return ray.intersectObject(g, true).length > 0;
-    }
-
     /**
-     * A ray to one of the seven targets. Never null: a ray that hits nothing
+     * A ray to one of the six targets. Never null: a ray that hits nothing
      * the game knows about is the ground, and the ground has a menu.
      */
     function resolve(ray) {
@@ -119,7 +109,6 @@ export const context_menu = {
       if (sack) return { kind: 'item', bag: sack };
       const who = life.npcs.pick(ray);
       if (who && who.npc) return { kind: 'npc', npc: who.npc };
-      if (pickDragon(ray)) return { kind: 'dragon' };
       const corpse = bag.skinning.pick(ray);
       if (corpse) return { kind: 'corpse', corpse };
       const mon = fight.monsters.pick(ray);
@@ -139,7 +128,6 @@ export const context_menu = {
       if (t.kind === 'npc') return t.npc?.personName || 'them';
       if (t.kind === 'corpse') return String(t.corpse?.row?.name || 'a body');
       if (t.kind === 'item') return fight.loot.labelFor ? fight.loot.labelFor(t.bag) : 'a sack';
-      if (t.kind === 'dragon') return game.dragon()?.name || 'the hatchling';
       return 'the ground';
     }
 

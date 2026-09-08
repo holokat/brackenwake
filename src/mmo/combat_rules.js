@@ -112,10 +112,9 @@ export const LEASH_FACTOR = 2.5;
 export const LEASH_MS = 6000;
 // 0.25 until 2026-09-08. "Monsters run away too much, I cannot even catch them
 // as melee": a thing at a quarter of its health that bolts twenty five metres
-// and walks home healing is most of a fight thrown away. Now it runs at 15%,
-// and monsters.js breaks the flight at 14 m rather than 25.
-export const FLEE_THRESHOLD = 0.15;
-export const NEVER_FLEE = ['undead', 'construct'];
+// and walks home healing is most of a fight thrown away. It ran at 15% for a
+// while; since 2026-09-08 nothing runs at all (the user: "make sure monsters
+// stop running away, too annoying"), and fleeCheck below says so.
 
 // What a monster with nothing in its hands swings with.
 export const UNARMED = Object.freeze({
@@ -520,9 +519,8 @@ function distance(a, b) {
   const dx = num(p.x) - num(q.x), dy = num(p.y) - num(q.y), dz = num(p.z) - num(q.z);
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
-/** Aggro reads temperament; fleeing reads family. Either falls back to the other. */
+/** Aggro reads temperament. */
 const temperamentOf = (m) => (m && (m.temperament || m.family)) || 'normal';
-const familyOf = (m) => (m && (m.family || m.temperament)) || '';
 
 /** Radius by temperament, or whatever the monster record carries. */
 export function aggroRadius(monster) {
@@ -566,17 +564,7 @@ export function leashCheck(monster, homePos, playerPos, now = 0) {
   return { beyond, broken, leashSince, leash, distance: d, elapsed: beyond ? num(now) - leashSince : 0 };
 }
 
-/**
- * Critters flee at any damage. Undead and constructs never flee. Everything
- * else, vermin and beasts included, flees below a quarter health.
- */
+/** Monsters do not flee after the 2026-09-08 combat rule change. */
 export function fleeCheck(monster) {
-  if (!monster) return false;
-  const health = num(monster.health);
-  const maxHealth = num(monster.maxHealth) || health;
-  if (health <= 0 || maxHealth <= 0) return false;
-  const family = familyOf(monster);
-  if (NEVER_FLEE.includes(family)) return false;
-  if (family === 'critter') return health < maxHealth;
-  return health / maxHealth < FLEE_THRESHOLD;
+  return false;
 }

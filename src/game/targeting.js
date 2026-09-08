@@ -266,7 +266,7 @@ export function createTargeting(sc, input, monsters, opts = {}) {
 
   const say = (text, kind) => { hud?.log ? hud.log(text, kind) : hud?.toast?.(text, kind); };
 
-  /** MP1: another player, a summon or the dragon may be chosen, for a heal or a blessing. */
+  /** MP1: another player or a summon may be chosen, for a heal or a blessing. */
   function isFriendly(a) {
     return !!a && a !== self && (a.faction === 'player' || a.faction === 'ally') && num(a.health) > 0 && a.dead !== true;
   }

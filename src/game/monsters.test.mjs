@@ -232,35 +232,26 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   check('ten seconds inside the leash never breaks it', stayer.ai.target === p2);
 }
 
-// ================================================================= the flee
+// ================================================================= no flee
 {
-  // "Vermin and beasts flee below 25% health and return healed."
   const wolf = makeMonsterActor('wolf', { pos: { x: 0, y: 0, z: 0 } });
   const player = fakePlayer(5, 0);
   stepMonster(wolf, 1 / 60, { player, now: 0, heightAt: () => 3, rng: seeded(6) });
   check('a wolf at full health comes at you', wolf.ai.state === 'chase' || wolf.ai.state === 'attack', wolf.ai.state);
-  // 15% since 2026-09-08 (combat_rules FLEE_THRESHOLD): a quarter was most of a fight run away from
   wolf.health = wolf.maxHealth * 0.16;
   stepMonster(wolf, 1 / 60, { player, now: 100, heightAt: () => 3, rng: seeded(6) });
   check('at 16% health it is still coming', wolf.ai.state !== 'flee', wolf.ai.state);
-  wolf.health = wolf.maxHealth * 0.14;
+  wolf.health = wolf.maxHealth * 0.05;
   stepMonster(wolf, 1 / 60, { player, now: 200, heightAt: () => 3, rng: seeded(6) });
-  check('at 14% it breaks', wolf.ai.state === 'flee', wolf.ai.state);
-
+  check('at 5% it still does not break', wolf.ai.state !== 'flee', wolf.ai.state);
   const startGap = gap(wolf, player);
-  for (let f = 0; f < 600 && wolf.ai.state === 'flee'; f++) {
+  for (let f = 0; f < 120; f++) {
     stepMonster(wolf, 1 / 60, { player, now: 300 + f * 16.7, heightAt: () => 3, rng: seeded(6) });
   }
-  check('and it runs until it is clear', gap(wolf, player) >= FLEE_BREAK_M - 0.2 && gap(wolf, player) > startGap,
-    `${startGap.toFixed(1)} m to ${gap(wolf, player).toFixed(1)} m`);
-  // "and return healed"
-  for (let f = 0; f < 4000 && wolf.ai.state !== 'idle'; f++) {
-    stepMonster(wolf, 1 / 60, { player: null, now: 20000 + f * 16.7, heightAt: () => 3, rng: seeded(6) });
-  }
-  check('it walks home and comes back whole', wolf.ai.state === 'idle' && wolf.health === wolf.maxHealth,
-    `${wolf.health} of ${wolf.maxHealth}`);
+  check('and it keeps closing or striking instead of opening a flee gap',
+    wolf.ai.state !== 'flee' && gap(wolf, player) <= startGap + 0.2,
+    `${startGap.toFixed(1)} m to ${gap(wolf, player).toFixed(1)} m, ${wolf.ai.state}`);
 
-  // "Undead and constructs never flee."
   const skel = makeMonsterActor('skeleton', { pos: { x: 0, y: 0, z: 0 } });
   const p2 = fakePlayer(5, 0);
   skel.health = 1;
@@ -1127,31 +1118,33 @@ function seedWith(layout, id, max = 3000) {
     check('a gull nobody is near stays on the ground for 300 frames', hi <= 0.01, `highest ${hi.toFixed(3)} m`);
     check('and the deer 50 m off is idle, not spooked', deer.actor.ai.state !== 'flee', deer.actor.ai.state);
 
-    // approach: inside SPOOK_M the bird takes off and flies in BIRD_BAND
+    // approach: inside the old spook range no longer makes animals bolt
     player.pos.x = gull.actor.pos.x + SPOOK_M - 1; player.pos.z = gull.actor.pos.z;   // it drifts while idle, so measure from where it is
     run(1);
-    check(`walk inside ${SPOOK_M} m and the gull bolts`, gull.actor.ai.state === 'flee', gull.actor.ai.state);
+    check(`walk inside ${SPOOK_M} m and the gull does not bolt`, gull.actor.ai.state !== 'flee', gull.actor.ai.state);
     let lo = Infinity; hi = -Infinity;
-    run(240);                                              // four seconds to climb
+    run(240);
     for (let f = 0; f < 120; f++) { run(1); const alt = gull.actor.pos.y - ground; lo = Math.min(lo, alt); hi = Math.max(hi, alt); }
-    check(`and is then ${BIRD_BAND[0]} to ${BIRD_BAND[1]} m up, out of a sword's reach`, lo >= BIRD_BAND[0] - 1e-6 && hi <= BIRD_BAND[1] + 1e-6, `${lo.toFixed(2)} to ${hi.toFixed(2)} m`);
-    check('a bird in flight has the flying flag the model reads for its wings', !!gull.flyer);
+    check('and it stays on the ground rather than climbing into a flee band',
+      hi <= 0.05, `${lo.toFixed(2)} to ${hi.toFixed(2)} m`);
+    check('a bird still has the flying flag the model reads for its wings', !!gull.flyer);
 
-    // the deer: the same spook, on the ground
+    // the deer: the same old spook range, still on the ground
     player.pos.x = deer.actor.pos.x; player.pos.z = deer.actor.pos.z - SPOOK_M + 1;
     run(1);
-    check('the deer bolts the same way', deer.actor.ai.state === 'flee', deer.actor.ai.state);
+    check('the deer does not bolt either', deer.actor.ai.state !== 'flee', deer.actor.ai.state);
     const dz0 = deer.actor.pos.z;
     run(60);
-    check('and runs away from you, not at you', deer.actor.pos.z > dz0 + 1, `${(deer.actor.pos.z - dz0).toFixed(2)} m along +z`);
+    check('and it does not open a flee gap', deer.actor.ai.state !== 'flee' && deer.actor.pos.z <= dz0 + 0.5,
+      `${(deer.actor.pos.z - dz0).toFixed(2)} m along +z`);
     // both directions of the flying flag: every animal fauna.js flies is a flyer in the roster, and no walker is
     const flyMismatch = Object.entries(CRITTERS).filter(([id, c]) => MONSTERS[id] && !!c.flying !== isFlyer(MONSTERS[id])).map(([id]) => id);
     check('fauna.js and the roster agree on which animals fly', flyMismatch.length === 0, flyMismatch.join(', ') || Object.keys(CRITTERS).filter((id) => CRITTERS[id].flying).join(', ') + ' fly');
 
-    // walk off: the flee breaks, it walks home and the bird lands again
+    // walk off: the bird is still settled
     player.pos.x = 0; player.pos.z = -60;
     run(60 * 20);
-    check('twenty seconds after you leave the gull is back on the ground', Math.abs(gull.actor.pos.y - ground) <= 0.05 && gull.actor.ai.state !== 'flee', `${(gull.actor.pos.y - ground).toFixed(3)} m, ${gull.actor.ai.state}`);
+    check('twenty seconds after you leave the gull is still on the ground', Math.abs(gull.actor.pos.y - ground) <= 0.05 && gull.actor.ai.state !== 'flee', `${(gull.actor.pos.y - ground).toFixed(3)} m, ${gull.actor.ai.state}`);
   }
   monsters.dispose();
 }

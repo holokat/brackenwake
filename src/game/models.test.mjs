@@ -170,18 +170,15 @@ check('every model can be driven by the locomotion blend tree',
 // lookup would quietly return null and poseCharacter style code would move
 // nothing, so check the names against the joints actually in each file.
 //
-// dragon-hatchling had no RIGS entry while its 97 joints were nobody's to map,
-// because a map written without the file in front of you is a map that points
-// at bones that may not exist. It has one now, and it is checked here like
-// every other. Nothing is meant to be without one any more, so an id that has
-// none is a body somebody forgot rather than a body that was left alone.
+// Nothing is meant to be without a partsLike map now. An id that has none is a
+// body somebody forgot rather than a body that was left alone.
 //
 // The names are matched THROUGH boneKey, the same function GLTFLoader put every
 // node name through on the way in. A table naming `wing_upper.L` and a file
 // carrying `wing_upperL` are the same bone; a table naming `wing_upperQ` is
 // not, and neither form would find it.
 const NO_POSE_MAP = [];
-check('every model has a partsLike map now that the hatchling has one',
+check('every model has a partsLike map',
   MODEL_IDS.filter((id) => !RIGS[id]).join() === NO_POSE_MAP.join(),
   MODEL_IDS.filter((id) => !RIGS[id]).join(', ') || `all ${MODEL_IDS.length} have one`);
 for (const id of READY) {
@@ -197,8 +194,8 @@ for (const id of READY) {
 }
 check('boneKey is the loader\'s own sanitiser, so a dotted name and a flat one are one bone',
   boneKey('wing_upper.L') === 'wing_upperL' && boneKey('wing_upperL') === 'wing_upperL'
-  && boneKey('Dragon_eyelids.L') === 'Dragon_eyelidsL' && boneKey('a b') === 'a_b',
-  'wing_upper.L, Dragon_eyelids.L and "a b" all come out the way three has them');
+  && boneKey('a b') === 'a_b',
+  'wing_upper.L and "a b" both come out the way three has them');
 
 console.log('\nmodels: the locomotion blend tree');
 check('standing still is all idle', locomotionWeights(0).idle === 1);
@@ -271,11 +268,10 @@ check('and both banks are asked for by a path the site serves',
   Object.values(MODEL_BANK).join(' '));
 check('every player body is a human body models.js knows',
   PLAYER_MODEL_IDS.every((id) => MODEL_IDS.includes(id) && familyOf(id) === 'human'), PLAYER_MODEL_IDS.join(', '));
-check('the hatchling is its own family with its own sixteen clips',
-  familyOf('dragon-hatchling') === 'dragon' && contractFor('dragon-hatchling').length === 16,
-  contractFor('dragon-hatchling').join(', '));
-check('a dragon asked for a swing gets nothing rather than the wrong clip',
-  clipAlias('dragon-hatchling', 'swing') === null && clipAlias('dragon-hatchling', 'idle') === 'idle');
+check('familyOf and contractFor spell out the two clip contracts',
+  familyOf('human-heavy') === 'human' && familyOf('monster-rat') === 'monster'
+  && contractFor('human-heavy').includes('swing') && contractFor('monster-rat').includes('attack'),
+  `human ${contractFor('human-heavy').length}, monster ${contractFor('monster-rat').length}`);
 for (const id of ['human-male', 'human-female']) {
   const bank = readBank(SPECS[id].bank);
   if (!bank || bank.broken) {

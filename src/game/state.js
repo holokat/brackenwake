@@ -278,7 +278,6 @@ export function blankCharacter() {
     deadUntil: [],
     zones: [],            // zone ids entered, once each (Z1)
     waypoint: null,       // { x, z, name } from the map, read by the compass
-    dragon: null,         // the companion's record, written by dragon.js (D1)
     uniques: [],          // signature uniques found, once each (L1)
     bosses: [],           // wandering bosses met, so the map keeps them (E2)
     opened: [],           // chest keys already emptied, once each (D3)
@@ -1068,9 +1067,8 @@ export function hydrate(raw) {
   if (Array.isArray(raw.discovered)) doc.discovered = raw.discovered.filter((d) => typeof d === 'string');
   if (Array.isArray(raw.zones)) doc.zones = raw.zones.filter((d) => typeof d === 'string');
   if (raw.waypoint && Number.isFinite(raw.waypoint.x) && Number.isFinite(raw.waypoint.z)) doc.waypoint = { x: raw.waypoint.x, z: raw.waypoint.z, name: String(raw.waypoint.name || '') };
-  // the dragon companion's record (D1, 14-KALDERA.md section 2): kept whole,
-  // since dragon.js owns its shape and reads it defensively
-  if (raw.dragon && typeof raw.dragon === 'object' && !Array.isArray(raw.dragon)) doc.dragon = { ...raw.dragon };
+  // Saves written before 2026-09-08 may still carry a companion record. The
+  // companion was removed, so hydrate ignores that key and keeps loading.
   // the signature uniques already found (L1): once per character, so the list must survive a reload
   if (Array.isArray(raw.uniques)) doc.uniques = raw.uniques.filter((u) => typeof u === 'string');
   if (Array.isArray(raw.bosses)) doc.bosses = raw.bosses.filter((u) => typeof u === 'string');

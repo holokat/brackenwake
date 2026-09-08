@@ -73,7 +73,6 @@ const { panel: craftingPanel } = await import('./win_crafting.js');
 const { panel: mapPanel } = await import('./win_map.js');
 const { panel: settingsPanel } = await import('./win_settings.js');
 const { panel: devPanel } = await import('./win_dev.js');
-const { panel: dragonPanel } = await import('./win_dragon.js');
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -171,14 +170,14 @@ console.log('win_emotes: X was free, and still is');
   const input = { pressed: (k) => fresh.has(String(k).toLowerCase()) };
   const w = createWindows(null, input, { hud: { log() {}, toast() {} } });
   const all = [characterPanel, bagPanel, skillsPanel, abilitiesPanel, craftingPanel, mapPanel,
-    settingsPanel, devPanel, dragonPanel, panel];
+    settingsPanel, devPanel, panel];
   for (const p of all) w.register(p);
   check('the whole game registers, and the wheel keeps the key it asked for',
     w.keyOf('emotes') === EMOTE_KEY, String(w.keyOf('emotes')));
   const keys = all.map((p) => w.keyOf(p.id)).filter(Boolean);
   check('no panel lost its key to another', keys.length === new Set(keys).size, keys.join(' '));
   check('and the keys are the ones the opening line promises',
-    keys.sort().join(' ') === ['b', 'c', 'escape', 'f2', 'k', 'm', 'n', 'p', 'v', 'x'].join(' '), keys.join(' '));
+    keys.sort().join(' ') === ['b', 'c', 'escape', 'f2', 'k', 'm', 'p', 'v', 'x'].join(' '), keys.join(' '));
 
   fresh.clear(); fresh.add('x');
   w.update(0);

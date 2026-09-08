@@ -12,12 +12,12 @@ Nothing stands between spaces but the road and the view.
 
 The Greenwold is the first hour. Its job is to teach the game with its
 hands in its pockets: walk, look, fight one thing, pick one thing, make one
-thing, meet the dragon, and want to see what is over the ridge.
+thing, meet the village, and want to see what is over the ridge.
 
 ## The first hour, as a walk
 
-Born on the green (1). Old Wynn sends you to the Hedge (2) with the egg on
-your shoulder. On the way, the mill and its wheat (3) show you a field, a
+Born on the green (1). Old Wynn sends you to the Hedge (2). On the way, the
+mill and its wheat (3) show you a field, a
 farmer and a scarecrow that is only a scarecrow by day. At the Hedge the
 stone hums and the compass turns to the Beech Hangar (4), where the first
 real fight is a badger that would rather be left alone, and the first thing
@@ -40,9 +40,9 @@ marked made; anything else is a stand-in or a marker until it is made).
 For: home. The only place in the zone where nothing hunts.
 Landmark: the well pavilion in the middle of the green, the manor tower
 behind it.
-Do: talk to Bram, Old Wynn and Pip; the egg hatches; buy an axe; find the
+Do: talk to Bram, Old Wynn and Pip; buy an axe; find the
 smith, the healer and the inn by their signs.
-Reward: the compass turns to the Hedge; the hatchling.
+Reward: the compass turns to the Hedge.
 Sightline: from the green the Hedge's nearest stone stands across the
 fields to the east, 330 m off, with the ring lane running past it.
 Models: cottage_b (made), flint wall and corner (made), barrel, crate,
@@ -56,10 +56,8 @@ For: the first wonder, and the first quiet. The ring is half a mile across;
 one stone is the whole space.
 Landmark: the carved sarsen, four metres, its face to the ring's centre,
 the worn path round it, offerings at its foot.
-Do: put your hand on the stone with the hatchling awake. Nothing attacks
-here by day.
-Reward: the stone is yours, the compass turns to the Hangar, and the
-hatchling's first word.
+Do: put your hand on the stone. Nothing attacks here by day.
+Reward: the stone is yours, and the compass turns to the Hangar.
 Sightline: down the ridge to the Beech Hangar's dark crown on the next
 rise, and back across the fields to the village.
 Models: waystone_village (to make), boundary stones, offerings, a hedgerow

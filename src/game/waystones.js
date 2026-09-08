@@ -2,8 +2,8 @@
 //
 // The sheet, `src/mmo/realms.js`, the place `waystones`, The Standing Hedge:
 //
-//   "Touch a stone with the dragon awake and it is yours; from then on any
-//    waystone carries you to any other you own, once a day per stone. The
+//   "Touch a stone and it is yours; from then on any waystone carries you to
+//    any other you own, once a day per stone. The
 //    Legion has tried for a century and been refused."
 //
 // That sentence is the whole of this file. Every clause of it is a gate here
@@ -177,7 +177,6 @@ export function waystonesFrom(sites, opts = {}) {
  *   character,          the document. `character.waystones` is the record.
  *   stones,             () => the rows from waystonesFrom, or the array itself
  *   hud,                log and toast: every gate here owes a line
- *   dragon,             () => the dragon entity, for `awake`
  *   teleport,           (x, z, label) => truthy: the five things a warp is
  *   pos,                () => the player's position
  *   now,                () => ms, the same clock the frame runs on
@@ -187,7 +186,7 @@ export function waystonesFrom(sites, opts = {}) {
  */
 export function createWaystones(deps = {}) {
   const {
-    character = {}, hud = null, dragon = null, teleport = null,
+    character = {}, hud = null, teleport = null,
     pos = null, now = null, audio = null, legion = null,
   } = deps;
 
@@ -197,7 +196,6 @@ export function createWaystones(deps = {}) {
   };
   const at = () => (typeof pos === 'function' ? pos() : pos) || { x: 0, z: 0 };
   const clock = () => (typeof now === 'function' ? num(now()) : num(now));
-  const beast = () => (typeof dragon === 'function' ? dragon() : dragon);
   const isLegion = () => {
     if (typeof legion === 'function') return !!legion();
     if (legion != null) return !!legion;
@@ -278,14 +276,6 @@ export function createWaystones(deps = {}) {
     if (isLegion()) {
       return { ok: false, reason: 'legion', stone: target, text: refuse(`${target.name} does nothing at all under your hand. The Legion has been trying this for a century and the stones have never once answered.`) };
     }
-    const dr = beast();
-    if (!dr) {
-      return { ok: false, reason: 'no_dragon', stone: target, text: refuse(`${target.name} is cold. A waystone takes a dragon's word for you and there is no dragon on your shoulder.`) };
-    }
-    if (!dr.awake) {
-      const name = dr.name || 'the hatchling';
-      return { ok: false, reason: 'asleep', stone: target, text: refuse(`${target.name} stays cold. ${name} is down, and a stone will not know you while the dragon that vouches for you is not awake.`) };
-    }
     if (owns(target.id)) {
       return { ok: false, reason: 'already', stone: target, text: say(`${target.name} is already yours. It is warm where your hand goes and it will carry you ${whenAgain(cooldownLeft(target.id))}.`) };
     }
@@ -328,7 +318,7 @@ export function createWaystones(deps = {}) {
       return { ok: false, reason: 'legion', from, to, text: refuse(`${from.name} does nothing. The stones do not carry the Legion and never have.`) };
     }
     if (!owns(from.id)) {
-      return { ok: false, reason: 'unowned_from', from, to, text: refuse(`${from.name} is not yours yet. Put your hand on it with the dragon awake first.`) };
+      return { ok: false, reason: 'unowned_from', from, to, text: refuse(`${from.name} is not yours yet. Put your hand on it first.`) };
     }
     if (!owns(to.id)) {
       return { ok: false, reason: 'unowned_to', from, to, text: refuse(`${to.name} is not yours. A stone only answers a stone you have touched.`) };

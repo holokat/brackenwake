@@ -33,13 +33,12 @@
 // the same instant in seconds. combat.js and the world take ms; abilities and
 // everything W4 wrote take seconds. Nothing else is ever passed.
 //
-// TWO CLOCKS AGAIN, FOR A DIFFERENT REASON. `14-KALDERA.md` section 3 wants
-// dragon time: for six seconds the world moves at a fifth and the player does
-// not. So the frame carries a SECOND pair of numbers, and which one a call
-// reads is the whole of what dragon time is:
+// TWO CLOCKS AGAIN, FOR A DIFFERENT REASON. Boss phase scripts can slow the
+// world without slowing the player. So the frame carries a SECOND pair of
+// numbers, and which one a call reads is the whole of what slow time is:
 //
-//   now / dt / nowS              the player, the dragon, the player's own
-//                                projectiles, cooldowns, casts and the HUD
+//   now / dt / nowS              the player, the player's own projectiles,
+//                                cooldowns, casts and the HUD
 //   worldNow / worldDt / worldNowS   monsters, their swings and shots, the
 //                                world streaming, the day, the water, the npcs
 //
@@ -47,7 +46,7 @@
 // that may set them apart, and `docs/mmo/wiring/D2.md` lists every call site
 // by name. The world clock is MONOTONIC and never runs ahead of the player's:
 // it falls behind while the world is slowed and is paid back over the half
-// second of the end pulse, which is why the swings queued in dragon time all
+// second of the end pulse, which is why the swings queued in slow time all
 // land at once when time resumes.
 
 import * as THREE from 'three';
@@ -65,8 +64,7 @@ export const NIGHT_BELOW = 0.4;
 /**
  * The world clock: one number, and the rate it advances at.
  *
- * `scale` is the fraction of real time the world gets. 1 is ordinary time;
- * `wyrmsoul.TIME_SCALE` (0.2) is dragon time. Nothing else sets it.
+ * `scale` is the fraction of real time the world gets. 1 is ordinary time.
  *
  * Three rules it will not break, because each of them was a bug waiting:
  *
@@ -189,7 +187,7 @@ export function createContext({ container, hudRoot } = {}) {
   const ndc = new THREE.Vector2();
 
   const registry = new Map();
-  // dragon time. Level until wyrmsoul.js slows it; see app/system.js's frame.
+  // Level until a boss phase slows it; see the frame split below.
   const clock = createWorldClock(performance.now());
 
   const ctx = {
@@ -202,7 +200,7 @@ export function createContext({ container, hudRoot } = {}) {
     frame: {
       dt: 0, now: performance.now(), nowS: performance.now() / 1000,
       day: 1, night: false, centre: null,
-      // dragon time: equal to the three above until ctx.clock is slowed
+      // slow time: equal to the three above until ctx.clock is slowed
       worldDt: 0, worldNow: performance.now(), worldNowS: performance.now() / 1000, timeScale: 1,
     },
 

@@ -44,15 +44,14 @@ export const ANIM_DIR = join(HERE, '..', 'public', 'animations');
 export const HUMAN_CLIPS = { idle: 2.0, walk: 1.0, run: 0.6, swing: 0.5, cast: 0.8, hurt: 0.3, die: 1.2, jump: 0.7 };
 export const MONSTER_CLIPS = { idle: 2.0, walk: 1.0, attack: 0.6, hurt: 0.3, die: 1.2, special: 0.8 };
 
-// The studio bodies and the hatchling are not built by tools/blender, so their
-// clip lengths are not this repo's to choose. What can be checked is that
-// every move is really there and that none of them is an empty clip, so these
-// numbers are FLOORS rather than targets and `minClips` says to read them that
-// way. A loop that has to read as a cycle gets a bigger floor than a one shot.
+// The studio bodies are not built by tools/blender, so their clip lengths are
+// not this repo's to choose. What can be checked is that every move is really
+// there and that none of them is an empty clip, so these numbers are FLOORS
+// rather than targets and `minClips` says to read them that way. A loop that
+// has to read as a cycle gets a bigger floor than a one shot.
 const LOOP_FLOOR = 0.40;
 const SHOT_FLOOR = 0.12;
-const LOOPS = new Set(['idle', 'combat-idle', 'walk', 'run', 'surface-swim', 'tread-water',
-  'fly', 'glide', 'sleep', 'lie_down', 'shoulder_perch', 'tail_sway']);
+const LOOPS = new Set(['idle', 'combat-idle', 'walk', 'run', 'surface-swim', 'tread-water']);
 const floors = (names) => Object.fromEntries(names.map(
   (n) => [n, LOOPS.has(n) ? LOOP_FLOOR : (n === 'die' ? 0.5 : SHOT_FLOOR)]));
 
@@ -68,15 +67,7 @@ export const STUDIO_MOVES = [
   'hit', 'die', 'jump',
 ];
 
-/** The 16 clips baked into the hatchling itself. models.js CLIPS.dragon is this list. */
-export const DRAGON_MOVES = [
-  'idle', 'walk', 'fly', 'glide', 'take_off', 'land', 'lie_down', 'sleep',
-  'wake_up', 'shoulder_perch', 'wing_spread', 'wing_fold', 'wing_flex',
-  'look_around', 'tail_sway', 'cast_spell',
-];
-
 export const STUDIO_CLIPS = floors(STUDIO_MOVES);
-export const DRAGON_CLIPS = floors(DRAGON_MOVES);
 
 // axis is the dimension the stated size describes: the humans and the uprights
 // are measured by height, the rat by how long it is, the spider and the bat by
@@ -104,10 +95,6 @@ export const SPECS = {
   'human-female': {
     clips: STUDIO_CLIPS, minClips: true, bank: 'human-female.json', axis: 'y', size: 1.8,
     tris: 60000, bones: 60, textured: true, studio: true, bytes: 8 * 1024 * 1024,
-  },
-  'dragon-hatchling': {
-    clips: DRAGON_CLIPS, minClips: true, axis: 'x', size: 1.1,
-    tris: 20000, bones: 100, textured: true, studio: true, bytes: 8 * 1024 * 1024,
   },
   'monster-skeleton': { clips: MONSTER_CLIPS, axis: 'y', size: 1.8, tris: 1500, bones: 40 },
   'monster-goblin': { clips: MONSTER_CLIPS, axis: 'y', size: 1.3, tris: 1500, bones: 40 },

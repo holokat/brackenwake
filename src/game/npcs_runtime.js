@@ -528,13 +528,19 @@ export function createNpcs(sc, runtime, opts = {}) {
     }
   }
 
-  /** Cache bodies once; filter current visibility when picking. */
+  /**
+   * The bodies under a pick, gathered fresh every time. This WAS a cache
+   * emptied when a rig's `ready` resolved, and it held disposed meshes: a
+   * studio body rebuilds itself again after `ready` (a dress, a batch), the
+   * new meshes never entered the cache, and the ray tested the old ones, so
+   * whole sessions could not click a single villager while a fresh login
+   * could (the user, 2026-09-08: "my mage cant talk to npcs but new player i
+   * made can"). Sixteen people at twenty meshes each is nothing to walk.
+   */
   function meshes() {
-    if (!meshCache) {
-      meshCache = [];
-      for (const npc of live.values()) {
-        npc.group.traverse((o) => { if (o.isMesh) meshCache.push(o); });
-      }
+    meshCache = [];
+    for (const npc of live.values()) {
+      npc.group.traverse((o) => { if (o.isMesh) meshCache.push(o); });
     }
     return meshCache;
   }

@@ -159,9 +159,8 @@ ck('and the same line for the amber corner, so the mark and the wording agree',
 ck('1 to 4 are the ability bar s own, and are the first four of its twelve',
   ['1', '2', '3', '4'].every((k, i) => BAR_KEYS[i] === k), BAR_KEYS.slice(0, 4).join(''));
 ck('and no other bar on the HUD wants them',
-  itemBarMod.ITEM_KEYS.every((k) => !BAR_KEYS.includes(k))
-  && !BAR_KEYS.includes(hudMod.WYRMSOUL_KEY),
-  `item bar ${itemBarMod.ITEM_KEYS.join(',')}, thirteenth cell ${hudMod.WYRMSOUL_KEY}`);
+  itemBarMod.ITEM_KEYS.every((k) => !BAR_KEYS.includes(k)),
+  `item bar ${itemBarMod.ITEM_KEYS.join(',')}`);
 
 // --- the pure views ----------------------------------------------------------
 console.log('hud: pools');
@@ -1082,7 +1081,7 @@ console.log('hud: every status has words');
   const src = files.map((f) => readFileSync(f, 'utf8')).join('\n');
   const ids = new Set();
   for (const m of src.matchAll(/(?:applyStatus|statusOn)\??\.?\([^,]+,\s*'([a-zA-Z]+)'/g)) ids.add(m[1]);
-  ck(`the game applies ${ids.size} named statuses, across ${files.length} files`, ids.size >= 5, [...ids].sort().join(' '));
+  ck(`the game applies ${ids.size} named statuses, across ${files.length} files`, ids.size === 4, [...ids].sort().join(' '));
   const missing = [...ids].filter((id) => !STATUS_EFFECTS[id]);
   ck('and every one of them has a name and a line on the row', missing.length === 0, missing.join(','));
   ck('every entry has a mark, a colour and words',

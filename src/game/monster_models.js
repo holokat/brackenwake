@@ -639,12 +639,11 @@ export function buildBoxMonster(id) {
 // ===========================================================================
 //
 // A rabbit is not a monster with small numbers, but it IS a monster row: tier
-// 0, aggro 0, `flees: 'always'`, and therefore targetable, killable, skinnable
+// 0, aggro 0, `flees: 'never'`, and therefore targetable, killable, skinnable
 // and one day tamable, which is the whole point of retiring the decorative
-// fauna layer. What it is not is a grey box. These bodies are built in the
-// language `dragon_models.js` established: generated fur, feather and keratin
-// as DataTextures, lofted tubes rather than stacked boxes, and named parts a
-// poser drives.
+// fauna layer. What it is not is a grey box. These bodies are built with
+// generated fur, feather and keratin as DataTextures, lofted tubes rather than
+// stacked boxes, and named parts a poser drives.
 //
 // COLOUR IS THE EXCEPTION HERE, AND DELIBERATELY. Everything above tier 0 is
 // painted by its tier, because the paint is how a player reads danger at fifty
@@ -658,7 +657,7 @@ export function buildBoxMonster(id) {
 // deer that stops standing 1.4 m at the shoulder fails the import.
 //
 // TRIANGLES. Under CRITTER_TRIANGLE_BUDGET each, counted with the same
-// `countTriangles` the weapons and the dragon are held to.
+// `countTriangles` the weapons and monsters are held to.
 //
 // THE CLICK COLUMN. A field mouse is nine centimetres long. Its true radius and
 // height go to `combat.js` and to the name plate, because those have to be
@@ -670,9 +669,8 @@ export function buildBoxMonster(id) {
 
 // ------------------------------------------------------------- the noise ---
 // Value noise with fbm over it, deterministic from the seed, wrapping on
-// `period` so every map tiles. The same three functions dragon_models.js runs
-// on, kept here for the same reason it keeps its own copy of them: a fur
-// texture should not be a hostage to a change made for a dragon.
+// `period` so every map tiles. Kept local because a fur texture should not be a
+// hostage to a change made for another model family.
 
 function h2c(x, y, s) {
   let n = (x | 0) * 374761393 + (y | 0) * 668265263 + (s | 0) * 1274126177;
@@ -708,9 +706,9 @@ function fbmc(x, y, s, period, octaves = 4, gain = 0.5) {
 export const CRITTER_TEX_SIZE = 96;
 
 /**
- * (u, v) -> { l, r, m, h, tintG, tintB }, exactly as the dragon's families are:
- * `l` multiplies material.color, `r` and `m` modulate roughness and metalness,
- * `h` is the height the normal map is differenced out of.
+ * (u, v) -> { l, r, m, h, tintG, tintB }. `l` multiplies material.color, `r`
+ * and `m` modulate roughness and metalness, `h` is the height the normal map
+ * is differenced out of.
  */
 export const CRITTER_FAMILIES = {
   // Fur: fine hairs lying down the length of the animal, over a slow mottle of
@@ -854,8 +852,8 @@ export function critterMaterial(family, colour, o = {}) {
 // One builder does the barrel, the neck, the skull, the muzzle, every leg bone,
 // every ear, the tail, the antler beams and the beak: a closed ring profile
 // swept along a spine of { z, y, r } stations, running along +z because that is
-// the way the rig faces. It is `dragon_models.tube` by another name, and it is
-// here rather than imported for the same reason the noise is.
+// the way the rig faces. It is here rather than imported for the same reason
+// the noise is.
 
 function ringPts(n) {
   const p = [];

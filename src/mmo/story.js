@@ -104,7 +104,7 @@ export const PEOPLE = [
     knows: 'the Legion, from the inside, forty years ago',
     lines: [
       'The hay can wait. Nobody has said that on this farm in my lifetime and I have just said it.',
-      'That is a dragon on your shoulder. I have been waiting forty years to be the one who is not surprised.',
+      'The Legion is two days out, and they are not coming here to count bushels.',
       'Hold the rake with both hands and your weight on the back foot. It is the same lesson with a sword in it.',
       'The Legion counts things. Bushels, roofs, boys. Whatever they are counting for now, they are two days out.',
       'Bring me anything you grow or shoot and I will trade you for it, and I will not rob you.',
@@ -114,13 +114,13 @@ export const PEOPLE = [
     id: 'wynn', name: 'Old Wynn Ashby', title: 'the oldest woman in the Greenwold',
     role: 'elder', place: 'hearthhome',
     at: { kind: 'spot', bearing: 2.1, out: 11 },
-    talkOnly: 'she has nothing to sell and nothing to drill. What she has is the word Dragonsworn, and where the Eyrie is.',
+    talkOnly: 'she has nothing to sell and nothing to drill. What she has is the old road to the Eyrie.',
     knows: 'the Eyrie, because she was a girl there when it fell',
     lines: [
-      'When the sky had wings, that egg would have been worth a kingdom. It still is. Sit down.',
+      'When the sky had wings, a road stone could move an army. Sit down.',
       'The ring of stones out on the fields is the Standing Hedge, and it is older than the village and older than the wheat.',
-      'Touch one of the nine while the little one is awake on your shoulder and the stone will know you. After that they carry you.',
-      'You are Dragonsworn. Nobody has said that word aloud in this country for a thousand years and I have been saving it.',
+      'Touch one of the nine and the stone will know you. After that they carry you.',
+      'The old riders are gone. The stones still remember hands.',
       'The Eyrie is in the Stormpeaks, north and north again, and it is not a story. I was a girl there the night it came down.',
     ],
   }),
@@ -128,13 +128,12 @@ export const PEOPLE = [
     id: 'pip', name: 'Pip', title: 'the miller\'s daughter',
     role: 'child', place: 'hearthhome',
     at: { kind: 'spot', bearing: 3.9, out: 11 },
-    talkOnly: 'she is nine. She carries the hatchling in a bread basket and she tells you where the shell went.',
+    talkOnly: 'she is nine. She tells you where the Legion went with the sack.',
     knows: 'what went down into the Old Cellars, and what it was carrying',
     lines: [
-      'Your dragon fits in my basket. I checked, and it let me, so it is allowed.',
       'Da says I am not to go near the cellars. Sergeant Blackhand went down there with a sack and the sack rattled.',
-      'I am taller than it for now. Mam says to enjoy that while it lasts.',
-      'The geese hate it. The geese hate everything, so it is not much of a test.',
+      'I am not meant to know what brass on a collar means, but I know.',
+      'The geese hated the sack. The geese hate everything, so it is not much of a test.',
     ],
   }),
   P({
@@ -144,7 +143,7 @@ export const PEOPLE = [
     knows: 'who in the village would talk to a Legion officer, and who would not',
     lines: [
       'The Bracken Arms has one bed free and it is the good one, by the chimney.',
-      'Keep the little one under your coat in the taproom. Half of them would tell and I do not know which half.',
+      'Keep your name quiet in the taproom. Half of them would tell and I do not know which half.',
       'A bed, a fire, and you wake whole. That has been the whole trade here for ninety years.',
     ],
   }),
@@ -163,10 +162,10 @@ export const PEOPLE = [
     id: 'alys', name: 'Alys Fenn', title: 'the healer',
     role: 'healer', over: 'healer', place: 'hearthhome',
     at: { kind: 'door', lot: 'healer' }, body: false,
-    knows: 'what a hatchling eats, because she asked it',
+    knows: 'what the Legion soldiers brought in wounded',
     lines: [
       'Sit down and let me see it. You will heal. Everything in the Greenwold heals.',
-      'The little one is not sick, it is hungry, and that is a different thing and an easier one.',
+      'A wound tells the truth if you clean it and wait.',
       'Bandages by the bundle, and no patience at all for people who save them for later.',
     ],
   }),
@@ -190,7 +189,7 @@ export const PEOPLE = [
     knows: 'exactly what he is looking for, and he will tell you so',
     lines: [
       'Captain Serle Vane, of the Ashen Legion. I take the glove off to speak to people. It costs me nothing and it seems to matter.',
-      'I am looking for an egg. You would know if you had seen one, so I will ask you plainly and take your answer.',
+      'I am looking for a sack taken from my sergeant. You would know if you had seen one, so I will ask plainly and take your answer.',
       'The tithe is not theft. It is a road, a bridge and a garrison, and somebody pays for those whether I like it or not.',
       'If you are hiding it, hide it better than this. That is not a kindness. It is the last hour of my patience.',
     ],
@@ -252,9 +251,9 @@ export const BEATS = [
     trigger: 'standing inside Hearthhome for the first time',
     when: (v) => v.realm === REALM && v.inHearthhome,
     words: [
-      'The village sees the egg before it sees you. A dozen people look at your shoulder and then very carefully at the ground.',
-      'Old Wynn Ashby does not look at anything. She says: when the sky had wings, that would have been worth a kingdom.',
-      'She says the ring of stones on the fields is the Standing Hedge, that nine of them hum at dusk, and that you are to go and put your hand on one while the little one is awake.',
+      'The village sees the road dust before it sees you. A dozen people look east and then very carefully at the ground.',
+      'Old Wynn Ashby does not look at anything. She says: when the sky had wings, that road would have moved a kingdom.',
+      'She says the ring of stones on the fields is the Standing Hedge, that nine of them hum at dusk, and that you are to go and put your hand on one.',
     ],
     effect: { kind: 'waypoint', place: 'waystones', name: 'The Standing Hedge' },
   }),
@@ -276,7 +275,7 @@ export const BEATS = [
     when: (v) => v.realm === REALM && v.wagonNear,
     words: [
       'The Tithe Wagon is on the Kingsroad, four soldiers and an archer walking it at the pace of the oxen.',
-      'It belongs to Captain Serle Vane, who is camped where the road comes into the Greenwold and who is looking for exactly what is sitting on your shoulder.',
+      'It belongs to Captain Serle Vane, who is camped where the road comes into the Greenwold and looking for a sack his sergeant lost.',
       'The tithe is the year off the Greenwold: grain, wool, iron and a tenth of everything else, going east to a man on a volcano.',
     ],
   }),
@@ -309,10 +308,9 @@ export const BEATS = [
     when: (v) => v.realm === REALM && v.oramDown,
     words: [
       'Sergeant Oram Blackhand goes down in a cellar too low to stand straight in, and the sack on his belt comes off with him.',
-      'It is your egg. The shell of it, in pieces, carried a hundred miles for a man who eats hearts.',
-      'The little one puts its head into the sack and something between the two of you closes like a hand.',
+      'Inside is a broken seal, a brass order and enough ash to blacken both hands.',
+      'Pip says the sack rattled louder before the sergeant carried it below.',
     ],
-    effect: { kind: 'gift', gift: 'greenwold' },
   }),
   B({
     id: 'chapelbell',
@@ -433,9 +431,8 @@ export function auditStory(people = PEOPLE, beats = BEATS) {
     }
     if (b.effect) {
       const k = b.effect.kind;
-      if (k !== 'waypoint' && k !== 'gift') bad.push(`${at}: an effect of kind "${k}", which the runtime cannot apply`);
+      if (k !== 'waypoint') bad.push(`${at}: an effect of kind "${k}", which the runtime cannot apply`);
       if (k === 'waypoint' && !PLACES.has(b.effect.place)) bad.push(`${at}: points the compass at "${b.effect.place}", which is no place`);
-      if (k === 'gift' && b.effect.gift !== REALM) bad.push(`${at}: hands over "${b.effect.gift}", and the Greenwold's gift is the base`);
     }
     // Every trigger has to be answerable from the view and from nothing else.
     const view = blankView();

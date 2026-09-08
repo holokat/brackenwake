@@ -212,7 +212,7 @@ export function conLabel(monster, character = {}) {
  * colour.
  */
 export function auditCon() {
-  // `friend` is MP1's: another player, a summon, the dragon. It sits after the fight ladder and is never a con.
+  // `friend` is MP1's: another player or a summon. It sits after the fight ladder and is never a con.
   const want = ['trivial', 'easy', 'even', 'hard', 'deadly', 'boss', 'friend'];
   const have = CON_LEVELS.map((c) => c.level);
   if (have.join(',') !== want.join(',')) throw new Error(`con: the ladder reads ${have.join(', ')}`);

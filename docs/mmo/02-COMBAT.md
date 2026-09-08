@@ -136,7 +136,7 @@ knocks a target smaller than you back one metre. Casting rules are in
 ## Monsters
 
 Every monster has: health, damage range, swing speed, hit skill, defence skill,
-AR, resists, speed, **aggro radius**, **leash radius**, flee threshold, loot
+AR, resists, speed, **aggro radius**, **leash radius**, loot
 table, gold range, and what it is (undead, beast, humanoid, elemental) because
 some spells care.
 
@@ -145,9 +145,9 @@ temperament: critters 0 (they never aggro), vermin 6 m, most monsters 12 m,
 hunters 18 m, bosses 25 m. Aggro breaks if you get past the leash radius (2.5x
 aggro) for 6 s; the monster walks home.
 
-**Fleeing:** critters flee at any damage. Vermin and beasts flee below 25%
-health and return healed. Undead and constructs never flee. A fleeing thing can
-be run down.
+**Fleeing:** monsters do not flee. A wolf at five percent health keeps closing
+or striking, and a struck deer stands or dies instead of bolting. Boss scripted
+retreats are story phases and still run where the boss script asks for them.
 
 **Fighting back:** a monster uses the same resolver against you, with its own
 numbers. Anything you can hit can hit you. Monsters target whoever hit them

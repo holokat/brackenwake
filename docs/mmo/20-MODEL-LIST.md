@@ -32,10 +32,8 @@ hands, wrists, waist, legs, feet, back. Then the six armour looks as
 swappable meshes or textures: cloth, leather, studded, ring, chain, plate.
 This is centre screen for every second of play.
 
-**The dragon companion**, four ages: hatchling on the shoulder (0.4 m),
-fledgling at heel (1 m), young (2.5 m, ridable later), grown (6 m). Clips:
-idle with breath, walk, fly, land, breathe, hurt, die, and the Wyrmsoul
-call. The Bond is the game's spine and the dragon is always in frame.
+**Removed, 2026-09-08.** The dragon companion, Bond, Wyrmsoul call, shoulder
+hatchling and companion model work are no longer part of the game.
 
 **Trees**, three variants each with LODs and a billboard: oak, beech, birch,
 pine, spruce, willow, sakura, palm, dead snag. Trees are most of every

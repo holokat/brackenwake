@@ -6,13 +6,11 @@
 // file is the wiring and nothing else, and it is the only place any of the
 // three touches the running game. `docs/mmo/wiring/S2.md` is the map.
 //
-// WHY IT RUNS AFTER dragon AND BEFORE ui. It reads three things another system
+// WHY IT RUNS BEFORE ui. It reads two things another system
 // settled this frame: the townsfolk it puts names on are restreamed in
-// `world_life.update`, the Tithe Wagon's position is `events.update`'s, and the
-// dragon's own frame has already run, so `dragon.grant` grows the animal and
-// `ui.late` draws the Bond arc and the thirteenth cell in the same frame the
-// gift lands. Anything earlier would name a person who is not standing yet, see
-// the wagon a frame late, and light the Wyrmsoul cell a frame after that.
+// `world_life.update`, and the Tithe Wagon's position is `events.update`'s.
+// Anything earlier would name a person who is not standing yet or see the wagon
+// a frame late.
 //
 // THE CLICK. This system takes the click BEFORE `input`, because the six named
 // people are bodies `input.route` has never heard of and a person in front of a
@@ -30,7 +28,7 @@ import {createStrongholdEncounters} from '../../stronghold_encounters.js';
 
 export const story = {
   name: 'story',
-  deps: ['world', 'player', 'combat', 'world_life', 'events', 'dragon', 'ui'],
+  deps: ['world', 'player', 'combat', 'world_life', 'events', 'ui'],
 
   create(ctx) {
     const { sc, hud, audio, state, character, hudRoot, camera } = ctx;
@@ -40,7 +38,6 @@ export const story = {
     const fight = ctx.get('combat');
     const life = ctx.get('world_life');
     const face = ctx.get('ui');
-    const dragonOf = () => ctx.get('dragon')?.dragon || null;
 
     // The sixteen stones, worked out once off the site rows. They do not move.
     const generatedStones = waystonesFrom(authoredSites());
@@ -69,7 +66,6 @@ export const story = {
       character,
       stones,
       hud, audio,
-      dragon: dragonOf,
       teleport,
       pos: () => player.pos,
       now: () => ctx.frame.now,
@@ -78,7 +74,6 @@ export const story = {
     const story = createStory({
       character, runtime, hud, scene: sc.scene, camera: sc.camera,
       npcs: life.npcs,
-      dragon: dragonOf,
       events: () => ctx.get('events').events,
       waystones,
       realmAt: () => (runtime.inDungeon

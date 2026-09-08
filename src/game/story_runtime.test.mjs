@@ -28,7 +28,6 @@ function harness(over = {}) {
     day: 1,
     stones: 0,
     events: [],
-    dragon: { awake: true, name: 'Ash', gifts: [], grant(id) { if (this.gifts.includes(id)) return false; this.gifts.push(id); return true; } },
     npcs: [],
     ...over.world,
   };
@@ -43,7 +42,6 @@ function harness(over = {}) {
     hud: { log: (t, k) => said.push([t, k]), toast: (t, k) => toasted.push([t, k]) },
     scene: null, camera: null, root: null,
     npcs: { list: () => world.npcs },
-    dragon: () => world.dragon,
     events: () => ({ active: () => world.events }),
     waystones: { get count() { return world.stones; } },
     realmAt: () => world.realm,
@@ -157,7 +155,6 @@ console.log('\nOnce per character, over a reload');
     hud: { log: (t) => said2.push(t), toast: () => {} },
     scene: null, root: null,
     npcs: { list: () => [] },
-    dragon: () => ({ awake: true, grant: () => true }),
     events: () => ({ active: () => [] }),
     waystones: { count: 0 },
     realmAt: () => REALM,
@@ -175,7 +172,6 @@ console.log('\nOnce per character, over a reload');
     runtime: { inDungeon: false, field: { sampleAt: () => ({ realm: REALM }) }, heightAt: () => 0 },
     hud: { log: (t) => said3.push(t), toast: () => {} },
     scene: null, root: null, npcs: { list: () => [] },
-    dragon: () => ({ awake: true, grant: () => true }),
     events: () => ({ active: () => [] }), waystones: { count: 0 },
     realmAt: () => REALM, pos: () => ({ x: HOME.x, z: HOME.z }), dayFactor: () => 1,
   });
@@ -208,8 +204,8 @@ console.log('\nAnd never outside the Greenwold');
     six.every((id) => h.character.story.beats.includes(id)) && h.character.story.beats.length === 6,
     h.character.story.beats.join(' '));
   const words = BEATS.filter((b) => b.id !== 'cellarsmouth').reduce((a, b) => a + b.words.length, 0);
-  check('and says all of it, with a line for each of the two effects', h.said.length === words + 2,
-    `${h.said.length} lines against ${words} of script and 2 of effect`);
+  check('and says all of it, with a line for the waypoint effect', h.said.length === words + 1,
+    `${h.said.length} lines against ${words} of script and 1 effect`);
   // and the seventh, at the mouth it wants
   h.world.pos = { x: CELLARS.x, z: CELLARS.z };
   h.story.update(0.1, 13000);
@@ -217,7 +213,7 @@ console.log('\nAnd never outside the Greenwold');
     h.character.story.beats.length === BEAT_IDS.length, h.character.story.beats.join(' '));
 }
 
-console.log('\nThe two effects');
+console.log('\nThe waypoint effect');
 
 {
   const h = harness();
@@ -238,24 +234,9 @@ console.log('\nThe two effects');
   const h = harness();
   h.story.onDeath('oramBlackhand');
   h.story.update(0.1, 1000);
-  check('killing Oram hands the dragon the Greenwold\'s gift', h.world.dragon.gifts.includes('greenwold'));
-  check('and says what the player can now do with it', h.text().includes('Wyrmsoul is yours'),
-    h.said[h.said.length - 1][0]);
-}
-{
-  const h = harness();
-  h.world.dragon.gifts.push('greenwold');
-  h.story.onDeath('oramBlackhand');
-  h.story.update(0.1, 1000);
-  check('a dragon that already holds it is told so rather than told nothing',
-    h.text().includes('already holds what the Greenwold had to give'));
-}
-{
-  const h = harness({ world: { dragon: null } });
-  h.story.onDeath('oramBlackhand');
-  h.story.update(0.1, 1000);
-  check('and with no dragon at all the beat still says what happened',
-    h.story.said('oram') && h.text().includes('no dragon here to take it'));
+  check('killing Oram still fires the beat', h.story.said('oram'));
+  check('and it no longer grants or names Wyrmsoul',
+    !h.text().includes('Wyrmsoul') && !h.text().includes('hatchling'), h.text());
 }
 
 console.log('\nThe names on the three doors');
@@ -340,14 +321,12 @@ console.log('\nThe join: a hand on a real stone rings the beat');
   const hud = { log: (t) => said.push(t), toast: () => {} };
   const ways = createWaystones({
     character, stones: () => stones, hud,
-    dragon: () => ({ awake: true, name: 'Ash' }),
     pos: () => at, now: () => 1000, teleport: () => true,
   });
   const story = createStory({
     character,
     runtime: { inDungeon: false, field: { sampleAt: () => ({ realm: REALM }) }, heightAt: () => 0 },
     hud, scene: null, root: null, npcs: { list: () => [] },
-    dragon: () => ({ awake: true, grant: () => true }),
     events: () => ({ active: () => [] }),
     waystones: ways,
     realmAt: () => REALM, pos: () => at, dayFactor: () => 1,
@@ -381,7 +360,7 @@ console.log('story: in a sculpt world the cast stands only where a space places 
   const sculptWorld = { field: { sampleAt: () => ({ realm: REALM }), sculpt: { height: 6, ground: 'grass' } }, heightAt: () => 0, get inDungeon() { return false; } };
   const mk = (spaces) => createStory({
     character: { name: 'You' }, runtime: sculptWorld, hud: { log() {}, toast() {} },
-    scene: null, npcs: null, dragon: () => null, events: () => [], waystones: { count: 0 },
+    scene: null, npcs: null, events: () => [], waystones: { count: 0 },
     realmAt: () => REALM, pos: () => ({ x: HOME.x, z: HOME.z }), dayFactor: () => 1, root: null, buildCharacter: () => ({ group: new THREE.Group(), parts: {}, setAppearance() {}, update() {}, dispose() {} }),
     spaces,
   });

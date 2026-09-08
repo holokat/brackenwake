@@ -444,8 +444,8 @@ const spy = (name, deps = [], hooks = {}) => ({
     names.join(',') === FRAME_ORDER.join(','), names.join(','));
   // CR3 put context_menu after ui, because the menu is drawn by the window
   // layer's own document and reaches the registered panels through it.
-  check('and the frame order is the nine 07-RUNTIME-CONTRACT.md documents, with the dragon after the world and before the HUD, the emotes straight after the body they pose, and the net (MP1) after the HUD it logs to',
-    FRAME_ORDER.join(',') === 'world,player,emotes,combat,abilities,inventory,world_life,events,dragon,story,ui,net,context_menu,dev,input', FRAME_ORDER.join(','));
+  check('and the frame order is the fourteen live systems after the companion removal; it was fifteen before 2026-09-08',
+    FRAME_ORDER.join(',') === 'world,player,emotes,combat,abilities,inventory,world_life,events,story,ui,net,context_menu,dev,input', FRAME_ORDER.join(','));
   check('each one has a file of its own', SYSTEMS.every((s) => src(`app/systems/${s.name}.js`).includes(`name: '${s.name}'`)));
 
   // every dep resolves, and the whole list really does sort
@@ -459,7 +459,7 @@ const spy = (name, deps = [], hooks = {}) => ({
   const late = SYSTEMS.flatMap((s) => (s.deps || []).filter((d) => at(d) > at(s.name)).map((d) => `${s.name} before ${d}`));
   check('and every system is built after everything it needs', late.length === 0, late.join(','));
   check('the build order is the one R1.md documents',
-    sys.built.join(',') === 'world,player,combat,inventory,abilities,ui,emotes,world_life,events,dragon,story,net,context_menu,dev,input', sys.built.join(','));
+    sys.built.join(',') === 'world,player,combat,inventory,abilities,ui,emotes,world_life,events,story,net,context_menu,dev,input', sys.built.join(','));
 
   // A system may reach any other system from inside a function that runs after
   // the boot, because everything exists by then. What it may NOT do is reach
@@ -541,7 +541,7 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
     pass > 0 && render > pass, `beforeRender at ${pass}, render at ${render}`);
   // The frame's own dt goes to scene.js, which is the only thing the spell
   // pass has to move its heat shimmer with. The PLAYER's dt, not the world's:
-  // a spell is the player's and does not hang in dragon time.
+  // a spell is the player's and does not hang in boss-slow time.
   has(w, /sc\.render\(frame\.dt\)/, 'and the frame is drawn with the player own dt, for the spell pass');
   check('source: and the sky is updated before the water that reflects it',
     w.indexOf('sky.update(') < w.indexOf('water.update('), `${w.indexOf('sky.update(')} then ${w.indexOf('water.update(')}`);

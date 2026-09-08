@@ -66,7 +66,8 @@ check('tier 0 holds the document\'s seven critters and wave A\'s four', monsters
   monstersOfTier(0).map((m) => m.id).join(' '));
 check('critters carry no gold', monstersOfTier(0).every((m) => m.gold[0] === 0 && m.gold[1] === 0));
 check('critters never attack first', monstersOfTier(0).every((m) => aggroRadius(m) === 0));
-check('critters flee at any damage', monstersOfTier(0).every((m) => m.flees === 'always'));
+check('critters never flee now', monstersOfTier(0).every((m) => m.flees === 'never'));
+check('every monster row carries the no-flee rule', MONSTER_LIST.every((m) => m.flees === 'never'));
 // The document's "1 to 8 health" is about the seven small animals. The whale is
 // tier 0 because it is never a fight, not because it is small, and the `huge`
 // tag is what exempts it. Both halves are checked.

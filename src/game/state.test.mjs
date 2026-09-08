@@ -328,7 +328,7 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('the bare v2 key is not a document any more', !store.m.has(SAVE_KEY));
   const raw = JSON.parse(store.m.get(slotKeyFor('1')));
   check('the save is version 2', raw.v === SAVE_VERSION, JSON.stringify(raw.v));
-  check('the save shape is the 07 document', JSON.stringify(Object.keys(raw).sort()) === '["appearance","bar","bosses","deadUntil","discovered","dragon","equipment","gold","health","heldTool","itemBar","itemBarSlot","mana","name","needsCreation","opened","opening","pack","pos","settings","skillLocks","skills","stamina","statLocks","stats","story","uniques","unlockedAbilities","v","waypoint","waystones","zones"]', Object.keys(raw).join(','));
+  check('the save shape is the 07 document without the removed companion', JSON.stringify(Object.keys(raw).sort()) === '["appearance","bar","bosses","deadUntil","discovered","equipment","gold","health","heldTool","itemBar","itemBarSlot","mana","name","needsCreation","opened","opening","pack","pos","settings","skillLocks","skills","stamina","statLocks","stats","story","uniques","unlockedAbilities","v","waypoint","waystones","zones"]', Object.keys(raw).join(','));
 
   const b = createState({ storage: store });
   check('load finds it', b.load() === true);
@@ -338,6 +338,9 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('tools come back', b.tools.has('axe') && b.tools.has('pickaxe') && b.tools.size === 2);
   check('the item bar comes back', b.character.itemBar[0]?.base === 'pickaxe', JSON.stringify(b.character.itemBar?.[0]));
   check('and so does the slot the player chose', b.character.itemBarSlot === 0, String(b.character.itemBarSlot));
+  const oldDragon = hydrate({ ...blankCharacter(), name: 'Test', needsCreation: false, dragon: { name: 'Ember', age: 'hatchling', bond: 42, gifts: ['greenwold'], hunger: 12 } });
+  check('a save with old hatchling fields still loads', oldDragon.name === 'Test' && oldDragon.needsCreation === false);
+  check('and hydrate drops the removed companion record', !Object.prototype.hasOwnProperty.call(oldDragon, 'dragon'), JSON.stringify(oldDragon.dragon));
   check('so the pickaxe is still what mines, from the bar and not from the pack',
     toolFor('mine', b.character).where === 'bar', toolFor('mine', b.character).where);
   check('the place you stood comes back', b.pos.x === 123.5 && b.pos.z === -88.25);
@@ -841,11 +844,3 @@ console.log('state: asking for the roster');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
-
-// the dragon's record survives a round trip, and nothing else about it is assumed
-{
-  const doc = hydrate({ ...blankCharacter(), name: 'Test', needsCreation: false, dragon: { name: 'Ember', age: 'drake', bond: 42, gifts: ['senses'] } });
-  console.log('state: the dragon rides the save');
-  check('hydrate keeps the dragon record whole', doc.dragon && doc.dragon.name === 'Ember' && doc.dragon.bond === 42 && doc.dragon.gifts[0] === 'senses', JSON.stringify(doc.dragon));
-  check('and a save without one has null, not undefined', hydrate({ ...blankCharacter(), name: 'Test', needsCreation: false }).dragon === null);
-}

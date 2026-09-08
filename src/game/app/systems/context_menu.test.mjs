@@ -58,30 +58,24 @@ const { SYSTEMS, FRAME_ORDER } = await import('./index.js');
 const { TARGET_KINDS } = await import('../../context_menu.js');
 
 // --- the world under the cursor -------------------------------------------
-// One switch a test flips: which of the seven things the ray is allowed to hit.
+// One switch a test flips: which of the six things the ray is allowed to hit.
 const world = {
-  hit: null,                       // 'bag' | 'npc' | 'dragon' | 'corpse' | 'monster' | 'self' | null
+  hit: null,                       // 'bag' | 'npc' | 'corpse' | 'monster' | 'self' | null
   bag: { id: 'b1', pos: { x: 0.5, z: 0 }, items: [], gold: 12 },
   npc: { id: 'n1', personName: 'Bess', role: { name: 'Blacksmith', sells: ['weapons'], buys: ['ore'], teaches: ['mining'] }, x: 0, z: 0 },
   corpse: { row: { name: 'Wolf', tier: 2, kind: 'beast', damage: [6, 11], hp: 40 }, pos: { x: 0, z: 0 }, skinned: false },
   monster: { name: 'Wolf', row: { name: 'Wolf', tier: 2, kind: 'beast', damage: [6, 11], hp: 40 }, actor: { name: 'Wolf', health: 40, maxHealth: 40, pos: { x: 1, z: 0 } } },
 };
 const selfGroup = { visible: true, tag: 'player' };
-const dragonGroup = { visible: true, tag: 'dragon' };
 /** A raycaster that answers only for the group the switch names. */
 const ray = {
   intersectObject: (g) => {
     if (g === selfGroup && world.hit === 'self') return [{ distance: 2 }];
-    if (g === dragonGroup && world.hit === 'dragon') return [{ distance: 3 }];
     return [];
   },
 };
 
 const log = [];
-const dragonEntity = {
-  name: 'Ash', awake: true, record: { bond: 20, hunger: 10 },
-  model: { group: dragonGroup }, foods: () => ['raw_meat'], feed: () => log.push('feed'),
-};
 const talkPanel = { id: 'talk', _tab: null, render() { this.rendered = (this.rendered || 0) + 1; } };
 const mapPanel = { id: 'map', setWaypoint(w) { log.push(`setWaypoint:${w.name}`); return w; }, clearWaypoint() { log.push('clear'); return true; } };
 
@@ -111,7 +105,6 @@ const systems = {
   },
   world_life: { npcs: { pick: () => (world.hit === 'npc' ? { npc: world.npc } : null) } },
   emotes: { walking: () => false, start: (id) => log.push(`emote:${id}`) },
-  dragon: { entity: dragonEntity },
   ui: {
     panelCtx: { character: { name: 'Ashe' } },
     windows: {
@@ -121,7 +114,7 @@ const systems = {
     },
   },
 };
-const character = { name: 'Ashe', waypoint: null, dragon: dragonEntity.record };
+const character = { name: 'Ashe', waypoint: null };
 const ctx = {
   hud: { log: (t) => log.push(`hud:${t}`), toast: (t) => log.push(`toast:${t}`) },
   audio: { play: (c) => log.push(`audio:${c}`) },
@@ -136,7 +129,8 @@ const ctx = {
 console.log('context_menu system: the shape');
 check('it is a system with a name and a create', context_menu.name === 'context_menu' && typeof context_menu.create === 'function');
 check('and it declares every system it reaches while it is being built',
-  ['world', 'player', 'combat', 'inventory', 'world_life', 'ui', 'emotes', 'dragon'].every((d) => context_menu.deps.includes(d)),
+  ['world', 'player', 'combat', 'inventory', 'world_life', 'ui', 'emotes'].every((d) => context_menu.deps.includes(d))
+  && !context_menu.deps.includes('dragon'),
   context_menu.deps.join(','));
 check('it is in the list, after the window layer and before the click router',
   FRAME_ORDER.indexOf('context_menu') > FRAME_ORDER.indexOf('ui')
@@ -155,16 +149,16 @@ check('and it puts contextMenu on the console handle, with open, rows and close'
   && Array.isArray(sys.bw.contextMenu.rows),
   Object.keys(sys.bw.contextMenu).join(','));
 
-console.log('\ncontext_menu system: a ray becomes a target, all seven ways');
+console.log('\ncontext_menu system: a ray becomes a target, all six ways');
 {
   const got = [];
-  for (const [hit, want] of [['bag', 'item'], ['npc', 'npc'], ['dragon', 'dragon'], ['corpse', 'corpse'], ['monster', 'monster'], ['self', 'player'], [null, 'ground']]) {
+  for (const [hit, want] of [['bag', 'item'], ['npc', 'npc'], ['corpse', 'corpse'], ['monster', 'monster'], ['self', 'player'], [null, 'ground']]) {
     world.hit = hit;
     const t = sys.resolve(ray);
     got.push(`${hit || 'nothing'}=>${t.kind}${t.kind === want ? '' : ` WANTED ${want}`}`);
   }
-  check('every one of the seven resolves to its own kind', !got.some((g) => g.includes('WANTED')), got.join(' '));
-  check('and the seven kinds are the seven the model has lists for', TARGET_KINDS.length === 7);
+  check('every one of the six resolves to its own kind', !got.some((g) => g.includes('WANTED')), got.join(' '));
+  check('and the six kinds are the six the model has lists for', TARGET_KINDS.length === 6);
 }
 {
   world.hit = null;
@@ -173,19 +167,14 @@ console.log('\ncontext_menu system: a ray becomes a target, all seven ways');
     t.kind === 'ground' && t.point.x === 12.2 && t.point.z === -7.8, JSON.stringify(t.point));
 }
 {
-  // the other direction on the two picks this file added: an invisible rig and
-  // an invisible dragon are not under the cursor, however the ray answers
+  // the other direction on the self pick: an invisible rig is not under the
+  // cursor, however the ray answers
   world.hit = 'self';
   selfGroup.visible = false;
   check('a hidden player rig is not a target, so first person does not right click on itself',
     sys.resolve(ray).kind === 'ground', sys.resolve(ray).kind);
   selfGroup.visible = true;
   check('and a visible one is', sys.resolve(ray).kind === 'player');
-  world.hit = 'dragon';
-  dragonGroup.visible = false;
-  check('a hidden dragon is not a target either', sys.resolve(ray).kind === 'ground');
-  dragonGroup.visible = true;
-  check('and a visible one is', sys.resolve(ray).kind === 'dragon');
 }
 {
   // the sack beats the person beats the monster, which is the written order
@@ -272,10 +261,9 @@ console.log('\ncontext_menu system: the hook in the click router');
   // The bar clears its own slots on a right click, on its own cells, in the HUD
   // layer. Nothing in this change goes near that, and this is the check that
   // says so by name rather than by hope.
-  const bar = readFileSync(join(here, '../../win_abilities.js'), 'utf8');
-  const item = readFileSync(join(here, '../../hud.js'), 'utf8');
+  const hud = readFileSync(join(here, '../../hud.js'), 'utf8');
   check('the ability bar still clears a slot on its own contextmenu, and the item row too',
-    /addEventListener\('contextmenu'/.test(bar) && /addEventListener\('contextmenu'/.test(item));
+    (hud.match(/addEventListener\('contextmenu'/g) || []).length === 2);
 }
 
 console.log(`\ncontext_menu system: ${pass} passed, ${fail} failed`);

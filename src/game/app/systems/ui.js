@@ -366,8 +366,8 @@ export const ui = {
         // PLAYER's clock: `nowS`. `actor.status` is written by combat.js,
         // which app/systems/combat.js runs on the WORLD clock, so a poison's
         // `until` is world milliseconds and reading it against `now` would
-        // count it down at the wrong rate the whole time the dragon is holding
-        // the world still. Meditating, hidden, absorb and enchant sit on the
+        // count it down at the wrong rate the whole time the world clock is
+        // slowed. Meditating, hidden, absorb and enchant sit on the
         // actor with no clock of their own, and a bandage is a cast, so while
         // it runs it is `channelling` and is nowhere else. hud.effectsView
         // gathers all five, and hud.js says what each one costs to draw.

@@ -3,7 +3,7 @@
 // the thing that meets the player, and this is where they are handed the real
 // world's parts.
 //
-// WHY IT RUNS AFTER world_life AND BEFORE dragon. It puts bodies in the world
+// WHY IT RUNS AFTER world_life AND BEFORE story. It puts bodies in the world
 // through `monsters.spawnAt` and moves them by their `ai.home`, and the
 // monster runtime steps those bodies inside `combat.update`, which runs
 // earlier in the list. Moving a home after the step means the column walks on

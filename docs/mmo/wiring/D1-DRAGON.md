@@ -1,5 +1,7 @@
 # D1: the dragon companion
 
+Note, 2026-09-08: the dragon companion was removed because it was not earning its place in play. This document is kept as history; do not implement its companion, Bond, Wyrmsoul, window, HUD cell, save fields, or model work.
+
 > **On the filename.** This agent was briefed to write `docs/mmo/wiring/D1.md`,
 > and that name was already taken by an earlier and entirely unrelated piece of
 > work (the underground, made solid and made big). Overwriting it would have

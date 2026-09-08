@@ -190,8 +190,8 @@ export const emotes = {
     };
 
     // The wheel reaches the game through the panel context, the way the dev
-    // bench and the dragon window do: ui.js is built first and cannot hold a
-    // wire to this system, so this system holds it. R1.md, "wiring late".
+    // bench does: ui.js is built first and cannot hold a wire to this system,
+    // so this system holds it. R1.md, "wiring late".
     face.panelCtx.emotes = self;
     face.windows.register(emotesPanel);
 
