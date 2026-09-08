@@ -53,7 +53,7 @@ const skillValue = (skills, id) => {
  *   carry        = 40 + STR * 2.0                  (stones)
  *   healthRegen  = 0.4 + CON * 0.020               (per second; combat doubles it out of fight)
  *   manaRegen    = 0.3 + WIS * 0.025 + Meditation * 0.010
- *   staminaRegen = 1.0 + DEX * 0.030
+ *   staminaRegen = 2.5 + DEX * 0.030               (per second; combat doubles it out of fight)
  *
  * healthRegen is the base rate. The "out of combat x2" in the document belongs
  * to the combat layer, which knows whether you are in a fight; this file does
@@ -73,7 +73,10 @@ export function derived(stats = {}, skills = {}) {
     carry: r4(40 + str * 2.0),
     healthRegen: r4(0.4 + con * 0.020),
     manaRegen: r4(0.3 + wis * 0.025 + meditation * 0.010),
-    staminaRegen: r4(1.0 + dex * 0.030),
+    // 2.5 at the base since 2026-09-08 (it was 1.0): a fresh warrior at DEX 50
+    // took 51 s to refill 127.5 stamina, and the user found the early game
+    // waiting on the bar. 4.0 a second in a fight, 8.0 out of one.
+    staminaRegen: r4(2.5 + dex * 0.030),
   };
 }
 

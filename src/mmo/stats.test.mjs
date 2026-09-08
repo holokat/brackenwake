@@ -44,7 +44,7 @@ for (const line of [
   'carry      = 40 + STR * 2.0',
   'healthRegen  = 0.4 + CON * 0.020',
   'manaRegen    = 0.3 + WIS * 0.025 + Meditation * 0.010',
-  'staminaRegen = 1.0 + DEX * 0.030',
+  'staminaRegen = 2.5 + DEX * 0.030',
 ]) check(`the document still reads "${line.replace(/\s+/g, ' ')}"`, DOC.includes(line));
 // and the code agrees with that arithmetic across the whole range, not at one point
 {
@@ -68,7 +68,7 @@ for (const line of [
       Math.abs(d.carry - (40 + s.str * 2.0)),
       Math.abs(d.healthRegen - (0.4 + s.con * 0.020)),
       Math.abs(d.manaRegen - (0.3 + s.wis * 0.025 + med * 0.010)),
-      Math.abs(d.staminaRegen - (1.0 + s.dex * 0.030)),
+      Math.abs(d.staminaRegen - (2.5 + s.dex * 0.030)),
     );
   }
   check('derived matches the printed formulas over 200 spreads', worst < 1e-4, `worst difference ${worst.toExponential(2)} (rounding to 1e-4)`);

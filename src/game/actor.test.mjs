@@ -249,7 +249,11 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
   const outOfFight = tickPools(a, 1, false);
   check('health regen out of combat is eight times the rate in it (2 against 0.25)', near(outOfFight.health, inFight.health * 8), `${inFight.health} in a fight, ${outOfFight.health} out of one`);
   check('CON 50 gives 1.4 health a second at base, which is 0.35 in a fight', near(inFight.health, 0.35), String(inFight.health));
-  check('mana does not double out of combat', near(tickPools({ ...a, mana: 0, maxMana: 100, manaRegen: 2, health: 10, maxHealth: 10 }, 1, false).mana, 2), 'W1 reads 01: only health doubles');
+  check('mana does not double out of combat', near(tickPools({ ...a, mana: 0, maxMana: 100, manaRegen: 2, health: 10, maxHealth: 10 }, 1, false).mana, 2), 'W1 reads 01: mana runs at one rate');
+  check('stamina runs at the base rate in a fight and doubles out of one (2026-09-08)',
+    near(outOfFight.stamina, inFight.stamina * 2) && inFight.stamina > 0, `${inFight.stamina} in a fight, ${outOfFight.stamina} out of one`);
+  check('DEX 50 gives 4.0 stamina a second in a fight, which refills a warrior in about 32 s',
+    near(inFight.stamina, 4.0), String(inFight.stamina));
 
   a.health = a.maxHealth;
   check('a full bar gains nothing', tickPools(a, 1, false).health === 0);

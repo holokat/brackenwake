@@ -37,7 +37,7 @@ maxStamina = 20 + DEX * 1.5 + CON * 0.5
 carry      = 40 + STR * 2.0                    (stones)
 healthRegen  = 0.4 + CON * 0.020               (per second, out of combat x2)
 manaRegen    = 0.3 + WIS * 0.025 + Meditation * 0.010
-staminaRegen = 1.0 + DEX * 0.030
+staminaRegen = 2.5 + DEX * 0.030               (per second, out of combat x2)
 ```
 
 A fresh warrior (STR 60, CON 55) has 170 health. A fresh mage (WIS 60, INT 65)

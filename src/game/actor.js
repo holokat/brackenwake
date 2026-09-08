@@ -682,8 +682,10 @@ export function recompute(actor) {
 // ------------------------------------------------------------------- the pool
 
 /**
- * Regenerate. 01-STATS-SKILLS: health regeneration is doubled out of combat,
- * and only health; mana and stamina run at their own rate either way.
+ * Regenerate. 01-STATS-SKILLS: health and stamina regeneration are doubled
+ * out of combat; mana runs at its own rate either way. Stamina joined health
+ * on 2026-09-08 (the user: "warrior energy needs to recover faster
+ * initially"): a fighter catches his breath between fights, not during one.
  *
  * A dead actor regenerates nothing, because coming back is the resurrection
  * rules' job and not this one's. Returns what was actually gained, so a caller
@@ -702,9 +704,10 @@ export function tickPools(actor, dt, inCombat = false) {
   // CON 52 character regrew 1.4 a second while a wolf landed about 0.7 a
   // second on him, so nothing on the island could wear him down.
   const hMul = inCombat ? IN_COMBAT_REGEN : 2;
+  const sMul = inCombat ? 1 : 2;
   actor.health = Math.min(num(actor.maxHealth), before.health + num(actor.healthRegen) * hMul * dt);
   actor.mana = Math.min(num(actor.maxMana), before.mana + num(actor.manaRegen) * dt);
-  actor.stamina = Math.min(num(actor.maxStamina), before.stamina + num(actor.staminaRegen) * dt);
+  actor.stamina = Math.min(num(actor.maxStamina), before.stamina + num(actor.staminaRegen) * sMul * dt);
   return {
     health: r4(actor.health - before.health),
     mana: r4(actor.mana - before.mana),
