@@ -935,13 +935,19 @@ const CSS = `
 #bw-toasts .t.good { border-color: rgba(140,220,140,.6); }
 #bw-toasts .t.bad  { border-color: rgba(232,140,120,.65); }
 #bw-toasts .t.out { opacity: 0; transform: translateY(6px); }
+/* The log is words on the world, not a box (the user, 2026-09-08: "transparent
+   background, draggable, faded gradient from black to transparent on hover").
+   The text carries its own shadow so it reads on grass; a hover lays a dark
+   fade under it; the whole corner drags by the log and remembers its place. */
 #bw-log {
   display: flex; flex-direction: column; gap: 1px; font-size: 14px; line-height: 1.35;
-  padding: 7px 10px;
-  background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(0,0,0,.16)), ${theme.stone};
-  border: 1px solid ${theme.goldDim}66;
-  border-radius: 7px;
+  padding: 7px 10px; pointer-events: auto; cursor: grab; user-select: none;
+  background: transparent; border: 0; border-radius: 7px;
+  text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,.85);
+  transition: background .25s ease;
 }
+#bw-log:hover { background: linear-gradient(180deg, rgba(0,0,0,.72), rgba(0,0,0,.42) 60%, rgba(0,0,0,0)); }
+#bw-log.dragging { cursor: grabbing; }
 #bw-log .l { opacity: .95; }
 @media (max-width: 1359px) {
   #bw-bars { flex-direction: column; align-items: center; gap: 6px; bottom: 10px; }
@@ -965,6 +971,36 @@ export const SKULL_MARK = `<svg class="bw-skull" viewBox="0 0 24 24" width="13" 
     M15.6 8.6 a2.1 2.1 0 1 1 0 4.2 a2.1 2.1 0 0 1 0 -4.2 Z
     M12 12.6 l1.1 2.1 h-2.2 z" fill-rule="evenodd"/>
 </svg>`;
+
+/** Where the log corner sits, from the left and from the bottom; null means the sheet's own place. */
+export const LOG_POS_KEY = 'bw_log_pos';
+function attachLogDrag(handle, corner, storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
+  if (!handle || !handle.addEventListener || !corner || !corner.style) return;
+  const place = (p) => { corner.style.left = `${Math.max(0, p.x)}px`; corner.style.bottom = `${Math.max(0, p.y)}px`; corner.style.right = 'auto'; corner.style.top = 'auto'; };
+  try { const raw = storage && storage.getItem(LOG_POS_KEY); if (raw) { const p = JSON.parse(raw); if (Number.isFinite(p.x) && Number.isFinite(p.y)) place(p); } } catch { /* a fresh corner */ }
+  let drag = null;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button != null && e.button !== 0) return;
+    const r = corner.getBoundingClientRect ? corner.getBoundingClientRect() : { left: 0, bottom: 0 };
+    const vh = (typeof window !== 'undefined' && window.innerHeight) || 720;
+    drag = { x: e.clientX, y: e.clientY, at: { x: r.left, y: vh - r.bottom } };
+    handle.classList.add('dragging');
+    handle.setPointerCapture?.(e.pointerId);
+    e.preventDefault?.(); e.stopPropagation?.();
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    place({ x: drag.at.x + (e.clientX - drag.x), y: drag.at.y - (e.clientY - drag.y) });
+    e.stopPropagation?.();
+  });
+  const end = () => {
+    if (!drag) return;
+    drag = null; handle.classList.remove('dragging');
+    try { storage && storage.setItem(LOG_POS_KEY, JSON.stringify({ x: parseFloat(corner.style.left) || 0, y: parseFloat(corner.style.bottom) || 0 })); } catch { /* nothing to keep it in */ }
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
 
 export function createHud(root) {
   injectTheme(document);
@@ -1044,6 +1080,9 @@ export function createHud(root) {
   const bottomLeft = add(el, mk('div', 'bw-bl'));
   const toasts = add(bottomLeft, mk('div', 'bw-toasts'));
   const logBox = add(bottomLeft, mk('div', 'bw-log'));
+  // the log drags the whole bottom left corner with it, and the corner keeps
+  // its place across loads (the user asked for a draggable log, 2026-09-08)
+  attachLogDrag(logBox, bottomLeft);
 
   // the zone banner, last so it sits over everything
   const zoneBox = add(el, mk('div', 'bw-zone'));

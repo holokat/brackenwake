@@ -469,16 +469,25 @@ export function createStory(deps = {}) {
   }
 
   /** Whoever is under the ray, nearest first, or null. */
+  // a standing capsule at the person's own place, not the body's meshes: the
+  // studio's batched skinned body answers a ray against its bind pose, so a
+  // mesh test missed everyone (2026-09-08; see npcs_runtime.pick)
   function pick(raycaster) {
-    if (!raycaster) return null;
-    const list = meshes();
-    if (!list.length) return null;
-    const hits = raycaster.intersectObjects(list, false);
-    for (const hit of hits) {
-      const rec = hit.object.userData.storyPerson;
-      if (rec && live.has(rec.id)) return { npc: rec, distance: hit.distance };
+    const ray = raycaster && raycaster.ray;
+    if (!ray || typeof ray.distanceSqToSegment !== 'function') return null;
+    let best = null;
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), onRay = new THREE.Vector3(), onSeg = new THREE.Vector3();
+    for (const rec of live.values()) {
+      const g = rec.group; if (!g) continue;
+      let hidden = false;
+      for (let p = g; p; p = p.parent) if (!p.visible) { hidden = true; break; }
+      if (hidden) continue;
+      a.set(g.position.x, g.position.y, g.position.z); b.set(g.position.x, g.position.y + 1.9, g.position.z);
+      if (ray.distanceSqToSegment(a, b, onRay, onSeg) > 0.55 * 0.55) continue;
+      const distance = onRay.distanceTo(ray.origin);
+      if (!best || distance < best.distance) best = { npc: rec, distance };
     }
-    return null;
+    return best;
   }
 
   /** The closest named person to a point within `r` metres, or null. */

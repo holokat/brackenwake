@@ -660,7 +660,11 @@ export const world = {
         ? `${hills ? `${hills} hill strokes` : 'no hills'}, ${rivers ? `${rivers} river ribbons` : 'no rivers'}, `
           + `${lakes ? `${lakes} still waters` : 'no lakes'}, ${roads ? `${roads} road strokes in ${paints} paints` : 'no roads'}`
         : 'no hills, no rivers, no roads';
-      say(`the hand cut ground loaded: ${info.strokes} ${info.strokes === 1 ? 'stroke' : 'strokes'}`
+      // a builder's line: in dev mode it goes to the log, otherwise to the
+      // console, since a player reading "868 strokes and the file says sculpt"
+      // is reading our notes (the user, 2026-09-08)
+      const tell = (ctx.has('dev') && ctx.get('dev').on) ? say : (t) => console.info('[world] ' + t);
+      tell(`the hand cut ground loaded: ${info.strokes} ${info.strokes === 1 ? 'stroke' : 'strokes'}`
         + (info.caves ? `, ${info.caves} of them ${info.caves === 1 ? 'a cave' : 'caves'}` : '')
         + (info.base
           ? `, and the file says sculpt: a base of ${info.base.height} m of ${info.base.ground}, `

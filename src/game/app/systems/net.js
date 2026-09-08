@@ -184,7 +184,7 @@ export const net = {
         hello: () => helloFor(Object.assign({}, character, { id: slotIdOf(ctx) || character.name })),
         socketFactory: (u) => new WebSocket(u),
         onMessage,
-        onStatus: (s) => { if (s === 'open') say(`Joined the ${room} room.`, 'ability'); },
+        onStatus: (s) => { if (s === 'open') say('You are on the road with the others; anyone else here will show as they arrive.', 'ability'); },
       });
       client.connect();
     }

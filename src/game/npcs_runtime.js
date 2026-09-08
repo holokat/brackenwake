@@ -38,6 +38,10 @@ import { buildCharacter as defaultBuildCharacter, poseCharacter, PALETTE } from 
 export const NEAR_RING = 320;
 /** You have to walk up to somebody to talk to them. */
 export const TALK_REACH = 4;
+/** The standing capsule a click finds a person by: half a metre wide, a body tall. */
+export const PERSON_R = 0.55;
+export const PERSON_H = 1.9;
+const pickA = new THREE.Vector3(), pickB = new THREE.Vector3(), pickOnRay = new THREE.Vector3(), pickOnSeg = new THREE.Vector3();
 /** The roles whose talk begins with a door: they are indoors. */
 export const DOOR_ROLES = new Set(['innkeeper', 'blacksmith', 'healer', 'alchemist', 'tailor', 'banker']);
 /** A person's role id, whether the record carries the role row or its id. */
@@ -549,17 +553,33 @@ export function createNpcs(sc, runtime, opts = {}) {
     return meshCache;
   }
 
-  /** Whoever is under the ray, nearest first, or null. */
+  /**
+   * Whoever the ray passes through, nearest first, or null.
+   *
+   * A person is a standing capsule PERSON_R wide and PERSON_H tall at their
+   * own x, z and the height their body stands at. The body's meshes are NOT
+   * asked: the studio's batched skinned body (the new cast, 2026-09-08)
+   * answers a ray against its bind pose, which lies nowhere near the person
+   * once the rig is posed, turned and scaled, so no villager could be clicked
+   * at all ("I'm still unable to talk to any npcs"). A capsule at the feet is
+   * true whatever the body is made of, and it is what the monsters use.
+   */
   function pick(raycaster) {
-    if (!raycaster) return null;
-    const list = meshes().filter((m) => {for(let p=m;p;p=p.parent)if(!p.visible)return false;return true;});
-    if (!list.length) return null;
-    const hits = raycaster.intersectObjects(list, false);
-    for (const hit of hits) {
-      const npc = hit.object.userData.npc;
-      if (npc && live.has(npc.id)) return { npc, distance: hit.distance, point: hit.point };
+    const ray = raycaster && raycaster.ray;
+    if (!ray || typeof ray.distanceSqToSegment !== 'function') return null;
+    let best = null;
+    for (const npc of live.values()) {
+      let hidden = false;
+      for (let p = npc.group; p; p = p.parent) if (!p.visible) { hidden = true; break; }
+      if (hidden) continue;
+      const gy = Number.isFinite(npc.group.position.y) ? npc.group.position.y : 0;
+      pickA.set(npc.x, gy, npc.z); pickB.set(npc.x, gy + PERSON_H, npc.z);
+      const d2 = ray.distanceSqToSegment(pickA, pickB, pickOnRay, pickOnSeg);
+      if (d2 > PERSON_R * PERSON_R) continue;
+      const distance = pickOnRay.distanceTo(ray.origin);
+      if (!best || distance < best.distance) best = { npc, distance, point: pickOnSeg.clone() };
     }
-    return null;
+    return best;
   }
 
   /** The closest person to a point within `r` metres, or null. */

@@ -1,4 +1,5 @@
 // The people in the settlements. Run: node src/game/npcs_runtime.test.mjs
+import * as THREE from 'three';
 import {
   npcSpotsFor, streetFor, nameFor, forestEdgeAt, plateText, auditNpcSpots,
   NPC_RING, PLAZA, WELL_CLEAR, ROLE_TINT, GIVEN_NAMES, PEOPLED,
@@ -288,16 +289,23 @@ console.log('npcs_runtime: the runtime, headless');
 
   // a click, both ways
   const target = list[0];
-  const ray = { intersectObjects: (objs) => objs.filter((o) => o.userData.npc === target).map((o) => ({ object: o, distance: 2, point: { x: 0, y: 0, z: 0 } })) };
+  // real rays, through the real capsule: from three metres in front, chest high
+  const rayTo = (who, offset = 0) => new THREE.Raycaster(new THREE.Vector3(who.x + offset, (who.group.position.y || 0) + 1.2, who.z + 3), new THREE.Vector3(0, 0, -1));
+  const ray = rayTo(target);
   const far = npcs.click(ray, { x: target.x + 12, z: target.z });
   check('a click from twelve metres opens nothing and says why', far.opened === false && /Walk up to them/.test(far.text), far.text);
   const close = npcs.click(ray, { x: target.x + 1, z: target.z });
   check('a click from a metre opens Talk with that person', close.opened === true && opened.length === 1 && opened[0][0] === 'talk' && opened[0][1].npc === target);
-  const nothing = npcs.click({ intersectObjects: () => [] }, { x: target.x, z: target.z });
+  const nothing = npcs.click(rayTo(target, 40), { x: target.x, z: target.z });
   check('a click on empty air opens nothing and says nothing', nothing.npc === null && nothing.text === null);
+  check('a ray a metre beside the person misses, one through the chest hits, and the body\'s meshes are never asked',
+    npcs.pick(rayTo(target, 1.0)) === null && npcs.pick(rayTo(target, 0.3))?.npc === target && npcs.pick(rayTo(target, 0.3)).distance > 2 && npcs.pick(rayTo(target, 0.3)).distance < 4,
+    JSON.stringify(npcs.pick(rayTo(target, 0.3))?.distance));
+  target.group.visible = false;
+  check('a hidden person is not under any ray', npcs.pick(rayTo(target)) === null);
+  target.group.visible = true;
   // the door: the people indoors open with one, the stall keepers do not
   const indoors = list.find((n) => DOOR_ROLES.has(roleIdOf(n))), outdoors = list.find((n) => !DOOR_ROLES.has(roleIdOf(n)));
-  const rayTo = (who) => ({ intersectObjects: (objs) => objs.filter((o) => o.userData.npc === who).map((o) => ({ object: o, distance: 2, point: { x: 0, y: 0, z: 0 } })) });
   library.length = 0;
   if (indoors) npcs.click(rayTo(indoors), { x: indoors.x + 1, z: indoors.z });
   check('talking to somebody indoors starts with a cottage door', !!indoors && library.join() === 'doorCottage', `${roleIdOf(indoors)}: ${library.join() || 'silence'}`);
