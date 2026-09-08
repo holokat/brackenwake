@@ -63,7 +63,7 @@ export function applyReadyEquipmentPose(rig){
  for(const item of items){
   const socket=item.userData.gripSocket;if(!socket||socket.kind==='shield')continue;
   if(rig.joints['hand'+socket.side]?.parent!==rig.joints['forearm'+socket.side])continue;
-  const alongArm=aimForearm(rig,socket.side,[.38,-.84,-.36]);
+  const alongArm=aimForearm(rig,socket.side,[socket.side==='R'?.38:-.38,-.84,-.36]);
   poseGrip(rig,item,readyWeaponRotation(rig,alongArm));
  }
 }

@@ -1,3 +1,4 @@
+import {fitChibiEquipment} from './chibi/equipment.js';
 import {wiki} from '../data/wiki.js';
 import {shieldCatalog,shieldById} from '../data/shield-catalog.js';
 import {disposeItem,finishItem,itemBuilder} from './items/common.js';
@@ -13,6 +14,7 @@ import {applyShieldEquipmentPose} from './shield-grips.js';
 
 const weaponIds=new Set(wiki.bases.filter(item=>item.kind==='weapon').map(item=>item.id));
 const shieldIds=new Set(shieldCatalog.map(item=>item.id));
+export const offhandWeaponIds=['dagger'];
 export const offhandIds=['tome','torch','holy_book','skull','lute'];
 export const toolIds=['pickaxe','smith_hammer','tongs'];
 export const extraItemIds=['ring','amulet','arrow','bolt'];
@@ -21,7 +23,7 @@ const otherIds=new Set([...offhandIds,...toolIds,...extraItemIds]);
 const aliases={sword:'longsword',bow:'longbow',round:'buckler'};
 const label=id=>{const name=shieldById.get(id)?.name||wiki.bases.find(item=>item.id===id)?.name||id;return name[0]+name.slice(1).toLowerCase();};
 export const weapons=[['default','Class default'],['none','Unarmed'],...Array.from(weaponIds,id=>[id,label(id)]),...toolIds.map(id=>[id,label(id)])];
-export const shields=[['default','Class default'],['none','No offhand'],...Array.from(shieldIds,id=>[id,label(id)]),...[...offhandIds,...jewelleryIds].map(id=>[id,label(id)])];
+export const shields=[['default','Class default'],['none','No offhand'],...Array.from(shieldIds,id=>[id,label(id)]),...[...offhandWeaponIds,...offhandIds,...jewelleryIds].map(id=>[id,label(id)])];
 export const handheldItemIds=[...weaponIds,...shieldIds,...otherIds];
 export const resolveHandheldId=id=>aliases[id]||id;
 
@@ -48,7 +50,7 @@ export function createWeapon(id){
 
 export function createShield(id){
  if(id==='none'||id==='default')return itemBuilder(id,'shield').root;
- if(!shieldIds.has(resolveHandheldId(id))&&!offhandIds.includes(id)&&!jewelleryIds.includes(id))throw new RangeError('Unknown offhand: '+id);
+ if(!shieldIds.has(resolveHandheldId(id))&&!offhandIds.includes(id)&&!jewelleryIds.includes(id)&&!offhandWeaponIds.includes(id))throw new RangeError('Unknown offhand: '+id);
  const item=createHandheldItem(id);
  if(shieldIds.has(resolveHandheldId(id)))item.name=id+' shield';
  return item;
@@ -70,6 +72,7 @@ export function mountLoadout(rig,weapon='default',shield='default'){
  for(const old of group.userData.loadout||[])disposeItem(old);
  group.traverse(mesh=>{if(mesh.isSkinnedMesh&&mesh.userData.slot==='weapon')mesh.visible=false;});
  for(const {item,slot} of mounted){
+  fitChibiEquipment(rig,item,slot);
   if(slot==='weapon'){
    const bow=['shortbow','longbow'].includes(weaponId);
    if(mountTwoHandedGrip(rig,item))continue;
@@ -80,6 +83,8 @@ export function mountLoadout(rig,weapon='default',shield='default'){
     rig.joints[bow?'handL':'handR'].add(item);
     item.userData.mountedHand=bow?'L':'R';
    }
+  }else if(offhandWeaponIds.includes(shieldId)){
+   item.userData.slot='offhand';item.traverse(mesh=>{if(mesh.isMesh)mesh.userData.slot='offhand';});mountGrip(rig,item,'L');
   }else if(shieldIds.has(shieldId)){
    mountGrip(rig,item,'L','shield');
   }else if(shieldId==='amulet'){

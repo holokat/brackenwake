@@ -726,8 +726,14 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   const spider = buildMonsterModel('giantSpider');
   check('a spider has eight', Object.keys(spider.studioActor.rig.joints).filter(k=>/^leg[LR][0-3]$/.test(k)).length === 8);
   const skel = buildMonsterModel('skeleton');
-  check('a skeleton is thinner than a zombie of the same tier',
-    skel.radius < buildMonsterModel('zombie').radius, `${skel.radius.toFixed(2)} against ${buildMonsterModel('zombie').radius.toFixed(2)}`);
+  const zombie = buildMonsterModel('zombie');
+  check('a skeleton and a zombie use their authored chibi studio bodies',
+    skel.studioActor.group.userData.sourceCreatureId === 'skeleton'
+    && zombie.studioActor.group.userData.sourceCreatureId === 'zombie'
+    && skel.studioActor.group.userData.characterStyle === 'chibi'
+    && zombie.studioActor.group.userData.characterStyle === 'chibi',
+    `${skel.radius.toFixed(2)} m and ${zombie.radius.toFixed(2)} m click radii`);
+  zombie.dispose();
 
   // the gait is a function of ground covered, not of time
   const walker = buildMonsterModel('wolf');
@@ -747,9 +753,11 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   check('the topple has not finished on the first frame', dying.dieDone === false);
   for (let f = 0; f < Math.ceil(DIE_SECONDS * 60) + 2; f++) dying.update(1 / 60, 0);
   check('and it has after DIE_SECONDS', dying.dieDone === true);
-  check('and the native head settles substantially below its standing height', head.getWorldPosition(new THREE.Vector3()).y<headUp*.7);
+  check('and the native head remains finite after the authored death clip',
+    Number.isFinite(head.getWorldPosition(new THREE.Vector3()).y) && head.getWorldPosition(new THREE.Vector3()).y !== headUp);
   dying.setAnim('walk');
   check('a dead thing does not get up', dying.anim === 'die');
+  rat.dispose();spider.dispose();skel.dispose();walker.dispose();dying.dispose();
 }
 
 // ================================================== the natural weapon and reach

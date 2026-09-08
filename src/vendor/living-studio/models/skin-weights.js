@@ -5,11 +5,12 @@ export function equipmentWeights(mesh,positions){
  const side=(bounds.min.x+bounds.max.x)<0?'L':'R';
  const binding=mesh.userData.armorBinding;
  if(binding){
+  if(mesh.userData.fittedTorso)return fittedTorsoWeights(positions);
   // Semantic bindings keep cloth near the hands attached to its anatomical region.
   if(positions[binding])return [[binding,1]];
   if(binding==='arm')return armWeights(mesh.userData.armorSide||side,positions);
   if(binding==='leg')return legWeights(mesh.userData.armorSide||side,positions);
-  if(binding==='skirt')return skirtWeights(mesh.userData.armorSide||side,positions);
+  if(binding==='skirt')return skirtWeights(mesh.userData.armorSide||side,positions,mesh.userData.skirtFollowSpan,mesh.userData.skirtFollowMax);
   if(binding==='torso'||binding==='back')return torsoWeights;
   throw new Error(`Unknown armor skin binding: ${binding}`);
  }
@@ -58,11 +59,11 @@ function legWeights(side,positions){
   return t===0?[[`shin${side}`,1]]:t===1?[[`thigh${side}`,1]]:[[`shin${side}`,1-t],[`thigh${side}`,t]];
  };
 }
-function skirtWeights(side,positions){
+function skirtWeights(side,positions,followSpan=2.1,followMax=.70){
  const hip=positions.hips.z;
  return (x,y,z)=>{
   // The split halves follow their thighs gradually while the waist remains on the hips.
-  const thigh=Math.min(.70,Math.max(0,(hip-z)/2.1)*.70);
+  const thigh=Math.min(followMax,Math.max(0,(hip-z)/followSpan)*followMax);
   return thigh===0?[['hips',1]]:[['hips',1-thigh],[`thigh${side}`,thigh]];
  };
 }
@@ -78,5 +79,16 @@ function armWeights(side,positions){
   // its joint, so hanging fabric is never mistaken for a hand or a thigh.
   const forearm=a.d<b.d?Math.max(0,(a.t-.83)/.17)*.5:.5+Math.min(1,b.t/.17)*.5;
   return forearm===0?[['upperArm'+side,1]]:forearm===1?[['forearm'+side,1]]:[['upperArm'+side,1-forearm],['forearm'+side,forearm]];
+ };
+}
+
+/** Fit waist-connected cloth to the actor's own spine, regardless of body proportions. */
+function fittedTorsoWeights(positions){
+ const hips=positions.hips.z+.18,spine=positions.spine.z,chest=positions.chest.z;
+ return (x,y,z)=>{
+  if(z<=hips)return [['hips',1]];
+  if(z<spine){const t=(z-hips)/(spine-hips);return [['hips',1-t],['spine',t]];}
+  if(z<chest){const t=(z-spine)/(chest-spine);return [['spine',1-t],['chest',t]];}
+  return [['chest',1]];
  };
 }

@@ -3,6 +3,8 @@ import {clone} from 'three/addons/utils/SkeletonUtils.js';
 import {finishActor} from '../../vendor/living-studio/models/creatures/shared.js';
 import {createCreatureModel} from '../../vendor/living-studio/models/creatures/index.js';
 import {creatureById} from '../../vendor/living-studio/data/creature-catalog.js';
+import {chibiMonsterLooks} from '../../vendor/living-studio/data/chibi-monsters.js';
+import {chibiCreatureLooks} from '../../vendor/living-studio/data/chibi-creatures.js';
 import {batchCreature} from './batch-creature.js';
 const masters=new Map();
 function creature(id,options){
@@ -17,6 +19,26 @@ function creature(id,options){
 export function studioCreatureCache(){return{masters:masters.size};}
 const DEATH_SECONDS=1.1;
 const ALIAS={skeletonWarrior:'skeleton',skeletonSexton:'skeleton'};
+export const STUDIO_MONSTER_LOOK=Object.freeze({
+ scarecrow:'scarecrow',zombie:'zombie',drowned:'drowned',wraith:'wraith',skeleton:'skeleton',
+ goblinScout:'goblinScout',goblinWarrior:'goblinWarrior',
+ bandit:'bandit',banditArcher:'banditArcher',highwayman:'highwayman',raider:'raider',
+ legionSoldier:'legionSoldier',legionArcher:'legionArcher',oramBlackhand:'oramBlackhand',
+});
+export function auditStudioCreatureLooks(monsters){
+ const bad=[],monsterIds=new Set(monsters.map(m=>m.id));
+ for(const id of [...Object.keys(chibiMonsterLooks),...Object.keys(chibiCreatureLooks)]){
+  const gameId=Object.entries(STUDIO_MONSTER_LOOK).find(([,look])=>look===id)?.[0];
+  if(!gameId)bad.push(`${id} has no game monster id`);
+  else if(!monsterIds.has(gameId))bad.push(`${id} maps to missing game monster ${gameId}`);
+ }
+ for(const [id,look] of Object.entries(STUDIO_MONSTER_LOOK)){
+  if(!monsterIds.has(id))bad.push(`${id} maps to ${look} and is not a monster`);
+  if(!creatureById.has(look))bad.push(`${id} maps to missing studio creature ${look}`);
+ }
+ if(bad.length)throw new Error(`studio creatures: ${bad.join('; ')}`);
+ return Object.keys(STUDIO_MONSTER_LOOK).length;
+}
 export function hasStudioCreature(id){return creatureById.has(ALIAS[id]||id);}
 export function buildStudioCreature(id){
  const key=ALIAS[id]||id;if(!creatureById.has(key))return null;

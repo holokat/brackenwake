@@ -6,6 +6,10 @@ import {createCrawler} from './crawlers.js';
 import {createBird} from './birds.js';
 import {createSmall} from './small.js';
 import {createWisp} from './wisp.js';
+import {isChibiCreature} from '../../data/chibi-creatures.js';
+import {createChibiHuman} from './chibi-humans.js';
+import {isChibiMonster} from '../../data/chibi-monsters.js';
+import {createChibiMonster} from './chibi-monsters.js';
 
 /** Build a grounded Y-up creature with exportable, deterministic animation clips. */
 export function createCreatureModel(id,options={}){
@@ -14,5 +18,5 @@ export function createCreatureModel(id,options={}){
  if(entry.id==='deer'&&options.antlers!==undefined&&!['stag','doe'].includes(options.antlers))throw new Error(`Unknown antler variant: ${options.antlers}`);
  if(entry.id==='skeleton'&&options.armor!==undefined&&!['bare','warrior'].includes(options.armor))throw new Error(`Unknown skeleton armor: ${options.armor}`);
  const build={human:createHuman,skeleton:createHuman,goblin:createGoblin,canine:createQuadruped,boar:createQuadruped,rat:createQuadruped,deer:createQuadruped,spider:createCrawler,grub:createCrawler,bird:createBird,small:createSmall,wisp:createWisp}[entry.rig];
- const actor=build(entry,options);actor.group.userData.variant={...actor.variants};return actor;
+ const actor=isChibiMonster(id)?createChibiMonster(entry,options):isChibiCreature(id)?createChibiHuman(entry,options):build(entry,options);actor.group.userData.variant={...actor.variants};return actor;
 }

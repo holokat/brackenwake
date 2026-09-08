@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import {applyReadyEquipmentPose,gripPoint,isOneHandedWeapon,poseGrip} from './equipment-grips.js';
 import {shieldMotion} from './shield-motion.js';
+import {armReach,solveArmToPalm} from './arm-ik.js';
+
+function poseScale(rig,side){
+ if(rig.style!=='chibi')return 1;
+ const reach=armReach(rig,side);return (reach.upper+reach.lower)/2.2;
+}
 
 function aim(joint,child,target){
  const origin=joint.getWorldPosition(new THREE.Vector3()),before=child.getWorldPosition(new THREE.Vector3()).sub(origin).normalize();
@@ -16,7 +22,7 @@ function fitWeaponArm(rig,weapon,shield){
  // Keep the attacking fist on its side of the shield while preserving the
  // authored blade direction. Reach projection retains the original bone lengths.
  // The tower's broad field needs a little more room at the lunge guard.
- const clearance=shield.userData.itemId==='tower'?.70:.45;
+ const clearance=(shield.userData.itemId==='tower'?.70:.45)*poseScale(rig,'R');
  palm.add(new THREE.Vector3(clearance,0,0).applyQuaternion(rig.group.getWorldQuaternion(new THREE.Quaternion())));
  const elbow=palm.sub(gripPoint(rig,'R').applyQuaternion(handRotation)).addScaledVector(axis,-hand.position.length());
  elbow.sub(shoulder).setLength(fore.position.length()).add(shoulder);aim(upper,fore,elbow);
@@ -45,13 +51,31 @@ export function poseShieldGrip(rig,item,options={}){
   rear.set(0,1,0).applyQuaternion(frame);
  }
  // Face the opponent while the torso winds up, twists and leans into attacks.
- const pose=shieldMotion(options),palm=pose.position.applyQuaternion(frame).add(chest.getWorldPosition(new THREE.Vector3()));
+ const pose=shieldMotion(options),palm=pose.position.multiplyScalar(poseScale(rig,'L')).applyQuaternion(frame).add(chest.getWorldPosition(new THREE.Vector3()));
  const rotation=frame.clone().multiply(pose.rotation);
  const socket=new THREE.Quaternion().fromArray(item.userData.gripSocket.quaternion);
  const handRotation=rotation.clone().multiply(socket.invert());
  const upper=rig.joints.upperArmL,fore=rig.joints.forearmL,hand=rig.joints.handL;
  const shoulder=upper.getWorldPosition(new THREE.Vector3()),axis=new THREE.Vector3(1,0,0).applyQuaternion(rotation);
  const wrist=palm.clone().sub(gripPoint(rig,'L').applyQuaternion(handRotation));
+ if(rig.style==='chibi'){
+  const reach=armReach(rig,'L'),delta=wrist.clone().sub(shoulder),limit=reach.upper+reach.lower-.04;
+  // Project the desired wrist before solving so the short arm never stretches
+  // toward an adult-sized bash or low-block target.
+  if(delta.length()>limit)palm.addScaledVector(delta,(limit-delta.length())/delta.length());
+  const solverPalm=palm.clone();
+  for(let iteration=0;iteration<8;iteration++){
+   solveArmToPalm(rig,'L',solverPalm,handRotation,null,frame);
+   // Breathing scales the chest slightly; remove that inherited scale's
+   // residual without changing the authored palm target or bone lengths.
+   const actual=hand.localToWorld(gripPoint(rig,'L'));
+   solverPalm.add(palm.clone().sub(actual));
+  }
+  poseGrip(rig,item,rotation);
+  item.userData.shieldPose=pose.kind;item.userData.shieldHeading=followsHips?'hips':'actor';
+  item.userData.shieldPalmTarget=palm.toArray();
+  return;
+ }
  const elbow=wrist.clone().addScaledVector(axis,-hand.position.length());
  // Keep the wrist straight behind the compact handhold. Bring the desired
  // elbow onto the upper-arm reach sphere instead of stretching either bone.

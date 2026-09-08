@@ -36,7 +36,7 @@ globalThis.fetch = async (req, init) => {
 
 const {
   buildLegacyMonsterModel: buildMonsterModel, buildBoxMonster, auditMonsterShapes, shapeFor,
-  glbModelFor, monsterModelPlan, monsterModelIds,
+  glbModelFor, studioMonsterModelFor, monsterModelPlan, monsterModelIds,
   GLB_FAMILY, BOX_ONLY_FAMILIES, STANDIN_FAMILIES, STANDIN_MAX_TIER,
   DIE_SECONDS, TIER_COLOUR,
   buildCritterModel, critterShapeFor, auditCritterModels, critterModelPlan, measure,
@@ -67,7 +67,7 @@ console.log('monster_models: which family wears what, and which is still a box')
   for (const [why, ids] of Object.entries(byWhy).sort()) console.log(`       ${why}: ${ids.length} - ${ids.join(', ')}`);
 
   const glb = plan.filter((r) => r.model);
-  check('most of the roster wears a Blender body', glb.length > plan.length / 2,
+  check('most of the roster wears a model body', glb.length > plan.length / 2,
     `${glb.length} of ${plan.length}`);
 
   // the families that fall back, named, both directions
@@ -80,7 +80,7 @@ console.log('monster_models: which family wears what, and which is still a box')
     plan.filter((r) => BOX_ONLY_FAMILIES.includes(r.shape)).map((r) => r.id).join(', '));
 
   // the stand-in rule, driven true and false
-  const bipeds = plan.filter((r) => r.shape === 'biped');
+  const bipeds = plan.filter((r) => r.shape === 'biped' && !studioMonsterModelFor(r.id));
   const low = bipeds.filter((r) => r.tier <= STANDIN_MAX_TIER);
   const high = bipeds.filter((r) => r.tier > STANDIN_MAX_TIER);
   check(`a biped at tier ${STANDIN_MAX_TIER} or below borrows the heavy human`,
@@ -90,7 +90,7 @@ console.log('monster_models: which family wears what, and which is still a box')
     high.length > 0 && high.every((r) => r.model === null),
     `${high.length} of them: ${high.map((r) => `${r.id} tier ${r.tier}`).join(', ')}`);
   check('no boss wears a stand-in body',
-    plan.filter((r) => r.tier >= 6).every((r) => r.model === null || !STANDIN_FAMILIES.includes(r.shape)),
+    plan.filter((r) => r.tier >= 6).every((r) => r.model === null || studioMonsterModelFor(r.id) || !STANDIN_FAMILIES.includes(r.shape)),
     plan.filter((r) => r.tier >= 6).map((r) => `${r.id} ${r.model || 'box'}`).join(', '));
 
   check('every model the plan names is a model that exists',

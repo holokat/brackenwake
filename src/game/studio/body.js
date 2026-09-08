@@ -15,6 +15,20 @@ import {APPEARANCE_FALLBACK,BUILD_GIRTH,SKIN_COLOURS,HAIR_COLOURS} from '../play
 const PARTS={hips:'hips',torso:'chest',head:'head',armL:'upperArmL',armR:'upperArmR',handL:'handL',handR:'handR',legL:'thighL',legR:'thighR',shinL:'shinL',shinR:'shinR',footL:'footL',footR:'footR',bootL:'footL',bootR:'footR',back:'chest'};
 const SKINS={pale:'porcelain',fair:'warm-beige',sand:'golden-beige',olive:'olive-beige',tan:'warm-tan',copper:'warm-brown',umber:'deep-brown',ebony:'deep-ebony'};
 const HAIR={cropped:'close_crop',short:'side_part',tousled:'curly_crop',swept:'default',topknot:'top_knot',braid:'long_braid',bob:'bob',ponytail:'default',wild:'rounded_curls',long:'long_braid','twin braids':'long_braid',shaved:'close_crop'};
+export const OPENING_STUDIO_CLASS={warrior:'warrior',ranger:'ranger',rogue:'rogue',mage:'wizard'};
+export function studioClassForOpening(id){
+ return OPENING_STUDIO_CLASS[id]||id;
+}
+export function auditStudioOpeningClasses(openings){
+ const bad=[];
+ for(const opening of openings){
+  const kind=studioClassForOpening(opening.id);
+  if(!Object.hasOwn(classProfiles,kind))bad.push(`${opening.id} maps to missing studio class ${kind}`);
+ }
+ for(const [id,kind] of Object.entries(OPENING_STUDIO_CLASS))if(!openings.some(opening=>opening.id===id))bad.push(`${id} maps to ${kind} and is not an opening`);
+ if(bad.length)throw new Error(`studio body: ${bad.join('; ')}`);
+ return Object.keys(OPENING_STUDIO_CLASS).length;
+}
 let assets;
 export function loadStudioMotionAssets(){return assets??=Promise.all(['models/warrior-base-rigged.glb','animations/quaternius-retargeted.json'].map(async(p,i)=>{const r=await fetch('/studio/'+p);if(!r.ok)throw new Error(`Studio motion: ${r.status} ${p}`);return i?r.json():r.arrayBuffer();})).catch(e=>{assets=null;throw e;});}
 export const sourceAbility=id=>ABILITY_BY_ID.get(String(id).replace(/[A-Z]/g,c=>'-'+c.toLowerCase()));
@@ -28,7 +42,7 @@ export function buildStudioCharacter(appearance={},options={}){
  const sync=()=>{if(!actor)return;actor.group.updateWorldMatrix(true,true);group.updateWorldMatrix(true,false);for(const[key,bone]of Object.entries(PARTS)){actor.rig.joints[bone].getWorldPosition(temp);parts[key].position.copy(group.worldToLocal(temp));actor.rig.joints[bone].getWorldQuaternion(quat);group.getWorldQuaternion(parts[key].quaternion).invert().multiply(quat);}sockets.updateMatrixWorld(true);};
  const cleanup=(a,m)=>{m?.dispose();if(a)disposeCharacter(a);};
  async function rebuild(){
-  const version=++revision,snapshot={...look,gender:'male'},eq=structuredClone(equipment),fit=studioEquipment(eq,equipOpts),kind=Object.hasOwn(classProfiles,options.classId)?options.classId:'ranger';
+  const version=++revision,snapshot={...look,gender:'male'},eq=structuredClone(equipment),fit=studioEquipment(eq,equipOpts),kind=Object.hasOwn(classProfiles,studioClassForOpening(options.classId))?studioClassForOpening(options.classId):'ranger';
   ready=Promise.resolve().then(async()=>{
    if(closed||version!==revision)return;
    const bodyType=snapshot.gender==='female'?'female':'male';
@@ -52,7 +66,9 @@ export function buildStudioCharacter(appearance={},options={}){
     // Preserve every saved skin and hair colour, including colours outside the studio's preset list.
     next.group.traverse(o=>{if(!o.isMesh)return;const role=o.userData.materialRole;if(role==='cloth'&&options.tunicColor)o.material.color.setHex(options.tunicColor);if(role==='skin'&&SKIN_COLOURS[snapshot.skin])o.material.color.setHex(SKIN_COLOURS[snapshot.skin]);if(o.userData.part==='hair'&&HAIR_COLOURS[snapshot.hairColour])o.material.color.setHex(HAIR_COLOURS[snapshot.hairColour]);if(snapshot.hairStyle==='shaved'&&o.userData.part==='hair')o.visible=false;});
     if(options.sourceMotion){const [binary,bank]=await(options.loadMotionAssets?.()||loadStudioMotionAssets());source=await createSourceMotion(next,{loadBinary:async()=>binary,loadJSON:async()=>bank});}
-    if(closed||version!==revision){cleanup(next,source);return;}
+   if(closed||version!==revision){cleanup(next,source);return;}
+    next.group.userData.gameClassId=options.classId||kind;
+    next.group.userData.studioPalette={...classProfiles[kind].colors};
     attachFaceMark(next,snapshot.mark);
     batchBody(next);
     const unit=(snapshot.height||1.8)/7.9;next.group.rotation.x=-Math.PI/2;next.group.scale.set(-unit*(BUILD_GIRTH[snapshot.build]||1),unit*(BUILD_GIRTH[snapshot.build]||1),unit);
@@ -79,8 +95,8 @@ export function buildStudioCharacter(appearance={},options={}){
   setAppearance(a){const next={...look,...a};if(JSON.stringify(next)!==JSON.stringify(look)){look=next;void rebuild();}return api;},
   setEquipment(eq,opts={}){const sig=equipmentSignature(eq,opts);if(sig===lastSignature)return[];lastSignature=sig;equipment=eq||{};equipOpts=opts;void rebuild();return Object.keys(eq||{});},
   /** The class the studio dresses for: its cloth, leather and trim colours. The creation stage changes it with every opening picked (2026-09-08). */
-  setClass(id){const kind=Object.hasOwn(classProfiles,id)?id:'blank';if(options.classId===kind)return false;options.classId=kind;void rebuild();return true;},
-  get classId(){return Object.hasOwn(classProfiles,options.classId)?options.classId:'blank';},
+  setClass(id){const kind=Object.hasOwn(classProfiles,studioClassForOpening(id))?id:'blank';if(options.classId===kind)return false;options.classId=kind;void rebuild();return true;},
+  get classId(){const kind=studioClassForOpening(options.classId);return Object.hasOwn(classProfiles,kind)?kind:'blank';},
   pose(s){state=s;const move=s.airborne?'airborne':s.anim==='run'?'run':s.anim==='walk'?'walk':'idle';sample(move,move==='idle'?(s.t%5.6)/5.6:((s.phase||0)/(Math.PI*2))%1);},
   poseAction(name,phase,seconds=.45){
    const fit=studioEquipment(equipment,equipOpts);

@@ -2,14 +2,16 @@ import * as THREE from 'three';
 import {femalePoint} from './morphology.js';
 import {equipmentWeights} from './skin-weights.js';
 const v=(a)=>new THREE.Vector3(...a);
-export function bindCharacter(group,kind,bodyType='male'){
+export function bindCharacter(group,kind,bodyType='male',{jointPositions=null,pointTransform=null}={}){
  const bones=[],joints={},positions={},gripPoints={};
  function joint(name,point,parent){
+  if(jointPositions?.[name])point=[...jointPositions[name]];
+  const map=p=>pointTransform?pointTransform(...p):bodyType==='female'?femalePoint(...p):p;
   if(/^hand[LR]$/.test(name)){
    const side=name.at(-1),center=[point[0]+(side==='R'?.005:-.005),point[1]-.08,point[2]-.25];
-   gripPoints[side]=v(bodyType==='female'?femalePoint(...center):center).sub(v(bodyType==='female'?femalePoint(...point):point));
+   gripPoints[side]=v(map(center)).sub(v(map(point)));
   }
-  if(bodyType==='female')point=femalePoint(...point);const b=new THREE.Bone();b.name=name;b.position.copy(v(point));if(parent)b.position.sub(positions[parent]);(parent?joints[parent]:group).add(b);bones.push(b);joints[name]=b;positions[name]=v(point);return b;
+  point=map(point);const b=new THREE.Bone();b.name=name;b.position.copy(v(point));if(parent)b.position.sub(positions[parent]);(parent?joints[parent]:group).add(b);bones.push(b);joints[name]=b;positions[name]=v(point);return b;
  }
  joint('hips',[0,0,3.95]);joint('spine',[0,0,4.8],'hips');joint('chest',[0,0,5.8],'spine');joint('neck',[0,.03,6.55],'chest');joint('head',[0,.03,7.02],'neck');
  for(const[s,label]of[[-1,'L'],[1,'R']]){

@@ -3,7 +3,16 @@ import {resolve,dirname,relative} from 'node:path';
 import {createHash} from 'node:crypto';
 const source=resolve(process.argv[2]||'/Users/k/code/animation-studio/fantasy-studio');
 const destination=resolve('src/vendor/living-studio');
-const entries=['models/character.js','models/item-model.js','models/creatures/index.js','models/forage/index.js','runtime/animation.js','runtime/source-motion.js','runtime/source-effects.js','runtime/preview-equipment.js','runtime/enchantment-session.js','data/item-catalog.js','data/wiki.js'];
+const entries=[
+ 'models/character.js','models/item-model.js',
+ 'models/creatures/index.js','models/creatures/chibi-humans.js','models/creatures/chibi-goblins.js','models/creatures/chibi-undead.js',
+ 'models/creatures/chibi-spectral.js','models/creatures/chibi-monsters.js','models/creatures/chibi-skin.js',
+ 'models/creatures/chibi-human-poses.js','models/creatures/chibi-monster-poses.js','models/creatures/monster-anatomy.js',
+ 'models/creatures/goblin-anatomy.js','models/creatures/undead-anatomy.js','models/creatures/spectral-anatomy.js',
+ 'models/forage/index.js','runtime/animation.js','runtime/source-motion.js','runtime/source-effects.js','runtime/preview-equipment.js',
+ 'runtime/enchantment-session.js','data/item-catalog.js','data/wiki.js','data/studio-classes.js','data/studio-npcs.js',
+ 'data/chibi-monsters.js','data/chibi-creatures.js',
+];
 const files=new Map(),queue=entries.map(p=>resolve(source,p));
 while(queue.length){
  const path=queue.pop();if(files.has(path))continue;

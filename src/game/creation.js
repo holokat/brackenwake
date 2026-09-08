@@ -44,6 +44,7 @@ import { BAR_SLOTS, GROUP_COLOUR } from './win_abilities.js';
 import { defaultSettings } from './win_settings.js';
 import {
   injectTheme, theme, icon, itemGlyph, ruleUrl, cornerUrl, parchmentUrl,
+  archUrl,
 } from './ui_theme.js';
 
 // ---------------------------------------------------------------- the kits
@@ -685,7 +686,7 @@ const CSS = `
 /* headers: the codex's small caps in Cinzel over its thin gold rule */
 #bw-creation .bw-hdr {
   font-family: ${theme.fonts.display}; font-size: 11px; font-weight: 600;
-  letter-spacing: .22em; text-transform: uppercase; color: ${theme.gold};
+  letter-spacing: .22em; font-variant-caps: small-caps; color: ${theme.gold};
   margin: 12px 0 7px; padding-bottom: 9px;
   background: ${ruleUrl()} bottom center / 100% 9px no-repeat;
 }
@@ -702,15 +703,27 @@ const CSS = `
   position: relative; min-height: 74px; padding: 8px 10px 8px 13px; cursor: pointer;
   overflow: hidden;
   display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; row-gap: 3px; align-items: center;
-  background: linear-gradient(150deg, rgba(30,25,18,.9), rgba(10,9,7,.94));
+  background:
+    ${cornerUrl(theme.goldDim)}, ${cornerUrl(theme.goldDim)},
+    linear-gradient(150deg, rgba(36,35,39,.92), rgba(14,13,16,.96));
+  background-repeat: no-repeat;
+  background-position: left 2px top 2px, right 2px bottom 2px, 0 0;
+  background-size: 14px 14px, 14px 14px, auto;
   border: 1px solid ${theme.goldDim}55;
-  transition: border-color .12s ease;
+  border-radius: 7px;
+  transition: border-color .12s ease, transform .12s ease, box-shadow .12s ease;
 }
 #bw-creation .bw-cr-card .bw-cr-band { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
 #bw-creation .bw-cr-card:hover { border-color: ${theme.gold}; }
 #bw-creation .bw-cr-card.on {
-  border-color: ${theme.gold}; box-shadow: inset 3px 0 0 ${theme.gold}, 0 0 18px rgba(201,164,74,.18);
-  background: linear-gradient(150deg, rgba(48,38,22,.94), rgba(14,11,8,.96));
+  border-color: ${theme.gold};
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 6px 18px rgba(0,0,0,.45), 0 0 18px rgba(201,164,74,.18);
+  background:
+    ${cornerUrl(theme.gold)}, ${cornerUrl(theme.gold)},
+    linear-gradient(180deg, ${theme.plateUp}, ${theme.plate} 62%, #2c0d08);
+  background-repeat: no-repeat;
+  background-position: left 2px top 2px, right 2px bottom 2px, 0 0;
+  background-size: 14px 14px, 14px 14px, auto;
 }
 #bw-creation .bw-cr-card.on .bw-cr-band { width: 0; }
 #bw-creation .bw-cr-emblem {
@@ -718,6 +731,7 @@ const CSS = `
   width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;
   background: radial-gradient(circle at 50% 38%, rgba(255,255,255,.09), rgba(0,0,0,.5));
   border: 1px solid ${theme.goldDim}77;
+  border-radius: 7px;
 }
 /* 15px fits the longest current opening in a 300 pixel column's card. */
 #bw-creation .bw-cr-name {
@@ -738,12 +752,29 @@ const CSS = `
   grid-column: 2; grid-row: 2; min-height: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   padding: 0 18px 16px; pointer-events: none;
+  position: relative;
 }
 #bw-creation .bw-cr-stage > * { pointer-events: auto; }
+#bw-creation .bw-cr-stage::before {
+  content: ''; position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%);
+  width: min(330px, 48vw); height: min(500px, calc(100vh - 190px));
+  background: ${archUrl()} center / 100% 100% no-repeat;
+  opacity: .95; pointer-events: none;
+}
+#bw-creation .bw-cr-stage::after {
+  content: ''; position: absolute; left: 50%; bottom: 58px; transform: translateX(-50%);
+  width: min(260px, 38vw); height: 34px; border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.12), rgba(255,255,255,0) 44%),
+    linear-gradient(180deg, #4a474b, #211f23 55%, #0f0e11);
+  border: 1px solid ${theme.goldDim}66;
+  box-shadow: 0 10px 22px rgba(0,0,0,.65), inset 0 -8px 16px rgba(0,0,0,.55);
+  pointer-events: none;
+}
 /* The open air the rig is framed into. The render loop measures THIS box. */
 #bw-creation .bw-cr-void { flex: 1 1 auto; width: 100%; min-height: 0; pointer-events: none; }
 
-#bw-creation .bw-cr-turn { display: flex; gap: 190px; margin-bottom: 12px; }
+#bw-creation .bw-cr-turn { display: flex; gap: 190px; margin-bottom: 12px; position: relative; z-index: 1; }
 #bw-creation .bw-cr-arrow {
   width: 40px; height: 32px; display: flex; align-items: center; justify-content: center;
   cursor: pointer; color: ${theme.parchmentDim};
@@ -761,7 +792,7 @@ const CSS = `
 #bw-creation .bw-cr-pill {
   min-width: 116px; padding: 7px 16px 8px; cursor: pointer;
   font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .2em;
-  text-transform: uppercase; color: ${theme.parchmentDim};
+  font-variant-caps: small-caps; color: ${theme.parchmentDim};
   border: 1px solid ${theme.goldDim}66;
   background: linear-gradient(180deg, rgba(20,16,11,.86), rgba(6,5,4,.92));
 }
@@ -780,7 +811,7 @@ const CSS = `
 }
 #bw-creation .bw-cr-words {
   margin-top: 4px; font-family: ${theme.fonts.display}; font-size: 10px;
-  letter-spacing: .2em; text-transform: uppercase; color: ${theme.gold};
+  letter-spacing: .2em; font-variant-caps: small-caps; color: ${theme.gold};
 }
 /* the frame the class art goes in. Empty of a painting today; never empty of
    a drawing, because a blank rectangle on the first screen says "broken". */
@@ -803,7 +834,7 @@ const CSS = `
 
 #bw-creation .bw-cr-budget {
   font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .1em;
-  text-transform: uppercase; color: ${theme.gold}; font-variant-numeric: tabular-nums;
+  font-variant-caps: small-caps; color: ${theme.gold}; font-variant-numeric: tabular-nums;
   margin-bottom: 7px;
 }
 #bw-creation .bw-cr-budget.spent { color: ${theme.parchmentFaint}; }
@@ -847,7 +878,7 @@ const CSS = `
 #bw-creation .bw-cr-disc {
   width: 100%; margin-top: 9px; text-align: left; cursor: pointer;
   font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .18em;
-  text-transform: uppercase; color: ${theme.gold};
+  font-variant-caps: small-caps; color: ${theme.gold};
   padding: 7px 10px; border: 1px solid ${theme.goldDim}66;
   background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.42));
 }
@@ -862,7 +893,7 @@ const CSS = `
 }
 #bw-creation .bw-cr-skills .bw-cr-grp {
   font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .18em;
-  text-transform: uppercase; color: ${theme.goldDim}; margin: 10px 0 3px;
+  font-variant-caps: small-caps; color: ${theme.goldDim}; margin: 10px 0 3px;
   border-bottom: 1px solid ${theme.goldDim}44; padding-bottom: 3px;
 }
 #bw-creation .bw-cr-skills .bw-cr-grp:first-child { margin-top: 0; }
@@ -894,7 +925,7 @@ const CSS = `
 #bw-creation .bw-cr-drow .bw-i { display: block; opacity: .85; }
 #bw-creation .bw-cr-drow .bw-cr-dk {
   font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .12em;
-  text-transform: uppercase; color: ${theme.gold};
+  font-variant-caps: small-caps; color: ${theme.gold};
 }
 #bw-creation .bw-cr-drow .bw-cr-dv {
   font-family: ${theme.fonts.display}; font-size: 12.5px; font-weight: 600;
@@ -905,8 +936,10 @@ const CSS = `
 #bw-creation .bw-cr-kitrow { display: grid; grid-template-columns: repeat(4, 64px); gap: 8px; align-items: center; }
 #bw-creation .bw-cr-kit-i, #bw-creation .bw-cr-kit-gone {
   width: 64px; height: 64px; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(0,0,0,.42));
-  border: 1px solid ${theme.goldDim}55;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.2)), ${theme.slot.face};
+  border: 1px solid ${theme.slot.border};
+  border-radius: 7px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.45);
 }
 #bw-creation .bw-cr-kit-i img, #bw-creation .bw-cr-kit-gone img { display: block; }
 /* a kit line the item tables cannot make yet: shown, greyed, and said again in
@@ -914,7 +947,7 @@ const CSS = `
 #bw-creation .bw-cr-kit-gone { opacity: .4; border-style: dashed; }
 #bw-creation .bw-cr-kit-more {
   font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .1em;
-  text-transform: uppercase; color: ${theme.parchmentFaint}; padding-left: 3px;
+  font-variant-caps: small-caps; color: ${theme.parchmentFaint}; padding-left: 3px;
 }
 
 /* --- the name, and the button -------------------------------------------- */
@@ -940,13 +973,15 @@ const CSS = `
 #bw-creation .bw-cr-go {
   width: 100%; margin-top: 14px;
   font-family: ${theme.fonts.display}; font-size: 14px; font-weight: 600;
-  letter-spacing: .26em; text-transform: uppercase; color: ${theme.goldBright};
+  letter-spacing: .08em; font-variant-caps: small-caps; color: #181106;
   padding: 14px 18px; cursor: pointer;
-  border: 1px solid ${theme.gold};
-  background: linear-gradient(180deg, #8a3226, #55170f 55%, #2c0d08);
-  box-shadow: 0 3px 20px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.12);
+  border: 1px solid ${theme.goldBright};
+  border-radius: 7px;
+  background: linear-gradient(180deg, ${theme.goldBright}, ${theme.gold} 52%, ${theme.goldDim});
+  box-shadow: 0 3px 20px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.35);
 }
-#bw-creation .bw-cr-go:hover:not(:disabled) { background: linear-gradient(180deg, #a03d2e, #651b12 55%, #351009); }
+#bw-creation .bw-cr-go:hover:not(:disabled) { filter: brightness(1.08); }
+#bw-creation .bw-cr-go:active:not(:disabled) { transform: scale(.96); }
 #bw-creation .bw-cr-go:disabled {
   opacity: .5; cursor: default; color: ${theme.parchmentFaint}; border-color: ${theme.goldDim};
   background: linear-gradient(180deg, #3a2018, #221009 55%, #140805);
@@ -961,7 +996,7 @@ const CSS = `
   padding: 6px 16px; border-top: 1px solid ${theme.goldDim}44;
   background: linear-gradient(180deg, rgba(6,5,4,.6), rgba(6,5,4,.92));
   font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .2em;
-  text-transform: uppercase; color: ${theme.parchmentFaint};
+  font-variant-caps: small-caps; color: ${theme.parchmentFaint};
 }
 
 /* --- narrower windows ---------------------------------------------------- */
@@ -988,6 +1023,8 @@ const CSS = `
   }
   #bw-creation .bw-cr-plaque { grid-column: 1; grid-row: 1; }
   #bw-creation .bw-cr-stage { grid-column: 1; grid-row: 2; height: 52vh; padding-top: 10px; }
+  #bw-creation .bw-cr-stage::before { width: min(320px, 76vw); height: min(470px, 48vh); }
+  #bw-creation .bw-cr-stage::after { width: min(250px, 62vw); }
   #bw-creation .bw-cr-left { grid-column: 1; grid-row: 3; border-right: 0; box-shadow: none; overflow: visible; }
   #bw-creation .bw-cr-right { grid-column: 1; grid-row: 4; border-left: 0; box-shadow: none; overflow: visible; }
   /* stacked, the page itself scrolls, so the right column is not a viewport
@@ -1532,7 +1569,7 @@ export function createCreation(root, deps = {}) {
 
   if (sc && typeof buildCharacter === 'function') {
     try {
-      rig = buildCharacter();
+      rig = buildCharacter(state.appearance, { classId: state.opening });
       rig.group.position.set(0, DAIS.height, 0);
       rig.setAppearance?.(state.appearance);
       sc.scene.add(rig.group);

@@ -1,6 +1,6 @@
 {
   "source": "/Users/k/code/animation-studio/fantasy-studio",
-  "copiedBytes": 457762,
+  "copiedBytes": 460040,
   "files": {
     "runtime/world-effects/index.js": {
       "sha256": "52c9063288cbbefd8f865498414f36429b0bd136b498fbc889c05cbd9c9a7856",
@@ -27,8 +27,8 @@
       "bytes": 2788
     },
     "models/creatures/index.js": {
-      "sha256": "7ba6e2b6305ff2d4863650f3e49b3c0d9737579b1756e6093262d192dd92527d",
-      "bytes": 1384
+      "sha256": "41ef8d446bc659945cf17698fb2a0bd8fcad2c29494554cc3003aac75c3962e4",
+      "bytes": 1721
     },
     "models/creatures/wisp.js": {
       "sha256": "020e86dcdeaa700fc934b0480adc8cd0bd3f9c00c6cf4fa5f3b2ca8d24c90e8c",
@@ -39,8 +39,8 @@
       "bytes": 1643
     },
     "models/creatures/shared.js": {
-      "sha256": "6c38d3d27d8cd7bfed269464bb6bc71724d53680ed4a4cb08d39ba42294cc968",
-      "bytes": 9407
+      "sha256": "2e2c1cb4c551a909f0c36f96b39af7717be715d9e37276f24b73c4a0e2d5f0c6",
+      "bytes": 9421
     },
     "models/geometry.js": {
       "sha256": "6e07222895f255e43457f63309786d65fc604d854fdf4c5a74b3d7a920466471",
@@ -107,12 +107,12 @@
       "bytes": 3464
     },
     "models/shield-grips.js": {
-      "sha256": "247989569f181077c6d39333e49c0e5d821622a83ef8191b18fa004cd0c553f1",
-      "bytes": 6697
+      "sha256": "909091539d7f1b2bd74dc7b8de7e8bc383a62be6b95359f3a87e2fcb308db1e9",
+      "bytes": 7876
     },
     "models/equipment-grips.js": {
-      "sha256": "6ecf0075eb79f7d0e1f3bc99c56995d5085ef40f204ecf2350b7702ff9a49b94",
-      "bytes": 3761
+      "sha256": "9eb7b7da7bba86d1b7610315194938dd7da180d9fad59067f4bc8dd7b45224a1",
+      "bytes": 3784
     },
     "data/wiki.js": {
       "sha256": "91e42192078f705db17245533532e4689a20afce68f9908a3e8092c52cc6193a",
@@ -147,12 +147,12 @@
       "bytes": 1040
     },
     "models/rig.js": {
-      "sha256": "13bd4e2ee27a56d310875c65edff2bfdfd732bd4215071927b24788ec011bf7d",
-      "bytes": 4710
+      "sha256": "e12a50d11cc5ed5b70be58d874e03eea85766bb54592b3d1e07666d9859b5b43",
+      "bytes": 4799
     },
     "models/skin-weights.js": {
-      "sha256": "7f33047a372b70ddca45eb3178fd7631332de233e31ff8aca1b285a8a5fe12ea",
-      "bytes": 4437
+      "sha256": "d26863dc733fbcf3f440bf664d17f30380989cf361b661f16a922eb7fcb1075f",
+      "bytes": 5073
     },
     "models/morphology.js": {
       "sha256": "e3a14bd0d04db0b9bc4792a6e6300b5390bf22361040b7245bcd66d1c5478f88",
@@ -246,10 +246,13 @@
   "studioVerification": {
     "previous": {
       "previous": {
-        "verifiedAt": "2026-09-07T09:07:04.012557+00:00",
-        "matched": 38,
-        "unlisted": 22,
-        "mismatches": []
+        "previous": {
+          "verifiedAt": "2026-09-07T09:07:04.012557+00:00",
+          "matched": 38,
+          "unlisted": 22,
+          "mismatches": []
+        },
+        "note": "Shared dependencies updated by the later character integration; use the new snapshot hashes."
       },
       "note": "Shared dependencies updated by the later character integration; use the new snapshot hashes."
     },

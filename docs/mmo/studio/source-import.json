@@ -1,10 +1,22 @@
 {
   "source": "/Users/k/code/animation-studio/fantasy-studio",
-  "snapshotAt": "2026-09-07T16:10:58.949Z",
+  "snapshotAt": "2026-09-08T04:57:00.644Z",
   "entries": [
     "models/character.js",
     "models/item-model.js",
     "models/creatures/index.js",
+    "models/creatures/chibi-humans.js",
+    "models/creatures/chibi-goblins.js",
+    "models/creatures/chibi-undead.js",
+    "models/creatures/chibi-spectral.js",
+    "models/creatures/chibi-monsters.js",
+    "models/creatures/chibi-skin.js",
+    "models/creatures/chibi-human-poses.js",
+    "models/creatures/chibi-monster-poses.js",
+    "models/creatures/monster-anatomy.js",
+    "models/creatures/goblin-anatomy.js",
+    "models/creatures/undead-anatomy.js",
+    "models/creatures/spectral-anatomy.js",
     "models/forage/index.js",
     "runtime/animation.js",
     "runtime/source-motion.js",
@@ -12,16 +24,36 @@
     "runtime/preview-equipment.js",
     "runtime/enchantment-session.js",
     "data/item-catalog.js",
-    "data/wiki.js"
+    "data/wiki.js",
+    "data/studio-classes.js",
+    "data/studio-npcs.js",
+    "data/chibi-monsters.js",
+    "data/chibi-creatures.js"
   ],
   "files": {
+    "data/chibi-creatures.js": {
+      "sha256": "abbc7c45b50d8e376ac6e553da9f0a0d2e6b07e978ba0a149774ab6df3d5acec",
+      "bytes": 586
+    },
+    "data/chibi-monsters.js": {
+      "sha256": "7c9e29ab0479acd8cd5b8be30d01f3c0a5c2036f976ac4d32477abce59b9e636",
+      "bytes": 708
+    },
+    "data/studio-npcs.js": {
+      "sha256": "71233dca0f14e55afdcbb2a35d3cefa1e5ce4b3ed65714b9a4098782744ffb59",
+      "bytes": 3480
+    },
+    "data/studio-classes.js": {
+      "sha256": "e32dab0ae1c0456c0c68f64a10f37d19e1c61dd4b8648489d0cdd11b83a4fc64",
+      "bytes": 2262
+    },
     "data/wiki.js": {
       "sha256": "91e42192078f705db17245533532e4689a20afce68f9908a3e8092c52cc6193a",
       "bytes": 63661
     },
     "data/item-catalog.js": {
-      "sha256": "3276a4dda778066b93de827d0e64546934420f8b8043dc1e4dfb2efba6b94d13",
-      "bytes": 2631
+      "sha256": "c2fad926f623058eb1cab9d8596c3bbbb5f47b02b17f194f441bf49c7c644063",
+      "bytes": 2216
     },
     "data/shield-catalog.js": {
       "sha256": "8ec17633fc00f750c6a5963ad1f5b4daa053b1ec4dd1152f62321d098ec830f7",
@@ -72,16 +104,20 @@
       "bytes": 3530
     },
     "models/shield-grips.js": {
-      "sha256": "247989569f181077c6d39333e49c0e5d821622a83ef8191b18fa004cd0c553f1",
-      "bytes": 6697
+      "sha256": "909091539d7f1b2bd74dc7b8de7e8bc383a62be6b95359f3a87e2fcb308db1e9",
+      "bytes": 7876
+    },
+    "models/arm-ik.js": {
+      "sha256": "8c646eaee169cca2f1bc34cd54c5352df1917d484f4496065bbd48ada2b478c6",
+      "bytes": 3470
+    },
+    "models/equipment-grips.js": {
+      "sha256": "9eb7b7da7bba86d1b7610315194938dd7da180d9fad59067f4bc8dd7b45224a1",
+      "bytes": 3784
     },
     "models/shield-motion.js": {
       "sha256": "89f8c81d9f96e7f66a6390d353053e472aed95280628b19d30abd250657d4e88",
       "bytes": 3464
-    },
-    "models/equipment-grips.js": {
-      "sha256": "6ecf0075eb79f7d0e1f3bc99c56995d5085ef40f204ecf2350b7702ff9a49b94",
-      "bytes": 3761
     },
     "models/two-handed-grips.js": {
       "sha256": "1d460fa5bae065096f5b3c611d5522dc53358ff7d292257bcbc3773f17e13c8a",
@@ -95,13 +131,9 @@
       "sha256": "515f6342fafd64517ba5922fdd3deb67e0cb55d9e2e6e4d574df2cdb60068305",
       "bytes": 2028
     },
-    "models/arm-ik.js": {
-      "sha256": "8c646eaee169cca2f1bc34cd54c5352df1917d484f4496065bbd48ada2b478c6",
-      "bytes": 3470
-    },
     "models/bow-poses.js": {
-      "sha256": "c337b255cb6d5eac63e48aedaca122eb56816d584d08c89ed2febaecd1a6d284",
-      "bytes": 5559
+      "sha256": "9435b9214d7a75ef8893608580c6795d575fbaa22e81352cc05b29823f1a3b24",
+      "bytes": 6121
     },
     "models/bow-arrow.js": {
       "sha256": "6afb32ac40fd7a9c1431ae3f173fc1a5cb76f54c6cb5ce782120e1af94a7978d",
@@ -132,8 +164,8 @@
       "bytes": 1040
     },
     "models/weapons.js": {
-      "sha256": "dec2901889f5a4e14ea3fb3948841948a4c4be450fbb647503e460a9588ae556",
-      "bytes": 5825
+      "sha256": "404f4164b4a36a19a3282f3a622a21c7df71623da3bf029bf5cb341a8962b8c8",
+      "bytes": 6185
     },
     "models/items/shields.js": {
       "sha256": "f435eb6154e8da0cd6653e6ce34b48b973c5bd2c3dfc0c59a4064e38e1c4b57b",
@@ -170,6 +202,10 @@
     "models/items/blades.js": {
       "sha256": "de8dc7789bc3b573363137d2d8eb61b8a922cc62530528dc85047a56ec0c4529",
       "bytes": 2503
+    },
+    "models/chibi/equipment.js": {
+      "sha256": "d539ead36b7c1041db4aae8ca85ab64f255f5cb2cd0d2cfda492639c0a65749d",
+      "bytes": 1852
     },
     "runtime/source-effects.js": {
       "sha256": "47ad56b0f2b90d2288ebda60bd01b31074345f8730669bfc920f9d9c6b8ed6cc",
@@ -275,21 +311,149 @@
       "sha256": "e434f568171ade5c24a38d7ac65b08c846f72254ee53031ed8446dd697d6fad7",
       "bytes": 21629
     },
-    "models/creatures/index.js": {
-      "sha256": "7ba6e2b6305ff2d4863650f3e49b3c0d9737579b1756e6093262d192dd92527d",
-      "bytes": 1384
+    "models/creatures/spectral-anatomy.js": {
+      "sha256": "2dff50ff2a0e0992e6ba301670cf5502ca941bd500c82aabc8dd9d748d1cedd1",
+      "bytes": 1217
     },
-    "models/creatures/wisp.js": {
-      "sha256": "020e86dcdeaa700fc934b0480adc8cd0bd3f9c00c6cf4fa5f3b2ca8d24c90e8c",
-      "bytes": 2729
+    "models/creatures/undead-anatomy.js": {
+      "sha256": "e06763e44b14d04deff2fba307ec08ba1c88ee5e91b15d70725d75e67c103f9f",
+      "bytes": 1662
+    },
+    "models/creatures/goblin-anatomy.js": {
+      "sha256": "d306d1607b9804b76b7f9f8f211dc9ce410b32474f17caee973450548720aec1",
+      "bytes": 789
+    },
+    "models/creatures/monster-anatomy.js": {
+      "sha256": "c243c246f940d42dc96fe671d4fe8100a8c756d0ccd42df28717159077ae2828",
+      "bytes": 343
+    },
+    "models/creatures/chibi-monster-poses.js": {
+      "sha256": "35b5a7dd62fba9c305117bdb09305a406d12a2568d7745af9649e6410eee0b63",
+      "bytes": 4001
+    },
+    "models/creatures/shared.js": {
+      "sha256": "2e2c1cb4c551a909f0c36f96b39af7717be715d9e37276f24b73c4a0e2d5f0c6",
+      "bytes": 9421
+    },
+    "models/creatures/chibi-human-poses.js": {
+      "sha256": "45b3cc715ab4962e4b47b048eb7dc01d123d646c0cfd4dcc5c8b64b0bcca3282",
+      "bytes": 3291
+    },
+    "models/creatures/chibi-skin.js": {
+      "sha256": "7185a49a99a245a48e211a3dd9c958a183ab71e44d54dbf3d08e121240ffaa29",
+      "bytes": 6306
+    },
+    "models/creatures/weapons.js": {
+      "sha256": "c208a28e00c0b97761b5a23ddd0e57a2203cf4980c9011c2f47b066022c3e35b",
+      "bytes": 3887
+    },
+    "models/creatures/chibi-monsters.js": {
+      "sha256": "13fb2d7ba49b08a86f273996f6746c4cca91b0a750f437426faf6281af53b420",
+      "bytes": 2904
+    },
+    "models/creatures/chibi-goblins.js": {
+      "sha256": "566153ed52cf56dda59eea01177556aa3907dacda7b2b96697c2bb62f558dee9",
+      "bytes": 6257
+    },
+    "models/creatures/chibi-spectral.js": {
+      "sha256": "f0df516e84f67ff9156564d0a0d4a9fd7776b458e35166de6a06771b17680526",
+      "bytes": 13130
+    },
+    "models/creatures/chibi-undead.js": {
+      "sha256": "85b7104ae8a448828aa2d275641ca7b50ae562395cf2d4fc8187958bac229a9f",
+      "bytes": 18603
     },
     "models/creatures/motions.js": {
       "sha256": "2a33fdb9af198dac4d39193917bacf36c7924303f98ac55ce3dbcab7a3e7f24f",
       "bytes": 1643
     },
-    "models/creatures/shared.js": {
-      "sha256": "6c38d3d27d8cd7bfed269464bb6bc71724d53680ed4a4cb08d39ba42294cc968",
-      "bytes": 9407
+    "models/rig.js": {
+      "sha256": "e12a50d11cc5ed5b70be58d874e03eea85766bb54592b3d1e07666d9859b5b43",
+      "bytes": 4799
+    },
+    "models/skin-weights.js": {
+      "sha256": "d26863dc733fbcf3f440bf664d17f30380989cf361b661f16a922eb7fcb1075f",
+      "bytes": 5073
+    },
+    "models/morphology.js": {
+      "sha256": "e3a14bd0d04db0b9bc4792a6e6300b5390bf22361040b7245bcd66d1c5478f88",
+      "bytes": 1266
+    },
+    "models/creatures/chibi-humans.js": {
+      "sha256": "f866a4c2d9bb260bbf0eb47ed0ae4a6842cd52cc1e38529d9854bc69684a763c",
+      "bytes": 3071
+    },
+    "data/character-colors.js": {
+      "sha256": "39a405edd48a05c562bba8db2e52a510729db5e0d0eab67d881b17686f87cc25",
+      "bytes": 1403
+    },
+    "models/class-profiles.js": {
+      "sha256": "101c04f912096546c95ca59e90816d6c05b7560b118bd4745dc5ec0e9465a8ae",
+      "bytes": 2273
+    },
+    "models/chibi/character.js": {
+      "sha256": "8d31a7633b4b3011f7a2bcb48de8292a48f14ba894d85903a4a0a06a21b5a9dd",
+      "bytes": 3609
+    },
+    "models/chibi/proportions.js": {
+      "sha256": "7d8fdb1241ae54a30e1a141524068535b9d0aa01261d85004c786141ddab3b0e",
+      "bytes": 1094
+    },
+    "models/chibi/npc-wardrobe.js": {
+      "sha256": "bef7c5bb89649c8403289f40cd2f2b435a39def4f4a2a42944de1d5a931e2b3e",
+      "bytes": 6602
+    },
+    "models/chibi/npc-accessories.js": {
+      "sha256": "3e9f2845cef38681f801655a8760526fd4c191430ff77027541f3724959dcc79",
+      "bytes": 3179
+    },
+    "models/chibi/npc-apron.js": {
+      "sha256": "14ea3bbc12e84377bbc32390daa63616e4228125b9b662c7855674923e81f228",
+      "bytes": 1243
+    },
+    "models/chibi/npc-trade-accessories.js": {
+      "sha256": "2c7eeb76e99bb6d666a6e8daf518c7ccc7bf3a76f41ec8f2cef459cc105e9df8",
+      "bytes": 4924
+    },
+    "models/chibi/outfit-parts.js": {
+      "sha256": "98cef070becb874ab78c1181a9a33f560f36a0f105e0f0dedc256845088ea80b",
+      "bytes": 15021
+    },
+    "models/chibi/wardrobe.js": {
+      "sha256": "6ae5f6e77e4436e4dc548a952e46038db82a607b3162f102df7e2d0a8afe8a8a",
+      "bytes": 13779
+    },
+    "models/chibi/headwear.js": {
+      "sha256": "58271b57273e5dc66c99a649c79c880ba567c954c3df1a1c021a200d18517de9",
+      "bytes": 6059
+    },
+    "models/chibi/head.js": {
+      "sha256": "1d9f4768fbc0773108952e8060a87d353fa364bf7e2df655405c0b6df6fd4e53",
+      "bytes": 6088
+    },
+    "data/hairstyles.js": {
+      "sha256": "837f9a601f49651568817856abee5981c362963ddc3ec7fbef523c98244fee67",
+      "bytes": 793
+    },
+    "data/face-presets.js": {
+      "sha256": "7424df106bd7aa996a8e630f15e31e9537cbcd6685c79a5829e24b92fdc2f188",
+      "bytes": 2292
+    },
+    "models/chibi/body.js": {
+      "sha256": "9ebc0aec73c7934355b557aeee113071c489a6f49cc44ea99042a430577d24da",
+      "bytes": 1936
+    },
+    "models/character-colors.js": {
+      "sha256": "ca7d4a497ca77109fef6282550538bfd10c2022101d7a6f0008a8ea9fe24a8b0",
+      "bytes": 1423
+    },
+    "models/creatures/index.js": {
+      "sha256": "41ef8d446bc659945cf17698fb2a0bd8fcad2c29494554cc3003aac75c3962e4",
+      "bytes": 1721
+    },
+    "models/creatures/wisp.js": {
+      "sha256": "020e86dcdeaa700fc934b0480adc8cd0bd3f9c00c6cf4fa5f3b2ca8d24c90e8c",
+      "bytes": 2729
     },
     "models/creatures/small.js": {
       "sha256": "e4beac6a0c43fcbaed9ade52ba99a2ca1429528eb8c50103ccad6849fa5cf16d",
@@ -315,10 +479,6 @@
       "sha256": "5e07046c15f17dfebb89f77f699c56ba0f5126bea1e5f697f8413dae047ddc4d",
       "bytes": 4458
     },
-    "models/creatures/weapons.js": {
-      "sha256": "c208a28e00c0b97761b5a23ddd0e57a2203cf4980c9011c2f47b066022c3e35b",
-      "bytes": 3887
-    },
     "models/creatures/human-parts.js": {
       "sha256": "1793f00a7866aad51968fd9bf1bcbd9b7938a4ea0cc240bc8c65c9ffa1019adb",
       "bytes": 16113
@@ -327,37 +487,17 @@
       "sha256": "14fbe104f8b1f283c34a067bb9fb6c7b80c821f7711608e40806c1856dc0a9ad",
       "bytes": 9165
     },
-    "data/hairstyles.js": {
-      "sha256": "837f9a601f49651568817856abee5981c362963ddc3ec7fbef523c98244fee67",
-      "bytes": 793
-    },
     "models/head-spec.js": {
       "sha256": "82631626af2dc26b8633c65915fd492b283aff2163cade3e8f85450758496f8c",
       "bytes": 14182
-    },
-    "models/rig.js": {
-      "sha256": "13bd4e2ee27a56d310875c65edff2bfdfd732bd4215071927b24788ec011bf7d",
-      "bytes": 4710
-    },
-    "models/skin-weights.js": {
-      "sha256": "7f33047a372b70ddca45eb3178fd7631332de233e31ff8aca1b285a8a5fe12ea",
-      "bytes": 4437
-    },
-    "models/morphology.js": {
-      "sha256": "e3a14bd0d04db0b9bc4792a6e6300b5390bf22361040b7245bcd66d1c5478f88",
-      "bytes": 1266
     },
     "data/creature-catalog.js": {
       "sha256": "a14ae640f570d20ee9715955b7e67b79bf8191f7e39c2400b4105c4e18844fa3",
       "bytes": 17337
     },
     "models/item-model.js": {
-      "sha256": "7905ae3fc86c977c843be6b35b1f2b50ddce7a74ff37795baaae369e95ababda",
-      "bytes": 1034
-    },
-    "models/item-presentation.js": {
-      "sha256": "6671288bcc2c25d94f22c0c7894f29f9e775f60b3127bc216d3d80eb2f4a751c",
-      "bytes": 1025
+      "sha256": "4f5927c93bd41b46de84acd631014d6d5888c07deb82eb0b99d294889a2d0c57",
+      "bytes": 598
     },
     "models/item-materials.js": {
       "sha256": "31ad4ce0814903990e1e52f15b7be3d44cd8f034319f3957b73727157afae7dc",
@@ -367,65 +507,13 @@
       "sha256": "2dbda9c8c1840a7ab963d13a4137930037fd1d4329edf6aa0cc3f579eddc915b",
       "bytes": 4397
     },
-    "models/armor/index.js": {
-      "sha256": "c661190abb78147be01d771fabdd6d0e4fe0d028e8ff035ecd19229e4f8828c6",
-      "bytes": 1477
-    },
-    "models/armor/profiles.js": {
-      "sha256": "7478c94bd261a01f5299be3b7c4276eb5f4033c17d37c6423c02795c8a6ccbe9",
-      "bytes": 1306
-    },
-    "models/armor/extremities.js": {
-      "sha256": "5a4e62e0d5c825560434ae7ec439ab98d94511f271ef4f92bc0f71e3ea4f802f",
-      "bytes": 10475
-    },
-    "models/hand-shape.js": {
-      "sha256": "7e5c4f7e389947bc251305ccc3d84403f8c8ba2cc0ea90a812251f8b3561b747",
-      "bytes": 694
-    },
-    "models/armor/shapes.js": {
-      "sha256": "0dbe3e767234a417a1fd83ca25aafa6403db396c4af1594af570582830f09bd9",
-      "bytes": 8438
-    },
-    "models/armor/mounting.js": {
-      "sha256": "627cd124662b090d8b28eac0bd02d1a57d32d177e2a2b6b578f65f251bc676f4",
-      "bytes": 2604
-    },
-    "models/surface-polygon.js": {
-      "sha256": "614d5a241efc66d5bf50f36e0d6ec71e71f22ec5d474b6515424ef8936590b68",
-      "bytes": 616
-    },
-    "models/armor/head.js": {
-      "sha256": "2c8b017b16b231754cf901b064338afb43b51d64c914ca169c9c3c518b3013e3",
-      "bytes": 2533
-    },
-    "models/armor/torso.js": {
-      "sha256": "551962de848cb0700d12b936ba296a14ccdf2003435c93cd1ce9dee00858bf9b",
-      "bytes": 4752
-    },
-    "models/armor/sleeves.js": {
-      "sha256": "19f113c91baa1c75bf41a482b0a43ba6b0b58cdc7f2cf8779bd5c1e11dbbb972",
-      "bytes": 2103
-    },
-    "models/armor/drape.js": {
-      "sha256": "813f6b4131361d2b2c52c5a8e3935d55a25761efd2afffe466d93e2dcda353af",
-      "bytes": 3248
-    },
-    "models/armor/surface-fit.js": {
-      "sha256": "960357075a264cb801009082fcf74107203199e69ea8cd51610933de9d5fce4e",
-      "bytes": 2426
-    },
     "models/character.js": {
-      "sha256": "d98b75285e34289dce1c1f94d9e7c8357b65ec66847757dafb5b9eae68a278d9",
-      "bytes": 4213
+      "sha256": "add57fb79714373c609dc03c1b0231c560602557987f3ff0d00544d1ab25198f",
+      "bytes": 516
     },
-    "models/character-colors.js": {
-      "sha256": "ca7d4a497ca77109fef6282550538bfd10c2022101d7a6f0008a8ea9fe24a8b0",
-      "bytes": 1423
-    },
-    "data/character-colors.js": {
-      "sha256": "39a405edd48a05c562bba8db2e52a510729db5e0d0eab67d881b17686f87cc25",
-      "bytes": 1403
+    "models/armor/source-character.js": {
+      "sha256": "248965d4889982a8e10396d29da5f9fba5f1d0abc086f378d5a1a6b920a4f06e",
+      "bytes": 3815
     },
     "models/armor/legacy-character.js": {
       "sha256": "cc586a40d669bf973027221480b16b012cbf2820cd36d73efc660c57f0cb0ddd",
@@ -443,6 +531,10 @@
       "sha256": "92197cb6f687e15abcfee1a005a14e24dd73c422d1c8f532fa199d345c99a4ea",
       "bytes": 5258
     },
+    "models/surface-polygon.js": {
+      "sha256": "614d5a241efc66d5bf50f36e0d6ec71e71f22ec5d474b6515424ef8936590b68",
+      "bytes": 616
+    },
     "models/face-variants.js": {
       "sha256": "b4ea41e18930d16489f9b404741ebea27cf24173c0067311e2a2d246c8024f98",
       "bytes": 1516
@@ -450,6 +542,10 @@
     "models/hands.js": {
       "sha256": "d3ea29aeb60af765785db13c022c3ca25aca4db965071f25a91d883eb85075c0",
       "bytes": 1304
+    },
+    "models/hand-shape.js": {
+      "sha256": "7e5c4f7e389947bc251305ccc3d84403f8c8ba2cc0ea90a812251f8b3561b747",
+      "bytes": 694
     },
     "models/armor/legacy-wardrobe.js": {
       "sha256": "b490f6d6941e0fef8a43c8561fdf1cfd164f679df8dfabedce3391515288f0f1",
@@ -471,17 +567,53 @@
       "sha256": "d46720b0a49644bce0de3a8bb1428e164cb514ebb18f5391029c6bd7ccfac32f",
       "bytes": 2241
     },
-    "data/face-presets.js": {
-      "sha256": "7424df106bd7aa996a8e630f15e31e9537cbcd6685c79a5829e24b92fdc2f188",
-      "bytes": 2292
-    },
-    "models/class-profiles.js": {
-      "sha256": "2528e9b2201376ff6e173e6c095d53158cf65e9aebf29206dfbb15ee2b8f1f17",
-      "bytes": 1767
-    },
     "models/wardrobe.js": {
       "sha256": "4a83a14e96e48128569e60d3a1cd5cb951094381c68c14ae754c6f5f8442cb11",
       "bytes": 1190
+    },
+    "models/armor/index.js": {
+      "sha256": "c661190abb78147be01d771fabdd6d0e4fe0d028e8ff035ecd19229e4f8828c6",
+      "bytes": 1477
+    },
+    "models/armor/profiles.js": {
+      "sha256": "7478c94bd261a01f5299be3b7c4276eb5f4033c17d37c6423c02795c8a6ccbe9",
+      "bytes": 1306
+    },
+    "models/armor/extremities.js": {
+      "sha256": "5a4e62e0d5c825560434ae7ec439ab98d94511f271ef4f92bc0f71e3ea4f802f",
+      "bytes": 10475
+    },
+    "models/armor/shapes.js": {
+      "sha256": "0dbe3e767234a417a1fd83ca25aafa6403db396c4af1594af570582830f09bd9",
+      "bytes": 8438
+    },
+    "models/armor/mounting.js": {
+      "sha256": "627cd124662b090d8b28eac0bd02d1a57d32d177e2a2b6b578f65f251bc676f4",
+      "bytes": 2604
+    },
+    "models/armor/head.js": {
+      "sha256": "2c8b017b16b231754cf901b064338afb43b51d64c914ca169c9c3c518b3013e3",
+      "bytes": 2533
+    },
+    "models/armor/torso.js": {
+      "sha256": "551962de848cb0700d12b936ba296a14ccdf2003435c93cd1ce9dee00858bf9b",
+      "bytes": 4752
+    },
+    "models/armor/sleeves.js": {
+      "sha256": "19f113c91baa1c75bf41a482b0a43ba6b0b58cdc7f2cf8779bd5c1e11dbbb972",
+      "bytes": 2103
+    },
+    "models/armor/drape.js": {
+      "sha256": "813f6b4131361d2b2c52c5a8e3935d55a25761efd2afffe466d93e2dcda353af",
+      "bytes": 3248
+    },
+    "models/armor/surface-fit.js": {
+      "sha256": "960357075a264cb801009082fcf74107203199e69ea8cd51610933de9d5fce4e",
+      "bytes": 2426
+    },
+    "models/dispose-character.js": {
+      "sha256": "539ebef0cee59cf2741f791fd7f6a5eb056fb7ef064e0d9e9e722913fcfeab73",
+      "bytes": 521
     }
   },
   "assets": {
@@ -502,5 +634,5 @@
       "bytes": 700628
     }
   },
-  "copiedBytes": 10966754
+  "copiedBytes": 11103219
 }

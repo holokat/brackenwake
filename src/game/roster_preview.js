@@ -148,7 +148,7 @@ export function lookKey(look) {
   const a = { ...APPEARANCE_FALLBACK, ...(look.appearance || {}) };
   const eq = look.equipment || {};
   const worn = Object.keys(eq).sort().map((k) => `${k}=${itemMark(eq[k])}`).join(',');
-  return `${a.gender}/${a.build}/${a.skin}/${a.hairStyle}/${a.hairColour}/${a.mark}/${a.height}|${worn}`;
+  return `${look.opening || 'blank'}|${a.gender}/${a.build}/${a.skin}/${a.hairStyle}/${a.hairColour}/${a.mark}/${a.height}|${worn}`;
 }
 
 /**
@@ -172,7 +172,7 @@ export function readLook(id, storage) {
   const app = doc.appearance;
   if (!app || typeof app !== 'object') return null;
   const equipment = doc.equipment && typeof doc.equipment === 'object' ? doc.equipment : {};
-  return { appearance: { ...APPEARANCE_FALLBACK, ...app }, equipment };
+  return { opening: doc.opening || 'blank', appearance: { ...APPEARANCE_FALLBACK, ...app }, equipment };
 }
 
 // ------------------------------------------------------------------ the glass
@@ -221,7 +221,7 @@ export function makeKit(opts = {}) {
  */
 export async function paint(kit, look) {
   const appearance = { ...APPEARANCE_FALLBACK, ...(look?.appearance || {}) };
-  const rig = buildCharacter(appearance);
+  const rig = buildCharacter(appearance, { classId: look?.opening || 'blank' });
   try {
 
     if (look?.equipment) {

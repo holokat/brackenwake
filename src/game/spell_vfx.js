@@ -188,7 +188,9 @@ export function effectKindsOf(effect, out = []) {
  */
 export function elementFor(ability) {
   if (!ability) return null;
-  return elementForDamage(damageTypeOf(ability.effect)) || elementForSchool(ability.group) || null;
+  // the Mysticism tree kept its arcane look when its rows joined the Wizard's
+  // group (2026-09-08); the skill says so where the group no longer can
+  return elementForDamage(damageTypeOf(ability.effect)) || (ability.skill === 'mysticism' ? 'arcane' : null) || elementForSchool(ability.group) || null;
 }
 
 /** Pull one move's events into the shape the plan wants. */

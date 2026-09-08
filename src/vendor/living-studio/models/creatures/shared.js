@@ -79,7 +79,7 @@ function supportSampler(rig){
   for(let i=0;i<p.count;i++){const bone=indices.getX(i);point.fromBufferAttribute(p,i).applyMatrix4(rig.skeleton.boneInverses[bone]);boxes[bone].expandByPoint(point);}
  });
  const corners=boxes.map(box=>box.isEmpty()?[]:Array.from({length:8},(_,i)=>new THREE.Vector3(i&1?box.max.x:box.min.x,i&2?box.max.y:box.min.y,i&4?box.max.z:box.min.z)));
- const axis=rig.joints.hips&&rig.rest.hips.p.z>3?'z':'y',root=rig.joints.root??rig.joints.hips;
+ const axis=rig.upAxis||(rig.joints.hips&&rig.rest.hips.p.z>3?'z':'y'),root=rig.joints.root??rig.joints.hips;
  return ()=>{
   rig.group.updateMatrixWorld(true);let floor=Infinity;
   for(let i=0;i<corners.length;i++)for(const corner of corners[i])floor=Math.min(floor,point.copy(corner).applyMatrix4(rig.bones[i].matrixWorld)[axis]);

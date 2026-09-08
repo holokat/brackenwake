@@ -1,4 +1,4 @@
-import {buildStudioCreature} from './studio/creatures.js';
+import {buildStudioCreature, STUDIO_MONSTER_LOOK} from './studio/creatures.js';
 import {buildStudioCaster} from './studio/hostile-casters.js';
 // The bodies of everything that wants to kill you.
 //
@@ -2087,6 +2087,10 @@ export function glbModelFor(id) {
   return model;
 }
 
+export function studioMonsterModelFor(id) {
+  return STUDIO_MONSTER_LOOK[id] || null;
+}
+
 /**
  * Every monster, the shape it wears, the model behind it and why. Printed by
  * the test, so "which of these is still a box" is measured and not claimed.
@@ -2095,14 +2099,15 @@ export function monsterModelPlan() {
   const out = [];
   for (const m of MONSTER_LIST) {
     if (m.tier === 0) continue;
+    const studio = studioMonsterModelFor(m.id);
     const shape = shapeFor(m.id);
-    const model = glbModelFor(m.id);
-    let why = 'glb';
+    const model = studio ? `living-studio:${studio}` : glbModelFor(m.id);
+    let why = studio ? 'living-studio chibi' : 'glb';
     if (!model) {
       why = BOX_ONLY_FAMILIES.includes(shape) ? 'no model for this family'
         : STANDIN_FAMILIES.includes(shape) ? `stand-in refused above tier ${STANDIN_MAX_TIER}`
           : 'no model';
-    } else if (STANDIN_FAMILIES.includes(shape)) why = 'stand-in';
+    } else if (!studio && STANDIN_FAMILIES.includes(shape)) why = 'stand-in';
     out.push({ id: m.id, tier: m.tier, shape, model, why });
   }
   return out;

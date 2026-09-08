@@ -32,6 +32,7 @@ export function batchCreature(actor){
     const buckets=[...bins.values()],merged=buckets.map(b=>mergeGeometries(b.parts,false)),geometry=mergeGeometries(merged,true);
     for(const g of [...copies,...merged])g.dispose();
     if(!geometry)throw Error('Creature skin batching lost its attributes');
+    geometry.morphTargetsRelative=source.morphTargetsRelative;
     geometry.computeBoundingBox();geometry.computeBoundingSphere();
     before+=source.groups.length;after+=geometry.groups.length;
     mesh.geometry=geometry;mesh.material=buckets.map(b=>b.material);source.dispose();
