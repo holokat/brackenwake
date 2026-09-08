@@ -804,6 +804,7 @@ export function makeMonsterActor(id, opts = {}) {
 export const BIRD_BAND = [6, 12];
 
 export function createMonsters(sc, runtime, opts = {}) {
+  const externalTargets=new Set();
   const scene = sc && sc.scene ? sc.scene : sc;
   const group = new THREE.Group();
   group.name = 'monsters';
@@ -899,6 +900,8 @@ export function createMonsters(sc, runtime, opts = {}) {
     const actor = actorFactory(rec.id, { pos: { x: rec.x, y, z: rec.z }, key: rec.key, row, rec });
     if (!actor) return null;
     if(rec.elite){actor.health*=2;actor.maxHealth*=2;}
+    if(rec.power){actor.health*=rec.power;actor.maxHealth*=rec.power;if(actor.weapon)actor.weapon={...actor.weapon,minDamage:Math.round(actor.weapon.minDamage*rec.power),maxDamage:Math.round(actor.weapon.maxDamage*rec.power)};}
+    if(rec.size){model.group.scale.multiplyScalar(rec.size);model.height*=rec.size;model.radius*=rec.size;}
     if(rec.title)actor.name=rec.title;
 
     // Defensive filling, and only of things `combat_rules.js` reads by name.
@@ -2527,7 +2530,8 @@ export function createMonsters(sc, runtime, opts = {}) {
      * list is what a Whirlwind cuts and what `nearestHostile` walks, and your
      * own champion belongs in neither. `friendlies()` is the other half.
      */
-    actors: () => [...live.values()].filter((m) => num(m.actor.health) > 0 && !m.hidden && !m.friendly).map((m) => m.actor),
+    registerExternalTarget(actor){externalTargets.add(actor);return()=>externalTargets.delete(actor);},
+    actors: () => [...[...live.values()].filter((m) => num(m.actor.health) > 0 && !m.hidden && !m.friendly).map((m) => m.actor),...[...externalTargets].filter(a=>a.health>0)],
     /** Every live actor standing for the player: summons, and what Beast Call called. */
     friendlies: () => [...live.values()].filter((m) => num(m.actor.health) > 0 && m.friendly).map((m) => m.actor),
     /** Every live monster record. Debug, the HUD and the tests. */

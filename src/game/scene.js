@@ -412,6 +412,7 @@ export function createScene(container) {
   // docs/mmo/wiring/VFX1-SPELLS.md.
   let composer = null;
   let spellSource = null;
+  const effectSources=new Set();
   let spellFrames = 0;
   let plainFrames = 0;
 
@@ -451,11 +452,11 @@ export function createScene(container) {
      */
     render(dt = 0) {
       const state = spellSource ? spellSource() : null;
-      const active = !!(state && state.active);
+      const active = !!(state && state.active)||[...effectSources].some(fn=>fn());
       if (!active && !composer) { plainFrames += 1; renderer.render(scene, camera); return false; }
       if (!active) { plainFrames += 1; composer.render(dt, false); return false; }
       const pass = spellComposer();
-      pass.setPresentation(state.presentation || null);
+      pass.setPresentation(state?.presentation || null);
       pass.render(dt, true);
       spellFrames += 1;
       return true;
@@ -465,6 +466,7 @@ export function createScene(container) {
      * `{ active, presentation }`; null takes the pass out of the frame again.
      */
     setSpellSource(fn) { spellSource = typeof fn === 'function' ? fn : null; },
+    addEffectSource(fn) { effectSources.add(fn); return ()=>effectSources.delete(fn); },
     get spellPass() { return composer; },
     get spellFrames() { return spellFrames; },
     get plainFrames() { return plainFrames; },
@@ -492,6 +494,7 @@ export function createScene(container) {
       window.removeEventListener('resize', onResize);
       if (composer) { composer.dispose(); composer = null; }
       spellSource = null;
+      effectSources.clear();
       renderer.dispose();
       renderer.domElement.remove();
     },

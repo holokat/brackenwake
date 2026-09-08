@@ -1,0 +1,253 @@
+{
+  "glbSha256": "ab35e5cac5aa56f90a164fc1b62e1d2df20bb25fee01c5a93afd5256eca72a39",
+  "source": "actual glTF import through Blender MCP",
+  "armature": "OramRig",
+  "bones": [
+    "hips",
+    "chest",
+    "head",
+    "upperarm_L",
+    "forearm_L",
+    "hand_L",
+    "upperarm_R",
+    "forearm_R",
+    "hand_R",
+    "coat_L",
+    "coat_R",
+    "pouch",
+    "sash",
+    "thigh_L",
+    "shin_L",
+    "foot_L",
+    "thigh_R",
+    "shin_R",
+    "foot_R"
+  ],
+  "meshes": 14,
+  "triangles": 7536,
+  "clips": {
+    "attack": {
+      "seconds": 0.9166666666666666,
+      "min_z": -4.8364114491050714e-08,
+      "max_z": 2.5479841232299805,
+      "end_min_z": -4.8364114491050714e-08,
+      "end_max_z": 1.899999976158142
+    },
+    "cast": {
+      "seconds": 1.1,
+      "min_z": -4.8364114491050714e-08,
+      "max_z": 1.9019887447357178,
+      "end_min_z": -4.8364114491050714e-08,
+      "end_max_z": 1.899999976158142
+    },
+    "die": {
+      "seconds": 1.45,
+      "min_z": -2.5331974029541016e-07,
+      "max_z": 1.9156928062438965,
+      "end_min_z": 5.960464477539063e-08,
+      "end_max_z": 0.40713709592819214
+    },
+    "hurt": {
+      "seconds": 0.45,
+      "min_z": -4.8364114491050714e-08,
+      "max_z": 1.9016108512878418,
+      "end_min_z": -4.8364114491050714e-08,
+      "end_max_z": 1.899999976158142
+    },
+    "idle": {
+      "seconds": 2.4,
+      "min_z": -4.8364114491050714e-08,
+      "max_z": 1.900351643562317,
+      "end_min_z": -4.8364114491050714e-08,
+      "end_max_z": 1.899999976158142
+    },
+    "run": {
+      "seconds": 0.6833333333333333,
+      "min_z": -1.885966582904075e-07,
+      "max_z": 1.905304193496704,
+      "end_min_z": -4.8364114491050714e-08,
+      "end_max_z": 1.9016637802124023
+    },
+    "special": {
+      "seconds": 1.0,
+      "min_z": -4.8364114491050714e-08,
+      "max_z": 1.9039723873138428,
+      "end_min_z": -4.8364114491050714e-08,
+      "end_max_z": 1.899999976158142
+    },
+    "walk": {
+      "seconds": 1.0,
+      "min_z": -1.748932163536665e-07,
+      "max_z": 1.901646375656128,
+      "end_min_z": -4.8364114491050714e-08,
+      "end_max_z": 1.9015594720840454
+    }
+  },
+  "captures": [
+    {
+      "file": "docs/art/old-cellars/blender/oram/front.png",
+      "clip": null,
+      "seconds": 0,
+      "cameraGame": [
+        0,
+        1.03,
+        4
+      ],
+      "targetGame": [
+        0,
+        0.97,
+        0
+      ]
+    },
+    {
+      "file": "docs/art/old-cellars/blender/oram/profile.png",
+      "clip": null,
+      "seconds": 0,
+      "cameraGame": [
+        -4,
+        1.03,
+        0
+      ],
+      "targetGame": [
+        0,
+        0.97,
+        0
+      ]
+    },
+    {
+      "file": "docs/art/old-cellars/blender/oram/rear.png",
+      "clip": null,
+      "seconds": 0,
+      "cameraGame": [
+        0,
+        1.03,
+        -4
+      ],
+      "targetGame": [
+        0,
+        0.97,
+        0
+      ]
+    },
+    {
+      "file": "docs/art/old-cellars/blender/oram/three-quarter.png",
+      "clip": null,
+      "seconds": 0,
+      "cameraGame": [
+        -3,
+        1.9,
+        4
+      ],
+      "targetGame": [
+        0,
+        0.97,
+        0
+      ]
+    },
+    {
+      "file": "docs/art/old-cellars/blender/oram/idle.png",
+      "clip": "idle",
+      "seconds": 0.6,
+      "cameraGame": [
+        -2.7,
+        1.9,
+        4
+      ],
+      "targetGame": [
+        0,
+        0.97,
+        0
+      ]
+    },
+    {
+      "file": "docs/art/old-cellars/blender/oram/walk.png",
+      "clip": "walk",
+      "seconds": 0.25,
+      "cameraGame": [
+        -2.7,
+        1.9,
+        4
+      ],
+      "targetGame": [
+        0,
+        0.97,
+        0
+      ]
+    },
+    {
+      "file": "docs/art/old-cellars/blender/oram/attack-windup.png",
+      "clip": "attack",
+      "seconds": 0.3,
+      "cameraGame": [
+        -2.7,
+        1.9,
+        4
+      ],
+      "targetGame": [
+        -0.05,
+        1.05,
+        0
+      ]
+    },
+    {
+      "file": "docs/art/old-cellars/blender/oram/attack-impact.png",
+      "clip": "attack",
+      "seconds": 0.47,
+      "cameraGame": [
+        -2.7,
+        1.9,
+        4
+      ],
+      "targetGame": [
+        -0.05,
+        1.05,
+        0.15
+      ]
+    },
+    {
+      "file": "docs/art/old-cellars/blender/oram/hurt.png",
+      "clip": "hurt",
+      "seconds": 0.1,
+      "cameraGame": [
+        -2.7,
+        1.9,
+        4
+      ],
+      "targetGame": [
+        0,
+        0.97,
+        0
+      ]
+    },
+    {
+      "file": "docs/art/old-cellars/blender/oram/war-cry.png",
+      "clip": "cast",
+      "seconds": 0.7,
+      "cameraGame": [
+        -2.7,
+        1.9,
+        4
+      ],
+      "targetGame": [
+        0,
+        1.1,
+        0
+      ]
+    },
+    {
+      "file": "docs/art/old-cellars/blender/oram/die.png",
+      "clip": "die",
+      "seconds": 1.43,
+      "cameraGame": [
+        -2.7,
+        2.7,
+        3
+      ],
+      "targetGame": [
+        0,
+        0.35,
+        0.9
+      ]
+    }
+  ]
+}

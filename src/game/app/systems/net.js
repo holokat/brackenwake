@@ -170,8 +170,11 @@ export const net = {
     // ------------------------------------------------------------ the wire --
 
     let client = null;
+    const messageListeners=new Set();
+    const layer=()=>runtime.inDungeon?`${runtime.dungeonLayout()?.siteId||runtime.dungeonSite.id}:${runtime.dungeonLevel}`:'world';
     function onMessage(msg) {
       if (!msg || typeof msg !== 'object') return;
+      for(const fn of messageListeners)fn(msg);
       const nowS = wall();
       if (msg.t === 'effect') {
         stats.effectsIn++;
@@ -218,7 +221,7 @@ export const net = {
 
     function others() {
       const out = [];
-      for (const b of bodies.values()) if (b.actor.health > 0) out.push(b.actor);
+      for (const b of bodies.values()) if (b.actor.health > 0&&(b.rec.layer||'world')===layer()) out.push(b.actor);
       return out;
     }
     function forActor(actor) {
@@ -232,7 +235,7 @@ export const net = {
         let o = h.object;
         for (let n = 0; o && n < 8; n++, o = o.parent) {
           const pid = o.userData && o.userData.remote;
-          if (pid && bodies.has(pid)) { const b = bodies.get(pid); return { pid, name: b.actor.name, actor: b.actor }; }
+          if (pid && bodies.has(pid)) { const b = bodies.get(pid);if((b.rec.layer||'world')!==layer())continue; return { pid, name: b.actor.name, actor: b.actor }; }
         }
       }
       return null;
@@ -249,7 +252,7 @@ export const net = {
       const target = fight.targeting.current;
       const ok = client.send(encodeState({
         pos: player.rig.pos, yaw: player.rig.yaw, speed: player.rig.speed, anim: player.rig.anim,
-        actor: player.actor, target: target && target.remote ? target : null,
+        actor: player.actor, target: target && target.remote ? target : null, layer:layer(),
       }));
       if (ok) { stats.sent++; lastSentWallMs = performance.now(); if (!wall) lastSentAt = nowS; }
       return ok;
@@ -260,6 +263,7 @@ export const net = {
       if (client && client.connected && nowS - lastSentAt >= 1 / STATE_HZ) sendState(nowS);
       for (const pid of remotes.stale(w)) { say(`${remotes.get(pid)?.name || 'Someone'} is lost to the road.`, 'ability'); remotes.forget(pid); drop(pid); }
       for (const body of bodies.values()) {
+        body.rig.group.visible=(body.rec.layer||'world')===layer();if(!body.rig.group.visible)continue;
         const want = remotes.poseAt(body.rec.pid, w);
         if (!want) continue;
         body.rig.studio?.setHidden?.(!!want.hidden);
@@ -283,7 +287,9 @@ export const net = {
     }
 
     return {
-      room, remotes, others, forActor, pick, sendEffect, sendState, step,
+      room, remotes, others, forActor, pick, sendEffect, sendState, step, layer,
+      instance:()=>client?.url?.split('/').at(-1)||room,
+      send:msg=>client?.send(msg)||false, onMessage(fn){messageListeners.add(fn);return()=>messageListeners.delete(fn);},
       get enabled() { return !!client; },
       get connected() { return !!client && client.connected; },
       get pid() { return client ? client.pid : null; },

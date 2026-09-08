@@ -22,6 +22,8 @@ export class Room extends DurableObject {
     this.logic = createRoomLogic();
     this.sockets = new Map();
     this.rebuildSockets();
+    this.raidRevision=-1;
+    ctx.blockConcurrencyWhile(async()=>{this.logic.restoreRaid(await ctx.storage.get('cellarRaid'));});
   }
 
   fetch(request) {
@@ -40,7 +42,7 @@ export class Room extends DurableObject {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  webSocketMessage(ws, message) {
+  async webSocketMessage(ws, message) {
     const msg = parseMessage(message);
     if (!msg || typeof msg !== 'object' || Array.isArray(msg)) return;
 
@@ -58,6 +60,7 @@ export class Room extends DurableObject {
 
     const out = this.logic.handle(connId, msg);
     this.savePlayer(ws, connId);
+    await this.saveRaid();
     this.deliver(out, connId);
   }
 
@@ -116,11 +119,18 @@ export class Room extends DurableObject {
     for (const entry of out.to) this.sendToConn(entry.connId, entry.msg);
   }
 
+  async saveRaid(){
+    if(this.logic.raidRevision!==this.raidRevision){const snapshot=this.logic.saveRaid();await this.ctx.storage.put('cellarRaid',snapshot);this.raidRevision=snapshot.revision;}
+    if(this.logic.raidActive){const at=await this.ctx.storage.getAlarm();if(!at||at>Date.now()+1000)await this.ctx.storage.setAlarm(Date.now()+1000);}
+  }
+
   /** The sweep: every SWEEP_MS, seats nobody has spoken from are emptied. Set on each hello. */
   async alarm() {
     this.ensureSockets();
-    this.deliver(this.logic.sweep(Date.now()), null);
-    if (this.logic.size > 0) await this.ctx.storage.setAlarm(Date.now() + SWEEP_MS);
+    const out=this.logic.sweep(Date.now());
+    await this.saveRaid();
+    this.deliver(out,null);
+    if (this.logic.size > 0) await this.ctx.storage.setAlarm(Date.now() + (this.logic.raidActive?1000:SWEEP_MS));
   }
 
   sendToConn(connId, msg) {

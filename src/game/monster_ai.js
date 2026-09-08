@@ -640,7 +640,7 @@ export function dungeonSpawns(layout, opts = {}) {
   const L = layout && layout.rooms ? layout : normalizeDungeonLayout(layout, opts);
   if (!L) return [];
   if (L.authoredSpawns) return L.authoredSpawns.map((s,i) => ({
-    id:s.id, key:`${L.siteId}:${L.level}:authored:${s.slot}`, groupKey:`${L.siteId}:${L.level}:${s.group}`,
+    ...s, id:s.id, key:`${L.siteId}:${L.level}:authored:${s.slot}`, groupKey:`${L.siteId}:${L.level}:${s.group}`,
     ...cellToWorld(L,s.gx,s.gz), y:0, room:s.room, level:L.level, site:String(L.siteId),
     boss:!!MONSTERS[s.id]?.boss, underground:true, night:false, cx:0,cz:0,i,
   }));

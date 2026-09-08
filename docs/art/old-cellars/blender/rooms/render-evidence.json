@@ -1,0 +1,98 @@
+[
+  {
+    "level": 1,
+    "assetSha256": "57d6d3f5cb6fe059072d61c79ae36a2a247bf8b2610bf39d11756f07918fd36f",
+    "renderer": "Cycles CPU",
+    "samples": 24,
+    "overheadCutaway": "Only the named ceiling material is hidden in overhead views",
+    "views": [
+      "docs/art/old-cellars/blender/rooms/cellar-room-01-hero.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-01-reverse.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-01-overhead.png"
+    ]
+  },
+  {
+    "level": 2,
+    "assetSha256": "186074b5ddb34d311b5f8a477a34498e689190b989aceae3e059df3b05ab0981",
+    "renderer": "Cycles CPU",
+    "samples": 24,
+    "overheadCutaway": "Only the named ceiling material is hidden in overhead views",
+    "views": [
+      "docs/art/old-cellars/blender/rooms/cellar-room-02-hero.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-02-reverse.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-02-overhead.png"
+    ]
+  },
+  {
+    "level": 3,
+    "assetSha256": "98ca334edb2dd74fbfa1a89c45691d5c0aa854fe510d77218fa7428e9678b774",
+    "renderer": "Cycles CPU",
+    "samples": 24,
+    "overheadCutaway": "Only the named ceiling material is hidden in overhead views",
+    "views": [
+      "docs/art/old-cellars/blender/rooms/cellar-room-03-hero.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-03-reverse.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-03-overhead.png"
+    ]
+  },
+  {
+    "level": 4,
+    "assetSha256": "0b4b115b81b0da68c16921ae07812d77b1a3fecfe597b40c8296c8e6f9f47c02",
+    "renderer": "Cycles CPU",
+    "samples": 24,
+    "overheadCutaway": "Only the named ceiling material is hidden in overhead views",
+    "views": [
+      "docs/art/old-cellars/blender/rooms/cellar-room-04-hero.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-04-reverse.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-04-overhead.png"
+    ]
+  },
+  {
+    "level": 5,
+    "assetSha256": "6a75b5c6159f788aeb372bfaee39aba93ae16d865485307b18fc3a939206961f",
+    "renderer": "Cycles CPU",
+    "samples": 24,
+    "overheadCutaway": "Only the named ceiling material is hidden in overhead views",
+    "views": [
+      "docs/art/old-cellars/blender/rooms/cellar-room-05-hero.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-05-reverse.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-05-overhead.png"
+    ]
+  },
+  {
+    "level": 6,
+    "assetSha256": "b03ce6b558266e781b737201b130cf387bc4792fbb2071095583a5d012691ed6",
+    "renderer": "Cycles CPU",
+    "samples": 24,
+    "overheadCutaway": "Only the named ceiling material is hidden in overhead views",
+    "views": [
+      "docs/art/old-cellars/blender/rooms/cellar-room-06-hero.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-06-reverse.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-06-overhead.png"
+    ]
+  },
+  {
+    "level": 7,
+    "assetSha256": "21061ab72821f707e7599676a8ccedeb3865571ffa5b8813fd268679a5e1f5a3",
+    "renderer": "Cycles CPU",
+    "samples": 24,
+    "overheadCutaway": "Only the named ceiling material is hidden in overhead views",
+    "views": [
+      "docs/art/old-cellars/blender/rooms/cellar-room-07-hero.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-07-reverse.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-07-overhead.png"
+    ]
+  },
+  {
+    "level": 8,
+    "assetSha256": "cea1b60349e909cacb37d569f20a8d7e742ea0edf3e34cb63800ed814405b619",
+    "renderer": "Cycles CPU",
+    "samples": 24,
+    "overheadCutaway": "Only the named ceiling material is hidden in overhead views",
+    "views": [
+      "docs/art/old-cellars/blender/rooms/cellar-room-08-hero.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-08-reverse.png",
+      "docs/art/old-cellars/blender/rooms/cellar-room-08-overhead.png"
+    ]
+  }
+]

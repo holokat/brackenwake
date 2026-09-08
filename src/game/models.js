@@ -131,6 +131,7 @@ export const MODEL_CLIPS = {
  * that adds a body at runtime can use it for the same reason.
  */
 export function registerModel(id, spec = {}) {
+  if (spec.url) MODEL_URLS[id] = spec.url;
   if (spec.bank) MODEL_BANK[id] = spec.bank;
   if (spec.alias) CLIP_ALIAS[id] = spec.alias;
   if (spec.clips) MODEL_CLIPS[id] = spec.clips;
@@ -352,9 +353,8 @@ export function abilityMoves(id, abilityId) {
   return [];
 }
 
-export function urlFor(id) {
-  return MODEL_DIR + id + '.glb';
-}
+const MODEL_URLS = Object.create(null);
+export function urlFor(id) { return MODEL_URLS[id] || MODEL_DIR + id + '.glb'; }
 
 // --- loading --------------------------------------------------------------
 

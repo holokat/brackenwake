@@ -1,3 +1,4 @@
+import {createCellarRaid} from './cellar_raid.mjs';
 const STATE_NUMBER_FIELDS = ['yaw', 'sp', 'hp', 'mhp', 'mp', 'mmp', 'st', 'mst'];
 
 const emptyResult = () => ({ toSelf: [], toOthers: [], toAll: [], to: [] });
@@ -25,6 +26,7 @@ const normalizeState = (msg) => {
   if (!p.every(Number.isFinite)) return null;
 
   const state = {
+    ...(typeof msg.layer==='string'&&msg.layer.length<=80?{layer:msg.layer}:{}),
     p,
     yaw: 0,
     sp: 0,
@@ -47,6 +49,8 @@ const normalizeState = (msg) => {
 export const ROOM_CAP = 20;
 
 export function createRoomLogic() {
+  const raid=createCellarRaid();
+  const mergeRaid=(out,events)=>{for(const e of events){if(e.broadcast)out.toAll.push(e.broadcast);else if(e.to)out.to.push({connId:e.to,msg:e.msg});}return out;};
   const byConn = new Map();
   const connByPid = new Map();
 
@@ -111,7 +115,7 @@ export function createRoomLogic() {
       putPlayer(player);
       toOthers.push({ t: 'join', player: publicPlayer(player) });
       return {
-        toSelf: [{ t: 'welcome', pid, players: others }],
+        toSelf: [{ t: 'welcome', pid, players: others },raid.packet([...byConn.values()],Date.now())],
         toOthers,
         toAll: [],
         to: [],
@@ -132,7 +136,7 @@ export function createRoomLogic() {
         evict.push(player.connId);
         toOthers.push({ t: 'leave', pid: player.pid });
       }
-      return { toSelf: [], toOthers, toAll: [], to: [], evict };
+      return mergeRaid({ toSelf: [], toOthers, toAll: [], to: [], evict },raid.tick([...byConn.values()],nowMs));
     },
 
     handle(connId, msg) {
@@ -140,16 +144,18 @@ export function createRoomLogic() {
       if (!player || !isObject(msg)) return emptyResult();
 
       player.seenAt = Date.now();
+      if(msg.t==='raidStrike')return mergeRaid(emptyResult(),raid.strike(player,msg,[...byConn.values()],Date.now()));
+      if(msg.t==='raidAck'){raid.ack(player.pid,msg.run);return emptyResult();}
       if (msg.t === 'state') {
         const state = normalizeState(msg);
         if (!state) return emptyResult();
         player.state = state;
-        return {
+        return mergeRaid({
           toSelf: [],
           toOthers: [{ t: 'state', pid: player.pid, ...state }],
           toAll: [],
           to: [],
-        };
+        },raid.tick([...byConn.values()],Date.now()));
       }
 
       if (msg.t === 'cast') {
@@ -215,6 +221,7 @@ export function createRoomLogic() {
       return emptyResult();
     },
 
+    saveRaid:()=>raid.save(), restoreRaid:raw=>raid.restore(raw), get raidActive(){return raid.active;}, get raidRevision(){return raid.revision;},
     players() {
       return [...byConn.values()].map(fullPlayer);
     },

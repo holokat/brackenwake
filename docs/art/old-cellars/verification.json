@@ -1,0 +1,402 @@
+{
+  "recordedAt": "2026-09-08T17:39:12.504130+00:00",
+  "artAssets": {
+    "assets/models/cellars/vharos.glb": "616995a044f400ca9df20f03fdf884bc43181a10f4381cdd1f9df51bf6609704",
+    "assets/models/cellars/oram/oram.glb": "ab35e5cac5aa56f90a164fc1b62e1d2df20bb25fee01c5a93afd5256eca72a39",
+    "assets/models/cellars/rooms/cellar-room-01.glb": "57d6d3f5cb6fe059072d61c79ae36a2a247bf8b2610bf39d11756f07918fd36f",
+    "assets/models/cellars/rooms/cellar-room-03.glb": "98ca334edb2dd74fbfa1a89c45691d5c0aa854fe510d77218fa7428e9678b774",
+    "assets/models/cellars/rooms/cellar-room-02.glb": "186074b5ddb34d311b5f8a477a34498e689190b989aceae3e059df3b05ab0981",
+    "assets/models/cellars/rooms/cellar-room-06.glb": "b03ce6b558266e781b737201b130cf387bc4792fbb2071095583a5d012691ed6",
+    "assets/models/cellars/rooms/cellar-room-07.glb": "21061ab72821f707e7599676a8ccedeb3865571ffa5b8813fd268679a5e1f5a3",
+    "assets/models/cellars/rooms/cellar-room-05.glb": "6a75b5c6159f788aeb372bfaee39aba93ae16d865485307b18fc3a939206961f",
+    "assets/models/cellars/rooms/cellar-room-04.glb": "0b4b115b81b0da68c16921ae07812d77b1a3fecfe597b40c8296c8e6f9f47c02",
+    "assets/models/cellars/rooms/cellar-room-08.glb": "cea1b60349e909cacb37d569f20a8d7e742ea0edf3e34cb63800ed814405b619"
+  },
+  "rooms": {
+    "count": 8,
+    "triangles": 926345,
+    "flights": 40,
+    "colliders": 852,
+    "effectAnchors": 419
+  },
+  "review": {
+    "renderer": "Existing Brave window, actual Three.js game scene, loaders, compositor and effects",
+    "toneMappingExposure": 0.92,
+    "measurements": [
+      {
+        "depth": 1,
+        "view": "hero",
+        "draws": 275,
+        "triangles": 495011,
+        "blenderLoaded": true,
+        "spellFrames": 1
+      },
+      {
+        "depth": 1,
+        "view": "reverse",
+        "draws": 257,
+        "triangles": 499299,
+        "blenderLoaded": true,
+        "spellFrames": 2
+      },
+      {
+        "depth": 1,
+        "view": "overhead",
+        "draws": 235,
+        "triangles": 442215,
+        "blenderLoaded": true,
+        "spellFrames": 3
+      },
+      {
+        "depth": 2,
+        "view": "hero",
+        "draws": 237,
+        "triangles": 468507,
+        "blenderLoaded": true,
+        "spellFrames": 4
+      },
+      {
+        "depth": 2,
+        "view": "reverse",
+        "draws": 225,
+        "triangles": 472807,
+        "blenderLoaded": true,
+        "spellFrames": 5
+      },
+      {
+        "depth": 2,
+        "view": "overhead",
+        "draws": 197,
+        "triangles": 415891,
+        "blenderLoaded": true,
+        "spellFrames": 6
+      },
+      {
+        "depth": 3,
+        "view": "hero",
+        "draws": 229,
+        "triangles": 567287,
+        "blenderLoaded": true,
+        "spellFrames": 7
+      },
+      {
+        "depth": 3,
+        "view": "reverse",
+        "draws": 217,
+        "triangles": 571587,
+        "blenderLoaded": true,
+        "spellFrames": 8
+      },
+      {
+        "depth": 3,
+        "view": "overhead",
+        "draws": 189,
+        "triangles": 514567,
+        "blenderLoaded": true,
+        "spellFrames": 9
+      },
+      {
+        "depth": 4,
+        "view": "hero",
+        "draws": 353,
+        "triangles": 536027,
+        "blenderLoaded": true,
+        "spellFrames": 10
+      },
+      {
+        "depth": 4,
+        "view": "reverse",
+        "draws": 323,
+        "triangles": 540291,
+        "blenderLoaded": true,
+        "spellFrames": 11
+      },
+      {
+        "depth": 4,
+        "view": "overhead",
+        "draws": 319,
+        "triangles": 483335,
+        "blenderLoaded": true,
+        "spellFrames": 12
+      },
+      {
+        "depth": 5,
+        "view": "hero",
+        "draws": 239,
+        "triangles": 715971,
+        "blenderLoaded": true,
+        "spellFrames": 13
+      },
+      {
+        "depth": 5,
+        "view": "reverse",
+        "draws": 227,
+        "triangles": 720271,
+        "blenderLoaded": true,
+        "spellFrames": 14
+      },
+      {
+        "depth": 5,
+        "view": "overhead",
+        "draws": 199,
+        "triangles": 663019,
+        "blenderLoaded": true,
+        "spellFrames": 15
+      },
+      {
+        "depth": 6,
+        "view": "hero",
+        "draws": 235,
+        "triangles": 732947,
+        "blenderLoaded": true,
+        "spellFrames": 16
+      },
+      {
+        "depth": 6,
+        "view": "reverse",
+        "draws": 217,
+        "triangles": 736983,
+        "blenderLoaded": true,
+        "spellFrames": 17
+      },
+      {
+        "depth": 6,
+        "view": "overhead",
+        "draws": 195,
+        "triangles": 680139,
+        "blenderLoaded": true,
+        "spellFrames": 18
+      },
+      {
+        "depth": 7,
+        "view": "hero",
+        "draws": 229,
+        "triangles": 569539,
+        "blenderLoaded": true,
+        "spellFrames": 19
+      },
+      {
+        "depth": 7,
+        "view": "reverse",
+        "draws": 233,
+        "triangles": 574023,
+        "blenderLoaded": true,
+        "spellFrames": 20
+      },
+      {
+        "depth": 7,
+        "view": "overhead",
+        "draws": 205,
+        "triangles": 516919,
+        "blenderLoaded": true,
+        "spellFrames": 21
+      },
+      {
+        "shadowLights": [
+          {
+            "name": "sun-light",
+            "visible": false
+          }
+        ]
+      },
+      {
+        "depth": 8,
+        "view": "hero",
+        "draws": 551,
+        "triangles": 693593,
+        "blenderLoaded": true,
+        "spellFrames": 24
+      },
+      {
+        "depth": 8,
+        "view": "reverse",
+        "draws": 593,
+        "triangles": 699297,
+        "blenderLoaded": true,
+        "spellFrames": 25
+      },
+      {
+        "depth": 8,
+        "view": "overhead",
+        "draws": 675,
+        "triangles": 643089,
+        "blenderLoaded": true,
+        "spellFrames": 26
+      },
+      {
+        "viewport": "desktop",
+        "width": 1440,
+        "height": 900,
+        "medianRenderMs": 1.9000000953674316,
+        "p95RenderMs": 4,
+        "geometries": 367,
+        "textures": 42,
+        "hud": {
+          "width": 480,
+          "buttonHeight": 40,
+          "font": "14px",
+          "variants": [
+            {
+              "attack": "gravesurge",
+              "width": 480,
+              "bottom": 253.59375,
+              "text": "The inner ring breaks. Run beyond the amber circle. 4.2s"
+            },
+            {
+              "attack": "funeralCross",
+              "width": 480,
+              "bottom": 253.59375,
+              "text": "Four tomb roads ignite. Leave the violet cross. 4.8s"
+            },
+            {
+              "attack": "hollowStar",
+              "width": 480,
+              "bottom": 253.59375,
+              "text": "The outer vault collapses. Gather inside the blue ring. 5.0s"
+            },
+            {
+              "attack": "tombfall",
+              "width": 480,
+              "bottom": 253.59375,
+              "text": "Falling tombs mark your positions. Keep moving. 4.0s"
+            }
+          ],
+          "attackClickVerified": true,
+          "disabledAtNine": true,
+          "focusVerified": true
+        },
+        "spellFrames": 74
+      },
+      {
+        "viewport": "mobile",
+        "width": 390,
+        "height": 844,
+        "medianRenderMs": 1.6000001430511475,
+        "p95RenderMs": 2.9000000953674316,
+        "geometries": 367,
+        "textures": 42,
+        "hud": {
+          "width": 350,
+          "buttonHeight": 40,
+          "font": "14px",
+          "variants": [
+            {
+              "attack": "gravesurge",
+              "width": 350,
+              "bottom": 273.1875,
+              "text": "The inner ring breaks. Run beyond the amber circle. 4.2s"
+            },
+            {
+              "attack": "funeralCross",
+              "width": 350,
+              "bottom": 273.1875,
+              "text": "Four tomb roads ignite. Leave the violet cross. 4.8s"
+            },
+            {
+              "attack": "hollowStar",
+              "width": 350,
+              "bottom": 273.1875,
+              "text": "The outer vault collapses. Gather inside the blue ring. 5.0s"
+            },
+            {
+              "attack": "tombfall",
+              "width": 350,
+              "bottom": 273.1875,
+              "text": "Falling tombs mark your positions. Keep moving. 4.0s"
+            }
+          ],
+          "attackClickVerified": true,
+          "disabledAtNine": true,
+          "focusVerified": true
+        },
+        "spellFrames": 115
+      },
+      {
+        "viewport": "landscape",
+        "width": 844,
+        "height": 390,
+        "medianRenderMs": 1.7000000476837158,
+        "p95RenderMs": 2.200000047683716,
+        "geometries": 367,
+        "textures": 42,
+        "hud": {
+          "width": 380,
+          "buttonHeight": 40,
+          "font": "14px",
+          "variants": [
+            {
+              "attack": "gravesurge",
+              "width": 380,
+              "bottom": 177.59375,
+              "text": "The inner ring breaks. Run beyond the amber circle. 4.2s"
+            },
+            {
+              "attack": "funeralCross",
+              "width": 380,
+              "bottom": 177.59375,
+              "text": "Four tomb roads ignite. Leave the violet cross. 4.8s"
+            },
+            {
+              "attack": "hollowStar",
+              "width": 380,
+              "bottom": 197.1875,
+              "text": "The outer vault collapses. Gather inside the blue ring. 5.0s"
+            },
+            {
+              "attack": "tombfall",
+              "width": 380,
+              "bottom": 177.59375,
+              "text": "Falling tombs mark your positions. Keep moving. 4.0s"
+            }
+          ],
+          "attackClickVerified": true,
+          "disabledAtNine": true,
+          "focusVerified": true
+        },
+        "spellFrames": 156
+      }
+    ],
+    "limitations": [
+      "Render timings were measured on the development Mac, not a physical phone.",
+      "Viewport layout used real iframe media queries; no native phone input test was performed.",
+      "Ten automated local WebSocket clients exercised the raid. A ten-person balance playtest remains needed."
+    ]
+  },
+  "validation": {
+    "cellarIntegrationSuites": 13,
+    "tenLocalWebSocketClients": true,
+    "productionBuild": true,
+    "wiringTestsPassed": 192,
+    "knownBaselineFailures": [
+      "Eight editor fixture failures also reproduce in the existing development checkout.",
+      "Wayside cold-furniture timing measured 2.59 ms in staging and 2.63 ms in the existing checkout against a 2 ms limit."
+    ],
+    "resolvedTimingChecks": [
+      "Roads: 39 passed.",
+      "Terrain edits: 221 passed."
+    ],
+    "logFingerprints": {
+      "acceptance": {
+        "sha256": "b2d00b8be735a5cf17ccfe58dc2b59aa18a4a32b35f5d62df8b9396c54152646"
+      },
+      "wholeGame": {
+        "sha256": "e07c54f21082d5d86476199f7ccc472cc45e794f7ad7f8f60ced8504c7126db5"
+      },
+      "editorBaseline": {
+        "sha256": "372a17d1ff0fbf15a5851b43b5d4d4c517d76fdfe821c19445fb7982ae633359"
+      },
+      "waysideBaseline": {
+        "sha256": "5919555b51ddabf2d7ab733b60140fa45a177ab7de7d0e0367450d926d0dd389"
+      },
+      "roadsRepeat": {
+        "sha256": "bbfff600b0e0cf14f85d5acbdbdeac8f7e63df2bd5f9a43480bb3ee0896ae370"
+      },
+      "terrainRepeat": {
+        "sha256": "b1b8059fba64d48102ed6b3c0b078b0ad5bb285814df93b145424d0914e0058e"
+      },
+      "wiring": {
+        "sha256": "7d275df7bb7ddedfe39b97fb08eb05185f3ed5368cee576cad757c071aac1d9a"
+      }
+    }
+  }
+}

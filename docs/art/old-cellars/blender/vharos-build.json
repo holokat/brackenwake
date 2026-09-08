@@ -1,0 +1,15 @@
+{
+  "vertices": 4842,
+  "triangles": 8800,
+  "bones": 15,
+  "materials": 7,
+  "clips": {
+    "idle": 4.0,
+    "gravesurge": 5.6,
+    "funeralcross": 6.1,
+    "hollowstar": 6.4,
+    "tombfall": 5.4,
+    "hurt": 0.7,
+    "die": 8.0
+  }
+}

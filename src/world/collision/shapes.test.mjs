@@ -23,3 +23,14 @@ let felled=false;const tree=createCollisionIndex([{kind:'circle',x:0,z:0,y:0,r:.
 assert.equal(tree.canMove({x:0,y:0,z:-1},{x:0,y:0,z:1}),false);felled=true;
 assert.equal(tree.canMove({x:0,y:0,z:-1},{x:0,y:0,z:1}),true,'harvesting removes the obstruction immediately');
 console.log('Collision: swept wall, rotated envelope, saved-position escape, arch clearance, head bump, platform landing and harvested trunk passed.');
+
+// A suspended stair has a sloping underside. It leaves the lower flight traversable.
+{
+ const ramp={kind:'ramp',x:0,y:6,z:0,w:5,d:24,h:6,c:1,s:0,direction:-1,thickness:.4};
+ const thin=createCollisionIndex([ramp]),solid=createCollisionIndex([{...ramp,thickness:undefined}]);
+ const from={x:0,y:4.2,z:4.8},to={x:0,y:4.3,z:5};
+ if(!thin.canMove(from,to,.3,1.8))throw Error('Suspended ramp blocks its lower flight');
+ if(solid.canMove(from,to,.3,1.8))throw Error('Solid ramp control failed to block');
+ const roof=thin.ceilingAt(0,4.8,4.2,1.8);if(Math.abs(roof-7.4)>.001)throw Error('Suspended ramp underside is not sloped');
+ if(thin.at(0,7.5,4.8,.3,.1)===null)throw Error('Suspended stair surface became pass-through');
+}

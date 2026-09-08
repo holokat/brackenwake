@@ -514,7 +514,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
    * status so a corpse does not go on bleeding, and tells the listeners.
    */
   function kill(actor, killer) {
-    if (!actor || actor.dead) return;
+    if (!actor || actor.dead || actor.externalHealth) return;
     actor.health = 0;
     actor.dead = true;
     actor.anim = 'die';
@@ -546,6 +546,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
   function hurt(actor, amount, opts = {}) {
     const n = Math.max(0, Math.round(num(amount)));
     if (!alive(actor) || n <= 0) return 0;
+    if(actor.damageReceiver){actor.damageReceiver(n,{attacker:opts.killer,kind:'spell'});return 0;}
     // the dev bench's god mode: poison, bleed and falls all come through here
     if (actor.godMode) return 0;
     const before = num(actor.health);
@@ -925,7 +926,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
 
     attacker.stamina = Math.max(0, num(attacker.stamina) - num(res.staminaCost));
     if (res.damage > 0) {
-      defender.health = Math.max(0, num(defender.health) - res.damage);
+      if(defender.damageReceiver)defender.damageReceiver(res.damage,{attacker,kind:'melee'});else defender.health = Math.max(0, num(defender.health) - res.damage);
       defender.anim = defender.health > 0 ? 'hurt' : 'die';
       touch(defender, now);
       // whoever hit it last is who it turns on: 02-COMBAT's own targeting rule
@@ -980,7 +981,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     const res = resolveSpell({ caster: attacker, target: defender, spell, rng, now });
     if (defender.godMode) { res.damage = 0; res.killed = false; res.numbers = (res.numbers || []).filter((n) => n.kind !== 'damage'); }
     if (res.damage > 0) {
-      defender.health = Math.max(0, num(defender.health) - res.damage);
+      if(defender.damageReceiver)defender.damageReceiver(res.damage,{attacker,kind:'spell'});else defender.health = Math.max(0, num(defender.health) - res.damage);
       defender.anim = defender.health > 0 ? 'hurt' : 'die';
       touch(defender, now);
       if (defender.ai) { defender.ai.target = attacker; defender.ai.hurtAt = now; }

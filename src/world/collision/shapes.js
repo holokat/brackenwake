@@ -35,7 +35,8 @@ export function rampHeight(body,x,z){
 export function overlaps(body,x,y,z,radius=.32,height=1.75){
  if(body.enabled&&!body.enabled())return false;
  const top=body.kind==='ramp'?rampHeight(body,x,z):body.y+body.h;
- if(y>=top-.04||y+height<=body.y+.04)return false;
+ const bottom=body.kind==='ramp'&&body.thickness>0?top-body.thickness:body.y;
+ if(y>=top-.04||y+height<=bottom+.04)return false;
  const dx=x-body.x,dz=z-body.z;
  if(body.kind==='circle')return dx*dx+dz*dz<(radius+body.r)**2;
  const a=Math.max(0,Math.abs(dx*body.c-dz*body.s)-body.w/2),b=Math.max(0,Math.abs(dx*body.s+dz*body.c)-body.d/2);
@@ -58,7 +59,7 @@ export function createCollisionIndex(bodies=[],cell=16){
     const y=rampHeight(b,x,z);if(a<=b.w/2&&v<=b.d/2&&y<=below)top=Math.max(top,y);
    }else if(b.y+b.h<=below&&overlaps(b,x,b.y+.05,z,r,.1))top=Math.max(top,b.y+b.h);
   }return top;},
-  ceilingAt(x,z,feet,height=1.75,r=.3){let bottom=Infinity;for(const b of near(x,z))if(b.y>=feet+height-.04&&overlaps(b,x,b.y+.05,z,r,.1))bottom=Math.min(bottom,b.y);return bottom;},
+  ceilingAt(x,z,feet,height=1.75,r=.3){let bottom=Infinity;for(const b of near(x,z)){const y=b.kind==='ramp'&&b.thickness>0?rampHeight(b,x,z)-b.thickness:b.y;if(y>=feet+height-.04&&overlaps(b,x,y+.05,z,r,.1))bottom=Math.min(bottom,y);}return bottom;},
   canMove(from,to,r=.32,h=1.75){
    const n=Math.max(1,Math.ceil(Math.hypot(to.x-from.x,to.z-from.z)/Math.max(.02,Math.min(.16,r*.5))));
    for(let i=1;i<=n;i++){const t=i/n,x=from.x+(to.x-from.x)*t,y=from.y+(to.y-from.y)*t,z=from.z+(to.z-from.z)*t;

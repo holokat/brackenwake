@@ -26,8 +26,8 @@ export function authoredPick(site,piece,point,spaces=SPACES) {
   const p=matches.sort((a,b)=>Math.hypot(s.at.x+a.x-point.x,s.at.z+a.z-point.z)-Math.hypot(s.at.x+b.x-point.x,s.at.z+b.z-point.z))[0];
   if(!p)return null;
   const at={x:s.at.x+p.x,z:s.at.z+p.z};
-  if(piece==='cellar_arch'&&s.id==='greenwold_oldcellars')return {kind:'site',site:{...site,...at,id:`entry:${s.id}`,sub:'oldcellars',kind:'dungeon',realm:'greenwold',levels:1}};
-  if(piece==='mine_mouth')return {kind:'site',site:{...site,...at,id:`entry:${s.id}:${p.x}`,sub:'greenwoldpits',kind:'cave',realm:'greenwold',levels:1,oreBand:['copper','tin']}};
+  if(piece==='cellar_arch'&&s.id==='greenwold_oldcellars')return {kind:'site',site:{...site,...at,id:`entry:${s.id}`,sub:'oldcellars',kind:'dungeon',realm:'greenwold',levels:8}};
+  if(piece==='mine_mouth')return {kind:'site',site:{...site,...at,id:`entry:${s.id}:${p.x}`,sub:'greenwoldpits',kind:'cave',realm:'greenwold',levels:8,oreBand:['copper','tin']}};
   if(piece==='loot_sack'){
     const hub=STRONGHOLDS.find(h=>'greenwold_'+h.id===s.id);
     return {kind:'chest',chest:{...at,kind:hub?'chest':'cache',siteId:s.id,level:1,i:s.pieces.indexOf(p),tier:hub?.tier||1,locked:false,...(hub?{key:'encounter-reward:'+hub.id,encounter:hub.id}:{})}};

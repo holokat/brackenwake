@@ -21,3 +21,10 @@ dist-marketing/
 
 # Intermediate generated media; final loop lives in public/ui.
 outputs/background-video/ambient-source.mp4
+
+# Local authoring caches and task evidence. Editable .blend sources are kept.
+__pycache__/
+*.blend1
+*.blend2
+.unlazy/
+.unlazy-hook-state.json

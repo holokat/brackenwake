@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import * as T from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createBlenderVharos } from './cellar_blender_boss.js';
+import { RAID_ATTACKS } from '../mmo/cellar_raid_rules.js';
+const bytes = await readFile(new URL('../../assets/models/cellars/vharos.glb', import.meta.url));
+const asset = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
+let freedFallback = 0, freedGeometry = 0;
+asset.scene.traverse(o => o.geometry?.addEventListener('dispose', () => freedGeometry++));
+const fallback = () => ({ group: new T.Group(), dispose() { freedFallback++; this.group.removeFromParent(); }, update() { }, setDead() { } });
+const a = createBlenderVharos(fallback(), { load: async () => asset }), b = createBlenderVharos(fallback(), { load: async () => asset });
+assert(await a.ready);
+assert(await b.ready);
+assert.equal(freedFallback, 2);
+assert.equal(a.animation, 'idle');
+const ownMats = [];
+a.group.traverse(o => { if (o.isSkinnedMesh)
+    ownMats.push(o.material); });
+const sourceMats = [];
+asset.scene.traverse(o => { if (o.isSkinnedMesh)
+    sourceMats.push(o.material); });
+assert(ownMats.every(m => !sourceMats.includes(m)));
+let freedMaterial = 0;
+ownMats.forEach(m => m.addEventListener('dispose', () => freedMaterial++));
+for (const [i, attack] of RAID_ATTACKS.entries()) {
+    const event = { ...attack, event: 'pose:' + i, landAt: 10000, marks: [[0, 0]] };
+    a.setAttack(event, 10000 - attack.windup / 2);
+    a.update(0);
+    assert.equal(a.animation, attack.id.toLowerCase());
+    a.group.updateMatrixWorld(true);
+    const head = a.group.getObjectByName('head');
+    assert(head?.quaternion.toArray().every(Number.isFinite));
+    a.cancelAttack();
+    a.update(.1);
+    assert.equal(a.animation, 'idle');
+}
+a.setDead(true);
+assert.equal(a.animation, 'die');
+a.cancelAttack();
+assert.equal(a.animation, 'die');
+for (let i = 0; i < 40; i++)
+    a.update(.1);
+assert.equal(a.group.children.find(o => o.isPointLight).intensity, 0);
+a.setDead(false);
+assert.equal(a.animation, 'idle');
+a.dispose();
+a.dispose();
+assert.equal(freedMaterial, ownMats.length);
+assert.equal(freedGeometry, 0, 'Shared cached GLB buffers survive another actor disposal');
+b.update(.016);
+assert.equal(b.loaded, true);
+b.dispose();
+let resolve;
+const pending = createBlenderVharos(fallback(), { load: () => new Promise(r => resolve = r) });
+pending.dispose();
+resolve(asset);
+assert.equal(await pending.ready, false);
+assert.equal(freedGeometry, 0);
+const warn = console.warn;
+console.warn = () => { };
+const failed = createBlenderVharos(fallback(), { load: async () => { throw Error('fixture offline'); } });
+assert.equal(await failed.ready, false);
+assert.equal(failed.loaded, false);
+failed.dispose();
+console.warn = warn;
+console.log('Blender boss passed: actual GLB, four synchronized clips, cancellation, defeat, revival, independent materials and disposal during loading.');

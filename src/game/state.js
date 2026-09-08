@@ -1,3 +1,4 @@
+import {hydrateRaidRewards} from './cellar_rewards.js';
 import {hydrateMining} from './surface_mining.js';
 // The character document, and the old pack views laid over the top of it.
 //
@@ -1231,6 +1232,7 @@ export function hydrate(raw) {
   // the first hour (S2): a beat fires once per character, ever, so the list has
   // to survive a reload or Old Wynn tells you about the Standing Hedge again
   if(raw.mining)doc.mining=hydrateMining(raw.mining);
+  if(raw.raidRewards)doc.raidRewards=hydrateRaidRewards(raw.raidRewards);
   if (raw.story && typeof raw.story === 'object' && !Array.isArray(raw.story)) doc.story = { ...raw.story };
   // and the stones this character has put a hand on, with the day clock stamp of
   // the last time each carried them (S2); both readers take a half written record

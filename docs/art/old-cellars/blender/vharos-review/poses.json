@@ -1,0 +1,27 @@
+[
+  {
+    "clip": "gravesurge",
+    "seconds": 3.65,
+    "image": "/private/tmp/cellars-sandbox/docs/art/old-cellars/blender/vharos-review/gravesurge.png"
+  },
+  {
+    "clip": "funeralcross",
+    "seconds": 4.8,
+    "image": "/private/tmp/cellars-sandbox/docs/art/old-cellars/blender/vharos-review/funeralcross.png"
+  },
+  {
+    "clip": "hollowstar",
+    "seconds": 5,
+    "image": "/private/tmp/cellars-sandbox/docs/art/old-cellars/blender/vharos-review/hollowstar.png"
+  },
+  {
+    "clip": "tombfall",
+    "seconds": 3.4,
+    "image": "/private/tmp/cellars-sandbox/docs/art/old-cellars/blender/vharos-review/tombfall.png"
+  },
+  {
+    "clip": "die",
+    "seconds": 8,
+    "image": "/private/tmp/cellars-sandbox/docs/art/old-cellars/blender/vharos-review/die.png"
+  }
+]

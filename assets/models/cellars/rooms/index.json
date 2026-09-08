@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "rooms": [
+    {
+      "level": 1,
+      "file": "assets/models/cellars/rooms/cellar-room-01.glb",
+      "manifest": "assets/models/cellars/rooms/cellar-room-01.json"
+    },
+    {
+      "level": 2,
+      "file": "assets/models/cellars/rooms/cellar-room-02.glb",
+      "manifest": "assets/models/cellars/rooms/cellar-room-02.json"
+    },
+    {
+      "level": 3,
+      "file": "assets/models/cellars/rooms/cellar-room-03.glb",
+      "manifest": "assets/models/cellars/rooms/cellar-room-03.json"
+    },
+    {
+      "level": 4,
+      "file": "assets/models/cellars/rooms/cellar-room-04.glb",
+      "manifest": "assets/models/cellars/rooms/cellar-room-04.json"
+    },
+    {
+      "level": 5,
+      "file": "assets/models/cellars/rooms/cellar-room-05.glb",
+      "manifest": "assets/models/cellars/rooms/cellar-room-05.json"
+    },
+    {
+      "level": 6,
+      "file": "assets/models/cellars/rooms/cellar-room-06.glb",
+      "manifest": "assets/models/cellars/rooms/cellar-room-06.json"
+    },
+    {
+      "level": 7,
+      "file": "assets/models/cellars/rooms/cellar-room-07.glb",
+      "manifest": "assets/models/cellars/rooms/cellar-room-07.json"
+    },
+    {
+      "level": 8,
+      "file": "assets/models/cellars/rooms/cellar-room-08.glb",
+      "manifest": "assets/models/cellars/rooms/cellar-room-08.json"
+    }
+  ]
+}

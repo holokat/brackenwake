@@ -1,3 +1,4 @@
+import {cellar_raid} from './cellar_raid.js';
 // The systems, in the order the frame runs them.
 //
 // This list is the whole of what the game is made of. Adding a feature is
@@ -22,8 +23,8 @@ import { input } from './input.js';
 import { net } from './net.js';
 
 /** The frame order of docs/mmo/07-RUNTIME-CONTRACT.md, by name. */
-export const FRAME_ORDER = ['world', 'player', 'emotes', 'combat', 'abilities', 'inventory', 'world_life', 'events', 'story', 'ui', 'sound', 'net', 'context_menu', 'dev', 'input'];
+export const FRAME_ORDER = ['world', 'player', 'emotes', 'combat', 'abilities', 'inventory', 'world_life', 'events', 'story', 'ui', 'sound', 'net', 'cellar_raid', 'context_menu', 'dev', 'input'];
 
-export const SYSTEMS = [world, player, emotes, combat, abilities, inventory, world_life, events, story, ui, sound, net, context_menu, dev, input];
+export const SYSTEMS = [world, player, emotes, combat, abilities, inventory, world_life, events, story, ui, sound, net, cellar_raid, context_menu, dev, input];
 
-export { world, player, emotes, combat, abilities, inventory, world_life, events, story, ui, sound, net, context_menu, dev, input };
+export { world, player, emotes, combat, abilities, inventory, world_life, events, story, ui, sound, net, cellar_raid, context_menu, dev, input };

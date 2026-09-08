@@ -44,6 +44,8 @@ Contributions are welcome, whether you want to work on code, art, animations, wo
 
 Fork this repository to change the game, create a world or reuse its components. The companion [game-assets repository](https://github.com/holokat/game-assets) contains the asset studio and reusable collections. Follow that repository's setup instructions and preserve its asset-specific license notices when importing files.
 
+The [Old Cellars art and encounter guide](docs/art/old-cellars/README.md) includes generated concept sheets, editable Blender rooms and bosses, animation builders, collision manifests and validation commands. Contributions to encounter balance and dungeon playtesting are welcome.
+
 Useful starting points:
 
 - `src/game/`: game client and interface.
@@ -51,6 +53,7 @@ Useful starting points:
 - `src/world/`: world generation.
 - `server/`: multiplayer Worker and rooms.
 - `public/`: models, textures, sounds and interface artwork.
+- `assets/models/cellars/`: bundled dungeon models and editable room sources.
 - `src/welcome/` and `welcome/`: the marketing hero.
 - `docs/mmo/`: design documents and implementation notes. Some documents describe planned work; check the implementation before relying on a feature.
 - `legacy/`: the earlier farming game.

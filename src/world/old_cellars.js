@@ -1,62 +1,68 @@
-// The mill's occupied cellars: broad fighting rooms, two flanking loops, and
-// a defended command hall. Every room, patrol and furnishing has a fixed place.
 import {CELL,ROCK,FLOOR,worldOf} from './dungeon_gen.js';
-export const CELLAR_ROOMS=[
- ['entry',40,88,16,16,'entry'], ['stores',13,68,20,16,'room'],
- ['guardroom',38,64,20,18,'hall'], ['cistern',67,65,18,19,'room'],
- ['crypt',12,32,20,22,'room'], ['crosshall',39,34,19,20,'hall'],
- ['barracks',67,32,19,20,'room'], ['command',35,5,28,20,'boss'],
- ['vault',10,9,16,14,'room'],
+import {CELLAR_DEPTHS,RAID} from '../mmo/cellar_raid_rules.js';
+import {configureCellarLandmark,clearCellarPlacement} from './cellar_landmark_layout.js';
+export const CELLAR_THEMES=[
+ {name:'The occupied cellars',room:'Broken wine vault',color:0xd29a62,ore:0x514f48,foes:['bandit','banditArcher','skeleton'],ceiling:18},
+ {name:'The drowned ossuary',room:'The sunken reliquary',color:0x67c5c9,ore:0x354957,foes:['skeleton','ossuaryCrawler','wraith'],ceiling:23},
+ {name:'The tomb of bells',room:'The bellkeeper’s tomb',color:0xa799e8,ore:0x494452,foes:['hushWraith','boneKnight','wraith'],ceiling:28},
+ {name:'The ember catacombs',room:'The funeral furnace',color:0xff9956,ore:0x514039,foes:['emberRevenant','hushWraith','lich'],ceiling:33},
+ {name:'The chained library',room:'The lich’s archive',color:0x80cfb1,ore:0x354a47,foes:['chainedLich','emberRevenant','lich'],ceiling:39},
+ {name:'The inverted crypt',room:'The hanging sarcophagi',color:0x94b3ed,ore:0x3b414f,foes:['vaultBehemoth','chainedLich','hushWraith'],ceiling:46},
+ {name:'The titan graves',room:'The grave of the first king',color:0xc8a7ed,ore:0x413749,foes:['sepulcherWarden','vaultBehemoth','chainedLich'],ceiling:55},
+ {name:'The buried cathedral',room:'The heart beneath the world',color:0xf0be74,ore:0x34353d,foes:['sepulcherWarden','vaultBehemoth'],ceiling:82},
 ];
-// Centre lines and widths in grid cells. The centre route is 12 m wide;
-// flanking routes are 8 m wide, wide enough to fight while passing a companion.
-export const CELLAR_PASSAGES=[
- [48,96,48,15,6], [23,76,76,76,4], [23,76,23,43,4],
- [23,43,76,43,4], [76,76,76,43,4], [18,43,18,16,4],
-];
-export function createOldCellars(seed,site){
- const w=96,h=112;
- const L={kind:'dungeon',authored:true,level:1,top:1,bottom:true,w,h,cellSize:CELL,corridorW:6,
-  id:site.id,siteId:'oldcellars',name:site.name,seed,cx:site.cx||0,cz:site.cz||0,
-  cells:Array(w*h).fill(ROCK),rooms:CELLAR_ROOMS.map(([id,x,z,w,h,kind])=>({id,x,z,w,h,cx:x+(w>>1),cz:z+(h>>1),kind})),
-  entrance:{gx:48,gz:98},stair:null,tags:{},ore:[],chests:[],arena:7,bossLair:'oldcellars',tier:2,
-  ceilingProfile:{corridor:10,room:12,hall:14,boss:18},
-  palette:{floor:0x766b5c,wallA:0x826c5a,wallB:0x695b52,ceiling:0x3e434a,
-   bg:0x090f17,fog:0x101923,fogNear:14,fogFar:85,ambient:0x879fb3,ambientI:.34,fill:0x739bb7,fillI:.3},
-  authoredSpawns:[],torchCells:[],furnishings:[],
- };
- const carve=(x,z)=>{if(x>0&&z>0&&x<w-1&&z<h-1)L.cells[z*w+x]=FLOOR;};
- for(const r of L.rooms)for(let z=r.z;z<r.z+r.h;z++)for(let x=r.x;x<r.x+r.w;x++)carve(x,z);
- for(const [x1,z1,x2,z2,width] of CELLAR_PASSAGES){
-  const n=Math.max(Math.abs(x2-x1),Math.abs(z2-z1));
-  for(let i=0;i<=n;i++)for(let a=-width/2;a<width/2;a++)carve(x1+Math.sign(x2-x1)*i+(x1===x2?a:0),z1+Math.sign(z2-z1)*i+(z1===z2?a:0));
- }
- L.tags[L.entrance.gz*w+L.entrance.gx]='entrance';
- // Squads share a rally group; chambers keep their own fights.
- const squad=(room,group,units)=>units.forEach(([id,gx,gz])=>L.authoredSpawns.push({id,gx,gz,room,group,slot:L.authoredSpawns.length}));
- squad(2,'gate',[['bandit',44,78],['bandit',51,78],['banditArcher',42,70],['banditArcher',53,70],['bandit',46,72],['bandit',49,72]]);
- squad(1,'stores',[['giantRat',17,79],['giantRat',20,80],['giantRat',17,74],['bandit',26,79],['bandit',29,74],['banditArcher',28,70]]);
- squad(3,'cistern',[['giantSpider',70,80],['giantSpider',80,80],['giantRat',71,68],['giantRat',80,68],['giantRat',81,75]]);
- squad(4,'crypt',[['goblinScout',16,49],['goblinWarrior',21,50],['goblinWarrior',27,49],['goblinScout',16,36],['goblinWarrior',23,36],['giantSpider',28,36],['giantSpider',28,43]]);
- squad(5,'crosshall',[['bandit',43,50],['bandit',52,50],['bandit',44,44],['bandit',52,44],['banditArcher',42,37],['banditArcher',54,37]]);
- squad(6,'barracks',[['bandit',70,47],['bandit',75,47],['bandit',81,47],['bandit',71,40],['banditArcher',77,35],['banditArcher',82,35]]);
- squad(8,'vault',[['goblinWarrior',13,18],['goblinWarrior',22,18],['goblinScout',13,12],['goblinScout',22,12]]);
- squad(7,'hall-door',[['bandit',39,22],['bandit',45,22],['bandit',52,22],['bandit',59,22],['banditArcher',39,16],['banditArcher',59,16]]);
- squad(7,'oram',[['oramBlackhand',49,11],['bandit',45,11],['bandit',53,11],['banditArcher',40,8],['banditArcher',58,8]]);
- for(const [gx,gz,kind] of [[49,7,'chest'],[18,11,'chest'],[30,81,'cache'],[82,50,'cache'],[13,51,'cache']]){
-  const i=L.chests.length;L.tags[gz*w+gx]='chest';L.chests.push({i,gx,gz,...worldOf(L,gx,gz),y:0,kind,locked:kind==='chest',trapped:false,tier:2,key:`oldcellars:1:authored:${i}`});
- }
- // Sconces follow walls and corridor mouths. No random braziers in the lanes.
- for(const r of L.rooms)for(const dx of [2,r.w-3])for(const dz of [0,r.h-1])L.torchCells.push([r.x+dx,r.z+dz]);
- for(const gz of [28,58,85])L.torchCells.push([45,gz],[50,gz]);
- const add=(kind,gx,gz,w,d,h,yaw=0)=>L.furnishings.push({kind,gx,gz,w,d,h,yaw,...worldOf(L,gx,gz)});
- // Cargo against store walls, bunks against the barracks walls, stone tombs
- // inside the crypt, and a ringed cistern leaving a generous aisle on each side.
- for(const gz of [71,76,81])add('cargo',14,gz,2.4,3.2,2.4);
- for(const gz of [34,40,47]){add('bunk',68,gz,2.2,4.2,2.7);add('bunk',84,gz,2.2,4.2,2.7);}
- for(const gz of [38,46])for(const gx of [14,30])add('tomb',gx,gz,2.2,4.2,1.5);
- add('cistern',76,74,10,12,1.3);
- add('table',49,8,6,2.8,1.5);
- for(const gx of [36,61])for(const gz of [10,18])add('column',gx,gz,1.5,1.5,18);
- return L;
+export function cellarHeight(level,z){
+ // Landings at both exits are flat; the interior descends, climbs and drops
+ // again along continuous slopes, shared by geometry and character physics.
+ if(level===8)return 0;
+ const t=Math.max(0,Math.min(1,(165-z)/315));
+ if(t<.08||t>.94)return 0;
+ return Math.sin((t-.08)/.86*Math.PI*4)*(3+level*.6);
 }
+export function createOldCellars(seed,site,depth=1){
+ const level=Math.max(1,Math.min(CELLAR_DEPTHS,Math.floor(depth))),theme=CELLAR_THEMES[level-1];
+ const w=level===8?192:144,h=level===8?216:196;
+ const room=(id,name,cx,cz,rw,rh,kind='room')=>({id,name,cx,cz,x:cx-Math.floor(rw/2),z:cz-Math.floor(rh/2),w:rw,h:rh,kind});
+ const rooms=level===8?[
+  room(0,'The last vigil',96,195,28,22,'entry'),room(1,'The threshold of ten',96,162,36,30,'hall'),
+  room(2,theme.room,96,92,82,82,'boss'),room(3,'Western reliquary',31,95,30,34),room(4,'Eastern reliquary',161,95,30,34),room(5,'The silent apse',96,26,38,28),
+ ]:[room(0,'The returning stair',72,181,24,22,'entry'),
+  room(1,'The broken nave',68+(level%3)*4,146,38,30,'hall'),room(2,'Forgotten burial chambers',26,147,30,34),
+  room(3,'The side crypt',119,151,28,26),room(4,theme.room,70,101,48,38,'hall'),
+  room(5,'The abandoned crossing',27,97,32,30),room(6,'The sealed memorials',117,104,32,38),
+  room(7,'The watcher’s chamber',42,54,34,30),room(8,'The tomb of names',109,51,36,34),
+  room(9,'The descending vault',74,18,35,26,'boss')];
+ const L={id:site.id,siteId:'oldcellars',name:theme.name,seed,cx:site.cx||0,cz:site.cz||0,kind:'cave',authored:true,level,top:CELLAR_DEPTHS,bottom:level===CELLAR_DEPTHS,w,h,cellSize:CELL,corridorW:5,
+ cells:Array(w*h).fill(ROCK),heights:Array(w*h).fill(0),rooms,entrance:{gx:rooms[0].cx,gz:rooms[0].cz},stair:level===8?null:{gx:74,gz:15},arena:null,tags:{},ore:[],chests:[],authoredSpawns:[],torchCells:[],tier:Math.min(5,1+Math.ceil(level/2)),theme,
+ ceilingProfile:{corridor:12+level*2,room:theme.ceiling,hall:theme.ceiling+5,boss:theme.ceiling},
+ palette:{floor:theme.ore,wallA:theme.ore,wallB:0x55545b,ceiling:0x343945,bg:0x060910,fog:0x0d1620,fogNear:level===8?60:25,fogFar:level===8?230:140,ambient:0x8197b2,ambientI:.24,fill:theme.color,fillI:.16}};
+ const carve=(x,z)=>{if(x>0&&z>0&&x<w-1&&z<h-1){const i=z*w+x;L.cells[i]=FLOOR;L.heights[i]=cellarHeight(level,worldOf(L,x,z).z);}};
+ for(const r of rooms)for(let z=r.z;z<r.z+r.h;z++)for(let x=r.x;x<r.x+r.w;x++){
+  const u=(x-r.cx)/(r.w*.5),v=(z-r.cz)/(r.h*.5),a=Math.atan2(v,u);
+  const edge=1+.08*Math.sin(a*(3+level%3)+r.id)+.05*Math.cos(a*7+level);
+  if(u*u+v*v<edge)carve(x,z);
+ }
+ const links=level===8?[[0,1],[1,2],[2,3],[2,4],[3,5],[4,5]]:[[0,1],[1,2],[1,3],[1,4],[2,5],[3,6],[5,4],[4,6],[5,7],[6,8],[7,9],[8,9],[7,8]];
+ L.passages=links.map(([from,to])=>({from,to}));
+ for(const [from,to] of links){const a=rooms[from],b=rooms[to],n=Math.ceil(Math.hypot(b.cx-a.cx,b.cz-a.cz));
+  for(let i=0;i<=n;i++){const t=i/n,bend=Math.sin(t*Math.PI)*(level%2?4:-4),gx=Math.round(a.cx+(b.cx-a.cx)*t+bend),gz=Math.round(a.cz+(b.cz-a.cz)*t);
+   for(let dz=-4;dz<=4;dz++)for(let dx=-4;dx<=4;dx++)if(dx*dx+dz*dz<18)carve(gx+dx,gz+dz);
+  }
+ }
+ configureCellarLandmark(L,z=>cellarHeight(level,z));
+ L.tags[L.entrance.gz*w+L.entrance.gx]='entrance';if(L.stair)L.tags[L.stair.gz*w+L.stair.gx]='stair';
+ for(const r of rooms.slice(1)){
+  if(level===8&&r.id===2)continue;
+  for(let i=0;i<(level===8?2:3+(r.id%2));i++){
+   const id=theme.foes[(i+r.id)%theme.foes.length],{gx,gz}=clearCellarPlacement(L,r.cx+(i%2?4:-4),r.cz+(i<2?3:-4));
+   L.authoredSpawns.push({id,gx,gz,room:r.id,group:`crypt:${r.id}`,slot:L.authoredSpawns.length,power:1+(level-1)*.16,size:1+(level-1)*.055});
+  }
+  if(r.id%2===0){const {gx,gz}=clearCellarPlacement(L,r.cx,r.cz-5);L.chests.push({i:L.chests.length,gx,gz,...worldOf(L,gx,gz),y:0,kind:'chest',locked:true,trapped:level>2,tier:L.tier,key:`oldcellars:${level}:tomb:${r.id}`});L.tags[gz*w+gx]='chest';}
+ }
+ if(level===1)L.authoredSpawns.push({id:'oramBlackhand',gx:74,gz:23,room:9,group:'oram',slot:99});
+ for(const r of rooms)for(const dx of [-6,6])L.torchCells.push([r.cx+dx,r.cz+6]);
+ if(level===8)L.raid={...RAID};return L;
+}
+// Existing callers can still inspect the first level's authored topology.
+export const CELLAR_ROOMS=createOldCellars(1,{id:'oldcellars'}).rooms;
+export const CELLAR_PASSAGES=createOldCellars(1,{id:"oldcellars"}).passages;

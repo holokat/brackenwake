@@ -1,0 +1,55 @@
+{
+  "beforeSha256": "2d814eeabc2edbb3d0dca6328e84c777eece693467179d2c99ee67706eef6474",
+  "afterSha256": "cea1b60349e909cacb37d569f20a8d7e742ea0edf3e34cb63800ed814405b619",
+  "before": {
+    "sideArcadeComponents": 635,
+    "sideArcadeTriangleHistogram": {
+      "4": 41,
+      "6": 181,
+      "8": 222,
+      "10": 16,
+      "12": 147,
+      "14": 1,
+      "16": 20,
+      "24": 4,
+      "32": 2,
+      "40": 1
+    },
+    "sideArcadePiecesBelow12": 460,
+    "stringerTriangles": 6,
+    "firstFlightTreadTriangles": 12
+  },
+  "after": {
+    "sideArcadeComponents": 250,
+    "sideArcadeTriangleHistogram": {
+      "28": 212,
+      "144": 38
+    },
+    "sideArcadePiecesBelow12": 0,
+    "stringerTriangles": 12,
+    "firstFlightTreadTriangles": 28
+  },
+  "verification": {
+    "components": 1832,
+    "minimumComponentTriangles": 12,
+    "stringerTriangles": 12,
+    "firstFlightTreads": 33,
+    "treadTriangles": 28
+  },
+  "negativeControl": "Previous decimated asset fails the structural prism assertion",
+  "unchangedRoomAssets": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "contracts": "All eight colliders, routes, anchors, ground footprints and landmarks unchanged",
+  "triangles": 198371,
+  "unchangedFloorBatches": [
+    "Cellar stone_floor",
+    "Cellar stone_floor_light"
+  ]
+}

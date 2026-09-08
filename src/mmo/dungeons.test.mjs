@@ -64,7 +64,7 @@ check('the audit passes as written', auditDungeons().dungeons === DUNGEON_IDS.le
   check('isCavern answers for a place id and a site row alike',
     isCavern('icefall') === true && isCavern({ sub: 'throneofash' }) === false);
   check('levelsFor reads the sheet for an authored place',
-    levelsFor({ sub: 'oldcellars' }) === 1 && levelsFor({ sub: 'throneofash' }) === 3);
+    levelsFor({ sub: 'oldcellars' }) === 8 && levelsFor({ sub: 'throneofash' }) === 3);
   check('and falls back for a rolled site nobody wrote down',
     levelsFor({ id: '3,-7', kind: 'dungeon' }) === 3 && levelsFor({ id: '3,-7', kind: 'cave' }) === 1);
   check('specFor is null for a rolled site', specFor({ id: '3,-7', kind: 'cave' }) === null);

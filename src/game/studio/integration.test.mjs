@@ -119,15 +119,17 @@ for(const gender of ['male']){
  vfx.dispose();body.dispose();
 }
 for(const row of creatureCatalog){
- const a=buildMonsterModel(row.id),b=buildMonsterModel(row.id);assert.ok(a?.studioActor,row.id);assert.ok(a.parts.hit);assert.ok(a.clickRadius>=.34&&a.clickHeight>=.95);
+ const a=buildMonsterModel(row.id),b=buildMonsterModel(row.id);if(row.id==='oramBlackhand')assert.equal(a.modelId,'cellar-oram');else assert.ok(a?.studioActor,row.id);assert.ok(a.parts.hit);assert.ok(a.clickRadius>=.34&&a.clickHeight>=.95);
  for(const name of ['idle','walk','run','swing','hurt','cast']){a.setAnim(name);for(let i=0;i<15;i++)a.update(1/60,2);finite(a.group);}
- a.setAnim('die');assert.equal(a.dieDone,false);for(let i=0;i<68;i++)a.update(1/60,0);assert.equal(a.dieDone,true);a.setAnim('walk');assert.equal(a.anim,'die');a.dispose();
+ a.setAnim('die');assert.equal(a.dieDone,false);for(let i=0;i<(row.id==='oramBlackhand'?90:68);i++)a.update(1/60,0);assert.equal(a.dieDone,true);a.setAnim('walk');assert.equal(a.anim,'die');a.dispose();
  b.setAnim('run');b.update(.1,2);finite(b.group);b.dispose();creatures++;
 }
 for(const id of [...Object.keys(chibiMonsterLooks),...Object.keys(chibiCreatureLooks)]){
  const gameId=Object.entries(STUDIO_MONSTER_LOOK).find(([,look])=>look===id)?.[0];
  assert.ok(gameId,id+' has game id');
- const m=buildMonsterModel(gameId);assert.ok(m?.studioActor,gameId+' studio actor');
+ const m=buildMonsterModel(gameId);
+ if(gameId==='oramBlackhand'){assert.equal(m.modelId,'cellar-oram');m.dispose();continue;}
+ assert.ok(m?.studioActor,gameId+' studio actor');
  assert.equal(m.studioActor.group.userData.sourceCreatureId,id,gameId+' source id');
  assert.equal(m.studioActor.group.userData.characterStyle,'chibi',gameId+' chibi body');
  m.dispose();

@@ -1,6 +1,7 @@
 import {isShoulder,SHOULDER_SPEC,createShoulderWorking} from '../world/shoulder_working.js';
 import {furnishShoulder} from '../world/shoulder_scene.js';
 import {createOldCellars} from '../world/old_cellars.js';
+import {furnishOldCellars} from '../world/old_cellars_scene.js';
 import {createPhysicalWorld} from '../world/collision/runtime.js';
 // The world, streamed, and the way down into it.
 //
@@ -397,13 +398,14 @@ export function createWorldRuntime(sc, opts = {}) {
     const spec = dungeon.spec;
     const cavern = spec?.kind === CAVERN;
     const layout = isShoulder(site) ? createShoulderWorking(seed,site) : spec?.id === 'oldcellars'
-      ? createOldCellars(seed, site) : cavern
+      ? createOldCellars(seed, site, level) : cavern
       ? generateCavern(seed, site, level, spec)
       : generateDungeon(seed, site, level, spec);
     const built = cavern
       ? createCavernScene(THREE, layout, {})
       : createDungeonScene(THREE, layout, {});
     if(isShoulder(site))furnishShoulder(built,layout);
+    if(spec?.id==='oldcellars')furnishOldCellars(built,layout);
     scene.add(built.group);
     // three raycasts against matrixWorld, and only the renderer refreshes it.
     // Without this the first pick after arriving tests every exit hit box at

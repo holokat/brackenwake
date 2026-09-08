@@ -1,0 +1,8 @@
+{
+  "method": "Two consecutive builds through isolated Blender MCP 9878",
+  "beforeSha256": "ab35e5cac5aa56f90a164fc1b62e1d2df20bb25fee01c5a93afd5256eca72a39",
+  "afterSha256": "ab35e5cac5aa56f90a164fc1b62e1d2df20bb25fee01c5a93afd5256eca72a39",
+  "identical": true,
+  "builderSha256": "2129f9702ebf5fb73637e0acdbc2af66c053482d3b7b68b6405e74354e7b6553",
+  "repeatScriptSha256": "e22801d0cc0e112d11ceb228032bd8a58360732c697210aa1a7466933bf22793"
+}

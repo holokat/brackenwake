@@ -1,3 +1,4 @@
+import {CELLAR_CREATURE} from './cellar_monsters.js';
 import {ORE_ELEMENTAL} from './ore_elementals.js';
 import {MONSTER_HEALTH_FACTOR} from './combat_pace.js';
 // The monster tables, driven both ways. Run: node src/mmo/monsters.test.mjs
@@ -143,7 +144,7 @@ check('every monster above tier 0 lives somewhere', (() => {
     ...Object.values(HABITAT_BY_PLACE).flatMap((h) => [...h.day, ...h.night]),
   ]);
   // the two training bodies stand where island_training.json puts them, and in no habitat
-  return MONSTER_LIST.filter((m) => m.tier > 0 && !m.notes.includes('dummy')).every((m) => placed.has(m.id) || ORE_ELEMENTAL[m.id]?.ore === m.oreElemental);
+  return MONSTER_LIST.filter((m) => m.tier > 0 && !m.notes.includes('dummy')).every((m) => placed.has(m.id) || !!CELLAR_CREATURE[m.id] || ORE_ELEMENTAL[m.id]?.ore === m.oreElemental);
 })());
 
 // --- spawnRollFor ---------------------------------------------------------

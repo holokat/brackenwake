@@ -522,3 +522,25 @@ Verification: `node src/world/shoulder.test.mjs` exercises finite claims,
 skill gates, durability, save hydration, all floor connectivity, roof raycasts,
 scaffold supports, actual interaction delivery and real combat death rewards
 for all ten creatures.
+
+
+## The Old Cellars descent
+
+Eight connected depths lead from the mill's occupied cellars to the buried cathedral. The upper seven floors have branching crypts, irregular caverns, returning and descending stairs, continuous rising and falling floors, and locked tomb caches. Sergeant Oram Blackhand remains on the first floor for the starting quest.
+
+| Depth | Place | New inhabitants |
+| --- | --- | --- |
+| 1 | The occupied cellars | Bandits and skeletons |
+| 2 | The drowned ossuary | Ossuary crawler |
+| 3 | The tomb of bells | Hush wraith |
+| 4 | The ember catacombs | Ember revenant |
+| 5 | The chained library | Chained lich |
+| 6 | The inverted crypt | Vault behemoth |
+| 7 | The titan graves | Sepulcher warden |
+| 8 | The buried cathedral | Vharos, the buried cathedral |
+
+Creatures gain health, weapon damage and physical size with depth. The new undead variants reuse the existing spider, wraith, knight, lich, golem and giant rigs with animated soul shards and crowns. Fire braziers, embers, smoke, dust and mist use the Living Studio library.
+
+Vharos is a 38-metre guardian in an 82-metre-high cavern. Ten living players in the same online room and arena are required to start and sustain the fight. One server-owned health pool has 180,000 health and three phases. Gravesurge breaks the inner circle, Funeral cross ignites crossing lanes, Hollow star makes the outer ring unsafe, and Tombfall targets player positions. Each attack has a visible warning before server-resolved damage. Falling below ten players shields the boss; a 90-second absence resets the encounter.
+
+The room persists health, attack timing, contributor IDs, accepted strike sequences and reward acknowledgements. Each contributing player present at victory can claim 2,500 gold and 36 starfall ore. Partial ore claims retry when pack space becomes available. Character gear and ordinary combat remain client-resolved; the server bounds boss strike damage, cadence, reach, layer and sequence. This is not an anti-cheat system. The encounter has automated multiplayer coverage; ten-person human difficulty tuning remains to be done.

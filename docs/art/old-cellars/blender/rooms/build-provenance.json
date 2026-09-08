@@ -1,0 +1,57 @@
+{
+  "transport": "installed lab_blender_org Blender MCP",
+  "bridgePort": 9879,
+  "blender": "5.2.0 LTS",
+  "levels": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "rooms": [
+    {
+      "level": 1,
+      "sha256": "57d6d3f5cb6fe059072d61c79ae36a2a247bf8b2610bf39d11756f07918fd36f",
+      "triangles": 64162
+    },
+    {
+      "level": 2,
+      "sha256": "186074b5ddb34d311b5f8a477a34498e689190b989aceae3e059df3b05ab0981",
+      "triangles": 55766
+    },
+    {
+      "level": 3,
+      "sha256": "98ca334edb2dd74fbfa1a89c45691d5c0aa854fe510d77218fa7428e9678b774",
+      "triangles": 101244
+    },
+    {
+      "level": 4,
+      "sha256": "0b4b115b81b0da68c16921ae07812d77b1a3fecfe597b40c8296c8e6f9f47c02",
+      "triangles": 82852
+    },
+    {
+      "level": 5,
+      "sha256": "6a75b5c6159f788aeb372bfaee39aba93ae16d865485307b18fc3a939206961f",
+      "triangles": 166934
+    },
+    {
+      "level": 6,
+      "sha256": "b03ce6b558266e781b737201b130cf387bc4792fbb2071095583a5d012691ed6",
+      "triangles": 171368
+    },
+    {
+      "level": 7,
+      "sha256": "21061ab72821f707e7599676a8ccedeb3865571ffa5b8813fd268679a5e1f5a3",
+      "triangles": 85648
+    },
+    {
+      "level": 8,
+      "sha256": "cea1b60349e909cacb37d569f20a8d7e742ea0edf3e34cb63800ed814405b619",
+      "triangles": 198371
+    }
+  ]
+}

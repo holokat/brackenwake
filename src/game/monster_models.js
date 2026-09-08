@@ -1,3 +1,5 @@
+import {buildCellarCreature} from './cellar_models.js';
+import {buildCellarOram} from './cellar_oram_model.js';
 import {buildOreElemental} from './ore_elemental_model.js';
 import {buildStudioCreature, STUDIO_MONSTER_LOOK} from './studio/creatures.js';
 import {buildStudioCaster} from './studio/hostile-casters.js';
@@ -2136,6 +2138,8 @@ export function monsterModelIds() {
  * as it was.
  */
 export function buildMonsterModel(id) {
+  if(id==='oramBlackhand')return buildCellarOram(buildStudioCreature(id));
+  const cellar=buildCellarCreature(id,buildMonsterModel);if(cellar)return cellar;
   const elemental=buildOreElemental(id);if(elemental)return elemental;
   const studio = buildStudioCreature(id) || buildStudioCaster(id); return studio || buildLegacyMonsterModel(id);
 }

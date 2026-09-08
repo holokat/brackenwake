@@ -60,11 +60,12 @@ export function helloFor(character) {
 }
 
 /** One state frame off the local body and actor. */
-export function encodeState({ pos, yaw, speed, anim, actor, target } = {}) {
+export function encodeState({ pos, yaw, speed, anim, actor, target, layer } = {}) {
   const p = pos || { x: 0, y: 0, z: 0 };
   const a = actor || {};
   return {
     t: 'state',
+    ...(layer ? {layer} : {}),
     p: [r2(p.x), r2(p.y), r2(p.z)],
     yaw: r2(yaw), sp: r2(speed), an: String(anim || 'idle'),
     hp: Math.round(num(a.health)), mhp: Math.round(num(a.maxHealth)),
@@ -102,6 +103,7 @@ export function createRemotes() {
   }
   function sample(rec, st, nowS) {
     if (!Array.isArray(st.p) || st.p.length !== 3) return;
+    const layer=st.layer||'world';if(rec.layer&&rec.layer!==layer)rec.samples=[];rec.layer=layer;
     rec.samples.push({ t: nowS, x: num(st.p[0]), y: num(st.p[1]), z: num(st.p[2]), yaw: num(st.yaw), sp: num(st.sp), an: st.an || 'idle' });
     while (rec.samples.length > 12) rec.samples.shift();
     rec.hp = num(st.hp); rec.mhp = num(st.mhp); rec.mp = num(st.mp); rec.mmp = num(st.mmp); rec.st = num(st.st); rec.mst = num(st.mst);

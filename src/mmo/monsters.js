@@ -1,3 +1,4 @@
+import {registerCellarCreatures,CELLAR_CREATURE} from './cellar_monsters.js';
 import {registerOreElementals,ORE_ELEMENTAL} from './ore_elementals.js';
 import {MONSTER_HEALTH_FACTOR, MONSTER_DAMAGE_FACTOR} from './combat_pace.js';
 // Monsters: every row of `docs/mmo/05-WORLD-CONTENT.md`, where they live, and
@@ -852,6 +853,7 @@ boss({ id: 'rimemouth', name: 'Rimemouth', rank: 4, lair: 'whitepines',
   model: 'The White Pack\'s leader, a dire wolf half again the size of one, frost grown into the coat in plates, and on the full moon he comes out into the open and waits to be answered.' , wave: 'M2' });
 
 registerOreElementals(rows);
+registerCellarCreatures(rows);
 
 // Gold comes from the tier unless a row overrides it.
 for (const r of rows) if (!r.gold) r.gold = TIERS[r.tier].gold.slice();
@@ -1459,6 +1461,7 @@ export function auditMonsters() {
   for (const m of MONSTER_LIST) {
     if (m.tier === 0 && !placed.has(m.id)) continue;   // critters are placed by src/world/fauna.js as well
     if (m.notes.includes('dummy')) continue;             // a training body stands where a space file puts it (island_training)
+    if(CELLAR_CREATURE[m.id]&&m.cellarCreature)continue; // authored Old Cellars encounters
     if (ORE_ELEMENTAL[m.id] && m.oreElemental===ORE_ELEMENTAL[m.id].ore) continue; // surfaced by the finite mining claim encounter
     if (!placed.has(m.id)) bad.push(`monster ${m.id} lives nowhere`);
   }
