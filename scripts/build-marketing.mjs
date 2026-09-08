@@ -7,7 +7,7 @@ import { build } from 'vite';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = join(root, 'dist-marketing');
 const gameUrl = 'https://brackenwake.cogentgene.workers.dev/?play';
-const origin = 'https://brackenwake-marketing.cogentgene.workers.dev';
+const origin = 'https://brackenwake.com';
 const assets = [
   'welcome-sigil.svg',
   'ui/roster-bg.webp',

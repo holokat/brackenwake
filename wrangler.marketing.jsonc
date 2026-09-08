@@ -7,5 +7,15 @@
   "assets": {
     "directory": "./dist-marketing",
     "not_found_handling": "none"
-  }
+  },
+  "routes": [
+    {
+      "pattern": "brackenwake.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.brackenwake.com",
+      "custom_domain": true
+    }
+  ]
 }

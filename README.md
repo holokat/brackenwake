@@ -2,7 +2,7 @@
 
 An open-source fantasy game for the browser, built with Three.js, Vite and Cloudflare Workers. Choose a warrior, ranger, rogue or wizard and explore the world.
 
-[Play Brackenwake](https://brackenwake.cogentgene.workers.dev/?play) · [Website](https://brackenwake-marketing.cogentgene.workers.dev/) · [Asset library](https://github.com/holokat/game-assets)
+[Play Brackenwake](https://brackenwake.cogentgene.workers.dev/?play) · [Website](https://brackenwake.com/) · [Asset library](https://github.com/holokat/game-assets)
 
 ## Run locally
 
