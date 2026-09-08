@@ -25,7 +25,7 @@
 // ---------------------------------------------------------------- constants --
 
 export const SFX_DIR = '/audio/sfx/';
-export const MUSIC_DIR = '/audio/music/';
+export const LIBRARY_DIR = '/audio/library/';
 /** The synthesised half of the folder. `tools/synth-sfx.mjs` writes it. */
 export const SYNTH_SUBDIR = 'synth/';
 
@@ -57,6 +57,13 @@ export const MAX_SLOT_MS = 300_000;
 export const ACTIVITY_WINDOW_MS = 50_000;
 /** Crossfade between tracks. */
 export const XFADE_MS = 2600;
+/** Crossfade between ambience beds. */
+export const AMBIENCE_XFADE_MS = 2000;
+/** Point source distance model, in metres. */
+export const SOURCE_REF_DIST = 4;
+export const SOURCE_MAX_DIST = 22;
+/** Music rests between tracks instead of looping without a breath. */
+export const MUSIC_GAP_MS = [20_000, 40_000];
 
 // ------------------------------------------------------------- what exists --
 
@@ -111,6 +118,78 @@ export const SYNTH_FILES = [
 
 /** Everything a cue may name: the recordings and the synthesised set together. */
 export const ALL_SFX_FILES = [...SFX_FILES, ...SYNTH_FILES];
+
+/** `ls public/audio/library` on 2026-09-08, all 68 Greenwold library files. */
+export const LIBRARY_FILES = [
+  'Hearthhome-night-soundtrack.mp3',
+  'Hearthhome_Midday-music-track.mp3',
+  'The-Standing-Hedge.mp3',
+  'amb-bandit-camp.mp3',
+  'amb-chalk-hill.mp3',
+  'amb-legion-camp.mp3',
+  'amb-meadow-day.mp3',
+  'amb-meadow-night.mp3',
+  'amb-mere-dawn.mp3',
+  'amb-mine-inside.mp3',
+  'amb-mine-yard.mp3',
+  'amb-rain-field.mp3',
+  'amb-rain-under-trees.mp3',
+  'amb-river-bank.mp3',
+  'amb-village-day.mp3',
+  'amb-village-night.mp3',
+  'amb-water-meadow.mp3',
+  'amb-wood-day.mp3',
+  'amb-wood-night.mp3',
+  'os-badger-huff.mp3',
+  'os-badger-huff2.mp3',
+  'os-boar-snort.mp3',
+  'os-boar-snort2.mp3',
+  'os-boar-snort3.mp3',
+  'os-cart-pass.mp3',
+  'os-cart-pass2.mp3',
+  'os-church-bell.mp3',
+  'os-crow-flock-lift.mp3',
+  'os-crow-flock-lift2.mp3',
+  'os-crow-flock-lift3.mp3',
+  'os-distant-thunder.mp3',
+  'os-distant-thunder2.mp3',
+  'os-distant-thunder3.mp3',
+  'os-distant-thunder4.mp3',
+  'os-door-cottage.mp3',
+  'os-door-cottage2.mp3',
+  'os-fox-bark.mp3',
+  'os-fox-bark2.mp3',
+  'os-gate-swing.mp3',
+  'os-gate-swing2.mp3',
+  'os-gate-swing3.mp3',
+  'os-goose-alarm.mp3',
+  'os-goose-alarm2.mp3',
+  'os-hedge-push.mp3',
+  'os-hedge-push2.mp3',
+  'os-hedge-push3.mp3',
+  'os-heron-croak.mp3',
+  'os-heron-croak2.mp3',
+  'os-heron-croak3.mp3',
+  'os-mist-rise.mp3',
+  'os-mist-rise2.mp3',
+  'os-mist-rise3.mp3',
+  'os-owl-call.mp3',
+  'os-owl-call2.mp3',
+  'os-owl-call3.mp3',
+  'os-owl-call4.mp3',
+  'os-splash-wade.mp3',
+  'os-splash-wade2.mp3',
+  'os-wheat-walk.mp3',
+  'os-wheat-walk2.mp3',
+  'os-wheat-walk3.mp3',
+  'os-wind-gust.mp3',
+  'os-wind-gust2.mp3',
+  'os-wind-gust3.mp3',
+  'os-woodpecker.mp3',
+  'src-forge.mp3',
+  'src-mill-wheel.mp3',
+  'src-tavern-inside.mp3',
+];
 
 /**
  * Files that exist and are worthless, with the measurement that says so. A cue
@@ -270,6 +349,46 @@ export const NO_FILE_FOR = {
       + 'on purpose under WHAT NOT TO MAKE.',
 };
 
+export const LIBRARY_POOLS = {
+  owl: ['os-owl-call.mp3', 'os-owl-call2.mp3', 'os-owl-call3.mp3', 'os-owl-call4.mp3'],
+  fox: ['os-fox-bark.mp3', 'os-fox-bark2.mp3'],
+  woodpecker: ['os-woodpecker.mp3'],
+  crowFlock: ['os-crow-flock-lift.mp3', 'os-crow-flock-lift2.mp3', 'os-crow-flock-lift3.mp3'],
+  windGust: ['os-wind-gust.mp3', 'os-wind-gust2.mp3', 'os-wind-gust3.mp3'],
+  distantThunder: ['os-distant-thunder.mp3', 'os-distant-thunder2.mp3', 'os-distant-thunder3.mp3', 'os-distant-thunder4.mp3'],
+  cartPass: ['os-cart-pass.mp3', 'os-cart-pass2.mp3'],
+  churchBell: ['os-church-bell.mp3'],
+  gateSwing: ['os-gate-swing.mp3', 'os-gate-swing2.mp3', 'os-gate-swing3.mp3'],
+  doorCottage: ['os-door-cottage.mp3', 'os-door-cottage2.mp3'],
+  boar: ['os-boar-snort.mp3', 'os-boar-snort2.mp3', 'os-boar-snort3.mp3'],
+  badger: ['os-badger-huff.mp3', 'os-badger-huff2.mp3'],
+  goose: ['os-goose-alarm.mp3', 'os-goose-alarm2.mp3'],
+  hedgePush: ['os-hedge-push.mp3', 'os-hedge-push2.mp3', 'os-hedge-push3.mp3'],
+  wheatWalk: ['os-wheat-walk.mp3', 'os-wheat-walk2.mp3', 'os-wheat-walk3.mp3'],
+  splashWade: ['os-splash-wade.mp3', 'os-splash-wade2.mp3'],
+  mistRise: ['os-mist-rise.mp3', 'os-mist-rise2.mp3', 'os-mist-rise3.mp3'],
+  heron: ['os-heron-croak.mp3', 'os-heron-croak2.mp3', 'os-heron-croak3.mp3'],
+};
+
+export function auditLibrary(pools = LIBRARY_POOLS, files = LIBRARY_FILES) {
+  const have = new Set(files);
+  const bad = [];
+  for (const [name, list] of Object.entries(pools || {})) {
+    if (!Array.isArray(list) || !list.length) { bad.push(`${name}: no files`); continue; }
+    for (const f of list) if (!have.has(f)) bad.push(`${name}: ${f} is not in public/audio/library`);
+  }
+  for (const f of Object.values(MUSIC_KITS).flat()) if (!have.has(f.replace(LIBRARY_DIR, ''))) bad.push(`music: ${f} is not in public/audio/library`);
+  for (const url of [
+    bed('amb-rain-under-trees'), bed('amb-rain-field'), bed('amb-village-night'), bed('amb-village-day'),
+    bed('amb-mine-inside'), bed('amb-mine-yard'), bed('amb-bandit-camp'), bed('amb-legion-camp'),
+    bed('amb-wood-night'), bed('amb-wood-day'), bed('amb-mere-dawn'), bed('amb-river-bank'),
+    bed('amb-water-meadow'), bed('amb-chalk-hill'), bed('amb-meadow-night'), bed('amb-meadow-day'),
+  ]) if (!have.has(url.replace(LIBRARY_DIR, ''))) bad.push(`ambience: ${url} is not in public/audio/library`);
+  for (const f of ['src-forge.mp3', 'src-mill-wheel.mp3', 'src-tavern-inside.mp3']) if (!have.has(f)) bad.push(`source: ${f} is not in public/audio/library`);
+  if (bad.length) throw new Error(`audio library points at files that will not play:\n  ${bad.join('\n  ')}`);
+  return true;
+}
+
 /** The cues running on a stand-in, derived so the list cannot drift. */
 export const STAND_INS = Object.fromEntries(
   Object.entries(CUES).filter(([, c]) => c.stand).map(([k, c]) => [k, c.stand]),
@@ -382,57 +501,40 @@ export function createRotation(n, random = Math.random) {
 
 // --------------------------------------------------------------- the music --
 
-const kit = (dir) => ({
-  theme: `${MUSIC_DIR}${dir}/theme.mp3`,
-  calm: `${MUSIC_DIR}${dir}/calm.mp3`,
-  lively: `${MUSIC_DIR}${dir}/lively.mp3`,
-  ambience: `${MUSIC_DIR}${dir}/ambience.mp3`,
-});
-
-/**
- * What is really in `public/audio/music/`, biome by biome. The music is
- * gitignored, so this list is what is on the machine that has it; a missing
- * file ends as a quiet element that never plays, not as an exception.
- *
- * boreal has no lively track. sakura has two themes and nothing else, so its
- * slot holds an array and the rotation walks it, and it borrows the meadow's
- * ambience bed because quiet outdoor air is quiet outdoor air.
- */
-/** The two theme songs, walked in turn so the same one is never heard twice running. */
-export const THEMES = [`${MUSIC_DIR}themes/theme1.mp3`, `${MUSIC_DIR}themes/theme2.mp3`];
-// Commit 168dce0 made every biome play only the two themes, calm and lively
-// set to null, and the user heard "1 theme song" out of a library of twenty
-// tracks. The biome kits are back (2026-09-08): the biome's own theme and the
-// two shared themes walk the theme slot, calm and lively answer the player's
-// activity, and the biome's ambience runs under it all.
-const biomeKit = (dir, { lively = true, ambienceDir = dir } = {}) => ({
-  theme: [`${MUSIC_DIR}${dir}/theme.mp3`, ...THEMES],
-  calm: `${MUSIC_DIR}${dir}/calm.mp3`,
-  lively: lively ? `${MUSIC_DIR}${dir}/lively.mp3` : null,
-  ambience: `${MUSIC_DIR}${ambienceDir}/ambience.mp3`,
-});
 export const MUSIC_KITS = {
-  meadow: biomeKit('meadow'),
-  oceanside: biomeKit('oceanside'),
-  desert: biomeKit('desert'),
-  boreal: biomeKit('boreal', { lively: false }),
-  sakura: { theme: [`${MUSIC_DIR}sakura/theme.mp3`, `${MUSIC_DIR}sakura/theme2.mp3`, ...THEMES], calm: null, lively: null, ambience: `${MUSIC_DIR}meadow/ambience.mp3` },
+  settlementDay: [`${LIBRARY_DIR}Hearthhome_Midday-music-track.mp3`],
+  settlementNight: [`${LIBRARY_DIR}Hearthhome-night-soundtrack.mp3`],
+  openCountry: [`${LIBRARY_DIR}The-Standing-Hedge.mp3`],
 };
 
-/**
- * Every biome `field.sampleAt` can return, mapped onto a kit. main.js knows
- * these ids already: they are the keys of its BIOME_NAMES.
- */
-export const BIOME_MUSIC = {
-  meadow: 'meadow', beach: 'oceanside', ocean: 'oceanside',
-  desert: 'desert', boreal: 'boreal', sakura: 'sakura',
-  mountain: 'boreal', snow: 'boreal',
-};
-
-/** The kit for a biome id, falling back to the meadow rather than to silence. */
-export function kitFor(biome) {
-  return MUSIC_KITS[BIOME_MUSIC[biome] || biome] || MUSIC_KITS.meadow;
+export function musicFor(context = {}) {
+  if (context.settlement) return context.night ? 'settlementNight' : 'settlementDay';
+  return 'openCountry';
 }
+
+/** Kept as a compatibility shim for older call sites while the sound system owns music context. */
+export function kitFor() {
+  return MUSIC_KITS.openCountry;
+}
+
+const bed = (name) => `${LIBRARY_DIR}${name}.mp3`;
+
+export function bedFor(context = {}) {
+  if (context.raining) return context.treeCover ? bed('amb-rain-under-trees') : bed('amb-rain-field');
+  if (context.settlement) return context.night ? bed('amb-village-night') : bed('amb-village-day');
+  if (context.inDungeon) return bed('amb-mine-inside');
+  if (context.nearMine) return bed('amb-mine-yard');
+  if (context.nearBanditCamp) return bed('amb-bandit-camp');
+  if (context.nearLegionCamp) return bed('amb-legion-camp');
+  if (context.treeCover) return context.night ? bed('amb-wood-night') : bed('amb-wood-day');
+  if (context.nearStillWater && context.dawn) return bed('amb-mere-dawn');
+  if (context.nearRiver) return bed('amb-river-bank');
+  if (context.nearWaterMeadow) return bed('amb-water-meadow');
+  if (context.highChalk) return bed('amb-chalk-hill');
+  return context.night ? bed('amb-meadow-night') : bed('amb-meadow-day');
+}
+
+auditLibrary();
 
 // ---------------------------------------------------------------- the rest --
 
@@ -617,36 +719,29 @@ export function createAudio(opts = {}) {
     return el;
   }
 
-  // ---- music -------------------------------------------------------------
-  let kitNow = null;
+  // ---- music, ambience and library one-shots -----------------------------
   let want = false;                // music.start() was called
   let trackEl = null, ambienceEl = null;
-  let trackKind = null, trackUrl = null;
-  let slotEnd = 0, sinceTheme = 0;
-  const slotCursor = {};
-  let rotTimer = null;
+  let musicKey = null, trackUrl = null, ambienceUrl = null;
+  let musicContext = { settlement: false, night: false };
+  let rotTimer = null, gapTimer = null;
+  const stats = { shots: {}, recent: [] };
+  const sourceLoops = new Map();
 
-  const resolveKind = (k) => (kitNow?.[k] ? k : (kitNow?.calm ? 'calm' : 'theme'));
-
-  /** A slot holding a list hands back the NEXT entry, so two themes alternate. */
-  function urlForSlot(k) {
-    const slot = kitNow?.[k];
-    if (!Array.isArray(slot)) return slot || null;
-    const l = slot.filter(Boolean);
-    if (!l.length) return null;
-    const i = slotCursor[k] || 0;
-    slotCursor[k] = (i + 1) % l.length;
-    return l[i];
+  function rememberShot(name, url, t = now()) {
+    stats.shots[name] = (stats.shots[name] || 0) + 1;
+    stats.recent.push({ name, url, at: t });
+    if (stats.recent.length > 80) stats.recent.shift();
   }
 
-  function swapLoop(old, url, vol) {
+  function swapLoop(old, url, vol, loop = true) {
     if (old) {
       fadeTo(old, 0, fadeMs);
       schedule(() => { try { old.pause(); } catch {} live.delete(old); }, fadeMs || 0);
     }
     const el = build(url);
     if (!el) return null;
-    try { el.loop = true; } catch {}
+    try { el.loop = loop; } catch {}
     if (!musicOn) { try { el.volume = clamp01(vol); } catch {} return el; }
     try { el.volume = fadeMs > 0 ? 0 : clamp01(vol); } catch {}
     start(el);
@@ -654,44 +749,51 @@ export function createAudio(opts = {}) {
     return el;
   }
 
-  function playTrack(k) {
-    const kind = resolveKind(k);
-    const url = urlForSlot(kind);
-    slotEnd = now() + (SLOT_MS[kind] || 170_000);
+  function scheduleMusicGap() {
+    if (!want || !unlocked || !musicOn) return;
+    const gap = MUSIC_GAP_MS[0] + random() * (MUSIC_GAP_MS[1] - MUSIC_GAP_MS[0]);
+    if (gapTimer) { try { clearTimeout(gapTimer); } catch {} }
+    gapTimer = schedule(() => { gapTimer = null; try { playTrack(musicKey); } catch {} }, Math.round(gap));
+  }
+
+  function playTrack(key = musicFor(musicContext)) {
+    const kit = MUSIC_KITS[key] || MUSIC_KITS.openCountry;
+    const url = kit[0] || null;
     if (!url) return null;
-    if (kind === trackKind && url === trackUrl && trackEl) return trackEl;
-    trackKind = kind;
+    if (key === musicKey && url === trackUrl && trackEl && !trackEl.paused) return trackEl;
+    musicKey = key;
     trackUrl = url;
-    trackEl = swapLoop(trackEl, url, musicVol);
+    trackEl = swapLoop(trackEl, url, musicVol, false);
+    trackEl?.addEventListener?.('ended', scheduleMusicGap);
     return trackEl;
   }
 
-  function startAmbience() {
-    const url = kitNow?.ambience;
+  function setAmbience(url, ms = AMBIENCE_XFADE_MS) {
     if (!url) return null;
-    if (ambienceEl && ambienceEl.__url === url) return ambienceEl;
-    ambienceEl = swapLoop(ambienceEl, url, AMBIENCE_VOLUME);
-    if (ambienceEl) ambienceEl.__url = url;
+    if (ambienceEl && ambienceUrl === url) return ambienceEl;
+    const localFade = ms;
+    const old = ambienceEl;
+    if (old) {
+      fadeTo(old, 0, localFade);
+      schedule(() => { try { old.pause(); } catch {} live.delete(old); }, localFade || 0);
+    }
+    ambienceUrl = url;
+    ambienceEl = build(url);
+    if (!ambienceEl) return null;
+    try { ambienceEl.loop = true; ambienceEl.url = url; ambienceEl.volume = musicOn && unlocked ? 0 : AMBIENCE_VOLUME; } catch {}
+    if (musicOn && unlocked && want) {
+      start(ambienceEl);
+      fadeTo(ambienceEl, AMBIENCE_VOLUME, localFade);
+    }
     return ambienceEl;
   }
 
-  /**
-   * Advance the rotation if the slot has run out. The farm's rule, kept: the
-   * theme opens, then calm or lively by whether the player has been working,
-   * and the theme comes back every third slot. A kit with only themes walks
-   * its themes.
-   */
   function tick(t = now()) {
-    if (!want || !unlocked || !musicOn || !kitNow) return null;
-    if (t < slotEnd) return null;
-    if (!kitNow.calm && !kitNow.lively) return playTrack('theme');
-    const busy = t - lastActivity < ACTIVITY_WINDOW_MS;
-    let next;
-    if (trackKind === 'theme') next = busy ? 'lively' : 'calm';
-    else if (sinceTheme >= 2) next = 'theme';
-    else next = trackKind === 'calm' ? 'lively' : 'calm';
-    sinceTheme = next === 'theme' ? 0 : sinceTheme + 1;
-    return playTrack(next);
+    void t;
+    if (!want || !unlocked || !musicOn) return null;
+    const key = musicFor(musicContext);
+    if (key !== musicKey) return playTrack(key);
+    return null;
   }
 
   function ensureRotation() {
@@ -704,16 +806,16 @@ export function createAudio(opts = {}) {
     /** Ask for music. Before the gesture unlock this only records the wish. */
     start() {
       want = true;
-      if (!kitNow) kitNow = MUSIC_KITS.meadow;
       if (!unlocked) return false;
-      playTrack('theme');
-      startAmbience();
+      playTrack(musicFor(musicContext));
+      if (ambienceUrl) setAmbience(ambienceUrl, 0);
       ensureRotation();
       return true;
     },
     stop() {
       want = false;
       for (const el of [trackEl, ambienceEl]) { try { el?.pause(); } catch {} }
+      if (gapTimer) { try { clearTimeout(gapTimer); } catch {} gapTimer = null; }
       if (rotTimer) { clearInterval(rotTimer); rotTimer = null; }
       return true;
     },
@@ -724,28 +826,87 @@ export function createAudio(opts = {}) {
      * @returns {boolean} whether the kit actually changed
      */
     setBiome(id) {
-      const k = kitFor(id);
-      if (k === kitNow) return false;
-      kitNow = k;
-      sinceTheme = 0;
-      for (const key of Object.keys(slotCursor)) delete slotCursor[key];
-      if (want && unlocked) { playTrack('theme'); startAmbience(); ensureRotation(); }
+      void id;
+      return this.setContext({ settlement: false });
+    },
+    setContext(next = {}) {
+      const prev = musicFor(musicContext);
+      musicContext = { ...musicContext, ...next };
+      const key = musicFor(musicContext);
+      if (key === prev) return false;
+      if (want && unlocked) { playTrack(key); ensureRotation(); }
       return true;
     },
+    setAmbience(url) {
+      return setAmbience(url);
+    },
     tick,
-    get kit() { return kitNow; },
+    get kit() { return MUSIC_KITS[musicFor(musicContext)]; },
     get track() { return trackUrl; },
-    get kind() { return trackKind; },
+    get kind() { return musicKey; },
     get playing() { return want && unlocked && musicOn && !!trackEl; },
     get el() { return trackEl; },
     get ambience() { return ambienceEl; },
+    get ambienceUrl() { return ambienceUrl; },
+    get context() { return musicContext; },
   };
+
+  function playLibrary(name, o = {}) {
+    const pool = LIBRARY_POOLS[name];
+    if (!pool || !unlocked) return null;
+    if (o.delay > 0) {
+      const rest = { ...o, delay: 0 };
+      schedule(() => { try { playLibrary(name, rest); } catch {} }, o.delay);
+      return null;
+    }
+    let att = 1;
+    if (o.at && listener) {
+      att = attenuation(Math.hypot((o.at.x ?? 0) - listener.x, (o.at.z ?? 0) - listener.z));
+      if (att <= 0) return null;
+    }
+    if (!sfxOn) return null;
+    const i = pool.length > 1 ? rotationFor(`library:${name}`, pool.length).next() : 0;
+    const url = LIBRARY_DIR + pool[i];
+    const el = build(url);
+    if (!el) return null;
+    try { el.volume = clamp01(sfxVol * (o.gain ?? 1) * att); } catch {}
+    if (o.rate) { try { el.playbackRate = o.rate; } catch {} }
+    rememberShot(name, url);
+    start(el);
+    return el;
+  }
+
+  function sourceLoop(id, url) {
+    if (!sourceLoops.has(id)) sourceLoops.set(id, { id, url, el: null, volume: 0, inRange: false });
+    return sourceLoops.get(id);
+  }
+
+  function updateSource(id, url, pos) {
+    const src = sourceLoop(id, url);
+    const d = pos && listener ? Math.hypot((pos.x ?? 0) - listener.x, (pos.z ?? 0) - listener.z) : Infinity;
+    const att = attenuation(d, SOURCE_MAX_DIST, SOURCE_REF_DIST);
+    src.volume = clamp01(AMBIENCE_VOLUME * att);
+    src.inRange = att > 0;
+    if (!src.inRange || !musicOn || !unlocked || !want) {
+      try { src.el?.pause?.(); } catch {}
+      return src;
+    }
+    if (!src.el) {
+      src.el = build(url);
+      if (src.el) { try { src.el.loop = true; } catch {} }
+    }
+    if (src.el) {
+      try { src.el.volume = src.volume; } catch {}
+      if (src.el.paused) start(src.el);
+    }
+    return src;
+  }
 
   // ---- the gesture -------------------------------------------------------
   function unlock() {
     if (unlocked) return false;
     unlocked = true;
-    if (want) { playTrack('theme'); startAmbience(); ensureRotation(); }
+    if (want) { playTrack(musicFor(musicContext)); if (ambienceUrl) setAmbience(ambienceUrl, 0); ensureRotation(); }
     return true;
   }
 
@@ -784,7 +945,7 @@ export function createAudio(opts = {}) {
     toggleMusic() {
       musicOn = !musicOn;
       persist();
-      if (musicOn && want && unlocked && !trackEl) { playTrack('theme'); startAmbience(); }
+      if (musicOn && want && unlocked && !trackEl) { playTrack(musicFor(musicContext)); if (ambienceUrl) setAmbience(ambienceUrl, 0); }
       else applyMusicMute();
       return musicOn;
     },
@@ -796,11 +957,14 @@ export function createAudio(opts = {}) {
     setSfxVolume(v) { sfxVol = clamp01(v); persist(); return sfxVol; },
     get musicVolume() { return musicVol; },
     get sfxVolume() { return sfxVol; },
+    playLibrary,
+    source: { update: updateSource, loops: sourceLoops },
+    stats,
 
     /** For the HUD and the report: which cues are running on a stand-in. */
     standIns: STAND_INS,
     noFileFor: NO_FILE_FOR,
-    audit: () => auditAudio(),
+    audit: () => auditAudio() && auditLibrary(),
 
     dispose() {
       detach?.();

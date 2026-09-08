@@ -13,6 +13,7 @@ import {
   createAudio, auditAudio, attenuation, createRotation,
   CUES, SFX_FILES, SYNTH_FILES, ALL_SFX_FILES, DEAD_FILES, NO_FILE_FOR, STAND_INS,
   takesOf, fileFor, urlFor, kitFor, MUSIC_KITS, AMBIENCE_VOLUME,
+  LIBRARY_FILES, LIBRARY_POOLS, auditLibrary, bedFor, musicFor, LIBRARY_DIR, SOURCE_MAX_DIST,
   MAX_DIST, REF_DIST, SFX_VOLUME, MUSIC_VOLUME, STORE_KEY, SLOT_MS,
 } from './audio.js';
 import {
@@ -437,59 +438,106 @@ function memStore() {
   a.dispose(); b.dispose(); c.dispose(); d.dispose(); e.dispose();
 }
 
-// ---- the music rotation ---------------------------------------------------
+// ---- the Greenwold library ------------------------------------------------
 {
-  check('every biome main.js can name has a kit', ['ocean', 'beach', 'meadow', 'boreal', 'desert', 'sakura', 'mountain', 'snow']
-    .every((b) => !!kitFor(b)));
-  check('a biome nobody has heard of falls back to the meadow', kitFor('lava') === MUSIC_KITS.meadow);
-  check('boreal has no lively track and knows it', MUSIC_KITS.boreal.lively === null);
+  check('the library manifest is the 68 files under public/audio/library', LIBRARY_FILES.length === 68, String(LIBRARY_FILES.length));
+  check('the library pools pass their import-time audit', auditLibrary() === true);
+  check('a typo in a library pool throws',
+    /os-nope\.mp3 is not in/.test(threw(() => auditLibrary({ bad: ['os-nope.mp3'] })) || ''));
+  check('the compatibility kit no longer points at the old music folder',
+    kitFor('meadow') === MUSIC_KITS.openCountry && Object.values(MUSIC_KITS).flat().every((url) => url.startsWith(LIBRARY_DIR)));
+  check('settlement music is day by day and night by night',
+    musicFor({ settlement: true, night: false }) === 'settlementDay'
+    && musicFor({ settlement: true, night: true }) === 'settlementNight');
+  check('open country gets the Standing Hedge kit', musicFor({ settlement: false, night: true }) === 'openCountry');
 
   let t = 1000;
   const k = fakeKit();
-  const a = createAudio({ makeElement: k.make, storage: null, listen: false, fadeMs: 0, now: () => t });
-  check('setBiome before anything starts reports the change', a.music.setBiome('meadow') === true);
+  const jobs = [];
+  const a = createAudio({
+    makeElement: k.make, storage: null, listen: false, fadeMs: 0, now: () => t,
+    schedule: (fn, ms) => { jobs.push({ fn, ms }); return null; },
+    random: () => 0,
+  });
+  check('setContext before anything starts records the settlement', a.music.setContext({ settlement: true, night: false }) === true);
   a.music.start();
   a.unlock();
-  check('it opens on the biome\'s own theme', a.music.kind === 'theme' && /meadow\/theme\.mp3/.test(a.music.track), String(a.music.track));
-  check('and lays the ambience bed under it', /meadow\/ambience/.test(a.music.ambience.url));
-  check('the bed loops', a.music.ambience.loop === true && a.music.el.loop === true);
+  check('it opens on Hearthhome midday in a settlement by day',
+    a.music.kind === 'settlementDay' && /Hearthhome_Midday-music-track\.mp3/.test(a.music.track), String(a.music.track));
+  a.music.setAmbience(bedFor({ settlement: true, night: false }));
+  check('and lays the village day bed under it', /amb-village-day\.mp3/.test(a.music.ambience.url), a.music.ambience.url);
+  check('the bed loops and the music track does not', a.music.ambience.loop === true && a.music.el.loop === false);
   check('the track is at music volume, not sfx volume', a.music.el.volume === MUSIC_VOLUME, String(a.music.el.volume));
-  check('and the bed is loud enough to be heard under it (0.15 was not, 2026-09-08)', AMBIENCE_VOLUME >= 0.3, String(AMBIENCE_VOLUME));
+  check('and the bed is loud enough to be heard under it', AMBIENCE_VOLUME >= 0.3, String(AMBIENCE_VOLUME));
 
-  check('mid-slot nothing rotates', a.music.tick() === null);
-  t += SLOT_MS.theme + 1;
-  a.music.tick();
-  // The biome kits are whole again (2026-09-08): the theme opens, then calm
-  // when the player has been idle, lively when they have been working, and
-  // the theme comes back every third slot, walking the biome's own and the
-  // two shared themes in turn.
-  check('an idle player gets the calm track next', a.music.kind === 'calm' && /meadow\/calm/.test(a.music.track), String(a.music.track));
-  t += SLOT_MS.calm + 1;
-  a.music.tick();
-  check('then the lively one', a.music.kind === 'lively' && /meadow\/lively/.test(a.music.track), String(a.music.track));
-  t += SLOT_MS.lively + 1;
-  a.music.tick();
-  check('and the theme slot comes back on the first shared theme song', a.music.kind === 'theme' && /themes\/theme1/.test(a.music.track), String(a.music.track));
-  t += SLOT_MS.theme + 1;
-  a.play('chop');                                  // working just now leans the next slot lively
-  a.music.tick();
-  check('a working player gets the lively track straight after the theme', a.music.kind === 'lively', String(a.music.track));
+  check('same context does not restart the track', a.music.setContext({ settlement: true, night: false }) === false);
+  a.music.setContext({ settlement: true, night: true });
+  check('turning night in the settlement crossfades to Hearthhome night',
+    a.music.kind === 'settlementNight' && /Hearthhome-night-soundtrack\.mp3/.test(a.music.track), String(a.music.track));
+  a.music.setContext({ settlement: false });
+  check('leaving the settlement plays the Standing Hedge',
+    a.music.kind === 'openCountry' && /The-Standing-Hedge\.mp3/.test(a.music.track), String(a.music.track));
+  const track = a.music.el;
+  track.fire('ended');
+  check('a finished track books a 20 second rest at the low end of the range',
+    jobs.some((j) => j.ms === 20000), JSON.stringify(jobs.map((j) => j.ms)));
 
-  check('crossing into a biome with the same kit changes nothing', a.music.setBiome('meadow') === false);
-  check('beach and ocean share the shore kit', a.music.setBiome('beach') === true && a.music.setBiome('ocean') === false);
-  check('and the shore ambience bed is now what lies under the song', /oceanside\/ambience/.test(a.music.ambience.url), String(a.music.ambience.url));
-
-  check('sakura is a different kit', a.music.setBiome('sakura') === true);
-  const first = a.music.track;
-  t += 400_000;
+  check('mid-context tick changes nothing', a.music.tick() === null);
+  a.music.setContext({ settlement: true, night: false });
   a.music.tick();
-  check('sakura walks its own two themes and then the shared ones, never the same twice running',
-    a.music.track !== first && /sakura\/theme2|themes\/theme/.test(a.music.track), `${first} -> ${a.music.track}`);
-  check('and borrows the meadow ambience, because it has none of its own',
-    /meadow\/ambience/.test(a.music.ambience.url));
+  check('a changed context is applied by tick too', a.music.kind === 'settlementDay');
 
   a.music.stop();
   check('stop pauses the track', a.music.el.paused === true && a.music.playing === false);
+  a.dispose();
+}
+
+// ---- ambience branches ----------------------------------------------------
+{
+  const cases = [
+    ['rain under trees beats settlement', { raining: true, treeCover: true, settlement: true }, 'amb-rain-under-trees'],
+    ['rain in a field beats mine yard', { raining: true, nearMine: true }, 'amb-rain-field'],
+    ['village day', { settlement: true, night: false }, 'amb-village-day'],
+    ['village night', { settlement: true, night: true }, 'amb-village-night'],
+    ['inside mine', { inDungeon: true }, 'amb-mine-inside'],
+    ['mine yard', { nearMine: true }, 'amb-mine-yard'],
+    ['bandit camp', { nearBanditCamp: true }, 'amb-bandit-camp'],
+    ['legion camp', { nearLegionCamp: true }, 'amb-legion-camp'],
+    ['wood day', { treeCover: true, night: false }, 'amb-wood-day'],
+    ['wood night', { treeCover: true, night: true }, 'amb-wood-night'],
+    ['mere dawn', { nearStillWater: true, dawn: true }, 'amb-mere-dawn'],
+    ['river bank', { nearRiver: true }, 'amb-river-bank'],
+    ['water meadow', { nearWaterMeadow: true }, 'amb-water-meadow'],
+    ['chalk hill', { highChalk: true }, 'amb-chalk-hill'],
+    ['meadow day fallback', { night: false }, 'amb-meadow-day'],
+    ['meadow night fallback', { night: true }, 'amb-meadow-night'],
+  ];
+  for (const [name, ctx, file] of cases) check(name, bedFor(ctx).endsWith(`${file}.mp3`), bedFor(ctx));
+  check('still water outside dawn falls through to meadow',
+    /amb-meadow-day/.test(bedFor({ nearStillWater: true, dawn: false, night: false })));
+  check('river wins before wet meadow when both are true',
+    /amb-river-bank/.test(bedFor({ nearRiver: true, nearWaterMeadow: true })));
+}
+
+// ---- library shots and sources -------------------------------------------
+{
+  const k = fakeKit();
+  const a = createAudio({ makeElement: k.make, storage: null, listen: false, fadeMs: 0, random: () => 0 });
+  a.unlock();
+  const urls = [];
+  for (let i = 0; i < 8; i++) urls.push(a.playLibrary('owl').url);
+  let same = false;
+  for (let i = 1; i < urls.length; i++) if (urls[i] === urls[i - 1]) same = true;
+  check('a library pool never repeats its previous variant', !same, urls.join(' '));
+  check('library shots go through the sfx stats', a.stats.shots.owl === 8, String(a.stats.shots.owl));
+  check('a missing library pool is silence', a.playLibrary('nope') === null);
+
+  a.setListener(0, 0);
+  a.music.start();
+  const near = a.source.update('forge', `${LIBRARY_DIR}src-forge.mp3`, { x: 4, z: 0 });
+  check('a point source in range plays at ambience volume', near.inRange === true && near.el.plays === 1 && near.volume === AMBIENCE_VOLUME, String(near.volume));
+  const far = a.source.update('forge', `${LIBRARY_DIR}src-forge.mp3`, { x: SOURCE_MAX_DIST + 1, z: 0 });
+  check('a point source past its range is paused and silent', far.inRange === false && far.el.paused === true && far.volume === 0, `${far.inRange}/${far.volume}`);
   a.dispose();
 }
 
@@ -499,7 +547,7 @@ function memStore() {
   store.setItem(STORE_KEY, JSON.stringify({ music: false, sfx: true }));
   const k = fakeKit();
   const a = createAudio({ makeElement: k.make, storage: store, listen: false, fadeMs: 0, now: () => 1 });
-  a.music.setBiome('desert');
+  a.music.setContext({ settlement: false, night: false });
   a.music.start();
   a.unlock();
   check('starting muted builds the track but never plays it',

@@ -9,6 +9,8 @@ dist/
 # Biome music tracks held out of the open-source repo pending a redistribution
 # license check — drop your own/royalty-free tracks here to restore audio.
 public/audio/music/
+# the generated Greenwold library (docs/concepts/greenwold/SOUNDS.md), 43 MB of mp3; shipped by deploying from this machine
+public/audio/library/
 
 # local save backups, never commit somebody's farm
 .saves/

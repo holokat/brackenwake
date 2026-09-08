@@ -444,8 +444,8 @@ const spy = (name, deps = [], hooks = {}) => ({
     names.join(',') === FRAME_ORDER.join(','), names.join(','));
   // CR3 put context_menu after ui, because the menu is drawn by the window
   // layer's own document and reaches the registered panels through it.
-  check('and the frame order is the fourteen live systems after the companion removal; it was fifteen before 2026-09-08',
-    FRAME_ORDER.join(',') === 'world,player,emotes,combat,abilities,inventory,world_life,events,story,ui,net,context_menu,dev,input', FRAME_ORDER.join(','));
+  check('and the frame order is the fifteen live systems after Phase S; it was fourteen before the sound library',
+    FRAME_ORDER.join(',') === 'world,player,emotes,combat,abilities,inventory,world_life,events,story,ui,sound,net,context_menu,dev,input', FRAME_ORDER.join(','));
   check('each one has a file of its own', SYSTEMS.every((s) => src(`app/systems/${s.name}.js`).includes(`name: '${s.name}'`)));
 
   // every dep resolves, and the whole list really does sort
@@ -459,7 +459,7 @@ const spy = (name, deps = [], hooks = {}) => ({
   const late = SYSTEMS.flatMap((s) => (s.deps || []).filter((d) => at(d) > at(s.name)).map((d) => `${s.name} before ${d}`));
   check('and every system is built after everything it needs', late.length === 0, late.join(','));
   check('the build order is the one R1.md documents',
-    sys.built.join(',') === 'world,player,combat,inventory,abilities,ui,emotes,world_life,events,story,net,context_menu,dev,input', sys.built.join(','));
+    sys.built.join(',') === 'world,player,combat,inventory,abilities,ui,emotes,world_life,events,story,sound,net,context_menu,dev,input', sys.built.join(','));
 
   // A system may reach any other system from inside a function that runs after
   // the boot, because everything exists by then. What it may NOT do is reach
@@ -523,9 +523,9 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
   check('source: the ear moves before any system can fire a cue', ear > 0 && update > ear, `setListener at ${ear}, systems.update at ${update}`);
 
   const u = sysSrc('ui.js');
-  const place = u.slice(u.indexOf('function updatePlace'), u.indexOf('function updatePlace') + 1600);
-  check('source: the music follows the ground in updatePlace', /audio\.music\.setBiome\(sample\.biome\)/.test(place));
-  check('source: and it is inside the above-ground branch, so it is left alone underground', place.indexOf('audio.music.setBiome') > place.indexOf('} else {'));
+  const snd = sysSrc('sound.js');
+  check('source: the sound system sets music from the sampled context', /ctx\.audio\.music\.setContext/.test(snd));
+  check('source: and the sound system hands the chosen bed to audio.js', /ctx\.audio\.music\.setAmbience\(bedFor\(context\)\)/.test(snd));
 
   const w = sysSrc('world.js');
   const cave = w.slice(w.indexOf('onDungeonState'), w.indexOf('onDungeonState') + 1600);

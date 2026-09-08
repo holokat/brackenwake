@@ -69,3 +69,63 @@ loops, and nothing that reads as a melody: a bed the ear stops hearing.
 ## Footsteps by ground (pools of six, mono, 0.5 s each)
 
 - **step-grass**, **step-dirt-path**, **step-cobble**, **step-mud**, **step-gravel**, **step-sand-chalk**, **step-wood-plank**, **step-shallow-water**, **step-leaf-litter**. A single footstep of a leather boot on each surface, dry, close, six variants that differ enough not to machine gun. These map onto the ten paint words the terrain already carries.
+
+## Phase S wiring status, 2026-09-08
+
+The generated library on disk is `public/audio/library/` with 68 MP3 files. The rows below use the generated MP3 names, not the original OGG prompt names.
+
+| Row | Status | Where it is used |
+| --- | --- | --- |
+| Hearthhome_Midday-music-track.mp3 | wired | Settlement music by day, within `flatR + 20 m` of the nearest town or hamlet. |
+| Hearthhome-night-soundtrack.mp3 | wired | Settlement music by night, from the same settlement test. |
+| The-Standing-Hedge.mp3 | wired | Open-country music outside settlement range. |
+| amb-meadow-day.mp3 | wired | Default outdoor day bed. |
+| amb-meadow-night.mp3 | wired | Default outdoor night bed. |
+| amb-wood-day.mp3 | wired | Tree cover by day, three or more nearby trees within 12 m. |
+| amb-wood-night.mp3 | wired | Tree cover by night, same cover test. |
+| amb-river-bank.mp3 | wired | River sample near the player. |
+| amb-water-meadow.mp3 | wired | Still water or wet meadow when the stronger mere-dawn rule is false. |
+| amb-village-day.mp3 | wired | Settlement by day. |
+| amb-village-night.mp3 | wired | Settlement by night. |
+| amb-chalk-hill.mp3 | wired | Mountain biome or at least 60 m over sea level. |
+| amb-mere-dawn.mp3 | wired | Still water during the dawn hour. |
+| amb-mine-yard.mp3 | wired | Within 30 m of a mine or Greenwold chalk-pits site. |
+| amb-mine-inside.mp3 | wired | `runtime.inDungeon`. |
+| amb-legion-camp.mp3 | wired | Within 30 m of a legion camp or Kingsroad camp site. |
+| amb-bandit-camp.mp3 | wired | Within 30 m of a bandit camp or Highwayman's Hollow. |
+| amb-rain-field.mp3 | wired | Rain in open ground. Rain beats every other bed. |
+| amb-rain-under-trees.mp3 | wired | Rain under tree cover. Rain beats every other bed. |
+| src-forge.mp3 | wired | Loop at the live Workshop station, with the old `forge` id accepted if the station table still has it. |
+| src-tavern-inside.mp3 | wired | Loop at authored `inn` plan pieces, found from the space origin plus piece offset. |
+| src-mill-wheel.mp3 | wired | Loop at authored `mill_wheel` plan pieces, found the same way. |
+| os-owl-call*.mp3 | wired | Timed night pool in meadow or tree cover. |
+| os-fox-bark*.mp3 | wired | Timed night pool in meadow or tree cover. |
+| os-woodpecker.mp3 | wired | Timed day pool under tree cover. |
+| os-crow-flock-lift*.mp3 | wired | Timed day pool in meadow or tree cover. |
+| os-wind-gust*.mp3 | wired | Timed outdoor pool, 25 to 70 seconds. |
+| os-distant-thunder*.mp3 | wired | Fires when rain begins, because the weather runtime has no warning state. |
+| os-cart-pass*.mp3 | wired | Timed day pool on a road inside settlement range. |
+| os-church-bell.mp3 | wired | Chapel at 18:00 and sunken chapel at midnight, with the midnight shot slowed and quieter. |
+| os-gate-swing*.mp3 | wired | Fires once when the player enters 1.5 m range of an authored gate piece. |
+| os-boar-snort*.mp3 | wired | Timed near a live `boar` monster record. |
+| os-badger-huff*.mp3 | wired | Timed near a live `badger` monster record. |
+| os-goose-alarm*.mp3 | wired | Timed near a live `goose` monster record. |
+| os-wheat-walk*.mp3 | wired | Per stride when the sampled ground marks a field or wheat. |
+| os-splash-wade*.mp3 | wired | Per stride in water below swimming depth. |
+| os-mist-rise*.mp3 | wired | Once near the sunken chapel mere at midnight. |
+| os-door-cottage*.mp3 | not yet | Needs a Talk-window producer hook for innkeepers or villagers with houses. The assigned file list did not include `win_talk.js`, `windows.js` or `npcs_runtime.js`. |
+| os-hedge-push*.mp3 | not yet | Needs a producer hook from the hedge collision pushback. The assigned file list did not include the collider owner. |
+| os-heron-croak*.mp3 | not yet | The file exists, but Phase S did not name a concrete trigger beyond water-meadow flavour. |
+
+| Planned row | Status | Reason |
+| --- | --- | --- |
+| src-weir.ogg | missing file | No `src-weir.mp3` exists in `public/audio/library/`. |
+| src-well.ogg | missing file | No `src-well.mp3` exists. |
+| src-hedge-stone-hum.ogg | missing file | No `src-hedge-stone-hum.mp3` exists. |
+| src-sheep-flock.ogg | missing file | No `src-sheep-flock.mp3` exists. |
+| src-hens.ogg | missing file | No `src-hens.mp3` exists. |
+| src-fire-camp.ogg | missing file | No `src-fire-camp.mp3` exists. |
+| src-reeds-wind.ogg | missing file | No `src-reeds-wind.mp3` exists. |
+| src-beehive.ogg | missing file | No `src-beehive.mp3` exists. |
+| src-lantern-wind.ogg | missing file | No `src-lantern-wind.mp3` exists. |
+| step-grass through step-leaf-litter | missing file | No generated footstep files exist for any ground surface. |

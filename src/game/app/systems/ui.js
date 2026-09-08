@@ -269,7 +269,6 @@ export const ui = {
         text = lastInside.level > 1 ? `${lastInside.site.name}, level ${lastInside.level}` : lastInside.site.name;
       } else {
         const sample = runtime.field.sampleAt(p.x, p.z);
-        audio.music.setBiome(sample.biome);
         text = placeLabel(runtime,p,BIOME_NAMES[sample.biome] || sample.biome);
       }
       if (text !== placeText) {

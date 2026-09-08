@@ -15,14 +15,15 @@ import { world_life } from './world_life.js';
 import { events } from './events.js';
 import { story } from './story.js';
 import { ui } from './ui.js';
+import { sound } from './sound.js';
 import { context_menu } from './context_menu.js';
 import { dev } from './dev.js';
 import { input } from './input.js';
 import { net } from './net.js';
 
 /** The frame order of docs/mmo/07-RUNTIME-CONTRACT.md, by name. */
-export const FRAME_ORDER = ['world', 'player', 'emotes', 'combat', 'abilities', 'inventory', 'world_life', 'events', 'story', 'ui', 'net', 'context_menu', 'dev', 'input'];
+export const FRAME_ORDER = ['world', 'player', 'emotes', 'combat', 'abilities', 'inventory', 'world_life', 'events', 'story', 'ui', 'sound', 'net', 'context_menu', 'dev', 'input'];
 
-export const SYSTEMS = [world, player, emotes, combat, abilities, inventory, world_life, events, story, ui, net, context_menu, dev, input];
+export const SYSTEMS = [world, player, emotes, combat, abilities, inventory, world_life, events, story, ui, sound, net, context_menu, dev, input];
 
-export { world, player, emotes, combat, abilities, inventory, world_life, events, story, ui, net, context_menu, dev, input };
+export { world, player, emotes, combat, abilities, inventory, world_life, events, story, ui, sound, net, context_menu, dev, input };
