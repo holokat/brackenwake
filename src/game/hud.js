@@ -1201,6 +1201,10 @@ export function createHud(root) {
 
   // one cell per bar key, built once, so nothing can land on top of anything.
   let onBarPick = null;
+  // an ability card dragged out of the Abilities page lands here (2026-09-08:
+  // the page used to draw a strip of its own to drop on, and the user asked
+  // for the real bar instead); a right click empties the slot
+  let onAbilityDropped = null, onBarCleared = null;
   /** An <img>'s src, set or cleared, on a real element or the tests' fake one. */
   function setArt(img, src) {
     if (!img) return;
@@ -1322,9 +1326,16 @@ export function createHud(root) {
     const art = add(c, mk('img', null, 'art'));
     art.alt = ''; art.draggable = false;
     c.addEventListener('click', () => {
-      if (c.classList.contains('empty')) return;
-      if (onBarPick) onBarPick(i);
+      // an empty cell still takes a click when the Abilities page has a card
+      // in hand; the handler decides what a click on nothing means
+      if (onBarPick) onBarPick(i, c.classList.contains('empty'));
     });
+    c.addEventListener('contextmenu', (e) => {
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      if (onBarCleared) onBarCleared(i);
+    });
+    // the Abilities page hands over `{ ability: id }` under windows.js's mime
+    dropTarget(c, (payload) => { if (onAbilityDropped) onAbilityDropped(i, payload); });
     barRow.appendChild(c);
     const rec = { el: c, art, name: n, cost, sweep: sw, cd, key, last: null, tip: null, ability: null, reason: '', burden: '' };
     hoverTip(rec);
@@ -1931,6 +1942,10 @@ export function createHud(root) {
     onDev(fn) { onDevClick = fn; },
     /** A click on a bar cell, for the mouse. The keys go through input.js. */
     onBar(fn) { onBarPick = fn; },
+    /** An ability card dropped on a bar cell: `fn(slot, { ability })`. */
+    onAbilityDrop(fn) { onAbilityDropped = fn; },
+    /** A right click on a bar cell: `fn(slot)`, which empties it. */
+    onBarClear(fn) { onBarCleared = fn; },
     /** A click on the thirteenth cell. The key goes through the dragon system. */
     onWyrmsoul(fn) { onWyrmPick = fn; },
     /** The words the tooltip shows for bar slot i, or '' when the slot is empty. */

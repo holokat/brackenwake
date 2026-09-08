@@ -56,6 +56,7 @@ function makeDom() {
 globalThis.document = makeDom();
 
 const mod = await import('./win_abilities.js');
+const { barHand } = mod;
 const {
   setBarSlot, barOf, abilityLines, BAR_SLOTS, BAR_KEYS,
   GROUP_LABEL, GROUP_COLOUR, ART, ART_ORDER, artFor, artSvg, auditArt,
@@ -341,11 +342,11 @@ console.log('abilities: the real panel');
     return out;
   };
   const cards = () => find(host, (n) => n.classList.contains('bw-card'));
-  const strip = find(host, (n) => n.classList.contains('bw-bar-strip'))[0];
 
   check('the page draws one card per ability, all seventy eight',
     cards().length === ABILITIES.length, String(cards().length));
-  check('the bar preview strip is still twelve slots', strip.children.length === 12, String(strip.children.length));
+  check('the page draws no bar strip of its own any more; the real bar is the drop target',
+    find(host, (n) => n.classList.contains('bw-bar-strip')).length === 0);
 
   const locked = cards().filter((c) => c.classList.contains('locked'));
   check('fifty five of the cards are dimmed and locked',
@@ -402,15 +403,21 @@ console.log('abilities: the real panel');
   check('and neither does a passive, even one whose skill you have',
     dragOf(riposte).payload === null, String(dragOf(riposte).payload));
 
-  // the drop, through the real strip
-  strip.children[2].fire('drop', {
-    preventDefault: () => {},
-    dataTransfer: { getData: () => JSON.stringify({ ability: 'powerStrike' }) },
-  });
-  check('dropping on slot three puts it there', character.bar[2] === 'powerStrike', String(character.bar[2]));
+  // the hand: a click on a card, then a click on a real bar cell, which the
+  // abilities system turns into barHand.place(slot)
+  check('nothing is in hand to start with', barHand.id === null && barHand.place(2) === null);
+  powerStrike.fire('click');
+  check('clicking an unlocked card puts it in hand and says so',
+    barHand.id === 'powerStrike' && said.some((l) => /Power Strike in hand/.test(l)), `${barHand.id} / ${said[said.length - 1]}`);
+  const placedRes = barHand.place(2);
+  check('placing it on slot three writes the bar and empties the hand',
+    placedRes && placedRes.ok && character.bar[2] === 'powerStrike' && barHand.id === null, JSON.stringify(placedRes));
   check('and it is said out loud', said.some((l) => /Power Strike goes on slot 3/.test(l)), said[said.length - 1]);
-  strip.children[2].fire('contextmenu', { preventDefault: () => {} });
-  check('right clicking the slot takes it off again', character.bar[2] === null);
+  check('a right click on the real bar is setBarSlot with null, the same words either way',
+    setBarSlot(character, 2, null).ok && character.bar[2] === null);
+  powerStrike.fire('click');
+  panel.close();
+  check('closing the page drops what was in hand', barHand.id === null);
 
   // a locked card clicked says the requirement rather than nothing
   said.length = 0;

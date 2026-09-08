@@ -601,6 +601,23 @@ console.log('hud: the item bar');
   ck('a pack drag dropped on a cell arrives with the address windows.js sent',
     dropped && dropped.slot === 5 && dropped.payload.pack === 7, JSON.stringify(dropped));
 
+  // the ability bar takes cards from the Abilities page the same way (2026-09-08)
+  let abDrop = null, cleared = null, picked = null;
+  hud.onAbilityDrop((slot, payload) => { abDrop = { slot, payload }; });
+  hud.onBarClear((slot) => { cleared = slot; });
+  hud.onBar((slot, empty) => { picked = { slot, empty }; });
+  barRow.children[4].fire('drop', {
+    preventDefault() {},
+    dataTransfer: { getData: () => JSON.stringify({ ability: 'powerStrike' }) },
+  });
+  ck('an ability card dropped on a bar cell arrives with its id',
+    abDrop && abDrop.slot === 4 && abDrop.payload.ability === 'powerStrike', JSON.stringify(abDrop));
+  barRow.children[4].fire('contextmenu', { preventDefault() {} });
+  ck('a right click on a bar cell asks for a clear', cleared === 4, String(cleared));
+  barRow.children[4].fire('click');
+  ck('a click on a bar cell reaches the handler and says whether the cell was empty',
+    picked && picked.slot === 4 && typeof picked.empty === 'boolean', JSON.stringify(picked));
+
   hud.update(0.016, { items: null });
   ck('and no item bar in the view empties the row rather than freezing it',
     itemRow.children.every((c) => c.classList.contains('empty')));

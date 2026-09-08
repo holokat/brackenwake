@@ -29,13 +29,16 @@ import { abilityIcon, iconImg } from './icon_art.js';
 //
 // hud.js draws the bar the player fights from (W4). This window writes
 // `character.bar[slot]` and calls `ctx.onBarChange?.()` so that bar redraws.
-// It also draws its own strip of the same twelve slots, for two reasons: a
-// window that can only be used by dragging onto another agent's element is a
-// feature that does not exist until both halves land, and a player wants to
-// see the bar while choosing what goes on it.
+// It used to draw a strip of the same twelve slots of its own to drop on; the
+// user found it in the way ("I would prefer that I can drag abilities
+// directly to MY action bar in the game hud", 2026-09-08), so the strip is
+// gone. A card is dragged onto the real bar, which hud.js accepts through
+// `onAbilityDrop`, or clicked and then a real bar cell, which reaches this
+// page through `barHand`. The codex frame stops short of the bar so the bar
+// stays in reach under an open page.
 //
 // The drag payload is `{ ability: id }` under the same mime the pack uses, so
-// the real bar can accept exactly what this strip accepts. Only an UNLOCKED,
+// the real bar accepts exactly what a card hands over. Only an UNLOCKED,
 // non passive card is a drag source: a locked card that could be dropped onto
 // the bar would put a key under an ability the runtime then refuses, which is
 // the stranded unlock this project's CLAUDE.md was written about.
@@ -53,6 +56,20 @@ import { theme } from './ui_theme.js';
 /** 06-ECONOMY-UI.md: twelve slots, keys 1 to 0 and minus and equals. */
 export const BAR_SLOTS = 12;
 export const BAR_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
+
+/**
+ * The card in hand. Clicking an unlocked card on the page picks it up; the
+ * next click on a real bar cell puts it there. hud.js knows nothing of this
+ * page, so the abilities system reads `barHand.id` on a bar click and calls
+ * `place(slot)`, which writes the bar, says what happened, and empties the
+ * hand. Closing the page drops whatever was held.
+ */
+let held = null;   // `hand` is a card's own element inside build(); this is the page's
+export const barHand = {
+  get id() { return held ? held.id : null; },
+  place(slot) { if (!held) return null; const h = held; held = null; return h.place(slot); },
+  drop() { held = null; },
+};
 
 if (BAR_KEYS.length !== BAR_SLOTS) {
   throw new Error(`win_abilities: ${BAR_KEYS.length} keys for ${BAR_SLOTS} slots`);
@@ -410,19 +427,6 @@ const CSS = `
 .bw-abils { width: 100%; font-family: ${theme.fonts.body}; }
 .bw-abils .bw-hint { color: ${theme.parchmentDim}; font-style: italic; font-size: 15px; margin-bottom: 10px; }
 
-.bw-bar-strip { display: flex; gap: 5px; margin: 0 0 12px; flex-wrap: wrap; }
-.bw-bar-strip .bw-slot {
-  position: relative; width: 58px; height: 58px; padding: 4px 3px 12px;
-  font-family: ${theme.fonts.body}; font-size: 12px; line-height: 1.12; text-align: center;
-  color: ${theme.parchment}; overflow: hidden;
-}
-.bw-bar-strip .bw-slot .bw-slot-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
-.bw-bar-strip .bw-slot .bw-k { z-index: 1; }
-.bw-bar-strip .bw-slot .bw-k {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .1em;
-  text-transform: uppercase; color: ${theme.gold}; background: rgba(0,0,0,.55);
-}
 
 .bw-abils .bw-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
 .bw-abils .bw-f {
@@ -526,16 +530,13 @@ export const panel = {
     css();
     const character = () => (ctx.character && ctx.character.skills ? ctx.character : ctx.inventory?.character) || { skills: {}, stats: {} };
     const say = (t, kind) => (ctx.hud?.log ? ctx.hud.log(t, kind) : ctx.hud?.toast?.(t, kind));
-    let picked = null;      // clicked in the list, waiting for a slot
     let filter = 'all';
 
     const root = h('div', 'bw-abils');
     el.appendChild(root);
 
     root.appendChild(h('div', 'bw-hint',
-      'Every ability in the world is here. Drag one you have onto a slot, or click it and then a slot. Right click a slot to clear it. The bar answers to 1 to 0 and the two keys after them.'));
-    const strip = h('div', 'bw-bar-strip');
-    root.appendChild(strip);
+      'Every ability in the world is here. Drag one you have onto your bar at the bottom of the screen, or click it and then a slot on the bar. Right click a bar slot to clear it. The bar answers to 1 to 0 and the two keys after them.'));
 
     const filterRow = h('div', 'bw-filters');
     root.appendChild(filterRow);
@@ -543,34 +544,6 @@ export const panel = {
     root.appendChild(countLine);
     const listEl = h('div');
     root.appendChild(listEl);
-
-    // --- the bar strip, twelve slots, drop targets -------------------------
-    const slots = [];
-    for (let i = 0; i < BAR_SLOTS; i++) {
-      const cell = h('div', 'bw-slot');
-      cell.appendChild(h('span', 'bw-k', keyFor(character(), i)));
-      strip.appendChild(cell);
-      slots.push(cell);
-      dropTarget(cell, (payload) => {
-        if (!payload || !payload.ability) return;
-        apply(i, payload.ability);
-      });
-      cell.addEventListener('click', () => {
-        if (picked) { apply(i, picked); picked = null; return; }
-        const c = character();
-        const on = barOf(c)[i];
-        if (!on) { say(`slot ${i + 1} is empty, and waiting`); return; }
-        say(`slot ${i + 1} holds ${ABILITIES_BY_ID[on]?.name || on}, key ${keyFor(c, i)}`);
-      });
-      cell.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        apply(i, null);
-      });
-      attachTip(cell, () => {
-        const on = barOf(character())[i];
-        return on ? { lines: abilityLines(ABILITIES_BY_ID[on], character()) } : null;
-      });
-    }
 
     // --- the filter row ----------------------------------------------------
     const filterEls = new Map();
@@ -591,6 +564,7 @@ export const panel = {
       const res = setBarSlot(c, slot, abilityId);
       say(res.reason, res.ok ? undefined : 'bad');
       if (res.ok) { ctx.onBarChange?.(c.bar, slot); refresh(); }
+      return res;
     }
 
     // --- the cards ---------------------------------------------------------
@@ -656,8 +630,8 @@ export const panel = {
               return;
             }
             if (ability.passive) { say(`${ability.name} is passive and already working`); return; }
-            picked = ability.id;
-            say(`${ability.name} in hand. Click a slot to put it there.`);
+            held = { id: ability.id, place: (slot) => apply(slot, ability.id) };
+            say(`${ability.name} in hand. Click a slot on your bar to put it there.`);
           });
         }
       }
@@ -671,22 +645,6 @@ export const panel = {
       const bar = barOf(c);
 
       for (const f of FILTERS) filterEls.get(f.id).classList.toggle('on', filter === f.id);
-
-      // the strip
-      for (let i = 0; i < BAR_SLOTS; i++) {
-        const id = bar[i];
-        const a = id ? ABILITIES_BY_ID[id] : null;
-        slots[i].textContent = '';
-        // the painting when there is one, the name when there is not; the
-        // tooltip on the slot carries the name and the rest either way
-        const src = a ? abilityIcon(a.id) : null;
-        if (src) {
-          const img = h('img', 'bw-slot-art'); img.src = src; img.alt = ''; img.draggable = false;
-          slots[i].appendChild(img);
-        } else slots[i].appendChild(h('span', null, a ? a.name : ''));
-        slots[i].appendChild(h('span', 'bw-k', keyFor(c, i)));
-        slots[i].style.borderColor = a ? (GROUP_COLOUR[a.group] || '#7fb069') : 'rgba(255,255,255,.16)';
-      }
 
       let open = 0;
       for (const rec of cards) {
@@ -741,7 +699,7 @@ export const panel = {
   },
 
   open() { if (this._rebuild) this._rebuild(); },
-  close() { hideTip(); },
+  close() { hideTip(); held = null; },
 
   tick(dt) {
     this._since = (this._since || 0) + (dt || 0);

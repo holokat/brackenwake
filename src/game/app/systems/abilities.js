@@ -12,6 +12,7 @@ import { loadSpellTextures } from '../../vfx/textures.js';
 import { moveInfo, abilityMoves } from '../../models.js';
 import { createAbilityHooks } from '../../ability_hooks.js';
 import { createItemBar } from '../../item_bar.js';
+import { setBarSlot, barHand } from '../../win_abilities.js';
 import { recompute } from '../../actor.js';
 
 export const abilities = {
@@ -225,8 +226,23 @@ export const abilities = {
     hud.onItem?.((slot, how) => (how === 'clear' ? itemBar.clear(slot) : itemBar.use(slot)));
     hud.onItemDrop?.((slot, payload) => itemBar.assign(slot, payload));
 
+    // THE ABILITY BAR TAKES CARDS FROM THE ABILITIES PAGE (2026-09-08). A card
+    // dragged onto a cell, a card in hand and a click on a cell, a right click
+    // to empty a cell: all three write character.bar through setBarSlot and
+    // say what happened, because a silent bar is a broken bar. A plain click
+    // on a filled cell with nothing in hand uses the ability, as its key would.
+    const clock = { now: 0 };
+    const sayBar = (res) => { if (res && res.reason) hud.log?.(res.reason, res.ok ? undefined : 'bad'); };
+    hud.onAbilityDrop?.((slot, payload) => { if (payload && payload.ability) sayBar(setBarSlot(character, slot, payload.ability)); });
+    hud.onBarClear?.((slot) => sayBar(setBarSlot(character, slot, null)));
+    hud.onBar?.((slot, empty) => {
+      if (barHand.id) { barHand.place(slot); return; }
+      if (empty) { hud.log?.(`Slot ${slot + 1} is empty. Drag an ability onto it from the Abilities page.`, 'bad'); return; }
+      runtimeAbilities.use(slot, clock.now);
+    });
+
     return {
-      abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx, enchantments, markBadges,
+      abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx, enchantments, markBadges, clock,
       dispose(){removeStrike?.();enchantments.dispose();spellVfx.dispose();effects.dispose?.();hooks.dispose?.();},
       bw: { abilities: runtimeAbilities, effects, itemBar, hooks, spellVfx, enchantments, markBadges, get summons() { return hooks.summons; } },
     };
@@ -248,8 +264,9 @@ export const abilities = {
   // of a second and is over before anybody could time it. Written down here
   // rather than left to be found.
   update(ctx, frame) {
-    const { abilities: runtimeAbilities, itemBar, hooks } = ctx.get('abilities');
+    const { abilities: runtimeAbilities, itemBar, hooks, clock } = ctx.get('abilities');
     const input = ctx.input;
+    if (clock) clock.now = frame.nowS;
     // a held spell that Escape lets go must not also open the settings window
     const hadPending = !!runtimeAbilities.pending;
     runtimeAbilities.update(frame.dt, frame.nowS);

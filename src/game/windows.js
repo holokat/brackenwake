@@ -118,7 +118,10 @@ const CSS = `
 }
 #bw-windows .bw-win-x:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
 #bw-windows .bw-win-body { overflow: auto; max-height: min(74vh, 820px); }
-#bw-windows .bw-codex-body { overflow: auto; height: min(72vh, 760px); }
+/* The codex stops short of the ability bar: an Abilities card is dragged onto
+   the real bar now, so the bar has to stay in reach under an open page. The
+   frame sits 69px down and its chrome is about 106px; the bar starts 76px up. */
+#bw-windows .bw-codex-body { overflow: auto; height: min(calc(100vh - 270px), 760px); }
 #bw-windows .bw-codex-body[hidden] { display: none; }
 #bw-windows .bw-codex-tabs { display: flex; align-items: flex-end; gap: 2px; flex-wrap: wrap; }
 
