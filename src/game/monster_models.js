@@ -1,3 +1,4 @@
+import {buildOreElemental} from './ore_elemental_model.js';
 import {buildStudioCreature, STUDIO_MONSTER_LOOK} from './studio/creatures.js';
 import {buildStudioCaster} from './studio/hostile-casters.js';
 // The bodies of everything that wants to kill you.
@@ -2135,6 +2136,7 @@ export function monsterModelIds() {
  * as it was.
  */
 export function buildMonsterModel(id) {
+  const elemental=buildOreElemental(id);if(elemental)return elemental;
   const studio = buildStudioCreature(id) || buildStudioCaster(id); return studio || buildLegacyMonsterModel(id);
 }
 

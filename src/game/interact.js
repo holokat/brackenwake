@@ -1,3 +1,5 @@
+import {miningPreview,strikeSurface} from './surface_mining.js';
+import {elementalAwakening} from '../mmo/ore_elementals.js';
 // The cursor's end of the game: what you are pointing at, and what happens when
 // you click it.
 //
@@ -238,6 +240,7 @@ const exitDir = (e) => (typeof e === 'string' ? e : (e?.dir || e?.exit || null))
 export function decide(pick, character, playerPos, now, lastSwingAt, opts = {}) {
   if (!pick) return { action: 'none', reason: 'nothing' };
 
+  if(pick.kind==='mineSurface')return {action:'surfaceMine',pick,now};
   if (pick.kind === 'exit') {
     const dir = exitDir(pick.exit);
     if (dir !== 'up' && dir !== 'down') return { action: 'none', reason: 'nothing' };
@@ -291,7 +294,7 @@ export function decide(pick, character, playerPos, now, lastSwingAt, opts = {}) 
   return { action: 'none', reason: 'nothing' };
 }
 
-export function createInteract({ sc, runtime, player, state, hud, input, audio, progression, loot, chests, story, character = null }) {
+export function createInteract({ sc, runtime, player, state, hud, input, audio, progression, loot, monsters, onMine, chests, story, character = null }) {
   // Where a felled tree leaves its wood. `main.js` builds `loot` (createLootDrops)
   // before it builds this, so passing it is one word at the call site; until it
   // does, `runtime.loot` is tried and then the pack, so nothing is ever lost.
@@ -354,6 +357,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
 
   function hoverText(pick) {
     if (!pick) return '';
+    if(pick.kind==='mineSurface'){const p=miningPreview(who(),pick.claim);return p.remaining?`${p.ore} seam: ${p.remaining} ore left. Pickaxe ${p.tool?.durability??0}/100. Select your pickaxe and click to mine.`:'Worked-out surface. Find another seam.';}
     if (pick.kind === 'exit') {
       const dir = exitDir(pick.exit);
       if (dir === 'down') return 'a stair down, click it';
@@ -399,6 +403,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
 
   function update() {
     const pick = pickNow();
+    runtime.dungeonScene?.mine?.mark(pick?.kind==='mineSurface'?pick:null);
     const aim = aimNow();
     // the same precedence as the click, computed the same way, so the hint can
     // never name one thing while the click hits another
@@ -514,6 +519,23 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
 
   function act(d) {
     switch (d.action) {
+      case 'surfaceMine': {
+        const c=who(),claim=d.pick.claim;
+        const r=strikeSurface(c,claim,{now:d.now,last:lastSwingAt,position:player?.pos,dev:!!state.dev});
+        if(!r.ok){if(r.reason!=='cooldown'){say(r.reason);audio?.play?.('denied');}return r;}
+        lastSwingAt=d.now;
+        onMine?.();audio?.play?.('mine',{at:claim.point});runtime.dungeonScene?.mine?.impact(claim);
+        progression?.lesson?.('mining',Math.max(10,r.difficulty+10),r.yielded);
+        if(r.yielded){
+          const delivered=dropYield(r.ore+'_ore',1,'seam','breaks',{...player.pos},d.now);
+          if(!delivered.dropped&&!delivered.added){const record=c.mining.shoulder[claim.key];record.taken--;record.work=Math.max(0,miningPreview(c,claim).hits-1);state.save?.();say('Your pack is full. The ore remains in the seam.');return {...r,yielded:false};}
+          audio?.play?.('oreBreak',{at:claim.point});
+        }
+        say(`${r.yielded?'One '+r.ore+' ore loosened.':r.hitsLeft+' strikes to loosen ore.'} ${r.remaining} ore remain. Pickaxe ${r.durability}/100.`);
+        const record=c.mining.shoulder[claim.key];
+        if(elementalAwakening(claim,record)){const p=runtime.dungeonScene?.mine?.spawnPoint(player.pos);if(p&&monsters?.spawnEncounter?.(r.ore+'Elemental',p.x,p.z)){record.awakened=true;say(`The rock tears open. A ${r.ore} elemental has awakened!`,'bad');}}
+        state.save?.();return r;
+      }
       case 'chop':
       case 'mine': {
         lastSwingAt = (typeof performance !== 'undefined' ? performance.now() : Date.now());

@@ -475,3 +475,50 @@ Two new site kinds: **crater** (starfall ore, starbloom, a champion), rare,
 in deserts and snow; **graveyard** (nightshade, skeletons and zombies at
 night, a necromancer's stall), near old towns. Dungeons get themed by the
 nearest biome: bone in meadow, spider in desert, drowned near the coast.
+
+
+## The Shoulder Working: ore elementals
+
+The mine has twelve connected chambers, three ground elevations and nine
+scaffold decks. The highest chamber ceiling rises 46 metres above its floor.
+Select a carried pickaxe on the item bar and click stone within 4.2 metres.
+Each four-metre surface patch holds four to eight ore. Patches do not replenish
+for that character. Each strike costs one of the pickaxe's 100 durability points.
+Iron is available at mining skill 0; copper 10; tin 20; silver 35; coldiron 45;
+emberite 55; rimesteel 65; verdite 72; voidrock 82; starfall 92. Greater skill
+reduces the strikes needed to loosen ore. Higher cave ceilings are mineable
+only when the player can physically reach them.
+
+On approximately one in eleven patches, extracting the second ore awakens a
+matching elemental nearby. The encounter uses the existing combat resolver;
+its defeated body leaves a sack with the following guaranteed ore, in addition
+to ordinary loot. A patch can awaken a guardian only once. Exhaustion and
+awakening are saved on the character. These encounters are client-owned, as
+are the game's existing dungeon creatures.
+
+| Creature | Appearance and abilities | Ore reward |
+| --- | --- | --- |
+| Iron Elemental | Iron plates, amber heart, ground slam and stun | 18 iron |
+| Copper Elemental | Copper rock, patina glow, ground slam and poison | 20 copper |
+| Tin Elemental | Pale metal, white heart, knockback and stun | 22 tin |
+| Silver Elemental | Silver rock, white crystals, slam and mana drain | 24 silver |
+| Coldiron Elemental | Blue iron, frost nova and stun | 26 coldiron |
+| Emberite Elemental | Charred rock, molten heart, fire breath and fire resistance | 28 emberite |
+| Rimesteel Elemental | Ice blue shards, frost nova and cold resistance | 30 rimesteel |
+| Verdite Elemental | Green geode, poison breath and poisoned strikes | 32 verdite |
+| Voidrock Elemental | Dark stone, violet core, mana drain and physical resistance | 34 voidrock |
+| Starfall Elemental | Meteor metal, golden core, slam, knockback and stun | 36 starfall |
+
+Elementals are deliberately dangerous, using the existing iron golem or frost
+giant combat baseline. Every design has an emerging animation, orbiting shards,
+a strike animation and a crumbling death. Fire and cold resistance use the
+existing game's resistance cap; they are not absolute damage immunity.
+
+Inspiration: [Ultima Online's mining guide](https://uo.com/wiki/ultima-online-wiki/skills/mining/),
+particularly ore skill progression and mining-triggered ore guardians.
+Brackenwake uses its own ores, encounter rule and yields.
+
+Verification: `node src/world/shoulder.test.mjs` exercises finite claims,
+skill gates, durability, save hydration, all floor connectivity, roof raycasts,
+scaffold supports, actual interaction delivery and real combat death rewards
+for all ten creatures.

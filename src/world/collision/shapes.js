@@ -27,9 +27,15 @@ export function propColliders(model,x,z,y,w,d,h,yaw=0){
  }
  box(0,0,w,d);return out;
 }
+export function rampHeight(body,x,z){
+ const local=(x-body.x)*body.s+(z-body.z)*body.c;
+ const t=Math.max(0,Math.min(1,local/body.d+.5));
+ return body.y+body.h*(body.direction<0?1-t:t);
+}
 export function overlaps(body,x,y,z,radius=.32,height=1.75){
  if(body.enabled&&!body.enabled())return false;
- if(y>=body.y+body.h-.04||y+height<=body.y+.04)return false;
+ const top=body.kind==='ramp'?rampHeight(body,x,z):body.y+body.h;
+ if(y>=top-.04||y+height<=body.y+.04)return false;
  const dx=x-body.x,dz=z-body.z;
  if(body.kind==='circle')return dx*dx+dz*dz<(radius+body.r)**2;
  const a=Math.max(0,Math.abs(dx*body.c-dz*body.s)-body.w/2),b=Math.max(0,Math.abs(dx*body.s+dz*body.c)-body.d/2);
@@ -46,7 +52,12 @@ export function createCollisionIndex(bodies=[],cell=16){
   return r-(Math.hypot(Math.max(0,a),Math.max(0,d))+Math.min(0,Math.max(a,d)));
  };
  return{bodies,at,
-  supportAt(x,z,below,r=.3){let top=-Infinity;for(const b of near(x,z))if(b.y+b.h<=below&&overlaps(b,x,b.y+.05,z,r,.1))top=Math.max(top,b.y+b.h);return top;},
+  supportAt(x,z,below,r=.32){let top=-Infinity;for(const b of near(x,z)){
+   if(b.kind==='ramp'){
+    const dx=x-b.x,dz=z-b.z,a=Math.abs(dx*b.c-dz*b.s),v=Math.abs(dx*b.s+dz*b.c);
+    const y=rampHeight(b,x,z);if(a<=b.w/2&&v<=b.d/2&&y<=below)top=Math.max(top,y);
+   }else if(b.y+b.h<=below&&overlaps(b,x,b.y+.05,z,r,.1))top=Math.max(top,b.y+b.h);
+  }return top;},
   ceilingAt(x,z,feet,height=1.75,r=.3){let bottom=Infinity;for(const b of near(x,z))if(b.y>=feet+height-.04&&overlaps(b,x,b.y+.05,z,r,.1))bottom=Math.min(bottom,b.y);return bottom;},
   canMove(from,to,r=.32,h=1.75){
    const n=Math.max(1,Math.ceil(Math.hypot(to.x-from.x,to.z-from.z)/Math.max(.02,Math.min(.16,r*.5))));

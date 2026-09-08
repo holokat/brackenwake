@@ -1,3 +1,5 @@
+import {isShoulder,SHOULDER_SPEC,createShoulderWorking} from '../world/shoulder_working.js';
+import {furnishShoulder} from '../world/shoulder_scene.js';
 import {createOldCellars} from '../world/old_cellars.js';
 import {createPhysicalWorld} from '../world/collision/runtime.js';
 // The world, streamed, and the way down into it.
@@ -95,6 +97,7 @@ export const EDIT_CAVE_SPEC = {
 };
 /** The row for a site, hand cut or not. One place, so the depth and the inside agree. */
 export function specOfSite(site) {
+  if(isShoulder(site))return SHOULDER_SPEC;
   if (site && site.edit && site.kind === 'cave') return EDIT_CAVE_SPEC[site.size] || EDIT_CAVE_SPEC.medium;
   return specFor(site);
 }
@@ -382,6 +385,7 @@ export function createWorldRuntime(sc, opts = {}) {
    * keeps the old rule, which is what `maxLevel` has always said.
    */
   function topOf(site) {
+    if(isShoulder(site))return 1;
     // a hand cut cave is in nobody's sheet, so its own row says how deep it goes
     if (site && site.edit) return Math.max(1, specOfSite(site).levels);
     return levelsFor(site, maxLevel(site?.kind === 'cave' ? 'cave' : 'dungeon'));
@@ -392,13 +396,14 @@ export function createWorldRuntime(sc, opts = {}) {
     dungeon.scene?.dispose();
     const spec = dungeon.spec;
     const cavern = spec?.kind === CAVERN;
-    const layout = spec?.id === 'oldcellars'
+    const layout = isShoulder(site) ? createShoulderWorking(seed,site) : spec?.id === 'oldcellars'
       ? createOldCellars(seed, site) : cavern
       ? generateCavern(seed, site, level, spec)
       : generateDungeon(seed, site, level, spec);
     const built = cavern
       ? createCavernScene(THREE, layout, {})
       : createDungeonScene(THREE, layout, {});
+    if(isShoulder(site))furnishShoulder(built,layout);
     scene.add(built.group);
     // three raycasts against matrixWorld, and only the renderer refreshes it.
     // Without this the first pick after arriving tests every exit hit box at
@@ -549,7 +554,7 @@ export function createWorldRuntime(sc, opts = {}) {
   // Per frame underground. The overworld is not streamed, the sky is not
   // moved, discovery does not run: none of it is on screen.
   function updateDungeon(dt, nowMs, x, z) {
-    dungeon.scene.update({ x, z });
+    dungeon.scene.update(dt, { x, z });
     checkArena(x, z);
     // Anything that adds itself to the scene lazily while you are down here
     // would hang in the dark. Sweep now and then for scene children that are
@@ -587,6 +592,8 @@ export function createWorldRuntime(sc, opts = {}) {
   function pick(raycaster) {
     const cands = [];
     if (dungeon) {
+      const surface=dungeon.scene.mine?.pick(raycaster);
+      if(surface)cands.push({d:surface.distance,out:surface});
       // the exits' hit boxes are invisible on purpose; three raycasts them anyway
       const hits = raycaster.intersectObjects(dungeon.scene.exits, false);
       if (hits.length && hits[0].object.userData.exit) {

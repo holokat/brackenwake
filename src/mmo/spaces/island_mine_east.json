@@ -1,7 +1,7 @@
 {
   "id": "island_mine_east",
   "name": "The Shoulder Working",
-  "note": "A second, smaller cut on the hill's east shoulder: one mouth, a cart, a spoil heap and a hut. The foreman moved his men here when the rats took the lower yard.",
+  "note": "An abandoned haulage mine with vast chambers, branching galleries and raised workings. Ore remains in the walls; something moves behind them.",
   "at": {
     "x": 190,
     "z": -320
@@ -92,9 +92,11 @@
     {
       "x": 2,
       "z": -18,
-      "label": "the copper seam",
-      "note": "copper in the shoulder, and the pick to get it",
+      "label": "The Shoulder Working",
+      "note": "Select your pickaxe and work the stone. Iron is the beginning; deeper knowledge reveals rarer metals.",
       "kind": "other"
     }
-  ]
+  ],
+  "kind": "cave",
+  "dungeon": "shoulder-working"
 }

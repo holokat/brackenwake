@@ -1,3 +1,4 @@
+import {makeItem} from '../mmo/items.js';
 // The monsters that are actually standing there.
 //
 // `src/mmo/monsters.js` is the roster: forty-eight rows of health and damage
@@ -1030,9 +1031,10 @@ export function createMonsters(sc, runtime, opts = {}) {
     // A SUMMON LEAVES NOTHING. It was never in the world's roll and its body is
     // borrowed, so a sack off it would be a necromancer farming his own mana
     // into loot twenty seconds at a time.
-    const drop = (!mon.friendly && loot?.rollFor)
+    let drop = (!mon.friendly && loot?.rollFor)
       ? loot.rollFor(mon.row, { luck: num(killer?.bonuses?.luck), seed: hashKey(mon.key), character: killer?.kind === 'player' ? playerCharacter : null })
       : null;
+    if(!mon.friendly&&mon.row.oreElemental){drop ||= {items:[],gold:0};drop.items ||= [];drop.items.push(makeItem({base:mon.row.oreElemental+'_ore',count:mon.row.oreReward}));}
     const bag = drop && loot?.drop ? loot.drop(mon.actor.pos, drop) : null;
     if (killer && killer.kind === 'player') {
       say(bag
@@ -2403,7 +2405,9 @@ export function createMonsters(sc, runtime, opts = {}) {
   function pick(raycaster) {
     if (!raycaster || !live.size) return null;
     const hits = raycaster.intersectObjects(group.children, true);
+    const geology = runtime?.dungeonScene?.mine?.pick(raycaster);
     for (const h of hits) {
+      if (geology && geology.distance < h.distance) return null;
       let o = h.object;
       for (let n = 0; o && n < 6; n++, o = o.parent) {
         const mon = o.userData && o.userData.monster;
@@ -2470,6 +2474,11 @@ export function createMonsters(sc, runtime, opts = {}) {
       return n;
     },
     /** The dev bench: one monster of this id at x, z, outside the world's own roll. */
+    spawnEncounter(id,x,z){
+      if(!MONSTERS[id]||live.size>=cap)return null;
+      const key=`encounter:${id}:${++devSpawnN}`;
+      return spawn({id,x,z,key,groupKey:key,ephemeral:true});
+    },
     spawnAt(id, x, z) {
       if (!MONSTERS[id]) return null;
       devSpawnN++;

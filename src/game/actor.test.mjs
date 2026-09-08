@@ -349,8 +349,8 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
   check('fireImmune is fire 70, the same cap the other two immunities get',
     drake.resists.fire === 70 && drake.naturalResists.fire === 70, JSON.stringify(drake.resists));
   const carriers = MONSTER_LIST.filter((m) => (m.notes || []).includes('fireImmune'));
-  check('and every row that carries the tag really has it, all four of them',
-    carriers.length === 4 && carriers.every((m) => spawnMonster(m.id, { x: 0, y: 0, z: 0 }, () => 0.5).resists.fire === 70),
+  check('and every row that carries the tag really has it, all five of them',
+    carriers.length === 5 && carriers.every((m) => spawnMonster(m.id, { x: 0, y: 0, z: 0 }, () => 0.5).resists.fire === 70),
     carriers.map((m) => m.id).join(', '));
   check('and a row that does not carry it has no fire resist at all',
     spawnMonster('wolf', { x: 0, y: 0, z: 0 }, () => 0.5).resists.fire === 0);
