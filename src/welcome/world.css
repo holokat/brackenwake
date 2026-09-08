@@ -60,3 +60,23 @@
   .hero-action { margin-top: 16px; gap: 10px; }
   .browser-note { font-size: 10px; }
 }
+
+/* Keep the invitation between the safe header and footer on a phone. */
+@media (max-width: 700px) {
+  .hero-content { padding: clamp(100px, 19dvh, 180px) 18px 0; }
+  .hero-content h1 { font-size: clamp(42px, 13.3vw, 90px); padding-inline: 0; }
+  .hero-line { max-width: 100%; font-size: clamp(18px, 4.8vw, 25px); }
+  .hero-figure { height: 35%; bottom: 0; }
+  .hero-figure-rogue { height: 36%; }
+  .hero-action { margin-top: 22px; gap: 14px; }
+}
+@media (max-height: 500px) and (min-aspect-ratio: 1/1) {
+  .hero-content { padding: max(65px, env(safe-area-inset-top)) 20px 0; }
+  .hero-content h1 { font-size: clamp(38px, 12dvh, 60px); margin-top: 0; padding-bottom: 0; }
+  .hero-content .eyebrow, .title-ornament, .browser-note { display: none; }
+  .hero-line { font-size: 20px; margin-top: 8px; }
+  .hero-action { margin-top: 16px; }
+  .hero-figure, .hero-figure-rogue { height: 68%; }
+  .hero-figure-ranger { left: -4%; }
+  .hero-figure-rogue { right: -4%; }
+}

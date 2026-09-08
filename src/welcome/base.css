@@ -81,3 +81,9 @@ body.motion-off *, body.motion-off *::before, body.motion-off *::after,
 .developer-links a span { opacity: .65; }
 .developer-divider { width: 1px; height: 12px; background: #e7ddc74d; }
 @media (max-height: 600px) { .developer-links { bottom: max(2px, env(safe-area-inset-bottom)); } }
+
+@media (max-width: 700px), (max-height: 500px) {
+  .site-header { padding-top: max(12px, env(safe-area-inset-top)); }
+  .developer-links { bottom: max(6px, env(safe-area-inset-bottom)); gap: 24px; font-size: 13px; }
+  .developer-links a { min-height: 44px; }
+}
