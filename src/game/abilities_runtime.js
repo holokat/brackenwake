@@ -1663,6 +1663,11 @@ export function createAbilities(deps = {}) {
     // a three second Meteor is aimed from the first frame and not the last.
     if (target && target !== actor) faceTowards(target);
 
+    // Instant spells also end meditation, even though they never set `cast`.
+    if (actor.meditating && ability.id !== 'meditate') {
+      actor.meditating = null;
+      say('You get up and end your meditation.', 'ability');
+    }
     const paid = pay(rec);
     cooldowns[ability.id] = rec.cooldownUntil;
     rec.ground = ground;
@@ -1772,6 +1777,10 @@ export function createAbilities(deps = {}) {
   function onDamaged(amount, now) {
     const t = num(now);
     revealHidden('You are seen.');
+    if (actor.meditating && num(amount) > 0) {
+      actor.meditating = null;
+      say('The blow breaks your meditation.', 'bad');
+    }
     if (!cast) return { interrupted: false, reason: 'nothing casting' };
 
     // The bandage is the exception the document writes out in words:

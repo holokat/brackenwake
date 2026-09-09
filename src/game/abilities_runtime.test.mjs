@@ -25,7 +25,7 @@ import { settlerKitFor } from './app/systems/inventory.js';
 import { makeItem, ARMOR_PIECES } from '../mmo/items.js';
 import { RECIPES } from '../mmo/recipes.js';
 import { createProgression } from './progression.js';
-import { resolveMelee, JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
+import { resolveMelee, resolveSpell, JUMP_ATTACK_MULT } from '../mmo/combat_rules.js';
 import { GRAVITY, JUMP_V0 } from './player.js';
 
 let pass = 0, fail = 0;
@@ -1879,6 +1879,56 @@ function castRun(mat, opts = {}) {
   ck('and once both are yours the cell says nothing at all, which is the other direction',
     met[0].unusable === false && met[0].unusableReason === '' && met[1].unusableReason === '',
     `"${met[0].unusableReason}" / "${met[1].unusableReason}"`);
+}
+
+
+console.log('Magic Arrow: repeated input, shared slots and critical rolls');
+{
+  const target = mob('Skeleton', 0, 6, { health: 10000, maxHealth: 10000 });
+  const h = harness({ bar: ['magicArrow', 'magicArrow'], monsters: [target] });
+  const results = [];
+  const queue = h.combat.queueSpell;
+  h.combat.queueSpell = (caster, spell, who, opts) => {
+    queue(caster, spell, who, opts);
+    const result = resolveSpell({ caster, target: who, spell, rng: () => 0 });
+    who.health = result.targetHealth;
+    results.push(result);
+  };
+  let accepted = 0;
+  for (let press = 0; press < 1000; press++) {
+    const now = press / 100;
+    const result = press % 3 === 0
+      ? h.abilities.useById('magicArrow', now)
+      : h.abilities.use(press % 2, now);
+    if (result.ok) accepted++;
+  }
+  ck('1,000 presses over ten seconds produce ten bolts across both slots and useById',
+    accepted === 10 && h.combat.spells.length === 10, `${accepted} uses, ${h.combat.spells.length} bolts`);
+  ck('even forced critical rolls produce only ten crits',
+    results.length === 10 && results.every(r => r.crit), `${results.length} critical rolls`);
+  ck('refused presses spend no mana', h.actor.mana === 160, `${200 - h.actor.mana} mana spent`);
+  ck('the next shot is still blocked a millisecond before recovery', !h.abilities.use(1, 9.999).ok);
+  ck('and fires exactly when the second ends', h.abilities.use(1, 10).ok && results.length === 11);
+}
+console.log('Meditation: accepted abilities and damage end recovery');
+{
+  const h = harness({ bar: ['meditate', 'magicArrow', 'fireball'], monsters: [mob('Skeleton', 0, 6)] });
+  h.actor.mana = 100;
+  ck('Meditate enters the real utility handler', h.abilities.use(0, 0).ok && !!h.actor.meditating);
+  ck('an instant Magic Arrow ends meditation on the same call', h.abilities.use(1, 0.1).ok && !h.actor.meditating);
+  ck('ending meditation does not clear its cooldown', !h.abilities.use(0, 0.2).ok && !h.actor.meditating);
+  h.abilities.use(1, 2.9);
+  h.abilities.use(0, 3);
+  ck('a cooling ability leaves meditation alone', !h.abilities.use(1, 3.1).ok && !!h.actor.meditating);
+  ck('a spell with a cast bar also ends meditation immediately', h.abilities.use(2, 3.2).ok && !h.actor.meditating);
+}
+{
+  const h = harness({ bar: ['meditate'] });
+  h.abilities.use(0, 0);
+  h.abilities.onDamaged(0, 0.1);
+  ck('zero damage does not interrupt meditation', !!h.actor.meditating);
+  h.abilities.onDamaged(1, 0.2);
+  ck('one damage ends meditation without a cast bar', !h.actor.meditating);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -84,7 +84,7 @@ Spell damage: `base * (1 + INT * 0.008 + EvaluatingIntelligence * 0.006 + spellD
 
 | spell | unlocks | mana | cd | cast | moving | effect |
 | --- | --- | --- | --- | --- | --- | --- |
-| Magic Arrow | Magery 0 | 4 | 0 | 0 | yes | 8 to 12 energy, the spell you learn on |
+| Magic Arrow | Magery 0 | 4 | 1 s | 0 | yes | 8 to 12 energy, one second between shots |
 | Fireball | Magery 25 | 9 | 3 s | 0.6 s | yes | 18 to 26 fire, burns 2 a second for 4 s |
 | Ice Shard | Magery 30 | 9 | 3 s | 0.6 s | yes | 14 to 22 cold, slows 30% for 4 s |
 | Lightning | Magery 45 | 14 | 5 s | 0 | yes | 30 to 42 energy, instant |
@@ -181,7 +181,7 @@ Anatomy * 0.2`, cure poison at Healing 60, resurrect at Healing 80 and Anatomy
 | Jump | always | 5 stam | 0 | 1.2 m; a swing in the air is a jump attack |
 | Sprint | always | 3 stam/s | 0 | shift; RUN_SPEED |
 | Bandage | Healing 0 | a bandage | 0 | anyone can bind a wound |
-| Meditate | Meditation 0 | 0 | 0 | sit still, mana regen x3, broken by anything |
+| Meditate | Meditation 0 | 0 | 3 | sit still, mana regen x3, broken by anything |
 | Camp | Camping 20 | wood | 0 | a fire: rested bonus, safe log out |
 | Recall | always | 10 stam | 120 | 3 s standing still, then home on the green at Haven (2026-09-08) |
 

@@ -51,14 +51,13 @@ import { createGlobalSearch } from './search_panel.js';
 import { locateResult, focusSearchPoint } from './search.js';
 import { createObjectHandles } from './object_handles.js';
 import { pickEditorObject } from './pick_object.js';
+import { groundUnder, MARCH_MAX } from './surface.js';
+export { groundUnder, MARCH_MAX, MARCH_FINE } from './surface.js';
 
 /** How far the pointer may move between press and release and still be a click. */
 export const CLICK_SLOP = 5;
 /** What the tray says when the terrain half names no brushes. */
 export const NO_BRUSHES = 'the terrain tools name no brushes, so there is nothing to sculpt with yet.';
-/** How far the ground march looks, in metres, and how fine it gets. */
-export const MARCH_MAX = 900;
-export const MARCH_FINE = 0.05;
 /** How near a click has to land on a thing to take hold of it, in metres. */
 export const PICK_R = 6;
 /** The sidebar's cell, and the tray's tile, in pixels. */
@@ -111,38 +110,6 @@ const h = (tag, cls, text) => {
 };
 const mark = (el, name, colour, size) => { el.innerHTML = editorIcon(name, colour, size); return el; };
 
-/**
- * Where the pointer's ray meets the ground.
- *
- * A march, not a plane: the ray is walked outward in steps that grow with
- * distance until the sample is below the height field, then bisected.
- * `heightAt` is the runtime's, so ground the terrain half has just raised is
- * the ground this lands on.
- */
-export function groundUnder(camera, ndc, heightAt, raycaster = new THREE.Raycaster()) {
-  raycaster.setFromCamera(ndc, camera);
-  const o = raycaster.ray.origin, d = raycaster.ray.direction;
-  const at = (t) => ({ x: o.x + d.x * t, y: o.y + d.y * t, z: o.z + d.z * t });
-  let prev = 0;
-  let above = at(0).y - heightAt(o.x, o.z) > 0;
-  for (let t = 0.5; t <= MARCH_MAX; t += Math.max(0.5, t * 0.035)) {
-    const p = at(t);
-    const under = p.y - heightAt(p.x, p.z) <= 0;
-    if (under && above) {
-      let lo = prev, hi = t;
-      while (hi - lo > MARCH_FINE) {
-        const mid = (lo + hi) / 2;
-        const q = at(mid);
-        if (q.y - heightAt(q.x, q.z) <= 0) hi = mid; else lo = mid;
-      }
-      const q = at(hi);
-      return { x: q.x, y: heightAt(q.x, q.z), z: q.z, dist: hi };
-    }
-    above = !under;
-    prev = t;
-  }
-  return null;
-}
 
 const CSS = `
 /* The window frame this panel is registered under is not drawn at all. The
@@ -557,8 +524,8 @@ export const panel = {
         const m = modeOf(mode);
         if (m?.select) {
           const help = h('div', 'selection-help'); help.style.gridColumn = '1 / -1'; help.style.lineHeight = '1.6'; help.style.padding = '8px 2px';
-          help.appendChild(h('p', null, 'Click a placed object to select it. Use the arrows to move it across the ground.'));
-          help.appendChild(h('p', null, 'Choose Rotate or Scale beside the object to change the handles. Escape cancels a drag.'));
+          help.appendChild(h('p', null, 'Drag a placed object to move it along the ground. A click selects without moving.'));
+          help.appendChild(h('p', null, 'Choose Rotate and drag left or right, or use the 15° turn buttons. Shift + drag turns in 15° steps. Escape cancels a drag.'));
           help.appendChild(h('p', null, '⌘Z or Ctrl+Z undoes one adjustment. Search above to find an object anywhere in the world.'));
           grid.appendChild(help); return;
         }
@@ -1008,9 +975,10 @@ export const panel = {
       // In the editor the left button belongs to the editor, always: there is
       // no swing and no walk to give it back to while the mode is up.
       if (e.preventDefault) e.preventDefault();
-      if (e.stopPropagation) e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      else if (e.stopPropagation) e.stopPropagation();
       const t = toolNow();
-      if (modeOf(mode)?.select && !e.shiftKey && !e.altKey) {
+      if (modeOf(mode)?.select && !e.altKey) {
         ray.setFromCamera(ndcOf(e), camera);
         const hit = pickEditorObject(ray.ray, ed.searchSpaces(), heightAt, p ? ray.ray.origin.distanceTo(p) + .5 : MARCH_MAX);
         if (hit) {
@@ -1018,7 +986,9 @@ export const panel = {
           ed.select({ list: hit.list, index: hit.index });
           press = { x: e.clientX, y: e.clientY, act: 'select' };
           if (ghost) ghost.visible = false;
-          drawAll(); return;
+          drawAll();
+          if (handles?.beginDrag(e, ray.ray.at(hit.distance, new THREE.Vector3()))) press = null;
+          return;
         }
       }
       if (modeOf(mode)?.select) { ed.deselect(); press = null; drawAll(); return; }
@@ -1127,6 +1097,8 @@ export const panel = {
       if (globalSearch.onKey(e)) return;
       if (handles?.dragging && e.key === 'Escape') { handles.cancel(); ctx.input?.swallow?.('escape'); e.stopImmediatePropagation?.(); drawAll(); return; }
       if (editing(e.target)) return;
+      // Finish or cancel a gesture before changing its selection or undo stack.
+      if (handles?.dragging) return;
       const k = String(e.key || '').toLowerCase();
       const mod = e.ctrlKey || e.metaKey;
       const t = toolNow();

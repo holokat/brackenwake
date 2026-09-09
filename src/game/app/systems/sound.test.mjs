@@ -38,7 +38,8 @@ function ctxRig(over = {}) {
   };
   const world = {
     runtime,
-    weather: { state: { rain: over.rain || 0 } },
+    weather: { state: { rain: over.rain || 0, snow: over.snow || 0 } },
+    underwater: !!over.underwater,
     nearestSettlement: () => over.settlement === false ? null : (over.settlement || { x: 449.55, z: -144.61, flatR: 76 }),
   };
   const audio = over.audio || createAudio({ makeElement: fakeKit().make, storage: null, listen: false, fadeMs: 0 });
@@ -151,6 +152,36 @@ function ctxRig(over = {}) {
     sourcePositions(ctx, { x: 449.55, z: -144.61 }).some((s) => s.id === 'tavern' && /space piece/.test(s.how))
     && sourcePositions(ctx, { x: -1001, z: -336 }).some((s) => s.id === 'mill' && /space piece/.test(s.how)));
   audio.dispose();
+}
+
+
+// Weather sound follows the same outdoor state as the particle renderer.
+{
+  const pos={x:0,z:0};
+  const snow=soundContext(ctxRig({snow:.8,settlement:false,pos}),{worldNow:1000},pos);
+  check('snowfall reaches the audio context without becoming rain',snow.snowing && !snow.raining && snow.rainValue===0);
+  check('snowfall does not choose a rain recording',!bedFor(snow).includes('amb-rain'));
+  for(const shelter of ['inDungeon','underwater']) {
+    const c=soundContext(ctxRig({[shelter]:true,rain:.8,snow:.8,pos}),{worldNow:1000},pos);
+    check(`${shelter} suppresses outdoor rain and snow audio`,!c.raining && !c.snowing && c.rainValue===0 && c.snowValue===0);
+    if(shelter==='inDungeon') check('the mine ambience wins over weather and a nearby settlement',bedFor(c).endsWith('amb-mine-inside.mp3'));
+    const k=fakeKit(),audio=createAudio({makeElement:k.make,storage:null,listen:false,fadeMs:0,random:()=>0});
+    audio.unlock();audio.setListener(0,0);
+    const scheduler=createShotScheduler(audio,{random:()=>0});
+    scheduler.step({...c,now:0,rainValue:0});
+    scheduler.step({...c,now:70000,rainValue:.8});
+    check(`${shelter} does not play thunder or outdoor wind`,!k.built.some(e=>/os-(distant-thunder|wind-gust)/.test(e.url)));
+    audio.dispose();
+  }
+  const k=fakeKit(),audio=createAudio({makeElement:k.make,storage:null,listen:false,fadeMs:0,random:()=>0});
+  audio.unlock();audio.setListener(0,0);
+  const scheduler=createShotScheduler(audio,{random:()=>0});
+  scheduler.step({...snow,now:0});scheduler.step({...snow,now:25000});
+  check('snow keeps the existing outdoor wind-gust recordings',k.built.some(e=>/os-wind-gust/.test(e.url)));
+  check('snow does not trigger thunder',!k.built.some(e=>/os-distant-thunder/.test(e.url)));
+  audio.dispose();
+  check('the bed selector also protects callers passing raw rain with dungeon and settlement flags',
+    bedFor({raining:true,inDungeon:true,settlement:true}).endsWith('amb-mine-inside.mp3'));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

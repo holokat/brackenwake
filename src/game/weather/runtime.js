@@ -14,7 +14,7 @@ export function createWeather(sc,field) {
   update(dt,now,position,day){
    if(now-sampleAt>=200||now<sampleAt||sampleAt===-Infinity){
     sampleAt=now;const ground=field.sampleAt(position.x,position.z);
-    Object.assign(query,{x:position.x,z:position.z,height:ground.h,biome:ground.biome,snowLine:field.sculpt?.snowLine??64,now:now+(sc.clockOffset||0),day,mix:sc.realmMix,sculpt:!!field.sculpt,mode});
+    Object.assign(query,{x:position.x,z:position.z,height:ground.h,biome:ground.biome,snowLine:field.sculpt?.snowLine??64,now:now+(sc.clockOffset||0),day,mix:sc.realmMix,sculpt:!!field.sculpt,world:field.sculpt?.world,mode});
     weatherAt(query,target);
    }
    const a=started?1-Math.exp(-Math.max(0,dt)/4):1;

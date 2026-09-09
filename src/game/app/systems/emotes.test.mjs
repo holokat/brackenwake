@@ -25,6 +25,8 @@ import { SYSTEMS, FRAME_ORDER } from './index.js';
 import { createPlayer, SIT_HIP, LIE_HIP, BODY } from '../../player.js';
 import { createCombat } from '../../combat.js';
 import { playerActor, spawnMonster, recompute } from '../../actor.js';
+import { createAbilityHooks } from '../../ability_hooks.js';
+import { createAbilities } from '../../abilities_runtime.js';
 import { EMOTES, EMOTE_IDS } from '../../emotes.js';
 
 let pass = 0, fail = 0;
@@ -445,6 +447,63 @@ console.log('\nthe harness handle drives the real path');
   check('and stopping nothing says nothing', (() => { const n = w.logs.length; w.made.bw.emotes.stop(); return w.logs.length === n; })());
   check('the harness parses a slash command the chat does not have yet',
     w.made.bw.emotes.commandFor('/sit') === 'sit');
+}
+
+
+console.log('Meditation follows the seated pose through the real ability hooks');
+function meditateWorld() {
+  const w = boot();
+  w.actor.mana = 0;
+  const hooks = createAbilityHooks({ character: w.character, actor: w.actor, player: w.rig, hud: w.ctx.hud });
+  const abilities = createAbilities({ character: w.character, actor: w.actor, player: w.rig,
+    hud: w.ctx.hud, utility: hooks.utility });
+  w.setSpells(abilities);
+  const result = abilities.useById('meditate', w.ctx.frame.nowS);
+  check('the actual Meditate ability starts recovery', result.ok && !!w.actor.meditating);
+  w.frames(60);
+  return { ...w, hooks, abilities };
+}
+{
+  const w = meditateWorld();
+  check('Meditate lowers the actual rig to the seated hip height',
+    w.made.current === 'sit' && near(w.rig.parts.hips.position.y, SIT_HIP, 0.01), String(w.rig.parts.hips.position.y));
+  const at = w.made.state.at;
+  w.frames(60);
+  check('holding meditation does not restart its entrance', w.made.state.at === at);
+  w.hooks.update(1, w.ctx.frame.now, w.ctx.frame.nowS);
+  check('mana recovers while seated', w.actor.mana > 0 && w.made.current === 'sit');
+  w.actor.mana = w.actor.maxMana;
+  w.hooks.update(1 / 60, w.ctx.frame.now, w.ctx.frame.nowS);
+  w.frames(2);
+  check('full mana ends both meditation and its pose', !w.actor.meditating && w.made.current === null);
+  check('the body stands up after full mana', near(w.rig.parts.hips.position.y, BODY.IDLE_HIP, 0.02));
+}
+for (const why of ['move key', 'walking', 'jump', 'swing', 'damage', 'death', 'casting', 'pending', 'manual emote']) {
+  const w = meditateWorld();
+  if (why === 'move key') w.keys.add('w');
+  if (why === 'jump') w.keys.add(' ');
+  if (why === 'swing') w.actor.lastSwingAt = w.ctx.frame.now;
+  if (why === 'damage') w.actor.health--;
+  if (why === 'death') w.setDying(true);
+  if (why === 'casting') w.setSpells({ casting: { name: 'Fireball' } });
+  if (why === 'pending') w.setSpells({ pending: { name: 'Magic Arrow' } });
+  if (why === 'manual emote') w.made.start('wave');
+  w.frames(2, why === 'walking' ? { x: 0, z: 1 } : { x: 0, z: 0 });
+  const before = w.actor.mana;
+  w.hooks.update(1, w.ctx.frame.now, w.ctx.frame.nowS);
+  check(`${why} releases the seat and stops bonus mana`,
+    !w.actor.meditating && w.made.current !== 'sit' && w.actor.mana === before);
+}
+{
+  const w = boot();
+  const hooks = createAbilityHooks({ character: w.character, actor: w.actor, player: w.rig, hud: w.ctx.hud });
+  w.actor.mana = w.actor.maxMana;
+  hooks.utility.meditate({}, { now: w.ctx.frame.nowS });
+  w.frames(60);
+  check('full mana does not start a seated meditation', !w.actor.meditating && !w.made.current);
+  w.made.start('sit');
+  w.frames(60);
+  check('ordinary sitting remains independent of meditation', w.made.current === 'sit' && !w.actor.meditating);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

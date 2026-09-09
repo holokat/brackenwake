@@ -40,6 +40,14 @@ const smooth = (a,b,x) => { const t=clamp((x-a)/(b-a)); return t*t*(3-2*t); };
 const FRONT = [[0,0,0],[.18,0,0],[.32,.55,0],[.43,1,.80],[.60,1,1],[.73,.75,.35],[.87,.18,0],[1,0,0]];
 export const WEATHER_MODES = Object.freeze(['auto','clear','overcast','rain','snow','mist','dust']);
 
+// Seven minutes of snow and sleet in each 47-minute front, with a three-minute
+// all-snow centre. Phase boundaries blend through sleet instead of switching.
+export const ISLAND_COLD_FRONT = Object.freeze({ begins: .51, frozen: .55, thaws: .62, ends: .66 });
+export function islandSnowAt(phase) {
+  const c=ISLAND_COLD_FRONT;
+  return smooth(c.begins,c.frozen,phase)*(1-smooth(c.thaws,c.ends,phase));
+}
+
 export function auditClimates(table=CLIMATES, realms=REALM_ZONES) {
   for (const r of realms) {
     if (!table[r.id]) throw Error(`Weather climate missing: ${r.id}`);
@@ -51,7 +59,7 @@ export function auditClimates(table=CLIMATES, realms=REALM_ZONES) {
   return realms.length;
 }
 
-export function weatherAt({x=0,z=0,height=0,biome='meadow',snowLine=64,now=0,day=1,mix=[['greenwold',1]],sculpt=false,mode='auto'}, out={}) {
+export function weatherAt({x=0,z=0,height=0,biome='meadow',snowLine=64,now=0,day=1,mix=[['greenwold',1]],sculpt=false,world=null,mode='auto'}, out={}) {
   const p=((now / FRONT_MS - (x*.7+z*.3)/18000)%1+1)%1;
   let i=0; while(i<FRONT.length-2 && p>FRONT[i+1][0])i++;
   const a=FRONT[i],b=FRONT[i+1],t=smooth(a[0],b[0],p);
@@ -71,6 +79,10 @@ export function weatherAt({x=0,z=0,height=0,biome='meadow',snowLine=64,now=0,day
   // The rendered ground's snow band is the altitude contract. Arid volcanic
   // climates never become snowy just because their crater rim is high.
   if(wet>.1) snow=Math.max(snow,biome==='snow'?1:smooth(snowLine-12,snowLine+8,height));
+  // Haven's low island has no alpine snow band. A short cold spell in the
+  // passing front brings snow to sea level, then gives way to clearing rain.
+  // This changes falling precipitation, not the terrain's permanent snow line.
+  if(world==='island') snow=Math.max(snow,islandSnowAt(p));
   const precipitation=clamp(wet*shower + snow*.12);
   out.cloud=clamp(cloud+front*.66);
   out.rain=precipitation*(1-snow);

@@ -48,7 +48,7 @@ const WATER = new Set(WATER_KINDS);
  * and selects it; `scatter` means a held button lays many at a density.
  */
 export const MODES = [
-  { id: 'select', label: 'Hand', icon: 'hand', select: true, hint: 'select an object, then drag its handles' },
+  { id: 'select', label: 'Hand', icon: 'hand', select: true, hint: 'drag an object along the ground; shift + drag to turn' },
   { id: 'sculpt', label: 'Sculpt', icon: 'sculpt', brush: true, hint: 'move the ground itself' },
   { id: 'paint', label: 'Paint', icon: 'paint', brush: true, hint: 'what the ground is made of' },
   { id: 'foliage', label: 'Foliage', icon: 'foliage', brush: true, scatter: true, hint: 'grass, and the trees that grow out of it' },

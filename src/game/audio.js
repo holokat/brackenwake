@@ -524,9 +524,9 @@ export function kitFor() {
 const bed = (name) => `${LIBRARY_DIR}${name}.mp3`;
 
 export function bedFor(context = {}) {
+  if (context.inDungeon) return bed('amb-mine-inside');
   if (context.raining) return context.treeCover ? bed('amb-rain-under-trees') : bed('amb-rain-field');
   if (context.settlement) return context.night ? bed('amb-village-night') : bed('amb-village-day');
-  if (context.inDungeon) return bed('amb-mine-inside');
   if (context.nearMine) return bed('amb-mine-yard');
   if (context.nearBanditCamp) return bed('amb-bandit-camp');
   if (context.nearLegionCamp) return bed('amb-legion-camp');

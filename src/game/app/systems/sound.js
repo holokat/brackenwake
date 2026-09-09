@@ -81,7 +81,9 @@ export function soundContext(ctx, frame, pos) {
   const sites = typeof runtime.sitesNear === 'function' ? runtime.sitesNear(pos.x, pos.z, 35) : [];
   const phase = phaseAt(now + (ctx.sc?.clockOffset || 0));
   const hour = phase * 24;
-  const rain = world.weather?.state?.rain ?? 0;
+  const weatherHidden = !!runtime.inDungeon || !!world.underwater;
+  const rain = weatherHidden ? 0 : world.weather?.state?.rain ?? 0;
+  const snow = weatherHidden ? 0 : world.weather?.state?.snow ?? 0;
   const cover = treeCoverAt(runtime, pos.x, pos.z);
   const water = nearestWaterFlags(runtime.field, pos.x, pos.z, sample);
   const pointNear = (rows, r) => rows.some((p) => dist(pos.x, pos.z, p.x, p.z) <= r);
@@ -102,8 +104,11 @@ export function soundContext(ctx, frame, pos) {
     midnight: hour <= 0.25 || hour >= 23.75,
     settlement: inSettlement ? settlement : null,
     inDungeon: !!runtime.inDungeon,
+    underwater: !!world.underwater,
     raining: rain > 0.18,
     rainValue: rain,
+    snowing: snow > 0.18,
+    snowValue: snow,
     treeCover: cover,
     highChalk: sample.biome === 'mountain' || (sample.h ?? 0) >= (runtime.field?.seaLevel ?? 0) + 60,
     nearRoad: nearRoad(pos.x, pos.z),
@@ -193,7 +198,8 @@ export function createShotScheduler(audio, opts = {}) {
       // collider while he kept walking into it; at most one push a second
       if (ctx.hedgeBlocked && now - lastHedge >= 900) { lastHedge = now; fire('hedgePush', ctx); }
       wasGateNear = !!ctx.gateNear;
-      if (!ctx.inDungeon && due('windGust', now, 25_000, 70_000)) fire('windGust', ctx);
+      const outdoors = !ctx.inDungeon && !ctx.underwater;
+      if (outdoors && due('windGust', now, 25_000, 70_000)) fire('windGust', ctx);
       if (ctx.night && (ctx.biome === 'meadow' || ctx.treeCover)) {
         if (due('owl', now, 35_000, 95_000)) fire('owl', ctx);
         if (due('fox', now, 55_000, 130_000)) fire('fox', ctx);
@@ -202,7 +208,7 @@ export function createShotScheduler(audio, opts = {}) {
         if (ctx.treeCover && due('woodpecker', now, 45_000, 140_000)) fire('woodpecker', ctx);
         if (due('crowFlock', now, 70_000, 180_000)) fire('crowFlock', ctx);
       }
-      if (lastRain <= 0.18 && ctx.rainValue > 0.18) fire('distantThunder', ctx);
+      if (outdoors && !ctx.snowing && lastRain <= 0.18 && ctx.rainValue > 0.18) fire('distantThunder', ctx);
       lastRain = ctx.rainValue;
       if (ctx.settlement && ctx.nearRoad && !ctx.night && due('cartPass', now, 150_000, 260_000)) fire('cartPass', ctx);
       // a heron lifts off the water by day: the plan's water meadow flavour, given a trigger (2026-09-08)

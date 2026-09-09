@@ -988,10 +988,10 @@ export const ABILITIES = [
   a({
     id: 'magicArrow', name: 'Magic Arrow', group: 'mage',
     skill: 'magery', minSkill: 0,
-    cost: { mana: 4 }, cooldown: 0, castTime: 0, moving: true,
+    cost: { mana: 4 }, cooldown: 1, castTime: 0, moving: true,
     range: SPELL_RANGE, target: 'enemy',
     effect: { kind: 'spellDamage', min: 8, max: 12, type: 'energy' },
-    description: 'The spell you learn on, and the one you never quite stop using.',
+    description: 'A quick bolt of energy, with one second between shots.',
   }),
   a({
     id: 'fireball', name: 'Fireball', group: 'mage',
@@ -1620,7 +1620,7 @@ export const ABILITIES = [
   a({
     id: 'meditate', name: 'Meditate', group: 'everyone',
     skill: 'meditation', minSkill: 0,
-    cost: { stamina: 0 }, cooldown: 0, castTime: 0, moving: false, stationary: true,
+    cost: { stamina: 0 }, cooldown: 3, castTime: 0, moving: false, stationary: true,
     range: 0, target: 'self',
     effect: { kind: 'utility', action: 'meditate', manaRegenMult: 3, breaks: 'anything' },
     description: 'Sit still and mana comes back three times as fast, until anything at all happens.',

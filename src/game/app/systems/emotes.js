@@ -72,6 +72,7 @@ export const emotes = {
     // no reason for sixty pieces of garbage a second behind it.
     const pose = { anim: null, emoteT: 0, t: 0, phase: 0, stride: STRIDE_WALK, idleMix: 1, grip: null, gripMix: 0 };
     let posed = false;
+    let meditation = null;
     let lastSwing = Number(actor.lastSwingAt) || 0;
     let lastHealth = Number(actor.health) || 0;
 
@@ -85,6 +86,7 @@ export const emotes = {
     }
 
     function stop(why, opts) {
+      if (meditation) { actor.meditating = null; meditation = null; }
       const r = endEmote(state, why, opts);
       if (r.ended) { drop(); say(r.line); }
       return r;
@@ -108,6 +110,11 @@ export const emotes = {
       if (!e) { hud.log(`there is no emote called "${id}".`, 'bad'); return null; }
       if (player.dying) { hud.log('not while you are down.', 'bad'); return null; }
       if (walking()) { hud.log(`you cannot ${e.noun === 'rest' ? 'lie down' : e.noun} on the move.`, 'bad'); return null; }
+      if (actor.meditating) {
+        actor.meditating = null;
+        meditation = null;
+        say('You end your meditation.', 'ability');
+      }
       const r = startEmote(state, e.id, ctx.frame.now);
       say(r.line);
       return r;
@@ -150,6 +157,16 @@ export const emotes = {
        * is written, so the frame an emote ends is a frame the gait owns.
        */
       step(frame) {
+        // The ability owns meditation; this system owns its seated pose.
+        // Follow the record, so full mana, instant casts and damage all release
+        // the same pose without toggling or restarting it on every frame.
+        if (actor.meditating !== meditation) {
+          if (actor.meditating && !meditation) {
+            drop();
+            startEmote(state, 'sit', frame.now);
+          } else if (!actor.meditating && meditation) stop('done');
+          meditation = actor.meditating || null;
+        }
         const swung = Number(actor.lastSwingAt) || 0;
         const justSwung = !!state.id && swung !== lastSwing;
         lastSwing = swung;
@@ -164,7 +181,10 @@ export const emotes = {
         if (spells && (spells.casting || spells.pending)) return stop('cast');
 
         const r = emoteStep(state, frame.now, walking());
-        if (r.ended) { drop(); say(r.line); return r; }
+        if (r.ended) {
+          if (meditation) { actor.meditating = null; meditation = null; }
+          drop(); say(r.line); return r;
+        }
         if (!r.pose) { drop(); return r; }
         // The player system already decided what he is doing this frame. If it
         // is anything but standing about, it wins and the emote waits a frame
