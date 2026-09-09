@@ -1,0 +1,2558 @@
+{
+  "checkedAt": "2026-09-09T05:43:19.343Z",
+  "browser": "Existing Brave window",
+  "checks": 424,
+  "widths": [
+    320,
+    390,
+    768,
+    1440
+  ],
+  "failures": [],
+  "results": [
+    {
+      "path": "/lore/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/story/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/hearthhome/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/millrun/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/oldcellars/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/beechhangar/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/kingsroad/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/greenwoldpits/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/waystones/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/highwaymanshollow/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/sunkenchapel/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/canopycourt/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/templeoffaces/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/templeoffaces_deep/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/blossomfall/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/rootriver/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/sunkenshrine/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/verditehollow/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/hanginggardens/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/moonpool/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/spiderwells/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/redqueensharbour/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/drownedmill/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/sedgesea/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/leviathansrest/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/thousandisles/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/wreckward/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/saltcut/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/tidewalk/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/smugglerscays/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/wisplanterns/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/krakenshoals/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/lastwell/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/brasscity/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/brasscity_works/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/firstfire/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/glassroad/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/saltpans/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/embercut/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/cultistcamp/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/miragepalace/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/buriedlibrary/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/banditridge/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/singingdunes/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/cairnfoot/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/cairnroad/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/legionpass/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/eyrie/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/eyrieroost/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/blacklochs/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/thundershaft/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/skybridge/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/stormanvil/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/echochasm/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/drownedhall/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ninefall/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/skulllodge/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/skulllodge_throat/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ridersrest/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ridertombs/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ashsea/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/marrowmine/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ribcathedral/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/hunterscamps/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/boneorchard/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/coldseat/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icevault/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icevault_deep/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/whitepines/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/frozenfleet/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/rimecut/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/longnightcamp/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/aurorashelf/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icefall/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/hotsprings/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/mammothsteppe/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/reefstair/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/drownedpalace/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/coliseum/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/theglow/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/avenues/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/pearlreef/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/pearlbeds/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/airgardens/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/drownedbell/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/whaleroad/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/cinderport/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/outerworks/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/ashengate/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/throneofash/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/glassslopes/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/cindercut/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/steamingshore/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/lavafalls/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/slagcamps/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/obsidianbridge/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/heartcages/",
+      "width": 320,
+      "documentWidth": 305,
+      "errors": []
+    },
+    {
+      "path": "/lore/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/story/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/hearthhome/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/millrun/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/oldcellars/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/beechhangar/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/kingsroad/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/greenwoldpits/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/waystones/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/highwaymanshollow/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/sunkenchapel/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/canopycourt/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/templeoffaces/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/templeoffaces_deep/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/blossomfall/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/rootriver/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/sunkenshrine/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/verditehollow/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/hanginggardens/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/moonpool/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/spiderwells/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/redqueensharbour/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/drownedmill/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/sedgesea/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/leviathansrest/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/thousandisles/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/wreckward/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/saltcut/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/tidewalk/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/smugglerscays/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/wisplanterns/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/krakenshoals/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/lastwell/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/brasscity/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/brasscity_works/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/firstfire/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/glassroad/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/saltpans/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/embercut/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/cultistcamp/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/miragepalace/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/buriedlibrary/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/banditridge/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/singingdunes/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/cairnfoot/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/cairnroad/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/legionpass/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/eyrie/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/eyrieroost/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/blacklochs/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/thundershaft/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/skybridge/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/stormanvil/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/echochasm/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/drownedhall/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ninefall/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/skulllodge/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/skulllodge_throat/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ridersrest/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ridertombs/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ashsea/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/marrowmine/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ribcathedral/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/hunterscamps/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/boneorchard/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/coldseat/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icevault/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icevault_deep/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/whitepines/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/frozenfleet/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/rimecut/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/longnightcamp/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/aurorashelf/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icefall/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/hotsprings/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/mammothsteppe/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/reefstair/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/drownedpalace/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/coliseum/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/theglow/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/avenues/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/pearlreef/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/pearlbeds/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/airgardens/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/drownedbell/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/whaleroad/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/cinderport/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/outerworks/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/ashengate/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/throneofash/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/glassslopes/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/cindercut/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/steamingshore/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/lavafalls/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/slagcamps/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/obsidianbridge/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/heartcages/",
+      "width": 390,
+      "documentWidth": 375,
+      "errors": []
+    },
+    {
+      "path": "/lore/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/story/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/hearthhome/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/millrun/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/oldcellars/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/beechhangar/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/kingsroad/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/greenwoldpits/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/waystones/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/highwaymanshollow/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/sunkenchapel/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/canopycourt/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/templeoffaces/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/templeoffaces_deep/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/blossomfall/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/rootriver/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/sunkenshrine/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/verditehollow/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/hanginggardens/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/moonpool/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/spiderwells/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/redqueensharbour/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/drownedmill/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/sedgesea/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/leviathansrest/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/thousandisles/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/wreckward/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/saltcut/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/tidewalk/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/smugglerscays/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/wisplanterns/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/krakenshoals/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/lastwell/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/brasscity/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/brasscity_works/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/firstfire/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/glassroad/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/saltpans/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/embercut/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/cultistcamp/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/miragepalace/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/buriedlibrary/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/banditridge/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/singingdunes/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/cairnfoot/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/cairnroad/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/legionpass/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/eyrie/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/eyrieroost/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/blacklochs/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/thundershaft/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/skybridge/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/stormanvil/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/echochasm/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/drownedhall/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ninefall/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/skulllodge/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/skulllodge_throat/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ridersrest/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ridertombs/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ashsea/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/marrowmine/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ribcathedral/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/hunterscamps/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/boneorchard/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/coldseat/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icevault/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icevault_deep/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/whitepines/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/frozenfleet/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/rimecut/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/longnightcamp/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/aurorashelf/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icefall/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/hotsprings/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/mammothsteppe/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/reefstair/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/drownedpalace/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/coliseum/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/theglow/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/avenues/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/pearlreef/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/pearlbeds/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/airgardens/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/drownedbell/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/whaleroad/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/cinderport/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/outerworks/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/ashengate/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/throneofash/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/glassslopes/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/cindercut/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/steamingshore/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/lavafalls/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/slagcamps/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/obsidianbridge/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/heartcages/",
+      "width": 768,
+      "documentWidth": 753,
+      "errors": []
+    },
+    {
+      "path": "/lore/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/story/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/hearthhome/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/millrun/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/oldcellars/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/beechhangar/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/kingsroad/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/greenwoldpits/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/waystones/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/highwaymanshollow/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/greenwold/sunkenchapel/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/canopycourt/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/templeoffaces/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/templeoffaces_deep/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/blossomfall/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/rootriver/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/sunkenshrine/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/verditehollow/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/hanginggardens/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/moonpool/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/verdant/spiderwells/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/redqueensharbour/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/drownedmill/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/sedgesea/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/leviathansrest/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/thousandisles/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/wreckward/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/saltcut/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/tidewalk/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/smugglerscays/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/wisplanterns/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/saltmarch/krakenshoals/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/lastwell/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/brasscity/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/brasscity_works/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/firstfire/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/glassroad/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/saltpans/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/embercut/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/cultistcamp/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/miragepalace/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/buriedlibrary/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/banditridge/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/emberwastes/singingdunes/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/cairnfoot/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/cairnroad/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/legionpass/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/eyrie/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/eyrieroost/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/blacklochs/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/thundershaft/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/skybridge/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/stormanvil/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/echochasm/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/stormpeaks/drownedhall/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ninefall/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/skulllodge/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/skulllodge_throat/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ridersrest/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ridertombs/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ashsea/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/marrowmine/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/ribcathedral/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/hunterscamps/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/boneyard/boneorchard/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/coldseat/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icevault/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icevault_deep/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/whitepines/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/frozenfleet/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/rimecut/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/longnightcamp/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/aurorashelf/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/icefall/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/hotsprings/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/frostreach/mammothsteppe/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/reefstair/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/drownedpalace/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/coliseum/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/theglow/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/avenues/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/pearlreef/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/pearlbeds/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/airgardens/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/drownedbell/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/sunkenkingdom/whaleroad/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/cinderport/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/outerworks/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/ashengate/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/throneofash/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/glassslopes/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/cindercut/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/steamingshore/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/lavafalls/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/slagcamps/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/obsidianbridge/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    },
+    {
+      "path": "/lore/ashenthrone/heartcages/",
+      "width": 1440,
+      "documentWidth": 1425,
+      "errors": []
+    }
+  ]
+}

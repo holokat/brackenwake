@@ -1,0 +1,946 @@
+{
+  "generator": "Built-in image_gen tool",
+  "status": "Concept art for a world in development, not gameplay screenshots",
+  "encoding": "WebP, cwebp quality 84, original composition and dimensions preserved",
+  "source": "src/mmo/realms.js and docs/mmo/14-KALDERA.md",
+  "sharedRealmArt": {
+    "pearlreef": "sunkenkingdom",
+    "pearlbeds": "sunkenkingdom",
+    "airgardens": "sunkenkingdom",
+    "drownedbell": "sunkenkingdom",
+    "whaleroad": "sunkenkingdom",
+    "cinderport": "ashenthrone",
+    "outerworks": "ashenthrone",
+    "ashengate": "ashenthrone",
+    "throneofash": "ashenthrone",
+    "glassslopes": "ashenthrone",
+    "cindercut": "ashenthrone",
+    "steamingshore": "ashenthrone",
+    "lavafalls": "ashenthrone",
+    "slagcamps": "ashenthrone",
+    "obsidianbridge": "ashenthrone",
+    "heartcages": "ashenthrone"
+  },
+  "images": [
+    {
+      "id": "atlas",
+      "title": "The Caldera Sea",
+      "file": "public/lore/art/atlas.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 304410,
+      "sha256": "f4462a17d486ab330ed7c83a137d2d46a317f71cdcc4bfc309a3e90da6600c33",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: An expansive view from a grassy western headland across a calm central caldera sea. Hedged fields and a tiny medieval village in the foreground, distant northwestern glaciers and granite peaks, and a smoking volcanic eastern rim far across the water. Early golden light and cloud shadows. One coherent geographical vista, not a map or collage."
+    },
+    {
+      "id": "greenwold",
+      "title": "The Greenwold",
+      "file": "public/lore/art/greenwold.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 357420,
+      "sha256": "909377de92d46e43c4aba2b1fd87a4b1eb28764d1e12fd978df447c3a8359df0",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: The Greenwold. Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest. Principal landmark: The Standing Hedge: a ring of boundary stones older than the village, each the height of a man, half a mile across, with the fields inside it. From the hills it reads as a ring drawn on the land."
+    },
+    {
+      "id": "verdant",
+      "title": "Verdant Deep",
+      "file": "public/lore/art/verdant.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 292746,
+      "sha256": "489a16ed2a26a3fa5f3933faa2af2f474f40f4b94476acd4c921faf994498f8d",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: Verdant Deep. A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight. Principal landmark: The Temple of Faces: a cliff a quarter mile long with a hundred faces carved into it, each the height of a house, vines over every mouth. The first Dragonsworn, and one of them is Malachar, young."
+    },
+    {
+      "id": "saltmarch",
+      "title": "The Saltmarch and the Thousand Isles",
+      "file": "public/lore/art/saltmarch.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 309362,
+      "sha256": "cfcef50106cc7f554e416c23f26a7ff77555cd1886009d4e172a6df13ab3c931",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: The Saltmarch and the Thousand Isles. Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail. Principal landmark: The Red Queen's Harbour: a pirate city built across a dozen islets and the wrecks between them, joined by planked bridges and chains, its lighthouse a ship's mast a hundred feet tall with a fire in the crow's nest."
+    },
+    {
+      "id": "emberwastes",
+      "title": "Ember Wastes",
+      "file": "public/lore/art/emberwastes.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 303340,
+      "sha256": "b68cff59915d35950306a4aaebf09e09f1b65ee2ab04b9f91e7fc799c9eabd6c",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: Ember Wastes. Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass. Principal landmark: The Brass City: the Legion's foundry, a city on legs the height of towers that walks the Wastes on a circuit of the wells, kneeling to drink. Smoke from a hundred stacks, its door open only when it kneels."
+    },
+    {
+      "id": "stormpeaks",
+      "title": "The Stormpeaks",
+      "file": "public/lore/art/stormpeaks.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 206270,
+      "sha256": "19bb7fde21eb301834b0b8a9a62675059422d1311a7459a6bdb6a3aa8b5355a0",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: The Stormpeaks. Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour. Principal landmark: The Eyrie: the dragonriders' hall cut into the lightning peak, its landing steps a hundred feet wide built for things that flew, a roost of nine stone perches around it, ghosts on every one."
+    },
+    {
+      "id": "boneyard",
+      "title": "The Boneyard",
+      "file": "public/lore/art/boneyard.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 230198,
+      "sha256": "f3b3c19a206e92ba427416600526762392d52abf87136ca6544e32d6e04f2a22",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: The Boneyard. An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened. Principal landmark: The Skull Lodge: the Wyrmking's hunting lodge built inside the largest skull, three storeys of timber behind the teeth, lanterns in the eye sockets seen for ten miles."
+    },
+    {
+      "id": "frostreach",
+      "title": "Frostreach",
+      "file": "public/lore/art/frostreach.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 268394,
+      "sha256": "5084afcaa18c4cc51abd657ee831c4631d9376c9ceda66853ac651312109c981",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: Frostreach. The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven. Principal landmark: The Ice Vault: a glacier three hundred feet high with a dragon visible inside it, curled around a fortress, frozen mid-breath, lit blue from within at night by the giants' fires."
+    },
+    {
+      "id": "sunkenkingdom",
+      "title": "The Sunken Kingdom",
+      "file": "public/lore/art/sunkenkingdom.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 293804,
+      "sha256": "db8ad6fa59c3c103bd78ca0700f42198a83d13eb424b6a9c2715da0502017d24",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: The Sunken Kingdom. The Caldera Sea itself: flat, clear, warm, and under it a drowned city of white marble, towers, avenues, a coliseum, a palace, all visible from a boat. Reefs where the tallest towers break the surface. Sailed above, walked below once the deep is taken. Principal landmark: The Drowned Coliseum: an arena the size of a hill on the sea floor, lit from below by the glow, where the drowned fight on the full moon and a living champion may enter."
+    },
+    {
+      "id": "ashenthrone",
+      "title": "The Ashen Throne",
+      "file": "public/lore/art/ashenthrone.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 212798,
+      "sha256": "a6899f115b72af9ab909689ab18bbaee9087ff497c4b1d0f926b3573bc810d1f",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: The Ashen Throne. The eastern rim is one volcano: black glass slopes, rivers of red, cinder fields, sulphur light, the sea steaming where lava meets it. The Legion's fortress is cut into the crater wall; the throne room is inside the crater. Principal landmark: The Ashen Throne itself: a fortress cut into the volcano's wall, a gate a hundred feet high with nine dragon skulls set above it, and inside, a throne room where the air moves like glass and nine hearts beat in nine iron cages."
+    },
+    {
+      "id": "last-dragon",
+      "title": "The last dragon",
+      "file": "public/lore/art/last-dragon.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 224806,
+      "sha256": "150aa55b4dca0ffb3dce5540c8b00886742f54c7a01208c8a685cc6f2af1cbb4",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: A small newly hatched dragon resting trustingly on a young farmhand’s forearm, beside its broken egg in the hedged green fields of the Greenwold. A medieval village in the soft distance. Intimate, gentle dawn light. The dragon has chosen an ordinary person. Painterly storybook atmosphere with angular stylized shapes; no established dragon color is required."
+    },
+    {
+      "id": "the-bond",
+      "title": "The Bond",
+      "file": "public/lore/art/the-bond.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 194320,
+      "sha256": "4be5c8127ee1483ce8307dc4426ac58a7ae3a35b95ad7aafd1282166f8ce7c53",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: An ordinary cloaked traveler kneels to feed their young dog-sized dragon on a quiet grassy roadside. Their faces and posture convey mutual trust. Warm firelight, a distant ring of mountains across a central sea, simple medieval travel equipment, soft evening blue. An intimate relationship within a wide landscape."
+    },
+    {
+      "id": "wyrmsoul",
+      "title": "Wyrmsoul",
+      "file": "public/lore/art/wyrmsoul.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 262808,
+      "sha256": "6ee652bb3d1f217d5161fce23bbcec7660a21e74f563186e3dc8a1e2aeddc54c",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: A Dragonsworn traveler and their dragon acting together in a stormy granite mountain pass. The traveler has golden eyes and great ethereal wings of fire and releases dragonfire from their hands. A few suspended arrows and a wolf hanging mid-leap suggest slowed time. The dragon stands beside them. Majestic magical luminosity within a coherent cinematic scene, no HUD, no words."
+    },
+    {
+      "id": "hearthhome",
+      "title": "Hearthhome",
+      "file": "public/lore/art/hearthhome.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 355800,
+      "sha256": "22ff9a869df67681fcd672110fe451eb5f5e66904118f9da415a95430d46a91f",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Greenwold: Hearthhome. Its defining geography: A village on a green with a stone bridge, a church, an inn and a smith, all inside the ring of stones. Its inhabitants and discoveries: Bram Haywood, Old Wynn Ashby, Pip, the Bracken Arms, the smith, the healer, the market; the Legion reaches here. Regional setting for consistency: Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "millrun",
+      "title": "The Mill Run",
+      "file": "public/lore/art/millrun.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 355298,
+      "sha256": "e8ab8e595256480d3bd90d2e03279534f10cb528ede54aef32ef6055a3fbd240",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Greenwold: The Mill Run. Its defining geography: The river, the water mill, and the wheat either side of it, running east to the sea. Its inhabitants and discoveries: Ivy Weir's mill, eel weirs, geese on the road, the Tithe Wagon crossing. Regional setting for consistency: Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "oldcellars",
+      "title": "The Old Cellars",
+      "file": "public/lore/art/oldcellars.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 200478,
+      "sha256": "a95d1834cff7c84b51686e7f85ea99cc866a9ad644244f0a28327129804d3b26",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Greenwold: The Old Cellars. Its defining geography: Eight descending depths beneath the mill: flooded ossuaries, tombs and a buried cathedral. Its inhabitants and discoveries: The Legion's advance party: bandits and goblins; Sergeant Oram Blackhand guards the first depth with the stolen sack. Undead and giant wardens haunt the deeper vaults. Regional setting for consistency: Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "beechhangar",
+      "title": "The Beech Hangar",
+      "file": "public/lore/art/beechhangar.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 341290,
+      "sha256": "ecb04e779445c8df047ffc5245b8b8a5c1bb53b00d932af30ecea037755c4883",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Greenwold: The Beech Hangar. Its defining geography: Old beech on the ridge above the village, deep leaf litter, badger setts. Its inhabitants and discoveries: Old Grist the boar, foraging, the first wolves after dark. Regional setting for consistency: Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "kingsroad",
+      "title": "The Kingsroad",
+      "file": "public/lore/art/kingsroad.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 352728,
+      "sha256": "048d52652809fd934bbefc395de3048df99e138e8743c533bdf213b9c222d60e",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Greenwold: The Kingsroad. Its defining geography: The Legion's paved road entering the Greenwold from the north east, milestones every mile. Its inhabitants and discoveries: Legion patrols, the Tithe Wagon, Captain Serle Vane's first camp. Regional setting for consistency: Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "greenwoldpits",
+      "title": "The Chalk Pits",
+      "file": "public/lore/art/greenwoldpits.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 327378,
+      "sha256": "482fc23577186b4a655c3418b4adc231eb82ec3b8faddbb13c9dc67007029793",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Greenwold: The Chalk Pits. Its defining geography: A white scar in a green hill, copper and tin in the chalk, a yard trodden flat. Its inhabitants and discoveries: Copper and tin seams, a foreman who sells pickaxes, rats in the old cuts. Regional setting for consistency: Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "waystones",
+      "title": "The Standing Hedge",
+      "file": "public/lore/art/waystones.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 311560,
+      "sha256": "42c9dd9df7dfac958fa0a36ef60ea08387d9cbb2b88898d0341f2998452d0856",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Greenwold: The Standing Hedge. Its defining geography: The ring of boundary stones half a mile across; nine of them hum at dusk, each twinned with a stone in another realm. Its inhabitants and discoveries: Fast travel between stones you have touched; the Legion cannot use them. Regional setting for consistency: Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "highwaymanshollow",
+      "title": "Highwayman's Hollow",
+      "file": "public/lore/art/highwaymanshollow.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 215796,
+      "sha256": "824314c6219e0b700f9d3ed80027ce5c02a38cd6192e2618daf863aa152d0083",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Greenwold: Highwayman's Hollow. Its defining geography: A bandit camp in a chalk hollow off the Kingsroad, fires under an overhang. Its inhabitants and discoveries: The Miller's Son and his six, a stolen tithe, a bounty board in Hearthhome for each of them by name. Regional setting for consistency: Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "sunkenchapel",
+      "title": "The Sunken Chapel",
+      "file": "public/lore/art/sunkenchapel.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 209494,
+      "sha256": "28e326df034f552e9dc3284fd7de6c98d57f420b365da98728144a9d08a7383f",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Greenwold: The Sunken Chapel. Its defining geography: A chapel the river took, its roof a foot under the water, the bell still on the beam. Its inhabitants and discoveries: Swim in through the west door; a drowned congregation that wakes if the bell is rung; the first Skeleton Sexton. Regional setting for consistency: Rolling farmland in the western lee of the Caldera Sea: hedged fields, orchards, beech hangars on the low hills, one slow river with a mill on it running east into the sea. The safest ground in the world and the greenest.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "canopycourt",
+      "title": "The Canopy Court",
+      "file": "public/lore/art/canopycourt.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 357540,
+      "sha256": "e68b6171f4bc48220e1d04959617cb109a7d8b4f636d112b8ef2d1d2ec462df3",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Verdant Deep: The Canopy Court. Its defining geography: A village of platforms and rope bridges two hundred feet up in the blossom crowns, lit by lanterns at night. Its inhabitants and discoveries: Speaker Ilthenar, Saelith Thornwake, the elven market, archery and tracking training, the Court's dark bargain. Regional setting for consistency: A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "templeoffaces",
+      "title": "The Temple of Faces",
+      "file": "public/lore/art/templeoffaces.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 308472,
+      "sha256": "32a7ac4c3fc91fcc700778dd1d4e7e8cbaf9b066fba8172c72161f1994c1cf48",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Verdant Deep: The Temple of Faces. Its defining geography: The carved cliff and the temple cut behind it, entered through the mouth of the largest face. Its inhabitants and discoveries: Brother Tomas among the faces; the dungeon behind them. Regional setting for consistency: A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "templeoffaces_deep",
+      "title": "The Deep of Faces",
+      "file": "public/lore/art/templeoffaces_deep.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 241096,
+      "sha256": "9c636b62f3fe46fee826f7a219728927888772fae563fc74f9af54348acddf65",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Verdant Deep: The Deep of Faces. Its defining geography: Galleries behind the cliff where the first riders learned the sight, walls of eyes. Its inhabitants and discoveries: Spiders, Legion cultists, the Keeper of Faces; your face added to the cliff. Regional setting for consistency: A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "blossomfall",
+      "title": "Blossom Fall",
+      "file": "public/lore/art/blossomfall.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 384270,
+      "sha256": "77bf0a8de61dd62fbf66e7c8a163d0872ecc354133a00181336a22ed8a20241c",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Verdant Deep: Blossom Fall. Its defining geography: The valley floor where the whole canopy sheds at dawn and the river runs pink for an hour. Its inhabitants and discoveries: Mother Web's hunting ground, the Blossom Fall event where everything hidden shows. Regional setting for consistency: A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "rootriver",
+      "title": "The Root River",
+      "file": "public/lore/art/rootriver.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 343662,
+      "sha256": "1e7592b80f2d791293273ca431de48a3ac085f269d866c7999f450f346585200",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Verdant Deep: The Root River. Its defining geography: The river braided under the trees, fordable at three places, alive with fish. Its inhabitants and discoveries: Fishing, giant spiders at the fords, the Legion's Purse buying elders at the lower ford. Regional setting for consistency: A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "sunkenshrine",
+      "title": "The Sunken Shrine",
+      "file": "public/lore/art/sunkenshrine.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 286242,
+      "sha256": "35a8d1f81d65be63513f360d2b8830d7b98399f9f2e7bfeda2c376bbf83bc3d3",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Verdant Deep: The Sunken Shrine. Its defining geography: A dragon shrine half under the river where the roots have lifted the stones. Its inhabitants and discoveries: Offerings under clear water, the first true-name rumour. Regional setting for consistency: A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "verditehollow",
+      "title": "Verdite Hollow",
+      "file": "public/lore/art/verditehollow.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 291766,
+      "sha256": "445d10a25eb5fcb56652f5fdfecd73058b5fd77bf9413923ab853e550ea5644c",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Verdant Deep: Verdite Hollow. Its defining geography: A cave under the cliff where the roots have gone green-gold. Its inhabitants and discoveries: Verdite in the wall, iron, thorn grubs. Regional setting for consistency: A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "hanginggardens",
+      "title": "The Hanging Gardens",
+      "file": "public/lore/art/hanginggardens.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 330544,
+      "sha256": "25d48aef47c0559a914f481861bfddc6cce7e95fddd5766ded201d3288649e84",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Verdant Deep: The Hanging Gardens. Its defining geography: Terraces of the old temple grown into the cliff face, reached by climbing roots and rope, a hundred feet of vertical garden. Its inhabitants and discoveries: Rare forage on every terrace, a harpy roost at the top, a view of the whole Deep. Regional setting for consistency: A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "moonpool",
+      "title": "The Moon Pool",
+      "file": "public/lore/art/moonpool.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 190408,
+      "sha256": "819ff73b18ac224b9a755fcaccc2e5c641d6058328e5aa6e76f47bd928fcaf1d",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Verdant Deep: The Moon Pool. Its defining geography: A still pool under the canopy that shows no reflection by day. Its inhabitants and discoveries: By moonlight the water shows the true shape of anything held over it: an unidentified item, a cultist in Court robes, a face. Regional setting for consistency: A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "spiderwells",
+      "title": "The Spider Wells",
+      "file": "public/lore/art/spiderwells.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 296360,
+      "sha256": "c2e32cd00ac1bda7291245caeed84d62f2f12c4fe77e357c3276a3b7044a2683",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Verdant Deep: The Spider Wells. Its defining geography: Sinkholes in the jungle floor webbed over, a cave maze beneath joined by silk bridges. Its inhabitants and discoveries: Giant spiders, silk to harvest for the tailor, Mother Web's brood. Regional setting for consistency: A jungle of flowering giants on the southern shore: sakura canopy over old-forest trunks a hundred feet high, a river braided under roots, cliffs of dark stone with faces cut in them, rope bridges and platforms in the crowns. Wet, loud with birds, nothing straight.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "redqueensharbour",
+      "title": "The Red Queen's Harbour",
+      "file": "public/lore/art/redqueensharbour.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 261834,
+      "sha256": "473b69edfe70cb2b3331c1f53ffda5fbd405b0d272a2125ccdd93897abc0e554",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: The Red Queen's Harbour. Its defining geography: The pirate republic's capital across a dozen islets, chain bridges, a mast lighthouse. Its inhabitants and discoveries: Queen Maravel, Grey Tancred's barge fleet at anchor, the boat you are given, sailing and fishing training, salvage market. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "drownedmill",
+      "title": "The Drowned Mill",
+      "file": "public/lore/art/drownedmill.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 280898,
+      "sha256": "f01fe246ec6757fe9a74de614a469bb291a722127ffe75ae8983c7378fb62215",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: The Drowned Mill. Its defining geography: A stilt-house on an old mill in the fen, the wheel standing in dry sedge. Its inhabitants and discoveries: Aldo Reeve and the eel family, the safe paths through the sedge, Long Sarah fed monthly. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "sedgesea",
+      "title": "The Sedge Sea",
+      "file": "public/lore/art/sedgesea.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 225714,
+      "sha256": "de9bb238d966e725d33b2952f09bdd1f66c5b2fb6e283ab2172b2df9a72b52e2",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: The Sedge Sea. Its defining geography: The open fen, sedge and standing water, wisps at night. Its inhabitants and discoveries: Bog crawlers, ghouls, Long Sarah, the Eel-Man checking his traps. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "leviathansrest",
+      "title": "The Leviathan's Rest",
+      "file": "public/lore/art/leviathansrest.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 210278,
+      "sha256": "937ff0a5b7fdf21d1dc660308f18264068aa1dda46ccac1fef4ef001ca46a500",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: The Leviathan's Rest. Its defining geography: A sea cave under the largest isle where the last sea-wyrm lies, tide-filled. Its inhabitants and discoveries: Crabs, drowned, a mire troll, Thalassa the Sea-Wyrm. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "thousandisles",
+      "title": "The Thousand Isles",
+      "file": "public/lore/art/thousandisles.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 265662,
+      "sha256": "48eda5fb5e363107967a3d07a1083add14a158786b03519527325f5a3b04e7a1",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: The Thousand Isles. Its defining geography: The archipelago itself, sailed not walked, channels, shoals, wrecks on every reef. Its inhabitants and discoveries: The Red Sail race, the Ghost Tide on moonless nights, the Stack-Queen's rock, kraken shoals. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "wreckward",
+      "title": "Wreck Ward",
+      "file": "public/lore/art/wreckward.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 325562,
+      "sha256": "e2d645e67218e02645befd33ebe22a22f3880478296b68b94487005a6e6e28ad",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: Wreck Ward. Its defining geography: A graveyard of ships driven onto one reef over three centuries, hulls stacked into a maze. Its inhabitants and discoveries: Salvage, drowned crews, Little Sorrow walking the tide line. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "saltcut",
+      "title": "The Salt Cut",
+      "file": "public/lore/art/saltcut.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 307172,
+      "sha256": "ef46bd2c1767afc33aeeefce0ef54c39bb11a9e1408420d03d0f6b9245a3eade",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: The Salt Cut. Its defining geography: A cut in the largest isle's cliff, iron and silver, the yard washed at every high tide. Its inhabitants and discoveries: Iron and silver, crabs in the cuts. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "tidewalk",
+      "title": "The Tidewalk",
+      "file": "public/lore/art/tidewalk.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 272210,
+      "sha256": "0d36c4e1150ed7c3126613f36d7977b43a71a357cea553fa46d87013e34642d6",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: The Tidewalk. Its defining geography: A drowned causeway from the fen to the first isle, dry for an hour either side of low tide. Its inhabitants and discoveries: Crabs on the stones, drowned in the pools, the only way to the Harbour without a boat. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "smugglerscays",
+      "title": "Smugglers' Cays",
+      "file": "public/lore/art/smugglerscays.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 286728,
+      "sha256": "91abe23a43f1326c37feb1b2a40692af3e1e428699544674c7c9321d049a1ed6",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: Smugglers' Cays. Its defining geography: Three islets with caves at the waterline, boats hidden under nets. Its inhabitants and discoveries: A pirate crew that has broken with Maravel, contraband, a fence for anything. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "wisplanterns",
+      "title": "The Wisp Lanterns",
+      "file": "public/lore/art/wisplanterns.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 154306,
+      "sha256": "0a5b2dbba03cfd7498578f0c46020d1dbe9c76f4daccf7f890c4e090a49b8328",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: The Wisp Lanterns. Its defining geography: The deep fen at night, lit by will-o'-wisps that move as you move. Its inhabitants and discoveries: Wisps that lead to drowned treasure or to a bog crawler, and no way to tell which. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "krakenshoals",
+      "title": "The Kraken's Shoals",
+      "file": "public/lore/art/krakenshoals.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 219130,
+      "sha256": "da6dda50c3961dd35794c3a692e985f968d6b840d8886ce781dcb7993daf25ad",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Saltmarch and the Thousand Isles: The Kraken's Shoals. Its defining geography: Shallows between the outer isles where the water goes black without warning. Its inhabitants and discoveries: The kraken, once, if you anchor there at night; the best pearls in the isles. Regional setting for consistency: Two lands in one realm. Inland, a fen: knee-deep water, sedge to the shoulder, eel weirs, will-o'-wisps. Seaward, an archipelago: a thousand islets of sand, palm and coral running out into the Caldera Sea, channels between them, the first open water you sail.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "lastwell",
+      "title": "The Last Well",
+      "file": "public/lore/art/lastwell.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 286330,
+      "sha256": "f28a59c6a15a87af4df0ebed1e0a382b1ed9be168a9a59dcd24dc59312ce2548",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Last Well. Its defining geography: The Ashwalkers' camp around the one sweet well, tents and a market that moves with the season. Its inhabitants and discoveries: Nadira of the Long Walk, Sister Halessa, Cai Blister, emberite trading, mining training. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "brasscity",
+      "title": "The Brass City",
+      "file": "public/lore/art/brasscity.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 292802,
+      "sha256": "e95cc19e902dc42cb35d6786ba598d0a041fa7710fab567275d70a2148e8b5de",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Brass City. Its defining geography: The walking foundry, a moving dungeon whose door opens when it kneels at a well. Its inhabitants and discoveries: Foreman Isk, Legion engineers, the second heart; a dungeon that is somewhere different each day. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "brasscity_works",
+      "title": "The Brass Works",
+      "file": "public/lore/art/brasscity_works.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 185864,
+      "sha256": "f22cf5164930137a722adfe5d01e41e4331f48543d7b7210941348a53259ca62",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Brass Works. Its defining geography: The city's insides: forges, walkways over furnaces, the engine room. Its inhabitants and discoveries: Iron golems, cultists, the Brass Heart if Isk is stopped, emberite by the ton. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "firstfire",
+      "title": "The Firstfire Crater",
+      "file": "public/lore/art/firstfire.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 274006,
+      "sha256": "25f874207b1b8ee750afad6457019c88312c3eabde13849e262b92a8e106534a",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Firstfire Crater. Its defining geography: The crater where the pact was made, a Legion foundry cut into its wall and the throat beneath. Its inhabitants and discoveries: Cyclops, cultists, iron golems; the walls light for the first time in a thousand years. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "glassroad",
+      "title": "The Glass Road",
+      "file": "public/lore/art/glassroad.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 296116,
+      "sha256": "88256748d824a412effd860097e3da8e96d6e4bf33dd9db152c3c7df45519637",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Glass Road. Its defining geography: The line of fused sand running to Cinderreach, hot at noon, mirage over it. Its inhabitants and discoveries: Weekly Legion convoys of emberite, Noon the manticore on his rock. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "saltpans",
+      "title": "The Salt Pans",
+      "file": "public/lore/art/saltpans.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 267512,
+      "sha256": "86f5bdca2ec8221d137fcf9cf5e3f5779fb3806a9efa77a975e14e80ede0cedd",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Salt Pans. Its defining geography: White flats that blind at noon and freeze at night, bones of caravans. Its inhabitants and discoveries: Manticores, giant spiders, sandstorm events, the Ashwalker waystones. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "embercut",
+      "title": "The Ember Cut",
+      "file": "public/lore/art/embercut.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 278052,
+      "sha256": "0113c235a87ae10e15c400055a3dafbc6197bf0f323689eb92b8dfff88a62f58",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Ember Cut. Its defining geography: Four cuts in red rock, warm to the hand, rails warped by heat. Its inhabitants and discoveries: Iron and emberite, the Sledge-Master at the fused floor. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "cultistcamp",
+      "title": "The Recruiter's Tents",
+      "file": "public/lore/art/cultistcamp.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 211890,
+      "sha256": "61b29b10e89296a257d137c69d1bca16b655e0e1eccc72a4d714e9f337b04fc6",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Recruiter's Tents. Its defining geography: Clean tents in a filthy country at the Wastes' western edge. Its inhabitants and discoveries: Selwyn's successor, the Legion's recruiters, the mark offered. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "miragepalace",
+      "title": "The Mirage Palace",
+      "file": "public/lore/art/miragepalace.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 217428,
+      "sha256": "77daa604ade858ec2d37bb495bbe7e4f45a352493d5d9151fc5e35ad2b17eb46",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Mirage Palace. Its defining geography: A palace of white towers on the horizon that is never there when you arrive. Its inhabitants and discoveries: Real for one hour at noon from one spot on the Glass Road; inside, the library of the Wastes' first people and their water. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "buriedlibrary",
+      "title": "The Buried Library",
+      "file": "public/lore/art/buriedlibrary.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 199238,
+      "sha256": "1da5f2aaffb7bcb0f300ae1eb3ea4764c2fcd833f8e267a1720dfb79806b2f59",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Buried Library. Its defining geography: A tower of the old people buried to its roof in sand, dug into from the top. Its inhabitants and discoveries: Sand that pours in behind you, scrolls the cultists want, a cyclops that was its keeper. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "banditridge",
+      "title": "Bandit Ridge",
+      "file": "public/lore/art/banditridge.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 257864,
+      "sha256": "e602662d4f5ffe03702517734a6efc2b82c529d9e24f6b6274587a2df9ce91f6",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: Bandit Ridge. Its defining geography: A red mesa with caves in its face, ropes and ladders, raiders who prey on the Legion convoys. Its inhabitants and discoveries: The Ridge Riders, who hate the Legion more than they hate you; horses; a hidden way into the Brass City. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "singingdunes",
+      "title": "The Singing Dunes",
+      "file": "public/lore/art/singingdunes.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 211264,
+      "sha256": "b2772995cb83f3a71cb81bbc99cd031ae2288d8e9670a182b32b1244f6222430",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Ember Wastes: The Singing Dunes. Its defining geography: Dunes that hum in the wind, a different note for each. Its inhabitants and discoveries: Sandworm signs, giant spiders, the note that means one is under you. Regional setting for consistency: Desert on the north eastern shore: red rock mesas, white dunes, salt pans, a sun too big. A line of fused glass runs across it from the south west to the north east, where the nine hearts were dragged. At its centre the Firstfire Crater, a bowl a mile wide with walls of black glass.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "cairnfoot",
+      "title": "Cairnfoot",
+      "file": "public/lore/art/cairnfoot.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 298660,
+      "sha256": "fce33cb625f03adc27131100b9fec8ee3a3b3a434f97f7869714d2d283f13fea",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: Cairnfoot. Its defining geography: A highland village of stone and turf at the mountains' foot, sheep and a brewhouse. Its inhabitants and discoveries: Kestrel, the highlanders, the Cairn Road's start, climbing gear, mountaineering rumours. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "cairnroad",
+      "title": "The Cairn Road",
+      "file": "public/lore/art/cairnroad.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 262272,
+      "sha256": "63834e23d1736ba21a06be54586b42e3aeb4cd3fd192c59df0985bb523613b6f",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: The Cairn Road. Its defining geography: The path to the Eyrie, a cairn for every fallen rider, speaking when the storm is near. Its inhabitants and discoveries: Rider cairns, the Wall of Weather event, ogres of the Legion's mountain corps. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "legionpass",
+      "title": "The Legion Pass",
+      "file": "public/lore/art/legionpass.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 257394,
+      "sha256": "80eab3e8ab8ac021cccf2937b6c836d839495b454f5e4e1b6278e11540736f8e",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: The Legion Pass. Its defining geography: The Legion's mountain fort in the only pass, palisade and towers. Its inhabitants and discoveries: Captain Serle Vane in command, Warden Hask's ogres, the favour from the Greenwold. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "eyrie",
+      "title": "The Eyrie",
+      "file": "public/lore/art/eyrie.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 201110,
+      "sha256": "30e3abc554cb9fc75677950f7a377f2fd2ccd53bce54e435b93227f0523551b9",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: The Eyrie. Its defining geography: The riders' hall on the peak, the landing steps, nine stone perches, ghosts keeping watch. Its inhabitants and discoveries: Marshal Eowen Skyward's ghost, the last Dragonsworn, the old rider oath; the Roost beneath. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "eyrieroost",
+      "title": "The Eyrie's Roost",
+      "file": "public/lore/art/eyrieroost.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 260038,
+      "sha256": "d40d0293da655980cafb869236e1cf408bf4de99fc72278ebbc523718f5a4ee5",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: The Eyrie's Roost. Its defining geography: Three levels cut into the peak down to the mounting stair. Its inhabitants and discoveries: Ogres, iron golems, wyverns, Warden Hask who cannot pass the ghosts. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "blacklochs",
+      "title": "The Black Lochs",
+      "file": "public/lore/art/blacklochs.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 224668,
+      "sha256": "0ceec6b6a49a8f0df8286f57cd18cbe6168e8d8ab1e1ec8739bfc86bf9aa83ad",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: The Black Lochs. Its defining geography: Three lochs in the high glens, cold, deep, a drowned rider hall under the largest. Its inhabitants and discoveries: Fishing, wyverns, Skreel the storm wyvern's peak above. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "thundershaft",
+      "title": "The Thunder Shaft",
+      "file": "public/lore/art/thundershaft.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 262206,
+      "sha256": "ee4f45fb01f588a5579c963115f817d1f53ac3f2677ec630b4be6ccaa706f62e",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: The Thunder Shaft. Its defining geography: A mine driven into the lightning peak's side, silver and coldiron, humming in a storm. Its inhabitants and discoveries: Silver and coldiron, iron golems the kingdom left. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "skybridge",
+      "title": "The Sky Bridge",
+      "file": "public/lore/art/skybridge.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 233788,
+      "sha256": "5c7b1c2ed06d8a59cb1935befa18403824db0bc30c9b9c438aa5b4cc760c5023",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: The Sky Bridge. Its defining geography: A rope bridge across a chasm a thousand feet deep, invisible in cloud. Its inhabitants and discoveries: The only crossing to the Eyrie's side without the Legion Pass. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "stormanvil",
+      "title": "The Storm Anvil",
+      "file": "public/lore/art/stormanvil.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 204966,
+      "sha256": "5fff747646aa78ca7746b470ddc7fa781c9ca811c1295301d3cc1694a2187b30",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: The Storm Anvil. Its defining geography: An iron anvil on the highest bare rock, struck by lightning every storm. Its inhabitants and discoveries: Rimesteel and coldiron can be worked here and nowhere else in the realm. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "echochasm",
+      "title": "The Echo Chasm",
+      "file": "public/lore/art/echochasm.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 276422,
+      "sha256": "7887a760a2f675750e585dd5656ccbbd6c70cfdc1be5d240a6535b9bb2f11dbb",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: The Echo Chasm. Its defining geography: A gorge where a shout comes back nine times and brings the scree down. Its inhabitants and discoveries: Ogre camps on the ledges, a rider's tomb in the wall. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "drownedhall",
+      "title": "The Drowned Rider Hall",
+      "file": "public/lore/art/drownedhall.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 173170,
+      "sha256": "596673722437a6f6e6db0bced486140c7fc3f41e6504fe83deac1eb9f2fe7978",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Stormpeaks: The Drowned Rider Hall. Its defining geography: A riders' hall under the largest of the Black Lochs, its roof forty feet down. Its inhabitants and discoveries: Rider relics, the drowned of the Eyrie's fall, a saddle that fits a dragon. Regional setting for consistency: Highlands on the north shore: heather moor climbing into granite peaks, black lochs, scree, weather crossing in walls. The tops are in cloud half the day and lightning strikes the highest peak three times an hour.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "ninefall",
+      "title": "Ninefall",
+      "file": "public/lore/art/ninefall.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 215036,
+      "sha256": "8a7efbea9435e81ffd515d7d06ecf3c8e385648377985e6682217f494bd2423d",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Boneyard: Ninefall. Its defining geography: The nine skeletons in a rough ring, each with a name cut into a rib by its rider. Its inhabitants and discoveries: Ghost-Rider Corvane at the mother's bones, the true name, the Bone Wind event, the Counting Wraith. Regional setting for consistency: An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "skulllodge",
+      "title": "The Skull Lodge",
+      "file": "public/lore/art/skulllodge.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 212798,
+      "sha256": "97e94d8da86eedb76e27d40af9763536206fadc56cd2fee5e2787ea4abc2e095",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Boneyard: The Skull Lodge. Its defining geography: The hunting lodge inside the largest skull, lights in the eyes. Its inhabitants and discoveries: Huntmaster Gallow, Malachar seen once across the ash, the trophy hall beneath. Regional setting for consistency: An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "skulllodge_throat",
+      "title": "The Trophy Throat",
+      "file": "public/lore/art/skulllodge_throat.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 215460,
+      "sha256": "f25ac6c34c2e2c4e500f5c10d0659b033cfe371d5b52ddf40eb0892ca184ef12",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Boneyard: The Trophy Throat. Its defining geography: Down the skull's throat into the neck bones, trophies on every vertebra. Its inhabitants and discoveries: Bone knights, wraiths, vampire knights, Gallow's hounds; Huntmaster Gallow. Regional setting for consistency: An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "ridersrest",
+      "title": "Riders' Rest",
+      "file": "public/lore/art/ridersrest.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 250352,
+      "sha256": "b952da1b63a1f15c8c4239fc1a83d4cf24e7b2116f7358003272feb52c507e39",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Boneyard: Riders' Rest. Its defining geography: A tomb-keeper's hamlet at the plain's edge, the only living people, who bury what the wind uncovers. Its inhabitants and discoveries: Tomb keepers, bone trade, necromancy rumours, the one inn on the plain. Regional setting for consistency: An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "ridertombs",
+      "title": "The Rider Tombs",
+      "file": "public/lore/art/ridertombs.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 221154,
+      "sha256": "97cfc8a9ac2e7b4d03794824450312fa2d4ecce46413144d0db60ef051179aee",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Boneyard: The Rider Tombs. Its defining geography: Barrows of the nine riders along the plain's edge, every one opened. Its inhabitants and discoveries: Bone knights who kept their minds, rider relics, the Counting Wraith's round. Regional setting for consistency: An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "ashsea",
+      "title": "The Ash Sea",
+      "file": "public/lore/art/ashsea.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 206042,
+      "sha256": "f4988b6ff1738ec0b5494cb3b8d6006d550345f9d13497dcf7352215e08f2791",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Boneyard: The Ash Sea. Its defining geography: The open plain, ash to the knee in places, storms that stand the dead dragons up for a minute. Its inhabitants and discoveries: Wraiths, ghouls, the Bone Wind, Gallow's hounds, werewolves that were riders. Regional setting for consistency: An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "marrowmine",
+      "title": "The Marrow Mine",
+      "file": "public/lore/art/marrowmine.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 217368,
+      "sha256": "43eb8e04cae103d452689039a2ab678039715b9c70aa525e30e88769b4bb1798",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Boneyard: The Marrow Mine. Its defining geography: A mine driven into a dragon's thighbone, the ore grown in the marrow. Its inhabitants and discoveries: Voidrock and coldiron, the only bone-borne ore in the world. Regional setting for consistency: An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "ribcathedral",
+      "title": "The Rib Cathedral",
+      "file": "public/lore/art/ribcathedral.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 189358,
+      "sha256": "da62f641ee5b4838761d9adc09852eacb1365ced38c5d7060fc9ae81def6df26",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Boneyard: The Rib Cathedral. Its defining geography: The largest dragon's ribcage, each rib a vault a hundred feet high, the wind playing it like pipes. Its inhabitants and discoveries: The dead riders gather here at midnight and stand in rows; the Bone Wind starts here. Regional setting for consistency: An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "hunterscamps",
+      "title": "Gallow's Outriders",
+      "file": "public/lore/art/hunterscamps.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 254710,
+      "sha256": "85fff2279caa5cba7bc1295f008f31dae0b04af79bf1022e485a1a24c4e234ab",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Boneyard: Gallow's Outriders. Its defining geography: Hunting camps of the Skull Lodge on the plain, hides drying, cages. Its inhabitants and discoveries: Gallow's huntsmen, caged beasts to free, a hound master. Regional setting for consistency: An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "boneorchard",
+      "title": "The Bone Orchard",
+      "file": "public/lore/art/boneorchard.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 250656,
+      "sha256": "69216d933ea6d85dfcfac6bb7d3cf1f64e6e9b12276c7ea3447b3f0150d22bc8",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Boneyard: The Bone Orchard. Its defining geography: Where the dragons' blood soaked in, a grove of bone-white trees that grow nowhere else. Its inhabitants and discoveries: Ironbark logs, wraiths that live in the trees, forage no alchemist has named. Regional setting for consistency: An ash plain on the western shore where nothing grows: grey dust to the horizon, and out of it the skeletons of nine dragons, each the size of a hill, ribs like cathedral vaults. Wind lifts the ash into storms. Riders' tombs at the plain's edge, opened.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "coldseat",
+      "title": "Coldseat",
+      "file": "public/lore/art/coldseat.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 250186,
+      "sha256": "bb9345e2afd55af24660733e29d99bb65b2636f1ef0d9c091ffecfe5c109cbf9",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: Coldseat. Its defining geography: The frost giants' hall at the glacier's mouth, a roof of whale ribs, fires big as houses. Its inhabitants and discoveries: Thane Ulfra Coldseat on the shaft, Brenna's forge, rimesteel smithing, Legate Ossory's camp below. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "icevault",
+      "title": "The Ice Vault",
+      "file": "public/lore/art/icevault.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 289510,
+      "sha256": "b8b08011149259cebd8a4a11b3c7328f5849cc973d13f496726cddda0dcd5cea",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: The Ice Vault. Its defining geography: The glacier with the fortress and the tenth dragon inside it, the Legion cutting toward her. Its inhabitants and discoveries: Vaelith the Frost; the Vault beneath. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "icevault_deep",
+      "title": "The Vault Below",
+      "file": "public/lore/art/icevault_deep.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 262868,
+      "sha256": "caacd7a5714b75597c954c0bbd6e77608e0e7921bcc7fdc284374ecbe3a8127a",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: The Vault Below. Its defining geography: Down the Legion's cutting through the glacier to the frozen dragon. Its inhabitants and discoveries: Dire wolves, frost giants gone wrong, Legion sappers, Legate Ossory in rimesteel plate. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "whitepines",
+      "title": "The White Pines",
+      "file": "public/lore/art/whitepines.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 260524,
+      "sha256": "f336eb455f12405d001c88d15137a2e888cf6dbd0639d9b9117cbe1bb7bf2f95",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: The White Pines. Its defining geography: Black pine forest under snow, the White Pack's ground, tracks everywhere. Its inhabitants and discoveries: Rimemouth and the White Pack, the full-moon challenge, frost giants' herds. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "frozenfleet",
+      "title": "The Frozen Fleet",
+      "file": "public/lore/art/frozenfleet.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 308510,
+      "sha256": "0e6ec42344dc75ad9fef7be93ada56be422097092d1255a0293f93d9af16b912",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: The Frozen Fleet. Its defining geography: A Legion barge fleet caught in the fjord ice a century ago, crews still aboard. Its inhabitants and discoveries: Drowned and skeleton crews, Legion relics, a frozen admiral. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "rimecut",
+      "title": "The Rime Cut",
+      "file": "public/lore/art/rimecut.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 272538,
+      "sha256": "b88e8c3d015a93bb1adc504465f7d194ea95dd52b5c6d306bc802add930ca584",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: The Rime Cut. Its defining geography: Mouths that breathe cold, a yard that has never thawed. Its inhabitants and discoveries: Coldiron and rimesteel, the giants' miners. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "longnightcamp",
+      "title": "The Long Night Camp",
+      "file": "public/lore/art/longnightcamp.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 222360,
+      "sha256": "37690acf314e3144d553f0bbe41c1e7758e5ace17e22e1e962bb176498954b79",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: The Long Night Camp. Its defining geography: A giants' outpost that lights the glacier from inside on the day the sun does not rise. Its inhabitants and discoveries: The Long Night event, giant hospitality, Skarn's footprints. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "aurorashelf",
+      "title": "The Aurora Shelf",
+      "file": "public/lore/art/aurorashelf.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 171678,
+      "sha256": "28e29598cb12fb1ecd5e2700c2f4f42a16ab92b952121e72ce179f83b6cb9a57",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: The Aurora Shelf. Its defining geography: A glacier shelf a mile wide, blank white by day. Its inhabitants and discoveries: On the Long Night the aurora lights a path across it to a giants' cache; by day the shelf is crevasses. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "icefall",
+      "title": "Icefall",
+      "file": "public/lore/art/icefall.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 225424,
+      "sha256": "e4ae9d86b68e2ca4aac2f9895ec6fc29a535768e39e7ac5f4826835ccfb1e80f",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: Icefall. Its defining geography: A cave behind a frozen waterfall, blue light, the water still moving under the ice. Its inhabitants and discoveries: Rimesteel in the walls, an ice troll, a frozen Legion sapper crew. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "hotsprings",
+      "title": "The Hot Springs",
+      "file": "public/lore/art/hotsprings.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 224948,
+      "sha256": "c9d9f8fce4f7d2f1927ff75e890d75fa6b225e58b42c5210d7d87ccb80ed483f",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: The Hot Springs. Its defining geography: Steaming pools in the pine under the glacier, the only warm ground in the realm. Its inhabitants and discoveries: Rest, the cold bar reset, giants bathing who will talk, a hidden way to the Vault. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "mammothsteppe",
+      "title": "The Mammoth Steppe",
+      "file": "public/lore/art/mammothsteppe.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 223636,
+      "sha256": "8f56b3e7a5902d6d6a59b6392610041421a1d9b9065d1a1688c64a648110d296",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in Frostreach: The Mammoth Steppe. Its defining geography: Open tundra where the giants' herds graze, mammoth and musk ox. Its inhabitants and discoveries: Hunting, hides the tailor has never seen, the White Pack's raids on the herds. Regional setting for consistency: The north western rim: glaciers running to the sea, black pine under white, frozen fjords, a fortress frozen into the ice a thousand years ago. The cold is a bar; fire is life. The Long Night falls one day in seven.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "reefstair",
+      "title": "The Reef Stair",
+      "file": "public/lore/art/reefstair.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 334976,
+      "sha256": "10611f14768756e1c80e37656a0d864ed23d84ad846b7bec07ecdf9a899bba84",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Sunken Kingdom: The Reef Stair. Its defining geography: Stone steps climbing out of the sea onto a reef, the king's nightly round. Its inhabitants and discoveries: King Caradoc the Drowned at dusk, Pearl's dive camp, the Harbourmaster checking boats. Regional setting for consistency: The Caldera Sea itself: flat, clear, warm, and under it a drowned city of white marble, towers, avenues, a coliseum, a palace, all visible from a boat. Reefs where the tallest towers break the surface. Sailed above, walked below once the deep is taken.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "drownedpalace",
+      "title": "The Drowned Palace",
+      "file": "public/lore/art/drownedpalace.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 290118,
+      "sha256": "c9b34ac5f880fb92b156a79c088c8969342329f98b9e9dbd9ddac4c752e47e68",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Sunken Kingdom: The Drowned Palace. Its defining geography: The king's own, entirely under water, air pockets as rooms. Its inhabitants and discoveries: Drowned, vampire knights of the old court, the guardian Bone Dragon; King Caradoc if lied to. Regional setting for consistency: The Caldera Sea itself: flat, clear, warm, and under it a drowned city of white marble, towers, avenues, a coliseum, a palace, all visible from a boat. Reefs where the tallest towers break the surface. Sailed above, walked below once the deep is taken.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "coliseum",
+      "title": "The Drowned Coliseum",
+      "file": "public/lore/art/coliseum.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 190206,
+      "sha256": "4bc70193c30c207c9af07ced48096da263e5a29bc601395b87b9838eb0be8ac9",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Sunken Kingdom: The Drowned Coliseum. Its defining geography: The arena on the sea floor, lit by the glow, full on the full moon. Its inhabitants and discoveries: The Coliseum event, a champion's pearl the hard way. Regional setting for consistency: The Caldera Sea itself: flat, clear, warm, and under it a drowned city of white marble, towers, avenues, a coliseum, a palace, all visible from a boat. Reefs where the tallest towers break the surface. Sailed above, walked below once the deep is taken.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "theglow",
+      "title": "The Glow",
+      "file": "public/lore/art/theglow.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 223470,
+      "sha256": "dc3b2096668b5b5cb922ee3a5352b66ea326d2aaaf78f7ab7408e30b052a58dd",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Sunken Kingdom: The Glow. Its defining geography: The thing on the sea floor that turns and lights the city: the sea-wyrms' egg chamber, empty. Its inhabitants and discoveries: The source of every light in the kingdom, Thalassa's kin remembered. Regional setting for consistency: The Caldera Sea itself: flat, clear, warm, and under it a drowned city of white marble, towers, avenues, a coliseum, a palace, all visible from a boat. Reefs where the tallest towers break the surface. Sailed above, walked below once the deep is taken.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    },
+    {
+      "id": "avenues",
+      "title": "The Avenues",
+      "file": "public/lore/art/avenues.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 291792,
+      "sha256": "a7d55a00eb99673b191f19fb64f29a477f9e9d64fbf627a6e2d0ffcb67271505",
+      "prompt": "Use case: stylized-concept. Create one landscape illustration for the Brackenwake fantasy world atlas. Painterly low-poly fantasy concept art: sculpted angular forms, rich atmospheric perspective, beautiful coherent architecture, cinematic environmental storytelling, soft brush texture, restrained luminous magic and tangible materials. A grand sense of scale with small figures only where appropriate. Sophisticated art-book quality, neither photorealism nor a screenshot. Wide 3:2 composition, edge-to-edge scene, clear focal point, layered foreground and distant silhouettes. No text, labels, borders, montage, watermarks or interface. Faithfully depict the supplied lore without inventing extra landmarks. This is concept art for a game still in development.\nScene: One specific place in The Sunken Kingdom: The Avenues. Its defining geography: The drowned streets, fish moving down them, shops with doors open. Its inhabitants and discoveries: Salvage, drowned patrols, the Harbourmaster's register. Regional setting for consistency: The Caldera Sea itself: flat, clear, warm, and under it a drowned city of white marble, towers, avenues, a coliseum, a palace, all visible from a boat. Reefs where the tallest towers break the surface. Sailed above, walked below once the deep is taken.. Prioritize this particular place, not a generic regional vista. Depict environmental details and a small number of appropriate inhabitants; do not attempt to illustrate every named person."
+    }
+  ]
+}

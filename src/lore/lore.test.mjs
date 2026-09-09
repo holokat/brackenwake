@@ -4,14 +4,18 @@ import { readFileSync } from 'node:fs';
 import { REALMS, PLACES } from '../mmo/realms.js';
 import { readLore, storyHtml, escapeHtml, ORIGIN } from '../../scripts/lore/content.mjs';
 import { atlasPage, realmPage, storyPage } from '../../scripts/lore/pages.mjs';
+import { placePage } from '../../scripts/lore/place-page.mjs';
+import { PLACE_NOTES } from '../../scripts/lore/place-notes.mjs';
+import { artSpecs, publishedArt, sharedRealmArt, artTitle, artPath, CONCEPT_NOTE } from '../../scripts/lore/art.mjs';
 import { matchingPlaces, normaliseSearch, mountSearch } from './search.js';
 
 const lore = readLore();
-const assets = { css: '/lore/assets/atlas.css', js: '/lore/assets/search.js' };
+const assets = { css: '/lore/assets/atlas.css', js: '/lore/assets/search.js', motion: '/lore/assets/motion.js' };
 const pages = new Map([
   ['/lore/', atlasPage(lore, assets)],
   ['/lore/story/', storyPage(lore, assets)],
   ...lore.realms.map(realm => [`/lore/${realm.id}/`, realmPage(realm, lore, assets)]),
+  ...lore.realms.flatMap(realm => realm.places.map(place => [`/lore/${realm.id}/${place.id}/`, placePage(place, realm, lore, assets)])),
 ]);
 
 test('the atlas covers every authored realm and place, with current canonical story chapters', () => {
@@ -69,6 +73,41 @@ test('the small story renderer escapes source text, preserves lists, and refuses
   assert.throws(() => storyHtml('| new | table |'), /explicit renderer/);
 });
 
+test('each authored place has its own illustrated page and individual concept notes', () => {
+  assert.deepEqual(Object.keys(PLACE_NOTES).sort(), lore.places.map(place => place.id).sort());
+  assert.equal(new Set(Object.values(PLACE_NOTES)).size, lore.places.length);
+  const artworks = new Set(artSpecs.map(spec => spec.id));
+  assert.equal(artworks.size, artSpecs.length);
+  for (const realm of lore.realms) for (const place of realm.places) {
+    const path = `/lore/${realm.id}/${place.id}/`, html = pages.get(path);
+    assert(html, path);
+    assert(artworks.has(place.id), place.name);
+    assert(PLACE_NOTES[place.id].split(/\s+/).length >= 30, place.name + ' needs real narrative development');
+    assert(html.includes(escapeHtml(PLACE_NOTES[place.id])), place.name);
+    assert(html.includes(escapeHtml(place.geography)), place.name);
+    assert(html.includes(escapeHtml(place.contains)), place.name);
+    assert(html.includes('Concept notes for the illustrated atlas.'), place.name);
+    assert(html.includes(`content="${ORIGIN}${artPath(place.id)}"`), place.name + ' has its selected social cover');
+  }
+});
+
+test('every illustration is visibly labeled, has descriptive alt text, and all reading works without JavaScript', () => {
+  for (const [path, html] of pages) {
+    const figures = [...html.matchAll(/<figure class="concept-art[\s\S]*?<\/figure>/g)].map(match => match[0]);
+    assert(figures.length > 0, path);
+    assert(html.includes(CONCEPT_NOTE), path);
+    for (const figure of figures) {
+      assert(figure.includes('<figcaption'), path);
+      assert(/(?:Concept art|Realm concept art)<\/figcaption>/.test(figure), path);
+      assert(figure.includes('alt="Concept illustration of '), path);
+      assert(figure.includes('width="1536" height="1024"'), path);
+    }
+    assert.equal((html.match(/fetchpriority="high"/g) || []).length, 1, path);
+    assert(!html.includes(' hidden><main'), path);
+    assert(html.includes('<main id="content">'), path);
+  }
+});
+
 test('search handles accents, mixed case, multiword queries and no matches', () => {
   const places = lore.places.map(place => ({ id: place.id, search: normaliseSearch([place.name, place.realmName, place.geography, place.contains].join(' ')) }));
   assert.deepEqual(matchingPlaces(places, 'ÓRAM cellars').map(place => place.id), ['oldcellars']);
@@ -105,4 +144,16 @@ test('marketing and GitHub link directly to the public atlas', () => {
   assert(welcome.includes('href="/lore/">Lore and lands'));
   assert(readme.includes('[Lore and lands](https://brackenwake.com/lore/)'));
   assert(readme.includes('[Play Brackenwake](https://brackenwake.com/play)'));
+});
+
+
+test('shared regional illustrations are explicitly described as realm art', () => {
+  assert.equal(publishedArt.length, 92);
+  for (const realm of lore.realms) for (const place of realm.places) {
+    if (!sharedRealmArt[place.id]) continue;
+    assert.equal(sharedRealmArt[place.id], realm.id);
+    const html = pages.get(`/lore/${realm.id}/${place.id}/`);
+    assert(html.includes('Realm concept art</figcaption>'));
+    assert(html.includes(`Concept illustration of ${escapeHtml(artTitle(place.id))}, the surrounding realm`));
+  }
 });
