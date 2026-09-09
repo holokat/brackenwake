@@ -4,9 +4,10 @@ import { mountMotion } from './motion.js';
 
 const html = readFileSync(new URL('../../welcome/index.html', import.meta.url), 'utf8');
 assert.match(html, /class="game-button" href="\/play"/);
+assert.match(html, /href="\/lore\/">Lore and lands/);
 for (const [, path] of html.matchAll(/(?:src|href)="(\/[^"#]+)"/g)) {
   // The game entry is a routed document, exercised by server/marketing.test.mjs.
-  if (path === '/play') continue;
+  if (path === '/play' || path === '/lore/') continue;
   assert.ok(
     existsSync(new URL(`../../public${path}`, import.meta.url)) ||
     existsSync(new URL(`../..${path}`, import.meta.url)), path,

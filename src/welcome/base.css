@@ -29,6 +29,9 @@ p { text-wrap: pretty; }
 }
 .brand { display: flex; align-items: center; gap: 12px; min-height: 44px; }
 .brand span { font: 600 26px var(--serif); letter-spacing: -.6px; }
+.site-navigation { position: absolute; right: clamp(24px, 4vw, 60px); font-size: 13px; }
+.site-navigation a { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; color: #e9d2a0; }
+.site-navigation a:hover { color: #fff3cf; }
 .eyebrow { display: flex; align-items: center; gap: 15px; font-size: 12px; font-weight: 500; letter-spacing: .13em; color: #e9d2a0; }
 .eyebrow > span { width: 26px; height: 1px; background: currentColor; opacity: .6; }
 .game-button {
@@ -55,7 +58,9 @@ body.motion-off *, body.motion-off *::before, body.motion-off *::after,
 .page-hidden *, .page-hidden *::before, .page-hidden *::after { animation-play-state: paused !important; }
 .motion-off [data-reveal] > * { opacity: 1; transform: none; transition: none; }
 @media (max-width: 700px) {
-  .site-header { padding: max(19px, env(safe-area-inset-top)) 22px; }
+  .site-header { padding: max(19px, env(safe-area-inset-top)) 22px; justify-content: space-between; gap: 16px; }
+  .site-navigation { position: static; font-size: 12px; }
+  .site-navigation a { gap: 7px; }
   .brand span { font-size: 22px; }
   .brand img { width: 27px; }
 }

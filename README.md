@@ -2,7 +2,13 @@
 
 An open-source fantasy game for the browser, built with Three.js, Vite and Cloudflare Workers. Choose a warrior, ranger, rogue or wizard and explore the world.
 
-[Play Brackenwake](https://brackenwake.cogentgene.workers.dev/?play) · [Website](https://brackenwake.com/) · [Asset playground](https://assets.brackenwake.com/)
+[Play Brackenwake](https://brackenwake.com/play) · [Website](https://brackenwake.com/) · [Lore and lands](https://brackenwake.com/lore/) · [Asset playground](https://assets.brackenwake.com/)
+
+## Lore and lands
+
+The [world atlas](https://brackenwake.com/lore/) collects the nine realms and 95 named places, with zone descriptions, landmarks, encounters and character stories. Start with [the last dragon](https://brackenwake.com/lore/story/) or [the Greenwold](https://brackenwake.com/lore/greenwold/).
+
+The atlas includes story plans and places still in development. It is generated from the [world data](src/mmo/realms.js) and the [current story document](docs/mmo/14-KALDERA.md). Earlier story drafts remain in the repository as historical notes.
 
 ## Run locally
 
@@ -68,7 +74,7 @@ npm run build
 npm run build:marketing
 ```
 
-The game builds into `dist/`; the standalone marketing site builds into `dist-marketing/`. Deploy them with their respective Wrangler configurations, `wrangler.jsonc` and `wrangler.marketing.jsonc`.
+The game builds into `dist/`; the marketing site and lore atlas build into `dist-marketing/`. Deploy them with their respective Wrangler configurations, `wrangler.jsonc` and `wrangler.marketing.jsonc`. `npm run build:marketing` regenerates the lore pages from the current world and story sources.
 
 When deploying a fork, use your own Cloudflare account and app-specific Worker names. Update the marketing build's game URL, canonical URL and social-image URLs for your deployment. The checked-in configuration points to Brackenwake's deployment.
 

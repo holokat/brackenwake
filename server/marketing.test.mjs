@@ -17,6 +17,14 @@ test('the homepage and marketing artwork stay in the site asset collection', asy
   assert.deepEqual(h.calls.map(([service]) => service), ['site']);
 });
 
+test('lore pages and their static assets stay in marketing, without starting the game', async () => {
+  for (const path of ['/lore/', '/lore/greenwold/', '/lore/story/', '/lore/assets/search.js', '/sitemap.xml', '/robots.txt']) {
+    const response = new Response('Lore'), h = setup({site: () => response});
+    assert.equal(await h.fetch('https://brackenwake.com' + path), response);
+    assert.deepEqual(h.calls.map(([service]) => service), ['site']);
+  }
+});
+
 test('the clean play URL uses the existing game without a redirect or request rewrite', async () => {
   const request = new Request('https://brackenwake.com/play?solo=1', {headers: {'Sec-Fetch-Mode': 'navigate'}});
   const response = new Response('Game', {headers: {'content-type': 'text/html'}}), h = setup({game: () => response});

@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
+import { buildLore } from './build-lore.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = join(root, 'dist-marketing');
@@ -17,7 +18,7 @@ const assets = [
   'ui/classes/rogue.webp',
 ];
 
-// This release includes only the marketing entry and its artwork. The game
+// This release includes the marketing entry, lore and their artwork. The game
 // has its own Worker, assets and multiplayer deployment lifecycle.
 await build({
   configFile: false,
@@ -48,4 +49,5 @@ assert.ok(html.includes(`content="${origin}/ui/brackenwake-og-v1.png"`));
 assert.ok(html.includes(`class="game-button" href="${gameUrl}"`));
 assert.ok(!html.includes('/src/game/'), 'Marketing must not boot the game');
 await writeFile(join(output, '_redirects'), '/welcome / 301\n/welcome/ / 301\n');
+await buildLore(output);
 console.log(`Marketing build ready: ${output}`);

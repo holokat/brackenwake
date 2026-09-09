@@ -1,0 +1,67 @@
+{
+  "verifiedAt": "2026-09-09T04:06:46.906Z",
+  "accountId": "0b55a6c39a979a58efbf40875ac376d6",
+  "worker": "brackenwake-marketing",
+  "version": "853f8755-b469-4a11-b6f9-931e9b2b60b1",
+  "previousVersion": "0d68de33-2a63-459b-8f1a-aab987d0310c",
+  "gameVersion": "2a3e5d04-40d3-4d00-92c8-399c6a872fb3",
+  "gameDeploymentUnchanged": true,
+  "focusedChecks": {
+    "passed": 18,
+    "failed": 0
+  },
+  "marketingBuild": "passed",
+  "browserReview": {
+    "browser": "Brave",
+    "desktop": "passed",
+    "mobileWidth": 390,
+    "mobile": "passed",
+    "searchAndPlaceLinks": "passed",
+    "storyDisclosure": "passed"
+  },
+  "previewVerified": true,
+  "lore": {
+    "origin": "https://brackenwake.com",
+    "pages": 11,
+    "realms": 9,
+    "places": 95,
+    "assets": [
+      "/lore/assets/atlas-1156d3a544.css",
+      "/lore/assets/search-dd569859a1.js"
+    ],
+    "marketingLink": true,
+    "sitemap": true,
+    "unknownLorePage": 404,
+    "gameHtmlSha256": "918e1f340cab433a3ede43ee9b53dd704b0ca9ddaac95f8ac15b155989ee1fa9"
+  },
+  "play": {
+    "origin": "https://brackenwake.com",
+    "checks": [
+      "Homepage links to brackenwake.com/play",
+      "Clean game entry serves the production game HTML",
+      "5 game entry modules resolve on the same origin",
+      "Model, terrain and artwork requests resolve",
+      "Canonical redirects, website 404 and WebSocket-only response are correct",
+      "A real WebSocket upgrades through the game binding; no character or chat was sent"
+    ],
+    "modules": [
+      "/assets/game-BRuePoqv.js",
+      "/assets/modulepreload-polyfill-P2Xu9kJm.js",
+      "/assets/three.core-CpYT6u8q.js",
+      "/assets/BufferGeometryUtils-ytRJkp9S.js",
+      "/assets/hairstyles-QIGwq74C.js"
+    ]
+  },
+  "fullSuite": {
+    "failures": [
+      "src/game/editor/editor.test.mjs",
+      "src/game/minimap.test.mjs",
+      "src/world/wayside.test.mjs"
+    ],
+    "minimapIsolatedRerun": {
+      "passed": 177,
+      "failed": 0
+    },
+    "gameBuild": "passed in concurrent camera task"
+  }
+}
