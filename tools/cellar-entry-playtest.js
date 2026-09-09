@@ -15,7 +15,8 @@ const site={id:'s:island_cellars',sub:'oldcellars',kind:'dungeon',x:0,z:0,cx:0,c
 b.runtime.enterDungeon(site);
 await b.runtime.dungeonScene.ready;
 function place(x,z,yaw=Math.PI){b.player.teleport(x,z,(x,z)=>b.runtime.heightAt(x,z));b.camera.yaw=yaw;b.camera.pitch=.28;b.camera.snap(b.player.pos);status.textContent='Old Cellars. WASD to move, E at the returning stair. Temporary playtest character.';}
-place(1,175);
+const reviewRoom=new URLSearchParams(location.search).get('room');
+place(reviewRoom==='crossing'?-90:1,reviewRoom==='crossing'?30:175);
 // Survival assistance applies only to this isolated review character.
 setInterval(()=>{if(b.actor.health>0)b.actor.health=b.actor.maxHealth;},100);
 const floor=document.querySelector('#floor');
@@ -23,6 +24,19 @@ const bossDetails=()=>b.monsters.all().filter(m=>/Morva|Sexton|Cinder|Ilex|Voss|
 floor.onchange=async()=>{b.runtime.leaveDungeon();b.runtime.enterDungeon(site,Number(floor.value));status.textContent='Loading floor '+floor.value;const loaded=await b.runtime.dungeonScene.ready;status.textContent='Floor '+floor.value+'. Room artwork '+(loaded?'loaded.':'failed to load.');write({floor:Number(floor.value),loaded});};
 document.querySelector('#arrival').onclick=()=>place(1,175);
 document.querySelector('#nave').onclick=()=>place(1,120);
+const slopeButton=document.createElement('button');slopeButton.textContent='Test crossing slope';document.querySelector('#nave').after(slopeButton);
+slopeButton.onclick=async()=>{
+ slopeButton.disabled=true;const level=b.runtime.dungeonLevel;
+ if(level!==1){status.textContent='Select floor 1 to test the reported crossing slope.';slopeButton.disabled=false;return;}
+ place(-90,30);let passed=true;const ends=[];
+ try{for(const [z,yaw]of[[-10,Math.PI],[30,0]]){
+  b.camera.yaw=yaw;b.camera.snap(b.player.pos);const deadline=performance.now()+20000;b.input.keys.add('w');
+  while(performance.now()<deadline&&b.runtime.dungeonLevel===1&&(yaw===Math.PI?b.player.pos.z>z:b.player.pos.z<z))await new Promise(requestAnimationFrame);
+  b.input.keys.delete('w');const reached=yaw===Math.PI?b.player.pos.z<=z:b.player.pos.z>=z;passed&&=reached;ends.push({...b.player.pos});if(!reached)break;
+ }}finally{b.input.keys.delete('w');slopeButton.disabled=false;}
+ write({crossingSlope:passed?'passed':'blocked',jumpUsed:false,ends,forageVisible:b.forage.group.visible});
+ status.textContent=passed?'Walked the crossing slope in both directions without jumping.':'Crossing walk did not finish. See Details.';
+};
 document.querySelector('#boss').onclick=async()=>{place(5,b.runtime.dungeonLevel===8?10:-137);const level=b.runtime.dungeonLevel,until=performance.now()+30000;status.textContent='Waiting for the boss and nearby room artwork.';while(performance.now()<until&&b.runtime.dungeonLevel===level&&!bossDetails().some(m=>m.loaded))await new Promise(requestAnimationFrame);write({bosses:bossDetails(),streaming:b.runtime.dungeonScene?.streaming?.stats});status.textContent='Boss chamber on floor '+b.runtime.dungeonLevel+'. WASD to move.';};
 document.querySelector('#down').onclick=async()=>{const before=b.runtime.dungeonLevel,stair=b.runtime.dungeonScene.stairPos;if(!stair)return;place(stair.x,stair.z);b.runtime.dungeonGo('down');const loaded=await b.runtime.dungeonScene.ready;floor.value=b.runtime.dungeonLevel;write({descendingStair:{before,after:b.runtime.dungeonLevel,loaded}});status.textContent='Descended to floor '+floor.value;};
 document.querySelector('#up').onclick=async()=>{const before=b.runtime.dungeonLevel;b.runtime.dungeonGo('up');if(b.runtime.dungeonScene)await b.runtime.dungeonScene.ready;floor.value=b.runtime.dungeonLevel;write({returningStair:{before,after:b.runtime.dungeonLevel}});status.textContent='Returned to floor '+b.runtime.dungeonLevel;};

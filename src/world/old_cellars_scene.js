@@ -18,7 +18,7 @@ import {buildLivingProp} from './living/models.js';
 import {buildSepulcher} from '../game/cellar_models.js';
 // The compatibility export used by older authored layouts.
 export function createCellarFurnishings(){return {group:new T.Group(),physicalBodies:[]};}
-export function furnishOldCellars(built,L,{sc}={}){
+export function furnishOldCellars(built,L,{sc,artLoaders={}}={}){
  const streaming=sc?createCellarAssetStream(L,built):null;built.streaming=streaming;
  const root=new T.Group();root.name=L.name;built.group.add(root);const ground=(x,z)=>cellarGroundHeight(L,x,z,z=>cellarHeight(L.level,z));raiseDungeon(built,(z,x)=>ground(x,z));
  const lights=[],lamps=[],rings=[],batches=new Map();let time=0,disposed=false;
@@ -55,8 +55,8 @@ export function furnishOldCellars(built,L,{sc}={}){
  root.add(new T.HemisphereLight(0xb1c2d9,0x343341,hasCellarEntry(L)?.28:.58));
  furnishCellarVaults(root,L,built.physicalBodies);
  const roomArt=furnishCellarSecondaryRooms(root,L,built.physicalBodies);lamps.push(...roomArt.lamps);
- const landmark=furnishBlenderCellar(built,L,{stream:streaming,sc});built.landmark=landmark;
- const entry=furnishCellarEntry(built,L,{stream:streaming,sc});built.entry=entry;const descent=furnishCellarDescent(built,L,{stream:streaming,sc});built.descent=descent;Object.defineProperty(built,'ready',{get:()=>streaming?streaming.ready():Promise.all([landmark.ready,entry?.ready??true,descent.ready]).then(results=>results.every(Boolean))});
+ const landmark=furnishBlenderCellar(built,L,{stream:streaming,sc,load:artLoaders.landmark});built.landmark=landmark;
+ const entry=furnishCellarEntry(built,L,{stream:streaming,sc,load:artLoaders.entry});built.entry=entry;const descent=furnishCellarDescent(built,L,{stream:streaming,sc,load:artLoaders.descent});built.descent=descent;Object.defineProperty(built,'ready',{get:()=>streaming?streaming.ready():Promise.all([landmark.ready,entry?.ready??true,descent.ready]).then(results=>results.every(Boolean))});
  for(const anchor of [...landmark.anchors,...(entry?.anchors||[]),...descent.anchors]){
   if(anchor.kind==='lamp')lamps.push(Object.assign(new T.Vector3(anchor.x,anchor.y,anchor.z),{color:0xffb765}));
   if(['fire','soulFlame','candle','arcane'].includes(anchor.kind))lamps.push(Object.assign(new T.Vector3(anchor.x,anchor.y,anchor.z),{color:anchor.color}));

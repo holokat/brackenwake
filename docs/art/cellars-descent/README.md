@@ -40,6 +40,7 @@ Floor heights are continuous along the connecting routes. Old cave faces are rem
 node src/world/cellar_routes.test.mjs
 node src/world/cellar_progression.test.mjs
 node src/world/cellar_gallery.test.mjs
+node src/world/cellar_portals.test.mjs
 node src/world/cellar_streaming.test.mjs
 node src/game/cellar_boss_combat.test.mjs
 node tools/verify-cellars.mjs
@@ -49,4 +50,8 @@ npm run build
 
 The route checks cover 76 rooms on eight floors in both directions, including the real player controller, rendered cave surfaces, exported room meshes, stair transitions and gallery landings. Combat checks drive all 18 special attacks through the production damage queue and test safe regions, overlapping hazards, resets and cleanup.
 
+The portal check loads the actual room GLBs through the production furnishing path. It checks every authored cardinal doorway against opaque geometry before and after artwork loads, walks each passage both ways without jump input, and reproduces the reported crossing approach near (-90, 10). Known blocking geometry and an impassable floor step validate both test oracles.
+
 `/tools/cellar-entry-playtest.html` runs the real game with a temporary character and page-local memory storage. It provides floor selection, boss-room travel, corridor walking and frame-rate measurements without opening existing character saves. Browser walkthroughs remain a separate acceptance step from the automated checks.
+
+Use `/tools/cellar-entry-playtest.html?room=crossing` to start at the reported approach. **Test crossing slope** walks through the room and back using the real game input, with no jump input. The report records the endpoints and surface-forage visibility.
