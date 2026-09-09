@@ -454,6 +454,9 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
   const tracked = new Set();       // actors carrying status, or lately hit
   const deathFns = [];
   const strikeFns = [];
+  const resolvedFns = [];
+  const resolved = info => { for (const fn of resolvedFns) fn(info); };
+  function onResolved(fn) { resolvedFns.push(fn); return () => { const i = resolvedFns.indexOf(fn); if (i >= 0) resolvedFns.splice(i, 1); }; }
   const hitFns = [];               // W6's particles: see onHit below
   const lastActionAt = new WeakMap();
   let lastNow = 0;
@@ -554,6 +557,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     const took = before - actor.health;
     touch(actor, opts.now ?? lastNow);
     if (opts.quiet !== true) float(actor, String(took), opts.kind || 'damage');
+    resolved({attacker: opts.killer, defender: actor, damage: took, healthBefore: before, kind: opts.kind || 'effect'});
     if (actor.health <= 0) kill(actor, opts.killer || null);
     return took;
   }
@@ -902,6 +906,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
       cue('beastMiss', posOf(defender));
       return null;
     }
+    const healthBefore = num(defender.health);
     const res = resolveMelee({ attacker: swinger(attacker, opts), defender: guard(defender), now, rng, jumpAttack: !!opts.jumpAttack });
     if (defender.godMode) { res.damage = 0; res.killed = false; res.numbers = (res.numbers || []).filter((n) => n.kind !== 'damage'); }
 
@@ -949,6 +954,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     // owns a poison tick's. A defender the swing itself already emptied is not
     // alive by the time they run, so they take nothing further off it, and the
     // kill below is still this swing's.
+    resolved({attacker, defender, damage: res.damage, healthBefore, kind: 'melee', parried: res.parried});
     if(res.damage>0)for(const fn of strikeFns)fn({attacker,defender,kind:'melee',damage:res.damage,now});
     res.after = afterBlow(res, attacker, defender, now);
     if (defender.health <= 0) kill(defender, attacker);
@@ -978,6 +984,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
   function landSpell(job, now) {
     const { attacker, defender, spell, opts } = job;
     if (!alive(attacker) || !alive(defender)) return null;
+    const healthBefore = num(defender.health);
     const res = resolveSpell({ caster: attacker, target: defender, spell, rng, now });
     if (defender.godMode) { res.damage = 0; res.killed = false; res.numbers = (res.numbers || []).filter((n) => n.kind !== 'damage'); }
     if (res.damage > 0) {
@@ -999,6 +1006,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     // `rollSpellEffects` deliberately ignores the affixes and the powers and
     // asks only the enchantment, and only one that says `onSpell`. See G11.md
     // section 5 for what that means today, which is: nothing, loudly.
+    resolved({attacker, defender, damage: res.damage, healthBefore, kind: 'spell'});
     res.after = afterBlow(res, attacker, defender, now, { spell: true });
     if (defender.health <= 0) kill(defender, attacker);
     return res;
@@ -1045,7 +1053,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
   }
 
   const api = {
-    queueSwing, queueSpell, applyFall, update, onDeath, onHit, onStrike, inCombat,
+    queueSwing, queueSpell, applyFall, update, onDeath, onHit, onStrike, onResolved, inCombat,
     // the pieces the other runtimes need to reach without re-deriving them
     applyStatus, clearStatus, hurt, heal, kill,
     /**

@@ -1,3 +1,4 @@
+import {panel as achievementsPanel} from '../../achievements/panel.js';
 import {createHoverHalo} from '../../hover_halo.js';
 import {placeLabel} from '../../../mmo/greenwold/navigation.js';
 // Everything the player reads: the windows and their panels, the paper doll,
@@ -122,7 +123,7 @@ export const ui = {
 
     const windows = createWindows(hudRoot, input, panelCtx);
     panelCtx.windows = windows;
-    for (const p of [characterPanel, bagPanel, skillsPanel, abilitiesPanel, talkPanel, tradePanel, craftingPanel, mapPanel, settingsPanel, devPanel]) windows.register(p);
+    for (const p of [characterPanel, bagPanel, skillsPanel, abilitiesPanel, talkPanel, tradePanel, craftingPanel, mapPanel, achievementsPanel, settingsPanel, devPanel]) windows.register(p);
     // The editor is registered on its own line and not in the row above,
     // because it is not one of the player's windows: it refuses to open unless
     // dev mode is on, and `wiring.test.mjs` reads that row by name.

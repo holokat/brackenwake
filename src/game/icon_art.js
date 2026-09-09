@@ -328,6 +328,7 @@ export const SKILL_ICONS = {
 
 /** Codex tab id -> small flat SVG, drawn in code like the rest of the HUD chrome. */
 export const TAB_ICONS = {
+  achievements: '<path d="M7 3h10v7a5 5 0 0 1-10 0zM4 5h3v6H5L3 8V5zM17 5h4v3l-2 3h-2zM11 15h2v5h4v2H7v-2h4z"/>',
   character: '<path d="M12 4 a4 4 0 1 1 0 8 a4 4 0 0 1 0 -8 z M5 21 c.8 -4.7 3.2 -7 7 -7 s6.2 2.3 7 7 z"/>',
   skills: '<path d="M4 5 h7 c1.1 0 2 .9 2 2 v13 c-.6 -.8 -1.3 -1 -2 -1 H4 z M20 5 h-7 c-1.1 0 -2 .9 -2 2 v13 c.6 -.8 1.3 -1 2 -1 h7 z M12 7 v13"/>',
   abilities: '<path d="M12 2 l2.2 7.8 L22 12 l-7.8 2.2 L12 22 l-2.2 -7.8 L2 12 l7.8 -2.2 z"/>',

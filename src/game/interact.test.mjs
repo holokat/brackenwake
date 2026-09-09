@@ -1,3 +1,4 @@
+import {bindAchievementEvents} from './achievements/events.js';
 // Pointing and clicking. Run: node src/game/interact.test.mjs
 //
 // `decide` is checked as a table: every branch is driven true AND false, so a
@@ -189,6 +190,8 @@ const runtime = {
   inDungeon: false,
 };
 const state = createState({ storage: null });
+const achievements = [];
+bindAchievementEvents(state.character, event => achievements.push(event));
 const player = { pos: new THREE.Vector3(0, 0, 0) };
 const sc = { camera: new THREE.PerspectiveCamera(55, 1, 0.1, 1800) };
 sc.camera.position.set(0, 8, 10);
@@ -270,6 +273,7 @@ toasts.length = 0;
 const packBefore = state.materials.wood;
 d = it.click();
 check('an axe on an oak in reach chops', d.action === 'chop');
+check('the real chop reports personal wood gathering with the tool that made it', achievements.some(e => e.type === 'gather' && e.kind === 'wood' && e.count > 0 && e.tool?.base === 'axe'));
 check('the oak leaves ONE bag on the ground', drops.length === 1, `${drops.length} bag(s)`);
 const gotWood = drops[0].items[0].count;
 check('holding one stack of oak logs', drops[0].items.length === 1 && drops[0].items[0].base === 'oak_log',

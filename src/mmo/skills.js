@@ -228,7 +228,7 @@ export function rollGain(state, skillId, difficulty, success = true, rng = Math.
   if (from >= SKILL_CAP) return no(`${def.name} is already ${SKILL_CAP.toFixed(1)} and cannot rise`, from);
 
   const step = gainStep(from);
-  const chance = gainChance(from, difficulty) * (success ? 1 : 0.5);
+  const chance = Math.min(1, gainChance(from, difficulty) * (success ? 1 : 0.5) * (1 + Math.max(0, Number.isFinite(state.gainChanceBonus) ? state.gainChanceBonus : 0)));
   if (rng() >= chance) {
     return { gained: false, from, to: from, tookFrom: null, refused: false, reason: null, milestone: null, chance, step };
   }

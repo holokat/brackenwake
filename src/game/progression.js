@@ -1,3 +1,4 @@
+import {achievementPerks} from './achievements/progress.js';
 // Getting better at things. Every swing, every strike of a pickaxe, every
 // spell and every hit taken comes through here, and every one of them that
 // changes the character says so on screen.
@@ -241,7 +242,7 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
    * screen, so a test can prove that a change was announced.
    */
   function lesson(skillId, difficulty = 0, success = true, rng = Math.random) {
-    const sheet = { skills: character.skills, locks: character.skillLocks };
+    const sheet = { skills: character.skills, locks: character.skillLocks, gainChanceBonus: achievementPerks(character).wisdom / 100 };
     const res = rollGain(sheet, skillId, difficulty, success, rng);
     const said = [];
 

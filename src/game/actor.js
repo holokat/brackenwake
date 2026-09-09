@@ -1,3 +1,4 @@
+import {achievementPerks} from './achievements/progress.js';
 // Actors. One shape for the player and for every monster, because
 // combat_rules.js resolves both through the same arithmetic and must not be
 // able to tell them apart. See docs/mmo/07-RUNTIME-CONTRACT.md.
@@ -618,6 +619,11 @@ export function recompute(actor) {
   // Elemental Kin four rows of decoration.
   const passives = actor.passives && typeof actor.passives === 'object' ? actor.passives : null;
   if (passives) for (const mods of Object.values(passives)) applyMods(sum, mods);
+
+  const achievements = achievementPerks(actor.character);
+  sum.stats.con += achievements.constitution;
+  sum.stats.wis += achievements.wisdom;
+  sum.bonuses.carry += achievements.capacity;
 
   // effective stats and skills. The two MULTIPLIERS come last, over the
   // finished number, which is what "a fifth off everything it knows" means.

@@ -1,3 +1,4 @@
+import {achievementEvent} from './achievements/events.js';
 // Skinning: the knife, the body, and the hide that comes off it.
 //
 //   const skinning = createSkinning({ monsters, inventory, progression, hud,
@@ -306,6 +307,7 @@ export function createSkinning(opts = {}) {
       return { ok: false, reason: 'no_room', success: true, chance, difficulty, count: 0, item, text };
     }
 
+    achievementEvent(character, 'skin');
     const taught = progression?.lesson?.(SKINNING_SKILL, difficulty, true, rng) || null;
     return { ok: true, success: true, chance, difficulty, count: got, word, item, text, taught };
   }

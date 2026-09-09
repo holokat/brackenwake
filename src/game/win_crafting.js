@@ -1,3 +1,5 @@
+import {achievementEvent} from './achievements/events.js';
+import {achievementPerks} from './achievements/progress.js';
 // The Crafting panel: a station, the recipes it will take, and the arithmetic
 // shown before you commit to any of them.
 //
@@ -57,7 +59,7 @@
 import { layoutFor } from '../mmo/plans/index.js';
 import {
   RECIPES, RECIPE, STATIONS, craftChance, craftQuality, craftedRarity, exceptional,
-  MIN_CRAFT_CHANCE, MATERIALS as CRAFT_MATERIALS,
+  MIN_CRAFT_CHANCE, MAX_QUALITY, MATERIALS as CRAFT_MATERIALS,
 } from '../mmo/recipes.js';
 import { BASES, baseFor, makeItem, RARITY } from '../mmo/items.js';
 import { skillNameOf } from '../mmo/items.js';
@@ -395,9 +397,10 @@ export function forecast(recipe, ctx) {
   const skill = ctx?.character?.skills?.[recipe.skill] ?? 0;
   const chance = craftChance(skill, recipe.difficulty);
   // the real function, with the jitter pinned: middle, worst and best roll
-  const expected = craftQuality(skill, recipe.difficulty, () => 0.5);
-  const worst = craftQuality(skill, recipe.difficulty, () => 0);
-  const best = craftQuality(skill, recipe.difficulty, () => 1);
+  const bonus = achievementPerks(ctx?.character).quality;
+  const expected = Math.min(MAX_QUALITY, craftQuality(skill, recipe.difficulty, () => 0.5) + bonus);
+  const worst = Math.min(MAX_QUALITY, craftQuality(skill, recipe.difficulty, () => 0) + bonus);
+  const best = Math.min(MAX_QUALITY, craftQuality(skill, recipe.difficulty, () => 1) + bonus);
   return {
     skill, chance, expected, worst, best,
     exceptionalPossible: exceptional(best, skill, recipe.difficulty),
@@ -474,7 +477,7 @@ export function craft(recipeId, ctx, opts = {}) {
     };
   }
 
-  const quality = craftQuality(skill, recipe.difficulty, rng);
+  const quality = Math.min(MAX_QUALITY, craftQuality(skill, recipe.difficulty, rng) + achievementPerks(c).quality);
   const exc = exceptional(quality, skill, recipe.difficulty);
   const rarity = craftedRarity(skill, exc, rng, { material: recipe.result.material });
   const base = resultBaseFor(recipe);
@@ -488,6 +491,7 @@ export function craft(recipeId, ctx, opts = {}) {
   item.recipe = recipe.id;
   item.material = recipe.result.material;
 
+  achievementEvent(c, 'craftPrepared', {item});
   if (!addItem(ctx, item)) {
     // the pack filled between the check and the swing: put it all back rather
     // than dropping the work on the floor without a word
@@ -501,6 +505,7 @@ export function craft(recipeId, ctx, opts = {}) {
     };
   }
 
+  achievementEvent(c, 'craft', {item, recipe, exceptional: exc});
   ctx?.audio?.play?.('pickup');
   ctx?.floaters?.spawn?.(pos(ctx), recipe.name, 'loot', { color: RARITY[rarity]?.colour });
   const mark = exc ? ` It is exceptional, and it carries your name.` : '';

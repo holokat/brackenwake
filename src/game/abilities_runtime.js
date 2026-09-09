@@ -1,3 +1,4 @@
+import {achievementEvent} from './achievements/events.js';
 // The bar, and what happens when you press it.
 //
 // `src/mmo/abilities.js` is pure rules: it says whether you may use a thing,
@@ -1272,6 +1273,7 @@ export function createAbilities(deps = {}) {
         preventsHide: !!e.preventsHide,
       };
       c.target.marks.push(mark);
+      achievementEvent(character, 'mark', {species: c.target?.monsterId});
       if (typeof onMark === 'function') { try { onMark(c.target, mark); } catch (err) { console.warn('onMark threw', err); } }
       const pct = Math.round((num(e.damageTakenMult) - 1) * 100);
       return `${c.target.name || 'It'} takes ${pct}% more ${e.fromCasterOnly ? 'from you' : 'from everyone'} for ${saySeconds(e.duration)}.`;

@@ -1,3 +1,4 @@
+import {panel as achievementsPanel} from './achievements/panel.js';
 // The window manager's rules. Run: node src/game/windows.test.mjs
 //
 // No fake DOM. createWindows runs headless by design, and the rules under test
@@ -57,15 +58,26 @@ const realSix = () => rig([
   panelOf('abilities', abilitiesPanel.key),
   panelOf('crafting', 'v'),
   panelOf('map', 'm'),
+  panelOf('achievements', achievementsPanel.key),
   panelOf('settings', ESCAPE_KEY),
   panelOf('talk', null),
 ]);
 
+{
+  const {w,input} = realSix();
+  input.press('j'); w.update(.016);
+  check('J opens the registered Achievements codex page', w.tab === 'achievements');
+  input.press('escape'); w.update(.016);
+  check('Escape closes Achievements before settings', !w.anyOpen);
+  const a=CODEX_FRAME.tabs.achievements, map=CODEX_FRAME.tabs.map, close=CODEX_FRAME.close;
+  check('the visible Achievements tab has its own space between Map and Close', a.x > map.x+map.w && a.x+a.w < close.x);
+}
+
 // ---- the codex is data, not a special case ---------------------------------
 console.log('windows: the codex');
-check('there are five tabs', CODEX_TABS.length === 5, CODEX_IDS.join(','));
-check('and they are the five a player lives in',
-  CODEX_IDS.join(',') === 'character,skills,abilities,crafting,map', CODEX_IDS.join(','));
+check('there are six tabs', CODEX_TABS.length === 6, CODEX_IDS.join(','));
+check('and every player page is in the codex',
+  CODEX_IDS.join(',') === 'character,skills,abilities,crafting,map,achievements', CODEX_IDS.join(','));
 check('there is no Inventory tab any more', !CODEX_IDS.includes('bag'), CODEX_IDS.join(','));
 check('every tab has a label to read', CODEX_TABS.every((t) => typeof t.label === 'string' && t.label.length));
 check('no tab carries its own key, so the label and the hotkey cannot drift',
@@ -75,7 +87,7 @@ check('the tabs share one frame', sharesScreen('bag', 'character') && sharesScre
 check('and nothing else shares with them', !sharesScreen('bag', 'settings') && !sharesScreen('talk', 'character'));
 check('a window shares the screen with itself', sharesScreen('settings', 'settings'));
 check('PAIRS is that one group, the aliases in it',
-  PAIRS.length === 1 && PAIRS[0].length === 7, JSON.stringify(PAIRS));
+  PAIRS.length === 1 && PAIRS[0].length === 8, JSON.stringify(PAIRS));
 check('the painted codex frame is measured as a 1536 by 1024 image',
   CODEX_FRAME.image.width === 1536 && CODEX_FRAME.image.height === 1024 && CODEX_FRAME.image.aspect === 1.5,
   JSON.stringify(CODEX_FRAME.image));

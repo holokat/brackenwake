@@ -1,3 +1,4 @@
+import {achievementEvent} from './achievements/events.js';
 // Picking things up, and eating them.
 //
 //   const foraging = createForaging({ field: forageField, inventory, progression,
@@ -228,6 +229,7 @@ export function createForaging(o = {}) {
     }
 
     field?.remove?.(rec, now);
+    achievementEvent(character, 'forage', {id: rec.id, count: added});
     stats.picked++;
 
     // ONE lesson for the bunch. `stats.taught` counts calls, not plants, and

@@ -50,6 +50,7 @@ export const CODEX_TABS = [
   { id: 'abilities', label: 'Abilities' },
   { id: 'crafting', label: 'Crafting' },
   { id: 'map', label: 'Map' },
+  { id: 'achievements', label: 'Achievements' },
 ];
 
 export const CODEX_IDS = CODEX_TABS.map((t) => t.id);
@@ -66,6 +67,7 @@ export const CODEX_FRAME = {
     abilities: { x: 570 / 1536, y: 73 / 1024, w: 178 / 1536, h: 79 / 1024 },
     crafting: { x: 760 / 1536, y: 73 / 1024, w: 178 / 1536, h: 79 / 1024 },
     map: { x: 950 / 1536, y: 73 / 1024, w: 176 / 1536, h: 79 / 1024 },
+    achievements: { x: 1138 / 1536, y: 73 / 1024, w: 183 / 1536, h: 79 / 1024 },
   },
   close: { x: 1333 / 1536, y: 43 / 1024, w: 121 / 1536, h: 143 / 1024 },
   panels: {
@@ -205,6 +207,15 @@ const CSS = `
 #bw-windows .bw-codex-tabs .bw-tab.on:not([data-tab="character"]) .bw-tab-i { display: block; }
 #bw-windows .bw-codex-tabs .bw-tab:hover { outline: 1px solid rgba(242,220,156,.36); outline-offset: -2px; }
 #bw-windows .bw-codex-tabs .bw-tab.on { transform: none; padding-bottom: 0; border-radius: 0 0 7px 7px; }
+#bw-windows .bw-codex-tabs .bw-tab[data-tab="achievements"] {
+  color: ${theme.parchment}; background: linear-gradient(180deg, ${theme.plateUp}, ${theme.plate});
+  border: 1px solid ${theme.goldDim}; border-radius: 5px;
+  font: 500 clamp(9px, 1.05vw, 14px)/1.1 ${theme.fonts.body};
+  font-variant-caps:normal; letter-spacing:normal;
+}
+#bw-windows .bw-codex-tabs .bw-tab[data-tab="achievements"] .bw-tab-word { display:block; }
+#bw-windows .bw-codex-tabs .bw-tab[data-tab="achievements"].on .bw-tab-i,
+#bw-windows .bw-codex-tabs .bw-tab[data-tab="achievements"] .bw-tab-i { display:none; }
 #bw-windows .bw-codex-close {
   position: absolute; min-width: 40px; min-height: 40px; padding: 0;
   border: 0; background: transparent; box-shadow: none; color: transparent;

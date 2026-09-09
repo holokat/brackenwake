@@ -53,7 +53,7 @@ console.log('icon_art: skills');
 
 console.log('icon_art: codex tabs');
 {
-  const ids = ['character', 'skills', 'abilities', 'crafting', 'map'];
+  const ids = ['character', 'skills', 'abilities', 'crafting', 'map', 'achievements'];
   check('every codex tab has drawn art',
     ids.every((id) => TAB_ICONS[id] && /<path /.test(TAB_ICONS[id])),
     ids.filter((id) => !TAB_ICONS[id]).join(', ') || ids.join(','));

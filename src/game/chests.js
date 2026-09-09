@@ -1,3 +1,4 @@
+import {achievementEvent} from './achievements/events.js';
 // The boxes underground, and what it takes to get into one.
 //
 //   const chests = createChests({ character, inventory, progression, combat,
@@ -373,6 +374,7 @@ export function createChests({
     if (key && !list.includes(key)) { list.push(key); state?.touch?.('opened'); }
     chest.opened = true;
     runtime?.dungeonScene?.openChest?.(chest);
+    achievementEvent(character, 'chest', {key});
     result.ok = true; result.opened = true;
     result.reason = result.reason || 'opened';
     return result;

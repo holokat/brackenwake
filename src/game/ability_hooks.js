@@ -1,3 +1,4 @@
+import {achievementEvent} from './achievements/events.js';
 // The four hooks `abilities_runtime.js` asks for and the game never gave it.
 //
 //   createAbilities({ ..., summon, allies, resurrect, utility })
@@ -300,6 +301,7 @@ export function createAbilityHooks(deps = {}) {
       seconds, target: null, saidTarget: null, abilityId: meta.abilityId || null,
     };
     summons.push(s);
+    achievementEvent(character, 'summon');
     cue('buff');
     float(mon.actor.pos, s.name, 'gain');
     say(`${s.name} stands up beside you for ${saySeconds(seconds)}. It fights what you fight.`, 'good');
@@ -642,6 +644,7 @@ export function createAbilityHooks(deps = {}) {
     c.health = num(actor.health);
     if (!c.granted) {
       c.granted = true;
+      achievementEvent(character, 'camp');
       actor.buffs = Array.isArray(actor.buffs) ? actor.buffs : [];
       actor.buffs = actor.buffs.filter((b) => b.abilityId !== 'camp');
       actor.buffs.push({

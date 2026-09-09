@@ -1,3 +1,4 @@
+import { achievementEvent } from './achievements/events.js';
 // Retry partial claims without duplicating gold or already accepted ore.
 export function applyRaidReward(state, msg, room) {
     const c = state.character;
@@ -10,6 +11,7 @@ export function applyRaidReward(state, msg, room) {
     if (!claim.gold) {
         state.coins = (state.coins || 0) + 2500;
         claim.gold = true;
+        achievementEvent(c, 'raidKill');
         changed = true;
     }
     if (claim.ore < 36) {

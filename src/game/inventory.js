@@ -1,3 +1,4 @@
+import {achievementPerks} from './achievements/progress.js';
 // The pack and the paper doll, operating on the character document.
 //
 // Rules live in src/mmo/items.js and src/mmo/affixes.js and are never
@@ -240,7 +241,7 @@ export function weightOfCharacter(character) {
  */
 export function carryOfCharacter(character) {
   const base = derived(character?.stats || {}, character?.skills || {}).carry;
-  let bonus = 0;
+  let bonus = achievementPerks(character).capacity;
   for (const it of wornItems(character)) {
     for (const a of (it.affixes || [])) if (a.id === 'carry') bonus += a.value || 0;
   }

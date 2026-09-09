@@ -1,3 +1,4 @@
+import {achievementEvent} from './achievements/events.js';
 // The trade window: two players, two piles, two ticks.
 //
 // 06-ECONOMY-UI.md: "each places items and gold, each ticks accept, both must
@@ -224,6 +225,7 @@ export function createTrade(opts = {}) {
       + `${g > 0 ? `You are ${g} gold down.` : g < 0 ? `You are ${-g} gold up.` : 'The gold came out even.'}`,
     );
     opts.onChange?.(state());
+    if (partner.remote && (mine || theirs || offer.me.gold || offer.them.gold)) achievementEvent(opts.me, 'trade');
     sync('complete');
     return { ok: true, committed: true, state: state(), text };
   }

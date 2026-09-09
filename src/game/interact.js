@@ -1,3 +1,4 @@
+import {achievementEvent} from './achievements/events.js';
 import {miningPreview,strikeSurface} from './surface_mining.js';
 import {elementalAwakening} from '../mmo/ore_elementals.js';
 // The cursor's end of the game: what you are pointing at, and what happens when
@@ -31,7 +32,7 @@ import { chopTree } from '../farm/tree_edit.js';
 import { pickTarget, resolveSwing, swingText, nameFor, LOOT } from './combat.js';
 import { CARRIED, materialFamilyOf } from './state.js';
 import { toolFor, swingWordFor, GATHER, nameOf } from './tools.js';
-import { makeItem, LOG_OF, ORE_OF, BASES } from '../mmo/items.js';
+import { makeItem, baseFor, LOG_OF, ORE_OF, BASES } from '../mmo/items.js';
 import { describeItem, currentDrops } from './loot_drops.js';
 import { CHEST_REACH } from './chests.js';   // the reach only; the runtime is built in world_life.js
 
@@ -420,8 +421,16 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
    * boulder is quarried away rather than felled and there is nothing left
    * standing to leave a bag beside. Unchanged words, on purpose.
    */
+  function gathered(base, count, usedTool) {
+    if (!(count > 0)) return;
+    const c = who(), wood = baseFor(base)?.kinds?.includes('log') || /log$/.test(base);
+    const id = wood ? 'axe' : 'pickaxe';
+    const tool = usedTool || Object.values(c.equipment || {}).find(it => it?.base === id) || c.pack?.items?.find(it => it?.base === id);
+    achievementEvent(c, 'gather', {kind: wood ? 'wood' : 'mining', count, tool});
+  }
   function creditStone(n, noun) {
     const { added, dropped } = state.add('stone', n);
+    gathered('stone', added);
     if (added && dropped) say(`${added} stone from the ${noun}, and ${dropped} left behind, your pack is full`);
     else if (added) say(`${added} stone from the ${noun}`);
     else say(`your pack is full, the ${n} stone stays on the ground`);
@@ -442,13 +451,14 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
    * says so, because a swing that quietly produced nothing is the one outcome
    * that must never happen.
    */
-  function dropYield(baseId, n, noun, verb, dropAt, at) {
+  function dropYield(baseId, n, noun, verb, dropAt, at, usedTool) {
     const item = makeItem({ base: baseId, count: n, rarity: 'common' });
     const words = describeItem(item);
     const sink = lootSink();
     if (sink?.drop) {
       const bag = sink.drop(dropAt || { x: 0, y: 0, z: 0 }, { items: [item], gold: 0 });
       if (bag) {
+        gathered(baseId, n, usedTool);
         say(`the ${noun} ${verb} and leaves ${words}`);
         audio?.play?.('pickup', { at, gain: 0.45 });
         return { dropped: bag, added: 0 };
@@ -456,6 +466,7 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
     }
     const family = materialFamilyOf(baseId);
     const r = state.addMaterial ? state.addMaterial(baseId, n) : state.add(family, n);
+    gathered(baseId, r.added, usedTool);
     if (r.added && r.dropped) say(`the ${noun} ${verb}, ${r.added} into the pack and ${r.dropped} left behind, your pack is full`);
     else if (r.added) say(`the ${noun} ${verb}, ${words} into the pack`);
     else say(`your pack is full, ${words} stay on the ground`);
@@ -521,13 +532,14 @@ export function createInteract({ sc, runtime, player, state, hud, input, audio, 
     switch (d.action) {
       case 'surfaceMine': {
         const c=who(),claim=d.pick.claim;
+        const usedTool = miningPreview(c, claim).tool;
         const r=strikeSurface(c,claim,{now:d.now,last:lastSwingAt,position:player?.pos,dev:!!state.dev});
         if(!r.ok){if(r.reason!=='cooldown'){say(r.reason);audio?.play?.('denied');}return r;}
         lastSwingAt=d.now;
         onMine?.();audio?.play?.('mine',{at:claim.point});runtime.dungeonScene?.mine?.impact(claim);
         progression?.lesson?.('mining',Math.max(10,r.difficulty+10),r.yielded);
         if(r.yielded){
-          const delivered=dropYield(r.ore+'_ore',1,'seam','breaks',{...player.pos},d.now);
+          const delivered=dropYield(r.ore+'_ore',1,'seam','breaks',{...player.pos},d.now,usedTool);
           if(!delivered.dropped&&!delivered.added){const record=c.mining.shoulder[claim.key];record.taken--;record.work=Math.max(0,miningPreview(c,claim).hits-1);state.save?.();say('Your pack is full. The ore remains in the seam.');return {...r,yielded:false};}
           audio?.play?.('oreBreak',{at:claim.point});
         }

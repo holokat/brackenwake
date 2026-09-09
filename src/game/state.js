@@ -1,3 +1,4 @@
+import {hydrateAchievements} from './achievements/progress.js';
 import {hydrateRaidRewards} from './cellar_rewards.js';
 import {hydrateMining} from './surface_mining.js';
 import {hydrateDungeonMaps} from './dungeon_map/exploration.js';
@@ -279,6 +280,7 @@ export function blankCharacter() {
     // and writes into it on every gain that crosses a mark. Declared here so
     // the shape of a document is one list and not two.
     unlockedAbilities: [],
+    achievements: null,
     discovered: [],
     deadUntil: [],
     zones: [],            // zone ids entered, once each (Z1)
@@ -1086,6 +1088,7 @@ function hydrateItem(raw) {
     quality: isNum(raw.quality) ? raw.quality : 1,
     durability: isNum(raw.durability) ? raw.durability : b.durability,
     maker: typeof raw.maker === 'string' ? raw.maker : null,
+    achievementMaker: typeof raw.achievementMaker === 'string' ? raw.achievementMaker.slice(0, 80) : null,
   };
   if (b.stack) item.count = Math.max(1, Math.floor(isNum(raw.count) ? raw.count : 1));
   return item;
@@ -1234,6 +1237,7 @@ export function hydrate(raw) {
   // to survive a reload or Old Wynn tells you about the Standing Hedge again
   if(raw.mining)doc.mining=hydrateMining(raw.mining);
   if(raw.raidRewards)doc.raidRewards=hydrateRaidRewards(raw.raidRewards);
+  doc.achievements = hydrateAchievements(raw.achievements);
   if(raw.dungeonMaps)doc.dungeonMaps=hydrateDungeonMaps(raw.dungeonMaps);
   if (raw.story && typeof raw.story === 'object' && !Array.isArray(raw.story)) doc.story = { ...raw.story };
   // and the stones this character has put a hand on, with the day clock stamp of

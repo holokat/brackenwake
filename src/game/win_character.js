@@ -1,3 +1,4 @@
+import {selectedAchievementTitle} from './achievements/progress.js';
 // The character page of the codex: who you are, what you are wearing, what is
 // in your pack, and what all of it adds up to. Keys C and B.
 //
@@ -188,6 +189,8 @@ const one = (v) => (Math.round(v * 10) / 10).toFixed(1);
  * on record you are a Wanderer rather than a blank.
  */
 export function titleOf(character) {
+  const earned = selectedAchievementTitle(character);
+  if (earned) return {text: earned, from: 'achievement', at: 0};
   const skills = character?.skills || {};
   let bestId = null, best = 0;
   for (const s of SKILLS) {

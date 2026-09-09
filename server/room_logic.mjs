@@ -1,3 +1,4 @@
+import {publicTitleId} from '../src/game/achievements/titles.js';
 import {createCellarRaid} from './cellar_raid.mjs';
 const STATE_NUMBER_FIELDS = ['yaw', 'sp', 'hp', 'mhp', 'mp', 'mmp', 'st', 'mst'];
 
@@ -26,6 +27,7 @@ const normalizeState = (msg) => {
   if (!p.every(Number.isFinite)) return null;
 
   const state = {
+    ...(publicTitleId(msg.title) ? {title: publicTitleId(msg.title)} : {}),
     ...(typeof msg.layer==='string'&&msg.layer.length<=80?{layer:msg.layer}:{}),
     p,
     yaw: 0,

@@ -1,3 +1,4 @@
+import {titledName} from '../../achievements/titles.js';
 // MP1: the other players. One room per world on the server (server/room.mjs),
 // this system on every client: it says where this body is ten times a second,
 // draws everyone else's body where they said they were, lets the cursor choose
@@ -114,8 +115,8 @@ export const net = {
       g.clearRect(0, 0, 512, 96);
       g.font = 'bold 40px Georgia, serif';
       g.textAlign = 'center';
-      g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,0.8)'; g.strokeText(plate.name, 256, 44);
-      g.fillStyle = '#7ad0ff'; g.fillText(plate.name, 256, 44);
+      g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,0.8)'; g.strokeText(plate.name, 256, 44, 480);
+      g.fillStyle = '#7ad0ff'; g.fillText(plate.name, 256, 44, 480);
       const w = 300, x = 106, y = 60;
       g.fillStyle = 'rgba(0,0,0,0.7)'; g.fillRect(x, y, w, 18);
       g.fillStyle = '#3fbf5a'; g.fillRect(x + 2, y + 2, (w - 4) * Math.max(0, Math.min(1, mhp > 0 ? hp / mhp : 1)), 14);
@@ -156,6 +157,8 @@ export const net = {
     function mirror(body) {
       const r = body.rec;
       const a = body.actor;
+      const name = titledName(r.name || 'Someone', r.title);
+      if (body.plate.name !== name) { body.plate.name = name; body.plate.hp = null; a.name = name; }
       a.hidden = r.hidden ? { remote: true } : null;
       body.rig.studio?.setHidden?.(!!a.hidden);
       // before their first state frame the pools are unknown, not empty: a
