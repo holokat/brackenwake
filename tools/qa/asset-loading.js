@@ -41,3 +41,12 @@ document.querySelector('#stairs').onclick=()=>action(async()=>{
  b.runtime.dungeonGo('down');ready=await b.runtime.dungeonScene.ready;snapshot('Next floor arrival');status.textContent=ready?'Nearby artwork is ready on the next floor.':'Nearby artwork failed to load. The structural shell remains visible.';
 });
 document.querySelector('#exit').onclick=()=>action(()=>{b.input.keys.delete('w');b.runtime.leaveDungeon();ready=null;status.textContent='Returned to the surface.';snapshot('Dungeon disposed');});
+// A direct first-boss view for reviewing the real renderer without using a save.
+if(new URLSearchParams(location.search).has('stair'))await action(async()=>{
+ b.actor.godMode=true;b.windows.closeAll();
+ const at=b.runtime.dungeonScene.stairPos;place(at.x,at.z+6);b.camera.pitch=.5;b.camera.snap(b.player.pos);
+ status.textContent='Loading the first boss room. The stair remains visible while its artwork arrives.';
+ await wait(()=>b.runtime.dungeonScene.descent.rooms.find(r=>r.room.roomId===9)?.loaded);
+ status.textContent='First boss stairway. Click the steps to descend; this review uses a temporary character.';
+ snapshot('First boss stairway ready');
+});

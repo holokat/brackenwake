@@ -862,7 +862,7 @@ export function createDungeonScene(THREE, layout, opts = {}) {
   let clock = 0, lastX = Infinity, lastZ = Infinity, lastMs = null;
 
   const built = {
-    group, entrancePos, stairPos, torches, exits, oreField, pools, parts,
+    group, entrancePos, stairPos, stairLight, torches, exits, oreField, pools, parts,
     chestMeshes, layout, palette: P, physicalBodies: furniture?.bodies || [],
     /** what the level actually cost, so a report never has to guess */
     stats: {

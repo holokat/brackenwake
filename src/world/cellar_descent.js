@@ -1,3 +1,4 @@
+import {hasCommandStair} from './cellar_stair_model.js';
 import * as T from 'three';
 import {inDescentRoom} from './cellar_descent_layout.js';
 import {cutCellarGeologyStaged} from './cellar_geometry_jobs.js';
@@ -11,7 +12,7 @@ export function furnishCellarDescent(built,L,{load=null,stream,sc}={}){
  for(const room of L.descent||[]){
   const {spec}=room,group=new T.Group();group.name='Blender: '+spec.name;group.position.set(room.x,room.y,room.z);built.group.add(group);
   built.physicalBodies.push(...spec.colliders.map(c=>({...c,x:c.x+room.x,y:c.y+room.y,z:c.z+room.z})));
-  const proxy=createCellarRoomProxy(spec.colliders,[{polygon:spec.polygon,rx:spec.rx,rz:spec.rz,ceiling:spec.ceiling}]);group.add(proxy.group);
+  const proxy=createCellarRoomProxy(spec.colliders,[{polygon:spec.polygon,rx:spec.rx,rz:spec.rz,ceiling:spec.ceiling,ceilingSolid:true,holes:hasCommandStair(L)&&room.roomId===9?[{x:0,z:-9,w:6.1,d:6.05}]:[]}]);group.add(proxy.group);
   const clock={value:0};let cut=false;
   const state={group,room,active:false};rooms.push(state);
   anchors.push(...spec.anchors.map(a=>({...a,x:a.x+room.x,y:a.y+room.y,z:a.z+room.z})));

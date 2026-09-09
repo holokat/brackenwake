@@ -12,7 +12,10 @@ export function createCellarRoomProxy(colliders, floors = []) {
   }
   const geometry=new T.ShapeGeometry(shape);geometries.push(geometry);
   const mesh=new T.Mesh(geometry,material);mesh.rotation.x=-Math.PI/2;mesh.position.set(floor.x||0,(floor.y||0)-.01,floor.z||0);proxy.group.add(mesh);
-  if(floor.ceiling){const roof=new T.Mesh(geometry,material);roof.rotation.x=Math.PI/2;roof.scale.y=-1;roof.material=material;roof.position.set(floor.x||0,(floor.y||0)+floor.ceiling,floor.z||0);proxy.group.add(roof);}
+  if(floor.ceiling){
+   let roofGeometry=geometry;
+   if(floor.ceilingSolid&&shape.holes.length){const ceilingShape=shape.clone();ceilingShape.holes=[];roofGeometry=new T.ShapeGeometry(ceilingShape);geometries.push(roofGeometry);}
+   const roof=new T.Mesh(roofGeometry,material);roof.rotation.x=Math.PI/2;roof.scale.y=-1;roof.material=material;roof.position.set(floor.x||0,(floor.y||0)+floor.ceiling,floor.z||0);proxy.group.add(roof);}
  }
  let disposed=false;
  return{group:proxy.group,dispose(){if(disposed)return;disposed=true;proxy.dispose();for(const g of geometries)g.dispose();material.dispose();}};

@@ -2,9 +2,9 @@ import * as T from 'three';
 import {assetWork} from '../game/streaming/work_queue.js';
 const chains=new WeakMap();
 /** Build replacement buffers in slices; commit every attribute together to keep frames valid. */
-export function cutCellarGeologyStaged(built,inside,{signal,work=assetWork}={}) {
+export function cutCellarGeologyStaged(built,inside,{signal,work=assetWork,surfaces=[built.parts.floor,built.parts.ceiling,...built.parts.walls]}={}) {
  const run=async()=>{
-  for(const mesh of [built.parts.floor,built.parts.ceiling,...built.parts.walls]){
+  for(const mesh of surfaces){
    if(signal?.aborted)return false;
    const g=mesh?.geometry,p=g?.attributes.position;if(!p)continue;
    const keep=[];
