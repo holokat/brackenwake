@@ -1,3 +1,5 @@
+import {createCellarAssetStream} from './cellar_asset_stream.js';
+import {createNearbyEffects} from '../game/streaming/nearby_effects.js';
 import {furnishCellarDescent} from './cellar_descent.js';
 import {descentRoom} from './cellar_descent_layout.js';
 import * as T from 'three';
@@ -16,15 +18,20 @@ import {buildLivingProp} from './living/models.js';
 import {buildSepulcher} from '../game/cellar_models.js';
 // The compatibility export used by older authored layouts.
 export function createCellarFurnishings(){return {group:new T.Group(),physicalBodies:[]};}
-export function furnishOldCellars(built,L){
+export function furnishOldCellars(built,L,{sc}={}){
+ const streaming=sc?createCellarAssetStream(L,built):null;built.streaming=streaming;
  const root=new T.Group();root.name=L.name;built.group.add(root);const ground=(x,z)=>cellarGroundHeight(L,x,z,z=>cellarHeight(L.level,z));raiseDungeon(built,(z,x)=>ground(x,z));
- const effects=[],lights=[],lamps=[],rings=[],batches=new Map();let time=0,disposed=false;
+ const lights=[],lamps=[],rings=[],batches=new Map();let time=0,disposed=false;
  const stone=new T.MeshStandardMaterial({color:L.theme.ore,roughness:.83});
  const rune=new T.MeshStandardMaterial({color:L.theme.color,emissive:L.theme.color,emissiveIntensity:.85,roughness:.4});
  const cone=new T.ConeGeometry(1,1,8),dummy=new T.Object3D();
  const add=(geo,mat,x,y,z,w,h,d,rz=0)=>{const key=geo.uuid+mat.uuid;if(!batches.has(key))batches.set(key,{geo,mat,list:[]});batches.get(key).list.push({x,y,z,w,h,d,rz});};
  const pAt=(gx,gz)=>{const p=worldOf(L,gx,gz);return {...p,y:ground(p.x,p.z)};};
- const emit=async(id,p,k=1)=>{try{const {createEffectModel}=await import('../vendor/living-studio/runtime/world-effects/index.js');const fx=await createEffectModel(id);if(disposed){fx.dispose();return;}if(id==='woodland_shafts'){const shafts=[];fx.group.traverse(o=>{if(o.isMesh&&/^Light shaft /.test(o.name)){o.material.color.set(0xa1b7df);shafts.push(o.material);}});const update=fx.update.bind(fx);fx.update=t=>{update(t);for(const material of shafts)material.opacity*=.22;};}fx.group.position.set(p.x,p.y,p.z);fx.group.scale.setScalar(k);root.add(fx.group);effects.push(fx);}catch(e){console.warn('Cellar effect',id,e.message);}};
+ const effects=createNearbyEffects(root);
+ const emit=(id,p,k=1)=>effects.add(id,p,k,id==='woodland_shafts'?fx=>{
+  const shafts=[];fx.group.traverse(o=>{if(o.isMesh&&/^Light shaft /.test(o.name)){o.material.color.set(0xa1b7df);shafts.push(o.material);}});
+  const update=fx.update.bind(fx);fx.update=t=>{update(t);for(const material of shafts)material.opacity*=.22;};
+ }:null);
  for(const r of L.rooms){
   if(descentRoom(L,r.id)||r.id===L.landmark.roomId || (hasCellarEntry(L)&&r.id<2))continue;
   const p=pAt(r.cx,r.cz),roof=ceilingAt(L,r.cx,r.cz);
@@ -48,8 +55,8 @@ export function furnishOldCellars(built,L){
  root.add(new T.HemisphereLight(0xb1c2d9,0x343341,hasCellarEntry(L)?.28:.58));
  furnishCellarVaults(root,L,built.physicalBodies);
  const roomArt=furnishCellarSecondaryRooms(root,L,built.physicalBodies);lamps.push(...roomArt.lamps);
- const landmark=furnishBlenderCellar(built,L);built.landmark=landmark;
- const entry=furnishCellarEntry(built,L);built.entry=entry;const descent=furnishCellarDescent(built,L);built.descent=descent;built.ready=Promise.all([landmark.ready,entry?.ready??true,descent.ready]).then(results=>results.every(Boolean));
+ const landmark=furnishBlenderCellar(built,L,{stream:streaming,sc});built.landmark=landmark;
+ const entry=furnishCellarEntry(built,L,{stream:streaming,sc});built.entry=entry;const descent=furnishCellarDescent(built,L,{stream:streaming,sc});built.descent=descent;Object.defineProperty(built,'ready',{get:()=>streaming?streaming.ready():Promise.all([landmark.ready,entry?.ready??true,descent.ready]).then(results=>results.every(Boolean))});
  for(const anchor of [...landmark.anchors,...(entry?.anchors||[]),...descent.anchors]){
   if(anchor.kind==='lamp')lamps.push(Object.assign(new T.Vector3(anchor.x,anchor.y,anchor.z),{color:0xffb765}));
   if(['fire','soulFlame','candle','arcane'].includes(anchor.kind))lamps.push(Object.assign(new T.Vector3(anchor.x,anchor.y,anchor.z),{color:anchor.color}));
@@ -62,10 +69,10 @@ export function furnishOldCellars(built,L){
  const key=new T.DirectionalLight(0xbdcde4,1.8);key.position.set(L.landmark.x-20,L.landmark.y+L.theme.ceiling*.85,L.landmark.z-15);key.target.position.set(L.landmark.x,L.landmark.y,L.landmark.z);root.add(key,key.target);
  const update=built.update.bind(built),dispose=built.dispose.bind(built);
  if(L.raid){const boss=buildSepulcher();boss.group.position.set(L.raid.x,0,L.raid.z);root.add(boss.group);built.raid={...L.raid,model:boss};}
- built.update=(dt,pos)=>{if(typeof dt!=='number'){pos=dt;dt=.016;}update(dt,pos);time+=Math.min(.1,dt);roomArt.update(time);landmark.update(time);entry?.update(time,pos);descent.update(time,pos);magic.update(time);if(pos){const nearest=lamps.map(p=>({p,d:Math.hypot(p.x-pos.x,p.z-pos.z)})).sort((a,b)=>a.d-b.d);lights.forEach((l,i)=>{const lamp=nearest[i%nearest.length].p;l.position.copy(lamp);l.color.set(lamp.color||0xffb96c);l.intensity=35+Math.sin(time*4+i)*4;});}
-  for(const fx of effects){fx.group.visible=!pos||Math.hypot(fx.group.position.x-pos.x,fx.group.position.z-pos.z)<100;if(fx.group.visible)fx.update(time);}
+ built.update=(dt,pos)=>{if(typeof dt!=='number'){pos=dt;dt=.016;}update(dt,pos);streaming?.update(dt,pos);time+=Math.min(.1,dt);roomArt.update(time);landmark.update(time);entry?.update(time,pos);descent.update(time,pos);magic.update(time);if(pos){const nearest=lamps.map(p=>({p,d:Math.hypot(p.x-pos.x,p.z-pos.z)})).sort((a,b)=>a.d-b.d);lights.forEach((l,i)=>{const lamp=nearest[i%nearest.length].p;l.position.copy(lamp);l.color.set(lamp.color||0xffb96c);l.intensity=35+Math.sin(time*4+i)*4;});}
+  effects.update(time,pos);
   for(const r of rings)r.material.emissiveIntensity=.8+Math.sin(time*.7)*.2;
  };
- built.dispose=()=>{if(disposed)return;disposed=true;for(const fx of effects)fx.dispose();magic.dispose();entry?.dispose();descent.dispose();landmark.dispose();built.raid?.model.dispose();dispose();};
+ built.dispose=()=>{if(disposed)return;disposed=true;streaming?.dispose();effects.dispose();magic.dispose();entry?.dispose();descent.dispose();landmark.dispose();built.raid?.model.dispose();dispose();};
  built.cellarStats={depth:L.level,rooms:L.rooms.length,ceiling:L.theme.ceiling,art:roomArt.stats,blender:landmark.stats};return built;
 }

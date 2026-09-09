@@ -30,7 +30,8 @@
 // is one gain on a group rather than three fades that can get out of step.
 
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import {gltfAssets} from './streaming/gltf_assets.js';
+import {assetWork} from './streaming/work_queue.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
 export const MODEL_DIR = '/models/mmo/';
@@ -360,7 +361,6 @@ export function urlFor(id) { return MODEL_URLS[id] || MODEL_DIR + id + '.glb'; }
 
 const cache = new Map();     // id -> { scene, clips: Map<name, AnimationClip> }
 const pending = new Map();   // id -> Promise
-let loader = null;
 
 const warned = new Set();
 function warnOnce(key, message) {
@@ -369,19 +369,14 @@ function warnOnce(key, message) {
   console.warn(message);
 }
 
-function gltfLoader() {
-  if (!loader) loader = new GLTFLoader();
-  return loader;
-}
-
 export function isLoaded(id) {
   return cache.has(id);
 }
 
 function loadGltf(id) {
-  return new Promise((resolve, reject) => {
-    gltfLoader().load(urlFor(id), resolve, undefined, reject);
-  });
+  // The existing model cache owns this template for the lifetime of the game.
+  const lease = gltfAssets.acquire(urlFor(id), {priority:3});
+  return lease.promise.catch(error => {lease.release(); throw error;});
 }
 
 /**
@@ -436,7 +431,7 @@ export function loadModel(id) {
     if (bank) {
       // the bank is the motion, so where a name collides with the hold clip in
       // the file the bank's is the one that survives
-      const fromBank = parseBankClips(bank);
+      const fromBank = await assetWork.run(() => parseBankClips(bank), {priority:3});
       const names = new Set(fromBank.map((c) => c.name));
       for (let i = animations.length - 1; i >= 0; i--) if (names.has(animations[i].name)) animations.splice(i, 1);
       animations.push(...fromBank);

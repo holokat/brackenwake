@@ -1,3 +1,5 @@
+import {assetWork} from './streaming/work_queue.js';
+import {gltfAssets} from './streaming/gltf_assets.js';
 // Brackenwake boots here.
 //
 // This file no longer knows all the modules. It raises the scene, loads the
@@ -171,6 +173,7 @@ async function boot() {
     function frame(now, manual = false) {
       if (dead) return;
       if (!manual) requestAnimationFrame(frame);
+      const frameStarted = performance.now();
       f.dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       f.now = now;
@@ -187,6 +190,7 @@ async function boot() {
       systems.late(f);
       systems.render(f);
       input.endFrame();
+      assetWork.reportFrame(performance.now() - frameStarted);
 
       if (now - lastSave > SAVE_EVERY_MS) { lastSave = now; saveNow(); }
     }
@@ -197,7 +201,7 @@ async function boot() {
 
     // The console's handle. Every system says what it wants on here through its
     // own `bw`, and the getters on those survive the merge.
-    window.__bw = { step: (ms = 16.7) => frame(last + ms, true), get now() { return last; } };
+    window.__bw = { step: (ms = 16.7) => frame(last + ms, true), get now() { return last; }, get assetLoading() { return {assets:gltfAssets.stats, work:assetWork.stats}; } };
     for (const bag of [ctx.bw, ...systems.order.map((name) => ctx.get(name).bw)]) {
       if (bag) Object.defineProperties(window.__bw, Object.getOwnPropertyDescriptors(bag));
     }

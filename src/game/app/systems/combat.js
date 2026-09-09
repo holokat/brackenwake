@@ -8,8 +8,6 @@ import { createLootDrops } from '../../loot_drops.js';
 import { createMonsters } from '../../monsters.js';
 import { createTargeting } from '../../targeting.js';
 import { createTargetRing } from '../../target_ring.js';
-import { preloadRigs } from '../../rig_glb.js';
-import { monsterModelIds } from '../../monster_models.js';
 
 /** Past this the fight is called off: it walked away and so did you. */
 const ATTACK_LEASH = 30;
@@ -23,9 +21,8 @@ export const combat = {
     const runtime = ctx.get('world').runtime;
     const { rig, actor, teach, spawnPoint } = ctx.get('player');
 
-    // the Blender monster rigs load in the background; a monster spawned before
-    // its file lands wears its box and swaps in place when it does (V5.md)
-    preloadRigs(monsterModelIds()).catch(() => {});
+    // Each nearby spawn requests its own rig through the shared asset scheduler.
+    // Unvisited dungeon bosses do not compete with the player and current area.
 
     const combatRules = createCombat({ floaters, hud, audio, progression: teach, recompute });
     const loot = createLootDrops(sc, { floaters, hud, audio });

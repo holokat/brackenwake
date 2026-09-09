@@ -395,43 +395,51 @@ export function createWorldRuntime(sc, opts = {}) {
 
   /** Build one level and say where you landed. `arriveAt` is which door. */
   function openLevel(site, level, arriveAt = 'entrance') {
-    dungeon.scene?.dispose();
-    const spec = dungeon.spec;
-    const cavern = spec?.kind === CAVERN;
-    const layout = isShoulder(site) ? createShoulderWorking(seed,site) : spec?.id === 'oldcellars'
-      ? createOldCellars(seed, site, level) : cavern
-      ? generateCavern(seed, site, level, spec)
-      : generateDungeon(seed, site, level, spec);
-    const built = cavern
-      ? createCavernScene(THREE, layout, {})
-      : createDungeonScene(THREE, layout, {});
-    if(isShoulder(site))furnishShoulder(built,layout);
-    if(spec?.id==='oldcellars')furnishOldCellars(built,layout);
-    scene.add(built.group);
-    // three raycasts against matrixWorld, and only the renderer refreshes it.
-    // Without this the first pick after arriving tests every exit hit box at
-    // the scene origin, so the way out is unclickable for exactly one frame.
-    built.group.updateMatrixWorld(true);
-    const P = built.palette;
-    scene.background = new THREE.Color(P.bg);
-    sc.setFog(P.fogNear, P.fogFar, P.fog);
-    // coming up from below you arrive at the stair you just climbed, not at
-    // the entrance on the far side of the level
-    const at = (arriveAt === 'stair' && built.stairPos) ? built.stairPos : built.entrancePos;
-    dungeon.level = level;
-    dungeon.layout = layout;
-    dungeon.scene = built;
-    dungeon.said = false;                      // the arena has not spoken on this level
-    built.update({ x: at.x, z: at.z });
-    fire({
-      site, level, inside: true, kind: layout.kind,
-      gen: cavern ? CAVERN : 'rooms',
-      bottom: level >= dungeon.top,
-      arrivedAt: arriveAt, at: { x: at.x, z: at.z },
-      ore: layout.ore.length, chests: layout.chests.length,
-      rooms: layout.rooms.length, torches: built.torches.length,
-      exits: exitPositions(built),
-    });
+    // Pin the destination before disposing the old floor, including an in-flight prefetch.
+    const arrivalLease = dungeon.scene?.streaming?.claimArrival(level, arriveAt === 'stair' ? 'up' : 'down');
+    let arrivalReady;
+    try {
+      dungeon.scene?.dispose();
+      const spec = dungeon.spec;
+      const cavern = spec?.kind === CAVERN;
+      const layout = isShoulder(site) ? createShoulderWorking(seed,site) : spec?.id === 'oldcellars'
+        ? createOldCellars(seed, site, level) : cavern
+        ? generateCavern(seed, site, level, spec)
+        : generateDungeon(seed, site, level, spec);
+      const built = cavern
+        ? createCavernScene(THREE, layout, {})
+        : createDungeonScene(THREE, layout, {});
+      if(isShoulder(site))furnishShoulder(built,layout);
+      if(spec?.id==='oldcellars')furnishOldCellars(built,layout,{sc});
+      scene.add(built.group);
+      // three raycasts against matrixWorld, and only the renderer refreshes it.
+      // Without this the first pick after arriving tests every exit hit box at
+      // the scene origin, so the way out is unclickable for exactly one frame.
+      built.group.updateMatrixWorld(true);
+      const P = built.palette;
+      scene.background = new THREE.Color(P.bg);
+      sc.setFog(P.fogNear, P.fogFar, P.fog);
+      // coming up from below you arrive at the stair you just climbed, not at
+      // the entrance on the far side of the level
+      const at = (arriveAt === 'stair' && built.stairPos) ? built.stairPos : built.entrancePos;
+      dungeon.level = level;
+      dungeon.layout = layout;
+      dungeon.scene = built;
+      dungeon.said = false;                      // the arena has not spoken on this level
+      built.update({ x: at.x, z: at.z });
+      if (arrivalLease) arrivalReady = built.ready;
+      fire({
+        site, level, inside: true, kind: layout.kind,
+        gen: cavern ? CAVERN : 'rooms',
+        bottom: level >= dungeon.top,
+        arrivedAt: arriveAt, at: { x: at.x, z: at.z },
+        ore: layout.ore.length, chests: layout.chests.length,
+        rooms: layout.rooms.length, torches: built.torches.length,
+        exits: exitPositions(built),
+      });
+    } finally {
+      if (arrivalLease) Promise.resolve(arrivalReady).then(() => arrivalLease.release(), () => arrivalLease.release());
+    }
   }
 
   /** Where the two doors are, so a key press can measure reach against them. */

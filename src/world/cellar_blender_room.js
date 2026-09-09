@@ -1,37 +1,9 @@
 import * as T from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import {createRoomArtwork} from '../game/streaming/room_artwork.js';
+import {CELLAR_ASSETS} from './cellar_asset_catalog.js';
+import {createCellarRoomProxy} from './cellar_room_proxy.js';
 import { enableSpellBloom } from '../game/vfx/bloom.js';
-import { createCellarStreamingFloor } from './cellar_streaming_floor.js';
 import { inCellarLandmark } from './cellar_landmark_layout.js';
-const urls = [
-    new URL('../../assets/models/cellars/rooms/cellar-room-01.glb', import.meta.url).href,
-    new URL('../../assets/models/cellars/rooms/cellar-room-02.glb', import.meta.url).href,
-    new URL('../../assets/models/cellars/rooms/cellar-room-03.glb', import.meta.url).href,
-    new URL('../../assets/models/cellars/rooms/cellar-room-04.glb', import.meta.url).href,
-    new URL('../../assets/models/cellars/rooms/cellar-room-05.glb', import.meta.url).href,
-    new URL('../../assets/models/cellars/rooms/cellar-room-06.glb', import.meta.url).href,
-    new URL('../../assets/models/cellars/rooms/cellar-room-07.glb', import.meta.url).href,
-    new URL('../../assets/models/cellars/rooms/cellar-room-08.glb', import.meta.url).href,
-];
-const cache = new Map();
-function releaseUnused() {
-    const unused = [...cache].filter(([, e]) => e.refs === 0 && e.asset);
-    while (unused.length > 1) {
-        const [id, e] = unused.shift();
-        cache.delete(id);
-        e.asset.scene.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
-    }
-}
-function acquire(level) {
-    let entry = cache.get(level);
-    if (!entry) {
-        entry = { refs: 0, asset: null };
-        cache.set(level, entry);
-        entry.promise = new GLTFLoader().loadAsync(urls[level - 1]).then(a => { entry.asset = a; releaseUnused(); return a; }).catch(e => { cache.delete(level); throw e; });
-    }
-    entry.refs++;
-    return { promise: entry.promise, release() { entry.refs--; releaseUnused(); } };
-}
 /** Fit the retained cave geology around the authored room and its undercroft. */
 function fitGeology(built, L) {
     const a = L.landmark, { holes } = a.spec.ground;
@@ -79,7 +51,7 @@ function openPit(built, L) {
     }
     geo.computeBoundingSphere();
 }
-export function furnishBlenderCellar(built, L, { load = null } = {}) {
+export function furnishBlenderCellar(built, L, { load = null, stream, sc } = {}) {
     const a = L.landmark, group = new T.Group();
     group.name = 'Blender: ' + L.theme.room;
     group.position.set(a.x, a.y, a.z);
@@ -87,49 +59,32 @@ export function furnishBlenderCellar(built, L, { load = null } = {}) {
     built.physicalBodies.push(...a.spec.colliders.map(c => ({ ...c, ...(c.kind === 'ramp' ? { thickness: .4 } : {}), x: c.x + a.x, y: c.y + a.y, z: c.z + a.z })));
     fitGeology(built, L);
     openPit(built, L);
-    const streaming = createCellarStreamingFloor(a.spec);
-    group.add(streaming.group);
-    const clock = { value: 0 }, materials = [], emission = [];
-    let disposed = false, loaded = false;
-    const lease = load ? { promise: load(L.level), release() { } } : typeof window !== 'undefined' && window.document ? acquire(L.level) : { promise: Promise.resolve(null), release() { } };
-    const ready = lease.promise.then(asset => {
-        if (!asset || disposed)
-            return false;
-        const model = asset.scene.clone(true);
-        model.traverse(o => {
-            if (!o.isMesh)
-                return;
-            o.castShadow = true;
-            o.receiveShadow = true;
-            const mat = o.material.clone();
-            materials.push(mat);
-            o.material = mat;
-            if (mat.emissive?.getHex() && mat.emissiveIntensity > 0) {
-                // Broad furnace grates need a lower bloom contribution than small flames.
-                if (L.level === 4) mat.emissiveIntensity *= .18;
-                enableSpellBloom(mat);
-                emission.push({ mat, base: mat.emissiveIntensity });
+    const ground = a.spec.ground;
+    const streaming = createCellarRoomProxy(a.spec.colliders, [
+        {rx:ground.rx,rz:ground.rz,holes:ground.holes,ceiling:L.theme.ceiling},
+        ...ground.holes.map(h=>({x:h.x,z:h.z,y:-h.depth,rx:h.w/2,rz:h.d/2})),
+    ]);
+    streaming.group.name = 'Cellar streaming support'; group.add(streaming.group);
+    const clock = {value:0}; let disposed = false;
+    const art = createRoomArtwork({id:'landmark',url:CELLAR_ASSETS[`room-${L.level}`],stream,sc,
+        bounds:{x:a.x,z:a.z,rx:ground.rx,rz:ground.rz},load:load?()=>load(L.level):typeof window==='undefined'?async()=>null:null,
+        configure:mat=>{
+            if(mat.emissive?.getHex()&&mat.emissiveIntensity>0){
+                if(L.level===4)mat.emissiveIntensity*=.18;
+                enableSpellBloom(mat);mat.userData.streamGlow=mat.emissiveIntensity;
             }
-            if (/purple|red|water/.test(mat.name)) {
-                const water = /water/.test(mat.name);
-                mat.onBeforeCompile = shader => { shader.uniforms.cellarTime = clock; shader.vertexShader = 'uniform float cellarTime;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + (water ? 'transformed.y += sin(position.x*.8+cellarTime*.35)*sin(position.z*.65+cellarTime*.22)*.025;' : 'transformed.z += sin(position.x*.7+position.y*.5+cellarTime*.5)*.06;')); };
-                mat.customProgramCacheKey = () => water ? 'cellar-water-v1' : 'cellar-banner-v1';
+            if(/purple|red|water/.test(mat.name)){
+                const water=/water/.test(mat.name);
+                mat.onBeforeCompile=shader=>{shader.uniforms.cellarTime=clock;shader.vertexShader='uniform float cellarTime;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n'+(water?'transformed.y += sin(position.x*.8+cellarTime*.35)*sin(position.z*.65+cellarTime*.22)*.025;':'transformed.z += sin(position.x*.7+position.y*.5+cellarTime*.5)*.06;'));};
+                mat.customProgramCacheKey=()=>water?'cellar-water-v1':'cellar-banner-v1';
             }
-        });
-        group.add(model);
-        streaming.dispose();
-        loaded = true;
-        return true;
-    }).catch(error => { if (!disposed)
-        console.warn('Cellar artwork could not load', L.level, error.message); return false; });
+        },
+        attach:instance=>{group.add(instance.group);streaming.group.removeFromParent();},
+        detach:()=>{if(!disposed)group.add(streaming.group);},
+    });
     const anchors = a.spec.anchors.map(p => ({ ...p, x: p.x + a.x, y: p.y + a.y, z: p.z + a.z }));
-    return { group, ready, anchors, get loaded() { return loaded; }, stats: a.spec.metrics,
-        update(time) { clock.value = time; for (let i = 0; i < emission.length; i++) {
-            const e = emission[i];
-            e.mat.emissiveIntensity = e.base * (.93 + .07 * Math.sin(time * 3.7 + i));
-        } },
-        dispose() { if (disposed)
-            return; disposed = true; streaming.dispose(); group.removeFromParent(); for (const m of materials)
-            m.dispose(); lease.release(); },
+    return {group,anchors,get ready(){return art.ready;},get loaded(){return art.loaded;},stats:a.spec.metrics,
+        update(time){clock.value=time;for(const [i,mat]of art.materials.entries())if(mat.userData.streamGlow)mat.emissiveIntensity=mat.userData.streamGlow*(.93+.07*Math.sin(time*3.7+i));},
+        dispose(){if(disposed)return;disposed=true;art.dispose();streaming.dispose();group.removeFromParent();},
     };
 }
