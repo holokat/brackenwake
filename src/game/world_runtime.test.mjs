@@ -55,6 +55,8 @@ const { PALETTE, WORLD_FOG, dayFactorAt , DAY_CYCLE_MS } = await import('./scene
 const { maxLevel, walkable, gridOf } = await import('../world/dungeon_gen.js');
 const { createWorldField } = await import('../world/field.js');
 const { treeFieldsFor } = await import('../farm/tree_edit.js');
+const { createForageField } = await import('../world/forage.js');
+const { createStudioForage } = await import('./studio/forage.js');
 console.warn = warn;
 
 let bad = 0, pass = 0;
@@ -193,6 +195,13 @@ ck('and nothing was hidden by asking', rt.inDungeon === false && sc.scene.childr
 // ---------------------------------------------------------------------------
 let clock = 1e6;   // keeps climbing, so the 400 ms sweep gate actually opens
 for (const kind of ['dungeon', 'cave']) {
+  // Real instanced plants and their detailed replacements at the reported
+  // third-room coordinates, still positioned at the daylight terrain height.
+  const forage = createForageField(sc, { field: { seed: 4, sampleAt: () => ({ biome: 'meadow', moist: .3 }), heightAt: () => 18 }, season: 'Autumn', treesFor: () => [] });
+  forage.update(-2, 35, 'Autumn', 0);
+  const detail = createStudioForage(forage); detail.update(1, forage.records()[0]);
+  const drawnPlants = () => { let n = 0; forage.group.traverseVisible(o => { if (o.isMesh) n++; }); return n; };
+  ck(`${kind}: actual surface forage is visible before entry`, drawnPlants() > 0 && detail.count > 0);
   const site = {
     id: '3,-7', cx: 3, cz: -7, x: 1500, z: -3300, kind,
     name: kind === 'cave' ? "Ash's Delve" : 'the Ash Cut', article: 'a', facing: 1,
@@ -210,6 +219,7 @@ for (const kind of ['dungeon', 'cave']) {
   alreadyOff.visible = false; sc.scene.add(alreadyOff);
 
   rt.enterDungeon(site);
+  ck(`${kind}: every surface plant is hidden immediately, before the first frame`, !forage.group.visible && drawnPlants() === 0);
   ck(`${kind}: inside at level 1`, rt.inDungeon && rt.dungeonLevel === 1);
   ck(`${kind}: the sky, the four lights and the two world groups are all off`,
     ['sky', 'sun-light', 'hemi-light', 'ambient-light', 'fill-light', 'world-stream', 'world-flora']
@@ -273,9 +283,11 @@ for (const kind of ['dungeon', 'cave']) {
   // the sweep only looks at nodes the runtime owns, so give it one it owns
   const lateMarker = new THREE.Group(); lateMarker.name = 'site:9,9';
   sc.scene.add(lateMarker);
+  const lateForage = new THREE.Group(); lateForage.name = forage.group.name; sc.scene.add(lateForage);
   clock += 5000;
   rt.update(0.016, clock, at.x, at.z, 0.5);
   ck(`${kind}: a site marker added underground is swept off`, lateMarker.visible === false);
+  ck(`${kind}: surface forage arriving underground is swept off too`, lateForage.visible === false);
   ck(`${kind}: a group the runtime does not own is left alone`, latecomer.visible === true);
 
   // deeper
@@ -321,6 +333,7 @@ for (const kind of ['dungeon', 'cave']) {
     before.visible.filter((n) => sc.scene.children.find((o) => o.name === n)?.visible === false).join(' '));
   ck(`${kind}: what was already hidden stayed hidden`, alreadyOff.visible === false);
   ck(`${kind}: the swept latecomer came back`, lateMarker.visible === true);
+  ck(`${kind}: surface forage and its detailed plants return above ground`, forage.group.visible && drawnPlants() > 0 && lateForage.visible);
   ck(`${kind}: leaving twice is harmless`, rt.leaveDungeon() === false);
 
   // and again from scratch
@@ -331,7 +344,8 @@ for (const kind of ['dungeon', 'cave']) {
     && sc.scene.children.find((o) => o.name === 'sky').visible === true
     && player.visible === true);
 
-  sc.scene.remove(alreadyOff, latecomer, lateMarker);
+  sc.scene.remove(alreadyOff, latecomer, lateMarker, lateForage);
+  detail.dispose(); forage.dispose();
   rt.onDungeonState(null);
 }
 

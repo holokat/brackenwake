@@ -207,7 +207,7 @@ export function createWorldRuntime(sc, opts = {}) {
   function overworldNodes() {
     const out = new Set();
     for (const o of scene.children) {
-      if (SKY_AND_LIGHTS.has(o.name) || o.name.startsWith('site:')) out.add(o);
+      if (SKY_AND_LIGHTS.has(o.name) || o.name === 'world-forage' || o.name.startsWith('site:')) out.add(o);
     }
     if (world.group) out.add(world.group);
     if (flora.group) out.add(flora.group);
