@@ -31,7 +31,7 @@ export function furnishCellarEntry(built,L,{load=null,stream,sc}={}){
   },
   beforeAttach:async(instance,signal)=>{if(!cut)cut=await cutCellarGeologyStaged(built,(x,z)=>inEntryRegion(L,x,z,1.5),{signal});return cut && await prepareRoomShadows(instance.group,group,lights,{sc,work:assetWork,signal});},
   attach:instance=>{group.add(instance.group);proxy.group.removeFromParent();for(const o of built.group.children)if(o.userData.exit==='up'&&!built.exits.includes(o))o.visible=false;},
-  detach:()=>{if(!disposed)group.add(proxy.group);for(const light of lights){light.visible=false;light.shadow.needsUpdate=true;}},
+  detach:()=>{if(!disposed){group.add(proxy.group);for(const o of built.group.children)if(o.userData.exit==='up'&&o.userData.stairVisual)o.visible=true;}for(const light of lights){light.visible=false;light.shadow.needsUpdate=true;}},
  });
  const anchors=manifest.anchors.map(a=>({...a,x:a.x+plan.origin.x,y:a.y+plan.origin.y,z:a.z+plan.origin.z}));
  return{group,anchors,get ready(){return art.ready;},get loaded(){return art.loaded;},get active(){return active;},

@@ -1,4 +1,4 @@
-import {furnishCommandStair} from './cellar_stair.js';
+import {furnishCellarStairs} from './cellar_stair.js';
 import {createCellarAssetStream} from './cellar_asset_stream.js';
 import {createNearbyEffects} from '../game/streaming/nearby_effects.js';
 import {furnishCellarDescent} from './cellar_descent.js';
@@ -23,7 +23,7 @@ export function furnishOldCellars(built,L,{sc,artLoaders={}}={}){
  built.cameraObstacles=new Set();
  const streaming=sc?createCellarAssetStream(L,built):null;built.streaming=streaming;
  const root=new T.Group();root.name=L.name;built.group.add(root);const ground=(x,z)=>cellarGroundHeight(L,x,z,z=>cellarHeight(L.level,z));raiseDungeon(built,(z,x)=>ground(x,z));
- const commandStair=furnishCommandStair(built,L);built.commandStair=commandStair;
+ const stairs=furnishCellarStairs(built,L);built.stairs=stairs;built.commandStair=L.level===1?stairs?.down:null;
  const lights=[],lamps=[],rings=[],batches=new Map();let time=0,disposed=false;
  const stone=new T.MeshStandardMaterial({color:L.theme.ore,roughness:.83});
  const rune=new T.MeshStandardMaterial({color:L.theme.color,emissive:L.theme.color,emissiveIntensity:.85,roughness:.4});
@@ -76,6 +76,6 @@ export function furnishOldCellars(built,L,{sc,artLoaders={}}={}){
   effects.update(time,pos);
   for(const r of rings)r.material.emissiveIntensity=.8+Math.sin(time*.7)*.2;
  };
- built.dispose=()=>{if(disposed)return;disposed=true;commandStair?.dispose();streaming?.dispose();effects.dispose();magic.dispose();entry?.dispose();descent.dispose();landmark.dispose();built.raid?.model.dispose();dispose();};
+ built.dispose=()=>{if(disposed)return;disposed=true;stairs?.dispose();streaming?.dispose();effects.dispose();magic.dispose();entry?.dispose();descent.dispose();landmark.dispose();built.raid?.model.dispose();dispose();};
  built.cellarStats={depth:L.level,rooms:L.rooms.length,ceiling:L.theme.ceiling,art:roomArt.stats,blender:landmark.stats};return built;
 }

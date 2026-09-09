@@ -1,9 +1,10 @@
 // Patch only the floor and ground-level inlay index lists in the shipped room.
 // Keep every other mesh, texture, material, transform and binary buffer intact.
 import {readFile,writeFile} from 'node:fs/promises';
-const path=new URL('../../../assets/models/cellars/descent/boss-01.glb',import.meta.url);
+async function cut(level){
+const path=new URL(`../../../assets/models/cellars/descent/boss-0${level}.glb`,import.meta.url);
 const file=await readFile(path),jsonLength=file.readUInt32LE(12),doc=JSON.parse(file.subarray(20,20+jsonLength));
-if(doc.asset.extras?.commandStairOpening===1){console.log('Command stair opening is already cut.');process.exit(0);}
+if(doc.asset.extras?.commandStairOpening===1){console.log(`Floor ${level}: opening already cut.`);return;}
 const bin=Buffer.from(file.subarray(28+jsonLength)),report=[];
 for(const mesh of doc.meshes)for(const primitive of mesh.primitives){
  const name=doc.materials[primitive.material].name;
@@ -23,11 +24,13 @@ for(const mesh of doc.meshes)for(const primitive of mesh.primitives){
  }
  if(!removed)continue;
  keep.forEach((n,i)=>bytes===4?bin.writeUInt32LE(n,io+i*bytes):bin.writeUInt16LE(n,io+i*bytes));
- iv.count=keep.length;iv.min=[Math.min(...keep)];iv.max=[Math.max(...keep)];report.push({material:name,removedTriangles:removed});
+ iv.count=keep.length;iv.min=[keep.reduce((a,b)=>Math.min(a,b),Infinity)];iv.max=[keep.reduce((a,b)=>Math.max(a,b),-Infinity)];report.push({material:name,removedTriangles:removed});
 }
 if(!report.some(r=>r.material==='Descent floor'))throw Error('The expected floor tiles were not found');
 doc.asset.extras={...doc.asset.extras,commandStairOpening:1};
 const json=Buffer.from(JSON.stringify(doc)),padding=(4-json.length%4)%4,padded=Buffer.concat([json,Buffer.alloc(padding,32)]);
 const header=Buffer.alloc(20);header.writeUInt32LE(0x46546c67,0);header.writeUInt32LE(2,4);header.writeUInt32LE(28+padded.length+bin.length,8);header.writeUInt32LE(padded.length,12);header.writeUInt32LE(0x4e4f534a,16);
 const bh=Buffer.alloc(8);bh.writeUInt32LE(bin.length,0);bh.writeUInt32LE(0x004e4942,4);
-await writeFile(path,Buffer.concat([header,padded,bh,bin]));console.log(JSON.stringify(report));
+await writeFile(path,Buffer.concat([header,padded,bh,bin]));console.log(JSON.stringify({level,report}));
+}
+for(let level=1;level<=7;level++)await cut(level);

@@ -41,12 +41,18 @@ document.querySelector('#stairs').onclick=()=>action(async()=>{
  b.runtime.dungeonGo('down');ready=await b.runtime.dungeonScene.ready;snapshot('Next floor arrival');status.textContent=ready?'Nearby artwork is ready on the next floor.':'Nearby artwork failed to load. The structural shell remains visible.';
 });
 document.querySelector('#exit').onclick=()=>action(()=>{b.input.keys.delete('w');b.runtime.leaveDungeon();ready=null;status.textContent='Returned to the surface.';snapshot('Dungeon disposed');});
-// A direct first-boss view for reviewing the real renderer without using a save.
-if(new URLSearchParams(location.search).has('stair'))await action(async()=>{
+// Direct stair views use normal level transitions and a temporary character.
+const params=new URLSearchParams(location.search);
+if(params.has('stair'))await action(async()=>{
  b.actor.godMode=true;b.windows.closeAll();
- const at=b.runtime.dungeonScene.stairPos;place(at.x,at.z+6);b.camera.pitch=.5;b.camera.snap(b.player.pos);
- status.textContent='Loading the first boss room. The stair remains visible while its artwork arrives.';
- await wait(()=>b.runtime.dungeonScene.descent.rooms.find(r=>r.room.roomId===9)?.loaded);
- status.textContent='First boss stairway. Click the steps to descend; this review uses a temporary character.';
- snapshot('First boss stairway ready');
+ const floor=Math.max(1,Math.min(8,Math.floor(Number(params.get('level'))||1)));
+ while(b.runtime.dungeonLevel<floor){b.runtime.dungeonGo('down');ready=await b.runtime.dungeonScene.ready;}
+ const dir=params.get('stair')==='up'||!b.runtime.dungeonScene.stairPos?'up':'down';
+ const at=dir==='up'?b.runtime.dungeonScene.entrancePos:b.runtime.dungeonScene.stairPos;
+ place(at.x,at.z+(dir==='up'?-6:6),dir==='up'?0:Math.PI);b.camera.pitch=.5;b.camera.snap(b.player.pos);
+ status.textContent=`Loading level ${floor}. The stair remains visible while artwork arrives.`;
+ if(dir==='down')await wait(()=>b.runtime.dungeonScene.descent.rooms.find(r=>r.room.roomId===9)?.loaded);
+ else if(floor>=2&&floor<=7)await wait(()=>b.runtime.dungeonScene.descent.rooms.find(r=>r.room.roomId===0)?.loaded);
+ status.textContent=`Level ${floor}, stairs ${dir}. Click the steps to travel; this review uses a temporary character.`;
+ snapshot(`Level ${floor} stair ${dir} ready`);
 });

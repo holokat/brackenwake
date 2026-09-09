@@ -59,4 +59,4 @@ built.dispose();built.dispose();assert.equal(disposals,6,'Every owned stair reso
 for(let level=2;level<=8;level++)assert.equal(hasCommandStair(createOldCellars(22,{id:'oldcellars'},level)),false);
 assert.equal(hasCommandStair({...L,siteId:'another-dungeon'}),false);
 const standalone=createCellarStairModel();standalone.dispose();standalone.dispose();
-console.log('CELLAR_STAIR_VERIFIED',JSON.stringify({surfaceAndInteractionChecks:checks,meshBatches:3,pointLights:lights,levelsUnchanged:7}));
+console.log('CELLAR_STAIR_VERIFIED',JSON.stringify({surfaceAndInteractionChecks:checks,meshBatches:3,pointLights:lights,legacyFirstFloorSelector:true}));
