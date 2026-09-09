@@ -19,6 +19,7 @@
 // open, and neither of those is a conversation.
 
 import { createStory } from '../../story_runtime.js';
+import { teleportOverworld } from '../overworld_travel.js';
 import { createWaystones, waystonesFrom, panel as waystonePanel } from '../../waystones.js';
 import { authoredSites } from '../../../world/zones.js';
 import { spaceStoneRows } from '../../../mmo/greenwold/places.js';
@@ -51,15 +52,7 @@ export const story = {
      * should be standing around the new spot.
      */
     function teleport(x, z, label) {
-      if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
-      if (runtime.inDungeon && typeof runtime.leaveDungeon === 'function') runtime.leaveDungeon();
-      player.teleport(x, z);
-      camera?.snap?.(player.pos);
-      state?.setPos?.(x, z);
-      fight.monsters?.rescan?.(x, z, world.dayFactor(ctx.frame.worldNow ?? ctx.frame.now) < 0.4);
-      fight.combat?.forget?.(player.actor);
-      life.forage?.update?.(x, z);
-      return true;
+      return teleportOverworld(ctx, x, z);
     }
 
     const waystones = createWaystones({

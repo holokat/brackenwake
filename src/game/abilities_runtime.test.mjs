@@ -1,3 +1,5 @@
+import {recallHome} from './app/overworld_travel.js';
+import {SPACES} from '../mmo/spaces/index.js';
 // The bar, measured. Run: node src/game/abilities_runtime.test.mjs
 //
 // Nothing here is asserted from the shape of the code. Every claim is a number
@@ -966,6 +968,35 @@ console.log('abilities_runtime: Recall stands you still for three seconds and ta
   ck('and the player is told', /Recall\. home/.test(said(h)) || /home/.test(said(h)), said(h).split('|').pop().trim());
   const again = h.abilities.use(0, 4);
   ck('and it is two minutes before the next', again.ok === false && /cooldown/.test(again.reason) && ABILITIES_BY_ID.recall.cooldown === 120, again.reason);
+}
+
+// The actual Recall utility, through cast completion, on both sides of a dungeon door.
+for (const inside of [true, false]) {
+  const calls = [], h = harness();
+  const runtime = {field: {sculpt: {world: 'island'}}, inDungeon: inside,
+    leaveDungeon() { calls.push('leave'); this.inDungeon = false; }};
+  const systems = {
+    world: {runtime, dayFactor: () => 1},
+    player: {actor: h.actor, pos: h.player.pos, teleport(x, z) {
+      ck('Recall samples outdoor ground after leaving', !runtime.inDungeon);
+      h.player.teleport(x, z); calls.push('teleport');
+    }},
+    combat: {stopAttack: () => calls.push('stop'), targeting: {clear: () => calls.push('clear')},
+      combat: {forget: () => calls.push('forget')}, monsters: {rescan: () => calls.push('rescan')}},
+    world_life: {forage: {update: () => calls.push('forage')}},
+  };
+  const ctx = {get: n => systems[n], has: n => !!systems[n], frame: {now: 0}, camera: {snap: () => calls.push('camera')}, state: {setPos: (x,z) => {ctx.saved = {x,z};}}};
+  const abilities = createAbilities({character:h.character, actor:h.actor, player:h.player, hud:h.hud,
+    combat:h.combat, effects:h.effects, utility:{recall:() => recallHome(ctx)}, rng:()=>0});
+  abilities.useById('recall', 0);
+  abilities.update(2.9, 2.9);
+  ck('town teleport waits for all three seconds', calls.length === 0);
+  abilities.update(.2, 3.1);
+  const home = SPACES.island_town.at;
+  ck('Recall lands on Haven green', h.player.pos.x === home.x + 6 && h.player.pos.z === home.z + 6);
+  ck('Recall saves the new position and refreshes the world', ctx.saved.x === h.player.pos.x && calls.includes('rescan') && calls.includes('forage') && calls.includes('forget'));
+  ck('Recall leaves an active dungeon exactly once', calls.filter(c => c === 'leave').length === Number(inside));
+  ck('Recall clears the selected fight', calls.includes('stop') && calls.includes('clear'));
 }
 
 // --- MP1: a hand on another player's shoulder -------------------------------------------

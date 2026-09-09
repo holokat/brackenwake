@@ -5,7 +5,7 @@ import {createStudioSpells} from '../../studio/spells.js';
 
 import * as THREE from 'three';
 import { createEffects, colourFor } from '../../effects.js';
-import { birthplaceFor } from '../../../world/zones.js';
+import { recallHome } from '../overworld_travel.js';
 import { createAbilities } from '../../abilities_runtime.js';
 import { createSpellVfx } from '../../spell_vfx.js';
 import { loadSpellTextures } from '../../vfx/textures.js';
@@ -143,11 +143,7 @@ export const abilities = {
       utility: {
         ...hooks.utility,
         // Recall: the world's birth, which on the island is Haven's green
-        recall: () => {
-          const birth = birthplaceFor(runtime.field);
-          player.teleport(birth.x, birth.z);
-          return 'The road folds up under you, and you are on the green at Haven.';
-        },
+        recall: () => recallHome(ctx),
       },
       // an armed shot with a chosen target starts the auto attack on it
       attack: (who) => {
