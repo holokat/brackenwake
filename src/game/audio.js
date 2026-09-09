@@ -68,11 +68,12 @@ export const MUSIC_GAP_MS = [20_000, 40_000];
 // ------------------------------------------------------------- what exists --
 
 /**
- * `ls public/audio/sfx` on 2026-09-04, all 61 of them. Written out rather than
+ * The recordings in `public/audio/sfx`. Written out rather than
  * globbed because the module has to be able to check itself in node, where
  * there is no bundler and no directory to read. If a file is added, add the row.
  */
 export const SFX_FILES = [
+  'achievement-success.mp3',
   'Done1.opus', 'Done2.opus', 'arrow-hit-1.mp3', 'arrow-hit-2.mp3',
   'arrow-miss-1.mp3', 'arrow-miss-2.mp3', 'arrow-miss-3.mp3',
   'axe-chop-1.mp3', 'boulder-break-1.mp3', 'boulder-break-2.mp3',
@@ -259,6 +260,7 @@ export const CUES = {
     stand: 'no descent recording exists; this is the unlock chime pitched down',
   },
   discover: { file: 'upgrade.ogg', gain: 0.8 },
+  achievementSuccess: { file: 'achievement-success.mp3', gain: 0.5 },
   // An arrow striking an animal. Two takes.
   beastHit: { family: 'arrow-hit', takes: 2, ext: 'mp3', gain: 0.9 },
   // The rest of the bow, free: the files exist and the bow is on sale for 120

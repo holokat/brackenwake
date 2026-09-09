@@ -8,7 +8,7 @@
 // Importing this file also runs `auditAudio()` at module load, which is the
 // point of the audit: a cue naming a file that is not in public/audio/sfx
 // cannot get past `npm test`.
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   createAudio, auditAudio, attenuation, createRotation,
   CUES, SFX_FILES, SYNTH_FILES, ALL_SFX_FILES, DEAD_FILES, NO_FILE_FOR, STAND_INS,
@@ -69,7 +69,8 @@ function memStore() {
   }
   check(`every take of every cue is a file on disk`, allThere, `${rows} cues, ${takes} takes`);
   check('no cue points at a file measured silent', allAlive);
-  check('the audit list is the 61 recordings in public/audio/sfx', SFX_FILES.length === 61, String(SFX_FILES.length));
+  const shipped = readdirSync(new URL('../../public/audio/sfx/', import.meta.url)).filter(name => /\.(mp3|ogg|opus|wav)$/.test(name)).sort();
+  check('the audio audit list matches every shipped recording', JSON.stringify([...SFX_FILES].sort()) === JSON.stringify(shipped), `${SFX_FILES.length} listed, ${shipped.length} shipped`);
   check('and the 25 synthesised files under it', SYNTH_FILES.length === 25, String(SYNTH_FILES.length));
   check('urlFor puts a synthesised take under /audio/sfx/synth/',
     urlFor(CUES.spell_fire) === '/audio/sfx/synth/spell_fire.wav', urlFor(CUES.spell_fire));

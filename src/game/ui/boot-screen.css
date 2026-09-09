@@ -164,8 +164,6 @@
   overflow-wrap: anywhere;
 }
 .bw-loading [hidden] { display: none; }
-.bw-loading[data-state='failed'] .bw-loading__trail { display: none; }
-.bw-loading[data-state='failed'] .bw-loading__flame { animation: none; opacity: .6; }
 .bw-loading[data-state='ready'] { opacity: 0; pointer-events: none; }
 
 @keyframes bw-follow-trail {

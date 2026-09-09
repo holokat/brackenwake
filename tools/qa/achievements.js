@@ -25,6 +25,13 @@ b.openAchievements();
 write({storage: 'Temporary memory only', achievements: document.querySelectorAll('.bw-achievement').length, tab: !!document.querySelector('[data-tab="achievements"]')});
 document.querySelector('#book').onclick = () => b.openAchievements();
 document.querySelector('#hide').onclick = () => document.querySelector('#qa').style.display = 'none';
+document.querySelector('#unlock').onclick = event => {
+  b.audio.unlock();
+  b.windows.closeAll();
+  b.achievements.record({type: 'camp'});
+  event.currentTarget.disabled = true;
+  write({threeRevision: b.THREE.REVISION, banner: b.hud.unlockState, earned: 'camp'});
+};
 document.querySelector('#recall').onclick = async event => {
   event.currentTarget.disabled = true;
   try {

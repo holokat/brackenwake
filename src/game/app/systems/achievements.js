@@ -1,6 +1,7 @@
 import { createAchievementTracker } from '../../achievements/tracker.js';
 import { ISLAND_LANDMARKS } from '../../achievements/locations.js';
 import { recompute } from '../../actor.js';
+import { createAchievementAnnouncements } from '../../achievements/announcements.js';
 
 export const achievements = {
   name: 'achievements', deps: ['world', 'player', 'combat', 'ui'],
@@ -12,10 +13,7 @@ export const achievements = {
       combat: ctx.get('combat').combat, landmarks: ISLAND_LANDMARKS,
       enabled: () => !ctx.state.dev && !player.dying && world.runtime.field?.sculpt?.world === 'island',
       recompute,
-      notify(rows) {
-        for (const row of rows) ctx.hud.log(`Achievement earned: ${row.name}. Title unlocked: ${row.title}.${row.reward ? ` ${row.reward.description}` : ''}`, 'good');
-        ctx.hud.toast(rows.length === 1 ? `Achievement earned: ${rows[0].name}` : `${rows.length} achievements earned. Open Achievements to see your rewards.`, 'good');
-      },
+      notify: createAchievementAnnouncements({hud: ctx.hud, audio: ctx.audio}),
     });
     const windows = ctx.get('ui').windows;
     const open = () => windows.open('achievements');

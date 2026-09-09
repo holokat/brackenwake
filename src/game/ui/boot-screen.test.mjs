@@ -102,13 +102,14 @@ test('slow and very slow loads remain live, offer retry, and can finish normally
   assert.equal(s.registrations.size, 0);
 });
 
-test('a resolved terrain failure never disappears as a successful boot', async () => {
+test('a terrain issue keeps the loader visible and offers a retry without claiming readiness', async () => {
   const s = screen();
   await runBoot(async () => ({ loadingError: true }), s.report);
   s.advance(60000); s.frame(); s.frame();
-  assert.equal(s.root.dataset.state, 'failed');
+  assert.equal(s.root.dataset.state, 'loading');
   assert.equal(s.root.removed, false);
-  assert.equal(s.document.getElementById('game').attributes.get('aria-busy'), 'false');
+  assert.notEqual(s.document.getElementById('game').attributes.get('aria-busy'), 'false');
+  assert.equal(s.get('heading').textContent, 'A moment by the fire');
   assert.equal(s.get('retry').hidden, false);
   assert.equal(s.get('details').hidden, false);
   assert.match(s.get('diagnostic').textContent, /Greenwold/);
@@ -116,25 +117,45 @@ test('a resolved terrain failure never disappears as a successful boot', async (
   assert.equal(s.reloads(), 1);
 });
 
-test('synchronous and asynchronous boot errors show the real diagnostic and keep rejecting', async () => {
+test('boot errors retain diagnostics and rejection while the visual loader stays active', async () => {
   for (const asyncFailure of [false, true]) {
     const s = screen(), error = new Error('Renderer could not start');
     await assert.rejects(runBoot(() => {
       if (asyncFailure) return Promise.reject(error);
       throw error;
     }, s.report), /Renderer could not start/);
-    assert.equal(s.root.dataset.state, 'failed');
+    assert.equal(s.root.dataset.state, 'loading');
     assert.match(s.get('diagnostic').textContent, /Renderer could not start/);
     assert.equal(s.get('details').hidden, false);
   }
 });
 
-test('failed entry imports are caught before any boot hook can run', () => {
+test('entry import issues offer retry and diagnostics without replacing the loader', () => {
   const s = screen();
   s.error(null, { tagName: 'SCRIPT', type: 'module', src: 'https://brackenwake.com/assets/game.js' });
-  assert.equal(s.root.dataset.state, 'failed');
+  assert.equal(s.root.dataset.state, 'loading');
   assert.match(s.get('diagnostic').textContent, /game module could not be loaded/);
   assert.equal(s.get('retry').hidden, false);
+});
+
+test('an error during pending startup keeps the indicator until that same boot becomes ready', async () => {
+  const s = screen();
+  let finish;
+  const result = runBoot(() => new Promise(resolve => { finish = resolve; }), s.report);
+  s.error(null, { tagName: 'SCRIPT', type: 'module', src: '/assets/retryable.js' });
+  s.report({phase: 'failed', error: 'A request was interrupted'});
+  s.advance(120000);
+  assert.equal(s.root.dataset.state, 'loading');
+  assert.equal(s.get('heading').textContent, 'A moment by the fire');
+  assert.equal(s.get('status').textContent, 'Still loading');
+  assert.equal(s.document.getElementById('game').inert, true);
+  finish({roster: true}); await result;
+  s.frame(); s.frame(); s.advance(240);
+  assert.equal(s.root.removed, true);
+  assert.equal(s.document.getElementById('game').inert, false);
+  assert.equal(s.reloads(), 0);
+  assert.equal(s.timers.size, 0);
+  assert.equal(s.registrations.size, 0);
 });
 
 test('recoverable asset errors preserve diagnostics without declaring the whole boot failed', async () => {

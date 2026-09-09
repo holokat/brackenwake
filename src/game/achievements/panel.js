@@ -2,11 +2,11 @@ import { ACHIEVEMENTS } from './catalog.js';
 import { achievementState, achievementPerks } from './progress.js';
 import { ISLAND_LANDMARKS } from './locations.js';
 import { ACHIEVEMENT_CSS } from './styles.js';
+import { achievementArt } from './art.js';
 
 const CATEGORIES = ['All', 'Progression', 'Combat', 'Gathering', 'Crafting', 'Exploration', 'Community'];
 const METRICS = { ownAxeWood: 'Wood with your axe', ownPickMining: 'Stone or ore with your pickaxe', smithCrafts: 'Smithing crafts',
   smithRecipes: 'Smithing recipes', craftedAxe: 'Axe', craftedPickaxe: 'Pickaxe', craftedBow: 'Bow', arrows: 'Arrows', completed: 'Achievements', categories: 'Categories' };
-const sheets = ['haven-achievements-01-20-v1.png', 'haven-achievements-21-40-v1.png'];
 function element(tag, className, text) {
   const el = document.createElement(tag); el.className = className;
   if (text !== undefined) el.textContent = text;
@@ -17,10 +17,13 @@ export function achievementCompletion(row, doc) {
 }
 export function achievementIcon(number) {
   const icon = element('span', 'bw-achievement-icon');
-  const index = (number - 1) % 20;
+  const art = achievementArt(number);
   icon.setAttribute('aria-hidden', 'true');
-  icon.style.backgroundImage = `url('/icons/achievements/${sheets[Math.floor((number - 1) / 20)]}')`;
-  icon.style.backgroundPosition = `${index % 5 * 25}% ${Math.floor(index / 5) * 100 / 3}%`;
+  if (art) {
+    icon.style.backgroundImage = `url('${art.src}')`;
+    icon.style.backgroundPosition = art.position;
+    icon.style.backgroundSize = art.size;
+  }
   return icon;
 }
 export const panel = {

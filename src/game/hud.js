@@ -47,6 +47,7 @@
 // so hud.test.mjs can run the real createHud against a small fake document.
 // A HUD that could only be checked by eye is a HUD nobody checks.
 
+import { createUnlockBanner } from './ui/unlock_banner.js';
 import { injectTheme, theme, icon, itemGlyph } from './ui_theme.js';
 import { abilityIcon, itemIcon, iconUrl } from './icon_art.js';
 import { dropTarget, dragSource } from './windows.js';
@@ -710,8 +711,8 @@ const CSS = `
 }
 #bw-unlock.on { display: flex; }
 #bw-unlock .ul {
-  font-family: ${theme.fonts.display}; font-size: 14px; letter-spacing: .34em;
-  font-variant-caps: small-caps; color: ${theme.gold};
+  font-family: ${theme.fonts.body}; font-size: 16px; letter-spacing: .04em;
+  font-variant-caps: normal; color: ${theme.gold};
   text-shadow: 0 2px 14px rgba(0,0,0,.95);
 }
 #bw-unlock .uf {
@@ -723,12 +724,13 @@ const CSS = `
 #bw-unlock .uf img { width: 100%; height: 100%; object-fit: cover; display: block; }
 #bw-unlock .uf .glyph { font-family: ${theme.fonts.display}; font-size: 44px; color: ${theme.gold}; }
 #bw-unlock .un {
-  font-family: ${theme.fonts.display}; font-size: 34px; font-weight: 700;
-  letter-spacing: .06em; color: ${theme.parchment};
+  font-family: ${theme.fonts.body}; font-size: 34px; font-weight: 700;
+  letter-spacing: .02em; color: ${theme.parchment}; text-wrap: balance;
   text-shadow: 0 2px 22px rgba(0,0,0,.95), 0 0 34px rgba(201,164,74,.3);
 }
 #bw-unlock .uk {
-  font-family: ${theme.fonts.display}; font-size: 12.5px; letter-spacing: .16em;
+  font-family: ${theme.fonts.body}; font-size: 16px; line-height: 1.35; letter-spacing: .02em;
+  text-wrap: pretty;
   color: ${theme.gold}; opacity: .92; text-shadow: 0 2px 10px rgba(0,0,0,.9);
 }
 
@@ -1177,17 +1179,7 @@ export function createHud(root) {
   const zoneRule = add(zoneBox, mk('div', null, 'zr'));
   const zoneSub = add(zoneBox, mk('div', null, 'zs'));
 
-  // and the unlock banner over that, built once and refilled: an ability's
-  // painting, "You've unlocked" over it and its name under it
-  const unlockBox = add(el, mk('div', 'bw-unlock'));
-  const unlockLead = add(unlockBox, mk('div', null, 'ul'));
-  unlockLead.textContent = "You've unlocked";
-  const unlockFrame = add(unlockBox, mk('div', null, 'uf'));
-  const unlockArt = add(unlockFrame, mk('img'));
-  unlockArt.alt = ''; unlockArt.draggable = false;
-  const unlockGlyph = add(unlockFrame, mk('span', null, 'glyph'));
-  const unlockName = add(unlockBox, mk('div', null, 'un'));
-  const unlockKey = add(unlockBox, mk('div', null, 'uk'));
+  const unlockBanner = createUnlockBanner(el, {shape: UNLOCK_BANNER, total: UNLOCK_TOTAL, queueMax: UNLOCK_QUEUE_MAX, phaseAt: bannerAt});
 
   (root || document.body).appendChild(el);
 
@@ -1712,44 +1704,6 @@ export function createHud(root) {
     zoneBox.style.opacity = at.opacity.toFixed(3);
   }
 
-  // --- the unlock banner -------------------------------------------------------
-  // Raised by hud.unlock and run down by hud.update, on the same clock and with
-  // the same three phases as the zone banner. TWO UNLOCKED AT ONCE QUEUE: a
-  // single skill gain can cross two rows at the same mark, and drawing them on
-  // top of each other would show the player one of them and lose the other.
-  let showing = null;             // { id, name, key, art, t }
-  const unlockWaiting = [];
-
-  function paintUnlock(u) {
-    unlockName.textContent = u.name;
-    unlockKey.textContent = u.key || '';
-    unlockKey.style.display = u.key ? '' : 'none';
-    if (u.art) {
-      setArt(unlockArt, u.art);
-      unlockArt.style.display = '';
-      unlockGlyph.style.display = 'none';
-      unlockGlyph.textContent = '';
-    } else {
-      setArt(unlockArt, null);
-      unlockArt.style.display = 'none';
-      unlockGlyph.style.display = '';
-      unlockGlyph.textContent = (u.name || '?').slice(0, 1).toUpperCase();
-    }
-  }
-
-  function drawUnlock() {
-    if (!showing) { unlockBox.classList.remove('on'); unlockBox.style.opacity = '0'; return; }
-    const at = bannerAt(showing.t, UNLOCK_BANNER);
-    if (at.phase === 'done') {
-      showing = null;
-      if (unlockWaiting.length) { showing = unlockWaiting.shift(); showing.t = 0; paintUnlock(showing); drawUnlock(); return; }
-      unlockBox.classList.remove('on'); unlockBox.style.opacity = '0';
-      return;
-    }
-    unlockBox.classList.add('on');
-    unlockBox.style.opacity = at.opacity.toFixed(3);
-  }
-
   // ---- the two things the HUD can be ---------------------------------------
   //
   // In editor mode the whole gameplay HUD goes: the portrait, the purse, the
@@ -1991,28 +1945,10 @@ export function createHud(root) {
      * abilities can cross their marks on the same lesson and the player is
      * owed both. Returns what it will say and when.
      */
-    unlock(entry) {
-      const e = entry || {};
-      const name = String(e.name ?? '').trim();
-      if (!name) return null;
-      const u = { id: e.id || null, name, key: String(e.key ?? '').trim(), art: abilityIcon(e.id), t: 0 };
-      if (showing) {
-        unlockWaiting.push(u);
-        while (unlockWaiting.length > UNLOCK_QUEUE_MAX) unlockWaiting.shift();
-        return { name: u.name, key: u.key, seconds: UNLOCK_TOTAL, queued: unlockWaiting.length };
-      }
-      showing = u;
-      paintUnlock(u);
-      drawUnlock();
-      return { name: u.name, key: u.key, seconds: UNLOCK_TOTAL, queued: 0 };
-    },
+    unlock(entry) { return unlockBanner.enqueue(entry); },
 
-    /** What the unlock banner is showing and how many are behind it. */
-    get unlockState() {
-      if (!showing) return { phase: 'done', opacity: 0, name: null, key: null, art: null, t: 0, queued: unlockWaiting.length };
-      const at = bannerAt(showing.t, UNLOCK_BANNER);
-      return { ...at, name: showing.name, key: showing.key, art: showing.art, id: showing.id, t: showing.t, queued: unlockWaiting.length };
-    },
+    /** The shared ability/achievement banner and its queue. */
+    get unlockState() { return unlockBanner.state; },
 
     /** Where the banner is right now, for anything that wants to know. */
     get zoneState() {
@@ -2061,7 +1997,7 @@ export function createHud(root) {
       drawBar(v.bar);
       drawItems(v.items);
       if (banner) { banner.t += step; drawBanner(); }
-      if (showing) { showing.t += step; drawUnlock(); }
+      unlockBanner.update(step);
       if (gains.length) {
         for (const g of gains) g.t += step;
         // Oldest first in the array, so the done ones are always at the front.
