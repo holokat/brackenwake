@@ -20,10 +20,12 @@ Build with `npm run build:marketing`, then deploy with
 `wrangler deploy --config wrangler.marketing.jsonc` using the existing Wrangler
 installation. The configuration explicitly selects the Brackenwake account and
 the `brackenwake-marketing` Worker. It publishes the marketing entry at `/` and
-links to the live game at `https://brackenwake.cogentgene.workers.dev/?play`.
+links to the live game at `https://brackenwake.com/play`.
 
 The build copies only the marketing artwork and video. It does not compile the
-game entry or deploy the multiplayer Worker. `dist-marketing/` is rebuildable
+game entry or deploy the multiplayer Worker. The marketing Worker forwards
+`/play`, game assets and `/ws/*` through its `GAME` service binding to the
+existing `brackenwake` Worker. `dist-marketing/` is rebuildable
 and excluded from Git. No dependency was added.
 
 ## Validation

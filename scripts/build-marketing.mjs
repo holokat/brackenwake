@@ -6,7 +6,7 @@ import { build } from 'vite';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = join(root, 'dist-marketing');
-const gameUrl = 'https://brackenwake.cogentgene.workers.dev/?play';
+const gameUrl = 'https://brackenwake.com/play';
 const origin = 'https://brackenwake.com';
 const assets = [
   'welcome-sigil.svg',
@@ -31,7 +31,7 @@ await build({
   plugins: [{
     name: 'marketing-game-entry',
     transformIndexHtml(html) {
-      const entry = 'class="game-button" href="/?play"';
+      const entry = 'class="game-button" href="/play"';
       assert.equal(html.split(entry).length, 2, 'Expected one game entry link');
       return html.replace(entry, `class="game-button" href="${gameUrl}"`);
     },

@@ -3,7 +3,10 @@ import { readFileSync, existsSync } from 'node:fs';
 import { mountMotion } from './motion.js';
 
 const html = readFileSync(new URL('../../welcome/index.html', import.meta.url), 'utf8');
+assert.match(html, /class="game-button" href="\/play"/);
 for (const [, path] of html.matchAll(/(?:src|href)="(\/[^"#]+)"/g)) {
+  // The game entry is a routed document, exercised by server/marketing.test.mjs.
+  if (path === '/play') continue;
   assert.ok(
     existsSync(new URL(`../../public${path}`, import.meta.url)) ||
     existsSync(new URL(`../..${path}`, import.meta.url)), path,
