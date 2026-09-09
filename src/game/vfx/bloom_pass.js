@@ -27,7 +27,7 @@ import { createSpellBloomSelection } from './bloom.js';
 
 /** Bloom contains only opted-in VFX. The lit character never enters it. */
 export class SelectiveSpellBloomPass extends Pass {
-  constructor(scene, camera, resolutionScale = 1) {
+  constructor(scene, camera, resolutionScale = .5) {
     super();
     this.scene = scene;
     this.camera = camera;
@@ -161,7 +161,7 @@ export function createSpellComposer(renderer, scene, camera, options = {}) {
   }
   const renderPass = new RenderPass(scene, camera);
   const distortionPass = new ShaderPass(DISTORTION_SHADER);
-  const bloomPass = new SelectiveSpellBloomPass(scene, camera, options.resolutionScale === undefined ? 1 : options.resolutionScale);
+  const bloomPass = new SelectiveSpellBloomPass(scene, camera, options.resolutionScale === undefined ? .5 : options.resolutionScale);
   const outputPass = new OutputPass();
   distortionPass.enabled = false;
   composer.addPass(renderPass);

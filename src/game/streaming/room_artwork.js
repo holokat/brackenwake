@@ -3,7 +3,7 @@ import {assetWork} from './work_queue.js';
 import {prepareCameraMesh} from '../../world/collision/camera-mesh.js';
 
 /** One room owns its instances; the asset cache owns shared geometry and textures. */
-export function createRoomArtwork({id, url, bounds, stream, sc, load, configure, configureMesh, attach, detach, beforeAttach, cameraObstacles,
+export function createRoomArtwork({id, url, bounds, stream, sc, load, configure, configureMesh, lights, attach, detach, beforeAttach, cameraObstacles,
   work = assetWork, pool = gltfAssets, prepare = prepareRoom, onError = console.warn} = {}) {
   let disposed = false, generation = 0, current = null, pending = null;
   let promise = Promise.resolve(false);
@@ -27,7 +27,7 @@ export function createRoomArtwork({id, url, bounds, stream, sc, load, configure,
     promise = Promise.race([lease.promise,cancelled]).then(async asset => {
       waiting = false;
       if (!asset || disposed || controller.signal.aborted) return false;
-      instance = await prepare(asset, configure, {signal:controller.signal, sc, work, configureMesh});
+      instance = await prepare(asset, configure, {signal:controller.signal, sc, work, configureMesh, lights});
       if (!instance || disposed || controller.signal.aborted || token !== generation) return false;
       if(cameraObstacles){
         instance.cameraObstacle=await prepareCameraMesh(instance.group,{work,signal:controller.signal});

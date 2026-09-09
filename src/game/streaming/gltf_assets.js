@@ -1,5 +1,6 @@
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {assetWork} from './work_queue.js';
+import {compileRoomPrograms} from './room_gpu_warmup.js';
 import {createAssetCache} from './asset_cache.js';
 
 export function disposeGltf(asset) {
@@ -44,7 +45,7 @@ export const gltfAssets = createAssetCache({work: assetWork, allowPrefetch: canP
 });
 
 /** Prepare a static room a few meshes at a time before revealing it. Templates stay immutable. */
-export async function prepareRoom(asset, configure, {signal, sc, priority = 2, work = assetWork, configureMesh} = {}) {
+export async function prepareRoom(asset, configure, {signal, sc, priority = 2, work = assetWork, configureMesh, lights} = {}) {
   const materials = new Map(), root = asset.scene.clone(false), stack = [{source: asset.scene, target: root}];
   const owned = [];
   const dispose = () => {root.removeFromParent(); for (const m of owned) m.dispose();};
@@ -72,7 +73,7 @@ export async function prepareRoom(asset, configure, {signal, sc, priority = 2, w
     for (const m of owned) for (const value of Object.values(m)) if (value?.isTexture) textures.add(value);
     if (sc?.renderer) {
       for (const texture of textures) await work.run(() => sc.renderer.initTexture(texture), {signal, priority});
-      if (!signal?.aborted && sc.renderer.compileAsync) await work.run(() => sc.renderer.compileAsync(root, sc.camera, sc.scene), {signal, priority});
+      if (!signal?.aborted) await compileRoomPrograms(root, sc, {lights, work, signal});
     }
     if (signal?.aborted) {dispose(); return null;}
     return {group: root, materials: owned, dispose};

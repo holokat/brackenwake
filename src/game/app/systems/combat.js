@@ -4,6 +4,7 @@
 
 import { spawnMonster, recompute } from '../../actor.js';
 import { createCombat } from '../../combat.js';
+import {assetWork} from '../../streaming/work_queue.js';
 import { createLootDrops } from '../../loot_drops.js';
 import { createMonsters } from '../../monsters.js';
 import { createTargeting } from '../../targeting.js';
@@ -27,6 +28,7 @@ export const combat = {
     const combatRules = createCombat({ floaters, hud, audio, progression: teach, recompute });
     const loot = createLootDrops(sc, { floaters, hud, audio });
     const monsters = createMonsters(sc, runtime, {
+      spawnWork: assetWork,
       // W2 calls actorFactory(id, { pos, key, row, rec }); W1's builder takes (id, pos)
       actorFactory: (id, o) => spawnMonster(id, o.pos),
       combat: combatRules, loot, floaters, hud, audio,

@@ -1,3 +1,4 @@
+import {createSpawnQueue} from './streaming/spawn_queue.js';
 import { createCellarBossRuntime } from './monsters/cellar_boss_runtime.js';
 import {makeItem} from '../mmo/items.js';
 // The monsters that are actually standing there.
@@ -1360,6 +1361,10 @@ export function createMonsters(sc, runtime, opts = {}) {
     });
   }
 
+  const spawnPosition = {x: 0, z: 0};
+  const spawnQueue = createSpawnQueue({work: opts.spawnWork, spawn, has: key => live.has(key),
+    canSpawn: rec => !stillDead(rec, spawnPosition), immediateRadius: rec => Math.max(48, (MONSTERS[rec.id]?.aggro || 0) * 2.5),
+  });
   function rescan(px, pz, night) {
     const [pcx, pcz] = field.chunkOf(px, pz);
     for (const [k, e] of [...chunks]) {
@@ -1389,7 +1394,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       if (mon.ephemeral) continue;             // a summon or a bench spawn is not in the roll and is not the sweep's to take
       despawn(key);
     }
-    for (const w of keep) if (!live.has(w.rec.key)) spawn(w.rec);
+    spawnQueue.reconcile(keep);
   }
 
   // -- underground ----------------------------------------------------------
@@ -1452,11 +1457,12 @@ export function createMonsters(sc, runtime, opts = {}) {
       if (mon.actor.ai?.target) continue;
       despawn(key);
     }
-    for (const w of keep) if (!live.has(w.rec.key)) spawn(w.rec);
+    spawnQueue.reconcile(keep);
   }
 
   /** Everything goes: a level left, a level entered, or the surface come back. */
   function clearLayer() {
+    spawnQueue.clear();
     for (const key of [...live.keys()]) despawn(key);
     for (let i = shots.length - 1; i >= 0; i--) { shots[i].mesh.parent?.remove(shots[i].mesh); }
     shots.length = 0;
@@ -1501,6 +1507,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     group.visible = true;
 
     const px = num(playerActor?.pos?.x), pz = num(playerActor?.pos?.z);
+    spawnPosition.x = px; spawnPosition.z = pz;
     const under = runtime?.inDungeon;
 
     if (under) {
@@ -2551,12 +2558,14 @@ export function createMonsters(sc, runtime, opts = {}) {
     /** Every live monster record. Debug, the HUD and the tests. */
     all: () => [...live.values()],
     get count() { return live.size; },
+    get pendingSpawns() {return spawnQueue.pending;},
     /** The record a given actor belongs to, for the target frame. */
     forActor(actor) { for (const m of live.values()) if (m.actor === actor) return m; return null; },
     /** The dead list this runtime is writing into: the character's own array. */
     deadUntil,
     /** Force a sweep now, rather than waiting out SCAN_MS. A teleport wants this. */
     rescan(px, pz, night) {
+      spawnPosition.x = px; spawnPosition.z = pz;
       if (runtime?.inDungeon) {
         const key = layerKeyNow();
         if (key !== layerKey) { clearLayer(); layerKey = key; buildLevel(levelLayout()); }
@@ -2634,6 +2643,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     get layer() { return layerKey; },
 
     dispose() {
+      spawnQueue.clear();
       offDeath?.();
       for (const key of [...live.keys()]) despawn(key);
       for (const c of corpses) c.mon.model.dispose();

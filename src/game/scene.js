@@ -28,6 +28,7 @@ import { skyColours, skyLighting, realmMixAt, REALM_SKY, DEFAULT_REALM } from '.
 import { THEMES } from '../farm/themes.js';
 import { mulberry32, glowTexture } from '../farm/assets.js';
 import { createSpellComposer } from './vfx/bloom_pass.js';
+import { createAdaptiveResolution } from './adaptive_resolution.js';
 
 /** One full day to night to day again. The shared clock owns its duration. */
 // The length of a day and its curve live in dayclock.js, shared with the sky.
@@ -389,11 +390,16 @@ export function createScene(container) {
     sun.target.updateMatrixWorld();
   }
 
+  const resolution = createAdaptiveResolution({ceiling: renderer.getPixelRatio()});
+  let previousRender = null;
+  const rendererSize = new THREE.Vector2();
+  function setPixelRatio(value) {renderer.setPixelRatio(resolution.setCeiling(value)); resize();}
   function resize() {
     const w2 = container.clientWidth || w, h2 = container.clientHeight || h;
     camera.aspect = w2 / h2;
     camera.updateProjectionMatrix();
-    renderer.setSize(w2, h2);
+    renderer.getSize(rendererSize);
+    if (rendererSize.x !== w2 || rendererSize.y !== h2) renderer.setSize(w2, h2);
     if (composer) composer.setSize(w2, h2);
   }
   const onResize = () => resize();
@@ -426,7 +432,8 @@ export function createScene(container) {
   setDay(1);
 
   return {
-    renderer, scene, camera,
+    renderer, scene, camera, resolution, setPixelRatio,
+    prepareEffects() {return spellComposer();},
     lights: { sun, hemi, ambient, fill },
     sky, skyDomes,
     setDay, setFog, follow, resize, useAnalyticSky, setSunDir,
@@ -451,8 +458,14 @@ export function createScene(container) {
      * not a promise.
      */
     render(dt = 0) {
+      const now = performance.now();
+      if (renderer.getPixelRatio() !== resolution.ratio) resolution.setCeiling(renderer.getPixelRatio());
+      const ratio = resolution.sample(document.visibilityState === 'visible' && previousRender !== null ? now - previousRender : 0);
+      previousRender = now;
+      if (ratio !== renderer.getPixelRatio()) {renderer.setPixelRatio(ratio); resize();}
       const state = spellSource ? spellSource() : null;
-      const active = !!(state && state.active)||[...effectSources].some(fn=>fn());
+      let active = !!state?.active;
+      if (!active) for (const source of effectSources) if (source()) {active = true; break;}
       if (!active && !composer) { plainFrames += 1; renderer.render(scene, camera); return false; }
       if (!active) { plainFrames += 1; composer.render(dt, false); return false; }
       const pass = spellComposer();

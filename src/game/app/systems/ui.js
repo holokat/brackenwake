@@ -236,7 +236,7 @@ export const ui = {
         if (sc.lights?.sun) sc.lights.sun.castShadow = s.shadows;
       }
       if (s.pixelRatio !== undefined) {
-        sc.renderer.setPixelRatio(s.pixelRatio === 'device' ? Math.min(window.devicePixelRatio || 1, 2) : Number(s.pixelRatio) || 1);
+        (sc.setPixelRatio || sc.renderer.setPixelRatio.bind(sc.renderer))(s.pixelRatio === 'device' ? Math.min(window.devicePixelRatio || 1, 2) : Number(s.pixelRatio) || 1);
         sc.resize?.();
       }
       if (Number.isFinite(s.ring) && typeof runtime.setRing === 'function') runtime.setRing(s.ring);

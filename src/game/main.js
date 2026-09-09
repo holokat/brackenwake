@@ -1,5 +1,6 @@
 import {assetWork} from './streaming/work_queue.js';
 import {gltfAssets} from './streaming/gltf_assets.js';
+import {prepareDungeonSurfaces} from './streaming/dungeon_surfaces.js';
 // Brackenwake boots here.
 //
 // This file no longer knows all the modules. It raises the scene, loads the
@@ -77,6 +78,8 @@ async function boot() {
     window.__bw={sc,state,hud:ctx.hud,loadingError:true};
     return window.__bw;
   }
+
+  await prepareDungeonSurfaces(sc.renderer);
 
   const stage = bootStage(state, { roster: rosterAsked() });
   // The roster takes the note down itself the moment it is on screen. When the

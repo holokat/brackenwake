@@ -70,7 +70,7 @@ export function furnishOldCellars(built,L,{sc,artLoaders={}}={}){
  const key=new T.DirectionalLight(0xbdcde4,1.8);key.position.set(L.landmark.x-20,L.landmark.y+L.theme.ceiling*.85,L.landmark.z-15);key.target.position.set(L.landmark.x,L.landmark.y,L.landmark.z);root.add(key,key.target);
  const update=built.update.bind(built),dispose=built.dispose.bind(built);
  if(L.raid){const boss=buildSepulcher();boss.group.position.set(L.raid.x,0,L.raid.z);root.add(boss.group);built.raid={...L.raid,model:boss};}
- built.update=(dt,pos)=>{if(typeof dt!=='number'){pos=dt;dt=.016;}update(dt,pos);streaming?.update(dt,pos);time+=Math.min(.1,dt);roomArt.update(time);landmark.update(time);entry?.update(time,pos);descent.update(time,pos);magic.update(time);if(pos){const nearest=lamps.map(p=>({p,d:Math.hypot(p.x-pos.x,p.z-pos.z)})).sort((a,b)=>a.d-b.d);lights.forEach((l,i)=>{const lamp=nearest[i%nearest.length].p;l.position.copy(lamp);l.color.set(lamp.color||0xffb96c);l.intensity=35+Math.sin(time*4+i)*4;});}
+ built.update=(dt,pos)=>{if(typeof dt!=='number'){pos=dt;dt=.016;}update(dt,pos);streaming?.update(dt,pos);time+=Math.min(.1,dt);roomArt.update(time);landmark.update(time);entry?.update(time,pos);descent.update(time,pos);magic.update(time,pos);if(pos){const nearest=lamps.map(p=>({p,d:Math.hypot(p.x-pos.x,p.z-pos.z)})).sort((a,b)=>a.d-b.d);lights.forEach((l,i)=>{const lamp=nearest[i%nearest.length].p;l.position.copy(lamp);l.color.set(lamp.color||0xffb96c);l.intensity=35+Math.sin(time*4+i)*4;});}
   effects.update(time,pos);
   for(const r of rings)r.material.emissiveIntensity=.8+Math.sin(time*.7)*.2;
  };
