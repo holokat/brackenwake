@@ -2,6 +2,10 @@
 import { STANDIN } from '../mmo/plans/footprints.js';
 const ROOFED = new Set(['house','towered','stable','mill','granary','openShed','tent','well','gateTower','stall','bridge']);
 export function roofEnvelope(model,x,z,y,w,d,h,yaw) {
+  if(model==='meadow_arbor'||model==='meadow_fishing_awning')
+    return {x,z,y:y+h-.3,w:w-.4,d:d-.5,c:Math.cos(yaw),s:Math.sin(yaw)};
+  if(model==='meadow_windmill')
+    return {x,z,y:y+h*.72,w:4.1*w/10,d:4.1*d/5.5,c:Math.cos(yaw),s:Math.sin(yaw)};
   if(!ROOFED.has(STANDIN[model]?.body))return null;
   // Ruined chapel has an open nave. It must keep receiving rain.
   if(model==='chapel_sunken')return null;

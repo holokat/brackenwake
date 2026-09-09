@@ -64,6 +64,7 @@ import { STORY_ROLES, PERSON } from '../story.js';
 import { STATION_IDS } from '../recipes.js';
 import { FORAGE_MATERIAL_IDS } from '../recipes.js';
 import { FOOTPRINT, footprintOf, isRunKind, hasStandIn, AREA_KINDS } from './footprints.js';
+import {isMeadowFoliage} from '../haven_meadow_assets.js';
 
 /** How close two footprints may come before it counts as an overlap, metres. */
 export const OVERLAP_SLACK = 0.02;
@@ -199,7 +200,9 @@ function auditAll(plans, kind = 'plan') {
       const r = rectOf(p);
       r.model = p.model; r.on = p.on || null;
       if (reachOf(r) > R + 0.001) bad.push(`${where} reaches ${reachOf(r).toFixed(1)} m, outside the plan's ${R} m`);
-      rects.push(r);
+      // Soft flower drifts may mingle and grow beside masonry. They are still
+      // checked against the space bounds, but never occupy a solid footprint.
+      if(!isMeadowFoliage(p.model))rects.push(r);
     }
     for (let i = 0; i < rects.length; i++) {
       for (let j = i + 1; j < rects.length; j++) {

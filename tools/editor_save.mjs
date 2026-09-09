@@ -25,6 +25,7 @@
 
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, join, sep } from 'node:path';
+import {installEditorRefresh, refreshEditorModules} from './editor_refresh.mjs';
 
 /** The two folders, relative to the repo root, and what may be written in each. */
 export const SAVE_DIRS = ['src/mmo/spaces', 'public/terrain'];
@@ -172,6 +173,7 @@ export function editorSavePlugin(root = process.cwd()) {
     name: 'kaldera-editor-save',
     apply: 'serve',
     configureServer(server) {
+      installEditorRefresh(server, root, () => writeSpaceIndex(root));
       const send = (res, status, obj) => {
         res.statusCode = status;
         res.setHeader('content-type', 'application/json');
@@ -198,10 +200,7 @@ export function editorSavePlugin(root = process.cwd()) {
           // the next request re-reads them and nothing is reloaded now.
           let dropped = 0;
           try {
-            for (const [file, mods] of server.moduleGraph.fileToModulesMap) {
-              if (!file.includes(`/${SPACE_DIR}/`) && !file.includes('/public/terrain/')) continue;
-              for (const m of mods) { server.moduleGraph.invalidateModule(m); dropped++; }
-            }
+            dropped = refreshEditorModules(server, root);
           } catch (err) { server.config.logger.warn(`[editor] could not refresh the module graph: ${err && err.message}`); }
           out.refreshed = dropped;
         } else server.config.logger.warn(`[editor] refused: ${out.text}`);

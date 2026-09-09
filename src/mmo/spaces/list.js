@@ -406,6 +406,7 @@ import sp_island_copse_5 from './island_copse_5.json' with { type: 'json' };
 import sp_island_downs from './island_downs.json' with { type: 'json' };
 import sp_island_eastfield from './island_eastfield.json' with { type: 'json' };
 import sp_island_hillfield from './island_hillfield.json' with { type: 'json' };
+import sp_island_kite_meadow from './island_kite_meadow.json' with { type: 'json' };
 import sp_island_mine from './island_mine.json' with { type: 'json' };
 import sp_island_mine_east from './island_mine_east.json' with { type: 'json' };
 import sp_island_pasture from './island_pasture.json' with { type: 'json' };
@@ -829,6 +830,7 @@ export const FILES = {
   'island_downs': sp_island_downs,
   'island_eastfield': sp_island_eastfield,
   'island_hillfield': sp_island_hillfield,
+  'island_kite_meadow': sp_island_kite_meadow,
   'island_mine': sp_island_mine,
   'island_mine_east': sp_island_mine_east,
   'island_pasture': sp_island_pasture,

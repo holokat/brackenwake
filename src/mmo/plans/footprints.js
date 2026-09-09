@@ -1,5 +1,6 @@
 import {LIVING_FOOTPRINTS} from '../living_catalog.js';
 import {STRONGHOLD_FOOTPRINTS} from '../stronghold_assets.js';
+import {MEADOW_FOOTPRINTS} from '../haven_meadow_assets.js';
 // What each piece of the Greenwold is, as numbers.
 //
 // PURE. No THREE, no DOM. The bodies that these numbers drive live in
@@ -30,6 +31,7 @@ import {STRONGHOLD_FOOTPRINTS} from '../stronghold_assets.js';
 export const FOOTPRINT = {
   ...LIVING_FOOTPRINTS,
   ...STRONGHOLD_FOOTPRINTS,
+  ...MEADOW_FOOTPRINTS,
   // -- Hearthhome ------------------------------------------------------------
   inn: [14, 9, 9],
   smithy: [9, 7, 6],
@@ -177,6 +179,7 @@ export const AREA_KINDS = ['lane', 'water', 'mud', 'bare', 'wheat'];
 
 const S = (body, opts) => ({ body, opts: opts || {} });
 export const STANDIN = {
+  ...Object.fromEntries(Object.keys(MEADOW_FOOTPRINTS).map(id=>[id,S('block')])),
   occult_tower: S('towered', { towerW: 10, spire: true, wall: 'stone', hallH: 17 }),
   ritual_altar: S('prop', { stone: 'stone' }),
   ...Object.fromEntries(Object.keys(LIVING_FOOTPRINTS).map(id=>[id,S('block')])),

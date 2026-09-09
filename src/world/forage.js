@@ -1,4 +1,5 @@
 import {updateForageSupports} from './forage_support.js';
+import {createForageClearance} from './forage_clearance.js';
 // What you can pick up off the forest floor.
 //
 // The table is the FORAGE table of `docs/reference/arbor-forest-optimized.html`,
@@ -956,6 +957,7 @@ export function createForageField(sc, opts = {}) {
   parent.add(group);
 
   const seed = opts.seed ?? field.seed ?? 1;
+  const forageAllowed = createForageClearance(opts.spaces, field);
   const treesFor = typeof opts.treesFor === 'function' ? opts.treesFor : null;
   const material = forageMaterial();
   const chunks = new Map();          // 'cx,cz' -> { group, meshes: Map(id -> mesh), recs: [] }
@@ -1113,7 +1115,7 @@ export function createForageField(sc, opts = {}) {
     const wild = !field.sculpt || field.sculpt.wild ? placeForage(sample, cx, cz, trees, season, seed, {
       abundance: opts.abundance, scale: opts.scale, heightAt,
     }) : [];
-    const placed = authored.concat(wild);
+    const placed = authored.concat(wild.filter(forageAllowed));
     const g = new THREE.Group();
     g.name = `forage:${key}`;
     const entry = { key, cx, cz, group: g, meshes: new Map(), recs: [] };

@@ -1465,6 +1465,17 @@ console.log('\neditor: the ring under the brush is the ground the brush will tak
 // press of the brush back, and the second half would look like a bug.
 console.log('\neditor: the eraser takes the ground and everything standing on it, in one');
 {
+  // These checks own empty in-memory tiles. Authored world dressing must not
+  // become part of the fixture or change how many objects undo restores.
+  const prepareTiles = (editor, points) => {
+    const ids = [];
+    for (const [x, z] of points) {
+      const id = tileIdFor(x, z), at = tileCentre(x, z);
+      editor.open(emptySpace(id, id, at.x, at.z, TILE_R));
+      ids.push(id);
+    }
+    editor.useDoc(ids[0]);
+  };
   const t = fakeTerrain();
   const ed = createEditor({ terrain: t });
   // Two tiles, on purpose: the ring is going to straddle the edge between them,
@@ -1475,6 +1486,7 @@ console.log('\neditor: the eraser takes the ground and everything standing on it
   // the two after it are inside the second's radius even though they stand a
   // few metres over the line.
   const edge = TILE_M;                       // the line between tile 0 and tile 1
+  prepareTiles(ed, [[edge - 6, 128], [edge + 244, 128]]);
   ed.setTab('trees'); ed.arm('oak');
   ed.placeAt(edge - 6, 128);
   ed.setTab('trees'); ed.arm('pine');
@@ -1526,6 +1538,7 @@ console.log('\neditor: the eraser takes the ground and everything standing on it
   {
     const t2 = fakeTerrain();
     const e2 = createEditor({ terrain: t2 });
+    prepareTiles(e2, [[500, 500], [540, 500]]);
     e2.setTab('rocks'); e2.arm('sarsen');
     for (let i = 0; i < 6; i++) e2.placeAt(500 + i * 8, 500);
     e2.setTab('terrain'); e2.arm('erase');

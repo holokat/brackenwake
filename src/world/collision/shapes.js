@@ -1,6 +1,7 @@
 import {vaultHeightOf} from '../../mmo/plans/footprints.js';
 import {cameraSweep} from './camera.js';
 import {OLD_CELLARS_EXTERIOR} from '../../mmo/old_cellars_exterior.js';
+import {MEADOW_FOOTPRINTS,meadowSolidParts} from '../../mmo/haven_meadow_assets.js';
 // Static physical envelopes in metres. Foliage bends; trunks, masonry and furniture do not.
 const SOFT=/^(lane_slab|road_slab_2m|road_kerb|rail_2m|stone_bridge_10m|footbridge|stepping_stones|rooting_patch|lily_pad_patch|offerings|chain_lantern|legion_banner|sheep_skeleton)$/;
 const SOFT_LIVING=/^(cowslip_patch|cow_parsley|yellow_iris|bracken|leaf_litter|mushroom_ring|bluebells|nettles|puddle|duck_pond|sheep_track|deer_rub|rabbit_warren|fox_earth|molehills|butterfly|dragonfly|kestrel|crow_flock|ivy|reed|water_weed|lily|rush|flower|fung|moss|lichen|grass|fern|seed|petal|fallen_leav)/;
@@ -10,6 +11,8 @@ export function propColliders(model,x,z,y,w,d,h,yaw=0){
  if(SOFT.test(model)||(model.startsWith('lw_')&&SOFT_LIVING.test(model.slice(3)))||h<.28)return[];
  const c=Math.cos(yaw),s=Math.sin(yaw),out=[];
  const box=(dx,dz,bw,bd,bh=h,by=0)=>out.push({kind:'box',model,x:x+dx*c+dz*s,z:z+dz*c-dx*s,y:y+by,w:bw,d:bd,h:bh,c,s});
+ const meadow=meadowSolidParts(model);
+ if(meadow){const k=w/MEADOW_FOOTPRINTS[model][0];for(const part of meadow)box(...part.map(v=>v*k));return out;}
  if(model===OLD_CELLARS_EXTERIOR.id){
   const scale=w/OLD_CELLARS_EXTERIOR.footprint[0];
   for(const wall of OLD_CELLARS_EXTERIOR.walls)box(...wall.map(v=>v*scale));

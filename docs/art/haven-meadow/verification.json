@@ -1,0 +1,52 @@
+{
+  "walk": {
+    "stage": "walk-tested",
+    "routePoints": 51,
+    "seconds": 22.507099999809267,
+    "frames": 1319,
+    "meanFps": 58.603729490302065,
+    "p95FrameMs": 18.699999999999818,
+    "over50ms": 3,
+    "endpoint": {
+      "x": 40.25554106905696,
+      "z": 446.24655066945326
+    },
+    "viewport": {
+      "width": 2560,
+      "height": 1234,
+      "dpr": 2
+    }
+  },
+  "ready": {
+    "stage": "ready",
+    "world": "island",
+    "meadowMeshes": 18,
+    "triangles": 293190,
+    "draws": 304,
+    "frameTriangles": 838045,
+    "shaderErrors": 0,
+    "errors": []
+  },
+  "glbBytes": 1373408,
+  "blender": {
+    "version": "5.2.0 LTS",
+    "device": "Metal GPU only",
+    "metalRT": "Auto",
+    "denoiser": "GPU OpenImageDenoise",
+    "persistentData": true,
+    "samples": 64,
+    "resolution": [
+      1600,
+      1100
+    ],
+    "constructionSeconds": 0.108,
+    "throughExportAndSaveSeconds": 0.348,
+    "renderSeconds": 4.669
+  },
+  "tests": {
+    "meadow": "pass",
+    "planDetails": "pass",
+    "build": "pass",
+    "fullSuite": "editor fixtures and terrain/wayside timing budgets failed"
+  }
+}

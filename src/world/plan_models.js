@@ -1,5 +1,7 @@
 import {STRONGHOLD_ASSETS} from '../mmo/stronghold_assets.js';
 import {OLD_CELLARS_EXTERIOR} from '../mmo/old_cellars_exterior.js';
+import {isMeadowProp} from '../mmo/haven_meadow_assets.js';
+import {bindPropMotion,settleMeadowFoliage} from './prop_motion.js';
 import {propColliders} from './collision/shapes.js';
 import {LIVING_BY_MODEL} from '../mmo/living_catalog.js';
 // A named place, built from a plan drawn off a concept image.
@@ -686,7 +688,7 @@ export function registerProp(id, object3D) {
   wrap.add(object3D);
   // This authored model's doorway is its origin. Recentring its turf mound
   // would move the door away from both collision and the dungeon interaction.
-  if (f && id !== OLD_CELLARS_EXTERIOR.id) {
+  if (f && id !== OLD_CELLARS_EXTERIOR.id && !isMeadowProp(id)) {
     wrap.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(wrap);
     const height = box.max.y - box.min.y;
@@ -1230,8 +1232,10 @@ export function buildPlan(plan, site, heightAt) {
     // every copy of one model in a plan becomes one InstancedMesh per mesh of
     // that model, textures intact, one draw call per material.
     if (e.source === 'glb' && props.has(e.piece)) {
-      if(e.piece==='mill_wheel'){
-        e.g.traverse(o=>{if(o.name==='mill_wheel_pivot')moving.push(dt=>{o.rotation.x+=dt*.55;});if(o.isMesh){o.userData.site=site;o.userData.plan={id:plan.id,piece:e.piece,source:'glb'};}});
+      const animate=bindPropMotion(e.g);
+      if(animate){
+        moving.push(animate);
+        e.g.traverse(o=>{if(o.isMesh){o.userData.site=site;o.userData.plan={id:plan.id,piece:e.piece,source:'glb'};}});
         out.add(e.g);continue;
       }
       const inst = instancedGlb(e, props.get(e.piece));
@@ -1308,6 +1312,7 @@ function buildStop(plan, site, heightAt, c, sub, stop, world, trees = new Map(),
     const roof=roofEnvelope(p.model,wx,wz,body.group.position.y,body.w,body.d,body.h,yaw);
     if(roof)weatherRoofs.push(roof);
     body.group.rotation.y = yaw;
+    settleMeadowFoliage(p.model,body.group,wx,wz,yaw,heightAt);
     physical.push(...propColliders(p.model,wx,wz,body.group.position.y,body.w,body.d,body.h,yaw));
     // A piece built from a glb ALWAYS gets its own merge group. It has its own
     // materials, so it could never have shared a bucket with a stand-in
