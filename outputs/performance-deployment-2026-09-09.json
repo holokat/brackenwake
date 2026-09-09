@@ -1,0 +1,222 @@
+{
+  "verifiedAt": "2026-09-09T05:42:28.692Z",
+  "origin": "https://brackenwake.com",
+  "gameCommit": "109fcc506803d7832be8a976abbd5c73b38b657a",
+  "worker": "brackenwake",
+  "accountId": "0b55a6c39a979a58efbf40875ac376d6",
+  "version": "0f815ff9-1fb0-4030-9441-bd56e374867c",
+  "previousVersion": "2a3e5d04-40d3-4d00-92c8-399c6a872fb3",
+  "htmlSha256": "2cd3cf1b8826c42e733caa404d152fd1584a3a63b20529b340e97c2b94f8a2f6",
+  "exactAssetChecks": [
+    {
+      "path": "/assets/game-DrRt9ZZz.js",
+      "bytes": 4588939,
+      "sha256": "368ee31ebd831c341ce8a612ba7186bf1addf0fad6c14da0f576022260282208"
+    },
+    {
+      "path": "/assets/modulepreload-polyfill-P2Xu9kJm.js",
+      "bytes": 670,
+      "sha256": "418c206484b89b68ef5f067277831e583fc9193a62aadf4de269acaaeb12a85f"
+    },
+    {
+      "path": "/assets/three.core-CpYT6u8q.js",
+      "bytes": 373573,
+      "sha256": "24331d46a8f0c0c4045631f355f99e108fd7fa97b87b74a8caf47ac215a183b3"
+    },
+    {
+      "path": "/assets/BufferGeometryUtils-ytRJkp9S.js",
+      "bytes": 4768,
+      "sha256": "b6024a36572d64c175eea7c9103ed1d89ebec4fa7ba24840a71a2a009755a6f3"
+    },
+    {
+      "path": "/assets/preload-helper-Czpn1I53.js",
+      "bytes": 1196,
+      "sha256": "aba87f2a53e45ecdc9113fc30387d16e449d1676428cf5f82dd624c1df97d152"
+    },
+    {
+      "path": "/assets/hairstyles-QIGwq74C.js",
+      "bytes": 104087,
+      "sha256": "2a6ed864b423a420aaa969359ca6388fe6d82fcac2ce1c63e4635c3f84a06161"
+    },
+    {
+      "path": "/assets/game-B_kwqnlL.css",
+      "bytes": 4416,
+      "sha256": "cfd92609b8947d3694247d0171bc7330be2f33949a94eb169544f584d271210a"
+    }
+  ],
+  "dungeonModelChecks": [
+    {
+      "path": "/assets/abbotCinder-B4yUMeD7.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 2472296
+    },
+    {
+      "path": "/assets/asterFirstKing-B5-SCiIU.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 2395696
+    },
+    {
+      "path": "/assets/boss-01-DXbCk7v2.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 11792632
+    },
+    {
+      "path": "/assets/boss-02-C6phzj2H.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 14647604
+    },
+    {
+      "path": "/assets/boss-03-CdB6UwDw.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 13769688
+    },
+    {
+      "path": "/assets/boss-04-B6bKPDbx.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 13789828
+    },
+    {
+      "path": "/assets/boss-05-CWnR2bJj.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 23175544
+    },
+    {
+      "path": "/assets/boss-06-BnUUSfnc.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 24145396
+    },
+    {
+      "path": "/assets/boss-07-5LYsKOqO.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 17629916
+    },
+    {
+      "path": "/assets/cellar-entry-ObwrFPV4.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 21967680
+    },
+    {
+      "path": "/assets/cellar-room-01-CRO633zS.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 3451244
+    },
+    {
+      "path": "/assets/cellar-room-02-7xEq1_83.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 3005668
+    },
+    {
+      "path": "/assets/cellar-room-03-BCX9aCt0.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 5444628
+    },
+    {
+      "path": "/assets/cellar-room-04-DcLok0uV.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 4435936
+    },
+    {
+      "path": "/assets/cellar-room-05-Bh3nysYH.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 8986240
+    },
+    {
+      "path": "/assets/cellar-room-06-B7qmDU_6.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 9492668
+    },
+    {
+      "path": "/assets/cellar-room-07-CWRj0aUH.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 4550152
+    },
+    {
+      "path": "/assets/cellar-room-08-mr_4sXf9.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 12681912
+    },
+    {
+      "path": "/assets/ilexChainArchivist-BzjrDDde.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 3957708
+    },
+    {
+      "path": "/assets/morvaOssuaryMother-D7ykoP9y.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 5563316
+    },
+    {
+      "path": "/assets/oram-CWmf8UD7.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 1237572
+    },
+    {
+      "path": "/assets/regular-chapel-GXoPwpX-.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 8411796
+    },
+    {
+      "path": "/assets/regular-crypt-Tx-zhH0W.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 9073584
+    },
+    {
+      "path": "/assets/regular-store-9DbtpHRs.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 9613696
+    },
+    {
+      "path": "/assets/sextonBellkeeper-vl6Azp-P.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 2988760
+    },
+    {
+      "path": "/assets/vossInvertedSaint-B7LzZV8d.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 3460764
+    },
+    {
+      "path": "/assets/widow-vault-Da94VDlW.glb",
+      "status": 200,
+      "glbHeaderVerified": true,
+      "bytes": 20060584
+    }
+  ],
+  "publicRouteChecks": [
+    "Homepage links to brackenwake.com/play",
+    "Clean game entry serves the production game HTML",
+    "6 game entry modules resolve on the same origin",
+    "Model, terrain and artwork requests resolve",
+    "Canonical redirects, website 404 and WebSocket-only response are correct",
+    "A real WebSocket upgrades through the game binding; no character or chat was sent"
+  ],
+  "buildSource": "Isolated export of committed source with existing ignored audio retained",
+  "marketingWorkerDeployed": false,
+  "authoredIslandChangesExcluded": true
+}
