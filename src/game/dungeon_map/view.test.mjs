@@ -7,6 +7,9 @@ import { createExploration } from './exploration.js';
 import { createOldCellars } from '../../world/old_cellars.js';
 import { worldOf } from '../../world/dungeon_gen.js';
 import { createWorldField } from '../../world/field.js';
+import { spaceSiteRow } from '../../world/sites.js';
+import { createState, blankCharacter } from '../state.js';
+import islandCellars from '../../mmo/spaces/island_cellars.json' with { type: 'json' };
 import { viewOf } from '../minimap.js';
 
 function context() {
@@ -97,4 +100,71 @@ test('the HUD factory switches maps, blocks outdoor input and preserves outdoor 
   assert.match(map.el.title, /500 m/);
   assert.ok(outdoorReads > baseReads); assert.equal(overlay.hidden, true);
   map.dispose(); assert.equal(root.children.length, 0);
+});
+
+test('all Old Cellars charts survive exiting, rebuilding the floor, saving and reopening the character', () => {
+  const memory = new Map(), storage = {
+    getItem: key => memory.get(key) ?? null,
+    setItem: (key, value) => memory.set(key, String(value)),
+    removeItem: key => memory.delete(key),
+  };
+  let state = createState({ storage }), layout = null;
+  state.setCharacter({ ...blankCharacter(), name: 'Returning explorer' });
+  const site = spaceSiteRow(islandCellars), player = { pos: { x: 0, z: 0 }, yaw: 0 };
+  const field = createWorldField(1), remembered = new Map();
+  const mount = () => {
+    const doc = dom();
+    return createContextMinimap(doc.createElement('div'), { doc, player,
+      character: () => state.character, dungeon: () => layout, field: () => field, spaces: {}, zone: null });
+  };
+  let map = mount();
+  const enter = depth => {
+    layout = createOldCellars(1, site, depth);
+    player.pos = worldOf(layout, layout.entrance.gx, layout.entrance.gz);
+    map.update(.2);
+    assert.equal(map.inDungeon, true);
+  };
+  const leave = () => {
+    layout = null; player.pos = { x: site.x, z: site.z }; map.update(.2);
+    assert.equal(map.inDungeon, false);
+  };
+  for (let depth = 1; depth <= 8; depth++) {
+    enter(depth);
+    if (layout.stair) {
+      player.pos = worldOf(layout, layout.stair.gx, layout.stair.gz); map.update(.2);
+    }
+    const snapshot = { key: map.exploration.key, seen: map.exploration.seen.slice(),
+      record: structuredClone(state.character.dungeonMaps[map.exploration.key]) };
+    remembered.set(depth, snapshot);
+    leave();
+    assert.deepEqual(state.character.dungeonMaps[snapshot.key], snapshot.record, `floor ${depth}: exiting retains the chart`);
+    enter(depth);
+    assert.equal(map.exploration.key, snapshot.key, `floor ${depth}: regenerated layout has the same chart identity`);
+    assert.deepEqual(map.exploration.seen, snapshot.seen, `floor ${depth}: no mapped cell disappears on re-entry`);
+    leave();
+  }
+  assert.equal(state.save(), true);
+  const slot = state.slot;
+  map.dispose();
+  state = createState({ storage });
+  assert.equal(state.openSlot(slot), true);
+  map = mount();
+  for (let depth = 8; depth >= 1; depth--) {
+    enter(depth);
+    assert.deepEqual(map.exploration.seen, remembered.get(depth).seen, `floor ${depth}: saved exploration survives a new HUD and character load`);
+    const ctx = context(), painted = paintDungeonMap(ctx, map.exploration, viewOf(0, 0, 520));
+    assert.deepEqual(painted.stairs, depth === 8 ? ['up'] : ['up', 'down']);
+    assert.ok(map.exploration.seen.some(v => !v), 'unexplored areas stay unknown');
+    if (layout.stair) {
+      assert.equal(map.exploration.visible[layout.stair.gz * layout.w + layout.stair.gx], 0);
+      assert.ok(ctx.rectangles.some(r => r.colour === MAP_COLOURS.remembered), 'distant explored areas still paint as remembered');
+    }
+    leave();
+  }
+  state.newSlot(); state.setCharacter({ ...blankCharacter(), name: 'New explorer' });
+  enter(1);
+  assert.equal(map.exploration.seen[layout.stair.gz * layout.w + layout.stair.gx], 0, 'another character does not inherit this map');
+  assert.equal(state.openSlot(slot), true); map.update(.2);
+  assert.deepEqual(map.exploration.seen, remembered.get(1).seen, 'switching characters does not erase the original chart');
+  map.dispose();
 });

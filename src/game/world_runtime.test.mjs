@@ -142,6 +142,18 @@ const rt = createWorldRuntime(sc, { homeBiome: 'meadow' });
     const before = runtime.dungeonPreload.requests;
     runtime.update(.2, 100000, site.x - 90, site.z);
     ck('underground updates never keep running the surface prediction', runtime.dungeonPreload.requests === before);
+    const {createExploration} = await import('./dungeon_map/exploration.js');
+    const character = {}, explored = createExploration(runtime.dungeonLayout(), character);
+    const stair = runtime.dungeonScene.stairPos;
+    explored.reveal(stair.x, stair.z);
+    ck('the real dungeon stair paints cells into the character chart', explored.seen.some(Boolean));
+    runtime.leaveDungeon();
+    ck('the actual exit keeps the character chart', !!character.dungeonMaps[explored.key]);
+    runtime.enterDungeon(site);
+    const restored = createExploration(runtime.dungeonLayout(), character);
+    ck('actual exit and re-entry restore every previously painted cell under the same key',
+      restored.key === explored.key && restored.seen.every((value, i) => value === explored.seen[i]));
+    await runtime.dungeonScene.ready;
   } finally {runtime.dispose(); Object.assign(gltfAssets, original);}
 }
 
