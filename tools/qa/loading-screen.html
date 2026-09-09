@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brackenwake loading screen preview</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #111b18; color: #e8d9b5; font: 13px/1.4 system-ui; }
+    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+    nav { position: fixed; z-index: 1; top: 20px; left: 20px; padding: 10px; max-width: calc(100% - 60px); background: #101b17f2; border-radius: 6px; box-shadow: 0 0 0 1px #c9a44a55; }
+    nav p { margin: 0 4px 6px; }
+    button { min-height: 40px; padding: 8px 12px; margin: 3px; border: 1px solid #8f6f2a; border-radius: 3px; background: #253128; color: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid #e8d9b5; outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <iframe title="Loading screen preview"></iframe>
+  <nav aria-label="Preview controls">
+    <p>Loading screen preview. No character data is used.</p>
+    <button data-phase="restart">Restart</button>
+    <button data-phase="world">World loading</button>
+    <button data-phase="failed">Failed load</button>
+    <button data-phase="ready">Complete</button>
+    <button data-phase="narrow">Narrow screen</button>
+    <button data-phase="game">Test game boot</button>
+    <button data-phase="hide">Hide controls</button>
+  </nav>
+  <script type="module" src="./loading-screen.js"></script>
+</body>
+</html>

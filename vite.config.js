@@ -1,18 +1,18 @@
-// Vite's configuration, which exists for one reason: the in game editor needs
-// somewhere to save what it lays out.
+// Vite wires the dev-only editor save endpoint and the tiny initial loading
+// script, which must run even when the game's module graph fails to download.
 //
 // `editorSavePlugin` is DEV ONLY (`apply: 'serve'` inside it), so `vite build`
-// produces exactly what it produced before this file existed and the deployed
-// game has no write endpoint. Everything else is Vite's own defaults, which is
-// what the project ran on until now.
+// keeps the deployed game free of a write endpoint. The loading script is
+// included in the HTML in development and production.
 //
 // docs/mmo/wiring/ED1-EDITOR.md has the endpoint and what it refuses.
 
 import { defineConfig } from 'vite';
 import { editorSavePlugin } from './tools/editor_save.mjs';
+import { inlineBootScreenPlugin } from './tools/boot_screen.mjs';
 
 export default defineConfig({
-  plugins: [editorSavePlugin(process.cwd())],
+  plugins: [editorSavePlugin(process.cwd()), inlineBootScreenPlugin()],
   build: {
     rolldownOptions: {
       input: { game: 'index.html', welcome: 'welcome/index.html' },

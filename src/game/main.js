@@ -29,6 +29,7 @@ import { createRoster } from './roster.js';
 import { rosterAsked, clearRosterAsk } from './state.js';
 import { normalise as normaliseSettings } from './win_settings.js';
 import { WORLD_FOG } from './scene.js';
+import { runBoot } from './app/boot_lifecycle.js';
 
 const SAVE_EVERY_MS = 5000;
 
@@ -212,4 +213,6 @@ async function boot() {
 // The boot runs itself in a browser and nowhere else. `bootStage` above is
 // exported so a test can drive the decision; importing this file to reach it
 // must not try to raise a scene in node, and a node process has no document.
-if (typeof document !== 'undefined' && typeof document.getElementById === 'function') boot();
+if (typeof document !== 'undefined' && typeof document.getElementById === 'function') {
+  runBoot(boot).catch(error => console.error('[Brackenwake] Boot failed:', error));
+}

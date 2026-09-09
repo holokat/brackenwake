@@ -810,7 +810,7 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
   check('source: and the creation gate still says creating',
     /window\.__bw = \{[^}]*creating: true/.test(m.slice(m.indexOf('function showCreation'), m.indexOf('function startGame'))));
   check('source: the boot only runs itself where there is a document to run in',
-    /if \(typeof document !== 'undefined' && typeof document\.getElementById === 'function'\) boot\(\);/.test(m));
+    /if \(typeof document !== 'undefined' && typeof document\.getElementById === 'function'\) \{\s*runBoot\(boot\)\.catch\(/.test(m));
   check('and this file proves that by importing main.js with no document at all',
     typeof globalThis.document === 'undefined');
 }
