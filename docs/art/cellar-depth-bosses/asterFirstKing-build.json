@@ -1,0 +1,37 @@
+{
+  "id": "asterFirstKing",
+  "name": "Aster",
+  "height": 14,
+  "features": {
+    "skulls": 1,
+    "swords": 1
+  },
+  "meshes": 9,
+  "triangles": 12994,
+  "bones": 13,
+  "vertices": 7727,
+  "glbBytes": 2395696,
+  "glbSha256": "1a0072b1ec44192698b5095d140c98f6c1a3cd0bbd7a65629252eb04faf4ec63",
+  "clips": [
+    "idle",
+    "walk",
+    "run",
+    "attack",
+    "cast",
+    "hurt",
+    "special",
+    "die"
+  ],
+  "renderProfile": {
+    "backend": "METAL",
+    "devices": [
+      "Apple M2 Max (GPU - 30 cores)"
+    ],
+    "MetalRT": "AUTO",
+    "device": "GPU",
+    "denoiser": "OPENIMAGEDENOISE",
+    "gpuDenoiser": true,
+    "persistentData": true
+  },
+  "buildSeconds": 1.442
+}

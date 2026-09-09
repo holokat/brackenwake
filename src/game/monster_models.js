@@ -1,5 +1,6 @@
 import {buildCellarCreature} from './cellar_models.js';
 import {buildCellarOram} from './cellar_oram_model.js';
+import {buildCellarDepthBoss, CELLAR_BOSS_MODEL_IDS} from './cellar_depth_boss_model.js';
 import {buildOreElemental} from './ore_elemental_model.js';
 import {buildStudioCreature, STUDIO_MONSTER_LOOK} from './studio/creatures.js';
 import {buildStudioCaster} from './studio/hostile-casters.js';
@@ -2104,13 +2105,14 @@ export function monsterModelPlan() {
     if (m.tier === 0) continue;
     const studio = studioMonsterModelFor(m.id);
     const shape = shapeFor(m.id);
-    const model = studio ? `living-studio:${studio}` : glbModelFor(m.id);
-    let why = studio ? 'living-studio chibi' : 'glb';
+    const depthBoss = CELLAR_BOSS_MODEL_IDS[m.id];
+    const model = depthBoss || (studio ? `living-studio:${studio}` : glbModelFor(m.id));
+    let why = depthBoss ? 'authored Blender cellar boss' : studio ? 'living-studio chibi' : 'glb';
     if (!model) {
       why = BOX_ONLY_FAMILIES.includes(shape) ? 'no model for this family'
         : STANDIN_FAMILIES.includes(shape) ? `stand-in refused above tier ${STANDIN_MAX_TIER}`
           : 'no model';
-    } else if (!studio && STANDIN_FAMILIES.includes(shape)) why = 'stand-in';
+    } else if (!depthBoss && !studio && STANDIN_FAMILIES.includes(shape)) why = 'stand-in';
     out.push({ id: m.id, tier: m.tier, shape, model, why });
   }
   return out;
@@ -2120,7 +2122,8 @@ export function monsterModelPlan() {
 export function monsterModelIds() {
   const ids = new Set();
   for (const row of monsterModelPlan()) if (row.model) ids.add(row.model);
-  return [...ids].filter((id) => MODEL_IDS.includes(id));
+  const depthBossIds = new Set(Object.values(CELLAR_BOSS_MODEL_IDS));
+  return [...ids].filter((id) => MODEL_IDS.includes(id) || depthBossIds.has(id));
 }
 
 // -------------------------------------------------------------- the monster
@@ -2138,6 +2141,7 @@ export function monsterModelIds() {
  * as it was.
  */
 export function buildMonsterModel(id) {
+  const depthBoss = buildCellarDepthBoss(id, buildLegacyMonsterModel); if (depthBoss) return depthBoss;
   if(id==='oramBlackhand')return buildCellarOram(buildStudioCreature(id));
   const cellar=buildCellarCreature(id,buildMonsterModel);if(cellar)return cellar;
   const elemental=buildOreElemental(id);if(elemental)return elemental;

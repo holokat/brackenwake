@@ -1,3 +1,4 @@
+import { CELLAR_BOSSES, getCellarBoss } from '../mmo/cellar_bosses.js';
 // The monsters that are actually standing there. Run: node src/game/monsters.test.mjs
 //
 // Two halves, and the seam between them is on purpose.
@@ -1535,8 +1536,12 @@ function seedWith(layout, id, max = 3000) {
 {
   check('every boss has two phases with a line each',
     Object.values(MONSTERS).filter(isBoss).every((m) => bossPlanFor(m).length === 2 && bossPlanFor(m).every((p) => p.line)));
-  const kinds = new Set(Object.values(MONSTERS).filter(isBoss).flatMap((m) => bossPlanFor(m).map((p) => p.kind)));
-  check('and all four behaviours are reachable in play', kinds.size === 4, [...kinds].sort().join(', '));
+  const legacyBosses = Object.values(MONSTERS).filter(m => isBoss(m) && !getCellarBoss(m.id));
+  const kinds = new Set(legacyBosses.flatMap(m => bossPlanFor(m).map(p => p.kind)));
+  check('all four legacy behaviours remain reachable in play',
+    [...kinds].sort().join(',') === 'enrage,retreat,slam,summon', [...kinds].sort().join(', '));
+  check('the six depth boss phase plans reach the shared AI catalog',
+    CELLAR_BOSSES.length === 6 && CELLAR_BOSSES.every(b => bossPlanFor(MONSTERS[b.id]).every((p, i) => p.kind === b.phases[i].kind && p.line === b.phases[i].line)));
 
   const king = MONSTERS.ashenKing;
   check('a boss at full health is in phase 0', phaseIndexFor(king, 3200, 3200) === 0);
@@ -1815,7 +1820,7 @@ const GROUND = 3;
 // ------------------------------------------------------------- the boss plans
 {
   const bosses = Object.values(MONSTERS).filter(isBoss);
-  check('all sixteen bosses have a plan of their own rather than the default',
+  check('every registered boss has a plan of its own rather than the default',
     bosses.every((m) => BOSS_PLANS[m.id]), bosses.filter((m) => !BOSS_PLANS[m.id]).map((m) => m.id).join(', ') || 'none fall through');
   check('and every phase of every one of them says a line, with no em dash',
     bosses.every((m) => bossPlanFor(m).every((p) => p.line && !p.line.includes('—'))));

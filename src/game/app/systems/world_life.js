@@ -64,7 +64,7 @@ export const world_life = {
     };
     const forage = createForageField(sc, { field: runtime.field, treesFor, season: seasonAt(Date.now()) });
     const studioForage = createStudioForage(forage), pickForage = forage.pick.bind(forage);
-    forage.pick = ray => { const near = studioForage.pick(ray), far = pickForage(ray); return near && (!far || near.distance < far.distance) ? near : far; };
+    forage.pick = ray => { if(runtime.inDungeon)return null; const near = studioForage.pick(ray), far = pickForage(ray); return near && (!far || near.distance < far.distance) ? near : far; };
     const foraging = createForaging({ field: forage, inventory: pack, progression, hud, audio, floaters, character, actor, combat: fight.combat });
 
     const unregisterPeople=runtime.physical?.registerActors('people',()=>npcs.list());
@@ -92,8 +92,14 @@ export const world_life = {
     const day = frame.worldNow != null ? ctx.get('world').dayFactor(now) : frame.day;
     npcs.update(dt, pos, day);
     stations.update(pos.x, pos.z, now);
-    forage.update(pos.x, pos.z, seasonAt(Date.now()), now);   // one clock with harvest
-    studioForage.update(dt,pos);
+    updateSurfaceForage(ctx.get('world').runtime, forage, studioForage, pos, dt, now);
     interact.update(dt, now);
   },
 };
+
+export function updateSurfaceForage(runtime, forage, studioForage, pos, dt, now) {
+  forage.group.visible = !runtime.inDungeon;
+  if (runtime.inDungeon) return;
+  forage.update(pos.x, pos.z, seasonAt(Date.now()), now);
+  studioForage.update(dt, pos);
+}

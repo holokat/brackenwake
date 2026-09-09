@@ -80,7 +80,7 @@ check('the only tier 0 row over 8 health is the one tagged huge',
   monstersOfTier(0).filter((m) => m.hp > 8).map((m) => m.id).join() === 'whale'
   && MONSTERS.whale.notes.includes('huge'), `whale ${MONSTERS.whale.hp} health`);
 
-check('there are sixteen bosses: the document\'s four and wave A\'s twelve', BOSSES.length === EXPECTED_BOSSES,
+check('the documented, realm and Cellars bosses are all registered', BOSSES.length === EXPECTED_BOSSES,
   BOSSES.map((b) => b.id).join(' '));
 check('every boss changes phase at 66% and 33%', BOSSES.every((b) => b.phases[0] === 0.66 && b.phases[1] === 0.33));
 // The document's 2,000 to 4,000 is the dungeon level 3 boss, which is rank 5.
@@ -530,4 +530,5 @@ for (const id of ['trainingDummy', 'archeryTarget']) {
 check('the training bodies do not stretch the tier 1 damage band', TIER_DAMAGE_MIN_BAND[1][0] > 0, JSON.stringify(TIER_DAMAGE_MIN_BAND[1]));
 
 console.log(`\n  ${pass} passed, ${fail} failed`);
+if (!fail) console.log('MONSTER_ROSTER_VERIFIED');
 process.exit(fail ? 1 : 0);

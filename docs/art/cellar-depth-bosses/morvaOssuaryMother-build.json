@@ -1,0 +1,38 @@
+{
+  "id": "morvaOssuaryMother",
+  "name": "Morva",
+  "height": 4.8,
+  "features": {
+    "skulls": 86,
+    "chainLinks": 104,
+    "bells": 4
+  },
+  "meshes": 8,
+  "triangles": 53004,
+  "bones": 19,
+  "vertices": 31486,
+  "glbBytes": 5563316,
+  "glbSha256": "9d75181002c26d7bf4fe2cca0106b53b18ad0189fe7d5dcd3e2fe6c9c5cd569d",
+  "clips": [
+    "idle",
+    "walk",
+    "run",
+    "attack",
+    "cast",
+    "hurt",
+    "special",
+    "die"
+  ],
+  "renderProfile": {
+    "backend": "METAL",
+    "devices": [
+      "Apple M2 Max (GPU - 30 cores)"
+    ],
+    "MetalRT": "AUTO",
+    "device": "GPU",
+    "denoiser": "OPENIMAGEDENOISE",
+    "gpuDenoiser": true,
+    "persistentData": true
+  },
+  "buildSeconds": 1.918
+}

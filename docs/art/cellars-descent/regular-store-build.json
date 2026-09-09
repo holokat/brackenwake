@@ -1,0 +1,80 @@
+{
+  "id": "regular-store",
+  "blender": "5.2.0 LTS",
+  "profile": {
+    "backend": "METAL",
+    "gpuOnly": true,
+    "metalrt": "AUTO",
+    "denoiser": "OPENIMAGEDENOISE",
+    "gpuDenoising": true,
+    "persistentData": true,
+    "samples": 64,
+    "resolution": [
+      1440,
+      900
+    ]
+  },
+  "timings": {
+    "architecture": 0.01935541699640453,
+    "fittings": 0.033362749963998795,
+    "ornaments": 0.029498416930437088,
+    "flush": 0.3791808751411736,
+    "export": 1.2821009589824826
+  },
+  "metrics": {
+    "triangles": 144888,
+    "objects": 15,
+    "parts": 5483
+  },
+  "packing": {
+    "sourceBytes": 12917624,
+    "packedBytes": 9613680,
+    "normalVertices": 275252,
+    "maxNormalComponentError": 1.5258057806444292e-05,
+    "positionsAndIndices": "byte-identical",
+    "sourceAccessorHashes": {
+      "0": "bcde0440b9aaeac788b8943ec83586cdeedd83d7ceec3154dce195f94ab40333",
+      "3": "ec308f11c2ee8f1bee1d9a1a5fdfb76515297d0835bc565b580a01388f1afa07",
+      "4": "baccc079c1cd22acc40f83d4214b50b6bb3845ed705470e150340c24c317c4de",
+      "7": "50b6b1b296d55a17b5178b381c1b1d0b5fb5fabe5f385e8a5860bb0ff5ef7f24",
+      "8": "7dbb0528a75a538f4c46ac0ddd519f313eafdfbd5f9052ce564fa14d98dd26b8",
+      "12": "918d61a763b80ea5ce911b3324c0d5c7ca6e87dbefb68c18a8db610daf099cab",
+      "13": "877f86b10eaf2933529803f789a92eeb9af4ef95ce45a541b7472d7d4aff88bf",
+      "16": "4f4fc053b97745019c05785bec27d145b00e578900eeaab56a6f8340e8a7f67c",
+      "17": "5bc259f93bb4d8bf96155b302c20a618f725df20e485972046c10636a03c0207",
+      "20": "43b32eeec513c4f1d13c764d24b08e8f2a4805cf6c331e5f1c7fa2c30cbbdf42",
+      "21": "a88fa6a3a3045d649c3adbdb6b9a71810b799d88e48998d55e7c49834e70d8d2",
+      "24": "2204043b8d24f9fd54af5317b5f62a2dbeea921932aace28732b0d4ee3853e4e",
+      "25": "b6cf7e9b3e0d2f2e70d2c3022c752f3db7360d69ffa1408d580e9bed61fd1f15",
+      "29": "47a7632d93f2f0cb85d9b87a31758cfcaf99cda723bd50d50a9e0254227d1094",
+      "30": "ae8b9fba26cdaa3de7f2b9a083485c1155831bd3d2a8ae3727798133ca9de233",
+      "33": "dcb3edc1db123fc8295aaf6fa5686daabbf2208959b5db176043b6ebe9767ace",
+      "34": "e04a3a5a46c4c3d0f45bd4aca30268626332cf37318b2d1a3781776bf07ef86e",
+      "37": "61db1fa8e4e022de1288bc1f707c16196a3e1a7deb38af153e0814cbe0e59653",
+      "38": "0c3f6e0731f4d55d955d0ca6839ed3fafe55c52bb7d218b749dda46910dd9fb8",
+      "42": "fc0fb51f7ade5cffd340b6655f886cfdb324509768f6491cc21892f1e0e75379",
+      "43": "f4ae329c6bb06f06c3199ea6f1efc87cf9207a31f11f4218b5123f86a7a791b6",
+      "47": "3d118eb323db845ba849bd31e1b57808a36bf209f6df716b052b31c7c627ed2f",
+      "48": "777bfc2d025ae781e352dcc679917c61a24b30f51c27ae61bd758232360205bb",
+      "52": "a4b69c1be3f59d21e3702b26f27d53d47d12cb744ca41083b01a3c33a21d37bd",
+      "53": "65dfcfae5ca8a7544ca2af23732e466cb2db66dca2a2896fb020cc6dc4c87322",
+      "57": "a90f8e184ebd4d0c543961640b5078388e46f11ecf92b55e0b490a89fb151b67",
+      "58": "e60e4c4d6cc3eda4ebefda933c8946e8c4a303d647ab86c2e599a837e34efd26",
+      "61": "8d7906c9b092fa4d0e85fc65c1abe09978ff09ee378ae7d9cd9d19c4915991e7",
+      "62": "6bdcd3bfe4c9d165c9d9506022ea772455ffc7a6cc28f803c2d54acea31d8965",
+      "66": "197dad193f66298b45d12fe5cc73c3e4eaf402e78d3550175da1f59df75e6077"
+    },
+    "removed": "unused duplicate COLOR_1; height texture normal bindings"
+  },
+  "bytes": 9613696,
+  "sha256": "044d60bfbb45161cffeaa31b05599e5dce655cb3f7c3f03b286f7c8168d4f054",
+  "sources": {
+    "build.py": "589b4b9233b9c893e2b20f6eed8845df77d16e86fbac0a2e01b51353cb0c1c84",
+    "run.py": "a7a16bc90d3285a1c77ad7745914146c6759fc33066573c5242044f9e8bf671f",
+    "ornaments.py": "c9d79954d332c90ef4f4dca9b1fd91f772d5161fe337f84f56ee29b3c2e44e86",
+    "architecture.py": "4ff3dc67b7a2586c5b515420dfcaf6563bc9a54c14e204b223c3ca815a6f3e46",
+    "settings.py": "f532c910d3e27b31361cc4d42429690ba475d899ff053a049c8553a7ca94aa0e",
+    "fittings.py": "658a5aa9fdfe374b2eea8e00ec3a13f11c0de804ec072168daeebc9f02d9e1c2",
+    "check-ornaments.py": "2a4182508f21e98b36af6e19c2fb38c03dd3b060e67976a559d1bf10dd3b38c5"
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "id": "boss-05",
+  "blender": "5.2.0 LTS",
+  "profile": {
+    "backend": "METAL",
+    "gpuOnly": true,
+    "metalrt": "AUTO",
+    "denoiser": "OPENIMAGEDENOISE",
+    "gpuDenoising": true,
+    "persistentData": true,
+    "samples": 64,
+    "resolution": [
+      1440,
+      900
+    ]
+  },
+  "timings": {
+    "architecture": 0.07514716614969075,
+    "fittings": 0.269623541040346,
+    "ornaments": 0.12187216710299253,
+    "flush": 1.8581374580971897,
+    "export": 3.3949345420114696
+  },
+  "metrics": {
+    "triangles": 370676,
+    "objects": 17,
+    "parts": 14695
+  },
+  "packing": {
+    "sourceBytes": 31242772,
+    "packedBytes": 23175524,
+    "normalVertices": 672184,
+    "maxNormalComponentError": 1.5259049185978313e-05,
+    "positionsAndIndices": "byte-identical",
+    "sourceAccessorHashes": {
+      "0": "4bc5f9c32992a495723448dff108b4c269c441aa66086e7d329f8ba75a6f13f6",
+      "3": "f694f49421e75fee09e0aae93d8ba6506c7ee2b4f18df052c968da386e2bcc70",
+      "4": "b73763a4ddb0ea70d8f76b10c8dc77fbfbc3e898dc8ae70f407f2d70bbc28fa5",
+      "7": "1a919e1b6b68123001da2f89a59e312e389ae2090bb8372915e4d148abdbe712",
+      "8": "faef7fabe2f0f7f31f087c816ad527cbd91e264c770f05b0a35f10364543e5c6",
+      "11": "015346d9797f10bc9faceb25358edf30ac100ceac6e098eabe4af10e53c2d086",
+      "12": "a035b061fcfb3ecf18f15d59ee4fcb9395820d9d4d1a5c68cb2c4139b43bcee9",
+      "16": "918d61a763b80ea5ce911b3324c0d5c7ca6e87dbefb68c18a8db610daf099cab",
+      "17": "916ac3abe9a3df623f317021cd7d5d69841bc65e379b190408658fc87388b5c1",
+      "20": "03e967e02b366fce4fb2b91580f68c1f1588dc8fa93df5111f3e6adfb2cbc501",
+      "21": "627708fe0bf463bc76ce20f4c0f5139c1f9d8646aa7c7e48352b7c7aa352f67c",
+      "24": "5af37fb52037dc35b1eab810ec0f28ce57ca208ac671e428e8ce6f22b6c83bcb",
+      "25": "bc777fcd12622940bfdc7943722b7d13f78ff547cf094973c0cf5b298ff5464e",
+      "28": "61a9b44e116852889bb1669e8ac9907537500dc93bd39d4d4625edfad5937bfb",
+      "29": "4e341c9103d8b5ef214f8cee99aff4cc441d4c9393526c1223edc7c3cdb5a746",
+      "33": "072c2dd4187b6f91cf348bf1893a36dbe560beeba4eab0da8af4fb48e59a61c9",
+      "34": "705bbdaf34d66c320071dd662e4a736cbbb1b8239205dfba189ff7cfac44d6e3",
+      "37": "53a923a8d5c73bd62cd95e137c8d395f789d046957cdd48d201293e08b542fc3",
+      "38": "203351cde19099107fca796e502c17e83f5d7bd1e4308fc9d05aade3169d7e86",
+      "41": "4efdb293d94a0a37519c2653df35a86da3604a979bc6abad5f02a409c8e6fb68",
+      "42": "9640b4fe3f4f25e1f89e47e2eff7095038956cd4062e8fbfb51262755d808026",
+      "46": "cd469353a28233224eb25cbe7228db6046117ce0eb477145b2d00dce3fd6b6c1",
+      "47": "b00d0a5514264396c1ab81a7cc19b364fe05616a574cfd55b3cdc30b58f0c070",
+      "50": "f565b36cfb202fae63f0618776b34e80e4ab0406e4a231f65fb6eb1d5c4ad34f",
+      "51": "ee4fc00dda89c800f588563fd97ca36059a8a56e93afeb1a747437300a60135a",
+      "55": "aae47a60ad81ad8e4d084101d46b6ca6ece26f114abde97d4b063bb4cf13c297",
+      "56": "2426c70964eca9f19dda6e2368d2e343498562845aeed07eb7fdc3aa7936c331",
+      "60": "94bc8caaae990bc7b85789877be2f58f267b9689c27f5e3f32f61896601a809f",
+      "61": "02b878eb575f3ef3f8f42e07a5c36c4ae59e92d450d6876c29ae38fe3db0ec93",
+      "65": "f46642c65f6b860a68c4d7016c43a25689332fc39bd085dcade5a5529666658d",
+      "66": "5df3b6a332cfa220d9ddee3946080966ffa69f49c78716b291e286a846827749",
+      "69": "b1ff088db967ec2dfc3dd09c43bc7fda8b8f8d703dd486e208282ec5037e4e97",
+      "70": "47e5e5f439ea584105888ea92b199d34b8257fd1476550e6e4a2121aa8f73a92",
+      "74": "fdc9d21b4aff75dbfeb9a7b021b6ba0ecab7cf0470c10f068f0ff9f850f9a6e1"
+    },
+    "removed": "unused duplicate COLOR_1; height texture normal bindings"
+  },
+  "bytes": 23175544,
+  "sha256": "6a959a039e18983ceb15933d3f54380f6be09fcc2cc77806fa49eea0459f2082",
+  "sources": {
+    "build.py": "589b4b9233b9c893e2b20f6eed8845df77d16e86fbac0a2e01b51353cb0c1c84",
+    "run.py": "a7a16bc90d3285a1c77ad7745914146c6759fc33066573c5242044f9e8bf671f",
+    "ornaments.py": "c9d79954d332c90ef4f4dca9b1fd91f772d5161fe337f84f56ee29b3c2e44e86",
+    "architecture.py": "4ff3dc67b7a2586c5b515420dfcaf6563bc9a54c14e204b223c3ca815a6f3e46",
+    "settings.py": "f532c910d3e27b31361cc4d42429690ba475d899ff053a049c8553a7ca94aa0e",
+    "fittings.py": "658a5aa9fdfe374b2eea8e00ec3a13f11c0de804ec072168daeebc9f02d9e1c2",
+    "check-ornaments.py": "2a4182508f21e98b36af6e19c2fb38c03dd3b060e67976a559d1bf10dd3b38c5"
+  }
+}

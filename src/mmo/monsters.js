@@ -1,3 +1,4 @@
+import { CELLAR_BOSSES, getCellarBoss, registerCellarBosses } from './cellar_bosses.js';
 import {registerCellarCreatures,CELLAR_CREATURE} from './cellar_monsters.js';
 import {registerOreElementals,ORE_ELEMENTAL} from './ore_elementals.js';
 import {MONSTER_HEALTH_FACTOR, MONSTER_DAMAGE_FACTOR} from './combat_pace.js';
@@ -854,6 +855,7 @@ boss({ id: 'rimemouth', name: 'Rimemouth', rank: 4, lair: 'whitepines',
 
 registerOreElementals(rows);
 registerCellarCreatures(rows);
+registerCellarBosses(boss);
 
 // Gold comes from the tier unless a row overrides it.
 for (const r of rows) if (!r.gold) r.gold = TIERS[r.tier].gold.slice();
@@ -861,14 +863,14 @@ for (const r of rows) if (!r.gold) r.gold = TIERS[r.tier].gold.slice();
 export const MONSTER_LIST = rows;
 export const MONSTERS = Object.fromEntries(rows.map((m) => [m.id, m]));
 // the training yard's two bodies are in no document: they are furniture that takes a hit
-for (const m of rows) if (!m.notes.includes('dummy')) DOC_REFS.monsters[m.id] = m.name.replace(/^the /, '');
+for (const m of rows) if (!m.notes.includes('dummy') && !getCellarBoss(m.id)) DOC_REFS.monsters[m.id] = m.name.replace(/^the /, '');
 
 export const BOSSES = rows.filter((m) => m.boss);
 /**
- * Four in the document, twelve authored for the realms in wave A. The number is
+ * Four in the document, twelve realm bosses and the authored Cellars descent. This is
  * pinned so a boss cannot be lost in an edit and nobody notice.
  */
-export const EXPECTED_BOSSES = 16;
+export const EXPECTED_BOSSES = 16 + CELLAR_BOSSES.length;
 export const monstersOfTier = (t) => rows.filter((m) => m.tier === t);
 
 // ---------------------------------------------------------------------------
@@ -1461,6 +1463,8 @@ export function auditMonsters() {
   for (const m of MONSTER_LIST) {
     if (m.tier === 0 && !placed.has(m.id)) continue;   // critters are placed by src/world/fauna.js as well
     if (m.notes.includes('dummy')) continue;             // a training body stands where a space file puts it (island_training)
+    const cellarBoss = getCellarBoss(m.id);
+    if (cellarBoss && m.cellarBoss && m.cellarDepth === cellarBoss.depth && m.where === `oldcellars:${cellarBoss.depth}`) continue;
     if(CELLAR_CREATURE[m.id]&&m.cellarCreature)continue; // authored Old Cellars encounters
     if (ORE_ELEMENTAL[m.id] && m.oreElemental===ORE_ELEMENTAL[m.id].ore) continue; // surfaced by the finite mining claim encounter
     if (!placed.has(m.id)) bad.push(`monster ${m.id} lives nowhere`);

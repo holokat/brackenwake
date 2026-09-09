@@ -1072,17 +1072,28 @@ export function stepPlayer(s, dt, move, heightAt) {
   // the step, refused where the ground stands up like a wall. A refused
   // diagonal is retried one axis at a time so he slides along the mountain
   // instead of gluing himself to it.
-  const groundAt=(x,z)=>Math.max(h(x,z),h.supportAt?.(x,z,s.y+.08)??-Infinity);
+  // Look far enough up a physical ramp for this frame's travel. A fixed 8 cm
+  // probe made valid steep stairs alternate between walking and blocking.
+  const supportRise=Math.max(WALL_STEP,Math.hypot(vx,vz)*dt*MAX_SLOPE+.02);
+  const groundAt=(x,z)=>Math.max(h(x,z),h.supportAt?.(x,z,s.y+supportRise)??-Infinity);
   const y0 = groundAt(s.x, s.z);
   const ok = (nx, nz) => {
     const d = Math.hypot(nx - s.x, nz - s.z);
     if (d < 1e-9) return true;
     const ground = groundAt(nx, nz);
     if (!Number.isFinite(ground)) return false;
-    if (h.canMove && !h.canMove({x:s.x,y:s.y,z:s.z},{x:nx,y:s.airborne?s.y:ground,z:nz})) return false;
+    const rise=ground-s.y;
+    const lowStep=!s.airborne&&rise>0&&rise<=WALL_STEP&&
+      (h.supportAt?.(nx,nz,s.y+WALL_STEP)??-Infinity)>=ground-.01;
+    if (h.canMove && !h.canMove({x:s.x,y:s.y,z:s.z},{x:nx,y:s.airborne?s.y:ground,z:nz})) {
+      // A capsule meets a stair landing before its centre reaches the edge.
+      // Step onto a low support only if both the headroom and lifted sweep fit.
+      if(!lowStep||ground+1.75>(h.ceilingAt?.(s.x,s.z,s.y)??Infinity)+.01||
+        !h.canMove({x:s.x,y:ground,z:s.z},{x:nx,y:ground,z:nz}))return false;
+    }
     // in the air the only thing that stops you is a wall above your feet
     if (s.airborne) return ground <= s.y + WALL_STEP;
-    return (ground - y0) / d <= MAX_SLOPE;
+    return lowStep||(ground - y0) / d <= MAX_SLOPE;
   };
   // trapezoid, not Euler: over a frame of changing speed the average velocity
   // is the honest one, and a second of walking then covers the distance the

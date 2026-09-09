@@ -1,12 +1,16 @@
+import {descentRoom} from './cellar_descent_layout.js';
 import * as T from 'three';
 import { worldOf, walkable } from './dungeon_gen.js';
 import { cellarHeight } from './old_cellars.js';
 import { createCellarArtKit } from './cellar_art_kit.js';
+import {cellarRoutes} from './cellar_routes.js';
+import {hasCellarEntry} from './cellar_entry_layout.js';
 // Rock shell and supporting masonry. Landmark furniture is owned by room art.
 export function furnishCellarVaults(root, L, bodies) {
     const k = createCellarArtKit(root, bodies);
+    const routes = cellarRoutes(L);
     for (const r of L.rooms) {
-        if (r.id === L.landmark?.roomId)
+        if (descentRoom(L,r.id) || r.id === L.landmark?.roomId || (hasCellarEntry(L) && r.id < 2))
             continue;
         const p = worldOf(L, r.cx, r.cz), height = L.theme.ceiling;
         for (let i = 0; i < 40; i++) {
@@ -14,6 +18,7 @@ export function furnishCellarVaults(root, L, bodies) {
             if (!walkable(L, gx, gz))
                 continue;
             const q = worldOf(L, gx, gz), y = cellarHeight(L.level, q.z);
+            if (routes.overlaps(q.x + Math.cos(a) * 4, q.z + Math.sin(a) * 4, 7)) continue;
             // Craggy volumes sit behind the floor perimeter, preserving navigable routes.
             for (let j = 0; j < 3; j++)
                 k.add('rock', 'stone', q.x + Math.cos(a) * 4, y + height * (.16 + j * .32), q.z + Math.sin(a) * 4, 3 + i % 3, height * .29, 3 + (i * 7 % 4), 0, a, .06 * Math.sin(i));

@@ -1,0 +1,38 @@
+{
+  "id": "sextonBellkeeper",
+  "name": "Sexton",
+  "height": 6,
+  "features": {
+    "bells": 7,
+    "skulls": 1,
+    "chainLinks": 30
+  },
+  "meshes": 8,
+  "triangles": 20098,
+  "bones": 9,
+  "vertices": 10941,
+  "glbBytes": 2988760,
+  "glbSha256": "023fe44909471f4e992450fc126f3cc6a075181e193b6c98f72e216deba8d243",
+  "clips": [
+    "idle",
+    "walk",
+    "run",
+    "attack",
+    "cast",
+    "hurt",
+    "special",
+    "die"
+  ],
+  "renderProfile": {
+    "backend": "METAL",
+    "devices": [
+      "Apple M2 Max (GPU - 30 cores)"
+    ],
+    "MetalRT": "AUTO",
+    "device": "GPU",
+    "denoiser": "OPENIMAGEDENOISE",
+    "gpuDenoiser": true,
+    "persistentData": true
+  },
+  "buildSeconds": 1.981
+}

@@ -1,0 +1,39 @@
+{
+  "id": "ilexChainArchivist",
+  "name": "Ilex",
+  "height": 9,
+  "features": {
+    "skulls": 1,
+    "chainLinks": 108,
+    "books": 4,
+    "bells": 4
+  },
+  "meshes": 8,
+  "triangles": 26542,
+  "bones": 17,
+  "vertices": 15139,
+  "glbBytes": 3957708,
+  "glbSha256": "3006cbf6056a6a8e45ef346f2bfbd2a16219a2aee38d56b0f6f78287ae47e928",
+  "clips": [
+    "idle",
+    "walk",
+    "run",
+    "attack",
+    "cast",
+    "hurt",
+    "special",
+    "die"
+  ],
+  "renderProfile": {
+    "backend": "METAL",
+    "devices": [
+      "Apple M2 Max (GPU - 30 cores)"
+    ],
+    "MetalRT": "AUTO",
+    "device": "GPU",
+    "denoiser": "OPENIMAGEDENOISE",
+    "gpuDenoiser": true,
+    "persistentData": true
+  },
+  "buildSeconds": 2.188
+}

@@ -1,0 +1,37 @@
+{
+  "id": "vossInvertedSaint",
+  "name": "Voss",
+  "height": 11,
+  "features": {
+    "skulls": 1,
+    "chainLinks": 102
+  },
+  "meshes": 6,
+  "triangles": 27372,
+  "bones": 11,
+  "vertices": 14968,
+  "glbBytes": 3460764,
+  "glbSha256": "07bc5ff223b0b6f3ed6ed12201a87ddf4032c7af7b1bd7d6ad50a51cbed3198d",
+  "clips": [
+    "idle",
+    "walk",
+    "run",
+    "attack",
+    "cast",
+    "hurt",
+    "special",
+    "die"
+  ],
+  "renderProfile": {
+    "backend": "METAL",
+    "devices": [
+      "Apple M2 Max (GPU - 30 cores)"
+    ],
+    "MetalRT": "AUTO",
+    "device": "GPU",
+    "denoiser": "OPENIMAGEDENOISE",
+    "gpuDenoiser": true,
+    "persistentData": true
+  },
+  "buildSeconds": 1.226
+}

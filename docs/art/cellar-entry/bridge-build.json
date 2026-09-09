@@ -1,0 +1,80 @@
+{
+  "elapsedSeconds": 3.980324916075915,
+  "records": [
+    {
+      "result": {
+        "backend": "METAL",
+        "gpuOnly": true,
+        "metalrt": "AUTO",
+        "denoiser": "OPENIMAGEDENOISE",
+        "gpuDenoising": true,
+        "persistentData": true,
+        "samples": 64,
+        "resolution": [
+          1440,
+          900
+        ]
+      },
+      "roundTripMs": 509.05437488108873
+    },
+    {
+      "result": {
+        "stage": "architecture",
+        "seconds": 0.09360387502238154,
+        "parts": 9766
+      },
+      "roundTripMs": 94.22704204916954
+    },
+    {
+      "result": {
+        "stage": "props",
+        "seconds": 0.046651249984279275,
+        "parts": 11768
+      },
+      "roundTripMs": 47.211416997015476
+    },
+    {
+      "result": {
+        "triangles": 325012,
+        "objects": 14,
+        "parts": 11768,
+        "partsByMaterial": {
+          "limestone": 7207,
+          "trim": 956,
+          "floor": 1480,
+          "ceiling": 396,
+          "timber": 106,
+          "wood": 786,
+          "iron": 645,
+          "glow": 22,
+          "dark": 8,
+          "bottle": 24,
+          "wax": 4,
+          "cloth": 4,
+          "coal": 4,
+          "rubble": 126
+        }
+      },
+      "roundTripMs": 979.3133328203112
+    },
+    {
+      "result": {
+        "lights": 27
+      },
+      "roundTripMs": 1.5262500382959843
+    },
+    {
+      "result": {
+        "bytes": 21967680,
+        "triangles": 325012,
+        "timings": {
+          "architecture": 0.09360387502238154,
+          "props": 0.046651249984279275,
+          "flush": 0.9778241249732673,
+          "export": 2.0024975419510156
+        }
+      },
+      "roundTripMs": 2344.600666081533
+    }
+  ]
+}

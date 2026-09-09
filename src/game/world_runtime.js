@@ -1,3 +1,4 @@
+import {cellarFloorAt} from '../world/cellar_floor.js';
 import {isShoulder,SHOULDER_SPEC,createShoulderWorking} from '../world/shoulder_working.js';
 import {furnishShoulder} from '../world/shoulder_scene.js';
 import {createOldCellars} from '../world/old_cellars.js';
@@ -510,6 +511,7 @@ export function createWorldRuntime(sc, opts = {}) {
   function dungeonFloor(x, z) {
     const L = dungeon.layout;
     if (!L || !L.heights) return DUNGEON_FLOOR_Y;
+    if (L.siteId === 'oldcellars') return cellarFloorAt(L,x,z);
     const g = gridOf(L, x, z);
     if (walkable(L, g.gx, g.gz)) return floorAt(L, g.gx, g.gz);
     const c = clampToWalkable(L, x, z);

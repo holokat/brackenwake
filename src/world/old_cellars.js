@@ -1,6 +1,9 @@
+import {CELLAR_BOSS_BY_DEPTH} from '../mmo/cellar_bosses.js';
+import {configureCellarDescent} from './cellar_descent_layout.js';
 import {CELL,ROCK,FLOOR,worldOf} from './dungeon_gen.js';
 import {CELLAR_DEPTHS,RAID} from '../mmo/cellar_raid_rules.js';
-import {configureCellarLandmark,clearCellarPlacement} from './cellar_landmark_layout.js';
+import {configureCellarLandmark,clearCellarPlacement,cellarGroundHeight} from './cellar_landmark_layout.js';
+import {configureCellarEntry,entryGroundHeight} from './cellar_entry_layout.js';
 export const CELLAR_THEMES=[
  {name:'The occupied cellars',room:'Broken wine vault',color:0xd29a62,ore:0x514f48,foes:['bandit','banditArcher','skeleton'],ceiling:18},
  {name:'The drowned ossuary',room:'The sunken reliquary',color:0x67c5c9,ore:0x354957,foes:['skeleton','ossuaryCrawler','wraith'],ceiling:23},
@@ -16,8 +19,8 @@ export function cellarHeight(level,z){
  // again along continuous slopes, shared by geometry and character physics.
  if(level===8)return 0;
  const t=Math.max(0,Math.min(1,(165-z)/315));
- if(t<.08||t>.94)return 0;
- return Math.sin((t-.08)/.86*Math.PI*4)*(3+level*.6);
+ const original=t<.08||t>.94?0:Math.sin((t-.08)/.86*Math.PI*4)*(3+level*.6);
+ return level===1?entryGroundHeight(z,original):original;
 }
 export function createOldCellars(seed,site,depth=1){
  const level=Math.max(1,Math.min(CELLAR_DEPTHS,Math.floor(depth))),theme=CELLAR_THEMES[level-1];
@@ -50,9 +53,11 @@ export function createOldCellars(seed,site,depth=1){
   }
  }
  configureCellarLandmark(L,z=>cellarHeight(level,z));
+ configureCellarEntry(L,(z,x)=>cellarGroundHeight(L,x,z,z=>cellarHeight(level,z)));
+ configureCellarDescent(L,(z,x)=>cellarGroundHeight(L,x,z,z=>cellarHeight(level,z)));
  L.tags[L.entrance.gz*w+L.entrance.gx]='entrance';if(L.stair)L.tags[L.stair.gz*w+L.stair.gx]='stair';
  for(const r of rooms.slice(1)){
-  if(level===8&&r.id===2)continue;
+  if((level===8&&r.id===2)||(level>=2&&level<=7&&r.id===9))continue;
   for(let i=0;i<(level===8?2:3+(r.id%2));i++){
    const id=theme.foes[(i+r.id)%theme.foes.length],{gx,gz}=clearCellarPlacement(L,r.cx+(i%2?4:-4),r.cz+(i<2?3:-4));
    L.authoredSpawns.push({id,gx,gz,room:r.id,group:`crypt:${r.id}`,slot:L.authoredSpawns.length,power:1+(level-1)*.16,size:1+(level-1)*.055});
@@ -60,6 +65,8 @@ export function createOldCellars(seed,site,depth=1){
   if(r.id%2===0){const {gx,gz}=clearCellarPlacement(L,r.cx,r.cz-5);L.chests.push({i:L.chests.length,gx,gz,...worldOf(L,gx,gz),y:0,kind:'chest',locked:true,trapped:level>2,tier:L.tier,key:`oldcellars:${level}:tomb:${r.id}`});L.tags[gz*w+gx]='chest';}
  }
  if(level===1)L.authoredSpawns.push({id:'oramBlackhand',gx:74,gz:23,room:9,group:'oram',slot:99});
+ const depthBoss=CELLAR_BOSS_BY_DEPTH[level];
+ if(depthBoss)L.authoredSpawns.push({id:depthBoss.id,gx:74,gz:21,room:9,group:'cellar-boss:'+level,slot:99});
  for(const r of rooms)for(const dx of [-6,6])L.torchCells.push([r.cx+dx,r.cz+6]);
  if(level===8)L.raid={...RAID};return L;
 }

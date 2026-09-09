@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import {readFile,readdir,stat} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import * as T from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {installTextureStubs} from '../../../test-glb-env.mjs';
+installTextureStubs();
+const root=new URL('../../../../',import.meta.url),folder=new URL('assets/models/cellars/entry/',root);
+const bytes=await readFile(new URL('cellar-entry.glb',folder)),report=JSON.parse(await readFile(new URL('docs/art/cellar-entry/build-report.json',root))),manifest=JSON.parse(await readFile(new URL('manifest.json',folder)));
+assert.equal(createHash('sha256').update(bytes).digest('hex'),report.assetSHA256);assert(bytes.length<24*1024*1024,'Cloudflare static asset size');
+for(const [file,hash]of Object.entries(report.sources))assert.equal(createHash('sha256').update(await readFile(new URL(file,import.meta.url))).digest('hex'),hash,'Builder changed without rebuilding '+file);
+assert((await stat(new URL('cellar-entry.blend',folder))).size>100000);
+const a=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
+let tris=0,meshes=0,textured=0;
+a.scene.traverse(o=>{if(!o.isMesh)return;meshes++;const p=o.geometry.attributes.position,n=o.geometry.attributes.normal;
+ for(let i=0;i<p.count;i++){assert(Number.isFinite(p.getX(i)+p.getY(i)+p.getZ(i)));const len=Math.hypot(n.getX(i),n.getY(i),n.getZ(i));assert(Math.abs(len-1)<.002);}
+ tris+=(o.geometry.index?.count??p.count)/3;assert(o.material.name.startsWith('Cellar '));if(o.material.map)textured++;
+});
+assert.equal(tris,report.metrics.triangles);assert(meshes<24&&textured>=6);
+assert.equal(manifest.colliders.filter(b=>b.model==='Nave gallery stair').length,2);
+assert(manifest.colliders.some(b=>b.model==='Dry octagonal fountain'));
+assert(manifest.anchors.filter(a=>a.kind==='lamp').every(a=>a.ceiling>a.y+.8));
+const bounds=new T.Box3().setFromObject(a.scene);assert(bounds.min.z<=-97&&bounds.max.z>=20);assert(bounds.max.y>=21,'Nave ceiling is 24m above its -3m floor');
+assert.equal(report.profile.backend,'METAL');assert.equal(report.profile.gpuOnly,true);assert.equal(report.profile.persistentData,true);
+a.scene.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});
+console.log('CELLAR_ENTRY_ASSET_VERIFIED',JSON.stringify({bytes:bytes.length,triangles:tris,meshes,textured,colliders:manifest.colliders.length,anchors:manifest.anchors.length}));

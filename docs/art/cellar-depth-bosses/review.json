@@ -1,0 +1,51 @@
+{
+  "passes": [
+    {
+      "pass": 1,
+      "result": "All six complete body plans, skinned geometry, eight clips, .blend and GLB exports; first Cycles hero review."
+    },
+    {
+      "pass": 2,
+      "result": "Weathered packed albedos, more cathedral tracery and armor detail, asymmetric skull orientations, torn cloth edges, reduced small-skull geometry."
+    },
+    {
+      "pass": 3,
+      "result": "Actual Three.js export checks found death-pose issues; pose renders found inverted weapon windups. Corrected species-specific collapses, Sexton fall and attack/cast coordinate signs. Fixed registry/preload expectations and owned skeleton-texture disposal."
+    },
+    {
+      "pass": 4,
+      "result": "Parent comparison identified overly circular pale eye rims. Removed the rims, authored angular dark sockets under heavy sloped brows, retained small pupils and jaw detail, rebuilt all six GLBs and inspected updated heroes. Body dimensions and animation are unchanged."
+    }
+  ],
+  "validationCommands": [
+    "node tools/blender/cellars/depth-bosses/validate.mjs --record",
+    "node src/game/cellar_depth_boss_model.test.mjs",
+    "node src/game/monster_models.test.mjs",
+    "node src/game/cellar_oram_model.test.mjs"
+  ],
+  "regressions": {
+    "monster_models": "78 passed, 0 failed",
+    "oram": "passed"
+  },
+  "glbTotalBytes": 20838540,
+  "sourceHashes": {
+    "tools/blender/cellars/depth-bosses/animation.py": "f10e734563cf59fdfac7d3db3541a106fb837319db25602193dc40ea9b857cae",
+    "tools/blender/cellars/depth-bosses/bridge.py": "2e55d92d9b64d64169175c783b57ac454183c5c5020af80eb7b1d934d731bee6",
+    "tools/blender/cellars/depth-bosses/build.py": "c149ee78a35fa455153fa1c1a4509595a3befda085e51b2aa6a9cbfca5a5e9d9",
+    "tools/blender/cellars/depth-bosses/creatures.py": "3324a89ede546a3d7752264f719beb2fa5a4f77283602aed05094eacbd62d725",
+    "tools/blender/cellars/depth-bosses/details.py": "b6020de2d578554755846a919bf119008a186400fa41f59524c19d77e3ee4ca7",
+    "tools/blender/cellars/depth-bosses/geometry.py": "b3afac256f349478a46f26bf7410e06a28c2c0f1f5f339ff609dce4f892f8e5b",
+    "tools/blender/cellars/depth-bosses/render.py": "1edb79cffc1905370933ae2c4fc90b08acdddca731c90d3cebf664b7e295a96c",
+    "tools/blender/cellars/depth-bosses/surfaces.py": "9ab95fc1413b50e97914f751c6875385b18f1d7825244be9b29c2d2fa98d5523"
+  },
+  "exports": {
+    "morvaOssuaryMother": "9d75181002c26d7bf4fe2cca0106b53b18ad0189fe7d5dcd3e2fe6c9c5cd569d",
+    "abbotCinder": "03c61a0ea4682058e21d0910fbc802af1d6de010748411830980dd9bc4f5f34b",
+    "ilexChainArchivist": "3006cbf6056a6a8e45ef346f2bfbd2a16219a2aee38d56b0f6f78287ae47e928",
+    "sextonBellkeeper": "023fe44909471f4e992450fc126f3cc6a075181e193b6c98f72e216deba8d243",
+    "asterFirstKing": "1a0072b1ec44192698b5095d140c98f6c1a3cd0bbd7a65629252eb04faf4ec63",
+    "vossInvertedSaint": "07bc5ff223b0b6f3ed6ed12201a87ddf4032c7af7b1bd7d6ad50a51cbed3198d"
+  },
+  "manualGate": "G3 awaits independent parent review of concept and final render paths.",
+  "poseStudies": "Attack/death studies show the validated clips before the final eye-socket refinement. Hero renders show the delivered facial geometry."
+}

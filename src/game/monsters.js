@@ -1,3 +1,4 @@
+import { createCellarBossRuntime } from './monsters/cellar_boss_runtime.js';
 import {makeItem} from '../mmo/items.js';
 // The monsters that are actually standing there.
 //
@@ -871,6 +872,10 @@ export function createMonsters(sc, runtime, opts = {}) {
     hexes: 0, ambushes: 0, wakings: 0, burrows: 0, howls: 0, heals: 0, walls: 0,
   };
 
+  const cellarBosses = createCellarBossRuntime({
+    group, combat, say, spawn, despawn, live, heightAt, clampXZ: (x, z) => clampXZ(x, z), stats, cap,
+  });
+
   // -- the dead list --------------------------------------------------------
   const deadEntry = (key) => deadUntil.find((e) => e && e.key === key) || null;
 
@@ -881,7 +886,8 @@ export function createMonsters(sc, runtime, opts = {}) {
    * someone who is looking at the ground it appears on.
    */
   function stillDead(rec, playerPos) {
-    const e = deadEntry(rec.key);
+    const e = deadEntry(rec.key) || (MONSTERS[rec.id]?.cellarBoss
+      ? deadUntil.find(entry => entry?.id === rec.id) : null);
     if (!e) return false;
     if (wallClock() < num(e.until)) return true;
     if (playerPos && dist2D(rec, playerPos) < NO_RESPAWN_RADIUS) return true;
@@ -991,6 +997,7 @@ export function createMonsters(sc, runtime, opts = {}) {
   function despawn(key) {
     const mon = live.get(key);
     if (!mon) return;
+    cellarBosses.clear(mon);
     live.delete(key);
     stats.alive--; stats.despawned++;
     // A body that stops existing gives back everything it had lent or taken.
@@ -1014,6 +1021,7 @@ export function createMonsters(sc, runtime, opts = {}) {
    */
   function died(mon, killer) {
     if (!live.has(mon.key)) return;
+    cellarBosses.clear(mon);
     live.delete(mon.key);
     stats.alive--; stats.killed++;
     mon.model.setAnim('die');
@@ -1034,7 +1042,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     // A SUMMON LEAVES NOTHING. It was never in the world's roll and its body is
     // borrowed, so a sack off it would be a necromancer farming his own mana
     // into loot twenty seconds at a time.
-    let drop = (!mon.friendly && loot?.rollFor)
+    let drop = (!mon.friendly && !mon.rec.noLoot && loot?.rollFor)
       ? loot.rollFor(mon.row, { luck: num(killer?.bonuses?.luck), seed: hashKey(mon.key), character: killer?.kind === 'player' ? playerCharacter : null })
       : null;
     if(!mon.friendly&&mon.row.oreElemental){drop ||= {items:[],gold:0};drop.items ||= [];drop.items.push(makeItem({base:mon.row.oreElemental+'_ore',count:mon.row.oreReward}));}
@@ -1518,6 +1526,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     stepWall(playerActor);
 
     for (const mon of [...live.values()]) {
+      if (!live.has(mon.key)) continue; // A summoner may clear its brood earlier in this frame.
       const a = mon.actor;
       if (num(a.health) <= 0) continue;                  // combat's onDeath will take it
       const before = a.ai?.target || null;
@@ -1525,6 +1534,11 @@ export function createMonsters(sc, runtime, opts = {}) {
       // What came off it since the last frame, which is what breaks a cast.
       const took = Math.max(0, num(mon.lastHealth) - num(a.health));
       mon.lastHealth = num(a.health);
+      const phaseBefore = mon.phase;
+      if (cellarBosses.step(mon, d, lastNow, playerActor, typeof opts.allies === 'function' ? opts.allies() : [])) {
+        if (mon.phase !== phaseBefore) drawPlate(mon);
+        continue;
+      }
       if (mon.boss) stepBoss(mon, d, playerActor);
 
       // Is it in the world yet? An ambusher in the reeds, a statue nobody has
@@ -2580,10 +2594,10 @@ export function createMonsters(sc, runtime, opts = {}) {
       to: { ...s.to },
     })),
     /** The warning rings on the floor, and how long each has left. */
-    warnings: () => marks.map((s) => ({
+    warnings: () => [...cellarBosses.warnings(lastNow), ...marks.map((s) => ({
       x: s.x, z: s.z, radius: s.radius, kind: s.spec.id,
       left: Math.max(0, s.warn - s.t),
-    })),
+    }))],
     /**
      * Does something standing here want the PLAYER'S clock slowed, and by how
      * much? `{ active, scale, source, name }`, and `{ active: false, scale: 1 }`

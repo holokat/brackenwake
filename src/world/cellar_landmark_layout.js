@@ -1,3 +1,4 @@
+import {descentGroundHeight} from './cellar_descent_layout.js';
 import manifest from '../../assets/models/cellars/rooms/manifest.json' with { type: 'json' };
 import { createCollisionIndex } from './collision/shapes.js';
 import { worldOf, FLOOR, ROCK, gridOf } from './dungeon_gen.js';
@@ -52,7 +53,8 @@ export function inCellarLandmark(L, x, z, margin = 0) {
         return false;
     return ((x - a.x) / (a.spec.ground.rx + margin)) ** 2 + ((z - a.z) / (a.spec.ground.rz + margin)) ** 2 <= 1;
 }
-export function cellarGroundHeight(L, x, z, baseHeight) {
+export function cellarGroundHeight(L,x,z,baseHeight){return descentGroundHeight(L,x,z,landmarkGroundHeight(L,x,z,baseHeight));}
+function landmarkGroundHeight(L, x, z, baseHeight) {
     const a = L.landmark, original = baseHeight(z);
     if (!a)
         return original;

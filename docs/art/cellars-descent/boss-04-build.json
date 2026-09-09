@@ -1,0 +1,78 @@
+{
+  "id": "boss-04",
+  "blender": "5.2.0 LTS",
+  "profile": {
+    "backend": "METAL",
+    "gpuOnly": true,
+    "metalrt": "AUTO",
+    "denoiser": "OPENIMAGEDENOISE",
+    "gpuDenoising": true,
+    "persistentData": true,
+    "samples": 64,
+    "resolution": [
+      1440,
+      900
+    ]
+  },
+  "timings": {
+    "architecture": 0.08866012492217124,
+    "fittings": 0.03443100000731647,
+    "ornaments": 0.16836820798926055,
+    "flush": 2.449569582939148,
+    "export": 2.3680152921006083
+  },
+  "metrics": {
+    "triangles": 205848,
+    "objects": 14,
+    "parts": 8041
+  },
+  "packing": {
+    "sourceBytes": 18404440,
+    "packedBytes": 13789812,
+    "normalVertices": 384484,
+    "maxNormalComponentError": 1.5257071884100526e-05,
+    "positionsAndIndices": "byte-identical",
+    "sourceAccessorHashes": {
+      "0": "4bc5f9c32992a495723448dff108b4c269c441aa66086e7d329f8ba75a6f13f6",
+      "3": "f694f49421e75fee09e0aae93d8ba6506c7ee2b4f18df052c968da386e2bcc70",
+      "4": "c7ad7c4572879fda566f80493819688a1883d525e68c52d563c56c49d999de88",
+      "7": "c6d1068e9827821a087bbcde3c7d6448bfaac8e8add35a40196acff2d5a4576c",
+      "8": "34d144cebdba845aa7f07f3142ab61e756dcd9bf0ebcdbea4882c3be5ea9fad1",
+      "12": "918d61a763b80ea5ce911b3324c0d5c7ca6e87dbefb68c18a8db610daf099cab",
+      "13": "aa1e486e747095702f7cacb5fe026633914f03df94059faa9e7ebc6d19fe8f63",
+      "16": "0171427f125770d40616d5942b1e0d36c633f45d20d4dffe62dbdaba85518b5e",
+      "17": "627708fe0bf463bc76ce20f4c0f5139c1f9d8646aa7c7e48352b7c7aa352f67c",
+      "20": "5af37fb52037dc35b1eab810ec0f28ce57ca208ac671e428e8ce6f22b6c83bcb",
+      "21": "80d074d7c31f4681b3c48edcb6ced3787b740a316c50f28a7ed4d8028df7d281",
+      "24": "e202bc277891cb1ec31cd59bb26f4ee2ba0b0a6fa49f0b793250c1b2f0779eb1",
+      "25": "fb4c18943fe7bf1e7523fbbf8540669a72667dd3f5d338ecf8bd557e19168ef7",
+      "29": "8bfa3bce5ca78ab6456de996565fa7b04410fec1d5461cccbc1b62e6a3f86d78",
+      "30": "454dd70fa3b62eb2586c58010575676446b8373752cef47f9d64c48608c8327c",
+      "33": "4f27f2dd774dead049f7a3ffded534f8a29bffee477e23de3dd9d3ff22f9db3a",
+      "34": "60a23a5a2a28a26449a73877ea4204e2c6979cbe9d580b6add38d5854fe7b7cd",
+      "37": "e83ae6f33be292d19d4b57de0a7cc59bec3dcee51bf9388b54a76316e0b4dfa8",
+      "38": "af7a8a12e79c0208aec259ed93cf086e0140238ca1a6d60ce15cedfff6f27e26",
+      "42": "4f0cc699d42510b3103289b51ac3cfbd64e6a8f41074aa0970158193c946917c",
+      "43": "dd3d2b4ca90d1e80e1ac8437fbe21dd053b41d78756cab3f2a52fffc8a721a77",
+      "47": "4c2f13163465bc8fd484d3a860963299e3168a309891a2adfe02ad30de617098",
+      "48": "fa6c0bad14dee7167e1749b3a0e44aaf0cf09507bafe6e79f7b3eb3d71d12379",
+      "51": "3e60654dd0016373d82d4dc86c72157de4efbbe7d88bac89672e4564352a202b",
+      "52": "97a0fe2d2016b2d5bf8451c48eabdf64eb716da147428414c87dfc71b806feaf",
+      "56": "5e7453d2e82f5631d518e2f84c07f8384b042b184957c44edba1baf9caeb51e0",
+      "57": "be4dbce767ad827c5bdb50ae504eb1b063fc1e74398116862163b00d80981f1f",
+      "60": "de3db4740455298bd29218e86ea890a9d9d094133322bdccdeb4f0a3aa92d389"
+    },
+    "removed": "unused duplicate COLOR_1; height texture normal bindings"
+  },
+  "bytes": 13789828,
+  "sha256": "a2ef5c7d328060dfb16d7e320e42e5785f3367d314d2990e614fe35751969c99",
+  "sources": {
+    "build.py": "589b4b9233b9c893e2b20f6eed8845df77d16e86fbac0a2e01b51353cb0c1c84",
+    "run.py": "a7a16bc90d3285a1c77ad7745914146c6759fc33066573c5242044f9e8bf671f",
+    "ornaments.py": "c9d79954d332c90ef4f4dca9b1fd91f772d5161fe337f84f56ee29b3c2e44e86",
+    "architecture.py": "4ff3dc67b7a2586c5b515420dfcaf6563bc9a54c14e204b223c3ca815a6f3e46",
+    "settings.py": "f532c910d3e27b31361cc4d42429690ba475d899ff053a049c8553a7ca94aa0e",
+    "fittings.py": "658a5aa9fdfe374b2eea8e00ec3a13f11c0de804ec072168daeebc9f02d9e1c2",
+    "check-ornaments.py": "2a4182508f21e98b36af6e19c2fb38c03dd3b060e67976a559d1bf10dd3b38c5"
+  }
+}

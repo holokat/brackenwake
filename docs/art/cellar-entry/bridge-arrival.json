@@ -1,0 +1,12 @@
+{
+  "elapsedSeconds": 8.90669725020416,
+  "records": [
+    {
+      "result": {
+        "view": "arrival",
+        "seconds": 8.903886083047837
+      },
+      "roundTripMs": 8906.572124920785
+    }
+  ]
+}

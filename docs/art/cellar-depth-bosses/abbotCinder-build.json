@@ -1,0 +1,38 @@
+{
+  "id": "abbotCinder",
+  "name": "Abbot Cinder",
+  "height": 7.5,
+  "features": {
+    "chainLinks": 10,
+    "bells": 2,
+    "skulls": 1
+  },
+  "meshes": 9,
+  "triangles": 14334,
+  "bones": 15,
+  "vertices": 8115,
+  "glbBytes": 2472296,
+  "glbSha256": "03c61a0ea4682058e21d0910fbc802af1d6de010748411830980dd9bc4f5f34b",
+  "clips": [
+    "idle",
+    "walk",
+    "run",
+    "attack",
+    "cast",
+    "hurt",
+    "special",
+    "die"
+  ],
+  "renderProfile": {
+    "backend": "METAL",
+    "devices": [
+      "Apple M2 Max (GPU - 30 cores)"
+    ],
+    "MetalRT": "AUTO",
+    "device": "GPU",
+    "denoiser": "OPENIMAGEDENOISE",
+    "gpuDenoiser": true,
+    "persistentData": true
+  },
+  "buildSeconds": 1.486
+}

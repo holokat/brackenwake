@@ -1,3 +1,4 @@
+import { CELLAR_BOSSES } from '../mmo/cellar_bosses.js';
 // What a monster does that is not walking at you and swinging.
 //
 // `monsters.js` is the runtime: the bodies, the sweep, the dead list, the
@@ -317,6 +318,7 @@ export const RETREAT_SECONDS = 8;
  * Lines are in the boss's voice, one each, no em dashes.
  */
 export const BOSS_PLANS = {
+  ...Object.fromEntries(CELLAR_BOSSES.map(boss => [boss.id, boss.phases])),
   ashenKing: [
     { kind: 'summon', line: 'The Ashen King lifts a hand, and the floor gives up its dead.' },
     { kind: 'enrage', line: 'The Ashen King steps down off the throne, and stops being patient.' },
@@ -429,6 +431,12 @@ export function phaseIndexFor(row, health, maxHealth) {
 export const PHASE_WORDS = {
   0: 'watching you', summon: 'calling for help', enrage: 'enraged',
   slam: 'shaking the ground', retreat: 'running',
+  tide: 'calling the returning tide', brood: 'opening the ossuary',
+  bells: 'ringing the answering bell', silence: 'spreading silence',
+  embers: 'sweeping the furnace', furnace: 'opening the furnace',
+  chains: 'crossing the chains', ritual: 'closing the archive',
+  tombs: 'breaking tomb chains', gravity: 'bending the chamber',
+  crown: 'raising the royal sword', collapse: 'collapsing the royal graves',
 };
 
 /** The two lines a boss's name plate carries. */

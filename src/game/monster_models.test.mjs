@@ -13,6 +13,8 @@ import * as THREE from 'three';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { installNodeImages } from '../../tools/blender/cellars/depth-bosses/load-asset.mjs';
+installNodeImages();
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -31,6 +33,9 @@ globalThis.fetch = async (req, init) => {
     return new Response(readFileSync(join(ROOT, 'public', url.slice(HOST.length))),
       { status: 200, headers: { 'content-type': 'model/gltf-binary' } });
   }
+  if (url.startsWith('file:') && url.includes('/assets/models/cellars/depth-bosses/')) {
+    return new Response(readFileSync(new URL(url)), { status: 200, headers: { 'content-type': 'model/gltf-binary' } });
+  }
   return realFetch(req, init);
 };
 
@@ -45,7 +50,9 @@ const {
 } = await import('./monster_models.js');
 const { MONSTERS, MONSTER_LIST } = await import('../mmo/monsters.js');
 const { preloadRigs } = await import('./rig_glb.js');
-const { MODEL_IDS, isLoaded } = await import('./models.js');
+const { MODEL_IDS, isLoaded, urlFor } = await import('./models.js');
+const { CELLAR_BOSS_MODEL_IDS } = await import('./cellar_depth_boss_model.js');
+const authoredBoss = row => CELLAR_BOSS_MODEL_IDS[row.id] === row.model;
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -80,7 +87,9 @@ console.log('monster_models: which family wears what, and which is still a box')
     plan.filter((r) => BOX_ONLY_FAMILIES.includes(r.shape)).map((r) => r.id).join(', '));
 
   // the stand-in rule, driven true and false
-  const bipeds = plan.filter((r) => r.shape === 'biped' && !studioMonsterModelFor(r.id));
+  const bipeds = plan.filter((r) => r.shape === 'biped' && !studioMonsterModelFor(r.id) && !authoredBoss(r));
+  const authored = plan.filter(authoredBoss);
+  check('all six cellar bosses use their own registered Blender models', authored.length === 6 && new Set(authored.map(row => row.model)).size === 6);
   const low = bipeds.filter((r) => r.tier <= STANDIN_MAX_TIER);
   const high = bipeds.filter((r) => r.tier > STANDIN_MAX_TIER);
   check(`a biped at tier ${STANDIN_MAX_TIER} or below borrows the heavy human`,
@@ -90,11 +99,11 @@ console.log('monster_models: which family wears what, and which is still a box')
     high.length > 0 && high.every((r) => r.model === null),
     `${high.length} of them: ${high.map((r) => `${r.id} tier ${r.tier}`).join(', ')}`);
   check('no boss wears a stand-in body',
-    plan.filter((r) => r.tier >= 6).every((r) => r.model === null || studioMonsterModelFor(r.id) || !STANDIN_FAMILIES.includes(r.shape)),
+    plan.filter((r) => r.tier >= 6).every((r) => r.model === null || studioMonsterModelFor(r.id) || authoredBoss(r) || !STANDIN_FAMILIES.includes(r.shape)),
     plan.filter((r) => r.tier >= 6).map((r) => `${r.id} ${r.model || 'box'}`).join(', '));
 
   check('every model the plan names is a model that exists',
-    monsterModelIds().every((id) => MODEL_IDS.includes(id)), monsterModelIds().join(', '));
+    monsterModelIds().every((id) => MODEL_IDS.includes(id) || (Object.values(CELLAR_BOSS_MODEL_IDS).includes(id) && urlFor(id))), monsterModelIds().join(', '));
   check('and every family in GLB_FAMILY is a family something actually wears',
     Object.keys(GLB_FAMILY).every((f) => live.some((m) => shapeFor(m.id) === f)),
     Object.keys(GLB_FAMILY).join(', '));

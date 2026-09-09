@@ -1,18 +1,23 @@
+import {descentRoom} from './cellar_descent_layout.js';
 import { worldOf } from './dungeon_gen.js';
 import { cellarHeight } from './old_cellars.js';
 import { cellarGroundHeight } from './cellar_landmark_layout.js';
 import { createCellarArtKit } from './cellar_art_kit.js';
+import {cellarRoutes} from './cellar_routes.js';
+import {hasCellarEntry} from './cellar_entry_layout.js';
 /** Burial alcoves and fixtures in the surrounding rooms, outside the Blender landmark. */
 export function furnishCellarSecondaryRooms(root, L, bodies) {
     const k = createCellarArtKit(root, bodies);
+    const routes = cellarRoutes(L);
     const height = (x, z) => cellarGroundHeight(L, x, z, z => cellarHeight(L.level, z));
     for (const r of L.rooms) {
-        if (r.id === L.landmark.roomId)
+        if (descentRoom(L,r.id) || r.id === L.landmark.roomId || (hasCellarEntry(L) && r.id < 2))
             continue;
         const p = worldOf(L, r.cx, r.cz), y = height(p.x, p.z), a = Math.min(r.w * .58, 28), span = Math.min(r.h * .55, 27);
         for (const side of [-1, 1])
             for (let i = 0; i < 3; i++) {
                 const x = p.x + side * a, z = p.z - span + i * span, fy = height(x, z), yaw = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+                if (routes.overlaps(x, z, 5)) continue;
                 k.niche(x, fy, z, .9, yaw);
                 k.coffin(x - side * 3, fy, z + 2, .65, side * Math.PI / 2);
                 for (let n = 0; n < 8; n++)
