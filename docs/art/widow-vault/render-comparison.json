@@ -1,0 +1,31 @@
+{
+  "first": {
+    "bridgeCalls": 1,
+    "elapsedSeconds": 9.95310375,
+    "records": [
+      {
+        "result": {
+          "view": "hero",
+          "seconds": 9.949502540985122,
+          "file": "/private/tmp/cellars-sandbox/docs/art/widow-vault/hero-blender.png"
+        },
+        "roundTripMs": 9952.990042
+      }
+    ]
+  },
+  "repeat": {
+    "bridgeCalls": 1,
+    "elapsedSeconds": 9.342238458,
+    "records": [
+      {
+        "result": {
+          "view": "hero",
+          "seconds": 9.339624834014103,
+          "file": "/private/tmp/cellars-sandbox/docs/art/widow-vault/hero-blender.png"
+        },
+        "roundTripMs": 9342.176709
+      }
+    ]
+  },
+  "scope": "Same scene, 64 samples, 1440x900; sequential renders in the same persistent background Blender process. First here means first after the final build, not cold process startup."
+}

@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { openAt, insidePoint, GATE_LINE, GATE_SAY_EVERY_MS } from '../../../mmo/release.js';
 import { createWorldRuntime, EDIT_CAVE_SPEC, TERRAIN_FILE } from '../../world_runtime.js';
+import { bindMineSceneEffects } from '../../mine_scene_effects.js';
 import { WORLD_FOG } from '../../scene.js';
 import { createSky } from '../../sky.js';
 import { createWeather } from '../../weather/runtime.js';
@@ -259,6 +260,7 @@ export const world = {
       },
     });
     const runtime = createWorldRuntime(sc, { homeBiome: 'meadow', effects: effectsLater });
+    const releaseMineEffects = bindMineSceneEffects(sc, runtime);
     const living = createLivingWorld(sc,runtime.field,{physical:runtime.physical});
     // the analytic sky and the ocean sheet share one shader block; the water
     // reads the sky's sun and palette, and scene.js takes its fog colour from it
@@ -676,7 +678,7 @@ export const world = {
 
     return {
       runtime, sky, water, weather, living, terrain,
-      dispose() { living.dispose(); weather.dispose(); sky.dispose(); water.dispose(); if(envRT)envRT.dispose(); pmrem.dispose(); runtime.dispose(); },
+      dispose() { releaseMineEffects(); living.dispose(); weather.dispose(); sky.dispose(); water.dispose(); if(envRT)envRT.dispose(); pmrem.dispose(); runtime.dispose(); },
       refreshEnvironment, nearestSettlement, keepInside, clampCamera, listen,
       heightAt: (x, z) => runtime.heightAt(x, z),
       /** The day, at any instant of the WORLD clock. One place, so it agrees. */

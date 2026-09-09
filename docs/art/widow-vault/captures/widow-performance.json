@@ -1,0 +1,64 @@
+{
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+  "devicePixelRatio": 1,
+  "measurements": [
+    {
+      "width": 1440,
+      "height": 900,
+      "frames": 120,
+      "medianMs": 3.200000047683716,
+      "p95Ms": 4,
+      "render": {
+        "frame": 2618,
+        "calls": 323,
+        "triangles": 1341371,
+        "points": 1448,
+        "lines": 980
+      },
+      "memory": {
+        "geometries": 149,
+        "textures": 53
+      },
+      "webglError": 0
+    },
+    {
+      "width": 430,
+      "height": 800,
+      "frames": 120,
+      "medianMs": 3.200000047683716,
+      "p95Ms": 4.099999904632568,
+      "render": {
+        "frame": 5168,
+        "calls": 315,
+        "triangles": 1341051,
+        "points": 1448,
+        "lines": 980
+      },
+      "memory": {
+        "geometries": 149,
+        "textures": 53
+      },
+      "webglError": 0
+    }
+  ],
+  "disposal": {
+    "before": {
+      "geometries": 149,
+      "textures": 53
+    },
+    "after": {
+      "geometries": 4,
+      "textures": 21
+    }
+  },
+  "assetSHA256": "fac1ccb2ae1326d590d94428ed9312d0b375766f8a3ac6f88bb959d7353b95df",
+  "assetBytes": 20060584,
+  "hardware": "Apple M2 Max, 30-core GPU",
+  "physicalPhoneTested": false,
+  "sourceHashes": {
+    "src/world/widow_vault.js": "c3caf24e7469f4658c05d6aeabd2748df5f80dbeb9169a247665911b1feb06ab",
+    "src/world/shoulder_scene.js": "6d814d73d87259e8d05faaacb3d1c8642c13bdd012c30c7f38a94c9c20914cd2",
+    "src/game/mine_scene_effects.js": "b64af52e331159cf7d87c5a065c041e5255d6e42762edd38dcee37764e1e4d3a",
+    "tools/review-widow.js": "96720e089f5a97944f17f6d226c461827ae7b0fb4a28c5be0ac1a47950383de3"
+  }
+}

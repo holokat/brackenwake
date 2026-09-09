@@ -39,7 +39,7 @@ const p=worldOf(L,L.rooms[1].cx,L.rooms[1].cz),y=mineHeight(p.z);
 for(const dy of [-1,1]){const hit=built.mine.pick(new THREE.Raycaster(new THREE.Vector3(p.x,y+2,p.z),new THREE.Vector3(0,dy,0)));assert(hit);assert.equal(hit.kind,'mineSurface');if(dy===1)assert(hit.distance>25);}
 const index=createCollisionIndex(built.physicalBodies);const stairs=built.physicalBodies.filter(b=>b.model==='mine stair');assert.equal(stairs.length,9);
 for(const b of stairs){let pos={x:b.x,y:b.y,z:b.z-b.direction*b.d/2};for(let i=0;i<280;i++){const z=pos.z+b.direction*.05;const to={x:pos.x,z,y:Math.max(b.y,index.supportAt(pos.x,z,pos.y+.08))};assert(index.canMove(pos,to),`Ramp blocked at ${i}, height ${pos.y}`);pos=to;}assert(pos.y>=b.y+2.95);}
-assert.equal(built.mineStats.carts,6);assert.equal(built.mineStats.scaffoldDecks,9);built.update(.016,p);built.dispose();
+assert.equal(built.mineStats.carts,10);assert.equal(built.mineStats.scaffoldDecks,9);built.update(.016,p);built.dispose();
 // Real click path creates real item objects, and retains ore if both delivery paths fail.
 let clock=1000;Object.defineProperty(globalThis,'performance',{value:{now:()=>clock},configurable:true});
 const camera=new THREE.PerspectiveCamera();camera.position.set(0,3,3);camera.lookAt(0,0,0);camera.updateMatrixWorld();

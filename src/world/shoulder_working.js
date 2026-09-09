@@ -32,6 +32,8 @@ export function createShoulderWorking(seed,site) {
   const u=(x-r.cx)/(r.w*.53),v=(z-r.cz)/(r.h*.55);if(u*u+v*v<1.03)carve(x,z);
  }
  for(const [ax,az,bx,bz,width] of MINE_ROUTES){const n=Math.ceil(Math.hypot(bx-ax,bz-az));for(let t=0;t<=n;t++)for(let dz=-width;dz<=width;dz++)for(let dx=-width;dx<=width;dx++)if(dx*dx+dz*dz<=width*width)carve(Math.round(ax+(bx-ax)*t/n)+dx,Math.round(az+(bz-az)*t/n)+dz);}
+ // The authored widow arch opens into a short, explorable northern grotto.
+ for(let gz=3;gz<=15;gz++)for(let gx=75;gx<=81;gx++)carve(gx,gz);
  const spawn=(id,gx,gz,room)=>{L.authoredSpawns.push({id,gx,gz,room,group:'working-'+room,slot:L.authoredSpawns.length});};
  for(const i of [2,3,4,5,6,7,8,9,10,11]){const r=L.rooms[i];spawn('giantSpider',r.cx-3,r.cz+3,i);spawn('giantSpider',r.cx+4,r.cz-3,i);if(i>3)spawn(i===7?'wraith':'skeleton',r.cx,r.cz,i);}
  for(const i of [0,2,3,4,6,7,8,9,10,11]){const r=L.rooms[i],gx=r.cx,gz=r.cz-3,p=worldOf(L,gx,gz);L.chests.push({i:L.chests.length,gx,gz,...p,y:mineHeight(p.z),kind:i===0?'cache':'chest',locked:i===7||i===8,trapped:i===7||i===6,tier:i===7?3:2,key:SHOULDER_ID+':cache:'+i});L.tags[gz*w+gx]='chest';}
