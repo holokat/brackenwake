@@ -189,6 +189,9 @@ export const ui = {
     const minimap = hud.mountMinimap?.({
       player: rig,
       camera,
+      character: () => state.character,
+      dungeon: () => runtime.inDungeon ? runtime.dungeonLayout() : null,
+      dungeonName: () => runtime.dungeonSite?.name,
       field: () => runtime.field,
       // only this world's spaces: the Greenwold's names were all over the island's map (2026-09-08)
       spaces: () => spacesHere(),

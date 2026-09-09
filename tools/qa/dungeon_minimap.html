@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dungeon minimap verification</title>
+<style>
+  body { margin: 0; padding: 48px; background: #0c1014; color: #ded9c7; font: 14px/1.5 system-ui, sans-serif; }
+  main { max-width: 780px; margin: auto; }
+  h1 { font-size: 26px; font-weight: 500; margin: 0 0 8px; }
+  p { color: #9fa9aa; margin: 0 0 28px; max-width: 560px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+  button, select { min-height: 40px; padding: 8px 14px; border: 1px solid #465153; border-radius: 6px; background: #20292b; color: inherit; font: inherit; }
+  button:active { scale: .96; }
+  button:focus-visible, select:focus-visible { outline: 2px solid #e4b967; outline-offset: 3px; }
+  #bw-hud { position: relative; height: 340px; background: #161e22; border-radius: 12px; }
+  #bw-hud #bw-minimap { top: 40px; right: calc(50% - 116px); }
+  output { display: block; margin-top: 16px; color: #bbc5c4; font-variant-numeric: tabular-nums; }
+</style>
+<main>
+  <h1>Dungeon minimap verification</h1>
+  <p>This page uses the live minimap and dungeon generators. Walking follows carved floor cells. Exploration stays in memory on this page; character saves are untouched.</p>
+  <div class="controls">
+    <select id="layout" aria-label="Dungeon">
+      <option value="1">Old Cellars, level 1</option>
+      <option value="2">Old Cellars, level 2</option>
+      <option value="8">Old Cellars, level 8</option>
+      <option value="mine">The Shoulder Working</option>
+      <option value="generated">Generated dungeon</option>
+    </select>
+    <button id="walk">Walk onward</button>
+    <button id="back">Return to entrance</button>
+    <button id="reset">Reset test exploration</button>
+  </div>
+  <div id="bw-hud"></div>
+  <output id="report" aria-live="polite"></output>
+</main>
+<script type="module" src="./dungeon_minimap.js"></script>
+</html>

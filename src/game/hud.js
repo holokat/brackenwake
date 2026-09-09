@@ -53,7 +53,8 @@ import { dropTarget, dragSource } from './windows.js';
 import { ITEM_SLOTS, ITEM_KEYS, keyCap as itemKeyCap } from './item_bar.js';
 import { baseFor } from '../mmo/items.js';
 import { ABILITIES_BY_ID } from '../mmo/abilities.js';
-import { createMinimap, MINIMAP } from './minimap.js';
+import { MINIMAP } from './minimap.js';
+import { createContextMinimap as createMinimap } from './context_minimap.js';
 
 export const MATERIALS = ['wood', 'stone', 'ore'];
 
