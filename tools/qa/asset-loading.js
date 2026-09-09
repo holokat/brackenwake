@@ -41,12 +41,22 @@ document.querySelector('#stairs').onclick=()=>action(async()=>{
  b.runtime.dungeonGo('down');ready=await b.runtime.dungeonScene.ready;snapshot('Next floor arrival');status.textContent=ready?'Nearby artwork is ready on the next floor.':'Nearby artwork failed to load. The structural shell remains visible.';
 });
 document.querySelector('#exit').onclick=()=>action(()=>{b.input.keys.delete('w');b.runtime.leaveDungeon();ready=null;status.textContent='Returned to the surface.';snapshot('Dungeon disposed');});
-// Direct stair views use normal level transitions and a temporary character.
+// Direct fixture views use normal level transitions and a temporary character.
 const params=new URLSearchParams(location.search);
-if(params.has('stair'))await action(async()=>{
+if(params.has('stair')||params.has('statue'))await action(async()=>{
  b.actor.godMode=true;b.windows.closeAll();
  const floor=Math.max(1,Math.min(8,Math.floor(Number(params.get('level'))||1)));
  while(b.runtime.dungeonLevel<floor){b.runtime.dungeonGo('down');ready=await b.runtime.dungeonScene.ready;}
+ if(params.has('statue')){
+  const room=b.runtime.dungeonScene.layout.descent?.find(r=>r.spec.colliders.some(c=>c.model==='Funeral statue'));
+  if(!room)throw Error('There are no funeral statues on this floor. Try level 2.');
+  const base=room.spec.colliders.find(c=>c.model==='Funeral statue'&&c.part==='plinth');
+  place(room.x+base.x,room.z+base.z+base.d/2+3);b.camera.pitch=.35;b.camera.snap(b.player.pos);
+  status.textContent='Loading the statue room.';
+  await wait(()=>b.runtime.dungeonScene.descent.rooms.find(r=>r.room.roomId===room.roomId)?.loaded);
+  status.textContent='Walk into the pedestal, then around it. This review uses a temporary character.';
+  snapshot(`Level ${floor} statue ready`);return;
+ }
  const dir=params.get('stair')==='up'||!b.runtime.dungeonScene.stairPos?'up':'down';
  const at=dir==='up'?b.runtime.dungeonScene.entrancePos:b.runtime.dungeonScene.stairPos;
  place(at.x,at.z+(dir==='up'?-6:6),dir==='up'?0:Math.PI);b.camera.pitch=.5;b.camera.snap(b.player.pos);

@@ -3,6 +3,7 @@ import math,importlib.util
 from pathlib import Path
 p=Path(__file__).parents[1]/'entry/props.py';s=importlib.util.spec_from_file_location('entry_props',p);old=importlib.util.module_from_spec(s);s.loader.exec_module(old)
 p=Path(__file__).parents[1]/'entry/architecture.py';s=importlib.util.spec_from_file_location('entry_arch',p);arch=importlib.util.module_from_spec(s);s.loader.exec_module(arch)
+p=Path(__file__).with_name('statue_collision.py');s=importlib.util.spec_from_file_location('statue_collision',p);collision=importlib.util.module_from_spec(s);s.loader.exec_module(collision)
 
 def chain(g,x,z,a,b,r=.17):
  for i in range(max(1,int((b-a)/(.42*r/.17)))):
@@ -15,6 +16,7 @@ def skull(g,x,y,z,k=1):
  for side in [-1,1]:g.box('dark',(x+side*.07*k,y+.02*k,z+.27*k),(.024*k,.12*k,.02*k))
 
 def statue(g,x,z,k=1):
+ start={key:len(part[1]) for key,part in g.parts.items()}
  # Hood, bent sleeves and held funerary sword create a readable sculpted figure.
  g.box('trim',(x,.4*k,z),(2.5*k,.8*k,2.3*k),bevel=.15)
  g.rock('limestone',(x,2.7*k,z),(1.6*k,4.2*k,1.35*k),seed=17)
@@ -25,7 +27,7 @@ def statue(g,x,z,k=1):
   g.beam('limestone',(x+side*1.05*k,3*k,z+.3*k),(x+side*.22*k,2.9*k,z+.6*k),.27*k,6)
  g.beam('iron',(x,.85*k,z+.7*k),(x,3.25*k,z+.7*k),.1*k,4)
  g.box('bronze',(x,3*k,z+.7*k),(.9*k,.12*k,.15*k))
- g.body('Funeral statue',(x,2.8*k,z),(2.5*k,5.6*k,2.3*k))
+ collision.add_statue_bodies(g,start,k)
 
 def tomb(g,x,y,z,k=1):
  for yy,w,d,h in [(.16,2.8,5.8,.32),(.8,2.4,5.3,1),(1.5,2.7,5.6,.35)]:g.box('trim' if yy!=.8 else 'limestone',(x,y+yy*k,z),(w*k,h*k,d*k),bevel=.12*k)
