@@ -16,7 +16,8 @@ b.runtime.enterDungeon(site);
 await b.runtime.dungeonScene.ready;
 function place(x,z,yaw=Math.PI){b.player.teleport(x,z,(x,z)=>b.runtime.heightAt(x,z));b.camera.yaw=yaw;b.camera.pitch=.28;b.camera.snap(b.player.pos);status.textContent='Old Cellars. WASD to move, E at the returning stair. Temporary playtest character.';}
 const reviewRoom=new URLSearchParams(location.search).get('room');
-place(reviewRoom==='crossing'?-90:1,reviewRoom==='crossing'?30:175);
+place(reviewRoom==='camera'?19:reviewRoom==='crossing'?-90:1,reviewRoom==='camera'?124:reviewRoom==='crossing'?30:175);
+const {installCameraReview}=await import('./cellar-camera-review.js');installCameraReview(b,place,write,status);
 // Survival assistance applies only to this isolated review character.
 setInterval(()=>{if(b.actor.health>0)b.actor.health=b.actor.maxHealth;},100);
 const floor=document.querySelector('#floor');

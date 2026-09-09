@@ -15,6 +15,7 @@ import { createPlayer } from '../../player.js';
 import { playerActor as buildPlayerActor, recompute, tickPools, syncToCharacter } from '../../actor.js';
 import { createProgression } from '../../progression.js';
 import { dressRig } from '../../gear_visuals.js';
+import {createCameraBodyVisibility} from '../../camera_body_visibility.js';
 
 /** How long the death screen holds before you wake. 06-ECONOMY-UI: "a 5 second count". */
 const DEATH_S = 5;
@@ -32,9 +33,11 @@ export const player = {
     heightAt.supportAt=(x,z,y)=>runtime.physical.supportAt(x,z,y);
     heightAt.ceilingAt=(x,z,y)=>runtime.physical.ceilingAt(x,z,y);
     heightAt.canMove = (from,to) => runtime.physical.canMove(from,to);
+    heightAt.cameraDistance = (from,to,radius) => runtime.physical.cameraDistance(from,to,radius);
 
     // the body is built from the chosen appearance; an old save without one gets the house default
     const rig = createPlayer(sc.scene, character.appearance, {buildCharacter: look => buildStudioCharacter(look,{sourceMotion:true,classId:character.opening})});
+    const cameraBody=createCameraBodyVisibility(rig.group);
     // First boot: a character is born on Hearthhome's green, facing the well,
     // which is where the story starts (story.js: "standing inside Hearthhome
     // for the first time"). Before this a new character woke a short walk
@@ -76,7 +79,7 @@ export const player = {
 
     // the first thing a new player sees is the settlement, not its back
     if (faceTo) camera.yaw = Math.atan2(faceTo.x - rig.pos.x, faceTo.z - rig.pos.z);
-    camera.snap?.(rig.pos);            // start on the orbit, not flying in to it
+    camera.snap?.(rig.pos,heightAt);   // start on a clear orbit, including saved indoor positions
 
     const actor = buildPlayerActor(character, { pos: rig.pos });
     // gains go to the ticker bottom right when the HUD has one, so they never
@@ -141,7 +144,7 @@ export const player = {
 
     function teleport(x, z) {
       rig.teleport(x, z, heightAt);
-      camera.snap?.(rig.pos);
+      camera.snap?.(rig.pos,heightAt);
     }
 
     function wake() {
@@ -189,7 +192,7 @@ export const player = {
       /** The one place that says who is walking this frame. */
       walk(frame) {
         const dev = ctx.get('dev');
-        if (dev.on) { dev.fly(frame.dt); return; }
+        if (dev.on) { cameraBody.restore();dev.fly(frame.dt); return; }
         const { dt, now, nowS } = frame;
         const { combat } = ctx.get('combat');
         const abilities = ctx.get('abilities').abilities;
@@ -214,7 +217,7 @@ export const player = {
         ctx.get('world').keepInside(rig.pos, now);
         shapeDrag();
         camera.update(dt, rig.pos, heightAt);
-        ctx.get('world').clampCamera(rig.pos);
+        cameraBody.update(Math.hypot(sc.camera.position.x-rig.pos.x,sc.camera.position.y-rig.pos.y-1.5,sc.camera.position.z-rig.pos.z));
         state.setPos(rig.pos.x, rig.pos.z);
       },
 

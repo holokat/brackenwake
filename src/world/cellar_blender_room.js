@@ -66,7 +66,7 @@ export function furnishBlenderCellar(built, L, { load = null, stream, sc } = {})
     ]);
     streaming.group.name = 'Cellar streaming support'; group.add(streaming.group);
     const clock = {value:0}; let disposed = false;
-    const art = createRoomArtwork({id:'landmark',url:CELLAR_ASSETS[`room-${L.level}`],stream,sc,
+    const art = createRoomArtwork({id:'landmark',url:CELLAR_ASSETS[`room-${L.level}`],stream,sc,cameraObstacles:built.cameraObstacles,
         bounds:{x:a.x,z:a.z,rx:ground.rx,rz:ground.rz},load:load?()=>load(L.level):typeof window==='undefined'?async()=>null:null,
         configure:mat=>{
             if(mat.emissive?.getHex()&&mat.emissiveIntensity>0){

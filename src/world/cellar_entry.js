@@ -17,7 +17,7 @@ export function furnishCellarEntry(built,L,{load=null,stream,sc}={}){
  for(const [x,y,z,power,range]of[[-15,5,3,70,38],[15,5,-12,65,36],[-18,4,-54,110,46],[18,5,-87,115,50]]){
   const l=new T.PointLight(0xffb564,power,range,1.4);l.position.set(x,y,z);l.castShadow=true;l.visible=false;l.shadow.mapSize.set(512,512);l.shadow.bias=-.0005;l.shadow.normalBias=.035;l.shadow.camera.near=.2;l.shadow.camera.layers.set(3);l.shadow.autoUpdate=false;l.shadow.needsUpdate=true;group.add(l);lights.push(l);
  }
- const art=createRoomArtwork({id:'entry',url:CELLAR_ASSETS.entry,stream,sc,
+ const art=createRoomArtwork({id:'entry',url:CELLAR_ASSETS.entry,stream,sc,cameraObstacles:built.cameraObstacles,
   bounds:{x:plan.origin.x,z:plan.origin.z-39,rx:35,rz:59},load:load||(typeof window==='undefined'?async()=>null:null),
   configureMesh:o=>{if(![].concat(o.material).some(m=>m.name==='Cellar cloth'))o.layers.enable(3);},
   configure:m=>{

@@ -1,14 +1,15 @@
 import {gltfAssets, prepareRoom} from './gltf_assets.js';
 import {assetWork} from './work_queue.js';
+import {prepareCameraMesh} from '../../world/collision/camera-mesh.js';
 
 /** One room owns its instances; the asset cache owns shared geometry and textures. */
-export function createRoomArtwork({id, url, bounds, stream, sc, load, configure, configureMesh, attach, detach, beforeAttach,
+export function createRoomArtwork({id, url, bounds, stream, sc, load, configure, configureMesh, attach, detach, beforeAttach, cameraObstacles,
   work = assetWork, pool = gltfAssets, prepare = prepareRoom, onError = console.warn} = {}) {
   let disposed = false, generation = 0, current = null, pending = null;
   let promise = Promise.resolve(false);
   function unload() {
     generation++; pending?.abort(); pending = null;
-    if (current) {detach?.(current.instance); current.instance.dispose(); current.lease.release(); current = null;}
+    if (current) {cameraObstacles?.delete(current.instance.cameraObstacle);detach?.(current.instance); current.instance.dispose(); current.lease.release(); current = null;}
   }
   function start(signal) {
     if (disposed || signal?.aborted) return Promise.resolve(false);
@@ -28,10 +29,15 @@ export function createRoomArtwork({id, url, bounds, stream, sc, load, configure,
       if (!asset || disposed || controller.signal.aborted) return false;
       instance = await prepare(asset, configure, {signal:controller.signal, sc, work, configureMesh});
       if (!instance || disposed || controller.signal.aborted || token !== generation) return false;
+      if(cameraObstacles){
+        instance.cameraObstacle=await prepareCameraMesh(instance.group,{work,signal:controller.signal});
+        if(!instance.cameraObstacle||disposed||controller.signal.aborted||token!==generation)return false;
+      }
       if (beforeAttach && !await beforeAttach(instance,controller.signal)) return false;
       await work.run(() => {
         if (disposed || controller.signal.aborted || token !== generation) return;
         attach(instance); current = {instance, lease}; retained = true;
+        if(cameraObstacles){instance.cameraObstacle.update();cameraObstacles.add(instance.cameraObstacle);}
       }, {priority:3, signal:controller.signal});
       return retained;
     }).catch(error => {if (!disposed && !controller.signal.aborted) onError(`Room artwork ${id}: ${error.message}`); return false;})

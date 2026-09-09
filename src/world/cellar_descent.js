@@ -15,7 +15,7 @@ export function furnishCellarDescent(built,L,{load=null,stream,sc}={}){
   const clock={value:0};let cut=false;
   const state={group,room,active:false};rooms.push(state);
   anchors.push(...spec.anchors.map(a=>({...a,x:a.x+room.x,y:a.y+room.y,z:a.z+room.z})));
-  const art=createRoomArtwork({id:`descent-${room.roomId}`,url:CELLAR_ASSETS[spec.id],stream,sc,
+  const art=createRoomArtwork({id:`descent-${room.roomId}`,url:CELLAR_ASSETS[spec.id],stream,sc,cameraObstacles:built.cameraObstacles,
    bounds:{x:room.x,z:room.z,rx:spec.rx,rz:spec.rz},load:load?()=>load(spec.id):typeof window==='undefined'?async()=>null:null,
    configure:m=>{
     if(m.emissive?.getHex()){enableSpellBloom(m);m.userData.streamGlow=m.emissiveIntensity;}

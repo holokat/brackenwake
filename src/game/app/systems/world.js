@@ -18,15 +18,12 @@ import { zoneSub, clampToWorld, birthplaceFor } from '../../../world/zones.js';
 // SEA_LEVEL, so the words a downward brush reports quote the number the field
 // used to flood at rather than a second copy of it that could drift.
 import { SEA_LEVEL } from '../../../world/field.js';
-import { cameraClamp } from '../../../world/dungeon.js';
 import {
   reachOf, maxGrade, kinds as strokeKinds, NEEDS_YAW, GROUND_WORDS, BASE_GROUNDS,
   WATER_KINDS, isWaterKind, levelOf, levelEndOf, depthOf,
   ERASE_KIND, hardnessOf, opacityOf, coreRadius,
 } from '../../../world/terrain_edits.js';
 
-/** Where the follow camera looks on the body, matching camera.js. */
-const CAMERA_EYE = 1.5;
 /** Where the editor's save button writes, and where the runtime reads at boot. */
 export const TERRAIN_SAVE_PATH = `public${TERRAIN_FILE}`;   // the editor saves the file it loaded
 /** The dev server's own writer. vite.config.js answers it; a built game does not. */
@@ -333,18 +330,6 @@ export const world = {
       if (cx !== pos.x || cz !== pos.z) {
         pos.x = cx; pos.z = cz;
         pos.y = runtime.heightAt(cx, cz);
-      }
-    }
-
-    // underground the camera stays inside the room: dungeon.js walks the grid
-    // from the player to the eye and stops it short of the first rock cell
-    function clampCamera(playerPos) {
-      if (!runtime.inDungeon) return;
-      const L = runtime.dungeonLayout();
-      const c = cameraClamp(L, sc.camera.position, playerPos);
-      if (c.moved) {
-        sc.camera.position.set(c.x, c.y, c.z);
-        sc.camera.lookAt(playerPos.x, playerPos.y + CAMERA_EYE, playerPos.z);
       }
     }
 
@@ -679,7 +664,7 @@ export const world = {
     return {
       runtime, sky, water, weather, living, terrain,
       dispose() { releaseMineEffects(); living.dispose(); weather.dispose(); sky.dispose(); water.dispose(); if(envRT)envRT.dispose(); pmrem.dispose(); runtime.dispose(); },
-      refreshEnvironment, nearestSettlement, keepInside, clampCamera, listen,
+      refreshEnvironment, nearestSettlement, keepInside, listen,
       heightAt: (x, z) => runtime.heightAt(x, z),
       /** The day, at any instant of the WORLD clock. One place, so it agrees. */
       dayFactor: (nowMs) => sc.dayFactor(nowMs),

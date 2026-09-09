@@ -28,6 +28,7 @@ export function createPhysicalWorld(runtime){
   at(x,y,z,r=.32,h=1.75){return current().at(x,y,z,r,h);},
   supportAt(x,z,below){return current().supportAt(x,z,below);},
   ceilingAt(x,z,feet){return current().ceilingAt(x,z,feet);},
+  cameraDistance(from,to,radius){return current().cameraDistance(from,to,radius);},
   get bodies(){return index.bodies;},
   invalidate(){stamp='';next=0;},
  };

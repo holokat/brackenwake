@@ -1,4 +1,5 @@
 import {vaultHeightOf} from '../../mmo/plans/footprints.js';
+import {cameraSweep} from './camera.js';
 // Static physical envelopes in metres. Foliage bends; trunks, masonry and furniture do not.
 const SOFT=/^(lane_slab|road_slab_2m|road_kerb|rail_2m|stone_bridge_10m|footbridge|stepping_stones|rooting_patch|lily_pad_patch|offerings|chain_lantern|legion_banner|sheep_skeleton)$/;
 const SOFT_LIVING=/^(cowslip_patch|cow_parsley|yellow_iris|bracken|leaf_litter|mushroom_ring|bluebells|nettles|puddle|duck_pond|sheep_track|deer_rub|rabbit_warren|fox_earth|molehills|butterfly|dragonfly|kestrel|crow_flock|ivy|reed|water_weed|lily|rush|flower|fung|moss|lichen|grass|fern|seed|petal|fallen_leav)/;
@@ -53,6 +54,7 @@ export function createCollisionIndex(bodies=[],cell=16){
   return r-(Math.hypot(Math.max(0,a),Math.max(0,d))+Math.min(0,Math.max(a,d)));
  };
  return{bodies,at,
+  cameraDistance(from,to,radius=.28){return cameraSweep(cells,cell,from,to,radius);},
   supportAt(x,z,below,r=.32){let top=-Infinity;for(const b of near(x,z)){
    if(b.kind==='ramp'){
     const dx=x-b.x,dz=z-b.z,a=Math.abs(dx*b.c-dz*b.s),v=Math.abs(dx*b.s+dz*b.c);

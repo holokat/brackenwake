@@ -19,6 +19,7 @@ import {buildSepulcher} from '../game/cellar_models.js';
 // The compatibility export used by older authored layouts.
 export function createCellarFurnishings(){return {group:new T.Group(),physicalBodies:[]};}
 export function furnishOldCellars(built,L,{sc,artLoaders={}}={}){
+ built.cameraObstacles=new Set();
  const streaming=sc?createCellarAssetStream(L,built):null;built.streaming=streaming;
  const root=new T.Group();root.name=L.name;built.group.add(root);const ground=(x,z)=>cellarGroundHeight(L,x,z,z=>cellarHeight(L.level,z));raiseDungeon(built,(z,x)=>ground(x,z));
  const lights=[],lamps=[],rings=[],batches=new Map();let time=0,disposed=false;

@@ -11,6 +11,7 @@
 // follow, fly speed by the same law in fly.
 
 import * as THREE from 'three';
+import {createCameraObstruction,cameraClearance} from './camera_obstruction.js';
 
 export const DRAG_RAD = 0.005;      // radians per pixel of drag
 export const PITCH_MIN = 0.15, PITCH_MAX = 1.35;
@@ -44,6 +45,18 @@ export function clampAboveGround(pos, groundY, minAbove) {
 export function createFollowCamera(camera, input) {
   const target = new THREE.Vector3();
   const lookTmp = new THREE.Vector3();
+  const obstruction = createCameraObstruction();
+  let lastWorld = null;
+  function aim() {
+    if(camera.position.distanceToSquared(target)<.01){
+      // At a wall there may be less than a near-plane's width behind the
+      // player's head. Keep the orbit heading instead of lookAt(eye,eye),
+      // which otherwise resets the rotation and flickers between headings.
+      const cp=Math.cos(api.pitch);
+      lookTmp.set(camera.position.x+Math.sin(api.yaw)*cp,camera.position.y-Math.sin(api.pitch),camera.position.z+Math.cos(api.yaw)*cp);
+      camera.lookAt(lookTmp);
+    }else camera.lookAt(target);
+  }
 
   const api = {
     mode: 'follow',
@@ -55,6 +68,7 @@ export function createFollowCamera(camera, input) {
     setMode(m) {
       if (m !== 'follow' && m !== 'fly') return api.mode;
       api.mode = m;                      // the camera keeps the spot it is in
+      obstruction.reset();
       return api.mode;
     },
     // both modes turn the same way
@@ -75,9 +89,13 @@ export function createFollowCamera(camera, input) {
       if (w) api.distance = clamp(api.distance * Math.pow(ZOOM_BASE, w / ZOOM_UNIT), DIST_MIN, DIST_MAX);
 
       target.set(playerPos.x, playerPos.y + EYE_HEIGHT, playerPos.z);
+      lastWorld = heightAt;
       const ground = (x, z) => (typeof heightAt === 'function' ? heightAt(x, z) : -Infinity);
       let want = orbitPosition(target, api.yaw, api.pitch, api.distance);
       want = clampAboveGround(want, ground(want.x, want.z), MIN_ABOVE);
+      const query = heightAt?.cameraDistance, radius = cameraClearance(camera);
+      if (query) want = obstruction.boom(dt,target,want,query,radius);
+      else obstruction.reset();
 
       const a = 1 - Math.exp(-dt / SMOOTH_TAU);
       const p = camera.position;
@@ -89,8 +107,12 @@ export function createFollowCamera(camera, input) {
       // being underground for a frame
       const floor = ground(p.x, p.z) + MIN_ABOVE;
       if (p.y < floor) p.y = floor;
+      if (query) {
+        const safe=obstruction.finish(target,p,query,radius);
+        p.set(safe.x,safe.y,safe.z);
+      }
 
-      camera.lookAt(target);
+      aim();
       return api;
     },
     flyUpdate(dt, heightAt) {
@@ -123,11 +145,15 @@ export function createFollowCamera(camera, input) {
       return api;
     },
     // put the camera on its orbit at once, no smoothing (a boot, or a warp)
-    snap(playerPos) {
+    snap(playerPos, heightAt = lastWorld) {
+      obstruction.reset();
+      lastWorld = heightAt;
       target.set(playerPos.x, playerPos.y + EYE_HEIGHT, playerPos.z);
-      const w = orbitPosition(target, api.yaw, api.pitch, api.distance);
+      let w = orbitPosition(target, api.yaw, api.pitch, api.distance);
+      if (heightAt) w=clampAboveGround(w,heightAt(w.x,w.z),MIN_ABOVE);
+      if (heightAt?.cameraDistance) w=obstruction.boom(0,target,w,heightAt.cameraDistance,cameraClearance(camera));
       camera.position.set(w.x, w.y, w.z);
-      camera.lookAt(target);
+      aim();
       return api;
     },
   };
