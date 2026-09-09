@@ -94,6 +94,7 @@ export const FOOTPRINT = {
   offerings: [1.6, 1.6, 0.5],
   // -- the Old Cellars -------------------------------------------------------
   cellar_arch: [4, 3, 3.5],
+  [OLD_CELLARS_EXTERIOR.id]: OLD_CELLARS_EXTERIOR.footprint,
   chain_lantern: [0.4, 0.4, 0.6],
   legion_banner: [0.8, 0.8, 3.2],
   cart_broken: [3, 2, 1.6],
@@ -236,6 +237,7 @@ export const STANDIN = {
   offerings: S('offerings'),
 
   cellar_arch: S('arch'),
+  [OLD_CELLARS_EXTERIOR.id]: S('arch'),
   chain_lantern: S('light', { hung: true }),
   legion_banner: S('post', { head: 'banner', pole: 'timber' }),
   cart_broken: S('cart', { broken: true }),
@@ -298,6 +300,7 @@ export const SOLO = new Set([
   'well_pavilion', 'gate_tower', 'waystone_village',
   'mill', 'millers_house', 'granary', 'foremans_hut',
   'headframe', 'cellar_arch', 'chapel_sunken', 'lookout_platform',
+  OLD_CELLARS_EXTERIOR.id,
   'mine_mouth', 'fingerpost', 'loot_sack',
 ]);
 // The three cottages are NOT here on purpose. Every name in SOLO costs a draw
@@ -367,3 +370,4 @@ export function insidePlan(plan, site, x, z, margin = PLAN_MARGIN) {
   }
   return false;
 }
+import {OLD_CELLARS_EXTERIOR} from '../old_cellars_exterior.js';

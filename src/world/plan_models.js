@@ -1,4 +1,5 @@
 import {STRONGHOLD_ASSETS} from '../mmo/stronghold_assets.js';
+import {OLD_CELLARS_EXTERIOR} from '../mmo/old_cellars_exterior.js';
 import {propColliders} from './collision/shapes.js';
 import {LIVING_BY_MODEL} from '../mmo/living_catalog.js';
 // A named place, built from a plan drawn off a concept image.
@@ -683,7 +684,9 @@ export function registerProp(id, object3D) {
   wrap.name = `prop:${id}`;
   if (PROP_YAW[id]) object3D.rotation.y = PROP_YAW[id] * Math.PI / 180;
   wrap.add(object3D);
-  if (f) {
+  // This authored model's doorway is its origin. Recentring its turf mound
+  // would move the door away from both collision and the dungeon interaction.
+  if (f && id !== OLD_CELLARS_EXTERIOR.id) {
     wrap.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(wrap);
     const height = box.max.y - box.min.y;

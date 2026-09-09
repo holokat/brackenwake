@@ -1,0 +1,20 @@
+{
+  "sourceObjects": 243,
+  "sourceTriangles": 6702,
+  "materials": 2,
+  "boundsZUp": [
+    [
+      -5.0,
+      -1.8700000047683716,
+      -0.35791701078414917
+    ],
+    [
+      5.0,
+      5.599999904632568,
+      4.954878807067871
+    ]
+  ],
+  "constructionSeconds": 0.225,
+  "exportBytes": 572920,
+  "blender": "5.2.0 LTS"
+}

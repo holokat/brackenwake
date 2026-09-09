@@ -1,5 +1,6 @@
 import {vaultHeightOf} from '../../mmo/plans/footprints.js';
 import {cameraSweep} from './camera.js';
+import {OLD_CELLARS_EXTERIOR} from '../../mmo/old_cellars_exterior.js';
 // Static physical envelopes in metres. Foliage bends; trunks, masonry and furniture do not.
 const SOFT=/^(lane_slab|road_slab_2m|road_kerb|rail_2m|stone_bridge_10m|footbridge|stepping_stones|rooting_patch|lily_pad_patch|offerings|chain_lantern|legion_banner|sheep_skeleton)$/;
 const SOFT_LIVING=/^(cowslip_patch|cow_parsley|yellow_iris|bracken|leaf_litter|mushroom_ring|bluebells|nettles|puddle|duck_pond|sheep_track|deer_rub|rabbit_warren|fox_earth|molehills|butterfly|dragonfly|kestrel|crow_flock|ivy|reed|water_weed|lily|rush|flower|fung|moss|lichen|grass|fern|seed|petal|fallen_leav)/;
@@ -9,6 +10,13 @@ export function propColliders(model,x,z,y,w,d,h,yaw=0){
  if(SOFT.test(model)||(model.startsWith('lw_')&&SOFT_LIVING.test(model.slice(3)))||h<.28)return[];
  const c=Math.cos(yaw),s=Math.sin(yaw),out=[];
  const box=(dx,dz,bw,bd,bh=h,by=0)=>out.push({kind:'box',model,x:x+dx*c+dz*s,z:z+dz*c-dx*s,y:y+by,w:bw,d:bd,h:bh,c,s});
+ if(model===OLD_CELLARS_EXTERIOR.id){
+  const scale=w/OLD_CELLARS_EXTERIOR.footprint[0];
+  for(const wall of OLD_CELLARS_EXTERIOR.walls)box(...wall.map(v=>v*scale));
+  // The shallow threshold steps can be crossed without jumping.
+  out.push({kind:'ramp',model,x:x+.94*scale*s,z:z+.94*scale*c,y,w:2.8*scale,d:1.88*scale,h:.35*scale,c,s,direction:-1});
+  return out;
+ }
  if(['fingerpost','lamp_post_iron','lantern_post','lw_lantern_post','lw_wanted_poster'].includes(model))return[{kind:'circle',model,x,z,y,r:.14,h}];
  if(TREE.test(model))return[{kind:'circle',model,x,z,y,r:Math.min(w,d)*.055,h}];
  if(['gate_tower','cellar_arch','mine_mouth'].includes(model)){
