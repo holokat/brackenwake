@@ -21,7 +21,7 @@ function snapshot(label){
  const sorted=frames.slice().sort((a,b)=>a-b),resources=performance.getEntriesByType('resource').filter(r=>r.startTime>=start&&/\.glb(?:[?#]|$)/.test(r.name));
  write({label,ready,elapsedMs:Math.round(performance.now()-start),position:{...b.player.pos},floor:b.runtime.dungeonLevel,
   frameP95Ms:sorted[Math.floor(sorted.length*.95)]||0,worstFrameMs:sorted.at(-1)||0,longTasks:longTasks.length,worstLongTaskMs:Math.max(0,...longTasks),
-  loading:b.assetLoading,streaming:b.runtime.dungeonScene?.streaming?.stats,glbs:resources.map(r=>({name:r.name.split('/').at(-1),bytes:r.encodedBodySize,ms:Math.round(r.duration)})),
+  loading:b.assetLoading,preload:b.runtime.dungeonPreload,streaming:b.runtime.dungeonScene?.streaming?.stats,glbs:resources.map(r=>({name:r.name.split('/').at(-1),bytes:r.encodedBodySize,ms:Math.round(r.duration)})),
   renderer:b.sc.renderer.info.render,memory:b.sc.renderer.info.memory,webglError:b.sc.renderer.getContext().getError()});
 }
 snapshot('Arrival ready');status.textContent=ready?'Nearby artwork is ready. The rest streams as you explore.':'Nearby artwork failed to load. The structural shell remains visible.';

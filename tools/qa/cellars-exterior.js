@@ -24,7 +24,7 @@ function approach(side=false){
 function snapshot(){const meshes=[];b.sc.scene.traverse(o=>{if(o.isMesh&&o.userData.plan?.piece==='old_cellars_entrance')meshes.push(o);});
  return{three:b.THREE.REVISION,world:b.runtime.field.sculpt?.world,position:{...b.player.pos},inDungeon:b.runtime.inDungeon,
   exteriorMeshes:meshes.length,triangles:meshes.reduce((n,o)=>n+(o.geometry.index?.count||o.geometry.attributes.position.count)/3,0),
-  failedShaders:b.sc.renderer.info.programs.filter(p=>p.diagnostics?.runnable===false).length,errors:[...errors],streaming:b.runtime.dungeonScene?.streaming?.stats||null};
+  failedShaders:b.sc.renderer.info.programs.filter(p=>p.diagnostics?.runnable===false).length,errors:[...errors],preload:b.runtime.dungeonPreload,streaming:b.runtime.dungeonScene?.streaming?.stats||null};
 }
 function aim(point){const p=new b.THREE.Vector3(point.x,point.y,point.z).project(b.sc.camera);b.input.pointer.x=p.x;b.input.pointer.y=p.y;}
 document.querySelector('#front').onclick=()=>approach();document.querySelector('#side').onclick=()=>approach(true);

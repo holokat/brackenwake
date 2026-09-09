@@ -1,4 +1,5 @@
 import {cellarFloorAt} from '../world/cellar_floor.js';
+import {createDungeonApproach} from './streaming/dungeon_approach.js';
 import {isShoulder,SHOULDER_SPEC,createShoulderWorking} from '../world/shoulder_working.js';
 import {furnishShoulder} from '../world/shoulder_scene.js';
 import {createOldCellars} from '../world/old_cellars.js';
@@ -175,6 +176,7 @@ export function createWorldRuntime(sc, opts = {}) {
   // `effects` is the shared particle pool (a burning wreck puffs smoke into it,
   // A3) and `field` lets a town face its gates at the roads (T1); both optional.
   const siteMarkers = createSiteMarkers(scene, discovery, terrainY, { effects: opts.effects || null, field });
+  const dungeonApproach = sc.renderer ? createDungeonApproach({sitesNear: discovery.sitesNear}) : null;
   const physical = createPhysicalWorld({siteMarkers,heightAt:(x,z)=>terrainY(x,z),get inDungeon(){return !!dungeon;},get dungeonLayout(){return dungeon?.layout;},get dungeonScene(){return dungeon?.scene;}});
 
   const viewFar = world.viewRadius - FOG_MARGIN;
@@ -218,6 +220,7 @@ export function createWorldRuntime(sc, opts = {}) {
 
   function updateWorld(dt, nowMs, x, z, dayFactor) {
     center.set(x, terrainY(x, z), z);
+    dungeonApproach?.update(dt, center);
     world.update(center);
     flora.update(nowMs, x, z);
     dressing.update(nowMs);
@@ -396,7 +399,9 @@ export function createWorldRuntime(sc, opts = {}) {
   /** Build one level and say where you landed. `arriveAt` is which door. */
   function openLevel(site, level, arriveAt = 'entrance') {
     // Pin the destination before disposing the old floor, including an in-flight prefetch.
-    const arrivalLease = dungeon.scene?.streaming?.claimArrival(level, arriveAt === 'stair' ? 'up' : 'down');
+    const arrivalLease = dungeon.scene
+      ? dungeon.scene.streaming?.claimArrival(level, arriveAt === 'stair' ? 'up' : 'down')
+      : dungeonApproach?.claim(site, level);
     let arrivalReady;
     try {
       dungeon.scene?.dispose();
@@ -745,6 +750,7 @@ export function createWorldRuntime(sc, opts = {}) {
     dungeonChests() { return dungeon && dungeon.layout ? dungeon.layout.chests.slice() : []; },
     get dungeonSite() { return dungeon ? dungeon.site : null; },
     get dungeonScene() { return dungeon ? dungeon.scene : null; },
+    get dungeonPreload() { return dungeonApproach?.stats ?? null; },
 
     /** Identity in the open; the nearest floor cell underground. */
     clampWalkable(x, z) {
@@ -759,6 +765,7 @@ export function createWorldRuntime(sc, opts = {}) {
     onDungeonState(fn) { stateFn = fn; },
 
     dispose() {
+      dungeonApproach?.dispose();
       if (dungeon) { try { dungeon.scene?.dispose(); } catch { /* already gone */ } dungeon = null; surface = null; }
       siteMarkers.dispose(); flora.dispose(); dressing.dispose(); wayside.dispose();
       crossings.dispose(); fauna.dispose(); world.dispose();

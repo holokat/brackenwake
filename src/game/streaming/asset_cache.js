@@ -59,7 +59,7 @@ export function createAssetCache({fetchBytes, decode, dispose = () => {}, sizeOf
     for (const e of pending) {
       if (downloading >= maxDownloads) break;
       // One download slot always remains available to visible rooms.
-      if (!e.refs && (!allowPrefetch() || downloading >= maxDownloads - 1)) continue;
+      if ((!e.refs || e.priority === 0) && (!allowPrefetch() || downloading >= maxDownloads - 1)) continue;
       downloading++; totals.peakDownloads = Math.max(totals.peakDownloads, downloading); e.phase = 'fetching';
       Promise.resolve().then(() => fetchBytes(e.url, e.controller.signal, e.priority)).then(bytes => {
         if (entries.get(e.url) !== e || e.controller.signal.aborted) return;
@@ -84,6 +84,10 @@ export function createAssetCache({fetchBytes, decode, dispose = () => {}, sizeOf
       };
     },
     prefetch(url) {if (!allowPrefetch()) return false; const e = make(url); touch(e); pump(); return true;},
+    cancelPrefetch(url) {
+      const e = entries.get(url);
+      if (e && !e.refs && (e.phase === 'queued' || e.phase === 'fetching')) evict(e);
+    },
     cancelPrefetchExcept(urls = []) {
       const keep = new Set(urls);
       // Completed bytes remain in the bounded LRU for backtracking and floor transitions.

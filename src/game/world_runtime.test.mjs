@@ -108,6 +108,43 @@ const player = new THREE.Group(); player.name = 'player';
 sc.scene.add(player);
 const rt = createWorldRuntime(sc, { homeBiome: 'meadow' });
 
+// Surface prediction and entry use the actual runtime; only network assets are recorded.
+{
+  const {gltfAssets} = await import('./streaming/gltf_assets.js');
+  const {spaceSiteRow} = await import('../world/sites.js');
+  const {CELLAR_ASSETS} = await import('../world/cellar_asset_catalog.js');
+  const {default: space} = await import('../mmo/spaces/island_cellars.json', {with: {type: 'json'}});
+  const {default: island} = await import('../../public/terrain/island.json', {with: {type: 'json'}});
+  const {createTerrainEdits} = await import('../world/terrain_edits.js');
+  const terrainEdits = createTerrainEdits(); terrainEdits.load(island);
+  const original = {prefetch: gltfAssets.prefetch, acquire: gltfAssets.acquire, cancelPrefetch: gltfAssets.cancelPrefetch};
+  const calls = [];
+  gltfAssets.prefetch = url => {calls.push(['prefetch', url]); return true;};
+  gltfAssets.acquire = (url, opts) => {calls.push(['acquire', url, opts?.priority]); return {promise: Promise.resolve(null), release() {calls.push(['release', url]);}};};
+  gltfAssets.cancelPrefetch = url => calls.push(['cancel', url]);
+  const scene = standScene(); scene.renderer = {}; // No GPU work is claimed by this dispatch test.
+  const runtime = createWorldRuntime(scene, {terrainFile: false, terrainEdits});
+  try {
+    const site = spaceSiteRow(space);
+    for (let distance = 110; distance >= 100; distance--) runtime.update(.2, distance * 200, site.x - distance, site.z);
+    ck('walking toward the authored Old Cellars outside prefetches only its entry GLB',
+      calls.filter(c => c[0] === 'prefetch').length === 1 && calls.find(c => c[0] === 'prefetch')?.[1] === CELLAR_ASSETS.entry);
+    ck('approach leaves the player outside and creates no dungeon layout', !runtime.inDungeon && runtime.dungeonLayout() === null);
+    runtime.enterDungeon(site);
+    const acquire = calls.findIndex(c => c[0] === 'acquire' && c[1] === CELLAR_ASSETS.entry && c[2] === 3);
+    const cancel = calls.findIndex(c => c[0] === 'cancel');
+    ck('actual entry acquires the arrival lease before ending surface prefetch', acquire >= 0 && cancel > acquire);
+    await runtime.dungeonScene.ready;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    ck('entry exposes the surface prefetch handoff for live measurement',
+      runtime.dungeonPreload.lastHandoff.phase === 'prefetching' && runtime.dungeonPreload.handoffs === 1);
+    ck('the transition lease releases after the nearby room set settles', calls.some(c => c[0] === 'release' && c[1] === CELLAR_ASSETS.entry));
+    const before = runtime.dungeonPreload.requests;
+    runtime.update(.2, 100000, site.x - 90, site.z);
+    ck('underground updates never keep running the surface prediction', runtime.dungeonPreload.requests === before);
+  } finally {runtime.dispose(); Object.assign(gltfAssets, original);}
+}
+
 ck('the runtime hands back every module the contract names',
   !!(rt.field && rt.world && rt.flora && rt.fauna && rt.discovery && rt.siteMarkers));
 ck('fog closes at 280 m inside the 320 m streamed ring', Math.abs(sc.scene.fog.near-78.4)<.001 && sc.scene.fog.far === 280,
