@@ -19,6 +19,7 @@
 // `stepPlayer` writes and what `group.rotation.y` reads.
 
 import * as THREE from 'three';
+import { targetEffectLabels } from './target_effects.js';
 import { conOf, conLabel, playerTier, tierForSkill, CON_SKILLS, MAX_PLAYER_TIER } from './con.js';
 import { setAnger } from './floaters.js';
 import { setCon as setRingCon } from './target_ring.js';
@@ -212,7 +213,7 @@ export function nameplateOf(target, character, camera, width, height, bodyHeight
     x: at.x, y: at.y,
     // what you have done to it that is still running: a mark is a debuff the
     // plate should show, or the player cannot tell it landed
-    tags: marksOn(target, now).map((m) => (m.left != null ? `${m.name} ${m.left} s` : m.name)),
+    tags: [...targetEffectLabels(target, now), ...marksOn(target, now).map((m) => (m.left != null ? `${m.name} ${m.left} s` : m.name))],
   };
 }
 

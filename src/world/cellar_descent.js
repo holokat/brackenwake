@@ -5,7 +5,7 @@ import {cutCellarGeologyStaged} from './cellar_geometry_jobs.js';
 import {createCellarRoomProxy} from './cellar_room_proxy.js';
 import {createRoomArtwork} from '../game/streaming/room_artwork.js';
 import {CELLAR_ASSETS} from './cellar_asset_catalog.js';
-import {enableSpellBloom} from '../game/vfx/bloom.js';
+import {configureCellarGlow} from './cellar_fixture_lighting.js';
 
 export function furnishCellarDescent(built,L,{load=null,stream,sc}={}){
  const rooms=[],anchors=[];let disposed=false;
@@ -19,7 +19,7 @@ export function furnishCellarDescent(built,L,{load=null,stream,sc}={}){
   const art=createRoomArtwork({id:`descent-${room.roomId}`,url:CELLAR_ASSETS[spec.id],stream,sc,cameraObstacles:built.cameraObstacles,
    bounds:{x:room.x,z:room.z,rx:spec.rx,rz:spec.rz},load:load?()=>load(spec.id):typeof window==='undefined'?async()=>null:null,
    configure:m=>{
-    if(m.emissive?.getHex()){enableSpellBloom(m);m.userData.streamGlow=m.emissiveIntensity;}
+    configureCellarGlow(m);
     if(/Descent (water|cloth)/.test(m.name)){
      const water=m.name.includes('water'),top=Math.min(spec.ceiling*.58,19).toFixed(2);
      m.onBeforeCompile=s=>{s.uniforms.cellarTime=clock;s.vertexShader='uniform float cellarTime;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n'+(water?'transformed.y += sin(position.x*.8+cellarTime*.4)*sin(position.z*.6+cellarTime*.3)*.012;':`transformed.z += sin(position.x+position.y*.6+cellarTime*.65)*.09*clamp((${top}-position.y)/7.0,0.0,1.0);`));};

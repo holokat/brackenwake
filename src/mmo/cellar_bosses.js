@@ -1,13 +1,13 @@
 // Authored Old Cellars encounters. Distances are metres, clocks milliseconds.
 // This table is shared by the world spawn, combat and Blender model adapters.
 const attack = (id, name, pattern, warnMs, damageScale, damageType, cue) =>
-  ({ id, name, pattern, warnMs, damageScale, damageType, cue,
+  ({ id, name, pattern, warnMs: Math.round(warnMs * .72), damageScale, damageType, cue,
     animation: ['hammer', 'crush', 'cleave'].includes(pattern) ? 'swing' : 'special' });
 
 export const CELLAR_BOSSES = [
   {
     id: 'morvaOssuaryMother', name: 'Morva, the ossuary mother', depth: 2, height: 4.8,
-    rank: 1, hp: 600, damage: [7, 13], hit: 25, def: 22, ar: 18, run: 3.4,
+    rank: 1, hp: 600, damage: [7, 13], hit: 25, def: 22, ar: 18, run: 5.4,
     family: 'spider', kind: 'vermin', colour: 0x55d9bc,
     model: 'A skull-shell crustacean on six legs with a brine-filled ossuary under its carapace.',
     notes: [], lootTable: ['ring', 'amulet', 'helm', 'boots'],
@@ -24,7 +24,7 @@ export const CELLAR_BOSSES = [
   },
   {
     id: 'sextonBellkeeper', name: 'Sexton, the last bellkeeper', depth: 3, height: 6,
-    rank: 2, hp: 1050, damage: [11, 20], hit: 43, def: 34, ar: 20, run: 3.2,
+    rank: 2, hp: 1050, damage: [11, 20], hit: 43, def: 34, ar: 20, run: 5.2,
     family: 'biped', kind: 'undead', colour: 0xc4ad6b,
     model: 'A hunched spectral bellkeeper with a huge bronze bell hammer and suspended foundry chains.',
     notes: ['undead', 'holyWeak'], lootTable: ['warhammer', 'amulet', 'cloak', 'ring'],
@@ -40,7 +40,7 @@ export const CELLAR_BOSSES = [
   },
   {
     id: 'abbotCinder', name: 'Abbot Cinder', depth: 4, height: 7.5,
-    rank: 3, hp: 1560, damage: [15, 27], hit: 61, def: 43, ar: 24, run: 3,
+    rank: 3, hp: 1560, damage: [15, 27], hit: 61, def: 43, ar: 24, run: 5,
     family: 'biped', kind: 'undead', colour: 0xff8844,
     model: 'A four-armed revenant with an open furnace chest, ribbed kiln armour and a charred abbot crown.',
     notes: ['undead', 'holyWeak', 'fireImmune'], lootTable: ['robe', 'quarterstaff', 'boots', 'ring'],
@@ -56,7 +56,7 @@ export const CELLAR_BOSSES = [
   },
   {
     id: 'ilexChainArchivist', name: 'Ilex, the chain archivist', depth: 5, height: 9,
-    rank: 4, hp: 2200, damage: [20, 34], hit: 78, def: 55, ar: 26, run: 2.8,
+    rank: 4, hp: 2200, damage: [20, 34], hit: 78, def: 55, ar: 26, run: 4.8,
     family: 'skeleton', kind: 'undead', colour: 0x76d7ba,
     model: 'A floating lich torso with chained book arms, hanging scrolls and a long legless tattered shroud.',
     notes: ['undead', 'holyWeak'], lootTable: ['robe', 'quarterstaff', 'amulet', 'ring'],
@@ -72,7 +72,7 @@ export const CELLAR_BOSSES = [
   },
   {
     id: 'vossInvertedSaint', name: 'Voss, the inverted saint', depth: 6, height: 11,
-    rank: 4, hp: 2540, damage: [24, 40], hit: 82, def: 58, ar: 32, run: 2.7,
+    rank: 4, hp: 2540, damage: [24, 40], hit: 82, def: 58, ar: 32, run: 4.6,
     family: 'biped', kind: 'construct', colour: 0x93b8ff,
     model: 'A crawling stone giant carrying a cathedral on its back, with tomb chains and massive slab hands.',
     notes: ['immunePoison'], lootTable: ['maul', 'greaves', 'helm', 'warhammer'],
@@ -88,7 +88,7 @@ export const CELLAR_BOSSES = [
   },
   {
     id: 'asterFirstKing', name: 'Aster, the first king', depth: 7, height: 14,
-    rank: 5, hp: 3500, damage: [29, 48], hit: 95, def: 68, ar: 36, run: 2.5,
+    rank: 5, hp: 3500, damage: [29, 48], hit: 95, def: 68, ar: 36, run: 4.5,
     family: 'skeleton', kind: 'undead', colour: 0xe9c184,
     model: 'A colossal crowned skeletal king in layered burial armour with an immense two-handed tomb sword.',
     notes: ['undead', 'holyWeak'], lootTable: ['greatsword', 'breastplate', 'helm', 'amulet'],

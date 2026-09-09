@@ -763,6 +763,7 @@ const CSS = `
   position: absolute; left: 0; top: 0; display: none; align-items: center; gap: 5px;
   pointer-events: none; z-index: 29; white-space: nowrap;
   transform: translate(-50%, -100%);
+  flex-wrap: wrap; justify-content: center; width: max-content; max-width: 420px;
 }
 #bw-plate.on { display: flex; }
 #bw-plate .sk { display: none; line-height: 0; }
@@ -779,6 +780,7 @@ const CSS = `
 #bw-plate .tg {
   font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .08em;
   color: #ff6a5a; text-shadow: 0 1px 0 #000, 0 0 4px #000;
+  flex-basis: 100%; text-align: center; white-space: normal; line-height: 1.5;
 }
 #bw-plate .tg:empty { display: none; }
 /* the two bars sit side by side on one centred rail: the twelve you know on
@@ -1333,6 +1335,7 @@ export function createHud(root) {
     // the pack grid and the paper doll both hand over `{ pack: i }` or
     // `{ slot: 'mainHand' }` under the same mime; item_bar.assign reads both
     dropTarget(c, (payload) => { if (onItemDropped) onItemDropped(i, payload); });
+    dragSource(c, () => c.classList.contains('empty') ? null : { itemBarSlot: i });
     itemRow.appendChild(c);
     const rec = { el: c, glyph: g, count: n, worn: w, key, last: '' };
     hoverTip(rec);

@@ -17,16 +17,18 @@ const playerAt = (x = 5, z = -143) => {
 };
 const actorFor = def => ({ health: def.hp, maxHealth: def.hp, pos: { ...home }, ai: { home: { ...home } }, status: {} });
 const probes = shape => {
+  const candidates = [];
+  for (let x = home.x - 28; x <= home.x + 28; x += .7) {
+    for (let z = home.z - 27; z <= home.z + 15; z += .7) candidates.push({x,y:0,z});
+  }
+  candidates.push({x:shape.x,y:0,z:shape.z});
+  candidates.sort((a,b)=>Math.hypot(a.x-home.x,a.z-home.z)-Math.hypot(b.x-home.x,b.z-home.z));
   let safe, danger;
-  for (let x = home.x - 28; x <= home.x + 28 && !(safe && danger); x += .7) {
-    for (let z = home.z - 27; z <= home.z + 15; z += .7) {
-      const p = { x, y: 0, z };
-      // Keep the test away from polygon approximation boundaries.
-      const near = [-.2, .2].flatMap(dx => [-.2, .2].map(dz => cellarShapeContains(shape, { x: x + dx, y: 0, z: z + dz })));
-      if (near.every(Boolean)) danger ||= p;
-      if (near.every(v => !v)) safe ||= p;
-      if (safe && danger) break;
-    }
+  for (const p of candidates) {
+    const near = [-.2,.2].flatMap(dx=>[-.2,.2].map(dz=>cellarShapeContains(shape,{x:p.x+dx,y:0,z:p.z+dz})));
+    if (near.every(Boolean) && cellarShapeContains(shape,p)) danger ||= p;
+    if (near.every(v=>!v) && !cellarShapeContains(shape,p)) safe ||= p;
+    if (safe && danger) break;
   }
   assert(danger && safe, `${shape.kind} has measurable danger and a reachable safe region`);
   return { danger, safe };
@@ -52,7 +54,7 @@ for (const def of CELLAR_BOSSES) {
         if (e.type === 'phase') phases++;
         if (e.type === 'telegraph') {
           assert(!emitted.has(e.mark.id)); emitted.set(e.mark.id, e.mark);
-          assert(e.mark.impactAt - now >= 1500, 'every tracked mark gets a complete warning');
+          assert(e.mark.impactAt - now >= def.attacks.find(a => a.id === e.mark.attackId).warnMs, 'every tracked mark gets a complete warning');
           const { safe, danger } = probes(e.mark.shape);
           assert(!cellarShapeContains(e.mark.shape, safe)); assert(cellarShapeContains(e.mark.shape, danger));
           if (phase === 0 && !attackIds.has(e.mark.attackId)) {
@@ -157,6 +159,8 @@ for (const def of CELLAR_BOSSES) {
   assert(!casts.some((c, i) => casts.slice(0, i).some(old => old.caster === c.caster && old.target === c.target && old.now === c.now && old.spell.id === c.spell.id)), 'duplicate player in ally list does not double-hit a mark');
 
   if (def.summon) {
+    Object.assign(player.pos, playerAt().pos);
+    for (let i = 0; i < 200 && !monsters.all().some(m => m.rec.cellarSummoner === boss.key); i++) tick();
     const brood = monsters.all().find(m => m.rec.cellarSummoner === boss.key);
     assert(brood, 'Morva summons real crawlers');
     combat.hurt(brood.actor, brood.actor.maxHealth * 2, { now, killer: player });
@@ -164,6 +168,7 @@ for (const def of CELLAR_BOSSES) {
     assert.equal(deadUntil.length, 0, 'brood creates no persistent slot');
   }
 
+  Object.assign(player.pos, playerAt().pos);
   boss.actor.health = boss.actor.maxHealth * .5; tick();
   assert.equal(boss.phase, 1);
   boss.actor.health = boss.actor.maxHealth * .2; tick();
@@ -172,7 +177,7 @@ for (const def of CELLAR_BOSSES) {
 
   // Acquire a live wind-up, then leave while it is still visible.
   while (!monsters.warnings().length) tick();
-  player.pos.z = -115; ally.health = 0;
+  player.pos.z = home.z + 60; ally.health = 0;
   boss.actor.health = boss.actor.maxHealth * .2;
   const castBeforeReset = casts.length;
   for (let i = 0; i < 26; i++) tick();

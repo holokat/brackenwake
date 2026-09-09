@@ -123,6 +123,15 @@ function harness(opts = {}) {
 }
 const said = (h) => h.hudLines.map((l) => l.t).join(' | ');
 
+// Ice Shard must expose the same slow magnitude that movement consumes.
+{
+ const enemy=mob('Skeleton',0,10,{run:6});const h=harness({bar:['iceShard'],monsters:[enemy]});
+ h.abilities.use(0,0);
+ h.abilities.update(.7,.7);
+ ck('Ice Shard writes a thirty percent movement slow',enemy.status.slow?.factor===.3,JSON.stringify(enemy.status));
+ ck('Ice Shard control clocks agree',enemy.status.slow?.until===enemy.status.slow?.untilS*1000);
+}
+
 // --- the table cannot drift ----------------------------------------------------
 console.log('abilities_runtime: the effect table');
 ck('every effect kind abilities.js declares has a handler',

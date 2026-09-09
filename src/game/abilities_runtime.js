@@ -974,6 +974,7 @@ export function createAbilities(deps = {}) {
         statusOn(m, e.effect, {
           until: c.now + num(e.duration),
           level: num(e.magnitude) || 1,
+          ...(e.effect === 'slow' ? { factor: Number.isFinite(e.magnitude) ? clamp(e.magnitude, 0, .9) : .3 } : {}),
           source: actor.id ?? 'player',
           breakOnDamage: !!e.breakOnDamage,
           abilityId: c.ability.id,

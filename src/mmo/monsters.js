@@ -89,7 +89,7 @@ export const MAX_PURSE = 4;
 // bosses 25 m". Each monster's tabled `aggro` is the tuned number the document
 // prints; the temperament it is filed under is the band that number falls in,
 // and `auditMonsters()` proves every row agrees with its band.
-export const AGGRO_BY_TEMPERAMENT = { critter: 0, vermin: 6, normal: 12, hunter: 18, boss: 25 };
+export const AGGRO_BY_TEMPERAMENT = { critter: 0, vermin: 6, normal: 12, hunter: 18, boss: 34 };
 export const TEMPERAMENT_BANDS = {
   critter: [0, 0], vermin: [1, 8], normal: [9, 14], hunter: [15, 24], boss: [25, 25],
 };
@@ -753,6 +753,7 @@ export const DEFAULT_BOSS_RANK = 5;
 const boss = (r) => M({
   tier: 6, boss: true, phases: BOSS_PHASES.slice(), temperament: 'boss', aggro: 25,
   flees: 'never', group: [1, 1], authored: true, rank: DEFAULT_BOSS_RANK, ...r,
+  speed: r.speed * .82, run: r.cellarBoss ? r.run : r.run * 1.12,
   gold: r.gold || BOSS_GOLD_BY_RANK[r.rank || DEFAULT_BOSS_RANK].slice(),
   notes: [...(r.notes || []), 'lootTwice', 'purpleFloor', 'champion'],
 });

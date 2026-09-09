@@ -34,7 +34,7 @@ for (const [i, [id, name, height]] of expected.entries()) {
   for (const attack of b.attacks) {
     assert(!names.has(attack.id)); names.add(attack.id);
     assert(!patterns.has(attack.pattern)); patterns.add(attack.pattern);
-    assert(attack.warnMs >= 1500 && attack.warnMs <= 3500);
+    assert(attack.warnMs >= 1100 && attack.warnMs <= 3000);
     assert(attack.damageScale > 0 && attack.damageScale < 1.5);
     assert(attack.cue.length > 20 && !attack.cue.includes('—'));
   }

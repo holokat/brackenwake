@@ -3,7 +3,7 @@ import { createCellarBossState, resetCellarBoss, stepCellarBoss, cellarShapeCont
 import { createCellarBossTelegraphs } from './cellar_boss_telegraphs.js';
 
 /** Thin production adapter; health, death, loot and save slots stay in their existing owners. */
-export function createCellarBossRuntime({ group, combat, say, spawn, despawn, live, heightAt, clampXZ, stats, cap }) {
+export function createCellarBossRuntime({ group, combat, say, spawn, despawn, live, heightAt, clampXZ, stats, cap, stepToward, speedOf }) {
   const owned = new Map();
   const entries = mon => {
     let entry = owned.get(mon.key);
@@ -13,8 +13,7 @@ export function createCellarBossRuntime({ group, combat, say, spawn, despawn, li
       entry = { state, visuals: createCellarBossTelegraphs(group), hitAt: 0 };
       owned.set(mon.key, entry);
       mon.cellarCombat = state;
-      // Authored bosses hold the clear middle of the chamber. Their attacks,
-      // especially fixed lanes, must never drag through the entry corridors.
+      // Home stays fixed for authored arena lanes and leash resets.
       mon.actor.ai.home = { ...mon.actor.ai.home, y: mon.actor.pos.y };
     }
     return entry;
@@ -78,22 +77,31 @@ export function createCellarBossRuntime({ group, combat, say, spawn, despawn, li
         } else if (event.type === 'reset') {
           entry.visuals.clear(); clearBrood(mon); combat?.forget?.(a);
           a.ai.target = null; a.ai.state = 'idle'; a.ai.leashSince = null;
-          a.health = a.maxHealth; a.status = {}; mon.phase = 0; mon.lastHealth = a.health;
+          a.health = a.maxHealth; a.status = {}; a.dots = [];
+          Object.assign(a.pos, a.ai.home); mon.phase = 0; mon.lastHealth = a.health;
           entry.hitAt = 0;
           say(`${mon.name} settles back into the chamber. The fight resets.`);
         }
       }
       // Attacks lock their facing at wind-up. Recovery offers a clear opening.
       if (entry.state.active) {
-        a.ai.target = target; a.ai.state = entry.state.attack ? 'attack' : 'idle';
+        a.ai.target = target; a.ai.state = entry.state.attack ? 'attack' : 'chase';
         if (!entry.state.attack && target) a.yaw = Math.atan2(target.pos.x - a.pos.x, target.pos.z - a.pos.z);
       }
+      let moved = 0;
+      // Move only between casts, keeping every warned region fixed. Reuse the
+      // ordinary collision and crowd-control path so bosses cannot cross walls.
+      if (entry.state.active && !entry.state.attack && target && stepToward
+          && Math.hypot(target.pos.x - a.pos.x, target.pos.z - a.pos.z) > 8) {
+        const step = stepToward(a.pos, target.pos, speedOf(a, now), dt, heightAt, clampXZ);
+        moved = step.moved; Object.assign(a.pos, { x: step.x, y: step.y, z: step.z });
+      }
       if (a.anim === 'hurt') { mon.model.setAnim('hurt'); a.anim = 'idle'; }
-      else if (entry.hitAt <= now) mon.model.setAnim(entry.state.attack ? 'cast' : 'idle');
-      mon.lastSpeed = 0;
+      else if (entry.hitAt <= now) mon.model.setAnim(entry.state.attack ? 'cast' : moved > 0 ? 'run' : 'idle');
+      mon.lastSpeed = dt > 0 ? moved / dt : 0;
       mon.model.group.position.set(a.pos.x, a.pos.y, a.pos.z);
       mon.model.group.rotation.y = a.yaw || 0;
-      mon.model.update(dt, 0); entry.visuals.update(now);
+      mon.model.update(dt, mon.lastSpeed); entry.visuals.update(now);
       return true;
     },
     clear(mon) {

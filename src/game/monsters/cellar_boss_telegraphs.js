@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import { createCellarAttackVfx } from './cellar_attack_vfx.js';
 
 // Both geometry and damage consume the same shape records. No visual-only radii.
 function shapeGeometry(s) {
   if (s.kind === 'lane') return new THREE.PlaneGeometry(s.width, s.length);
-  if (s.kind === 'ring') return new THREE.RingGeometry(Math.max(.001, s.inner), s.radius, 72);
+  if (s.kind === 'ring') return s.inner > 0 ? new THREE.RingGeometry(s.inner, s.radius, 72) : new THREE.CircleGeometry(s.radius, 72);
   if (s.kind === 'cone') return new THREE.CircleGeometry(s.radius, 64,
     Math.PI / 2 - s.yaw - s.halfAngle, s.halfAngle * 2);
   if (s.kind === 'sanctuary') {
@@ -67,7 +68,8 @@ export function createCellarBossTelegraphs(parent) {
       group.add(falling);
     }
     parent?.add(group);
-    return { group, fill, edge, mark, falling };
+    const vfx = createCellarAttackVfx(group, mark);
+    return { group, fill, edge, mark, falling, vfx };
   };
   return {
     add(mark) {
@@ -79,7 +81,8 @@ export function createCellarBossTelegraphs(parent) {
       if (!item) return;
       marks.delete(mark.id);
       if (impact) {
-        item.fill.material.opacity = .7;
+        item.fill.material.opacity = .32;
+        item.vfx.update(0, true);
         if (item.falling) item.falling.position.y = .65;
         item.edge.material.color.setHex(mark.colour);
         flashes.push({ ...item, until: now + 450 });
@@ -88,13 +91,15 @@ export function createCellarBossTelegraphs(parent) {
     update(now) {
       for (const item of marks.values()) {
         const progress = Math.max(0, Math.min(1, (now - item.mark.born) / (item.mark.impactAt - item.mark.born)));
-        item.fill.material.opacity = .12 + progress * .25;
+        item.fill.material.opacity = .08 + progress * .16;
+        item.vfx.update(progress);
         item.edge.material.opacity = .65 + progress * .35;
         if (item.falling) item.falling.position.y = .65 + 10 * (1 - progress * progress);
       }
       for (let i = flashes.length - 1; i >= 0; i--) {
         const item = flashes[i], left = Math.max(0, (item.until - now) / 450);
-        item.fill.material.opacity = left * .6;
+        item.fill.material.opacity = left * .28;
+        item.vfx.update(1 - left, true);
         item.edge.material.opacity = left;
         if (item.falling) for (const mesh of item.falling.children) mesh.material.opacity = left * .72;
         if (!left) { free(item.group); flashes.splice(i, 1); }

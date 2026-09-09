@@ -1,4 +1,5 @@
 import {furnishCellarStairs} from './cellar_stair.js';
+import {cellarLampProfile} from './cellar_fixture_lighting.js';
 import {createCellarAssetStream} from './cellar_asset_stream.js';
 import {createNearbyEffects} from '../game/streaming/nearby_effects.js';
 import {furnishCellarDescent} from './cellar_descent.js';
@@ -54,15 +55,15 @@ export function furnishOldCellars(built,L,{sc,artLoaders={}}={}){
   }
  }
  for(const {geo,mat,list} of batches.values()){const mesh=new T.InstancedMesh(geo,mat,list.length);list.forEach((p,i)=>{dummy.position.set(p.x,p.y,p.z);dummy.rotation.set(0,0,p.rz);dummy.scale.set(p.w,p.h,p.d);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);});mesh.computeBoundingSphere();root.add(mesh);}
- for(let i=0;i<4;i++){const light=new T.PointLight(L.level===4?0xff773b:0xffb96c,80,42,1.3);root.add(light);lights.push(light);}
+ for(let i=0;i<4;i++){const light=new T.PointLight(L.level===4?0xff773b:0xffb96c,0,23,1.3);root.add(light);lights.push(light);}
  root.add(new T.HemisphereLight(0xb1c2d9,0x343341,hasCellarEntry(L)?.28:.58));
  furnishCellarVaults(root,L,built.physicalBodies);
  const roomArt=furnishCellarSecondaryRooms(root,L,built.physicalBodies);lamps.push(...roomArt.lamps);
  const landmark=furnishBlenderCellar(built,L,{stream:streaming,sc,load:artLoaders.landmark});built.landmark=landmark;
  const entry=furnishCellarEntry(built,L,{stream:streaming,sc,load:artLoaders.entry});built.entry=entry;const descent=furnishCellarDescent(built,L,{stream:streaming,sc,load:artLoaders.descent});built.descent=descent;Object.defineProperty(built,'ready',{get:()=>streaming?streaming.ready():Promise.all([landmark.ready,entry?.ready??true,descent.ready]).then(results=>results.every(Boolean))});
  for(const anchor of [...landmark.anchors,...(entry?.anchors||[]),...descent.anchors]){
-  if(anchor.kind==='lamp')lamps.push(Object.assign(new T.Vector3(anchor.x,anchor.y,anchor.z),{color:0xffb765}));
-  if(['fire','soulFlame','candle','arcane'].includes(anchor.kind))lamps.push(Object.assign(new T.Vector3(anchor.x,anchor.y,anchor.z),{color:anchor.color}));
+  const lighting=cellarLampProfile(anchor.kind);
+  if(lighting)lamps.push(Object.assign(new T.Vector3(anchor.x,anchor.y,anchor.z),{color:anchor.color||0xffb765,...lighting}));
   if(anchor.kind==='fire'){emit('watch_fire',anchor,Math.max(.5,Math.min(2,anchor.intensity*.35)));emit('chimney_embers',anchor,.7);}
   if(anchor.kind==='dust')emit('cave_dust',anchor,2.4);
   if(anchor.kind==='water')emit('mist_bank',anchor,2);
@@ -72,7 +73,7 @@ export function furnishOldCellars(built,L,{sc,artLoaders={}}={}){
  const key=new T.DirectionalLight(0xbdcde4,1.8);key.position.set(L.landmark.x-20,L.landmark.y+L.theme.ceiling*.85,L.landmark.z-15);key.target.position.set(L.landmark.x,L.landmark.y,L.landmark.z);root.add(key,key.target);
  const update=built.update.bind(built),dispose=built.dispose.bind(built);
  if(L.raid){const boss=buildSepulcher();boss.group.position.set(L.raid.x,0,L.raid.z);root.add(boss.group);built.raid={...L.raid,model:boss};}
- built.update=(dt,pos)=>{if(typeof dt!=='number'){pos=dt;dt=.016;}update(dt,pos);streaming?.update(dt,pos);time+=Math.min(.1,dt);roomArt.update(time);landmark.update(time);entry?.update(time,pos);descent.update(time,pos);magic.update(time,pos);if(pos){const nearest=lamps.map(p=>({p,d:Math.hypot(p.x-pos.x,p.z-pos.z)})).sort((a,b)=>a.d-b.d);lights.forEach((l,i)=>{const lamp=nearest[i%nearest.length].p;l.position.copy(lamp);l.color.set(lamp.color||0xffb96c);l.intensity=35+Math.sin(time*4+i)*4;});}
+ built.update=(dt,pos)=>{if(typeof dt!=='number'){pos=dt;dt=.016;}update(dt,pos);streaming?.update(dt,pos);time+=Math.min(.1,dt);roomArt.update(time);landmark.update(time);entry?.update(time,pos);descent.update(time,pos);magic.update(time,pos);if(pos){const nearest=lamps.map(p=>({p,d:Math.hypot(p.x-pos.x,p.z-pos.z)})).sort((a,b)=>a.d-b.d);lights.forEach((l,i)=>{const lamp=nearest[i]?.p;if(!lamp){l.intensity=0;return;}l.position.copy(lamp);l.color.set(lamp.color||0xffb96c);l.distance=lamp.range||23;l.intensity=(lamp.power||20)*(1+Math.sin(time*4+i)*.06);});}
   effects.update(time,pos);
   for(const r of rings)r.material.emissiveIntensity=.8+Math.sin(time*.7)*.2;
  };

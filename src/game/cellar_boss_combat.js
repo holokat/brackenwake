@@ -7,7 +7,7 @@ const offset = (p, yaw, along, across = 0) => ({
   x: p.x + Math.sin(yaw) * along + Math.cos(yaw) * across,
   y: p.y || 0, z: p.z + Math.cos(yaw) * along - Math.sin(yaw) * across,
 });
-export const CELLAR_ARENA = Object.freeze({ halfWidth: 29, halfDepth: 22, centreOffsetZ: -6, leashMs: 2000 });
+export const CELLAR_ARENA = Object.freeze({ halfWidth: 29, halfDepth: 22, centreOffsetZ: -6, leashMs: 2000, engageRadius: 34, leashRadius: 48 });
 export function insideCellarArena(pos, home) {
   return Math.abs(pos.x - home.x) <= CELLAR_ARENA.halfWidth
     && Math.abs(pos.z - home.z - CELLAR_ARENA.centreOffsetZ) <= CELLAR_ARENA.halfDepth
@@ -46,7 +46,7 @@ export function createCellarBossState(id) {
 export function resetCellarBoss(state, now = 0) {
   const events = state.pending.map(mark => ({ type: 'cancel', mark }));
   state.pending = []; state.attack = null; state.active = false; state.phase = 0;
-  state.rotation = 0; state.nextAt = now + 1100; state.outsideSince = null;
+  state.rotation = 0; state.nextAt = now + 650; state.outsideSince = null;
   state.run++; state.lastNow = now;
   events.push({ type: 'reset' });
   return events;
@@ -62,13 +62,16 @@ function placeTarget(target, home, margin = 0) {
 
 /** An attack is a schedule of actual regions, including their staggered impacts. */
 function beginAttack(state, def, now, origin, target, home) {
-  const spec = def.attacks[state.rotation % def.attacks.length];
+  // A ranged opening must reach a player in the doorway. Use the boss's own
+  // targeted ability, then continue the normal rotation when they close in.
+  const ranged = def.attacks.find(a => ['brood', 'silence', 'cinders', 'books', 'tombs', 'collapse'].includes(a.pattern));
+  const spec = distance(origin, target) > 19 ? ranged : def.attacks[state.rotation % def.attacks.length];
   const phase = state.phase, yaw = yawTo(origin, target);
   const cast = { spec, yaw, started: now, end: now, tracking: null, number: state.rotation++ };
   const marks = [];
   const add = (shape, delay = 0, extra = {}) => {
     const mark = { id: `${state.id}:${state.run}:${++state.serial}`, attackId: spec.id,
-      name: spec.name, animation: spec.animation, colour: def.colour, born: now, impactAt: now + spec.warnMs + delay,
+      name: spec.name, animation: spec.animation, colour: def.colour, born: now, impactAt: now + spec.warnMs + Math.round(delay * .78),
       damageScale: spec.damageScale * (1 + phase * .08), damageType: spec.damageType,
       shape, ...extra };
     marks.push(mark); cast.end = Math.max(cast.end, mark.impactAt); return mark;
@@ -78,6 +81,7 @@ function beginAttack(state, def, now, origin, target, home) {
   const lane = (p, angle, length, width, delay = 0) => add({ kind: 'lane', ...point(p), yaw: angle, length, width }, delay);
   const cone = (angle, radius, halfAngle, delay = 0) => add({ kind: 'cone', ...point(origin), yaw: angle, radius, halfAngle }, delay);
   const tracking = (count, every, radius) => {
+    every = Math.round(every * .8);
     cast.tracking = { left: count, nextAt: now, every, radius, index: 0 };
     cast.end = now + (count - 1) * every + spec.warnMs;
   };
@@ -92,7 +96,7 @@ function beginAttack(state, def, now, origin, target, home) {
       break;
     case 'brood':
       for (let i = 0; i < def.summon.count + (phase === 2 ? 1 : 0); i++) {
-        const p = offset(origin, yaw, 7, (i - (phase === 2 ? 1 : .5)) * 9);
+        const p = i === 0 ? point(target) : offset(target, yaw, 0, (i % 2 ? 1 : -1) * 7);
         circle(p, 3, i * 300, { summon: def.summon.id });
       }
       break;
@@ -125,7 +129,7 @@ function beginAttack(state, def, now, origin, target, home) {
     }
     case 'tombs':
       for (let i = 0; i < 3 + phase; i++) {
-        const p = i === 0 ? placeTarget(target, home) : placeTarget(offset(target, yaw, (i % 2 ? 1 : -1) * 7, (i - 2) * 6), home);
+        const p = i === 0 ? point(target) : placeTarget(offset(target, yaw, (i % 2 ? 1 : -1) * 7, (i - 2) * 6), home);
         lane(p, yaw + (i % 2) * Math.PI / 2, 7, 5, i * 450);
       }
       break;
@@ -156,8 +160,10 @@ export function stepCellarBoss(state, { now, actor, target, home = actor.ai.home
   const valid = target && target.health > 0 && target.pos && target !== actor;
   if (actor.health <= 0 || !valid) return state.active || state.pending.length ? resetCellarBoss(state, now) : [];
   const inArena = insideCellarArena(target.pos, home);
-  if (!inArena) {
-    if (state.active) {
+  const inLeash = distance(target.pos, home) <= CELLAR_ARENA.leashRadius
+    && Math.abs((target.pos.y || 0) - (home.y || 0)) < 4;
+  if (!inLeash) {
+    if (state.active || actor.health < actor.maxHealth) {
       state.outsideSince ??= now;
       if (now - state.outsideSince >= CELLAR_ARENA.leashMs) return resetCellarBoss(state, now);
     }
@@ -165,15 +171,15 @@ export function stepCellarBoss(state, { now, actor, target, home = actor.ai.home
   }
   state.outsideSince = null;
   if (!state.active) {
-    if (distance(actor.pos, target.pos) > 25 && actor.health >= actor.maxHealth) return events;
-    state.active = true; state.nextAt = now + 1100;
+    if (!inArena && distance(actor.pos, target.pos) > CELLAR_ARENA.engageRadius && actor.health >= actor.maxHealth) return events;
+    state.active = true; state.nextAt = now + 650;
     events.push({ type: 'engage' });
   }
   const ratio = actor.health / actor.maxHealth;
   const phase = ratio < .33 ? 2 : ratio < .66 ? 1 : 0;
   while (state.phase < phase) events.push({ type: 'phase', phase: ++state.phase, ...def.phases[state.phase - 1] });
 
-  // Leaving the arena pauses impact, but re-entry cannot replay expired damage.
+  // Leaving the encounter pauses impact, but re-entry cannot replay expired damage.
   // Skip cancelled stale marks rather than striking without a visible warning.
   for (let i = state.pending.length - 1; i >= 0; i--) {
     const mark = state.pending[i];
@@ -193,13 +199,13 @@ export function stepCellarBoss(state, { now, actor, target, home = actor.ai.home
     const mark = { id: `${state.id}:${state.run}:${++state.serial}`, attackId: spec.id, name: spec.name,
       animation: spec.animation, colour: def.colour, born: now, impactAt: now + spec.warnMs,
       damageScale: spec.damageScale * (1 + state.phase * .08), damageType: spec.damageType,
-      shape: { kind: 'circle', ...placeTarget(target.pos, home), radius: track.radius } };
+      shape: { kind: 'circle', ...point(target.pos), y: home.y || 0, radius: track.radius } };
     state.pending.push(mark); events.push({ type: 'telegraph', mark });
     track.left--; track.index++; track.nextAt = now + track.every;
     state.attack.end = Math.max(state.attack.end, mark.impactAt);
   }
   if (state.attack && !state.pending.length && !state.attack.tracking?.left && now >= state.attack.end) {
-    state.attack = null; state.nextAt = now + (1700 - state.phase * 250);
+    state.attack = null; state.nextAt = now + (1000 - state.phase * 180);
     events.push({ type: 'recover' });
   }
   return events;

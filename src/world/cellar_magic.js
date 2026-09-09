@@ -33,7 +33,7 @@ export function createCellarMagic(parent, anchors, {lightLimit = 3} = {}) {
                 group.add(ring);
                 rings.push(ring);
             }
-        const fixture = {group, color, power: arcane ? 42 : 18, range: arcane ? 26 : 13, distance: 0};
+        const fixture = {group, color, power: arcane ? 16 : 9, range: arcane ? 18 : 11, distance: 0};
         fixtures.push(fixture);
         updates.push(time => {
             if (!group.visible) return;

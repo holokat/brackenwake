@@ -7,7 +7,7 @@ import {CELLAR_ASSETS} from './cellar_asset_catalog.js';
 import * as T from 'three';
 import manifest from '../../assets/models/cellars/entry/manifest.json' with {type:'json'};
 import {CELLAR_ENTRY_PLAN as plan, hasCellarEntry, inEntryRegion} from './cellar_entry_layout.js';
-import {enableSpellBloom} from '../game/vfx/bloom.js';
+import {configureCellarGlow} from './cellar_fixture_lighting.js';
 
 export function furnishCellarEntry(built,L,{load=null,stream,sc}={}){
  if(!hasCellarEntry(L))return null;
@@ -23,7 +23,7 @@ export function furnishCellarEntry(built,L,{load=null,stream,sc}={}){
   bounds:{x:plan.origin.x,z:plan.origin.z-39,rx:35,rz:59},load:load||(typeof window==='undefined'?async()=>null:null),
   configureMesh:o=>{if(![].concat(o.material).some(m=>m.name==='Cellar cloth'))o.layers.enable(3);},
   configure:m=>{
-   if(m.emissiveIntensity>0&&m.emissive?.getHex()){enableSpellBloom(m);m.userData.streamGlow=m.emissiveIntensity;}
+   configureCellarGlow(m);
    if(m.name==='Cellar cloth'){
     m.onBeforeCompile=s=>{s.uniforms.entryTime=clock;s.vertexShader='uniform float entryTime;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n transformed.z += sin(position.y*.8 + position.x + entryTime*.7)*.055*clamp((12.0-position.y)/6.0,0.0,1.0);');};
     m.customProgramCacheKey=()=> 'cellar-entry-cloth-v1';

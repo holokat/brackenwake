@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brackenwake</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0f1216; overflow: hidden; }
+    #game { position: fixed; inset: 0; }
+    #game canvas { display: block; }
+  </style>
+  <link rel="preload" as="image" href="/ui/roster-bg.webp" />
+  <link rel="stylesheet" href="/src/game/ui/boot-screen.css" />
+</head>
+<body>
+  <div id="game" inert aria-busy="true" tabindex="-1"></div>
+  <div id="hud" inert></div>
+  <section id="bw-loading" class="bw-loading" aria-labelledby="bw-loading-brand" data-state="loading">
+    <div class="bw-loading__landscape" aria-hidden="true"></div>
+    <header class="bw-loading__brand">
+      <span class="bw-loading__ornament" aria-hidden="true">◆</span>
+      <h1 id="bw-loading-brand">Brackenwake</h1>
+      <span class="bw-loading__rule" aria-hidden="true"></span>
+    </header>
+    <div class="bw-loading__camp">
+      <svg class="bw-loading__lantern" viewBox="0 0 64 80" fill="none" aria-hidden="true">
+        <path d="M25 14V10a7 7 0 0 1 14 0v4M20 23l6-9h12l6 9M16 27h32M20 29l-4 32 6 7h20l6-7-4-32M23 72h18M23 28l3 35m15-35-3 35M20 63h24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path class="bw-loading__flame" d="M32 59c-12-2-8-13-3-18 0 6 3 5 3 1 0-4 3-8 5-10-1 9 11 22-5 27Z" fill="currentColor"/>
+      </svg>
+      <h2 id="bw-loading-heading">A moment by the fire</h2>
+      <p id="bw-loading-copy" class="bw-loading__copy">Warm your hands while we get the world ready.</p>
+      <div class="bw-loading__progress">
+        <div class="bw-loading__trail" aria-hidden="true"><span></span></div>
+        <p id="bw-loading-status" role="status" aria-live="polite" aria-atomic="true">Opening Brackenwake</p>
+      </div>
+      <button id="bw-loading-retry" class="bw-loading__retry" type="button" hidden>Try again</button>
+      <details id="bw-loading-details" class="bw-loading__details" hidden>
+        <summary>Technical details</summary>
+        <pre id="bw-loading-diagnostic"></pre>
+      </details>
+      <noscript><p>Brackenwake needs JavaScript. Enable it, then reload this page.</p><style>.bw-loading__progress { display: none; }</style></noscript>
+    </div>
+  </section>
+
+  <!-- brackenwake:boot-screen -->
+  <script type="module" src="/tools/qa/combat-review.js"></script>
+</body>
+</html>

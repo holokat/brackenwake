@@ -361,6 +361,7 @@ export function createItemBar(o = {}) {
    * bare base id. Every refusal says which.
    */
   function assign(slot, what) {
+    if (what && typeof what === 'object' && 'itemBarSlot' in what) return swap(what.itemBarSlot, slot);
     const bar = itemBarOf(character);
     if (!Number.isInteger(slot) || slot < 0 || slot >= ITEM_SLOTS) {
       return { ok: false, reason: say(`the item bar has ${ITEM_SLOTS} slots and that is not one of them`, 'bad') };
@@ -402,6 +403,25 @@ export function createItemBar(o = {}) {
     if (moved) words.push('and is still the tool you chose');
     if (buried) words.push(`${buriedName.toLowerCase()} is no longer chosen, and comes out of your pack as before`);
     return { ok: true, slot, base, displaced, moved, deselected: buried, reason: say(words.join(', ')) };
+  }
+
+  /** Move or exchange assignments without consuming either item. */
+  function swap(from, to) {
+    const bar = itemBarOf(character);
+    if (![from, to].every(i => Number.isInteger(i) && i >= 0 && i < ITEM_SLOTS))
+      return { ok: false, reason: say('Choose two item bar slots.', 'bad') };
+    if (!bar[from]) return { ok: false, reason: say('That item slot is empty.', 'bad') };
+    if (from === to) return { ok: true, moved: false };
+    const chosen = selectedSlotOf(character), displaced = bar[to];
+    [bar[from], bar[to]] = [bar[to], bar[from]];
+    if (chosen === from || chosen === to) {
+      character.itemBarSlot = chosen === from ? to : from;
+      onSelect?.(character.itemBarSlot, chosen);
+    }
+    return { ok: true, moved: true, from, to, displaced,
+      reason: say(displaced
+        ? `${keyCap(keyOf(character, from))} and ${keyCap(keyOf(character, to))} swapped.`
+        : `${bar[to].name || labelOf(bar[to].base)} moved to ${keyCap(keyOf(character, to))}.`) };
   }
 
   /** Take a slot back off the bar. */
@@ -515,7 +535,7 @@ export function createItemBar(o = {}) {
     get bar() { return itemBarOf(character); },
     slots: ITEM_SLOTS,
     keys: () => keysOf(character),
-    view, assign, clear, use, update, select, deselect,
+    view, assign, swap, clear, use, update, select, deselect,
     /** The slot whose tool does the work, or null. `tools.js` reads the base. */
     get selected() { return selectedSlotOf(character); },
     rebind: (slot, key) => {

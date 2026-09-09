@@ -32,7 +32,7 @@ export function createCellarRaid(saved) {
             if (s.status === 'sealed') {
                 s.status = 'fighting';
                 s.run++;
-                s.nextAttack = now + 7000;
+                s.nextAttack = now + 4500;
             }
             if (s.status === 'shielded')
                 s.status = 'fighting';
@@ -50,7 +50,7 @@ export function createCellarRaid(saved) {
                     if (attackHits(s.attack, p.state.p))
                         out.push({ to: p.connId, msg: { t: 'raidDamage', run: s.run, event: s.attack.event, damage: s.attack.damage, name: s.attack.name } });
                 s.attack = null;
-                s.nextAttack = now + Math.max(2200, 5200 - s.phase * 700);
+                s.nextAttack = now + Math.max(1800, 3900 - s.phase * 650);
             }
             if (!s.attack && now >= s.nextAttack) {
                 const spec = RAID_ATTACKS[s.sequence % RAID_ATTACKS.length];

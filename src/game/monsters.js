@@ -1,3 +1,4 @@
+import { createBossAttackEffects } from './monsters/boss_attack_effects.js';
 import {createSpawnQueue} from './streaming/spawn_queue.js';
 import { createCellarBossRuntime } from './monsters/cellar_boss_runtime.js';
 import {makeItem} from '../mmo/items.js';
@@ -873,8 +874,9 @@ export function createMonsters(sc, runtime, opts = {}) {
     hexes: 0, ambushes: 0, wakings: 0, burrows: 0, howls: 0, heals: 0, walls: 0,
   };
 
+  const bossEffects = createBossAttackEffects(group);
   const cellarBosses = createCellarBossRuntime({
-    group, combat, say, spawn, despawn, live, heightAt, clampXZ: (x, z) => clampXZ(x, z), stats, cap,
+    group, combat, say, spawn, despawn, live, heightAt, clampXZ: (x, z) => clampXZ(x, z), stats, cap, stepToward, speedOf,
   });
 
   // -- the dead list --------------------------------------------------------
@@ -1265,6 +1267,8 @@ export function createMonsters(sc, runtime, opts = {}) {
     mesh.scale.set(k, k, 1);
     group.add(mesh);
     s.mesh = mesh;
+    s.visualMark = bossEffects.warn(mon, at, spec, lastNow);
+    if (s.visualMark) mesh.visible = false;
     marks.push(s);
     stats.marks++;
     if (spec.stat && stats[spec.stat] != null) stats[spec.stat]++;
@@ -1279,6 +1283,7 @@ export function createMonsters(sc, runtime, opts = {}) {
   function stepMarks(d, playerActor) {
     for (let i = marks.length - 1; i >= 0; i--) {
       const s = marks[i];
+      if (s.mon.actor.health <= 0) { bossEffects.cancel(s.visualMark); s.mesh.removeFromParent(); s.mesh.material.dispose(); marks.splice(i, 1); continue; }
       s.t += d;
       const u = clamp(s.t / s.warn, 0, 1);
       s.mesh.material.opacity = 0.25 + 0.45 * u;
@@ -1286,6 +1291,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       s.mesh.parent?.remove(s.mesh);
       s.mesh.material.dispose();
       marks.splice(i, 1);
+      bossEffects.land(s.visualMark, lastNow);
       const row = s.mon.row;
       const spell = {
         base: [row.damage[0], row.damage[1]], damageType: s.spec.damageType,
@@ -1467,7 +1473,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     for (let i = shots.length - 1; i >= 0; i--) { shots[i].mesh.parent?.remove(shots[i].mesh); }
     shots.length = 0;
     for (const s of marks) { s.mesh.parent?.remove(s.mesh); s.mesh.material.dispose(); }
-    marks.length = 0;
+    marks.length = 0; bossEffects.clear();
     // A hex or a hold belongs to a body that has just stopped existing, and a
     // player who walked down a stair with fifteen points off his hit and no
     // monster left alive to take them back off is the silent effect this whole
@@ -1531,6 +1537,7 @@ export function createMonsters(sc, runtime, opts = {}) {
     // per monster loop where each of four soldiers would read a different half
     // finished answer.
     stepWall(playerActor);
+    bossEffects.update(lastNow);
 
     for (const mon of [...live.values()]) {
       if (!live.has(mon.key)) continue; // A summoner may clear its brood earlier in this frame.
@@ -1625,6 +1632,7 @@ export function createMonsters(sc, runtime, opts = {}) {
           const swing = combat.queueSwing(a, playerActor, o);
           if (swing.queued) {
             mon.swings++;
+            bossEffects.swing(mon, playerActor, lastNow, swing.at);
             // Remembered so `grab` and `ashCloud` can ask, one frame after it
             // was due, whether it actually took health off. See stepBlows.
             blows.push({ mon, target: playerActor, at: swing.at, health: num(playerActor.health) });
@@ -1725,7 +1733,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       mon.hexAt = lastNow + HEX_EVERY_S * 1000;
     }
     mon.actor.lastSwingAt = lastNow;
-    mon.cast = { until: lastNow + spell.seconds * 1000, spell, target: playerActor };
+    mon.cast = { until: lastNow + spell.seconds * (mon.boss ? .82 : 1) * 1000, spell, target: playerActor };
     mon.actor.anim = 'cast';
     mon.model.setAnim('cast');
     stats.casts++;
@@ -2651,7 +2659,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       for (const s of shots) s.mesh.parent?.remove(s.mesh);
       shots.length = 0;
       for (const s of marks) { s.mesh.parent?.remove(s.mesh); s.mesh.material.dispose(); }
-      marks.length = 0;
+      marks.length = 0; bossEffects.clear();
       releaseAll(null);
       blows.length = 0;
       chunks.clear();

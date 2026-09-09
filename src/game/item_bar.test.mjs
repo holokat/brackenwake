@@ -430,6 +430,23 @@ console.log('item bar: F5 does not reload the page');
     SLOTS.length === 6, String(SLOTS.length));
 }
 
+// Moving a slot uses the production drop payload and persists in the character.
+{
+ const r=rig();
+ r.inventory.add(makeItem({base:'potion',count:4}));
+ r.inventory.add(makeItem({base:'apple',count:2}));
+ r.bar.assign(0,'potion'); r.bar.assign(2,'apple');
+ check('dropping on an occupied slot swaps both assignments',r.bar.assign(2,{itemBarSlot:0}).ok && r.character.itemBar[2].base==='potion' && r.character.itemBar[0].base==='apple');
+ check('moving into an empty slot leaves the source empty',r.bar.swap(2,7).ok && r.character.itemBar[2]===null && r.character.itemBar[7].base==='potion');
+ check('moving never consumes an item',r.used.length===0 && r.bar.view()[7].count===4);
+ check('same-slot drop is harmless',r.bar.swap(7,7).ok && r.bar.view()[7].count===4);
+ check('empty and invalid sources are refused',!r.bar.swap(2,0).ok && !r.bar.swap(-1,0).ok && !r.bar.swap(7,8).ok);
+ const saved=JSON.parse(JSON.stringify(r.character));
+ check('assignments survive save serialization',itemBarOf(saved)[7].base==='potion' && saved.itemBar[0].base==='apple');
+ r.bar.use(7);
+ check('the moved hotkey still uses its item',r.used.length===1 && r.used[0].base==='potion');
+}
+
 // ---- the prose -------------------------------------------------------------------------------
 // CLAUDE.md: no em dashes. sky.test.mjs guards two files this way; these are U4's.
 for (const f of ['src/game/item_bar.js', 'src/game/win_abilities.js', 'src/game/hud.js',

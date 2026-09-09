@@ -2,7 +2,7 @@ import * as T from 'three';
 import {createRoomArtwork} from '../game/streaming/room_artwork.js';
 import {CELLAR_ASSETS} from './cellar_asset_catalog.js';
 import {createCellarRoomProxy} from './cellar_room_proxy.js';
-import { enableSpellBloom } from '../game/vfx/bloom.js';
+import {configureCellarGlow} from './cellar_fixture_lighting.js';
 import { inCellarLandmark } from './cellar_landmark_layout.js';
 /** Fit the retained cave geology around the authored room and its undercroft. */
 function fitGeology(built, L) {
@@ -69,10 +69,7 @@ export function furnishBlenderCellar(built, L, { load = null, stream, sc } = {})
     const art = createRoomArtwork({id:'landmark',url:CELLAR_ASSETS[`room-${L.level}`],stream,sc,cameraObstacles:built.cameraObstacles,
         bounds:{x:a.x,z:a.z,rx:ground.rx,rz:ground.rz},load:load?()=>load(L.level):typeof window==='undefined'?async()=>null:null,
         configure:mat=>{
-            if(mat.emissive?.getHex()&&mat.emissiveIntensity>0){
-                if(L.level===4)mat.emissiveIntensity*=.18;
-                enableSpellBloom(mat);mat.userData.streamGlow=mat.emissiveIntensity;
-            }
+            configureCellarGlow(mat,L.level);
             if(/purple|red|water/.test(mat.name)){
                 const water=/water/.test(mat.name);
                 mat.onBeforeCompile=shader=>{shader.uniforms.cellarTime=clock;shader.vertexShader='uniform float cellarTime;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n'+(water?'transformed.y += sin(position.x*.8+cellarTime*.35)*sin(position.z*.65+cellarTime*.22)*.025;':'transformed.z += sin(position.x*.7+position.y*.5+cellarTime*.5)*.06;'));};
