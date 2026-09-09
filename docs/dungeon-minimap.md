@@ -3,7 +3,7 @@
 The HUD switches to the current dungeon's floor grid on entry and restores the outdoor map on exit. This includes generated dungeons and caverns, the Shoulder Working, and each Old Cellars depth.
 
 - Nearby cells are mapped within 18 metres of the player's grid cell. Walls stop discovery, including diagonal gaps between touching walls.
-- Previously explored ground stays visible in a dimmer colour. Gold dots mark edges where mapped floor continues into unmapped floor.
+- Previously explored ground stays visible in a dimmer colour. A soft gradient fades mapped floor into unmapped ground wherever a route continues. Known walls keep a defined edge.
 - Entrances and stairs appear only after discovery. Undiscovered rooms, enemies, chests and outdoor landmarks are not shown.
 - The gold arrow uses the same camera heading as the outdoor map. North stays up. The mouse wheel zooms from 48 metres across to the full floor's extent.
 - Exploration continues while the widget is hidden. Teleports reveal their destination without mapping the intervening ground.

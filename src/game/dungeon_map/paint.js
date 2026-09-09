@@ -4,7 +4,7 @@ import { unexploredEdges } from './exploration.js';
 
 export const MAP_COLOURS = {
   unknown: '#0c1014', remembered: '#555957', visible: '#929080',
-  wall: '#252e32', outline: '#c3bb97', frontier: '#e4b967', stair: '#a8d9d3',
+  wall: '#252e32', outline: '#c3bb97', stair: '#a8d9d3',
 };
 
 /** Paint only remembered geometry. Unknown rooms, loot and enemies are omitted. */
@@ -18,7 +18,8 @@ export function paintDungeonMap(ctx, exploration, view, dpr = 1) {
   const minZ = Math.max(0, Math.floor((view.cz - view.span / 2) / CELL + L.h / 2));
   const maxX = Math.min(L.w - 1, Math.ceil((view.cx + view.span / 2) / CELL + L.w / 2));
   const maxZ = Math.min(L.h - 1, Math.ceil((view.cz + view.span / 2) / CELL + L.h / 2));
-  let floorCells = 0, frontiers = 0;
+  let floorCells = 0;
+  const frontiers = [], walls = [];
   for (let gz = minZ; gz <= maxZ; gz++) for (let gx = minX; gx <= maxX; gx++) {
     const i = gz * L.w + gx;
     if (!seen[i]) continue;
@@ -26,7 +27,29 @@ export function paintDungeonMap(ctx, exploration, view, dpr = 1) {
     const floor = walkable(L, gx, gz);
     ctx.fillStyle = floor ? visible[i] ? MAP_COLOURS.visible : MAP_COLOURS.remembered : MAP_COLOURS.wall;
     ctx.fillRect(x, z, cellPx + .3, cellPx + .3);
-    if (floor) floorCells++;
+    if (floor) {
+      floorCells++;
+      for (const [dx, dz] of unexploredEdges(exploration, gx, gz))
+        frontiers.push([x + (1 + dx) * cellPx / 2, z + (1 + dz) * cellPx / 2]);
+    } else walls.push([x, z]);
+  }
+  if (frontiers.length) {
+    const radius = Math.max(2, Math.min(24, cellPx * 2.5));
+    // Overlapping radial gradients soften both straight and stair-stepped edges.
+    // Their centres meet the unknown, with clear floor toward the interior.
+    for (const [x, z] of frontiers) {
+      const fade = ctx.createRadialGradient(x, z, 0, x, z, radius);
+      fade.addColorStop(0, MAP_COLOURS.unknown);
+      fade.addColorStop(.22, MAP_COLOURS.unknown);
+      fade.addColorStop(.5, `${MAP_COLOURS.unknown}80`);
+      fade.addColorStop(1, `${MAP_COLOURS.unknown}00`);
+      ctx.fillStyle = fade;
+      ctx.fillRect(x - radius, z - radius, radius * 2, radius * 2);
+    }
+    // The fade matches the opaque unknown background, so it cannot reveal it.
+    // Restore known walls once instead of clipping every gradient to a large path.
+    ctx.fillStyle = MAP_COLOURS.wall;
+    for (const [x, z] of walls) ctx.fillRect(x, z, cellPx + .3, cellPx + .3);
   }
   // Draw edges after floors, so neighbouring cells cannot paint over them.
   for (let gz = minZ; gz <= maxZ; gz++) for (let gx = minX; gx <= maxX; gx++) {
@@ -41,11 +64,6 @@ export function paintDungeonMap(ctx, exploration, view, dpr = 1) {
       ctx.moveTo(x + dx * half - dz * half, z + dz * half - dx * half);
       ctx.lineTo(x + dx * half + dz * half, z + dz * half + dx * half);
       ctx.stroke();
-    }
-    for (const [dx, dz] of unexploredEdges(exploration, gx, gz)) {
-      ctx.fillStyle = MAP_COLOURS.frontier;
-      ctx.beginPath(); ctx.arc(x + dx * half, z + dz * half, Math.min(1.5, cellPx * .25), 0, Math.PI * 2); ctx.fill();
-      frontiers++;
     }
   }
   const stairs = [];
@@ -70,5 +88,5 @@ export function paintDungeonMap(ctx, exploration, view, dpr = 1) {
   ctx.beginPath(); ctx.moveTo(8, size - 10); ctx.lineTo(8 + bar, size - 10); ctx.stroke();
   ctx.font = '9px sans-serif'; ctx.fillText(`${metres} m`, 8, size - 15);
   ctx.restore();
-  return { floorCells, frontiers, stairs, view };
+  return { floorCells, frontiers: frontiers.length, stairs, view };
 }

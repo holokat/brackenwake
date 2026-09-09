@@ -4,7 +4,7 @@ import { createExploration, validLayout } from './exploration.js';
 import { paintDungeonMap } from './paint.js';
 
 const TITLE = 'Dungeon map. North is up; you are the gold arrow. Walk to map nearby rooms and passages. '
-  + 'Gold dots mark unexplored routes. Stairs appear when found. Wheel to zoom.';
+  + 'Faded edges mark unexplored routes. Stairs appear when found. Wheel to zoom.';
 const CSS = `
 #bw-minimap .dungeon-map { position: absolute; inset: 4px 5px; cursor: default; }
 #bw-minimap .dungeon-map[hidden] { display: none; }
@@ -74,7 +74,7 @@ export function createDungeonMap(root, opts = {}) {
         span = 96; force = true;
         const label = `${layout.name || call(opts.dungeonName) || 'Dungeon'} · Level ${layout.level || 1}`;
         if (name) { name.textContent = label; name.title = label; }
-        if (legend) legend.textContent = 'Gold dots lead into unmapped ground';
+        if (legend) legend.textContent = 'Faded edges lead into unmapped ground';
         if (el) el.setAttribute('aria-label', `${label}. ${TITLE}`);
       }
       const at = opts.player?.pos;

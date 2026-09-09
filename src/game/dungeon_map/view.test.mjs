@@ -10,11 +10,15 @@ import { createWorldField } from '../../world/field.js';
 import { viewOf } from '../minimap.js';
 
 function context() {
-  const rectangles = [], texts = [];
-  const ctx = { rectangles, texts, fillStyle: '',
+  const rectangles = [], texts = [], gradients = [];
+  const ctx = { rectangles, texts, gradients, fillStyle: '',
     fillRect(...args) { rectangles.push({ colour: this.fillStyle, args }); },
     fillText(text) { texts.push(text); },
     measureText(text) { return { width: text.length * 6 }; },
+    createRadialGradient(...args) {
+      const gradient = { args, stops: [], addColorStop(...stop) { this.stops.push(stop); } };
+      gradients.push(gradient); return gradient;
+    },
   };
   for (const key of ['save', 'restore', 'scale', 'beginPath', 'rect', 'clip', 'arc', 'fill', 'stroke',
     'moveTo', 'lineTo', 'closePath', 'clearRect', 'translate', 'rotate', 'setLineDash', 'strokeRect', 'strokeText', 'drawImage']) ctx[key] = () => {};
@@ -38,10 +42,12 @@ test('unseen geometry and stairs are never painted; found stairs remain mapped',
   const ctx = context(), whole = viewOf(0, 0, 440);
   let report = paintDungeonMap(ctx, map, whole);
   assert.equal(report.floorCells, 0); assert.deepEqual(report.stairs, []);
+  assert.equal(ctx.gradients.length, 0);
   assert.equal(ctx.rectangles.filter(r => r.colour === MAP_COLOURS.visible).length, 0);
   let p = worldOf(L, L.entrance.gx, L.entrance.gz); map.reveal(p.x, p.z);
   report = paintDungeonMap(ctx, map, whole);
   assert.ok(report.floorCells > 0); assert.deepEqual(report.stairs, ['up']);
+  assert.ok(ctx.gradients.length > 0, 'only discovered edges fade into the unknown');
   p = worldOf(L, L.stair.gx, L.stair.gz); map.reveal(p.x, p.z);
   report = paintDungeonMap(ctx, map, whole);
   assert.deepEqual(report.stairs, ['up', 'down']);

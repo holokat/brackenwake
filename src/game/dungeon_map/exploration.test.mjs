@@ -54,7 +54,7 @@ test('walking reveals progressively; a teleport does not chart the ground crosse
   assert.equal(map.visible.reduce((a, b) => a + b), 0);
 });
 
-test('gold frontier edges lead only from remembered floor into unseen floor', () => {
+test('frontier edges lead only from remembered floor into unseen floor', () => {
   const map = createExploration(room()); visit(map, 12, 17);
   assert.deepEqual(unexploredEdges(map, 21, 17), [[0, -1], [1, 0], [0, 1]]);
   assert.deepEqual(unexploredEdges(map, 12, 17), []);
