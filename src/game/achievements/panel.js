@@ -32,6 +32,7 @@ export const panel = {
     this.root = root; this.ctx = ctx; this.category = 'all';
     root.classList.add('bw-achievements');
     this.summary = element('header', 'bw-achievement-summary');
+    this.toolbar = element('div', 'bw-achievement-toolbar');
     this.filters = element('nav', 'bw-achievement-filters');
     this.filters.setAttribute('aria-label', 'Achievement categories');
     for (const name of CATEGORIES) {
@@ -39,8 +40,11 @@ export const panel = {
       button.addEventListener('click', () => { this.category = name.toLowerCase(); this.render(); });
       this.filters.appendChild(button);
     }
+    this.titleControl = element('div', 'bw-achievement-title-control');
+    this.toolbar.append(this.filters, this.titleControl);
+    this.rewards = element('p', 'bw-achievement-perks');
     this.list = element('div', 'bw-achievement-list');
-    root.append(this.summary, this.filters, this.list);
+    root.append(this.summary, this.toolbar, this.rewards, this.list);
   },
   open(ctx) {
     this.ctx = ctx;
@@ -57,23 +61,24 @@ export const panel = {
     const perks = achievementPerks(character);
     this.summary.textContent = '';
     this.summary.append(element('h2', '', 'Achievements'), element('p', 'bw-achievement-count', `${earned} of ${ACHIEVEMENTS.length} earned`));
-    const title = element('label', 'bw-achievement-title', 'Displayed title');
+    const title = element('label', 'bw-achievement-title', 'Title');
     const select = element('select', ''); select.setAttribute('aria-label', 'Displayed achievement title');
+    select.title = 'Earned perks stay active when you change titles.';
     const standard = element('option', '', 'Use skill title'); standard.value = ''; select.appendChild(standard);
     for (const row of ACHIEVEMENTS) if (doc.earned[row.id]) { const option = element('option', '', row.title); option.value = row.id; select.appendChild(option); }
     select.value = doc.title || '';
     select.addEventListener('change', () => {
       this.ctx.achievements?.selectTitle(select.value || null);
-      this.summary.querySelector('select')?.focus();
+      this.titleControl.querySelector('select')?.focus();
     });
-    title.appendChild(select); this.summary.appendChild(title);
-    this.summary.appendChild(element('p', 'bw-achievement-note', 'Progress is saved with this character. Earned perks stay active when you change titles.'));
+    title.appendChild(select); this.titleControl.replaceChildren(title);
     const rewards = [];
     if (perks.capacity) rewards.push(`+${perks.capacity} carrying capacity`);
     if (perks.quality) rewards.push(`+${perks.quality.toFixed(2)} crafting quality`);
     if (perks.constitution) rewards.push(`+${perks.constitution} Constitution`);
     if (perks.wisdom) rewards.push(`+${perks.wisdom} Wisdom, +10% skill-gain chance`);
-    if (rewards.length) this.summary.appendChild(element('p', 'bw-achievement-perks', rewards.join(' · ')));
+    this.rewards.textContent = rewards.join(' · ');
+    this.rewards.hidden = !rewards.length;
     for (const button of this.filters.children) button.setAttribute('aria-pressed', String(button.dataset.category === this.category));
     this.list.textContent = '';
     for (const row of ACHIEVEMENTS) {
@@ -91,7 +96,7 @@ export const panel = {
         const button = element('button', 'bw-achievement-equip', doc.title === row.id ? 'Title selected' : 'Use title'); button.type = 'button'; button.disabled = doc.title === row.id;
         button.addEventListener('click', () => {
           this.ctx.achievements?.selectTitle(row.id);
-          this.summary.querySelector('select')?.focus();
+          this.titleControl.querySelector('select')?.focus();
         }); body.appendChild(button);
       }
       if (row.number === 33) {

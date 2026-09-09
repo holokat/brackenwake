@@ -237,7 +237,7 @@ const CSS = `
   border: 1px solid ${theme.goldDim}66; border-radius: 7px;
 }
 /* the page's title, from data-title: Skills, Abilities, Crafting, Map */
-#bw-windows .bw-codex-body:not([data-tab="character"])::before {
+#bw-windows .bw-codex-body:not([data-tab="character"]):not([data-tab="achievements"])::before {
   content: attr(data-title); display: block;
   font-family: ${theme.fonts.display}; font-size: 30px; font-weight: 700;
   letter-spacing: .06em; color: ${theme.parchment};
