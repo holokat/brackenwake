@@ -305,7 +305,8 @@ function opening(o) {
     skills,
     /** Only the skills the table lists, for the character sheet's summary. */
     startingSkills: { ...o.skills },
-    kit: o.kit,
+    // Every new character gets the same healing supplies, including future openings.
+    kit: [...o.kit, { base: 'bandage', count: 20 }],
     coins: o.coins ?? STARTING_COINS,
     /** Blank alone hands the skill budget over raw. */
     freeSkillPoints: o.freeSkillPoints ?? 0,
@@ -323,7 +324,6 @@ export const OPENINGS = [
       { base: 'longsword', count: 1 },
       { base: 'kiteShield', count: 1 },
       ...outfit('leather'),
-      { base: 'bandage', count: 20 },
     ],
     blurb: 'Takes the hits. A sword, a shield, and enough anatomy to close a wound.',
   }),

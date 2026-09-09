@@ -16,7 +16,9 @@ import {
   hadSettlerKit, hasMeleeWeapon, hasFocus, ownsBase,
 } from './inventory.js';
 import { planCharacter } from '../../creation.js';
+import { createState } from '../../state.js';
 import { OPENINGS } from '../../../mmo/openings.js';
+import { ABILITIES_BY_ID, canUse } from '../../../mmo/abilities.js';
 import { BASES, baseFor, isFocus, makeItem } from '../../../mmo/items.js';
 import { recompute } from '../../actor.js';
 
@@ -97,9 +99,9 @@ console.log('settler kit: the pack after boot, counted');
   // Exactly what is in the pack, for the four openings.
   const WANT = {
     warrior: ['axe', 'bandage x20', 'pickaxe', 'skinning_knife'],
-    ranger: ['arrow x60', 'axe', 'dagger', 'pickaxe', 'skinning_knife'],
-    rogue: ['axe', 'lockpick x3', 'pickaxe', 'skinning_knife'],
-    mage: ['axe', 'pickaxe', 'potion x4', 'skinning_knife'],
+    ranger: ['arrow x60', 'axe', 'bandage x20', 'dagger', 'pickaxe', 'skinning_knife'],
+    rogue: ['axe', 'bandage x20', 'lockpick x3', 'pickaxe', 'skinning_knife'],
+    mage: ['axe', 'bandage x20', 'pickaxe', 'potion x4', 'skinning_knife'],
   };
   for (const [id, want] of Object.entries(WANT)) {
     const c = planCharacter({ opening: id, name: 'Ashe', seed: 7 }).character;
@@ -134,6 +136,43 @@ console.log('settler kit: the pack after boot, counted');
     rogue.equipment.mainHand.base === 'dagger' && rogue.equipment.offHand.base === 'dagger'
     && countOf(rogue, 'dagger') === 0,
     `${rogue.equipment.mainHand?.base || 'none'} / ${rogue.equipment.offHand?.base || 'none'} / ${countOf(rogue, 'dagger')} spare`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('starting bandages: every opening, persistence and no refills');
+for (const op of OPENINGS) {
+  const plan = planCharacter({ opening: op.id, name: 'Ashe' });
+  check(`${op.id} starts with one stack of 20 bandages and no kit overflow`,
+    plan.ok && plan.refused.length === 0 && plan.missing.length === 0
+    && countOf(plan.character, 'bandage') === 20
+    && plan.character.pack.items.filter((it) => it?.base === 'bandage').length === 1);
+  check(`${op.id} can use those bandages through the ability's real requirements`,
+    canUse(ABILITIES_BY_ID.bandage, plan.character, 0).ok);
+
+  const saved = new Map();
+  const storage = {
+    getItem: (key) => saved.get(key) ?? null,
+    setItem: (key, value) => saved.set(key, String(value)),
+    removeItem: (key) => saved.delete(key),
+  };
+  const state = createState({ storage });
+  state.setCharacter(plan.character);
+  boot(state.character);
+  for (const remaining of [20, 17, 0]) {
+    const index = state.character.pack.items.findIndex((it) => it?.base === 'bandage');
+    if (remaining === 0) state.character.pack.items[index] = null;
+    else state.character.pack.items[index].count = remaining;
+    const wrote = state.save();
+    const resumed = createState({ storage });
+    const loaded = resumed.load();
+    boot(resumed.character);
+    check(`${op.id} keeps ${remaining} bandages after saving, loading and booting again`,
+      wrote && loaded && countOf(resumed.character, 'bandage') === remaining);
+    if (remaining === 0) {
+      check(`${op.id} cannot use bandages after the stack is exhausted`,
+        !canUse(ABILITIES_BY_ID.bandage, resumed.character, 0).ok);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
