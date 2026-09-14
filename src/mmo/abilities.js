@@ -1,3 +1,4 @@
+import {talentGate, talentCooldown} from './talents.js';
 import {pacedCastTime} from './combat_pace.js';
 // Brackenwake: every ability and spell, as data and rules.
 //
@@ -1912,10 +1913,18 @@ export function manaCostFor(ability, character = {}) {
  *
  * Returns `{ ok: true }` or `{ ok: false, reason }`.
  */
+export function requirementsForCharacter(ability, character = {}) {
+  return talentGate(ability, character) ?? meetsRequirements(ability, character.skills, character.stats);
+}
+
+export function unlockedForCharacter(character = {}) {
+  return ABILITIES.filter(ability => requirementsForCharacter(ability, character).ok);
+}
+
 export function canUse(ability, character = {}, now = 0) {
   if (!ability) return { ok: false, reason: 'no such ability' };
 
-  const req = meetsRequirements(ability, character.skills, character.stats);
+  const req = requirementsForCharacter(ability, character);
   if (!req.ok) return { ok: false, reason: req.reason };
 
   if (ability.passive) {
@@ -1992,7 +2001,7 @@ export function startCast(ability, character = {}, now = 0, target = null) {
     endsAt: now + ability.castTime,
     castTime: ability.castTime,
     rooted: ability.rooted,
-    cooldownUntil: now + ability.cooldown,
+    cooldownUntil: now + talentCooldown(ability, character),
     cost: kind === 'mana'
       ? { kind, amount: manaCostFor(ability, character), paidIn: character.form === 'lich' ? 'health' : 'mana' }
       : kind === 'stamina'

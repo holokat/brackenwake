@@ -190,7 +190,7 @@ function npcRows(game, target) {
 function corpseRows(game, target) {
   const corpse = target.corpse || null;
   const skinning = game.skinning || null;
-  const loot = game.loot || null;
+  const corpseLoot = game.corpseLoot || null;
   const name = String(corpse?.row?.name || corpse?.name || 'it').toLowerCase();
   const knife = skinning?.knifeOf ? skinning.knifeOf() : { ok: false };
   const d = corpse ? flat(corpse.pos, game.player?.pos) : Infinity;
@@ -200,21 +200,15 @@ function corpseRows(game, target) {
       : !knife.ok ? 'you carry no knife. A dagger in hand or a skinning knife in the pack.'
         : !can ? `there is nothing to skin on the ${name}`
           : d > SKIN_REACH ? `the ${name} is ${round(d)} m off, walk up to it` : '';
-  // A body and its sack are two objects in the same place: the corpse is a
-  // model monsters.js keeps for a while, and what it dropped is a loot_drops
-  // bag lying beside it. Loot takes the bag, if there is one.
-  const bag = loot && corpse ? loot.nearest(corpse.pos, BAG_REACH) : null;
-  const reach = bag ? flat(bag.pos, game.player?.pos) : Infinity;
+  const lootGate = corpseLoot?.canTake?.(corpse) || { ok: false, reason: 'there is nothing left on this body' };
   return [
+    row('loot', 'Loot', () => game.windows?.open?.('corpseLoot', { corpse }), {
+      hint: 'take individual rewards or take all',
+      why: corpseLoot?.hasLoot?.(corpse) ? (lootGate.ok ? '' : lootGate.reason) : 'the body carries nothing else',
+    }),
     row('skin', `Skin the ${name}`, () => skinning.skin(corpse, game.now()), {
       hint: knife.ok ? `with the ${knife.what} in your ${knife.where}` : 'a dagger or a skinning knife',
       why: whySkin,
-    }),
-    row('loot', 'Loot', () => loot.take(bag, game.takeLoot), {
-      hint: 'everything the sack will give up',
-      why: !loot ? 'there are no sacks in this world'
-        : !bag ? `the ${name} left nothing lying here`
-          : reach > BAG_REACH ? `the sack is ${round(reach)} m off, walk over to it` : '',
     }),
   ];
 }

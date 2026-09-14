@@ -160,6 +160,11 @@ const TEX = 256;
  */
 export const BLADE_BASE_L = 0.78;
 export const BLADE_TIP_L = 1.0;
+// More blades live inside the same two cards, rather than adding a third mesh
+// or another instance pool. It gives the close turf a fuller silhouette while
+// leaving tile samples, slot capacities and draw-call count unchanged.
+export const BLADE_SPRITE_BLADES = 15;
+export const COVER_SPRITE_BLADES = 22;
 
 function bladeSprite({ blades, curve, width, taper, seed, ragged }) {
   const S = TEX;
@@ -207,8 +212,8 @@ export function disposeGrassTextures() {
   bladeTex = coverTex = null;
 }
 export function grassTextures() {
-  if (!bladeTex) bladeTex = bladeSprite({ blades: 9, curve: 0.16, width: 0.020, taper: 1.3, seed: 3101, ragged: false });
-  if (!coverTex) coverTex = bladeSprite({ blades: 14, curve: 0.30, width: 0.018, taper: 1.1, seed: 3102, ragged: true });
+  if (!bladeTex) bladeTex = bladeSprite({ blades: BLADE_SPRITE_BLADES, curve: 0.16, width: 0.020, taper: 1.3, seed: 3101, ragged: false });
+  if (!coverTex) coverTex = bladeSprite({ blades: COVER_SPRITE_BLADES, curve: 0.30, width: 0.018, taper: 1.1, seed: 3102, ragged: true });
   return { bladeTex, coverTex };
 }
 
@@ -350,9 +355,12 @@ export function createGrass(parent, field, opts = {}) {
 
   const layers = [
     { name: 'blades', per: BLADES_PER_TILE, geo: clumpGeometry(2), mat: grassMaterial(bladeTex),
-      size: [0.55, 1.15], height: [0.45, 0.95], key: 'd', salt: 0 },
+      // More painted blades make each card read as a soft clump. Keep the
+      // cards low enough that their silhouettes blend into the meadow instead
+      // of making bright, upright stripes across a distant slope.
+      size: [0.60, 1.18], height: [0.52, 1.05], key: 'd', salt: 0 },
     { name: 'cover', per: COVER_PER_TILE, geo: clumpGeometry(3), mat: grassMaterial(coverTex, { alphaTest: 0.30 }),
-      size: [0.6, 1.0], height: [0.45, 0.75], key: 'cover', salt: 91 },
+      size: [0.70, 1.12], height: [0.48, 0.80], key: 'cover', salt: 91 },
   ];
   // the richest turf any biome has for this layer: a roll above it can be
   // thrown away before the field is asked anything
@@ -469,8 +477,9 @@ export function createGrass(parent, field, opts = {}) {
         m4.compose(p3, q, s3);
         L.mesh.setMatrixAt(base + i, m4);
         col.setHex(turf.col).offsetHSL(
-          (rand2(k, tx + tz * 7, 4007) - 0.5) * 0.035, 0,
-          (rand2(k, tx * 7 + tz, 4008) - 0.5) * 0.12);
+          (rand2(k, tx + tz * 7, 4007) - 0.5) * 0.055,
+          (rand2(k, tx * 11 - tz * 3, 4009) - 0.5) * 0.08,
+          (rand2(k, tx * 7 + tz, 4008) - 0.5) * 0.16);
         L.mesh.setColorAt(base + i, col);
         placed++;
       }

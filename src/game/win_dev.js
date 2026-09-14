@@ -46,7 +46,7 @@ import {
 import { withAffixes, identify as identifyAffixes, describe as describeItemLines } from '../mmo/affixes.js';
 import { METALS, METAL } from '../mmo/ores.js';
 import { MONSTERS, MONSTER_LIST } from '../mmo/monsters.js';
-import { ABILITIES, unlockedFor, STAT_IDS } from '../mmo/abilities.js';
+import { ABILITIES, unlockedFor, unlockedForCharacter, STAT_IDS } from '../mmo/abilities.js';
 import { weightsFor } from '../mmo/loot.js';
 import { describeItem as sackWordsFor, rollFor } from './loot_drops.js';
 import { DAY_CYCLE_MS } from './scene.js';
@@ -658,22 +658,26 @@ export function createBench(ctx = {}) {
   }
 
   /**
-   * Every ability on the list. There is no "known" list to write to: an ability
-   * is unlocked by the sheet, so this raises exactly the skills and stats that
-   * gate one and then counts what came free. The bar is not touched; what you
+   * Every ability on the list. Raise the practice skills and explicitly grant
+   * each talent for the dev bench. These grants do not spend earned points. The bar is not touched; what you
    * put on it is yours.
    */
   function learnAllAbilities() {
     const c = character();
     if (!c || !c.skills || !c.stats) return bad('there is no character, so there is nobody to teach.');
-    const before = unlockedFor(c.skills, c.stats).length;
+    const before = unlockedForCharacter(c).length;
     const needs = abilityNeeds();
     keep('skills', c.skills);
     keep('stats', c.stats);
     for (const [id, v] of Object.entries(needs.skills)) if (num(c.skills[id]) < v) c.skills[id] = v;
     for (const [id, v] of Object.entries(needs.stats)) if (num(c.stats[id]) < v) c.stats[id] = v;
+    if (c.advancement) {
+      const granted = new Set(c.advancement.granted);
+      for (const ability of ABILITIES) { granted.add(ability.id); c.advancement.ranks[ability.id] ||= 1; }
+      c.advancement.granted = [...granted];
+    }
     settle('skills');
-    const open = unlockedFor(c.skills, c.stats);
+    const open = unlockedForCharacter(c);
     const locked = ABILITIES.filter((a) => !open.includes(a));
     if (locked.length) {
       return {

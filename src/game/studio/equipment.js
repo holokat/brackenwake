@@ -5,7 +5,7 @@ import {materialById} from '../../vendor/living-studio/data/materials.js';
 
 export function studioArmourForOutfit(outfit){
  const b=baseFor(outfit);
- if(!b||b.slot!=='outfit')return null;
+ if(!b||!b.legacyOutfit)return null;
  const tier=b.material==='ring'?'ring':b.material;
  return Object.fromEntries(canonicalSlots.map(s=>[s,outfitComponentById.has(`${tier}_${s}`)?`${tier}_${s}`:'none']));
 }

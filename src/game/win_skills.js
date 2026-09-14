@@ -1,3 +1,4 @@
+import {talentRank} from '../mmo/talents.js';
 // The skill sheet: all fifty two, in the document's nine groups, each as a card
 // with its painting, its bar, its number to one decimal, its lock, and the
 // abilities it is holding back. Key K, panel id `skills`, still a codex tab.
@@ -588,7 +589,7 @@ export const panel = {
             attachTip(chip, () => ({
               lines: [
                 row.ability.name,
-                rec.met ? 'yours' : `${skill.name} ${row.at}`,
+                rec.met ? 'yours' : character().advancement ? 'Skill trees (P)' : `${skill.name} ${row.at}`,
                 rec.met ? row.ability.description : (rec.reason || row.ability.description),
               ],
             }));
@@ -651,6 +652,19 @@ export const panel = {
         rec.lock.textContent = LOCK_GLYPH[lock];
         rec.lock.className = `bw-lock bw-btn ${lock}`;
         rec.lock.title = `${skill.name} ${LOCK_WORDS[lock]}`;
+
+        if (c.advancement) {
+          rec.opens.textContent = 'Related abilities';
+          for (const chip of rec.chips) {
+            chip.met = talentRank(c, chip.ability.id) > 0; chip.next = false;
+            chip.reason = chip.met ? chip.ability.description : 'Learn this ability in Skill trees (P).';
+            chip.el.classList.toggle('have', chip.met); chip.el.classList.remove('on');
+            chip.el.title = `${chip.ability.name}: ${chip.met ? 'learned' : 'learn in Skill trees (P)'}`;
+          }
+          rec.next.textContent = rec.chips.length ? 'Learn abilities with talent points in Skill trees (P).' : '';
+          rec.next.style.display = rec.chips.length ? '' : 'none'; rec.why.style.display = 'none';
+          continue;
+        }
 
         const s = standingFor(skill.id, st.skills, stats);
         const open = new Set(s.unlocked.map((a) => a.id));

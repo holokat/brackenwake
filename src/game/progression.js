@@ -1,3 +1,4 @@
+import {requirementsForCharacter, unlockedForCharacter} from '../mmo/abilities.js';
 import {achievementPerks} from './achievements/progress.js';
 // Getting better at things. Every swing, every strike of a pickaxe, every
 // spell and every hit taken comes through here, and every one of them that
@@ -83,7 +84,7 @@ export function unlockedIds(character) {
   const skills = character?.skills || {};
   const stats = character?.stats || {};
   const out = [];
-  for (const a of ABILITIES) if (meetsRequirements(a, skills, stats).ok) out.push(a.id);
+  for (const a of ABILITIES) if (requirementsForCharacter(a, character).ok) out.push(a.id);
   return out;
 }
 
@@ -104,7 +105,7 @@ export function starterBar(character) {
   const group = OPENING_GROUP[character?.opening] || 'everyone';
   const eq = character?.equipment || {};
   const pack = character?.pack || null;
-  return unlockedFor(character?.skills || {}, character?.stats || {})
+  return unlockedForCharacter(character)
     .filter((a) => !a.passive && ((a.group === group && group !== 'everyone') || a.id === 'bandage' || a.id === 'recall'))
     .filter((a) => weaponCheck(a, eq, pack).ok)
     .map((a) => a.id);
@@ -124,7 +125,7 @@ export function pruneBar(character) {
   for (let i = 0; i < bar.length; i++) {
     const a = bar[i] ? ABILITIES_BY_ID[bar[i]] : null;
     if (!a) continue;
-    if (meetsRequirements(a, character.skills || {}, character.stats || {}).ok) continue;
+    if (requirementsForCharacter(a, character).ok) continue;
     removed.push(a.name);
     bar[i] = null;
   }

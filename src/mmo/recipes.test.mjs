@@ -68,13 +68,13 @@ check('iron and above each get their own weapon', (() => (
 check('mail and plate take ingots of iron and above, and nothing softer',
   SMITH_METALS.length === 8 && !SMITH_METALS.includes('copper') && !SMITH_METALS.includes('bronze'),
   SMITH_METALS.join(' '));
-check('every armour tier has one outfit in every material it takes', (() => {
+check('every armour tier has every visible piece in every material it takes', (() => {
   const byTier = {};
   for (const r of recipesOfFamily('armour')) {
     byTier[r.armourTier] = byTier[r.armourTier] || new Set();
     byTier[r.armourTier].add(`${r.slot}:${r.result.material}`);
   }
-  const want = { cloth: 1, leather: 1, studded: 1, ring: 8, chain: 8, plate: 8 };
+  const want = { cloth: 7, leather: 7, studded: 7, ring: 56, chain: 56, plate: 56 };
   return Object.entries(want).every(([t, n]) => byTier[t] && byTier[t].size === n);
 })(), recipesOfFamily('armour').length + ' armour recipes');
 check('bows and staves come in all four woods', (() => (

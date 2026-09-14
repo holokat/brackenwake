@@ -36,7 +36,7 @@
 import { injectTheme, theme, itemGlyph, cornerUrl, ruleUrl } from './ui_theme.js';
 import { tabIcon } from './icon_art.js';
 
-/** The one frame the six everyday panels live in. */
+/** The one frame the everyday panels live in. */
 export const CODEX_ID = 'codex';
 
 /**
@@ -47,7 +47,7 @@ export const CODEX_ID = 'codex';
 export const CODEX_TABS = [
   { id: 'character', label: 'Character' },
   { id: 'skills', label: 'Skills' },
-  { id: 'abilities', label: 'Abilities' },
+  { id: 'abilities', label: 'Skill trees' },
   { id: 'crafting', label: 'Crafting' },
   { id: 'map', label: 'Map' },
   { id: 'achievements', label: 'Achievements' },
@@ -78,15 +78,21 @@ export const CODEX_FRAME = {
   arch: { x: 600 / 1536, y: 173 / 1024, w: 340 / 1536, h: 547 / 1024 },
   dais: { x: 494 / 1536, y: 697 / 1024, w: 548 / 1536, h: 226 / 1024, topX: 768 / 1536, topY: 763 / 1024 },
   slots: {
-    // Measured from the painting's gold borders (scripts: a pixel scan of
-    // codex-frame.webp, 2026-09-08): left column x 476 to 611, right 923 to
-    // 1060; rows y 277 to 395, 424 to 556, 565 to 672.
-    mainHand: { x: 478 / 1536, y: 279 / 1024, w: 132 / 1536, h: 115 / 1024 },
-    offHand: { x: 478 / 1536, y: 426 / 1024, w: 132 / 1536, h: 128 / 1024 },
-    ring1: { x: 478 / 1536, y: 567 / 1024, w: 132 / 1536, h: 104 / 1024 },
-    neck: { x: 925 / 1536, y: 279 / 1024, w: 132 / 1536, h: 115 / 1024 },
-    outfit: { x: 925 / 1536, y: 426 / 1024, w: 132 / 1536, h: 128 / 1024 },
-    ring2: { x: 925 / 1536, y: 567 / 1024, w: 132 / 1536, h: 104 / 1024 },
+    // Six evenly spaced cells sit on each opaque rail. Their bounds stop
+    // above the dais and clear of the left statistics and right pack panels,
+    // so the old painted three-cell decoration cannot show through them.
+    head: { x: 496 / 1536, y: 242 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    shoulders: { x: 496 / 1536, y: 323 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    chest: { x: 496 / 1536, y: 404 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    hands: { x: 496 / 1536, y: 485 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    waist: { x: 496 / 1536, y: 566 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    legs: { x: 496 / 1536, y: 647 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    feet: { x: 942 / 1536, y: 242 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    neck: { x: 942 / 1536, y: 323 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    ring1: { x: 942 / 1536, y: 404 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    ring2: { x: 942 / 1536, y: 485 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    mainHand: { x: 942 / 1536, y: 566 / 1024, w: 100 / 1536, h: 76 / 1024 },
+    offHand: { x: 942 / 1536, y: 647 / 1024, w: 100 / 1536, h: 76 / 1024 },
   },
 };
 

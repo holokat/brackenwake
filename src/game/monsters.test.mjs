@@ -607,10 +607,10 @@ const gap = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
   check('and writes it into the character\'s dead list', deadUntil.length === 1 && deadUntil[0].key === key);
   const wait = (deadUntil[0].until - clock) / 1000;
   check('with a return between eight and fifteen minutes', wait >= 480 && wait <= 900, `${(wait / 60).toFixed(1)} minutes`);
-  check('a sack is on the ground where it fell', loot.count === 1, `${loot.count} bag`);
-  const bag = loot.bags()[0];
-  check('and the sack is where the body was',
-    Math.abs(bag.pos.x - victim.actor.pos.x) < 1e-6 && Math.abs(bag.pos.z - victim.actor.pos.z) < 1e-6);
+  check('no ground sack is made for a monster reward', loot.count === 0, `${loot.count} bag`);
+  const fallen = monsters.corpsesNear(victim.actor.pos, 1)[0];
+  check('the corpse holds the reward where the body fell', !!fallen && fallen.loot && fallen.active
+    && Math.abs(fallen.pos.x - victim.actor.pos.x) < 1e-6 && Math.abs(fallen.pos.z - victim.actor.pos.z) < 1e-6);
 
   // The body topples, then goes. Counted on THIS body and not on the layer's
   // total: the cap immediately promotes the forty-first candidate into the dead

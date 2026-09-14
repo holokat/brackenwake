@@ -221,6 +221,48 @@ const progressionSpy = () => {
   check('Rend bleeds 3 a second for 8 s, which is 24', b.health === 76, `${100 - b.health}`);
   c2.update(1, 9000);
   check('and the bleed is gone after its eight seconds', !b.status.bleed);
+
+  // The tick is a later event, but it belongs to the combatant who applied the
+  // wound. This is what lets the character progression system award a DOT kill
+  // without inferring an owner from the victim's current AI target.
+  const dotKiller = actorOf({ id: 'dot-killer', kind: 'player' });
+  const fatal = actorOf({ id: 'fatal-bleed', health: 2, maxHealth: 2 });
+  const c3 = createCombat({ rng: rolls() });
+  let death = null;
+  c3.onDeath((actor, killer) => { death = { actor, killer }; });
+  const entry = c3.applyStatus(fatal, 'bleed', { perSecond: 2, seconds: 1, killer: dotKiller }, 0);
+  check('a damaging status retains its real source until the tick', entry.killer === dotKiller);
+  c3.update(1, 1000);
+  check('a fatal bleed tick reports its real source to onDeath', death?.actor === fatal && death?.killer === dotKiller);
+  check('a fatal status tick clears its retained source with the corpse status', Object.keys(fatal.status).length === 0);
+
+  // This proves the ordinary melee path records that source; callers do not
+  // need to manually attach attribution to the bleed supplied by an ability.
+  const meleeKiller = actorOf({ id: 'melee-killer', kind: 'player' });
+  const wounded = actorOf({ id: 'wounded', health: 12, maxHealth: 12 });
+  const c4 = createCombat({ rng: rolls(0, 0.5) });
+  let meleeDeath = null;
+  c4.onDeath((actor, killer) => { meleeDeath = { actor, killer }; });
+  c4.queueSwing(meleeKiller, wounded, { now: 0, bleed: { perSecond: 2, seconds: 1 } });
+  c4.update(0, 400);
+  check('a landed bleed records the swing attacker as its source', wounded.status.bleed?.killer === meleeKiller);
+  c4.update(1, 1400);
+  check('that bleed credits the same attacker when its later tick kills', meleeDeath?.actor === wounded && meleeDeath?.killer === meleeKiller);
+
+  // A stronger wound replaces the damage source; a weaker refresh only
+  // lengthens the wound already doing damage. Source-less stronger effects
+  // must clear an old source rather than accidentally credit that old attacker.
+  const firstSource = actorOf({ id: 'first-source' });
+  const secondSource = actorOf({ id: 'second-source' });
+  const refreshed = actorOf({ id: 'refreshed' });
+  const c5 = createCombat({ rng: rolls() });
+  c5.applyStatus(refreshed, 'poison', { level: 1, killer: firstSource }, 0);
+  c5.applyStatus(refreshed, 'poison', { level: 2, killer: secondSource }, 100);
+  check('a stronger status replaces its damage source', refreshed.status.poison.killer === secondSource);
+  c5.applyStatus(refreshed, 'poison', { level: 1, killer: firstSource }, 200);
+  check('a weaker refresh retains the stronger status source', refreshed.status.poison.killer === secondSource);
+  c5.applyStatus(refreshed, 'poison', { level: 3 }, 300);
+  check('a stronger source-less status clears prior kill attribution', !refreshed.status.poison.killer);
 }
 
 // -------------------------------------------------------------------- falls

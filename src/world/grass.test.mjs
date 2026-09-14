@@ -25,6 +25,7 @@ import {
   fillBudgetMs, bandAt, TURF, TILE, RADIUS, NEAR, BLADES_PER_TILE, COVER_PER_TILE,
   OUTER_FILL, TILE_MS, TILE_MS_MAX, TILE_BUDGET, CATCHUP_QUEUE,
   NEAR_TILES, OUTER_TILES, MAX_TILES, PREFILL_R, FADE_IN_S, BLADE_BASE_L,
+  BLADE_SPRITE_BLADES, COVER_SPRITE_BLADES,
 } from './grass.js';
 import { windUniforms, tickWind } from './tree_gen.js';
 
@@ -128,6 +129,9 @@ const f = createWorldField(20260904, { homeY: -0.3 });
   const ca = coverTex.image.data, ba = bladeTex.image.data;
   const cov = (a) => { let n = 0; for (let i = 3; i < a.length; i += 4) if (a[i] > 127) n++; return n; };
   check('ground cover is a fuller clump than a grass tuft', cov(ca) > cov(ba), `${cov(ca)} vs ${cov(ba)}`);
+  check('the fuller turf comes from more blades inside the same shared sprites',
+    COVER_SPRITE_BLADES > BLADE_SPRITE_BLADES && BLADE_SPRITE_BLADES === 15 && COVER_SPRITE_BLADES === 22,
+    `${BLADE_SPRITE_BLADES} blades, ${COVER_SPRITE_BLADES} cover blades`);
 
   // the other half of "dark": the sprite itself. The root used to be 0.55.
   const lum = spriteLuminance(bladeTex);

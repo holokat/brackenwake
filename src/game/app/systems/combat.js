@@ -4,6 +4,7 @@
 
 import { spawnMonster, recompute } from '../../actor.js';
 import { createCombat } from '../../combat.js';
+import { createBloodEffects } from '../../blood_effects.js';
 import {assetWork} from '../../streaming/work_queue.js';
 import { createLootDrops } from '../../loot_drops.js';
 import { createMonsters } from '../../monsters.js';
@@ -26,6 +27,13 @@ export const combat = {
     // Unvisited dungeon bosses do not compete with the player and current area.
 
     const combatRules = createCombat({ floaters, hud, audio, progression: teach, recompute });
+    // Blood is a visual listener, never a combat authority. `onResolved` runs
+    // only after health damage has actually been calculated, so misses, dodges
+    // and parries cannot leave a stain. The pool owns no actor references and
+    // is cleared when a dungeon floor changes.
+    const blood = createBloodEffects(sc.scene, { heightAt: (x, z) => runtime.heightAt(x, z) });
+    const removeBloodImpact = combatRules.onResolved((info) => { blood.hit(info); });
+    let bloodPlace = `${runtime.inDungeon ? 'd' : 'w'}:${runtime.dungeonLevel || 0}`;
     const loot = createLootDrops(sc, { floaters, hud, audio });
     const monsters = createMonsters(sc, runtime, {
       spawnWork: assetWork,
@@ -33,6 +41,7 @@ export const combat = {
       actorFactory: (id, o) => spawnMonster(id, o.pos),
       combat: combatRules, loot, floaters, hud, audio,
       deadUntil: character.deadUntil,
+      onDefeat: (mon, killer) => ctx.get('player').levels.defeat(mon, killer),
       character,                            // L1: the class the drops steer toward
       spawnPoint,
     });
@@ -105,11 +114,11 @@ export const combat = {
     }
 
     return {
-      combat: combatRules, monsters, loot, targeting, targetRing,
+      combat: combatRules, monsters, loot, targeting, targetRing, blood,
       startAttack, stopAttack, swingAt,
       get attacking() { return attacking; },
       bw: {
-        combat: combatRules, loot, monsters, targeting, targetRing, spawnMonster, stopAttack,
+        combat: combatRules, loot, monsters, targeting, targetRing, blood, spawnMonster, stopAttack,
         // the same auto attack a double click starts, for the bench and the tests
         startAttack: (mon) => (mon && mon.actor ? startAttack(mon) : undefined),
         get attacking() { return attacking; },
@@ -149,6 +158,9 @@ export const combat = {
         // the fight: monsters queue, combat resolves, the bar reacts
         monsters.update(worldDt, worldNow, actor, night);
         combatRules.update(worldDt, worldNow);
+        const place = `${runtime.inDungeon ? 'd' : 'w'}:${runtime.dungeonLevel || 0}`;
+        if (place !== bloodPlace) { blood.clear(); bloodPlace = place; }
+        blood.update(worldDt / 1000);
         if (actor.health < lastHealth) {
           const { abilities, effects } = ctx.get('abilities');
           abilities.onDamaged(lastHealth - actor.health, nowS);
@@ -160,6 +172,8 @@ export const combat = {
         loot.update(worldDt);
       },
 
+      dispose() { removeBloodImpact?.(); blood.dispose(); },
+
       ring(dt) {
         const runtimeWorld = ctx.get('world').runtime;
         const ringTarget = attacking?.actor || targeting.current;
@@ -170,4 +184,5 @@ export const combat = {
 
   update(ctx, frame) { ctx.get('combat').run(frame); },
   late(ctx, frame) { ctx.get('combat').ring(frame.dt); },
+  dispose(ctx) { ctx.get('combat').dispose(); },
 };

@@ -31,7 +31,7 @@ import { playerActor, recompute } from './actor.js';
 import { createInventory } from './inventory.js';
 import { createCombat } from './combat.js';
 import { makeItem, RARITY, RARITY_ORDER, BASES, setOf, WEAPON_IDS } from '../mmo/items.js';
-import { ABILITIES, unlockedFor } from '../mmo/abilities.js';
+import { ABILITIES, unlockedFor, unlockedForCharacter } from '../mmo/abilities.js';
 import { MONSTERS, MONSTER_LIST } from '../mmo/monsters.js';
 import { dayFactorAt, DAY_CYCLE_MS } from './scene.js';
 import { createDev, DEBUG_FLAGS, createFrameMeter } from './dev.js';
@@ -301,7 +301,7 @@ console.log('win_dev: the full sets');
   const bench = createBench(ctx);
   const r = bench.giveSet('plate', { rarity: 'common', identified: true });
   const worn = ctx.character.pack.items.filter((it) => it && it.base.startsWith('plate_'));
-  check('the one outfit went in', r.ok === true && r.added === 1 && worn.length === 1, r.text);
+  check('every plate piece went in', r.ok === true && r.added === setOf('plate').length && worn.length === setOf('plate').length, r.text);
   check('and it is the setOf("plate") name', new Set(worn.map((it) => it.base)).size === setOf('plate').length);
 }
 {
@@ -323,8 +323,8 @@ console.log('win_dev: the full sets');
   const items = ctx.character.pack.items;
   for (let i = 0; i < items.length; i++) items[i] = makeItem({ base: 'longsword', seed: i + 1 });
   const r = bench.giveSet('plate', { rarity: 'common' });
-  check('none of the one outfit goes in', r.ok === false && r.added === 0 && r.refused === 1, r.text);
-  check('and it counts both halves out loud', /0 of 1/.test(r.text) && /No room for 1/.test(r.text), r.text);
+  check('none of the plate pieces goes in', r.ok === false && r.added === 0 && r.refused === setOf('plate').length, r.text);
+  check('and it counts both halves out loud', /0 of 7/.test(r.text) && /No room for 7/.test(r.text), r.text);
   check('the pack really is full', items.every(Boolean));
 }
 
@@ -371,6 +371,8 @@ console.log('win_dev: learn every ability');
   check('nothing an ability wants is above 100', worst <= 100, `the highest is ${worst}`);
   const ctx = realCtx();
   const bench = createBench(ctx);
+  // Keep the pre-level practice-only restore contract explicit.
+  delete ctx.character.advancement;
   const before = unlockedFor(ctx.character.skills, ctx.character.stats).length;
   const r = bench.learnAllAbilities();
   const after = unlockedFor(ctx.character.skills, ctx.character.stats);
@@ -380,6 +382,16 @@ console.log('win_dev: learn every ability');
   check('the bar really was not touched', !('bar' in ctx.character) || ctx.character.bar.every((x) => x === null));
   bench.restoreSkills(); bench.restoreStats();
   check('and the sheet it raised can be put back', unlockedFor(ctx.character.skills, ctx.character.stats).length === before);
+}
+
+{
+  const ctx = realCtx();
+  const bench = createBench(ctx);
+  const before = unlockedForCharacter(ctx.character).length;
+  const result = bench.learnAllAbilities();
+  check('talent characters learn every ability through the developer tool', unlockedForCharacter(ctx.character).length === ABILITIES.length);
+  check('talent grants count only newly learned abilities', result.gained === ABILITIES.length - before);
+  check('developer grants do not spend talent points', ctx.character.advancement.granted.length === ABILITIES.length);
 }
 
 console.log('win_dev: god mode is probed, not promised');

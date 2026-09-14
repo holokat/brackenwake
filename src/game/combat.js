@@ -612,6 +612,16 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     }
     const had = actor.status[id];
     const stronger = !had || level > num(had.level);
+    // Damage-over-time must remember the actor that actually applied it. The
+    // later tick has no attacker of its own, and guessing from `ai.target`
+    // would award a kill to somebody who merely became the target afterwards.
+    // A stronger application changes ownership; a weaker refresh keeps the
+    // effect that is still doing the damage.
+    const suppliedKiller = Object.hasOwn(spec, 'killer') ? spec.killer : undefined;
+    // A source-less stronger status is genuinely source-less. Carrying an old
+    // killer into it would credit the wrong combatant for a later environment
+    // or scripted effect. A weaker refresh does not replace the stronger dot.
+    const killer = stronger ? (suppliedKiller || null) : (had?.killer || suppliedKiller || null);
     const factor = Number.isFinite(spec.factor) ? spec.factor : null;
     const entry = {
       level: stronger ? level : num(had.level),
@@ -620,6 +630,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
       nextTick: had && !stronger ? num(had.nextTick) : t + TICK_MS,
       seconds,
     };
+    if ((id === 'poison' || id === 'bleed') && killer) entry.killer = killer;
     // the slow's own strength, kept only when it is the stronger of the two, so
     // a 30% slow landing on a 40% one does not quietly loosen it
     const hadFactor = had && Number.isFinite(had.factor) ? had.factor : null;
@@ -663,7 +674,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
       if (id === 'poison' || id === 'bleed') {
         while (num(e.nextTick) <= now && num(e.nextTick) <= num(e.until) && alive(actor)) {
           e.nextTick = num(e.nextTick) + TICK_MS;
-          hurt(actor, e.perSecond, { now, kind: 'damage' });
+          hurt(actor, e.perSecond, { now, kind: 'damage', killer: e.killer || null });
         }
       }
       if (num(e.until) <= now) {
@@ -946,8 +957,8 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     if (leech.mana > 0) { attacker.mana = Math.min(num(attacker.maxMana) || Infinity, num(attacker.mana) + leech.mana); }
     show(leech.numbers, attacker, defender);
 
-    if (res.damage > 0 && opts.poison > 0) applyStatus(defender, 'poison', { level: opts.poison }, now);
-    if (res.damage > 0 && opts.bleed) applyStatus(defender, 'bleed', opts.bleed, now);
+    if (res.damage > 0 && opts.poison > 0) applyStatus(defender, 'poison', { level: opts.poison, killer: attacker }, now);
+    if (res.damage > 0 && opts.bleed) applyStatus(defender, 'bleed', { ...opts.bleed, killer: attacker }, now);
 
     // The effects run BEFORE the death is declared, so a fireball off the blade
     // can be the thing that finishes it and `hurt` owns that death the way it
@@ -1000,7 +1011,7 @@ export function createCombat({ floaters, hud, audio, progression, recompute, rng
     if (leech.healed > 0) attacker.health = Math.min(num(attacker.maxHealth) || Infinity, num(attacker.health) + leech.healed);
     if (leech.mana > 0) attacker.mana = Math.min(num(attacker.maxMana) || Infinity, num(attacker.mana) + leech.mana);
     show(leech.numbers, attacker, defender);
-    if (res.damage > 0 && opts.poison > 0) applyStatus(defender, 'poison', { level: opts.poison }, now);
+    if (res.damage > 0 && opts.poison > 0) applyStatus(defender, 'poison', { level: opts.poison, killer: attacker }, now);
     // A SPELL IS NOT A HIT. 03 sells the seven hit lines on a weapon and prices
     // them as a "chance per hit", and a fireball is not the sword going in, so
     // `rollSpellEffects` deliberately ignores the affixes and the powers and

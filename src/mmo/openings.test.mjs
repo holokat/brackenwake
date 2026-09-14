@@ -309,12 +309,12 @@ check('an empty appearance is refused', validateAppearance(null).ok === false);
   const unresolved = all.filter((e) => !BASES[e.base]).map((e) => e.kitId);
   check('every kit entry of every opening resolves to a real items.js base', unresolved.length === 0 && auditKitBases() === true,
     unresolved.length ? unresolved.join(', ') : `${all.length} entries across ${OPENINGS.length} openings`);
-  check('outfit kit ids map to the six armour bases',
-    itemBaseFor('leatherOutfit') === 'leather_outfit' && itemBaseFor('ringmailOutfit') === 'ring_outfit' && itemBaseFor('clothOutfit') === 'cloth_outfit' && itemBaseFor('kiteShield') === 'kite');
+  check('legacy outfit kit ids map to the visible chest pieces',
+    itemBaseFor('leatherOutfit') === 'leather_chest' && itemBaseFor('ringmailOutfit') === 'ring_chest' && itemBaseFor('clothOutfit') === 'cloth_chest' && itemBaseFor('kiteShield') === 'kite');
   check('ids items.js already knows pass through unchanged', itemBaseFor('longsword') === 'longsword' && itemBaseFor('bandage') === 'bandage');
   const warrior = kitItems(OPENINGS_BY_ID.warrior);
-  check('the warrior kit is a longsword, a kite shield, one leather outfit and twenty bandages',
-    warrior.length === 4 && warrior[0].base === 'longsword' && warrior[1].base === 'kite' && warrior.filter((e) => e.base === 'leather_outfit').length === 1 && warrior.at(-1).count === 20,
+  check('the warrior kit is a longsword, a kite shield, one leather chest piece and twenty bandages',
+    warrior.length === 4 && warrior[0].base === 'longsword' && warrior[1].base === 'kite' && warrior.filter((e) => e.base === 'leather_chest').length === 1 && warrior.at(-1).count === 20,
     warrior.map((e) => e.base).join(', '));
 }
 

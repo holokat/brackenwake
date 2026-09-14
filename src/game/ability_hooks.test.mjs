@@ -153,6 +153,7 @@ console.log('\nability_hooks: a summon stands up, fights, and goes when its time
   ck('the summon is a real monster out of the real spawner', !!mon && mon.actor.monsterId === 'skeletonWarrior', mon?.id);
   ck('it is on your side, by faction as well as by flag',
     mon.friendly === true && mon.actor.faction === 'player', `${mon.friendly} / ${mon.actor.faction}`);
+  ck('it retains the caster as explicit combat-credit owner', mon.actor.summonOwner === h.actor);
   ck('and it says so, by name and for how long',
     /Skeleton Warrior stands up beside you for 60 seconds/.test(h.said()), h.said());
   ck('it is not in the hostile list a Whirlwind would cut',
@@ -257,6 +258,7 @@ console.log('\nability_hooks: Beast Call takes what is already standing');
   ck('at the end of the half minute it is wild again, not despawned',
     wolf.friendly === false && wolf.actor.faction === 'hostile' && h.live.length === 2,
     `${wolf.friendly} / ${h.live.length} alive`);
+  ck('a released wild animal no longer retains the caster owner', !wolf.actor.summonOwner);
   ck('and that is said in its own words', /loses interest and goes back to being wild/.test(h.said()));
 }
 {

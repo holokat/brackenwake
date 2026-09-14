@@ -87,6 +87,7 @@ export const context_menu = {
       loot: fight.loot,
       takeLoot: bag.takeLoot,
       skinning: bag.skinning,
+      corpseLoot: bag.corpseLoot,
       npcs: life.npcs,
       windows: face.windows,
       get map() { return mapPanel(); },

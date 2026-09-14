@@ -12,6 +12,7 @@ import { recompute, syncToCharacter } from '../../actor.js';
 import { toRoster } from '../../state.js';
 import { panel as characterPanel } from '../../win_character.js';
 import { panel as bagPanel } from '../../win_bag.js';
+import { panel as corpseLootPanel } from '../../win_corpse_loot.js';
 import { panel as skillsPanel } from '../../win_skills.js';
 import { panel as abilitiesPanel, setBarSlot, barOf } from '../../win_abilities.js';
 import { panel as talkPanel } from '../../win_talk.js';
@@ -95,6 +96,7 @@ export const ui = {
       abilities: bars.abilities,
       effects: bars.effects,
       tradeNet: bag.tradeNet,
+      corpseLoot: bag.corpseLoot,
       paperdoll: null,
       // the four below are filled in by the systems that own them, the moment
       // they are built, exactly as the old boot filled them in: win_dev.js
@@ -123,7 +125,7 @@ export const ui = {
 
     const windows = createWindows(hudRoot, input, panelCtx);
     panelCtx.windows = windows;
-    for (const p of [characterPanel, bagPanel, skillsPanel, abilitiesPanel, talkPanel, tradePanel, craftingPanel, mapPanel, achievementsPanel, settingsPanel, devPanel]) windows.register(p);
+    for (const p of [characterPanel, bagPanel, corpseLootPanel, skillsPanel, abilitiesPanel, talkPanel, tradePanel, craftingPanel, mapPanel, achievementsPanel, settingsPanel, devPanel]) windows.register(p);
     // The editor is registered on its own line and not in the row above,
     // because it is not one of the player's windows: it refuses to open unless
     // dev mode is on, and `wiring.test.mjs` reads that row by name.
@@ -394,7 +396,7 @@ export const ui = {
   },
 
   ready(ctx) {
-    ctx.hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the ability bar, F5 to F12 the things you carry. An axe or a pickaxe works from your pack, with nothing to pick up first. C character, B bag, K skills, P abilities, V crafting, M map, X emotes, Escape settings, the key under Escape for dev mode and its bench, E goes in. The square in the top right is the minimap: north is up, you are the gold arrow, and the wheel over it zooms.');
+    ctx.hud.toast('WASD walks, Space jumps, drag to look. Click a monster to look at it, double click to fight it. 1 to = use the ability bar, F5 to F12 the things you carry. An axe or a pickaxe works from your pack, with nothing to pick up first. C character, B bag, K skills, P skill trees, V crafting, M map, X emotes, Escape settings, the key under Escape for dev mode and its bench, E enters doors or opens nearby corpse loot. The square in the top right is the minimap: north is up, you are the gold arrow, and the wheel over it zooms.');
   },
 
   late(ctx, frame) { ctx.get('ui').draw(frame); },

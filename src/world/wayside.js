@@ -91,8 +91,9 @@
 
 import { SEA_LEVEL, CHUNK } from './field.js';
 import { hash2 } from './noise.js';
-import { sitesNear } from './sites.js';
+import { sitesNear, spaceInWorld } from './sites.js';
 import { SITE_CELL } from './sitegrid.js';
+import { SPACES } from '../mmo/spaces/index.js';
 import { REALM_ZONES, realmAt } from './zones.js';
 import {
   roadsOverlapping, roadsAtSite, roadPointAt, roadHeightAt, roadDistanceAt,
@@ -260,6 +261,7 @@ auditWaysideStyles();
 
 const CONTEXT = new WeakMap();
 const NEAR_PLACE = new WeakMap();      // field -> Map(24 m cell -> boolean)
+const PLACE_SPACES = new WeakMap();    // field -> authored spaces eligible for town lighting
 
 const isSettlement = (s) => !!s && (s.kind === 'town' || s.kind === 'hamlet');
 
@@ -344,9 +346,29 @@ export function nearPlace(field, x, z) {
   const key = Math.round(x / LAMP_NEAR) + ',' + Math.round(z / LAMP_NEAR);
   const had = m.get(key);
   if (had !== undefined) return had;
+  // `sitesNear` builds a complete array, including a fresh mapped row for every
+  // authored space, though this caller needs only the first settlement or
+  // authored place. Walk the site cells directly and retain the eligible
+  // authored spaces once per field. This is the same radius/body-radius test
+  // as `sitesNear`, without allocations or rewalking every space at every lamp
+  // station.
   let near = false;
-  for (const s of sitesNear(field, x, z, PLACE_NEAR)) {
-    if (isSettlement(s) || s.authored) { near = true; break; }
+  const c0 = Math.floor((x - PLACE_NEAR) / SITE_CELL), c1 = Math.floor((x + PLACE_NEAR) / SITE_CELL);
+  const d0 = Math.floor((z - PLACE_NEAR) / SITE_CELL), d1 = Math.floor((z + PLACE_NEAR) / SITE_CELL);
+  for (let cz = d0; cz <= d1 && !near; cz++) for (let cx = c0; cx <= c1; cx++) {
+    const s = field.siteInCell(cx, cz);
+    if (!s || (!isSettlement(s) && !s.authored)) continue;
+    if (Math.hypot(s.x - x, s.z - z) <= PLACE_NEAR + (s.bodyR || 0)) { near = true; break; }
+  }
+  if (!near) {
+    let spaces = PLACE_SPACES.get(field);
+    if (!spaces) {
+      spaces = Object.values(SPACES).filter((s) => s?.at && spaceInWorld(s, field));
+      PLACE_SPACES.set(field, spaces);
+    }
+    for (const s of spaces) {
+      if (Math.hypot(s.at.x - x, s.at.z - z) <= PLACE_NEAR + (s.radius || 0)) { near = true; break; }
+    }
   }
   m.set(key, near);
   return near;

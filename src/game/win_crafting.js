@@ -157,7 +157,7 @@ export const UNMAKEABLE = {
 export function resultBaseFor(recipe) {
   if (!recipe) return null;
   if (recipe.family === 'armour' && recipe.armourTier) {
-    const id = `${recipe.armourTier}_outfit`;
+    const id = `${recipe.armourTier}_${recipe.piece || recipe.slot || 'chest'}`;
     if (BASES[id]) return id;
   }
   const want = recipe.result?.base;

@@ -66,7 +66,7 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('and none of the 200 skill points placed', SKILL_IDS.every((id) => c.skills[id] === 0), `${SKILL_IDS.length} skills, all zero`);
   check('every skill and stat starts marked up', SKILL_IDS.every((id) => c.skillLocks[id] === 'up') && STATS.every((k) => c.statLocks[k] === 'up'));
   check(`the pack has ${PACK_SLOTS} slots and they are empty`, c.pack.slots === PACK_SLOTS && c.pack.items.length === PACK_SLOTS && c.pack.items.every((i) => i === null));
-  check('the paper doll has all six slots, empty', SLOTS.every((s) => c.equipment[s] === null) && Object.keys(c.equipment).length === 6);
+  check('the paper doll has all twelve slots, empty', SLOTS.every((s) => c.equipment[s] === null) && Object.keys(c.equipment).length === 12);
   check(`the bar has ${BAR_SLOTS} slots`, c.bar.length === BAR_SLOTS && c.bar.every((b) => b === null));
   check('nothing is discovered and nothing is dead', c.discovered.length === 0 && c.deadUntil.length === 0);
   check('the settings are the nine 07 names', Object.keys(c.settings).sort().join(',') === 'grass,invertDrag,music,pixelRatio,ring,sensitivity,sfx,shadows,textScale', Object.keys(c.settings).join(','));
@@ -331,7 +331,7 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('the bare v2 key is not a document any more', !store.m.has(SAVE_KEY));
   const raw = JSON.parse(store.m.get(slotKeyFor('1')));
   check('the save is version 2', raw.v === SAVE_VERSION, JSON.stringify(raw.v));
-  check('the save shape is the 07 document without the removed companion', JSON.stringify(Object.keys(raw).sort()) === '["achievements","appearance","bar","bosses","deadUntil","discovered","equipment","gold","health","heldTool","itemBar","itemBarSlot","mana","name","needsCreation","opened","opening","pack","pos","settings","skillLocks","skills","stamina","statLocks","stats","story","uniques","unlockedAbilities","v","waypoint","waystones","zones"]', Object.keys(raw).join(','));
+  check('the save shape is the 07 document without the removed companion', JSON.stringify(Object.keys(raw).sort()) === '["achievements","advancement","appearance","bar","bosses","deadUntil","discovered","equipment","gold","health","heldTool","itemBar","itemBarSlot","mana","name","needsCreation","opened","opening","pack","pos","settings","skillLocks","skills","stamina","statLocks","stats","story","uniques","unlockedAbilities","v","waypoint","waystones","zones"]', Object.keys(raw).join(','));
 
   const b = createState({ storage: store });
   check('load finds it', b.load() === true);
@@ -516,7 +516,7 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('a stat this version does not have is ignored', s.character.stats.str === 70 && !('luck' in s.character.stats));
   check('a skill this version does not have is ignored', s.character.skills.mining === 5 && !('swimmming' in s.character.skills));
   check('an item base this version does not know is dropped, not carried as a hole', s.character.pack.items.filter(Boolean).length === 1, JSON.stringify(s.character.pack.items.filter(Boolean).map((i) => i.base)));
-  check('an equipment slot this version does not have is ignored', !('tail' in s.character.equipment) && Object.keys(s.character.equipment).length === 6);
+  check('an equipment slot this version does not have is ignored', !('tail' in s.character.equipment) && Object.keys(s.character.equipment).length === 12);
   check('and a hand holding a tool it does not own falls back to the hand', s.tool === 'hand');
 }
 {
@@ -539,11 +539,11 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   });
   check('a sorcerer save keeps its opening id but gets the one body',
     old.opening === 'sorcerer' && old.appearance.gender === 'male', `${old.opening}/${old.appearance.gender}`);
-  check('old worn armour pieces become one highest tier outfit',
-    Object.keys(old.equipment).join(',') === SLOTS.join(',') && old.equipment.outfit?.base === 'plate_outfit'
-    && old.equipment.outfit.rarity === 'epic' && old.equipment.outfit.quality === 1.2,
+  check('old worn armour pieces keep their individual slots',
+    Object.keys(old.equipment).join(',') === SLOTS.join(',') && old.equipment.head?.base === 'chain_head'
+    && old.equipment.chest?.base === 'plate_chest' && old.equipment.chest.rarity === 'epic' && old.equipment.chest.quality === 1.2,
     JSON.stringify(old.equipment));
-  check('old pack armour pieces collapse by tier', old.pack.items.filter(Boolean).map((i) => i.base).join(',') === 'cloth_outfit,plate_outfit',
+  check('old pack armour pieces all survive migration', old.pack.items.filter(Boolean).map((i) => i.base).join(',') === 'cloth_head,cloth_chest,plate_feet',
     old.pack.items.filter(Boolean).map((i) => i.base).join(','));
   check('the old ranged slot moves to the main hand', old.equipment.mainHand?.base === 'shortbow', JSON.stringify(old.equipment.mainHand));
 
@@ -555,11 +555,27 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
     affixes: [{ id: 'dex', stat: 'dex', value: 3, unit: 'flat' }],
   };
   const next = hydrate({ equipment: { outfit: fresh } });
-  check('a save already on the outfit model is left as that outfit',
-    next.equipment.outfit?.base === 'leather_outfit'
-    && next.equipment.outfit.seed === 44
-    && next.equipment.outfit.affixes[0]?.id === 'dex',
-    JSON.stringify(next.equipment.outfit));
+  const suit = ['head', 'shoulders', 'chest', 'hands', 'waist', 'legs', 'feet'].map((slot) => next.equipment[slot]);
+  check('a legacy outfit becomes one complete visible suit',
+    suit.every((item, index) => item?.base === `leather_${['head', 'shoulders', 'chest', 'hands', 'waist', 'legs', 'feet'][index]}`)
+    && new Set(suit.map((item) => item.id)).size === 7,
+    suit.map((item) => item?.base).join(','));
+  check('its original affixes stay on one chest piece instead of multiplying',
+    suit.filter((item) => item.affixes?.some((a) => a.id === 'dex')).length === 1
+    && next.equipment.chest.affixes[0]?.id === 'dex', JSON.stringify(next.equipment.chest));
+  check('the seven pieces retain the outfit’s total armour and carry weight',
+    suit.reduce((sum, item) => sum + BASES[item.base].ar, 0) === BASES.leather_outfit.ar
+    && suit.reduce((sum, item) => sum + weightOf(item), 0) === BASES.leather_outfit.weight,
+    `${suit.reduce((sum, item) => sum + BASES[item.base].ar, 0)} AR, ${suit.reduce((sum, item) => sum + weightOf(item), 0)} stones`);
+
+  const collided = hydrate({ equipment: {
+    outfit: { base: 'leather_outfit', seed: 45 },
+    head: { base: 'cloth_head', seed: 46 },
+  } });
+  check('a current piece colliding with a migrated suit is kept in the pack',
+    collided.equipment.head?.base === 'leather_head'
+    && collided.pack.items.some((item) => item?.base === 'cloth_head'),
+    `${collided.equipment.head?.base}; ${collided.pack.items.filter(Boolean).map((item) => item.base).join(',')}`);
 }
 // ---- a save from before T3, when there was a tool row ----------------------
 //

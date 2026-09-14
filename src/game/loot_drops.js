@@ -202,11 +202,15 @@ export function itemBaseFor(word, tier = 1, monster = null) {
     case 'meat': return meatFor(monster);
     // 05-WORLD-CONTENT: the necromancer "sells bone reagents". Bone is a reagent.
     case 'bone': return 'reagent';
-    // armour words all resolve to the one outfit for that tier
-    case 'helm': case 'tunic': case 'breastplate': case 'greaves': case 'boots': case 'cloak':
-      return `${mat}_outfit`;
+    // Armour words now name the actual paper-doll cell they occupy. A monster
+    // can therefore leave a helm without silently becoming an entire suit.
+    case 'helm': return `${mat}_head`;
+    case 'tunic': case 'breastplate': return `${mat}_chest`;
+    case 'greaves': return `${mat}_legs`;
+    case 'boots': return `${mat}_feet`;
+    case 'cloak': return `${mat}_shoulders`;
     // a robe is cloth by definition
-    case 'robe': return 'cloth_outfit';
+    case 'robe': return 'cloth_chest';
     case 'throwingKnives': return 'throwing_knives';
     // Skinning's three, which resolve so the knife can hand one over, and are
     // filtered out of the sack by `tableFor`.

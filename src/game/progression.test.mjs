@@ -32,6 +32,7 @@ function mulberry32(seed) {
 
 function rig(opts = {}) {
   const character = opts.character || blankCharacter();
+  if (!opts.character) delete character.advancement; // This fixture exercises the legacy practice-unlock path.
   if (opts.skills) Object.assign(character.skills, opts.skills);
   if (opts.stats) Object.assign(character.stats, opts.stats);
   const actor = playerActor(character);
@@ -444,7 +445,7 @@ console.log('\nprogression: a fresh bar carries only what the opening can use');
     roguePlan.ok && rogue.equipment.mainHand?.base === 'dagger' && rogue.equipment.offHand?.base === 'dagger',
     JSON.stringify(rogue.equipment));
   check('and that bar places the new starter attacks',
-    rbar.includes('dualStrike') && rbar.includes('throwingKnife') && rbar.includes('deepCut'),
+    rbar.includes('dualStrike') && rbar.includes('hide') && !rbar.includes('throwingKnife') && !rbar.includes('deepCut'),
     rbar.join(','));
   const blank = { opening: 'blank', skills: {}, stats: {}, equipment: {}, pack: { slots: 1, items: [null] } };
   check('the Blank opening starts with Bandage and Recall and no more: jump, sprint, meditate and camp are keys, not a class', starterBar(blank).every((id) => id === 'bandage' || id === 'recall') && starterBar(blank).includes('recall'), starterBar(blank).join(','));

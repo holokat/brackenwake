@@ -1024,17 +1024,18 @@ export function createMonsters(sc, runtime, opts = {}) {
    */
   function died(mon, killer) {
     if (!live.has(mon.key)) return;
+    // Progression hears this before the live record disappears. Training
+    // bodies right themselves elsewhere; friendly, summoned and no-loot
+    // bodies never become a defeat credit.
+    if (!mon.friendly && !mon.rec.noLoot && !mon.actor?.summoned && !String(mon.key).startsWith('dev:')) {
+      try { opts.onDefeat?.(mon, killer); } catch (err) { console.error('[monsters] onDefeat failed', err); }
+    }
     cellarBosses.clear(mon);
     live.delete(mon.key);
     stats.alive--; stats.killed++;
     mon.model.setAnim('die');
     mon.cast = null;
     dropPlate(mon);
-    corpses.push({
-      mon, t: 0, key: mon.key, id: mon.id, actor: mon.actor, row: mon.row, name: mon.name,
-      get pos() { return mon.actor.pos; },
-      skinned: false,
-    });
     // A summoned minion is not a slot in the world and must not be written into
     // the character's dead list: it was never in the level's own roll, so an
     // entry for it would sit in the save for ever matching nothing.
@@ -1045,14 +1046,21 @@ export function createMonsters(sc, runtime, opts = {}) {
     // A SUMMON LEAVES NOTHING. It was never in the world's roll and its body is
     // borrowed, so a sack off it would be a necromancer farming his own mana
     // into loot twenty seconds at a time.
-    let drop = (!mon.friendly && !mon.rec.noLoot && loot?.rollFor)
+    let drop = (!mon.friendly && !mon.rec.noLoot && !mon.actor?.summoned && loot?.rollFor)
       ? loot.rollFor(mon.row, { luck: num(killer?.bonuses?.luck), seed: hashKey(mon.key), character: killer?.kind === 'player' ? playerCharacter : null })
       : null;
     if(!mon.friendly&&mon.row.oreElemental){drop ||= {items:[],gold:0};drop.items ||= [];drop.items.push(makeItem({base:mon.row.oreElemental+'_ore',count:mon.row.oreReward}));}
-    const bag = drop && loot?.drop ? loot.drop(mon.actor.pos, drop) : null;
+    const corpseLoot = drop && ((drop.items && drop.items.length) || drop.gold > 0)
+      ? { items: (drop.items || []).slice(), gold: Math.max(0, Math.floor(num(drop.gold))) }
+      : null;
+    corpses.push({
+      mon, t: 0, key: mon.key, id: mon.id, actor: mon.actor, row: mon.row, name: mon.name,
+      get pos() { return mon.actor.pos; },
+      skinned: false, active: true, loot: corpseLoot,
+    });
     if (killer && killer.kind === 'player') {
-      say(bag
-        ? `the ${mon.name.toLowerCase()} goes down, and leaves a sack`
+      say(corpseLoot
+        ? `the ${mon.name.toLowerCase()} goes down, and carries loot`
         : `the ${mon.name.toLowerCase()} goes down, and leaves nothing`);
     }
 
@@ -2379,7 +2387,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       const c = corpses[i];
       c.t += d;
       if (c.t < CORPSE_LINGER_S) c.mon.model.update(d, 0);   // the topple; then it lies still
-      if (c.t >= CORPSE_KEEP_S) { c.mon.model.dispose(); corpses.splice(i, 1); }
+      if (c.t >= CORPSE_KEEP_S) { c.active = false; c.loot = null; c.mon.model.dispose(); corpses.splice(i, 1); }
     }
   }
 
@@ -2654,7 +2662,7 @@ export function createMonsters(sc, runtime, opts = {}) {
       spawnQueue.clear();
       offDeath?.();
       for (const key of [...live.keys()]) despawn(key);
-      for (const c of corpses) c.mon.model.dispose();
+      for (const c of corpses) { c.active = false; c.loot = null; c.mon.model.dispose(); }
       corpses.length = 0;
       for (const s of shots) s.mesh.parent?.remove(s.mesh);
       shots.length = 0;

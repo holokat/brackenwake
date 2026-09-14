@@ -65,7 +65,7 @@ monsters.update(0,0,player,false);const victim=monsters.all().find(m=>m.rec.key.
 player.lastSwingAt=-Infinity;
 const hp=victim.actor.health,hit=monsters.swingAt(player,victim.actor,{now:0});assert.equal(hit.queued,true,hit.reason);combat.update(.3,300);
 assert.ok(victim.actor.health<hp,'the new authored body receives real starter weapon damage');
-combat.kill(victim.actor,player);assert.ok(deadUntil.some(d=>d.key===victim.key));assert.equal(loot.count,1);
+combat.kill(victim.actor,player);assert.ok(deadUntil.some(d=>d.key===victim.key));assert.equal(loot.count,0,'the corpse holds its reward instead of making a floor sack');assert.ok(monsters.corpsesNear(player.pos,3).find(c=>c.key===victim.key)?.loot,'the authored body has a lootable corpse');
 monsters.update(0,1000,player,true);assert.ok(!monsters.all().some(m=>m.key===victim.key),'dusk does not revive a cleared slot');
 wall=deadUntil.find(d=>d.key===victim.key).until+1;monsters.update(0,2000,player,false);
 assert.ok(!monsters.all().some(m=>m.key===victim.key),'no respawn while the player stands beside it');

@@ -8,7 +8,7 @@
 
 import {
   auditDoll, auditTitles, DOLL, SLOT_LABELS, TITLES, TITLE_AT, QUOTES, MOTTOES,
-  DEFAULT_QUOTE, DEFAULT_MOTTO, sheetOf, tipFor, titleOf, noteOf, fighterFor,
+  DEFAULT_QUOTE, DEFAULT_MOTTO, sheetOf, tipFor, titleOf, noteOf, fighterFor, SLOT_GLYPHS,
 } from './win_character.js';
 import { normalise, PACK_SLOTS } from './inventory.js';
 import { SLOTS, makeItem } from '../mmo/items.js';
@@ -23,17 +23,17 @@ const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ?
 // ---- the doll counts its own cells -----------------------------------------
 console.log('character: the doll');
 check('the doll has a cell for every live slot', auditDoll() === SLOTS.length, `${auditDoll()} of ${SLOTS.length}`);
-check('and six is what that is', SLOTS.length === 6);
+check('and twelve is what that is', SLOTS.length === 12);
 const cells = [...DOLL.left, ...DOLL.right];
 check('no slot is drawn twice', new Set(cells).size === cells.length);
-check('every cell has a word under it', cells.every((c) => !!SLOT_LABELS[c]));
-check('the two rings read as rings, not as ring1 and ring2', SLOT_LABELS.ring1 === 'ring' && SLOT_LABELS.ring2 === 'ring');
-check('the arch is flanked three and three', DOLL.left.length === 3 && DOLL.right.length === 3,
+check('every cell has a word and a glyph', cells.every((c) => !!SLOT_LABELS[c] && !!SLOT_GLYPHS[c]));
+check('the two rings read as rings, not as ring1 and ring2', SLOT_LABELS.ring1 === 'first ring' && SLOT_LABELS.ring2 === 'second ring');
+check('the arch is flanked six and six', DOLL.left.length === 6 && DOLL.right.length === 6,
   `${DOLL.left.length} and ${DOLL.right.length}`);
-check('the weapon is at the top of the left flank', DOLL.left[0] === 'mainHand');
-check('the shield is painted under the weapon on the left flank', DOLL.left[1] === 'offHand', DOLL.left.join(','));
-check('the amulet, outfit and second ring are down the right flank',
-  DOLL.right.join(',') === 'neck,outfit,ring2', DOLL.right.join(','));
+check('the helmet is at the top of the left flank', DOLL.left[0] === 'head');
+check('the shoulders sit beneath the helmet on the left flank', DOLL.left[1] === 'shoulders', DOLL.left.join(','));
+check('boots, jewellery and hands fill the right flank',
+  DOLL.right.join(',') === 'feet,neck,ring1,ring2,mainHand,offHand', DOLL.right.join(','));
 
 // ---- titles ----------------------------------------------------------------
 console.log('character: the title line');
@@ -50,7 +50,8 @@ check('Swordsmanship makes a Swordsman', TITLES.swordsmanship === 'Swordsman');
   check('the highest skill wins, not the first', best.text === 'Archer', JSON.stringify(best));
   const none = titleOf({ skills: {} });
   check('with no skill and no opening you are a Wanderer', none.text === 'Wanderer' && none.from === null);
-  check('no level is ever printed', !/level/i.test(JSON.stringify(titleOf({ opening: 'mage', skills: { magery: 70 } }))));
+  check('the title remains distinct from the derived character level',
+    !('level' in titleOf({ opening: 'mage', skills: { magery: 70 } })));
 }
 console.log('character: quotes and mottoes');
 check('every opening has a line of its own',
@@ -296,6 +297,13 @@ function page(opts = {}) {
     str ? str.num.textContent : 'no span');
   check('and it is plain to start', str.num.className === 'bw-vnum' && str.delta.textContent === '',
     `${str.num.className} "${str.delta.textContent}"`);
+  const dollCells = walk(r.root).filter((n) => n.dataset && n.dataset.slot);
+  check('all twelve empty doll targets stay visible and named', dollCells.length === 12 && dollCells.every((cell) =>
+    cell.title === `Empty ${SLOT_LABELS[cell.dataset.slot]}` && cell.children.some((child) => child.className === 'bw-doll-empty-glyph')
+    && cell.children.some((child) => child.className === 'bw-doll-label' && child.textContent === SLOT_LABELS[cell.dataset.slot])),
+    dollCells.map((cell) => `${cell.dataset.slot}:${cell.textContent}`).join(' | '));
+  const classLine = walk(r.root).find((n) => n.className === 'bw-class-word');
+  check('the character class carries the current level', classLine?.textContent === 'Warrior · Level 1', classLine?.textContent);
 
   r.grid.children[0].fire('pointerenter', { clientX: 40, clientY: 40 });
   check('hovering a +2 STR ring shows STR at its NEW value', str.num.textContent === '70', str.num.textContent);

@@ -80,6 +80,7 @@ check('and every player page is in the codex',
   CODEX_IDS.join(',') === 'character,skills,abilities,crafting,map,achievements', CODEX_IDS.join(','));
 check('there is no Inventory tab any more', !CODEX_IDS.includes('bag'), CODEX_IDS.join(','));
 check('every tab has a label to read', CODEX_TABS.every((t) => typeof t.label === 'string' && t.label.length));
+check('the abilities tab names the skill trees it opens', CODEX_TABS.find((t) => t.id === 'abilities')?.label === 'Skill trees');
 check('no tab carries its own key, so the label and the hotkey cannot drift',
   CODEX_TABS.every((t) => t.key === undefined));
 check('isCodexTab knows its own', isCodexTab('bag') && isCodexTab('map') && !isCodexTab('settings') && !isCodexTab('talk'));
@@ -94,8 +95,21 @@ check('the painted codex frame is measured as a 1536 by 1024 image',
 check('the painted frame carries five measured tab hit areas',
   CODEX_IDS.every((id) => CODEX_FRAME.tabs[id] && CODEX_FRAME.tabs[id].w > 0.07),
   Object.keys(CODEX_FRAME.tabs).join(','));
-check('and six measured doll slot boxes',
-  Object.keys(CODEX_FRAME.slots).length === 6, Object.keys(CODEX_FRAME.slots).join(','));
+check('and twelve measured doll slot boxes',
+  Object.keys(CODEX_FRAME.slots).length === 12, Object.keys(CODEX_FRAME.slots).join(','));
+{
+  const left = ['head', 'shoulders', 'chest', 'hands', 'waist', 'legs'].map((slot) => CODEX_FRAME.slots[slot]);
+  const right = ['feet', 'neck', 'ring1', 'ring2', 'mainHand', 'offHand'].map((slot) => CODEX_FRAME.slots[slot]);
+  const evenRail = (rail) => rail.every((slot, index) => slot.w >= 96 / 1536 && slot.h >= 72 / 1024
+    && (index === 0 || slot.y >= rail[index - 1].y + rail[index - 1].h));
+  check('the two doll rails hold six readable, non-overlapping cells each',
+    evenRail(left) && evenRail(right) && new Set(left.map((slot) => slot.x)).size === 1
+    && new Set(right.map((slot) => slot.x)).size === 1 && left[0].x + left[0].w < CODEX_FRAME.arch.x
+    && right[0].x > CODEX_FRAME.arch.x + CODEX_FRAME.arch.w
+    && left[0].x > CODEX_FRAME.panels.left.x + CODEX_FRAME.panels.left.w
+    && right[0].x + right[0].w < CODEX_FRAME.panels.right.x,
+    `${left.length} left, ${right.length} right`);
+}
 
 // ---- the two names for the one page ----------------------------------------
 console.log('windows: bag and inventory are Character');

@@ -185,7 +185,8 @@ function base(id, docName, kind) {
   return id;
 }
 
-// Armour: six outfits. Each inherits its material's document row.
+// Armour: an opening starts with the chest piece of its material. The other
+// six cells are earned as real gear rather than hidden inside a cosmetic suit.
 for (const [material, docName] of Object.entries(ARMOUR_MATERIALS)) base(`${material}Outfit`, docName, 'armour');
 
 // Weapons named by the kits.
@@ -247,7 +248,7 @@ const KIT_SPECIAL = {
 export function itemBaseFor(kitId) {
   if (KIT_SPECIAL[kitId]) return KIT_SPECIAL[kitId];
   for (const [mat, matId] of Object.entries(KIT_MATERIAL)) {
-    if (kitId === `${mat}Outfit`) return `${matId}_outfit`;
+    if (kitId === `${mat}Outfit`) return `${matId}_chest`;
   }
   return kitId;
 }

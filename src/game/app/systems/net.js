@@ -18,6 +18,7 @@ import {titledName} from '../../achievements/titles.js';
 import * as THREE from 'three';
 import { createPlayer, WALK_SPEED, RUN_SPEED } from '../../player.js';
 import { buildStudioCharacter } from '../../studio/body.js';
+import { SLOTS } from '../../../mmo/items.js';
 import {
   createNetClient, createRemotes, encodeState, helloFor, roomNameFor, wsUrlFor, STATE_HZ,
 } from '../../net.js';
@@ -89,7 +90,7 @@ export const net = {
     function equipmentFromLook(look) {
       const gear = look?.gear || {};
       const out = {};
-      for (const slot of ['mainHand', 'offHand', 'outfit', 'neck', 'ring1', 'ring2']) out[slot] = gear[slot] ? { base: gear[slot] } : null;
+      for (const slot of SLOTS) out[slot] = gear[slot] ? { base: gear[slot] } : null;
       return out;
     }
 

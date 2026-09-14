@@ -1,0 +1,62 @@
+import assert from 'node:assert/strict';
+import {ABILITIES,ABILITIES_BY_ID,canUse,startCast,unlockedForCharacter} from './abilities.js';
+import {newAdvancement,levelOf,grantExperience,MAX_XP,availablePoints,learnTalent,learnCheck,talentRank,TALENT_NODES,TALENT_TREES,COMMON_ABILITIES,LEVEL_XP,hydrateAdvancement} from './talents.js';
+import {planCharacter} from '../game/creation.js';
+import {hydrate} from '../game/state.js';
+import {starterBar} from '../game/progression.js';
+import {createCharacterLevels} from '../game/character_levels.js';
+import {setBarSlot} from '../game/win_abilities.js';
+
+for(const opening of ['warrior','ranger','rogue','mage']){
+  const result=planCharacter({opening,name:'Tester'});assert.equal(result.ok,true);const c=result.character;
+  assert.equal(levelOf(c),1);assert.equal(availablePoints(c),0);
+  const unlocked=unlockedForCharacter(c).map(a=>a.id);
+  assert.ok(unlocked.length<=7);assert.ok(starterBar(c).length<=4);
+  assert.equal(c.pack.items.filter(i=>i?.base==='bandage').reduce((n,i)=>n+i.count,0),20);
+  assert.equal(hydrate(JSON.parse(JSON.stringify(c))).advancement.xp,0);
+  assert.deepEqual(hydrate(JSON.parse(JSON.stringify(c))).advancement.ranks,c.advancement.ranks);
+}
+const c={opening:'mage',skills:{magery:100},stats:{},advancement:newAdvancement('mage'),mana:1000,stamina:1000,health:100,maxHealth:100};
+assert.equal(canUse(ABILITIES_BY_ID.meteor,c).ok,false,'high skill cannot bypass talent learning');
+assert.equal(setBarSlot(c,2,'meteor').ok,false,'binding cannot bypass talent learning');
+assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).ok,false);
+assert.deepEqual(grantExperience(c,100),{gained:100,levels:1,level:2});
+assert.equal(availablePoints(c),1);
+assert.equal(learnTalent(c,ABILITIES_BY_ID.iceShard).ok,false,'level / prerequisite enforced');
+assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).ok,true);
+assert.equal(availablePoints(c),0);assert.equal(talentRank(c,'fireball'),1);
+assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).ok,false,'double spend refused');
+assert.equal(canUse(ABILITIES_BY_ID.fireball,c).ok,true);
+assert.equal(setBarSlot(c,0,'fireball').ok,true);
+grantExperience(c,LEVEL_XP[40]-c.advancement.xp);
+for(let i=2;i<=5;i++)assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).rank,i);
+assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).ok,false,'max rank');
+const rec=startCast(ABILITIES_BY_ID.fireball,c,10);
+assert.equal(rec.cooldownUntil,10+ABILITIES_BY_ID.fireball.cooldown*.88);
+assert.deepEqual(hydrateAdvancement(c.advancement,'mage',[],ABILITIES_BY_ID),c.advancement,'rank and point spend round trip');
+const before=c.advancement.xp;assert.equal(grantExperience(c,Infinity).gained,0);assert.equal(grantExperience(c,-100).gained,0);assert.equal(c.advancement.xp,before);
+grantExperience(c,MAX_XP*10);assert.equal(levelOf(c),99);assert.equal(c.advancement.xp,MAX_XP);assert.equal(grantExperience(c,100).gained,0);
+const legacy={opening:'mage',skills:{magery:100,mysticism:100},stats:{int:100},bar:['meteor'],unlockedAbilities:['meteor']};
+const migrated=hydrate(legacy);assert.ok(talentRank(migrated,'meteor'));assert.equal(migrated.bar[0],'meteor');assert.equal(availablePoints(migrated),0);assert.deepEqual(hydrate(migrated).advancement,migrated.advancement,'migration idempotent');
+assert.equal(hydrateAdvancement({v:1,xp:0,granted:[],ranks:{meteor:5,fireball:5}},'mage',[],ABILITIES_BY_ID).ranks.meteor,undefined,'unearned point spend rejected');
+const nodes=Object.keys(TALENT_NODES);assert.equal(new Set(nodes).size,TALENT_TREES.reduce((n,t)=>n+t.branches.reduce((s,b)=>s+b.ids.length,0),0));
+for(const a of ABILITIES)assert.ok(nodes.includes(a.id)||COMMON_ABILITIES.includes(a.id),`${a.id} appears in the trees or basic kit`);
+for(const id of nodes)assert.ok(ABILITIES_BY_ID[id],`${id} resolves to a real ability`);
+// Every node and upgrade is reachable without circular or impossible prerequisites.
+const end={advancement:newAdvancement('mage')};grantExperience(end,MAX_XP);
+for(const tree of TALENT_TREES){const learner={advancement:newAdvancement('mage')};grantExperience(learner,MAX_XP);for(const branch of tree.branches)for(const id of branch.ids){if(!talentRank(learner,id))assert.equal(learnTalent(learner,ABILITIES_BY_ID[id]).ok,true,id);}}
+const actor={},doc={advancement:newAdvancement('mage')},events=[];
+const levels=createCharacterLevels({character:doc,actor,state:{touch:k=>events.push(k)},hud:{gain:t=>events.push(t),unlock:v=>events.push(v.name)}});
+const mon={actor:{maxHealth:100},row:{tier:1},rec:{}};
+assert.ok(levels.defeat(mon,actor).gained>0);assert.equal(levels.defeat(mon,actor).gained,0,'duplicate defeat awards nothing');
+assert.equal(levels.defeat({actor:{maxHealth:100},friendly:true},actor).gained,0);
+assert.equal(levels.defeat({actor:{maxHealth:100,summoned:true},ephemeral:true},actor).gained,0);
+assert.equal(levels.defeat({actor:{maxHealth:100},rec:{noLoot:true}},actor).gained,0);
+assert.equal(levels.defeat({actor:{maxHealth:100}},{}).gained,0,'another killer awards nothing');
+const ownedSummon={summoned:true,faction:'player',summonOwner:actor};
+assert.ok(levels.defeat({actor:{maxHealth:100},row:{tier:1},rec:{}},ownedSummon).gained>0,'an explicitly owned friendly summon grants XP');
+assert.equal(levels.defeat({actor:{maxHealth:100},row:{tier:1},rec:{}},{summoned:true,faction:'player',summonOwner:{}}).gained,0,'another player’s summon grants nothing');
+assert.equal(levels.defeat({actor:{maxHealth:100},row:{tier:1},rec:{}},{summoned:false,faction:'hostile',summonOwner:actor}).gained,0,'a released animal grants nothing');
+assert.ok(levels.defeat({actor:{maxHealth:100},ephemeral:true,key:'encounter:wolf:1'},actor).gained>0,'ordinary encounters grant XP');
+levels.award(100);assert.ok(events.includes('Level 2'),'level up has visible feedback');
+console.log('Talent / leveling acceptance checks passed.');

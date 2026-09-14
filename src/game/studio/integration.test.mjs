@@ -69,12 +69,12 @@ for(const opening of OPENINGS){
  const studioId=studioClassForOpening(opening.id),profile=studioClassById[studioId],body=buildStudioCharacter({gender:'male'},{classId:opening.id});await body.ready;
  assert.deepEqual(body.actor.group.userData.studioPalette,profile.colors,opening.id+' default palette');
  assert.deepEqual(body.actor.equipment,profile.equipment,opening.id+' default outfit');
- body.setEquipment({outfit:makeItem({base:'leather_outfit',seed:31})});await body.ready;
- assert.deepEqual(body.actor.group.userData.studioPalette,profile.colors,opening.id+' leather palette held');
- assert.deepEqual(body.actor.equipment,profile.equipment,opening.id+' leather: the class look is kept (2026-09-08)');
- body.setEquipment({outfit:makeItem({base:'plate_outfit',seed:32})});await body.ready;
- assert.deepEqual(body.actor.group.userData.studioPalette,profile.colors,opening.id+' plate palette held');
- assert.deepEqual(body.actor.equipment,profile.equipment,opening.id+' plate: the class look is kept');
+ body.setEquipment({chest:makeItem({base:'leather_chest',seed:31})});await body.ready;
+ assert.deepEqual(body.actor.group.userData.studioPalette,profile.colors,opening.id+' leather chest palette held');
+ assert.deepEqual(body.actor.equipment,profile.equipment,opening.id+' leather chest: the class look is kept (2026-09-08)');
+ body.setEquipment({chest:makeItem({base:'plate_chest',seed:32})});await body.ready;
+ assert.deepEqual(body.actor.group.userData.studioPalette,profile.colors,opening.id+' plate chest palette held');
+ assert.deepEqual(body.actor.equipment,profile.equipment,opening.id+' plate chest: the class look is kept');
  body.dispose();swaps+=2;
 }
 for(const role of [...NPC_LIST,...Object.values(STORY_ROLES)]){
@@ -88,17 +88,17 @@ for(const gender of ['male']){
  for(const s of Object.keys(c.stats))c.stats[s]=100;
  const body=buildStudioCharacter({gender},{classId:'warrior',sourceMotion:true,loadMotionAssets}),actor=playerActor(c);
  const inv=createInventory({character:c,actor,recompute,onChange:()=>body.setEquipment(c.equipment)});body.setEquipment(c.equipment);await body.ready;
- // One outfit per tier since 2026-09-08; studioArmourForOutfit still names its tier's pieces for the codex readout, but the body keeps the class look.
- const outfits=Object.values(BASES).filter(b=>b.slot==='outfit').map(b=>b.id);assert.equal(outfits.length,6,outfits.join(','));
+ // Legacy save outfits still name their former tier's studio pieces for the codex readout; the body keeps the class look.
+ const outfits=Object.values(BASES).filter(b=>b.legacyOutfit).map(b=>b.id);assert.equal(outfits.length,6,outfits.join(','));
  for(const id of outfits){
   const fit=studioArmourForOutfit({base:id});assert.ok(fit,id);const pieces=canonicalSlots.filter(s=>fit[s]!=='none');assert.ok(pieces.length>=6,id+' dresses '+pieces.length+' slots');
-  const index=inv.emptySlot();assert.ok(index>=0);assert.ok(inv.add(makeItem({base:id,seed:13})).added);const eq=inv.equip(index,'outfit');assert.equal(eq.ok,true,eq.reason);await body.ready;
+  const index=inv.emptySlot();assert.ok(index>=0);assert.ok(inv.add(makeItem({base:id,seed:13})).added);const eq=inv.equip(index,'chest');assert.equal(eq.ok,true,eq.reason);await body.ready;
   const worn=body.actor.group.getObjectByName('Studio body and worn armour').userData.studioItems;
-  // Since 2026-09-08 the outfit's tier dresses nothing: the class look stays on whatever is worn, and the batch still carries the class pieces.
+  // The legacy outfit's tier dresses nothing: the class look stays on whatever is worn, and the batch still carries the class pieces.
   for(const s of canonicalSlots)assert.equal(body.actor.equipment[s],classProfiles.warrior.equipment[s],id+' '+s+' keeps the class look');
   assert.ok(worn.length>0,id+' worn geometry');void pieces;
   assert.ok(body.actor.group.userData.batchedSourceMeshes>0);finite(body.group);
-  assert.equal(inv.unequip('outfit').ok,true);await body.ready;for(const s of pieces)assert.equal(body.actor.equipment[s],classProfiles.warrior.equipment[s],id+' off '+s);
+  assert.equal(inv.unequip('chest').ok,true);await body.ready;for(const s of pieces)assert.equal(body.actor.equipment[s],classProfiles.warrior.equipment[s],id+' off '+s);
   inv.remove(inv.pack.items.findIndex(i=>i?.base===id));swaps++;
  }
  // Equip through the actual inventory, including bows, focuses and shields.
@@ -135,7 +135,7 @@ for(const id of [...Object.keys(chibiMonsterLooks),...Object.keys(chibiCreatureL
  m.dispose();
 }
 const representatives=[...Object.values(BASES).map(b=>({base:b.id})),...GEMS.map(g=>({base:'gem',material:g.id}))];
-// the studio's armour pieces are dressed off the one outfit since 2026-09-08 and are not drops of their own; every other catalogue row still has a live item behind it
+// The studio keeps its class armour appearance, while the actual dropped armour remains game gear; every non-armour catalogue row still has a live item behind it
 for(const row of itemCatalog.filter(r=>r.kind!=='armor')){const item=representatives.find(i=>studioItemId(i)===row.id);assert.ok(item,'No live item maps to '+row.id);const parent=new THREE.Group(),replacement=new THREE.Group();parent.add(replacement);const drop=attachStudioDrop(parent,item,replacement);assert.equal(await drop.ready,true,row.id);assert.equal(replacement.visible,false);finite(parent);drop.dispose();assert.equal(parent.children.length,1);drops++;}
 const gear={mainHand:{base:'greatsword'},offHand:{base:'kite'}};assert.equal(studioEquipment(gear).off,'none');delete gear.mainHand;assert.equal(studioEquipment(gear).off,'kite');
 assert.equal(studioMaterial({base:'heater',material:'iron'}).construction,'metal');
@@ -143,5 +143,5 @@ for(const [id,affix]of Object.entries({flame:'hitFireball',frost:'hitFrost',shoc
 assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'poison'}},{base:'dagger'},9).id,'venom');assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'holy'}},{base:'dagger'},9).id,'holy');assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'holy'}},{base:'dagger'},10).id,'none');
 const missingSource=ABILITIES.filter(a=>!sourceAbility(a.id)).map(a=>a.id);
 assert.deepEqual(missingSource,['dualStrike','deepCut','throwingKnife','kidneyShot','finishingStrike','camp','recall']);
-assert.equal(swaps,14);   // four class tier changes, plus the six outfits worn and taken off once each
+assert.equal(swaps,14);   // four class tier changes, plus the six legacy outfits worn and taken off once each
 console.log(JSON.stringify({bodies,swaps,heldSwaps,npcs,creatures,drops,casts,sourceAbilities:ABILITIES.length-missingSource.length}));

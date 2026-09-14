@@ -220,8 +220,8 @@ const WOOD_WEAPON_BASE = {
   crossbow: ['Crossbow', 20, 'carpentry'],
 };
 
-// The six armour tiers of 03-ITEMS-LOOT.md. Each recipe now makes one outfit
-// with the summed bill of the former eight piece suit.
+// The six armour tiers. A suit is seven separately equipped pieces, so the
+// workshop produces a specific piece and the inventory can equip its real slot.
 const ARMOUR_TIERS = [
   { id: 'cloth', name: 'Cloth', tier: 1, skill: 'tailoring', material: () => ['cloth'], base: 37 },
   { id: 'leather', name: 'Leather', tier: 2, skill: 'tailoring', material: () => ['hide'], base: 69 },
@@ -230,7 +230,12 @@ const ARMOUR_TIERS = [
   { id: 'chain', name: 'Chainmail', tier: 5, skill: 'blacksmithing', material: () => SMITH_METALS, base: 213 },
   { id: 'plate', name: 'Platemail', tier: 6, skill: 'blacksmithing', material: () => SMITH_METALS, base: 277 },
 ];
-export const ARMOUR_PIECES = ['outfit'];
+export const ARMOUR_PIECES = ['head', 'shoulders', 'chest', 'hands', 'waist', 'legs', 'feet'];
+const ARMOUR_PARTS = {
+  head: { name: 'helm', shares: 1 }, shoulders: { name: 'shoulders', shares: 1 },
+  chest: { name: 'chest', shares: 2 }, hands: { name: 'gloves', shares: 1 },
+  waist: { name: 'belt', shares: 1 }, legs: { name: 'legs', shares: 1 }, feet: { name: 'boots', shares: 1 },
+};
 
 // Every metal a weapon can take: copper on its own, bronze from copper and tin,
 // then "iron and above each their own".
@@ -304,26 +309,29 @@ for (const [base, [name, recipeBase, hafted]] of Object.entries(WEAPON_BASE)) {
   }
 }
 
-// --- every armour outfit in every tier, in every material that tier takes
+// --- every armour piece in every tier, in every material that tier takes
 for (const t of ARMOUR_TIERS) {
   for (const matId of t.material()) {
     const mat = MATERIALS[matId];
-    const recipeBase = t.base;
-    const count = Math.max(1, Math.round(recipeBase / 4));
-    const bill = mat.kind === 'metal' ? metalBill(matId, count) : { [matId]: count };
-    if (t.id === 'studded') bill.iron = 8;
-    add({
-      id: `armour.${t.id}.outfit.${matId}`,
-      name: t.id === 'cloth' ? 'Cloth Outfit' : `${mat.name} ${t.name} Outfit`.replace(/\s+/g, ' ').trim(),
-      family: 'armour',
-      result: { base: `${t.id}_outfit`, material: matId },
-      armourTier: t.id, slot: 'outfit', piece: 'outfit',
-      skill: t.skill,
-      difficulty: difficultyFor(recipeBase, mat.tier),
-      recipeBase, materialTier: mat.tier,
-      materials: bill,
-      station: 'workshop',
-    });
+    for (const piece of ARMOUR_PIECES) {
+      const part = ARMOUR_PARTS[piece];
+      const recipeBase = Math.max(1, Math.round(t.base * part.shares / 8));
+      const count = Math.max(1, Math.round(recipeBase / 4));
+      const bill = mat.kind === 'metal' ? metalBill(matId, count) : { [matId]: count };
+      if (t.id === 'studded') bill.iron = Math.max(1, Math.round(8 * part.shares / 8));
+      add({
+        id: `armour.${t.id}.${piece}.${matId}`,
+        name: `${mat.name} ${part.name}`.replace(/\s+/g, ' ').trim(),
+        family: 'armour',
+        result: { base: `${t.id}_${piece}`, material: matId },
+        armourTier: t.id, slot: piece, piece,
+        skill: t.skill,
+        difficulty: difficultyFor(recipeBase, mat.tier),
+        recipeBase, materialTier: mat.tier,
+        materials: bill,
+        station: 'workshop',
+      });
+    }
   }
 }
 
@@ -691,8 +699,8 @@ export const DOC_REFS = {
   woodWeapons: Object.fromEntries(Object.entries(WOOD_WEAPON_BASE).map(([k, v]) => [k, v[0]])),
   shields: Object.fromEntries(Object.entries(SHIELD_BASE).map(([k, v]) => [k, v[0]])),
   armourTiers: Object.fromEntries(ARMOUR_TIERS.map((t) => [t.id, t.name])),
-  pieces: { outfit: 'outfit' },
-  slots: { outfit: 'outfit' },
+  pieces: Object.fromEntries(ARMOUR_PIECES.map((piece) => [piece, piece])),
+  slots: Object.fromEntries(ARMOUR_PIECES.map((piece) => [piece, piece])),
   herbs: Object.fromEntries(HERBS.map(([id, name]) => [id, name])),
   spells: Object.fromEntries(SPELLS.map((s) => [s.id, s.name])),
   potions: { heal: 'heal', mana: 'mana', stamina: 'stamina', cure: 'cure', strength: 'strength', agility: 'agility', nightSight: 'night sight', invisibility: 'invisibility' },
@@ -760,7 +768,7 @@ export function auditRecipes() {
   for (const w of WOODS) if (!RECIPE_LIST.some((r) => r.result.material === w.id)) bad.push(`wood ${w.id} makes nothing`);
   for (const t of ARMOUR_TIERS) {
     const n = RECIPE_LIST.filter((r) => r.armourTier === t.id).length;
-    const want = t.material().length;
+    const want = t.material().length * ARMOUR_PIECES.length;
     if (n !== want) bad.push(`armour tier ${t.id}: ${n} recipes, expected ${want}`);
   }
   for (const s of STATIONS) if (!RECIPE_LIST.some((r) => r.station === s.id)) bad.push(`station ${s.id} makes nothing`);

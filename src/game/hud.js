@@ -1223,13 +1223,13 @@ export function createHud(root) {
   let tipOwner = null;
 
   /** Pure. The chips a bar tooltip shows for an ability, in reading order. */
-  function abilityChips(a) {
+  function abilityChips(a, cooldown = a.cooldown) {
     const out = [];
     const cost = a.cost || {};
     if (cost.stamina) out.push(`${cost.stamina} stamina`);
     if (cost.mana) out.push(`${cost.mana} mana`);
     if (cost.item) out.push(`${cost.count ?? 1} ${String(cost.item).replace(/_/g, ' ')}`);
-    if (a.cooldown) out.push(`${a.cooldown} s cooldown`);
+    if (cooldown) out.push(`${Number(cooldown.toFixed(2))} s cooldown`);
     if (a.castTime) out.push(`${a.castTime} s cast${a.rooted ? ', rooted' : ''}`);
     if (Number.isFinite(a.range) && a.range > 0) out.push(`${a.range} m`);
     return out;
@@ -1244,7 +1244,7 @@ export function createHud(root) {
       tipName.textContent = a.name;
       tipKey.textContent = c.key ? `key ${KEY_LABELS[c.key] || c.key}` : '';
       tipChips.textContent = '';
-      for (const t of abilityChips(a)) add(tipChips, mk('span', null, 'chip')).textContent = t;
+      for (const t of abilityChips(a, c.cooldownDuration)) add(tipChips, mk('span', null, 'chip')).textContent = t;
       tipDesc.textContent = a.description || '';
       tipBurden.textContent = c.burden || '';
       tipBurden.hidden = !c.burden;
@@ -1592,6 +1592,7 @@ export function createHud(root) {
         c.last = ability.id;
         c.tip = null;
       }
+      c.cooldownDuration = e?.cooldownDuration ?? ability.cooldown;
       // G2: what is in your hands can refuse an ability, and the reason is the
       // sentence to show. It changes as you draw and sheathe, so the title is
       // rebuilt when it changes rather than once when the slot was filled.
@@ -1613,7 +1614,7 @@ export function createHud(root) {
         if (tipOwner === c) showAbTip(c);
       }
       const left = num(e.cooldownLeft);
-      const frac = sweep(left, ability.cooldown);
+      const frac = sweep(left, c.cooldownDuration);
       c.sweep.style.height = `${(frac * 100).toFixed(0)}%`;
       const label = left > 0 ? timerLabel(left) : '';
       if (c.cd.textContent !== label) c.cd.textContent = label;

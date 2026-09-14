@@ -1,3 +1,5 @@
+import {talentCooldown} from '../mmo/talents.js';
+import {requirementsForCharacter} from '../mmo/abilities.js';
 import {achievementEvent} from './achievements/events.js';
 // The bar, and what happens when you press it.
 //
@@ -377,6 +379,7 @@ export function createAbilities(deps = {}) {
   /** What abilities.js's canUse reads. Built fresh each press: pools move. */
   function snapshot(now) {
     return {
+      advancement: character.advancement,
       skills: character.skills || actor.skills || {},
       stats: character.stats || actor.stats || {},
       stamina: num(actor.stamina),
@@ -1491,7 +1494,7 @@ export function createAbilities(deps = {}) {
    * True when it came apart, and then it has already said so.
    */
   function fumbled(ability, rec, target) {
-    const chance = practiceChance(ability, character.skills || {});
+    const chance = character.advancement ? 1 : practiceChance(ability, character.skills || {});
     if (chance >= 1) return false;
     if (rng() < chance) return false;
     const back = refund(rec);
@@ -2106,16 +2109,17 @@ export function createAbilities(deps = {}) {
       // looked pressable and answered a refusal the bar never hinted at. The
       // sentence here is the SAME sentence the card shows and the same one the
       // key answers with, out of abilities.js, so all three say one thing.
-      const gate = ability ? meetsRequirements(ability, character.skills || {}, character.stats || {}) : { ok: true };
-      const gateLine = gate.ok ? '' : requirementSentence(ability, character.skills || {}, character.stats || {});
+      const gate = ability ? requirementsForCharacter(ability, character) : { ok: true };
+      const gateLine = gate.ok ? '' : character.advancement ? gate.reason : requirementSentence(ability, character.skills || {}, character.stats || {});
       // And the row you are allowed to hold but have not earned: it works some
       // of the time, and the tooltip says how often before you spend the mana.
-      const practice = ability && gate.ok ? practiceText(ability, character.skills || {}) : '';
+      const practice = ability && gate.ok && !character.advancement ? practiceText(ability, character.skills || {}) : '';
       const why = [gateLine, hands.ok ? '' : hands.reason, practice].filter(Boolean).join('\n');
       out.push({
         key: BAR_KEYS[i],
         ability,
         cooldownLeft: ability ? cooldownLeft(ability.id, t) : 0,
+        cooldownDuration: ability ? talentCooldown(ability, character) : 0,
         affordable: ability ? affordable(ability) : true,
         casting: !!(cast && ability && cast.abilityId === ability.id),
         // hud.js greys the cell on `unusable`; the reason is the tooltip.
@@ -2155,7 +2159,7 @@ export function createAbilities(deps = {}) {
       const have = ability.skillAny
         ? ability.skillAny.reduce((b, id) => Math.max(b, num(skills[id])), 0)
         : num(skills[ability.skill]);
-      if (have < ability.minSkill) { if (actor.passives) delete actor.passives[ability.id]; continue; }
+      if (character.advancement ? !requirementsForCharacter(ability, character).ok : have < ability.minSkill) { if (actor.passives) delete actor.passives[ability.id]; continue; }
       // Riposte is a parry that counters, and there is no parry without a
       // shield. main.js should call applyPassives() again on every equip
       // change (see docs/mmo/wiring/G2.md), or this is only as fresh as the

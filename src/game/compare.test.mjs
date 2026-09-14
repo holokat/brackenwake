@@ -89,9 +89,9 @@ console.log('compare: a ring of +2 STR');
 console.log('compare: the preview is a copy, byte for byte');
 {
   const c = ashe();
-  c.equipment.outfit = gear('chain_outfit');
+  c.equipment.chest = gear('chain_chest');
   c.equipment.offHand = gear('kite');
-  c.pack.items[0] = gear('plate_outfit');
+  c.pack.items[0] = gear('plate_chest');
   c.pack.items[1] = gear('greatsword');
   c.pack.items[2] = gear('ring', [{ id: 'dex', value: 5 }]);
   const actor = playerActor(c);
@@ -117,12 +117,12 @@ console.log('compare: the preview is a copy, byte for byte');
 console.log('compare: before is what is already on the screen');
 {
   const c = ashe();
-  c.equipment.outfit = gear('chain_outfit');
+  c.equipment.chest = gear('chain_chest');
   c.equipment.mainHand = gear('longsword');
   c.equipment.offHand = gear('kite');
   const actor = playerActor(c);
   const s = sheetOf(c, actor);
-  const p = previewEquip(c, actor, gear('plate_outfit'));
+  const p = previewEquip(c, actor, gear('plate_chest'));
   const diffs = SHOWN_IDS.filter((id) => p.before[id] !== s.nums[id]);
   check('every one of the twenty one matches the sheet', diffs.length === 0, diffs.join(','));
   check('STR', p.before.str === s.stats[0].value && s.stats[0].value === 68, String(s.stats[0].value));
@@ -133,40 +133,40 @@ console.log('compare: before is what is already on the screen');
   check('carry', p.before.carry === s.carry, `${p.before.carry} vs ${s.carry}`);
   check('and the physical resist', p.before[RESIST_ID.physical] === s.resists[0].value);
   check('with no actor at all the sheet and the preview still agree',
-    SHOWN_IDS.every((id) => previewEquip(c, null, gear('plate_outfit')).before[id] === sheetOf(c, null).nums[id]));
+    SHOWN_IDS.every((id) => previewEquip(c, null, gear('plate_chest')).before[id] === sheetOf(c, null).nums[id]));
 }
 
-// ---- a plate outfit too heavy for the arms wearing it -----------------------
-console.log('compare: a plate outfit at 60 STR');
+// ---- a plate chest piece too heavy for the arms wearing it -----------------------
+console.log('compare: a plate chest piece at 60 STR');
 {
   const c = ashe({ str: 60, dex: 50, int: 25, con: 65, wis: 45 });
-  const plate = gear('plate_outfit');
+  const plate = gear('plate_chest');
   c.pack.items[0] = plate;
   const p = previewEquip(c, null, plate);
   // What recompute would give, worked out by hand rather than taken on faith.
   const worn = cloneCharacter(c);
-  worn.equipment.outfit = plate;
+  worn.equipment.chest = plate;
   worn.pack.items[0] = null;
   const byHand = recompute(playerActor(worn));
-  check('the outfit is where it goes', p.slot === 'outfit');
+  check('the chest piece is where it goes', p.slot === 'chest');
   check('armour was nothing before', p.before.armour === 0);
   check('and after is exactly what recompute gives', p.after.armour === Math.round(byHand.ar),
     `${p.after.armour} vs ${byHand.ar}`);
-  check('which is the outfit halved, because 60 STR is short of 75',
-    p.after.armour === Math.round(armourOf(plate, c.stats)) && p.after.armour === 54,
+  check('which is the chest piece halved, because 60 STR is short of 75',
+    p.after.armour === Math.round(armourOf(plate, c.stats)) && p.after.armour === 18,
     `${p.after.armour}, armourOf says ${armourOf(plate, c.stats)}`);
-  check('the delta is +54 and green', p.deltas.armour.delta === 54 && p.deltas.armour.better === true);
+  check('the delta is +18 and green', p.deltas.armour.delta === 18 && p.deltas.armour.better === true);
   check('the penalty is not swallowed: the reason is carried out',
     /wants 75 STR and you have 60/.test(p.reason), p.reason);
   check('and it still goes on, because armour above your STR is allowed', p.ok === true);
 }
 {
-  // The same outfit on arms that CAN lift it gives the whole 108.
+  // The same chest piece on arms that CAN lift it gives the whole 36.
   const c = ashe({ str: 80, dex: 50, int: 25, con: 65, wis: 45 });
-  const plate = gear('plate_outfit');
+  const plate = gear('plate_chest');
   c.pack.items[0] = plate;
   const p = previewEquip(c, null, plate);
-  check('at 80 STR the same outfit is worth its full AR', p.after.armour === 108, String(p.after.armour));
+  check('at 80 STR the same chest piece is worth its full AR', p.after.armour === 36, String(p.after.armour));
   check('and there is no penalty to report', p.reason === '', JSON.stringify(p.reason));
 }
 
@@ -242,8 +242,9 @@ console.log('compare: equippedFor, across every kind of slot');
 {
   const c = ashe();
   const cases = [
-    ['outfit', 'plate_outfit'], ['neck', 'amulet'], ['ring1', 'ring'],
-    ['mainHand', 'longsword'], ['offHand', 'kite'],
+    ['head', 'plate_head'], ['shoulders', 'plate_shoulders'], ['chest', 'plate_chest'],
+    ['hands', 'plate_hands'], ['waist', 'plate_waist'], ['legs', 'plate_legs'], ['feet', 'plate_feet'],
+    ['neck', 'amulet'], ['ring1', 'ring'], ['mainHand', 'longsword'], ['offHand', 'kite'],
   ];
   const seen = new Set();
   let allRight = true;
@@ -255,8 +256,8 @@ console.log('compare: equippedFor, across every kind of slot');
     if (found.items[0] !== null) { allRight = false; wrong.push(`${base} found something in an empty ${slot}`); }
   }
   check('every kind of thing finds its own empty slot', allRight, wrong.join('; ') || `${cases.length} kinds`);
-  check('and between them they cover five of the six: the second ring hand is chosen only when ring1 is full',
-    seen.size === 5 && SLOTS.filter((s) => !seen.has(s)).join(',') === 'ring2',
+  check('and together they cover every slot except the second ring hand',
+    seen.size === 11 && SLOTS.filter((s) => !seen.has(s)).join(',') === 'ring2',
     SLOTS.filter((s) => !seen.has(s)).join(','));
   check('a longbow finds the main hand, like every weapon', equippedFor(c, gear('longbow')).slot === 'mainHand');
   check('a material has no slot to find', equippedFor(c, gear('ingot')).slot === null);
@@ -278,7 +279,7 @@ console.log('compare: equippedFor, across every kind of slot');
   check('a hint wins when the slot is one this item could take',
     equippedFor(c, gear('ring'), 'ring2').slot === 'ring2');
   check('and a hint that is not one of its slots is ignored rather than obeyed',
-    equippedFor(c, gear('ring'), 'outfit').slot === 'ring1');
+    equippedFor(c, gear('ring'), 'chest').slot === 'ring1');
   check('which is inventory.js own chooseSlot, not a second copy',
     slotFor(c, gear('ring')) === createInventory({ character: cloneCharacter(c) }).chooseSlot(gear('ring'), null));
 }
@@ -312,7 +313,7 @@ console.log('compare: the equipped card');
     && card.blocks[0].base.id === 'longsword', card.blocks[0].name);
   check('and it carries lines to print', card.blocks[0].lines.length > 1, String(card.blocks[0].lines.length));
   check('the second is the shield', card.blocks[1].name === 'Kite Shield' && card.blocks[1].slot === 'offHand');
-  const empty = equippedCard(ashe(), gear('plate_outfit'));
+  const empty = equippedCard(ashe(), gear('plate_chest'));
   check('an empty slot says so in words rather than being left out',
     empty.blocks.length === 1 && empty.blocks[0].empty === true
     && empty.blocks[0].name === 'nothing worn there', empty.blocks[0].name);
@@ -347,9 +348,9 @@ console.log('compare: reading a fighter that is not a full actor');
   const live = playerActor(c);
   const snapshot = JSON.stringify(live);
   const clone = cloneCharacter(c);
-  clone.equipment.outfit = gear('plate_outfit');
+  clone.equipment.chest = gear('plate_chest');
   const previewed = previewActor(live, clone);
-  check('the copy wears the new outfit', previewed.ar > 0, String(previewed.ar));
+  check('the copy wears the new chest piece', previewed.ar > 0, String(previewed.ar));
   check('and the original is untouched', JSON.stringify(live) === snapshot && live.ar === 0);
   check('they are two different actors', previewed !== live && previewed.equipment !== live.equipment);
 }

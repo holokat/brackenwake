@@ -13,7 +13,7 @@
 //   offHand    handL: shield, tome, torch, skull, lute
 //   ranged     back when a melee weapon is drawn, handL when opts.ranged
 //   head       head            chest   torso, and pauldrons on both arms
-//   hands      handL, handR    wrists  armL, armR
+//   hands      handL, handR
 //   waist      torso           legs    legL, legR, shinL, shinR
 //   feet       footL, footR    back    back
 //   neck       torso           rings   handL, handR
@@ -60,7 +60,8 @@ import {
 } from './weapon_models.js';
 import { BODY } from './player.js';
 
-const VISUAL_ARMOUR_PIECES = ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back'];
+const VISUAL_ARMOUR_PIECES = ['head', 'shoulders', 'chest', 'hands', 'waist', 'legs', 'feet'];
+const VISUAL_SOURCE = { shoulders: 'back' };
 
 const EPIC = RARITY_ORDER.indexOf('epic');
 const LEGENDARY = RARITY_ORDER.indexOf('legendary');
@@ -95,8 +96,8 @@ const TIER_PBR = {
 // and the shade lands on the tier colour so the pieces read as separate
 // pieces from two and a half metres. One number per visible piece.
 export const PIECE_SHADE = {
-  head: 1.26, chest: 1.00, back: 1.12, hands: 0.74,
-  wrists: 0.86, waist: 0.80, legs: 0.92, feet: 0.66,
+  head: 1.26, shoulders: 1.12, chest: 1.00, hands: 0.74,
+  waist: 0.80, legs: 0.92, feet: 0.66,
 };
 
 /** Multiply a hex's channels and clamp, so a shade never wraps to black. */
@@ -214,7 +215,7 @@ function seam(y, radius, mat, deep = 1, tube = 0.0035, arc = Math.PI * 2) {
 }
 
 // ---------------------------------------------------------------------------
-// The eight armour pieces. Each returns a list of { anchor, node }, so a piece
+// The rendered armour pieces. Each returns a list of { anchor, node }, so a piece
 // that lives on two limbs is one entry in the wardrobe and two meshes on the
 // rig. `c` carries the material, the tier, the body plan and the glow helper.
 
@@ -749,13 +750,15 @@ export function dressRig(rig, equipment, opts = {}) {
     return [{ anchor: rangedAnchor, node }];
   });
 
-  // ---- worn: one outfit that still dresses the eight visible body pieces
-  const outfit = eq.outfit || null;
-  const outfitBase = baseFor(outfit);
-  for (const piece of VISUAL_ARMOUR_PIECES) {
-    const key = `outfit:${piece}`;
-    const sig = outfitBase && outfitBase.kind === 'armour' ? signature('outfit', outfit, piece) : null;
-    fit(key, sig, () => PIECES[piece](contextFor(outfit, outfitBase, body, piece)));
+  // ---- worn: every paper-doll armour cell owns its own mesh. A migrated
+  // legacy outfit still renders as a full suit while it waits in the chest.
+  const legacy = eq.chest?.legacyOutfit || baseFor(eq.chest)?.legacyOutfit ? eq.chest : eq.outfit;
+  for (const slot of VISUAL_ARMOUR_PIECES) {
+    const item = eq[slot] || legacy || null;
+    const base = baseFor(item);
+    const piece = VISUAL_SOURCE[slot] || slot;
+    const sig = base?.kind === 'armour' ? signature(slot, item, piece) : null;
+    fit(slot, sig, () => PIECES[piece](contextFor(item, base, body, piece)));
   }
 
   fit('neck', signature('neck', eq.neck, 'torso'), () => amuletNode(contextFor(eq.neck, baseFor(eq.neck), body)));

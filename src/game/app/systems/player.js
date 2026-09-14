@@ -1,3 +1,4 @@
+import {createCharacterLevels, createLevelBadge} from '../../character_levels.js';
 import {buildStudioCharacter} from '../../studio/body.js';
 // The player: the body on the ground, the actor the resolver fights over, the
 // lessons it learns, what it is wearing, the light it carries, and dying.
@@ -98,6 +99,10 @@ export const player = {
       // after this one and cannot be held by a wire made here.
       onUnlock: () => { if (ctx.has('abilities')) ctx.get('abilities').abilities.applyPassives(); },
     });
+    const levels = createCharacterLevels({character, actor, state, hud, audio});
+    const levelBadge = createLevelBadge(hud, character, state, () => {
+      ctx.get('ui').windows.open('abilities');
+    });
     // combat.js teaches by actor: (who, skill, difficulty, success). Only the
     // player has a document to learn into; a skeleton is never taught.
     const teach = {
@@ -181,7 +186,7 @@ export const player = {
     }
 
     return {
-      rig, actor, progression, teach, spawnPoint, dress, wake, die, teleport, shapeDrag,
+      rig, actor, progression, levels, levelBadge, teach, spawnPoint, dress, wake, die, teleport, shapeDrag,
       get pos() { return rig.pos; },
       get yaw() { return rig.yaw; },
       get dying() { return dying; },
@@ -232,7 +237,7 @@ export const player = {
 
       lantern,
       bw: {
-        player: rig, actor, progression, dress, wake,
+        player: rig, actor, progression, levels, dress, wake,
         get playerActor() { return actor; },
         get dying() { return dying; },
         recompute, tickPools, syncToCharacter,
@@ -267,4 +272,5 @@ export const player = {
   },
 
   save(ctx) { syncToCharacter(ctx.get('player').actor); },
+  dispose(ctx) { ctx.get('player').levelBadge?.dispose(); },
 };

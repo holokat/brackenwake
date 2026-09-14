@@ -152,6 +152,20 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
   recompute(a);
   check('and all of it once STR reaches 75', a.ar === 108, String(a.ar));
 }
+{
+  // Old saves can briefly be observed before state hydration. Treat the
+  // retained outfit as the whole suit, even if a newer armour record sits on
+  // top of it, so neither armour nor spell burden can be double-counted.
+  const c = blankCharacter();
+  c.stats.str = 100;
+  c.equipment.chest = gear('plate_outfit');
+  c.equipment.head = gear('plate_head');
+  const a = playerActor(c);
+  recompute(a);
+  check('a legacy suit and an overlaid modern piece keep the suit’s 108 AR, not 120', a.ar === 108, String(a.ar));
+  check('that pre-hydration plate suit still blocks Meditation completely', meditationFactor(c.equipment) === 0, String(meditationFactor(c.equipment)));
+  check('and it carries the whole casting burden once', castBurdenOf(c.equipment) === 1, String(castBurdenOf(c.equipment)));
+}
 
 // ---- the Meditation blocker ------------------------------------------------
 {

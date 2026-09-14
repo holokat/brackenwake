@@ -153,6 +153,6 @@ export function createSystems(ctx, list) {
     },
 
     save() { for (const s of list) s.save?.(ctx); },
-    dispose() { for (let i = list.length - 1; i >= 0; i--) list[i].dispose?.(); },
+    dispose() { for (let i = list.length - 1; i >= 0; i--) list[i].dispose?.(ctx); },
   };
 }

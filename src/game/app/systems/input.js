@@ -21,7 +21,7 @@ const DEFAULT_REACH = 6;
 
 export const input = {
   name: 'input',
-  deps: ['world', 'player', 'combat', 'abilities', 'inventory', 'world_life', 'ui', 'dev'],
+  deps: ['world', 'player', 'combat', 'abilities', 'inventory', 'world_life', 'ui', 'cellar_raid', 'dev'],
 
   create(ctx) {
     const { hud } = ctx;
@@ -34,6 +34,7 @@ export const input = {
     const bars = ctx.get('abilities');
     const life = ctx.get('world_life');
     const face = ctx.get('ui');
+    const raid = ctx.get('cellar_raid');
 
     const REACH = life.interact.REACH ?? DEFAULT_REACH;
 
@@ -47,6 +48,9 @@ export const input = {
       // a sack within reach comes first: you bent down for it
       const sack = fight.loot.nearest(player.pos, 3);
       if (sack) return fight.loot.take(sack, bag.takeLoot);
+      const corpse = bag.corpseLoot?.nearest?.(3, bag.skinning.corpsesNear(player.pos, 3));
+      if (corpse) return face.windows.open('corpseLoot', { corpse });
+      if (raid?.openReward?.({ nearby: true })) return true;
       if (typeof life.interact.enter === 'function') return life.interact.enter();
       const p = player.pos;
       if (runtime.inDungeon) {
@@ -118,8 +122,18 @@ export const input = {
       }
       // a click on bare ground with a fight running calls it off
       if (fight.attacking) fight.stopAttack('you look away');
+      // Monster rewards remain with the body. Once empty, the same click can
+      // still skin it; while it holds something, the window is the deliberate
+      // choice between individual claims and taking all.
+      const corpseHit = bag.skinning.pick(ray);
+      if (corpseHit && bag.corpseLoot?.hasLoot?.(corpseHit)) {
+        const gate = bag.corpseLoot.canTake(corpseHit);
+        if (!gate.ok) { hud.toast(gate.reason, 'bad'); return { corpse: corpseHit, reason: gate.reason }; }
+        face.windows.open('corpseLoot', { corpse: corpseHit });
+        return { corpse: corpseHit, loot: true };
+      }
       // a body under the cursor, with a knife in hand and something to skin
-      const corpse = bag.skinning.pick(ray) || bag.skinning.nearest(player.pos);
+      const corpse = corpseHit || bag.skinning.nearest(player.pos);
       if (corpse && bag.skinning.canSkin(corpse)) return bag.skinning.skin(corpse, now);
       return life.interact.click();
     }

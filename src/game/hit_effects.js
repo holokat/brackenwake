@@ -409,7 +409,7 @@ export function applyHitEffects(list, attacker, defender, combat, now) {
     if (Array.isArray(e.status)) {
       let took = 0;
       for (const s of e.status) {
-        const entry = combat.applyStatus(defender, s.id, { ...s, quiet: true }, now);
+        const entry = combat.applyStatus(defender, s.id, { ...s, quiet: true, killer: attacker }, now);
         if (entry) { took++; fired = true; }
       }
       // no word over a corpse: the damage above may have finished it, and

@@ -4,6 +4,7 @@
 import { createInventory } from '../../inventory.js';
 import { createSkinning } from '../../skinning.js';
 import { createTradeNet } from '../../trade_net.js';
+import { createCorpseLoot } from '../../corpse_loot.js';
 import { recompute } from '../../actor.js';
 import { makeItem, baseFor, isFocus } from '../../../mmo/items.js';
 
@@ -147,6 +148,7 @@ export const inventory = {
 
     // a knife on a body, and the trade channel between tabs
     const skinning = createSkinning({ monsters, inventory: pack, progression, character, hud, audio, floaters, at: () => player.pos, rng: Math.random, dev: () => state.dev });
+    const corpseLoot = createCorpseLoot({ at: () => player.pos, takeLoot, hud, audio });
     const tradeNet = createTradeNet({ character, name: character.name, at: () => player.pos, now: () => performance.now(), hud });
     tradeNet.onInvite((partner, peer) => {
       hud.log(`${peer?.name || 'somebody'} wants to trade.`);
@@ -170,8 +172,8 @@ export const inventory = {
     }
 
     return {
-      inventory: pack, skinning, tradeNet, takeLoot,
-      bw: { inventory: pack, skinning, tradeNet },
+      inventory: pack, skinning, corpseLoot, tradeNet, takeLoot,
+      bw: { inventory: pack, skinning, corpseLoot, tradeNet },
     };
   },
 

@@ -665,7 +665,7 @@ const ALL = ['main.js'].map(src).join('\n') + '\n'
     !/pressed\(['"][0-9=-]['"]\)/.test(ALL), 'a digit key would swing and swap in one press');
   has(u, /1 to = use the ability bar/, 'the opening line gives the ability bar the number row');
   has(u, /works from your pack/, 'and says a tool works from the pack, with no cell to click');
-  has(u, /P abilities/, 'and P for the abilities window');
+  has(u, /P skill trees/, 'and P for the skill trees window');
 
   // ---- ED4: the world editor is a MODE, not a window -----------------------
   //

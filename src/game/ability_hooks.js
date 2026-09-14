@@ -250,6 +250,10 @@ export function createAbilityHooks(deps = {}) {
   function retire(s, why) {
     const i = summons.indexOf(s);
     if (i >= 0) summons.splice(i, 1);
+    // Owner identity is deliberately explicit. Combat death callbacks cannot
+    // safely derive it from a changing AI target, and a released animal must
+    // stop earning combat credit for the caller at once.
+    if (s.mon?.actor) delete s.mon.actor.summonOwner;
     if (s.wild) {
       // A borrowed animal is not dismissed; it stops taking your side and
       // wanders off, which is what "for half a minute" was always going to mean.
@@ -285,6 +289,7 @@ export function createAbilityHooks(deps = {}) {
       : monsters.spawnAt(monsterId, num(where.x), num(where.z));
     if (!mon) { say(`The ground here would not give up a ${monsterId}.`, 'bad'); return null; }
     if (typeof monsters.spawnAlly !== 'function') markFriendly(mon);
+    mon.actor.summonOwner = actor;
 
     // "as strong as you are": Raise Champion's own line, and the only row that
     // asks for it. The champion's health follows the caster's rather than its
@@ -339,6 +344,7 @@ export function createAbilityHooks(deps = {}) {
     while (summons.length >= MAX_SUMMONS) retire(summons[0], 'you called another and could not hold them all');
     if (typeof monsters.makeAlly === 'function') monsters.makeAlly(best);
     else markFriendly(best);
+    best.actor.summonOwner = actor;
     const s = {
       mon: best, name: best.name || 'It', wild: true,
       until: num(meta.nowMs ?? lastMs) + seconds * 1000,
@@ -548,6 +554,7 @@ export function createAbilityHooks(deps = {}) {
       if (!a) { summons.splice(i, 1); continue; }
       if (!alive(a)) {
         summons.splice(i, 1);
+        delete a.summonOwner;
         say(`${s.name} falls, and what was holding it lets go.`, 'bad');
         continue;
       }

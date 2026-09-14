@@ -109,10 +109,10 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
     for (let i = 0; i < n; i++) for (const e of rollAffixes(item(base, rarity, i))) if (!e.power) s.add(e.id);
     return s;
   };
-  const robe = seen('cloth_outfit', 'legendary', N);
-  check('an outfit keeps robe magic affixes reachable', robe.has('spellDamage'), `${N} legendary outfits, ${robe.size} distinct affixes seen`);
-  check('an outfit keeps glove offence affixes reachable', robe.has('damage'));
-  check('an outfit keeps boot utility affixes reachable', robe.has('runSpeed'));
+  const robe = seen('cloth_chest', 'legendary', N);
+  check('a cloth chest keeps robe magic affixes reachable', robe.has('spellDamage'), `${N} legendary cloth chests, ${robe.size} distinct affixes seen`);
+  check('gloves keep offence affixes reachable', seen('cloth_hands', 'legendary', N).has('damage'));
+  check('boots keep utility affixes reachable', seen('cloth_feet', 'legendary', N).has('runSpeed'));
 
   const hammer = seen('warhammer', 'legendary', N);
   check('a warhammer never rolls Spell Damage', !hammer.has('spellDamage'), `${N} legendary warhammers, ${hammer.size} distinct affixes seen`);
@@ -122,11 +122,11 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
 
   const staff = seen('quarterstaff', 'legendary', N);
   check('a quarterstaff does roll Spell Damage, being a mage stick', staff.has('spellDamage'));
-  const gloves = seen('plate_outfit', 'legendary', N);
+  const gloves = seen('plate_hands', 'legendary', N);
   check('gauntlets do roll Damage %, being gloves', gloves.has('damage'));
-  const boots = seen('leather_outfit', 'legendary', N);
+  const boots = seen('leather_feet', 'legendary', N);
   check('boots do roll Run Speed', boots.has('runSpeed'));
-  check('a plate outfit can roll Run Speed through the old boot tag', seen('plate_outfit', 'legendary', N).has('runSpeed'));
+  check('plate boots can roll Run Speed', seen('plate_feet', 'legendary', N).has('runSpeed'));
   const ring = seen('ring', 'legendary', N);
   const ringGroups = new Set([...ring].map((id) => AFFIX_BY_ID[id].group));
   check('a ring rolls from every group but the weapon only hit effects',
@@ -182,7 +182,7 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
   };
   const p = share('plate_outfit');
   const l = share('longsword');
-  const gl = share('plate_outfit');
+  const gl = share('plate_hands');
   const defensiveOnArmour = (p.defence || 0) + (p.pool || 0);
   const offensiveOnWeapon = (l.offence || 0) + (l.hit || 0);
   check('defensive and pool lines are still the largest share on armour', defensiveOnArmour > 0.6,
@@ -191,7 +191,7 @@ const item = (base, rarity, seed) => makeItem({ base, rarity, seed });
     `longsword: offence ${(l.offence * 100).toFixed(1)}%, hit ${(l.hit * 100).toFixed(1)}%, stat ${(l.stat * 100).toFixed(1)}%, pool ${(l.pool * 100).toFixed(1)}%`);
   check('a weapon almost never rolls a pool line', (l.pool || 0) < 0.08, `${((l.pool || 0) * 100).toFixed(1)}%`);
   check('gauntlets take offence lines but rarely', (gl.offence || 0) > 0 && (gl.offence || 0) < 0.12,
-    `gauntlets: offence ${((gl.offence || 0) * 100).toFixed(1)}%, defence ${((gl.defence || 0) * 100).toFixed(1)}%`);
+    `plate gauntlets: offence ${((gl.offence || 0) * 100).toFixed(1)}%, defence ${((gl.defence || 0) * 100).toFixed(1)}%`);
 
   // The multiplier itself, both ways.
   check('a defence line weighs three on armour and a third on a weapon',

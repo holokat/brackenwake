@@ -85,9 +85,9 @@ check('the ones that cannot are counted and named', CRAFT_AUDIT.unmakeable === R
 
 console.log('win_crafting: the recipe bases between recipes.js and items.js');
 {
-  const armour = RECIPE['armour.cloth.outfit.cloth'];
-  check('an armour recipe names the outfit base', armour.result.base === 'cloth_outfit' && !!BASES.cloth_outfit, `recipe says "${armour.result.base}"`);
-  check('and it resolves to the same outfit base', resultBaseFor(armour) === 'cloth_outfit', `to "${resultBaseFor(armour)}"`);
+  const armour = RECIPE['armour.cloth.chest.cloth'];
+  check('an armour recipe names the chest base', armour.result.base === 'cloth_chest' && !!BASES.cloth_chest, `recipe says "${armour.result.base}"`);
+  check('and it resolves to the same chest base', resultBaseFor(armour) === 'cloth_chest', `to "${resultBaseFor(armour)}"`);
   const every = RECIPES.filter((r) => r.family === 'armour');
   check('every armour recipe resolves', every.every((r) => !!resultBaseFor(r)), `${every.length} armour recipes`);
   const knives = RECIPES.find((r) => r.result.base === 'throwingKnives');
@@ -129,7 +129,8 @@ console.log('win_crafting: the refusals, in order');
 
   const green = mkCtx();
   check('a beginner is refused a difficulty 95 recipe on skill', refusalFor(hard, green).kind === 'skill', refusalFor(hard, green).why);
-  check('and the reason names the skill and the number', /Tailoring/.test(refusalFor(hard, green).why), refusalFor(hard, green).why);
+  check('and the reason names that recipe’s own skill',
+    (hard.skill === 'tailoring' ? /Tailoring/ : /Blacksmithing/).test(refusalFor(hard, green).why), refusalFor(hard, green).why);
 
   const able = mkCtx({ character: { skills: { blacksmithing: 20 } } });
   const noMats = refusalFor(dagger, able);
@@ -419,22 +420,22 @@ console.log('win_crafting: the cards, drawn against a real document');
       if (!/^<(img|svg)/.test(art)) blank++;
       if (!bodyOf(c).children[0].textContent.trim()) noName++;
       if (!bodyOf(c).children[1].children.length) noChips++;
-      seen.add(bodyOf(c).children[0].textContent);
+      seen.add(bodyOf(c).children[0].textContent + '|' + bodyOf(c).children[1].textContent);
     }
   }
   check('every card in the game has a picture on it', blank === 0, `${total} cards walked, ${blank} blank`);
   check('and a name', noName === 0, `${noName} nameless`);
   check('and at least one chip', noChips === 0, `${noChips} bare`);
   check('the workshop draws all recipes', total === RECIPES.length * STATION_KINDS.length, `${total} cards`);
-  check('every recipe has a distinct name at the one workshop', seen.size === RECIPES.length, `${seen.size} distinct names for ${total} cards`);
+  check('every recipe has a distinct title and chip summary at the one workshop', seen.size === RECIPES.length, `${seen.size} distinct card summaries for ${total} cards`);
 
-  // Which is why the card says the armour tier: two hide outfits side by side
-  // at the workshop must not read as if the page repeated itself.
+  // Leather and studded hide chest pieces share the source material, so the
+  // armour-tier chip tells their otherwise similar cards apart.
   const rack = openAt('workshop', ctx);
-  const twins = cardsOf(rack).filter((c) => /Hide .* Outfit/.test(bodyOf(c).children[0].textContent));
-  check('both hide outfits are on the workshop', twins.length === 2);
+  const twins = cardsOf(rack).filter((c) => /Hide chest/.test(bodyOf(c).children[0].textContent));
+  check('both hide chest pieces are on the workshop', twins.length === 2);
   const said = twins.map((c) => bodyOf(c).children[1].children.map((x) => x.textContent).join(' '));
-  check('and the tier chip tells them apart', said[0] !== said[1] && /leather/.test(said[0]) && /studded/.test(said[1]), said.join(' | '));
+  check('and the tier chip tells the chest pieces apart', said[0] !== said[1] && /leather/.test(said[0]) && /studded/.test(said[1]), said.join(' | '));
   const lines = twins.map((c) => bodyOf(c).children[3].textContent);
   check('as does the line saying what comes out', lines[0] !== lines[1], lines.join(' | '));
   let same = 0;
@@ -520,8 +521,8 @@ console.log('win_crafting: the filters narrow the bench');
 console.log('win_crafting: the picture is looked up through the base the craft really lands on');
 {
   const cases = [
-    ['armour.cloth.outfit.cloth', 'cloth_outfit', /cloth-robe\.webp$/],
-    ['armour.leather.outfit.hide', 'leather_outfit', /cloth-robe\.webp$/],   // every outfit wears the robe painting until the user paints its own (2026-09-08)
+    ['armour.cloth.chest.cloth', 'cloth_chest', null],
+    ['armour.leather.chest.hide', 'leather_chest', null],   // concrete armour uses the real item glyph until it has its own painting
     ['meal.heartyStew', 'hearty_stew', /hearty-stew\.webp$/],
     ['potion.heal', 'potion', /potion\.webp$/],
     ['weapon.dagger.copper', 'dagger', /dagger\.webp$/],
@@ -532,18 +533,19 @@ console.log('win_crafting: the picture is looked up through the base the craft r
     const r = RECIPE[id];
     const landed = resultBaseFor(r);
     const src = itemIcon(landed, { count: r.result.count ?? 1, material: r.result.material });
-    check(`${r.name} lands on ${base} and wears its painting`,
-      landed === base && file.test(src || '') && tileArt(r, 96).includes(src),
-      `${landed} -> ${src}`);
+    const art = tileArt(r, 96);
+    check(`${r.name} lands on ${base} and renders its item art`,
+      landed === base && (file ? file.test(src || '') && art.includes(src) : src === null && /^<svg/.test(art)),
+      `${landed} -> ${src || art.slice(0, 32)}`);
   }
-  check('the recipe table points cloth armour at a painted outfit',
-    itemIcon(RECIPE['armour.cloth.outfit.cloth'].result.base) !== null,
-    `"${RECIPE['armour.cloth.outfit.cloth'].result.base}"`);
+  check('the recipe table points cloth armour at the concrete chest glyph',
+    itemIcon(RECIPE['armour.cloth.chest.cloth'].result.base) === null && /^<svg/.test(tileArt(RECIPE['armour.cloth.chest.cloth'], 96)),
+    `"${RECIPE['armour.cloth.chest.cloth'].result.base}"`);
 
-  // a base with a real item and no painting falls to ui_theme's drawn glyph
-  const plate = RECIPE['armour.plate.outfit.iron'];
-  check('a plate outfit wears the same robe painting as every outfit, for now',
-    /cloth-robe\.webp/.test(itemIcon(resultBaseFor(plate)) || '') && /^<img/.test(tileArt(plate, 96)),
+  // A concrete item with no painting falls to ui_theme's drawn glyph.
+  const plate = RECIPE['armour.plate.chest.iron'];
+  check('a plate chest piece uses the concrete chest glyph until it has art',
+    itemIcon(resultBaseFor(plate)) === null && /^<svg/.test(tileArt(plate, 96)),
     tileArt(plate, 96).slice(0, 40));
 
   // a recipe with no item at all falls to the family glyph

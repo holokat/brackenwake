@@ -91,8 +91,8 @@ console.log(`       (items.js makes ${Object.values(KIT_BASES).filter(Boolean).l
 }
 {
   const p = planCharacter({ opening: 'mage', name: 'Ashe' });
-  check('the Wizard starts with a staff and cloth outfit',
-    p.character.equipment.mainHand?.base === 'staff' && p.character.equipment.outfit?.base === 'cloth_outfit',
+  check('the Wizard starts with a staff and cloth robe',
+    p.character.equipment.mainHand?.base === 'staff' && p.character.equipment.chest?.base === 'cloth_chest',
     Object.values(p.character.equipment).filter(Boolean).map((i) => i.base).join(','));
 }
 
@@ -110,7 +110,7 @@ console.log(`       (items.js makes ${Object.values(KIT_BASES).filter(Boolean).l
   check('all fifty two skills are written, not only the five that started', Object.keys(c.skills).length === SKILLS.length, String(Object.keys(c.skills).length));
   check('and they total 200', skillTotal(c.skills) === 200, String(skillTotal(c.skills)));
   check(`the pack has ${PACK_SLOTS} slots`, c.pack.slots === PACK_SLOTS && c.pack.items.length === PACK_SLOTS, `${c.pack.slots} slots, ${c.pack.items.length} entries`);
-  check('the doll has all six', SLOTS.every((s) => s in c.equipment) && Object.keys(c.equipment).length === 6);
+  check('the doll has all twelve', SLOTS.every((s) => s in c.equipment) && Object.keys(c.equipment).length === 12);
   check('the bar has twelve empty slots', c.bar.length === BAR_SLOTS && c.bar.every((x) => x === null));
   check('the pools start full', c.health === Math.floor(derived(c.stats, c.skills).maxHealth), `${c.health}`);
   // 10 + WIS 65 * 2 + INT 70 * 0.5 = 175. The stats document's worked example

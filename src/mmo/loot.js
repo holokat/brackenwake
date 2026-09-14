@@ -234,7 +234,7 @@ export function classProfileDetail(character) {
   const instruments = [];
   const jewellery = [];
   for (const b of Object.values(BASES)) {
-    if (!takesRarity(b) || !fits(b)) continue;
+    if (!takesRarity(b) || b.legacyOutfit || !fits(b)) continue;
     switch (b.kind) {
       case 'weapon':
         // A focus is a weapon too, and it is reached by the casting rule below
@@ -532,7 +532,7 @@ export const SIGNATURES = [
   },
   {
     id: 'hundred_faces', realm: 'verdant', boss: 'The Keeper of Faces',
-    monsters: ['keeperOfFaces'], base: 'cloth_outfit', power: 'archmage', name: 'The Robes of a Hundred Faces',
+    monsters: ['keeperOfFaces'], base: 'cloth_chest', power: 'archmage', name: 'The Robes of a Hundred Faces',
     flavour: 'Every face cut into the cliff looked out of these robes first. Wearing them, a spell does not care whether you are standing still.',
   },
   {
@@ -542,7 +542,7 @@ export const SIGNATURES = [
   },
   {
     id: 'furnace_heart', realm: 'emberwastes', boss: 'The Brass Heart',
-    monsters: ['brassHeart'], base: 'plate_outfit', power: 'phoenix', name: 'Heartplate of the Brass City',
+    monsters: ['brassHeart'], base: 'plate_chest', power: 'phoenix', name: 'Heartplate of the Brass City',
     flavour: 'The city kept its heart behind eight inches of brass and the heart kept beating anyway. It beats hardest the moment you go down.',
   },
   {
@@ -557,7 +557,7 @@ export const SIGNATURES = [
   },
   {
     id: 'cold_crown', realm: 'frostreach', boss: 'Legate Ossory',
-    monsters: ['legateOssory'], base: 'plate_outfit', power: 'kingsguard', name: "The Legate's Cold Harness",
+    monsters: ['legateOssory'], base: 'plate_chest', power: 'kingsguard', name: "The Legate's Cold Harness",
     flavour: 'Ossory wore this under the glacier for a winter and never shivered. Neither does anyone standing behind you.',
   },
   {

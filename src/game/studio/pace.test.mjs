@@ -1,3 +1,4 @@
+import {grantExperience,learnTalent} from '../../mmo/talents.js';
 import assert from 'node:assert/strict';
 import {planCharacter} from '../creation.js';
 import {playerActor,spawnMonster} from '../actor.js';
@@ -24,6 +25,7 @@ assert.equal(ABILITIES_BY_ID.fireball.castTime,.35);assert.equal(ABILITIES_BY_ID
 console.log(JSON.stringify({starterSwingMs:interval,impactMs:300,spamRefused:100,hitEvents:events.length,procEvents:procs}));
 const c=planCharacter({opening:'mage',name:'Cast test'}).character,caster=playerActor(c),target=spawnMonster('wolf');
 caster.pos={x:0,y:0,z:0};target.pos={x:0,y:0,z:5};c.skills.magery=100;
+grantExperience(c,100);assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).ok,true);
 const hits=createCombat({rng:()=>.5}),bolts=[];
 const spells=createAbilities({character:c,actor:caster,player:{pos:caster.pos,yaw:0,speed:0},combat:hits,monsters:{targets:()=>[target]},rng:()=>.99,effects:{bolt:(from,to,colour,opts)=>bolts.push(opts.onArrive)}});
 const mana=caster.mana,hp=target.health,cast=spells.useById('fireball',10);assert.equal(cast.ok,true,cast.reason);assert.equal(cast.record.castTime,.35);

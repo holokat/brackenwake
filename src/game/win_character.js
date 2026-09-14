@@ -11,7 +11,7 @@ import {selectedAchievementTitle} from './achievements/progress.js';
 //           a line of your own, then ATTRIBUTES, COMBAT STATS and RESISTANCES
 //           as icon rows
 //   centre  the painted arch with the LIVE rig standing in it, wearing exactly
-//           what is equipped, with three slots down each side of the arch
+//           what is equipped, with six named slots down each side of the arch
 //   right   the pack: the filter row, the grid of gilded squares, and the
 //           purse and the load underneath it
 //
@@ -28,12 +28,12 @@ import {selectedAchievementTitle} from './achievements/progress.js';
 // actor.js's own `recompute`, so the preview cannot promise a number the game
 // would not give. This file only paints what it is handed.
 //
-// The doll has six cells because the game has six slots, and auditDoll()
+// The doll has twelve cells because the game has twelve slots, and auditDoll()
 // counts them at load rather than trusting the layout.
 //
-// There is no level anywhere, because the game has none.
 
 import { SLOTS, baseFor } from '../mmo/items.js';
+import { progressionView } from '../mmo/talents.js';
 import { STATS } from '../mmo/stats.js';
 import { SKILLS, SKILL_BY_ID } from '../mmo/skills.js';
 import {
@@ -53,19 +53,29 @@ import { buildBag } from './win_bag.js';
  * down on the left, the lower body and everything held on the right.
  */
 export const DOLL = {
-  left: ['mainHand', 'offHand', 'ring1'],
-  right: ['neck', 'outfit', 'ring2'],
+  left: ['head', 'shoulders', 'chest', 'hands', 'waist', 'legs'],
+  right: ['feet', 'neck', 'ring1', 'ring2', 'mainHand', 'offHand'],
 };
 
 /** What the label under an empty cell says. */
 export const SLOT_LABELS = {
-  outfit: 'outfit', neck: 'amulet',
-  ring1: 'ring', ring2: 'ring', mainHand: 'weapon', offHand: 'off hand',
+  head: 'helmet', shoulders: 'shoulders', chest: 'chest', hands: 'gloves',
+  waist: 'belt', legs: 'legs', feet: 'boots', neck: 'amulet',
+  ring1: 'first ring', ring2: 'second ring', mainHand: 'weapon', offHand: 'off hand',
+};
+
+/** A quiet mark keeps an empty paper-doll target recognizable before it holds an item. */
+export const SLOT_GLYPHS = {
+  head: 'helm', shoulders: 'shield', chest: 'shield', hands: 'crossed',
+  waist: 'scale', legs: 'boot', feet: 'boot', neck: 'gem',
+  ring1: 'gem', ring2: 'gem', mainHand: 'sword', offHand: 'shield',
 };
 
 /** The longer word the tooltip's second card uses: "on your first ring hand". */
 export const SLOT_WORDS = {
-  outfit: 'as your outfit', neck: 'around your neck',
+  head: 'on your head', shoulders: 'over your shoulders', chest: 'on your chest',
+  hands: 'on your hands', waist: 'at your belt', legs: 'on your legs', feet: 'on your feet',
+  neck: 'around your neck',
   ring1: 'on your first ring hand', ring2: 'on your second ring hand',
   mainHand: 'in your main hand', offHand: 'in your off hand',
 };
@@ -241,6 +251,7 @@ export function sheetOf(character, actor) {
     name: character?.name || 'unnamed',
     title: titleOf(character),
     classWord: classWordOf(character),
+    progression: progressionView(character),
     quote: quoteOf(character),
     motto: mottoOf(character),
     nums: n,
@@ -342,9 +353,18 @@ const CSS = `
 }
 
 .bw-doll-stage {
-  position: absolute; inset: 0; pointer-events: none;
+  position: absolute; inset: 0; pointer-events: none; isolation: isolate;
 }
-.bw-arch { position: absolute; inset: 0; pointer-events: none; }
+.bw-doll-stage::before, .bw-doll-stage::after {
+  content: ''; position: absolute; top: 22.5%; height: 49%;
+  box-sizing: border-box; z-index: 0; border: 1px solid ${theme.goldDim}bb;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(8,10,13,.98), rgba(28,24,19,.96) 58%, rgba(8,10,13,.98));
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,241,189,.12), 0 6px 15px rgba(0,0,0,.42);
+}
+.bw-doll-stage::before { left: 32.03125%; width: 7.03125%; }
+.bw-doll-stage::after { left: 60.546875%; width: 7.291667%; }
+.bw-arch { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .bw-arch-inner {
   position: absolute;
   left: ${(CODEX_FRAME.dais.topX - CODEX_FRAME.arch.w * 0.37) * 100}%;
@@ -363,7 +383,7 @@ const CSS = `
 }
 .bw-doll-motto {
   position: absolute; left: 38%; top: 87.5%; width: 24%; margin: 0;
-  pointer-events: auto;
+  z-index: 2; pointer-events: auto;
 }
 
 .bw-note {
@@ -390,18 +410,29 @@ const CSS = `
 }
 .bw-sheet .bw-doll-slot {
   position: absolute;
-  width: var(--slot-w); height: var(--slot-h);
-  background: transparent; border-color: transparent; border-radius: 6px;
+  width: var(--slot-w); height: var(--slot-h); box-sizing: border-box;
+  z-index: 2; border: 1px solid ${theme.goldDim}; border-radius: 5px;
+  background: rgba(13,15,18,.98);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 0 2px rgba(0,0,0,.34), 0 3px 8px rgba(0,0,0,.28);
   pointer-events: auto;
 }
-.bw-sheet .bw-doll-slot:hover { border-color: ${theme.goldBright}; background: rgba(17,16,19,.18); }
-.bw-sheet .bw-doll-slot::after { display: none; }
+.bw-sheet .bw-doll-slot:hover { border-color: ${theme.goldBright}; background: rgba(35,29,20,.56); }
+.bw-sheet .bw-doll-slot.bw-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 4px; color: ${theme.goldDim};
+}
+.bw-sheet .bw-doll-empty-glyph { display: block; height: 24px; line-height: 0; opacity: .86; }
+.bw-sheet .bw-doll-empty-glyph svg { width: 24px; height: 24px; }
+.bw-sheet .bw-doll-label {
+  display: block; max-width: 100%; overflow: hidden; text-align: center; text-overflow: ellipsis;
+  white-space: nowrap; font-family: ${theme.fonts.body}; font-size: clamp(10px, .7vw, 13px);
+  letter-spacing: .025em; line-height: 1.1;
+}
 .bw-sheet .bw-doll-slot:not(.bw-empty) {
-  background: rgba(20,19,22,.74);
+  background: rgba(20,19,22,.98);
   border-color: ${theme.slot.borderLit};
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 5px 12px rgba(0,0,0,.35);
 }
-.bw-sheet .bw-doll-slot .bw-tag { display: none; }
 
 /* Bigger on the sheet, at the user's word (2026-09-08): the name, the headers,
    the stat rows and the art in every slot. The glyph is an inline SVG drawn at
@@ -415,8 +446,8 @@ const CSS = `
 .bw-sheet .bw-left-panel .bw-row { font-size: 18px; grid-template-columns: 24px 1fr auto; padding: 4px 0; }
 .bw-sheet .bw-left-panel .bw-row .bw-v { font-size: 17px; }
 .bw-sheet .bw-left-panel .bw-row .bw-i svg { width: 22px; height: 22px; }
-.bw-sheet .bw-doll-slot > span:not(.bw-q) { display: flex; width: 84%; height: 84%; align-items: center; justify-content: center; }
-.bw-sheet .bw-doll-slot > span:not(.bw-q) > svg, .bw-sheet .bw-doll-slot > span:not(.bw-q) > img { width: 100%; height: 100%; object-fit: contain; }
+.bw-sheet .bw-doll-slot:not(.bw-empty) > span:not(.bw-q) { display: flex; width: 84%; height: 84%; align-items: center; justify-content: center; }
+.bw-sheet .bw-doll-slot:not(.bw-empty) > span:not(.bw-q) > svg, .bw-sheet .bw-doll-slot:not(.bw-empty) > span:not(.bw-q) > img { width: 100%; height: 100%; object-fit: contain; }
 .bw-sheet .bw-doll-slot .bw-q { font-size: 34px; }
 .bw-sheet .bw-bag-grid .bw-slot > span:not(.bw-q) { display: flex; width: 86%; height: 86%; align-items: center; justify-content: center; }
 .bw-sheet .bw-bag-grid .bw-slot > span:not(.bw-q) > svg, .bw-sheet .bw-bag-grid .bw-slot > span:not(.bw-q) > img { width: 100%; height: 100%; object-fit: contain; }
@@ -530,7 +561,7 @@ export const panel = {
     const note = h('div', 'bw-note');
     root.appendChild(left);
 
-    // ---- centre: the rig and the six painted slots -----------------------
+    // ---- centre: the rig and the twelve painted slots -----------------------
     const mid = h('div', 'bw-doll-stage');
     const arch = h('div', 'bw-arch');
     mid.appendChild(arch);
@@ -687,6 +718,12 @@ export const panel = {
         cell.classList.toggle('bw-empty', !item);
         if (!item) {
           cell.removeAttribute('data-rarity');
+          cell.title = `Empty ${SLOT_LABELS[slot]}`;
+          const mark = h('span', 'bw-doll-empty-glyph');
+          mark.innerHTML = icon(SLOT_GLYPHS[slot], theme.goldDim, 22);
+          const label = h('span', 'bw-doll-label', SLOT_LABELS[slot]);
+          cell.appendChild(mark);
+          cell.appendChild(label);
           continue;
         }
         cell.dataset.rarity = item.rarity || 'common';
@@ -709,7 +746,7 @@ export const panel = {
       const s = sheetOf(c, ctx.actor);
 
       name.textContent = s.name;
-      sub.textContent = s.classWord;
+      sub.textContent = `${s.classWord} · Level ${s.progression.level}`;
       quote.textContent = s.quote;
       motto.textContent = s.title.text;
       invCount.textContent = `${s.packUsed} / ${s.packSlots}`;

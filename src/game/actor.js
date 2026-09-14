@@ -57,12 +57,12 @@ import {achievementPerks} from './achievements/progress.js';
 //
 // 5. The Meditation blocker. 03-ITEMS-LOOT gives every armour tier a Meditation
 //    fraction and states the two ends ("full plate: no mana regeneration from
-//    Meditation", "full cloth casts freely") but never how eight pieces
-//    combine. They are averaged over the eight armour slots, an empty slot
+//    Meditation", "full cloth casts freely") but never how seven pieces
+//    combine. They are averaged over the seven armour slots, an empty slot
 //    counting as free, so full plate is 0 and full cloth is 1. A piece carrying
 //    the Mage Armour affix counts as free.
 //
-// 5b. The casting burden. Same eight slots, same mean, opposite end: cloth is
+// 5b. The casting burden. Same seven slots, same mean, opposite end: cloth is
 //    0 and full plate is 1, an empty slot counts as 0, and a Mage Armour piece
 //    counts as 0 too. `actor.castBurden` is written by every recompute;
 //    abilities_runtime.js multiplies a spell's cast time by (1 + burden) and
@@ -76,7 +76,7 @@ import {achievementPerks} from './achievements/progress.js';
 import { derived, STATS } from '../mmo/stats.js';
 import { SKILLS } from '../mmo/skills.js';
 import { AFFIXES, POWER_BY_ID } from '../mmo/affixes.js';
-import { baseFor, armourOf, ARMOR_TIERS, SLOTS, WEAPONS, isOffHandDagger } from '../mmo/items.js';
+import { baseFor, armourOf, ARMOR_TIERS, ARMOR_PIECES, SLOTS, WEAPONS, isOffHandDagger } from '../mmo/items.js';
 import { MONSTERS, TIERS, aggroRadius, leashRadius } from '../mmo/monsters.js';
 // The ability table, for ABILITY_MODS' audit alone. `src/mmo/abilities.js` is
 // pure and imports nothing, so this cannot make a cycle.
@@ -507,28 +507,41 @@ export function shieldFrom(item) {
 export const hasMageArmour = (item) =>
   !!(item && Array.isArray(item.affixes) && item.affixes.some((a) => (a.id || a.stat) === 'mageArmour'));
 
+/** A pre-split outfit covers every armour cell until state hydration expands it. */
+export const legacyOutfitOf = (equipment = {}) => [equipment.chest, equipment.outfit]
+  .find((item) => baseFor(item)?.legacyOutfit) || null;
+
+/** The armour cells only. Jewellery and hands never affect spell burden. */
+const ARMOUR_SLOTS = ARMOR_PIECES.map((piece) => piece.slot);
+
 /**
  * The fraction of Meditation regeneration the worn armour still allows, the
- * mean over the eight armour slots with an empty slot counting as free. See
+ * mean over the seven armour slots with an empty slot counting as free. See
  * note 5 in the header: the combining rule is this file's, the per piece
  * numbers are 03-ITEMS-LOOT's.
  */
 export function meditationFactor(equipment) {
   if (!equipment) return 1;
-  const item = equipment.outfit;
-  const b = baseFor(item);
-  if (!item || !b || b.meditation == null || hasMageArmour(item)) return 1;
-  return r4(b.meditation);
+  const legacy = legacyOutfitOf(equipment);
+  const legacyBase = baseFor(legacy);
+  if (legacyBase?.legacyOutfit) return hasMageArmour(legacy) ? 1 : legacyBase.meditation;
+  let total = 0;
+  for (const slot of ARMOUR_SLOTS) {
+    const item = equipment[slot] || (slot === 'chest' ? equipment.outfit : null);
+    const b = baseFor(item);
+    total += !item || !b || b.meditation == null || hasMageArmour(item) ? 1 : b.meditation;
+  }
+  return r4(total / ARMOUR_SLOTS.length);
 }
 
 /**
  * How much the worn armour fights a spell on its way out: 0 in cloth, 1 in
  * full plate. Combined exactly the way meditationFactor is, because it is the
- * same eight slots seen from the other end: the mean over the eight armour
+ * same seven slots seen from the other end: the mean over the seven armour
  * slots, an EMPTY slot counting as 0 (nothing on your arm cannot get in the
  * way), and a piece carrying Mage Armour counting as 0 as well.
  *
- * A plate chest and nothing else is therefore 1/8 = 0.125, which is the point
+ * A plate chest and nothing else is therefore 1/7, which is the point
  * of a mean rather than a maximum: one heavy piece is a nuisance and a full
  * suit is a wall. abilities_runtime.js turns the number into a longer cast and
  * a chance to fizzle; the per tier numbers are items.js's ARMOR_TIERS.
@@ -539,10 +552,16 @@ export function meditationFactor(equipment) {
  */
 export function castBurdenOf(equipment) {
   if (!equipment) return 0;
-  const item = equipment.outfit;
-  const b = baseFor(item);
-  if (!item || !b || b.castBurden == null || hasMageArmour(item)) return 0;
-  return r4(b.castBurden);
+  const legacy = legacyOutfitOf(equipment);
+  const legacyBase = baseFor(legacy);
+  if (legacyBase?.legacyOutfit) return hasMageArmour(legacy) ? 0 : legacyBase.castBurden;
+  let total = 0;
+  for (const slot of ARMOUR_SLOTS) {
+    const item = equipment[slot] || (slot === 'chest' ? equipment.outfit : null);
+    const b = baseFor(item);
+    if (item && b && b.castBurden != null && !hasMageArmour(item)) total += b.castBurden;
+  }
+  return r4(total / ARMOUR_SLOTS.length);
 }
 
 /**
@@ -557,12 +576,20 @@ export function castBurdenOf(equipment) {
  */
 export function burdenSources(equipment) {
   if (!equipment) return [];
+  const legacy = legacyOutfitOf(equipment);
+  const legacyBase = baseFor(legacy);
+  if (legacyBase?.legacyOutfit) {
+    const tier = ARMOR_TIERS.find((entry) => entry.id === legacyBase.material);
+    return tier && tier.castBurden && !hasMageArmour(legacy) ? [tier.material.toLowerCase()] : [];
+  }
   const seen = new Map();
-  const item = equipment.outfit;
-  const b = baseFor(item);
-  if (item && b && b.castBurden && !hasMageArmour(item)) {
-    const tier = ARMOR_TIERS.find((t) => t.id === b.material);
-    if (tier && !seen.has(tier.id)) seen.set(tier.id, tier);
+  for (const slot of ARMOUR_SLOTS) {
+    const item = equipment[slot] || (slot === 'chest' ? equipment.outfit : null);
+    const b = baseFor(item);
+    if (item && b && b.castBurden && !hasMageArmour(item)) {
+      const tier = ARMOR_TIERS.find((t) => t.id === b.material);
+      if (tier && !seen.has(tier.id)) seen.set(tier.id, tier);
+    }
   }
   return [...seen.values()]
     .sort((a, b) => b.castBurden - a.castBurden)
@@ -598,11 +625,22 @@ export function recompute(actor) {
 
   // gear first
   const worn = [];
+  const legacyOutfit = legacyOutfitOf(equipment);
   for (const slot of SLOTS) {
     const item = equipment[slot];
     if (!item) continue;
+    // A legacy full suit already supplies every armour share. Before a save is
+    // hydrated into pieces, ignore overlaid armour so it cannot stack a second
+    // suit on top or average plate down to one seventh of its real burden.
+    if (legacyOutfit && item !== legacyOutfit && baseFor(item)?.kind === 'armour') continue;
     worn.push({ slot, item });
     if (Array.isArray(item.affixes)) for (const a of item.affixes) applyAffix(sum, a);
+  }
+  // A hand-built old document can retain `outfit` beside a modern chest. The
+  // legacy record wins as the complete suit and is still counted exactly once.
+  if (legacyOutfit && legacyOutfit === equipment.outfit && !worn.some(({ item }) => item === legacyOutfit)) {
+    worn.push({ slot: 'chest', item: legacyOutfit });
+    if (Array.isArray(legacyOutfit.affixes)) for (const a of legacyOutfit.affixes) applyAffix(sum, a);
   }
   // then buffs that have not run out
   const buffs = Array.isArray(actor.buffs) ? actor.buffs : [];

@@ -50,6 +50,7 @@ function fakeGame(over = {}) {
       labelFor: (b) => `a sack (${b?.id})`,
     },
     takeLoot: () => log.push('takeLoot'),
+    corpseLoot: { hasLoot: (c) => !!c?.loot, canTake: (c) => c?.loot ? { ok: true } : { ok: false, reason: 'the body carries nothing else' }, takeAll: (c) => { log.push(`corpseTake:${c?.id || 'body'}`); return { ok: true }; } },
     skinning: {
       canSkin: () => true,
       skin: (c, now) => { log.push(`skin:${c?.row?.name}@${now}`); return { ok: true }; },
@@ -228,18 +229,16 @@ console.log('\ncontext menu: a person');
 // ---------------------------------------------------------------------------
 console.log('\ncontext menu: a body');
 {
-  const corpse = { row: MONSTERS.wolf, pos: { x: 1, z: 0 }, skinned: false };
-  const bag = { id: 'b1', pos: { x: 1, z: 0 }, items: [], gold: 5 };
+  const corpse = { id: 'wolf-body', row: MONSTERS.wolf, pos: { x: 1, z: 0 }, skinned: false, loot: { items: [{}], gold: 5 } };
   const g = fakeGame();
-  g.loot.nearest = () => bag;
   const rows = menuFor({ kind: 'corpse', corpse }, g);
-  check('two rows: skin and loot', ids(rows) === 'skin,loot', ids(rows));
-  check('and both are live with a knife in hand and a sack at your feet', rows.every((r) => !r.disabled),
+  check('two rows: skin and loot', ids(rows) === 'loot,skin', ids(rows));
+  check('and both are live with rewards on the body', rows.every((r) => !r.disabled),
     rows.map((r) => `${r.id}:${r.why}`).join(' | '));
   byId(rows, 'skin').run();
   check('Skin goes through skinning.skin, on the frame clock', g.log.at(-1) === 'skin:Wolf@100000', g.log.at(-1));
   byId(rows, 'loot').run();
-  check('and Loot goes through loot.take with the pack s own hand', g.log.at(-1) === 'take:b1', g.log.at(-1));
+  check('and Loot opens the corpse claim window', g.log.at(-1) === 'open:corpseLoot', g.log.at(-1));
 }
 {
   const corpse = { row: MONSTERS.wolf, pos: { x: 0, z: 0 }, skinned: false };
@@ -262,7 +261,7 @@ console.log('\ncontext menu: a body');
   check(`a body past ${SKIN_REACH} m dims Skin with the distance`, away.find((r) => r.id === 'skin').why === 'the wolf is 8 m off, walk up to it',
     away.find((r) => r.id === 'skin').why);
   check('and with nothing dropped there, Loot is dimmed and says so',
-    byId(noKnife, 'loot').disabled && byId(noKnife, 'loot').why === 'the wolf left nothing lying here', byId(noKnife, 'loot').why);
+    byId(noKnife, 'loot').disabled && byId(noKnife, 'loot').why === 'the body carries nothing else', byId(noKnife, 'loot').why);
 }
 
 // ---------------------------------------------------------------------------

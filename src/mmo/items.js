@@ -18,9 +18,11 @@ import { SKILLS } from './skills.js';
 import { ORES, ALLOYS, METALS, WOODS } from './ores.js';
 
 // ------------------------------------------------------------------- slots
-// Six. The paper doll shows all of them.
+// Twelve. The paper doll shows all of them. Armour is worn piece by piece;
+// state.js expands a saved one-piece outfit into its seven matching pieces.
 export const SLOTS = [
-  'outfit', 'neck', 'ring1', 'ring2', 'mainHand', 'offHand',
+  'head', 'neck', 'shoulders', 'chest', 'hands', 'waist', 'legs', 'feet',
+  'ring1', 'ring2', 'mainHand', 'offHand',
 ];
 
 // A ring fits either ring slot; everything else has exactly one home.
@@ -58,7 +60,7 @@ export const skillNameOf = (id) => SKILLS.find((s) => s.id === id)?.name ?? id;
 // `castBurden` is the other half of that idea and runs the other way: 0 is a
 // piece a spell does not notice and 1 is a piece that fights it the whole way.
 // Meditation is about the mana coming back; the burden is about the spell
-// going out, and the rule is in 02-COMBAT.md. The mean of it over the eight
+// going out, and the rule is in 02-COMBAT.md. The mean of it over the seven
 // armour slots is `actor.castBurden` (actor.js), which lengthens a cast and
 // gives it a chance to fizzle (abilities_runtime.js). Cloth is free, leather
 // is a tenth, and platemail doubles a cast and fails three casts in five,
@@ -75,10 +77,31 @@ export const ARMOR_TIERS = [
 
 export const TIER_COLUMNS = ['tier', 'id', 'material', 'ar', 'weight', 'strReq', 'meditation', 'castBurden', 'resist'];
 
-// The old eight piece suit is one outfit now. These tags keep old affix
-// restrictions reachable until the affix language is rewritten around outfits.
-export const ARMOR_PIECES = [{ id: 'outfit', slot: 'outfit', arMul: 9 }];
-const OUTFIT_TAGS = ['outfit', 'helm', 'chestpiece', 'gloves', 'bracers', 'belt', 'legs', 'boots', 'cloak', 'robe'];
+// Seven pieces the character sheet can actually show. A full suit keeps the
+// old outfit's nine AR shares: the chest is three shares, every other piece
+// one. This keeps an existing full plate outfit's 108 AR comparable to a
+// newly assembled plate suit without pretending a missing bracer or cloak is
+// still a wearable slot.
+export const ARMOR_PIECES = [
+  { id: 'head', slot: 'head', arMul: 1 },
+  { id: 'shoulders', slot: 'shoulders', arMul: 1 },
+  { id: 'chest', slot: 'chest', arMul: 3 },
+  { id: 'hands', slot: 'hands', arMul: 1 },
+  { id: 'waist', slot: 'waist', arMul: 1 },
+  { id: 'legs', slot: 'legs', arMul: 1 },
+  { id: 'feet', slot: 'feet', arMul: 1 },
+];
+
+const PIECE_NOUNS = {
+  cloth: { head: 'Hood', shoulders: 'Mantle', chest: 'Robe', hands: 'Gloves', waist: 'Sash', legs: 'Leggings', feet: 'Sandals' },
+  hide: { head: 'Helm', shoulders: 'Mantle', chest: 'Tunic', hands: 'Gloves', waist: 'Belt', legs: 'Leggings', feet: 'Boots' },
+  metal: { head: 'Helm', shoulders: 'Pauldrons', chest: 'Breastplate', hands: 'Gauntlets', waist: 'Belt', legs: 'Greaves', feet: 'Boots' },
+};
+const NOUN_BAND = { cloth: 'cloth', leather: 'hide', studded: 'hide', ring: 'metal', chain: 'metal', plate: 'metal' };
+const PIECE_TAGS = {
+  head: ['helm'], shoulders: ['cloak'], chest: ['chestpiece'], hands: ['gloves'],
+  waist: ['belt'], legs: ['legs'], feet: ['boots'],
+};
 
 // ----------------------------------------------------------------- shields
 export const SHIELDS = {
@@ -219,11 +242,29 @@ function addBase(b) {
 }
 
 for (const t of ARMOR_TIERS) {
+  for (const p of ARMOR_PIECES) {
+    const noun = PIECE_NOUNS[NOUN_BAND[t.id]][p.id];
+    const kinds = ['equipment', 'armour', `armour_${t.id}`, ...PIECE_TAGS[p.id]];
+    if (t.id === 'cloth' && p.id === 'chest') kinds.push('robe');
+    addBase({
+      id: `${t.id}_${p.id}`, name: `${t.material} ${noun}`, kind: 'armour', kinds,
+      slot: p.slot, piece: p.id, tier: t.tier, material: t.id,
+      // The breastplate is the three-share core of a seven-piece suit and
+      // carries two shares of its material, preserving the old suit's total
+      // weight while each optional piece remains one share.
+      ar: t.ar * p.arMul, weight: t.weight * (p.id === 'chest' ? 2 : 1), strReq: t.strReq,
+      meditation: t.meditation, castBurden: t.castBurden, resist: { ...t.resist },
+      durability: GEAR_DURABILITY, stack: false,
+    });
+  }
+  // Save and content compatibility only. Hydration puts this record in the
+  // chest cell, so old characters retain every earned stat while new drops,
+  // crafting and equipment use the seven real pieces above.
   const resist = Object.fromEntries(Object.entries(t.resist).map(([k, v]) => [k, v * 8]));
   addBase({
     id: `${t.id}_outfit`, name: `${t.material} Outfit`, kind: 'armour',
-    kinds: ['equipment', 'armour', `armour_${t.id}`, ...OUTFIT_TAGS],
-    slot: 'outfit', piece: 'outfit', tier: t.tier, material: t.id,
+    kinds: ['equipment', 'armour', `armour_${t.id}`, 'outfit'],
+    slot: 'chest', piece: 'outfit', legacyOutfit: true, tier: t.tier, material: t.id,
     ar: t.ar * 9, weight: t.weight * 8, strReq: t.strReq,
     meditation: t.meditation, castBurden: t.castBurden, resist,
     durability: GEAR_DURABILITY, stack: false,
@@ -886,7 +927,7 @@ export function makeItem({ base, rarity = 'common', seed = 0, quality = 1, maker
 export const totalWeight = (items) => items.reduce((s, i) => s + weightOf(i), 0);
 
 /** Every base of one armour tier, in piece order. */
-export const setOf = (material) => [BASES[`${material}_outfit`]];
+export const setOf = (material) => ARMOR_PIECES.map((p) => BASES[`${material}_${p.id}`]);
 
 // ------------------------------------------------------------------- audit
 
@@ -904,7 +945,7 @@ export const setOf = (material) => [BASES[`${material}_outfit`]];
 export function auditItems(items = []) {
   const bad = (m) => { throw new Error(`auditItems: ${m}`); };
 
-  if (SLOTS.length !== 6) bad(`there are ${SLOTS.length} slots, the paper doll has 6`);
+  if (SLOTS.length !== 12) bad(`there are ${SLOTS.length} slots, the paper doll has 12`);
   if (new Set(SLOTS).size !== SLOTS.length) bad('two slots share a name');
 
   if (ARMOR_TIERS.length !== 6) bad(`there are ${ARMOR_TIERS.length} armour tiers, the table has 6`);
@@ -932,10 +973,16 @@ export function auditItems(items = []) {
   if (ARMOR_TIERS[0].castBurden !== 0) bad('cloth burdens a cast, and cloth is what a mage wears');
   if (ARMOR_TIERS[ARMOR_TIERS.length - 1].castBurden !== 1) bad('the heaviest tier does not carry a full burden');
 
-  if (ARMOR_PIECES.length !== 1 || ARMOR_PIECES[0].id !== 'outfit') bad(`there are ${ARMOR_PIECES.length} armour pieces, and the only one should be outfit`);
+  if (ARMOR_PIECES.length !== 7) bad(`there are ${ARMOR_PIECES.length} armour pieces, the character sheet has seven`);
   for (const p of ARMOR_PIECES) if (!SLOTS.includes(p.slot)) bad(`armour piece ${p.id} wants slot ${p.slot}, which is not a slot`);
-  const outfitBases = Object.values(BASES).filter((b) => b.kind === 'armour' && b.slot === 'outfit');
-  if (outfitBases.length !== 6) bad(`there are ${outfitBases.length} outfit bases, the table has 6`);
+  const armourBases = Object.values(BASES).filter((b) => b.kind === 'armour' && !b.legacyOutfit);
+  if (armourBases.length !== ARMOR_TIERS.length * ARMOR_PIECES.length) bad(`there are ${armourBases.length} armour bases, the table has ${ARMOR_TIERS.length * ARMOR_PIECES.length}`);
+  for (const t of ARMOR_TIERS) {
+    const set = setOf(t.id);
+    if (set.some((b) => !b)) bad(`${t.id} has a missing armour piece`);
+    if (set.reduce((sum, b) => sum + b.ar, 0) !== t.ar * 9) bad(`${t.id} full suit does not total ${t.ar * 9} AR`);
+    if (set.reduce((sum, b) => sum + b.weight, 0) !== t.weight * 8) bad(`${t.id} full suit does not total ${t.weight * 8} stones`);
+  }
 
   if (COMBAT_SKILLS.length !== 11) bad(`the skill table now has ${COMBAT_SKILLS.length} combat skills, the document lists 11`);
   for (const id of CASTING_SKILLS) {

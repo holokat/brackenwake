@@ -1,3 +1,5 @@
+import {hydrateAdvancement, newAdvancement} from '../mmo/talents.js';
+import {ABILITIES_BY_ID as TALENT_ABILITIES, unlockedForCharacter as legacyTalentAbilities} from '../mmo/abilities.js';
 import {hydrateAchievements} from './achievements/progress.js';
 import {hydrateRaidRewards} from './cellar_rewards.js';
 import {hydrateMining} from './surface_mining.js';
@@ -280,6 +282,7 @@ export function blankCharacter() {
     // and writes into it on every gain that crosses a mark. Declared here so
     // the shape of a document is one list and not two.
     unlockedAbilities: [],
+    advancement: newAdvancement('ranger'),
     achievements: null,
     discovered: [],
     deadUntil: [],
@@ -1096,7 +1099,7 @@ function hydrateItem(raw) {
 
 const OLD_ARMOUR_SLOTS = ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back'];
 const OLD_ARMOUR_RE = /^(cloth|leather|studded|ring|chain|plate)_(head|chest|hands|wrists|waist|legs|feet|back)$/;
-const OLD_TIER_RANK = Object.fromEntries(ARMOR_TIERS.map((t) => [t.id, t.tier]));
+const OLD_ARMOUR_SLOT = { head: 'head', chest: 'chest', hands: 'hands', wrists: 'shoulders', waist: 'waist', legs: 'legs', feet: 'feet', back: 'shoulders' };
 
 function oldArmour(raw) {
   if (!raw || typeof raw !== 'object' || typeof raw.base !== 'string') return null;
@@ -1104,36 +1107,88 @@ function oldArmour(raw) {
   return m ? { tier: m[1], slot: m[2], raw } : null;
 }
 
-function outfitFromOld(raw, tier) {
-  const item = hydrateItem({ ...raw, base: `${tier}_outfit` });
-  return item;
-}
-
-function migrateWornArmour(rawEquipment) {
-  const pieces = [];
-  for (const slot of OLD_ARMOUR_SLOTS) {
-    const p = oldArmour(rawEquipment?.[slot]);
-    if (p) pieces.push(p);
-  }
-  if (!pieces.length) return null;
-  pieces.sort((a, b) => OLD_TIER_RANK[b.tier] - OLD_TIER_RANK[a.tier]);
-  const tier = pieces[0].tier;
-  const source = pieces.find((p) => p.slot === 'chest' && p.tier === tier) || pieces[0];
-  return outfitFromOld(source.raw, tier);
+/** Convert a retired wrist/back base to the visible shoulder cell. */
+function hydrateArmour(raw) {
+  const old = oldArmour(raw);
+  if (!old) return hydrateItem(raw);
+  const slot = OLD_ARMOUR_SLOT[old.slot];
+  return hydrateItem({ ...old.raw, base: `${old.tier}_${slot}` });
 }
 
 function migratePackArmour(items) {
-  const kept = new Set();
   for (let i = 0; i < items.length; i++) {
-    const p = oldArmour(items[i]);
-    if (!p) {
-      items[i] = hydrateItem(items[i]);
-      continue;
-    }
-    if (kept.has(p.tier)) { items[i] = null; continue; }
-    kept.add(p.tier);
-    items[i] = outfitFromOld(p.raw, p.tier);
+    // The outfit migration once kept only one armour record per tier. That
+    // silently deleted earned pieces. Every record remains a record now; the
+    // only transformation is a retired slot key becoming shoulders.
+    items[i] = hydrateArmour(items[i]);
   }
+}
+
+/** Put an overflow migration item in the first real pack cell. Never discard it. */
+function parkMigrated(doc, item) {
+  if (!item) return false;
+  const i = doc.pack.items.findIndex((it) => !it);
+  if (i >= 0) { doc.pack.items[i] = item; return true; }
+  // A retired back and wrist can collide in shoulders while the old pack is
+  // full. Preserve both earned records by making one visible pack cell rather
+  // than silently throwing an item away during hydration.
+  doc.pack.items.push(item);
+  doc.pack.slots = doc.pack.items.length;
+  return true;
+}
+
+/** Split one retired full outfit into its seven current equipment cells. */
+function splitLegacyOutfit(item) {
+  const base = baseOf(item?.base);
+  if (!base?.legacyOutfit) return null;
+  const slots = ['head', 'shoulders', 'chest', 'hands', 'waist', 'legs', 'feet'];
+  return slots.map((slot, index) => hydrateItem({
+    ...item,
+    // One former item must become seven distinct records. Its rarity, maker
+    // and rolled affixes remain on the chest piece once, never copied sevenfold.
+    id: `${item.id}:${slot}`,
+    base: `${base.material}_${slot}`,
+    seed: ((item.seed || 0) + index * 0x9e3779b9) >>> 0,
+    rarity: slot === 'chest' ? item.rarity : 'common',
+    identified: slot === 'chest' ? item.identified : true,
+    affixes: slot === 'chest' ? item.affixes : [],
+    maker: slot === 'chest' ? item.maker : null,
+    achievementMaker: slot === 'chest' ? item.achievementMaker : null,
+  }));
+}
+
+/**
+ * Copy worn equipment into the current slot model. A full old outfit becomes
+ * the complete seven-piece suit first, preserving its total AR, weight and
+ * one set of affixes. Any already-worn collision is parked rather than lost.
+ */
+function migrateEquipment(doc, rawEquipment) {
+  const raw = rawEquipment || {};
+  const extras = [];
+  const chest = hydrateItem(raw.chest);
+  const oldOutfit = hydrateItem(raw.outfit);
+  const legacy = baseOf(chest?.base)?.legacyOutfit ? chest
+    : baseOf(oldOutfit?.base)?.legacyOutfit ? oldOutfit : null;
+  const suit = splitLegacyOutfit(legacy);
+  if (suit) for (const item of suit) doc.equipment[baseOf(item.base).slot] = item;
+  for (const slot of SLOTS) {
+    const item = slot === 'chest' ? chest : hydrateArmour(raw[slot]);
+    if (item === legacy) continue;
+    if (!item) continue;
+    if (!doc.equipment[slot]) doc.equipment[slot] = item;
+    else extras.push(item);
+  }
+  for (const oldSlot of ['wrists', 'back']) {
+    const item = hydrateArmour(raw[oldSlot]);
+    if (!item) continue;
+    if (!doc.equipment.shoulders) doc.equipment.shoulders = item;
+    else extras.push(item);
+  }
+  if (oldOutfit && oldOutfit !== legacy) {
+    if (!doc.equipment.chest) doc.equipment.chest = oldOutfit;
+    else extras.push(oldOutfit);
+  }
+  for (const item of extras) parkMigrated(doc, item);
 }
 
 /**
@@ -1184,6 +1239,9 @@ export function hydrate(raw) {
     for (const id of SKILL_IDS) doc.skillLocks[id] = validLock(raw.skillLocks[id]);
   }
 
+  doc.advancement = hydrateAdvancement(raw.advancement, doc.opening,
+    legacyTalentAbilities({skills:doc.skills,stats:doc.stats}).map(a=>a.id).concat(Array.isArray(raw.unlockedAbilities)?raw.unlockedAbilities:[]), TALENT_ABILITIES);
+
   if (raw.pos && isNum(raw.pos.x) && isNum(raw.pos.z)) doc.pos = { x: raw.pos.x, z: raw.pos.z };
   if (isNum(raw.gold)) doc.gold = Math.max(0, Math.round(raw.gold));
 
@@ -1199,9 +1257,7 @@ export function hydrate(raw) {
     migratePackArmour(doc.pack.items);
   }
   if (raw.equipment && typeof raw.equipment === 'object') {
-    for (const s of SLOTS) doc.equipment[s] = hydrateItem(raw.equipment[s]);
-    const outfit = migrateWornArmour(raw.equipment);
-    if (outfit) doc.equipment.outfit = outfit;
+    migrateEquipment(doc, raw.equipment);
     doc.equipment.ranged = hydrateItem(raw.equipment.ranged);
   }
   if (Array.isArray(raw.bar)) {

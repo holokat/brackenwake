@@ -1,3 +1,6 @@
+import {talentCooldown} from '../mmo/talents.js';
+import {buildTalentPanel} from './talent_panel.js';
+import {requirementsForCharacter} from '../mmo/abilities.js';
 // Abilities: the book of everything the game can teach, and the twelve slots
 // you fight from. Key P.
 //
@@ -133,6 +136,7 @@ export function setBarSlot(character, slot, abilityId) {
   }
   const ability = ABILITIES_BY_ID[abilityId];
   if (!ability) return { ok: false, reason: `there is no ability called ${abilityId}` };
+  if (character.advancement && !requirementsForCharacter(ability, character).ok) return requirementsForCharacter(ability, character);
   if (ability.passive) {
     return { ok: false, reason: `${ability.name} is passive and works on its own; it does not go on the bar` };
   }
@@ -156,7 +160,7 @@ export function abilityLines(ability, character) {
   else if (kind === 'stamina') lines.push(`${ability.cost.stamina} stamina`);
   else if (kind === 'item') lines.push(`costs ${Object.values(ability.cost)[0]}`);
   else if (!ability.passive) lines.push('costs nothing');
-  if (ability.cooldown) lines.push(`${ability.cooldown} s cooldown`);
+  if (ability.cooldown) lines.push(`${Number(talentCooldown(ability, character).toFixed(2))} s cooldown`);
   if (ability.castTime) lines.push(`${ability.castTime} s cast${ability.moving ? ', on the move' : ', and it roots you'}`);
   if (ability.range) lines.push(`${ability.range} m`);
   lines.push(ability.description);
@@ -544,10 +548,15 @@ function css() {
 
 export const panel = {
   id: 'abilities',
-  title: 'Abilities',
+  title: 'Skill trees',
   key: 'p',
 
   build(el, ctx) {
+    if (ctx.character?.advancement) {
+      const tree = buildTalentPanel(el, ctx, {artSvg, setBarSlot, barHand, pick: (id, place) => { held = {id, place}; }});
+      this._refresh = tree.refresh; this._rebuild = tree.refresh;
+      return;
+    }
     css();
     const character = () => (ctx.character && ctx.character.skills ? ctx.character : ctx.inventory?.character) || { skills: {}, stats: {} };
     const say = (t, kind) => (ctx.hud?.log ? ctx.hud.log(t, kind) : ctx.hud?.toast?.(t, kind));

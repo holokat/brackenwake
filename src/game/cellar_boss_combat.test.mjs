@@ -207,10 +207,13 @@ for (const def of CELLAR_BOSSES) {
   const afterDeath = player.health;
   assert.equal(monsters.warnings().length, 0, 'death removes every telegraph');
   assert.equal(deadUntil.length, 1); assert.equal(deadUntil[0].id, def.id);
-  assert.equal(loot.count, 1, 'normal death drops one real loot bag');
-  assert(loot.bags()[0].items.length > 0);
+  const corpse = monsters.corpsesNear(boss.actor.pos, 1)[0];
+  assert.equal(loot.count, 0, 'normal death keeps the reward on its corpse');
+  assert(corpse?.loot?.items?.length > 0, 'the real corpse holds the boss reward');
+  const firstLoot = corpse.loot.items.slice();
   combat.hurt(boss.actor, 1, { now, killer: player });
-  assert.equal(loot.count, 1, 'duplicate lethal callbacks cannot duplicate loot');
+  assert.equal(loot.count, 0, 'duplicate lethal callbacks cannot create a floor bag');
+  assert.deepEqual(corpse.loot.items, firstLoot, 'duplicate lethal callbacks cannot duplicate corpse loot');
   for (let i = 0; i < 40; i++) tick();
   assert.equal(player.health, afterDeath, 'no delayed attack after death');
   assert.equal(monsters.all().filter(m => m.id === def.id).length, 0, 'cleared authored slot stays empty');

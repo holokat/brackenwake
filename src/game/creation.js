@@ -1,3 +1,4 @@
+import {newAdvancement} from '../mmo/talents.js';
 // Character creation: the four openings, the points, the face, the name, and
 // the document the whole game is then played out of.
 //
@@ -96,7 +97,7 @@ for (const id of Object.keys(ITEM_BASES)) {
   KIT_BASES[id] = null;
 }
 for (const [from, to] of Object.entries(MATERIAL_MAP)) {
-  KIT_BASES[`${from}Outfit`] = `${to}_outfit`;
+  KIT_BASES[`${from}Outfit`] = `${to}_chest`;
 }
 
 /** Kit bases the item tables still cannot make. Counted, not guessed. */
@@ -265,6 +266,7 @@ export function planCharacter(choice = {}) {
     name: nameCheck.name,
     appearance: look.appearance,
     opening: op.id,
+    advancement: newAdvancement(op.id),
     stats: applied.stats,
     statLocks: {},
     skills: applied.skills,

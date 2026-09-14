@@ -1,4 +1,5 @@
 import {earnedTitleId, publicTitleId} from './achievements/titles.js';
+import { SLOTS } from '../mmo/items.js';
 // The multiplayer client, the pure half. Nothing in here touches the DOM, the
 // scene or a real socket, so every rule is measured in node (net.test.mjs); the
 // system in app/systems/net.js owns the bodies, the plates and the frame.
@@ -49,7 +50,7 @@ export function wsUrlFor(loc, room) {
 export function lookFor(character) {
   const eq = (character && character.equipment) || {};
   const gear = {};
-  for (const slot of ['mainHand', 'offHand', 'outfit', 'neck', 'ring1', 'ring2']) {
+  for (const slot of SLOTS) {
     gear[slot] = eq[slot] && eq[slot].base ? eq[slot].base : null;
   }
   return { appearance: (character && character.appearance) || null, opening: (character && character.opening) || 'ranger', gear };

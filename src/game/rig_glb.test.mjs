@@ -347,8 +347,8 @@ console.log('\nrig_glb: gear, on a bone rig, exactly as on the procedural one');
   const glb = buildGlbRig('human-medium', {});
   const glbR = dressRig(glb, eq, { light: false });
 
-  check('full plate and a greatsword is the same 17 nodes on both bodies',
-    glbR.nodes === procR.nodes && glbR.nodes === 17, `${glbR.nodes} on the glb, ${procR.nodes} on the procedural rig`);
+  check('full plate and a greatsword is the same 15 nodes on both bodies',
+    glbR.nodes === procR.nodes && glbR.nodes === 15, `${glbR.nodes} on the glb, ${procR.nodes} on the procedural rig`);
   const pc = gearCounts(proc), gc = gearCounts(glb);
   check('and the same count on every anchor',
     Object.keys(pc).sort().join() === Object.keys(gc).sort().join() && Object.keys(pc).every((k) => pc[k] === gc[k]),

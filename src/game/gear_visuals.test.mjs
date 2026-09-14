@@ -21,7 +21,7 @@ import { METAL_COLOURS, LENGTHS, METAL_METALNESS, METAL_BASE_ROUGH } from './wea
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
-const VISUAL_ARMOUR_PIECES = ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back'];
+const VISUAL_ARMOUR_PIECES = ['head', 'shoulders', 'chest', 'hands', 'waist', 'legs', 'feet'];
 
 const meshCounts = (rig) => {
   const out = {};
@@ -43,6 +43,9 @@ const onAnchor = (rig, anchor, name) => wornNodes(rig).some((w) => {
   w.node.traverse((o) => { if (o.name === name) hit = true; });
   return hit;
 });
+const meshTotal = (nodes) => nodes.reduce((total, { node }) => {
+  let meshes = 0; node.traverse((o) => { if (o.isMesh) meshes++; }); return total + meshes;
+}, 0);
 const fullSet = (material, itemMaterial) => {
   const eq = {};
   for (const b of setOf(material)) eq[b.slot] = makeItem({ base: b.id });
@@ -69,9 +72,17 @@ const rig = buildCharacter();
     Object.keys(counts).join(', '));
   check('the helm is on the head and the breastplate on the torso', counts.head > 0 && counts.torso > 0);
   check('the cloak is on the back', counts.back > 0);
+  const shoulderNodes = wornNodes(rig).filter((w) => w.key === 'shoulders');
+  const beltNodes = wornNodes(rig).filter((w) => w.key === 'waist');
+  check('the shoulder slot renders its mantle on the back bone',
+    shoulderNodes.length === 1 && shoulderNodes[0].anchor === 'back' && meshTotal(shoulderNodes) > 0,
+    shoulderNodes.map((w) => `${w.anchor}:${meshTotal([w])}`).join(', '));
+  check('the belt slot renders its own mesh on the torso bone',
+    beltNodes.length === 1 && beltNodes[0].anchor === 'torso' && meshTotal(beltNodes) > 0,
+    beltNodes.map((w) => `${w.anchor}:${meshTotal([w])}`).join(', '));
   check('a two handed weapon closes both hands on it', r.grip === 'two' && rig.grip === 'two', r.grip);
-  check('the outfit dressed all eight visual armour pieces and the weapon reported a change',
-    ['mainHand', 'outfit:head', 'outfit:chest', 'outfit:hands', 'outfit:wrists', 'outfit:waist', 'outfit:legs', 'outfit:feet', 'outfit:back'].every((k) => r.changed.includes(k)),
+  check('the full suit dresses every visible armour piece and the weapon reported a change',
+    ['mainHand', 'head', 'shoulders', 'chest', 'hands', 'waist', 'legs', 'feet'].every((k) => r.changed.includes(k)),
     r.changed.join(', '));
   check('and full plate plus a greatsword is a modest triangle bill', r.triangles < 24000, `${r.triangles} triangles`);
 }
@@ -296,8 +307,7 @@ console.log('gear_visuals: the contract holds for every slot the doll shows');
   const r = dressRig(rig, eq, { light: false });
   const filled = SLOTS.filter((s) => eq[s]);
   const shown = new Set(r.changed);
-  const outfitShown = ['head', 'chest', 'hands', 'wrists', 'waist', 'legs', 'feet', 'back'].every((p) => shown.has(`outfit:${p}`));
-  const unshown = filled.filter((s) => s === 'outfit' ? !outfitShown : !shown.has(s));
+  const unshown = filled.filter((slot) => !shown.has(slot));
   check(`all ${filled.length} filled slots are shown on the body`, unshown.length === 0,
     unshown.length ? `not shown: ${unshown.join(', ')}` : r.changed.join(', '));
   check('the torch is lit in the off hand', onAnchor(rig, 'handL', 'weapon:torch'));
@@ -311,6 +321,20 @@ console.log('gear_visuals: the contract holds for every slot the doll shows');
   check('and the amulet hangs on the torso', neck.length === 1 && neck[0].anchor === 'torso');
   undress(rig);
   undress(slung);
+}
+
+// ---------------------------------------------------------------------------
+console.log('gear_visuals: a migrated outfit still dresses the current slots');
+{
+  const legacyRig = buildCharacter();
+  const legacy = dressRig(legacyRig, { chest: makeItem({ base: 'plate_outfit' }) }, { light: false });
+  const expected = ['head', 'shoulders', 'chest', 'hands', 'waist', 'legs', 'feet'];
+  check('a chest-hydrated legacy outfit supplies every visible modern piece',
+    expected.every((slot) => legacy.changed.includes(slot)), legacy.changed.join(', '));
+  check('and every migrated piece has a real mesh on the rig',
+    expected.every((slot) => meshTotal(wornNodes(legacyRig).filter((w) => w.key === slot)) > 0),
+    wornNodes(legacyRig).map((w) => `${w.key}:${w.anchor}`).join(', '));
+  undress(legacyRig);
 }
 
 // ---------------------------------------------------------------------------
@@ -362,7 +386,7 @@ console.log('gear_visuals: the body underneath');
     dressRig(r, eq, { light: false });
     r.group.updateMatrixWorld(true);
     const body = new THREE.Box3().setFromObject(r.group);
-    const chest = wornNodes(r).find((w) => w.key === 'outfit:chest' && w.anchor === 'torso');
+    const chest = wornNodes(r).find((w) => w.key === 'chest' && w.anchor === 'torso');
     const cb = new THREE.Box3().setFromObject(chest.node);
     return { height: body.max.y - body.min.y, chestWidth: cb.max.x - cb.min.x, rig: r };
   };
@@ -558,7 +582,7 @@ console.log('gear_visuals: no head piece of any tier takes the face away');
       `eyes ${eyes.map((h) => h.what).join('/')}, mouth ${mouth.what}, chin ${chin.what}`);
     // and the gate is real: the same ray at the crown DOES hit the head piece
     const crown = firstHit(rig, [0, y + FACE.crown, 3], [0, 0, -1]);
-    check(`  and the same ray at the crown hits the ${t.id} head piece`, crown.gear && crown.what === 'outfit:head', crown.what);
+    check(`  and the same ray at the crown hits the ${t.id} head piece`, crown.gear && crown.what === 'head', crown.what);
     // a soft head piece leaves the face plane clear from the side too
     if (!HARD_TIERS.has(t.id)) {
       const side = firstHit(rig, [3, y + FACE.chin, 0.05], [-1, 0, 0]);
@@ -611,7 +635,7 @@ console.log('gear_visuals: the cloak is a cape, not a slab');
   const rig = buildCharacter();
   dressRig(rig, { outfit: makeItem({ base: 'leather_outfit' }) }, { light: false });
   posed(rig);
-  const b = gearBox(rig, 'outfit:back');
+  const b = gearBox(rig, 'shoulders');
   const width = b.max.x - b.min.x;
   check('the cloak is no wider than the shoulders and a hand',
     width < shoulders * 1.15 && width < shoulders + 0.10,
@@ -626,11 +650,11 @@ console.log('gear_visuals: the cloak is a cape, not a slab');
   // the arms are in front of it from the side, which is the whole complaint
   for (const [side, x] of [['left', -3], ['right', 3]]) {
     const h = firstHit(rig, [x, 1.375, 0], [-Math.sign(x), 0, 0]);
-    check(`from the ${side}, the body is in front of the cloak`, h.what !== 'outfit:back', h.what);
+    check(`from the ${side}, the body is in front of the cloak`, h.what !== 'shoulders', h.what);
   }
   // both directions: from behind, the cloak IS the first thing the ray meets
   const behind = firstHit(rig, [0, 1.10, -3], [0, 0, 1]);
-  check('and from behind the cloak is the first thing there is', behind.gear && behind.what === 'outfit:back', behind.what);
+  check('and from behind the cloak is the first thing there is', behind.gear && behind.what === 'shoulders', behind.what);
   undress(rig);
 }
 
@@ -722,7 +746,7 @@ console.log('gear_visuals: gear scales with the rig it is on');
     eq.mainHand = makeItem({ base: 'longsword' });
     dressRig(rig, eq, { light: false });
     posed(rig);
-    const chest = gearBox(rig, 'outfit:chest'), shield = gearBox(rig, 'offHand');
+    const chest = gearBox(rig, 'chest'), shield = gearBox(rig, 'offHand');
     const body = new THREE.Box3().setFromObject(rig.group);
     return { h, chest: chest.max.x - chest.min.x, shieldTop: shield.max.y, shoulder: (BODY.IDLE_HIP + BODY.SHOULDER_Y) * h / BODY.HEIGHT, stands: body.max.y - body.min.y };
   });
@@ -762,7 +786,7 @@ console.log('gear_visuals: a set reads as pieces, not as one shape');
   }
   const main = (key) => armourMat('leather', null, PIECE_SHADE[key]).color.getHex();
   const shades = new Set(VISUAL_ARMOUR_PIECES.map((p) => main(p)));
-  check(`the eight pieces of one leather set are ${shades.size} different browns`, shades.size >= 6,
+  check(`the seven pieces of one leather set are ${shades.size} different browns`, shades.size >= 6,
     VISUAL_ARMOUR_PIECES.map((p) => `${p} #${main(p).toString(16)}`).join(' '));
   check('the boots and the gloves are darker than the tunic',
     lum(main('feet')) < lum(main('chest')) && lum(main('hands')) < lum(main('chest')),
@@ -777,37 +801,26 @@ console.log('gear_visuals: a set reads as pieces, not as one shape');
   const stitched = [];
   for (const p of VISUAL_ARMOUR_PIECES) {
     const own = main(p);
-    const set = tint[`outfit:${p}`] || new Set();
+    const set = tint[p] || new Set();
     const thread = [...set].some((hex) => hex !== own && lum(hex) < lum(own) * 0.75);
     if (thread) stitched.push(p);
   }
-  check(`${stitched.length} of the eight leather pieces carry visible stitching or trim`,
+  check(`${stitched.length} of the seven leather pieces carry visible stitching or trim`,
     stitched.length >= 6, stitched.join(', '));
   undress(rig);
 }
 
-console.log('gear_visuals: there is skin between the sleeve and the glove');
+console.log('gear_visuals: gloves are real meshes on both hands');
 {
   const rig = buildCharacter();
   dressRig(rig, fullSetOf('leather'), { light: false });
   posed(rig);
-  const bracer = new THREE.Box3(), glove = new THREE.Box3();
-  for (const w of wornNodes(rig)) {
-    if (w.key === 'outfit:wrists' && w.anchor === 'armL') bracer.union(boxOf(w.node));
-    if (w.key === 'outfit:hands' && w.anchor === 'handL') glove.union(boxOf(w.node));
-  }
-  const gap = bracer.min.y - glove.max.y;
-  check('the bracer stops short of the glove', gap > 0.03, `${(gap * 1000).toFixed(0)} mm of bare forearm`);
-  const x = (bracer.min.x + bracer.max.x) / 2;
-  const across = [0.25, 0.5, 0.75].map((k) => {
-    const y = glove.max.y + (bracer.min.y - glove.max.y) * k;
-    return firstHit(rig, [x, y, 3], [0, 0, -1]);
-  });
-  check('and three rays across that stretch all land on skin, not on leather',
-    across.every((h) => !h.gear && h.what === 'skin'), across.map((h) => h.what).join(', '));
-  // both directions: aim the same ray at the forearm above the gap and it is leather
-  const above = firstHit(rig, [x, bracer.min.y + 0.04, 3], [0, 0, -1]);
-  check('while 40 mm higher it is the bracer', above.gear && above.what === 'outfit:wrists', above.what);
+  const gloves = wornNodes(rig).filter((w) => w.key === 'hands');
+  check('one current hands slot creates a glove mesh for each hand',
+    gloves.length === 2 && ['handL', 'handR'].every((anchor) => gloves.some((w) => w.anchor === anchor && meshTotal([w]) > 0)),
+    gloves.map((w) => `${w.anchor}:${meshTotal([w])}`).join(', '));
+  check('and the retired wrists key does not create a second garment',
+    wornNodes(rig).every((w) => w.key !== 'wrists'));
   undress(rig);
 }
 
@@ -847,7 +860,7 @@ console.log('gear_visuals: what is slung on the back stays on the back');
     eq.ranged = makeItem({ base: bow });
     dressRig(rig, eq, { light: false });
     posed(rig);
-    const r = gearBox(rig, 'ranged'), c = gearBox(rig, 'back');
+    const r = gearBox(rig, 'ranged'), c = gearBox(rig, 'shoulders');
     check(`a slung ${bow} is entirely behind the back`, r.max.z < backZ,
       `bow front ${r.max.z.toFixed(3)}, torso back ${backZ.toFixed(3)}`);
     check(`  and behind the cloak that shares its anchor`, r.max.z < c.min.z,
