@@ -447,6 +447,16 @@ console.log('\nprogression: a fresh bar carries only what the opening can use');
   check('and that bar places the new starter attacks',
     rbar.includes('dualStrike') && rbar.includes('hide') && !rbar.includes('throwingKnife') && !rbar.includes('deepCut'),
     rbar.join(','));
+  const paladinPlan = planCharacter({ opening: 'paladin', name: 'Oath', seed: 14 });
+  const paladinBar = starterBar(paladinPlan.character);
+  check('a fresh Paladin keeps the sword strike and holy heal on the bar',
+    paladinPlan.ok && paladinBar.includes('powerStrike') && paladinBar.includes('heal') && !paladinBar.includes('smite'),
+    paladinBar.join(','));
+  const priestPlan = planCharacter({ opening: 'priest', name: 'Vigil', seed: 15 });
+  const priestBar = starterBar(priestPlan.character);
+  check('a fresh Priest keeps Eldritch Bolt and Heal on the bar',
+    priestPlan.ok && priestBar.includes('eldritchBolt') && priestBar.includes('heal') && !priestBar.includes('smite'),
+    priestBar.join(','));
   const blank = { opening: 'blank', skills: {}, stats: {}, equipment: {}, pack: { slots: 1, items: [null] } };
   check('the Blank opening starts with Bandage and Recall and no more: jump, sprint, meditate and camp are keys, not a class', starterBar(blank).every((id) => id === 'bandage' || id === 'recall') && starterBar(blank).includes('recall'), starterBar(blank).join(','));
 }

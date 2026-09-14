@@ -1,6 +1,8 @@
-# Character rework verification
+# Character rework verification before class trees
 
 Reviewed on 2026-09-14 in the Brackenwake repository.
+
+This records the earlier `ea4427f` implementation. The subsequent six-class tree and CSS window replacement supersedes its four-opening and painted-layout details. See [the class-tree verification record](class-tree-verification.md) for current checks and remaining review work.
 
 ## Acceptance coverage
 

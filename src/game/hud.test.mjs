@@ -124,7 +124,7 @@ const { readFileSync: readSrc } = await import('node:fs');
 const { fileURLToPath: toPath } = await import('node:url');
 const hudSrc = readSrc(toPath(new URL('./hud.js', import.meta.url)), 'utf8');
 const minimapSrc = readSrc(toPath(new URL('./minimap.js', import.meta.url)), 'utf8');
-const windowsSrc = readSrc(toPath(new URL('./windows.js', import.meta.url)), 'utf8');
+const codexSrc = readSrc(toPath(new URL('./codex_styles.js', import.meta.url)), 'utf8');
 
 let bad = 0, pass = 0;
 const ck = (n, ok, d = '') => { (ok ? pass++ : bad++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -276,7 +276,7 @@ ck('the purse and place panels no longer get HUD pseudo corner brackets',
 ck('the minimap frame no longer draws corner images or pseudo brackets',
   !/cornerUrl/.test(minimapSrc) && !/#bw-hud #bw-minimap::before/.test(minimapSrc));
 ck('the standalone window frame no longer uses the global ornate border image',
-  /#bw-windows \.bw-win-plain \.bw-frame[\s\S]*border-image: none/.test(windowsSrc));
+  /#bw-windows \.bw-win-plain \.bw-frame[\s\S]*border-image: none/.test(codexSrc));
 
 // the log
 for (let i = 1; i <= 12; i++) hud.log(`line ${i}`, i % 2 ? 'good' : 'bad');

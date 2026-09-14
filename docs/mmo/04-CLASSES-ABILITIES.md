@@ -1,6 +1,6 @@
 # Openings and abilities
 
-There are four openings: Warrior, Ranger, Rogue and Wizard. Each is a spread
+There are six openings: Warrior, Ranger, Rogue, Mage, Paladin and Priest. Each is a spread
 of the 250 stat points, a handful of skills already at 30 to 50, a kit, and
 the abilities those skills unlock. Nothing is locked after the first minute.
 
@@ -14,7 +14,9 @@ few coins and a kit. Skills listed at 0 are not restricted, just not begun.
 | Warrior | 65 | 50 | 25 | 65 | 45 | Swordsmanship 50, Tactics 50, Parrying 40, Anatomy 30, Healing 30 | longsword, kite shield, leather outfit, 6 bandages |
 | Ranger | 45 | 70 | 35 | 50 | 50 | Archery 50, Tracking 45, Tactics 35, Foraging 35, Animal Lore 35 | shortbow, 60 arrows, dagger, leather outfit |
 | Rogue | 40 | 75 | 40 | 45 | 50 | Fencing 50, Stealth 45, Hiding 40, Lockpicking 35, Poisoning 30 | two daggers, leather outfit, 3 lockpicks |
-| Wizard | 30 | 40 | 70 | 45 | 65 | Magery 50, Mysticism 30, Evaluating Intelligence 45, Meditation 45, Resisting Spells 30 | staff, cloth outfit, 4 mana potions |
+| Mage | 30 | 40 | 70 | 45 | 65 | Magery 50, Mysticism 30, Evaluating Intelligence 45, Meditation 45, Resisting Spells 30 | staff, cloth outfit, 4 mana potions |
+| Paladin | 60 | 40 | 40 | 60 | 50 | Swordsmanship 45, Tactics 35, Parrying 30, Chivalry 50, Healing 40 | longsword, kite shield, chainmail outfit |
+| Priest | 30 | 40 | 65 | 45 | 70 | Mysticism 40, Chivalry 40, Healing 40, Meditation 40, Evaluating Intelligence 20, Resisting Spells 20 | staff, cloth outfit |
 
 **Customising:** after picking an opening you may move up to 30 stat points and
 30 skill points around before you set foot in the world, so a Warrior can be
@@ -188,8 +190,9 @@ Anatomy * 0.2`, cure poison at Healing 60, resurrect at Healing 80 and Anatomy
 ## Balance intent
 
 Every opening kills the same rat at the same speed and the same skeleton at
-roughly the same speed; the difference is how. Warriors take hits, Wizards
-avoid them, rangers keep distance, and rogues choose the angle. The check
+roughly the same speed; the difference is how. Warriors take hits, Mages
+avoid them, rangers keep distance, rogues choose the angle, Paladins hold the
+line, and Priests keep the company standing. The check
 that pins it: `docs/mmo/balance.test.mjs` runs each opening against the tier 2
 skeleton with a fixed seed and asserts kill times within 25% of each other and
 no opening dying to it more than one time in twenty.

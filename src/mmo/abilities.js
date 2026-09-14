@@ -529,6 +529,7 @@ export function burdensInArmour(ability) {
 
 function normalizeNeeds(needs) {
   const out = { kind: needs.kind };
+  if (needs.allowMelee === true) out.allowMelee = true;
   if (needs.skills) out.skills = [...needs.skills];
   if (needs.ammo) out.ammo = [...needs.ammo];
   if (needs.selfAmmo) out.selfAmmo = [...needs.selfAmmo];
@@ -553,7 +554,7 @@ function deriveNeeds(row) {
   // where both are true, and it is why this test comes before the mana one
   // rather than after it: a wand with holy on it would enchant nothing.
   if (!effectUsesWeapon(row.effect)) {
-    if (isSpell(row)) return { kind: 'focus', bases: [...FOCUS_BASES] };
+    if (isSpell(row)) return { kind: 'focus', bases: [...FOCUS_BASES], ...(isChivalry(row) ? { allowMelee: true } : {}) };
     return { kind: 'none' };
   }
   if (row.skillAny) return { kind: 'anyMelee', skills: [...row.skillAny] };
@@ -661,7 +662,11 @@ export function weaponCheck(ability, equipment = null, pack = null) {
   // wand" with no mention of the sword you are holding is half a sentence.
   if (needs.kind === 'focus') {
     if (isFocusItem(eq.mainHand)) return { ok: true };
+    // Chivalry channels through a held melee weapon as well as a focus. This
+    // lets the Paladin heal with sword and shield without changing mage rules.
+    if (needs.allowMelee && isChivalry(ability) && main && !main.ranged && main.hands > 0) return { ok: true };
     const held = main ? `you are holding ${aName(main)}` : 'your hands are empty';
+    if (needs.allowMelee) return { ok: false, reason: `${name} needs a melee weapon, wand or staff, and ${held}.` };
     return { ok: false, reason: `${name} wants a wand or a staff in your hand, and ${held}.` };
   }
 
@@ -2268,6 +2273,9 @@ export function auditAbilities(list = ABILITIES) {
       throw new Error(`auditAbilities: ${where} needs ${needs && needs.kind}, which is not one of ${NEEDS_KINDS.join(', ')}`);
     }
     usedNeeds.add(needs.kind);
+    if (needs.allowMelee && (needs.kind !== 'focus' || !isChivalry(ability))) {
+      throw new Error(`auditAbilities: ${where} allows melee channeling without Chivalry`);
+    }
     if (needs.kind === 'melee' || needs.kind === 'anyMelee' || needs.kind === 'ranged' || needs.kind === 'dualDaggers') {
       if (!Array.isArray(needs.skills) || !needs.skills.length) {
         throw new Error(`auditAbilities: ${where} needs a ${needs.kind} weapon and names no skill`);

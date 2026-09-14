@@ -8,6 +8,10 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
 const wait=async fn=>{const until=performance.now()+150000;while(!fn()){if(performance.now()>until)throw Error('Progression QA timed out');await delay(60);}};
 try{
  await report({stage:'progression-loading'});await import('/src/game/main.js');await wait(()=>document.querySelector('[data-opening="mage"]'));
+ const creationClasses=[...document.querySelectorAll('[data-opening]')].map(el=>el.dataset.opening);
+ if(!['mage','warrior','rogue','ranger','paladin','priest'].every(id=>creationClasses.includes(id)))throw Error('Six classes missing from creation');
+ await report({stage:'creation-ready',classes:creationClasses});
+ if(new URLSearchParams(location.search).has('creationOnly'))await new Promise(()=>{});
  document.querySelector('[data-opening="mage"]').click();const name=document.querySelector('input[placeholder="a name"]');name.value='Talent review';name.dispatchEvent(new Event('input',{bubbles:true}));
  [...document.querySelectorAll('button')].find(b=>/create character/i.test(b.textContent)).click();await wait(()=>window.__bw?.player);
  const b=window.__bw;b.actor.godMode=true;b.windows.closeAll();await b.runtime.ready;
@@ -27,7 +31,7 @@ try{
  const earnedXp=c.advancement.xp-xpBefore;
  const corpse=b.monsters.corpses().find(x=>x.actor===mon.actor);if(!corpse?.loot)throw Error('Monster did not keep loot on its corpse');
  const dropped=b.loot.count,corpseItems=corpse.loot.items.length,corpseGold=corpse.loot.gold;
- b.levels.award(100-c.advancement.xp);await delay(650);fire().querySelector('.talent-learn').click();await delay(100);
+ b.levels.award(100-c.advancement.xp);await delay(650);fire().querySelector('.talent-icon').click();tree.querySelector('.talent-detail-learn').click();await delay(100);
  if(talentRank(c,'fireball')!==1 || availablePoints(c)!==0)throw Error('Learning did not consume exactly one point');
  const {setBarSlot}=await import('/src/game/win_abilities.js');setBarSlot(c,3,'fireball');b.state.touch('bar');b.state.save();
  const {hydrate}=await import('/src/game/state.js');const round=hydrate(JSON.parse(JSON.stringify(c)));

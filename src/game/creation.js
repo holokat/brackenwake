@@ -1,5 +1,5 @@
 import {newAdvancement} from '../mmo/talents.js';
-// Character creation: the four openings, the points, the face, the name, and
+// Character creation: the six openings, the points, the face, the name, and
 // the document the whole game is then played out of.
 //
 // The rules are openings.js's. This file moves points around, asks
@@ -37,10 +37,11 @@ import { BASES, makeItem, baseFor } from '../mmo/items.js';
 import { createInventory, PACK_SLOTS } from './inventory.js';
 import { BAR_SLOTS, GROUP_COLOUR } from './win_abilities.js';
 import { defaultSettings } from './win_settings.js';
+import { CLASS_TREES } from '../mmo/class_trees.js';
 import {
-  injectTheme, theme, icon, itemGlyph, ruleUrl, cornerUrl, parchmentUrl,
-  ROSTER_FRAME, ROSTER_PANEL_ART, classPortraitUrl, rosterBgUrl, rosterPanelsUrl, installRosterFrameBox,
+  injectTheme, theme, icon, itemGlyph, classPortraitUrl, rosterBgUrl,
 } from './ui_theme.js';
+import { creationCss } from './creation_styles.js';
 
 // ---------------------------------------------------------------- the kits
 
@@ -378,7 +379,7 @@ export function openingColour(id) {
  */
 /**
  * The open palm four of these are built on, so the mage's hand and the
- * Wizard spellwork is built from the same open palm as the shared glyph set.
+ * Mage spellwork is built from the same open palm as the shared glyph set.
  * Four fingers, a thumb, and a palm that ends in a round heel; the fingers stop
  * on the palm's top edge rather than overlapping it.
  */
@@ -427,6 +428,14 @@ export const EMBLEMS = {
   // an open hand under a rune
   mage: `<path d="M12 .6 L15.4 4.4 L12 8.2 L8.6 4.4 Z M12 2.8 L10.4 4.4 L12 6 L13.6 4.4 Z" fill-rule="evenodd"/>
     <path d="${PALM}"/>`,
+  // A sword before a sunburst: a sworn blade with holy purpose.
+  paladin: `<path d="M3 2.7 L12 1.2 L21 2.7 V11.2 c0 5.3 -4.2 8.6 -9 10.7 -4.8 -2.1 -9 -5.4 -9 -10.7 Z"/>
+    <path d="M11.1 5 H12.9 V11.1 H18.2 V12.9 H12.9 V19 H11.1 V12.9 H5.8 V11.1 H11.1 Z"/>
+    <path d="M10.8 4.6 H13.2 V16.3 H10.8 Z M8 16.3 H16 V17.8 H8 Z M10.2 17.8 H13.8 V20.2 H10.2 Z" fill="#16110b"/>`,
+  // A warding staff, with three rays from the mark it carries.
+  priest: `<path d="M10.8 2.1 H13.2 V20.1 H10.8 Z M8.3 19.8 H15.7 V21.5 H8.3 Z"/>
+    <path d="M12 3.2 L14.3 6.1 L12 8.8 L9.7 6.1 Z M12 4.9 L11.3 6.1 L12 6.9 L12.7 6.1 Z" fill-rule="evenodd"/>
+    <path d="M5.1 8.4 L7.4 9.3 L6.5 11.6 L4.2 10.7 Z M18.9 8.4 L19.8 10.7 L17.5 11.6 L16.6 9.3 Z M5.6 14.3 L7.8 13.2 L8.9 15.4 L6.7 16.5 Z M18.4 14.3 L17.3 16.5 L15.1 15.4 L16.2 13.2 Z"/>`,
 };
 
 /** One opening's emblem as an inline svg string, at `size` px. */
@@ -481,6 +490,10 @@ auditEmblems();
  */
 export const GAME_TITLE = 'Brackenwake';
 
+/** The three paths a class opens after creation, shown before the choice is locked in. */
+export const specialisationsFor = (opening) =>
+  CLASS_TREES.find((tree) => tree.id === opening)?.branches.map((branch) => branch.name) || [];
+
 /**
  * One line each, in the voice of somebody who took that opening. Short, so it
  * sits on a single line under the art at 360 px, and no two alike.
@@ -490,6 +503,8 @@ export const QUOTES = {
   ranger: 'The wood told me an hour ago. You were not listening.',
   rogue: 'You will remember the door being locked.',
   mage: 'Every fire was a word first.',
+  paladin: 'Keep your oath. The dark is already keeping count.',
+  priest: 'A ward is a promise made before the wound arrives.',
 };
 
 /**
@@ -502,6 +517,8 @@ export const CLASS_NOTE = {
   ranger: 'For fighting at the range where nothing has reached you yet.',
   rogue: 'For the way in, the way out, and the purse on the way past.',
   mage: 'The most damage in the game, and the least skin to lose it with.',
+  paladin: 'For a blade that can hold the front and still answer a call for help.',
+  priest: 'For carrying the ward and the healing that let the company stay standing.',
 };
 
 /**
@@ -522,7 +539,7 @@ export function statWords(opening) {
 
 /**
  * The id the art slot wears for a given opening. Stable, one per class, and
- * exported so a painting can be dropped straight in later:
+ * exported so a custom portrait treatment can be applied later:
  *
  *   document.getElementById(artId('warrior')).style.backgroundImage = 'url(...)'
  *
@@ -536,7 +553,7 @@ const enc = (s) => `url("data:image/svg+xml,${encodeURIComponent(s.replace(/\s+/
  * The placeholder inside the portrait frame, drawn in code rather than fetched:
  * a lit ground in the class colour, two ridges of dark country, and the class
  * emblem large and faint over them. It is a placeholder and looks like one; the
- * point is that the frame is never an empty rectangle while the art is painted.
+ * point is that the preview is never an empty rectangle while the portrait loads.
  */
 export function artUrl(id) {
   const c = openingColour(id);
@@ -586,539 +603,7 @@ auditClassText();
 
 // ------------------------------------------------------------------- the DOM
 
-const CARET = enc(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" width="12" height="8">
-  <path d="M1.4 1.8 L6 6.2 L10.6 1.8" fill="none" stroke="${theme.gold}" stroke-width="1.6"
-    stroke-linecap="round" stroke-linejoin="round"/></svg>`);
-
-const CSS = `
-#bw-creation, #bw-creation * { box-sizing: border-box; }
-/* The whole viewport: the user's background is behind the contained joined
-   panel frame, and the controls live inside that frame's dark interiors. */
-#bw-roster, #bw-creation { isolation: isolate; }
-#bw-roster > .bw-ro-video, #bw-creation > .bw-ro-video {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  z-index: -1; pointer-events: none;
-}
-#bw-creation {
-  position: fixed; inset: 0; z-index: 90;
-  font-family: ${theme.fonts.body}; font-size: 15px; line-height: 1.4;
-  color: ${theme.parchment};
-  background:
-    radial-gradient(62% 66% at 50% 46%, rgba(6,5,4,0) 0%, rgba(6,5,4,.28) 58%, rgba(6,5,4,.72) 100%);
-}
-#bw-creation[hidden] { display: none; }
-
-#bw-creation .bw-cr-panel {
-  position: absolute; inset: 0;
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 400px;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-}
-
-/* --- the two side panels ------------------------------------------------- */
-#bw-creation .bw-cr-left, #bw-creation .bw-cr-right {
-  grid-row: 1 / 3; min-height: 0;
-  display: flex; flex-direction: column;
-  overflow-y: auto; overflow-x: hidden;
-  background-image:
-    ${cornerUrl(theme.gold)}, ${cornerUrl(theme.gold)},
-    ${parchmentUrl()},
-    linear-gradient(180deg, rgba(6,5,4,.93), rgba(6,5,4,.97));
-  background-repeat: no-repeat, no-repeat, repeat, no-repeat;
-  background-position: left 8px top 8px, right 8px top 8px, 0 0, 0 0;
-  background-size: 18px 18px, 18px 18px, 140px 90px, auto;
-}
-/* The CR1 bug, kept fixed: a column flex box is free to squeeze a child that
-   has its own max-height, and the skills list was the one it squeezed to
-   nothing at all while every count still passed. */
-#bw-creation .bw-cr-left > *, #bw-creation .bw-cr-scroll > * { flex: 0 0 auto; }
-#bw-creation .bw-cr-left {
-  grid-column: 1; padding: 14px 15px 18px;
-  border-right: 1px solid ${theme.goldDim}88;
-  box-shadow: 10px 0 34px rgba(0,0,0,.55);
-}
-#bw-creation .bw-cr-right {
-  grid-column: 3; padding: 0; display: block; overflow-y: auto; overflow-x: hidden;
-  border-left: 1px solid ${theme.goldDim}88;
-  box-shadow: -10px 0 34px rgba(0,0,0,.55);
-}
-#bw-creation .bw-cr-scroll {
-  min-height: 100%; overflow: visible;
-  display: flex; flex-direction: column; justify-content: center;
-  padding: 14px 17px 12px;
-}
-/* the name and button follow the spreads inside the same centred column */
-#bw-creation .bw-cr-act {
-  flex: 0 0 auto; margin-top: 8px; padding: 8px 0 2px;
-  border-top: 1px solid ${theme.goldDim}66;
-  background: transparent;
-}
-
-/* --- the plaque ---------------------------------------------------------- */
-#bw-creation .bw-cr-plaque {
-  grid-column: 2; grid-row: 1; justify-self: center; align-self: start;
-  margin-top: 16px; padding: 11px 44px 13px; text-align: center;
-  background-image:
-    ${cornerUrl(theme.gold)}, ${cornerUrl(theme.gold)},
-    linear-gradient(180deg, #241d15, #100c09 60%, #060504);
-  background-repeat: no-repeat, no-repeat, no-repeat;
-  background-position: left 4px top 4px, right 4px top 4px, 0 0;
-  background-size: 14px 14px, 14px 14px, auto;
-  border: 1px solid ${theme.goldDim};
-  box-shadow: 0 6px 26px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.07);
-}
-#bw-creation h1 {
-  margin: 0; font-family: ${theme.fonts.display}; font-size: 33px; font-weight: 700;
-  letter-spacing: .2em; color: #dcc68d;
-  text-shadow: 0 1px 0 rgba(0,0,0,.95), 0 -1px 0 rgba(255,255,255,.10), 0 4px 18px rgba(0,0,0,.8);
-}
-#bw-creation .bw-cr-ask {
-  margin-top: 5px; font-style: italic; font-size: 15px; color: ${theme.parchmentDim};
-}
-
-/* headers: the codex's small caps in Cinzel over its thin gold rule */
-#bw-creation .bw-hdr {
-  font-family: ${theme.fonts.display}; font-size: 11px; font-weight: 600;
-  letter-spacing: .22em; font-variant-caps: small-caps; color: ${theme.gold};
-  margin: 12px 0 7px; padding-bottom: 9px;
-  background: ${ruleUrl()} bottom center / 100% 9px no-repeat;
-}
-#bw-creation .bw-hdr:first-child { margin-top: 2px; }
-
-/* --- the class cards: small, two to a row -------------------------------- */
-/* minmax(0, 1fr) and not 1fr: a plain 1fr track will not go below the widest
-   unbreakable word in it, and NECROMANCER pushed the right hand column of
-   cards clean off a 260 pixel panel at 1280. */
-/* one row per opening (asked 2026-09-08): the art slot on the left is the
-   size the class paintings will be, the words beside it */
-#bw-creation .bw-cr-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
-#bw-creation .bw-cr-card {
-  position: relative; min-height: 74px; padding: 8px 10px 8px 13px; cursor: pointer;
-  overflow: hidden;
-  display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; row-gap: 3px; align-items: center;
-  background:
-    ${cornerUrl(theme.goldDim)}, ${cornerUrl(theme.goldDim)},
-    linear-gradient(150deg, rgba(36,35,39,.92), rgba(14,13,16,.96));
-  background-repeat: no-repeat;
-  background-position: left 2px top 2px, right 2px bottom 2px, 0 0;
-  background-size: 14px 14px, 14px 14px, auto;
-  border: 1px solid ${theme.goldDim}55;
-  border-radius: 7px;
-  transition: border-color .12s ease, transform .12s ease, box-shadow .12s ease;
-}
-#bw-creation .bw-cr-card .bw-cr-band { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
-#bw-creation .bw-cr-card:hover { border-color: ${theme.gold}; }
-#bw-creation .bw-cr-card.on {
-  border-color: ${theme.gold};
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 6px 18px rgba(0,0,0,.45), 0 0 18px rgba(201,164,74,.18);
-  background:
-    ${cornerUrl(theme.gold)}, ${cornerUrl(theme.gold)},
-    linear-gradient(180deg, ${theme.plateUp}, ${theme.plate} 62%, #2c0d08);
-  background-repeat: no-repeat;
-  background-position: left 2px top 2px, right 2px bottom 2px, 0 0;
-  background-size: 14px 14px, 14px 14px, auto;
-}
-#bw-creation .bw-cr-card.on .bw-cr-band { width: 0; }
-#bw-creation .bw-cr-emblem {
-  grid-row: 1 / span 2;
-  width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(circle at 50% 38%, rgba(255,255,255,.09), rgba(0,0,0,.5));
-  border: 1px solid ${theme.goldDim}77;
-  border-radius: 7px;
-}
-/* 15px fits the longest current opening in a 300 pixel column's card. */
-#bw-creation .bw-cr-name {
-  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
-  letter-spacing: .02em; color: ${theme.parchment}; line-height: 1.1;
-}
-#bw-creation .bw-cr-card.on .bw-cr-name, #bw-creation .bw-cr-card:hover .bw-cr-name { color: ${theme.goldBright}; }
-/* one line of blurb, and never a third: cards of a ragged height read
-   as a list of paragraphs rather than a rack of heroes */
-#bw-creation .bw-cr-blurb {
-  font-size: 12.5px; line-height: 1.26; color: ${theme.parchmentDim};
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* CR3 kept the old appearance controls out of the document. These legacy
-   selectors are inert unless a future screen adds those controls back. */
-#bw-creation .bw-cr-look {
-  display: flex; justify-content: center; gap: 10px;
-  width: 100%; max-width: 540px;
-}
-#bw-creation .bw-cr-pill {
-  min-width: 116px; padding: 7px 16px 8px; cursor: pointer;
-  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .2em;
-  font-variant-caps: small-caps; color: ${theme.parchmentDim};
-  border: 1px solid ${theme.goldDim}66;
-  background: linear-gradient(180deg, rgba(20,16,11,.86), rgba(6,5,4,.92));
-}
-#bw-creation .bw-cr-pill:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
-#bw-creation .bw-cr-pill.on {
-  color: ${theme.goldBright}; border-color: ${theme.gold};
-  background: linear-gradient(180deg, rgba(90,68,24,.55), rgba(30,22,10,.9));
-  box-shadow: inset 0 0 12px rgba(201,164,74,.28);
-}
-
-/* --- the right hand panel ------------------------------------------------ */
-#bw-creation .bw-cr-cname {
-  font-family: ${theme.fonts.display}; font-size: 29px; font-weight: 700;
-  letter-spacing: .05em; line-height: 1.05; color: ${theme.parchment};
-  text-shadow: 0 2px 12px rgba(0,0,0,.8);
-}
-#bw-creation .bw-cr-words {
-  margin-top: 4px; font-family: ${theme.fonts.display}; font-size: 10px;
-  letter-spacing: .2em; font-variant-caps: small-caps; color: ${theme.gold};
-}
-/* the frame the class art goes in. Empty of a painting today; never empty of
-   a drawing, because a blank rectangle on the first screen says "broken". */
-#bw-creation .bw-cr-art {
-  position: relative; width: 100%; height: min(196px, 21vh); margin-top: 9px;
-  background-position: center; background-size: cover; background-repeat: no-repeat;
-  border: 1px solid ${theme.goldDim};
-  box-shadow: inset 0 0 0 3px rgba(0,0,0,.6), inset 0 0 34px rgba(0,0,0,.6), 0 3px 16px rgba(0,0,0,.55);
-}
-#bw-creation .bw-cr-art::after {
-  content: ''; position: absolute; inset: 5px; pointer-events: none;
-  border: 1px solid ${theme.goldDim}66;
-}
-#bw-creation .bw-cr-quote {
-  margin: 8px 0 0; font-style: italic; font-size: 14.5px; line-height: 1.35;
-  color: ${theme.parchmentDim};
-  border-left: 2px solid ${theme.goldDim}88; padding-left: 10px;
-}
-#bw-creation .bw-cr-about { margin-top: 7px; font-size: 14px; line-height: 1.32; color: ${theme.parchmentDim}; }
-
-#bw-creation .bw-cr-budget {
-  font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .1em;
-  font-variant-caps: small-caps; color: ${theme.gold}; font-variant-numeric: tabular-nums;
-  margin-bottom: 7px;
-}
-#bw-creation .bw-cr-budget.spent { color: ${theme.parchmentFaint}; }
-
-/* --- the stat bars, which are also the sliders --------------------------- */
-#bw-creation .bw-cr-bars { display: grid; gap: 3px; }
-#bw-creation .bw-cr-bar { display: grid; grid-template-columns: 30px 1fr 32px 24px 24px; gap: 7px; align-items: center; }
-#bw-creation .bw-cr-step {
-  width: 24px; height: 22px; padding: 0; line-height: 1; cursor: pointer;
-  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 700; color: ${theme.gold};
-  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.25)), ${theme.stone};
-  border: 1px solid ${theme.goldDim}aa; border-radius: 5px;
-}
-#bw-creation .bw-cr-step:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
-#bw-creation .bw-cr-step:active { transform: translateY(1px); }
-#bw-creation .bw-cr-bk {
-  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .12em;
-  color: ${theme.parchmentFaint};
-}
-#bw-creation .bw-cr-bt {
-  position: relative; display: block; height: 11px;
-  background: rgba(0,0,0,.6); border: 1px solid ${theme.goldDim}55;
-}
-#bw-creation .bw-cr-bf { position: absolute; left: 0; top: 0; bottom: 0; display: block; }
-#bw-creation .bw-cr-bv {
-  font-family: ${theme.fonts.display}; font-size: 12.5px; font-variant-numeric: tabular-nums;
-  text-align: right; color: ${theme.parchment};
-}
-/* the range input IS the bar: no track of its own, sat exactly over it */
-#bw-creation input[type=range] {
-  -webkit-appearance: none; appearance: none; margin: 0; cursor: pointer;
-  position: absolute; left: -2px; top: -4px; width: calc(100% + 4px); height: 19px;
-  background: transparent;
-}
-#bw-creation input[type=range]::-webkit-slider-runnable-track { height: 19px; background: transparent; border: 0; }
-#bw-creation input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none; width: 11px; height: 15px; margin-top: 2px;
-  border: 1px solid #2b2118;
-  background: linear-gradient(180deg, #fff6e0, ${theme.parchment} 55%, ${theme.parchmentFaint});
-  box-shadow: 0 1px 4px rgba(0,0,0,.9);
-}
-#bw-creation input[type=range]::-moz-range-track { height: 19px; background: transparent; border: 0; }
-#bw-creation input[type=range]::-moz-range-thumb {
-  width: 10px; height: 15px; border-radius: 0; border: 1px solid #2b2118;
-  background: linear-gradient(180deg, #fff6e0, ${theme.parchment} 55%, ${theme.parchmentFaint});
-}
-
-/* --- the skills, behind a disclosure ------------------------------------- */
-#bw-creation .bw-cr-disc {
-  width: 100%; margin-top: 9px; text-align: left; cursor: pointer;
-  font-family: ${theme.fonts.display}; font-size: 10.5px; letter-spacing: .18em;
-  font-variant-caps: small-caps; color: ${theme.gold};
-  padding: 7px 10px; border: 1px solid ${theme.goldDim}66;
-  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.42));
-}
-#bw-creation .bw-cr-disc:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
-#bw-creation .bw-cr-disc::after { content: ' +'; float: right; }
-#bw-creation .bw-cr-disc.open::after { content: ' -'; }
-#bw-creation .bw-cr-skillwrap { margin-top: 8px; }
-#bw-creation .bw-cr-skillwrap[hidden] { display: none; }
-#bw-creation .bw-cr-skills {
-  max-height: 260px; overflow-y: auto; padding: 4px 9px 4px 10px;
-  border: 1px solid ${theme.goldDim}44; background: rgba(0,0,0,.3);
-}
-#bw-creation .bw-cr-skills .bw-cr-grp {
-  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .18em;
-  font-variant-caps: small-caps; color: ${theme.goldDim}; margin: 10px 0 3px;
-  border-bottom: 1px solid ${theme.goldDim}44; padding-bottom: 3px;
-}
-#bw-creation .bw-cr-skills .bw-cr-grp:first-child { margin-top: 0; }
-#bw-creation .bw-row {
-  display: grid; grid-template-columns: 1fr 106px 34px; gap: 7px; align-items: center;
-  padding: 2px 0; border-bottom: 1px solid rgba(201,164,74,.13); font-size: 14px;
-}
-#bw-creation .bw-row .bw-k { color: ${theme.parchmentDim}; }
-#bw-creation .bw-row .bw-v {
-  text-align: right; font-family: ${theme.fonts.display}; font-size: 12.5px; font-weight: 600;
-  font-variant-numeric: tabular-nums; color: ${theme.parchment};
-}
-#bw-creation .bw-step { display: flex; gap: 2px; justify-content: flex-end; }
-#bw-creation .bw-step button {
-  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .03em;
-  width: 25px; padding: 3px 0; cursor: pointer; color: ${theme.parchmentDim};
-  border: 1px solid ${theme.goldDim}66;
-  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.4));
-}
-#bw-creation .bw-step button:hover:not(:disabled) { color: ${theme.goldBright}; border-color: ${theme.gold}; }
-#bw-creation .bw-step button:disabled { opacity: .3; cursor: default; }
-
-/* --- what that comes to -------------------------------------------------- */
-#bw-creation .bw-cr-derived { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
-#bw-creation .bw-cr-drow {
-  display: grid; grid-template-columns: 16px 1fr auto; gap: 7px; align-items: center;
-  padding: 2px 0; border-bottom: 1px solid rgba(201,164,74,.13); font-size: 13.5px;
-}
-#bw-creation .bw-cr-drow .bw-i { display: block; opacity: .85; }
-#bw-creation .bw-cr-drow .bw-cr-dk {
-  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .12em;
-  font-variant-caps: small-caps; color: ${theme.gold};
-}
-#bw-creation .bw-cr-drow .bw-cr-dv {
-  font-family: ${theme.fonts.display}; font-size: 12.5px; font-weight: 600;
-  font-variant-numeric: tabular-nums; color: ${theme.parchment}; white-space: nowrap;
-}
-
-/* --- the gear row -------------------------------------------------------- */
-#bw-creation .bw-cr-kitrow { display: grid; grid-template-columns: repeat(4, 64px); gap: 8px; align-items: center; }
-#bw-creation .bw-cr-kit-i, #bw-creation .bw-cr-kit-gone {
-  width: 64px; height: 64px; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.2)), ${theme.slot.face};
-  border: 1px solid ${theme.slot.border};
-  border-radius: 7px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.45);
-}
-#bw-creation .bw-cr-kit-i img, #bw-creation .bw-cr-kit-gone img { display: block; }
-/* a kit line the item tables cannot make yet: shown, greyed, and said again in
-   words under the button. Never simply absent. */
-#bw-creation .bw-cr-kit-gone { opacity: .4; border-style: dashed; }
-#bw-creation .bw-cr-kit-more {
-  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .1em;
-  font-variant-caps: small-caps; color: ${theme.parchmentFaint}; padding-left: 3px;
-}
-
-/* --- the name, and the button -------------------------------------------- */
-#bw-creation select, #bw-creation input[type=text] {
-  font-family: ${theme.fonts.body}; font-size: 14px; color: ${theme.parchment};
-  padding: 4px 8px; border: 1px solid ${theme.goldDim}66;
-  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.45));
-}
-#bw-creation select {
-  -webkit-appearance: none; appearance: none; width: 100%; padding-right: 22px; cursor: pointer;
-  background-image: ${CARET}, linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.45));
-  background-repeat: no-repeat, no-repeat;
-  background-position: right 6px center, 0 0;
-  background-size: 12px 8px, auto;
-}
-#bw-creation select:focus, #bw-creation input[type=text]:focus { outline: none; border-color: ${theme.gold}; }
-#bw-creation select option { background: #100d09; color: ${theme.parchment}; }
-#bw-creation input[type=text] {
-  width: 100%; font-size: 17px; padding: 8px 11px; letter-spacing: .04em;
-  font-family: ${theme.fonts.display};
-}
-
-#bw-creation .bw-cr-go {
-  width: 100%; margin-top: 14px;
-  font-family: ${theme.fonts.display}; font-size: 14px; font-weight: 600;
-  letter-spacing: .08em; font-variant-caps: small-caps; color: #181106;
-  padding: 14px 18px; cursor: pointer;
-  border: 1px solid ${theme.goldBright};
-  border-radius: 7px;
-  background: linear-gradient(180deg, ${theme.goldBright}, ${theme.gold} 52%, ${theme.goldDim});
-  box-shadow: 0 3px 20px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.35);
-}
-#bw-creation .bw-cr-go:hover:not(:disabled) { filter: brightness(1.08); }
-#bw-creation .bw-cr-go:active:not(:disabled) { transform: scale(.96); }
-#bw-creation .bw-cr-go:disabled {
-  opacity: .5; cursor: default; color: ${theme.parchmentFaint}; border-color: ${theme.goldDim};
-  background: linear-gradient(180deg, #3a2018, #221009 55%, #140805);
-}
-#bw-creation .bw-cr-err { margin-top: 8px; min-height: 18px; font-size: 14px; color: ${theme.down}; }
-#bw-creation .bw-cr-short { margin-top: 2px; font-size: 13px; font-style: italic; color: ${theme.parchmentFaint}; }
-
-/* --- the footer ---------------------------------------------------------- */
-#bw-creation .bw-cr-foot {
-  grid-column: 1 / -1; grid-row: 3;
-  display: flex; justify-content: space-between; align-items: center; gap: 18px;
-  padding: 6px 16px; border-top: 1px solid ${theme.goldDim}44;
-  background: linear-gradient(180deg, rgba(6,5,4,.6), rgba(6,5,4,.92));
-  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .2em;
-  font-variant-caps: small-caps; color: ${theme.parchmentFaint};
-}
-
-/* --- narrower windows ---------------------------------------------------- */
-/* 1280: the three columns still stand, at 260 and 360. */
-@media (max-width: 1400px) {
-  #bw-creation .bw-cr-panel { grid-template-columns: 260px minmax(0, 1fr) 360px; }
-  #bw-creation .bw-cr-left { padding: 14px 12px 18px; }
-  #bw-creation .bw-cr-card { padding: 8px 7px 9px 11px; }
-  #bw-creation .bw-cr-name { font-size: 12.5px; letter-spacing: 0; }
-  #bw-creation .bw-cr-blurb { font-size: 12px; }
-  #bw-creation .bw-cr-drow .bw-cr-dk { font-size: 9px; letter-spacing: .07em; }
-  #bw-creation .bw-cr-drow { gap: 6px; }
-  #bw-creation .bw-cr-art { height: min(174px, 19vh); }
-}
-/* Below 1100 there is not room for three, so they stack and the preview is on
-   top, which is the thing a player is choosing between. */
-@media (max-width: 1099px) {
-  #bw-creation { overflow-y: auto; }
-  #bw-creation .bw-cr-panel {
-    position: relative; inset: auto; min-height: 100%;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto auto;
-  }
-  #bw-creation .bw-cr-plaque { grid-column: 1; grid-row: 1; }
-  #bw-creation .bw-cr-left { grid-column: 1; grid-row: 2; border-right: 0; box-shadow: none; overflow: visible; }
-  #bw-creation .bw-cr-right { grid-column: 1; grid-row: 3; border-left: 0; box-shadow: none; overflow: visible; }
-  /* stacked, the page itself scrolls, so the right column is not a viewport
-     of its own and the button rides down the page with everything else */
-  #bw-creation .bw-cr-scroll { overflow: visible; padding-bottom: 4px; }
-  #bw-creation .bw-cr-act { border-top: 0; background: none; }
-  #bw-creation .bw-cr-left, #bw-creation .bw-cr-right { border-top: 1px solid ${theme.goldDim}88; }
-  #bw-creation .bw-cr-foot { grid-column: 1; grid-row: 4; }
-  #bw-creation .bw-cr-cards { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
-  #bw-creation .bw-cr-art { height: 200px; }
-}
-
-/* C3: the user's painting is the screen. The DOM is laid into the two dark
-   painted panels in the transparent frame. */
-#bw-creation {
-  background-size: cover; background-position: center; background-repeat: no-repeat;
-  overflow: hidden;
-}
-#bw-creation::before {
-  content: ""; position: absolute;
-  left: var(--bw-scene-x); top: var(--bw-scene-y);
-  width: var(--bw-scene-w); height: var(--bw-scene-h);
-  background-image: url("${rosterPanelsUrl()}");
-  background-size: 100% 100%; background-position: center; background-repeat: no-repeat;
-  pointer-events: none;
-}
-#bw-creation .bw-cr-panel {
-  position: absolute; inset: 0; display: block; min-height: 100%;
-}
-#bw-creation .bw-cr-plaque, #bw-creation .bw-cr-foot { display: none; }
-#bw-creation .bw-cr-left, #bw-creation .bw-cr-right {
-  position: absolute; min-height: 0; border: 0; box-shadow: none;
-  background: transparent; background-image: none;
-}
-#bw-creation .bw-cr-left {
-  left: calc(var(--bw-scene-x) + ${ROSTER_FRAME.leftPanel.x1} * var(--bw-scene-w));
-  top: calc(var(--bw-scene-y) + ${ROSTER_FRAME.leftPanel.y1} * var(--bw-scene-h));
-  width: calc((${ROSTER_FRAME.leftPanel.x2} - ${ROSTER_FRAME.leftPanel.x1}) * var(--bw-scene-w));
-  height: calc((${ROSTER_FRAME.leftPanel.y2} - ${ROSTER_FRAME.leftPanel.y1}) * var(--bw-scene-h));
-  padding: clamp(8px, 1vw, 14px);
-  display: flex; flex-direction: column; gap: 10px; overflow: hidden;
-}
-#bw-creation .bw-cr-right {
-  left: calc(var(--bw-scene-x) + ${ROSTER_FRAME.rightPanel.x1} * var(--bw-scene-w));
-  top: calc(var(--bw-scene-y) + ${ROSTER_FRAME.rightPanel.y1} * var(--bw-scene-h));
-  width: calc((${ROSTER_FRAME.rightPanel.x2} - ${ROSTER_FRAME.rightPanel.x1}) * var(--bw-scene-w));
-  height: calc((${ROSTER_FRAME.rightPanel.y2} - ${ROSTER_FRAME.rightPanel.y1}) * var(--bw-scene-h));
-  display: block; overflow-y: auto; overflow-x: hidden;
-}
-#bw-creation .bw-cr-cards {
-  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  display: flex; flex-direction: column; gap: 8px; padding-right: 4px;
-}
-#bw-creation .bw-cr-card {
-  min-height: 76px; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto auto;
-  padding: 7px; background: rgba(9, 10, 12, .28);
-  border-color: rgba(201,164,74,.16); border-radius: 6px;
-  transition-property: background-color, border-color, box-shadow, transform;
-}
-#bw-creation .bw-cr-card.on {
-  background: linear-gradient(180deg, rgba(122,42,32,.58), rgba(91,29,22,.5));
-  border-color: ${theme.gold};
-}
-#bw-creation .bw-cr-card-img {
-  grid-row: 1 / span 2; width: 56px; height: 62px; object-fit: contain;
-  object-position: bottom center; align-self: stretch;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,.5));
-}
-#bw-creation .bw-cr-card .bw-cr-band, #bw-creation .bw-cr-emblem { display: none; }
-#bw-creation .bw-cr-name {
-  font-size: clamp(14px, 1.05vw, 18px); letter-spacing: 0; text-wrap: balance;
-}
-#bw-creation .bw-cr-blurb {
-  font-size: clamp(12px, .82vw, 14px); -webkit-line-clamp: 1; text-wrap: pretty;
-}
-#bw-creation .bw-cr-cancel {
-  flex: 0 0 auto; min-height: 40px; cursor: pointer;
-  font-family: ${theme.fonts.display}; font-size: 12px; font-weight: 700; letter-spacing: 0;
-  color: ${theme.parchmentDim}; border: 1px solid ${theme.goldDim}88; border-radius: 6px;
-  background: rgba(0,0,0,.18);
-}
-#bw-creation .bw-cr-cancel:hover { color: ${theme.goldBright}; border-color: ${theme.gold}; }
-#bw-creation .bw-cr-cancel:active { transform: scale(.96); }
-#bw-creation .bw-cr-scroll {
-  min-height: 100%; overflow: visible;
-  padding: clamp(8px, 1vw, 12px); display: flex; flex-direction: column; justify-content: center;
-}
-#bw-creation .bw-cr-act {
-  flex: 0 0 auto; margin-top: 8px; padding: 6px 0 0;
-  border-top: 1px solid rgba(201,164,74,.18); background: transparent;
-}
-#bw-creation .bw-cr-art {
-  order: -3;
-  height: min(190px, calc((${ROSTER_FRAME.rightPanel.y2} - ${ROSTER_FRAME.rightPanel.y1}) * var(--bw-scene-h) * ${ROSTER_PANEL_ART.creationPortraitFrac}));
-  max-height: calc((${ROSTER_FRAME.rightPanel.y2} - ${ROSTER_FRAME.rightPanel.y1}) * var(--bw-scene-h) * ${ROSTER_PANEL_ART.maxPortraitFrac});
-  margin: 0 0 5px; border: 0;
-  box-shadow: none; background: transparent;
-  display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
-}
-#bw-creation .bw-cr-art::after { display: none; }
-#bw-creation .bw-cr-art-img {
-  display: block; max-width: 100%; height: 100%; object-fit: contain; object-position: bottom center;
-  filter: drop-shadow(0 12px 10px rgba(0,0,0,.5));
-}
-#bw-creation .bw-cr-cname {
-  font-size: clamp(18px, 1.65vw, 26px); letter-spacing: 0; text-wrap: balance;
-}
-#bw-creation .bw-cr-words { letter-spacing: 0; }
-#bw-creation .bw-cr-quote, #bw-creation .bw-cr-about { display: none; }
-#bw-creation .bw-hdr {
-  font-size: 11px; letter-spacing: 0; font-variant-caps: normal; color: ${theme.gold};
-  margin: 8px 0 5px;
-}
-#bw-creation .bw-cr-words,
-#bw-creation .bw-cr-budget,
-#bw-creation .bw-cr-bk,
-#bw-creation .bw-cr-disc,
-#bw-creation .bw-cr-skills .bw-cr-grp,
-#bw-creation .bw-cr-drow .bw-cr-dk,
-#bw-creation .bw-cr-kit-more,
-#bw-creation .bw-cr-go,
-#bw-creation .bw-cr-foot {
-  letter-spacing: 0; font-variant-caps: normal;
-}
-#bw-creation .bw-cr-derived, #bw-creation .bw-cr-kit-head, #bw-creation .bw-cr-kitrow { display: none; }
-#bw-creation .bw-cr-disc { margin-top: 7px; letter-spacing: 0; font-variant-caps: normal; }
-#bw-creation .bw-cr-go { letter-spacing: 0; font-variant-caps: normal; }
-
-#bw-creation ::-webkit-scrollbar { width: 9px; height: 9px; }
-#bw-creation ::-webkit-scrollbar-track { background: rgba(0,0,0,.45); }
-#bw-creation ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, ${theme.goldDim}, #4a3818); border: 1px solid #000; }
-#bw-creation ::-webkit-scrollbar-thumb:hover { background: ${theme.gold}; }
-`;
+const CSS = creationCss(theme);
 
 const h = (tag, cls, text) => {
   const e = document.createElement(tag);
@@ -1176,8 +661,7 @@ export function createCreation(root, deps = {}) {
   el.id = 'bw-creation';
   el.className = 'bw-ui';
   el.style.backgroundImage = `url("${rosterBgUrl()}")`;
-  // The ambient loop the user painted for this screen (public/ui/brackenwake-
-  // ambient-loop.mp4); the still stays underneath until it plays.
+  // The ambient loop stays above the authored still until it plays.
   const video = document.createElement('video');
   video.className = 'bw-ro-video';
   video.src = '/ui/brackenwake-ambient-loop.mp4';
@@ -1188,10 +672,9 @@ export function createCreation(root, deps = {}) {
   const panel = h('div', 'bw-cr-panel');
   el.appendChild(panel);
   (root || document.body).appendChild(el);
-  const unboxFrame = installRosterFrameBox(el);
 
   // --- the plaque, top centre
-  // --- the left column: the four openings, small
+  // --- the left column: the six openings, small
   const left = h('div', 'bw-cr-left');
   panel.appendChild(left);
   const cards = h('div', 'bw-cr-cards');
@@ -1220,6 +703,8 @@ export function createCreation(root, deps = {}) {
   reading.appendChild(cname);
   const words = h('div', 'bw-cr-words');
   reading.appendChild(words);
+  const specs = h('div', 'bw-cr-specs');
+  reading.appendChild(specs);
   const quote = h('div', 'bw-cr-quote');
   reading.appendChild(quote);
   const about = h('div', 'bw-cr-about');
@@ -1276,7 +761,7 @@ export function createCreation(root, deps = {}) {
 
   // --- the footer, both ends
   const foot = h('div', 'bw-cr-foot');
-  foot.appendChild(h('span', null, 'Four openings, thirty points to move, a name of your own'));
+  foot.appendChild(h('span', null, `${OPENINGS.length} openings, thirty points to move, a name of your own`));
   foot.appendChild(h('span', null, `${GAME_TITLE} : the making of somebody`));
   panel.appendChild(foot);
 
@@ -1317,6 +802,8 @@ export function createCreation(root, deps = {}) {
 
     cname.textContent = op.name;
     words.textContent = statWords(op).join(' · ');
+    specs.textContent = '';
+    for (const name of specialisationsFor(op.id)) specs.appendChild(h('span', 'bw-cr-spec', name));
     // The stable hook a painting is dropped on later. One id per class.
     art.id = artId(op.id);
     art.dataset.art = op.id;
@@ -1533,7 +1020,6 @@ export function createCreation(root, deps = {}) {
   });
 
   function destroy() {
-    unboxFrame();
     el.remove();
   }
 

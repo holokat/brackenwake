@@ -97,6 +97,11 @@ export const CLASS_PORTRAITS = Object.freeze({
   rogue: 'ui/classes/rogue.webp',
   mage: 'ui/classes/wizard.webp',
   wizard: 'ui/classes/wizard.webp',
+  // These are deliberately shared authored paintings until portraits for the
+  // two new openings are made. The armour-bearing warrior reads as a Paladin;
+  // the robed wizard reads as a Priest. Do not make a blank or synthetic card.
+  paladin: 'ui/classes/warrior.webp',
+  priest: 'ui/classes/wizard.webp',
 });
 
 const ASSET_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || '/';

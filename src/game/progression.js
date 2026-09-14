@@ -38,10 +38,11 @@ import {achievementPerks} from './achievements/progress.js';
 
 import { rollGain, SKILL_BY_ID, lockOf, TOTAL_CAP, total as skillTotal } from '../mmo/skills.js';
 import { rollStatGain, STATS, STAT_GAIN, STAT_CAP, statTotal } from '../mmo/stats.js';
-import { STAT_LABELS, STAT_NAMES, OPENING_GROUP } from '../mmo/openings.js';
+import { STAT_LABELS, STAT_NAMES } from '../mmo/openings.js';
 import { ABILITIES, ABILITIES_BY_ID, meetsRequirements, unlockedFor, weaponCheck } from '../mmo/abilities.js';
 import { BAR_KEYS } from './abilities_runtime.js';
 import { recompute } from './actor.js';
+import { STARTER_ABILITIES, talentRank } from '../mmo/talents.js';
 
 /** A skill crossing a round ten: two notes going up. */
 export const MILESTONE_CUE = 'skill_up';
@@ -94,19 +95,20 @@ export function unlockedIds(character) {
  * twelve slots.
  */
 /**
- * What a fresh character's bar starts with: the abilities of the OPENING'S OWN
- * GROUP that the opening already unlocked AND that the starting kit can use,
- * plus Bandage. Before 2026-09-08 every unlocked row of every group went on,
- * so an archer's bar carried Magic Arrow, Hex, Life Drain and Heal, none of
- * which a bow can cast, and the player read eight keys that did nothing.
- * Anything unlocked later is the player's to drag on (unlockHint says how).
+ * What a fresh character's bar starts with: the opening's actual granted
+ * basics, plus Bandage and Recall, if the starting kit can use them. Skill
+ * floors alone do not put a row on the bar: an opening may meet an ability's
+ * practice requirement before it has bought that class node.
  */
 export function starterBar(character) {
-  const group = OPENING_GROUP[character?.opening] || 'everyone';
   const eq = character?.equipment || {};
   const pack = character?.pack || null;
-  return unlockedForCharacter(character)
-    .filter((a) => !a.passive && ((a.group === group && group !== 'everyone') || a.id === 'bandage' || a.id === 'recall'))
+  const ids = new Set([...(STARTER_ABILITIES[character?.opening] || []), 'bandage', 'recall']);
+  return [...ids]
+    .map((id) => ABILITIES_BY_ID[id])
+    .filter(Boolean)
+    .filter((a) => !character?.advancement || talentRank(character, a.id) > 0)
+    .filter((a) => !a.passive)
     .filter((a) => weaponCheck(a, eq, pack).ok)
     .map((a) => a.id);
 }

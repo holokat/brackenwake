@@ -10,7 +10,7 @@ import {selectedAchievementTitle} from './achievements/progress.js';
 //   left    the name in a serif, a title taken from the skill you are best at,
 //           a line of your own, then ATTRIBUTES, COMBAT STATS and RESISTANCES
 //           as icon rows
-//   centre  the painted arch with the LIVE rig standing in it, wearing exactly
+//   centre  the live stage with the rig standing in it, wearing exactly
 //           what is equipped, with six named slots down each side of the arch
 //   right   the pack: the filter row, the grid of gilded squares, and the
 //           purse and the load underneath it
@@ -33,6 +33,7 @@ import {selectedAchievementTitle} from './achievements/progress.js';
 //
 
 import { SLOTS, baseFor } from '../mmo/items.js';
+import { OPENINGS_BY_ID } from '../mmo/openings.js';
 import { progressionView } from '../mmo/talents.js';
 import { STATS } from '../mmo/stats.js';
 import { SKILLS, SKILL_BY_ID } from '../mmo/skills.js';
@@ -43,8 +44,9 @@ import {
   previewEquip, equippedCard, readNumbers, actorFor, formatValue, deltaText,
   RESIST_ID,
 } from './compare.js';
-import { attachTip, CODEX_FRAME, dropTarget, dragSource, hideTip } from './windows.js';
-import { theme, icon, itemGlyph, parchmentUrl, ruleUrl, STAT_ICONS, STAT_WORDS } from './ui_theme.js';
+import { attachTip, dropTarget, dragSource, hideTip } from './windows.js';
+import { theme, icon, itemGlyph, STAT_ICONS, STAT_WORDS } from './ui_theme.js';
+import { characterCss } from './character_styles.js';
 import { createPaperdoll } from './paperdoll.js';
 import { buildBag } from './win_bag.js';
 
@@ -134,6 +136,7 @@ export const QUOTES = {
   healer: 'Anyone can open a man. Closing him again is the trick.',
   bard: 'A wolf that is listening is a wolf that is not biting.',
   artisan: 'I would rather make the sword than swing it.',
+  priest: 'A ward is a promise made before the wound arrives.',
   blank: 'Nobody wrote anything down about me. I am seeing to that.',
 };
 
@@ -142,6 +145,7 @@ export const MOTTOES = {
   rogue: 'Quietly, then gone', mage: 'By the first circle', sorcerer: 'The ladder climbs',
   necromancer: 'The grave is a door', healer: 'Close what is open', bard: 'Play them down',
   artisan: 'Made by hand', blank: 'Unwritten',
+  priest: 'The ward holds',
 };
 
 export const DEFAULT_QUOTE = 'What is behind me is walked. What is ahead is not.';
@@ -218,7 +222,7 @@ export function titleOf(character) {
 
 export const quoteOf = (character) => QUOTES[character?.opening] || DEFAULT_QUOTE;
 export const mottoOf = (character) => MOTTOES[character?.opening] || DEFAULT_MOTTO;
-export const classWordOf = (character) => CLASS_WORDS[character?.opening] || DEFAULT_CLASS_WORD;
+export const classWordOf = (character) => OPENINGS_BY_ID[character?.opening]?.name || CLASS_WORDS[character?.opening] || DEFAULT_CLASS_WORD;
 
 /**
  * The fighter combat_rules wants. The live actor when there is one, so the
@@ -330,128 +334,15 @@ export function compareCardFor(character, item, hint, preview) {
   return card;
 }
 
-const CSS = `
-.bw-sheet {
-  position: absolute; inset: 0; min-height: 0; overflow: hidden;
-}
-.bw-sheet > .bw-panel { min-height: 0; position: absolute; background: transparent; border: 0; box-shadow: none; }
-.bw-sheet .bw-who { margin-bottom: 12px; }
-.bw-sheet .bw-quote { border-left: 2px solid ${theme.goldDim}88; padding-left: 10px; }
-.bw-sheet .bw-panel {
-  display: flex; flex-direction: column; padding: clamp(10px, 1.1vw, 17px);
-  background-image: none;
-}
-.bw-sheet .bw-left-panel {
-  left: ${CODEX_FRAME.panels.left.x * 100}%; top: ${CODEX_FRAME.panels.left.y * 100}%;
-  width: ${CODEX_FRAME.panels.left.w * 100}%; height: ${CODEX_FRAME.panels.left.h * 100}%;
-  overflow-y: auto; overflow-x: hidden;
-}
-.bw-sheet .bw-pack-panel {
-  left: ${CODEX_FRAME.panels.right.x * 100}%; top: ${CODEX_FRAME.panels.right.y * 100}%;
-  width: ${CODEX_FRAME.panels.right.w * 100}%; height: ${CODEX_FRAME.panels.right.h * 100}%;
-  overflow: hidden;
-}
+const CSS = characterCss(theme);
 
-.bw-doll-stage {
-  position: absolute; inset: 0; pointer-events: none; isolation: isolate;
+function css() {
+  if (typeof document === 'undefined' || document.getElementById('bw-sheet-css')) return;
+  const style = document.createElement('style');
+  style.id = 'bw-sheet-css';
+  style.textContent = CSS;
+  document.head.appendChild(style);
 }
-.bw-doll-stage::before, .bw-doll-stage::after {
-  content: ''; position: absolute; top: 22.5%; height: 49%;
-  box-sizing: border-box; z-index: 0; border: 1px solid ${theme.goldDim}bb;
-  border-radius: 8px;
-  background: linear-gradient(90deg, rgba(8,10,13,.98), rgba(28,24,19,.96) 58%, rgba(8,10,13,.98));
-  box-shadow: inset 0 0 0 2px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,241,189,.12), 0 6px 15px rgba(0,0,0,.42);
-}
-.bw-doll-stage::before { left: 32.03125%; width: 7.03125%; }
-.bw-doll-stage::after { left: 60.546875%; width: 7.291667%; }
-.bw-arch { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
-.bw-arch-inner {
-  position: absolute;
-  left: ${(CODEX_FRAME.dais.topX - CODEX_FRAME.arch.w * 0.37) * 100}%;
-  top: ${CODEX_FRAME.arch.y * 100}%;
-  width: ${CODEX_FRAME.arch.w * 0.74 * 100}%;
-  height: ${(CODEX_FRAME.dais.topY - CODEX_FRAME.arch.y) * 100}%;
-  overflow: visible; pointer-events: auto;
-}
-.bw-arch-inner .bw-doll-canvas {
-  width: 100%; height: 100%; display: block;
-}
-.bw-arch-none {
-  position: absolute; left: 39%; right: 39%; top: 44%; text-align: center;
-  font-family: ${theme.fonts.display}; font-size: 11px; letter-spacing: .16em;
-  font-variant-caps: small-caps; color: ${theme.goldDim};
-}
-.bw-doll-motto {
-  position: absolute; left: 38%; top: 87.5%; width: 24%; margin: 0;
-  z-index: 2; pointer-events: auto;
-}
-
-.bw-note {
-  margin-top: 12px; padding: 11px 13px; font-style: italic; line-height: 1.5;
-  color: ${theme.parchmentDim};
-  background: ${parchmentUrl()} center / cover;
-  border: 1px solid ${theme.goldDim}66;
-}
-
-/* the preview. A number that is about to change is shown AT ITS NEW VALUE,
-   green up or red down, with the difference after it. Leaving the hover puts
-   the plain number back; equipping makes the new one plain. */
-.bw-row .bw-v .bw-vnum { font-family: ${theme.fonts.display}; font-variant-numeric: tabular-nums; }
-.bw-vd { font-family: ${theme.fonts.body}; font-size: 12.5px; }
-.bw-inv-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin-bottom: 9px; padding-bottom: 9px;
-  background: ${ruleUrl()} bottom center / 100% 9px no-repeat;
-}
-.bw-inv-head .bw-hdr { margin: 0; padding: 0; background: none; }
-.bw-inv-count {
-  font-family: ${theme.fonts.display}; font-size: 12px; font-weight: 600;
-  font-variant-numeric: tabular-nums; color: ${theme.gold};
-}
-.bw-sheet .bw-doll-slot {
-  position: absolute;
-  width: var(--slot-w); height: var(--slot-h); box-sizing: border-box;
-  z-index: 2; border: 1px solid ${theme.goldDim}; border-radius: 5px;
-  background: rgba(13,15,18,.98);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 0 2px rgba(0,0,0,.34), 0 3px 8px rgba(0,0,0,.28);
-  pointer-events: auto;
-}
-.bw-sheet .bw-doll-slot:hover { border-color: ${theme.goldBright}; background: rgba(35,29,20,.56); }
-.bw-sheet .bw-doll-slot.bw-empty {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 3px; padding: 4px; color: ${theme.goldDim};
-}
-.bw-sheet .bw-doll-empty-glyph { display: block; height: 24px; line-height: 0; opacity: .86; }
-.bw-sheet .bw-doll-empty-glyph svg { width: 24px; height: 24px; }
-.bw-sheet .bw-doll-label {
-  display: block; max-width: 100%; overflow: hidden; text-align: center; text-overflow: ellipsis;
-  white-space: nowrap; font-family: ${theme.fonts.body}; font-size: clamp(10px, .7vw, 13px);
-  letter-spacing: .025em; line-height: 1.1;
-}
-.bw-sheet .bw-doll-slot:not(.bw-empty) {
-  background: rgba(20,19,22,.98);
-  border-color: ${theme.slot.borderLit};
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 5px 12px rgba(0,0,0,.35);
-}
-
-/* Bigger on the sheet, at the user's word (2026-09-08): the name, the headers,
-   the stat rows and the art in every slot. The glyph is an inline SVG drawn at
-   30 px, or a webp image at 30 px; the span it sits in is sized to the cell and the SVG fills the span. */
-.bw-sheet .bw-left-panel .bw-title { font-size: 31px; }
-.bw-sheet .bw-left-panel .bw-class-word { font-size: 17px; }
-.bw-sheet .bw-left-panel .bw-quote { font-size: 16px; }
-.bw-sheet .bw-hdr { font-size: 15px; margin-top: 16px; }
-.bw-sheet .bw-inv-head .bw-hdr { font-size: 15px; margin-top: 0; }
-.bw-sheet .bw-inv-count { font-size: 15px; }
-.bw-sheet .bw-left-panel .bw-row { font-size: 18px; grid-template-columns: 24px 1fr auto; padding: 4px 0; }
-.bw-sheet .bw-left-panel .bw-row .bw-v { font-size: 17px; }
-.bw-sheet .bw-left-panel .bw-row .bw-i svg { width: 22px; height: 22px; }
-.bw-sheet .bw-doll-slot:not(.bw-empty) > span:not(.bw-q) { display: flex; width: 84%; height: 84%; align-items: center; justify-content: center; }
-.bw-sheet .bw-doll-slot:not(.bw-empty) > span:not(.bw-q) > svg, .bw-sheet .bw-doll-slot:not(.bw-empty) > span:not(.bw-q) > img { width: 100%; height: 100%; object-fit: contain; }
-.bw-sheet .bw-doll-slot .bw-q { font-size: 34px; }
-.bw-sheet .bw-bag-grid .bw-slot > span:not(.bw-q) { display: flex; width: 86%; height: 86%; align-items: center; justify-content: center; }
-.bw-sheet .bw-bag-grid .bw-slot > span:not(.bw-q) > svg, .bw-sheet .bw-bag-grid .bw-slot > span:not(.bw-q) > img { width: 100%; height: 100%; object-fit: contain; }
-`;
 
 const h = (tag, cls, text) => {
   const e = document.createElement(tag);
@@ -460,27 +351,6 @@ const h = (tag, cls, text) => {
   return e;
 };
 
-const pct = (v) => `${v * 100}%`;
-const place = (el, r) => {
-  el.style.left = pct(r.x);
-  el.style.top = pct(r.y);
-  if (el.style.setProperty) {
-    el.style.setProperty('--slot-w', pct(r.w));
-    el.style.setProperty('--slot-h', pct(r.h));
-  } else {
-    el.style['--slot-w'] = pct(r.w);
-    el.style['--slot-h'] = pct(r.h);
-  }
-};
-
-function css() {
-  if (typeof document === 'undefined') return;
-  if (document.getElementById('bw-sheet-css')) return;
-  const s = document.createElement('style');
-  s.id = 'bw-sheet-css';
-  s.textContent = CSS;
-  document.head.appendChild(s);
-}
 
 export const panel = {
   id: 'character',
@@ -561,10 +431,14 @@ export const panel = {
     const note = h('div', 'bw-note');
     root.appendChild(left);
 
-    // ---- centre: the rig and the twelve painted slots -----------------------
+    // ---- centre: the rig and the twelve equipment slots --------------------
     const mid = h('div', 'bw-doll-stage');
     const arch = h('div', 'bw-arch');
+    const leftRail = h('div', 'bw-doll-rail bw-doll-rail-left');
+    const rightRail = h('div', 'bw-doll-rail bw-doll-rail-right');
+    mid.appendChild(leftRail);
     mid.appendChild(arch);
+    mid.appendChild(rightRail);
     const motto = h('div', 'bw-motto bw-doll-motto');
     mid.appendChild(motto);
     root.appendChild(mid);
@@ -674,8 +548,7 @@ export const panel = {
     const addCell = (slot) => {
       const cell = h('div', 'bw-slot bw-doll-slot');
       cell.dataset.slot = slot;
-      place(cell, CODEX_FRAME.slots[slot]);
-      mid.appendChild(cell);
+      (DOLL.left.includes(slot) ? leftRail : rightRail).appendChild(cell);
       cells.set(slot, cell);
       attachTip(cell, () => {
         const item = character().equipment?.[slot];
@@ -737,6 +610,7 @@ export const panel = {
           g.innerHTML = itemGlyph(base, 30);
           cell.appendChild(g);
         }
+        cell.appendChild(h('span', 'bw-doll-label', SLOT_LABELS[slot]));
         cell.title = labelOf(item);
       }
     }

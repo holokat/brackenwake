@@ -1,4 +1,4 @@
-// The four openings, customisation and appearance, driven both ways.
+// The six openings, customisation and appearance, driven both ways.
 // Run: node src/mmo/openings.test.mjs
 //
 // Every number printed here was measured in this file. Where a rule is
@@ -41,8 +41,8 @@ const docRows = openingsBlock
   .map((l) => l.trim().slice(1, -1).split('|').map((c) => c.trim()))
   .filter((c) => c[0] && c[0] !== 'opening' && !c[0].startsWith('---'));
 
-check('the document lists four openings', docRows.length === 4, `${docRows.length} rows`);
-check('the module holds the same four', OPENINGS.length === OPENING_COUNT && OPENING_COUNT === 4,
+check('the document lists six openings', docRows.length === 6, `${docRows.length} rows`);
+check('the module holds the same six', OPENINGS.length === OPENING_COUNT && OPENING_COUNT === 6,
   `${OPENINGS.length} openings`);
 
 // Doc skill names -> ids, so the comparison runs on the document's own words.
@@ -111,10 +111,10 @@ check('and the invented ones are declared, not hidden', INVENTED_ITEM_BASES.leng
   INVENTED_ITEM_BASES.join(', '));
 check('the wand is among them and the staff is not, because 03 names a staff',
   INVENTED_ITEM_BASES.includes('wand') && !INVENTED_ITEM_BASES.includes('staff'));
-check('every casting opening carries a focus in its kit',
-  ['mage'].every((id) => kitItems(OPENINGS_BY_ID[id])
+check('every staff-casting opening carries a focus in its kit',
+  ['mage', 'priest'].every((id) => kitItems(OPENINGS_BY_ID[id])
     .some((e) => ['wand', 'staff', 'bone_staff'].includes(e.base))),
-  ['mage']
+  ['mage', 'priest']
     .map((id) => `${id}: ${kitItems(OPENINGS_BY_ID[id]).map((e) => e.base).find((b) => ['wand', 'staff', 'bone_staff'].includes(b))}`)
     .join(', '));
 check('and no kit still hands a caster a quarterstaff to cast with',
@@ -148,6 +148,10 @@ check('every opening carries the invented "few coins"',
 check('every kit has items and every base is known',
   OPENINGS.every((o) => o.kit.length > 0 && o.kit.every((e) => e.base in ITEM_BASES)),
   OPENINGS.map((o) => `${o.name} ${o.kit.length}`).join('  '));
+check('every opening carries exactly twenty bandages',
+  OPENINGS.every((o) => o.kit.filter((e) => e.base === 'bandage').length === 1
+    && o.kit.find((e) => e.base === 'bandage').count === 20),
+  OPENINGS.map((o) => `${o.id}:${o.kit.find((e) => e.base === 'bandage')?.count}`).join(' '));
 
 // The audit is a gate, so drive it the wrong way too.
 check('auditOpenings passes the real table', auditOpenings() === true);

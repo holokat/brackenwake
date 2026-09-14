@@ -1,5 +1,5 @@
 import { BASES as ITEM_BASES_JS } from './items.js';
-// Brackenwake: the four openings, customisation, and appearance.
+// Brackenwake: the six openings, customisation, and appearance.
 //
 // Pure data and rules. No THREE, no DOM, no imports. Node-testable.
 // Source of truth: docs/mmo/04-CLASSES-ABILITIES.md (the openings table),
@@ -44,6 +44,7 @@ export const STAT_IDS = ['str', 'dex', 'int', 'con', 'wis'];
  */
 export const OPENING_GROUP = {
   warrior: 'warrior', ranger: 'ranger', rogue: 'rogue', mage: 'mage',
+  paladin: 'healer', priest: 'healer',
 };
 
 export const STAT_LABELS = {
@@ -352,9 +353,9 @@ export const OPENINGS = [
     blurb: 'Opens what is shut and is behind you when it matters.',
   }),
   opening({
-    id: 'mage', name: 'Wizard',
+    id: 'mage', name: 'Mage',
     STR: 30, DEX: 40, INT: 70, CON: 45, WIS: 65,
-    // Mysticism in the sheet since 2026-09-08: the Wizard is the mage, the
+    // Mysticism in the sheet since 2026-09-08: the Mage is the mage, the
     // sorcerer and the mystic in one, and its whole spell list has to open.
     skills: { magery: 50, mysticism: 30, evaluatingIntelligence: 45, meditation: 45, resistingSpells: 30 },
     kit: [
@@ -367,12 +368,35 @@ export const OPENINGS = [
     ],
     blurb: 'Fire, cold and lightning at range, and nothing at all to take a hit with.',
   }),
+  opening({
+    id: 'paladin', name: 'Paladin',
+    STR: 60, DEX: 40, INT: 40, CON: 60, WIS: 50,
+    skills: { swordsmanship: 45, tactics: 35, parrying: 30, chivalry: 50, healing: 40 },
+    kit: [
+      { base: 'longsword', count: 1 },
+      { base: 'kiteShield', count: 1 },
+      ...outfit('chainmail'),
+    ],
+    blurb: 'Holds the line with steel and answers wounds with Chivalry.',
+  }),
+  opening({
+    id: 'priest', name: 'Priest',
+    STR: 30, DEX: 40, INT: 65, CON: 45, WIS: 70,
+    skills: { mysticism: 40, chivalry: 40, healing: 40, meditation: 40, evaluatingIntelligence: 20, resistingSpells: 20 },
+    kit: [
+      // A staff occupies both hands. A holy book belongs in the Priest's
+      // future kit, when there is a one-handed casting focus to pair with it.
+      { base: 'staff', count: 1 },
+      ...outfit('cloth'),
+    ],
+    blurb: 'Keeps a staff at hand, a ward between allies and danger.',
+  }),
 ];
 
 export const OPENINGS_BY_ID = Object.fromEntries(OPENINGS.map((o) => [o.id, o]));
 
-/** Four openings. */
-export const OPENING_COUNT = 4;
+/** Six openings. */
+export const OPENING_COUNT = 6;
 
 // ---------------------------------------------------------------------------
 // Customisation

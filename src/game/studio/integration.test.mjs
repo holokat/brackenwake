@@ -35,6 +35,8 @@ const finite=group=>{group.updateMatrixWorld(true);group.traverse(o=>assert.ok(o
 const materials=root=>{const out=[];root.traverse(o=>{if(!o.isMesh&&!o.isSkinnedMesh)return;if(Array.isArray(o.material))out.push(...o.material);else if(o.material)out.push(o.material);});return out;};
 const studioClassById=Object.fromEntries(studioClasses.map(c=>[c.id,c]));
 auditStudioOpeningClasses(OPENINGS);
+assert.equal(studioClassForOpening('paladin'),'warrior','Paladin reuses the authored Warrior studio model');
+assert.equal(studioClassForOpening('priest'),'wizard','Priest reuses the authored Wizard studio model');
 auditStudioNpcLooks([...NPC_LIST,...Object.values(STORY_ROLES)]);
 auditStudioCreatureLooks(MONSTER_LIST);
 let bodies=0,swaps=0,heldSwaps=0,drops=0,creatures=0,casts=0,npcs=0;
@@ -143,5 +145,5 @@ for(const [id,affix]of Object.entries({flame:'hitFireball',frost:'hitFrost',shoc
 assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'poison'}},{base:'dagger'},9).id,'venom');assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'holy'}},{base:'dagger'},9).id,'holy');assert.equal(enchantmentFor({enchant:{until:10,hitsLeft:1,damageType:'holy'}},{base:'dagger'},10).id,'none');
 const missingSource=ABILITIES.filter(a=>!sourceAbility(a.id)).map(a=>a.id);
 assert.deepEqual(missingSource,['dualStrike','deepCut','throwingKnife','kidneyShot','finishingStrike','camp','recall']);
-assert.equal(swaps,14);   // four class tier changes, plus the six legacy outfits worn and taken off once each
+assert.equal(swaps,OPENINGS.length*2+Object.values(BASES).filter(b=>b.legacyOutfit).length);
 console.log(JSON.stringify({bodies,swaps,heldSwaps,npcs,creatures,drops,casts,sourceAbilities:ABILITIES.length-missingSource.length}));

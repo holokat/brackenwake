@@ -10,12 +10,9 @@ import {
   KIT_BASES, MISSING_BASES, STAND_INS, PREFERRED, FALLBACK, DEFAULT_SETTINGS, NAME_MAX,
   OPENING_GROUP, EMBLEMS, emblemSvg, openingColour, auditEmblems,
   statPct, STAT_FLOOR, STAT_CEIL, KIT_ICONS_SHOWN,
-  GAME_TITLE, QUOTES, CLASS_NOTE, statWords, artId, artUrl, auditClassText,
+  GAME_TITLE, QUOTES, CLASS_NOTE, statWords, artId, artUrl, auditClassText, specialisationsFor,
 } from './creation.js';
-import {
-  ROSTER_FRAME, ROSTER_FRAME_FIT, ROSTER_PANEL_ART,
-  containBox, classPortraitUrl, rosterBgUrl, rosterPanelsUrl,
-} from './ui_theme.js';
+import { classPortraitUrl, rosterBgUrl } from './ui_theme.js';
 import { GROUP_COLOUR } from './win_abilities.js';
 import { STAT_IDS as STAT_ORDER, STAT_LABELS, STAT_NAMES, SKILL_NAMES } from '../mmo/openings.js';
 import {
@@ -58,7 +55,7 @@ console.log(`       (items.js makes ${Object.values(KIT_BASES).filter(Boolean).l
     const p = planCharacter({ opening: op.id, name: 'Ashe' });
     if (!p.ok) bad.push(`${op.id}: ${p.errors.join('; ')}`);
   }
-  check('all four openings plan', bad.length === 0 && OPENINGS.length === 4, bad.join(' | '));
+  check('all six openings plan', bad.length === 0 && OPENINGS.length === 6, bad.join(' | '));
 }
 {
   // Counted, not assumed: what each opening actually walks out with.
@@ -91,9 +88,23 @@ console.log(`       (items.js makes ${Object.values(KIT_BASES).filter(Boolean).l
 }
 {
   const p = planCharacter({ opening: 'mage', name: 'Ashe' });
-  check('the Wizard starts with a staff and cloth robe',
+  check('the Mage starts with a staff and cloth robe',
     p.character.equipment.mainHand?.base === 'staff' && p.character.equipment.chest?.base === 'cloth_chest',
     Object.values(p.character.equipment).filter(Boolean).map((i) => i.base).join(','));
+}
+{
+  const paladin = planCharacter({ opening: 'paladin', name: 'Ashe' }).character;
+  const priest = planCharacter({ opening: 'priest', name: 'Ashe' }).character;
+  check('the Paladin wears chain, holds a longsword and raises a kite shield',
+    paladin.equipment.chest?.base === 'chain_chest'
+      && paladin.equipment.mainHand?.base === 'longsword'
+      && paladin.equipment.offHand?.base === 'kite',
+    Object.values(paladin.equipment).filter(Boolean).map((i) => i.base).join(','));
+  check('the Priest wears cloth and keeps the two-handed staff in hand',
+    priest.equipment.chest?.base === 'cloth_chest'
+      && priest.equipment.mainHand?.base === 'staff'
+      && !priest.equipment.offHand,
+    Object.values(priest.equipment).filter(Boolean).map((i) => i.base).join(','));
 }
 
 // ---- the document is whole ---------------------------------------------------
@@ -272,9 +283,13 @@ check('the warrior wears the warrior colour', openingColour('warrior') === GROUP
 check('the mage wears the mage colour', openingColour('mage') === GROUP_COLOUR.mage, openingColour('mage'));
 check('a retired opening takes the parchment neutral, being no archetype',
   openingColour('blank') === GROUP_COLOUR.everyone, openingColour('blank'));
-check('the four openings wear four colours',
-  new Set(OPENINGS.map((o) => openingColour(o.id))).size === 4,
+check('the six openings use their five ability-group colours',
+  new Set(OPENINGS.map((o) => openingColour(o.id))).size === 5,
   [...new Set(OPENINGS.map((o) => openingColour(o.id)))].join(' '));
+check('the Paladin and Priest reuse the existing authored class paintings',
+  classPortraitUrl('paladin') === classPortraitUrl('warrior')
+    && classPortraitUrl('priest') === classPortraitUrl('mage'),
+  `${classPortraitUrl('paladin')} / ${classPortraitUrl('priest')}`);
 
 // A path a browser will not paint is a blank square, and a blank square is
 // exactly the failure this whole file exists to catch. So the path data is
@@ -354,7 +369,7 @@ check('an opening nobody offers draws nothing rather than a broken tag', emblemS
 // measure the words that took its place.
 console.log('creation: what a class says of itself');
 check('every opening is written as well as drawn', auditClassText() === OPENINGS.length, `${OPENINGS.length} openings`);
-check('all four carry a quote', OPENINGS.every((o) => typeof QUOTES[o.id] === 'string' && QUOTES[o.id].length > 12),
+check('all six carry a quote', OPENINGS.every((o) => typeof QUOTES[o.id] === 'string' && QUOTES[o.id].length > 12),
   OPENINGS.filter((o) => !(QUOTES[o.id] || '').length).map((o) => o.id).join(','));
 check('and no two of them are the same line',
   new Set(OPENINGS.map((o) => QUOTES[o.id])).size === OPENINGS.length,
@@ -362,13 +377,13 @@ check('and no two of them are the same line',
 check('and every one is short enough for the line it sits on',
   OPENINGS.every((o) => QUOTES[o.id].length <= 72),
   OPENINGS.map((o) => `${o.id}:${QUOTES[o.id].length}`).join(' '));
-check('and none of the four is written with a dash the house style forbids',
+check('and none of the six is written with a dash the house style forbids',
   OPENINGS.every((o) => !/[\u2014\u2013]/.test(QUOTES[o.id] + CLASS_NOTE[o.id])),
   OPENINGS.filter((o) => /[\u2014\u2013]/.test(QUOTES[o.id] + CLASS_NOTE[o.id])).map((o) => o.id).join(','));
 check('nothing is quoted that is not an opening',
   Object.keys(QUOTES).every((id) => !!OPENINGS_BY_ID[id]),
   Object.keys(QUOTES).filter((id) => !OPENINGS_BY_ID[id]).join(','));
-check('all four carry the sentence that says what the class is for',
+check('all six carry the sentence that says what the class is for',
   OPENINGS.every((o) => typeof CLASS_NOTE[o.id] === 'string' && CLASS_NOTE[o.id].length > 20),
   OPENINGS.filter((o) => !(CLASS_NOTE[o.id] || '').length).map((o) => o.id).join(','));
 check('and that sentence is not the blurb said twice',
@@ -397,7 +412,7 @@ check('and a retired opening has no words at all',
   statWords('blank').length === 0, statWords('blank').join(' '));
 check('an opening nobody offers has no words at all', statWords('druid').length === 0);
 check('the title on the plaque comes from one constant', GAME_TITLE === 'Brackenwake', GAME_TITLE);
-check('the art slot wears an id of its own per class, and the four are distinct',
+check('the art slot wears an id of its own per class, and the six are distinct',
   new Set(OPENINGS.map((o) => artId(o.id))).size === OPENINGS.length
   && artId('warrior') === 'bw-cr-art-warrior',
   artId('warrior'));
@@ -481,8 +496,6 @@ const kids = (n, cls) => n.children.filter((x) => x.classList.contains(cls));
 const one = (n, cls) => withClass(n, cls)[0];
 const ranges = (n) => walk(n).filter((x) => x.tagName === 'INPUT' && x.type === 'range');
 const textInput = (n) => walk(n).find((x) => x.tagName === 'INPUT' && x.type === 'text');
-const panelHeight = (box, panel = ROSTER_FRAME.rightPanel) => (panel.y2 - panel.y1) * box.h;
-const px = (n) => `${Math.round(n * 10) / 10}px`;
 
 function screen() {
   const root = document.createElement('div');
@@ -496,7 +509,7 @@ check('the screen is built', !!s1.cr.el && s1.cr.el.id === 'bw-creation', String
 check('and it wears the shared look, so the fonts and the tokens reach it',
   s1.cr.el.classList.contains('bw-ui'), s1.cr.el.className);
 
-// C3: the painting is the sheet. The two painted side panels hold controls.
+// The CSS sheet has two columns: class choices and the selected character.
 {
   const panel = one(s1.cr.el, 'bw-cr-panel');
   check('the panel is the whole window and there is one of it', withClass(s1.cr.el, 'bw-cr-panel').length === 1);
@@ -504,7 +517,7 @@ check('and it wears the shared look, so the fonts and the tokens reach it',
   const got = panel.children.map((c) => want.find((w) => c.classList.contains(w)) || c.className);
   check('and it holds the left panel, right panel and hidden footer, in that order',
     got.join(',') === want.join(','), got.join(','));
-  check('the four cards are in the left column and nowhere else',
+  check('the six cards are in the left column and nowhere else',
     withClass(one(s1.cr.el, 'bw-cr-left'), 'bw-cr-card').length === OPENINGS.length
     && withClass(one(s1.cr.el, 'bw-cr-right'), 'bw-cr-card').length === 0,
     String(withClass(one(s1.cr.el, 'bw-cr-left'), 'bw-cr-card').length));
@@ -535,40 +548,22 @@ check('and the shared theme went in with it',
   check('as with the theme', themes === 1, String(themes));
 }
 {
-  // The layout is CSS, and node cannot lay anything out, so what CAN be
-  // measured here is that the rules the layout depends on are in the sheet
-  // that goes to the browser: positions from the one measured constants block,
-  // the transparent panel frame, and side panels that cannot collide.
+  // The layout is CSS, and node cannot lay it out, so these checks measure the
+  // actual responsive contract sent to the browser instead of raster artwork.
   const css = document.getElementById('bw-creation-css').textContent;
-  check('the left and right panels are placed from ROSTER_FRAME fractions',
-    css.includes(`${ROSTER_FRAME.leftPanel.x1} * var(--bw-scene-w)`)
-    && css.includes(`${ROSTER_FRAME.rightPanel.x1} * var(--bw-scene-w)`));
-  check('the creation frame uses the same C4 smaller contain box as roster',
-    ROSTER_FRAME_FIT.maxWidth === 1400 && ROSTER_FRAME_FIT.viewportW === 0.82 && ROSTER_FRAME_FIT.viewportH === 0.82,
-    JSON.stringify(ROSTER_FRAME_FIT));
-  {
-    const a = containBox(1568, 721);
-    const b = containBox(1280, 720);
-    check('at 1568 by 721 the creation frame is height bound and centred at the C4 scale',
-      px(a.w) === '1049.9px' && px(a.h) === '591.2px' && px(a.x) === '259.1px' && px(a.y) === '64.9px',
-      `${px(a.w)} by ${px(a.h)} at ${px(a.x)}, ${px(a.y)}`);
-    check('at 1280 by 720 the creation frame is height bound and centred at the C4 scale',
-      px(b.w) === '1048.4px' && px(b.h) === '590.4px' && px(b.x) === '115.8px' && px(b.y) === '64.8px',
-      `${px(b.w)} by ${px(b.h)} at ${px(b.x)}, ${px(b.y)}`);
-    check('the creation portrait is below the fifty eight percent cap and leaves room for spreads',
-      ROSTER_PANEL_ART.creationPortraitFrac < ROSTER_PANEL_ART.maxPortraitFrac
-      && css.includes(`* ${ROSTER_PANEL_ART.creationPortraitFrac})`)
-      && css.includes(`* ${ROSTER_PANEL_ART.maxPortraitFrac}`),
-      `${Math.round(panelHeight(a) * ROSTER_PANEL_ART.creationPortraitFrac * 10) / 10}px of ${Math.round(panelHeight(a) * 10) / 10}px`);
-  }
-  check('the transparent joined panels are painted over the background',
-    css.includes(`background-image: url("${rosterPanelsUrl()}")`)
-    && /#bw-creation::before \{[^}]*pointer-events: none/.test(css));
+  check('the creation surface is a fluid two-column CSS panel',
+    css.includes('width: min(1320px, calc(100vw - 32px))')
+    && css.includes('height: min(88vh, 900px)') && css.includes('grid-template-columns: minmax(310px, .9fr) minmax(390px, 1.1fr)'));
+  check('the authored background remains while the roster panel skin is absent',
+    !/roster-panels|bw-scene-|ROSTER_FRAME/.test(css) && /#bw-creation > \.bw-ro-video/.test(css));
   check('the C3 sheet has no stage or turn-control rules',
     !/bw-cr-stage|bw-cr-turn|bw-cr-arrow/.test(css));
-  check('the right interior scrolls, with its whole content centred when it is short',
-    /\.bw-cr-right \{[^}]*display: block; overflow-y: auto; overflow-x: hidden/.test(css)
-    && /\.bw-cr-scroll \{\s*min-height: 100%; overflow: visible;[^}]*justify-content: center/.test(css));
+  check('the two columns scroll independently and stack on small screens',
+    /\.bw-cr-left, #bw-creation \.bw-cr-right \{[^}]*overflow: auto/.test(css)
+    && /@media \(max-width: 900px\)/.test(css));
+  check('the stat and skill controls keep forty-pixel hit areas',
+    css.includes('min-width: 40px; min-height: 40px') && css.includes('height: 40px; margin: 0; appearance: none'));
+  check('creation headings keep their authored sentence case', !css.includes('text-transform: uppercase'));
   check('the name block follows the spreads inside that centred column',
     one(s1.cr.el, 'bw-cr-scroll').parent === one(s1.cr.el, 'bw-cr-right')
     && one(s1.cr.el, 'bw-cr-act').parent === one(s1.cr.el, 'bw-cr-scroll')
@@ -591,8 +586,8 @@ check('there is a card for every opening, in the openings order',
   && s1.cards.map((c) => c.dataset.opening).join(',') === OPENINGS.map((o) => o.id).join(','),
   s1.cards.map((c) => c.dataset.opening).join(','));
 {
-  // C3: each class card carries only the user supplied portrait, class name
-  // and one line blurb. The selected card is the one red plate.
+  // Each class card carries only the supplied portrait, class name and one
+  // line blurb. The selected card has the active CSS state.
   const bad = [];
   for (const card of s1.cards) {
     const op = OPENINGS_BY_ID[card.dataset.opening];
@@ -607,9 +602,22 @@ check('there is a card for every opening, in the openings order',
     if (bl.length !== 1 || bl[0].textContent !== op.blurb) bad.push(`${op.id}: the blurb is not the opening s`);
   }
   check('every card carries the class portrait, the name and the blurb', bad.length === 0, bad.join(' | '));
-  check('and nothing else, so four of them fit the painted left panel',
+  check('and nothing else, so six of them fit the class-choice grid',
     s1.cards.every((c) => c.children.length === 3),
     s1.cards.map((c) => c.children.length).join(','));
+}
+
+// The creation choice should show the three routes that will be available
+// after the player enters the world. This reads the same tree data as Skills.
+{
+  const bad = OPENINGS.filter((op) => specialisationsFor(op.id).length !== 3).map((op) => op.id);
+  check('every class names its three future specialisations', bad.length === 0, bad.join(','));
+  check('Mage previews Arcane, Fire and Frost',
+    specialisationsFor('mage').join(',') === 'Arcane,Fire,Frost', specialisationsFor('mage').join(','));
+  check('an unknown class has no invented specialisations', specialisationsFor('unknown').length === 0);
+  const names = kids(one(s1.cr.el, 'bw-cr-specs'), 'bw-cr-spec').map((n) => n.textContent);
+  check('the selected class renders its three specialisation chips',
+    names.join(',') === specialisationsFor(s1.cr.state.opening).join(','), names.join(','));
 }
 
 // --- REWRITTEN. The stat bars were five on every card, drawn from the
@@ -689,9 +697,9 @@ check('there is a card for every opening, in the openings order',
   check('the gear row shows the chosen kit whole, and would count a remainder past the guard', bad.length === 0, bad.join(' | '));
   console.log(`       (${rows.join(' ')})`);
   const over = OPENINGS.filter((o) => kitFor(o, 1).items.length > KIT_ICONS_SHOWN).length;
-  check('and no kit is cut short: every one of the four shows whole, four to a row', over === 0, `${over} of ${OPENINGS.length} openings overflow ${KIT_ICONS_SHOWN}`);
+  check('and no kit is cut short: every one of the six shows whole, four to a row', over === 0, `${over} of ${OPENINGS.length} openings overflow ${KIT_ICONS_SHOWN}`);
   const unmade = OPENINGS.filter((o) => kitFor(o, 1).missing.length).length;
-  check('nothing is greyed today, because every kit base the four name now resolves', unmade === 0, `${unmade} openings come up short`);
+  check('nothing is greyed today, because every kit base the six name now resolves', unmade === 0, `${unmade} openings come up short`);
   s.cr.destroy();
 }
 
@@ -726,7 +734,7 @@ check('there is a card for every opening, in the openings order',
   card.fire('click');
   check('a click on a card picks it', s1.cr.state.opening === 'mage' && lit().join(',') === 'mage', `${s1.cr.state.opening} / ${lit().join(',')}`);
   check('and the stats came with it', JSON.stringify(s1.cr.state.stats) === JSON.stringify(OPENINGS_BY_ID.mage.stats), JSON.stringify(s1.cr.state.stats));
-  check('and so did the right hand panel', one(s1.cr.el, 'bw-cr-cname').textContent === 'Wizard', one(s1.cr.el, 'bw-cr-cname').textContent);
+  check('and so did the right hand panel', one(s1.cr.el, 'bw-cr-cname').textContent === 'Mage', one(s1.cr.el, 'bw-cr-cname').textContent);
   s1.cr.pick('warrior');
 }
 
@@ -756,8 +764,8 @@ check('there is a card for every opening, in the openings order',
     `${withClass(s.cr.el, 'bw-cr-arrow').length} arrows`);
   s.cr.pick('mage');
   const img = one(one(s.cr.el, 'bw-cr-art'), 'bw-cr-art-img');
-  check('picking Wizard changes the portrait preview',
-    img.src === classPortraitUrl('mage') && img.alt === 'Wizard',
+  check('picking Mage changes the portrait preview',
+    img.src === classPortraitUrl('mage') && img.alt === 'Mage',
     `${img.src} / ${img.alt}`);
   s.cr.destroy();
 }

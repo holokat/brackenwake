@@ -33,7 +33,8 @@
 // registers, opens, closes, switches tabs and reads keys with no DOM at all,
 // which is what windows.test.mjs drives: the test path is the real path.
 
-import { injectTheme, theme, itemGlyph, cornerUrl, ruleUrl } from './ui_theme.js';
+import { injectTheme, theme, itemGlyph } from './ui_theme.js';
+import { codexCss } from './codex_styles.js';
 import { tabIcon } from './icon_art.js';
 
 /** The one frame the everyday panels live in. */
@@ -54,47 +55,6 @@ export const CODEX_TABS = [
 ];
 
 export const CODEX_IDS = CODEX_TABS.map((t) => t.id);
-
-/**
- * Pixel measurements from public/ui/codex-frame.webp, 1536 x 1024. Fractions
- * are kept here so the tab hit areas and page layout cannot drift apart.
- */
-export const CODEX_FRAME = {
-  image: { src: '/ui/codex-frame.webp', width: 1536, height: 1024, aspect: 1.5 },
-  tabs: {
-    character: { x: 151 / 1536, y: 39 / 1024, w: 220 / 1536, h: 139 / 1024 },
-    skills: { x: 390 / 1536, y: 73 / 1024, w: 168 / 1536, h: 79 / 1024 },
-    abilities: { x: 570 / 1536, y: 73 / 1024, w: 178 / 1536, h: 79 / 1024 },
-    crafting: { x: 760 / 1536, y: 73 / 1024, w: 178 / 1536, h: 79 / 1024 },
-    map: { x: 950 / 1536, y: 73 / 1024, w: 176 / 1536, h: 79 / 1024 },
-    achievements: { x: 1138 / 1536, y: 73 / 1024, w: 183 / 1536, h: 79 / 1024 },
-  },
-  close: { x: 1333 / 1536, y: 43 / 1024, w: 121 / 1536, h: 143 / 1024 },
-  panels: {
-    left: { x: 145 / 1536, y: 186 / 1024, w: 344 / 1536, h: 698 / 1024 },
-    right: { x: 1046 / 1536, y: 186 / 1024, w: 418 / 1536, h: 698 / 1024 },
-    middle: { x: 145 / 1536, y: 186 / 1024, w: 1319 / 1536, h: 698 / 1024 },
-  },
-  arch: { x: 600 / 1536, y: 173 / 1024, w: 340 / 1536, h: 547 / 1024 },
-  dais: { x: 494 / 1536, y: 697 / 1024, w: 548 / 1536, h: 226 / 1024, topX: 768 / 1536, topY: 763 / 1024 },
-  slots: {
-    // Six evenly spaced cells sit on each opaque rail. Their bounds stop
-    // above the dais and clear of the left statistics and right pack panels,
-    // so the old painted three-cell decoration cannot show through them.
-    head: { x: 496 / 1536, y: 242 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    shoulders: { x: 496 / 1536, y: 323 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    chest: { x: 496 / 1536, y: 404 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    hands: { x: 496 / 1536, y: 485 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    waist: { x: 496 / 1536, y: 566 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    legs: { x: 496 / 1536, y: 647 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    feet: { x: 942 / 1536, y: 242 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    neck: { x: 942 / 1536, y: 323 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    ring1: { x: 942 / 1536, y: 404 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    ring2: { x: 942 / 1536, y: 485 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    mainHand: { x: 942 / 1536, y: 566 / 1024, w: 100 / 1536, h: 76 / 1024 },
-    offHand: { x: 942 / 1536, y: 647 / 1024, w: 100 / 1536, h: 76 / 1024 },
-  },
-};
 
 /**
  * Ids that are not pages of their own any more and land on the page that
@@ -127,187 +87,7 @@ export const ESCAPE_KEY = 'escape';
 /** Where the first standalone window lands, and how far each next one steps. */
 export const CASCADE = { x: 30, y: 26 };
 
-const CSS = `
-#bw-windows, #bw-windows * { box-sizing: border-box; }
-#bw-windows {
-  position: fixed; inset: 0; z-index: 50; pointer-events: none;
-  color: ${theme.parchment};
-}
-#bw-windows .bw-win { position: absolute; pointer-events: auto; }
-#bw-windows .bw-win[hidden] { display: none; }
-#bw-windows .bw-win-plain { min-width: 300px; max-width: min(820px, 94vw); }
-#bw-windows .bw-win-plain .bw-frame {
-  padding: 18px 14px 14px;
-  background: linear-gradient(180deg, ${theme.stoneUp}, ${theme.stone} 42%, ${theme.stoneDeep});
-  border: 1px solid ${theme.goldDim}66;
-  border-image: none;
-  border-radius: 7px;
-  box-shadow: 0 24px 80px rgba(0,0,0,.72), inset 0 0 42px rgba(0,0,0,.52);
-}
-#bw-windows .bw-win-codex {
-  width: min(1536px, 96vw, calc((100vh - 120px) * 1.5));
-  aspect-ratio: 3 / 2;
-}
-
-#bw-windows .bw-win-title {
-  display: flex; align-items: stretch; justify-content: space-between; gap: 14px;
-  cursor: move; user-select: none; -webkit-user-select: none;
-  padding: 4px 4px 0; margin: -18px -14px 14px;
-  background: linear-gradient(180deg, ${theme.stoneUp}, ${theme.stone});
-  border: 1px solid ${theme.goldDim}66;
-  border-radius: 7px 7px 4px 4px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -12px 18px rgba(0,0,0,.22);
-}
-#bw-windows .bw-win-name {
-  font-family: ${theme.fonts.display}; font-size: 15px; font-weight: 600;
-  letter-spacing: .2em; font-variant-caps: small-caps; color: ${theme.gold};
-}
-#bw-windows .bw-win-key { font-family: ${theme.fonts.display}; font-size: 10px; letter-spacing: .16em; color: ${theme.goldDim}; }
-#bw-windows .bw-win-x {
-  min-width: 24px; min-height: 24px;
-  font-family: ${theme.fonts.display}; font-size: 17px; line-height: 1; letter-spacing: 0;
-  padding: 0 4px; cursor: pointer; color: ${theme.gold};
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-#bw-windows .bw-win-x:hover { color: ${theme.goldBright}; }
-#bw-windows .bw-win-body {
-  overflow: auto; max-height: min(74vh, 820px);
-  background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(0,0,0,.18)), ${theme.stoneDeep};
-  border: 1px solid ${theme.goldDim}44;
-  border-radius: 7px;
-}
-#bw-windows .bw-codex-frame {
-  position: relative; width: 100%; height: 100%;
-  background: url("${CODEX_FRAME.image.src}") 0 0 / 100% 100% no-repeat;
-  filter: drop-shadow(0 24px 50px rgba(0,0,0,.74));
-}
-#bw-windows .bw-codex-title {
-  position: absolute; inset: 0; margin: 0; padding: 0;
-  display: block; background: transparent; border: 0; box-shadow: none;
-  min-height: 0; z-index: 4;
-  /* The title is the whole painting so its tab cells can sit by fraction, but
-     it must not take the pointer: with it solid, nothing under it (a page's
-     filter chips, the left panel's wheel) ever got a click (2026-09-08). Only
-     the cells and the x are hit areas. */
-  pointer-events: none;
-}
-#bw-windows .bw-codex-title .bw-tab, #bw-windows .bw-codex-title .bw-win-x { pointer-events: auto; }
-#bw-windows .bw-codex-tabs { display: contents; }
-#bw-windows .bw-codex-tabs .bw-tab {
-  position: absolute; min-width: 40px; min-height: 40px;
-  display: flex; align-items: center; justify-content: center;
-  padding: 0; border: 0; border-radius: 0; color: transparent;
-  background: transparent; box-shadow: none; opacity: 1;
-}
-#bw-windows .bw-codex-tabs .bw-tab .bw-tab-word { display: none; }
-#bw-windows .bw-codex-tabs .bw-tab .bw-tab-i { display: none; filter: drop-shadow(0 2px 1px rgba(0,0,0,.65)); }
-#bw-windows .bw-codex-tabs .bw-tab.on:not([data-tab="character"]) {
-  color: ${theme.parchment};
-  background: linear-gradient(180deg, ${theme.plateUp}, ${theme.plate});
-  border: 1px solid ${theme.gold};
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 7px 16px rgba(0,0,0,.36);
-}
-#bw-windows .bw-codex-tabs .bw-tab.on:not([data-tab="character"]) .bw-tab-i { display: block; }
-#bw-windows .bw-codex-tabs .bw-tab:hover { outline: 1px solid rgba(242,220,156,.36); outline-offset: -2px; }
-#bw-windows .bw-codex-tabs .bw-tab.on { transform: none; padding-bottom: 0; border-radius: 0 0 7px 7px; }
-#bw-windows .bw-codex-tabs .bw-tab[data-tab="achievements"] {
-  color: ${theme.parchment}; background: linear-gradient(180deg, ${theme.plateUp}, ${theme.plate});
-  border: 1px solid ${theme.goldDim}; border-radius: 5px;
-  font: 500 clamp(9px, 1.05vw, 14px)/1.1 ${theme.fonts.body};
-  font-variant-caps:normal; letter-spacing:normal;
-}
-#bw-windows .bw-codex-tabs .bw-tab[data-tab="achievements"] .bw-tab-word { display:block; }
-#bw-windows .bw-codex-tabs .bw-tab[data-tab="achievements"].on .bw-tab-i,
-#bw-windows .bw-codex-tabs .bw-tab[data-tab="achievements"] .bw-tab-i { display:none; }
-#bw-windows .bw-codex-close {
-  position: absolute; min-width: 40px; min-height: 40px; padding: 0;
-  border: 0; background: transparent; box-shadow: none; color: transparent;
-}
-#bw-windows .bw-codex-close:hover { outline: 1px solid rgba(242,220,156,.4); outline-offset: -2px; }
-#bw-windows .bw-codex-bodies { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
-#bw-windows .bw-codex-body {
-  position: absolute; inset: 0; overflow: visible; max-height: none; padding: 0;
-  background: transparent; border: 0; border-radius: 0; pointer-events: auto;
-}
-#bw-windows .bw-codex-body:not([data-tab="character"]) {
-  left: ${CODEX_FRAME.panels.middle.x * 100}%;
-  top: ${CODEX_FRAME.panels.middle.y * 100}%;
-  width: ${CODEX_FRAME.panels.middle.w * 100}%;
-  height: ${CODEX_FRAME.panels.middle.h * 100}%;
-  right: auto; bottom: auto; overflow: auto;
-  padding: 16px 18px;
-  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18)), ${theme.stoneDeep};
-  border: 1px solid ${theme.goldDim}66; border-radius: 7px;
-}
-/* the page's title, from data-title: Skills, Abilities, Crafting, Map */
-#bw-windows .bw-codex-body:not([data-tab="character"]):not([data-tab="achievements"])::before {
-  content: attr(data-title); display: block;
-  font-family: ${theme.fonts.display}; font-size: 30px; font-weight: 700;
-  letter-spacing: .06em; color: ${theme.parchment};
-  text-shadow: 0 2px 10px rgba(0,0,0,.8);
-  margin: 2px 0 12px; padding-bottom: 10px;
-  background: ${ruleUrl()} bottom left / 60% 9px no-repeat;
-}
-#bw-windows .bw-codex-body[hidden] { display: none; }
-
-#bw-windows h3 {
-  font-family: ${theme.fonts.display};
-  margin: 14px 0 8px; font-size: 11px; letter-spacing: .2em;
-  font-variant-caps: small-caps; color: ${theme.gold}; font-weight: 600;
-}
-#bw-windows h3:first-child { margin-top: 0; }
-/* Every panel's buttons take the frame's colours. They are NOT put in small
-   caps: a vendor button reads "buy 5 for 20 gold" and shouting it helps
-   nobody. Small caps are for headers, tabs and the .bw-btn row of filters. */
-#bw-windows button:not(.bw-tab):not(.bw-win-x):not(.bw-btn) {
-  font-family: ${theme.fonts.body}; font-size: 14px; padding: 4px 11px; cursor: pointer;
-  border: 1px solid ${theme.goldDim}; color: ${theme.parchment};
-  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.4));
-}
-#bw-windows button:not(.bw-tab):not(.bw-win-x):hover:not(:disabled) { border-color: ${theme.gold}; color: ${theme.goldBright}; }
-#bw-windows button:disabled { opacity: .45; cursor: default; }
-#bw-windows input, #bw-windows select, #bw-windows textarea { font-family: ${theme.fonts.body}; font-size: 14px; }
-
-#bw-tip {
-  position: fixed; z-index: 70; pointer-events: none; max-width: 340px;
-  padding: 9px 12px 10px;
-  background: linear-gradient(180deg, ${theme.stoneUp}, ${theme.stone});
-  border: 1px solid ${theme.goldDim};
-  box-shadow: 0 14px 44px rgba(0,0,0,.7), inset 0 0 26px rgba(0,0,0,.6);
-  font-family: ${theme.fonts.body}; font-size: 14px; line-height: 1.4;
-  color: ${theme.parchment};
-}
-#bw-tip { display: flex; align-items: flex-start; gap: 11px; max-width: 660px; }
-#bw-tip[hidden] { display: none; }
-#bw-tip .bw-tip-main { max-width: 320px; }
-#bw-tip .bw-tip-name {
-  font-family: ${theme.fonts.display}; font-size: 13.5px; font-weight: 600;
-  letter-spacing: .05em; margin-bottom: 4px;
-}
-#bw-tip .bw-tip-line { color: ${theme.parchmentDim}; }
-/* the second card: what you are already wearing where this would go */
-#bw-tip .bw-tip-cmp {
-  max-width: 300px; padding-left: 11px; align-self: stretch;
-  border-left: 1px solid ${theme.goldDim}88;
-}
-#bw-tip .bw-tip-cmp-head {
-  font-family: ${theme.fonts.display}; font-size: 9.5px; letter-spacing: .2em;
-  font-variant-caps: small-caps; color: ${theme.gold}; margin-bottom: 6px;
-}
-#bw-tip .bw-tip-blk { margin-bottom: 8px; }
-#bw-tip .bw-tip-blk:last-child { margin-bottom: 0; }
-#bw-tip .bw-tip-blk-top { display: flex; align-items: center; gap: 7px; }
-#bw-tip .bw-tip-slot {
-  font-family: ${theme.fonts.display}; font-size: 9px; letter-spacing: .16em;
-  font-variant-caps: small-caps; color: ${theme.goldDim}; margin: 1px 0 3px;
-}
-#bw-tip .bw-tip-empty { color: ${theme.parchmentFaint}; font-style: italic; }
-#bw-tip .bw-tip-warn { color: #ff8f7a; margin-top: 5px; }
-#bw-windows .bw-drop-hot { outline: 2px solid ${theme.goldBright}; outline-offset: -2px; }
-`;
+const CSS = codexCss(theme);
 
 // --------------------------------------------------------------- the tooltip
 // One element for the whole window layer. Panels hand it lines and a colour;
@@ -508,13 +288,6 @@ const isFn = (f) => typeof f === 'function';
 const lower = (k) => String(k == null ? '' : k).toLowerCase();
 const pct = (v) => `${v * 100}%`;
 
-function placeByFraction(el, r) {
-  if (!el || !r) return;
-  el.style.left = pct(r.x);
-  el.style.top = pct(r.y);
-  el.style.width = pct(r.w);
-  el.style.height = pct(r.h);
-}
 
 /** True when the two ids are allowed on screen together. */
 export function sharesScreen(a, b) {
@@ -630,14 +403,13 @@ export function createWindows(root, input, ctx = {}) {
     x.type = 'button';
     x.textContent = '×';
     x.title = 'close';
-    placeByFraction(x, CODEX_FRAME.close);
     x.addEventListener('click', (e) => { e.stopPropagation(); const t = openTab(); if (t) close(t); });
     top.appendChild(tabs);
     top.appendChild(x);
     const bodies = document.createElement('div');
     bodies.className = 'bw-codex-bodies';
-    frame.appendChild(bodies);
     frame.appendChild(top);
+    frame.appendChild(bodies);
 
     el.appendChild(win);
     makeDraggable(win, top, CODEX_ID);
@@ -658,7 +430,6 @@ export function createWindows(root, input, ctx = {}) {
       b.type = 'button';
       b.className = 'bw-tab' + (here === t.id ? ' on' : '');
       b.dataset.tab = t.id;
-      placeByFraction(b, CODEX_FRAME.tabs[t.id]);
       b.innerHTML = `${tabIcon(t.id, 'currentColor', 17)}<span class="bw-tab-word">${t.label}</span>`;
       // Every key that lands on this page, not just the page's own: B is an
       // alias of Character now and the cap has to say so.

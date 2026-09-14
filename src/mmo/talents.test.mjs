@@ -1,62 +1,165 @@
 import assert from 'node:assert/strict';
-import {ABILITIES,ABILITIES_BY_ID,canUse,startCast,unlockedForCharacter} from './abilities.js';
-import {newAdvancement,levelOf,grantExperience,MAX_XP,availablePoints,learnTalent,learnCheck,talentRank,TALENT_NODES,TALENT_TREES,COMMON_ABILITIES,LEVEL_XP,hydrateAdvancement} from './talents.js';
-import {planCharacter} from '../game/creation.js';
-import {hydrate} from '../game/state.js';
-import {starterBar} from '../game/progression.js';
-import {createCharacterLevels} from '../game/character_levels.js';
-import {setBarSlot} from '../game/win_abilities.js';
+import { ABILITIES_BY_ID } from './abilities.js';
+import { CLASS_TREES, CLASS_NODES } from './class_trees.js';
+import {
+  COMMON_ABILITIES, STARTER_ABILITIES, MAX_XP, LEVEL_XP,
+  newAdvancement, hydrateAdvancement, grantExperience, levelOf,
+  availablePoints, learnCheck, learnTalent, talentRank, talentCooldown,
+  nodeFor, nodeRank, treePoints,
+} from './talents.js';
 
-for(const opening of ['warrior','ranger','rogue','mage']){
-  const result=planCharacter({opening,name:'Tester'});assert.equal(result.ok,true);const c=result.character;
-  assert.equal(levelOf(c),1);assert.equal(availablePoints(c),0);
-  const unlocked=unlockedForCharacter(c).map(a=>a.id);
-  assert.ok(unlocked.length<=7);assert.ok(starterBar(c).length<=4);
-  assert.equal(c.pack.items.filter(i=>i?.base==='bandage').reduce((n,i)=>n+i.count,0),20);
-  assert.equal(hydrate(JSON.parse(JSON.stringify(c))).advancement.xp,0);
-  assert.deepEqual(hydrate(JSON.parse(JSON.stringify(c))).advancement.ranks,c.advancement.ranks);
+const character = (opening) => ({ opening, advancement: newAdvancement(opening) });
+const ability = (node) => ABILITIES_BY_ID[node.abilityId];
+const atMax = (opening) => {
+  const c = character(opening);
+  grantExperience(c, MAX_XP);
+  return c;
+};
+
+// Every selectable opening gets exactly its shared controls plus the promised
+// class basics. The allocation and compatibility projection agree at rank one.
+for (const opening of CLASS_TREES.map((tree) => tree.id)) {
+  const c = character(opening);
+  const starters = STARTER_ABILITIES[opening];
+  assert.deepEqual(c.advancement.granted, [...COMMON_ABILITIES, ...starters], `${opening} starter grants`);
+  for (const id of starters) {
+    const node = nodeFor(c, id);
+    assert.ok(node, `${opening} owns starter ${id}`);
+    assert.equal(nodeRank(c, node), 1, `${opening} allocates starter ${id}`);
+    assert.equal(talentRank(c, id), 1, `${opening} projects starter ${id}`);
+  }
+  assert.equal(levelOf(c), 1);
+  assert.equal(availablePoints(c), 0);
 }
-const c={opening:'mage',skills:{magery:100},stats:{},advancement:newAdvancement('mage'),mana:1000,stamina:1000,health:100,maxHealth:100};
-assert.equal(canUse(ABILITIES_BY_ID.meteor,c).ok,false,'high skill cannot bypass talent learning');
-assert.equal(setBarSlot(c,2,'meteor').ok,false,'binding cannot bypass talent learning');
-assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).ok,false);
-assert.deepEqual(grantExperience(c,100),{gained:100,levels:1,level:2});
-assert.equal(availablePoints(c),1);
-assert.equal(learnTalent(c,ABILITIES_BY_ID.iceShard).ok,false,'level / prerequisite enforced');
-assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).ok,true);
-assert.equal(availablePoints(c),0);assert.equal(talentRank(c,'fireball'),1);
-assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).ok,false,'double spend refused');
-assert.equal(canUse(ABILITIES_BY_ID.fireball,c).ok,true);
-assert.equal(setBarSlot(c,0,'fireball').ok,true);
-grantExperience(c,LEVEL_XP[40]-c.advancement.xp);
-for(let i=2;i<=5;i++)assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).rank,i);
-assert.equal(learnTalent(c,ABILITIES_BY_ID.fireball).ok,false,'max rank');
-const rec=startCast(ABILITIES_BY_ID.fireball,c,10);
-assert.equal(rec.cooldownUntil,10+ABILITIES_BY_ID.fireball.cooldown*.88);
-assert.deepEqual(hydrateAdvancement(c.advancement,'mage',[],ABILITIES_BY_ID),c.advancement,'rank and point spend round trip');
-const before=c.advancement.xp;assert.equal(grantExperience(c,Infinity).gained,0);assert.equal(grantExperience(c,-100).gained,0);assert.equal(c.advancement.xp,before);
-grantExperience(c,MAX_XP*10);assert.equal(levelOf(c),99);assert.equal(c.advancement.xp,MAX_XP);assert.equal(grantExperience(c,100).gained,0);
-const legacy={opening:'mage',skills:{magery:100,mysticism:100},stats:{int:100},bar:['meteor'],unlockedAbilities:['meteor']};
-const migrated=hydrate(legacy);assert.ok(talentRank(migrated,'meteor'));assert.equal(migrated.bar[0],'meteor');assert.equal(availablePoints(migrated),0);assert.deepEqual(hydrate(migrated).advancement,migrated.advancement,'migration idempotent');
-assert.equal(hydrateAdvancement({v:1,xp:0,granted:[],ranks:{meteor:5,fireball:5}},'mage',[],ABILITIES_BY_ID).ranks.meteor,undefined,'unearned point spend rejected');
-const nodes=Object.keys(TALENT_NODES);assert.equal(new Set(nodes).size,TALENT_TREES.reduce((n,t)=>n+t.branches.reduce((s,b)=>s+b.ids.length,0),0));
-for(const a of ABILITIES)assert.ok(nodes.includes(a.id)||COMMON_ABILITIES.includes(a.id),`${a.id} appears in the trees or basic kit`);
-for(const id of nodes)assert.ok(ABILITIES_BY_ID[id],`${id} resolves to a real ability`);
-// Every node and upgrade is reachable without circular or impossible prerequisites.
-const end={advancement:newAdvancement('mage')};grantExperience(end,MAX_XP);
-for(const tree of TALENT_TREES){const learner={advancement:newAdvancement('mage')};grantExperience(learner,MAX_XP);for(const branch of tree.branches)for(const id of branch.ids){if(!talentRank(learner,id))assert.equal(learnTalent(learner,ABILITIES_BY_ID[id]).ok,true,id);}}
-const actor={},doc={advancement:newAdvancement('mage')},events=[];
-const levels=createCharacterLevels({character:doc,actor,state:{touch:k=>events.push(k)},hud:{gain:t=>events.push(t),unlock:v=>events.push(v.name)}});
-const mon={actor:{maxHealth:100},row:{tier:1},rec:{}};
-assert.ok(levels.defeat(mon,actor).gained>0);assert.equal(levels.defeat(mon,actor).gained,0,'duplicate defeat awards nothing');
-assert.equal(levels.defeat({actor:{maxHealth:100},friendly:true},actor).gained,0);
-assert.equal(levels.defeat({actor:{maxHealth:100,summoned:true},ephemeral:true},actor).gained,0);
-assert.equal(levels.defeat({actor:{maxHealth:100},rec:{noLoot:true}},actor).gained,0);
-assert.equal(levels.defeat({actor:{maxHealth:100}},{}).gained,0,'another killer awards nothing');
-const ownedSummon={summoned:true,faction:'player',summonOwner:actor};
-assert.ok(levels.defeat({actor:{maxHealth:100},row:{tier:1},rec:{}},ownedSummon).gained>0,'an explicitly owned friendly summon grants XP');
-assert.equal(levels.defeat({actor:{maxHealth:100},row:{tier:1},rec:{}},{summoned:true,faction:'player',summonOwner:{}}).gained,0,'another player’s summon grants nothing');
-assert.equal(levels.defeat({actor:{maxHealth:100},row:{tier:1},rec:{}},{summoned:false,faction:'hostile',summonOwner:actor}).gained,0,'a released animal grants nothing');
-assert.ok(levels.defeat({actor:{maxHealth:100},ephemeral:true,key:'encounter:wolf:1'},actor).gained>0,'ordinary encounters grant XP');
-levels.award(100);assert.ok(events.includes('Level 2'),'level up has visible feedback');
-console.log('Talent / leveling acceptance checks passed.');
+
+{
+  const paladin = character('paladin');
+  const priest = character('priest');
+  assert.deepEqual(STARTER_ABILITIES.paladin, ['powerStrike', 'heal']);
+  assert.deepEqual(STARTER_ABILITIES.priest, ['eldritchBolt', 'heal']);
+  assert.equal(talentRank(paladin, 'heal'), 1);
+  assert.equal(talentRank(priest, 'eldritchBolt'), 1);
+}
+
+// A node belongs to its class. Camp is the explicit exception, represented by
+// one shared node rather than a copied node in every class tree.
+{
+  const mage = atMax('mage');
+  const warriorNode = CLASS_NODES['warrior.arms.powerStrike'];
+  assert.equal(nodeFor(mage, warriorNode.id), null);
+  assert.equal(learnCheck(mage, warriorNode.id, ABILITIES_BY_ID).ok, false);
+  const camp = nodeFor(mage, 'camp');
+  assert.equal(camp.id, 'shared.fieldcraft.camp');
+  assert.equal(learnCheck(mage, camp.id, ABILITIES_BY_ID).ok, true);
+  assert.equal(learnTalent(mage, camp.id, ABILITIES_BY_ID).ok, true);
+  assert.equal(nodeRank(mage, camp), 1);
+}
+
+// Planned rows are visible data, never a mutation path, even with enough XP.
+for (const tree of CLASS_TREES) {
+  const c = atMax(tree.id);
+  const planned = tree.branches.flatMap((branch) => branch.nodes).find((node) => node.status === 'planned');
+  assert.ok(planned, `${tree.id} has planned work`);
+  const before = JSON.stringify(c.advancement);
+  const check = learnTalent(c, planned.id, ABILITIES_BY_ID);
+  assert.equal(check.ok, false, `${planned.id} cannot be purchased`);
+  assert.match(check.reason, /planned/i);
+  assert.equal(JSON.stringify(c.advancement), before, `${planned.id} does not mutate the save`);
+}
+
+// Cooldown abilities retain the shipped five ranks and three-percent steps.
+{
+  const c = character('mage');
+  grantExperience(c, LEVEL_XP[2]);
+  const fireball = CLASS_NODES['mage.fire.fireball'];
+  assert.equal(learnTalent(c, fireball.id, ABILITIES_BY_ID).rank, 1);
+  grantExperience(c, LEVEL_XP[9] - c.advancement.xp);
+  assert.equal(learnTalent(c, fireball.id, ABILITIES_BY_ID).rank, 2);
+  assert.equal(talentCooldown(ABILITIES_BY_ID.fireball, c), ABILITIES_BY_ID.fireball.cooldown * 0.97);
+  assert.equal(treePoints(c, 'fire').spent, 2);
+}
+
+// At level 99 every live branch has a real route from its starters. Planned
+// rows never become prerequisites, so this loop cannot pass by buying future
+// work or by crossing into another class.
+for (const tree of CLASS_TREES) {
+  const c = atMax(tree.id);
+  const live = tree.branches.flatMap((branch) => branch.nodes).filter((node) => node.status === 'live');
+  for (let pass = 0; pass < live.length; pass++) {
+    let changed = false;
+    for (const node of live) {
+      if (nodeRank(c, node)) continue;
+      if (learnTalent(c, node.id, ABILITIES_BY_ID).ok) changed = true;
+    }
+    if (!changed) break;
+  }
+  const blocked = live.filter((node) => !nodeRank(c, node)).map((node) => node.id);
+  assert.deepEqual(blocked, [], `${tree.id} live paths are reachable`);
+}
+
+// v1 is rebuilt through the old global rules before migration. A former Mage
+// rank that still maps to a current Mage node becomes an allocation; a valid
+// off-class Warrior rank remains in the read-only legacy archive and retains
+// its runtime rank and paid point.
+{
+  const raw = {
+    v: 1,
+    xp: MAX_XP,
+    granted: ['magicArrow'],
+    ranks: { magicArrow: 1, fireball: 2, powerStrike: 1 },
+  };
+  const out = hydrateAdvancement(raw, 'mage', [], ABILITIES_BY_ID);
+  assert.equal(nodeRank({ opening: 'mage', advancement: out }, 'mage.fire.fireball'), 2);
+  assert.equal(out.legacy.allocations.powerStrike, 1);
+  assert.equal(talentRank({ advancement: out }, 'powerStrike'), 1);
+  assert.equal(availablePoints({ opening: 'mage', advancement: out }), 95);
+  assert.deepEqual(hydrateAdvancement(out, 'mage', [], ABILITIES_BY_ID), out, 'v2 migration is idempotent');
+}
+
+// A valid v1 chain can be partly current and partly archived after the new
+// class tree moves a later row. Its historical prerequisites survive the next
+// v2 load, and archived spend reserves points before current allocations load.
+{
+  const raw = {
+    v: 1,
+    xp: LEVEL_XP[26],
+    granted: ['magicArrow'],
+    ranks: { magicArrow: 1, blink: 1, lightning: 1, chainLightning: 1 },
+  };
+  const migrated = hydrateAdvancement(raw, 'mage', [], ABILITIES_BY_ID);
+  assert.equal(talentRank({ advancement: migrated }, 'chainLightning'), 1);
+  assert.deepEqual(hydrateAdvancement(migrated, 'mage', [], ABILITIES_BY_ID), migrated,
+    'an archived historical chain survives v2 rehydration');
+
+  const overspent = hydrateAdvancement({
+    v: 2,
+    classId: 'mage',
+    xp: MAX_XP,
+    allocations: { 'mage.fire.fireball': 5 },
+    legacy: { allocations: { powerStrike: 5 } },
+  }, undefined, [], ABILITIES_BY_ID);
+  const spend = 98 - availablePoints({ opening: 'mage', advancement: overspent });
+  assert.ok(spend <= 98, `combined allocations spend ${spend} of 98`);
+}
+
+// Forged saves cannot buy past their old or new level, dependency, and status
+// gates. `classId` remains enough to hydrate fixtures without an opening field.
+{
+  const old = hydrateAdvancement({ v: 1, xp: 0, granted: [], ranks: { meteor: 5 } }, 'mage', [], ABILITIES_BY_ID);
+  assert.equal(talentRank({ advancement: old }, 'meteor'), 0, 'v1 XP zero meteor is rejected');
+  const v2 = hydrateAdvancement({
+    v: 2, classId: 'mage', xp: 0,
+    allocations: {
+      'mage.fire.fireball': 5,
+      'mage.arcane.rift': 1,
+      'mage.fire.kindling': 1,
+    },
+    ranks: { fireball: 5, rift: 1 },
+  }, undefined, [], ABILITIES_BY_ID);
+  assert.equal(v2.classId, 'mage');
+  assert.equal(talentRank({ advancement: v2 }, 'fireball'), 0);
+  assert.equal(talentRank({ advancement: v2 }, 'rift'), 0);
+  assert.equal(v2.allocations['mage.fire.kindling'], undefined);
+}
+
+console.log('Talent v2 acceptance checks passed.');

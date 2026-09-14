@@ -1,83 +1,105 @@
 import {ABILITIES_BY_ID, weaponCheck} from '../mmo/abilities.js';
-import {TALENT_TREES, TALENT_NODES, COMMON_ABILITIES, STARTER_ABILITIES, talentRank, learnTalent, learnCheck, maxTalentRank, talentCooldown, progressionView} from '../mmo/talents.js';
+import {CLASS_TREES, CLASS_NODES} from '../mmo/class_trees.js';
+import {COMMON_ABILITIES, STARTER_ABILITIES, talentRank, nodeRank, learnTalent, learnCheck, maxTalentRank, talentCooldown, progressionView} from '../mmo/talents.js';
 import {dragSource, attachTip} from './windows.js';
-import {theme} from './ui_theme.js';
+import {TALENT_STYLES} from './talent_styles.js';
 
-const make=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!=null)el.textContent=text;return el;};
-function css(){
-  if(document.getElementById('bw-talents-css'))return;
-  const style=make('style');style.id='bw-talents-css';style.textContent=`
-.bw-talents{--talent-gold:#dbb66b;color:#e8dfc8;font-family:${theme.fonts.body};font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;padding:0 2px 24px}
-.bw-talents .talent-summary{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 8px;font-size:19px}
-.bw-talents .talent-points{color:var(--talent-gold);margin-left:auto}
-.bw-talents .talent-progress{height:4px;background:#27252b;flex:1;min-width:60px;max-width:240px;overflow:hidden;border-radius:3px}
-.bw-talents .talent-progress span{display:block;height:100%;background:linear-gradient(90deg,#806399,#d2b5f3)}
-.bw-talents .talent-tabs{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 12px;padding-bottom:12px;border-bottom:1px solid #675330}
-.bw-talents button{font:inherit;color:inherit;border:1px solid #665536;border-radius:4px;background:#252421;cursor:pointer;min-height:40px;padding:7px 12px}
-.bw-talents button:hover,.bw-talents button:focus-visible{border-color:#ecc977;background:#373125;outline:1px solid #ecc977;outline-offset:2px}
-.bw-talents button[aria-selected=true]{background:#463821;color:#ffe4a2;border-color:#c89b49}
-.bw-talents button:disabled{cursor:default;opacity:.55;outline:none}
-.bw-talents .talent-help{font-size:13px;color:#b7b19f;margin:8px 0 16px;line-height:1.5}
-.bw-talents .talent-branches{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:20px;align-items:start}
-.bw-talents .talent-branch h3{font:600 19px ${theme.fonts.display};text-transform:none;letter-spacing:.02em;margin:0 0 14px;color:#e4c784;text-align:center}
-.bw-talents .talent-node{position:relative;padding:12px;background:linear-gradient(145deg,rgba(58,50,44,.75),rgba(20,23,25,.94));border:1px solid #554b3d;border-radius:6px;margin-bottom:20px;box-shadow:0 5px 14px #0003}
-.bw-talents .talent-node+.talent-node:before{content:'';position:absolute;bottom:100%;left:50%;height:21px;width:2px;background:linear-gradient(#8b7147,#635943)}
-.bw-talents .talent-node.learned{border-color:#ac8848;background:linear-gradient(145deg,rgba(77,63,37,.8),rgba(22,28,26,.96))}
-.bw-talents .talent-node.available{border-color:#bea45e;box-shadow:0 0 16px #b3913b18}
-.bw-talents .talent-head{display:flex;align-items:center;gap:10px;margin:0 86px 8px 0}
-.bw-talents .talent-icon{width:52px;height:52px;min-width:52px;padding:0;overflow:hidden;background:#141b1e}
-.bw-talents .talent-icon img,.bw-talents .talent-icon svg{width:100%;height:100%;display:block;object-fit:cover}
-.bw-talents .talent-name{font:600 20px ${theme.fonts.display};line-height:1.2;margin-bottom:4px}
-.bw-talents .talent-rank{font-size:15px;color:#bdab86}
-.bw-talents .talent-desc{display:none}
-.bw-talents .talent-rule{min-height:18px;font-size:14px;line-height:1.35;color:#dab775;margin:6px 0 0}
-.bw-talents .talent-learn{position:absolute;right:12px;top:12px;width:78px;min-height:52px;padding:5px;font-size:14px;line-height:1.25}
-.bw-talents .talent-basics{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0;padding:8px 0;border-bottom:1px solid #454031}
-.bw-talents .talent-basics .talent-icon{width:40px;height:40px;min-width:40px}
-.bw-talents .talent-basics-label{font-size:12px;color:#aba48f;margin-right:5px}
-.bw-talents .talent-status{font-size:14px;color:#e2c277;margin:6px 0}.bw-talents .talent-status:empty{display:none}
-@media(max-width:850px){.bw-talents .talent-branches{grid-template-columns:repeat(3,minmax(180px,1fr));gap:12px;overflow-x:auto}.bw-talents .talent-name{font-size:17px}.bw-talents .talent-head{margin-right:64px;gap:7px}.bw-talents .talent-learn{width:60px;font-size:12px}}
-`;document.head.appendChild(style);
-}
+const make=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!=null)el.textContent=text;return el;};
+const append=(el,...children)=>children.forEach(child=>el.appendChild(child));
+const classId=c=>c.opening || c.advancement?.classId || 'warrior';
+const COLORS={mage:'#a8b7eb',warrior:'#d5aa83',rogue:'#d6c876',ranger:'#9fc89e',paladin:'#e0b57b',priest:'#d4cfdf'};
+const ROW=110;
+const titleFor=node=>ABILITIES_BY_ID[node.abilityId]?.name || node.name;
+const rankFor=(c,node)=>node.id==='camp'?nodeRank(c,'shared.fieldcraft.camp'):nodeRank(c,node);
+const maximum=node=>node.status==='planned'?node.maxRank || 1:maxTalentRank(ABILITIES_BY_ID[node.abilityId]);
+const camp={id:'camp',abilityId:'camp',status:'live',name:'Camp',requires:[],level:2};
+
 export function buildTalentPanel(el,ctx,{artSvg,setBarSlot,pick}) {
-  css();const c=ctx.character;let selected=TALENT_TREES.some(t=>t.id===c.opening)?c.opening:'warrior';
+  if(!document.getElementById('bw-talents-css')){const style=make('style');style.id='bw-talents-css';style.textContent=TALENT_STYLES.replaceAll('.bw-talents','#bw-windows .bw-talents');document.head.appendChild(style);}
+  const c=ctx.character;let selectedClass=classId(c),showPlanned=true,selectedNode=null,cards=[],edges=[],headers=[],detailsSignature=null;
+  if(!CLASS_TREES.some(t=>t.id===selectedClass))selectedClass='warrior';
   const root=make('div','bw-talents');el.appendChild(root);
   const summary=make('div','talent-summary'),level=make('strong'),xp=make('span'),progress=make('div','talent-progress'),fill=make('span'),points=make('span','talent-points');
-  progress.appendChild(fill);summary.append(level,progress,xp,points);root.appendChild(summary);
-  const tabs=make('div','talent-tabs');tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Skill trees');root.appendChild(tabs);
-  const buttons=new Map();
-  for(const tree of TALENT_TREES){const b=make('button',null,tree.name);b.type='button';b.setAttribute('role','tab');b.addEventListener('click',()=>{selected=tree.id;build();refresh();});tabs.appendChild(b);buttons.set(tree.id,b);}
-  root.appendChild(make('p','talent-help','Earn a talent point with each level after the first. Follow a branch, hover an ability for details, and drag learned abilities onto your action bar.'));
-  const basics=make('div','talent-basics');basics.appendChild(make('span','talent-basics-label','Starting abilities'));root.appendChild(basics);
+  progress.appendChild(fill);append(summary,level,progress,xp,points);root.appendChild(summary);
+  const tabs=make('div','talent-tabs');tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Class skill trees');root.appendChild(tabs);
+  const tabButtons=new Map();
+  for(const tree of CLASS_TREES){const button=make('button',null,tree.name);button.type='button';button.setAttribute('role','tab');button.addEventListener('click',()=>{selectedClass=tree.id;selectedNode=null;build();refresh();});tabs.appendChild(button);tabButtons.set(tree.id,button);}
+  const tools=make('div','talent-tools'),help=make('p','talent-help'),toggle=make('button','talent-roadmap-toggle');toggle.type='button';
+  toggle.addEventListener('click',()=>{showPlanned=!showPlanned;if(!showPlanned&&selectedNode?.status==='planned')selectedNode=null;build();refresh();});append(tools,help,toggle);root.appendChild(tools);
+  const basics=make('div','talent-basics');basics.appendChild(make('span','talent-basics-label','Your starting kit'));root.appendChild(basics);
   const status=make('div','talent-status');status.setAttribute('role','status');root.appendChild(status);
-  const branches=make('div','talent-branches');root.appendChild(branches);let cards=[];
+  const details=make('aside','talent-details');details.setAttribute('aria-label','Selected talent');root.appendChild(details);
+  const branches=make('div','talent-branches');root.appendChild(branches);
+  const archive=make('details','talent-archive');root.appendChild(archive);
   function say(text){status.textContent=text;ctx.hud?.log?.(text);}
-  function bind(id){const ability=ABILITIES_BY_ID[id];if(!talentRank(c,id)){say(`Learn ${ability.name} first.`);return;}if(ability.passive){say(`${ability.name} is passive.`);return;}
-    pick(id,slot=>{const result=setBarSlot(c,slot,id);if(result.ok){ctx.state?.touch?.('bar');ctx.onBarChange?.(c.bar,slot);}say(result.reason);return result;});say(`${ability.name} selected. Click an action-bar slot.`);}
-  function icon(ability){const tile=make('button','talent-icon');tile.type='button';tile.innerHTML=artSvg(ability,48);tile.setAttribute('aria-label',`${ability.name}: place on action bar`);tile.addEventListener('click',()=>bind(ability.id));dragSource(tile,()=>talentRank(c,ability.id)&&!ability.passive?{ability:ability.id}:null);attachTip(tile,()=>({lines:[ability.name,ability.description,`${Number(talentCooldown(ability,c).toFixed(2))} s cooldown`]}));return tile;}
-  for(const id of [...new Set([...COMMON_ABILITIES,...(STARTER_ABILITIES[c.opening] || [])])])if(ABILITIES_BY_ID[id])basics.appendChild(icon(ABILITIES_BY_ID[id]));
-  function build(){branches.textContent='';cards=[];const tree=TALENT_TREES.find(t=>t.id===selected);
-    for(const branch of tree.branches){const column=make('section','talent-branch');column.appendChild(make('h3',null,branch.name));branches.appendChild(column);
-      for(const id of branch.ids){const a=ABILITIES_BY_ID[id];if(!a)continue;
-        const card=make('article','talent-node'),head=make('div','talent-head'),copy=make('div'),name=make('div','talent-name',a.name),rank=make('div','talent-rank'),desc=make('p','talent-desc',a.description),rule=make('div','talent-rule'),learn=make('button','talent-learn');
-        learn.type='button';copy.append(name,rank);head.append(icon(a),copy);card.append(head,desc,rule,learn);column.appendChild(card);
-        learn.addEventListener('click',()=>{const result=learnTalent(c,a);if(!result.ok){say(result.reason);return;}
-          ctx.abilities?.applyPassives?.();ctx.recompute?.();ctx.state?.touch?.('advancement');
-          if(result.rank===1){if(!c.unlockedAbilities?.includes(id))(c.unlockedAbilities ||= []).push(id);ctx.hud?.unlock?.({id,name:a.name,key:'Drag onto your action bar'});}
-          ctx.audio?.play?.('skill_up');say(`${a.name}, rank ${result.rank}. ${result.points} talent points remaining.`);refresh();
-        });cards.push({a,card,rank,rule,learn});
+  function bind(id){const a=ABILITIES_BY_ID[id];if(!a || !talentRank(c,id)){say('Learn this ability first.');return;}if(a.passive){say(`${a.name} is passive.`);return;}
+    pick(id,slot=>{const result=setBarSlot(c,slot,id);if(result.ok){ctx.state?.touch?.('bar');ctx.onBarChange?.(c.bar,slot);}say(result.reason);return result;});say(`${a.name} selected. Click an action-bar slot.`);
+  }
+  function basicIcon(id){const a=ABILITIES_BY_ID[id];if(!a)return null;const button=make('button','talent-basic');button.type='button';button.innerHTML=artSvg(a,40);button.title=a.name;button.setAttribute('aria-label',`${a.name}: place on action bar`);button.addEventListener('click',()=>bind(id));dragSource(button,()=>talentRank(c,id)&&!a.passive?{ability:id}:null);attachTip(button,()=>({lines:[a.name,a.description]}));return button;}
+  for(const id of new Set([...COMMON_ABILITIES,...(STARTER_ABILITIES[classId(c)] || [])])){const icon=basicIcon(id);if(icon)basics.appendChild(icon);}
+  const camping=make('button','talent-camp','Campcraft');camping.type='button';camping.addEventListener('click',()=>{selectedNode=camp;refreshDetails();});basics.appendChild(camping);
+  function select(node){selectedNode=node;for(const rec of cards)rec.card.classList.toggle('selected',rec.node.id===node.id);refreshDetails();}
+  function purchase(node){const result=learnTalent(c,node.id==='camp'?ABILITIES_BY_ID.camp:node.id,ABILITIES_BY_ID);if(!result.ok){say(result.reason);return;}
+    const a=ABILITIES_BY_ID[node.abilityId];ctx.abilities?.applyPassives?.();ctx.recompute?.();ctx.state?.touch?.('advancement');
+    if(result.rank===1){if(!c.unlockedAbilities?.includes(a.id))(c.unlockedAbilities ||= []).push(a.id);ctx.hud?.unlock?.({id:a.id,name:a.name,key:'Drag onto your action bar'});}
+    ctx.audio?.play?.('skill_up');say(`${a.name}, rank ${result.rank}. ${result.points} talent points remaining.`);selectedNode=node;refresh();
+  }
+  function checkFor(node){return learnCheck(c,node.id==='camp'?ABILITIES_BY_ID.camp:node.id,ABILITIES_BY_ID);}
+  function refreshDetails(){if(!selectedNode){if(detailsSignature==='none')return;detailsSignature='none';details.textContent='';const copy=make('div');append(copy,make('h4',null,'Choose your path'),make('p',null,'Select a talent to see its effect and requirements. Drag learned abilities onto your action bar.'));details.appendChild(copy);return;}
+    const node=selectedNode,a=ABILITIES_BY_ID[node.abilityId],rank=rankFor(c,node),max=maximum(node),check=checkFor(node);
+    const hands=a&&rank?weaponCheck(a,c.equipment,c.pack):null;
+    const cooldown=a?.cooldown?Number(talentCooldown(a,c).toFixed(2)):0;
+    const signature=JSON.stringify([node.id,rank,max,check.ok,check.reason,cooldown,hands?.ok,hands?.reason]);
+    // Preserve focused controls between the window's periodic refreshes.
+    if(signature===detailsSignature)return;detailsSignature=signature;details.textContent='';const copy=make('div');
+    append(copy,make('h4',null,titleFor(node)),make('p',null,node.status==='planned'?node.description:a?.description));
+    const prereqs=(node.requires || []).map(id=>titleFor(CLASS_NODES[id])).join(' + ');
+    const requirement=node.status==='planned'?`Planned for a future update · Level ${node.level}${prereqs?` · Requires ${prereqs}`:''}`:`Rank ${rank} / ${max} · Level ${node.level}${prereqs?` · Requires ${prereqs}`:''}`;
+    copy.appendChild(make('p','talent-rule',requirement));
+    if(cooldown)copy.appendChild(make('p','talent-rule',`${cooldown} s cooldown${max>1?' · Each additional rank reduces the base cooldown by 3%, up to 12%.':''}`));
+    if(node.status!=='planned'&&!check.ok)copy.appendChild(make('p','talent-rule',check.reason));
+    if(hands&&!hands.ok)copy.appendChild(make('p','talent-rule',hands.reason));
+    const actions=make('div','talent-actions');
+    if(node.status!=='planned'){const learn=make('button','talent-detail-learn',rank>=max?'Fully trained':rank?'Train · 1 point':'Learn · 1 point');learn.type='button';learn.disabled=!check.ok;learn.addEventListener('click',()=>purchase(node));actions.appendChild(learn);
+      if(rank&&!a.passive){const place=make('button',null,'Place on action bar');place.type='button';place.addEventListener('click',()=>bind(a.id));actions.appendChild(place);}}
+    append(details,copy,actions);
+  }
+  function build(){branches.textContent='';cards=[];edges=[];headers=[];const tree=CLASS_TREES.find(t=>t.id===selectedClass);root.style.setProperty?.('--tree-accent',COLORS[tree.id]);
+    for(const branch of tree.branches){const section=make('section','talent-branch');section.dataset.spec=branch.id;const header=make('header'),heading=make('h3'),count=make('span','talent-spent');append(heading,make('span',null,branch.name),count);append(header,heading,make('p',null,branch.description));section.appendChild(header);headers.push({branch,count});
+      const nodes=branch.nodes.filter(n=>showPlanned || n.status==='live'),height=(Math.max(...nodes.map(n=>n.row))+1)*ROW;
+      const map=make('div','talent-map');map.style.height=`${height}px`;
+      const lines=make('div','talent-connections');map.appendChild(lines);edges.push({nodes,lines,height,signature:''});
+      for(const node of nodes){const a=ABILITIES_BY_ID[node.abilityId],card=make('article','talent-node'),icon=make('button','talent-icon');card.dataset.nodeId=node.id;card.style.left=`${node.column*100/3}%`;card.style.top=`${node.row*ROW}px`;icon.type='button';
+        icon.setAttribute('aria-label',`${titleFor(node)}${node.status==='planned'?', planned talent':''}`);if(a)icon.innerHTML=artSvg(a,48);else icon.textContent='◇';icon.addEventListener('click',()=>select(node));
+        if(a){dragSource(icon,()=>node.status==='live'&&talentRank(c,a.id)&&!a.passive?{ability:a.id}:null);attachTip(icon,()=>({lines:[a.name,a.description,checkFor(node).reason || 'A talent point is available.']}));}
+        else attachTip(icon,()=>({lines:[titleFor(node),node.description,'Planned: no points can be spent here.']}));
+        append(card,icon,make('span','talent-name',titleFor(node)));
+        let learn=null;if(node.status==='live'){learn=make('span','talent-learn');card.appendChild(learn);}else card.appendChild(make('span','talent-future-label','Planned'));
+        map.appendChild(card);cards.push({node,card,learn,icon});
       }
+      section.appendChild(map);branches.appendChild(section);
     }
+    buildArchive();
+  }
+  function buildArchive(){archive.textContent='';const ownedIds=new Set(CLASS_TREES.find(t=>t.id===classId(c))?.branches.flatMap(b=>b.nodes.map(n=>n.abilityId)).filter(Boolean));
+    const basicIds=new Set([...COMMON_ABILITIES,...(STARTER_ABILITIES[classId(c)]||[]),'camp']);
+    const legacy=c.advancement?.legacy?.allocations || {};
+    const retained=Object.keys(c.advancement?.ranks || {}).filter(id=>talentRank(c,id)&&(!ownedIds.has(id)||legacy[id])&&!basicIds.has(id)&&ABILITIES_BY_ID[id]);archive.hidden=!retained.length;
+    archive.appendChild(make('summary',null,`Retained abilities · ${retained.length}`));archive.appendChild(make('p',null,'Abilities earned before class trees remain usable at their saved rank. New talent points follow your starting class.'));
+    const list=make('div','talent-archive-items');for(const id of retained)list.appendChild(basicIcon(id));archive.appendChild(list);
   }
   function refresh(){const p=progressionView(c);level.textContent=`Level ${p.level}`;points.textContent=`${p.points} talent ${p.points===1?'point':'points'} available`;xp.textContent=p.needed?`${p.xp} / ${p.needed} XP`:'Maximum level';fill.style.width=`${p.fraction*100}%`;
-    for(const [id,b] of buttons)b.setAttribute('aria-selected',String(id===selected));
-    for(const rec of cards){const {a,card,rank,rule,learn}=rec;const n=talentRank(c,a.id),max=maxTalentRank(a),check=learnCheck(c,a),node=TALENT_NODES[a.id];
-      rank.textContent=`Rank ${n} / ${max}${a.passive?' · Passive':''}`;card.classList.toggle('learned',n>0);card.classList.toggle('available',check.ok);
-      const hands=weaponCheck(a,c.equipment,c.pack);const cooldown=n>1?`Cooldown ${Number(talentCooldown(a,c).toFixed(2))} s. `:'';
-      rule.textContent=check.ok?(n?`${cooldown}Next rank: ${3*n}% shorter cooldown.`:`Level ${node.level} · ${node.requires?ABILITIES_BY_ID[node.requires].name:'Branch entry'}`):check.requires?`Requires ${ABILITIES_BY_ID[check.requires].name}.`:check.reason;
-      if(n&&!hands.ok)rule.textContent+=` ${hands.reason}`;
-      learn.disabled=!check.ok;learn.textContent=n>=max?'Fully learned':n?`Improve · 1 point`:'Learn · 1 point';
+    for(const [id,button] of tabButtons)button.setAttribute('aria-selected',String(id===selectedClass));
+    help.textContent=selectedClass===classId(c)?'Spend points across your three paths. Gold is learned, green is available. Dashed talents are planned and cannot be purchased.':`Browsing ${CLASS_TREES.find(t=>t.id===selectedClass)?.name}. Your ${CLASS_TREES.find(t=>t.id===classId(c))?.name || 'existing'} character keeps its own class talents.`;
+    toggle.textContent=showPlanned?'Hide planned talents':'Show planned talents';toggle.setAttribute('aria-pressed',String(showPlanned));
+    for(const {branch,count} of headers){const grants=new Set(c.advancement?.granted || []);const spent=selectedClass===classId(c)?branch.nodes.reduce((sum,n)=>sum+Math.max(0,nodeRank(c,n)-(grants.has(n.abilityId)?1:0)),0):0;count.textContent=`${spent} points`;}
+    for(const rec of cards){const {node,card,learn,icon}=rec,rank=rankFor(c,node),max=maximum(node),check=checkFor(node);card.classList.toggle('planned',node.status==='planned');card.classList.toggle('learned',node.status==='live'&&rank>0);card.classList.toggle('available',node.status==='live'&&check.ok);card.classList.toggle('locked',node.status==='live'&&!rank&&!check.ok);card.classList.toggle('selected',selectedNode?.id===node.id);
+      icon.title=`${titleFor(node)} · ${node.status==='planned'?'Planned':`Rank ${rank}/${max}`}`;if(learn){learn.textContent=`${rank}/${max}`;learn.title=check.reason || 'Select this talent to spend a point';}}
+    for(const rec of edges){const signature=rec.nodes.map(n=>rankFor(c,n)).join(',');if(signature===rec.signature)continue;rec.signature=signature;const visible=new Map(rec.nodes.map(n=>[n.id,n]));
+      const paths=rec.nodes.flatMap(node=>(node.requires||[]).filter(id=>visible.has(id)).map(id=>{const from=visible.get(id),x1=(from.column+.5)*100,x2=(node.column+.5)*100,y1=from.row*ROW+56,y2=node.row*ROW+4,mid=(y1+y2)/2;const cls=node.status==='planned'?'planned':rankFor(c,from)>0?'earned':'';return `<path class="talent-edge ${cls}" d="M${x1} ${y1} V${mid} H${x2} V${y2}"/>`;})).join('');
+      rec.lines.innerHTML=`<svg viewBox="0 0 300 ${rec.height}" preserveAspectRatio="none" width="100%" height="100%" aria-hidden="true">${paths}</svg>`;
     }
+    refreshDetails();
   }
   build();refresh();return {refresh};
 }

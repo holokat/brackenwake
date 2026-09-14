@@ -761,11 +761,13 @@ const emptyPack = { slots: 20, items: [] };
     `${ABILITIES.filter((x) => x.group === 'bard').length} of them`);
 }
 {
-  // The casting rule, driven true and false on six spells and four things that
-  // are not spells. The user's line was "spells cannot be cast while a sword is
-  // equipped for example", so the sword is the case that must refuse.
+  // Arcane magic requires a focus. Chivalry can also channel through a melee
+  // weapon, which keeps the Paladin's starting sword-and-shield kit usable.
   const SIX = ['fireball', 'magicArrow', 'lifeDrain', 'hex', 'heal', 'raiseSkeleton'];
   const NOT_SPELLS = ['powerStrike', 'bandage', 'meditate', 'jump', 'aimedShot', 'provoke'];
+  check('a Paladin can heal with sword and shield, but a bow cannot channel Chivalry',
+    weaponCheck(ABILITIES_BY_ID.heal, doll({mainHand:it('longsword'),offHand:it('kite')})).ok
+    && !weaponCheck(ABILITIES_BY_ID.heal, doll({mainHand:it('shortbow')})).ok);
 
   const withWand = SIX.map((id) => weaponCheck(ABILITIES_BY_ID[id], doll({ mainHand: it('wand') }), emptyPack));
   const withStaff = SIX.map((id) => weaponCheck(ABILITIES_BY_ID[id], doll({ mainHand: it('staff') }), emptyPack));
@@ -779,10 +781,10 @@ const emptyPack = { slots: 20, items: [] };
   check('and with a staff', withStaff.every((r) => r.ok), withStaff.find((r) => !r.ok)?.reason || 'all six');
   check('and with the necromancer\'s bone staff', withBone.every((r) => r.ok),
     withBone.find((r) => !r.ok)?.reason || 'all six');
-  check('not one of them casts with a longsword in the hand', withSword.every((r) => !r.ok),
+  check('only Chivalry spells channel through a longsword', withSword.every((r, i) => r.ok === isChivalry(ABILITIES_BY_ID[SIX[i]])),
     withSword[0].reason);
   check('nor bare handed', bareHanded.every((r) => !r.ok), bareHanded[0].reason);
-  check('nor on a quarterstaff, which is a Macefighting stick', withStick.every((r) => !r.ok),
+  check('a quarterstaff channels only Chivalry, not arcane spells', withStick.every((r, i) => r.ok === isChivalry(ABILITIES_BY_ID[SIX[i]])),
     withStick[0].reason);
   check('the refusal names the ability, what it wants and what is in the hand',
     /^Fireball wants a wand or a staff in your hand, and you are holding a Longsword\.$/.test(withSword[0].reason),
@@ -855,7 +857,7 @@ const emptyPack = { slots: 20, items: [] };
     instants.length === 10 && instants.includes('lightning') && instants.includes('magicArrow'),
     instants.join(', '));
   check('and the audit refuses a Chivalry row that has wandered into the burdened list', (() => {
-    const rogue = { ...ABILITIES_BY_ID.bless, skill: 'magery' };
+    const rogue = { ...ABILITIES_BY_ID.bless, skill: 'magery', needs: {kind:'focus',bases:[...FOCUS_BASES]} };
     try { auditAbilities(ABILITIES.map((x) => (x.id === 'bless' ? rogue : x))); return false; }
     catch (e) { return /Chivalry exemption/.test(e.message); }
   })());

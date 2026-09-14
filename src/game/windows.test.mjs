@@ -9,7 +9,7 @@ import {panel as achievementsPanel} from './achievements/panel.js';
 import {
   createWindows, sharesScreen, PAIRS, ESCAPE_KEY,
   CODEX_ID, CODEX_TABS, CODEX_IDS, isCodexTab, RESERVED_KEYS, keyCap,
-  TAB_ALIAS, resolveTab, CODEX_FRAME,
+  TAB_ALIAS, resolveTab,
 } from './windows.js';
 import { panel as characterPanel } from './win_character.js';
 import { panel as bagPanel } from './win_bag.js';
@@ -69,8 +69,7 @@ const realSix = () => rig([
   check('J opens the registered Achievements codex page', w.tab === 'achievements');
   input.press('escape'); w.update(.016);
   check('Escape closes Achievements before settings', !w.anyOpen);
-  const a=CODEX_FRAME.tabs.achievements, map=CODEX_FRAME.tabs.map, close=CODEX_FRAME.close;
-  check('the visible Achievements tab has its own space between Map and Close', a.x > map.x+map.w && a.x+a.w < close.x);
+  check('the visible Achievements tab is a labelled codex page', CODEX_TABS.find((tab) => tab.id === 'achievements')?.label === 'Achievements');
 }
 
 // ---- the codex is data, not a special case ---------------------------------
@@ -89,27 +88,6 @@ check('and nothing else shares with them', !sharesScreen('bag', 'settings') && !
 check('a window shares the screen with itself', sharesScreen('settings', 'settings'));
 check('PAIRS is that one group, the aliases in it',
   PAIRS.length === 1 && PAIRS[0].length === 8, JSON.stringify(PAIRS));
-check('the painted codex frame is measured as a 1536 by 1024 image',
-  CODEX_FRAME.image.width === 1536 && CODEX_FRAME.image.height === 1024 && CODEX_FRAME.image.aspect === 1.5,
-  JSON.stringify(CODEX_FRAME.image));
-check('the painted frame carries five measured tab hit areas',
-  CODEX_IDS.every((id) => CODEX_FRAME.tabs[id] && CODEX_FRAME.tabs[id].w > 0.07),
-  Object.keys(CODEX_FRAME.tabs).join(','));
-check('and twelve measured doll slot boxes',
-  Object.keys(CODEX_FRAME.slots).length === 12, Object.keys(CODEX_FRAME.slots).join(','));
-{
-  const left = ['head', 'shoulders', 'chest', 'hands', 'waist', 'legs'].map((slot) => CODEX_FRAME.slots[slot]);
-  const right = ['feet', 'neck', 'ring1', 'ring2', 'mainHand', 'offHand'].map((slot) => CODEX_FRAME.slots[slot]);
-  const evenRail = (rail) => rail.every((slot, index) => slot.w >= 96 / 1536 && slot.h >= 72 / 1024
-    && (index === 0 || slot.y >= rail[index - 1].y + rail[index - 1].h));
-  check('the two doll rails hold six readable, non-overlapping cells each',
-    evenRail(left) && evenRail(right) && new Set(left.map((slot) => slot.x)).size === 1
-    && new Set(right.map((slot) => slot.x)).size === 1 && left[0].x + left[0].w < CODEX_FRAME.arch.x
-    && right[0].x > CODEX_FRAME.arch.x + CODEX_FRAME.arch.w
-    && left[0].x > CODEX_FRAME.panels.left.x + CODEX_FRAME.panels.left.w
-    && right[0].x + right[0].w < CODEX_FRAME.panels.right.x,
-    `${left.length} left, ${right.length} right`);
-}
 
 // ---- the two names for the one page ----------------------------------------
 console.log('windows: bag and inventory are Character');
@@ -435,9 +413,16 @@ console.log('windows: the codex, built');
   const codexEl = w.codexEl;
   check('there is a codex element', !!codexEl);
   const frame = codexEl.children[0];
-  check('it uses the painted codex frame, not the CSS gilded frame', frame.classList.contains('bw-codex-frame') && !frame.classList.contains('bw-frame'), frame.className);
-  const bodies = frame.children[0];
-  const tabs = frame.children[1].children[0];
+  const css = document.getElementById('bw-windows-css').textContent;
+  check('it uses the responsive CSS codex shell', frame.classList.contains('bw-codex-frame') && !frame.classList.contains('bw-frame'), frame.className);
+  check('generic codex controls stay weak enough for a page to style its own buttons',
+    css.includes('#bw-windows :where(button:not(.bw-tab):not(.bw-win-x):not(.bw-btn))'));
+  check('narrow codex tabs keep their labels and scroll instead of hiding them',
+    !css.includes('.bw-tab-word { display: none') && css.includes('.bw-codex-tabs { display: flex; align-items: center; gap: 7px; min-width: 0; overflow-x: auto;'));
+  check('generic codex headings do not force upper case on page content',
+    css.includes('#bw-windows :where(h3)') && !css.includes('text-transform: uppercase'));
+  const tabs = frame.children[0].children[0];
+  const bodies = frame.children[1];
   check('the strip holds one tab per registered PAGE, and the pack is not one',
     tabs.children.length === 3, tabs.children.map((t) => t.textContent).join(','));
   check('in the order CODEX_TABS gives',
@@ -447,12 +432,11 @@ console.log('windows: the codex, built');
     tabs.children.map((t) => t.textContent).join(','));
   check('the character tab names both keys that reach it',
     /C or B|B or C/.test(String(tabs.children[0].title || '')), String(tabs.children[0].title));
-  check('the page that is up is the one on the red plate',
+  check('the page that is up is visibly selected',
     tabs.children[0].classList.contains('on') && !tabs.children[1].classList.contains('on'));
-  check('the tab hit areas are placed from the painted-frame fractions',
-    tabs.children[0].style.left === `${CODEX_FRAME.tabs.character.x * 100}%`
-    && tabs.children[0].style.width === `${CODEX_FRAME.tabs.character.w * 100}%`,
-    `${tabs.children[0].style.left}, ${tabs.children[0].style.width}`);
+  check('the tabs are ordinary labelled controls, not raster hit areas',
+    String(tabs.children[0].innerHTML).includes('Character') && String(tabs.children[1].innerHTML).includes('Skills')
+    && !tabs.children[0].style.left && !tabs.children[0].style.width);
   check('and the codex is showing', codexEl.hidden === false);
 
   check('only the pages that have been opened are built', bodies.children.length === 1);
@@ -482,7 +466,7 @@ console.log('windows: the codex, built');
     bagThrew === null && w.tab === 'character' && bodies.children.length === 3,
     bagThrew ? bagThrew.stack.split('\n')[0] : `${w.tab}, ${bodies.children.length} pages`);
 
-  const closeBtn = frame.children[1].children[1];
+  const closeBtn = frame.children[0].children[1];
   closeBtn.fire('click', { stopPropagation() {} });
   check('the close button shuts the codex', w.anyOpen === false && codexEl.hidden === true);
   check('and nothing is left showing', bodies.children.every((b) => b.hidden === true));

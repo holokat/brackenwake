@@ -292,6 +292,14 @@ function page(opts = {}) {
 
 {
   const r = page();
+  const sheetCss = document.getElementById('bw-sheet-css').textContent;
+  check('the wide sheet reserves the full paper-doll stage before it allocates the pack',
+    sheetCss.includes('minmax(456px, 1.08fr)') && sheetCss.includes('@media (max-width: 1150px)')
+      && sheetCss.includes('minmax(456px, 1.2fr)'));
+  check('the compact sheet changes rails and labels before a 320px viewport can overflow',
+    sheetCss.includes('@media (max-width: 480px)') && sheetCss.includes('grid-template-columns: 72px minmax(0,1fr) 72px')
+      && sheetCss.includes('white-space: normal; overflow-wrap: anywhere'));
+  check('the character section headers keep their authored sentence case', !sheetCss.includes('text-transform: uppercase'));
   const str = numOf(r.root, 'str');
   check('the sheet prints STR as its own span', !!str && str.num.textContent === '68',
     str ? str.num.textContent : 'no span');

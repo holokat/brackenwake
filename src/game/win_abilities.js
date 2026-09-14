@@ -173,7 +173,7 @@ export function abilityLines(ability, character) {
 
 /** The word on the heading, and on the filter chip. abilities.js has ids. */
 export const GROUP_LABEL = {
-  warrior: 'Warrior', ranger: 'Ranger', mage: 'Wizard',
+  warrior: 'Warrior', ranger: 'Ranger', mage: 'Mage',
   necromancer: 'Necromancer', healer: 'Healer', rogue: 'Rogue', bard: 'Bard',
   everyone: 'Everyone',
 };

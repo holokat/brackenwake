@@ -15,7 +15,9 @@ import {APPEARANCE_FALLBACK,BUILD_GIRTH,SKIN_COLOURS,HAIR_COLOURS} from '../play
 const PARTS={hips:'hips',torso:'chest',head:'head',armL:'upperArmL',armR:'upperArmR',handL:'handL',handR:'handR',legL:'thighL',legR:'thighR',shinL:'shinL',shinR:'shinR',footL:'footL',footR:'footR',bootL:'footL',bootR:'footR',back:'chest'};
 const SKINS={pale:'porcelain',fair:'warm-beige',sand:'golden-beige',olive:'olive-beige',tan:'warm-tan',copper:'warm-brown',umber:'deep-brown',ebony:'deep-ebony'};
 const HAIR={cropped:'close_crop',short:'side_part',tousled:'curly_crop',swept:'default',topknot:'top_knot',braid:'long_braid',bob:'bob',ponytail:'default',wild:'rounded_curls',long:'long_braid','twin braids':'long_braid',shaved:'close_crop'};
-export const OPENING_STUDIO_CLASS={warrior:'warrior',ranger:'ranger',rogue:'rogue',mage:'wizard'};
+// Paladin and Priest share the authored Warrior and Wizard studio rigs until
+// dedicated models exist. This keeps every playable creation choice renderable.
+export const OPENING_STUDIO_CLASS={warrior:'warrior',ranger:'ranger',rogue:'rogue',mage:'wizard',paladin:'warrior',priest:'wizard'};
 export function studioClassForOpening(id){
  return OPENING_STUDIO_CLASS[id]||id;
 }
