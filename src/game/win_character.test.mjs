@@ -14,8 +14,10 @@ import { normalise, PACK_SLOTS } from './inventory.js';
 import { SLOTS, makeItem } from '../mmo/items.js';
 import { derived } from '../mmo/stats.js';
 import { SKILLS } from '../mmo/skills.js';
-import { attackSkill, defenceSkill, CRIT_BASE_MULT } from '../mmo/combat_rules.js';
+import { attackSkill, defenceSkill, CRIT_BASE_MULT, TACTICS_TO_HIT } from '../mmo/combat_rules.js';
 import { OPENINGS } from '../mmo/openings.js';
+import { effectiveCombatSkill } from '../mmo/combat_proficiency.js';
+import { deltaText, formatValue, previewEquip } from './compare.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -112,8 +114,11 @@ console.log('character: the combat rows read the rules');
     attack.value === Math.round(attackSkill(f)), `${attack.value} vs ${attackSkill(f)}`);
   check('defence is combat_rules defenceSkill, rounded',
     defence.value === Math.round(defenceSkill(f)), `${defence.value} vs ${defenceSkill(f)}`);
-  check('a bare handed warrior with no Wrestling has no attack to speak of',
-    attack.value === Math.round(0 + 40 * 0.25), String(attack.value));
+  check('a bare handed warrior reads the current class-level combat projection',
+    attack.value === Math.round(attackSkill(f))
+      && f.skills.wrestling === effectiveCombatSkill(c, 'wrestling')
+      && f.skills.tactics === effectiveCombatSkill(c, 'tactics'),
+    `${attack.value}; wrestling ${f.skills.wrestling}, tactics ${f.skills.tactics}`);
   check('dodge is a percentage', /%$/.test(s.fight.find((r) => r.label === 'dodge').value));
   check('critical damage is the multiplier the resolver uses',
     s.fight.find((r) => r.label === 'critical damage').value === `${CRIT_BASE_MULT}x`);
@@ -130,11 +135,16 @@ console.log('character: the combat rows read the rules');
   check('the weapon in hand is the weapon the rules read', f.weapon && f.weapon.skill === 'swordsmanship');
   check('a document with no stamina is filled in from the derived pool',
     f.stamina === derived(c.stats, c.skills).maxStamina, String(f.stamina));
-  check('so attack is not docked twenty points for exhaustion',
-    Math.round(attackSkill(f)) === 60, String(Math.round(attackSkill(f))));
+  const readyAttack = Math.round(attackSkill(f));
+  const projectedAttack = Math.round(effectiveCombatSkill(c, 'swordsmanship')
+    + effectiveCombatSkill(c, 'tactics') * TACTICS_TO_HIT);
+  check('a ready weapon reads the current class-level weapon and tactics projection',
+    readyAttack === projectedAttack,
+    `${readyAttack} vs ${projectedAttack}`);
   const spent = fighterFor({ ...c, stamina: 0 }, null);
-  check('and a fighter who really is spent loses those twenty',
-    Math.round(attackSkill(spent)) === 40, String(Math.round(attackSkill(spent))));
+  check('and a fighter who really is spent loses twenty from that same projection',
+    Math.round(attackSkill(spent)) === readyAttack - 20,
+    `${Math.round(attackSkill(spent))} from ${readyAttack}`);
 }
 {
   // When actor.js has run, its numbers win, so the sheet and the fight agree.
@@ -245,7 +255,6 @@ globalThis.window = { innerWidth: 1600, innerHeight: 900, addEventListener() {},
 
 const { createInventory } = await import('./inventory.js');
 const { panel } = await import('./win_character.js');
-const { deltaText } = await import('./compare.js');
 
 /** Every node under `n`, depth first. */
 function walk(n, out = []) {
@@ -343,14 +352,21 @@ function page(opts = {}) {
   // Down is red. A greatsword takes the shield off, and parry goes with it.
   const r = page({ shield: true });
   const parry = numOf(r.root, 'parry');
-  check('with a kite on, parry is 18%', parry.num.textContent === '18%', parry.num.textContent);
+  const greatsword = r.character.pack.items[1];
+  const compared = previewEquip(r.character, null, greatsword);
+  const before = formatValue('parry', compared.before.parry);
+  const after = formatValue('parry', compared.after.parry);
+  const delta = deltaText('parry', compared.deltas.parry.delta);
+  check('with a kite on, parry matches the current class-level comparison baseline',
+    parry.num.textContent === before && compared.before.parry > compared.after.parry,
+    `${parry.num.textContent}; preview ${before} to ${after}`);
   r.grid.children[1].fire('pointerenter', { clientX: 40, clientY: 40 });
-  check('hovering a greatsword shows parry at nothing', parry.num.textContent === '0%', parry.num.textContent);
+  check('hovering a greatsword shows the comparison result', parry.num.textContent === after, parry.num.textContent);
   check('in red', parry.num.className.includes('bw-down') && !parry.num.className.includes('bw-up'), parry.num.className);
-  check('and says how much is lost', parry.delta.textContent.trim() === '(-18%)', parry.delta.textContent);
+  check('and says how much the same comparison loses', parry.delta.textContent.trim() === delta, parry.delta.textContent);
   check('and that too is red', parry.delta.className.includes('bw-down'));
   r.grid.children[1].fire('pointerleave');
-  check('and it comes back when the cursor leaves', parry.num.textContent === '18%' && parry.num.className === 'bw-vnum');
+  check('and it comes back to that current baseline when the cursor leaves', parry.num.textContent === before && parry.num.className === 'bw-vnum');
 }
 {
   // The second card, beside the tooltip.
@@ -391,9 +407,10 @@ function page(opts = {}) {
   const cell = walk(r.root).find((n) => n.dataset && n.dataset.slot === 'offHand');
   check('there is a cell for the off hand', !!cell);
   const parry = numOf(r.root, 'parry');
+  const currentParry = formatValue('parry', previewEquip(r.character, null, r.character.equipment.offHand).before.parry);
   cell.fire('pointerenter', { clientX: 40, clientY: 40 });
   check('hovering what is already on changes no number',
-    parry.num.textContent === '18%' && parry.num.className === 'bw-vnum', parry.num.className);
+    parry.num.textContent === currentParry && parry.num.className === 'bw-vnum', `${parry.num.textContent} ${parry.num.className}`);
   const cmp = tipEl().children.find((c) => c.className.includes('bw-tip-cmp'));
   check('and the card names the shield in the hand it is in',
     cmp.textContent.includes('Kite Shield') && cmp.textContent.includes('in your off hand'), cmp.textContent.slice(0, 140));

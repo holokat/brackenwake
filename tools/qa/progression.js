@@ -12,10 +12,16 @@ try{
  if(!['mage','warrior','rogue','ranger','paladin','priest'].every(id=>creationClasses.includes(id)))throw Error('Six classes missing from creation');
  await report({stage:'creation-ready',classes:creationClasses});
  if(new URLSearchParams(location.search).has('creationOnly'))await new Promise(()=>{});
- document.querySelector('[data-opening="mage"]').click();const name=document.querySelector('input[placeholder="a name"]');name.value='Talent review';name.dispatchEvent(new Event('input',{bubbles:true}));
+ const reviewClass=new URLSearchParams(location.search).get('characterReview');
+ document.querySelector(`[data-opening="${creationClasses.includes(reviewClass)?reviewClass:'mage'}"]`).click();const name=document.querySelector('input[placeholder="a name"]');name.value='Talent review';name.dispatchEvent(new Event('input',{bubbles:true}));
  [...document.querySelectorAll('button')].find(b=>/create character/i.test(b.textContent)).click();await wait(()=>window.__bw?.player);
  const b=window.__bw;b.actor.godMode=true;b.windows.closeAll();await b.runtime.ready;
  const c=b.state.character;
+ if(reviewClass){
+   b.windows.open('character');await delay(700);
+   const {watchCharacterLayout}=await import('./character-layout-checks.js');
+   watchCharacterLayout(report);await new Promise(()=>{});
+ }
  const {levelOf,talentRank,availablePoints}=await import('/src/mmo/talents.js');
  const initial={level:levelOf(c),bar:[...c.bar],points:availablePoints(c)};
  b.windows.open('abilities');await delay(600);
@@ -55,7 +61,8 @@ try{
  const equipmentVerified={slots:gearSlots,armorBefore:beforeAr,armorAfter:b.actor.ar,saved:true};
  const lootVerified={items:claimIds.length,gold:corpseGold,duplicateRefused:true};
  await report({stage:'progression-verified',initial,level:levelOf(c),points:availablePoints(c),fireballRank:talentRank(c,'fireball'),xpFromKill:earnedXp,slots,gearSlots,corpseItems,corpseGold,floorDrops:dropped,equipmentVerified,lootVerified,shaderErrors:b.sc.renderer.info.programs.filter(p=>p.diagnostics?.runnable===false).length});
- const previewCorpse={name:'Wolf',pos:b.player.pos,active:true,loot:{items:[makeItem({base:'leather_chest',seed:981})],gold:24}};
+ const {verifyLiveTalents}=await import('./live-talents.js');await verifyLiveTalents(b,report);
+ const previewCorpse={name:'Wolf',pos:b.player.pos,active:true,loot:{items:[makeItem({base:'rapier',seed:981})],gold:24}};
  window.__progressionReview={b,c,corpse,tree:()=>b.windows.open('abilities'),gear:()=>b.windows.open('character'),loot:()=>b.windows.open('corpseLoot',{corpse:previewCorpse}),report};
  const controls=document.createElement('nav');controls.id='review-controls';controls.setAttribute('aria-label','QA review panels');
  controls.style.cssText='position:fixed;right:12px;bottom:8px;z-index:999999;display:flex;gap:6px';

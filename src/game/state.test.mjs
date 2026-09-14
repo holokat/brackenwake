@@ -331,7 +331,7 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
   check('the bare v2 key is not a document any more', !store.m.has(SAVE_KEY));
   const raw = JSON.parse(store.m.get(slotKeyFor('1')));
   check('the save is version 2', raw.v === SAVE_VERSION, JSON.stringify(raw.v));
-  check('the save shape is the 07 document without the removed companion', JSON.stringify(Object.keys(raw).sort()) === '["achievements","advancement","appearance","bar","bosses","deadUntil","discovered","equipment","gold","health","heldTool","itemBar","itemBarSlot","mana","name","needsCreation","opened","opening","pack","pos","settings","skillLocks","skills","stamina","statLocks","stats","story","uniques","unlockedAbilities","v","waypoint","waystones","zones"]', Object.keys(raw).join(','));
+  check('the save shape carries a frozen legacy combat floor beside profession skills', JSON.stringify(Object.keys(raw).sort()) === '["achievements","advancement","appearance","bar","bosses","combatLegacy","deadUntil","discovered","equipment","gold","health","heldTool","itemBar","itemBarSlot","mana","name","needsCreation","opened","opening","pack","pos","settings","skillLocks","skills","stamina","statLocks","stats","story","uniques","unlockedAbilities","v","waypoint","waystones","zones"]', Object.keys(raw).join(','));
 
   const b = createState({ storage: store });
   check('load finds it', b.load() === true);
@@ -599,6 +599,10 @@ const stacksIn = (c, base) => c.pack.items.filter((i) => i && i.base === base);
 {
   const c = hydrate({ stats: { con: 100, str: 100 }, health: 99999 });
   check('a save claiming more health than the stats allow is clamped', c.health === 280, `${c.health} of a possible ${30 + 200 + 50}`);
+  const old = hydrate({ opening: 'mage', skills: { magery: 77, mining: 31 } });
+  const current = hydrate({ opening: 'mage', combatLegacy: {}, skills: { magery: 77, mining: 31 } });
+  check('an old save freezes only its combat value as a legacy floor', old.combatLegacy.magery === 77 && old.combatLegacy.mining === undefined);
+  check('a current document never promotes a raw combat number into that floor', Object.keys(current.combatLegacy).length === 0 && current.skills.mining === 31);
   const d = hydrate(null);
   check('hydrating nothing gives a whole blank document', d.v === 2 && d.pack.items.length === PACK_SLOTS);
 }

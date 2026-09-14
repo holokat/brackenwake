@@ -47,7 +47,7 @@ export const CODEX_ID = 'codex';
  */
 export const CODEX_TABS = [
   { id: 'character', label: 'Character' },
-  { id: 'skills', label: 'Skills' },
+  { id: 'skills', label: 'Professions' },
   { id: 'abilities', label: 'Skill trees' },
   { id: 'crafting', label: 'Crafting' },
   { id: 'map', label: 'Map' },

@@ -180,10 +180,10 @@ console.log('compare: a greatsword against a shield');
   c.pack.items[0] = gs;
   const p = previewEquip(c, null, gs);
   check('it goes in the main hand', p.slot === 'mainHand');
-  check('parry was 18% with the kite on', p.before.parry === 18, String(p.before.parry));
+  check('parry uses the level-derived value with the kite on', p.before.parry === 14.4, String(p.before.parry));
   check('and is 0 without it', p.after.parry === 0);
   check('so the delta is negative and NOT better',
-    p.deltas.parry.delta === -18 && p.deltas.parry.better === false && p.deltas.parry.changed === true);
+    p.deltas.parry.delta === -14.4 && p.deltas.parry.better === false && p.deltas.parry.changed === true);
   check('the sword and the shield both come off',
     p.displaced.map((i) => i.base).sort().join(',') === 'kite,longsword',
     p.displaced.map((i) => i.base).join(','));

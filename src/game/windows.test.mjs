@@ -435,7 +435,7 @@ console.log('windows: the codex, built');
   check('the page that is up is visibly selected',
     tabs.children[0].classList.contains('on') && !tabs.children[1].classList.contains('on'));
   check('the tabs are ordinary labelled controls, not raster hit areas',
-    String(tabs.children[0].innerHTML).includes('Character') && String(tabs.children[1].innerHTML).includes('Skills')
+    String(tabs.children[0].innerHTML).includes('Character') && String(tabs.children[1].innerHTML).includes('Professions')
     && !tabs.children[0].style.left && !tabs.children[0].style.width);
   check('and the codex is showing', codexEl.hidden === false);
 

@@ -1,5 +1,9 @@
 # Working on Nostrux Homestead
 
+## Brackenwake humanoid rigging
+
+When creating or revising humanoid rigs or locomotion in Brackenwake, use [humanoid-foot-locking](/Users/k/.codex/skills/humanoid-foot-locking/SKILL.md), alongside `blender-fast` for Blender work. Reuse existing IK and verify the exported runtime character's planted feet, equipment attachments and airborne transitions.
+
 This is a game. Work on it like a game designer, not a ticket taker.
 
 ## The standing instruction

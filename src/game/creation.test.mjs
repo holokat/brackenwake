@@ -119,7 +119,7 @@ console.log(`       (items.js makes ${Object.values(KIT_BASES).filter(Boolean).l
   check('the name is kept as typed', c.name === "Rowan O'Dell", c.name);
   check('all five stats are there and total 250', statTotal(c.stats) === STAT_START_TOTAL && STAT_IDS.every((k) => k in c.stats), String(statTotal(c.stats)));
   check('all fifty two skills are written, not only the five that started', Object.keys(c.skills).length === SKILLS.length, String(Object.keys(c.skills).length));
-  check('and they total 200', skillTotal(c.skills) === 200, String(skillTotal(c.skills)));
+  check('new warrior has no profession progress from combat baselines', skillTotal(c.skills) === 0, String(skillTotal(c.skills)));
   check(`the pack has ${PACK_SLOTS} slots`, c.pack.slots === PACK_SLOTS && c.pack.items.length === PACK_SLOTS, `${c.pack.slots} slots, ${c.pack.items.length} entries`);
   check('the doll has all twelve', SLOTS.every((s) => s in c.equipment) && Object.keys(c.equipment).length === 12);
   check('the bar has twelve empty slots', c.bar.length === BAR_SLOTS && c.bar.every((x) => x === null));
@@ -201,16 +201,12 @@ check('a nameless character cannot begin', planCharacter({ opening: 'warrior', n
     opening: 'warrior', name: 'Ashe',
     skills: { ...warrior.skills, swordsmanship: 20, mining: 30 },
   });
-  check(`moving ${CUSTOM_SKILL_POINTS} skill points from a skill to another is allowed`, moved.ok === true, (moved.errors || []).join('; '));
-  check('and the total is still 200', skillTotal(moved.character.skills) === 200, String(skillTotal(moved.character.skills)));
+  check('combat practice cannot be transferred into a profession at creation', !moved.ok && /Combat abilities/.test(moved.errors.join(' ')));
   const raised = planCharacter({ opening: 'warrior', name: 'Ashe', skills: { ...warrior.skills, mining: 30 } });
-  check('a warrior cannot conjure skill points out of nothing', raised.ok === false, (raised.errors || []).join('; '));
-  const tooMany = planCharacter({
-    opening: 'warrior', name: 'Ashe',
-    skills: { ...warrior.skills, swordsmanship: 10, mining: 40 },
-  });
-  check('forty is over the thirty point budget', tooMany.ok === false, (tooMany.errors || []).join('; '));
-  check('and the refusal counts them', /40 of 30/.test(tooMany.errors.join(' ')), tooMany.errors.join('; '));
+  check('professions cannot gain free starting points', !raised.ok);
+  const injected = planCharacter({opening:'warrior', name:'Ashe', skills:{...warrior.skills, swordsmanship:100}});
+  check('programmatic creation cannot inject a legacy combat floor', !injected.ok && /Combat abilities/.test(injected.errors.join(' ')));
+
 }
 
 // ---- removed openings ---------------------------------------------------------
@@ -874,43 +870,14 @@ check('there is a card for every opening, in the openings order',
   s.cr.destroy();
 }
 
-// --- the skills, behind their disclosure
+// Combat practice is absent from character creation for every class.
 {
   const s = screen();
-  const disc = one(s.cr.el, 'bw-cr-disc');
-  const wrap = one(s.cr.el, 'bw-cr-skillwrap');
-  check('the skills sit behind a disclosure that says what it opens', disc.textContent === 'Adjust skills', disc.textContent);
-  check('and it is shut when the screen opens, so the panel is not a wall of fifty two rows',
-    wrap.hidden === true && s.cr.skillsOpen === false);
-  check('the fifty two rows are built all the same, so opening it is not a wait',
-    withClass(s.cr.el, 'bw-row').length === SKILLS.length, String(withClass(s.cr.el, 'bw-row').length));
-  disc.fire('click');
-  check('a click opens it', wrap.hidden === false && s.cr.skillsOpen === true);
-  check('and all fifty two are inside it, in their nine groups, each with its four steppers',
-    withClass(wrap, 'bw-row').length === SKILLS.length
-    && withClass(wrap, 'bw-cr-grp').length === SKILL_GROUPS.length
-    && withClass(wrap, 'bw-step').every((x) => x.children.length === 4),
-    `${withClass(wrap, 'bw-row').length} rows in ${withClass(wrap, 'bw-cr-grp').length} groups`);
-  check('and the budget line for them is inside it too, where the points are moved',
-    withClass(wrap, 'bw-cr-budget').length === 1 && /skill points left to move/.test(withClass(wrap, 'bw-cr-budget')[0].textContent),
-    withClass(wrap, 'bw-cr-budget')[0].textContent);
-  check('the rows are a name, the steppers and a value',
-    withClass(wrap, 'bw-row').every((r) => r.children.length === 3));
-  check('every stat row and skill row is boxed inside the right interior scroll, never the name block',
-    withClass(one(s.cr.el, 'bw-cr-scroll'), 'bw-cr-bar').length === STAT_ORDER.length
-    && withClass(one(s.cr.el, 'bw-cr-scroll'), 'bw-row').length === SKILLS.length
-    && withClass(one(s.cr.el, 'bw-cr-act'), 'bw-cr-bar').length === 0
-    && withClass(one(s.cr.el, 'bw-cr-act'), 'bw-row').length === 0,
-    `${withClass(one(s.cr.el, 'bw-cr-scroll'), 'bw-cr-bar').length} stat rows, ${withClass(one(s.cr.el, 'bw-cr-scroll'), 'bw-row').length} skill rows`);
-  disc.fire('click');
-  check('and a second click shuts it again', wrap.hidden === true && s.cr.skillsOpen === false);
-  // and the choice survives a change of class, because the list is refilled
-  // rather than rebuilt
-  disc.fire('click');
-  s.cr.pick('mage');
-  check('a class chosen while it is open leaves it open, with the new class s numbers',
-    s.cr.skillsOpen === true && withClass(wrap, 'bw-row').length === SKILLS.length,
-    String(withClass(wrap, 'bw-row').length));
+  for (const id of ['mage', 'warrior', 'rogue', 'ranger', 'paladin', 'priest']) {
+    s.cr.pick(id);
+    check(`${id} has no combat skill allocator`, withClass(s.cr.el, 'bw-cr-disc').length === 0 && withClass(s.cr.el, 'bw-cr-skillwrap').length === 0 && !s.cr.skillsOpen);
+    check(`${id} explains class and profession progression`, withClass(s.cr.el, 'bw-cr-profession-note').some(el => /skill trees/.test(el.textContent) && /Professions/.test(el.textContent)));
+  }
   s.cr.destroy();
 }
 
@@ -1007,30 +974,6 @@ check('there is a card for every opening, in the openings order',
     one(s.cr.el, 'bw-cr-left').scrollTop === 0 && one(s.cr.el, 'bw-cr-right').scrollTop === 0,
     `${one(s.cr.el, 'bw-cr-left').scrollTop} / ${one(s.cr.el, 'bw-cr-right').scrollTop}`);
   s.cr.destroy();
-}
-
-// --- the steppers are still the rules ------------------------------------------
-{
-  // The stepper still refuses what the rules refuse, and says so in the red
-  // line. Both directions, on the real buttons.
-  const cr = createCreation(document.createElement('div'), {});
-  const step = withClass(cr.el, 'bw-step')[0];
-  const errLine = one(cr.el, 'bw-cr-err');
-  const before = { ...cr.state.skills };
-  step.children[3].fire('click');   // +5 with nothing lowered
-  check('a warrior cannot step a skill up out of nothing',
-    JSON.stringify(cr.state.skills) === JSON.stringify(before) && errLine.textContent.length > 0,
-    errLine.textContent);
-  step.children[0].fire('click');   // -5, which is allowed
-  const moved = Object.keys(cr.state.skills).filter((k) => (cr.state.skills[k] || 0) !== (before[k] || 0));
-  check('and stepping one down is allowed', moved.length === 1, moved.join(','));
-  check('though the five points it freed are named as lying loose until they are placed',
-    /5 skill points you took off are lying loose/.test(errLine.textContent), errLine.textContent);
-  step.children[3].fire('click');   // +5 back, now that a donor exists
-  check('after which the same step up is taken',
-    JSON.stringify(cr.state.skills) === JSON.stringify(before), JSON.stringify(moved));
-  check('and the loose line goes quiet with them', !/lying loose/.test(errLine.textContent), errLine.textContent);
-  cr.destroy();
 }
 
 delete globalThis.document;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {ABILITIES_BY_ID} from './abilities.js';
 import {CLASS_TREES} from './class_trees.js';
 import {sanitizeV1} from './legacy_talents.js';
-import {hydrateAdvancement,MAX_XP,LEVEL_XP,levelOf,maxTalentRank,availablePoints,newAdvancement,grantExperience,learnTalent} from './talents.js';
+import {hydrateAdvancement,MAX_XP,LEVEL_XP,levelOf,maxTalentRank,availablePoints,newAdvancement,grantExperience,learnTalent,nodeRank} from './talents.js';
 const rules={maxRank:maxTalentRank,levelForXp:levelOf,maxXp:MAX_XP};
 let seed=1451;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/2**32;};
 const spend=p=>Object.entries(p.ranks).reduce((sum,[id,n])=>sum+Math.max(0,n-(p.granted.includes(id)?1:0)),0);
@@ -41,9 +41,12 @@ for(const tree of CLASS_TREES){
  grantExperience(character,MAX_XP);
  const live=tree.branches.flatMap(branch=>branch.nodes).filter(node=>node.status==='live');
  for(let pass=0;pass<live.length;pass++)for(const node of live)learnTalent(character,node.id,ABILITIES_BY_ID);
+ const modifier=live.find(node=>node.kind==='modifier');
+ assert.ok(nodeRank(character,modifier) > 0,`${tree.id}: a live modifier was allocated`);
  const allocations=Object.fromEntries(Object.entries(character.advancement.allocations).reverse());
  const restored=hydrateAdvancement({...character.advancement,allocations},tree.id,[],ABILITIES_BY_ID);
  assert.deepEqual(restored.ranks,character.advancement.ranks,`${tree.id}: reverse allocation keys preserve ranks`);
+ assert.equal(nodeRank({opening:tree.id,advancement:restored},modifier),nodeRank(character,modifier),`${tree.id}: reverse allocation keys preserve modifier ranks`);
  assert.equal(availablePoints({opening:tree.id,advancement:restored}),availablePoints(character),`${tree.id}: reverse allocation keys preserve points`);
 }
 // This deliberately trains a five-rank deep dependency. In reverse key order

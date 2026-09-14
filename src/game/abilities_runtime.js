@@ -1,4 +1,6 @@
-import {talentCooldown} from '../mmo/talents.js';
+import {talentCooldown, respecTalentTree} from '../mmo/talents.js';
+import {combatLevel} from '../mmo/combat_proficiency.js';
+import { abilityPreview, effectiveAbility, summonModifierValues } from '../mmo/effective_ability.js';
 import {requirementsForCharacter} from '../mmo/abilities.js';
 import {achievementEvent} from './achievements/events.js';
 // The bar, and what happens when you press it.
@@ -289,6 +291,7 @@ export function createAbilities(deps = {}) {
   const utility = deps.utility || {};
 
   const cooldowns = Object.create(null);
+  let barModifierCache = null;
   let cast = null;              // the rooted or moving cast in flight
   const delayed = [];           // delayed effects: Meteor's fall, Volley's rain
   const zones = [];             // traps, wards, sanctuaries, rifts
@@ -378,9 +381,14 @@ export function createAbilities(deps = {}) {
 
   /** What abilities.js's canUse reads. Built fresh each press: pools move. */
   function snapshot(now) {
+    const skills = { ...(actor.skills || character.skills || {}) };
+    // Poisoning remains a profession for crafted goods. Poison Blade is a
+    // Rogue talent, so its combat requirement follows character level rather
+    // than the crafting number saved on the sheet.
+    skills.poisoning = combatLevel(character);
     return {
       advancement: character.advancement,
-      skills: character.skills || actor.skills || {},
+      skills,
       stats: character.stats || actor.stats || {},
       stamina: num(actor.stamina),
       mana: num(actor.mana),
@@ -866,15 +874,27 @@ export function createAbilities(deps = {}) {
       if (!found.length) {
         return `${c.ability.name} finds nothing inside ${radius} m.`;
       }
+      // Each target is a separate landing. Resolve condition-gated bonuses
+      // against that target now; a marked or rooted enemy must not lend a
+      // bonus to a neighbour that does not meet the condition.
+      const impact = m => {
+        if (!c.baseAbility) return { ability: c.ability, effect: e };
+        const ability = effectiveAbility(character, c.baseAbility, { actor, target: m });
+        const parts = ability.effect?.kind === 'combo' ? ability.effect.parts || [] : [ability.effect];
+        const effect = parts.find(part => part?.kind === 'aoe' && part.delay === e.delay) || ability.effect;
+        return { ability, effect };
+      };
       if (e.spellDamage && combat?.queueSpell) {
         for (const m of found) {
-          combat.queueSpell(actor, spellFor(c.ability, e.spellDamage), m, { abilityId: c.ability.id, name: c.ability.name, aoe: true });
+          const hit = impact(m);
+          combat.queueSpell(actor, spellFor(hit.ability, hit.effect.spellDamage), m, { abilityId: hit.ability.id, name: hit.ability.name, aoe: true });
         }
       } else if (combat?.queueSwing) {
-        const mult = num(e.damageMult) || 1;
         for (const m of found) {
+          const hit = impact(m);
+          const mult = num(hit.effect.damageMult) || 1;
           combat.queueSwing(actor, m, {
-            abilityId: c.ability.id, name: c.ability.name, multiplier: mult,
+            abilityId: hit.ability.id, name: hit.ability.name, multiplier: mult,
             jumpAttack: airborne(), immediate: true, aoe: true,
           });
         }
@@ -906,7 +926,7 @@ export function createAbilities(deps = {}) {
       let amount;
       if (e.toFull) amount = max - before;
       else {
-        const skill = num((character.skills || {})[e.skill]);
+        const skill = num((actor.skills || character.skills || {})[e.skill]);
         amount = num(e.base) + skill * num(e.perSkill);
       }
       amount = Math.max(0, Math.round(amount));
@@ -1099,8 +1119,9 @@ export function createAbilities(deps = {}) {
     },
 
     doSummon(e, c) {
-      const skill = num((character.skills || {})[e.skill]);
-      const seconds = num(e.duration) + skill * num(e.durationPerSkill);
+      const skill = num((actor.skills || character.skills || {})[e.skill]);
+      const summonMods = summonModifierValues(character, c.ability, { actor, target: c.target });
+      const seconds = (num(e.duration) + skill * num(e.durationPerSkill)) * (1 + num(summonMods.durationPct));
       const where = c.target ? targetPoint(c.target) : groundPoint(c.ability);
       if (e.source === 'corpse') {
         const corpse = nearestCorpse(pos(), num(c.ability.range) || 6);
@@ -1111,6 +1132,7 @@ export function createAbilities(deps = {}) {
       const it = summonHook(e.creature, where, {
         duration: seconds, owner: actor, abilityId: c.ability.id,
         traits: e.traits || null, scalesWithCaster: !!e.scalesWithCaster,
+        summonMods,
         range: num(c.ability.range) || 30, nowS: c.now,
       });
       // The hook already said what stood up, by its real name and for how
@@ -1175,7 +1197,9 @@ export function createAbilities(deps = {}) {
     },
 
     doWeaponEnchant(e, c) {
-      const skill = num((character.skills || {})[e.skill]);
+      const skill = c.ability.id === 'poisonBlade'
+        ? combatLevel(character)
+        : num((actor.skills || character.skills || {})[e.skill]);
       actor.enchant = {
         damageType: e.damageType, vs: e.vs || null, mult: num(e.mult) || 1,
         until: e.duration ? c.now + num(e.duration) : Infinity,
@@ -1197,7 +1221,7 @@ export function createAbilities(deps = {}) {
       actor.passives = actor.passives || {};
       const tierBonus = {};
       for (const t of e.tiers || []) {
-        if (num((character.skills || {})[t.skill]) >= num(t.at)) Object.assign(tierBonus, t.mods || {});
+        if (num((actor.skills || character.skills || {})[t.skill]) >= num(t.at)) Object.assign(tierBonus, t.mods || {});
       }
       actor.passives[c.ability.id] = { ...(e.mods || {}), ...tierBonus };
       recompute();
@@ -1294,7 +1318,7 @@ export function createAbilities(deps = {}) {
     doBandage(e, c) {
       const who = c.target && c.target.faction === 'player' ? c.target : actor;
       if (cannotBeHealed(who)) return `A bandage will not close a wound on ${who === actor ? 'you' : (who.name || 'them')} while lich form holds.`;
-      const skills = character.skills || {};
+      const skills = actor.skills || character.skills || {};
       // A base so a bandage closes something at no skill at all; the rest is Healing and Anatomy (the user, 2026-09-08).
       const amount = Math.round(num(e.base) + num(skills.healing) * num(e.perHealing) + num(skills.anatomy) * num(e.perAnatomy));
       const max = Math.max(1, num(who.maxHealth) || num(who.health));
@@ -1431,9 +1455,10 @@ export function createAbilities(deps = {}) {
   }
 
   /** The moment the ability actually happens. */
-  function fire(ability, target, now, ground, follow = null) {
+  function fire(baseAbility, target, now, ground, follow = null) {
+    const ability = effectiveAbility(character, baseAbility, { actor, target });
     const ctx = {
-      ability, target, now, api, hit: [], follow,
+      ability, baseAbility, target, now, api, hit: [], follow,
       ground: ground || (ability.target === 'ground' ? groundPoint(ability) : { ...pos() }),
     };
     const words = runEffect(ability.effect, ctx);
@@ -1482,31 +1507,12 @@ export function createAbilities(deps = {}) {
   }
 
   /**
-   * THE FUMBLE, which is the price of being allowed to try.
-   *
-   * `openAt` lets a character hold the first rung of a school at 0 (see
-   * abilities.js). This is what stops that being a gift: below the row's own
-   * mark the attempt mostly comes apart, and abilities.js owns the curve. It
-   * still costs, it still says what happened, and it still TEACHES at the
-   * reduced chance skills.js gives a failed lesson, which is the only way a
-   * school with no other door can be started without paying a trainer.
-   *
-   * True when it came apart, and then it has already said so.
+   * Talent ownership and class level decide whether an ability can be used.
+   * There is no numeric combat-practice fumble: a purchased row resolves
+   * consistently, while armour still has its separate casting-risk roll.
    */
   function fumbled(ability, rec, target) {
-    const chance = character.advancement ? 1 : practiceChance(ability, character.skills || {});
-    if (chance >= 1) return false;
-    if (rng() < chance) return false;
-    const back = refund(rec);
-    spellVfx?.interrupt?.('fizzled');
-    say(
-      `${ability.name} fizzles: your hand is not practised. You feel a little of how it should go.${back ? ` ${back}.` : ''}`,
-      'bad',
-    );
-    float(pos(), `${ability.name} fizzles`, 'miss');
-    cue('denied');
-    teach(ability, false, target);
-    return true;
+    return false;
   }
 
   /**
@@ -1543,7 +1549,7 @@ export function createAbilities(deps = {}) {
   function land(ability, rec, target, now, ground, follow = null) {
     if (fizzled(ability, rec, now)) return null;
     if (fumbled(ability, rec, target)) return null;
-    return fire(ability, target, now, ground, follow);
+    return fire(rec.baseAbility || ability, target, now, ground, follow);
   }
 
   /** Where a ground ability lands now: under the body it was aimed at while that body is up, else where it was pointed. */
@@ -1579,8 +1585,9 @@ export function createAbilities(deps = {}) {
   }
 
   function useByIdQuietly(id, now, opts = {}) {
-    const ability = ABILITIES_BY_ID[id];
-    if (!ability) { say(`There is no ability called ${id}.`, 'bad'); return { ok: false, reason: 'unknown' }; }
+    const baseAbility = ABILITIES_BY_ID[id];
+    if (!baseAbility) { say(`There is no ability called ${id}.`, 'bad'); return { ok: false, reason: 'unknown' }; }
+    let ability = effectiveAbility(character, baseAbility, { actor });
     const t = num(now);
 
     // Pressing a second key puts the first spell down. Saying so matters: the
@@ -1662,8 +1669,14 @@ export function createAbilities(deps = {}) {
     const req = effectRequirements(ability, target);
     if (!req.ok) { say(req.reason, 'bad'); cue('denied'); return { ok: false, reason: req.reason }; }
 
+    ability = effectiveAbility(character, baseAbility, { actor, target });
+
     const rec = startCast(ability, snapshot(t), t, target);
     if (rec.error) { say(rec.error, 'bad'); cue('denied'); return { ok: false, reason: rec.error }; }
+    rec.effectiveAbility = ability;
+    // Keep the catalogue action so condition-gated modifiers are evaluated
+    // again when the cast lands instead of being frozen at cast start.
+    rec.baseAbility = baseAbility;
 
     // You look at what you are about to hit. This is before the cast starts, so
     // a three second Meteor is aimed from the first frame and not the last.
@@ -1724,7 +1737,7 @@ export function createAbilities(deps = {}) {
       effects?.swing?.(player);
       if (ability.skill === 'archery' || ability.skill === 'marksmanship') cue('bowShot');
     }
-    fire(ability, target, t, ground, follow);
+    fire(baseAbility, target, t, ground, follow);
     return { ok: true, casting: false, paid, record: rec };
   }
 
@@ -1892,7 +1905,7 @@ export function createAbilities(deps = {}) {
       }
     }
     if (cast && t >= cast.endsAt) {
-      const ability = ABILITIES_BY_ID[cast.abilityId];
+      const ability = cast.effectiveAbility || ABILITIES_BY_ID[cast.abilityId];
       const rec = cast;
       cast = null;
       effects?.stopCast?.(player);
@@ -1906,9 +1919,18 @@ export function createAbilities(deps = {}) {
         // the rain and the meteor come down on the body they were aimed at, where it is now
         const f = p.follow;
         const ground = f && num(f.health) > 0 && !f.dead ? { ...targetPoint(f) } : p.ctx.ground;
-        const ctx = { ...p.ctx, now: t, api, hit: [], ground };
-        const words = runEffect(p.effect, ctx);
-        say(`${p.ctx.ability.name} lands. ${words || ''}`.trim(), 'ability');
+        // A delayed area strike is also a hit-time action. Rebuild the
+        // effective effect against the targets currently inside it so execute,
+        // root, mark, and self-state conditions cannot be snapshot exploits.
+        const current = p.ctx.baseAbility
+          ? effectiveAbility(character, p.ctx.baseAbility, { actor, target: p.ctx.target })
+          : p.ctx.ability;
+        const source = current?.effect?.kind === 'combo'
+          ? (current.effect.parts || []).find(part => part.kind === p.effect.kind && part.delay === p.effect.delay)
+          : current?.effect;
+        const ctx = { ...p.ctx, ability: current || p.ctx.ability, now: t, api, hit: [], ground };
+        const words = runEffect(source || p.effect, ctx);
+        say(`${ctx.ability.name} lands. ${words || ''}`.trim(), 'ability');
       }
     }
 
@@ -2012,7 +2034,7 @@ export function createAbilities(deps = {}) {
     if (!moving()) return;
     if (stealthAt && t - stealthAt < STEALTH_STEP_S) return;
     stealthAt = t;
-    const skill = num((character.skills || {}).stealth);
+    const skill = num((actor.skills || character.skills || {}).stealth);
     const held = rng() < stealthHoldChance(skill);
     try { progression?.lesson?.('stealth', STEALTH_DIFFICULTY, held, rng); } catch (err) { /* a lesson is never worth a crash */ }
     if (held) return;
@@ -2092,9 +2114,28 @@ export function createAbilities(deps = {}) {
   function barView(now) {
     const t = num(now);
     const bar = Array.isArray(character.bar) ? character.bar : [];
+    // Previews include resolved damage, not just talent deltas. Compare compact
+    // value snapshots so in-place rank, stat, skill, gear, and buff changes
+    // invalidate the cache without cloning an actor every frame.
+    const valuesKey = value => Object.entries(value || {}).sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, item]) => `${key}:${typeof item === 'object' ? JSON.stringify(item) : item}`).join('|');
+    const cacheKey = [
+      valuesKey(character.advancement?.allocations), valuesKey(character.advancement?.ranks), character.opening || character.advancement?.classId || '',
+      actor.health, actor.maxHealth, actor.hidden ? 1 : 0, actor.shield ? 1 : 0, character.equipment?.offHand?.shield ? 1 : 0,
+      valuesKey(actor.stats), valuesKey(actor.skills), valuesKey(character.stats), valuesKey(character.skills), valuesKey(actor.bonuses), valuesKey(actor.weapon),
+      actor.absorb?.abilityId || '', actor.enchant?.abilityId || '',
+      (actor.buffs || []).map(buff => buff?.abilityId).join(','), valuesKey(actor.passives),
+    ];
+    const cacheMatches = barModifierCache && cacheKey.every((value, index) => barModifierCache.key[index] === value);
+    const previews = cacheMatches ? barModifierCache.previews : new Map();
+    if (!cacheMatches) barModifierCache = { key: cacheKey, previews };
     const out = [];
     for (let i = 0; i < BAR_SLOTS; i++) {
-      const ability = ABILITIES_BY_ID[bar[i]] || null;
+      const baseAbility = ABILITIES_BY_ID[bar[i]] || null;
+      const preview = baseAbility ? (previews.get(baseAbility.id) || (() => {
+        const next = abilityPreview(character, baseAbility, { actor }); previews.set(baseAbility.id, next); return next;
+      })()) : null;
+      const ability = preview?.ability || null;
       const hands = handsCheck(ability);
       // What the armour will do to this row, BEFORE it is pressed. hud.js
       // draws the sentence in amber under the description and marks the cell
@@ -2110,16 +2151,17 @@ export function createAbilities(deps = {}) {
       // sentence here is the SAME sentence the card shows and the same one the
       // key answers with, out of abilities.js, so all three say one thing.
       const gate = ability ? requirementsForCharacter(ability, character) : { ok: true };
-      const gateLine = gate.ok ? '' : character.advancement ? gate.reason : requirementSentence(ability, character.skills || {}, character.stats || {});
+      const gateLine = gate.ok ? '' : character.advancement ? gate.reason : requirementSentence(ability, actor.skills || character.skills || {}, character.stats || {});
       // And the row you are allowed to hold but have not earned: it works some
       // of the time, and the tooltip says how often before you spend the mana.
-      const practice = ability && gate.ok && !character.advancement ? practiceText(ability, character.skills || {}) : '';
+      const practice = ability && gate.ok && !character.advancement ? practiceText(ability, actor.skills || character.skills || {}) : '';
       const why = [gateLine, hands.ok ? '' : hands.reason, practice].filter(Boolean).join('\n');
       out.push({
         key: BAR_KEYS[i],
         ability,
+        previewLines: preview?.lines || [],
         cooldownLeft: ability ? cooldownLeft(ability.id, t) : 0,
-        cooldownDuration: ability ? talentCooldown(ability, character) : 0,
+        cooldownDuration: preview?.cooldown ?? (ability ? talentCooldown(ability, character) : 0),
         affordable: ability ? affordable(ability) : true,
         casting: !!(cast && ability && cast.abilityId === ability.id),
         // hud.js greys the cell on `unusable`; the reason is the tooltip.
@@ -2155,7 +2197,7 @@ export function createAbilities(deps = {}) {
     for (const ability of Object.values(ABILITIES_BY_ID)) {
       if (!ability.passive) continue;
       if (ability.effect?.kind !== 'passiveMod') continue;
-      const skills = character.skills || {};
+      const skills = actor.skills || character.skills || {};
       const have = ability.skillAny
         ? ability.skillAny.reduce((b, id) => Math.max(b, num(skills[id])), 0)
         : num(skills[ability.skill]);
@@ -2169,6 +2211,30 @@ export function createAbilities(deps = {}) {
     }
     return actor.passives || {};
   }
+
+  /** Reset paid class nodes only while no combat action can be invalidated. */
+  function respecTalents() {
+    if (cast || waiting || nextSwing || delayed.length || combat?.inCombat?.(actor) || actor.ai?.target) {
+      return { ok: false, reason: 'Talent trees can only be reset outside combat.' };
+    }
+    const result = respecTalentTree(character);
+    if (!result.ok) return result;
+    // Nodes can remove a row that was on the bar. Cooldowns and resources stay
+    // intact, but removed rows and their passive state cannot leak forward.
+    if (Array.isArray(character.bar)) for (let i = 0; i < character.bar.length; i++) {
+      const ability = ABILITIES_BY_ID[character.bar[i]];
+      if (ability && !requirementsForCharacter(ability, character).ok) character.bar[i] = null;
+    }
+    actor.passives = {};
+    actor.buffs = [];
+    actor.absorb = null;
+    actor.enchant = null;
+    actor.hidden = null;
+    zones.length = 0;
+    applyPassives();
+    recompute();
+    return result;
+  }
   applyPassives();
 
   /**
@@ -2179,7 +2245,7 @@ export function createAbilities(deps = {}) {
   const held = (ability) => (ability?.cost?.item ? itemsHeld(character, ability.cost.item) : null);
 
   return {
-    use, useById, update, onDamaged, onLanded, applyPassives, held, spendItem,
+    use, useById, update, onDamaged, onLanded, applyPassives, respecTalents, held, spendItem,
     barView, buffsView, cooldownLeft, affordable, acquire, groundPoint, takeRemoteEffect,
     onTargetPicked, cancelPending, faceTowards,
 

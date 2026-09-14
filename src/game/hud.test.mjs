@@ -884,6 +884,19 @@ ck('at 3 s it is done, and stays done', gainAt(3).phase === 'done' && gainAt(90)
   barRow.children[0].fire('pointerleave');
 }
 
+// A changed talent updates the already-hovered ability and its resource label.
+{
+  const ability = ABILITIES_BY_ID.fireball;
+  const first = {ability, previewLines:['41–53 fire damage before mitigation','9 mana']};
+  hud.update(.016, {bar:[first]});
+  barRow.children[0].fire('pointerenter');
+  ck('the action bar exposes current evaluated damage', /41–53 fire damage/.test(hud.tipFor(0)));
+  const updated = {...ability,cost:{...ability.cost,mana:8}};
+  hud.update(.016,{bar:[{ability:updated,previewLines:['45–58 fire damage before mitigation','8 mana']}]});
+  ck('talent changes refresh an existing ability tooltip', /45–58/.test(hud.tipFor(0)) && !/41–53/.test(hud.tipFor(0)));
+  barRow.children[0].fire('pointerleave');
+}
+
 // --- the purse: four pictures and four numbers, and not one word ------------
 //
 // The counters read "562 GOLD  0/150 WOOD  0/150 STONE  0/150 ORE", which is

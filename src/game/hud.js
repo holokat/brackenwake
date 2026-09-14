@@ -1244,7 +1244,7 @@ export function createHud(root) {
       tipName.textContent = a.name;
       tipKey.textContent = c.key ? `key ${KEY_LABELS[c.key] || c.key}` : '';
       tipChips.textContent = '';
-      for (const t of abilityChips(a, c.cooldownDuration)) add(tipChips, mk('span', null, 'chip')).textContent = t;
+      for (const t of c.previewLines?.length ? c.previewLines : abilityChips(a, c.cooldownDuration)) add(tipChips, mk('span', null, 'chip')).textContent = t;
       tipDesc.textContent = a.description || '';
       tipBurden.textContent = c.burden || '';
       tipBurden.hidden = !c.burden;
@@ -1593,6 +1593,9 @@ export function createHud(root) {
         c.tip = null;
       }
       c.cooldownDuration = e?.cooldownDuration ?? ability.cooldown;
+      const previewLines = e?.previewLines || [];
+      const currentCost = costLabel(ability);
+      if (c.cost.textContent !== currentCost) c.cost.textContent = currentCost;
       // G2: what is in your hands can refuse an ability, and the reason is the
       // sentence to show. It changes as you draw and sheathe, so the title is
       // rebuilt when it changes rather than once when the slot was filled.
@@ -1606,11 +1609,11 @@ export function createHud(root) {
       const heldLine = ability.cost && ability.cost.item && e.held != null
         ? `\nYou are carrying ${e.held} ${ability.cost.item}${e.held === 1 ? '' : 's'}.`
         : '';
-      const tip = `${ability.name}. ${ability.description || ''}${heldLine}${burdenLine ? `\n${burdenLine}` : ''}${e.unusableReason ? `\n${e.unusableReason}` : ''}`;
+      const tip = `${ability.name}. ${ability.description || ''}${previewLines.length ? `\n${previewLines.join('\n')}` : ''}${heldLine}${burdenLine ? `\n${burdenLine}` : ''}${e.unusableReason ? `\n${e.unusableReason}` : ''}`;
       if (c.tip !== tip) {
         // no native title: the styled tooltip below carries the words, and a
         // second yellow box from the browser on top of it would be noise
-        c.tip = tip; c.ability = ability; c.reason = e.unusableReason || ''; c.burden = burdenLine;
+        c.tip = tip; c.ability = ability; c.previewLines = previewLines; c.reason = e.unusableReason || ''; c.burden = burdenLine;
         if (tipOwner === c) showAbTip(c);
       }
       const left = num(e.cooldownLeft);

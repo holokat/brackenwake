@@ -49,6 +49,7 @@ import {
   BASES, ARMOR_TIERS, COMBAT_SKILLS, FOCUS_BASES,
 } from './items.js';
 import { SKILLS } from './skills.js';
+import { effectiveCombatSkills } from './combat_proficiency.js';
 import { POWER_BY_ID, allowedOn, rollAffixes } from './affixes.js';
 
 const SALT_RNG = 0x1007;
@@ -198,7 +199,9 @@ export function strengthOf(character) {
 
 /** The character's ranked profile skills, highest first, zeroes left out. */
 export function topSkills(character, n = PROFILE_TOP) {
-  const map = (character && character.skills) || {};
+  const map = character?.opening || character?.advancement
+    ? effectiveCombatSkills(character)
+    : (character?.skills || {});
   return PROFILE_SKILLS
     .map((id) => ({ id, name: SKILL_NAME_BY_ID.get(id) || id, value: num(map[id]) }))
     .filter((e) => e.value > 0)

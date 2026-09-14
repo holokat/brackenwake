@@ -5,7 +5,7 @@ import {
   COMMON_ABILITIES, STARTER_ABILITIES, MAX_XP, LEVEL_XP,
   newAdvancement, hydrateAdvancement, grantExperience, levelOf,
   availablePoints, learnCheck, learnTalent, talentRank, talentCooldown,
-  nodeFor, nodeRank, treePoints,
+  nodeFor, nodeRank, nodeMaxRank, respecTalentTree, treePoints,
 } from './talents.js';
 
 const character = (opening) => ({ opening, advancement: newAdvancement(opening) });
@@ -55,16 +55,23 @@ for (const opening of CLASS_TREES.map((tree) => tree.id)) {
   assert.equal(nodeRank(mage, camp), 1);
 }
 
-// Planned rows are visible data, never a mutation path, even with enough XP.
-for (const tree of CLASS_TREES) {
-  const c = atMax(tree.id);
-  const planned = tree.branches.flatMap((branch) => branch.nodes).find((node) => node.status === 'planned');
-  assert.ok(planned, `${tree.id} has planned work`);
-  const before = JSON.stringify(c.advancement);
-  const check = learnTalent(c, planned.id, ABILITIES_BY_ID);
-  assert.equal(check.ok, false, `${planned.id} cannot be purchased`);
-  assert.match(check.reason, /planned/i);
-  assert.equal(JSON.stringify(c.advancement), before, `${planned.id} does not mutate the save`);
+// Modifiers are live allocations with three paid ranks, but they never add a
+// castable ability rank or action-bar entry through the ability projection.
+{
+  const c = character('mage');
+  grantExperience(c, LEVEL_XP[4]);
+  const modifier = CLASS_NODES['mage.arcane.copperThread'];
+  assert.equal(nodeMaxRank(modifier), 3);
+  assert.equal(talentRank(c, 'magicArrow'), 1, 'starter ability begins at rank one');
+  for (let rank = 1; rank <= 3; rank++) {
+    assert.equal(learnTalent(c, modifier.id, ABILITIES_BY_ID).rank, rank);
+    assert.equal(nodeRank(c, modifier), rank);
+    assert.equal(talentRank(c, 'magicArrow'), 1, 'modifier rank never projects into ability rank');
+  }
+  assert.equal(availablePoints(c), 0, 'three modifier ranks use the earned three points');
+  const restored = hydrateAdvancement(c.advancement, 'mage', [], ABILITIES_BY_ID);
+  assert.equal(nodeRank({ opening: 'mage', advancement: restored }, modifier.id), 3, 'modifier ranks survive save reload');
+  assert.equal(learnCheck(atMax('warrior'), modifier.id, ABILITIES_BY_ID).ok, false, 'other classes cannot learn a modifier');
 }
 
 // Cooldown abilities retain the shipped five ranks and three-percent steps.
@@ -79,22 +86,38 @@ for (const tree of CLASS_TREES) {
   assert.equal(treePoints(c, 'fire').spent, 2);
 }
 
-// At level 99 every live branch has a real route from its starters. Planned
-// rows never become prerequisites, so this loop cannot pass by buying future
-// work or by crossing into another class.
-for (const tree of CLASS_TREES) {
-  const c = atMax(tree.id);
-  const live = tree.branches.flatMap((branch) => branch.nodes).filter((node) => node.status === 'live');
-  for (let pass = 0; pass < live.length; pass++) {
-    let changed = false;
-    for (const node of live) {
-      if (nodeRank(c, node)) continue;
-      if (learnTalent(c, node.id, ABILITIES_BY_ID).ok) changed = true;
-    }
-    if (!changed) break;
+// Capstones require a paid investment in their own specialization and the
+// player can choose only one class-wide capstone.
+{
+  const c = atMax('mage');
+  const fire = CLASS_TREES.find((tree) => tree.id === 'mage').branches.find((branch) => branch.id === 'fire');
+  const fireModifiers = fire.nodes.filter((node) => node.kind === 'modifier' && !node.capstone);
+  const capstone = fire.nodes.find((node) => node.capstone);
+  const otherCapstone = CLASS_NODES['mage.arcane.copperStorm'];
+  assert.equal(learnCheck(c, capstone.id, ABILITIES_BY_ID).ok, false, 'capstone starts gated by tree points');
+  while (treePoints(c, 'fire').spent < 25) {
+    const next = fireModifiers.find((node) => nodeRank(c, node) < nodeMaxRank(node));
+    assert.ok(next, 'enough Fire modifiers exist for the capstone gate');
+    assert.equal(learnTalent(c, next.id, ABILITIES_BY_ID).ok, true, next.id);
   }
-  const blocked = live.filter((node) => !nodeRank(c, node)).map((node) => node.id);
-  assert.deepEqual(blocked, [], `${tree.id} live paths are reachable`);
+  assert.equal(treePoints(c, 'fire').spent, 25);
+  assert.equal(learnTalent(c, capstone.id, ABILITIES_BY_ID).ok, true);
+  assert.equal(learnCheck(c, otherCapstone.id, ABILITIES_BY_ID).ok, false, 'a class can choose only one capstone');
+}
+
+// A respec refunds paid allocations while retaining free starter grants and
+// the compatibility archive that keeps historic builds playable.
+{
+  const c = atMax('mage');
+  const modifier = CLASS_NODES['mage.arcane.copperThread'];
+  assert.equal(learnTalent(c, modifier.id, ABILITIES_BY_ID).ok, true);
+  c.advancement.legacy.allocations.powerStrike = 1;
+  const pointsBefore = availablePoints(c);
+  const result = respecTalentTree(c);
+  assert.deepEqual(result, { ok: true, refunded: 1, points: pointsBefore + 1 });
+  assert.equal(nodeRank(c, modifier), 0);
+  assert.equal(talentRank(c, 'magicArrow'), 1, 'starter grant remains after a respec');
+  assert.equal(c.advancement.legacy.allocations.powerStrike, 1, 'legacy archive survives a respec');
 }
 
 // v1 is rebuilt through the old global rules before migration. A former Mage

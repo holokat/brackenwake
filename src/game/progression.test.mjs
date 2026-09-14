@@ -61,96 +61,20 @@ function rig(opts = {}) {
 const always = () => 0;      // every roll succeeds
 const never = () => 1;       // no roll ever succeeds
 
-// ---- the unlock banner -----------------------------------------------------
-//
-// "When a new ability is unlocked due to skill unlock, show it in a big you've
-// unlocked banner." The rule is `meetsRequirements`, the moment is a gain, and
-// the record is on the document so a reload does not replay a week of them.
-// Every clause below is driven both ways.
-console.log('\nprogression: the unlock banner');
+// ---- class progression does not train combat --------------------------------
+console.log('\nprogression: combat practice is class and level governed');
 {
-  const h = rig({ skills: { magery: 24 } });
-  check('a brand new character is SEEDED silently: no banner for what it woke up with',
-    h.banners.length === 0 && Array.isArray(h.character.unlockedAbilities), String(h.banners.length));
-  check('and Magic Arrow, which needs Magery 0, is already on the seeded list',
-    h.character.unlockedAbilities.includes('magicArrow'));
-  check('while Fireball, which needs 25, is not', !h.character.unlockedAbilities.includes('fireball'));
-
-  h.character.skills.magery = 25;
-  const r = h.prog.lesson('magery', 0, true, always);
-  check('crossing Magery 25 raises exactly one banner',
-    h.banners.length === 1 && h.banners[0].id === 'fireball', h.banners.map((b) => b.id).join(','));
-  check('and the banner carries the ability name, not its id',
-    h.banners[0].name === 'Fireball', h.banners[0].name);
-  check('and a line saying how to get at it', /Abilities \(P\)|Press/.test(h.banners[0].key), h.banners[0].key);
-  check('the gain reports what it unlocked, so a caller can act on it',
-    Array.isArray(r.unlocked) && r.unlocked.length === 1 && r.unlocked[0].id === 'fireball');
-  check('a sound went with it', h.cues.includes(UNLOCK_CUE), h.cues.join(','));
-  check('and a log line named it too', h.toasts.some((t) => /Fireball is yours/.test(t.text)),
-    h.toasts.map((t) => t.text).slice(-1)[0] || 'nothing');
-  check('the passives are re-read, because an unlock may BE a passive',
-    h.passiveRuns.length === 1 && h.passiveRuns[0].join(',') === 'fireball');
-
-  // ONCE PER ABILITY. The same gain again must not play it a second time.
-  h.prog.lesson('magery', 0, true, always);
-  check('a second lesson in the same skill raises nothing further', h.banners.length === 1, String(h.banners.length));
-  check('and the id is written into the document', h.character.unlockedAbilities.includes('fireball'));
-}
-{
-  // TWO AT ONCE QUEUE. Magery 45 crosses Lightning (45) and, with Magery
-  // already past 40, Blink is on the same list the moment 40 is passed. Set the
-  // skill so one gain crosses two marks together.
-  const h = rig({ skills: { magery: 39 } });
-  h.character.skills.magery = 45;
-  h.prog.lesson('magery', 0, true, always);
-  check('one gain that crosses two marks raises two banners, in table order',
-    h.banners.length === 2 && h.banners[0].id === 'lightning' && h.banners[1].id === 'blink',
-    h.banners.map((b) => b.id).join(','));
-  check('and the log named both', h.toasts.filter((t) => /is yours/.test(t.text)).length === 2);
-}
-{
-  // A STAT GAIN UNLOCKS TOO. Leap Slam is a weapon skill 60 and STR 50.
-  const h = rig({ skills: { swordsmanship: 60 }, stats: { str: 49 } });
-  check('with STR 49 Leap Slam is not unlocked', !h.character.unlockedAbilities.includes('leapSlam'));
-  h.character.stats.str = 50;
-  h.prog.statLesson('str', always);
-  check('crossing STR 50 raises the banner for Leap Slam',
-    h.banners.some((b) => b.id === 'leapSlam'), h.banners.map((b) => b.id).join(','));
-}
-{
-  // A RELOAD DOES NOT REPLAY. The document is the record, so a fresh
-  // progression over the same document says nothing at all.
-  const first = rig({ skills: { magery: 25 } });
-  const doc = first.character;
-  check('the seeded list carries Fireball after a run at Magery 25', doc.unlockedAbilities.includes('fireball'));
-  const second = rig({ character: doc });
-  second.prog.lesson('magery', 0, true, always);
-  check('and a second progression built on the same save raises no banner at all',
-    second.banners.length === 0, second.banners.map((b) => b.id).join(','));
-}
-{
-  // An EMPTY list is not a record, it is a document that has not been seeded.
-  const bare = blankCharacter();
-  check('state.blankCharacter declares the field, and it starts empty',
-    Array.isArray(bare.unlockedAbilities) && bare.unlockedAbilities.length === 0);
-  const h = rig({ character: bare });
-  check('and an empty list is seeded rather than believed',
-    h.banners.length === 0 && bare.unlockedAbilities.length > 0, `${bare.unlockedAbilities.length} seeded`);
-  check('because no character has ever met nothing: Jump and Sprint gate on no skill',
-    unlockedIds(blankCharacter()).includes('jump') && unlockedIds(blankCharacter()).includes('sprint'));
-  h.prog.lesson('mining', 0, true, always);
-  check('so the first swing of a new character raises no banner at all',
-    h.banners.length === 0, h.banners.map((b) => b.id).join(','));
-}
-{
-  // A save written before the field existed is seeded, not replayed.
-  const h = rig({ skills: { magery: 45 } });
-  delete h.character.unlockedAbilities;
-  const fresh = createProgression({ character: h.character, actor: h.actor, hud: { toast: () => {}, unlock: () => { throw new Error('a reload must not raise a banner'); } } });
-  check('a save with no record at all is seeded on sight rather than replayed',
-    Array.isArray(h.character.unlockedAbilities) && h.character.unlockedAbilities.includes('lightning')
-    && fresh.unlocked.length === h.character.unlockedAbilities.length,
-    `${h.character.unlockedAbilities.length} seeded`);
+  const h = rig({ skills: { magery: 24, swordsmanship: 60 } });
+  const magicBefore = h.character.skills.magery;
+  const magic = h.prog.lesson('magery', 0, true, always);
+  check('a spell cast cannot train Magery or announce an ability unlock',
+    magic.refused && h.character.skills.magery === magicBefore && h.banners.length === 0, magic.reason);
+  const swordBefore = h.character.skills.swordsmanship;
+  const sword = h.prog.lesson('swordsmanship', 0, true, always);
+  check('a weapon hit cannot train Swordsmanship',
+    sword.refused && h.character.skills.swordsmanship === swordBefore && /class level/.test(sword.reason), sword.reason);
+  check('the refusal is announced once and leaves combat capability to the talent tree',
+    h.toasts.length === 2 && h.passiveRuns.length === 0, `${h.toasts.length} messages`);
 }
 {
   // the hint, both ways
@@ -165,8 +89,8 @@ console.log('\nprogression: the unlock banner');
   check('and a passive says there is nothing to press',
     unlockHint(ABILITIES_BY_ID.riposte, h.character) === 'Always on. Nothing to press.',
     unlockHint(ABILITIES_BY_ID.riposte, h.character));
-  check('unlockedIds is the same rule the window uses, not a copy',
-    unlockedIds(h.character).includes('meteor') && !unlockedIds({ skills: {}, stats: {} }).includes('meteor'));
+  check('unlockedIds remains a read-only compatibility query',
+    Array.isArray(unlockedIds(h.character)) && Array.isArray(unlockedIds({ skills: {}, stats: {} })));
 }
 
 // ---- the cue really exists -------------------------------------------------
@@ -244,11 +168,11 @@ console.log('\nprogression: the unlock banner');
   const rng = mulberry32(1234);
   let gains = 0;
   for (let i = 0; i < 10000; i++) {
-    const skill = r.character.skills.swordsmanship;
-    if (r.prog.lesson('swordsmanship', skill, true, rng).gained) gains++;
+    const skill = r.character.skills.mining;
+    if (r.prog.lesson('mining', skill, true, rng).gained) gains++;
   }
-  const got = r.character.skills.swordsmanship;
-  check('10,000 lessons at fair difficulty from 0 reach a real number', got > 60 && got <= 100, `${got.toFixed(1)} Swordsmanship from ${gains} gains in 10,000 attempts`);
+  const got = r.character.skills.mining;
+  check('10,000 profession lessons at fair difficulty from 0 reach a real number', got > 60 && got <= 100, `${got.toFixed(1)} Mining from ${gains} gains in 10,000 attempts`);
   check('the chance at a fair difficulty is 0.55 the whole way', gainChance(0, 0) === 0.55 && gainChance(90, 90) === 0.55);
   check('and grinding rats at 90 is 0.04, which is why you do not', Math.abs(gainChance(90, 5) - 0.04) < 1e-9, String(gainChance(90, 5)));
 }
@@ -317,22 +241,18 @@ console.log('\nprogression: the unlock banner');
   check('and a different reason is said again', r.toasts.length === 2, `${r.toasts.length}`);
 }
 
-// ---- the 700 cap, both with something to give and without ------------------
+// ---- professions do not trade points with other skills ---------------------
 {
   const r = rig();
-  // 7 skills at 100 is exactly 700.
-  const seven = ['mining', 'lumberjacking', 'fishing', 'foraging', 'skinning', 'cooking', 'alchemy'];
-  for (const id of seven) r.character.skills[id] = 100;
-  r.character.skills.swordsmanship = 0;
-  const stuck = r.prog.lesson('swordsmanship', 100, true, always);
-  check(`at ${TOTAL_CAP} with nothing marked down the gain is refused`, stuck.refused === true, stuck.reason);
-  check('and the refusal names the total and says what to do', r.lastToast().text.includes('700.0') && r.lastToast().text.includes('marked to fall'), JSON.stringify(r.lastToast().text));
-
-  r.character.skillLocks.alchemy = 'down';
-  const paid = r.prog.lesson('swordsmanship', 100, true, always);
-  check('marking one down pays for the gain', paid.gained === true && paid.tookFrom && paid.tookFrom.id === 'alchemy', JSON.stringify(paid.tookFrom));
-  check('exactly 0.1 moves, so the sheet stays on 700', paid.tookFrom.amount === 0.1 && r.character.skills.alchemy === 99.9, `${r.character.skills.alchemy}`);
-  check('and both names are said out loud', r.lastToast().text.includes('Swordsmanship') && r.lastToast().text.includes('Alchemy'), JSON.stringify(r.lastToast().text));
+  r.character.skills.blacksmithing = 100;
+  r.character.skillLocks.blacksmithing = 'down';
+  const gained = r.prog.lesson('mining', 0, true, always);
+  check('a profession gain keeps an unrelated down skill unchanged',
+    gained.gained && gained.tookFrom === null && r.character.skills.blacksmithing === 100);
+  const combatBefore = r.character.skills.swordsmanship;
+  const combat = r.prog.lesson('swordsmanship', 0, true, always);
+  check('combat practice is refused without spending or moving another skill',
+    combat.refused && r.character.skills.swordsmanship === combatBefore && r.character.skills.blacksmithing === 100, combat.reason);
 }
 
 // ---- stats -------------------------------------------------------------------
@@ -383,7 +303,7 @@ console.log('\nprogression: the unlock banner');
   check('a stat already at 100 says so instead', at.refused === true && at.reason.includes('cap of 100'), at.reason);
 }
 
-// ---- the batch shape combat_rules hands back --------------------------------
+// ---- combat-rule batches cannot turn combat into practice -------------------
 {
   const r = rig();
   const lessons = [
@@ -392,9 +312,9 @@ console.log('\nprogression: the unlock banner');
     { who: 'defender', kind: 'skill', skill: 'parrying', stat: null, difficulty: 40, success: true },
   ];
   const out = r.prog.applyLessons(lessons, 'attacker', always);
-  check('a batch applies only the side you asked for', out.length === 2, `${out.length} of ${lessons.length}`);
-  check('the skill went up', r.character.skills.swordsmanship === 0.3, String(r.character.skills.swordsmanship));
-  check('the stat went up', r.character.stats.str === OPENINGS_BY_ID.ranger.stats.str + 1, String(r.character.stats.str));
+  check('a combat batch produces no practice or stat growth', out.length === 0, `${out.length} of ${lessons.length}`);
+  check('the combat skill stayed at its saved legacy value', r.character.skills.swordsmanship === 0, String(r.character.skills.swordsmanship));
+  check('the stat stayed unchanged because combat no longer grants stat practice', r.character.stats.str === OPENINGS_BY_ID.ranger.stats.str, String(r.character.stats.str));
   check('and Parrying, which was the defender\'s, did not', r.character.skills.parrying === 0);
 }
 

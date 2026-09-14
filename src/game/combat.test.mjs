@@ -137,8 +137,7 @@ const progressionSpy = () => {
   const c = createCombat({ progression: p, rng: rolls(0, 0.5) });
   c.queueSwing(player, monster, { now: 0 });
   c.update(0, 400);
-  check('the player is taught by his own swing', p.seen.length > 0 && p.seen.every((l) => l.who === player), `${p.seen.length} lessons`);
-  check('and the lesson names the weapon skill', p.seen.some((l) => l.skill === 'wrestling'));
+  check('the player swing produces no combat-practice lesson', p.seen.length === 0, `${p.seen.length} lessons`);
 
   const p2 = progressionSpy();
   const c2 = createCombat({ progression: p2, rng: rolls(0, 0.5) });
@@ -153,7 +152,7 @@ const progressionSpy = () => {
   const pl = actorOf({ id: 'p3', kind: 'player' });
   c3.queueSwing(actorOf({ id: 'm3' }), pl, { now: 0 });
   c3.update(0, 400);
-  check("being hit teaches the player's CON", p3.seen.some((l) => l.stat === 'con' && l.who === pl));
+  check("being hit does not grant the player's CON practice", p3.seen.length === 0, `${p3.seen.length} lessons`);
 }
 
 // --------------------------------------------------------------- reach

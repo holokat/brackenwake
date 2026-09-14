@@ -1,4 +1,5 @@
 import {grantExperience, progressionView} from '../mmo/talents.js';
+import {recompute} from './actor.js';
 
 export function defeatExperience(mon) {
   if(!mon || mon.friendly || mon.actor?.summoned || String(mon.key).startsWith('dev:') || mon.rec?.noLoot || mon.actor?.training || mon.training || mon.id==='trainingDummy') return 0;
@@ -15,6 +16,9 @@ export function createCharacterLevels({character,actor,state,hud,audio}={}) {
   function award(amount) {
     const result=grantExperience(character,amount);
     if(!result.gained)return result;
+    // Level changes the derived combat profile immediately, before the next
+    // swing, cast or passive recompute reads it.
+    recompute(actor);
     state?.touch?.('advancement');
     hud?.gain?.(`+${result.gained} XP`,'gain');
     if(result.levels){

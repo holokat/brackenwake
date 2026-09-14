@@ -1,21 +1,14 @@
-// Every skill, the gain curve, the caps, and the lock that pays for a gain
-// once you are full. Pure. No THREE, no DOM, no randomness of its own.
+// Every profession skill, its gain curve and its cap. Combat capability is
+// derived from class and level in combat_proficiency.js. Pure and DOM-free.
 //
-// Source: docs/mmo/01-STATS-SKILLS.md. The table below is that document's
-// table, in its order, with its groups and its wording. Two notes where the
-// document argues with itself, both measured in skills.test.mjs:
-//
-//   "Nine groups, 44 skills" heads a table of nine groups and 52 skills.
-//   The table is the game, so the count here is 52 and the audit pins it.
-//
-//   "a gain in an up skill takes 0.1 from the highest down skill" would push
-//   the total past 700 whenever the band step is larger than 0.1 (a skill
-//   under 30 gains 0.3). At the cap the gain is therefore the smaller of the
-//   band step and 0.1, and exactly that much is moved: the total is preserved
-//   to the point, and nothing is lost silently.
+// The historical 52-entry catalogue is retained for saves and combat formula
+// inputs. Only the profession allowlist below can gain practice. Professions
+// advance independently; no shared budget or donor skill limits their gains.
 
-export const SKILL_CAP = 100;    // per skill
-export const TOTAL_CAP = 700;    // all skills together
+import { isProfessionSkill } from './skill_policy.js';
+
+export const SKILL_CAP = 100;    // per profession skill
+export const TOTAL_CAP = 1500;   // profession-sheet maximum, never a donor cap
 export const LOCKS = ['up', 'locked', 'down'];
 export const DEFAULT_LOCK = 'up';
 
@@ -134,12 +127,13 @@ export function gainChance(skill, difficulty) {
   return clamp(0.55 - (s - d) * 0.006, 0.02, 0.90);
 }
 
-/** The whole skill sheet added up, to the hundredth. */
+/** Profession practice added up, to the hundredth. Combat practice is derived. */
 export function total(state) {
   const map = state && state.skills ? state.skills : state;
   let t = 0;
   if (map && typeof map === 'object') {
     for (const id of Object.keys(map)) {
+      if (!isProfessionSkill(id)) continue;
       const v = map[id];
       if (typeof v === 'number' && Number.isFinite(v)) t += v;
     }
@@ -182,29 +176,15 @@ const milestoneFor = (name, from, to) => {
   };
 };
 
-/** The highest skill marked down that still has something to give. */
-function highestDown(state, exceptId, need) {
-  let best = null;
-  const map = state.skills || {};
-  for (const id of Object.keys(map)) {
-    if (id === exceptId) continue;
-    if (lockOf(state, id) !== 'down') continue;
-    const v = map[id];
-    if (typeof v !== 'number' || !Number.isFinite(v) || v < need) continue;
-    if (!best || v > best.value) best = { id, value: v };
-  }
-  return best;
-}
-
 /**
  * One lesson. `state` is `{ skills: { id: value }, locks: { id: lock } }`.
- * `success` says whether the swing landed: a miss still teaches, at half the
+ * `success` says whether the profession action succeeded: failure teaches at half the
  * chance. Mutates `state` on a gain and returns
  *
  *   { gained, from, to, tookFrom, refused, reason, milestone, chance, step }
  *
- * `refused` marks a gain the rules would not allow (locked, at 100, at the 700
- * cap with nothing marked down) and always carries a `reason`. An unlucky roll
+ * `refused` marks a gain the rules would not allow (a non-profession, a locked
+ * skill, or a profession at 100) and always carries a `reason`. An unlucky roll
  * is not a refusal: it comes back gained false, refused false, reason null.
  */
 export function rollGain(state, skillId, difficulty, success = true, rng = Math.random) {
@@ -215,6 +195,7 @@ export function rollGain(state, skillId, difficulty, success = true, rng = Math.
   if (!state.skills || typeof state.skills !== 'object') state.skills = {};
   const def = SKILL_BY_ID.get(skillId);
   if (!def) return no(`"${skillId}" is not a skill`);
+  if (!isProfessionSkill(skillId)) return no(`${def.name} is governed by class level and cannot improve through practice`);
 
   const raw = state.skills[skillId];
   const from = typeof raw === 'number' && Number.isFinite(raw) ? r2(raw) : 0;
@@ -233,40 +214,11 @@ export function rollGain(state, skillId, difficulty, success = true, rng = Math.
     return { gained: false, from, to: from, tookFrom: null, refused: false, reason: null, milestone: null, chance, step };
   }
 
-  // At the total cap the gain has to be paid for out of a skill marked down.
-  // Moving the smaller of the step and 0.1 keeps the sheet on exactly 700.
-  let tookFrom = null;
-  let grow = step;
-  const t = total(state);
-  const headroom = r2(TOTAL_CAP - t);
-  if (step > headroom) {
-    grow = Math.min(step, 0.1);
-    const need = r2(Math.max(0, grow - headroom));
-    if (need > 0) {
-      const donor = highestDown(state, skillId, need);
-      if (!donor) {
-        return no(
-          `your skills total ${t.toFixed(1)} of ${TOTAL_CAP.toFixed(1)} and nothing is marked to fall, so ${def.name} cannot rise`,
-          from,
-        );
-      }
-      const donorTo = r2(donor.value - need);
-      state.skills[donor.id] = donorTo;
-      tookFrom = {
-        id: donor.id,
-        name: SKILL_BY_ID.get(donor.id).name,
-        from: donor.value,
-        to: donorTo,
-        amount: need,
-      };
-    }
-  }
-
-  const to = Math.min(SKILL_CAP, r2(from + grow));
+  const to = Math.min(SKILL_CAP, r2(from + step));
   state.skills[skillId] = to;
   return {
-    gained: true, from, to, tookFrom, refused: false, reason: null,
-    milestone: milestoneFor(def.name, from, to), chance, step: r2(grow),
+    gained: true, from, to, tookFrom: null, refused: false, reason: null,
+    milestone: milestoneFor(def.name, from, to), chance, step,
   };
 }
 

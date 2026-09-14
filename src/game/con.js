@@ -51,6 +51,7 @@
 import { TIERS } from '../mmo/monsters.js';
 import { COMBAT_SKILLS } from '../mmo/items.js';
 import { SKILL_BY_ID } from '../mmo/skills.js';
+import { effectiveCombatSkills } from '../mmo/combat_proficiency.js';
 
 /** The magic that attacks. Inscription and Meditation do not swing at anything. */
 export const CASTING_ATTACK_SKILLS = ['magery', 'necromancy', 'mysticism', 'chivalry'];
@@ -138,7 +139,10 @@ export function tierForSkill(value) {
  * asking two different questions and getting two right answers.
  */
 export function playerTier(character = {}) {
-  const skills = (character && character.skills) || character || {};
+  const document = character?.kind === 'player' && character.character ? character.character : character;
+  const skills = character?.kind === 'player'
+    ? character.skills
+    : (document?.opening || document?.advancement ? effectiveCombatSkills(document) : (document?.skills || document || {}));
   let best = 0;
   for (const id of CON_SKILLS) best = Math.max(best, num(skills[id]));
   return tierForSkill(best);
@@ -155,7 +159,10 @@ export function conTier(character = {}) {
 
 /** The best attack skill and its id, which is what a hover line can name. */
 export function bestCombatSkill(character = {}) {
-  const skills = (character && character.skills) || character || {};
+  const document = character?.kind === 'player' && character.character ? character.character : character;
+  const skills = character?.kind === 'player'
+    ? character.skills
+    : (document?.opening || document?.advancement ? effectiveCombatSkills(document) : (document?.skills || document || {}));
   let id = null, value = 0;
   for (const s of CON_SKILLS) if (num(skills[s]) > value) { value = num(skills[s]); id = s; }
   return { id, value };

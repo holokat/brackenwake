@@ -75,6 +75,7 @@ import {
 } from '../mmo/items.js';
 import { STATS } from '../mmo/stats.js';
 import { SKILLS, DEFAULT_LOCK, LOCKS } from '../mmo/skills.js';
+import { isProfessionSkill } from '../mmo/skill_policy.js';
 import { OPENINGS_BY_ID, APPEARANCE_DEFAULT } from '../mmo/openings.js';
 import { zoneAt } from '../world/zones.js';
 
@@ -259,6 +260,10 @@ export function blankCharacter() {
     stats: { ...fallback.stats },
     statLocks: upStatLocks(),
     skills: zeroSkills(),
+    // Numeric combat skill values belong only to pre-class-progression saves.
+    // New characters begin with no legacy floor; class, level and talents
+    // produce their combat values.
+    combatLegacy: {},
     skillLocks: upSkillLocks(),
     pos: { x: 0, z: 0 },
     health: null, mana: null, stamina: null,   // filled from the stats below
@@ -1234,6 +1239,17 @@ export function hydrate(raw) {
     for (const id of SKILL_IDS) {
       if (isNum(raw.skills[id])) doc.skills[id] = clamp(Math.round(raw.skills[id] * 100) / 100, 0, 100);
     }
+  }
+  // Freeze combat practice once when a pre-progression save is first read.
+  // New documents carry the explicit empty map from blankCharacter, so a
+  // programmatic creation payload cannot turn an arbitrary combat number into
+  // a permanent power floor on later loads.
+  const legacySource = raw.combatLegacy && typeof raw.combatLegacy === 'object'
+    ? raw.combatLegacy
+    : (raw.skills && typeof raw.skills === 'object' ? raw.skills : {});
+  for (const id of SKILL_IDS) {
+    if (isProfessionSkill(id) || !isNum(legacySource[id])) continue;
+    doc.combatLegacy[id] = clamp(Math.round(legacySource[id] * 100) / 100, 0, 100);
   }
   if (raw.skillLocks && typeof raw.skillLocks === 'object') {
     for (const id of SKILL_IDS) doc.skillLocks[id] = validLock(raw.skillLocks[id]);

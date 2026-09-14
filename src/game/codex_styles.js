@@ -46,7 +46,7 @@ export function codexCss(theme) {
   border: 1px solid ${theme.goldDim}44; border-radius: 12px;
 }
 #bw-windows .bw-codex-frame {
-  position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr);
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
   width: 100%; height: 100%; overflow: hidden; border-radius: 18px;
   background: linear-gradient(145deg, rgba(31,39,35,.98), rgba(10,14,14,.99));
   border: 1px solid rgba(212,180,106,.48);
@@ -73,9 +73,9 @@ export function codexCss(theme) {
 #bw-windows .bw-codex-tabs .bw-tab.on { color: ${theme.goldBright}; background: rgba(212,180,106,.14); border-color: rgba(212,180,106,.54); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
 #bw-windows .bw-codex-tabs .bw-tab:active { scale: .96; }
 #bw-windows .bw-codex-close { flex: 0 0 auto; margin-left: auto; }
-#bw-windows .bw-codex-bodies { min-height: 0; pointer-events: none; }
+#bw-windows .bw-codex-bodies { min-width: 0; min-height: 0; pointer-events: none; }
 #bw-windows .bw-codex-body {
-  height: 100%; min-height: 0; overflow: auto; padding: clamp(16px, 2vw, 28px);
+  width: 100%; min-width: 0; height: 100%; min-height: 0; max-height: none; overflow: auto; padding: clamp(16px, 2vw, 28px);
   background: transparent; border: 0; border-radius: 0; pointer-events: auto;
 }
 #bw-windows .bw-codex-body::before {

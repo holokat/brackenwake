@@ -29,6 +29,7 @@ import {
 } from '../mmo/npcs.js';
 import { BASES, makeItem, RARITY, LOG_BASES, ORE_BASES, INGOT_BASES } from '../mmo/items.js';
 import { skillNameOf } from '../mmo/items.js';
+import { isProfessionSkill } from '../mmo/skill_policy.js';
 import { hash2 } from '../world/noise.js';
 
 /** An hour of play. See the note at the top of this file. */
@@ -369,6 +370,9 @@ export function quoteSell(base, soldThisHour, n = 1, isProvisioner = false) {
 /** The quote for lifting a skill, and the reason when there is not one. */
 export function trainQuote(character, role, skillId, to = TRAIN_CAP) {
   const name = skillNameOf(skillId);
+  if (!isProfessionSkill(skillId)) {
+    return { ok: false, cost: 0, from: 0, to: 0, why: `The ${role?.name || 'trainer'} does not teach ${name}. ${name} is governed by class level and cannot be trained for gold.` };
+  }
   if (!role?.teaches?.includes(skillId)) {
     return { ok: false, cost: 0, from: 0, to: 0, why: `The ${role?.name || 'trainer'} does not teach ${name}.` };
   }

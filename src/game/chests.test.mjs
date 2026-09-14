@@ -271,15 +271,15 @@ check('a box carries the key the opened list uses', openedKey(boxOf()) === 'icev
     const res = r.chests.open(boxOf({ tier: 1, trapped: true, key: `oldcellars:1:${i}` }), { at: { x: 0, z: 0 } });
     if (res.ok) opened++;
   }
-  check('a hundred and twenty boxes teach Lockpicking something',
-    r.character.skills.lockpicking > 0, `${r.character.skills.lockpicking}`);
-  check('and Remove Trap too', r.character.skills.removeTrap > 0, `${r.character.skills.removeTrap}`);
+  check('a hundred and twenty boxes do not create numeric Lockpicking practice',
+    r.character.skills.lockpicking === 0, `${r.character.skills.lockpicking}`);
+  check('and Remove Trap remains talent or class governed too', r.character.skills.removeTrap === 0, `${r.character.skills.removeTrap}`);
   check('and the boxes that opened are the ones on the list',
     r.chests.opened().length === opened, `${opened} opened, ${r.chests.opened().length} remembered`);
   check('and a die at 0.10 against a tier 1 lock opens every one of them',
     opened === 120, `${opened}/120`);
-  check('and the skill really climbed the band, not one step and then nothing',
-    r.character.skills.lockpicking >= 10, `Lockpicking ${r.character.skills.lockpicking}`);
+  check('and repeated boxes still leave the saved combat value untouched',
+    r.character.skills.lockpicking === 0, `Lockpicking ${r.character.skills.lockpicking}`);
 }
 
 // ---------------------------------------------------------------------------

@@ -32,6 +32,7 @@ import {achievementEvent} from './achievements/events.js';
 //   dt      seconds since the last frame, on the world clock.
 
 import { ABILITIES } from '../mmo/abilities.js';
+import { summonModifierValues } from '../mmo/effective_ability.js';
 import { MONSTERS } from '../mmo/monsters.js';
 import { ORES } from '../mmo/ores.js';
 import { baseFor, makeItem, ORE_OF } from '../mmo/items.js';
@@ -290,6 +291,15 @@ export function createAbilityHooks(deps = {}) {
     if (!mon) { say(`The ground here would not give up a ${monsterId}.`, 'bad'); return null; }
     if (typeof monsters.spawnAlly !== 'function') markFriendly(mon);
     mon.actor.summonOwner = actor;
+    const summonMods = meta.summonMods || {};
+    if (num(summonMods.healthPct)) {
+      mon.actor.maxHealth = Math.max(1, Math.round(num(mon.actor.maxHealth) * (1 + num(summonMods.healthPct))));
+      mon.actor.health = mon.actor.maxHealth;
+    }
+    if (num(summonMods.damagePct) && mon.actor.naturalWeapon) {
+      mon.actor.naturalWeapon = { ...mon.actor.naturalWeapon, min: num(mon.actor.naturalWeapon.min) * (1 + num(summonMods.damagePct)), max: num(mon.actor.naturalWeapon.max) * (1 + num(summonMods.damagePct)) };
+      mon.actor.weapon = mon.actor.naturalWeapon;
+    }
 
     // "as strong as you are": Raise Champion's own line, and the only row that
     // asks for it. The champion's health follows the caster's rather than its
@@ -304,6 +314,7 @@ export function createAbilityHooks(deps = {}) {
       mon, name: mon.name || row.monster, wild: false,
       until: num(meta.nowMs ?? lastMs) + seconds * 1000,
       seconds, target: null, saidTarget: null, abilityId: meta.abilityId || null,
+      baseNaturalWeapon: mon.actor.naturalWeapon ? { ...mon.actor.naturalWeapon } : null,
     };
     summons.push(s);
     achievementEvent(character, 'summon');
@@ -489,7 +500,7 @@ export function createAbilityHooks(deps = {}) {
       return `${t.name || 'It'} is ${family ? `${an} ${family}` : 'not a person'}, and ${effect.from}s are the ones with pockets.`;
     }
     if (t.pickedClean) return `You have already had everything ${t.name || 'it'} was carrying.`;
-    const skill = num((character.skills || {}).stealing);
+    const skill = num((actor.skills || character.skills || {}).stealing);
     const chance = stealChance(skill, STEAL_BASE + num(t.tier) * 5);
     if (rng() >= chance) {
       t.pickedClean = false;
@@ -572,6 +583,12 @@ export function createAbilityHooks(deps = {}) {
       }
       if (!t) t = hostileNear(a.pos, SUMMON_SEEK);
       s.target = t || null;
+      if (s.baseNaturalWeapon) {
+        const mods = summonModifierValues(character, s.abilityId, { actor, target: t });
+        const factor = 1 + num(mods.damagePct);
+        a.naturalWeapon = { ...s.baseNaturalWeapon, min: num(s.baseNaturalWeapon.min) * factor, max: num(s.baseNaturalWeapon.max) * factor };
+        a.weapon = a.naturalWeapon;
+      }
 
       // `ai.home` is what `stepMonster` drifts around when it has nothing to
       // do, so moving it is the whole of "it follows you". `ai.target` is what

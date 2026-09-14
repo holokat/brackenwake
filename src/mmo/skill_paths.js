@@ -50,6 +50,7 @@
 // list can only ever get shorter.
 
 import { SKILLS, SKILL_BY_ID } from './skills.js';
+import { isProfessionSkill } from './skill_policy.js';
 import { ABILITIES, meetsRequirements, lessonFor, practiceChance, KNOWN_SKILLS } from './abilities.js';
 import { RECIPES, craftChance, MIN_CRAFT_CHANCE } from './recipes.js';
 import { resolveMelee, resolveSpell } from './combat_rules.js';
@@ -154,48 +155,10 @@ const weaponOfSkill = (skill) => ({
  * on a hit and a lesson that only exists on a miss are both found.
  */
 export function fightPaths(skillId) {
-  const out = [];
-  const seen = new Set();
-  const add = (what) => { if (!seen.has(what)) { seen.add(what); out.push({ kind: 'fight', id: skillId, what }); } };
-
-  const rolls = [() => 0, () => 0.999, () => 0.5];
-
-  // Swinging, with a weapon of each skill and with empty hands.
-  for (const weaponSkill of ['swordsmanship', 'macefighting', 'fencing', 'polearms', 'archery', 'marksmanship', null]) {
-    const weapon = weaponSkill ? weaponOfSkill(weaponSkill) : null;
-    for (const rng of rolls) {
-      const res = resolveMelee({
-        attacker: blankFighter({ weapon }),
-        defender: blankFighter({ shield: { parryFactor: 1 } }),
-        now: 0, rng,
-      });
-      for (const l of res.lessons) {
-        if (l.kind !== 'skill' || l.skill !== skillId) continue;
-        if (l.who === 'attacker') {
-          add(weapon
-            ? `swing ${weaponSkill === 'archery' ? 'a bow' : weaponSkill === 'marksmanship' ? 'a crossbow' : 'a weapon of that skill'} at anything`
-            : 'fight with your fists');
-        } else {
-          add('take a swing with a shield on your arm');
-        }
-      }
-    }
-  }
-
-  // Casting, and being cast at.
-  for (const rng of rolls) {
-    const res = resolveSpell({
-      caster: blankFighter({ weapon: null }),
-      target: blankFighter({ weapon: null }),
-      spell: { id: 'magicArrow', base: [4, 8], damageType: 'energy' },
-      now: 0, rng,
-    });
-    for (const l of res.lessons) {
-      if (l.kind !== 'skill' || l.skill !== skillId) continue;
-      add(l.who === 'attacker' ? 'cast a spell that deals damage' : 'stand in front of a spell');
-    }
-  }
-  return out;
+  // Kept as a compatibility export for callers that inspect the old audit.
+  // Combat values are class-and-level projections now, never a numeric lesson.
+  void skillId;
+  return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -214,11 +177,6 @@ export const WORLD_PATHS = [
   { skill: 'lumberjacking', file: 'src/game/interact.js', needle: "progression.lesson(d.action === 'mine' ? 'mining' : 'lumberjacking'", what: 'swing an axe at a tree' },
   { skill: 'foraging', file: 'src/game/foraging.js', needle: 'progression.lesson(FORAGE_SKILL', what: 'pick the plants you walk past' },
   { skill: 'skinning', file: 'src/game/skinning.js', needle: 'progression?.lesson?.(SKINNING_SKILL', what: 'skin what you kill' },
-  { skill: 'lockpicking', file: 'src/game/chests.js', needle: "teach('lockpicking'", what: 'pick a chest' },
-  { skill: 'removeTrap', file: 'src/game/chests.js', needle: "teach('removeTrap'", what: 'disarm a chest' },
-  { skill: 'stealth', file: 'src/game/abilities_runtime.js', needle: "progression?.lesson?.('stealth'", what: 'Hide, then walk' },
-  { skill: 'focus', file: 'src/game/abilities_runtime.js', needle: "progression?.lesson?.('focus'", what: 'be hit while casting' },
-  { skill: 'veterinary', file: 'src/game/abilities_runtime.js', needle: "if (skill === 'healing' && isPet(target)) skill = 'veterinary';", what: 'bandage a pet' },
 ];
 
 export function worldPaths(skillId) {
@@ -232,13 +190,16 @@ export function worldPaths(skillId) {
 // ---------------------------------------------------------------------------
 
 /** Every way a character at zero can start `skillId`, in the order to try them. */
+export function classPaths(skillId) {
+  if (isProfessionSkill(skillId)) return [];
+  return [{ kind: 'class', id: skillId, what: 'gain class levels and spend talent points' }];
+}
+
 export function pathsFor(skillId, skills = ZERO_SKILLS, stats = ZERO_STATS) {
-  return [
-    ...worldPaths(skillId),
-    ...abilityPaths(skillId, skills, stats),
-    ...craftPaths(skillId, skills),
-    ...fightPaths(skillId),
-  ];
+  // Only the fifteen named professions are numeric practice. Every former
+  // combat skill is derived from the chosen class and current level.
+  if (!isProfessionSkill(skillId)) return classPaths(skillId);
+  return [...worldPaths(skillId), ...craftPaths(skillId, skills)];
 }
 
 /**
@@ -250,12 +211,8 @@ export function pathsFor(skillId, skills = ZERO_SKILLS, stats = ZERO_STATS) {
  * written down here rather than left to be discovered.
  */
 export const UNBUILT = {
-  fishing: 'no rod, no fishing spot and no catch anywhere in src; the skill is a row in the table and nothing else',
+  fishing: 'no rod, no fishing spot and no catch anywhere in src; the profession has no practice system yet',
   masonry: 'no recipe in recipes.js has skill masonry, and no stone bench exists to put one on',
-  detectHidden: 'nothing in the world is hidden from the player: monsters do not hide and traps are found by opening the chest',
-  animalTaming: 'monsters.js marks rows tamable and nothing tames them. Brannoc SELLS this skill to 40, so it is the one skill in the game that can be bought and cannot be practised',
-  herding: 'no animal in the world can be moved without fighting it',
-  swimming: 'the player never enters water; player.js has no swimming state at all',
 };
 
 /** The count, so a reader does not have to trust the prose. */

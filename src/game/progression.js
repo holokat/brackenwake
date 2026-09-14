@@ -36,7 +36,8 @@ import {achievementPerks} from './achievements/progress.js';
 //    the reason itself changes. Otherwise a grandmaster mining a vein would
 //    read the same line sixty times a minute.
 
-import { rollGain, SKILL_BY_ID, lockOf, TOTAL_CAP, total as skillTotal } from '../mmo/skills.js';
+import { rollGain, SKILL_BY_ID, lockOf, total as skillTotal } from '../mmo/skills.js';
+import { isProfessionSkill } from '../mmo/skill_policy.js';
 import { rollStatGain, STATS, STAT_GAIN, STAT_CAP, statTotal } from '../mmo/stats.js';
 import { STAT_LABELS, STAT_NAMES } from '../mmo/openings.js';
 import { ABILITIES, ABILITIES_BY_ID, meetsRequirements, unlockedFor, weaponCheck } from '../mmo/abilities.js';
@@ -245,6 +246,14 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
    * screen, so a test can prove that a change was announced.
    */
   function lesson(skillId, difficulty = 0, success = true, rng = Math.random) {
+    if (!isProfessionSkill(skillId)) {
+      const def = SKILL_BY_ID.get(skillId);
+      const reason = def ? `${def.name} is governed by class level and cannot improve through practice` : `"${skillId}" is not a skill`;
+      const said = [];
+      const line = refuse(`skill:${skillId}`, reason);
+      if (line) said.push(line);
+      return { gained: false, from: character.skills[skillId] || 0, to: character.skills[skillId] || 0, tookFrom: null, refused: true, reason, milestone: null, chance: 0, step: 0, said, floated: null };
+    }
     const sheet = { skills: character.skills, locks: character.skillLocks, gainChanceBonus: achievementPerks(character).wisdom / 100 };
     const res = rollGain(sheet, skillId, difficulty, success, rng);
     const said = [];
@@ -262,14 +271,6 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
     const amount = Math.round((res.to - res.from) * 100) / 100;
     const floated = float(gainText(skillId, amount, res.to), 'gain');
 
-    // A skill that paid for itself out of another one owes both names.
-    if (res.tookFrom) {
-      said.push(say(
-        `${SKILL_BY_ID.get(skillId).name} is ${res.to.toFixed(1)}, and ${res.tookFrom.name} `
-        + `gave up ${trim(res.tookFrom.amount)} to pay for it. Your skills are full at ${TOTAL_CAP.toFixed(1)}.`,
-        'good',
-      ));
-    }
     if (res.milestone) {
       said.push(say(res.milestone.text, 'good'));
       // skills.js sets `grandmaster` when the milestone is the cap, and its own
@@ -337,8 +338,11 @@ export function createProgression({ character, actor, floaters, hud, audio, stat
     const out = [];
     for (const l of lessons || []) {
       if (!l || l.who !== who) continue;
-      if (l.kind === 'stat' && l.stat) out.push(statLesson(l.stat, rng));
-      else if (l.skill) out.push(lesson(l.skill, l.difficulty, l.success, rng));
+      // Combat used to grow stats by being repeated. Its rewards are level and
+      // class talents now; profession systems may still call statLesson
+      // explicitly where they have a distinct non-combat rule.
+      if (l.kind === 'stat' && l.stat) continue;
+      else if (l.skill && isProfessionSkill(l.skill)) out.push(lesson(l.skill, l.difficulty, l.success, rng));
     }
     return out;
   }

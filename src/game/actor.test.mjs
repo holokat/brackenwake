@@ -178,6 +178,7 @@ const gear = (base, affixes = []) => ({ ...makeItem({ base, rarity: affixes.leng
 
   const c = blankCharacter();
   c.skills.meditation = 100;
+  c.combatLegacy = { meditation: 100 };
   const a = playerActor(c);
   const open = a.manaRegen;                     // 0.3 + WIS 50 * 0.025 + 100 * 0.010
   c.equipment = { ...c.equipment, ...worn('plate') };
@@ -497,6 +498,7 @@ console.log('\nactor: the ability mods');
   // Discord: a fifth off everything it knows, stats and skills alike.
   const c = blankCharacter();
   c.skills.swordsmanship = 100; c.stats.str = 50;
+  c.combatLegacy = { swordsmanship: 100 };
   const a = playerActor(c);
   recompute(a);
   a.buffs = [{ abilityId: 'discord', name: 'Discord', kind: 'debuff', until: 999, effect: ABILITIES_BY_ID.discord.effect.mods ? ABILITIES_BY_ID.discord.effect : ABILITIES_BY_ID.discord.effect }];

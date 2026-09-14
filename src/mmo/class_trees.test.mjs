@@ -1,22 +1,43 @@
 import assert from 'node:assert/strict';
-import {CLASS_TREES,CLASS_NODES} from './class_trees.js';
-import {ABILITIES_BY_ID} from './abilities.js';
-import {STARTER_ABILITIES} from './talents.js';
-assert.deepEqual(CLASS_TREES.map(t=>t.id),['mage','warrior','rogue','ranger','paladin','priest']);
-let live=0,planned=0;
-for(const tree of CLASS_TREES){
- assert.equal(tree.branches.length,3);const abilities=new Set();
- for(const branch of tree.branches){const coords=new Set();assert.equal(branch.nodes.length,12);
-  const nodes=new Map(branch.nodes.map(n=>[n.id,n]));
-  function visit(n,seen=new Set()){assert.ok(!seen.has(n.id),'acyclic');const next=new Set(seen).add(n.id);for(const id of n.requires){assert.ok(nodes.has(id),'dependency in same spec');visit(nodes.get(id),next);}}
-  for(const n of branch.nodes){assert.equal(CLASS_NODES[n.id],n);assert.ok(Number.isInteger(n.level)&&n.level>=1&&n.level<=99);assert.ok(n.column>=0&&n.column<=2);assert.ok(!coords.has(`${n.row}:${n.column}`));coords.add(`${n.row}:${n.column}`);visit(n);
-   for(const id of n.requires){assert.ok(n.level>=nodes.get(id).level,`${n.id} level must follow prerequisite ${id}`);assert.ok(nodes.get(id).row<n.row || (nodes.get(id).row===n.row&&nodes.get(id).column!==n.column));}
-   if(n.status==='live'){live++;assert.ok(ABILITIES_BY_ID[n.abilityId]);assert.ok(!abilities.has(n.abilityId));abilities.add(n.abilityId);assert.ok(n.requires.every(id=>nodes.get(id).status==='live'));}
-   else{planned++;assert.equal(n.status,'planned');assert.equal(n.abilityId,undefined);assert.ok(n.description.startsWith('Planned'));}
+import { CLASS_TREES, CLASS_NODES, auditClassCatalogue } from './class_trees.js';
+import { ABILITIES_BY_ID } from './abilities.js';
+import { STARTER_ABILITIES } from './talents.js';
+
+assert.deepEqual(CLASS_TREES.map((tree) => tree.id), ['mage', 'warrior', 'rogue', 'ranger', 'paladin', 'priest']);
+assert.deepEqual(auditClassCatalogue(), { nodes: 263, modifiers: 180 });
+let abilities = 0, modifiers = 0, capstones = 0;
+for (const tree of CLASS_TREES) {
+  assert.equal(tree.branches.length, 3);
+  for (const branch of tree.branches) {
+    const nodes = new Map(branch.nodes.map((node) => [node.id, node]));
+    const local = new Set(branch.nodes.map((node) => node.id.split('.').at(-1)));
+    assert.equal(branch.nodes.filter((node) => node.kind === 'modifier').length, 10, `${tree.id}.${branch.id}`);
+    assert.equal(branch.nodes.filter((node) => node.capstone).length, 1, `${tree.id}.${branch.id}`);
+    for (const node of branch.nodes) {
+      assert.equal(CLASS_NODES[node.id], node);
+      assert.equal(node.status, 'live', `${node.id} is live`);
+      assert.ok(Number.isInteger(node.level) && node.level >= 1 && node.level <= 99);
+      assert.ok(node.requires.every((id) => nodes.has(id)), `${node.id} keeps dependencies inside its specialization`);
+      for (const id of node.requires) assert.ok(node.level >= nodes.get(id).level, `${node.id} follows ${id}`);
+      if (node.kind === 'ability') { abilities++; assert.ok(ABILITIES_BY_ID[node.abilityId], node.abilityId); }
+      else {
+        modifiers++;
+        assert.equal(node.pointCost, 1); assert.equal(node.maxRank, node.capstone ? 1 : 3);
+        assert.ok(node.effects.length, `${node.id} has an effect`);
+        assert.match(node.description, node.capstone ? /^At rank 1: / : /^Per rank: /, `${node.id} describes its rank effect`);
+        assert.ok(node.description.match(/[0-9]/), `${node.id} exposes an exact numeric effect`);
+        assert.equal(node.iconAbilityId, node.effects.find((effect) => effect.abilityIds?.length)?.abilityIds[0] || null);
+        for (const effect of node.effects) for (const abilityId of effect.abilityIds || []) {
+          assert.ok(ABILITIES_BY_ID[abilityId], `${node.id} affects a shipped ability: ${abilityId}`);
+        }
+        if (node.capstone) { capstones++; assert.equal(node.level, 82); assert.equal(node.requiredTreePoints, 25); assert.equal(node.choiceGroup, `${tree.id}.capstone`); }
+      }
+    }
+    assert.equal(local.size, branch.nodes.length, `${tree.id}.${branch.id} local ids are unique`);
   }
- }
- for(const id of STARTER_ABILITIES[tree.id])assert.ok(tree.branches.some(b=>b.nodes.some(n=>n.abilityId===id&&n.level===1)),`${tree.id} starter ${id}`);
+  for (const id of STARTER_ABILITIES[tree.id]) assert.ok(tree.branches.some((branch) => branch.nodes.some((node) => node.abilityId === id && node.level === 1)), `${tree.id} starter ${id}`);
 }
-assert.equal(live,83);assert.equal(planned,133);assert.equal(Object.keys(CLASS_NODES).length,216);
-assert.equal(CLASS_NODES['mage.fire.meteor'].level,62);assert.equal(CLASS_NODES['mage.arcane.chainLightning'].level,42);
-console.log('Class catalogue checks passed: 6 classes, 18 trees, 83 live placements, 133 planned nodes.');
+assert.equal(abilities, 83); assert.equal(modifiers, 180); assert.equal(capstones, 18);
+assert.equal(CLASS_NODES['mage.fire.meteor'].level, 62);
+assert.equal(CLASS_NODES['warrior.arms.redLedger'].requiredTreePoints, 15);
+console.log('Class catalogue checks passed: 6 classes, 18 specializations, 263 live nodes, 180 modifiers, 18 capstones.');

@@ -1,6 +1,7 @@
 // The small, close-range window for a dead monster's held rewards.
 
 import { itemTipLines, colourOf, labelOf } from './inventory.js';
+import { baseFor } from '../mmo/items.js';
 import { attachTip } from './windows.js';
 import { theme, icon, itemGlyph } from './ui_theme.js';
 
@@ -12,7 +13,7 @@ const CSS = `
 .bw-corpse-loot-list { display: grid; gap: 7px; }
 .bw-corpse-loot-row { min-height: 44px; display: grid; grid-template-columns: 38px 1fr auto; gap: 9px; align-items: center; padding: 6px 8px; background: rgba(0,0,0,.22); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
 .bw-corpse-loot-glyph { display: grid; place-items: center; width: 34px; height: 34px; }
-.bw-corpse-loot-glyph svg { width: 28px; height: 28px; }
+.bw-corpse-loot-glyph svg, .bw-corpse-loot-glyph img { width: 32px; height: 32px; object-fit: contain; }
 .bw-corpse-loot-name { font-family: ${theme.fonts.display}; font-size: 14px; }
 .bw-corpse-loot-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .bw-corpse-loot-actions button { min-height: 40px; }
@@ -62,7 +63,7 @@ export const panel = {
       for (const item of contents.items) {
         const row = h('div', 'bw-corpse-loot-row');
         const glyph = h('span', 'bw-corpse-loot-glyph');
-        glyph.innerHTML = itemGlyph(item, 28);
+        glyph.innerHTML = itemGlyph(baseFor(item), 32, null, { count: item.count, material: item.material });
         row.appendChild(glyph);
         const label = h('span', 'bw-corpse-loot-name', labelOf(item));
         label.style.color = colourOf(item);

@@ -28,6 +28,7 @@ import {
   lessonFor, PRACTICE_FLOOR,
 } from './abilities.js';
 import { resolveMelee } from './combat_rules.js';
+import { PROFESSION_SKILL_IDS, isProfessionSkill } from './skill_policy.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -53,8 +54,8 @@ console.log('\n--- 1. the table: every skill, and what to do about it ----------
   console.log('');
   check(`${built} of ${SKILLS.length} skills can be started by doing something`, built === SKILLS.length - UNBUILT_COUNT,
     `${SKILLS.length - built} have no path: ${table.filter((r) => !r.paths.length).map((r) => r.name).join(', ')}`);
-  check('and the six with none are the six written down as unbuilt systems',
-    table.filter((r) => !r.paths.length).every((r) => !!r.unbuilt) && UNBUILT_COUNT === 6,
+  check('and only unfinished professions remain explicitly unbuilt',
+    table.filter((r) => !r.paths.length).every((r) => isProfessionSkill(r.id) && !!r.unbuilt) && UNBUILT_COUNT === 2,
     Object.keys(UNBUILT).join(', '));
   check('the audit passes on the real tables', !!auditSkillPaths(), JSON.stringify(auditSkillPaths()));
 }
@@ -67,18 +68,9 @@ console.log('\n--- 2. it fails when a skill has no path ------------------------
   check('Fishing is stranded today, and the reason is written rather than silent',
     pathsFor('fishing').length === 0 && typeof UNBUILT.fishing === 'string' && UNBUILT.fishing.length > 20,
     UNBUILT.fishing);
-  check('and a skill that is neither pathed nor declared would throw',
-    (() => {
-      // The real audit, with a skill it has never seen. SKILLS is frozen by
-      // use, not by Object.freeze, so this pushes and pops the real table.
-      SKILLS.push({ id: 'basketweaving', name: 'Basketweaving', group: 'Body', description: 'no' });
-      SKILL_BY_ID.set('basketweaving', SKILLS[SKILLS.length - 1]);
-      let msg = null;
-      try { auditSkillPaths(); } catch (e) { msg = e.message; }
-      SKILLS.pop();
-      SKILL_BY_ID.delete('basketweaving');
-      return !!msg && /Basketweaving/.test(msg) && /only be bought/.test(msg);
-    })(), strandedName);
+  check('combat rows are class progression, never numeric practice paths',
+    !isProfessionSkill('mysticism') && pathsFor('mysticism')[0]?.kind === 'class' && fightPaths('mysticism').length === 0,
+    pathsFor('mysticism')[0]?.what);
   check('and so would an unbuilt entry that has since grown a path',
     (() => {
       const kept = UNBUILT.magery;
@@ -149,8 +141,11 @@ console.log('\n--- 5. a row below its mark mostly fumbles, and teaches ---------
   let gains = 0;
   const teachRng = rngFrom(11);
   for (let i = 0; i < 200; i++) if (rollGain(sheet, 'mysticism', l.difficulty, false, teachRng).gained) gains++;
-  check('200 fumbles move Mysticism off zero', sheet.skills.mysticism > 0,
+  check('200 combat attempts leave Mysticism unchanged', sheet.skills.mysticism == null && gains === 0,
     `${gains} gains, Mysticism ${sheet.skills.mysticism}`);
+  const profession = { skills: {}, locks: {} };
+  const professionGain = rollGain(profession, 'poisoning', 30, true, () => 0);
+  check('a profession craft can still gain its numeric skill', professionGain.gained && profession.skills.poisoning > 0, JSON.stringify(professionGain));
 }
 
 console.log('\n--- 6. Parrying and Evaluating Intelligence, which were written and unreachable ---');
@@ -175,8 +170,7 @@ console.log('\n--- 6. Parrying and Evaluating Intelligence, which were written a
   check('Evaluating Intelligence is the skill id, not the abbreviation nobody owns',
     !read('src/mmo/combat_rules.js').includes("'evalInt'"),
     read('src/mmo/combat_rules.js').includes("'evaluatingIntelligence'") ? 'evaluatingIntelligence' : 'MISSING');
-  check('and casting teaches it', fightPaths('evaluatingIntelligence').length > 0,
-    fightPaths('evaluatingIntelligence').map((p) => p.what).join('; '));
+  check('and casting no longer creates a numeric Evaluating Intelligence practice path', fightPaths('evaluatingIntelligence').length === 0);
 }
 
 console.log('\n--- 7. the sentence is one sentence -----------------------------------------');
@@ -217,14 +211,13 @@ console.log('\n--- 8. no skill needs coin --------------------------------------
       if (t && SKILL_BY_ID.has(t)) taught.add(t);
     }
   }
-  const boughtOnly = [...taught].filter((id) => pathsFor(id).length === 0);
-  check(`${taught.size} skills are for sale, and ${boughtOnly.length} of them can ONLY be bought`,
-    boughtOnly.length === 1 && boughtOnly[0] === 'animalTaming',
-    boughtOnly.map((id) => SKILL_BY_ID.get(id).name).join(', ') || 'none');
-  check('and Animal Taming is written down as the one that is, with the reason',
-    /SELLS this skill/.test(UNBUILT.animalTaming || ''), UNBUILT.animalTaming);
-  check('every other skill a trainer sells can also be practised',
-    boughtOnly.length <= 1);
+  const numericTaught = [...taught].filter(isProfessionSkill);
+  check('only professions are candidates for numeric practice, regardless of trainer inventory',
+    PROFESSION_SKILL_IDS.every(id => isProfessionSkill(id)) && !isProfessionSkill('magery'), numericTaught.join(', '));
+  check('trainer lists do not create combat skill practice paths',
+    [...taught].filter(id => !isProfessionSkill(id)).every(id => pathsFor(id)[0]?.kind === 'class'));
+  check('every numeric practice path is a named profession or explicitly unfinished',
+    PROFESSION_SKILL_IDS.every(id => pathsFor(id).length || UNBUILT[id]));
 }
 
 console.log(`\n  ${pass} passed, ${fail} failed`);

@@ -109,8 +109,8 @@ console.log('\n--- 3. the gain curve is the document\'s table ------------------
     BANDS[0].min === 0 && BANDS[BANDS.length - 1].max === SKILL_CAP && BANDS.every((b, i) => i === 0 || b.min === BANDS[i - 1].max));
   check('the document\'s "uses to the next band" is the band width over the step, rounded down',
     BANDS.every((b) => b.uses === Math.floor((b.max - b.min) / b.step + 1e-9)), BANDS.map((b) => b.uses).join(', '));
-  check('the caps are the document\'s: 100.0 a skill, 700.0 in total',
-    SKILL_CAP === 100 && TOTAL_CAP === 700 && DOC.includes('**0.0 to 100.0**') && DOC.includes('**Total cap 700.0**'));
+  check('the profession cap is 100.0 and practice has no shared donor budget',
+    SKILL_CAP === 100 && TOTAL_CAP === 1500 && DOC.includes('**0.0 to 100.0**'));
 }
 {
   // Every band edge, from below and from on it.
@@ -235,60 +235,17 @@ console.log('\n--- 7. a miss teaches at half the chance ------------------------
     && near(rollGain({ skills: { mining: 40 }, locks: {} }, 'mining', 40, false, () => 1).chance, 0.275));
 }
 
-console.log('\n--- 8. the 700 cap and the skill marked to fall -----------------------------');
+console.log('\n--- 8. professions have no shared donor budget ----------------------------');
 {
-  const seven = () => ({
-    skills: { swordsmanship: 100, tactics: 100, parrying: 100, anatomy: 100, healing: 100, magery: 100, blacksmithing: 100, mining: 0 },
-    locks: {},
-  });
-  let s = seven();
-  check('seven grandmasteries is exactly the 700 cap', total(s) === TOTAL_CAP, `${total(s)}`);
-  const stuck = rollGain(s, 'mining', 0, true, () => 0);
-  console.log(`  at the cap with nothing marked down: "${stuck.reason}"`);
-  check('with nothing marked down the gain is refused', !stuck.gained && stuck.refused && s.skills.mining === 0);
-  check('and the reason names the cap and the skill', /700.0/.test(stuck.reason) && /Mining/.test(stuck.reason));
-  check('the sheet did not move a hundredth', total(s) === TOTAL_CAP);
-
-  s = seven();
-  setLock(s, 'blacksmithing', 'down');
-  const paid = rollGain(s, 'mining', 0, true, () => 0);
-  console.log(`  paid for: Mining ${paid.from} -> ${paid.to}, taking ${paid.tookFrom.amount} from ${paid.tookFrom.name} (${paid.tookFrom.from} -> ${paid.tookFrom.to})`);
-  check('with one skill marked down the gain goes through', paid.gained && s.skills.mining === 0.1);
-  check('it took exactly 0.1 from the skill marked down', paid.tookFrom.id === 'blacksmithing' && paid.tookFrom.amount === 0.1 && s.skills.blacksmithing === 99.9);
-  check('the total is still exactly 700.0', total(s) === TOTAL_CAP, `${total(s)}`);
-  check('at the cap the gain is 0.1, not the 0.3 the band would give away from the cap', paid.step === 0.1 && gainStep(0) === 0.3);
-
-  s = seven();
-  setLock(s, 'blacksmithing', 'down');
-  setLock(s, 'healing', 'down');
-  s.skills.healing = 99;
-  s.skills.blacksmithing = 99.5;
-  s.skills.mining = 1.5;   // back to 700 exactly
-  check('a sheet with two skills marked down is still on the cap', total(s) === TOTAL_CAP, `${total(s)}`);
-  const highest = rollGain(s, 'mining', 0, true, () => 0);
-  check('the highest of them pays, not the first one found', highest.tookFrom.id === 'blacksmithing' && s.skills.blacksmithing === 99.4 && s.skills.healing === 99);
-
-  // A skill marked up or locked is not a donor, however high.
-  s = seven();
-  setLock(s, 'blacksmithing', 'locked');
-  const noDonor = rollGain(s, 'mining', 0, true, () => 0);
-  check('a locked skill will not pay for someone else\'s gain', !noDonor.gained && noDonor.refused && s.skills.blacksmithing === 100);
-
-  // Part of the way over: only the shortfall is taken.
-  s = seven();
-  s.skills.mining = 0; s.skills.magery = 99.95;      // total 699.95, headroom 0.05
-  setLock(s, 'blacksmithing', 'down');
-  check('the sheet is 0.05 under the cap', total(s) === 699.95, `${total(s)}`);
-  const partial = rollGain(s, 'mining', 0, true, () => 0);
-  check('crossing the cap takes only the shortfall, not a flat 0.1',
-    partial.gained && partial.to === 0.1 && partial.tookFrom.amount === 0.05 && s.skills.blacksmithing === 99.95, `took ${partial.tookFrom.amount}`);
-  check('and that lands the sheet exactly on 700.0', total(s) === TOTAL_CAP, `${total(s)}`);
-
-  // Well under the cap nothing is taken at all.
-  const room = { skills: { mining: 20, magery: 30 }, locks: { magery: 'down' } };
-  const free = rollGain(room, 'mining', 20, true, () => 0);
-  check('under the cap a gain is free and the full band step', free.gained && free.to === 20.3 && free.tookFrom === null && room.skills.magery === 30);
-  check('total() adds the sheet up to the hundredth', total(room) === 50.3, `${total(room)}`);
+  const sheet = { skills: { mining: 0, blacksmithing: 100, swordsmanship: 100, magery: 100 }, locks: { blacksmithing: 'down' } };
+  const gained = rollGain(sheet, 'mining', 0, true, () => 0);
+  check('a profession gains its full band step regardless of combat values',
+    gained.gained && gained.to === 0.3 && gained.tookFrom === null && sheet.skills.blacksmithing === 100);
+  check('the practice total includes professions and excludes combat capability', total(sheet) === 100.3, `${total(sheet)}`);
+  const combatBefore = sheet.skills.swordsmanship;
+  const combat = rollGain(sheet, 'swordsmanship', 0, true, () => 0);
+  check('combat practice is refused without changing a saved legacy value',
+    combat.refused && /class level/.test(combat.reason) && sheet.skills.swordsmanship === combatBefore, combat.reason);
 }
 
 console.log('\n--- 9. milestones ----------------------------------------------------------');

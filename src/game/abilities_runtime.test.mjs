@@ -22,6 +22,7 @@ import {
   burdensInArmour, ABILITY_FOR_ITEM, itemsHeld, COST_ITEM_BASES,
 } from '../mmo/abilities.js';
 import { OPENINGS } from '../mmo/openings.js';
+import { MODIFIERS } from '../mmo/talent_modifiers.js';
 import { planCharacter } from './creation.js';
 import { settlerKitFor } from './app/systems/inventory.js';
 import { makeItem, ARMOR_PIECES } from '../mmo/items.js';
@@ -130,6 +131,90 @@ const said = (h) => h.hudLines.map((l) => l.t).join(' | ');
  h.abilities.update(.7,.7);
  ck('Ice Shard writes a thirty percent movement slow',enemy.status.slow?.factor===.3,JSON.stringify(enemy.status));
  ck('Ice Shard control clocks agree',enemy.status.slow?.until===enemy.status.slow?.untilS*1000);
+}
+
+// Talent modifier output is consumed by the same runtime path as the preview.
+{
+ const enemy = mob('Skeleton', 0, 3);
+ const h = harness({ bar: ['fireball'], monsters: [enemy] });
+ h.character.opening = 'mage';
+ h.character.advancement = { allocations: {
+   'mage.fire.emberThread': 2, 'mage.fire.dryKindling': 3,
+ }, ranks: { fireball: 1 } };
+ const used = h.abilities.use(0, 0);
+ h.abilities.update(1, 1);
+ ck('runtime uses a modifier-reduced cast cost and damage-over-time value',
+   used.ok && Math.abs(h.actor.mana - (200 - 9 * .91)) < 1e-9 && Math.abs(enemy.dots[0].perSecond - 2 * 1.06) < 1e-9,
+   `${h.actor.mana} mana, ${enemy.dots[0]?.perSecond} each second`);
+ ck('barView exposes the same modified cost record before the cast',
+   Math.abs(h.abilities.barView(0)[0].ability.cost.mana - 9 * .91) < 1e-9,
+   String(h.abilities.barView(0)[0].ability.cost.mana));
+}
+{
+ // A normal trained rank reaches startCast once, with no modifier cap involved.
+ for (const rank of [2, 3, 4, 5]) {
+   const enemy = mob('Training target', 0, 2);
+   const h = harness({ bar: ['powerStrike'], monsters: [enemy] });
+   h.character.opening = 'warrior';
+   h.character.advancement = { allocations: {}, ranks: { powerStrike: rank } };
+   const preview = h.abilities.barView(0)[0];
+   const actual = h.abilities.use(0, 0).record?.cooldownUntil;
+   const expected = 6 * (1 - .03 * (rank - 1));
+   ck(`rank ${rank} cooldown preview matches the trained runtime interval`,
+     Math.abs(preview.cooldownDuration - expected) < 1e-9 && Math.abs(preview.cooldownDuration - actual) < 1e-9,
+     `${preview.cooldownDuration} preview / ${actual} actual`);
+ }
+}
+{
+ // Cached hover numbers must refresh after an in-place stat, weapon, or rank edit.
+ const spell = harness({ bar: ['magicArrow'] });
+ const low = spell.abilities.barView(0)[0].previewLines[0];
+ spell.character.stats.int += 50;
+ const high = spell.abilities.barView(0)[0].previewLines[0];
+ const weapon = harness({ bar: ['powerStrike'] });
+ const bare = weapon.abilities.barView(0)[0].previewLines[0];
+ weapon.actor.weapon = { ...weapon.actor.weapon, minDamage: 20, maxDamage: 20 };
+ const armed = weapon.abilities.barView(0)[0].previewLines[0];
+ ck('bar preview cache refreshes after in-place stats and equipped weapon changes', low !== high && bare !== armed, `${low} -> ${high}; ${bare} -> ${armed}`);
+}
+{
+ // startCast applies ability rank training after effectiveAbility. The preview
+ // must show that final paid interval, including the global 25% cap.
+ const probe = { id: 'cooldownProbe', maxRank: 1, effects: [{ type: 'ability', abilityIds: ['powerStrike'], changes: { cooldownPct: -1 } }] };
+ MODIFIERS['warrior.arms'].push(probe);
+ try {
+   for (const rank of [2, 3, 4, 5]) {
+     const enemy = mob('Cooldown target', 0, 2);
+     const h = harness({ bar: ['powerStrike'], monsters: [enemy] });
+     h.character.opening = 'warrior';
+     h.character.advancement = { allocations: { 'warrior.arms.cooldownProbe': 1 }, ranks: { powerStrike: rank } };
+     const preview = h.abilities.barView(0)[0];
+     const used = h.abilities.use(0, 0);
+     const actual = used.record?.cooldownUntil;
+     ck(`rank ${rank} cooldown preview matches the actual use interval and 25% cap`,
+       Math.abs(preview.cooldownDuration - 4.5) < 1e-9 && Math.abs(preview.cooldownDuration - actual) < 1e-9
+       && preview.previewLines.includes('4.5 s cooldown'),
+       `${preview.cooldownDuration} preview / ${actual} actual`);
+   }
+ } finally { MODIFIERS['warrior.arms'].pop(); }
+}
+{
+ const h = harness({ bar: ['fireball'] });
+ h.character.opening = 'mage';
+ h.character.advancement = { classId: 'mage', xp: 10000, granted: [], allocations: { 'mage.fire.fireball': 1, 'mage.fire.dryKindling': 2 }, legacy: { allocations: {} }, ranks: { fireball: 1 } };
+ const reset = h.abilities.respecTalents();
+ ck('respec clears paid nodes and bar rows that are no longer learned',
+   reset.ok && reset.refunded > 0 && h.character.bar[0] === null && h.character.advancement.allocations['mage.fire.fireball'] === undefined,
+   JSON.stringify(reset));
+ h.abilities.useById('magicArrow', 1); // hold a target request
+ ck('respec refuses while an ability is pending', h.abilities.respecTalents().ok === false);
+}
+{
+ const h = harness({ extra: { combat: { inCombat: () => true } } });
+ h.character.opening = 'mage';
+ h.character.advancement = { classId: 'mage', xp: 10000, granted: [], allocations: { 'mage.fire.fireball': 1 }, legacy: { allocations: {} }, ranks: { fireball: 1 } };
+ const reset = h.abilities.respecTalents();
+ ck('respec asks the combat authority rather than an actor flag', reset.ok === false && /outside combat/.test(reset.reason), reset.reason);
 }
 
 // --- the table cannot drift ----------------------------------------------------
@@ -696,8 +781,8 @@ console.log('abilities_runtime: damage interrupts, over and under a tenth');
   ck('at Focus 0 the chance is 1, so every blow breaks the cast, and every one teaches',
     atZero.broken === 40 && atZero.held === 0 && focus0.length === 40 && focus0.every((x) => x.success === false),
     `${focus0.length} lessons, ${atZero.held} held, ${atZero.broken} broken`);
-  ck('and Focus is off zero, which it could never be before',
-    h.character.skills.focus > 0, `Focus 0 to ${h.character.skills.focus} over 40 blows`);
+  ck('and Focus remains a class-derived combat value rather than a practice gain',
+    h.character.skills.focus === 0, `Focus 0 to ${h.character.skills.focus} over 40 blows`);
 
   h.character.skills.focus = 100;
   const atHundred = blows(20, 5000);
@@ -1800,11 +1885,7 @@ function castRun(mat, opts = {}) {
     bare.abilities.barView(0)[0].burden === 0 && bare.abilities.barView(0)[0].burdenText === '');
 }
 
-// --- practising a school you have not started -----------------------------------------
-// SK2. Thirteen first rungs now open at 0 so their school can be started at
-// all. This is the measurement that the gift is not free: Hex pressed two
-// hundred times by a Mysticism 0 mage, through the real runtime, counting what
-// fizzled, what landed, and what the skill did.
+// --- a purchased school resolves without numeric combat practice -----------------------
 {
   // The progression is the real one; it needs the harness's own character, and
   // the harness needs the progression, so it is handed a holder and filled in.
@@ -1813,9 +1894,8 @@ function castRun(mat, opts = {}) {
     bar: ['hex'], monsters: [mob('Skeleton', 0, 3)], seed: 5,
     extra: { progression: { lesson: (...a) => holder.lesson?.(...a) } },
   });
-  // The harness hands out 100 in everything, which is 3600 points against
-  // skills.js's 700 total cap, so every lesson would be refused for the cap and
-  // not for the practice. A beginner has nothing, so this one does too.
+  // A beginner's raw combat values stay at zero. Talent ownership, not a
+  // repeated cast, decides whether Hex is available.
   for (const k of Object.keys(h.character.skills)) h.character.skills[k] = 0;
   h.character.skillLocks = {};
   h.character.unlockedAbilities = ['hex'];
@@ -1835,32 +1915,14 @@ function castRun(mat, opts = {}) {
   }
   const fizzlesIn = (from, to) => outcome.slice(from, to).filter((x) => x === 'fizzle').length;
   const fizzles = fizzlesIn(0, 200);
-  ck('the first twenty presses at Mysticism 0 almost all fizzle',
-    fizzlesIn(0, 20) >= 15, `${fizzlesIn(0, 20)} of the first 20 fizzled`);
-  ck('and the last twenty, by then past the mark, almost none do',
-    fizzlesIn(180, 200) <= 3, `${fizzlesIn(180, 200)} of the last 20 fizzled`);
-  ck('every one of the 200 taught Mysticism, fizzle or not',
+  ck('a purchased spell does not fumble for a raw Mysticism value',
+    fizzlesIn(0, 200) === 0, `${fizzlesIn(0, 200)} of 200 fizzled`);
+  ck('the runtime may report each combat attempt to progression for compatibility',
     taught.length === 200 && taught.every((x) => x === 'mysticism'),
     `${taught.length} lessons, ${new Set(taught).size} skill(s)`);
-  ck('and the skill is off zero at the end of it, which is the whole point',
-    h.character.skills.mysticism > 20,
+  ck('but repeated casts never change the saved combat practice number',
+    h.character.skills.mysticism === 0,
     `Mysticism 0 to ${h.character.skills.mysticism} over 200 presses, ${fizzles} of them fizzled`);
-  ck('and every fizzle says what it did',
-    h.hudLines.some((l) => /You feel a little of how it should go/.test(l.t)),
-    h.hudLines.find((l) => /fizzles: your hand/.test(l.t))?.t || 'nothing said');
-  ck('the same press at its own mark never fizzles for want of practice',
-    (() => {
-      const m = harness({ bar: ['hex'], monsters: [mob('Skeleton', 0, 3)], seed: 5 });
-      m.character.skills.mysticism = 20;
-      let f = 0, tt = 0;
-      for (let i = 0; i < 50; i++) {
-        m.actor.mana = 200; tt += 10;
-        const b = m.hudLines.length;
-        m.abilities.use(0, tt);
-        if (m.hudLines.slice(b).some((l) => /not practised/.test(l.t))) f++;
-      }
-      return f === 0;
-    })(), 'no fizzles at the mark');
 }
 
 // --- walking while hidden, which is the whole of Stealth --------------------------------
@@ -1893,8 +1955,8 @@ function castRun(mat, opts = {}) {
     taught.length === 60, `${taught.length} rolls across 60 still updates and 60 moving ones`);
   ck('a step at Stealth 0 nearly always gives you away, and says so',
     seen > 45 && h.hudLines.some((l) => /Moving gave you away/.test(l.t)), `${seen} seen, ${held} held`);
-  ck('and every step taught Stealth, which is how the skill starts at all',
-    taught.every((x) => x === 'stealth') && h.character.skills.stealth > 0,
+  ck('and movement does not turn stealth practice into a numeric combat gain',
+    taught.every((x) => x === 'stealth') && h.character.skills.stealth === 0,
     `${taught.length} lessons, Stealth ${h.character.skills.stealth}`);
   ck('the hold chance is the skill, floor to ceiling, driven both ends',
     stealthHoldChance(0) === 0.05 && stealthHoldChance(100) === 0.95 && stealthHoldChance(-5) === 0.05,

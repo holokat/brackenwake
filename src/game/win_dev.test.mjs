@@ -35,6 +35,7 @@ import { ABILITIES, unlockedFor, unlockedForCharacter } from '../mmo/abilities.j
 import { MONSTERS, MONSTER_LIST } from '../mmo/monsters.js';
 import { dayFactorAt, DAY_CYCLE_MS } from './scene.js';
 import { createDev, DEBUG_FLAGS, createFrameMeter } from './dev.js';
+import { effectiveCombatSkill } from '../mmo/combat_proficiency.js';
 
 let pass = 0, fail = 0;
 const check = (n, ok, d = '') => { (ok ? pass++ : fail++); console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${d ? '   ' + d : ''}`); };
@@ -335,14 +336,27 @@ console.log('win_dev: the skills sheet, driven up and put back exactly');
   const sheet = ctx.character.skills;
   sheet.swordsmanship = 41.5; sheet.mining = 7; sheet.tactics = 63.25;
   const kept = { ...sheet };
+  const beforeCombat = ctx.actor.skills.swordsmanship;
+  const beforeProfession = ctx.actor.skills.mining;
   const up = bench.setAllSkills(100);
   check('every skill stands at 100', Object.values(sheet).every((v) => v === 100), `${up.changed} changed`);
-  check('the actor was recomputed off the same object', ctx.actor.skills.swordsmanship === 100);
+  check('the actor keeps the class-level combat projection while its source sheet is rewritten',
+    ctx.actor.skills.swordsmanship === effectiveCombatSkill(ctx.character, 'swordsmanship')
+      && ctx.actor.skills.swordsmanship === beforeCombat
+      && ctx.actor.baseSkills === sheet,
+    `${beforeCombat} -> ${ctx.actor.skills.swordsmanship}`);
+  check('and the same recompute still reads a profession from that edited sheet',
+    ctx.actor.skills.mining === 100 && ctx.actor.skills.mining !== beforeProfession,
+    `${beforeProfession} -> ${ctx.actor.skills.mining}`);
   const back = bench.restoreSkills();
   const same = Object.keys(kept).every((k) => sheet[k] === kept[k]) && Object.keys(sheet).length === Object.keys(kept).length;
   check('restore gives back the exact sheet, key for key', same, `${back.changed} put right, ${Object.keys(kept).length} keys`);
   check('including the fractions', sheet.swordsmanship === 41.5 && sheet.tactics === 63.25);
-  check('the actor followed it back down', ctx.actor.skills.swordsmanship === 41.5);
+  check('the actor returns to the same class projection while the profession returns to its saved value',
+    ctx.actor.skills.swordsmanship === effectiveCombatSkill(ctx.character, 'swordsmanship')
+      && ctx.actor.skills.swordsmanship === beforeCombat
+      && ctx.actor.skills.mining === kept.mining,
+    `${ctx.actor.skills.swordsmanship}; mining ${ctx.actor.skills.mining}`);
   check('the object was written in place, never replaced', ctx.actor.baseSkills === sheet);
   const again = bench.restoreSkills();
   check('a second restore has nothing to give and says so', again.ok === false && /nothing to put back/.test(again.text), again.text);

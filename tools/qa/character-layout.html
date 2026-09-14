@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Character layout review</title>
+<style>html,body{margin:0;background:#101a15;color:#eddfbe;font:14px system-ui}nav{height:48px;display:flex;align-items:center;justify-content:center;gap:8px}button{padding:7px 12px;background:#29382d;border:1px solid #a88e55;color:inherit;border-radius:5px;cursor:pointer}iframe{display:block;width:1366px;max-width:100%;height:calc(100vh - 50px);margin:auto;border:0}button[aria-pressed=true]{background:#c6aa6d;color:#172219}</style></head>
+<body><nav aria-label="Review viewport"><span>Isolated Paladin</span><button data-width="1366" aria-pressed="true">Desktop</button><button data-width="1024">Tablet</button><button data-width="760">Compact</button><button data-width="390">Phone</button><button data-width="320">320 px</button></nav>
+<iframe title="Isolated character review" src="./progression.html?solo&amp;characterReview=paladin"></iframe>
+<script type="module">const frame=document.querySelector('iframe');for(const button of document.querySelectorAll('button'))button.addEventListener('click',()=>{frame.style.width=`${button.dataset.width}px`;for(const b of document.querySelectorAll('button'))b.setAttribute('aria-pressed',String(b===button));});</script>
+</body></html>

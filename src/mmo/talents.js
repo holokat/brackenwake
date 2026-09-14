@@ -93,7 +93,7 @@ export function maxTalentRank(ability) {
   return ability && !ability.passive && ability.cooldown > 0 ? 5 : 1;
 }
 
-function nodeMaxRank(node, abilities = {}) {
+export function nodeMaxRank(node, abilities = {}) {
   if (Number.isInteger(node?.maxRank)) return node.maxRank;
   const ability = abilities[node?.abilityId];
   return ability ? maxTalentRank(ability) : 5;
@@ -161,17 +161,23 @@ function baseRank(advancement, abilityId) {
 }
 
 function allocationSpend(advancement) {
-  const ranks = {};
+  let modifierSpend = 0;
+  const abilityRanks = {};
   for (const [id, value] of Object.entries(advancement.allocations || {})) {
     const node = ALL_NODES[id];
     if (!node || node.status !== 'live') continue;
-    ranks[node.abilityId] = Math.max(ranks[node.abilityId] || 0, rankValue(value, nodeMaxRank(node)));
+    const rank = rankValue(value, nodeMaxRank(node));
+    if (node.kind === 'modifier') {
+      modifierSpend += rank * (node.pointCost || 1);
+    } else if (node.abilityId) {
+      abilityRanks[node.abilityId] = Math.max(abilityRanks[node.abilityId] || 0, rank);
+    }
   }
   for (const [abilityId, value] of Object.entries(advancement.legacy?.allocations || {})) {
     if (!V1_VALID_IDS.has(abilityId)) continue;
-    ranks[abilityId] = Math.max(ranks[abilityId] || 0, rankValue(value));
+    abilityRanks[abilityId] = Math.max(abilityRanks[abilityId] || 0, rankValue(value));
   }
-  return Object.entries(ranks).reduce((spent, [abilityId, rank]) =>
+  return modifierSpend + Object.entries(abilityRanks).reduce((spent, [abilityId, rank]) =>
     spent + Math.max(0, rank - baseRank(advancement, abilityId)), 0);
 }
 
@@ -187,7 +193,10 @@ export function treePoints(character, specId) {
   const spent = Object.entries(allocations).reduce((total, [id, value]) => {
     const node = ALL_NODES[id];
     if (!node || !id.startsWith(`${classOf(character)}.${specId}.`)) return total;
-    return total + Math.max(0, rankValue(value, nodeMaxRank(node)) - baseRank(character.advancement, node.abilityId));
+    const rank = rankValue(value, nodeMaxRank(node));
+    return total + (node.kind === 'modifier'
+      ? rank * (node.pointCost || 1)
+      : Math.max(0, rank - baseRank(character.advancement, node.abilityId)) * (node.pointCost || 1));
   }, 0);
   return { spent, available: availablePoints(character) };
 }
@@ -195,18 +204,28 @@ export function treePoints(character, specId) {
 function purchaseCheck(character, node, abilities = {}) {
   if (!character?.advancement) return { ok: false, reason: 'This ability is part of your starting kit.' };
   if (!node) return { ok: false, reason: 'This class cannot learn that ability.' };
-  if (node.status !== 'live') return { ok: false, reason: 'This node is planned and cannot be learned yet.' };
+  if (node.status !== 'live') return { ok: false, reason: 'This node is not available.' };
   if (!node.shared && nodeClass(node) !== classOf(character)) return { ok: false, reason: 'This class cannot learn that ability.' };
   const rank = nodeRank(character, node);
   const max = nodeMaxRank(node, abilities);
   if (rank >= max) return { ok: false, reason: 'Fully learned.' };
-  const level = Math.max(node.level || 1, 1 + rank * 8);
+  const level = node.kind === 'modifier' ? (node.level || 1) : Math.max(node.level || 1, 1 + rank * 8);
   if (levelOf(character) < level) return { ok: false, reason: `Requires level ${level}.` };
   for (const requiredId of node.requires || []) {
     const required = ALL_NODES[requiredId];
     if (!required || nodeRank(character, required) < 1) {
       return { ok: false, reason: 'Learn the preceding ability first.', requires: required?.abilityId || requiredId };
     }
+  }
+  if (node.requiredTreePoints) {
+    const specId = String(node.id).split('.')[1];
+    const spent = treePoints(character, specId).spent;
+    if (spent < node.requiredTreePoints) return { ok: false, reason: `Requires ${node.requiredTreePoints} points in ${specId}.` };
+  }
+  if (node.choiceGroup) {
+    const chosen = Object.values(ALL_NODES).find((other) => other.choiceGroup === node.choiceGroup
+      && other.id !== node.id && nodeRank(character, other) > 0);
+    if (chosen) return { ok: false, reason: `Already chose ${chosen.name}.` };
   }
   if (!availablePoints(character)) return { ok: false, reason: 'Gain a level to earn a talent point.' };
   return { ok: true, rank: rank + 1, node };
@@ -230,6 +249,19 @@ export function learnTalent(character, input, abilities = {}) {
   character.advancement.allocations[node.id] = check.rank;
   refreshProjection(character.advancement);
   return { ...check, ability: node.abilityId, node: node.id, points: availablePoints(character) };
+}
+
+/** Refund paid class-tree choices without touching free grants or historical ranks. */
+export function respecTalentTree(character) {
+  const advancement = character?.advancement;
+  if (!advancement) return { ok: false, reason: 'No talent record to reset.' };
+  // The archive reserves old points but is deliberately never refunded: it
+  // represents ranks whose original tree no longer exists.
+  const before = allocationSpend({ ...advancement, legacy: { allocations: {} } });
+  advancement.allocations = starterNodeRanks(advancement.classId || classOf(character));
+  appendGrants(advancement, advancement.granted || []);
+  refreshProjection(advancement);
+  return { ok: true, refunded: before, points: availablePoints(character) };
 }
 
 export function talentGate(ability, character) {
@@ -281,7 +313,8 @@ function appendGrants(advancement, granted) {
 function restoreNodeRanks(out, requested, abilities) {
   const wanted = Object.entries(requested || {})
     .map(([id, value]) => [ALL_NODES[id], rankValue(value)])
-    .filter(([node]) => node && node.status === 'live' && (node.shared || nodeClass(node) === out.classId));
+    .filter(([node]) => node && node.status === 'live' && (node.shared || nodeClass(node) === out.classId))
+    .sort(([a], [b]) => a.id.localeCompare(b.id));
   // A save is an object, so its key order cannot decide whether a dependent
   // rank restores. Every successful pass buys at least one requested rank.
   const maximumPasses = wanted.reduce((sum, [, target]) => sum + target, 0) + 1;

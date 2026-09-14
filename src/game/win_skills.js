@@ -1,62 +1,21 @@
-import {talentRank} from '../mmo/talents.js';
-// The skill sheet: all fifty two, in the document's nine groups, each as a card
-// with its painting, its bar, its number to one decimal, its lock, and the
-// abilities it is holding back. Key K, panel id `skills`, still a codex tab.
-//
-// WHAT CHANGED IN SK1
-//
-// It was a table: a 20 px lock, a 190 px name, a thin green bar, a number, and
-// a grey sentence under it, fifty two times. Next to the ability book, which is
-// a grid of 112 px paintings, it read like a spreadsheet that had wandered into
-// an illuminated manuscript. It is a book now, built the same way: a filter row,
-// a count line, the nine groups as headers, and under each one a grid of cards.
-//
-// The bar is the thing this page has that the book does not, so it is drawn
-// properly rather than shrunk: a dark trough, a gold fill with a brighter cap
-// at its end, a faint tick every ten, and the six gain bands drawn as segments
-// under it with the one you are standing in lit. That last mark is the whole
-// point of a skill bar in this game. The step is 0.3 a success under 30 and
-// 0.01 over 95, and a player who cannot see where that changes cannot see why
-// the last five points take a week.
-//
-// The line beside the bar says the same thing in words, and it says it about
-// THIS skill and THIS lock: a locked skill reads "31.4, locked and will not
-// rise", not "gains 0.2 a success", because rollGain refuses a locked skill and
-// a bar that promised a gain would be a bar that lies.
-//
-// The lock is the interesting control. At the 700 total a gain has to be paid
-// for out of something marked down, so the three states are not decoration:
-// up rises, locked stays, down pays. Setting one goes through skills.setLock,
-// which refuses a bad value and says why, and the refusal is shown rather than
-// swallowed.
-//
-// "Unlocks next" used to be a grey sentence and is now a row of the abilities
-// this skill gates, at 24 px, painted, each with a tooltip: what is yours is
-// bright, the next one is lit, the rest are dim. It is read out of abilities.js
-// every draw, and the sentence under it is meetsRequirements' own reason
-// whenever that reason says something the short line does not, so the card
-// cannot promise an unlock the rules would not give.
-//
-// The art is the painted library (icon_art.js `skillIcon`), with a drawn mark
-// per group as the fallback, and `auditSkillArt()` runs at import so a fifty
-// third skill in a tenth group dies here instead of shipping an empty square.
-
+// Professions progress independently; combat abilities belong to class trees.
 import {
-  SKILLS, SKILL_GROUPS, SKILL_CAP, TOTAL_CAP, LOCKS, BANDS,
+  SKILLS, SKILL_GROUPS, SKILL_CAP, LOCKS, BANDS,
   lockOf, setLock, total, gainStep,
 } from '../mmo/skills.js';
+import { isProfessionSkill } from '../mmo/skill_policy.js';
 import { ABILITIES, meetsRequirements, requirementClauses } from '../mmo/abilities.js';
 import { skillIcon, abilityIcon, iconImg } from './icon_art.js';
 import { attachTip, hideTip } from './windows.js';
 import { theme, cornerUrl, ruleUrl } from './ui_theme.js';
 
-/** up, then locked, then down, then round again. */
-export const LOCK_CYCLE = ['up', 'locked', 'down'];
+/** Professions can be paused and resumed; there is no shared point budget. */
+export const LOCK_CYCLE = ['up', 'locked'];
 export const LOCK_GLYPH = { up: '▲', locked: '●', down: '▼' };
 export const LOCK_WORDS = {
   up: 'rises with use',
   locked: 'locked, and will not move',
-  down: 'marked to fall, and pays for other gains at the cap',
+  down: 'paused; click to resume learning',
 };
 
 /** The skill state shape skills.js reads: the document keeps the two apart. */
@@ -190,30 +149,28 @@ export function abilityChipArt(ability, size = 24) {
 // ---------------------------------------------------------------------------
 
 /** All, then the nine groups, in the document's order. */
-export const FILTERS = [{ id: 'all', label: 'All' }, ...SKILL_GROUPS.map((g) => ({ id: g, label: g }))];
+export const PROFESSION_GROUPS = ['Gathering', 'Crafting'];
+const professionGroup = skill => skill.group === 'Gathering' ? 'Gathering' : 'Crafting';
+export const FILTERS = [{ id: 'all', label: 'All' }, ...PROFESSION_GROUPS.map(g => ({ id: g, label: g }))];
 
 /** Pure. Does this filter show this skill? */
 export function inFilter(skill, filter) {
-  if (filter === 'all') return true;
-  return skill.group === filter;
+  return isProfessionSkill(skill.id) && (filter === 'all' || professionGroup(skill) === filter);
 }
 
 /** Pure. The sheet as it is drawn: the nine groups, each with the cards in it. */
 export function sheetFor(filter = 'all') {
   const out = [];
-  for (const group of SKILL_GROUPS) {
-    const rows = SKILLS.filter((s) => s.group === group && inFilter(s, filter));
+  for (const group of PROFESSION_GROUPS) {
+    const rows = SKILLS.filter(s => professionGroup(s) === group && inFilter(s, filter));
     if (rows.length) out.push({ group, label: group, rows });
   }
   return out;
 }
 
-/** Pure. "52 skills, 700 points, 412.6 placed", and what is shown when filtered. */
-export function countText(placed, shown = null, count = SKILLS.length, cap = TOTAL_CAP) {
-  const t = typeof placed === 'number' && Number.isFinite(placed) ? placed : 0;
-  const parts = [`${count} skills`, `${cap} points`, `${t.toFixed(1)} placed`];
-  if (shown != null && shown !== count) parts.push(`${shown} shown`);
-  return parts.join(', ');
+/** Profession count, including the active filter. */
+export function countText(_placed, shown = null, count = SKILLS.filter(s => isProfessionSkill(s.id)).length) {
+  return `${count} professions${shown != null && shown !== count ? ` · ${shown} shown` : ''}`;
 }
 
 /**
@@ -243,8 +200,8 @@ export function auditSkillArt() {
   for (const f of FILTERS) {
     if (f.id !== 'all' && !SKILL_GROUPS.includes(f.id)) bad.push(`the filter "${f.id}" is not a group`);
   }
-  if (FILTERS.length !== SKILL_GROUPS.length + 1) {
-    bad.push(`${FILTERS.length} filter chips for ${SKILL_GROUPS.length} groups and All`);
+  if (FILTERS.length !== PROFESSION_GROUPS.length + 1) {
+    bad.push(`${FILTERS.length} filter chips for ${PROFESSION_GROUPS.length} profession groups and All`);
   }
   if (bad.length) throw new Error(`win_skills: ${bad.length} things have no art. ${bad[0]}`);
   return { skills: SKILLS.length, painted, groups: SKILL_GROUPS.length };
@@ -279,7 +236,7 @@ export function stepText(value, lock = 'up') {
   const n = v.toFixed(1);
   if (v >= SKILL_CAP) return `${n}, grandmaster`;
   if (lock === 'locked') return `${n}, locked and will not rise`;
-  if (lock === 'down') return `${n}, marked to fall and will not rise`;
+  if (lock === 'down') return `${n}, paused and will not rise`;
   return `${n}, gains ${trim(gainStep(v))} a success`;
 }
 
@@ -469,7 +426,7 @@ auditSkillArt();
 
 export const panel = {
   id: 'skills',
-  title: 'Skills',
+  title: 'Professions',
   key: 'k',
 
   build(el, ctx) {
@@ -482,7 +439,7 @@ export const panel = {
     el.appendChild(root);
 
     root.appendChild(h('div', 'bw-hint',
-      'Every skill in the world, and where you stand in it. The glyph beside a number sets whether that skill rises with use, holds where it is, or falls to pay for another once the seven hundred points are spent. The lit segment under a bar is the band you are in, and the band is what one success is worth.'));
+      'Gathering and crafting improve through use. Each profession progresses independently. Class abilities are learned in Skill trees.'));
 
     const filterRow = h('div', 'bw-filters');
     root.appendChild(filterRow);
@@ -574,31 +531,6 @@ export const panel = {
 
           body.appendChild(h('div', 'bw-desc', skill.description));
 
-          // The abilities a skill gates never change, so the chips are built
-          // once and only their state is redrawn.
-          const gated = abilitiesOf(skill.id);
-          const opens = h('div', 'bw-opens', 'unlocks');
-          const unlocks = h('div', 'bw-unlocks');
-          const chips = [];
-          for (const row of gated) {
-            const chip = h('div', 'bw-u');
-            chip.innerHTML = abilityChipArt(row.ability, 24);
-            unlocks.appendChild(chip);
-            const rec = { el: chip, ability: row.ability, at: row.at, met: false, next: false, reason: null };
-            chips.push(rec);
-            attachTip(chip, () => ({
-              lines: [
-                row.ability.name,
-                rec.met ? 'yours' : character().advancement ? 'Skill trees (P)' : `${skill.name} ${row.at}`,
-                rec.met ? row.ability.description : (rec.reason || row.ability.description),
-              ],
-            }));
-          }
-          if (gated.length) { body.appendChild(opens); body.appendChild(unlocks); }
-          const next = h('div', 'bw-next');
-          const why = h('div', 'bw-why');
-          body.appendChild(next);
-          body.appendChild(why);
           card.appendChild(body);
           grid.appendChild(card);
 
@@ -615,10 +547,10 @@ export const panel = {
           });
           attachTip(lock, () => {
             const l = lockOf(lockState(character()), skill.id);
-            return { lines: [skill.name, LOCK_WORDS[l], 'click for up, locked, down'] };
+            return { lines: [skill.name, LOCK_WORDS[l], 'Click to pause or resume learning'] };
           });
 
-          cards.push({ skill, el: card, val, lock, fill, bandEls, step, chips, next, why, opens });
+          cards.push({ skill, el: card, val, lock, fill, bandEls, step });
         }
       }
     }
@@ -626,12 +558,10 @@ export const panel = {
     function draw() {
       const c = character();
       const st = lockState(c);
-      const stats = c.stats || {};
       const t = total(st);
 
       for (const f of FILTERS) filterEls.get(f.id).classList.toggle('on', filter === f.id);
       countLine.textContent = countText(t, cards.length);
-      countLine.classList.toggle('full', t >= TOTAL_CAP);
 
       for (const rec of cards) {
         const skill = rec.skill;
@@ -653,44 +583,7 @@ export const panel = {
         rec.lock.className = `bw-lock bw-btn ${lock}`;
         rec.lock.title = `${skill.name} ${LOCK_WORDS[lock]}`;
 
-        if (c.advancement) {
-          rec.opens.textContent = 'Related abilities';
-          for (const chip of rec.chips) {
-            chip.met = talentRank(c, chip.ability.id) > 0; chip.next = false;
-            chip.reason = chip.met ? chip.ability.description : 'Learn this ability in Skill trees (P).';
-            chip.el.classList.toggle('have', chip.met); chip.el.classList.remove('on');
-            chip.el.title = `${chip.ability.name}: ${chip.met ? 'learned' : 'learn in Skill trees (P)'}`;
-          }
-          rec.next.textContent = rec.chips.length ? 'Learn abilities with talent points in Skill trees (P).' : '';
-          rec.next.style.display = rec.chips.length ? '' : 'none'; rec.why.style.display = 'none';
-          continue;
-        }
 
-        const s = standingFor(skill.id, st.skills, stats);
-        const open = new Set(s.unlocked.map((a) => a.id));
-        for (const chip of rec.chips) {
-          chip.met = open.has(chip.ability.id);
-          chip.next = !!s.next && s.next.id === chip.ability.id;
-          chip.reason = chip.next ? s.nextReason : null;
-          chip.el.classList.toggle('have', chip.met);
-          chip.el.classList.toggle('on', chip.next);
-          chip.el.title = chip.met
-            ? `${chip.ability.name}, yours`
-            : `${chip.ability.name} at ${skill.name} ${chip.at}`;
-        }
-
-        // The short line is this skill's own threshold. The rules layer's own
-        // reason goes under it whenever it says something that line does not,
-        // so a card cannot promise an unlock the rules would refuse.
-        const short = s.next
-          ? `${s.next.name} at ${s.nextAt}`
-          : (rec.chips.length ? 'everything it opens is yours' : '');
-        const why = s.next && s.otherNeeds.length ? s.nextReason : '';
-        if (rec.next.textContent !== short) rec.next.textContent = short;
-        if (rec.why.textContent !== why) rec.why.textContent = why;
-        rec.next.style.display = short ? '' : 'none';
-        rec.why.style.display = why ? '' : 'none';
-        rec.opens.textContent = s.next ? 'unlocks next' : 'unlocks';
       }
     }
 

@@ -32,6 +32,7 @@ import {
   OPENING_GROUP,
 } from '../mmo/openings.js';
 import { derived, validateSpread } from '../mmo/stats.js';
+import { isProfessionSkill } from '../mmo/skill_policy.js';
 import { SKILLS, SKILL_GROUPS } from '../mmo/skills.js';
 import { BASES, makeItem, baseFor } from '../mmo/items.js';
 import { createInventory, PACK_SLOTS } from './inventory.js';
@@ -244,6 +245,9 @@ export function planCharacter(choice = {}) {
 
   const wantStats = { ...op.stats, ...(choice.stats || {}) };
   const wantSkills = { ...op.skills, ...(choice.skills || {}) };
+  for (const [id, value] of Object.entries(choice.skills || {})) {
+    if (!isProfessionSkill(id) && value !== (op.skills[id] || 0)) errors.push('Combat abilities follow your class and level; combat practice cannot be allocated.');
+  }
 
   const sm = movesFrom(op.stats, wantStats, STAT_IDS, false);
   if (sm.error) errors.push(`stats: ${sm.error}`);
@@ -271,6 +275,7 @@ export function planCharacter(choice = {}) {
     stats: applied.stats,
     statLocks: {},
     skills: applied.skills,
+    combatLegacy: {},
     skillLocks: {},
     pos: { x: 0, z: 0 },
     health: Math.floor(d.maxHealth),
@@ -716,19 +721,7 @@ export function createCreation(root, deps = {}) {
   const statBars = h('div', 'bw-cr-bars');
   reading.appendChild(statBars);
 
-  const disc = h('button', 'bw-cr-disc', 'Adjust skills');
-  reading.appendChild(disc);
-  const skillWrap = h('div', 'bw-cr-skillwrap');
-  skillWrap.hidden = true;                 // closed by default
-  reading.appendChild(skillWrap);
-  const skillBudget = h('div', 'bw-cr-budget');
-  skillWrap.appendChild(skillBudget);
-  const skillScroll = h('div', 'bw-cr-skills');
-  skillWrap.appendChild(skillScroll);
-  disc.addEventListener('click', () => {
-    skillWrap.hidden = !skillWrap.hidden;
-    disc.classList.toggle('open', !skillWrap.hidden);
-  });
+  reading.appendChild(h('p', 'bw-cr-profession-note', 'Class abilities unlock through levels and skill trees. Professions improve through use.'));
 
   reading.appendChild(h('div', 'bw-hdr', 'What that comes to'));
   const derivedEl = h('div', 'bw-cr-derived');
@@ -795,7 +788,6 @@ export function createCreation(root, deps = {}) {
   // --- stats, skills and the face, rebuilt when the opening changes because
   // the budgets and the wording do
   let statInputs = new Map();
-  let skillRows = new Map();
 
   function build() {
     const op = OPENINGS_BY_ID[state.opening];
@@ -863,48 +855,11 @@ export function createCreation(root, deps = {}) {
       statInputs.set(id, { slider, fill, v });
     }
 
-    skillScroll.textContent = '';
-    skillRows = new Map();
-    for (const group of SKILL_GROUPS) {
-      skillScroll.appendChild(h('div', 'bw-cr-grp', group));
-      for (const sk of SKILLS.filter((s) => s.group === group)) {
-        const row = h('div', 'bw-row');
-        row.appendChild(h('span', 'bw-k', SKILL_NAMES[sk.id] || sk.name));
-        // Four buttons rather than a slider: fifty two sliders is a wall, and
-        // points move whole, so five and one between them reach any number.
-        const step = h('div', 'bw-step');
-        const buttons = [-5, -1, 1, 5].map((by) => {
-          const b = h('button', null, by > 0 ? `+${by}` : String(by));
-          b.addEventListener('click', () => nudge(sk.id, by));
-          step.appendChild(b);
-          return { by, b };
-        });
-        row.appendChild(step);
-        const v = h('span', 'bw-v');
-        row.appendChild(v);
-        skillScroll.appendChild(row);
-        skillRows.set(sk.id, { v, buttons });
-      }
-    }
-
     // CR3: ONE CHOICE, AND THE REST OF THE RECORD IS NOT GONE.
     //
     // The screen used to offer six: build, skin, hair, hair colour, marks and
     // Appearance controls are absent in Phase A. `planCharacter` still writes
     // the one authored body through APPEARANCE_DEFAULT.
-  }
-
-  /** Move a skill, clamped to what the rules would take. */
-  function nudge(id, by) {
-    const op = OPENINGS_BY_ID[state.opening];
-    const cap = op.maxSkillAtStart;
-    const now = state.skills[id] || 0;
-    const next = Math.max(0, Math.min(cap, now + by));
-    if (next === now) return;
-    state.skills[id] = next;
-    const check = planPoints();
-    if (check.error) { state.skills[id] = now; err.textContent = check.error; return; }
-    refresh();
   }
 
   /** Just the points half, so a slider can be refused before the name is typed. */
@@ -949,14 +904,9 @@ export function createCreation(root, deps = {}) {
 
     const points = planPoints();
     const statMoved = points.applied ? points.applied.spent.stat : null;
-    const skillMoved = points.applied ? points.applied.spent.skill : null;
     const statCap = CUSTOM_STAT_POINTS;
-    const skillCap = CUSTOM_SKILL_POINTS;
     statBudget.textContent = `${statMoved == null ? '?' : statCap - statMoved} of ${statCap} stat points left to move`;
     statBudget.classList.toggle('spent', statMoved === statCap);
-    skillBudget.textContent = `${skillMoved == null ? '?' : skillCap - skillMoved} of ${skillCap} skill points left to move`;
-    skillBudget.classList.toggle('spent', skillMoved === skillCap);
-
     for (const [id, ref] of statInputs) {
       const v = state.stats[id];
       ref.slider.value = String(v);
@@ -964,15 +914,6 @@ export function createCreation(root, deps = {}) {
       ref.fill.dataset.pct = String(statPct(v));
       ref.v.textContent = String(v);
     }
-    for (const [id, ref] of skillRows) {
-      const v = state.skills[id] || 0;
-      ref.v.textContent = v.toFixed(1);
-      // A button that would go nowhere is dead, and looks it.
-      for (const { by, b } of ref.buttons) {
-        b.disabled = by < 0 ? v <= 0 : v >= op.maxSkillAtStart;
-      }
-    }
-
     const d = derived(state.stats, state.skills);
     derivedEl.textContent = '';
     const dline = (label, value) => {
@@ -1038,7 +979,7 @@ export function createCreation(root, deps = {}) {
     plan: () => planCharacter(state),
     pick,
     destroy,
-    get skillsOpen() { return !skillWrap.hidden; },
+    get skillsOpen() { return false; },
   };
 }
 

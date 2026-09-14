@@ -75,6 +75,8 @@ import {achievementPerks} from './achievements/progress.js';
 
 import { derived, STATS } from '../mmo/stats.js';
 import { SKILLS } from '../mmo/skills.js';
+import { effectiveCombatSkills } from '../mmo/combat_proficiency.js';
+import { effectiveActorModifiers } from '../mmo/effective_ability.js';
 import { AFFIXES, POWER_BY_ID } from '../mmo/affixes.js';
 import { baseFor, armourOf, ARMOR_TIERS, ARMOR_PIECES, SLOTS, WEAPONS, isOffHandDagger } from '../mmo/items.js';
 import { MONSTERS, TIERS, aggroRadius, leashRadius } from '../mmo/monsters.js';
@@ -657,6 +659,9 @@ export function recompute(actor) {
   // Elemental Kin four rows of decoration.
   const passives = actor.passives && typeof actor.passives === 'object' ? actor.passives : null;
   if (passives) for (const mods of Object.values(passives)) applyMods(sum, mods);
+  // Talent modifiers use the same accumulator as buffs and gear, so their
+  // armour, speed, critical and counter values are resolved exactly once.
+  if (actor.kind === 'player') applyMods(sum, effectiveActorModifiers(actor.character, { actor }));
 
   const achievements = achievementPerks(actor.character);
   sum.stats.con += achievements.constitution;
@@ -667,7 +672,11 @@ export function recompute(actor) {
   // finished number, which is what "a fifth off everything it knows" means.
   const stats = {};
   for (const k of STATS) stats[k] = r4((num(actor.baseStats && actor.baseStats[k]) + sum.stats[k]) * sum.statMult);
-  const skills = { ...(actor.baseSkills || {}) };
+  // Player combat values are class-and-level derived before gear and buffs
+  // add their modifiers. Monsters keep their authored numeric skill records.
+  const skills = actor.kind === 'player'
+    ? effectiveCombatSkills(actor.character || { skills: actor.baseSkills })
+    : { ...(actor.baseSkills || {}) };
   for (const id of Object.keys(sum.skills)) skills[id] = num(skills[id]) + sum.skills[id];
   if (sum.skillMult !== 1) for (const id of Object.keys(skills)) skills[id] = r4(num(skills[id]) * sum.skillMult);
 
